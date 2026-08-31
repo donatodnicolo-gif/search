@@ -173,6 +173,81 @@ export default async function ChiaviPage({
               Finché manca, il <strong>recupero password</strong> non può mandare il link e il
               riepilogo presenze non si spedisce.
             </p>
+
+          </>
+        )}
+
+        {/* Il modulo resta SEMPRE raggiungibile: quando la posta era pronta
+            spariva, e allora non c’era più modo di correggere un host
+            sbagliato o cambiare la password — cosa che serve proprio quando
+            qualcosa non va. A posta pronta si richiude, per non ingombrare. */}
+        {posta.pronta ? (
+          <details style={{ marginTop: 16 }}>
+            <summary className="btn ghost" style={{ listStyle: "none", display: "inline-flex" }}>
+              Modifica la configurazione
+            </summary>
+            <div style={{ marginTop: 14 }}>
+            {/* Il modulo sta QUI, non «qui sotto»: la posta ha cinque chiavi con
+                nomi esatti, e chiederle una per una nel modulo generico voleva
+                dire indovinare progetto e nome cinque volte. Si compila una
+                volta e le righe le scrive l’app, nel progetto «hub». */}
+            <form
+              action={salvaPosta}
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, alignItems: "end" }}
+            >
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Server di posta in uscita</span>
+                <input name="host" defaultValue={postaSalvata.SMTP_HOST ?? ""} placeholder="authsmtp.securemail.pro" autoComplete="off" spellCheck={false} />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Porta</span>
+                <input name="porta" defaultValue={postaSalvata.SMTP_PORT ?? "465"} inputMode="numeric" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Casella (nome utente)</span>
+                <input name="utente" type="email" defaultValue={postaSalvata.SMTP_USER ?? ""} placeholder="noreply@tuodominio.it" autoComplete="off" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>
+                  Password della casella
+                  {chiavi.some((c) => c.progetto === "hub" && c.nome === "SMTP_PASS") && " (salvata: riscrivila solo per cambiarla)"}
+                </span>
+                <input name="password" type="password" autoComplete="new-password" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
+                <span>Mittente mostrato (vuoto = la casella qui sopra)</span>
+                <input name="mittente" type="email" defaultValue={postaSalvata.SMTP_FROM ?? ""} placeholder="noreply@tuodominio.it" autoComplete="off" />
+              </label>
+              <button type="submit" className="btn primary" style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}>
+                Salva la posta
+              </button>
+            </form>
+            <p className="nota" style={{ marginTop: 12, marginBottom: 0 }}>
+              Con register.it usa <code>authsmtp.securemail.pro</code>: l’host{" "}
+              <code>authsmtp.tuodominio.it</code> punta allo stesso server ma il suo{" "}
+              <strong>certificato TLS non copre quel nome</strong>, e sulla porta 465 il
+              collegamento viene rifiutato.{" "}
+              I valori finiscono cifrati nel progetto <code>hub</code>, con i nomi{" "}
+              <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>,{" "}
+              <code>SMTP_PASS</code>, <code>SMTP_FROM</code>. Lasciando un campo vuoto, quel
+              valore resta com’era.
+              {mancantiPosta.length > 0 && mancantiPosta.length < 3 && (
+                <>
+                  {" "}Mancano ancora:{" "}
+                  {mancantiPosta.map((n, i) => (
+                    <span key={n}>
+                      {i > 0 && ", "}
+                      <code>{n}</code>
+                    </span>
+                  ))}
+                  .
+                </>
+              )}
+            </p>
+            </div>
+          </details>
+        ) : (
+          <>
             {/* Il modulo sta QUI, non «qui sotto»: la posta ha cinque chiavi con
                 nomi esatti, e chiederle una per una nel modulo generico voleva
                 dire indovinare progetto e nome cinque volte. Si compila una
