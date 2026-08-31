@@ -1249,6 +1249,7 @@
     "timing": {
       "selectServiceFirst": "Select a service first to set the delivery time slot.",
       "deliveryFlexible": "Flexible delivery time slot",
+      "minOneHour": "(min. 1 hour)",
       "slotSize": "({{hours}}-hour slots)",
       "noSlots": "No slot available: check the min/max time and the service slot.",
       "pickupFlexible": "Flexible pickup time slot",
@@ -2047,6 +2048,7 @@
       "tutte": "All",
       "da_gestire": "To handle",
       "proposta": "Offered",
+      "storico": "History",
       "accettata": "Accepted",
       "annullata": "Cancelled"
     },

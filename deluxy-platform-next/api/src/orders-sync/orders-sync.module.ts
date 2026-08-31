@@ -23,6 +23,8 @@ import { RecurringModule, RecurringService_ } from '../recurring/recurring.modul
 /** Un ordine come lo espone Deluxy Orders (solo i campi che servono qui). */
 type OrdineOrders = {
   id: string;
+  fulfillmentStatus?: string | null;
+  consegnata?: { il?: string | null } | null;
   brand?: string | null;
   numero?: string | null;
   data?: string | null;
@@ -549,6 +551,13 @@ export class OrdersSyncService {
         esito = 'riservato-al-cs';
         dettaglio = o.smistamento === 'manuale' ? 'gestione manuale' : 'già assegnato in chat';
       }
+      // Ordine già EVASO (fulfilled su Shopify o consegnato): proporlo a un
+      // partner sarebbe consegnarlo due volte. Misurato il 31/08: 40 vendite
+      // aperte erano nate così, dal pregresso del mondo vecchio.
+      else if (o.fulfillmentStatus === 'FULFILLED' || o.consegnata?.il) {
+        esito = 'riservato-al-cs';
+        dettaglio = 'ordine già evaso (fulfilled): non si smista';
+      }
       else if (!codice) { esito = 'senza-provincia'; }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
       else if (!sku) { esito = 'senza-sku'; }
@@ -574,7 +583,7 @@ export class OrdersSyncService {
           const r = await this.sales.ingest({
             source: 'deluxy-orders',
             externalOrderId: o.id,
-            externalOrderNumber: o.numero ?? undefined,
+            externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
             provinceId: province.get(codice)!,
             productId: prodotti.get(sku)!.productId,
             productVariantId: prodotti.get(sku)!.variantId ?? undefined,

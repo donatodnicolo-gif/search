@@ -83,7 +83,7 @@ interface DeliveryDetail {
   receivedBy?: string;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
   products?: DeliveryProductRow[];
   logs?: DeliveryLog[];
 }
@@ -765,13 +765,18 @@ export class DeliveryDetailComponent {
     // Solo chi ha il SERVIZIO della consegna a listino (regola 31/08/2026):
     // l'API rifiuta comunque, ma offrire nomi che verranno rifiutati e' peggio.
     const svc = this.delivery()?.serviceType?.id;
-    if (svc) {
+    // Solo per i servizi di mestiere: su uno scope 'partner' il listino
+    // valet non esiste per costruzione (caso Salazar, 31/08).
+    if (svc && this.delivery()?.serviceType?.scope !== 'partner') {
       attivi = attivi.filter((v) =>
         (v.services ?? []).some((s) => (s.serviceTypeId ?? s.serviceType?.id) === svc));
     }
     const prov = this.assignProvince();
-    if (!prov) return attivi;
-    return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+    if (prov) attivi = attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+    // Ordine alfabetico per COGNOME (regola dell'utente 31/08).
+    return [...attivi].sort((a, b) =>
+      (a.lastName ?? '').localeCompare(b.lastName ?? '', 'it', { sensitivity: 'base' })
+      || (a.firstName ?? '').localeCompare(b.firstName ?? '', 'it', { sensitivity: 'base' }));
   });
 
   /**

@@ -177,11 +177,16 @@ interface ProductRow {
             @if (!selectedService()) {
               <select class="field" disabled><option>{{ 'deliveryForm.placeholder.selectService' | translate }}</option></select>
               <span class="slot-hint">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</span>
-            } @else if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
+            } @else if (model.deliveryFlexible) {
               <div class="grid-2">
                 <input class="field" type="time" step="900" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
                 <input class="field" type="time" step="900" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" />
               </div>
+              <!-- Minimo un'ora: se la fine manca o è troppo vicina, la
+                   consegna dura comunque almeno un'ora (garantito al salvataggio). -->
+              @if (model.deliveryTimeFrom) {
+                <span class="slot-hint">→ {{ model.deliveryTimeFrom }}–{{ fineFlessibileConsegna() }} {{ 'deliveryForm.timing.minOneHour' | translate }}</span>
+              }
             } @else {
               <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
                 <option value="">{{ 'deliveryForm.placeholder.selectSlot' | translate }}</option>
@@ -189,9 +194,9 @@ interface ProductRow {
               </select>
               @if (deliverySlots().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.timing.noSlots' | translate }}</span> }
             }
-            @if (selectedService()?.allowFlexibleTime) {
-              <label class="toggle mini"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>{{ 'deliveryForm.timing.deliveryFlexible' | translate }}</span></label>
-            }
+            <!-- 31/08: la fascia flessibile si può SEMPRE (flag), non solo se il
+                 servizio lo prevede — ma sempre con un minimo di un'ora. -->
+            <label class="toggle mini"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>{{ 'deliveryForm.timing.deliveryFlexible' | translate }}</span></label>
           </label>
         </div>
       </section>
@@ -920,8 +925,8 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.servizioSel.set(this.model.serviceTypeId);
     const s = this.serviceTypes().find((x) => x.id === this.model.serviceTypeId) ?? null;
     this.selectedService.set(s);
-    // Se il servizio non consente la consegna flessibile, forza la modalità a fasce.
-    if (!s?.allowFlexibleTime) this.model.deliveryFlexible = false;
+    // 31/08: la consegna flessibile è SEMPRE consentita (flag), non più legata
+    // a `allowFlexibleTime` del servizio — non si azzera più cambiando servizio.
     // Fasce orarie di consegna (dalle min alle max del servizio, passo = fascia).
     const slots = this.buildSlots(s);
     this.deliverySlots.set(slots);
@@ -1551,6 +1556,22 @@ export class DeliveryFormComponent implements AfterViewInit {
     return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
+  /**
+   * La FINE della fascia di consegna flessibile, col MINIMO di un'ora garantito
+   * (regola dell'utente 31/08): se «alle» è vuota o cade prima di «dalle»+1h,
+   * vale «dalle»+1h. In minuti per confrontare bene attorno alla mezzanotte.
+   */
+  fineFlessibileConsegna(): string {
+    const from = this.model.deliveryTimeFrom;
+    if (!from) return '';
+    const min = this.plusOneHour(from);
+    const to = this.model.deliveryTimeTo;
+    if (!to) return min;
+    const min2 = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+    // stesso giorno: se la fine scelta è prima del minimo, si alza al minimo.
+    return min2(to) >= min2(from) + 60 ? to : min;
+  }
+
   submit(duplicate = false): void {
     this.error.set(null);
     this.justSaved.set(false);
@@ -1614,11 +1635,16 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     // Consegna: se flessibile (e consentito dal servizio) dalle–alle libere;
     // altrimenti la fascia scelta ha durata = fascia oraria del servizio.
-    const deliveryFlexibleEffective = m.deliveryFlexible && !!this.selectedService()?.allowFlexibleTime;
+    // La consegna flessibile è sempre ammessa (flag dell'utente, 31/08).
+    const deliveryFlexibleEffective = m.deliveryFlexible;
     payload['deliveryFlexible'] = deliveryFlexibleEffective;
     if (m.deliveryTimeFrom) {
       payload['deliveryTimeFrom'] = m.deliveryTimeFrom;
-      payload['deliveryTimeTo'] = deliveryFlexibleEffective ? m.deliveryTimeTo : this.addHours(m.deliveryTimeFrom, this.slotHours());
+      // Flessibile: la fine è quella scelta, ma MAI meno di un'ora dopo l'inizio
+      // (garanzia dell'utente). A fasce: la durata è la fascia del servizio.
+      payload['deliveryTimeTo'] = deliveryFlexibleEffective
+        ? this.fineFlessibileConsegna()
+        : this.addHours(m.deliveryTimeFrom, this.slotHours());
     }
     if (m.pickupTimeFrom) {
       payload['pickupTimeFrom'] = m.pickupTimeFrom;

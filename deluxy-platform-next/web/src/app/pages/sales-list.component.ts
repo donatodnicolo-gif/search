@@ -278,10 +278,16 @@ export class SalesListComponent {
   readonly messaggio = signal<{ ok: boolean; testo: string } | null>(null);
   readonly filtro = signal<string>('tutte');
 
+  /** «Storico» raccoglie TUTTO il gestito (chiesto dall'utente il 31/08):
+   *  accettate (con la consegna), non accettate e annullate/già evase. */
+  static readonly STORICO = ['accettata', 'non_accettata', 'annullata'];
   readonly tab = [
     { chiave: 'tutte' }, { chiave: 'da_gestire' }, { chiave: 'proposta' },
-    { chiave: 'accettata' }, { chiave: 'annullata' },
+    { chiave: 'storico' },
   ];
+  private inStorico(s: Sale): boolean {
+    return SalesListComponent.STORICO.includes(s.status);
+  }
 
   readonly canManage = computed(() => ['ADMIN', 'OPERATION'].includes(this.auth.user()?.role ?? ''));
 
@@ -292,11 +298,14 @@ export class SalesListComponent {
 
   readonly visibili = computed(() => {
     const f = this.filtro();
-    const base = f === 'tutte' ? this.vendite() : this.vendite().filter((s) => s.status === f);
+    const base = f === 'tutte' ? this.vendite()
+      : f === 'storico' ? this.vendite().filter((s) => this.inStorico(s))
+      : this.vendite().filter((s) => s.status === f);
     const q = this.cercaTesto().trim().toLowerCase();
     if (!q) return base;
     return base.filter((s) =>
       (s.externalOrderId ?? '').toLowerCase().includes(q) ||
+      (s.externalOrderNumber ?? '').toLowerCase().includes(q) ||
       (s.product?.name ?? '').toLowerCase().includes(q) ||
       (s.partner?.insegna ?? '').toLowerCase().includes(q) ||
       (s.province?.code ?? '').toLowerCase().includes(q) ||
@@ -304,7 +313,9 @@ export class SalesListComponent {
   });
 
   quante(chiave: string): number {
-    return chiave === 'tutte' ? this.vendite().length : this.vendite().filter((s) => s.status === chiave).length;
+    return chiave === 'tutte' ? this.vendite().length
+      : chiave === 'storico' ? this.vendite().filter((s) => this.inStorico(s)).length
+      : this.vendite().filter((s) => s.status === chiave).length;
   }
 
   etichetta(stato: string) { return STATI[stato]?.etichetta ?? stato; }

@@ -1249,6 +1249,7 @@
     "timing": {
       "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",
       "deliveryFlexible": "Fascia oraria consegna flessibile",
+      "minOneHour": "(min. 1 ora)",
       "slotSize": "(fasce di {{hours}} ora/e)",
       "noSlots": "Nessuna fascia disponibile: controlla ora min/max e fascia del servizio.",
       "pickupFlexible": "Fascia oraria ritiro flessibile",
@@ -2047,6 +2048,7 @@
       "tutte": "Tutte",
       "da_gestire": "Da gestire",
       "proposta": "Proposte",
+      "storico": "Storico",
       "accettata": "Accettate",
       "annullata": "Annullate"
     },

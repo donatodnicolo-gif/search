@@ -40,7 +40,7 @@ export interface Delivery {
   price?: number;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
 }
 
 export interface Province {

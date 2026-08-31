@@ -453,7 +453,7 @@ interface PropostaVendita {
           <ul class="valet-list">
             @for (v of assignValets(); track v.id) {
               <li>
-                <span>{{ v.firstName }} {{ v.lastName }}</span>
+                <span>{{ v.lastName }} {{ v.firstName }}</span>
                 <button type="button" class="act" [disabled]="salvandoAssegna()" (click)="assign(v.id)">
                   {{ (salvandoAssegna() ? 'common.saving' : 'deliveries.assign.choose') | translate }}
                 </button>
@@ -1299,21 +1299,27 @@ export class DeliveriesListComponent {
    * ⚠️ Senza provincia riconosciuta restano gli attivi: meglio una lista larga
    * che una lista vuota su un indirizzo scritto in modo insolito.
    */
-  private valetAssegnabili(recipientAddress: string | null | undefined, serviceTypeId?: string | null) {
+  private valetAssegnabili(recipientAddress: string | null | undefined, serviceTypeId?: string | null, scope?: string | null) {
     let attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
-    // Solo chi ha il SERVIZIO della consegna nel listino (regola 31/08/2026):
-    // l'API rifiuta comunque, ma offrire nomi che verranno rifiutati e' peggio.
-    if (serviceTypeId) {
+    // Solo chi ha il SERVIZIO della consegna nel listino (regola 31/08/2026) —
+    // ma SOLO per i servizi di mestiere (scope valet/both): su un servizio del
+    // lato partner (es. «Vendita Deluxy») nessun valet ha listino per
+    // costruzione, e il filtro svuotava la lista (caso Salazar #100093).
+    if (serviceTypeId && scope !== 'partner') {
       attivi = attivi.filter((v) =>
         (v.services ?? []).some((s) => (s.serviceTypeId ?? s.serviceType?.id) === serviceTypeId));
     }
     const prov = recipientAddress ? detectProvince(recipientAddress, this.provinces()) : null;
-    if (!prov) return attivi;
-    return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+    if (prov) attivi = attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+    // Ordine ALFABETICO PER COGNOME (regola dell'utente 31/08): la lista
+    // mostrava Nome Cognome ma ordinava per cognome — sembrava a caso.
+    return [...attivi].sort((a, b) =>
+      (a.lastName ?? '').localeCompare(b.lastName ?? '', 'it', { sensitivity: 'base' })
+      || (a.firstName ?? '').localeCompare(b.firstName ?? '', 'it', { sensitivity: 'base' }));
   }
 
   readonly assignValets = computed(() =>
-    this.valetAssegnabili(this.assignFor()?.recipientAddress, this.assignFor()?.serviceType?.id));
+    this.valetAssegnabili(this.assignFor()?.recipientAddress, this.assignFor()?.serviceType?.id, this.assignFor()?.serviceType?.scope));
 
   /**
    * Per l'assegnazione DI MASSA: i valet buoni per TUTTE le consegne scelte.
@@ -1330,7 +1336,7 @@ export class DeliveriesListComponent {
     let insieme: ValetRef[] | null = null;
     for (const d of scelte) {
       // Provincia E servizio di OGNI consegna scelta: chi resta va bene per tutte.
-      const buoni = this.valetAssegnabili(d.recipientAddress, d.serviceType?.id);
+      const buoni = this.valetAssegnabili(d.recipientAddress, d.serviceType?.id, d.serviceType?.scope);
       const ids = new Set(buoni.map((v) => v.id));
       insieme = insieme === null ? buoni : insieme.filter((v) => ids.has(v.id));
       if (!insieme.length) return [];

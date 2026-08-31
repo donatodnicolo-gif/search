@@ -287,8 +287,12 @@ export class SalesService {
       where: { id },
       data: {
         status: SaleStatus.DA_GESTIRE,
-        assignmentReason: [vendita.assignmentReason, "presa in mano dall'ufficio: inserimento manuale"]
-          .filter(Boolean).join(' · '),
+        // Idempotente: il secondo click non deve accodare il motivo un'altra
+        // volta (visto in pagina il 31/08: «presa in mano · presa in mano»).
+        assignmentReason: vendita.assignmentReason?.includes('inserimento manuale')
+          ? vendita.assignmentReason
+          : [vendita.assignmentReason, "presa in mano dall'ufficio: inserimento manuale"]
+              .filter(Boolean).join(' · '),
       },
       include: { product: { select: { id: true, name: true } }, province: true },
     });

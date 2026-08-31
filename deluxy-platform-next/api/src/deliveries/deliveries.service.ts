@@ -53,7 +53,7 @@ const DELIVERY_LIST_SELECT = {
   paymentOnDelivery: true, paymentAmount: true, price: true,
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
-  serviceType: { select: { id: true, name: true, pricingModel: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
 } as const;
 
 /**
@@ -1228,12 +1228,21 @@ export class DeliveriesService {
       where: { valetId, serviceTypeId: delivery.serviceTypeId },
     });
     // A un valet si assegnano SOLO i servizi che ha abilitati (regola
-    // dell'utente 31/08/2026): senza riga di listino l'assegnazione veniva
-    // accettata con paga NULL — una consegna che nessuno avrebbe mai pagato.
+    // dell'utente 31/08/2026) — ma la regola vale per i servizi DI MESTIERE
+    // (ServiceType.scope = 'valet'/'both'). Una consegna su un servizio del
+    // LATO PARTNER (es. «Vendita Deluxy», scope 'partner') non è un mestiere
+    // da abilitare: misurato il 31/08, ZERO valet su 38 di MI l'avevano a
+    // listino e nessuna vendita era più assegnabile. Lì la paga nasce dal
+    // listino del valet per tipo di prezzo, come sempre (salaries).
     if (delivery.serviceTypeId && tariffe.length === 0) {
-      throw new BadRequestException(
-        `${valet.firstName ?? ''} ${valet.lastName ?? ''} non ha questo servizio abilitato nel listino: abilitarlo prima di assegnare.`.trim(),
-      );
+      const st = await this.prisma.serviceType.findUnique({
+        where: { id: delivery.serviceTypeId }, select: { scope: true },
+      });
+      if (st?.scope !== 'partner') {
+        throw new BadRequestException(
+          `${valet.firstName ?? ''} ${valet.lastName ?? ''} non ha questo servizio abilitato nel listino: abilitarlo prima di assegnare.`.trim(),
+        );
+      }
     }
     const valetService = tariffaAllaData(tariffe, delivery.date ?? new Date());
     const valetSalary =
