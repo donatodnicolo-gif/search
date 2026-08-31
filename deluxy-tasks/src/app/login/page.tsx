@@ -95,6 +95,17 @@ export default async function LoginPage({
             Entra
           </button>
         </form>
+
+        {/* La password non e' di questa app: gli utenti sono quelli del Hub
+            (si legge hub."Utente"). Il ripescaggio quindi si fa la', non qui —
+            una schermata locale potrebbe solo mentire. */}
+        <a
+          href={`${process.env.HUB_URL ?? "https://deluxy-hub.vercel.app"}/password-dimenticata`}
+          style={{ display: "inline-block", marginTop: 14, fontSize: 13, color: "var(--text-secondary)" }}
+        >
+          Password dimenticata?
+        </a>
+
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 26 }}>
           Stesse credenziali del portale. Le API /api/v1 usano le chiavi delle app.
         </p>
