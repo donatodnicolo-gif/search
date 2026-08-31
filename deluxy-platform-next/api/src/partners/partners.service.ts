@@ -42,11 +42,42 @@ export class PartnersService {
     private readonly anagrafiche: AnagraficheSyncService,
   ) {}
 
-  findAll() {
+  findAll(includiEliminati = false) {
     return this.prisma.partner.findMany({
+      // I partner ELIMINATI (31/08) spariscono dalle liste per default:
+      // restano in banca per lo storico, ma non si mostrano più.
+      where: includiEliminati ? {} : { deleted: false },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
       orderBy: { insegna: 'asc' },
+    });
+  }
+
+  /**
+   * ELIMINA un partner (31/08/2026, utente): stato più forte della
+   * disattivazione — sparisce anche da fatturazione e dalle liste. Non
+   * cancella i dati (lo storico resta), ma lo marca `deleted`. Reversibile
+   * riportando `deleted=false`.
+   */
+  async elimina(id: string) {
+    await this.findOne(id);
+    const eliminato = await this.prisma.partner.update({
+      where: { id },
+      data: { deleted: true, active: false },
+      include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
+    });
+    this.anagrafiche.sincronizza(eliminato);
+    return eliminato;
+  }
+
+  /** Ripristina un partner eliminato (torna disattivato, non attivo). */
+  async ripristina(id: string) {
+    return this.prisma.partner.update({
+      where: { id },
+      data: { deleted: false },
+      include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
     });
   }
 

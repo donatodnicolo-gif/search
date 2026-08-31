@@ -275,6 +275,8 @@ export class InvoicesService {
     partnerId?: string; stato?: string; dal?: string; al?: string; cerca?: string;
   } = {}) {
     const where: any = { archived };
+    // Il partner ELIMINATO sparisce da fatturazione, fatture emesse comprese.
+    if (user.role !== Role.PARTNER) where.partner = { deleted: false };
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
     else if (filtri.partnerId) where.partnerId = filtri.partnerId;
     if (filtri.stato) where.status = filtri.stato;
@@ -336,6 +338,8 @@ export class InvoicesService {
     const where: any = {
       deletedAt: null,
       billable: true,
+      // Partner ELIMINATO (31/08): fuori da fatturazione, storico compreso.
+      partner: { deleted: false },
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
       invoiceLines: { none: {} },
       // ⭐ Il legacy segna sulla consegna se e' gia' stata fatturata, e non e'

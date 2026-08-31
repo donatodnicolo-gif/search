@@ -666,7 +666,9 @@
     },
     "requestPay": "Request payment",
     "requestSent": "Request sent to Transactions",
-    "trx": "Transactions"
+    "trx": "Transactions",
+    "legacyTitle": "Payment history (previous system)",
+    "legacyDoc": "Receipt"
   },
   "receipts": {
     "title": "Receipts",
@@ -837,7 +839,10 @@
     "altre": "+ {{n}} more",
     "statoAttivi": "Active",
     "statoTutti": "All",
-    "emptyAttivi": "None of the {{n}} partners on file is active: switch to “All” to see them."
+    "emptyAttivi": "None of the {{n}} partners on file is active: switch to “All” to see them.",
+    "delete": "Delete",
+    "deleted": "Deleted",
+    "restore": "Restore"
   },
   "valets": {
     "title": "Valets",

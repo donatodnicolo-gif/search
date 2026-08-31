@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -100,6 +101,20 @@ export class PartnersController {
   @ApiOperation({ summary: 'Disattiva partner (soft delete)' })
   remove(@Param('id') id: string) {
     return this.partnersService.remove(id);
+  }
+
+  @Patch(':id/elimina')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Elimina il partner: sparisce da fatturazione e liste (reversibile)' })
+  elimina(@Param('id') id: string) {
+    return this.partnersService.elimina(id);
+  }
+
+  @Patch(':id/ripristina')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Ripristina un partner eliminato (torna disattivato)' })
+  ripristina(@Param('id') id: string) {
+    return this.partnersService.ripristina(id);
   }
 
   // --- Eccezioni per data (chiusure straordinarie / orari speciali) ---

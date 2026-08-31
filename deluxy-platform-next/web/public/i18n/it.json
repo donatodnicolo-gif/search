@@ -666,7 +666,9 @@
     },
     "requestPay": "Richiedi pagamento",
     "requestSent": "Richiesta inviata a Transactions",
-    "trx": "Transactions"
+    "trx": "Transactions",
+    "legacyTitle": "Storico pagamenti (sistema precedente)",
+    "legacyDoc": "Ricevuta"
   },
   "receipts": {
     "title": "Ricevute",
@@ -837,7 +839,10 @@
     "altre": "+ altre {{n}}",
     "statoAttivi": "Attivi",
     "statoTutti": "Tutti",
-    "emptyAttivi": "Nessuno dei {{n}} partner in archivio è attivo: passa a «Tutti» per vederli."
+    "emptyAttivi": "Nessuno dei {{n}} partner in archivio è attivo: passa a «Tutti» per vederli.",
+    "delete": "Elimina",
+    "deleted": "Eliminato",
+    "restore": "Ripristina"
   },
   "valets": {
     "title": "Valet",

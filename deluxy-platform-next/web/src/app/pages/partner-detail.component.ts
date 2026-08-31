@@ -11,6 +11,7 @@ import { DeliveryRuleFormComponent } from './delivery-rule-form.component';
 
 interface PartnerDetail {
   id: string;
+  deleted?: boolean;
   insegna: string;
   email: string;
   businessName?: string;
@@ -105,6 +106,19 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             }
             @if (canEdit()) {
               <a class="btn btn-secondary" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+            }
+            <!-- Elimina (31/08): sparisce da fatturazione e liste, reversibile. -->
+            @if (isAdmin()) {
+              @if (!p.deleted) {
+                <button type="button" class="btn btn-secondary danger" [disabled]="inCorso()" (click)="elimina(p)">
+                  {{ 'partners.delete' | translate }}
+                </button>
+              } @else {
+                <span class="pill-eliminato">{{ 'partners.deleted' | translate }}</span>
+                <button type="button" class="btn btn-secondary" [disabled]="inCorso()" (click)="ripristina(p)">
+                  {{ 'partners.restore' | translate }}
+                </button>
+              }
             }
           </span>
         </div>
@@ -496,6 +510,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .mini td.scegli .vuoto { color: var(--text-tertiary); }
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+      .azioni .danger { color: var(--red); }
+      .pill-eliminato { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red);
+        border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
       .esito { font-size: 13px; color: var(--red, #d70015); }
       .provenienza { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
       .orari-edit { display: flex; flex-direction: column; gap: 8px; }
@@ -835,6 +852,24 @@ export class PartnerDetailComponent {
   canEdit(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER' || r === 'PARTNER';
+  }
+
+  isAdmin(): boolean { return this.auth.user()?.role === 'ADMIN'; }
+  readonly inCorso = signal(false);
+
+  elimina(p: PartnerDetail): void {
+    this.inCorso.set(true);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/elimina`, {}).subscribe({
+      next: () => { this.inCorso.set(false); this.ricarica(); },
+      error: () => this.inCorso.set(false),
+    });
+  }
+  ripristina(p: PartnerDetail): void {
+    this.inCorso.set(true);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/ripristina`, {}).subscribe({
+      next: () => { this.inCorso.set(false); this.ricarica(); },
+      error: () => this.inCorso.set(false),
+    });
   }
 
   /** Calendario del partner: admin/operation (vedono le consegne di ogni partner). */

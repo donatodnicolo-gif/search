@@ -361,6 +361,11 @@ model Partner {
   // Partner magazzino
   isWarehouse         Boolean           @default(false)
   active              Boolean           @default(true)
+  /// ELIMINATO (31/08/2026): stato più forte di «disattivato». Un partner
+  /// disattivato non riceve consegne ma resta nello storico e in fatturazione;
+  /// uno ELIMINATO sparisce anche da lì (fatturazione, liste). Non è una
+  /// cancellazione dei dati: lo storico resta, ma non si mostra più.
+  deleted             Boolean           @default(false)
   provinces           PartnerProvince[]
   services            PartnerService[]
   categories          PartnerCategory[]

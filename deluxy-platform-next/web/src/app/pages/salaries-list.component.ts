@@ -427,6 +427,37 @@ const NEXT: Record<string, { next: string; key: string }> = {
           </tbody>
         </table>
       </div>
+
+      <!-- STORICO PAGAMENTI dal sistema precedente (31/08): le ricevute
+           importate dal legacy sono stipendi già pagati. Si mostrano nella
+           scheda Archivio così lo storico non è vuoto. -->
+      @if (view() === 'archive' && storico().length) {
+        <h2 class="sez-storico">{{ 'salaries.legacyTitle' | translate }}</h2>
+        <div class="card table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                @if (canManage()) { <th>{{ 'salaries.col.valet' | translate }}</th> }
+                <th>{{ 'salaries.col.date' | translate }}</th>
+                <th class="num">{{ 'salaries.col.amount' | translate }}</th>
+                <th>{{ 'salaries.col.status' | translate }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of storico(); track r.id) {
+                <tr>
+                  @if (canManage()) { <td>{{ r.valet?.lastName }} {{ r.valet?.firstName }}</td> }
+                  <td>{{ r.createdAt | date: 'dd/MM/yyyy' }}</td>
+                  <td class="num">{{ r.amount != null ? (r.amount | number: '1.2-2') + ' €' : '—' }}</td>
+                  <td>{{ r.status || '—' }}</td>
+                  <td>@if (r.fileUrl) { <a class="act" [href]="r.fileUrl" target="_blank" rel="noopener">{{ 'salaries.legacyDoc' | translate }}</a> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     }
     @if (confermaPendente(); as c) {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
@@ -523,6 +554,10 @@ export class SalariesListComponent {
   private readonly auth = inject(AuthService);
 
   readonly salaries = signal<Salary[]>([]);
+  /** Storico pagamenti dal sistema precedente (ricevute legacy). */
+  readonly storico = signal<{ id: string; amount?: number | null; status?: string | null;
+    fileUrl?: string | null; createdAt: string;
+    valet?: { firstName: string; lastName: string } | null }[]>([]);
   readonly valets = signal<ValetRef[]>([]);
   /** Il catalogo dei tipi di servizio, per il filtro per tipologia. */
   readonly serviceTypes = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
@@ -637,6 +672,16 @@ export class SalariesListComponent {
     this.showGen.set(false);
     this.reclamoFor.set(null);
     this.load();
+    if (v === 'archive' && !this.storico().length) this.caricaStorico();
+  }
+
+  /** Le ricevute del vecchio sistema (storico pagamenti). L'API /receipts
+   *  filtra già per valet: il valet vede le sue, l'ufficio tutte. */
+  private caricaStorico(): void {
+    this.http.get<any[]>(`${environment.apiUrl}/receipts`).subscribe({
+      next: (r) => this.storico.set((r ?? []).filter((x) => x.amount != null || x.fileUrl)),
+      error: () => this.storico.set([]),
+    });
   }
 
   /** Apre il pannello Genera precompilando il valet dal filtro (niente doppia scelta) + periodo dalla frequenza. */
