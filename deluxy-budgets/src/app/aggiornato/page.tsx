@@ -323,10 +323,15 @@ export default async function AggiornatoPage({
         sotto={`${etichettaMesi} ${dati.year}${parziale ? ` · ${MESI[meseInCorso - 1]} è in corso: dati parziali` : ""}`}
       />
 
-      {!cons.ok && (
+      {/* ⚠️ L'avviso scatta su QUALSIASI fonte mancante, non solo quando
+          `ok` è falso (31/08/2026, segnalato dall'utente: «se metti anno esce
+          negativo»). `ok` resta vero se anche una sola fra Finance e Orders
+          risponde: con Orders muto il D2C valeva zero, l'EBITDA crollava, e la
+          pagina non diceva NIENTE — un guasto di rete vestito da perdita. */}
+      {cons.mancanti.length > 0 && (
         <div className="avviso-errore">
-          Il consuntivo non è completo: {cons.mancanti.join(", ") || "una fonte non risponde"}. I numeri
-          sotto valgono per quello che c&apos;è.
+          ⚠️ Manca una fonte: {cons.mancanti.join(", ")}. I numeri qui sotto sono INCOMPLETI —
+          un ricavo che manca fa sembrare il periodo in perdita. Ricarica fra qualche secondo.
         </div>
       )}
 
