@@ -344,7 +344,7 @@ export default async function AggiornatoPage({
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">EBITDA</div>
+          <div className="kpi-label">EBITDA consuntivo · {etichettaMesi}{parziale ? ` (${MESI[meseInCorso - 1]} in corso)` : ""}</div>
           <div className={`kpi-value ${cons.ebitda + srvMese >= 0 ? "pos" : "neg"}`}>{eur(cons.ebitda + srvMese)}</div>
           <div className="kpi-sub">
             <Link href="/consuntivo" style={{ color: "var(--blue)" }}>il consuntivo completo →</Link>

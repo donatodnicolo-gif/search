@@ -402,7 +402,7 @@ export default async function ContoEconomico({
           <div className="kpi-sub">×{plScelto.moltiplicatore.toLocaleString("it-IT", { useGrouping: "always" })} sul pubblicato</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">EBITDA</div>
+          <div className="kpi-label">EBITDA a budget · anno intero</div>
           <div className={`kpi-value ${plScelto.ebitda >= 0 ? "pos" : "neg"}`}>{eur(plScelto.ebitda)}</div>
           <div className="kpi-sub">{pct(plScelto.ebitdaPct)} sui ricavi</div>
         </div>
