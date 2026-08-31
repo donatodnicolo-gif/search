@@ -45,6 +45,14 @@ export class ValetsService {
     });
   }
 
+  /** ELIMINATO (come i partner): sparisce da Stipendi ed elenchi, reversibile. */
+  async elimina(id: string) {
+    return this.prisma.valet.update({ where: { id }, data: { deleted: true, active: false } });
+  }
+  async ripristina(id: string) {
+    return this.prisma.valet.update({ where: { id }, data: { deleted: false } });
+  }
+
   /**
    * REGOLA DEI 90 GIORNI (decisa dall'utente il 26/08): un valet che non si
    * collega per piu' di 90 giorni passa in stato inattivo. Gira ogni notte

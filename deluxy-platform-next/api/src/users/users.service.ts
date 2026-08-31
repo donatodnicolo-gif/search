@@ -27,7 +27,7 @@ const USER_SELECT = {
   inviteTokenExpiresAt: true,
   createdAt: true,
   partner: { select: { id: true, insegna: true, deleted: true } },
-  valet: { select: { id: true, firstName: true, lastName: true } },
+  valet: { select: { id: true, firstName: true, lastName: true, deleted: true } },
   operation: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 

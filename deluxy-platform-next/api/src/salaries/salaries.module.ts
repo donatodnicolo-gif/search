@@ -1014,7 +1014,9 @@ export class SalariesService {
     // che si e' fatto il partner. Sono 1.882, tutte a paga zero, e finivano nel
     // conto delle «non pagabili» come se mancasse un dato — mentre il dato c'e'
     // ed e' che non c'e' nessuno da pagare.
-    valet: { placeholder: false },
+    // Un valet ELIMINATO (31/08) non compare più in Stipendi: le sue consegne
+    // restano a storico ma fuori dal conto da pagare.
+    valet: { placeholder: false, deleted: false },
     deletedAt: null,
     payable: true,
 

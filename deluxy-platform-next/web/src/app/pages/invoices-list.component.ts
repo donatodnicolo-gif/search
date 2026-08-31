@@ -306,7 +306,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
                         <tbody>
                           @for (d of pendingDetail(); track d.id) {
                             <tr>
-                              <td>{{ d.date | date: 'dd/MM/yy' }}</td>
+                              <td>
+                                <a class="cod-link" [href]="'/deliveries/' + d.id" target="_blank" rel="noopener" [title]="'invoices.line.openDelivery' | translate">#{{ d.code }}</a>
+                                <span class="muted"> · {{ d.date | date: 'dd/MM/yy' }}</span>
+                              </td>
                               <td>{{ (d.recipientLastName || '') + ' ' + (d.recipientFirstName || '') }}</td>
                               <td class="muted">{{ d.service }}</td>
                               <!-- Venduto (lordo del prodotto) e Netto spettante al
@@ -497,6 +500,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .chip-serv.on { background: var(--ink, #1d1d1f); border-color: transparent; color: #fff; }
       .rosso { color: #C0392B; font-weight: 600; }
       .dovuto { color: #007aff; }
+      .cod-link { font-weight: 600; color: var(--blue, #0a84ff); text-decoration: none; font-variant-numeric: tabular-nums; }
+      .cod-link:hover { text-decoration: underline; }
       .mese { font-weight: 550; text-transform: capitalize; white-space: nowrap; }
       .incorso { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 7px; cursor: help; }
       .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }

@@ -157,7 +157,9 @@
       "archive": "Archive",
       "copy": "Copy",
       "deletePartner": "Delete partner",
-      "restorePartner": "Restore partner"
+      "restorePartner": "Restore partner",
+      "deleteValet": "Delete valet",
+      "restoreValet": "Restore valet"
     }
   },
   "acceptInvite": {
@@ -497,7 +499,8 @@
       "recipient": "Recipient",
       "description": "Address",
       "amount": "Amount",
-      "net": "Net"
+      "net": "Net",
+      "openDelivery": "Open the delivery in a new tab"
     },
     "noLines": "No billable deliveries in this invoice.",
     "action": {

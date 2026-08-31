@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -28,6 +29,20 @@ export class ValetsController {
   @ApiOperation({ summary: 'Lista valet' })
   findAll(@CurrentUser() user: JwtUser) {
     return this.valetsService.findAll(user.role === Role.VALET);
+  }
+
+  @Patch(':id/elimina')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Elimina il valet: sparisce da Stipendi ed elenchi (reversibile)' })
+  elimina(@Param('id') id: string) {
+    return this.valetsService.elimina(id);
+  }
+
+  @Patch(':id/ripristina')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Ripristina un valet eliminato (torna disattivato)' })
+  ripristina(@Param('id') id: string) {
+    return this.valetsService.ripristina(id);
   }
 
   @Get(':id')

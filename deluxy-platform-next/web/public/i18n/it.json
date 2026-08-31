@@ -157,7 +157,9 @@
       "archive": "Archivia",
       "copy": "Copia",
       "deletePartner": "Elimina partner",
-      "restorePartner": "Ripristina partner"
+      "restorePartner": "Ripristina partner",
+      "deleteValet": "Elimina valet",
+      "restoreValet": "Ripristina valet"
     }
   },
   "acceptInvite": {
@@ -497,7 +499,8 @@
       "recipient": "Destinatario",
       "description": "Indirizzo",
       "amount": "Importo",
-      "net": "Netto"
+      "net": "Netto",
+      "openDelivery": "Apri la consegna in una nuova scheda"
     },
     "noLines": "Nessuna consegna da fatturare in questa fattura.",
     "action": {

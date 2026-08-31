@@ -596,6 +596,10 @@ model Valet {
   notifyByEmail       Boolean           @default(true)
   notifyByWhatsapp    Boolean           @default(false)
   active              Boolean           @default(true)
+  /// ELIMINATO (31/08/2026): come per i partner, un valet «eliminato» sparisce
+  /// da Stipendi ed elenchi ma resta a storico (reversibile). Usato per chi non
+  /// ha più nulla da pagare dal 2025.
+  deleted             Boolean           @default(false)
   provinces           ValetProvince[]
   services            ValetService[]
   deliveries          Delivery[]

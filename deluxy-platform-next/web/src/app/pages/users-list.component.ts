@@ -14,7 +14,7 @@ interface ManagedUser {
   isSupport: boolean;
   status: 'invited' | 'active' | 'suspended' | 'archived';
   partner?: { id: string; insegna: string; deleted?: boolean } | null;
-  valet?: { id: string; firstName: string; lastName: string } | null;
+  valet?: { id: string; firstName: string; lastName: string; deleted?: boolean } | null;
   operation?: { id: string; firstName: string; lastName: string } | null;
   activatedAt?: string | null;
   createdAt: string;
@@ -94,6 +94,13 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
                     <button class="link-btn" [disabled]="inCorso() === u.partner.id" (click)="ripristinaPartner(u.partner!)">{{ 'users.action.restorePartner' | translate }}</button>
                   } @else {
                     <button class="link-btn danger" [disabled]="inCorso() === u.partner.id" (click)="eliminaPartner(u.partner!)">{{ 'users.action.deletePartner' | translate }}</button>
+                  }
+                }
+                @if (u.valet) {
+                  @if (u.valet.deleted) {
+                    <button class="link-btn" [disabled]="inCorso() === u.valet.id" (click)="ripristinaValet(u.valet!)">{{ 'users.action.restoreValet' | translate }}</button>
+                  } @else {
+                    <button class="link-btn danger" [disabled]="inCorso() === u.valet.id" (click)="eliminaValet(u.valet!)">{{ 'users.action.deleteValet' | translate }}</button>
                   }
                 }
               </td>
@@ -207,6 +214,22 @@ export class UsersListComponent {
     this.inCorso.set(p.id);
     this.http.patch(`${environment.apiUrl}/partners/${p.id}/ripristina`, {}).subscribe({
       next: () => { this.inCorso.set(null); this.banner.set(`${p.insegna}: ripristinato`); this.load(); },
+      error: (err) => { this.inCorso.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+  eliminaValet(v: { id: string; firstName: string; lastName: string }): void {
+    this.error.set(null);
+    this.inCorso.set(v.id);
+    this.http.patch(`${environment.apiUrl}/valets/${v.id}/elimina`, {}).subscribe({
+      next: () => { this.inCorso.set(null); this.banner.set(`${v.lastName} ${v.firstName}: eliminato`); this.load(); },
+      error: (err) => { this.inCorso.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+  ripristinaValet(v: { id: string; firstName: string; lastName: string }): void {
+    this.error.set(null);
+    this.inCorso.set(v.id);
+    this.http.patch(`${environment.apiUrl}/valets/${v.id}/ripristina`, {}).subscribe({
+      next: () => { this.inCorso.set(null); this.banner.set(`${v.lastName} ${v.firstName}: ripristinato`); this.load(); },
       error: (err) => { this.inCorso.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
   }
