@@ -26,3 +26,4 @@ deluxy-platform-next/legacy-*/
 deluxy-platform-next.zip
 # Progetto personale di recupero dati: fuori dal repo
 /recupero-dati/
+deluxy-platform-next/api/scripts/_*
