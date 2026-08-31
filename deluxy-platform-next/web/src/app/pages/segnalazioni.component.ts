@@ -82,6 +82,7 @@ interface Rif { id: string; nome: string }
                     @for (d of risultatiConsegne(); track d.id) {
                       <li><button type="button" (click)="scegliConsegna(d)">
                         <strong>#{{ d.code }}</strong>
+                        @if (d.date) { <span class="data-ris">{{ d.date | date: 'dd/MM/yy' }}</span> }
                         <span class="muted">{{ d.recipientLastName }} {{ d.recipientFirstName }}@if (d.partner) { · {{ d.partner.insegna }} }@if (d.recipientAddress) { · {{ d.recipientAddress }} }</span>
                       </button></li>
                     }
@@ -230,6 +231,7 @@ interface Rif { id: string; nome: string }
         padding: 7px 9px; border-radius: 8px; cursor: pointer; font: inherit; }
       .risultati li button:hover { background: var(--fill); }
       .risultati .muted { color: var(--text-tertiary); font-size: 12.5px; margin-left: 6px; }
+      .data-ris { margin-left: 8px; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
       .hint { font-size: 12.5px; color: var(--text-tertiary); }
       .allegato-riga { display: inline-flex; align-items: center; gap: 10px; }
       .allegato-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline, rgba(0,0,0,0.1)); }

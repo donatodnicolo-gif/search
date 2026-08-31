@@ -386,14 +386,15 @@ interface ProductRow {
             <!-- La variante non è un dettaglio: la Cappelliera base fa 110, la M
                  ne fa 215 — senza sceglierla la consegna nasce col prezzo sbagliato. -->
             @if (productVariants(row.productId).length) {
-              <div class="prod-variant">
+              <label class="prod-variant">
+                <span class="prod-variant-lbl">{{ 'deliveryForm.order.chooseVariant' | translate }}</span>
                 <select class="field" [(ngModel)]="row.productVariantId" (ngModelChange)="onVariantChange(row)" [name]="'pvar' + $index">
                   <option [ngValue]="null">{{ 'deliveryForm.order.noVariant' | translate }}</option>
                   @for (v of productVariants(row.productId); track v.id) {
                     <option [ngValue]="v.id">{{ v.name }}{{ v.price != null ? ' — ' + v.price + ' €' : '' }}</option>
                   }
                 </select>
-              </div>
+              </label>
             }
             <div class="prod-bottom">
               <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
@@ -589,6 +590,8 @@ interface ProductRow {
       .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
       /* Ricerca prodotto: l'input col menu dei risultati sotto (§9 overflow). */
       .prod-cerca { position: relative; min-width: 0; }
+      .prod-cerca .field { width: 100%; font-size: 15px; padding: 10px 12px; }
+      .qty { text-align: center; }
       .prod-risultati {
         position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
         background: var(--surface); border: 1px solid var(--hairline-strong);
@@ -604,7 +607,9 @@ interface ProductRow {
         border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
         position: sticky; bottom: 0; background: var(--surface);
       }
-      .prod-variant { margin-top: 8px; max-width: 320px; }
+      .prod-variant { display: block; margin-top: 10px; max-width: 420px; }
+      .prod-variant-lbl { display: block; font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-bottom: 4px; }
+      .prod-variant .field { width: 100%; font-size: 15px; padding: 10px 12px; }
       .prod-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
       .price-static { font-size: 13.5px; color: var(--text-secondary); }
       .price-lbl { font-size: 13px; font-weight: 550; color: var(--text-secondary); }

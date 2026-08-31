@@ -922,7 +922,7 @@ export class InvoicesService {
   }
 
   /** Le consegne da fatturare di UN partner, una per una (per il dettaglio). */
-  async pendingDetail(user: JwtUser, partnerId: string, fino?: string) {
+  async pendingDetail(user: JwtUser, partnerId: string, fino?: string, dal?: string, al?: string) {
     if (user.role === Role.PARTNER && user.partnerId !== partnerId) {
       throw new NotFoundException('Partner non trovato');
     }
@@ -941,7 +941,14 @@ export class InvoicesService {
       // avrebbe rifatturato il gia' fatturato.
       invoiced: false,
     };
-    if (fino) where.date = { lte: new Date(fino) };
+    // ⚠️ Il dettaglio di UNA RIGA è di UN MESE: si passano `dal`/`al` (inizio e
+    // fine mese) e si filtra la finestra. Prima si leggeva solo `fino`, così il
+    // dettaglio di «Agosto» tirava dentro anche le consegne di settembre.
+    if (dal || al || fino) {
+      where.date = {};
+      if (dal) where.date.gte = new Date(dal);
+      if (al || fino) where.date.lte = new Date(al ?? fino!);
+    }
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
@@ -1245,8 +1252,16 @@ export class InvoicesController {
   @Get('pending/:partnerId')
   @ApiOperation({ summary: 'Le consegne da fatturare di un partner, una per una' })
   @ApiQuery({ name: 'fino', required: false })
-  pendingDetail(@CurrentUser() user: JwtUser, @Param('partnerId') partnerId: string, @Query('fino') fino?: string) {
-    return this.invoicesService.pendingDetail(user, partnerId, fino);
+  @ApiQuery({ name: 'dal', required: false })
+  @ApiQuery({ name: 'al', required: false })
+  pendingDetail(
+    @CurrentUser() user: JwtUser,
+    @Param('partnerId') partnerId: string,
+    @Query('fino') fino?: string,
+    @Query('dal') dal?: string,
+    @Query('al') al?: string,
+  ) {
+    return this.invoicesService.pendingDetail(user, partnerId, fino, dal, al);
   }
 
   @Get(':id/lines')

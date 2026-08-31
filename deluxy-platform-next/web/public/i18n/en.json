@@ -1315,7 +1315,8 @@
       "paymentOnDelivery": "Payment on delivery",
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",
-      "createNew": "Create new product"
+      "createNew": "Create new product",
+      "chooseVariant": "Choose the variant"
     },
     "pricing": {
       "billableGroup": "To be billed (partner)",

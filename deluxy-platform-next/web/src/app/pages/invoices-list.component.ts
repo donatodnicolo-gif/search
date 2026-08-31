@@ -299,10 +299,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           <th>{{ 'invoices.line.date' | translate }}</th>
                           <th>{{ 'invoices.line.recipient' | translate }}</th>
                           <th>{{ 'invoices.pending.service' | translate }}</th>
+                          <th class="num">{{ 'invoices.pending.sold' | translate }}</th>
+                          <th class="num">{{ 'invoices.line.net' | translate }}</th>
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
-                          <!-- Al partner: il valore lordo del prodotto è già in
-                               «Importo»; qui il NETTO che gli spetta (solo vendite). -->
-                          @if (isPartner()) { <th class="num">{{ 'invoices.line.net' | translate }}</th> }
                         </tr></thead>
                         <tbody>
                           @for (d of pendingDetail(); track d.id) {
@@ -310,22 +309,23 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               <td>{{ d.date | date: 'dd/MM/yy' }}</td>
                               <td>{{ (d.recipientLastName || '') + ' ' + (d.recipientFirstName || '') }}</td>
                               <td class="muted">{{ d.service }}</td>
+                              <!-- Venduto (lordo del prodotto) e Netto spettante al
+                                   partner (solo vendite): visibili a tutti. -->
+                              <td class="num muted">{{ d.venduto ? ((d.venduto | number: '1.2-2') + ' €') : '—' }}</td>
+                              <td class="num">
+                                @if (nettoRiga(d); as netto) { <strong class="dovuto">{{ netto | number: '1.2-2' }} €</strong> }
+                                @else { <span class="muted">—</span> }
+                              </td>
                               <td class="num">
                                 @if (d.esclusaDaRegola) {
                                   <span class="regola" [title]="d.regola || ''">{{ 'invoices.pending.byRuleRow' | translate }}</span>
                                 } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'invoices.pending.unpricedRow' | translate">{{ 'invoices.pending.noPrice' | translate }}</span>
                                 } @else {
-                                  {{ importoRiga(d) | number: '1.2-2' }} €
+                                  {{ d.amount | number: '1.2-2' }} €
                                   @if (d.origine === 'listino') { <span class="ric" [title]="'invoices.pending.fromListinoHint' | translate">{{ 'invoices.pending.listino' | translate }}</span> }
                                 }
                               </td>
-                              @if (isPartner()) {
-                                <td class="num">
-                                  @if (nettoRiga(d); as netto) { <strong class="dovuto">{{ netto | number: '1.2-2' }} €</strong> }
-                                  @else { <span class="muted">—</span> }
-                                </td>
-                              }
                             </tr>
                           }
                         </tbody>
