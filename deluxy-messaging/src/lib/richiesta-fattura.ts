@@ -15,6 +15,8 @@
 // (è un regalo) e la ragione sociale non è il nome di chi compra. Si chiedono.
 
 import { db } from './db'
+import { caselleDaCuiScrivere, inviaEmail } from './email'
+import { leggiImpostazioni } from './impostazioni'
 
 export type DatiFattura = {
   tipo: string
@@ -41,6 +43,10 @@ export type FatturaDto = DatiFattura & {
   emessaDaNome: string
   chiestaDaNome: string
   creatoIl: string
+  /** Quando e a chi e stata mandata ad amministrazione, e com e andata. */
+  inviataIl: string | null
+  inviataA: string
+  inviataEsito: string
   /** Che cosa manca perché sia emettibile: vuoto = si può fare. */
   mancano: string[]
 }
@@ -92,6 +98,9 @@ function dto(r: {
   emessaDaNome: string
   chiestaDaNome: string
   creatoIl: Date
+  inviataIl: Date | null
+  inviataA: string
+  inviataEsito: string
 }): FatturaDto {
   const dati: DatiFattura = {
     tipo: r.tipo,
@@ -118,6 +127,9 @@ function dto(r: {
     emessaDaNome: r.emessaDaNome,
     chiestaDaNome: r.chiestaDaNome,
     creatoIl: r.creatoIl.toISOString(),
+    inviataIl: r.inviataIl ? r.inviataIl.toISOString() : null,
+    inviataA: r.inviataA,
+    inviataEsito: r.inviataEsito,
     mancano: cosaManca(dati),
   }
 }
@@ -184,7 +196,31 @@ export async function salvaRichiestaFattura(
     },
     update: base,
   })
-  return { ok: true, fattura: dto(r) }
+
+  // ⚠️⚠️ LA MAIL AD AMMINISTRAZIONE PARTE QUI, e solo quando i dati sono
+  // COMPLETI e non è già partita. Chiesto dall'utente: «fai inserire tutti i
+  // dati e manda una mail a amministrazione@deluxy.it».
+  //
+  // Perché al salvataggio e non con un bottone: il bottone lo si preme quando
+  // ci si ricorda, e una richiesta che resta qui dentro è una fattura che
+  // nessuno emette. Perché solo a dati completi: una mail a metà obbligherebbe
+  // amministrazione a rincorrere il codice destinatario, cioè esattamente il
+  // lavoro che questa cosa toglie.
+  //
+  // ⚠️ Non fa fallire il salvataggio: la richiesta è la cosa che conta, e
+  // perderla perché la posta non risponde sarebbe il peggiore dei due errori.
+  // L'esito resta scritto sulla riga e la scheda lo mostra.
+  const fatta = dto(r)
+  if (!fatta.mancano.length && !r.inviataIl) {
+    try {
+      await mandaRichiestaFattura(ordineId)
+    } catch {
+      /* l'esito è già scritto dentro mandaRichiestaFattura */
+    }
+    const dopo = await db.richiestaFattura.findUnique({ where: { ordineId } })
+    return { ok: true, fattura: dopo ? dto(dopo) : fatta }
+  }
+  return { ok: true, fattura: fatta }
 }
 
 /**
@@ -232,4 +268,122 @@ export async function fattureDaEmettere(): Promise<FatturaDto[]> {
     take: 200,
   })
   return righe.map(dto)
+}
+
+// ── MANDARE LA RICHIESTA AD AMMINISTRAZIONE ──────────────────────────────────
+//
+// Chiesto dall'utente: «fai inserire tutti i dati e manda una mail a
+// amministrazione@deluxy.it».
+//
+// ⚠️⚠️ LA MAIL PARTE SOLO A DATI COMPLETI. Mandarne una a metà obbligherebbe
+// amministrazione a rincorrere il codice destinatario — cioè esattamente il
+// lavoro che questa cosa toglie — e a quel punto la mail diventa un promemoria
+// da ignorare. Finché manca qualcosa, la richiesta resta qui e la scheda dice
+// che cosa.
+//
+// ⚠️ Parte UNA VOLTA sola da sé: alla prima volta che i dati sono completi. Le
+// correzioni successive non rimandano niente in automatico — c'è il bottone,
+// perché rimandare è una decisione di chi guarda, non un effetto collaterale di
+// aver corretto un CAP.
+
+const DESTINATARIO_DEFAULT = 'amministrazione@deluxy.it'
+
+// L indirizzo dell app, per il link all ordine dentro la mail.
+const BASE_APP = (process.env.APP_URL ?? 'https://deluxy-messaging.vercel.app').replace(/\/+$/, '')
+
+/** A chi vanno le richieste di fattura. Cambiabile in Impostazioni. */
+export async function destinatarioFatture(): Promise<string> {
+  const c = await leggiImpostazioni(['emailAmministrazione'])
+  return (c.emailAmministrazione || '').trim() || DESTINATARIO_DEFAULT
+}
+
+function testoRichiesta(ordineId: string, f: FatturaDto, o: { numero: string; negozioNome: string; data: Date; totale: number; valuta: string; clienteNome: string }): string {
+  const riga = (etichetta: string, valore: string) => (valore.trim() ? `${etichetta}: ${valore.trim()}` : '')
+  const soldi = o.totale.toLocaleString('it-IT', { style: 'currency', currency: o.valuta || 'EUR' })
+  return [
+    `Richiesta di fattura per l'ordine ${o.numero} (${o.negozioNome}).`,
+    '',
+    `Ordine del ${o.data.toLocaleDateString('it-IT')} · totale ${soldi}`,
+    riga('Cliente sull ordine', o.clienteNome),
+    '',
+    '— DATI PER LA FATTURA —',
+    `Intestatario: ${f.tipo === 'azienda' ? 'AZIENDA' : 'PRIVATO'}`,
+    riga('Intestazione', f.intestazione),
+    riga('Partita IVA', f.partitaIva),
+    riga('Codice fiscale', f.codiceFiscale),
+    riga('Codice destinatario (SDI)', f.codiceSdi),
+    riga('PEC', f.pec),
+    riga('Email', f.email),
+    riga('Indirizzo', [f.indirizzo, f.cap, f.citta, f.provincia, f.paese].filter(Boolean).join(', ')),
+    riga('Note', f.note),
+    '',
+    riga('Chiesta da', f.chiestaDaNome),
+    '',
+    // ⚠️ Il link all'ordine: chi emette deve poter vedere che cosa è stato
+    // venduto senza chiederlo indietro per mail.
+    `Ordine nel Customer Service: ${BASE_APP}/ordini?apri=${ordineId}`,
+  ]
+    .filter((r) => r !== '')
+    .join('\n')
+}
+
+export type EsitoInvioFattura = { ok: boolean; messaggio: string }
+
+/**
+ * Manda la richiesta ad amministrazione.
+ *
+ * ⚠️ Best-effort e con l'esito SCRITTO: se la posta non parte, la richiesta
+ * resta e la scheda lo dice. Una mail che non è partita e che risulta mandata è
+ * peggio di una mail non mandata: nessuno la rimanda.
+ */
+export async function mandaRichiestaFattura(
+  ordineId: string,
+  opz: { forza?: boolean } = {}
+): Promise<EsitoInvioFattura> {
+  const r = await db.richiestaFattura.findUnique({ where: { ordineId } })
+  if (!r) return { ok: false, messaggio: 'Nessuna richiesta di fattura su questo ordine.' }
+
+  const f = dto(r)
+  if (f.mancano.length) {
+    return {
+      ok: false,
+      messaggio: `Non la mando: manca ${f.mancano.join(', ')}. Ad amministrazione serve completa.`,
+    }
+  }
+  if (r.inviataIl && !opz.forza) {
+    return { ok: true, messaggio: `Già mandata il ${r.inviataIl.toLocaleDateString('it-IT')}.` }
+  }
+
+  const o = await db.ordine.findUnique({
+    where: { id: ordineId },
+    select: { numero: true, negozioNome: true, data: true, totale: true, valuta: true, clienteNome: true },
+  })
+  if (!o) return { ok: false, messaggio: 'Ordine non trovato.' }
+
+  const a = await destinatarioFatture()
+  // ⚠️ Si scrive da una casella di POSTA, mai da quella delle chiamate: quella
+  // riceve le notifiche del centralino e una risposta di amministrazione lì
+  // dentro non la leggerebbe nessuno.
+  const caselle = await caselleDaCuiScrivere()
+  if (!caselle.length) {
+    const messaggio = 'Nessuna casella da cui scrivere: la richiesta è salvata ma non è partita.'
+    await db.richiestaFattura.update({ where: { ordineId }, data: { inviataEsito: messaggio } })
+    return { ok: false, messaggio }
+  }
+
+  const oggetto = `Fattura da emettere — ordine ${o.numero} (${o.negozioNome})`
+  const testo = testoRichiesta(ordineId, f, o)
+
+  try {
+    await inviaEmail(caselle[0], a, oggetto, testo)
+    await db.richiestaFattura.update({
+      where: { ordineId },
+      data: { inviataIl: new Date(), inviataA: a, inviataEsito: 'mandata' },
+    })
+    return { ok: true, messaggio: `Mandata a ${a}.` }
+  } catch (e) {
+    const messaggio = `Non è partita: ${e instanceof Error ? e.message : 'errore di posta'}`
+    await db.richiestaFattura.update({ where: { ordineId }, data: { inviataEsito: messaggio } })
+    return { ok: false, messaggio }
+  }
 }

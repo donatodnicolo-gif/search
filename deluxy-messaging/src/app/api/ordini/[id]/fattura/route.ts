@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   chiudiRichiestaFattura,
   fatturaDellOrdine,
+  mandaRichiestaFattura,
   salvaRichiestaFattura,
   type DatiFattura,
 } from '@/lib/richiesta-fattura'
@@ -34,6 +35,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     azione?: string
     stato?: string
     numeroFattura?: string
+  }
+
+  // ⚠️ Rimandare è una DECISIONE di chi guarda: la mail parte da sé una volta
+  // sola, alla prima volta che i dati sono completi. Correggere un CAP non deve
+  // far arrivare ad amministrazione la stessa richiesta tre volte.
+  if (c.azione === 'manda') {
+    const esito = await mandaRichiestaFattura(id, { forza: true })
+    return NextResponse.json(
+      { ok: esito.ok, messaggio: esito.messaggio, fattura: await fatturaDellOrdine(id) },
+      { status: esito.ok ? 200 : 400 }
+    )
   }
 
   if (c.azione === 'stato') {

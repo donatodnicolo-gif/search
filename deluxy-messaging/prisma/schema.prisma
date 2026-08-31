@@ -447,6 +447,7 @@ model Ordine {
    * /**
    * /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -2227,9 +2228,20 @@ model RichiestaFattura {
   emessaIl      DateTime?
   emessaDaNome  String    @default("")
 
-  chiestaDaNome String   @default("")
-  creatoIl      DateTime @default(now())
-  aggiornatoIl  DateTime @updatedAt
+  /// Quando la richiesta e stata MANDATA ad amministrazione, a chi, e com e
+  /// andata.
+  ///
+  /// ⚠️⚠️ Si scrive l ESITO dell invio, non solo la data: una mail che non e
+  /// partita e una richiesta che nessuno ha ricevuto, e senza questa riga
+  /// sembrerebbe mandata. La mail parte solo quando i dati sono COMPLETI —
+  /// mandarne una a meta obbligherebbe amministrazione a rincorrere il codice
+  /// destinatario, che e esattamente il lavoro che questa cosa toglie.
+  inviataIl     DateTime?
+  inviataA      String    @default("")
+  inviataEsito  String    @default("")
+  chiestaDaNome String    @default("")
+  creatoIl      DateTime  @default(now())
+  aggiornatoIl  DateTime  @updatedAt
 
   @@index([stato, creatoIl])
   @@index([negozioId, stato])

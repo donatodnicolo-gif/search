@@ -32,6 +32,9 @@ type Fattura = {
   emessaDaNome: string
   chiestaDaNome: string
   creatoIl: string
+  inviataIl: string | null
+  inviataA: string
+  inviataEsito: string
   mancano: string[]
 }
 
@@ -71,6 +74,7 @@ export function RichiediFattura({
   const [campi, setCampi] = useState({ ...VUOTA })
   const [numero, setNumero] = useState('')
   const [errore, setErrore] = useState('')
+  const [avviso, setAvviso] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   const carica = useCallback(async () => {
@@ -111,6 +115,30 @@ export function RichiediFattura({
       setErrore('Non salvato: problema di rete.')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function manda() {
+    setErrore('')
+    setAvviso('')
+    try {
+      const res = await fetch(`/api/ordini/${ordineId}/fattura`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ azione: 'manda' }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        messaggio?: string
+        fattura?: Fattura
+      }
+      if (d.fattura) setFattura(d.fattura)
+      if (!res.ok) {
+        setErrore(d.messaggio || 'Non è partita.')
+        return
+      }
+      setAvviso(d.messaggio || 'Mandata.')
+    } catch {
+      setErrore('Non è partita: problema di rete.')
     }
   }
 
@@ -172,6 +200,7 @@ export function RichiediFattura({
       </div>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
+      {avviso ? <div className="avviso-ok">{avviso}</div> : null}
 
       {/* ⚠️⚠️ COSA MANCA, detto subito: lo SDI SCARTA una fattura elettronica
           senza il recapito giusto, e lo scarto arriva giorni dopo — quando il
@@ -203,6 +232,38 @@ export function RichiediFattura({
               ? ` · emessa il ${new Date(fattura.emessaIl).toLocaleDateString('it-IT')}${fattura.emessaDaNome ? ` da ${fattura.emessaDaNome}` : ''}`
               : ''}
           </div>
+
+          {/* ── È PARTITA O NO ──
+              ⚠️⚠️ Si dice sempre, e con l'esito: una mail che non è partita e
+              che risulta mandata è peggio di una mail non mandata, perché
+              nessuno la rimanda. Finché i dati non sono completi non parte, e
+              qui sopra c'è scritto che cosa manca. */}
+          <div className="cella-sub" style={{ marginTop: 2 }}>
+            {fattura.inviataIl ? (
+              <>
+                Mandata ad amministrazione il{' '}
+                {new Date(fattura.inviataIl).toLocaleDateString('it-IT')}
+                {fattura.inviataA ? ` (${fattura.inviataA})` : ''}
+              </>
+            ) : fattura.inviataEsito ? (
+              <span style={{ color: 'var(--red)' }}>Non è partita: {fattura.inviataEsito}</span>
+            ) : fattura.mancano.length ? (
+              'Non ancora mandata: prima servono i dati che mancano.'
+            ) : (
+              'Non ancora mandata.'
+            )}
+          </div>
+
+          {!fattura.mancano.length ? (
+            <button
+              className="btn btn-secondario small"
+              style={{ marginTop: 6 }}
+              onClick={() => void manda()}
+              title="Rimanda la richiesta ad amministrazione"
+            >
+              {fattura.inviataIl ? 'Rimandala ad amministrazione' : 'Manda ad amministrazione'}
+            </button>
+          ) : null}
 
           {fattura.stato === 'chiesta' ? (
             <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -325,6 +386,18 @@ export function RichiediFattura({
                 value={campi.provincia}
                 onChange={(e) => setCampi({ ...campi, provincia: e.target.value })}
                 maxLength={2}
+              />
+            </label>
+            <label className="campo">
+              {/* ⚠️ Il paese serve: una fattura a un cliente estero non si fa
+                  come una italiana, e «IT» dato per scontato lo si scopre
+                  quando la fattura è già partita. */}
+              <span>Paese</span>
+              <input
+                value={campi.paese}
+                onChange={(e) => setCampi({ ...campi, paese: e.target.value })}
+                maxLength={2}
+                placeholder="IT"
               />
             </label>
           </div>
