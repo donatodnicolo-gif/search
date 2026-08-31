@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sincronizzaConPiattaforma } from '@/lib/sync-piattaforma'
+import { chiudiOrdiniInConsegna } from '@/lib/consegne-piattaforma'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -17,5 +18,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ errore: 'Non autorizzato.' }, { status: 401 })
   }
   const esito = await sincronizzaConPiattaforma()
-  return NextResponse.json({ ok: !esito.errore, ...esito })
+  // ⚠️⚠️ E il secondo giro: gli ordini la cui CONSEGNA e partita si chiudono
+  // (chiesto dall utente il 31/08/2026). Sono due letture diverse — le vendite
+  // dicono a chi e stato proposto, le consegne dicono se e per strada — e la
+  // seconda non deve saltare se la prima fallisce: un errore sulle vendite
+  // lascerebbe aperti per sempre ordini gia consegnati.
+  const consegne = await chiudiOrdiniInConsegna()
+  return NextResponse.json({
+    ok: !esito.errore && !consegne.errore,
+    ...esito,
+    consegne,
+  })
 }

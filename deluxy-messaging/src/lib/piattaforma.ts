@@ -306,3 +306,47 @@ export async function portaVenditaInConsegna(
 // componente client. Qui si ri-esportano, così chi sta sul server ha tutto da
 // un file solo.
 export { STATI_IN_APP, eInApp, nomeStatoVendita } from './piattaforma-stati'
+
+// ── LE CONSEGNE, PER CHIUDERE GLI ORDINI CHE SONO PARTITI ────────────────────
+
+export type ConsegnaDdt = {
+  id: string
+  /** Il numero che si legge a schermo di là (es. 62637). */
+  numero?: number | string
+  stato: string
+  /** Il nostro numero d'ordine e il suo brand: è il ponte. */
+  ddtNumero?: string
+  ddtBrand?: string
+}
+
+/**
+ * Le consegne cambiate dopo `da`, con il DDT e lo stato.
+ *
+ * ⚠️ Una chiamata a giro con un cursore, non una per ordine: la piattaforma è
+ * un'altra app, non un nostro database. E si legge quello che serve — numero,
+ * stato, ddt — non tutta la consegna.
+ */
+export async function consegneAggiornate(
+  da: Date | null,
+  limite = 200
+): Promise<EsitoPiattaforma<{ consegne: ConsegnaDdt[] }>> {
+  const p = new URLSearchParams({ limit: String(limite) })
+  if (da) p.set('aggiornateDa', da.toISOString())
+  const r = await chiama<{ consegne?: Record<string, unknown>[] } | Record<string, unknown>[]>(
+    `/api/v1/app/consegne?${p.toString()}`
+  )
+  if (r.stato !== 'ok') return r
+  // ⚠️ La rotta di là può tornare `{ consegne: [...] }` oppure un array secco a
+  // seconda della versione: si accettano tutte e due invece di rompersi su una
+  // forma. Una lista vuota per «forma diversa» sembrerebbe «nessuna consegna»,
+  // che è la bugia peggiore qui dentro — l'ordine resterebbe aperto per sempre.
+  const grezze = Array.isArray(r.dati) ? r.dati : ((r.dati.consegne as Record<string, unknown>[]) ?? [])
+  const consegne: ConsegnaDdt[] = grezze.map((c) => ({
+    id: String(c.id ?? ''),
+    numero: (c.numero ?? c.code) as number | string | undefined,
+    stato: String(c.stato ?? c.status ?? ''),
+    ddtNumero: (c.ddtNumero ?? c.ddtNumber) as string | undefined,
+    ddtBrand: (c.ddtBrand ?? c.ddt_brand) as string | undefined,
+  }))
+  return { stato: 'ok', dati: { consegne } }
+}
