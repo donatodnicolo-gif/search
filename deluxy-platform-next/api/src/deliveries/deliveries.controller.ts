@@ -158,9 +158,9 @@ export class DeliveriesController {
     );
   }
 
-  @Roles(Role.ADMIN, Role.OPERATION)
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @Patch('massa/assegna')
-  @Roles(Role.ADMIN, Role.OPERATION)
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @ApiOperation({ summary: 'Assegna lo stesso valet a più consegne insieme' })
   async assegnaDiMassa(@Body() dto: AzioneDiMassaValetDto, @CurrentUser() user: JwtUser) {
     return this.inSequenza(dto.ids, (id) =>
@@ -210,10 +210,10 @@ export class DeliveriesController {
     };
   }
 
-  @Roles(Role.ADMIN, Role.OPERATION)
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @Patch(':id/assign')
-  @Roles(Role.ADMIN, Role.OPERATION)
-  @ApiOperation({ summary: 'Assegna valet (calcola paga dal matching servizio/salario)' })
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
+  @ApiOperation({ summary: 'Assegna valet (admin/operation, o team leader nel proprio perimetro)' })
   assign(
     @Param('id') id: string,
     @Body() dto: AssignValetDto,

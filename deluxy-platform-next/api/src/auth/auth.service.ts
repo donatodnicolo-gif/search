@@ -97,6 +97,7 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
+      include: { valet: { select: { isTeamLeader: true } } },
     });
     // ⚠️ 27/08/2026 — UN SOLO MESSAGGIO PER TUTTI I CASI.
     //
@@ -149,6 +150,9 @@ export class AuthService {
         isSupport: user.isSupport,
         partnerId: user.partnerId,
         valetId: user.valetId,
+        // Team leader: il frontend mostra «Assegna» ai valet team leader
+        // (l'API verifica comunque il perimetro).
+        isTeamLeader: (user as any).valet?.isTeamLeader === true,
       },
     };
   }

@@ -258,15 +258,18 @@ interface DeliveryDetail {
         <!-- Destinatario e mittente -->
         <section class="card block">
           <h2>{{ 'deliveryDetail.section.people' | translate }}</h2>
-          <!-- Al valet il destinatario si scopre solo da «in consegna» (31/08):
-               il server non lo manda prima. Nome + Citofono in un'unica voce. -->
+          <!-- Al valet l'INDIRIZZO resta sempre visibile (serve al giro); i
+               DATI ANAGRAFICI (nome, tel, email, citofono) si scoprono solo da
+               «in consegna» (31/08, precisazione utente). -->
+          <dl>
+            <dt>{{ 'deliveries.col.address' | translate }}</dt><dd>{{ d.recipientAddress }}</dd>
+          </dl>
           @if (isValet() && !destinatarioVisibile(d)) {
             <p class="muted">🔒 {{ 'deliveries.recipientHidden' | translate }}</p>
           } @else {
           <dl>
             <dt>{{ 'deliveries.col.recipient' | translate }}</dt>
             <dd>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ 'deliveryDetail.intercom' | translate }}: {{ d.recipientIntercom }}</span> }</dd>
-            <dt>{{ 'deliveries.col.address' | translate }}</dt><dd>{{ d.recipientAddress }}</dd>
             <!-- ⚠️ Telefono e mail CLICCABILI: e' il gesto piu' frequente del
                  turno di un valet, che col telefono in mano deve chiamare chi
                  riceve. Prima erano testo nudo — si selezionava il numero a

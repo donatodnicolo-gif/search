@@ -479,6 +479,14 @@ input.field {
   .table-wrap td:empty {
     display: none !important;
   }
+  /* Le celle di AZIONI (bottoni) NON devono ereditare space-between, che li
+     sparpaglia ai due lati (31/08, custode): stanno vicini a sinistra, con un
+     gap coerente e i bersagli touch. Vale per tutte le liste. */
+  .table-wrap td.actions-cell,
+  .table-wrap td.azioni {
+    justify-content: flex-start !important;
+    gap: 8px !important;
+  }
   .table-wrap td::before {
     content: attr(data-label);
     flex-shrink: 0;

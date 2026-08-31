@@ -359,15 +359,15 @@ interface PropostaVendita {
                   ></span>
                 </td>
                 <td class="strong">{{ d.partner?.insegna }}</td>
-                <!-- Al valet il destinatario si scopre solo da «in consegna»
-                     (31/08): il server non lo manda prima. Quando c'è, Nome +
-                     Citofono in un'unica cella. -->
+                <!-- Al valet il NOME del destinatario si scopre solo da «in
+                     consegna» (31/08); l'indirizzo resta sempre visibile (gli
+                     serve per il giro). Nome + Citofono in un'unica cella. -->
                 @if (isValetRuolo() && !destinatarioVisibile(d)) {
                   <td class="muted">🔒 {{ 'deliveries.recipientHidden' | translate }}</td>
                 } @else {
                   <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ d.recipientIntercom }}</span> }</td>
                 }
-                <td class="muted">{{ (isValetRuolo() && !destinatarioVisibile(d)) ? '' : d.recipientAddress }}</td>
+                <td class="muted">{{ d.recipientAddress }}</td>
                 <td class="muted">{{ d.pickupAddress || '—' }}</td>
                 <td>
                   @if (d.deliveryTimeFrom) {
@@ -402,6 +402,10 @@ interface PropostaVendita {
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
+                  }
+                  <!-- Assegna: anche al team leader (nel suo perimetro). -->
+                  @if (canAssign() && !canManage()) {
+                    <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
                   }
                   @if (canManage()) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
@@ -709,7 +713,11 @@ interface PropostaVendita {
         /* Audit 31/08: in scheda «Consegnata» e «Non consegnata» andavano a
            capo a 4px l'una dall'altra — due esiti OPPOSTI sotto lo stesso
            pollice. Respiro di 10px. */
-        .actions-cell { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        /* In scheda mobile le celle ereditano justify-content:space-between
+           (styles.css), che sparpagliava i bottoni azione ai lati opposti
+           (31/08, custode). Li si tiene VICINI a sinistra, gap coerente. */
+        .actions-cell { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+          justify-content: flex-start !important; }
       }
       /* ⚠️ 800px, non 640: e' la soglia a cui le tabelle diventano SCHEDE
          (styles.css) ed e' li' che l'intestazione di colonna sparisce. Sotto,
@@ -1225,6 +1233,12 @@ export class DeliveriesListComponent {
   canManage(): boolean {
     const r = this.roleOf();
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  /** Assegnare: l'ufficio, o un valet TEAM LEADER (nel suo perimetro, che
+   *  l'API verifica). 31/08. */
+  canAssign(): boolean {
+    return this.canManage() || (this.roleOf() === 'VALET' && this.auth.user()?.isTeamLeader === true);
   }
 
   /** Eliminare è dell'admin: è l'unica azione di massa che non si disfa. */

@@ -1362,6 +1362,34 @@ export class DeliveriesService {
     const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });
     if (!valet) throw new BadRequestException('Valet inesistente');
 
+    // TEAM LEADER che assegna (31/08/2026, utente): un valet può assegnare
+    // SOLO se è team leader e SOLO nel suo perimetro (province di
+    // responsabilità + partner abilitati − esclusi). `findOne` sopra ha già
+    // negato l'accesso a una consegna fuori perimetro; qui si verifica che
+    // anche il VALET DESTINATARIO sia nel perimetro, e che chi assegna sia
+    // davvero un team leader.
+    if (user.role === Role.VALET) {
+      const io = await this.prisma.valet.findUnique({
+        where: { id: user.valetId ?? '-' },
+        select: { id: true, isTeamLeader: true, teamLeaderProvinces: true, teamLeaderPartners: true,
+          teamLeaderExcludedPartners: true, provinces: { select: { provinceId: true } } },
+      });
+      if (!io?.isTeamLeader) {
+        throw new ForbiddenException('Solo un team leader può assegnare le consegne.');
+      }
+      const ambito = await ambitoTeamLeader(io, (provinceIds) =>
+        this.prisma.valet.findMany({
+          where: { provinces: { some: { provinceId: { in: provinceIds } } } },
+          select: { id: true },
+        }),
+      );
+      // Il valet destinatario dev'essere fra quelli del perimetro (stesse
+      // province di responsabilità del team leader).
+      if (ambito && !ambito.valetIds.includes(valetId)) {
+        throw new ForbiddenException('Puoi assegnare solo a valet della tua provincia.');
+      }
+    }
+
     // Paga del valet dal listino, preso ALLA DATA della consegna.
     //
     // ⚠️ Dal 25/08/2026 un valet puo' avere piu' righe per lo stesso servizio,
@@ -1603,10 +1631,14 @@ export class DeliveriesService {
     // assegnata/accettata, deve vedere il RITIRO e cosa portare, non a chi —
     // è un dato personale del cliente. Nasconderlo solo nella pagina non
     // basterebbe: chi legge la rotta lo vedrebbe lo stesso.
+    // 31/08 (precisazione utente): gli INDIRIZZI (ritiro e consegna) restano
+    // SEMPRE visibili al valet — gli servono per pianificare il giro. Fino a
+    // «in consegna» si nascondono solo i DATI ANAGRAFICI del destinatario
+    // (nome, telefono, email, citofono).
     const scoperto = ['in_delivery', 'delivered', 'not_delivered'].includes(pulita['status']);
     if (!scoperto) {
-      for (const campo of ['recipientFirstName', 'recipientLastName', 'recipientAddress',
-        'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude']) {
+      for (const campo of ['recipientFirstName', 'recipientLastName',
+        'recipientPhone', 'recipientEmail', 'recipientIntercom']) {
         delete pulita[campo];
       }
     }

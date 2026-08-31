@@ -16,6 +16,8 @@ export interface AuthUser {
   valetId: string | null;
   /** Password temporanea da cambiare al primo accesso (bonifica 31/08). */
   mustChangePassword?: boolean;
+  /** Valet team leader: può assegnare consegne nel suo perimetro. */
+  isTeamLeader?: boolean;
 }
 
 export interface LoginResponse {
