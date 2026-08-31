@@ -27,3 +27,10 @@ deluxy-platform-next.zip
 # Progetto personale di recupero dati: fuori dal repo
 /recupero-dati/
 deluxy-platform-next/api/scripts/_*
+/costi-da-compilare.txt
+/da-classificare-residuo.txt
+/fatture-da-compilare.txt
+/fatture-fic-2026-competenze.txt
+/promossi-consegne.json
+/regole-fiorai-proposte.json
+deluxy-platform-next/scripts/_*.mjs
