@@ -580,6 +580,58 @@ di far aspettare un'email che non arriverà. Si accende da `/chiavi` → progett
 `hub` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
 diversi dai default): effetto immediato, senza redeploy.
 
+### `POST /api/posta` — la casella del portale, prestata alle altre app (30/08/2026)
+
+Le credenziali SMTP hanno **una casa sola**: la cassaforte del Hub (Standard §7).
+Senza questa rotta, ogni app che deve mandare un'email — a cominciare dal
+**proprio recupero password** — dovrebbe tenersi una copia della password della
+casella: cinque copie di un segreto sono cinque modi di perderlo, e cambiarlo
+diventerebbe un giro per cinque progetti.
+
+**Come si chiama** (esempio: il recupero password di un'altra app)
+
+```
+POST https://deluxy-hub.vercel.app/api/posta
+x-api-key: <token di servizio con scope «posta»>
+Idempotency-Key: <facoltativo: id della richiesta>
+Content-Type: application/json
+
+{ "a": "persona@esempio.it", "oggetto": "Reimposta la password", "testo": "…", "html": "…" }
+```
+
+Risposta `{ ok: true, mittente }`, oppure `{ errore }` con lo stato che dice
+perché: **401** token mancante/non valido · **403** token senza scope `posta` ·
+**400** destinatario/oggetto/testo non validi · **422** casella automatica ·
+**429** tetto orario · **502** il server di posta ha rifiutato (col motivo) ·
+**503** posta non configurata.
+
+**Il token si emette** da `/chiavi` → «Token di servizio», dando **`posta`** fra i
+progetti (o da riga di comando: `node scripts/emetti-token.mjs <app> posta`).
+
+**Le difese, e perché ognuna c'è** — sono la lista pagata in
+[[trappola-automatismo-che-manda-mail]], adattata a un servizio di invio:
+
+1. **Scope `posta` obbligatorio**: un token nato per *leggere le chiavi* non deve
+   poter anche **spedire a nome di Deluxy**. (Un token senza restrizioni passa:
+   è la stessa regola di `/api/presenze`.)
+2. **Fail-closed**: posta non configurata → **503**, mai un 200 senza invio. Un
+   200 bugiardo fa credere all'app chiamante di aver avvisato qualcuno.
+3. **Tetto orario su database**: 100 invii riusciti per token, 300 in tutto. È il
+   freno a mano: se qualcosa impazzisce, meglio cento mail sbagliate che
+   diecimila. In memoria non conterebbe nulla (più istanze serverless).
+4. **Mai a caselle automatiche** (`noreply`, `postmaster`, `mailer-daemon`, …):
+   elenco di prefissi, cioè un **ripiego** — le intestazioni `Auto-Submitted`
+   non le abbiamo, e va trattato come tale.
+5. **Idempotency-Key**: una ripetizione (retry di rete) **non rispedisce**,
+   risponde l'esito della prima.
+6. **Registro visibile** in `/chiavi` → «Ultime email partite dal portale»: chi
+   l'ha chiesta, a chi (**mascherato**: `de****@deluxy.it`), oggetto, esito e
+   motivo. **Il corpo non si salva mai**; del destinatario resta anche un hash,
+   che serve solo a contare e confrontare.
+
+⚠️ **Da non fare**: allargare la rotta a più destinatari per chiamata senza
+rifare i conti del tetto, e togliere il 503 «perché tanto poi funziona».
+
 ### Il modulo della posta in `/chiavi` (30/08/2026)
 
 La posta **non si configura più riga per riga**. In cima a `/chiavi` c'è il
@@ -844,9 +896,9 @@ app per app, non una modifica al Hub.
 
 > Il Hub **non è una REST API**: è un'app Next.js con **server action** (mutazioni)
 > e **middleware** (protezione). La "superficie API" sono le server action, il
-> contratto del cookie di sessione e due rotte a token di servizio:
-> `GET /api/chiavi` (cassaforte, §9-bis) e `GET /api/presenze` (cartellino,
-> §5-ter). Consuma una sola API esterna: `GET /api/v1/team` di Budgets (§5-quater).
+> contratto del cookie di sessione e tre rotte a token di servizio:
+> `GET /api/chiavi` (cassaforte, §9-bis), `GET /api/presenze` (cartellino,
+> §5-ter) e `POST /api/posta` (la casella prestata alle altre app, §5-octies). Consuma una sola API esterna: `GET /api/v1/team` di Budgets (§5-quater).
 
 ### 11.1 Modello dati (Prisma — `prisma/schema.prisma`)
 
