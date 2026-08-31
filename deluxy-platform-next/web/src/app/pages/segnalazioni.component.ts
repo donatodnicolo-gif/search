@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -9,6 +9,8 @@ import { AuthService } from '../core/auth.service';
 interface Segn {
   id: string;
   tipo: string;
+  importo?: number | null;
+  deliveryId?: string | null;
   partnerId?: string | null;
   valetId?: string | null;
   partnerNome?: string | null;
@@ -30,7 +32,7 @@ interface Rif { id: string; nome: string }
 @Component({
   selector: 'app-segnalazioni',
   standalone: true,
-  imports: [FormsModule, DatePipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
@@ -88,6 +90,9 @@ interface Rif { id: string; nome: string }
             <div class="testa">
               <span class="pill" [class]="'st-' + s.stato">{{ 'segnalazioni.stato.' + s.stato | translate }}</span>
               <span class="badge-tipo">{{ 'segnalazioni.tipo.' + s.tipo | translate }}</span>
+              @if (s.tipo === 'rimborso' && s.importo != null) {
+                <span class="badge-importo">€ {{ s.importo | number: '1.2-2' }}</span>
+              }
               @if (s.partnerNome) { <span class="chi">{{ 'segnalazioni.onPartner' | translate }}: <strong>{{ s.partnerNome }}</strong></span> }
               @if (s.valetNome) { <span class="chi">{{ 'segnalazioni.onValet' | translate }}: <strong>{{ s.valetNome }}</strong></span> }
               <span class="data">{{ s.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
@@ -130,6 +135,7 @@ interface Rif { id: string; nome: string }
       .pill.st-in_lavorazione { background: var(--orange-soft, rgba(201,52,0,0.1)); color: var(--orange, #c93400); }
       .pill.st-chiusa { background: var(--green-soft, rgba(36,138,61,0.11)); color: var(--green, #248a3d); }
       .badge-tipo { background: var(--fill); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+      .badge-importo { background: color-mix(in srgb, var(--gold) 18%, white); color: var(--gold-ink, #7a5f18); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
       .data { margin-left: auto; color: var(--text-tertiary); }
       .oggetto { font-weight: 600; margin: 8px 0 2px; }
       .testo { margin: 4px 0; }

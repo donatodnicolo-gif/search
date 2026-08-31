@@ -227,6 +227,14 @@
       "user": "Casella da cui parte la mail",
       "key": "Chiave di AI Mail",
       "hint": "Il recap al partner esce da qui, cosi' la copia finisce negli «Inviati» della casella vera. Il token si genera da AI Mail → Impostazioni App → «Token API di AI Mail». Senza chiave e casella il recap si puo' comunque scaricare."
+    },
+    "hubMail": {
+      "title": "Notifiche via email (Hub)",
+      "url": "Indirizzo del Hub",
+      "token": "Token posta del Hub",
+      "hint": "Le notifiche (nuovo servizio al partner, assegnazione al valet) partono dalla casella del portale. Serve un token del Hub con lo scope «posta» (si crea in Hub → /chiavi). Le variabili d’ambiente HUB_URL / HUB_POSTA_TOKEN hanno la precedenza.",
+      "provaEmail": "Email per la prova",
+      "test": "Manda una mail di prova"
     }
   },
   "role": {
@@ -1924,7 +1932,21 @@
     "foto": {
       "apri": "Vedi la foto del prodotto"
     },
-    "fromListino": "dal listino"
+    "fromListino": "dal listino",
+    "segnal": {
+      "rimborso": "Aggiungi (rimborso)",
+      "reclamo": "Reclama",
+      "rimborsoTitle": "Richiesta rimborso — consegna #{{code}}",
+      "reclamoTitle": "Reclamo — consegna #{{code}}",
+      "importo": "Importo richiesto (€)",
+      "motivo": "Motivo",
+      "importoPh": "es. 8,50",
+      "motivoPh": "Descrivi cosa è successo…",
+      "invia": "Invia all’ufficio",
+      "inviata": "Inviato all’ufficio. Lo trovi in Segnalazioni.",
+      "manca": "Scrivi un motivo.",
+      "importoManca": "Indica un importo valido."
+    }
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
@@ -2413,7 +2435,8 @@
     },
     "tipo": {
       "reclamo": "Reclamo",
-      "segnalazione": "Segnalazione"
+      "segnalazione": "Segnalazione",
+      "rimborso": "Rimborso"
     }
   }
 }

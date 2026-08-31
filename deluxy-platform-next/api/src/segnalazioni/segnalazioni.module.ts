@@ -52,20 +52,30 @@ export class SegnalazioniService {
   }
 
   async crea(user: JwtUser, body: {
-    tipo?: string; partnerId?: string; valetId?: string; deliveryId?: string; oggetto?: string; testo?: string;
+    tipo?: string; partnerId?: string; valetId?: string; deliveryId?: string; oggetto?: string; testo?: string; importo?: number;
   }) {
     const testo = (body?.testo ?? '').trim();
     if (!testo) throw new BadRequestException('Il testo della segnalazione è obbligatorio.');
-    // Partner/valet aprono un RECLAMO su se stessi; l'ufficio una SEGNALAZIONE
-    // su chi indica.
+    // Partner/valet aprono qualcosa su SE STESSI; l'ufficio una SEGNALAZIONE su
+    // chi indica. Il valet può aprire un RECLAMO o una richiesta di RIMBORSO
+    // (`tipo: 'rimborso'`, con importo); il partner solo reclami.
     let partnerId = body.partnerId ?? null;
     let valetId = body.valetId ?? null;
     let tipo = body.tipo ?? 'segnalazione';
+    let importo: number | null = null;
     if (user.role === Role.PARTNER) { partnerId = user.partnerId ?? null; valetId = null; tipo = 'reclamo'; }
-    else if (user.role === Role.VALET) { valetId = user.valetId ?? null; partnerId = null; tipo = 'reclamo'; }
+    else if (user.role === Role.VALET) {
+      valetId = user.valetId ?? null; partnerId = null;
+      tipo = body.tipo === 'rimborso' ? 'rimborso' : 'reclamo';
+      if (tipo === 'rimborso') {
+        const n = Number(body.importo);
+        if (!Number.isFinite(n) || n <= 0) throw new BadRequestException('Indica un importo valido per il rimborso.');
+        importo = Math.round(n * 100) / 100;
+      }
+    }
     return this.prisma.segnalazione.create({
       data: {
-        tipo, partnerId, valetId, deliveryId: body.deliveryId ?? null,
+        tipo, importo, partnerId, valetId, deliveryId: body.deliveryId ?? null,
         oggetto: body.oggetto?.trim() || null, testo,
         apertaDaUserId: user.sub, apertaDaRuolo: user.role,
       },

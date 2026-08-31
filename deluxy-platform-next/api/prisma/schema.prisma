@@ -1927,8 +1927,11 @@ model LegacyArchive {
 // ============================================================
 model Segnalazione {
   id             String    @id @default(cuid())
-  /// reclamo (aperto da partner/valet) | segnalazione (aperta dall'ufficio)
+  /// reclamo (partner/valet) | rimborso (richiesta di rimborso del valet su una
+  /// consegna) | segnalazione (aperta dall'ufficio)
   tipo           String    @default("segnalazione")
+  /// Importo richiesto, solo per i rimborsi. Null per reclami e segnalazioni.
+  importo        Float?
   /// Su CHI: uno dei due, o nessuno (segnalazione generica).
   partnerId      String?
   valetId        String?

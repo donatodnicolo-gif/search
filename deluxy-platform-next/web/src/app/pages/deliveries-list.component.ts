@@ -430,6 +430,16 @@ interface PropostaVendita {
                       </button>
                     }
                   }
+                  <!-- Su ogni consegna EFFETTUATA il valet può chiedere un
+                       rimborso o aprire un reclamo (31/08) — vanno in Segnalazioni. -->
+                  @if (isValetRuolo() && consegnaEffettuata(d)) {
+                    <button type="button" class="act" (click)="apriSegnalazione('rimborso', d)">
+                      {{ 'deliveryDetail.segnal.rimborso' | translate }}
+                    </button>
+                    <button type="button" class="act" (click)="apriSegnalazione('reclamo', d)">
+                      {{ 'deliveryDetail.segnal.reclamo' | translate }}
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -589,6 +599,30 @@ interface PropostaVendita {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
                     (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
+
+    <!-- RIMBORSO / RECLAMO del valet su una consegna effettuata → Segnalazioni. -->
+    @if (segnalPer(); as sp) {
+      <div class="overlay" (click)="chiudiSegnalazione()"></div>
+      <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="chiudiSegnalazione()" [attr.aria-label]="'common.close' | translate">×</button>
+        <h2>{{ 'deliveryDetail.segnal.' + sp.tipo + 'Title' | translate: { code: sp.d.code } }}</h2>
+        @if (sp.tipo === 'rimborso') {
+          <label class="fld"><span>{{ 'deliveryDetail.segnal.importo' | translate }}</span>
+            <input class="field" inputmode="decimal" name="segImporto" [(ngModel)]="segImporto"
+                   [placeholder]="'deliveryDetail.segnal.importoPh' | translate" />
+          </label>
+        }
+        <label class="fld" style="margin-top:12px"><span>{{ 'deliveryDetail.segnal.motivo' | translate }}</span>
+          <textarea class="field" rows="3" name="segMotivo" [(ngModel)]="segMotivo"
+                    [placeholder]="'deliveryDetail.segnal.motivoPh' | translate"></textarea>
+        </label>
+        @if (segErrore()) { <div class="modal-err">{{ segErrore() }}</div> }
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" [disabled]="segInCorso()" (click)="chiudiSegnalazione()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="segInCorso()" (click)="inviaSegnalazione(sp)">{{ 'deliveryDetail.segnal.invia' | translate }}</button>
+        </div>
+      </div>
     }
   `,
   styles: [
@@ -1660,6 +1694,51 @@ export class DeliveriesListComponent {
   valetPuoLavorare(d: Delivery): boolean {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
   }
+  /** Consegna EFFETTUATA: il valet può chiedere rimborso o reclamare. */
+  consegnaEffettuata(d: Delivery): boolean {
+    return ['delivered', 'not_delivered', 'approved', 'invalidated'].includes(d.status);
+  }
+
+  // Rimborso / reclamo del valet → Segnalazioni.
+  readonly segnalPer = signal<{ tipo: 'rimborso' | 'reclamo'; d: Delivery } | null>(null);
+  readonly segInCorso = signal(false);
+  readonly segErrore = signal<string | null>(null);
+  segImporto = '';
+  segMotivo = '';
+  apriSegnalazione(tipo: 'rimborso' | 'reclamo', d: Delivery): void {
+    this.segImporto = '';
+    this.segMotivo = '';
+    this.segErrore.set(null);
+    this.segnalPer.set({ tipo, d });
+  }
+  chiudiSegnalazione(): void { this.segnalPer.set(null); }
+  inviaSegnalazione(sp: { tipo: 'rimborso' | 'reclamo'; d: Delivery }): void {
+    const motivo = this.segMotivo.trim();
+    if (!motivo) { this.segErrore.set(this.translate.instant('deliveryDetail.segnal.manca')); return; }
+    let importo: number | undefined;
+    if (sp.tipo === 'rimborso') {
+      importo = parseFloat(this.segImporto.replace(',', '.'));
+      if (!isFinite(importo) || importo <= 0) {
+        this.segErrore.set(this.translate.instant('deliveryDetail.segnal.importoManca'));
+        return;
+      }
+    }
+    const oggetto = this.translate.instant('deliveryDetail.segnal.' + sp.tipo + 'Title', { code: sp.d.code });
+    this.segInCorso.set(true);
+    this.http.post(`${environment.apiUrl}/segnalazioni`, {
+      tipo: sp.tipo, deliveryId: sp.d.id, oggetto, testo: motivo, importo,
+    }).subscribe({
+      next: () => {
+        this.segInCorso.set(false);
+        this.segnalPer.set(null);
+        this.esitoDiMassa.set(this.translate.instant('deliveryDetail.segnal.inviata'));
+      },
+      error: (err) => {
+        this.segInCorso.set(false);
+        this.segErrore.set(err?.error?.message ?? 'Errore');
+      },
+    });
+  }
   /**
    * CONSEGNE DA FORNITORE (31/08): il partner consegna la SUA consegna. Allora
    * ha gli stessi bottoni del valet, direttamente in lista.
@@ -1734,7 +1813,9 @@ export class DeliveriesListComponent {
    */
   private riferimentiChiesti = false;
   private caricaRiferimenti(): void {
-    if (this.riferimentiChiesti || !this.canManage()) return;
+    // Anche il team leader deve poter assegnare: i valet servono a lui come
+    // all'ufficio (l'API poi verifica il suo perimetro).
+    if (this.riferimentiChiesti || !this.canAssign()) return;
     this.riferimentiChiesti = true;
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));

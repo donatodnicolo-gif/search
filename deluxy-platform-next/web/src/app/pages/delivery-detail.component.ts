@@ -122,6 +122,9 @@ interface DeliveryDetail {
           }
           @if (canManage()) {
             <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
+          }
+          <!-- Assegna: ufficio E team leader (nel suo perimetro). -->
+          @if (canAssign()) {
             <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
           }
         </div>
@@ -151,6 +154,20 @@ interface DeliveryDetail {
               </button>
             }
             @if (azioneErrore(); as e) { <span class="azione-errore">{{ e }}</span> }
+          </div>
+        }
+
+        <!-- Su ogni consegna EFFETTUATA (consegnata o non consegnata) il valet
+             ha due strade verso le Segnalazioni: chiedere un RIMBORSO o aprire
+             un RECLAMO. (31/08, richiesta utente). -->
+        @if (isValet() && consegnaEffettuata(d)) {
+          <div class="valet-azioni">
+            <button type="button" class="act" (click)="apriSegnalazione('rimborso')">
+              {{ 'deliveryDetail.segnal.rimborso' | translate }}
+            </button>
+            <button type="button" class="act" (click)="apriSegnalazione('reclamo')">
+              {{ 'deliveryDetail.segnal.reclamo' | translate }}
+            </button>
           </div>
         }
       }
@@ -571,6 +588,34 @@ interface DeliveryDetail {
         </div>
       </div>
     }
+    <!-- RIMBORSO / RECLAMO del valet su una consegna effettuata. -->
+    @if (segnalTipo(); as tipo) {
+      <div class="overlay" (click)="chiudiSegnalazione()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'deliveryDetail.segnal.' + tipo + 'Title' | translate: { code: delivery()?.code } }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiSegnalazione()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <div class="chiusura-corpo">
+          @if (tipo === 'rimborso') {
+            <label class="campo-eti">{{ 'deliveryDetail.segnal.importo' | translate }}</label>
+            <input class="field" name="segImporto" inputmode="decimal" [(ngModel)]="segImporto"
+                   [placeholder]="'deliveryDetail.segnal.importoPh' | translate" />
+          }
+          <label class="campo-eti">{{ 'deliveryDetail.segnal.motivo' | translate }}</label>
+          <textarea class="field" rows="3" name="segMotivo" [(ngModel)]="segMotivo"
+                    [placeholder]="'deliveryDetail.segnal.motivoPh' | translate"></textarea>
+          @if (segErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="act" [disabled]="segInCorso()" (click)="chiudiSegnalazione()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="act primary" [disabled]="segInCorso()" (click)="inviaSegnalazione(tipo)">
+            {{ 'deliveryDetail.segnal.invia' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- La foto del prodotto (§9: scrim unico, ✕ obbligatoria, Esc). -->
     @if (fotoAperta(); as f) {
       <div class="foto-scrim" (click)="chiudiFoto()" role="dialog" aria-modal="true" [attr.aria-label]="f.nome">
@@ -849,6 +894,13 @@ export class DeliveryDetailComponent {
   readonly statoInCorso = signal(false);
   readonly azioneErrore = signal<string | null>(null);
   readonly ddtFoto = signal<string | null>(null);
+
+  // Rimborso / reclamo del valet su una consegna effettuata → Segnalazioni.
+  readonly segnalTipo = signal<null | 'rimborso' | 'reclamo'>(null);
+  readonly segInCorso = signal(false);
+  readonly segErrore = signal<string | null>(null);
+  segImporto = '';
+  segMotivo = '';
   readonly firmaFatta = signal(false);
   receiverTipo = 'recipient';
   nomeRicevente = '';
@@ -867,6 +919,10 @@ export class DeliveryDetailComponent {
   /** La consegna e' ancora in lavorazione: solo li' il valet puo' agire. */
   lavorabile(d: { status: string }): boolean {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+  }
+  /** Consegna EFFETTUATA (consegnata o non): il valet può chiedere rimborso o reclamare. */
+  consegnaEffettuata(d: { status: string }): boolean {
+    return ['delivered', 'not_delivered', 'approved', 'invalidated'].includes(d.status);
   }
   /**
    * CONSEGNE DA FORNITORE (31/08): è il partner stesso a consegnare la SUA
@@ -1031,13 +1087,21 @@ export class DeliveryDetailComponent {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
   }
+  /** Chi può assegnare: l'ufficio, e il team leader (nel suo perimetro, l'API verifica). */
+  canAssign(): boolean {
+    const u = this.auth.user();
+    return this.canManage() || (u?.role === 'VALET' && u?.isTeamLeader === true);
+  }
 
   constructor() {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.load();
+    // I valet servono a chi può assegnare: ufficio E team leader.
+    if (this.canAssign()) {
+      this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((v) => this.valets.set(v));
+    }
     if (this.canManage()) {
       this.http.get<Province[]>(`${environment.apiUrl}/provinces`).subscribe((p) => this.provinces.set(p));
-      this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((v) => this.valets.set(v));
     }
   }
 
@@ -1077,6 +1141,43 @@ export class DeliveryDetailComponent {
   openMaps(d: DeliveryDetail): void {
     const url = this.mapsUrl(d);
     if (url) window.open(url, '_blank');
+  }
+
+  // ---- RIMBORSO / RECLAMO del valet → Segnalazioni ----
+  apriSegnalazione(tipo: 'rimborso' | 'reclamo'): void {
+    this.segImporto = '';
+    this.segMotivo = '';
+    this.segErrore.set(null);
+    this.segnalTipo.set(tipo);
+  }
+  chiudiSegnalazione(): void { this.segnalTipo.set(null); }
+  inviaSegnalazione(tipo: 'rimborso' | 'reclamo'): void {
+    const motivo = this.segMotivo.trim();
+    if (!motivo) { this.segErrore.set(this.translate.instant('deliveryDetail.segnal.manca')); return; }
+    let importo: number | undefined;
+    if (tipo === 'rimborso') {
+      importo = parseFloat(this.segImporto.replace(',', '.'));
+      if (!isFinite(importo) || importo <= 0) {
+        this.segErrore.set(this.translate.instant('deliveryDetail.segnal.importoManca'));
+        return;
+      }
+    }
+    const d = this.delivery();
+    const oggetto = this.translate.instant('deliveryDetail.segnal.' + tipo + 'Title', { code: d?.code });
+    this.segInCorso.set(true);
+    this.http.post(`${environment.apiUrl}/segnalazioni`, {
+      tipo, deliveryId: this.id, oggetto, testo: motivo, importo,
+    }).subscribe({
+      next: () => {
+        this.segInCorso.set(false);
+        this.segnalTipo.set(null);
+        this.banner.set(this.translate.instant('deliveryDetail.segnal.inviata'));
+      },
+      error: (err) => {
+        this.segInCorso.set(false);
+        this.segErrore.set(err?.error?.message ?? 'Errore');
+      },
+    });
   }
 
   // ---- SHARE: link pubblico di monitoraggio ----

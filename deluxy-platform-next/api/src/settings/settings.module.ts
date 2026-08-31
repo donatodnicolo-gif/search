@@ -4,6 +4,7 @@ import {
   Get,
   Injectable,
   Module,
+  Post,
   Put,
   Query,
 } from '@nestjs/common';
@@ -65,6 +66,15 @@ export const SETTING_KEYS = [
   'transactionsUrl',
   'transactionsApiKey',
   'transactionsHmacSecret',
+  // DELUXY HUB — casella di posta prestata (POST /api/posta), 31/08/2026.
+  // Le notifiche via email (nuovo servizio al partner, assegnazione al valet)
+  // partono dalla casella del portale: le credenziali SMTP hanno UNA casa sola,
+  // la cassaforte del Hub (Standard §7). Qui serve solo l'indirizzo del Hub e
+  // un token di servizio del Hub con lo scope «posta» (SEGRETO). Le env
+  // (HUB_URL / HUB_POSTA_TOKEN, con ripiego su HUB_KEYS_TOKEN) hanno la
+  // precedenza; se il token è vuoto, non parte nessuna mail (fail-closed).
+  'hubUrl',
+  'hubPostaToken',
 ] as const;
 
 @Injectable()
@@ -96,6 +106,57 @@ export class SettingsService {
   async get(key: (typeof SETTING_KEYS)[number]): Promise<string | null> {
     const row = await this.prisma.appSetting.findUnique({ where: { key } });
     return row?.value?.trim() || null;
+  }
+
+  /**
+   * Manda un'email dalla CASELLA DEL HUB (POST /api/posta): le credenziali SMTP
+   * hanno una casa sola, la cassaforte del portale (Standard §7). Qui serve solo
+   * l'indirizzo del Hub e un token di servizio con lo scope «posta».
+   * Configurabile da /settings (hubUrl, hubPostaToken) o via env (HUB_URL /
+   * HUB_POSTA_TOKEN, con ripiego su HUB_KEYS_TOKEN). Ritorna un esito parlante
+   * (non lancia): lo usano sia le notifiche best-effort sia la prova manuale.
+   */
+  async inviaViaHub(a: string, oggetto: string, testo: string): Promise<{ ok: boolean; motivo: string; mittente?: string }> {
+    const url = ((await this.get('hubUrl')) || process.env.HUB_URL || 'https://deluxy-hub.vercel.app').replace(/\/+$/, '');
+    const token = (await this.get('hubPostaToken')) || process.env.HUB_POSTA_TOKEN || process.env.HUB_KEYS_TOKEN || '';
+    if (!token) return { ok: false, motivo: 'Hub non configurato: manca il token di posta (hubPostaToken).' };
+    try {
+      const res = await fetch(`${url}/api/posta`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a, oggetto, testo }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; mittente?: string };
+      if (!res.ok || body.ok === false) {
+        return { ok: false, motivo: body.error ?? `Hub /api/posta risponde HTTP ${res.status}` };
+      }
+      return { ok: true, motivo: 'inviata', mittente: body.mittente };
+    } catch (err) {
+      return { ok: false, motivo: `Hub non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
+  /**
+   * Prova end-to-end della posta: manda un messaggio di test all'indirizzo
+   * indicato (di norma quello dell'admin che sta configurando). Dice PERCHÉ non
+   * funziona invece di un generico "non parte".
+   */
+  async provaPosta(a: string): Promise<{ ok: boolean; messaggio: string }> {
+    const dest = (a ?? '').trim();
+    if (!dest) return { ok: false, messaggio: 'Indica un indirizzo email di prova.' };
+    const esito = await this.inviaViaHub(
+      dest,
+      'Prova posta · piattaforma consegne Deluxy',
+      ['Questa è una mail di prova dalla piattaforma consegne Deluxy.', '',
+       'Se la leggi, le notifiche via email (nuovo servizio ai partner, assegnazione ai valet) funzionano.',
+       '', 'Deluxy'].join('\n'),
+    );
+    return {
+      ok: esito.ok,
+      messaggio: esito.ok
+        ? `Inviata a ${dest}${esito.mittente ? ` da ${esito.mittente}` : ''}. Controlla la casella.`
+        : `Non inviata: ${esito.motivo}`,
+    };
   }
 
   /**
@@ -292,6 +353,13 @@ export class SettingsController {
   @ApiOperation({ summary: 'Verifica indirizzo e chiave di Deluxy Orders (solo admin)' })
   provaOrders() {
     return this.service.provaOrders();
+  }
+
+  @Post('posta/prova')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Manda una mail di prova dalla casella del Hub (solo admin)' })
+  provaPosta(@Body() body: { a?: string }) {
+    return this.service.provaPosta(body?.a ?? '');
   }
 
   @Autenticato()

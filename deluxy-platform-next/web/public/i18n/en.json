@@ -227,6 +227,14 @@
       "user": "Mailbox the email is sent from",
       "key": "AI Mail key",
       "hint": "Partner recaps go out from here, so the copy lands in the real mailbox's Sent folder. Generate the token in AI Mail → App Settings. Without key and mailbox the recap can still be downloaded."
+    },
+    "hubMail": {
+      "title": "Email notifications (Hub)",
+      "url": "Hub address",
+      "token": "Hub mail token",
+      "hint": "Notifications (new service to the partner, assignment to the valet) are sent from the portal mailbox. You need a Hub token with the «posta» scope (created in Hub → /chiavi). The HUB_URL / HUB_POSTA_TOKEN env vars take precedence.",
+      "provaEmail": "Test email",
+      "test": "Send a test email"
     }
   },
   "role": {
@@ -1924,7 +1932,21 @@
     "foto": {
       "apri": "See the product photo"
     },
-    "fromListino": "from price list"
+    "fromListino": "from price list",
+    "segnal": {
+      "rimborso": "Add (refund)",
+      "reclamo": "Report",
+      "rimborsoTitle": "Refund request — delivery #{{code}}",
+      "reclamoTitle": "Report — delivery #{{code}}",
+      "importo": "Requested amount (€)",
+      "motivo": "Reason",
+      "importoPh": "e.g. 8.50",
+      "motivoPh": "Describe what happened…",
+      "invia": "Send to office",
+      "inviata": "Sent to the office. You can find it in Reports.",
+      "manca": "Write a reason.",
+      "importoManca": "Enter a valid amount."
+    }
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
@@ -2413,7 +2435,8 @@
     },
     "tipo": {
       "reclamo": "Complaint",
-      "segnalazione": "Report"
+      "segnalazione": "Report",
+      "rimborso": "Refund"
     }
   }
 }

@@ -928,21 +928,12 @@ export class DeliveriesService {
    * stesso contratto del recap; best-effort, non fa mai fallire la consegna.
    */
   private async inviaMail(a: string, oggetto: string, corpo: string): Promise<void> {
-    try {
-      if (!a) return;
-      const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
-      const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
-      const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
-      if (!chiave || !utente) return; // AI Mail non configurata: si tace
-      const res = await fetch(`${url}/api/v1/invia`, {
-        method: 'POST',
-        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ a, oggetto, corpo }),
-      });
-      if (!res.ok) throw new Error(`AI Mail risponde ${res.status}`);
-    } catch (err) {
-      console.error('notifica-mail: invio fallito:', (err as Error).message);
-    }
+    if (!a) return;
+    // Le notifiche via email passano dalla casella del HUB (Standard §7): la
+    // logica e la configurazione vivono in SettingsService, qui si delega.
+    // Best-effort: un invio fallito non fa mai fallire la consegna.
+    const esito = await this.settings.inviaViaHub(a, oggetto, corpo);
+    if (!esito.ok) console.error('notifica-mail: invio via Hub fallito:', esito.motivo);
   }
 
   private async notificaInserimentoAlPartner(delivery: { id: string; code: number; partnerId: string | null }): Promise<void> {

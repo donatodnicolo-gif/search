@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
 
 interface GeocodeResult {
   provinceCode: string | null;
@@ -105,6 +106,39 @@ interface GeocodeResult {
           </div>
         </label>
         <p class="hint">{{ 'settings.mail.hint' | translate }}</p>
+
+        <!-- NOTIFICHE VIA EMAIL — casella del Hub (POST /api/posta). È il canale
+             da cui partono le notifiche al partner (nuovo servizio) e al valet
+             (assegnazione). Le credenziali SMTP stanno solo nella cassaforte del
+             Hub (Standard §7): qui basta l'indirizzo del Hub e un token con lo
+             scope «posta». -->
+        <h3 class="sotto-titolo">{{ 'settings.hubMail.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.hubMail.url' | translate }}</span>
+          <input class="field mono" name="hubUrl" [(ngModel)]="model.hubUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="https://deluxy-hub.vercel.app" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.hubMail.token' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showHubToken() ? 'text' : 'password'" name="hubPostaToken"
+                   [(ngModel)]="model.hubPostaToken" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="dlxk_…" />
+            <button type="button" class="btn btn-secondary" (click)="showHubToken.set(!showHubToken())">
+              {{ (showHubToken() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.hubMail.hint' | translate }}</p>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.hubMail.provaEmail' | translate }}</span>
+          <input class="field mono" name="provaEmail" [(ngModel)]="provaEmail" type="email"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="tu@deluxy.it" />
+        </label>
+        <div class="key-row" style="margin-top:10px">
+          <button type="button" class="btn btn-secondary" [disabled]="provandoPosta()" (click)="provaPosta()">
+            {{ (provandoPosta() ? 'common.loading' : 'settings.hubMail.test') | translate }}
+          </button>
+          @if (esitoPosta(); as e) {
+            <span class="esito" [class.ok]="e.ok" [class.ko]="!e.ok">{{ e.messaggio }}</span>
+          }
+        </div>
 
         <!-- Deluxy Orders: da qui arrivano gli ordini Shopify da smistare.
              Chiave di SOLA LETTURA: la piattaforma legge, non scrive mai. -->
@@ -230,6 +264,7 @@ interface GeocodeResult {
 })
 export class SettingsComponent {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   readonly saving = signal(false);
   readonly saved = signal(false);
@@ -246,7 +281,11 @@ export class SettingsComponent {
     mailUrl: '', mailApiKey: '', mailUtente: '',
     aiApiKey: '',
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '',
+    hubUrl: '', hubPostaToken: '',
   };
+
+  /** Indirizzo su cui mandare la mail di prova (di default l'admin stesso). */
+  provaEmail = this.auth.user()?.email ?? '';
 
   readonly showLineeKey = signal(false);
 
@@ -258,6 +297,29 @@ export class SettingsComponent {
   readonly showAiKey = signal(false);
   readonly provandoOrders = signal(false);
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
+  readonly showHubToken = signal(false);
+  readonly provandoPosta = signal(false);
+  readonly esitoPosta = signal<{ ok: boolean; messaggio: string } | null>(null);
+
+  /**
+   * Prova end-to-end della posta: salva PRIMA i due campi del Hub (la prova gira
+   * sul server e legge dal database), poi manda una mail di prova all'indirizzo
+   * indicato. Come le altre prove, si salvano SOLO i campi in gioco.
+   */
+  provaPosta(): void {
+    this.provandoPosta.set(true);
+    this.esitoPosta.set(null);
+    const soloHub = { hubUrl: this.model.hubUrl, hubPostaToken: this.model.hubPostaToken };
+    this.http.put(`${environment.apiUrl}/settings`, soloHub).subscribe({
+      next: () => this.http
+        .post<{ ok: boolean; messaggio: string }>(`${environment.apiUrl}/settings/posta/prova`, { a: this.provaEmail })
+        .subscribe({
+          next: (r) => { this.provandoPosta.set(false); this.esitoPosta.set(r); },
+          error: (e) => { this.provandoPosta.set(false); this.esitoPosta.set({ ok: false, messaggio: e?.error?.message ?? 'Prova non riuscita' }); },
+        }),
+      error: (e) => { this.provandoPosta.set(false); this.esitoPosta.set({ ok: false, messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
+    });
+  }
 
   /** Prova la connessione al registro e dice PERCHE' non funziona, se non funziona. */
   provaAnagrafiche(): void {

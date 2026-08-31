@@ -200,9 +200,15 @@ export class AuthService {
         operationId: true,
         status: true,
         mustChangePassword: true,
+        // ⚠️ Senza questo, `isTeamLeader` c'era al login ma spariva al RELOAD
+        // (me() è la fonte dopo un refresh): il team leader perdeva il bottone
+        // «Assegna» ricaricando la pagina.
+        valet: { select: { isTeamLeader: true } },
       },
     });
-    return user;
+    if (!user) return user;
+    const { valet, ...resto } = user as typeof user & { valet: { isTeamLeader: boolean } | null };
+    return { ...resto, isTeamLeader: valet?.isTeamLeader === true };
   }
 
 
