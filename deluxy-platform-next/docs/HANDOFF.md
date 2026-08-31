@@ -104,7 +104,34 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 🔄 30/08/2026 — RIALLINEAMENTO col nuovo export del legacy: censimento, delta, e la COLLISIONE DEI NUMERI
+### ✅ 31/08/2026 — RIALLINEAMENTO COMPLETO: tutto l'importabile è dentro, il resto è elencato col motivo
+
+Dopo la rinumerazione (92 piattaforma-nate spostate a #100001+, decisione
+utente: il numero del legacy resta autorevole; da 100.000 in su vivono le
+consegne nate qui, la collisione non si ripete):
+
+- **62.038 consegne con legacyId** — TUTTE le nuove del legacy sono dentro,
+  col loro numero. Fuori restano 543: le 541 che il primo import scartò
+  (401 senza partner, 197 senza data) e la **63096 senza partner** (aperta,
+  decisione utente).
+- **+104 righe prodotto** delle nuove; fuori 3.683 = 3.323 orfane
+  (deliveryId NULL, esclusione storica) + 354 delle scartate + le righe di
+  63096 + **1 riga sulla consegna esistente #62207** (decisione utente).
+- **+498 attività valet, +1.203 righe di storico, +1 ricevuta (id 351)** —
+  fasi attivita e stipendi sul delta (stipendi FILTRATA alla sola nuova:
+  `salva()` avrebbe aggiornato le 350 ricevute esistenti coi valori legacy).
+- Utenti: fuori 11 = 9 SENZA RUOLO nel legacy (account orfani/test, mai
+  importati per disegno) + i 2 clienti senza nome. Prodotti: fuori 25, tutti
+  **cancellati e vuoti** nel legacy (niente da importare).
+- Cataloghi e listini: invariati.
+
+🔴 Restano APERTE (decisioni utente, dettaglio in preparazione): le
+divergenze sugli esistenti — status 1.229 · paghe 550 · valet 62 · price 6 ·
+productValue 6 · partner 1 — di cui si prepara lo spaccato per campo
+(quante sono avanzamenti del legacy vs correzioni volute qui).
+⚠️ E finché il legacy resta vivo, ogni nuovo export riporterà divergenze:
+questa è una FOTOGRAFIA, non una sincronizzazione continua.
+
 
 L'utente ha riesportato l'intero database del legacy («localhost (1).csv»,
 220 MB, tutte le tabelle in un CSV solo — diviso con `dividi-export-unico.mjs`
