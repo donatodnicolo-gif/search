@@ -49,7 +49,7 @@ import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 const DELIVERY_LIST_SELECT = {
   id: true, code: true, date: true, status: true,
   deliveryTimeFrom: true, deliveryTimeTo: true, deliveryFlexible: true,
-  pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true,
+  pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
   partner: { select: { id: true, insegna: true } },
