@@ -580,6 +580,31 @@ di far aspettare un'email che non arriverà. Si accende da `/chiavi` → progett
 `hub` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
 diversi dai default): effetto immediato, senza redeploy.
 
+### ✅ La posta funziona — verificata il 31/08/2026
+
+Configurazione **viva in produzione** (cassaforte, progetto `hub`):
+
+| | |
+|---|---|
+| `SMTP_HOST` | **`authsmtp.securemail.pro`** |
+| `SMTP_PORT` | `465` |
+| `SMTP_USER` / `SMTP_FROM` | `noreply@deluxy.it` |
+| `SMTP_PASS` | inserita dall'utente il 31/08 |
+
+Prove fatte, in quest'ordine: **«Prova il collegamento»** → *«il server di posta
+accetta queste credenziali»* (autentica senza spedire); **recupero password
+vero** da `/password-dimenticata` → token creato e **nessun errore d'invio nei
+log**; **`POST /api/posta`** → `{"ok":true,"mittente":"noreply@deluxy.it"}`, cioè
+una conferma *positiva* e non solo l'assenza di errori. Nel registro di `/chiavi`
+la riga «inviata».
+
+⚠️ **`authsmtp.<dominio>` NON va bene sulla 465.** Il primo tentativo è fallito
+con *«Hostname/IP does not match certificate's altnames»*: `authsmtp.deluxy.it`
+punta allo stesso server di register.it, ma il **certificato TLS** copre
+`*.securemail.pro` e non il nome del dominio. La guida di register.it lo dice —
+è il motivo per cui l'host giusto è `authsmtp.securemail.pro`. Da ricordare per
+qualunque altra app Deluxy che debba spedire con quelle caselle.
+
 ### `POST /api/posta` — la casella del portale, prestata alle altre app (30/08/2026)
 
 Le credenziali SMTP hanno **una casa sola**: la cassaforte del Hub (Standard §7).
@@ -662,7 +687,7 @@ Parametri **misurati**, non copiati da una guida:
 
 | Voce | Valore | Come è stato verificato |
 |---|---|---|
-| `SMTP_HOST` | **`authsmtp.deluxy.it`** | risolve su `authsmtp.register.it` → 81.88.48.66 (lo stesso host di `authsmtp.securemail.pro`) |
+| `SMTP_HOST` | **`authsmtp.securemail.pro`** | `authsmtp.<dominio>` punta allo stesso server ma il certificato TLS copre solo `*.securemail.pro`: sulla 465 la connessione viene rifiutata (misurato) |
 | `SMTP_PORT` | **`465`** | il server risponde `220 … cmsmtp authsmtp ESMTP server ready` su 465 (TLS diretto), 587 e 25 |
 | `SMTP_USER` | l'**indirizzo email completo** della casella | lo dà register.it, non è deducibile |
 | `SMTP_PASS` | la password di **quella casella** | idem |
