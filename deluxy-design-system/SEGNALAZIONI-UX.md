@@ -391,3 +391,20 @@ tutto risponde — misurato: orologio 08:05:35 → 08:05:37, riga aperta al prim
 ⚠️ Chi verifica un'interazione deve usare il click del driver (o navigare prima), altrimenti
 apre segnalazioni per difetti che non esistono. È parente della trappola della transizione
 misurata senza focus (voce precedente).
+
+## 31/08/2026 — Piattaforma consegne: passata mobile del custode (2 proposte di voce nuova)
+
+**Proposta §8-ter «La legenda di un elenco»** (dal custode, 31/08): la legenda
+colori/stati vive solo dalla soglia mobile in su; sotto NON si monta — lo stato
+si porta il nome sulla scheda (§5), che la rende ridondante per costruzione.
+Misura: a 375×812 la legenda di Consegne costa ~250px (5–9 righe a wrap) prima
+della prima scheda. Collaudo: prima scheda nella prima schermata (come §8.1).
+STATO: applicata alla piattaforma come correzione locale in attesa di
+approvazione nel Libro (v1.11).
+
+**Proposta §4 «Il form di creazione in testa a un elenco»**: sta chiuso dietro
+un bottone nel page-header; aperto di default SOLO se creare è il compito
+primario della pagina per quel ruolo (es. partner in Preventivi), annotato.
+Misura: a 375×812 il form Preventivi costa ~600px prima dell'elenco.
+STATO: applicata alla piattaforma (form ufficio dietro bottone; partner resta
+aperto, deroga annotata) in attesa di approvazione nel Libro.

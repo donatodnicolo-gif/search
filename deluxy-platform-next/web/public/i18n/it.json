@@ -2,6 +2,10 @@
   "app": {
     "tagline": "Consegne in guanti bianchi, dal 2019."
   },
+  "filters": {
+    "title": "Filtri",
+    "clear": "Azzera"
+  },
   "login": {
     "title": "Deluxy",
     "subtitle": "Accedi alla piattaforma di consegna in guanti bianchi.",
@@ -12,6 +16,8 @@
     "forgot": "Password dimenticata?",
     "forgotHint": "Scrivi la tua email: se corrisponde a un account ti mandiamo un link per scegliere una password nuova.",
     "forgotSend": "Mandami il link",
+    "forgotNetError": "Il server non risponde: riprova fra poco.",
+    "genericError": "Credenziali non valide o server non raggiungibile",
     "forgotDone": "Fatto. Se l'email corrisponde a un account, riceverai a breve un link valido 2 ore. Controlla anche lo spam."
   },
   "nav": {

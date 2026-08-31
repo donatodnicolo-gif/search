@@ -495,7 +495,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
-      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
 })

@@ -71,7 +71,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Bozza', color: '#8A8A8E' },
   SENT: { label: 'Inviato · da firmare', color: '#007aff' },
   RECEIPT_PENDING: { label: 'Ricevuta firmata · da approvare', color: '#C04C00' },
-  APPROVED: { label: 'Approvato', color: '#B8963E' },
+  APPROVED: { label: 'Approvato', color: 'var(--blue, #0071e3)' /* §5: l'oro non e' MAI uno stato; APPROVED e' in lavorazione verso PAID -> blu */ },
   PAID: { label: 'Pagato', color: '#248A3D' },
 };
 /** Passo successivo del flusso lato admin: stato → { next, azione }.
@@ -494,7 +494,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
-      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
 })

@@ -453,7 +453,9 @@ interface ProductRow {
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
       <div class="actions sticky">
-        <a routerLink="/deliveries" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
+        <!-- v1.5: stesso gesto del «← indietro» in testa — la history, non
+             l'URL nudo, o Annulla butta i filtri da cui si è arrivati. -->
+        <button type="button" class="btn btn-secondary" (click)="indietro()">{{ 'common.cancel' | translate }}</button>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
         }
@@ -552,7 +554,14 @@ interface ProductRow {
       .ai-esito.c-bassa { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.18); }
       .ai-perche { margin-top: 4px; color: var(--text-secondary); }
       .ai-mancanti { margin-top: 6px; font-size: 12.5px; color: var(--text-secondary); }
-      @media (max-width: 760px) { .grid-2, .grid-4, .listino { grid-template-columns: 1fr; } }
+      @media (max-width: 800px) {
+        .grid-2, .grid-4, .listino { grid-template-columns: 1fr; }
+        /* Audit 31/08: con un nome prodotto lungo la riga a 3 colonne
+           sfondava a 533px di pagina (misurato). Tendina a tutta riga,
+           quantita' e ✕ sulla seconda. */
+        .prod-top { grid-template-columns: 1fr auto; }
+        .prod-top select { grid-column: 1 / -1; min-width: 0; }
+      }
     `,
   ],
 })

@@ -170,7 +170,8 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
-      .head-actions { display: flex; gap: 10px; align-items: center; }
+      .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } /* 31/08: a 375px ricerca+bottone sbordavano */
+      .head-actions .field { flex: 1 1 180px; min-width: 0; }
       .head-actions .btn { text-decoration: none; }
       .table-wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }

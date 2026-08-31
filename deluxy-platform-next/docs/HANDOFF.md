@@ -104,6 +104,44 @@
 **Ultimo aggiornamento:** 31 agosto 2026 — 🔑 **recupero password** («password dimenticata» → mail con link, stesso flusso dell'invito, E2E verificato in prod); 🙈 vetrina `/home` nascosta (prima schermata: Consegne); 🧭 **perimetro prodotti del partner** (suoi + senza-partner + visibili + partnerLinks, in lettura E in scrittura consegne — prima la scrittura non filtrava); prima ancora (sezioni sotto): legacy SPENTO e riallineamento chiuso, dominio app.deluxy.it vivo. Il resto del riassunto del 28/08: 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+### 📱 31/08/2026 (3ª ondata) — Passata UX MOBILE col custode (architetto-ux + ux-mobile)
+
+Processo da CLAUDE.md: verdetti vincolanti dell'**architetto-ux** (Libro alla
+mano) + audit **misurato** in produzione a 375px (harness con getBoundingClientRect).
+Due proposte di voce nuova del Libro registrate in
+deluxy-design-system/SEGNALAZIONI-UX.md (§8-ter legenda; §4 form-in-testa).
+
+**Applicato e deployato (misure PRIMA→DOPO):**
+- Consegne: zona filtri → **«Filtri (N)»** (pannello richiudibile sotto gli
+  800px; desktop invariato via display:contents); ricerca in prima riga;
+  vista Attive/Storico/Tutte fuori; LEGENDA non montata su mobile; barra di
+  massa top:56px (finiva sotto la topbar). Overflow orizzontale 547px→**375**;
+  la sovrapposizione Dal/Al su «Cerca» (166×30px misurati) SPARITA (Dal/Al a
+  tutta riga nel pannello, 317px cad.).
+- Vendite: la RICERCA usciva dal DOM quando la query non trovava nulla (stava
+  nel ramo @else del vuoto) → sempre montata + vuoto-da-filtro con «0 di N»
+  e Azzera; Accetta/Rifiuta da 6→10px; «proposta» da ORO→arancio (§5).
+- Stipendi: APPROVED da ORO→blu (§5). Chip-scroll GLOBALE (una regola in
+  styles.css): su Stipendi/Fatture «Anno» usciva di +15/+21px.
+- Bersagli touch (regola coarse estesa): link-btn (19px→44: «Firma e carica
+  la ricevuta» del valet!), status-dot-btn, checkbox/radio 22px, icon-btn
+  anche in larghezza, hamburger/bandierine/voci menu/logout/campi .field.
+- Dettaglio: errori da TOAST → banner persistente presso l'azione (§7).
+- Modali → **foglio dal basso** sotto gli 800 (regola globale, safe-area).
+- Form consegna: riga prodotto collassa (sfondava a 533px con nomi lunghi);
+  «Annulla» usa la history come il back (non butta più i filtri).
+- Login: autofocus email; il recupero NON mostra più «inviata» su errore di
+  rete (esito ambiguo §7); stringhe dal dizionario. viewport-fit=cover.
+- Soglia UNICA 800px (erano 640/720/760/860 in sei copie).
+- Prodotti: head-actions non sborda più (wrap + ricerca fluida).
+
+**Aperti UX (piano del custode, prossimo giro):** «Filtri (N)» completo su
+Fatture/Stipendi/Prodotti; azioni di riga → max 2 pillole + «⋯»; form
+Preventivi dell'ufficio dietro bottone; mappe stati → moduli dati con token
+e i18n; celle Calendario 39px e «Chiuso» 9.5px; «N di M» sopra le liste;
+empty con azione; 📄→SVG. ⚠️ Nota audit: **Disponibilità del valet è ancora
+lo stub «sezione in migrazione»** (app.routes.ts:482).
+
 ### 🧰 31/08/2026 (2ª ondata) — Flusso valet, listini=perimetro, proposte in Consegne, Inserisci
 
 Tutto VERIFICATO in produzione (E2E via API + giro completo dal browser con

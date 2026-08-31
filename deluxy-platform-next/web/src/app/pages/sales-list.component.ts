@@ -33,7 +33,7 @@ interface Sale {
  */
 const STATI: Record<string, { etichetta: string; colore: string }> = {
   da_gestire: { etichetta: 'Da gestire', colore: '#d70015' },
-  proposta: { etichetta: 'Proposta', colore: '#B8963E' },
+  proposta: { etichetta: 'Proposta', colore: 'var(--orange, #c93400)' /* §5: l'oro non e' MAI uno stato (verdetto custode 31/08); attende un'azione del partner -> arancio */ },
   accettata: { etichetta: 'Accettata', colore: '#248A3D' },
   non_accettata: { etichetta: 'Non accettata', colore: '#6e6e73' },
   annullata: { etichetta: 'Annullata', colore: '#8e8e93' },
@@ -108,13 +108,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       </div>
     } @else if (caricando()) {
       <p class="muted">{{ 'common.loading' | translate }}</p>
-    } @else if (!visibili().length) {
-      <section class="card vuoto">
-        <p>{{ 'sales.empty' | translate }}</p>
-      </section>
     } @else {
 
-    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. ⚠️ Sta FUORI dal ramo
+         del vuoto (verdetto custode 31/08): prima, digitando una query senza
+         risultati, vinceva il ramo «vuoto» e l'input SPARIVA dalla pagina —
+         impossibile correggere o azzerare quello che si era scritto. -->
     <div class="cerca-riga">
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
@@ -122,6 +121,20 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: vendite().length } }}</span>
       }
     </div>
+
+    @if (!visibili().length) {
+      <section class="card vuoto">
+        @if (cerca.trim() || filtro() !== 'tutte') {
+          <!-- Vuoto DA FILTRO (§6.2): si dice il perché e si offre la via. -->
+          <p>{{ 'comune.contoRighe' | translate: { n: 0, m: vendite().length } }}</p>
+          <button type="button" class="btn btn-secondary" (click)="cerca = ''; filtro.set('tutte')">
+            {{ 'filters.clear' | translate }}
+          </button>
+        } @else {
+          <p>{{ 'sales.empty' | translate }}</p>
+        }
+      </section>
+    } @else {
 
       <div class="table-wrap card">
         <table class="table">
@@ -180,6 +193,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         </table>
       </div>
     }
+    }
     @if (messaggio(); as m) { <p class="esito" [class.ok]="m.ok">{{ m.testo }}</p> }
   `,
   styles: [
@@ -235,7 +249,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .table tr:last-child td { border-bottom: none; }
       .table td { vertical-align: middle; }
       .table td:nth-child(3) { white-space: normal; min-width: 220px; }
-      .azioni { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+      .azioni { display: flex; gap: 10px /* audit 31/08: 6px fra Accetta e Rifiuta, esiti opposti */; justify-content: flex-end; white-space: nowrap; }
       .btn.mini { padding: 4px 12px; font-size: 12.5px; }
       .vuoto { padding: 40px 28px; text-align: center; color: var(--text-secondary); font-size: 14px; }
       .esito { margin-top: 10px; color: var(--danger, #d70015); font-size: 13.5px; }

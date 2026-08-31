@@ -549,9 +549,20 @@ input.field {
 }
 
 /* Legge 4: bersagli ≥ 44px dove si tocca. Il padding cresce senza
-   muovere il layout del mouse. */
+   muovere il layout del mouse.
+   31/08 (verdetto custode): entrano anche link-btn (le azioni di riga di
+   Fatture/Stipendi erano bersagli da ~16px), il bottone-stato del pallino,
+   l'icon-btn anche in LARGHEZZA (34×44 non basta: HIG vuole 44×44) e i
+   checkbox/radio, che a 16px sono i peggiori dell'app col dito. */
 @media (pointer: coarse) {
-  .chip, .quick-tab, .act, .icon-btn { min-height: var(--touch-min); }
+  .chip, .quick-tab, .act, .icon-btn, .link-btn, .status-dot-btn { min-height: var(--touch-min); }
+  .icon-btn { min-width: var(--touch-min); }
+  .link-btn, .status-dot-btn { display: inline-flex; align-items: center; }
+  input[type='checkbox'], input[type='radio'] {
+    width: 22px; height: 22px;
+    /* il bersaglio si allarga oltre il quadrato senza muovere il layout */
+    outline-offset: 6px;
+  }
 }
 
 /* §4 «Form lunghi»: la barra azioni STICKY. Quando la CTA cade oltre
@@ -596,4 +607,43 @@ button.back:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* ============================================================
+   §9 — SU MOBILE LA MODALE È UN FOGLIO DAL BASSO (verdetto del
+   custode 31/08/2026). UNA copia sola della regola per tutta l'app
+   (T2: niente N copie): vale per ogni .dialog e .modal dei
+   componenti — gli !important servono a vincere gli stili scoped
+   dei componenti, che dichiarano il centro-schermo.
+   Radius solo in alto, safe-area sotto: è la finestra del pollice
+   (chiusura consegna del valet, assegnazione, risposte).
+   ============================================================ */
+@media (max-width: 800px) {
+  .dialog, .modal {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: var(--radius-l, 18px) var(--radius-l, 18px) 0 0 !important;
+    max-height: 88dvh !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+
+/* Libro v1.3 (chip su una riga che scorre) — 31/08: su Stipendi e Fatture
+   «Anno» usciva dallo schermo (+15/+21px misurati a 375px). UNA regola per
+   tutti i gruppi di scorciatoie, non N copie. */
+@media (max-width: 800px) {
+  .quick-tabs, .quick {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  .quick-tabs > *, .quick > * { flex: 0 0 auto; }
 }

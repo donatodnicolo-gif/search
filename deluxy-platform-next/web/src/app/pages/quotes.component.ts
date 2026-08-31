@@ -314,7 +314,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
          sopra l'immagine (la ✕ è obbligatoria su ogni modale, Libro §9). */
       .foto-close { position: absolute; float: none; top: 8px; right: 12px; margin: 0; background: rgba(255, 255, 255, 0.85); }
       .foto-modal img { display: block; max-width: 100%; max-height: 78vh; border-radius: 10px; }
-      @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 800px) { .grid { grid-template-columns: 1fr 1fr; } }
       @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
       .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
       .cerca-riga .field { max-width: 340px; }

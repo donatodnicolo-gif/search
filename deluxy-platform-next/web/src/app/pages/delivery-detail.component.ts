@@ -117,6 +117,10 @@ interface DeliveryDetail {
             <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
           }
         </div>
+        <!-- Legge 8 (§7): gli errori NON passano da un toast — banner
+             persistente presso il contesto (verdetto custode 31/08). Il
+             toast resta solo per i successi. -->
+        @if (actionError()) { <div class="error-card action-err">{{ actionError() }}</div> }
 
         <!-- Le azioni del VALET (31/08): ritira e chiude. Solo in avanti —
              l'API rifiuta ogni altro passaggio. «Consegnata» apre il pop-up
@@ -142,7 +146,6 @@ interface DeliveryDetail {
     </div>
 
     @if (banner(); as b) { <div class="toast">{{ b }}</div> }
-    @if (actionError()) { <div class="toast err">{{ actionError() }}</div> }
 
     @if (loading()) {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
@@ -606,7 +609,7 @@ interface DeliveryDetail {
       .act:disabled { opacity: 0.45; cursor: default; }
       .act.primary { background: var(--ink, #1d1d1f); color: #fff; border-color: transparent; }
       .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink, #1d1d1f); color: #fff; padding: 10px 20px; border-radius: 980px; font-size: 13.5px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
-      .toast.err { background: var(--red); }
+      .action-err { margin-top: 10px; }
       .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
       /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
          un tetto e scorre LUI (prima era senza max-height: con l'elenco valet
@@ -686,7 +689,7 @@ interface DeliveryDetail {
       .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.error { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
-      @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
 })

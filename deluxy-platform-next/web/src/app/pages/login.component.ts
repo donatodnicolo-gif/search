@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
 import { LanguageSwitcherComponent } from '../layout/language-switcher.component';
 
@@ -24,6 +24,7 @@ import { LanguageSwitcherComponent } from '../layout/language-switcher.component
             id="email"
             name="email"
             type="email"
+            autofocus
             [(ngModel)]="email"
             required
             autocomplete="username"
@@ -68,6 +69,7 @@ import { LanguageSwitcherComponent } from '../layout/language-switcher.component
                 [placeholder]="'login.email' | translate"
                 aria-label="Email"
               />
+              @if (recuperoErrore(); as e) { <div class="error">{{ e }}</div> }
               <div class="recupero-azioni">
                 <button type="button" class="secondario" (click)="recupero.set(false)">
                   {{ 'common.cancel' | translate }}
@@ -243,6 +245,7 @@ import { LanguageSwitcherComponent } from '../layout/language-switcher.component
 export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly translate = inject(TranslateService);
 
   email = '';
   password = '';
@@ -254,6 +257,7 @@ export class LoginComponent {
   readonly recupero = signal(false);
   readonly recuperoInCorso = signal(false);
   readonly recuperoInviato = signal(false);
+  readonly recuperoErrore = signal<string | null>(null);
 
   chiediRecupero(): void {
     const email = this.emailRecupero.trim();
@@ -279,7 +283,7 @@ export class LoginComponent {
       error: (err) => {
         this.loading.set(false);
         this.error.set(
-          err?.error?.message ?? 'Credenziali non valide o server non raggiungibile',
+          err?.error?.message ?? this.translate.instant('login.genericError'),
         );
       },
     });

@@ -2,6 +2,10 @@
   "app": {
     "tagline": "White-glove delivery, since 2019."
   },
+  "filters": {
+    "title": "Filters",
+    "clear": "Clear"
+  },
   "login": {
     "title": "Deluxy",
     "subtitle": "Sign in to the white-glove delivery platform.",
@@ -12,6 +16,8 @@
     "forgot": "Forgot password?",
     "forgotHint": "Enter your email: if it matches an account we'll send you a link to choose a new password.",
     "forgotSend": "Send me the link",
+    "forgotNetError": "The server is not responding: try again shortly.",
+    "genericError": "Invalid credentials or server unreachable",
     "forgotDone": "Done. If the email matches an account, you'll shortly receive a link valid for 2 hours. Check your spam folder too."
   },
   "nav": {

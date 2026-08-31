@@ -74,6 +74,28 @@ interface PropostaVendita {
             (click)="cambiaVista('tutte')"
           >{{ 'deliveries.view.allStates' | translate }}</button>
         </div>
+        <!-- La ricerca sta in PRIMA riga anche su mobile (Libro §8 punto 1). -->
+        <input
+          class="field cerca"
+          name="q"
+          [attr.placeholder]="'common.search' | translate"
+          [ngModel]="query"
+          (ngModelChange)="onSearch($event)"
+        />
+        <!-- «Filtri (N)» (Libro §8 v1.2, verdetto del custode 31/08): sotto
+             gli 800px l'eccedenza vive in un pannello richiudibile col
+             conteggio; dal desktop il pannello è display:contents e tutto
+             resta visibile come prima. -->
+        <button type="button" class="quick-tab filtri-toggle" [class.active]="filtriAperti()"
+                [attr.aria-expanded]="filtriAperti()" (click)="filtriAperti.set(!filtriAperti())">
+          {{ 'filters.title' | translate }}@if (filtriAttivi() > 0) { ({{ filtriAttivi() }}) }
+        </button>
+        @if (filtriAttivi() > 0) {
+          <button type="button" class="quick-tab filtri-azzera" (click)="azzeraFiltri()">
+            {{ 'filters.clear' | translate }}
+          </button>
+        }
+        <div class="pannello-filtri" [class.aperto]="filtriAperti()">
         @if (partnerFiltro()) {
           <!-- ⚠️ Un elenco ridotto deve dire da COSA (Libro §5): senza questo
                chip la pagina sembrerebbe avere pochissime consegne. -->
@@ -137,13 +159,7 @@ interface PropostaVendita {
             </button>
           }
         </div>
-        <input
-          class="field"
-          name="q"
-          [attr.placeholder]="'common.search' | translate"
-          [ngModel]="query"
-          (ngModelChange)="onSearch($event)"
-        />
+        </div><!-- /pannello-filtri -->
         @if (canSeeMap()) {
           <button class="btn btn-secondary" (click)="showMap.set(!showMap())">
             {{ (showMap() ? 'deliveries.map.hide' : 'deliveries.map.show') | translate }}
@@ -629,12 +645,58 @@ interface PropostaVendita {
         color: var(--gold); /* era #b8863e: cifre invertite, l.oro e. #b8963e */
         cursor: help;
       }
-      /* Mobile: i filtri vanno a capo e occupano tutta la larghezza (niente overflow). */
-      @media (max-width: 640px) {
+      /* ============================================================
+         «FILTRI (N)» — Libro §8 (verdetto del custode 31/08/2026).
+         Dal desktop il pannello NON esiste come scatola (display:contents):
+         tutto sta nel flex come sempre, e il bottone-toggle è nascosto.
+         Sotto gli 800px (la soglia UNICA della piattaforma, quella delle
+         tabelle-a-schede) il pannello si chiude dietro il conteggio.
+         Misura del Libro §8.1: a 375×812 la prima scheda dell'elenco deve
+         comparire nella prima schermata — prima i filtri costavano ~450px.
+         ============================================================ */
+      .pannello-filtri { display: contents; }
+      .filtri-toggle, .filtri-azzera { display: none; }
+      @media (max-width: 800px) {
         .page-header { align-items: stretch; }
         .filters { width: 100%; }
-        .filters > * { flex: 1 1 140px; min-width: 0; }
+        .filters > * { min-width: 0; }
+        .filters .cerca { flex: 1 1 160px; }
+        .filtri-toggle, .filtri-azzera {
+          display: inline-flex; align-items: center; justify-content: center;
+          border: 1px solid var(--hairline-strong); background: var(--surface);
+        }
+        .filtri-toggle.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+        .pannello-filtri {
+          display: none;
+          width: 100%;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid var(--hairline);
+          border-radius: 12px;
+          background: var(--surface);
+        }
+        .pannello-filtri.aperto { display: flex; }
+        /* Le scorciatoie stanno su UNA riga che scorre (Libro v1.3). */
+        .pannello-filtri .quick-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto;
+          -webkit-overflow-scrolling: touch; }
+        .pannello-filtri .quick-tabs > * { flex: 0 0 auto; }
+        /* Dal/Al: era QUI la sovrapposizione con «Cerca» — i due input data
+           non scendono sotto la larghezza intrinseca e sbordavano sul vicino.
+           Nel pannello vanno a capo e prendono tutta la riga. */
+        .pannello-filtri .intervallo { flex-wrap: wrap; }
+        .pannello-filtri .intervallo label { flex: 1 1 100%; }
+        .pannello-filtri .intervallo input { width: 100%; min-width: 0; }
         .filters .btn { justify-content: center; text-align: center; }
+        /* La LEGENDA sotto gli 800 non si monta (proposta §8-ter registrata):
+           ogni scheda porta già il NOME dello stato accanto al pallino. */
+        .legend { display: none; }
+        /* La barra di massa non deve infilarsi SOTTO la topbar sticky (56px). */
+        .barra-massa { top: 56px; }
+        /* Audit 31/08: in scheda «Consegnata» e «Non consegnata» andavano a
+           capo a 4px l'una dall'altra — due esiti OPPOSTI sotto lo stesso
+           pollice. Respiro di 10px. */
+        .actions-cell { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
       }
       /* ⚠️ 800px, non 640: e' la soglia a cui le tabelle diventano SCHEDE
          (styles.css) ed e' li' che l'intestazione di colonna sparisce. Sotto,
@@ -1830,6 +1892,34 @@ export class DeliveriesListComponent {
     this.partnerNome.set(null);
     this.page.set(1);
     this.load();
+  }
+
+  // --- «Filtri (N)» (Libro §8, verdetto del custode 31/08) ------------------
+  /** Il pannello mobile dei filtri: chiuso di default. Dal desktop è invisibile
+   *  come meccanismo (display:contents) e tutto resta in vista. */
+  readonly filtriAperti = signal(false);
+
+  /**
+   * Quanti filtri sono ATTIVI dentro il pannello: stato + periodo/date (una
+   * cosa sola, §8-bis) + partner. La ricerca non conta: sta in prima riga.
+   * «Oggi» è il default della pagina, non un filtro.
+   */
+  filtriAttivi(): number {
+    let n = 0;
+    if (this.statusFilter) n++;
+    if (this.dateTo || (this.dateFilter && this.dateFilter !== this.oggi())) n++;
+    if (this.partnerFiltro()) n++;
+    return n;
+  }
+
+  /** Riporta la pagina al suo stato di default (il vuoto-da-filtro ne ha bisogno). */
+  azzeraFiltri(): void {
+    this.statusFilter = '';
+    this.dateTo = '';
+    this.dateFilter = this.oggi();
+    this.page.set(1);
+    if (this.partnerFiltro()) { this.togliFiltroPartner(); return; }
+    this.reload();
   }
 
   load(): void {
