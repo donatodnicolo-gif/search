@@ -438,3 +438,24 @@ ora applicata su due app, ma nel Libro UX&UI non c'è ancora una voce — vale l
 pena scriverla come «il campo che il contesto già conosce non si chiede»,
 perché ogni form che nasce dentro un contesto (task da negozio, riga da ordine,
 richiesta da cliente) incontra la stessa scelta.
+
+## 31/08/2026 — Scout: «i miei task» non comprendeva quelli che ho assegnato io
+
+Segnalazione dell'utente: «perché non si vedono le task che ho creato per Martina
+Calia?». Il filtro di default si chiamava «Assegnati a me» e chiedeva al database
+solo `owner = io`: un task delegato **spariva dalla vista di chi lo aveva appena
+scritto**, che è il momento in cui uno si aspetta di vederlo. Restava sotto
+«Tutti», in mezzo a cose che non lo riguardavano.
+
+Il difetto non era la query ma la **tassonomia**: due filtri per tre casi
+(assegnati a me · che ho assegnato · di altri). Correzione: «I miei task» =
+assegnati a me **oppure creati da me** — è ciò che una persona intende dicendo
+«i miei», e la riga mostra già l'assegnatario, quindi non si confondono. Il
+secondo filtro diventa «Di tutta la squadra» e ora è vero per chiunque
+(vedi SEGNALAZIONI-SICUREZZA, migr. 0108). Misura: per l'utente «i miei» passa
+da 2 a 7 righe, e le 5 che comparivano erano tutte sue deleghe.
+
+STATO: applicata a Scout (`lib/db.ts`, `task.tsx`, `da-completare.tsx`).
+**PROPOSTA per il Libro**: «chi delega resta nella lista» — ogni app con un
+assegnatario (task, incarichi, richieste) ha lo stesso trivio, e il default
+«assegnati a me» nasconde sempre il lavoro appena delegato.

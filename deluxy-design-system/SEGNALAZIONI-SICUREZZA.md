@@ -106,3 +106,35 @@ mostra mascherato ciò che è successo.
   serve esattamente a rispondere alla domanda «chi ha mandato cosa».
 - **L'elenco dei prefissi automatici è un ripiego** (`noreply`, `postmaster`, …), non un
   rilevamento vero: senza le intestazioni `Auto-Submitted` non c'è modo di saperlo davvero.
+
+## 31/08/2026 — Scout: i task si leggono in squadra (allargamento DICHIARATO, migr. 0108)
+
+**Cosa cambia.** La policy di SELECT su `tasks` passa da
+`owner = auth.uid() OR creato_da = auth.uid() OR email = '<admin>'` a `using (true)`
+per gli autenticati. **Solo la lettura**: INSERT, UPDATE e DELETE restano
+identiche (proprio, creato da sé, o admin) — vedere il lavoro della squadra è
+un'altra cosa dal poterlo cambiare, e allargare le due insieme sarebbe allargare
+più di quanto è stato chiesto.
+
+**Perché.** Richiesta esplicita dell'utente («fai vedere a me e a tutti»), nata da
+un caso vero: crea un task per Martina Calia e non lo trova più. Misurato prima
+della modifica: per un venditore il filtro «Tutti» mostrava **le stesse righe**
+del filtro «Assegnati a me» — un elenco che prometteva più di quello che dava.
+Dopo: Martina vede 7 task su 7 (prima: solo i suoi).
+
+**Perché non è un'eccezione.** `places`, `contacts`, `deals`, `visits` e
+`richieste_cliente` si leggono già tutte con `using (true)` fra gli autenticati:
+Scout è un'app di squadra e il lavoro commerciale è condiviso per progettazione.
+I task erano l'anomalia — ed erano anche **l'unica tabella con un indirizzo email
+scritto nel corpo della policy di lettura**, cioè un privilegio legato a una
+persona invece che a un ruolo.
+
+**Superficie.** Chi entra in Scout è un utente autenticato del team commerciale
+(tre profili oggi). Un task contiene titolo, scadenza, negozio e assegnatario:
+niente recapiti privati oltre a quelli già leggibili in Rubrica dallo stesso
+utente. Nessun dato nuovo diventa visibile a chi prima non poteva vederlo in
+altro modo.
+
+**Resta da guardare.** L'indirizzo admin scritto a mano sopravvive in UPDATE e
+DELETE (eredità della 0022): è un privilegio legato a una persona e non a un
+ruolo, e andrebbe sostituito da un ruolo vero quando si toccherà la scrittura.
