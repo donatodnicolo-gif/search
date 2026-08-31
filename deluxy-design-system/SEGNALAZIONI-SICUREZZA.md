@@ -79,3 +79,30 @@ punto per punto del Libro:
 verificato il 30/08). Finché non lo è, il link non parte e la pagina lo dichiara invece di far
 aspettare un'email che non arriverà. Si accende da `/chiavi`, progetto `hub`, con
 `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` — senza toccare Vercel e senza redeploy.
+
+## Hub — `POST /api/posta`: la casella prestata alle altre app (30/08/2026)
+
+**Perché**: le credenziali SMTP hanno una casa sola (Standard §7). L'alternativa era una
+copia della password della casella in ogni app che manda email — a partire dal recupero
+password di ciascuna.
+
+**È un endpoint che spedisce**: senza difese sarebbe un relay per lo spam il giorno che un
+token gira. Costruito sulla lista già pagata su AI Mail (automatismi che mandano mail),
+adattata a un servizio: scope `posta` obbligatorio (un token per *leggere le chiavi* non
+deve poter spedire a nome di Deluxy) · **fail-closed 503** se la posta non è configurata,
+mai un 200 senza invio · **tetto orario su DB** 100/token e 300 totali · niente caselle
+automatiche · `Idempotency-Key` perché un retry non rispedisca · **registro** in `/chiavi`
+con destinatario mascherato, **senza il corpo** e senza l'indirizzo in chiaro.
+
+Verificato: 401 senza token, 403 con scope sbagliato, 503 a posta assente, 400 su
+destinatario/oggetto, 422 su `noreply@`, ripetizione che non rispedisce, e il registro che
+mostra mascherato ciò che è successo.
+
+### Da tenere d'occhio
+
+- **Il contenuto lo scrive l'app chiamante.** Fra app nostre è accettabile, ma significa che
+  chi ha un token `posta` può far partire un messaggio *dall'indirizzo di Deluxy* con il testo
+  che vuole: i token vanno dati per app e revocati quando un'app va in pensione. Il registro
+  serve esattamente a rispondere alla domanda «chi ha mandato cosa».
+- **L'elenco dei prefissi automatici è un ripiego** (`noreply`, `postmaster`, …), non un
+  rilevamento vero: senza le intestazioni `Auto-Submitted` non c'è modo di saperlo davvero.
