@@ -265,7 +265,11 @@ export default async function ContoEconomico({
   // come un fatto. Il livello governa solo i mesi a venire; «Attuale» resta
   // come lettura di default (consuntivo + budget pubblicato) e da oggi coincide
   // con «Raggiungibile». Ogni mese dice quale dei due è (grassetto = successo).
-  const attuale = sp.vista === "attuale" && cons !== null;
+  // «Attuale» è la vista PREDEFINITA (31/08/2026, richiesta dell'utente:
+  // «metti come default risultato attuale»): chi apre il P&L vuole prima il
+  // risultato com'è — consuntivo + pubblicato — e sceglie uno scenario dopo.
+  // Un livello nell'URL resta una scelta esplicita e vince.
+  const attuale = cons !== null && (sp.vista === "attuale" || (!sp.vista && !sp.livello));
   const ibrida = cons !== null;
   const mensileVista = mensile.map((m) => {
     const reale = cons ? cons.perMese.find((x) => x.month === m.month) : undefined;

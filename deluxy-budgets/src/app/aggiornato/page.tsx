@@ -260,8 +260,15 @@ export default async function AggiornatoPage({
     const ricavo = ricavoDeluxy.get(m.slug) ?? null;
     const advMesi = advBrand.ok ? advBrand.perMaison.get(m.slug) : undefined;
     const adv = advMesi ? mesi.reduce((s, mm) => s + (advMesi[mm - 1] ?? 0), 0) : null;
+    // Il PONTE fra venduto e ricavo (31/08, richiesta utente: «hai tolto tutti
+    // i costi prodotti»): il costo non era sparito — la presa lo sconta già —
+    // ma non si VEDEVA, e un conto senza la riga dei costi non si legge.
+    // Dentro ci stanno prodotti, quota dei partner e IVA sulle vendite (il
+    // venduto è lordo IVA, la presa no): si dichiara, non si spacchetta con
+    // una stima.
+    const prodotti = vend !== null && ricavo !== null ? vend - ricavo : null;
     const contributo = ricavo !== null && adv !== null ? ricavo - adv : null;
-    return { nome: m.nome, vend, budget, mesiSenzaBudget, ricavo, adv, contributo };
+    return { nome: m.nome, vend, budget, mesiSenzaBudget, ricavo, prodotti, adv, contributo };
   }).filter((r) => r.vend !== null || r.budget > 0);
   const vendTot = righeM.reduce((s, r) => s + (r.vend ?? 0), 0);
   // I totali di colonna: il budget totale ha senso solo se NESSUNA riga ha
@@ -270,6 +277,7 @@ export default async function AggiornatoPage({
   const tot = {
     budget: righeM.reduce((s, r) => s + r.budget, 0),
     ricavo: righeM.some((r) => r.ricavo !== null) ? righeM.reduce((s, r) => s + (r.ricavo ?? 0), 0) : null,
+    prodotti: righeM.some((r) => r.prodotti !== null) ? righeM.reduce((s, r) => s + (r.prodotti ?? 0), 0) : null,
     adv: righeM.some((r) => r.adv !== null) ? righeM.reduce((s, r) => s + (r.adv ?? 0), 0) : null,
     contributo: righeM.some((r) => r.contributo !== null) ? righeM.reduce((s, r) => s + (r.contributo ?? 0), 0) : null,
   };
@@ -353,6 +361,7 @@ export default async function AggiornatoPage({
               <th className="num">Venduto</th>
               <th className="num">Budget D2C {etichettaMesi}</th>
               <th className="num">Realizzato</th>
+              <th className="num">Prodotti, partner e IVA</th>
               <th className="num">Ricavo Deluxy</th>
               <th className="num">Pubblicità</th>
               <th className="num">Contributo</th>
@@ -374,6 +383,7 @@ export default async function AggiornatoPage({
                     ? pct((r.vend / r.budget) * 100, 0)
                     : "—"}
                 </td>
+                <td className="num">{r.prodotti !== null ? `− ${eur(r.prodotti)}` : "—"}</td>
                 <td className="num">{r.ricavo !== null ? eur(r.ricavo) : "—"}</td>
                 <td className="num">{r.adv !== null ? `− ${eur(r.adv)}` : "—"}</td>
                 <td className={`num ${r.contributo !== null ? (r.contributo >= 0 ? "pos" : "neg") : ""}`} style={{ fontWeight: 600 }}>
@@ -390,6 +400,7 @@ export default async function AggiornatoPage({
               <td className="num" style={{ fontWeight: 600 }}>
                 {venduto.ok && budgetCompleto && tot.budget > 0 ? pct((vendTot / tot.budget) * 100, 0) : "—"}
               </td>
+              <td className="num" style={{ fontWeight: 600 }}>{tot.prodotti !== null ? `− ${eur(tot.prodotti)}` : "—"}</td>
               <td className="num" style={{ fontWeight: 600 }}>{tot.ricavo !== null ? eur(tot.ricavo) : "—"}</td>
               <td className="num" style={{ fontWeight: 600 }}>{tot.adv !== null ? `− ${eur(tot.adv)}` : "—"}</td>
               <td className={`num ${tot.contributo !== null ? (tot.contributo >= 0 ? "pos" : "neg") : ""}`} style={{ fontWeight: 600 }}>
@@ -400,8 +411,7 @@ export default async function AggiornatoPage({
         </table>
       </div>
       <p className="page-caption" style={{ marginTop: 8 }}>
-        <strong>Ricavo Deluxy</strong> = fee + primo margine scritti dalla piattaforma sugli ordini
-        (il costo prodotti è già tolto: con la quota, quello che resta è di Deluxy).{" "}
+        <strong>Prodotti, partner e IVA</strong> = venduto − ricavo Deluxy: quello che dei negozi non resta — il costo dei prodotti, la quota dei partner e l&apos;IVA sulle vendite (il venduto è lordo IVA, il ricavo no). <strong>Ricavo Deluxy</strong> = fee + primo margine scritti dalla piattaforma sugli ordini.{" "}
         <strong>Pubblicità</strong> = campagne per brand da Marketing (le campagne eliminate non ci
         sono: il totale vero di cassa resta la banca, nel conto economico sopra).{" "}
         <strong>Contributo</strong> = ricavo − pubblicità: struttura e personale non si ripartiscono
