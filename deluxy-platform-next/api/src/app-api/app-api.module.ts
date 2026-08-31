@@ -1019,6 +1019,45 @@ export class AppApiService {
     }));
   }
 
+  /**
+   * I PARTNER attivi, per chi deve sceglierne uno creando una consegna dal
+   * canale app (Customer Service, 31/08/2026).
+   *
+   * ⚠️⚠️ Serve perche' `POST /app/consegne` PRETENDE il partner («dal canale app
+   * non c'e' un partner sottinteso»): senza questo elenco l'unico modo di
+   * sceglierlo era venire qui col browser, e un modulo che ti manda in
+   * un'altra app per un campo su venti non lo usa nessuno.
+   *
+   * ⚠️ Solo quello che serve a una tendina — id, insegna, citta, province
+   * servite — e mai i dati che non c'entrano (email, IVA, IBAN, documenti):
+   * una chiave app non deve poter leggere l'anagrafica dei partner perche' le
+   * serviva un nome.
+   *
+   * ⚠️ Gli ELIMINATI e i disattivati non escono: un partner che non riceve
+   * consegne, in una tendina di scelta, e' solo un modo di sbagliare.
+   */
+  async partner() {
+    const righe = await this.prisma.partner.findMany({
+      where: { active: true, deleted: false },
+      orderBy: { insegna: 'asc' },
+      select: {
+        id: true,
+        insegna: true,
+        city: true,
+        // ⚠️ Solo la SIGLA della provincia, non la provincia intera: alla
+        // tendina serve «MI», e tutto il resto sarebbe roba che viaggia per
+        // niente su una chiamata fatta a ogni apertura del modulo.
+        provinces: { select: { province: { select: { code: true } } } },
+      },
+    });
+    return righe.map((p) => ({
+      id: p.id,
+      insegna: p.insegna,
+      citta: p.city ?? '',
+      province: p.provinces.map((x) => x.province.code),
+    }));
+  }
+
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
   async consegnaPerNumero(numero: number) {
     if (!Number.isInteger(numero) || numero <= 0 || numero > 2_147_483_647) {
@@ -1164,6 +1203,16 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
   servizi(@Query('ambito') ambito?: string) {
     return this.service.servizi(ambito);
+  }
+
+  @Get('partner')
+  @ApiOperation({
+    summary:
+      'I partner ATTIVI (id, insegna, citta, sigle delle province servite): serve a chi crea una consegna dal canale app, perche\' il partner e\' obbligatorio e non c\'e\' un partner sottinteso',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  partner() {
+    return this.service.partner();
   }
 
   @Get('consegne/:numero')
