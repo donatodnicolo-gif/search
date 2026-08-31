@@ -104,6 +104,60 @@
 **Ultimo aggiornamento:** 31 agosto 2026 — 🔑 **recupero password** («password dimenticata» → mail con link, stesso flusso dell'invito, E2E verificato in prod); 🙈 vetrina `/home` nascosta (prima schermata: Consegne); 🧭 **perimetro prodotti del partner** (suoi + senza-partner + visibili + partnerLinks, in lettura E in scrittura consegne — prima la scrittura non filtrava); prima ancora (sezioni sotto): legacy SPENTO e riallineamento chiuso, dominio app.deluxy.it vivo. Il resto del riassunto del 28/08: 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🧾 31/08/2026 (4ª ondata) — Molte richieste dell'utente, tutte deployate
+
+- **Recupero password + cambio obbligatorio**: /auth/password-dimenticata,
+  User.mustChangePassword, pagina /cambia-password + guard. Le 44 password
+  «123» (28 partner, 13 valet, 1 op, 1 admin) → temporanea `Deluxy26%` con
+  cambio obbligatorio. E2E ok, 0 «123» rimaste.
+- **Flusso valet** completo: bottoni in lista+dettaglio; «Consegnata/Non
+  consegnata» SOLO da stato `in_delivery`; pop-up firma(canvas)/DDT/motivo
+  (colonna notDeliveredReason); API solo-in-avanti; il DESTINATARIO si scopre
+  al valet solo da `in_delivery` (mascherato lato SERVER in soloIMieiSoldi).
+- **Perimetri partner**: prodotti (solo suoi+senza-partner=«Servizio Consegne»
+  +visibili+partnerLinks, lettura E scrittura consegne); servizi solo da
+  listino; niente scelta partner/sezione assegnazione/note interne; registro
+  consegna solo admin/op; **sui servizi VENDITA il partner NON vede i dati
+  cliente** (mascherato server). Tendina partner: solo attivi della provincia.
+- **Assegna valet**: solo attivi, ordine per COGNOME, «Cognome Nome»; filtro
+  servizio-a-listino salta gli scope `partner` (caso Salazar/Vendita Deluxy).
+- **Vendite**: default «Da gestire» (include Proposte); Storico; 40 vendite su
+  ordini già evasi riconciliate; smistamento salta i FULFILLED; #numero
+  Shopify (anche pregresso); «Inserisci» (ufficio→form→storico); canale
+  app-to-app: GET espone `portataInConsegna`, POST by-ref/in-consegna (CS
+  porta in consegna → storico).
+- **Fatturazione**: riepilogo «Da fatturare» segue i filtri (era fermo).
+- **Ricerca prodotto** nel form consegna (autocomplete server) + «Crea Nuovo»
+  (partner della consegna, o Deluxy/catalogo comune se servizio vendita).
+- **Fascia consegna flessibile** sempre (flag), minimo 1 ora.
+- **Nomi Title-Case**: utility common/nome-proprio.ts (persone + insegna con
+  acronimi preservati); dati normalizzati (Valet 118, Customer 762, User 3879,
+  Partner 171) + scrittura (valet, partner).
+- **UX mobile** (custode): «Filtri (N)» su Consegne, bersagli 44, fogli dal
+  basso, oro-non-stato, soglia unica 800, ecc. (3ª ondata, sotto).
+- **Preventivi** anche per ufficio; **Richieste** spostata in Operatività;
+  **Stampa** dettaglio in una pagina A4; **Stipendi**: ricerca nome nascosta
+  al valet.
+
+**⚠️ APERTI / DA CHIARIRE (fine 31/08):**
+- **Disponibilità del valet**: la pagina /availability è ancora lo STUB
+  «sezione in migrazione». L'API c'è già (valets getAvailability/
+  setAvailability). MANCA la pagina UI. → DA FARE.
+- **Sezione SEGNALAZIONI** (reclami valet + partner) per admin/op → DA FARE.
+- **Users stato «Eliminato»** che nasconde da fatturazione → serve chiarire
+  se sull'utente o sul partner e cosa escludere.
+- **«Regole del database da applicare»**: DeliveryRule(28 carnet)+
+  ValetDeliveryRule(7) sono GIÀ applicate in Stipendi/Fatturazione. Chiarire
+  QUALI regole in più e DOVE.
+- **Storico stipendi in pagina Stipendi**: le 351 ricevute legacy sono in
+  RICEVUTE; se serve vederle anche in Stipendi/Archivio → DA FARE.
+- **9 consegne** con valet ma valetSalary null (vendite assegnate senza
+  listino valet).
+- 🔴 Sicurezza: il file _pw123-esito.json (email→«123») resta nella storia del
+  commit 8d15e0b3 sul repo pubblico. Force-push per rimuoverlo: da decidere.
+
+
 ### 📱 31/08/2026 (3ª ondata) — Passata UX MOBILE col custode (architetto-ux + ux-mobile)
 
 Processo da CLAUDE.md: verdetti vincolanti dell'**architetto-ux** (Libro alla
