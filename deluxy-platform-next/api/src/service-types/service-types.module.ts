@@ -28,6 +28,22 @@ export class ServiceTypesService {
     });
   }
 
+  /**
+   * I tipi di servizio ABILITATI a un partner: quelli del suo listino
+   * (PartnerService). Regola dell'utente (31/08/2026): un partner inserisce
+   * solo i servizi che ha abilitati — il menu del form mostrava il catalogo
+   * mondiale, Chanel a ora comprese.
+   */
+  findPerPartner(partnerId: string) {
+    return this.prisma.serviceType.findMany({
+      where: {
+        active: true,
+        partnerServices: { some: { partnerId } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findOne(id: string) {
     const service = await this.prisma.serviceType.findUnique({ where: { id } });
     if (!service) throw new NotFoundException('Servizio non trovato');
@@ -161,9 +177,14 @@ export class ServiceTypesController {
   @Get()
   @ApiOperation({ summary: 'Lista tipi di servizio (filtrabile per scope: partner | valet)' })
   async findAll(@CurrentUser() user: JwtUser, @Query('scope') scope?: string) {
-    const dati = scope
-      ? await this.serviceTypesService.findByScope(scope)
-      : await this.serviceTypesService.findAll();
+    // Il PARTNER vede solo i servizi del SUO listino (regola 31/08/2026):
+    // qualunque scope chieda, il perimetro e' il suo. Gli altri come prima.
+    const dati =
+      user.role === Role.PARTNER
+        ? await this.serviceTypesService.findPerPartner(user.partnerId ?? '-')
+        : scope
+          ? await this.serviceTypesService.findByScope(scope)
+          : await this.serviceTypesService.findAll();
     return senzaPrezzi(dati, user);
   }
 

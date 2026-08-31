@@ -69,6 +69,7 @@ export class SalesService {
     customerId?: string;
     source?: string;
     externalOrderId?: string;
+    externalOrderNumber?: string;
     recipientFirstName?: string;
     recipientLastName?: string;
     recipientAddress?: string;
@@ -131,6 +132,8 @@ export class SalesService {
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
+        // Il numero Shopify (es. 2824): quello che un umano riconosce in pagina.
+        externalOrderNumber: body.externalOrderNumber ?? null,
         recipientFirstName: body.recipientFirstName,
         recipientLastName: body.recipientLastName,
         recipientAddress: body.recipientAddress,
@@ -155,6 +158,7 @@ export class SalesService {
   async ingest(body: {
     source: string;
     externalOrderId: string;
+    externalOrderNumber?: string;
     provinceCode?: string;
     provinceId?: string;
     productId?: string;
@@ -249,6 +253,71 @@ export class SalesService {
         ? null
         : "Vendita accettata, ma la consegna non e' stata creata: mancano destinatario, indirizzo, data o servizio. Va inserita a mano.",
     };
+  }
+
+  /** Dettaglio di una vendita: serve al prefill del form consegna (ufficio). */
+  async findOne(id: string) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      include: {
+        product: { select: { id: true, name: true, price: true, type: true } },
+        partner: { select: { id: true, insegna: true } },
+        province: true,
+      },
+    });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    return vendita;
+  }
+
+  /**
+   * L'ufficio PRENDE IN MANO la vendita (bottone «Inserisci», 31/08/2026):
+   * ferma il giro automatico — se era proposta a un partner, la proposta
+   * decade (accetta/rifiuta valgono solo su PROPOSTA) — e la consegna si
+   * inserisce a mano dal form. La vendita resta «da gestire» finché la
+   * consegna non nasce: chiuderla PRIMA direbbe il falso, e chi abbandona il
+   * form a metà la ritroverebbe dove deve stare.
+   */
+  async prendiInMano(id: string) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
+      throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
+    }
+    return this.prisma.sale.update({
+      where: { id },
+      data: {
+        status: SaleStatus.DA_GESTIRE,
+        assignmentReason: [vendita.assignmentReason, "presa in mano dall'ufficio: inserimento manuale"]
+          .filter(Boolean).join(' · '),
+      },
+      include: { product: { select: { id: true, name: true } }, province: true },
+    });
+  }
+
+  /**
+   * Chiude il giro dell'inserimento manuale: la consegna è nata dal form,
+   * la vendita la aggancia e passa in storico (accettata). Il partner della
+   * vendita diventa quello della CONSEGNA: è lì che l'ufficio ha deciso.
+   */
+  async collegaConsegna(id: string, deliveryId: string) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (!deliveryId) throw new BadRequestException('deliveryId obbligatorio');
+    const consegna = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId }, select: { id: true, partnerId: true },
+    });
+    if (!consegna) throw new BadRequestException('Consegna inesistente');
+    if (vendita.deliveryId && vendita.deliveryId !== deliveryId) {
+      throw new BadRequestException('La vendita è già collegata a un\'altra consegna');
+    }
+    return this.prisma.sale.update({
+      where: { id },
+      data: {
+        status: SaleStatus.ACCETTATA,
+        deliveryId,
+        partnerId: consegna.partnerId ?? vendita.partnerId,
+      },
+    });
   }
 
   /**
@@ -604,6 +673,13 @@ export class SalesController {
     return this.salesService.findAll(user);
   }
 
+  @Get(':id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Dettaglio vendita (per il prefill del form consegna)' })
+  findOne(@Param('id') id: string) {
+    return this.salesService.findOne(id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Crea vendita con smistamento automatico al partner' })
   create(
@@ -667,6 +743,22 @@ export class SalesController {
   })
   rifiuta(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.salesService.rifiuta(id, user);
+  }
+
+  @Post(':id/inserisci')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({
+    summary: "L'ufficio prende in mano la vendita: ferma il giro automatico, la consegna si inserisce dal form",
+  })
+  inserisci(@Param('id') id: string) {
+    return this.salesService.prendiInMano(id);
+  }
+
+  @Post(':id/collega-consegna')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Collega la consegna inserita a mano e chiude la vendita (accettata)' })
+  collegaConsegna(@Param('id') id: string, @Body() body: { deliveryId?: string }) {
+    return this.salesService.collegaConsegna(id, body?.deliveryId ?? '');
   }
 }
 

@@ -76,11 +76,18 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
 
-    <!-- ============ FORM (partner): è la pagina, non un pannello nascosto ============ -->
-    @if (isPartner()) {
+    <!-- ============ FORM (partner, e ufficio PER un partner) ============ -->
+    @if (isPartner() || isUfficio()) {
       <section class="card gen" id="form-preventivo">
         <h2 class="gen-title">{{ 'quotes.form.title' | translate }}</h2>
         <div class="grid">
+          @if (isUfficio()) {
+            <label class="fld"><span class="req">{{ 'quotes.form.partner' | translate }}</span>
+              <select class="field" [(ngModel)]="draft.partnerId">
+                <option value="">{{ 'quotes.form.partnerNone' | translate }}</option>
+                @for (p of partnerAttivi(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              </select></label>
+          }
           <label class="fld"><span>{{ 'quotes.form.linea' | translate }}</span>
             <select class="field" [(ngModel)]="draft.linea">
               <option value="">{{ 'quotes.form.lineaNone' | translate }}</option>
@@ -351,12 +358,19 @@ export class QuotesComponent {
   readonly fotoAperta = signal<string | null>(null);
   readonly rispostaPer = signal<QuoteRequest | null>(null);
 
-  draft = { linea: '', description: '', people: null as number | null, city: '', requestedFor: '', photo: '' };
+  draft = { linea: '', description: '', people: null as number | null, city: '', requestedFor: '', photo: '', partnerId: '' };
   rispostaDraft = { status: 'aperta', reply: '' };
 
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
+
+  /** L'ufficio (admin/operation) puo' inserire preventivi PER un partner (31/08). */
+  isUfficio(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
+  readonly partnerAttivi = signal<{ id: string; insegna: string; active?: boolean }[]>([]);
 
   constructor() {
     this.load();
@@ -364,7 +378,11 @@ export class QuotesComponent {
     this.http.get<{ googleMapsBrowserKey: string | null; whatsappNumero: string | null }>(
       `${environment.apiUrl}/settings/public`,
     ).subscribe((s) => this.whatsapp.set(s.whatsappNumero || null));
-    if (this.isPartner()) {
+    if (this.isUfficio()) {
+      this.http.get<{ id: string; insegna: string; active?: boolean }[]>(`${environment.apiUrl}/partners`)
+        .subscribe({ next: (d) => this.partnerAttivi.set((d ?? []).filter((x) => x.active !== false)), error: () => undefined });
+    }
+    if (this.isPartner() || this.isUfficio()) {
       // Le linee servono alla tendina del form.
       this.http.get<{ linee: Linea[] }>(`${environment.apiUrl}/quotes/linee`)
         .subscribe({ next: (d) => this.linee.set(d.linee), error: () => this.linee.set([]) });
@@ -438,10 +456,19 @@ export class QuotesComponent {
     if (this.draft.city.trim()) body['city'] = this.draft.city.trim();
     if (this.draft.requestedFor) body['requestedFor'] = this.draft.requestedFor;
     if (this.draft.photo) body['photo'] = this.draft.photo;
+    // L'ufficio dice PER CHI e' la richiesta: senza partner l'API rifiuta.
+    if (this.isUfficio()) {
+      if (!this.draft.partnerId) {
+        this.saving.set(false);
+        this.newError.set(this.translate.instant('quotes.form.partnerRequired'));
+        return;
+      }
+      body['partnerId'] = this.draft.partnerId;
+    }
     this.http.post(`${environment.apiUrl}/quotes`, body).subscribe({
       next: () => {
         this.saving.set(false);
-        this.draft = { linea: '', description: '', people: null, city: '', requestedFor: '', photo: '' };
+        this.draft = { linea: '', description: '', people: null, city: '', requestedFor: '', photo: '', partnerId: '' };
         this.banner.set(this.translate.instant('quotes.form.done'));
         this.load();
       },

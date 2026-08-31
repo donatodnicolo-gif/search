@@ -99,6 +99,9 @@
       "reply": "Reply"
     },
     "form": {
+      "partner": "Partner (who the request is for)",
+      "partnerNone": "Select partner…",
+      "partnerRequired": "Choose the partner you are entering the request for.",
       "title": "Quote request",
       "linea": "Service of interest",
       "lineaNone": "— None in particular —",
@@ -692,6 +695,12 @@
     }
   },
   "deliveries": {
+    "proposte": {
+      "title": "Orders proposed to you",
+      "hint": "Automatically routed orders awaiting your reply: accepting creates the delivery, refusing passes the order to another shop.",
+      "accetta": "Accept",
+      "rifiuta": "Refuse"
+    },
     "title": "Deliveries",
     "caption": "All the network's deliveries, in real time.",
     "allStatuses": "All statuses",
@@ -1786,6 +1795,28 @@
     "editTitle": "Edit operator"
   },
   "deliveryDetail": {
+    "valet": {
+      "inDelivery": "Start delivery",
+      "delivered": "Delivered",
+      "notDelivered": "Not delivered",
+      "deliveredTitle": "Delivery #{{code}} delivered",
+      "notDeliveredTitle": "Delivery #{{code}} not delivered",
+      "aChi": "Who received it?",
+      "tipo": { "recipient": "Recipient", "concierge": "Concierge / doorman", "other": "Other" },
+      "nomePh": "Name of the person who received it (optional)",
+      "firma": "Receiver's signature",
+      "firmaHint": "Have them sign here with a finger, right on the phone.",
+      "firmaClear": "Redo signature",
+      "ddt": "Signed delivery note",
+      "ddtAdd": "Photograph or attach the delivery note",
+      "ddtRemove": "Remove photo",
+      "confirmDelivered": "Confirm: delivered",
+      "motivo": "Why wasn't it delivered?",
+      "motivi": { "assente": "Recipient absent", "indirizzo": "Wrong or unfindable address", "rifiutata": "Recipient refused", "chiuso": "Closed or unreachable", "altro": "Other" },
+      "dettaglioPh": "Add a detail (required if you choose \"Other\")",
+      "motivoObbligatorio": "Pick a reason or write what happened.",
+      "confirmNotDelivered": "Confirm: not delivered"
+    },
     "title": "Delivery #{{code}}",
     "section": {
       "timing": "Delivery and pickup",
@@ -1995,6 +2026,7 @@
     "empty": "No sales yet. Use “Pull from Orders” to bring orders in.",
     "noPartner": "— no partner",
     "accept": "Accept",
+    "inserisci": "Enter manually",
     "refuse": "Decline",
     "col": {
       "status": "Status",

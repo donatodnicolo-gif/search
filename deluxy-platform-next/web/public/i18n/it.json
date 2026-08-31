@@ -99,6 +99,9 @@
       "reply": "Rispondi"
     },
     "form": {
+      "partner": "Partner (per chi è la richiesta)",
+      "partnerNone": "Seleziona partner…",
+      "partnerRequired": "Scegli il partner per cui inserisci la richiesta.",
       "title": "Richiesta di preventivo",
       "linea": "Servizio d'interesse",
       "lineaNone": "— Nessuno in particolare —",
@@ -692,6 +695,12 @@
     }
   },
   "deliveries": {
+    "proposte": {
+      "title": "Ordini proposti a te",
+      "hint": "Ordini smistati automaticamente in attesa della tua risposta: accettando nasce la consegna, rifiutando l'ordine passa a un altro negozio.",
+      "accetta": "Accetta",
+      "rifiuta": "Rifiuta"
+    },
     "title": "Consegne",
     "caption": "Tutte le consegne della rete, in tempo reale.",
     "allStatuses": "Tutti gli stati",
@@ -1786,6 +1795,28 @@
     "editTitle": "Modifica operatore"
   },
   "deliveryDetail": {
+    "valet": {
+      "inDelivery": "Metti in consegna",
+      "delivered": "Consegnata",
+      "notDelivered": "Non consegnata",
+      "deliveredTitle": "Consegna #{{code}} consegnata",
+      "notDeliveredTitle": "Consegna #{{code}} non consegnata",
+      "aChi": "A chi è stata consegnata?",
+      "tipo": { "recipient": "Destinatario", "concierge": "Custode / portineria", "other": "Altro" },
+      "nomePh": "Nome di chi ha ritirato (facoltativo)",
+      "firma": "Firma di chi ritira",
+      "firmaHint": "Fai firmare qui col dito, direttamente sul telefono.",
+      "firmaClear": "Rifai la firma",
+      "ddt": "DDT firmato",
+      "ddtAdd": "Fotografa o allega il DDT",
+      "ddtRemove": "Togli la foto",
+      "confirmDelivered": "Conferma: consegnata",
+      "motivo": "Perché non è stata consegnata?",
+      "motivi": { "assente": "Destinatario assente", "indirizzo": "Indirizzo errato o introvabile", "rifiutata": "Il destinatario ha rifiutato", "chiuso": "Chiuso o non raggiungibile", "altro": "Altro" },
+      "dettaglioPh": "Aggiungi un dettaglio (obbligatorio se scegli «Altro»)",
+      "motivoObbligatorio": "Scegli un motivo o scrivi cosa è successo.",
+      "confirmNotDelivered": "Conferma: non consegnata"
+    },
     "title": "Consegna #{{code}}",
     "section": {
       "timing": "Dati di consegna e ritiro",
@@ -1995,6 +2026,7 @@
     "empty": "Nessuna vendita. Usa «Tira da Orders» per far entrare gli ordini.",
     "noPartner": "— nessun partner",
     "accept": "Accetta",
+    "inserisci": "Inserisci",
     "refuse": "Rifiuta",
     "col": {
       "status": "Stato",

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -14,6 +15,8 @@ interface Sale {
   createdAt: string;
   deliveryDate?: string | null;
   externalOrderId?: string | null;
+  /** Il numero d'ordine Shopify (es. 2824), riempito anche sul pregresso. */
+  externalOrderNumber?: string | null;
   source: string;
   product?: { id: string; name: string } | null;
   variantName?: string | null;
@@ -142,7 +145,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     <i class="dot"></i>{{ etichetta(s.status) }}
                   </span>
                 </td>
-                <td class="mono">{{ s.brand }}</td>
+                <td class="mono">
+                  @if (s.externalOrderNumber) { <strong>#{{ s.externalOrderNumber }}</strong> · }{{ s.brand }}
+                </td>
                 <td>{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
@@ -159,6 +164,13 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     </button>
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
                       {{ 'sales.refuse' | translate }}
+                    </button>
+                  }
+                  <!-- L'ufficio prende in mano: ferma il giro automatico e
+                       apre il form consegna coi dati della vendita (31/08). -->
+                  @if (canManage() && (s.status === 'proposta' || s.status === 'da_gestire')) {
+                    <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="inserisci(s)">
+                      {{ 'sales.inserisci' | translate }}
                     </button>
                   }
                 </td>
@@ -336,6 +348,28 @@ export class SalesListComponent {
 
   accetta(s: Sale): void { this.rispondi(s, 'accetta'); }
   rifiuta(s: Sale): void { this.rispondi(s, 'rifiuta'); }
+
+  private readonly router = inject(Router);
+
+  /**
+   * L'ufficio prende in mano (31/08): ferma il giro automatico della vendita
+   * e apre il form consegna coi suoi dati. La vendita si chiude (accettata,
+   * con la consegna agganciata) solo quando il form salva.
+   */
+  inserisci(s: Sale): void {
+    this.inCorso.set(s.id);
+    this.messaggio.set(null);
+    this.http.post(`${environment.apiUrl}/sales/${s.id}/inserisci`, {}).subscribe({
+      next: () => {
+        this.inCorso.set(null);
+        this.router.navigate(['/deliveries/new'], { queryParams: { vendita: s.id } });
+      },
+      error: (err) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: err?.error?.message ?? 'Errore nella presa in mano' });
+      },
+    });
+  }
 
   private rispondi(s: Sale, azione: 'accetta' | 'rifiuta'): void {
     this.inCorso.set(s.id);

@@ -148,13 +148,16 @@ interface ProductRow {
               </span>
             }
           </label>
-          <label class="fld"><span class="req">{{ 'deliveryForm.field.partner' | translate }}</span>
-            <select class="field" name="partnerId" [(ngModel)]="model.partnerId" (ngModelChange)="onPartnerChange()" required>
-              <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
-              @for (p of partnerOptions(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
-            </select>
-            @if (addressProvince() && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
-          </label>
+          <!-- Il PARTNER non se lo sceglie: e' sempre lui (campo nascosto, 31/08). -->
+          @if (!isPartner()) {
+            <label class="fld"><span class="req">{{ 'deliveryForm.field.partner' | translate }}</span>
+              <select class="field" name="partnerId" [(ngModel)]="model.partnerId" (ngModelChange)="onPartnerChange()" required>
+                <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
+                @for (p of partnerOptions(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              </select>
+              @if (addressProvince() && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
+            </label>
+          }
           <label class="fld"><span class="req">{{ 'deliveryForm.field.service' | translate }}</span>
             <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
               <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
@@ -218,7 +221,11 @@ interface ProductRow {
         }
       </section>
 
-      <!-- 3. Scelta del salario (assegnazione) -->
+      <!-- 3. Scelta del salario (assegnazione) — ROBA D'UFFICIO (31/08):
+           il PARTNER non la vede (valet, stati, valet-servizio = stipendi).
+           Il server scartava gia' questi campi dalle sue scritture
+           (senzaCampiDiUfficio); ora anche il modulo tace. -->
+      @if (!isPartner()) {
       <section class="card block">
         <header class="block-head"><h2>{{ 'deliveryForm.section.assignment.title' | translate }}</h2>
           <span class="block-sub">{{ 'deliveryForm.section.assignment.sub' | translate }}</span></header>
@@ -245,6 +252,7 @@ interface ProductRow {
         </div>
         <label class="toggle mt"><input type="checkbox" name="deluxyDelivery" [(ngModel)]="model.deluxyDelivery" /><span>{{ 'deliveryForm.toggle.deluxySale' | translate }}</span></label>
       </section>
+      }
 
       <!-- 4. Destinatario e mittente -->
       <section class="card block">
@@ -433,8 +441,12 @@ interface ProductRow {
           <textarea class="field" rows="2" name="notes" [(ngModel)]="model.notes"></textarea></label>
         <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.personalization' | translate }}</span>
           <textarea class="field" rows="2" name="personalizeSaleNotes" [(ngModel)]="model.personalizeSaleNotes"></textarea></label>
-        <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.internalNotes' | translate }} <em>{{ 'deliveryForm.field.internalNotesRoles' | translate }}</em></span>
-          <textarea class="field" rows="2" name="internalNotes" [(ngModel)]="model.internalNotes"></textarea></label>
+        <!-- Le note INTERNE sono dell'ufficio: al partner non si mostrano
+             nemmeno vuote (il server gliele nasconde comunque). -->
+        @if (!isPartner()) {
+          <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.internalNotes' | translate }} <em>{{ 'deliveryForm.field.internalNotesRoles' | translate }}</em></span>
+            <textarea class="field" rows="2" name="internalNotes" [(ngModel)]="model.internalNotes"></textarea></label>
+        }
       </section>
 
       @if (justSaved()) { <div class="ok-card card">{{ 'deliveryForm.savedNotice.pre' | translate }} <strong>{{ 'deliveryForm.savedNotice.create' | translate }}</strong> {{ 'deliveryForm.savedNotice.or' | translate }} <strong>{{ 'common.duplicate' | translate }}</strong> {{ 'deliveryForm.savedNotice.post' | translate }}</div> }
@@ -735,6 +747,22 @@ export class DeliveryFormComponent implements AfterViewInit {
    * conta. Un errore qui lascerebbe la richiesta aperta — fastidioso — ma
    * fermare o annullare la consegna per una nota sarebbe molto peggio.
    */
+  /**
+   * LA VENDITA da cui si arriva («Inserisci» dell'ufficio, 31/08):
+   * `/deliveries/new?vendita=<id>`. Al salvataggio la consegna nata si
+   * aggancia alla vendita, che passa in storico (accettata). Stessa regola
+   * della richiesta: un errore qui non ferma la consegna, che è già nata.
+   */
+  readonly daVendita = signal<string | null>(null);
+
+  private chiudiVendita(nata: { id?: string } | null | undefined): void {
+    const vendita = this.daVendita();
+    if (!vendita || !nata?.id) return;
+    this.http
+      .post(`${environment.apiUrl}/sales/${vendita}/collega-consegna`, { deliveryId: nata.id })
+      .subscribe({ next: () => undefined, error: () => undefined });
+  }
+
   private chiudiRichiesta(nata: { id?: string } | null | undefined): void {
     const rich = this.daRichiesta();
     if (!rich) return;
@@ -749,6 +777,11 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
   puoConfigurare(): boolean {
     return this.auth.user()?.role === 'ADMIN';
+  }
+
+  /** Il PARTNER: niente scelta del partner (è lui) e servizi solo dal suo listino. */
+  isPartner(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
   }
 
   @ViewChild('addressInput') addressInput?: ElementRef<HTMLInputElement>;
@@ -999,6 +1032,37 @@ export class DeliveryFormComponent implements AfterViewInit {
     // ⚠️ Il testo si mette e basta: NON si chiama l'AI da soli. Ogni lettura
     // costa, e chi apre il modulo potrebbe voler compilare a mano — il bottone
     // ce l'ha lì.
+    // «Inserisci» dalla pagina Vendite (31/08): il form si apre coi dati
+    // dell'ordine della vendita. Solo i campi che la vendita HA: quelli che
+    // mancano restano da compilare — meglio vuoto che dedotto.
+    const idVendita = this.route.snapshot.queryParamMap.get('vendita');
+    if (idVendita && !idModifica) {
+      this.daVendita.set(idVendita);
+      this.http.get<any>(`${api}/sales/${idVendita}`).subscribe({
+        next: (v) => {
+          if (!v) return;
+          const m = this.model as Record<string, unknown>;
+          if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
+          if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
+          if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
+          if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
+          if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
+          if (v.recipientAddress) { m['recipientAddress'] = v.recipientAddress; this.onAddressChange(); }
+          if (v.deliveryDate) m['date'] = String(v.deliveryDate).slice(0, 10);
+          if (v.productId) {
+            this.productRows = [{ productId: v.productId, productVariantId: v.productVariantId ?? null,
+              quantity: 1, price: null, flexiblePrice: false } as ProductRow];
+            // il prodotto puo' non stare nei primi 500 della tendina: si va a prendere
+            this.http.get<Product>(`${api}/products/${v.productId}`).subscribe({
+              next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
+              error: () => undefined,
+            });
+          }
+        },
+        error: () => undefined,
+      });
+    }
+
     const idRichiesta = this.route.snapshot.queryParamMap.get('richiesta');
     if (idRichiesta && !idModifica) {
       this.daRichiesta.set(idRichiesta);
@@ -1012,7 +1076,15 @@ export class DeliveryFormComponent implements AfterViewInit {
       });
     }
 
-    this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
+    // Il PARTNER non sceglie il partner: e' sempre lui (31/08/2026). Il campo
+    // e' nascosto, il valore fissato qui — e /partners non si chiama nemmeno
+    // (per lui risponde 403: la lista dei colleghi non gli spetta).
+    if (this.isPartner()) {
+      this.model.partnerId = this.auth.user()?.partnerId ?? '';
+      this.partnerSel.set(this.model.partnerId);
+    } else {
+      this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
+    }
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => {
       // ⚠️ Non si SOSTITUISCE la lista: il prefill può averci già messo il
       // servizio della consegna (se disattivato non arriva da qui). Sostituendo
@@ -1035,7 +1107,11 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (data) this.model.date = data;
       }
     });
-    this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
+    // /valets porta i LISTINI dei valet (stipendi): al partner risponde 403 e
+    // comunque non gli spetta — non lo si chiama nemmeno.
+    if (!this.isPartner()) {
+      this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
+    }
     // La lista prodotti e' paginata: qui serve il catalogo per la tendina,
     // quindi chiedo la pagina massima consentita.
     // ⚠️ Si UNISCE, non si sostituisce: in modifica i prodotti della consegna
@@ -1133,9 +1209,13 @@ export class DeliveryFormComponent implements AfterViewInit {
    * dipendere dal partner, non il contrario.
    */
   readonly filteredPartners = computed(() => {
+    // Solo partner ATTIVI (regola 31/08): uno spento non deve ricevere
+    // consegne nuove. In modifica quello già salvato resta comunque in
+    // tendina (lo tiene partnerOptions), quindi qui si filtra e basta.
+    const attivi = this.partners().filter((p) => p.active !== false);
     const prov = this.addressProvince();
-    if (!prov) return this.partners();
-    return this.partners().filter((p) =>
+    if (!prov) return attivi;
+    return attivi.filter((p) =>
       (p.provinces ?? []).some((pp) => pp.province?.code === prov.code));
   });
 
@@ -1357,7 +1437,8 @@ export class DeliveryFormComponent implements AfterViewInit {
   private syncSelections(): void {
     const inModifica = !!this.editId();
     if (
-      this.model.partnerId && this.partners().length && !inModifica
+      !this.isPartner() // il partner E' il partner: non si azzera mai
+      && this.model.partnerId && this.partners().length && !inModifica
       && !this.filteredPartners().some((p) => p.id === this.model.partnerId)
     ) {
       this.model.partnerId = '';
@@ -1593,6 +1674,7 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (id) { this.router.navigate(['/deliveries', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
         this.chiudiRichiesta(nata);
+        this.chiudiVendita(nata);
         this.router.navigate(['/deliveries']);
       },
       error: (err) => {

@@ -517,11 +517,17 @@ export class DeliveriesService {
       return vicini[0]?.nome ?? null;
     };
 
-    const logs = delivery.logs.map((l) => ({
-      ...l,
-      userName: l.userId ? utenti.get(l.userId) ?? null : null,
-      evento: l.type === 'legacy_update' ? eventoDelLog(l.createdAt) : null,
-    }));
+    // ⚠️ Il REGISTRO è dell'ufficio (31/08/2026): i messaggi raccontano paghe
+    // e prezzi («paga 15,1 -> 0» nei riallineamenti). La pagina lo mostrava
+    // solo ad admin/operation, ma l'API lo mandava a TUTTI — e su ogni
+    // consegna, storico compreso, bastavano gli strumenti del browser.
+    const logs = ['ADMIN', 'OPERATION'].includes(user.role)
+      ? delivery.logs.map((l) => ({
+          ...l,
+          userName: l.userId ? utenti.get(l.userId) ?? null : null,
+          evento: l.type === 'legacy_update' ? eventoDelLog(l.createdAt) : null,
+        }))
+      : [];
 
     return this.soloIMieiSoldi(
       this.hideInternalNotes({ ...delivery, logs, economiaVendita: this.economiaVendita(delivery) }, user),
@@ -682,6 +688,15 @@ export class DeliveriesService {
       },
     });
 
+    // Il partner inserisce SOLO i servizi che ha abilitati (regola 31/08/2026).
+    // Il menu del form e' gia' filtrato dal server, ma il filtro nella sola
+    // lettura si aggira passando l'id — la scrittura deve rifiutare da sola.
+    if (user.role === Role.PARTNER && !partnerService) {
+      throw new BadRequestException(
+        'Servizio non abilitato per il tuo listino: chiedi a Deluxy di attivarlo.',
+      );
+    }
+
     // ⚠️ Prima del prezzo: il calcolo qui sotto usa la distanza, e per un
     // partner "locale" quella ereditata e' misurata dall'origine sbagliata.
     const inCitta = await this.ritiroInCittaDiConsegna(
@@ -830,6 +845,22 @@ export class DeliveriesService {
           'Le consegne con servizio di tipo Vendita non sono modificabili dal partner',
         );
       }
+      // Anche cambiando servizio in modifica vale il listino (31/08/2026).
+      if (dto.serviceTypeId && dto.serviceTypeId !== delivery.serviceTypeId) {
+        const abilitato = await this.prisma.partnerService.findUnique({
+          where: {
+            partnerId_serviceTypeId: {
+              partnerId: user.partnerId ?? '-',
+              serviceTypeId: dto.serviceTypeId,
+            },
+          },
+        });
+        if (!abilitato) {
+          throw new BadRequestException(
+            'Servizio non abilitato per il tuo listino: chiedi a Deluxy di attivarlo.',
+          );
+        }
+      }
     }
     // ⚠️ Stessa difesa della creazione: i campi d'ufficio non si scrivono con
     // un PUT. Qui la regola dello stato «solo se da gestire» già limitava il
@@ -898,7 +929,18 @@ export class DeliveriesService {
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
   }
 
-  async updateStatus(id: string, status: DeliveryStatus, user: JwtUser) {
+  async updateStatus(
+    id: string,
+    status: DeliveryStatus,
+    user: JwtUser,
+    dettagli?: {
+      receiverType?: string;
+      receivedBy?: string;
+      receiverSign?: string;
+      ddtFile?: string;
+      notDeliveredReason?: string;
+    },
+  ) {
     const delivery = await this.findOne(id, user);
 
     // Il partner puo' solo richiedere la cancellazione
@@ -911,6 +953,32 @@ export class DeliveriesService {
       );
     }
 
+    // Il VALET fa il SUO mestiere e solo in avanti (31/08/2026): ritira
+    // (in consegna) e chiude (consegnata / non consegnata). La rotta gli era
+    // aperta su QUALSIASI stato — avrebbe potuto cancellare o retrocedere una
+    // consegna chiusa, e da una chiusa dipende la sua paga.
+    if (user.role === Role.VALET) {
+      const versoConsentito = [
+        DeliveryStatus.IN_DELIVERY,
+        DeliveryStatus.DELIVERED,
+        DeliveryStatus.NOT_DELIVERED,
+      ].includes(status);
+      // Si parte solo da una consegna ancora in lavorazione; «consegnata» e
+      // «non consegnata» valgono anche saltando il ritiro (capita di premere
+      // solo alla fine), ma da una chiusa non si torna indietro.
+      const daStatoAperto = [
+        DeliveryStatus.ASSIGNED,
+        DeliveryStatus.ACCEPTED,
+        DeliveryStatus.IN_PREPARATION,
+        DeliveryStatus.IN_DELIVERY,
+      ].includes(delivery.status as DeliveryStatus);
+      if (!versoConsentito || !daStatoAperto) {
+        throw new ForbiddenException(
+          'Il valet può solo mettere in consegna e chiudere (consegnata / non consegnata) una consegna in lavorazione',
+        );
+      }
+    }
+
     const logType =
       status === DeliveryStatus.IN_DELIVERY
         ? 'departed'
@@ -918,14 +986,34 @@ export class DeliveriesService {
           ? 'delivered'
           : 'status_change';
 
+    // I dettagli della chiusura si scrivono SOLO con lo stato giusto: un
+    // client non deve poter riempire «consegnata a» su una cancellazione.
+    const extra: Record<string, string> = {};
+    const racconto: string[] = [];
+    if (status === DeliveryStatus.DELIVERED && dettagli) {
+      const TIPI: Record<string, string> = {
+        recipient: 'destinatario', concierge: 'custode/portineria', other: 'altro',
+      };
+      if (dettagli.receiverType) { extra['receiverType'] = dettagli.receiverType; racconto.push(`ritirata da: ${TIPI[dettagli.receiverType]}`); }
+      if (dettagli.receivedBy) { extra['receivedBy'] = dettagli.receivedBy; racconto.push(`nome: ${dettagli.receivedBy}`); }
+      if (dettagli.receiverSign) { extra['receiverSign'] = dettagli.receiverSign; racconto.push('firma raccolta dall\'app'); }
+      if (dettagli.ddtFile) { extra['ddtFile'] = dettagli.ddtFile; racconto.push('DDT firmato allegato'); }
+    }
+    if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.notDeliveredReason) {
+      extra['notDeliveredReason'] = dettagli.notDeliveredReason;
+      racconto.push(`motivo: ${dettagli.notDeliveredReason}`);
+    }
+
     const updated = await this.prisma.delivery.update({
       where: { id: delivery.id },
       data: {
         status,
+        ...extra,
         logs: {
           create: {
             type: logType,
-            message: `Stato: ${delivery.status} -> ${status}`,
+            message: `Stato: ${delivery.status} -> ${status}`
+              + (racconto.length ? ` · ${racconto.join(' · ')}` : ''),
             userId: user.sub,
           },
         },
@@ -1139,6 +1227,14 @@ export class DeliveriesService {
     const tariffe = await this.prisma.valetService.findMany({
       where: { valetId, serviceTypeId: delivery.serviceTypeId },
     });
+    // A un valet si assegnano SOLO i servizi che ha abilitati (regola
+    // dell'utente 31/08/2026): senza riga di listino l'assegnazione veniva
+    // accettata con paga NULL — una consegna che nessuno avrebbe mai pagato.
+    if (delivery.serviceTypeId && tariffe.length === 0) {
+      throw new BadRequestException(
+        `${valet.firstName ?? ''} ${valet.lastName ?? ''} non ha questo servizio abilitato nel listino: abilitarlo prima di assegnare.`.trim(),
+      );
+    }
     const valetService = tariffaAllaData(tariffe, delivery.date ?? new Date());
     const valetSalary =
       valetService != null

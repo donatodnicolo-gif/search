@@ -104,6 +104,43 @@
 **Ultimo aggiornamento:** 31 agosto 2026 — 🔑 **recupero password** («password dimenticata» → mail con link, stesso flusso dell'invito, E2E verificato in prod); 🙈 vetrina `/home` nascosta (prima schermata: Consegne); 🧭 **perimetro prodotti del partner** (suoi + senza-partner + visibili + partnerLinks, in lettura E in scrittura consegne — prima la scrittura non filtrava); prima ancora (sezioni sotto): legacy SPENTO e riallineamento chiuso, dominio app.deluxy.it vivo. Il resto del riassunto del 28/08: 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+### 🧰 31/08/2026 (2ª ondata) — Flusso valet, listini=perimetro, proposte in Consegne, Inserisci
+
+Tutto VERIFICATO in produzione (E2E via API + giro completo dal browser con
+l'account valet di prova, firma disegnata compresa). Changelog dettagliato in
+COME-FUNKZIONA §31/08 (4)–(11). In sintesi:
+- **Flusso valet**: bottoni in lista e dettaglio (Metti in consegna /
+  Consegnata / Non consegnata); pop-up chiusura con receiverType
+  (recipient/concierge/other — campi del legacy), nome, firma su canvas,
+  DDT compresso (data URL, giro dei preventivi); motivo su colonna nuova
+  `notDeliveredReason` (migrazione `20260831150000`); API: valet solo
+  in-avanti, 403 su cancella/retrocedi/riapri.
+- **Perimetri**: /service-types filtrato sul listino del PARTNER; scritture
+  consegne rifiutano servizio fuori listino (create+update); assignValet
+  rifiuta valet senza servizio a listino (e i pop-up Assegna, singolo e di
+  massa, propongono solo quelli col servizio); form consegna partner senza
+  campo Partner, senza sezione Assegnazione, senza note interne; /valets non
+  chiamato dal partner; il REGISTRO consegna esce solo ad admin/operation
+  (raccontava le paghe a tutti, storico compreso); tendina partner del form:
+  solo ATTIVI della provincia.
+- **Proposte in Consegne**: blocco «Ordini proposti a te» sopra la lista del
+  partner con Accetta/Rifiuta (stesse rotte di Vendite).
+- **Vendite**: bottone **Inserisci** (ADMIN/OPERATION) → `POST
+  /sales/:id/inserisci` (torna da_gestire, proposta revocata) → form consegna
+  precompilato (`?vendita=<id>`) → al salvataggio `collega-consegna` chiude
+  la vendita (accettata + deliveryId). Numero d'ordine Shopify: colonna
+  `externalOrderNumber` (migrazione `20260831180000`), riempita su tutte le
+  106 esistenti dal registro ordini, mostrata in pagina.
+- **Preventivi dall'ufficio**: form visibile ad ADMIN/OPERATION con tendina
+  del partner (solo attivi); l'API lo permetteva già.
+- **Disponibilità: VERIFICATE** — i due export legacy sono identici
+  (expert 5.501, partner 113.191; 0 nuove, 0 cambiate): quelle in banca sono
+  le più aggiornate; lo scarto 5.501→5.373 sono 128 righe duplicate nel
+  legacy, scritte una volta sola.
+- Team leader: la regola «provincia di responsabilità + partner abilitati −
+  esclusi» esisteva già (common/team-leader.ts) — non riscritta.
+- In coda: passata UX MOBILE col custode (architetto-ux + ux-mobile in corso).
+
 ### 🔑 31/08/2026 — Recupero password + vetrina nascosta + perimetro prodotti del partner
 
 **Recupero password (chiesto urgente dall'utente)** — VERIFICATO E2E in produzione:

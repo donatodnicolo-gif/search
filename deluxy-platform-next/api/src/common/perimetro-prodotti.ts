@@ -15,7 +15,13 @@ import { JwtUser } from './decorators';
 export function perimetroProdottiPartner(user: Pick<JwtUser, 'partnerId'>) {
   return {
     OR: [
-      { partnerId: null },
+      // Dei prodotti SENZA partner al partner arriva solo il servizio di
+      // consegna (deciso dall'utente il 31/08/2026): gli altri 295 orfani
+      // sono «extra» e «riconsegne» una tantum del legacy, non un catalogo.
+      // ⚠️ Il prodotto VIVO si chiama «Servizio Consegne» (plurale); i
+      // «Servizio Consegna» sono archiviati. Si tengono entrambe le grafie:
+      // filtrare solo sul singolare avrebbe mostrato zero.
+      { partnerId: null, name: { in: ['Servizio Consegna', 'Servizio Consegne'] } },
       { partnerId: user.partnerId ?? '-' },
       { visibleToOtherPartners: true },
       { partnerLinks: { some: { partnerId: user.partnerId ?? '-' } } },

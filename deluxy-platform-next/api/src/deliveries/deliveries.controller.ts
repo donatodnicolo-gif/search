@@ -111,7 +111,7 @@ export class DeliveriesController {
     @Body() dto: UpdateDeliveryStatusDto,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.deliveriesService.updateStatus(id, dto.status, user);
+    return this.deliveriesService.updateStatus(id, dto.status, user, dto);
   }
 
   @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)

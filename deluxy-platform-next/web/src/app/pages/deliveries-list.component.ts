@@ -21,6 +21,21 @@ const SERVICE_ICONS: Record<string, string> = {
   CORPORATE: '<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/>',
 };
 
+/** Un ordine smistato in attesa della risposta del partner (vendita «proposta»). */
+interface PropostaVendita {
+  id: string;
+  status: string;
+  externalOrderNumber?: string | null;
+  productName?: string | null;
+  variantName?: string | null;
+  product?: { name?: string | null } | null;
+  province?: { name?: string | null } | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientAddress?: string | null;
+  deliveryDate?: string | null;
+}
+
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
@@ -138,6 +153,47 @@ const SERVICE_ICONS: Record<string, string> = {
         <a routerLink="/deliveries/new" class="btn btn-primary">{{ 'deliveries.add' | translate }}</a>
       </div>
     </div>
+
+    <!-- ORDINI AUTOMATICI PROPOSTI AL PARTNER (31/08, deciso dall'utente):
+         l'ordine smistato si accetta o si rifiuta QUI, dentro Consegne.
+         Accettando nasce la consegna; rifiutando passa al prossimo. -->
+    @if (proposte().length > 0) {
+      <div class="proposte card">
+        <div class="proposte-testa">
+          <strong>{{ 'deliveries.proposte.title' | translate }}</strong>
+          <span class="tag">{{ proposte().length }}</span>
+        </div>
+        <p class="muted proposte-hint">{{ 'deliveries.proposte.hint' | translate }}</p>
+        @for (p of proposte(); track p.id) {
+          <div class="proposta">
+            <div class="proposta-info">
+              <strong>@if (p.externalOrderNumber) { #{{ p.externalOrderNumber }} · }{{ p.productName || p.product?.name }}</strong>
+              @if (p.variantName) { <span class="muted"> · {{ p.variantName }}</span> }
+              <span class="muted riga2">
+                @if (p.recipientFirstName || p.recipientLastName) { {{ p.recipientFirstName }} {{ p.recipientLastName }} — }
+                {{ p.recipientAddress || p.province?.name }}
+                @if (p.deliveryDate) { · {{ p.deliveryDate | date: 'dd/MM/yyyy' }} }
+              </span>
+            </div>
+            <div class="proposta-azioni">
+              <button type="button" class="btn btn-primary" [disabled]="propostaInCorso()" (click)="accettaProposta(p)">
+                {{ 'deliveries.proposte.accetta' | translate }}
+              </button>
+              <button type="button" class="btn btn-secondary rifiuto" [disabled]="propostaInCorso()" (click)="rifiutaProposta(p)">
+                {{ 'deliveries.proposte.rifiuta' | translate }}
+              </button>
+            </div>
+          </div>
+        }
+        @if (propostaAvviso(); as a) { <div class="warn-card">{{ a }}</div> }
+      </div>
+    }
+
+    <!-- Errore di un'azione di riga (es. cambio stato del valet rifiutato):
+         senza un posto suo finirebbe solo dentro i pop-up, cioè nel nulla. -->
+    @if (actionError() && !assignFor() && !additionalFor()) {
+      <div class="warn-card">{{ actionError() }}</div>
+    }
 
     @if (canSeeMap() && showMap()) {
       <app-delivery-map [status]="statusFilter" [date]="dateFilter" />
@@ -324,6 +380,22 @@ const SERVICE_ICONS: Record<string, string> = {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
                     <button type="button" class="act" (click)="openMonitor(d)">{{ 'deliveries.actions.monitor' | translate }}</button>
                     <button type="button" class="act" (click)="openAdditional(d)">{{ 'deliveries.actions.additionalValet' | translate }}</button>
+                  }
+                  <!-- I bottoni del VALET anche IN LISTA (31/08): il ritiro
+                       parte da qui; la chiusura apre il dettaglio col pop-up
+                       giusto già aperto (firma/DDT o motivo). -->
+                  @if (isValetRuolo() && valetPuoLavorare(d)) {
+                    @if (d.status !== 'in_delivery') {
+                      <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id" (click)="valetInConsegna(d)">
+                        {{ 'deliveryDetail.valet.inDelivery' | translate }}
+                      </button>
+                    }
+                    <button type="button" class="act ok" (click)="valetChiudi(d, 'delivered')">
+                      {{ 'deliveryDetail.valet.delivered' | translate }}
+                    </button>
+                    <button type="button" class="act ko" (click)="valetChiudi(d, 'not_delivered')">
+                      {{ 'deliveryDetail.valet.notDelivered' | translate }}
+                    </button>
                   }
                 </td>
               </tr>
@@ -832,6 +904,18 @@ const SERVICE_ICONS: Record<string, string> = {
         border-radius: 980px;
         padding: 2px 8px;
       }
+      /* Ordini proposti al partner: un blocco che si vede, sopra la lista. */
+      .proposte { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--gold-soft); }
+      .proposte-testa { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+      .proposte-hint { margin: 4px 0 10px; font-size: 13px; }
+      .proposta { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+                  padding: 10px 0; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
+      .proposta-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .proposta-info .riga2 { font-size: 13px; }
+      .proposta-azioni { display: flex; gap: 8px; }
+      .proposta-azioni .rifiuto { color: var(--red); }
+      .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
+                   border-radius: 10px; padding: 10px 12px; font-size: 13px; }
       .tag.warn {
         background: rgba(255, 149, 0, 0.12);
         color: #b25000;
@@ -924,6 +1008,10 @@ const SERVICE_ICONS: Record<string, string> = {
       .act:hover:not(:disabled) {
         background: var(--fill);
       }
+      /* I bottoni del valet in riga: il verde chiude bene, il rosso chiude male. */
+      .act.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
+      .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
       .act:disabled {
         opacity: 0.4;
         cursor: not-allowed;
@@ -1149,14 +1237,21 @@ export class DeliveriesListComponent {
    * ⚠️ Senza provincia riconosciuta restano gli attivi: meglio una lista larga
    * che una lista vuota su un indirizzo scritto in modo insolito.
    */
-  private valetAssegnabili(recipientAddress: string | null | undefined) {
-    const attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+  private valetAssegnabili(recipientAddress: string | null | undefined, serviceTypeId?: string | null) {
+    let attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    // Solo chi ha il SERVIZIO della consegna nel listino (regola 31/08/2026):
+    // l'API rifiuta comunque, ma offrire nomi che verranno rifiutati e' peggio.
+    if (serviceTypeId) {
+      attivi = attivi.filter((v) =>
+        (v.services ?? []).some((s) => (s.serviceTypeId ?? s.serviceType?.id) === serviceTypeId));
+    }
     const prov = recipientAddress ? detectProvince(recipientAddress, this.provinces()) : null;
     if (!prov) return attivi;
     return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
   }
 
-  readonly assignValets = computed(() => this.valetAssegnabili(this.assignFor()?.recipientAddress));
+  readonly assignValets = computed(() =>
+    this.valetAssegnabili(this.assignFor()?.recipientAddress, this.assignFor()?.serviceType?.id));
 
   /**
    * Per l'assegnazione DI MASSA: i valet buoni per TUTTE le consegne scelte.
@@ -1172,7 +1267,8 @@ export class DeliveriesListComponent {
     if (!scelte.length) return [];
     let insieme: ValetRef[] | null = null;
     for (const d of scelte) {
-      const buoni = this.valetAssegnabili(d.recipientAddress);
+      // Provincia E servizio di OGNI consegna scelta: chi resta va bene per tutte.
+      const buoni = this.valetAssegnabili(d.recipientAddress, d.serviceType?.id);
       const ids = new Set(buoni.map((v) => v.id));
       insieme = insieme === null ? buoni : insieme.filter((v) => ids.has(v.id));
       if (!insieme.length) return [];
@@ -1431,10 +1527,87 @@ export class DeliveriesListComponent {
     const pag = Number(p.get('page'));
     if (Number.isInteger(pag) && pag > 1) this.page.set(pag);
     this.load();
+    // Gli ordini smistati in attesa di risposta: solo per il PARTNER, che
+    // li accetta o rifiuta da qui (deciso dall'utente il 31/08).
+    if (this.roleOf() === 'PARTNER') this.caricaProposte();
     // ⚠️ Province e valet servono SOLO dentro il pop-up "Assegna", ma venivano
     // chiesti all'apertura della pagina: misurato, /valets pesa 445 KB e
     // ritarda la lista di oltre due secondi per una finestra che quasi sempre
     // non si apre. Ora si caricano al primo bisogno (vedi openAssign).
+  }
+
+  // ==========================================================================
+  // ORDINI AUTOMATICI PROPOSTI (vendite in stato «proposta») — solo PARTNER.
+  // ==========================================================================
+  readonly proposte = signal<PropostaVendita[]>([]);
+  readonly propostaInCorso = signal(false);
+  readonly propostaAvviso = signal<string | null>(null);
+
+  private caricaProposte(): void {
+    this.http.get<PropostaVendita[]>(`${environment.apiUrl}/sales`).subscribe({
+      next: (v) => this.proposte.set((v ?? []).filter((s) => s.status === 'proposta')),
+      error: () => undefined, // la lista consegne resta usabile anche senza proposte
+    });
+  }
+
+  // ==========================================================================
+  // I BOTTONI DEL VALET IN LISTA (31/08): ritiro diretto, chiusura via dettaglio.
+  // ==========================================================================
+  readonly valetStatoInCorso = signal<string | null>(null);
+
+  isValetRuolo(): boolean {
+    return this.roleOf() === 'VALET';
+  }
+  valetPuoLavorare(d: Delivery): boolean {
+    return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+  }
+  valetInConsegna(d: Delivery): void {
+    this.valetStatoInCorso.set(d.id);
+    this.http.patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status: 'in_delivery' }).subscribe({
+      next: () => { this.valetStatoInCorso.set(null); this.load(); },
+      error: (err) => {
+        this.valetStatoInCorso.set(null);
+        this.actionError.set(err?.error?.message ?? 'Errore nel cambio di stato');
+      },
+    });
+  }
+  /** La chiusura chiede firma/DDT o motivo: si apre il dettaglio col pop-up pronto. */
+  valetChiudi(d: Delivery, esito: 'delivered' | 'not_delivered'): void {
+    this.router.navigate(['/deliveries', d.id], { queryParams: { chiudi: esito } });
+  }
+
+  accettaProposta(p: PropostaVendita): void {
+    this.propostaInCorso.set(true);
+    this.propostaAvviso.set(null);
+    this.http.post<{ consegna?: { id: string } | null; avviso?: string | null }>(
+      `${environment.apiUrl}/sales/${p.id}/accetta`, {},
+    ).subscribe({
+      next: (r) => {
+        this.propostaInCorso.set(false);
+        this.proposte.set(this.proposte().filter((x) => x.id !== p.id));
+        if (r?.avviso) this.propostaAvviso.set(r.avviso);
+        this.load(); // la consegna appena nata deve comparire nella lista
+      },
+      error: (err) => {
+        this.propostaInCorso.set(false);
+        this.propostaAvviso.set(err?.error?.message ?? 'Errore nell\'accettazione');
+      },
+    });
+  }
+
+  rifiutaProposta(p: PropostaVendita): void {
+    this.propostaInCorso.set(true);
+    this.propostaAvviso.set(null);
+    this.http.post(`${environment.apiUrl}/sales/${p.id}/rifiuta`, {}).subscribe({
+      next: () => {
+        this.propostaInCorso.set(false);
+        this.proposte.set(this.proposte().filter((x) => x.id !== p.id));
+      },
+      error: (err) => {
+        this.propostaInCorso.set(false);
+        this.propostaAvviso.set(err?.error?.message ?? 'Errore nel rifiuto');
+      },
+    });
   }
 
   /**

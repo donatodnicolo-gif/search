@@ -574,6 +574,7 @@ export class OrdersSyncService {
           const r = await this.sales.ingest({
             source: 'deluxy-orders',
             externalOrderId: o.id,
+            externalOrderNumber: o.numero ?? undefined,
             provinceId: province.get(codice)!,
             productId: prodotti.get(sku)!.productId,
             productVariantId: prodotti.get(sku)!.variantId ?? undefined,

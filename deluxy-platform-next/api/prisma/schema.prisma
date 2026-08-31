@@ -1176,6 +1176,9 @@ model Delivery {
   receiverType       String? // recipient | concierge | other | null
   receiverSign       String? // firma del ricevente
   receipt            String? // foto/ricevuta della consegna
+  /// Perché NON è stata consegnata (flusso valet 31/08/2026): il motivo va
+  /// scritto, non solo lo stato — «non consegnata» senza perché non si gestisce.
+  notDeliveredReason String?
   notDeliveredActionTaken Boolean      @default(false)
   deliveryCode       String?
   deliveryCodeVerified Boolean         @default(false)
@@ -1726,6 +1729,8 @@ model Sale {
   assignmentReason String?
   source          String    @default("app") // app | woocommerce
   externalOrderId String? // id ordine WooCommerce
+  /// Il NUMERO d'ordine Shopify (es. 2824): quello che un umano riconosce.
+  externalOrderNumber String?
 
   /// Chi ha gia' rifiutato questa vendita (JSON array di partnerId).
   /// Serve al ri-smistamento: un partner che ha detto no non la rivede.

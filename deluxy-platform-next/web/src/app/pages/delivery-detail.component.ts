@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, Location } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -90,7 +91,7 @@ interface DeliveryDetail {
 @Component({
   selector: 'app-delivery-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, TranslatePipe],
+  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule],
   template: `
     <div class="form-head">
       <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
@@ -116,6 +117,27 @@ interface DeliveryDetail {
             <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
           }
         </div>
+
+        <!-- Le azioni del VALET (31/08): ritira e chiude. Solo in avanti —
+             l'API rifiuta ogni altro passaggio. «Consegnata» apre il pop-up
+             a-chi/firma/DDT; «Non consegnata» chiede il motivo: da questi
+             stati dipendono paga e fattura, e non si torna indietro da soli. -->
+        @if (isValet() && lavorabile(d)) {
+          <div class="valet-azioni">
+            @if (d.status !== 'in_delivery') {
+              <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="cambiaStato('in_delivery')">
+                {{ 'deliveryDetail.valet.inDelivery' | translate }}
+              </button>
+            }
+            <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="apriChiusura('delivered')">
+              {{ 'deliveryDetail.valet.delivered' | translate }}
+            </button>
+            <button type="button" class="act ko" [disabled]="statoInCorso()" (click)="apriChiusura('not_delivered')">
+              {{ 'deliveryDetail.valet.notDelivered' | translate }}
+            </button>
+            @if (azioneErrore(); as e) { <span class="azione-errore">{{ e }}</span> }
+          </div>
+        }
       }
     </div>
 
@@ -436,6 +458,93 @@ interface DeliveryDetail {
         </div>
       </div>
     }
+
+    <!-- Chiusura del valet: CONSEGNATA (a chi + firma + DDT). Come nella
+         vecchia app: receiverType/receiverSign/ddtFile sono gli stessi campi
+         del legacy (5.994 «custode» reali). -->
+    @if (chiusura() === 'delivered') {
+      <div class="overlay" (click)="chiudiChiusura()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'deliveryDetail.valet.deliveredTitle' | translate: { code: delivery()?.code } }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiChiusura()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <div class="chiusura-corpo">
+          <label class="campo-eti">{{ 'deliveryDetail.valet.aChi' | translate }}</label>
+          <div class="chips">
+            @for (t of TIPI_RICEVENTE; track t) {
+              <button type="button" class="chip" [class.on]="receiverTipo === t" (click)="receiverTipo = t">
+                {{ 'deliveryDetail.valet.tipo.' + t | translate }}
+              </button>
+            }
+          </div>
+          <input class="field" name="nomeRicevente" [(ngModel)]="nomeRicevente"
+                 [placeholder]="'deliveryDetail.valet.nomePh' | translate" />
+
+          <label class="campo-eti">{{ 'deliveryDetail.valet.firma' | translate }}</label>
+          <canvas class="firma-canvas" #firmaCanvas width="640" height="220"
+                  (pointerdown)="firmaGiu($event)" (pointermove)="firmaMuovi($event)"
+                  (pointerup)="firmaSu($event)" (pointercancel)="firmaSu($event)"></canvas>
+          <div class="firma-riga">
+            <span class="muted piccolo">{{ 'deliveryDetail.valet.firmaHint' | translate }}</span>
+            @if (firmaFatta()) {
+              <button type="button" class="act mini" (click)="firmaPulisci()">{{ 'deliveryDetail.valet.firmaClear' | translate }}</button>
+            }
+          </div>
+
+          <label class="campo-eti">{{ 'deliveryDetail.valet.ddt' | translate }}</label>
+          @if (ddtFoto(); as foto) {
+            <div class="ddt-anteprima">
+              <img [src]="foto" alt="DDT" />
+              <button type="button" class="act mini" (click)="ddtFoto.set(null)">{{ 'deliveryDetail.valet.ddtRemove' | translate }}</button>
+            </div>
+          } @else {
+            <label class="act ddt-carica">
+              {{ 'deliveryDetail.valet.ddtAdd' | translate }}
+              <input type="file" accept="image/*" capture="environment" (change)="onDdt($event)" hidden />
+            </label>
+          }
+
+          @if (azioneErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="act" [disabled]="statoInCorso()" (click)="chiudiChiusura()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="confermaConsegnata()">
+            {{ 'deliveryDetail.valet.confirmDelivered' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Chiusura del valet: NON CONSEGNATA (il motivo si registra, non solo lo stato). -->
+    @if (chiusura() === 'not_delivered') {
+      <div class="overlay" (click)="chiudiChiusura()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'deliveryDetail.valet.notDeliveredTitle' | translate: { code: delivery()?.code } }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiChiusura()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <div class="chiusura-corpo">
+          <label class="campo-eti">{{ 'deliveryDetail.valet.motivo' | translate }}</label>
+          <div class="chips colonna">
+            @for (m of MOTIVI; track m) {
+              <button type="button" class="chip" [class.on]="motivo === m" (click)="motivo = m">
+                {{ 'deliveryDetail.valet.motivi.' + m | translate }}
+              </button>
+            }
+          </div>
+          <textarea class="field" rows="2" name="motivoDettaglio" [(ngModel)]="motivoDettaglio"
+                    [placeholder]="'deliveryDetail.valet.dettaglioPh' | translate"></textarea>
+          @if (azioneErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="act" [disabled]="statoInCorso()" (click)="chiudiChiusura()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="act ko" [disabled]="statoInCorso()" (click)="confermaNonConsegnata()">
+            {{ 'deliveryDetail.valet.confirmNotDelivered' | translate }}
+          </button>
+        </div>
+      </div>
+    }
     <!-- La foto del prodotto (§9: scrim unico, ✕ obbligatoria, Esc). -->
     @if (fotoAperta(); as f) {
       <div class="foto-scrim" (click)="chiudiFoto()" role="dialog" aria-modal="true" [attr.aria-label]="f.nome">
@@ -470,6 +579,28 @@ interface DeliveryDetail {
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+      /* Azioni del valet: bersagli larghi, e' un flusso da telefono. */
+      .valet-azioni { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+      .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
+      .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
+      .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
+      .azione-errore { color: var(--red); font-size: 13px; flex-basis: 100%; }
+      .chiusura-corpo { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+      .campo-eti { font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-top: 6px; }
+      .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+      .chips.colonna { flex-direction: column; align-items: stretch; }
+      .chip { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px;
+              padding: 10px 14px; font: inherit; font-size: 14px; cursor: pointer; text-align: left; }
+      .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .firma-canvas { width: 100%; height: 150px; border: 1px dashed var(--hairline-strong);
+                      border-radius: 12px; background: var(--surface); touch-action: none; display: block; }
+      .firma-riga { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+      .piccolo { font-size: 12px; }
+      .act.mini { padding: 6px 12px; font-size: 13px; }
+      .ddt-anteprima { display: flex; align-items: center; gap: 10px; }
+      .ddt-anteprima img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; border: 1px solid var(--hairline); }
+      .ddt-carica { display: inline-flex; cursor: pointer; }
+      textarea.field { resize: vertical; font-family: inherit; }
       .act { appearance: none; font: inherit; font-size: 13px; font-weight: 550; padding: 7px 16px; border-radius: 980px; border: 1px solid var(--hairline); background: var(--surface); color: var(--text); cursor: pointer; }
       .act:hover { background: var(--fill); }
       .act:disabled { opacity: 0.45; cursor: default; }
@@ -627,7 +758,14 @@ export class DeliveryDetailComponent {
    * riconosciuta».
    */
   readonly assignValets = computed(() => {
-    const attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    let attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    // Solo chi ha il SERVIZIO della consegna a listino (regola 31/08/2026):
+    // l'API rifiuta comunque, ma offrire nomi che verranno rifiutati e' peggio.
+    const svc = this.delivery()?.serviceType?.id;
+    if (svc) {
+      attivi = attivi.filter((v) =>
+        (v.services ?? []).some((s) => (s.serviceTypeId ?? s.serviceType?.id) === svc));
+    }
     const prov = this.assignProvince();
     if (!prov) return attivi;
     return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
@@ -671,6 +809,156 @@ export class DeliveryDetailComponent {
     return this.auth.user()?.role === 'PARTNER';
   }
 
+  // ==========================================================================
+  // AZIONI DEL VALET (31/08/2026): ritira e chiude, come nella vecchia app.
+  // ==========================================================================
+  readonly TIPI_RICEVENTE = ['recipient', 'concierge', 'other'] as const;
+  readonly MOTIVI = ['assente', 'indirizzo', 'rifiutata', 'chiuso', 'altro'] as const;
+  readonly chiusura = signal<null | 'delivered' | 'not_delivered'>(null);
+  readonly statoInCorso = signal(false);
+  readonly azioneErrore = signal<string | null>(null);
+  readonly ddtFoto = signal<string | null>(null);
+  readonly firmaFatta = signal(false);
+  receiverTipo = 'recipient';
+  nomeRicevente = '';
+  motivo = '';
+  motivoDettaglio = '';
+  private firmaCtx: CanvasRenderingContext2D | null = null;
+  private firmaTracciando = false;
+
+  isValet(): boolean {
+    return this.auth.user()?.role === 'VALET';
+  }
+  /** La consegna e' ancora in lavorazione: solo li' il valet puo' agire. */
+  lavorabile(d: { status: string }): boolean {
+    return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+  }
+
+  apriChiusura(tipo: 'delivered' | 'not_delivered'): void {
+    this.azioneErrore.set(null);
+    this.receiverTipo = 'recipient';
+    this.nomeRicevente = '';
+    this.motivo = '';
+    this.motivoDettaglio = '';
+    this.ddtFoto.set(null);
+    this.firmaFatta.set(false);
+    this.firmaCtx = null;
+    this.chiusura.set(tipo);
+  }
+  chiudiChiusura(): void {
+    if (!this.statoInCorso()) this.chiusura.set(null);
+  }
+
+  // --- firma su canvas (pointer events: dito, pennino e mouse) --------------
+  private firmaPunto(ev: PointerEvent): { x: number; y: number; ctx: CanvasRenderingContext2D } | null {
+    const canvas = ev.target as HTMLCanvasElement;
+    if (!this.firmaCtx) {
+      this.firmaCtx = canvas.getContext('2d');
+      if (this.firmaCtx) {
+        this.firmaCtx.lineWidth = 2.5;
+        this.firmaCtx.lineCap = 'round';
+        this.firmaCtx.strokeStyle = '#1d1f26';
+      }
+    }
+    if (!this.firmaCtx) return null;
+    // Le coordinate CSS vanno riportate ai pixel interni del canvas.
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: ((ev.clientX - r.left) / r.width) * canvas.width,
+      y: ((ev.clientY - r.top) / r.height) * canvas.height,
+      ctx: this.firmaCtx,
+    };
+  }
+  firmaGiu(ev: PointerEvent): void {
+    ev.preventDefault();
+    (ev.target as HTMLElement).setPointerCapture(ev.pointerId);
+    const p = this.firmaPunto(ev);
+    if (!p) return;
+    this.firmaTracciando = true;
+    p.ctx.beginPath();
+    p.ctx.moveTo(p.x, p.y);
+  }
+  firmaMuovi(ev: PointerEvent): void {
+    if (!this.firmaTracciando) return;
+    ev.preventDefault();
+    const p = this.firmaPunto(ev);
+    if (!p) return;
+    p.ctx.lineTo(p.x, p.y);
+    p.ctx.stroke();
+    this.firmaFatta.set(true);
+  }
+  firmaSu(ev: PointerEvent): void {
+    this.firmaTracciando = false;
+  }
+  firmaPulisci(): void {
+    const canvas = document.querySelector<HTMLCanvasElement>('.firma-canvas');
+    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    this.firmaFatta.set(false);
+  }
+
+  /** Il DDT si comprime NEL BROWSER (stesso giro delle foto dei preventivi). */
+  onDdt(ev: Event): void {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1280;
+      const scala = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scala);
+      canvas.height = Math.round(img.height * scala);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      this.ddtFoto.set(canvas.toDataURL('image/jpeg', 0.8));
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  }
+
+  confermaConsegnata(): void {
+    const corpo: Record<string, string> = { status: 'delivered', receiverType: this.receiverTipo };
+    const nome = this.nomeRicevente.trim();
+    if (nome) corpo['receivedBy'] = nome;
+    if (this.firmaFatta()) {
+      const canvas = document.querySelector<HTMLCanvasElement>('.firma-canvas');
+      if (canvas) corpo['receiverSign'] = canvas.toDataURL('image/png');
+    }
+    const ddt = this.ddtFoto();
+    if (ddt) corpo['ddtFile'] = ddt;
+    this.cambiaStato('delivered', corpo);
+  }
+
+  confermaNonConsegnata(): void {
+    const eti: Record<string, string> = {
+      assente: 'Destinatario assente', indirizzo: 'Indirizzo errato o introvabile',
+      rifiutata: 'Il destinatario ha rifiutato', chiuso: 'Chiuso o non raggiungibile', altro: 'Altro',
+    };
+    const dett = this.motivoDettaglio.trim();
+    if (!this.motivo && !dett) {
+      this.azioneErrore.set(this.translate.instant('deliveryDetail.valet.motivoObbligatorio'));
+      return;
+    }
+    const motivo = [this.motivo ? eti[this.motivo] : '', dett].filter(Boolean).join(' — ');
+    this.cambiaStato('not_delivered', { status: 'not_delivered', notDeliveredReason: motivo });
+  }
+
+  cambiaStato(stato: string, corpo?: Record<string, string>): void {
+    this.statoInCorso.set(true);
+    this.azioneErrore.set(null);
+    this.http.patch(`${environment.apiUrl}/deliveries/${this.id}/status`, corpo ?? { status: stato }).subscribe({
+      next: () => {
+        this.statoInCorso.set(false);
+        this.chiusura.set(null);
+        this.load();
+      },
+      error: (err) => {
+        this.statoInCorso.set(false);
+        this.azioneErrore.set(err?.error?.message ?? 'Errore nel cambio di stato');
+      },
+    });
+  }
+
   /** Storico/log e azioni gestionali: solo admin e operation. */
   canManage(): boolean {
     const r = this.auth.user()?.role;
@@ -694,7 +982,17 @@ export class DeliveryDetailComponent {
 
   private load(): void {
     this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${this.id}`).subscribe({
-      next: (d) => { this.delivery.set(d); this.loading.set(false); },
+      next: (d) => {
+        this.delivery.set(d);
+        this.loading.set(false);
+        // Arrivando dai bottoni della LISTA (?chiudi=delivered|not_delivered)
+        // il pop-up si apre da solo: il valet non deve cercare due volte.
+        const chiudi = this.route.snapshot.queryParamMap.get('chiudi');
+        if ((chiudi === 'delivered' || chiudi === 'not_delivered')
+          && this.isValet() && this.lavorabile(d) && !this.chiusura()) {
+          this.apriChiusura(chiudi);
+        }
+      },
       error: (err) => {
         this.loading.set(false);
         this.error.set(err?.error?.message ?? 'Errore nel caricamento della consegna');

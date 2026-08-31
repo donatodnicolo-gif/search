@@ -181,6 +181,8 @@ export interface ValetRef {
   placeholder?: boolean;
   salaryFrequency?: string; // monthly | weekly
   provinces?: { province: Province }[];
+  /** Il listino del valet: serve a proporre solo chi ha il servizio abilitato. */
+  services?: { serviceTypeId?: string; serviceType?: { id?: string } | null }[];
 }
 
 export interface Product {
