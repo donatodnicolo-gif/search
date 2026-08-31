@@ -409,3 +409,32 @@ primario della pagina per quel ruolo (es. partner in Preventivi), annotato.
 Misura: a 375×812 il form Preventivi costa ~600px prima dell'elenco.
 STATO: applicata alla piattaforma (form ufficio dietro bottone; partner resta
 aperto, deroga annotata) in attesa di approvazione nel Libro.
+
+## 28/08/2026 — Scout: il campo che il contesto già conosce (segnalazione utente, con screenshot)
+
+Aprendo **Nuovo task dalla scheda di un negozio**, il campo «Contatto» partiva
+come una **ricerca vuota in tutta la rubrica** — anche quando quel negozio ha
+**un contatto solo**, mostrato peraltro due riquadri più sotto nella stessa
+pagina. L'utente ha scritto la cosa giusta: «ma il contatto è già quello
+giusto». Misura sui dati veri: **537 negozi hanno esattamente un contatto**
+(su 946 con almeno uno), quindi nel caso più frequente si chiedeva di cercare
+un valore che l'app conosceva già.
+
+È la stessa cosa già decisa il 27/08 su Anagrafiche
+([trappola-campo-ereditato-mostrato-vuoto], regola dell'`architetto-ux`): un
+modulo che crea un figlio dentro un padre non deve mostrare vuoto un campo che
+il padre determina. Applicati qui i **tre regimi**:
+· **un contatto solo** → precompilato col valore vero + nota che nomina la
+  fonte («Il contatto del negozio — cambialo o toglilo se non è lui»);
+· **più contatti** → NON se ne sceglie uno (sarebbe inventato): si mostrano
+  pronti da toccare, con la ricerca che resta accanto;
+· **nessuno** → la ricerca di sempre.
+⚠️ La proposta si fa una volta sola: togliere il contatto con la × è
+un'affermazione dell'utente, e rimetterlo sarebbe discutere con lui.
+
+STATO: **applicata a Scout come correzione locale** (`components/SceltaContatto.tsx`).
+**PROPOSTA per il Libro**: la regola dei tre regimi è nata su Anagrafiche ed è
+ora applicata su due app, ma nel Libro UX&UI non c'è ancora una voce — vale la
+pena scriverla come «il campo che il contesto già conosce non si chiede»,
+perché ogni form che nasce dentro un contesto (task da negozio, riga da ordine,
+richiesta da cliente) incontra la stessa scelta.
