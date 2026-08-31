@@ -63,6 +63,15 @@ export type OrdineDettaglioDto = {
   appPartner: string
   appCostoPartner: number | null
   appInterrottoIl: string | null
+  /**
+   * La consegna nata mandando l'ordine in app: il numero che si legge a schermo.
+   *
+   * ⚠️⚠️ Vuoto insieme a `gestione: 'in_app'` vuol dire che c'è l'etichetta ma
+   * non la consegna — ed è esattamente il caso che chi guarda deve poter
+   * vedere, invece di credere che di là stia lavorando qualcuno.
+   */
+  appConsegnaNumero: string
+  appMandataDaNome: string
   /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
   pagamentoApertoId: string
   pagamentoApertoA: string
@@ -206,6 +215,8 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       appPartner: ordine.appPartner ?? '',
       appCostoPartner: ordine.appCostoPartner ?? null,
       appInterrottoIl: ordine.appInterrottoIl ? ordine.appInterrottoIl.toISOString() : null,
+      appConsegnaNumero: ordine.appConsegnaNumero ?? '',
+      appMandataDaNome: ordine.appMandataDaNome ?? '',
       // ⚠️ La richiesta ancora DA PAGARE su quest'ordine: spegne il bottone
       // «Paga fornitore». Una già pagata non blocca (secondo fornitore).
       pagamentoApertoId: aperta?.id ?? '',
@@ -329,6 +340,8 @@ export async function dettaglioOrdineArchivio(
         appPartner: '',
         appCostoPartner: null,
         appInterrottoIl: null,
+        appConsegnaNumero: '',
+        appMandataDaNome: '',
         pagamentoApertoId: '',
         pagamentoApertoA: '',
         pagamentoApertoQuanto: 0,

@@ -1,5 +1,86 @@
 # Handoff — Deluxy Customer Service
 
+## 31/08/2026 — «In App» diventa un PASSO, e l'ordine si manda di là dal suo modulo
+
+Chiesto dall'utente: «ho bisogno di un nuovo stato prima di *Gestito* che sia
+*In App* e indichi che l'ordine è stato spostato in app; **prendi lo stesso form
+da app delivery che si usa per inserire una consegna da vendita**; sincronizza in
+questo modo gli ordini che ricevi tu con quelli dell'app delivery».
+
+### 1. Lo stato
+
+`in_app` **esisteva già** ma stava fuori dai `PASSI`, perché lo scriveva solo la
+sincronizzazione. Ora è **l'ultimo passo prima di «Gestito»**: da lì la consegna
+la fa la piattaforma, e l'ordine non torna indietro da solo.
+
+⚠️ Sceglierlo dalla fila **non crea** la consegna di là: la crea il modulo. Per
+questo il riquadro sulla scheda adesso dice sempre **se la consegna c'è**
+(numero e chi l'ha mandata) oppure che «l'etichetta è solo nostra»: «In App»
+senza un numero è una parola che nessuno può verificare.
+
+### 2. Il modulo — **la stessa porta del form di là**
+
+`POST /api/v1/app/consegne` della piattaforma è dichiarata «stessa strada del
+form: prezzo dal listino del partner, paga dal listino del valet, attività e
+notifiche». ⚠️⚠️ Scrivere la consegna in un altro modo vorrebbe dire una consegna
+**senza prezzo, senza paga e senza avvisi**: esisterebbe e non funzionerebbe. Per
+lo stesso motivo i campi del modulo sono i campi di quel DTO, non un
+sottoinsieme comodo.
+
+**Il prefill viene dalle stesse fonti del form della piattaforma**, che arrivando
+da una vendita legge `GET /sales/:id`: qui si legge la stessa vendita
+(`/app/vendite/by-ref/deluxy-orders/<ordersId>`) per il **partner**, e il
+**destinatario dal nostro ordine** — che è più fresco, perché l'indirizzo di
+consegna lo possiede Orders.
+
+⚠️ **Il destinatario non è il cliente**: da noi chi ordina e chi riceve sono due
+persone diverse quasi sempre (è un regalo). Mandare il valet dal mittente è
+l'errore più facile e più grave, e per questo la spedizione si chiede a Orders.
+
+⚠️ **Senza partner la piattaforma rifiuta** («dal canale app non c'è un partner
+sottinteso») e l'app-API **non espone l'elenco dei partner**: quando la vendita
+non ha ancora un partner, il modulo lo dice e porta al form di là
+(`/deliveries/new?vendita=<id>`), che la lista ce l'ha. È l'unico caso in cui si
+arrende, e lo dichiara.
+
+### 3. L'ordine delle tre cose, che non è casuale
+
+1. si **crea la consegna** (l'unica cosa che può fallire davvero);
+2. si scrive **il nostro stato**, solo se la consegna esiste — segnare «In App»
+   prima vorrebbe dire fermare il nostro lavoro su un ordine che di là non è mai
+   arrivato;
+3. si dice alla vendita di andare in storico (`…/in-consegna`), **best-effort**:
+   se fallisce la consegna c'è comunque, e rifare tutto creerebbe un doppione.
+   Il messaggio lo dice: «controllala, ma non rifare la consegna».
+
+⚠️ **Idempotenza**: il `riferimentoEsterno` lo decide il codice (l'id in Orders),
+non l'utente. Di là lo stesso riferimento dalla stessa chiave **non crea una
+seconda consegna**; lasciandolo modificabile, due invii diventerebbero due
+consegne, due valet e due paghe per lo stesso regalo.
+
+⚠️ Il modulo **non compare** se l'ordine risulta già in app: il riquadro «se ne
+sta occupando la piattaforma» e il modulo sono la stessa casella in due momenti.
+
+### 4. La sincronizzazione
+
+Resta quella che c'era (`/api/cron/piattaforma` → `sync-piattaforma.ts`, una
+chiamata a giro su `/app/vendite?aggiornateDa=`): quando la piattaforma propone o
+accetta, l'ordine passa «In App»; quando la proposta decade torna dov'era. Adesso
+il giro è **nei due sensi**: di là ci arriva anche quello che mandiamo noi.
+
+🔴 **MANCA, e senza questo non funziona niente**: la **chiave della piattaforma
+con permesso di SCRITTURA**. Oggi `piattaformaApiKey` è **vuota** — quindi non
+funziona nemmeno la lettura. Si crea da app.deluxy.it (admin → Chiavi API,
+spuntando *scrittura*; la chiave in chiaro si vede **una volta sola**) e si
+incolla in *Impostazioni → piattaforma*. Finché non c'è, il modulo si apre, dice
+«chiave non configurata» e non manda niente.
+
+**Provato**: typecheck e build. ⚠️ Il giro vero (leggere la vendita, creare la
+consegna, portarla in storico) **non è stato provato**: senza chiave non si può
+chiamare la piattaforma, e una consegna di prova su app.deluxy.it è una consegna
+vera con un valet e una paga — si prova con una persona davanti, non da uno
+script.
+
 ## 29/08/2026 (12) — «Hanno già preparato ordini per noi» adesso FILTRA
 
 Segnalazione dell'utente, su un ordine di cioccolatini a **Roma**, guardando la

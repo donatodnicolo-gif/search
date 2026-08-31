@@ -32,7 +32,6 @@ model Utente {
   ruolo        String   @default("admin") // admin | operatore
   /**
    * LA GENERAZIONE DELLE SUE SESSIONI.
-   *
    * ⚠️⚠️ Il cookie è `userId.generazione.HMAC(...)` e non contiene altro:
    * nessuna scadenza, nessun identificatore di sessione. Senza questo numero
    * **cambiare la password non buttava fuori nessuno** — che è la mossa
@@ -40,7 +39,6 @@ model Utente {
    * cacciare. L'unica leva era cambiare `APP_SECRET`, che però è anche la
    * chiave con cui sono cifrati tutti i segreti: usarla per chiudere una
    * sessione li rendeva illeggibili in blocco, webhook Meta e posta compresi.
-   *
    * Cambiando la password il numero sale, e ogni cookie firmato con il numero
    * di prima smette di valere al primo caricamento.
    */
@@ -150,12 +148,10 @@ model RichiestaPagamento {
   ordineNumero         String    @default("") // se legata a un ordine
   /**
    * ⚠️⚠️ L'IDENTITÀ dell'ordine, non il suo nome.
-   *
    * Il NUMERO non identifica: lo stesso «#2799» può esistere su due negozi, e
    * chi riconcilia il pagamento sceglieva `findFirst` — cioè uno a caso, e ci
    * scriveva sopra il fornitore e il costo, che finiscono nel margine e
    * viaggiano fino a Deluxy Orders.
-   *
    * L'operatore l'ordine lo SCEGLIE da un elenco (`ScegliOrdine`), quindi
    * l'identità c'era: si buttava via al salvataggio, tenendo solo il numero.
    * Qui si conserva. Vuoto = riga vecchia, o numero scritto a mano: in quel
@@ -255,10 +251,12 @@ model RichiestaPagamento {
   // `creato` · `aggiornato` · `ambiguo` · `errore` · `non-configurato` ·
   // `senza-nome`. Vuoto = non si è mai provato (le righe più vecchie).
   registroEsito     String    @default("")
-  /** La riga che spiega: «somiglia a più anagrafiche», il motivo dell'errore… */
+  /**
+   * La riga che spiega: «somiglia a più anagrafiche», il motivo dell'errore…
+   */
   registroMessaggio String    @default("") @db.Text
   registroIl        DateTime?
-  creatoIl     DateTime  @default(now())
+  creatoIl          DateTime  @default(now())
 
   @@index([creatoIl])
   @@index([ordineNumero])
@@ -447,6 +445,7 @@ model Ordine {
    * /**
    * /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -614,11 +613,11 @@ model Ordine {
   //
   // ⚠️ `appStato` sono i suoi stati, scritti come li scrive lei:
   // da_gestire · proposta · accettata · non_accettata · annullata.
-  appVenditaId     String    @default("")
-  appStato         String    @default("")
-  appPartner       String    @default("")
-  appCostoPartner  Float?
-  appAggiornatoIl  DateTime?
+  appVenditaId      String    @default("")
+  appStato          String    @default("")
+  appPartner        String    @default("")
+  appCostoPartner   Float?
+  appAggiornatoIl   DateTime?
   /**
    * Dov'era la lavorazione PRIMA che l'ordine passasse in app.
    * ⚠️ Serve a tornare indietro senza perdere niente: interrompendo la gestione
@@ -626,14 +625,24 @@ model Ordine {
    * il punto in cui l'avevamo lasciato — non ripartire da «Da iniziare» come se
    * nessuno ci avesse mai lavorato.
    */
-  appGestionePrima String    @default("")
+  appGestionePrima  String    @default("")
   /**
    * Quando una persona ha detto «questo lo facciamo noi».
    * ⚠️⚠️ Vale come un NO alla sincronizzazione: senza, il giro successivo
    * rimetterebbe l'ordine «In App» e la decisione della persona durerebbe dieci
    * minuti. Si toglie riportandolo in automatico.
    */
-  appInterrottoIl  DateTime?
+  appInterrottoIl   DateTime?
+  /// La consegna nata di la quando l ordine e stato mandato IN APP da qui:
+  /// numero che si legge a schermo e id interno.
+  ///
+  /// ⚠️ Si tiene per due motivi: dire a schermo QUALE consegna e nata (senza,
+  /// «mandato in app» e una parola che nessuno puo verificare), e non
+  /// rimandarlo due volte.
+  appConsegnaId     String    @default("")
+  appConsegnaNumero String    @default("")
+  appMandataIl      DateTime?
+  appMandataDaNome  String    @default("")
 
   // ── Chi se ne sta occupando ──
   //
@@ -1513,42 +1522,42 @@ model NotaDiario {
 // mostrato all'operatore lo farebbe ricominciare — col cliente che si ritrova
 // due ordini. Vedi il try/catch in `src/lib/nuovo-ordine.ts`.
 model OrdineCreato {
-  id              String    @id @default(cuid())
+  id                  String    @id @default(cuid())
   /**
    * Chi l'ha fatto: è il motivo per cui questa tabella esiste.
    */
-  utenteId        String    @default("")
-  utenteNome      String    @default("")
-  negozioId       String    @default("")
-  negozioNome     String    @default("")
+  utenteId            String    @default("")
+  utenteNome          String    @default("")
+  negozioId           String    @default("")
+  negozioNome         String    @default("")
   /**
    * `link` (paga il cliente da Shopify) | `pagato` (i soldi c'erano già).
    */
-  pagamento       String    @default("link")
+  pagamento           String    @default("link")
   /**
    * Con che mezzo, quando è `pagato`: bonifico, contanti, POS.
    */
-  mezzoPagamento  String    @default("")
+  mezzoPagamento      String    @default("")
   /**
    * gid della bozza Shopify e il suo nome (#D123).
    */
-  bozzaId         String    @default("")
-  bozzaNome       String    @default("")
+  bozzaId             String    @default("")
+  bozzaNome           String    @default("")
   /**
    * Il numero dell'ordine vero, quando la bozza è stata chiusa subito.
    */
-  ordineNumero    String    @default("")
+  ordineNumero        String    @default("")
   /**
    * Il totale che Shopify ha calcolato sulla bozza: quello vero, non il nostro.
    */
-  importo         Float     @default(0)
-  valuta          String    @default("EUR")
-  clienteNome     String    @default("")
-  clienteEmail    String    @default("")
+  importo             Float     @default(0)
+  valuta              String    @default("EUR")
+  clienteNome         String    @default("")
+  clienteEmail        String    @default("")
   /**
    * Shopify ha spedito da solo la mail con l'invito (serve un indirizzo).
    */
-  invitoInviato   Boolean   @default(false)
+  invitoInviato       Boolean   @default(false)
   /// Quando la bozza e stata ANNULLATA perche scaduta (cancellata su Shopify),
   /// e chi l ha fatto (di norma «automatico»).
   ///
@@ -1560,21 +1569,20 @@ model OrdineCreato {
   /// ⚠️ Si scrive SOLO dopo che Shopify ha confermato la cancellazione (o ha
   /// detto che la bozza non c e piu). Segnarla annullata senza averla
   /// cancellata lascerebbe in giro un link pagabile che qui risulta chiuso.
-  annullataIl     DateTime?
+  annullataIl         DateTime?
   /**
    * CHI ha dichiarato che questa bozza è stata pagata, e quando.
-   *
    * ⚠️ Diverso da chi l'ha creata (`utenteNome`): il link lo manda una
    * persona, i soldi li vede arrivare un'altra, e magari giorni dopo. Davanti
    * a un ordine contestato «lo ha chiuso l'app» non è una risposta.
    * ⚠️ Vuoto = la bozza l'ha pagata il CLIENTE col link, e la chiusura l'ha
    * fatta Shopify per conto suo: sono due fatti diversi e non vanno confusi.
    */
-  segnataPagataDaNome String @default("")
+  segnataPagataDaNome String    @default("")
   segnataPagataIl     DateTime?
-  annullataDaNome String    @default("")
-  annullataMotivo String    @default("")
-  creatoIl        DateTime  @default(now())
+  annullataDaNome     String    @default("")
+  annullataMotivo     String    @default("")
+  creatoIl            DateTime  @default(now())
 
   @@index([creatoIl])
   @@index([utenteId, creatoIl])
@@ -1809,29 +1817,27 @@ model DomandaAiuto {
   /**
    * Dove si trovava chi ha chiesto: `/ordini`, `/inbox`… Registrata da sola.
    */
-  pagina          String @default("")
+  pagina          String  @default("")
   /**
    * L'ordine di cui si parla, se ce n'è uno. Preso dall'indirizzo quando c'è.
    */
-  ordineNumero    String @default("")
+  ordineNumero    String  @default("")
   /**
    * La conversazione da cui è partita, quando parte dall'inbox.
    */
-  conversazioneId String @default("")
+  conversazioneId String  @default("")
   /**
    * QUESTA DOMANDA NASCE PER UN CLIENTE CHE ASPETTA.
-   *
    * ⚠️⚠️ Vera solo quando la apre l'AI fuori turno: quello che l'amministratore
    * risponde su WhatsApp viene GIRATO AL CLIENTE. Se un operatore chiede aiuto
    * per conto suo la risposta resta interna, e mandarla a un cliente sarebbe
    * spedire una nota di lavoro a chi ha comprato dei fiori.
-   *
    * ⚠️ È un campo suo e non si deduce da `utenteNome === "AI fuori turno"`:
    * un'etichetta da mostrare a schermo non è un permesso, e il giorno che
    * qualcuno la cambia per farla più bella l'automatismo cambierebbe
    * comportamento senza che nessuno colleghi le due cose.
    */
-  perIlCliente Boolean @default(false)
+  perIlCliente    Boolean @default(false)
 
   utenteId   String @default("")
   utenteNome String @default("")

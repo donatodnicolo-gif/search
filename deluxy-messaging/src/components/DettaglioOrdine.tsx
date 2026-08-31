@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
+import { MandaInApp } from './MandaInApp'
 import { FornitoreOrdine, type FornitoreProposto } from './FornitoreOrdine'
 import { DiarioOrdine } from './DiarioOrdine'
 import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
@@ -130,6 +131,8 @@ type OrdineDettaglio = {
   appPartner?: string
   appCostoPartner?: number | null
   appInterrottoIl?: string | null
+  appConsegnaNumero?: string
+  appMandataDaNome?: string
   /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
   pagamentoApertoId?: string
   pagamentoApertoA?: string
@@ -1746,6 +1749,15 @@ export function DettaglioOrdine({
                       : ''}
                     {ordine.appInterrottoIl ? ' · interrotta da noi' : ''}
                   </div>
+                  {/* ⚠️⚠️ SE LA CONSEGNA C'È SI DICE QUALE: «In App» senza un
+                      numero è una parola che nessuno può verificare — e capita
+                      per davvero, perché il passo si può anche solo segnare a
+                      mano. Il numero è quello che si legge di là. */}
+                  <div className="cella-sub">
+                    {ordine.appConsegnaNumero
+                      ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''}`
+                      : "Nessuna consegna creata da qui: se di là non c'è, l'etichetta è solo nostra."}
+                  </div>
                   {!ordine.appInterrottoIl ? (
                     <button
                       className="btn btn-secondario small"
@@ -1762,6 +1774,15 @@ export function DettaglioOrdine({
                       {esitoInterruzione}
                     </p>
                   ) : null}
+                </div>
+              ) : ordine.id ? (
+                /* ⚠️⚠️ SI VEDE SOLO SE NON C'È GIÀ: un ordine che la piattaforma
+                   sta già lavorando non si manda una seconda volta — sarebbero
+                   due consegne, due valet e due paghe per lo stesso regalo. Il
+                   riquadro qui sopra e questo sono la stessa casella in due
+                   momenti: «ci sta pensando lei» oppure «mandiamocelo». */
+                <div style={{ marginTop: 12 }}>
+                  <MandaInApp ordineId={ordine.id} onFatto={() => void carica()} />
                 </div>
               ) : null}
 

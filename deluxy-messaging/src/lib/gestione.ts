@@ -11,10 +11,11 @@ export const GESTIONI = [
   { chiave: 'ricerca_fornitore', nome: 'Ricerca fornitore', colore: '#8944ab' },
   { chiave: 'in_pagamento', nome: 'In pagamento', colore: '#c93400' },
   { chiave: 'attesa_consegna', nome: 'Attesa consegna', colore: '#b8963e' },
-  // ⚠️⚠️ «IN APP» NON È UN PASSO NOSTRO: dice che di quell'ordine si sta
-  // occupando la **piattaforma consegne** (app.deluxy.it), che l'ha proposto a
-  // un partner in automatico. Lo scrive la sincronizzazione, non una persona —
-  // per questo sta fuori da `PASSI`, come `comunicazione`.
+  // ⚠️⚠️ «IN APP» dice che di quell'ordine si occupa la **piattaforma
+  // consegne** (app.deluxy.it). Lo scrive la sincronizzazione quando la
+  // piattaforma propone l'ordine a un partner da sola, **e** una persona
+  // quando lo manda di là dal modulo «Manda in app» (31/08/2026).
+  // Dal 31/08 è l'ultimo dei `PASSI`, prima di «Gestito».
   //
   // ⚠️ Sapere che un ordine è «in app» cambia il lavoro: non si cerca un
   // fornitore a mano, non si chiama nessuno. E quando invece si vuole fare a
@@ -39,11 +40,33 @@ export const GESTIONI = [
  * Sta accanto alla fila, staccato, con la spunta e il verde: si vede che è
  * un'altra cosa.
  *
- * Fuori restano anche `comunicazione` — lo scrive l'app da sé quando si scrive
- * al cliente — e `in_app`, che lo scrive la sincronizzazione con la piattaforma
- * consegne: nessuno dei due lo sceglie una persona.
+ * Fuori resta `comunicazione` — lo scrive l'app da sé quando si scrive al
+ * cliente, e non è un punto della lavorazione ma una cosa che è successa.
+ *
+ * ⚠️ `in_app` invece è ENTRATO nella fila il 31/08/2026 (chiesto dall'utente):
+ * è l'ultimo passo prima di «Gestito», perché da lì la consegna la fa la
+ * piattaforma. Lo scrivono tutti e due — la sincronizzazione quando l'app
+ * propone l'ordine da sola, e la persona che lo manda di là dalla scheda.
  */
-export const PASSI = ['da_gestire', 'ricerca_fornitore', 'in_pagamento', 'attesa_consegna'] as const
+export const PASSI = [
+  'da_gestire',
+  'ricerca_fornitore',
+  'in_pagamento',
+  'attesa_consegna',
+  // ⚠️⚠️ «IN APP» È ENTRATO FRA I PASSI il 31/08/2026, chiesto dall'utente: «un
+  // nuovo stato prima di Gestito che indichi che l'ordine è stato spostato in
+  // app». Prima stava fuori perché lo scriveva solo la sincronizzazione; adesso
+  // lo può scegliere anche una persona, ed è l'ULTIMO passo prima della fine —
+  // da lì l'ordine non torna indietro da solo, lo consegna la piattaforma.
+  //
+  // ⚠️⚠️ SCEGLIERLO DALLA FILA NON CREA LA CONSEGNA DI LÀ: la crea il modulo
+  // «Manda in app» sulla scheda (`manda-in-app.ts`), che è dove sta il vero
+  // passaggio. Il passo scrive solo dove siamo. La differenza conta — segnare
+  // «In App» a mano su un ordine che di là non è mai arrivato ferma il nostro
+  // lavoro su una consegna che non esiste: per questo il riquadro sulla scheda
+  // dice sempre SE la consegna c'è (numero e stato) o se c'è solo l'etichetta.
+  'in_app',
+] as const
 
 /** Lo stato che chiude l'ordine: uno solo, e tenuto separato apposta. */
 export const CHIUSURA = 'gestito'
