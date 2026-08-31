@@ -1037,11 +1037,55 @@ export class DeliveriesService {
       dto.recipientAddress && dto.recipientAddress !== delivery.recipientAddress
         ? await this.luogoDaIndirizzo(dto.recipientAddress)
         : undefined;
+
+    // ⚠️ AL CAMBIO DI SERVIZIO O DI ORE: prezzo partner e paga valet vanno
+    // rifatti sul NUOVO listino (regola utente 31/08). Prima l'update spruzzava
+    // solo il dto: passando da un servizio standard a uno «a ora» il prezzo
+    // restava quello vecchio (senza il × ore) e la paga non cambiava. La
+    // fatturazione e gli stipendi usano il valore CONGELATO sulla consegna se
+    // c'è, quindi qui: si RICALCOLA `price` (con × ore per A_ORA e gli extra km)
+    // e si AZZERA `valetSalary`, così gli stipendi lo ricavano dal listino valet
+    // del nuovo servizio. Vince comunque un prezzo/paga imposti a mano dopo.
+    const cambiaServizio = dto.serviceTypeId != null && dto.serviceTypeId !== delivery.serviceTypeId;
+    const cambiaOre = dto.hours != null && dto.hours !== (delivery.hours ?? null);
+    let economiaRicalcolata: Record<string, unknown> = {};
+    if (cambiaServizio || cambiaOre) {
+      const svcId = dto.serviceTypeId ?? delivery.serviceTypeId;
+      const svc = await this.prisma.serviceType.findUnique({
+        where: { id: svcId }, select: { pricingModel: true, basePrice: true },
+      });
+      const ps = partnerDaUsare
+        ? await this.prisma.partnerService.findUnique({
+            where: { partnerId_serviceTypeId: { partnerId: partnerDaUsare, serviceTypeId: svcId } },
+          })
+        : null;
+      const ore = dto.hours ?? delivery.hours ?? 1;
+      let price = ps?.price ?? svc?.basePrice ?? 0;
+      if (svc?.pricingModel === 'A_ORA') price = price * Math.max(ore, 1);
+      // Distanza: se il ritiro è stato forzato in città vale null (extra a 0).
+      const dist = 'distanceKm' in forzatura
+        ? (forzatura as { distanceKm: number | null }).distanceKm
+        : (dto.distanceKm ?? delivery.distanceKm ?? null);
+      let extra = 0;
+      if (dist != null && ps && dist > ps.includedKm) {
+        extra = dist - ps.includedKm;
+        price += extra * ps.extraKmPrice;
+      }
+      economiaRicalcolata = {
+        price: Math.round(price * 100) / 100,
+        extraKm: extra,
+        // Azzerata la paga BASE (gli stipendi la ricavano dal nuovo listino); il
+        // plus/minus manuale del valet resta, non è legato al servizio.
+        valetSalary: null,
+      };
+    }
+
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
         ...forzatura,
+        ...economiaRicalcolata,
         ...(date ? { date: new Date(date) } : {}),
         // Cambiato l'indirizzo, cambiano anche coordinate E provincia: tenere
         // la vecchia provincia su un indirizzo nuovo è peggio che non averla.
