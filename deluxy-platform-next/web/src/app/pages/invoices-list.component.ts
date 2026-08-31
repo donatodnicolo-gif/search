@@ -211,7 +211,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
          stamattina non compariva da nessuna parte finche' qualcuno non
          indovinava partner e periodo. -->
     @else if (view() === 'pending') {
-      @if (pendingTotals(); as t) {
+      @if (pendingTotaliVista(); as t) {
         <div class="card riepilogo">
           <div><span class="etichetta">{{ 'invoices.pending.partners' | translate }}</span><strong>{{ t.partners | number }}</strong></div>
           <div><span class="etichetta">{{ 'invoices.pending.deliveries' | translate }}</span><strong>{{ t.deliveriesCount | number }}</strong></div>
@@ -562,6 +562,32 @@ export class InvoicesListComponent {
       (!this.soloPrezzabili || r.deliveriesCount > r.unpricedCount) &&
       (!t || r.partner.insegna.toLowerCase().includes(t)),
     );
+  });
+
+  /**
+   * Il riepilogo grande del «Da fatturare» si ricalcola dalle VOCI EFFETTIVAMENTE
+   * MOSTRATE (31/08): prima usava i totali del server, che ignorano la ricerca
+   * e il «solo prezzabili» fatti lato client — così, filtrando, le card si
+   * riducevano ma «Partner 64 · Consegne 1.017» restava fermo e sembrava che il
+   * filtro non funzionasse. I conteggi seguono le card; gli avvisi globali
+   * (arretrato, soglia) restano quelli del server.
+   */
+  readonly pendingTotaliVista = computed(() => {
+    const voci = this.pendingFiltered();
+    const s = this.pendingTotals();
+    const somma = (f: (r: Pending) => number) => voci.reduce((a, r) => a + (f(r) || 0), 0);
+    return {
+      partners: new Set(voci.map((r) => r.partnerId)).size,
+      deliveriesCount: somma((r) => r.deliveriesCount),
+      netAmount: somma((r) => r.netAmount),
+      venduto: somma((r) => r.venduto),
+      dovutoAlPartner: somma((r) => r.dovutoAlPartner),
+      totalAmount: somma((r) => r.totalAmount),
+      unpricedCount: somma((r) => r.unpricedCount),
+      ruleExcludedCount: somma((r) => r.ruleExcludedCount),
+      arretrato: s?.arretrato ?? 0,
+      soglia: s?.soglia ?? '',
+    };
   });
 
   /** Il catalogo dei tipi di servizio, per il filtro per tipologia. */
