@@ -17,6 +17,8 @@ const REGOLE: { match: string; categoria: string }[] = [
   // RUSU CAMELIA → fornitore fiori (D2C: il ricavo e gia netto del prodotto,
   // quindi il pagamento si esclude come per gli altri fiorai)
   { match: "rusu camelia", categoria: "Partner che eseguono gli ordini" },
+  // DAN JOHN → divise (come Gente e Moda: abbigliamento aziendale)
+  { match: "dan john", categoria: "Struttura e servizi fissi" },
 ];
 for (const r of REGOLE) {
   const cat = await prisma.categoriaCosto.findFirst({ where: { nome: r.categoria } });
