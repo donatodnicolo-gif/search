@@ -149,6 +149,32 @@ model Utente {
   timbrature  Timbratura[]
   assenze     Assenza[]
   certificati Certificato[]
+  tokenReset  TokenReset[]
 
   @@index([ruolo])
+}
+
+// Recupero password: un token monouso mandato per email a chi dichiara di aver
+// dimenticato la password. A database NON c'e mai il token in chiaro, solo il
+// suo SHA-256: chi legge la tabella (o un backup) non puo' usarlo per entrare,
+// esattamente come per i token di servizio della cassaforte.
+model TokenReset {
+  id       String   @id @default(cuid())
+  utente   Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  utenteId String
+  // SHA-256 esadecimale del token in chiaro. Unico: due richieste non possono
+  // collidere, e la ricerca avviene per hash (mai per utente + confronto).
+  hash     String   @unique
+  scadeIl  DateTime
+  // Valorizzato quando il token viene speso: da li' in poi non vale piu'
+  // (monouso). Non si cancella la riga: serve a raccontare cosa e' successo.
+  usatoIl  DateTime?
+  creatoIl DateTime @default(now())
+  // SHA-256 dell'indirizzo IP di chi ha chiesto il recupero, con il segreto
+  // dell'app come sale: serve SOLO a frenare chi ne chiede troppi. L'IP in
+  // chiaro e' un dato personale e non ha ragione di stare qui.
+  ipHash   String   @default("")
+
+  @@index([utenteId, creatoIl])
+  @@index([ipHash, creatoIl])
 }
