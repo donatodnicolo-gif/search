@@ -255,11 +255,25 @@ export async function serviziPiattaforma(): Promise<EsitoPiattaforma<ServizioPia
   return chiama<ServizioPiattaforma[]>('/api/v1/app/servizi')
 }
 
-/** I partner della piattaforma, per la tendina (sola lettura). */
-export async function partnerPiattaforma(): Promise<
-  EsitoPiattaforma<{ id: string; nome?: string; name?: string }[]>
-> {
-  return chiama<{ id: string; nome?: string; name?: string }[]>('/api/v1/app/partner')
+export type PartnerPiattaforma = {
+  id: string
+  insegna: string
+  citta?: string
+  /** Le sigle delle province che serve: «MI», «RM»… */
+  province?: string[]
+}
+
+/**
+ * I partner attivi della piattaforma, per la tendina.
+ *
+ * ⚠️⚠️ La consegna dal canale app PRETENDE il partner («dal canale app non c'è
+ * un partner sottinteso»), e prima quell'elenco non usciva da lì: l'unico modo
+ * di sceglierlo era aprire la piattaforma col browser. Un modulo che ti manda
+ * in un'altra app per un campo su venti non lo usa nessuno — la rotta
+ * `/app/partner` è stata aggiunta di là apposta (31/08/2026).
+ */
+export async function partnerPiattaforma(): Promise<EsitoPiattaforma<PartnerPiattaforma[]>> {
+  return chiama<PartnerPiattaforma[]>('/api/v1/app/partner')
 }
 
 /** Crea la consegna nella piattaforma, dalla stessa porta che usa il form di là. */

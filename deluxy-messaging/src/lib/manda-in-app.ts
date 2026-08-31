@@ -85,7 +85,13 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
       recipientFirstName: '',
       recipientLastName: '',
       recipientAddress: '',
-      recipientPhone: o.telefono ?? '',
+      // ⚠️⚠️ IL TELEFONO DEL DESTINATARIO RESTA VUOTO, e non è una dimenticanza:
+      // quello che abbiamo sull'ordine è il numero di CHI COMPRA. Metterlo qui
+      // vorrebbe dire far chiamare dal valet il mittente per consegnare un
+      // regalo a sorpresa — cioè rovinarlo — oppure far credere a chi compila
+      // che il numero del destinatario ce l'abbiamo. Si scrive a mano quando si
+      // sa; il numero del cliente resta sotto, nel mittente, dov'è vero.
+      recipientPhone: '',
       recipientEmail: '',
       senderFirstName: '',
       senderLastName: '',

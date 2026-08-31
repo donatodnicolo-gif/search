@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mandaInApp, prefillInApp } from '@/lib/manda-in-app'
-import { serviziPiattaforma } from '@/lib/piattaforma'
+import { partnerPiattaforma, serviziPiattaforma } from '@/lib/piattaforma'
 import { utenteCorrente } from '@/lib/sessione'
 import type { NuovaConsegna } from '@/lib/piattaforma'
 
@@ -20,7 +20,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
 
-  const [dati, servizi] = await Promise.all([prefillInApp(id), serviziPiattaforma()])
+  // ⚠️ In parallelo: sono tre chiamate a due app diverse, e in fila chi apre
+  // il modulo aspetterebbe la somma invece della piu lenta.
+  const [dati, servizi, partner] = await Promise.all([
+    prefillInApp(id),
+    serviziPiattaforma(),
+    partnerPiattaforma(),
+  ])
   if (!dati) return NextResponse.json({ errore: 'Ordine non trovato.' }, { status: 404 })
 
   return NextResponse.json({
@@ -30,6 +36,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
     // cui ne aggiungono uno — con l'operatore che sceglie un servizio che di là
     // non esiste più.
     servizi: servizi.stato === 'ok' ? servizi.dati : [],
+    // ⚠️ L'elenco dei partner arriva dalla piattaforma, che e la loro casa: una
+    // copia qui sarebbe vecchia il giorno che ne aggiungono uno o ne spengono
+    // un altro, e si sceglierebbe un partner che di la non riceve piu niente.
+    partner: partner.stato === 'ok' ? partner.dati : [],
     serviziErrore:
       servizi.stato === 'errore'
         ? servizi.messaggio

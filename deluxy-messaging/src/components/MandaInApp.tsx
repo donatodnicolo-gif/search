@@ -38,6 +38,8 @@ type Campi = {
 
 type Servizio = { id: string; nome?: string; name?: string; codice?: string; code?: string }
 
+type Partner = { id: string; insegna: string; citta?: string; province?: string[] }
+
 type Prefill = {
   ok: boolean
   perche: string
@@ -48,6 +50,7 @@ type Prefill = {
   partnerNome: string
   campi: Campi
   servizi: Servizio[]
+  partner: Partner[]
   serviziErrore: string
 }
 
@@ -160,14 +163,50 @@ export function MandaInApp({
 
       {dati && campi && !fatto ? (
         <>
-          {/* ⚠️⚠️ Senza PARTNER la piattaforma rifiuta la consegna («dal canale
-              app non c'è un partner sottinteso»). Quando la vendita non ce l'ha
-              — perché nessuno l'ha ancora presa — da qui non si può scegliere
-              fra tutti: si va al form di là, che la lista ce l'ha. È l'unico
-              caso in cui il modulo si arrende, e lo dice. */}
-          {!dati.partnerId ? (
-            <div className="avviso-errore">
-              La vendita non ha ancora un partner: la piattaforma non accetta una consegna senza.
+          {/* ⚠️⚠️ IL PARTNER SI SCEGLIE QUI (31/08/2026, chiesto dall'utente).
+              La piattaforma pretende il partner («dal canale app non c'è un
+              partner sottinteso») e prima l'elenco non usciva da lì: quando la
+              vendita non ne aveva uno, il modulo si arrendeva e mandava al form
+              di là. Adesso l'elenco arriva dalla piattaforma
+              (`GET /app/partner`, aggiunta apposta) e la scelta si fa senza
+              cambiare app.
+              ⚠️ Quello della vendita resta PRESELEZIONATO quando c'è: è chi
+              l'ha già presa in carico, e cambiarlo dev'essere una decisione, non
+              una distrazione. */}
+          <label className="campo">
+            <span>
+              Partner{' '}
+              {dati.partnerId ? (
+                <span className="cella-sub">
+                  · proposto dalla vendita{dati.venditaStato ? ` (${dati.venditaStato})` : ''}
+                </span>
+              ) : null}
+            </span>
+            <select
+              value={campi.partnerId ?? ''}
+              onChange={(e) => cambia('partnerId', e.target.value)}
+            >
+              <option value="">Scegli il partner…</option>
+              {dati.partner.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.insegna}
+                  {p.citta ? ` — ${p.citta}` : ''}
+                  {p.province?.length ? ` (${p.province.join(', ')})` : ''}
+                </option>
+              ))}
+              {/* ⚠️ Se il partner della vendita non è nell'elenco (disattivato,
+                  o l'elenco non è arrivato) resta comunque scelto: toglierlo
+                  dalla tendina lo cancellerebbe dal modulo senza dirlo. */}
+              {dati.partnerId && !dati.partner.some((p) => p.id === dati.partnerId) ? (
+                <option value={dati.partnerId}>
+                  {dati.partnerNome || dati.partnerId} — dalla vendita
+                </option>
+              ) : null}
+            </select>
+          </label>
+          {!dati.partner.length ? (
+            <p className="cella-sub">
+              L&apos;elenco dei partner non è arrivato dalla piattaforma.
               {dati.venditaId ? (
                 <>
                   {' '}
@@ -178,16 +217,11 @@ export function MandaInApp({
                   >
                     Apri il modulo della piattaforma
                   </a>
-                  , che ha l&apos;elenco dei partner.
+                  .
                 </>
               ) : null}
-            </div>
-          ) : (
-            <p className="cella-sub">
-              Partner: <strong>{dati.partnerNome || dati.partnerId}</strong>
-              {dati.venditaStato ? ` · vendita ${dati.venditaStato}` : ''}
             </p>
-          )}
+          ) : null}
 
           <div className="campi-affiancati">
             <label className="campo">
@@ -265,13 +299,59 @@ export function MandaInApp({
               />
             </label>
             <label className="campo">
+              {/* ⚠️⚠️ VUOTO DI PROPOSITO: il numero che abbiamo sull'ordine è di
+                  chi COMPRA. Metterlo qui vorrebbe dire far chiamare dal valet
+                  il mittente per consegnare un regalo a sorpresa — cioè
+                  rovinarlo — o far credere che il numero del destinatario ce
+                  l'abbiamo. Si scrive quando si sa; quello del cliente sta qui
+                  sotto, nel mittente, dov'è vero. */}
               <span>Telefono del destinatario</span>
               <input
                 value={campi.recipientPhone ?? ''}
                 onChange={(e) => cambia('recipientPhone', e.target.value)}
+                placeholder="se lo sappiamo — non è quello del cliente"
               />
             </label>
           </div>
+
+          <label className="campo">
+            <span>Email del destinatario</span>
+            <input
+              type="email"
+              value={campi.recipientEmail ?? ''}
+              onChange={(e) => cambia('recipientEmail', e.target.value)}
+              placeholder="facoltativa"
+            />
+          </label>
+
+          {/* ── IL MITTENTE ──
+              ⚠️ Si vede e si può correggere: è chi ha comprato, e sulla consegna
+              serve a chi la porta («un regalo da parte di…»). Precompilato col
+              cliente dell'ordine, che lì è il dato giusto. */}
+          <div className="campi-affiancati">
+            <label className="campo">
+              <span>Mittente — nome</span>
+              <input
+                value={campi.senderFirstName ?? ''}
+                onChange={(e) => cambia('senderFirstName', e.target.value)}
+              />
+            </label>
+            <label className="campo">
+              <span>Cognome</span>
+              <input
+                value={campi.senderLastName ?? ''}
+                onChange={(e) => cambia('senderLastName', e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="campo">
+            <span>Telefono del mittente</span>
+            <input
+              value={campi.senderPhone ?? ''}
+              onChange={(e) => cambia('senderPhone', e.target.value)}
+            />
+          </label>
 
           <label className="campo">
             <span>Note per chi consegna</span>
@@ -302,10 +382,13 @@ export function MandaInApp({
             </label>
           </div>
 
+          {/* ⚠️ Il bottone guarda il partner SCELTO, non quello della vendita:
+              da quando lo si può scegliere, bloccare sul secondo terrebbe spento
+              il bottone anche dopo averlo scelto. */}
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <button
               className="btn small"
-              disabled={mandando || !dati.ok || !dati.partnerId}
+              disabled={mandando || !dati.ok || !campi.partnerId}
               onClick={() => void manda()}
             >
               {mandando ? 'Mando…' : 'Crea la consegna e metti In App'}
