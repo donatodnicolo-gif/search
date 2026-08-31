@@ -290,14 +290,30 @@ export default async function AggiornatoPage({
     .map((t) => ({ nome: t.nome, slug: t.slug, importo: cons.ricaviPerTipologia[t.slug] ?? 0 }))
     .sort((a, b) => b.importo - a.importo);
 
-  const ce: { label: string; v: number; costo?: boolean; forte?: boolean }[] = [
-    { label: "Ricavi", v: cons.ricavi, forte: true },
+  // I SERVIZI DEL MESE IN CORSO ENTRANO NEL CONTO (31/08/2026, segnalazione
+  // dell'utente: «tiene conto solo dei ricavi D2C e non di quelli
+  // commerciali»). Il conto era SBILANCIATO per costruzione: i COSTI dei
+  // servizi del mese sono già dentro (le consegne arrivano dalla piattaforma
+  // in competenza), ma i RICAVI degli stessi servizi comparivano solo alla
+  // fattura — cioè il mese in corso pagava i valet senza incassare niente.
+  // Qui entrano dal listino della piattaforma, e la riga sotto i Ricavi lo
+  // dichiara. ⚠️ Solo sul mese APERTO: a mese chiuso la fattura (competenza =
+  // mese del servizio) prende il loro posto, e il numero vivo sparisce — è il
+  // passaggio di consegne fra l'anticipo e il registro.
+  const srvMese = parziale && serviziAnno?.ok
+    ? serviziAnno.mesi.find((m) => m.mese === meseInCorso)?.ricavo ?? 0
+    : 0;
+  const ce: { label: string; v: number; costo?: boolean; forte?: boolean; sotto?: boolean }[] = [
+    { label: "Ricavi", v: cons.ricavi + srvMese, forte: true },
+    ...(srvMese > 0
+      ? [{ label: `└ di cui servizi della piattaforma in corso (${MESI[meseInCorso - 1]}, da listino)`, v: srvMese, sotto: true }]
+      : []),
     { label: "Costo del venduto", v: cons.cogs, costo: true },
-    { label: "Margine lordo", v: cons.margineLordo, forte: true },
+    { label: "Margine lordo", v: cons.margineLordo + srvMese, forte: true },
     { label: "Pubblicità", v: cons.adv, costo: true },
     { label: "Personale", v: cons.personale, costo: true },
     { label: "Struttura", v: cons.struttura, costo: true },
-    { label: "EBITDA", v: cons.ebitda, forte: true },
+    { label: "EBITDA", v: cons.ebitda + srvMese, forte: true },
   ];
 
   return (
@@ -322,14 +338,14 @@ export default async function AggiornatoPage({
         </div>
         <div className="kpi">
           <div className="kpi-label">Margine lordo</div>
-          <div className="kpi-value">{eur(cons.margineLordo)}</div>
+          <div className="kpi-value">{eur(cons.margineLordo + srvMese)}</div>
           <div className="kpi-sub">
-            {cons.ricavi > 0 ? `${pct((cons.margineLordo / cons.ricavi) * 100)} dei ricavi` : "—"}
+            {cons.ricavi + srvMese > 0 ? `${pct(((cons.margineLordo + srvMese) / (cons.ricavi + srvMese)) * 100)} dei ricavi` : "—"}
           </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">EBITDA</div>
-          <div className={`kpi-value ${cons.ebitda >= 0 ? "pos" : "neg"}`}>{eur(cons.ebitda)}</div>
+          <div className={`kpi-value ${cons.ebitda + srvMese >= 0 ? "pos" : "neg"}`}>{eur(cons.ebitda + srvMese)}</div>
           <div className="kpi-sub">
             <Link href="/consuntivo" style={{ color: "var(--blue)" }}>il consuntivo completo →</Link>
           </div>
@@ -342,8 +358,8 @@ export default async function AggiornatoPage({
           <tbody>
             {ce.map((r) => (
               <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>
-                <td style={r.forte ? { fontWeight: 600 } : undefined}>{r.label}</td>
-                <td className={`num ${r.label === "EBITDA" ? (r.v >= 0 ? "pos" : "neg") : ""}`} style={r.forte ? { fontWeight: 600 } : undefined}>
+                <td style={r.forte ? { fontWeight: 600 } : r.sotto ? { color: "var(--text-tertiary)", fontSize: 13, paddingLeft: 22 } : undefined}>{r.label}</td>
+                <td className={`num ${r.label === "EBITDA" ? (r.v >= 0 ? "pos" : "neg") : ""}`} style={r.forte ? { fontWeight: 600 } : r.sotto ? { color: "var(--text-tertiary)", fontSize: 13 } : undefined}>
                   {r.costo ? `− ${eur(r.v)}` : eur(r.v)}
                 </td>
               </tr>
