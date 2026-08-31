@@ -580,6 +580,29 @@ di far aspettare un'email che non arriverà. Si accende da `/chiavi` → progett
 `hub` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
 diversi dai default): effetto immediato, senza redeploy.
 
+### Il modulo della posta in `/chiavi` (30/08/2026)
+
+La posta **non si configura più riga per riga**. In cima a `/chiavi` c'è il
+riquadro **«La posta del portale»** con un modulo suo: server, porta, casella,
+**password**, mittente. Le cinque chiavi le scrive l'app nel progetto `hub`
+(`salvaPosta` in `chiavi-actions.ts`, un `upsert` per voce).
+
+**Perché è nato**: col solo modulo generico (progetto + nome + valore) bisognava
+indovinare **cinque volte** progetto e nomi esatti — e `hub` non era nemmeno fra
+i progetti suggeriti, perché il portale non è un'app del catalogo. L'utente,
+giustamente, «non trovava dove mettere la password».
+
+**Tre scelte da non disfare:**
+
+1. **La password non torna mai a schermo.** Host, porta, casella e mittente sì
+   (un campo vuoto accanto a una configurazione che esiste fa credere di non
+   aver salvato); la password resta vuota apposta, e **lasciandola vuota non
+   viene toccata** — l'etichetta dice se ce n'è già una.
+2. **Upsert per voce**: cambiare solo la password non costringe a riscrivere il
+   resto, e non serve cancellare la riga vecchia.
+3. Il riquadro dichiara lo stato: **Pronta** (con il mittente e da dove arriva
+   la configurazione) o **Non configurata**, con l'elenco di cosa manca ancora.
+
 ### I parametri di register.it per la posta del Hub (verificati il 30/08/2026)
 
 La posta di **deluxy.it è gestita da register.it** (record MX: `mail.register.it`).
