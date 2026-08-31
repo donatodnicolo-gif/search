@@ -1176,6 +1176,7 @@
         "title": "Destinatario e mittente"
       },
       "order": {
+        "createNew": "Crea nuovo",
         "title": "Gestione dell'ordine",
         "sub": "Prodotti del partner mostrati per primi."
       },
@@ -1225,6 +1226,15 @@
       "deliveryCodeRequired": "Codice di consegna richiesto",
       "ddtBrand": "Brand del DDT"
     },
+    "newProduct": {
+      "title": "Nuovo prodotto",
+      "owner": "Proprietario",
+      "name": "Nome del prodotto",
+      "price": "Prezzo (€)",
+      "create": "Crea e seleziona",
+      "nameRequired": "Il nome è obbligatorio.",
+      "error": "Errore nella creazione del prodotto."
+    },
     "placeholder": {
       "selectService": "Seleziona servizio…",
       "address": "Via …, CAP Città (PR)",
@@ -1232,6 +1242,7 @@
       "selectSlot": "Seleziona fascia…",
       "selectTime": "Seleziona orario…",
       "selectProduct": "Prodotto…",
+      "searchProduct": "Cerca un prodotto…",
       "qty": "Qtà",
       "auto": "auto"
     },

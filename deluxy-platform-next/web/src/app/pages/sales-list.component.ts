@@ -127,7 +127,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         @if (cerca.trim() || filtro() !== 'tutte') {
           <!-- Vuoto DA FILTRO (§6.2): si dice il perché e si offre la via. -->
           <p>{{ 'comune.contoRighe' | translate: { n: 0, m: vendite().length } }}</p>
-          <button type="button" class="btn btn-secondary" (click)="cerca = ''; filtro.set('tutte')">
+          <button type="button" class="btn btn-secondary" (click)="cerca = ''; filtro.set('da_gestire')">
             {{ 'filters.clear' | translate }}
           </button>
         } @else {
@@ -276,15 +276,21 @@ export class SalesListComponent {
   readonly inCorso = signal<string | null>(null);
   readonly esitoSync = signal<any>(null);
   readonly messaggio = signal<{ ok: boolean; testo: string } | null>(null);
-  readonly filtro = signal<string>('tutte');
+  // Default «Da gestire» (deciso dall'utente 31/08): all'apertura si vede il
+  // lavoro aperto, non tutto lo storico.
+  readonly filtro = signal<string>('da_gestire');
 
-  /** «Storico» raccoglie TUTTO il gestito (chiesto dall'utente il 31/08):
-   *  accettate (con la consegna), non accettate e annullate/già evase. */
+  /** «Da gestire» raccoglie gli APERTI: da smistare + proposti a un partner
+   *  in attesa di risposta (chiesto dall'utente 31/08 — «da gestire deve
+   *  includere anche Proposte»). «Storico» raccoglie TUTTO il gestito. */
+  static readonly APERTI = ['da_gestire', 'proposta'];
   static readonly STORICO = ['accettata', 'non_accettata', 'annullata'];
   readonly tab = [
-    { chiave: 'tutte' }, { chiave: 'da_gestire' }, { chiave: 'proposta' },
-    { chiave: 'storico' },
+    { chiave: 'da_gestire' }, { chiave: 'storico' }, { chiave: 'tutte' },
   ];
+  private inAperti(s: Sale): boolean {
+    return SalesListComponent.APERTI.includes(s.status);
+  }
   private inStorico(s: Sale): boolean {
     return SalesListComponent.STORICO.includes(s.status);
   }
@@ -299,6 +305,7 @@ export class SalesListComponent {
   readonly visibili = computed(() => {
     const f = this.filtro();
     const base = f === 'tutte' ? this.vendite()
+      : f === 'da_gestire' ? this.vendite().filter((s) => this.inAperti(s))
       : f === 'storico' ? this.vendite().filter((s) => this.inStorico(s))
       : this.vendite().filter((s) => s.status === f);
     const q = this.cercaTesto().trim().toLowerCase();
@@ -314,6 +321,7 @@ export class SalesListComponent {
 
   quante(chiave: string): number {
     return chiave === 'tutte' ? this.vendite().length
+      : chiave === 'da_gestire' ? this.vendite().filter((s) => this.inAperti(s)).length
       : chiave === 'storico' ? this.vendite().filter((s) => this.inStorico(s)).length
       : this.vendite().filter((s) => s.status === chiave).length;
   }

@@ -26,6 +26,7 @@ import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
+import { SalesModule, SalesService } from '../sales/sales.module';
 import { valoreProdotti } from '../common/valore-prodotti';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ export class AppApiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliveries: DeliveriesService,
+    private readonly sales: SalesService,
   ) {}
 
   /**
@@ -214,6 +216,9 @@ export class AppApiService {
         prodotto: s.product ? { id: s.product.id, nome: s.product.name, tipo: s.product.type } : null,
         creataIl: s.createdAt.toISOString(),
         aggiornataIl: s.updatedAt.toISOString(),
+        // Esplicito per chi consuma (Customer Service): questa vendita è già
+        // diventata una consegna? (31/08)
+        portataInConsegna: consegna != null,
       },
       consegna: consegna
         ? {
@@ -587,6 +592,11 @@ export class AppApiService {
       : null;
     // Stesso formato della lista: chi consuma non deve imparare due dialetti.
     return this.serializza(s, consegna);
+  }
+
+  /** Un'altra app (Customer Service) porta la vendita in consegna → storico. */
+  portaInConsegna(source: string, externalOrderId: string, deliveryId?: string) {
+    return this.sales.portaInConsegnaDaApp(source, externalOrderId, deliveryId);
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1175,12 +1185,26 @@ export class AppApiController {
   ) {
     return this.service.venditaByRef(source, externalOrderId);
   }
+
+  @Post('vendite/by-ref/:source/:externalOrderId/in-consegna')
+  @ApiOperation({
+    summary: "Un'altra app (Customer Service) porta la vendita in consegna: la piattaforma la manda in storico (accettata)",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  @UseGuards(ScritturaRichiestaGuard)
+  portaInConsegna(
+    @Param('source') source: string,
+    @Param('externalOrderId') externalOrderId: string,
+    @Body() body: { deliveryId?: string },
+  ) {
+    return this.service.portaInConsegna(source, externalOrderId, body?.deliveryId);
+  }
 }
 
 @Module({
   // ⚠️ Serve DeliveriesModule: la creazione dal canale app passa dalla stessa
   // strada del form, non da una scorciatoia.
-  imports: [DeliveriesModule, RichiesteModule],
+  imports: [DeliveriesModule, RichiesteModule, SalesModule],
   controllers: [AppApiController],
   providers: [AppApiKeyGuard, AppApiService],
 })

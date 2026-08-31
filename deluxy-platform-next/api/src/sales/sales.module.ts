@@ -255,6 +255,52 @@ export class SalesService {
     };
   }
 
+  /**
+   * PORTA IN CONSEGNA DA UN'ALTRA APP (31/08/2026, canale app-to-app):
+   * il Customer Service decide di portare la vendita in consegna, e la
+   * piattaforma la porta in STORICO (accettata). Due modi:
+   *  - senza deliveryId: si CREA la consegna dalla vendita (come l'accettazione
+   *    del partner), se ci sono i dati (destinatario, indirizzo, data, servizio);
+   *  - con deliveryId: la consegna esiste già (creata altrove) e si AGGANCIA.
+   * Idempotente: se la vendita è già accettata con una consegna, non fa nulla.
+   */
+  async portaInConsegnaDaApp(source: string, externalOrderId: string, deliveryId?: string) {
+    const vendita = await this.prisma.sale.findFirst({
+      where: { source, externalOrderId }, include: { product: true },
+    });
+    if (!vendita) throw new NotFoundException(`Nessuna vendita ${source}/${externalOrderId}.`);
+    if (vendita.status === SaleStatus.ACCETTATA && vendita.deliveryId) {
+      return { giaInConsegna: true, venditaId: vendita.id, deliveryId: vendita.deliveryId };
+    }
+    let consegnaId = deliveryId ?? null;
+    if (deliveryId) {
+      const d = await this.prisma.delivery.findUnique({ where: { id: deliveryId }, select: { id: true } });
+      if (!d) throw new BadRequestException('Consegna inesistente');
+    } else {
+      const variante = vendita.productVariantId
+        ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId } })
+        : null;
+      const consegna = await this.creaConsegna(vendita, variante);
+      consegnaId = consegna?.id ?? null;
+      if (!consegnaId) {
+        throw new BadRequestException(
+          'Non si è potuta creare la consegna: mancano destinatario, indirizzo, data o servizio. Passare un deliveryId di una consegna già creata.',
+        );
+      }
+    }
+    await this.prisma.sale.update({
+      where: { id: vendita.id },
+      data: {
+        status: SaleStatus.ACCETTATA,
+        deliveryId: consegnaId,
+        partnerId: vendita.partnerId,
+        assignmentReason: [vendita.assignmentReason, 'portata in consegna da Customer Service (31/08)']
+          .filter(Boolean).join(' · '),
+      },
+    });
+    return { portataInConsegna: true, venditaId: vendita.id, deliveryId: consegnaId };
+  }
+
   /** Dettaglio di una vendita: serve al prefill del form consegna (ufficio). */
   async findOne(id: string) {
     const vendita = await this.prisma.sale.findUnique({

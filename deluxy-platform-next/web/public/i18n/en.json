@@ -1176,6 +1176,7 @@
         "title": "Recipient and sender"
       },
       "order": {
+        "createNew": "Create new",
         "title": "Order management",
         "sub": "Partner products are shown first."
       },
@@ -1225,6 +1226,15 @@
       "deliveryCodeRequired": "Delivery code required",
       "ddtBrand": "DDT brand"
     },
+    "newProduct": {
+      "title": "New product",
+      "owner": "Owner",
+      "name": "Product name",
+      "price": "Price (€)",
+      "create": "Create and select",
+      "nameRequired": "Name is required.",
+      "error": "Error creating the product."
+    },
     "placeholder": {
       "selectService": "Select a service…",
       "address": "Street …, ZIP City (PR)",
@@ -1232,6 +1242,7 @@
       "selectSlot": "Select a slot…",
       "selectTime": "Select a time…",
       "selectProduct": "Product…",
+      "searchProduct": "Search a product…",
       "qty": "Qty",
       "auto": "auto"
     },

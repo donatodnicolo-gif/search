@@ -37,6 +37,9 @@ interface ProductRow {
   quantity: number | null;
   flexiblePrice: boolean;
   price: number | null;
+  /** Ricerca prodotto (31/08): testo digitato + nome del prodotto scelto. */
+  query?: string;
+  nomeScelto?: string;
 }
 
 @Component({
@@ -340,10 +343,29 @@ interface ProductRow {
         @for (row of productRows; track $index) {
           <div class="prod-item">
             <div class="prod-top">
-              <select class="field" [(ngModel)]="row.productId" (ngModelChange)="onProductChange(row)" [name]="'prod' + $index">
-                <option value="">{{ 'deliveryForm.placeholder.selectProduct' | translate }}</option>
-                @for (p of sortedProducts(); track p.id) { <option [value]="p.id">{{ p.name }}{{ p.partner ? '' : ' (' + ('deliveryForm.order.generic' | translate) + ')' }}</option> }
-              </select>
+              <!-- Ricerca prodotto (31/08): si digita e si sceglie dai risultati.
+                   Il vecchio menu portava solo i primi 500 di 21.887 — quello
+                   giusto spesso non c'era. -->
+              <div class="prod-cerca">
+                <input class="field" [ngModel]="row.nomeScelto || row.query || ''"
+                       (ngModelChange)="onProductQuery(row, $index, $event)"
+                       (focus)="rigaAttiva.set($index)"
+                       [placeholder]="'deliveryForm.placeholder.searchProduct' | translate"
+                       [name]="'prod' + $index" autocomplete="off" />
+                @if (rigaAttiva() === $index && (row.query ?? '').trim().length >= 1) {
+                  <div class="prod-risultati">
+                    @for (p of risultatiRicerca(); track p.id) {
+                      <button type="button" class="ris" (click)="scegliProdotto(row, p)">
+                        {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
+                      </button>
+                    }
+                    <!-- «Crea Nuovo» SEMPRE visibile in coda (regola utente 31/08). -->
+                    <button type="button" class="ris crea" (click)="apriCreaProdotto(row)">
+                      + {{ 'deliveryForm.order.createNew' | translate }}
+                    </button>
+                  </div>
+                }
+              </div>
               <input class="field num qty" type="number" min="1" [placeholder]="'deliveryForm.placeholder.qty' | translate" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
               <button type="button" class="icon-btn" (click)="removeProduct($index)" [title]="'deliveryForm.order.remove' | translate">✕</button>
             </div>
@@ -469,6 +491,33 @@ interface ProductRow {
         </button>
       </div>
     </form>
+
+    <!-- Crea prodotto al volo (31/08): default il partner della consegna, o
+         il catalogo Deluxy (senza partner) se il servizio è di tipo vendita. -->
+    @if (creaProdottoAperto()) {
+      <div class="overlay" (click)="chiudiCreaProdotto()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'deliveryForm.newProduct.title' | translate }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiCreaProdotto()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <div class="crea-corpo">
+          <p class="muted">{{ 'deliveryForm.newProduct.owner' | translate }}:
+            <strong>{{ nuovoProdottoPartnerNome() }}</strong></p>
+          <label class="fld"><span class="req">{{ 'deliveryForm.newProduct.name' | translate }}</span>
+            <input class="field" [(ngModel)]="nuovoProdotto.name" name="npn" /></label>
+          <label class="fld"><span>{{ 'deliveryForm.newProduct.price' | translate }}</span>
+            <input class="field num" type="number" step="0.01" [(ngModel)]="nuovoProdotto.price" name="npp" /></label>
+          @if (creaProdottoErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="btn btn-secondary" (click)="chiudiCreaProdotto()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="creaProdottoInCorso()" (click)="salvaNuovoProdotto()">
+            {{ creaProdottoInCorso() ? ('common.saving' | translate) : ('deliveryForm.newProduct.create' | translate) }}
+          </button>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -522,6 +571,23 @@ interface ProductRow {
       .prod-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
       .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
+      /* Ricerca prodotto: l'input col menu dei risultati sotto (§9 overflow). */
+      .prod-cerca { position: relative; min-width: 0; }
+      .prod-risultati {
+        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+        background: var(--surface); border: 1px solid var(--hairline-strong);
+        border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
+        max-height: 280px; overflow-y: auto;
+      }
+      .prod-risultati .ris {
+        display: block; width: 100%; text-align: left; border: none; background: none;
+        padding: 10px 12px; font: inherit; font-size: 14px; cursor: pointer; color: var(--text);
+      }
+      .prod-risultati .ris:hover { background: var(--fill); }
+      .prod-risultati .ris.crea {
+        border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
+        position: sticky; bottom: 0; background: var(--surface);
+      }
       .prod-variant { margin-top: 8px; max-width: 320px; }
       .prod-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
       .price-static { font-size: 13.5px; color: var(--text-secondary); }
@@ -1191,6 +1257,9 @@ export class DeliveryFormComponent implements AfterViewInit {
       quantity: p.quantity ?? 1,
       price: p.price ?? null,
       flexiblePrice: !!p.flexiblePrice,
+      // Il nome scelto compare nella ricerca (31/08): senza, la riga
+      // precompilata mostrerebbe la casella vuota pur avendo un prodotto.
+      nomeScelto: p.productName ?? p.product?.name ?? undefined,
     })) as ProductRow[];
     // ⚠️ La tendina ha solo i primi 500 prodotti su 21.887: il prodotto di
     // QUESTA consegna puo' non esserci, e la selezione sembrerebbe vuota pur
@@ -1198,7 +1267,12 @@ export class DeliveryFormComponent implements AfterViewInit {
     for (const id of new Set(this.productRows.map((r) => r.productId).filter(Boolean))) {
       if (this.products().some((p) => p.id === id)) continue;
       this.http.get<Product>(`${environment.apiUrl}/products/${id}`).subscribe({
-        next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
+        next: (p) => {
+          if (!p?.id) return;
+          this.products.set(this.unisciProdotti(this.products(), [p]));
+          // Completa il nome mostrato nella ricerca per le righe precompilate.
+          for (const r of this.productRows) if (r.productId === p.id && !r.nomeScelto) r.nomeScelto = p.name;
+        },
         error: () => {},
       });
     }
@@ -1522,6 +1596,96 @@ export class DeliveryFormComponent implements AfterViewInit {
   onProductChange(row: ProductRow): void {
     row.productVariantId = null;
     if (row.flexiblePrice && row.price == null) row.price = this.rowPrice(row);
+  }
+
+  // ==========================================================================
+  // RICERCA PRODOTTO (31/08): autocomplete sul catalogo + «Crea Nuovo».
+  // ==========================================================================
+  readonly rigaAttiva = signal<number | null>(null);
+  readonly risultatiRicerca = signal<Product[]>([]);
+  private ricercaTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onProductQuery(row: ProductRow, index: number, testo: string): void {
+    row.query = testo;
+    row.nomeScelto = undefined; // stai riscrivendo: la scelta precedente decade
+    row.productId = '';
+    this.rigaAttiva.set(index);
+    clearTimeout(this.ricercaTimer);
+    const q = testo.trim();
+    if (q.length < 1) { this.risultatiRicerca.set([]); return; }
+    this.ricercaTimer = setTimeout(() => {
+      // La ricerca chiede al SERVER (l'API prodotti filtra per q sul perimetro
+      // del ruolo): così si arriva a tutti i 21.887, non ai primi 500.
+      this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
+        params: { q, pageSize: 20 } as any,
+      }).subscribe({
+        next: (d) => this.risultatiRicerca.set(d.items ?? []),
+        error: () => this.risultatiRicerca.set([]),
+      });
+    }, 250);
+  }
+
+  scegliProdotto(row: ProductRow, p: Product): void {
+    this.products.set(this.unisciProdotti(this.products(), [p]));
+    row.productId = p.id;
+    row.nomeScelto = p.name;
+    row.query = '';
+    this.rigaAttiva.set(null);
+    this.risultatiRicerca.set([]);
+    this.onProductChange(row);
+  }
+
+  // ---- Crea prodotto al volo ------------------------------------------------
+  readonly creaProdottoAperto = signal(false);
+  readonly creaProdottoInCorso = signal(false);
+  readonly creaProdottoErrore = signal<string | null>(null);
+  nuovoProdotto: { name: string; price: number | null } = { name: '', price: null };
+  private rigaPerNuovo: ProductRow | null = null;
+
+  /** Il proprietario del nuovo prodotto: Deluxy (senza partner) se il servizio
+   *  è di tipo vendita, altrimenti il partner della consegna. */
+  private nuovoProdottoPartnerId(): string | null {
+    if (this.isVendita()) return null; // catalogo Deluxy
+    return this.model.partnerId || null;
+  }
+  nuovoProdottoPartnerNome(): string {
+    if (this.isVendita() || !this.model.partnerId) return 'Deluxy';
+    return this.partners().find((p) => p.id === this.model.partnerId)?.insegna ?? 'Deluxy';
+  }
+
+  apriCreaProdotto(row: ProductRow): void {
+    this.rigaPerNuovo = row;
+    this.nuovoProdotto = { name: (row.query ?? '').trim(), price: null };
+    this.creaProdottoErrore.set(null);
+    this.creaProdottoAperto.set(true);
+    this.rigaAttiva.set(null);
+  }
+  chiudiCreaProdotto(): void { if (!this.creaProdottoInCorso()) this.creaProdottoAperto.set(false); }
+
+  salvaNuovoProdotto(): void {
+    const nome = this.nuovoProdotto.name.trim();
+    if (!nome) { this.creaProdottoErrore.set(this.translate.instant('deliveryForm.newProduct.nameRequired')); return; }
+    this.creaProdottoInCorso.set(true);
+    this.creaProdottoErrore.set(null);
+    const partnerId = this.nuovoProdottoPartnerId();
+    // UNICO se ha un partner (è suo), NON_UNICO se è del catalogo comune Deluxy.
+    const body: Record<string, unknown> = {
+      name: nome,
+      price: this.nuovoProdotto.price ?? 0,
+      type: partnerId ? 'UNICO' : 'NON_UNICO',
+      ...(partnerId ? { partnerId } : {}),
+    };
+    this.http.post<Product>(`${environment.apiUrl}/products`, body).subscribe({
+      next: (p) => {
+        this.creaProdottoInCorso.set(false);
+        this.creaProdottoAperto.set(false);
+        if (p?.id && this.rigaPerNuovo) this.scegliProdotto(this.rigaPerNuovo, p);
+      },
+      error: (err) => {
+        this.creaProdottoInCorso.set(false);
+        this.creaProdottoErrore.set(err?.error?.message ?? this.translate.instant('deliveryForm.newProduct.error'));
+      },
+    });
   }
 
   /** Al cambio variante, il prezzo flessibile non ancora toccato segue lei. */
