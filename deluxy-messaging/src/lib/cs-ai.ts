@@ -45,6 +45,16 @@ export const PALETTI = [
   'Non promettere una data o un orario di consegna che non ti è stato fornito.',
   'Non scrivere niente che sembri una decisione aziendale se non ti risulta già decisa.',
   'Se non hai elementi per rispondere bene, dillo e lascia la risposta a una persona. Meglio nessuna risposta che una sbagliata.',
+  // ⚠️⚠️ LA DISPONIBILITÀ NON LA SAI, E NON SI DICE (31/08/2026). Il caso vero:
+  // una cliente ha mandato la foto di una torta chiedendo di cambiare la
+  // scritta, e la risposta automatica è stata «mi dispiace informarla che il
+  // prodotto scelto non è attualmente disponibile». Non era vero — quella torta
+  // si fa, con qualunque scritta — e non era neanche sapibile: l'AI non vede
+  // né magazzino né agenda dei fornitori. Un «non si può» detto a un cliente
+  // che voleva comprare è un ordine buttato via, e non si recupera.
+  'NON dire MAI se un prodotto è disponibile, esaurito o non realizzabile: non lo sai, e non hai modo di saperlo. Quello che si fa lo decide chi produce.',
+  'Davanti a una richiesta di prodotto — anche personalizzata, anche fuori catalogo — la risposta è che SI PUÒ FARE: si conferma che la richiesta è fattibile e si dice che il prezzo e i tempi li conferma una persona.',
+  'Non fare preventivi e non dire prezzi che non ti sono stati dati. Se serve un prezzo, non inventarlo e non rifiutare: di’ che lo conferma un collega, e lascia la richiesta a una persona.',
 ] as const
 
 export type Istruzione = {

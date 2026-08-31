@@ -5,6 +5,7 @@ import { inviaSulCanale } from './invio'
 import { suggerisciRisposta } from './ai'
 import { linguaDelTesto } from './lingua-testo'
 import { avvisaAmministratore } from './aiuto-whatsapp'
+import { fraseVietata } from './frasi-vietate'
 import { giornoSettimana, inMinuti, turniDelGiorno, type EsitoTurni } from './turni'
 
 // QUANDO NON C'È NESSUNO, RISPONDE L'AI — E SE HA DUBBI CHIEDE.
@@ -485,21 +486,39 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
     // ⚠️⚠️ «Nessuno script adatto» non è un fallimento da nascondere: è l'app che
     // dice «questa non la so». Si chiede a una persona invece di inventare, ed è
     // la ragione per cui questa funzione può stare accesa di notte.
-    if (!proposta.suggerimento) {
+    // ── QUELLO CHE LA RISPOSTA NON PUÒ DIRE ──
+    //
+    // ⚠️⚠️ Il caso vero del 31/08/2026: a chi chiedeva una torta con un'altra
+    // scritta, l'AI ha risposto «il prodotto scelto non è attualmente
+    // disponibile». Non era vero e non era sapibile — l'AI non vede magazzino
+    // né agenda dei fornitori — ed è un ordine buttato via: il cliente non
+    // riscrive, compra altrove.
+    //
+    // ⚠️ La regola sta anche nel prompt (`PALETTI`), ma un'istruzione si può
+    // ignorare: quando il danno è commerciale e irreversibile, la regola si
+    // ripete dove non si può disobbedire. Qui la risposta **non si corregge**
+    // (riscrivere la frase di un modello ne storce il senso): si BLOCCA e si
+    // passa la mano a una persona, che è la strada che c'è già.
+    const vietata = proposta.suggerimento ? fraseVietata(proposta.suggerimento.risposta) : ''
+    if (!proposta.suggerimento || vietata) {
       esito.domande++
       if (domandaAperta) {
         // ⚠️⚠️ SEGUITO, non una domanda nuova. Il filo è già aperto e ha già il
         // suo codice: aprirne un secondo vorrebbe dire due conversazioni
         // parallele sullo stesso cliente, e chi risponde dal telefono non
         // saprebbe a quale delle due sta rispondendo.
-        esito.righe.push(`${nome}: ancora un dubbio → lo aggiungo alla domanda già aperta`)
+        esito.righe.push(
+          `${nome}: ${vietata ? `risposta BLOCCATA (${vietata})` : 'ancora un dubbio'} → lo aggiungo alla domanda già aperta`
+        )
         if (opz.prova) continue
         await db.messaggioAiuto.create({
           data: {
             domandaId: domandaAperta.id,
             autore: 'sistema',
             autoreNome: 'AI fuori turno',
-            testo: `Ha scritto ancora: «${testo.slice(0, 400)}»`,
+            testo: vietata
+              ? `Ha scritto ancora: «${testo.slice(0, 400)}».\n⚠️ La risposta automatica è stata BLOCCATA perché ${vietata}: rispondi tu.`
+              : `Ha scritto ancora: «${testo.slice(0, 400)}»`,
           },
         })
         await avvisaAmministratore(
@@ -508,13 +527,17 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
         )
         continue
       }
-      esito.righe.push(`${nome}: dubbio → chiedo all’amministratore`)
+      esito.righe.push(
+        `${nome}: ${vietata ? `risposta BLOCCATA (${vietata})` : 'dubbio'} → chiedo all’amministratore`
+      )
       if (opz.prova) continue
       const domanda = await db.domandaAiuto.create({
         data: {
-          testo:
-            `Fuori turno, non so come rispondere a ${nome} su ${c.canale}.\n\n` +
-            `Ha scritto: «${testo.slice(0, 400)}»`,
+          testo: vietata
+            ? `Fuori turno, la risposta automatica a ${nome} su ${c.canale} è stata BLOCCATA: ${vietata}.\n\n` +
+              `Ha scritto: «${testo.slice(0, 400)}»\n\n⚠️ Al cliente NON è stato mandato niente. Rispondi tu: quello che scrivi qui gli arriva.`
+            : `Fuori turno, non so come rispondere a ${nome} su ${c.canale}.\n\n` +
+              `Ha scritto: «${testo.slice(0, 400)}»`,
           pagina: '/inbox',
           ordineNumero: c.ordineNumero ?? '',
           conversazioneId: c.id,
