@@ -1,0 +1,578 @@
+[
+ {
+  "nome": "NASTASI SABRINA",
+  "tot": 770
+ },
+ {
+  "nome": "Paris Servizi, Grottaferrata, IT",
+  "tot": 12
+ },
+ {
+  "nome": "STAZ. SERVIZIO IP",
+  "tot": 55.56
+ },
+ {
+  "nome": "STAZIONE DI SERVIZIO",
+  "tot": 129.72
+ },
+ {
+  "nome": "Roberto piancatelli",
+  "tot": 685
+ },
+ {
+  "nome": "Alessio Cardillo",
+  "tot": 60
+ },
+ {
+  "nome": "PSOROULAS FABIO",
+  "tot": 131.4
+ },
+ {
+  "nome": "Antonio Marco",
+  "tot": 280.1
+ },
+ {
+  "nome": "Tudor Fiodorov",
+  "tot": 380.86
+ },
+ {
+  "nome": "Eduardo lusinga",
+  "tot": 570
+ },
+ {
+  "nome": "Barionovi Simone",
+  "tot": 570
+ },
+ {
+  "nome": "Feliziani Carlo",
+  "tot": 505
+ },
+ {
+  "nome": "Daniele Villa",
+  "tot": 652
+ },
+ {
+  "nome": "Gaspare Donato",
+  "tot": 2280
+ },
+ {
+  "nome": "Monica Portales",
+  "tot": 1633.2600000000002
+ },
+ {
+  "nome": "ERIKA MORICONI",
+  "tot": 1071.13
+ },
+ {
+  "nome": "CAI FLOR SRLS",
+  "tot": 150
+ },
+ {
+  "nome": "MGM SERVIZI SRL",
+  "tot": 693.76
+ },
+ {
+  "nome": "Mirella Dipaola",
+  "tot": 45
+ },
+ {
+  "nome": "Blasi Deborah",
+  "tot": 95
+ },
+ {
+  "nome": "Calcagni Kristian",
+  "tot": 632.51
+ },
+ {
+  "nome": "STAZIONE DI SERVIZIO I",
+  "tot": 58.1
+ },
+ {
+  "nome": "F.P.STAZIONE SERVIZIO",
+  "tot": 94.8
+ },
+ {
+  "nome": "salvatore agnese",
+  "tot": 100
+ },
+ {
+  "nome": "STAZIONE DI SERVIZIO Q",
+  "tot": 54.31
+ },
+ {
+  "nome": "Caironi Giulia",
+  "tot": 100
+ },
+ {
+  "nome": "Teruzzi andrea",
+  "tot": 990
+ },
+ {
+  "nome": "simone russo",
+  "tot": 1581.2
+ },
+ {
+  "nome": "nicotra andrea",
+  "tot": 1950
+ },
+ {
+  "nome": "laurino Nicolò",
+  "tot": 810
+ },
+ {
+  "nome": "alessandro sgroi",
+  "tot": 1137.5
+ },
+ {
+  "nome": "Carlo Radice",
+  "tot": 930
+ },
+ {
+  "nome": "N1 ADVISOR S.r.l.",
+  "tot": 915
+ },
+ {
+  "nome": "Leonardo Zago",
+  "tot": 539
+ },
+ {
+  "nome": "Matteo Riboldi",
+  "tot": 60
+ },
+ {
+  "nome": "CLAUDIA TAVELLA",
+  "tot": 497.5
+ },
+ {
+  "nome": "Pietro Mariani",
+  "tot": 35.9
+ },
+ {
+  "nome": "Jacopo Robusti",
+  "tot": 198.8
+ },
+ {
+  "nome": "Luca Gila",
+  "tot": 719.7
+ },
+ {
+  "nome": "Edoardo Rossini",
+  "tot": 1726.8
+ },
+ {
+  "nome": "Federico Bruno",
+  "tot": 1183.68
+ },
+ {
+  "nome": "CANCELLIERE IRENE E COLAIACOVO SILVIA",
+  "tot": 36
+ },
+ {
+  "nome": "Giovanni Aletti",
+  "tot": 604
+ },
+ {
+  "nome": "Edoardo Berneri",
+  "tot": 964.5600000000001
+ },
+ {
+  "nome": "Nicolò Nappo",
+  "tot": 31.2
+ },
+ {
+  "nome": "Claudia Bonello",
+  "tot": 1317
+ },
+ {
+  "nome": "Serghei Usatii",
+  "tot": 475
+ },
+ {
+  "nome": "Simone TUrsi",
+  "tot": 700
+ },
+ {
+  "nome": "Alessandro Miduri",
+  "tot": 42
+ },
+ {
+  "nome": "Alessio Pellecchia",
+  "tot": 174
+ },
+ {
+  "nome": "Marco Mancosu",
+  "tot": 85.6
+ },
+ {
+  "nome": "Carlo Lazzari",
+  "tot": 176
+ },
+ {
+  "nome": "Erika Graziano",
+  "tot": 754.3999999999999
+ },
+ {
+  "nome": "Luca Marrone",
+  "tot": 277
+ },
+ {
+  "nome": "Simone Tursi",
+  "tot": 1141.26
+ },
+ {
+  "nome": "Carlo Maria Radice",
+  "tot": 2530.7599999999998
+ },
+ {
+  "nome": "Giacomo Biscuola",
+  "tot": 28
+ },
+ {
+  "nome": "Pietro Ercolini",
+  "tot": 731
+ },
+ {
+  "nome": "Nicotra Andrea",
+  "tot": 487.5
+ },
+ {
+  "nome": "Stefano Galizia",
+  "tot": 400.5
+ },
+ {
+  "nome": "Leonel Theodore Late",
+  "tot": 914
+ },
+ {
+  "nome": "Laurino Niccolò",
+  "tot": 55
+ },
+ {
+  "nome": "Ivan mammone",
+  "tot": 381
+ },
+ {
+  "nome": "Giulia Eleonora Verdino",
+  "tot": 895
+ },
+ {
+  "nome": "Alessandro Sgroi",
+  "tot": 1343.7
+ },
+ {
+  "nome": "Simone Villa",
+  "tot": 1260.8
+ },
+ {
+  "nome": "Ferreira Julio Diego",
+  "tot": 486
+ },
+ {
+  "nome": "Manuele Cera",
+  "tot": 651.67
+ },
+ {
+  "nome": "Paolo Genova",
+  "tot": 643
+ },
+ {
+  "nome": "Massimiliano Cattaneo",
+  "tot": 104
+ },
+ {
+  "nome": "Daniela Fassi",
+  "tot": 323
+ },
+ {
+  "nome": "Mattia De Chiara",
+  "tot": 264.6
+ },
+ {
+  "nome": "Matteo Negro",
+  "tot": 2
+ },
+ {
+  "nome": "Jacopo Oliver Plazzi",
+  "tot": 109
+ },
+ {
+  "nome": "Gabriele Di Matteo",
+  "tot": 2255
+ },
+ {
+  "nome": "BERNERI EDOARDO DAVIDE",
+  "tot": 643.64
+ },
+ {
+  "nome": "Edoardo Saccucci",
+  "tot": 62
+ },
+ {
+  "nome": "Federico Crusco",
+  "tot": 103.5
+ },
+ {
+  "nome": "STAZIONE SERVIZIO ESSO MILANO IT",
+  "tot": 94.6
+ },
+ {
+  "nome": "bruno cesarini",
+  "tot": 102
+ },
+ {
+  "nome": "Lorenzo Romanato",
+  "tot": 340
+ },
+ {
+  "nome": "Viktor Steinn Bonometti",
+  "tot": 143
+ },
+ {
+  "nome": "Nicola Arrigoni",
+  "tot": 196
+ },
+ {
+  "nome": "GIANNUZZI BARTOLOMEO",
+  "tot": 1380.8400000000001
+ },
+ {
+  "nome": "Gennari Leonarodo",
+  "tot": 415.4
+ },
+ {
+  "nome": "Marco Pedrinelli",
+  "tot": 50
+ },
+ {
+  "nome": "Gianluca Villa",
+  "tot": 1297.5
+ },
+ {
+  "nome": "Lorenzo Chirieleison",
+  "tot": 60.64
+ },
+ {
+  "nome": "Damiano Furlan",
+  "tot": 1276
+ },
+ {
+  "nome": "Paola Ricci",
+  "tot": 427.36
+ },
+ {
+  "nome": "Cristhian Galimberti",
+  "tot": 175.04
+ },
+ {
+  "nome": "Alessandro Capone",
+  "tot": 243.32999999999998
+ },
+ {
+  "nome": "Ballabio mirko",
+  "tot": 151.48
+ },
+ {
+  "nome": "Mattia Arca",
+  "tot": 655
+ },
+ {
+  "nome": "Ferrari Tito",
+  "tot": 140.36
+ },
+ {
+  "nome": "TAGLIATINI MATTIA",
+  "tot": 228.36
+ },
+ {
+  "nome": "CAROTENUTO DAVIDE",
+  "tot": 1024.4199999999998
+ },
+ {
+  "nome": "lORENZO EMBOLI",
+  "tot": 645.34
+ },
+ {
+  "nome": "Luca Frigerio",
+  "tot": 2695.17
+ },
+ {
+  "nome": "Luca Simonato",
+  "tot": 239.64
+ },
+ {
+  "nome": "Paolo Meli",
+  "tot": 730.1199999999999
+ },
+ {
+  "nome": "Lakchini Yasmine",
+  "tot": 80
+ },
+ {
+  "nome": "Daniele De Giglio",
+  "tot": 1160
+ },
+ {
+  "nome": "Davide Guerrini",
+  "tot": 470
+ },
+ {
+  "nome": "Riccardo Ribet",
+  "tot": 2688.44
+ },
+ {
+  "nome": "Claire Billiotte",
+  "tot": 436.52
+ },
+ {
+  "nome": "Bagarello",
+  "tot": 382
+ },
+ {
+  "nome": "Domenico Romeo",
+  "tot": 233
+ },
+ {
+  "nome": "Stefano Moltani",
+  "tot": 926
+ },
+ {
+  "nome": "MATTEO GABRIELE GAREL",
+  "tot": 1054.75
+ },
+ {
+  "nome": "ALEJANDRO JOSÉ CAPUTO MIER",
+  "tot": 80
+ },
+ {
+  "nome": "ELIZABETH SILECCHIA",
+  "tot": 264.25
+ },
+ {
+  "nome": "Bagarello Ivo",
+  "tot": 1005.66
+ },
+ {
+  "nome": "Erika Moriconi",
+  "tot": 57
+ },
+ {
+  "nome": "GERSON JOEL ESPINO CHACALIAZA",
+  "tot": 1563.16
+ },
+ {
+  "nome": "Christian papandrea",
+  "tot": 20
+ },
+ {
+  "nome": "Catherina Silecchia",
+  "tot": 391.5
+ },
+ {
+  "nome": "deidda",
+  "tot": 85
+ },
+ {
+  "nome": "federico bruno",
+  "tot": 24
+ },
+ {
+  "nome": "POLLI FEDERICA",
+  "tot": 40
+ },
+ {
+  "nome": "Lorenzo Lo Bianco",
+  "tot": 233
+ },
+ {
+  "nome": "AREA SERVIZIO ENI",
+  "tot": 30.62
+ },
+ {
+  "nome": "CANTUN S.R.L.",
+  "tot": 211.2
+ },
+ {
+  "nome": "PINI SERGIO",
+  "tot": 30
+ },
+ {
+  "nome": "SumUp *Servizio Taxi",
+  "tot": 15
+ },
+ {
+  "nome": "DONES COSTANZA ALESSANDRA",
+  "tot": 245
+ },
+ {
+  "nome": "VELEZ MONICA",
+  "tot": 415.2
+ },
+ {
+  "nome": "bar siena di liu zebin",
+  "tot": 990
+ },
+ {
+  "nome": "trepiutre srl",
+  "tot": 50
+ },
+ {
+  "nome": "Riccardo Gallo",
+  "tot": 10
+ },
+ {
+  "nome": "LAUDATI FEDERICO",
+  "tot": 15
+ },
+ {
+  "nome": "Sansabini Gianmarco",
+  "tot": 20
+ },
+ {
+  "nome": "Alessandro Ricci",
+  "tot": 1003
+ },
+ {
+  "nome": "Milano express srl",
+  "tot": 122
+ },
+ {
+  "nome": "Valeria De Marinis",
+  "tot": 104
+ },
+ {
+  "nome": "PRESSO RECAPITI SRL",
+  "tot": 12
+ },
+ {
+  "nome": "Daniele Occhipinti",
+  "tot": 477
+ },
+ {
+  "nome": "Samuele Lapini",
+  "tot": 746
+ },
+ {
+  "nome": "de roaa sergio",
+  "tot": 500
+ },
+ {
+  "nome": "SERVIZIO TAXI",
+  "tot": 19.3
+ },
+ {
+  "nome": "Daniele occhipinti",
+  "tot": 30
+ },
+ {
+  "nome": "La bottega del fiore",
+  "tot": 60
+ },
+ {
+  "nome": "pasticceria casali",
+  "tot": 26
+ },
+ {
+  "nome": "Emanuele Mazzotta",
+  "tot": 160
+ }
+]

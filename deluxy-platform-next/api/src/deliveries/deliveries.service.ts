@@ -786,8 +786,14 @@ export class DeliveriesService {
         price: dto.price != null ? dto.price : price,
         distanceKm,
         extraKm,
-        // Stato: se impostato manualmente vince, altrimenti in base all'assegnazione valet
-        status: dto.status ?? (dto.valetId ? DeliveryStatus.ASSIGNED : DeliveryStatus.CREATED),
+        // Stato: se impostato manualmente vince, altrimenti in base
+        // all'assegnazione. Una consegna «da fornitore» nasce già ASSEGNATA (al
+        // partner che la fa), così ha subito i bottoni di lavorazione.
+        status:
+          dto.status ??
+          (dto.valetId || dto.deliveredByPartner
+            ? DeliveryStatus.ASSIGNED
+            : DeliveryStatus.CREATED),
         products: products?.length
           ? {
               create: await this.fotografaProdotti(products as any, user),
@@ -1089,9 +1095,20 @@ export class DeliveriesService {
   ) {
     const delivery = await this.findOne(id, user);
 
-    // Il partner puo' solo richiedere la cancellazione
+    // CONSEGNE DA FORNITORE (31/08/2026): quando è il partner stesso a fare la
+    // consegna, ed è la SUA consegna, chiude come un valet (in consegna →
+    // consegnata / non consegnata). `deliveredByPartner` e `partnerId`
+    // sopravvivono alla maschera del partner, quindi si possono leggere qui.
+    const consegnaDaFornitore =
+      user.role === Role.PARTNER &&
+      (delivery as any).deliveredByPartner === true &&
+      (delivery as any).partnerId === user.partnerId;
+
+    // Il partner puo' solo richiedere la cancellazione — tranne quando è lui a
+    // consegnare (Consegne da Fornitore).
     if (
       user.role === Role.PARTNER &&
+      !consegnaDaFornitore &&
       status !== DeliveryStatus.CANCELLATION_REQUESTED
     ) {
       throw new ForbiddenException(
@@ -1099,11 +1116,12 @@ export class DeliveriesService {
       );
     }
 
-    // Il VALET fa il SUO mestiere e solo in avanti (31/08/2026): ritira
+    // Il VALET — e il partner che consegna da fornitore — fa il SUO mestiere e
+    // solo in avanti (31/08/2026): ritira
     // (in consegna) e chiude (consegnata / non consegnata). La rotta gli era
     // aperta su QUALSIASI stato — avrebbe potuto cancellare o retrocedere una
     // consegna chiusa, e da una chiusa dipende la sua paga.
-    if (user.role === Role.VALET) {
+    if (user.role === Role.VALET || consegnaDaFornitore) {
       const versoConsentito = [
         DeliveryStatus.IN_DELIVERY,
         DeliveryStatus.DELIVERED,
@@ -1117,6 +1135,9 @@ export class DeliveriesService {
         DeliveryStatus.ACCEPTED,
         DeliveryStatus.IN_PREPARATION,
         DeliveryStatus.IN_DELIVERY,
+        // Da fornitore: la consegna può essere ancora «created» (nessun valet
+        // assegnato) e il partner deve poter partire lo stesso.
+        ...(consegnaDaFornitore ? [DeliveryStatus.CREATED] : []),
       ].includes(delivery.status as DeliveryStatus);
       if (!versoConsentito || !daStatoAperto) {
         throw new ForbiddenException(
@@ -1476,6 +1497,9 @@ export class DeliveriesService {
     'billable', 'payable', 'invoiced',
     'status', 'paymentStatus',
     'valetId',
+    // Consegne da Fornitore: è l'ufficio a decidere che una consegna la fa il
+    // partner al posto di un valet — non se la accende il partner da solo.
+    'deliveredByPartner',
     'internalNotes',
     'extraKm', 'extraOutOfCity', 'distanceKm',
     // ⚠️ `deluxyDelivery` è un interruttore che nessuno legge in tutta l'api:
@@ -1614,8 +1638,16 @@ export class DeliveriesService {
       // partner NON si mostrano i suoi dati. Nasconderlo solo nella pagina non
       // basta — chi legge la rotta lo vedrebbe. `hideCustomerInfo` del servizio
       // vale allo stesso modo, se acceso.
+      // ⚠️ 31/08 (regola dell'utente) — CONSEGNE DA FORNITORE. Se è il partner
+      // stesso a fare la consegna (`deliveredByPartner`) ED è la SUA consegna,
+      // i dati del destinatario NON si nascondono: gli servono per consegnare.
+      // La deroga vale solo per il proprietario, non per un partner che vede la
+      // consegna perché condivisa.
+      const laFaIlPartner =
+        pulita['deliveredByPartner'] === true &&
+        pulita['partnerId'] === user.partnerId;
       const svc = (pulita['serviceType'] ?? {}) as { pricingModel?: string; hideCustomerInfo?: boolean };
-      if (svc.pricingModel === 'VENDITA' || svc.hideCustomerInfo) {
+      if (!laFaIlPartner && (svc.pricingModel === 'VENDITA' || svc.hideCustomerInfo)) {
         for (const campo of ['recipientFirstName', 'recipientLastName', 'recipientAddress',
           'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude']) {
           delete pulita[campo];

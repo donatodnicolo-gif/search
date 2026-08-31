@@ -1281,7 +1281,8 @@
     },
     "toggle": {
       "deluxySale": "Deluxy sale",
-      "saveCustomer": "Save as a new customer in Customers"
+      "saveCustomer": "Save as a new customer in Customers",
+      "deliveredByPartner": "Delivered by supplier (partner delivers)"
     },
     "sms": {
       "groupLabel": "Send SMS",

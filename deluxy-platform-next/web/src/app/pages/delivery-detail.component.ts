@@ -32,6 +32,8 @@ interface DeliveryDetail {
   date: string;
   status: string;
   paymentStatus: string;
+  /** Consegne da Fornitore: la fa il partner, non un valet. */
+  deliveredByPartner?: boolean;
   deliveryTimeFrom?: string;
   deliveryTimeTo?: string;
   deliveryFlexible?: boolean;
@@ -128,7 +130,7 @@ interface DeliveryDetail {
              l'API rifiuta ogni altro passaggio. «Consegnata» apre il pop-up
              a-chi/firma/DDT; «Non consegnata» chiede il motivo: da questi
              stati dipendono paga e fattura, e non si torna indietro da soli. -->
-        @if (isValet() && lavorabile(d)) {
+        @if (puoLavorare(d)) {
           <div class="valet-azioni">
             <!-- Consegnata/Non consegnata SOLO dopo che è «in consegna»
                  (31/08): prima si mette in consegna, poi si chiude. -->
@@ -862,6 +864,27 @@ export class DeliveryDetailComponent {
   lavorabile(d: { status: string }): boolean {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
   }
+  /**
+   * CONSEGNE DA FORNITORE (31/08): è il partner stesso a consegnare la SUA
+   * consegna. Solo allora il partner vede il destinatario e ha i bottoni di
+   * lavorazione, come un valet.
+   */
+  consegnaDaFornitore(d: { deliveredByPartner?: boolean; partner?: { id: string } }): boolean {
+    return (
+      this.isPartner() &&
+      d?.deliveredByPartner === true &&
+      d?.partner?.id === this.auth.user()?.partnerId
+    );
+  }
+  /** Chi può muovere lo stato: il valet, o il partner che consegna da fornitore. */
+  puoLavorare(d: { status: string; deliveredByPartner?: boolean; partner?: { id: string } }): boolean {
+    if (this.isValet()) return this.lavorabile(d);
+    if (this.consegnaDaFornitore(d)) {
+      // Da fornitore la consegna può essere ancora «created» (senza valet).
+      return ['created', 'assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+    }
+    return false;
+  }
 
   apriChiusura(tipo: 'delivered' | 'not_delivered'): void {
     this.azioneErrore.set(null);
@@ -1018,7 +1041,7 @@ export class DeliveryDetailComponent {
         // il pop-up si apre da solo: il valet non deve cercare due volte.
         const chiudi = this.route.snapshot.queryParamMap.get('chiudi');
         if ((chiudi === 'delivered' || chiudi === 'not_delivered')
-          && this.isValet() && this.lavorabile(d) && !this.chiusura()) {
+          && this.puoLavorare(d) && !this.chiusura()) {
           this.apriChiusura(chiudi);
         }
       },

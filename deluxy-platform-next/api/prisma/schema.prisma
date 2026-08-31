@@ -1038,6 +1038,13 @@ model Delivery {
   partner            Partner           @relation(fields: [partnerId], references: [id])
   valetId            String?
   valet              Valet?            @relation(fields: [valetId], references: [id])
+  /// CONSEGNE DA FORNITORE (31/08/2026, regola dell'utente). Vero quando la
+  /// consegna la fa il PARTNER stesso, non un valet Deluxy: al posto di
+  /// assegnare un valet si accende questo flag. Per quelle consegne il partner
+  /// proprietario vede i dati anagrafici del destinatario (gli servono per
+  /// consegnare) e dispone dei bottoni «in consegna / consegnata / non
+  /// consegnata» come un valet — ma solo per le SUE consegne con questo flag.
+  deliveredByPartner Boolean           @default(false)
   customerId         String?
   customer           Customer?         @relation(fields: [customerId], references: [id])
   status             String            @default("created")

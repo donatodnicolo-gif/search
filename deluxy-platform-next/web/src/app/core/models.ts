@@ -43,6 +43,8 @@ export interface Delivery {
   recipientLastName: string;
   recipientAddress: string;
   recipientIntercom?: string | null;
+  /** Consegne da Fornitore: la consegna la fa il partner, non un valet. */
+  deliveredByPartner?: boolean;
   paymentOnDelivery: boolean;
   paymentAmount?: number;
   price?: number;

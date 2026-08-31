@@ -415,7 +415,7 @@ interface PropostaVendita {
                   <!-- I bottoni del VALET anche IN LISTA (31/08): il ritiro
                        parte da qui; la chiusura apre il dettaglio col pop-up
                        giusto già aperto (firma/DDT o motivo). -->
-                  @if (isValetRuolo() && valetPuoLavorare(d)) {
+                  @if (puoLavorare(d)) {
                     <!-- Consegnata/Non consegnata solo dopo «in consegna» (31/08). -->
                     @if (d.status !== 'in_delivery') {
                       <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id" (click)="valetInConsegna(d)">
@@ -1659,6 +1659,25 @@ export class DeliveriesListComponent {
   }
   valetPuoLavorare(d: Delivery): boolean {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+  }
+  /**
+   * CONSEGNE DA FORNITORE (31/08): il partner consegna la SUA consegna. Allora
+   * ha gli stessi bottoni del valet, direttamente in lista.
+   */
+  consegnaDaFornitore(d: Delivery): boolean {
+    return (
+      this.roleOf() === 'PARTNER' &&
+      (d as any).deliveredByPartner === true &&
+      d.partner?.id === this.auth.user()?.partnerId
+    );
+  }
+  /** Chi muove lo stato dalla lista: il valet, o il partner che consegna da fornitore. */
+  puoLavorare(d: Delivery): boolean {
+    if (this.isValetRuolo()) return this.valetPuoLavorare(d);
+    if (this.consegnaDaFornitore(d)) {
+      return ['created', 'assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
+    }
+    return false;
   }
   valetInConsegna(d: Delivery): void {
     this.valetStatoInCorso.set(d.id);

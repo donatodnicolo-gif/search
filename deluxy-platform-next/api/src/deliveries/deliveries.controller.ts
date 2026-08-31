@@ -103,7 +103,10 @@ export class DeliveriesController {
     return this.deliveriesService.update(id, dto, user);
   }
 
-  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
+  // PARTNER incluso per due motivi già filtrati nel service: può richiedere la
+  // cancellazione, e — se la consegna è «da fornitore» ed è sua — la chiude
+  // come un valet (in consegna / consegnata / non consegnata).
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET, Role.PARTNER)
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cambio stato (con log automatico)' })
   updateStatus(

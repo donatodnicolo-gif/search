@@ -259,6 +259,9 @@ interface ProductRow {
             </select></label>
         </div>
         <label class="toggle mt"><input type="checkbox" name="deluxyDelivery" [(ngModel)]="model.deluxyDelivery" /><span>{{ 'deliveryForm.toggle.deluxySale' | translate }}</span></label>
+        <!-- Consegne da Fornitore: la fa il partner, non un valet. Acceso, il
+             partner proprietario vede il destinatario e chiude la consegna. -->
+        <label class="toggle mt"><input type="checkbox" name="deliveredByPartner" [(ngModel)]="model.deliveredByPartner" /><span>{{ 'deliveryForm.toggle.deliveredByPartner' | translate }}</span></label>
       </section>
       }
 
@@ -932,6 +935,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     senderPhone: '',
     valetServiceId: '',
     deluxyDelivery: false,
+    deliveredByPartner: false,
     smsPhoneNo: '',
     smsOnCreated: false,
     smsOnDeparted: false,
@@ -1240,7 +1244,8 @@ export class DeliveryFormComponent implements AfterViewInit {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
     }
     for (const key of [
-      'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'smsOnCreated', 'smsOnDeparted',
+      'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'deliveredByPartner',
+      'smsOnCreated', 'smsOnDeparted',
       'smsOnArrived', 'paymentOnDelivery', 'tryAndReturn', 'billable', 'payable',
       'isFlexiblePrice', 'deliveryCodeRequired',
     ] as const) {
@@ -1784,6 +1789,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       smsOnArrived: m.smsOnArrived,
       paymentStatus: m.paymentStatus,
       deluxyDelivery: m.deluxyDelivery,
+      deliveredByPartner: m.deliveredByPartner,
       billable: m.billable,
       payable: m.payable,
       isFlexiblePrice: m.isFlexiblePrice,

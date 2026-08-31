@@ -92,6 +92,15 @@ export class CreateDeliveryDto {
   @IsString()
   valetId?: string;
 
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Consegne da Fornitore: la consegna la fa il partner, non un valet Deluxy',
+  })
+  @IsOptional()
+  @IsBoolean()
+  deliveredByPartner?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
