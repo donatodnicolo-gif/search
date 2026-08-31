@@ -1937,7 +1937,41 @@
   "tracking": {
     "title": "Consegna #{{code}}",
     "history": "Stato della consegna",
-    "notFound": "Consegna non trovata o link non più valido."
+    "notFound": "Consegna non trovata o link non più valido.",
+    "hello": "Ciao {{name}}",
+    "subtitle": "Segui la tua consegna Deluxy in tempo reale.",
+    "window": "Consegna prevista",
+    "by": "a cura di",
+    "courier": "Corriere",
+    "step": {
+      "registered": "Registrato",
+      "preparing": "In preparazione",
+      "onTheWay": "In consegna",
+      "delivered": "Consegnato"
+    },
+    "hero": {
+      "registered": {
+        "title": "Ordine registrato",
+        "sub": "Abbiamo preso in carico la tua consegna."
+      },
+      "preparing": {
+        "title": "In preparazione",
+        "sub": "Stiamo preparando il tuo ordine con cura."
+      },
+      "onTheWay": {
+        "title": "In arrivo da te",
+        "sub": "Il corriere è partito: manca poco."
+      },
+      "delivered": {
+        "title": "Consegnato",
+        "sub": "Il tuo ordine è stato consegnato. Grazie!"
+      },
+      "failed": {
+        "title": "Consegna sospesa",
+        "sub": "C’è stato un imprevisto con questa consegna. Ti ricontattiamo a breve."
+      }
+    },
+    "updated": "Aggiornato"
   },
   "customers": {
     "title": "Clienti",

@@ -117,9 +117,11 @@ export class DeliveriesController {
     return this.deliveriesService.updateStatus(id, dto.status, user, dto);
   }
 
+  // Anche il PARTNER: il link di tracciamento serve a condividerlo col CLIENTE.
+  // `getTrackingToken` passa da findOne, che applica già il perimetro del
+  // partner — può generare il link solo per le consegne che può vedere.
   @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @Get(':id/tracking-link')
-  @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Token del link pubblico di monitoraggio (lo crea se assente)' })
   trackingLink(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.deliveriesService.getTrackingToken(id, user);

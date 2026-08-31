@@ -1937,7 +1937,41 @@
   "tracking": {
     "title": "Delivery #{{code}}",
     "history": "Delivery status",
-    "notFound": "Delivery not found or link no longer valid."
+    "notFound": "Delivery not found or link no longer valid.",
+    "hello": "Hi {{name}}",
+    "subtitle": "Follow your Deluxy delivery in real time.",
+    "window": "Estimated delivery",
+    "by": "by",
+    "courier": "Courier",
+    "step": {
+      "registered": "Registered",
+      "preparing": "Preparing",
+      "onTheWay": "On the way",
+      "delivered": "Delivered"
+    },
+    "hero": {
+      "registered": {
+        "title": "Order registered",
+        "sub": "We have received your delivery."
+      },
+      "preparing": {
+        "title": "Preparing",
+        "sub": "We are getting your order ready."
+      },
+      "onTheWay": {
+        "title": "On its way",
+        "sub": "The courier has left: almost there."
+      },
+      "delivered": {
+        "title": "Delivered",
+        "sub": "Your order has been delivered. Thank you!"
+      },
+      "failed": {
+        "title": "Delivery on hold",
+        "sub": "Something came up with this delivery. We will get back to you shortly."
+      }
+    },
+    "updated": "Updated"
   },
   "customers": {
     "title": "Customers",

@@ -115,8 +115,12 @@ interface DeliveryDetail {
           @if (canEdit()) {
             <a class="act" [routerLink]="['/deliveries', d.id, 'edit']">{{ 'deliveryDetail.act.edit' | translate }}</a>
           }
-          @if (canManage()) {
+          <!-- Il link di tracciamento si condivide col CLIENTE: lo vede anche
+               il partner (proprietario della consegna), non solo l'ufficio. -->
+          @if (canShare()) {
             <button type="button" class="act" (click)="share(d)">{{ 'deliveryDetail.act.share' | translate }}</button>
+          }
+          @if (canManage()) {
             <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
             <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
           }
@@ -1022,6 +1026,11 @@ export class DeliveryDetailComponent {
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
   }
   canSeeLogs(): boolean { return this.canManage(); }
+  /** Chi può condividere il link di tracciamento col cliente: ufficio + partner. */
+  canShare(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
+  }
 
   constructor() {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
