@@ -126,3 +126,33 @@ export async function mandaEmail(opzioni: {
     html: opzioni.html,
   });
 }
+
+/**
+ * Prova il collegamento col server di posta SENZA spedire niente: si collega,
+ * negozia il TLS e **autentica**. È la verifica che dice se host, porta,
+ * casella e password sono giusti, e si può fare quante volte si vuole senza
+ * mandare un messaggio a nessuno.
+ *
+ * Serve perché «configurata» e «funzionante» sono due cose diverse: le cinque
+ * righe possono esserci tutte e il server rifiutare comunque le credenziali.
+ */
+export async function provaCollegamento(): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const c = await configPosta();
+  if (!c) return { ok: false, motivo: "La posta non è configurata." };
+
+  const trasporto = nodemailer.createTransport({
+    host: c.host,
+    port: c.porta,
+    secure: c.porta === 465,
+    auth: { user: c.utente, pass: c.password },
+  });
+
+  try {
+    await trasporto.verify();
+    return { ok: true };
+  } catch (e) {
+    // Il motivo del server si mostra all'admin: «non funziona» senza spiegazione
+    // manda a indovinare. Non contiene la password.
+    return { ok: false, motivo: e instanceof Error ? e.message.slice(0, 300) : "errore sconosciuto" };
+  }
+}

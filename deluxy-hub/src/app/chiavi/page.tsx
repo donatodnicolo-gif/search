@@ -2,7 +2,7 @@ import Link from "next/link";
 import { catalogoApp } from "@/lib/apps";
 import { decifra } from "@/lib/cifratura";
 import { NOMI_CHIAVI, statoPosta } from "@/lib/posta";
-import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken, salvaPosta } from "@/lib/chiavi-actions";
+import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken, salvaPosta, provaPosta, mandaProvaPosta } from "@/lib/chiavi-actions";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { ConfermaAzione } from "@/components/ConfermaAzione";
@@ -19,9 +19,11 @@ const MESSAGGI_OK: Record<string, string> = {
   "token-creato": "Token creato. Se non l'hai copiato, revocalo e generane un altro.",
   "token-revocato": "Token revocato.",
   posta: "Posta del portale salvata.",
+  "posta-collegata": "Collegamento riuscito: il server di posta accetta queste credenziali.",
 };
 
 const MESSAGGI_ERRORE: Record<string, string> = {
+  "posta-prova": "La prova non è riuscita.",
   dati: "Dati non validi: servono progetto, nome e valore.",
   esiste: "Questo progetto ha già una chiave con questo nome: modificala dalla lista.",
   segreto:
@@ -44,7 +46,7 @@ function dataIt(d: Date) {
 export default async function ChiaviPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; errore?: string; mostra?: string }>;
+  searchParams: Promise<{ ok?: string; errore?: string; mostra?: string; dettaglio?: string; a?: string }>;
 }) {
   await richiediAdmin();
   const sp = await searchParams;
@@ -116,9 +118,16 @@ export default async function ChiaviPage({
         </p>
       </div>
 
-      {sp.ok && MESSAGGI_OK[sp.ok] && <div className="avviso ok">{MESSAGGI_OK[sp.ok]}</div>}
+      {sp.ok === "posta-inviata" ? (
+        <div className="avviso ok">Email di prova mandata a {sp.a}. Se non arriva, guarda la posta indesiderata.</div>
+      ) : (
+        sp.ok && MESSAGGI_OK[sp.ok] && <div className="avviso ok">{MESSAGGI_OK[sp.ok]}</div>
+      )}
       {sp.errore && MESSAGGI_ERRORE[sp.errore] && (
-        <div className="avviso errore">{MESSAGGI_ERRORE[sp.errore]}</div>
+        <div className="avviso errore">
+          {MESSAGGI_ERRORE[sp.errore]}
+          {sp.dettaglio && <span className="nota-riga">{sp.dettaglio}</span>}
+        </div>
       )}
       {erroreDecifra && (
         <div className="avviso errore">
@@ -132,6 +141,7 @@ export default async function ChiaviPage({
       <div className="section-label">La posta del portale</div>
       <div className="card" style={{ marginBottom: 8 }}>
         {posta.pronta ? (
+          <>
           <p style={{ margin: 0, fontSize: 14 }}>
             <span className="badge green">
               <span className="dot" />
@@ -140,6 +150,19 @@ export default async function ChiaviPage({
             Le email del portale partono da <strong>{posta.mittente}</strong> (configurazione presa{" "}
             {posta.origine === "ambiente" ? "dalle variabili d’ambiente" : "da questa cassaforte"}).
           </p>
+          {/* «Configurata» e «funzionante» sono due cose diverse: le cinque righe
+              possono esserci tutte e il server rifiutare le credenziali. La prima
+              prova autentica senza spedire; la seconda manda un messaggio vero,
+              e solo a chi preme (il destinatario non si sceglie da un campo). */}
+          <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+            <form action={provaPosta}>
+              <button type="submit" className="btn">Prova il collegamento</button>
+            </form>
+            <form action={mandaProvaPosta}>
+              <button type="submit" className="btn">Mandami un&rsquo;email di prova</button>
+            </form>
+          </div>
+          </>
         ) : (
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>

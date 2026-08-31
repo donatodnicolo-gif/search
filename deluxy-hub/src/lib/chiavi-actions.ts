@@ -7,6 +7,7 @@ import { cifra } from "./cifratura";
 import { hashToken } from "./token-api";
 import { idAppValidi } from "./apps";
 import { richiediAdmin } from "./sessione-server";
+import { mandaEmail, provaCollegamento } from "./posta";
 
 // Server action della pagina /chiavi (solo admin). Come per gli utenti, il
 // middleware blocca la rotta ma ogni azione ricontrolla il ruolo lato server.
@@ -181,4 +182,52 @@ export async function salvaPosta(fd: FormData) {
 
   revalidatePath("/chiavi");
   redirect("/chiavi?ok=posta");
+}
+
+/**
+ * «Prova il collegamento»: autentica sul server di posta senza spedire nulla.
+ * Risponde nella pagina con l'esito vero — compreso il motivo del rifiuto, che
+ * è l'unica cosa utile quando le credenziali non vanno.
+ */
+export async function provaPosta() {
+  await richiediAdmin();
+  const esito = await provaCollegamento();
+  if (esito.ok) redirect("/chiavi?ok=posta-collegata");
+  redirect(`/chiavi?errore=posta-prova&dettaglio=${encodeURIComponent(esito.motivo)}`);
+}
+
+/**
+ * «Mandami una prova»: spedisce un messaggio VERO alla casella dell'admin che
+ * preme il bottone. Il destinatario non si sceglie da un campo: si prende dalla
+ * sessione, così questo bottone non può diventare un modo per mandare posta a
+ * terzi da dentro il pannello.
+ */
+export async function mandaProvaPosta() {
+  const sessione = await richiediAdmin();
+  const utente = await prisma.utente.findUnique({
+    where: { id: sessione.uid },
+    select: { email: true, nome: true },
+  });
+  if (!utente) redirect("/chiavi?errore=posta-prova&dettaglio=utente%20non%20trovato");
+
+  try {
+    await mandaEmail({
+      a: utente.email,
+      oggetto: "Deluxy Hub — prova di posta",
+      testo: [
+        `Ciao ${utente.nome},`,
+        "",
+        "questa è una prova: la posta del portale funziona.",
+        "Da adesso partono il recupero password e il riepilogo presenze,",
+        "e le altre app possono chiedere al Hub di spedire per loro.",
+        "",
+        "Deluxy Hub",
+      ].join(String.fromCharCode(10)),
+    });
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message.slice(0, 300) : "errore sconosciuto";
+    redirect(`/chiavi?errore=posta-prova&dettaglio=${encodeURIComponent(motivo)}`);
+  }
+
+  redirect(`/chiavi?ok=posta-inviata&a=${encodeURIComponent(utente.email)}`);
 }
