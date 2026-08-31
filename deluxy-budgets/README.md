@@ -27,6 +27,56 @@ risultati commerciali del mese sono ancora fermi a 160 €». Le due risposte:
   ordini-mese --project-ref fdsziebgkljfsugqqbqd --no-verify-jwt` — al deploy la pagina si accende
   da sola, senza ripubblicare Budgets.
 
+### 31/08/2026: il giorno in cui il conto ha imparato a dire la verità
+
+La giornata più densa dell'app: agosto è passato da **−40.455 € a ~+4.000 €** senza che in banca
+si muovesse un euro — era tutto classificazione. Le regole nuove del conto, tutte decise
+dall'utente:
+
+1. **Le COMMISSIONI D'INCASSO stanno nel Costo per servizi** (19.170 €/anno): Stripe e Shopify le
+   trattengono PRIMA del bonifico, in banca non esistono e il primo margine non le sconta — o
+   entrano da lì o da nessuna parte. Dalla copia di Orders, per mese, in `caricaConsuntivo` E
+   nella pagina Consuntivo (una regola, chiamata due volte). Il `costoConsegna` di Orders invece
+   **NON si somma**: è un sottoinsieme (32.095 €) del costo consegne della piattaforma (110.675 €)
+   già in COGS — sarebbe un doppio.
+2. **Il COGS segue la FATTURA del servizio**: rettifica di competenza (`/competenza`, meccanismo
+   che esisteva già) — il caso Finotti: 17.325 € di prodotti per l'evento Moncler pagati il 28/08,
+   spostati a MAGGIO perché la fattura 364/2026 (20.250 €) è di competenza maggio.
+3. **Il metro dei prodotti**: se il ricavo del canale è già netto del prodotto (D2C) il pagamento
+   al fornitore si ESCLUDE (fiorai/pasticcerie → Partner); se il ricavo è pieno (Eventi/B2B) va in
+   COGS (Finotti → Fornitori di eventi); i vini per gli ordini → Materiali.
+4. **~330 regole nuove** in una sera, tutte a decisione dell'utente: 150 fiorai col
+   criterio-causale del 29/07, 137 valet dell'epoca 2021–22 («rimborso» o «servizi» in causale ⇒
+   consegne), supermercati→Struttura, NCC/jobby→Consegne, consulenze→Consulenti, GoDaddy/Shopify→
+   Abbonamenti, Chalet Morel→Viaggi, nicotra→Stipendi (la causale «servizi sito» ingannava),
+   capri 360 («nave» per un cliente)→Fornitori di eventi, coinbase→Banca (bonifico USCITO e
+   RIENTRATO il giorno dopo, netto zero, verificato). «Da classificare» 2026: **47.767 → ~4.000 €**;
+   pregresso tutti gli anni: 258.540 → ~150.000 €.
+   ⭐ **Trappola trovata**: `categoriaDa: { not: "manuale" }` in Prisma NON prende i NULL — i
+   movimenti mai categorizzati erano invisibili a OGNI riclassifica, bottone compreso. Nasce
+   `deluxy-partner/scripts/applica-regole-vuote.mts` (replica del bottone «Applica le regole»).
+5. **In pagina**: il P&L mostra il PONTE del D2C (Venduto → Prodotti, partner e IVA → Ricavi D2C,
+   memo che non entra nei totali) e sotto il risultato le **ipotesi** (Ammortamenti dal B10
+   dell'ultimo bilancio; Imposte IRES 24% + IRAP 3,9% piene se l'ante è positivo; Risultato netto
+   finale) — la stima vera resta in `/tasse`. La colonna «Prodotti, partner e IVA» anche nella
+   tabella maison di /aggiornato.
+6. **I servizi del mese in corso entrano nel CE di /aggiornato** («di cui servizi della
+   piattaforma in corso», dal listino): il conto era SBILANCIATO — i costi dei servizi c'erano già
+   (consegne in competenza), i ricavi solo alla fattura. Solo sul mese APERTO: a mese chiuso la
+   fattura (competenza = mese del servizio) prende il posto del numero vivo.
+7. **I due EBITDA si presentano**: /pl dice «EBITDA a budget · anno intero», /aggiornato «EBITDA
+   consuntivo · periodo (mese in corso)» — erano tre domande diverse con la stessa etichetta.
+8. **La fonte che manca si DICE**: `ok` del consuntivo resta vero se anche una sola fra Finance e
+   Orders risponde — con Orders muto il D2C valeva zero e il periodo sembrava in perdita senza un
+   avviso. Ora /aggiornato dichiara qualsiasi fonte mancante.
+
+📌 Fotografia a fine giornata (31/08 sera, agosto ancora in corso): Gen–Lug **+39.363 €** (Gen
+−9.769 e Giu −5.774 gli unici mesi in perdita), Gen–Ago ~+43.000 col mese vivo. Lato Finance:
+import FIC automatico (195 fatture recuperate, ~82.600 €), competenze allineate al mese del
+servizio, TBF→Eventi. Restano: **Chanel entità unica** (56.642 € in 37 fatture: decidere se scheda
+nuova o fusione delle tre città — la fusione è una migrazione con 62 fatture e 51 saldi), **217
+fatture in /fatture/da-fic**, e il pregresso ~150.000 € di nomi 2021–2024.
+
 ### 30/08/2026 (notte, secondo giro): riclassifica ESEGUITA, agosto spiegato coi nomi, servizi ovunque
 
 - ✅✅ **La riclassifica in Finance è ESEGUITA** — non più in attesa del bottone: la replica della
