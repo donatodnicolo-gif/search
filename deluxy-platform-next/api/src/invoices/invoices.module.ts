@@ -958,7 +958,8 @@ export class InvoicesService {
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
-        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
+        deliveryRuleId: true,
+        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true, totalRule: true, totalCount: true, dailyRule: true, dailyCount: true } },
         products: { select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
       },
       orderBy: { date: 'desc' },
@@ -968,6 +969,24 @@ export class InvoicesService {
       (await this.prisma.partnerService.findMany({ where: { partnerId } }))
         .map((l) => [l.serviceTypeId, l]),
     );
+    // POSIZIONE NEL CARNET (es. «1/50»): per ogni regola presente, si ordinano
+    // TUTTE le sue consegne per data e si numera. Così una riga può dire a quale
+    // regola appartiene e a che punto è il carnet.
+    const ruleIds = [...new Set(deliveries.map((d) => (d as any).deliveryRuleId).filter(Boolean))] as string[];
+    const posizioneDi = new Map<string, number>();
+    if (ruleIds.length) {
+      const tutte = await this.prisma.delivery.findMany({
+        where: { deliveryRuleId: { in: ruleIds }, deletedAt: null },
+        select: { id: true, deliveryRuleId: true },
+        orderBy: [{ date: 'asc' }, { code: 'asc' }],
+      });
+      const perRegola = new Map<string, number>();
+      for (const t of tutte) {
+        const n = (perRegola.get(t.deliveryRuleId!) ?? 0) + 1;
+        perRegola.set(t.deliveryRuleId!, n);
+        posizioneDi.set(t.id, n);
+      }
+    }
     return {
       // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
       // consegne del 2021 in mezzo al lavoro di oggi.
@@ -984,6 +1003,16 @@ export class InvoicesService {
           service: d.serviceType?.name ?? '—',
           pricingModel: d.serviceType?.pricingModel ?? '—',
           amount: calcolo?.amount ?? null,
+          /// La regola applicata: nome, ed eventuale carnet con posizione/totale
+          /// (es. «Regola 28 · carnet 12/50»).
+          regola: (d as any).deliveryRule
+            ? {
+                name: (d as any).deliveryRule.name,
+                carnet: (d as any).deliveryRule.totalRule === true,
+                totale: (d as any).deliveryRule.totalRule ? (d as any).deliveryRule.totalCount : null,
+                posizione: posizioneDi.get(d.id) ?? null,
+              }
+            : null,
           /// Valore LORDO dei prodotti venduti (per la colonna «Importo» del
           /// partner) e NETTO che gli spetta (solo sulle vendite; 0 altrove).
           venduto: calcolo?.venduto ?? null,
@@ -993,7 +1022,6 @@ export class InvoicesService {
           origine: calcolo?.origine ?? null,
           /// Esclusa da una regola carnet, non per un dato mancante.
           esclusaDaRegola: d.deliveryRule?.toBill === false,
-          regola: d.deliveryRule?.toBill === false ? d.deliveryRule?.name ?? null : null,
         };
       }),
       troncato: deliveries.length === 500,

@@ -538,7 +538,9 @@
       "recap": "Recap",
       "sendRecap": "Send",
       "sendConfirm": "Send {{partner}} the {{mese}} recap? A real email goes out.",
-      "sent": "Recap sent to {{a}} — {{n}} deliveries."
+      "sent": "Recap sent to {{a}} — {{n}} deliveries.",
+      "carnetTip": "Carnet: position in the block (used/total)",
+      "ruleTip": "Pricing rule applied to this delivery"
     },
     "filter": {
       "search": "Search",

@@ -538,7 +538,9 @@
       "recap": "Recap",
       "sendRecap": "Invia",
       "sendConfirm": "Mandare a {{partner}} il recap di {{mese}}? Parte una mail vera.",
-      "sent": "Recap inviato a {{a}} — {{n}} consegne."
+      "sent": "Recap inviato a {{a}} — {{n}} consegne.",
+      "carnetTip": "Carnet: posizione nel blocco (usate/totale)",
+      "ruleTip": "Regola di listino applicata a questa consegna"
     },
     "filter": {
       "search": "Cerca",

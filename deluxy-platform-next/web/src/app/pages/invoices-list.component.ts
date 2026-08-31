@@ -68,7 +68,7 @@ interface PendingDelivery {
   dovutoAlPartner?: number | null;
   origine: 'consegna' | 'listino' | null;
   esclusaDaRegola: boolean;
-  regola?: string | null;
+  regola?: { name: string; carnet: boolean; totale: number | null; posizione: number | null } | null;
   service: string; pricingModel: string;
   recipientFirstName?: string | null; recipientLastName?: string | null; recipientAddress?: string | null;
 }
@@ -311,7 +311,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                 <span class="muted"> · {{ d.date | date: 'dd/MM/yy' }}</span>
                               </td>
                               <td>{{ (d.recipientLastName || '') + ' ' + (d.recipientFirstName || '') }}</td>
-                              <td class="muted">{{ d.service }}</td>
+                              <td class="muted">
+                                {{ d.service }}
+                                @if (d.regola) {
+                                  <span class="regola-tag" [class.carnet]="d.regola.carnet"
+                                        [title]="(d.regola.carnet ? 'invoices.pending.carnetTip' : 'invoices.pending.ruleTip') | translate">
+                                    📋 {{ d.regola.name }}@if (d.regola.carnet && d.regola.totale) { <b> {{ d.regola.posizione }}/{{ d.regola.totale }}</b> }
+                                  </span>
+                                }
+                              </td>
                               <!-- Venduto (lordo del prodotto) e Netto spettante al
                                    partner (solo vendite): visibili a tutti. -->
                               <td class="num muted">{{ d.venduto ? ((d.venduto | number: '1.2-2') + ' €') : '—' }}</td>
@@ -321,7 +329,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               </td>
                               <td class="num">
                                 @if (d.esclusaDaRegola) {
-                                  <span class="regola" [title]="d.regola || ''">{{ 'invoices.pending.byRuleRow' | translate }}</span>
+                                  <span class="regola" [title]="d.regola?.name || ''">{{ 'invoices.pending.byRuleRow' | translate }}</span>
                                 } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'invoices.pending.unpricedRow' | translate">{{ 'invoices.pending.noPrice' | translate }}</span>
                                 } @else {
@@ -502,6 +510,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .dovuto { color: #007aff; }
       .cod-link { font-weight: 600; color: var(--blue, #0a84ff); text-decoration: none; font-variant-numeric: tabular-nums; }
       .cod-link:hover { text-decoration: underline; }
+      .regola-tag { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; font-size: 11.5px;
+        font-weight: 600; color: var(--text-secondary); background: var(--fill); border-radius: 999px; padding: 2px 8px; cursor: help; }
+      .regola-tag.carnet { color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); }
+      .regola-tag b { font-variant-numeric: tabular-nums; }
       .mese { font-weight: 550; text-transform: capitalize; white-space: nowrap; }
       .incorso { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 7px; cursor: help; }
       .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }
