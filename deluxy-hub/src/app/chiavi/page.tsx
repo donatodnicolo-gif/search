@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { catalogoApp } from "@/lib/apps";
 import { decifra } from "@/lib/cifratura";
+import { NOMI_CHIAVI, statoPosta } from "@/lib/posta";
 import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken } from "@/lib/chiavi-actions";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
@@ -67,8 +68,22 @@ export default async function ChiaviPage({
     }
   }
 
-  // Suggerimenti per il campo "progetto": le app del catalogo + i progetti già usati.
-  const progetti = [...new Set([...catalogoApp().map((a) => a.id), ...chiavi.map((c) => c.progetto)])].sort();
+  // Suggerimenti per il campo "progetto": il portale stesso, le app del catalogo
+  // e i progetti già usati. «hub» va messo a mano perché il Hub NON è un’app del
+  // catalogo (il catalogo elenca le app che il portale linka), eppure è il
+  // progetto dove il Hub tiene i PROPRI segreti — la posta, per cominciare.
+  // Senza, chi cerca dove configurare l’email non trova la voce e conclude che
+  // non si può fare.
+  const progetti = [...new Set(["hub", ...catalogoApp().map((a) => a.id), ...chiavi.map((c) => c.progetto)])].sort();
+
+  // Stato della posta del portale: quali dei cinque nomi mancano nel progetto
+  // «hub». È l’unica configurazione che il Hub legge da qui per sé, e finché non
+  // è completa il recupero password non manda niente.
+  const nomiPosta = chiavi.filter((c) => c.progetto === "hub").map((c) => c.nome);
+  const mancantiPosta = NOMI_CHIAVI.filter(
+    (n) => !nomiPosta.includes(n) && n !== "SMTP_PORT" && n !== "SMTP_FROM",
+  );
+  const posta = await statoPosta();
 
   return (
     <main className="main">
@@ -90,6 +105,50 @@ export default async function ChiaviPage({
           questa chiave.
         </div>
       )}
+
+      {/* La posta del portale si configura QUI e in nessun altro posto: senza
+          questa spiegazione, il progetto «hub» è un nome che nessuno indovina. */}
+      <div className="section-label">La posta del portale</div>
+      <div className="card" style={{ marginBottom: 8 }}>
+        {posta.pronta ? (
+          <p style={{ margin: 0, fontSize: 14 }}>
+            <span className="badge green">
+              <span className="dot" />
+              Pronta
+            </span>{" "}
+            Le email del portale partono da <strong>{posta.mittente}</strong> (configurazione presa{" "}
+            {posta.origine === "ambiente" ? "dalle variabili d’ambiente" : "da questa cassaforte"}).
+          </p>
+        ) : (
+          <>
+            <p style={{ margin: "0 0 10px", fontSize: 14 }}>
+              <span className="badge neutro">
+                <span className="dot" />
+                Non configurata
+              </span>{" "}
+              Finché manca, il <strong>recupero password</strong> non può mandare il link e il
+              riepilogo presenze non si spedisce.
+            </p>
+            <p className="nota" style={{ margin: 0 }}>
+              Aggiungi qui sotto, con <strong>Progetto = <code>hub</code></strong>, i nomi:{" "}
+              <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (obbligatori) e,
+              se diversi dai default, <code>SMTP_PORT</code> e <code>SMTP_FROM</code>.
+              {mancantiPosta.length > 0 && mancantiPosta.length < 3 && (
+                <>
+                  {" "}Mancano ancora:{" "}
+                  {mancantiPosta.map((n, i) => (
+                    <span key={n}>
+                      {i > 0 && ", "}
+                      <code>{n}</code>
+                    </span>
+                  ))}
+                  .
+                </>
+              )}
+            </p>
+          </>
+        )}
+      </div>
 
       <div className="section-label">Nuova chiave</div>
       <div className="card">
