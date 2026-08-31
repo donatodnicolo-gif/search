@@ -1314,7 +1314,8 @@
       "addProduct": "Add product",
       "paymentOnDelivery": "Payment on delivery",
       "tryAndReturn": "Try and return the product",
-      "cashToCollect": "Cash to collect (€)"
+      "cashToCollect": "Cash to collect (€)",
+      "createNew": "Create new product"
     },
     "pricing": {
       "billableGroup": "To be billed (partner)",

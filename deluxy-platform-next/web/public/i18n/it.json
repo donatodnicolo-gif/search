@@ -1314,7 +1314,8 @@
       "addProduct": "Aggiungi prodotto",
       "paymentOnDelivery": "Pagamento alla consegna",
       "tryAndReturn": "Prova e reso del prodotto",
-      "cashToCollect": "Contanti da incassare (€)"
+      "cashToCollect": "Contanti da incassare (€)",
+      "createNew": "Crea nuovo prodotto"
     },
     "pricing": {
       "billableGroup": "Da fatturare (partner)",
