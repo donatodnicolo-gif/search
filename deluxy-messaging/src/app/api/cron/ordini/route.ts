@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { annotaSync, sincronizzaOrdini } from '@/lib/sincronizza'
 
-// Aggiornamento automatico degli ordini ogni 15 minuti (cron Vercel, vedi
-// vercel.json): un ordine che arriva alle 9:03 è qui entro le 9:15, senza che
-// nessuno prema "Aggiorna". È lo stesso scarico del pulsante, incrementale.
+// Aggiornamento automatico degli ordini ogni 5 MINUTI (cron Vercel, vedi
+// vercel.json): e lo stesso scarico del pulsante, incrementale.
+//
+// ⚠️⚠️ Era ogni 15 minuti, ed e stato portato a 5 il 31/08/2026 su segnalazione
+// dell utente («gli ordini arrivano troppo tardi da Orders»). MISURATO prima di
+// toccare, su 91 ordini di sette giorni: dall ordine su Shopify alla sua
+// comparsa QUI passavano 11 minuti in mediana, 18 al 90esimo, 20 nel caso
+// peggiore — e quel tempo era fatto di DUE attese in fila, una per cron: il giro
+// di Orders (ogni 15) e questo (ogni 15).
+//
+// ⚠️ Più spesso non vuol dire più carico per Orders: la lettura è incrementale
+// (`aggiornatiDa`), quindi un giro a vuoto costa una domanda e zero righe. Il
+// costo vero è la chiamata a Shopify, che sta di là e non qui.
 //
 // Protezione: header "Authorization: Bearer <CRON_SECRET>" — Vercel lo invia da
 // solo se la variabile CRON_SECRET è impostata sul progetto. Senza segreto la

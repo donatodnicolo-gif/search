@@ -20,6 +20,24 @@ import { decifra } from './crypto'
 
 const VERSIONE = '2025-01'
 
+/**
+ * Uno SKU per una riga scritta a mano: sette cifre.
+ *
+ * ⚠️ Sette cifre e non un progressivo: un contatore su una tabella condivisa da
+ * più app si scontra da solo (due ordini nello stesso secondo prendono lo stesso
+ * numero), e qui non c'è nessuna sequenza a cui appoggiarsi — la riga vive su
+ * Shopify, non da noi. Con sette cifre lo spazio è dieci milioni: la probabilità
+ * di ripetersi su qualche migliaio di righe l'anno è trascurabile, e nessuno di
+ * questi codici deve essere unico per legge — deve solo esserci.
+ *
+ * ⚠️ Mai `0000000`: uno SKU tutto zeri sembra un campo non compilato, che è
+ * esattamente quello che si sta cercando di evitare.
+ */
+export function skuCasuale(): string {
+  const n = Math.floor(Math.random() * 9_000_000) + 1_000_000
+  return String(n)
+}
+
 type Negozio = { id: string; nome: string; dominio: string; clientId: string; clientSecret: string }
 
 async function negozio(id: string): Promise<Negozio | null> {
@@ -401,6 +419,14 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
             },
             quantity: Math.max(1, r.quantita),
             requiresShipping: true,
+            // ⚠️⚠️ UNO SKU ANCHE ALLE RIGHE SCRITTE A MANO (31/08/2026, chiesto
+            // dall'utente: «i prodotti che creo da qui e trasmetto a deluxy
+            // delivery non hanno un valore sku»). Una riga a mano non viene dal
+            // catalogo, quindi Shopify la manda avanti SENZA codice: a valle —
+            // Orders, piattaforma consegne — quel prodotto non ha niente con cui
+            // essere nominato, e due «Bouquet» dello stesso giorno diventano
+            // indistinguibili.
+            sku: skuCasuale(),
           }
     ),
     shippingAddress: {

@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/ordini",
-      "schedule": "5,20,35,50 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/contatti",
