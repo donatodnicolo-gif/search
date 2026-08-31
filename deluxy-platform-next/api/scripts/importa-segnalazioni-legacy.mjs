@@ -98,7 +98,10 @@ const statoRimborso = (s) => {
 // La ricevuta storica va in un campo suo (link cliccabile), non nel testo.
 // Si normalizza solo il percorso ("/./" del vecchio sistema), senza inventare
 // un dominio: è il riferimento originale, che i file siano ancora online o no.
-const pulisciUrl = (s) => pulisci(s).replace('/api/./assets/', '/api/assets/') || null;
+// Il vecchio host non serve più gli asset; sono su exapp.deluxy.it.
+const pulisciUrl = (s) => (pulisci(s)
+  .replace('/api/./assets/', '/api/assets/')
+  .replace('//app.deluxy.it/', '//exapp.deluxy.it/')) || null;
 for (const r of refunds) {
   const testo = pulisci(r.requestText) || 'Richiesta di rimborso (storico)';
   const importo = r.plusValue != null && r.plusValue !== '' ? Number(r.plusValue) : null;

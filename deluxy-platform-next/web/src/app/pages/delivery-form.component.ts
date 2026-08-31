@@ -1160,6 +1160,12 @@ export class DeliveryFormComponent implements AfterViewInit {
           if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
           if (v.recipientAddress) { m['recipientAddress'] = v.recipientAddress; this.onAddressChange(); }
           if (v.deliveryDate) m['date'] = String(v.deliveryDate).slice(0, 10);
+          // Numero DDT = numero dell'ordine (quello leggibile, es. 2824; se
+          // manca, l'id esterno). Il brand accompagna il numero: lo stesso
+          // numero esiste su negozi diversi (31/08, richiesta utente).
+          const numeroOrdine = v.externalOrderNumber ?? v.externalOrderId;
+          if (numeroOrdine) m['ddtNumber'] = String(numeroOrdine);
+          if (v.brand) m['ddtBrand'] = v.brand;
           if (v.productId) {
             this.productRows = [{ productId: v.productId, productVariantId: v.productVariantId ?? null,
               quantity: 1, price: null, flexiblePrice: false } as ProductRow];
