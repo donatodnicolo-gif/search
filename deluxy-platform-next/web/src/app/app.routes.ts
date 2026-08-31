@@ -8,6 +8,14 @@ export const routes: Routes = [
       import('./pages/login.component').then((m) => m.LoginComponent),
   },
   {
+    // Cambio password: obbligatorio al primo accesso con password temporanea
+    // (authGuard ci rimanda finché non è cambiata), ma anche volontario.
+    path: 'cambia-password',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/cambia-password.component').then((m) => m.CambiaPasswordComponent),
+  },
+  {
     // Monitoraggio pubblico (bottone MONITORARE): nessun login, fuori dallo shell.
     path: 'tracking/:token',
     loadComponent: () =>

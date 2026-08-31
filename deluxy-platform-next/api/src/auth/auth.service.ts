@@ -137,6 +137,9 @@ export class AuthService {
 
     return {
       accessToken: await this.jwtService.signAsync(payload),
+      // Cambio obbligatorio al primo accesso (bonifica password deboli 31/08):
+      // il login riesce, ma il frontend porta subito alla scelta della password.
+      mustChangePassword: user.mustChangePassword === true,
       user: {
         id: user.id,
         email: user.email,
@@ -148,6 +151,34 @@ export class AuthService {
         valetId: user.valetId,
       },
     };
+  }
+
+  /**
+   * Cambio password da utente LOGGATO (usato dal cambio obbligatorio al primo
+   * accesso e da chi vuole cambiarla di sua volontà). Richiede la password
+   * attuale: un token rubato non deve bastare a riscriverla. Azzera il flag
+   * `mustChangePassword` e registra l'evento.
+   */
+  async cambiaPassword(jwtUser: JwtUser, attuale: string, nuova: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: jwtUser.sub } });
+    if (!user || !user.passwordHash) throw new UnauthorizedException('Sessione non valida');
+    if (!(await bcrypt.compare(attuale, user.passwordHash))) {
+      throw new BadRequestException('La password attuale non è corretta.');
+    }
+    if (!nuova || nuova.length < 8) {
+      throw new BadRequestException('La nuova password deve avere almeno 8 caratteri.');
+    }
+    if (await bcrypt.compare(nuova, user.passwordHash)) {
+      throw new BadRequestException('La nuova password deve essere diversa da quella attuale.');
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await bcrypt.hash(nuova, 10), mustChangePassword: false },
+    });
+    await this.prisma.userEvent.create({
+      data: { userId: user.id, action: 'password-changed', note: 'Password cambiata dall\'utente' },
+    });
+    return { ok: true };
   }
 
   async me(jwtUser: JwtUser) {
@@ -164,6 +195,7 @@ export class AuthService {
         valetId: true,
         operationId: true,
         status: true,
+        mustChangePassword: true,
       },
     });
     return user;

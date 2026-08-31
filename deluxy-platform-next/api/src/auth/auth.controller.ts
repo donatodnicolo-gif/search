@@ -63,4 +63,16 @@ export class AuthController {
   me(@CurrentUser() user: JwtUser) {
     return this.authService.me(user);
   }
+
+  @Autenticato()
+  @Post('cambia-password')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cambia la propria password (richiede quella attuale); azzera il cambio obbligatorio' })
+  cambiaPassword(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { attuale?: string; nuova?: string },
+  ) {
+    return this.authService.cambiaPassword(user, String(dto?.attuale ?? ''), String(dto?.nuova ?? ''));
+  }
 }

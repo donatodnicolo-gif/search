@@ -61,6 +61,11 @@ model User {
   resetTokenHash       String?   @unique
   resetTokenExpiresAt  DateTime?
   resetRequestedAt     DateTime?
+  /// CAMBIO OBBLIGATORIO AL PRIMO ACCESSO (31/08/2026). Vero per gli account a
+  /// cui è stata data una password temporanea nota (es. la bonifica delle
+  /// password «123»): il login riesce, ma la sessione è vincolata alla scelta
+  /// di una password nuova prima di poter fare altro.
+  mustChangePassword   Boolean   @default(false)
   partnerId    String?
   partner      Partner? @relation(fields: [partnerId], references: [id])
   valetId      String?  @unique

@@ -44,9 +44,19 @@ export class AuthService {
 
   /** Imposta la sessione da una risposta di login (usato anche dall'accettazione invito). */
   setSession(res: LoginResponse): void {
+    const u = { ...res.user, mustChangePassword: res.mustChangePassword === true };
     localStorage.setItem(TOKEN_KEY, res.accessToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
-    this.userSignal.set(res.user);
+    localStorage.setItem(USER_KEY, JSON.stringify(u));
+    this.userSignal.set(u);
+  }
+
+  /** Dopo il cambio password: il vincolo cade, si aggiorna l'utente in sessione. */
+  segnaPasswordCambiata(): void {
+    const u = this.userSignal();
+    if (!u) return;
+    const aggiornato = { ...u, mustChangePassword: false };
+    localStorage.setItem(USER_KEY, JSON.stringify(aggiornato));
+    this.userSignal.set(aggiornato);
   }
 
   logout(): void {

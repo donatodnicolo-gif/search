@@ -14,11 +14,15 @@ export interface AuthUser {
   isSupport: boolean;
   partnerId: string | null;
   valetId: string | null;
+  /** Password temporanea da cambiare al primo accesso (bonifica 31/08). */
+  mustChangePassword?: boolean;
 }
 
 export interface LoginResponse {
   accessToken: string;
   user: AuthUser;
+  /** Vero se l'account ha una password temporanea da cambiare al primo accesso. */
+  mustChangePassword?: boolean;
 }
 
 export interface Delivery {
