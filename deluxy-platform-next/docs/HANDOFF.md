@@ -104,7 +104,41 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### ✅ 31/08/2026 — RIALLINEAMENTO COMPLETO: tutto l'importabile è dentro, il resto è elencato col motivo
+### 🏁 31/08/2026 — IL LEGACY È SPENTO: applicate le sue ultime modifiche, riallineamento CHIUSO
+
+L'utente: «ora sei viva solo tu come app, dobbiamo importare tutto al più
+presto». Il secondo export è quindi la fotografia FINALE del gestionale morto.
+
+**Lo spaccato ha ribaltato la lettura delle divergenze**: delle 550 paghe
+diverse, solo **93 erano modifiche vere del legacy** dopo il primo export
+(paghe scritte sulle consegne recenti: 0 → 12,50, 0 → 20…). Le altre ~457
+erano le NOSTRE correzioni, già tutte spiegate dall'audit del 28/08. Dei
+1.229 stati, 708 sono i NOSTRI `approved` (avanzamenti di qua), 434 hanno lo
+stato VUOTO nel legacy, e ~84 sono avanzamenti veri di là.
+
+**`applica-ultime-modifiche-legacy.mjs`** (prova+backup+DeliveryLog
+`riallineamento-legacy` su ogni consegna): il criterio NON è «legacy diverso
+da noi» — è **«il legacy stesso l'ha cambiato fra i due export»**. Applicati
+**213 cambi su 92 consegne**: 72 stati, 76 paghe, 58 assegnazioni valet
+(fra cui i giri di Salazar di stamattina e Pianigiani sulla Chanel Firenze),
+4 price, 3 productValue. **26 conflitti NON toccati** (modifica legacy +
+correzione nostra sulla stessa consegna): quasi tutti Artista Locale — noi
+ricalcolato ~15 €, il legacy azzerato; tenuto il NOSTRO valore, elenco nel
+backup.
+
+**Più**: la riga prodotto sulla #62207 (entrata), l'archivio aggiornato
+sull'export nuovo (22.194 → **22.439** righe: +174 promemoria, +2 reclami,
+email nuove), `importa-archivio-legacy.mjs` ora accetta `--tabelle`.
+
+**Stato finale del riallineamento**: consegne fuori 543 (le 541 scartate per
+disegno + 63096 SENZA PARTNER — il campo qui è obbligatorio: non importabile
+finché non le si dà un partner) · righe fuori 3.682 (orfane note + delle
+scartate) · 11 utenti senza ruolo · 25 prodotti cancellati-vuoti. Divergenze
+residue: 1.157 stati (708 nostri approved + 434 stato vuoto di là = fisiologia,
+non lavoro perso), 474 paghe (le correzioni NOSTRE), 4 valet (#62460-63:
+legacy 170 vs qui Acampora — coppie corporate, da guardare), invoiced 19.500
+(arretrato marcato qui, attesa).
+
 
 Dopo la rinumerazione (92 piattaforma-nate spostate a #100001+, decisione
 utente: il numero del legacy resta autorevole; da 100.000 in su vivono le

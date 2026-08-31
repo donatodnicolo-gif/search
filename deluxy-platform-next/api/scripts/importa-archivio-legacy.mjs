@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { PrismaClient } from '@prisma/client';
 
 const APPLICA = process.argv.includes('--applica');
-const TABELLE = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', 'legacy', 'tabelle');
+const argT = process.argv.indexOf('--tabelle'); const TABELLE = argT >= 0 ? process.argv[argT + 1] : path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', 'legacy', 'tabelle');
 
 /** I CSV che una casa ce l'hanno già: non si archiviano, sarebbero doppioni. */
 const GIA_IMPORTATE = new Set([

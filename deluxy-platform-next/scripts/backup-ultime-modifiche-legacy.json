@@ -1,0 +1,2301 @@
+{
+  "cambi": [
+    {
+      "deliveryId": "cmt5zzx7f0i0ui63cfb6v9r4s",
+      "legacyId": 62057,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7f0i0ui63cfb6v9r4s",
+      "legacyId": 62057,
+      "campo": "paga",
+      "da": 0,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7f0i0ui63cfb6v9r4s",
+      "legacyId": 62057,
+      "campo": "valet",
+      "da": null,
+      "a": 172,
+      "dato": {
+        "valetId": "cmt5tc43v013fi6v4drn9phkx"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7g0i0vi63cz5hvlhwy",
+      "legacyId": 62058,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7g0i0vi63cz5hvlhwy",
+      "legacyId": 62058,
+      "campo": "paga",
+      "da": 0,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7g0i0vi63cz5hvlhwy",
+      "legacyId": 62058,
+      "campo": "valet",
+      "da": null,
+      "a": 172,
+      "dato": {
+        "valetId": "cmt5tc43v013fi6v4drn9phkx"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7g0i0wi63cvfrzez1r",
+      "legacyId": 62059,
+      "campo": "status",
+      "da": "created",
+      "a": "cancelled",
+      "dato": {
+        "status": "cancelled"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7o0i16i63c6v2gfh1g",
+      "legacyId": 62069,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7o0i16i63c6v2gfh1g",
+      "legacyId": 62069,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7o0i16i63c6v2gfh1g",
+      "legacyId": 62069,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ri63cj0rpa1wb",
+      "legacyId": 62090,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ri63cj0rpa1wb",
+      "legacyId": 62090,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ri63cj0rpa1wb",
+      "legacyId": 62090,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1si63cq9ghx76n",
+      "legacyId": 62091,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1si63cq9ghx76n",
+      "legacyId": 62091,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1si63cq9ghx76n",
+      "legacyId": 62091,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ti63chaenbclh",
+      "legacyId": 62092,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ti63chaenbclh",
+      "legacyId": 62092,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7x0i1ti63chaenbclh",
+      "legacyId": 62092,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1vi63c35t2gnv0",
+      "legacyId": 62094,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1vi63c35t2gnv0",
+      "legacyId": 62094,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1vi63c35t2gnv0",
+      "legacyId": 62094,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1wi63c8010n0m3",
+      "legacyId": 62095,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1wi63c8010n0m3",
+      "legacyId": 62095,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1wi63c8010n0m3",
+      "legacyId": 62095,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1xi63c1j0fmk8t",
+      "legacyId": 62096,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1xi63c1j0fmk8t",
+      "legacyId": 62096,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7y0i1xi63c1j0fmk8t",
+      "legacyId": 62096,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7z0i1yi63cbns065yv",
+      "legacyId": 62097,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7z0i1yi63cbns065yv",
+      "legacyId": 62097,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx7z0i1yi63cbns065yv",
+      "legacyId": 62097,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx800i1zi63cdhw2isws",
+      "legacyId": 62098,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx800i1zi63cdhw2isws",
+      "legacyId": 62098,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx800i1zi63cdhw2isws",
+      "legacyId": 62098,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx820i22i63cmrst6vob",
+      "legacyId": 62101,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx820i22i63cmrst6vob",
+      "legacyId": 62101,
+      "campo": "paga",
+      "da": 0,
+      "a": 20,
+      "dato": {
+        "valetSalary": 20
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx820i22i63cmrst6vob",
+      "legacyId": 62101,
+      "campo": "valet",
+      "da": null,
+      "a": 308,
+      "dato": {
+        "valetId": "cmt5td6te01dci6v4gpedgatg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8h0i2li63cewoahxtl",
+      "legacyId": 62120,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8j0i2ni63c4l6dzddr",
+      "legacyId": 62122,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8j0i2ni63c4l6dzddr",
+      "legacyId": 62122,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8j0i2ni63c4l6dzddr",
+      "legacyId": 62122,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8k0i2oi63caem4vm98",
+      "legacyId": 62123,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8k0i2oi63caem4vm98",
+      "legacyId": 62123,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8k0i2oi63caem4vm98",
+      "legacyId": 62123,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2pi63cb4xzevly",
+      "legacyId": 62124,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2pi63cb4xzevly",
+      "legacyId": 62124,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2pi63cb4xzevly",
+      "legacyId": 62124,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2qi63c79sadu71",
+      "legacyId": 62125,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2qi63c79sadu71",
+      "legacyId": 62125,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8l0i2qi63c79sadu71",
+      "legacyId": 62125,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2ri63c7fnb4gyt",
+      "legacyId": 62126,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2ri63c7fnb4gyt",
+      "legacyId": 62126,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2ri63c7fnb4gyt",
+      "legacyId": 62126,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2si63cbsk5boh1",
+      "legacyId": 62127,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2si63cbsk5boh1",
+      "legacyId": 62127,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8m0i2si63cbsk5boh1",
+      "legacyId": 62127,
+      "campo": "valet",
+      "da": null,
+      "a": 172,
+      "dato": {
+        "valetId": "cmt5tc43v013fi6v4drn9phkx"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8n0i2ui63cchghk9nw",
+      "legacyId": 62129,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8n0i2ui63cchghk9nw",
+      "legacyId": 62129,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8n0i2ui63cchghk9nw",
+      "legacyId": 62129,
+      "campo": "valet",
+      "da": null,
+      "a": 172,
+      "dato": {
+        "valetId": "cmt5tc43v013fi6v4drn9phkx"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx8z0i3fi63cht1udxdk",
+      "legacyId": 62150,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx900i3gi63czdqqm99g",
+      "legacyId": 62151,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx900i3gi63czdqqm99g",
+      "legacyId": 62151,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx900i3gi63czdqqm99g",
+      "legacyId": 62151,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx910i3hi63ctxqyt7wi",
+      "legacyId": 62152,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx910i3hi63ctxqyt7wi",
+      "legacyId": 62152,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx910i3hi63ctxqyt7wi",
+      "legacyId": 62152,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx920i3ii63cjd1z17l7",
+      "legacyId": 62153,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx920i3ii63cjd1z17l7",
+      "legacyId": 62153,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx920i3ii63cjd1z17l7",
+      "legacyId": 62153,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ji63ccntzpc6j",
+      "legacyId": 62154,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ji63ccntzpc6j",
+      "legacyId": 62154,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ji63ccntzpc6j",
+      "legacyId": 62154,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ki63ciza52fmo",
+      "legacyId": 62155,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ki63ciza52fmo",
+      "legacyId": 62155,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx930i3ki63ciza52fmo",
+      "legacyId": 62155,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx940i3li63c76s9nz45",
+      "legacyId": 62156,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx940i3li63c76s9nz45",
+      "legacyId": 62156,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx940i3li63c76s9nz45",
+      "legacyId": 62156,
+      "campo": "valet",
+      "da": null,
+      "a": 209,
+      "dato": {
+        "valetId": "cmt5tcaod0153i6v4wwukulhd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx950i3mi63c2w52cqfj",
+      "legacyId": 62157,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx970i3pi63ciwtuzo67",
+      "legacyId": 62160,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx970i3pi63ciwtuzo67",
+      "legacyId": 62160,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx970i3pi63ciwtuzo67",
+      "legacyId": 62160,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9a0i41i63c7gxs2n36",
+      "legacyId": 62172,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9d0i45i63c437xx3dc",
+      "legacyId": 62176,
+      "campo": "status",
+      "da": "in_delivery",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9g0i49i63c1xkg3v7v",
+      "legacyId": 62180,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9g0i49i63c1xkg3v7v",
+      "legacyId": 62180,
+      "campo": "paga",
+      "da": 0,
+      "a": 30,
+      "dato": {
+        "valetSalary": 30
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9g0i49i63c1xkg3v7v",
+      "legacyId": 62180,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4ai63c93nb8p6s",
+      "legacyId": 62181,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4bi63cr8f2b134",
+      "legacyId": 62182,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4bi63cr8f2b134",
+      "legacyId": 62182,
+      "campo": "paga",
+      "da": 0,
+      "a": 30,
+      "dato": {
+        "valetSalary": 30
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4bi63cr8f2b134",
+      "legacyId": 62182,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4ci63ccdyswkw5",
+      "legacyId": 62183,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4ci63ccdyswkw5",
+      "legacyId": 62183,
+      "campo": "paga",
+      "da": 0,
+      "a": 30,
+      "dato": {
+        "valetSalary": 30
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4ci63ccdyswkw5",
+      "legacyId": 62183,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4di63cfrfy57u2",
+      "legacyId": 62184,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4di63cfrfy57u2",
+      "legacyId": 62184,
+      "campo": "paga",
+      "da": 0,
+      "a": 30,
+      "dato": {
+        "valetSalary": 30
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9h0i4di63cfrfy57u2",
+      "legacyId": 62184,
+      "campo": "valet",
+      "da": null,
+      "a": 261,
+      "dato": {
+        "valetId": "cmt5tcrke019fi6v4fnv5juvg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4ei63c2zezq62q",
+      "legacyId": 62185,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4ei63c2zezq62q",
+      "legacyId": 62185,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4ei63c2zezq62q",
+      "legacyId": 62185,
+      "campo": "valet",
+      "da": null,
+      "a": 305,
+      "dato": {
+        "valetId": "cmt5td5ur01d3i6v4d7sunqla"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4fi63c6lrvpzw0",
+      "legacyId": 62186,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4fi63c6lrvpzw0",
+      "legacyId": 62186,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9i0i4fi63c6lrvpzw0",
+      "legacyId": 62186,
+      "campo": "valet",
+      "da": null,
+      "a": 261,
+      "dato": {
+        "valetId": "cmt5tcrke019fi6v4fnv5juvg"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9j0i4ii63cs2qh7djh",
+      "legacyId": 62189,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9j0i4ii63cs2qh7djh",
+      "legacyId": 62189,
+      "campo": "paga",
+      "da": 0,
+      "a": 30,
+      "dato": {
+        "valetSalary": 30
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9j0i4ii63cs2qh7djh",
+      "legacyId": 62189,
+      "campo": "valet",
+      "da": null,
+      "a": 207,
+      "dato": {
+        "valetId": "cmt5tca0p014xi6v4tav3vhl1"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9k0i4li63cid3wyblq",
+      "legacyId": 62192,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4ni63cezolhtny",
+      "legacyId": 62194,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered_time_to_approve",
+      "dato": {
+        "status": "delivered_time_to_approve"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4ni63cezolhtny",
+      "legacyId": 62194,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4ni63cezolhtny",
+      "legacyId": 62194,
+      "campo": "valet",
+      "da": null,
+      "a": 306,
+      "dato": {
+        "valetId": "cmt5td66901d6i6v4emrbdpbd"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4pi63cmj8ye03b",
+      "legacyId": 62196,
+      "campo": "status",
+      "da": "created",
+      "a": "in_delivery",
+      "dato": {
+        "status": "in_delivery"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4pi63cmj8ye03b",
+      "legacyId": 62196,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzx9l0i4pi63cmj8ye03b",
+      "legacyId": 62196,
+      "campo": "valet",
+      "da": null,
+      "a": 207,
+      "dato": {
+        "valetId": "cmt5tca0p014xi6v4tav3vhl1"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjl0i4wi63cqunimjwq",
+      "legacyId": 62203,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjl0i4wi63cqunimjwq",
+      "legacyId": 62203,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjl0i4wi63cqunimjwq",
+      "legacyId": 62203,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjm0i4yi63cwu466umg",
+      "legacyId": 62205,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjm0i4yi63cwu466umg",
+      "legacyId": 62205,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjm0i4yi63cwu466umg",
+      "legacyId": 62205,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjn0i4zi63cj6bre5a8",
+      "legacyId": 62206,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjn0i4zi63cj6bre5a8",
+      "legacyId": 62206,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjn0i4zi63cj6bre5a8",
+      "legacyId": 62206,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjo0i50i63cweqasez3",
+      "legacyId": 62207,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjo0i50i63cweqasez3",
+      "legacyId": 62207,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjo0i50i63cweqasez3",
+      "legacyId": 62207,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjp0i51i63cthpd0wj9",
+      "legacyId": 62208,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjp0i51i63cthpd0wj9",
+      "legacyId": 62208,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjp0i51i63cthpd0wj9",
+      "legacyId": 62208,
+      "campo": "valet",
+      "da": null,
+      "a": 149,
+      "dato": {
+        "valetId": "cmt5tbxtq011ui6v4f36fhuxb"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i52i63cy4fx84xa",
+      "legacyId": 62209,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i52i63cy4fx84xa",
+      "legacyId": 62209,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i52i63cy4fx84xa",
+      "legacyId": 62209,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i53i63cc7dma4o2",
+      "legacyId": 62210,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i53i63cc7dma4o2",
+      "legacyId": 62210,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjq0i53i63cc7dma4o2",
+      "legacyId": 62210,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjr0i54i63cni38ifi8",
+      "legacyId": 62211,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjr0i54i63cni38ifi8",
+      "legacyId": 62211,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjr0i54i63cni38ifi8",
+      "legacyId": 62211,
+      "campo": "price",
+      "da": 12.87,
+      "a": 12.55,
+      "dato": {
+        "price": 12.55
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjr0i54i63cni38ifi8",
+      "legacyId": 62211,
+      "campo": "valet",
+      "da": null,
+      "a": 305,
+      "dato": {
+        "valetId": "cmt5td5ur01d3i6v4d7sunqla"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjz0i5ei63c8nk9pye8",
+      "legacyId": 62221,
+      "campo": "status",
+      "da": "created",
+      "a": "assigned",
+      "dato": {
+        "status": "assigned"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjz0i5ei63c8nk9pye8",
+      "legacyId": 62221,
+      "campo": "paga",
+      "da": 0,
+      "a": 25,
+      "dato": {
+        "valetSalary": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyjz0i5ei63c8nk9pye8",
+      "legacyId": 62221,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk40i5li63ctmhy1j5i",
+      "legacyId": 62228,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk40i5li63ctmhy1j5i",
+      "legacyId": 62228,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk40i5li63ctmhy1j5i",
+      "legacyId": 62228,
+      "campo": "valet",
+      "da": null,
+      "a": 305,
+      "dato": {
+        "valetId": "cmt5td5ur01d3i6v4d7sunqla"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk70i5oi63cb02jqu8e",
+      "legacyId": 62231,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk70i5oi63cb02jqu8e",
+      "legacyId": 62231,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyk70i5oi63cb02jqu8e",
+      "legacyId": 62231,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykb0i5ui63cy97493sv",
+      "legacyId": 62237,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykb0i5ui63cy97493sv",
+      "legacyId": 62237,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykb0i5ui63cy97493sv",
+      "legacyId": 62237,
+      "campo": "valet",
+      "da": null,
+      "a": 305,
+      "dato": {
+        "valetId": "cmt5td5ur01d3i6v4d7sunqla"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykc0i5vi63cd0fli4z6",
+      "legacyId": 62238,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykc0i5vi63cd0fli4z6",
+      "legacyId": 62238,
+      "campo": "paga",
+      "da": 0,
+      "a": 6,
+      "dato": {
+        "valetSalary": 6
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykc0i5vi63cd0fli4z6",
+      "legacyId": 62238,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6ci63cgn7rai1w",
+      "legacyId": 62255,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6ci63cgn7rai1w",
+      "legacyId": 62255,
+      "campo": "paga",
+      "da": 0,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6ci63cgn7rai1w",
+      "legacyId": 62255,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6di63c56zhikph",
+      "legacyId": 62256,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6di63c56zhikph",
+      "legacyId": 62256,
+      "campo": "paga",
+      "da": 0,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyks0i6di63c56zhikph",
+      "legacyId": 62256,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyku0i6fi63cegvr83k7",
+      "legacyId": 62258,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyku0i6fi63cegvr83k7",
+      "legacyId": 62258,
+      "campo": "paga",
+      "da": 0,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyku0i6fi63cegvr83k7",
+      "legacyId": 62258,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzykv0i6gi63c3tr2r1cm",
+      "legacyId": 62259,
+      "campo": "status",
+      "da": "created",
+      "a": "cancelled",
+      "dato": {
+        "status": "cancelled"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzym10i7xi63cmoetkka0",
+      "legacyId": 62312,
+      "campo": "paga",
+      "da": 15.1,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyml0i8oi63cw2o53btq",
+      "legacyId": 62339,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyn60i9gi63cj0hoom0b",
+      "legacyId": 62367,
+      "campo": "paga",
+      "da": 6,
+      "a": 10,
+      "dato": {
+        "valetSalary": 10
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyn60i9gi63cj0hoom0b",
+      "legacyId": 62367,
+      "campo": "price",
+      "da": 18.5,
+      "a": 25,
+      "dato": {
+        "price": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyn60i9gi63cj0hoom0b",
+      "legacyId": 62367,
+      "campo": "productValue",
+      "da": 0,
+      "a": null,
+      "dato": {
+        "productValue": null
+      }
+    },
+    {
+      "deliveryId": "cmt5zzynk0ia6i63c3mmeex92",
+      "legacyId": 62393,
+      "campo": "paga",
+      "da": 71.57,
+      "a": 71.58,
+      "dato": {
+        "valetSalary": 71.58
+      }
+    },
+    {
+      "deliveryId": "cmt5zzynl0iaai63cnh7m26jw",
+      "legacyId": 62397,
+      "campo": "paga",
+      "da": 7.43,
+      "a": 7.44,
+      "dato": {
+        "valetSalary": 7.44
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyob0ibli63cuo8lr5e1",
+      "legacyId": 62444,
+      "campo": "paga",
+      "da": 7.2,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyoe0ibti63cgseujeua",
+      "legacyId": 62452,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyoi0ibzi63cq7esrja6",
+      "legacyId": 62458,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyok0ic1i63cbqf0n6kk",
+      "legacyId": 62460,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyok0ic1i63cbqf0n6kk",
+      "legacyId": 62460,
+      "campo": "paga",
+      "da": 15.1,
+      "a": 16.78,
+      "dato": {
+        "valetSalary": 16.78
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyok0ic1i63cbqf0n6kk",
+      "legacyId": 62460,
+      "campo": "valet",
+      "da": 305,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyol0ic3i63c5qqu9o5q",
+      "legacyId": 62462,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyol0ic3i63c5qqu9o5q",
+      "legacyId": 62462,
+      "campo": "paga",
+      "da": 15.1,
+      "a": 16.78,
+      "dato": {
+        "valetSalary": 16.78
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyol0ic3i63c5qqu9o5q",
+      "legacyId": 62462,
+      "campo": "valet",
+      "da": 305,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzypr0idqi63cu2t67tu5",
+      "legacyId": 62521,
+      "campo": "paga",
+      "da": 7.2,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzypw0idyi63c45oe2ed9",
+      "legacyId": 62529,
+      "campo": "paga",
+      "da": 7.2,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzypw0idzi63cyab9rnmf",
+      "legacyId": 62530,
+      "campo": "paga",
+      "da": 7.2,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzyqa0iehi63ci7ojkqql",
+      "legacyId": 62548,
+      "campo": "paga",
+      "da": 7.2,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzysb0ii7i63c95t181g5",
+      "legacyId": 62685,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzysg0iidi63csyuxoif9",
+      "legacyId": 62691,
+      "campo": "paga",
+      "da": 0,
+      "a": 8,
+      "dato": {
+        "valetSalary": 8
+      }
+    },
+    {
+      "deliveryId": "cmt5zzysh0iiei63c7jrzn6t0",
+      "legacyId": 62692,
+      "campo": "paga",
+      "da": 0,
+      "a": 8,
+      "dato": {
+        "valetSalary": 8
+      }
+    },
+    {
+      "deliveryId": "cmt5zzysi0iifi63c3nxf2oep",
+      "legacyId": 62693,
+      "campo": "paga",
+      "da": 0,
+      "a": 8,
+      "dato": {
+        "valetSalary": 8
+      }
+    },
+    {
+      "deliveryId": "cmt5zzysi0iifi63c3nxf2oep",
+      "legacyId": 62693,
+      "campo": "price",
+      "da": 18.37,
+      "a": 18.76,
+      "dato": {
+        "price": 18.76
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzwt0ij3i63c6m11zgfv",
+      "legacyId": 62718,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzwu0ij4i63cvdh254nm",
+      "legacyId": 62719,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzx70ijqi63cqwmn49w7",
+      "legacyId": 62741,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzyr0imoi63co13bjq5t",
+      "legacyId": 62848,
+      "campo": "status",
+      "da": "assigned",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzyr0imoi63co13bjq5t",
+      "legacyId": 62848,
+      "campo": "productValue",
+      "da": 135,
+      "a": 80,
+      "dato": {
+        "productValue": 80
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzz20indi63cq2nhyspp",
+      "legacyId": 62873,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzzg0io3i63cl2jreb74",
+      "legacyId": 62899,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzzg0io3i63cl2jreb74",
+      "legacyId": 62899,
+      "campo": "valet",
+      "da": null,
+      "a": 304,
+      "dato": {
+        "valetId": "cmt5td5j301d0i6v4zx1b233k"
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzzt0ioni63cfet1fqql",
+      "legacyId": 62919,
+      "campo": "paga",
+      "da": 8,
+      "a": 12.5,
+      "dato": {
+        "valetSalary": 12.5
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzzt0ioni63cfet1fqql",
+      "legacyId": 62919,
+      "campo": "price",
+      "da": 18,
+      "a": 25,
+      "dato": {
+        "price": 25
+      }
+    },
+    {
+      "deliveryId": "cmt5zzzzt0ioni63cfet1fqql",
+      "legacyId": 62919,
+      "campo": "productValue",
+      "da": 0,
+      "a": null,
+      "dato": {
+        "productValue": null
+      }
+    },
+    {
+      "deliveryId": "cmt6000070ip6i63c2jg660hk",
+      "legacyId": 62938,
+      "campo": "paga",
+      "da": 8,
+      "a": 0,
+      "dato": {
+        "valetSalary": 0
+      }
+    },
+    {
+      "deliveryId": "cmt6000180iqmi63cioc0b0f4",
+      "legacyId": 62993,
+      "campo": "status",
+      "da": "accepted",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt60001i0iqzi63cefq6ig0x",
+      "legacyId": 63006,
+      "campo": "paga",
+      "da": 0,
+      "a": 8,
+      "dato": {
+        "valetSalary": 8
+      }
+    },
+    {
+      "deliveryId": "cmt60001k0ir2i63c6y3y0ylm",
+      "legacyId": 63009,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt60001k0ir2i63c6y3y0ylm",
+      "legacyId": 63009,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.77,
+      "dato": {
+        "valetSalary": 7.77
+      }
+    },
+    {
+      "deliveryId": "cmt60001k0ir2i63c6y3y0ylm",
+      "legacyId": 63009,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt60001l0ir3i63cw774xqd3",
+      "legacyId": 63010,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt60001l0ir3i63cw774xqd3",
+      "legacyId": 63010,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.2,
+      "dato": {
+        "valetSalary": 7.2
+      }
+    },
+    {
+      "deliveryId": "cmt60001l0ir3i63cw774xqd3",
+      "legacyId": 63010,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt6000240iroi63ck476jpti",
+      "legacyId": 63031,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt6000240iroi63ck476jpti",
+      "legacyId": 63031,
+      "campo": "paga",
+      "da": 0,
+      "a": 7.81,
+      "dato": {
+        "valetSalary": 7.81
+      }
+    },
+    {
+      "deliveryId": "cmt6000240iroi63ck476jpti",
+      "legacyId": 63031,
+      "campo": "valet",
+      "da": null,
+      "a": 170,
+      "dato": {
+        "valetId": "cmt5tc3g70139i6v42to4jd6p"
+      }
+    },
+    {
+      "deliveryId": "cmt6000270irsi63cmaphgokl",
+      "legacyId": 63035,
+      "campo": "status",
+      "da": "created",
+      "a": "delivered",
+      "dato": {
+        "status": "delivered"
+      }
+    },
+    {
+      "deliveryId": "cmt6000270irsi63cmaphgokl",
+      "legacyId": 63035,
+      "campo": "valet",
+      "da": null,
+      "a": 172,
+      "dato": {
+        "valetId": "cmt5tc43v013fi6v4drn9phkx"
+      }
+    }
+  ],
+  "conflitti": [
+    {
+      "id": 61753,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62305,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62307,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62309,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62311,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62315,
+      "proposte": [
+        "paga: 15.1 -> 0"
+      ]
+    },
+    {
+      "id": 62369,
+      "proposte": [
+        "paga: 39.48 -> 38.6"
+      ]
+    },
+    {
+      "id": 62395,
+      "proposte": [
+        "paga: 77.45 -> 77.46"
+      ]
+    },
+    {
+      "id": 62399,
+      "proposte": [
+        "paga: 5.3 -> 0"
+      ]
+    },
+    {
+      "id": 62411,
+      "proposte": [
+        "paga: 5.3 -> 0"
+      ]
+    },
+    {
+      "id": 62453,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 62459,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 62461,
+      "proposte": [
+        "status: cancelled -> delivered",
+        "paga: 15.1 -> 0",
+        "valet: 305 -> 170"
+      ]
+    },
+    {
+      "id": 62463,
+      "proposte": [
+        "status: assigned -> delivered",
+        "paga: 15.1 -> 0",
+        "valet: 305 -> 170"
+      ]
+    },
+    {
+      "id": 62504,
+      "proposte": [
+        "paga: 52.37 -> 52.31"
+      ]
+    },
+    {
+      "id": 62579,
+      "proposte": [
+        "status: created -> assigned",
+        "paga: 0 -> 32.28",
+        "valet: null -> 304"
+      ]
+    },
+    {
+      "id": 62822,
+      "proposte": [
+        "paga: 16.47 -> 0"
+      ]
+    },
+    {
+      "id": 62976,
+      "proposte": [
+        "paga: 13.48 -> 12.86",
+        "price: 0 -> 28.6"
+      ]
+    },
+    {
+      "id": 62994,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 62996,
+      "proposte": [
+        "status: accepted -> delivered"
+      ]
+    },
+    {
+      "id": 63036,
+      "proposte": [
+        "status: created -> delivered",
+        "paga: 0 -> 15",
+        "valet: null -> 209"
+      ]
+    },
+    {
+      "id": 63037,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 63038,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 63039,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 63040,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    },
+    {
+      "id": 63041,
+      "proposte": [
+        "status: assigned -> delivered"
+      ]
+    }
+  ]
+}
