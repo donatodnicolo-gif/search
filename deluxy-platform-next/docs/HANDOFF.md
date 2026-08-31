@@ -3,6 +3,38 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 📄 **31/08/2026 — «GENERA FATTURA» CONSEGNA LA BOZZA A FINANCE + RITIRO DI DEFAULT.**
+> - **Ritiro di default = indirizzo del partner su OGNI via di creazione**
+>   (prima solo il form manuale): main `create`, smistamento da vendita
+>   (`sales.module`), batch ricorrenti, WooCommerce. Un ritiro esplicito o la
+>   forzatura «in città» vincono; solo il vuoto si riempie. Deploy live.
+>   Storico: `api/scripts/backfill-ritiro-partner.mjs --applica` riempie **16.326**
+>   consegne vecchie dal partner (1.107 restano vuote: partner senza indirizzo).
+>   ⚠️ **Da lanciare a mano** (il write di massa sul Postgres condiviso è bloccato
+>   dal guardrail auto-mode).
+> - **«Genera fattura» → FINANCE come pro-forma (bozza), non emissione diretta**
+>   (scelta utente). `generate` crea la fattura interna (registro) e chiama
+>   `POST {FINANCE}/api/proforma` (best-effort); la bozza compare in
+>   deluxy-partner/fatture, una persona emette su FattureInCloud (Standard §7).
+>   `Invoice.financeRef/financeSentAt`; ritentativo `POST /invoices/:id/finance`;
+>   UI: esito dopo Genera, badge «FINANCE · PF n/anno» + link, bottone «Manda a
+>   FINANCE». Migrazione colonne: `api/scripts/migra-invoice-finance.mjs` (già
+>   applicata). Deploy live (`delivery-1e4981nie`).
+>   🔴 **MANCA la chiave**: env `FINANCE_API_KEY` (scope «scrittura», emessa da
+>   FINANCE) + `FINANCE_API_URL` sul progetto Vercel `delivery`, oppure
+>   Impostazioni `financeApiKey`/`financeUrl`. Senza, «Genera» dice «non mandata
+>   a FINANCE: chiave assente» e si ritenta col bottone dopo averla messa.
+>   ⚠️ FINANCE cerca il partner **per nome (insegna)**: se non combacia torna i
+>   candidati.
+> - **Notifiche mail** (nuovo servizio al partner, assegnazione al valet): codice
+>   live via casella Hub (`POST /api/posta`). 🔴 Serve un token Hub con scope
+>   `posta` in `/settings` (`hubPostaToken`) o env `HUB_POSTA_TOKEN`; prova col
+>   bottone «Prova posta».
+> - **Drive ricevute**: deciso OAuth **connessione propria** della piattaforma
+>   (come marketing, NON service account — Standard §5 aggiornato). Da costruire:
+>   servizio upload OAuth + cartella dedicata; serve il refresh token (consenso
+>   Google una tantum, lato utente).
+
 > 💸 **28/08/2026 — I COMPENSI VALET DIVENTANO RICHIESTE A DELUXY TRANSACTIONS
 > (collettore unico dei pagamenti, decisione utente + giuria a tre lenti).**
 > Nuovo modulo `api/src/transactions/transactions.module.ts`:
