@@ -1,6 +1,10 @@
 // Tasklist personale/di team: promemoria con priorità, scadenza e assegnazione.
-// - "Miei": i task assegnati a me.
-// - "Tutti": ciò che l'RLS concede (creati da me; se admin, di tutti).
+// - «I miei task»: assegnati a me **o creati da me** (31/08/2026). Chi delega
+//   resta responsabile di ciò che ha chiesto: un task scritto per un collega
+//   spariva dalla vista di chi l'aveva appena creato.
+// - «Di tutta la squadra»: tutti, per chiunque (migr. 0108). Prima la lettura
+//   era ristretta e per un venditore quel filtro mostrava le stesse righe
+//   dell'altro — un elenco che prometteva più di quello che dava.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,8 +12,6 @@ import { useFocusEffect } from 'expo-router';
 import type { Task } from '@/types';
 import { colors, coloreProprita, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
-import { useAuth } from '@/lib/auth';
-import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
 import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -28,8 +30,6 @@ function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean } | n
 }
 
 export default function TaskScreen() {
-  const { session } = useAuth();
-  const admin = isAdmin(session?.user?.email);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<'miei' | 'tutti'>('miei');
@@ -188,8 +188,8 @@ export default function TaskScreen() {
       </View>
       <View style={styles.head}>
         <View style={styles.toggle}>
-          <Seg label="Assegnati a me" on={scope === 'miei'} onPress={() => setScope('miei')} />
-          <Seg label={admin ? 'Tutti' : 'Assegnati/creati'} on={scope === 'tutti'} onPress={() => setScope('tutti')} />
+          <Seg label="I miei task" on={scope === 'miei'} onPress={() => setScope('miei')} />
+          <Seg label="Di tutta la squadra" on={scope === 'tutti'} onPress={() => setScope('tutti')} />
         </View>
       </View>
 

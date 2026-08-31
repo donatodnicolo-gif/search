@@ -161,7 +161,7 @@ export default function DaCompletare() {
           {
             // Il titolo DICE su cosa agisce il filtro: «Task (3)» con le
             // pillole sopra farebbe credere che filtrino tutta la pagina.
-            title: `${scopeTask === 'miei' ? 'Task assegnati a me' : 'Task di tutti'} (${tasksVisti.length})`,
+            title: `${scopeTask === 'miei' ? 'I miei task' : 'Task di tutta la squadra'} (${tasksVisti.length})`,
             data: tasksVisti.map((t): Riga => ({ tipo: 'task', task: t })),
           },
         ]
@@ -352,15 +352,15 @@ export default function DaCompletare() {
           Prima il piano — target e conversione per linea, mese per mese — poi la coda: richiami, task e visite.
         </Text>
         {/* ⚠️ Le pillole governano SOLO i task, e il titolo della sezione lo
-            ripete («Task assegnati a me» / «Task di tutti»): richiami e visite
+            ripete («I miei task» / «Task di tutta la squadra»): richiami e visite
             non hanno un assegnatario, e un filtro che sembra globale ma agisce
             su una sezione sola fa contare righe che non sono cambiate. */}
         <View style={{ marginTop: 10 }}>
           <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca in tutta la coda: negozio, task, contatto…" />
         </View>
         <RigaChips style={styles.filtri}>
-          <Chip label="Task assegnati a me" on={scopeTask === 'miei'} onPress={() => setScopeTask('miei')} />
-          <Chip label="Task di tutti" on={scopeTask === 'tutti'} onPress={() => setScopeTask('tutti')} />
+          <Chip label="I miei task" on={scopeTask === 'miei'} onPress={() => setScopeTask('miei')} />
+          <Chip label="Task di tutta la squadra" on={scopeTask === 'tutti'} onPress={() => setScopeTask('tutti')} />
         </RigaChips>
       </View>
       <SectionList
