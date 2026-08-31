@@ -1433,11 +1433,35 @@ export class DeliveriesService {
     if (user.role === Role.PARTNER) {
       const pulita: Record<string, any> = { ...delivery };
       for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId']) delete pulita[c];
+      // ⚠️ 31/08 (regola dell'utente): sui servizi di tipo VENDITA il cliente
+      // finale è di DELUXY, non del partner (che vende per nostro conto): al
+      // partner NON si mostrano i suoi dati. Nasconderlo solo nella pagina non
+      // basta — chi legge la rotta lo vedrebbe. `hideCustomerInfo` del servizio
+      // vale allo stesso modo, se acceso.
+      const svc = (pulita['serviceType'] ?? {}) as { pricingModel?: string; hideCustomerInfo?: boolean };
+      if (svc.pricingModel === 'VENDITA' || svc.hideCustomerInfo) {
+        for (const campo of ['recipientFirstName', 'recipientLastName', 'recipientAddress',
+          'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude']) {
+          delete pulita[campo];
+        }
+      }
       return pulita as T;
     }
     if (user.role !== Role.VALET) return delivery;
     const pulita: Record<string, any> = { ...delivery };
     for (const campo of DeliveriesService.SOLDI_DEL_PARTNER) delete pulita[campo];
+    // ⚠️ 31/08 (regola dell'utente): al VALET il DESTINATARIO si scopre solo
+    // quando la consegna è «in consegna» (o già chiusa). Finché è solo
+    // assegnata/accettata, deve vedere il RITIRO e cosa portare, non a chi —
+    // è un dato personale del cliente. Nasconderlo solo nella pagina non
+    // basterebbe: chi legge la rotta lo vedrebbe lo stesso.
+    const scoperto = ['in_delivery', 'delivered', 'not_delivered'].includes(pulita['status']);
+    if (!scoperto) {
+      for (const campo of ['recipientFirstName', 'recipientLastName', 'recipientAddress',
+        'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude']) {
+        delete pulita[campo];
+      }
+    }
     // I prodotti portano il prezzo di vendita al cliente: al valet serve
     // sapere COSA porta e quanti pezzi, non quanto è stato venduto.
     if (Array.isArray(pulita['products'])) {

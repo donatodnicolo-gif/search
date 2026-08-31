@@ -128,17 +128,20 @@ interface DeliveryDetail {
              stati dipendono paga e fattura, e non si torna indietro da soli. -->
         @if (isValet() && lavorabile(d)) {
           <div class="valet-azioni">
+            <!-- Consegnata/Non consegnata SOLO dopo che è «in consegna»
+                 (31/08): prima si mette in consegna, poi si chiude. -->
             @if (d.status !== 'in_delivery') {
               <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="cambiaStato('in_delivery')">
                 {{ 'deliveryDetail.valet.inDelivery' | translate }}
               </button>
+            } @else {
+              <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="apriChiusura('delivered')">
+                {{ 'deliveryDetail.valet.delivered' | translate }}
+              </button>
+              <button type="button" class="act ko" [disabled]="statoInCorso()" (click)="apriChiusura('not_delivered')">
+                {{ 'deliveryDetail.valet.notDelivered' | translate }}
+              </button>
             }
-            <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="apriChiusura('delivered')">
-              {{ 'deliveryDetail.valet.delivered' | translate }}
-            </button>
-            <button type="button" class="act ko" [disabled]="statoInCorso()" (click)="apriChiusura('not_delivered')">
-              {{ 'deliveryDetail.valet.notDelivered' | translate }}
-            </button>
             @if (azioneErrore(); as e) { <span class="azione-errore">{{ e }}</span> }
           </div>
         }
@@ -250,10 +253,15 @@ interface DeliveryDetail {
         <!-- Destinatario e mittente -->
         <section class="card block">
           <h2>{{ 'deliveryDetail.section.people' | translate }}</h2>
+          <!-- Al valet il destinatario si scopre solo da «in consegna» (31/08):
+               il server non lo manda prima. Nome + Citofono in un'unica voce. -->
+          @if (isValet() && !destinatarioVisibile(d)) {
+            <p class="muted">🔒 {{ 'deliveries.recipientHidden' | translate }}</p>
+          } @else {
           <dl>
-            <dt>{{ 'deliveries.col.recipient' | translate }}</dt><dd>{{ d.recipientFirstName }} {{ d.recipientLastName }}</dd>
+            <dt>{{ 'deliveries.col.recipient' | translate }}</dt>
+            <dd>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ 'deliveryDetail.intercom' | translate }}: {{ d.recipientIntercom }}</span> }</dd>
             <dt>{{ 'deliveries.col.address' | translate }}</dt><dd>{{ d.recipientAddress }}</dd>
-            <dt>{{ 'deliveryDetail.intercom' | translate }}</dt><dd>{{ d.recipientIntercom || '—' }}</dd>
             <!-- ⚠️ Telefono e mail CLICCABILI: e' il gesto piu' frequente del
                  turno di un valet, che col telefono in mano deve chiamare chi
                  riceve. Prima erano testo nudo — si selezionava il numero a
@@ -267,6 +275,7 @@ interface DeliveryDetail {
             <dd>{{ (d.senderFirstName || d.senderLastName) ? (d.senderFirstName + ' ' + d.senderLastName) : '—' }}
               @if (d.senderPhone) { · <a [href]="'tel:' + d.senderPhone">{{ d.senderPhone }}</a> }</dd>
           </dl>
+          }
         </section>
 
         <!-- Gestione dell'ordine -->
@@ -836,6 +845,10 @@ export class DeliveryDetailComponent {
 
   isValet(): boolean {
     return this.auth.user()?.role === 'VALET';
+  }
+  /** Il valet scopre il destinatario solo da «in consegna» in poi (31/08). */
+  destinatarioVisibile(d: { status: string }): boolean {
+    return ['in_delivery', 'delivered', 'not_delivered'].includes(d.status);
   }
   /** La consegna e' ancora in lavorazione: solo li' il valet puo' agire. */
   lavorabile(d: { status: string }): boolean {

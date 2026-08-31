@@ -39,6 +39,7 @@ export interface Delivery {
   recipientFirstName: string;
   recipientLastName: string;
   recipientAddress: string;
+  recipientIntercom?: string | null;
   paymentOnDelivery: boolean;
   paymentAmount?: number;
   price?: number;

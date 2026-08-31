@@ -125,11 +125,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'salaries.filter.thisYear' | translate }}</button>
         </div>
       </div>
-      <label class="f cerca">
-        <span>{{ 'salaries.filter.search' | translate }}</span>
-        <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
-               [placeholder]="'salaries.filter.searchPh' | translate" />
-      </label>
+      <!-- La ricerca per nome del valet NON ha senso per il valet stesso:
+           vede solo i propri (31/08). Resta per admin/operation. -->
+      @if (canManage()) {
+        <label class="f cerca">
+          <span>{{ 'salaries.filter.search' | translate }}</span>
+          <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
+                 [placeholder]="'salaries.filter.searchPh' | translate" />
+        </label>
+      }
       @if (canManage()) {
         <label class="f">
           <span>{{ 'salaries.col.valet' | translate }}</span>

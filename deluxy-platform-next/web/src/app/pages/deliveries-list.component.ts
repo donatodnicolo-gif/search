@@ -356,8 +356,15 @@ interface PropostaVendita {
                   ></span>
                 </td>
                 <td class="strong">{{ d.partner?.insegna }}</td>
-                <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}</td>
-                <td class="muted">{{ d.recipientAddress }}</td>
+                <!-- Al valet il destinatario si scopre solo da «in consegna»
+                     (31/08): il server non lo manda prima. Quando c'è, Nome +
+                     Citofono in un'unica cella. -->
+                @if (isValetRuolo() && !destinatarioVisibile(d)) {
+                  <td class="muted">🔒 {{ 'deliveries.recipientHidden' | translate }}</td>
+                } @else {
+                  <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ d.recipientIntercom }}</span> }</td>
+                }
+                <td class="muted">{{ (isValetRuolo() && !destinatarioVisibile(d)) ? '' : d.recipientAddress }}</td>
                 <td>
                   @if (d.deliveryTimeFrom) {
                     {{ d.deliveryTimeFrom }}@if (d.deliveryTimeTo) {–{{ d.deliveryTimeTo }}}
@@ -401,17 +408,19 @@ interface PropostaVendita {
                        parte da qui; la chiusura apre il dettaglio col pop-up
                        giusto già aperto (firma/DDT o motivo). -->
                   @if (isValetRuolo() && valetPuoLavorare(d)) {
+                    <!-- Consegnata/Non consegnata solo dopo «in consegna» (31/08). -->
                     @if (d.status !== 'in_delivery') {
                       <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id" (click)="valetInConsegna(d)">
                         {{ 'deliveryDetail.valet.inDelivery' | translate }}
                       </button>
+                    } @else {
+                      <button type="button" class="act ok" (click)="valetChiudi(d, 'delivered')">
+                        {{ 'deliveryDetail.valet.delivered' | translate }}
+                      </button>
+                      <button type="button" class="act ko" (click)="valetChiudi(d, 'not_delivered')">
+                        {{ 'deliveryDetail.valet.notDelivered' | translate }}
+                      </button>
                     }
-                    <button type="button" class="act ok" (click)="valetChiudi(d, 'delivered')">
-                      {{ 'deliveryDetail.valet.delivered' | translate }}
-                    </button>
-                    <button type="button" class="act ko" (click)="valetChiudi(d, 'not_delivered')">
-                      {{ 'deliveryDetail.valet.notDelivered' | translate }}
-                    </button>
                   }
                 </td>
               </tr>
@@ -1625,6 +1634,10 @@ export class DeliveriesListComponent {
 
   isValetRuolo(): boolean {
     return this.roleOf() === 'VALET';
+  }
+  /** Il valet scopre il destinatario solo da «in consegna» in poi (31/08). */
+  destinatarioVisibile(d: Delivery): boolean {
+    return ['in_delivery', 'delivered', 'not_delivered'].includes(d.status);
   }
   valetPuoLavorare(d: Delivery): boolean {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);

@@ -701,6 +701,7 @@
     }
   },
   "deliveries": {
+    "recipientHidden": "Shown once you start the delivery",
     "proposte": {
       "title": "Orders proposed to you",
       "hint": "Automatically routed orders awaiting your reply: accepting creates the delivery, refusing passes the order to another shop.",

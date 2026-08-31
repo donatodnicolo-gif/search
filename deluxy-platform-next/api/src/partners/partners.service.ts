@@ -6,6 +6,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { titleCaseInsegna } from '../common/nome-proprio';
 import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
@@ -65,6 +66,7 @@ export class PartnersService {
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
     const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...scalar } = dto;
+    if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
         ...scalar,
@@ -523,6 +525,7 @@ export class PartnersService {
     const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
+      ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
       ...(rest.contractStart ? { contractStart: new Date(rest.contractStart) } : {}),
       ...(rest.contractEnd ? { contractEnd: new Date(rest.contractEnd) } : {}),
       ...(pickupAddresses ? { pickupAddresses: JSON.stringify(pickupAddresses) } : {}),

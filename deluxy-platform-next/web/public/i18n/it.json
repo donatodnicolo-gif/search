@@ -701,6 +701,7 @@
     }
   },
   "deliveries": {
+    "recipientHidden": "Visibile quando la metti in consegna",
     "proposte": {
       "title": "Ordini proposti a te",
       "hint": "Ordini smistati automaticamente in attesa della tua risposta: accettando nasce la consegna, rifiutando l'ordine passa a un altro negozio.",

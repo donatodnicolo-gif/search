@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
+import { titleCaseNome } from '../common/nome-proprio';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { CreateValetDto, UpdateValetDto } from './dto/create-valet.dto';
@@ -84,6 +85,8 @@ export class ValetsService {
       provinceIds, services, birthDate,
       teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
+    if ((scalar as any).firstName !== undefined) (scalar as any).firstName = titleCaseNome((scalar as any).firstName) ?? (scalar as any).firstName;
+    if ((scalar as any).lastName !== undefined) (scalar as any).lastName = titleCaseNome((scalar as any).lastName) ?? (scalar as any).lastName;
     const valet = await this.prisma.valet.create({
       data: {
         ...scalar,
@@ -124,6 +127,8 @@ export class ValetsService {
       provinceIds, services, birthDate,
       teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
+    if ((scalar as any).firstName !== undefined) (scalar as any).firstName = titleCaseNome((scalar as any).firstName) ?? (scalar as any).firstName;
+    if ((scalar as any).lastName !== undefined) (scalar as any).lastName = titleCaseNome((scalar as any).lastName) ?? (scalar as any).lastName;
     return this.prisma.valet.update({
       where: { id },
       data: {

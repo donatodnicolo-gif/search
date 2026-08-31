@@ -58,6 +58,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
       { label: 'nav.preventivi', path: '/quotes', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+      // 31/08 (utente): «Richieste» sta in Operatività — è lavoro quotidiano
+      // dell'ufficio, non configurazione.
+      { label: 'nav.richieste', path: '/richieste', icon: 'inbox', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.disponibilitaGiorno', path: '/availability-board', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
     ],
   },
@@ -94,7 +97,6 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'nav.section.configurazione',
     items: [
-      { label: 'nav.richieste', path: '/richieste', icon: 'inbox', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
       { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
