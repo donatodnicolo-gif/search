@@ -30,6 +30,26 @@ import {
 // fanno leggere all'AI da un messaggio incollato o da un'immagine (schermata
 // di chat, foto di un bonifico). L'IBAN viene sempre verificato col checksum.
 
+/**
+ * Quando è stata pagata, in forma corta: «28 ago», e con l'ANNO se non è
+ * quest'anno.
+ *
+ * ⚠️⚠️ L'anno non è un vezzo: «28 ago» su un pagamento dell'anno scorso si legge
+ * come «l'altro ieri», e chi cerca quel movimento in banca guarda il mese
+ * sbagliato. Si scrive solo quando serve, così le righe di quest'anno restano
+ * corte.
+ */
+function quandoPagata(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const stessoAnno = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+    ...(stessoAnno ? {} : { year: 'numeric' }),
+  })
+}
+
 type Richiesta = {
   id: string
   iban: string
@@ -1695,7 +1715,15 @@ export function RichiediPagamento() {
                             titolo: «pagata» da solo non dice dove andare a
                             cercare quel movimento, e fra sei mesi è l'unica
                             cosa che serve davvero. */}
-                        pagata{r.pagatoCon ? ` · ${nomeUscita(r.pagatoCon).toLowerCase()}` : ''}
+                        {/* ⚠️⚠️ LA DATA SI LEGGE SULLA RIGA (chiesto dall'utente
+                            il 31/08/2026). Prima stava solo nel `title`: cioè
+                            visibile a chi passa il mouse e **a nessuno sul
+                            telefono**, dove il passaggio del mouse non esiste.
+                            «Pagata» senza quando non serve a niente quando si
+                            cerca un movimento in banca — è la prima cosa che
+                            chiede chi riconcilia. */}
+                        pagata {quandoPagata(r.pagataIl)}
+                        {r.pagatoCon ? ` · ${nomeUscita(r.pagatoCon).toLowerCase()}` : ''}
                       </span>
                     ) : r.inviataIl ? (
                       <span
