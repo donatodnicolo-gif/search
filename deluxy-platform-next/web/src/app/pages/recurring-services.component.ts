@@ -580,7 +580,7 @@ export class RecurringServicesComponent implements AfterViewInit, OnDestroy {
     if (!this.aOra()) return;
     const ore = Math.max(1, Math.min(24, Number(this.m.hours) || 1));
     this.m.hours = ore;
-    const m = /^(d{1,2}):(d{2})$/.exec(this.m.timeFrom ?? '');
+    const m = /^(\d{1,2}):(\d{2})$/.exec(this.m.timeFrom ?? '');
     if (!m) { this.m.timeTo = ''; return; }
     // ⚠️ Il modulo 24: un servizio che parte alle 23 e dura 3 ore finisce alle
     // 02:00, non alle 26:00 — e «26:00» non è un orario che un campo accetti.

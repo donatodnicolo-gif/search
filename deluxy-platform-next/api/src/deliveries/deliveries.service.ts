@@ -8,6 +8,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
 import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
+import { regoleApplicabili, RegolaCarnet, ConsegnaPerRegola } from '../common/regola-carnet';
 import { tariffaAllaData } from '../common/tariffe-valet';
 import {
   ActivityType,
@@ -847,12 +848,71 @@ export class DeliveriesService {
     void this.notificaInserimentoAlPartner(delivery);
     // Se nasce GIÀ assegnata a un valet, avvisa anche lui.
     if (delivery.valetId) void this.notificaAssegnazioneAlValet(delivery);
+    // Aggancia la regola carnet del partner, se applicabile (31/08): senza,
+    // lo sconto/«non fatturare» non arriva alla consegna nuova.
+    await this.agganciaRegolaCarnet(delivery.id);
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
     // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
     // Una difesa messa solo sulle letture non è una difesa.
     return this.soloIMieiSoldi(this.hideInternalNotes(delivery, user), user);
+  }
+
+  /**
+   * Aggancia la REGOLA CARNET a una consegna (31/08/2026): trova la regola
+   * applicabile (partner, servizio, periodo, giorno, sovrapposizione oraria) col
+   * carnet non esaurito, e scrive `deliveryRuleId`. Senza questo la
+   * fatturazione non applicava lo sconto/«non fatturare» alle consegne nuove.
+   * Best-effort: se qualcosa va storto, la consegna resta senza regola (come
+   * prima), non fallisce.
+   */
+  async agganciaRegolaCarnet(deliveryId: string): Promise<string | null> {
+    try {
+      const d = await this.prisma.delivery.findUnique({
+        where: { id: deliveryId },
+        select: { id: true, partnerId: true, serviceTypeId: true, date: true,
+          deliveryTimeFrom: true, deliveryTimeTo: true },
+      });
+      if (!d?.partnerId || !d.date) return null;
+      const rp = await this.prisma.deliveryRulePartner.findMany({
+        where: { partnerId: d.partnerId },
+        select: { deliveryRule: { select: {
+          id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true,
+          timeFrom: true, timeTo: true, dailyRule: true, dailyCount: true, totalRule: true, totalCount: true,
+          partners: { select: { partnerId: true } },
+        } } },
+      });
+      const regole = rp.map((x) => x.deliveryRule).filter(Boolean) as RegolaCarnet[];
+      const candidate = regoleApplicabili(d as ConsegnaPerRegola, regole);
+      for (const g of candidate) {
+        // Consumo del carnet: le consegne GIÀ agganciate a questa regola.
+        if (g.dailyRule && g.dailyCount > 0) {
+          const g0 = new Date(Date.UTC(d.date.getUTCFullYear(), d.date.getUTCMonth(), d.date.getUTCDate()));
+          const g1 = new Date(g0); g1.setUTCDate(g1.getUTCDate() + 1);
+          const usate = await this.prisma.delivery.count({
+            where: { deliveryRuleId: g.id, id: { not: deliveryId }, date: { gte: g0, lt: g1 } },
+          });
+          if (usate >= g.dailyCount) continue;
+        }
+        if (g.totalRule && g.totalCount > 0) {
+          const usate = await this.prisma.delivery.count({
+            where: { deliveryRuleId: g.id, id: { not: deliveryId },
+              ...(g.periodStart || g.periodEnd ? { date: {
+                ...(g.periodStart ? { gte: g.periodStart } : {}),
+                ...(g.periodEnd ? { lte: g.periodEnd } : {}),
+              } } : {}) },
+          });
+          if (usate >= g.totalCount) continue;
+        }
+        await this.prisma.delivery.update({ where: { id: deliveryId }, data: { deliveryRuleId: g.id } });
+        return g.id;
+      }
+      return null;
+    } catch (err) {
+      console.error('aggancia-regola-carnet:', (err as Error).message);
+      return null;
+    }
   }
 
   /**
