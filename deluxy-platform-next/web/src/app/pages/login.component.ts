@@ -279,7 +279,10 @@ export class LoginComponent {
       // 31/08: la vetrina /home e' NASCOSTA per ora (deciso dall'utente) —
       // tutti atterrano sulle consegne. La rotta /home resta raggiungibile
       // a mano per il PARTNER, solo non e' piu' la prima schermata.
-      next: () => this.router.navigate(['/deliveries']),
+      // Se la password è da cambiare (bonifica), si va PRIMA a cambiarla.
+      next: () => this.router.navigate([
+        this.auth.user()?.mustChangePassword ? '/cambia-password' : '/deliveries',
+      ]),
       error: (err) => {
         this.loading.set(false);
         this.error.set(

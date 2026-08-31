@@ -13,7 +13,7 @@ interface ManagedUser {
   role: string;
   isSupport: boolean;
   status: 'invited' | 'active' | 'suspended' | 'archived';
-  partner?: { id: string; insegna: string } | null;
+  partner?: { id: string; insegna: string; deleted?: boolean } | null;
   valet?: { id: string; firstName: string; lastName: string } | null;
   operation?: { id: string; firstName: string; lastName: string } | null;
   activatedAt?: string | null;
@@ -86,6 +86,15 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
                   <button class="link-btn danger" (click)="setStatus(u, 'archived')">{{ 'users.action.archive' | translate }}</button>
                 } @else {
                   <button class="link-btn" (click)="copyInvite(u)">{{ 'users.action.reinvite' | translate }}</button>
+                }
+                <!-- Elimina/Ripristina il PARTNER collegato (lo nasconde da
+                     fatturazione ed elenchi, reversibile). 31/08, richiesta utente. -->
+                @if (u.partner) {
+                  @if (u.partner.deleted) {
+                    <button class="link-btn" [disabled]="inCorso() === u.partner.id" (click)="ripristinaPartner(u.partner!)">{{ 'users.action.restorePartner' | translate }}</button>
+                  } @else {
+                    <button class="link-btn danger" [disabled]="inCorso() === u.partner.id" (click)="eliminaPartner(u.partner!)">{{ 'users.action.deletePartner' | translate }}</button>
+                  }
                 }
               </td>
             </tr>
@@ -179,6 +188,26 @@ export class UsersListComponent {
     this.http.patch<ManagedUser>(`${environment.apiUrl}/users/${u.id}/status`, { status }).subscribe({
       next: () => { this.banner.set(`${u.email}: ${this.statusLabel(status)}`); this.load(); },
       error: (err) => this.error.set(err?.error?.message ?? 'Errore nel cambio di stato'),
+    });
+  }
+
+  /** Elimina/ripristina il PARTNER collegato: lo nasconde (o rimostra) in
+   *  fatturazione ed elenchi. Reversibile. */
+  readonly inCorso = signal<string | null>(null);
+  eliminaPartner(p: { id: string; insegna: string }): void {
+    this.error.set(null);
+    this.inCorso.set(p.id);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/elimina`, {}).subscribe({
+      next: () => { this.inCorso.set(null); this.banner.set(`${p.insegna}: eliminato`); this.load(); },
+      error: (err) => { this.inCorso.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+  ripristinaPartner(p: { id: string; insegna: string }): void {
+    this.error.set(null);
+    this.inCorso.set(p.id);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/ripristina`, {}).subscribe({
+      next: () => { this.inCorso.set(null); this.banner.set(`${p.insegna}: ripristinato`); this.load(); },
+      error: (err) => { this.inCorso.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
   }
 

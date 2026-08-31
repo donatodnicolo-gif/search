@@ -155,7 +155,9 @@
       "suspend": "Suspend",
       "reactivate": "Reactivate",
       "archive": "Archive",
-      "copy": "Copy"
+      "copy": "Copy",
+      "deletePartner": "Delete partner",
+      "restorePartner": "Restore partner"
     }
   },
   "acceptInvite": {

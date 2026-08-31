@@ -3,11 +3,18 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { Role } from './models';
 
-/** Richiede utente autenticato. */
-export const authGuard: CanActivateFn = () => {
+/** Richiede utente autenticato. E, se la password è da cambiare (account
+ *  bonificati «123» → «Deluxy26%»), OBBLIGA a cambiarla: finché non è fatto si
+ *  può stare solo su /cambia-password. Prima il guard non lo controllava, così
+ *  la schermata obbligatoria non compariva mai. */
+export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isLoggedIn() ? true : router.createUrlTree(['/login']);
+  if (!auth.isLoggedIn()) return router.createUrlTree(['/login']);
+  if (auth.user()?.mustChangePassword && !state.url.startsWith('/cambia-password')) {
+    return router.createUrlTree(['/cambia-password']);
+  }
+  return true;
 };
 
 /** Richiede uno dei ruoli indicati (usare nei data della route). */
