@@ -397,6 +397,164 @@ export function NuovoOrdine({
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
 
+  // ── LA BOZZA DEL MODULO SI SALVA DA SOLA, OGNI 15 SECONDI ──────────────────
+  //
+  // Chiesto dall'utente il 31/08/2026, subito dopo aver perso un modulo pieno:
+  // Shopify aveva rifiutato la creazione («Address2 in shipping exceeds maximum
+  // length»), e con il cliente al telefono bisognava riscrivere tutto.
+  //
+  // ⚠️⚠️ Si salva in LOCALE, nel browser di chi compila, e non nel database:
+  // una bozza a metà non è un ordine, e finirebbe in una tabella che qualcuno
+  // poi conterebbe. Qui è quello che è: un foglio di brutta che sopravvive a un
+  // errore, a un ricaricamento e a una chiusura per sbaglio.
+  //
+  // ⚠️ NON si ripristina da sola: si propone. Riempire il modulo con i dati di
+  // un altro cliente — quello di mezz'ora fa — mentre se ne sta servendo uno
+  // nuovo è il modo di mandare un regalo all'indirizzo sbagliato.
+  //
+  // ⚠️ Scade dopo un giorno e si cancella appena l'ordine parte: una bozza
+  // vecchia riproposta la settimana dopo è solo confusione.
+  const CHIAVE_BOZZA = 'nuovo-ordine:bozza'
+  const SCADENZA_BOZZA = 24 * 60 * 60 * 1000
+
+  type BozzaModulo = {
+    quando: number
+    negozioId: string
+    nome: string
+    cognome: string
+    email: string
+    telefono: string
+    data: string
+    fascia: string
+    indirizzo: string
+    note: string
+    cap: string
+    citta: string
+    provincia: string
+    paese: string
+    righe: Riga[]
+    biglietto: string
+    spedizioneTitolo: string
+    spedizionePrezzo: string
+    pagamento: string
+    mezzo: string
+    aggiungiIva: boolean
+  }
+
+  const [bozzaTrovata, setBozzaTrovata] = useState<BozzaModulo | null>(null)
+  const [salvataAlle, setSalvataAlle] = useState('')
+
+  /** Tutto quello che si è scritto, in un oggetto solo. */
+  const modulo = useCallback(
+    (): BozzaModulo => ({
+      quando: Date.now(),
+      negozioId,
+      nome,
+      cognome,
+      email,
+      telefono,
+      data,
+      fascia,
+      indirizzo,
+      note,
+      cap,
+      citta,
+      provincia,
+      paese,
+      righe,
+      biglietto,
+      spedizioneTitolo,
+      spedizionePrezzo,
+      pagamento,
+      mezzo,
+      aggiungiIva,
+    }),
+    [
+      negozioId, nome, cognome, email, telefono, data, fascia, indirizzo, note, cap, citta,
+      provincia, paese, righe, biglietto, spedizioneTitolo, spedizionePrezzo, pagamento, mezzo,
+      aggiungiIva,
+    ]
+  )
+
+  /** C'è qualcosa da salvare? Un modulo vuoto non è una bozza. */
+  const qualcosaScritto = useCallback((m: BozzaModulo) => {
+    return Boolean(
+      m.nome.trim() || m.cognome.trim() || m.email.trim() || m.telefono.trim() ||
+        m.indirizzo.trim() || m.note.trim() || m.biglietto.trim() || m.righe.length
+    )
+  }, [])
+
+  // All'apertura: se c'è una bozza recente, si PROPONE.
+  useEffect(() => {
+    try {
+      const grezzo = window.localStorage.getItem(CHIAVE_BOZZA)
+      if (!grezzo) return
+      const b = JSON.parse(grezzo) as BozzaModulo
+      if (!b?.quando || Date.now() - b.quando > SCADENZA_BOZZA) {
+        window.localStorage.removeItem(CHIAVE_BOZZA)
+        return
+      }
+      if (qualcosaScritto(b)) setBozzaTrovata(b)
+    } catch {
+      // localStorage può essere spento (finestra privata, criterio aziendale):
+      // ⚠️ non è un errore da mostrare — il modulo funziona lo stesso, solo
+      // senza rete di sicurezza.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Ogni 15 secondi, e solo se c'è qualcosa scritto.
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      const m = modulo()
+      if (!qualcosaScritto(m)) return
+      try {
+        window.localStorage.setItem(CHIAVE_BOZZA, JSON.stringify(m))
+        setSalvataAlle(
+          new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+        )
+      } catch {
+        // Spazio finito o storage spento: si tace, come sopra.
+      }
+    }, 15000)
+    return () => window.clearInterval(t)
+  }, [modulo, qualcosaScritto])
+
+  function riprendiBozza() {
+    const b = bozzaTrovata
+    if (!b) return
+    setNegozioId(b.negozioId)
+    setNome(b.nome)
+    setCognome(b.cognome)
+    setEmail(b.email)
+    setTelefono(b.telefono)
+    setData(b.data)
+    setFascia(b.fascia)
+    setIndirizzo(b.indirizzo)
+    setNote(b.note)
+    setCap(b.cap)
+    setCitta(b.citta)
+    setProvincia(b.provincia)
+    setPaese(b.paese)
+    setRighe(b.righe ?? [])
+    setBiglietto(b.biglietto)
+    setSpedizioneTitolo(b.spedizioneTitolo)
+    setSpedizionePrezzo(b.spedizionePrezzo)
+    setPagamento(b.pagamento as typeof pagamento)
+    setMezzo(b.mezzo)
+    setAggiungiIva(Boolean(b.aggiungiIva))
+    setBozzaTrovata(null)
+  }
+
+  function buttaBozza() {
+    try {
+      window.localStorage.removeItem(CHIAVE_BOZZA)
+    } catch {
+      /* niente da fare */
+    }
+    setBozzaTrovata(null)
+  }
+
   async function crea() {
     if (creando) return
     if (!righe.length) {
@@ -457,6 +615,13 @@ export function NuovoOrdine({
       if (!res.ok) {
         setErrore(d.errore || 'Ordine non creato.')
         return
+      }
+      // ⚠️ La bozza si butta SOLO adesso, a ordine creato: fino a un attimo fa
+      // era l'unica copia di quello che l'operatore aveva scritto.
+      try {
+        window.localStorage.removeItem(CHIAVE_BOZZA)
+      } catch {
+        /* storage spento: niente da pulire */
       }
       setEsito({
         linkPagamento: d.linkPagamento ?? '',
@@ -545,10 +710,45 @@ export function NuovoOrdine({
         <h1>Nuovo ordine</h1>
         <span className="cella-sub">
           Per il cliente al telefono. L&apos;ordine nasce su Shopify e torna qui dal registro.
+          {/* ⚠️ Si dice CHE si salva e QUANDO è stato salvato l'ultima volta:
+              un salvataggio automatico di cui nessuno sa non protegge nessuno —
+              chi ha perso un modulo una volta, la seconda ricopia a mano per
+              sicurezza. */}
+          {salvataAlle ? ` · bozza salvata alle ${salvataAlle}` : ' · si salva da solo ogni 15 secondi'}
         </span>
       </div>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
+
+      {/* ── C'È UNA BOZZA DI PRIMA ──
+          ⚠️⚠️ Si PROPONE, non si ripristina da sola: riempire il modulo coi dati
+          del cliente di mezz'ora fa mentre se ne sta servendo un altro è il modo
+          di mandare un regalo all'indirizzo sbagliato. Chi la riprende lo
+          decide guardando di chi è. */}
+      {bozzaTrovata ? (
+        <div className="avviso-ok" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 200 }}>
+            C&apos;è un ordine cominciato e non inviato
+            {bozzaTrovata.nome || bozzaTrovata.cognome
+              ? ` (${[bozzaTrovata.nome, bozzaTrovata.cognome].filter(Boolean).join(' ')})`
+              : ''}
+            , di{' '}
+            {new Date(bozzaTrovata.quando).toLocaleString('it-IT', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+            .
+          </span>
+          <button className="bottone" onClick={riprendiBozza}>
+            Riprendilo
+          </button>
+          <button className="bottone secondario" onClick={buttaBozza}>
+            Buttalo
+          </button>
+        </div>
+      ) : null}
 
       <div className="card">
         <h2 style={{ marginTop: 0, fontSize: 15 }}>Negozio e cliente</h2>

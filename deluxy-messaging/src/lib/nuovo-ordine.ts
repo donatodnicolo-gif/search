@@ -357,6 +357,11 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   if (!t) return { ok: false, errore: 'Shopify non ha dato un token per questo negozio.' }
   if (!d.righe.length) return { ok: false, errore: 'Aggiungi almeno un prodotto.' }
 
+  // ⚠️ I campi dell'indirizzo su Shopify hanno un tetto di 255 caratteri, e
+  // superarlo fa fallire TUTTA la creazione — non tronca, rifiuta. Si taglia
+  // qui, dove si sa perché; il testo intero resta nella nota dell'ordine.
+  const taglia = (v: string, max: number) => (v.length > max ? v.slice(0, max) : v)
+
   const note = [
     d.biglietto.trim() ? `Biglietto: ${d.biglietto.trim()}` : '',
     d.consegna.civicoNote.trim() ? `Note consegna: ${d.consegna.civicoNote.trim()}` : '',
@@ -401,8 +406,18 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     shippingAddress: {
       firstName: d.cliente.nome.trim() || 'Cliente',
       lastName: d.cliente.cognome.trim() || '.',
-      address1: d.consegna.indirizzo.trim(),
-      address2: d.consegna.civicoNote.trim() || undefined,
+      // ⚠️⚠️ TAGLIATI A 255, che è il limite di Shopify. Segnalato dall'utente
+      // il 31/08/2026: incollando delle note di consegna lunghe, Shopify
+      // rifiutava TUTTA la creazione con «Address2 in shipping exceeds maximum
+      // length of 255 characters» — un ordine perso, col cliente al telefono,
+      // per un campo di contorno.
+      //
+      // ⚠️ Il testo NON si perde: le note di consegna finiscono per intero
+      // nella nota dell'ordine qui sopra («Note consegna: …»), che su Shopify
+      // non ha questo limite. Qui dentro va la parte che ci sta, perché serve a
+      // chi guarda l'indirizzo — il resto si legge nella nota.
+      address1: taglia(d.consegna.indirizzo.trim(), 255),
+      address2: taglia(d.consegna.civicoNote.trim(), 255) || undefined,
       city: d.consegna.citta.trim(),
       zip: d.consegna.cap.trim(),
       provinceCode: d.consegna.provincia.trim() || undefined,
