@@ -178,3 +178,32 @@ model TokenReset {
   @@index([utenteId, creatoIl])
   @@index([ipHash, creatoIl])
 }
+
+// Registro degli invii chiesti dalle ALTRE app tramite POST /api/posta.
+// Serve a tre cose insieme: rispondere alla domanda «cosa e partito?» (un
+// automatismo che manda mail e non sa dirlo non si usa), fare da contatore per
+// il freno orario, e riconoscere una richiesta ripetuta (idempotenza) quando
+// un'app riprova dopo un errore di rete.
+// Del destinatario si tiene la forma mascherata (per leggerla) e l'hash (per
+// contare e confrontare): l'indirizzo in chiaro e un dato personale e qui non
+// serve. Il CORPO del messaggio non si registra mai.
+model InvioPosta {
+  id                     String   @id @default(cuid())
+  // Nome del token di servizio che ha chiesto l'invio: e la firma di chi ha
+  // spedito, quando si guarda il registro a posteriori.
+  tokenNome              String
+  destinatarioMascherato String
+  destinatarioHash       String
+  oggetto                String
+  // inviata | rifiutata | errore
+  esito                  String
+  motivo                 String   @default("")
+  // Se il chiamante manda un Idempotency-Key, una seconda richiesta con la
+  // stessa chiave non rispedisce: restituisce l'esito della prima.
+  chiaveIdempotenza      String?  @unique
+  creatoIl               DateTime @default(now())
+
+  @@index([creatoIl])
+  @@index([tokenNome, creatoIl])
+  @@index([destinatarioHash, creatoIl])
+}

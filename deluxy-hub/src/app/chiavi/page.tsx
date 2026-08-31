@@ -86,6 +86,12 @@ export default async function ChiaviPage({
   );
   const posta = await statoPosta();
 
+  // Gli ultimi invii chiesti dalle altre app via POST /api/posta. «Che cosa ha
+  // mandato in giro?» è la prima domanda quando un automatismo spedisce: un
+  // servizio che non sa rispondere non si usa. Del destinatario si vede la
+  // forma mascherata; il corpo del messaggio non è mai stato salvato.
+  const invii = await prisma.invioPosta.findMany({ orderBy: { creatoIl: "desc" }, take: 8 });
+
   // I valori già salvati si ripresentano nel modulo — tranne la password, che
   // non torna MAI a schermo: un campo vuoto accanto a una configurazione che
   // esiste fa credere di non aver salvato, ed è il motivo per cui si finisce a
@@ -200,6 +206,46 @@ export default async function ChiaviPage({
           </>
         )}
       </div>
+
+      {invii.length > 0 && (
+        <>
+          <div className="section-label">Ultime email partite dal portale</div>
+          <div className="card" style={{ padding: "20px 12px" }}>
+            <div className="tabella-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Quando</th>
+                    <th>Chiesta da</th>
+                    <th>A</th>
+                    <th>Oggetto</th>
+                    <th>Esito</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invii.map((i) => (
+                    <tr key={i.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>{dataIt(i.creatoIl)}</td>
+                      <td>{i.tokenNome}</td>
+                      <td style={{ fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
+                        {i.destinatarioMascherato}
+                      </td>
+                      <td>{i.oggetto}</td>
+                      <td>
+                        <span className={i.esito === "inviata" ? "badge green" : "badge neutro"}>
+                          <span className="dot" />
+                          {i.esito}
+                        </span>
+                        {i.motivo && <div className="nota-riga">{i.motivo}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="section-label">Nuova chiave</div>
       <div className="card">
