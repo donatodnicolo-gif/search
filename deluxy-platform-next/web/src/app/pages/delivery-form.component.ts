@@ -141,6 +141,7 @@ interface ProductRow {
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            @if (luogoScelto(); as n) { <span class="luogo-scelto">📍 <em>{{ n }}</em></span> }
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
                  semplicemente non si applica, e si dice con una nota, non con
@@ -553,6 +554,8 @@ interface ProductRow {
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
+      .luogo-scelto { display: block; margin-top: 5px; font-size: 13px; color: var(--text-secondary); }
+      .luogo-scelto em { font-style: italic; }
       .scelto {
         display: flex; align-items: center; justify-content: space-between; gap: 10px;
         padding: 9px 12px; border: 1px solid var(--hairline, #e5e5ea);
@@ -1568,8 +1571,9 @@ export class DeliveryFormComponent implements AfterViewInit {
             await loadGoogleMaps(key);
             this.autocomplete = new google.maps.places.Autocomplete(input, {
               componentRestrictions: { country: 'it' },
-              fields: ['formatted_address', 'geometry', 'address_components'],
-              types: ['address'],
+              // `name` per i POI (hotel, negozi…); niente `types` così si possono
+              // cercare ANCHE i posti, non solo gli indirizzi (31/08).
+              fields: ['formatted_address', 'geometry', 'address_components', 'name'],
             });
             this.autocomplete.addListener('place_changed', () => {
               const place = this.autocomplete.getPlace();
@@ -1584,11 +1588,29 @@ export class DeliveryFormComponent implements AfterViewInit {
       });
   }
 
-  /** Indirizzo scelto dal menu Google: compila il campo e ricava la provincia. */
+  /** Il nome del POSTO scelto (hotel, negozio…), da mostrare in corsivo sotto
+   *  l'indirizzo. Null se si è scelto un indirizzo semplice. */
+  readonly luogoScelto = signal<string | null>(null);
+
+  /**
+   * Un indirizzo dev'essere COMPLETO: via il Google Plus Code davanti (es.
+   * «F6P2+7H5, Piazza Duca d'Aosta…» → «Piazza Duca d'Aosta…»). Il Plus Code è
+   * un codice di posizione, non un indirizzo leggibile.
+   */
+  private pulisciIndirizzo(a: string): string {
+    return (a ?? '').replace(/^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/, '').trim();
+  }
+
+  /** Indirizzo (o posto) scelto dal menu Google: compila il campo e ricava la provincia. */
   private onPlaceSelected(place: any): void {
     if (!place) return;
-    const address = place.formatted_address || this.addressInput?.nativeElement.value || '';
+    const grezzo = place.formatted_address || this.addressInput?.nativeElement.value || '';
+    const address = this.pulisciIndirizzo(grezzo);
     this.model.recipientAddress = address;
+    // Se è un POSTO con un nome che non è già dentro l'indirizzo, lo si mostra
+    // in corsivo come etichetta (non si sporca l'indirizzo con il nome).
+    const nome = String(place.name ?? '').trim();
+    this.luogoScelto.set(nome && !address.toLowerCase().includes(nome.toLowerCase()) ? nome : null);
     const comp = (place.address_components || []).find((c: any) =>
       (c.types || []).includes('administrative_area_level_2'),
     );
@@ -1865,6 +1887,8 @@ export class DeliveryFormComponent implements AfterViewInit {
   submit(duplicate = false): void {
     this.error.set(null);
     this.justSaved.set(false);
+    // Un indirizzo salvato è sempre completo: via il Plus Code se rimasto.
+    this.model.recipientAddress = this.pulisciIndirizzo(this.model.recipientAddress);
     const m = this.model;
     // Si dice QUALI campi mancano, non «compila i campi obbligatori».
     //
