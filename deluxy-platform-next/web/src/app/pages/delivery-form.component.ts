@@ -1214,6 +1214,17 @@ export class DeliveryFormComponent implements AfterViewInit {
       });
     }
 
+    // DUPLICA: `?duplica=<id>` riempie il form con i dati di una consegna
+    // esistente ma NON imposta editId — quindi al salvataggio ne nasce una
+    // NUOVA. Lo stato riparte da capo (una copia non eredita «consegnata»).
+    const idDuplica = this.route.snapshot.queryParamMap.get('duplica');
+    if (idDuplica && !idModifica) {
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${idDuplica}`).subscribe({
+        next: (d) => { this.prefill(d); this.editId.set(null); this.model.status = ''; },
+        error: () => undefined,
+      });
+    }
+
     // ⭐ 28/08: si arriva dalla sezione RICHIESTE. Si carica il testo nel
     // pannello dell'AI e lo si APRE: chi ha cliccato «crea consegna» da una
     // richiesta non deve andare a cercare dove incollarla.

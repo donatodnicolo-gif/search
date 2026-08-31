@@ -288,7 +288,8 @@
     "close": "Close",
     "remove": "Remove",
     "retry": "Retry",
-    "of": "of"
+    "of": "of",
+    "change": "Change"
   },
   "enums": {
     "productType": {
@@ -2447,6 +2448,13 @@
     "tuttiTipi": "All types",
     "ricevuta": "View receipt",
     "apriConsegna": "Open delivery",
-    "searchPh": "Search by text, partner or valet…"
+    "searchPh": "Search by text, partner or valet…",
+    "linkDelivery": "Linked delivery",
+    "linkDeliveryPh": "Search by code, address or recipient…",
+    "attachment": "Attachment",
+    "attachmentAdd": "Upload a file",
+    "attachmentAdded": "File attached",
+    "attachmentView": "Open attachment",
+    "fileTooBig": "File too large (max 5 MB)."
   }
 }

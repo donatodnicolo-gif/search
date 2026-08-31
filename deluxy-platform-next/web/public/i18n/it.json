@@ -288,7 +288,8 @@
     "close": "Chiudi",
     "remove": "Togli",
     "retry": "Riprova",
-    "of": "di"
+    "of": "di",
+    "change": "Cambia"
   },
   "enums": {
     "productType": {
@@ -2447,6 +2448,13 @@
     "tuttiTipi": "Tutti i tipi",
     "ricevuta": "Vedi ricevuta",
     "apriConsegna": "Apri consegna",
-    "searchPh": "Cerca per testo, partner o valet…"
+    "searchPh": "Cerca per testo, partner o valet…",
+    "linkDelivery": "Consegna collegata",
+    "linkDeliveryPh": "Cerca per codice, indirizzo o destinatario…",
+    "attachment": "Allegato",
+    "attachmentAdd": "Carica un file",
+    "attachmentAdded": "File allegato",
+    "attachmentView": "Apri allegato",
+    "fileTooBig": "File troppo grande (max 5 MB)."
   }
 }

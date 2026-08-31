@@ -114,6 +114,8 @@ interface DeliveryDetail {
           <button type="button" class="act" [disabled]="!mapsUrl(d)" (click)="openMaps(d)">{{ 'deliveryDetail.act.maps' | translate }}</button>
           @if (canEdit()) {
             <a class="act" [routerLink]="['/deliveries', d.id, 'edit']">{{ 'deliveryDetail.act.edit' | translate }}</a>
+            <!-- Duplica: crea una NUOVA consegna coi dati di questa (ufficio e partner). -->
+            <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ duplica: d.id }">{{ 'common.duplicate' | translate }}</a>
           }
           <!-- Il link di tracciamento si condivide col CLIENTE: lo vede anche
                il partner (proprietario della consegna), non solo l'ufficio. -->

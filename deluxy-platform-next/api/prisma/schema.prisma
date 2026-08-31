@@ -1939,6 +1939,9 @@ model Segnalazione {
   /// Ricevuta allegata (URL), tipicamente sui rimborsi: si mostra come link
   /// cliccabile. Sui rimborsi storici è il link originale del vecchio sistema.
   ricevutaUrl    String?
+  /// Allegato caricato aprendo la segnalazione (foto/documento, data URL o URL):
+  /// si vede e si scarica dal dettaglio.
+  allegatoUrl    String?
   /// Su CHI: uno dei due, o nessuno (segnalazione generica).
   partnerId      String?
   valetId        String?

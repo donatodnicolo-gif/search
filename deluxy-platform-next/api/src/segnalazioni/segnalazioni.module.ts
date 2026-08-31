@@ -56,10 +56,14 @@ export class SegnalazioniService {
   }
 
   async crea(user: JwtUser, body: {
-    tipo?: string; partnerId?: string; valetId?: string; deliveryId?: string; oggetto?: string; testo?: string; importo?: number;
+    tipo?: string; partnerId?: string; valetId?: string; deliveryId?: string; oggetto?: string; testo?: string; importo?: number; allegatoUrl?: string;
   }) {
     const testo = (body?.testo ?? '').trim();
     if (!testo) throw new BadRequestException('Il testo della segnalazione è obbligatorio.');
+    // L'allegato: un data URL (foto/documento) o un link. Cap prudente per non
+    // ingoiare file enormi in colonna.
+    const allegatoUrl = (body?.allegatoUrl ?? '').trim() || null;
+    if (allegatoUrl && allegatoUrl.length > 8_000_000) throw new BadRequestException('Allegato troppo grande.');
     // Partner/valet aprono qualcosa su SE STESSI; l'ufficio una SEGNALAZIONE su
     // chi indica. Il valet può aprire un RECLAMO o una richiesta di RIMBORSO
     // (`tipo: 'rimborso'`, con importo); il partner solo reclami.
@@ -80,7 +84,7 @@ export class SegnalazioniService {
     return this.prisma.segnalazione.create({
       data: {
         tipo, importo, partnerId, valetId, deliveryId: body.deliveryId ?? null,
-        oggetto: body.oggetto?.trim() || null, testo,
+        oggetto: body.oggetto?.trim() || null, testo, allegatoUrl,
         apertaDaUserId: user.sub, apertaDaRuolo: user.role,
       },
     });
