@@ -131,3 +131,54 @@ export async function revocaToken(fd: FormData) {
   revalidatePath("/chiavi");
   redirect("/chiavi?ok=token-revocato");
 }
+
+/**
+ * Configura in un colpo solo la posta del portale (progetto «hub»).
+ *
+ * Perché un’azione dedicata invece del modulo generico: le chiavi della posta
+ * sono CINQUE con nomi esatti, e chiederle una alla volta significa indovinare
+ * ogni volta progetto e nome — è il motivo per cui la posta è rimasta non
+ * configurata. Qui si compila un modulo solo e le righe le scrive l’app.
+ *
+ * Le voci vuote non si toccano: chi vuole cambiare la sola password lascia il
+ * resto in bianco e non perde quello che c’era.
+ */
+export async function salvaPosta(fd: FormData) {
+  await richiediAdmin();
+
+  const valori: Record<string, string> = {
+    SMTP_HOST: testo(fd, "host"),
+    SMTP_PORT: testo(fd, "porta"),
+    SMTP_USER: testo(fd, "utente"),
+    SMTP_PASS: String(fd.get("password") ?? "").trim(),
+    SMTP_FROM: testo(fd, "mittente"),
+  };
+
+  const daScrivere = Object.entries(valori).filter(([, v]) => v !== "");
+  if (daScrivere.length === 0) redirect("/chiavi?errore=dati");
+
+  for (const [nome, valore] of daScrivere) {
+    let valoreCifrato: string;
+    try {
+      valoreCifrato = cifra(valore);
+    } catch {
+      redirect("/chiavi?errore=segreto");
+    }
+    // Upsert: la prima volta crea, le successive aggiorna — cambiare la
+    // password della casella non deve costringere a cancellare la riga.
+    await prisma.chiave.upsert({
+      where: { progetto_nome: { progetto: "hub", nome } },
+      create: {
+        progetto: "hub",
+        nome,
+        valoreCifrato,
+        suffisso: suffissoDi(valore),
+        note: "Posta del portale",
+      },
+      update: { valoreCifrato, suffisso: suffissoDi(valore) },
+    });
+  }
+
+  revalidatePath("/chiavi");
+  redirect("/chiavi?ok=posta");
+}

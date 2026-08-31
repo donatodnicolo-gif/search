@@ -2,7 +2,7 @@ import Link from "next/link";
 import { catalogoApp } from "@/lib/apps";
 import { decifra } from "@/lib/cifratura";
 import { NOMI_CHIAVI, statoPosta } from "@/lib/posta";
-import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken } from "@/lib/chiavi-actions";
+import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken, salvaPosta } from "@/lib/chiavi-actions";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { ConfermaAzione } from "@/components/ConfermaAzione";
@@ -18,6 +18,7 @@ const MESSAGGI_OK: Record<string, string> = {
   eliminata: "Chiave eliminata.",
   "token-creato": "Token creato. Se non l'hai copiato, revocalo e generane un altro.",
   "token-revocato": "Token revocato.",
+  posta: "Posta del portale salvata.",
 };
 
 const MESSAGGI_ERRORE: Record<string, string> = {
@@ -129,10 +130,43 @@ export default async function ChiaviPage({
               Finché manca, il <strong>recupero password</strong> non può mandare il link e il
               riepilogo presenze non si spedisce.
             </p>
-            <p className="nota" style={{ margin: 0 }}>
-              Aggiungi qui sotto, con <strong>Progetto = <code>hub</code></strong>, i nomi:{" "}
-              <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (obbligatori) e,
-              se diversi dai default, <code>SMTP_PORT</code> e <code>SMTP_FROM</code>.
+            {/* Il modulo sta QUI, non «qui sotto»: la posta ha cinque chiavi con
+                nomi esatti, e chiederle una per una nel modulo generico voleva
+                dire indovinare progetto e nome cinque volte. Si compila una
+                volta e le righe le scrive l’app, nel progetto «hub». */}
+            <form
+              action={salvaPosta}
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, alignItems: "end" }}
+            >
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Server di posta in uscita</span>
+                <input name="host" placeholder="authsmtp.tuodominio.it" autoComplete="off" spellCheck={false} />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Porta</span>
+                <input name="porta" defaultValue="465" inputMode="numeric" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Casella (nome utente)</span>
+                <input name="utente" type="email" placeholder="noreply@tuodominio.it" autoComplete="off" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0 }}>
+                <span>Password della casella</span>
+                <input name="password" type="password" autoComplete="new-password" />
+              </label>
+              <label className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
+                <span>Mittente mostrato (vuoto = la casella qui sopra)</span>
+                <input name="mittente" type="email" placeholder="noreply@tuodominio.it" autoComplete="off" />
+              </label>
+              <button type="submit" className="btn primary" style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}>
+                Salva la posta
+              </button>
+            </form>
+            <p className="nota" style={{ marginTop: 12, marginBottom: 0 }}>
+              I valori finiscono cifrati nel progetto <code>hub</code>, con i nomi{" "}
+              <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>,{" "}
+              <code>SMTP_PASS</code>, <code>SMTP_FROM</code>. Lasciando un campo vuoto, quel
+              valore resta com’era.
               {mancantiPosta.length > 0 && mancantiPosta.length < 3 && (
                 <>
                   {" "}Mancano ancora:{" "}
