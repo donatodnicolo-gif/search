@@ -362,9 +362,12 @@ export class SalesService {
     const mittenteFirstName = taglio > 0 ? nome.slice(0, taglio) : nome || undefined;
     const mittenteLastName = taglio > 0 ? nome.slice(taglio + 1) : undefined;
 
-    // Contrassegno (pagamento alla consegna): categoria «contrassegno» di Orders.
-    const contrassegno =
-      String(ordine?.categoriaPagamento ?? ordine?.pagamento?.categoria ?? '').toLowerCase() === 'contrassegno';
+    // Contrassegno (pagamento alla consegna): la categoria di pagamento di
+    // Orders sta in `classificazione.categoriaPagamento` (bonifico | carta |
+    // contrassegno | altro); come rete, anche il nome del gateway.
+    const categoria = String(ordine?.classificazione?.categoriaPagamento ?? '').toLowerCase();
+    const gateway = String(ordine?.pagamento?.gateway ?? '').toLowerCase();
+    const contrassegno = categoria === 'contrassegno' || /contrassegno|cash on delivery|\bcod\b/.test(gateway);
 
     // Tutte le righe dell'ordine, risolte a prodotto/variante di piattaforma via SKU.
     const righe: any[] = Array.isArray(ordine?.righe) ? ordine.righe : [];
