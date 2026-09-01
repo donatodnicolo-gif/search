@@ -636,7 +636,6 @@ export class DeliveriesService {
     // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
     // direbbe al partner che non prende niente, ed è peggio di non dire niente.
     if (!valore || quota == null) return null;
-    const q2 = (n: number) => Math.round(n * 100) / 100;
     return {
       incasso: q2(valore),
       commissione: q2(quota),
