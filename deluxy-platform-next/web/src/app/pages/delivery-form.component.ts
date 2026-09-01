@@ -2238,9 +2238,12 @@ export class DeliveryFormComponent implements AfterViewInit {
       next: (nata: any) => {
         // In modifica si torna al dettaglio; in creazione alla lista (o si resta per duplicare)
         if (id) { this.router.navigate(['/deliveries', id]); return; }
-        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        // ⭐ 01/09 (utente): la vendita/richiesta passa in STORICO appena la
+        // consegna è nata — PRIMA di ogni uscita. Col «Duplica» si usciva
+        // prima di chiuderla e la vendita restava aperta.
         this.chiudiRichiesta(nata);
         this.chiudiVendita(nata);
+        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
         // Nel pop-up non si naviga: il genitore chiude e ricarica.
         if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
         this.router.navigate(['/deliveries']);
