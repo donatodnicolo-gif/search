@@ -502,6 +502,11 @@ interface ProductRow {
         <button type="button" class="btn btn-secondary" (click)="indietro()">{{ 'common.cancel' | translate }}</button>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
+        } @else {
+          <!-- ⭐ 01/09 (chiesto dall'utente): Duplica anche in MODIFICA — apre
+               un form NUOVO coi dati di questa consegna (come dal dettaglio).
+               Le modifiche non salvate non viaggiano: si duplica il salvato. -->
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="duplicaQuesta()">{{ 'common.duplicate' | translate }}</button>
         }
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
@@ -2081,6 +2086,18 @@ export class DeliveryFormComponent implements AfterViewInit {
     const min2 = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
     // stesso giorno: se la fine scelta è prima del minimo, si alza al minimo.
     return min2(to) >= min2(from) + 60 ? to : min;
+  }
+
+  /** Da MODIFICA: apre un form NUOVO coi dati del salvato di questa consegna.
+   *  ⚠️ Stesso componente su /new e /:id/edit: Angular lo RIUSA e il prefill
+   *  (letto nel costruttore) non ripartirebbe — si passa da una rotta ponte
+   *  senza toccare la history, così il form rinasce davvero. */
+  duplicaQuesta(): void {
+    const id = this.editId();
+    if (!id) return;
+    this.router
+      .navigateByUrl('/', { skipLocationChange: true })
+      .then(() => this.router.navigate(['/deliveries/new'], { queryParams: { duplica: id } }));
   }
 
   submit(duplicate = false): void {
