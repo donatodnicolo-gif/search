@@ -28,6 +28,18 @@
 > - **Stipendi**: un numero nella ricerca si risolve come CODICE consegna →
 >   filtra sul suo valet (prima cercava solo nel nome).
 > - **Il logo Deluxy (topbar e sidebar) porta alla home.**
+> - **01/09 sera — RICORRENTI «A ORA» RIMESSI SUL CANONE** (utente: «Sistema e
+>   verifica altre casistiche», partendo da #100206 scritta 50 con 1 ora).
+>   Censimento: le 278 consegne a-ora fuori canone nate in piattaforma erano
+>   TUTTE figlie di 4 ricorrenti, zero casi sparsi. Corretti col pattern del
+>   legacy come prova (`api/scripts/correggi-ricorrenti-a-ora.mjs`, applicato,
+>   riga nel registro di ogni consegna, nessuna figlia era fatturata/in
+>   stipendio): ① Chanel Milano 16:30 → 2 ore e finestra 16:30-18:30 (il 50 era
+>   il prezzo delle 2h: legacy 430×); ② Basara 18:30-21:30 3h/54 → servizio
+>   «Ora con Approvazione» (54=3×18; era sulla PRIMA voce della tendina, stessa
+>   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
+>   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
+>   ricorrenti su 11 coerenti.
 > - **01/09 sera — VIA LA «SETTIMANA TIPO» DEDOTTA DEI VALET** (decisione
 >   utente): le 449 righe `ValetOpeningHour` non le aveva dichiarate nessuno —
 >   le aveva DERIVATE `semplifica-orari-google.mjs` (combinazione più frequente
