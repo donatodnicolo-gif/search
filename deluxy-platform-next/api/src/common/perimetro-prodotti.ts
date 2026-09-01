@@ -23,7 +23,10 @@ export function perimetroProdottiPartner(user: Pick<JwtUser, 'partnerId'>) {
       // filtrare solo sul singolare avrebbe mostrato zero.
       { partnerId: null, name: { in: ['Servizio Consegna', 'Servizio Consegne'] } },
       { partnerId: user.partnerId ?? '-' },
-      { visibleToOtherPartners: true },
+      // ⚠️ «Visibile ad altri partner» apre SOLO ai partner SELEZIONATI
+      // (partnerLinks) — regola utente 01/09: il flag da solo non basta.
+      // Prima `visibleToOtherPartners: true` da sola apriva il prodotto a
+      // TUTTI i partner (misurato: 1 prodotto su 40 viaggiava così).
       { partnerLinks: { some: { partnerId: user.partnerId ?? '-' } } },
     ],
   };
