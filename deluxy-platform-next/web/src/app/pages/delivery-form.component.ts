@@ -820,9 +820,23 @@ export class DeliveryFormComponent implements AfterViewInit {
    */
   private forzaServizioVendita(): void {
     if (!this.daVendita() || !this.serviceTypes().length) return;
+    // ⭐ 01/09 (segnalazione utente: «i servizi elencati non sono quelli del
+    // partner»): la vendita si sceglie PRIMA dal listino del partner; il
+    // catalogo intero è solo il ripiego di chi un listino non ce l'ha.
+    const suoi = this.servizioDelPartner();
+    const vendDelPartner = suoi.find((s) => s.pricingModel === 'VENDITA');
     const attuale = this.serviceTypes().find((s) => s.id === this.model.serviceTypeId);
-    if (attuale && attuale.pricingModel === 'VENDITA') return;
-    const vend = this.serviceTypes().find((s) => s.pricingModel === 'VENDITA');
+    if (attuale && attuale.pricingModel === 'VENDITA') {
+      // Già una vendita: ma se è fuori dal listino del partner e il partner ne
+      // ha una SUA, si passa alla sua (arriva qui anche quando /partners si
+      // carica dopo la vendita).
+      if (vendDelPartner && !suoi.some((s) => s.id === attuale.id)) {
+        this.model.serviceTypeId = vendDelPartner.id;
+        this.onServiceChange();
+      }
+      return;
+    }
+    const vend = vendDelPartner ?? this.serviceTypes().find((s) => s.pricingModel === 'VENDITA');
     if (vend && this.model.serviceTypeId !== vend.id) {
       this.model.serviceTypeId = vend.id;
       this.onServiceChange();
@@ -911,10 +925,14 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (!v) return;
         const m = this.model as Record<string, unknown>;
         if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
+        // L'importo serve alla quota (venduto × fee%): senza, sul prezzo della
+        // vendita si proponeva la fee come euro (12849: 20 invece di 22).
+        if (typeof v.amount === 'number') this.venditaAmount = v.amount;
         if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
         // Se i servizi sono già arrivati, forza il tipo vendita adesso;
         // altrimenti ci pensa il loro callback.
         this.forzaServizioVendita();
+        this.proponiPrezzoDiListino();
         if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
         if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
         if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
@@ -1235,14 +1253,28 @@ export class DeliveryFormComponent implements AfterViewInit {
     );
     if (!riga || riga.price == null) return;
     const s = this.selectedService();
-    const prezzo = s?.pricingModel === 'A_ORA'
-      ? riga.price * Math.max(this.model.hours ?? 1, 1)
-      : riga.price;
+    let prezzo: number;
+    if (s?.pricingModel === 'VENDITA') {
+      // ⚠️ Sulla VENDITA il listino è una PERCENTUALE, non euro (segnalato
+      // dall'utente sul 12849: fee 20 proposta come «20 €» su una vendita da
+      // 110 → la quota giusta è 22). Stessa formula della fatturazione:
+      // quota = venduto × fee%. Senza l'importo della vendita non si propone.
+      const importo = this.venditaAmount;
+      if (importo == null || importo <= 0) return;
+      prezzo = Math.round(importo * riga.price) / 100;
+    } else {
+      prezzo = s?.pricingModel === 'A_ORA'
+        ? riga.price * Math.max(this.model.hours ?? 1, 1)
+        : riga.price;
+    }
     const attuale = this.model.price;
     if (attuale != null && attuale !== this.prezzoProposto) return;
     this.model.price = prezzo;
     this.prezzoProposto = prezzo;
   }
+
+  /** L'importo della vendita da cui si arriva (per la quota = venduto × fee%). */
+  private venditaAmount: number | null = null;
 
   /** Anteprima del listino in costruzione: distanza, extra km, prezzo, paga. */
   readonly preventivoTesto = signal<string | null>(null);
@@ -1422,6 +1454,9 @@ export class DeliveryFormComponent implements AfterViewInit {
         // default è il suo indirizzo, ora che la lista è arrivata. In MODIFICA
         // no: si rispetta l'indirizzo già salvato.
         if (this.model.partnerId && !this.editId()) this.applicaRitiroPartner();
+        // Arrivati i listini: la vendita forzata si riallinea a quella DEL
+        // partner e la proposta di prezzo si rifà con la fee giusta.
+        if (this.daVendita()) { this.forzaServizioVendita(); this.proponiPrezzoDiListino(); }
       });
     }
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => {
