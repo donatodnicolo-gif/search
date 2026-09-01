@@ -131,8 +131,11 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
-        <span class="brand-mark sm">D</span>
-        <span class="brand-name">Deluxy</span>
+        <!-- 01/09 (utente): il logo porta alla home. -->
+        <a class="brand-link" routerLink="/" (click)="close()">
+          <span class="brand-mark sm">D</span>
+          <span class="brand-name">Deluxy</span>
+        </a>
       </header>
 
       <!-- Overlay per chiudere il drawer -->
@@ -142,8 +145,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 
       <aside class="sidebar" [class.open]="menuOpen()" [class.collapsed]="collapsed()">
         <div class="brand">
-          <span class="brand-mark">D</span>
-          <span class="brand-name">Deluxy</span>
+          <a class="brand-link" routerLink="/" (click)="close()">
+            <span class="brand-mark">D</span>
+            <span class="brand-name">Deluxy</span>
+          </a>
           <button
             class="collapse-btn"
             (click)="toggleCollapse()"
@@ -267,6 +272,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         font-weight: 700;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 3px rgba(0, 0, 0, 0.25);
       }
+      .brand-link { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; cursor: pointer; }
       .brand-name {
         font-size: 18px;
         font-weight: 600;

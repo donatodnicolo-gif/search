@@ -1624,10 +1624,20 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly serviceOptions = computed(() => {
     const suoi = this.servizioDelPartner();
     const base = this.partnerSel() && suoi.length ? suoi : this.serviceTypes();
+    // ⚠️ 01/09 (indagine sull'errore di Chanel): in ordine ALFABETICO
+    // «Servizio a Ora» veniva PRIMA di «Servizio Consegna Standard» ed era la
+    // prima voce che si cliccava — 4 consegne normali salvate a ore (25 €,
+    // ore vuote). La CONSEGNA viene prima del servizio a ore: si ordina per
+    // modello (fisso, vendita, a ora, resto), poi per nome.
+    const peso = (m?: string | null) =>
+      m === 'PREZZO_FISSO' ? 0 : m === 'VENDITA' ? 1 : m === 'A_ORA' ? 2 : 3;
+    const ordinata = [...base].sort(
+      (a, b) => peso(a.pricingModel) - peso(b.pricingModel) || a.name.localeCompare(b.name, 'it'),
+    );
     const scelto = this.servizioSel();
-    if (!scelto || base.some((s) => s.id === scelto)) return base;
+    if (!scelto || ordinata.some((s) => s.id === scelto)) return ordinata;
     const mancante = this.serviceTypes().find((s) => s.id === scelto);
-    return mancante ? [mancante, ...base] : base;
+    return mancante ? [mancante, ...ordinata] : ordinata;
   });
 
   /** Cambiando partner, un servizio non più a listino va tolto. */
@@ -2120,6 +2130,12 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (!m.deliveryTimeFrom) mancanti.push(this.translate.instant('deliveryForm.field.deliverySlot'));
     if (!m.recipientFirstName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientFirstName'));
     if (!m.recipientLastName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientLastName'));
+    // ⚠️ 01/09 (indagine Chanel): un servizio A ORE senza le ore si salvava
+    // muto e usciva alla tariffa di UN'ora — 4 consegne normali fatturate 25 €.
+    // Le ore sono ciò che si sta comprando: senza, non si salva.
+    if (this.selectedService()?.pricingModel === 'A_ORA' && !(m.hours && m.hours > 0)) {
+      mancanti.push(this.translate.instant('deliveryForm.pricing.hours'));
+    }
     // Su una VENDITA il DDT e' il riferimento dell'ordine e con piu' negozi il
     // numero da solo non identifica: senza brand non si salva.
     if (this.isVendita() && m.ddtNumber.trim() && !m.ddtBrand.trim()) {
