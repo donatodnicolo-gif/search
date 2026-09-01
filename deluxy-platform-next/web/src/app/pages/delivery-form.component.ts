@@ -925,9 +925,6 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (!v) return;
         const m = this.model as Record<string, unknown>;
         if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
-        // L'importo serve alla quota (venduto × fee%): senza, sul prezzo della
-        // vendita si proponeva la fee come euro (12849: 20 invece di 22).
-        if (typeof v.amount === 'number') this.venditaAmount = v.amount;
         if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
         // Se i servizi sono già arrivati, forza il tipo vendita adesso;
         // altrimenti ci pensa il loro callback.
@@ -1253,28 +1250,26 @@ export class DeliveryFormComponent implements AfterViewInit {
     );
     if (!riga || riga.price == null) return;
     const s = this.selectedService();
-    let prezzo: number;
+    // ⚠️ Sulla VENDITA non si propone NESSUN prezzo (regola utente 01/09,
+    // #100791): il listino è una fee PERCENTUALE e la quota si calcola sul
+    // VALORE PRODOTTI della consegna — congelare qui un numero (fee × importo
+    // vendita) faceva litigare la commissione col venduto delle righe. Vuoto =
+    // la fatturazione calcola fee% × valore prodotti, sempre coerente.
     if (s?.pricingModel === 'VENDITA') {
-      // ⚠️ Sulla VENDITA il listino è una PERCENTUALE, non euro (segnalato
-      // dall'utente sul 12849: fee 20 proposta come «20 €» su una vendita da
-      // 110 → la quota giusta è 22). Stessa formula della fatturazione:
-      // quota = venduto × fee%. Senza l'importo della vendita non si propone.
-      const importo = this.venditaAmount;
-      if (importo == null || importo <= 0) return;
-      prezzo = Math.round(importo * riga.price) / 100;
-    } else {
-      prezzo = s?.pricingModel === 'A_ORA'
-        ? riga.price * Math.max(this.model.hours ?? 1, 1)
-        : riga.price;
+      if (this.model.price != null && this.model.price === this.prezzoProposto) {
+        this.model.price = null;
+        this.prezzoProposto = null;
+      }
+      return;
     }
+    const prezzo = s?.pricingModel === 'A_ORA'
+      ? riga.price * Math.max(this.model.hours ?? 1, 1)
+      : riga.price;
     const attuale = this.model.price;
     if (attuale != null && attuale !== this.prezzoProposto) return;
     this.model.price = prezzo;
     this.prezzoProposto = prezzo;
   }
-
-  /** L'importo della vendita da cui si arriva (per la quota = venduto × fee%). */
-  private venditaAmount: number | null = null;
 
   /** Anteprima del listino in costruzione: distanza, extra km, prezzo, paga. */
   readonly preventivoTesto = signal<string | null>(null);
