@@ -28,6 +28,17 @@
 > - **Stipendi**: un numero nella ricerca si risolve come CODICE consegna →
 >   filtra sul suo valet (prima cercava solo nel nome).
 > - **Il logo Deluxy (topbar e sidebar) porta alla home.**
+> - **01/09 sera — VIA LA «SETTIMANA TIPO» DEDOTTA DEI VALET** (decisione
+>   utente): le 449 righe `ValetOpeningHour` non le aveva dichiarate nessuno —
+>   le aveva DERIVATE `semplifica-orari-google.mjs` (combinazione più frequente
+>   dello storico) e il tabellone le mostrava come «settimanale». Cancellate con
+>   `api/scripts/rimuovi-settimana-tipo-valet.mjs` (backup + reversibile
+>   rilanciando la derivazione); lo script derivante ora salta i valet se non
+>   forzato. Il tabellone mostra solo le dichiarazioni vere (`ValetAvailability`:
+>   legacy + app) e «non indicata» altrove. Lato PARTNER intatto (lo smistamento
+>   usa gli orari partner). Nella settimana 31/08–06/09: 11 righe caricate dai
+>   valet veri dall'app (Coppola, Chakroun, Cassoli R., Cassoli M.), 10 dal
+>   legacy (Hmamly, Chakroun); su 62 valet attivi solo 4 hanno usato l'app.
 
 > 💶 **01/09/2026 sera — IL CANONE DEI LISTINI (dettato dall'utente sugli esempi
 > veri: Cassoli, Chakroun, #100791, 12849/12851) + LE VENDITE SENZA SKU.**

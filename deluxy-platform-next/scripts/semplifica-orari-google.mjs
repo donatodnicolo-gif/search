@@ -104,12 +104,19 @@ for (const p of pianoPartner) {
     });
   }
 }
-for (const v of pianoValet) {
-  for (const [dow, s] of v.settimana) {
-    await db.valetOpeningHour.upsert({
-      where: { valetId_dayOfWeek: { valetId: v.valetId, dayOfWeek: dow } },
-      update: s, create: { valetId: v.valetId, dayOfWeek: dow, ...s },
-    });
+// ⛔ DECISIONE UTENTE 01/09/2026: la settimana tipo del VALET non si scrive
+// più — era un'ipotesi (la combinazione più frequente dello storico) che il
+// tabellone mostrava come orario dichiarato. Le 449 righe già scritte sono
+// state rimosse con `api/scripts/rimuovi-settimana-tipo-valet.mjs`. Il lato
+// partner resta: lì l'orario settimanale è un concetto vero del legacy.
+if (process.argv.includes('--anche-valet-lo-so-che-e-una-deduzione')) {
+  for (const v of pianoValet) {
+    for (const [dow, s] of v.settimana) {
+      await db.valetOpeningHour.upsert({
+        where: { valetId_dayOfWeek: { valetId: v.valetId, dayOfWeek: dow } },
+        update: s, create: { valetId: v.valetId, dayOfWeek: dow, ...s },
+      });
+    }
   }
 }
 console.log('\n✅ scritto. Ora la verifica.');
