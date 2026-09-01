@@ -459,3 +459,19 @@ STATO: applicata a Scout (`lib/db.ts`, `task.tsx`, `da-completare.tsx`).
 **PROPOSTA per il Libro**: «chi delega resta nella lista» — ogni app con un
 assegnatario (task, incarichi, richieste) ha lo stesso trivio, e il default
 «assegnati a me» nasconde sempre il lavoro appena delegato.
+
+---
+
+## 01/09/2026 — Piattaforma consegne: «Gestione dell'ordine» illeggibile da telefono (segnalata dall'utente, corretta su suo mandato)
+
+Nel form consegna il blocco prodotti stava su una griglia a 3 colonne (ricerca ·
+quantità · ✕): sotto i 640px la ricerca si strizzava e il blocco diventava
+illeggibile (screenshot dell'utente, 01/09). Correzione applicata nello stesso
+giro per ordine diretto dell'utente («fai tutte queste cose»): sotto i 640px la
+riga si IMPILA — ricerca a tutta larghezza con testo a 16px (sotto i 16px iOS
+zooma da solo sul focus), quantità sotto, ✕ ancorata in alto a destra della
+card, tendina risultati a tutta larghezza.
+
+STATO: applicata (delivery-form.component.ts, media query 640px, deploy 01/09).
+**PROPOSTA per il Libro**: le righe-composte (input+numero+azione) si impilano
+sotto i 640px, e gli input testuali su mobile non scendono mai sotto i 16px.

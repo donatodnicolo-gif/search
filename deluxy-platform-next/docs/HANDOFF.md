@@ -3,15 +3,42 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ⚡ **01/09/2026 — LA CODA UTENTE ESEGUITA IN TRE ONDATE («fai tutte queste cose»).**
+> - **Prefill dall'ordine** (Inserisci da vendita): fascia oraria del cliente
+>   (finestra → flessibile), ora ritiro −1h, citofono = cognome destinatario,
+>   biglietto → personalizzazione, note Shopify → note; prodotti senza SKU a
+>   catalogo finiscono in nota, non spariscono. `dettaglioOrdine` esteso.
+> - **Distanza stradale + extra km VIVI**: Google Directions in create/update
+>   (update anche al cambio indirizzi); FUORI CITTÀ = TUTTI i km ×
+>   extraOutOfCityPrice (prima `prezzoConsegna` lo sommava UNA volta, fisso);
+>   paga valet fuori città = tutti i km × `Valet.extraOutOfCityPrice`, in città
+>   oltre `Valet.minimumKmIncluded`; `POST /deliveries/preventivo` + anteprima
+>   live nel blocco Listino (propone, non impone).
+> - **Vendite già consegnate → storico**: 60/72 aperte avevano già la consegna
+>   col loro DDT (il riferimento è il cuid di Orders → numero via API) —
+>   agganciate e ACCETTATE (`scripts/vendite-gia-consegnate-in-storico.mjs`).
+> - **Icona Shopify** (platforms) su /products e nella ricerca del form;
+>   **orario partner «→ tutti»** su ogni riga; **plus/minus paga** modificabile
+>   dalla riga del dettaglio Stipendi; **i18n tabellone disponibilità** (chiavi
+>   grezze availability.*); **Gestione dell'ordine impilata sotto i 640px**.
+> - **DRIVE OAuth (ricevute)**: sezione in /settings (client id+segreto,
+>   cartella, «Collega Drive» → consenso Google, callback con state
+>   anti-CSRF salva il refresh token); l'upload ricevuta va su Drive quando
+>   collegato, altrimenti percorso locale. MAI service account (Standard §5).
+>   🔴 Serve il client OAuth di Google Cloud + il consenso dell'utente.
+> - **Armani**: doppioni GIÀ sospesi; script `unifica-armani.mjs` pronto
+>   (149 consegne storiche → scheda canonica) — ⚠️ l'applica è bloccato dal
+>   guardrail: `node scripts/unifica-armani.mjs --applica` a mano.
+> - **42 orfani agosto riaperti** in «da fatturare» (id salvati in scratchpad);
+>   giu/lug (497/10k€, 853/17k€) NON riaperti: il legacy li ha fatturati.
+>
 > 📄 **31/08/2026 — «GENERA FATTURA» CONSEGNA LA BOZZA A FINANCE + RITIRO DI DEFAULT.**
 > - **Ritiro di default = indirizzo del partner su OGNI via di creazione**
 >   (prima solo il form manuale): main `create`, smistamento da vendita
 >   (`sales.module`), batch ricorrenti, WooCommerce. Un ritiro esplicito o la
 >   forzatura «in città» vincono; solo il vuoto si riempie. Deploy live.
->   Storico: `api/scripts/backfill-ritiro-partner.mjs --applica` riempie **16.326**
->   consegne vecchie dal partner (1.107 restano vuote: partner senza indirizzo).
->   ⚠️ **Da lanciare a mano** (il write di massa sul Postgres condiviso è bloccato
->   dal guardrail auto-mode).
+>   Storico: backfill **APPLICATO** il 31/08 sera — 16.326 riempite, restano
+>   1.107 (partner senza indirizzo, non c'è da dove copiare).
 > - **«Genera fattura» → FINANCE come pro-forma (bozza), non emissione diretta**
 >   (scelta utente). `generate` crea la fattura interna (registro) e chiama
 >   `POST {FINANCE}/api/proforma` (best-effort); la bozza compare in
@@ -26,10 +53,9 @@
 >   a FINANCE: chiave assente» e si ritenta col bottone dopo averla messa.
 >   ⚠️ FINANCE cerca il partner **per nome (insegna)**: se non combacia torna i
 >   candidati.
-> - **Notifiche mail** (nuovo servizio al partner, assegnazione al valet): codice
->   live via casella Hub (`POST /api/posta`). 🔴 Serve un token Hub con scope
->   `posta` in `/settings` (`hubPostaToken`) o env `HUB_POSTA_TOKEN`; prova col
->   bottone «Prova posta».
+> - **Notifiche mail** (nuovo servizio al partner, assegnazione al valet): LIVE
+>   via **AI Mail** — la stessa via del recap, già configurata (`inviaViaAiMail`;
+>   Hub solo ripiego). «Prova posta» in /settings testa proprio questa via.
 > - **Drive ricevute**: deciso OAuth **connessione propria** della piattaforma
 >   (come marketing, NON service account — Standard §5 aggiornato). Da costruire:
 >   servizio upload OAuth + cartella dedicata; serve il refresh token (consenso
