@@ -164,6 +164,10 @@ export class SalesService {
     productId?: string;
     productVariantId?: string;
     productSku?: string;
+    /** Titolo della riga d'ordine: per la vendita SENZA prodotto a catalogo. */
+    productName?: string;
+    /** Prezzo pagato dal cliente (riga d'ordine): senza prodotto non c'è un listino da cui prenderlo. */
+    amount?: number;
     brand?: string;
     customerId?: string;
     recipientFirstName?: string;
@@ -202,7 +206,52 @@ export class SalesService {
         variantId = variante.id;
       }
     }
-    if (!prodotto) throw new NotFoundException('Prodotto non trovato (per id o SKU)');
+    if (!prodotto) {
+      // ⭐ 01/09 (regola utente «fai nascere la vendita»): un prodotto
+      // personalizzato o uno SKU fuori catalogo NON buttano più l'ordine — la
+      // vendita nasce SENZA aggancio a catalogo, DA GESTIRE, col titolo in
+      // chiaro e lo SKU grezzo. Niente smistamento automatico: senza prodotto
+      // non si conosce il mestiere, decide una persona. Prima il 18% degli
+      // ordini (76 su 425 in 30 giorni) non entrava affatto.
+      if (!body.productName && !body.productSku) {
+        throw new NotFoundException('Prodotto non trovato (per id o SKU)');
+      }
+      const prov = body.provinceId
+        ? await this.prisma.province.findUnique({ where: { id: body.provinceId } })
+        : body.provinceCode
+          ? await this.prisma.province.findFirst({ where: { code: body.provinceCode.toUpperCase() } })
+          : null;
+      if (!prov) throw new NotFoundException('Provincia non trovata (per id o codice)');
+      const vendita = await this.prisma.sale.create({
+        data: {
+          productId: null,
+          productName: body.productName ?? null,
+          productSku: body.productSku ?? null,
+          provinceId: prov.id,
+          partnerId: null,
+          assignmentReason: 'Senza prodotto a catalogo (SKU assente o sconosciuto): da gestire a mano.',
+          customerId: body.customerId,
+          brand: body.brand ?? 'DELUXY',
+          amount: body.amount ?? 0,
+          discountPercent: 0,
+          status: SaleStatus.DA_GESTIRE,
+          source: body.source ?? 'app',
+          externalOrderId: body.externalOrderId,
+          externalOrderNumber: body.externalOrderNumber ?? null,
+          recipientFirstName: body.recipientFirstName,
+          recipientLastName: body.recipientLastName,
+          recipientAddress: body.recipientAddress,
+          recipientPhone: body.recipientPhone,
+          deliveryDate: body.deliveryDate ? new Date(body.deliveryDate) : null,
+          serviceTypeId: body.serviceTypeId,
+        },
+        include: {
+          product: { select: { id: true, name: true } },
+          partner: { select: { id: true, insegna: true } },
+        },
+      });
+      return { creata: true, vendita };
+    }
 
     const provincia = body.provinceId
       ? await this.prisma.province.findUnique({ where: { id: body.provinceId } })

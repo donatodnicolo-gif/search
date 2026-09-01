@@ -37,7 +37,8 @@ type OrdineOrders = {
   } | null;
   cliente?: { nome?: string | null; telefono?: string | null; email?: string | null } | null;
   consegna?: { data?: string | null; fascia?: string | null } | null;
-  righe?: { sku?: string | null; titolo?: string | null; quantita?: number | null }[];
+  righe?: { sku?: string | null; titolo?: string | null; quantita?: number | null; prezzo?: number | null }[];
+  totale?: number | null;
   classificazione?: { stato?: { chiave?: string; terminale?: boolean } | null } | null;
   /** "manuale" = il Customer Service se lo tiene: NON va smistato. */
   smistamento?: string | null;
@@ -567,8 +568,46 @@ export class OrdersSyncService {
       }
       else if (!codice) { esito = 'senza-provincia'; }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
-      else if (!sku) { esito = 'senza-sku'; }
-      else if (!prodotti.has(sku)) { esito = 'prodotto-sconosciuto'; dettaglio = sku; }
+      else if (!sku || !prodotti.has(sku)) {
+        // ⭐ 01/09 (regola utente «fai nascere la vendita»): senza SKU o con
+        // SKU fuori catalogo la vendita nasce LO STESSO — senza prodotto
+        // agganciato, DA GESTIRE, col titolo dell'ordine e lo SKU grezzo.
+        // Niente proposta automatica: senza prodotto non si sa il mestiere.
+        // Prima questi ordini (76 su 425 in 30 giorni, il 18%) non entravano.
+        const titolo = (o.righe ?? []).find((r) => r.titolo?.trim())?.titolo?.trim();
+        const skuGrezzo = conSku[0]?.sku?.trim();
+        const nota = sku ? `senza prodotto (sku ${sku} fuori catalogo)` : 'senza prodotto (sku assente)';
+        if (!opzioni.applica) {
+          const gia = await this.prisma.sale.findFirst({
+            where: { source: 'deluxy-orders', externalOrderId: o.id },
+            select: { id: true },
+          });
+          esito = gia ? 'gia-presente' : 'creata';
+          if (!gia) dettaglio = nota;
+        } else {
+          try {
+            const r = await this.sales.ingest({
+              source: 'deluxy-orders',
+              externalOrderId: o.id,
+              externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+              provinceId: province.get(codice)!,
+              productName: titolo,
+              productSku: skuGrezzo,
+              // Il prezzo pagato: la riga d'ordine se c'è, altrimenti il totale.
+              amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
+              brand: o.brand ?? undefined,
+              ...this.destinatario(o),
+              deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+            });
+            esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata) { dettaglio = nota; daGestire.push(etichetta); }
+          } catch (err) {
+            esito = 'errore';
+            dettaglio = (err as Error).message;
+            this.logger.warn(`Ordine ${o.id}: ${dettaglio}`);
+          }
+        }
+      }
       else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!))) {
         // FILTRO «solo unici o province con partner» (regola dell'utente): se
         // non è un prodotto unico e in questa provincia non abbiamo nessun
