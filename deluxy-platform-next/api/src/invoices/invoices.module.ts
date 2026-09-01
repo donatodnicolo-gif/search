@@ -195,13 +195,21 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   switch (modello) {
     case 'PREZZO_FISSO': {
       const tariffa = listino?.price ?? d.serviceType?.basePrice ?? 0;
-      const a = mai_negativo(tariffa + supplementoKm() + extra);
+      // FUORI CITTÀ vale SOLO il chilometraggio — tutti i km × tariffa fuori
+      // città, SENZA il valore base della consegna (regola utente 01/09:
+      // «solo il listino 12×1, senza i +6»). In città: base + km oltre gli
+      // inclusi. `supplementoKm` fa già i due conti giusti.
+      const a = d.extraOutOfCity
+        ? mai_negativo(supplementoKm() + extra)
+        : mai_negativo(tariffa + supplementoKm() + extra);
       return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'A_ORA': {
       // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
+      // SOLO le ore (regola utente 01/09): il servizio a ora paga il tempo —
+      // niente supplemento km, né in città né fuori.
       const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
-      const a = mai_negativo((listino?.price ?? 0) * ore + supplementoKm() + extra);
+      const a = mai_negativo((listino?.price ?? 0) * ore + extra);
       return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'MAGAZZINO': {

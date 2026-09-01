@@ -568,8 +568,23 @@ export class DeliveriesService {
       }
     }
 
+    // La FEE della vendita dal listino: serve al conto quando il prezzo non è
+    // congelato (> 0) — con lo 0 scritto la quota si calcola, non si legge.
+    let feeVendita: number | null = null;
+    if (
+      delivery.serviceType?.pricingModel === 'VENDITA' &&
+      !((delivery.price ?? 0) > 0) &&
+      delivery.partnerId && delivery.serviceTypeId
+    ) {
+      const ps = await this.prisma.partnerService.findUnique({
+        where: { partnerId_serviceTypeId: { partnerId: delivery.partnerId, serviceTypeId: delivery.serviceTypeId } },
+        select: { price: true },
+      });
+      feeVendita = ps?.price ?? null;
+    }
+
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, economiaVendita: this.economiaVendita(delivery) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, economiaVendita: this.economiaVendita(delivery, feeVendita) }, user),
       user,
     );
   }
@@ -597,7 +612,7 @@ export class DeliveriesService {
     price?: number | null;
     products?: unknown;
     serviceType?: { pricingModel?: string | null } | null;
-  }): {
+  }, feePercent?: number | null): {
     incasso: number;
     commissione: number;
     ivaCommissione: number;
@@ -611,7 +626,13 @@ export class DeliveriesService {
     // la FATTURA si fa sulle righe. Usando il campo, la scheda avrebbe detto
     // al partner un incasso che la sua fattura smentisce.
     const valore = valoreProdotti(d.products as any, (d as any).productValue);
-    const quota = d.price;
+    // ⚠️ Lo ZERO scritto non è la quota (01/09, #100791): come in fatturazione,
+    // un prezzo congelato vince solo se > 0 — altrimenti la quota si calcola
+    // dal listino, fee% × valore prodotti. Leggere lo 0 diceva «commissione 0».
+    const q2 = (n: number) => Math.round(n * 100) / 100;
+    const quota = (d.price ?? 0) > 0
+      ? d.price!
+      : (feePercent != null ? q2((valore * feePercent) / 100) : null);
     // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
     // direbbe al partner che non prende niente, ed è peggio di non dire niente.
     if (!valore || quota == null) return null;
@@ -748,8 +769,11 @@ export class DeliveriesService {
       // fatturazione. Su VENDITA `listino.price` è una PERCENTUALE (mostrarla
       // come euro diceva «listino 18,00 €» su Chanel Sant'Andrea: era la fee),
       // su CORPORATE conta il valore dei prodotti, su MAGAZZINO i pezzi.
-      const modelloConKm = svc?.pricingModel === 'PREZZO_FISSO' || svc?.pricingModel === 'A_ORA';
-      if ((svc || ps) && modelloConKm) {
+      // Regole km (utente 01/09, esempi Cassoli): SOLO sul fisso — l'a ora
+      // paga il tempo e basta — e FUORI CITTÀ il chilometraggio SOSTITUISCE
+      // il valore base (tutti i km × tariffa, «senza i +6»).
+      const conAnteprima = svc?.pricingModel === 'PREZZO_FISSO' || svc?.pricingModel === 'A_ORA';
+      if ((svc || ps) && conAnteprima) {
         let base = ps?.price ?? svc?.basePrice ?? 0;
         if (svc?.pricingModel === 'A_ORA') base = base * Math.max(dto.hours ?? 1, 1);
         // Tariffe km: listino-servizio prima, SCHEDA partner come ripiego
@@ -758,13 +782,16 @@ export class DeliveriesService {
           where: { id: dto.partnerId },
           select: { kmIncluded: true, extraOutOfCityPrice: true },
         });
-        if (distanceKm != null) {
+        if (distanceKm != null && svc?.pricingModel === 'PREZZO_FISSO') {
           if (extraOutOfCity) {
             const tariffa = (ps?.extraOutOfCityPrice ?? 0) > 0
               ? ps!.extraOutOfCityPrice
               : (tariffeP?.extraOutOfCityPrice ?? 0);
             extraKm = distanceKm;
-            extraEur = distanceKm * tariffa;
+            if (tariffa > 0) {
+              extraEur = distanceKm * tariffa;
+              base = 0; // fuori città: SOLO il chilometraggio
+            }
           } else {
             const inclusi = (ps?.includedKm ?? 0) > 0 ? ps!.includedKm : (tariffeP?.kmIncluded ?? 0);
             if (distanceKm > inclusi) {
@@ -880,12 +907,12 @@ export class DeliveriesService {
       where: { id: partnerId },
       select: { kmIncluded: true, extraOutOfCityPrice: true },
     });
-    // ⚠️ I km si prezzano SOLO su PREZZO_FISSO e A_ORA — come in fatturazione
-    // (prezzoConsegna): VENDITA è una percentuale sul venduto, CORPORATE il
-    // valore dei prodotti, MAGAZZINO base + pezzo. Regola utente 01/09:
-    // «per i servizi vendita non si prezzano, è corretto».
-    const modelloConKm =
-      serviceType.pricingModel === 'PREZZO_FISSO' || serviceType.pricingModel === 'A_ORA';
+    // ⚠️ I km toccano il prezzo SOLO sul PREZZO_FISSO (regole utente 01/09):
+    // l'A ORA paga il tempo e basta; VENDITA è una percentuale sul venduto,
+    // CORPORATE il valore dei prodotti, MAGAZZINO base + pezzo. E FUORI CITTÀ
+    // il chilometraggio SOSTITUISCE il valore base — tutti i km × tariffa,
+    // «senza i +6» (esempi Cassoli).
+    const modelloConKm = serviceType.pricingModel === 'PREZZO_FISSO';
     let extraKm = 0;
     if (distanceKm != null && modelloConKm) {
       if (extraOutOfCity) {
@@ -893,7 +920,7 @@ export class DeliveriesService {
           ? partnerService!.extraOutOfCityPrice
           : (tariffeP?.extraOutOfCityPrice ?? 0);
         extraKm = distanceKm;
-        price += distanceKm * tariffa;
+        if (tariffa > 0) price = distanceKm * tariffa;
       } else {
         const inclusi = (partnerService?.includedKm ?? 0) > 0
           ? partnerService!.includedKm
@@ -1260,9 +1287,10 @@ export class DeliveriesService {
             select: { kmIncluded: true, extraOutOfCityPrice: true },
           })
         : null;
-      // Km SOLO su PREZZO_FISSO e A_ORA, come in fatturazione: la VENDITA è
-      // una percentuale sul venduto e non prezza la distanza (utente 01/09).
-      const modelloConKm = svc?.pricingModel === 'PREZZO_FISSO' || svc?.pricingModel === 'A_ORA';
+      // Km SOLO sul PREZZO_FISSO (regole utente 01/09): l'A ORA paga il tempo
+      // e basta, la VENDITA è una percentuale sul venduto. FUORI CITTÀ il
+      // chilometraggio SOSTITUISCE il valore base («senza i +6»).
+      const modelloConKm = svc?.pricingModel === 'PREZZO_FISSO';
       let extra = 0;
       if (dist != null && modelloConKm) {
         if (fuoriCitta) {
@@ -1270,7 +1298,7 @@ export class DeliveriesService {
             ? ps!.extraOutOfCityPrice
             : (tariffeP?.extraOutOfCityPrice ?? 0);
           extra = dist;
-          price += dist * tariffa;
+          if (tariffa > 0) price = dist * tariffa;
         } else {
           const inclusi = (ps?.includedKm ?? 0) > 0 ? ps!.includedKm : (tariffeP?.kmIncluded ?? 0);
           if (dist > inclusi) {

@@ -277,10 +277,11 @@ export function pagaConsegna(
   //   · IN CITTÀ: i km oltre i SUOI inclusi (Valet.minimumKmIncluded) × l'extra
   //     km del suo listino. Senza i km inclusi del valet, vale l'extraKm già
   //     scritto sulla consegna (il conto del lato partner) — come prima.
-  const perKm = (() => {
-    if (d.extraOutOfCity && (d.distanceKm ?? 0) > 0) {
-      return (d.distanceKm ?? 0) * (d.valet?.extraOutOfCityPrice ?? 0);
-    }
+  // SUPPLEMENTO IN CITTÀ: km oltre i SUOI inclusi (scheda valet) × l'extra km
+  // del suo listino; senza i km inclusi in scheda vale l'extraKm scritto sulla
+  // consegna. Fuori città NON passa di qui: ha la sua regola, più sotto.
+  const perKmInCitta = (() => {
+    if (d.extraOutOfCity) return 0;
     const inclusi = d.valet?.minimumKmIncluded;
     const oltre =
       inclusi != null && d.distanceKm != null
@@ -294,15 +295,26 @@ export function pagaConsegna(
   // parte). «Non pagabile» resta solo quando il listino non c'e' affatto —
   // gestito sopra dal `if (!listino) return null`.
   if (modello === 'A_ORA') {
+    // SOLO le ore (regola utente 01/09, esempi Cassoli): il servizio a ora
+    // paga il tempo — niente km, né in città né fuori.
     const ore = Math.max(d.hours ?? 0, listino.serviceType?.minHours ?? d.serviceType?.minHours ?? 1);
-    return { amount: mai_negativo((listino.salary ?? 0) * ore + perKm + extra), origine: 'listino' };
+    return { amount: mai_negativo((listino.salary ?? 0) * ore + extra), origine: 'listino' };
   }
   if (modello === 'MAGAZZINO') {
     const aPezzo = listino.salaryPerItem ?? 0;
     const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
-    return { amount: mai_negativo((listino.salary ?? 0) + aPezzo * pezzi + perKm + extra), origine: 'listino' };
+    return { amount: mai_negativo((listino.salary ?? 0) + aPezzo * pezzi + perKmInCitta + extra), origine: 'listino' };
   }
-  return { amount: mai_negativo((listino.salary ?? 0) + perKm + extra), origine: 'listino' };
+  // FISSO (e vendita col suo ripiego): FUORI CITTÀ vale SOLO il chilometraggio
+  // — tutti i km × «Extra fuori città (€)» della scheda valet, SENZA il salario
+  // base (regola utente 01/09: «solo il listino 12×1, senza i +6»).
+  if (d.extraOutOfCity && (d.distanceKm ?? 0) > 0 && (d.valet?.extraOutOfCityPrice ?? 0) > 0) {
+    return {
+      amount: mai_negativo((d.distanceKm ?? 0) * (d.valet?.extraOutOfCityPrice ?? 0) + extra),
+      origine: 'listino',
+    };
+  }
+  return { amount: mai_negativo((listino.salary ?? 0) + perKmInCitta + extra), origine: 'listino' };
 }
 
 
