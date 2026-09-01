@@ -2254,8 +2254,12 @@
     "origin": {
       "giorno": "orario del giorno",
       "giornoHint": "Orario dichiarato per questo giorno specifico",
+      "eccezione": "eccezione del giorno",
+      "eccezioneHint": "Orario dichiarato come eccezione per questo giorno",
       "settimanale": "orario settimanale",
-      "settimanaleHint": "Dall'orario settimanale ricorrente"
+      "settimanaleHint": "Dall'orario settimanale ricorrente",
+      "non-indicata": "non indicato",
+      "non-indicataHint": "Nessun orario dichiarato: né del giorno né settimanale"
     }
   },
   "recurring": {

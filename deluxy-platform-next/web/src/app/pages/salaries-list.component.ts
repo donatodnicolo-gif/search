@@ -883,7 +883,25 @@ export class SalariesListComponent {
   }
 
   filtroCambiato(): void {
-    this.cercaPending.set(this.cerca);
+    const t = this.cerca.trim();
+    // ⭐ 01/09 (utente: «per Pianigiani non si trova l'id 62076»): la ricerca
+    // filtrava solo per NOME del valet, e un numero non trovava niente. Un
+    // numero è il CODICE di una consegna: si risolve il SUO valet e si filtra
+    // la lista su di lui (poi si apre il dettaglio del periodo giusto).
+    if (/^\d{3,}$/.test(t)) {
+      this.http.get<{ items?: { valet?: { firstName?: string; lastName?: string } | null }[] }>(
+        `${environment.apiUrl}/deliveries`,
+        { params: { q: t, view: 'tutte', pageSize: '1' } },
+      ).subscribe({
+        next: (r) => {
+          const v = r?.items?.[0]?.valet;
+          this.cercaPending.set(v ? `${v.lastName ?? ''} ${v.firstName ?? ''}`.trim() : t);
+        },
+        error: () => this.cercaPending.set(t),
+      });
+    } else {
+      this.cercaPending.set(t);
+    }
     clearTimeout(this.attesa);
     this.attesa = setTimeout(() => this.load(), 300);
   }

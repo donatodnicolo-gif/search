@@ -3,6 +3,40 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 💶 **01/09/2026 sera — IL CANONE DEI LISTINI (dettato dall'utente sugli esempi
+> veri: Cassoli, Chakroun, #100791, 12849/12851) + LE VENDITE SENZA SKU.**
+> Regole DEFINITIVE, identiche in fatturazione/stipendi/create/update/anteprima
+> (riferimento completo: artifact «Listini partner e valet», 31c2e597):
+> - **A ORA = SOLO il tempo** (ore × tariffa, minimo del servizio), niente km,
+>   per partner E valet.
+> - **FISSO fuori città** (comune ritiro ≠ comune consegna): **SOLO tutti i km ×
+>   tariffa fuori città** — SOSTITUISCE il valore base («senza i +6»). Partner:
+>   listino-servizio → ripiego scheda partner; valet: SEMPRE scheda valet.
+> - **FISSO in città**: base + (km − inclusi) × €/km. Partner: inclusi da
+>   listino-servizio → scheda; valet: inclusi dalla SUA scheda, €/km dal suo
+>   listino; ⚠️ l'`extraKm` scritto sulla consegna (0 sulle importate) è solo il
+>   ripiego quando la distanza vera manca.
+> - **VENDITA**: fee% × VALORE PRODOTTI della consegna (prezzo partner delle
+>   righe); dovuto = valore − (quota + IVA). Il form NON propone/congela nessun
+>   prezzo (vuoto = calcola). Per il VALET una vendita è una consegna: ripiega
+>   sulla sua tariffa di Consegna Standard (misurato: #62899 paga 12,50).
+> - **Lo ZERO scritto non è mai il numero**: price/valetSalary vincono solo se
+>   > 0 — dettaglio e conto mostrano il calcolato «(da listino)», non lo 0.
+> - **Ricalcolo agosto simulato**: partner Δ0 (606 congelati); valet: solo
+>   Chakroun +77,46 (7 consegne con distanza vera e extraKm=0) e De Rosa +0,25.
+> - **VENDITE SENZA SKU (18% degli ordini!)**: ora NASCONO lo stesso — senza
+>   prodotto, DA_GESTIRE, con titolo/sku grezzo/prezzo pagato (`ingest` ramo
+>   senza-prodotto); e il sync aggancia il primo SKU RICONOSCIUTO, non il primo
+>   che capita (i cakedesign «9KY Extra» rientrano). 🔴 5 SKU deluxy.it da
+>   mappare a catalogo: NAIOHQ-1D, RFGTJR-15, FUNNYC20, SEFD11, XQXDCB-2E.
+> - Fix del giro: nota Shopify da `shopify.note` (biglietto 12851), nome
+>   prodotto visibile nel prefill, tendina ritiro a fasce, label «Km inclusi
+>   entro il comune», ⚠️ un deploy era partito con typecheck rotto (q2 doppia,
+>   ~10′ di API giù): ora la catena è vincolata a `tsc &&`.
+> - Verifica valet↔legacy su TUTTI (288): import fedele; 10 divergenze = valori
+>   aggiunti nell'app (Chakroun km 5 = voluto dall'utente; ⚠️ Iaconianni e
+>   Araki hanno 100 km inclusi — probabile refuso, chiedere).
+>
 > ⚡ **01/09/2026 — LA CODA UTENTE ESEGUITA IN TRE ONDATE («fai tutte queste cose»).**
 > - **Prefill dall'ordine** (Inserisci da vendita): fascia oraria del cliente
 >   (finestra → flessibile), ora ritiro −1h, citofono = cognome destinatario,

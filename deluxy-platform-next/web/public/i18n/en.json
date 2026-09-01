@@ -2254,8 +2254,12 @@
     "origin": {
       "giorno": "day hours",
       "giornoHint": "Hours declared for this specific day",
+      "eccezione": "day exception",
+      "eccezioneHint": "Hours declared as an exception for this day",
       "settimanale": "weekly hours",
-      "settimanaleHint": "From the recurring weekly schedule"
+      "settimanaleHint": "From the recurring weekly schedule",
+      "non-indicata": "not stated",
+      "non-indicataHint": "No hours declared: neither for the day nor weekly"
     }
   },
   "recurring": {

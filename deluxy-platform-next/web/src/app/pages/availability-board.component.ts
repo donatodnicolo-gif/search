@@ -187,7 +187,23 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
       .fascia { background: var(--fill, #f5f5f7); border-radius: 6px; padding: 1px 7px; }
       .origine { font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); cursor: help; white-space: nowrap; }
       .origine.debole { color: var(--text-secondary); font-weight: 500; }
-      .vuoto { display: block; padding: 16px 0; border: 0; }
+      /* ⚠️ .elenco li (0,1,1) batteva .vuoto (0,1,0): il display:block perdeva
+         e il testo finiva nella colonna del PALLINO da 10px — una parola per
+         riga (trappola della specificità, visto da telefono 01/09). */
+      .elenco li.vuoto { display: block; padding: 16px 0; border: 0; }
+      /* Da telefono la riga a 4 colonne strizzava il nome: si impila —
+         pallino+nome+origine sulla prima riga, fasce sotto (01/09). */
+      @media (max-width: 640px) {
+        .elenco li {
+          grid-template-columns: 10px minmax(0, 1fr) auto;
+          grid-template-areas: 'dot nome origine' 'dot fasce fasce';
+          row-gap: 3px;
+        }
+        .elenco li .pallino { grid-area: dot; }
+        .elenco li .nome { grid-area: nome; }
+        .elenco li .fasce { grid-area: fasce; justify-content: flex-start; }
+        .elenco li .origine { grid-area: origine; font-size: 9.5px; }
+      }
       .state-card { padding: 28px; text-align: center; }
     `,
   ],
