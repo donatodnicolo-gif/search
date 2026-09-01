@@ -5,8 +5,8 @@
 
 > 🕵️ **01/09/2026 pomeriggio/sera — L'ERRORE CHANEL, IL DUPLICA, LA VETRINA SELETTIVA**
 > (5 commit dopo il blocco del canone, deployati in serata; questo blocco è
-> stato scritto il 02/09 riprendendo il lavoro — la sessione si era fermata
-> senza aggiornare l'handoff):
+> stato scritto la sera stessa da una sessione nuova — quella dei 5 commit si
+> era fermata senza aggiornare l'handoff):
 > - **Indagine Chanel Sant'Andrea**: 4 consegne normali salvate come «Servizio
 >   a Ora» (25 €, ore vuote). Causa DOPPIA: ① la tendina dei servizi era in
 >   ordine alfabetico e «Servizio a Ora» veniva PRIMA di «Servizio Consegna
