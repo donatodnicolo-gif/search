@@ -185,18 +185,22 @@ export class SettingsService {
   async provaPosta(a: string): Promise<{ ok: boolean; messaggio: string }> {
     const dest = (a ?? '').trim();
     if (!dest) return { ok: false, messaggio: 'Indica un indirizzo email di prova.' };
-    const esito = await this.inviaViaHub(
-      dest,
-      'Prova posta · piattaforma consegne Deluxy',
-      ['Questa è una mail di prova dalla piattaforma consegne Deluxy.', '',
-       'Se la leggi, le notifiche via email (nuovo servizio ai partner, assegnazione ai valet) funzionano.',
-       '', 'Deluxy'].join('\n'),
-    );
+    const corpo = ['Questa è una mail di prova dalla piattaforma consegne Deluxy.', '',
+      'Se la leggi, le notifiche via email (nuovo servizio ai partner, assegnazione ai valet) funzionano.',
+      '', 'Deluxy'].join('\n');
+    // ⭐ 31/08: le notifiche vere partono da AI Mail (la via del recap). La prova
+    // testa la STESSA via — AI Mail prima, casella Hub come ripiego — così il
+    // pulsante dice davvero se le notifiche funzionano, non se funziona il Hub.
+    const viaMail = await this.inviaViaAiMail(dest, 'Prova notifiche · piattaforma consegne Deluxy', corpo);
+    if (viaMail.ok) {
+      return { ok: true, messaggio: `Inviata a ${dest} via AI Mail. Controlla la casella.` };
+    }
+    const viaHub = await this.inviaViaHub(dest, 'Prova posta · piattaforma consegne Deluxy', corpo);
     return {
-      ok: esito.ok,
-      messaggio: esito.ok
-        ? `Inviata a ${dest}${esito.mittente ? ` da ${esito.mittente}` : ''}. Controlla la casella.`
-        : `Non inviata: ${esito.motivo}`,
+      ok: viaHub.ok,
+      messaggio: viaHub.ok
+        ? `Inviata a ${dest}${viaHub.mittente ? ` da ${viaHub.mittente}` : ''} via Hub (ripiego). Controlla la casella.`
+        : `Non inviata. AI Mail: ${viaMail.motivo} · Hub: ${viaHub.motivo}`,
     };
   }
 

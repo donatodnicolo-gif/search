@@ -140,6 +140,24 @@ interface GeocodeResult {
           }
         </div>
 
+        <!-- FINANCE (deluxy-partner): «Genera fattura» consegna la bozza qui.
+             Chiave con scope «scrittura» emessa da FINANCE. -->
+        <h3 class="sotto-titolo">FINANCE (fatture)</h3>
+        <label class="fld"><span>Indirizzo FINANCE</span>
+          <input class="field mono" name="financeUrl" [(ngModel)]="model.financeUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="https://deluxy-partner.vercel.app" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>Chiave FINANCE (scope scrittura)</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showFinanceKey() ? 'text' : 'password'" name="financeApiKey"
+                   [(ngModel)]="model.financeApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="dlxk_…" />
+            <button type="button" class="btn btn-secondary" (click)="showFinanceKey.set(!showFinanceKey())">
+              {{ (showFinanceKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">«Genera fattura» consegna la bozza (pro-forma) a FINANCE: compare in deluxy-partner/fatture, pronta da emettere su FattureInCloud.</p>
+
         <!-- Deluxy Orders: da qui arrivano gli ordini Shopify da smistare.
              Chiave di SOLA LETTURA: la piattaforma legge, non scrive mai. -->
         <h3 class="sotto-titolo">{{ 'settings.orders.title' | translate }}</h3>
@@ -282,6 +300,7 @@ export class SettingsComponent {
     aiApiKey: '',
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '',
     hubUrl: '', hubPostaToken: '',
+    financeUrl: '', financeApiKey: '',
   };
 
   /** Indirizzo su cui mandare la mail di prova (di default l'admin stesso). */
@@ -298,6 +317,7 @@ export class SettingsComponent {
   readonly provandoOrders = signal(false);
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
   readonly showHubToken = signal(false);
+  readonly showFinanceKey = signal(false);
   readonly provandoPosta = signal(false);
   readonly esitoPosta = signal<{ ok: boolean; messaggio: string } | null>(null);
 
@@ -392,6 +412,13 @@ export class SettingsComponent {
         this.model.whatsappNumero = s['whatsappNumero'] ?? '';
         this.model.lineeUrl = s['lineeUrl'] ?? '';
         this.model.lineeApiKey = s['lineeApiKey'] ?? '';
+        // ⚠️ Hub e FINANCE: erano nel model e nel form ma NON qui — il save manda
+        // tutto il model, quindi ogni salvataggio li azzerava (è il motivo per
+        // cui hubUrl/hubPostaToken risultavano vuoti). Ora si caricano anche loro.
+        this.model.hubUrl = s['hubUrl'] ?? '';
+        this.model.hubPostaToken = s['hubPostaToken'] ?? '';
+        this.model.financeUrl = s['financeUrl'] ?? '';
+        this.model.financeApiKey = s['financeApiKey'] ?? '';
       },
       error: () => this.error.set('Errore nel caricamento delle impostazioni'),
     });
