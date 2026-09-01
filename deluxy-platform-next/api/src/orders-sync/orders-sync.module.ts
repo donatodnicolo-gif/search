@@ -538,7 +538,14 @@ export class OrdersSyncService {
     for (const o of ordini) {
       const etichetta = `${o.brand ?? ''} ${o.numero ?? o.id}`.trim();
       const codice = o.spedizione?.provincia?.trim().toUpperCase() ?? '';
-      const sku = o.righe?.find((r) => r.sku)?.sku?.trim().toUpperCase() ?? '';
+      // ⚠️ Non il PRIMO SKU dell'ordine, il primo RICONOSCIUTO a catalogo
+      // (misurato 01/09): su cakedesign la prima riga con SKU è spesso
+      // l'«Extra» (9KY, non a catalogo) e l'ordine intero finiva scartato
+      // come «prodotto-sconosciuto» anche quando la torta a catalogo c'era.
+      const conSku = (o.righe ?? []).filter((r) => r.sku?.trim());
+      const sku =
+        (conSku.find((r) => prodotti.has(r.sku!.trim().toUpperCase())) ?? conSku[0])
+          ?.sku?.trim().toUpperCase() ?? '';
 
       let esito: Esito;
       let dettaglio: string | undefined;
