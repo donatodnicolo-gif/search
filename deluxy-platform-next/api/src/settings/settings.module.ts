@@ -2,14 +2,16 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Injectable,
   Module,
   Post,
   Put,
   Query,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Autenticato, Roles } from '../common/decorators';
+import { Autenticato, Public, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -83,6 +85,17 @@ export const SETTING_KEYS = [
   // la bozza non parte e «Genera» lo dice (fail-closed, ritentabile).
   'financeUrl',
   'financeApiKey',
+  // GOOGLE DRIVE — ricevute (01/09/2026, decisione utente: OAuth come il
+  // marketing, MAI service account — Standard §5). Client OAuth di Google
+  // Cloud (id+segreto), refresh token del consenso (SEGRETO, nasce dal bottone
+  // «Collega Drive») e cartella di destinazione. Senza refresh token le
+  // ricevute restano dove sono oggi: niente parte a metà.
+  'driveClientId',
+  'driveClientSecret',
+  'driveRefreshToken',
+  'driveFolderId',
+  // Stato anti-CSRF del giro OAuth in corso (vita breve, uso interno).
+  'driveOauthState',
 ] as const;
 
 @Injectable()
@@ -327,6 +340,108 @@ export class SettingsService {
     }
   }
 
+  // ---------------------------------------------------------------- DRIVE
+  // OAuth UTENTE come il marketing (Standard §5, deciso 01/09): client id +
+  // segreto + refresh token del consenso. MAI service account (niente
+  // Workspace). Ambito `drive` pieno: `drive.file` non vede le cartelle
+  // esistenti di una persona (misurato dal marketing il 24/08).
+
+  async driveConfigurato(): Promise<{ id: string; segreto: string; refresh: string; cartella: string }> {
+    return {
+      id: ((await this.get('driveClientId')) || '').trim(),
+      segreto: ((await this.get('driveClientSecret')) || '').trim(),
+      refresh: ((await this.get('driveRefreshToken')) || '').trim(),
+      cartella: ((await this.get('driveFolderId')) || '').trim(),
+    };
+  }
+
+  /** Un token d'accesso dal consenso già dato. Parlante, non lancia. */
+  async driveAccessToken(): Promise<{ token: string | null; motivo: string }> {
+    const o = await this.driveConfigurato();
+    if (!o.id || !o.segreto) return { token: null, motivo: 'Drive: mancano client id/segreto (Impostazioni).' };
+    if (!o.refresh) return { token: null, motivo: 'Drive non collegato: manca il consenso (bottone «Collega Drive»).' };
+    try {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: o.id, client_secret: o.segreto,
+          refresh_token: o.refresh, grant_type: 'refresh_token',
+        }),
+      });
+      const b = (await res.json().catch(() => ({}))) as { access_token?: string; error?: string };
+      if (!res.ok || !b.access_token) return { token: null, motivo: `Drive rifiuta il refresh: ${b.error ?? 'HTTP ' + res.status}` };
+      return { token: b.access_token, motivo: 'ok' };
+    } catch (e) {
+      return { token: null, motivo: `Google non raggiungibile: ${(e as Error).message}` };
+    }
+  }
+
+  /**
+   * Carica un file su Drive nella cartella configurata (upload multipart v3).
+   * Ritorna il link consultabile; parlante, non lancia — chi chiama decide il
+   * ripiego (le ricevute restano sul percorso di oggi se Drive non c'è).
+   */
+  async caricaSuDrive(
+    nome: string,
+    contenuto: Buffer,
+    mime: string,
+  ): Promise<{ ok: boolean; motivo: string; id?: string; link?: string }> {
+    const { token, motivo } = await this.driveAccessToken();
+    if (!token) return { ok: false, motivo };
+    const o = await this.driveConfigurato();
+    const meta = { name: nome, ...(o.cartella ? { parents: [o.cartella] } : {}) };
+    const confine = 'deluxy' + Math.random().toString(36).slice(2);
+    const corpo = Buffer.concat([
+      Buffer.from(
+        `--${confine}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
+        `--${confine}\r\nContent-Type: ${mime}\r\n\r\n`,
+      ),
+      contenuto,
+      Buffer.from(`\r\n--${confine}--`),
+    ]);
+    try {
+      const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${confine}` },
+          body: corpo,
+        },
+      );
+      const b = (await res.json().catch(() => ({}))) as { id?: string; webViewLink?: string; error?: { message?: string } };
+      if (!res.ok || !b.id) return { ok: false, motivo: `Drive rifiuta il caricamento: ${b.error?.message ?? 'HTTP ' + res.status}` };
+      return { ok: true, motivo: 'caricato', id: b.id, link: b.webViewLink };
+    } catch (e) {
+      return { ok: false, motivo: `Drive non raggiungibile: ${(e as Error).message}` };
+    }
+  }
+
+  /** Scambia il codice del consenso Google con il refresh token e lo salva. */
+  async driveScambiaCodice(code: string, redirectUri: string): Promise<{ ok: boolean; motivo: string }> {
+    const o = await this.driveConfigurato();
+    if (!o.id || !o.segreto) return { ok: false, motivo: 'Mancano client id/segreto di Google.' };
+    try {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: o.id, client_secret: o.segreto, code,
+          grant_type: 'authorization_code', redirect_uri: redirectUri,
+        }),
+      });
+      const b = (await res.json().catch(() => ({}))) as { refresh_token?: string; error?: string };
+      if (!res.ok) return { ok: false, motivo: `Google rifiuta il codice: ${b.error ?? 'HTTP ' + res.status}` };
+      if (!b.refresh_token) {
+        return { ok: false, motivo: 'Google non ha dato un refresh token: rifare il consenso dal bottone.' };
+      }
+      await this.save({ driveRefreshToken: b.refresh_token, driveOauthState: '' });
+      return { ok: true, motivo: 'Drive collegato.' };
+    } catch (e) {
+      return { ok: false, motivo: `Google non raggiungibile: ${(e as Error).message}` };
+    }
+  }
+
   async geocode(address: string): Promise<{
     provinceCode: string | null;
     formattedAddress: string | null;
@@ -435,6 +550,63 @@ export class SettingsController {
   @ApiOperation({ summary: 'Manda una mail di prova dalla casella del Hub (solo admin)' })
   provaPosta(@Body() body: { a?: string }) {
     return this.service.provaPosta(body?.a ?? '');
+  }
+
+  /** L'indirizzo di ritorno del consenso Google (registrato sul client OAuth). */
+  private static driveRedirectUri(): string {
+    return process.env.DRIVE_REDIRECT_URI || 'https://app.deluxy.it/api/v1/settings/drive/callback';
+  }
+
+  @Get('drive/authorize')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Prepara il consenso Google Drive (OAuth utente, mai service account): torna l\'URL da aprire' })
+  async driveAuthorize() {
+    const o = await this.service.driveConfigurato();
+    if (!o.id || !o.segreto) {
+      return { ok: false, motivo: 'Salva prima client id e segreto di Google (sezione Drive).' };
+    }
+    // Lo `state` anti-CSRF: il callback accetta solo il giro avviato da qui.
+    const state = randomBytes(16).toString('hex');
+    await this.service.save({ driveOauthState: state });
+    const url =
+      'https://accounts.google.com/o/oauth2/v2/auth?' +
+      new URLSearchParams({
+        client_id: o.id,
+        redirect_uri: SettingsController.driveRedirectUri(),
+        response_type: 'code',
+        // Ambito `drive` pieno: `drive.file` non vede le cartelle esistenti
+        // (misurato dal marketing). access_type=offline + prompt=consent per
+        // avere SEMPRE il refresh token.
+        scope: 'https://www.googleapis.com/auth/drive',
+        access_type: 'offline',
+        prompt: 'consent',
+        state,
+      }).toString();
+    return { ok: true, url };
+  }
+
+  @Public()
+  @Get('drive/callback')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ApiOperation({ summary: 'Ritorno del consenso Google (state anti-CSRF): salva il refresh token' })
+  async driveCallback(
+    @Query('code') code?: string,
+    @Query('state') state?: string,
+    @Query('error') errore?: string,
+  ) {
+    const pagina = (titolo: string, testo: string) =>
+      `<meta charset="utf-8"><body style="font-family:system-ui;padding:40px;max-width:520px;margin:auto">` +
+      `<h2>${titolo}</h2><p>${testo}</p><p>Puoi chiudere questa scheda e tornare alle Impostazioni.</p></body>`;
+    if (errore) return pagina('Consenso negato', `Google dice: ${errore}.`);
+    const atteso = ((await this.service.get('driveOauthState')) || '').trim();
+    if (!code || !state || !atteso || state !== atteso) {
+      return pagina(
+        'Richiesta non valida',
+        'Questo giro di consenso non risulta avviato dalle Impostazioni (state non combacia). Riparti dal bottone «Collega Drive».',
+      );
+    }
+    const esito = await this.service.driveScambiaCodice(code, SettingsController.driveRedirectUri());
+    return pagina(esito.ok ? 'Google Drive collegato ✓' : 'Collegamento non riuscito', esito.motivo);
   }
 
   @Autenticato()

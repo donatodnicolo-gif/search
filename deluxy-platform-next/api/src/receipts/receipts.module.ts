@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
   BadRequestException,
@@ -21,6 +21,7 @@ import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@ne
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role, SalaryStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 const RECEIPTS_DIR = join(process.cwd(), 'uploads', 'receipts');
 
@@ -110,7 +111,10 @@ export class ReceiptsService {
 @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
 @Controller('receipts')
 export class ReceiptsController {
-  constructor(private readonly receiptsService: ReceiptsService) {}
+  constructor(
+    private readonly receiptsService: ReceiptsService,
+    private readonly settings: SettingsService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Ricevute stipendi (il valet vede le proprie). signed=true/false per filtrare' })
@@ -137,17 +141,34 @@ export class ReceiptsController {
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
     }),
   )
-  upload(
+  async upload(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @UploadedFile() file?: { filename: string },
+    @UploadedFile() file?: { filename: string; path: string; originalname: string; mimetype: string },
   ) {
     if (!file) throw new BadRequestException('Nessun file caricato');
+    // ⭐ 01/09 (decisione utente, Standard §5): se Drive è COLLEGATO (OAuth,
+    // mai service account) la ricevuta va nella cartella Drive — sul serverless
+    // il disco è effimero e i file spariscono al redeploy. Se Drive non c'è o
+    // rifiuta, si tiene il percorso locale di sempre: meglio un file effimero
+    // che un upload fallito.
+    try {
+      const nome = `ricevuta-${id}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const esito = await this.settings.caricaSuDrive(
+        nome,
+        readFileSync(file.path),
+        file.mimetype || 'application/octet-stream',
+      );
+      if (esito.ok && esito.link) return this.receiptsService.sign(user, id, esito.link);
+    } catch {
+      // Drive è un di più: il percorso di sempre resta la rete di sicurezza.
+    }
     return this.receiptsService.sign(user, id, `/uploads/receipts/${file.filename}`);
   }
 }
 
 @Module({
+  imports: [SettingsModule],
   controllers: [ReceiptsController],
   providers: [ReceiptsService],
 })

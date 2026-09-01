@@ -158,6 +158,34 @@ interface GeocodeResult {
         </label>
         <p class="hint">«Genera fattura» consegna la bozza (pro-forma) a FINANCE: compare in deluxy-partner/fatture, pronta da emettere su FattureInCloud.</p>
 
+        <!-- GOOGLE DRIVE — ricevute (OAuth utente come il marketing, MAI
+             service account: Standard §5, deciso dall'utente il 01/09). -->
+        <h3 class="sotto-titolo">Google Drive (ricevute) @if (model.driveRefreshToken) { <span class="drive-ok">· collegato ✓</span> }</h3>
+        <label class="fld"><span>Client ID Google</span>
+          <input class="field mono" name="driveClientId" [(ngModel)]="model.driveClientId"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="…apps.googleusercontent.com" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>Client secret Google</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showDriveSecret() ? 'text' : 'password'" name="driveClientSecret"
+                   [(ngModel)]="model.driveClientSecret" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="GOCSPX-…" />
+            <button type="button" class="btn btn-secondary" (click)="showDriveSecret.set(!showDriveSecret())">
+              {{ (showDriveSecret() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <label class="fld" style="margin-top:16px"><span>Cartella Drive (ID o link)</span>
+          <input class="field mono" name="driveFolderId" [(ngModel)]="model.driveFolderId"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="1AbC… oppure link drive.google.com/drive/folders/…" />
+        </label>
+        <div class="key-row" style="margin-top:10px">
+          <button type="button" class="btn btn-secondary" [disabled]="collegandoDrive()" (click)="collegaDrive()">
+            {{ collegandoDrive() ? ('common.loading' | translate) : 'Collega Drive (consenso Google)' }}
+          </button>
+          @if (esitoDrive(); as e) { <span class="esito" [class.ok]="e.ok" [class.ko]="!e.ok">{{ e.messaggio }}</span> }
+        </div>
+        <p class="hint">Salva prima client ID e secret, poi «Collega Drive»: si apre il consenso Google e da lì le ricevute firmate finiscono nella cartella. Mai service account (niente Workspace).</p>
+
         <!-- Deluxy Orders: da qui arrivano gli ordini Shopify da smistare.
              Chiave di SOLA LETTURA: la piattaforma legge, non scrive mai. -->
         <h3 class="sotto-titolo">{{ 'settings.orders.title' | translate }}</h3>
@@ -270,6 +298,7 @@ interface GeocodeResult {
       .key-row .field { flex: 1; }
       .mono { font-family: ui-monospace, monospace; }
       .sotto-titolo { margin: 28px 0 12px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .drive-ok { font-size: 12px; font-weight: 600; color: var(--green, #248a3d); }
       .esito { font-size: 13px; }
       .esito.ok { color: #1a7f37; }
       .esito.ko { color: var(--red, #d70015); }
@@ -301,6 +330,7 @@ export class SettingsComponent {
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '',
     hubUrl: '', hubPostaToken: '',
     financeUrl: '', financeApiKey: '',
+    driveClientId: '', driveClientSecret: '', driveRefreshToken: '', driveFolderId: '',
   };
 
   /** Indirizzo su cui mandare la mail di prova (di default l'admin stesso). */
@@ -318,6 +348,33 @@ export class SettingsComponent {
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
   readonly showHubToken = signal(false);
   readonly showFinanceKey = signal(false);
+  readonly showDriveSecret = signal(false);
+  readonly collegandoDrive = signal(false);
+  readonly esitoDrive = signal<{ ok: boolean; messaggio: string } | null>(null);
+
+  /** Salva i campi Drive e apre il consenso Google in una scheda nuova. */
+  collegaDrive(): void {
+    this.esitoDrive.set(null);
+    this.collegandoDrive.set(true);
+    const soloDrive = {
+      driveClientId: this.model.driveClientId,
+      driveClientSecret: this.model.driveClientSecret,
+      driveFolderId: this.model.driveFolderId,
+    };
+    this.http.put(`${environment.apiUrl}/settings`, soloDrive).subscribe({
+      next: () => {
+        this.http.get<{ ok: boolean; url?: string; motivo?: string }>(`${environment.apiUrl}/settings/drive/authorize`).subscribe({
+          next: (r) => {
+            this.collegandoDrive.set(false);
+            if (r.ok && r.url) { window.open(r.url, '_blank'); this.esitoDrive.set({ ok: true, messaggio: 'Consenso aperto in una scheda nuova: completa li, poi ricarica questa pagina.' }); }
+            else this.esitoDrive.set({ ok: false, messaggio: r.motivo ?? 'Non riuscito' });
+          },
+          error: () => { this.collegandoDrive.set(false); this.esitoDrive.set({ ok: false, messaggio: 'Errore nel preparare il consenso' }); },
+        });
+      },
+      error: () => { this.collegandoDrive.set(false); this.esitoDrive.set({ ok: false, messaggio: 'Errore nel salvataggio dei campi Drive' }); },
+    });
+  }
   readonly provandoPosta = signal(false);
   readonly esitoPosta = signal<{ ok: boolean; messaggio: string } | null>(null);
 
@@ -419,6 +476,10 @@ export class SettingsComponent {
         this.model.hubPostaToken = s['hubPostaToken'] ?? '';
         this.model.financeUrl = s['financeUrl'] ?? '';
         this.model.financeApiKey = s['financeApiKey'] ?? '';
+        this.model.driveClientId = s['driveClientId'] ?? '';
+        this.model.driveClientSecret = s['driveClientSecret'] ?? '';
+        this.model.driveRefreshToken = s['driveRefreshToken'] ?? '';
+        this.model.driveFolderId = s['driveFolderId'] ?? '';
       },
       error: () => this.error.set('Errore nel caricamento delle impostazioni'),
     });

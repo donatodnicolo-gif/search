@@ -657,6 +657,18 @@ interface ProductRow {
         .prod-top { grid-template-columns: 1fr auto; }
         .prod-top select { grid-column: 1 / -1; min-width: 0; }
       }
+      @media (max-width: 640px) {
+        /* 01/09 (segnalazione utente): «Gestione dell'ordine» illeggibile da
+           telefono. La riga si IMPILA: ricerca a tutta larghezza (16px, niente
+           zoom automatico iOS), quantità sotto, ✕ in alto a destra della card,
+           risultati a tutta larghezza. */
+        .prod-item { position: relative; padding: 12px; }
+        .prod-top { grid-template-columns: 1fr; }
+        .prod-top .qty { width: 96px; justify-self: start; }
+        .prod-top .icon-btn { position: absolute; top: 8px; right: 8px; }
+        .prod-cerca .field { font-size: 16px; }
+        .prod-risultati { left: 0; right: 0; }
+      }
     `,
   ],
 })
