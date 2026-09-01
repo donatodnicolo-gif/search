@@ -105,6 +105,17 @@ export function NuovoOrdine({
   const tariffaMessa = useRef('')
 
   /**
+   * Questo ordine va SENZA costo di consegna.
+   *
+   * ⚠️⚠️ Serve un interruttore e non basta mettere zero a mano: il prezzo lo
+   * calcola il sito e si ri-calcola da solo a ogni cambio di indirizzo o di
+   * carrello: lo zero scritto a mano tornava tariffa da solo, e chi aveva
+   * promesso al telefono «la consegna gliela offriamo io» se ne accorgeva
+   * dopo, sul link gia mandato.
+   */
+  const [senzaConsegna, setSenzaConsegna] = useState(false)
+
+  /**
    * Aggiungere l'IVA. ⚠️ Spenta di suo: su Deluxy e Flowers i prezzi sono IVA
    * esclusa, quindi Shopify di suo la aggiungeva sopra al link — che è la cosa
    * segnalata. Ora si aggiunge SOLO spuntando qui.
@@ -273,7 +284,10 @@ export function NuovoOrdine({
       // ha già cambiato a mano: la sua scelta vince sul ricalcolo.
       const attuale = `${spedizioneTitolo}|${spedizionePrezzo}`
       const manoLibera = tariffaMessa.current === '' || attuale === tariffaMessa.current
-      if (list.length && manoLibera) {
+      // ⚠️⚠️ Con «senza consegna» acceso il ricalcolo NON scrive: e il punto
+      // di tutta la spunta. Le tariffe si continuano a chiedere e a mostrare —
+      // serve sapere quanto si sta regalando — ma non si mettono nel campo.
+      if (list.length && manoLibera && !senzaConsegna) {
         setSpedizioneTitolo(list[0].titolo)
         setSpedizionePrezzo(String(list[0].prezzo))
         tariffaMessa.current = `${list[0].titolo}|${list[0].prezzo}`
@@ -448,6 +462,7 @@ export function NuovoOrdine({
     biglietto: string
     spedizioneTitolo: string
     spedizionePrezzo: string
+    senzaConsegna: boolean
     pagamento: string
     mezzo: string
     aggiungiIva: boolean
@@ -477,13 +492,15 @@ export function NuovoOrdine({
       biglietto,
       spedizioneTitolo,
       spedizionePrezzo,
+      senzaConsegna,
       pagamento,
       mezzo,
       aggiungiIva,
     }),
     [
       negozioId, nome, cognome, email, telefono, data, fascia, indirizzo, note, cap, citta,
-      provincia, paese, righe, biglietto, spedizioneTitolo, spedizionePrezzo, pagamento, mezzo,
+      provincia, paese, righe, biglietto, spedizioneTitolo, spedizionePrezzo, senzaConsegna,
+      pagamento, mezzo,
       aggiungiIva,
     ]
   )
@@ -552,6 +569,7 @@ export function NuovoOrdine({
     setBiglietto(b.biglietto)
     setSpedizioneTitolo(b.spedizioneTitolo)
     setSpedizionePrezzo(b.spedizionePrezzo)
+    setSenzaConsegna(Boolean(b.senzaConsegna))
     setPagamento(b.pagamento as typeof pagamento)
     setMezzo(b.mezzo)
     setAggiungiIva(Boolean(b.aggiungiIva))
@@ -612,7 +630,14 @@ export function NuovoOrdine({
             quantita: r.quantita,
           })),
           biglietto,
-          spedizione: { titolo: spedizioneTitolo, prezzo: Number(spedizionePrezzo) || 0 },
+          // ⚠️⚠️ Con «senza costo di consegna» si manda il TITOLO VUOTO, non
+          // zero: `creaOrdine` in quel caso non aggiunge nessuna riga di
+          // spedizione alla bozza. Una riga «Consegna — 0,00 €» invece la
+          // aggiungerebbe, e il cliente leggerebbe sul link una voce a zero che
+          // nessuno gli ha promesso — che è peggio del silenzio.
+          spedizione: senzaConsegna
+            ? { titolo: '', prezzo: 0 }
+            : { titolo: spedizioneTitolo, prezzo: Number(spedizionePrezzo) || 0 },
           pagamento,
           mezzoPagamento: mezzo,
           aggiungiIva,
@@ -1142,9 +1167,40 @@ export function NuovoOrdine({
                 prezzo sul sito, cambia qui da solo. Le zone Deluxy sono otto —
                 Bergamo costa 80 € — quindi scriverle a mano le sbaglierebbe. */}
             <span>Spedizione</span>
-            {/* La tariffa scelta, con la tendina delle alternative del sito
-                quando ce n'è più d'una. */}
-            {tariffe.length ? (
+            {/* ── SENZA COSTO DI CONSEGNA ──
+                ⚠️⚠️ Chiesto dall'utente il 31/08/2026. Non basta scrivere zero
+                nel campo: il prezzo lo calcola il sito e si RI-calcola da solo a
+                ogni cambio di indirizzo o di carrello, quindi lo zero scritto a
+                mano tornava tariffa da sé — e chi al telefono aveva detto «la
+                consegna gliela offriamo» se ne accorgeva dopo, sul link già
+                mandato. Con la spunta il ricalcolo non scrive più niente. */}
+            <label
+              style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, margin: '2px 0 8px' }}
+            >
+              <input
+                type="checkbox"
+                checked={senzaConsegna}
+                onChange={(e) => {
+                  setSenzaConsegna(e.target.checked)
+                  if (e.target.checked) {
+                    setSpedizioneTitolo('')
+                    setSpedizionePrezzo('0')
+                  }
+                }}
+              />
+              Senza costo di consegna (non si aggiunge nessuna riga di spedizione)
+            </label>
+            {/* ⚠️ Le tariffe si continuano a CHIEDERE e a mostrare anche con la
+                spunta accesa: serve sapere quanto si sta regalando. Non si
+                mettono nel campo, e basta. */}
+            {senzaConsegna ? (
+              <p className="cella-sub" style={{ margin: 0 }}>
+                Consegna offerta: nessun costo sull&apos;ordine.
+                {tariffe.length
+                  ? ` Il sito la calcolerebbe ${soldi(tariffe[0].prezzo)} (${tariffe[0].titolo}).`
+                  : ''}
+              </p>
+            ) : tariffe.length ? (
               <select
                 value={`${spedizioneTitolo}|${spedizionePrezzo}`}
                 onChange={(e) => {
