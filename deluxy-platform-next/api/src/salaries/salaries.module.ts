@@ -59,6 +59,12 @@ export type ConsegnaDaPagare = {
   valetAdditionalPrice?: number | null;
   hours?: number | null;
   extraKm?: number | null;
+  /** Strada misurata dal ritiro alla consegna: la base degli extra km. */
+  distanceKm?: number | null;
+  /** Comune di consegna diverso dal comune del ritiro. */
+  extraOutOfCity?: boolean | null;
+  /** Tariffe km della SCHEDA valet (non del listino-servizio). */
+  valet?: { minimumKmIncluded?: number | null; extraOutOfCityPrice?: number | null } | null;
   serviceType?: { pricingModel?: string | null; minHours?: number | null } | null;
   products?: { quantity?: number | null }[];
 };
@@ -265,7 +271,23 @@ export function pagaConsegna(
   // Il modello lo detta il servizio del VALET, non quello del partner: sono
   // due listini diversi sulla stessa consegna.
   const modello = listino.serviceType?.pricingModel ?? d.serviceType?.pricingModel ?? '';
-  const perKm = (d.extraKm ?? 0) * (listino.extraKmPrice ?? 0);
+  // SUPPLEMENTO DISTANZA del valet (regola utente 31/08, costruita 01/09):
+  //   · FUORI CITTÀ (comune diverso): TUTTI i km × «Extra fuori città (€)»
+  //     della scheda valet (Valet.extraOutOfCityPrice);
+  //   · IN CITTÀ: i km oltre i SUOI inclusi (Valet.minimumKmIncluded) × l'extra
+  //     km del suo listino. Senza i km inclusi del valet, vale l'extraKm già
+  //     scritto sulla consegna (il conto del lato partner) — come prima.
+  const perKm = (() => {
+    if (d.extraOutOfCity && (d.distanceKm ?? 0) > 0) {
+      return (d.distanceKm ?? 0) * (d.valet?.extraOutOfCityPrice ?? 0);
+    }
+    const inclusi = d.valet?.minimumKmIncluded;
+    const oltre =
+      inclusi != null && d.distanceKm != null
+        ? Math.max(0, d.distanceKm - inclusi)
+        : (d.extraKm ?? 0);
+    return oltre * (listino.extraKmPrice ?? 0);
+  })();
 
   // Come lato partner: se il listino c'e', il suo numero e' la risposta anche
   // quando vale zero (esistono servizi inclusi, che il valet non fattura a
@@ -347,10 +369,14 @@ export class SalariesService {
       select: {
         id: true, valetId: true, valetServiceId: true, date: true, ddtNumber: true, status: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
+        distanceKm: true, extraOutOfCity: true,
         paymentOnDelivery: true, paymentAmount: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
         deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
+        // Le tariffe km del VALET (scheda valet, non listino-servizio): km
+        // inclusi entro il comune e «Extra fuori città (€)» — servono alla paga.
+        valet: { select: { minimumKmIncluded: true, extraOutOfCityPrice: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
       },
@@ -488,12 +514,16 @@ export class SalariesService {
       select: {
         id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true, payable: true, ddtNumber: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
+        distanceKm: true, extraOutOfCity: true,
         paymentOnDelivery: true, paymentAmount: true,
         recipientAddress: true,
         deliveryTimeFrom: true, deliveryTimeTo: true,
         serviceType: { select: { name: true, pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
         deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
+        // Le tariffe km del VALET (scheda valet, non listino-servizio): km
+        // inclusi entro il comune e «Extra fuori città (€)» — servono alla paga.
+        valet: { select: { minimumKmIncluded: true, extraOutOfCityPrice: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
       },
@@ -906,6 +936,9 @@ export class SalariesService {
         serviceType: { select: { pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
         deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
+        // Le tariffe km del VALET (scheda valet, non listino-servizio): km
+        // inclusi entro il comune e «Extra fuori città (€)» — servono alla paga.
+        valet: { select: { minimumKmIncluded: true, extraOutOfCityPrice: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
         products: { select: { quantity: true } },

@@ -297,6 +297,36 @@ export class SettingsService {
    * Senza chiave o in caso di errore i valori sono null: il client ripiega sul
    * riconoscimento testuale della provincia e la mappa ignora il punto.
    */
+  /**
+   * DISTANZA STRADALE fra due indirizzi (Google Directions), in km con un
+   * decimale. È la distanza che prezza gli extra km (regola utente 31/08:
+   * stradale, non in linea d'aria). `null` = non calcolabile (chiave assente,
+   * indirizzo non risolto, percorso non trovato): chi chiama NON inventa.
+   */
+  async distanzaStradaleKm(origine: string, destinazione: string): Promise<number | null> {
+    const key = await this.get('googleMapsApiKey');
+    if (!key || !origine?.trim() || !destinazione?.trim()) return null;
+    const url =
+      'https://maps.googleapis.com/maps/api/directions/json?origin=' +
+      encodeURIComponent(origine.trim()) +
+      '&destination=' +
+      encodeURIComponent(destinazione.trim()) +
+      '&region=it&language=it&key=' +
+      encodeURIComponent(key);
+    try {
+      const res = await fetch(url);
+      const data = (await res.json()) as {
+        status?: string;
+        routes?: { legs?: { distance?: { value?: number } }[] }[];
+      };
+      const metri = data.routes?.[0]?.legs?.reduce((s, l) => s + (l.distance?.value ?? 0), 0) ?? 0;
+      if (data.status !== 'OK' || metri <= 0) return null;
+      return Math.round(metri / 100) / 10; // km, un decimale
+    } catch {
+      return null;
+    }
+  }
+
   async geocode(address: string): Promise<{
     provinceCode: string | null;
     formattedAddress: string | null;

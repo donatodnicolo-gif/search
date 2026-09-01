@@ -330,6 +330,13 @@ export class SalesService {
     disponibile: boolean;
     mittenteFirstName?: string; mittenteLastName?: string;
     contrassegno?: boolean;
+    /** Fascia oraria chiesta dal cliente (attributo Shopify, es. «16-20»), già
+     *  spezzata negli orari del form: dalle «16:00» alle «20:00». */
+    consegnaDalle?: string; consegnaAlle?: string;
+    /** Dedica/biglietto dell'ordine: va nella personalizzazione. */
+    biglietto?: string;
+    /** Note Shopify dell'ordine (testo libero del cliente). */
+    note?: string;
     prodotti?: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[];
   }> {
     const sale = await this.prisma.sale.findUnique({
@@ -387,7 +394,29 @@ export class SalesService {
       prodotti.push({ productId, productVariantId, nome: r?.titolo ?? null, quantita: Number(r?.quantita) || 1, sku: sku || null });
     }
 
-    return { disponibile: true, mittenteFirstName, mittenteLastName, contrassegno, prodotti };
+    // ⭐ FASCIA ORARIA DEL CLIENTE (regola utente 01/09: «la fascia oraria la
+    // hai già nell'ordine»). Su Shopify è un attributo tipo «16-20» o «08/12»:
+    // si spezza in dalle/alle per il form. Un formato non riconosciuto si
+    // scarta — una fascia inventata è peggio di una mancante.
+    const fasciaRaw = String(ordine?.consegna?.fascia ?? '').trim();
+    const mFascia = fasciaRaw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*[-\/–]\s*(\d{1,2})(?:[:.](\d{2}))?$/);
+    const ora = (h?: string, min?: string) => {
+      if (!h) return undefined;
+      const hh = Number(h);
+      if (!Number.isFinite(hh) || hh > 24) return undefined;
+      return `${String(hh === 24 ? 0 : hh).padStart(2, '0')}:${min ?? '00'}`;
+    };
+    const consegnaDalle = mFascia ? ora(mFascia[1], mFascia[2]) : undefined;
+    const consegnaAlle = mFascia ? ora(mFascia[3], mFascia[4]) : undefined;
+    // Biglietto e note del cliente: esistono già sull'ordine, il form non deve
+    // farli riscrivere a mano (regola utente 01/09).
+    const biglietto = String(ordine?.biglietto ?? '').trim() || undefined;
+    const note = String(ordine?.note ?? '').trim() || undefined;
+
+    return {
+      disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
+      consegnaDalle, consegnaAlle, biglietto, note, prodotti,
+    };
   }
 
   /**

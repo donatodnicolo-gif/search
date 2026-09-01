@@ -90,6 +90,22 @@ export class DeliveriesController {
     return this.deliveriesService.create(dto, user);
   }
 
+  @Post('preventivo')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
+  @ApiOperation({
+    summary:
+      'Anteprima del listino in costruzione: distanza stradale, extra km (in/fuori città), prezzo partner e paga valet. Non scrive nulla. Al PARTNER la paga valet non si mostra.',
+  })
+  preventivo(
+    @Body() body: {
+      partnerId?: string; serviceTypeId?: string; valetId?: string;
+      pickupAddress?: string; recipientAddress?: string; hours?: number;
+    },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.deliveriesService.preventivo(body ?? {}, user);
+  }
+
   @Put(':id')
   // Il partner e' ammesso ma il service applica la regola: solo consegne
   // "da gestire" e con servizio diverso da VENDITA.

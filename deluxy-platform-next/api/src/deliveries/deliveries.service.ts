@@ -31,6 +31,9 @@ import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { conIva, soloIva } from '../common/iva';
 import { valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
+// La formula della paga valet vive in salaries: importarla evita la trappola
+// della regola ricopiata in due posti (il preventivo deve dire la STESSA paga).
+import { pagaConsegna } from '../salaries/salaries.module';
 import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -703,6 +706,83 @@ export class DeliveriesService {
     return { pickupAddress: citta, distanceKm: null, kmScartati };
   }
 
+  /**
+   * PREVENTIVO DEL LISTINO in fase di costruzione (regola utente 31/08–01/09:
+   * «in fase di costruzione anche il listino deve variare»): distanza stradale
+   * ritiro→consegna, dentro/fuori comune, prezzo partner ed eventuale paga
+   * valet — PRIMA di salvare. Non scrive niente: è l'anteprima del form.
+   */
+  async preventivo(
+    dto: {
+      partnerId?: string; serviceTypeId?: string; valetId?: string;
+      pickupAddress?: string; recipientAddress?: string; hours?: number;
+    },
+    user: JwtUser,
+  ): Promise<{
+    distanceKm: number | null; extraOutOfCity: boolean;
+    extraKm: number; extraEur: number; price: number | null; valetSalary: number | null;
+  }> {
+    const ritiro = (dto.pickupAddress ?? '').trim();
+    const consegna = (dto.recipientAddress ?? '').trim();
+    const distanceKm =
+      ritiro && consegna ? await this.settings.distanzaStradaleKm(ritiro, consegna) : null;
+    const cR = cittaDaIndirizzo(ritiro);
+    const cC = cittaDaIndirizzo(consegna);
+    const extraOutOfCity = Boolean(cR && cC && cR !== cC);
+
+    let price: number | null = null;
+    let extraKm = 0;
+    let extraEur = 0;
+    if (dto.partnerId && dto.serviceTypeId) {
+      const svc = await this.prisma.serviceType.findUnique({
+        where: { id: dto.serviceTypeId },
+        select: { pricingModel: true, basePrice: true },
+      });
+      const ps = await this.prisma.partnerService.findUnique({
+        where: { partnerId_serviceTypeId: { partnerId: dto.partnerId, serviceTypeId: dto.serviceTypeId } },
+      });
+      if (svc || ps) {
+        let base = ps?.price ?? svc?.basePrice ?? 0;
+        if (svc?.pricingModel === 'A_ORA') base = base * Math.max(dto.hours ?? 1, 1);
+        if (distanceKm != null && ps) {
+          if (extraOutOfCity) {
+            extraKm = distanceKm;
+            extraEur = distanceKm * (ps.extraOutOfCityPrice ?? 0);
+          } else if (distanceKm > ps.includedKm) {
+            extraKm = Math.round((distanceKm - ps.includedKm) * 10) / 10;
+            extraEur = extraKm * ps.extraKmPrice;
+          }
+        }
+        extraEur = Math.round(extraEur * 100) / 100;
+        price = Math.round((base + extraEur) * 100) / 100;
+      }
+    }
+
+    // La paga del valet NON è per gli occhi del partner (stessa regola di
+    // soloIMieiSoldi: una difesa messa solo sulle letture non è una difesa).
+    let valetSalary: number | null = null;
+    if (user.role !== Role.PARTNER && dto.valetId && dto.serviceTypeId) {
+      const valet = await this.prisma.valet.findUnique({
+        where: { id: dto.valetId },
+        select: { minimumKmIncluded: true, extraOutOfCityPrice: true },
+      });
+      const vs = await this.prisma.valetService.findFirst({
+        where: { valetId: dto.valetId, serviceTypeId: dto.serviceTypeId },
+        orderBy: [{ validFrom: 'desc' }],
+        include: { serviceType: { select: { pricingModel: true, minHours: true } } },
+      });
+      if (vs) {
+        const calcolo = pagaConsegna(
+          { hours: dto.hours ?? null, distanceKm, extraOutOfCity, valet, serviceType: vs.serviceType } as any,
+          vs as any,
+        );
+        valetSalary = calcolo?.amount ?? null;
+      }
+    }
+
+    return { distanceKm, extraOutOfCity, extraKm, extraEur, price, valetSalary };
+  }
+
   async create(dto: CreateDeliveryDto, user: JwtUser) {
     // Il partner crea solo per se stesso
     const partnerId =
@@ -759,13 +839,30 @@ export class DeliveriesService {
     let price = partnerService?.price ?? serviceType.basePrice ?? 0;
     if (serviceType.pricingModel === 'A_ORA') price = price * Math.max(hours, 1);
 
-    // Extra KM / extra fuori citta' (in prod: distanza calcolata via API mappe)
-    const distanceKm = dto.distanceKm ?? null;
-    let extraKm = 0;
-    if (distanceKm != null && partnerService && distanceKm > partnerService.includedKm) {
-      extraKm = distanceKm - partnerService.includedKm;
-      price += extraKm * partnerService.extraKmPrice;
+    // ⭐ DISTANZA STRADALE + EXTRA KM (regola utente 31/08, costruita 01/09).
+    // Se chi chiama non dichiara i km, si misura la strada VERA dal ritiro alla
+    // consegna (Google Directions). FUORI CITTÀ = comune del ritiro diverso dal
+    // comune di consegna: TUTTI i km × extraOutOfCityPrice. IN CITTÀ: solo i km
+    // oltre gli inclusi × extraKmPrice. Se la distanza non si misura non si
+    // inventa: nessun extra (e la consegna resta prezzabile a listino base).
+    let distanceKm = dto.distanceKm ?? null;
+    if (distanceKm == null && dto.pickupAddress?.trim() && dto.recipientAddress?.trim()) {
+      distanceKm = await this.settings.distanzaStradaleKm(dto.pickupAddress, dto.recipientAddress);
     }
+    const cittaRitiro = cittaDaIndirizzo(dto.pickupAddress);
+    const cittaConsegna = cittaDaIndirizzo(dto.recipientAddress);
+    const extraOutOfCity = Boolean(cittaRitiro && cittaConsegna && cittaRitiro !== cittaConsegna);
+    let extraKm = 0;
+    if (distanceKm != null && partnerService) {
+      if (extraOutOfCity) {
+        extraKm = distanceKm;
+        price += distanceKm * (partnerService.extraOutOfCityPrice ?? 0);
+      } else if (distanceKm > partnerService.includedKm) {
+        extraKm = Math.round((distanceKm - partnerService.includedKm) * 10) / 10;
+        price += extraKm * partnerService.extraKmPrice;
+      }
+    }
+    price = Math.round(price * 100) / 100;
 
     // ⚠️ 27/08/2026 — QUELLO CHE UN PARTNER NON DECIDE.
     //
@@ -810,6 +907,7 @@ export class DeliveriesService {
         price: dto.price != null ? dto.price : price,
         distanceKm,
         extraKm,
+        extraOutOfCity,
         // Stato: se impostato manualmente vince, altrimenti in base
         // all'assegnazione. Una consegna «da fornitore» nasce già ASSEGNATA (al
         // partner che la fa), così ha subito i bottoni di lavorazione.
@@ -1073,8 +1171,13 @@ export class DeliveriesService {
     // del nuovo servizio. Vince comunque un prezzo/paga imposti a mano dopo.
     const cambiaServizio = dto.serviceTypeId != null && dto.serviceTypeId !== delivery.serviceTypeId;
     const cambiaOre = dto.hours != null && dto.hours !== (delivery.hours ?? null);
+    // ⭐ 01/09: cambiando gli INDIRIZZI cambia la strada, quindi il listino —
+    // distanza ed extra si rifanno anche qui, non solo al cambio di servizio.
+    const cambiaIndirizzi =
+      (dto.recipientAddress != null && dto.recipientAddress !== delivery.recipientAddress) ||
+      (dto.pickupAddress != null && (dto.pickupAddress ?? '') !== (delivery.pickupAddress ?? ''));
     let economiaRicalcolata: Record<string, unknown> = {};
-    if (cambiaServizio || cambiaOre) {
+    if (cambiaServizio || cambiaOre || cambiaIndirizzi) {
       const svcId = dto.serviceTypeId ?? delivery.serviceTypeId;
       const svc = await this.prisma.serviceType.findUnique({
         where: { id: svcId }, select: { pricingModel: true, basePrice: true },
@@ -1087,18 +1190,41 @@ export class DeliveriesService {
       const ore = dto.hours ?? delivery.hours ?? 1;
       let price = ps?.price ?? svc?.basePrice ?? 0;
       if (svc?.pricingModel === 'A_ORA') price = price * Math.max(ore, 1);
-      // Distanza: se il ritiro è stato forzato in città vale null (extra a 0).
-      const dist = 'distanceKm' in forzatura
-        ? (forzatura as { distanceKm: number | null }).distanceKm
-        : (dto.distanceKm ?? delivery.distanceKm ?? null);
+      // Gli indirizzi con cui si misura: i nuovi dove dichiarati.
+      const ritiroFinale =
+        ('pickupAddress' in forzatura ? (forzatura as { pickupAddress: string }).pickupAddress : undefined) ??
+        dto.pickupAddress ?? delivery.pickupAddress ?? '';
+      const consegnaFinale = dto.recipientAddress ?? delivery.recipientAddress ?? '';
+      // Distanza: il ritiro forzato in città la azzera; indirizzi cambiati =
+      // strada da RIMISURARE (quella vecchia era di un altro percorso);
+      // altrimenti vale quella dichiarata o già scritta.
+      let dist =
+        'distanceKm' in forzatura
+          ? (forzatura as { distanceKm: number | null }).distanceKm
+          : (dto.distanceKm ?? (cambiaIndirizzi ? null : (delivery.distanceKm ?? null)));
+      if (dist == null && !('distanceKm' in forzatura) && ritiroFinale.trim() && consegnaFinale.trim()) {
+        dist = await this.settings.distanzaStradaleKm(ritiroFinale, consegnaFinale);
+      }
+      // FUORI CITTÀ = comune del ritiro diverso dal comune di consegna: TUTTI i
+      // km × extraOutOfCityPrice. In città: solo i km oltre gli inclusi.
+      const cR = cittaDaIndirizzo(ritiroFinale);
+      const cC = cittaDaIndirizzo(consegnaFinale);
+      const fuoriCitta = Boolean(cR && cC && cR !== cC);
       let extra = 0;
-      if (dist != null && ps && dist > ps.includedKm) {
-        extra = dist - ps.includedKm;
-        price += extra * ps.extraKmPrice;
+      if (dist != null && ps) {
+        if (fuoriCitta) {
+          extra = dist;
+          price += dist * (ps.extraOutOfCityPrice ?? 0);
+        } else if (dist > ps.includedKm) {
+          extra = Math.round((dist - ps.includedKm) * 10) / 10;
+          price += extra * ps.extraKmPrice;
+        }
       }
       economiaRicalcolata = {
         price: Math.round(price * 100) / 100,
+        distanceKm: dist,
         extraKm: extra,
+        extraOutOfCity: fuoriCitta,
         // Azzerata la paga BASE (gli stipendi la ricavano dal nuovo listino); il
         // plus/minus manuale del valet resta, non è legato al servizio.
         valetSalary: null,

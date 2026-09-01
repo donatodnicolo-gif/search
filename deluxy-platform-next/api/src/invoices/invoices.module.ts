@@ -165,15 +165,22 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
 
   const modello = d.serviceType?.pricingModel ?? '';
 
-  // Km oltre quelli inclusi: vale solo dove si paga la distanza.
+  // Supplemento distanza (regola utente 31/08/2026, confermata):
+  //   · IN CITTÀ: solo i km OLTRE quelli inclusi × extraKmPrice;
+  //   · FUORI CITTÀ (comune diverso): TUTTI i km × extraOutOfCityPrice.
+  // ⚠️ Prima il fuori città sommava extraOutOfCityPrice UNA VOLTA, come un
+  // supplemento fisso: con la tariffa a 1 €/km una consegna da 30 km fuori
+  // comune veniva prezzata 1 € di extra invece di 30. I prezzi CONGELATI sulla
+  // consegna (d.price > 0) non passano di qui e non si muovono.
   const supplementoKm = (): number => {
     if (!listino) return 0;
-    const inclusi = listino.includedKm ?? 0;
     const percorsi = d.distanceKm ?? 0;
+    if (d.extraOutOfCity) {
+      return percorsi * (listino.extraOutOfCityPrice ?? 0);
+    }
+    const inclusi = listino.includedKm ?? 0;
     const oltre = d.extraKm && d.extraKm > 0 ? d.extraKm : Math.max(0, percorsi - inclusi);
-    const perKm = oltre * (listino.extraKmPrice ?? 0);
-    const fuori = d.extraOutOfCity ? (listino.extraOutOfCityPrice ?? 0) : 0;
-    return perKm + fuori;
+    return oltre * (listino.extraKmPrice ?? 0);
   };
 
   // ⚠️ Senza listino non si sa: e' l'unico caso di «non prezzabile».

@@ -217,7 +217,7 @@ interface ProductRow {
              vendite (31/08, richiesta utente). Se vuoto, il ritiro è dal
              partner. -->
         <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
-          <input class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress"
+          <input class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
                  autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" /></label>
 
         <!-- Ritiro -->
@@ -250,7 +250,7 @@ interface ProductRow {
           <span class="block-sub">{{ 'deliveryForm.section.assignment.sub' | translate }}</span></header>
         <div class="grid-2">
           <label class="fld"><span>{{ 'deliveryForm.field.valet' | translate }}</span>
-            <select class="field" name="valetId" [(ngModel)]="model.valetId">
+            <select class="field" name="valetId" [(ngModel)]="model.valetId" (ngModelChange)="aggiornaPreventivo()">
               <option value="">{{ 'common.notAssigned' | translate }}</option>
               @for (v of valetOptions(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
             </select></label>
@@ -423,6 +423,7 @@ interface ProductRow {
       <section class="card block">
         <header class="block-head"><h2>{{ 'deliveryForm.section.pricing.title' | translate }}</h2>
           <span class="block-sub">{{ 'deliveryForm.section.pricing.sub' | translate }}</span></header>
+        @if (preventivoTesto(); as t) { <p class="listino-live">{{ t }}</p> }
         <div class="listino">
           <div>
             <span class="group-label">{{ 'deliveryForm.pricing.billableGroup' | translate }}</span>
@@ -456,7 +457,7 @@ interface ProductRow {
              portarli senza toccarli. -->
         @if (isHourly()) {
           <label class="fld mt" style="max-width:200px"><span>{{ 'deliveryForm.pricing.hours' | translate }}</span>
-            <input class="field num" type="number" min="1" name="hours" [(ngModel)]="model.hours" /></label>
+            <input class="field num" type="number" min="1" name="hours" [(ngModel)]="model.hours" (ngModelChange)="aggiornaPreventivo()" /></label>
         }
       </section>
 
@@ -555,6 +556,7 @@ interface ProductRow {
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
+      .listino-live { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
       .luogo-scelto { display: block; margin-top: 5px; font-size: 13px; color: var(--text-secondary); }
       .luogo-scelto em { font-style: italic; }
       .scelto {
@@ -924,7 +926,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     });
 
     // Arricchimento dall'ORDINE dietro la vendita (mittente, TUTTE le righe,
-    // contrassegno): sta in Deluxy Orders, non nella vendita. Best-effort.
+    // contrassegno, fascia oraria, biglietto, note): sta in Deluxy Orders, non
+    // nella vendita. Best-effort. Regola utente 01/09: quello che l'ordine ha
+    // già non si fa riscrivere a mano — si riempie SOLO il vuoto, mai si
+    // sovrascrive (trappola del form parziale).
     this.http.get<any>(`${api}/sales/${idVendita}/ordine`).subscribe({
       next: (o) => {
         if (!o?.disponibile) return;
@@ -932,7 +937,44 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
         if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
         if (o.contrassegno) this.model.paymentOnDelivery = true;
-        const righe = (o.prodotti ?? []).filter((p: any) => p.productId);
+
+        // ⭐ FASCIA ORARIA dal cliente (es. «16-20»): è la finestra VERA chiesta
+        // sull'ordine, non una fascia da 1 ora — quindi si apre la fascia
+        // flessibile e si mettono i due estremi, come fa applicaProposta.
+        if (!this.model.deliveryTimeFrom && o.consegnaDalle) {
+          if (o.consegnaAlle && o.consegnaAlle !== o.consegnaDalle) {
+            this.model.deliveryFlexible = true;
+            this.model.deliveryTimeFrom = o.consegnaDalle;
+            this.model.deliveryTimeTo = o.consegnaAlle;
+          } else {
+            this.model.deliveryTimeFrom = o.consegnaDalle;
+          }
+        }
+        // ORA RITIRO: un'ora prima dell'inizio della consegna (come le consegne
+        // reali in lista: consegna 15–16 → ritiro 14–15). Solo se vuota.
+        if (!this.model.pickupTimeFrom && o.consegnaDalle) {
+          const hh = Number(String(o.consegnaDalle).slice(0, 2));
+          if (Number.isFinite(hh) && hh > 0) {
+            this.model.pickupTimeFrom = `${String(hh - 1).padStart(2, '0')}:${String(o.consegnaDalle).slice(3, 5) || '00'}`;
+          }
+        }
+        // CITOFONO: sul campanello c'è il cognome del destinatario, che il form
+        // ha già dalla vendita. Solo se vuoto.
+        if (!this.model.recipientIntercom && this.model.recipientLastName) {
+          this.model.recipientIntercom = this.model.recipientLastName;
+        }
+        // BIGLIETTO/dedica → Personalizzazione; NOTE dell'ordine → Note.
+        if (o.biglietto && !this.model.personalizeSaleNotes) {
+          this.model.personalizeSaleNotes = o.biglietto;
+        }
+        if (o.note) {
+          this.model.notes = this.model.notes
+            ? (this.model.notes.includes(o.note) ? this.model.notes : `${this.model.notes}\n${o.note}`)
+            : o.note;
+        }
+
+        const tutte = (o.prodotti ?? []) as any[];
+        const righe = tutte.filter((p: any) => p.productId);
         if (righe.length) {
           this.productRows = righe.map((p: any) => ({
             productId: p.productId, productVariantId: p.productVariantId ?? null,
@@ -944,6 +986,16 @@ export class DeliveryFormComponent implements AfterViewInit {
               error: () => undefined,
             });
           }
+        }
+        // Le righe SENZA riscontro a catalogo (SKU non trovato) non si buttano:
+        // finiscono nelle note, così chi inserisce sa COSA va consegnato anche
+        // quando il prodotto non è (ancora) in piattaforma.
+        const orfane = tutte.filter((p: any) => !p.productId && p.nome);
+        if (orfane.length) {
+          const testo = orfane.map((p: any) => `Prodotto ordine: ${p.nome}${p.quantita > 1 ? ' ×' + p.quantita : ''}`).join('\n');
+          this.model.notes = this.model.notes
+            ? (this.model.notes.includes(testo) ? this.model.notes : `${this.model.notes}\n${testo}`)
+            : testo;
         }
       },
       error: () => undefined,
@@ -1133,6 +1185,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.proponiPrezzoDiListino();
     // Il filtro per tipo servizio può escludere il partner scelto.
     this.syncSelections();
+    this.aggiornaPreventivo();
   }
 
   /**
@@ -1161,6 +1214,73 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (attuale != null && attuale !== this.prezzoProposto) return;
     this.model.price = prezzo;
     this.prezzoProposto = prezzo;
+  }
+
+  /** Anteprima del listino in costruzione: distanza, extra km, prezzo, paga. */
+  readonly preventivoTesto = signal<string | null>(null);
+  private preventivoTimer: ReturnType<typeof setTimeout> | null = null;
+  private valetProposto: number | null = null;
+
+  /**
+   * ⭐ IL LISTINO VIVE MENTRE SI COSTRUISCE (regola utente 31/08–01/09): a ogni
+   * cambio di servizio, partner, indirizzi, valet od ore si chiede al server
+   * distanza stradale + extra km (in/fuori città) + prezzo + paga. Debounce:
+   * si interroga quando l'utente ha finito di scrivere, non a ogni tasto.
+   */
+  aggiornaPreventivo(): void {
+    if (this.preventivoTimer) clearTimeout(this.preventivoTimer);
+    this.preventivoTimer = setTimeout(() => this.chiediPreventivo(), 600);
+  }
+
+  private chiediPreventivo(): void {
+    const m = this.model;
+    if (!m.partnerId || !m.serviceTypeId || !m.recipientAddress?.trim()) {
+      this.preventivoTesto.set(null);
+      return;
+    }
+    this.http.post<{
+      distanceKm: number | null; extraOutOfCity: boolean;
+      extraKm: number; extraEur: number; price: number | null; valetSalary: number | null;
+    }>(`${environment.apiUrl}/deliveries/preventivo`, {
+      partnerId: m.partnerId,
+      serviceTypeId: m.serviceTypeId,
+      valetId: m.valetId || undefined,
+      pickupAddress: m.pickupAddress || undefined,
+      recipientAddress: m.recipientAddress,
+      hours: m.hours ?? undefined,
+    }).subscribe({
+      next: (pv) => {
+        const eur = (n: number) =>
+          n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        const pezzi: string[] = [];
+        if (pv.distanceKm != null) {
+          pezzi.push(`🛣️ ${pv.distanceKm.toLocaleString('it-IT')} km${pv.extraOutOfCity ? ' · fuori città' : ''}`);
+        }
+        if (pv.price != null) {
+          pezzi.push(`listino ${eur(pv.price)}${pv.extraEur > 0 ? ` (extra km ${eur(pv.extraEur)})` : ''}`);
+        }
+        if (pv.valetSalary != null) pezzi.push(`paga valet ${eur(pv.valetSalary)}`);
+        this.preventivoTesto.set(pezzi.length ? pezzi.join(' · ') : null);
+        // Si PROPONE, non si impone (stessa regola di proponiPrezzoDiListino):
+        // un numero battuto a mano non si tocca; si riscrive solo il campo
+        // vuoto o quello che contiene ancora la proposta precedente.
+        if (pv.price != null) {
+          const attuale = this.model.price;
+          if (attuale == null || attuale === this.prezzoProposto) {
+            this.model.price = pv.price;
+            this.prezzoProposto = pv.price;
+          }
+        }
+        if (pv.valetSalary != null) {
+          const attuale = this.model.valetSalary;
+          if (attuale == null || attuale === this.valetProposto) {
+            this.model.valetSalary = pv.valetSalary;
+            this.valetProposto = pv.valetSalary;
+          }
+        }
+      },
+      error: () => this.preventivoTesto.set(null),
+    });
   }
 
   /** Genera le fasce [from,to] da minOrderTime a maxOrderTime (default 06:00–22:00), passo = slotHours. */
@@ -1460,6 +1580,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     // Stesso servizio ma altro partner = altro listino: si ricalcola anche qui.
     this.proponiPrezzoDiListino();
+    this.aggiornaPreventivo();
   }
 
   /** Traccia l'indirizzo di ritiro messo in automatico dal partner. */
@@ -1632,6 +1753,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.indirizzoEstero.set(this.rilevaEstero(this.model.recipientAddress));
     this.syncSelections();
     this.scheduleGeocode();
+    this.aggiornaPreventivo();
   }
 
   private geocodeTimer: ReturnType<typeof setTimeout> | null = null;
