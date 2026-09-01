@@ -234,7 +234,10 @@ interface DeliveryDetail {
               <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
 
               <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt>
-              <dd>@if (d.valetSalary != null) { {{ d.valetSalary }} € }
+              <!-- ⚠️ Lo ZERO scritto non è la paga (01/09, #62899): per gli
+                   Stipendi vince solo un numero > 0 — con 0 si calcola dal
+                   listino, e qui si mostra QUELLA, non lo zero che mente. -->
+              <dd>@if ((d.valetSalary ?? 0) > 0) { {{ d.valetSalary }} € }
                   @else if (d.valetSalaryDalListino != null) { {{ d.valetSalaryDalListino }} € <span class="muted">({{ 'deliveryDetail.fromListino' | translate }})</span> }
                   @else { — }</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>

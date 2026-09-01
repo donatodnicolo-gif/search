@@ -550,7 +550,10 @@ export class DeliveriesService {
     // regola di Stipendi (il servizio esatto può non essere a listino: si
     // sceglie fisso/ora). Così il dettaglio non mostra più «—» a vuoto.
     let valetSalaryDalListino: number | null = null;
-    if (['ADMIN', 'OPERATION'].includes(user.role) && delivery.valetId && (delivery.valetSalary ?? null) == null) {
+    // ⚠️ Anche con `valetSalary = 0` (01/09, caso #62899/DDT 12787): per gli
+    // Stipendi una paga scritta vince solo se > 0 — lo zero NON è la paga, è
+    // «calcola dal listino». Mostrarlo come paga diceva il falso.
+    if (['ADMIN', 'OPERATION'].includes(user.role) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
       const listini = await this.prisma.valetService.findMany({
         where: { valetId: delivery.valetId },
         include: { serviceType: { select: { pricingModel: true, minHours: true } } },
