@@ -7,6 +7,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
 import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
+import { prezzoAlPartner } from '../common/prezzo-partner';
 import {
   PagedResult,
   buildOrderBy,
@@ -350,7 +351,7 @@ export class ProductsService {
 
   /**
    * Genera i prodotti scontati automatici a partire dagli sconti %
-   * per categoria/provincia (CategoryDiscount). Prezzo arrotondato a 0/5.
+   * per categoria/provincia (CategoryDiscount). Prezzo arrotondato a 0/5 (al piu' vicino).
    */
   async generateDiscountedProducts(categoryId: string) {
     const discounts = await this.prisma.categoryDiscount.findMany({
@@ -363,8 +364,10 @@ export class ProductsService {
     const created: string[] = [];
     for (const discount of discounts) {
       for (const product of products) {
-        const raw = product.price * (1 - discount.discountPercent / 100);
-        const rounded = Math.round(raw / 5) * 5; // arrotondamento a 0/5
+        // Stessa regola del costoPartner, in un posto solo: arrotonda a 0/5 al
+        // piu' vicino, come questo punto faceva gia' da sempre. Prima invece
+        // il costoPartner non arrotondava affatto: stesso partner, due prezzi.
+        const rounded = prezzoAlPartner(product.price, discount.discountPercent);
         const variant = await this.prisma.product.create({
           data: {
             name: `${product.name} (-${discount.discountPercent}% ${discount.province.code})`,

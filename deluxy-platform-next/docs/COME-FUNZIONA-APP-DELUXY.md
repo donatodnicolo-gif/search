@@ -369,6 +369,8 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 - **Prodotto unico**: se la provincia è servita da un partner aperto → la consegna viene creata e proposta al partner; se chiuso o provincia non servita → vendita "da gestire".
 - **Prodotto non unico**: se esiste lista priorità per provincia → invio ai partner prioritari aperti (con eventuale sconto categoria arrotondato a 0 o 5), altrimenti agli altri partner; senza lista priorità → vendita "da gestire".
+
+> **Il prezzo per il partner, regola unica (01/09/2026).** Quanto paghiamo al partner e' `importo x (1 - sconto%)` arrotondato **al multiplo di 5 piu' vicino** (122 -> 120, 123 -> 125). La regola vive in `api/src/common/prezzo-partner.ts` e la chiamano entrambi i punti che la usavano: il `costoPartner` esposto all'app consegne (`app-api`) e la generazione dei prodotti scontati automatici (`products.service`). Prima il primo **non arrotondava affatto** e il secondo si': lo stesso partner poteva vedere due prezzi diversi per la stessa cosa. Misurato sulle 121 vendite in archivio: 40 salgono, 13 scendono, 68 erano gia' tonde; scarto massimo 2,50 EUR.
 - Stati vendita/consegna collegati: Accettata (il partner accetta la vendita), Richiedi Annullamento (se ancora "da gestire" si annulla automaticamente), Non Accettata (grigio), Non Consegnata (blu, con motivo nelle note), Consegnata, Annullata (solo Admin/Operation).
 - Servizi orari in storico: CONSEGNATO CON ORARIO DA APPROVARE / CONSEGNATO CON ORARIO NON APPROVATO (verificare l'orario del valet prima di procedere).
 

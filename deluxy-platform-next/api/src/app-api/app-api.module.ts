@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { prezzoAlPartner } from '../common/prezzo-partner';
 import {
   BadRequestException,
   Body,
@@ -202,7 +203,11 @@ export class AppApiService {
       valetId: string | null;
     } | null,
   ) {
-    const costoPartner = Math.round(s.amount * (1 - s.discountPercent / 100) * 100) / 100;
+    // Il prezzo per il partner: regola unica in common/prezzo-partner, che
+    // arrotonda a 0/5 (al piu' vicino). Prima qui la formula era scritta a mano e
+    // senza arrotondamento, mentre i prodotti scontati arrotondavano al piu'
+    // vicino: la stessa regola in due posti aveva gia' due risposte.
+    const costoPartner = prezzoAlPartner(s.amount, s.discountPercent);
     return {
       vendita: {
         id: s.id,
