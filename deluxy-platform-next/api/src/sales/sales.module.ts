@@ -344,23 +344,8 @@ export class SalesService {
     });
     if (!sale?.externalOrderId) return { disponibile: false };
 
-    const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
-    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
-    const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
-    const chiave = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
-    if (!url || !chiave) return { disponibile: false };
-
-    let ordine: any;
-    try {
-      const res = await fetch(
-        `${url}/api/v1/ordini/${encodeURIComponent(sale.externalOrderId)}?annullati=inclusi`,
-        { headers: { 'x-api-key': chiave } },
-      );
-      if (!res.ok) return { disponibile: false };
-      ordine = await res.json();
-    } catch {
-      return { disponibile: false };
-    }
+    const ordine = await this.ordineDaOrders(sale.externalOrderId);
+    if (!ordine) return { disponibile: false };
 
     // Mittente = chi ha ORDINATO (il committente del regalo), non il destinatario.
     // Si divide sull'ULTIMO spazio: «Maria Teresa Rossi» = nome «Maria Teresa».
@@ -398,16 +383,7 @@ export class SalesService {
     // hai già nell'ordine»). Su Shopify è un attributo tipo «16-20» o «08/12»:
     // si spezza in dalle/alle per il form. Un formato non riconosciuto si
     // scarta — una fascia inventata è peggio di una mancante.
-    const fasciaRaw = String(ordine?.consegna?.fascia ?? '').trim();
-    const mFascia = fasciaRaw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*[-\/–]\s*(\d{1,2})(?:[:.](\d{2}))?$/);
-    const ora = (h?: string, min?: string) => {
-      if (!h) return undefined;
-      const hh = Number(h);
-      if (!Number.isFinite(hh) || hh > 24) return undefined;
-      return `${String(hh === 24 ? 0 : hh).padStart(2, '0')}:${min ?? '00'}`;
-    };
-    const consegnaDalle = mFascia ? ora(mFascia[1], mFascia[2]) : undefined;
-    const consegnaAlle = mFascia ? ora(mFascia[3], mFascia[4]) : undefined;
+    const { dalle: consegnaDalle, alle: consegnaAlle } = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
     // Biglietto e note del cliente: esistono già sull'ordine, il form non deve
     // farli riscrivere a mano (regola utente 01/09).
     // ⚠️ La nota Shopify NON sta al primo livello: sta in `shopify.note`
@@ -420,6 +396,42 @@ export class SalesService {
       disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
       consegnaDalle, consegnaAlle, biglietto, note, prodotti,
     };
+  }
+
+  /** L'ordine dietro una vendita, letto da Deluxy Orders. Best-effort: `null`
+   *  quando non c'è o Orders non risponde — chi chiama non inventa. */
+  private async ordineDaOrders(externalOrderId: string | null | undefined): Promise<any | null> {
+    const rif = (externalOrderId ?? '').trim();
+    if (!rif) return null;
+    const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
+    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+    const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+    const chiave = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
+    if (!url || !chiave) return null;
+    try {
+      const res = await fetch(`${url}/api/v1/ordini/${encodeURIComponent(rif)}?annullati=inclusi`, {
+        headers: { 'x-api-key': chiave },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  /** «16-20», «08/12», «16:30-20» → orari del form. Formato ignoto = niente:
+   *  una fascia inventata è peggio di una mancante. */
+  private static fasciaInOrari(fascia: unknown): { dalle?: string; alle?: string } {
+    const raw = String(fascia ?? '').trim();
+    const m = raw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*[-\/–]\s*(\d{1,2})(?:[:.](\d{2}))?$/);
+    if (!m) return {};
+    const ora = (h?: string, min?: string) => {
+      if (!h) return undefined;
+      const hh = Number(h);
+      if (!Number.isFinite(hh) || hh > 24) return undefined;
+      return `${String(hh === 24 ? 0 : hh).padStart(2, '0')}:${min ?? '00'}`;
+    };
+    return { dalle: ora(m[1], m[2]), alle: ora(m[3], m[4]) };
   }
 
   /**
@@ -773,6 +785,24 @@ export class SalesService {
     // vendita partiva senza documento.
     const numeroDdt = vendita.externalOrderId?.trim() || null;
 
+    // ⭐ 01/09 (regola utente «sistemati anche gli altri ordini»): anche la via
+    // AUTOMATICA porta con sé quello che l'ordine sa già — fascia oraria del
+    // cliente, biglietto (→ personalizzazione) e nota Shopify (→ note). Prima
+    // solo il form li aveva: le consegne nate dallo smistamento uscivano mute.
+    // Best-effort: se Orders non risponde, la consegna nasce come prima.
+    let fasciaDalle: string | undefined;
+    let fasciaAlle: string | undefined;
+    let biglietto: string | undefined;
+    let notaShopify: string | undefined;
+    const ordine = await this.ordineDaOrders(vendita.externalOrderId);
+    if (ordine) {
+      const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+      fasciaDalle = f.dalle;
+      fasciaAlle = f.alle;
+      biglietto = String(ordine?.biglietto ?? '').trim() || undefined;
+      notaShopify = String(ordine?.shopify?.note ?? '').trim() || undefined;
+    }
+
     const ultimo = await this.prisma.delivery.aggregate({ _max: { code: true } });
     return this.prisma.delivery.create({
       data: {
@@ -786,6 +816,13 @@ export class SalesService {
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
         pickupAddress: indirizzoRitiro,
+        // La finestra chiesta dal cliente sull'ordine (es. «16-20»): aperta
+        // come fascia flessibile quando è una finestra vera.
+        deliveryTimeFrom: fasciaDalle,
+        deliveryTimeTo: fasciaAlle,
+        deliveryFlexible: Boolean(fasciaDalle && fasciaAlle && fasciaAlle !== fasciaDalle) || undefined,
+        personalizeSaleNotes: biglietto,
+        notes: notaShopify,
         price: quotaNostra,
         productValue: valoreProdotti,
         ddtNumber: numeroDdt,

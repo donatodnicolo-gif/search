@@ -744,13 +744,25 @@ export class DeliveriesService {
       if (svc || ps) {
         let base = ps?.price ?? svc?.basePrice ?? 0;
         if (svc?.pricingModel === 'A_ORA') base = base * Math.max(dto.hours ?? 1, 1);
-        if (distanceKm != null && ps) {
+        // Tariffe km: listino-servizio prima, SCHEDA partner come ripiego
+        // (kmIncluded + extraOutOfCityPrice) — regola utente 01/09.
+        const tariffeP = await this.prisma.partner.findUnique({
+          where: { id: dto.partnerId },
+          select: { kmIncluded: true, extraOutOfCityPrice: true },
+        });
+        if (distanceKm != null) {
           if (extraOutOfCity) {
+            const tariffa = (ps?.extraOutOfCityPrice ?? 0) > 0
+              ? ps!.extraOutOfCityPrice
+              : (tariffeP?.extraOutOfCityPrice ?? 0);
             extraKm = distanceKm;
-            extraEur = distanceKm * (ps.extraOutOfCityPrice ?? 0);
-          } else if (distanceKm > ps.includedKm) {
-            extraKm = Math.round((distanceKm - ps.includedKm) * 10) / 10;
-            extraEur = extraKm * ps.extraKmPrice;
+            extraEur = distanceKm * tariffa;
+          } else {
+            const inclusi = (ps?.includedKm ?? 0) > 0 ? ps!.includedKm : (tariffeP?.kmIncluded ?? 0);
+            if (distanceKm > inclusi) {
+              extraKm = Math.round((distanceKm - inclusi) * 10) / 10;
+              extraEur = extraKm * (ps?.extraKmPrice ?? 0);
+            }
           }
         }
         extraEur = Math.round(extraEur * 100) / 100;
@@ -852,14 +864,30 @@ export class DeliveriesService {
     const cittaRitiro = cittaDaIndirizzo(dto.pickupAddress);
     const cittaConsegna = cittaDaIndirizzo(dto.recipientAddress);
     const extraOutOfCity = Boolean(cittaRitiro && cittaConsegna && cittaRitiro !== cittaConsegna);
+    // ⭐ 01/09 (regola utente): le tariffe km vivono anche sulla SCHEDA partner
+    // (kmIncluded + extraOutOfCityPrice) — il listino-servizio vince quando le
+    // dichiara, la scheda è il ripiego. Prima si leggeva solo il servizio, e un
+    // partner con l'extra fuori città sulla scheda usciva a zero.
+    const tariffeP = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { kmIncluded: true, extraOutOfCityPrice: true },
+    });
     let extraKm = 0;
-    if (distanceKm != null && partnerService) {
+    if (distanceKm != null) {
       if (extraOutOfCity) {
+        const tariffa = (partnerService?.extraOutOfCityPrice ?? 0) > 0
+          ? partnerService!.extraOutOfCityPrice
+          : (tariffeP?.extraOutOfCityPrice ?? 0);
         extraKm = distanceKm;
-        price += distanceKm * (partnerService.extraOutOfCityPrice ?? 0);
-      } else if (distanceKm > partnerService.includedKm) {
-        extraKm = Math.round((distanceKm - partnerService.includedKm) * 10) / 10;
-        price += extraKm * partnerService.extraKmPrice;
+        price += distanceKm * tariffa;
+      } else {
+        const inclusi = (partnerService?.includedKm ?? 0) > 0
+          ? partnerService!.includedKm
+          : (tariffeP?.kmIncluded ?? 0);
+        if (distanceKm > inclusi) {
+          extraKm = Math.round((distanceKm - inclusi) * 10) / 10;
+          price += extraKm * (partnerService?.extraKmPrice ?? 0);
+        }
       }
     }
     price = Math.round(price * 100) / 100;
@@ -1210,14 +1238,28 @@ export class DeliveriesService {
       const cR = cittaDaIndirizzo(ritiroFinale);
       const cC = cittaDaIndirizzo(consegnaFinale);
       const fuoriCitta = Boolean(cR && cC && cR !== cC);
+      // Tariffe km: il listino-servizio vince, la SCHEDA partner è il ripiego
+      // (kmIncluded + extraOutOfCityPrice) — regola utente 01/09.
+      const tariffeP = partnerDaUsare
+        ? await this.prisma.partner.findUnique({
+            where: { id: partnerDaUsare },
+            select: { kmIncluded: true, extraOutOfCityPrice: true },
+          })
+        : null;
       let extra = 0;
-      if (dist != null && ps) {
+      if (dist != null) {
         if (fuoriCitta) {
+          const tariffa = (ps?.extraOutOfCityPrice ?? 0) > 0
+            ? ps!.extraOutOfCityPrice
+            : (tariffeP?.extraOutOfCityPrice ?? 0);
           extra = dist;
-          price += dist * (ps.extraOutOfCityPrice ?? 0);
-        } else if (dist > ps.includedKm) {
-          extra = Math.round((dist - ps.includedKm) * 10) / 10;
-          price += extra * ps.extraKmPrice;
+          price += dist * tariffa;
+        } else {
+          const inclusi = (ps?.includedKm ?? 0) > 0 ? ps!.includedKm : (tariffeP?.kmIncluded ?? 0);
+          if (dist > inclusi) {
+            extra = Math.round((dist - inclusi) * 10) / 10;
+            price += extra * (ps?.extraKmPrice ?? 0);
+          }
         }
       }
       economiaRicalcolata = {

@@ -233,7 +233,7 @@ interface ProductRow {
           <label class="fld mt" style="max-width:280px"><span class="req">{{ 'deliveryForm.field.pickupTime' | translate }} <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
             <select class="field" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom">
               <option value="">{{ 'deliveryForm.placeholder.selectTime' | translate }}</option>
-              @for (t of pickupTimeOptions; track t) { <option [value]="t">{{ t }}</option> }
+              @for (t of pickupTimeOptions; track t) { <option [value]="t">{{ t }} – {{ plusOneHour(t) }}</option> }
             </select>
             @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusOneHour(model.pickupTimeFrom) }}</span> }
           </label>
@@ -930,7 +930,14 @@ export class DeliveryFormComponent implements AfterViewInit {
           this.productRows = [{ productId: v.productId, productVariantId: v.productVariantId ?? null,
             quantity: 1, price: null, flexiblePrice: false } as ProductRow];
           this.http.get<Product>(`${api}/products/${v.productId}`).subscribe({
-            next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
+            next: (p) => {
+              if (!p?.id) return;
+              this.products.set(this.unisciProdotti(this.products(), [p]));
+              // Il nome si mostra nella casella di ricerca: senza, la riga era
+              // agganciata ma SEMBRAVA vuota (segnalato sull'ordine 12851).
+              const riga = this.productRows.find((r) => r.productId === p.id);
+              if (riga && !riga.nomeScelto) riga.nomeScelto = p.name;
+            },
             error: () => undefined,
           });
         }
@@ -992,10 +999,18 @@ export class DeliveryFormComponent implements AfterViewInit {
           this.productRows = righe.map((p: any) => ({
             productId: p.productId, productVariantId: p.productVariantId ?? null,
             quantity: p.quantita ?? 1, price: null, flexiblePrice: false,
+            // Il nome si mostra nella casella di ricerca: senza, la riga era
+            // agganciata ma SEMBRAVA vuota (segnalato sull'ordine 12851).
+            nomeScelto: p.nome ?? undefined,
           } as ProductRow));
           for (const p of righe) {
             this.http.get<Product>(`${api}/products/${p.productId}`).subscribe({
-              next: (prod) => { if (prod?.id) this.products.set(this.unisciProdotti(this.products(), [prod])); },
+              next: (prod) => {
+                if (!prod?.id) return;
+                this.products.set(this.unisciProdotti(this.products(), [prod]));
+                const riga = this.productRows.find((r) => r.productId === prod.id && !r.nomeScelto);
+                if (riga) riga.nomeScelto = prod.name;
+              },
               error: () => undefined,
             });
           }
