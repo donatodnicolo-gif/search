@@ -26,9 +26,9 @@
 >   anti-CSRF salva il refresh token); l'upload ricevuta va su Drive quando
 >   collegato, altrimenti percorso locale. MAI service account (Standard §5).
 >   🔴 Serve il client OAuth di Google Cloud + il consenso dell'utente.
-> - **Armani**: doppioni GIÀ sospesi; script `unifica-armani.mjs` pronto
->   (149 consegne storiche → scheda canonica) — ⚠️ l'applica è bloccato dal
->   guardrail: `node scripts/unifica-armani.mjs --applica` a mano.
+> - **Armani**: doppioni GIÀ sospesi (scheda viva una sola). L'unificazione
+>   dello storico (149 consegne) era pronta ma **l'utente ha detto che non
+>   serve** (01/09): script rimosso, non farla.
 > - **42 orfani agosto riaperti** in «da fatturare» (id salvati in scratchpad);
 >   giu/lug (497/10k€, 853/17k€) NON riaperti: il legacy li ha fatturati.
 >

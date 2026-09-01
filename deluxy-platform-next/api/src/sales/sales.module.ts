@@ -410,8 +410,11 @@ export class SalesService {
     const consegnaAlle = mFascia ? ora(mFascia[3], mFascia[4]) : undefined;
     // Biglietto e note del cliente: esistono già sull'ordine, il form non deve
     // farli riscrivere a mano (regola utente 01/09).
+    // ⚠️ La nota Shopify NON sta al primo livello: sta in `shopify.note`
+    // (misurato sull'ordine 12851: il biglietto del cliente era lì, e
+    // `ordine.note` tornava sempre undefined — il form usciva senza nota).
     const biglietto = String(ordine?.biglietto ?? '').trim() || undefined;
-    const note = String(ordine?.note ?? '').trim() || undefined;
+    const note = String(ordine?.shopify?.note ?? ordine?.note ?? '').trim() || undefined;
 
     return {
       disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
