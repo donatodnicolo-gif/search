@@ -1567,7 +1567,7 @@
       "salaryFrequency": "Frequenza stipendio *",
       "weeklyDepositLimit": "Limite di deposito settimanale",
       "iban": "Coordinate bancarie (IBAN)",
-      "minimumKmIncluded": "Minimum KM Included (entro il comune)",
+      "minimumKmIncluded": "Km inclusi entro il comune",
       "extraOutOfCityPrice": "Extra fuori città (€)",
       "isTeamLeader": "Il valet è team leader",
       "notifyByWhatsapp": "Notifiche WhatsApp",
