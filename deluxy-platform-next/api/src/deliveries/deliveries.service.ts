@@ -741,7 +741,12 @@ export class DeliveriesService {
       const ps = await this.prisma.partnerService.findUnique({
         where: { partnerId_serviceTypeId: { partnerId: dto.partnerId, serviceTypeId: dto.serviceTypeId } },
       });
-      if (svc || ps) {
+      // ⚠️ Il preventivo in EURO esiste solo per PREZZO_FISSO e A_ORA — come in
+      // fatturazione. Su VENDITA `listino.price` è una PERCENTUALE (mostrarla
+      // come euro diceva «listino 18,00 €» su Chanel Sant'Andrea: era la fee),
+      // su CORPORATE conta il valore dei prodotti, su MAGAZZINO i pezzi.
+      const modelloConKm = svc?.pricingModel === 'PREZZO_FISSO' || svc?.pricingModel === 'A_ORA';
+      if ((svc || ps) && modelloConKm) {
         let base = ps?.price ?? svc?.basePrice ?? 0;
         if (svc?.pricingModel === 'A_ORA') base = base * Math.max(dto.hours ?? 1, 1);
         // Tariffe km: listino-servizio prima, SCHEDA partner come ripiego
@@ -872,8 +877,14 @@ export class DeliveriesService {
       where: { id: partnerId },
       select: { kmIncluded: true, extraOutOfCityPrice: true },
     });
+    // ⚠️ I km si prezzano SOLO su PREZZO_FISSO e A_ORA — come in fatturazione
+    // (prezzoConsegna): VENDITA è una percentuale sul venduto, CORPORATE il
+    // valore dei prodotti, MAGAZZINO base + pezzo. Regola utente 01/09:
+    // «per i servizi vendita non si prezzano, è corretto».
+    const modelloConKm =
+      serviceType.pricingModel === 'PREZZO_FISSO' || serviceType.pricingModel === 'A_ORA';
     let extraKm = 0;
-    if (distanceKm != null) {
+    if (distanceKm != null && modelloConKm) {
       if (extraOutOfCity) {
         const tariffa = (partnerService?.extraOutOfCityPrice ?? 0) > 0
           ? partnerService!.extraOutOfCityPrice
@@ -1246,8 +1257,11 @@ export class DeliveriesService {
             select: { kmIncluded: true, extraOutOfCityPrice: true },
           })
         : null;
+      // Km SOLO su PREZZO_FISSO e A_ORA, come in fatturazione: la VENDITA è
+      // una percentuale sul venduto e non prezza la distanza (utente 01/09).
+      const modelloConKm = svc?.pricingModel === 'PREZZO_FISSO' || svc?.pricingModel === 'A_ORA';
       let extra = 0;
-      if (dist != null) {
+      if (dist != null && modelloConKm) {
         if (fuoriCitta) {
           const tariffa = (ps?.extraOutOfCityPrice ?? 0) > 0
             ? ps!.extraOutOfCityPrice
