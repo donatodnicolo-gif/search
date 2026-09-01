@@ -34,3 +34,6 @@ anomalie-prezzo-vendite.csv
 
 .vercel
 .env*
+
+# backup dei listini sconto prodotti dagli script (dati veri: mai committati)
+api/backup-sconti-*.json

@@ -46,16 +46,16 @@ const q = (s, ...v) => p.$queryRawUnsafe(s, ...v)
 
 const coperte = new Set((await q(
   `SELECT DISTINCT pp."provinceId" AS id
-     FROM "PartnerProvince" pp JOIN "Partner" pa ON pa.id = pp."partnerId"
+     FROM platform."PartnerProvince" pp JOIN platform."Partner" pa ON pa.id = pp."partnerId"
     WHERE pa.active AND NOT pa.deleted
       AND COALESCE(pa."businessName",'') <> ALL($1::text[])`, NAZIONALI)).map(r => r.id))
 
 const righe = await q(
   `SELECT d.id, d."discountPercent" AS pct, d."provinceId" AS "provinceId",
           pr.name AS provincia, pr.code AS sigla, c.name AS categoria
-     FROM "CategoryDiscount" d
-     JOIN "Province" pr ON pr.id = d."provinceId"
-     JOIN "Category"  c ON c.id  = d."categoryId"`)
+     FROM platform."CategoryDiscount" d
+     JOIN platform."Province" pr ON pr.id = d."provinceId"
+     JOIN platform."Category"  c ON c.id  = d."categoryId"`)
 
 const cambi = [], intoccabili = [], gia = []
 for (const r of righe) {
@@ -85,10 +85,18 @@ const backup = `backup-sconti-${new Date().toISOString().slice(0, 19).replace(/[
 writeFileSync(backup, JSON.stringify(righe, null, 1))
 console.log(`\nbackup di TUTTE le ${righe.length} righe in ${backup}`)
 
-let fatti = 0
-for (const c of cambi) {
-  await p.$executeRawUnsafe(`UPDATE "CategoryDiscount" SET "discountPercent" = $1 WHERE id = $2`, c.a, c.id)
-  fatti++
-}
-console.log(`aggiornate ${fatti} righe.`)
+// Due sole scritture, non una per riga: 4.680 giri sono 4.680 occasioni di
+// fermarsi a meta' — ed e' esattamente quello che e' successo la prima volta.
+// `IN (30,40)` e' la protezione delle eccezioni: il 20% di Milano non e' un
+// valore di serie e non viene toccato.
+const coperteIds = [...coperte]
+const su = await p.$executeRawUnsafe(
+  `UPDATE platform."CategoryDiscount" SET "discountPercent" = $1
+     WHERE "provinceId" = ANY($2::text[]) AND "discountPercent" IN (30, 40)`,
+  COPERTA, coperteIds)
+const giu = await p.$executeRawUnsafe(
+  `UPDATE platform."CategoryDiscount" SET "discountPercent" = $1
+     WHERE NOT ("provinceId" = ANY($2::text[])) AND "discountPercent" IN (30, 40)`,
+  SCOPERTA, coperteIds)
+console.log(`scritte: ${su} righe a ${COPERTA}% (coperte) + ${giu} righe a ${SCOPERTA}% (scoperte).`)
 await p.$disconnect()
