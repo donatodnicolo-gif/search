@@ -98,6 +98,8 @@ export interface ProductRef {
   type?: string;
   approved?: boolean;
   active?: boolean;
+  /** Negozi Shopify su cui è pubblicato (JSON di nomi, es. ["DELUXY_FLOWERS"]). */
+  platforms?: string | null;
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
 }

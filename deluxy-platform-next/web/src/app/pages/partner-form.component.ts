@@ -213,6 +213,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               } @else {
                 <span class="oh-closed-note">{{ 'partnerForm.openingHours.closedNote' | translate }}</span>
               }
+              <!-- ⭐ 01/09 (chiesto dall'utente): l'orario di QUESTO giorno si
+                   applica a tutti gli altri — non solo quello del lunedì. -->
+              <button type="button" class="link-btn oh-tutti" (click)="copiaGiornoSuTutti(row)" title="Applica questo orario a tutti i giorni">→ tutti</button>
             </div>
           }
         </div>
@@ -342,6 +345,8 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .oh-sep { color: var(--text-tertiary); }
       .oh-closed-note { font-size: 13px; color: var(--text-tertiary); font-style: italic; }
       .oh-copy { margin-top: 14px; }
+      .oh-tutti { margin-left: auto; background: none; border: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+      .oh-tutti:hover { color: var(--ink, #1d1d1f); }
       @media (max-width: 640px) { .oh-day { width: 100%; } .field.time { flex: 1; width: auto; } }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
       .mt { margin-top: 16px; }
@@ -571,11 +576,16 @@ export class PartnerFormComponent {
 
   /** Copia l'orario del primo giorno (lunedì) su tutti gli altri. */
   copyFirstDayToAll(): void {
-    const first = this.openingHoursRows[0];
+    this.copiaGiornoSuTutti(this.openingHoursRows[0]);
+  }
+
+  /** ⭐ 01/09 (chiesto dall'utente): l'orario di UN giorno qualsiasi si applica
+   *  a tutti gli altri — il «→ tutti» sulla riga. */
+  copiaGiornoSuTutti(sorgente: OpeningHourRow): void {
     for (const row of this.openingHoursRows) {
-      row.closed = first.closed;
-      row.openTime = first.openTime;
-      row.closeTime = first.closeTime;
+      row.closed = sorgente.closed;
+      row.openTime = sorgente.openTime;
+      row.closeTime = sorgente.closeTime;
     }
   }
 

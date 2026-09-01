@@ -2237,7 +2237,26 @@
     "slotHint": "Lascia vuoto per «tutto il giorno».",
     "notePh": "Nota (facoltativa)",
     "reset": "Torna al predefinito",
-    "error": "Errore nel salvataggio."
+    "error": "Errore nel salvataggio.",
+    "partner": "Partner",
+    "valet": "Valet",
+    "declared": "{{n}} con orario",
+    "unknown": "{{n}} non indicati",
+    "search": "Cerca",
+    "searchPh": "Nome partner o valet…",
+    "city": "Città",
+    "allCities": "Tutte le città",
+    "cityHint": "Filtro sulla città servita.",
+    "onlyOpen": "Solo aperti",
+    "closed": "chiuso",
+    "noSource": "orario non indicato",
+    "none": "Nessuno con questi filtri.",
+    "origin": {
+      "giorno": "orario del giorno",
+      "giornoHint": "Orario dichiarato per questo giorno specifico",
+      "settimanale": "orario settimanale",
+      "settimanaleHint": "Dall'orario settimanale ricorrente"
+    }
   },
   "recurring": {
     "title": "Servizi ricorrenti",

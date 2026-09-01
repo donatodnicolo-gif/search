@@ -126,7 +126,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                     <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
                   </td>
                 }
-                <td class="strong">{{ p.name }}</td>
+                <td class="strong">{{ p.name }} @if (suShopify(p)) { <span class="shopify-ico" [title]="negoziShopify(p)">🛍️</span> }</td>
                 <td class="mono muted">{{ p.sku || '—' }}</td>
                 <td>{{ p.category?.name || '—' }}</td>
                 <td><span class="pill pill-neutral">{{ p.type ? (('enums.productType.' + p.type) | translate) : '—' }}</span></td>
@@ -447,6 +447,20 @@ export class ProductsListComponent {
   }
 
   /** Click sull'intestazione: stesso campo inverte il verso, altrimenti ordina asc. */
+  /** Pubblicato su Shopify: `platforms` è un JSON di negozi (regola utente 01/09). */
+  suShopify(p: { platforms?: string | null }): boolean {
+    try {
+      const a = JSON.parse((p.platforms ?? 'null') as string);
+      return Array.isArray(a) && a.length > 0;
+    } catch { return false; }
+  }
+  negoziShopify(p: { platforms?: string | null }): string {
+    try {
+      const a = JSON.parse((p.platforms ?? 'null') as string);
+      return Array.isArray(a) && a.length ? 'Su Shopify: ' + a.join(', ') : '';
+    } catch { return ''; }
+  }
+
   sortBy(field: string): void {
     if (this.sort() === field) {
       this.dir.set(this.dir() === 'asc' ? 'desc' : 'asc');

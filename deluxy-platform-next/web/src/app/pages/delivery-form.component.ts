@@ -370,6 +370,7 @@ interface ProductRow {
                   <div class="prod-risultati">
                     @for (p of risultatiRicerca(); track p.id) {
                       <button type="button" class="ris" (click)="scegliProdotto(row, p)">
+                        @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
                         {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
                       </button>
                     }
@@ -1879,6 +1880,20 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly rigaAttiva = signal<number | null>(null);
   readonly risultatiRicerca = signal<Product[]>([]);
   private ricercaTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Pubblicato su Shopify: `platforms` è un JSON di negozi (regola utente 31/08). */
+  suShopify(p: { platforms?: string | null } | Product): boolean {
+    try {
+      const a = JSON.parse(((p as { platforms?: string | null }).platforms ?? 'null') as string);
+      return Array.isArray(a) && a.length > 0;
+    } catch { return false; }
+  }
+  negoziShopify(p: { platforms?: string | null } | Product): string {
+    try {
+      const a = JSON.parse(((p as { platforms?: string | null }).platforms ?? 'null') as string);
+      return Array.isArray(a) && a.length ? 'Su Shopify: ' + a.join(', ') : '';
+    } catch { return ''; }
+  }
 
   onProductQuery(row: ProductRow, index: number, testo: string): void {
     row.query = testo;

@@ -2237,7 +2237,26 @@
     "slotHint": "Leave empty for the whole day.",
     "notePh": "Note (optional)",
     "reset": "Back to default",
-    "error": "Error while saving."
+    "error": "Error while saving.",
+    "partner": "Partners",
+    "valet": "Valets",
+    "declared": "{{n}} with hours",
+    "unknown": "{{n}} not stated",
+    "search": "Search",
+    "searchPh": "Partner or valet name…",
+    "city": "City",
+    "allCities": "All cities",
+    "cityHint": "Filters on the served city.",
+    "onlyOpen": "Open only",
+    "closed": "closed",
+    "noSource": "hours not stated",
+    "none": "Nobody matches these filters.",
+    "origin": {
+      "giorno": "day hours",
+      "giornoHint": "Hours declared for this specific day",
+      "settimanale": "weekly hours",
+      "settimanaleHint": "From the recurring weekly schedule"
+    }
   },
   "recurring": {
     "title": "Recurring services",

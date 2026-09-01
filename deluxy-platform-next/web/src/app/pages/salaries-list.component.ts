@@ -316,7 +316,21 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               <td class="muted">{{ d.address || '—' }}</td>
                               <td class="num">{{ d.cash ? ('−' + (d.cash | number: '1.2-2') + ' €') : '—' }}</td>
                               <td class="num" [class.rosso]="(d.plusMinus ?? 0) < 0">
-                                @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { — }
+                                <!-- ⭐ 01/09 (chiesto dall'utente): il plus/minus si scrive
+                                     anche DA QUI, non solo dal form della consegna. -->
+                                @if (canManage()) {
+                                  @if (plusEdit()?.id === d.id) {
+                                    <input class="field num plus-input" type="number" step="0.01" [ngModel]="plusEdit()!.valore"
+                                           (ngModelChange)="plusEditValore($event)" [name]="'plusv' + d.id"
+                                           (keydown.enter)="salvaPlus(d)" (blur)="salvaPlus(d)" />
+                                  } @else {
+                                    <button type="button" class="plus-btn" (click)="apriPlus(d)" title="Plus/minus sulla paga di questa consegna">
+                                      @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { ± }
+                                    </button>
+                                  }
+                                } @else {
+                                  @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { — }
+                                }
                               </td>
                               <td class="num">
                                 @if (d.nelGiro) {
@@ -493,6 +507,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
       .rosso { color: #C0392B; font-weight: 600; }
       .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }
+      .plus-btn { background: none; border: 1px dashed transparent; border-radius: 6px; padding: 1px 6px; font: inherit; color: inherit; cursor: pointer; }
+      .plus-btn:hover { border-color: var(--text-tertiary, #b0b0b5); }
+      .plus-input { width: 84px; padding: 3px 6px; font-size: 13px; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
       .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
@@ -902,6 +919,44 @@ export class SalariesListComponent {
         this.pendingDetailLoading.set(false);
       },
       error: () => this.pendingDetailLoading.set(false),
+    });
+  }
+
+  /** ⭐ PLUS/MINUS DALLA PAGINA STIPENDI (01/09, chiesto dall'utente): la
+   *  cella si apre, si scrive l'importo, Invio (o fuori) salva sul campo
+   *  `valetAdditionalPrice` della consegna via l'azione di massa esistente. */
+  readonly plusEdit = signal<{ id: string; valore: number | null } | null>(null);
+  apriPlus(d: { id: string; plusMinus?: number }): void {
+    this.plusEdit.set({ id: d.id, valore: d.plusMinus ?? null });
+  }
+  plusEditValore(v: number | null): void {
+    const e = this.plusEdit();
+    if (e) this.plusEdit.set({ ...e, valore: v });
+  }
+  salvaPlus(d: { id: string; plusMinus?: number }): void {
+    const e = this.plusEdit();
+    if (!e || e.id !== d.id) return;
+    this.plusEdit.set(null);
+    const importo = e.valore ?? 0;
+    if (importo === (d.plusMinus ?? 0)) return; // niente da scrivere
+    this.http.patch(`${environment.apiUrl}/deliveries/massa/plus-valet`, { ids: [d.id], importo }).subscribe({
+      next: () => this.ricaricaPending(),
+      error: () => this.error.set('Plus/minus non salvato'),
+    });
+  }
+  /** Rilegge il dettaglio del valet aperto (stessi filtri del pannello). */
+  private ricaricaPending(): void {
+    const valetId = this.pendingOpen();
+    if (!valetId) return;
+    const filtri: Record<string, string> = {};
+    if (this.dal) filtri['dal'] = this.dal;
+    if (this.al) filtri['al'] = this.al;
+    if (this.queryServizi()) filtri['servizi'] = this.queryServizi();
+    this.http.get<{ deliveries: PendingDelivery[]; troncato: boolean }>(
+      `${environment.apiUrl}/salaries/pending/${valetId}`, { params: filtri },
+    ).subscribe({
+      next: (d) => { this.pendingDetail.set(d.deliveries ?? []); this.pendingTroncato.set(!!d.troncato); },
+      error: () => undefined,
     });
   }
 
