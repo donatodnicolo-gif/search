@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
 import {
   Category,
   PAYMENT_METHOD_LABELS,
@@ -43,7 +44,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
 @Component({
   selector: 'app-partner-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, IndirizzoGoogleDirective],
   template: `
     <div class="form-head">
       <div>
@@ -76,7 +77,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <label class="fld"><span>{{ 'partnerForm.general.fiscalCode' | translate }}</span>
             <input class="field" name="fiscalCode" [(ngModel)]="model.fiscalCode" /></label>
           <label class="fld span-2"><span>{{ 'partnerForm.general.address' | translate }}</span>
-            <input class="field" name="address" [(ngModel)]="model.address" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" /></label>
+            <input class="field" name="address" [(ngModel)]="model.address" appIndirizzoGoogle autocomplete="off" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" /></label>
         </div>
 
         <!-- Ritiro multiplo, sotto l'indirizzo principale -->
@@ -86,7 +87,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <span class="pickup-hint">{{ 'partnerForm.general.pickupHint' | translate }}</span>
             @for (addr of pickupAddresses; track $index) {
               <div class="pickup-row">
-                <input class="field" [(ngModel)]="pickupAddresses[$index]" [name]="'pickup' + $index" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" />
+                <!-- 02/09 (regola utente): ANCHE gli indirizzi aggiuntivi
+                     seguono Google Maps — vale per ogni input-indirizzo. -->
+                <input class="field" [(ngModel)]="pickupAddresses[$index]" [name]="'pickup' + $index" appIndirizzoGoogle autocomplete="off" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" />
                 <button type="button" class="icon-btn" (click)="removePickup($index)" [title]="'partnerForm.general.remove' | translate">✕</button>
               </div>
             }
@@ -360,6 +363,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .chip:hover { background: var(--fill); }
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       .svc-row { display: grid; grid-template-columns: 1.6fr repeat(4, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      /* ⚠️ 02/09: senza min-width:0 i campi non possono stringersi sotto la
+         loro larghezza intrinseca, la griglia sfonda la card e l'ultima
+         colonna (con la ✕) finisce FUORI dal bianco, disallineando anche le
+         intestazioni. È il grid blowout classico. */
+      .svc-row > * { min-width: 0; }
       .svc-head { margin-bottom: 2px; }
       .svc-head span { font-size: 11.5px; font-weight: 550; color: var(--text-tertiary); }
       .cerca-chip { max-width: 320px; margin-bottom: 12px; }

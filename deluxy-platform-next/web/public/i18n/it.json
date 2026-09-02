@@ -1474,7 +1474,7 @@
     },
     "services": {
       "title": "Servizi abilitati",
-      "subtitle": "Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città.",
+      "subtitle": "Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città. Sui servizi di VENDITA il «Prezzo» è la fee in percentuale, non euro.",
       "empty": "Nessun servizio aggiunto.",
       "typePlaceholder": "Tipo di servizio…",
       "pricePlaceholder": "Prezzo €",

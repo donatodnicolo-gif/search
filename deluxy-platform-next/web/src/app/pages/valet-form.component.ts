@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
 import {
   Partner,
   Province,
@@ -23,7 +24,7 @@ interface ValetServiceRow {
 @Component({
   selector: 'app-valet-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, IndirizzoGoogleDirective],
   template: `
     <div class="form-head">
       <div>
@@ -50,7 +51,7 @@ interface ValetServiceRow {
           <label class="fld"><span>{{ 'valetForm.fields.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" [attr.placeholder]="'valetForm.placeholders.phone' | translate" /></label>
           <label class="fld span-2"><span>{{ 'valetForm.fields.address' | translate }}</span>
-            <input class="field" name="address" [(ngModel)]="model.address" [attr.placeholder]="'valetForm.placeholders.address' | translate" /></label>
+            <input class="field" name="address" [(ngModel)]="model.address" appIndirizzoGoogle autocomplete="off" [attr.placeholder]="'valetForm.placeholders.address' | translate" /></label>
         </div>
 
         <div class="grid-2 mt">
