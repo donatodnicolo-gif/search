@@ -23,6 +23,29 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 (5) — Le notifiche ordine NON passano più da cs@: l'inoltro è morto il 17/05
+
+Segnalato («non è arrivata la mail dell'ordine cakedesign 1826», poi «la 12866 va a
+support@/info@ che inoltrano a cs@»). Misurato sull'archivio:
+
+- Le «[DELUXY] Ordine #…» arrivavano su **cs@**: **1.563 notifiche dal 26/02 al
+  17/05/2026**. **Dal 17/05: zero.** Da allora arrivano SOLO su nicolo.donato@ (la
+  #12866 delle 15:21 è lì, doppia: copia per info@ + copia per support@, entrambe
+  girate a lui). Le notifiche di **cakedesign.me** (`info@cakedesignme.it`) vanno da
+  sempre solo a nicolo.donato@ (11/11 negli ultimi 7 giorni).
+- Quindi: **l'inoltro di support@/info@ verso cs@ si è rotto (o è stato cambiato) a
+  metà maggio**, in silenzio. Non è AI Mail: due client IMAP indipendenti su cs@
+  concordano, e le copie della 12866 stanno fisicamente nella casella di Nicolò.
+- **Rimedio** (dell'utente, non nel codice): o si ripara l'inoltro nell'Area Clienti
+  register.it (support@ e info@ → destinatari), o — meglio — in Shopify
+  (deluxy.it e cakedesign.me) si aggiunge `cs@deluxy.it` alle **Notifiche del
+  personale**, togliendo la dipendenza da un inoltro che può morire in silenzio.
+- ⭐ Lezione: «la casella non si aggiorna» erano TRE guasti diversi sovrapposti — il
+  dedup per utente (1.609 mail, corretto), la quiete vera della casella, e un inoltro
+  esterno morto da maggio. Senza separarli coi numeri, qualunque toppa sarebbe stata
+  quella sbagliata.
+
+---
 ### 02/09 (4) — «Due utenti sulla stessa mail vedono cose differenti»: il dedup era per UTENTE
 
 Segnalato: cs@deluxy.it «non si aggiorna», e i due utenti che la guardano vedono cose
