@@ -147,6 +147,16 @@ export function cittaDaIndirizzo(indirizzo: string | null | undefined): string |
   return null;
 }
 
+/**
+ * Stesso comune? Il confronto è SENZA maiuscole: la scheda di Chanel Roma
+ * Babuino ha l'indirizzo tutto in maiuscolo e «ROMA» ≠ «Roma» faceva uscire
+ * FUORI CITTÀ una consegna Roma→Roma (#100812: 9,60 a km invece del canone
+ * base — trovato il 02/09).
+ */
+export function stessoComune(a: string | null, b: string | null): boolean {
+  return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
 const DELIVERY_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
@@ -856,7 +866,7 @@ export class DeliveriesService {
       ritiro && consegna ? await this.settings.distanzaStradaleKm(ritiro, consegna) : null;
     const cR = cittaDaIndirizzo(ritiro);
     const cC = cittaDaIndirizzo(consegna);
-    const extraOutOfCity = Boolean(cR && cC && cR !== cC);
+    const extraOutOfCity = Boolean(cR && cC && !stessoComune(cR, cC));
 
     let price: number | null = null;
     let extraKm = 0;
@@ -1026,7 +1036,8 @@ export class DeliveriesService {
     }
     const cittaRitiro = cittaDaIndirizzo(dto.pickupAddress);
     const cittaConsegna = cittaDaIndirizzo(dto.recipientAddress);
-    const extraOutOfCity = Boolean(cittaRitiro && cittaConsegna && cittaRitiro !== cittaConsegna);
+    // (il confronto vero sta qualche riga sotto: senza maiuscole)
+    const extraOutOfCity = Boolean(cittaRitiro && cittaConsegna && !stessoComune(cittaRitiro, cittaConsegna));
     // ⭐ 01/09 (regola utente): le tariffe km vivono anche sulla SCHEDA partner
     // (kmIncluded + extraOutOfCityPrice) — il listino-servizio vince quando le
     // dichiara, la scheda è il ripiego. Prima si leggeva solo il servizio, e un
@@ -1426,7 +1437,7 @@ export class DeliveriesService {
       // km × extraOutOfCityPrice. In città: solo i km oltre gli inclusi.
       const cR = cittaDaIndirizzo(ritiroFinale);
       const cC = cittaDaIndirizzo(consegnaFinale);
-      const fuoriCitta = Boolean(cR && cC && cR !== cC);
+      const fuoriCitta = Boolean(cR && cC && !stessoComune(cR, cC));
       // Tariffe km: il listino-servizio vince, la SCHEDA partner è il ripiego
       // (kmIncluded + extraOutOfCityPrice) — regola utente 01/09.
       const tariffeP = partnerDaUsare

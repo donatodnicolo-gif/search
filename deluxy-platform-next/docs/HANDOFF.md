@@ -3,6 +3,36 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 sera-2 — CACCIA ALLE EXTRA-URBANE SBAGLIATE, VENDITE A QUOTA
+> ZERO, ASSEGNA SOLO ATTIVI** (deployato e Ready):
+> - **🐞 Bug vero: confronto comuni CASE-SENSITIVE.** La scheda di Chanel Roma
+>   Babuino ha l'indirizzo in MAIUSCOLO → `cittaDaIndirizzo` dava «ROMA» ≠
+>   «Roma» → consegna Roma→Roma prezzata FUORI CITTÀ (#100812: 9,60 = 4,8 km
+>   × 2 invece del canone 25 + 0,8×2 = 26,60). Corretto il codice (helper
+>   `stessoComune`, confronto senza maiuscole nei 3 punti: preventivo,
+>   create, update) E il dato (#100812 → in città, 26,60, log + backup).
+>   Audit con il parser fedele su 850 vive di piattaforma: era l'UNICO caso
+>   reale (l'altro «disallineato», #100795, è giusto: destinazione Garbagnate
+>   scritta senza virgole che il parser non legge — flag sì corretto).
+> - **Valet senza «€ fuori città» in scheda** (paga fuori città = base invece
+>   dei km): Fatima Hmamly (61 consegne da agosto!), Luca Rossi, Biliotti
+>   Gianmarco. «Partner Consegna» e «Logistica Valet Blu» sono pseudo-valet:
+>   per loro 0 è giusto. La TARIFFA la decide l'ufficio: non dedotta.
+> - **Vendite che fatturerebbero ZERO** (casi tipo #57761 ancora aperti):
+>   275 in stati fatturabili — 262 di partner INTERNI (Artista Locale 229,
+>   Deluxy Flowers 18, Magazzino 13, FAO Schwarz 2: probabilmente per
+>   costruzione, la fee non si applica a noi stessi — DA CONFERMARE) e
+>   **13 di TERZI con fee di listino MAI IMPOSTATA**: Cakedesignme 9
+>   (agosto, valori 24–53 €) e Pasticceria Dante 4 (#63182 con valore 488 €,
+>   #100780, #100853, #100849). Serve la fee nei due listini.
+> - **Assegna = solo valet attivi, verificato sui 3 ruoli**: il PARTNER non
+>   ha proprio il tasto (né accesso a /valets); ufficio e team leader
+>   filtrano già nel client (attivi + non segnaposto, province, servizio).
+>   Aggiunta la cintura del server: la proiezione del team leader restituisce
+>   SOLO attivi; gli ELIMINATI fuori da ogni lista (`deleted:false`), gli
+>   inattivi restano nella lista ufficio (per poterli riaccendere). I nomi
+>   dello screenshot dell'utente erano tutti attivi con MI: il pop-up era ok.
+>
 > 🧪 **02/09/2026 sera — DRIVE «FILE APP», PAGHE COL FLAG, #57953 E #100849**
 > (deployato e Ready):
 > - **Drive: cartella «File App»** (regola utente, dopo che il collegamento è

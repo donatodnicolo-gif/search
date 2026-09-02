@@ -30,7 +30,11 @@ export class ValetsService {
    */
   findAll(soloAssegnabili = false) {
     if (soloAssegnabili) {
+      // ⚠️ 02/09 (regola utente): chi assegna vede SOLO valet ATTIVI. Il
+      // filtro c'era già nei pop-up del web; qui è la cintura del server —
+      // una difesa messa solo sulle letture del client non è una difesa.
       return this.prisma.valet.findMany({
+        where: { deleted: false, active: true, placeholder: false },
         orderBy: { lastName: 'asc' },
         select: {
           id: true, firstName: true, lastName: true, active: true, placeholder: true,
@@ -39,7 +43,10 @@ export class ValetsService {
         },
       });
     }
+    // Gli ELIMINATI spariscono dagli elenchi (come da `elimina()`); gli
+    // inattivi restano: la pagina Valet dell'ufficio deve poterli riaccendere.
     return this.prisma.valet.findMany({
+      where: { deleted: false },
       include: VALET_INCLUDE,
       orderBy: { lastName: 'asc' },
     });
