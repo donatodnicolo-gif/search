@@ -1,4 +1,5 @@
 import { SettingsModule } from '../settings/settings.module';
+import { PartnersModule } from '../partners/partners.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -7,6 +8,9 @@ import { AuthService } from './auth.service';
 @Module({
   imports: [
     SettingsModule,
+    // La scheda profilo (02/09): i contatti del PARTNER passano dalla rotta
+    // dei partner, che stringe i campi E sincronizza le Anagrafiche.
+    PartnersModule,
     // registerAsync: il segreto viene letto DOPO il caricamento del .env
     // (ConfigModule), non a import-time.
     JwtModule.registerAsync({

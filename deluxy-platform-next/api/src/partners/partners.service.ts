@@ -552,6 +552,20 @@ export class PartnersService {
     if (user.role === Role.PARTNER && user.partnerId !== id) {
       throw new ForbiddenException('Accesso non consentito');
     }
+    // ⚠️ 02/09 (regola utente: mai prezzi e tariffe in mano al partner). Il
+    // DTO dichiara ANCHE kmIncluded, extraOutOfCityPrice, listini, carnet,
+    // insegna, stato: whitelist ≠ difesa (lezione del 27/08 sulle consegne).
+    // Per il PARTNER si RIASSEGNA il dto tenendo il solo elenco esplicito dei
+    // contatti; tutto il resto — economia, identità, configurazione — resta
+    // dell'ufficio.
+    if (user.role === Role.PARTNER) {
+      const p = dto as Record<string, unknown>;
+      dto = {
+        ...(p['phone'] !== undefined ? { phone: p['phone'] } : {}),
+        ...(p['email'] !== undefined ? { email: p['email'] } : {}),
+        ...(p['address'] !== undefined ? { address: p['address'] } : {}),
+      } as UpdatePartnerDto;
+    }
     const prima = await this.findOne(id);
     const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {

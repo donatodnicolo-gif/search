@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.module';
 import { createHash } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { ibanValido } from '../transactions/transactions.module';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -183,6 +184,126 @@ export class AuthService {
       data: { userId: user.id, action: 'password-changed', note: 'Password cambiata dall\'utente' },
     });
     return { ok: true };
+  }
+
+  /**
+   * LA SCHEDA PROFILO (utente, 02/09): cliccando il proprio nome si vedono e
+   * si correggono i PROPRI dati — account (nome, email, password) e
+   * anagrafica collegata (valet o partner). MAI prezzi, tariffe o stipendi:
+   * quelli sono dell'ufficio, e il confine sta QUI nel server (elenchi
+   * espliciti di campi, non un form che nasconde).
+   */
+  async profilo(jwtUser: JwtUser) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: jwtUser.sub },
+      select: { email: true, firstName: true, lastName: true, role: true, partnerId: true, valetId: true },
+    });
+    if (!user) throw new UnauthorizedException('Sessione non valida');
+    const valet = user.valetId
+      ? await this.prisma.valet.findUnique({
+          where: { id: user.valetId },
+          select: { phone: true, address: true, city: true, birthPlace: true, birthDate: true,
+            fiscalCode: true, vehicle: true, iban: true, notifyByEmail: true, notifyByWhatsapp: true },
+        })
+      : null;
+    const partner = user.partnerId
+      ? await this.prisma.partner.findUnique({
+          where: { id: user.partnerId },
+          // L'insegna si MOSTRA ma non si modifica: è l'identità con cui
+          // FINANCE e fatture riconoscono il negozio.
+          select: { insegna: true, email: true, phone: true, address: true },
+        })
+      : null;
+    return { user: { email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }, valet, partner };
+  }
+
+  async aggiornaProfilo(
+    jwtUser: JwtUser,
+    body: {
+      firstName?: string; lastName?: string; email?: string;
+      valet?: { phone?: string; address?: string; city?: string; birthPlace?: string;
+        birthDate?: string | null; fiscalCode?: string; vehicle?: string; iban?: string;
+        notifyByEmail?: boolean; notifyByWhatsapp?: boolean };
+      partner?: { phone?: string; email?: string; address?: string };
+    },
+    partners?: { update: (id: string, dto: any, user: JwtUser) => Promise<unknown> },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: jwtUser.sub },
+      select: { id: true, email: true, partnerId: true, valetId: true },
+    });
+    if (!user) throw new UnauthorizedException('Sessione non valida');
+    const s = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined);
+    const cambiati: string[] = [];
+
+    // --- ACCOUNT: nome, cognome, email (la password ha la sua rotta, con
+    // la verifica dell'attuale).
+    const datiUser: Record<string, unknown> = {};
+    const nome = s(body.firstName, 80);
+    const cognome = s(body.lastName, 80);
+    if (nome) { datiUser['firstName'] = nome; cambiati.push('nome'); }
+    if (cognome) { datiUser['lastName'] = cognome; cambiati.push('cognome'); }
+    const email = s(body.email, 160)?.toLowerCase();
+    if (email && email !== user.email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new BadRequestException("L'email non è in un formato valido.");
+      }
+      datiUser['email'] = email;
+      cambiati.push('email');
+    }
+    if (Object.keys(datiUser).length) {
+      try {
+        await this.prisma.user.update({ where: { id: user.id }, data: datiUser });
+      } catch (e: any) {
+        if (e?.code === 'P2002') throw new BadRequestException('Questa email è già usata da un altro account.');
+        throw e;
+      }
+    }
+
+    // --- ANAGRAFICA VALET: SOLO i dati personali. Niente tariffe, km,
+    // ritenuta, team leader o stato: quelli li tocca l'ufficio.
+    if (body.valet && user.valetId) {
+      const v = body.valet;
+      const datiValet: Record<string, unknown> = {};
+      for (const campo of ['phone', 'address', 'city', 'birthPlace', 'fiscalCode', 'vehicle'] as const) {
+        const val = s(v[campo]);
+        if (val !== undefined) { datiValet[campo] = val; cambiati.push(campo); }
+      }
+      if (typeof v.notifyByEmail === 'boolean') { datiValet['notifyByEmail'] = v.notifyByEmail; cambiati.push('notifiche email'); }
+      if (typeof v.notifyByWhatsapp === 'boolean') { datiValet['notifyByWhatsapp'] = v.notifyByWhatsapp; cambiati.push('notifiche whatsapp'); }
+      if (v.birthDate !== undefined) {
+        const d = v.birthDate ? new Date(v.birthDate) : null;
+        if (d && Number.isNaN(d.getTime())) throw new BadRequestException('La data di nascita non è valida.');
+        datiValet['birthDate'] = d;
+        cambiati.push('data di nascita');
+      }
+      const iban = s(v.iban, 40)?.replace(/\s+/g, '').toUpperCase();
+      if (iban !== undefined) {
+        if (iban && !ibanValido(iban)) throw new BadRequestException("L'IBAN non supera il controllo (mod-97): ricontrollalo.");
+        datiValet['iban'] = iban || null;
+        cambiati.push('iban');
+      }
+      if (Object.keys(datiValet).length) {
+        await this.prisma.valet.update({ where: { id: user.valetId }, data: datiValet });
+      }
+    }
+
+    // --- CONTATTI PARTNER: passano dalla rotta dei partner (che dal 02/09
+    // stringe il PARTNER ai soli contatti E sincronizza le Anagrafiche).
+    if (body.partner && user.partnerId && partners) {
+      const p: Record<string, unknown> = {};
+      const tel = s(body.partner.phone, 40); if (tel !== undefined) { p['phone'] = tel; cambiati.push('telefono negozio'); }
+      const em = s(body.partner.email, 160)?.toLowerCase(); if (em) { p['email'] = em; cambiati.push('email negozio'); }
+      const ind = s(body.partner.address, 300); if (ind !== undefined) { p['address'] = ind; cambiati.push('indirizzo negozio'); }
+      if (Object.keys(p).length) await partners.update(user.partnerId, p, jwtUser);
+    }
+
+    if (cambiati.length) {
+      await this.prisma.userEvent.create({
+        data: { userId: user.id, action: 'profile-updated', note: `Profilo aggiornato: ${cambiati.join(', ')}` },
+      });
+    }
+    return { ok: true, cambiati };
   }
 
   async me(jwtUser: JwtUser) {

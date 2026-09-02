@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Autenticato, CurrentUser, JwtUser, Public } from '../common/decorators';
+import { PartnersService } from '../partners/partners.service';
 import { AuthService } from './auth.service';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { LoginDto } from './dto/login.dto';
@@ -8,7 +9,30 @@ import { LoginDto } from './dto/login.dto';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly partnersService: PartnersService,
+  ) {}
+
+  // ------------------------------------------------------------------
+  // LA SCHEDA PROFILO (utente, 02/09): i PROPRI dati, mai prezzi/stipendi.
+  // ------------------------------------------------------------------
+  @Autenticato()
+  @Get('profilo')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'La propria scheda: account + anagrafica collegata (valet o partner)' })
+  profilo(@CurrentUser() user: JwtUser) {
+    return this.authService.profilo(user);
+  }
+
+  @Autenticato()
+  @Post('profilo')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Aggiorna i propri dati (elenchi espliciti: niente prezzi, tariffe o stipendi)' })
+  aggiornaProfilo(@CurrentUser() user: JwtUser, @Body() body: Record<string, unknown>) {
+    return this.authService.aggiornaProfilo(user, (body ?? {}) as any, this.partnersService);
+  }
 
   @Public()
   @Post('login')

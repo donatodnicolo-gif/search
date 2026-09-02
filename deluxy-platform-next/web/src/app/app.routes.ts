@@ -41,6 +41,13 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'deliveries', pathMatch: 'full' },
       {
+        // LA SCHEDA PROFILO (02/09): dal proprio nome in basso a sinistra.
+        // Tutti i ruoli: ognuno vede e corregge solo i PROPRI dati.
+        path: 'profilo',
+        loadComponent: () =>
+          import('./pages/profilo.component').then((m) => m.ProfiloComponent),
+      },
+      {
         path: 'deliveries',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },

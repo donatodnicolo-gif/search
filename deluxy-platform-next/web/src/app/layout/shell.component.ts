@@ -180,13 +180,16 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         </nav>
 
         <div class="user-box">
-          <div class="avatar">{{ initials() }}</div>
-          <div class="user-meta">
-            <div class="user-name">
-              {{ auth.user()?.firstName }} {{ auth.user()?.lastName }}
+          <!-- 02/09 (utente): il proprio nome apre la SCHEDA PROFILO. -->
+          <a class="user-link" routerLink="/profilo" (click)="close()">
+            <div class="avatar">{{ initials() }}</div>
+            <div class="user-meta">
+              <div class="user-name">
+                {{ auth.user()?.firstName }} {{ auth.user()?.lastName }}
+              </div>
+              <div class="user-role">{{ roleLabel() | translate }}</div>
             </div>
-            <div class="user-role">{{ roleLabel() | translate }}</div>
-          </div>
+          </a>
           <app-notification-bell />
           <button class="logout" (click)="auth.logout()" [title]="'shell.logout' | translate">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -324,6 +327,12 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         width: 100%;
         height: 100%;
       }
+      .user-link {
+        display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;
+        color: inherit; text-decoration: none; cursor: pointer; border-radius: 10px;
+      }
+      .user-link:hover .user-name { text-decoration: underline; }
+      .user-link:focus-visible { outline: 2px solid var(--gold, #b8963e); outline-offset: 2px; }
       .user-box {
         display: flex;
         align-items: center;

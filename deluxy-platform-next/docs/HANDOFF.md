@@ -40,6 +40,23 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — LA SCHEDA PROFILO DAL PROPRIO NOME (utente)**. Cliccando nome/
+>   avatar in basso a sinistra → `/profilo` (tutti i ruoli): Account (nome,
+>   cognome, email con unicità), Password (riusa `cambia-password`, richiede
+>   l'attuale), La tua scheda (VALET: telefono, indirizzo, CF, mezzo, IBAN
+>   validato mod-97, notifiche — MAI tariffe/compensi), Il tuo negozio
+>   (PARTNER: telefono, email, indirizzo; insegna SOLA LETTURA — è l'identità
+>   con cui FINANCE riconosce il negozio). Rotte `GET/POST /auth/profilo`
+>   (@Autenticato, elenchi ESPLICITI di campi). ⭐ Chiuso per strada un buco
+>   VERO: `PUT /partners/:id` era aperto al PARTNER sul proprio id con TUTTO
+>   il DTO (kmIncluded, extraOutOfCityPrice…) — ora per il partner il dto si
+>   RIASSEGNA ai soli contatti (phone/email/address), e i contatti passano di
+>   lì così sincronizzano le Anagrafiche. Nello stesso giro (commit
+>   precedenti): il partner non vede più il blocco «Da pagare (valet)» nel
+>   form; il Salva del partner si accende solo con indirizzi Google validi
+>   (città+provincia, anche server); al blur l'indirizzo scritto a mano si
+>   normalizza col primo risultato Google. ⚠️ E2E col click vero non fatto:
+>   provare dal browser.
 > - **02/09 — IL FUORI-CITTÀ NATO DA UN INDIRIZZO SENZA VIRGOLE (controllo
 >   listini utente, #100845 Luca Faloni)**. Il ritiro «Corso Giacomo Matteotti
 >   1 20121 MI» — senza virgole né la parola Milano — mandava il ramo di
