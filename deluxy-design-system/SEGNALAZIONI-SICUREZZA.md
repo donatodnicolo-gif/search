@@ -138,3 +138,23 @@ altro modo.
 **Resta da guardare.** L'indirizzo admin scritto a mano sopravvive in UPDATE e
 DELETE (eredità della 0022): è un privilegio legato a una persona e non a un
 ruolo, e andrebbe sostituito da un ruolo vero quando si toccherà la scrittura.
+
+## 02/09/2026 — Piattaforma: il MITTENTE usciva al partner sulle vendite (#100791, segnalazione dell'utente, CHIUSA)
+
+**Il buco.** La regola del 31/08 dice: sui servizi di tipo VENDITA il cliente
+finale è di Deluxy e il partner non ne vede i dati. La mascheratura server
+(`soloIMieiSoldi`) toglieva però solo i campi del DESTINATARIO: il MITTENTE
+(`senderFirstName/LastName/Phone`) passava intero — sulla #100791 il partner
+Lijoi vedeva «Nathan Stevens». Anche `smsPhoneNo` (il telefono del cliente
+per gli SMS) non era nella lista.
+
+**La toppa.** I quattro campi entrano nella stessa lista di cancellazione,
+nello stesso ramo (vendita o `hideCustomerInfo`, con la deroga «consegna da
+fornitore» invariata: chi consegna in proprio i dati li deve avere). Stessa
+difesa, perimetro completato — nessuna regola nuova.
+
+**Perché è sfuggito.** La verifica del 31/08 aveva provato i campi del
+destinatario (che infatti lo screenshot mostra mascherati): il mittente non
+era nella lista dei campi provati. Lezione già nota: la prova va fatta
+sull'ELENCO COMPLETO dei campi personali del modello, non su quelli che la
+regola nomina.

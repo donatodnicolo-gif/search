@@ -1933,8 +1933,13 @@ export class DeliveriesService {
         pulita['partnerId'] === user.partnerId;
       const svc = (pulita['serviceType'] ?? {}) as { pricingModel?: string; hideCustomerInfo?: boolean };
       if (!laFaIlPartner && (svc.pricingModel === 'VENDITA' || svc.hideCustomerInfo)) {
+        // ⚠️ 02/09 (segnalazione utente, #100791): anche il MITTENTE è il
+        // cliente di Deluxy — la mascheratura toglieva il destinatario ma
+        // «Nathan Stevens» usciva dal campo sender. Idem il telefono degli
+        // SMS, che è quello del cliente finale.
         for (const campo of ['recipientFirstName', 'recipientLastName', 'recipientAddress',
-          'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude']) {
+          'recipientPhone', 'recipientEmail', 'recipientIntercom', 'latitude', 'longitude',
+          'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo']) {
           delete pulita[campo];
         }
       }

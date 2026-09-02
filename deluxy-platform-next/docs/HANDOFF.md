@@ -40,6 +40,14 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — PRIVACY VENDITE: anche il MITTENTE sparisce al partner**
+>   (segnalazione utente su #100791: destinatario mascherato ma «Nathan
+>   Stevens» visibile). La lista di `soloIMieiSoldi` per il partner su
+>   VENDITA/`hideCustomerInfo` ora toglie anche `senderFirstName/LastName/
+>   Phone` e `smsPhoneNo` (telefono del cliente per gli SMS); deroga «consegna
+>   da fornitore» invariata. Registrata in SEGNALAZIONI-SICUREZZA. Deploy
+>   Ready. Lezione: la prova del 31/08 aveva coperto i campi del destinatario,
+>   non l'ELENCO COMPLETO dei campi personali del modello.
 > - **02/09 — IL CANONE VINCE OVUNQUE SULLE VENDITE (utente: «prendi tutto da
 >   canone e sistema anche precedenti», dal caso #100843 Maryflor)**. Trovati e
 >   SPENTI i tre scrittori che congelavano la quota: ① `create` (il default
