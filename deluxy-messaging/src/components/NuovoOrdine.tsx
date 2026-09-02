@@ -47,9 +47,19 @@ function soldi(v: number): string {
 
 export function NuovoOrdine({
   prefill,
+  compatto = false,
 }: {
   /** Chi è il cliente, quando si arriva da una conversazione. */
   prefill?: { nome?: string; email?: string; telefono?: string; negozioId?: string }
+  /**
+   * Il modulo sta DENTRO qualcosa (la scheda laterale della chat): niente
+   * titolone di pagina.
+   *
+   * ⚠️ La riga del salvataggio automatico NON si toglie insieme al titolo: e
+   * l unica cosa che dice a chi compila che il lavoro non si perde, e in una
+   * colonna stretta serve piu che altrove.
+   */
+  compatto?: boolean
 }) {
   const [negozi, setNegozi] = useState<Negozio[]>([])
   // ⚠️ Il negozio arriva dalla conversazione quando si parte da lì: il cliente
@@ -744,9 +754,11 @@ export function NuovoOrdine({
   return (
     <>
       <div className="testa-pagina">
-        <h1>Nuovo ordine</h1>
+        {compatto ? null : <h1>Nuovo ordine</h1>}
         <span className="cella-sub">
-          Per il cliente al telefono. L&apos;ordine nasce su Shopify e torna qui dal registro.
+          {compatto
+            ? null
+            : 'Per il cliente al telefono. L’ordine nasce su Shopify e torna qui dal registro.'}
           {/* ⚠️ Si dice CHE si salva e QUANDO è stato salvato l'ultima volta:
               un salvataggio automatico di cui nessuno sa non protegge nessuno —
               chi ha perso un modulo una volta, la seconda ricopia a mano per

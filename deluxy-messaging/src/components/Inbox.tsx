@@ -7,6 +7,7 @@ import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
 import { linkOrdine } from '@/lib/link-ordine'
 import { NuovaMail } from './NuovaMail'
+import { NuovoOrdine } from './NuovoOrdine'
 import { CollegaOrdine } from './CollegaOrdine'
 import { RiassuntoChat } from './RiassuntoChat'
 import { DiarioConversazione } from './DiarioConversazione'
@@ -1552,6 +1553,16 @@ export function Inbox({
   // Il pannello del riassunto: chiuso di suo. Aprirlo mostra quello gia' salvato,
   // rifarlo e' un gesto in piu' — l'AI non si scomoda da sola.
   const [riassuntoAperto, setRiassuntoAperto] = useState(false)
+  /**
+   * Il modulo del nuovo ordine, aperto ACCANTO alla chat.
+   *
+   * ⚠️⚠️ Prima si apriva in una scheda nuova del browser (chiesto dall utente
+   * il 31/08/2026 di cambiare): mentre si compila l ordine bisogna RILEGGERE
+   * quello che il cliente ha scritto — indirizzo, orari, il biglietto, il nome
+   * di chi riceve — e in un altra scheda la chat non si vede. Si passava avanti
+   * e indietro a memoria, che e il modo di sbagliare una cifra.
+   */
+  const [ordineLaterale, setOrdineLaterale] = useState(false)
   // Il diario di questa conversazione, e quante note ci sono ancora da fare.
   // ⚠️ Il numero sta SUL BOTTONE: una nota che si vede solo aprendo un pannello
   // che nessuno apre non è una nota, è un promemoria scritto e perso.
@@ -1953,7 +1964,7 @@ export function Inbox({
         )}
       </div>
 
-      {aFinestra ? null : <div className="thread">{contenutoThread()}</div>}
+      {aFinestra ? null : threadConOrdine()}
     </div>
 
     {/* A colonne la conversazione si apre in una finestra sopra la bacheca:
@@ -1984,17 +1995,77 @@ export function Inbox({
     {aFinestra && selezionata ? (
       <div className="velo" onClick={chiudiFinestra} role="presentation">
         <div
-          className="pannello pannello-thread"
+          className={`pannello pannello-thread${ordineLaterale ? ' largo' : ''}`}
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
         >
-          <div className="thread">{contenutoThread()}</div>
+          {threadConOrdine()}
         </div>
       </div>
     ) : null}
     </>
   )
+
+  /**
+   * La chat, e — quando serve — il modulo del nuovo ordine QUI ACCANTO.
+   *
+   * ⚠️⚠️ Non è un pop-up sopra la chat: sarebbe lo stesso problema della scheda
+   * nuova, cioè coprire quello che serve leggere. Sono due colonne, e la chat
+   * resta viva a sinistra — si scorre, si legge, si risponde mentre l'ordine si
+   * compila.
+   */
+  function threadConOrdine() {
+    return (
+      <div className={`thread-con-ordine${ordineLaterale ? ' con-ordine' : ''}`}>
+        <div className="thread">{contenutoThread()}</div>
+        {ordineLaterale && selezionata ? (
+          <aside className="ordine-laterale" aria-label="Nuovo ordine">
+            <div className="ordine-laterale-testa">
+              <strong>Nuovo ordine</strong>
+              {/* ⚠️ Il link alla pagina intera RESTA: su uno schermo stretto la
+                  colonna sta larga come una cabina telefonica, e chi preferisce
+                  la pagina non deve perderla per una comodità nuova. */}
+              <a
+                className="bottone secondario mini"
+                href={`/nuovo-ordine?${new URLSearchParams({
+                  negozio: selezionata.negozioId ?? '',
+                  nome: selezionata.nomeRubrica || selezionata.nome || '',
+                  email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
+                  telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
+                }).toString()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Aprilo nella pagina intera, in una scheda nuova"
+              >
+                Pagina intera ↗
+              </a>
+              <button
+                className="bottone secondario mini"
+                onClick={() => setOrdineLaterale(false)}
+                title="Chiudi il modulo"
+              >
+                Chiudi
+              </button>
+            </div>
+            {/* ⚠️ `key` sulla conversazione: cambiando cliente il modulo si
+                RIFÀ da capo. Senza, restavano dentro nome e indirizzo di quello
+                di prima — e si manderebbe il bouquet all'indirizzo sbagliato. */}
+            <NuovoOrdine
+              key={selezionata.id}
+              compatto
+              prefill={{
+                negozioId: selezionata.negozioId ?? '',
+                nome: selezionata.nomeRubrica || selezionata.nome || '',
+                email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
+                telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
+              }}
+            />
+          </aside>
+        ) : null}
+      </div>
+    )
+  }
 
   function contenutoThread() {
     return (
@@ -2206,28 +2277,23 @@ export function Inbox({
                       Shopify e si ricopiavano nome, telefono e indirizzo — con
                       la conversazione chiusa alle spalle e il rischio di
                       sbagliare una cifra.
-                      ⚠️ Si apre in una SCHEDA NUOVA: la conversazione resta
-                      aperta, perché mentre si compila l'ordine si continua a
-                      leggere quello che il cliente ha scritto (indirizzo,
-                      orari, il biglietto). La ↗ lo dice prima di cliccare.
+                      ⚠️⚠️ Si apre ACCANTO alla chat, non in una scheda nuova
+                      (chiesto dall'utente il 31/08/2026): mentre si compila
+                      bisogna RILEGGERE quello che il cliente ha scritto —
+                      indirizzo, orari, il biglietto, chi riceve — e in un'altra
+                      scheda la conversazione non si vede: si andava avanti e
+                      indietro a memoria, che è il modo di sbagliare una cifra.
                       ⚠️ Email e telefono si passano dal canale giusto: su una
                       mail `idEsterno` è l'indirizzo, su WhatsApp è il numero —
                       scambiarli vorrebbe dire un ordine con il telefono nel
                       campo email. */}
-                  <a
-                    className="bottone secondario mini"
-                    href={`/nuovo-ordine?${new URLSearchParams({
-                      negozio: selezionata.negozioId ?? '',
-                      nome: selezionata.nomeRubrica || selezionata.nome || '',
-                      email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
-                      telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
-                    }).toString()}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Fai un ordine per questo cliente: si apre in una scheda nuova, con nome e recapito già compilati"
+                  <button
+                    className={`bottone secondario mini${ordineLaterale ? ' attivo' : ''}`}
+                    onClick={() => setOrdineLaterale(!ordineLaterale)}
+                    title="Fai un ordine per questo cliente: si apre qui accanto, con la chat sempre visibile"
                   >
-                    Nuovo ordine ↗
-                  </a>
+                    {ordineLaterale ? 'Chiudi l’ordine' : 'Nuovo ordine'}
+                  </button>
                 </span>
 
                 {/* ── Capire questa conversazione ──

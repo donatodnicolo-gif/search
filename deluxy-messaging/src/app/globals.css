@@ -6049,3 +6049,83 @@ tr.riga-click:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: -2px;
 }
+
+/* ── LA CHAT E, ACCANTO, IL MODULO DEL NUOVO ORDINE ───────────────────────────
+   ⚠️⚠️ Chiesto dall'utente il 31/08/2026: «quando faccio nuovo ordine non aprire
+   una nuova pagina ma apri il form in una scheda laterale rispetto alla chat,
+   così da poter vedere chat e scheda ordine». Il caso è quello di tutti i
+   giorni: mentre si compila l'ordine bisogna RILEGGERE quello che il cliente ha
+   scritto — indirizzo, orari, il biglietto, chi riceve. In una scheda nuova del
+   browser la conversazione non si vede, e si va avanti e indietro a memoria. */
+.thread-con-ordine {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.thread-con-ordine > .thread {
+  flex: 1;
+  min-width: 0;
+}
+
+.ordine-laterale {
+  /* ⚠️ Larghezza in `min()`: su uno schermo grande 480px bastano, su uno piccolo
+     prenderebbero mezza finestra e la chat diventerebbe una feritoia. */
+  width: min(480px, 42vw);
+  flex: 0 0 auto;
+  border-left: 1px solid var(--hairline);
+  /* Scorre per conto suo: il modulo è lungo, e trascinare tutta la finestra
+     farebbe perdere di vista i messaggi — che è il motivo per cui sta qui. */
+  overflow-y: auto;
+  padding: 12px 14px 24px;
+  background: var(--bg);
+}
+
+.ordine-laterale-testa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ordine-laterale-testa strong {
+  flex: 1;
+  font-size: 15px;
+}
+
+/* Nella finestra sopra la bacheca, con l'ordine aperto la finestra si allarga:
+   due colonne dentro la larghezza di prima sarebbero due colonne strette. */
+.pannello-thread.largo {
+  width: min(1400px, 100%);
+}
+
+@media (max-width: 900px) {
+  /* ⚠️ Sotto i 900px le due colonne diventano due strisce da 300px: si passa a
+     una sopra l'altra. Il modulo va SOTTO la chat, non sopra: chi lo apre sta
+     già leggendo i messaggi, e spingerli fuori schermo rifarebbe il danno che
+     questa scheda doveva togliere. */
+  .thread-con-ordine {
+    flex-direction: column;
+  }
+  .ordine-laterale {
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    max-height: 60vh;
+  }
+}
+
+/* ⚠️ Le due cornici in cui vive la chat hanno regole d'altezza diverse, e la
+   colonna dell'ordine deve seguirle tutte e due — o cresce lei e la finestra si
+   allunga oltre lo schermo, che è il difetto che `min-height: 0` esiste per
+   evitare. Nella finestra: la stessa altezza del thread. Nella pagina: quella
+   della griglia. */
+.pannello-thread .thread-con-ordine {
+  height: min(76vh, 720px);
+}
+.pannello-thread .thread-con-ordine > .thread {
+  height: 100%;
+}
+.inbox .thread-con-ordine {
+  min-height: 0;
+}
