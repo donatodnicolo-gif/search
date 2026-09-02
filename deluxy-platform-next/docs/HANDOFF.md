@@ -40,6 +40,17 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — PRIVACY VALET COMPLETATA (utente: «valet e team leader non
+>   vedono i dati del cliente neanche in tabella fino a in consegna»)**. La
+>   regola del 31/08 c'era (lista+dettaglio via `soloIMieiSoldi`, TL compreso)
+>   ma con DUE buchi: ① il ramo valet non mascherava MITTENTE (`sender*`),
+>   `smsPhoneNo` e la relazione `customer` — ora dentro la stessa lista fino a
+>   «scoperto»; ② la MAPPA (`mapPoints`) mandava nome+cognome del destinatario
+>   SENZA filtro (a ogni stato, e al partner anche sulle vendite) — ora i
+>   punti passano da `soloIMieiSoldi` col select arricchito. Indirizzi sempre
+>   visibili al valet (precisazione 31/08). Registrata in
+>   SEGNALAZIONI-SICUREZZA (terza volta della stessa lezione: provare TUTTI i
+>   campi personali su TUTTE le uscite). Deploy Ready.
 > - **02/09 — L'AMBITO DEL TEAM LEADER È TERRITORIALE (utente: «dovrebbe
 >   essere solo Roma»)**. Prima `filtroDaAmbito` vedeva PER VALET («le
 >   consegne dei valet delle mie province, ovunque siano»): Chakroun (TL di

@@ -456,13 +456,22 @@ export class DeliveriesService {
         recipientAddress: true,
         deliveryTimeFrom: true,
         deliveryTimeTo: true,
-        partner: { select: { insegna: true } },
+        partner: { select: { id: true, insegna: true } },
         valet: { select: { firstName: true, lastName: true } },
+        // ⚠️ Servono SOLO alla mascheratura qui sotto (ramo partner su
+        // vendita e deroga «consegna da fornitore»): la mappa era l'unica
+        // uscita che mandava il destinatario SENZA passare dal filtro.
+        partnerId: true,
+        deliveredByPartner: true,
+        serviceType: { select: { pricingModel: true, hideCustomerInfo: true } },
       },
       orderBy: { date: 'desc' },
       take: 3000, // cap di sicurezza: oltre serve un altro approccio (tiles/heatmap)
     });
-    return { points: rows, capped: rows.length === 3000 };
+    // ⚠️ 02/09 (regola utente): anche la MAPPA passa dal filtro dei ruoli —
+    // il valet (team leader compreso) non vede i dati del cliente finché la
+    // consegna non è «in consegna», il partner mai sulle vendite.
+    return { points: rows.map((r) => this.soloIMieiSoldi(r as any, user)), capped: rows.length === 3000 };
   }
 
   /**
@@ -2045,8 +2054,14 @@ export class DeliveriesService {
     // (nome, telefono, email, citofono).
     const scoperto = ['in_delivery', 'delivered', 'not_delivered'].includes(pulita['status']);
     if (!scoperto) {
+      // ⚠️ 02/09 (regola utente): «valet e team leader non vedono i dati del
+      // cliente NEANCHE in tabella finché la consegna non è in consegna» —
+      // e i dati del cliente sono anche il MITTENTE, il telefono degli SMS e
+      // l'anagrafica customer collegata, che questa lista non copriva.
       for (const campo of ['recipientFirstName', 'recipientLastName',
-        'recipientPhone', 'recipientEmail', 'recipientIntercom']) {
+        'recipientPhone', 'recipientEmail', 'recipientIntercom',
+        'senderFirstName', 'senderLastName', 'senderPhone',
+        'smsPhoneNo', 'customer']) {
         delete pulita[campo];
       }
     }

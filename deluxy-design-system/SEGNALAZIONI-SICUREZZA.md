@@ -158,3 +158,30 @@ destinatario (che infatti lo screenshot mostra mascherati): il mittente non
 era nella lista dei campi provati. Lezione già nota: la prova va fatta
 sull'ELENCO COMPLETO dei campi personali del modello, non su quelli che la
 regola nomina.
+
+## 02/09/2026 — Piattaforma: dati del cliente al valet prima di «in consegna» (mittente, SMS, mappa) — CHIUSA
+
+**La regola (utente, 02/09).** «Valet e team leader non vedono i dati del
+cliente NEANCHE in tabella finché la consegna non è in consegna.»
+
+**Cosa reggeva già.** Lista e dettaglio passavano da `soloIMieiSoldi`: nome,
+telefono, email e citofono del DESTINATARIO nascosti fino a `in_delivery`
+(regola 31/08, team leader compreso: è ruolo valet).
+
+**I buchi.** ① La lista dei campi nascosti non copriva il MITTENTE
+(`sender*`), il telefono degli SMS (`smsPhoneNo`) né l'anagrafica `customer`
+collegata: dal dettaglio uscivano a qualunque stato. Stesso identico buco
+chiuso il giorno prima sul lato partner: la prova si era fermata di nuovo ai
+campi che la regola nominava. ② La MAPPA (`mapPoints`) era l'unica uscita che
+mandava nome e cognome del destinatario SENZA passare dal filtro: li vedeva
+il valet a ogni stato, e il partner anche sulle vendite.
+
+**La toppa.** ① I quattro campi entrano nella lista mascherata fino a
+«scoperto»; ② i punti della mappa passano da `soloIMieiSoldi` (col select
+arricchito dei campi che servono al ramo partner). Gli INDIRIZZI restano
+visibili al valet (precisazione 31/08: servono a pianificare il giro).
+
+**Lezione, per la terza volta.** La prova di una mascheratura si fa
+sull'ELENCO COMPLETO dei campi personali del modello E su TUTTE le uscite
+(lista, dettaglio, mappa, calendario) — non sui campi e sulla rotta che la
+regola nomina.
