@@ -378,7 +378,44 @@ export class SettingsService {
   }
 
   /**
-   * Carica un file su Drive nella cartella configurata (upload multipart v3).
+   * La cartella di destinazione su Drive: «File App» (deciso dall'utente
+   * 02/09). Se `driveFolderId` è già impostato vale quello; altrimenti si
+   * CERCA la cartella per nome e, se non esiste, la si CREA — e l'id si
+   * salva, così il giro si fa una volta sola. Parlante, non lancia: senza
+   * cartella il file va nella radice del Drive (meglio di un upload fallito).
+   */
+  private async cartellaFileApp(token: string): Promise<string | null> {
+    const salvata = ((await this.get('driveFolderId')) || '').trim();
+    if (salvata) return salvata;
+    const NOME = 'File App';
+    try {
+      const q = encodeURIComponent(
+        `name='${NOME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      );
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&pageSize=1`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const b = (await res.json().catch(() => ({}))) as { files?: { id: string }[] };
+      let id = res.ok ? (b.files?.[0]?.id ?? null) : null;
+      if (!id) {
+        const crea = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: NOME, mimeType: 'application/vnd.google-apps.folder' }),
+        });
+        const cb = (await crea.json().catch(() => ({}))) as { id?: string };
+        id = crea.ok ? (cb.id ?? null) : null;
+      }
+      if (id) await this.save({ driveFolderId: id });
+      return id;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Carica un file su Drive nella cartella «File App» (upload multipart v3).
    * Ritorna il link consultabile; parlante, non lancia — chi chiama decide il
    * ripiego (le ricevute restano sul percorso di oggi se Drive non c'è).
    */
@@ -389,8 +426,8 @@ export class SettingsService {
   ): Promise<{ ok: boolean; motivo: string; id?: string; link?: string }> {
     const { token, motivo } = await this.driveAccessToken();
     if (!token) return { ok: false, motivo };
-    const o = await this.driveConfigurato();
-    const meta = { name: nome, ...(o.cartella ? { parents: [o.cartella] } : {}) };
+    const cartella = await this.cartellaFileApp(token);
+    const meta = { name: nome, ...(cartella ? { parents: [cartella] } : {}) };
     const confine = 'deluxy' + Math.random().toString(36).slice(2);
     const corpo = Buffer.concat([
       Buffer.from(
@@ -436,6 +473,10 @@ export class SettingsService {
         return { ok: false, motivo: 'Google non ha dato un refresh token: rifare il consenso dal bottone.' };
       }
       await this.save({ driveRefreshToken: b.refresh_token, driveOauthState: '' });
+      // Appena collegato si prepara la cartella «File App»: chi apre Drive
+      // la trova subito, senza aspettare il primo file.
+      const { token } = await this.driveAccessToken();
+      if (token) await this.cartellaFileApp(token);
       return { ok: true, motivo: 'Drive collegato.' };
     } catch (e) {
       return { ok: false, motivo: `Google non raggiungibile: ${(e as Error).message}` };

@@ -3,6 +3,31 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 sera — DRIVE «FILE APP», PAGHE COL FLAG, #57953 E #100849**
+> (deployato e Ready):
+> - **Drive: cartella «File App»** (regola utente, dopo che il collegamento è
+>   riuscito). Se `driveFolderId` è vuoto, l'app la CERCA per nome su Drive e
+>   se non c'è la CREA, salvando l'id (giro una volta sola); la prepara già
+>   al momento del collegamento. I file caricati finiscono lì.
+> - **Verifica paghe 142 Restaurant 2026**: tutte le 23 hanno la paga SCRITTA
+>   sulla consegna (> 0), che per `pagaConsegna` vince sul listino → il flag
+>   fuori-città sbagliato NON tocca nessuna paga. Le due vere fuori città
+>   sono già state pagate a km dal legacy (#60343: 25,13 = 25,13 km × 1 €;
+>   #61465: 26,22 ≈ 29,13 × 0,9). Nessuna riga stipendio in piattaforma
+>   (pagate nel legacy).
+> - **#57953 NON corretta, con motivo**: la riga di fattura dice 594 € su
+>   FAT-LEGACY-344 **PAGATA** — il partner ha davvero pagato 594 (579 valore
+>   + 15 flat del legacy). Correggere la consegna oggi falsificherebbe un
+>   conto chiuso; se si vuole un conguaglio è una decisione commerciale
+>   (nota di credito), non una correzione dati.
+> - **#100849 (Pasticceria Dante, vendita)**: commissione 0 perché il
+>   LISTINO «Vendita Deluxy» del partner ha fee = 0 (mai impostata) — il
+>   conto è coerente, il listino è vuoto: da impostare dall'ufficio (non si
+>   deduce). Valet Cavicchioli: listino «Consegna Standard» (7 €), ma la
+>   consegna è FUORI CITTÀ (Sesto → Milano, 9 km) → paga 9 km × 1 €
+>   (scheda valet) = 9 €. La riga merce è 36 € scritti a mano contro 54 di
+>   catalogo: la fee, quando ci sarà, morde su 36.
+>
 > 🧪 **02/09/2026 pomeriggio — TERZA RAFFICA: PROFILO CON RITIRI, DETTAGLIO
 > PRODOTTO, VERIFICA 142 RESTAURANT** (deployato e Ready):
 > - **Profilo partner: più indirizzi di ritiro** (regola utente). In /profilo,
