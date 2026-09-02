@@ -1666,14 +1666,16 @@ export class DeliveriesListComponent {
     // ⚠️ Col filtro partner il giorno NON si mette di default: si arriva qui
     // per vedere la sua storia, e con «oggi» addosso la pagina direbbe quasi
     // sempre «nessuna consegna» a un partner che ne ha migliaia.
-    this.dateFilter = qDate ?? (qPartner ? '' : this.oggi());
+    // ⚠️ 02/09 (regola utente): per l'utente PARTNER il default è TUTTE le
+    // sue consegne, senza il giorno addosso — stessa ragione.
+    this.dateFilter = qDate ?? (qPartner || this.isPartnerRuolo() ? '' : this.oggi());
     this.dateTo = p.get('dateTo') ?? '';
     this.statusFilter = p.get('status') ?? '';
     const v = p.get('view');
     if (v === 'attive' || v === 'storico' || v === 'tutte') this.vista = v;
     // Arrivando dalla scheda di un partner senza vista dichiarata si guarda
     // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
-    else if (qPartner) this.vista = 'tutte';
+    else if (qPartner || this.isPartnerRuolo()) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
     const pag = Number(p.get('page'));
     if (Number.isInteger(pag) && pag > 1) this.page.set(pag);
@@ -1785,6 +1787,10 @@ export class DeliveriesListComponent {
    * consegna non è in lavorazione. Accetta non cambia il giro; Rifiuta chiude
    * la consegna come «Non accettata» (Storico) e l'ordine torna all'ufficio.
    */
+  /** L'utente loggato è un partner? (default «tutte», 02/09) */
+  isPartnerRuolo(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
+  }
   puoRispondereVendita(d: Delivery): boolean {
     const u = this.auth.user();
     return u?.role === 'PARTNER'

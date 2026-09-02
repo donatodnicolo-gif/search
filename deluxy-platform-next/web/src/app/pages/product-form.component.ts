@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
 import { Category, Partner, PRODUCT_PLATFORMS } from '../core/models';
 
 interface FieldRow { name: string; required: boolean; adminOnly: boolean; }
@@ -71,7 +72,11 @@ interface ImageRow { url: string; }
         </div>
         <div class="toggles mt">
           <label class="toggle"><input type="checkbox" name="isUnique" [(ngModel)]="model.isUnique" /><span>{{ 'productForm.toggle.isUnique' | translate }}</span></label>
-          <label class="toggle"><input type="checkbox" name="notEditable" [(ngModel)]="model.notEditable" /><span>{{ 'productForm.toggle.notEditable' | translate }}</span></label>
+          <!-- 02/09 (regola utente): il flag «non modificabile» lo governa
+               l'UFFICIO — al partner non compare (e il server lo scarta). -->
+          @if (!isPartner()) {
+            <label class="toggle"><input type="checkbox" name="notEditable" [(ngModel)]="model.notEditable" /><span>{{ 'productForm.toggle.notEditable' | translate }}</span></label>
+          }
           <label class="toggle"><input type="checkbox" name="controlStock" [(ngModel)]="model.controlStock" /><span>{{ 'productForm.toggle.controlStock' | translate }}</span></label>
           <label class="toggle"><input type="checkbox" name="useAlternateName" [(ngModel)]="model.useAlternateName" /><span>{{ 'productForm.toggle.useAlternateName' | translate }}</span></label>
         </div>
@@ -217,7 +222,10 @@ interface ImageRow { url: string; }
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
         }
-        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        @if (bloccatoPerPartner()) {
+          <div class="error-card card">{{ 'productForm.nonModificabile' | translate }}</div>
+        }
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || bloccatoPerPartner()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'productForm.submit') | translate) }}
         </button>
       </div>
@@ -318,6 +326,15 @@ export class ProductFormComponent {
     return suo ? [suo, ...attivi] : attivi;
   });
   readonly saving = signal(false);
+  private readonly auth = inject(AuthService);
+  isPartner(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
+  }
+  /** 02/09 (regola utente): un prodotto «non modificabile» il partner non lo
+   *  salva — il server rifiuta comunque, qui si spiega prima. */
+  bloccatoPerPartner(): boolean {
+    return this.isPartner() && Boolean(this.model.notEditable);
+  }
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);
 

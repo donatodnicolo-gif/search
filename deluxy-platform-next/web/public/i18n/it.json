@@ -1652,6 +1652,7 @@
   },
   "productForm": {
     "backToProducts": "Prodotti",
+    "nonModificabile": "Questo prodotto è segnato «non modificabile»: lo gestisce l'ufficio.",
     "title": "Nuovo prodotto",
     "caption": "Anagrafica, prezzo, tipo e campi personalizzati.",
     "submit": "Crea prodotto",

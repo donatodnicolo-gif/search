@@ -202,6 +202,15 @@ export class ProductsService {
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
       throw new ForbiddenException('Puoi modificare solo i tuoi prodotti');
     }
+    // ⚠️ 02/09 (regola utente): un prodotto col flag «NON MODIFICABILE» il
+    // partner non lo tocca — e non può nemmeno TOGLIERSI il flag da solo (il
+    // dto lo dichiara: whitelist ≠ difesa). Il flag lo governa l'ufficio.
+    if (user.role === Role.PARTNER) {
+      if ((product as any).notEditable) {
+        throw new ForbiddenException('Questo prodotto non è modificabile: è gestito dall\'ufficio.');
+      }
+      delete (dto as Record<string, unknown>)['notEditable'];
+    }
     const {
       fields,
       components,
@@ -344,6 +353,10 @@ export class ProductsService {
     const product = await this.findOne(id);
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
       throw new ForbiddenException('Puoi eliminare solo i tuoi prodotti');
+    }
+    // 02/09 (regola utente): non modificabile = nemmeno eliminabile dal partner.
+    if (user.role === Role.PARTNER && (product as any).notEditable) {
+      throw new ForbiddenException('Questo prodotto non è modificabile: è gestito dall\'ufficio.');
     }
     await this.prisma.product.update({ where: { id }, data: { active: false } });
     return { deactivated: true };

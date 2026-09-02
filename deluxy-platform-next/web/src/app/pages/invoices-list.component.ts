@@ -117,11 +117,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
     <!-- I filtri vanno al server: filtrare nel browser dopo aver scaricato
          tutto regge finche' le fatture sono 559, non oltre. -->
     <div class="filtri card">
-      <label class="f cerca">
-        <span>{{ 'invoices.filter.search' | translate }}</span>
-        <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
-               [placeholder]="(view() === 'pending' ? 'invoices.filter.searchPendingPh' : 'invoices.filter.searchPh') | translate" />
-      </label>
+      <!-- 02/09 (regola utente): nel «Da fatturare» la ricerca è PER PARTNER —
+           a un partner, che vede solo sé stesso, non serve e confonde. -->
+      @if (!(isPartner() && view() === 'pending')) {
+        <label class="f cerca">
+          <span>{{ 'invoices.filter.search' | translate }}</span>
+          <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
+                 [placeholder]="(view() === 'pending' ? 'invoices.filter.searchPendingPh' : 'invoices.filter.searchPh') | translate" />
+        </label>
+      }
       @if (canManage()) {
         <label class="f">
           <span>{{ 'invoices.gen.partner' | translate }}</span>
@@ -159,7 +163,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
             <option value="PAID">{{ 'invoices.status.PAID' | translate }}</option>
           </select>
         </label>
-      } @else {
+      } @else if (!isPartner()) {
+        <!-- 02/09: «solo partner con consegne prezzabili» è un filtro FRA
+             partner — al singolo partner non dice niente. -->
         <label class="f interruttore">
           <input type="checkbox" [(ngModel)]="soloPrezzabili" (ngModelChange)="filtroCambiato()" />
           <span>{{ 'invoices.filter.onlyPriced' | translate }}</span>

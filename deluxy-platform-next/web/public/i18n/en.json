@@ -1652,6 +1652,7 @@
   },
   "productForm": {
     "backToProducts": "Products",
+    "nonModificabile": "This product is marked \"not editable\": it is managed by the office.",
     "title": "New product",
     "caption": "Details, price, type and custom fields.",
     "submit": "Create product",
