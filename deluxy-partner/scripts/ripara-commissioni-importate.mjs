@@ -78,7 +78,9 @@ for (const f of righe) {
   if (ESEGUI) {
     if (f.incassoRegistrato) {
       const s = await p.saldoMensile.findUnique({ where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } } });
-      if (s) {
+      // solo se l'incasso automatico è ancora dentro il saldo: un «Annulla»
+      // successivo lo ha già azzerato (142 RESTAURANT giugno, 02/09 14:29)
+      if (s && s.bonificoImporto != null) {
         const nuovo = +(((s.bonificoImporto ?? 0) + v).toFixed(2));
         const saldo = await p.saldoMensile.update({ where: { id: s.id }, data: { bonificoImporto: Math.abs(nuovo) < 0.005 ? null : nuovo } });
         await aggiornaPagamentoDaSaldo(saldo);
