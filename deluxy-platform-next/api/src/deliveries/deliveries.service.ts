@@ -133,7 +133,17 @@ export function cittaDaIndirizzo(indirizzo: string | null | undefined): string |
   const conCap = ultima.match(/^\d{5}\s+(.+?)\s+[A-Z]{2}$/);
   if (conCap) return conCap[1].trim();
   const senzaCap = ultima.match(/^(.+?)\s+[A-Z]{2}$/);
-  if (senzaCap) return senzaCap[1].replace(/^\d{5}\s*/, '').trim() || null;
+  if (senzaCap) {
+    const candidata = senzaCap[1].replace(/^\d{5}\s*/, '').trim();
+    // ⚠️ 02/09 (#100845, Luca Faloni): su «Corso Giacomo Matteotti 1 20121 MI»
+    // — senza virgole e senza il nome della città — questo ramo restituiva
+    // TUTTA LA VIA come «città», e due indirizzi di Milano risultavano comuni
+    // diversi: la consegna è stata prezzata FUORI CITTÀ (5,40 invece di 15).
+    // Una «città» con dentro dei numeri non è una città: meglio «non so»
+    // (= in città, che non inventa chilometraggi) di una risposta sbagliata.
+    if (!candidata || /\d/.test(candidata) || candidata.length > 40) return null;
+    return candidata;
+  }
   return null;
 }
 

@@ -40,6 +40,17 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — IL FUORI-CITTÀ NATO DA UN INDIRIZZO SENZA VIRGOLE (controllo
+>   listini utente, #100845 Luca Faloni)**. Il ritiro «Corso Giacomo Matteotti
+>   1 20121 MI» — senza virgole né la parola Milano — mandava il ramo di
+>   ripiego di `cittaDaIndirizzo` a restituire TUTTA LA VIA come «città»:
+>   comuni «diversi» → prezzata fuori città 2,7 km × 2 = **5,40 invece di
+>   15,00** (base in città, 2,7 ≤ 5 inclusi della scheda). Parser corretto
+>   (una «città» con numeri dentro o > 40 caratteri = NON SO → in città, che
+>   non inventa chilometraggi); scan su tutte le fuori-città di piattaforma
+>   (12): 9 giuste, **#100845 e #100797** (Rosa Grand, Piazza Fontana =
+>   Milano) corrette con log (`correggi-fuori-citta-102.mjs`), #100795
+>   (Garbagnate Milanese) GIUSTA e non toccata. Deploy Ready.
 > - **02/09 — PRIVACY VALET COMPLETATA (utente: «valet e team leader non
 >   vedono i dati del cliente neanche in tabella fino a in consegna»)**. La
 >   regola del 31/08 c'era (lista+dettaglio via `soloIMieiSoldi`, TL compreso)
