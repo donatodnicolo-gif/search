@@ -102,6 +102,8 @@ export interface ProductRef {
   active?: boolean;
   /** Negozi Shopify su cui è pubblicato (JSON di nomi, es. ["DELUXY_FLOWERS"]). */
   platforms?: string | null;
+  /** Gestito dall'ufficio: il partner lo vede a catalogo ma non lo tocca. */
+  notEditable?: boolean;
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
 }

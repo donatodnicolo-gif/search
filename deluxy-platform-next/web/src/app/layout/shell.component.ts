@@ -167,6 +167,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
             @for (item of section.items; track item.path) {
               <a
                 [routerLink]="item.path"
+                [queryParams]="linkParams(item)"
                 routerLinkActive="active"
                 class="nav-link"
                 (click)="close()"
@@ -628,6 +629,18 @@ export class ShellComponent {
     const role = this.auth.user()?.role;
     return role ? `role.${role}` : '';
   });
+
+  /**
+   * 02/09 (regola utente): il PARTNER da «Consegne» atterra sulle ATTIVE
+   * (/deliveries?view=attive), senza giorno addosso. Gli altri ruoli sul
+   * default della pagina.
+   */
+  linkParams(item: NavItem): Record<string, string> | null {
+    if (item.path === '/deliveries' && this.auth.user()?.role === 'PARTNER') {
+      return { view: 'attive' };
+    }
+    return null;
+  }
 
   readonly initials = computed(() => {
     const u = this.auth.user();

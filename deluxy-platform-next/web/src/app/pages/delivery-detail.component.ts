@@ -104,6 +104,16 @@ interface DeliveryDetail {
            indirizzo fisso butterebbe via il punto di partenza. -->
       <button type="button" class="back" (click)="indietro()">← {{ 'deliveries.title' | translate }}</button>
       @if (delivery(); as d) {
+        <!-- Carta intestata SOLO in stampa (02/09, regola utente): logo
+             Deluxy a sinistra, riferimenti del documento a destra. A schermo
+             non esiste: l'app ha già la sua cornice. -->
+        <header class="print-head" aria-hidden="true">
+          <span class="ph-brand"><span class="ph-mark">D</span><span class="ph-name">DELUXY</span></span>
+          <span class="ph-doc">
+            <strong>{{ 'deliveryDetail.title' | translate: { code: d.code } }}</strong>
+            <span>{{ d.date | date: 'dd/MM/yyyy' }} · {{ 'status.delivery.' + d.status | translate }}</span>
+          </span>
+        </header>
         <div class="title-row">
           <h1>{{ 'deliveryDetail.title' | translate: { code: d.code } }}</h1>
           <span class="pill" [class]="'pill s-' + d.status">
@@ -241,6 +251,16 @@ interface DeliveryDetail {
                   @else if (d.valetSalaryDalListino != null) { {{ d.valetSalaryDalListino }} € <span class="muted">({{ 'deliveryDetail.fromListino' | translate }})</span> }
                   @else { — }</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
+            } @else if (costoPartnerVisibile(d)) {
+              <!-- ⚠️ 02/09 (regola utente): sui servizi a PREZZO FISSO e A ORE
+                   il «price» è il canone che il PARTNER paga — è un costo SUO
+                   e deve vederlo (in tabella già c'era). Restano nascosti la
+                   paga del valet e i margini, che sono conti nostri. -->
+              <dt>{{ 'deliveryDetail.costoPartner' | translate }}</dt>
+              <dd>{{ d.price != null ? d.price + ' €' : '—' }}</dd>
+              @if (d.additionalPrice != null && d.additionalPrice > 0) {
+                <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt><dd>{{ d.additionalPrice }} €</dd>
+              }
             }
           </dl>
         </section>
@@ -678,6 +698,26 @@ interface DeliveryDetail {
         font-weight: 550; color: var(--blue, #0a84ff); text-decoration: none; }
       .scarica-btn:hover { text-decoration: underline; }
       .form-head { margin-bottom: 24px; }
+      /* Carta intestata: vive solo sulla carta. */
+      .print-head { display: none; }
+      @media print {
+        .print-head {
+          display: flex; justify-content: space-between; align-items: center;
+          border-bottom: 2px solid #111; padding-bottom: 5mm; margin-bottom: 5mm;
+        }
+        .ph-brand { display: inline-flex; align-items: center; gap: 8px; }
+        .ph-mark {
+          display: inline-flex; width: 32px; height: 32px; border-radius: 50%;
+          background: #111 !important; color: #fff !important; font-weight: 700;
+          font-size: 19px; align-items: center; justify-content: center;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        .ph-name { font-size: 19px; font-weight: 700; letter-spacing: 0.35em; }
+        .ph-doc { text-align: right; display: inline-flex; flex-direction: column; gap: 2px; font-size: 11px; }
+        .ph-doc strong { font-size: 14px; }
+        /* Il titolo a schermo duplicherebbe l'intestazione: sulla carta va via. */
+        .title-row { display: none !important; }
+      }
       /* Era un un link finto (href javascript:void): nell.albero di accessibilita. un
          link senza destinazione. Ora e. un bottone, e questa regola gli toglie
          il vestito nativo per lasciarlo identico a prima. */
@@ -923,6 +963,15 @@ export class DeliveryDetailComponent {
   /** Una vendita: il caso in cui `price` e' la NOSTRA quota, non il prezzo. */
   venditaAlPartner(d: { serviceType?: { pricingModel?: string } | null }): boolean {
     return d.serviceType?.pricingModel === 'VENDITA';
+  }
+
+  /**
+   * 02/09 (regola utente): su PREZZO_FISSO e A_ORA il `price` e' il canone che
+   * paga IL PARTNER — un costo suo, quindi lo vede. Sulla VENDITA no: li'
+   * `price` e' la quota Deluxy, e il suo conto sta nel riquadro della vendita.
+   */
+  costoPartnerVisibile(d: { serviceType?: { pricingModel?: string } | null }): boolean {
+    return ['PREZZO_FISSO', 'A_ORA'].includes(d.serviceType?.pricingModel ?? '');
   }
 
   prezzoRiga(p: DeliveryProductRow): number | null {

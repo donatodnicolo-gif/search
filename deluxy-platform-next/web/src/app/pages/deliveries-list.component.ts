@@ -1681,6 +1681,10 @@ export class DeliveriesListComponent {
     // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
     else if (qPartner || this.isPartnerRuolo()) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
+    // ⚠️ 02/09 (regola utente): il partner apre su TUTTE le consegne, e
+    // l'ordine è per DATA di consegna crescente — l'orario da solo (default
+    // deliveryTimeFrom) mischierebbe i giorni fra loro.
+    if (this.isPartnerRuolo()) this.sort.set('date');
     const pag = Number(p.get('page'));
     if (Number.isInteger(pag) && pag > 1) this.page.set(pag);
     this.load();

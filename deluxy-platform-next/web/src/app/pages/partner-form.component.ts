@@ -362,12 +362,13 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .chip { appearance: none; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 14px; font-size: 13px; font-family: inherit; color: var(--text); cursor: pointer; transition: all 0.15s var(--ease); }
       .chip:hover { background: var(--fill); }
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-      .svc-row { display: grid; grid-template-columns: 1.6fr repeat(4, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
-      /* ⚠️ 02/09: senza min-width:0 i campi non possono stringersi sotto la
-         loro larghezza intrinseca, la griglia sfonda la card e l'ultima
-         colonna (con la ✕) finisce FUORI dal bianco, disallineando anche le
-         intestazioni. È il grid blowout classico. */
+      .svc-row { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)) 34px; gap: 8px; margin-bottom: 10px; align-items: center; }
+      /* ⚠️ 02/09: min-width:0 stringe la TRACCIA ma un <input> senza width
+         resta alla sua larghezza intrinseca (~200px) e sfonda comunque la
+         card, disallineando le intestazioni. Serve anche width:100% sui campi
+         perché riempiano la traccia, e minmax(0,1fr) blinda le colonne. */
       .svc-row > * { min-width: 0; }
+      .svc-row .field { width: 100%; }
       .svc-head { margin-bottom: 2px; }
       .svc-head span { font-size: 11.5px; font-weight: 550; color: var(--text-tertiary); }
       .cerca-chip { max-width: 320px; margin-bottom: 12px; }

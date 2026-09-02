@@ -1992,6 +1992,7 @@
     "sign": "Recipient signature",
     "fileOnLegacy": "File on the original system: not reachable from here.",
     "quotaDeluxy": "Deluxy’s cut",
+    "costoPartner": "Service cost",
     "saleAccount": {
       "title": "This sale, in figures",
       "income": "Your income",

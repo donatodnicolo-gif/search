@@ -718,7 +718,14 @@ export class InvoicesListComponent {
 
   constructor() {
     // Di default si parte dal MESE IN CORSO (deciso dall'utente 27/08).
-    this.periodoRapido(0);
+    // ⚠️ 02/09 (segnalazione utente): NON per il PARTNER. Le sue consegne da
+    // fatturare possono stare in mesi vecchi (Chanel Test: 30 su 32 nel
+    // 2023–2024) e il mese in corso «fino a oggi» tagliava fuori anche la
+    // #100854 del 04/09: la pagina diceva «niente» a chi ha 32 pendenti.
+    // Per lui nessun periodo di default = TUTTO il suo pendente (i filtri
+    // periodo per il partner sono comunque nascosti).
+    if (this.isPartner()) this.filtroCambiato();
+    else this.periodoRapido(0);
     // Il conto sulla linguetta deve esserci anche partendo da un'altra scheda.
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {

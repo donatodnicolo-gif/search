@@ -3,6 +3,48 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 pomeriggio — SECONDA RAFFICA DEL COLLAUDO PARTNER** (l'utente
+> prova l'app come partner/valet e detta regole; tutto deployato e verificato
+> Ready):
+> - **Prodotti**: il partner non ha più Modifica/Archivia (né la casella di
+>   selezione) sui prodotti NON suoi o col flag «non modificabile» — es.
+>   «Servizio Consegne» SKU ZBRDCU (condiviso, `partnerId null`,
+>   `notEditable`). Il server già rifiutava: ora spariscono i bottoni
+>   (`puoToccare()` in `products-list`).
+> - **Scheda partner, griglia «Servizi abilitati»**: la vera causa del CSS
+>   rotto non era (solo) il grid blowout — un `<input>` senza `width` resta
+>   alla larghezza intrinseca (~200px) anche se la traccia si stringe. Cura:
+>   `width:100%` sui campi + `minmax(0,1fr)` sulle colonne + ultima colonna
+>   fissa `34px` (= icona ✕) così intestazioni e righe hanno lo stesso
+>   template e restano allineate.
+> - **Consegne per il partner**: la voce di menu «Consegne» lo porta a
+>   `/deliveries?view=attive` (regola utente); ordinamento di default per
+>   DATA di consegna crescente (prima `deliveryTimeFrom`, che senza giorno
+>   addosso mischiava i giorni).
+> - **Costo al partner visibile** (regola utente): su servizi PREZZO_FISSO e
+>   A_ORA il partner vede «Costo del servizio» (= `price`, il canone che paga
+>   lui) nel dettaglio consegna (+ plus/minus se >0); in tabella c'era già.
+>   Restano nascosti paga valet, margini e valore prodotti. Sulla VENDITA
+>   nulla cambia (lì `price` è la quota Deluxy, il suo conto ha il riquadro).
+> - **Stampa consegna**: carta intestata SOLO in stampa (logo «D» + DELUXY a
+>   sinistra, «Consegna #… · data · stato» a destra, riga nera sotto); il
+>   titolo a schermo si nasconde in stampa per non duplicare.
+> - **Fatturazione, partner**: il default «mese corrente fino a oggi» (scelta
+>   del 27/08, pensata per l'ufficio) per un partner tagliava TUTTO (Chanel
+>   Test: 30 pendenti su 32 nel 2023–2024, la #100854 è del 04/09 cioè DOPO
+>   oggi). Ora per il ruolo PARTNER nessun periodo di default = tutto il SUO
+>   pendente (i filtri periodo per lui sono comunque nascosti).
+> - **Chanel Test, pulizia 2024** (ordine utente: «tutte le consegne 2024 in
+>   storico come annullate»): 28/28 annullate d'ufficio con
+>   `api/scripts/annulla-2024-chanel-test.mjs` (dry-run, backup JSON in Temp,
+>   riga di registro su ognuna; nessuna aveva righe di fattura/stipendio).
+> - **Google Drive NON si collega** (Errore 400 `redirect_uri_mismatch`):
+>   l'app manda `https://app.deluxy.it/api/v1/settings/drive/callback`
+>   (default, `DRIVE_REDIRECT_URI` non è su Vercel). Va registrato QUELLO
+>   ESATTO fra gli «URI di reindirizzamento autorizzati» del client OAuth in
+>   console.cloud.google.com (account deluxy.delivery@gmail.com) — azione
+>   dell'utente, non da codice.
+
 > 🕵️ **01/09/2026 pomeriggio/sera — L'ERRORE CHANEL, IL DUPLICA, LA VETRINA SELETTIVA**
 > (5 commit dopo il blocco del canone, deployati in serata; questo blocco è
 > stato scritto la sera stessa da una sessione nuova — quella dei 5 commit si

@@ -1992,6 +1992,7 @@
     "sign": "Firma di chi ha ricevuto",
     "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui.",
     "quotaDeluxy": "Quota Deluxy",
+    "costoPartner": "Costo del servizio",
     "saleAccount": {
       "title": "Il conto di questa vendita",
       "income": "Il tuo incasso",

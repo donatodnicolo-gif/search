@@ -123,7 +123,9 @@ import { SavedViewsComponent } from '../core/saved-views.component';
               <tr class="row-link" [class.scelta]="scelti().has(p.id)" tabindex="0" (click)="openDetail(p)" (keydown.enter)="openDetail(p)">
                 @if (puoAgire()) {
                   <td class="sel" (click)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
+                    @if (puoToccare(p)) {
+                      <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
+                    }
                   </td>
                 }
                 <td class="strong">{{ p.name }} @if (suShopify(p)) { <span class="shopify-ico" [title]="negoziShopify(p)">🛍️</span> }</td>
@@ -138,11 +140,13 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                   @else { <span class="pill s-wait"><span class="dot"></span>{{ 'products.pending' | translate }}</span> }
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
-                  <a class="act" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
-                  @if (archived()) {
-                    <button type="button" class="act" (click)="setArchivedFlag(p, false)">{{ 'products.restore' | translate }}</button>
-                  } @else {
-                    <button type="button" class="act" (click)="setArchivedFlag(p, true)">{{ 'products.archive' | translate }}</button>
+                  @if (puoToccare(p)) {
+                    <a class="act" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                    @if (archived()) {
+                      <button type="button" class="act" (click)="setArchivedFlag(p, false)">{{ 'products.restore' | translate }}</button>
+                    } @else {
+                      <button type="button" class="act" (click)="setArchivedFlag(p, true)">{{ 'products.archive' | translate }}</button>
+                    }
                   }
                 </td>
               </tr>
@@ -282,6 +286,17 @@ export class ProductsListComponent {
     return ['ADMIN', 'OPERATION', 'PARTNER'].includes(this.auth.user()?.role ?? '');
   }
 
+  /**
+   * Se QUESTO prodotto si puo' toccare: il partner solo sui propri e senza il
+   * flag «non modificabile» (i condivisi tipo «Servizio Consegne» sono
+   * dell'ufficio). Il server rifiuterebbe comunque: qui si tolgono i bottoni.
+   */
+  puoToccare(p: ProductRef): boolean {
+    const u = this.auth.user();
+    if (u?.role !== 'PARTNER') return this.puoAgire();
+    return !!p.partner && p.partner.id === u.partnerId && !p.notEditable;
+  }
+
   scegli(id: string): void {
     const s = new Set(this.scelti());
     s.has(id) ? s.delete(id) : s.add(id);
@@ -291,7 +306,7 @@ export class ProductsListComponent {
   }
 
   tuttiSelezionati(): boolean {
-    const p = this.products();
+    const p = this.products().filter((x) => this.puoToccare(x));
     return p.length > 0 && p.every((x) => this.scelti().has(x.id));
   }
 
@@ -305,7 +320,10 @@ export class ProductsListComponent {
   selezionaPagina(): void {
     const s = new Set(this.scelti());
     const tutti = this.tuttiSelezionati();
-    for (const p of this.products()) tutti ? s.delete(p.id) : s.add(p.id);
+    for (const p of this.products()) {
+      if (!this.puoToccare(p)) continue;
+      tutti ? s.delete(p.id) : s.add(p.id);
+    }
     this.scelti.set(s);
     this.esitoAzione.set(null);
   }
