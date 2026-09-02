@@ -52,6 +52,23 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 02/09/2026 (pomeriggio) — I DUE DIFETTI CORRETTI, e il censimento su tutti i partner
+>
+> Chiesto: «correggi i due difetti e verifica che non ce ne siano altri». **Erano sistemici, non un caso solo.**
+> - 🔴 **132 fatture commissioni registrate come servizi** dal backfill FIC del 31/08 (77.496 € netti, 33 su partner in compensazione): commissione contata due volte (nel dovuto E nei servizi ivati) e fatturato per tipologia gonfiato — lo legge Budgets via `/api/v1/fatturato`. Regola già scritta nel codice (ramo `__fee__` di `registraFicComeServizio`) che l'import ignorava.
+> - 🔴 **53 registrazioni gemelle di bonifici/incassi** (stesso partner, stesso testo, entro 120 s) da bottoni senza stato di attesa: ogni clic sommava (CAKELAB giugno: 85,48 € × 9 = 769,32 €; BASARA maggio −2.852,69 × 6 = −17.116,14; CHANEL ROMA maggio −11.636,14 = ×2). 16 mesi toccati.
+> - 🟠 **4 fatture importate già pagate su partner in compensazione senza l'incasso sul saldo** (1.658,63 € ivati: ENRICO RIZZI ×3, 142 RESTAURANT dic. 2025): il backfill scriveva `pagata=true` a mano, saltando il punto unico «Saldata».
+> - ℹ️ Solo registro: 115 fatture importate pagate di partner a partite separate senza riferimento nel registro `Pagamento`; 430/2026 usato da due righe xlsx di WICUISINE (aprile e maggio); numeri-spazzatura dall'xlsx («Si», «No», «0», «Pagamento 60gg») nel campo numero di 120 righe 2025 a 0 €.
+>
+> **Codice (typecheck ok)**: `fic-mancanti.ts` riconosce le fatture commissioni (descrizione «Commission…» o numero già `commFattNumero` di un mese) → non le registra, le **aggancia** al mese (`agganciaFatturaCommissioni`, solo se il mese non ha già un numero); ogni fattura importata nasce non pagata e, se su FIC è pagata, passa da `segnaFatturaPagataConEsito(..., { allineaFic: false })` (`creaFatturaImportata`, usata da cron e da `/fatture/da-fic`). `pagamenti-core.eseguiBonificoMese` ha il **freno**: stessa azione, stesso partner, entro 20 s → ignorata (torna `{ignorata:true}`). Bottoni «Abbiamo pagato / Hanno pagato / Annulla / Annota pagato» → `BottoneInvio` (pending + disabled).
+> **Dati — tre script pronti in `scripts/`, provati a secco, ⚠️ NON ESEGUITI: il classificatore ha bloccato la scrittura in produzione; li lancia una persona, in quest'ordine** (ognuno fa un backup JSON e scrive nel registro modifiche):
+> ```
+> node --env-file=.env scripts/ripara-commissioni-importate.mjs --esegui   # 132 righe: storna incassi auto, aggancia i numeri ai mesi, cancella
+> node --env-file=.env scripts/ripara-bonifici-doppi.mjs --esegui           # 9 mesi «puri» corretti; 4 ambigui stampati e NON toccati
+> node --env-file=.env scripts/ripara-incassi-importati.mjs --esegui        # 4 fatture: incasso sul saldo + riferimento Pagamenti
+> ```
+> I 4 mesi **ambigui** (saldo toccato anche a mano via `upsertSaldo`, il registro non basta a ricostruirli): ARTE E FIORI marzo 2026 (1.195,57), CLIVATI gennaio (1.027,21) e febbraio 2026 (1.941,00), ENRICO RIZZI febbraio 2026 (248,90). Dopo gli script, giugno di 142 RESTAURANT: servizi 14,64 − dovuto 20,43 = −5,79; bonifico 5,79 → **pareggiato**.
+
 > ### 02/09/2026 — giugno di 142 RESTAURANT: come si legge il saldo mese, e due difetti trovati
 >
 > Chiesto dall'utente: «spiegami la logica del calcolo di giugno». Formula (`calc.ts`, regime compensazione): **saldo = fatture servizio IVATE del mese (tutte, saldate o no) − dovuto vendite** (incasso − commissione × 1,22); **residuo = saldo + bonificoImporto** (>0 = pagato al partner, <0 = incassato); residuo > 0 → «da incassare», < 0 → «da bonificare». ⚠️ Lo stato «Saldata / Da incassare / Compensata» della singola fattura **non entra nella formula**: su un partner in compensazione, «Saldata» registra un **incasso automatico** sul saldo del mese (`incassoRegistrato`, `bonificoImporto −= ivato`) ed è così che una fattura saldata muove il residuo (460/2026: 11,58 → 7,00 il 02/09 11:53).

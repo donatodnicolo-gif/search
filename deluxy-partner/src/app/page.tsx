@@ -178,13 +178,13 @@ export default async function Dashboard({
                         >
                           {/* Per i bonifici fatti a mano dalla banca: annota e
                               basta, non chiede niente a nessuno. */}
-                          <button
+                          <BottoneInvio
                             className="btn small secondary"
-                            type="submit"
+                            inCorso="Annoto…"
                             title={`Annota che il bonifico di ${euro(x.r.daBonificare)} è GIÀ stato fatto (es. a mano dalla banca), con data odierna. Si annulla dalla scheda del partner.`}
                           >
                             Annota pagato
-                          </button>
+                          </BottoneInvio>
                         </form>
                         {/* «Paga» CHIEDE il pagamento a Deluxy Transactions,
                             l'unica app da cui può uscire denaro: qui non esce

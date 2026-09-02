@@ -52,6 +52,20 @@ export async function eseguiBonificoMese(opts: {
 }) {
   const { partnerId, anno, mese, importo, origine } = opts;
   const data = opts.data ?? new Date();
+  const partnerNome = await nomePartner(partnerId);
+  const azione = `Registrato ${importo > 0 ? "bonifico al partner" : "incasso dal partner"} ${euro(Math.abs(importo))} (${nomeMese(mese)} ${anno}) — ${origine}`;
+  // FRENO AL DOPPIO INVIO (02/09/2026). Il bottone senza stato di attesa si
+  // premeva più volte e ogni clic SOMMAVA un altro bonifico: nel registro c'erano
+  // 53 registrazioni gemelle a pochi secondi l'una dall'altra (CAKELAB giugno:
+  // 85,48 € registrati 9 volte = 769,32 €). La stessa identica registrazione,
+  // per lo stesso partner, entro 20 secondi, non è una seconda volontà: si
+  // ignora. Il bottone ora ha anche lo stato di attesa, ma il freno vive qui,
+  // dove il danno si farebbe.
+  const gemella = await prisma.registroModifica.findFirst({
+    where: { azione, partner: partnerNome, createdAt: { gte: new Date(Date.now() - 20_000) } },
+    select: { id: true },
+  });
+  if (gemella) return { ignorata: true as const };
   const esistente = await prisma.saldoMensile.findUnique({
     where: { partnerId_anno_mese: { partnerId, anno, mese } },
   });
@@ -66,11 +80,12 @@ export async function eseguiBonificoMese(opts: {
   });
   await aggiornaPagamentoDaSaldo(saldo);
   await registra({
-    azione: `Registrato ${importo > 0 ? "bonifico al partner" : "incasso dal partner"} ${euro(Math.abs(importo))} (${nomeMese(mese)} ${anno}) — ${origine}`,
+    azione,
     categoria: "pagamenti",
     entita: "partner",
     entitaId: partnerId,
-    partner: await nomePartner(partnerId),
+    partner: partnerNome,
   });
+  return { ignorata: false as const };
 }
 

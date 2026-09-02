@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { registra } from "./registro";
-import { importaFattureFicSicure } from "./fic-mancanti";
+import { importaFattureFicSicure, creaFatturaImportata } from "./fic-mancanti";
 
 /**
  * Registra UNA fattura FIC con la scelta della persona (scheda + tipologia).
@@ -33,21 +33,24 @@ export async function registraFatturaFic(fd: FormData) {
   const gia = await prisma.fatturaServizio.findFirst({ where: { numero } });
   if (gia) redirect(`/fatture/da-fic?esito=gia`);
 
-  const f = await prisma.fatturaServizio.create({
-    data: {
-      partnerId,
-      tipologiaId,
-      anno,
-      mese,
-      numero,
-      emissione: emissione ? new Date(emissione) : null,
-      scadenza: scadenza ? new Date(scadenza) : null,
-      pagata,
-      dataPagamento: dataPagamento ? new Date(dataPagamento) : null,
-      imponibile,
-      aliquotaIva: Number.isFinite(aliquotaIva) ? aliquotaIva : 22,
-      descrizione: descrizione ?? "Registrata da Fatture in Cloud",
-    },
+  // Stesso percorso del cron: nasce non pagata e, se su FIC è pagata, passa da
+  // «Saldata» (incasso sul saldo per i partner in compensazione, registro Pagamenti).
+  const id = await creaFatturaImportata({
+    partnerId,
+    tipologiaId,
+    anno,
+    mese,
+    numero,
+    data: emissione || new Date().toISOString().slice(0, 10),
+    scadenza: scadenza || null,
+    pagata,
+    dataPagamento: dataPagamento || null,
+    imponibile,
+    aliquotaIva: Number.isFinite(aliquotaIva) ? aliquotaIva : 22,
+    descrizione: descrizione ?? "Registrata da Fatture in Cloud",
+  });
+  const f = await prisma.fatturaServizio.findUniqueOrThrow({
+    where: { id },
     include: { partner: { select: { nome: true } }, tipologia: { select: { nome: true } } },
   });
   await registra({

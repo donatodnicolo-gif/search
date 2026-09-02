@@ -358,7 +358,7 @@
     <div class="card menu-sec">
       <div class="titolo">Ciclo attivo</div>
       <div class="menu-voce"><div class="nome">Fatturazione servizi<span class="route">/fatture</span></div><div class="cosa">Le fatture di servizi ai partner: registrazione, competenza, scadenza, stato di incasso (anche parziale).</div></div>
-      <div class="menu-voce"><div class="nome">Da Fatture in Cloud<span class="route">/fatture/da-fic</span></div><div class="cosa">Il controllo automatico (31/08/2026): le fatture emesse su FIC che qui mancano. Quelle di clienti già visti (scheda + tipologia imparata dalle registrazioni passate) le importa da solo il giro notturno, con competenza = mese di emissione; le altre aspettano qui una scelta — che vale anche per le successive dello stesso cliente. Nato dopo la scoperta che 36 fatture di agosto (15.216 € netti) erano invisibili al fatturato per tipologia.</div></div>
+      <div class="menu-voce"><div class="nome">Da Fatture in Cloud<span class="route">/fatture/da-fic</span></div><div class="cosa">Il controllo automatico (31/08/2026): le fatture emesse su FIC che qui mancano. Quelle di clienti già visti (scheda + tipologia imparata dalle registrazioni passate) le importa da solo il giro notturno, con competenza = <strong>mese del servizio</strong> (quello che la descrizione nomina: «Servizi Deluxy Luglio» emessa ad agosto va a luglio; senza mese, l'emissione); le altre aspettano qui una scelta — che vale anche per le successive dello stesso cliente. Nato dopo la scoperta che 36 fatture di agosto (15.216 € netti) erano invisibili al fatturato per tipologia. <strong>Dal 02/09/2026</strong>: le <em>fatture commissioni</em> («Commissioni Deluxy Giugno 2026») <strong>non entrano mai fra i servizi</strong> — la commissione è già nel dovuto vendite, contarla anche qui la raddoppiava — ma vengono <em>agganciate</em> al mese come «Fatt. comm.»; e una fattura che su FIC è pagata entra <strong>saldata</strong> con tutto il giro di «Saldata» (per i partner in compensazione, l'incasso finisce sul saldo del mese).</div></div>
       <div class="menu-voce"><div class="nome">Vendite vendor<span class="route">/vendite</span></div><div class="cosa">Le vendite fatte per conto dei partner, con fee, commissione e dovuto calcolati e visibili mentre compili.</div></div>
       <div class="menu-voce"><div class="nome">Pro-forma<span class="route">/proforma</span></div><div class="cosa">Documenti di richiesta pagamento con numerazione, stampa/PDF, invio email e intestazione per brand (template).</div></div>
       <div class="menu-voce"><div class="nome">Registro fatture<span class="route">/registrazioni/fatture</span></div><div class="cosa">L'elenco delle fatture vere emesse su Fatture in Cloud, con link diretto a FIC e alla scheda del cliente.</div></div>
@@ -454,7 +454,7 @@
         </div></div>
         <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
           <div class="chi">Fatture in Cloud</div><h4>Fatturi la commissione</h4>
-          <p>Bottone «Fattura commissioni» sul mese: una fattura per partner+mese, mai due. Se esiste già (fatta a mano su FIC), la <em>colleghi</em> con «Esiste già» invece di emetterne una seconda.</p>
+          <p>Bottone «Fattura commissioni» sul mese: una fattura per partner+mese, mai due. Se esiste già (fatta a mano su FIC), la <em>colleghi</em> con «Esiste già» invece di emetterne una seconda. <strong>Questa fattura non è un servizio</strong>: non compare fra le «Fatturazione servizi» del mese e non va registrata lì — la commissione è già tolta dal dovuto, e conteggiarla due volte sposta il saldo del mese (successo il 31/08 con l'import automatico: 132 fatture, riparate il 02/09).</p>
         </div></div>
         <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
           <div class="chi">Saldi e bonifici</div><h4>Chiudi il mese</h4>
@@ -572,13 +572,20 @@
 <!-- ══════════════════ 11. MANUALE VIVO ══════════════════ -->
 <section id="manuale">
   <div class="sec-head"><span class="sec-num">11</span><h2>Questo manuale è vivo</h2></div>
+  <h3>Registro delle novità</h3>
+  <ul>
+    <li><strong>02/09/2026 · Scheda partner e dashboard</strong> — i bottoni «Abbiamo pagato», «Hanno pagato», «Annulla» e «Annota pagato» mostrano lo stato di attesa e non si premono due volte; e la stessa identica registrazione ripetuta entro 20 secondi viene ignorata dal server. Prima ogni clic <em>sommava</em> un altro bonifico al mese (53 registrazioni gemelle trovate nel registro; 9 mesi corretti, 4 lasciati a una persona perché il saldo era stato toccato anche a mano).</li>
+    <li><strong>02/09/2026 · Da Fatture in Cloud</strong> — l'import salta le fatture commissioni e le aggancia al mese; le fatture pagate su FIC entrano «saldate» con l'incasso sul saldo (partner in compensazione). Competenza = mese del servizio dalla descrizione (regola del 31/08).</li>
+    <li><strong>31/08/2026 · Da Fatture in Cloud</strong> — nasce il controllo automatico: cron notturno + pagina <code>/fatture/da-fic</code>; import del pregresso 2026 e audit dei doppioni (4 veri su 194, riparati).</li>
+    <li><strong>28/08/2026</strong> — nasce questo manuale; menu riordinato in sei aree; estratto conto unico <code>/movimenti</code>; sync Qonto all'apertura.</li>
+  </ul>
   <div class="avviso">
     <strong>Regola di casa (dal 28/08/2026):</strong> ogni funzionalità nuova o modificata di FINANCE va documentata <strong>in questo manuale, nello stesso commit</strong> che la introduce. Il file sorgente è <code>deluxy-partner/docs/COME-FUNZIONA-FINANCE.html</code>; dopo la modifica si ripubblica l'Artifact così il link resta aggiornato. L'HANDOFF resta il diario tecnico di chi sviluppa; questo è il manuale di chi usa.
   </div>
 </section>
 
 <footer class="fine">
-  Manuale FINANCE · ecosistema Deluxy · aggiornato al 28/08/2026 · fonte: <code>docs/COME-FUNZIONA-FINANCE.html</code> nel repo, sezioni verificate su HANDOFF e codice (menu, flussi, formule).
+  Manuale FINANCE · ecosistema Deluxy · aggiornato al 02/09/2026 · fonte: <code>docs/COME-FUNZIONA-FINANCE.html</code> nel repo, sezioni verificate su HANDOFF e codice (menu, flussi, formule).
 </footer>
 
 </div>

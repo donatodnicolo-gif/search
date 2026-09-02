@@ -304,7 +304,10 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
 export async function segnaFatturaPagataConEsito(
   id: string,
   pagata: boolean,
-  dataPagamento?: string | Date
+  dataPagamento?: string | Date,
+  // allineaFic=false quando lo stato ARRIVA da Fatture in Cloud (import): là è
+  // già così, e rimandarglielo sono chiamate inutili in un giro da decine di fatture.
+  opzioni: { allineaFic?: boolean } = {}
 ): Promise<{ ficAllineata: boolean | null }> {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
   if (!prima) return { ficAllineata: null };
@@ -358,7 +361,10 @@ export async function segnaFatturaPagataConEsito(
   // stesso stato anche su Fatture in Cloud (se la fattura è stata emessa lì).
   // Ha un tetto di tempo: qui dentro c'è già tutto il lavoro contabile, e non
   // deve essere una chiamata di rete a farlo scadere.
-  const ficAllineata = f.numero ? await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp }) : null;
+  const ficAllineata =
+    f.numero && opzioni.allineaFic !== false
+      ? await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp })
+      : null;
   await registra({
     azione: `Fattura ${f.numero ?? "s.n."} ${pagata ? "segnata saldata" : "riaperta (da incassare)"}${pagata ? ` (${euro(ivato(f))})` : ""}`,
     categoria: "fatture", entita: "fattura", entitaId: f.id, partner: f.partner.nome,

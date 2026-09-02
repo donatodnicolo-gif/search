@@ -74,9 +74,9 @@ export function PagamentoMese({
               aria-label="Importo da pagare"
             />
             <input type="date" name="data" defaultValue={oggi} aria-label="Data pagamento" />
-            <button className="btn small secondary" type="submit" title="Registra un bonifico GIA fatto dalla banca. Non chiede niente a nessuno.">
+            <BottoneInvio className="btn small secondary" inCorso="Registro…" title="Registra un bonifico GIA fatto dalla banca. Non chiede niente a nessuno.">
               Abbiamo pagato
-            </button>
+            </BottoneInvio>
           </form>
         )}
 
@@ -118,9 +118,9 @@ export function PagamentoMese({
               aria-label="Importo da incassare"
             />
             <input type="date" name="data" defaultValue={oggi} aria-label="Data incasso" />
-            <button className="btn small secondary" type="submit" title="Registra il pagamento ricevuto dal partner">
+            <BottoneInvio className="btn small secondary" inCorso="Registro…" title="Registra il pagamento ricevuto dal partner">
               Hanno pagato
-            </button>
+            </BottoneInvio>
           </form>
         )}
 
@@ -136,13 +136,13 @@ export function PagamentoMese({
               {bonificoData ? ` il ${dataIt(bonificoData)}` : ""}
             </span>
             <form action={azzera}>
-              <button
+              <BottoneInvio
                 className="btn small danger"
-                type="submit"
+                inCorso="Annullo…"
                 title="Annulla i pagamenti registrati per questo mese"
               >
                 Annulla
-              </button>
+              </BottoneInvio>
             </form>
           </span>
         )}
