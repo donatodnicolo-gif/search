@@ -40,6 +40,15 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — LE 96 RIGHE AVVELENATE RIPARATE (utente: «correggi»)**. Le righe
+>   legacy con quantity = numero di FIORI o prezzo di catalogo di un altro
+>   taglio (sommavano 143.115 € contro 7.194 di verità) ora dicono il vero:
+>   prezzo di riga = productValue ÷ quantità (#63200: 7 € × 100 rose = 700;
+>   multi-riga in proporzione), e la quota scritta è stata SVUOTATA — ora vale
+>   il canone (fee% × righe = la stessa quota legacy, ma viva).
+>   `api/scripts/ripara-righe-avvelenate-vendite.mjs`, log su ogni consegna,
+>   backup, controprova 96/96 (righe = productValue, quota vuota, 0 residui di
+>   arrotondamento). Il «dovuto ai partner» del pendente torna misurabile.
 > - **02/09 — PRIVACY VENDITE: anche il MITTENTE sparisce al partner**
 >   (segnalazione utente su #100791: destinatario mascherato ma «Nathan
 >   Stevens» visibile). La lista di `soloIMieiSoldi` per il partner su
