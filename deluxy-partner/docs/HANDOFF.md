@@ -42,7 +42,7 @@
 > 📒 **MANUALE DI FUNZIONALITÀ (OBBLIGATORIO, dal 28/08/2026)** — richiesto
 > dall'utente: la guida visiva per chi arriva nuovo è
 > **[docs/COME-FUNZIONA-FINANCE.html](COME-FUNZIONA-FINANCE.html)** (pubblicata
-> anche come Artifact: https://claude.ai/code/artifact/f1be9dee-81fd-4a0f-bd63-e3ac56605270).
+> anche come Artifact: https://claude.ai/code/artifact/14a1795d-4da4-4c7d-b69c-44f355874c01 (⚠️ il precedente f1be9dee… risultava CANCELLATO il 02/09/2026: ripubblicato da zero)).
 > **Ogni funzionalità nuova o modificata va documentata LÌ, nello stesso commit
 > che la introduce**, e l'Artifact va ripubblicato allo stesso URL (da questa o
 > altra sessione: `Artifact` con `url`). L'HANDOFF resta il diario tecnico di
