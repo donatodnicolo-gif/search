@@ -141,6 +141,11 @@ interface ProductRow {
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            <!-- 02/09 (regola utente): il partner salva solo indirizzi «da
+                 Google» con città e provincia — senza, il Salva resta spento. -->
+            @if (isPartner() && model.recipientAddress && !indirizzoConsegnaOk()) {
+              <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
+            }
             @if (luogoScelto(); as n) { <span class="luogo-scelto">📍 <em>{{ n }}</em></span> }
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
@@ -217,8 +222,11 @@ interface ProductRow {
              vendite (31/08, richiesta utente). Se vuoto, il ritiro è dal
              partner. -->
         <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
-          <input class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
-                 autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" /></label>
+          <input #pickupInput class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
+                 autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
+          @if (isPartner() && (model.pickupAddress ?? '').trim() && !indirizzoRitiroOk()) {
+            <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
+          }</label>
 
         <!-- Ritiro -->
         <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>{{ 'deliveryForm.timing.pickupFlexible' | translate }}</span></label>
@@ -501,14 +509,16 @@ interface ProductRow {
              l'URL nudo, o Annulla butta i filtri da cui si è arrivati. -->
         <button type="button" class="btn btn-secondary" (click)="indietro()">{{ 'common.cancel' | translate }}</button>
         @if (!editId()) {
-          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
+          <button type="button" class="btn btn-secondary" [disabled]="saving() || !indirizziValidi()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
         } @else {
           <!-- ⭐ 01/09 (chiesto dall'utente): Duplica anche in MODIFICA — apre
                un form NUOVO coi dati di questa consegna (come dal dettaglio).
                Le modifiche non salvate non viaggiano: si duplica il salvato. -->
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="duplicaQuesta()">{{ 'common.duplicate' | translate }}</button>
         }
-        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        <!-- 02/09 (regola utente): per il PARTNER il Salva si accende solo con
+             indirizzi validati da Google (città + provincia leggibili). -->
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !indirizziValidi()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
         </button>
       </div>
@@ -633,6 +643,7 @@ interface ProductRow {
       .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
+      .indirizzo-avviso { color: var(--red); font-size: 12.5px; margin-top: 4px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
       /* Compila con l'AI */
       .ai-box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px 18px; }
@@ -1075,12 +1086,48 @@ export class DeliveryFormComponent implements AfterViewInit {
   }
 
   /** Il PARTNER: niente scelta del partner (è lui) e servizi solo dal suo listino. */
+  /**
+   * 02/09 (regola utente): il PARTNER salva solo indirizzi scelti dai
+   * suggerimenti di Google, con CITTÀ e PROVINCIA leggibili. Lo specchio
+   * client di `cittaDaIndirizzo` del server: un ritiro senza virgole
+   * («…20121 MI») ha già prodotto un fuori-città sbagliato (#100845).
+   */
+  private cittaLeggibile(indirizzo: string | null | undefined): boolean {
+    if (!indirizzo) return false;
+    const parti = indirizzo.split(',').map((x) => x.trim()).filter(Boolean);
+    while (parti.length && /^(italia|italy)$/i.test(parti[parti.length - 1])) parti.pop();
+    if (!parti.length) return false;
+    const ultima = parti[parti.length - 1];
+    if (/^[A-Z]{2}$/.test(ultima) && parti.length >= 2) {
+      return Boolean(parti[parti.length - 2].replace(/^\d{5}\s*/, '').trim());
+    }
+    if (/^\d{5}\s+(.+?)\s+[A-Z]{2}$/.test(ultima)) return true;
+    const senzaCap = ultima.match(/^(.+?)\s+[A-Z]{2}$/);
+    if (senzaCap) {
+      const c = senzaCap[1].replace(/^\d{5}\s*/, '').trim();
+      return Boolean(c) && !/\d/.test(c) && c.length <= 40;
+    }
+    return false;
+  }
+  indirizzoConsegnaOk(): boolean {
+    return this.cittaLeggibile(this.model.recipientAddress);
+  }
+  indirizzoRitiroOk(): boolean {
+    const a = (this.model.pickupAddress ?? '').trim();
+    return !a || this.cittaLeggibile(a); // vuoto = ritiro dalla sede del partner
+  }
+  indirizziValidi(): boolean {
+    if (!this.isPartner()) return true;
+    return this.indirizzoConsegnaOk() && this.indirizzoRitiroOk();
+  }
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
 
   @ViewChild('addressInput') addressInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('pickupInput') pickupInput?: ElementRef<HTMLInputElement>;
   private autocomplete: any = null;
+  private autocompleteRitiro: any = null;
 
   readonly partners = signal<Partner[]>([]);
   readonly serviceTypes = signal<ServiceType[]>([]);
@@ -1783,6 +1830,24 @@ export class DeliveryFormComponent implements AfterViewInit {
               // L'evento Google è fuori dal ciclo Angular: rientro con la zona.
               this.zone.run(() => this.onPlaceSelected(place));
             });
+            // 02/09 (regola utente): l'autocomplete anche sul RITIRO — il
+            // partner deve poter scegliere da Google pure lì, o il Salva
+            // (che pretende città e provincia) resterebbe irraggiungibile.
+            const ritiro = this.pickupInput?.nativeElement;
+            if (ritiro) {
+              this.autocompleteRitiro = new google.maps.places.Autocomplete(ritiro, {
+                componentRestrictions: { country: 'it' },
+                fields: ['formatted_address', 'name'],
+              });
+              this.autocompleteRitiro.addListener('place_changed', () => {
+                const place = this.autocompleteRitiro.getPlace();
+                this.zone.run(() => {
+                  const testo = place?.formatted_address || ritiro.value || '';
+                  this.model.pickupAddress = this.pulisciIndirizzo(testo);
+                  this.aggiornaPreventivo();
+                });
+              });
+            }
           } catch {
             /* script non caricato: resta il campo normale */
           }

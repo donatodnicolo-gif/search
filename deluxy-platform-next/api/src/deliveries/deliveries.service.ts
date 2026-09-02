@@ -986,6 +986,24 @@ export class DeliveriesService {
       if (p?.address?.trim()) dto.pickupAddress = p.address;
     }
 
+    // ⚠️ 02/09 (regola utente): il PARTNER salva solo indirizzi scelti dai
+    // suggerimenti di Google, con CITTÀ e PROVINCIA leggibili — un ritiro
+    // scritto a mano senza virgole («…20121 MI») ha già prodotto un
+    // fuori-città sbagliato (#100845: 5,40 invece di 15). Il form spegne il
+    // Salva, ma un form non è una difesa: si rifiuta anche qui.
+    if (user.role === Role.PARTNER) {
+      if (!cittaDaIndirizzo(dto.recipientAddress)) {
+        throw new BadRequestException(
+          "L'indirizzo di consegna va scelto dai suggerimenti di Google e deve contenere città e provincia.",
+        );
+      }
+      if (dto.pickupAddress?.trim() && !cittaDaIndirizzo(dto.pickupAddress)) {
+        throw new BadRequestException(
+          "L'indirizzo di ritiro va scelto dai suggerimenti di Google e deve contenere città e provincia.",
+        );
+      }
+    }
+
     const hours = dto.hours ?? 1;
     let price = partnerService?.price ?? serviceType.basePrice ?? 0;
     if (serviceType.pricingModel === 'A_ORA') price = price * Math.max(hours, 1);
@@ -1348,6 +1366,20 @@ export class DeliveriesService {
     // c'è, quindi qui: si RICALCOLA `price` (con × ore per A_ORA e gli extra km)
     // e si AZZERA `valetSalary`, così gli stipendi lo ricavano dal listino valet
     // del nuovo servizio. Vince comunque un prezzo/paga imposti a mano dopo.
+    // ⚠️ 02/09 (regola utente): stessa guardia del `create` — il PARTNER non
+    // può nemmeno MODIFICARE un indirizzo in una forma senza città e provincia.
+    if (user.role === Role.PARTNER) {
+      if (dto.recipientAddress != null && !cittaDaIndirizzo(dto.recipientAddress)) {
+        throw new BadRequestException(
+          "L'indirizzo di consegna va scelto dai suggerimenti di Google e deve contenere città e provincia.",
+        );
+      }
+      if (dto.pickupAddress != null && dto.pickupAddress.trim() && !cittaDaIndirizzo(dto.pickupAddress)) {
+        throw new BadRequestException(
+          "L'indirizzo di ritiro va scelto dai suggerimenti di Google e deve contenere città e provincia.",
+        );
+      }
+    }
     const cambiaServizio = dto.serviceTypeId != null && dto.serviceTypeId !== delivery.serviceTypeId;
     const cambiaOre = dto.hours != null && dto.hours !== (delivery.hours ?? null);
     // ⭐ 01/09: cambiando gli INDIRIZZI cambia la strada, quindi il listino —

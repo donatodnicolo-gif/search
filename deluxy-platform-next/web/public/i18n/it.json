@@ -1189,6 +1189,7 @@
   },
   "deliveryForm": {
     "backToDeliveries": "Consegne",
+    "indirizzoNonValido": "Scegli l'indirizzo dai suggerimenti di Google: servono città e provincia.",
     "title": "Nuova consegna",
     "caption": "Servizio, ritiro, destinatario, prodotti e listino.",
     "submit": "Crea consegna",
