@@ -5,6 +5,16 @@
 
 > 🧪 **02/09/2026 notte-2 — LE REGOLE SI VEDONO E SI AGGANCIANO** (deployato
 > e Ready):
+> - **Esame integrale Regola 10 su #100856** (domanda utente): applicata BENE
+>   su partner (P.di Spagna ✓, vale anche per Babuino), servizio (generica),
+>   periodo 10/24–12/27, giorni tutti, fascia 16–18 ∩ 16–17, carnet 4/giorno
+>   (oggi agganciate ESATTAMENTE 4: 100846/100850/100855/100856 — la quinta
+>   resterebbe fuori), fattura 25−25=0. ⚠️ `toPay=false`: il VALET su queste
+>   consegne NON viene pagato (Stipendi le mostra «esclusa da regola») —
+>   coerente col legacy (1.247 agganciate: 88% paga 0, ZERO righe stipendio).
+>   Trovate e CHIUSE due condizioni dichiarate ma mai controllate
+>   dall'aggancio: **kmDistance** (ora esclude solo a km misurati oltre il
+>   limite) e **active** (una regola spenta si agganciava lo stesso).
 > - **Flag «Da fatturare» e «Da pagare» nel dettaglio** (regola utente): due
 >   righe in chiaro (Sì/No, con «già fatturata» quando vale), separate per
 >   ruolo — il valet vede solo «Da pagare» (billable/invoiced gli sono

@@ -27,6 +27,8 @@ export type RegolaCarnet = {
   dailyCount: number;
   totalRule: boolean;
   totalCount: number;
+  /** Distanza massima (km) entro cui la regola vale; 0/null = senza limite. */
+  kmDistance?: number | null;
   partners: { partnerId: string }[];
 };
 
@@ -37,6 +39,7 @@ export type ConsegnaPerRegola = {
   date: Date | null;
   deliveryTimeFrom: string | null;
   deliveryTimeTo: string | null;
+  distanceKm?: number | null;
 };
 
 const minuti = (hhmm: string | null): number | null => {
@@ -81,6 +84,12 @@ export function regoleApplicabili(consegna: ConsegnaPerRegola, regole: RegolaCar
       const rf = minuti(g.timeFrom), rt = minuti(g.timeTo);
       if (rf != null && rt != null && !(rf === 0 && rt >= 1439)) {
         if (!sovrappone(cf, ct, rf, rt)) return false;
+      }
+      // ⚠️ 02/09 (esame Regola 10 con l'utente): la DISTANZA massima era
+      // dichiarata dalla regola (kmDistance) ma MAI controllata. Si esclude
+      // solo a km MISURATI: senza misura non si inventa un fuori-raggio.
+      if ((g.kmDistance ?? 0) > 0 && consegna.distanceKm != null && consegna.distanceKm > g.kmDistance!) {
+        return false;
       }
       return true;
     })

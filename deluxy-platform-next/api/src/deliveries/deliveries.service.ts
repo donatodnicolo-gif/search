@@ -1320,14 +1320,17 @@ export class DeliveriesService {
       const d = await this.prisma.delivery.findUnique({
         where: { id: deliveryId },
         select: { id: true, partnerId: true, serviceTypeId: true, date: true,
-          deliveryTimeFrom: true, deliveryTimeTo: true },
+          deliveryTimeFrom: true, deliveryTimeTo: true, distanceKm: true },
       });
       if (!d?.partnerId || !d.date) return null;
+      // ⚠️ 02/09 (esame Regola 10): SOLO regole ATTIVE — una regola spenta
+      // si agganciava lo stesso. E si passa la distanza per il vincolo km.
       const rp = await this.prisma.deliveryRulePartner.findMany({
-        where: { partnerId: d.partnerId },
+        where: { partnerId: d.partnerId, deliveryRule: { active: true } },
         select: { deliveryRule: { select: {
           id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true,
           timeFrom: true, timeTo: true, dailyRule: true, dailyCount: true, totalRule: true, totalCount: true,
+          kmDistance: true,
           partners: { select: { partnerId: true } },
         } } },
       });
