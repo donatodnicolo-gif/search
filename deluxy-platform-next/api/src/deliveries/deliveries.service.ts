@@ -73,7 +73,9 @@ const DELIVERY_LIST_SELECT = {
   // Regola carnet applicata: serve alla lista per segnalare le consegne che
   // seguono una regola (prezzo azzerato / rettificato dal carnet).
   deliveryRuleId: true,
-  deliveryRule: { select: { name: true } },
+  // toPay/valetPayAdjustment servono al calcolo paga in lista (una regola
+  // «non pagare» azzera); la maschera li toglie al partner.
+  deliveryRule: { select: { name: true, toPay: true, valetPayAdjustment: true } },
 } as const;
 
 /**
@@ -185,7 +187,7 @@ const DELIVERY_INCLUDE = {
   // 📋 della tabella. Quella di LISTINO (fatturazione) è roba del partner e
   // dell'ufficio; quella PAGA VALET è roba del valet e dell'ufficio — la
   // maschera separa i due mondi.
-  deliveryRule: { select: { id: true, name: true, toBill: true, partnerBillingAdjustment: true } },
+  deliveryRule: { select: { id: true, name: true, toBill: true, partnerBillingAdjustment: true, toPay: true, valetPayAdjustment: true } },
   valetDeliveryRule: { select: { id: true, name: true, tiers: true } },
 } as const;
 
@@ -431,8 +433,18 @@ export class DeliveriesService {
         for (const r of mie as any[]) {
           const l = scegliListinoValet(r, perId, perValet);
           if (!l) continue;
-          const calcolo = pagaConsegna({ ...r, valet }, l as any);
+          // ⚠️ La regola carnet passa ANCHE qui (esame Regola 10, 02/09): con
+          // `toPay=false` la paga è NULLA — mostrare il listino avrebbe
+          // promesso al valet soldi che Stipendi poi nega.
+          const calcolo = pagaConsegna({ ...r, valet }, l as any, r.deliveryRule ?? null);
           if (calcolo) r.valetSalaryDalListino = calcolo.amount;
+        }
+        // La stessa regola azzera anche una paga SCRITTA: via dalla riga.
+        for (const r of rows as any[]) {
+          if (r.valetId === user.valetId && r.deliveryRule?.toPay === false) {
+            r.valetSalary = null;
+            r.valetSalaryDalListino = null;
+          }
         }
       }
     }
@@ -629,7 +641,10 @@ export class DeliveriesService {
     // non vede i listini dei colleghi.
     const eIlSuoValet =
       user.role === Role.VALET && !!user.valetId && delivery.valetId === user.valetId;
-    if ((['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
+    // ⚠️ Una regola carnet con «non pagare» (toPay=false, es. Regola 10)
+    // azzera la paga: qui non si calcola niente, come fa Stipendi.
+    const regolaNonPaga = (delivery as any).deliveryRule?.toPay === false;
+    if (!regolaNonPaga && (['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
       const listini = await this.prisma.valetService.findMany({
         where: { valetId: delivery.valetId },
         include: { serviceType: { select: { pricingModel: true, minHours: true } } },
@@ -2245,6 +2260,11 @@ export class DeliveriesService {
       // nemmeno il flag «da pagare» (è il conto fra noi e il valet).
       for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId',
         'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId', 'payable']) delete pulita[c];
+      // Della regola carnet il partner vede il lato FATTURA, non quello paga.
+      if (pulita['deliveryRule']) {
+        const { toPay, valetPayAdjustment, ...regola } = pulita['deliveryRule'];
+        pulita['deliveryRule'] = regola;
+      }
       // ⚠️ 31/08 (regola dell'utente): sui servizi di tipo VENDITA il cliente
       // finale è di DELUXY, non del partner (che vende per nostro conto): al
       // partner NON si mostrano i suoi dati. Nasconderlo solo nella pagina non
