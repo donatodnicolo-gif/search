@@ -140,7 +140,7 @@ interface ProductRow {
             @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
-            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" (blur)="normalizzaIndirizzo('consegna')" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             <!-- 02/09 (regola utente): il partner salva solo indirizzi «da
                  Google» con città e provincia — senza, il Salva resta spento. -->
             @if (isPartner() && model.recipientAddress && !indirizzoConsegnaOk()) {
@@ -223,7 +223,7 @@ interface ProductRow {
              partner. -->
         <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
           <input #pickupInput class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
-                 autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
+                 (blur)="normalizzaIndirizzo('ritiro')" autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
           @if (isPartner() && (model.pickupAddress ?? '').trim() && !indirizzoRitiroOk()) {
             <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
           }</label>
@@ -447,16 +447,23 @@ interface ProductRow {
                    — entra nei MARGINI, dalla cache dell'ordine Shopify. -->
             </div>
           </div>
-          <div>
-            <span class="group-label">{{ 'deliveryForm.pricing.payableGroup' | translate }}</span>
-            <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>{{ 'deliveryForm.pricing.payable' | translate }}</span></label>
-            <div class="grid-2">
-              <label class="fld"><span>{{ 'deliveryForm.pricing.valetSalary' | translate }}</span>
-                <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
-              <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
-                <input class="field num" type="number" step="0.01" name="valetAdditionalPrice" [(ngModel)]="model.valetAdditionalPrice" /></label>
+          <!-- ⚠️ 02/09 (segnalazione utente, provando da PARTNER): il blocco
+               «Da pagare (valet)» — paga, plus/minus, il flag stesso — è il
+               NOSTRO costo verso il valet e al partner non deve comparire.
+               Il server già scartava i valori (senzaCampiDiUfficio) e non gli
+               manda mai la paga: qui sparisce anche la vista. -->
+          @if (!isPartner()) {
+            <div>
+              <span class="group-label">{{ 'deliveryForm.pricing.payableGroup' | translate }}</span>
+              <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>{{ 'deliveryForm.pricing.payable' | translate }}</span></label>
+              <div class="grid-2">
+                <label class="fld"><span>{{ 'deliveryForm.pricing.valetSalary' | translate }}</span>
+                  <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
+                <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
+                  <input class="field num" type="number" step="0.01" name="valetAdditionalPrice" [(ngModel)]="model.valetAdditionalPrice" /></label>
+              </div>
             </div>
-          </div>
+          }
         </div>
         <!-- ⚠️ Qui NIENTE «prezzo flessibile»: nel Listino dell'app attuale ci
              sono solo prezzi e plus/minus. Il prezzo flessibile e' una cosa
@@ -1842,6 +1849,7 @@ export class DeliveryFormComponent implements AfterViewInit {
               this.autocompleteRitiro.addListener('place_changed', () => {
                 const place = this.autocompleteRitiro.getPlace();
                 this.zone.run(() => {
+                  this.ultimaSceltaGoogle = Date.now();
                   const testo = place?.formatted_address || ritiro.value || '';
                   this.model.pickupAddress = this.pulisciIndirizzo(testo);
                   this.aggiornaPreventivo();
@@ -1869,9 +1877,42 @@ export class DeliveryFormComponent implements AfterViewInit {
     return (a ?? '').replace(/^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/, '').trim();
   }
 
+  /**
+   * 02/09 (regola utente): quando si ESCE dal campo, l'indirizzo scritto a
+   * mano si normalizza col PRIMO risultato di Google — così in banca dati
+   * entra sempre un indirizzo esatto, città e provincia comprese («via del
+   * giannono milano» → l'indirizzo vero). SOLO al blur: mentre si scrive
+   * comandano i suggerimenti. Se Google non riconosce niente, il testo resta
+   * (e per il partner resta l'avviso col Salva spento).
+   */
+  private ultimaSceltaGoogle = 0;
+  normalizzaIndirizzo(campo: 'consegna' | 'ritiro'): void {
+    setTimeout(() => {
+      // Un suggerimento appena scelto NON si sovrascrive: il click sul menu
+      // di Google fa blur prima di place_changed.
+      if (Date.now() - this.ultimaSceltaGoogle < 800) return;
+      const valore = (campo === 'consegna' ? this.model.recipientAddress : this.model.pickupAddress)?.trim();
+      if (!valore) return;
+      const g = (window as any).google;
+      if (!g?.maps?.Geocoder) return; // Maps non caricato: ci pensa la geocodifica del server
+      new g.maps.Geocoder().geocode({ address: valore, region: 'it' }, (results: any, status: string) => {
+        this.zone.run(() => {
+          if (status !== 'OK' || !results?.length) return;
+          if (campo === 'consegna') {
+            this.onPlaceSelected(results[0]);
+          } else {
+            this.model.pickupAddress = this.pulisciIndirizzo(results[0].formatted_address || valore);
+            this.aggiornaPreventivo();
+          }
+        });
+      });
+    }, 300);
+  }
+
   /** Indirizzo (o posto) scelto dal menu Google: compila il campo e ricava la provincia. */
   private onPlaceSelected(place: any): void {
     if (!place) return;
+    this.ultimaSceltaGoogle = Date.now();
     const grezzo = place.formatted_address || this.addressInput?.nativeElement.value || '';
     const address = this.pulisciIndirizzo(grezzo);
     this.model.recipientAddress = address;
