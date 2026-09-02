@@ -262,6 +262,15 @@ export class DeliveriesController {
     return this.deliveriesService.rifiutaVendita(id, user, motivo);
   }
 
+  // ANNULLA dal partner (utente, 02/09): rosso -> annullata subito;
+  // giallo -> «cancellazione richiesta», decide l'ufficio.
+  @Post(':id/annulla')
+  @Roles(Role.PARTNER)
+  @ApiOperation({ summary: 'Il partner annulla (da gestire) o chiede la cancellazione (in gestione)' })
+  annullaDaPartner(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.annullaDaPartner(id, user);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION)
   @Delete(':id')
   @Roles(Role.ADMIN)

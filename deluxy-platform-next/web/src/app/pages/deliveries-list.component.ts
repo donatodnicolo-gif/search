@@ -450,6 +450,15 @@ interface PropostaVendita {
                       {{ 'deliveries.vendita.rifiuta' | translate }}
                     </button>
                   }
+                  <!-- ANNULLA del partner (02/09, regola utente, #100854):
+                       ROSSA (da gestire) = annullata subito, in Storico;
+                       GIALLA (in gestione) = «cancellazione richiesta»,
+                       decide l'ufficio. Vendite escluse: hanno Rifiuta. -->
+                  @if (puoAnnullare(d)) {
+                    <button type="button" class="act ko" [disabled]="annullaInCorso() === d.id" (click)="chiediAnnulla(d)">
+                      {{ 'deliveries.annulla.bottone' | translate }}
+                    </button>
+                  }
                   <!-- Su ogni consegna EFFETTUATA il valet può chiedere un
                        rimborso o aprire un reclamo (31/08) — vanno in Segnalazioni. -->
                   @if (isValetRuolo() && consegnaEffettuata(d)) {
@@ -1839,6 +1848,40 @@ export class DeliveriesListComponent {
       },
     });
   }
+  /**
+   * ANNULLA del partner (02/09, regola utente): solo sulle SUE consegne non
+   * di vendita, finché sono rosse (created) o gialle (assigned). Rossa =
+   * annullata subito; gialla = richiesta di cancellazione, decide l'ufficio.
+   */
+  puoAnnullare(d: Delivery): boolean {
+    const u = this.auth.user();
+    return u?.role === 'PARTNER'
+      && d.partner?.id === u.partnerId
+      && d.serviceType?.pricingModel !== 'VENDITA'
+      && ['created', 'assigned'].includes(d.status);
+  }
+  readonly annullaInCorso = signal<string | null>(null);
+  chiediAnnulla(d: Delivery): void {
+    const gialla = d.status === 'assigned';
+    this.confermaPendente.set({
+      titolo: this.translate.instant('deliveries.annulla.titolo'),
+      messaggio: `#${d.code} — ${this.translate.instant(gialla ? 'deliveries.annulla.msgGialla' : 'deliveries.annulla.msgRossa')}`,
+      verbo: this.translate.instant('deliveries.annulla.bottone'),
+      tono: 'danger',
+      conMotivo: false,
+      azione: () => {
+        this.annullaInCorso.set(d.id);
+        this.http.post(`${environment.apiUrl}/deliveries/${d.id}/annulla`, {}).subscribe({
+          next: () => { this.annullaInCorso.set(null); this.load(); },
+          error: (err) => {
+            this.annullaInCorso.set(null);
+            this.actionError.set(err?.error?.message ?? 'Errore nell\'annullamento');
+          },
+        });
+      },
+    });
+  }
+
   valetInConsegna(d: Delivery): void {
     this.valetStatoInCorso.set(d.id);
     this.http.patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status: 'in_delivery' }).subscribe({

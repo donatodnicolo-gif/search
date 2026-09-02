@@ -738,6 +738,12 @@
       "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
       "motivo": "Reason (optional)"
     },
+    "annulla": {
+      "bottone": "Cancel delivery",
+      "titolo": "Cancel this delivery?",
+      "msgRossa": "it is still unmanaged: it will be cancelled right away and move to History as cancelled.",
+      "msgGialla": "it is already being managed: a cancellation request will be recorded and the office will decide. You can no longer edit it."
+    },
     "title": "Deliveries",
     "caption": "All the network's deliveries, in real time.",
     "allStatuses": "All statuses",

@@ -152,9 +152,14 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   /**
    * Cio' che incassiamo per conto del partner e gli dobbiamo girare.
    * Solo nelle vendite: altrove il denaro va dal partner a noi.
+   *
+   * ⚠️ 02/09 (segnalazione utente): la commissione gli viene fatturata CON
+   * IVA — il dovuto è il NETTO: valore − quota×(1+IVA). Prima si mostrava il
+   * lordo (valore − quota) e la Fatturazione diceva 90 dove la scheda
+   * consegna (economiaVendita, `dovutoNetto`) diceva 87,80.
    */
   const dovuto = (trattenuto: number) =>
-    vendita ? Math.max(0, Math.round((valoreProdotti - trattenuto) * 100) / 100) : 0;
+    vendita ? Math.max(0, Math.round((valoreProdotti - conIva(trattenuto)) * 100) / 100) : 0;
 
   // Il prezzo deciso sulla consegna vince: è un fatto, non una stima.
   if ((d.price ?? 0) > 0) {

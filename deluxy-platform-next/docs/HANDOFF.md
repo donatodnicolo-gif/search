@@ -3,6 +3,28 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 sera-3 — ANNULLA DEL PARTNER, DOVUTO AL NETTO IVA**
+> (deployato e Ready):
+> - **Annulla del partner** (regola utente, es. #100854): sulle SUE consegne
+>   non di vendita — ROSSA (created) → «Annulla» la manda subito in Storico
+>   come annullata; GIALLA (assigned) → diventa «Cancellazione richiesta» e
+>   decide l'ufficio. Bottone in lista (conferma narrativa) e nel dettaglio
+>   (card di conferma). Vendite ESCLUSE: hanno già Accetta/Rifiuta col giro
+>   della vendita che torna all'ufficio. API: `POST /deliveries/:id/annulla`
+>   (solo PARTNER, sua). Il Modifica del partner nel DETTAGLIO ora segue la
+>   stessa regola della lista (solo rossa e non vendita — il server già
+>   rifiutava, il bottone però compariva).
+> - **Fatturazione, dovuto al partner AL NETTO IVA** (segnalazione utente):
+>   la commissione si fattura CON IVA, quindi il dovuto è valore −
+>   quota×1,22 — prima il «da fatturare» diceva 90 (100 − 10) dove la scheda
+>   consegna (economiaVendita.dovutoNetto) diceva 87,80. Corretto in
+>   `prezzoConsegna` (invoices.module): riga «netto» e totale «dovuto al
+>   partner» ora coincidono con la scheda.
+> - **Form nuova consegna (ufficio), tendina partner**: VERIFICATO già
+>   conforme alla regola — solo partner attivi e non eliminati, e appena
+>   l'indirizzo rivela la provincia si restringe a chi la ha abilitata (in
+>   modifica il partner già salvato resta in tendina).
+>
 > 🧪 **02/09/2026 sera-2 — CACCIA ALLE EXTRA-URBANE SBAGLIATE, VENDITE A QUOTA
 > ZERO, ASSEGNA SOLO ATTIVI** (deployato e Ready):
 > - **🐞 Bug vero: confronto comuni CASE-SENSITIVE.** La scheda di Chanel Roma

@@ -634,10 +634,10 @@ export class DeliveriesService {
    * vorrebbe dire scrivere il 22% in un secondo posto, e il giorno che cambia
    * due schermate direbbero due numeri diversi.
    *
-   * ⚠️ `dovutoLordo` è lo stesso numero che la Fatturazione chiama
-   * `dovutoAlPartner` (valore − quota): si tiene, ma NON è quello che il
-   * partner incassa davvero — sopra c'è ancora l'IVA della nostra commissione.
-   * Mostrarli senza distinguerli è il modo per far litigare due schermate.
+   * ⚠️ Dal 02/09 la Fatturazione chiama `dovutoAlPartner` il NETTO (valore −
+   * quota×(1+IVA)) = il `dovutoNetto` di qui: le due schermate dicono lo
+   * stesso numero. `dovutoLordo` (valore − quota) resta solo come voce
+   * informativa della scheda.
    */
   private economiaVendita(d: {
     price?: number | null;
@@ -760,6 +760,52 @@ export class DeliveriesService {
       }
     });
     return { ok: true, status: 'not_accepted', venditaRestituita: Boolean(vendita) };
+  }
+
+  /**
+   * ANNULLA dal PARTNER (regola utente 02/09, esempio #100854): finché la
+   * consegna è ROSSA («da gestire», created) l'annulla è immediato — va in
+   * Storico come annullata. Quando è GIALLA («in gestione», assigned)
+   * l'ufficio ci sta già lavorando: si registra la RICHIESTA di cancellazione
+   * (cancellation_requested) e decide l'ufficio. Oltre, non si annulla da
+   * qui. Le VENDITE restano fuori: hanno già Accetta/Rifiuta col loro giro
+   * (la vendita torna all'ufficio, cosa che un annullo secco non farebbe).
+   */
+  async annullaDaPartner(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, code: true, status: true, partnerId: true,
+        serviceType: { select: { pricingModel: true } } },
+    });
+    if (!d || user.role !== Role.PARTNER || d.partnerId !== user.partnerId) {
+      throw new NotFoundException('Consegna non trovata');
+    }
+    if (d.serviceType?.pricingModel === 'VENDITA') {
+      throw new BadRequestException('Le vendite si accettano o si rifiutano, non si annullano da qui.');
+    }
+    if (d.status === DeliveryStatus.CREATED) {
+      await this.prisma.delivery.update({
+        where: { id: d.id },
+        data: {
+          status: DeliveryStatus.CANCELLED,
+          logs: { create: [{ type: 'status_change', userId: user.sub,
+            message: 'Annullata dal partner (era ancora da gestire).' }] },
+        },
+      });
+      return { ok: true, status: DeliveryStatus.CANCELLED };
+    }
+    if (d.status === DeliveryStatus.ASSIGNED) {
+      await this.prisma.delivery.update({
+        where: { id: d.id },
+        data: {
+          status: DeliveryStatus.CANCELLATION_REQUESTED,
+          logs: { create: [{ type: 'status_change', userId: user.sub,
+            message: 'Cancellazione richiesta dal partner (era in gestione): decide l’ufficio.' }] },
+        },
+      });
+      return { ok: true, status: DeliveryStatus.CANCELLATION_REQUESTED };
+    }
+    throw new BadRequestException('Si può annullare solo finché la consegna è da gestire o in gestione.');
   }
 
   /**

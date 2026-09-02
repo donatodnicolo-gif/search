@@ -141,7 +141,24 @@ interface DeliveryDetail {
           @if (canAssign()) {
             <button type="button" class="act primary" (click)="openAssign()">{{ 'deliveryDetail.act.assign' | translate }}</button>
           }
+          <!-- ANNULLA del partner (02/09): rosso = subito in Storico;
+               giallo = «cancellazione richiesta», decide l'ufficio. -->
+          @if (puoAnnullare()) {
+            <button type="button" class="act ko" (click)="confermaAnnulla.set(true)">{{ 'deliveries.annulla.bottone' | translate }}</button>
+          }
         </div>
+        @if (confermaAnnulla()) {
+          <div class="card conferma-annulla">
+            <p><strong>{{ 'deliveries.annulla.titolo' | translate }}</strong></p>
+            <p class="hint">{{ (d.status === 'assigned' ? 'deliveries.annulla.msgGialla' : 'deliveries.annulla.msgRossa') | translate }}</p>
+            <div class="azioni-conferma">
+              <button type="button" class="btn btn-danger" [disabled]="annullando()" (click)="annulla()">
+                {{ (annullando() ? 'common.saving' : 'deliveries.annulla.bottone') | translate }}
+              </button>
+              <button type="button" class="btn btn-secondary" (click)="confermaAnnulla.set(false)">{{ 'common.cancel' | translate }}</button>
+            </div>
+          </div>
+        }
         <!-- Legge 8 (§7): gli errori NON passano da un toast — banner
              persistente presso il contesto (verdetto custode 31/08). Il
              toast resta solo per i successi. -->
@@ -731,6 +748,9 @@ interface DeliveryDetail {
       .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
       .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
+      .conferma-annulla { margin: 0 0 16px; padding: 14px 16px; }
+      .conferma-annulla .hint { margin: 4px 0 10px; color: var(--text-secondary); font-size: 13px; }
+      .azioni-conferma { display: flex; gap: 8px; }
       .azione-errore { color: var(--red); font-size: 13px; flex-basis: 100%; }
       .chiusura-corpo { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
       .campo-eti { font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-top: 6px; }
@@ -1177,7 +1197,39 @@ export class DeliveryDetailComponent {
   /** Modifica: la rotta ammette anche il partner (l'API applica le sue regole). */
   canEdit(): boolean {
     const r = this.auth.user()?.role;
-    return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
+    if (r === 'ADMIN' || r === 'OPERATION') return true;
+    // 02/09 (regola utente): il partner modifica solo finché la consegna è
+    // ROSSA (da gestire) e non è una vendita — come in lista, e come il
+    // server già impone. Da gialla in poi il bottone sparisce.
+    if (r === 'PARTNER') {
+      const d = this.delivery();
+      return d?.status === 'created' && d?.serviceType?.pricingModel !== 'VENDITA';
+    }
+    return false;
+  }
+
+  /** ANNULLA del partner (02/09): rosso = subito in Storico; giallo = richiesta. */
+  puoAnnullare(): boolean {
+    const u = this.auth.user();
+    const d = this.delivery();
+    return u?.role === 'PARTNER' && !!d
+      && d.serviceType?.pricingModel !== 'VENDITA'
+      && ['created', 'assigned'].includes(d.status ?? '');
+  }
+  readonly confermaAnnulla = signal(false);
+  readonly annullando = signal(false);
+  annulla(): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.annullando.set(true);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/annulla`, {}).subscribe({
+      next: () => { this.annullando.set(false); this.confermaAnnulla.set(false); this.load(); },
+      error: (err) => {
+        this.annullando.set(false);
+        this.confermaAnnulla.set(false);
+        this.actionError.set(err?.error?.message ?? 'Errore nell\'annullamento');
+      },
+    });
   }
   canSeeLogs(): boolean { return this.canManage(); }
   /** Chi può condividere il link di tracciamento col cliente: ufficio + partner. */
