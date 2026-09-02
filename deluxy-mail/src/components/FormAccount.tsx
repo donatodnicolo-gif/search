@@ -76,10 +76,30 @@ export function FormAccount() {
     'imap.register.it': { imapHost: 'pop.securemail.pro', smtpHost: 'authsmtp.securemail.pro', ignoraCert: false, nome: 'SecureMail' },
   }
 
+  /**
+   * ⚠️ La chiamata all'azione può fallire PRIMA di entrare in `creaAccount`:
+   * un deploy appena fatto invalida gli id delle azioni della pagina aperta,
+   * la rete cade, la sessione scade. Un'eccezione dentro la transizione non si
+   * vede come errore: fa comparire la schermata «Questa schermata non si è
+   * aperta» al posto di tutto (successo il 02/09/2026, collegando la casella
+   * di Michela a cavallo di un deploy). Qui si cattura e si dice cosa fare.
+   */
+  async function creaSenzaEsplodere(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+    try {
+      return await creaAccount(form)
+    } catch (e) {
+      const m = e instanceof Error && e.message ? ` (${e.message.slice(0, 80)})` : ''
+      return {
+        ok: false,
+        messaggio: `La richiesta non è partita${m}. Se l’app è stata appena aggiornata, ricarica la pagina e riprova: i dati inseriti non hanno lasciato il tuo browser.`,
+      }
+    }
+  }
+
   function invia(form: FormData) {
     setStato(null)
     startTransition(async () => {
-      const esito = await creaAccount(form)
+      const esito = await creaSenzaEsplodere(form)
       if (esito.ok) {
         setStato(esito)
         router.refresh()
@@ -97,7 +117,7 @@ export function FormAccount() {
       form2.set('smtpHost', gemella.smtpHost)
       if (gemella.ignoraCert) form2.set('ignoraCertTls', 'on')
       else form2.delete('ignoraCertTls')
-      const esito2 = await creaAccount(form2)
+      const esito2 = await creaSenzaEsplodere(form2)
       if (esito2.ok) {
         setStato({ ok: true, messaggio: `${esito2.messaggio} (piattaforma ${gemella.nome}, trovata da sola)` })
         router.refresh()

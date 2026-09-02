@@ -23,6 +23,36 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 (3) — La schermata «non si è aperta» al login di Michela: diagnosi e cintura
+
+Michela (app password nostra, giusta) entrava e si trovava il boundary d'errore globale.
+**Riprodotto il contesto con un utente di prova USA-E-GETTA in produzione** (stessa
+condizione: zero caselle; creato per id, provato, poi CANCELLATO — utenti tornati 10):
+
+- **Login, home («Nessuna casella collegata»), /impostazioni e TUTTE le rotte reggono**
+  con zero caselle: giro fatto sia a schermo sia con fetch autenticate su 17 rotte,
+  nessun errore server. Il crash NON è «utente senza caselle».
+- **La causa più credibile è il trasporto delle Server Action**: stamattina ci sono
+  stati 3 deploy mentre loro provavano — una pagina aperta PRIMA del deploy che invia
+  DOPO ha gli id delle azioni invalidati → la chiamata fallisce → l'eccezione dentro
+  `startTransition` fa comparire il boundary al posto di tutto (stessa classe del caso
+  «Sessione scaduta» del 26/08; il boundary della schermata di Michela non mostrava
+  digest = errore lato client). Rimedio per l'utente: **ricaricare la pagina** e rifare.
+- **Cintura messa** dove Michela lavora: `FormAccount` (entrambi i tentativi del doppio
+  binario) e `FormUtente` ora catturano il fallimento della chiamata e dicono «La
+  richiesta non è partita… ricarica la pagina e riprova» invece di morire.
+  🔴 Restano scoperti gli ALTRI chiamanti di server action senza try/catch (censimento
+  mai fatto): stessa classe, stessa cura.
+- ⚠️ Il collegamento vero della casella (password register giusta) resta da provare da
+  loro: non ho le credenziali e non devo averle. Il flusso «password app per entrare ≠
+  password register per la casella» è confermato dal codice: sono due tabelle e due
+  moduli diversi, nessun incrocio.
+- ⚠️ Oggi il pannello browser di questa macchina era inaffidabile (ref a 0×0, screenshot
+  in timeout, viewport 0×0 a fine giro): i clic «riusciti» spesso NON erano arrivati
+  alla pagina — prima di dedurre guasti dell'app da lì, controllare che l'input sia
+  DAVVERO atterrato (i valori nei campi letti dal DOM).
+
+---
 ### 02/09 (2) — Collega casella: se una piattaforma rifiuta, si prova DA SOLI l'altra
 
 Michela non riusciva a collegare la sua casella vera (errore, niente posta). Misurato sul

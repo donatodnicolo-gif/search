@@ -12,7 +12,20 @@ export function FormUtente() {
   function invia(form: FormData) {
     setStato(null)
     startTransition(async () => {
-      const esito = await creaUtente(form)
+      // ⚠️ Se la chiamata all'azione fallisce PRIMA di arrivare a `creaUtente`
+      // (deploy appena fatto = id azione invalidato, rete, sessione scaduta),
+      // l'eccezione nella transizione fa comparire la schermata d'errore al
+      // posto di tutto. Qui si cattura e si dice cosa fare.
+      let esito: { ok: boolean; messaggio: string }
+      try {
+        esito = await creaUtente(form)
+      } catch (e) {
+        const m = e instanceof Error && e.message ? ` (${e.message.slice(0, 80)})` : ''
+        esito = {
+          ok: false,
+          messaggio: `La richiesta non è partita${m}. Se l’app è stata appena aggiornata, ricarica la pagina e riprova.`,
+        }
+      }
       setStato(esito)
       if (esito.ok) router.refresh()
     })
