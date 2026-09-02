@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../environments/environment';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
 
 /**
  * LA SCHEDA PROFILO (utente, 02/09): dal proprio nome in basso a sinistra.
@@ -13,7 +14,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 @Component({
   selector: 'app-profilo',
   standalone: true,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe, IndirizzoGoogleDirective],
   template: `
     <h1>{{ 'profilo.title' | translate }}</h1>
     <p class="muted intro">{{ 'profilo.caption' | translate }}</p>
@@ -64,7 +65,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
               <input class="field" name="vVehicle" [(ngModel)]="valet.vehicle" /></label>
           </div>
           <label class="fld"><span>{{ 'profilo.indirizzo' | translate }}</span>
-            <input class="field" name="vAddress" [(ngModel)]="valet.address" /></label>
+            <input class="field" name="vAddress" [(ngModel)]="valet.address" appIndirizzoGoogle autocomplete="off" /></label>
           <div class="grid-2">
             <label class="fld"><span>{{ 'profilo.codiceFiscale' | translate }}</span>
               <input class="field" name="vCf" [(ngModel)]="valet.fiscalCode" /></label>
@@ -94,7 +95,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
               <input class="field" type="email" name="pEmail" [(ngModel)]="partner.email" /></label>
           </div>
           <label class="fld"><span>{{ 'profilo.indirizzo' | translate }}</span>
-            <input class="field" name="pAddress" [(ngModel)]="partner.address" /></label>
+            <input class="field" name="pAddress" [(ngModel)]="partner.address" appIndirizzoGoogle autocomplete="off" /></label>
           @if (esitoNegozio(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
           <div class="azioni"><button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salvaPartner()">{{ 'common.save' | translate }}</button></div>
         </div>

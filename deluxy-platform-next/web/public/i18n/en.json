@@ -1220,6 +1220,21 @@
   "deliveryForm": {
     "backToDeliveries": "Deliveries",
     "indirizzoNonValido": "Pick the address from Google's suggestions: city and province are required.",
+    "prodottoObbligatorio": "Add at least one product: it says what has to be delivered.",
+    "mancanti": {
+      "titolo": "To save, still missing:",
+      "data": "the delivery date",
+      "servizio": "the service",
+      "fascia": "the delivery time slot",
+      "indirizzo": "the recipient address",
+      "indirizzoValido": "a recipient address with city and province (pick from suggestions)",
+      "ritiroValido": "a pickup address with city and province",
+      "oraRitiro": "the pickup time",
+      "destinatario": "the recipient name",
+      "prodotto": "at least one product",
+      "brandDdt": "the DDT brand (required on sales)",
+      "ore": "the service hours"
+    },
     "title": "New delivery",
     "caption": "Service, pickup, recipient, products and pricing.",
     "submit": "Create delivery",

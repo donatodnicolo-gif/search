@@ -1220,6 +1220,21 @@
   "deliveryForm": {
     "backToDeliveries": "Consegne",
     "indirizzoNonValido": "Scegli l'indirizzo dai suggerimenti di Google: servono città e provincia.",
+    "prodottoObbligatorio": "Indica almeno un prodotto: serve a sapere che cosa va consegnato.",
+    "mancanti": {
+      "titolo": "Per salvare mancano:",
+      "data": "la data di consegna",
+      "servizio": "il servizio",
+      "fascia": "la fascia oraria di consegna",
+      "indirizzo": "l'indirizzo del destinatario",
+      "indirizzoValido": "un indirizzo destinatario con città e provincia (scegli dai suggerimenti)",
+      "ritiroValido": "un indirizzo di ritiro con città e provincia",
+      "oraRitiro": "l'orario di ritiro",
+      "destinatario": "il nome del destinatario",
+      "prodotto": "almeno un prodotto",
+      "brandDdt": "il brand del DDT (obbligatorio sulle vendite)",
+      "ore": "le ore del servizio"
+    },
     "title": "Nuova consegna",
     "caption": "Servizio, ritiro, destinatario, prodotti e listino.",
     "submit": "Crea consegna",

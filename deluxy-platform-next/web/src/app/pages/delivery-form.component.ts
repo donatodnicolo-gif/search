@@ -191,7 +191,7 @@ interface ProductRow {
               <span class="slot-hint">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</span>
             } @else if (model.deliveryFlexible) {
               <div class="grid-2">
-                <input class="field" type="time" step="900" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
+                <input class="field" type="time" step="900" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" (ngModelChange)="applicaRitiroOrario()" />
                 <input class="field" type="time" step="900" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" />
               </div>
               <!-- Minimo un'ora: se la fine manca o è troppo vicina, la
@@ -200,7 +200,7 @@ interface ProductRow {
                 <span class="slot-hint">→ {{ model.deliveryTimeFrom }}–{{ fineFlessibileConsegna() }} {{ 'deliveryForm.timing.minOneHour' | translate }}</span>
               }
             } @else {
-              <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
+              <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" (ngModelChange)="applicaRitiroOrario()">
                 <option value="">{{ 'deliveryForm.placeholder.selectSlot' | translate }}</option>
                 @for (slot of deliverySlots(); track slot.from) { <option [value]="slot.from">{{ slot.from }}–{{ slot.to }}</option> }
               </select>
@@ -241,7 +241,7 @@ interface ProductRow {
           <label class="fld mt" style="max-width:280px"><span class="req">{{ 'deliveryForm.field.pickupTime' | translate }} <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
             <select class="field" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom">
               <option value="">{{ 'deliveryForm.placeholder.selectTime' | translate }}</option>
-              @for (t of pickupTimeOptions; track t) { <option [value]="t">{{ t }} – {{ plusOneHour(t) }}</option> }
+              @for (t of pickupSlotOptions(); track t) { <option [value]="t">{{ t }} – {{ plusOneHour(t) }}</option> }
             </select>
             @if (model.pickupTimeFrom) { <span class="slot-hint">→ {{ model.pickupTimeFrom }}–{{ plusOneHour(model.pickupTimeFrom) }}</span> }
           </label>
@@ -417,6 +417,11 @@ interface ProductRow {
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="addProduct()">+ {{ 'deliveryForm.order.addProduct' | translate }}</button>
+        <!-- 02/09 (regola utente): il PRODOTTO è obbligatorio per inserire —
+             tranne che sui servizi a ora, che non portano merce. -->
+        @if (!prodottiObbligatoriOk()) {
+          <div class="indirizzo-avviso">{{ 'deliveryForm.prodottoObbligatorio' | translate }}</div>
+        }
 
         <div class="toggles mt">
           <label class="toggle"><input type="checkbox" name="paymentOnDelivery" [(ngModel)]="model.paymentOnDelivery" /><span>{{ 'deliveryForm.order.paymentOnDelivery' | translate }}</span></label>
@@ -436,7 +441,12 @@ interface ProductRow {
         <div class="listino">
           <div>
             <span class="group-label">{{ 'deliveryForm.pricing.billableGroup' | translate }}</span>
-            <label class="toggle mb"><input type="checkbox" name="billable" [(ngModel)]="model.billable" /><span>{{ 'deliveryForm.pricing.billable' | translate }}</span></label>
+            <!-- 02/09 (regola utente): se una consegna sia DA FATTURARE lo
+                 decide l'ufficio, mai il partner (il server già ignora il
+                 campo dal suo dto: qui sparisce anche la spunta). -->
+            @if (!isPartner()) {
+              <label class="toggle mb"><input type="checkbox" name="billable" [(ngModel)]="model.billable" /><span>{{ 'deliveryForm.pricing.billable' | translate }}</span></label>
+            }
             <div class="grid-2">
               <label class="fld"><span>{{ 'deliveryForm.pricing.price' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
@@ -487,8 +497,11 @@ interface ProductRow {
                senza il brand il numero non identifica la vendita. Solo per le
                VENDITE, e li' e' OBBLIGATORIO quando c'e' un numero DDT. -->
           @if (isVendita()) {
+            <!-- 02/09 (regola utente): il BRAND del DDT è obbligatorio sui
+                 servizi VENDITA (la merce viaggia sempre col documento);
+                 altrove serve solo se c'è un numero DDT. -->
             <label class="fld"><span class="req">{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
-              <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="!!model.ddtNumber.trim()">
+              <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="!!model.ddtNumber.trim() || servizioVendita()">
                 <option value="">{{ 'deliveryForm.ddtBrandScegli' | translate }}</option>
                 @for (b of marchiDdt; track b) { <option [value]="b">{{ b }}</option> }
               </select></label>
@@ -511,6 +524,14 @@ interface ProductRow {
       @if (justSaved()) { <div class="ok-card card">{{ 'deliveryForm.savedNotice.pre' | translate }} <strong>{{ 'deliveryForm.savedNotice.create' | translate }}</strong> {{ 'deliveryForm.savedNotice.or' | translate }} <strong>{{ 'common.duplicate' | translate }}</strong> {{ 'deliveryForm.savedNotice.post' | translate }}</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
+      <!-- 02/09 (regola utente): in fondo al form si spiega CHE COSA manca. -->
+      @if (campiMancanti().length) {
+        <div class="mancanti">
+          <strong>{{ 'deliveryForm.mancanti.titolo' | translate }}</strong>
+          <span>{{ campiMancanti().join(' · ') }}</span>
+        </div>
+      }
+
       <div class="actions sticky">
         <!-- v1.5: stesso gesto del «← indietro» in testa — la history, non
              l'URL nudo, o Annulla butta i filtri da cui si è arrivati. -->
@@ -523,9 +544,10 @@ interface ProductRow {
                Le modifiche non salvate non viaggiano: si duplica il salvato. -->
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="duplicaQuesta()">{{ 'common.duplicate' | translate }}</button>
         }
-        <!-- 02/09 (regola utente): per il PARTNER il Salva si accende solo con
-             indirizzi validati da Google (città + provincia leggibili). -->
-        <button type="submit" class="btn btn-primary" [disabled]="saving() || !indirizziValidi()">
+        <!-- 02/09 (regole utente): il Salva si accende solo con indirizzi
+             validi (partner), ALMENO UN PRODOTTO (fuori dai servizi a ora) e
+             il brand DDT sulle vendite. -->
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !indirizziValidi() || !prodottiObbligatoriOk() || !brandDdtOk()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
         </button>
       </div>
@@ -651,6 +673,10 @@ interface ProductRow {
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
       .indirizzo-avviso { color: var(--red); font-size: 12.5px; margin-top: 4px; }
+      .mancanti { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
+        background: rgba(215,0,21,0.05); border-left: 3px solid var(--red);
+        padding: 10px 14px; border-radius: 0; font-size: 13px; margin-bottom: 10px; }
+      .mancanti strong { color: var(--red); }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
       /* Compila con l'AI */
       .ai-box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px 18px; }
@@ -1127,6 +1153,26 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (!this.isPartner()) return true;
     return this.indirizzoConsegnaOk() && this.indirizzoRitiroOk();
   }
+  /** Il servizio scelto è una vendita? (brand DDT obbligatorio, 02/09) */
+  servizioVendita(): boolean {
+    return this.selectedService()?.pricingModel === 'VENDITA';
+  }
+  /**
+   * 02/09 (regola utente): il PRODOTTO è obbligatorio per INSERIRE la
+   * consegna — tranne sui servizi A ORA, che non portano merce. In modifica
+   * non si blocca il resto del lavoro.
+   */
+  prodottiObbligatoriOk(): boolean {
+    if (this.editId()) return true;
+    const s = this.selectedService();
+    if (!s || s.pricingModel === 'A_ORA') return true;
+    return this.productRows.some((r) => r.productId);
+  }
+  /** Brand DDT: sulla vendita non si salva senza (02/09). */
+  brandDdtOk(): boolean {
+    if (!this.servizioVendita()) return true;
+    return Boolean((this.model.ddtBrand ?? '').trim());
+  }
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
@@ -1505,6 +1551,21 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (this.isPartner()) {
       this.model.partnerId = this.auth.user()?.partnerId ?? '';
       this.partnerSel.set(this.model.partnerId);
+      // ⚠️ 02/09 (segnalazione utente, provando da partner): al PARTNER la
+      // lista /partners non arriva (perimetro), quindi `applicaRitiroPartner`
+      // non trovava il SUO indirizzo e il ritiro restava vuoto A VIDEO — il
+      // server lo riempiva solo al salvataggio. La sede si prende dalla
+      // propria scheda (/auth/profilo) e si semina come unico partner noto.
+      this.http.get<{ partner?: { insegna?: string; address?: string } | null }>(`${api}/auth/profilo`)
+        .subscribe((p) => {
+          const addr = (p?.partner?.address ?? '').trim();
+          if (!addr) return;
+          this.partners.set([{ id: this.model.partnerId, insegna: p?.partner?.insegna ?? '', address: addr } as any]);
+          if (!this.editId()) {
+            this.applicaRitiroPartner();
+            this.aggiornaPreventivo();
+          }
+        });
     } else {
       this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => {
         this.partners.set(d);
@@ -1712,6 +1773,69 @@ export class DeliveryFormComponent implements AfterViewInit {
     // Stesso servizio ma altro partner = altro listino: si ricalcola anche qui.
     this.proponiPrezzoDiListino();
     this.aggiornaPreventivo();
+  }
+
+  /** Traccia l'ORARIO di ritiro messo in automatico (consegna − 1h). */
+  private ritiroOrarioAuto = '';
+  /**
+   * 02/09 (regola utente): l'orario di ritiro di DEFAULT è UN'ORA PRIMA
+   * dell'orario di consegna. Solo se il campo è vuoto o contiene ancora il
+   * valore automatico precedente — un orario scritto a mano non si tocca.
+   * (È la stessa regola del prefill da vendita, ora per ogni consegna.)
+   */
+  applicaRitiroOrario(): void {
+    const da = this.model.deliveryTimeFrom;
+    if (!da || !/^\d{2}:\d{2}$/.test(da)) return;
+    if (this.model.pickupTimeFrom && this.model.pickupTimeFrom !== this.ritiroOrarioAuto) return;
+    const [hh, mm] = da.split(':').map(Number);
+    let prima = `${String((hh + 23) % 24).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    // 02/09 (regola utente): il ritiro usa le STESSE fasce della consegna —
+    // se «consegna − 1h» non è fra le opzioni, vale la fascia che la precede.
+    if (!this.model.pickupFlexible) {
+      const opzioni = this.pickupSlotOptions();
+      if (opzioni.length && !opzioni.includes(prima)) {
+        const prec = opzioni.filter((t) => t <= prima).sort().pop();
+        prima = prec ?? opzioni[0];
+      }
+    }
+    this.model.pickupTimeFrom = prima;
+    this.ritiroOrarioAuto = prima;
+  }
+
+  /**
+   * 02/09 (regola utente): le fasce proposte per il RITIRO sono le stesse
+   * della consegna; se il servizio non ne dichiara, restano le mezz'ore.
+   */
+  pickupSlotOptions(): string[] {
+    const slots = this.deliverySlots();
+    if (slots.length) return slots.map((s) => s.from);
+    return this.pickupTimeOptions;
+  }
+
+  /**
+   * 02/09 (regola utente): in fondo al form si DICE che cosa manca per poter
+   * salvare — un bottone spento senza spiegazione fa solo perdere tempo.
+   */
+  campiMancanti(): string[] {
+    const m: string[] = [];
+    const t = (k: string) => this.translate.instant(k);
+    if (!this.model.date) m.push(t('deliveryForm.mancanti.data'));
+    if (!this.model.serviceTypeId) m.push(t('deliveryForm.mancanti.servizio'));
+    if (!this.model.deliveryTimeFrom) m.push(t('deliveryForm.mancanti.fascia'));
+    const indirizzo = (this.model.recipientAddress ?? '').trim();
+    if (!indirizzo) m.push(t('deliveryForm.mancanti.indirizzo'));
+    else if (this.isPartner() && !this.indirizzoConsegnaOk()) m.push(t('deliveryForm.mancanti.indirizzoValido'));
+    if (this.isPartner() && !this.indirizzoRitiroOk()) m.push(t('deliveryForm.mancanti.ritiroValido'));
+    if (!this.model.pickupTimeFrom) m.push(t('deliveryForm.mancanti.oraRitiro'));
+    if (!(this.model.recipientLastName ?? '').trim() && !(this.model.recipientFirstName ?? '').trim()) {
+      m.push(t('deliveryForm.mancanti.destinatario'));
+    }
+    if (!this.prodottiObbligatoriOk()) m.push(t('deliveryForm.mancanti.prodotto'));
+    if (!this.brandDdtOk()) m.push(t('deliveryForm.mancanti.brandDdt'));
+    if (this.selectedService()?.pricingModel === 'A_ORA' && !(Number(this.model.hours) > 0)) {
+      m.push(t('deliveryForm.mancanti.ore'));
+    }
+    return m;
   }
 
   /** Traccia l'indirizzo di ritiro messo in automatico dal partner. */

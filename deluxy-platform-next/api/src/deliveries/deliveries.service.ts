@@ -1002,6 +1002,12 @@ export class DeliveriesService {
           "L'indirizzo di ritiro va scelto dai suggerimenti di Google e deve contenere città e provincia.",
         );
       }
+      // ⚠️ 02/09 (regola utente): il PRODOTTO è obbligatorio per inserire —
+      // tranne sui servizi A ORA, che non portano merce. Il form spegne il
+      // Salva; qui si rifiuta comunque.
+      if (serviceType.pricingModel !== 'A_ORA' && !(dto.products?.length)) {
+        throw new BadRequestException('Indica almeno un prodotto: serve a sapere che cosa va consegnato.');
+      }
     }
 
     const hours = dto.hours ?? 1;
