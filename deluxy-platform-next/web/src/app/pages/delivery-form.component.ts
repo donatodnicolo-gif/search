@@ -406,7 +406,12 @@ interface ProductRow {
               </label>
             }
             <div class="prod-bottom">
-              <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
+              <!-- 02/09 (regola utente): il PREZZO FLESSIBILE è dell'ufficio —
+                   il partner non riscrive il prezzo di riga (il server già lo
+                   ignorava dal suo dto: qui sparisce anche la spunta). -->
+              @if (!isPartner()) {
+                <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
+              }
               @if (row.flexiblePrice) {
                 <span class="price-lbl">{{ 'deliveryForm.order.priceEuro' | translate }}</span>
                 <input class="field num price-in" type="number" step="0.01" [(ngModel)]="row.price" [name]="'pprice' + $index" />

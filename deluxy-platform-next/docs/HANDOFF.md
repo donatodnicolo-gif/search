@@ -40,6 +40,25 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 sera — RAFFICA DI REGOLE SUL FORM CONSEGNA (utente, provando da
+>   partner `donatod.nicolo@gmail.com` / partner «Test»)**: ① ritiro
+>   PRECOMPILATO con la sede del partner anche a video (al partner /partners
+>   non arriva: la sede viene da /auth/profilo, seminata come unico partner
+>   noto); ② orario ritiro di default = consegna − 1h, sulle STESSE fasce
+>   della consegna (se la fascia esatta manca, la precedente; `ritiroOrarioAuto`
+>   non tocca la mano); ③ in fondo al form l'elenco «Per salvare mancano: …»;
+>   ④ PRODOTTO obbligatorio per inserire (tranne A_ORA) — anche server-side
+>   per il partner; ⑤ brand DDT obbligatorio sulle VENDITE; ⑥ la spunta
+>   «fatturabile» al partner NON compare (il server già la ignorava);
+>   ⑦ REGOLA GENERALE: ogni input-indirizzo è collegato a Google Maps —
+>   direttiva riusabile `core/indirizzo-google.directive.ts`
+>   (`appIndirizzoGoogle`: autocomplete + normalizzazione al blur col primo
+>   risultato), applicata agli indirizzi del PROFILO; il form consegna ha già
+>   il suo cablaggio equivalente. 🔴 DA FARE: stendere la direttiva sugli
+>   altri input-indirizzo (form partner/valet admin, ricorrenti, preventivi).
+>   ⚠️ Con ~10 deploy in un giorno le sessioni aperte restano su chunk vecchi:
+>   un click «che non fa nulla» (es. Modifica partner da operation) si cura
+>   con Ctrl+F5 prima di cercare bug.
 > - **02/09 — LA SCHEDA PROFILO DAL PROPRIO NOME (utente)**. Cliccando nome/
 >   avatar in basso a sinistra → `/profilo` (tutti i ruoli): Account (nome,
 >   cognome, email con unicità), Password (riusa `cambia-password`, richiede
