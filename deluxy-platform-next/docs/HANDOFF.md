@@ -3,6 +3,28 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 notte-2 — LE REGOLE SI VEDONO E SI AGGANCIANO** (deployato
+> e Ready):
+> - **Regole VISIBILI nel dettaglio consegna** (utente, su #100846/#100856):
+>   riga «Regola di listino» (nome + «−25 € in fatturazione» o «non si
+>   fattura») e riga «Regola paga valet» (nome + scaglioni leggibili, es.
+>   «>1 ritiri: +2 €»). Maschere per ruolo (regola utente): al VALET la
+>   regola di listino non arriva PER NIENTE (nemmeno il badge 📋 in lista);
+>   al PARTNER non arriva la regola paga valet.
+> - **Il dettaglio mostra la regola valet come la APPLICA Stipendi**: quella
+>   agganciata alla consegna o, in ripiego, quella ASSEGNATA al valet attiva
+>   (findOne). Trovato infatti che la piattaforma NON scriveva mai
+>   `valetDeliveryRuleId`.
+> - **A ogni (ri)assegnazione le regole si ricontrollano** (regola utente):
+>   assignValet ora scrive `valetDeliveryRuleId` dalla regola attiva del
+>   NUOVO valet (o lo svuota se non ne ha — niente regole appiccicate dal
+>   valet precedente) e, se manca, riprova l'aggancio della regola carnet.
+> - **Il −25 va nel Plus/minus COME VISTA** (utente): il dettaglio mostra il
+>   Plus/minus EFFETTIVO = scritto + regola, con «(−25 € dalla regola)»
+>   accanto — il numero NON si ricopia nel campo `additionalPrice`: la
+>   fatturazione somma già la regola dal vivo, scriverlo lo raddoppierebbe
+>   (trappola «regola ricopiata»). Vale anche nel riquadro costi del partner.
+>
 > 🧪 **02/09/2026 notte — PAGA IN TABELLA AL VALET, BADGE RICHIESTE, ATTIVITÀ
 > AUTO-CHIUSE, STAMPA IN UNA PAGINA** (deployato e Ready):
 > - **Il valet vede la SUA paga in tabella** (regola utente, SOLO sulle sue):

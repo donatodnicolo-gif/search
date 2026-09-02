@@ -181,6 +181,12 @@ const DELIVERY_INCLUDE = {
     },
   },
   pickups: true,
+  // Regole applicate (02/09, utente): la SCHEDA le mostra, non solo il badge
+  // 📋 della tabella. Quella di LISTINO (fatturazione) è roba del partner e
+  // dell'ufficio; quella PAGA VALET è roba del valet e dell'ufficio — la
+  // maschera separa i due mondi.
+  deliveryRule: { select: { id: true, name: true, toBill: true, partnerBillingAdjustment: true } },
+  valetDeliveryRule: { select: { id: true, name: true, tiers: true } },
 } as const;
 
 @Injectable()
@@ -653,8 +659,21 @@ export class DeliveriesService {
       feeVendita = ps?.price ?? null;
     }
 
+    // REGOLA PAGA VALET come la applica Stipendi (02/09, utente: «verifica la
+    // regola anche applicata al valet»): quella agganciata alla consegna, o —
+    // in ripiego — quella ASSEGNATA al valet (attiva). Senza il ripiego la
+    // scheda taceva una regola che la paga applica davvero.
+    let regolaValet = (delivery as any).valetDeliveryRule ?? null;
+    if (!regolaValet && delivery.valetId) {
+      const ass = await this.prisma.valetDeliveryRuleValet.findFirst({
+        where: { valetId: delivery.valetId, valetDeliveryRule: { active: true } },
+        select: { valetDeliveryRule: { select: { id: true, name: true, tiers: true } } },
+      });
+      regolaValet = ass?.valetDeliveryRule ?? null;
+    }
+
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, economiaVendita: this.economiaVendita(delivery, feeVendita) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita) }, user),
       user,
     );
   }
@@ -2023,11 +2042,21 @@ export class DeliveriesService {
       data: { valetId },
     });
 
+    // ⚠️ 02/09 (regola utente): a OGNI cambio di assegnazione si ricontrolla
+    // se c'è una REGOLA PAGA da applicare: quella assegnata al NUOVO valet
+    // (attiva) si aggancia; se non ne ha, il campo si SVUOTA — la regola del
+    // valet precedente non deve restare appiccicata alla consegna.
+    const regolaDelValet = await this.prisma.valetDeliveryRuleValet.findFirst({
+      where: { valetId, valetDeliveryRule: { active: true } },
+      select: { valetDeliveryRuleId: true },
+    });
+
     const assegnata = await this.prisma.delivery.update({
       where: { id },
       data: {
         valetId,
         valetSalary,
+        valetDeliveryRuleId: regolaDelValet?.valetDeliveryRuleId ?? null,
         status: DeliveryStatus.ASSIGNED,
         logs: {
           create: {
@@ -2039,6 +2068,9 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // E la regola CARNET (lato partner): se la consegna non ne ha ancora una
+    // applicabile, la si aggancia anche da qui — best-effort, non fallisce.
+    if (!(assegnata as any).deliveryRuleId) await this.agganciaRegolaCarnet(id);
     // Avvisa il valet dell'assegnazione, se ha la mail abilitata (31/08).
     void this.notificaAssegnazioneAlValet(assegnata);
     // Questa e' dell'ufficio (`@Roles(ADMIN, OPERATION)`), ma passare dalla
@@ -2205,7 +2237,10 @@ export class DeliveriesService {
     // costo: chi li vede accanto al prezzo che paga legge il nostro margine.
     if (user.role === Role.PARTNER) {
       const pulita: Record<string, any> = { ...delivery };
-      for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId']) delete pulita[c];
+      // ⚠️ 02/09 (regola utente): al partner arriva solo ciò che riguarda il
+      // SUO prezzo e la SUA fatturazione — la regola PAGA VALET no.
+      for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId',
+        'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId']) delete pulita[c];
       // ⚠️ 31/08 (regola dell'utente): sui servizi di tipo VENDITA il cliente
       // finale è di DELUXY, non del partner (che vende per nostro conto): al
       // partner NON si mostrano i suoi dati. Nasconderlo solo nella pagina non
@@ -2267,12 +2302,12 @@ export class DeliveriesService {
       });
     }
     // Le righe di fattura e la regola carnet lato fatturazione sono conti fra
-    // noi e il partner: non riguardano chi fa il giro.
+    // noi e il partner: non riguardano chi fa il giro. ⚠️ 02/09 (regola
+    // utente): al valet la regola di LISTINO non arriva PER NIENTE — lui vede
+    // solo ciò che riguarda il suo stipendio (valetDeliveryRule resta).
     delete pulita['invoiceLines'];
-    if (pulita['deliveryRule']) {
-      const { partnerBillingAdjustment, toBill, ...regola } = pulita['deliveryRule'];
-      pulita['deliveryRule'] = regola;
-    }
+    delete pulita['deliveryRule'];
+    delete pulita['deliveryRuleId'];
     // ⚠️ 02/09 (regola utente): la PAGA si vede SOLO sulle PROPRIE consegne.
     // Un team leader vede le consegne dei colleghi nel suo perimetro, ma i
     // loro soldi no.

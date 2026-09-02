@@ -2007,6 +2007,12 @@
     "sign": "Firma di chi ha ricevuto",
     "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui.",
     "apriSuDrive": "Apri su Google Drive",
+    "regola": "Regola di listino",
+    "regolaNonFatturare": "non si fattura",
+    "regolaSuFattura": "in fatturazione",
+    "regolaValet": "Regola paga valet",
+    "ritiri": "ritiri",
+    "dallaRegola": "dalla regola",
     "quotaDeluxy": "Quota Deluxy",
     "costoPartner": "Costo del servizio",
     "saleAccount": {

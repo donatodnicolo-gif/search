@@ -2007,6 +2007,12 @@
     "sign": "Recipient signature",
     "fileOnLegacy": "File on the original system: not reachable from here.",
     "apriSuDrive": "Open in Google Drive",
+    "regola": "Rate-card rule",
+    "regolaNonFatturare": "not billed",
+    "regolaSuFattura": "on the invoice",
+    "regolaValet": "Valet pay rule",
+    "ritiri": "pickups",
+    "dallaRegola": "from the rule",
     "quotaDeluxy": "Deluxy’s cut",
     "costoPartner": "Service cost",
     "saleAccount": {

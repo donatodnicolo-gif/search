@@ -36,6 +36,10 @@ interface DeliveryDetail {
   deliveredByPartner?: boolean;
   /** Provincia salvata (geocodificata): per l'assegnazione, non ridotta dalla stringa. */
   province?: { id: string; code: string; name: string } | null;
+  /** Regola di listino applicata (fatturazione): al valet non arriva. */
+  deliveryRule?: { id: string; name: string; toBill?: boolean; partnerBillingAdjustment?: number | null } | null;
+  /** Regola paga valet (scaglioni sui ritiri): al partner non arriva. */
+  valetDeliveryRule?: { id: string; name: string; tiers?: string | null } | null;
   deliveryTimeFrom?: string;
   deliveryTimeTo?: string;
   deliveryFlexible?: boolean;
@@ -251,6 +255,27 @@ interface DeliveryDetail {
             <dt>{{ 'deliveries.col.service' | translate }}</dt><dd>{{ d.serviceType?.name || '—' }}</dd>
             <dt>{{ 'deliveryDetail.pricingModel' | translate }}</dt>
             <dd>{{ d.serviceType ? ('enums.servicePricing.' + d.serviceType.pricingModel | translate) : '—' }}</dd>
+            <!-- Regola di listino applicata (02/09, utente): visibile in
+                 scheda, come il badge 📋 della tabella. Lo sconto è roba di
+                 fatturazione: al valet non arriva (maschera server). -->
+            @if (d.deliveryRule) {
+              <dt>{{ 'deliveryDetail.regola' | translate }}</dt>
+              <dd>📋 {{ d.deliveryRule.name }}
+                @if (d.deliveryRule.toBill === false) {
+                  <span class="tag">{{ 'deliveryDetail.regolaNonFatturare' | translate }}</span>
+                } @else if (d.deliveryRule.partnerBillingAdjustment) {
+                  <span class="muted"> · {{ d.deliveryRule.partnerBillingAdjustment > 0 ? '+' : '' }}{{ d.deliveryRule.partnerBillingAdjustment }} € {{ 'deliveryDetail.regolaSuFattura' | translate }}</span>
+                }
+              </dd>
+            }
+            <!-- Regola PAGA VALET (scaglioni sui ritiri): il partner non la
+                 riceve proprio (maschera server). -->
+            @if (d.valetDeliveryRule) {
+              <dt>{{ 'deliveryDetail.regolaValet' | translate }}</dt>
+              <dd>📋 {{ d.valetDeliveryRule.name }}
+                @if (scaglioniValet(d); as s) { <span class="muted"> · {{ s }}</span> }
+              </dd>
+            }
             @if (d.distanceKm != null) {
               <dt>{{ 'deliveryDetail.distance' | translate }}</dt><dd>{{ d.distanceKm }} km</dd>
             }
@@ -264,7 +289,15 @@ interface DeliveryDetail {
                    sbagliata ci sono cascato io per primo. -->
               <dt>{{ (venditaAlPartner(d) ? 'deliveryDetail.quotaDeluxy' : 'deliveryDetail.price') | translate }}</dt>
               <dd>{{ d.price != null ? d.price + ' €' : '—' }}</dd>
-              <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt><dd>{{ d.additionalPrice != null ? d.additionalPrice + ' €' : '—' }}</dd>
+              <!-- ⚠️ 02/09 (utente): il Plus/minus EFFETTIVO comprende lo
+                   sconto della regola (es. −25 del carnet) — che però NON si
+                   ricopia nel campo: la fatturazione lo somma già dal vivo,
+                   scriverlo nel dato lo raddoppierebbe. -->
+              <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
+              <dd>@if (plusMinus(d) != null) {
+                    {{ plusMinus(d) }} €
+                    @if (regolaSuPlus(d); as r) { <span class="muted">({{ r }})</span> }
+                  } @else { — }</dd>
               <!-- Valore prodotti: quello scritto SULLA CONSEGNA (accordo col
                    partner), che non è il prezzo di catalogo né quello pubblico
                    Shopify. Senza questa riga il 215 di una vendita sembrava
@@ -288,8 +321,11 @@ interface DeliveryDetail {
                    paga del valet e i margini, che sono conti nostri. -->
               <dt>{{ 'deliveryDetail.costoPartner' | translate }}</dt>
               <dd>{{ d.price != null ? d.price + ' €' : '—' }}</dd>
-              @if (d.additionalPrice != null && d.additionalPrice > 0) {
-                <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt><dd>{{ d.additionalPrice }} €</dd>
+              @if (plusMinus(d) != null) {
+                <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
+                <dd>{{ plusMinus(d) }} €
+                  @if (regolaSuPlus(d); as r) { <span class="muted">({{ r }})</span> }
+                </dd>
               }
             }
           </dl>
@@ -1011,6 +1047,39 @@ export class DeliveryDetailComponent {
   /** Una vendita: il caso in cui `price` e' la NOSTRA quota, non il prezzo. */
   venditaAlPartner(d: { serviceType?: { pricingModel?: string } | null }): boolean {
     return d.serviceType?.pricingModel === 'VENDITA';
+  }
+
+  /**
+   * Plus/minus EFFETTIVO (02/09, utente): quello scritto sulla consegna PIÙ
+   * lo sconto/maggiorazione della regola carnet — che resta nella regola
+   * (unica fonte) e qui si somma solo per la lettura.
+   */
+  plusMinus(d: DeliveryDetail): number | null {
+    const regola = d.deliveryRule?.toBill === false ? 0 : (d.deliveryRule?.partnerBillingAdjustment ?? 0);
+    if (d.additionalPrice == null && !regola) return null;
+    return Math.round(((d.additionalPrice ?? 0) + regola) * 100) / 100;
+  }
+  regolaSuPlus(d: DeliveryDetail): string | null {
+    const a = d.deliveryRule?.partnerBillingAdjustment;
+    if (!a || d.deliveryRule?.toBill === false) return null;
+    return `${a > 0 ? '+' : ''}${a} € ${this.translate.instant('deliveryDetail.dallaRegola')}`;
+  }
+
+  /**
+   * Gli scaglioni della regola paga valet, leggibili: «da 3 ritiri: +2 €».
+   * `tiers` è JSON del legacy [{operator, pickUps, plusSalary}] — se non si
+   * legge, si mostra solo il nome (meglio di una riga rotta).
+   */
+  scaglioniValet(d: DeliveryDetail): string | null {
+    const grezzo = d.valetDeliveryRule?.tiers;
+    if (!grezzo) return null;
+    try {
+      const t = JSON.parse(grezzo);
+      if (!Array.isArray(t) || !t.length) return null;
+      return t.map((x: { operator?: string; pickUps?: number; plusSalary?: number }) =>
+        `${x.operator === 'moreThan' ? '>' : ''}${x.pickUps} ${this.translate.instant('deliveryDetail.ritiri')}: +${x.plusSalary} €`,
+      ).join(' · ');
+    } catch { return null; }
   }
 
   /**
