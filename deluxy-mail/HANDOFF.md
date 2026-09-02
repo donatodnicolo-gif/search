@@ -23,6 +23,29 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 (2) — Collega casella: se una piattaforma rifiuta, si prova DA SOLI l'altra
+
+Michela non riusciva a collegare la sua casella vera (errore, niente posta). Misurato sul
+database: **le caselle @deluxy.it vivono su DUE piattaforme di register.it** e da fuori
+non si vede quale — 8 su SecureMail (`pop.securemail.pro`/`authsmtp.securemail.pro`),
+2 su webmail register.it (`imap.register.it`/`smtp.register.it` + salto verifica del
+nome sul certificato, che è intestato a *.securemail.pro). Edoardo e Martina (collegata
+l'01/09) sono sulla seconda; il preset predefinito del form è la prima → una casella
+nuova collegata «coi valori di default» veniva rifiutata senza che si capisse perché.
+
+- **`FormAccount.tsx`**: se `creaAccount` fallisce con uno dei due host della coppia, si
+  riprova da soli con l'host **gemello** (e il flag certificato giusto), e si salva
+  quello che risponde — l'esito dice «piattaforma trovata da sola». Due tentativi al
+  massimo, SOLO fra questa coppia: su Gmail/Aruba non si improvvisa. Se rifiutano
+  entrambe, il messaggio dice le due risposte e che a quel punto è quasi sempre la
+  **password** (quella dell'Area Clienti register.it per QUELLA casella).
+- ⚠️ Fallback nel **client** e non in `creaAccount` di proposito: `actions.ts` è pieno
+  del WIP non committato dell'altra sessione (firma per casella) e un commit di quel
+  file porterebbe con sé codice che non compila. `FormAccount.tsx` è pulito.
+- Da provare a schermo: il collegamento di Michela. Se fallisce ancora su entrambe, è
+  la password → Area Clienti.
+
+---
 ### 02/09 — «Non riesco a creare michela.avantaggiato»: erano DUE inciampi, non uno
 
 Diagnosi fatta sul database e sul codice, non sull'errore a schermo (che non avevo):

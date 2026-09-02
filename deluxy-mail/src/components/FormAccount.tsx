@@ -58,12 +58,57 @@ export function FormAccount() {
     setIgnoraCert(CERT_DA_IGNORARE.has(nome))
   }
 
+  /**
+   * LE CASELLE @deluxy.it VIVONO SU DUE PIATTAFORME di register.it, e da fuori
+   * non si vede quale: le storiche su SecureMail (`pop.securemail.pro`), le
+   * nuove sulla webmail register.it (`imap.register.it`, che presenta un
+   * certificato per *.securemail.pro → serve il salto della verifica del nome).
+   * Misurato sul database il 02/09/2026: 8 caselle sulla prima, 2 sulla
+   * seconda — e chi collegava una casella nuova col preset predefinito
+   * (SecureMail) si vedeva rifiutare il collegamento senza capire perché.
+   *
+   * Quindi: se la piattaforma scelta rifiuta, si PROVA DA SOLI l'altra, e si
+   * salva quella che risponde. Due tentativi al massimo, solo fra questa
+   * coppia di host: su Gmail/Aruba/altro non si improvvisa niente.
+   */
+  const GEMELLE: Record<string, { imapHost: string; smtpHost: string; ignoraCert: boolean; nome: string }> = {
+    'pop.securemail.pro': { imapHost: 'imap.register.it', smtpHost: 'smtp.register.it', ignoraCert: true, nome: 'register.it' },
+    'imap.register.it': { imapHost: 'pop.securemail.pro', smtpHost: 'authsmtp.securemail.pro', ignoraCert: false, nome: 'SecureMail' },
+  }
+
   function invia(form: FormData) {
     setStato(null)
     startTransition(async () => {
       const esito = await creaAccount(form)
-      setStato(esito)
-      if (esito.ok) router.refresh()
+      if (esito.ok) {
+        setStato(esito)
+        router.refresh()
+        return
+      }
+      const gemella = GEMELLE[String(form.get('imapHost') ?? '').trim().toLowerCase()]
+      if (!gemella) {
+        setStato(esito)
+        return
+      }
+      setStato({ ok: false, messaggio: `${esito.messaggio} — provo l’altra piattaforma (${gemella.nome})…` })
+      const form2 = new FormData()
+      form.forEach((v, k) => form2.set(k, v))
+      form2.set('imapHost', gemella.imapHost)
+      form2.set('smtpHost', gemella.smtpHost)
+      if (gemella.ignoraCert) form2.set('ignoraCertTls', 'on')
+      else form2.delete('ignoraCertTls')
+      const esito2 = await creaAccount(form2)
+      if (esito2.ok) {
+        setStato({ ok: true, messaggio: `${esito2.messaggio} (piattaforma ${gemella.nome}, trovata da sola)` })
+        router.refresh()
+        return
+      }
+      // Rifiutano ENTRAMBE le piattaforme: a questo punto quasi sempre è la
+      // password (quella dell'Area Clienti, non quella di altri servizi).
+      setStato({
+        ok: false,
+        messaggio: `${esito.messaggio}\nHo provato anche ${gemella.nome} (${gemella.imapHost}): ${esito2.messaggio}\nSe rifiutano entrambe, di solito è la password: serve quella scelta nell’Area Clienti register.it per QUESTA casella.`,
+      })
     })
   }
 
@@ -177,6 +222,9 @@ export function FormAccount() {
             fontSize: 13,
             marginTop: 14,
             color: stato.ok ? 'var(--green)' : 'var(--red)',
+            // L'esito del doppio tentativo è su più righe: senza, le tre frasi
+            // diventano un rigo solo e non si capisce cosa è stato provato.
+            whiteSpace: 'pre-wrap',
           }}
         >
           {stato.messaggio}
