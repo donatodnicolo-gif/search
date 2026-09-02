@@ -23,6 +23,30 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 — «Non riesco a creare michela.avantaggiato»: erano DUE inciampi, non uno
+
+Diagnosi fatta sul database e sul codice, non sull'errore a schermo (che non avevo):
+
+1. **L'utenza esisteva già, scritta male.** In `mail."Utente"` c'era
+   `michela.`**`avvantaggiato`**`@deluxy.it` (due V), creata il 17/08 e **mai usata**
+   (0 caselle, 0 messaggi). La grafia giusta la dice il **Hub** (l'anagrafica delle
+   identità): `michela.avantaggiato@deluxy.it`, una V. **Corretta la riga esistente**
+   (email + nome + `sessioneVersione` alzata) invece di creare un doppione e lasciare il
+   fantasma: update mirato su id, 1 riga. ⚠️ La sua password è quella scelta alla
+   creazione del 17/08: se non la sa nessuno, va reimpostata da /utenti (≥ 10 caratteri).
+2. **Il modulo prometteva «almeno 6 caratteri», il server ne pretende 10**
+   (`MIN_PASSWORD = 10`, alzato dalla revisione di sicurezza; il segnaposto era rimasto
+   indietro). Chi seguiva il suggerimento si vedeva rifiutare la creazione. Corretto il
+   segnaposto e aggiunto `minLength={10}`: l'errore ora lo dice il browser, prima.
+   ⚠️ **Lo stesso 10 fa da cancello anche al LOGIN** (`auth-actions.ts:103`): un utente
+   con una password vecchia più corta non entra proprio — né messaggio giusto né verifica
+   dell'hash. Se qualcuno «non riesce a entrare» da fine agosto, prima ipotesi: password
+   più corta di 10, si reimposta.
+3. ⚠️ In cartella c'è **lavoro non committato di un'altra sessione** (schema.prisma +
+   migrate-prod + firma/caselle…): il deploy di questa correzione è partito dalla copia
+   pulita del commit, il WIP non è stato toccato né pubblicato.
+
+---
 ### 28/08 — Allineamento UX al Design System (architetto-ux)
 
 Verdetto: AI Mail è GIÀ in gran parte nel canone (fork di deluxy-partner, `tokens.css` =

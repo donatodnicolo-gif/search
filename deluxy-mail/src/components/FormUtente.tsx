@@ -31,7 +31,12 @@ export function FormUtente() {
         </div>
         <div>
           <label className="field-label">Password <span className="req">*</span></label>
-          <input type="text" name="password" required placeholder="almeno 6 caratteri" />
+          {/* ⚠️ Il numero qui e MIN_PASSWORD in auth-actions.ts devono dire la
+              stessa cosa: questo segnaposto prometteva «almeno 6» mentre il
+              server ne pretende 10, e chi seguiva il suggerimento si vedeva
+              rifiutare la creazione (26/08: «non riesco a creare l'utenza»).
+              minLength ferma l'errore già nel browser, col messaggio suo. */}
+          <input type="text" name="password" required minLength={10} placeholder="almeno 10 caratteri" />
         </div>
         <div>
           <label className="field-label">Ruolo</label>
