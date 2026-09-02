@@ -36,6 +36,10 @@ interface DeliveryDetail {
   deliveredByPartner?: boolean;
   /** Provincia salvata (geocodificata): per l'assegnazione, non ridotta dalla stringa. */
   province?: { id: string; code: string; name: string } | null;
+  /** Flag di fatturazione (partner) e pagamento (valet): mascherati per ruolo. */
+  billable?: boolean;
+  invoiced?: boolean;
+  payable?: boolean;
   /** Regola di listino applicata (fatturazione): al valet non arriva. */
   deliveryRule?: { id: string; name: string; toBill?: boolean; partnerBillingAdjustment?: number | null } | null;
   /** Regola paga valet (scaglioni sui ritiri): al partner non arriva. */
@@ -306,6 +310,20 @@ interface DeliveryDetail {
                    il cliente paga per la consegna vive nei MARGINI, non qui. -->
               <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
 
+              <!-- FLAG (02/09, utente): «da fatturare» e «da pagare» in
+                   chiaro. I campi mascherati non arrivano, e la riga sparisce
+                   da sola (billable/invoiced tolti al valet, payable al
+                   partner). -->
+              @if (d.billable != null) {
+                <dt>{{ 'deliveryDetail.daFatturare' | translate }}</dt>
+                <dd>{{ (d.billable ? 'common.yes' : 'common.no') | translate }}
+                  @if (d.billable && d.invoiced) { <span class="tag">{{ 'deliveryDetail.giaFatturata' | translate }}</span> }
+                </dd>
+              }
+              @if (d.payable != null) {
+                <dt>{{ 'deliveryDetail.daPagare' | translate }}</dt>
+                <dd>{{ (d.payable ? 'common.yes' : 'common.no') | translate }}</dd>
+              }
               <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt>
               <!-- ⚠️ Lo ZERO scritto non è la paga (01/09, #62899): per gli
                    Stipendi vince solo un numero > 0 — con 0 si calcola dal
@@ -325,6 +343,12 @@ interface DeliveryDetail {
                 <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
                 <dd>{{ plusMinus(d) }} €
                   @if (regolaSuPlus(d); as r) { <span class="muted">({{ r }})</span> }
+                </dd>
+              }
+              @if (d.billable != null) {
+                <dt>{{ 'deliveryDetail.daFatturare' | translate }}</dt>
+                <dd>{{ (d.billable ? 'common.yes' : 'common.no') | translate }}
+                  @if (d.billable && d.invoiced) { <span class="tag">{{ 'deliveryDetail.giaFatturata' | translate }}</span> }
                 </dd>
               }
             }

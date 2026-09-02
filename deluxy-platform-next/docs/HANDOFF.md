@@ -5,6 +5,11 @@
 
 > 🧪 **02/09/2026 notte-2 — LE REGOLE SI VEDONO E SI AGGANCIANO** (deployato
 > e Ready):
+> - **Flag «Da fatturare» e «Da pagare» nel dettaglio** (regola utente): due
+>   righe in chiaro (Sì/No, con «già fatturata» quando vale), separate per
+>   ruolo — il valet vede solo «Da pagare» (billable/invoiced gli sono
+>   mascherati), il partner solo «Da fatturare» (payable ora tolto dalla
+>   maschera partner: è il conto fra noi e il valet), l'ufficio entrambe.
 > - **Regole VISIBILI nel dettaglio consegna** (utente, su #100846/#100856):
 >   riga «Regola di listino» (nome + «−25 € in fatturazione» o «non si
 >   fattura») e riga «Regola paga valet» (nome + scaglioni leggibili, es.

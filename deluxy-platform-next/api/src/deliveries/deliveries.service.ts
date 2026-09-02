@@ -2238,9 +2238,10 @@ export class DeliveriesService {
     if (user.role === Role.PARTNER) {
       const pulita: Record<string, any> = { ...delivery };
       // ⚠️ 02/09 (regola utente): al partner arriva solo ciò che riguarda il
-      // SUO prezzo e la SUA fatturazione — la regola PAGA VALET no.
+      // SUO prezzo e la SUA fatturazione — la regola PAGA VALET no, e
+      // nemmeno il flag «da pagare» (è il conto fra noi e il valet).
       for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId',
-        'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId']) delete pulita[c];
+        'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId', 'payable']) delete pulita[c];
       // ⚠️ 31/08 (regola dell'utente): sui servizi di tipo VENDITA il cliente
       // finale è di DELUXY, non del partner (che vende per nostro conto): al
       // partner NON si mostrano i suoi dati. Nasconderlo solo nella pagina non
