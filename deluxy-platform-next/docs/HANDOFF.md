@@ -3,6 +3,31 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 pomeriggio — TERZA RAFFICA: PROFILO CON RITIRI, DETTAGLIO
+> PRODOTTO, VERIFICA 142 RESTAURANT** (deployato e Ready):
+> - **Profilo partner: più indirizzi di ritiro** (regola utente). In /profilo,
+>   sezione Negozio, lista di «Altri indirizzi di ritiro» con aggiungi/togli;
+>   ogni riga ha la regola Google (appIndirizzoGoogle). Salvano su
+>   `Partner.pickupAddresses` (JSON) passando dalla rotta partner → sync
+>   Anagrafiche. Lista vuota = li ha tolti tutti (si scrive «[]»).
+> - **🐞 Buco vero trovato nel ramo partner di `PartnersService.update`**: il
+>   dto veniva riassegnato ai contatti (02/09) ma la SECONDA whitelist più
+>   sotto copiava solo phone/contactName/notes — email e indirizzo dal
+>   profilo si perdevano in silenzio (si salvava solo il telefono). Corretto:
+>   ora passano email, address e pickupAddresses.
+> - **Dettaglio prodotto**: il bottone Modifica seguiva solo la tabella — su
+>   /products/:id il partner lo vedeva ancora (segnalazione utente su
+>   ZBRDCU). Stesso criterio `puoToccare()` anche lì.
+> - **Verifica 142 Restaurant 2026** (23 consegne, script sola-lettura
+>   `api/scripts/verifica-142-restaurant-2026.mjs`): prezzi tutti a canone
+>   tranne #57953 (594 = 579 valore + 15 flat del legacy, GIÀ FATTURATA con
+>   riga: storia chiusa) e #57515 (16,34 vs 16,30: il legacy non arrotondava
+>   i km al decimo — 4 cent). #57761 ha prezzo 0 scritto su vendita: innocuo,
+>   lo zero non vince e la fatturazione usa il canone. Flag fuori-città
+>   incoerente su 8 vendite legacy (4 artefatti del parser «MI», 4 veri):
+>   nessun effetto sui conti perché sulla VENDITA il flag non muove il
+>   prezzo. 6 annullate senza coordinate: fuori mappa, irrilevante.
+>
 > 🧪 **02/09/2026 pomeriggio — SECONDA RAFFICA DEL COLLAUDO PARTNER** (l'utente
 > prova l'app come partner/valet e detta regole; tutto deployato e verificato
 > Ready):

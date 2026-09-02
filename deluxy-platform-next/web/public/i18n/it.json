@@ -1216,6 +1216,9 @@
     "notificheWhatsapp": "Avvisami su WhatsApp",
     "negozio": "Il tuo negozio",
     "negozioHint": "Insegna, listino e condizioni si cambiano con l'ufficio; i contatti sono tuoi.",
+    "ritiri": "Altri indirizzi di ritiro",
+    "ritiriHint": "Oltre all'indirizzo del negozio. Compaiono tra le scelte quando si crea una consegna.",
+    "aggiungiRitiro": "Aggiungi indirizzo di ritiro",
     "insegna": "Insegna",
     "emailNegozio": "Email del negozio",
     "salvato": "Salvato."

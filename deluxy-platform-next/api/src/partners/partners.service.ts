@@ -564,6 +564,9 @@ export class PartnersService {
         ...(p['phone'] !== undefined ? { phone: p['phone'] } : {}),
         ...(p['email'] !== undefined ? { email: p['email'] } : {}),
         ...(p['address'] !== undefined ? { address: p['address'] } : {}),
+        // 02/09 (regola utente): gli indirizzi di RITIRO aggiuntivi sono suoi
+        // — li imposta dalla scheda profilo.
+        ...(Array.isArray(p['pickupAddresses']) ? { pickupAddresses: p['pickupAddresses'] as string[] } : {}),
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
@@ -582,6 +585,12 @@ export class PartnersService {
       if (scalar.phone !== undefined) allowed.phone = scalar.phone;
       if (scalar.contactName !== undefined) allowed.contactName = scalar.contactName;
       if (scalar.notes !== undefined) allowed.notes = scalar.notes;
+      // ⚠️ 02/09: email e indirizzo qui MANCAVANO — la scheda profilo li
+      // mandava (il dto riassegnato sopra li ammette) ma questa seconda
+      // whitelist li buttava in silenzio: si salvava solo il telefono.
+      if (scalar.email !== undefined) allowed.email = scalar.email;
+      if (scalar.address !== undefined) allowed.address = scalar.address;
+      if ((scalar as any).pickupAddresses !== undefined) allowed.pickupAddresses = (scalar as any).pickupAddresses;
       const aggiornatoPartner = await this.prisma.partner.update({
         where: { id },
         data: {

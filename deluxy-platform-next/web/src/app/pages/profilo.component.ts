@@ -96,6 +96,24 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
           </div>
           <label class="fld"><span>{{ 'profilo.indirizzo' | translate }}</span>
             <input class="field" name="pAddress" [(ngModel)]="partner.address" appIndirizzoGoogle autocomplete="off" /></label>
+          <!-- 02/09 (regola utente): il partner imposta da qui anche gli
+               ALTRI indirizzi di ritiro. Ogni riga segue la regola Google
+               (blur -> primo risultato). -->
+          <div class="fld">
+            <span>{{ 'profilo.ritiri' | translate }}</span>
+            <p class="muted mini">{{ 'profilo.ritiriHint' | translate }}</p>
+            @for (r of partner.pickupAddresses; track $index) {
+              <div class="ritiro-riga">
+                <input class="field" [name]="'pPickup' + $index" [(ngModel)]="partner.pickupAddresses[$index]"
+                       appIndirizzoGoogle autocomplete="off" />
+                <button type="button" class="icon-btn" (click)="rimuoviRitiro($index)"
+                        [title]="'partnerForm.general.remove' | translate">✕</button>
+              </div>
+            }
+            <button type="button" class="btn btn-secondary mini aggiungi" (click)="aggiungiRitiro()">
+              + {{ 'profilo.aggiungiRitiro' | translate }}
+            </button>
+          </div>
           @if (esitoNegozio(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
           <div class="azioni"><button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salvaPartner()">{{ 'common.save' | translate }}</button></div>
         </div>
@@ -114,6 +132,12 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
     .ok-msg { color: var(--green, #248a3d); font-size: 13px; margin-top: 8px; }
     .err-msg { color: var(--red, #d70015); font-size: 13px; margin-top: 8px; }
     .toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .mini { font-size: 12.5px; margin: 0; }
+    .ritiro-riga { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+    .ritiro-riga .field { flex: 1; min-width: 0; }
+    .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill-hover, #ececef); color: var(--text-secondary, #6e6e73); cursor: pointer; font-size: 13px; flex-shrink: 0; }
+    .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red, #d70015); }
+    .aggiungi { margin-top: 10px; align-self: flex-start; }
   `],
 })
 export class ProfiloComponent {
@@ -138,6 +162,7 @@ export class ProfiloComponent {
         this.account = { firstName: p?.user?.firstName ?? '', lastName: p?.user?.lastName ?? '', email: p?.user?.email ?? '' };
         this.valet = p?.valet ?? null;
         this.partner = p?.partner ?? null;
+        if (this.partner && !Array.isArray(this.partner.pickupAddresses)) this.partner.pickupAddresses = [];
         this.caricamento.set(false);
       },
       error: () => this.caricamento.set(false),
@@ -170,7 +195,21 @@ export class ProfiloComponent {
   }
   salvaPartner(): void {
     if (!this.partner) return;
-    this.posta({ partner: { phone: this.partner.phone, email: this.partner.email, address: this.partner.address } }, this.esitoNegozio);
+    this.posta({ partner: {
+      phone: this.partner.phone, email: this.partner.email, address: this.partner.address,
+      // Le righe vuote non sono indirizzi: si mandano solo quelle piene
+      // (anche ZERO righe è un valore: li ha tolti tutti).
+      pickupAddresses: (this.partner.pickupAddresses ?? [])
+        .map((r: string) => (r ?? '').trim())
+        .filter((r: string) => !!r),
+    } }, this.esitoNegozio);
+  }
+
+  aggiungiRitiro(): void {
+    this.partner.pickupAddresses = [...(this.partner.pickupAddresses ?? []), ''];
+  }
+  rimuoviRitiro(i: number): void {
+    this.partner.pickupAddresses = this.partner.pickupAddresses.filter((_: string, x: number) => x !== i);
   }
 
   cambiaPassword(): void {

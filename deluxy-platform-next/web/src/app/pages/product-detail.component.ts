@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { PRODUCT_PLATFORMS } from '../core/models';
+import { AuthService } from '../core/auth.service';
 
 interface ProductDetail {
   id: string;
@@ -26,6 +27,8 @@ interface ProductDetail {
   approved?: boolean;
   active?: boolean;
   notPhysical?: boolean;
+  /** Gestito dall'ufficio: il partner lo vede ma non lo tocca. */
+  notEditable?: boolean;
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
   variants?: {
@@ -60,7 +63,9 @@ interface ProductDetail {
           } @else {
             <span class="pill wait">{{ 'products.pending' | translate }}</span>
           }
-          <a class="btn btn-secondary edit" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+          @if (puoToccare(p)) {
+            <a class="btn btn-secondary edit" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+          }
         </div>
       }
     </div>
@@ -216,6 +221,18 @@ export class ProductDetailComponent {
   private readonly translate = inject(TranslateService);
   private readonly location = inject(Location);
   private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * 02/09 (segnalazione utente, ZBRDCU): come in tabella — il partner tocca
+   * solo i SUOI prodotti senza il flag «non modificabile»; sugli altri il
+   * bottone Modifica non compare (il server rifiuterebbe comunque).
+   */
+  puoToccare(p: ProductDetail): boolean {
+    const u = this.auth.user();
+    if (u?.role !== 'PARTNER') return true;
+    return !!p.partner && p.partner.id === u.partnerId && !p.notEditable;
+  }
 
   /**
    * «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): arrivando da dentro

@@ -1216,6 +1216,9 @@
     "notificheWhatsapp": "Notify me on WhatsApp",
     "negozio": "Your shop",
     "negozioHint": "Name, price list and terms are changed with the office; contact details are yours.",
+    "ritiri": "Other pickup addresses",
+    "ritiriHint": "In addition to the shop address. They show up as choices when creating a delivery.",
+    "aggiungiRitiro": "Add pickup address",
     "insegna": "Shop name",
     "emailNegozio": "Shop email",
     "salvato": "Saved."

@@ -206,14 +206,19 @@ export class AuthService {
             fiscalCode: true, vehicle: true, iban: true, notifyByEmail: true, notifyByWhatsapp: true },
         })
       : null;
-    const partner = user.partnerId
+    const grezzo = user.partnerId
       ? await this.prisma.partner.findUnique({
           where: { id: user.partnerId },
           // L'insegna si MOSTRA ma non si modifica: è l'identità con cui
           // FINANCE e fatture riconoscono il negozio.
-          select: { insegna: true, email: true, phone: true, address: true },
+          select: { insegna: true, email: true, phone: true, address: true, pickupAddresses: true },
         })
       : null;
+    // Gli indirizzi di ritiro aggiuntivi vivono come JSON: al form arrivano
+    // già come lista (02/09, regola utente: il partner li imposta da qui).
+    let ritiri: string[] = [];
+    try { ritiri = grezzo?.pickupAddresses ? JSON.parse(grezzo.pickupAddresses) : []; } catch { ritiri = []; }
+    const partner = grezzo ? { ...grezzo, pickupAddresses: Array.isArray(ritiri) ? ritiri : [] } : null;
     return { user: { email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }, valet, partner };
   }
 
@@ -224,7 +229,7 @@ export class AuthService {
       valet?: { phone?: string; address?: string; city?: string; birthPlace?: string;
         birthDate?: string | null; fiscalCode?: string; vehicle?: string; iban?: string;
         notifyByEmail?: boolean; notifyByWhatsapp?: boolean };
-      partner?: { phone?: string; email?: string; address?: string };
+      partner?: { phone?: string; email?: string; address?: string; pickupAddresses?: string[] };
     },
     partners?: { update: (id: string, dto: any, user: JwtUser) => Promise<unknown> },
   ) {
@@ -295,6 +300,17 @@ export class AuthService {
       const tel = s(body.partner.phone, 40); if (tel !== undefined) { p['phone'] = tel; cambiati.push('telefono negozio'); }
       const em = s(body.partner.email, 160)?.toLowerCase(); if (em) { p['email'] = em; cambiati.push('email negozio'); }
       const ind = s(body.partner.address, 300); if (ind !== undefined) { p['address'] = ind; cambiati.push('indirizzo negozio'); }
+      // Indirizzi di ritiro aggiuntivi (02/09, regola utente): lista di
+      // stringhe, ripulita e con un tetto — anche la lista VUOTA è un valore
+      // (li ha tolti tutti).
+      if (Array.isArray(body.partner.pickupAddresses)) {
+        p['pickupAddresses'] = body.partner.pickupAddresses
+          .filter((x): x is string => typeof x === 'string')
+          .map((x) => x.trim().slice(0, 300))
+          .filter(Boolean)
+          .slice(0, 20);
+        cambiati.push('indirizzi di ritiro');
+      }
       if (Object.keys(p).length) await partners.update(user.partnerId, p, jwtUser);
     }
 
