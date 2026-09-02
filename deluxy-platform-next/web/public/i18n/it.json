@@ -777,6 +777,7 @@
       "valet": "Valet",
       "status": "Stato",
       "price": "Prezzo",
+      "paga": "Paga",
       "delivery": "Consegna",
       "actions": "Azioni",
       "pickupAddress": "Ritiro (indirizzo)"

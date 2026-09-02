@@ -3,6 +3,33 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 notte — PAGA IN TABELLA AL VALET, BADGE RICHIESTE, ATTIVITÀ
+> AUTO-CHIUSE, STAMPA IN UNA PAGINA** (deployato e Ready):
+> - **Il valet vede la SUA paga in tabella** (regola utente, SOLO sulle sue):
+>   per il ruolo VALET la colonna Prezzo diventa «Paga» — scritta (+ plus/
+>   minus) o calcolata dal SUO listino in blocco nella lista (stessa regola
+>   di Stipendi). La maschera server ora toglie paga/plus-minus/listino
+>   dalle consegne di ALTRI valet (il team leader vede le consegne del
+>   perimetro, non i soldi dei colleghi). Nel select di lista sono entrati i
+>   campi del calcolo (valetSalary, hours, km…), che la maschera toglie a
+>   chi non deve.
+> - **Badge «già inviato» anche in TABELLA** (regola utente): sulle righe con
+>   reclamo/rimborso già partito compare «✓ Rimborso/Reclamo» (un solo
+>   caricamento delle proprie segnalazioni, mappa per consegna).
+> - **Disponibilità valet: all'apertura il form di OGGI è già aperto** (solo
+>   al primo caricamento). **Consegne TL: default «Solo io»** (il perimetro a
+>   un clic).
+> - **Attività auto-chiuse con lo Storico** (regola utente): quando la
+>   consegna chiude, le sue attività pendenti diventano «done» (consegnata/
+>   approvata) o «skipped» (annullata, non consegnata…) — hook in
+>   updateStatus, annullaDaPartner e rifiutaVendita. Backfill APPLICATO:
+>   13.845 done + 1.095 skipped su consegne già chiuse.
+> - **Stampa consegna in UNA pagina anche per il valet**: in stampa spariscono
+>   azioni valet, badge richieste e conferme; le foto (firma/DDT) si
+>   rimpiccioliscono a 32 mm.
+> - **#100846 verificata**: regola APPLICATA — «Regola 10 · prezzo fisso»,
+>   sconto carnet −25 su prezzo 25,80 → in fatturazione andrà a 0,80 €.
+>
 > 🧪 **02/09/2026 sera-5 — ALLEGATI SU DRIVE, PDF STIPENDI, GRIGLIA SERVIZI
 > SNELLA, «SOLO IO» DEL TL, DISPONIBILITÀ A SETTIMANA** (deployato e Ready):
 > - **Firma e DDT su Google Drive** (domanda utente «non verrà salvata su

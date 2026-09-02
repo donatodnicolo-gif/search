@@ -217,6 +217,9 @@ export class ValetAvailabilityComponent {
     this.carica();
   }
 
+  /** 02/09 (regola utente): all'apertura il form di OGGI è già lì, aperto. */
+  private primaApertura = true;
+
   private carica(): void {
     if (!this.valetId) return;
     this.caricando.set(true);
@@ -224,7 +227,16 @@ export class ValetAvailabilityComponent {
     this.http.get<Disp[]>(`${environment.apiUrl}/valets/${this.valetId}/availability`,
       { params: { from: gg[0].iso, to: gg[6].iso } })
       .subscribe({
-        next: (r) => { this.righe.set(new Map((r ?? []).map((x) => [x.date, x]))); this.caricando.set(false); },
+        next: (r) => {
+          this.righe.set(new Map((r ?? []).map((x) => [x.date, x])));
+          this.caricando.set(false);
+          // Solo al PRIMO caricamento: dopo un salvataggio o un cambio di
+          // settimana riaprire oggi da solo sarebbe un dispetto.
+          if (this.primaApertura) {
+            this.primaApertura = false;
+            this.apri(this.oggiIso);
+          }
+        },
         error: () => { this.righe.set(new Map()); this.caricando.set(false); },
       });
   }

@@ -682,5 +682,11 @@ button.back:focus-visible {
   /* Il REGISTRO (log) può essere lunghissimo: in stampa non serve, si toglie
      per stare in una pagina. La scheda è il documento, non lo storico. */
   .registro, .logs, .log-list, .timeline { display: none !important; }
+  /* 02/09 (utente, lato valet): la scheda deve restare in UNA pagina anche
+     con firma e DDT — le foto si rimpiccioliscono, i comandi e gli avvisi
+     operativi (azioni valet, badge richieste, conferme) non si stampano. */
+  .valet-azioni, .seg-avvisi, .conferma-annulla, .chiusura, .dialogo { display: none !important; }
+  .allegati img { max-height: 32mm !important; width: auto !important; }
+  .allegato { break-inside: avoid; }
   a[href]:after { content: '' !important; } /* niente URL stampati dietro i link */
 }

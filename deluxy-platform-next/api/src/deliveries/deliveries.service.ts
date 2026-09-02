@@ -33,7 +33,7 @@ import { valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 // La formula della paga valet vive in salaries: importarla evita la trappola
 // della regola ricopiata in due posti (il preventivo deve dire la STESSA paga).
-import { pagaConsegna } from '../salaries/salaries.module';
+import { pagaConsegna, scegliListinoValet } from '../salaries/salaries.module';
 import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -57,6 +57,11 @@ const DELIVERY_LIST_SELECT = {
   paymentOnDelivery: true, paymentAmount: true, price: true,
   // VENDITA (02/09): serve alla lista per accendere Accetta/Rifiuta del partner.
   acceptSale: true,
+  // PAGA DEL VALET in tabella (02/09, regola utente): al valet la colonna
+  // Prezzo è mascherata — la sua colonna è la PAGA, scritta o dal listino.
+  // Questi campi servono al calcolo (e la maschera li toglie a chi non deve).
+  valetId: true, valetSalary: true, valetAdditionalPrice: true, valetServiceId: true,
+  hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true,
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
@@ -397,6 +402,34 @@ export class DeliveriesService {
       }),
       this.prisma.delivery.count({ where }),
     ]);
+    // PAGA IN TABELLA per il VALET (02/09, regola utente): sulle SUE consegne
+    // senza paga congelata si calcola dal SUO listino — la colonna Prezzo gli
+    // è mascherata e leggeva «—» anche sulle consegne fatte. Un solo giro di
+    // listini (i suoi), calcolo per riga con la stessa regola di Stipendi.
+    if (user.role === Role.VALET && user.valetId) {
+      const mie = rows.filter((r: any) => r.valetId === user.valetId && !((r.valetSalary ?? 0) > 0));
+      if (mie.length) {
+        const [listini, valet] = await Promise.all([
+          this.prisma.valetService.findMany({
+            where: { valetId: user.valetId },
+            include: { serviceType: { select: { pricingModel: true, minHours: true } } },
+            orderBy: [{ validFrom: 'desc' }],
+          }),
+          this.prisma.valet.findUnique({
+            where: { id: user.valetId },
+            select: { minimumKmIncluded: true, extraOutOfCityPrice: true },
+          }),
+        ]);
+        const perId = new Map(listini.map((l) => [l.id, l]));
+        const perValet = new Map([[user.valetId, listini]]);
+        for (const r of mie as any[]) {
+          const l = scegliListinoValet(r, perId, perValet);
+          if (!l) continue;
+          const calcolo = pagaConsegna({ ...r, valet }, l as any);
+          if (calcolo) r.valetSalaryDalListino = calcolo.amount;
+        }
+      }
+    }
     // Le note interne non si nascondono piu' dopo averle lette: l'elenco non
     // le seleziona affatto. E' la stessa protezione, un passo prima — un campo
     // che non esce dal database non puo' finire in un carico per sbaglio.
@@ -765,6 +798,7 @@ export class DeliveriesService {
         });
       }
     });
+    await this.chiudiAttivitaSeStorico(d.id, 'not_accepted');
     return { ok: true, status: 'not_accepted', venditaRestituita: Boolean(vendita) };
   }
 
@@ -798,6 +832,7 @@ export class DeliveriesService {
             message: 'Annullata dal partner (era ancora da gestire).' }] },
         },
       });
+      await this.chiudiAttivitaSeStorico(d.id, DeliveryStatus.CANCELLED);
       return { ok: true, status: DeliveryStatus.CANCELLED };
     }
     if (d.status === DeliveryStatus.ASSIGNED) {
@@ -1587,6 +1622,21 @@ export class DeliveriesService {
     return dataUrl;
   }
 
+  /**
+   * 02/09 (regola utente): quando la consegna va in STORICO le sue ATTIVITÀ
+   * (ritiro/consegna) si chiudono da sole — consegnata/approvata = «done»,
+   * il resto (annullata, non consegnata…) = «skipped». Senza questo il
+   * tabellone attività restava pieno di pendenti su consegne già finite.
+   */
+  private async chiudiAttivitaSeStorico(deliveryId: string, status: string): Promise<void> {
+    if (!DELIVERY_CLOSED_STATUSES.includes(status)) return;
+    const esito = ['delivered', 'approved'].includes(status) ? 'done' : 'skipped';
+    await this.prisma.activity.updateMany({
+      where: { deliveryId, status: 'pending' },
+      data: { status: esito },
+    });
+  }
+
   async updateStatus(
     id: string,
     status: DeliveryStatus,
@@ -1703,6 +1753,8 @@ export class DeliveriesService {
       include: DELIVERY_INCLUDE,
     });
 
+    // In Storico → le attività della consegna si chiudono da sole (02/09).
+    await this.chiudiAttivitaSeStorico(delivery.id, status);
     await this.notifyStatusChange(updated, status, user);
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
@@ -2220,6 +2272,14 @@ export class DeliveriesService {
     if (pulita['deliveryRule']) {
       const { partnerBillingAdjustment, toBill, ...regola } = pulita['deliveryRule'];
       pulita['deliveryRule'] = regola;
+    }
+    // ⚠️ 02/09 (regola utente): la PAGA si vede SOLO sulle PROPRIE consegne.
+    // Un team leader vede le consegne dei colleghi nel suo perimetro, ma i
+    // loro soldi no.
+    if (pulita['valetId'] !== user.valetId) {
+      for (const campo of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId', 'valetSalaryDalListino']) {
+        delete pulita[campo];
+      }
     }
     return pulita as T;
   }

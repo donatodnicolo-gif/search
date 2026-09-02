@@ -317,7 +317,7 @@ interface PropostaVendita {
               </th>
               <th>{{ 'deliveries.col.valet' | translate }}</th>
               <th class="num sortable" (click)="sortBy('price')">
-                {{ 'deliveries.col.price' | translate }}<span class="sort-ind">{{ sortIndicator('price') }}</span>
+                {{ (isValetRuolo() ? 'deliveries.col.paga' : 'deliveries.col.price') | translate }}<span class="sort-ind">{{ sortIndicator('price') }}</span>
               </th>
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
@@ -418,7 +418,14 @@ interface PropostaVendita {
                   }
                 </td>
                 <td class="num strong">
-                  {{ d.price != null ? (d.price + ' €') : '—' }}
+                  <!-- Al VALET la colonna è la SUA PAGA (02/09, regola utente):
+                       scritta o dal listino, e SOLO sulle sue consegne — sulle
+                       altre (perimetro del team leader) resta il trattino. -->
+                  @if (isValetRuolo()) {
+                    {{ pagaRiga(d) != null ? (pagaRiga(d) + ' €') : '—' }}
+                  } @else {
+                    {{ d.price != null ? (d.price + ' €') : '—' }}
+                  }
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit(d)) {
@@ -483,6 +490,13 @@ interface PropostaVendita {
                     <button type="button" class="act" (click)="apriSegnalazione('reclamo', d)">
                       {{ 'deliveryDetail.segnal.reclamo' | translate }}
                     </button>
+                  }
+                  <!-- «Già inviato» (02/09, regola utente): anche in TABELLA
+                       si vede se reclamo/rimborso è già partito. -->
+                  @for (s of richiesteDi(d); track $index) {
+                    <span class="seg-badge" [title]="('segnalazioni.stato.' + s.stato) | translate">
+                      ✓ {{ 'segnalazioni.tipo.' + s.tipo | translate }}
+                    </span>
                   }
                 </td>
               </tr>
@@ -1174,6 +1188,8 @@ interface PropostaVendita {
       .act.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
       .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
+      .seg-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px;
+        background: rgba(36, 138, 61, 0.1); color: var(--green, #248a3d); font-size: 11.5px; font-weight: 550; white-space: nowrap; }
       .act:disabled {
         opacity: 0.4;
         cursor: not-allowed;
@@ -1715,6 +1731,8 @@ export class DeliveriesListComponent {
     // Gli ordini smistati in attesa di risposta: solo per il PARTNER, che
     // li accetta o rifiuta da qui (deciso dall'utente il 31/08).
     if (this.roleOf() === 'PARTNER') this.caricaProposte();
+    // Badge «già inviato» su reclami/rimborsi (02/09): un giro solo, le proprie.
+    this.caricaSegnalazioniProprie();
     // ⚠️ Province e valet servono SOLO dentro il pop-up "Assegna", ma venivano
     // chiesti all'apertura della pagina: misurato, /valets pesa 445 KB e
     // ritarda la lista di oltre due secondi per una finestra che quasi sempre
@@ -1761,6 +1779,34 @@ export class DeliveriesListComponent {
   readonly segErrore = signal<string | null>(null);
   segImporto = '';
   segMotivo = '';
+  /**
+   * 02/09 (regola utente): anche in TABELLA si vede se su una consegna è già
+   * partito un reclamo o una richiesta di rimborso. Si caricano una volta le
+   * PROPRIE segnalazioni (l'API le limita per ruolo) e si mappa per consegna.
+   */
+  private readonly segnalazioniPerConsegna = signal<Map<string, { tipo: string; stato: string }[]>>(new Map());
+  richiesteDi(d: Delivery): { tipo: string; stato: string }[] {
+    return this.segnalazioniPerConsegna().get(d.id) ?? [];
+  }
+  caricaSegnalazioniProprie(): void {
+    const r = this.roleOf();
+    if (r !== 'VALET' && r !== 'PARTNER') return;
+    this.http.get<{ deliveryId?: string | null; tipo: string; stato: string }[]>(`${environment.apiUrl}/segnalazioni`)
+      .subscribe({
+        next: (righe) => {
+          const m = new Map<string, { tipo: string; stato: string }[]>();
+          for (const s of righe ?? []) {
+            if (!s.deliveryId) continue;
+            const arr = m.get(s.deliveryId) ?? [];
+            arr.push({ tipo: s.tipo, stato: s.stato });
+            m.set(s.deliveryId, arr);
+          }
+          this.segnalazioniPerConsegna.set(m);
+        },
+        error: () => this.segnalazioniPerConsegna.set(new Map()),
+      });
+  }
+
   apriSegnalazione(tipo: 'rimborso' | 'reclamo', d: Delivery): void {
     this.segImporto = '';
     this.segMotivo = '';
@@ -1788,6 +1834,8 @@ export class DeliveriesListComponent {
         this.segInCorso.set(false);
         this.segnalPer.set(null);
         this.esitoDiMassa.set(this.translate.instant('deliveryDetail.segnal.inviata'));
+        // Il badge «già inviato» deve comparire subito sulla riga.
+        this.caricaSegnalazioniProprie();
       },
       error: (err) => {
         this.segInCorso.set(false);
@@ -1828,7 +1876,9 @@ export class DeliveriesListComponent {
     const u = this.auth.user();
     return u?.role === 'VALET' && u?.isTeamLeader === true;
   }
-  readonly filtroTL = signal<'tutte' | 'mie'>('tutte');
+  // 02/09 (regola utente): il team leader APRE su «Solo io» — il perimetro
+  // intero è a un clic, ma il primo sguardo è sul proprio giro.
+  readonly filtroTL = signal<'tutte' | 'mie'>('mie');
   setFiltroTL(v: 'tutte' | 'mie'): void {
     if (this.filtroTL() === v) return;
     this.filtroTL.set(v);
@@ -1878,6 +1928,19 @@ export class DeliveriesListComponent {
   /** Chiusa = Storico: consegnata, non consegnata, annullata, approvata… */
   consegnaChiusa(d: Delivery): boolean {
     return DELIVERY_CLOSED_STATUSES.includes(d.status);
+  }
+
+  /**
+   * La paga da mostrare al VALET sulla riga: scritta (+ plus/minus) se c'è,
+   * altrimenti quella dal listino calcolata dal server. SOLO sulle sue
+   * consegne: sulle altre il server non manda niente e qui esce null.
+   */
+  pagaRiga(d: Delivery): number | null {
+    if (d.valet?.id !== this.auth.user()?.valetId) return null;
+    if ((d.valetSalary ?? 0) > 0) {
+      return Math.round(((d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0)) * 100) / 100;
+    }
+    return d.valetSalaryDalListino ?? null;
   }
 
   /**

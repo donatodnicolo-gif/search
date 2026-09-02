@@ -777,6 +777,7 @@
       "valet": "Valet",
       "status": "Status",
       "price": "Price",
+      "paga": "Pay",
       "delivery": "Delivery",
       "actions": "Actions",
       "pickupAddress": "Pickup (address)"

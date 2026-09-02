@@ -53,6 +53,10 @@ export interface Delivery {
   paymentOnDelivery: boolean;
   paymentAmount?: number;
   price?: number;
+  /** Paga del valet: arrivano SOLO al valet della consegna (maschera server). */
+  valetSalary?: number | null;
+  valetAdditionalPrice?: number | null;
+  valetSalaryDalListino?: number | null;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
   serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
