@@ -40,6 +40,25 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — IL CANONE VINCE OVUNQUE SULLE VENDITE (utente: «prendi tutto da
+>   canone e sistema anche precedenti», dal caso #100843 Maryflor)**. Trovati e
+>   SPENTI i tre scrittori che congelavano la quota: ① `create` (il default
+>   `ps.price` sulla vendita è la FEE, finiva in euro nel prezzo — era il
+>   rubinetto di #100843); ② `update` (il ricalcolo al cambio servizio/indirizzi
+>   riscriveva la fee: ora sulla vendita AZZERA); ③ `creaConsegna` della via
+>   automatica (scriveva `price = fee% × amount` sul PUBBLICO: ora niente
+>   price, `productValue` solo se non nasce la riga, e la riga porta il prezzo
+>   PARTNER della variante, non il pubblico). Nel form il ramo vendita di
+>   `proponiPrezzoDiListino` sta PRIMA della ricerca della riga (la corsa dei
+>   caricamenti proponeva e non ripuliva). Deploy Ready. Sweep esteso a TUTTO
+>   il pendente (`azzera-quote-piatte-vendite-tutte.mjs`): 43 azzerate
+>   (+243,69 € / −127,15 €), 553 già a canone, controprova 0. ⚠️⚠️ SCOPERTA:
+>   **92 vendite legacy pendenti hanno le RIGHE avvelenate** — `quantity` è il
+>   numero di FIORI e `price` il listino (#63200: righe che sommano 135.000 €
+>   su una vendita da 700) — lì la quota legacy è COERENTE con `productValue`
+>   e si RISPETTA (guardia nello script), ma venduto e dovuto in fattura
+>   leggerebbero le righe: 🔴 DECISIONE APERTA su come riparare le 92 righe
+>   (productValue è la verità misurata).
 > - **01/09 sera — QUOTE PIATTE DELLE VENDITE AZZERATE + 3 DATE IMPOSSIBILI**
 >   (utente: «si sistema tutto così»). Su 30 vendite del 31/08–01/09 col
 >   prezzo scritto, **23 portavano una quota piatta** (spesso la fee ricopiata

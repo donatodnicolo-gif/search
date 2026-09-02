@@ -812,19 +812,16 @@ export class SalesService {
     });
     const indirizzoRitiro = partnerVendita?.address?.trim() || null;
 
-    // ⭐ L'ECONOMIA DELLA VENDITA, che prima non veniva scritta affatto.
+    // ⭐ L'ECONOMIA DELLA VENDITA — dal CANONE 01/09 la quota NON si congela.
     //
-    // Su una vendita il cliente paga il pubblico, e col partner vale:
-    //   quotaNostra   = amount x discountPercent%   -> `Delivery.price`
-    //   valoreProdotti = amount                     -> `Delivery.productValue`
-    //   al partner spetta valoreProdotti − quota (cosi' lo calcola la
-    //   Fatturazione: «dovuto = valore prodotti − trattenuto»).
+    // Fino al 01/09 qui si scriveva `price = amount × discountPercent%`: un
+    // numero congelato sul PUBBLICO che vinceva sul canone (lo scritto > 0
+    // vince) e smetteva di seguire listino e righe. Ora il campo resta VUOTO e
+    // la Fatturazione calcola fee% × valore prodotti a ogni lettura.
     //
-    // ⚠️ E' la STESSA convenzione delle consegne importate (62637: productValue
-    // 215, quota 43): fino al 26/08 qui si scriveva `productValue = amount −
-    // quota`, che sembrava giusto ma contava la quota DUE volte adesso che il
-    // margine della Finanza somma anche la fee registrata.
-    const quotaNostra = arrotonda((vendita.amount * (vendita.discountPercent ?? 0)) / 100);
+    // `productValue` (= amount, il pagato dal cliente) si scrive SOLO se non
+    // nasce la riga prodotto: e' l'ultimo ripiego della cascata di
+    // valore-prodotti.ts, non la verita' — dove la riga c'e', parlano le righe.
     const valoreProdotti = arrotonda(vendita.amount);
 
     // ⭐ LA REGOLA DEL DDT. Su una vendita la consegna viaggia col documento di
@@ -872,8 +869,7 @@ export class SalesService {
         deliveryFlexible: Boolean(fasciaDalle && fasciaAlle && fasciaAlle !== fasciaDalle) || undefined,
         personalizeSaleNotes: biglietto,
         notes: notaShopify,
-        price: quotaNostra,
-        productValue: valoreProdotti,
+        productValue: vendita.productId ? null : valoreProdotti,
         ddtNumber: numeroDdt,
         // Con piu' brand lo stesso numero DDT esiste su negozi diversi: il
         // brand della vendita viaggia col documento, o il numero non identifica.
@@ -892,10 +888,11 @@ export class SalesService {
                 productVariantId: vendita.productVariantId ?? null,
                 variantName: vendita.variantName ?? variante?.name ?? null,
                 quantity: 1,
-                // Il prezzo di riga e' il PUBBLICO (cosi' lo legge la Finanza):
-                // della variante se c'e', del prodotto altrimenti. Se nessuno
-                // dei due lo dichiara resta vuoto — non si inventa.
-                price: variante?.publicPrice ?? vendita.product?.publicPrice ?? null,
+                // Il prezzo di riga e' quello del PARTNER (canone 29/08: la fee
+                // si calcola sul SUO prezzo — la prova: la quota registrata e'
+                // il 20% esatto della variante `price`, non del pubblico). Il
+                // pubblico e' il ripiego; se nessuno lo dichiara resta vuoto.
+                price: variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null,
               }],
             }
           : undefined,

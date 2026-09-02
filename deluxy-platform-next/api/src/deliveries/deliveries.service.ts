@@ -971,8 +971,14 @@ export class DeliveriesService {
         // Il DTO non dichiara `provinceId`: la provincia la deduce sempre la
         // geocodifica. Se un domani il DTO la dichiarasse, qui andrà rispettata.
         provinceId: luogo.provinceId,
-        // Prezzo: se impostato manualmente (LISTINO) vince, altrimenti calcolo automatico
-        price: dto.price != null ? dto.price : price,
+        // Prezzo: se impostato manualmente (LISTINO) vince, altrimenti calcolo automatico.
+        // ⭐ CANONE 01/09: sulla VENDITA il default NON si scrive mai — `ps.price`
+        // lì è una fee PERCENTUALE, e scriverla come euro congelava la quota
+        // (#100843: quota 20 su merce da 180, doveva essere 36 = 20% × 180).
+        // Vuoto = la fatturazione calcola fee% × valore prodotti a ogni lettura.
+        price: dto.price != null
+          ? dto.price
+          : (serviceType.pricingModel === 'VENDITA' ? null : price),
         distanceKm,
         extraKm,
         extraOutOfCity,
@@ -1307,7 +1313,10 @@ export class DeliveriesService {
         }
       }
       economiaRicalcolata = {
-        price: Math.round(price * 100) / 100,
+        // ⭐ CANONE 01/09: sulla VENDITA il ricalcolo AZZERA il prezzo invece di
+        // riscriverlo — `ps.price` lì è la fee percentuale, e un cambio di
+        // servizio o indirizzo la ricongelava in euro. Vuoto = calcola.
+        price: svc?.pricingModel === 'VENDITA' ? null : Math.round(price * 100) / 100,
         distanceKm: dist,
         extraKm: extra,
         extraOutOfCity: fuoriCitta,

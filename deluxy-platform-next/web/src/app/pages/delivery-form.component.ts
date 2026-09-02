@@ -1249,25 +1249,29 @@ export class DeliveryFormComponent implements AfterViewInit {
    */
   private prezzoProposto: number | null = null;
   proponiPrezzoDiListino(): void {
-    const p = this.partners().find((x) => x.id === this.model.partnerId);
-    const riga = (p?.services ?? []).find(
-      (s) => (s.serviceTypeId ?? s.serviceType?.id) === this.model.serviceTypeId,
-    );
-    if (!riga || riga.price == null) return;
     const s = this.selectedService();
     // ⚠️ Sulla VENDITA non si propone NESSUN prezzo (regola utente 01/09,
     // #100791): il listino è una fee PERCENTUALE e la quota si calcola sul
     // VALORE PRODOTTI della consegna — congelare qui un numero (fee × importo
     // vendita) faceva litigare la commissione col venduto delle righe. Vuoto =
     // la fatturazione calcola fee% × valore prodotti, sempre coerente.
-    if (s?.pricingModel === 'VENDITA') {
+    // ⚠️⚠️ Questo ramo sta PRIMA della ricerca della riga di listino, e vale
+    // anche quando il MODELLO non è ancora noto (servizi non caricati): il
+    // 02/09 (#100843) la corsa dei caricamenti proponeva la fee come euro e
+    // poi usciva sulla riga mancante senza mai ripulire.
+    if (!s || s.pricingModel === 'VENDITA') {
       if (this.model.price != null && this.model.price === this.prezzoProposto) {
         this.model.price = null;
         this.prezzoProposto = null;
       }
       return;
     }
-    const prezzo = s?.pricingModel === 'A_ORA'
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    const riga = (p?.services ?? []).find(
+      (r) => (r.serviceTypeId ?? r.serviceType?.id) === this.model.serviceTypeId,
+    );
+    if (!riga || riga.price == null) return;
+    const prezzo = s.pricingModel === 'A_ORA'
       ? riga.price * Math.max(this.model.hours ?? 1, 1)
       : riga.price;
     const attuale = this.model.price;
