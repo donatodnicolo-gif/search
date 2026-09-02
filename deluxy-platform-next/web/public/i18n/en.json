@@ -567,6 +567,7 @@
   "salaries": {
     "title": "Salaries",
     "caption": "Generate and manage valet salaries: pro-forma (with VAT) or withholding receipt.",
+    "captionValet": "Your pay: when a salary is ready, sign the receipt and follow the payment here.",
     "allValets": "All valets",
     "generate": "Generate salaries",
     "empty": "No salaries.",
@@ -609,6 +610,8 @@
       "gross": "Gross",
       "cash": "Cash",
       "net": "Net",
+      "date": "Date",
+      "amount": "Amount",
       "document": "Document",
       "status": "Status",
       "financial": "Financial status",

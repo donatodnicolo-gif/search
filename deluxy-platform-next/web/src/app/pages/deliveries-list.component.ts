@@ -166,7 +166,11 @@ interface PropostaVendita {
           </button>
         }
         <button class="btn btn-secondary" (click)="load()">{{ 'common.refresh' | translate }}</button>
-        <a routerLink="/deliveries/new" class="btn btn-primary">{{ 'deliveries.add' | translate }}</a>
+        <!-- 02/09 (regola utente): un VALET non aggiunge consegne — l'API e
+             la rotta già lo escludevano, ora sparisce anche il bottone. -->
+        @if (!isValetRuolo()) {
+          <a routerLink="/deliveries/new" class="btn btn-primary">{{ 'deliveries.add' | translate }}</a>
+        }
       </div>
     </div>
 

@@ -92,7 +92,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
     <div class="page-header">
       <div>
         <h1>{{ 'salaries.title' | translate }}</h1>
-        <p class="page-caption">{{ 'salaries.caption' | translate }}</p>
+        <!-- 02/09: al VALET la pagina parla dei SUOI compensi, non del
+             «genera e gestisci» dell'ufficio. -->
+        <p class="page-caption">{{ (isValet() ? 'salaries.captionValet' : 'salaries.caption') | translate }}</p>
       </div>
       <div class="head-actions">
         <button class="btn btn-ghost" [disabled]="!filtered().length" (click)="exportCsv()">{{ 'salaries.export' | translate }}</button>
@@ -646,6 +648,9 @@ export class SalariesListComponent {
   canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+  isValet(): boolean {
+    return this.auth.user()?.role === 'VALET';
   }
 
   /** «Richiedi pagamento» a Deluxy Transactions: solo ADMIN (come l'API),

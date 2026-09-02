@@ -567,6 +567,7 @@
   "salaries": {
     "title": "Stipendi",
     "caption": "Genera e gestisci gli stipendi dei valet: pro-forma (con P.IVA) o ricevuta con ritenuta.",
+    "captionValet": "I tuoi compensi: quando uno stipendio è pronto, firmi la ricevuta e segui qui il pagamento.",
     "allValets": "Tutti i valet",
     "generate": "Genera stipendi",
     "empty": "Nessuno stipendio.",
@@ -609,6 +610,8 @@
       "gross": "Lordo",
       "cash": "Contanti",
       "net": "Netto",
+      "date": "Data",
+      "amount": "Importo",
       "document": "Documento",
       "status": "Stato",
       "financial": "Stato finanziario",
