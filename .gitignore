@@ -8,3 +8,8 @@ deluxy-scout/.expo/
 deluxy-scout/dist/
 deluxy-scout/web-build/
 deluxy-scout/*.log
+
+# ⚠️⚠️ Copie zippate delle app: pesano centinaia di MB e sono versioni VECCHIE
+# (CLAUDE.md: «non ripescare né copiare file da zip»). Qui dentro un `git add -A`
+# ne ha gia' infilata una da 241 MB in un commit — e questo repo e' PUBBLICO.
+*.zip

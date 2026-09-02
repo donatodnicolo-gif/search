@@ -18,6 +18,12 @@ type Prodotto = {
   immagine: string
   disponibile: boolean
 }
+type Gruppo = {
+  titolo: string
+  immagine: string
+  /** Le taglie/varianti di QUEL prodotto, come le manda Shopify. */
+  varianti: Prodotto[]
+}
 type ClienteTrovato = {
   nome: string
   cognome: string
@@ -43,6 +49,27 @@ type Riga = {
 
 function soldi(v: number): string {
   return v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+}
+
+/**
+ * Che cosa si legge sotto il nome del prodotto nell'elenco.
+ *
+ * ⚠️ Il prezzo di un prodotto con più taglie NON è un numero solo: scriverne
+ * uno (il primo, il più basso) farebbe promettere al telefono un prezzo che
+ * poi cambia alla variante scelta. O il prezzo unico, o l'intervallo vero.
+ */
+function descriviGruppo(g: { varianti: { prezzo: number; disponibile: boolean }[] }): string {
+  const prezzi = g.varianti.map((v) => v.prezzo)
+  const min = Math.min(...prezzi)
+  const max = Math.max(...prezzi)
+  const quanto = min === max ? soldi(min) : `da ${soldi(min)} a ${soldi(max)}`
+  const pezzi = [quanto]
+  if (g.varianti.length > 1) pezzi.push(`${g.varianti.length} varianti`)
+  // Si dice solo quando è vero per TUTTE: se una taglia c'è, il prodotto si
+  // può ancora vendere, e scrivere «non disponibile» lo farebbe saltare a
+  // torto.
+  if (!g.varianti.some((v) => v.disponibile)) pezzi.push('non disponibile')
+  return pezzi.join(' · ')
 }
 
 export function NuovoOrdine({
@@ -83,7 +110,16 @@ export function NuovoOrdine({
   const [paese, setPaese] = useState('IT')
 
   const [q, setQ] = useState('')
-  const [prodotti, setProdotti] = useState<Prodotto[]>([])
+  /**
+   * I risultati della ricerca, UN PRODOTTO PER SCHEDA.
+   *
+   * ⚠️⚠️ Non una riga per variante: cercando «botticelli» uscivano trenta
+   * schede, sei col medesimo titolo e la sola taglia a distinguerle. La
+   * variante si sceglie DOPO, dentro il prodotto.
+   */
+  const [gruppi, setGruppi] = useState<Gruppo[]>([])
+  /** Il prodotto di cui si stanno guardando le varianti. */
+  const [aperto, setAperto] = useState<Gruppo | null>(null)
   const [catalogoChiuso, setCatalogoChiuso] = useState(false)
   /**
    * L ultimo prodotto scelto dai risultati.
@@ -355,6 +391,29 @@ export function NuovoOrdine({
     setClienteCercato(false)
   }
 
+  /**
+   * Mette la variante scelta fra le righe dell'ordine, chiude l'elenco e dice
+   * che cosa è stato preso.
+   *
+   * ⚠️ Sta in una funzione sola perché i punti da cui si sceglie sono due (la
+   * scheda del prodotto con variante unica, e l'elenco delle varianti): due
+   * copie della stessa riga si sarebbero scostate al primo ritocco.
+   */
+  const aggiungi = useCallback((p: Prodotto) => {
+    setRighe((r) => [
+      ...r,
+      {
+        variantId: p.variantId,
+        titolo: p.titolo,
+        variante: p.variante,
+        prezzo: p.prezzo,
+        quantita: 1,
+        immagine: p.immagine,
+      },
+    ])
+    setScelto(p)
+    setAperto(null)
+  }, [])
   const cerca = useCallback(async () => {
     if (!negozioId) {
       setErrore('Scegli prima il negozio.')
@@ -366,7 +425,7 @@ export function NuovoOrdine({
       const p = new URLSearchParams({ negozio: negozioId, q })
       const res = await fetch('/api/nuovo-ordine/prodotti?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
-        prodotti?: Prodotto[]
+        raggruppati?: Gruppo[]
         senzaPermesso?: boolean
         nota?: string
         errore?: string
@@ -376,11 +435,12 @@ export function NuovoOrdine({
         return
       }
       setCatalogoChiuso(Boolean(d.senzaPermesso))
-      setProdotti(d.prodotti ?? [])
-      // ⚠️ Una ricerca nuova toglie di mezzo la conferma di quella prima:
-      // altrimenti si cercherebbe qualcosa e non comparirebbe niente, con
-      // ancora scritto «scelto: …» del prodotto di prima.
+      setGruppi(d.raggruppati ?? [])
+      // ⚠️ Una ricerca nuova toglie di mezzo la conferma di quella prima e le
+      // varianti aperte: altrimenti si cercherebbe qualcosa e non comparirebbe
+      // niente, con ancora a schermo il prodotto di prima.
       setScelto(null)
+      setAperto(null)
     } finally {
       setCercando(false)
     }
@@ -1036,50 +1096,92 @@ export function NuovoOrdine({
           </div>
         ) : null}
 
-        {prodotti.length && !scelto ? (
+        {/* ── LE VARIANTI DEL PRODOTTO APERTO ──
+            ⚠️⚠️ Chiesto dall'utente il 02/09/2026: «non mostrare tutti i
+            prodotti con tutte le varianti: mostra i prodotti e poi una volta
+            scelto il prodotto l'utente sceglie la variante». È anche l'ordine
+            in cui la sceglie il cliente al telefono: prima «il Botticelli»,
+            poi «grande o medio?». */}
+        {aperto && !scelto ? (
+          <div style={{ marginBottom: 10 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginBottom: 8,
+              }}
+            >
+              {aperto.immagine ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={aperto.immagine}
+                  alt=""
+                  style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                />
+              ) : null}
+              <span style={{ flex: 1, minWidth: 180 }}>
+                <strong>{aperto.titolo}</strong> · scegli la variante
+              </span>
+              <button className="bottone secondario" onClick={() => setAperto(null)}>
+                ← Torna ai risultati
+              </button>
+            </div>
+            <div className="griglia-fornitori">
+              {aperto.varianti.map((v) => (
+                <button
+                  key={v.variantId}
+                  className="card riga-cliccabile"
+                  style={{ padding: 8, textAlign: 'left' }}
+                  onClick={() => aggiungi(v)}
+                >
+                  <div className="cella-nome">{v.variante || 'Unica'}</div>
+                  <div className="cella-sub">
+                    {[soldi(v.prezzo), v.disponibile ? '' : 'non disponibile']
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {gruppi.length && !scelto && !aperto ? (
           <div className="griglia-fornitori" style={{ marginBottom: 10 }}>
-            {prodotti.map((p) => (
+            {gruppi.map((g) => (
               <button
-                key={p.variantId}
+                // ⚠️ La chiave e' l'id della prima variante, non il titolo: due
+                // prodotti diversi possono chiamarsi uguale (capita coi doppioni
+                // di stagione) e React ne mostrerebbe uno solo.
+                key={g.varianti[0].variantId}
                 className="card riga-cliccabile"
                 style={{ padding: 8, textAlign: 'left' }}
                 onClick={() => {
-                  setRighe((r) => [
-                    ...r,
-                    {
-                      variantId: p.variantId,
-                      titolo: p.titolo,
-                      variante: p.variante,
-                      prezzo: p.prezzo,
-                      quantita: 1,
-                      immagine: p.immagine,
-                    },
-                  ])
-                  // Chiude l'elenco e dice che cosa è stato preso.
-                  setScelto(p)
+                  // ⚠️ Con una variante sola non si fa fare un clic per niente:
+                  // «Default Title» è la variante unica di Shopify, e un passo
+                  // in più per scegliere l'unica cosa scegliibile è un dispetto.
+                  if (g.varianti.length === 1) aggiungi(g.varianti[0])
+                  else setAperto(g)
                 }}
               >
                 {/* ⚠️ La foto, non solo il nome: al telefono col cliente si
                     riconosce «quello con le peonie» in un colpo d'occhio, e i
-                    titoli si somigliano tutti («Bouquet La Lady in Rose ·
-                    Medio», «· Medio-Grande», «· Grande»). È anche la foto che
-                    finirà nell'ordine e che si manda al fornitore. */}
+                    titoli si somigliano tutti. È anche la foto che finirà
+                    nell'ordine e che si manda al fornitore. */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {p.immagine ? (
+                  {g.immagine ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={p.immagine}
+                      src={g.immagine}
                       alt=""
                       style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }}
                     />
                   ) : null}
                   <div>
-                    <div className="cella-nome">{p.titolo}</div>
-                    <div className="cella-sub">
-                      {[p.variante, soldi(p.prezzo), p.disponibile ? '' : 'non disponibile']
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
+                    <div className="cella-nome">{g.titolo}</div>
+                    <div className="cella-sub">{descriviGruppo(g)}</div>
                   </div>
                 </div>
               </button>

@@ -20,10 +20,11 @@ export async function GET(req: NextRequest) {
     // schermata deve poter dire «scrivi la riga a mano» invece di sembrare rotta.
     return NextResponse.json({
       prodotti: [],
+      raggruppati: [],
       senzaPermesso: true,
       nota: 'L’app non ha il permesso di leggere il catalogo (read_products): scrivi la riga a mano, oppure aggiungi il permesso all’app CRM_DELUXY.',
     })
   }
   if (esito.stato === 'errore') return NextResponse.json({ errore: esito.messaggio }, { status: 502 })
-  return NextResponse.json({ prodotti: esito.prodotti })
+  return NextResponse.json({ prodotti: esito.prodotti, raggruppati: esito.raggruppati })
 }

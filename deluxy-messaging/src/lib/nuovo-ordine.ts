@@ -200,9 +200,36 @@ export type ProdottoTrovato = {
   disponibile: boolean
 }
 
+/**
+ * Un prodotto con le sue varianti sotto.
+ *
+ * ⚠️⚠️ Serve perché l'elenco piatto (una riga per variante) è illeggibile:
+ * cercando «botticelli» uscivano TRENTA schede, di cui sei con lo stesso titolo
+ * e la sola taglia a distinguerle. Prima si sceglie il PRODOTTO, poi la
+ * variante — che è anche l'ordine in cui la sceglie il cliente al telefono
+ * («il Botticelli» … «grande o medio?»).
+ */
+export type ProdottoRaggruppato = {
+  titolo: string
+  immagine: string
+  varianti: ProdottoTrovato[]
+}
+
 /** I prodotti del negozio che corrispondono a quello che si sta cercando. */
 export type EsitoProdotti =
-  | { stato: 'ok'; prodotti: ProdottoTrovato[] }
+  | {
+      stato: 'ok'
+      /**
+       * L'elenco PIATTO, una riga per variante.
+       *
+       * ⚠️ Resta perché è il contratto di `/api/v1/nuovo-ordine/prodotti`, che
+       * leggono altre app: cambiargli forma sarebbe romperle senza accorgersene
+       * (Standard §7). La schermata usa `raggruppati`; qui non si toglie niente.
+       */
+      prodotti: ProdottoTrovato[]
+      /** Gli stessi risultati, un prodotto per riga con le varianti dentro. */
+      raggruppati: ProdottoRaggruppato[]
+    }
   | { stato: 'senza-permesso' }
   | { stato: 'errore'; messaggio: string }
 
@@ -279,7 +306,10 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
     return { stato: 'errore', messaggio: errore.message }
   }
 
+  // Prima il PRODOTTO, poi la variante: le due liste si costruiscono nello
+  // stesso giro, così non possono raccontare cose diverse.
   const fuori: ProdottoTrovato[] = []
+  const gruppi: ProdottoRaggruppato[] = []
   for (const p of d.data?.products?.edges ?? []) {
     // ⚠️ Seconda rete, sul dato tornato: il filtro nella query è quello che
     // conta, ma se un giorno la sintassi di ricerca di Shopify cambiasse, senza
@@ -288,8 +318,9 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
     // `status` assente (versioni vecchie dell'API) non esclude niente: meglio
     // mostrare in più che sparire tutto.
     if (p.node.status && p.node.status.toUpperCase() !== 'ACTIVE') continue
+    const varianti: ProdottoTrovato[] = []
     for (const v of p.node.variants?.edges ?? []) {
-      fuori.push({
+      const riga: ProdottoTrovato = {
         variantId: v.node.id,
         titolo: p.node.title,
         // «Default Title» è come Shopify chiama la variante unica: mostrarlo
@@ -299,10 +330,21 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
         valuta: 'EUR',
         immagine: v.node.image?.url ?? p.node.featuredImage?.url ?? '',
         disponibile: v.node.availableForSale,
-      })
+      }
+      varianti.push(riga)
+      fuori.push(riga)
     }
+    // Un prodotto senza nemmeno una variante non è ordinabile: non ha un
+    // `variantId` da mettere in bozza. Mostrarlo sarebbe una scheda che al
+    // clic non fa niente.
+    if (varianti.length === 0) continue
+    gruppi.push({
+      titolo: p.node.title,
+      immagine: p.node.featuredImage?.url ?? varianti[0].immagine,
+      varianti,
+    })
   }
-  return { stato: 'ok', prodotti: fuori.slice(0, 30) }
+  return { stato: 'ok', prodotti: fuori.slice(0, 30), raggruppati: gruppi }
 }
 
 export type DatiNuovoOrdine = {

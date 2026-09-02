@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 — il catalogo: prima il prodotto, poi la variante
+
+Chiesto dall'utente: «non mostrare tutti i prodotti con tutte le varianti:
+mostra i prodotti e poi una volta scelto il prodotto l'utente sceglie la
+variante».
+
+L'elenco era **piatto, una riga per variante**. Misura sul catalogo vero:
+cercando «botticelli» uscivano **23 righe**, di cui cinque col medesimo titolo e
+la sola taglia a distinguerle; «rose» ne dava 30. Adesso: **4 schede** e **12**.
+
+- `cercaProdotti()` torna **due liste dallo stesso giro**: `prodotti` (piatta) e
+  `raggruppati` (un prodotto, le sue varianti dentro).
+  ⚠️ La piatta **resta**: è il contratto di `/api/v1/nuovo-ordine/prodotti`, che
+  leggono altre app — cambiargli forma sarebbe romperle senza accorgersene
+  (Standard §7). La schermata usa solo `raggruppati`.
+- Sotto il nome del prodotto si legge il prezzo **unico** o l'**intervallo**
+  («da 85,00 € a 1.195,00 €») + «N varianti».
+  ⚠️ Mai il primo prezzo da solo: al telefono si prometterebbe una cifra che poi
+  cambia alla variante scelta.
+- «non disponibile» si scrive **solo se lo sono tutte**: se una taglia c'è, il
+  prodotto si vende ancora.
+- **Una variante sola** (il `Default Title` di Shopify) si aggiunge col primo
+  clic: nessun passo in più per scegliere l'unica cosa scegliibile.
+- Dal riquadro delle varianti si torna indietro («← Torna ai risultati») senza
+  rifare la ricerca; la conferma «Scelto: …» resta com'era.
+- Prodotto **senza varianti**: non compare. Non ha un `variantId` da mettere in
+  bozza — sarebbe una scheda che al clic non fa niente.
+
+Prova sul catalogo vero: `npx tsx scripts/prova-elenco-prodotti.mts` (stampa
+schede/righe per negozio e controlla che non ci siano titoli ripetuti).
+
 ## 31/08/2026 — «In App» diventa un PASSO, e l'ordine si manda di là dal suo modulo
 
 Chiesto dall'utente: «ho bisogno di un nuovo stato prima di *Gestito* che sia
