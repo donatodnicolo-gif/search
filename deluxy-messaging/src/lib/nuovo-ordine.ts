@@ -225,6 +225,7 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
         edges?: {
           node: {
             title: string
+            status?: string
             featuredImage?: { url?: string } | null
             variants?: {
               edges?: {
@@ -248,12 +249,27 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
       products(first: 12, query: $q) {
         edges { node {
           title
+          status
           featuredImage { url }
           variants(first: 12) { edges { node { id title price availableForSale image { url } } } }
         } }
       }
     }`,
-    { q }
+    // ⚠️⚠️ SOLO I PRODOTTI ATTIVI (chiesto dall'utente il 31/08/2026). Su
+    // Shopify un prodotto può essere `ACTIVE`, `DRAFT` o `ARCHIVED`: le bozze
+    // sono quelle che qualcuno sta ancora preparando — prezzo provvisorio, foto
+    // mancante, a volte un doppione — e gli archiviati non si vendono più. Un
+    // ordine costruito su uno dei due arriva al cliente con un prezzo che non
+    // vale.
+    //
+    // ⚠️ Il filtro si mette nella QUERY di Shopify e non dopo: `first: 12` conta
+    // i prodotti PRIMA del filtro, quindi scartandoli qui una ricerca poteva
+    // tornare due risultati su dodici — e sembrare che il catalogo non abbia
+    // niente.
+    // ⚠️ Con la ricerca vuota si manda `status:active` da solo: «` AND
+    // status:active`» con niente davanti è una query malformata, e Shopify
+    // risponderebbe con un errore che a schermo sembrerebbe «catalogo rotto».
+    { q: q.trim() ? `${q.trim()} AND status:active` : 'status:active' }
   )
   const errore = d.errors?.[0]
   if (errore) {
@@ -265,6 +281,13 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
 
   const fuori: ProdottoTrovato[] = []
   for (const p of d.data?.products?.edges ?? []) {
+    // ⚠️ Seconda rete, sul dato tornato: il filtro nella query è quello che
+    // conta, ma se un giorno la sintassi di ricerca di Shopify cambiasse, senza
+    // questa riga le bozze rientrerebbero in silenzio — e nessuno se ne
+    // accorgerebbe finché un cliente non paga un prezzo provvisorio.
+    // `status` assente (versioni vecchie dell'API) non esclude niente: meglio
+    // mostrare in più che sparire tutto.
+    if (p.node.status && p.node.status.toUpperCase() !== 'ACTIVE') continue
     for (const v of p.node.variants?.edges ?? []) {
       fuori.push({
         variantId: v.node.id,
