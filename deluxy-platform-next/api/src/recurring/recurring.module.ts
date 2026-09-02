@@ -915,6 +915,15 @@ export class RecurringService_ {
             date: dataGiorno,
             partnerId: r.partnerId,
             serviceTypeId: r.serviceTypeId,
+            // ⚠️⚠️ 02/09 (caso Chakroun/Chanel Roma): la geocodifica qui sopra
+            // veniva CHIAMATA E BUTTATA — le figlie nascevano senza provincia
+            // né coordinate, e una consegna senza provincia sparisce dai filtri
+            // per zona e dall'ambito dei team leader (121 su 129 invisibili al
+            // team leader di Roma). È la stessa trappola del 28/08, rientrata
+            // dalla porta dei ricorrenti nuovi.
+            latitude: luogo.lat,
+            longitude: luogo.lng,
+            provinceId: luogo.provinceId,
             valetId: f.valetId,
             status: f.valetId ? 'assigned' : 'created',
             deliveryTimeFrom: f.timeFrom,

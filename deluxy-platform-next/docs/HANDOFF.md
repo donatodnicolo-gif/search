@@ -40,6 +40,17 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — LA PROVINCIA BUTTATA DAI RICORRENTI (caso Chakroun/Chanel Roma)**.
+>   Domanda utente: «Chakroun (team leader di Roma) dovrebbe vedere Chanel
+>   Roma?» — per regola SÌ, di fatto vedeva 8 su 129: il generatore dei
+>   ricorrenti CHIAMAVA la geocodifica e ne buttava il risultato (riga ~911:
+>   `luogo` mai passato al create) — le figlie nascevano senza provincia né
+>   coordinate, invisibili all'ambito dei team leader. Stessa trappola del
+>   28/08, rientrata dalla porta nuova. Corretto il create (lat/lng/provinceId)
+>   + `ripara-province-consegne.mjs` rilanciato: 650 senza provincia → 649
+>   riparate (10 indirizzi distinti, 1 resta: Porto Cervo, provincia OT non in
+>   tabella). Controprova: Chanel Roma visibile a Chakroun **129/129**. Deploy
+>   Ready.
 > - **02/09 — LE 96 RIGHE AVVELENATE RIPARATE (utente: «correggi»)**. Le righe
 >   legacy con quantity = numero di FIORI o prezzo di catalogo di un altro
 >   taglio (sommavano 143.115 € contro 7.194 di verità) ora dicono il vero:
