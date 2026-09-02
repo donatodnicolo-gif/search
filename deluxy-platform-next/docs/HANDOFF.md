@@ -40,6 +40,20 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 sera (2ª ondata) — CAPITOLI PARTNER E VALET DAL COLLAUDO UTENTE**:
+>   ① `Product.notEditable` è ora una SERRATURA vera: il partner non modifica
+>   né elimina un prodotto col flag e non può togliersi il flag (server); nel
+>   form il toggle sparisce e il Salva si spiega; ② il «prezzo flessibile» di
+>   riga al partner non compare (server già lo ignorava); ③ Fatturazione:
+>   al partner niente ricerca-per-partner né «solo prezzabili» (vede solo sé);
+>   ⚠️ una consegna FUTURA (es. #100854 del 04/09) non esce nel Da fatturare
+>   perché il periodo di default è «mese in corso fino a OGGI» (deciso 27/08):
+>   non è un buco; ④ Consegne: per l'utente PARTNER il default è TUTTE le sue
+>   (niente giorno addosso); ⑤ VALET: il bottone «Nuova consegna» sparisce
+>   (API e rotta già lo escludevano), Stipendi con le colonne dello storico
+>   legacy tradotte (salaries.col.date/amount erano chiavi nude) e sottotitolo
+>   che parla dei SUOI compensi. Tutto build+deploy Ready, E2E browser NON
+>   fatto (il collaudo lo sta facendo l'utente in diretta).
 > - **02/09 sera — RAFFICA DI REGOLE SUL FORM CONSEGNA (utente, provando da
 >   partner `donatod.nicolo@gmail.com` / partner «Test»)**: ① ritiro
 >   PRECOMPILATO con la sede del partner anche a video (al partner /partners
