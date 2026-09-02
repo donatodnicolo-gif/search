@@ -1340,12 +1340,23 @@ async function salvaMessaggi(opts: {
           break
         }
 
-        // Stessa mail arrivata in più copie (alias/inoltri: stesso Message-ID,
-        // uid diversi): se ne tiene una sola. Le copie gonfierebbero i thread
-        // e creerebbero attività doppie.
+        // Stessa mail arrivata due volte NELLA STESSA CASELLA (alias che
+        // consegnano doppio: stesso Message-ID, uid diversi): se ne tiene una.
+        //
+        // ⚠️⚠️ Il confine è la CASELLA (`accountId`), NON l'utente. Fino al
+        // 02/09/2026 qui c'era `utenteId`, e per chi ha più caselle la stessa
+        // mail arrivata su due di esse veniva tenuta solo sotto la casella che
+        // l'aveva scaricata PER PRIMA: il cursore dell'altra avanzava lo
+        // stesso, e la sua copia restava bucata PER SEMPRE. Su cs@deluxy.it —
+        // che due utenti guardano insieme — la copia di chi ha quattro caselle
+        // aveva **1.609 mail in meno** (misurate, da febbraio) di quella di chi
+        // ne ha una: «siamo due utenti loggati sulla stessa mail e vediamo
+        // cose differenti». Una casella condivisa deve essere IDENTICA per
+        // chiunque la guardi: il prezzo è che, per chi ha più caselle, una
+        // mail mandata a due di esse compare due volte nella vista «Tutte».
         if (msg.messageId) {
           const copia = await db.messaggio.findFirst({
-            where: { utenteId, messageId: msg.messageId, direzione: 'entrata' },
+            where: { accountId, messageId: msg.messageId, direzione: 'entrata' },
             select: { id: true },
           })
           if (copia) {

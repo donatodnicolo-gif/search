@@ -23,6 +23,35 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 (4) — «Due utenti sulla stessa mail vedono cose differenti»: il dedup era per UTENTE
+
+Segnalato: cs@deluxy.it «non si aggiorna», e i due utenti che la guardano vedono cose
+diverse. **Misurato**: le due copie hanno lo stesso cursore (uid 26080, sync di minuti
+prima) ma la copia dell'utente **cs@** aveva 78 mail nelle 24h e quella di **Nicolò 15**
+— e in totale **1.609 mail in meno da febbraio** (19 nell'altro verso).
+
+- **Causa** (`sync.ts`, salvataggio in entrata): il dedup «stessa mail in più copie: se
+  ne tiene una sola» era su **`utenteId`+messageId**, cioè su TUTTE le caselle
+  dell'utente. Nicolò ha 4 caselle: una mail per cs@ arrivata anche su un'altra sua
+  casella veniva tenuta solo là (verificato: 26 delle 38 «mancanti» del giorno stavano
+  sotto nicolo.donato@), e il cursore di cs@ avanzava lo stesso → buco PERMANENTE.
+  L'utente cs@ ha una casella sola → copia completa. Parente di
+  [[trappola-filtro-nella-lettura-non-nella-scrittura]] al contrario: qui il filtro
+  stava nella SCRITTURA, e la lettura non poteva più rimediare.
+- **Correzione**: il confine del dedup è la **CASELLA** (`accountId`) — una casella
+  condivisa dev'essere identica per chiunque la guardi. Prezzo dichiarato: per chi ha
+  più caselle, una mail mandata a due di esse ora compare due volte nella vista
+  «Tutte» (e nel thread). Commit chirurgico: in `sync.ts` c'è il WIP di un'altra
+  sessione — staggiato SOLO il mio hunk con `git apply --cached` di una patch filtrata.
+- **Il pregresso NON si ripara da solo** ([[trappola-correzione-non-retroattiva]]): i
+  cursori sono già avanti. Script pronto: **`scripts/ripara-copie-cs.mjs`** — travasa le
+  righe mancanti fra le due copie nei due sensi, idempotente (id `bf`+origine, ON
+  CONFLICT), `notificatoIl` valorizzato (niente valanga di push), SPAM→SPAM, campi AI
+  non copiati. ⚠️ **NON ancora eseguito**: la scrittura di massa in produzione l'ha
+  fermata il permesso, la lancia l'utente (`node scripts/ripara-copie-cs.mjs` dalla
+  cartella) o Claude col suo ok esplicito.
+
+---
 ### 02/09 (3) — La schermata «non si è aperta» al login di Michela: diagnosi e cintura
 
 Michela (app password nostra, giusta) entrava e si trovava il boundary d'errore globale.
