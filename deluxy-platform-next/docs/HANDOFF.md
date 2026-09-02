@@ -40,6 +40,18 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — L'AMBITO DEL TEAM LEADER È TERRITORIALE (utente: «dovrebbe
+>   essere solo Roma»)**. Prima `filtroDaAmbito` vedeva PER VALET («le
+>   consegne dei valet delle mie province, ovunque siano»): Chakroun (TL di
+>   Roma) vedeva 140 consegne — le 129 di Roma più 12 lombarde/liguri dei suoi
+>   valet in trasferta. Ora la visibilità è PER LUOGO: tutte le consegne
+>   `provinceId ∈ sue province` (con o senza valet) + SEMPRE le proprie
+>   (`ambito.mioId`). La squadra (`valetIds`) resta solo per l'ASSEGNAZIONE.
+>   Adattate anche le ATTIVITÀ (mapper senza più `valetId: null`; il dettaglio
+>   controlla territorio o proprietà). Misurato dopo: Chakroun **Roma 129/129,
+>   0 altrove**. ⚠️ Una consegna senza provincia esce dall'ambito anche se
+>   assegnata a un suo valet (prima no) — con la provincia ora scritta ovunque
+>   è il caso Porto Cervo e basta. Deploy Ready.
 > - **02/09 — ACCETTA/RIFIUTA DEL PARTNER SULLE VENDITE, IN CONSEGNE (regola
 >   utente)**. Rotte `POST /deliveries/:id/accetta-vendita` e
 >   `/rifiuta-vendita` (@Roles espliciti ADMIN/OPERATION/PARTNER; il partner

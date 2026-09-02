@@ -57,17 +57,16 @@ export class ActivitiesService {
         where.valetId = user.valetId ?? '-';
       } else {
         // ⚠️ Le attività non hanno una provincia propria: quella sta sulla
-        // CONSEGNA. Quindi il pezzo «senza valet nelle mie province» si
-        // traduce in una condizione annidata su `delivery`. Anche qui le
-        // attività ancora senza valet sono il lavoro da distribuire, che è
-        // proprio quello che un capo squadra deve vedere.
+        // CONSEGNA. Il pezzo territoriale si traduce in una condizione
+        // annidata su `delivery` (02/09: l'ambito è per LUOGO — tutte le
+        // attività delle consegne nelle sue province, con o senza valet).
         const f = filtroDaAmbito(ambito) as { AND: Record<string, any>[] };
         where.AND = f.AND.map((pezzo) => {
           if (pezzo['OR']) {
             return {
               OR: pezzo['OR'].map((r: Record<string, any>) =>
                 'provinceId' in r
-                  ? { valetId: null, delivery: { provinceId: r['provinceId'] } }
+                  ? { delivery: { provinceId: r['provinceId'] } }
                   : r,
               ),
             };
@@ -142,9 +141,20 @@ export class ActivitiesService {
           select: { id: true },
         }),
       );
-      const suoi = ambito ? ambito.valetIds : [user.valetId ?? '-'];
+      // 02/09: la visibilità è TERRITORIALE — la sua, o una consegna nelle
+      // sue province di responsabilità (la squadra resta per l'assegnazione).
       const sua = await this.prisma.activity.findFirst({
-        where: { id, valetId: { in: suoi } },
+        where: ambito
+          ? {
+              id,
+              OR: [
+                { valetId: ambito.mioId },
+                ...(ambito.provinceIds.length
+                  ? [{ delivery: { provinceId: { in: ambito.provinceIds } } }]
+                  : []),
+              ],
+            }
+          : { id, valetId: user.valetId ?? '-' },
         select: { id: true },
       });
       // 404 e non 403: chi non può vederla non deve nemmeno sapere che esiste.

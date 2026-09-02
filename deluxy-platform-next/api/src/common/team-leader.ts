@@ -60,8 +60,11 @@ export async function ambitoTeamLeader(
   valet: ValetPerAmbito | null | undefined,
   cercaValetDelleProvince: (provinceIds: string[]) => Promise<{ id: string }[]>,
 ): Promise<{
+  /** Il team leader stesso: le SUE consegne si vedono sempre, ovunque siano. */
+  mioId: string;
+  /** La squadra: serve per l'ASSEGNAZIONE (a chi può affidare), non per la visibilità. */
   valetIds: string[];
-  /** Le province di cui risponde: servono per le consegne ANCORA SENZA VALET. */
+  /** Le province di cui risponde: dal 02/09 la visibilità è TERRITORIALE su queste. */
   provinceIds: string[];
   partnerIds: string[] | null;
   partnerEsclusi: string[];
@@ -74,13 +77,14 @@ export async function ambitoTeamLeader(
   // Un team leader senza nessuna provincia non è «tutti»: è «nessuna oltre le
   // sue». Aprirgli tutto sarebbe il contrario della prudenza.
   if (!daUsare.length) {
-    return { valetIds: [valet.id], provinceIds: [], partnerIds: null, partnerEsclusi: [] };
+    return { mioId: valet.id, valetIds: [valet.id], provinceIds: [], partnerIds: null, partnerEsclusi: [] };
   }
 
   const squadra = await cercaValetDelleProvince(daUsare);
   const valetIds = [...new Set([valet.id, ...squadra.map((v) => v.id)])];
   const partnerIds = idDaJson(valet.teamLeaderPartners);
   return {
+    mioId: valet.id,
     valetIds,
     provinceIds: daUsare,
     partnerIds: partnerIds.length ? partnerIds : null,
@@ -98,12 +102,18 @@ export async function ambitoTeamLeader(
  * sono il suo lavoro: un capo squadra che vede solo il lavoro già distribuito
  * non può distribuirlo.
  *
- * Quindi: le consegne della sua squadra, **più** quelle ancora senza valet
- * nelle sue province di responsabilità.
+ * ⚠️ 02/09/2026 — L'AMBITO È TERRITORIALE (regola utente: «dovrebbe essere
+ * solo Roma»). Prima si vedeva PER VALET — «le consegne dei valet che lavorano
+ * nelle mie province, ovunque siano» — e il capo di Roma si trovava nel
+ * tabellone 12 consegne lombarde e liguri dei suoi valet in trasferta. Ora si
+ * vede PER LUOGO: **tutte le consegne nelle sue province di responsabilità**
+ * (assegnate o da assegnare), più SEMPRE le proprie. La squadra
+ * (`ambito.valetIds`) resta per l'ASSEGNAZIONE: a chi può affidare, non cosa
+ * vede.
  *
- * ⚠️ Una consegna senza valet **e senza provincia riconosciuta** resta fuori:
- * non si sa di chi sia. Non si perde — l'ufficio le vede tutte — ma non si
- * attribuisce a un capo a indovinare.
+ * ⚠️ Una consegna **senza provincia riconosciuta** resta fuori (salvo sia
+ * sua): non si sa di che territorio sia. Non si perde — l'ufficio le vede
+ * tutte — ma non si attribuisce a un capo a indovinare.
  *
  * ⚠️ Torna un `AND`, non chiavi sciolte: i filtri della richiesta
  * (`?partnerId=`) assegnano le proprie chiavi sullo stesso oggetto, e una
@@ -111,6 +121,7 @@ export async function ambitoTeamLeader(
  * proprio il partner da cui è escluso. Dentro `AND` non si può schiacciare.
  */
 export function filtroDaAmbito(ambito: {
+  mioId: string;
   valetIds: string[];
   provinceIds: string[];
   partnerIds: string[] | null;
@@ -119,9 +130,11 @@ export function filtroDaAmbito(ambito: {
   const pezzi: Record<string, unknown>[] = [
     {
       OR: [
-        { valetId: { in: ambito.valetIds } },
+        // Le PROPRIE sempre: un capo che non vede il proprio giro non lavora.
+        { valetId: ambito.mioId },
+        // Il territorio: tutte le consegne nelle sue province, con o senza valet.
         ...(ambito.provinceIds.length
-          ? [{ valetId: null, provinceId: { in: ambito.provinceIds } }]
+          ? [{ provinceId: { in: ambito.provinceIds } }]
           : []),
       ],
     },
