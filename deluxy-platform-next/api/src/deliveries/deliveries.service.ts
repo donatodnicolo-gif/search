@@ -584,7 +584,13 @@ export class DeliveriesService {
     // ⚠️ Anche con `valetSalary = 0` (01/09, caso #62899/DDT 12787): per gli
     // Stipendi una paga scritta vince solo se > 0 — lo zero NON è la paga, è
     // «calcola dal listino». Mostrarlo come paga diceva il falso.
-    if (['ADMIN', 'OPERATION'].includes(user.role) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
+    // ⚠️ 02/09 (segnalazione utente, #100858): anche il VALET della consegna
+    // vede la PROPRIA paga — senza il calcolo dal listino leggeva «—» ogni
+    // volta che la paga non era congelata sulla riga. Solo la sua: un valet
+    // non vede i listini dei colleghi.
+    const eIlSuoValet =
+      user.role === Role.VALET && !!user.valetId && delivery.valetId === user.valetId;
+    if ((['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
       const listini = await this.prisma.valetService.findMany({
         where: { valetId: delivery.valetId },
         include: { serviceType: { select: { pricingModel: true, minHours: true } } },
@@ -1882,6 +1888,12 @@ export class DeliveriesService {
       });
       if (!io?.isTeamLeader) {
         throw new ForbiddenException('Solo un team leader può assegnare le consegne.');
+      }
+      // ⚠️ 02/09 (regola utente): sullo STORICO il team leader non riassegna
+      // — una consegna chiusa è storia, cambiare il valet cambierebbe chi
+      // viene pagato. Se serve, lo fa l'ufficio.
+      if (DELIVERY_CLOSED_STATUSES.includes(delivery.status)) {
+        throw new ForbiddenException('La consegna è nello Storico: il valet non si cambia più da qui.');
       }
       const ambito = await ambitoTeamLeader(io, (provinceIds) =>
         this.prisma.valet.findMany({

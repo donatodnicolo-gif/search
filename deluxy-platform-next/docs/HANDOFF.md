@@ -3,6 +3,33 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 sera-4 — BODY 6MB, RICHIESTE VISIBILI, PAGA AL VALET, TL
+> FERMO SULLO STORICO** (deployato e Ready):
+> - **«request entity too large» alla chiusura del valet**: firma PNG + foto
+>   DDT in base64 sfondavano il limite di default del body (100 KB). Alzato a
+>   6 MB con `useBodyParser` in main.ts e vercel.ts (conserva il rawBody dei
+>   webhook HMAC); la foto era GIÀ compressa nel browser a 1280px/JPEG.
+> - **Richieste già partite VISIBILI sulla consegna** (regola utente): il
+>   dettaglio mostra a valet e partner le pillole «✓ Rimborso già inviato il
+>   … — Aperta» per ogni segnalazione collegata (GET /segnalazioni ora accetta
+>   `?deliveryId=`, sempre dentro lo scope per ruolo); dopo l'invio l'avviso
+>   compare subito. Così nessuno rimanda due volte.
+> - **Il valet vede la SUA paga nel dettaglio** (#100858): il calcolo «dal
+>   listino» era solo per admin/operation e il valet leggeva «—» quando la
+>   paga non era congelata. Ora si calcola anche per il valet DELLA consegna
+>   (solo la sua: niente listini dei colleghi).
+> - **Team leader fermo sullo Storico** (regola utente): su una consegna
+>   chiusa niente «Assegna», né in tabella né nel dettaglio — e il server
+>   rifiuta comunque (`DELIVERY_CLOSED_STATUSES` nel guard di assignValet).
+> - **#100851 verificata a canone**: Armani Fiori, Consegna Standard, 18 € +
+>   1,3 km oltre i 5 inclusi × 1 € = 19,30 ✓ (in città, Milano→Milano).
+> - **Partner inattivi da gennaio 2025**: MISURATO ZERO da spegnere — tutti
+>   gli attivi hanno consegne dal 2025 (la sospensione di massa
+>   `sospendi-inattivi-2025.mjs` aveva già coperto gli stessi) e nessun
+>   sospeso è marcato attivo. Script pronto e riusabile:
+>   `api/scripts/segna-partner-inattivi-2025.mjs` (active=false + prodotti in
+>   archivio con motivo, senza toccare deleted).
+>
 > 🧪 **02/09/2026 sera-3 — ANNULLA DEL PARTNER, DOVUTO AL NETTO IVA**
 > (deployato e Ready):
 > - **Annulla del partner** (regola utente, es. #100854): sulle SUE consegne

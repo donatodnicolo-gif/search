@@ -11,7 +11,7 @@
 // Prisma si pagano solo a freddo.
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
+import { ExpressAdapter, type NestExpressApplication } from '@nestjs/platform-express';
 import express, { type Request, type Response } from 'express';
 import { AppModule } from './app.module';
 
@@ -20,7 +20,14 @@ let bootstrapped: Promise<void> | null = null;
 
 async function bootstrap(): Promise<void> {
   // rawBody: serve al webhook di Deluxy Transactions (HMAC sul corpo grezzo).
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule, new ExpressAdapter(server), { rawBody: true },
+  );
+  // ⚠️ 02/09 («request entity too large» del valet): firma + foto DDT in
+  // base64 sfondano il limite di default (100 KB). Vedi main.ts; qui vale il
+  // tetto Vercel (~4,5 MB), 6 MB copre tutto il possibile.
+  app.useBodyParser('json', { limit: '6mb' });
+  app.useBodyParser('urlencoded', { limit: '6mb', extended: true });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();

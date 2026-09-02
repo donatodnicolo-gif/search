@@ -2025,6 +2025,7 @@
       "motivoPh": "Describe what happened…",
       "invia": "Send to office",
       "inviata": "Sent to the office. You can find it in Reports.",
+      "giaInviata": "already sent on",
       "manca": "Write a reason.",
       "importoManca": "Enter a valid amount."
     },

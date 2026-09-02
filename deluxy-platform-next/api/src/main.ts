@@ -10,6 +10,14 @@ async function bootstrap() {
   // GREZZO — il JSON riserializzato non combacerebbe mai con la firma.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
 
+  // ⚠️ 02/09 («request entity too large» del valet): la chiusura consegna
+  // porta firma PNG + foto DDT in base64 e il limite di default del body
+  // parser è 100 KB. 6 MB basta con margine (la foto è già compressa nel
+  // browser a ~1280px JPEG); oltre i 4,5 MB taglierebbe comunque Vercel.
+  // useBodyParser (e non un json() a mano) conserva il rawBody dei webhook.
+  app.useBodyParser('json', { limit: '6mb' });
+  app.useBodyParser('urlencoded', { limit: '6mb', extended: true });
+
   app.setGlobalPrefix('api/v1');
   // File caricati (es. ricevute firmate) serviti staticamente da /uploads.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });

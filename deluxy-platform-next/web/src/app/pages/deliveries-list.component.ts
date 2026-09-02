@@ -8,7 +8,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
-import { DELIVERY_STATUS_LABELS, Delivery, Province, ValetRef } from '../core/models';
+import { DELIVERY_CLOSED_STATUSES, DELIVERY_STATUS_LABELS, Delivery, Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
 import { DeliveryMapComponent } from './delivery-map.component';
 
@@ -411,8 +411,10 @@ interface PropostaVendita {
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
                   }
-                  <!-- Assegna: anche al team leader (nel suo perimetro). -->
-                  @if (canAssign() && !canManage()) {
+                  <!-- Assegna: anche al team leader (nel suo perimetro) — ma
+                       NON sullo Storico (02/09, regola utente): una consegna
+                       chiusa è storia, il valet non si cambia più da qui. -->
+                  @if (canAssign() && !canManage() && !consegnaChiusa(d)) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
                   }
                   @if (canManage()) {
@@ -1848,6 +1850,11 @@ export class DeliveriesListComponent {
       },
     });
   }
+  /** Chiusa = Storico: consegnata, non consegnata, annullata, approvata… */
+  consegnaChiusa(d: Delivery): boolean {
+    return DELIVERY_CLOSED_STATUSES.includes(d.status);
+  }
+
   /**
    * ANNULLA del partner (02/09, regola utente): solo sulle SUE consegne non
    * di vendita, finché sono rosse (created) o gialle (assigned). Rossa =

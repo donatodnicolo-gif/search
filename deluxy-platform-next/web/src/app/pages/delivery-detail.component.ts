@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
-import { Province, ValetRef } from '../core/models';
+import { DELIVERY_CLOSED_STATUSES, Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
 
 interface DeliveryLog {
@@ -199,6 +199,19 @@ interface DeliveryDetail {
             <button type="button" class="act" (click)="apriSegnalazione('reclamo')">
               {{ 'deliveryDetail.segnal.reclamo' | translate }}
             </button>
+          </div>
+        }
+        <!-- Richieste GIÀ partite su questa consegna (02/09, regola utente):
+             evidenti a valet e partner, così nessuno le rimanda due volte. -->
+        @if (segnalazioniConsegna().length) {
+          <div class="seg-avvisi">
+            @for (s of segnalazioniConsegna(); track s.id) {
+              <span class="seg-avviso">
+                ✓ {{ 'segnalazioni.tipo.' + s.tipo | translate }}
+                {{ 'deliveryDetail.segnal.giaInviata' | translate }}
+                {{ s.createdAt | date: 'dd/MM/yyyy' }} — {{ 'segnalazioni.stato.' + s.stato | translate }}
+              </span>
+            }
           </div>
         }
       }
@@ -748,6 +761,9 @@ interface DeliveryDetail {
       .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
       .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
+      .seg-avvisi { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .seg-avviso { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
+        background: rgba(36, 138, 61, 0.1); color: var(--green, #248a3d); font-size: 12.5px; font-weight: 550; }
       .conferma-annulla { margin: 0 0 16px; padding: 14px 16px; }
       .conferma-annulla .hint { margin: 4px 0 10px; color: var(--text-secondary); font-size: 13px; }
       .azioni-conferma { display: flex; gap: 8px; }
@@ -1237,8 +1253,12 @@ export class DeliveryDetailComponent {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
   }
-  /** Chi può assegnare: l'ufficio, e il team leader (nel suo perimetro, l'API verifica). */
+  /** Chi può assegnare: l'ufficio, e il team leader (nel suo perimetro, l'API
+   *  verifica). ⚠️ 02/09 (regola utente): sullo STORICO il team leader non
+   *  riassegna — una consegna chiusa è storia; se serve, lo fa l'ufficio. */
   canAssign(): boolean {
+    if (this.auth.user()?.role === 'VALET'
+      && DELIVERY_CLOSED_STATUSES.includes(this.delivery()?.status ?? '')) return false;
     const u = this.auth.user();
     return this.canManage() || (u?.role === 'VALET' && u?.isTeamLeader === true);
   }
@@ -1255,7 +1275,21 @@ export class DeliveryDetailComponent {
     }
   }
 
+  /** Richieste già partite su QUESTA consegna (l'API le limita alle proprie). */
+  readonly segnalazioniConsegna = signal<{ id: string; tipo: string; stato: string; createdAt: string }[]>([]);
+  private caricaSegnalazioni(): void {
+    const r = this.auth.user()?.role;
+    if (r !== 'VALET' && r !== 'PARTNER') return;
+    this.http.get<{ id: string; tipo: string; stato: string; createdAt: string }[]>(
+      `${environment.apiUrl}/segnalazioni`, { params: { deliveryId: this.id } },
+    ).subscribe({
+      next: (s) => this.segnalazioniConsegna.set(s ?? []),
+      error: () => this.segnalazioniConsegna.set([]),
+    });
+  }
+
   private load(): void {
+    this.caricaSegnalazioni();
     this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${this.id}`).subscribe({
       next: (d) => {
         this.delivery.set(d);
@@ -1322,6 +1356,8 @@ export class DeliveryDetailComponent {
         this.segInCorso.set(false);
         this.segnalTipo.set(null);
         this.banner.set(this.translate.instant('deliveryDetail.segnal.inviata'));
+        // L'avviso «già inviata» deve comparire subito, non al prossimo giro.
+        this.caricaSegnalazioni();
       },
       error: (err) => {
         this.segInCorso.set(false);

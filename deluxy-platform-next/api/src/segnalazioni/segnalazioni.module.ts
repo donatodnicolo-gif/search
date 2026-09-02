@@ -41,10 +41,13 @@ export class SegnalazioniService {
     }));
   }
 
-  async lista(user: JwtUser, stato?: string, tipo?: string) {
+  async lista(user: JwtUser, stato?: string, tipo?: string, deliveryId?: string) {
     const where: any = {};
     if (stato) where.stato = stato;
     if (tipo) where.tipo = tipo;
+    // 02/09 (regola utente): il dettaglio consegna mostra le richieste GIÀ
+    // partite su quella consegna — il filtro resta dentro lo scope per ruolo.
+    if (deliveryId) where.deliveryId = deliveryId;
     // Partner/valet vedono SOLO le proprie.
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
     else if (user.role === Role.VALET) where.valetId = user.valetId ?? '-';
@@ -110,8 +113,13 @@ export class SegnalazioniController {
 
   @Get()
   @ApiOperation({ summary: 'Elenco segnalazioni (partner/valet solo le proprie)' })
-  lista(@CurrentUser() user: JwtUser, @Query('stato') stato?: string, @Query('tipo') tipo?: string) {
-    return this.service.lista(user, stato, tipo);
+  lista(
+    @CurrentUser() user: JwtUser,
+    @Query('stato') stato?: string,
+    @Query('tipo') tipo?: string,
+    @Query('deliveryId') deliveryId?: string,
+  ) {
+    return this.service.lista(user, stato, tipo, deliveryId);
   }
 
   @Post()
