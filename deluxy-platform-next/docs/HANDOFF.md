@@ -40,6 +40,22 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **01/09 sera — QUOTE PIATTE DELLE VENDITE AZZERATE + 3 DATE IMPOSSIBILI**
+>   (utente: «si sistema tutto così»). Su 30 vendite del 31/08–01/09 col
+>   prezzo scritto, **23 portavano una quota piatta** (spesso la fee ricopiata
+>   in euro: fee 25% → «25,00») che per il canone VINCEVA sul calcolo —
+>   sui 2 giorni: sottofatturato 215,82 €, sovrafatturato 121,40 €. Rimedio:
+>   `price` → **null** (vuoto = calcola), MAI riscrivere il numero giusto
+>   (si ricongelerebbe): `api/scripts/azzera-quote-piatte-vendite.mjs`,
+>   applicato, log su ogni consegna, 3 già a canone, 0 bloccate. 🔴 **4 vendite
+>   SENZA righe di merce con quota scritta restano fuori** (#100095, #100098,
+>   #100793 da 95 €, #100800): azzerarle distruggerebbe l'unico numero che
+>   hanno — decidere se recuperare le righe dall'ordine. Date:
+>   `correggi-date-refuso.mjs` — #27060 2029→2024, #57975 2926→2026 (⚠️ nota
+>   «PAGATO»: resta da decidere se sia da fatturare), #56163 2028→2026.
+>   Controprova: 0 divergenze nei 2 giorni, niente più date impossibili nel
+>   «da fatturare». ⚠️ APERTO: le vendite pendenti più vecchie (499 in tutto,
+>   quota media 2,4%) non sono state toccate — passata più larga da decidere.
 > - **01/09 sera — VIA LA «SETTIMANA TIPO» DEDOTTA DEI VALET** (decisione
 >   utente): le 449 righe `ValetOpeningHour` non le aveva dichiarate nessuno —
 >   le aveva DERIVATE `semplifica-orari-google.mjs` (combinazione più frequente
