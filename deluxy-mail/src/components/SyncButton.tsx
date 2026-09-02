@@ -49,15 +49,33 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
   // cursore avanza da solo) e torna quanti messaggi ha scaricato.
   // `subito`: se true, un giro con novità aggiorna subito la lista (pulsante e
   // timer); se false (drain), il refresh è diluito e ci pensa il chiamante.
+  // L'ultimo arrivo che la LISTA A SCHERMO conosce. Parte vuoto: al primo giro
+  // si impara il valore (la pagina è appena stata renderizzata, è aggiornata).
+  const ultimoArrivoRef = useRef<string | null>(null)
+
   const unGiro = useCallback(
     async (subito = true): Promise<number> => {
       const res = await fetch('/api/leggi-posta', { method: 'POST' })
-      const esito = (await res.json().catch(() => ({}))) as { messaggio?: string; nuovi?: number }
+      const esito = (await res.json().catch(() => ({}))) as {
+        messaggio?: string
+        nuovi?: number
+        ultimoArrivo?: string | null
+      }
       setStato(esito.messaggio ?? null)
       setUltimo(new Date())
       const nuovi = esito.nuovi ?? 0
-      // Aggiorna la lista SOLO se è arrivato qualcosa: un refresh a vuoto non serve.
-      if (nuovi > 0) refreshOgniTanto(subito)
+      // ⚠️ «Scaricato da ME» non basta: il CRON gira ogni 5 minuti e di solito
+      // vince la corsa, quindi qui arrivava sempre 0 e la lista restava ferma
+      // per ore («io continuo a vedere questo», 02/09/2026 — 5 mail in
+      // archivio, vista ferma alle 14:42). Si aggiorna anche quando è CAMBIATO
+      // l'ultimo arrivo nel database, cioè quando qualcun altro — il cron — ha
+      // scaricato al posto nostro.
+      const arrivatoAltrove =
+        typeof esito.ultimoArrivo === 'string' &&
+        ultimoArrivoRef.current !== null &&
+        esito.ultimoArrivo !== ultimoArrivoRef.current
+      if (typeof esito.ultimoArrivo === 'string') ultimoArrivoRef.current = esito.ultimoArrivo
+      if (nuovi > 0 || arrivatoAltrove) refreshOgniTanto(subito || arrivatoAltrove)
       return nuovi
     },
     [refreshOgniTanto]

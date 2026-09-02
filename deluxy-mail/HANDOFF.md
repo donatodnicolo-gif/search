@@ -23,6 +23,23 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 02/09 (6) — «Io continuo a vedere questo»: la lista non si aggiornava se scaricava il CRON
+
+Le 5 mail nuove erano in archivio (da leggere, senza sezione) ma la vista dell'utente era
+ferma alle 14:42. Causa in `SyncButton`: «aggiorna la lista SOLO se è arrivato qualcosa»
+— dove «arrivato» = scaricato **da quel client**. Il cron ogni 5 minuti vince quasi
+sempre la corsa, il giro del client trova 0 e **la lista non si aggiorna mai**: più il
+cron è sano, più la vista sembra rotta. (Prima il client vinceva spesso e il difetto non
+si vedeva; da oggi il cron è a pieno regime.)
+
+- `/api/leggi-posta` ora torna anche **`ultimoArrivo`** (max `creatoIl` in entrata
+  dell'utente): dice quando è ENTRATO l'ultimo messaggio, da chiunque scaricato.
+- `SyncButton` tiene l'ultimo arrivo noto in un ref e fa `router.refresh()` anche
+  quando è **cambiato quello** — cioè quando ha scaricato il cron al posto suo. Al primo
+  giro impara solo il valore (la pagina è appena stata resa: è già aggiornata).
+- ⚠️ Rimedio-utente per le pagine GIÀ aperte prima di questo deploy: un F5.
+
+---
 ### 02/09 (5) — Le notifiche ordine NON passano più da cs@: l'inoltro è morto il 17/05
 
 Segnalato («non è arrivata la mail dell'ordine cakedesign 1826», poi «la 12866 va a

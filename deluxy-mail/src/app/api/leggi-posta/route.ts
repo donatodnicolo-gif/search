@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { utenteCorrente } from '@/lib/sessione'
 import { sincronizzaUtente } from '@/lib/sync'
+import { db } from '@/lib/db'
 
 // POST /api/leggi-posta — legge la posta nuova dell'utente loggato.
 //
@@ -49,7 +50,24 @@ export async function POST() {
         ? `Nessun messaggio nuovo.${avviso}`
         : `${nuovi} messaggi nuovi. Dai una priorità a quelli che contano: l’AI li analizza e crea le attività.${avviso}`
 
-    return NextResponse.json({ ok: note.length === 0, nuovi, messaggio })
+    // ⚠️ «Nuovi» dice quanti ne ha scaricati QUESTA chiamata — ma il CRON gira
+    // ogni 5 minuti e di solito vince la corsa: il client trovava sempre 0 e
+    // non aggiornava mai la lista, che restava ferma per ore mentre il
+    // database si riempiva (02/09/2026: «io continuo a vedere questo», con 5
+    // mail nuove in archivio e la vista ferma alle 14:42). `ultimoArrivo` dice
+    // invece quando è ENTRATO l'ultimo messaggio, da chiunque sia stato
+    // scaricato: è il segnale giusto per capire se la vista è indietro.
+    const ultimo = await db.messaggio.aggregate({
+      where: { utenteId: userId, direzione: 'entrata' },
+      _max: { creatoIl: true },
+    })
+
+    return NextResponse.json({
+      ok: note.length === 0,
+      nuovi,
+      messaggio,
+      ultimoArrivo: ultimo._max.creatoIl?.toISOString() ?? null,
+    })
   } catch (e) {
     return NextResponse.json(
       { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' },
