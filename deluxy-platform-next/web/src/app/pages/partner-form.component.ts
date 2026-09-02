@@ -142,12 +142,14 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <!-- Legge 1 del Libro: il placeholder non e' una label. Le colonne
                hanno un'intestazione che resta visibile anche a campo pieno:
                quattro numeri affiancati senza nome erano indistinguibili. -->
+          <!-- ⚠️ 02/09 (regola utente): km inclusi ed € fuori città NON stanno
+               più qui — si impostano SOTTO, a livello partner (KM inclusi,
+               Extra fuori città, Commissione Fee). Due colonne in meno, zero
+               doppioni: il canone li legge comunque dal livello partner. -->
           <div class="svc-row svc-head" aria-hidden="true">
             <span>{{ 'partnerForm.services.typePlaceholder' | translate }}</span>
             <span>{{ 'partnerForm.services.colPrice' | translate }}</span>
-            <span>{{ 'partnerForm.services.colKmIncluded' | translate }}</span>
             <span>{{ 'partnerForm.services.colExtraKm' | translate }}</span>
-            <span>{{ 'partnerForm.services.colOutOfCity' | translate }}</span>
             <span></span>
           </div>
         }
@@ -158,9 +160,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
             <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colPrice' | translate" [(ngModel)]="row.price" [name]="'svcPrice' + $index" />
-            <input class="field num" type="number" inputmode="numeric" [attr.aria-label]="'partnerForm.services.colKmIncluded' | translate" [(ngModel)]="row.includedKm" [name]="'svcKm' + $index" />
             <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colExtraKm' | translate" [(ngModel)]="row.extraKmPrice" [name]="'svcKmP' + $index" />
-            <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colOutOfCity' | translate" [(ngModel)]="row.extraOutOfCityPrice" [name]="'svcOut' + $index" />
             <button type="button" class="icon-btn" (click)="removeService($index)" [title]="'partnerForm.general.remove' | translate">✕</button>
           </div>
         }
@@ -362,7 +362,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .chip { appearance: none; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 14px; font-size: 13px; font-family: inherit; color: var(--text); cursor: pointer; transition: all 0.15s var(--ease); }
       .chip:hover { background: var(--fill); }
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-      .svc-row { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)) 34px; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .svc-row { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) 34px; gap: 8px; margin-bottom: 10px; align-items: center; }
       /* ⚠️ 02/09: min-width:0 stringe la TRACCIA ma un <input> senza width
          resta alla sua larghezza intrinseca (~200px) e sfonda comunque la
          card, disallineando le intestazioni. Serve anche width:100% sui campi
@@ -667,9 +667,11 @@ export class PartnerFormComponent {
       .map((r) => ({
         serviceTypeId: r.serviceTypeId,
         price: Number(r.price),
-        includedKm: r.includedKm != null ? Number(r.includedKm) : undefined,
+        // ⚠️ 02/09: km inclusi ed € fuori città NON viaggiano più per
+        // servizio — valgono quelli a livello partner (i campi qui sotto).
+        // Le righe si ricreano al salvataggio: eventuali valori vecchi per
+        // servizio si spengono da soli (misurato: erano 2 su 531).
         extraKmPrice: r.extraKmPrice != null ? Number(r.extraKmPrice) : undefined,
-        extraOutOfCityPrice: r.extraOutOfCityPrice != null ? Number(r.extraOutOfCityPrice) : undefined,
       }));
     if (services.length || isEdit) payload['services'] = services;
 

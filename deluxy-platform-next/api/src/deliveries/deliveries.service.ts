@@ -347,7 +347,7 @@ export class DeliveriesService {
     else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
     else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
-    if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
+    if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
     // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
     if (query.date) {
       const day = new Date(query.date);
@@ -450,7 +450,7 @@ export class DeliveriesService {
     else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
     else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
-    if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
+    if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
     if (query.date) {
       const day = new Date(query.date);
       const next = new Date(day);
@@ -1572,6 +1572,21 @@ export class DeliveriesService {
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
   }
 
+  /**
+   * Un allegato in base64 → DRIVE (cartella «File App», 02/09 utente): torna
+   * il link consultabile. Con Drive scollegato o in errore torna il base64
+   * com'era: il percorso di sempre resta la rete di sicurezza.
+   */
+  private async allegatoSuDrive(nome: string, dataUrl: string): Promise<string> {
+    const m = dataUrl.match(/^data:([^;,]+);base64,(.+)$/s);
+    if (!m) return dataUrl;
+    try {
+      const esito = await this.settings.caricaSuDrive(nome, Buffer.from(m[2], 'base64'), m[1]);
+      if (esito.ok && esito.link) return esito.link;
+    } catch { /* Drive è un di più */ }
+    return dataUrl;
+  }
+
   async updateStatus(
     id: string,
     status: DeliveryStatus,
@@ -1654,8 +1669,17 @@ export class DeliveriesService {
       };
       if (dettagli.receiverType) { extra['receiverType'] = dettagli.receiverType; racconto.push(`ritirata da: ${TIPI[dettagli.receiverType]}`); }
       if (dettagli.receivedBy) { extra['receivedBy'] = dettagli.receivedBy; racconto.push(`nome: ${dettagli.receivedBy}`); }
-      if (dettagli.receiverSign) { extra['receiverSign'] = dettagli.receiverSign; racconto.push('firma raccolta dall\'app'); }
-      if (dettagli.ddtFile) { extra['ddtFile'] = dettagli.ddtFile; racconto.push('DDT firmato allegato'); }
+      // ⭐ 02/09 (utente): firma e DDT vanno su DRIVE («File App») come le
+      // ricevute — sulla consegna resta il LINK. Se Drive manca o rifiuta,
+      // resta il base64 nel DB: meglio del file perso.
+      if (dettagli.receiverSign) {
+        extra['receiverSign'] = await this.allegatoSuDrive(`firma-consegna-${delivery.code}.png`, dettagli.receiverSign);
+        racconto.push('firma raccolta dall\'app');
+      }
+      if (dettagli.ddtFile) {
+        extra['ddtFile'] = await this.allegatoSuDrive(`ddt-consegna-${delivery.code}.jpg`, dettagli.ddtFile);
+        racconto.push('DDT firmato allegato');
+      }
     }
     if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.notDeliveredReason) {
       extra['notDeliveredReason'] = dettagli.notDeliveredReason;

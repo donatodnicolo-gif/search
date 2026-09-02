@@ -484,9 +484,14 @@ interface DeliveryDetail {
               }
               @if (d.receiverSign) {
                 <figure class="allegato">
-                  @if (scaricabile(d.receiverSign)) {
-                    <a [href]="d.receiverSign" [download]="nomeAllegato('firma')"
-                       [attr.target]="d.receiverSign.startsWith('data:') ? null : '_blank'" rel="noopener">
+                  <!-- ⭐ 02/09: la firma può stare su DRIVE (link, non immagine):
+                       lì si apre in un'altra scheda, niente <img> rotta. -->
+                  @if (eUrl(d.receiverSign)) {
+                    <a class="drive-card" [href]="d.receiverSign" target="_blank" rel="noopener">
+                      📄 {{ 'deliveryDetail.apriSuDrive' | translate }}
+                    </a>
+                  } @else if (scaricabile(d.receiverSign)) {
+                    <a [href]="d.receiverSign" [download]="nomeAllegato('firma')" rel="noopener">
                       <img [src]="d.receiverSign" [alt]="'deliveryDetail.sign' | translate" />
                     </a>
                   } @else {
@@ -497,11 +502,14 @@ interface DeliveryDetail {
               }
               @if (d.ddtFile) {
                 <figure class="allegato">
-                  @if (scaricabile(d.ddtFile)) {
+                  @if (eUrl(d.ddtFile)) {
+                    <a class="drive-card" [href]="d.ddtFile" target="_blank" rel="noopener">
+                      📄 {{ 'deliveryDetail.apriSuDrive' | translate }}
+                    </a>
+                  } @else if (scaricabile(d.ddtFile)) {
                     <!-- La foto/ricevuta caricata dal valet: si vede e si SCARICA
                          (partner, admin, operation). I data URL si scaricano da soli. -->
-                    <a [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')"
-                       [attr.target]="d.ddtFile.startsWith('data:') ? null : '_blank'" rel="noopener">
+                    <a [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')" rel="noopener">
                       <img [src]="d.ddtFile" [alt]="'deliveryDetail.receipt' | translate" />
                     </a>
                     <a class="scarica-btn" [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')">
@@ -761,6 +769,10 @@ interface DeliveryDetail {
       .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
       .act.ko { background: rgba(215, 0, 21, 0.08); color: var(--red); border-color: rgba(215, 0, 21, 0.25); }
+      .drive-card { display: inline-flex; align-items: center; gap: 6px; padding: 18px 16px;
+        border: 1px solid var(--hairline-strong); border-radius: var(--radius-m);
+        background: var(--fill, #f5f5f7); color: var(--text); text-decoration: none; font-size: 13px; }
+      .drive-card:hover { background: var(--fill-hover, #ececef); }
       .seg-avvisi { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
       .seg-avviso { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
         background: rgba(36, 138, 61, 0.1); color: var(--green, #248a3d); font-size: 12.5px; font-weight: 550; }

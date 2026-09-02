@@ -3,6 +3,31 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **02/09/2026 sera-5 — ALLEGATI SU DRIVE, PDF STIPENDI, GRIGLIA SERVIZI
+> SNELLA, «SOLO IO» DEL TL, DISPONIBILITÀ A SETTIMANA** (deployato e Ready):
+> - **Firma e DDT su Google Drive** (domanda utente «non verrà salvata su
+>   drive?»): alla chiusura del valet gli allegati in base64 salgono nella
+>   cartella «File App» e sulla consegna resta il LINK (`allegatoSuDrive` in
+>   deliveries.service); se Drive manca/rifiuta resta il base64 nel DB. Nel
+>   dettaglio un link http mostra la card «Apri su Google Drive» (niente
+>   <img> rotta). Le ricevute stipendio caricate a file passavano GIÀ da
+>   Drive (receipts.module).
+> - **Stipendi: recap e ricevuta in PDF** (regola utente): non più file
+>   .html scaricato — si apre la scheda del documento e parte la stampa, con
+>   «Salva come PDF» come destinazione (apriComePdf in salaries-list; avviso
+>   se il browser blocca i pop-up).
+> - **Scheda partner, griglia servizi**: VIA le colonne «Km inclusi» e «€
+>   fuori città» (regola utente: si impostano sotto, a livello partner).
+>   Restano Prezzo e € per km extra. Al salvataggio le righe si ricreano
+>   senza quei campi: i 2 residui per-servizio (su 531) si spengono da soli.
+> - **Team leader: filtro veloce «Solo io» / «Tutte»** in Consegne (regola
+>   utente): «Solo io» passa il PROPRIO valetId — il server ora accetta
+>   `valetId` da un VALET solo se è il suo (due punti, lista e mappa).
+> - **Disponibilità del valet RIFATTA A SETTIMANA** (regola utente: era
+>   illeggibile, 31 card impilate): 7 colonne Lun→Dom stile calendario,
+>   ‹/›/Oggi, giorno cliccabile con editor sotto e «Applica a tutta la
+>   settimana» (7 scritture in un colpo). Stessi endpoint di prima.
+>
 > 🧪 **02/09/2026 sera-4 — BODY 6MB, RICHIESTE VISIBILI, PAGA AL VALET, TL
 > FERMO SULLO STORICO** (deployato e Ready):
 > - **«request entity too large» alla chiusura del valet**: firma PNG + foto

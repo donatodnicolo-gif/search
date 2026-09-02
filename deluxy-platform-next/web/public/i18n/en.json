@@ -654,6 +654,7 @@
       "address": "Address",
       "recap": "Recap",
       "sendRecap": "Send recap",
+      "popupBloccato": "The browser blocked the PDF window: allow pop-ups for this site and retry.",
       "sendConfirm": "Send the pay recap to {{valet}} by email?",
       "sent": "Recap sent to {{a}} ({{n}} deliveries) ✓",
       "payAll": "Pay",
@@ -737,6 +738,10 @@
       "rifiutaTitolo": "Refuse this sale?",
       "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
       "motivo": "Reason (optional)"
+    },
+    "tl": {
+      "tutte": "All",
+      "soloIo": "Only me"
     },
     "annulla": {
       "bottone": "Cancel delivery",
@@ -1483,7 +1488,7 @@
     },
     "services": {
       "title": "Enabled services",
-      "subtitle": "Price per service; KM included (within the municipality) and extra out of town. On SALES services the \"Price\" is the fee percentage, not euros.",
+      "subtitle": "Price per service and € per km beyond the included ones. Included KM and out-of-town extra are set below, at partner level. On SALES services the \"Price\" is the fee percentage, not euros.",
       "empty": "No service added.",
       "typePlaceholder": "Service type…",
       "pricePlaceholder": "Price €",
@@ -2000,6 +2005,7 @@
     "receipt": "Delivery photo",
     "sign": "Recipient signature",
     "fileOnLegacy": "File on the original system: not reachable from here.",
+    "apriSuDrive": "Open in Google Drive",
     "quotaDeluxy": "Deluxy’s cut",
     "costoPartner": "Service cost",
     "saleAccount": {
@@ -2303,6 +2309,7 @@
     "from": "From",
     "to": "To",
     "slotHint": "Leave empty for the whole day.",
+    "applyWeek": "Apply to the whole week",
     "notePh": "Note (optional)",
     "reset": "Back to default",
     "error": "Error while saving.",

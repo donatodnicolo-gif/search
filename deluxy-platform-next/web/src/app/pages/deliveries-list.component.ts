@@ -133,6 +133,19 @@ interface PropostaVendita {
             (click)="vaiA('')"
           >{{ 'deliveries.quick.all' | translate }}</button>
         </div>
+        <!-- TEAM LEADER (02/09, regola utente): un filtro veloce «Solo io» /
+             «Tutte» — di mestiere vede tutto il perimetro, ma per lavorare
+             gli serve anche il SUO giro a colpo d'occhio. -->
+        @if (isTeamLeaderRuolo()) {
+          <div class="quick-tabs">
+            <button type="button" class="quick-tab" [class.active]="filtroTL() === 'tutte'" (click)="setFiltroTL('tutte')">
+              {{ 'deliveries.tl.tutte' | translate }}
+            </button>
+            <button type="button" class="quick-tab" [class.active]="filtroTL() === 'mie'" (click)="setFiltroTL('mie')">
+              {{ 'deliveries.tl.soloIo' | translate }}
+            </button>
+          </div>
+        }
         <!-- Le 4 scorciatoie canoniche di periodo (Libro v1.9 §8-bis), accanto
              a Oggi/Domani/Tutte: riempiono il Dal–Al qui sotto, che resta la
              via avanzata per le date libere. «Tutte» è l'azzeramento. -->
@@ -1810,6 +1823,18 @@ export class DeliveriesListComponent {
   isPartnerRuolo(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
+  /** Team leader (VALET col grado): ha il filtro veloce «Solo io» / «Tutte». */
+  isTeamLeaderRuolo(): boolean {
+    const u = this.auth.user();
+    return u?.role === 'VALET' && u?.isTeamLeader === true;
+  }
+  readonly filtroTL = signal<'tutte' | 'mie'>('tutte');
+  setFiltroTL(v: 'tutte' | 'mie'): void {
+    if (this.filtroTL() === v) return;
+    this.filtroTL.set(v);
+    this.page.set(1);
+    this.load();
+  }
   puoRispondereVendita(d: Delivery): boolean {
     const u = this.auth.user();
     return u?.role === 'PARTNER'
@@ -2213,6 +2238,11 @@ export class DeliveriesListComponent {
     if (this.query.trim()) params = params.set('q', this.query.trim());
     const partner = this.partnerFiltro();
     if (partner) params = params.set('partnerId', partner);
+    // Team leader su «Solo io»: si passa il PROPRIO valetId (il server lo
+    // accetta da un VALET solo se è il suo).
+    if (this.isTeamLeaderRuolo() && this.filtroTL() === 'mie' && this.auth.user()?.valetId) {
+      params = params.set('valetId', this.auth.user()!.valetId!);
+    }
     // ⭐ La vista si RICORDA (27/08, chiesto dall'utente): tornando indietro da
     // una consegna si deve rivedere il giorno che si stava guardando, non
     // ripartire da oggi. Si scrive nell'indirizzo — così vale anche per il

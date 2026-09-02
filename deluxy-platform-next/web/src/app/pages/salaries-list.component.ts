@@ -812,7 +812,23 @@ export class SalariesListComponent {
    * Passa dall'HttpClient: l'API vuole il token, e una scheda aperta a mano
    * non se lo porta dietro — uscirebbe un 401 travestito da pagina vuota.
    */
-  /** La ricevuta legacy (senza P.IVA): si scarica, si stampa, si firma. */
+  /**
+   * ⭐ 02/09 (regola utente): recap e ricevuta escono in PDF, non più come
+   * file .html. Il PDF lo fa il browser: si apre una scheda con il documento
+   * e si lancia la stampa — la destinazione predefinita «Salva come PDF»
+   * produce il file col nome del documento. Niente librerie da 300 KB per
+   * impaginare quello che il motore di stampa impagina già.
+   */
+  private apriComePdf(html: string, titolo: string): void {
+    const w = window.open('', '_blank');
+    if (!w) { this.error.set(this.translate.instant('salaries.pending.popupBloccato')); return; }
+    w.document.write(html.includes('<title>') ? html : `<title>${titolo}</title>` + html);
+    w.document.close();
+    // Un attimo per il rendering, poi il pannello di stampa.
+    setTimeout(() => { try { w.focus(); w.print(); } catch { /* la scheda resta aperta */ } }, 400);
+  }
+
+  /** La ricevuta legacy (senza P.IVA): si apre in PDF, si stampa, si firma. */
   scaricaRicevuta(r: Pending): void {
     this.error.set(null);
     this.recapInCorso.set(r.valetId);
@@ -821,12 +837,7 @@ export class SalariesListComponent {
     }).subscribe({
       next: (html) => {
         this.recapInCorso.set(null);
-        const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ricevuta-${r.valet.lastName}-${r.from.slice(0, 10)}.html`;
-        a.click();
-        URL.revokeObjectURL(url);
+        this.apriComePdf(html, `ricevuta-${r.valet.lastName}-${r.from.slice(0, 10)}`);
       },
       error: (e) => {
         this.recapInCorso.set(null);
@@ -843,12 +854,7 @@ export class SalariesListComponent {
     }).subscribe({
       next: (html) => {
         this.recapInCorso.set(null);
-        const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `recap-paghe-${r.valet.lastName}-${r.from.slice(0, 10)}.html`;
-        a.click();
-        URL.revokeObjectURL(url);
+        this.apriComePdf(html, `recap-paghe-${r.valet.lastName}-${r.from.slice(0, 10)}`);
       },
       error: (e) => {
         this.recapInCorso.set(null);

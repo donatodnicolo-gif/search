@@ -654,6 +654,7 @@
       "address": "Indirizzo",
       "recap": "Recap",
       "sendRecap": "Invia recap",
+      "popupBloccato": "Il browser ha bloccato la finestra del PDF: consenti i pop-up per questo sito e riprova.",
       "sendConfirm": "Mandare il recap paghe a {{valet}} via mail?",
       "sent": "Recap inviato a {{a}} ({{n}} consegne) ✓",
       "payAll": "Paga",
@@ -737,6 +738,10 @@
       "rifiutaTitolo": "Rifiutare questa vendita?",
       "rifiutaMessaggio": "la consegna passa nello Storico come «Non accettata» e l'ordine torna all'ufficio, che potrà riassegnarlo.",
       "motivo": "Motivo (facoltativo)"
+    },
+    "tl": {
+      "tutte": "Tutte",
+      "soloIo": "Solo io"
     },
     "annulla": {
       "bottone": "Annulla consegna",
@@ -1483,7 +1488,7 @@
     },
     "services": {
       "title": "Servizi abilitati",
-      "subtitle": "Prezzo per servizio; KM inclusi (entro il comune) ed extra fuori città. Sui servizi di VENDITA il «Prezzo» è la fee in percentuale, non euro.",
+      "subtitle": "Prezzo per servizio ed € per km oltre gli inclusi. KM inclusi ed extra fuori città si impostano qui sotto, a livello partner. Sui servizi di VENDITA il «Prezzo» è la fee in percentuale, non euro.",
       "empty": "Nessun servizio aggiunto.",
       "typePlaceholder": "Tipo di servizio…",
       "pricePlaceholder": "Prezzo €",
@@ -2000,6 +2005,7 @@
     "receipt": "Foto della consegna",
     "sign": "Firma di chi ha ricevuto",
     "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui.",
+    "apriSuDrive": "Apri su Google Drive",
     "quotaDeluxy": "Quota Deluxy",
     "costoPartner": "Costo del servizio",
     "saleAccount": {
@@ -2303,6 +2309,7 @@
     "from": "Dalle",
     "to": "Alle",
     "slotHint": "Lascia vuoto per «tutto il giorno».",
+    "applyWeek": "Applica a tutta la settimana",
     "notePh": "Nota (facoltativa)",
     "reset": "Torna al predefinito",
     "error": "Errore nel salvataggio.",
