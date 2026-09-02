@@ -40,6 +40,23 @@
 >   causa di Chanel Sant'Andrea); ③④ Basara 2,5h 37,50 → 45 (2,5×18; 37,50 =
 >   2,5×15, tariffa mai esistita). Controprova: fuori canone 278 → **0**, 11
 >   ricorrenti su 11 coerenti.
+> - **02/09 — ACCETTA/RIFIUTA DEL PARTNER SULLE VENDITE, IN CONSEGNE (regola
+>   utente)**. Rotte `POST /deliveries/:id/accetta-vendita` e
+>   `/rifiuta-vendita` (@Roles espliciti ADMIN/OPERATION/PARTNER; il partner
+>   solo sulle SUE — 404 sulle altrui; solo modello VENDITA, solo stati
+>   created/assigned). Accetta: il giro NON cambia — `acceptSale = true`
+>   (campo legacy mai usato) + riga di registro, i bottoni si spengono.
+>   Rifiuta (conferma narrativa con motivo facoltativo): TRANSAZIONE —
+>   consegna → `not_accepted` (stato già CHIUSO → Storico; fatture e paghe la
+>   escludono di suo) e Sale collegata → `da_gestire` con `deliveryId` null
+>   (bottone Inserisci di nuovo attivo) + partner nei `refusedPartnerIds`
+>   (lo smistamento non gliela ripropone). UI: bottoni nelle azioni di riga
+>   della lista (solo partner), `acceptSale` aggiunto a DELIVERY_LIST_SELECT
+>   e al tipo Delivery; i18n `deliveries.vendita.*` it/en. Typecheck+build ok,
+>   deploy Ready. ⚠️ NON provato E2E con un token partner vero: da verificare
+>   al primo giro reale. ⚠️ Visto per strada: `remove()` del controller ha DUE
+>   @Roles impilati (ADMIN,OPERATION sopra e ADMIN sotto) — da chiarire quale
+>   vince.
 > - **02/09 — LA PROVINCIA BUTTATA DAI RICORRENTI (caso Chakroun/Chanel Roma)**.
 >   Domanda utente: «Chakroun (team leader di Roma) dovrebbe vedere Chanel
 >   Roma?» — per regola SÌ, di fatto vedeva 8 su 129: il generatore dei

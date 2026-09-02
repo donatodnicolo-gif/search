@@ -728,6 +728,13 @@
       "accetta": "Accept",
       "rifiuta": "Refuse"
     },
+    "vendita": {
+      "accetta": "Accept",
+      "rifiuta": "Refuse",
+      "rifiutaTitolo": "Refuse this sale?",
+      "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
+      "motivo": "Reason (optional)"
+    },
     "title": "Deliveries",
     "caption": "All the network's deliveries, in real time.",
     "allStatuses": "All statuses",

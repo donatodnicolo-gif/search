@@ -434,6 +434,18 @@ interface PropostaVendita {
                       </button>
                     }
                   }
+                  <!-- VENDITA (02/09, regola utente): il partner risponde QUI.
+                       Accetta = il giro non cambia (si spegne solo il bottone);
+                       Rifiuta = Storico come «Non accettata» e l'ordine torna
+                       all'ufficio in «Da gestire». -->
+                  @if (puoRispondereVendita(d)) {
+                    <button type="button" class="act ok" [disabled]="venditaRispostaInCorso() === d.id" (click)="accettaVendita(d)">
+                      {{ 'deliveries.vendita.accetta' | translate }}
+                    </button>
+                    <button type="button" class="act ko" [disabled]="venditaRispostaInCorso() === d.id" (click)="rifiutaVendita(d)">
+                      {{ 'deliveries.vendita.rifiuta' | translate }}
+                    </button>
+                  }
                   <!-- Su ogni consegna EFFETTUATA il valet può chiedere un
                        rimborso o aprire un reclamo (31/08) — vanno in Segnalazioni. -->
                   @if (isValetRuolo() && consegnaEffettuata(d)) {
@@ -1767,6 +1779,51 @@ export class DeliveriesListComponent {
       return ['created', 'assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
     }
     return false;
+  }
+  /**
+   * VENDITA (02/09, regola utente): il PARTNER risponde dalla lista finché la
+   * consegna non è in lavorazione. Accetta non cambia il giro; Rifiuta chiude
+   * la consegna come «Non accettata» (Storico) e l'ordine torna all'ufficio.
+   */
+  puoRispondereVendita(d: Delivery): boolean {
+    const u = this.auth.user();
+    return u?.role === 'PARTNER'
+      && d.partner?.id === u.partnerId
+      && d.serviceType?.pricingModel === 'VENDITA'
+      && !d.acceptSale
+      && ['created', 'assigned'].includes(d.status);
+  }
+  readonly venditaRispostaInCorso = signal<string | null>(null);
+  accettaVendita(d: Delivery): void {
+    this.venditaRispostaInCorso.set(d.id);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/accetta-vendita`, {}).subscribe({
+      next: () => { this.venditaRispostaInCorso.set(null); this.load(); },
+      error: (err) => {
+        this.venditaRispostaInCorso.set(null);
+        this.actionError.set(err?.error?.message ?? 'Errore nell\'accettazione');
+      },
+    });
+  }
+  rifiutaVendita(d: Delivery): void {
+    // Conferma narrativa (Libro §7): nome, conseguenze, motivo facoltativo.
+    this.confermaPendente.set({
+      titolo: this.translate.instant('deliveries.vendita.rifiutaTitolo'),
+      messaggio: `#${d.code} — ${this.translate.instant('deliveries.vendita.rifiutaMessaggio')}`,
+      verbo: this.translate.instant('deliveries.vendita.rifiuta'),
+      tono: 'danger',
+      conMotivo: true,
+      motivoLabel: this.translate.instant('deliveries.vendita.motivo'),
+      azione: (motivo: string) => {
+        this.venditaRispostaInCorso.set(d.id);
+        this.http.post(`${environment.apiUrl}/deliveries/${d.id}/rifiuta-vendita`, { motivo }).subscribe({
+          next: () => { this.venditaRispostaInCorso.set(null); this.load(); },
+          error: (err) => {
+            this.venditaRispostaInCorso.set(null);
+            this.actionError.set(err?.error?.message ?? 'Errore nel rifiuto');
+          },
+        });
+      },
+    });
   }
   valetInConsegna(d: Delivery): void {
     this.valetStatoInCorso.set(d.id);

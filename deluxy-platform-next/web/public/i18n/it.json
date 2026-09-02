@@ -728,6 +728,13 @@
       "accetta": "Accetta",
       "rifiuta": "Rifiuta"
     },
+    "vendita": {
+      "accetta": "Accetta",
+      "rifiuta": "Rifiuta",
+      "rifiutaTitolo": "Rifiutare questa vendita?",
+      "rifiutaMessaggio": "la consegna passa nello Storico come «Non accettata» e l'ordine torna all'ufficio, che potrà riassegnarlo.",
+      "motivo": "Motivo (facoltativo)"
+    },
     "title": "Consegne",
     "caption": "Tutte le consegne della rete, in tempo reale.",
     "allStatuses": "Tutti gli stati",

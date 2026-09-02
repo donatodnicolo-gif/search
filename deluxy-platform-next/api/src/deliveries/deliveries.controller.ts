@@ -243,6 +243,25 @@ export class DeliveriesController {
     return this.deliveriesService.assignValet(id, dto.valetId, user);
   }
 
+  // VENDITA (utente, 02/09): il partner risponde dalla lista Consegne.
+  @Post(':id/accetta-vendita')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Il partner accetta una consegna di vendita: il giro non cambia' })
+  accettaVendita(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.accettaVendita(id, user);
+  }
+
+  @Post(':id/rifiuta-vendita')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Il partner rifiuta: la consegna chiude «Non accettata», la vendita torna da gestire' })
+  rifiutaVendita(
+    @Param('id') id: string,
+    @Body('motivo') motivo: string | undefined,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.deliveriesService.rifiutaVendita(id, user, motivo);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION)
   @Delete(':id')
   @Roles(Role.ADMIN)

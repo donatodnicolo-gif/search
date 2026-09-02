@@ -55,6 +55,8 @@ const DELIVERY_LIST_SELECT = {
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
+  // VENDITA (02/09): serve alla lista per accendere Accetta/Rifiuta del partner.
+  acceptSale: true,
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
@@ -646,6 +648,90 @@ export class DeliveriesService {
     };
   }
 
+
+  /**
+   * ACCETTA / RIFIUTA del PARTNER sulle consegne di VENDITA (utente, 02/09).
+   *
+   * — Accetta: il giro NON cambia — si scrive solo `acceptSale = true` (campo
+   *   del legacy mai usato finora), così i bottoni si spengono e resta la
+   *   traccia nel registro.
+   * — Rifiuta: la consegna chiude come `not_accepted` («Non accettata», già
+   *   fra gli stati CHIUSI: finisce nello Storico, e fatture e paghe la
+   *   escludono entrambe di suo), e la VENDITA collegata torna «da gestire»
+   *   all'ufficio (bottone Inserisci), col partner segnato fra i rifiutanti
+   *   così lo smistamento automatico non gliela ripropone.
+   *
+   * Si risponde solo finché la consegna non è in lavorazione (created o
+   * assigned): da «in consegna» in poi il viaggio è partito.
+   */
+  private async venditaDelPartner(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true, code: true, status: true, partnerId: true, acceptSale: true,
+        serviceType: { select: { pricingModel: true } },
+      },
+    });
+    // Un partner non deve nemmeno sapere che una consegna altrui esiste.
+    if (!d || (user.role === Role.PARTNER && d.partnerId !== user.partnerId)) {
+      throw new NotFoundException('Consegna non trovata');
+    }
+    if (d.serviceType?.pricingModel !== 'VENDITA') {
+      throw new BadRequestException('Accetta e Rifiuta valgono solo sui servizi di vendita');
+    }
+    if (!['created', 'assigned'].includes(d.status)) {
+      throw new BadRequestException('La consegna è già in lavorazione: non si può più rispondere da qui');
+    }
+    return d;
+  }
+
+  async accettaVendita(id: string, user: JwtUser) {
+    const d = await this.venditaDelPartner(id, user);
+    if (d.acceptSale) return { ok: true, giaAccettata: true };
+    await this.prisma.delivery.update({
+      where: { id: d.id },
+      data: {
+        acceptSale: true,
+        logs: { create: [{ type: 'status_change', message: 'Vendita accettata dal partner.' }] },
+      },
+    });
+    return { ok: true };
+  }
+
+  async rifiutaVendita(id: string, user: JwtUser, motivo?: string) {
+    const d = await this.venditaDelPartner(id, user);
+    const testo = String(motivo ?? '').trim().slice(0, 500);
+    const vendita = await this.prisma.sale.findFirst({
+      where: { deliveryId: d.id },
+      select: { id: true, refusedPartnerIds: true },
+    });
+    // Scrittura composta in TRANSAZIONE: consegna chiusa e vendita restituita
+    // insieme, o niente — una vendita orfana di consegna ma ancora «accettata»
+    // sarebbe invisibile sia all'ufficio sia al partner.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.delivery.update({
+        where: { id: d.id },
+        data: {
+          status: 'not_accepted',
+          logs: { create: [{ type: 'status_change',
+            message: `Vendita rifiutata dal partner${testo ? ` — motivo: ${testo}` : ''}. La consegna chiude come «Non accettata»; l'ordine torna all'ufficio in «Da gestire».` }] },
+        },
+      });
+      if (vendita) {
+        let rifiutati: string[] = [];
+        try {
+          const v = JSON.parse(vendita.refusedPartnerIds ?? '[]');
+          if (Array.isArray(v)) rifiutati = v.filter((x) => typeof x === 'string');
+        } catch { /* lista illeggibile: si riparte dal solo rifiutante di oggi */ }
+        if (d.partnerId && !rifiutati.includes(d.partnerId)) rifiutati.push(d.partnerId);
+        await tx.sale.update({
+          where: { id: vendita.id },
+          data: { status: 'da_gestire', deliveryId: null, refusedPartnerIds: JSON.stringify(rifiutati) },
+        });
+      }
+    });
+    return { ok: true, status: 'not_accepted', venditaRestituita: Boolean(vendita) };
+  }
 
   /**
    * La fotografia dei prodotti al momento in cui entrano in una consegna.
