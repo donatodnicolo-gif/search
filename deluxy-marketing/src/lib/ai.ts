@@ -142,8 +142,16 @@ export async function chiediAllAi(opzioni: {
   dati: unknown;
   schema?: Record<string, unknown>;
   massimoToken?: number;
+  /**
+   * Fornitore IMPOSTO da chi chiama, sopra la scelta globale delle
+   * Impostazioni. Serve quando un compito specifico deve usare un motore
+   * preciso (26/08: il brief di creazione campagna va su OpenAI per scelta
+   * dell'utente) senza spostare tutto il resto — schede e riconciliazioni
+   * restano sul fornitore globale, che ha gli structured outputs.
+   */
+  fornitore?: Fornitore;
 }): Promise<EsitoAi> {
-  const fornitore = await fornitoreScelto();
+  const fornitore = opzioni.fornitore ?? (await fornitoreScelto());
   const nome = FORNITORI.find((x) => x.chiave === fornitore)!.nome;
   const { valore: apiKey } = await chiaveDi(fornitore);
   if (!apiKey) {

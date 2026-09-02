@@ -369,6 +369,23 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### IL BRIEF DI CREAZIONE CAMPAGNA USA OPENAI (27/08/2026)
+
+Scelta utente: l'AI che compila il brief su /campagne/lancia («Fatti
+scrivere il brief dall'AI») deve essere **OpenAI**, non quella globale.
+`chiediAllAi` ora accetta `fornitore` imposto dal chiamante (sopra la
+scelta di Impostazioni → AI), e `proponiBriefCampagna` lo fissa a
+`openai`. Tutto il resto — schede analisi, riconciliazione, proposte,
+annunci — resta sul fornitore globale (oggi Claude `claude-opus-5`, che ha
+gli structured outputs; misurato sul DB).
+🔴 **Manca la chiave OpenAI**: non è né in Impostazioni né su Vercel
+(`vercel env ls` controllato). Va messa dall'utente in **Impostazioni →
+Intelligenza artificiale → OpenAI** (subito, senza deploy — ma quella
+tabella è il posto dei «5 segreti in chiaro») oppure come variabile
+**OPENAI_API_KEY** su Vercel + redeploy (più sicura). Provato in
+produzione: il bottone risponde «Manca la chiave di OpenAI…» coi due
+posti — che è anche la prova che il brief ora punta a OpenAI.
+
 ### ⭐⭐⭐ SICUREZZA: 120 PROVE DALL'ESTERNO (ZERO BUCHI) E 4 CORREZIONI (27/08/2026 sera)
 
 **La domanda**: un estraneo può leggere dati richiamando dall'esterno API che
