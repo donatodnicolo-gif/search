@@ -43,13 +43,19 @@ prima) ma la copia dell'utente **cs@** aveva 78 mail nelle 24h e quella di **Nic
   più caselle, una mail mandata a due di esse ora compare due volte nella vista
   «Tutte» (e nel thread). Commit chirurgico: in `sync.ts` c'è il WIP di un'altra
   sessione — staggiato SOLO il mio hunk con `git apply --cached` di una patch filtrata.
-- **Il pregresso NON si ripara da solo** ([[trappola-correzione-non-retroattiva]]): i
-  cursori sono già avanti. Script pronto: **`scripts/ripara-copie-cs.mjs`** — travasa le
-  righe mancanti fra le due copie nei due sensi, idempotente (id `bf`+origine, ON
-  CONFLICT), `notificatoIl` valorizzato (niente valanga di push), SPAM→SPAM, campi AI
-  non copiati. ⚠️ **NON ancora eseguito**: la scrittura di massa in produzione l'ha
-  fermata il permesso, la lancia l'utente (`node scripts/ripara-copie-cs.mjs` dalla
-  cartella) o Claude col suo ok esplicito.
+- ✅ **Pregresso RIPARATO** (02/09 ~15:20, col via esplicito dell'utente):
+  `scripts/ripara-copie-cs.mjs` eseguito — **1.609** righe travasate verso la copia di
+  Nicolò, **19** verso quella dell'utente cs@; entrambe ora a **6.137** mail in entrata,
+  divergenza **zero** («✅ Le due copie sono identiche»). Verificato dopo: 0 righe senza
+  `notificatoIl` (nessuna valanga push), 35 finite nello SPAM giusto, 1.593 non
+  smistate, solo 2 non lette (letto copiato dalla copia buona). Lo script resta nel
+  repo: è idempotente, rieseguirlo non crea doppioni.
+- 🔎 Resta da vedere la PRIMA mail nuova dopo il fix entrare in entrambe le copie
+  (sentinella attiva in sessione). E occhio al prossimo «vediamo cose differenti» che
+  NON è un bug: Nicolò ha **51 regole personali**, l'utente cs@ zero — la stessa mail
+  può stare in Posta in arrivo per uno e in una sezione/archivio per l'altro. Se si
+  vuole l'organizzazione identica sulle caselle condivise servono regole per CASELLA:
+  cambio di disegno, da decidere.
 
 ---
 ### 02/09 (3) — La schermata «non si è aperta» al login di Michela: diagnosi e cintura
