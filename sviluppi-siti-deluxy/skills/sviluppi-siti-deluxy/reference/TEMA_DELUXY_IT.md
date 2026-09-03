@@ -143,7 +143,7 @@ Google (geocoder + DistanceMatrix) e non toccano la piattaforma.
   piattaforma non risponde, il cliente vede «non succede niente». Un rimedio lato tema (messaggio o
   fail-open) è una decisione da prendere, non presa il 3/9.
 
-## Prodotti con opzioni (Best Custom Product Options: foto Polaroid): «ACQUISTA» clicca un pulsante che ha appena disabilitato (3/9/2026, APERTO)
+## Prodotti con opzioni (Best Custom Product Options: foto Polaroid): «ACQUISTA» clicca un pulsante che ha appena disabilitato (3/9/2026, CORRETTO sul tema «Version to work on», DA PUBBLICARE)
 
 Verificato sul vivo su **Cross - Bouquet e Polaroid**, **A Million Memories** e **Polaroid Cake**
 (tutti `data-product-unique="false"`, tutti con blocco opzioni `.vopo-block` dell'app BCPO con campi
@@ -169,6 +169,16 @@ riabilitare prima il pulsante (`$submitButton.prop('disabled', false)`) oppure u
 ⚠️ Il blocco BCPO compare in ritardo (anche 10-20 s dopo il load): prima che arrivi, `.vopo-block form`
 è 0 e il tema passa dalla fetch JSON, che aggiunge al carrello SENZA le foto — è così che «a volte
 funziona» e l'ordine arriva senza immagini.
+
+
+**Correzione applicata il 3/9/2026 (sera)** sul tema «Version to work on» `206939947338` (copia identica del Live
+`206925398346` fatta lo stesso giorno — ⚠️ gli id in testa a questo documento sono quelli vecchi): il file
+corretto vive nel repo in `sviluppi-siti-deluxy/deluxy-it/snippets/product-delivery-date.liquid` (md5 3c19379a; l'originale
+Live md5 e777f5b1). I 5 `$submitButton.click()` passano da `inviaFormProdotto($btn)` che riabilita il submit nascosto
+prima del click nativo. Scritto con `themeFilesUpsert` body `type: URL` (raw di GitHub): i 55 KB non passano dal contesto,
+la verifica è l'MD5 riportato da Shopify. Provato in anteprima (`?preview_theme_id=206939947338`) su Polaroid Cake con foto:
+clic vero su ACQUISTA → carrello con «Foto» (URL uploads) e «Crema». **Entra in produzione quando l'utente pubblica
+«Version to work on»** (il connettore non pubblica).
 
 ## Insidie specifiche
 
