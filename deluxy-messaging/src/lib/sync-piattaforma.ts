@@ -165,6 +165,8 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
       gestione: true,
       appStato: true,
       appVenditaId: true,
+      appPartner: true,
+      appCostoPartner: true,
       appGestionePrima: true,
       appInterrottoIl: true,
     },
@@ -214,7 +216,17 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
   }
 
   // ── 3. Nient'altro da spostare: si aggiorna solo la copia ──
-  if (ordine.appStato !== stato || ordine.appVenditaId !== v.vendita.id) {
+  //
+  // ⚠️ 03/09 (regola utente: «la modifica di una vendita deve andare anche
+  // qui»): il confronto guarda anche partner e costo. Prima guardava solo
+  // stato e id — una vendita MODIFICATA di là (importo, partner) a parità di
+  // stato veniva saltata, e la nostra copia restava vecchia per sempre.
+  if (
+    ordine.appStato !== stato ||
+    ordine.appVenditaId !== v.vendita.id ||
+    (ordine.appPartner ?? '') !== partner ||
+    (ordine.appCostoPartner ?? null) !== (v.vendita.costoPartner ?? null)
+  ) {
     if (!prova) await db.ordine.update({ where: { id: ordine.id }, data: dati })
     return { esito: 'aggiornato', testo: '' }
   }
