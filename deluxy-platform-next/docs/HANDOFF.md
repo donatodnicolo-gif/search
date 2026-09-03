@@ -3,6 +3,14 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-ter — SALAZAR: PAGHE SCRITTE 6 → 7,20** (dati):
+> - Il 6 € veniva dal listino «Consegna Standard» SCADUTO il 30/06/2025 (la
+>   tariffa 2026 è 7,20; il MOTORE sceglie già 7,20 — erano solo le paghe
+>   SCRITTE congelate). Corrette su ordine utente le 6 consegne 2026 con
+>   scritta=6 (#58788, #100011, #62238, #100093, #100100, #100096), nessuna
+>   era in uno stipendio; ZERO righe Salari 2026 a 6 € (verificato). Backup
+>   + log su ogni riga.
+>
 > 🧪 **03/09/2026-bis — MINIMO URBANO SULLA PAGA FUORI CITTÀ** (deployato):
 > - **Regola utente**: la paga fuori città (km × € della scheda valet) ha un
 >   MINIMO = la base di listino del valet (una consegna urbana). In
