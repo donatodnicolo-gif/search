@@ -475,3 +475,24 @@ card, tendina risultati a tutta larghezza.
 STATO: applicata (delivery-form.component.ts, media query 640px, deploy 01/09).
 **PROPOSTA per il Libro**: le righe-composte (input+numero+azione) si impilano
 sotto i 640px, e gli input testuali su mobile non scendono mai sotto i 16px.
+
+## 31/08/2026 — Scout: «Visita» via dalla barra della scheda negozio
+
+Richiesta dell'utente sulla scheda di un negozio (`/attivita/<id>`): «nascondi
+Visita». Era la **prima** azione e l'**unica primaria** (pillola nera), quindi
+la scheda si apriva proponendo il giro in negozio — mentre il lavoro di quella
+pagina è il **contatto** (chiama · WhatsApp · email · task · trattativa).
+
+⚠️ Non è la regola «non togliere azioni» [feedback dell'utente sul CS]: quella
+vale quando si toglie per far spazio. Qui è una scelta esplicita di priorità, e
+**l'azione non spare dall'app**: la visita si registra da Potenziali, Mappa,
+Contatti, Clienti, «Per interesse» e «Da fare», e la rotta resta valida.
+
+⚠️ Conseguenza gestita, non ignorata: togliendo l'unica primaria la barra
+restava tutta bianca, mentre il DS vuole **una** primaria per schermata.
+«Chiama» prende quel posto perché è il primo passo della sequenza di contatto —
+non per riempire un buco di stile.
+
+STATO: applicata a Scout. **Da valutare come regola**: quando si nasconde
+l'azione primaria di una barra, la primaria si RIASSEGNA (al primo passo del
+lavoro di quella schermata), non si lascia il vuoto.
