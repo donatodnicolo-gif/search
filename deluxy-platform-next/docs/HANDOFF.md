@@ -3,6 +3,21 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-decies — REGISTRO VENDITE COMPLETO (recupero 308)** (dati):
+> - Ordine utente «importa tutte le vendite»: dal 01/08, 323 ordini del
+>   registro Orders non avevano vendita. Recuperati **308** (match per
+>   IDENTITÀ: coda numerica di `orderId` == `realOrderNumber` della
+>   consegna): **268 ACCETTATE agganciate alla loro consegna** (storico),
+>   8 accettate «evasa fuori piattaforma», 32 da gestire (backfill senza
+>   proposte ai partner); **15 restano al CS** (aperti con fornitore
+>   diretto/manuale — regola del decisore). DOPO: Flowers 222/233,
+>   deluxy.it 171/172, cakedesign 77/80. Script
+>   `recupera-vendite-mancanti.mjs` (dry-run + --applica, backup).
+> - Prova viva dell'ESTERO: #2848/2849/2851/2853 create DAL CRON su
+>   «EE · Estero» da gestire; #2850/#2852 fuori perché già evase dal CS.
+> - ⚠️ 13.663 ordini PRIMA del 01/08 restano senza vendita (pre-avvio del
+>   giro): importarli è una decisione a parte.
+>
 > 🧪 **03/09/2026-nonies — ORDINI E INDIRIZZI ESTERI** (deployato):
 > - **Gli ordini ESTERI entrano in Vendite** (regola utente): provincia
 >   convenzionale «EE · Estero» (upsert al primo giro di sync); la vendita
