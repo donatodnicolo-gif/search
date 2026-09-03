@@ -11,6 +11,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles, Autenticato } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  ProvinceCitiesPubblicoController,
+  ProvinceCitiesPubblicoService,
+} from './province-cities-pubblico.controller';
 
 @Injectable()
 export class ProvincesService {
@@ -62,7 +66,7 @@ export class ProvincesController {
 }
 
 @Module({
-  controllers: [ProvincesController],
-  providers: [ProvincesService],
+  controllers: [ProvincesController, ProvinceCitiesPubblicoController],
+  providers: [ProvincesService, ProvinceCitiesPubblicoService],
 })
 export class ProvincesModule {}

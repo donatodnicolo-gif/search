@@ -9,7 +9,7 @@
 // L'app Nest viene creata una sola volta e riusata dalle invocazioni
 // successive che finiscono sulla stessa istanza calda: bootstrap e pool
 // Prisma si pagano solo a freddo.
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter, type NestExpressApplication } from '@nestjs/platform-express';
 import express, { type Request, type Response } from 'express';
@@ -28,7 +28,12 @@ async function bootstrap(): Promise<void> {
   // tetto Vercel (~4,5 MB), 6 MB copre tutto il possibile.
   app.useBodyParser('json', { limit: '6mb' });
   app.useBodyParser('urlencoded', { limit: '6mb', extended: true });
-  app.setGlobalPrefix('api/v1');
+  // La rotta pubblica dei siti Shopify vive FUORI dal prefisso: il tema di
+  // deluxy.it chiama /api/province-cities/... dai tempi del legacy (vedi il
+  // controller). Cambiare l'indirizzo vorrebbe dire toccare il tema.
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'api/province-cities/:code/:city', method: RequestMethod.ALL }],
+  });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();
 }

@@ -122,6 +122,27 @@ il check e al checkout non trova corrieri.
 - **Cutoff 20:00 mai dichiarato all'utente**: esiste solo nel codice; nessun testo
   «ordina entro le…» in carrello o scheda prodotto.
 
+## Dipendenza dalla piattaforma: `app.deluxy.it/api/province-cities` (scoperta il 3/9/2026)
+
+Il tema NON è autosufficiente: per i prodotti con `data-product-unique="false"` (rose, bouquet,
+champagne, set… — 32 su 60 campionati) sia l'handler di `#addToCartButtonManual` sia il
+`submitButtonHandler` del modale «Seleziona opzioni di consegna» chiamano
+`GET https://app.deluxy.it/api/province-cities/{provinceCode}/{cityName}` (con
+`Content-Type: application/json`, quindi con preflight CORS) e trattano il JSON come booleano:
+`true` → `/cart/add.js`, `false` → `noProductsModal`. I prodotti unici (`true`) passano invece da
+Google (geocoder + DistanceMatrix) e non toccano la piattaforma.
+
+- Era una rotta del backend legacy. **Spento il legacy (31/08/2026) il pulsante «ACQUISTA» dei non
+  unici non faceva più nulla**: la piattaforma nuova serviva solo `/api/v1/*`, la fetch riceveva
+  l'index.html della SPA, il preflight falliva e il `catch` del tema chiude tutto senza messaggio.
+- Dal 3/9/2026 la rotta è rinata nella piattaforma allo STESSO indirizzo
+  (`deluxy-platform-next/api/src/provinces/province-cities-pubblico.controller.ts`): risponde
+  `true` se la città è nella tabella City della provincia (Configurazione → Province), confronto
+  senza maiuscole/accenti; CORS solo per deluxy.it / www / deluxygifts.myshopify.com.
+- ⚠️ Il fallimento di rete resta MUTO nel tema (`catch` → `hideLoader`/`closeModal`): se la
+  piattaforma non risponde, il cliente vede «non succede niente». Un rimedio lato tema (messaggio o
+  fail-open) è una decisione da prendere, non presa il 3/9.
+
 ## Insidie specifiche
 
 - La `fnCheckDate` originale era un groviglio di `if (tmpHour > X && tmpHour < Y) $(...).remove()`

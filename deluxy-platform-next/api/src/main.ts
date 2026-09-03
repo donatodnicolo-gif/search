@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -18,7 +18,12 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: '6mb' });
   app.useBodyParser('urlencoded', { limit: '6mb', extended: true });
 
-  app.setGlobalPrefix('api/v1');
+  // La rotta pubblica dei siti Shopify vive FUORI dal prefisso: il tema di
+  // deluxy.it chiama /api/province-cities/... dai tempi del legacy (vedi il
+  // controller). Cambiare l'indirizzo vorrebbe dire toccare il tema.
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'api/province-cities/:code/:city', method: RequestMethod.ALL }],
+  });
   // File caricati (es. ricevute firmate) serviti staticamente da /uploads.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.enableCors({

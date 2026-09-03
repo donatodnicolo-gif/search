@@ -185,3 +185,29 @@ visibili al valet (precisazione 31/08: servono a pianificare il giro).
 sull'ELENCO COMPLETO dei campi personali del modello E su TUTTE le uscite
 (lista, dettaglio, mappa, calendario) — non sui campi e sulla rotta che la
 regola nomina.
+
+
+## 03/09/2026 — Piattaforma: rotta PUBBLICA `/api/province-cities/:code/:city` per i siti Shopify (rischio ACCETTATO)
+
+**Perché nasce.** Il tema di deluxy.it chiama da sempre
+`GET https://app.deluxy.it/api/province-cities/{PROV}/{Città}` (rotta del
+legacy, spento il 31/08) e legge un booleano prima di mettere nel carrello i
+prodotti non unici. Senza la rotta il preflight CORS falliva e il carrello
+restava vuoto: dal 31/08 al 03/09 metà catalogo era invendibile.
+
+**Che cosa apre.** Una rotta `@Public` in SOLA LETTURA che risponde `true`/
+`false` (la città è fra quelle coperte della provincia). Nessun dato
+personale, nessuna scrittura, nessuna credenziale. CORS: mai `*` — l'origin
+si riflette solo se è nella lista dei siti Deluxy (`deluxy.it`,
+`www.deluxy.it`, `deluxygifts.myshopify.com`, più `CORS_SITI_ORIGINS`);
+`Vary: Origin` per la cache sul bordo. Esclusa da Swagger.
+
+**Cosa può fare un ostile.** Enumerare le città coperte per provincia
+(informazione già pubblica: il sito le mostra) e martellare la rotta: una
+query per provincia + cache 60s/1h sul bordo Vercel. Rate limit non
+previsto: da aggiungere se si vedesse abuso (punto aperto, non bloccante).
+
+**Decisione.** Rischio accettato: è il ripristino di una superficie che
+esisteva già nel legacy, ristretta (allowlist di origin, sola lettura,
+booleano). Lezione: prima di spegnere un backend, censire chi lo chiama
+anche FUORI dal repo.

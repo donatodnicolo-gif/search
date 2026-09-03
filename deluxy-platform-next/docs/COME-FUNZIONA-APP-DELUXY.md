@@ -556,6 +556,19 @@ Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculat
 - **Convenzioni note**: il valet è "expert" (es. `/api/experts/delivery/experts`); i codici piattaforma vendita sono `shopifysale`, `cakesales`, `businesssales`, `flowerssales`, `deluxyexperiencesales`, `deluxydotcomsales`; gli stati consegna sono `created`, `assigned`, `delivering`, `inPreparation`, `accepted`, `requestCancellation` (+`delivered`, `notDelivered`, `cancelled` in storico); i tipi servizio sono `sales`, `hourlyrate`, `fixedprice`, `corporate`, `warehouseservice`.
 - **API key partner** (WooCommerce) generabile in autonomia dalla scheda partner; garantisce l'accesso alle API di invio ordini.
 
+### La città è coperta? — rotta pubblica per i siti Shopify (`/api/province-cities`) **[RINATA 03/09/2026]**
+
+Il tema di **deluxy.it**, per i prodotti *non unici* (rose, bouquet, champagne, set…), prima di mettere nel carrello chiede alla piattaforma se la città dell'indirizzo è coperta:
+
+```
+GET https://app.deluxy.it/api/province-cities/MI/Milano      → true
+GET https://app.deluxy.it/api/province-cities/MI/Rescaldina  → false
+```
+
+- **Fuori dal prefisso `/api/v1`**, perché è l'indirizzo che il tema chiama dai tempi del backend legacy (spento il 31/08/2026): cambiarlo avrebbe voluto dire toccare il tema Shopify. Dal 31/08 al 03/09 la rotta non esisteva e il pulsante «Acquista» dei prodotti non unici non faceva nulla.
+- **Pubblica, sola lettura, un booleano**: `true` se il nome (senza maiuscole né accenti) è fra le città della provincia in **Configurazione → Province** (le 46 importate dal legacy: Milano e hinterland, Como, Monza, Roma, Firenze, Varese, Pavia, Bergamo, Lodi). Per coprire una città nuova basta aggiungerla lì: il sito la vede entro un'ora (cache sul bordo).
+- **CORS** solo per gli origin dei siti Deluxy (`deluxy.it`, `www.deluxy.it`, `deluxygifts.myshopify.com`, più quelli in `CORS_SITI_ORIGINS`); risponde anche al preflight `OPTIONS`.
+
 ### Richieste (`/richieste`) **[NUOVO 28/08/2026]**
 
 **Operatività → Richieste**, per **Admin** e **Operation** — e il **Customer Service** è un Operation (`operationRole = customer_service`), quindi è già dentro senza un ruolo nuovo.

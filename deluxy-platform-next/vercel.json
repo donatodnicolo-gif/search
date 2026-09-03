@@ -64,6 +64,10 @@
       "dest": "/api/src/vercel.ts"
     },
     {
+      "src": "/api/province-cities/(.*)",
+      "dest": "/api/src/vercel.ts"
+    },
+    {
       "src": "/api/docs(.*)",
       "dest": "/api/src/vercel.ts"
     },
