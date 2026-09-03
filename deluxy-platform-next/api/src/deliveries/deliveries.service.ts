@@ -917,6 +917,7 @@ export class DeliveriesService {
             message: 'Cancellazione richiesta dal partner (era in gestione): decide l’ufficio.' }] },
         },
       });
+      await this.chiudiAttivitaSeStorico(d.id, DeliveryStatus.CANCELLATION_REQUESTED);
       return { ok: true, status: DeliveryStatus.CANCELLATION_REQUESTED };
     }
     throw new BadRequestException('Si può annullare solo finché la consegna è da gestire o in gestione.');
@@ -1680,6 +1681,10 @@ export class DeliveriesService {
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
     // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
     // Una difesa messa solo sulle letture non è una difesa.
+    // Anche il PUT può cambiare lo stato: le attività seguono (03/09).
+    if (dto.status && dto.status !== delivery.status) {
+      await this.chiudiAttivitaSeStorico(delivery.id, dto.status);
+    }
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
   }
 
@@ -1699,17 +1704,52 @@ export class DeliveriesService {
   }
 
   /**
-   * 02/09 (regola utente): quando la consegna va in STORICO le sue ATTIVITÀ
-   * (ritiro/consegna) si chiudono da sole — consegnata/approvata = «done»,
-   * il resto (annullata, non consegnata…) = «skipped». Senza questo il
-   * tabellone attività restava pieno di pendenti su consegne già finite.
+   * LE ATTIVITÀ SEGUONO LO STATO (03/09, regola utente — estende quella del
+   * 02/09 che copriva solo la chiusura): a OGNI cambio di stato della
+   * consegna, ritiro e consegna si allineano da soli — anche all'indietro,
+   * se l'ufficio riapre una consegna chiusa.
+   *   · aperta (creata/assegnata/accettata/in preparazione/cancellazione
+   *     richiesta) → tutto «pending»;
+   *   · in consegna → il RITIRO è fatto, la consegna resta pendente;
+   *   · consegnata/approvata/da approvare → tutto «done»;
+   *   · non consegnata → ritiro fatto, consegna saltata;
+   *   · annullata/non accettata/invalidata → le pendenti si saltano, le
+   *     fatte restano fatte (non si riscrive la storia).
    */
   private async chiudiAttivitaSeStorico(deliveryId: string, status: string): Promise<void> {
-    if (!DELIVERY_CLOSED_STATUSES.includes(status)) return;
-    const esito = ['delivered', 'approved'].includes(status) ? 'done' : 'skipped';
+    const APERTI = ['created', 'assigned', 'accepted', 'in_preparation', 'cancellation_requested'];
+    if (APERTI.includes(status)) {
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, status: { not: 'pending' } }, data: { status: 'pending' },
+      });
+      return;
+    }
+    if (status === 'in_delivery') {
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, type: 'PICKUP', status: { not: 'done' } }, data: { status: 'done' },
+      });
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, type: 'DELIVERY', status: { not: 'pending' } }, data: { status: 'pending' },
+      });
+      return;
+    }
+    if (['delivered', 'approved', 'delivered_time_to_approve'].includes(status)) {
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, status: { not: 'done' } }, data: { status: 'done' },
+      });
+      return;
+    }
+    if (status === 'not_delivered') {
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, type: 'PICKUP', status: { not: 'done' } }, data: { status: 'done' },
+      });
+      await this.prisma.activity.updateMany({
+        where: { deliveryId, type: 'DELIVERY', status: { not: 'skipped' } }, data: { status: 'skipped' },
+      });
+      return;
+    }
     await this.prisma.activity.updateMany({
-      where: { deliveryId, status: 'pending' },
-      data: { status: esito },
+      where: { deliveryId, status: 'pending' }, data: { status: 'skipped' },
     });
   }
 

@@ -3,6 +3,40 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🛒 **03/09/2026-duodecies — DELUXY.IT: «ACQUISTA» TORNA A METTERE NEL CARRELLO (rotta legacy rinata qui)** (deployato):
+> - Segnalazione utente: su deluxy.it il pulsante ACQUISTA non aggiungeva
+>   nulla. Causa: per i prodotti NON unici (rose, bouquet, champagne, set…)
+>   il tema Shopify chiama \`GET https://app.deluxy.it/api/province-cities/{PROV}/{Città}\`
+>   e legge un booleano — rotta del LEGACY. Spento il legacy (31/08) il
+>   dominio serve questa piattaforma, che aveva solo \`/api/v1/*\`: la fetch
+>   riceveva l'index.html della SPA, il preflight CORS falliva
+>   («No Access-Control-Allow-Origin») e il tema chiudeva tutto in un
+>   \`catch\` muto. Su 60 prodotti campionati 32 erano non unici → INVENDIBILI
+>   dal 31/08 al 03/09; i 24 unici passano da Google e non c'entrano.
+> - Rimedio: la rotta rinasce QUI allo STESSO indirizzo, così il tema non si
+>   tocca — \`api/src/provinces/province-cities-pubblico.controller.ts\`
+>   (\`@Public\`, GET + OPTIONS, CORS solo per deluxy.it / www / deluxygifts
+>   .myshopify.com + \`CORS_SITI_ORIGINS\`, Cache-Control 60s/1h con Vary:
+>   Origin), esclusa dal prefisso \`api/v1\` in main.ts e vercel.ts, riga
+>   \`/api/province-cities/(.*)\` in vercel.json. Risponde \`true\` se la città
+>   è fra le 46 della tabella \`City\` della provincia (confronto senza
+>   maiuscole/accenti), \`false\` altrimenti — fedele al legacy (con \`false\`
+>   il tema apre «nessun prodotto disponibile»: Rescaldina → false, Milano → true).
+> - ⚠️ Lezione: spegnere un backend vuole il censimento di chi lo chiama
+>   anche FUORI dal repo (il tema vive solo su Shopify; \`TEMA_DELUXY_IT.md\`
+>   ora lo documenta). Registrato in SEGNALAZIONI-SICUREZZA (rotta pubblica
+>   in sola lettura, rischio accettato). Nel repo c'erano modifiche NON mie
+>   in corso (consegna anonima: schema/dto/service/form) lasciate fuori dal commit.
+>
+> 🧪 **03/09/2026-duodecies — LE ATTIVITÀ SEGUONO OGNI STATO** (deployato):
+> - Regola utente: a OGNI cambio di stato della consegna le attività
+>   collegate si allineano da sole (non più solo alla chiusura): aperta →
+>   pending; in consegna → RITIRO fatto, consegna pendente; consegnata/
+>   approvata → tutto fatto; non consegnata → ritiro fatto + consegna
+>   saltata; annullate → pendenti saltate (le fatte restano). Vale anche
+>   ALL'INDIETRO (riapertura) e sul PUT che cambia stato, non solo sulla
+>   rotta /status.
+>
 > 🧪 **03/09/2026-undecies — CONSEGNA ANONIMA** (deployato):
 > - **Flag «Consegna anonima»** nel form (nuova e modifica): se acceso il
 >   MITTENTE non si mostra a NESSUNO — nemmeno all'ufficio. Il taglio lo fa
