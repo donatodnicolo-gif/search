@@ -22,6 +22,7 @@ import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornit
 import { SceltaCliente } from '@/components/SceltaCliente';
 import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture';
 import { Foglio } from '@/components/Foglio';
+import { CampoData } from '@/components/CampoData';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
 import { datiSocietariRegistro, urlSchedaRegistro } from '@/lib/anagrafiche';
@@ -73,6 +74,19 @@ const coloreStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.color
 function euro(n: number | null): string {
   return n != null ? `€ ${n.toLocaleString('it-IT')}` : '—';
 }
+/**
+ * LA DATA CHE CONTA per un ordine (migr. 0110): quella scritta a mano se c'è,
+ * altrimenti il giorno in cui è nata la riga.
+ *
+ * ⚠️ Sta qui in UNA funzione perché la leggono tre posti — la colonna, il
+ * filtro per periodo e i totali dell'anno — e se uno dei tre usasse
+ * `created_at` mentre gli altri usano la data vera, i numeri dei riepiloghi
+ * non tornerebbero fra loro senza che nessuno capisca perché.
+ */
+function dataDellOrdine(o: { data_ordine?: string | null; created_at: string }): string {
+  return o.data_ordine ?? o.created_at;
+}
+
 function dataIt(iso: string): string {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
@@ -157,6 +171,9 @@ export default function Ordini() {
     unita: 'pezzi' | 'giorni' | 'ore' | null;
     quanti: string;
     owner: string | null;
+    /** La data VERA dell'ordine (migr. 0110). Vuota = non indicata: vale la
+     *  data di creazione della riga, e si dice a schermo. */
+    dataOrdine: string | null;
   } | null>(null);
   /**
    * ⭐ CHI HA SEGUITO L'ORDINE (27/08/2026, richiesta dell'utente: «manca la
@@ -264,7 +281,7 @@ export default function Ordini() {
         if (chiusura === 'aperti' && o.chiuso_il) return false;
         if (chiusura === 'chiusi' && !o.chiuso_il) return false;
         if (finestra) {
-          const q = new Date(o.created_at);
+          const q = new Date(dataDellOrdine(o));
           if (isNaN(q.getTime()) || q < finestra.da || q >= finestra.a) return false;
         }
         return true;
@@ -400,7 +417,9 @@ export default function Ordini() {
    */
   const totali = useMemo(() => {
     const anno = new Date().getFullYear();
-    const validi = ordini.filter((o) => o.stato !== 'annullato' && new Date(o.created_at).getFullYear() === anno);
+    const validi = ordini.filter(
+      (o) => o.stato !== 'annullato' && new Date(dataDellOrdine(o)).getFullYear() === anno,
+    );
     return {
       chiusoAnno: validi.reduce((s, o) => s + (o.valore ?? 0), 0),
       daIncassare: ordini.filter((o) => o.stato === 'da_incassare').reduce((s, o) => s + (o.valore ?? 0), 0),
@@ -655,7 +674,9 @@ export default function Ordini() {
     },
     {
       chiave: 'quando',
-      label: 'Creato',
+      // «Data» e non più «Creato»: da quando si può scrivere quella vera
+      // (migr. 0110) la colonna mostra quella, e ripiega sulla creazione.
+      label: 'Data',
       // ⚠️ 84 e non 66 (28/08/2026, segnalazione dell'utente: «le date sono
       // sotto margine invece che in una colonna a sé»): a 66 la data andava a
       // capo o si incollava alla colonna prima, e la testata sembrava di
@@ -663,8 +684,20 @@ export default function Ordini() {
       width: 84,
       destra: true,
       numerica: true,
-      valore: (o) => o.created_at,
-      cella: (o) => <Text style={styles.tabData}>{dataIt(o.created_at)}</Text>,
+      valore: (o) => dataDellOrdine(o),
+      cella: (o) => (
+        // ⚠️ Il passaggio del mouse dice SE è la data vera o il ripiego: due
+        // date scritte uguale che vogliono dire cose diverse sono peggio di
+        // una data mancante.
+        <Text
+          style={[styles.tabData, !o.data_ordine && styles.tabDataRipiego]}
+          {...({
+            title: o.data_ordine ? 'Data dell’ordine' : 'Data di creazione della riga (la data dell’ordine non è indicata)',
+          } as any)}
+        >
+          {dataIt(dataDellOrdine(o))}
+        </Text>
+      ),
     },
     {
       chiave: 'stato',
@@ -1333,6 +1366,7 @@ export default function Ordini() {
       unita: o.unita ?? null,
       quanti: o.quantita != null ? String(o.quantita) : '',
       owner: o.owner ?? null,
+      dataOrdine: o.data_ordine ?? null,
     });
   }
 
@@ -1386,6 +1420,10 @@ export default function Ordini() {
       patch.owner = bozza.owner;
       patch.owner_scelto = true;
     }
+    // ⚠️ La data vera dell'ordine: vuota resta NULL, che vuol dire «non
+    // indicata» — non si mette la data di oggi per riempire il campo, o si
+    // perderebbe la differenza fra «l'ordine è di oggi» e «non lo so».
+    if ((bozza.dataOrdine ?? null) !== (modificaPer.data_ordine ?? null)) patch.data_ordine = bozza.dataOrdine;
     if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
@@ -2063,6 +2101,27 @@ export default function Ordini() {
             </View>
           ) : null}
 
+          {/* ⭐ LA DATA DELL'ORDINE (31/08/2026, richiesta dell'utente: «dai la
+              possibilità di inserire la data dell'ordine in ordini»).
+
+              ⚠️ Non è la data della riga: un ordine chiuso il 3 agosto e
+              registrato oggi risultava «di oggi», e nei conti per periodo
+              finiva nel mese sbagliato. Vuota = non indicata, e allora vale la
+              data di creazione — detto sotto al campo, invece di far credere
+              che sia la data vera. */}
+          <Text style={styles.campoLabel}>Data dell’ordine</Text>
+          <CampoData
+            valore={bozza.dataOrdine}
+            onCambia={(v) => setBozza({ ...bozza, dataOrdine: v })}
+            placeholder="es. 2026-08-03"
+          />
+          <Text style={styles.rifNota}>
+            {bozza.dataOrdine
+              ? 'La data vera dell’ordine, quella che conta nei riepiloghi per periodo.'
+              : `Non indicata: si usa il giorno in cui è stata creata la riga${
+                  modificaPer.created_at ? ` (${modificaPer.created_at.slice(0, 10).split('-').reverse().join('/')})` : ''
+                }.`}
+          </Text>
           <Text style={styles.campoLabel}>Cliente *</Text>
           <TextInput
             style={styles.campo}
@@ -3474,6 +3533,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   btnIncassiTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
+  // Il ripiego si vede appena: è una data vera, ma non È la data dell'ordine.
+  tabDataRipiego: { fontStyle: 'italic', opacity: 0.75 },
   subForte: { color: colors.navy, fontWeight: '700' },
   subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },

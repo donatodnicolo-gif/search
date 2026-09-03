@@ -451,6 +451,11 @@ export interface Ordine {
   linea: string | null;
   stato: 'da_incassare' | 'incassato' | 'annullato';
   incassato_il: string | null;
+  /** Il giorno in cui l'ordine e stato FATTO (migr. 0110), quando e diverso da
+   *  quando la riga e nata qui. ⚠️ Null = non indicata: si usa `created_at`,
+   *  e il ripiego si dichiara a schermo invece di far credere che sia la
+   *  data vera. */
+  data_ordine?: string | null;
   owner: string | null;
   /** La richiesta cliente da cui nasce, se viene da lì (migr. 0075). */
   richiesta_id?: string | null;
@@ -692,18 +697,19 @@ export interface Profilo {
 }
 
 /**
- * Una riga della PIANIFICAZIONE COMMERCIALE (migr. 0106): un mese × una linea.
- * `target_valore` = € attesi dagli ordini del mese; `obiettivo_conversione` =
- * % trattative → ordini. Il piano è condiviso (unique mese+linea), lo scrive
- * il responsabile; il reale si calcola dai dati, mai ricopiato qui.
+ * Una riga della PIANIFICAZIONE COMMERCIALE (migr. 0107): una SETTIMANA × una
+ * linea. `descrizione` è il piano detto a parole (il giro, le zone, le azioni:
+ * «giro Milano centro, martedì-mercoledì»); `target_clienti` è quanti clienti
+ * si vogliono chiudere. La conversione NON si scrive: la calcola l'app da
+ * trattative e clienti reali. Il piano è condiviso (unique settimana+linea),
+ * lo scrive il responsabile; il reale si calcola dai dati, mai ricopiato qui.
  */
 export interface Pianificazione {
   id: string;
-  mese: string; // YYYY-MM-DD, primo giorno del mese
+  settimana: string; // YYYY-MM-DD, il LUNEDÌ della settimana
   linea: string;
-  target_valore: number | null;
-  obiettivo_conversione: number | null;
-  nota: string | null;
+  descrizione: string | null;
+  target_clienti: number | null;
   creato_da: string | null;
 }
 
