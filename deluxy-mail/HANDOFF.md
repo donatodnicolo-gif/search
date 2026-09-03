@@ -23,6 +23,23 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 03/09 — Stato dei nuovi utenti: Michela DENTRO, Luca fermo alla password
+
+- ✅ **Michela**: casella collegata il 03/09 alle 10:41 su **SecureMail (il preset di
+  default)** — quindi il rifiuto di ieri era la password, non la piattaforma. Sync ogni
+  5', storico completo, 480 messaggi. L'utenza rinominata + il doppio binario hanno
+  retto.
+- 🔴 **Luca Salso**: nessuna casella collegata; «register non accetta la password».
+  La casella però **esiste ed è viva** (53 mail ricevute DA lui, ultima 01/09 17:41):
+  il problema è quale password si sta usando. Mossa risolutiva: guardare le
+  impostazioni del client dove la sua posta GIÀ funziona (telefono/webmail) — lì ci
+  sono host e utente giusti; e la password è quella della CASELLA nell'Area Clienti,
+  non quella dell'account register.it. ⚠️ Non martellare tentativi: uno dei due host
+  tarpitta i login falliti (la mia diagnostica con password finta è andata in timeout
+  a 2 minuti).
+- Federica ed Emma: utenze create, caselle non ancora collegate.
+
+---
 ### 02/09 (6) — «Io continuo a vedere questo»: la lista non si aggiornava se scaricava il CRON
 
 Le 5 mail nuove erano in archivio (da leggere, senza sezione) ma la vista dell'utente era
