@@ -1132,12 +1132,15 @@ export class SalariesListComponent {
     }
     this.error.set(null);
     this.busy.set(s.id);
-    this.http.post(`${environment.apiUrl}/payments`, {
-      type: 'CLAIM',
-      salaryId: s.id,
+    // ⭐ 03/09 (regola utente): il denaro dei valet — rimborsi e reclami — vive
+    // TUTTO in Segnalazioni. Il periodo dello stipendio viaggia nell'oggetto.
+    const periodo = `${(s.periodStart ?? '').slice(0, 10)} → ${(s.periodEnd ?? '').slice(0, 10)}`;
+    this.http.post(`${environment.apiUrl}/segnalazioni`, {
+      tipo: 'reclamo',
       valetId: s.valetId,
-      amount: this.reclamoAmount,
-      description: this.reclamoDesc || undefined,
+      importo: this.reclamoAmount,
+      oggetto: `Reclamo su stipendio ${periodo}`,
+      testo: this.reclamoDesc || `Reclamo su stipendio ${periodo}`,
     }).subscribe({
       next: () => {
         this.busy.set(null);

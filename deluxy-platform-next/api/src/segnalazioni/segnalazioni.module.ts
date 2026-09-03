@@ -78,11 +78,14 @@ export class SegnalazioniService {
     else if (user.role === Role.VALET) {
       valetId = user.valetId ?? null; partnerId = null;
       tipo = body.tipo === 'rimborso' ? 'rimborso' : 'reclamo';
-      if (tipo === 'rimborso') {
-        const n = Number(body.importo);
-        if (!Number.isFinite(n) || n <= 0) throw new BadRequestException('Indica un importo valido per il rimborso.');
-        importo = Math.round(n * 100) / 100;
-      }
+    }
+    // ⭐ 03/09 (regola utente): il denaro che i valet devono ricevere —
+    // rimborsi E reclami — vive TUTTO qui. L'importo si accetta su entrambi
+    // i tipi quando c'è un valet; sul rimborso resta obbligatorio.
+    if (tipo === 'rimborso' || (tipo === 'reclamo' && valetId)) {
+      const n = Number(body.importo);
+      if (Number.isFinite(n) && n > 0) importo = Math.round(n * 100) / 100;
+      else if (tipo === 'rimborso') throw new BadRequestException('Indica un importo valido per il rimborso.');
     }
     return this.prisma.segnalazione.create({
       data: {

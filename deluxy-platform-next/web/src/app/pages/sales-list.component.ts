@@ -139,15 +139,17 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
 
       <div class="table-wrap card">
         <table class="table">
+          <!-- ⭐ 03/09 (regola utente): colonne ordinabili al click; il default
+               è la DATA DI CONSEGNA più urgente in cima. -->
           <thead>
             <tr>
-              <th>{{ 'sales.col.status' | translate }}</th>
-              <th>{{ 'sales.col.order' | translate }}</th>
-              <th>{{ 'sales.col.product' | translate }}</th>
-              <th>{{ 'sales.col.province' | translate }}</th>
-              <th>{{ 'sales.col.partner' | translate }}</th>
-              <th>{{ 'sales.col.delivery' | translate }}</th>
-              <th class="num">{{ 'sales.col.amount' | translate }}</th>
+              <th class="ordinabile" (click)="ordina('status')">{{ 'sales.col.status' | translate }}{{ freccia('status') }}</th>
+              <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
+              <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
+              <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
+              <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
+              <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
+              <th class="ordinabile num" (click)="ordina('amount')">{{ 'sales.col.amount' | translate }}{{ freccia('amount') }}</th>
               <th></th>
             </tr>
           </thead>
@@ -269,6 +271,8 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       /* La tabella non aveva NESSUNO stile (nessuna regola globale la copre):
          stesso vestito della lista consegne. */
       .table-wrap { overflow-x: auto; }
+      th.ordinabile { cursor: pointer; user-select: none; }
+      th.ordinabile:hover { color: var(--text); }
       .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       .table th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
@@ -332,6 +336,20 @@ export class SalesListComponent {
   get cerca(): string { return this.cercaTesto(); }
   set cerca(v: string) { this.cercaTesto.set(v); }
 
+  // ⭐ 03/09 (regola utente): default = data di consegna più URGENTE in cima;
+  // click sull'intestazione per cambiare colonna o verso.
+  readonly ordinamento = signal<{ campo: string; verso: 1 | -1 }>({ campo: 'deliveryDate', verso: 1 });
+
+  ordina(campo: string): void {
+    const o = this.ordinamento();
+    if (o.campo === campo) this.ordinamento.set({ campo, verso: (o.verso * -1) as 1 | -1 });
+    else this.ordinamento.set({ campo, verso: campo === 'amount' ? -1 : 1 });
+  }
+  freccia(campo: string): string {
+    const o = this.ordinamento();
+    return o.campo === campo ? (o.verso === 1 ? ' ↑' : ' ↓') : '';
+  }
+
   readonly visibili = computed(() => {
     const f = this.filtro();
     const base = f === 'tutte' ? this.vendite()
@@ -339,14 +357,38 @@ export class SalesListComponent {
       : f === 'storico' ? this.vendite().filter((s) => this.inStorico(s))
       : this.vendite().filter((s) => s.status === f);
     const q = this.cercaTesto().trim().toLowerCase();
-    if (!q) return base;
-    return base.filter((s) =>
+    const filtrate = !q ? base : base.filter((s) =>
       (s.externalOrderId ?? '').toLowerCase().includes(q) ||
       (s.externalOrderNumber ?? '').toLowerCase().includes(q) ||
       (s.product?.name ?? '').toLowerCase().includes(q) ||
       (s.partner?.insegna ?? '').toLowerCase().includes(q) ||
       (s.province?.code ?? '').toLowerCase().includes(q) ||
       s.brand.toLowerCase().includes(q));
+    const { campo, verso } = this.ordinamento();
+    const chiave = (s: Sale): string | number | null => {
+      switch (campo) {
+        case 'ordine': return s.externalOrderNumber ? Number(s.externalOrderNumber) || s.externalOrderNumber : null;
+        case 'prodotto': return s.product?.name ?? null;
+        case 'provincia': return s.province?.code ?? null;
+        case 'partner': return s.partner?.insegna ?? null;
+        case 'deliveryDate': return s.deliveryDate ?? null;
+        case 'amount': return s.amount ?? null;
+        default: return (s as any)[campo] ?? null;
+      }
+    };
+    return [...filtrate].sort((a, b) => {
+      const x = chiave(a);
+      const y = chiave(b);
+      // Chi non ha il valore va in fondo con qualsiasi verso: una vendita
+      // senza data di consegna non è «la più urgente».
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      const esito = typeof x === 'number' && typeof y === 'number'
+        ? x - y
+        : String(x).localeCompare(String(y), 'it');
+      return esito * verso;
+    });
   });
 
   quante(chiave: string): number {

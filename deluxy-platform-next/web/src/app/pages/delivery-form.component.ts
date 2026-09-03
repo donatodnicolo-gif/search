@@ -376,12 +376,15 @@ interface ProductRow {
                    Il vecchio menu portava solo i primi 500 di 21.887 — quello
                    giusto spesso non c'era. -->
               <div class="prod-cerca">
+                <!-- ⭐ 03/09 (regola utente): la tendina si apre AL CLICK, coi
+                     primi prodotti — digitare serve solo per cercare. -->
                 <input class="field" [ngModel]="row.nomeScelto || row.query || ''"
                        (ngModelChange)="onProductQuery(row, $index, $event)"
-                       (focus)="rigaAttiva.set($index)"
+                       (focus)="alFuocoProdotto(row, $index)"
+                       (blur)="sfuocaProdotto($index)"
                        [placeholder]="'deliveryForm.placeholder.searchProduct' | translate"
                        [name]="'prod' + $index" autocomplete="off" />
-                @if (rigaAttiva() === $index && (row.query ?? '').trim().length >= 1) {
+                @if (rigaAttiva() === $index) {
                   <div class="prod-risultati">
                     @for (p of risultatiRicerca(); track p.id) {
                       <button type="button" class="ris" (click)="scegliProdotto(row, p)">
@@ -1533,6 +1536,11 @@ export class DeliveryFormComponent implements AfterViewInit {
         error: (err) =>
           this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
       });
+    } else {
+      // ⭐ 03/09 (regola utente): su una consegna NUOVA la sezione prodotto è
+      // visibile da subito — una riga vuota pronta, senza dover cliccare
+      // «Aggiungi prodotto». (Duplica/vendita la sovrascrivono col prefill.)
+      this.addProduct();
     }
 
     // DUPLICA: `?duplica=<id>` riempie il form con i dati di una consegna
@@ -2180,7 +2188,12 @@ export class DeliveryFormComponent implements AfterViewInit {
     return [...base, ...extra.filter((p) => !visti.has(p.id))];
   }
 
-  removeProduct(i: number): void { this.productRows.splice(i, 1); }
+  removeProduct(i: number): void {
+    this.productRows.splice(i, 1);
+    // ⭐ 03/09: la sezione prodotto resta sempre visibile — tolta l'ultima
+    // riga, ne rinasce una vuota (le righe senza prodotto non viaggiano).
+    if (!this.productRows.length) this.addProduct();
+  }
 
   /** Prezzo base del prodotto selezionato. */
   productPrice(productId: string): number | null {
@@ -2237,7 +2250,9 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.rigaAttiva.set(index);
     clearTimeout(this.ricercaTimer);
     const q = testo.trim();
-    if (q.length < 1) { this.risultatiRicerca.set([]); return; }
+    // ⭐ 03/09 (regola utente): campo svuotato = si torna alla tendina dei
+    // primi prodotti, non al nulla.
+    if (q.length < 1) { this.caricaProdottiIniziali(); return; }
     this.ricercaTimer = setTimeout(() => {
       // La ricerca chiede al SERVER (l'API prodotti filtra per q sul perimetro
       // del ruolo): così si arriva a tutti i 21.887, non ai primi 500.
@@ -2247,6 +2262,31 @@ export class DeliveryFormComponent implements AfterViewInit {
         next: (d) => this.risultatiRicerca.set(d.items ?? []),
         error: () => this.risultatiRicerca.set([]),
       });
+    }, 250);
+  }
+
+  /** ⭐ 03/09 (regola utente): al CLICK sull'input la tendina si apre subito,
+   *  coi primi prodotti del perimetro — senza dover digitare. In coda c'è
+   *  sempre «Crea nuovo». */
+  alFuocoProdotto(row: ProductRow, index: number): void {
+    this.rigaAttiva.set(index);
+    if (!(row.query ?? '').trim()) this.caricaProdottiIniziali();
+  }
+
+  private caricaProdottiIniziali(): void {
+    this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
+      params: { pageSize: 20 } as any,
+    }).subscribe({
+      next: (d) => this.risultatiRicerca.set(d.items ?? []),
+      error: () => this.risultatiRicerca.set([]),
+    });
+  }
+
+  /** Chiude la tendina quando il fuoco esce — col ritardo che lascia arrivare
+   *  il click su un risultato (blur parte prima del click). */
+  sfuocaProdotto(index: number): void {
+    setTimeout(() => {
+      if (this.rigaAttiva() === index) this.rigaAttiva.set(null);
     }, 250);
   }
 

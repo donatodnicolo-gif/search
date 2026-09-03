@@ -91,7 +91,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: 'nav.fatturazione', path: '/invoices', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.stipendi', path: '/salaries', icon: 'euro', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.ricevute', path: '/receipts', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-      { label: 'nav.pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
+      // ⭐ 03/09 (regola utente): rimborsi e reclami dei valet vivono TUTTI in
+      // Segnalazioni — la voce Pagamenti era un doppione (stesso storico legacy
+      // in due posti) ed esce dal menu. La rotta /payments resta viva.
       { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.regoleValet', path: '/valet-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },

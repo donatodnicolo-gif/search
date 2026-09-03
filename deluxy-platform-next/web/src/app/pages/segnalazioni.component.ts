@@ -60,6 +60,20 @@ interface Rif { id: string; nome: string }
                 @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.nome }}</option> }
               </select></label>
           }
+          <!-- ⭐ 03/09 (regola utente): rimborsi e reclami dei valet vivono QUI,
+               con l'importo. Il partner resta sul reclamo semplice. -->
+          @if (!isPartner()) {
+            <label class="fld"><span>{{ 'segnalazioni.tipoLabel' | translate }}</span>
+              <select class="field" [(ngModel)]="bozza.tipo">
+                @if (isUfficio()) { <option value="segnalazione">{{ 'segnalazioni.tipo.segnalazione' | translate }}</option> }
+                <option value="reclamo">{{ 'segnalazioni.tipo.reclamo' | translate }}</option>
+                <option value="rimborso">{{ 'segnalazioni.tipo.rimborso' | translate }}</option>
+              </select></label>
+            @if (bozza.tipo !== 'segnalazione') {
+              <label class="fld"><span [class.req]="bozza.tipo === 'rimborso'">{{ 'segnalazioni.importoLabel' | translate }}</span>
+                <input class="field" type="number" min="0" step="0.01" [(ngModel)]="bozza.importo" placeholder="0,00" /></label>
+            }
+          }
           <label class="fld span-2"><span>{{ 'segnalazioni.subject' | translate }}</span>
             <input class="field" [(ngModel)]="bozza.oggetto" /></label>
           <label class="fld span-2"><span class="req">{{ 'segnalazioni.text' | translate }}</span>
@@ -139,50 +153,72 @@ interface Rif { id: string; nome: string }
     </div>
 
     @if (caricando()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
-    @else if (!listaFiltrata().length) { <div class="card state-card">{{ 'segnalazioni.empty' | translate }}</div> }
+    @else if (!listaOrdinata().length) { <div class="card state-card">{{ 'segnalazioni.empty' | translate }}</div> }
     @else {
-      <div class="lista">
-        @for (s of listaFiltrata(); track s.id) {
-          <div class="card seg" [class.chiusa]="s.stato === 'chiusa'">
-            <div class="testa">
-              <span class="pill" [class]="'st-' + s.stato">{{ 'segnalazioni.stato.' + s.stato | translate }}</span>
-              <span class="badge-tipo">{{ 'segnalazioni.tipo.' + s.tipo | translate }}</span>
-              @if (s.tipo === 'rimborso' && s.importo != null) {
-                <span class="badge-importo">€ {{ s.importo | number: '1.2-2' }}</span>
+      <!-- ⭐ 03/09 (regola utente): TABELLA ordinabile — click sull'intestazione
+           per ordinare, click sulla riga per aprire il dettaglio. -->
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="ord" (click)="ordina('createdAt')">{{ 'segnalazioni.col.data' | translate }}{{ freccia('createdAt') }}</th>
+              <th class="ord" (click)="ordina('tipo')">{{ 'segnalazioni.col.tipo' | translate }}{{ freccia('tipo') }}</th>
+              <th class="ord" (click)="ordina('chi')">{{ 'segnalazioni.col.chi' | translate }}{{ freccia('chi') }}</th>
+              <th>{{ 'segnalazioni.col.oggetto' | translate }}</th>
+              <th class="ord num" (click)="ordina('importo')">{{ 'segnalazioni.col.importo' | translate }}{{ freccia('importo') }}</th>
+              <th class="ord" (click)="ordina('stato')">{{ 'segnalazioni.col.stato' | translate }}{{ freccia('stato') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of listaOrdinata(); track s.id) {
+              <tr class="riga" [class.chiusa]="s.stato === 'chiusa'" (click)="apriDettaglio(s)">
+                <td class="muted data-cella">{{ s.createdAt | date: 'dd/MM/yy HH:mm' }}</td>
+                <td><span class="badge-tipo">{{ 'segnalazioni.tipo.' + s.tipo | translate }}</span></td>
+                <td class="strong">{{ s.valetNome || s.partnerNome || '—' }}</td>
+                <td class="testo-cella">{{ s.oggetto || s.testo }}</td>
+                <td class="num">
+                  @if (s.importo != null) { <span class="badge-importo">€ {{ s.importo | number: '1.2-2' }}</span> }
+                  @else { <span class="muted">—</span> }
+                </td>
+                <td><span class="pill" [class]="'st-' + s.stato">{{ 'segnalazioni.stato.' + s.stato | translate }}</span></td>
+                <td class="apri-cella">{{ dettaglio() === s.id ? '▴' : '▾' }}</td>
+              </tr>
+              @if (dettaglio() === s.id) {
+                <tr class="det">
+                  <td colspan="7">
+                    @if (s.deliveryId) {
+                      <a class="apri-consegna" [href]="'/deliveries/' + s.deliveryId" target="_blank" rel="noopener">
+                        ↗ {{ 'segnalazioni.apriConsegna' | translate }}
+                      </a>
+                    }
+                    <p class="testo">{{ s.testo }}</p>
+                    @if (s.ricevutaUrl) {
+                      <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
+                    }
+                    @if (s.allegatoUrl) {
+                      <a class="ricevuta" [href]="s.allegatoUrl" [download]="'allegato-segnalazione.jpg'"
+                         [attr.target]="s.allegatoUrl.startsWith('data:') ? null : '_blank'" rel="noopener">
+                        📎 {{ 'segnalazioni.attachmentView' | translate }}
+                      </a>
+                    }
+                    @if (s.risposta) { <p class="risposta"><strong>{{ 'segnalazioni.answer' | translate }}:</strong> {{ s.risposta }}</p> }
+                    @if (isUfficio()) {
+                      <div class="gestione">
+                        <input class="field" [(ngModel)]="risposte[s.id]" [placeholder]="'segnalazioni.answerPh' | translate" />
+                        <div class="btns">
+                          @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
+                          @if (s.stato !== 'chiusa') { <button class="btn btn-primary mini" (click)="aggiorna(s, 'chiusa')">{{ 'segnalazioni.close' | translate }}</button> }
+                          @else { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button> }
+                        </div>
+                      </div>
+                    }
+                  </td>
+                </tr>
               }
-              @if (s.partnerNome) { <span class="chi">{{ 'segnalazioni.onPartner' | translate }}: <strong>{{ s.partnerNome }}</strong></span> }
-              @if (s.valetNome) { <span class="chi">{{ 'segnalazioni.onValet' | translate }}: <strong>{{ s.valetNome }}</strong></span> }
-              <span class="data">{{ s.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-            </div>
-            @if (s.oggetto) { <p class="oggetto">{{ s.oggetto }}</p> }
-            @if (s.deliveryId) {
-              <a class="apri-consegna" [href]="'/deliveries/' + s.deliveryId" target="_blank" rel="noopener">
-                ↗ {{ 'segnalazioni.apriConsegna' | translate }}
-              </a>
             }
-            <p class="testo">{{ s.testo }}</p>
-            @if (s.ricevutaUrl) {
-              <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
-            }
-            @if (s.allegatoUrl) {
-              <a class="ricevuta" [href]="s.allegatoUrl" [download]="'allegato-segnalazione.jpg'"
-                 [attr.target]="s.allegatoUrl.startsWith('data:') ? null : '_blank'" rel="noopener">
-                📎 {{ 'segnalazioni.attachmentView' | translate }}
-              </a>
-            }
-            @if (s.risposta) { <p class="risposta"><strong>{{ 'segnalazioni.answer' | translate }}:</strong> {{ s.risposta }}</p> }
-            @if (isUfficio()) {
-              <div class="gestione">
-                <input class="field" [(ngModel)]="risposte[s.id]" [placeholder]="'segnalazioni.answerPh' | translate" />
-                <div class="btns">
-                  @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
-                  @if (s.stato !== 'chiusa') { <button class="btn btn-primary mini" (click)="aggiorna(s, 'chiusa')">{{ 'segnalazioni.close' | translate }}</button> }
-                  @else { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button> }
-                </div>
-              </div>
-            }
-          </div>
-        }
+          </tbody>
+        </table>
       </div>
     }
   `,
@@ -201,9 +237,21 @@ interface Rif { id: string; nome: string }
       .tabs.tipi .tab { font-size: 13px; }
       .tab { border: 0; background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; font: inherit; color: var(--text-secondary); }
       .tab.on { background: var(--ink); color: #fff; }
-      .lista { display: flex; flex-direction: column; gap: 10px; }
-      .seg { padding: 14px 16px; }
-      .seg.chiusa { opacity: 0.72; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
+      th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
+      th.ord { cursor: pointer; user-select: none; }
+      th.ord:hover { color: var(--text); }
+      th.num, td.num { text-align: right; }
+      .riga { cursor: pointer; }
+      .riga:hover td { background: var(--fill); }
+      .riga.chiusa td { opacity: 0.72; }
+      .data-cella { white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .testo-cella { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .apri-cella { color: var(--text-tertiary); }
+      .strong { font-weight: 600; }
+      .det td { background: var(--fill); padding: 12px 16px; }
       .testa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
       .pill { border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
       .pill.st-aperta { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red); }
@@ -262,10 +310,48 @@ export class SegnalazioniComponent {
       [s.oggetto, s.testo, s.partnerNome, s.valetNome, s.risposta]
         .some((v) => (v ?? '').toLowerCase().includes(q)));
   });
+  // ⭐ 03/09: ordinamento per colonna (click sull'intestazione, verso invertibile)
+  // e dettaglio a scomparsa per riga.
+  readonly ordinamento = signal<{ campo: string; verso: 1 | -1 }>({ campo: 'createdAt', verso: -1 });
+  readonly dettaglio = signal<string | null>(null);
+  readonly listaOrdinata = computed(() => {
+    const { campo, verso } = this.ordinamento();
+    const chiave = (s: Segn): string | number | null => {
+      if (campo === 'chi') return s.valetNome || s.partnerNome || null;
+      if (campo === 'importo') return s.importo ?? null;
+      return (s as any)[campo] ?? null;
+    };
+    return [...this.listaFiltrata()].sort((a, b) => {
+      const x = chiave(a);
+      const y = chiave(b);
+      // Chi non ha il valore sta in fondo, con qualunque verso.
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      const esito = typeof x === 'number' && typeof y === 'number'
+        ? x - y
+        : String(x).localeCompare(String(y), 'it');
+      return esito * verso;
+    });
+  });
+
+  ordina(campo: string): void {
+    const o = this.ordinamento();
+    if (o.campo === campo) this.ordinamento.set({ campo, verso: (o.verso * -1) as 1 | -1 });
+    else this.ordinamento.set({ campo, verso: campo === 'createdAt' || campo === 'importo' ? -1 : 1 });
+  }
+  freccia(campo: string): string {
+    const o = this.ordinamento();
+    return o.campo === campo ? (o.verso === 1 ? ' ↑' : ' ↓') : '';
+  }
+  apriDettaglio(s: Segn): void {
+    this.dettaglio.set(this.dettaglio() === s.id ? null : s.id);
+  }
+
   readonly partners = signal<Rif[]>([]);
   readonly valets = signal<Rif[]>([]);
   risposte: Record<string, string> = {};
-  bozza = { partnerId: '', valetId: '', oggetto: '', testo: '', deliveryId: '', allegatoUrl: '' };
+  bozza = { partnerId: '', valetId: '', oggetto: '', testo: '', deliveryId: '', allegatoUrl: '', tipo: 'segnalazione', importo: null as number | null };
 
   // Ricerca consegna da agganciare (ufficio): per codice, indirizzo, destinatario.
   readonly cercaConsegna = signal('');
@@ -334,6 +420,10 @@ export class SegnalazioniComponent {
     return r === 'ADMIN' || r === 'OPERATION';
   }
 
+  isPartner(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
+  }
+
   constructor() {
     this.carica();
     if (this.isUfficio()) {
@@ -357,7 +447,10 @@ export class SegnalazioniComponent {
   }
 
   apriNuova(): void {
-    this.bozza = { partnerId: '', valetId: '', oggetto: '', testo: '', deliveryId: '', allegatoUrl: '' };
+    this.bozza = {
+      partnerId: '', valetId: '', oggetto: '', testo: '', deliveryId: '', allegatoUrl: '',
+      tipo: this.isUfficio() ? 'segnalazione' : 'reclamo', importo: null,
+    };
     this.consegnaScelta.set(null);
     this.risultatiConsegne.set([]);
     this.cercaConsegna.set('');
@@ -374,6 +467,13 @@ export class SegnalazioniComponent {
     if (this.isUfficio()) {
       if (this.bozza.partnerId) body.partnerId = this.bozza.partnerId;
       if (this.bozza.valetId) body.valetId = this.bozza.valetId;
+    }
+    // ⭐ 03/09: tipo e importo — il denaro dei valet (rimborsi/reclami) vive qui.
+    if (!this.isPartner()) {
+      body.tipo = this.bozza.tipo;
+      if (this.bozza.tipo !== 'segnalazione' && this.bozza.importo != null && this.bozza.importo > 0) {
+        body.importo = this.bozza.importo;
+      }
     }
     if (this.bozza.deliveryId) body.deliveryId = this.bozza.deliveryId;
     if (this.bozza.allegatoUrl) body.allegatoUrl = this.bozza.allegatoUrl;

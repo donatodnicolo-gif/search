@@ -3,6 +3,28 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 📋 **03/09/2026-quaterdecies — RIMBORSI/RECLAMI SOLO IN SEGNALAZIONI + tavoli ordinabili + prodotto subito nel form** (deployato):
+> - **Il denaro dei valet (rimborsi e reclami) vive TUTTO in Segnalazioni**
+>   (regola utente): l'API accetta `importo` anche sui reclami con valet; il
+>   form Nuova ha tipo+importo (partner resta reclamo semplice); il «Reclamo»
+>   di Stipendi apre una segnalazione (periodo nell'oggetto), non più un
+>   Payment. **Pagamenti esce dal MENU** (rotta /payments viva): era un
+>   doppione — gli stessi 679 rimborsi legacy stanno in Segnalazioni
+>   (`legacyRef refund:N`) E in Payment; i Payment restano a DB come storico
+>   morto + righe SALARY automatiche.
+> - **Segnalazioni è una TABELLA ordinabile** (click su Data/Tipo/Chi/Importo/
+>   Stato, senza-valore sempre in fondo) con dettaglio a scomparsa per riga;
+>   restano tab stato+tipo e ricerca.
+> - **Vendite ordinabile**, default = data di consegna più urgente in cima
+>   (null in fondo); click su ogni colonna.
+> - **Ricontrollo vendite↔consegne** (`ricontrolla-vendite-gia-consegnate.mjs`):
+>   le 60 aperte hanno tutte l'identità Shopify, confrontate con
+>   `realOrderNumber` → **0 doppioni**, niente da spostare in storico.
+> - **Form consegna: sezione prodotto visibile da subito** (riga vuota
+>   automatica su Nuova; tolta l'ultima riga ne rinasce una) e la **tendina
+>   prodotti si apre AL CLICK** sull'input (primi 20 del perimetro senza
+>   digitare, «Crea nuovo» sempre in coda; chiusura al blur con ritardo).
+>
 > 💶 **03/09/2026-terdecies — IL GIRO STIPENDI PASSA DALLE RICEVUTE (regola utente) + importi legacy riparati** (deployato):
 > - **Invia recap = apre il giro formale**: `inviaRecap` (salaries.module.ts),
 >   a mail partita, genera lo stipendio del periodo (stato SENT, in archivio)

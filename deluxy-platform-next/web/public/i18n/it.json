@@ -2588,6 +2588,16 @@
       "rimborso": "Rimborso"
     },
     "tuttiTipi": "Tutti i tipi",
+    "tipoLabel": "Tipo",
+    "importoLabel": "Importo (€)",
+    "col": {
+      "data": "Data",
+      "tipo": "Tipo",
+      "chi": "Partner / Valet",
+      "oggetto": "Oggetto",
+      "importo": "Importo",
+      "stato": "Stato"
+    },
     "ricevuta": "Vedi ricevuta",
     "apriConsegna": "Apri consegna",
     "searchPh": "Cerca per testo, partner o valet…",

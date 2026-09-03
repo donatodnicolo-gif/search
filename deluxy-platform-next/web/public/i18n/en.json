@@ -2588,6 +2588,16 @@
       "rimborso": "Refund"
     },
     "tuttiTipi": "All types",
+    "tipoLabel": "Type",
+    "importoLabel": "Amount (€)",
+    "col": {
+      "data": "Date",
+      "tipo": "Type",
+      "chi": "Partner / Valet",
+      "oggetto": "Subject",
+      "importo": "Amount",
+      "stato": "Status"
+    },
     "ricevuta": "View receipt",
     "apriConsegna": "Open delivery",
     "searchPh": "Search by text, partner or valet…",
