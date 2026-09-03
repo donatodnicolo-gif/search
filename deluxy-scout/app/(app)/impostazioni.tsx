@@ -24,6 +24,7 @@ import {
   salvaChiaveApp,
   salvaImpostazione,
   type DatiAzienda,
+  registraProvaChiaveApp,
   type StatoChiaveApp,
 } from '@/lib/db';
 import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
@@ -752,6 +753,27 @@ function SezioneChiaveIngresso() {
 }
 
 /** Elenco delle app Deluxy richiamabili, con la loro chiave. Solo admin. */
+/**
+ * ⭐ **CHE COSA DICE LA PILLOLA** (03/09/2026).
+ *
+ * Quattro risposte, perché quattro sono le situazioni vere — e la differenza
+ * fra la seconda e la terza è quella che è costata settimane di silenzio:
+ *
+ *   · «da collegare»  nessuna chiave salvata;
+ *   · «da provare»    la chiave c'è ma nessuno ha mai chiamato l'altra app:
+ *                     **non è un collegamento**, è un valore incollato;
+ *   · «non risponde»  provata, e l'altra app ha detto di no (401, 404, rete);
+ *   · «collegata»     provata, e ha risposto. Solo questa è verde.
+ */
+function pillolaDi(s: StatoChiaveApp | undefined): { label: string; tono: 'ok' | 'neutro' | 'ko' } {
+  if (!s?.configurata) return { label: 'da collegare', tono: 'neutro' };
+  // ⚠️ «da provare» è GRIGIO, non rosso: non sappiamo che sia rotto, sappiamo
+  // che non l'abbiamo verificato. Colorarlo di allarme farebbe sembrare guaste
+  // sette app che funzionano, e in due giorni nessuno guarderebbe più il colore.
+  if (s.provata_il == null) return { label: 'da provare', tono: 'neutro' };
+  return s.prova_ok ? { label: 'collegata', tono: 'ok' } : { label: 'non risponde', tono: 'ko' };
+}
+
 function SezioneAppCollegate() {
   /**
    * ⚠️ «COLLEGATA» NON SI DEDUCE DALLA CHIAVE (27/08/2026). La pillola verde
@@ -773,16 +795,21 @@ function SezioneAppCollegate() {
     setEsitoProva(null);
     try {
       const esito = await fetchServiziPiattaforma();
-      if (esito.ok) {
-        setEsitoProva({
-          app: idApp,
-          ok: true,
-          testo: `Risponde: ${esito.servizi.length} servizi nel catalogo.`,
-        });
-      } else if (esito.motivo === 'non_configurato') {
-        setEsitoProva({ app: idApp, ok: false, testo: 'Nessuna chiave salvata.' });
-      } else {
-        setEsitoProva({ app: idApp, ok: false, testo: esito.dettaglio });
+      const ok = esito.ok;
+      const testo = esito.ok
+        ? `Risponde: ${esito.servizi.length} servizi nel catalogo.`
+        : esito.motivo === 'non_configurato'
+          ? 'Nessuna chiave salvata.'
+          : esito.dettaglio;
+      setEsitoProva({ app: idApp, ok, testo });
+      // ⭐ L'esito diventa un FATTO SCRITTO (migr. 0116): finché viveva solo
+      // qui, chiudere la schermata lo cancellava — e la pillola tornava a dire
+      // «collegata» a una chiave che l'altra app rifiuta.
+      try {
+        await registraProvaChiaveApp(idApp, ok, testo);
+        await carica();
+      } catch {
+        // la prova l'hai comunque vista qui sotto: non si perde l'informazione
       }
     } catch (e: any) {
       setEsitoProva({ app: idApp, ok: false, testo: String(e?.message ?? e) });
@@ -863,16 +890,45 @@ function SezioneAppCollegate() {
       {APP_DELUXY.map((app) => {
         const s = stato.find((x) => x.app === app.id);
         const collegata = Boolean(s?.configurata);
+        // ⚠️⚠️ **QUATTRO STATI, NON DUE** (03/09/2026, segnalazione dell'utente:
+        // «ma io lo vedo in impostazioni»). La pillola diceva «collegata» a
+        // qualunque valore incollato: nella riga della piattaforma c'era un
+        // IBAN, la schermata diceva di sì, e la piattaforma rispondeva 401 a
+        // ogni richiesta. Adesso «collegata» la dice solo una PROVA riuscita.
+        const p = pillolaDi(s);
         return (
           <View key={app.id} style={styles.appRiga}>
             <Pressable style={styles.appTesta} onPress={() => apri(app.id)}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.appNome}>{app.nome}</Text>
                 <Text style={styles.appAiuto}>{app.aCosaServe}</Text>
+                {/* Che cosa ha risposto l'altra app l'ultima volta, e quando:
+                    un esito che vive solo nella schermata di chi ha premuto il
+                    bottone non lo sa nessun altro. */}
+                {s?.provata_il ? (
+                  <Text style={[styles.appAiuto, s.prova_ok ? styles.provaOk : styles.provaKo]}>
+                    Provata il {new Date(s.provata_il).toLocaleDateString('it-IT')}
+                    {s.prova_dettaglio ? ` · ${s.prova_dettaglio}` : ''}
+                  </Text>
+                ) : collegata ? (
+                  <Text style={styles.appAiuto}>
+                    Mai provata: la chiave c&apos;è, ma non sappiamo se l&apos;altra app la accetta.
+                  </Text>
+                ) : null}
               </View>
-              <View style={[styles.appStato, collegata ? styles.appStatoOk : styles.appStatoNo]}>
-                <Text style={[styles.appStatoTxt, collegata ? styles.appStatoTxtOk : styles.appStatoTxtNo]}>
-                  {collegata ? 'collegata' : 'da collegare'}
+              <View
+                style={[
+                  styles.appStato,
+                  p.tono === 'ok' ? styles.appStatoOk : p.tono === 'ko' ? styles.appStatoKo : styles.appStatoNo,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.appStatoTxt,
+                    p.tono === 'ok' ? styles.appStatoTxtOk : p.tono === 'ko' ? styles.appStatoTxtKo : styles.appStatoTxtNo,
+                  ]}
+                >
+                  {p.label}
                 </Text>
               </View>
               <Ionicons name={aperta === app.id ? 'chevron-up' : 'chevron-down'} size={16} color={colors.grigio} />
@@ -1047,9 +1103,13 @@ const styles = StyleSheet.create({
   appStato: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
   appStatoOk: { backgroundColor: colors.successoSoft },
   appStatoNo: { backgroundColor: colors.sfondo },
+  appStatoKo: { backgroundColor: '#FFF4F4' },
   appStatoTxt: { fontSize: 11, fontWeight: '700' },
   appStatoTxtOk: { color: colors.successo },
+  provaOk: { color: colors.successo },
+  provaKo: { color: colors.errore },
   appStatoTxtNo: { color: colors.grigio },
+  appStatoTxtKo: { color: colors.errore },
   appForm: { gap: 6, marginTop: 8 },
   // Il segreto mostrato una volta: monospazio e selezionabile, perché il gesto
   // che segue è copiarlo.

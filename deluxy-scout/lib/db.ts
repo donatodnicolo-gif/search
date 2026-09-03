@@ -3353,6 +3353,18 @@ export interface StatoChiaveApp {
   note: string | null;
   configurata: boolean;
   aggiornato_il: string | null;
+  /**
+   * ⚠️ `configurata` dice solo che un valore è stato incollato — NON che sia la
+   * chiave giusta (migr. 0116, dopo che nella riga `piattaforma` è rimasto per
+   * settimane un IBAN mentre la schermata diceva «collegata»). Il collegamento
+   * lo dichiara solo una PROVA: `provata_il` quando, `prova_ok` com'è andata,
+   * `prova_dettaglio` che cosa ha risposto l'altra app.
+   *
+   * `provata_il: null` = mai provata: la chiave c'è e non sappiamo se vale.
+   */
+  provata_il: string | null;
+  prova_ok: boolean | null;
+  prova_dettaglio: string | null;
 }
 
 /** Quali app risultano collegate. Non restituisce le chiavi: solo se ci sono. */
@@ -3360,6 +3372,21 @@ export async function fetchStatoChiaviApp(): Promise<StatoChiaveApp[]> {
   const { data, error } = await supabase.from('chiavi_app_stato').select('*');
   if (error) throw error;
   return (data ?? []) as StatoChiaveApp[];
+}
+
+/**
+ * Scrive l'esito di una prova di collegamento (migr. 0116).
+ *
+ * ⚠️ Si scrive anche quando va MALE, ed è il caso che conta: «401 chiave non
+ * valida» resta scritto accanto all'app invece di sparire con la schermata di
+ * chi ha premuto il bottone.
+ */
+export async function registraProvaChiaveApp(app: string, ok: boolean, dettaglio: string): Promise<void> {
+  const { error } = await supabase
+    .from('chiavi_app')
+    .update({ provata_il: new Date().toISOString(), prova_ok: ok, prova_dettaglio: dettaglio.slice(0, 300) })
+    .eq('app', app);
+  if (error) throw error;
 }
 
 /** Salva (o aggiorna) la chiave di un'app. Passa solo la RLS se sei admin. */
@@ -3374,6 +3401,12 @@ export async function salvaChiaveApp(
     chiave: chiave.trim(),
     aggiornato_il: new Date().toISOString(),
     aggiornato_da: u.user?.id ?? null,
+    // ⚠️ La prova vecchia NON sopravvive alla chiave nuova: si riferiva a
+    // quella di prima, e lasciarla addosso vorrebbe dire ricominciare a
+    // mentire — in modo più credibile, perché con una data sopra.
+    provata_il: null,
+    prova_ok: null,
+    prova_dettaglio: null,
   };
   // L'URL si scrive solo se indicato: un campo lasciato vuoto non deve
   // cancellare quello già salvato.
