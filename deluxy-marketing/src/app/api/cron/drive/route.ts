@@ -55,12 +55,29 @@ export async function GET(req: NextRequest) {
 
   // Dopo l'indice, la LETTURA: le analisi nuove si rielaborano in scheda
   // (verdetto, KPI, findings) così la mattina si aprono già grafiche.
-  // Due per giro, non di più: ogni elaborazione è una chiamata AI da ~30-60 s
-  // e questa funzione ha un tetto — le altre le prende il giro di domani.
-  const schede = await elaboraNonElaborate(2).catch((e) => ({
+  // Due per giro, con l'OROLOGIO: con opus-5 una elaborazione può durare
+  // minuti, e due dopo la sync sfondavano il maxDuration — la funzione
+  // moriva a metà SENZA scrivere niente, ed è così che le schede sono
+  // rimaste ferme dal 26/08 al 03/09. La scadenza ferma prima del tetto;
+  // quello che resta lo prende il giro dopo.
+  const scadenza = Date.now() + 230_000;
+  const schede = await elaboraNonElaborate(2, scadenza).catch((e) => ({
     elaborate: 0,
     fallite: [{ titolo: "(elaborazione)", errore: String(e).slice(0, 160) }],
   }));
+  // ⚠️ I fallimenti si SCRIVONO NEL REGISTRO, non solo nel JSON del cron che
+  // nessuno legge (trappola già pagata): otto giorni di schede ferme senza
+  // una riga visibile da nessuna parte.
+  if (schede.fallite.length > 0) {
+    const { registra } = await import("@/lib/registro");
+    await registra({
+      autore: "sistema",
+      tipo: "sync",
+      entita: "analisi",
+      titolo: `Cron drive: ${schede.fallite.length} elaborazioni di schede fallite`,
+      dettaglio: schede.fallite.map((f) => `${f.titolo}: ${f.errore}`).join(" · ").slice(0, 800),
+    }).catch(() => {});
+  }
 
   // E la RICONCILIAZIONE: cosa risulta fatto di quello che i report chiedono,
   // incrociando la coda operazioni. Solo per le schede la cui coda è cambiata.

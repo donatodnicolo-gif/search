@@ -329,7 +329,13 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
       ...(assetCensiti.length > 0 ? { assetCensiti } : {}),
     },
     schema: SCHEMA_SCHEDA,
-    massimoToken: 12000,
+    // ⚠️ 32000, non 12000: su claude-opus-5 il RAGIONAMENTO consuma anche lui
+    // il max_tokens, e coi 12000 la risposta usciva TRONCATA («JSON
+    // illeggibile» — 03/09, seconda faccia del guasto delle schede ferme; la
+    // prima era il timeout, curato con lo streaming in lib/ai.ts). È già
+    // successo il 25/08 con 8000: uno schema vincolato non protegge dal
+    // max_tokens. Con lo streaming un tetto largo non costa timeout.
+    massimoToken: 32000,
   });
   if (!risposta.ok) return { ok: false, errore: risposta.errore };
 
@@ -377,7 +383,16 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
  * La chiama il cron di Drive dopo la sync: `limite` basso apposta — ogni
  * elaborazione è una chiamata AI da ~30-60 s e la funzione ha un tetto.
  */
-export async function elaboraNonElaborate(limite = 2): Promise<{
+export async function elaboraNonElaborate(
+  limite = 2,
+  /**
+   * Orologio di sicurezza (ms epoch): non si INIZIA un'elaborazione oltre
+   * questa soglia. Con le chiamate lunghe di opus-5, due elaborazioni dopo la
+   * sync potevano sfondare il maxDuration del cron e morire a metà — senza
+   * esito scritto da nessuna parte.
+   */
+  scadenza?: number
+): Promise<{
   elaborate: number;
   fallite: { titolo: string; errore: string }[];
 }> {
@@ -428,6 +443,10 @@ export async function elaboraNonElaborate(limite = 2): Promise<{
   let elaborate = 0;
   const fallite: { titolo: string; errore: string }[] = [];
   for (const a of daFare) {
+    if (scadenza && Date.now() > scadenza) {
+      fallite.push({ titolo: a.titolo, errore: "non iniziata: tempo del giro esaurito, riprende al prossimo" });
+      break;
+    }
     const esito = await elaboraAnalisi(a.id);
     if (esito.ok) elaborate++;
     else fallite.push({ titolo: a.titolo, errore: esito.errore });
@@ -998,7 +1017,9 @@ export async function riconciliaAnalisi(analisiId: string): Promise<
       })),
     },
     schema: SCHEMA_RICONCILIAZIONE,
-    massimoToken: 6000,
+    // Stesso motivo del 32000 qui sopra: il ragionamento di opus-5 mangia il
+    // tetto, e 6000 rischiano il troncamento silenzioso.
+    massimoToken: 16000,
   });
   if (!risposta.ok) return { ok: false, errore: risposta.errore };
 

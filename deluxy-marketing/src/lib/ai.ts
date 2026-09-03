@@ -200,8 +200,16 @@ async function chiediAClaude(o: {
   dati: unknown;
   schema?: Record<string, unknown>;
 }): Promise<string> {
-  const client = new Anthropic({ apiKey: o.apiKey, timeout: 120_000, maxRetries: 2 });
-  const risposta = await client.messages.create({
+  // ⚠️ STREAMING, non create(): claude-opus-5 che ragiona su un documento
+  // grande può superare i 120 s, e la richiesta non-streaming moriva in
+  // «Request timed out» — è il guasto che ha tenuto FERME le schede analisi
+  // dal 26/08 al 03/09, in silenzio su tutte e due le strade (cron e
+  // bottone). Con lo stream il tempo di risposta non è più un timeout HTTP;
+  // il tetto vero resta il maxDuration della funzione che chiama.
+  // maxRetries 1 e non 2: un retry su una chiamata da minuti sfonderebbe
+  // qualunque maxDuration.
+  const client = new Anthropic({ apiKey: o.apiKey, timeout: 280_000, maxRetries: 1 });
+  const stream = client.messages.stream({
     model: o.modello,
     max_tokens: o.massimoToken,
     system: o.istruzioni,
@@ -210,6 +218,7 @@ async function chiediAClaude(o: {
     ...(o.schema ? { output_config: { format: { type: "json_schema" as const, schema: o.schema } } } : {}),
     messages: [{ role: "user", content: JSON.stringify(o.dati) }],
   });
+  const risposta = await stream.finalMessage();
   // Un rifiuto NON è un errore HTTP: arriva un 200 con content vuoto. Va
   // riconosciuto prima di leggere il testo, altrimenti sembra una risposta
   // vuota senza spiegazione.

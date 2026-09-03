@@ -24,6 +24,12 @@ import { categoriaCampagna, iconaCanale } from "@/lib/salute";
 import { analisiCheSupera, COLORE_PRIORITA, COLORE_RISPOSTA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_RISPOSTA, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, risposteDi, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
+// ⚠️ «Elabora la scheda» e «Riconcilia» sono server action di QUESTA pagina
+// che chiamano il modello su documenti grandi: senza maxDuration l'azione
+// muore al tetto di default in produzione, IN SILENZIO (niente redirect,
+// niente errore) — è la trappola già scritta su /campagne/lancia, ripagata
+// qui il 03/09: il bottone sembrava non fare nulla. 300 come il cron drive.
+export const maxDuration = 300;
 
 const SPIEGA_ESITO: Record<string, string> = {
   ok: "Nessun problema bloccante emerso",
