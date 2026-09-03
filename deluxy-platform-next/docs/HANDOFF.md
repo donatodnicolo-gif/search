@@ -3,6 +3,17 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-quater — CONTROLLO COMPLETEZZA 01/08→03/09** (dati):
+> - 1.284 consegne: **0 ritiri vuoti, 0 consegne senza indirizzo** ✓ (la
+>   regola «ritiro sempre valorizzato» regge). Stipendi ago-set: 0 righe a
+>   0 €; nel Da pagare 52 zeri tutti VOLUTI dalle regole «non pagare»
+>   (Regola 8×38, 10×9, 11×3, 28×2), zero anomali.
+> - **Modificate solo 2 consegne**: #62501 e #100838 (Artista Locale, Costa
+>   Smeralda) senza provincia → **Sassari** dall'indirizzo (CAP 0702x),
+>   backup + log. 17 senza FASCIA (quasi tutte legacy Chanel già consegnate
+>   + #62708 Swiss Food e #63229 Wicuisine ancora aperte): NON si inventa un
+>   orario a posteriori — decida l'ufficio sulle due aperte.
+>
 > 🧪 **03/09/2026-ter — SALAZAR: PAGHE SCRITTE 6 → 7,20** (dati):
 > - Il 6 € veniva dal listino «Consegna Standard» SCADUTO il 30/06/2025 (la
 >   tariffa 2026 è 7,20; il MOTORE sceglie già 7,20 — erano solo le paghe
