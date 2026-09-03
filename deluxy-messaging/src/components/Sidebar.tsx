@@ -108,6 +108,9 @@ export function Sidebar({
         ...(amministratore
           ? [{ href: '/operatori', nome: 'Operatori', icona: iconaUtenti }]
           : []),
+        // ⚠️ Sta in Qualità e non fra gli ordini: qui non si LAVORA niente, si
+        // legge come è andata. Chiesta dall'utente il 02/09/2026.
+        { href: '/statistiche', nome: 'Statistiche', icona: iconaPunteggi },
         { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
         { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },

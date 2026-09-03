@@ -1,5 +1,63 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (8) — la sezione Statistiche
+
+Chiesto dall'utente: «crea una sezione statistiche dove fai vedere tutte le KPI
+dell'app — esempio % di reclami su totale, tempo di gestione, tempo medio di
+risposta a chat, ecc.».
+
+`/statistiche` (sidebar → Qualità, e fra gli strumenti in Oggi), con il periodo
+a 7 / 30 / 90 giorni e 12 mesi.
+
+### Le tre regole della pagina — sono di sostanza, non di stile
+
+1. ⚠️⚠️ **Ogni percentuale porta la sua base.** «1,8%» da solo non si giudica;
+   «1,8% — 8 reclami su 445 ordini» sì. E una percentuale su base zero è
+   **`—`**, mai «0%»: «0% di reclami su 0 ordini» sembra un complimento e non
+   vuol dire niente.
+2. ⚠️⚠️ **Mediana, non media**, con la media accanto in piccolo. La distanza fra
+   le due È un dato: la risposta in chat ha **mediana 2 minuti e media 72**,
+   cioè quasi tutto è immediato e qualcosa resta indietro un giorno. Con la sola
+   media si sarebbe detto «rispondiamo in un'ora», che non è vero per nessuno.
+3. ⚠️⚠️ **Chi non ha il dato si esclude, non vale zero.** Un ordine senza data di
+   chiusura non è chiuso in zero minuti: ogni tempo dice **su quanti casi** è
+   calcolato.
+
+### Cosa mostra (numeri veri, 30 giorni al 02/09/2026)
+
+- **Ordini** 445 · venduto **83.492 €** · scontrino **187,62 €** · chiusi 85,4%
+  · **tempo di gestione: 15 ore** di mediana (media 32 ore, su 373 ordini)
+- **Servizio** 555 conversazioni · 2.926 ricevuti / 1.483 inviati ·
+  **risposta 2 min** di mediana (media 72, su 1.129 risposte)
+- ⚠️⚠️ **278 conversazioni su 555 (50,1%) senza NESSUNA risposta.** È il numero
+  che la mediana nasconde — una conversazione mai risposta non ha un tempo,
+  quindi dalla media sparisce. Ha un riquadro suo apposta. Da guardare: quante
+  di quelle sono newsletter e mail di servizio e quante clienti veri.
+- **Qualità** reclami **1,8%** (8 su 445), gravi 25% (2 su 8), rimborsi 3
+  chiesti / 0 eseguiti
+- **Pagamenti** 73 richieste, **98,6% pagate**, mediana **7 minuti**
+- **Lavorazione**: dove stanno gli ordini, a barre (gestito 380, da_gestire 46,
+  attesa_consegna 14…)
+- «Passati in app **0%**»: è vero e si vede, ed è l'effetto della chiave della
+  piattaforma che manca (vedi il punto 6 di oggi).
+
+### Come è fatto
+
+- `src/lib/statistiche.ts`: una ventina di conteggi in parallelo (`count` e
+  `groupBy`, mai `findMany` di ordini interi — Libro PERFORMANCE) più **due
+  query SQL con `LAG`** per i tempi di risposta: le coppie
+  cliente→risposta si fanno nel database, non portandosi a casa decine di
+  migliaia di testi. Misurato: **2,9 s** su 30 giorni.
+- Le note interne (`tipo = 'nota'`) non contano come risposta al cliente, e due
+  nostri messaggi di fila non sono due risposte.
+- In fondo alla pagina, «Come leggere questi numeri»: il tempo di risposta conta
+  anche la notte e i festivi, i reclami sono per data di APERTURA, e gli avvisi
+  che compaiono da soli quando i casi sono pochi.
+
+Provato con `npx tsx scripts/prova-statistiche.mts` (numeri veri) e guardato a
+schermo con una pagina d'anteprima temporanea sotto `/widget`, cancellata prima
+del commit.
+
 ## 02/09/2026 (7) — quattro cose su Nuovo ordine
 
 ### 1. Il CAP che non si autocompilava (segnalato dall'utente)

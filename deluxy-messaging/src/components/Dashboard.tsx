@@ -381,6 +381,12 @@ export function Dashboard({ dati }: { dati: DatiDashboard }) {
               <span className="nome">Pagamenti</span>
               <span className="che-cosa">Richieste di pagamento ai fornitori</span>
             </Link>
+            {/* ⚠️ Fra gli strumenti e non fra i numeri in cima: quelli sono
+                le cose da fare adesso, questa e la lettura del periodo. */}
+            <Link href="/statistiche" className="strumento">
+              <span className="nome">Statistiche</span>
+              <span className="che-cosa">Ordini, tempi, reclami e rimborsi del periodo</span>
+            </Link>
             <Link href="/script" className="strumento">
               <span className="nome">Risposte pronte</span>
               <span className="che-cosa">I testi per tipologia, da usare in chat</span>
