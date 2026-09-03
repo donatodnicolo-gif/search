@@ -18,6 +18,14 @@ type Prodotto = {
   immagine: string
   disponibile: boolean
 }
+type Stima = {
+  partenza: string
+  km: number
+  base: number
+  baseTitolo: string
+  euroPerKm: number
+  prezzo: number
+}
 type Gruppo = {
   titolo: string
   immagine: string
@@ -118,6 +126,16 @@ export function NuovoOrdine({
    * variante si sceglie DOPO, dentro il prodotto.
    */
   const [gruppi, setGruppi] = useState<Gruppo[]>([])
+  /**
+   * La stima al chilometro per una consegna FUORI dalle zone del sito.
+   *
+   * ⚠️ Si mostra e non si scrive: il prezzo giusto dipende da chi consegna —
+   * noi che usciamo dalla città, o un fornitore del posto.
+   */
+  const [stima, setStima] = useState<Stima | null>(null)
+  const [stimaStato, setStimaStato] = useState('')
+  /** Quanto e lontano, quando e troppo: un rifiuto senza il motivo non si capisce. */
+  const [stimaLontano, setStimaLontano] = useState<{ km: number; partenza: string } | null>(null)
   /** Il prodotto di cui si stanno guardando le varianti. */
   const [aperto, setAperto] = useState<Gruppo | null>(null)
   const [catalogoChiuso, setCatalogoChiuso] = useState(false)
@@ -285,6 +303,9 @@ export function NuovoOrdine({
     // zona (provincia, città o paese) Shopify non può calcolare: si aspetta.
     if (!negozioId || !righe.length || !(provincia.trim() || citta.trim() || paese.trim())) {
       setTariffe([])
+      setStima(null)
+      setStimaStato('')
+      setStimaLontano(null)
       setTariffeStato('idle')
       setTariffeNota('')
       return
@@ -292,14 +313,21 @@ export function NuovoOrdine({
     let vivo = true
     setTariffeStato('carico')
     const t = setTimeout(async () => {
-      const e = await chiediJson<{ tariffe?: { titolo: string; prezzo: number }[]; errore?: string }>(
+      const e = await chiediJson<{
+        tariffe?: { titolo: string; prezzo: number }[]
+        stima?: Stima | null
+        stimaStato?: string
+        stimaKm?: number | null
+        stimaPartenza?: string
+        errore?: string
+      }>(
         '/api/nuovo-ordine/tariffe',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             negozioId,
-            indirizzo: { citta, cap, provincia, paese },
+            indirizzo: { indirizzo, citta, cap, provincia, paese },
             righe: righe.map((r) => ({
               variantId: r.variantId,
               titolo: r.variantId ? undefined : r.titolo,
@@ -312,12 +340,20 @@ export function NuovoOrdine({
       if (!vivo) return
       if (e.stato !== 'ok') {
         setTariffe([])
+        setStima(null)
+        setStimaStato('')
+        setStimaLontano(null)
         setTariffeStato('errore')
         setTariffeNota(frasePerEsito(e))
         return
       }
       const list = e.dati.tariffe ?? []
       setTariffe(list)
+      setStima(e.dati.stima ?? null)
+      setStimaStato(e.dati.stimaStato ?? '')
+      setStimaLontano(
+        e.dati.stimaKm != null ? { km: e.dati.stimaKm, partenza: e.dati.stimaPartenza ?? '' } : null
+      )
       setTariffeStato('ok')
       setTariffeNota(
         list.length
@@ -1351,6 +1387,74 @@ export function NuovoOrdine({
                 />
               </div>
             )}
+            {/* ── FUORI ZONA: QUANTO COSTA PORTARLO LÀ ──
+                ⚠️⚠️ Chiesto dall'utente il 02/09/2026. L'indirizzo libero c'era
+                già; fuori dalle zone del sito restava un campo vuoto, e il
+                prezzo cambiava a seconda di chi rispondeva al telefono. La
+                stima ricalca il listino del sito: dentro le sue zone deluxy.it
+                chiede 15 € a Milano, 45 a Monza (25,6 km) e 80 a Bergamo
+                (58,6 km) — cioè la tariffa cittadina più circa un euro al
+                chilometro di strada.
+                ⚠️ Si MOSTRA e non si scrive: vale se usciamo noi dalla città.
+                Se quella consegna la fa un fornitore del posto, i chilometri
+                non li fa nessuno e questo prezzo è una stangata. */}
+            {!senzaConsegna && !tariffe.length && stima ? (
+              <div className="avviso-ok" style={{ marginTop: 8 }}>
+                <div>
+                  <strong>Fuori dalle zone del sito.</strong> Sono{' '}
+                  <strong>{stima.km.toLocaleString('it-IT')} km</strong> di strada da{' '}
+                  {stima.partenza}.
+                </div>
+                <div className="cella-sub" style={{ margin: '4px 0 8px' }}>
+                  {stima.base > 0
+                    ? `${soldi(stima.base)} (${stima.baseTitolo || 'tariffa in città'}) + ${stima.km.toLocaleString('it-IT')} km × ${soldi(stima.euroPerKm)} = `
+                    : `${stima.km.toLocaleString('it-IT')} km × ${soldi(stima.euroPerKm)} = `}
+                  <strong>{soldi(stima.prezzo)}</strong> (arrotondato a 5 €)
+                </div>
+                <button
+                  className="bottone secondario"
+                  onClick={() => {
+                    setSpedizioneTitolo(`Consegna da ${stima.partenza} (${stima.km.toLocaleString('it-IT')} km)`)
+                    setSpedizionePrezzo(String(stima.prezzo))
+                    // Scelta a mano: il ricalcolo non ci scrive più sopra.
+                    tariffaMessa.current = `Consegna da ${stima.partenza}|${stima.prezzo}`
+                  }}
+                >
+                  Metti {soldi(stima.prezzo)}
+                </button>
+                <div className="cella-sub" style={{ marginTop: 8 }}>
+                  ⚠️ Vale se la consegna <strong>la facciamo noi da {stima.partenza}</strong>. Se
+                  la fa un fornitore del posto i chilometri non li fa nessuno: in quel caso il
+                  prezzo è un altro, o si toglie del tutto qui sopra.
+                </div>
+              </div>
+            ) : null}
+            {/* ⚠️⚠️ Troppo lontano per andarci in auto: NON si propone un
+                prezzo al km. Misurato il 02/09/2026: per Abu Dhabi Google una
+                strada la trova (5.910 km) e la stima diceva 5.915 € — un numero
+                così dentro un modulo è peggio di nessun numero, perché qualcuno
+                lo mette. */}
+            {!senzaConsegna && !tariffe.length && stimaStato === 'troppo-lontano' ? (
+              <p className="cella-sub" style={{ marginTop: 8 }}>
+                {stimaLontano
+                  ? `Sono ${stimaLontano.km.toLocaleString('it-IT')} km da ${stimaLontano.partenza}: `
+                  : ''}
+                troppo lontano per uscire da noi. Là consegna un <strong>fornitore del
+                posto</strong>, quindi il prezzo non è un conto al chilometro: mettilo tu, o
+                spunta «senza costo di consegna».
+              </p>
+            ) : null}
+            {!senzaConsegna && !tariffe.length && !stima && stimaStato === 'senza-chiave' ? (
+              <p className="cella-sub" style={{ marginTop: 8 }}>
+                Per stimare la consegna fuori zona serve la chiave Google Maps (Impostazioni).
+              </p>
+            ) : null}
+            {!senzaConsegna && !tariffe.length && !stima && stimaStato === 'senza-strada' ? (
+              <p className="cella-sub" style={{ marginTop: 8 }}>
+                Google non trova una strada per questo indirizzo (fuori dall&apos;Europa, o
+                indirizzo troppo vago): il prezzo lo metti tu.
+              </p>
+            ) : null}
             {/* Cosa sta succedendo col calcolo. */}
             {tariffeStato === 'carico' ? (
               <span className="cella-sub">Calcolo la spedizione dal sito…</span>

@@ -48,6 +48,8 @@ export default async function PaginaImpostazioni({
     'googleClientSecret',
     'googleRefreshToken',
     'giorniBozzaScaduta',
+    'euroPerKmFuoriCitta',
+    'cittaDiPartenza',
     'ordersUrl',
     'ordersApiKey',
     'searchUrl',
@@ -601,6 +603,30 @@ export default async function PaginaImpostazioni({
             <CampoSegreto nome="ordersApiKey" etichetta="Chiave API (sola lettura)" valore={config.ordersApiKey} />
           </div>
 
+          <div className="card">
+            <h2>Consegne fuori zona</h2>
+            <p className="descrizione">
+              Quando il sito <strong>non ha una tariffa</strong> per quell&apos;indirizzo (una
+              provincia fuori dalle zone), Nuovo ordine propone un prezzo: la tariffa che il
+              sito chiede <strong>dentro la citta piu vicina</strong> piu i chilometri di strada
+              fino alla consegna. E una proposta: si mette con un bottone, non si scrive da
+              sola. ⚠️ Vale se la consegna la facciamo NOI uscendo dalla citta; se la fa un
+              fornitore del posto, quei chilometri non li fa nessuno.
+            </p>
+            <p className="descrizione">
+              Il valore di suo, 1,00 €/km, non e inventato: e la retta che passa per le zone
+              vere di deluxy.it — Milano 15 € in citta, Monza 45 € a 25,6 km, Bergamo 80 € a
+              58,6 km (misurato il 02/09/2026).
+            </p>
+            <label className="campo">
+              <span>Euro al chilometro fuori citta</span>
+              <input name="euroPerKmFuoriCitta" defaultValue={config.euroPerKmFuoriCitta} placeholder="1,00" />
+            </label>
+            <label className="campo">
+              <span>Citta da cui usciamo (separate da virgola)</span>
+              <input name="cittaDiPartenza" defaultValue={config.cittaDiPartenza} placeholder="Milano, Roma, Firenze" />
+            </label>
+          </div>
           <div className="card">
             <h2>Bozze scadute</h2>
             <p className="descrizione">

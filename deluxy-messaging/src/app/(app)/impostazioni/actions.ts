@@ -39,6 +39,8 @@ const IN_CHIARO = [
   'widgetMessaggio',
   'googleClientId',
   'giorniBozzaScaduta',
+  'euroPerKmFuoriCitta',
+  'cittaDiPartenza',
   'ordersUrl',
   'searchUrl',
   'partnerUrl',

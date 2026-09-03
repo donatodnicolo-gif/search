@@ -1,5 +1,57 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (2) — indirizzi ovunque, e un prezzo per le extra-urbane
+
+Chiesto dall'utente: «consenti di inserire qualsiasi indirizzo (anche fuori
+Milano, Roma e Firenze), in quel caso il prezzo della consegna si può
+disabilitare, è possibile? Inoltre puoi calcolare automaticamente il costo della
+consegna per extra-urbane?».
+
+**L'indirizzo libero c'era già** e l'ho verificato sui negozi veri: nessun
+elenco di città ammesse, l'autocomplete non è vincolato all'Italia, e il costo
+si azzera con la spunta «senza costo di consegna» (02/09). Quello che mancava
+era il NUMERO quando il sito non ha una tariffa.
+
+### Cosa dice il sito, oggi (misurato il 02/09 sul catalogo vero)
+
+| | Milano | Monza | Bergamo | Matera | Enna | Paris |
+|---|---|---|---|---|---|---|
+| **deluxy.it** | 15 € | 45 € | 80 € | — | — | — |
+| **Cake** | 10 € | 10 € | 10 € | 10 € | 10 € | 15 € |
+| **Flowers** | 0 € | 0 € | 0 € | 0 € | 0 € | 0 € |
+
+⚠️ Solo deluxy.it ha zone vere (otto). Cake ha una tariffa piatta a 10 € e
+Flowers consegna gratis **ovunque**: su una consegna fuori città quei due
+prezzi non coprono niente. Non è un bug dell'app — è quello che il sito chiede
+alla cassa, ed è una decisione commerciale.
+
+### La stima al chilometro (`src/lib/consegna-fuori-zona.ts`)
+
+Compare **solo quando Shopify torna a mani vuote**: dentro le sue zone il
+listino è del sito e il sito vince (Standard §7).
+
+`tariffa della città coperta più vicina + km di strada × €/km`, arrotondato per
+eccesso a 5 €. Non è inventata: sulle zone vere di deluxy.it (Milano 15 € in
+città, Monza 45 € a 25,6 km, Bergamo 80 € a 58,6 km) la retta che passa per i
+due punti è **18 € + 1,06 €/km** — cioè la tariffa cittadina più circa un euro
+al chilometro. Impostazioni → **Consegne fuori zona** (`euroPerKmFuoriCitta`
+1,00 di suo, `cittaDiPartenza` «Milano, Roma, Firenze»).
+
+- Si misura da TUTTE le città coperte e vince la più vicina: Matera è a 422 km
+  da Roma e 922 da Milano.
+- ⚠️ **Si mostra, non si scrive**: c'è un bottone «Metti 450 €». Vale se
+  usciamo NOI dalla città; se consegna un fornitore del posto quei chilometri
+  non li fa nessuno, e il riquadro lo dice.
+- ⚠️ **Due buchi trovati dalla misura, non dal ragionamento**:
+  1. la tariffa cittadina chiesta con la sola città («Roma») tornava **zero** —
+     Shopify vuole CAP e provincia. La stima partiva da base 0. Ora c'è
+     `DATI_CITTA` (Milano 20121/MI, Roma 00184/RM, Firenze 50122/FI): Matera è
+     passata da 425 € a **450 €** (25 € di tariffa Roma + 422,6 km).
+  2. per **Abu Dhabi Google una strada la trova** (5.910 km via terra) e la
+     stima diceva **5.915 €**. Oltre 800 km, o fuori dall'Italia, non si
+     propone più niente: «là consegna un fornitore del posto». Enna (879 km) e
+     Paris (867) rientrano in questo caso.
+
 ## 02/09/2026 — il catalogo: prima il prodotto, poi la variante
 
 Chiesto dall'utente: «non mostrare tutti i prodotti con tutte le varianti:
