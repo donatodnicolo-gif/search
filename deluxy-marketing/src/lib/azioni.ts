@@ -15,7 +15,7 @@ import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { accodaOperazione } from "./operazioni";
+import { accodaOperazione, accountDiBrand } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { elaboraAnalisi, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliaAnalisi, risposteDi, schedaDi, testoRisposteMd, type RispostaAzione } from "./scheda-analisi";
@@ -2560,6 +2560,37 @@ export async function lanciaCampagnaMeta(fd: FormData) {
   const eventoConversione = testo(fd, "eventoConversione");
   const pubbliciNota = testo(fd, "pubblici");
 
+  // ——— L'IMMAGINE dell'annuncio: si carica ADESSO nella libreria ———
+  // L'app non ha un posto suo dove tenere i file, e un'immagine in base64 nel
+  // Postgres condiviso sarebbe il peggio dei due mondi: si carica subito in
+  // act_/adimages (il gesto della libreria media di Ads Manager — non
+  // pubblica e non spende niente) e nei parametri viaggia solo l'HASH.
+  // L'ANNUNCIO che la usa nasce all'esecuzione approvata, in pausa.
+  let imageHash: string | null = null;
+  const immagine = fd.get("immagine");
+  if (immagine instanceof File && immagine.size > 0) {
+    if (!/^image\/(jpeg|png|webp)$/.test(immagine.type)) {
+      redirect(indietro("L'immagine deve essere JPG, PNG o WebP (i video per ora si caricano in Ads Manager)"));
+    }
+    if (immagine.size > 6 * 1024 * 1024) {
+      redirect(indietro("Immagine oltre i 6 MB: comprimila prima di caricarla"));
+    }
+    const account = await accountDiBrand("meta_ads", brand);
+    if (!account) {
+      redirect(indietro("Non trovo l'account Meta di questo brand: senza, l'immagine non sa dove andare"));
+    }
+    const { metaPuoScrivere, caricaImmagineMeta } = await import("./meta-scrittura");
+    const permesso = await metaPuoScrivere();
+    if (!permesso.puo) {
+      redirect(indietro(`L'immagine si carica nella libreria di Meta, ma la scrittura è spenta: ${permesso.perche.slice(0, 160)}. Accoda senza immagine, o accendi la scrittura.`));
+    }
+    const caricata = await caricaImmagineMeta(account, new Uint8Array(await immagine.arrayBuffer()), immagine.name || "creativo.jpg");
+    if (!caricata.ok) {
+      redirect(indietro(`Meta ha rifiutato l'immagine: ${caricata.errore.slice(0, 180)}`));
+    }
+    imageHash = caricata.hash;
+  }
+
   const campagna = await prisma.campagna.create({
     data: {
       nome,
@@ -2578,7 +2609,9 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         ((obiettivoTipo === "vendite" || obiettivoTipo === "contatti") && !testo(fd, "pixelId")
           ? "Il pixel lo cerca l'app sull'account al momento del lancio (se ce n'è più d'uno si ferma e lo dice). "
           : "") +
-        "L'ANNUNCIO NON NASCE DA QUI: il creativo (media compreso) si monta in Ads Manager — il copy scritto nel modulo resta nei parametri dell'operazione come brief. " +
+        (imageHash
+          ? "Immagine già caricata nella libreria dell'account: col lancio nascono anche creative e ANNUNCIO, in pausa. "
+          : "L'ANNUNCIO NON NASCE DA QUI (nessuna immagine caricata): il creativo si monta in Ads Manager — il copy scritto nel modulo resta nei parametri dell'operazione come brief. ") +
         (pubbliciNota ? "Pubblici personalizzati/lookalike: solo promemoria, si applicano a mano. " : "") +
         "La checklist 4.1 va fatta prima di accenderla.",
     },
@@ -2608,12 +2641,14 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         posizionamenti,
         eventoConversione,
         pixelId: testo(fd, "pixelId"),
+        paginaId: testo(fd, "paginaId"),
         inizio: inizio ? inizio.toISOString() : null,
         fine: fine ? fine.toISOString() : null,
-        // Non eseguiti dal lancio: restano qui da brief, per chi monta
-        // l'annuncio e applica i pubblici in Ads Manager.
+        // I pubblici restano un promemoria; il CREATIVO invece, se c'è
+        // l'immagine (imageHash: già in libreria), fa nascere l'annuncio
+        // all'esecuzione — in pausa, dentro l'ad set.
         pubbliciNota,
-        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl") },
+        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl"), imageHash },
       }),
       motivo: testo(fd, "motivo"),
       livello: "L2",

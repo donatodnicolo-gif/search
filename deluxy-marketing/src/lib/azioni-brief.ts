@@ -161,8 +161,14 @@ Compila il brief del gruppo a partire dalla richiesta dell'utente. Rispondi SOLO
 REGOLE, o il modulo rifiuta il brief:
 - "gruppo" è il nome del nuovo gruppo: DEVE essere diverso dai gruppi già esistenti (li ricevi nei dati) e coerente col loro stile.
 - "corrispondenza" di ogni keyword deve essere exact, phrase o broad. Le keyword devono essere COERENTI fra loro: un gruppo = un intento di ricerca.
-- Massimo 15 titoli, ognuno di 30 caratteri O MENO (contali: 31 = buttato). Almeno 8.
-- Massimo 4 descrizioni, ognuna di 90 caratteri O MENO. Almeno 3.
+- ESATTAMENTE 15 titoli, ognuno di 30 caratteri O MENO (contali: 31 = buttato). Google ne accetta al massimo 15 e il giudizio «Eccellente» li vuole tutti.
+- ESATTAMENTE 4 descrizioni, ognuna di 90 caratteri O MENO.
+
+GIUDIZIO GOOGLE (Ad Strength) — l'annuncio deve puntare a «Eccellente»:
+- Le keyword del gruppo compaiono TESTUALI in almeno 5 dei 15 titoli, in modo naturale.
+- Ogni titolo dice una cosa DIVERSA (beneficio, servizio, brand, città, consegna, qualità, invito all'azione): due titoli quasi uguali contano come ridondanza e ABBASSANO il giudizio.
+- La maggior parte dei titoli fra 20 e 30 caratteri, 2-3 corti (sotto i 20) per i posizionamenti stretti.
+- Le 4 descrizioni PIENE (70-90 caratteri), ognuna con un angolo diverso, almeno una con un invito all'azione chiaro.
 - "finalUrl" è la pagina di destinazione: coerente con l'intento del gruppo, scelta fra quelle già in uso se una combacia.
 - "motivo" è una riga sul perché questo gruppo esiste, per lo storico.
 
@@ -210,6 +216,12 @@ ${regoleDiBrand(campagna.brand).map((r) => `- ${r}`).join("\n") || "- nessuna re
   const giaEsiste = gruppi.some((g) => g.nome.trim().toLowerCase() === nomeGruppo.toLowerCase());
   if (giaEsiste) {
     scartati.push(`il nome «${nomeGruppo}» esiste già nella campagna: cambialo prima di accodare`);
+  }
+  if (titoli.length > 0 && titoli.length < 15) {
+    scartati.push(`titoli ${titoli.length} su 15: per il giudizio «Eccellente» servono tutti — completa a mano o rifai il brief`);
+  }
+  if (descrizioni.length > 0 && descrizioni.length < 4) {
+    scartati.push(`descrizioni ${descrizioni.length} su 4`);
   }
 
   const keywords = (Array.isArray(grezzo.keywords) ? grezzo.keywords : [])
@@ -301,10 +313,15 @@ REGOLE DA RISPETTARE, altrimenti il modulo rifiuta il brief:
 - "obiettivoTipo" deve essere esattamente uno fra: vendite, contatti, traffico, notorieta.
 - "lingua" deve essere "ita" oppure "eng". È la lingua in cui sono SCRITTI gli annunci, non quella di chi cerca.
 - "corrispondenza" di ogni keyword deve essere exact, phrase o broad.
-- Massimo 15 titoli, ognuno di 30 caratteri O MENO. Conta i caratteri: un titolo di 31 viene buttato.
-- Massimo 4 descrizioni, ognuna di 90 caratteri O MENO.
-- Scrivi almeno 8 titoli e 3 descrizioni: un annuncio con pochi titoli rende meno.
+- ESATTAMENTE 15 titoli, ognuno di 30 caratteri O MENO. Conta i caratteri: un titolo di 31 viene buttato. Google ne accetta al massimo 15 e il giudizio «Eccellente» li vuole tutti.
+- ESATTAMENTE 4 descrizioni, ognuna di 90 caratteri O MENO.
 - "budget" è un numero in euro al giorno.
+
+GIUDIZIO GOOGLE (Ad Strength) — l'annuncio deve puntare a «Eccellente», e queste sono le leve che Google dichiara di misurare:
+- Le keyword più importanti del brief compaiono TESTUALI in almeno 5 dei 15 titoli, in modo naturale.
+- Ogni titolo dice una cosa DIVERSA: beneficio, servizio, brand, città, consegna, qualità, prezzo/valore, invito all'azione. Due titoli quasi uguali contano come ridondanza e ABBASSANO il giudizio.
+- Sfrutta lo spazio: la maggior parte dei titoli fra 20 e 30 caratteri, 2-3 corti (sotto i 20) per i posizionamenti stretti.
+- Le 4 descrizioni PIENE (70-90 caratteri), ognuna con un angolo diverso, almeno una con un invito all'azione chiaro.
 - "localita" sono nomi di città o paesi, in italiano (es. "Milano", "Italia").
 - "nome" segue lo stile dei nomi già in uso su questo brand. Metti dentro città e lingua quando ha senso: l'app le riconosce dal nome.
 - "motivo" è una riga sul perché questa campagna esiste, per lo storico.
@@ -407,6 +424,13 @@ Il break-even di questo brand è ${breakEvenRoas(brand).toFixed(2).replace(".", 
 
   if (titoli.length < 3 && titoli.length > 0) {
     scartati.push("restano meno di 3 titoli: Google ne vuole almeno 3, aggiungine a mano");
+  } else if (titoli.length > 0 && titoli.length < 15) {
+    // 15 è il tetto di Google E la richiesta per l'Ad Strength «Eccellente»:
+    // un brief che ne consegna meno va detto, non scoperto contando a mano.
+    scartati.push(`titoli ${titoli.length} su 15: per il giudizio «Eccellente» servono tutti — completa a mano o rifai il brief`);
+  }
+  if (descrizioni.length > 0 && descrizioni.length < 4) {
+    scartati.push(`descrizioni ${descrizioni.length} su 4`);
   }
 
   return {

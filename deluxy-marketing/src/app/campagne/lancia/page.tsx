@@ -76,7 +76,7 @@ export default async function CreaCampagna({
             <p className="page-sub">
               {meta ? (
                 <>Si prepara qui, si approva in Operazioni, la crea <b>l&apos;app</b> via Graph API —
-                campagna e ad set nascono <b>in pausa</b>, l&apos;annuncio si monta in Ads Manager.</>
+                campagna, ad set e (con l&apos;immagine) l&apos;annuncio nascono <b>in pausa</b>.</>
               ) : (
                 <>Si prepara qui, si approva in Operazioni, la crea lo script — e nasce <b>in pausa</b>:
                 l&apos;accensione resta un gesto manuale dopo la checklist 4.1 (mai lanciare al buio).</>
@@ -112,11 +112,12 @@ export default async function CreaCampagna({
                 <b>Che cosa arriva su Meta, e come.</b> Ad approvazione data, <b>l&apos;app</b> crea
                 via Graph API la <b>campagna</b> (obiettivo, categoria speciale, budget se
                 Advantage/CBO) e l&apos;<b>ad set</b> (località, età, genere, posizionamenti,
-                ottimizzazione con l&apos;evento del pixel, budget se ABO) — tutti e due
+                ottimizzazione con l&apos;evento del pixel, budget se ABO) — e, se il modulo porta
+                l&apos;<b>immagine</b>, anche creative e <b>annuncio</b>. Tutto nasce
                 <b> IN PAUSA</b>, e l&apos;esito si rilegge da Meta, non si presume. Le città dette
                 per nome le traduce l&apos;app chiedendo a Meta: un nome ambiguo non si indovina,
-                si elenca nell&apos;esito. <b>L&apos;annuncio non nasce da qui</b> (serve un media che
-                l&apos;app non possiede) e i <b>pubblici personalizzati</b> restano promemoria:
+                si elenca nell&apos;esito. Senza immagine l&apos;annuncio resta un brief da montare
+                in Ads Manager, e i <b>pubblici personalizzati</b> restano promemoria:
                 si completano in Ads Manager prima dell&apos;accensione, con la checklist 4.1.
                 ⚠️ Prima di scrivere, l&apos;app chiede a Meta il permesso vero (`ads_management`)
                 e controlla l&apos;interruttore `META_SCRITTURA`: se una delle due cose manca, il

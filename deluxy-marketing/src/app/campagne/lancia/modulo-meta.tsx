@@ -357,11 +357,28 @@ export function ModuloLancioMeta({ brand, tornaBrand }: { brand: string; tornaBr
           Che cosa dice l&apos;annuncio (brief per Ads Manager)
         </div>
         <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
-          ⚠️ L&apos;annuncio NON nasce dal lancio: vuole un&apos;immagine o un video, e l&apos;app non
-          possiede media. Il copy scritto qui passa dal lint 7.2/7.3 e resta nei parametri
-          dell&apos;operazione come brief per chi monta il creativo.
+          Con l&apos;<b>immagine</b> qui sotto, col lancio nascono anche creative e annuncio —
+          in pausa, dentro l&apos;ad set. Senza, il copy resta un brief e il creativo si monta in
+          Ads Manager. Tutto passa dal lint 7.2/7.3 prima di entrare in coda.
         </p>
         <div className="modulo">
+          <div className="campo-modulo largo">
+            <label>Immagine dell&apos;annuncio (JPG, PNG o WebP — max 6 MB)</label>
+            <input name="immagine" type="file" accept="image/jpeg,image/png,image/webp" />
+            <span className="campo-aiuto">
+              ⚠️ Si carica <b>subito</b> nella libreria media dell&apos;account (come trascinarla
+              in Ads Manager: non pubblica e non spende niente) — l&apos;annuncio che la usa nasce
+              solo dopo l&apos;approvazione, in pausa. I video per ora si caricano in Ads Manager.
+            </span>
+          </div>
+          <div className="campo-modulo">
+            <label>Pagina Facebook (id) — vuoto: la trova l&apos;app</label>
+            <input name="paginaId" placeholder="es. 1234567890" />
+            <span className="campo-aiuto">
+              L&apos;annuncio parla a nome di una Pagina. Se sull&apos;account è una sola l&apos;app
+              la usa; se sono di più si ferma e le elenca nell&apos;esito.
+            </span>
+          </div>
           <div className="campo-modulo largo">
             <label>Testo principale — una variante per riga (le prime ~125 battute si vedono senza «altro»)</label>
             <textarea

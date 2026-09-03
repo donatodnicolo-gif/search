@@ -311,6 +311,63 @@ const STRATEGIA_META: Record<string, string> = {
   roas_min: "LOWEST_COST_WITH_MIN_ROAS",
 };
 
+/**
+ * Carica un'immagine nella LIBRERIA dell'account (act_/adimages).
+ *
+ * ⚠️ Non pubblica niente e non spende niente: è il gesto di trascinare un
+ * file nella libreria media di Ads Manager. Si fa AL MOMENTO dell'accodamento
+ * (l'app non ha un posto suo dove tenere i file, e un'immagine in base64
+ * dentro il Postgres condiviso sarebbe il peggio dei due mondi): l'hash che
+ * torna viaggia nei parametri dell'operazione, e l'ANNUNCIO che la usa nasce
+ * solo dopo l'approvazione, in pausa.
+ */
+export async function caricaImmagineMeta(
+  idAccount: string,
+  byte: Uint8Array,
+  nomeFile: string
+): Promise<{ ok: true; hash: string } | { ok: false; errore: string }> {
+  const t = token();
+  if (!t) return { ok: false, errore: "token assente" };
+  const conto = `act_${idAccount.replace(/^act_/, "")}`;
+  const corpo = new URLSearchParams({
+    bytes: Buffer.from(byte).toString("base64"),
+    name: nomeFile,
+    access_token: t,
+  });
+  try {
+    const r = await fetch(`${BASE}/${conto}/adimages`, { method: "POST", body: corpo, cache: "no-store" });
+    const dati = (await r.json()) as {
+      images?: Record<string, { hash?: string }>;
+      error?: { message?: string; error_user_msg?: string };
+    };
+    if (dati.error) {
+      return { ok: false, errore: dati.error.error_user_msg ?? dati.error.message ?? "errore Meta sull'immagine" };
+    }
+    const hash = Object.values(dati.images ?? {})[0]?.hash;
+    return hash ? { ok: true, hash } : { ok: false, errore: "Meta non ha restituito l'hash dell'immagine" };
+  } catch (e) {
+    return { ok: false, errore: `caricamento immagine fallito: ${String(e)}` };
+  }
+}
+
+/**
+ * La Pagina Facebook da cui l'annuncio parla. Stessa regola del pixel: si
+ * sceglie SOLO se è una — con due pagine «prendo la prima» farebbe parlare
+ * l'annuncio a nome del brand sbagliato.
+ */
+async function paginaDellAccount(idAccount: string): Promise<{ id?: string; motivo?: string }> {
+  const r = await leggiMeta(`act_${idAccount.replace(/^act_/, "")}/promote_pages`, { fields: "id,name" });
+  if (!r) return { motivo: "non sono riuscito a chiedere le pagine dell'account" };
+  const lista = (r.data as { id: string; name?: string }[] | undefined) ?? [];
+  if (lista.length === 1) return { id: lista[0].id };
+  if (lista.length === 0) return { motivo: "l'account non ha pagine promuovibili" };
+  return {
+    motivo:
+      `l'account ha ${lista.length} pagine (${lista.map((p) => `${p.name ?? "?"} · ${p.id}`).join(", ")}): ` +
+      "non scelgo io — rilancia indicando l'id nel campo Pagina del modulo",
+  };
+}
+
 export type ParametriLancioMeta = {
   nome: string;
   obiettivoTipo: string; // vendite | contatti | traffico | notorieta
@@ -332,6 +389,21 @@ export type ParametriLancioMeta = {
   pixelId?: string | null; // se vuoto lo cerca l'app sull'account
   inizio?: string | null; // ISO
   fine?: string | null; // ISO
+  /** Pagina Facebook da cui parla l'annuncio; vuoto = la trova l'app se è una. */
+  paginaId?: string | null;
+  /**
+   * Il creativo. Con `imageHash` (immagine già caricata in libreria
+   * all'accodamento) e `url`, il lancio crea ANCHE l'annuncio, in pausa.
+   * Senza, resta un brief: si monta in Ads Manager.
+   */
+  creativo?: {
+    testi?: string[];
+    titolo?: string | null;
+    descrizione?: string | null;
+    cta?: string | null;
+    url?: string | null;
+    imageHash?: string | null;
+  } | null;
 };
 
 /**
@@ -557,6 +629,89 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
     return parziale(`chiamata fallita creando l'ad set: ${String(e)}`);
   }
 
+  // ——— 5. L'ANNUNCIO, se il lancio porta l'immagine ———
+  // Con l'hash dell'immagine (caricata in libreria all'accodamento) e la URL,
+  // qui nascono anche il creative e l'annuncio — IN PAUSA come tutto il resto.
+  // Senza immagine il copy resta un brief: meglio nessun annuncio che un
+  // annuncio senza creatività, che Meta rifiuterebbe comunque.
+  let fraseAnnuncio = "L'ANNUNCIO NON C'È ANCORA: il creativo si monta in Ads Manager prima dell'accensione.";
+  const cr = p.creativo;
+  if (cr?.imageHash && cr.url) {
+    // La pagina: indicata nel modulo, o trovata sull'account se è una sola.
+    let pagina = p.paginaId?.trim() || null;
+    if (!pagina) {
+      const trovata = await paginaDellAccount(idAccount);
+      if (!trovata.id) {
+        return {
+          riuscita: false,
+          idCreato: idCampagna,
+          dettaglio:
+            `PARZIALE — campagna ${idCampagna} e ad set ${idAdSet} creati (IN PAUSA), ma l'ANNUNCIO no: ` +
+            `serve la Pagina Facebook e ${trovata.motivo}. Non riaccodare questo lancio (nascerebbe una seconda campagna): ` +
+            "l'annuncio si monta in Ads Manager — l'immagine è già nella libreria dell'account.",
+        };
+      }
+      pagina = trovata.id;
+      note.push(`pagina trovata dall'app sull'account: ${pagina}`);
+    }
+
+    const linkData: Record<string, unknown> = {
+      link: cr.url,
+      message: (cr.testi ?? [])[0] ?? cr.titolo ?? "",
+      image_hash: cr.imageHash,
+    };
+    if (cr.titolo) linkData.name = cr.titolo;
+    if (cr.descrizione) linkData.description = cr.descrizione;
+    if (cr.cta) linkData.call_to_action = { type: cr.cta, value: { link: cr.url } };
+
+    const annuncioFallito = (motivo: string): EsitoScrittura => ({
+      riuscita: false,
+      idCreato: idCampagna,
+      dettaglio:
+        `PARZIALE — campagna ${idCampagna} e ad set ${idAdSet} creati (IN PAUSA), ma l'ANNUNCIO no: ${motivo}. ` +
+        "Non riaccodare questo lancio (nascerebbe una seconda campagna): l'annuncio si monta in Ads Manager — " +
+        "l'immagine è già nella libreria dell'account.",
+    });
+
+    let idCreative: string;
+    try {
+      const r = await fetch(`${BASE}/${conto}/adcreatives`, {
+        method: "POST",
+        body: new URLSearchParams({
+          name: `${p.nome} — creative 1`,
+          object_story_spec: JSON.stringify({ page_id: pagina, link_data: linkData }),
+          access_token: t,
+        }),
+        cache: "no-store",
+      });
+      const dati = (await r.json()) as { id?: string; error?: { message?: string; error_user_msg?: string } };
+      if (dati.error || !dati.id) return annuncioFallito(`Meta ha rifiutato il creative: ${dati.error?.error_user_msg ?? dati.error?.message ?? "nessun id"}`);
+      idCreative = dati.id;
+    } catch (e) {
+      return annuncioFallito(`chiamata fallita creando il creative: ${String(e)}`);
+    }
+    try {
+      const r = await fetch(`${BASE}/${conto}/ads`, {
+        method: "POST",
+        body: new URLSearchParams({
+          name: `${p.nome} — annuncio 1`,
+          adset_id: idAdSet,
+          creative: JSON.stringify({ creative_id: idCreative }),
+          status: "PAUSED",
+          access_token: t,
+        }),
+        cache: "no-store",
+      });
+      const dati = (await r.json()) as { id?: string; error?: { message?: string; error_user_msg?: string } };
+      if (dati.error || !dati.id) return annuncioFallito(`Meta ha rifiutato l'annuncio: ${dati.error?.error_user_msg ?? dati.error?.message ?? "nessun id"}`);
+      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
+    } catch (e) {
+      return annuncioFallito(`chiamata fallita creando l'annuncio: ${String(e)}`);
+    }
+  } else if (cr?.imageHash && !cr.url) {
+    note.push("immagine caricata ma senza URL di destinazione: annuncio non creato, si monta in Ads Manager");
+  }
+
   // Rilettura indipendente: «la POST è passata» e «su Meta adesso c'è» sono
   // due frasi diverse — stessa regola di budgetMeta.
   const riletta = await rileggi(idCampagna, "name,status,objective");
@@ -574,7 +729,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
       `campagna ${idCampagna} + ad set ${idAdSet} creati su Meta, tutti e due IN PAUSA${conferma}. ` +
       `Ottimizzazione ${optimization}${promotedObject ? ` su ${promotedObject.custom_event_type} (pixel ${promotedObject.pixel_id})` : ""}, ` +
       `budget ${p.budget.toFixed(2)} €/g ${cbo ? "sulla campagna (Advantage/CBO)" : "sull'ad set (ABO)"}. ` +
-      `L'ANNUNCIO NON C'È ANCORA: il creativo si monta in Ads Manager prima dell'accensione.` +
+      fraseAnnuncio +
       (note.length > 0 ? ` Note: ${note.join(" · ")}.` : ""),
     dopo: "creata in pausa",
   };
