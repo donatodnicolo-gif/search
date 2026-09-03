@@ -923,6 +923,15 @@ export default async function SchedaCampagna({
         <section className="scheda">
           <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <span>Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni</span>
+            {/* Il gruppo NUOVO si prepara nella sua pagina (nome, keyword,
+                annuncio, brief AI) e passa dalla coda come tutto il resto.
+                Solo su Google e solo a campagna CONFERMATA: prima, il gruppo
+                del lancio arriva da solo col «Completa la campagna». */}
+            {campagna.canale === "google_ads" && campagna.idEsterno && !defunta && (
+              <a className="btn small btn-secondario" href={`/campagne/${campagna.id}/nuovo-gruppo`}>
+                Nuovo gruppo
+              </a>
+            )}
             {/* ⚠️ L'annuncio si crea da qui SOLO se il gruppo è uno. Un annuncio
                 vive dentro un gruppo, e con più gruppi bisognerebbe scegliere:
                 farlo scegliere in fretta da un menù, davanti a una lista di

@@ -73,6 +73,169 @@ const SCHEMA_BRIEF = {
 const OBIETTIVI_AMMESSI = ["vendite", "contatti", "traffico", "notorieta"];
 const MATCH_AMMESSI = ["exact", "phrase", "broad"];
 
+// ——— Il brief per un GRUPPO NUOVO dentro una campagna che esiste già ———
+// Stessa filosofia del brief campagna: l'AI COMPILA il modulo, non crea
+// niente. Il contesto però è la CAMPAGNA: i gruppi che ha già (per non
+// doppiarli e per lo stile dei nomi), le sue keyword che rendono, le sue
+// destinazioni.
+
+export type BriefGruppo = {
+  gruppo: string;
+  keywords: { testo: string; corrispondenza: string }[];
+  titoli: string[];
+  descrizioni: string[];
+  finalUrl: string;
+  motivo: string;
+};
+
+export type EsitoBriefGruppo =
+  | { ok: true; brief: BriefGruppo; note: string | null; scartati: string[]; modello: string }
+  | { ok: false; errore: string };
+
+// Stesso principio dello SCHEMA_BRIEF: minimo, i tetti si impongono nel codice.
+const SCHEMA_BRIEF_GRUPPO = {
+  type: "object",
+  additionalProperties: false,
+  required: ["gruppo", "keywords", "titoli", "descrizioni"],
+  properties: {
+    gruppo: { type: "string" },
+    keywords: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["testo", "corrispondenza"],
+        properties: { testo: { type: "string" }, corrispondenza: { type: "string" } },
+      },
+    },
+    titoli: { type: "array", items: { type: "string" } },
+    descrizioni: { type: "array", items: { type: "string" } },
+    finalUrl: { type: "string" },
+    motivo: { type: "string" },
+    note: { type: "string" },
+  },
+} as const;
+
+export async function proponiBriefGruppo(input: {
+  descrizione: string;
+  campagnaId: string;
+}): Promise<EsitoBriefGruppo> {
+  const descrizione = String(input.descrizione ?? "").trim();
+  if (descrizione.length < 10) {
+    return { ok: false, errore: "Scrivi almeno una frase su cosa deve coprire questo gruppo." };
+  }
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: String(input.campagnaId ?? "") },
+    select: { id: true, nome: true, brand: true, canale: true, obiettivo: true },
+  });
+  if (!campagna) return { ok: false, errore: "Campagna non trovata." };
+  if (campagna.canale !== "google_ads") {
+    return { ok: false, errore: "I gruppi di annunci con keyword esistono su Google Ads: su Meta il pubblico si costruisce in Ads Manager." };
+  }
+
+  const [gruppi, keywordChe, destinazioni] = await Promise.all([
+    prisma.gruppo.findMany({
+      where: { campagnaId: campagna.id },
+      select: { nome: true, stato: true },
+      take: 30,
+    }),
+    prisma.copyAnnuncio.findMany({
+      where: { tipo: "keyword", stato: { not: "defunta" }, campagna: campagna.nome },
+      orderBy: { incasso: { sort: "desc", nulls: "last" } },
+      take: 20,
+      select: { testo: true, spesa: true, incasso: true, conversioni: true },
+    }),
+    prisma.copyAnnuncio.findMany({
+      where: { tipo: "destinazione", finalUrl: { not: null }, campagna: campagna.nome },
+      orderBy: { spesa: { sort: "desc", nulls: "last" } },
+      take: 8,
+      select: { finalUrl: true },
+    }),
+  ]);
+
+  const esito = await chiediAllAi({
+    istruzioni: `Sei un esperto di Google Ads. Devi preparare un NUOVO GRUPPO DI ANNUNCI dentro la campagna «${campagna.nome}» di ${ETICHETTA_BRAND[campagna.brand] ?? campagna.brand} (obiettivo: ${campagna.obiettivo ?? "non dichiarato"}).
+
+Compila il brief del gruppo a partire dalla richiesta dell'utente. Rispondi SOLO con il JSON dello schema.
+
+REGOLE, o il modulo rifiuta il brief:
+- "gruppo" è il nome del nuovo gruppo: DEVE essere diverso dai gruppi già esistenti (li ricevi nei dati) e coerente col loro stile.
+- "corrispondenza" di ogni keyword deve essere exact, phrase o broad. Le keyword devono essere COERENTI fra loro: un gruppo = un intento di ricerca.
+- Massimo 15 titoli, ognuno di 30 caratteri O MENO (contali: 31 = buttato). Almeno 8.
+- Massimo 4 descrizioni, ognuna di 90 caratteri O MENO. Almeno 3.
+- "finalUrl" è la pagina di destinazione: coerente con l'intento del gruppo, scelta fra quelle già in uso se una combacia.
+- "motivo" è una riga sul perché questo gruppo esiste, per lo storico.
+
+TONO E CLAIM per ${ETICHETTA_BRAND[campagna.brand] ?? campagna.brand} — vincoli veri, il modulo blocca chi li viola:
+${regoleDiBrand(campagna.brand).map((r) => `- ${r}`).join("\n") || "- nessuna regola specifica per questo brand"}`,
+    dati: {
+      richiestaDellUtente: descrizione,
+      campagna: { nome: campagna.nome, obiettivo: campagna.obiettivo },
+      gruppiGiaEsistenti: gruppi.map((g) => ({ nome: g.nome, stato: g.stato })),
+      keywordCheRendonoDiPiu: keywordChe,
+      destinazioniGiaInUso: destinazioni.map((d) => d.finalUrl),
+    },
+    schema: SCHEMA_BRIEF_GRUPPO,
+    massimoToken: 4000,
+  });
+
+  if (!esito.ok) return { ok: false, errore: esito.errore };
+
+  let grezzo: Record<string, unknown>;
+  try {
+    grezzo = JSON.parse(esito.testo) as Record<string, unknown>;
+  } catch {
+    return { ok: false, errore: "L'AI ha risposto in una forma non leggibile: riprova." };
+  }
+
+  // Stessi tetti del brief campagna, imposti QUI e dichiarati.
+  const scartati: string[] = [];
+  const testi = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : [];
+
+  const titoliTutti = testi(grezzo.titoli);
+  const titoli = titoliTutti.filter((t) => t.length <= 30).slice(0, 15);
+  const titoliLunghi = titoliTutti.filter((t) => t.length > 30);
+  if (titoliLunghi.length > 0) {
+    scartati.push(`${titoliLunghi.length} titol${titoliLunghi.length === 1 ? "o" : "i"} oltre i 30 caratteri (es. «${titoliLunghi[0].slice(0, 45)}…»)`);
+  }
+  const descrizioniTutte = testi(grezzo.descrizioni);
+  const descrizioni = descrizioniTutte.filter((d) => d.length <= 90).slice(0, 4);
+  const descrizioniLunghe = descrizioniTutte.filter((d) => d.length > 90);
+  if (descrizioniLunghe.length > 0) {
+    scartati.push(`${descrizioniLunghe.length} descrizion${descrizioniLunghe.length === 1 ? "e" : "i"} oltre i 90 caratteri`);
+  }
+
+  const nomeGruppo = String(grezzo.gruppo ?? "").trim();
+  const giaEsiste = gruppi.some((g) => g.nome.trim().toLowerCase() === nomeGruppo.toLowerCase());
+  if (giaEsiste) {
+    scartati.push(`il nome «${nomeGruppo}» esiste già nella campagna: cambialo prima di accodare`);
+  }
+
+  const keywords = (Array.isArray(grezzo.keywords) ? grezzo.keywords : [])
+    .map((k) => {
+      const o = k as Record<string, unknown>;
+      const m = String(o.corrispondenza ?? "broad").toLowerCase();
+      return { testo: String(o.testo ?? "").trim(), corrispondenza: MATCH_AMMESSI.includes(m) ? m : "broad" };
+    })
+    .filter((k) => k.testo);
+
+  return {
+    ok: true,
+    brief: {
+      gruppo: nomeGruppo,
+      keywords,
+      titoli,
+      descrizioni,
+      finalUrl: String(grezzo.finalUrl ?? "").trim(),
+      motivo: String(grezzo.motivo ?? "").trim(),
+    },
+    note: grezzo.note ? String(grezzo.note) : null,
+    scartati,
+    modello: esito.modello,
+  };
+}
+
 export async function proponiBriefCampagna(input: {
   descrizione: string;
   brand: string;

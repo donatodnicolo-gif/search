@@ -2632,6 +2632,124 @@ export async function lanciaCampagnaMeta(fd: FormData) {
   redirect("/operazioni");
 }
 
+/**
+ * Un GRUPPO DI ANNUNCI NUOVO dentro una campagna che esiste già.
+ *
+ * Non serve un tipo di operazione nuovo: è un `completa_campagna` — lo stesso
+ * che chiude il lancio in due tempi — puntato su una campagna viva con un nome
+ * di gruppo che non c'è ancora. Lo script è già IDEMPOTENTE lato suo: il
+ * gruppo che manca lo crea (`newAdGroupBuilder`), keyword e RSA nascono
+ * dentro, e quello che c'è già non si rifà. Inventare un `nuovo_gruppo`
+ * avrebbe voluto dire un tipo in più da dichiarare, reincollare e tenere
+ * allineato in tre posti, per un lavoro che il catalogo sapeva già fare.
+ */
+export async function accodaNuovoGruppo(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const gruppo = testo(fd, "gruppo");
+  const indietro = (messaggio: string) =>
+    `/campagne/${campagnaId}/nuovo-gruppo?errore=${encodeURIComponent(messaggio)}`;
+  if (!campagnaId) return;
+  if (!gruppo) redirect(indietro("Serve il nome del gruppo"));
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, brand: true, canale: true, account: true, idEsterno: true, stato: true },
+  });
+  if (!campagna) return;
+  if (campagna.canale !== "google_ads") {
+    redirect(indietro("I gruppi con keyword esistono su Google Ads: su Meta l'ad set si costruisce in Ads Manager"));
+  }
+  // ⚠️ Senza idEsterno la campagna non è ancora confermata da Google: il
+  // gruppo arriverà comunque col «Completa la campagna» del lancio — accodarne
+  // un secondo ora significherebbe due operazioni che si contendono la stessa
+  // campagna non ancora nata.
+  if (!campagna.idEsterno) {
+    redirect(indietro("Google non ha ancora confermato questa campagna: il gruppo del lancio arriva da solo col primo giro di anagrafica. Riprova quando la campagna ha il suo id."));
+  }
+  const omonimo = await prisma.gruppo.findFirst({
+    where: { campagnaId: campagna.id, nome: { equals: gruppo.trim() } },
+    select: { id: true },
+  });
+  if (omonimo) {
+    redirect(indietro(`Un gruppo «${gruppo}» esiste già in questa campagna: lo script non lo rifarebbe. Scegli un altro nome, o lavora su quello.`));
+  }
+
+  const titoli = (testo(fd, "titoli") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+  const descrizioni = (testo(fd, "descrizioni") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+  const finalUrl = testo(fd, "finalUrl");
+
+  // Lint 7.2/7.3, come sul lancio: le vietate bloccano.
+  const { lintCopy } = await import("./copy-lint");
+  const problemi: string[] = [];
+  for (const t of [...titoli, ...descrizioni]) {
+    for (const v of lintCopy(t, campagna.brand)) {
+      if (v.tipo === "vietato") {
+        problemi.push(`"${v.parola}" in «${t.slice(0, 40)}»: ${v.motivo}${v.sostituzione ? ` → ${v.sostituzione}` : ""}`);
+      }
+    }
+  }
+  if (problemi.length > 0) {
+    redirect(indietro(`Copy bloccato dal lint 7.2/7.3 — ${problemi[0]}${problemi.length > 1 ? ` (e altre ${problemi.length - 1})` : ""}`));
+  }
+  if (titoli.length > 0 && titoli.length < 3) {
+    redirect(indietro("Un annuncio RSA vuole almeno 3 titoli (meglio 8-10)"));
+  }
+  if (titoli.length >= 3 && (descrizioni.length < 2 || !finalUrl)) {
+    redirect(indietro("Con i titoli servono almeno 2 descrizioni e la URL finale"));
+  }
+  const troppoLunghi = titoli.filter((t) => t.length > 30).length + descrizioni.filter((d) => d.length > 90).length;
+  if (troppoLunghi > 0) {
+    redirect(indietro("Limiti Google: titoli max 30 caratteri, descrizioni max 90"));
+  }
+
+  const keywords = (testo(fd, "keywords") ?? "")
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((r) => {
+      const [t, m] = r.split("|").map((x) => x.trim());
+      return { testo: t, corrispondenza: (m || "broad").toLowerCase() };
+    });
+  if (keywords.length === 0 && titoli.length === 0) {
+    redirect(indietro("Un gruppo vuoto non serve a niente: servono keyword, un annuncio, o tutti e due"));
+  }
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "completa_campagna",
+      canale: "google_ads",
+      account: campagna.account,
+      idEsterno: campagna.idEsterno,
+      bersaglio: campagna.nome,
+      parametri: JSON.stringify({
+        gruppo: gruppo.trim(),
+        keywords,
+        titoli,
+        descrizioni,
+        finalUrl,
+        // Niente località: quelle sono della campagna, che esiste già com'è.
+        localitaId: [],
+        localitaNomi: [],
+      }),
+      motivo:
+        testo(fd, "motivo") ??
+        `Gruppo nuovo «${gruppo}» dentro «${campagna.nome}»: ${keywords.length} keyword${titoli.length >= 3 ? " + 1 annuncio RSA" : ""}.`,
+      livello: "L2",
+      prima: "assente",
+      campagnaId: campagna.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): nuovo gruppo "${gruppo}" in «${campagna.nome}»`,
+    dettaglio: `${keywords.length} keyword · ${titoli.length} titoli · ${descrizioni.length} descrizioni`,
+  });
+  redirect(esitoInCoda(`nuovo gruppo «${gruppo}»`, [], `/campagne/${campagna.id}`));
+}
+
 // ---------- Gruppi di annunci ----------
 // Lo stato del gruppo nell'app è una scelta dell'utente (come per le keyword):
 // l'import non lo tocca mai, tiene il suo in statoPiattaforma.
