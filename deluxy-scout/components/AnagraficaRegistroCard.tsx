@@ -2,11 +2,11 @@
 // (fonte di verità) i dati del negozio — stato, interessi (tipologia autorevole),
 // referenti — invece di dedurli dalla copia locale.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Linking, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { StatoAffiliazione } from '@/types';
 import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
-import { cercaAnagrafica, type PartnerRegistro } from '@/lib/anagrafiche';
+import { cercaAnagrafica, urlSchedaRegistro, type PartnerRegistro } from '@/lib/anagrafiche';
 
 // Etichette leggibili per gli "interessi" del registro (la tipologia autorevole).
 const LABEL_INTERESSE: Record<string, string> = {
@@ -57,10 +57,10 @@ export function AnagraficaRegistroCard({
   if (loading) {
     return (
       <View style={[styles.card, compatta && styles.cardCompatta]}>
-        <View style={styles.headRow}>
-          {compatta ? null : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
-          <ActivityIndicator size="small" color={colors.navy} />
-        </View>
+      <View style={styles.headRow}>
+        {compatta ? <View /> : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
+        {!esatto ? <Text style={styles.probabile}>corrispondenza probabile</Text> : null}
+      </View>
       </View>
     );
   }
@@ -86,6 +86,26 @@ export function AnagraficaRegistroCard({
       <View style={styles.headRow}>
         {compatta ? <View /> : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
         {!esatto ? <Text style={styles.probabile}>corrispondenza probabile</Text> : null}
+        {/* ⭐ IL LINK ALLA SCHEDA (31/08/2026, richiesta dell'utente: «voglio
+            qui link ad anagrafiche»). La card mostrava i dati del registro
+            senza portare al registro: per correggere un interesse o aggiungere
+            la P.IVA bisognava cercarsi l'azienda a mano di là.
+            ⚠️ Costruito sull'ID del partner trovato, non sul nome: è l'unico
+            aggancio certo (urlSchedaRegistro torna null senza id, e allora il
+            link non compare — un link che apre la scheda di un altro è peggio
+            di nessun link). */}
+        {urlSchedaRegistro(partner.id) ? (
+          <Pressable
+            style={styles.apriRegistro}
+            hitSlop={6}
+            onPress={() => Linking.openURL(urlSchedaRegistro(partner.id)!)}
+            accessibilityLabel={`Apri ${partner.nome} nel registro Anagrafiche`}
+            {...({ title: 'Apri questa scheda nel registro Anagrafiche' } as any)}
+          >
+            <Ionicons name="open-outline" size={13} color={colors.navy} />
+            <Text style={styles.apriRegistroTxt}>Apri nel registro</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.metaRow}>
@@ -170,5 +190,7 @@ const styles = StyleSheet.create({
   recapiti: { gap: 2 },
   recapito: { color: colors.testoSoft, fontSize: 13 },
   contatti: { gap: 2, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 6 },
+  apriRegistro: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  apriRegistroTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5, textDecorationLine: 'underline' },
   contattoRiga: { color: colors.testo, fontSize: 13 },
 });
