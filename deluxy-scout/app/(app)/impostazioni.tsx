@@ -765,6 +765,10 @@ function SezioneChiaveIngresso() {
  *   · «non risponde»  provata, e l'altra app ha detto di no (401, 404, rete);
  *   · «collegata»     provata, e ha risposto. Solo questa è verde.
  */
+/** Le app con una rotta di sola lettura da chiamare per la prova. ⚠️ Aggiungere
+ *  qui quando un'altra app ne espone una: è l'unico posto da toccare. */
+const PROVABILI = new Set(['piattaforma']);
+
 function pillolaDi(s: StatoChiaveApp | undefined): { label: string; tono: 'ok' | 'neutro' | 'ko' } {
   if (!s?.configurata) return { label: 'da collegare', tono: 'neutro' };
   // ⚠️ «da provare» è GRIGIO, non rosso: non sappiamo che sia rotto, sappiamo
@@ -851,14 +855,39 @@ function SezioneAppCollegate() {
     setUrlBase(s?.url_base ?? '');
   }
 
+  /**
+   * ⭐ **SALVARE È PROVARE** (03/09/2026, richiesta dell'utente: «ho bisogno che
+   * la chiave funzioni in base a salvamento su app»).
+   *
+   * Chi incolla una chiave vuole sapere SUBITO se funziona — non fra due
+   * settimane, quando qualcuno prova a mandare una richiesta di evasione. Prima
+   * il salvataggio era muto e la pillola si accendeva verde comunque: è così
+   * che nella casella della piattaforma è rimasto un IBAN per settimane.
+   *
+   * Quindi: si salva, si chiama davvero l'altra app, e la risposta si mostra e
+   * si scrive (migr. 0116). ⚠️ La chiave resta salvata anche se la prova va
+   * male: magari è giusta e l'altra app è giù in questo momento — cancellarla
+   * al primo errore vorrebbe dire far ribattere una chiave buona. Ma la
+   * schermata NON dice «fatto»: dice che cosa ha risposto.
+   *
+   * ⚠️ La prova esiste solo per le app che hanno una rotta di sola lettura
+   * pensata apposta (oggi: la piattaforma consegne). Per le altre si salva e la
+   * pillola resta «da provare» — che è la verità, non un'omissione.
+   */
   async function salva(appId: string) {
     if (!chiave.trim() || salvando) return;
     setSalvando(true);
     setErrore(null);
+    setEsitoProva(null);
     try {
       await salvaChiaveApp(appId, chiave, urlBase);
       setChiave('');
-      setAperta(null);
+      if (PROVABILI.has(appId)) {
+        // Non si chiude il pannello: l'esito si legge qui sotto.
+        await provaCollegamento(appId);
+      } else {
+        setAperta(null);
+      }
       await carica();
     } catch (e: any) {
       setErrore(e?.message ?? 'Chiave non salvata.');
@@ -947,6 +976,14 @@ function SezioneAppCollegate() {
                   autoCorrect={false}
                   secureTextEntry
                 />
+                {/* ⚠️ DOVE SI PRENDE, detto qui: senza, l'unica strada nota era la
+                    riga di comando — e chi lavora in app non ce l'ha. */}
+                {app.id === 'piattaforma' ? (
+                  <Text style={styles.aiuto}>
+                    La chiave si crea nella piattaforma consegne: Configurazione → Chiavi delle app → Nuova, col
+                    permesso di SCRITTURA. Si vede una volta sola, quindi incollala qui subito.
+                  </Text>
+                ) : null}
                 <Text style={styles.campoLabel}>Indirizzo (solo se diverso dal solito)</Text>
                 <TextInput
                   style={styles.input}
@@ -963,9 +1000,11 @@ function SezioneAppCollegate() {
                     disabled={!chiave.trim() || salvando}
                     onPress={() => salva(app.id)}
                   >
-                    <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva la chiave'}</Text>
+                    <Text style={styles.btnTxt}>
+                      {salvando ? 'Salvo e provo…' : PROVABILI.has(app.id) ? 'Salva e prova' : 'Salva la chiave'}
+                    </Text>
                   </Pressable>
-                  {app.id === 'piattaforma' ? (
+                  {PROVABILI.has(app.id) ? (
                     <Pressable
                       style={[styles.btnGhost, provaApp === app.id && styles.btnOff]}
                       disabled={!!provaApp}
