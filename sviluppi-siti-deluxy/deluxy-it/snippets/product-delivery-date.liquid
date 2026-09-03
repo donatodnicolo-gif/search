@@ -1,0 +1,1368 @@
+{% assign days = 1 | times: 86400 %}
+{% if product.metafields.prodotto.consegna == blank or product.metafields.prodotto.consegna == 0 %}
+  {% assign delivery_date = 'now' | date: '%B %d, %Y' %}
+{% elsif product.metafields.prodotto.consegna == 1 %}
+  {% assign days = 1 | times: 86400 %}
+  {% assign delivery_date = 'now' | date: '%s' | plus: days | date: '%B %d, %Y' %}
+{% else %}
+  {% assign days = product.metafields.prodotto.consegna | times: 86400 %}
+  {% assign delivery_date = 'now' | date: '%s' | plus: days | date: '%B %d, %Y' %}
+{% endif %}
+
+{% assign productId = product.id %}
+
+<div class="right-side-calender">
+  <div class="delivery-date-section date_not_select" style="display:none">
+    <div class="delivery-date-title-not-local-select">
+      <span>
+        {% if product.metafields.prodotto.consegna == blank or product.metafields.prodotto.consegna == 0 %}
+          Seleziona la data di consegna
+        {% elsif product.metafields.prodotto.consegna == 1 %}
+          Seleziona la data di consegna
+        {% else %}
+          Seleziona la data di consegna {{ delivery_date }}
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <div class="delivery-date-title-not-local-select" style="display:none">
+    <span>
+      {% if product.metafields.prodotto.consegna == blank or product.metafields.prodotto.consegna == 0 %}
+        Seleziona la data di consegna
+      {% elsif product.metafields.prodotto.consegna == 1 %}
+        Seleziona la data di consegna
+      {% else %}
+        CONSEGNA PER STUPIRE DAL {{ delivery_date }}
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="delivery-date-title" style="display:none;"></div>
+  <br>
+
+  <div class="delivery-date-title2">
+    {% if product.variants.size > 1 %}
+      <span class="vardel_avil_or_not"></span>
+    {% else %}
+      <span class="del_avil_or_not"></span>
+    {% endif %}
+
+    <span class="savedDate"></span>
+    <span class="newSelectedDate"></span>
+    <span class="AutoDate"></span>
+  </div>
+  <br>
+
+  <span class="sub_text">
+    <button type="button" id="change_date_btn" data-variant-id="{{ product.selected_or_first_available_variant.id }}">
+      {{ 'general.new.change_the_date' | t }}
+    </button>
+  </span>
+
+  <input type="hidden" id="Stardate" value="{{ delivery_date }}">
+  <input type="hidden" class="prdt_del_date_real" value="{{ delivery_date }}">
+  <input id="meta-data-value" type="hidden" value="">
+
+  <div class="ui calendar product-calendar" id="product-calendar" style="display:none;"></div>
+</div>
+
+{% assign meta_array = '' %}
+{% for variant in product.variants %}
+  {% assign meta_array = meta_array | append: variant.metafields.prodotto.consegna %}
+{% endfor %}
+
+{% if meta_array == blank %}
+  {% if product.metafields.prodotto.consegna != blank %}
+    {% assign consegna = product.metafields.prodotto.consegna %}
+    <ul class="metaValue hide">
+      {% for variant in product.variants %}
+        <li data-id="{{ variant.id }}" data-value="{{ consegna }}"></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <ul class="metaValue hide">
+      {% for variant in product.variants %}
+        {% assign consegna = variant.metafields.prodotto.consegna | default: 0 %}
+        <li data-id="{{ variant.id }}" data-value="{{ consegna }}"></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% else %}
+  <ul class="metaValue hide">
+    {% for variant in product.variants %}
+      {% assign consegna = variant.metafields.prodotto.consegna | default: 0 %}
+      <li data-id="{{ variant.id }}" data-value="{{ consegna }}"></li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<script>
+
+let automaticData = localStorage.getItem('auto_delivery_date');
+if (!automaticData || isNaN(new Date(automaticData).getTime())) {
+  localStorage.removeItem('auto_delivery_date');
+  var parsedDate = new Date();
+  if (isNaN(parsedDate.getTime())) { 
+    console.error('Invalid current date:', parsedDate);
+  } else {
+    var var_auto_delivery_date = parsedDate.toLocaleDateString('it-IT', { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    console.log("var_auto_delivery_date", var_auto_delivery_date);
+    localStorage.setItem('auto_delivery_date', var_auto_delivery_date);  
+  }
+}
+
+function cal_dates(getlocalDate, autoDay) {
+    var calendarElement = $(".product-calendar");
+    var calendarDates = calendarElement.find(".link");
+    calendarDates.each(function () {
+        var dateText = $(this).text().trim();
+        var dateParts = dateText.split(' ');
+        var CalDateParts = dateParts[0];
+        var CalDateYear = dateParts[1];
+        if (getlocalDate) {
+            var localDateParts = getlocalDate.split(' ');
+            var localautoDay = localDateParts[2].replace(/,/g, '');
+            var localautoMonth = localDateParts[1];
+            var localautoYear = localDateParts[3];
+            if (CalDateParts === localautoDay) {
+                $(this).addClass("active");
+                return false;
+            }
+        } else {
+            if (CalDateParts === autoDay) {
+                $(this).addClass("active");
+                return false; 
+            }
+        }
+    });
+}
+  
+{% if product.variants.size > 1 %}
+  
+function getQueryParameter(name) {
+  var urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(name);
+}
+  
+function getDate(offset = 0) {
+  var currdate = new Date();
+  currdate.setDate(currdate.getDate() + offset);
+  var dd = String(currdate.getDate()).padStart(2, '0');
+  var mm = String(currdate.getMonth() + 1).padStart(2, '0'); // January is 0!
+  var yyyy = currdate.getFullYear();
+  return `${yyyy}-${mm}-${dd}`;
+}
+  
+function changeDateFormat(delDate) {
+  var monthAbbreviations = {
+    'Gennaio': 'gen',
+    'Febbraio': 'feb',
+    'Marzo': 'mar',
+    'Aprile': 'apr',
+    'Maggio': 'mag',
+    'Giugno': 'giu',
+    'Luglio': 'lug',
+    'Agosto': 'ago',
+    'Settembre': 'set',
+    'Ottobre': 'ott',
+    'Novembre': 'nov',
+    'Dicembre': 'dic'
+  };
+
+  var parts = delDate.split(' ');
+  var dayOfWeek = parts[0].toLowerCase(); 
+  var day = parts[2]; 
+  var month = parts[1]; 
+  var year = parts[3]; 
+  var daysOfWeek = {
+    'Lun': 'lun',
+    'Mar': 'mar',
+    'Mer': 'mer',
+    'Gio': 'gio',
+    'Ven': 'ven',
+    'Sab': 'sab',
+    'Dom': 'dom'
+  };
+
+  var shortDayOfWeek = daysOfWeek[dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)]; // "ven"
+  var shortMonth = monthAbbreviations[month];
+  return `${shortDayOfWeek} ${day} ${shortMonth} ${year}`.toLowerCase();  
+}
+  
+function parseDate(dateStr) {
+  const monthNames = {
+    'gen': 0, // January
+    'feb': 1, // February
+    'mar': 2, // March
+    'apr': 3, // April
+    'mag': 4, // May
+    'giu': 5, // June
+    'lug': 6, // July
+    'ago': 7, // August
+    'set': 8, // September
+    'ott': 9, // October
+    'nov': 10, // November
+    'dic': 11  // December
+  };
+
+  const parts = dateStr.split(' ');
+  const day = parseInt(parts[1], 10);
+  const month = monthNames[parts[2].slice(0, 3)];
+  const year = parseInt(parts[3], 10);
+  return new Date(year, month, day);
+}
+  
+var init_var_delDate = localStorage.getItem('delivery_date_val');
+var var_today = getDate();
+var var_tomorrow = getDate(1);
+var get_date = localStorage.getItem('variantDate');
+  
+if(init_var_delDate) {
+  var init_formattedDelDate = changeDateFormat(init_var_delDate);
+  var init_fetchedautoDate = localStorage.getItem('auto_delivery_date');
+  var init_parsedAutoDate = parseDate(init_fetchedautoDate);
+  var init_parsedDelDate = parseDate(init_formattedDelDate);
+  if(init_parsedDelDate < init_parsedAutoDate) { 
+    $(".vardel_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+    $(".payment-buttons button.btn.add-to-cart.btn--primary").attr("disabled", true);
+  } else {
+    $(".vardel_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+    $(".payment-buttons button.btn.add-to-cart.btn--primary").removeAttr("disabled");
+  }
+} else {
+  $(".vardel_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+}
+
+function updateVariantInput() {
+    var variantId = getQueryParameter('variant');
+    var variantValue = null;
+
+    if (variantId) {
+        $('.metaValue li').each(function () {
+            if ($(this).data('id') == variantId) {
+                variantValue = $(this).data('value');
+                return false; 
+            }
+        });
+    }
+
+    if (variantValue !== null) {
+        $('#meta-data-value').val(variantValue).trigger('change');
+    }
+}
+
+function formatDate(date) {
+    var options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
+}
+
+var changed_var_auto_delivery_date;
+var finalDate;
+
+function updateDateDisplay(value) {
+  var date = new Date();
+  var daysToAdd = parseInt(value);
+  if (!isNaN(daysToAdd)) {
+    date.setDate(date.getDate() + daysToAdd);
+    finalDate = formatDate(date);
+    localStorage.setItem("variantDate", finalDate);
+    var changed_parsedDate = new Date(finalDate);
+    changed_var_auto_delivery_date = changed_parsedDate.toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    localStorage.setItem('auto_delivery_date', changed_var_auto_delivery_date);
+    calenderForm(finalDate, changed_var_auto_delivery_date, getDate(), getDate(1));
+    cal_dates(var_delDate);
+  
+    var var_delDate = localStorage.getItem('delivery_date_val');
+    if(var_delDate){
+      var formattedDelDate = changeDateFormat(var_delDate);
+      var fetchedautoDate = localStorage.getItem('auto_delivery_date');
+      var parsedAutoDate = parseDate(fetchedautoDate);
+      var parsedDelDate = parseDate(formattedDelDate);
+      if(parsedDelDate < parsedAutoDate ) { 
+        $(".vardel_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+        $(".payment-buttons button.btn.add-to-cart.btn--primary").attr("disabled", true);
+      } else {
+        $(".vardel_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+        $(".payment-buttons button.btn.add-to-cart.btn--primary").removeAttr("disabled");
+      }
+    } else {
+      $(".vardel_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+    }
+    
+    document.addEventListener("DOMContentLoaded", (event) => {
+      if(parsedDelDate < parsedAutoDate ) { 
+        $(".vardel_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+        $(".payment-buttons button.btn.add-to-cart.btn--primary").attr("disabled", true);
+      } else {
+        $(".vardel_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+        $(".payment-buttons button.btn.add-to-cart.btn--primary").removeAttr("disabled");
+      }
+    });
+    
+    $(".del_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+    var func_format = dateString => new Date(Date.UTC(...dateString.match(/(\d+)\s(\w+)\s(\d+)/).slice(1).reverse().map((v, i) => i === 0 ? v : i === 1 ? new Date(Date.parse(v + " 1")).getMonth() : parseInt(v)))).toISOString().split('T')[0];
+    var var_auto = func_format(finalDate);
+    console.log("var_auto=====>", var_auto)
+    console.log("var_today=====>", var_today)
+    console.log("var_tomorrow=====>", var_tomorrow)
+    console.log("changed_var_auto_delivery_date=====>", changed_var_auto_delivery_date)
+    if (var_auto === var_today) {
+      $(".AutoDate").text('{{"general.new.today" | t}}');
+    }
+    else if (var_auto === var_tomorrow) {
+      $(".AutoDate").text('{{"general.new.tomorrow" | t}}');
+    }
+    else {
+      $(".AutoDate").text(changed_var_auto_delivery_date);
+    }
+  } else {
+    $('#date-display').text('Invalid date value');
+  }
+}
+
+$(".del_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+  
+// Initial load
+updateVariantInput();
+
+// Check and set initial value in localStorage if not present
+// Check and set initial value in localStorage if not present
+var com_var = localStorage.getItem("variantDate");
+var get_today = new Date();
+var com_today = (get_today.getDate() < 10 ? '0' : '') + get_today.getDate() + ' ' + ['January','February','March','April','May','June','July','August','September','October','November','December'][get_today.getMonth()] + ' ' + get_today.getFullYear();
+
+  
+{% assign var_meta = product.selected_or_first_available_variant %}
+  {% if var_meta.metafields.prodotto.consegna == blank %}
+    {% if product.metafields.prodotto.consegna != blank %}
+      {% assign var_meta_value = product.metafields.prodotto.consegna %} 
+    {% else %}
+       {% assign var_meta_value = 0 %} 
+    {% endif %}
+  {% else %}
+    {% assign var_meta_value = var_meta.metafields.prodotto.consegna %}
+{% endif %}
+  
+var liquid_meta = {{ var_meta_value }}
+var firstVariantValue = liquid_meta;
+if (firstVariantValue !== undefined) {
+  updateDateDisplay(firstVariantValue);
+} else {   
+  var initialDate = new Date();
+  var formattedInitialDate = formatDate(initialDate);
+  localStorage.setItem("variantDate", formattedInitialDate);
+    // $('#date-display').text(formattedInitialDate);
+}
+if (com_var < com_today) {    
+  if (firstVariantValue !== undefined) {
+    updateDateDisplay(firstVariantValue);
+  } else {
+    var initialDate = new Date();
+    var formattedInitialDate = formatDate(initialDate);
+    localStorage.setItem("variantDate", formattedInitialDate);
+    // $('#date-display').text(formattedInitialDate);
+  }
+}
+
+// Handle URL changes
+$(window).on('popstate', function () {
+    updateVariantInput();
+});
+
+// Handle URL changes via pushState or replaceState
+(function (history) {
+  var pushState = history.pushState;
+  var replaceState = history.replaceState;
+  history.pushState = function (state) {
+    if (typeof history.onpushstate == "function") {
+        history.onpushstate({ state: state });
+    }
+    var result = pushState.apply(history, arguments);
+    $(window).trigger('popstate');
+    return result;
+  };
+  history.replaceState = function (state) {
+    if (typeof history.onreplacestate == "function") {
+        history.onreplacestate({ state: state });
+    }
+    var result = replaceState.apply(history, arguments);
+    $(window).trigger('popstate');
+    return result;
+  };
+})(window.history);
+
+// Event listener for input change
+$('#meta-data-value').on('change', function () {
+  var value = $(this).val();
+  updateDateDisplay(value);
+});
+
+var start = new Date(localStorage.getItem("variantDate"));   
+var get_varLocal = localStorage.getItem('variantDate');
+var func_format = dateString => new Date(Date.UTC(...dateString.match(/(\d+)\s(\w+)\s(\d+)/).slice(1).reverse().map((v, i) => i === 0 ? v : i === 1 ? new Date(Date.parse(v + " 1")).getMonth() : parseInt(v)))).toISOString().split('T')[0];
+var var_auto = func_format(get_varLocal);
+console.log("var_auto=====>", var_auto)
+console.log("var_today=====>", var_today)
+console.log("var_tomorrow=====>", var_tomorrow)
+console.log("changed_var_auto_delivery_date=====>", changed_var_auto_delivery_date)
+if (var_auto === var_today)
+    $(".AutoDate").text('{{"general.new.today" | t}}');
+else if (var_auto === var_tomorrow) {
+    $(".AutoDate").text('{{"general.new.tomorrow" | t}}');
+} else {
+    $(".AutoDate").text(get_varLocal);
+}     
+   
+{% else %}
+    var start = new Date(document.getElementById("Stardate").value);
+{% endif %}
+// Create a Date object
+var dateObj = new Date(start);
+// Extract day, month, and year
+var day = dateObj.getDate();
+var month = dateObj.getMonth() + 1; // Month is zero-based, so add 1
+var year = dateObj.getFullYear();
+// Format day and month with leading zeros if necessary
+day = (day < 10 ? '0' : '') + day;
+month = (month < 10 ? '0' : '') + month;
+// Product Delivery Date in "14-03-2024" format
+var formattedDelDate = year + '-' + month + '-' + day;
+// Output the formatted date
+console.log("formattedDelDate: " + formattedDelDate); // Output: "14-03-2024"
+var productId = {{ product.id }};
+
+jQuery(document).ready(function () {
+    var getlocalDate = localStorage.getItem("delivery_date_val");
+    var days;
+    var auto_delivery_date;
+
+    // Get the current date
+    var currentDate = new Date();
+
+    // Format the current date into "dd-mm-yyyy" format
+    var formattedTodayDate = ("0" + currentDate.getFullYear()).slice(-4) + '-' + ("0" + (currentDate.getMonth() + 1)).slice(-2) + '-' + ("0" + currentDate.getDate()).slice(-2);
+    console.log('Formatted Today date: ' + formattedTodayDate);
+
+    //Tomorrow Date in dd-mm-yyy format
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var formattedTomorrow = tomorrow.getFullYear() + '-' + ("0" + (tomorrow.getMonth() + 1)).slice(-2) + '-' + ("0" + tomorrow.getDate()).slice(-2);
+    console.log('Formatted Tomorrow date: ' + formattedTomorrow);
+
+
+
+    //auto_delivery_date if user didn't select any date or landed to the page directly from google, here automatically delivery date will selected by the system to the latest delivery possible of the product
+
+    if (!$('.product-section').hasClass('variant-product')) {
+      if ({{ product.metafields.prodotto.consegna | default: 0 }} == 0) {
+        // If delivery time is blank or 0, set delivery_date to current date
+        auto_delivery_date = new Date().toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+      } else {
+        // If delivery time is 1 day or more, calculate delivery_date based on the provided value
+        days = {{ product.metafields.prodotto.consegna | default: 1 }} * 86400;
+        var delivery_date_unix = new Date('{{ "now" | date: "%s" | plus: days }}' * 1000);
+        auto_delivery_date = delivery_date_unix.toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+      }
+      localStorage.setItem("auto_delivery_date", auto_delivery_date);
+      // Now, 'delivery_date' contains the formatted date in JavaScript.
+      //    console.log("AUTO DATE==>",auto_delivery_date);
+      //    console.log("FORMATTED TODAY DATE==>",formattedTodayDate);
+      //    console.log("FORMATTED TOMORROW DATE==>",formattedTomorrow);
+      console.log("TEST------>", auto_delivery_date);
+    }
+
+    calenderForm(start, auto_delivery_date, formattedTodayDate, formattedTomorrow);
+
+    if (!$('.product-section').hasClass('variant-product')){
+      // Extract day, month, and year from auto_delivery_date
+      var autoDateParts = auto_delivery_date.split(' ');
+      var autoDay = autoDateParts[1];
+      cal_dates(getlocalDate, autoDay);
+    } else {
+      var localAutoDelParts = localStorage.getItem('auto_delivery_date').split(' ');
+      var localAutoDel = localAutoDelParts[1];
+      cal_dates(getlocalDate, localAutoDel );
+    }
+
+
+
+    // Log today's date
+    var today = new Date();
+    var weekdays = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+    var months = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+
+    var dayOfWeek = weekdays[today.getDay()];
+    var month = months[today.getMonth()];
+    var dayOfMonth = today.getDate();
+    var year = today.getFullYear();
+
+    var TodayDateCal = `${month} ${dayOfMonth}, ${year}`;
+
+    var prdt_del_date_real = $(".prdt_del_date_real").val();
+
+    if (getlocalDate) {
+
+      var savedDateParts_new = getlocalDate.split(' ');
+      var savedautoDay = savedDateParts_new[1] + " " + savedDateParts_new[2].replace(/,/g, '') + ", " + savedDateParts_new[3];
+      console.log("if savedautoDay: " + savedautoDay);
+      //console.log("auto_delivery_date: " + auto_delivery_date);
+      //var dateObject = new Date(getlocalDate);
+      //var formattedSavedDate = dateObject.getFullYear() + '-' + ("0" + (dateObject.getMonth() + 1)).slice(-2) + '-' + ("0" + dateObject.getDate()).slice(-2);
+
+      var dateComponents = savedautoDay.split(" ");
+      var monthNames = {
+        "Gennaio": "01",
+        "Febbraio": "02",
+        "Marzo": "03",
+        "Aprile": "04",
+        "Maggio": "05",
+        "Giugno": "06",
+        "Luglio": "07",
+        "Agosto": "08",
+        "Settembre": "09",
+        "Ottobre": "10",
+        "Novembre": "11",
+        "Dicembre": "12"
+      };
+      var month = monthNames[dateComponents[0]];
+      var day = ("0" + dateComponents[1]).replace(/,/g, '').slice(-2);
+      var year = dateComponents[2];
+
+      // Constructing the formatted date string
+      var formattedSavedDate = year + '-' + month + '-' + day;
+
+      console.log('FORMATTED DEL DATE ' + formattedDelDate);
+      console.log('FORMATTED DATE ' + formattedSavedDate);
+
+
+      if (!$('.product-section').hasClass('variant-product')) {
+        if (formattedDelDate > formattedSavedDate) {
+          $(".del_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+        } else {
+          $(".del_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+        }
+      }
+
+      console.log("TodayDateCal", TodayDateCal)
+      console.log("savedautoDay", savedautoDay)
+      console.log("savedautoDay < TodayDateCal", savedautoDay < TodayDateCal)
+      console.log("formattedDelDate < formattedSavedDate", formattedDelDate > formattedSavedDate)
+      console.log("using new Date formattedDelDate < formattedSavedDate", new Date(formattedDelDate) > new Date(formattedSavedDate))
+      console.log("auto_delivery_date", auto_delivery_date)
+      if (savedautoDay < TodayDateCal) {
+      //if (new Date(formattedDelDate) > new Date(formattedSavedDate)) {
+        $(".savedDate").text(getlocalDate).hide();
+        $(".AutoDate").text(auto_delivery_date).show();
+        //console.log("Today: " + TodayDateCal + " is greater than saved date " + savedautoDay);
+      } else {
+        $(".AutoDate").text(auto_delivery_date).hide();
+        console.log("Today: " + TodayDateCal + " is less than or equal to saved date " + savedautoDay);
+        console.log("Save Date is : " + formattedSavedDate);
+
+        if (formattedSavedDate == formattedTodayDate) {
+            $(".savedDate").text("{{"general.new.today" | t}}").show();
+
+        } else if (formattedSavedDate == formattedTomorrow) {
+            $(".savedDate").text("{{ "general.new.tomorrow" | t }}").show();
+
+        } else {
+            $(".savedDate").text(getlocalDate).show();
+        }
+
+        $(".sub_text").show();
+        $("#date_btn_set").hide();
+        $(".delivery-date-title-not-local-select").hide();
+
+        // Mapping Italian month names to English month names
+        var italianMonthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+        var englishMonthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        var index = italianMonthNames.indexOf(savedDateParts_new[1]);
+        var newMonthNames = (index !== -1) ? englishMonthNames[index] : savedDateParts_new[1];
+
+        var newLocalDate = newMonthNames + " " + savedDateParts_new[2] + " " + savedDateParts_new[3];
+        var newLocalDateTime = new Date(newLocalDate).getTime();
+        localStorage.setItem("newLocalDateTime", newLocalDateTime);
+
+        var prdt_del_date_real_time = new Date(prdt_del_date_real).getTime();
+        localStorage.setItem("prdt_del_date_real_time", prdt_del_date_real_time);
+
+        if (newLocalDateTime < prdt_del_date_real_time) {
+            $(".delivery-date-title").text("Non disponibile per la data " + " " + getlocalDate);
+            setTimeout(() => {
+                $(".payment-buttons button.btn.add-to-cart.btn--primary").attr("disabled", true);
+            }, 1000);
+        } else if (newLocalDateTime == prdt_del_date_real_time) {
+            $(".delivery-date-title").text("Consegna per stupire " + " " + getlocalDate);
+          {% if product.variants.size <= 1 %}
+            $(".payment-buttons button.btn.add-to-cart.btn--primary").removeAttr("disabled");
+          {% endif %}
+        } else {
+            $(".delivery-date-title").text("Consegna per stupire " + " " + getlocalDate);
+        }
+      }
+    } else {
+      // Handle the case when getlocalDate is not available
+      $(".savedDate").text(getlocalDate).hide();
+      $(".delivery-date-title").hide();
+      $(".delivery-date-title-not-local-select").hide();
+
+      if (!$('.product-section').hasClass('variant-product')) {
+        var parts = auto_delivery_date.split(' ');
+        var day = parts[1];
+        var month = parts[2];
+        var year = parts[3];
+
+        // Map Italian month abbreviations to English month names
+        var months = {
+          'gen': 'Jan',
+          'feb': 'Feb',
+          'mar': 'Mar',
+          'apr': 'Apr',
+          'mag': 'May',
+          'giu': 'Jun',
+          'lug': 'Jul',
+          'ago': 'Aug',
+          'set': 'Sep',
+          'ott': 'Oct',
+          'nov': 'Nov',
+          'dic': 'Dec'
+        };
+
+        var englishMonth = months[month.toLowerCase()];
+        // Construct a new date string in English format: "MMM DD YYYY"
+        var englishDateString = englishMonth + ' ' + day + ' ' + year;
+
+        console.log("Date=>>", englishDateString);
+        var dateObject = new Date(englishDateString);
+        var formattedAutoDate = dateObject.getFullYear() + '-' + ("0" + (dateObject.getMonth() + 1)).slice(-2) + '-' + ("0" + dateObject.getDate()).slice(-2);
+        console.log('Formatted Auto date: ' + formattedAutoDate);
+        //console.log('Formatted Today date: ' + formattedTodayDate);
+
+        if (formattedDelDate > formattedAutoDate) {
+            $(".del_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+        } else {
+            $(".del_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+        }
+
+        if (formattedAutoDate == formattedTodayDate) {
+            $(".AutoDate").text("{{"general.new.today" | t}}").show();
+        } else if (formattedAutoDate == formattedTomorrow) {
+            $(".AutoDate").text("{{"general.new.tomorrow" | t}}").show();
+        } else {
+            $(".AutoDate").text(auto_delivery_date).show();
+        }
+      }
+    }
+});
+
+
+document.addEventListener('DOMContentLoaded', async function () {
+  const manualAddToCartBtn         = document.getElementById('addToCartButtonManual');
+  
+
+  if (manualAddToCartBtn) {
+    manualAddToCartBtn.addEventListener('click', async function (e) {   
+
+      e.preventDefault();
+      showLoader();
+
+      const productDiv                 = $('.custom-product-class');
+      const productDeliveryDate        = productDiv.attr('data-delivery-date');
+      const provinceCode               = localStorage.getItem("administrativeAreaLevel2");
+      const cityName                   = localStorage.getItem("administrativeAreaLevel3");
+      const deliveryDateLocal          = localStorage.getItem('delivery_date_val');
+      const variantId                  = $('#change_date_btn').attr('data-variant-id');
+      const partnerAddress             = productDiv.attr('data-partner-address');
+      // const partnerAddress             = 'Viale Coni Zugna, 57, 20144 Milano MI, Italia';
+      const partnerId                  = productDiv.attr('data-partner-id');
+      const productProvinceCodes       = productDiv.attr('data-delivery-province-code');
+      const productProvinces           = productDiv.attr('data-delivery-province');
+      const productType                = productDiv.attr('data-product-unique');
+      const productNotPhysical         = productDiv.attr('data-product-physical');
+      const localStorageAddress        = localStorage.getItem('formatted_address');
+      const provinces                  = getAllProvinces();
+      const userProvinceCode           = getProvinceCode(provinceCode, provinces);
+      const userProvinceName           = getProvinceName(provinceCode, provinces);
+      const provinceNameList           = productProvinces.split(' ').map(normalize);
+      const provinceCodeList           = productProvinceCodes.split(' ').map(code => code.toLowerCase());
+      const normalizedUserProvince     = normalize(userProvinceName);
+      const normalizedUserProvinceCode = normalize(userProvinceCode);
+      const isProvinceMatching         = provinceNameList.includes(normalizedUserProvince) || provinceCodeList.includes(normalizedUserProvinceCode);
+      var isValidDistance              = true;
+      var distance;
+
+      let shopDefaultProvinces         = localStorage.getItem('default_provinces');
+      let isDefaultProvinceValid       = false;
+
+      const $submitButton = $('form.product-single__form button[type="submit"]');
+      let productOptionFormExists = false;
+      if ($('.vopo-block form').length > 0) {
+        productOptionFormExists = true;
+      }
+
+      if (shopDefaultProvinces) {
+        shopDefaultProvinces = JSON.parse(shopDefaultProvinces);
+        if (Array.isArray(shopDefaultProvinces) && shopDefaultProvinces.length) {
+          shopDefaultProvinces.forEach(province => {
+            /*
+            console.log("DEFAULT_PROVINCE_PRODUCT_DELIVERY_DATE:", province);
+            console.log("normalizedUserProvinceCode", normalizedUserProvinceCode)
+            console.log("normalizedUserProvince", normalizedUserProvince)
+            */
+            if(normalizedUserProvinceCode && normalizedUserProvinceCode?.toLowerCase() === province?.province_code?.toLowerCase()) {
+              isDefaultProvinceValid = true;
+            }
+          });
+        } else {
+          console.warn("The default provinces data is invalid or empty.");
+        }
+      }
+
+      let newVariantId = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      newVariantId = urlParams.get('variant');
+
+      if (!newVariantId && manualAddToCartBtn) {
+        newVariantId = manualAddToCartBtn.getAttribute('data-variant-id');
+      }
+
+      if (!newVariantId) {
+        newVariantId = typeof variantId !== 'undefined' ? variantId : null;
+      }
+
+      if(!localStorageAddress || !productDeliveryDate || !provinceCode || !cityName || !deliveryDateLocal) {
+        openNewModal("selectDeliveryOptionsModal", newVariantId);
+        hideLoader();
+        return;
+      }
+
+      if(!isDefaultProvinceValid) {
+        console.log("NOT_FULFIL_DEFAULT_CONDITION");
+        closeModal("selectDeliveryOptionsModal");
+        openNewModal("noProductsModal");
+        hideLoader();
+        return false;
+      }
+
+      {% comment %} if ((String(productNotPhysical) === 'true' || !productNotPhysical) && String(productType) != 'true') { {% endcomment %}
+      if ((String(productNotPhysical) === 'true' || !productNotPhysical)) {
+        if(productOptionFormExists) {
+          // 03/09/2026: era prop('disabled', true) + click -> un bottone disabilitato non invia nulla.
+          inviaFormProdotto($submitButton);
+        } else {
+          await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+        }
+        hideLoader();
+        return false;
+      }
+
+      if(String(productType) === 'true') {
+        console.log("PRODUCT IS UNIQUE");
+        
+        if (localStorageAddress && partnerAddress) {
+          let addressInfo = await getPlaceInfoFromAddress(partnerAddress);
+          console.log("addressInfo", addressInfo);
+
+          const partnerCity  = addressInfo?.city_name;
+          const localStorageCity = localStorage.getItem("administrativeAreaLevel3");
+
+          console.log("localStorageCity", localStorageCity)
+          console.log("partnerCity", partnerCity)
+
+          if(partnerCity && localStorageCity && partnerCity.toLowerCase() === localStorageCity.toLowerCase()) {
+            if(productOptionFormExists) {
+              inviaFormProdotto($submitButton);
+            } else {
+              await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+            }
+            hideLoader();
+            return false;
+          }
+          
+          if(provinceCode && addressInfo?.province_code && provinceCode?.toLowerCase() === addressInfo?.province_code?.toLowerCase()) { 
+            distance = await calculateDistance(localStorageAddress, partnerAddress);
+            const numericDistance = parseFloat(distance);
+
+            console.log("localStorageAddress", localStorageAddress);
+            console.log("partnerAddress", partnerAddress);
+            console.log("DISTANCE FROM SELECTED ADDRESS TO PARTNER ADDRESS", distance);
+            console.log("DISTANCE FROM SELECTED ADDRESS TO PARTNER ADDRESS NUMERIC", numericDistance);
+          
+            if (numericDistance > 12) {
+              // isValidDistance = false;
+              closeModal("selectDeliveryOptionsModal");
+              openNewModal("noProductsModal");
+              hideLoader();
+              return false;
+            } else {
+              if(productOptionFormExists) {
+                inviaFormProdotto($submitButton);
+              } else {
+                await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+              }
+              hideLoader();
+              return false;
+            }
+          } else {
+            if(isProvinceMatching) {
+              console.log("NATION_AVAILABILITY_MATCH");
+              if(productOptionFormExists) {
+                inviaFormProdotto($submitButton);
+              } else {
+                await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+              }
+              hideLoader();
+              return false;
+            } else {
+              if(isDefaultProvinceValid) {                  
+                console.log("DEFAULT_PROVINCE_MATCH");
+                closeModal("selectDeliveryOptionsModal");
+                openNewModal("similarProductsModal");
+                hideLoader();
+                return false;
+              } else {
+                closeModal("selectDeliveryOptionsModal");
+                openNewModal("noProductsModal");
+                hideLoader();
+                return false;
+              }
+            }
+          }
+        }
+      } else if(String(productType) === 'false') {
+        console.log("PRODUCT IS NON-UNIQUE");
+        if(!isProvinceMatching) {
+          if(isDefaultProvinceValid) {
+            closeModal("selectDeliveryOptionsModal");
+            openNewModal("similarProductsModal");
+            hideLoader();
+            return false;
+          } else {
+            closeModal("selectDeliveryOptionsModal");
+            openNewModal("noProductsModal");
+            hideLoader();
+            return false;
+          }
+        } else {        
+          try {
+            const response = await fetch(`https://app.deluxy.it/api/province-cities/${provinceCode}/${cityName}`, {
+            // const response = await fetch(`http://localhost:3000/province-cities/${provinceCode}/${cityName}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+    
+            if(response) {
+              let isMatchingCity = false;
+              const data = await response.json();
+              isMatchingCity = data;
+              if (isProvinceMatching && isMatchingCity) {
+                console.log("isProvinceMatching && isMatchingCity", isProvinceMatching && isMatchingCity)
+                if(productOptionFormExists) {
+                  inviaFormProdotto($submitButton);
+                } else {
+                  await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+                }
+                hideLoader();
+                /*
+                if(isValidDistance) {
+                  await addToCartProductOnDeliveryDate(newVariantId, productDeliveryDate);
+                } else {
+                  const modal = document.getElementById('contact-slide-model');
+                  const body = document.body;
+                  modal.classList.add('active');
+                  body.classList.add('overflow-hidden-popup-open');
+                }
+                */
+              } else {   
+                closeModal("selectDeliveryOptionsModal");
+                openNewModal("noProductsModal");
+                hideLoader();
+                /*
+                const res = await fetchAllMatchingProducts(provinceCode, cityName);
+                if(!res?.products?.length) {
+                  closeModal("selectDeliveryOptionsModal");
+                  openNewModal("noProductsModal");
+                  hideLoader();
+                } else {
+                  console.log("SIMILAR_PRODUCTS_ARE_FOUND");
+                  closeModal("selectDeliveryOptionsModal");
+                  openNewModal("similarProductsModal");
+                  hideLoader();
+                }
+                */
+              }
+            }
+          } catch (error) {
+            hideLoader();
+            console.error("Error in submitButtonHandler:", error);
+          } finally {
+            manualAddToCartBtn.disabled = false;
+            hideLoader();
+          }
+        }
+      }
+      return false;
+    });
+  }
+
+});
+
+// 03/09/2026 — Prodotti con opzioni (Best Custom Product Options: foto Polaroid).
+// Quando c'e' il blocco opzioni il tema non usa la fetch JSON (perderebbe i file) ma clicca
+// il submit nascosto #oldAddToCartButtonManual per inviare il form multipart. Pero' showLoader(),
+// chiamata all'inizio del click, lo aveva appena DISABILITATO: il click nativo su un bottone
+// disabilitato non fa nulla, e il carrello restava vuoto senza messaggio. Qui lo si riabilita
+// prima di cliccarlo. Se l'app opzioni blocca il submit (foto obbligatoria mancante) il browser
+// mostra il suo avviso sul campo e il bottone ACQUISTA torna cliccabile.
+function inviaFormProdotto($btn) {
+  try {
+    $btn.prop('disabled', false);
+    var el = $btn.get(0);
+    if (el && typeof el.click === 'function') { el.click(); } else { $btn.click(); }
+  } catch (e) {
+    console.error('inviaFormProdotto', e);
+  } finally {
+    setTimeout(function () { if (typeof hideLoader === 'function') hideLoader(); }, 1500);
+  }
+}
+
+async function addToCartProductOnDeliveryDate(variantId, productDeliveryDate) {
+  try {
+
+    const customOptions = {};
+    const formElements = document.querySelectorAll('.vopo-block input, .vopo-block select, .vopo-block textarea');
+    formElements.forEach(element => {
+      if ((element.type === 'radio' || element.type === 'checkbox') && element.checked) {
+        const match = element.name.match(/\[([^\]]+)\]/);
+
+        if (match) {
+          const optionName = match[1];
+          customOptions[optionName] = element.value; 
+        }
+      }
+      
+      else if (element.type === 'text' || element.type === 'number' || element.type === 'textarea') {
+        const match = element.name.match(/\[([^\]]+)\]/);
+        {% comment %} console.log("match", match); {% endcomment %}
+
+        if (match) {
+          const optionName = match[1];
+          customOptions[optionName] = element.value;
+        }
+      }
+
+      else if (element.tagName === 'SELECT') {
+        const match = element.name.match(/\[([^\]]+)\]/); 
+
+        if (match) {
+          const optionName = match[1];
+          customOptions[optionName] = element.value; 
+        }
+      }
+    });
+
+    const itemData = {
+      id: variantId,             
+      quantity: 1,                
+      properties: customOptions   
+    };
+
+    const res = await fetch('/cart/add.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ items: [itemData] })
+    });
+
+    if (!res.ok) console.log('Errore aggiunta al carrello');
+
+    await res.json();
+
+    if (typeof theme !== 'undefined' && typeof theme.CartDrawer === 'function') {
+      const drawer = new theme.CartDrawer();
+      drawer.init();
+      drawer.open();
+    } else {
+      document.querySelector('.js-drawer-open-cart')?.click();
+    }
+
+    const bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+    bookings.push({ productDataId: String(variantId), productDataDate: productDeliveryDate });
+    localStorage.setItem('bookings', JSON.stringify(bookings));
+
+  } catch (err) {
+    console.error(err);
+  }
+
+  return false;
+
+}
+
+function showLoader() {
+  const manualAddToCartBtn = document.getElementById('addToCartButtonManual');
+  const btnText = manualAddToCartBtn.querySelector('.btn-text');
+  const btnLoader = manualAddToCartBtn.querySelector('.btn-loader');
+
+  // Disable button and show loader
+  manualAddToCartBtn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoader.style.display = 'inline-block';
+
+  const oldAddToCartButtonManual = document.getElementById('oldAddToCartButtonManual');
+  oldAddToCartButtonManual.disabled = true;
+}
+
+function hideLoader() {
+  const manualAddToCartBtn = document.getElementById('addToCartButtonManual');
+  const btnText = manualAddToCartBtn.querySelector('.btn-text');
+  const btnLoader = manualAddToCartBtn.querySelector('.btn-loader');
+  manualAddToCartBtn.disabled = false;
+  btnText.style.display = 'inline';
+  btnLoader.style.display = 'none';
+
+  const oldAddToCartButtonManual = document.getElementById('oldAddToCartButtonManual');
+  oldAddToCartButtonManual.disabled = false;
+}
+
+function calculateDistance(userAddress, partnerAddress) {
+    return new Promise((resolve, reject) => {
+      // Initialize the Distance Matrix service
+      const service = new google.maps.DistanceMatrixService();
+  
+      // Request the distance information
+      service.getDistanceMatrix(
+        {
+          origins: [userAddress],
+          destinations: [partnerAddress],
+          travelMode: google.maps.TravelMode.DRIVING,  // You can change this to WALKING, BICYCLING, or TRANSIT
+          unitSystem: google.maps.UnitSystem.METRIC,  // Metric units (e.g., km), change to IMPERIAL for miles
+        },
+        function (response, status) {
+          if (status == google.maps.DistanceMatrixStatus.OK) {
+            const distance = response.rows[0].elements[0].distance.text;
+            resolve(distance);  // Resolve with the calculated distance
+          } else {
+            reject('Error: ' + status);  // Reject if there’s an error
+          }
+        }
+      );
+    });
+  }
+
+function normalize(str) {
+  return str?.trim()?.toLowerCase();
+}
+
+function getProvinceCode(input, provinces) {
+    const normalizedInput = normalize(input);
+    const match = provinces.find(p =>
+        normalize(p.province) === normalizedInput ||
+        normalize(p.provinceCode) === normalizedInput
+    );
+    return match ? match.provinceCode : null;
+}
+
+function getProvinceName(provinceCode, provinces) {
+    const match = provinces.find(p =>
+        p.provinceCode === provinceCode
+    );
+    return match ? match.province : null;
+}
+
+function getAllProvinces() {
+    return [
+        { id: 1, province: 'Agrigento', provinceCode: 'AG' },
+        { id: 2, province: 'Alessandria', provinceCode: 'AL' },
+        { id: 3, province: 'Ancona', provinceCode: 'AN' },
+        { id: 4, province: 'Aosta', provinceCode: 'AO' },
+        { id: 5, province: 'Arezzo', provinceCode: 'AR' },
+        { id: 6, province: 'Ascoli Piceno', provinceCode: 'AP' },
+        { id: 7, province: 'Asti', provinceCode: 'AT' },
+        { id: 8, province: 'Avellino', provinceCode: 'AV' },
+        { id: 9, province: 'Bari', provinceCode: 'BA' },
+        { id: 10, province: 'Barletta-Andria-Trani', provinceCode: 'BT' },
+        { id: 11, province: 'Belluno', provinceCode: 'BL' },
+        { id: 12, province: 'Benevento', provinceCode: 'BN' },
+        { id: 13, province: 'Bergamo', provinceCode: 'BG' },
+        { id: 14, province: 'Biella', provinceCode: 'BI' },
+        { id: 15, province: 'Bologna', provinceCode: 'BO' },
+        { id: 16, province: 'Brescia', provinceCode: 'BS' },
+        { id: 17, province: 'Brindisi', provinceCode: 'BR' },
+        { id: 18, province: 'Cagliari', provinceCode: 'CA' },
+        { id: 19, province: 'Caltanissetta', provinceCode: 'CL' },
+        { id: 20, province: 'Campobasso', provinceCode: 'CB' },
+        { id: 21, province: 'Caserta', provinceCode: 'CE' },
+        { id: 22, province: 'Catania', provinceCode: 'CT' },
+        { id: 23, province: 'Catanzaro', provinceCode: 'CZ' },
+        { id: 24, province: 'Chieti', provinceCode: 'CH' },
+        { id: 25, province: 'Como', provinceCode: 'CO' },
+        { id: 26, province: 'Cosenza', provinceCode: 'CS' },
+        { id: 27, province: 'Cremona', provinceCode: 'CR' },
+        { id: 28, province: 'Crotone', provinceCode: 'KR' },
+        { id: 29, province: 'Cuneo', provinceCode: 'CN' },
+        { id: 30, province: 'Enna', provinceCode: 'EN' },
+        { id: 31, province: 'Fermo', provinceCode: 'FM' },
+        { id: 32, province: 'Ferrara', provinceCode: 'FE' },
+        { id: 33, province: 'Firenze', provinceCode: 'FI' },
+        { id: 34, province: 'Foggia', provinceCode: 'FG' },
+        { id: 35, province: 'Forlì-Cesena', provinceCode: 'FC' },
+        { id: 36, province: 'Genova', provinceCode: 'GE' },
+        { id: 37, province: 'Gorizia', provinceCode: 'GO' },
+        { id: 38, province: 'Grosseto', provinceCode: 'GR' },
+        { id: 39, province: 'Imperia', provinceCode: 'IM' },
+        { id: 40, province: 'Isernia', provinceCode: 'IS' },
+        { id: 41, province: "L'Aquila", provinceCode: 'AQ' },
+        { id: 42, province: 'La Spezia', provinceCode: 'SP' },
+        { id: 43, province: 'Latina', provinceCode: 'LT' },
+        { id: 44, province: 'Lecce', provinceCode: 'LE' },
+        { id: 45, province: 'Lecco', provinceCode: 'LC' },
+        { id: 46, province: 'Livorno', provinceCode: 'LI' },
+        { id: 47, province: 'Lodi', provinceCode: 'LO' },
+        { id: 48, province: 'Lucca', provinceCode: 'LU' },
+        { id: 49, province: 'Macerata', provinceCode: 'MC' },
+        { id: 50, province: 'Mantova', provinceCode: 'MN' },
+        { id: 51, province: 'Massa-Carrara', provinceCode: 'MS' },
+        { id: 52, province: 'Matera', provinceCode: 'MT' },
+        { id: 53, province: 'Messina', provinceCode: 'ME' },
+        { id: 54, province: 'Milano', provinceCode: 'MI' },
+        { id: 55, province: 'Modena', provinceCode: 'MO' },
+        { id: 56, province: 'Monza e della Brianza', provinceCode: 'MB' },
+        { id: 57, province: 'Napoli', provinceCode: 'NA' },
+        { id: 58, province: 'Novara', provinceCode: 'NO' },
+        { id: 59, province: 'Nuoro', provinceCode: 'NU' },
+        { id: 60, province: 'Oristano', provinceCode: 'OR' },
+        { id: 61, province: 'Padova', provinceCode: 'PD' },
+        { id: 62, province: 'Palermo', provinceCode: 'PA' },
+        { id: 63, province: 'Parma', provinceCode: 'PR' },
+        { id: 64, province: 'Pavia', provinceCode: 'PV' },
+        { id: 65, province: 'Perugia', provinceCode: 'PG' },
+        { id: 66, province: 'Pesaro e Urbino', provinceCode: 'PU' },
+        { id: 67, province: 'Pescara', provinceCode: 'PE' },
+        { id: 68, province: 'Piacenza', provinceCode: 'PC' },
+        { id: 69, province: 'Pisa', provinceCode: 'PI' },
+        { id: 70, province: 'Pistoia', provinceCode: 'PT' },
+        { id: 71, province: 'Pordenone', provinceCode: 'PN' },
+        { id: 72, province: 'Potenza', provinceCode: 'PZ' },
+        { id: 73, province: 'Prato', provinceCode: 'PO' },
+        { id: 74, province: 'Ragusa', provinceCode: 'RG' },
+        { id: 75, province: 'Ravenna', provinceCode: 'RA' },
+        { id: 76, province: 'Reggio Calabria', provinceCode: 'RC' },
+        { id: 77, province: 'Reggio Emilia', provinceCode: 'RE' },
+        { id: 78, province: 'Rieti', provinceCode: 'RI' },
+        { id: 79, province: 'Rimini', provinceCode: 'RN' },
+        { id: 80, province: 'Roma', provinceCode: 'RM' },
+        { id: 81, province: 'Rovigo', provinceCode: 'RO' },
+        { id: 82, province: 'Salerno', provinceCode: 'SA' },
+        { id: 83, province: 'Sassari', provinceCode: 'SS' },
+        { id: 84, province: 'Savona', provinceCode: 'SV' },
+        { id: 85, province: 'Siena', provinceCode: 'SI' },
+        { id: 86, province: 'Siracusa', provinceCode: 'SR' },
+        { id: 87, province: 'Sondrio', provinceCode: 'SO' },
+        { id: 88, province: 'Sud Sardegna', provinceCode: 'SU' },
+        { id: 89, province: 'Taranto', provinceCode: 'TA' },
+        { id: 90, province: 'Teramo', provinceCode: 'TE' },
+        { id: 91, province: 'Terni', provinceCode: 'TR' },
+        { id: 92, province: 'Torino', provinceCode: 'TO' },
+        { id: 93, province: 'Trapani', provinceCode: 'TP' },
+        { id: 94, province: 'Trento', provinceCode: 'TN' },
+        { id: 95, province: 'Treviso', provinceCode: 'TV' },
+        { id: 96, province: 'Trieste', provinceCode: 'TS' },
+        { id: 97, province: 'Udine', provinceCode: 'UD' },
+        { id: 98, province: 'Varese', provinceCode: 'VA' },
+        { id: 99, province: 'Venezia', provinceCode: 'VE' },
+        { id: 100, province: 'Verbano-Cusio-Ossola', provinceCode: 'VB' },
+        { id: 101, province: 'Vercelli', provinceCode: 'VC' },
+        { id: 102, province: 'Verona', provinceCode: 'VR' },
+        { id: 103, province: 'Vibo Valentia', provinceCode: 'VV' },
+        { id: 104, province: 'Vicenza', provinceCode: 'VI' },
+        { id: 105, province: 'Viterbo', provinceCode: 'VT' },
+        { id: 106, province: 'Vibo Valentia', provinceCode: 'VV' },
+        { id: 107, province: 'Sud Sardegna', provinceCode: 'SU' }
+    ];
+}
+
+function getProvinceNameByCode(provinceCode) {
+  const provinces = getAllProvinces();
+  const province = provinces.find(province => province.provinceCode === provinceCode);
+  return province ? province.province : null; 
+}
+  
+jQuery(document).ready(function () {
+    var bookings = JSON.parse(localStorage.getItem("bookings")) || [];
+    // jQuery(".btn.add-to-cart.btn--primary").click(function (e) {
+    jQuery(".custom-btn.add-to-cart.btn--primary").click(function (e) {
+        let dateValue = $(this).attr("product-data-date");
+        let localStorageDate = localStorage.getItem("delivery_date_val");
+        if (dateValue || localStorageDate) {
+          var productDataId = jQuery(this).attr("product-data-id");
+          var productDataDate = jQuery(this).attr("product-data-date");
+          var newBookings = {
+              productDataId: productDataId,
+              productDataDate: productDataDate,
+          };
+          bookings.push(newBookings);
+          var json = JSON.stringify(bookings);
+          window.localStorage.setItem("bookings", json);
+        } else {
+          var variantId = $('#change_date_btn').attr('data-variant-id');
+          openNewModal("selectDeliveryOptionsModal", variantId, 'DATE_SELECTION');
+          $(".date_error_msg").text("Please select date first");
+          return false;
+        }
+    });
+});
+
+
+/* Toggle button to hide or show the calendar by this button id change_date_btn */
+
+const button = document.getElementById('change_date_btn');
+const calendar = document.querySelector('.product-calendar');
+
+button.addEventListener('click', function () {
+    var variantId = this.getAttribute('data-variant-id');
+    openNewModal("selectDeliveryOptionsModal", variantId, 'DATE_SELECTION');
+    // openNewModal("selectDeliveryOptionsModal");
+    // // Check if the calendar is currently hidden
+    // const isHidden = calendar.style.display === 'none';
+
+    // // Toggle the display style of the calendar based on its current state
+    // if (isHidden) {
+    //     calendar.style.display = 'block';
+    // } else {
+    //     calendar.style.display = 'none';
+    // }
+});
+
+function calenderForm(startNew = '', auto_delivery_date, formattedTodayDate, formattedTomorrow) {
+    if (startNew) {
+        start = new Date(startNew);
+        $(".product-calendar").empty();
+    }
+    console.log('start' + start);
+    // Regole deluxy.it: prima data selezionabile rispetta cutoff 20:00 (ora italiana) + lead time prodotto
+  var __dlxMin = (function () {
+      var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+      var dd = new Date(Number(p.year), Number(p.month) - 1, Number(p.day));
+      var lead = Number({{ product.metafields.prodotto.consegna | default: 0 | json }});
+      if (isNaN(lead)) { lead = 0; }
+      dd.setDate(dd.getDate() + lead);
+      if (lead == 0 && Number(p.hour) >= 20) { dd.setDate(dd.getDate() + 1); }
+      return dd;
+  })();
+  if (!(start instanceof Date) || isNaN(start.getTime()) || start < __dlxMin) { start = __dlxMin; }
+  $(".product-calendar").calendar({
+        inline: true,
+        type: "date",
+        firstDayOfWeek: 1,
+        text: {
+            days: ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
+            months: [
+                "Gennaio",
+                "Febbraio",
+                "Marzo",
+                "Aprile",
+                "Maggio",
+                "Giugno",
+                "Luglio",
+                "Agosto",
+                "Settembre",
+                "Ottobre",
+                "Novembre",
+                "Dicembre",
+            ],
+        },
+    
+        initialDate: new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate()
+        ), // Set initial date
+        minDate: new Date(start.getFullYear(), start.getMonth(), start.getDate()),
+        maxDate: new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate() + 365
+        ),
+        onChange: function (date, text, mode) {
+            var days = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+            var dmonth = [
+                "Gennaio",
+                "Febbraio",
+                "Marzo",
+                "Aprile",
+                "Maggio",
+                "Giugno",
+                "Luglio",
+                "Agosto",
+                "Settembre",
+                "Ottobre",
+                "Novembre",
+                "Dicembre",
+            ];
+            var d = new Date(text);
+            var dayName = days[date.getDay()];
+            var dateVal = dayName + " " + text;
+
+            // The New Selected date is converted to dd-mm-yyyy format
+            var dateObject = new Date(date);
+            var formattedChangedDate = dateObject.getFullYear() + '-' + ("0" + (dateObject.getMonth() + 1)).slice(-2) + '-' + ("0" + dateObject.getDate()).slice(-2);
+            // console.log('formattedChangedDate ' + formattedChangedDate);
+
+            $(".newSelectedDate").text(dateVal).show();
+
+
+            $(".estimated-time > span").html(dayName + " " + text);
+            $(".prdt_date_input").val(dayName + " " + text);
+
+            $(".future_del_date").attr("data-date", dateVal);
+            $(".btn.add-to-cart.btn--primary").attr("product-data-date", dateVal);
+            $(".btn.add-to-cart.btn--primary").removeAttr("disabled");
+            $(".date_error_msg").text("");
+            $(".savedDate").text(dateVal).hide();
+            $(".AutoDate").text(auto_delivery_date).hide();
+            console.log("DAT-today ", formattedTodayDate);
+          
+          if (!$('.product-section').hasClass('variant-product')) {
+            if (formattedDelDate > formattedChangedDate) {
+
+                $(".del_avil_or_not").text("{{ "general.new.is_not_available_for" | t }}");
+
+            } else {
+                $(".del_avil_or_not").text("{{ "general.new.delivery_available_for" | t }}");
+            }
+          }
+
+
+            if (formattedChangedDate == formattedTodayDate) {
+                $(".newSelectedDate").text("{{"general.new.today" | t}}").show();
+
+            }
+            else if (formattedChangedDate == formattedTomorrow) {
+
+                $(".newSelectedDate").text("{{"general.new.tomorrow" | t}}").show();
+
+            }
+            else {
+                $(".newSelectedDate").text(dateVal).show();
+            }
+            localStorage.setItem("delivery_date_val", dateVal);
+
+            //location.reload();
+            //console.log("Date selected from the calendar is: " + dateVal);
+        },
+        initialDate: new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate()
+        ),
+    });
+}
+</script>
