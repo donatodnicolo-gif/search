@@ -31,6 +31,7 @@ import {
   fetchContatti,
   fetchTutteTrattative,
   inserisciDeal,
+  inserisciTask,
   type PlaceLite,
   type TrattativaConLuogo,
   fetchProfiles,
@@ -827,6 +828,7 @@ function TrattativaModal({
   onSalvata: () => void;
 }) {
   const inModifica = !!deal;
+  const router = useRouter();
   const daRegistro = deal?.origine === 'anagrafiche';
   const [ricerca, setRicerca] = useState('');
   const [risultati, setRisultati] = useState<PlaceLite[]>([]);
@@ -1045,6 +1047,48 @@ function TrattativaModal({
           } catch {
             /* l'ordine non è nato: la vinta resta valida, si riprova da Ordini */
           }
+        }
+      }
+
+      // ⭐ LA PROSSIMA ATTIVITÀ DIVENTA UN TASK (31/08/2026, richiesta
+      // dell'utente: «quando metto una prossima attività legata a una
+      // trattativa — esempio persa — devi creare una task»).
+      //
+      // Prima «Prossima azione» era una frase scritta sulla trattativa e basta:
+      // compariva sotto il titolo e in Home fra le trattative da muovere, ma
+      // non in «Da fare» né fra i task — cioè non nelle liste dove uno va a
+      // vedere cosa deve fare. Su una PERSA spariva del tutto: le chiuse non
+      // stanno nelle code, e quella riga era l'unica traccia di un impegno.
+      //
+      // ⚠️ Il task nasce solo se la frase è NUOVA o CAMBIATA: risalvando la
+      // stessa trattativa senza toccarla non si accumulano doppioni.
+      //
+      // ⚠️ La scadenza segue il senso della frase: su una persa è il giorno in
+      // cui si è deciso di riprovarci (`riprendere_il`) — è quello il momento
+      // in cui l'attività va fatta, non la scadenza della trattativa, che su
+      // una chiusa non vuol dire più niente.
+      const azione = nextAction.trim();
+      if (azione && azione !== (deal?.next_action ?? '')) {
+        try {
+          await inserisciTask({
+            titolo: azione,
+            priorita: 'P2',
+            scadenza: (fase === 'closedlost' ? riprendereIl : scadenza) ?? null,
+            place_id: place.id,
+            // Chi segue la trattativa fa l'attività: senza questa riga il task
+            // finirebbe a chi ha premuto «Salva», che può essere un altro.
+            owner: proprietario ?? null,
+            note: `Prossima attività della trattativa${
+              patch.oggetto ? ` «${patch.oggetto}»` : ''
+            } di ${place.nome}${fase === 'closedlost' ? ' (persa, da riprendere)' : ''}.`,
+          });
+        } catch (e: any) {
+          // ⚠️ Best-effort, ma NON muto: la trattativa è salva, e chi si
+          // aspettava il promemoria deve sapere che non c'è.
+          avvisa(
+            'Trattativa salvata, task no',
+            `La prossima attività non è diventata un task: ${e?.message ?? 'errore'}.\n\nPuoi crearlo a mano da «I miei task».`,
+          );
         }
       }
       onSalvata();
@@ -1305,6 +1349,28 @@ function TrattativaModal({
               })}
             </View>
             {scadenza ? <Text style={styles.scadenzaSel}>Scade il {formattaData(scadenza)}</Text> : null}
+
+            {/* ⭐ I PREVENTIVI RICEVUTI, dalla trattativa (31/08/2026, richiesta
+                dell'utente: «consentimi di inserire preventivi ricevuti anche
+                per le trattative»). La schermata Preventivi le accettava già,
+                ma ci si arrivava solo da lì, cercando il cliente: da qui si
+                apre già puntata su QUESTA trattativa. ⚠️ Anche se è chiusa —
+                l'elenco di Preventivi non propone le finite, ma se ci arrivi
+                da una trattativa l'hai scelta tu, e su una persa il preventivo
+                ricevuto è la memoria di quanto ci sarebbe costata. */}
+            {inModifica && deal ? (
+              <Pressable
+                style={styles.collegamento}
+                onPress={() => {
+                  onClose();
+                  router.push(`/(app)/preventivi?perTrattativa=${deal.id}` as never);
+                }}
+              >
+                <Ionicons name="calculator-outline" size={16} color={colors.navy} />
+                <Text style={styles.collegamentoTxt}>Preventivi fornitori ricevuti</Text>
+                <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
+              </Pressable>
+            ) : null}
 
             {/* Elimina: solo sulle trattative nate in Scout. Quelle da HubSpot o
                 dal registro tornerebbero al primo sync, quindi si chiudono
@@ -1582,6 +1648,17 @@ const styles = StyleSheet.create({
   salvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 16 },
   // Elimina: in fondo al form e defilato — è distruttivo, non deve competere
   // col bottone di salvataggio.
+  collegamento: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.sfondo,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginTop: spacing.sm,
+  },
+  collegamentoTxt: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 14 },
   elimina: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { avvisa, conferma } from '@/lib/dialoghi';
@@ -56,6 +56,8 @@ const COLORE_STATO: Record<string, string> = {
 };
 
 export default function Preventivi() {
+  // Da una trattativa: `?perTrattativa=<id>` apre il form già su quella vendita.
+  const { perTrattativa } = useLocalSearchParams<{ perTrattativa?: string }>();
   const [lavori, setLavori] = useState<LavoroConPreventivi[]>([]);
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export default function Preventivi() {
         </Text>
       ) : null}
 
-      <NuovoLavoro onFatto={carica} />
+      <NuovoLavoro onFatto={carica} perTrattativa={typeof perTrattativa === 'string' ? perTrattativa : null} />
 
       <View style={styles.filtroRiga}>
         <Text style={styles.titoloSez}>
@@ -248,8 +250,11 @@ const ETICHETTA_VENDITA: Record<TipoVendita, { label: string; icona: any; colore
 };
 
 /** Il form del nuovo lavoro: titolo obbligatorio, il resto aiuta e basta. */
-function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
-  const [apri, setApri] = useState(false);
+function NuovoLavoro({ onFatto, perTrattativa }: { onFatto: () => Promise<void>; perTrattativa?: string | null }) {
+  // ⚠️ Si arriva dalla trattativa con l'id nell'indirizzo: il form si apre da
+  // solo e la vendita è già quella. Senza, si atterrava su un elenco di lavori
+  // e bisognava ricominciare la ricerca del cliente appena fatta.
+  const [apri, setApri] = useState(Boolean(perTrattativa));
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   /**
@@ -347,10 +352,17 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
       .then(([deals, richieste, ordini]) => {
         if (!vivo) return;
         const out: VenditaSceglibile[] = [];
-        // Le trattative CHIUSE non si propongono: su una vendita finita non
+        // Le trattative CHIUSE non si PROPONGONO: su una vendita finita non
         // c'è più un prezzo da fare (se è vinta, c'è il suo ordine qui sotto).
+        //
+        // ⚠️ Ma se si arriva DA una trattativa (`?perTrattativa=`), quella si
+        // può scegliere anche se è chiusa (31/08/2026, richiesta dell'utente
+        // che stava su una persa): non è una proposta dell'elenco, è la vendita
+        // che l'utente ha indicato — e su una persa il preventivo ricevuto è la
+        // memoria di quanto ci sarebbe costata.
         for (const d of deals) {
-          if (d.fase === 'closedwon' || d.fase === 'closedlost') continue;
+          const chiusa = d.fase === 'closedwon' || d.fase === 'closedlost';
+          if (chiusa && d.id !== perTrattativa) continue;
           out.push({
             tipo: 'trattativa',
             id: d.id,
@@ -387,12 +399,18 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
           });
         }
         setVendite(out);
+        // Arrivando dalla trattativa, la vendita è già scelta: chi ha premuto
+        // «Preventivi fornitori» su QUELLA trattativa non deve ritrovarsela da
+        // cercare.
+        if (perTrattativa && out.some((v) => v.tipo === 'trattativa' && v.id === perTrattativa)) {
+          setVenditaId(perTrattativa);
+        }
       })
       .finally(() => vivo && setCaricoDeal(false));
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [perTrattativa]);
 
   const venditeFiltrate = useMemo(() => {
     const q = cercaDeal.trim().toLowerCase();
