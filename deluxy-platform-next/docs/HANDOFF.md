@@ -39,6 +39,15 @@
 >   probabilmente rigenerato dopo il congelamento): scritto comunque il
 >   bonifico, elenco nel backup. Somma importi legacy ora 184.978,88 €;
 >   a 0 restano solo i 6 zeri veri + la 351 irrecuperabile.
+> - **Recap partiti col giro vecchio, rimediati** (`rimedia-recap-inviati.ts`,
+>   ts-node + contesto NestJS coi servizi veri): 3 recap erano usciti via
+>   mail senza stipendio né ricevuta (2× Bergamasco 02–03/09, 1× Adonato
+>   17:31 — 17 minuti prima del deploy del giro nuovo). Creati a posteriori
+>   senza rimandare mail: Adonato 02/09 netto 7,24 € (= mail) → RIC-2026-352;
+>   Bergamasco 11/08→30/08 netto 112,50 € → RIC-2026-353; entrambi SENT,
+>   ricevute «in attesa». ⚠️ `fileUrlFrom` (recap su Drive) vuoto: da locale
+>   la cassaforte non si decifra (segreto di produzione) — i valet il recap
+>   ce l'hanno in mail; gli invii futuri dall'app lo attaccano da soli.
 
 > 🛒 **03/09/2026-duodecies — DELUXY.IT: «ACQUISTA» TORNA A METTERE NEL CARRELLO (rotta legacy rinata qui)** (deployato):
 > - Segnalazione utente: su deluxy.it il pulsante ACQUISTA non aggiungeva
