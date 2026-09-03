@@ -718,6 +718,7 @@
     "toSign": "Awaiting receipt",
     "open": "Open",
     "recapLink": "Sent recap",
+    "waitValet": "Valet signs",
     "signAction": "Upload signed",
     "upload": "Upload",
     "pickFile": "Choose file from PC…",

@@ -125,8 +125,10 @@ export class ReceiptsController {
   }
 
   @Post(':id/sign')
-  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
-  @ApiOperation({ summary: 'Carica la ricevuta firmata via URL → stipendio in approvazione' })
+  // ⭐ 03/09 (regola utente): la firma è del VALET — solo lui la carica.
+  // Admin e operation guardano e pagano, non firmano al posto suo.
+  @Roles(Role.VALET)
+  @ApiOperation({ summary: 'Carica la ricevuta firmata via URL → stipendio in approvazione (solo valet)' })
   async sign(@CurrentUser() user: JwtUser, @Param('id') id: string, @Body() body: { fileUrl?: string }) {
     // ⭐ 03/09 (regola utente): la FIRMA IN APP arriva come data URL — va su
     // Drive («File App») come gli altri allegati, e qui resta il LINK. Se
@@ -145,9 +147,10 @@ export class ReceiptsController {
   }
 
   @Post(':id/upload')
-  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
+  // ⭐ 03/09 (regola utente): come /sign — la ricevuta firmata la carica solo il valet.
+  @Roles(Role.VALET)
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Carica la ricevuta firmata come FILE dal PC → stipendio in approvazione' })
+  @ApiOperation({ summary: 'Carica la ricevuta firmata come FILE dal PC → stipendio in approvazione (solo valet)' })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: receiptStorage,

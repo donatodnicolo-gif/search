@@ -115,7 +115,11 @@ interface Receipt {
                   @if (!r.salary) {
                     <span class="muted">—</span>
                   } @else if (!r.signed) {
-                    @if (signFor() === r.id) {
+                    <!-- ⭐ 03/09 (regola utente): la firma è del VALET — solo
+                         lui la carica. L'ufficio vede l'attesa, non il tampone. -->
+                    @if (!isValet()) {
+                      <span class="muted">{{ 'receipts.waitValet' | translate }}</span>
+                    } @else if (signFor() === r.id) {
                       <div class="sign-box">
                         <!-- ⭐ 03/09 (regola utente): FIRMA IN APP — si firma
                              col dito o col mouse, senza stampare niente. In
@@ -210,6 +214,11 @@ export class ReceiptsListComponent {
   canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  /** La firma è un atto del valet: il flusso di caricamento esiste solo per lui. */
+  isValet(): boolean {
+    return this.auth.user()?.role === 'VALET';
   }
 
   readonly receipts = signal<Receipt[]>([]);
