@@ -69,6 +69,14 @@ export default async function ProFormaDetail({
             {d.stato === "fatturata" && d.fatturaNumero ? ` n. ${d.fatturaNumero}` : ""}
           </span>
           <AzioniDocumento id={id} />
+          {/* «Emetti su FIC» anche in alto a destra (chiesto il 02/09/2026):
+              finché non c'è una fattura vera collegata, è il passo successivo
+              naturale e non deve stare solo in fondo alla pagina. */}
+          {d.stato !== "annullata" && !(d.stato === "fatturata" && d.fatturaNumero) && (
+            <Link href={`/fic/fattura?proforma=${id}`} className="btn secondary" title="Crea la fattura vera su Fatture in Cloud dalle righe di questo documento">
+              Emetti su FIC…
+            </Link>
+          )}
         </div>
       </div>
 
