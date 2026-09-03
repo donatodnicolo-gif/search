@@ -456,6 +456,15 @@ export interface Ordine {
    *  e il ripiego si dichiara a schermo invece di far credere che sia la
    *  data vera. */
   data_ordine?: string | null;
+  /** Entro quando va pagato l'acconto — la percentuale in `acconto_percento`
+   *  (migr. 0111). NULL = non concordata, che non vuol dire «subito». */
+  acconto_scadenza?: string | null;
+  /** Entro quando va pagato il saldo; senza acconto è la scadenza dell'intero
+   *  ordine, cioè «la data di pagamento» attesa (migr. 0111).
+   *  ⚠️ Diverso da `incassato_il`, che è il giorno in cui il denaro è
+   *  ARRIVATO: attesa e fatto sono due fatti, e in una colonna sola non si
+   *  potrebbe più dire «è in ritardo». */
+  pagamento_scadenza?: string | null;
   owner: string | null;
   /** La richiesta cliente da cui nasce, se viene da lì (migr. 0075). */
   richiesta_id?: string | null;

@@ -72,7 +72,7 @@ const FASI: DealStage[] = [
  * punti del percorso, sono la fine.
  */
 const FASI_APERTE: DealStage[] = ['appointmentscheduled', 'decisionmakerboughtin', 'contractsent'];
-type VistaTrattative = 'aperte' | 'vinte' | 'perse' | 'annullate';
+type VistaTrattative = 'tutte' | 'aperte' | 'vinte' | 'perse' | 'annullate';
 const VISTE: { v: VistaTrattative; label: string }[] = [
   { v: 'aperte', label: 'Aperte' },
   { v: 'vinte', label: 'Vinte' },
@@ -80,6 +80,12 @@ const VISTE: { v: VistaTrattative; label: string }[] = [
   // Quelle messe da parte col cestino: aperte per sbaglio, o non più valide.
   // Non sono cancellate — da qui si rimettono in gioco.
   { v: 'annullate', label: 'Annullate' },
+  // ⭐ «Tutte» (31/08/2026, richiesta dell'utente): i quattro filtri erano una
+  // partizione senza il tutto, e per rispondere a «quante ne abbiamo in
+  // assoluto?» bisognava sommare a mente quattro conteggi.
+  // ⚠️ Va per ULTIMA, non per prima: il default resta «Aperte» — è la coda di
+  // lavoro, e aprire su tutte darebbe in faccia le chiuse e le annullate.
+  { v: 'tutte', label: 'Tutte' },
 ];
 /**
  * In quale vista sta una trattativa. ⚠️ L'annullamento viene PRIMA della fase:
@@ -183,8 +189,12 @@ export default function Trattative() {
   // Quante ce n'è in ciascuna delle tre viste: il numero sta sul sopra-menù,
   // così «Vinte (0)» si vede prima di cliccarci e nessuno pensa a un guasto.
   const conteggi = useMemo(() => {
-    const c: Record<VistaTrattative, number> = { aperte: 0, vinte: 0, perse: 0, annullate: 0 };
+    const c: Record<VistaTrattative, number> = { tutte: 0, aperte: 0, vinte: 0, perse: 0, annullate: 0 };
     for (const d of deals) c[vistaDi(d)]++;
+    // ⚠️ «Tutte» si CONTA, non si somma a mano: sommare le altre quattro
+    // sarebbe giusto solo finché la partizione resta esatta, e il giorno che
+    // nasce un quinto stato il totale direbbe meno del vero senza avvisare.
+    c.tutte = deals.length;
     return c;
   }, [deals]);
 
@@ -212,7 +222,9 @@ export default function Trattative() {
     return deals.filter((d) => {
       // Prima il sopra-menù: aperte / vinte / perse. Poi, dentro le aperte,
       // l'eventuale sotto-stato.
-      if (vistaDi(d) !== vista) return false;
+      // «Tutte» non filtra per vista: ci sono anche le annullate, che sono
+      // messe da parte ma non cancellate.
+      if (vista !== 'tutte' && vistaDi(d) !== vista) return false;
       if (vista === 'aperte' && faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
       if (!passaFiltroCitta(d.place_zona, cittaFiltro)) return false;
       if (accountFiltro && (d.place_account ?? '') !== accountFiltro) return false;

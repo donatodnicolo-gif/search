@@ -101,7 +101,7 @@ async function syncCrm(admin: any, token: string) {
   after = undefined;
   let nDeal = 0;
   do {
-    const url = `/crm/v3/objects/deals?limit=100&properties=dealname,dealstage,amount,deluxy_linea&associations=companies${after ? `&after=${after}` : ''}`;
+    const url = `/crm/v3/objects/deals?limit=100&properties=dealname,dealstage,amount,deluxy_linea,createdate,closedate&associations=companies${after ? `&after=${after}` : ''}`;
     const page = await hs(token, url);
     const rows = (page.results ?? []).map((d: any) => {
       const compId = d.associations?.companies?.results?.[0]?.id;
@@ -114,6 +114,14 @@ async function syncCrm(admin: any, token: string) {
         valore: d.properties?.amount ? Number(d.properties.amount) : null,
         linea: d.properties?.deluxy_linea || lineaLocale.get(String(d.id)) || null,
         aperta: !['closedwon', 'closedlost'].includes(fase),
+        // ⭐ LE DATE VERE DEL CRM (31/08/2026, migr. 0112). Prima lo specchio
+        // sapeva solo quando era stato aggiornato: nell'elenco Trattative le
+        // colonne delle date restavano vuote su ogni riga che viene da HubSpot.
+        // ⚠️ Su HubSpot `closedate` fa doppio servizio: su un deal APERTO è la
+        // chiusura ATTESA (una scadenza), su uno chiuso è quando è stato
+        // chiuso davvero. Si copia com'è, e lo interpreta chi legge.
+        creata_il: d.properties?.createdate ?? null,
+        chiusa_il: d.properties?.closedate ?? null,
         synced_at: now,
       };
     });

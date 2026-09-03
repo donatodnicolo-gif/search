@@ -1220,7 +1220,7 @@ export async function fetchTutteTrattative(
   const { data: hsDeals } = hubspotAcceso
     ? await supabase
         .from('hubspot_deals')
-        .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
+        .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta, creata_il, chiusa_il')
         .eq('aperta', true)
     : { data: [] as any[] };
 
@@ -1256,7 +1256,18 @@ export async function fetchTutteTrattative(
         fase: d.fase,
         valore_atteso: d.valore != null ? Number(d.valore) : null,
         next_action: null,
-        scadenza: null,
+        // ⭐ LE DATE DI HUBSPOT (31/08/2026, migr. 0112). Prima erano `null` su
+        // ogni riga del CRM: in elenco «Aperta» e «Scadenza» restavano vuote,
+        // e una trattativa che su HubSpot esiste da mesi sembrava senza storia.
+        //
+        // ⚠️ `chiusa_il` di HubSpot (`closedate`) su un deal APERTO è la
+        // chiusura ATTESA: quella è la sua scadenza. Su uno chiuso è la data
+        // di chiusura, e non va messa fra le scadenze — qui arrivano solo le
+        // aperte, ma il controllo si scrive comunque, perché il giorno che
+        // arriveranno anche le chiuse questa riga direbbe una data sbagliata.
+        scadenza: d.aperta ? (d.chiusa_il ? String(d.chiusa_il).slice(0, 10) : null) : null,
+        created_at: d.creata_il ?? undefined,
+        chiusa_il: d.aperta ? null : (d.chiusa_il ?? null),
         owner: null,
         hubspot_deal_id: d.hubspot_id,
         place_nome: nomeNegozio,
@@ -1799,7 +1810,7 @@ export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'data_ordine' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota' | 'acconto_percento' | 'acconto_richiesto_il' | 'senza_fornitura'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'data_ordine' | 'acconto_scadenza' | 'pagamento_scadenza' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota' | 'acconto_percento' | 'acconto_richiesto_il' | 'senza_fornitura'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

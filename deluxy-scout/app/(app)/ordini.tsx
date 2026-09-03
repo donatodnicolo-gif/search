@@ -83,6 +83,13 @@ function euro(n: number | null): string {
  * `created_at` mentre gli altri usano la data vera, i numeri dei riepiloghi
  * non tornerebbero fra loro senza che nessuno capisca perché.
  */
+/** Oggi in AAAA-MM-GG LOCALE: `toISOString()` è UTC e la sera in Italia
+ *  direbbe «ieri», facendo comparire in rosso scadenze non ancora passate. */
+function isoOggiOrdini(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function dataDellOrdine(o: { data_ordine?: string | null; created_at: string }): string {
   return o.data_ordine ?? o.created_at;
 }
@@ -174,6 +181,11 @@ export default function Ordini() {
     /** La data VERA dell'ordine (migr. 0110). Vuota = non indicata: vale la
      *  data di creazione della riga, e si dice a schermo. */
     dataOrdine: string | null;
+    /** L'acconto: quanto (%) ed entro quando (migr. 0111). */
+    accontoPercento: string;
+    accontoScadenza: string | null;
+    /** «La data di pagamento»: entro quando il saldo. */
+    pagamentoScadenza: string | null;
   } | null>(null);
   /**
    * ⭐ CHI HA SEGUITO L'ORDINE (27/08/2026, richiesta dell'utente: «manca la
@@ -698,6 +710,37 @@ export default function Ordini() {
           {dataIt(dataDellOrdine(o))}
         </Text>
       ),
+    },
+    {
+      // ⭐ LA SCADENZA DEI SOLDI, in colonna (migr. 0111): senza, le date
+      // scritte nel form restavano invisibili e non servivano a niente.
+      // ⚠️ Rossa solo se è passata E l'ordine non è incassato: su un ordine
+      // già pagato una scadenza vecchia non è un problema.
+      chiave: 'scadenza',
+      label: 'Scadenza',
+      width: 92,
+      destra: true,
+      numerica: true,
+      valore: (o) => o.pagamento_scadenza ?? o.acconto_scadenza ?? null,
+      cella: (o) => {
+        const d = o.pagamento_scadenza ?? o.acconto_scadenza ?? null;
+        if (!d) return <Text style={styles.tabData}>—</Text>;
+        const inRitardo = o.stato === 'da_incassare' && d < isoOggiOrdini();
+        return (
+          <Text
+            style={[styles.tabData, inRitardo && styles.tabScaduta]}
+            {...({
+              title: inRitardo
+                ? 'Scaduta e non incassata'
+                : o.pagamento_scadenza
+                  ? 'Pagamento (saldo) entro questa data'
+                  : 'Acconto entro questa data',
+            } as any)}
+          >
+            {dataIt(d)}
+          </Text>
+        );
+      },
     },
     {
       chiave: 'stato',
@@ -1283,13 +1326,25 @@ export default function Ordini() {
         causale: `Acconto ${percentuale}% — ${o.descrizione ?? 'ordine'}`,
         place_id: o.place_id ?? null,
         deal_id: o.deal_id ?? null,
+        // ⚠️ Le scadenze concordate sull'ordine VIAGGIANO sulle rate (migr.
+        // 0111): è lì che «in ritardo» diventa calcolabile. Senza, le due rate
+        // nascevano senza data e l'unico modo di accorgersi di un incasso
+        // fermo era ricordarselo.
+        scadenza: o.pagamento_scadenza ?? null,
         rate: [
-          { etichetta: `Acconto ${percentuale}%`, modo: 'percentuale', percentuale, importo },
+          {
+            etichetta: `Acconto ${percentuale}%`,
+            modo: 'percentuale',
+            percentuale,
+            importo,
+            scadenza: o.acconto_scadenza ?? null,
+          },
           {
             etichetta: 'Saldo',
             modo: 'percentuale',
             percentuale: 100 - percentuale,
             importo: Math.round(((o.valore ?? 0) - importo) * 100) / 100,
+            scadenza: o.pagamento_scadenza ?? null,
           },
         ],
       });
@@ -1367,6 +1422,9 @@ export default function Ordini() {
       quanti: o.quantita != null ? String(o.quantita) : '',
       owner: o.owner ?? null,
       dataOrdine: o.data_ordine ?? null,
+      accontoPercento: o.acconto_percento != null ? String(o.acconto_percento) : '',
+      accontoScadenza: o.acconto_scadenza ?? null,
+      pagamentoScadenza: o.pagamento_scadenza ?? null,
     });
   }
 
@@ -1424,6 +1482,19 @@ export default function Ordini() {
     // indicata» — non si mette la data di oggi per riempire il campo, o si
     // perderebbe la differenza fra «l'ordine è di oggi» e «non lo so».
     if ((bozza.dataOrdine ?? null) !== (modificaPer.data_ordine ?? null)) patch.data_ordine = bozza.dataOrdine;
+    // ⚠️ La percentuale vuota torna NULL, non 0: «0%» direbbe «acconto zero
+    // concordato», che è un'altra cosa da «nessun acconto».
+    const perc = bozza.accontoPercento.trim() ? Number(bozza.accontoPercento) : null;
+    const percValida = perc == null || (Number.isFinite(perc) && perc > 0 && perc <= 100);
+    if (!percValida) {
+      avvisa('Percentuale non valida', `«${bozza.accontoPercento}» non è una percentuale fra 1 e 100.`);
+      return;
+    }
+    if (perc !== (modificaPer.acconto_percento ?? null)) patch.acconto_percento = perc;
+    if ((bozza.accontoScadenza ?? null) !== (modificaPer.acconto_scadenza ?? null))
+      patch.acconto_scadenza = bozza.accontoScadenza;
+    if ((bozza.pagamentoScadenza ?? null) !== (modificaPer.pagamento_scadenza ?? null))
+      patch.pagamento_scadenza = bozza.pagamentoScadenza;
     if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
@@ -2288,6 +2359,53 @@ export default function Ordini() {
               una persona in più, il noleggio, il materiale comprato al volo.
               ⚠️ Il margine LI TOGLIE: è detto sotto al campo, perché un costo
               scritto qui cambia un numero che si legge altrove. */}
+          {/* ⭐ LE SCADENZE DEI SOLDI (31/08/2026, richiesta dell'utente:
+              «metti le date di scadenza delle % dell'ordine e della data di
+              pagamento, usa un calendario»).
+
+              ⚠️ Non decorano: la percentuale e le sue date finiscono sulle
+              RATE della richiesta di pagamento quando si chiede l'acconto, ed
+              è da lì che «in ritardo» diventa calcolabile. Prima l'acconto
+              sapeva solo il quanto, non l'entro quando.
+              ⚠️ Vuote = non concordate. Non si mette «oggi» per riempirle: un
+              ordine senza scadenza scritta non è un ordine scaduto. */}
+          <Text style={styles.campoLabel}>Acconto</Text>
+          <View style={styles.rigaPercento}>
+            <TextInput
+              style={[styles.campo, styles.campoPercento]}
+              value={bozza.accontoPercento}
+              onChangeText={(v) => setBozza({ ...bozza, accontoPercento: v.replace(/[^\d]/g, '').slice(0, 3) })}
+              placeholder="%"
+              placeholderTextColor={colors.grigio}
+              keyboardType="numeric"
+            />
+            <View style={{ flex: 1 }}>
+              <CampoData
+                valore={bozza.accontoScadenza}
+                onCambia={(v) => setBozza({ ...bozza, accontoScadenza: v })}
+                placeholder="entro il…"
+              />
+            </View>
+          </View>
+          <Text style={styles.rifNota}>
+            {bozza.accontoPercento && Number(bozza.accontoPercento) > 0
+              ? `${bozza.accontoPercento}% dell’ordine${
+                  leggiImporto(bozza.valore) != null ? ` = ${importoBreve(Math.round((leggiImporto(bozza.valore)! * Number(bozza.accontoPercento)) / 100 * 100) / 100)}` : ''
+                }${bozza.accontoScadenza ? '' : ' — senza data non si può dire se è in ritardo'}`
+              : 'Nessun acconto: si paga tutto alla scadenza qui sotto.'}
+          </Text>
+
+          <Text style={styles.campoLabel}>Pagamento (saldo) entro il</Text>
+          <CampoData
+            valore={bozza.pagamentoScadenza}
+            onCambia={(v) => setBozza({ ...bozza, pagamentoScadenza: v })}
+            placeholder="es. 2026-09-30"
+          />
+          <Text style={styles.rifNota}>
+            {bozza.pagamentoScadenza
+              ? 'Oltre questa data l’ordine non incassato risulta in ritardo.'
+              : 'Non concordata: l’ordine non risulterà mai in ritardo.'}
+          </Text>
           <Text style={styles.campoLabel}>Altri costi</Text>
           <TextInput
             style={styles.campo}
@@ -3535,6 +3653,9 @@ const styles = StyleSheet.create({
   btnIncassiTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   // Il ripiego si vede appena: è una data vera, ma non È la data dell'ordine.
   tabDataRipiego: { fontStyle: 'italic', opacity: 0.75 },
+  rigaPercento: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  campoPercento: { width: 74, textAlign: 'center' },
+  tabScaduta: { color: colors.errore, fontWeight: '700' },
   subForte: { color: colors.navy, fontWeight: '700' },
   subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
