@@ -39,7 +39,7 @@ const ORDINE_BRAND = ["flowers", "gifts", "cake", "cross"];
 // canale — è voluto, ma va detto in pagina, o una lista che mescola Google e
 // Meta sembra sbagliata invece che ordinata come si è chiesto.
 const ORDINAMENTI: Record<string, string> = {
-  predefinito: "Canale, poi budget",
+  predefinito: "Stato, poi nome",
   spesa: "Spesa nel periodo",
   roas: "ROAS",
   budget: "Budget al giorno",
@@ -47,6 +47,19 @@ const ORDINAMENTI: Record<string, string> = {
   stato: "Stato",
 };
 const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo", "crm", "social", "altro"];
+// L'ordine di VITA degli stati (richiesta utente 03/09): prima chi eroga,
+// poi chi sta partendo, poi il fermo. L'alfabeto qui mentirebbe —
+// «in_apprendimento» finirebbe dopo «conclusa».
+const PESO_STATO: Record<string, number> = {
+  attiva: 0,
+  in_apprendimento: 1,
+  in_lancio: 2,
+  bozza: 3,
+  in_pausa: 4,
+  conclusa: 5,
+  defunta: 6,
+};
+const pesoStato = (s: string) => PESO_STATO[s] ?? 9;
 
 // Esplora campagne: una colonna per brand, una card per campagna con icona di
 // canale e categoria, landing, budget, performance e stato di salute.
@@ -297,7 +310,7 @@ export default async function PaginaCampagne({
                   if (ordina === "spesa") return numeri(b).sp - numeri(a).sp;
                   if (ordina === "budget") return (b.budgetGiornaliero ?? 0) - (a.budgetGiornaliero ?? 0);
                   if (ordina === "nome") return nomeCampagna(a).localeCompare(nomeCampagna(b), "it");
-                  if (ordina === "stato") return a.stato.localeCompare(b.stato, "it") || nomeCampagna(a).localeCompare(nomeCampagna(b), "it");
+                  if (ordina === "stato") return pesoStato(a.stato) - pesoStato(b.stato) || nomeCampagna(a).localeCompare(nomeCampagna(b), "it");
                   if (ordina === "roas") {
                     // I senza-ROAS in fondo comunque: «nessun dato» non è «il peggiore».
                     const ra = numeri(a).r;
@@ -307,9 +320,14 @@ export default async function PaginaCampagne({
                     if (rb == null) return -1;
                     return rb - ra;
                   }
+                  // Predefinito (richiesta utente 03/09): dentro il canale
+                  // comanda lo STATO — le attive per prime — e a parità il
+                  // NOME. Prima comandava il budget, e una bozza da 100 €/g
+                  // stava sopra un'attiva da 15.
                   return (
                     ORDINE_CANALE.indexOf(a.canale) - ORDINE_CANALE.indexOf(b.canale) ||
-                    (b.budgetGiornaliero ?? 0) - (a.budgetGiornaliero ?? 0)
+                    pesoStato(a.stato) - pesoStato(b.stato) ||
+                    nomeCampagna(a).localeCompare(nomeCampagna(b), "it")
                   );
                 });
               // ⚠️ Il budget somma SOLO chi eroga (`attiva`, `in_apprendimento`),
