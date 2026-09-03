@@ -3,6 +3,15 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-sexies — LE NON CONSEGNATE SI FATTURANO** (deployato):
+> - **Decisione utente** (caso #48552): `not_delivered` ESCE da
+>   `NON_BILLABLE_STATUSES` — il viaggio c'è stato, l'addebito resta. Ora
+>   fuori fattura restano solo annullate/annullate d'ufficio/non accettate.
+>   MISURATO l'ingresso nel da-fatturare: **397 non consegnate** (395
+>   legacy, 2 piattaforma; 38 del 2026), 224 con prezzo scritto, **~2.228 €**
+>   stimati. I «teorici» del doppio-sconto (4 Montenapoleone ecc.) ora
+>   mordono davvero. La PAGA resta com'era (a-ora sì, fisso no).
+>
 > 🧪 **03/09/2026-quinquies — AGGANCI APPLICATI, FASCE RIEMPITE, TL SU
 > «TUTTE»** (deployato e dati):
 > - **Agganci regole APPLICATI** (ordine utente «sistema tutti i 55»): col

@@ -348,8 +348,9 @@ export class InvoicesService {
    * «Genera fattura». Il lavoro da fatturare non è una fattura: è l'elenco
    * delle consegne che una fattura non ce l'hanno ancora.
    *
-   * Consegna da fatturare = `billable`, stato diverso da annullata/non
-   * consegnata, e **nessuna riga di fattura che la citi**.
+   * Consegna da fatturare = `billable`, stato diverso da annullata (le NON
+   * consegnate SI fatturano — decisione utente 03/09), e **nessuna riga di
+   * fattura che la citi**.
    *
    * Torna gli importi come li tratta la fattura: imponibile (somma delle
    * righe) e totale con IVA.
@@ -1048,28 +1049,28 @@ export class InvoicesService {
     };
   }
 
-  // Stati esclusi dalla fatturazione: annullata e non consegnata.
   /**
    * Stati che NON si fatturano.
    *
-   * ⚠️ Qui c'era scritto `notDelivered`, in camelCase — e in banca dati lo
-   * stato si chiama `not_delivered`. Il filtro non ha mai escluso niente:
-   * 1.744 consegne NON CONSEGNATE risultavano da fatturare, piu' 230
-   * `invalidated` e 6 `not_accepted`. Un valore che non combacia con nessuna
-   * riga non da' errore, da' un filtro che non filtra.
+   * ⚠️ 03/09/2026 (decisione utente): «non consegnata È da fatturare» — il
+   * viaggio c'è stato, l'addebito al partner resta. `not_delivered` esce
+   * quindi da questa lista (com'era, di fatto, nel legacy: il vecchio
+   * filtro scritto in camelCase non aveva mai escluso niente). Restano
+   * fuori solo le consegne mai avvenute: annullate e non accettate.
    *
    * `cancellation_requested` resta dentro apposta: la cancellazione e' stata
    * CHIESTA, non fatta, e finche' non lo diventa la consegna e' avvenuta.
    */
   private static readonly NON_BILLABLE_STATUSES = [
-    'cancelled', 'not_delivered', 'invalidated', 'not_accepted',
+    'cancelled', 'invalidated', 'not_accepted',
   ];
 
 
   /**
    * Genera la fattura del periodo per un partner: una riga per ogni consegna
-   * "da fatturare" (billable) del periodo, in qualsiasi stato tranne
-   * annullata/non consegnata. Importo riga = price + additionalPrice.
+   * "da fatturare" (billable) del periodo, in qualsiasi stato tranne le
+   * annullate (le NON consegnate si fatturano — utente 03/09). Importo
+   * riga = price + additionalPrice.
    *
    * ⚠️ Salta le consegne che stanno GIÀ su una fattura. Senza questo filtro
    * rigenerare lo stesso periodo lo fatturava una seconda volta, in silenzio:
