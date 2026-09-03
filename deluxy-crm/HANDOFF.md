@@ -8,6 +8,31 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
+## Stato al 03/09/2026 (ripresa)
+
+- **Produzione ferma al 28/08**: l'ultimo deploy (`vercel ls --prod`) è di 6
+  giorni fa; il commit `a309b6b3` del 31/08 (login: `<details>` «Password
+  dimenticata?» che dice la verità sulla password unica di squadra) è in git ma
+  **NON è live** (`curl /login | grep dimenticata` → 0). tsc 0 e build 0 il
+  03/09; il deploy CLI dalla cartella è stato bloccato dal classificatore dei
+  permessi: va lanciato a mano `npx vercel deploy --prod --yes`.
+- **`MAIL_API_KEY` ancora assente** nelle env Vercel (16 variabili, quella no):
+  l'invio mail resta spento. Vedi MANCA punto 1.
+- **Dal 27 al 28/08 il CRM ha ricevuto le passate trasversali** (Libro UX
+  v1.3–1.9, token v1.4): sidebar nuova con pallini gialli «novità»
+  (`lib/pallini.ts`, `lib/novita.ts`, `api/novita/sezioni`), `loading.tsx`,
+  `TornaIndietro`, `RigaLink`, chip su una riga scorrevole su mobile, ricerca
+  `q` + scorciatoie di periodo su Eventi e membri lista (i Clienti NO: l'API di
+  Orders non filtra, sarebbe l'OR largo col take). Tutto questo È live.
+- **Aperti dal custode UX** (`SEGNALAZIONI-UX.md`, CRM 🟡 PARZIALE): P1 la mail
+  personalizzata **non ha dedup** (doppio click = mail doppia al cliente);
+  manca `error.tsx` (ogni throw è la pagina inglese di Next); 5 delete con
+  `catch(()=>{})`; input perso sul redirect `?errore=`; `WaAssistito` mostra
+  «Aperta ✓» anche se la chat non si è aperta. Nessuno è stato toccato il
+  03/09: sono i primi lavori quando si riprende il codice.
+- Working copy di `deluxy-crm/` pulita; le modifiche sporche nel repo
+  (`deluxy-platform-next/`) sono di un'altra sessione: non toccarle.
+
 ## FATTO
 
 - **Architettura conforme allo Standard §7**: nessuna tabella-copia dei
