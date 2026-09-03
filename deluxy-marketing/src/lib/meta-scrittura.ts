@@ -479,6 +479,8 @@ export type ParametriLancioMeta = {
    * Senza, resta un brief: si monta in Ads Manager.
    */
   creativo?: {
+    /** singolo (default) | carosello | catalogo */
+    formato?: string | null;
     testi?: string[];
     titolo?: string | null;
     descrizione?: string | null;
@@ -487,6 +489,10 @@ export type ParametriLancioMeta = {
     imageHash?: string | null;
     /** Video già in libreria (caricato a pezzi): con lui l'imageHash è la copertina. */
     videoId?: string | null;
+    /** Carosello: le schede coi link ai prodotti (immagini già in libreria). */
+    schede?: { imageHash: string; url: string; titolo?: string; descrizione?: string }[] | null;
+    /** Catalogo: l'insieme di prodotti da cui l'annuncio pesca. */
+    insiemeProdotti?: string | null;
   } | null;
 };
 
@@ -680,6 +686,12 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
   } else if (p.obiettivoTipo === "notorieta") {
     optimization = "REACH";
   }
+  // Il formato CATALOGO aggancia l'insieme di prodotti all'ad set: è da lì
+  // che l'annuncio pesca immagini, prezzi e link.
+  if (p.creativo?.formato === "catalogo" && p.creativo.insiemeProdotti) {
+    promotedObject = { ...(promotedObject ?? {}), product_set_id: p.creativo.insiemeProdotti };
+    note.push(`insieme prodotti ${p.creativo.insiemeProdotti} agganciato all'ad set`);
+  }
 
   // ——— 4. L'ad set ———
   const campiAdSet: Record<string, string> = {
@@ -726,7 +738,16 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
   // annuncio senza creatività, che Meta rifiuterebbe comunque.
   let fraseAnnuncio = "L'ANNUNCIO NON C'È ANCORA: il creativo si monta in Ads Manager prima dell'accensione.";
   const cr = p.creativo;
-  if (cr?.imageHash && cr.url) {
+  const formatoCr = cr?.formato ?? "singolo";
+  // Cosa serve perché l'annuncio possa nascere, formato per formato.
+  const prontoPerAnnuncio =
+    !!cr?.url &&
+    (formatoCr === "carosello"
+      ? (cr.schede?.length ?? 0) >= 2
+      : formatoCr === "catalogo"
+        ? !!cr.insiemeProdotti
+        : !!cr.imageHash);
+  if (cr && prontoPerAnnuncio) {
     // La pagina: indicata nel modulo, o trovata sull'account se è una sola.
     let pagina = p.paginaId?.trim() || null;
     if (!pagina) {
@@ -745,11 +766,39 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
       note.push(`pagina trovata dall'app sull'account: ${pagina}`);
     }
 
-    // VIDEO o immagine: due forme diverse dello stesso object_story_spec.
-    // Col video l'immagine fa da copertina (Meta la pretende).
+    // Quattro forme dello stesso object_story_spec: video, carosello,
+    // catalogo (template_data) o immagine singola.
     const messaggio = (cr.testi ?? [])[0] ?? cr.titolo ?? "";
     let specCreativo: Record<string, unknown>;
-    if (cr.videoId) {
+    if (formatoCr === "carosello") {
+      // Le schede coi link ai prodotti; la CTA viaggia su OGNI scheda,
+      // ognuna verso il SUO prodotto.
+      specCreativo = {
+        link_data: {
+          link: cr.url,
+          message: messaggio,
+          multi_share_end_card: false,
+          child_attachments: (cr.schede ?? []).map((s) => ({
+            link: s.url,
+            image_hash: s.imageHash,
+            ...(s.titolo ? { name: s.titolo } : {}),
+            ...(s.descrizione ? { description: s.descrizione } : {}),
+            call_to_action: { type: cr.cta || "SHOP_NOW", value: { link: s.url } },
+          })),
+        },
+      };
+    } else if (formatoCr === "catalogo") {
+      // Il template pesca dal catalogo: immagini/prezzi/link dei prodotti
+      // arrivano dall'insieme agganciato all'ad set.
+      const templateData: Record<string, unknown> = {
+        link: cr.url,
+        message: messaggio,
+        call_to_action: { type: cr.cta || "SHOP_NOW" },
+      };
+      if (cr.titolo) templateData.name = cr.titolo;
+      if (cr.descrizione) templateData.description = cr.descrizione;
+      specCreativo = { template_data: templateData };
+    } else if (cr.videoId) {
       const videoData: Record<string, unknown> = {
         video_id: cr.videoId,
         image_hash: cr.imageHash,
@@ -787,6 +836,8 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
         body: new URLSearchParams({
           name: `${p.nome} — creative 1`,
           object_story_spec: JSON.stringify({ page_id: pagina, ...specCreativo }),
+          // Col catalogo il creative dichiara ANCHE lui l'insieme prodotti.
+          ...(formatoCr === "catalogo" && cr.insiemeProdotti ? { product_set_id: cr.insiemeProdotti } : {}),
           access_token: t,
         }),
         cache: "no-store",
@@ -811,7 +862,15 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
       });
       const dati = (await r.json()) as { id?: string; error?: { message?: string; error_user_msg?: string } };
       if (dati.error || !dati.id) return annuncioFallito(`Meta ha rifiutato l'annuncio: ${dati.error?.error_user_msg ?? dati.error?.message ?? "nessun id"}`);
-      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (${cr.videoId ? `VIDEO ${cr.videoId} con copertina, ` : ""}creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
+      const formaDetta =
+        formatoCr === "carosello"
+          ? `CAROSELLO da ${cr.schede?.length ?? 0} schede`
+          : formatoCr === "catalogo"
+            ? `CATALOGO (insieme ${cr.insiemeProdotti})`
+            : cr.videoId
+              ? `VIDEO ${cr.videoId} con copertina`
+              : "immagine singola";
+      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (${formaDetta}, creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
     } catch (e) {
       return annuncioFallito(`chiamata fallita creando l'annuncio: ${String(e)}`);
     }

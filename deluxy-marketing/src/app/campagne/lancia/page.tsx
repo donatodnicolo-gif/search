@@ -6,6 +6,8 @@ import { lanciaCampagna } from "@/lib/azioni";
 import { proponiBriefCampagna, proponiBriefCampagnaMeta } from "@/lib/azioni-brief";
 import { prisma } from "@/lib/db";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
+import { insiemiProdottoMeta, type InsiemeProdotti } from "@/lib/meta-annunci";
+import { accountDiBrand } from "@/lib/operazioni";
 import { ModuloLancioMeta } from "./modulo-meta";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +78,20 @@ export default async function CreaCampagna({
         select: { id: true, nome: true, tipo: true, dimensione: true, stato: true },
       })
     : [];
+  // Gli insiemi di prodotti del catalogo, letti VIVI: servono al formato
+  // «raccolta». Se la lettura fallisce il modulo lo dice, non finge il vuoto.
+  let insiemiMeta: InsiemeProdotti[] = [];
+  if (meta) {
+    try {
+      const account = await accountDiBrand("meta_ads", brand);
+      if (account) {
+        const esito = await insiemiProdottoMeta(account);
+        if (esito.ok) insiemiMeta = esito.insiemi;
+      }
+    } catch {
+      insiemiMeta = [];
+    }
+  }
   const linkCanale = (c: string) =>
     `/campagne/lancia?${new URLSearchParams({ ...(sp.brand ? { brand: sp.brand } : {}), ...(c === "meta" ? { canale: "meta" } : {}) }).toString()}`;
 
@@ -121,7 +137,7 @@ export default async function CreaCampagna({
             {/* Il pannello AI sta FUORI dal <form>, come sul modulo Google. */}
             <BriefCampagnaMetaAi brand={brand} azione={proponiBriefCampagnaMeta} />
 
-            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} pubblici={pubbliciMeta} />
+            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} pubblici={pubbliciMeta} insiemi={insiemiMeta} />
 
             {/* ⚠️ La stessa distinzione che regge il modulo Google: che cosa
                 arriva davvero sulla piattaforma e che cosa resta a mano. Su

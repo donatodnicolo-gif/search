@@ -2630,6 +2630,50 @@ export async function lanciaCampagnaMeta(fd: FormData) {
     redirect(indietro("Col video serve anche l'immagine come copertina: caricala nel campo Immagine"));
   }
 
+  // ——— Il FORMATO dell'annuncio: singolo, carosello o catalogo ———
+  const formato = ["singolo", "carosello", "catalogo"].includes(testo(fd, "formato") ?? "")
+    ? testo(fd, "formato")!
+    : "singolo";
+  // Le schede del carosello: immagini GIÀ in libreria (una per richiesta,
+  // dal componente), qui arrivano solo hash e link.
+  let schede: { imageHash: string; url: string; titolo?: string; descrizione?: string }[] = [];
+  if (formato === "carosello") {
+    try {
+      const grezzo = JSON.parse(testo(fd, "caroselloJson") ?? "[]") as unknown[];
+      schede = (Array.isArray(grezzo) ? grezzo : [])
+        .map((x) => x as Record<string, unknown>)
+        .filter((x) => typeof x.imageHash === "string" && typeof x.url === "string" && x.url)
+        .map((x) => ({
+          imageHash: String(x.imageHash),
+          url: String(x.url),
+          titolo: String(x.titolo ?? "").trim() || undefined,
+          descrizione: String(x.descrizione ?? "").trim() || undefined,
+        }))
+        .slice(0, 10);
+    } catch {
+      schede = [];
+    }
+    if (schede.length < 2) {
+      redirect(indietro("Il carosello vuole ALMENO 2 schede complete (immagine caricata + link del prodotto)"));
+    }
+    if (!testo(fd, "finalUrl")) {
+      redirect(indietro("Col carosello serve anche la URL di destinazione generale (la scheda finale «vedi altro»)"));
+    }
+    // Il lint vale anche sui testi delle schede.
+    for (const s of schede) {
+      for (const v of lintCopy([s.titolo, s.descrizione].filter(Boolean).join(" "), brand)) {
+        if (v.tipo === "vietato") {
+          redirect(indietro(`Copy bloccato dal lint 7.2/7.3 in una scheda del carosello — "${v.parola}": ${v.motivo}`));
+        }
+      }
+    }
+  }
+  const insiemeProdotti = testo(fd, "insiemeProdotti");
+  if (formato === "catalogo") {
+    if (!insiemeProdotti) redirect(indietro("Il formato catalogo vuole un insieme di prodotti: sceglilo dal menù"));
+    if (!testo(fd, "finalUrl")) redirect(indietro("Col catalogo serve la URL di destinazione"));
+  }
+
   const campagna = await prisma.campagna.create({
     data: {
       nome,
@@ -2688,7 +2732,15 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         // all'esecuzione — in pausa, dentro l'ad set.
         pubbliciNota,
         pubblici: pubbliciScelti.map((x) => ({ id: x.idEsterno!, nome: x.nome })),
-        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl"), imageHash, videoId },
+        creativo: {
+          formato,
+          testi, titolo, descrizione,
+          cta: testo(fd, "cta"),
+          url: testo(fd, "finalUrl"),
+          imageHash, videoId,
+          schede: formato === "carosello" ? schede : undefined,
+          insiemeProdotti: formato === "catalogo" ? insiemeProdotti : undefined,
+        },
       }),
       motivo: testo(fd, "motivo"),
       livello: "L2",

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { cittaDaTesto } from "@/lib/citta";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
+import { AnnunciMeta } from "@/components/AnnunciMeta";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
@@ -852,6 +853,12 @@ export default async function SchedaCampagna({
           campagnaId={campagna.id}
           metaIdEsterno={campagna.canale === "meta_ads" ? campagna.idEsterno : null}
         />
+
+        {/* Gli annunci veri su Meta, con le creatività: lente viva, nessuna
+            copia. Solo per campagne Meta confermate. */}
+        {campagna.canale === "meta_ads" && campagna.idEsterno && !defunta && (
+          <AnnunciMeta idCampagnaEsterno={campagna.idEsterno} />
+        )}
 
         {/* ——— Che cosa dicono le ANALISI di questa campagna, nel tempo ———
             Non solo l'ultima (quella sta nel bottone in testata): la STORIA

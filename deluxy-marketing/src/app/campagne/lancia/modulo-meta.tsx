@@ -1,7 +1,9 @@
 import { CaricaVideoMeta } from "@/components/CaricaVideoMeta";
+import { SchedeCarosello } from "@/components/SchedeCarosello";
 import { Icona } from "@/components/Icona";
 import { lanciaCampagnaMeta } from "@/lib/azioni";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
+import type { InsiemeProdotti } from "@/lib/meta-annunci";
 
 // Il modulo di lancio per META — un modulo SUO, non il modulo Google con i
 // nomi cambiati. La struttura segue quella della piattaforma:
@@ -52,11 +54,14 @@ export function ModuloLancioMeta({
   brand,
   tornaBrand,
   pubblici,
+  insiemi,
 }: {
   brand: string;
   tornaBrand?: string;
   /** I pubblici del brand censiti da Meta (con id di piattaforma), non estinti. */
   pubblici: { id: string; nome: string; tipo: string; dimensione: number | null; stato: string }[];
+  /** Gli insiemi di prodotti del catalogo (per il formato raccolta). */
+  insiemi: InsiemeProdotti[];
 }) {
   return (
     <form className="modulo-creazione" action={lanciaCampagnaMeta}>
@@ -398,10 +403,68 @@ export function ModuloLancioMeta({
           Che cosa dice l&apos;annuncio (brief per Ads Manager)
         </div>
         <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
-          Con l&apos;<b>immagine</b> qui sotto, col lancio nascono anche creative e annuncio —
-          in pausa, dentro l&apos;ad set. Senza, il copy resta un brief e il creativo si monta in
-          Ads Manager. Tutto passa dal lint 7.2/7.3 prima di entrare in coda.
+          Col media giusto, il lancio crea anche creative e annuncio — in pausa, dentro
+          l&apos;ad set. Senza, il copy resta un brief da montare in Ads Manager. Tutto passa dal
+          lint 7.2/7.3 prima di entrare in coda.
         </p>
+
+        {/* ——— Il FORMATO: decide quale dei blocchi qui sotto conta ——— */}
+        <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
+          <label>Formato dell&apos;annuncio</label>
+          <div className="chip-scelte">
+            <div className="chip-scelta">
+              <input className="chip-check" type="radio" name="formato" id="fmt-singolo" value="singolo" defaultChecked />
+              <label className="chip-etichetta" htmlFor="fmt-singolo">Singola immagine o video</label>
+            </div>
+            <div className="chip-scelta">
+              <input className="chip-check" type="radio" name="formato" id="fmt-carosello" value="carosello" />
+              <label className="chip-etichetta" htmlFor="fmt-carosello">Carosello di immagini coi link ai prodotti</label>
+            </div>
+            <div className="chip-scelta">
+              <input className="chip-check" type="radio" name="formato" id="fmt-catalogo" value="catalogo" />
+              <label className="chip-etichetta" htmlFor="fmt-catalogo">Raccolta dal catalogo prodotti</label>
+            </div>
+          </div>
+          <span className="campo-aiuto">
+            Vale il formato spuntato: gli altri blocchi si possono lasciare vuoti. La
+            «vetrina» (Collection con esperienza istantanea) si monta in Ads Manager: l&apos;API
+            non costruisce l&apos;esperienza.
+          </span>
+        </div>
+
+        {/* ——— Carosello: le schede coi link ai prodotti ——— */}
+        <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
+          <label>Schede del carosello (per il formato carosello)</label>
+          <SchedeCarosello brand={brand} />
+          <input type="hidden" name="caroselloJson" />
+        </div>
+
+        {/* ——— Catalogo: l'insieme di prodotti ——— */}
+        <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
+          <label>Insieme di prodotti (per il formato raccolta dal catalogo)</label>
+          {insiemi.length === 0 ? (
+            <span className="campo-aiuto">
+              Nessun insieme di prodotti leggibile adesso (serve un catalogo sul Business
+              dell&apos;account): il formato catalogo resta non selezionabile.
+            </span>
+          ) : (
+            <>
+              <select name="insiemeProdotti" defaultValue="">
+                <option value="">— scegli l&apos;insieme —</option>
+                {insiemi.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.catalogo} · {s.nome}{s.prodotti != null ? ` (${s.prodotti} prodotti)` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="campo-aiuto">
+                L&apos;annuncio pesca immagini, prezzi e link dei prodotti dal catalogo: le
+                immagini qui sotto non servono. Funziona al meglio con obiettivo Vendite e pixel.
+              </span>
+            </>
+          )}
+        </div>
+
         <div className="modulo">
           <div className="campo-modulo largo">
             <label>Immagine dell&apos;annuncio (JPG, PNG o WebP — max 4 MB)</label>
