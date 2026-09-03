@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
+import { fasciaDelSito, fascePerNegozio } from '@/lib/fasce-consegna'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -110,6 +111,22 @@ export function NuovoOrdine({
 
   const [data, setData] = useState('')
   const [fascia, setFascia] = useState('')
+  /**
+   * La fascia si scrive a mano invece di sceglierla dalle voci del sito.
+   *
+   * ⚠️ Non è un ripiego: le eccezioni concordate al telefono («passo dopo le
+   * 20») esistono. Senza una via d'uscita finirebbero nelle note, dove il
+   * fornitore non le legge.
+   */
+  const [fasciaLibera, setFasciaLibera] = useState(false)
+  /**
+   * ⚠️⚠️ La consegna ANONIMA (utente, 02/09/2026): chi manda non vuole comparire.
+   * Va detto a chi consegna — per questo viaggia in TRE posti: la nota
+   * dell'ordine, un attributo che Shopify porta con sé, e la nota della
+   * consegna quando l'ordine si manda in app. Scritta in un posto solo,
+   * arriverebbe a metà strada.
+   */
+  const [anonima, setAnonima] = useState(false)
   const [indirizzo, setIndirizzo] = useState('')
   const [note, setNote] = useState('')
   const [cap, setCap] = useState('')
@@ -538,6 +555,17 @@ export function NuovoOrdine({
     setIndirizzoDaMaps(true)
   }
 
+  // Le fasce del marchio scelto, e il caso della bozza riaperta.
+  //
+  // ⚠️ Se la fascia che c'è già NON è una del sito (una vecchia scritta a mano,
+  // o una eccezione concordata), si apre da sola in modalità libera: altrimenti
+  // la tendina la cancellerebbe scegliendo la prima voce al posto sua.
+  const nomeNegozio = negozi.find((n) => n.id === negozioId)?.nome ?? ''
+  const fasceDelNegozio = fascePerNegozio(nomeNegozio)
+  useEffect(() => {
+    if (fascia.trim() && !fasciaDelSito(nomeNegozio, fascia)) setFasciaLibera(true)
+  }, [fascia, nomeNegozio])
+
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
 
@@ -618,6 +646,7 @@ export function NuovoOrdine({
     [
       negozioId, nome, cognome, email, telefono, data, fascia, indirizzo, note, cap, citta,
       provincia, paese, righe, biglietto, spedizioneTitolo, spedizionePrezzo, senzaConsegna,
+      anonima, fasciaLibera,
       pagamento, mezzo,
       aggiungiIva,
     ]
@@ -759,6 +788,7 @@ export function NuovoOrdine({
           pagamento,
           mezzoPagamento: mezzo,
           aggiungiIva,
+          anonima,
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
@@ -1012,9 +1042,77 @@ export function NuovoOrdine({
             <span>Giorno</span>
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </label>
+          {/* ── LA FASCIA, COME LA OFFRE IL SITO ──
+              ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Era testo libero, e nei
+              dati veri si vede: `116-20`, `8-16`, `9-17`, «16-20 ultimo orario
+              disponibile». Una fascia scritta storta arriva al fornitore senza
+              un orario leggibile. Le voci sono quelle che i siti mandano
+              davvero (vedi src/lib/fasce-consegna.ts).
+              ⚠️ «Flessibile» resta, e non è un ripiego: le eccezioni concordate
+              al telefono esistono, e senza una via d'uscita si scriverebbero
+              nelle note dove non le legge il fornitore. */}
           <label className="campo">
             <span>Fascia oraria</span>
-            <input value={fascia} onChange={(e) => setFascia(e.target.value)} placeholder="16-20" />
+            {fasciaLibera ? (
+              <input
+                value={fascia}
+                onChange={(e) => setFascia(e.target.value)}
+                placeholder="es. 17-18, o «dopo le 20»"
+              />
+            ) : (
+              <select
+                value={fascia}
+                onChange={(e) => {
+                  if (e.target.value === '__libera') {
+                    setFasciaLibera(true)
+                    setFascia('')
+                    return
+                  }
+                  setFascia(e.target.value)
+                }}
+              >
+                <option value="">— scegli la fascia —</option>
+                {fasceDelNegozio.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+                <option value="__libera">Flessibile: la scrivo io…</option>
+              </select>
+            )}
+            {fasciaLibera ? (
+              <button
+                type="button"
+                className="bottone secondario mini"
+                style={{ marginTop: 4, alignSelf: 'flex-start' }}
+                onClick={() => {
+                  setFasciaLibera(false)
+                  setFascia('')
+                }}
+              >
+                Torna alle fasce del sito
+              </button>
+            ) : null}
+          </label>
+          {/* ── CONSEGNA ANONIMA ──
+              ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Chi manda non vuole
+              comparire: il valet non deve dire da parte di chi, e sul biglietto
+              non ci va il nome. È un'informazione che serve a CHI CONSEGNA, non
+              a noi — per questo viaggia anche nell'ordine e nella consegna di
+              là, non solo in questa casella. */}
+          <label
+            style={{
+              gridColumn: '1 / -1',
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              fontSize: 13,
+            }}
+          >
+            <input type="checkbox" checked={anonima} onChange={(e) => setAnonima(e.target.checked)} />
+            <span>
+              <strong>Consegna anonima</strong> — chi riceve non deve sapere da parte di chi
+            </span>
           </label>
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
             {/* ── L'indirizzo lo dà Maps ──

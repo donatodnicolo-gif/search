@@ -1,5 +1,63 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (7) — quattro cose su Nuovo ordine
+
+### 1. Il CAP che non si autocompilava (segnalato dall'utente)
+
+⚠️ **Dal server il CAP torna**: misurato su tre indirizzi veri — Via Monte
+Napoleone 8 → `20121`, Piazza di Spagna 1 → `00187`, Viale Roma 12 Guidonia →
+`00012`. Quindi il buco non è nella lettura: sono i casi in cui Google **non
+mette `postal_code` fra i componenti**, e allora il campo restava vuoto senza
+dire niente. Due toppe:
+
+- se `postal_code` manca e il paese è l'Italia, il CAP si prende
+  dall'**indirizzo formattato** («Via Torino, 20123 Milano MI, Italia») con
+  cinque cifre isolate. Solo in Italia: altrove il codice postale ha un'altra
+  forma e prenderne uno a caso vorrebbe dire scriverne uno finto;
+- ⚠️⚠️ **senza `route` non si torna più `null`**: succede scegliendo un posto
+  che non è una via (un albergo, un ospedale), e prima la rotta rispondeva 502
+  e la schermata non riempiva NIENTE, in silenzio. Ora si dà quello che c'è.
+
+### 2. «Togliere il costo di consegna» dava errore
+
+Non l'ho riprodotto (serve il messaggio esatto), ma ho chiuso la strada più
+probabile: la **stima fuori zona** che ho aggiunto stamattina girava dentro la
+rotta delle tariffe **senza rete di sicurezza**. Un'eccezione da Google o dalle
+impostazioni usciva dalla rotta → 502 → il modulo mostrava un errore rosso *al
+posto del prezzo del sito, che era lì e funzionava*. Ora sia `cittaDiCasa()` sia
+`stimaFuoriZona()` sono avvolte: al massimo la stima non c'è.
+⚠️ Misurato: con un indirizzo fuori zona la chiamata costa **6,3 s** (1,7 di
+Shopify + 4,6 di Google). Non è un timeout — `maxDuration` è 30 — ma è tanto.
+
+### 3. La fascia oraria si sceglie, come sul sito
+
+Era testo libero, e nei dati veri si vede: `116-20`, `8-16`, `9-17`, «16-20
+ultimo orario disponibile». Le voci **non sono inventate**, sono quelle che i
+siti mandano davvero (ordini dal 01/06/2026):
+
+- **Flowers** 178 × `08-12`, 128 × `12-16`, 120 × `16-20`
+- **Cake** 68 × `08-12`, 46 × `12-16`, 47 × `16-20`
+- **Deluxy** fasce di **un'ora** (08-09 … 21-22) più le doppie (08-10, 10-12,
+  12-14, 14-16, 16-18, 18-20, 20-22) — consegna «a ora» col valet.
+
+⚠️ Resta **«Flessibile: la scrivo io»**, e non è un ripiego: le eccezioni
+concordate al telefono esistono, e senza via d'uscita finirebbero nelle note
+dove il fornitore non le legge. Riaprendo una bozza con una fascia che non è
+del sito, il campo si apre **da solo** in modalità libera — la tendina non deve
+cancellarla scegliendo la prima voce al posto sua.
+
+### 4. Consegna anonima
+
+Spunta in Consegna. ⚠️⚠️ Viaggia in **tre** posti, perché scritta in uno solo
+arriverebbe a metà strada:
+
+1. la **nota dell'ordine**, per PRIMA riga e in maiuscolo (in fondo si legge
+   dopo, e questa è l'unica riga che se non viene letta rovina il regalo);
+2. l'attributo Shopify **`Consegna_Anonima`** — la nota la legge una persona,
+   l'attributo una macchina (Orders, e da lì la piattaforma);
+3. la **nota della consegna** in «Manda in app», riconosciuta dalla nota
+   dell'ordine: è lì che la vede il valet.
+
 ## 02/09/2026 (6) — lo stato di OGNI vendita dentro l'app delivery
 
 Domanda dell'utente: «per ogni vendita riesci a recuperare lo stato all'interno

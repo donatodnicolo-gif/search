@@ -98,7 +98,14 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
       senderPhone: o.telefono ?? '',
       deliveryTimeFrom: '',
       deliveryTimeTo: '',
-      notes: '',
+      // ⚠️⚠️ LA CONSEGNA ANONIMA arriva fin qui (utente, 02/09/2026). Sta nella
+      // nota dell'ordine perché è lì che l'abbiamo scritta creandolo, e da qui
+      // finisce nella nota della consegna — cioè sotto gli occhi del valet, che
+      // è l'unico che deve saperlo. Senza questo passaggio la spunta moriva su
+      // Shopify e chi consegna diceva lo stesso da parte di chi.
+      notes: /consegna anonima/i.test(o.note ?? '')
+        ? 'CONSEGNA ANONIMA: non dire da parte di chi.'
+        : '',
       ddtNumber: (o.numero ?? '').replace(/^#/, ''),
       ddtBrand: o.negozioNome ?? '',
       riferimentoEsterno: o.ordersId ?? o.id,

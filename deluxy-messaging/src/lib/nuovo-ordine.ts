@@ -384,6 +384,16 @@ export type DatiNuovoOrdine = {
    *   **pagato**.
    */
   pagamento: 'link' | 'pagato'
+  /**
+   * La consegna e ANONIMA: chi riceve non deve sapere da parte di chi.
+   * ⚠️ Viaggia in tre posti — nota dell ordine, attributo Consegna_Anonima e
+   * nota della consegna in piattaforma: scritta in un posto solo arriverebbe
+   * a meta strada.
+   */
+  // ⚠️ Facoltativo: riconsegne, preventivi e la rotta /v1 creano ordini senza
+  // passare da questa spunta, e obbligarli a dichiararla non aggiungerebbe
+  // niente — l assenza vuol dire «no».
+  anonima?: boolean
   /** Con quale mezzo ha pagato: finisce nelle note dell'ordine. */
   mezzoPagamento: string
   /**
@@ -446,6 +456,11 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   const taglia = (v: string, max: number) => (v.length > max ? v.slice(0, max) : v)
 
   const note = [
+    // ⚠️⚠️ Per PRIMA, e in maiuscolo (utente, 02/09/2026): la consegna anonima
+    // è l'unica riga della nota che, se non viene letta, rovina il regalo —
+    // il valet dice «da parte di …» e la sorpresa è finita. In fondo alla nota,
+    // sotto il biglietto e le note di consegna, si legge dopo.
+    d.anonima ? 'CONSEGNA ANONIMA: non dire da parte di chi.' : '',
     d.biglietto.trim() ? `Biglietto: ${d.biglietto.trim()}` : '',
     d.consegna.civicoNote.trim() ? `Note consegna: ${d.consegna.civicoNote.trim()}` : '',
     d.pagamento === 'pagato' && d.mezzoPagamento.trim()
@@ -466,6 +481,11 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       ...(d.consegna.fascia.trim()
         ? [{ key: 'Fascia_Oraria_Consegna', value: d.consegna.fascia.trim() }]
         : []),
+      // ⚠️ Anche come ATTRIBUTO e non solo nella nota: un attributo lo legge
+      // una macchina (Orders, e da lì la piattaforma consegne), la nota la
+      // legge una persona. Per una cosa che deve arrivare fino al valet
+      // servono tutte e due le strade.
+      ...(d.anonima ? [{ key: 'Consegna_Anonima', value: 'Si' }] : []),
     ],
     // ⚠️⚠️ L'IVA È UNA SCELTA. Su Deluxy e Flowers i prezzi sono IVA esclusa,
     // quindi senza questo Shopify aggiunge l'imposta sopra al totale del link.

@@ -167,6 +167,7 @@ export async function dettaglioIndirizzo(placeId: string): Promise<IndirizzoScel
   })
   const d = (await res.json().catch(() => ({}))) as {
     addressComponents?: { longText?: string; shortText?: string; types?: string[] }[]
+    formattedAddress?: string
     error?: { message?: string }
   }
   // ⚠️ Stessa storia dei suggerimenti: se la Places nuova non è accesa si
@@ -174,11 +175,17 @@ export async function dettaglioIndirizzo(placeId: string): Promise<IndirizzoScel
   // `longText`) — per questo la traduzione è qui e non nel chiamante.
   let pezzi = d.addressComponents ?? []
   if (!pezzi.length && (d.error?.message ? apiNonAccesa(d.error.message) : true)) {
-    const p = new URLSearchParams({ place_id: placeId, key: k, language: 'it', fields: 'address_component' })
+    // ⚠️ `formatted_address` serve al ripiego del CAP: se non lo si chiede,
+    // sulla API vecchia un CAP mancante resta mancante.
+    const p = new URLSearchParams({ place_id: placeId, key: k, language: 'it', fields: 'address_component,formatted_address' })
     const vecchia = await fetch(`${DETTAGLIO_VECCHIO}?${p.toString()}`, { cache: 'no-store' })
     const dv = (await vecchia.json().catch(() => ({}))) as {
-      result?: { address_components?: { long_name?: string; short_name?: string; types?: string[] }[] }
+      result?: {
+        address_components?: { long_name?: string; short_name?: string; types?: string[] }[]
+        formatted_address?: string
+      }
     }
+    if (dv.result?.formatted_address) d.formattedAddress = dv.result.formatted_address
     pezzi = (dv.result?.address_components ?? []).map((c) => ({
       longText: c.long_name,
       shortText: c.short_name,
@@ -191,11 +198,33 @@ export async function dettaglioIndirizzo(placeId: string): Promise<IndirizzoScel
   }
   const via = prendi('route')
   const civico = prendi('street_number')
-  if (!via) return null
+  // ⚠️⚠️ Senza `route` NON si torna più `null` (02/09/2026). Succede scegliendo
+  // un posto che non è una via — un albergo, un ospedale, una piazza — e prima
+  // la rotta rispondeva 502 e la schermata non riempiva NIENTE, in silenzio.
+  // Se c'è almeno la città, quello che sappiamo si dà: il resto lo completa chi
+  // sta al telefono, che è comunque meglio di tre campi vuoti senza motivo.
+  const comune = prendi('locality') || prendi('administrative_area_level_3')
+  if (!via && !comune) return null
+
+  // ── IL CAP, QUANDO GOOGLE NON LO METTE FRA I COMPONENTI ──
+  //
+  // ⚠️⚠️ Segnalato dall'utente il 02/09/2026 («il campo CAP non si
+  // autocompila»). `postal_code` manca per certi risultati — tipicamente quelli
+  // fermi alla via, senza civico — mentre l'indirizzo formattato il CAP ce
+  // l'ha lo stesso: «Via Torino, 20123 Milano MI, Italia». Si prende da lì
+  // invece di lasciare il campo vuoto.
+  // ⚠️ Cinque cifre isolate, e solo in Italia: altrove il codice postale ha
+  // un'altra forma e prenderne una qualsiasi vorrebbe dire scriverne uno finto.
+  const paese = prendi('country', true) || 'IT'
+  let cap = prendi('postal_code')
+  if (!cap && paese === 'IT') {
+    cap = (d.formattedAddress ?? '').match(/\b\d{5}\b/)?.[0] ?? ''
+  }
+
   return {
     // In Italia il civico va dopo la via: «Via Roma 12», non «12 Via Roma».
-    indirizzo: [via, civico].filter(Boolean).join(' '),
-    cap: prendi('postal_code'),
+    indirizzo: [via, civico].filter(Boolean).join(' ') || (d.formattedAddress ?? '').split(',')[0],
+    cap,
     citta: prendi('locality') || prendi('administrative_area_level_3'),
     // La sigla, che è quella che vuole Shopify («MI», non «Milano»).
     provincia: prendi('administrative_area_level_2', true),

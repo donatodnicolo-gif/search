@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
   // gli scrive sopra, ma chi sta al telefono deve VEDERE quanto costa
   // davvero portarcelo, per decidere se mettere un importo suo.
   const cittaConsegna = (c.indirizzo?.citta ?? '').trim().toLowerCase()
-  const inCasa = (await cittaDiCasa()).includes(cittaConsegna)
+  // ⚠️ Anche questa non deve poter far cadere le tariffe: se le impostazioni
+  // non si leggono, si considera «non in casa» e al massimo si prova una stima.
+  const casa = await cittaDiCasa().catch(() => [] as string[])
+  const inCasa = casa.includes(cittaConsegna)
   if (esito.tariffe.length && (inCasa || !cittaConsegna)) {
     return NextResponse.json({ tariffe: esito.tariffe })
   }
@@ -72,7 +75,11 @@ export async function POST(req: NextRequest) {
     prezzo: r.prezzo,
     quantita: Math.max(1, r.quantita ?? 1),
   }))
-  const s = await stimaFuoriZona(
+  // ⚠️⚠️ La stima non può far cadere le TARIFFE. Se Google o le impostazioni
+  // sbagliano un colpo, prima l'eccezione usciva dalla rotta: il modulo mostrava
+  // un errore rosso al posto del prezzo del sito, che era lì e funzionava. Un
+  // di-più che rompe quello che c'era è peggio di non averlo fatto.
+  const s = await stimaConCautela(
     negozioId,
     {
       indirizzo: c.indirizzo?.indirizzo ?? '',
@@ -92,4 +99,17 @@ export async function POST(req: NextRequest) {
     stimaKm: s.stato === 'troppo-lontano' ? s.km : null,
     stimaPartenza: s.stato === 'troppo-lontano' ? s.partenza : '',
   })
+}
+
+/** La stima, ma non può mai lanciare: al massimo non c'è. */
+async function stimaConCautela(
+  ...argomenti: Parameters<typeof stimaFuoriZona>
+): Promise<Awaited<ReturnType<typeof stimaFuoriZona>>> {
+  try {
+    return await stimaFuoriZona(...argomenti)
+  } catch {
+    // «senza-strada» e non un errore: chi sta al telefono deve vedere i campi
+    // per scriverci il prezzo, non un allarme rosso su cui non può fare niente.
+    return { stato: 'senza-strada', provate: [] }
+  }
 }
