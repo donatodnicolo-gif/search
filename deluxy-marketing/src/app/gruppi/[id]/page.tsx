@@ -79,7 +79,7 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string; correggi?: string }>;
+  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string; correggi?: string; annuncio?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -1701,7 +1701,10 @@ export default async function SchedaGruppo({
                     leggiBozza={leggiBozzaAnnuncio}
                     salvaBozza={salvaBozzaAnnuncio}
                     scartaBozza={scartaBozzaAnnuncio}
-                    apriSubito={sp.correggi === "1"}
+                    // Si apre da solo arrivando da «Correggi i testi» O dal
+                    // menù «Nuovo annuncio» della scheda campagna (che con
+                    // più gruppi fa scegliere PRIMA dove l'annuncio vivrà).
+                    apriSubito={sp.correggi === "1" || sp.annuncio === "nuovo"}
                     notaGiaCreati={notaGiaCreati}
                   />
                 </div>

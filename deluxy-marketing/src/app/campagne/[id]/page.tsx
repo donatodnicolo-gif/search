@@ -952,6 +952,43 @@ export default async function SchedaCampagna({
                 scartaBozza={scartaBozzaAnnuncio}
               />
             )}
+            {/* Con PIÙ gruppi l'annuncio si può creare lo stesso da qui
+                (richiesta utente 03/09), ma il gruppo si sceglie PRIMA, per
+                nome — non un menù anonimo davanti a numeri: ogni voce porta
+                alla pagina del gruppo col dialogo del brief GIÀ APERTO
+                (?annuncio=nuovo), dove si vede cosa quel gruppo sta erogando. */}
+            {campagna.canale === "google_ads" && gruppi.length > 1 && !defunta && (
+              <details style={{ position: "relative" }}>
+                <summary
+                  className="btn small btn-secondario"
+                  style={{ listStyle: "none", cursor: "pointer", display: "inline-flex" }}
+                >
+                  Nuovo annuncio ▾
+                </summary>
+                <div
+                  style={{
+                    position: "absolute", right: 0, zIndex: 6, marginTop: 6,
+                    background: "var(--surface)", border: "1px solid var(--hairline)",
+                    borderRadius: 12, boxShadow: "var(--shadow-float)",
+                    padding: 6, minWidth: 260, maxHeight: 320, overflowY: "auto",
+                  }}
+                >
+                  <div className="cella-sub" style={{ padding: "4px 10px", whiteSpace: "normal" }}>
+                    L&apos;annuncio vive dentro un gruppo: scegli dove scriverlo.
+                  </div>
+                  {gruppi.map((g) => (
+                    <a
+                      key={g.id}
+                      className="sb-item"
+                      href={`/gruppi/${g.id}?annuncio=nuovo#annunci`}
+                      style={{ fontSize: 13, textTransform: "none", letterSpacing: 0 }}
+                    >
+                      {g.nome}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
           {/* Prima della tabella, non dopo: il numero basso va spiegato mentre
               lo si legge, non quando si è già conclusa la cosa sbagliata. */}
