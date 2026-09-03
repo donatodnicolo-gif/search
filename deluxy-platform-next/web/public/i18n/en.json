@@ -706,6 +706,8 @@
     "signAction": "Upload signed",
     "upload": "Upload",
     "pickFile": "Choose file from PC…",
+    "firmaHint": "Sign here with your finger or mouse, then press Upload.",
+    "firmaRifai": "Redo signature",
     "or": "or",
     "filePlaceholder": "https://… link to the signed receipt",
     "fileRequired": "Choose a file from your PC or paste a link.",

@@ -3,6 +3,21 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-octies — FIRMA IN APP SULLE RICEVUTE; FLOWERS: FALSO
+> ALLARME** (deployato):
+> - **Firma in app** (regola utente): in Ricevute il valet ora ha il TAMPONE
+>   di firma (dito/mouse) accanto a file e link; la firma parte come data
+>   URL e il server la mette su Drive «File App» (link sulla ricevuta,
+>   base64 come ripiego). Priorità all'invio: firma > file > URL.
+> - **Flowers 2848–2853: NIENTE È ROTTO** (correzione della mia ipotesi
+>   «push fermo»): il registro Orders ha tutto fino al #2854; quei sei sono
+>   ordini ESTERI (Parigi, Bucarest, Beausoleil, Mafra, Les Sables…) senza
+>   provincia italiana → per regola lo smistamento non crea la vendita; due
+>   (#2850, #2852) sono pure già evasi dal CS per fornitore diretto. Il
+>   #2854 (Rivoli Veronese, VR) non ha vendita perché in VR non c'è partner
+>   per la categoria («senza-partner», regola del 24/08). Se gli ESTERI
+>   devono entrare in Vendite è una decisione nuova.
+>
 > 🧪 **03/09/2026-septies — FATTURAZIONE LATO PARTNER, PLUS SENZA RICARICA,
 > FLOWERS FERMI** (deployato):
 > - **Fatturazione vista PARTNER** (regola utente, chanel_consegne): il

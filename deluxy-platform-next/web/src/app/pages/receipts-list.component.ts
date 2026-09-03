@@ -114,6 +114,21 @@ interface Receipt {
                   } @else if (!r.signed) {
                     @if (signFor() === r.id) {
                       <div class="sign-box">
+                        <!-- ⭐ 03/09 (regola utente): FIRMA IN APP — si firma
+                             col dito o col mouse, senza stampare niente. In
+                             alternativa restano file e link. -->
+                        <div class="firma-wrap">
+                          <canvas class="firma-canvas" width="360" height="130"
+                                  (pointerdown)="firmaGiu($event)" (pointermove)="firmaMuovi($event)"
+                                  (pointerup)="firmaSu()" (pointerleave)="firmaSu()"></canvas>
+                          <div class="firma-note">
+                            <span class="muted">{{ 'receipts.firmaHint' | translate }}</span>
+                            @if (firmaFatta()) {
+                              <button type="button" class="link-btn" (click)="firmaPulisci()">{{ 'receipts.firmaRifai' | translate }}</button>
+                            }
+                          </div>
+                        </div>
+                        <span class="or">{{ 'receipts.or' | translate }}</span>
                         <label class="file-pick">
                           <input type="file" accept="image/*,application/pdf" (change)="onFileSelected($event)" />
                           <span>{{ pickedName() || ('receipts.pickFile' | translate) }}</span>
@@ -165,6 +180,10 @@ interface Receipt {
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
       .sign-box { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .firma-wrap { display: flex; flex-direction: column; gap: 4px; }
+      .firma-canvas { border: 1px dashed var(--hairline-strong); border-radius: var(--radius-m);
+        background: var(--surface); touch-action: none; cursor: crosshair; max-width: 100%; }
+      .firma-note { display: flex; gap: 10px; align-items: center; font-size: 12px; }
       .file-pick { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: 980px; cursor: pointer; font-size: 12.5px; background: var(--surface); max-width: 220px; }
       .file-pick input[type=file] { display: none; }
       .file-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -259,6 +278,7 @@ export class ReceiptsListComponent {
     this.fileUrl = '';
     this.pickedFile = null;
     this.pickedName.set(null);
+    this.firmaFatta.set(false);
   }
 
   onFileSelected(event: Event): void {
@@ -268,8 +288,54 @@ export class ReceiptsListComponent {
     this.pickedName.set(file?.name ?? null);
   }
 
-  /** Carica: se è stato scelto un file dal PC lo invia (multipart), altrimenti usa l'URL. */
+  // ---- FIRMA IN APP (03/09, regola utente): tampone come nella chiusura
+  // consegna del valet — si disegna, si invia, il server la mette su Drive.
+  readonly firmaFatta = signal(false);
+  private firmaTracciando = false;
+  private firmaCtx(ev: PointerEvent): { ctx: CanvasRenderingContext2D; x: number; y: number } | null {
+    const canvas = ev.target as HTMLCanvasElement;
+    const ctx = canvas?.getContext?.('2d');
+    if (!ctx) return null;
+    const box = canvas.getBoundingClientRect();
+    return { ctx, x: (ev.clientX - box.left) * (canvas.width / box.width), y: (ev.clientY - box.top) * (canvas.height / box.height) };
+  }
+  firmaGiu(ev: PointerEvent): void {
+    ev.preventDefault();
+    const p = this.firmaCtx(ev);
+    if (!p) return;
+    this.firmaTracciando = true;
+    p.ctx.lineWidth = 2; p.ctx.lineCap = 'round'; p.ctx.strokeStyle = '#1d1d1f';
+    p.ctx.beginPath(); p.ctx.moveTo(p.x, p.y);
+  }
+  firmaMuovi(ev: PointerEvent): void {
+    if (!this.firmaTracciando) return;
+    ev.preventDefault();
+    const p = this.firmaCtx(ev);
+    if (!p) return;
+    p.ctx.lineTo(p.x, p.y); p.ctx.stroke();
+    this.firmaFatta.set(true);
+  }
+  firmaSu(): void { this.firmaTracciando = false; }
+  firmaPulisci(): void {
+    const canvas = document.querySelector<HTMLCanvasElement>('.firma-canvas');
+    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    this.firmaFatta.set(false);
+  }
+
+  /** Invia: la FIRMA disegnata vince; poi il file dal PC; in coda l'URL. */
   submitSign(r: Receipt): void {
+    if (this.firmaFatta()) {
+      const canvas = document.querySelector<HTMLCanvasElement>('.firma-canvas');
+      if (canvas) {
+        this.error.set(null);
+        this.busy.set(r.id);
+        this.http.post(`${environment.apiUrl}/receipts/${r.id}/sign`, { fileUrl: canvas.toDataURL('image/png') }).subscribe({
+          next: () => { this.firmaFatta.set(false); this.onSigned(); },
+          error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
+        });
+        return;
+      }
+    }
     if (this.pickedFile) {
       this.uploadFile(r, this.pickedFile);
       return;

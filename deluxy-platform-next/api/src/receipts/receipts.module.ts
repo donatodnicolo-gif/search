@@ -127,8 +127,21 @@ export class ReceiptsController {
   @Post(':id/sign')
   @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @ApiOperation({ summary: 'Carica la ricevuta firmata via URL → stipendio in approvazione' })
-  sign(@CurrentUser() user: JwtUser, @Param('id') id: string, @Body() body: { fileUrl?: string }) {
-    return this.receiptsService.sign(user, id, body.fileUrl);
+  async sign(@CurrentUser() user: JwtUser, @Param('id') id: string, @Body() body: { fileUrl?: string }) {
+    // ⭐ 03/09 (regola utente): la FIRMA IN APP arriva come data URL — va su
+    // Drive («File App») come gli altri allegati, e qui resta il LINK. Se
+    // Drive manca o rifiuta, si tiene il base64: meglio della firma persa.
+    let fileUrl = body.fileUrl;
+    const m = fileUrl?.match(/^data:([^;,]+);base64,(.+)$/s);
+    if (m) {
+      try {
+        const esito = await this.settings.caricaSuDrive(
+          `firma-ricevuta-${id}.png`, Buffer.from(m[2], 'base64'), m[1],
+        );
+        if (esito.ok && esito.link) fileUrl = esito.link;
+      } catch { /* Drive è un di più */ }
+    }
+    return this.receiptsService.sign(user, id, fileUrl);
   }
 
   @Post(':id/upload')

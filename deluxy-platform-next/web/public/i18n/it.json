@@ -706,6 +706,8 @@
     "signAction": "Carica firmata",
     "upload": "Carica",
     "pickFile": "Scegli file dal PC…",
+    "firmaHint": "Firma qui col dito o col mouse, poi premi Carica.",
+    "firmaRifai": "Rifai la firma",
     "or": "oppure",
     "filePlaceholder": "https://… link alla ricevuta firmata",
     "fileRequired": "Scegli un file dal PC o incolla un link.",
