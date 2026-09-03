@@ -19,6 +19,7 @@ const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafi
 const FINANCE_URL = (process.env.FINANCE_URL || 'https://deluxy-partner.vercel.app').replace(/\/$/, '')
 const FORNITORI_URL = (process.env.FORNITORI_URL || 'https://search-deluxy.vercel.app').replace(/\/$/, '')
 const COMMERCIALE_URL = (process.env.COMMERCIALE_URL || 'https://fdsziebgkljfsugqqbqd.supabase.co/functions/v1').replace(/\/$/, '')
+const CS_URL = (process.env.CS_URL || 'https://deluxy-messaging.vercel.app').replace(/\/$/, '')
 
 /** Il valore della scelta «＋ Crea questo negozio»: non è un id, `esegui` lo
  *  traduce in `crea='si'`. */
@@ -30,6 +31,7 @@ export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
   Finance: 'finance',
   Fornitori: 'fornitori',
   Commerciale: 'commerciale',
+  'Customer Service': 'cs',
 }
 
 // ---------- Tipi ----------
@@ -1201,6 +1203,142 @@ const AZIONI: AzioneApp[] = [
       )
     },
   },
+  {
+    id: 'cs.statoOrdine',
+    app: 'Customer Service',
+    // Sola lettura: una GET al Customer Service. Non crea e non modifica
+    // niente, quindi può partire da sola (sezione in «automatico», regola APP).
+    scrive: false,
+    nome: 'Stato dell’ordine',
+    dalRiassunto:
+      'la conversazione riguarda UN ORDINE dei negozi Deluxy identificato da un numero (notifica d’ordine, cliente che chiede del suo ordine, reclamo, cambio di consegna): si può mostrare subito a che punto è',
+    descrizione: 'Mostra a che punto è un ordine: consegna, pagamento, chi lo lavora, fornitore.',
+    colore: 'orange',
+    guida:
+      'La mail parla di un ordine dei nostri negozi. numero = il numero dell’ordine come compare nella mail (solo le cifre, senza «#» e senza «Ordine»). Se nella mail di numeri d’ordine ce n’è più d’uno, prendi quello di cui si sta parlando. Se non c’è nessun numero, lascia vuoto: senza non si può cercare.',
+    campi: [
+      { nome: 'numero', etichetta: 'Numero d’ordine', obbligatorio: true, aiuto: 'Solo le cifre, senza #' },
+    ],
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['numero'],
+      properties: {
+        numero: { type: 'string', description: 'Numero dell’ordine, solo cifre.' },
+      },
+    },
+    // Il numero, quando la mail lo scrive nel modo tipico di Shopify («#2785»,
+    // «Ordine 2785»), è un fatto: se il modello non l'ha estratto si prende
+    // dall'oggetto — è lì che le notifiche d'ordine lo mettono sempre.
+    daMail(dati, mail) {
+      const scritto = String(dati.numero ?? '').replace(/\D/g, '')
+      if (scritto) return dati
+      const m = mail.oggetto.match(/#\s?(\d{3,7})/) ?? mail.corpoTesto.match(/#\s?(\d{3,7})/)
+      return m ? { ...dati, numero: m[1] } : dati
+    },
+    async esegui(dati, ctx) {
+      const numero = String(dati.numero ?? '').replace(/\D/g, '')
+      if (numero.length < 2) return { ok: false, messaggio: 'Serve il numero dell’ordine (almeno 2 cifre).' }
+
+      const giorno = (iso: string | null | undefined): string | null => {
+        if (!iso) return null
+        const d = new Date(iso)
+        return Number.isNaN(d.getTime())
+          ? null
+          : d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
+      }
+      const GESTIONE: Record<string, string> = {
+        da_gestire: 'da gestire',
+        in_pagamento: 'in pagamento',
+        comunicazione: 'in comunicazione',
+        gestito: 'gestito ✓',
+      }
+      const PAGAMENTO: Record<string, string> = {
+        PAID: 'pagato',
+        PENDING: 'in attesa di pagamento',
+        REFUNDED: 'rimborsato',
+        PARTIALLY_REFUNDED: 'rimborsato in parte',
+        VOIDED: 'annullato',
+      }
+
+      return chiama(
+        `${CS_URL}/api/v1/ordini?numero=${encodeURIComponent(numero)}`,
+        { headers: { 'x-api-key': ctx.chiave } },
+        (status, risposta) => {
+          if (status >= 200 && status < 300 && risposta && typeof risposta === 'object') {
+            const r = risposta as {
+              ordini?: {
+                numero?: string
+                negozio?: string
+                cliente?: string
+                totale?: number
+                valuta?: string
+                data?: string
+                dataConsegna?: string | null
+                fasciaConsegna?: string
+                statoNome?: string
+                statoPagamento?: string
+                gestione?: string | null
+                gestioneDaNome?: string | null
+                fornitoreNome?: string | null
+                annullatoIl?: string | null
+                unitoA?: string | null
+                daArchivio?: boolean
+              }[]
+              nota?: string
+            }
+            const lista = r.ordini ?? []
+            if (lista.length === 0) {
+              return {
+                ok: false,
+                // Dice DOVE ha cercato: senza, «non trovato» non si può verificare.
+                messaggio: `Ordine ${numero} non trovato, né fra gli ordini in lavorazione del Customer Service né nell’archivio di Orders. Controlla il numero qui sopra e riprova.`,
+              }
+            }
+            // Una scheda per ordine: lo stesso numero può esistere su più
+            // negozi, e mostrarne uno solo sarebbe lo stato di un ALTRO ordine.
+            const schede = lista.map((o) => {
+              const soldi =
+                typeof o.totale === 'number'
+                  ? o.totale.toLocaleString('it-IT', { style: 'currency', currency: o.valuta || 'EUR' })
+                  : null
+              const righe: string[] = [
+                `${o.numero ?? numero} · ${o.negozio ?? '—'}${o.cliente ? ` · ${o.cliente}` : ''}${soldi ? ` · ${soldi}` : ''}`,
+              ]
+              if (o.annullatoIl) righe.push(`⚠️ ANNULLATO il ${giorno(o.annullatoIl)}: non si lavora.`)
+              if (o.unitoA) righe.push(`Unito all’ordine ${o.unitoA} (sono una vendita sola).`)
+              const consegna = giorno(o.dataConsegna)
+              if (consegna) righe.push(`Consegna: ${consegna}${o.fasciaConsegna ? ` (${o.fasciaConsegna})` : ''}`)
+              if (o.statoNome) righe.push(`Stato: ${o.statoNome}`)
+              if (o.statoPagamento) righe.push(`Pagamento: ${PAGAMENTO[o.statoPagamento] ?? o.statoPagamento}`)
+              if (o.daArchivio) {
+                // Della lavorazione di un ordine d'archivio non sappiamo:
+                // dirlo è meglio di far sembrare che nessuno l'abbia lavorato.
+                righe.push('In archivio (più vecchio di 60 giorni): la lavorazione non è tracciata qui.')
+              } else {
+                if (o.gestione) {
+                  const chi = o.gestioneDaNome ? ` (${o.gestioneDaNome})` : ''
+                  righe.push(`Lavorazione CS: ${GESTIONE[o.gestione] ?? o.gestione}${chi}`)
+                }
+                righe.push(o.fornitoreNome ? `Fornitore: ${o.fornitoreNome}` : 'Fornitore: non ancora assegnato')
+              }
+              return righe.join('\n   ')
+            })
+            const nota = typeof r.nota === 'string' && r.nota ? `\n\n${r.nota}` : ''
+            return {
+              ok: true,
+              messaggio: `${schede.join('\n\n')}${nota}`,
+              // La lista ordini del CS legge `?q=` e apre già filtrata.
+              link: `${CS_URL}/ordini?q=${encodeURIComponent(numero)}`,
+            }
+          }
+          if (status === 401 || status === 403)
+            return { ok: false, messaggio: 'Chiave Customer Service non valida: controllala in Impostazioni App.' }
+          return { ok: false, messaggio: testoErrore(risposta, `Il Customer Service ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
   // Valore fittizio della scelta «＋ Crea questo negozio» in fondo ai
   // candidati: non è un id vero, e `esegui` lo traduce in `crea='si'`.
   {
@@ -1959,6 +2097,11 @@ const META_APP: Record<string, { variabileEnv: string; comeSiOttiene: string }> 
     variabileEnv: 'COMMERCIALE_API_KEY',
     comeSiOttiene:
       'La chiave x-api-key della Edge Function «trattativa» dell’app Commerciale (Supabase). Va nella cassaforte del Hub o come env COMMERCIALE_API_KEY.',
+  },
+  'Customer Service': {
+    variabileEnv: 'CS_API_KEY',
+    comeSiOttiene:
+      'Chiave di sola LETTURA generata dall’app Customer Service (comando «npm run chiave -- deluxy-mail» in deluxy-messaging). Qui si legge soltanto lo stato degli ordini.',
   },
 }
 

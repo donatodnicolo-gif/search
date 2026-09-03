@@ -2171,3 +2171,33 @@ mark.ricerca-hit {
   .riga-chips-scorri::-webkit-scrollbar { display: none; }
   .riga-chips-scorri > * { flex: 0 0 auto; }
 }
+
+/* ---------- L'INVIO SU TELEFONO: la barra resta in fondo allo schermo ----------
+   Segnalato il 03/09/2026: «da mobile l'invio di una mail è scomodo, il
+   pulsante Invia si trova in alto». Le due barre (in cima e in fondo alla
+   pagina) su desktop coprono i due versi dello scorrimento, ma su telefono
+   quella in cima sparisce appena scrivi e quella in fondo sta dopo priorità e
+   sequenze: per mandare si risaliva o si scendeva tutto. Stesso pattern del
+   piede sticky delle modali (Libro §9): la barra del fondo resta incollata al
+   bordo dello schermo, quella in cima si toglie — sarebbe un doppione che
+   ruba la prima schermata.
+   ⚠️ Il selettore aggancia SOLO le card di composizione: sono le uniche con
+   la barra alta (.form-azioni-alto), e gli altri .form-footer dell'app non
+   c'entrano. */
+@media (max-width: 900px) {
+  .card:has(> .form-azioni-alto) > .form-azioni-alto { display: none; }
+  .card:has(> .form-azioni-alto) > .form-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    flex-wrap: wrap;
+    /* Sfonda il padding della card per prendersi tutta la larghezza, con uno
+       sfondo pieno: sotto ci scorre il modulo. Il margine in fondo chiude il
+       conto col padding della card (24px), o la barra si ferma prima. */
+    margin: 20px -24px -24px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--hairline);
+    border-radius: 0 0 var(--radius-l) var(--radius-l);
+  }
+}

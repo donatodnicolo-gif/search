@@ -15,6 +15,7 @@ export type NomeChiaveApp =
   | 'finance'
   | 'fornitori'
   | 'commerciale'
+  | 'cs'
   | 'tasks'
   | 'calendario'
   | 'scripts'
@@ -25,6 +26,9 @@ const MAPPA: Record<NomeChiaveApp, { impostazione: string; env: string }> = {
   finance: { impostazione: 'app.finance.key', env: 'FINANCE_API_KEY' },
   fornitori: { impostazione: 'app.fornitori.key', env: 'FORNITORI_PASSWORD' },
   commerciale: { impostazione: 'app.commerciale.key', env: 'COMMERCIALE_API_KEY' },
+  // Customer Service (deluxy-messaging): chiave di sola LETTURA — da lì si
+  // legge lo stato degli ordini quando una mail ne nomina uno.
+  cs: { impostazione: 'app.cs.key', env: 'CS_API_KEY' },
   // Registro centralizzato delle attività (deluxy-tasks): chiave di SCRITTURA,
   // serve ad allineare le attività di AI Mail (vedi registroTask.ts).
   tasks: { impostazione: 'app.tasks.key', env: 'TASKS_API_KEY' },
@@ -125,6 +129,7 @@ export async function leggiChiaviApp(): Promise<ChiaviApp> {
     finance: risolvi('finance'),
     fornitori: risolvi('fornitori'),
     commerciale: risolvi('commerciale'),
+    cs: risolvi('cs'),
     tasks: risolvi('tasks'),
     calendario: risolvi('calendario'),
     scripts: risolvi('scripts'),

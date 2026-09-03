@@ -23,6 +23,31 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 03/09 — Customer Service fra le app: «Stato dell'ordine» + Invia sticky su mobile
+
+- **Azione nuova `cs.statoOrdine`** (app «Customer Service», `appDeluxy.ts`): sola
+  lettura (`scrive: false`, quindi automatizzabile da sezione/regola), `dalRiassunto`
+  attivo. `daMail` pesca «#NNNN» dall'oggetto/corpo se il modello non estrae il numero.
+  Chiama **`GET /api/v1/ordini?numero=`** del CS (rotta NUOVA in
+  `deluxy-messaging/src/app/api/v1/ordini/route.ts`, `autentica` in lettura): elenco
+  (mai un ordine solo: stesso numero su più negozi), forme «2785»/«#2785», fallback
+  all'**archivio Orders** (lavorazione non tracciata per quelli, e la risposta lo dice),
+  esatti prima dei «contiene». Fuori dall'API: costi fornitore e PII della consegna.
+  Link d'esito: `/ordini?q=<numero>` del CS (la lista legge `?q=`).
+- **Chiave**: nome `cs` in `chiaviApp.ts`, env **`CS_API_KEY`** (o cassaforte Hub, o
+  Impostazioni App — la scheda compare da sola via `statoApp`). Si genera nel CS:
+  `npm run chiave -- deluxy-mail` (SOLA lettura, niente `--scrittura`).
+- **Invia su mobile** (segnalazione utente 03/09: «il pulsante invia si trova in
+  alto»): sotto i 900px la barra azioni del fondo delle DUE composizioni è sticky al
+  bordo dello schermo e quella in cima si nasconde — solo CSS, selettore
+  `.card:has(> .form-azioni-alto)` in `globals.css` (aggancia solo le composizioni).
+  Registrata in `deluxy-design-system/SEGNALAZIONI-UX.md` (repo app/) con proposta di
+  regola per il Libro.
+- ⚠️ Staging chirurgico: nella cartella c'è ancora il WIP firma-per-casella di
+  un'altra sessione (10 errori tsc SUOI, zero nei file di questa tappa); committati
+  solo i miei hunk (globals.css: solo l'ultimo). Deploy AI Mail SOLO da copia pulita
+  (`git archive`), MAI build nella cartella.
+
 ### 03/09 — Stato dei nuovi utenti: Michela DENTRO, Luca fermo alla password
 
 - ✅ **Michela**: casella collegata il 03/09 alle 10:41 su **SecureMail (il preset di

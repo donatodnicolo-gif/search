@@ -60,7 +60,8 @@ sezione sbagliata.
 
 Ogni sezione può avere agganciata un'**azione APP DELUXY** (le stesse del tasto
 «→ App»: *Registra contatto* in Anagrafiche, *Crea proforma*, *Verifica partner*,
-*Trova fornitore*, *Apri trattativa*). Si sceglie sulla scheda della sezione, in
+*Trova fornitore*, *Apri trattativa*, *Stato dell'ordine* dal Customer Service). Si
+sceglie sulla scheda della sezione, in
 **Sezioni**, insieme al modo:
 
 - **Chiedimi conferma** — spostando la mail lì si apre la proposta con i dati già
@@ -250,6 +251,19 @@ col bottone e il perché. Il bottone apre il solito dialogo di conferma: l'AI pr
 dati **dalla mail che li porta** (il prezzo si estrae dalla mail del fornitore, anche se
 stai guardando l'ultima), e non parte niente finché non confermi tu. Al massimo due
 proposte, e solo quando la conversazione lo chiede davvero.
+
+**Se la mail parla di un ordine, lo stato si vede subito (03/09/2026).** L'azione
+**«Stato dell'ordine»** (app **Customer Service**) prende il numero dalla mail — se il
+modello non lo estrae, lo pesca il codice dall'oggetto («#2785») — e chiede al CS a che
+punto è: consegna richiesta, stato della pipeline, pagamento, come lo sta lavorando il
+CS e a quale fornitore è stato affidato. È di **sola lettura**, quindi si può agganciare
+a una sezione in modo «Fallo da solo» (es. la sezione Ordini): la mail arriva e sotto,
+in «Risposte dalle app», c'è già lo stato. Risponde con un **elenco** se lo stesso
+numero esiste su più negozi (succede: #1733 è sia di Cake sia di Deluxy), cerca anche
+nell'**archivio di Orders** oltre i 60 giorni della copia del CS — di quelli però la
+lavorazione non è tracciata, e lo dice — e il link porta alla lista ordini del CS già
+filtrata su quel numero. Serve la chiave **CS_API_KEY** (sola lettura, si genera nel
+Customer Service con `npm run chiave -- deluxy-mail`), in Impostazioni App.
 
 **Dal riassunto si fanno anche domande** («Chiedi qualcosa su questo scambio»), con tre
 domande pronte da premere: *«Sai per quando?»*, *«Che prezzo hanno fatto?»*, *«Cosa

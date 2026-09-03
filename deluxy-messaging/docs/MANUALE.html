@@ -611,6 +611,16 @@
         </p>
         <div class="log">
           <div class="log-item">
+            <span class="when">03/09/2026</span>
+            <span class="what"><b>Lo stato degli ordini si legge anche dalle altre app.</b>
+              È nata l'API in sola lettura <code>GET /api/v1/ordini?numero=</code> (chiave a
+              scope, come le altre): risponde con consegna, pipeline, pagamento, lavorazione e
+              fornitore assegnato — un elenco se lo stesso numero esiste su più negozi, e
+              anche dall'archivio di Orders oltre i 60 giorni. La prima a usarla è AI Mail:
+              una mail che parla di un ordine mostra subito a che punto è. Fuori restano
+              apposta costi pattuiti e dati personali della consegna.</span>
+          </div>
+          <div class="log-item">
             <span class="when">02/09/2026</span>
             <span class="what"><b>Pagamenti: la foto letta dall'AI si può riaprire.</b>
               Quando una richiesta di pagamento nasce da una schermata o da una foto, l'immagine
