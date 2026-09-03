@@ -133,6 +133,15 @@ export async function sincronizzaNegozioRegistro(dati: {
   linee: string[];
   /** Referenti da portare nel registro (fusi di là per email/telefono/nome). */
   contatti?: { nome?: string | null; email?: string | null; telefono?: string | null; ruolo?: string | null }[];
+  /**
+   * ⭐ I DATI FISCALI del cliente (03/09/2026). Vivono NEL REGISTRO, non in
+   * Scout: qui passano solo di mano. Vuoti non si mandano — di là `null` vuol
+   * dire «cancellalo» (la regola è nell'Edge `anagrafiche`).
+   */
+  ragioneSociale?: string | null;
+  pIva?: string | null;
+  codiceFiscale?: string | null;
+  provincia?: string | null;
 }): Promise<EsitoRegistro> {
   try {
     return await chiama<EsitoRegistro>({ action: 'upsert_partner', ...dati });
@@ -526,8 +535,17 @@ export interface DatiSocietari {
   ragioneSociale: string | null;
   indirizzo: string | null;
   citta: string | null;
+  provincia: string | null;
   pIva: string | null;
   codiceFiscale: string | null;
+  /**
+   * ⚠️ CHI FATTURA (registro, 28/08/2026). `pagaDaSe: false` vuol dire che i
+   * campi qui sopra **non sono di questa azienda ma della sua capogruppo**: è
+   * lei che riceve la fattura. In quel caso i dati fiscali NON si scrivono da
+   * qui — andrebbero sulla sede, dove nessuno li leggerebbe più.
+   */
+  pagaDaSe: boolean;
+  capogruppo: string | null;
 }
 export async function datiSocietariRegistro(anagraficheId: string): Promise<DatiSocietari | null> {
   try {
@@ -539,12 +557,41 @@ export async function datiSocietariRegistro(anagraficheId: string): Promise<Dati
       ragioneSociale: d.ragioneSociale ?? d.soggettoFiscale?.ragioneSociale ?? null,
       indirizzo: d.indirizzo ?? null,
       citta: d.citta ?? null,
+      provincia: d.provincia ?? null,
       pIva: d.pIva ?? d.soggettoFiscale?.pIva ?? null,
       codiceFiscale: d.codiceFiscale ?? d.soggettoFiscale?.codiceFiscale ?? null,
+      // Il registro risponde `pagaDaSe: true` per le aziende che fatturano da
+      // sé. Assente (schede vecchie) = da sé: è il suo default.
+      pagaDaSe: d.pagaDaSe !== false,
+      capogruppo: d.capogruppo?.nome ?? null,
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * ⭐ CHE COSA MANCA PER FATTURARE (03/09/2026, richiesta dell'utente: «nel
+ * momento in cui una trattativa è vinta e viene creato l'ordine per metterla
+ * vinta è obbligatorio inserire i dati fiscali»).
+ *
+ * Il minimo per intestare una pro-forma o una fattura a un'azienda italiana:
+ * la ragione sociale, la P.IVA **o** il codice fiscale (per un'impresa
+ * individuale può esserci solo il secondo), e dove ha sede — indirizzo e città.
+ *
+ * ⚠️ Torna le ETICHETTE di ciò che manca, non `false`: chi blocca una vinta
+ * deve poter dire *quali* campi, altrimenti manda a indovinare.
+ *
+ * ⚠️ `null` (scheda non nel registro, o registro che non risponde) non finisce
+ * qui: è un caso diverso — «non lo so» — e lo racconta chi chiama.
+ */
+export function fiscaliMancanti(d: DatiSocietari): string[] {
+  const manca: string[] = [];
+  if (!d.ragioneSociale?.trim()) manca.push('ragione sociale');
+  if (!d.pIva?.trim() && !d.codiceFiscale?.trim()) manca.push('P.IVA o codice fiscale');
+  if (!d.indirizzo?.trim()) manca.push('indirizzo');
+  if (!d.citta?.trim()) manca.push('città');
+  return manca;
 }
 
 export async function cercaNelRegistro(q: string, max = 12): Promise<PartnerRegistro[]> {

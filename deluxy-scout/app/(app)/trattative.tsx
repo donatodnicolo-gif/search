@@ -36,6 +36,8 @@ import {
   type TrattativaConLuogo,
   fetchProfiles,
   nomeDaProfilo,
+  verificaDatiFiscali,
+  type EsitoFiscale,
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
@@ -105,6 +107,65 @@ const isoOggiTratt = isoOggi;
 function formattaData(iso: string): string {
   const [a, m, g] = iso.split('-');
   return `${g}/${m}/${a}`;
+}
+
+/**
+ * ⭐ **IL CANCELLO DEI DATI FISCALI** (03/09/2026, richiesta dell'utente: «nel
+ * momento in cui una trattativa è vinta e viene creato l'ordine per metterla
+ * vinta è obbligatorio inserire i dati fiscali»).
+ *
+ * Una vinta non è una fase: è un ordine e un documento. E il documento si
+ * intesta a un'azienda con ragione sociale, P.IVA (o codice fiscale) e sede —
+ * dati che stanno nel REGISTRO, non in Scout. Senza, la pro-forma non nasce e
+ * l'ordine resta senza documento: prima si scopriva giorni dopo, guardando
+ * l'elenco degli ordini.
+ *
+ * Torna `true` se si può procedere. Quando non si può, la finestra non è un
+ * muro: porta ai campi da riempire.
+ *
+ * ⚠️ Il registro che NON RISPONDE non è un dato mancante: è un guasto nostro, e
+ * bloccare una vendita per un guasto sarebbe peggio del rischio. In quel caso
+ * si chiede — dicendo che il controllo non è stato fatto — e si lascia passare
+ * chi conferma.
+ */
+async function cancelloFiscale(
+  placeId: string,
+  nomeCliente: string,
+  apriDatiFiscali: () => void,
+): Promise<boolean> {
+  let esito: EsitoFiscale;
+  try {
+    esito = await verificaDatiFiscali(placeId);
+  } catch {
+    esito = { stato: 'sconosciuto', perche: 'il controllo non è riuscito', nonRaggiungibile: true };
+  }
+  if (esito.stato === 'ok') return true;
+
+  if (esito.stato === 'sconosciuto' && esito.nonRaggiungibile) {
+    // ⚠️ In una closure TypeScript perde il restringimento di `esito` (è un
+    // `let`): il motivo si prende adesso, che si è appena verificato.
+    const perche = esito.perche;
+    return new Promise((risolvi) =>
+      conferma(
+        'Dati fiscali non verificati',
+        `Non ho potuto controllare i dati fiscali di ${nomeCliente}: ${perche}.\n\nSe procedi, la pro-forma potrebbe non essere emessa.`,
+        () => risolvi(true),
+        { testoConferma: 'Procedi comunque', onAnnulla: () => risolvi(false) },
+      ),
+    );
+  }
+
+  const cosaManca =
+    esito.stato === 'mancanti'
+      ? `Nel registro manca: ${esito.mancanti.join(', ')}.`
+      : `${esito.perche.charAt(0).toUpperCase()}${esito.perche.slice(1)}.`;
+  conferma(
+    'Prima i dati fiscali',
+    `${nomeCliente} non si può fatturare. ${cosaManca}\n\nLa trattativa si chiude vinta solo con i dati per emettere la fattura.`,
+    apriDatiFiscali,
+    { testoConferma: 'Inserisci i dati fiscali' },
+  );
+  return false;
 }
 
 export default function Trattative() {
@@ -299,12 +360,21 @@ export default function Trattative() {
    * misura. E la trattativa si chiude VINTA — trasformarla in ordine senza
    * chiuderla la lascerebbe in pipeline a contare due volte la stessa vendita.
    */
-  function trasformaInOrdine(d: TrattativaConLuogo) {
+  async function trasformaInOrdine(d: TrattativaConLuogo) {
     if (!d.valore_atteso) {
       avvisa(
         'Manca il valore',
         'Scrivi il valore della trattativa: un ordine senza importo non si incassa e non si misura.',
       );
+      return;
+    }
+    // ⭐ Prima i dati fiscali: qui nasce una pro-forma, e una pro-forma vuole
+    // un intestatario vero (vedi `cancelloFiscale`).
+    if (
+      !(await cancelloFiscale(d.place_id, d.place_nome ?? 'Questo cliente', () =>
+        router.push(`/(app)/modifica/${d.place_id}`),
+      ))
+    ) {
       return;
     }
     conferma(
@@ -952,6 +1022,16 @@ function TrattativaModal({
 
   async function salva() {
     if (!place || salvando) return;
+    // ⭐ VINTA = FATTURABILE (03/09/2026). Il controllo sta PRIMA di qualunque
+    // scrittura: se fallisse dopo, la trattativa resterebbe vinta e sarebbe
+    // solo l'ordine a mancare — cioè il contrario di quello che serve.
+    if (fase === 'closedwon') {
+      const ok = await cancelloFiscale(place.id, place.nome, () => {
+        onClose();
+        router.push(`/(app)/modifica/${place.id}`);
+      });
+      if (!ok) return;
+    }
     setSalvando(true);
     setErrore(null);
     try {

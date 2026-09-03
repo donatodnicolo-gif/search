@@ -4,7 +4,7 @@ import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Line
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { hubspotAttivo, syncVisita } from '@/lib/hubspot';
-import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
+import { datiSocietariRegistro, fiscaliMancanti, notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
 import { pulisciTermine } from '@/lib/ricerca';
@@ -284,6 +284,24 @@ export async function sincronizzaPlaceRegistro(
      * quella scheda invece di crearne una seconda.
      */
     citta?: string | null;
+    /**
+     * ⭐ I DATI FISCALI da portare nel registro (03/09/2026, richiesta urgente
+     * dell'utente: «manca la possibilità di inserire oltre al nome tutti i dati
+     * fiscali che poi dovranno poter essere usati per emettere fatture e
+     * pro-forme e sincronizzati con tutte le app»).
+     *
+     * ⚠️ Non esiste una colonna di questi campi in Scout, e non deve esistere:
+     * la casa delle anagrafiche è il REGISTRO (Standard §7). Qui passano di
+     * mano — si leggono di là con `datiSocietariRegistro` e si riscrivono di là.
+     * Una copia locale sarebbe il modo più rapido di avere due P.IVA diverse
+     * per la stessa azienda.
+     */
+    fiscali?: {
+      ragioneSociale?: string | null;
+      pIva?: string | null;
+      codiceFiscale?: string | null;
+      provincia?: string | null;
+    };
   },
 ): Promise<EsitoRegistro> {
   try {
@@ -312,6 +330,7 @@ export async function sincronizzaPlaceRegistro(
       account: p.anagrafiche_account ?? null,
       linee,
       contatti: opzioni?.contatti,
+      ...(opzioni?.fiscali ?? {}),
     });
     // L'AGGANCIO, appena il registro ci dice il suo id. Senza questa riga il
     // negozio finiva nel registro ma in Scout restava «non schedato» fino
@@ -335,6 +354,50 @@ export async function sincronizzaPlaceRegistro(
     /* best-effort: non deve mai far fallire l'azione dell'utente */
     return { ok: false, reason: 'non_raggiungibile' };
   }
+}
+
+/**
+ * ⭐ **SI PUÒ FATTURARE A QUESTO CLIENTE?** (03/09/2026, richiesta dell'utente:
+ * «nel momento in cui una trattativa è vinta e viene creato l'ordine per
+ * metterla vinta è obbligatorio inserire i dati fiscali»).
+ *
+ * Guarda la scheda del cliente NEL REGISTRO — non i campi di Scout — perché è
+ * di là che FINANCE prende il destinatario di pro-forma e fatture: un dato
+ * scritto solo qui non fa emettere niente.
+ *
+ * Tre risposte, tenute distinte di proposito:
+ *  · `ok`        → la scheda c'è ed è completa: si va avanti;
+ *  · `mancanti`  → la scheda c'è ma **manca** qualcosa, e si dice CHE COSA;
+ *  · `sconosciuto` → non l'abbiamo potuta leggere (nessun aggancio al registro,
+ *    o registro che non risponde). ⚠️ Non è un «ok»: «non lo so» e «va bene»
+ *    sono due risposte diverse, e confonderle è il modo di emettere una vinta
+ *    senza P.IVA. Ma non è nemmeno un «manca»: chi chiama lo racconta com'è.
+ */
+export type EsitoFiscale =
+  | { stato: 'ok' }
+  | { stato: 'mancanti'; mancanti: string[] }
+  | { stato: 'sconosciuto'; perche: string; nonRaggiungibile: boolean };
+
+export async function verificaDatiFiscali(placeId: string): Promise<EsitoFiscale> {
+  const { data: p } = await supabase
+    .from('places')
+    .select('anagrafiche_id')
+    .eq('id', placeId)
+    .maybeSingle();
+  if (!p) return { stato: 'sconosciuto', perche: 'il negozio non esiste più', nonRaggiungibile: false };
+  if (!p.anagrafiche_id) {
+    return {
+      stato: 'sconosciuto',
+      perche: 'questo cliente non è ancora agganciato a una scheda del registro',
+      nonRaggiungibile: false,
+    };
+  }
+  const d = await datiSocietariRegistro(p.anagrafiche_id);
+  if (!d) return { stato: 'sconosciuto', perche: 'il registro Anagrafiche non risponde', nonRaggiungibile: true };
+  // Fattura la capogruppo: i dati sono i suoi, e il registro li restituisce
+  // già al posto di quelli della sede — quindi il controllo vale uguale.
+  const mancanti = fiscaliMancanti(d);
+  return mancanti.length ? { stato: 'mancanti', mancanti } : { stato: 'ok' };
 }
 
 /**
@@ -1687,6 +1750,56 @@ export async function creaOrdineDaDeal(deal: {
   const { data, error } = await supabase
     .from('ordini')
     .insert({ ...riga, deal_id: deal.id })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return { id: data.id as string };
+}
+
+/**
+ * ⭐ **UN ORDINE NUOVO, senza trattativa e senza richiesta** (03/09/2026,
+ * richiesta dell'utente: «in schermata ordini consentimi di creare nuovo
+ * ordine»).
+ *
+ * Fino a qui un ordine nasceva solo di rimbalzo: da una trattativa vinta, da
+ * una richiesta cliente, o duplicando un altro ordine. Ma un ordine arriva
+ * anche per telefono a un cliente di sempre, e non c'era nessun posto da cui
+ * scriverlo — si finiva per inventare una trattativa già vinta solo per
+ * ottenere l'ordine, cioè per sporcare la pipeline con una vendita che non è
+ * mai stata una trattativa.
+ *
+ * ⚠️ Nasce SENZA `deal_id` e senza `richiesta_id`, ed è il punto: non è la
+ * vendita di nessun altro. Il `riferimento` (SCOUT…) lo assegna il database
+ * come per tutti gli altri.
+ *
+ * ⚠️ Il valore può essere `null` — un ordine in attesa del preventivo esiste —
+ * ma il cliente no: un ordine senza intestatario non si fattura e non si trova.
+ * Il negozio collegato invece è facoltativo (come per gli ordini a voce).
+ */
+export async function creaOrdineNuovo(dati: {
+  cliente: string;
+  placeId?: string | null;
+  descrizione?: string | null;
+  valore?: number | null;
+  linea?: string | null;
+  canale?: string | null;
+  dataOrdine?: string | null;
+  owner?: string | null;
+}): Promise<{ id: string }> {
+  const cliente = dati.cliente.trim();
+  if (!cliente) throw new Error('Serve il cliente: un ordine senza intestatario non si fattura.');
+  const { data, error } = await supabase
+    .from('ordini')
+    .insert({
+      cliente,
+      place_id: dati.placeId ?? null,
+      descrizione: dati.descrizione?.trim() || null,
+      valore: dati.valore ?? null,
+      linea: dati.linea ?? null,
+      canale: dati.canale ?? null,
+      data_ordine: dati.dataOrdine ?? null,
+      ...(dati.owner ? { owner: dati.owner } : {}),
+    })
     .select('id')
     .single();
   if (error) throw error;

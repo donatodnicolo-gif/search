@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +17,7 @@ import { LABEL_MOMENTO, MOMENTI_CONTATTO, STATI_AFFILIAZIONE, affiliazioneDaStat
 import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchPlace, fetchProfiles, nomeDaProfilo, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
+import { datiSocietariRegistro, fiscaliMancanti, urlSchedaRegistro, type DatiSocietari } from '@/lib/anagrafiche';
 import { caricaRegole } from '@/lib/categoryRules';
 import { AddressSearch } from '@/components/AddressSearch';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -49,6 +51,20 @@ export default function ModificaAttivita() {
   const [account, setAccount] = useState<string | null>(null);
   const [linee, setLinee] = useState<string[]>([]);
 
+  // ⭐ DATI FISCALI (03/09/2026, richiesta urgente dell'utente: «manca la
+  // possibilità di inserire oltre al nome tutti i dati fiscali che poi dovranno
+  // poter essere usati per emettere fatture e pro-forme»).
+  //
+  // ⚠️ NON sono campi di Scout: si leggono dal REGISTRO Anagrafiche e si
+  // riscrivono là (Standard §7 — ogni dato ha una casa sola). Qui vivono solo
+  // nello stato di questo form, il tempo di una modifica.
+  const [registro, setRegistro] = useState<DatiSocietari | null>(null);
+  const [registroLetto, setRegistroLetto] = useState(false);
+  const [ragioneSociale, setRagioneSociale] = useState('');
+  const [pIva, setPIva] = useState('');
+  const [codFiscale, setCodFiscale] = useState('');
+  const [provincia, setProvincia] = useState('');
+
   useEffect(() => {
     (async () => {
       if (!id) return;
@@ -68,6 +84,21 @@ export default function ModificaAttivita() {
         setAccount(p.anagrafiche_account ?? null);
         // Riconduci eventuali linee legacy (es. "Regali aziendali") ai nomi del catalogo.
         setLinee(canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])));
+        // I dati fiscali dalla scheda del registro, se il negozio è agganciato.
+        // ⚠️ Senza `anagrafiche_id` non si chiede niente: non c'è una scheda a
+        // cui riferirsi, e la si creerà al salvataggio (l'upsert del registro
+        // aggancia per riferimento esterno scout+place_id).
+        if (p.anagrafiche_id) {
+          const d = await datiSocietariRegistro(p.anagrafiche_id);
+          setRegistro(d);
+          setRegistroLetto(true);
+          if (d) {
+            setRagioneSociale(d.ragioneSociale ?? '');
+            setPIva(d.pIva ?? '');
+            setCodFiscale(d.codiceFiscale ?? '');
+            setProvincia(d.provincia ?? '');
+          }
+        }
       }
       setLoading(false);
     })();
@@ -86,6 +117,30 @@ export default function ModificaAttivita() {
     if (account && !nomi.includes(account)) nomi.push(account);
     return Array.from(new Set(nomi)).sort();
   }, [profili, account]);
+
+  // Che cosa manca ADESSO per fatturare: si guarda quello che c'è nel form,
+  // non la fotografia del registro — così la spunta si accende mentre si
+  // scrive, ed è la stessa regola che blocca la vinta (`fiscaliMancanti`).
+  //
+  // ⚠️ Indirizzo e città NON sono campi di questa sezione: sono l'indirizzo e
+  // la zona qui sopra, che al salvataggio finiscono nel registro. Chiederli due
+  // volte vorrebbe dire tenerne due versioni.
+  const mancanti = useMemo(
+    () =>
+      fiscaliMancanti({
+        nome,
+        ragioneSociale: ragioneSociale.trim() || null,
+        indirizzo: indirizzo.trim() || null,
+        citta: zona.trim() || null,
+        provincia: provincia.trim() || null,
+        pIva: pIva.trim() || null,
+        codiceFiscale: codFiscale.trim() || null,
+        pagaDaSe: true,
+        capogruppo: null,
+      }),
+    [nome, ragioneSociale, indirizzo, zona, provincia, pIva, codFiscale],
+  );
+  const linkRegistro = urlSchedaRegistro(place?.anagrafiche_id);
 
   async function salva() {
     if (!place) return;
@@ -112,8 +167,43 @@ export default function ModificaAttivita() {
         linea_ipotizzata: linee[0] ?? null,
         linee_ipotizzate: linee,
       });
-      // Propaga lo stato (e gli interessi) al registro Anagrafiche.
-      sincronizzaPlaceRegistro(place.id).catch(() => {});
+      // ⭐ I DATI FISCALI VANNO NEL REGISTRO, e l'esito si dice.
+      //
+      // ⚠️ Le altre sincronizzazioni di questa pagina sono best-effort e mute
+      // (`.catch(() => {})`): lo stato commerciale si può risincronizzare al
+      // giro dopo. Questi no. Uno che scrive la P.IVA per poter fatturare deve
+      // sapere SUBITO se è arrivata: crederla salva e scoprire alla vinta che
+      // manca è esattamente il giro che questa funzione serve a evitare.
+      //
+      // ⚠️ Se fattura la capogruppo non si manda niente: quei campi stanno
+      // sulla SUA scheda, e scriverli sulla sede vorrebbe dire metterli dove
+      // nessuno li legge più.
+      const fatturaLaCapogruppo = registro?.pagaDaSe === false;
+      const fiscali = {
+        ragioneSociale: ragioneSociale.trim() || null,
+        pIva: pIva.trim() || null,
+        codiceFiscale: codFiscale.trim() || null,
+        provincia: provincia.trim() || null,
+      };
+      const fiscaliCambiati =
+        !fatturaLaCapogruppo &&
+        ((fiscali.ragioneSociale ?? '') !== (registro?.ragioneSociale ?? '') ||
+          (fiscali.pIva ?? '') !== (registro?.pIva ?? '') ||
+          (fiscali.codiceFiscale ?? '') !== (registro?.codiceFiscale ?? '') ||
+          (fiscali.provincia ?? '') !== (registro?.provincia ?? ''));
+      if (fiscaliCambiati) {
+        const esito = await sincronizzaPlaceRegistro(place.id, { fiscali });
+        if (!esito.ok) {
+          avvisa(
+            'Il resto è salvato, i dati fiscali no',
+            `Il registro Anagrafiche non li ha presi: ${esito.reason ?? 'non risponde'}.\n\nRiprova a salvare: senza P.IVA nel registro non si può emettere la fattura.`,
+          );
+          return;
+        }
+      } else {
+        // Propaga lo stato (e gli interessi) al registro Anagrafiche.
+        sincronizzaPlaceRegistro(place.id).catch(() => {});
+      }
       // Drawer senza stack lineare: torniamo al dettaglio, non alla Mappa.
       router.replace(`/(app)/attivita/${place.id}`);
     } catch (e: any) {
@@ -229,6 +319,111 @@ export default function ModificaAttivita() {
             ))}
           </View>
 
+          {/* ⭐ DATI FISCALI — 03/09/2026. Servono a FINANCE per intestare
+              pro-forma e fatture, e dal 03/09 una trattativa non si può
+              chiudere VINTA senza di loro. ⚠️ Non stanno in Scout: la casa è il
+              registro Anagrafiche, e da qui si leggono e si riscrivono là. */}
+          <Text style={styles.sezione}>Dati fiscali</Text>
+          <Text style={styles.hint}>
+            Con questi si intestano pro-forma e fatture. Vivono nel registro Anagrafiche — non in Scout — quindi appena
+            salvati li vedono anche FINANCE e le altre app.
+          </Text>
+
+          {registro?.pagaDaSe === false ? (
+            // Fattura la capogruppo: i campi sono i SUOI. Modificarli qui
+            // vorrebbe dire scriverli sulla sede, dove nessuno li legge.
+            <View style={styles.avvisoBox}>
+              <Text style={styles.avvisoTxt}>
+                Fattura la capogruppo{registro.capogruppo ? ` ${registro.capogruppo}` : ''}: ragione sociale, P.IVA e
+                codice fiscale stanno sulla sua scheda e si modificano nel registro.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {mancanti.length ? (
+                <View style={styles.mancaBox}>
+                  <Ionicons name="alert-circle" size={15} color={colors.errore} />
+                  <Text style={styles.mancaTxt}>
+                    Per fatturare manca: {mancanti.join(', ')}. Senza questi la trattativa non si può chiudere vinta.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.okBox}>
+                  <Ionicons name="checkmark-circle" size={15} color={colors.successo} />
+                  <Text style={styles.okTxt}>Completi: si può fatturare.</Text>
+                </View>
+              )}
+
+              <Text style={styles.label}>Ragione sociale</Text>
+              <Text style={styles.hint}>Come si chiama la società sui documenti, se è diversa dall'insegna.</Text>
+              <TextInput
+                style={styles.input}
+                value={ragioneSociale}
+                onChangeText={setRagioneSociale}
+                placeholder="Es. Rossi Fiori S.r.l."
+                placeholderTextColor={colors.grigio}
+              />
+
+              <Text style={styles.label}>Partita IVA</Text>
+              <TextInput
+                style={styles.input}
+                value={pIva}
+                onChangeText={setPIva}
+                placeholder="11 cifre"
+                placeholderTextColor={colors.grigio}
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.label}>Codice fiscale</Text>
+              <Text style={styles.hint}>
+                Serve quando è diverso dalla P.IVA, o al posto suo per una ditta individuale.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={codFiscale}
+                onChangeText={setCodFiscale}
+                placeholder="Se diverso dalla P.IVA"
+                placeholderTextColor={colors.grigio}
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.label}>Provincia</Text>
+              <TextInput
+                style={styles.input}
+                value={provincia}
+                onChangeText={setProvincia}
+                placeholder="Es. MI"
+                placeholderTextColor={colors.grigio}
+                autoCapitalize="characters"
+              />
+
+              {/* ⚠️ L'indirizzo di fatturazione è QUELLO QUI SOPRA: nel registro
+                  l'azienda ha un indirizzo solo, e il CAP non è una colonna a
+                  sé — va scritto dentro l'indirizzo, o sulla fattura non c'è. */}
+              <Text style={styles.hint}>
+                L'indirizzo della fattura è quello scritto sopra, insieme alla zona (= città): scrivi il CAP dentro
+                l'indirizzo, nel registro non c'è un campo suo.
+              </Text>
+            </>
+          )}
+
+          {!place.anagrafiche_id ? (
+            <Text style={styles.hint}>
+              Questo negozio non è ancora agganciato a una scheda del registro: salvando, la scheda viene creata (o
+              ritrovata, se c'era già) e i dati fiscali finiscono là.
+            </Text>
+          ) : registroLetto && !registro ? (
+            <Text style={styles.hint}>
+              Non ho potuto leggere la scheda nel registro (non risponde, o la scheda non c'è più): quello che scrivi
+              qui viene comunque mandato al salvataggio.
+            </Text>
+          ) : linkRegistro ? (
+            <Pressable onPress={() => Linking.openURL(linkRegistro)} style={styles.apri}>
+              <Ionicons name="open-outline" size={14} color={colors.navy} />
+              <Text style={styles.apriTxt}>Apri la scheda nel registro</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable style={[styles.salva, salvataggio && styles.salvaOff]} onPress={salva} disabled={salvataggio}>
             <Text style={styles.salvaTxt}>{salvataggio ? 'Salvataggio…' : 'Salva modifiche'}</Text>
           </Pressable>
@@ -263,6 +458,52 @@ const styles = StyleSheet.create({
     color: colors.testo,
   },
   inputSotto: { marginTop: 6 },
+  sezione: {
+    color: colors.testo,
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: -0.3,
+    marginTop: spacing.xxxl,
+    marginBottom: 4,
+  },
+  mancaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF4F4',
+    borderWidth: 1,
+    borderColor: '#F3D2D2',
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  mancaTxt: { color: colors.errore, fontSize: 12.5, flex: 1 },
+  okBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F1F8F3',
+    borderWidth: 1,
+    borderColor: '#D6E8DB',
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  okTxt: { color: colors.successo, fontSize: 12.5, flex: 1 },
+  avvisoBox: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  avvisoTxt: { color: colors.testoSoft, fontSize: 12.5 },
+  apri: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  apriTxt: { color: colors.navy, fontSize: 12.5, fontWeight: '600' },
   posNota: { color: colors.testoSoft, fontSize: 12.5, marginTop: 6 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   chip: {

@@ -102,6 +102,13 @@ async function creaPartnerDaRegistro(
       citta: a.citta ?? undefined,
       email: a.email ?? undefined,
       telefono: a.telefono ?? undefined,
+      // ⭐ P.IVA E CODICE FISCALE (03/09/2026). Erano l'anello che mancava: la
+      // scheda in FINANCE nasceva col nome e la città, e senza P.IVA una
+      // fattura non si emette — quindi il giro «vinta → ordine → documento»
+      // finiva su una scheda inutilizzabile. Il registro li possiede, FINANCE
+      // li accetta (li normalizza lui), noi li passiamo.
+      pIva: a.pIva ?? undefined,
+      codiceFiscale: a.codiceFiscale ?? undefined,
       ...(amm ? { ammNome: amm.nome ?? undefined, ammEmail: amm.email ?? undefined, ammTelefono: amm.telefono ?? undefined } : {}),
     }),
   });

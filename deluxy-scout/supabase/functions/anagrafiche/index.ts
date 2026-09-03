@@ -130,7 +130,26 @@ Deno.serve(async (req) => {
         nome: body.nome ?? null,
         asOf: new Date().toISOString(),
       };
-      for (const campo of ['citta', 'indirizzo', 'categoria'] as const) {
+      // ⭐ I DATI FISCALI viaggiano da qui (03/09/2026, richiesta urgente
+      // dell'utente: servono per emettere fatture e pro-forma). La casa resta
+      // il REGISTRO — Scout non ne tiene copia: li legge di là e li riscrive
+      // di là. Nel merge del registro i campi fiscali sono FATTUALI, quindi
+      // una chiave con scope partner (la nostra) li può scrivere.
+      //
+      // ⚠️ Stessa regola dei campi qui sopra: il vuoto NON si manda. `null`
+      // nel registro vuol dire «cancellalo», e una sincronizzazione che passa
+      // per caso su un'anagrafica completa le svuoterebbe la P.IVA.
+      //
+      // ⚠️ NON ci sono PEC, codice SDI e CAP, e non è una dimenticanza: PEC e
+      // SDI il registro li dà solo alle chiavi con l'ambito «Dati finanziari»
+      // (Scout non l'ha: li vede FINANCE), e un campo che si scrive senza
+      // poterlo rileggere sembra sempre vuoto — cioè invita a riscrivere
+      // sopra un dato buono. Il CAP nel registro non esiste come colonna: sta
+      // dentro `indirizzo`.
+      for (const campo of [
+        'citta', 'indirizzo', 'categoria',
+        'ragioneSociale', 'pIva', 'codiceFiscale', 'provincia',
+      ] as const) {
         const v = body[campo];
         if (typeof v === 'string' && v.trim()) payload[campo] = v.trim();
       }

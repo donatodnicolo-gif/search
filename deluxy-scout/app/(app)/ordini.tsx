@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, creaOrdineNuovo, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { aggiornaIncassiDaFinance, cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
 import { scaricaPdfProforma } from '@/lib/stampa';
 import { fetchTemplate, type TemplateDocumento } from '@/lib/template-documento';
@@ -163,6 +163,8 @@ export default function Ordini() {
   const [evasionePer, setEvasionePer] = useState<OrdineConLuogo | null>(null);
   /** La legenda delle icone: chiusa di default, si apre da «Legenda». */
   const [legenda, setLegenda] = useState(false);
+  /** Il foglio «Nuovo ordine»: un ordine che non nasce da una trattativa. */
+  const [nuovo, setNuovo] = useState(false);
   const [bozza, setBozza] = useState<{
     cliente: string;
     /** Il negozio a cui l'ordine è legato: si può CAMBIARE (28/08/2026). */
@@ -241,6 +243,10 @@ export default function Ordini() {
       const [ord, lav] = await Promise.all([fetchOrdini(), fetchLavori().catch(() => [])]);
       setOrdini(ord);
       setLavori(lav);
+      // ⚠️ Torna le righe appena lette: chi ha appena CREATO un ordine deve
+      // poterlo aprire, e cercarlo nello stato (che si aggiorna al render dopo)
+      // vorrebbe dire leggere la lista di prima.
+      return ord;
     } catch (e: any) {
       // ⚠️ Se sono gli ORDINI a non caricare non si finge una lista vuota: si
       // dice cosa è andato storto e si offre «Riprova». Il messaggio di
@@ -1559,9 +1565,21 @@ export default function Ordini() {
    * tornare indietro fa parte della decisione.
    */
   function chiediAnnulla(o: OrdineConLuogo) {
+    // ⚠️ IL DOCUMENTO NON SI ANNULLA DA QUI (03/09/2026, domanda dell'utente:
+    // «l'annullamento di un ordine annulla anche la pro-forma?»). No: annullare
+    // scrive lo stato di QUESTO ordine e basta. La pro-forma (o la fattura) sta
+    // su FINANCE, che non ha un'azione di annullamento via API — e una fattura
+    // emessa non si cancella affatto, si storna con una nota di credito.
+    // Perciò lo si DICE: un ordine annullato con un documento vivo di là è un
+    // numero che continua a esistere nei conti di FINANCE.
+    const doc = o.fattura_numero || o.proforma_numero;
     conferma(
       "Annullare l'ordine?",
-      `${o.cliente} · ${importoBreve(o.valore)}.\n\nEsce dal «Chiuso ${new Date().getFullYear()}» e dal «Da incassare». Si può rimettere in gioco dal bottone «Da incassare».`,
+      `${o.cliente} · ${importoBreve(o.valore)}.\n\nEsce dal «Chiuso ${new Date().getFullYear()}» e dal «Da incassare». Si può rimettere in gioco dal bottone «Da incassare».${
+        doc
+          ? `\n\n⚠️ ${doc} resta su FINANCE: da qui non si annulla. Va gestito di là (una pro-forma si lascia scadere, una fattura si storna con una nota di credito).`
+          : ''
+      }`,
       () => cambiaStato(o, 'annullato'),
       { testoConferma: 'Annulla ordine', distruttivo: true },
     );
@@ -1703,16 +1721,26 @@ export default function Ordini() {
             ogni notte alle 05:30: questo serve a non aspettare domani.
             ⚠️ L'esito si MOSTRA, compresi i casi dubbi — un numero che vive
             solo nel JSON del cron non lo legge nessuno. */}
-        <Pressable
-          style={[styles.btnIncassi, incassiInCorso && { opacity: 0.5 }]}
-          disabled={incassiInCorso}
-          onPress={chiediIncassi}
-        >
-          <Ionicons name="sync-outline" size={15} color={colors.navy} />
-          <Text style={styles.btnIncassiTxt}>
-            {incassiInCorso ? 'Chiedo a FINANCE…' : 'Aggiorna dagli incassi di FINANCE'}
-          </Text>
-        </Pressable>
+        {/* ⭐ ORDINE NUOVO (03/09/2026, richiesta dell'utente: «in schermata
+            ordini consentimi di creare nuovo ordine»). Prima si poteva solo
+            vincere una trattativa, qualificare una richiesta o duplicare un
+            ordine: un ordine arrivato al telefono non aveva una porta. */}
+        <View style={styles.azioniHead}>
+          <Pressable style={styles.btnNuovo} onPress={() => setNuovo(true)}>
+            <Ionicons name="add" size={16} color={colors.bianco} />
+            <Text style={styles.btnNuovoTxt}>Nuovo ordine</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.btnIncassi, incassiInCorso && { opacity: 0.5 }]}
+            disabled={incassiInCorso}
+            onPress={chiediIncassi}
+          >
+            <Ionicons name="sync-outline" size={15} color={colors.navy} />
+            <Text style={styles.btnIncassiTxt}>
+              {incassiInCorso ? 'Chiedo a FINANCE…' : 'Aggiorna dagli incassi di FINANCE'}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* ⭐ LA LEGENDA DELLE ICONE (28/08/2026, richiesta dell'utente:
             «rivedi tutte le icone... metti poi una legenda»). Chiusa di
@@ -2109,6 +2137,22 @@ export default function Ordini() {
           onFatto={() => {
             setChiusuraPer(null);
             carica();
+          }}
+        />
+      ) : null}
+
+      {nuovo ? (
+        <NuovoOrdine
+          onClose={() => setNuovo(false)}
+          onCreato={async (id) => {
+            setNuovo(false);
+            // ⚠️ Si ricarica e si apre la scheda dell'ordine NUOVO: senza,
+            // finirebbe in fondo a un elenco filtrato per periodo e si
+            // dovrebbe andare a cercarlo per aggiungere fornitura e documenti.
+            const righe = await carica();
+            const creato = righe?.find((o) => o.id === id);
+            if (creato) apriModifica(creato);
+            else avvisa('Ordine creato', "È in elenco: apri «Modifica» per aggiungere fornitura e documenti.");
           }}
         />
       ) : null}
@@ -2557,6 +2601,112 @@ export default function Ordini() {
         </Foglio>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * ⭐ **NUOVO ORDINE** (03/09/2026, richiesta dell'utente: «in schermata ordini
+ * consentimi di creare nuovo ordine»).
+ *
+ * Chiede solo l'indispensabile — chi, quanto, cosa, quando — e poi apre il
+ * foglio dell'ordine appena nato: fornitura, documenti, acconto e scadenze
+ * stanno già là, e riscriverli qui vorrebbe dire tenerne due versioni.
+ *
+ * ⚠️ Il cliente si scegli con `SceltaCliente`, che cerca fra i negozi di Scout
+ * **e** nel registro Anagrafiche: senza il secondo, un cliente storico che in
+ * Scout non è mai entrato risponde «nessun negozio» — e chi scrive l'ordine lo
+ * ribattezza a mano, creando il doppione.
+ *
+ * ⚠️ Il valore è facoltativo: un ordine in attesa del preventivo esiste, e
+ * obbligare a un numero vorrebbe dire farlo inventare. Ma senza valore l'ordine
+ * non si può incassare né chiudere, e lo si dice qui, non dopo.
+ */
+function NuovoOrdine({ onClose, onCreato }: { onClose: () => void; onCreato: (id: string) => void }) {
+  const [cliente, setCliente] = useState('');
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [anagraficheId, setAnagraficheId] = useState<string | null>(null);
+  const [descrizione, setDescrizione] = useState('');
+  const [valore, setValore] = useState('');
+  const [dataOrdine, setDataOrdine] = useState<string | null>(isoOggiOrdini());
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function crea() {
+    if (salvando) return;
+    if (!cliente.trim()) {
+      setErrore('Scegli il cliente: un ordine senza intestatario non si fattura e non si trova.');
+      return;
+    }
+    setSalvando(true);
+    setErrore(null);
+    try {
+      const { id } = await creaOrdineNuovo({
+        cliente: cliente.trim(),
+        placeId,
+        descrizione,
+        valore: leggiImporto(valore),
+        dataOrdine,
+      });
+      onCreato(id);
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Ordine non creato.');
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Foglio titolo="Nuovo ordine" sottotitolo="Un ordine che non nasce da una trattativa" bloccaSfondo onClose={onClose}>
+      <Text style={styles.campoLabel}>Cliente *</Text>
+      <SceltaCliente
+        attuale={{ nome: cliente, placeId, anagraficheId }}
+        onScegli={(c) => {
+          setCliente(c.nome);
+          setPlaceId(c.placeId);
+          setAnagraficheId(c.anagraficheId);
+        }}
+      />
+      {cliente ? (
+        <Text style={styles.campoAiuto}>
+          {placeId ? `Collegato al negozio: ${cliente}` : `${cliente} — nessun negozio collegato`}
+        </Text>
+      ) : null}
+
+      <Text style={styles.campoLabel}>Descrizione</Text>
+      <TextInput
+        style={[styles.campo, styles.campoAlto]}
+        value={descrizione}
+        onChangeText={setDescrizione}
+        placeholder="Che cosa è stato ordinato"
+        placeholderTextColor={colors.grigio}
+        multiline
+      />
+
+      <Text style={styles.campoLabel}>Valore</Text>
+      <TextInput
+        style={styles.campo}
+        value={valore}
+        onChangeText={setValore}
+        placeholder="Es. 1.250,50"
+        placeholderTextColor={colors.grigio}
+        keyboardType="decimal-pad"
+      />
+      <Text style={styles.campoAiuto}>
+        Si può lasciare vuoto se il preventivo non c'è ancora: senza valore, però, l'ordine non si chiude e non si
+        incassa.
+      </Text>
+
+      <Text style={styles.campoLabel}>Data dell'ordine</Text>
+      <CampoData valore={dataOrdine} onCambia={setDataOrdine} />
+
+      {errore ? <Text style={styles.erroreTxt}>{errore}</Text> : null}
+
+      <Pressable style={[styles.btn, styles.btnLargo, salvando && { opacity: 0.5 }]} disabled={salvando} onPress={crea}>
+        <Text style={styles.btnTxt}>{salvando ? 'Creo…' : "Crea l'ordine"}</Text>
+      </Pressable>
+      <Text style={styles.campoAiuto}>
+        Appena creato si apre la sua scheda: da là si aggiungono fornitura, acconto, scadenze e la pro-forma.
+      </Text>
+    </Foglio>
   );
 }
 
@@ -3651,6 +3801,19 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   btnIncassiTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
+  azioniHead: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  btnNuovo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    minHeight: touchMin,
+  },
+  btnNuovoTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
   // Il ripiego si vede appena: è una data vera, ma non È la data dell'ordine.
   tabDataRipiego: { fontStyle: 'italic', opacity: 0.75 },
   rigaPercento: { flexDirection: 'row', alignItems: 'center', gap: 8 },
