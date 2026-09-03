@@ -350,6 +350,86 @@ export async function caricaImmagineMeta(
   }
 }
 
+// ——— VIDEO a pezzi (act_/advideos, protocollo chunked di Meta) ———
+//
+// ⚠️ PERCHÉ a pezzi: su Vercel il corpo di una richiesta ha un tetto DURO a
+// 4,5 MB — un video intero non passa MAI da una server action o da una rotta.
+// Il browser affetta il file e manda un pezzo per richiesta alla rotta
+// /api/interno/meta/video, che lo INOLTRA a Meta senza mai tenere il file
+// intero in mano: start (apre la sessione), transfer (un pezzo alla volta,
+// è Meta a dire gli offset), finish. Come per le immagini: è la LIBRERIA
+// dell'account — niente viene pubblicato, l'annuncio nasce all'esecuzione
+// approvata.
+
+export async function avviaVideoMeta(
+  idAccount: string,
+  dimensione: number
+): Promise<{ ok: true; sessione: string; videoId: string; inizio: number; fine: number } | { ok: false; errore: string }> {
+  const t = token();
+  if (!t) return { ok: false, errore: "token assente" };
+  try {
+    const r = await fetch(`${BASE}/act_${idAccount.replace(/^act_/, "")}/advideos`, {
+      method: "POST",
+      body: new URLSearchParams({ upload_phase: "start", file_size: String(dimensione), access_token: t }),
+      cache: "no-store",
+    });
+    const dati = (await r.json()) as {
+      upload_session_id?: string; video_id?: string; start_offset?: string; end_offset?: string;
+      error?: { message?: string; error_user_msg?: string };
+    };
+    if (dati.error || !dati.upload_session_id || !dati.video_id) {
+      return { ok: false, errore: dati.error?.error_user_msg ?? dati.error?.message ?? "Meta non ha aperto la sessione video" };
+    }
+    return { ok: true, sessione: dati.upload_session_id, videoId: dati.video_id, inizio: Number(dati.start_offset ?? 0), fine: Number(dati.end_offset ?? 0) };
+  } catch (e) {
+    return { ok: false, errore: `apertura sessione video fallita: ${String(e)}` };
+  }
+}
+
+export async function pezzoVideoMeta(
+  idAccount: string,
+  sessione: string,
+  inizio: number,
+  pezzo: Uint8Array
+): Promise<{ ok: true; inizio: number; fine: number } | { ok: false; errore: string }> {
+  const t = token();
+  if (!t) return { ok: false, errore: "token assente" };
+  const corpo = new FormData();
+  corpo.append("upload_phase", "transfer");
+  corpo.append("upload_session_id", sessione);
+  corpo.append("start_offset", String(inizio));
+  corpo.append("video_file_chunk", new Blob([Buffer.from(pezzo)]), "pezzo.bin");
+  corpo.append("access_token", t);
+  try {
+    const r = await fetch(`${BASE}/act_${idAccount.replace(/^act_/, "")}/advideos`, { method: "POST", body: corpo, cache: "no-store" });
+    const dati = (await r.json()) as { start_offset?: string; end_offset?: string; error?: { message?: string; error_user_msg?: string } };
+    if (dati.error) return { ok: false, errore: dati.error.error_user_msg ?? dati.error.message ?? "Meta ha rifiutato il pezzo" };
+    return { ok: true, inizio: Number(dati.start_offset ?? 0), fine: Number(dati.end_offset ?? 0) };
+  } catch (e) {
+    return { ok: false, errore: `invio pezzo fallito: ${String(e)}` };
+  }
+}
+
+export async function chiudiVideoMeta(
+  idAccount: string,
+  sessione: string
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const t = token();
+  if (!t) return { ok: false, errore: "token assente" };
+  try {
+    const r = await fetch(`${BASE}/act_${idAccount.replace(/^act_/, "")}/advideos`, {
+      method: "POST",
+      body: new URLSearchParams({ upload_phase: "finish", upload_session_id: sessione, access_token: t }),
+      cache: "no-store",
+    });
+    const dati = (await r.json()) as { success?: boolean; error?: { message?: string; error_user_msg?: string } };
+    if (dati.error || !dati.success) return { ok: false, errore: dati.error?.error_user_msg ?? dati.error?.message ?? "chiusura sessione rifiutata" };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, errore: `chiusura sessione fallita: ${String(e)}` };
+  }
+}
+
 /**
  * La Pagina Facebook da cui l'annuncio parla. Stessa regola del pixel: si
  * sceglie SOLO se è una — con due pagine «prendo la prima» farebbe parlare
@@ -391,6 +471,8 @@ export type ParametriLancioMeta = {
   fine?: string | null; // ISO
   /** Pagina Facebook da cui parla l'annuncio; vuoto = la trova l'app se è una. */
   paginaId?: string | null;
+  /** Pubblici (custom audience) da mettere nel targeting dell'ad set. */
+  pubblici?: { id: string; nome?: string }[] | null;
   /**
    * Il creativo. Con `imageHash` (immagine già caricata in libreria
    * all'accodamento) e `url`, il lancio crea ANCHE l'annuncio, in pausa.
@@ -403,6 +485,8 @@ export type ParametriLancioMeta = {
     cta?: string | null;
     url?: string | null;
     imageHash?: string | null;
+    /** Video già in libreria (caricato a pezzi): con lui l'imageHash è la copertina. */
+    videoId?: string | null;
   } | null;
 };
 
@@ -569,6 +653,12 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
   if (p.posizionamenti && p.posizionamenti.length > 0) {
     targeting.publisher_platforms = p.posizionamenti;
   }
+  // I pubblici scelti nel modulo: con Advantage+ acceso fanno da seme, spento
+  // sono il perimetro. Gli id vengono dal censimento, non da mani libere.
+  if (p.pubblici && p.pubblici.length > 0) {
+    targeting.custom_audiences = p.pubblici.map((x) => ({ id: x.id }));
+    note.push(`pubblici nel targeting: ${p.pubblici.map((x) => x.nome ?? x.id).join(", ")}`);
+  }
 
   // ——— 3. Ottimizzazione: che risultato compra l'asta ———
   let optimization = "LINK_CLICKS";
@@ -655,14 +745,31 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
       note.push(`pagina trovata dall'app sull'account: ${pagina}`);
     }
 
-    const linkData: Record<string, unknown> = {
-      link: cr.url,
-      message: (cr.testi ?? [])[0] ?? cr.titolo ?? "",
-      image_hash: cr.imageHash,
-    };
-    if (cr.titolo) linkData.name = cr.titolo;
-    if (cr.descrizione) linkData.description = cr.descrizione;
-    if (cr.cta) linkData.call_to_action = { type: cr.cta, value: { link: cr.url } };
+    // VIDEO o immagine: due forme diverse dello stesso object_story_spec.
+    // Col video l'immagine fa da copertina (Meta la pretende).
+    const messaggio = (cr.testi ?? [])[0] ?? cr.titolo ?? "";
+    let specCreativo: Record<string, unknown>;
+    if (cr.videoId) {
+      const videoData: Record<string, unknown> = {
+        video_id: cr.videoId,
+        image_hash: cr.imageHash,
+        message: messaggio,
+        call_to_action: { type: cr.cta || "LEARN_MORE", value: { link: cr.url } },
+      };
+      if (cr.titolo) videoData.title = cr.titolo;
+      if (cr.descrizione) videoData.link_description = cr.descrizione;
+      specCreativo = { video_data: videoData };
+    } else {
+      const linkData: Record<string, unknown> = {
+        link: cr.url,
+        message: messaggio,
+        image_hash: cr.imageHash,
+      };
+      if (cr.titolo) linkData.name = cr.titolo;
+      if (cr.descrizione) linkData.description = cr.descrizione;
+      if (cr.cta) linkData.call_to_action = { type: cr.cta, value: { link: cr.url } };
+      specCreativo = { link_data: linkData };
+    }
 
     const annuncioFallito = (motivo: string): EsitoScrittura => ({
       riuscita: false,
@@ -679,7 +786,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
         method: "POST",
         body: new URLSearchParams({
           name: `${p.nome} — creative 1`,
-          object_story_spec: JSON.stringify({ page_id: pagina, link_data: linkData }),
+          object_story_spec: JSON.stringify({ page_id: pagina, ...specCreativo }),
           access_token: t,
         }),
         cache: "no-store",
@@ -704,7 +811,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
       });
       const dati = (await r.json()) as { id?: string; error?: { message?: string; error_user_msg?: string } };
       if (dati.error || !dati.id) return annuncioFallito(`Meta ha rifiutato l'annuncio: ${dati.error?.error_user_msg ?? dati.error?.message ?? "nessun id"}`);
-      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
+      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (${cr.videoId ? `VIDEO ${cr.videoId} con copertina, ` : ""}creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
     } catch (e) {
       return annuncioFallito(`chiamata fallita creando l'annuncio: ${String(e)}`);
     }

@@ -5,10 +5,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       // Il lancio Meta carica l'IMMAGINE dell'annuncio dentro una server
       // action: il default di Next è 1 MB e un jpg da campagna sta sopra.
-      // 8 MB copre le immagini vere e resta sotto i limiti delle function
-      // Vercel; il modulo rifiuta comunque i file oltre i 6 MB, così il
-      // messaggio d'errore è il nostro e non un 413 muto.
-      bodySizeLimit: "8mb",
+      // ⚠️ Su Vercel il corpo di una function ha un tetto DURO a 4,5 MB
+      // (infrastruttura, non configurabile): il modulo blocca le immagini
+      // oltre i 4 MB così l'errore è il nostro e non un 413 muto, e i VIDEO
+      // non passano di qui — vanno a pezzi dal browser via
+      // /api/interno/meta/video, un pezzo per richiesta.
+      bodySizeLimit: "5mb",
     },
   },
 };

@@ -1,8 +1,10 @@
 import { BriefCampagnaAi } from "@/components/BriefCampagnaAi";
+import { BriefCampagnaMetaAi } from "@/components/BriefCampagnaMetaAi";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { lanciaCampagna } from "@/lib/azioni";
-import { proponiBriefCampagna } from "@/lib/azioni-brief";
+import { proponiBriefCampagna, proponiBriefCampagnaMeta } from "@/lib/azioni-brief";
+import { prisma } from "@/lib/db";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
 import { ModuloLancioMeta } from "./modulo-meta";
 
@@ -59,6 +61,21 @@ export default async function CreaCampagna({
   // presentare l'uno per l'altro fa raccogliere dati che la piattaforma non
   // sa nemmeno ricevere.
   const meta = sp.canale === "meta";
+  // I pubblici del brand agganciabili a un lancio Meta: censiti da Meta
+  // (hanno l'id di piattaforma) e non estinti/obsoleti. Gli altri stati
+  // restano visibili: «da verificare» è un avviso, non un divieto.
+  const pubbliciMeta = meta
+    ? await prisma.pubblico.findMany({
+        where: {
+          piattaforma: "meta",
+          brand,
+          idEsterno: { not: null },
+          stato: { notIn: ["estinto", "obsoleto", "da_creare"] },
+        },
+        orderBy: [{ tipo: "asc" }, { dimensione: { sort: "desc", nulls: "last" } }],
+        select: { id: true, nome: true, tipo: true, dimensione: true, stato: true },
+      })
+    : [];
   const linkCanale = (c: string) =>
     `/campagne/lancia?${new URLSearchParams({ ...(sp.brand ? { brand: sp.brand } : {}), ...(c === "meta" ? { canale: "meta" } : {}) }).toString()}`;
 
@@ -101,7 +118,10 @@ export default async function CreaCampagna({
 
         {meta ? (
           <>
-            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} />
+            {/* Il pannello AI sta FUORI dal <form>, come sul modulo Google. */}
+            <BriefCampagnaMetaAi brand={brand} azione={proponiBriefCampagnaMeta} />
+
+            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} pubblici={pubbliciMeta} />
 
             {/* ⚠️ La stessa distinzione che regge il modulo Google: che cosa
                 arriva davvero sulla piattaforma e che cosa resta a mano. Su

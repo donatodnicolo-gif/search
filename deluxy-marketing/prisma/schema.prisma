@@ -594,9 +594,13 @@ model Pubblico {
   brand        String           @default("cross")
   // cliente | lookalike | retargeting | interessi | esclusione | segmento | altro
   tipo         String           @default("cliente")
+  // L'id del pubblico SULLA piattaforma (custom audience Meta): arriva dal
+  // censimento, e senza di lui un pubblico non si può agganciare a un lancio.
+  idEsterno    String?
   // ultima dimensione nota (utenti/contatti)
   dimensione   Int?
-  // attivo | da_creare | da_verificare | obsoleto | in_aggiornamento
+  // attivo | da_creare | da_verificare | obsoleto | in_aggiornamento | estinto
+  // (estinto = non esiste più / non si usa più: sparisce da elenchi e lanci)
   stato        String           @default("da_verificare")
   verificatoIl DateTime?
   fonte        String? // documento di provenienza su Drive

@@ -43,12 +43,22 @@ export async function GET(req: NextRequest) {
   const esito = await eseguiSyncMeta({ giorni: 7 }, "cron");
   if (!esito.ok) return NextResponse.json({ errore: esito.errore }, { status: esito.codice });
 
+  // Nello stesso giro, il censimento dei PUBBLICI (custom audience): sono
+  // quelli che il lancio Meta offre da scegliere, e un elenco vecchio fa
+  // scegliere pubblici che non esistono più. Un errore qui non deve far
+  // fallire la sync delle metriche: si riporta, non si propaga.
+  const { sincronizzaPubbliciMeta } = await import("@/lib/pubblici-meta");
+  const pubblici = await sincronizzaPubbliciMeta().catch((e) => ({
+    visti: 0, nuovi: 0, aggiornati: 0, errori: [String(e).slice(0, 160)],
+  }));
+
   return NextResponse.json(
     {
       periodo: esito.periodo,
       totaleMetriche: esito.totaleMetriche,
       account: esito.account,
       nota: esito.nota,
+      pubblici,
     },
     { status: esito.tuttiInErrore ? 502 : 200 }
   );

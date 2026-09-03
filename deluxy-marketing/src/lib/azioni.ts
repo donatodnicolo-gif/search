@@ -1209,6 +1209,24 @@ export async function cambiaStatoPubblico(fd: FormData) {
   revalidatePath("/pubblici");
 }
 
+// Il bottone «Censisci da Meta»: STESSA funzione del cron orario, non una
+// copia — la regola dei bottoni di /impostazioni.
+export async function censisciPubbliciMeta() {
+  const { sincronizzaPubbliciMeta } = await import("./pubblici-meta");
+  const esito = await sincronizzaPubbliciMeta();
+  await registra({
+    autore: "utente",
+    tipo: "sync",
+    entita: "pubblico",
+    titolo: `Censimento pubblici da Meta: ${esito.visti} visti, ${esito.nuovi} nuovi, ${esito.aggiornati} aggiornati`,
+    dettaglio: esito.errori.length > 0 ? `Errori: ${esito.errori.join(" · ")}` : null,
+  });
+  const messaggio =
+    `${esito.visti} pubblici letti da Meta: ${esito.nuovi} nuovi, ${esito.aggiornati} aggiornati` +
+    (esito.errori.length > 0 ? ` — ⚠️ ${esito.errori.join(" · ")}` : "");
+  redirect(`/pubblici?censiti=${encodeURIComponent(messaggio)}`);
+}
+
 // ---------- Impostazioni ----------
 
 export async function salvaCartellaDrive(fd: FormData) {
@@ -2559,6 +2577,17 @@ export async function lanciaCampagnaMeta(fd: FormData) {
   const advantage = testo(fd, "advantage") != null;
   const eventoConversione = testo(fd, "eventoConversione");
   const pubbliciNota = testo(fd, "pubblici");
+  // I pubblici SPUNTATI: censiti da Meta, quindi con l'id di piattaforma —
+  // entrano nel targeting dell'ad set. Si rileggono dal database adesso
+  // (non ci si fida degli id del form): un pubblico diventato estinto fra
+  // l'apertura della pagina e l'invio non deve entrare nel lancio.
+  const idPubblici = fd.getAll("pubbliciScelti").map((v) => String(v)).filter(Boolean);
+  const pubbliciScelti = idPubblici.length
+    ? await prisma.pubblico.findMany({
+        where: { id: { in: idPubblici }, idEsterno: { not: null }, stato: { notIn: ["estinto", "obsoleto"] } },
+        select: { idEsterno: true, nome: true },
+      })
+    : [];
 
   // ——— L'IMMAGINE dell'annuncio: si carica ADESSO nella libreria ———
   // L'app non ha un posto suo dove tenere i file, e un'immagine in base64 nel
@@ -2572,8 +2601,11 @@ export async function lanciaCampagnaMeta(fd: FormData) {
     if (!/^image\/(jpeg|png|webp)$/.test(immagine.type)) {
       redirect(indietro("L'immagine deve essere JPG, PNG o WebP (i video per ora si caricano in Ads Manager)"));
     }
-    if (immagine.size > 6 * 1024 * 1024) {
-      redirect(indietro("Immagine oltre i 6 MB: comprimila prima di caricarla"));
+    // ⚠️ 4 MB, non di più: su Vercel il corpo di una function ha un tetto
+    // DURO a 4,5 MB — un file più grande morirebbe in un 413 di piattaforma
+    // prima ancora di arrivare a questo controllo.
+    if (immagine.size > 4 * 1024 * 1024) {
+      redirect(indietro("Immagine oltre i 4 MB: comprimila prima di caricarla (il tetto è della piattaforma)"));
     }
     const account = await accountDiBrand("meta_ads", brand);
     if (!account) {
@@ -2589,6 +2621,13 @@ export async function lanciaCampagnaMeta(fd: FormData) {
       redirect(indietro(`Meta ha rifiutato l'immagine: ${caricata.errore.slice(0, 180)}`));
     }
     imageHash = caricata.hash;
+  }
+  // Il VIDEO è già nella libreria (caricato a pezzi dal browser): qui arriva
+  // solo il suo id. Un video senza copertina non fa un annuncio: Meta la
+  // vuole, ed è l'immagine qui sopra.
+  const videoId = testo(fd, "videoId");
+  if (videoId && !imageHash) {
+    redirect(indietro("Col video serve anche l'immagine come copertina: caricala nel campo Immagine"));
   }
 
   const campagna = await prisma.campagna.create({
@@ -2648,7 +2687,8 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         // l'immagine (imageHash: già in libreria), fa nascere l'annuncio
         // all'esecuzione — in pausa, dentro l'ad set.
         pubbliciNota,
-        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl"), imageHash },
+        pubblici: pubbliciScelti.map((x) => ({ id: x.idEsterno!, nome: x.nome })),
+        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl"), imageHash, videoId },
       }),
       motivo: testo(fd, "motivo"),
       livello: "L2",

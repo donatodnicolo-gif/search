@@ -1,7 +1,7 @@
 import { Icona } from "@/components/Icona";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoPubblico, salvaPubblico } from "@/lib/azioni";
+import { cambiaStatoPubblico, censisciPubbliciMeta, salvaPubblico } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
@@ -38,14 +38,16 @@ const ORDINE_PIATTAFORMA = ["meta", "google", "tiktok", "klaviyo", "shopify", "a
 export default async function PaginaPubblici({
   searchParams,
 }: {
-  searchParams: Promise<{ piattaforma?: string; brand?: string; stato?: string; q?: string }>;
+  searchParams: Promise<{ piattaforma?: string; brand?: string; stato?: string; q?: string; censiti?: string }>;
 }) {
   const p = await searchParams;
   const pubblici = await prisma.pubblico.findMany({
     where: {
       ...(p.piattaforma ? { piattaforma: p.piattaforma } : {}),
       ...(p.brand ? { brand: p.brand } : {}),
-      ...(p.stato ? { stato: p.stato } : {}),
+      // Gli ESTINTI spariscono, come le campagne defunte: si rivedono solo
+      // chiedendoli col filtro di stato.
+      ...(p.stato ? { stato: p.stato } : { stato: { not: "estinto" } }),
       // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
       // `contains` da solo è case-sensitive.
       ...(p.q
@@ -83,8 +85,21 @@ export default async function PaginaPubblici({
               Drive; i pubblici li crea solo quel sistema.
             </p>
           </div>
+          {/* Il censimento VERO: le custom audience lette da Meta, con l'id
+              di piattaforma — quello che serve per agganciarle a un lancio.
+              Stessa funzione del cron orario, non una copia. */}
+          <form action={censisciPubbliciMeta}>
+            <button className="btn btn-secondario" type="submit">Censisci da Meta</button>
+          </form>
           <a className="btn" href="#nuovo">Registra pubblico</a>
         </div>
+
+        {p.censiti && (
+          <div className="conferma">
+            <span className="segno">✓</span>
+            <span>{decodeURIComponent(p.censiti)}</span>
+          </div>
+        )}
 
         <div className="kpi-riga">
           <div className="kpi">

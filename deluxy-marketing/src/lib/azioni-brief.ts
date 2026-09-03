@@ -73,6 +73,159 @@ const SCHEMA_BRIEF = {
 const OBIETTIVI_AMMESSI = ["vendite", "contatti", "traffico", "notorieta"];
 const MATCH_AMMESSI = ["exact", "phrase", "broad"];
 
+// ——— Il brief per una campagna META ———
+// Stessa filosofia: l'AI COMPILA il modulo Meta, non lancia niente. Il
+// contesto sono le campagne Meta già vive del brand e le regole di tono.
+
+export type BriefCampagnaMeta = {
+  nome: string;
+  obiettivoTipo: string; // vendite | contatti | traffico | notorieta
+  budget: number;
+  livelloBudget: string; // campagna | adset
+  strategia: string; // volume | costo_cap | bid_cap | roas_min
+  paesi: string[]; // ISO-2
+  citta: string[]; // righe «Nome | raggio km»
+  etaMin: number;
+  etaMax: number;
+  genere: string; // tutti | donne | uomini
+  testi: string[];
+  titolo: string;
+  descrizione: string;
+  cta: string;
+  finalUrl: string;
+  motivo: string;
+};
+
+export type EsitoBriefMeta =
+  | { ok: true; brief: BriefCampagnaMeta; note: string | null; scartati: string[]; modello: string }
+  | { ok: false; errore: string };
+
+const SCHEMA_BRIEF_META = {
+  type: "object",
+  additionalProperties: false,
+  required: ["nome", "obiettivoTipo", "budget", "testi", "titolo"],
+  properties: {
+    nome: { type: "string" },
+    obiettivoTipo: { type: "string" },
+    budget: { type: "number" },
+    livelloBudget: { type: "string" },
+    strategia: { type: "string" },
+    paesi: { type: "array", items: { type: "string" } },
+    citta: { type: "array", items: { type: "string" } },
+    etaMin: { type: "number" },
+    etaMax: { type: "number" },
+    genere: { type: "string" },
+    testi: { type: "array", items: { type: "string" } },
+    titolo: { type: "string" },
+    descrizione: { type: "string" },
+    cta: { type: "string" },
+    finalUrl: { type: "string" },
+    motivo: { type: "string" },
+    note: { type: "string" },
+  },
+} as const;
+
+const CTA_AMMESSE = ["SHOP_NOW", "ORDER_NOW", "LEARN_MORE", "GET_OFFER", "CONTACT_US"];
+
+export async function proponiBriefCampagnaMeta(input: {
+  descrizione: string;
+  brand: string;
+}): Promise<EsitoBriefMeta> {
+  const descrizione = String(input.descrizione ?? "").trim();
+  if (descrizione.length < 10) {
+    return { ok: false, errore: "Scrivi almeno una frase su cosa deve fare questa campagna." };
+  }
+  const brand = input.brand || "gifts";
+
+  const campagne = await prisma.campagna.findMany({
+    where: { brand, canale: "meta_ads", stato: { notIn: ["defunta", "conclusa"] } },
+    select: { nome: true, budgetGiornaliero: true, obiettivo: true, stato: true },
+    take: 25,
+  });
+
+  const esito = await chiediAllAi({
+    istruzioni: `Sei un esperto di Meta Ads (Facebook/Instagram) che prepara una campagna per ${ETICHETTA_BRAND[brand] ?? brand}.
+
+Compila il brief a partire dalla richiesta dell'utente. Rispondi SOLO col JSON dello schema.
+
+REGOLE, o il modulo rifiuta il brief:
+- "obiettivoTipo": esattamente uno fra vendite, contatti, traffico, notorieta (su Meta decide cosa compra l'asta).
+- "livelloBudget": "campagna" (Advantage/CBO, il default giusto) oppure "adset".
+- "strategia": volume, costo_cap, bid_cap o roas_min (volume è il default giusto senza indicazioni).
+- "paesi": codici ISO-2 maiuscoli (es. "IT"). "citta": righe «Nome | raggio km» (raggio opzionale).
+- "etaMin" fra 18 e 65, "etaMax" fra 24 e 65 (65 vale «65 e oltre»). "genere": tutti, donne o uomini.
+- "testi": 2-3 varianti di testo principale, le prime ~125 battute reggono da sole (dopo c'è il «altro»).
+- "titolo" entro 40 battute, "descrizione" entro 30 (si vede solo su alcuni posizionamenti).
+- "cta": una fra SHOP_NOW, ORDER_NOW, LEARN_MORE, GET_OFFER, CONTACT_US.
+- "nome" segue lo stile dei nomi già in uso sul brand. "motivo" è una riga per lo storico.
+- "budget" in euro al giorno.
+
+TONO E CLAIM per ${ETICHETTA_BRAND[brand] ?? brand} — vincoli veri, il modulo blocca chi li viola:
+${regoleDiBrand(brand).map((r) => `- ${r}`).join("\n") || "- nessuna regola specifica per questo brand"}
+
+Il break-even del brand è ${breakEvenRoas(brand).toFixed(2).replace(".", ",")}×.`,
+    dati: {
+      richiestaDellUtente: descrizione,
+      brand,
+      campagneMetaGiaAttive: campagne,
+    },
+    schema: SCHEMA_BRIEF_META,
+    massimoToken: 3000,
+  });
+
+  if (!esito.ok) return { ok: false, errore: esito.errore };
+  let grezzo: Record<string, unknown>;
+  try {
+    grezzo = JSON.parse(esito.testo) as Record<string, unknown>;
+  } catch {
+    return { ok: false, errore: "L'AI ha risposto in una forma non leggibile: riprova." };
+  }
+
+  const scartati: string[] = [];
+  const testiPuliti = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : [];
+
+  const obiettivoGrezzo = String(grezzo.obiettivoTipo ?? "").toLowerCase();
+  const obiettivoTipo = OBIETTIVI_AMMESSI.includes(obiettivoGrezzo) ? obiettivoGrezzo : "vendite";
+  if (obiettivoGrezzo && obiettivoTipo !== obiettivoGrezzo) {
+    scartati.push(`obiettivo «${obiettivoGrezzo}» non riconosciuto: messo «vendite», controllalo`);
+  }
+  const strategia = ["volume", "costo_cap", "bid_cap", "roas_min"].includes(String(grezzo.strategia ?? ""))
+    ? String(grezzo.strategia)
+    : "volume";
+  const cta = CTA_AMMESSE.includes(String(grezzo.cta ?? "")) ? String(grezzo.cta) : "SHOP_NOW";
+  const budget = Number(grezzo.budget);
+  const etaMin = Math.min(65, Math.max(18, Number(grezzo.etaMin) || 18));
+  const etaMax = Math.min(65, Math.max(etaMin, Number(grezzo.etaMax) || 65));
+  const titolo = String(grezzo.titolo ?? "").trim();
+  if (titolo.length > 40) scartati.push("titolo oltre le 40 battute consigliate: accorcialo");
+
+  return {
+    ok: true,
+    brief: {
+      nome: String(grezzo.nome ?? "").trim(),
+      obiettivoTipo,
+      budget: Number.isFinite(budget) && budget > 0 ? budget : 15,
+      livelloBudget: String(grezzo.livelloBudget ?? "campagna") === "adset" ? "adset" : "campagna",
+      strategia,
+      paesi: testiPuliti(grezzo.paesi).map((x) => x.toUpperCase()).filter((x) => /^[A-Z]{2}$/.test(x)),
+      citta: testiPuliti(grezzo.citta),
+      etaMin,
+      etaMax,
+      genere: ["tutti", "donne", "uomini"].includes(String(grezzo.genere ?? "")) ? String(grezzo.genere) : "tutti",
+      testi: testiPuliti(grezzo.testi).slice(0, 5),
+      titolo,
+      descrizione: String(grezzo.descrizione ?? "").trim(),
+      cta,
+      finalUrl: String(grezzo.finalUrl ?? "").trim(),
+      motivo: String(grezzo.motivo ?? "").trim(),
+    },
+    note: grezzo.note ? String(grezzo.note) : null,
+    scartati,
+    modello: esito.modello,
+  };
+}
+
 // ——— Il brief per un GRUPPO NUOVO dentro una campagna che esiste già ———
 // Stessa filosofia del brief campagna: l'AI COMPILA il modulo, non crea
 // niente. Il contesto però è la CAMPAGNA: i gruppi che ha già (per non

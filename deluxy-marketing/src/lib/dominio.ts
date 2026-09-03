@@ -505,6 +505,10 @@ export const STATI_PUBBLICO = [
   "da_verificare",
   "da_creare",
   "obsoleto",
+  // «Estinto» è il gemello di «defunta» sulle campagne: non esiste più (o non
+  // si usa più) e SPARISCE da elenchi e lanci — lo si rivede solo chiedendolo
+  // col filtro di stato. Come per le campagne, il censimento non lo tocca.
+  "estinto",
 ] as const;
 export const ETICHETTA_STATO_PUBBLICO: Record<string, string> = {
   attivo: "Attivo",
@@ -512,6 +516,7 @@ export const ETICHETTA_STATO_PUBBLICO: Record<string, string> = {
   da_verificare: "Da verificare",
   da_creare: "Da creare",
   obsoleto: "Obsoleto",
+  estinto: "Estinto",
 };
 export const COLORE_STATO_PUBBLICO: Record<string, string> = {
   attivo: "var(--green)",
@@ -519,6 +524,7 @@ export const COLORE_STATO_PUBBLICO: Record<string, string> = {
   da_verificare: "var(--blue)",
   da_creare: "var(--purple)",
   obsoleto: "var(--text-tertiary)",
+  estinto: "var(--red)",
 };
 
 // Sotto queste soglie il pubblico non è utilizzabile/efficace (regole Meta).

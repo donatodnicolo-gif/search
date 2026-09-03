@@ -1,3 +1,4 @@
+import { CaricaVideoMeta } from "@/components/CaricaVideoMeta";
 import { Icona } from "@/components/Icona";
 import { lanciaCampagnaMeta } from "@/lib/azioni";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
@@ -47,7 +48,16 @@ const CTA = [
   { chiave: "CONTACT_US", nome: "Contattaci" },
 ];
 
-export function ModuloLancioMeta({ brand, tornaBrand }: { brand: string; tornaBrand?: string }) {
+export function ModuloLancioMeta({
+  brand,
+  tornaBrand,
+  pubblici,
+}: {
+  brand: string;
+  tornaBrand?: string;
+  /** I pubblici del brand censiti da Meta (con id di piattaforma), non estinti. */
+  pubblici: { id: string; nome: string; tipo: string; dimensione: number | null; stato: string }[];
+}) {
   return (
     <form className="modulo-creazione" action={lanciaCampagnaMeta}>
       <input type="hidden" name="tornaBrand" value={tornaBrand ?? ""} />
@@ -273,11 +283,42 @@ export function ModuloLancioMeta({ brand, tornaBrand }: { brand: string; tornaBr
             </span>
           </div>
           <div className="campo-modulo largo">
-            <label>Pubblici personalizzati / lookalike — solo promemoria</label>
-            <textarea name="pubblici" rows={2} placeholder={"es. Lookalike 1% acquirenti Flowers 180g\nEscludere acquirenti ultimi 30g"} />
+            <label>Pubblici personalizzati / lookalike del marchio</label>
+            {pubblici.length === 0 ? (
+              <span className="campo-aiuto">
+                Nessun pubblico censito da Meta per questo marchio: premi «Censisci da Meta» su{" "}
+                <a href="/pubblici" style={{ color: "var(--blue)" }}>/pubblici</a> (o aspetta il
+                giro orario). I pubblici spuntati qui finiscono nel targeting dell&apos;ad set.
+              </span>
+            ) : (
+              <>
+                <div className="chip-scelte">
+                  {pubblici.map((pu) => (
+                    <div className="chip-scelta" key={pu.id}>
+                      <input className="chip-check" type="checkbox" name="pubbliciScelti" id={`pub-${pu.id}`} value={pu.id} />
+                      <label
+                        className="chip-etichetta"
+                        htmlFor={`pub-${pu.id}`}
+                        title={`${pu.tipo}${pu.dimensione ? ` · ~${pu.dimensione.toLocaleString("it-IT")} utenti` : ""}${pu.stato !== "attivo" ? ` · stato: ${pu.stato}` : ""}`}
+                      >
+                        {pu.nome}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <span className="campo-aiuto">
+                  Censiti da Meta (gli estinti non compaiono). Gli spuntati entrano nel
+                  <b> targeting dell&apos;ad set</b> col lancio; con Advantage+ acceso fanno da
+                  seme, spento diventano il perimetro.
+                </span>
+              </>
+            )}
+          </div>
+          <div className="campo-modulo largo">
+            <label>Note sui pubblici — promemoria libero</label>
+            <textarea name="pubblici" rows={2} placeholder={"es. Escludere acquirenti ultimi 30g (esclusioni: a mano in Ads Manager)"} />
             <span className="campo-aiuto">
-              ⚠️ Il lancio NON li applica: l&apos;app non possiede i pubblici. Restano nei
-              parametri dell&apos;operazione, si agganciano a mano in Ads Manager.
+              Le ESCLUSIONI e i pubblici non censiti restano promemoria: si applicano in Ads Manager.
             </span>
           </div>
         </div>
@@ -363,12 +404,24 @@ export function ModuloLancioMeta({ brand, tornaBrand }: { brand: string; tornaBr
         </p>
         <div className="modulo">
           <div className="campo-modulo largo">
-            <label>Immagine dell&apos;annuncio (JPG, PNG o WebP — max 6 MB)</label>
+            <label>Immagine dell&apos;annuncio (JPG, PNG o WebP — max 4 MB)</label>
             <input name="immagine" type="file" accept="image/jpeg,image/png,image/webp" />
             <span className="campo-aiuto">
               ⚠️ Si carica <b>subito</b> nella libreria media dell&apos;account (come trascinarla
               in Ads Manager: non pubblica e non spende niente) — l&apos;annuncio che la usa nasce
-              solo dopo l&apos;approvazione, in pausa. I video per ora si caricano in Ads Manager.
+              solo dopo l&apos;approvazione, in pausa. Il tetto dei 4 MB è della piattaforma.
+              Col video qui sotto, questa immagine è la <b>copertina</b> (obbligatoria).
+            </span>
+          </div>
+          <div className="campo-modulo largo">
+            <label>Video dell&apos;annuncio (MP4 o MOV — max 200 MB)</label>
+            <CaricaVideoMeta brand={brand} />
+            <input type="hidden" name="videoId" />
+            <span className="campo-aiuto">
+              Si carica <b>a pezzi</b> nella libreria dell&apos;account del marchio selezionato in
+              alto (il tetto per singola richiesta è della piattaforma). Con un video serve anche
+              l&apos;immagine sopra come copertina. Se cambi marchio dopo il caricamento, ricarica
+              il video: è finito nella libreria del marchio di prima.
             </span>
           </div>
           <div className="campo-modulo">
