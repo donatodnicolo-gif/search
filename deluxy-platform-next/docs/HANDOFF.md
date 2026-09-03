@@ -22,6 +22,11 @@
 >   esce da «Da pagare» dopo l'invio (le consegne entrano nello stipendio).
 > - **Ricevute**: badge «In attesa di ricevuta» (era «Da firmare»), link
 >   «Recap inviato» sul documento Drive; firma in app e «Paga» come prima.
+> - **La firma la carica SOLO il valet, e solo sulle proprie** (regola
+>   utente, sera): `/receipts/:id/sign` e `/upload` a `@Roles(VALET)` — il
+>   controllo di proprietà c'era già nel service; admin/operation vedono
+>   «Firma il valet» al posto del tampone. Stati stipendi già solo
+>   admin/operation (verificato).
 > - **Ricevute legacy a 0 riparate** (`api/scripts/ripara-importi-ricevute-legacy.mjs`):
 >   46 su 351 avevano amount=0 fedele al CSV; il valore vero stava NEL PDF
 >   (nota di prestazione occasionale). 39 «open» riparate col Totale
