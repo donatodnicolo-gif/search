@@ -34,6 +34,7 @@ type OrdineOrders = {
     citta?: string | null;
     cap?: string | null;
     provincia?: string | null;
+    paese?: string | null;
   } | null;
   cliente?: { nome?: string | null; telefono?: string | null; email?: string | null } | null;
   consegna?: { data?: string | null; fascia?: string | null } | null;
@@ -496,6 +497,18 @@ export class OrdersSyncService {
       (await this.prisma.province.findMany({ select: { id: true, code: true } }))
         .map((p) => [p.code.toUpperCase(), p.id]),
     );
+    // ⭐ ESTERO (03/09, regola utente): gli ordini con destinazione fuori
+    // Italia entrano in Vendite sulla provincia convenzionale «EE · Estero»
+    // (creata al primo giro), DA GESTIRE e senza proposta automatica.
+    if (!province.has('EE')) {
+      const ee = await this.prisma.province.upsert({
+        where: { code: 'EE' },
+        update: {},
+        create: { code: 'EE', name: 'Estero' },
+        select: { id: true },
+      });
+      province.set('EE', ee.id);
+    }
     // ⚠️ Lo SKU che arriva da Shopify e' quasi sempre quello della VARIANTE, non
     // del prodotto. Cercandolo solo fra i prodotti, su 200 ordini veri ne
     // entravano 16: 129 finivano in «prodotto sconosciuto» pur essendo tutti
@@ -565,6 +578,46 @@ export class OrdersSyncService {
       else if (o.fulfillmentStatus === 'FULFILLED' || o.consegnata?.il) {
         esito = 'riservato-al-cs';
         dettaglio = 'ordine già evaso (fulfilled): non si smista';
+      }
+      // ⭐ ESTERO (03/09, regola utente «gestisci anche gli ordini esteri»):
+      // destinazione fuori Italia → la vendita NASCE, su «EE · Estero», DA
+      // GESTIRE e senza proposta automatica (all'estero non abbiamo partner).
+      // Prima sparivano in silenzio come «senza provincia».
+      else if ((() => { const p = (o.spedizione?.paese ?? '').trim().toUpperCase(); return !!p && !['IT', 'ITALIA', 'ITALY'].includes(p); })()) {
+        const info = sku && prodotti.has(sku) ? prodotti.get(sku)! : null;
+        const titolo = (o.righe ?? []).find((r) => r.titolo?.trim())?.titolo?.trim();
+        const skuGrezzo = conSku[0]?.sku?.trim();
+        if (!opzioni.applica) {
+          const gia = await this.prisma.sale.findFirst({
+            where: { source: 'deluxy-orders', externalOrderId: o.id },
+            select: { id: true },
+          });
+          esito = gia ? 'gia-presente' : 'creata';
+          if (!gia) dettaglio = `estero (${o.spedizione?.paese ?? '?'})`;
+        } else {
+          try {
+            const r = await this.sales.ingest({
+              source: 'deluxy-orders',
+              externalOrderId: o.id,
+              externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+              provinceId: province.get('EE')!,
+              senzaProposta: true,
+              ...(info
+                ? { productId: info.productId, productVariantId: info.variantId ?? undefined }
+                : { productName: titolo ?? etichetta, productSku: skuGrezzo }),
+              amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
+              brand: o.brand ?? undefined,
+              ...this.destinatario(o),
+              deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+            });
+            esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata) { dettaglio = `estero (${o.spedizione?.paese ?? '?'})`; daGestire.push(etichetta); }
+          } catch (err) {
+            esito = 'errore';
+            dettaglio = (err as Error).message;
+            this.logger.warn(`Ordine estero ${o.id}: ${dettaglio}`);
+          }
+        }
       }
       else if (!codice) { esito = 'senza-provincia'; }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }

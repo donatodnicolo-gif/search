@@ -168,6 +168,9 @@ export class SalesService {
     productName?: string;
     /** Prezzo pagato dal cliente (riga d'ordine): senza prodotto non c'è un listino da cui prenderlo. */
     amount?: number;
+    /** ⭐ 03/09 (ordini ESTERI): DA GESTIRE senza proposta automatica anche
+     *  col prodotto a catalogo — all'estero non abbiamo partner. */
+    senzaProposta?: boolean;
     brand?: string;
     customerId?: string;
     recipientFirstName?: string;
@@ -261,6 +264,42 @@ export class SalesService {
           })
         : null;
     if (!provincia) throw new NotFoundException('Provincia non trovata (per id o codice)');
+
+    // ⭐ ESTERO (03/09, regola utente): prodotto agganciato ma NIENTE
+    // smistamento automatico — la vendita nasce DA GESTIRE e decide una
+    // persona (all'estero non abbiamo partner né liste di priorità).
+    if (body.senzaProposta) {
+      const vendita = await this.prisma.sale.create({
+        data: {
+          productId: prodotto.id,
+          productVariantId: variantId,
+          productName: prodotto.name ?? null,
+          productSku: body.productSku ?? prodotto.sku ?? null,
+          provinceId: provincia.id,
+          partnerId: null,
+          assignmentReason: 'Ordine estero: nessuno smistamento automatico, si gestisce a mano.',
+          customerId: body.customerId,
+          brand: body.brand ?? 'DELUXY',
+          amount: body.amount ?? prodotto.price ?? 0,
+          discountPercent: 0,
+          status: SaleStatus.DA_GESTIRE,
+          source: body.source ?? 'app',
+          externalOrderId: body.externalOrderId,
+          externalOrderNumber: body.externalOrderNumber ?? null,
+          recipientFirstName: body.recipientFirstName,
+          recipientLastName: body.recipientLastName,
+          recipientAddress: body.recipientAddress,
+          recipientPhone: body.recipientPhone,
+          deliveryDate: body.deliveryDate ? new Date(body.deliveryDate) : null,
+          serviceTypeId: body.serviceTypeId,
+        },
+        include: {
+          product: { select: { id: true, name: true } },
+          partner: { select: { id: true, insegna: true } },
+        },
+      });
+      return { creata: true, vendita };
+    }
 
     const vendita = await this.create({
       ...body,

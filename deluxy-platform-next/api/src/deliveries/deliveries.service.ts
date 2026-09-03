@@ -125,11 +125,36 @@ const KM_MASSIMI_IN_CITTA = 50;
  * inventato, e chi chiama lascia le cose come stanno. Restano fuori gli
  * indirizzi degeneri («Milano» secco, «35030 PD, Italia» senza citta').
  */
+// Paesi che compaiono in coda agli indirizzi ESTERI (03/09, regola utente
+// «deve poter inserire anche indirizzi esteri»): non è un atlante, sono le
+// code che Google e Shopify scrivono davvero.
+const PAESE_ESTERO =
+  /^(france|francia|monaco|principaut[eé] de monaco|espa[ñn]a|spagna|spain|portugal|portogallo|deutschland|germania|germany|schweiz|suisse|svizzera|switzerland|austria|österreich|belgi(o|que|ë)|belgium|nederland|paesi bassi|netherlands|luxembourg|lussemburgo|regno unito|united kingdom|uk|england|romania|rom[âa]nia|grecia|greece|polonia|poland|czechia|cechia|croazia|croatia|slovenia|ungheria|hungary|danimarca|denmark|svezia|sweden|norvegia|norway|finlandia|finland|irlanda|ireland|malta|usa|united states|stati uniti|emirati arabi uniti|united arab emirates|qatar|arabia saudita|saudi arabia)$/i;
+
 export function cittaDaIndirizzo(indirizzo: string | null | undefined): string | null {
   if (!indirizzo) return null;
   const parti = indirizzo.split(',').map((x) => x.trim()).filter(Boolean);
-  while (parti.length && /^(italia|italy)$/i.test(parti[parti.length - 1])) parti.pop();
+  let estero = false;
+  while (parti.length) {
+    const coda = parti[parti.length - 1];
+    if (/^(italia|italy)$/i.test(coda)) { parti.pop(); continue; }
+    if (PAESE_ESTERO.test(coda)) { estero = true; parti.pop(); continue; }
+    break;
+  }
   if (!parti.length) return null;
+  // ESTERO: formati «75016 Paris», «2640-401 Mafra», o la città da sola —
+  // il CAP straniero si stacca e resta il nome. Le sigle di provincia sono
+  // un fatto italiano: qui non si pretendono.
+  if (estero) {
+    const coda = parti[parti.length - 1];
+    const citta = coda.replace(/^[A-Z]{0,3}[- ]?\d{3,8}(?:-\d+)?\s*/i, '').trim();
+    if (citta && !/\d/.test(citta) && citta.length <= 60) return citta;
+    // CAP e città in pezzi separati: si prova il pezzo prima.
+    if (parti.length >= 2 && !/\d/.test(parti[parti.length - 2]) && parti[parti.length - 2].length <= 60) {
+      return parti[parti.length - 2];
+    }
+    return null;
+  }
   const ultima = parti[parti.length - 1];
   // «…, Firenze, FI»: la sigla di provincia sta da sola in coda.
   if (/^[A-Z]{2}$/.test(ultima) && parti.length >= 2) {

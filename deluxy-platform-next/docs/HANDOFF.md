@@ -3,6 +3,21 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-nonies — ORDINI E INDIRIZZI ESTERI** (deployato):
+> - **Gli ordini ESTERI entrano in Vendite** (regola utente): provincia
+>   convenzionale «EE · Estero» (upsert al primo giro di sync); la vendita
+>   nasce DA GESTIRE **senza proposta automatica** (ingest con
+>   `senzaProposta:true`, anche a prodotto riconosciuto — all'estero non
+>   abbiamo partner). I riservati al CS (smistamento manuale /
+>   fornitore_diretto) restano fuori COME PRIMA: la regola del decisore
+>   vince — quindi #2850 e #2852 (già evasi in chat) NON compariranno; i
+>   #2848/2849/2851/2853 sì, al prossimo giro del cron (≤15′).
+> - **Indirizzi esteri inseribili**: via il vincolo `country: it` dai tre
+>   autocomplete Google (direttiva riusabile + consegna + ritiro del form);
+>   `cittaDaIndirizzo` (server) e `cittaLeggibile` (client) riconoscono la
+>   coda col paese estero e il formato «75016 Paris» — il Salva del partner
+>   non pretende più la sigla di provincia sugli indirizzi esteri.
+>
 > 🧪 **03/09/2026-octies — FIRMA IN APP SULLE RICEVUTE; FLOWERS: FALSO
 > ALLARME** (deployato):
 > - **Firma in app** (regola utente): in Ricevute il valet ora ha il TAMPONE

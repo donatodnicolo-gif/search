@@ -1133,8 +1133,24 @@ export class DeliveryFormComponent implements AfterViewInit {
   private cittaLeggibile(indirizzo: string | null | undefined): boolean {
     if (!indirizzo) return false;
     const parti = indirizzo.split(',').map((x) => x.trim()).filter(Boolean);
-    while (parti.length && /^(italia|italy)$/i.test(parti[parti.length - 1])) parti.pop();
+    // 03/09 (regola utente): anche indirizzi ESTERI — la coda col paese
+    // straniero vale come «città e paese ci sono» (le sigle di provincia
+    // sono un fatto italiano, all'estero non si pretendono).
+    const PAESE_ESTERO = /^(france|francia|monaco|espa[ñn]a|spagna|spain|portugal|portogallo|deutschland|germania|germany|schweiz|suisse|svizzera|switzerland|austria|österreich|belgi(o|que|ë)|belgium|nederland|paesi bassi|netherlands|luxembourg|lussemburgo|regno unito|united kingdom|uk|england|romania|rom[âa]nia|grecia|greece|polonia|poland|czechia|cechia|croazia|croatia|slovenia|ungheria|hungary|danimarca|denmark|svezia|sweden|norvegia|norway|finlandia|finland|irlanda|ireland|malta|usa|united states|stati uniti|emirati arabi uniti|united arab emirates|qatar|arabia saudita|saudi arabia)$/i;
+    let estero = false;
+    while (parti.length) {
+      const coda = parti[parti.length - 1];
+      if (/^(italia|italy)$/i.test(coda)) { parti.pop(); continue; }
+      if (PAESE_ESTERO.test(coda)) { estero = true; parti.pop(); continue; }
+      break;
+    }
     if (!parti.length) return false;
+    if (estero) {
+      const coda = parti[parti.length - 1];
+      const citta = coda.replace(/^[A-Z]{0,3}[- ]?\d{3,8}(?:-\d+)?\s*/i, '').trim();
+      if (citta && !/\d/.test(citta) && citta.length <= 60) return true;
+      return parti.length >= 2 && !/\d/.test(parti[parti.length - 2]) && parti[parti.length - 2].length <= 60;
+    }
     const ultima = parti[parti.length - 1];
     if (/^[A-Z]{2}$/.test(ultima) && parti.length >= 2) {
       return Boolean(parti[parti.length - 2].replace(/^\d{5}\s*/, '').trim());
@@ -1956,7 +1972,7 @@ export class DeliveryFormComponent implements AfterViewInit {
           try {
             await loadGoogleMaps(key);
             this.autocomplete = new google.maps.places.Autocomplete(input, {
-              componentRestrictions: { country: 'it' },
+              // 03/09 (regola utente): anche indirizzi ESTERI — nessun vincolo di paese.
               // `name` per i POI (hotel, negozi…); niente `types` così si possono
               // cercare ANCHE i posti, non solo gli indirizzi (31/08).
               fields: ['formatted_address', 'geometry', 'address_components', 'name'],
@@ -1972,7 +1988,7 @@ export class DeliveryFormComponent implements AfterViewInit {
             const ritiro = this.pickupInput?.nativeElement;
             if (ritiro) {
               this.autocompleteRitiro = new google.maps.places.Autocomplete(ritiro, {
-                componentRestrictions: { country: 'it' },
+                // 03/09 (regola utente): anche indirizzi ESTERI — nessun vincolo di paese.
                 fields: ['formatted_address', 'name'],
               });
               this.autocompleteRitiro.addListener('place_changed', () => {

@@ -40,7 +40,7 @@ export class IndirizzoGoogleDirective implements OnInit {
         await loadGoogleMaps(key);
         const g = (window as any).google;
         const ac = new g.maps.places.Autocomplete(this.el.nativeElement, {
-          componentRestrictions: { country: 'it' },
+          // 03/09 (regola utente): anche indirizzi ESTERI — nessun vincolo di paese.
           fields: ['formatted_address', 'name'],
         });
         ac.addListener('place_changed', () => {
