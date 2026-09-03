@@ -369,6 +369,38 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ IL GRUPPO DI ANNUNCI NUOVO SI CREA DALL'APP, COL SUO BRIEF AI (03/09/2026)
+
+Richiesta utente (una campagna non permetteva di aggiungere un gruppo):
+**pagina `/campagne/[id]/nuovo-gruppo`** — nome del gruppo, keyword
+(testo | match), annuncio RSA (titoli/descrizioni/URL) e il pannello
+**«Compila con l'AI»** (`proponiBriefGruppo` in `lib/azioni-brief.ts`) che
+riceve i gruppi già esistenti della campagna, le sue keyword che rendono e
+le destinazioni in uso — e rifiuta i nomi omonimi. Bottone «Nuovo gruppo»
+nella sezione Gruppi della scheda campagna (solo Google, solo confermata).
+
+⭐ **Nessun tipo di operazione nuovo**: si accoda un `completa_campagna` —
+lo stesso del lancio in due tempi — puntato sulla campagna viva. Lo script
+è già idempotente: il gruppo che manca lo crea (`newAdGroupBuilder`),
+keyword e RSA nascono dentro, l'esistente non si rifà. Un `nuovo_gruppo`
+sarebbe stato un tipo in più da dichiarare/reincollare/allineare in tre
+posti per un lavoro che il catalogo sapeva già fare.
+
+Guardie: senza `idEsterno` si spiega che il gruppo del lancio arriva da
+solo («Completa la campagna» del primo giro di anagrafica); lint 7.2/7.3;
+regole RSA (3+ titoli ⇒ 2+ descrizioni + URL); coda L2 da approvare.
+Provato in produzione end-to-end sul Cake: il brief AI ha compilato nome
+gruppo, keyword e titoli.
+
+**Nello stesso giro, verificata la campagna lead Cake** «[Cakedesign]
+Torte Matrimonio Milano ITA» (creata 03/09 09:26): op `nuova_campagna`
+eseguita alle 09:39 — «bulk upload INVIATO». Gruppo («Torte Nuziali su
+Misura»), 9 keyword, 14 titoli e 4 descrizioni sono NEI PARAMETRI e
+arrivano col flusso a due tempi: alla prima anagrafica che conferma la
+campagna, l'app accoda «Completa la campagna» (da approvare). Non è un
+guasto: è il disegno post-19/08. L'esito vero del caricamento sta in
+Google Ads → Azioni collettive → Caricamenti.
+
 ### IL BRIEF DI CREAZIONE CAMPAGNA USA OPENAI (27/08/2026)
 
 Scelta utente: l'AI che compila il brief su /campagne/lancia («Fatti
