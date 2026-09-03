@@ -24,3 +24,21 @@ invecchierebbe in silenzio).
 È l'equivalente per Scout della regola 0 del repo (il manuale della
 piattaforma si aggiorna nello stesso commit): la verità per l'utente è il
 manuale, la verità tecnica sta in `docs/` e nei commit.
+
+## ⚠️ 03/09/2026 — l'artifact NON C'È PIÙ
+
+L'indirizzo qui sopra risponde «artifact not found»: la pagina è stata
+cancellata (come è successo al manuale d'ecosistema `MANUALE-DELUXY.html`), e
+il suo contenuto viveva solo là — in questa cartella non c'è un sorgente HTML da
+ripubblicare.
+
+Quindi, finché il manuale visivo di Scout non viene rifatto:
+
+- il **registro delle novità** di Scout si scrive nel capitolo 7 di
+  `C:\Users\nicol\scoutwt\MANUALE-DELUXY.html` (una riga con «Scout» nella
+  colonna *Dove*), che è un file del repo e non si può cancellare per sbaglio;
+- la verità tecnica resta nei commit e in `docs/`.
+
+⚠️ Non si apre un artifact NUOVO per Scout senza dirlo: due manuali con lo
+stesso nome vogliono dire che uno dei due invecchia in silenzio, ed è
+esattamente il motivo per cui questa regola è stata scritta.
