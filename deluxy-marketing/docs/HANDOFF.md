@@ -369,6 +369,31 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ IL LANCIO META CARICA LA CREATIVITÀ E CREA L'ANNUNCIO (03/09/2026)
+
+Il modulo Meta ha il campo **immagine** (JPG/PNG/WebP ≤6 MB;
+`bodySizeLimit: 8mb` in next.config per le server action). All'accodamento
+l'immagine va **subito** in `act_/adimages` — la libreria media: non
+pubblica e non spende, è il gesto del drag in Ads Manager — e nei parametri
+viaggia solo l'**hash** (niente base64 nel Postgres condiviso).
+All'esecuzione approvata, dopo campagna e ad set, nascono anche **creative
+e ANNUNCIO in pausa** (`object_story_spec` con `link_data`: message =
+primo testo, name = titolo, CTA, image_hash). La **Pagina Facebook** si
+indica nel modulo o la trova l'app con la regola del pixel
+(`promote_pages`: una sola → si usa, di più → si elenca). Annuncio fallito
+con campagna+ad set nati = esito **PARZIALE** che dice di NON riaccodare
+(l'immagine resta in libreria). Senza immagine il copy resta un brief.
+Video: ancora Ads Manager. ⚠️ Il giro Graph completo resta da collaudare
+col primo lancio vero.
+
+**Stesso giro, i brief Google puntano all'Ad Strength «Eccellente»**:
+proponiBriefCampagna, proponiBriefGruppo e l'annuncio AI chiedono
+**ESATTAMENTE 15 titoli e 4 descrizioni** con le leve dichiarate da Google
+(keyword testuali in almeno 5 titoli, ogni titolo un angolo diverso —
+i quasi-doppioni abbassano il giudizio —, 20-30 caratteri sfruttati,
+descrizioni piene 70-90). Un brief che consegna meno di 15/4 lo dichiara
+negli scarti invece di far contare a mano.
+
 ### ⭐ IL GRUPPO DI ANNUNCI NUOVO SI CREA DALL'APP, COL SUO BRIEF AI (03/09/2026)
 
 Richiesta utente (una campagna non permetteva di aggiungere un gruppo):
