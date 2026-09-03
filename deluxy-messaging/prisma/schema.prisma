@@ -219,6 +219,23 @@ model RichiestaPagamento {
   ricevutaDati String    @default("") @db.Text
   ricevutaNome String    @default("")
   ricevutaTipo String    @default("")
+
+  // ── LA FOTO DA CUI L'AI HA LETTO ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 02/09/2026: «se è stata caricata una richiesta
+  // di pagamento tramite foto interpretata da AI, consenti di recuperare quella
+  // immagine». Finora `origine: "immagine"` diceva CHE era stata letta da una
+  // foto, e la foto veniva buttata: restava solo quello che l'AI aveva capito,
+  // e quando l'IBAN non tornava non c'era più niente da rileggere — né per
+  // correggere, né per dimostrare che l'avevamo scritto come ce l'avevano
+  // mandato.
+  //
+  // ⚠️ Come la ricevuta: data URI nel database, perché quest'app non ha uno
+  // storage. Stesso tetto (~1,5 MB) e stessi tipi. Se un giorno diventano
+  // migliaia, questa e `ricevutaDati` si spostano insieme.
+  fonteDati    String    @default("") @db.Text
+  fonteNome    String    @default("")
+  fonteTipo    String    @default("")
   // ── L'AVVISO AL FORNITORE ──
   //
   // Parte da solo quando si segna «pagata». ⚠️ Ma **non sempre riesce**, e la

@@ -291,6 +291,12 @@ export function linkSicuro(v: string): string {
  */
 export const TETTO_RICEVUTA = 1_500_000
 
+/**
+ * Il tetto della FOTO letta dall AI, misurato sul data URI (base64, che pesa
+ * circa un terzo in piu del file). Stesso file da 1,5 MB della ricevuta.
+ */
+export const TETTO_FONTE = 2_100_000
+
 /** Che cosa accettiamo come prova di un pagamento. */
 export const TIPI_RICEVUTA = [
   'image/png',

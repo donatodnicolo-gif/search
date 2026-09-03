@@ -1,5 +1,48 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (5) — la foto letta dall'AI adesso si può riprendere
+
+Chiesto dall'utente: «in pagamenti, se è stata caricata una richiesta di
+pagamento tramite foto interpretata da AI, consenti di recuperare quella
+immagine o file».
+
+**La foto veniva buttata.** `/api/pagamenti/estrai` la mandava all'AI, la
+richiesta nasceva con `origine: "immagine"` — cioè si sapeva CHE era stata
+letta da una foto — e del file non restava niente. Restava solo quello che l'AI
+aveva capito: e quando l'IBAN non torna, o il fornitore dice «io ti avevo
+scritto un'altra cifra», è esattamente l'originale che serve.
+
+- Tre colonne nuove su `RichiestaPagamento`: `fonteDati` (data URI),
+  `fonteNome`, `fonteTipo` — stesso schema della ricevuta, e per lo stesso
+  motivo (quest'app non ha uno storage).
+- Nell'elenco, sulla riga, un bollino **🖼️** che scarica l'originale.
+  ⚠️ Si vede **anche quando il file non c'è** — spento, col motivo nel titolo:
+  le richieste create prima di oggi sono state lette da una foto che allora si
+  buttava, e un bollino che compare solo quando c'è rende l'assenza invisibile.
+- La rotta `/api/pagamenti/[id]/fonte` è ricalcata su quella della ricevuta:
+  sessione obbligatoria, `Content-Type` preso dalla NOSTRA lista e mai dal
+  database, `attachment` + `nosniff`. Un tipo scelto da chi carica è la strada
+  per farsi servire uno script dal nostro dominio.
+- I byte **non escono nell'elenco** (il `select` prende solo nome e tipo):
+  duecento righe con dentro duecento foto sarebbero decine di MB per disegnare
+  una tabella che di quel file usa solo il nome.
+- La foto si allega solo se `origine === 'immagine'`: correggendo a mano una
+  riga letta da testo, attaccarci un file di un altro giro sarebbe una prova
+  falsa.
+
+⚠️ **Schema del Postgres condiviso**: le tre colonne NON sono state messe con
+`prisma db push` — che confronta tutto lo schema e potrebbe proporre di togliere
+quello che un'altra sessione ha aggiunto — ma con tre
+`ALTER TABLE messaging."RichiestaPagamento" ADD COLUMN IF NOT EXISTS … DEFAULT ''`
+additive, seguite da `prisma generate`.
+
+Prova: `npx tsx scripts/prova-foto-pagamento.mts` — scrive, rilegge e confronta
+i byte **dentro una transazione che torna indietro**, così nel registro dei
+pagamenti veri non resta nessuna riga di prova.
+
+⚠️ **Vale dalle richieste nuove**: le foto vecchie non esistono più da nessuna
+parte, e non c'è modo di recuperarle.
+
 ## 02/09/2026 (4) — dal rimborso APPROVATO partono i soldi veri
 
 Chiesto dall'utente: «ok puoi in caso approvato far partire il rimborso?».

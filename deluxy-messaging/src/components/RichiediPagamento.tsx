@@ -71,6 +71,9 @@ type Richiesta = {
   pagataDaNome: string
   ricevutaNome: string
   ricevutaTipo: string
+  /** La foto da cui l AI ha letto: nome e tipo. I byte si chiedono a parte. */
+  fonteNome: string
+  fonteTipo: string
   pagatoCon: string
   /** Quanto valeva l'ordine: serve alla colonna del margine. 0 = non lo sappiamo. */
   valoreOrdine: number
@@ -722,6 +725,17 @@ export function RichiediPagamento() {
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           origine,
+          // ⚠️⚠️ La FOTO va con la richiesta (utente, 02/09/2026): prima
+          // veniva mandata all AI e buttata, e restava solo quello che l AI
+          // ne aveva capito. Serve quando l IBAN non torna, o quando il
+          // fornitore contesta l importo: si rilegge l originale.
+          // ⚠️ Si manda solo se l origine e davvero l immagine: correggendo a
+          // mano una riga letta da testo, allegarci un file di un altro giro
+          // sarebbe una prova falsa.
+          fonte:
+            origine === 'immagine' && immagine
+              ? { dati: immagine.dati, nome: immagine.nome, tipo: immagine.tipo }
+              : null,
           // ⚠️ Adesso parte davvero: prima il campo esisteva in tabella e non
           // veniva mai mandato, quindi nessuna richiesta salvata sapeva a quale
           // ordine appartenesse.
@@ -1674,6 +1688,40 @@ export function RichiediPagamento() {
                         una riga senza prova è indistinguibile da una riga che
                         non l'ha ancora caricata: l'assenza non si vede, e
                         quello che non si vede non lo carica nessuno. */}
+                    {/* ── LA FOTO DA CUI L'AI HA LETTO ──
+                        ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Le richieste
+                        lette da una foto sono quelle in cui l'IBAN può essere
+                        stato capito male: è lì che serve poter tornare
+                        all'originale — per correggere, e per rispondere a un
+                        fornitore che dice «io ti avevo scritto un'altra
+                        cifra».
+                        ⚠️ Il bollino si vede ANCHE quando il file non c'è
+                        (richieste create prima del 02/09, quando la foto si
+                        buttava): spento, e col motivo nel titolo. Mostrarlo
+                        solo quando c'è renderebbe un'assenza invisibile. */}
+                    {r.origine === 'immagine' ? (
+                      r.fonteNome ? (
+                        <a
+                          className="badge"
+                          style={{ marginRight: 6 }}
+                          href={`/api/pagamenti/${r.id}/fonte`}
+                          download
+                          title={`Riapri la foto letta dall'AI: ${r.fonteNome}`}
+                          aria-label={`Riapri la foto letta dall'AI: ${r.fonteNome}`}
+                        >
+                          🖼️
+                        </a>
+                      ) : (
+                        <span
+                          className="badge"
+                          style={{ marginRight: 6, opacity: 0.45 }}
+                          title="Letta da un'immagine, ma il file non è stato conservato: si tiene solo dalle richieste create dal 2 settembre 2026."
+                          aria-label="Letta da un'immagine non conservata"
+                        >
+                          🖼️
+                        </span>
+                      )
+                    ) : null}
                     {r.pagataIl ? (
                       r.ricevutaNome ? (
                         <a

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { stringaPagamento, verificaIban } from '@/lib/iban'
-import { cosaManca, metodoValido } from '@/lib/metodo-pagamento'
+import { TETTO_FONTE, TIPI_RICEVUTA, cosaManca, metodoValido } from '@/lib/metodo-pagamento'
 import { inviaRichiestaPagamento } from '@/lib/partner'
 import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
 import { utenteCorrente } from '@/lib/sessione'
@@ -62,6 +62,11 @@ export async function GET() {
       // Il NOME e il TIPO sì (servono a dire «ricevuta ✓» e ad aprirla), i byte no.
       ricevutaNome: true,
       ricevutaTipo: true,
+      // Stessa regola per la foto letta dall'AI: nome e tipo, mai i byte —
+      // duecento righe con dentro duecento foto sarebbero decine di MB per
+      // disegnare una tabella che di quel file usa solo il nome.
+      fonteNome: true,
+      fonteTipo: true,
       creatoIl: true,
     },
   })
@@ -125,6 +130,12 @@ export async function POST(req: NextRequest) {
     contatto?: string
     linkConversazione?: string
     origine?: string
+    /**
+     * La foto (o il PDF) da cui l AI ha letto la richiesta.
+     * ⚠️ Si conserva perche quando l IBAN non torna serve RILEGGERE l originale:
+     * senza, resta solo quello che l AI aveva capito.
+     */
+    fonte?: { dati?: string; nome?: string; tipo?: string } | null
     ordineNumero?: string
     /**
      * ⚠️ L'id dell'ordine SCELTO dall'elenco. Il numero non identifica (lo stesso
@@ -278,6 +289,27 @@ export async function POST(req: NextRequest) {
 
   // Un IBAN che non supera il checksum si può salvare lo stesso (magari va
   // completato a mano), ma resta marcato come non valido: mai spacciarlo per buono.
+  // ── LA FOTO LETTA DALL'AI ──
+  //
+  // ⚠️⚠️ Si conserva perché è l'ORIGINALE: quando l'IBAN non torna, o il
+  // fornitore contesta l'importo, quello che serve è rileggere quello che ci
+  // avevano mandato — non quello che l'AI ne aveva capito.
+  //
+  // ⚠️ Il tipo si controlla QUI e non ci si fida del client: `fonteTipo` finisce
+  // in un `Content-Type` quando il file si riscarica, e un tipo scelto da chi
+  // chiama è la strada per farsi servire `text/html` dal nostro dominio. Se non
+  // è uno dei nostri, il file NON si salva (invece di salvarlo e servirlo come
+  // «octet-stream»: un file che non sappiamo cos'è, non lo teniamo).
+  const f = c.fonte
+  const fonteTipoOk = f?.tipo && TIPI_RICEVUTA.includes(f.tipo) ? f.tipo : ''
+  const fonte =
+    f?.dati && fonteTipoOk && f.dati.length <= TETTO_FONTE
+      ? {
+          fonteDati: f.dati,
+          fonteNome: (f.nome ?? '').slice(0, 120),
+          fonteTipo: fonteTipoOk,
+        }
+      : {}
   const richiesta = await db.richiestaPagamento.create({
     data: {
       metodo,
@@ -299,6 +331,7 @@ export async function POST(req: NextRequest) {
       ibanValido: metodo === 'iban' ? esitoIban.valido : false,
       ibanPaese: metodo === 'iban' ? esitoIban.paese : '',
       origine: c.origine || 'manuale',
+      ...fonte,
       ordineNumero: (c.ordineNumero ?? '').trim(),
       // ⚠️ L'IDENTITÀ dell'ordine, non solo il suo nome: lo stesso numero può
       // stare su due negozi, e chi riconcilia il pagamento ci scrive sopra il
