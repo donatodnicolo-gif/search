@@ -329,3 +329,31 @@ export async function riepilogoFinanziario(cliente: string): Promise<RiepilogoFi
     return null;
   }
 }
+
+/** L'esito del giro degli incassi (azione `incassi` della Edge `proforma`). */
+export interface EsitoIncassi {
+  controllati: number;
+  aggiornati: number;
+  richieste_cliente: number;
+  richieste_pagamento: number;
+  ordini: number;
+  /** I casi che una PERSONA deve guardare: documento di un altro intestatario,
+   *  o saldato per meno di quanto vale la riga (un acconto). */
+  da_guardare: string[];
+  errori: string[];
+}
+
+/**
+ * Chiede a FINANCE quali documenti sono stati saldati e aggiorna le righe di
+ * Scout (richieste clienti, richieste di pagamento, ordini).
+ *
+ * ⚠️ Lo stesso giro gira ogni notte alle 05:30 (cron `incassi-da-finance`,
+ * migr. 0109): questo bottone serve a non aspettare domani, non a sostituirlo.
+ * ⚠️ L'esito NON si ingoia: `da_guardare` sono i casi in cui il documento
+ * risulta pagato ma qualcosa non torna — intestatario diverso, o importo che
+ * copre solo una parte. Vanno mostrati, o restano invisibili come lo era
+ * l'incasso prima.
+ */
+export async function aggiornaIncassiDaFinance(): Promise<EsitoIncassi> {
+  return chiama<EsitoIncassi>({ azione: 'incassi' });
+}

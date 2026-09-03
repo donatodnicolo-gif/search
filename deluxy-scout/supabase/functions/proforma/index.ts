@@ -353,6 +353,254 @@ Deno.serve(async (req) => {
       const p = new URLSearchParams({ numero: String(body.numero ?? '') });
       if (body.tipo === 'preventivo') p.set('tipo', 'preventivo');
       res = await fetch(`${BASE}/api/proforma?${p.toString()}`, { headers });
+    } else if (body.azione === 'incassi') {
+      // ⭐⭐ FINANCE DICE A SCOUT COSA È STATO PAGATO (31/08/2026, richiesta
+      // dell'utente: «servirebbe che FINANCE comunicasse a Scout se una
+      // fattura o pro-forma è stata pagata»).
+      //
+      // ⚠️ FINANCE non si tocca, e non serve: il dato lo espone già —
+      // `GET /api/fatture?numero=` torna `pagata` e `dataPagamento`, e
+      // `GET /api/proforma?numero=` torna lo `stato`, dove «fatturata» è
+      // esattamente il passaggio che scatta al ricevimento del saldo. Il
+      // proprietario espone, il lettore legge (Standard §7): quindi è SCOUT
+      // che va a chiedere, e nessuno dei due tiene la copia dei numeri
+      // dell'altro — qui si scrive solo lo stato della propria riga e il
+      // giorno in cui il saldo è arrivato.
+      //
+      // Gira in due modi, con lo stesso codice: dal bottone dell'app e dal
+      // cron notturno (chiave d'ingresso). Un dato che arriva solo quando
+      // qualcuno apre la schermata non è una comunicazione, è una coincidenza.
+      const LIMITE = 300;
+      const cache = new Map<string, { pagata: boolean; quando: string | null; intestatario: string | null; totale: number | null }>();
+
+      /**
+       * ⚠️⚠️ IL NUMERO NON È UN'IDENTITÀ (imparato il 31/08/2026, sui dati veri
+       * e su una riga di denaro).
+       *
+       * Primo giro di questa funzione: l'ordine di **HAVI LOGISTICS** aveva
+       * «PF 19/2026» scritto nel campo della fattura, FINANCE ha risolto quel
+       * testo nella fattura **19/2026 di DIPTYQUE (OLFATTORIO)** — un altro
+       * cliente — che risulta pagata, e l'ordine è stato segnato incassato.
+       * Un incasso di un terzo attribuito a noi, in silenzio.
+       *
+       * Da qui due guardie, entrambe necessarie:
+       *  1. un riferimento che comincia per «PF » è una PRO-FORMA, anche se sta
+       *     nel campo della fattura: si chiede all'elenco giusto (chi lo ha
+       *     scritto ha sbagliato campo, non documento);
+       *  2. si confronta l'INTESTATARIO che torna da FINANCE col cliente della
+       *     riga: se non combaciano, la riga NON si muove e il caso si
+       *     dichiara. Meglio un incasso che aspetta una persona che un incasso
+       *     inventato.
+       */
+      /**
+       * ⚠️⚠️ GUARDIA 3: UN DOCUMENTO SALDATO NON È L'ORDINE INCASSATO (31/08/2026,
+       * trovato subito dopo le prime due, sugli stessi dati).
+       *
+       * L'ordine di HAVI LOGISTICS vale **3.930 €**, la sua pro-forma saldata
+       * «PF 19/2026» ne copre **219,60**: un acconto. Segnare l'ordine
+       * «incassato» perché un suo documento è stato pagato vorrebbe dire
+       * dichiarare entrati 3.930 € che non sono entrati — e sui riepiloghi per
+       * periodo quel numero non torna più indietro da solo.
+       *
+       * Quindi si avanza solo se il documento COPRE la riga (tolleranza di un
+       * euro, per gli arrotondamenti dell'IVA); se copre meno, non si muove
+       * niente e il caso si dichiara: un acconto lo riconosce una persona.
+       */
+      function copreLaRiga(atteso: unknown, totaleDocumento: number | null) {
+        const v = typeof atteso === 'number' ? atteso : Number(atteso);
+        // Senza il valore atteso non c'è niente da confrontare: si passa (è il
+        // caso delle richieste senza importo concordato).
+        if (!Number.isFinite(v) || v <= 0) return true;
+        if (totaleDocumento == null) return false; // «non lo so» non è «copre»
+        return totaleDocumento + 1 >= v;
+      }
+
+      function nomiCompatibili(a: string | null | undefined, b: string | null | undefined) {
+        const n = (s: unknown) =>
+          String(s ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[^a-z0-9]+/g, '');
+        const x = n(a);
+        const y = n(b);
+        // Sotto le 4 lettere un «contiene» non vuol dire niente: «bar» sta
+        // dentro mezza Italia.
+        if (x.length < 4 || y.length < 4) return false;
+        return x.includes(y) || y.includes(x);
+      }
+
+      /** Chiede a FINANCE se un documento è saldato, e DI CHI è. Una domanda
+       *  per numero: lo stesso documento può stare su più righe di Scout. */
+      async function saldato(numeroGrezzo: string, tipoRichiesto: 'proforma' | 'fattura') {
+        const numero = numeroGrezzo.trim();
+        // Guardia 1: «PF …» è una pro-forma, in qualunque campo sia scritta.
+        const tipo = /^pf[\s-]/i.test(numero) ? 'proforma' : tipoRichiesto;
+        const chiave = `${tipo}:${numero}`;
+        const gia = cache.get(chiave);
+        if (gia) return gia;
+        let out = { pagata: false, quando: null as string | null, intestatario: null as string | null, totale: null as number | null };
+        try {
+          const url =
+            tipo === 'proforma'
+              ? `${BASE}/api/proforma?numero=${encodeURIComponent(numero)}`
+              : `${BASE}/api/fatture?numero=${encodeURIComponent(numero)}`;
+          const r = await fetch(url, { headers });
+          if (r.ok) {
+            const d = await r.json();
+            out =
+              tipo === 'proforma'
+                ? {
+                    pagata: d?.stato === 'fatturata',
+                    quando: d?.fatturataIl ?? null,
+                    intestatario: d?.partner?.nome ?? null,
+                    totale: typeof d?.totale === 'number' ? d.totale : null,
+                  }
+                : {
+                    pagata: d?.pagata === true,
+                    quando: d?.dataPagamento ?? null,
+                    intestatario: d?.partner?.nome ?? null,
+                    totale: typeof d?.totale === 'number' ? d.totale : typeof d?.importo === 'number' ? d.importo : null,
+                  };
+          }
+          // ⚠️ Un 404 (documento non trovato di là) NON è «non pagato»: è
+          // «non lo so». Resta `pagata: false` e la riga non si muove —
+          // avanzare su un documento che non esiste sarebbe peggio.
+        } catch {
+          /* rete: si riprova al giro dopo */
+        }
+        cache.set(chiave, out);
+        return out;
+      }
+
+      /**
+       * ⚠️ LO STATO PUÒ SOLO AVANZARE. Se FINANCE risponde «non pagata» su una
+       * riga che qui è già chiusa, non si torna indietro: il saldo può essere
+       * stato registrato altrove (bonifico segnato a mano, compensazione), e
+       * un automatismo che riapre una cosa chiusa cancella il lavoro di una
+       * persona senza che nessuno se ne accorga.
+       */
+      const esito = {
+        controllati: 0,
+        aggiornati: 0,
+        richieste_cliente: 0,
+        richieste_pagamento: 0,
+        ordini: 0,
+        // ⚠️ Il documento saldato di UN ALTRO cliente non si ingoia: si
+        // dichiara. È il caso HAVI/DIPTYQUE del 31/08 — un riferimento
+        // sbagliato su una riga di denaro, che una persona deve guardare.
+        da_guardare: [] as string[],
+        errori: [] as string[],
+      };
+
+      // ── 1. Richieste clienti: pro-forma o fattura → «fatturata» ──
+      const { data: rc } = await admin
+        .from('richieste_cliente')
+        .select('id, cliente, importo, proforma_numero, fattura_numero, stato')
+        .not('stato', 'in', '("fatturata","persa","annullata")')
+        .or('proforma_numero.not.is.null,fattura_numero.not.is.null')
+        .limit(LIMITE);
+      for (const r of rc ?? []) {
+        esito.controllati++;
+        // La FATTURA vale più della pro-forma: è il documento definitivo.
+        const q = r.fattura_numero
+          ? await saldato(String(r.fattura_numero), 'fattura')
+          : await saldato(String(r.proforma_numero), 'proforma');
+        if (!q.pagata) continue;
+        // Guardia 2: il documento saldato deve essere DI QUESTO cliente.
+        if (!nomiCompatibili(r.cliente, q.intestatario)) {
+          esito.da_guardare.push(
+            `richiesta di «${r.cliente}»: il documento ${r.fattura_numero ?? r.proforma_numero} risulta saldato ma è intestato a «${q.intestatario ?? 'sconosciuto'}»`,
+          );
+          continue;
+        }
+        if (!copreLaRiga(r.importo, q.totale)) {
+          esito.da_guardare.push(
+            `richiesta di «${r.cliente}»: il documento saldato copre ${q.totale ?? '?'} € su ${r.importo} € — sembra un acconto`,
+          );
+          continue;
+        }
+        const { error } = await admin
+          .from('richieste_cliente')
+          .update({ stato: 'fatturata', pagata_il: q.quando ?? new Date().toISOString() })
+          .eq('id', r.id);
+        if (error) esito.errori.push(`richiesta ${r.id}: ${error.message}`);
+        else {
+          esito.aggiornati++;
+          esito.richieste_cliente++;
+        }
+      }
+
+      // ── 2. Richieste di pagamento: pro-forma saldata → «pagata» ──
+      const { data: rp } = await admin
+        .from('richieste_pagamento')
+        .select('id, cliente, proforma_numero, stato')
+        .not('stato', 'in', '("pagata","annullata")')
+        .not('proforma_numero', 'is', null)
+        .limit(LIMITE);
+      for (const r of rp ?? []) {
+        esito.controllati++;
+        const q = await saldato(String(r.proforma_numero), 'proforma');
+        if (!q.pagata) continue;
+        if (!nomiCompatibili(r.cliente, q.intestatario)) {
+          esito.da_guardare.push(
+            `pagamento di «${r.cliente}»: ${r.proforma_numero} risulta saldata ma è intestata a «${q.intestatario ?? 'sconosciuto'}»`,
+          );
+          continue;
+        }
+        // ⚠️ Si scrive lo STATO, non l'importo incassato: quanto è entrato lo
+        // sa la contabilità, e ricopiarlo qui sarebbe un secondo numero per
+        // lo stesso fatto — quello che il 24/08 ha già fatto danni sui costi.
+        const { error } = await admin
+          .from('richieste_pagamento')
+          .update({ stato: 'pagata', updated_at: new Date().toISOString() })
+          .eq('id', r.id);
+        if (error) esito.errori.push(`pagamento ${r.id}: ${error.message}`);
+        else {
+          esito.aggiornati++;
+          esito.richieste_pagamento++;
+        }
+      }
+
+      // ── 3. Ordini: fattura saldata → «incassato» ──
+      const { data: ord } = await admin
+        .from('ordini')
+        .select('id, cliente, valore, fattura_numero, proforma_numero, stato')
+        .eq('stato', 'da_incassare')
+        .or('fattura_numero.not.is.null,proforma_numero.not.is.null')
+        .limit(LIMITE);
+      for (const o of ord ?? []) {
+        esito.controllati++;
+        const q = o.fattura_numero
+          ? await saldato(String(o.fattura_numero), 'fattura')
+          : await saldato(String(o.proforma_numero), 'proforma');
+        if (!q.pagata) continue;
+        if (!nomiCompatibili(o.cliente, q.intestatario)) {
+          esito.da_guardare.push(
+            `ordine di «${o.cliente}»: il documento ${o.fattura_numero ?? o.proforma_numero} risulta saldato ma è intestato a «${q.intestatario ?? 'sconosciuto'}»`,
+          );
+          continue;
+        }
+        if (!copreLaRiga(o.valore, q.totale)) {
+          esito.da_guardare.push(
+            `ordine di «${o.cliente}»: il documento ${o.fattura_numero ?? o.proforma_numero} è saldato ma copre ${q.totale ?? '?'} € su ${o.valore} € — sembra un acconto`,
+          );
+          continue;
+        }
+        // ⚠️ Anche la DATA dell'incasso: un ordine incassato senza il giorno
+        // non si distingue da uno segnato a mano male, e nei riepiloghi per
+        // periodo sparisce.
+        const { error } = await admin
+          .from('ordini')
+          .update({ stato: 'incassato', incassato_il: (q.quando ?? new Date().toISOString()).slice(0, 10) })
+          .eq('id', o.id);
+        if (error) esito.errori.push(`ordine ${o.id}: ${error.message}`);
+        else {
+          esito.aggiornati++;
+          esito.ordini++;
+        }
+      }
+
+      return json({ ok: true, ...esito });
     } else if (body.azione === 'cerca_fattura') {
       // ⭐ 27/08/2026 — CERCA UNA FATTURA GIÀ EMESSA, per numero.
       //

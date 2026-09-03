@@ -12,7 +12,7 @@ import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
+import { aggiornaIncassiDaFinance, cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
 import { scaricaPdfProforma } from '@/lib/stampa';
 import { fetchTemplate, type TemplateDocumento } from '@/lib/template-documento';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
@@ -175,6 +175,32 @@ export default function Ordini() {
       vivo = false;
     };
   }, []);
+
+  // Il giro degli incassi, a mano (gira anche col cron delle 05:30).
+  const [incassiInCorso, setIncassiInCorso] = useState(false);
+  async function chiediIncassi() {
+    if (incassiInCorso) return;
+    setIncassiInCorso(true);
+    try {
+      const e = await aggiornaIncassiDaFinance();
+      await carica();
+      const righe = [
+        `Documenti controllati: ${e.controllati}.`,
+        e.aggiornati
+          ? `Segnati come saldati: ${e.aggiornati} (ordini ${e.ordini}, richieste clienti ${e.richieste_cliente}, richieste di pagamento ${e.richieste_pagamento}).`
+          : 'Nessuna riga da aggiornare: niente di nuovo risulta saldato di là.',
+        // ⚠️ I dubbi si dicono, e si dice PERCHÉ: un intestatario diverso o un
+        // acconto non sono un guasto, sono roba da guardare a mano.
+        e.da_guardare.length ? `\n\nDa guardare (${e.da_guardare.length}):\n· ${e.da_guardare.join('\n· ')}` : '',
+        e.errori.length ? `\n\nErrori: ${e.errori.join('; ')}` : '',
+      ].filter(Boolean);
+      avvisa('Incassi aggiornati da FINANCE', righe.join('\n'));
+    } catch (err: any) {
+      avvisa('Non riuscito', String(err?.message ?? err));
+    } finally {
+      setIncassiInCorso(false);
+    }
+  }
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -1562,6 +1588,23 @@ export default function Ordini() {
             </>
           ) : null}
         </Text>
+        {/* ⭐ CHIEDE A FINANCE COSA È STATO SALDATO (31/08/2026, richiesta
+            dell'utente: «servirebbe che FINANCE comunicasse a Scout se una
+            fattura o pro-forma è stata pagata»). Il giro gira anche da solo
+            ogni notte alle 05:30: questo serve a non aspettare domani.
+            ⚠️ L'esito si MOSTRA, compresi i casi dubbi — un numero che vive
+            solo nel JSON del cron non lo legge nessuno. */}
+        <Pressable
+          style={[styles.btnIncassi, incassiInCorso && { opacity: 0.5 }]}
+          disabled={incassiInCorso}
+          onPress={chiediIncassi}
+        >
+          <Ionicons name="sync-outline" size={15} color={colors.navy} />
+          <Text style={styles.btnIncassiTxt}>
+            {incassiInCorso ? 'Chiedo a FINANCE…' : 'Aggiorna dagli incassi di FINANCE'}
+          </Text>
+        </Pressable>
+
         {/* ⭐ LA LEGENDA DELLE ICONE (28/08/2026, richiesta dell'utente:
             «rivedi tutte le icone... metti poi una legenda»). Chiusa di
             default: chi le conosce non deve scavalcarla ogni giorno. Solo
@@ -3417,6 +3460,20 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
+  btnIncassi: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 6,
+  },
+  btnIncassiTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   subForte: { color: colors.navy, fontWeight: '700' },
   subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
