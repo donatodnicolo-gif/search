@@ -455,6 +455,13 @@
       "markPaid": "Segna pagato"
     }
   },
+  "chat": {
+    "titolo": "Chat con l'ufficio",
+    "nessunFilo": "Nessuna conversazione: quando un valet o un partner scrive, compare qui.",
+    "vuota": "Nessun messaggio ancora. Scrivi qui sotto: l'ufficio risponde in app.",
+    "scrivi": "Scrivi un messaggio…",
+    "invia": "Invia"
+  },
   "invoices": {
     "title": "Fatturazione",
     "caption": "Genera e gestisci le fatture dei partner: una riga per ogni consegna da fatturare nel periodo.",

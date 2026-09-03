@@ -28,6 +28,23 @@
 >   in sola lettura, rischio accettato). Nel repo c'erano modifiche NON mie
 >   in corso (consegna anonima: schema/dto/service/form) lasciate fuori dal commit.
 >
+> 🧪 **03/09/2026-terdecies — CHAT IN APP + PALLINI GIALLI** (deployato):
+> - **Chat laterale stile CS** (regola utente): bottone 💬 fluttuante col
+>   badge, drawer a destra. VALET/PARTNER hanno il loro filo con l'ufficio
+>   (creato al primo accesso); ADMIN/OPERATION vedono tutti i fili (ultimo
+>   messaggio + non letti), aprono e rispondono. Tabelle `ChatThread` (un
+>   filo per controparte, unique su valetId/partnerId) e `ChatMessage`
+>   (dalUfficio, autore fotografato, letto) — CREATE additive nostre.
+>   Modulo API `chat`: /chat/mia, /chat/fili, /chat/fili/:id,
+>   /chat/messaggi, /chat/novita. Lettura = apertura (updateMany letto).
+> - **«Tempo reale» senza websocket** (serverless): polling — 7″ a pannello
+>   aperto, 30″ per i pallini (NovitaService condiviso shell+chat).
+> - **Pallini GIALLI in sidebar** per ruolo: ufficio → Vendite (da gestire),
+>   Segnalazioni (aperte), chat; partner → Consegne non lette + proposte,
+>   chat; valet → Consegne assegnate non lette, chat.
+> - ⚠️ Per il custode UX: pattern nuovo (drawer chat + pallini) da portare
+>   nel Libro UX&UI.
+>
 > 🧪 **03/09/2026-duodecies — LE ATTIVITÀ SEGUONO OGNI STATO** (deployato):
 > - Regola utente: a OGNI cambio di stato della consegna le attività
 >   collegate si allineano da sole (non più solo alla chiusura): aperta →

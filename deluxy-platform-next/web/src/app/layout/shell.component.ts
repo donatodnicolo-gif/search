@@ -7,6 +7,8 @@ import { AuthService } from '../core/auth.service';
 import { Role } from '../core/models';
 import { NotificationsService } from '../core/notifications.service';
 import { NotificationBellComponent } from '../core/notification-bell.component';
+import { ChatPanelComponent } from './chat-panel.component';
+import { NovitaService } from '../core/novita.service';
 import { LanguageSwitcherComponent } from './language-switcher.component';
 
 interface NavItem {
@@ -118,6 +120,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     TranslatePipe,
     LanguageSwitcherComponent,
     NotificationBellComponent,
+    ChatPanelComponent,
   ],
   template: `
     <div class="shell">
@@ -175,6 +178,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
               >
                 <span class="nav-icon" [innerHTML]="icon(item.icon)"></span>
                 <span class="nav-text">{{ item.label | translate }}</span>
+                <!-- PALLINO GIALLO (03/09): novità vive nella sezione. -->
+                @if (puntinoDi(item) > 0) {
+                  <span class="nav-dot">{{ puntinoDi(item) > 99 ? '99+' : puntinoDi(item) }}</span>
+                }
               </a>
             }
           }
@@ -203,6 +210,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       <main class="content">
         <router-outlet />
       </main>
+
+      <!-- CHAT LATERALE (03/09): valet e partner ↔ ufficio, stile CS. -->
+      <app-chat-panel />
     </div>
   `,
   styles: [
@@ -417,6 +427,13 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       .sidebar.collapsed .user-meta {
         display: none;
       }
+      .nav-link { position: relative; }
+      /* PALLINO GIALLO delle novità (03/09): acceso quando il conteggio > 0. */
+      .nav-dot { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+        background: #ffcc00; color: #1d1d1f; font-size: 10.5px; font-weight: 700;
+        display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .sidebar.collapsed .nav-dot { position: absolute; top: 4px; right: 4px; min-width: 8px; height: 8px;
+        padding: 0; font-size: 0; }
       .sidebar.collapsed .brand {
         /* ⚠️ DIFETTO 17 (Libro UX cap.1): «logout e logo non spariscono mai» da
            collassata. Prima brand-mark e logout avevano display:none: il logo D
@@ -602,6 +619,22 @@ export class ShellComponent {
     // La shell e' montata solo ad utente autenticato: qui parte il polling
     // del contatore notifiche in header.
     this.notifications.startPolling();
+    // E quello delle NOVITÀ per i pallini gialli delle sezioni (03/09).
+    this.novita.avvia();
+  }
+
+  readonly novita = inject(NovitaService);
+
+  /** Il numero del pallino giallo della voce di menu (0 = spento). */
+  puntinoDi(item: NavItem): number {
+    const c = this.novita.conteggi();
+    const mappa: Record<string, string> = {
+      '/sales': 'vendite',
+      '/segnalazioni': 'segnalazioni',
+      '/deliveries': 'consegne',
+    };
+    const k = mappa[item.path];
+    return k ? (c[k] ?? 0) : 0;
   }
 
   toggle(): void {

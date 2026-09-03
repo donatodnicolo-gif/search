@@ -352,6 +352,7 @@ model Partner {
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
   isMultiPickup       Boolean           @default(false)
   pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
+  chatThread          ChatThread?
   // Campi di vendita
   storeUrl            String?
   imageUrl            String?
@@ -610,6 +611,7 @@ model Valet {
   availabilities      ValetAvailability[]
   openingHours        ValetOpeningHour[]
   salaries            Salary[]
+  chatThread          ChatThread?
   payments            Payment[]
   deliveryRules       ValetDeliveryRuleValet[]
   receipts            Receipt[]
@@ -1350,6 +1352,37 @@ model DeliveryLog {
 // type: PICKUP | DELIVERY - ordinabili per orario ("reorder with time")
 // Il team leader vede anche le attivita' degli altri valet delle sue province
 // ------------------------------------------------------------
+/// CHAT IN APP (03/09/2026, regola utente): valet e partner parlano con
+/// l'ufficio direttamente in piattaforma. Un filo per controparte.
+model ChatThread {
+  id            String        @id @default(cuid())
+  valetId       String?       @unique
+  partnerId     String?       @unique
+  valet         Valet?        @relation(fields: [valetId], references: [id])
+  partner       Partner?      @relation(fields: [partnerId], references: [id])
+  messaggi      ChatMessage[]
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ChatMessage {
+  id         String     @id @default(cuid())
+  threadId   String
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  /// true = scritto dall'ufficio (admin/operation); false = dalla controparte.
+  dalUfficio Boolean
+  userId     String?
+  /// Nome fotografato di chi scrive: resta anche se l'utente cambia.
+  autore     String?
+  testo      String
+  /// Letto dal DESTINATARIO (l'altra parte del filo).
+  letto      Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@index([threadId, createdAt])
+}
+
 model Activity {
   id          String   @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile

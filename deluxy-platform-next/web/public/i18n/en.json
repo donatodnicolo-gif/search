@@ -455,6 +455,13 @@
       "markPaid": "Mark paid"
     }
   },
+  "chat": {
+    "titolo": "Chat with the office",
+    "nessunFilo": "No conversations yet: when a valet or partner writes, it shows up here.",
+    "vuota": "No messages yet. Write below: the office replies in app.",
+    "scrivi": "Write a message…",
+    "invia": "Send"
+  },
   "invoices": {
     "title": "Invoicing",
     "caption": "Generate and manage partner invoices: one line per billable delivery in the period.",
