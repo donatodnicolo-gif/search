@@ -37,7 +37,13 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
   non quella dell'account register.it. ⚠️ Non martellare tentativi: uno dei due host
   tarpitta i login falliti (la mia diagnostica con password finta è andata in timeout
   a 2 minuti).
-- Federica ed Emma: utenze create, caselle non ancora collegate.
+- **Federica**: utenza ok (grafia allineata al Hub), casella da collegare.
+- **Emma** (verificata il 03/09): utenza attiva MA password mai reimpostata dal 17/08
+  (sessioneVersione=1) → se è sotto i 10 caratteri non entra nemmeno (stesso blocco di
+  Michela): reimpostarla PRIMA che ci provi. Casella mai collegata e quasi mai usata
+  (1 mail da lei, 25/06): probabile che la password della casella non le sia mai stata
+  data — prepararla in Area Clienti. 🔴 E nel HUB non esiste proprio (unica dei nuovi):
+  senza identità lì, niente portale/SSO.
 
 ---
 ### 02/09 (6) — «Io continuo a vedere questo»: la lista non si aggiornava se scaricava il CRON
