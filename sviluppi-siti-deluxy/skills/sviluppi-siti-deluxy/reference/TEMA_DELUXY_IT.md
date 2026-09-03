@@ -143,6 +143,33 @@ Google (geocoder + DistanceMatrix) e non toccano la piattaforma.
   piattaforma non risponde, il cliente vede «non succede niente». Un rimedio lato tema (messaggio o
   fail-open) è una decisione da prendere, non presa il 3/9.
 
+## Prodotti con opzioni (Best Custom Product Options: foto Polaroid): «ACQUISTA» clicca un pulsante che ha appena disabilitato (3/9/2026, APERTO)
+
+Verificato sul vivo su **Cross - Bouquet e Polaroid**, **A Million Memories** e **Polaroid Cake**
+(tutti `data-product-unique="false"`, tutti con blocco opzioni `.vopo-block` dell'app BCPO con campi
+`input[type=file]` — Polaroid 1/2…, Foto 1/2/3 obbligatorie, Foto+Crema): il clic su ACQUISTA arriva fino a
+`isProvinceMatching && isMatchingCity true` (la rotta della piattaforma risponde) e poi **non parte nessuna
+richiesta** — né fetch né XHR né submit — e il carrello resta a 0, senza messaggio.
+
+Causa (letta e riprodotta): quando `$('.vopo-block form').length > 0` il tema NON usa la fetch JSON
+(`addToCartProductOnDeliveryDate`, che perderebbe i file) ma fa `$submitButton.click()` sul pulsante
+nascosto `#oldAddToCartButtonManual` (type=submit) per far partire il form multipart. Ma `showLoader()`,
+chiamata all'inizio dell'handler, ha appena messo `oldAddToCartButtonManual.disabled = true` (e il ramo
+«non fisico» lo disabilita pure esplicitamente prima del click): **il click nativo su un bottone disabilitato
+non fa nulla**, poi `hideLoader()` lo riabilita. Fail-closed muto, parente del guard su selettore inesistente.
+
+Controprova: riabilitando il pulsante prima del click (`$sb.prop('disabled',false).click()`) il form
+parte, BCPO valida i campi obbligatori (tooltip nativo «Seleziona un file.» se manca una foto) e il carrello
+riceve la riga con le foto caricate come URL `cdn.shopify.com/.../uploads/…png` (Cross: Polaroid 1;
+Million: Foto 1/2/3; Cake: Foto + Crema=Vaniglia). Quindi tutto il resto della catena funziona.
+
+Rimedio (nel tema, sezione prodotto — decisione dell'utente): nei rami che fanno `$submitButton.click()`
+riabilitare prima il pulsante (`$submitButton.prop('disabled', false)`) oppure usare
+`form.requestSubmit()`; in ogni caso un messaggio visibile quando la validazione BCPO ferma il submit.
+⚠️ Il blocco BCPO compare in ritardo (anche 10-20 s dopo il load): prima che arrivi, `.vopo-block form`
+è 0 e il tema passa dalla fetch JSON, che aggiunge al carrello SENZA le foto — è così che «a volte
+funziona» e l'ordine arriva senza immagini.
+
 ## Insidie specifiche
 
 - La `fnCheckDate` originale era un groviglio di `if (tmpHour > X && tmpHour < Y) $(...).remove()`
