@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /**
  * SEGNALAZIONI (31/08/2026): l'ufficio (admin/operation) apre segnalazioni su
@@ -23,7 +24,10 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class SegnalazioniService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   private async arricchisci(righe: any[]) {
     const partnerIds = [...new Set(righe.map((r) => r.partnerId).filter(Boolean))];
@@ -161,7 +165,71 @@ export class SegnalazioniService {
       if (nuovo === 'aperta' || nuovo === 'in_lavorazione') data.chiusaIl = null;
     }
     if (body.risposta !== undefined) data.risposta = body.risposta?.trim() || null;
-    return this.prisma.segnalazione.update({ where: { id }, data });
+    const aggiornata = await this.prisma.segnalazione.update({ where: { id }, data });
+    // ⭐ 03/09 (regola utente): a OGNI cambio di stato parte una mail
+    // all'interessato. Solo se lo stato è cambiato DAVVERO (doppio click =
+    // una mail sola), mai bloccante: l'esito della pratica non dipende
+    // dalla posta.
+    if (body.stato && body.stato !== s.stato) {
+      try { await this.mailCambioStato(aggiornata); } catch { /* best effort */ }
+    }
+    return aggiornata;
+  }
+
+  /**
+   * La mail del cambio di stato, via AI Mail (stesso canale del recap paghe).
+   * Difese dell'automatismo (trappola nota, 27/08): niente arretrato (parte
+   * solo dal click di adesso), una per cambio vero, mai a indirizzi
+   * automatici (ripiego per prefisso, dichiarato), mai alla propria casella,
+   * tetto strutturale di 1 per azione; il registro degli invii è la posta
+   * inviata di AI Mail.
+   */
+  private async mailCambioStato(s: {
+    id: string; tipo: string; stato: string; importo: number | null; oggetto: string | null;
+    risposta: string | null; valetId: string | null; partnerId: string | null;
+  }) {
+    let destinatario = '';
+    let nome = '';
+    if (s.valetId) {
+      const v = await this.prisma.valet.findUnique({ where: { id: s.valetId }, select: { email: true, firstName: true } });
+      destinatario = (v?.email ?? '').trim();
+      nome = v?.firstName ?? '';
+    } else if (s.partnerId) {
+      const p = await this.prisma.partner.findUnique({ where: { id: s.partnerId }, select: { email: true, insegna: true } });
+      destinatario = (p?.email ?? '').trim();
+      nome = p?.insegna ?? '';
+    }
+    if (!destinatario) return;
+    // Ripiego per prefisso: senza intestazioni vere è il meglio che c'è qui.
+    if (/^(noreply|no-reply|notifications?|mailer-daemon|postmaster)@/i.test(destinatario)) return;
+    const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+    const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
+    const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
+    if (!chiave || !utente) return; // invio non configurato: niente mail, nessun errore
+    if (destinatario.toLowerCase() === utente.toLowerCase()) return; // mai a se stessi
+
+    const TIPI: Record<string, string> = { rimborso: 'Rimborso', reclamo: 'Reclamo', segnalazione: 'Segnalazione' };
+    const STATI: Record<string, string> = {
+      aperta: 'riaperta', in_lavorazione: 'presa in carico', approvata: 'approvata',
+      respinta: 'respinta', pagata: 'pagata', chiusa: 'chiusa',
+    };
+    const tipo = TIPI[s.tipo] ?? 'Segnalazione';
+    const statoParola = STATI[s.stato] ?? s.stato;
+    const eur = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    const e = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const oggettoMail = `${tipo}${s.importo ? ` da ${eur(s.importo)}` : ''} ${statoParola}` + (s.oggetto ? ` — ${s.oggetto}` : '');
+    const corpo = `<p>Ciao${nome ? ' ' + e(nome) : ''},</p>`
+      + `<p>la tua richiesta${s.oggetto ? ` «${e(s.oggetto)}»` : ''} (${e(tipo.toLowerCase())}`
+      + `${s.importo ? `, ${eur(s.importo)}` : ''}) è stata <strong>${e(statoParola)}</strong>.</p>`
+      + (s.risposta ? `<p>Risposta dell'ufficio: ${e(s.risposta)}</p>` : '')
+      + (s.stato === 'approvata' && s.importo ? `<p>L'importo entrerà nel conteggio del tuo prossimo stipendio.</p>` : '')
+      + `<p>— Deluxy</p>`;
+    await fetch(`${url}/api/v1/invia`, {
+      method: 'POST',
+      headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a: destinatario, oggetto: oggettoMail, corpo }),
+      signal: AbortSignal.timeout(15_000),
+    });
   }
 }
 
@@ -198,6 +266,7 @@ export class SegnalazioniController {
 }
 
 @Module({
+  imports: [SettingsModule],
   controllers: [SegnalazioniController],
   providers: [SegnalazioniService],
 })

@@ -3,6 +3,20 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✉️ **03/09/2026-sedecies — MAIL a ogni cambio stato segnalazione + la modifica vendita arriva al Customer Service** (deployato):
+> - **Mail automatica** all'interessato (valet o partner) a OGNI cambio di
+>   stato di una segnalazione, via AI Mail. Difese della trappola nota:
+>   parte solo dal click (niente arretrato), solo se lo stato cambia davvero,
+>   mai a indirizzi automatici (ripiego per prefisso) né alla propria
+>   casella, 1 per azione, best-effort (la pratica non dipende dalla posta);
+>   registro = posta inviata di AI Mail.
+> - **La modifica vendita arriva al CS**: il canale c'era già (cron CS su
+>   `/app/vendite?aggiornateDa=`, la PATCH bump-a `updatedAt`) ma
+>   `allineaUno` caso 3 confrontava SOLO stato+id: importo/partner cambiati
+>   a parità di stato non aggiornavano mai la copia (`appCostoPartner`).
+>   Corretto in `deluxy-messaging/src/lib/sync-piattaforma.ts` (scoutwt,
+>   commit e022c84e, deployato su deluxy-messaging.vercel.app).
+>
 > ✅ **03/09/2026-quindecies — VERDETTO sui rimborsi/reclami (importo → paga della consegna) + modifica vendita** (deployato):
 > - **Processo di approvazione in Segnalazioni** (regola utente): sui tipi
 >   con importo il giro è aperta → in lavorazione → **Approvata | Respinta**
