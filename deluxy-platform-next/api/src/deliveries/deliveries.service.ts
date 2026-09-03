@@ -2288,6 +2288,14 @@ export class DeliveriesService {
    * `valetAdditionalPrice`, le ore, e il contrassegno da incassare.
    */
   private soloIMieiSoldi<T extends Record<string, any>>(delivery: T, user: JwtUser): T {
+    // ⭐ CONSEGNA ANONIMA (03/09, regola utente): il MITTENTE non si mostra a
+    // NESSUNO — ufficio compreso. I dati restano in banca: chi deve vederli
+    // spegne il flag in modifica. Nascondere solo in pagina non basterebbe.
+    if ((delivery as Record<string, any>)?.['anonymousSender']) {
+      const pulita: Record<string, any> = { ...delivery };
+      for (const c of ['senderFirstName', 'senderLastName', 'senderPhone']) delete pulita[c];
+      delivery = pulita as T;
+    }
     // ⚠️ 27/08/2026 — LO SPECCHIO MANCANTE. Si toglieva il denaro del partner
     // al valet, ma non il denaro del valet al PARTNER: `valetSalary` e
     // `valetAdditionalPrice` uscivano su ogni sua consegna. Sono il NOSTRO

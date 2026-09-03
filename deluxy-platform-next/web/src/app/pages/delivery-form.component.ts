@@ -347,6 +347,13 @@ interface ProductRow {
           <label class="fld"><span>{{ 'deliveryForm.field.senderPhone' | translate }}</span>
             <input class="field" name="senderPhone" [(ngModel)]="model.senderPhone" /></label>
         </div>
+        <!-- ⭐ 03/09 (regola utente): CONSEGNA ANONIMA — il mittente non si
+             mostra a NESSUNO (lo nasconde il server, non la pagina). -->
+        <label class="toggle mt"><input type="checkbox" name="anonymousSender" [(ngModel)]="model.anonymousSender" />
+          <span>{{ 'deliveryForm.field.anonima' | translate }}</span></label>
+        @if (model.anonymousSender) {
+          <p class="slot-hint">{{ 'deliveryForm.field.anonimaHint' | translate }}</p>
+        }
         <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.smsPhone' | translate }}</span>
           <input class="field" name="smsPhoneNo" [(ngModel)]="model.smsPhoneNo" placeholder="+39 …" /></label>
         <div class="toggles mt">
@@ -1267,6 +1274,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     senderLastName: '',
     senderFirstName: '',
     senderPhone: '',
+    anonymousSender: false,
     valetServiceId: '',
     deluxyDelivery: false,
     deliveredByPartner: false,
@@ -1681,7 +1689,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'deliveredByPartner',
       'smsOnCreated', 'smsOnDeparted',
       'smsOnArrived', 'paymentOnDelivery', 'tryAndReturn', 'billable', 'payable',
-      'isFlexiblePrice', 'deliveryCodeRequired',
+      'isFlexiblePrice', 'deliveryCodeRequired', 'anonymousSender',
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
@@ -2419,6 +2427,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       smsOnCreated: m.smsOnCreated,
       smsOnDeparted: m.smsOnDeparted,
       smsOnArrived: m.smsOnArrived,
+      anonymousSender: m.anonymousSender,
       paymentStatus: m.paymentStatus,
       deluxyDelivery: m.deluxyDelivery,
       deliveredByPartner: m.deliveredByPartner,

@@ -3,6 +3,15 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-undecies — CONSEGNA ANONIMA** (deployato):
+> - **Flag «Consegna anonima»** nel form (nuova e modifica): se acceso il
+>   MITTENTE non si mostra a NESSUNO — nemmeno all'ufficio. Il taglio lo fa
+>   il SERVER (in cima a `soloIMieiSoldi`, quindi su lista/dettaglio/
+>   scritture/mappa); i dati restano in banca e riappaiono togliendo la
+>   spunta in modifica. Colonna `anonymousSender` (boolean default false)
+>   aggiunta a platform."Delivery" con ALTER additivo (tabella nostra); il
+>   dettaglio mostra la targhetta «🕶 Consegna anonima — mittente riservato».
+>
 > 🧪 **03/09/2026-decies — REGISTRO VENDITE COMPLETO (recupero 308)** (dati):
 > - Ordine utente «importa tutte le vendite»: dal 01/08, 323 ordini del
 >   registro Orders non avevano vendita. Recuperati **308** (match per

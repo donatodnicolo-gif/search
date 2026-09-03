@@ -197,6 +197,13 @@ export class CreateDeliveryDto {
   @IsString()
   senderPhone?: string;
 
+  /** Consegna ANONIMA (03/09, regola utente): il mittente non si mostra a
+   *  nessuno — i dati restano solo in banca per chi spegne il flag. */
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  anonymousSender?: boolean;
+
   // Pagamento alla consegna
   @ApiPropertyOptional({ default: false })
   @IsOptional()

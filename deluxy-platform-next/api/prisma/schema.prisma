@@ -1082,6 +1082,9 @@ model Delivery {
   senderFirstName    String?
   senderLastName     String?
   senderPhone        String?
+  /// Consegna ANONIMA (03/09/2026): il mittente non si mostra a NESSUNO in
+  /// lettura; i dati restano in banca per chi spegne il flag in modifica.
+  anonymousSender    Boolean  @default(false)
   // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
   paymentOnDelivery  Boolean           @default(false)
   paymentAmount      Float?

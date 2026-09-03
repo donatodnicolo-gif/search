@@ -40,6 +40,8 @@ interface DeliveryDetail {
   billable?: boolean;
   invoiced?: boolean;
   payable?: boolean;
+  /** Consegna anonima: il mittente non arriva a nessuno (03/09). */
+  anonymousSender?: boolean;
   /** Regola di listino applicata (fatturazione): al valet non arriva. */
   deliveryRule?: { id: string; name: string; toBill?: boolean; partnerBillingAdjustment?: number | null } | null;
   /** Regola paga valet (scaglioni sui ritiri): al partner non arriva. */
@@ -430,8 +432,14 @@ interface DeliveryDetail {
             <dt>{{ 'deliveryDetail.email' | translate }}</dt>
             <dd>@if (d.recipientEmail) { <a [href]="'mailto:' + d.recipientEmail">{{ d.recipientEmail }}</a> } @else { — }</dd>
             <dt>{{ 'deliveryDetail.sender' | translate }}</dt>
-            <dd>{{ (d.senderFirstName || d.senderLastName) ? (d.senderFirstName + ' ' + d.senderLastName) : '—' }}
-              @if (d.senderPhone) { · <a [href]="'tel:' + d.senderPhone">{{ d.senderPhone }}</a> }</dd>
+            <!-- CONSEGNA ANONIMA (03/09): il server non manda il mittente a
+                 nessuno — qui si spiega il perché del trattino. -->
+            <dd>@if (d.anonymousSender) {
+                  <span class="tag">🕶 {{ 'deliveryDetail.anonima' | translate }}</span>
+                } @else {
+                  {{ (d.senderFirstName || d.senderLastName) ? (d.senderFirstName + ' ' + d.senderLastName) : '—' }}
+                  @if (d.senderPhone) { · <a [href]="'tel:' + d.senderPhone">{{ d.senderPhone }}</a> }
+                }</dd>
           </dl>
           }
         </section>
