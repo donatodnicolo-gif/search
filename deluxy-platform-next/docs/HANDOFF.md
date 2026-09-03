@@ -3,6 +3,19 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-bis — MINIMO URBANO SULLA PAGA FUORI CITTÀ** (deployato):
+> - **Regola utente**: la paga fuori città (km × € della scheda valet) ha un
+>   MINIMO = la base di listino del valet (una consegna urbana). In
+>   `pagaConsegna`, quindi vale ovunque. Misurato: 0 pendenti alzate oggi.
+> - Il «costo valet dal listino» del DETTAGLIO ora usa `pagaConsegna` vero
+>   (fuori città, km, minimo, regola carnet), non più base×ore.
+> - **#62359** (decisione utente): paga scritta legacy 6,96 (7,73 km × 0,90)
+>   AZZERATA → vale il listino di Pianigiani, 15 €. ⚠️ Contesto: le consegne
+>   legacy consegnate non pagate con paga scritta > 0 sono **28.133** — se la
+>   regola «vince il listino» deve valere in generale, serve una decisione.
+> - Verifica Pianigiani agosto (50 consegne): 39 in DA PAGARE, 11 «esclusa
+>   da regola» (Regola 11 toPay=NO su Chanel Firenze), 0 dimenticate ✓.
+>
 > 🧪 **03/09/2026 — CHECK APPLICAZIONE REGOLE (richiesto dall'utente)**
 > (correzione deployata e Ready; riparazioni IN ATTESA di «applica»):
 > - **🐞 BUG GRAVE trovato e corretto: `days="0000000"` = filtro giorni
