@@ -307,7 +307,7 @@ export default function TemplateDocumenti() {
       avvisa(
         'Non è stato salvato',
         /duplicate|unique/i.test(msg)
-          ? 'Esiste già un template con questo nome o per questo brand: un’insegna ha una sola intestazione.'
+          ? 'Esiste già un template con questo nome, oppure per questo brand con lo stesso tipo di documento: un’insegna ha una sola intestazione per tipo (migr. 0115).'
           : msg || 'Riprova.',
       );
     } finally {
@@ -386,8 +386,12 @@ export default function TemplateDocumenti() {
             )}
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.nome} numberOfLines={1}>{t.nome}</Text>
+              {/* ⚠️ IL TIPO SI VEDE IN ELENCO (03/09/2026). Da quando i tipi sono
+                  quattro, la stessa insegna può avere due template — una
+                  pro-forma e un modulo di servizio — e senza questa riga si
+                  distinguevano solo aprendoli. */}
               <Text style={styles.meta} numberOfLines={1}>
-                {t.brand ?? 'nessun brand'} · {t.ragione_sociale}
+                {TIPI_TEMPLATE.find((x) => x.v === (t.tipo ?? 'proforma'))?.label ?? t.tipo} · {t.brand ?? 'nessun brand'} · {t.ragione_sociale}
               </Text>
               {t.piva ? <Text style={styles.meta}>P. IVA {t.piva}</Text> : null}
             </View>

@@ -28,11 +28,17 @@ import { BRAND_DEFAULT } from '@/types';
 
 /** Che documento intesta un template (migr. 0094). ⚠️ Cambia la dicitura di
  *  legge in calce, non i dati societari: quelli sono gli stessi per tutti. */
-export type TipoTemplate = 'proforma' | 'ricevuta' | 'fattura';
+export type TipoTemplate = 'proforma' | 'ricevuta' | 'fattura' | 'modulo_servizio';
 export const TIPI_TEMPLATE: { v: TipoTemplate; label: string }[] = [
   { v: 'proforma', label: 'Pro-forma' },
   { v: 'ricevuta', label: 'Ricevuta' },
   { v: 'fattura', label: 'Fattura' },
+  // ⭐ 03/09/2026 (richiesta dell'utente): il MODULO DI SERVIZIO — il foglio
+  // che accompagna un servizio commerciale. ⚠️ Qui il template porta solo la
+  // CARTA INTESTATA (logo, ragione sociale, contatti, dicitura in calce): il
+  // corpo del modulo — che cosa si chiede, quali campi si compilano — non è
+  // un template di intestazione, e non è stato definito.
+  { v: 'modulo_servizio', label: 'Modulo di servizio' },
 ];
 
 export interface TemplateDocumento {
@@ -139,11 +145,14 @@ export async function intestazionePerBrand(brand: string | null | undefined): Pr
   const { data, error } = await supabase.from('template_documento').select('*').eq('attivo', true);
   if (error) throw error;
   const tutti = (data ?? []) as TemplateDocumento[];
-  const t =
-    tutti.find((x) => x.brand === b) ??
-    tutti.find((x) => x.nome === b) ??
-    tutti.find((x) => x.predefinito) ??
-    null;
+  // ⚠️ Prima fra i template della PRO-FORMA: da quando i tipi sono quattro,
+  // lo stesso brand può avere una pro-forma e un modulo di servizio, e
+  // sceglierne uno per ordine di elenco vuol dire sceglierlo a caso. Il ripiego
+  // senza tipo resta per chi ha un template solo, salvato prima dei tipi.
+  const diTipo = tutti.filter((x) => x.tipo === 'proforma');
+  const scegli = (xs: TemplateDocumento[]) =>
+    xs.find((x) => x.brand === b) ?? xs.find((x) => x.nome === b) ?? xs.find((x) => x.predefinito) ?? null;
+  const t = scegli(diTipo) ?? scegli(tutti);
   if (!t) return null;
   return {
     ragioneSociale: t.ragione_sociale,

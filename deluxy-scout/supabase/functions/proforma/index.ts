@@ -145,22 +145,26 @@ function json(body: unknown, status = 200) {
  * stessa per tutti.
  */
 async function intestazioneDelBrand(admin: any, brand: string | null | undefined) {
-  const q = admin
-    .from('template_documento')
-    .select('nome, brand, logo_data_url, ragione_sociale, indirizzo, cap, citta, provincia, piva, codice_fiscale, rea, sdi, pec, telefono, email, sito, banca, iban, bic, intestatario_conto, note_piede, predefinito')
-    .limit(1);
-  // Prima quella del brand chiesto; se non c'è, la predefinita. Se non c'è
-  // nemmeno quella, si va senza: di là FINANCE usa la sua.
-  const { data: perBrand } = brand ? await q.eq('brand', brand) : { data: null };
-  let riga = perBrand?.[0];
-  if (!riga) {
-    const { data: pre } = await admin
-      .from('template_documento')
-      .select('nome, brand, logo_data_url, ragione_sociale, indirizzo, cap, citta, provincia, piva, codice_fiscale, rea, sdi, pec, telefono, email, sito, banca, iban, bic, intestatario_conto, note_piede, predefinito')
-      .eq('predefinito', true)
-      .limit(1);
-    riga = pre?.[0];
-  }
+  const CAMPI =
+    'nome, brand, logo_data_url, ragione_sociale, indirizzo, cap, citta, provincia, piva, codice_fiscale, rea, sdi, pec, telefono, email, sito, banca, iban, bic, intestatario_conto, note_piede, predefinito';
+  // ⚠️⚠️ **SI CERCA FRA I TEMPLATE DELLA PRO-FORMA** (03/09/2026). La scelta era
+  // per BRAND soltanto, con `limit(1)`: finché i tipi erano tre e le righe una
+  // per insegna non si vedeva, ma il giorno che un brand ha due template — una
+  // pro-forma e un «modulo di servizio», aggiunto oggi — quale dei due usciva
+  // sulla pro-forma lo decideva l'ordine del database. Cioè il caso.
+  //
+  // ⚠️ Il ripiego SENZA tipo resta, ed è voluto: chi ha un template solo, magari
+  // salvato prima che il tipo esistesse, deve continuare a vedere la sua carta
+  // intestata invece di quella generale di FINANCE.
+  const cerca = async (filtro: (q: any) => any) => {
+    const { data } = await filtro(admin.from('template_documento').select(CAMPI).limit(1));
+    return data?.[0];
+  };
+  const riga =
+    (brand ? await cerca((q: any) => q.eq('brand', brand).eq('tipo', 'proforma')) : undefined) ??
+    (await cerca((q: any) => q.eq('predefinito', true).eq('tipo', 'proforma'))) ??
+    (brand ? await cerca((q: any) => q.eq('brand', brand)) : undefined) ??
+    (await cerca((q: any) => q.eq('predefinito', true)));
   if (!riga) return undefined;
   // I nomi che FINANCE si aspetta (camelCase): la traduzione sta QUI, in un
   // posto solo, e non nel client.
