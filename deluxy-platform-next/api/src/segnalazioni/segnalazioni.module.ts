@@ -96,12 +96,70 @@ export class SegnalazioniService {
     });
   }
 
-  /** Ufficio: cambia stato / risponde. */
+  /**
+   * Ufficio: cambia stato / risponde.
+   *
+   * ⭐ 03/09 (regola utente): sui tipi con IMPORTO (rimborsi e reclami dei
+   * valet) il giro ha il VERDETTO — aperta → in_lavorazione → approvata |
+   * respinta → pagata. All'APPROVAZIONE, se c'è una consegna collegata,
+   * l'importo si applica alla sua paga (valetAdditionalPrice += importo):
+   * così entra da solo nel prossimo stipendio. `importoApplicatoIl` fa da
+   * guardia (mai due volte) e il riaprire STORNA.
+   */
   async aggiorna(user: JwtUser, id: string, body: { stato?: string; risposta?: string }) {
     const s = await this.prisma.segnalazione.findUnique({ where: { id } });
     if (!s) throw new BadRequestException('Segnalazione non trovata');
     const data: any = {};
-    if (body.stato) { data.stato = body.stato; if (body.stato === 'chiusa') data.chiusaIl = new Date(); }
+    if (body.stato) {
+      const nuovo = body.stato;
+      const conDenaro = (s.importo ?? 0) > 0;
+      if (['approvata', 'respinta', 'pagata'].includes(nuovo) && !conDenaro) {
+        throw new BadRequestException('Il verdetto vale solo per rimborsi e reclami con importo');
+      }
+      if (nuovo === 'pagata' && s.stato !== 'approvata') {
+        throw new BadRequestException('Si segna pagata solo una richiesta approvata');
+      }
+      if (nuovo === 'respinta' && s.importoApplicatoIl) {
+        throw new BadRequestException('Importo già applicato alla consegna: riaprire prima (lo storna), poi respingere');
+      }
+      if (nuovo === 'approvata' && !s.importoApplicatoIl && s.deliveryId) {
+        // L'importo entra nella paga della consegna, una volta sola.
+        const d = await this.prisma.delivery.findUnique({
+          where: { id: s.deliveryId }, select: { id: true, valetAdditionalPrice: true },
+        });
+        if (d) {
+          await this.prisma.delivery.update({
+            where: { id: d.id },
+            data: {
+              valetAdditionalPrice: Math.round((((d.valetAdditionalPrice ?? 0) + (s.importo ?? 0))) * 100) / 100,
+              logs: { create: { type: 'note', userId: user.sub ?? null,
+                message: `Plus/minus valet +${(s.importo ?? 0).toFixed(2)} € da ${s.tipo} approvato (segnalazione ${s.id})` } },
+            },
+          });
+          data.importoApplicatoIl = new Date();
+        }
+      }
+      if (nuovo === 'aperta' && s.importoApplicatoIl && s.deliveryId) {
+        // Riaperta dopo l'approvazione: lo storno riporta la paga com'era.
+        const d = await this.prisma.delivery.findUnique({
+          where: { id: s.deliveryId }, select: { id: true, valetAdditionalPrice: true },
+        });
+        if (d) {
+          await this.prisma.delivery.update({
+            where: { id: d.id },
+            data: {
+              valetAdditionalPrice: Math.round((((d.valetAdditionalPrice ?? 0) - (s.importo ?? 0))) * 100) / 100,
+              logs: { create: { type: 'note', userId: user.sub ?? null,
+                message: `Storno plus/minus valet −${(s.importo ?? 0).toFixed(2)} € (segnalazione ${s.id} riaperta)` } },
+            },
+          });
+        }
+        data.importoApplicatoIl = null;
+      }
+      data.stato = nuovo;
+      if (['chiusa', 'respinta', 'pagata'].includes(nuovo)) data.chiusaIl = new Date();
+      if (nuovo === 'aperta' || nuovo === 'in_lavorazione') data.chiusaIl = null;
+    }
     if (body.risposta !== undefined) data.risposta = body.risposta?.trim() || null;
     return this.prisma.segnalazione.update({ where: { id }, data });
   }

@@ -22,6 +22,7 @@ interface Segn {
   stato: string;
   risposta?: string | null;
   apertaDaRuolo?: string | null;
+  importoApplicatoIl?: string | null;
   createdAt: string;
 }
 interface Rif { id: string; nome: string }
@@ -138,7 +139,7 @@ interface Rif { id: string; nome: string }
     </label>
 
     <div class="tabs">
-      @for (s of ['', 'aperta', 'in_lavorazione', 'chiusa']; track s) {
+      @for (s of ['', 'aperta', 'in_lavorazione', 'approvata', 'respinta', 'pagata', 'chiusa']; track s) {
         <button class="tab" [class.on]="filtro() === s" (click)="filtro.set(s); carica()">
           {{ (s ? 'segnalazioni.stato.' + s : 'segnalazioni.all') | translate }}
         </button>
@@ -203,13 +204,33 @@ interface Rif { id: string; nome: string }
                       </a>
                     }
                     @if (s.risposta) { <p class="risposta"><strong>{{ 'segnalazioni.answer' | translate }}:</strong> {{ s.risposta }}</p> }
+                    @if (s.importoApplicatoIl) {
+                      <p class="applicato">✓ {{ 'segnalazioni.importoApplicato' | translate }} {{ s.importoApplicatoIl | date: 'dd/MM/yyyy HH:mm' }}</p>
+                    }
                     @if (isUfficio()) {
                       <div class="gestione">
                         <input class="field" [(ngModel)]="risposte[s.id]" [placeholder]="'segnalazioni.answerPh' | translate" />
                         <div class="btns">
-                          @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
-                          @if (s.stato !== 'chiusa') { <button class="btn btn-primary mini" (click)="aggiorna(s, 'chiusa')">{{ 'segnalazioni.close' | translate }}</button> }
-                          @else { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button> }
+                          <!-- ⭐ 03/09 (regola utente): sui tipi con IMPORTO il
+                               giro è col VERDETTO: approva/respingi, poi pagata.
+                               All'approvazione l'importo entra nella paga della
+                               consegna collegata; riaprire lo storna. -->
+                          @if (conDenaro(s)) {
+                            @if (s.stato === 'aperta' || s.stato === 'in_lavorazione') {
+                              @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
+                              <button class="btn btn-primary mini" (click)="aggiorna(s, 'approvata')">{{ 'segnalazioni.approve' | translate }}</button>
+                              <button class="btn btn-secondary mini danger" (click)="aggiorna(s, 'respinta')">{{ 'segnalazioni.rejectAction' | translate }}</button>
+                            } @else if (s.stato === 'approvata') {
+                              <button class="btn btn-primary mini" (click)="aggiorna(s, 'pagata')">{{ 'segnalazioni.markPaid' | translate }}</button>
+                              <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button>
+                            } @else {
+                              <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button>
+                            }
+                          } @else {
+                            @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
+                            @if (s.stato !== 'chiusa') { <button class="btn btn-primary mini" (click)="aggiorna(s, 'chiusa')">{{ 'segnalazioni.close' | translate }}</button> }
+                            @else { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button> }
+                          }
                         </div>
                       </div>
                     }
@@ -257,6 +278,11 @@ interface Rif { id: string; nome: string }
       .pill.st-aperta { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red); }
       .pill.st-in_lavorazione { background: var(--orange-soft, rgba(201,52,0,0.1)); color: var(--orange, #c93400); }
       .pill.st-chiusa { background: var(--green-soft, rgba(36,138,61,0.11)); color: var(--green, #248a3d); }
+      .pill.st-approvata { background: rgba(0,113,227,0.1); color: var(--blue, #0071e3); }
+      .pill.st-respinta { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red); }
+      .pill.st-pagata { background: var(--green-soft, rgba(36,138,61,0.11)); color: var(--green, #248a3d); }
+      .applicato { margin: 6px 0 0; font-size: 13px; color: var(--green, #248a3d); }
+      .btn.danger { color: var(--red); }
       .badge-tipo { background: var(--fill); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
       .badge-importo { background: color-mix(in srgb, var(--gold) 18%, white); color: var(--gold-ink, #7a5f18); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
       .data { margin-left: auto; color: var(--text-tertiary); }
@@ -422,6 +448,11 @@ export class SegnalazioniComponent {
 
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
+  }
+
+  /** Ha un importo da approvare: rimborso o reclamo con denaro. */
+  conDenaro(s: Segn): boolean {
+    return (s.importo ?? 0) > 0;
   }
 
   constructor() {

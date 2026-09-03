@@ -2245,6 +2245,14 @@
     "noPartner": "— no partner",
     "accept": "Accept",
     "inserisci": "Enter manually",
+    "edit": "Edit",
+    "mod": {
+      "provincia": "Province",
+      "nome": "Recipient first name",
+      "cognome": "Recipient last name",
+      "indirizzo": "Address",
+      "telefono": "Phone"
+    },
     "refuse": "Decline",
     "col": {
       "status": "Status",
@@ -2577,9 +2585,16 @@
     "take": "Take",
     "close": "Close",
     "reopen": "Reopen",
+    "approve": "Approve",
+    "rejectAction": "Reject",
+    "markPaid": "Mark paid",
+    "importoApplicato": "Amount applied to the delivery pay on",
     "stato": {
       "aperta": "Open",
       "in_lavorazione": "In progress",
+      "approvata": "Approved",
+      "respinta": "Rejected",
+      "pagata": "Paid",
       "chiusa": "Closed"
     },
     "tipo": {

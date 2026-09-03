@@ -2245,6 +2245,14 @@
     "noPartner": "— nessun partner",
     "accept": "Accetta",
     "inserisci": "Inserisci",
+    "edit": "Modifica",
+    "mod": {
+      "provincia": "Provincia",
+      "nome": "Nome destinatario",
+      "cognome": "Cognome destinatario",
+      "indirizzo": "Indirizzo",
+      "telefono": "Telefono"
+    },
     "refuse": "Rifiuta",
     "col": {
       "status": "Stato",
@@ -2580,8 +2588,15 @@
     "stato": {
       "aperta": "Aperta",
       "in_lavorazione": "In lavorazione",
+      "approvata": "Approvata",
+      "respinta": "Respinta",
+      "pagata": "Pagata",
       "chiusa": "Chiusa"
     },
+    "approve": "Approva",
+    "rejectAction": "Respingi",
+    "markPaid": "Segna pagata",
+    "importoApplicato": "Importo applicato alla paga della consegna il",
     "tipo": {
       "reclamo": "Reclamo",
       "segnalazione": "Segnalazione",

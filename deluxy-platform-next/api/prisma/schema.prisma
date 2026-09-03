@@ -2001,10 +2001,15 @@ model Segnalazione {
   apertaDaNome   String?
   oggetto        String?
   testo          String
-  /// aperta | in_lavorazione | chiusa
+  /// aperta | in_lavorazione | chiusa — e per i tipi con importo (rimborsi,
+  /// reclami valet) il verdetto: approvata | respinta | pagata (03/09).
   stato          String    @default("aperta")
   risposta       String?
   chiusaIl       DateTime?
+  /// ⭐ 03/09: quando l'importo APPROVATO è stato applicato alla paga della
+  /// consegna collegata (valetAdditionalPrice += importo). Vale da guardia:
+  /// non si applica due volte, e il riaprire lo storna.
+  importoApplicatoIl DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

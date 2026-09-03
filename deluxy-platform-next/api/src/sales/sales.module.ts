@@ -8,6 +8,7 @@ import {
   Module,
   NotFoundException,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -578,6 +579,36 @@ export class SalesService {
   }
 
   /**
+   * ⭐ 03/09 (regola utente): l'ufficio MODIFICA la vendita dal bottone in
+   * lista. Campi a lista chiusa — i DATI della vendita, non il suo giro:
+   * lo stato ha le sue azioni (accetta/rifiuta/inserisci), l'aggancio alla
+   * consegna il suo endpoint.
+   */
+  async modifica(id: string, body: Record<string, unknown>) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    const data: Record<string, unknown> = {};
+    for (const campo of ['productName', 'variantName', 'brand', 'recipientFirstName', 'recipientLastName', 'recipientAddress', 'recipientPhone'] as const) {
+      if (typeof body[campo] === 'string') data[campo] = (body[campo] as string).trim() || null;
+    }
+    if (body.amount !== undefined) {
+      const n = Number(body.amount);
+      if (!Number.isFinite(n) || n < 0) throw new BadRequestException('Importo non valido');
+      data.amount = Math.round(n * 100) / 100;
+    }
+    if (body.deliveryDate !== undefined) {
+      data.deliveryDate = body.deliveryDate ? new Date(String(body.deliveryDate)) : null;
+    }
+    if (typeof body.provinceId === 'string' && body.provinceId) {
+      const prov = await this.prisma.province.findUnique({ where: { id: body.provinceId }, select: { id: true } });
+      if (!prov) throw new BadRequestException('Provincia inesistente');
+      data.provinceId = prov.id;
+    }
+    if (!Object.keys(data).length) throw new BadRequestException('Niente da modificare');
+    return this.prisma.sale.update({ where: { id }, data });
+  }
+
+  /**
    * Il partner rifiuta: la vendita passa al prossimo della lista, e chi ha
    * rifiutato non la rivede piu'. Se non resta nessuno torna «da gestire».
    */
@@ -1049,6 +1080,13 @@ export class SalesController {
   })
   inserisci(@Param('id') id: string) {
     return this.salesService.prendiInMano(id);
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Modifica i DATI della vendita (importo, destinatario, date…) — non lo stato' })
+  modifica(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.salesService.modifica(id, body);
   }
 
   @Post(':id/collega-consegna')

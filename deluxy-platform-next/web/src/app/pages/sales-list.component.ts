@@ -24,6 +24,10 @@ interface Sale {
   partner?: { id: string; insegna: string } | null;
   province?: { id: string; code: string; name: string } | null;
   assignmentReason?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientAddress?: string | null;
+  recipientPhone?: string | null;
 }
 
 /**
@@ -189,8 +193,47 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                       {{ 'sales.inserisci' | translate }}
                     </button>
                   }
+                  <!-- ⭐ 03/09 (regola utente): la vendita si MODIFICA da qui —
+                       i dati (importo, destinatario, data, provincia), non lo
+                       stato, che ha le sue azioni. -->
+                  @if (canManage()) {
+                    <button class="btn btn-secondary mini" (click)="apriModifica(s)">
+                      {{ (modificaId() === s.id ? 'common.cancel' : 'sales.edit') | translate }}
+                    </button>
+                  }
                 </td>
               </tr>
+              @if (modificaId() === s.id) {
+                <tr class="mod-row">
+                  <td colspan="8">
+                    <div class="mod-grid">
+                      <label><span>{{ 'sales.col.amount' | translate }}</span>
+                        <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.amount" /></label>
+                      <label><span>{{ 'sales.col.delivery' | translate }}</span>
+                        <input class="field" type="date" [(ngModel)]="mod.deliveryDate" /></label>
+                      <label><span>{{ 'sales.mod.provincia' | translate }}</span>
+                        <select class="field" [(ngModel)]="mod.provinceId">
+                          @for (p of province(); track p.id) { <option [value]="p.id">{{ p.code }}</option> }
+                        </select></label>
+                      <label><span>{{ 'sales.mod.nome' | translate }}</span>
+                        <input class="field" [(ngModel)]="mod.recipientFirstName" /></label>
+                      <label><span>{{ 'sales.mod.cognome' | translate }}</span>
+                        <input class="field" [(ngModel)]="mod.recipientLastName" /></label>
+                      <label><span>{{ 'sales.mod.telefono' | translate }}</span>
+                        <input class="field" [(ngModel)]="mod.recipientPhone" /></label>
+                      <label class="largo"><span>{{ 'sales.mod.indirizzo' | translate }}</span>
+                        <input class="field" [(ngModel)]="mod.recipientAddress" /></label>
+                    </div>
+                    @if (modErrore(); as e) { <div class="mod-errore">{{ e }}</div> }
+                    <div class="mod-azioni">
+                      <button class="btn btn-secondary mini" (click)="modificaId.set(null)">{{ 'common.cancel' | translate }}</button>
+                      <button class="btn btn-primary mini" [disabled]="modInCorso()" (click)="salvaModifica(s)">
+                        {{ modInCorso() ? ('common.saving' | translate) : ('common.save' | translate) }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
@@ -273,6 +316,13 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .table-wrap { overflow-x: auto; }
       th.ordinabile { cursor: pointer; user-select: none; }
       th.ordinabile:hover { color: var(--text); }
+      .mod-row td { background: var(--fill); padding: 14px 16px; }
+      .mod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 14px; }
+      .mod-grid label { display: flex; flex-direction: column; gap: 4px; }
+      .mod-grid label > span { font-size: 12px; font-weight: 550; color: var(--text-secondary); }
+      .mod-grid .largo { grid-column: 1 / -1; }
+      .mod-azioni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+      .mod-errore { margin-top: 8px; color: var(--red); font-size: 13px; }
       .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       .table th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
@@ -412,6 +462,55 @@ export class SalesListComponent {
   righeConteggio(c: Record<string, number>) {
     return Object.entries(c ?? {}).filter(([, n]) => n > 0)
       .sort((a, b) => b[1] - a[1]).map(([chiave, n]) => ({ chiave, n }));
+  }
+
+  // ---- MODIFICA VENDITA (⭐ 03/09, regola utente) ---------------------------
+  readonly modificaId = signal<string | null>(null);
+  readonly modInCorso = signal(false);
+  readonly modErrore = signal<string | null>(null);
+  readonly province = signal<{ id: string; code: string }[]>([]);
+  mod: { amount: number | null; deliveryDate: string; provinceId: string;
+    recipientFirstName: string; recipientLastName: string; recipientAddress: string; recipientPhone: string } = {
+    amount: null, deliveryDate: '', provinceId: '', recipientFirstName: '', recipientLastName: '', recipientAddress: '', recipientPhone: '',
+  };
+
+  apriModifica(s: Sale): void {
+    if (this.modificaId() === s.id) { this.modificaId.set(null); return; }
+    this.mod = {
+      amount: s.amount,
+      deliveryDate: (s.deliveryDate ?? '').slice(0, 10),
+      provinceId: s.province?.id ?? '',
+      recipientFirstName: s.recipientFirstName ?? '',
+      recipientLastName: s.recipientLastName ?? '',
+      recipientAddress: s.recipientAddress ?? '',
+      recipientPhone: s.recipientPhone ?? '',
+    };
+    this.modErrore.set(null);
+    this.modificaId.set(s.id);
+    if (!this.province().length) {
+      this.http.get<{ id: string; code: string }[]>(`${environment.apiUrl}/provinces`).subscribe({
+        next: (d) => this.province.set((d ?? []).map((p) => ({ id: p.id, code: p.code }))),
+        error: () => undefined,
+      });
+    }
+  }
+
+  salvaModifica(s: Sale): void {
+    this.modErrore.set(null);
+    this.modInCorso.set(true);
+    const body: Record<string, unknown> = {
+      amount: this.mod.amount,
+      deliveryDate: this.mod.deliveryDate || null,
+      recipientFirstName: this.mod.recipientFirstName,
+      recipientLastName: this.mod.recipientLastName,
+      recipientAddress: this.mod.recipientAddress,
+      recipientPhone: this.mod.recipientPhone,
+    };
+    if (this.mod.provinceId && this.mod.provinceId !== s.province?.id) body['provinceId'] = this.mod.provinceId;
+    this.http.patch(`${environment.apiUrl}/sales/${s.id}`, body).subscribe({
+      next: () => { this.modInCorso.set(false); this.modificaId.set(null); this.carica(); },
+      error: (err) => { this.modInCorso.set(false); this.modErrore.set(err?.error?.message ?? 'Errore'); },
+    });
   }
 
   constructor() { this.carica(); }

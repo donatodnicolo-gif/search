@@ -3,6 +3,21 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✅ **03/09/2026-quindecies — VERDETTO sui rimborsi/reclami (importo → paga della consegna) + modifica vendita** (deployato):
+> - **Processo di approvazione in Segnalazioni** (regola utente): sui tipi
+>   con importo il giro è aperta → in lavorazione → **Approvata | Respinta**
+>   → **Pagata** (pills e tab filtrabili). **All'approvazione l'importo entra
+>   nella paga della consegna collegata** (`valetAdditionalPrice += importo`
+>   + DeliveryLog): finisce da solo nel prossimo stipendio. Guardia
+>   `importoApplicatoIl` (colonna nuova, ALTER additivo): mai applicato due
+>   volte; **Riapri storna**; respinta rifiutata finché l'importo è applicato;
+>   pagata solo da approvata. Senza consegna collegata l'approvazione registra
+>   solo il verdetto (il denaro va pagato per altra via).
+> - **Vendite: bottone «Modifica»** (admin/operation): pannello inline con
+>   importo, data consegna, provincia, destinatario (nome/cognome/indirizzo/
+>   telefono). PATCH `/sales/:id` a lista chiusa di campi — lo STATO no (ha
+>   le sue azioni), l'aggancio consegna nemmeno.
+>
 > 📋 **03/09/2026-quaterdecies — RIMBORSI/RECLAMI SOLO IN SEGNALAZIONI + tavoli ordinabili + prodotto subito nel form** (deployato):
 > - **Il denaro dei valet (rimborsi e reclami) vive TUTTO in Segnalazioni**
 >   (regola utente): l'API accetta `importo` anche sui reclami con valet; il
