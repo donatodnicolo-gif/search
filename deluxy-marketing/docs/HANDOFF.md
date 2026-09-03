@@ -369,6 +369,32 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ GLI ANNUNCI META SI VEDONO (creatività comprese) E IL LANCIO SA FARE CAROSELLO E CATALOGO (03/09/2026 sera)
+
+- **Vista «Annunci su Meta (dal vivo)»** sulla scheda delle campagne Meta
+  confermate (`AnnunciMeta` + `lib/meta-annunci.ts`): lettura VIVA dalla
+  Graph API — nessuna copia in DB (Standard §7) — con miniatura della
+  creatività, formato dedotto (immagine/video/carosello/catalogo), testi,
+  stato effettivo e ad set. ⚠️ Dichiarato il limite vero: le **bozze di Ads
+  Manager mai pubblicate NON esistono per l'API** — si vedono gli annunci
+  reali in ogni stato, comprese le PAUSED (com'è nato provato su
+  «Carosello ispirazione», 6 schede, attivo, con miniatura).
+- **Formato dell'annuncio nel lancio**: radio *singolo | carosello |
+  catalogo*.
+  · **Carosello coi link ai prodotti** (`SchedeCarosello`): 2-10 schede,
+  ogni immagine caricata UNA alla volta via `/api/interno/meta/immagine`
+  (il form intero sfonderebbe i 4,5 MB di piattaforma), link/titolo/
+  descrizione per scheda; nel form viaggia solo il JSON con gli hash.
+  All'esecuzione: `child_attachments` con **CTA per scheda verso il SUO
+  prodotto**. Lint 7.2/7.3 anche sulle schede.
+  · **Raccolta dal catalogo**: gli insiemi di prodotti si leggono VIVI dal
+  Business dell'account (`owned_product_catalogs → product_sets`, select
+  riempito col catalogo vero al primo giro); all'esecuzione
+  `promoted_object.product_set_id` sull'ad set + `template_data` e
+  `product_set_id` sul creative. La **vetrina/Collection** con instant
+  experience resta in Ads Manager: l'API non costruisce l'esperienza, il
+  form lo dice.
+
 ### ⭐⭐ VIDEO A PEZZI, PUBBLICI NEL LANCIO, BRIEF AI META (03/09/2026 pomeriggio)
 
 Tre pezzi in un giro, tutti provati in produzione:
