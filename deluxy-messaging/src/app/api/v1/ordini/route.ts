@@ -119,6 +119,11 @@ export async function GET(req: NextRequest) {
     const esito = await cercaInArchivio(cifre, 10)
     if (esito.stato === 'ok') {
       for (const a of esito.ordini) {
+        // ⚠️ L'archivio cerca `q` su TUTTI i campi (nome cliente, telefono…):
+        // chiedendo «2785» tornano anche ordini il cui numero non c'entra
+        // niente. Qui la domanda è UN NUMERO, quindi si tiene solo chi ce l'ha
+        // nel numero — misurato al primo giro: 6 righe su 8 erano rumore.
+        if (!a.numero.replace(/\D/g, '').includes(cifre)) continue
         // Dedup per numero + negozio: la copia locale viene da lì, e due righe
         // per lo stesso ordine sembrerebbero due ordini con lo stesso numero.
         if (ordini.some((o) => o.numero === a.numero)) continue
