@@ -586,6 +586,13 @@
     "export": "Export",
     "claimOpen": "Claim open",
     "awaitSignature": "Awaiting signature",
+    "payFromReceipts": "Pay from Receipts →",
+    "recapSent": {
+      "title": "Recaps sent",
+      "waiting": "Awaiting receipt",
+      "signed": "Signed · pay from Receipts",
+      "created": "Salary generated: the receipt awaits signature on the Receipts page."
+    },
     "tab": {
       "active": "Active",
       "archive": "Archive",
@@ -668,7 +675,7 @@
       "popupBloccato": "The browser blocked the PDF window: allow pop-ups for this site and retry.",
       "sendConfirm": "Send the pay recap to {{valet}} by email?",
       "sent": "Recap sent to {{a}} ({{n}} deliveries) ✓",
-      "payAll": "Pay",
+      "payAll": "Generate salary",
       "listino": "rate card",
       "noPay": "not payable",
       "fromListino": "{{n}} from rate card",
@@ -708,8 +715,9 @@
     "caption": "Receipts generated when salaries are sent: the valet re-uploads them signed for approval and payment.",
     "empty": "No receipts.",
     "signed": "Signed",
-    "toSign": "To sign",
+    "toSign": "Awaiting receipt",
     "open": "Open",
+    "recapLink": "Sent recap",
     "signAction": "Upload signed",
     "upload": "Upload",
     "pickFile": "Choose file from PC…",

@@ -3,6 +3,35 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 💶 **03/09/2026-terdecies — IL GIRO STIPENDI PASSA DALLE RICEVUTE (regola utente) + importi legacy riparati** (deployato):
+> - **Invia recap = apre il giro formale**: `inviaRecap` (salaries.module.ts),
+>   a mail partita, genera lo stipendio del periodo (stato SENT, in archivio)
+>   e con lui la ricevuta «in attesa»; il recap inviato finisce su Drive
+>   («File App») e resta attaccato alla ricevuta (`fileUrlFrom`), con importo
+>   = netto e `valetId`. Col filtro servizi attivo NON genera (il documento
+>   non coprirebbe tutto) — l'esito lo dice nell'`avviso`.
+> - **Si paga SOLO da Ricevute a ricevuta firmata**: guardia server su
+>   PATCH `/salaries/:id/status` → PAID (400 se esiste una ricevuta non
+>   firmata; stipendi senza ricevute — import vecchi — restano pagabili).
+>   Web stipendi: tolto il passo APPROVED→PAID (NEXT), al suo posto il link
+>   «Si paga da Ricevute →»; «Paga» del Da pagare rinominato «Genera
+>   stipendio» (apre il pannello Genera, come prima).
+> - **Striscia «Recap inviati»** in Stipendi › Da pagare (admin/operation):
+>   stipendi SENT/RECEIPT_PENDING con valet, periodo, netto e stato firma
+>   (In attesa di ricevuta / Firmata · paga da Ricevute). La riga del valet
+>   esce da «Da pagare» dopo l'invio (le consegne entrano nello stipendio).
+> - **Ricevute**: badge «In attesa di ricevuta» (era «Da firmare»), link
+>   «Recap inviato» sul documento Drive; firma in app e «Paga» come prima.
+> - **Ricevute legacy a 0 riparate** (`api/scripts/ripara-importi-ricevute-legacy.mjs`):
+>   46 su 351 avevano amount=0 fedele al CSV; il valore vero stava NEL PDF
+>   (nota di prestazione occasionale). 39 «open» riparate col Totale
+>   Bonifico del PDF (22.168,13 € totali); 6 «paid» 2025 sono zeri veri
+>   (bonifico 0,00 nel PDF); legacyId 351 (Bergamasco) irrecuperabile — il
+>   file puntava al legacy spento e non è sul bucket. ⚠️ Scoperta: dove il
+>   legacy un importo ce l'aveva, `totalAmount` = bonifico − ritenuta (6
+>   campioni su 6), NON il totale pagato: riallineare le 302 ai PDF è una
+>   decisione da prendere con l'utente.
+
 > 🛒 **03/09/2026-duodecies — DELUXY.IT: «ACQUISTA» TORNA A METTERE NEL CARRELLO (rotta legacy rinata qui)** (deployato):
 > - Segnalazione utente: su deluxy.it il pulsante ACQUISTA non aggiungeva
 >   nulla. Causa: per i prodotti NON unici (rose, bouquet, champagne, set…)

@@ -76,11 +76,12 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 /** Passo successivo del flusso lato admin: stato → { next, azione }.
  *  Da SENT si passa a RECEIPT_PENDING quando il VALET firma la ricevuta (pagina Ricevute),
- *  quindi qui non c'è un'azione admin su SENT. */
+ *  quindi qui non c'è un'azione admin su SENT.
+ *  ⭐ 03/09 (regola utente): il PAGAMENTO non parte più da qui — si paga dalla
+ *  pagina Ricevute, a ricevuta firmata. Niente passo APPROVED→PAID. */
 const NEXT: Record<string, { next: string; key: string }> = {
   DRAFT: { next: 'SENT', key: 'send' },
   RECEIPT_PENDING: { next: 'APPROVED', key: 'approve' },
-  APPROVED: { next: 'PAID', key: 'markPaid' },
 };
 
 /** Amministrazione → Stipendi: genera, gestisce il flusso, archivia; il valet vede i propri e apre reclami. */
@@ -239,6 +240,25 @@ const NEXT: Record<string, { next: string; key: string }> = {
         @if (t.arretrato) {
           <p class="avviso">{{ 'salaries.pending.backlog' | translate:{ n: t.arretrato, d: (t.soglia | date: 'dd/MM/yyyy') } }}</p>
         }
+      }
+      <!-- ⭐ 03/09 (regola utente): l'ufficio vede A CHI il recap è stato
+           inviato e a che punto è — in attesa di firma, o firmato e pagabile
+           dalla pagina Ricevute. -->
+      @if (canManage() && recapInviati().length) {
+        <div class="card recap-inviati">
+          <span class="recap-titolo">{{ 'salaries.recapSent.title' | translate }}</span>
+          @for (s of recapInviati(); track s.id) {
+            <span class="recap-riga">
+              <strong>{{ s.valet?.lastName }} {{ s.valet?.firstName }}</strong>
+              <span class="muted">{{ s.periodStart | date: 'dd/MM' }}–{{ s.periodEnd | date: 'dd/MM/yy' }} · {{ s.netAmount | number: '1.2-2' }} €</span>
+              @if (s.status === 'SENT') {
+                <span class="badge" [style.--c]="'#C04C00'"><span class="dot"></span>{{ 'salaries.recapSent.waiting' | translate }}</span>
+              } @else {
+                <a class="badge link" [style.--c]="'#248A3D'" href="/receipts"><span class="dot"></span>{{ 'salaries.recapSent.signed' | translate }}</a>
+              }
+            </span>
+          }
+        </div>
       }
       <div class="card table-wrap">
         <table>
@@ -413,6 +433,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   @if (canManage() && view() === 'active' && next(s.status); as n) {
                     <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
                   }
+                  <!-- ⭐ 03/09: il pagamento parte dalla pagina Ricevute, a
+                       ricevuta firmata — qui si dice solo dove andare. -->
+                  @if (canManage() && s.status === 'APPROVED') {
+                    <a class="link-btn" href="/receipts">{{ 'salaries.payFromReceipts' | translate }}</a>
+                  }
                   @if (canManage() && view() === 'archive') {
                     @if (s.status === 'SENT') { <span class="muted">{{ 'salaries.awaitSignature' | translate }}</span> }
                     @if (next(s.status); as n) {
@@ -513,6 +538,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .plus-btn:hover { border-color: var(--text-tertiary, #b0b0b5); }
       .plus-input { width: 84px; padding: 3px 6px; font-size: 13px; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
+      .recap-inviati { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; margin-bottom: 14px; }
+      .recap-titolo { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+      .recap-riga { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+      .badge.link { text-decoration: none; cursor: pointer; }
       .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
       .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
       .head-actions .btn { text-decoration: none; }
@@ -601,6 +630,8 @@ export class SalariesListComponent {
   /** Si apre su «Da pagare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
+  /** ⭐ 03/09: stipendi SENT/RECEIPT_PENDING — i recap inviati in attesa di firma o pagamento. */
+  readonly recapInviati = signal<Salary[]>([]);
   readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; ruleExcludedCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number; arretrato: number; soglia: string } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
@@ -760,6 +791,17 @@ export class SalariesListComponent {
         },
         error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
       });
+      // ⭐ 03/09: chi ha già ricevuto il recap non sta più in «Da pagare» — la
+      // striscia sopra la tabella dice a chi è stato inviato e a che punto è
+      // la firma (l'invio genera lo stipendio SENT, archiviato).
+      if (this.canManage()) {
+        this.http.get<Salary[]>(`${environment.apiUrl}/salaries`, { params: { archived: 'true' } }).subscribe({
+          next: (righe) => this.recapInviati.set(
+            (righe ?? []).filter((s) => s.status === 'SENT' || s.status === 'RECEIPT_PENDING'),
+          ),
+          error: () => this.recapInviati.set([]),
+        });
+      }
       return;
     }
     if (this.view() === 'archive') filtri['archived'] = 'true';
@@ -878,13 +920,20 @@ export class SalariesListComponent {
   private inviaRecapDavvero(r: Pending): void {
     this.error.set(null);
     this.recapInCorso.set(r.valetId);
-    this.http.post<{ a: string; righe: number }>(
+    this.http.post<{ a: string; righe: number; ricevutaInAttesa?: boolean; avviso?: string }>(
       `${environment.apiUrl}/salaries/recap/${r.valetId}/invia`,
       { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), ...(this.serviziScelti().size ? { servizi: [...this.serviziScelti()] } : {}) },
     ).subscribe({
       next: (esito) => {
         this.recapInCorso.set(null);
-        this.banner.set(this.translate.instant('salaries.pending.sent', { a: esito.a, n: esito.righe }));
+        // ⭐ 03/09: l'invio genera lo stipendio e la ricevuta «in attesa» — la
+        // riga esce da «Da pagare» e compare nella striscia dei recap inviati.
+        this.banner.set(
+          this.translate.instant('salaries.pending.sent', { a: esito.a, n: esito.righe })
+          + (esito.ricevutaInAttesa ? ' ' + this.translate.instant('salaries.recapSent.created') : '')
+          + (esito.avviso ? ` ⚠️ ${esito.avviso}` : ''),
+        );
+        this.load();
       },
       error: (e) => {
         this.recapInCorso.set(null);

@@ -586,6 +586,13 @@
     "export": "Esporta",
     "claimOpen": "Reclamo aperto",
     "awaitSignature": "In attesa di firma",
+    "payFromReceipts": "Si paga da Ricevute →",
+    "recapSent": {
+      "title": "Recap inviati",
+      "waiting": "In attesa di ricevuta",
+      "signed": "Firmata · paga da Ricevute",
+      "created": "Stipendio generato: la ricevuta è in attesa di firma nella pagina Ricevute."
+    },
     "tab": {
       "active": "Attivi",
       "archive": "Archivio",
@@ -668,7 +675,7 @@
       "popupBloccato": "Il browser ha bloccato la finestra del PDF: consenti i pop-up per questo sito e riprova.",
       "sendConfirm": "Mandare il recap paghe a {{valet}} via mail?",
       "sent": "Recap inviato a {{a}} ({{n}} consegne) ✓",
-      "payAll": "Paga",
+      "payAll": "Genera stipendio",
       "listino": "listino",
       "noPay": "non pagabile",
       "fromListino": "{{n}} da listino",
@@ -708,8 +715,9 @@
     "caption": "Ricevute generate dall'invio degli stipendi: il valet le ricarica firmate per l'approvazione e il pagamento.",
     "empty": "Nessuna ricevuta.",
     "signed": "Firmata",
-    "toSign": "Da firmare",
+    "toSign": "In attesa di ricevuta",
     "open": "Apri",
+    "recapLink": "Recap inviato",
     "signAction": "Carica firmata",
     "upload": "Carica",
     "pickFile": "Scegli file dal PC…",

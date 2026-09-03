@@ -105,7 +105,10 @@ interface Receipt {
                 </td>
                 <td>
                   @if (r.fileUrl) { <a [href]="fileHref(r)" target="_blank" rel="noopener">{{ 'receipts.open' | translate }}</a> } @else { <span class="muted">—</span> }
-                  @if (r.fileUrlFrom) { · <a [href]="r.fileUrlFrom" target="_blank" rel="noopener">2</a> }
+                  <!-- ⭐ 03/09: sulle ricevute del giro nuovo fileUrlFrom è il
+                       RECAP INVIATO al valet (Drive); sulle legacy il secondo
+                       documento dell'import. -->
+                  @if (r.fileUrlFrom) { · <a [href]="r.fileUrlFrom" target="_blank" rel="noopener">{{ r.salary ? ('receipts.recapLink' | translate) : '2' }}</a> }
                 </td>
                 <td class="row-actions">
                   <!-- Le storiche sono documenti chiusi: niente flusso firma. -->

@@ -928,7 +928,46 @@ export class SalariesService {
     if (!res.ok || !corpo?.ok) {
       throw new BadRequestException(corpo?.messaggio ?? `AI Mail risponde ${res.status}.`);
     }
-    return { ok: true, a: destinatario, righe: r.righe.length, netto: r.totali.netto };
+
+    // ⭐ 03/09 (regola utente): l'invio del recap APRE il giro formale — si
+    // genera lo stipendio del periodo (stato SENT, in archivio) e con lui la
+    // ricevuta «in attesa», che il valet firma in Ricevute; il pagamento parte
+    // SOLO da lì, a ricevuta firmata. Col filtro servizi attivo non si genera:
+    // lo stipendio coprirebbe consegne che il documento inviato non mostra.
+    const esito: {
+      ok: true; a: string; righe: number; netto: number;
+      stipendioId?: string; ricevutaInAttesa?: boolean; avviso?: string;
+    } = { ok: true, a: destinatario, righe: r.righe.length, netto: r.totali.netto };
+    if (servizi?.length) {
+      esito.avviso = 'Filtro servizi attivo: il recap è partito ma lo stipendio non è stato generato.';
+      return esito;
+    }
+    try {
+      const date = r.righe.map((x) => new Date(x.date).getTime());
+      const dalGen = dal ?? new Date(Math.min(...date)).toISOString().slice(0, 10);
+      const alGen = al ?? new Date(Math.max(...date)).toISOString().slice(0, 10);
+      const stipendio = await this.generate(valetId, dalGen, alGen);
+      await this.updateStatus(stipendio.id, SalaryStatus.SENT);
+      // Il recap inviato resta attaccato alla ricevuta (Drive «File App»), con
+      // l'importo e il valet: la riga in Ricevute si spiega da sola. Se Drive
+      // manca o rifiuta, la ricevuta c'è comunque — solo senza il link.
+      const extra: { valetId: string; amount: number; fileUrlFrom?: string } = { valetId, amount: r.totali.netto };
+      try {
+        const chi = `${r.valet.lastName}-${r.valet.firstName}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+        const su = await this.settings.caricaSuDrive(
+          `recap-paghe-${chi}-${alGen}.html`, Buffer.from(this.recapHtml(r), 'utf8'), 'text/html',
+        );
+        if (su.ok && su.link) extra.fileUrlFrom = su.link;
+      } catch { /* Drive è un di più */ }
+      await this.prisma.receipt.updateMany({ where: { salaryId: stipendio.id }, data: extra });
+      esito.stipendioId = stipendio.id;
+      esito.ricevutaInAttesa = true;
+    } catch (e) {
+      // La mail è GIÀ partita: l'errore di generazione non deve travestirsi da
+      // invio fallito — si riporta com'è, accanto all'esito vero.
+      esito.avviso = `Recap inviato, ma stipendio non generato: ${e instanceof Error ? e.message : e}`;
+    }
+    return esito;
   }
 
   /**
@@ -1165,7 +1204,15 @@ export class SalariesService {
       }
       data.approvedAt = new Date();
     }
-    if (status === SalaryStatus.PAID) data.paidAt = new Date();
+    if (status === SalaryStatus.PAID) {
+      // ⭐ 03/09 (regola utente): si paga SOLO a ricevuta firmata. Gli stipendi
+      // senza ricevuta (giri vecchi, import) restano pagabili: la guardia vale
+      // dove una ricevuta da firmare esiste davvero.
+      if (salary.receipts.length && !salary.receipts.some((r) => r.signed)) {
+        throw new BadRequestException('La ricevuta va firmata dal valet prima del pagamento (pagina Ricevute)');
+      }
+      data.paidAt = new Date();
+    }
     const updated = await this.prisma.salary.update({ where: { id }, data });
 
     // Al pagamento: crea lo storico in Pagamenti (una sola volta, alla transizione a PAID).
