@@ -369,6 +369,37 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐⭐ LE SCHEDE ANALISI ERANO FERME DALL'26/08 — doppio guasto trovato e curato (03/09/2026 sera)
+
+Scoperto rispondendo a «ti risulta un'analisi di oggi?»: **nessuna scheda
+elaborata da OTTO GIORNI** (ultima: 26/08 11:13), mentre il cron delle
+06:10 continuava a IMPORTARE documenti — 8 analisi del 02/09 entrate
+stamattina, zero elaborate. Silenzio totale su tutte e due le strade,
+perché gli esiti vivevano solo nel JSON del cron che nessuno legge
+(trappola documentata, ripagata).
+
+**Due facce dello stesso problema, con claude-opus-5:**
+1. La chiamata non-streaming moriva in «Request timed out» (>120 s con il
+   ragionamento su documenti da 23k+): misurato dal RegistroEvento dopo un
+   Elabora manuale. → `chiediAClaude` ora usa lo **STREAMING**
+   (`finalMessage()`), timeout 280 s, maxRetries 1 (un retry su una
+   chiamata da minuti sfonderebbe ogni maxDuration).
+2. Il **ragionamento consuma anche lui il max_tokens**: coi 12000 delle
+   schede la risposta usciva TRONCATA («JSON illeggibile») — la replica del
+   guasto del 25/08 (8000→12000), un piano più su. → 32000 per le schede,
+   16000 per la riconciliazione; con lo streaming il tetto largo non costa.
+
+Contorno: `/analisi/[id]` NON aveva `maxDuration` (il bottone «Elabora»
+moriva al default in silenzio — la trappola scritta su /campagne/lancia,
+ripagata qui) → 300; il cron drive ha l'**orologio di scadenza** (non
+inizia elaborazioni oltre 230 s dal via) e **scrive i fallimenti nel
+RegistroEvento**.
+
+Provato: l'analisi Cake del 02/09 elaborata al primo giro post-fix
+(verdetto ROSSO); le altre 4 «Analisi» del 02/09 lanciate a mano, audit e
+datapack li prende il cron. ⚠️ Lezione doppia: un esito che vive solo nel
+JSON del cron non esiste; e su opus-5 il thinking va messo a budget.
+
 ### ⭐⭐ GLI ANNUNCI META SI VEDONO (creatività comprese) E IL LANCIO SA FARE CAROSELLO E CATALOGO (03/09/2026 sera)
 
 - **Vista «Annunci su Meta (dal vivo)»** sulla scheda delle campagne Meta
