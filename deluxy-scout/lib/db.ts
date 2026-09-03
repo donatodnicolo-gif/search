@@ -1624,6 +1624,42 @@ export async function annunciaOrdine(ordineId: string): Promise<void> {
     // silenzio: vedi sopra
   }
 }
+/**
+ * ⭐ **ANNUNCIA L'ANNULLAMENTO** di un ordine a tutta la squadra (03/09/2026,
+ * richiesta dell'utente: «invia mail anche per gli ordini annullati come lo fai
+ * per gli ordini creati — in questo caso specifica nell'oggetto che l'ordine è
+ * annullato»).
+ *
+ * Stessa Edge, stessi destinatari, stesso mittente: cambia l'oggetto
+ * (`[ORDINE SCOUT · ANNULLATO] …`) e il corpo, che ricorda le due code che
+ * l'annullamento NON chiude — la consegna aperta con quel DDT e il documento su
+ * FINANCE.
+ *
+ * ⚠️ Best-effort come `annunciaOrdine`: l'ordine è già annullato quando questa
+ * parte, e una mail che non esce non deve far sembrare fallito l'annullamento.
+ *
+ * ⚠️ Le regole (era annunciato? è davvero annullato? l'ho già detto?) le fa
+ * rispettare il SERVER, non chi chiama: chiamarla due volte è innocuo.
+ */
+export async function annunciaAnnullamentoOrdine(ordineId: string): Promise<void> {
+  try {
+    const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/notifica-ordine`;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.supabaseAnonKey(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ordine_id: ordineId, tipo: 'annullato' }),
+    });
+  } catch {
+    // silenzio: vedi sopra
+  }
+}
+
 
 /** Ordine arricchito col nome del negozio, per la schermata Ordini. */
 export interface OrdineConLuogo extends Ordine {
@@ -1928,7 +1964,7 @@ export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'data_ordine' | 'acconto_scadenza' | 'pagamento_scadenza' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota' | 'acconto_percento' | 'acconto_richiesto_il' | 'senza_fornitura'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'data_ordine' | 'acconto_scadenza' | 'pagamento_scadenza' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota' | 'acconto_percento' | 'acconto_richiesto_il' | 'senza_fornitura' | 'annullamento_annunciato_il'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

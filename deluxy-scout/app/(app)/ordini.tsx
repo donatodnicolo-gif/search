@@ -11,8 +11,8 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, creaOrdineNuovo, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { aggiornaIncassiDaFinance, cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
+import { aggiornaOrdine, annunciaAnnullamentoOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, creaOrdineNuovo, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaIncassiDaFinance, annullaDocumento, cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
 import { scaricaPdfProforma } from '@/lib/stampa';
 import { fetchTemplate, type TemplateDocumento } from '@/lib/template-documento';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
@@ -1565,20 +1565,18 @@ export default function Ordini() {
    * tornare indietro fa parte della decisione.
    */
   function chiediAnnulla(o: OrdineConLuogo) {
-    // ⚠️ IL DOCUMENTO NON SI ANNULLA DA QUI (03/09/2026, domanda dell'utente:
-    // «l'annullamento di un ordine annulla anche la pro-forma?»). No: annullare
-    // scrive lo stato di QUESTO ordine e basta. La pro-forma (o la fattura) sta
-    // su FINANCE, che non ha un'azione di annullamento via API — e una fattura
-    // emessa non si cancella affatto, si storna con una nota di credito.
-    // Perciò lo si DICE: un ordine annullato con un documento vivo di là è un
-    // numero che continua a esistere nei conti di FINANCE.
-    const doc = o.fattura_numero || o.proforma_numero;
+    // ⚠️ COSA SUCCEDE AL DOCUMENTO, detto prima di premere (03/09/2026). La
+    // pro-forma viene annullata anche su FINANCE; la FATTURA no, ed è una
+    // regola fiscale, non una mancanza: un documento emesso si storna con una
+    // nota di credito.
     conferma(
       "Annullare l'ordine?",
-      `${o.cliente} · ${importoBreve(o.valore)}.\n\nEsce dal «Chiuso ${new Date().getFullYear()}» e dal «Da incassare». Si può rimettere in gioco dal bottone «Da incassare».${
-        doc
-          ? `\n\n⚠️ ${doc} resta su FINANCE: da qui non si annulla. Va gestito di là (una pro-forma si lascia scadere, una fattura si storna con una nota di credito).`
-          : ''
+      `${o.cliente} · ${importoBreve(o.valore)}.\n\nEsce dal «Chiuso ${new Date().getFullYear()}» e dal «Da incassare», e parte la mail «[ORDINE SCOUT · ANNULLATO]» a tutta la squadra (solo se l'ordine era già stato annunciato). Si può rimettere in gioco dal bottone «Da incassare».${
+        o.fattura_numero
+          ? `\n\n⚠️ La fattura ${o.fattura_numero} NON si annulla: è un documento fiscale, si storna con una nota di credito su FINANCE.`
+          : o.proforma_numero
+            ? `\n\nAnche ${o.proforma_numero} viene annullata su FINANCE — il numero resta assegnato.`
+            : ''
       }`,
       () => cambiaStato(o, 'annullato'),
       { testoConferma: 'Annulla ordine', distruttivo: true },
@@ -1686,7 +1684,39 @@ export default function Ordini() {
       await aggiornaOrdine(o.id, {
         stato,
         incassato_il: stato === 'incassato' ? new Date().toISOString().slice(0, 10) : null,
+        // ⭐ 03/09/2026: rimettere in gioco un ordine annullato AZZERA la
+        // prenotazione dell'annuncio, così un secondo annullamento si può
+        // ridire. Senza, la mail sarebbe partita una volta sola nella vita
+        // dell'ordine — e il secondo annullamento non l'avrebbe saputo nessuno.
+        ...(stato !== 'annullato' ? { annullamento_annunciato_il: null } : {}),
       });
+      // ⭐ L'ANNULLAMENTO SI DICE A TUTTI (03/09/2026, richiesta dell'utente:
+      // «invia mail anche per gli ordini annullati»). Best-effort e dopo la
+      // scrittura: l'ordine è annullato comunque, e le regole (era annunciato?
+      // l'ho già detto?) le fa rispettare la Edge.
+      if (stato === 'annullato') void annunciaAnnullamentoOrdine(o.id);
+      // ⭐ **E IL DOCUMENTO SI ANNULLA DAVVERO** (03/09/2026, richiesta
+      // dell'utente: «serve annullamento»). Prima l'ordine annullato lasciava
+      // la sua pro-forma viva su FINANCE: restava fra i documenti attivi e
+      // nell'atteso da incassare, su una vendita che non esiste più.
+      //
+      // ⚠️ Sta QUI e non nella finestra di conferma perché a `cambiaStato`
+      // arrivano due strade (l'icona in tabella e il bottone della scheda): una
+      // regola scritta su una sola delle due è una regola che si aggira.
+      //
+      // ⚠️ La FATTURA non si tocca: è un documento fiscale, si storna con una
+      // nota di credito. Se l'ordine ne ha una, di qui non parte niente.
+      if (stato === 'annullato' && o.proforma_numero && !o.fattura_numero) {
+        const esito = await annullaDocumento(o.proforma_numero);
+        // ⚠️ Il mancato annullamento si DICE: crederlo annullato e trovarlo
+        // vivo la settimana dopo è peggio che saperlo adesso.
+        if (!esito.annullato) {
+          avvisa(
+            'Ordine annullato, documento no',
+            `${o.proforma_numero} su FINANCE non è stato annullato: ${esito.perche}.\n\nVa chiuso di là, dalla sezione Pro-forma.`,
+          );
+        }
+      }
       carica();
     } catch (e: any) {
       avvisa('Errore', e?.message ?? 'Aggiornamento non riuscito.');

@@ -1,22 +1,33 @@
-// Edge Function `notifica-ordine` (Deno): annuncia un ORDINE NUOVO a tutta la
-// squadra, come fa Shopify con gli ordini del sito.
+// Edge Function `notifica-ordine` (Deno): annuncia a tutta la squadra un ORDINE
+// NUOVO — e, dal 03/09/2026, anche un ordine ANNULLATO.
 //
 // Richiesta dell'utente (28/08/2026): «quando viene creato un ordine poi manda
 // una mail a tutti gli account dell'app come quella degli ordini shopify
-// quindi [ORDINE SCOUT] ecc».
+// quindi [ORDINE SCOUT] ecc»; e (03/09/2026) «invia mail anche per gli ordini
+// annullati come lo fai per gli ordini creati — in questo caso specifica
+// nell'oggetto che l'ordine è annullato».
+//
+//   { ordine_id }                        → [ORDINE SCOUT] …
+//   { ordine_id, tipo: 'annullato' }     → [ORDINE SCOUT · ANNULLATO] …
 //
 // ⭐ **L'OGGETTO PORTA IL RIFERIMENTO** (`[ORDINE SCOUT] SCOUT007 · Cliente ·
 // € 1.200`): è il numero che va scritto come DDT sulla consegna, e chi legge
-// la mail dal telefono deve poterlo copiare senza aprirla.
+// la mail dal telefono deve poterlo copiare senza aprirla. Sull'annullamento
+// l'etichetta sta PRIMA di tutto, dove il telefono non taglia.
 //
 // ⚠️ **SICUREZZA.** Chiama solo un utente Scout loggato (JWT verificato), e i
 // destinatari NON arrivano dal chiamante: si leggono dai profili qui dentro.
 // Se li scegliesse il client, questa funzione sarebbe un modo per spedire mail
 // a chiunque con le caselle di Deluxy.
 //
-// ⚠️ **NON RILANCIA.** Se l'ordine ha già `annunciato_il`, risponde
-// `{ sent: false, reason: 'gia_annunciato' }`: una casella che riceve due
-// volte lo stesso ordine smette di fidarsi della terza.
+// ⚠️ **NON RILANCIA.** Ogni annuncio ha la sua data (`annunciato_il` per il
+// nuovo, `annullamento_annunciato_il` per l'annullamento, migr. 0113): se c'è
+// già, risponde `{ sent: false, reason: 'gia_annunciato' }`. Una casella che
+// riceve due volte lo stesso ordine smette di fidarsi della terza.
+//
+// ⚠️ **L'ANNULLAMENTO SI ANNUNCIA SOLO SE L'ORDINE ERA STATO ANNUNCIATO.** Un
+// ordine annullato da bozza non l'ha mai visto nessuno (l'annuncio parte alla
+// chiusura della pratica): risponde `mai_annunciato` e non manda niente.
 //
 // ⚠️ Se lo SMTP non è configurato la funzione è INERTE (`smtp_non_configurato`)
 // e non è un errore: l'ordine è già salvato, la mail è un di più.
@@ -87,29 +98,53 @@ Deno.serve(async (req) => {
     const { data: userData } = await admin.auth.getUser(jwt);
     if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
 
-    const { ordine_id } = await req.json();
+    const { ordine_id, tipo } = await req.json();
     if (!ordine_id) return json({ error: 'ordine_id mancante' }, 400);
+
+    // ⭐ **DUE ANNUNCI, UNA FUNZIONE** (03/09/2026, richiesta dell'utente:
+    // «invia mail anche per gli ordini annullati come lo fai per gli ordini
+    // creati — in questo caso specifica nell'oggetto che l'ordine è
+    // annullato»). Mittente, destinatari e antidoppione sono gli stessi:
+    // tenerli in due funzioni vorrebbe dire due liste di destinatari da
+    // aggiornare, e una che un giorno resta indietro.
+    const annullato = tipo === 'annullato';
 
     const { data: o } = await admin.from('ordini').select('*').eq('id', ordine_id).single();
     if (!o) return json({ error: 'Ordine non trovato' }, 404);
-    if (o.annunciato_il) return json({ sent: false, reason: 'gia_annunciato' });
+
+    if (annullato) {
+      // ⚠️ Si annuncia solo ciò che È annullato: la mail dice un fatto, e se
+      // l'ordine nel frattempo è tornato in gioco quel fatto non è più vero.
+      if (o.stato !== 'annullato') return json({ sent: false, reason: 'non_annullato' });
+      // ⚠️ E solo se la squadra sapeva che l'ordine esisteva. Un ordine
+      // annullato da BOZZA non è mai stato annunciato (l'annuncio parte alla
+      // chiusura della pratica): dire «annullato SCOUT senza riferimento» a
+      // gente che non ne ha mai sentito parlare è rumore, non informazione.
+      if (!o.annunciato_il) return json({ sent: false, reason: 'mai_annunciato' });
+      if (o.annullamento_annunciato_il) return json({ sent: false, reason: 'gia_annunciato' });
+    } else if (o.annunciato_il) {
+      return json({ sent: false, reason: 'gia_annunciato' });
+    }
 
     // ⚠️ La prenotazione PRIMA dell'invio: due chiamate in parallelo (doppio
     // clic, due schede aperte) devono trovarne una sola libera. La `is null`
     // nella update è la condizione di corsa — chi arriva secondo aggiorna zero
     // righe e si ferma, invece di mandare la seconda copia.
+    const colonna = annullato ? 'annullamento_annunciato_il' : 'annunciato_il';
     const { data: preso } = await admin
       .from('ordini')
-      .update({ annunciato_il: new Date().toISOString() })
+      .update({ [colonna]: new Date().toISOString() })
       .eq('id', ordine_id)
-      .is('annunciato_il', null)
+      .is(colonna, null)
       .select('id');
     if (!preso?.length) return json({ sent: false, reason: 'gia_annunciato' });
+
+    const libera = () => admin.from('ordini').update({ [colonna]: null }).eq('id', ordine_id);
 
     const { data: profili } = await admin.from('profiles').select('id, email, nome');
     const destinatari = (profili ?? []).map((p: any) => p.email).filter((e: string) => !!e && e.includes('@'));
     if (!destinatari.length) {
-      await admin.from('ordini').update({ annunciato_il: null }).eq('id', ordine_id);
+      await libera();
       return json({ sent: false, reason: 'nessun_destinatario' });
     }
 
@@ -120,7 +155,7 @@ Deno.serve(async (req) => {
       // ⚠️ Si RILASCIA la prenotazione: senza, l'ordine resterebbe segnato
       // «annunciato» pur non avendo mandato niente, e configurare lo SMTP dopo
       // non lo recupererebbe più.
-      await admin.from('ordini').update({ annunciato_il: null }).eq('id', ordine_id);
+      await libera();
       return json({ sent: false, reason: 'smtp_non_configurato' });
     }
 
@@ -129,27 +164,53 @@ Deno.serve(async (req) => {
 
     const rif = o.riferimento ?? '(senza riferimento)';
     const valore = euro(o.valore);
-    const oggetto = `[ORDINE SCOUT] ${rif} · ${o.cliente}${valore ? ` · ${valore}` : ''}`;
+    // ⚠️ L'ANNULLAMENTO SI VEDE DALL'ELENCO, senza aprire: l'etichetta sta in
+    // testa all'oggetto, dove il telefono taglia per ultimo. Un «annullato»
+    // messo in fondo, dopo cliente e importo, non lo legge nessuno.
+    const oggetto = annullato
+      ? `[ORDINE SCOUT · ANNULLATO] ${rif} · ${o.cliente}${valore ? ` · ${valore}` : ''}`
+      : `[ORDINE SCOUT] ${rif} · ${o.cliente}${valore ? ` · ${valore}` : ''}`;
 
-    const righe = [
-      `Nuovo ordine su Deluxy Scout.`,
-      ``,
-      `• Riferimento: ${rif}`,
-      `• Cliente: ${o.cliente}`,
-      o.descrizione ? `• Cosa: ${o.descrizione}` : null,
-      o.linea ? `• Linea: ${o.linea}` : null,
-      valore ? `• Valore (IVA esclusa): ${valore}` : `• Valore: non ancora indicato`,
-      o.canale ? `• Canale: ${o.canale}` : null,
-      nomeChiSegue ? `• Seguito da: ${nomeChiSegue}` : null,
-      ``,
-      // ⚠️ L'istruzione operativa sta NELLA MAIL: è il momento in cui serve, e
-      // chi apre la consegna non ha sotto mano né questo documento né me.
-      `Se serve una consegna, apri il servizio sulla piattaforma e scrivi ${rif} nel campo DDT:`,
-      `così la consegna resta legata a questo ordine.`,
-      ``,
-      `Aprilo qui: https://deluxy-scout.vercel.app/ordini`,
-    ].filter((r) => r !== null);
-    const corpo = righe.join('\n');
+    const documento = o.fattura_numero || o.proforma_numero || null;
+    const righe = annullato
+      ? [
+          `Ordine ANNULLATO su Deluxy Scout.`,
+          ``,
+          `• Riferimento: ${rif}`,
+          `• Cliente: ${o.cliente}`,
+          o.descrizione ? `• Cosa: ${o.descrizione}` : null,
+          valore ? `• Valore che non entra: ${valore}` : null,
+          nomeChiSegue ? `• Seguito da: ${nomeChiSegue}` : null,
+          ``,
+          // ⚠️ Le due code che l'annullamento NON chiude da solo: si dicono
+          // qui, che è il momento in cui qualcuno può ancora fermarle.
+          `Se era già stata aperta una consegna con ${rif} nel campo DDT, va annullata sulla piattaforma:`,
+          `l'annullamento dell'ordine non la tocca.`,
+          documento
+            ? `E ${documento} resta su FINANCE: una pro-forma si lascia scadere, una fattura si storna con una nota di credito.`
+            : null,
+          ``,
+          `Aprilo qui: https://deluxy-scout.vercel.app/ordini`,
+        ]
+      : [
+          `Nuovo ordine su Deluxy Scout.`,
+          ``,
+          `• Riferimento: ${rif}`,
+          `• Cliente: ${o.cliente}`,
+          o.descrizione ? `• Cosa: ${o.descrizione}` : null,
+          o.linea ? `• Linea: ${o.linea}` : null,
+          valore ? `• Valore (IVA esclusa): ${valore}` : `• Valore: non ancora indicato`,
+          o.canale ? `• Canale: ${o.canale}` : null,
+          nomeChiSegue ? `• Seguito da: ${nomeChiSegue}` : null,
+          ``,
+          // ⚠️ L'istruzione operativa sta NELLA MAIL: è il momento in cui serve, e
+          // chi apre la consegna non ha sotto mano né questo documento né me.
+          `Se serve una consegna, apri il servizio sulla piattaforma e scrivi ${rif} nel campo DDT:`,
+          `così la consegna resta legata a questo ordine.`,
+          ``,
+          `Aprilo qui: https://deluxy-scout.vercel.app/ordini`,
+        ];
+    const corpo = righe.filter((r) => r !== null).join('\n');
 
     // Un invio per destinatario: `inviaMail` prende un indirizzo solo, e così
     // l'esito si sa per ciascuno invece di perdersi in un tutto-o-niente.
@@ -160,10 +221,10 @@ Deno.serve(async (req) => {
     }
     const riusciti = esiti.filter((e) => e.ok).length;
     if (!riusciti) {
-      await admin.from('ordini').update({ annunciato_il: null }).eq('id', ordine_id);
+      await libera();
       return json({ sent: false, esiti }, 502);
     }
-    return json({ sent: true, riferimento: rif, destinatari: riusciti, esiti });
+    return json({ sent: true, tipo: annullato ? 'annullato' : 'nuovo', riferimento: rif, destinatari: riusciti, esiti });
   } catch (e) {
     return json({ error: String((e as any)?.message ?? e) }, 500);
   }

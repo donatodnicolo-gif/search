@@ -317,6 +317,31 @@ Deno.serve(async (req) => {
           fatturaNumero: body.fatturaNumero ?? undefined,
         }),
       });
+    } else if (body.azione === 'annulla') {
+      // ⭐ **ANNULLA IL DOCUMENTO** (03/09/2026, richiesta dell'utente: alla
+      // domanda «l'annullamento di un ordine annulla anche la pro-forma?» →
+      // «serve annullamento»).
+      //
+      // Prima l'annullo era solo un gesto dentro FINANCE: un ordine annullato in
+      // Scout lasciava la sua pro-forma viva di là, e il documento continuava a
+      // comparire fra quelli attivi (e nell'atteso da incassare).
+      //
+      // ⚠️ Il numero NON si libera: `PF 7/2026` resta assegnato. Un buco nella
+      // serie è normale, due documenti con lo stesso numero no.
+      //
+      // ⚠️ Una FATTURA vera non passa di qui: FINANCE risponde 422 e si storna
+      // con una nota di credito. Il 422 si racconta a chi ha premuto, non si
+      // ingoia.
+      res = await fetch(`${BASE}/api/proforma`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          id: body.id ?? undefined,
+          numero: body.numero ?? undefined,
+          tipo: body.tipo ?? undefined,
+          stato: 'annullata',
+        }),
+      });
     } else if (body.azione === 'esito_preventivo') {
       // L'offerta la chiude il CLIENTE: accettata o rifiutata. È l'unico
       // passaggio che Scout può fare su un preventivo — l'invio e l'annullo

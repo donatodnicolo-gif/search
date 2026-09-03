@@ -34,14 +34,19 @@ import { leggiIntestazione } from "@/lib/intestazione";
 //        · senza `stato` → conferma il PAGAMENTO: stato "fatturata";
 //        · `stato: "accettata" | "rifiutata"` → l'esito di un PREVENTIVO
 //          (422 su una pro-forma: non si accetta una richiesta di pagamento);
+//        · `stato: "annullata"` → ANNULLA il documento (03/09/2026: lo chiama
+//          Scout quando si annulla l'ordine che l'aveva generato). Il numero
+//          resta assegnato; 422 se è già fatturata — una fattura vera si storna
+//          con una nota di credito, non si annulla;
 //        idempotente: ripetere l'esito risponde 200 con "avviso";
 //        422 se annullata (prima va riportata in bozza dall'app).
 //   Header: X-API-Key: <chiave>   (la stessa di /api/verifiche)
 //   Header: X-App: <nome-app>     (facoltativo, per lo storico)
 //
-// La pro-forma nasce in stato "bozza": invio e annullo restano azioni
-// dell'operatore nell'app (sezione Pro-forma); la conferma di pagamento è
-// invocabile anche dalle altre app Deluxy (es. Scout quando segna l'incasso).
+// La pro-forma nasce in stato "bozza": l'INVIO resta un'azione dell'operatore
+// nell'app (sezione Pro-forma); la conferma di pagamento e l'annullamento sono
+// invocabili anche dalle altre app Deluxy (Scout quando segna l'incasso, e
+// quando annulla l'ordine che ha generato il documento).
 // Ogni richiesta viene registrata nello storico (stessa tabella di /api/verifiche).
 
 type ProFormaConRighe = NonNullable<
@@ -322,9 +327,9 @@ export async function PATCH(req: NextRequest) {
   // `rifiutata` sono i due esiti che una pro-forma non ha. Senza `stato` la
   // PATCH fa quello che ha sempre fatto (conferma del pagamento → fatturata).
   const richiesto = body.stato?.trim();
-  if (richiesto && !["accettata", "rifiutata", "fatturata"].includes(richiesto)) {
+  if (richiesto && !["accettata", "rifiutata", "fatturata", "annullata"].includes(richiesto)) {
     return NextResponse.json(
-      { errore: "Campo 'stato' ammesso solo con: accettata, rifiutata, fatturata." },
+      { errore: "Campo 'stato' ammesso solo con: accettata, rifiutata, fatturata, annullata." },
       { status: 400 }
     );
   }
@@ -349,6 +354,45 @@ export async function PATCH(req: NextRequest) {
   if (!pf) {
     await log(req, query, "non_trovato");
     return NextResponse.json({ errore: "Documento non trovato." }, { status: 404 });
+  }
+
+  // ── L'ANNULLAMENTO ────────────────────────────────────────────────────────
+  // ⭐ 03/09/2026, richiesta dell'utente: quando in Scout si annulla un ordine,
+  // il suo documento deve poter essere annullato davvero — prima restava vivo
+  // qui, e un ordine «annullato» continuava a comparire fra i documenti attivi
+  // di FINANCE.
+  //
+  // ⚠️ NON tocca il numero: `PF 7/2026` resta assegnato per sempre. La
+  // numerazione di un documento non si riusa — un buco nella serie è normale,
+  // due documenti con lo stesso numero no.
+  //
+  // ⚠️⚠️ UNA FATTURATA NON SI ANNULLA DA QUI. Se dietro c'è una fattura vera su
+  // Fatture in Cloud, quel documento è fiscale: si storna con una nota di
+  // credito, non si cancella. Rispondere «annullata» sarebbe scrivere il falso
+  // in due archivi.
+  if (richiesto === "annullata") {
+    if (pf.stato === "annullata") {
+      await log(req, query, "trovato", `${rifProForma(pf)} già annullata`, pf.partner);
+      return NextResponse.json({ ...pubblica(pf), avviso: "Documento già annullato in precedenza." });
+    }
+    if (pf.stato === "fatturata") {
+      await log(req, query, "trovato", `${rifProForma(pf)} fatturata: annullamento rifiutato`, pf.partner);
+      return NextResponse.json(
+        {
+          errore: pf.fatturaNumero
+            ? `Documento già fatturato (fattura ${pf.fatturaNumero}): non si annulla, si storna con una nota di credito.`
+            : "Documento già fatturato: non si annulla da fuori.",
+        },
+        { status: 422 }
+      );
+    }
+    const esito = await prisma.proForma.update({
+      where: { id: pf.id },
+      data: { stato: "annullata", annullataIl: new Date() },
+      include: { partner: true, righe: true },
+    });
+    await log(req, query, "trovato", `${rifProForma(esito)} → annullata`, esito.partner);
+    return NextResponse.json(pubblica(esito));
   }
 
   // ── Il preventivo accettato o rifiutato ───────────────────────────────────

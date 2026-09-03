@@ -421,6 +421,10 @@ export interface Ordine {
   riferimento?: string | null;
   /** Quando è partita la mail [ORDINE SCOUT] a tutti (migr. 0096). */
   annunciato_il?: string | null;
+  /** Quando è partita la mail [ORDINE SCOUT · ANNULLATO] (migr. 0113).
+   *  ⚠️ Si azzera quando l'ordine torna in gioco: un annullamento nuovo è un
+   *  fatto nuovo, e va detto di nuovo. */
+  annullamento_annunciato_il?: string | null;
   /** L'ACCONTO richiesto al cliente (migr. 0103): percentuale e quando.
    *  ⚠️ Si tiene la percentuale, non l'importo: se il valore cambia, il 30%
    *  resta il 30% — un importo secco invecchierebbe in silenzio. */

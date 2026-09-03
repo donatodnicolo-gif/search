@@ -297,6 +297,38 @@ export async function cercaFattura(numero: string): Promise<FatturaTrovata> {
 export async function confermaPagamentoProforma(numero: string): Promise<void> {
   await chiama({ azione: 'conferma', numero });
 }
+/**
+ * ⭐ **ANNULLA IL DOCUMENTO su FINANCE** (03/09/2026, richiesta dell'utente:
+ * «serve annullamento»).
+ *
+ * Si chiama quando in Scout si annulla l'ordine che aveva generato la
+ * pro-forma: senza, il documento restava vivo di là — fra quelli attivi e
+ * nell'atteso da incassare — su un ordine che non esiste più.
+ *
+ * ⚠️ Non lancia: torna un esito da RACCONTARE. Il caso più importante non è un
+ * guasto ma una risposta legittima — «già fatturata» — e va detta a chi ha
+ * premuto, perché quella si storna con una nota di credito, non si annulla.
+ *
+ * ⚠️ `tipo` serve solo per i numeri ambigui (`1/2026`): con «PF 7/2026» o
+ * «PV 3/2026» lo capisce FINANCE dal prefisso.
+ */
+export interface EsitoAnnullamento {
+  annullato: boolean;
+  /** Perché no, in una frase da mostrare. Vuoto se annullato. */
+  perche: string;
+}
+export async function annullaDocumento(numero: string, tipo?: 'proforma' | 'preventivo'): Promise<EsitoAnnullamento> {
+  const rif = (numero ?? '').trim();
+  if (!rif) return { annullato: false, perche: 'non c\u2019è nessun documento da annullare' };
+  try {
+    const r = await chiama<{ avviso?: string; errore?: string }>({ azione: 'annulla', numero: rif, tipo });
+    // FINANCE risponde 200 con `avviso` quando era già annullato: è un sì.
+    return { annullato: true, perche: r?.avviso ?? '' };
+  } catch (e: any) {
+    return { annullato: false, perche: String(e?.message ?? e) };
+  }
+}
+
 
 // ── Riepilogo finanziario del cliente (fatturato + andamento) da FINANCE ────────
 
