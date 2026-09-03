@@ -458,6 +458,10 @@
   "invoices": {
     "title": "Fatturazione",
     "caption": "Genera e gestisci le fatture dei partner: una riga per ogni consegna da fatturare nel periodo.",
+    "partner": {
+      "incassi": "Incassi",
+      "servizi": "Servizi"
+    },
     "allPartners": "Tutti i partner",
     "generate": "Genera fattura",
     "empty": "Nessuna fattura.",

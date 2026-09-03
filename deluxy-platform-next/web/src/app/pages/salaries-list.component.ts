@@ -969,8 +969,30 @@ export class SalariesListComponent {
     const importo = e.valore ?? 0;
     if (importo === (d.plusMinus ?? 0)) return; // niente da scrivere
     this.http.patch(`${environment.apiUrl}/deliveries/massa/plus-valet`, { ids: [d.id], importo }).subscribe({
-      next: () => this.ricaricaPending(),
+      next: () => {
+        // 03/09 (regola utente): dopo il plus/minus si vede SUBITO il nuovo
+        // valore — dettaglio E totali — senza ricaricare la pagina (niente
+        // spinner, il pannello resta aperto, lo scroll non si muove).
+        this.ricaricaPending();
+        this.ricaricaTotaliSilenziosa();
+      },
       error: () => this.error.set('Plus/minus non salvato'),
+    });
+  }
+
+  /** Rilegge lista e riepilogo del Da pagare SENZA accendere il loading. */
+  private ricaricaTotaliSilenziosa(): void {
+    if (this.view() !== 'pending') return;
+    const filtri: Record<string, string> = {};
+    if (this.valetFilter) filtri['valetId'] = this.valetFilter;
+    if (this.dal) filtri['dal'] = this.dal;
+    if (this.al) filtri['al'] = this.al;
+    if (this.queryServizi()) filtri['servizi'] = this.queryServizi();
+    this.http.get<{ voci: Pending[]; totali: any }>(
+      `${environment.apiUrl}/salaries/pending`, { params: filtri },
+    ).subscribe({
+      next: (d) => { this.pending.set(d.voci ?? []); this.pendingTotals.set(d.totali ?? null); },
+      error: () => undefined,
     });
   }
   /** Rilegge il dettaglio del valet aperto (stessi filtri del pannello). */

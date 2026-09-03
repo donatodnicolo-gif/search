@@ -226,12 +226,25 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <div class="card riepilogo">
           <div><span class="etichetta">{{ 'invoices.pending.partners' | translate }}</span><strong>{{ t.partners | number }}</strong></div>
           <div><span class="etichetta">{{ 'invoices.pending.deliveries' | translate }}</span><strong>{{ t.deliveriesCount | number }}</strong></div>
-          <div><span class="etichetta">{{ 'invoices.col.net' | translate }}</span><strong>{{ t.netAmount | number: '1.2-2' }} €</strong></div>
-          @if (t.venduto) {
-            <div><span class="etichetta">{{ 'invoices.pending.sold' | translate }}</span><strong>{{ t.venduto | number: '1.2-2' }} €</strong></div>
-            <div><span class="etichetta">{{ 'invoices.pending.dueToPartner' | translate }}</span><strong class="dovuto">{{ t.dovutoAlPartner | number: '1.2-2' }} €</strong></div>
+          <!-- 03/09 (regola utente): al PARTNER la pagina parla coi SUOI
+               versi — «Servizi» è quel che paga (negativo), «Incassi» quel
+               che riceve dalle vendite (positivo), Totale = differenza.
+               Per admin/operation resta tutto com'era. -->
+          @if (isPartner()) {
+            <div><span class="etichetta">{{ 'invoices.partner.servizi' | translate }}</span><strong class="rosso">−{{ t.netAmount | number: '1.2-2' }} €</strong></div>
+            @if (t.venduto) {
+              <div><span class="etichetta">{{ 'invoices.pending.sold' | translate }}</span><strong>{{ t.venduto | number: '1.2-2' }} €</strong></div>
+            }
+            <div><span class="etichetta">{{ 'invoices.partner.incassi' | translate }}</span><strong class="dovuto">{{ t.dovutoAlPartner | number: '1.2-2' }} €</strong></div>
+            <div><span class="etichetta">{{ 'invoices.col.total' | translate }}</span><strong class="oro">{{ (t.dovutoAlPartner - t.netAmount) | number: '1.2-2' }} €</strong></div>
+          } @else {
+            <div><span class="etichetta">{{ 'invoices.col.net' | translate }}</span><strong>{{ t.netAmount | number: '1.2-2' }} €</strong></div>
+            @if (t.venduto) {
+              <div><span class="etichetta">{{ 'invoices.pending.sold' | translate }}</span><strong>{{ t.venduto | number: '1.2-2' }} €</strong></div>
+              <div><span class="etichetta">{{ 'invoices.pending.dueToPartner' | translate }}</span><strong class="dovuto">{{ t.dovutoAlPartner | number: '1.2-2' }} €</strong></div>
+            }
+            <div><span class="etichetta">{{ 'invoices.col.total' | translate }}</span><strong class="oro">{{ t.totalAmount | number: '1.2-2' }} €</strong></div>
           }
-          <div><span class="etichetta">{{ 'invoices.col.total' | translate }}</span><strong class="oro">{{ t.totalAmount | number: '1.2-2' }} €</strong></div>
           @if (t.unpricedCount) {
             <div><span class="etichetta">{{ 'invoices.pending.unpriced' | translate }}</span><strong class="rosso">{{ t.unpricedCount | number }}</strong></div>
           }
@@ -257,8 +270,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <th class="num">{{ 'invoices.col.deliveries' | translate }}</th>
               <th class="num">{{ 'invoices.pending.unpriced' | translate }}</th>
               <th class="num">{{ 'invoices.pending.sold' | translate }}</th>
-              <th class="num">{{ 'invoices.pending.dueToPartner' | translate }}</th>
-              <th class="num">{{ 'invoices.col.net' | translate }}</th>
+              <th class="num">{{ (isPartner() ? 'invoices.partner.incassi' : 'invoices.pending.dueToPartner') | translate }}</th>
+              <th class="num">{{ (isPartner() ? 'invoices.partner.servizi' : 'invoices.col.net') | translate }}</th>
               <th class="num">{{ 'invoices.col.total' | translate }}</th>
               <th>{{ 'invoices.col.actions' | translate }}</th>
             </tr>
@@ -279,9 +292,18 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   @if (r.unpricedCount) { <span class="rosso">{{ r.unpricedCount | number }}</span> } @else { <span class="muted">—</span> }
                 </td>
                 <td class="num muted">{{ r.venduto ? ((r.venduto | number: '1.2-2') + ' €') : '—' }}</td>
-                <td class="num">{{ r.dovutoAlPartner ? ('−' + (r.dovutoAlPartner | number: '1.2-2') + ' €') : '—' }}</td>
-                <td class="num muted">{{ r.netAmount | number: '1.2-2' }} €</td>
-                <td class="num strong">{{ r.totalAmount | number: '1.2-2' }} €</td>
+                <!-- Al partner: Incassi POSITIVI, Servizi NEGATIVI, Totale =
+                     differenza. Per l'ufficio i versi restano quelli di prima
+                     (il dovuto è un'uscita: −). -->
+                @if (isPartner()) {
+                  <td class="num dovuto-cella">{{ r.dovutoAlPartner ? ((r.dovutoAlPartner | number: '1.2-2') + ' €') : '—' }}</td>
+                  <td class="num">−{{ r.netAmount | number: '1.2-2' }} €</td>
+                  <td class="num strong">{{ (r.dovutoAlPartner - r.netAmount) | number: '1.2-2' }} €</td>
+                } @else {
+                  <td class="num">{{ r.dovutoAlPartner ? ('−' + (r.dovutoAlPartner | number: '1.2-2') + ' €') : '—' }}</td>
+                  <td class="num muted">{{ r.netAmount | number: '1.2-2' }} €</td>
+                  <td class="num strong">{{ r.totalAmount | number: '1.2-2' }} €</td>
+                }
                 <td class="row-actions">
                   <button class="link-btn" (click)="togglePendingDetail(r)">
                     {{ (pendingOpen() === r.chiave ? 'invoices.action.hideDetail' : 'invoices.action.detail') | translate }}
@@ -524,6 +546,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .chip-serv.on { background: var(--ink, #1d1d1f); border-color: transparent; color: #fff; }
       .rosso { color: #C0392B; font-weight: 600; }
       .dovuto { color: #007aff; }
+      .dovuto-cella { color: #007aff; font-weight: 600; }
       .cod-link { font-weight: 600; color: var(--blue, #0a84ff); text-decoration: none; font-variant-numeric: tabular-nums; }
       .cod-link:hover { text-decoration: underline; }
       .regola-tag { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; font-size: 11.5px;

@@ -458,6 +458,10 @@
   "invoices": {
     "title": "Invoicing",
     "caption": "Generate and manage partner invoices: one line per billable delivery in the period.",
+    "partner": {
+      "incassi": "Receipts",
+      "servizi": "Services"
+    },
     "allPartners": "All partners",
     "generate": "Generate invoice",
     "empty": "No invoices.",

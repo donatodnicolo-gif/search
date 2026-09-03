@@ -3,6 +3,23 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-septies — FATTURAZIONE LATO PARTNER, PLUS SENZA RICARICA,
+> FLOWERS FERMI** (deployato):
+> - **Fatturazione vista PARTNER** (regola utente, chanel_consegne): il
+>   dovuto diventa «**Incassi**» (positivo, blu), l'imponibile «**Servizi**»
+>   (negativo), **Totale = Incassi − Servizi** — riepilogo e righe mese.
+>   Admin/operation INVARIATI (dovuto −, imponibile +, totale con IVA).
+> - **Plus/minus da Stipendi**: dopo il salvataggio si aggiornano SUBITO
+>   dettaglio + lista + riepilogo senza loading (ricaricaTotaliSilenziosa) —
+>   pannello aperto e scroll fermi. In Fatturazione non esiste un editor di
+>   plus (si modifica dalla consegna).
+> - **🔴 Vendite FLOWERS ferme al #2847** (02/09 14:30): gli ordini Flowers
+>   #2849/#2850/#2852 NON sono mai arrivati in piattaforma (i «2849/50/52»
+>   presenti sono deluxy.it #12849/50/52). Il buco è A MONTE (Orders/CS «In
+>   App» → push a piattaforma), non in Vendite. Da verificare in CS/Orders —
+>   nota di memoria: la chiave di scrittura del CS verso piattaforma era
+>   VUOTA (aperto dal 31/08).
+>
 > 🧪 **03/09/2026-sexies — LE NON CONSEGNATE SI FATTURANO** (deployato):
 > - **Decisione utente** (caso #48552): `not_delivered` ESCE da
 >   `NON_BILLABLE_STATUSES` — il viaggio c'è stato, l'addebito resta. Ora
