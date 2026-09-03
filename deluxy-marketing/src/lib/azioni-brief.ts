@@ -126,12 +126,10 @@ export async function proponiBriefCampagna(input: {
   ]);
 
   const esito = await chiediAllAi({
-    // ⚠️ Scelta dell'utente (26/08): il brief di CREAZIONE CAMPAGNA usa
-    // OpenAI, qualunque sia il fornitore globale delle Impostazioni. Il resto
-    // dell'app (schede analisi, riconciliazione, proposte) resta sul globale.
-    // Serve la chiave: Impostazioni → Intelligenza artificiale → OpenAI,
-    // oppure la variabile OPENAI_API_KEY — senza, il bottone dice cosa manca.
-    fornitore: "openai",
+    // Il brief segue il fornitore GLOBALE delle Impostazioni (oggi Claude).
+    // Il 26/08 era stato fissato su OpenAI (`fornitore: "openai"`) su
+    // richiesta; il 27/08 l'utente è tornato al globale. L'override
+    // per-funzione resta disponibile in chiediAllAi, per quando servirà.
     istruzioni: `Sei un esperto di Google Ads che prepara una campagna di ricerca per ${ETICHETTA_BRAND[brand] ?? brand}.
 
 Compila un brief completo a partire dalla richiesta dell'utente. Rispondi SOLO con il JSON dello schema.
