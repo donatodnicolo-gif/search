@@ -369,6 +369,42 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ VIDEO A PEZZI, PUBBLICI NEL LANCIO, BRIEF AI META (03/09/2026 pomeriggio)
+
+Tre pezzi in un giro, tutti provati in produzione:
+
+- **VIDEO**: su Vercel il corpo di una richiesta ha un tetto DURO a 4,5 MB
+  (misurato sulle fonti, non configurabile) — quindi niente server action:
+  il browser AFFETTA il file (~3 MB a pezzo, `CaricaVideoMeta`) e
+  `/api/interno/meta/video` (protetta dalla password come /interno/chiavi)
+  inoltra ogni pezzo alla sessione chunked di Meta (start/transfer/finish,
+  è Meta a dettare gli offset). Il `video_id` finisce nel campo nascosto
+  del form; il creative diventa `video_data` con l'**immagine come
+  COPERTINA obbligatoria**. Immagini: tetto corretto a **4 MB** — il 6 di
+  prima sarebbe morto in un 413 di piattaforma prima del nostro controllo.
+- **PUBBLICI**: colonna `idEsterno` su `Pubblico` (ALTER mirato, schema
+  aggiornato), censimento delle custom audience da Meta
+  (`lib/pubblici-meta.ts` — nel cron orario di Meta E col bottone
+  «Censisci da Meta» su /pubblici, stessa funzione). Lo stato NON viene mai
+  toccato dal censimento; nuovo stato **«estinto»** = gemello di «defunta»:
+  sparisce da elenchi e lanci, si rivede solo col filtro. Nel modulo Meta i
+  pubblici del brand (censiti, non estinti) si SPUNTANO e finiscono in
+  `targeting.custom_audiences` dell'ad set; le esclusioni restano
+  promemoria. Misurato: **142 pubblici censiti** (97 gifts · 24 flowers ·
+  21 cake), 24 scelgibili sul lancio Flowers.
+- **BRIEF AI sul modulo Meta** (`proponiBriefCampagnaMeta` +
+  `BriefCampagnaMetaAi`): descrizione a parole → obiettivo, budget e
+  livello, strategia, paesi/città, età/genere, copy, CTA compilati nei
+  campi. I pubblici si spuntano a mano.
+
+**Annotazione MISURATA sugli script Google**: l'utente ha reincollato le
+copie aggiornate su Gifts e Cake — e le dichiarazioni lo confermano: tutti
+e tre i conti (Cake 846-090-5423 · Gifts 248-656-1148 · Flowers
+825-518-1560) si sono presentati da soli il 03/09 (14:04–14:17), versione
+`2026-08-26`, **16 tipi** dichiarati. Se un'operazione accodata portasse
+l'avviso «questa copia non sa eseguire X», è il segnale che serve la copia
+`.2` — l'avviso in coda lo dirà da solo.
+
 ### ⭐ IL LANCIO META CARICA LA CREATIVITÀ E CREA L'ANNUNCIO (03/09/2026)
 
 Il modulo Meta ha il campo **immagine** (JPG/PNG/WebP ≤6 MB;
