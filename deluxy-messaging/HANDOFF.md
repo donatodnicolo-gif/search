@@ -1,5 +1,49 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (6) — lo stato di OGNI vendita dentro l'app delivery
+
+Domanda dell'utente: «per ogni vendita riesci a recuperare lo stato all'interno
+dell'app delivery?».
+
+**Sì, il meccanismo c'è già tutto** — e oggi torna zero. Misurato:
+
+| | |
+|---|---|
+| `piattaformaApiKey` in Impostazioni | **VUOTA** |
+| `piattaformaCollegata()` | **false** |
+| ordini con `appStato` valorizzato | **0 su 1.495** |
+
+Il client (`src/lib/piattaforma.ts`), il giro di lettura
+(`sync-piattaforma.ts`, UNA chiamata a `/app/vendite?aggiornateDa=`), il cron
+(`*/15`: `12,27,42,57`) e le colonne (`appStato`, `appPartner`,
+`appCostoPartner`, `appVenditaId`) esistono da giorni. Manca **solo la chiave**:
+si genera di là in **Configurazione → Chiavi delle app** (sola lettura basta
+per questo) e si incolla in **Impostazioni → piattaformaApiKey**. Da lì in poi
+si riempie da solo, ogni quarto d'ora.
+
+### Il pezzo che mancava davvero, e che ho aggiunto
+
+La sync teneva solo lo stato della **vendita** (proposta · accettata · …) e
+buttava quello della **consegna**, che arriva nella stessa risposta
+(`voce.consegna`). Sono due cose diverse: la vendita dice se un partner ha preso
+il lavoro, la consegna dice **a che punto è il giro**. Un ordine appena proposto
+e uno già consegnato si leggevano uguali.
+
+- Tre colonne nuove: `appConsegnaStato`, `appConsegnaData`, `appConsegnaFascia`
+  (ALTER additivi, come per la foto dei pagamenti — non `prisma db push`).
+- La sync le scrive, **e le azzera** quando di là la consegna non c'è più:
+  lasciare «in consegna» su un giro annullato è peggio che non scrivere niente.
+- ⚠️ Il confronto «è cambiato qualcosa?» adesso guarda anche lo stato della
+  consegna: senza, una consegna che passa a «consegnata» a parità di stato della
+  vendita non veniva mai scritta, e la scheda restava ferma.
+- `appConsegnaId` si riempie solo se vuoto: quando l'ordine è stato mandato in
+  app da qui, quello è il nostro e non si sovrascrive.
+- Sulla scheda: «Consegna: **in consegna** · 3 settembre 17-18», con i nomi
+  italiani degli stati della piattaforma (`nomeStatoConsegna`).
+
+⚠️ **Non verificato sui dati veri**: senza chiave la piattaforma non risponde,
+quindi il giro completo non l'ho potuto vedere girare. Typecheck e build sì.
+
 ## 02/09/2026 (5) — la foto letta dall'AI adesso si può riprendere
 
 Chiesto dall'utente: «in pagamenti, se è stata caricata una richiesta di

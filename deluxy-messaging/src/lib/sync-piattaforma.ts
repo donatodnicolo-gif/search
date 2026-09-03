@@ -167,6 +167,8 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
       appVenditaId: true,
       appPartner: true,
       appCostoPartner: true,
+      appConsegnaId: true,
+      appConsegnaStato: true,
       appGestionePrima: true,
       appInterrottoIl: true,
     },
@@ -183,7 +185,24 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
     appPartner: partner,
     appCostoPartner: v.vendita.costoPartner,
     appAggiornatoIl: new Date(),
+    // ── LO STATO DELLA CONSEGNA ──
+    //
+    // ⚠️⚠️ 02/09/2026 (utente: «per ogni vendita riesci a recuperare lo stato
+    // dentro app delivery?»): la vendita dice se un partner ha preso il
+    // lavoro, la CONSEGNA dice a che punto e il giro. Prima si teneva solo la
+    // prima, e un ordine appena proposto si leggeva come uno gia consegnato.
+    //
+    // ⚠️ Vuoto quando di la la consegna non c e ancora (vendita proposta e
+    // basta): si azzera invece di lasciare quello di ieri, o resterebbe
+    // scritto «in consegna» su un giro che e stato annullato.
+    appConsegnaStato: v.consegna?.stato ?? '',
+    appConsegnaData: v.consegna?.data ? new Date(v.consegna.data) : null,
+    appConsegnaFascia: v.consegna?.fascia ?? '',
   }
+  // ⚠️ L id della consegna si scrive solo se non ce l abbiamo: quando
+  // l ordine e stato mandato in app da qui, quello e il nostro e non si
+  // sovrascrive. Serve per gli ordini che la piattaforma ha smistato da sola.
+  if (v.consegna?.id && !ordine.appConsegnaId) dati.appConsegnaId = v.consegna.id
 
   // ── 1. L'ordine passa in app ──
   if (nelleSueMani && ordine.gestione !== CHIUSURA && !ordine.appInterrottoIl) {
@@ -225,7 +244,10 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
     ordine.appStato !== stato ||
     ordine.appVenditaId !== v.vendita.id ||
     (ordine.appPartner ?? '') !== partner ||
-    (ordine.appCostoPartner ?? null) !== (v.vendita.costoPartner ?? null)
+    (ordine.appCostoPartner ?? null) !== (v.vendita.costoPartner ?? null) ||
+    // ⚠️ Senza questa riga una consegna che passa a «consegnata» a parita di
+    // stato della vendita non veniva mai scritta: la scheda restava ferma.
+    (ordine.appConsegnaStato ?? '') !== (v.consegna?.stato ?? '')
   ) {
     if (!prova) await db.ordine.update({ where: { id: ordine.id }, data: dati })
     return { esito: 'aggiornato', testo: '' }

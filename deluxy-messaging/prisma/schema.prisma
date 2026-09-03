@@ -662,6 +662,19 @@ model Ordine {
   appConsegnaNumero String    @default("")
   appMandataIl      DateTime?
   appMandataDaNome  String    @default("")
+  /**
+   * Lo stato della CONSEGNA di là, e quando è prevista.
+   *
+   * ⚠️⚠️ È una cosa diversa da `appStato`: quello dice se un partner ha preso
+   * il lavoro, questo a che punto è il giro (created · assigned · accepted ·
+   * in_delivery · delivered · not_delivered · cancelled · not_accepted). Senza,
+   * dalla scheda un ordine appena proposto e uno già consegnato si leggevano
+   * uguali. Copia a breve scadenza come gli altri campi `app*`: la verità sta
+   * di là (Standard §7).
+   */
+  appConsegnaStato  String    @default("")
+  appConsegnaData   DateTime?
+  appConsegnaFascia String    @default("")
 
   // ── Chi se ne sta occupando ──
   //

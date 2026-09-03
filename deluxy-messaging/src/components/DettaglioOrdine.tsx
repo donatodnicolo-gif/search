@@ -20,7 +20,7 @@ import {
 } from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import { linkPagamentoOrdine } from '@/lib/link-ordine'
-import { nomeStatoVendita } from '@/lib/piattaforma-stati'
+import { nomeStatoConsegna, nomeStatoVendita } from '@/lib/piattaforma-stati'
 import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
 import type { BozzaMail } from './ComponiMail'
 
@@ -133,6 +133,10 @@ type OrdineDettaglio = {
   appCostoPartner?: number | null
   appInterrottoIl?: string | null
   appConsegnaNumero?: string
+  /** Lo stato della CONSEGNA di là: created · in_delivery · delivered … */
+  appConsegnaStato?: string
+  appConsegnaData?: string | null
+  appConsegnaFascia?: string
   appMandataDaNome?: string
   /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
   pagamentoApertoId?: string
@@ -1754,6 +1758,26 @@ export function DettaglioOrdine({
                       numero è una parola che nessuno può verificare — e capita
                       per davvero, perché il passo si può anche solo segnare a
                       mano. Il numero è quello che si legge di là. */}
+                  {/* ── A CHE PUNTO È IL GIRO ──
+                      ⚠️⚠️ Chiesto dall'utente il 02/09/2026: «per ogni vendita
+                      riesci a recuperare lo stato all'interno dell'app
+                      delivery?». Lo stato della VENDITA qui sopra dice se un
+                      partner ha preso il lavoro; questo dice se è stata
+                      consegnata. Prima un ordine appena proposto e uno già
+                      consegnato si leggevano uguali — e al cliente che chiama
+                      si rispondeva a naso. */}
+                  {ordine.appConsegnaStato ? (
+                    <div className="cella-sub">
+                      Consegna: <strong>{nomeStatoConsegna(ordine.appConsegnaStato)}</strong>
+                      {ordine.appConsegnaData
+                        ? ` · ${new Date(ordine.appConsegnaData).toLocaleDateString('it-IT', {
+                            day: 'numeric',
+                            month: 'long',
+                          })}`
+                        : ''}
+                      {ordine.appConsegnaFascia ? ` ${ordine.appConsegnaFascia}` : ''}
+                    </div>
+                  ) : null}
                   <div className="cella-sub">
                     {ordine.appConsegnaNumero
                       ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''}`

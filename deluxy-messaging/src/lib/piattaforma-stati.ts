@@ -37,3 +37,38 @@ export function nomeStatoVendita(stato: string): string {
       return stato || 'stato sconosciuto'
   }
 }
+
+/**
+ * Come si dice a schermo lo stato della CONSEGNA (l'incarico al valet), che è
+ * una cosa diversa dallo stato della vendita.
+ *
+ * ⚠️⚠️ Servono tutte e due: la vendita dice se un partner ha preso il lavoro,
+ * la consegna dice a che punto è il giro. «Accettato dal partner» con la
+ * consegna già `delivered` vuol dire che è finita; senza questa riga, dalla
+ * scheda non si distingueva un ordine appena proposto da uno già consegnato.
+ * Sono gli stati della piattaforma, scritti come li scrive lei.
+ */
+export function nomeStatoConsegna(stato: string): string {
+  switch ((stato ?? '').trim()) {
+    case 'created':
+      return 'creata, senza valet'
+    case 'assigned':
+      return 'assegnata a un valet'
+    case 'in_preparation':
+      return 'in preparazione'
+    case 'accepted':
+      return 'presa dal valet'
+    case 'in_delivery':
+      return 'in consegna'
+    case 'delivered':
+      return 'consegnata'
+    case 'not_delivered':
+      return 'NON consegnata'
+    case 'cancelled':
+      return 'annullata'
+    case 'not_accepted':
+      return 'rifiutata dal valet'
+    default:
+      return stato || ''
+  }
+}
