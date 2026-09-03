@@ -35,7 +35,9 @@ export async function smtpConfigurato(): Promise<boolean> {
   return Boolean(c.host && c.user && c.pass);
 }
 
-export async function inviaEmail(opts: { to: string; subject: string; text: string }) {
+export type AllegatoEmail = { filename: string; content: Buffer; contentType: string };
+
+export async function inviaEmail(opts: { to: string; subject: string; text: string; allegati?: AllegatoEmail[] }) {
   const c = await configSmtp();
   if (!c.host || !c.user || !c.pass) {
     throw new Error(
@@ -53,5 +55,6 @@ export async function inviaEmail(opts: { to: string; subject: string; text: stri
     to: opts.to,
     subject: opts.subject,
     text: opts.text,
+    attachments: opts.allegati?.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })),
   });
 }

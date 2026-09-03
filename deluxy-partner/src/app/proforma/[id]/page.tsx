@@ -2,19 +2,19 @@ import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { totaliProForma, importoRiga, rifProForma, statiDi, statoDocumento } from "@/lib/proforma";
+import { statoDocumento } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
-import { StampaButton } from "@/components/StampaButton";
-import { intestazioneDaMostrare } from "@/lib/intestazione";
-import { anagraficaPerId } from "@/lib/anagrafiche";
+import { AzioniDocumento } from "@/components/AzioniDocumento";
+import { caricaDocumentoProForma } from "@/lib/proforma-documento";
 import { ficUrlFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
-// Dettaglio pro-forma: anteprima del documento (stampabile in PDF dal browser)
-// e gestione del ciclo di vita — invia, segna fatturata, annulla, riporta in bozza.
+// Dettaglio pro-forma / preventivo: l'anteprima del DOCUMENTO — la stessa
+// che si stampa (@media print) e che il PDF (/proforma/[id]/pdf) riproduce —
+// e la gestione del ciclo di vita: invia, segna fatturata, annulla, riporta in
+// bozza. I dati del foglio arrivano da un punto solo (proforma-documento.ts).
 export default async function ProFormaDetail({
   params,
   searchParams,
@@ -24,98 +24,56 @@ export default async function ProFormaDetail({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  // ⚠️ Le impostazioni generali non si leggono più qui: le legge
-  // `intestazionePerDocumento`, che sa scegliere fra template e ripiego.
-  const pf = await prisma.proForma.findUnique({
-    where: { id },
-    include: { partner: true, righe: { orderBy: { ordine: "asc" } } },
-  });
-  if (!pf) notFound();
+  const d = await caricaDocumentoProForma(id);
+  if (!d) notFound();
 
-  const tot = totaliProForma(pf.righe);
-  const st = statoDocumento(pf.tipo, pf.stato, pf.fatturaNumero);
+  const e = d.emittente;
+  const c = d.cliente;
+  const st = statoDocumento(d.preventivo ? "preventivo" : "proforma", d.stato, d.fatturaNumero);
   // Eliminabile finché non è una fattura VERA su FIC (numero presente).
-  const puoEliminare = !(pf.stato === "fatturata" && pf.fatturaNumero);
-  const rif = rifProForma(pf);
-  // Lo stesso documento con due nomi: qui si decide come si chiama, in
-  // intestazione e nel testo di legge. ⚠️ Un preventivo NON può portare la
-  // formula della pro-forma («non costituisce fattura ai sensi dell'art. 21»):
-  // è un'offerta, non un documento fiscale mancato.
-  const preventivo = pf.tipo === "preventivo";
-
-  // I DATI FISCALI DEL CLIENTE vengono da ANAGRAFICHE, non ricopiati qui: se il
-  // partner è collegato al registro (`anagraficaId`) si legge da lì ragione
-  // sociale, indirizzo, P.IVA, C.F., SDI e PEC — che sono la casa di quel dato.
-  // Il partner FINANCE non li tiene (per questo il documento li mostrava vuoti).
-  // Non fatale: se il registro è giù, restano i pochi campi del partner.
-  const anag = pf.partner.anagraficaId ? await anagraficaPerId(pf.partner.anagraficaId, 8000) : null;
-  const cliente = {
-    nome: pf.partner.ragioneSociale || anag?.ragioneSociale || pf.partner.nome,
-    insegna: null as string | null,
-    indirizzo: anag?.indirizzo ?? null,
-    citta: anag?.citta ?? pf.partner.citta ?? null,
-    pIva: anag?.pIva ?? null,
-    codiceFiscale: anag?.codiceFiscale ?? null,
-    codiceSdi: anag?.datiFinanziari?.codiceSdi ?? null,
-    pec: anag?.datiFinanziari?.pec ?? null,
-    email: pf.partner.email ?? anag?.email ?? null,
-  };
-  // Mostra l'insegna sotto la ragione sociale solo se è davvero un'altra cosa.
-  if (pf.partner.nome && pf.partner.nome !== cliente.nome) cliente.insegna = pf.partner.nome;
+  const puoEliminare = !(d.stato === "fatturata" && d.fatturaNumero);
   // Se la pro-forma è «fatturata» con un numero, il link per aprirla su FIC;
   // se è «fatturata» SENZA numero è una fatturata finta, e va sbloccata.
   const urlFicFattura =
-    pf.stato === "fatturata" && pf.fatturaNumero
-      ? await ficUrlFattura(pf.fatturaNumero, new Date(pf.data).getFullYear())
-      : null;
-  // Se l'indirizzo contiene già la città (es. «… 20143 Milano»), non ripeterla.
-  const cittaSeparata =
-    cliente.citta && !(cliente.indirizzo ?? "").toLowerCase().includes(cliente.citta.toLowerCase())
-      ? cliente.citta
-      : null;
-  // Per una fattura vera servono P.IVA e un recapito elettronico (SDI o PEC):
-  // se mancano, il documento lo dice invece di far scoprire il buco a valle.
-  const mancanti: string[] = [];
-  if (!cliente.pIva) mancanti.push("P. IVA");
-  if (!cliente.codiceSdi && !cliente.pec) mancanti.push("Cod. SDI o PEC");
-
-  // ⚠️ L'INTESTAZIONE VIENE DAL TEMPLATE DEL DOCUMENTO, se ne ha uno
-  // (27/08/2026): logo e dati societari del brand con cui è stato emesso.
-  // Senza template si torna alle quattro righe generali di sempre — chi non usa
-  // i template non vede cambiare niente.
-  const ii = await intestazioneDaMostrare(pf.intestazione, preventivo);
-  const intestazione = ii.ragioneSociale;
-  const indirizzo = ii.indirizzo;
-  const piva = ii.piva;
-  const contatti = ii.contatti;
-  const disclaimer = ii.disclaimer;
+    d.stato === "fatturata" && d.fatturaNumero ? await ficUrlFattura(d.fatturaNumero, new Date(d.data).getFullYear()) : null;
+  const righeMittente = [
+    e.indirizzo,
+    e.piva ? `P. IVA ${e.piva}` : "",
+    e.codiceFiscale && e.codiceFiscale !== e.piva ? `C.F. ${e.codiceFiscale}` : "",
+    e.rea ? `REA ${e.rea}` : "",
+    e.sdi ? `SDI ${e.sdi}` : "",
+    e.pec ? `PEC ${e.pec}` : "",
+    e.contatti,
+  ].filter(Boolean);
+  const mostraPagamento = !d.preventivo && (e.modalitaPagamento || e.iban);
+  const ibanSpaziato = e.iban ? e.iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim() : "";
 
   return (
     <>
       <div className="page-head no-print">
         <div>
           <TornaIndietro
-            fallback={preventivo ? "/proforma?tipo=preventivo" : "/proforma"}
-            label={preventivo ? "Preventivi" : "Pro-forma"}
+            fallback={d.preventivo ? "/proforma?tipo=preventivo" : "/proforma"}
+            label={d.preventivo ? "Preventivi" : "Pro-forma"}
           />
-          <h1 className="page-title">{preventivo ? "Preventivo" : "Pro-forma"} {rif}</h1>
+          <h1 className="page-title">{d.preventivo ? "Preventivo" : "Pro-forma"} {d.rif}</h1>
           <p className="page-caption">
-            {pf.partner.nome} · {euro(tot.totale)} IVA inclusa
-            {pf.inviataIl ? ` · inviata il ${dataIt(pf.inviataIl)}${pf.inviataA ? ` a ${pf.inviataA}` : ""}` : ""}
+            {c.nome} · {euro(d.totali.totale)} IVA inclusa
+            {d.inviataIl ? ` · inviata il ${dataIt(d.inviataIl)}${d.inviataA ? ` a ${d.inviataA}` : ""}` : ""}
           </p>
         </div>
-        <div className="page-actions" style={{ alignItems: "center", display: "flex", gap: 10 }}>
+        <div className="page-actions" style={{ alignItems: "center", display: "flex", gap: 10, flexWrap: "wrap" }}>
           <span className={`badge ${st.badge}`}>
             <span className="dot" />
             {st.label}
-            {pf.stato === "fatturata" && pf.fatturaNumero ? ` n. ${pf.fatturaNumero}` : ""}
+            {d.stato === "fatturata" && d.fatturaNumero ? ` n. ${d.fatturaNumero}` : ""}
           </span>
-          <StampaButton />
+          <AzioniDocumento id={id} />
         </div>
       </div>
 
       {sp.erroreStato && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.2)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card no-print" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.2)", background: "rgba(215,0,21,0.06)" }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.erroreStato)}</span>
         </div>
       )}
@@ -134,60 +92,69 @@ export default async function ProFormaDetail({
       )}
       {sp.inviata && (
         <div className="card no-print" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />Email inviata e documento segnato come &laquo;Inviata&raquo;</span>
+          <span className="badge green"><span className="dot" />Email inviata con il PDF allegato e documento segnato come &laquo;Inviata&raquo;</span>
         </div>
       )}
-
-      {/* ————— Documento ————— */}
-      {mancanti.length > 0 && (
-        <div className="card" style={{ padding: 12, marginBottom: 12, borderColor: "rgba(201,52,0,0.2)", background: "rgba(201,52,0,0.06)" }}>
+      {d.mancanti.length > 0 && (
+        <div className="card no-print" style={{ padding: 12, marginBottom: 12, borderColor: "rgba(201,52,0,0.2)", background: "rgba(201,52,0,0.06)" }}>
           <span style={{ fontSize: 13, color: "var(--orange)" }}>
             Per emettere la fattura vera mancano ancora, sull&apos;anagrafica del cliente:{" "}
-            <strong>{mancanti.join(" · ")}</strong>. Si compilano in Anagrafiche (il registro è la loro casa).
+            <strong>{d.mancanti.join(" · ")}</strong>. Si compilano in Anagrafiche (il registro è la loro casa).
           </span>
         </div>
       )}
+
+      {/* ————— Il documento: quello che il cliente riceve ————— */}
       <div className="docpf card">
         <div className="docpf-top">
-          <div>
-            {ii.logoDataUrl ? (
+          <div style={{ maxWidth: 420 }}>
+            {e.logoDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={ii.logoDataUrl} alt="" className="docpf-logo" />
-            ) : null}
-            <div className="docpf-brand">{intestazione}</div>
-            {indirizzo && <div className="docpf-mittente">{indirizzo}</div>}
-            {piva && <div className="docpf-mittente">P. IVA {piva}</div>}
-            {ii.codiceFiscale && <div className="docpf-mittente">C.F. {ii.codiceFiscale}</div>}
-            {ii.rea && <div className="docpf-mittente">REA {ii.rea}</div>}
-            {ii.sdi && <div className="docpf-mittente">SDI {ii.sdi}</div>}
-            {ii.pec && <div className="docpf-mittente">PEC {ii.pec}</div>}
-            {contatti && <div className="docpf-mittente">{contatti}</div>}
+              <img src={e.logoDataUrl} alt={e.brand || e.ragioneSociale} className="docpf-logo" />
+            ) : (
+              <div className="docpf-wordmark">{(e.brand || e.ragioneSociale || "Deluxy").toUpperCase()}</div>
+            )}
+            <div className="docpf-brand">{e.ragioneSociale}</div>
+            {righeMittente.map((r, i) => (
+              <div key={i} className="docpf-mittente">{r}</div>
+            ))}
           </div>
           <div className="docpf-titolo">
-            <div className="docpf-tipo">{preventivo ? "Preventivo" : "Fattura pro-forma"}</div>
-            <div className="docpf-numero">{rif}</div>
-            <div className="docpf-data">del {dataIt(pf.data)}</div>
+            <div className="docpf-tipo">{d.titolo}</div>
+            <div className="docpf-numero">{d.rif}</div>
+            <div className="docpf-data">del {dataIt(d.data)}</div>
+          </div>
+        </div>
+        <div className="docpf-regola" />
+
+        <div className="docpf-blocchi">
+          <div style={{ flex: 1 }}>
+            <div className="docpf-label">Spettabile</div>
+            <div className="docpf-dest-nome">{c.nome}</div>
+            {c.insegna && <div className="docpf-mittente">{c.insegna}</div>}
+            {c.indirizzo && <div className="docpf-mittente">{c.indirizzo}</div>}
+            {c.citta && <div className="docpf-mittente">{c.citta}</div>}
+            {c.pIva && <div className="docpf-mittente">P. IVA {c.pIva}</div>}
+            {c.codiceFiscale && <div className="docpf-mittente">C.F. {c.codiceFiscale}</div>}
+            {c.codiceSdi && <div className="docpf-mittente">Cod. SDI {c.codiceSdi}</div>}
+            {c.pec && <div className="docpf-mittente">PEC {c.pec}</div>}
+            {c.email && <div className="docpf-mittente">{c.email}</div>}
+          </div>
+          <div className="docpf-meta">
+            <div className="docpf-meta-riga"><span>Documento</span><span>{d.rif}</span></div>
+            <div className="docpf-meta-riga"><span>Data</span><span>{dataIt(d.data)}</span></div>
+            {d.scadenza && <div className="docpf-meta-riga"><span>Termine di pagamento</span><span>{dataIt(d.scadenza)}</span></div>}
+            {d.preventivo && d.validoFino && (
+              <div className="docpf-meta-riga"><span>Offerta valida fino al</span><span>{dataIt(d.validoFino)}</span></div>
+            )}
+            <div className="docpf-meta-riga"><span>Totale</span><span>{euro(d.totali.totale)}</span></div>
           </div>
         </div>
 
-        <div className="docpf-dest">
-          <div className="docpf-label">Spettabile</div>
-          <div className="docpf-dest-nome">{cliente.nome}</div>
-          {cliente.insegna && <div className="docpf-mittente">{cliente.insegna}</div>}
-          {cliente.indirizzo && <div className="docpf-mittente">{cliente.indirizzo}</div>}
-          {cittaSeparata && <div className="docpf-mittente">{cittaSeparata}</div>}
-          {cliente.pIva && <div className="docpf-mittente">P. IVA {cliente.pIva}</div>}
-          {cliente.codiceFiscale && cliente.codiceFiscale !== cliente.pIva && (
-            <div className="docpf-mittente">C.F. {cliente.codiceFiscale}</div>
-          )}
-          {cliente.codiceSdi && <div className="docpf-mittente">Cod. SDI {cliente.codiceSdi}</div>}
-          {cliente.pec && <div className="docpf-mittente">PEC {cliente.pec}</div>}
-          {cliente.email && <div className="docpf-mittente">{cliente.email}</div>}
-        </div>
-
-        {pf.oggetto && (
+        {d.oggetto && (
           <div className="docpf-oggetto">
-            <span className="docpf-label">Oggetto</span> {pf.oggetto}
+            <span className="docpf-label">Oggetto</span>
+            {d.oggetto}
           </div>
         )}
 
@@ -202,68 +169,68 @@ export default async function ProFormaDetail({
             </tr>
           </thead>
           <tbody>
-            {pf.righe.map((r) => (
+            {d.righe.map((r) => (
               <tr key={r.id}>
                 <td>{r.descrizione}</td>
                 <td className="num">{r.quantita.toLocaleString("it-IT")}</td>
                 <td className="num">{euro(r.prezzoUnitario)}</td>
                 <td className="num">{pctIt(r.aliquotaIva)}</td>
-                <td className="num">{euro(importoRiga(r))}</td>
+                <td className="num importo">{euro(r.importo)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         <div className="docpf-bottom">
-          <div className="docpf-note">
-            {pf.scadenza && (
-              <p><span className="docpf-label">Termine di pagamento</span> {dataIt(pf.scadenza)}</p>
-            )}
-            {preventivo && pf.validoFino && (
-              <p><span className="docpf-label">Offerta valida fino al</span> {dataIt(pf.validoFino)}</p>
-            )}
-            {pf.note && <p style={{ whiteSpace: "pre-wrap" }}>{pf.note}</p>}
-            {/* ⚠️ COME SI PAGA, sul documento (27/08/2026). Un foglio che chiede
-                soldi senza dire dove mandarli fa perdere un giro di mail: la
-                modalità e l'IBAN vengono dal template del brand. */}
-            {!preventivo && (ii.modalitaPagamento || ii.iban) && (
-              <p>
-                <span className="docpf-label">Pagamento</span> {ii.modalitaPagamento}
-                {ii.iban ? `${ii.modalitaPagamento ? " — " : ""}IBAN ${ii.iban}` : ""}
-                {ii.banca ? ` presso ${ii.banca}` : ""}
-                {ii.bic ? ` (BIC ${ii.bic})` : ""}
-                {ii.intestatarioConto ? ` — intestato a ${ii.intestatarioConto}` : ""}
-              </p>
-            )}
-            <p className="docpf-disclaimer">{disclaimer}</p>
-          </div>
+          <div className="docpf-note">{d.note && <p>{d.note}</p>}</div>
           <div className="docpf-totali">
-            {tot.perAliquota.map((a) => (
-              <div className="docpf-tot-riga" key={a.aliquota}>
+            {d.totali.perAliquota.map((a) => (
+              <div className="docpf-tot-riga" key={`i${a.aliquota}`}>
                 <span>Imponibile {pctIt(a.aliquota)}</span>
                 <span>{euro(a.imponibile)}</span>
               </div>
             ))}
-            {tot.perAliquota.map((a) => (
-              <div className="docpf-tot-riga" key={`iva-${a.aliquota}`}>
+            {d.totali.perAliquota.map((a) => (
+              <div className="docpf-tot-riga" key={`v${a.aliquota}`}>
                 <span>IVA {pctIt(a.aliquota)}</span>
                 <span>{euro(a.iva)}</span>
               </div>
             ))}
             <div className="docpf-tot-riga docpf-tot-finale">
               <span>Totale documento</span>
-              <span>{euro(tot.totale)}</span>
+              <span>{euro(d.totali.totale)}</span>
             </div>
           </div>
+        </div>
+
+        {/* COME SI PAGA, sul documento (27/08/2026): un foglio che chiede soldi
+            senza dire dove mandarli fa perdere un giro di mail. */}
+        {mostraPagamento && (
+          <div className="docpf-pagamento">
+            <div className="docpf-label" style={{ display: "block", marginBottom: 8 }}>Pagamento</div>
+            {e.modalitaPagamento && <div className="docpf-pag-riga"><span>Modalità</span><span>{e.modalitaPagamento}</span></div>}
+            {e.iban && <div className="docpf-pag-riga"><span>IBAN</span><span className="docpf-iban">{ibanSpaziato}</span></div>}
+            {e.intestatarioConto && <div className="docpf-pag-riga"><span>Intestato a</span><span>{e.intestatarioConto}</span></div>}
+            {(e.banca || e.bic) && (
+              <div className="docpf-pag-riga"><span>Banca</span><span>{[e.banca, e.bic ? `BIC ${e.bic}` : ""].filter(Boolean).join(" · ")}</span></div>
+            )}
+            {d.scadenza && <div className="docpf-pag-riga"><span>Entro il</span><span>{dataIt(d.scadenza)}</span></div>}
+          </div>
+        )}
+
+        <p className="docpf-disclaimer">{e.disclaimer}</p>
+        <div className="docpf-piede">
+          <span>{[e.ragioneSociale, e.indirizzo, e.piva ? `P. IVA ${e.piva}` : "", e.contatti].filter(Boolean).join("  ·  ")}</span>
+          <span>{d.rif}</span>
         </div>
       </div>
 
       {/* ————— Ciclo di vita ————— */}
       <div className="card no-print" style={{ marginTop: 16, padding: 18 }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          {pf.stato === "bozza" && (
+          {d.stato === "bozza" && (
             <>
-              <Link href={`/proforma/${id}/invia`} className="btn primary">Invia al partner…</Link>
+              <Link href={`/proforma/${id}/invia`} className="btn primary" title="Email al cliente con il PDF allegato">Invia al partner…</Link>
               {/* Si puo fatturare anche direttamente da una bozza, senza passare
                   prima per «inviata»: FIC crea la fattura dalle righe e la pro-forma
                   diventa «fatturata». */}
@@ -279,7 +246,7 @@ export default async function ProFormaDetail({
               </form>
             </>
           )}
-          {pf.stato === "inviata" && (
+          {d.stato === "inviata" && (
             <>
               <Link
                 href={`/fic/fattura?proforma=${id}`}
@@ -310,12 +277,12 @@ export default async function ProFormaDetail({
               </form>
             </>
           )}
-          {pf.stato === "fatturata" && (
+          {d.stato === "fatturata" && (
             <>
-              {pf.fatturaNumero ? (
+              {d.fatturaNumero ? (
                 <>
                   <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
-                    Fatturata{pf.fatturataIl ? ` il ${dataIt(pf.fatturataIl)}` : ""} — fattura n. {pf.fatturaNumero}.
+                    Fatturata{d.fatturataIl ? ` il ${dataIt(d.fatturataIl)}` : ""} — fattura n. {d.fatturaNumero}.
                   </span>
                   {urlFicFattura && (
                     <a href={urlFicFattura} target="_blank" rel="noopener noreferrer" className="btn secondary">
@@ -343,10 +310,10 @@ export default async function ProFormaDetail({
               </form>
             </>
           )}
-          {pf.stato === "annullata" && (
+          {d.stato === "annullata" && (
             <>
               <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
-                Annullata{pf.annullataIl ? ` il ${dataIt(pf.annullataIl)}` : ""}. Il numero {rif} resta assegnato.
+                Annullata{d.annullataIl ? ` il ${dataIt(d.annullataIl)}` : ""}. Il numero {d.rif} resta assegnato.
               </span>
               <form action={cambiaStatoProForma.bind(null, id, "bozza", undefined)} style={{ display: "inline", marginLeft: "auto" }}>
                 <button className="btn small secondary" type="submit">Ripristina in bozza</button>
@@ -358,13 +325,13 @@ export default async function ProFormaDetail({
               <ConfermaElimina
                 verbo="Elimina"
                 inCorso="Elimino…"
-                oggetto={pf.stato === "bozza" ? "questa bozza" : `la pro-forma ${rif}`}
+                oggetto={d.stato === "bozza" ? "questa bozza" : `la pro-forma ${d.rif}`}
                 conseguenza="Non è stata emessa su Fatture in Cloud, quindi non c'è nessuna fattura da toccare: sparisce solo questo documento."
               />
             </form>
           )}
         </div>
-        {(!indirizzo || !piva) && (
+        {(!e.indirizzo || !e.piva) && (
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
             Suggerimento: completa l&apos;intestazione del documento (ragione sociale, indirizzo, P. IVA) in{" "}
             <Link href="/impostazioni" style={{ color: "var(--blue)" }}>Impostazioni → Intestazione documenti</Link>.

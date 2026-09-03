@@ -478,15 +478,33 @@ input:focus, select:focus, textarea:focus {
 .righe-totali { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .righe-totali strong { color: var(--text); font-weight: 600; }
 
-/* ————— Pro-forma: documento ————— */
-.docpf { padding: 44px 48px; max-width: 860px; }
-.docpf-top { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
-.docpf-brand { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+/* ————— Pro-forma / preventivo: il DOCUMENTO (02/09/2026) —————
+   Un foglio A4 che va in mano al cliente: stessa gerarchia del PDF
+   (src/lib/proforma-pdf.tsx) — testa con logo o wordmark, regola d'oro,
+   «Spettabile» + scheda del documento, righe con hairline, totali con la riga
+   finale marcata, blocco pagamento su fondo chiaro, disclaimer in calce.
+   L'oro è SOLO accento (etichetta del tipo, regola): mai su testo lungo. */
+.docpf { padding: 48px 56px 40px; max-width: 860px; background: #fff; }
+.docpf-top { display: flex; justify-content: space-between; gap: 28px; align-items: flex-start; }
+.docpf-brand { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 /* Il logo del brand in testa al documento. ⚠️ Altezza fissa e larghezza
    automatica: i loghi arrivano con proporzioni diverse, e vincolando la
    larghezza uno stretto verrebbe schiacciato. Il tetto sulla larghezza evita
    che un logo panoramico spinga fuori il numero del documento. */
-.docpf-logo { display: block; height: 46px; width: auto; max-width: 220px; object-fit: contain; margin-bottom: 8px; }
+.docpf-logo { display: block; height: 52px; width: auto; max-width: 220px; object-fit: contain; object-position: left; margin-bottom: 12px; }
+/* Senza logo: il wordmark tipografico (stesso carattere del logo dell'app). */
+.docpf-wordmark { font-family: var(--font-logo); font-size: 28px; font-weight: 700; letter-spacing: 0.14em; line-height: 1.1; margin-bottom: 12px; }
+.docpf-regola { height: 1px; background: var(--gold); opacity: 0.9; margin: 22px 0 28px; }
+.docpf-blocchi { display: flex; justify-content: space-between; gap: 36px; align-items: flex-start; }
+.docpf-meta { min-width: 250px; }
+.docpf-meta-riga { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
+.docpf-meta-riga span:first-child { color: var(--text-secondary); }
+.docpf-meta-riga span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.docpf-pagamento { margin-top: 26px; padding: 16px 18px; background: var(--fill); border-radius: var(--radius-m); }
+.docpf-pag-riga { display: flex; gap: 14px; font-size: 13px; padding: 2px 0; }
+.docpf-pag-riga span:first-child { width: 110px; flex: none; color: var(--text-secondary); font-size: 12px; }
+.docpf-iban { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; letter-spacing: 0.04em; }
+.docpf-piede { margin-top: 28px; padding-top: 10px; border-top: 1px solid var(--hairline); font-size: 11px; color: var(--text-tertiary); display: flex; justify-content: space-between; gap: 16px; }
 
 /* ————— Template dei documenti ————— */
 /* Form a sinistra, anteprima a destra: si configura guardando il risultato. */
@@ -504,53 +522,64 @@ input:focus, select:focus, textarea:focus {
 .docpf-mittente { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
 .docpf-titolo { text-align: right; }
 .docpf-tipo {
-  font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--gold-strong, #8a6d2f);
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--gold);
 }
-.docpf-numero { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; }
-.docpf-data { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+.docpf-numero { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-top: 4px; line-height: 1.15; }
+.docpf-data { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
 .docpf-label {
-  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--text-tertiary); margin-right: 6px;
 }
-.docpf-dest { margin-top: 32px; }
-.docpf-dest-nome { font-size: 15.5px; font-weight: 600; margin-top: 3px; }
-.docpf-oggetto { margin-top: 18px; font-size: 13.5px; }
-.docpf-righe { width: 100%; border-collapse: collapse; margin-top: 22px; }
+.docpf-dest-nome { font-size: 17px; font-weight: 700; margin-top: 4px; letter-spacing: -0.01em; }
+.docpf-oggetto { margin-top: 24px; font-size: 14px; }
+.docpf-oggetto .docpf-label { display: block; margin-bottom: 3px; }
+.docpf-righe { width: 100%; border-collapse: collapse; margin-top: 26px; }
 .docpf-righe th {
-  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--text-secondary); text-align: left; padding: 8px 10px;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); text-align: left; padding: 8px 10px 8px 0;
   border-bottom: 1.5px solid var(--text); background: none;
 }
-.docpf-righe td { font-size: 13.5px; padding: 9px 10px; border-bottom: 1px solid var(--hairline); }
-.docpf-righe .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.docpf-bottom { display: flex; justify-content: space-between; gap: 32px; margin-top: 22px; align-items: flex-start; }
-.docpf-note { flex: 1; font-size: 12.5px; color: var(--text-secondary); }
-.docpf-note p { margin-bottom: 8px; }
-.docpf-disclaimer { font-size: 11.5px; color: var(--text-tertiary); margin-top: 14px; line-height: 1.5; }
-.docpf-totali { min-width: 250px; }
+.docpf-righe th.num { padding-right: 0; }
+.docpf-righe td { font-size: 13.5px; padding: 11px 10px 11px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.docpf-righe .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 0; }
+.docpf-righe td.importo { font-weight: 600; }
+.docpf-bottom { display: flex; justify-content: space-between; gap: 36px; margin-top: 22px; align-items: flex-start; }
+.docpf-note { flex: 1; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.docpf-note p { margin-bottom: 8px; white-space: pre-wrap; }
+.docpf-disclaimer { font-size: 11px; color: var(--text-tertiary); margin-top: 18px; line-height: 1.5; }
+.docpf-totali { min-width: 280px; }
 .docpf-tot-riga {
   display: flex; justify-content: space-between; gap: 18px;
   font-size: 13px; padding: 5px 0; font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
 .docpf-tot-finale {
-  border-top: 1.5px solid var(--text); margin-top: 6px; padding-top: 9px;
-  font-size: 15px; font-weight: 700; color: var(--text);
+  border-top: 1.5px solid var(--text); margin-top: 8px; padding-top: 10px;
+  font-size: 17px; font-weight: 700; color: var(--text);
 }
 
 .pf-esito summary { list-style: none; cursor: pointer; display: inline-flex; }
 .pf-esito summary::-webkit-details-marker { display: none; }
 
-/* Stampa: resta solo il documento, su foglio bianco A4 */
+/* Stampa (02/09/2026): resta SOLO il documento, su A4 con i margini del PDF.
+   I colori si conservano (regola d'oro, fondo del blocco pagamento); le righe
+   e i blocchi non si spezzano a metà pagina. */
+@page { size: A4; margin: 18mm 18mm 20mm; }
 @media print {
-  .sidebar, .no-print { display: none !important; }
-  .main { padding: 0; }
-  body, .shell { background: #fff; }
+  .sidebar, .no-print, .topbar-mobile, .scrim { display: none !important; }
+  html, body { background: #fff !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 11pt; }
+  .shell { display: block; }
+  .main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
   .docpf.card {
     border: none; box-shadow: none; border-radius: 0;
-    max-width: none; padding: 10mm 6mm;
+    max-width: none; padding: 0;
   }
+  .docpf-righe { page-break-inside: auto; }
+  .docpf-righe thead { display: table-header-group; }
+  .docpf-righe tr, .docpf-bottom, .docpf-pagamento { page-break-inside: avoid; break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
 }
 
 /* Termini di pagamento rapidi (scadenza fattura) */

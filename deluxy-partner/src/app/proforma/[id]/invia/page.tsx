@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { totaliProForma, testoEmailProForma, rifProForma } from "@/lib/proforma";
 import { inviaEmail, smtpConfigurato } from "@/lib/mail";
+import { caricaDocumentoProForma } from "@/lib/proforma-documento";
+import { pdfProForma } from "@/lib/proforma-pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,13 @@ async function invia(proFormaId: string, fd: FormData) {
   if (!to || !subject || !text) redirect(`/proforma/${proFormaId}/invia?errore=campi`);
 
   try {
-    await inviaEmail({ to, subject, text });
+    // Il documento viaggia ALLEGATO come PDF (02/09/2026): il cliente riceve
+    // il foglio con logo e coordinate, non solo il testo. Se il PDF non si
+    // genera, l'email non parte a metà: l'errore si legge in pagina.
+    const doc = await caricaDocumentoProForma(proFormaId);
+    if (!doc) redirect(`/proforma/${proFormaId}/invia?errore=${encodeURIComponent("Documento non trovato")}`);
+    const pdf = await pdfProForma(doc);
+    await inviaEmail({ to, subject, text, allegati: [{ filename: doc.nomeFile, content: pdf, contentType: "application/pdf" }] });
   } catch (e) {
     redirect(`/proforma/${proFormaId}/invia?errore=${encodeURIComponent((e as Error).message)}`);
   }

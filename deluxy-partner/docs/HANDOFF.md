@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 02/09/2026 (sera) — Pro-forma e preventivi: documento elegante, stampa A4, «Scarica PDF», PDF allegato all'email
+>
+> Chiesto dall'utente: «le pro-forme devono essere eleganti con logo e adattate a poter essere condivise col cliente, in particolare facendo stampa; metti anche un bottone per scaricare il PDF».
+> - **Un punto solo per i dati del foglio**: `src/lib/proforma-documento.ts` (`caricaDocumentoProForma`) raccoglie emittente (intestazione fotografata o Impostazioni), cliente (dati fiscali da Anagrafiche, 8 s), righe, totali, riferimento, `nomeFile`. Lo leggono la pagina, la stampa e il PDF: non possono divergere.
+> - **PDF vero, generato sul server** con `@react-pdf/renderer` (`src/lib/proforma-pdf.tsx`, `next.config.ts` → `serverExternalPackages`): rotta **`GET /proforma/[id]/pdf`** (sessione; `?inline=1` per aprirlo nel browser), nome file «Pro-forma PF 12-2026 — Cliente.pdf» (RFC 6266, ASCII + UTF-8). Font incorporati (Helvetica/Times/Courier): niente download a runtime. ⚠️ Logo: react-pdf disegna PNG/JPEG (data URL o https); un logo **SVG** cade sul wordmark tipografico. Provato su un documento campione (4 righe, IBAN, scadenza): 6 KB, una pagina.
+> - **La pagina** (`/proforma/[id]`) ha lo stesso disegno del PDF: logo o wordmark, regola d'oro, «Spettabile» + scheda del documento (numero, data, termine, totale), righe con hairline, totali con riga finale marcata, blocco **Pagamento** su fondo chiaro con IBAN a gruppi di 4 in monospazio, disclaimer, piede. Azioni in testa: **«Stampa»** (window.print, @page A4 margini 18 mm, colori conservati, righe/blocchi non spezzati, thead ripetuto) e **«Scarica PDF»** (nero, primario) — `src/components/AzioniDocumento.tsx`; `StampaButton.tsx` rimosso.
+> - **L'email «Invia al partner» allega il PDF** (`mail.ts` accetta `allegati[]`; `invia/page.tsx` lo genera prima di spedire: se il PDF non si genera l'email non parte a metà e l'errore si legge in pagina).
+> - Verifica: typecheck e `next build` puliti; PDF campione letto e controllato (testa, tabella, totali, pagamento, piede con numero di pagina). ⚠️ Anteprima nel browser non fatta (pagina dietro il login). ⚠️ L'agente `architetto-ux` interpellato per le regole del documento è caduto per un errore dell'API (529): le regole applicate sono quelle del Libro (tipografia di sistema, oro solo accento, hairline) + prassi delle fatture (Stripe/Apple): da far ratificare al custode.
+
 > ### 02/09/2026 (pomeriggio) — I DUE DIFETTI CORRETTI, e il censimento su tutti i partner
 >
 > Chiesto: «correggi i due difetti e verifica che non ce ne siano altri». **Erano sistemici, non un caso solo.**
