@@ -3,6 +3,40 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026 — CHECK APPLICAZIONE REGOLE (richiesto dall'utente)**
+> (correzione deployata e Ready; riparazioni IN ATTESA di «applica»):
+> - **🐞 BUG GRAVE trovato e corretto: `days="0000000"` = filtro giorni
+>   SPENTO nel legacy**, non «nessun giorno» — 15 regole su 22 (Regola 8, 10,
+>   16, 21, 25…) NON si agganciavano MAI alle consegne nuove. Verificata sui
+>   dati anche la convenzione domenica-prima (Regola 9 «1000001»: 159
+>   agganciate, tutte dom+sab). Fix in `giornoIncluso` (regola-carnet.ts).
+> - **Audit post-fix su 2.343 agganciate 2026**: 54 violazioni statiche
+>   (fasce adiacenti, oltre raggio) — tutte LEGACY e quasi tutte fatturate:
+>   storia, non si tocca. **178 giorni con carnet sforato**: tutti legacy; lo
+>   sconto legacy non segue un criterio ricostruibile (20/04: 8 scontate su
+>   14, 7 a Montenapoleone e 1 a S.Andrea — discrezione d'ufficio). L'unico
+>   giorno di piattaforma (Regola 10, 02/09) è esattamente 4/4 ✓.
+> - **⏳ RIPARAZIONE PRONTA (anteprima, aspetta «applica»)**:
+>   `ripara-agganci-regole.mjs` — 16 agganci mancanti per colpa del bug,
+>   nel rispetto del carnet giorno per giorno (8× Regola 8 Chanel MI, 3×
+>   Regola 28 DR Vranjes, 4× Regola 36 Armani — inclusa #100851: 19,30 →
+>   1,30 in fattura — 1× Regola 37 Brioni).
+> - **⚠️ DOPPIO SCONTO nei pendenti**: 208 consegne legacy non fatturate
+>   hanno lo sconto della regola scritto ANCHE nel plus/minus (plus ==
+>   adjustment): in fattura uscirebbero max(0, prezzo −2×sconto). Quasi
+>   tutte azzerano comunque; qualcuna perde euro veri (#30839: 0 invece di
+>   2,45). Decisione utente: azzerare il plus dove ricopia la regola.
+> - **❓ SEMANTICA APERTA**: nelle regole multi-partner (Regola 8 =
+>   S.Andrea + Montenapoleone) il carnet giornaliero oggi è CONDIVISO fra i
+>   negozi. Se dev'essere per negozio, va cambiato il conteggio.
+> - **37 eccezioni paga**: consegne legacy con regola «non pagare»
+>   (toPay=false) MA paga scritta > 0 (Regola 8/10, ~301 € totali): il
+>   motore attuale non le pagherà (la regola vince) — decisione utente.
+> - Verifiche puntuali: #62359 paga 6,96 = 7,73 km × 0,90 (scritta legacy);
+>   #62966 prezzo 18, plus −18 + Regola 36 −18 (doppio, azzera comunque),
+>   paga 7,20 — NESSUN conto dà l'«11 €» visto dall'utente (gli unici 11
+>   del periodo: #62951 prezzo 11, stesso valet stesso giorno).
+>
 > 🧪 **02/09/2026 notte-2 — LE REGOLE SI VEDONO E SI AGGANCIANO** (deployato
 > e Ready):
 > - **Esame integrale Regola 10 su #100856** (domanda utente): applicata BENE

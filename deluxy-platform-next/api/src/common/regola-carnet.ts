@@ -49,9 +49,15 @@ const minuti = (hhmm: string | null): number | null => {
 };
 
 /** `days` è una stringa di 7 cifre. Convenzione del legacy: indice 0 = domenica
- *  (come getUTCDay). Vuoto/assente = tutti i giorni. */
+ *  (come getUTCDay) — VERIFICATA sui dati (Regola 9 «1000001»: 159 agganciate,
+ *  tutte di domenica e sabato). Vuoto/assente = tutti i giorni. */
 function giornoIncluso(days: string | null, dow: number): boolean {
   if (!days || days.length !== 7) return true;
+  // ⚠️ 03/09 (misurato col check dell'utente): «0000000» nel legacy significa
+  // NESSUN vincolo (filtro giorni spento), non «nessun giorno» — 15 regole su
+  // 22 sono così, con migliaia di consegne su tutti i giorni (Regola 21: 931).
+  // Letta alla lettera, spegneva quelle regole per sempre sulle consegne nuove.
+  if (!days.includes('1')) return true;
   return days[dow] === '1';
 }
 
