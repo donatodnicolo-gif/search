@@ -133,6 +133,18 @@ export function NuovoOrdine({
    * noi che usciamo dalla città, o un fornitore del posto.
    */
   const [stima, setStima] = useState<Stima | null>(null)
+  /**
+   * L operatore vuole scrivere LUI l importo della consegna, anche se il sito
+   * una tariffa ce l ha.
+   *
+   * ⚠️⚠️ Chiesto dall utente il 02/09/2026 («puoi creare draft orders per
+   * mettere importi di consegna personalizzati?»). La bozza lo permetteva gia —
+   * la riga di spedizione su Shopify e nostra, titolo e prezzo liberi — ma la
+   * SCHERMATA no: con una tariffa del sito compariva solo la tendina. Su Cake,
+   * che chiede 10 EUR piatti ovunque, una consegna a Palermo non si poteva
+   * far pagare piu di 10 EUR (bozza #D269, pagata cosi).
+   */
+  const [spedizioneAMano, setSpedizioneAMano] = useState(false)
   const [stimaStato, setStimaStato] = useState('')
   /** Quanto e lontano, quando e troppo: un rifiuto senza il motivo non si capisce. */
   const [stimaLontano, setStimaLontano] = useState<{ km: number; partenza: string } | null>(null)
@@ -369,7 +381,7 @@ export function NuovoOrdine({
       // ⚠️⚠️ Con «senza consegna» acceso il ricalcolo NON scrive: e il punto
       // di tutta la spunta. Le tariffe si continuano a chiedere e a mostrare —
       // serve sapere quanto si sta regalando — ma non si mettono nel campo.
-      if (list.length && manoLibera && !senzaConsegna) {
+      if (list.length && manoLibera && !senzaConsegna && !spedizioneAMano) {
         setSpedizioneTitolo(list[0].titolo)
         setSpedizionePrezzo(String(list[0].prezzo))
         tariffaMessa.current = `${list[0].titolo}|${list[0].prezzo}`
@@ -1350,41 +1362,69 @@ export function NuovoOrdine({
                   ? ` Il sito la calcolerebbe ${soldi(tariffe[0].prezzo)} (${tariffe[0].titolo}).`
                   : ''}
               </p>
-            ) : tariffe.length ? (
-              <select
-                value={`${spedizioneTitolo}|${spedizionePrezzo}`}
-                onChange={(e) => {
-                  const [tit, pre] = e.target.value.split('|')
-                  setSpedizioneTitolo(tit)
-                  setSpedizionePrezzo(pre)
-                  // ⚠️ Scegliendo a mano dalla tendina, il ricalcolo non deve
-                  // ributtarci sopra la più economica: si segna come scelta.
-                  tariffaMessa.current = e.target.value
-                }}
-              >
-                {tariffe.map((s) => (
-                  <option key={`${s.titolo}|${s.prezzo}`} value={`${s.titolo}|${s.prezzo}`}>
-                    {s.titolo} — {soldi(s.prezzo)}
-                  </option>
-                ))}
-              </select>
+            ) : tariffe.length && !spedizioneAMano ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  style={{ flex: 1, minWidth: 200 }}
+                  value={`${spedizioneTitolo}|${spedizionePrezzo}`}
+                  onChange={(e) => {
+                    const [tit, pre] = e.target.value.split('|')
+                    setSpedizioneTitolo(tit)
+                    setSpedizionePrezzo(pre)
+                    // ⚠️ Scegliendo a mano dalla tendina, il ricalcolo non deve
+                    // ributtarci sopra la più economica: si segna come scelta.
+                    tariffaMessa.current = e.target.value
+                  }}
+                >
+                  {tariffe.map((s) => (
+                    <option key={`${s.titolo}|${s.prezzo}`} value={`${s.titolo}|${s.prezzo}`}>
+                      {s.titolo} — {soldi(s.prezzo)}
+                    </option>
+                  ))}
+                </select>
+                {/* ⚠️⚠️ Il pezzo che mancava: con una tariffa del sito c'era
+                    SOLO la tendina, e l'importo non si poteva cambiare. La
+                    bozza su Shopify lo permette da sempre — la riga di
+                    spedizione la scriviamo noi, titolo e prezzo liberi. */}
+                <button className="bottone secondario" onClick={() => setSpedizioneAMano(true)}>
+                  Importo mio
+                </button>
+              </div>
             ) : (
               // Nessuna tariffa dal sito (o carrello/indirizzo non ancora
-              // completi): campi a mano, per l'operatore.
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={spedizioneTitolo}
-                  onChange={(e) => setSpedizioneTitolo(e.target.value)}
-                  placeholder="Titolo della spedizione"
-                  style={{ flex: 1 }}
-                />
-                <input
-                  value={spedizionePrezzo}
-                  onChange={(e) => setSpedizionePrezzo(e.target.value.replace(',', '.'))}
-                  inputMode="decimal"
-                  aria-label="Prezzo della spedizione"
-                  style={{ width: 90, textAlign: 'right' }}
-                />
+              // completi), oppure l'importo lo scrive l'operatore.
+              <div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={spedizioneTitolo}
+                    onChange={(e) => setSpedizioneTitolo(e.target.value)}
+                    placeholder="Titolo della spedizione"
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    value={spedizionePrezzo}
+                    onChange={(e) => setSpedizionePrezzo(e.target.value.replace(',', '.'))}
+                    inputMode="decimal"
+                    aria-label="Prezzo della spedizione"
+                    style={{ width: 90, textAlign: 'right' }}
+                  />
+                </div>
+                {tariffe.length && spedizioneAMano ? (
+                  <p className="cella-sub" style={{ margin: '4px 0 0' }}>
+                    Il sito chiederebbe {soldi(tariffe[0].prezzo)} ({tariffe[0].titolo}).{' '}
+                    <button
+                      className="bottone secondario mini"
+                      onClick={() => {
+                        setSpedizioneAMano(false)
+                        setSpedizioneTitolo(tariffe[0].titolo)
+                        setSpedizionePrezzo(String(tariffe[0].prezzo))
+                        tariffaMessa.current = `${tariffe[0].titolo}|${tariffe[0].prezzo}`
+                      }}
+                    >
+                      Torna alla tariffa del sito
+                    </button>
+                  </p>
+                ) : null}
               </div>
             )}
             {/* ── FUORI ZONA: QUANTO COSTA PORTARLO LÀ ──
@@ -1398,10 +1438,15 @@ export function NuovoOrdine({
                 ⚠️ Si MOSTRA e non si scrive: vale se usciamo noi dalla città.
                 Se quella consegna la fa un fornitore del posto, i chilometri
                 non li fa nessuno e questo prezzo è una stangata. */}
-            {!senzaConsegna && !tariffe.length && stima ? (
+            {!senzaConsegna && stima ? (
               <div className="avviso-ok" style={{ marginTop: 8 }}>
                 <div>
-                  <strong>Fuori dalle zone del sito.</strong> Sono{' '}
+                  <strong>
+                    {tariffe.length
+                      ? `Consegna fuori città: il sito chiede ${soldi(tariffe[0].prezzo)}.`
+                      : 'Fuori dalle zone del sito.'}
+                  </strong>{' '}
+                  Sono{' '}
                   <strong>{stima.km.toLocaleString('it-IT')} km</strong> di strada da{' '}
                   {stima.partenza}.
                 </div>
@@ -1416,6 +1461,9 @@ export function NuovoOrdine({
                   onClick={() => {
                     setSpedizioneTitolo(`Consegna da ${stima.partenza} (${stima.km.toLocaleString('it-IT')} km)`)
                     setSpedizionePrezzo(String(stima.prezzo))
+                    // Con una tariffa del sito a schermo servirebbe anche
+                    // uscire dalla tendina, o il numero non si vedrebbe.
+                    setSpedizioneAMano(true)
                     // Scelta a mano: il ricalcolo non ci scrive più sopra.
                     tariffaMessa.current = `Consegna da ${stima.partenza}|${stima.prezzo}`
                   }}
@@ -1434,7 +1482,7 @@ export function NuovoOrdine({
                 strada la trova (5.910 km) e la stima diceva 5.915 € — un numero
                 così dentro un modulo è peggio di nessun numero, perché qualcuno
                 lo mette. */}
-            {!senzaConsegna && !tariffe.length && stimaStato === 'troppo-lontano' ? (
+            {!senzaConsegna && stimaStato === 'troppo-lontano' ? (
               <p className="cella-sub" style={{ marginTop: 8 }}>
                 {stimaLontano
                   ? `Sono ${stimaLontano.km.toLocaleString('it-IT')} km da ${stimaLontano.partenza}: `

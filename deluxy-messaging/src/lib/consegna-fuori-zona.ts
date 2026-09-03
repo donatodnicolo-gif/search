@@ -197,3 +197,19 @@ export async function stimaFuoriZona(
     },
   }
 }
+
+/**
+ * Le città da cui usciamo, in minuscolo — per capire se una consegna è «in
+ * casa» o no.
+ *
+ * ⚠️ Sta qui e non nella rotta: l'elenco è uno solo (Impostazioni →
+ * `cittaDiPartenza`), e due copie si sarebbero scostate al primo cambio.
+ */
+export async function cittaDiCasa(): Promise<string[]> {
+  const conf = await leggiImpostazioni(['cittaDiPartenza'])
+  const scritte = (conf.cittaDiPartenza || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return (scritte.length ? scritte : PARTENZE_PREDEFINITE).map((s) => s.toLowerCase())
+}

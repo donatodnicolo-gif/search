@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tariffeConsegna } from '@/lib/nuovo-ordine'
-import { stimaFuoriZona } from '@/lib/consegna-fuori-zona'
+import { cittaDiCasa, stimaFuoriZona } from '@/lib/consegna-fuori-zona'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -55,7 +55,17 @@ export async function POST(req: NextRequest) {
   // ⚠️ Si calcola solo in questo caso: dentro le zone il listino e del sito, e
   // il sito vince sempre (Standard §7). Costa due-tre chiamate a Google piu una
   // a Shopify, e non si spendono quando non servono.
-  if (esito.tariffe.length) return NextResponse.json({ tariffe: esito.tariffe })
+  // ⚠️⚠️ La stima si calcola anche QUANDO una tariffa c'e, se la consegna e
+  // fuori dalle citta da cui usciamo. Misurato il 02/09: Cake chiede 10 EUR
+  // piatti ovunque — anche a Palermo (bozza #D269, pagata) — e Flowers
+  // consegna gratis anche a Miami Beach. Il sito resta il listino e nessuno
+  // gli scrive sopra, ma chi sta al telefono deve VEDERE quanto costa
+  // davvero portarcelo, per decidere se mettere un importo suo.
+  const cittaConsegna = (c.indirizzo?.citta ?? '').trim().toLowerCase()
+  const inCasa = (await cittaDiCasa()).includes(cittaConsegna)
+  if (esito.tariffe.length && (inCasa || !cittaConsegna)) {
+    return NextResponse.json({ tariffe: esito.tariffe })
+  }
   const righe = (c.righe ?? []).map((r) => ({
     variantId: r.variantId,
     titolo: r.titolo,
@@ -74,7 +84,7 @@ export async function POST(req: NextRequest) {
     righe
   )
   return NextResponse.json({
-    tariffe: [],
+    tariffe: esito.tariffe,
     stima: s.stato === 'ok' ? s.stima : null,
     stimaStato: s.stato,
     // Il perche del «troppo lontano»: senza i chilometri sarebbe un rifiuto

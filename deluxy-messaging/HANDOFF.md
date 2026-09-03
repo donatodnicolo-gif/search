@@ -1,5 +1,41 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (3) — l'importo di consegna lo puoi scrivere tu, sempre
+
+Chiesto dall'utente: «puoi creare draft orders per mettere importi di consegna
+personalizzati?».
+
+**La bozza lo permetteva già**: ogni ordine fatto da qui è un draft order
+Shopify, e la riga di spedizione è NOSTRA — `shippingLine { title, price }`
+liberi, non una tariffa del sito. Verificato sulle bozze vere (sola lettura):
+
+- `#D255` Cake — «Consegna = 45,00 €» (il sito ne chiede 10)
+- `#D493` Flowers — «Consegna = 15,00 €» (il sito consegna gratis)
+- `#D262` Cake — «Consegna = 0,00 €»
+- `#D269` **palermo**, `#D501` **København**, `#D496` **Miami Beach**: bozze
+  `COMPLETED`, cioè **pagate**, fuori da qualsiasi zona del sito.
+
+⚠️ Il motivo per cui funziona: sulla bozza la spedizione è **già scritta**, e al
+pagamento Shopify non ricalcola le zone. Alla cassa normale un indirizzo fuori
+zona bloccherebbe l'acquisto; con la bozza no.
+
+**Quello che NON si poteva era scriverlo dalla schermata**: con una tariffa del
+sito compariva solo la tendina. Su Cake, che chiede 10 € piatti ovunque, una
+consegna a Palermo non si poteva far pagare più di 10 € — ed è esattamente
+quello che è successo su `#D269`.
+
+- Ora accanto alla tendina c'è **«Importo mio»**: apre titolo e prezzo liberi,
+  con sotto «Il sito chiederebbe 10,00 € (Standard Delivery)» e il ritorno alla
+  tariffa del sito. Il ricalcolo automatico non scrive più niente finché
+  l'importo è a mano.
+- La **stima al chilometro** adesso si calcola **anche quando una tariffa
+  c'è**, se la consegna è fuori dalle città da cui usciamo (Impostazioni →
+  `cittaDiPartenza`). Misurato: Cake + Sesto San Giovanni → il sito dice 10 €,
+  la stima dice **25 €** (10,2 km da Milano); Cake + Palermo → «troppo
+  lontano», e nessun numero.
+- ⚠️ Dentro Milano/Roma/Firenze non si spende una chiamata a Google: lì il
+  listino del sito è quello giusto e la stima non serve.
+
 ## 02/09/2026 (2) — indirizzi ovunque, e un prezzo per le extra-urbane
 
 Chiesto dall'utente: «consenti di inserire qualsiasi indirizzo (anche fuori
