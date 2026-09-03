@@ -1,5 +1,73 @@
 # Handoff — Deluxy Customer Service
 
+## 02/09/2026 (4) — dal rimborso APPROVATO partono i soldi veri
+
+Chiesto dall'utente: «ok puoi in caso approvato far partire il rimborso?».
+Fino a ieri da Customer Service non usciva un centesimo: la pagina Rimborsi
+registrava la decisione e i soldi li rendeva una persona da Shopify.
+
+**Adesso, su una richiesta `approvato`, un admin ha il bottone «Rimborsa su
+Shopify»**: `refundCreate` sull'ordine, sul metodo con cui il cliente ha
+pagato. `write_orders` c'è su tutti e tre i negozi (verificato).
+
+### Le difese, in ordine
+
+1. **Ruolo `admin`** sulla rotta (`/api/rimborsi/[id]/shopify`). L'operatore
+   continua a chiedere e a segnare. Il bottone si nasconde a chi non può, ma
+   quello che conta è il controllo del server.
+2. **Solo da `approvato`**: chiedere e approvare restano due atti di due
+   persone; il rimborso è il terzo.
+3. **Conferma a due clic**, con scritto **l'importo e il numero d'ordine** («Rendo
+   45,00 € su #1824»). Un «sei sicuro?» non fa rileggere niente.
+4. ⚠️⚠️ **La presa della riga**: `updateMany({ where: { id, stato: 'approvato' } })`
+   PRIMA di chiamare Shopify — chi vince scrive, gli altri contano zero e si
+   fermano. Senza, due clic ravvicinati sarebbero **due rimborsi veri**.
+5. **Il tetto lo dice Shopify, non noi**: `netPaymentSet` è quanto resta da
+   rendere (pagato − già rimborsato). L'ordine può essere stato rimborsato
+   altrove mentre la richiesta dormiva.
+6. **Se non parte, torna `approvato`** col motivo scritto nell'esito: mai «fatto»
+   per finta, mai a metà.
+7. **Errore di Shopify parola per parola**. E se cade la rete DOPO l'invio si
+   dice che *non si sa*, e si manda a guardare l'ordine — non si invita a
+   riprovare.
+
+### Il pezzo che si sbaglia facile
+
+⚠️⚠️ Senza `transactions` nell'input, `refundCreate` registra un rimborso
+**contabile e non muove un euro**: sembrerebbe fatto, e il cliente non
+riceverebbe niente. Il rimborso va agganciato alla transazione con cui ha
+pagato (`parentId` + `gateway`), e quella può essere già stata rimborsata in
+parte: il residuo si calcola togliendo i `REFUND` che le pendono sotto.
+Verificato sui pagamenti veri: `shopify_payments` e **`paypal`** riconosciuti
+tutti e due.
+
+Altre due: `discrepancyReason: CUSTOMER` (si rende un IMPORTO, non delle righe:
+senza, Shopify rifiuta) e **valuta di presentazione ≠ valuta del negozio** →
+non si rimborsa da qui, si dice di farlo da Shopify (rendere la cifra sbagliata
+a una persona vera è peggio che non rendere).
+
+### Com'è stato provato
+
+`npx tsx scripts/prova-rimborso-shopify.mts` — **senza far uscire un euro**:
+`preparaRimborso()` è separata da `rimborsaSuShopify()` proprio per questo (una
+funzione che si può verificare solo spendendo non la verifica nessuno). Su tre
+ordini pagati veri sceglie l'incasso giusto; i paletti fermano l'importo troppo
+alto, lo zero e l'ordine che non è nostro.
+
+⚠️ **NON provato**: la chiamata `refundCreate` vera. Il primo rimborso vero
+è il collaudo — meglio farlo su una cifra piccola e guardare l'ordine su
+Shopify subito dopo.
+
+### Aperto
+
+- Il rimborso **non finisce in Deluxy Transactions**, che è il collettore unico
+  del denaro. Qui esce da Shopify e rientra nel giro da lì; se deve comparire
+  anche là, è un lavoro a parte.
+- `esito` porta l'id del rimborso Shopify come testo: non c'è una colonna
+  dedicata perché lo schema sta sul Postgres condiviso e non si tocca in
+  autonomia. L'idempotenza NON dipende da quel testo: dipende dalla presa della
+  riga (punto 4) e dal tetto di Shopify (punto 5).
+
 ## 02/09/2026 (3) — l'importo di consegna lo puoi scrivere tu, sempre
 
 Chiesto dall'utente: «puoi creare draft orders per mettere importi di consegna

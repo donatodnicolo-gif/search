@@ -62,7 +62,16 @@ function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
+export function RimborsiLista({
+  prefill,
+  ruolo = 'operatore',
+}: {
+  prefill?: PrefillRimborso
+  /** ⚠️ Il rimborso VERO lo puo far partire solo un admin: qui serve a non
+   *  mostrare un bottone che poi la rotta rifiuterebbe. Il controllo che conta
+   *  resta quello del server. */
+  ruolo?: string
+}) {
   const [rimborsi, setRimborsi] = useState<Rimborso[]>([])
   const [perStato, setPerStato] = useState<Record<string, { conteggio: number; importo: number }>>({})
   const [importoDaPagare, setImportoDaPagare] = useState(0)
@@ -81,6 +90,11 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
   const [periodo, setPeriodo] = useState<Periodo>('')
 
   // Riga in cui si sta scrivendo l'esito prima di segnare "rimborsato".
+  /** La richiesta su cui si sta per far partire il rimborso vero. */
+  const [rimborsoDi, setRimborsoDi] = useState('')
+  /** Se Shopify deve mandare al cliente la SUA email di rimborso. */
+  const [avvisaCliente, setAvvisaCliente] = useState(false)
+  const [inCorso, setInCorso] = useState('')
   const [esitoDi, setEsitoDi] = useState('')
   const [testoEsito, setTestoEsito] = useState('')
 
@@ -188,6 +202,42 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
     }
   }
 
+  /**
+   * Fa partire il rimborso VERO su Shopify.
+   *
+   * ⚠️⚠️ Da qui escono soldi. Il bottone non rimborsa al primo clic: apre la
+   * riga di conferma, e solo il secondo clic parte. L'errore di Shopify si
+   * mostra com'è — «non riuscito» non direbbe se i soldi sono usciti o no.
+   */
+  async function rimborsaShopify(id: string) {
+    setErrore('')
+    setAvviso('')
+    setInCorso(id)
+    try {
+      const res = await fetch(`/api/rimborsi/${id}/shopify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avvisaCliente }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string; refundId?: string }
+      if (!res.ok) {
+        setErrore(d.errore || 'Rimborso non partito.')
+        return
+      }
+      setAvviso('Rimborsato su Shopify. I soldi tornano sul metodo con cui il cliente ha pagato.')
+      setRimborsoDi('')
+      setAvvisaCliente(false)
+    } catch {
+      // ⚠️ La rete è caduta DOPO l'invio: non si sa se il rimborso è passato.
+      // Si dice, e si manda a guardare — non si invita a riprovare.
+      setErrore(
+        'Non so se il rimborso è partito (la connessione è caduta): controlla l’ordine su Shopify prima di riprovare.'
+      )
+    } finally {
+      setInCorso('')
+      await carica()
+    }
+  }
   async function elimina(id: string) {
     await fetch('/api/rimborsi?id=' + encodeURIComponent(id), { method: 'DELETE' })
     await carica()
@@ -443,7 +493,42 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
                     {r.richiestoDa ? <div className="cella-sub">da {r.richiestoDa}</div> : null}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {esitoDi === r.id ? (
+                    {rimborsoDi === r.id ? (
+                      // ⚠️⚠️ La conferma dice l'IMPORTO e l'ORDINE: un «sei
+                      // sicuro?» non fa rileggere niente, e qui si sbaglia una
+                      // volta sola.
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, whiteSpace: 'normal', minWidth: 250 }}>
+                        <span>
+                          Rendo <strong>{soldi(r.importo, r.valuta)}</strong> su{' '}
+                          <strong>{r.ordineNumero || 'questo ordine'}</strong>, sul metodo con cui
+                          ha pagato.
+                        </span>
+                        <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                          <input
+                            type="checkbox"
+                            checked={avvisaCliente}
+                            onChange={(e) => setAvvisaCliente(e.target.checked)}
+                          />
+                          Manda al cliente l&apos;email di rimborso di Shopify
+                        </label>
+                        <span>
+                          <button
+                            className="btn small"
+                            onClick={() => void rimborsaShopify(r.id)}
+                            disabled={inCorso === r.id}
+                          >
+                            {inCorso === r.id ? 'Rimborso in corso…' : 'Conferma il rimborso'}
+                          </button>{' '}
+                          <button
+                            className="btn btn-secondario small"
+                            onClick={() => setRimborsoDi('')}
+                            disabled={inCorso === r.id}
+                          >
+                            Annulla
+                          </button>
+                        </span>
+                      </div>
+                    ) : esitoDi === r.id ? (
                       <>
                         <input
                           value={testoEsito}
@@ -489,6 +574,25 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
                             </button>{' '}
                           </>
                         ) : null}
+                        {/* ── IL RIMBORSO VERO ──
+                            ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Da qui
+                            escono soldi: il bottone apre una conferma e non
+                            rimborsa al primo clic, e lo vede solo un admin (la
+                            rotta lo ricontrolla comunque). «Segna rimborsato»
+                            resta per i soldi resi altrove — bonifico, o un
+                            rimborso fatto a mano su Shopify. */}
+                        {r.stato === 'approvato' && ruolo === 'admin' ? (
+                          <button
+                            className="btn small"
+                            onClick={() => {
+                              setRimborsoDi(r.id)
+                              setAvvisaCliente(false)
+                            }}
+                            title="Rende davvero i soldi sul metodo con cui ha pagato"
+                          >
+                            Rimborsa su Shopify
+                          </button>
+                        ) : null}{' '}
                         {r.stato === 'approvato' ? (
                           <button
                             className="btn small"

@@ -1,4 +1,5 @@
 import { RimborsiLista, type PrefillRimborso } from '@/components/RimborsiLista'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,5 +26,9 @@ export default async function PaginaRimborsi({
     importoOrdine: uno('totale'),
     statoPagamento: uno('pagamento'),
   }
-  return <RimborsiLista prefill={prefill} />
+  // ⚠️ Il ruolo si legge QUI, sul server: serve a non mostrare il bottone del
+  // rimborso vero a chi la rotta rifiuterebbe comunque. Il controllo che
+  // conta e quello della rotta — questo e solo educazione dell interfaccia.
+  const io = await utenteCorrente()
+  return <RimborsiLista prefill={prefill} ruolo={io?.ruolo ?? 'operatore'} />
 }
