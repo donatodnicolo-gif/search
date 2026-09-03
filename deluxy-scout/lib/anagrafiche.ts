@@ -358,7 +358,9 @@ export async function fetchFornitori(): Promise<{
  * numeri: totali tutti multipli tondi di 10).
  */
 export async function fetchTuttiPartner(max = 1200): Promise<{ partner: PartnerRegistro[]; completo: boolean }> {
-  const PER_PAGINA = 50;
+  // 200 = il massimo che il registro accetta: ~1.150 aziende in 6 viaggi
+  // invece di 23 (03/09/2026, per la vista «Tutti»).
+  const PER_PAGINA = 200;
   const tutti: PartnerRegistro[] = [];
   const visti = new Set<string>();
   let completo = true;

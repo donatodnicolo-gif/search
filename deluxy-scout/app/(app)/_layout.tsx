@@ -77,6 +77,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // ⭐ 26/08/2026 (richiesta dell'utente): «Potenziali» sta qui, non sotto
       // Vendita. Sono i negozi visitati che possono diventare qualcosa — cioè
       // persone da lavorare, non un passo del funnel di una vendita aperta.
+      // ⭐ 03/09/2026 (richiesta dell'utente): «in contatti manca la sezione
+      // TUTTI con veramente tutti ma proprio tutti i contatti». Sta in CIMA:
+      // le altre voci sono fette, questa è l'elenco — e chi non sa in che
+      // fetta cercare parte da qui. Unisce i negozi di Scout e le aziende che
+      // stanno solo nel registro (i fornitori), con la tipologia in colonna.
+      { name: 'tutti', label: 'Tutti', icon: 'list-outline' },
       { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
       { name: 'lista-selezionati', route: 'lista', params: { vista: 'selezionato' }, label: 'Selezionati', icon: 'star-outline' },
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
@@ -423,6 +429,7 @@ export default function AppLayout() {
         <Drawer.Screen name="lista" options={{ title: 'Prospect e Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />
         <Drawer.Screen name="script" options={{ title: 'Script' }} />
+        <Drawer.Screen name="tutti" options={{ title: 'Tutti i contatti' }} />
         <Drawer.Screen name="visite" options={{ title: 'Potenziali' }} />
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
         <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />

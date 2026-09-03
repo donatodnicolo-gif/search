@@ -281,7 +281,10 @@ Deno.serve(async (req) => {
       // vecchia lo ignorerebbe in silenzio.
       if (body.statoFornitore) p.set('statoFornitore', String(body.statoFornitore));
       if (body.page) p.set('page', String(body.page));
-      p.set('perPage', String(Math.min(Number(body.perPage ?? 10), 50)));
+      // ⚠️ Tetto a 200 come il registro (03/09/2026): la vista «Tutti» deve
+      // sfogliare ~1.150 aziende, e a 50 per pagina erano 23 viaggi di rete
+      // invece di 6. Il traffico totale è lo stesso, i round trip no.
+      p.set('perPage', String(Math.min(Number(body.perPage ?? 10), 200)));
       path = `/api/v1/partners?${p.toString()}`;
     } else if (body.action === 'dettaglio' && body.id) {
       path = `/api/v1/partners/${encodeURIComponent(String(body.id))}`;
