@@ -308,9 +308,14 @@ export function pagaConsegna(
   // FISSO (e vendita col suo ripiego): FUORI CITTÀ vale SOLO il chilometraggio
   // — tutti i km × «Extra fuori città (€)» della scheda valet, SENZA il salario
   // base (regola utente 01/09: «solo il listino 12×1, senza i +6»).
+  // ⚠️ 03/09 (regola utente): con un MINIMO — il chilometraggio non può pagare
+  // meno di una consegna URBANA del valet (la base del suo listino). Un giro
+  // corto appena oltre confine valeva meno di uno sotto casa.
   if (d.extraOutOfCity && (d.distanceKm ?? 0) > 0 && (d.valet?.extraOutOfCityPrice ?? 0) > 0) {
+    const aChilometri = (d.distanceKm ?? 0) * (d.valet?.extraOutOfCityPrice ?? 0);
+    const minimoUrbano = listino.salary ?? 0;
     return {
-      amount: mai_negativo((d.distanceKm ?? 0) * (d.valet?.extraOutOfCityPrice ?? 0) + extra),
+      amount: mai_negativo(Math.max(aChilometri, minimoUrbano) + extra),
       origine: 'listino',
     };
   }

@@ -645,17 +645,31 @@ export class DeliveriesService {
     // azzera la paga: qui non si calcola niente, come fa Stipendi.
     const regolaNonPaga = (delivery as any).deliveryRule?.toPay === false;
     if (!regolaNonPaga && (['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
-      const listini = await this.prisma.valetService.findMany({
-        where: { valetId: delivery.valetId },
-        include: { serviceType: { select: { pricingModel: true, minHours: true } } },
-      });
-      const tipo = delivery.serviceType?.pricingModel === 'A_ORA' ? 'A_ORA' : 'PREZZO_FISSO';
-      const l = listini.find((x) => x.serviceType?.pricingModel === tipo && (x.salary ?? 0) > 0)
-        ?? listini.find((x) => x.serviceType?.pricingModel === tipo);
+      // ⚠️ 03/09: STESSO conto di Stipendi (pagaConsegna), non più la stima
+      // semplificata «base × ore» — quella ignorava fuori città, km extra e
+      // il minimo urbano appena deciso, e la scheda diceva un numero diverso
+      // dalla busta paga.
+      const [listini, cardValet] = await Promise.all([
+        this.prisma.valetService.findMany({
+          where: { valetId: delivery.valetId },
+          include: { serviceType: { select: { pricingModel: true, minHours: true } } },
+          orderBy: [{ validFrom: 'desc' }],
+        }),
+        this.prisma.valet.findUnique({
+          where: { id: delivery.valetId },
+          select: { minimumKmIncluded: true, extraOutOfCityPrice: true },
+        }),
+      ]);
+      const perId = new Map(listini.map((l) => [l.id, l]));
+      const perValet = new Map([[delivery.valetId, listini]]);
+      const l = scegliListinoValet(delivery as any, perId, perValet);
       if (l) {
-        const ore = tipo === 'A_ORA'
-          ? Math.max((delivery as any).hours ?? 1, l.serviceType?.minHours ?? 1) : 1;
-        valetSalaryDalListino = Math.round((l.salary ?? 0) * ore * 100) / 100;
+        const calcolo = pagaConsegna(
+          { ...(delivery as any), valet: cardValet },
+          l as any,
+          (delivery as any).deliveryRule ?? null,
+        );
+        if (calcolo) valetSalaryDalListino = calcolo.amount;
       }
     }
 
