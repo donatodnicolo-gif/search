@@ -31,6 +31,14 @@
 >   legacy un importo ce l'aveva, `totalAmount` = bonifico − ritenuta (6
 >   campioni su 6), NON il totale pagato: riallineare le 302 ai PDF è una
 >   decisione da prendere con l'utente.
+> - **Riallineo APPROVATO ed eseguito** (`riallinea-ricevute-legacy-ai-pdf.mjs`):
+>   229 ricevute portate al Totale Bonifico del PDF (+8.809,97 €), 42 già
+>   allineate, 70 NON toccate perché il loro PDF è il recap-tabella
+>   «Stipendi» il cui TOTALI coincide già col registro (es. 349 Salazar
+>   2555,22). 16 righe erano fuori da entrambe le semantiche (PDF
+>   probabilmente rigenerato dopo il congelamento): scritto comunque il
+>   bonifico, elenco nel backup. Somma importi legacy ora 184.978,88 €;
+>   a 0 restano solo i 6 zeri veri + la 351 irrecuperabile.
 
 > 🛒 **03/09/2026-duodecies — DELUXY.IT: «ACQUISTA» TORNA A METTERE NEL CARRELLO (rotta legacy rinata qui)** (deployato):
 > - Segnalazione utente: su deluxy.it il pulsante ACQUISTA non aggiungeva
