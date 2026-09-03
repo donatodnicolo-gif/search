@@ -182,6 +182,58 @@ Deno.serve(async (req) => {
     const token = Deno.env.get('HUBSPOT_TOKEN');
     if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
 
+    // ⭐ **AGGANCIA UN DEAL ORFANO ALLA SUA AZIENDA** (03/09/2026, richiesta
+    // dell'utente: «puoi riconciliare?»).
+    //
+    // Su HubSpot 73 deal su 186 non sono associati a nessuna company. Per Scout
+    // quei deal NON ESISTONO: lo specchio li tiene, ma senza `company_hubspot_id`
+    // non si attaccano a nessun negozio, e la scheda del cliente non li mostra.
+    // È così che il 03/09 è nato un doppione su Papera Flowers: la trattativa di
+    // giugno c'era su HubSpot e da qui non si vedeva.
+    //
+    //   { action: 'associa_deal_azienda', dealId, companyId, prova?: true }
+    //
+    // ⚠️⚠️ **NON SI SOVRASCRIVE UN'ASSOCIAZIONE CHE C'È.** Si legge prima da
+    // HubSpot: se quel deal ha già una company, si risponde `gia_associato` col
+    // suo id e non si tocca niente. Spostare un deal da un'azienda all'altra è
+    // una decisione commerciale, non una riconciliazione — e sarebbe irreversibile
+    // senza che nessuno l'abbia chiesto.
+    //
+    // ⚠️ `prova: true` non scrive: dice solo cosa farebbe. Serve a guardare la
+    // lista prima di toccare il CRM.
+    if (body.action === 'associa_deal_azienda') {
+      const dealId = String(body.dealId ?? '').trim();
+      const companyId = String(body.companyId ?? '').trim();
+      if (!dealId || !companyId) return json({ error: 'Servono `dealId` e `companyId`.' }, 400);
+
+      let gia: string | null = null;
+      try {
+        const d = await hs(token, `/crm/v3/objects/deals/${dealId}?associations=companies`);
+        gia = d?.associations?.companies?.results?.[0]?.id ?? null;
+      } catch (e) {
+        return json({ error: `Il deal ${dealId} non si legge su HubSpot: ${String((e as any)?.message ?? e)}` }, 502);
+      }
+      if (gia) {
+        return json({ ok: false, reason: 'gia_associato', dealId, companyId: String(gia) });
+      }
+      if (body.prova === true) return json({ ok: true, prova: true, dealId, companyId });
+
+      try {
+        await hs(token, `/crm/v3/objects/deals/${dealId}/associations/companies/${companyId}/deal_to_company`, {
+          method: 'PUT',
+        });
+      } catch (e) {
+        return json({ error: `Aggancio rifiutato da HubSpot: ${String((e as any)?.message ?? e)}` }, 502);
+      }
+      // Lo specchio locale si allinea SUBITO: aspettare il sync della notte
+      // vorrebbe dire dire «fatto» e vedere ancora l'orfano fino a domani.
+      const { error: errSpecchio } = await admin
+        .from('hubspot_deals')
+        .update({ company_hubspot_id: companyId })
+        .eq('hubspot_id', dealId);
+      return json({ ok: true, dealId, companyId, specchio: errSpecchio ? `non_aggiornato_${errSpecchio.code}` : 'aggiornato' });
+    }
+
     // Estrazione CRM → copia locale (aziende + contatti). Non richiede AI.
     if (body.action === 'sync_crm') {
       return await syncCrm(admin, token);
