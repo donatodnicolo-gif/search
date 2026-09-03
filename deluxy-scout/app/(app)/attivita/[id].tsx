@@ -643,12 +643,24 @@ export default function SchedaAttivita() {
           </View>
         ) : null}
 
-        {/* Le azioni SUBITO sotto il nome: la scheda serve a vendere, non a leggere. */}
+        {/* Le azioni SUBITO sotto il nome: la scheda serve a vendere, non a leggere.
+
+            ⚠️ «Visita» è NASCOSTA da qui (31/08/2026, richiesta dell'utente):
+            era la prima e l'unica primaria, e la scheda apriva sul giro in
+            negozio quando il lavoro di questa pagina è il contatto. La visita
+            NON è stata rimossa dall'app — si registra da Potenziali, dalla
+            Mappa, da Contatti, da Clienti, da «Per interesse» e da «Da fare»,
+            e la rotta /(app)/visita/<id> resta valida per i link già in giro.
+
+            ⚠️ Togliendola la barra restava senza nessuna azione primaria (nel
+            DS ce n'è una per schermata): «Chiama» prende il suo posto, perché
+            è il primo passo della sequenza di contatto — non per riempire un
+            buco di stile. */}
         <View style={styles.azioniGrid}>
-          <AzioneRapida icona="walk-outline" label="Visita" primaria onPress={() => router.push(`/(app)/visita/${place.id}`)} />
           <AzioneRapida
             icona="call-outline"
             label="Chiama"
+            primaria
             disabled={!telefonoPrincipale}
             onPress={() => telefonoPrincipale && Linking.openURL(`tel:${telefonoPrincipale}`)}
           />
