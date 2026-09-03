@@ -11,6 +11,7 @@ import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
+import { urlSchedaRegistro } from '@/lib/anagrafiche';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { commutaSet, GruppoFiltro } from '@/components/GruppoFiltro';
 
@@ -196,15 +197,64 @@ export default function Rubrica() {
     {
       chiave: 'registro',
       label: 'Registro',
-      width: 96,
+      width: 116,
       valore: (c) => (c.place_nel_registro ? 1 : 0),
-      cella: (c) => (
-        <StatusBadge
-          small
-          label={c.place_nel_registro ? 'Sincronizzato' : 'Non nel registro'}
-          colore={c.place_nel_registro ? colors.successo : colors.grigio}
-        />
-      ),
+      cella: (c) => {
+        /**
+         * ⭐ IL LINK CHE APRE IL CONTATTO NEL REGISTRO (31/08/2026, richiesta
+         * dell'utente: «mettimi link ad anagrafiche per aprire ogni contatto
+         * su anagrafiche»).
+         *
+         * ⚠️ Due azioni diverse, e la differenza NON è cosmetica:
+         *  · «Apri» esiste solo quando il negozio ha l'id della sua scheda, e
+         *    porta lì: è un aggancio, non un'ipotesi;
+         *  · «Cerca» è il ripiego quando quell'id non c'è: apre la ricerca dei
+         *    contatti del registro sulla mail (o sul nome). Si chiama «Cerca»
+         *    perché è quello che fa — chiamarlo «Apri» prometterebbe di
+         *    portare sulla persona giusta, e oggi tre volte su tre cercare per
+         *    nome ha trovato l'azienda di un altro.
+         *
+         * ⚠️ Il registro ha una pagina per contatto (`/contatti/<id>`), ma
+         * Scout NON tiene l'id dei referenti di là: si apre la scheda
+         * dell'AZIENDA, dov'è il referente insieme agli altri. Meglio un clic
+         * in più che un indirizzo costruito su un id che non abbiamo.
+         */
+        const scheda = urlSchedaRegistro(c.place_anagrafiche_id);
+        if (scheda) {
+          return (
+            <Pressable
+              style={styles.linkRegistro}
+              hitSlop={6}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                Linking.openURL(scheda);
+              }}
+              accessibilityLabel={`Apri ${c.place_nome ?? 'la scheda'} nel registro Anagrafiche`}
+              {...({ title: 'Apri la scheda del negozio nel registro (col referente dentro)' } as any)}
+            >
+              <Ionicons name="open-outline" size={13} color={colors.successo} />
+              <Text style={styles.linkRegistroTxt}>Apri</Text>
+            </Pressable>
+          );
+        }
+        const chiave = (c.email ?? c.nome ?? '').trim();
+        if (!chiave) return <Text style={styles.tabMuto}>—</Text>;
+        return (
+          <Pressable
+            style={styles.linkRegistroDebole}
+            hitSlop={6}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              Linking.openURL(`https://deluxy-anagrafiche.vercel.app/contatti?q=${encodeURIComponent(chiave)}`);
+            }}
+            accessibilityLabel={`Cerca ${chiave} fra i contatti del registro`}
+            {...({ title: 'Il negozio non è collegato al registro: apre la RICERCA dei contatti, non la sua scheda' } as any)}
+          >
+            <Ionicons name="search-outline" size={13} color={colors.grigio} />
+            <Text style={styles.linkRegistroDeboleTxt}>Cerca</Text>
+          </Pressable>
+        );
+      },
     },
     {
       chiave: 'archivia',
@@ -456,6 +506,10 @@ const styles = StyleSheet.create({
   tabNegozio: { color: colors.testo, fontSize: 13, textDecorationLine: 'underline' },
   tabContatto: { color: colors.testo, fontSize: 12.5 },
   tabMuto: { color: colors.grigio, fontSize: 12.5 },
+  linkRegistro: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  linkRegistroTxt: { color: colors.successo, fontWeight: '700', fontSize: 12.5, textDecorationLine: 'underline' },
+  linkRegistroDebole: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  linkRegistroDeboleTxt: { color: colors.grigio, fontWeight: '600', fontSize: 12.5 },
   head: {
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,

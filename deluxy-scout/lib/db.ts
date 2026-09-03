@@ -18,6 +18,10 @@ export interface ContattoConLuogo extends Contact {
   place_zona: string | null; // zona/area del negozio (per il filtro territoriale)
   place_in_trattativa: boolean; // il negozio ha una trattativa aperta (per la storyline)
   place_nel_registro: boolean; // il negozio è collegato al registro Anagrafiche (anagrafiche_id presente)
+  /** L'id della scheda nel registro: serve al LINK che la apre (31/08/2026).
+   *  ⚠️ Non basta il booleano qui sopra: quello dice «c'è», questo dice
+   *  «quale» — e un link va costruito su un id, non su una certezza. */
+  place_anagrafiche_id?: string | null;
 }
 
 /** Trattativa arricchita col nome del negozio (per la sezione Trattative). */
@@ -1081,6 +1085,7 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
     place_zona: r.places?.zona ?? null,
     place_in_trattativa: Boolean(r.places?.hubspot_deal_aperta),
     place_nel_registro: Boolean(r.places?.anagrafiche_id),
+    place_anagrafiche_id: r.places?.anagrafiche_id ?? null,
   })) as ContattoConLuogo[];
 }
 
