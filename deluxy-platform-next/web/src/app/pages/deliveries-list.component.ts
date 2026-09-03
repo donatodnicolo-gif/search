@@ -1876,9 +1876,10 @@ export class DeliveriesListComponent {
     const u = this.auth.user();
     return u?.role === 'VALET' && u?.isTeamLeader === true;
   }
-  // 02/09 (regola utente): il team leader APRE su «Solo io» — il perimetro
-  // intero è a un clic, ma il primo sguardo è sul proprio giro.
-  readonly filtroTL = signal<'tutte' | 'mie'>('mie');
+  // 03/09 (regola utente, che ribalta quella del giorno prima): il team
+  // leader APRE su «Tutte» — è il capo del perimetro, il primo sguardo è
+  // sul territorio; «Solo io» resta a un clic.
+  readonly filtroTL = signal<'tutte' | 'mie'>('tutte');
   setFiltroTL(v: 'tutte' | 'mie'): void {
     if (this.filtroTL() === v) return;
     this.filtroTL.set(v);

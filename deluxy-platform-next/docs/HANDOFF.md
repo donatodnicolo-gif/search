@@ -3,6 +3,22 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧪 **03/09/2026-quinquies — AGGANCI APPLICATI, FASCE RIEMPITE, TL SU
+> «TUTTE»** (deployato e dati):
+> - **Agganci regole APPLICATI** (ordine utente «sistema tutti i 55»): col
+>   conteggio del CARNET la verità è **16 agganciate** e **39 fuori perché il
+>   4/giorno era già pieno** (si fatturano intere: è il senso del carnet).
+>   Applicate: 8×Regola 8 S.Andrea/Montenapoleone (−18), 3×Regola 28 DR
+>   Vranjes, 4×Regola 36 Armani (paga resta), 1×Regola 37 Brioni (54→36).
+>   Fattura −~146 €. Backup + log per riga; script
+>   `applica-agganci-regole.mjs` (riusabile, sempre col conteggio carnet).
+> - **17 fasce vuote → 08:00–09:00** (riempitivo DECISO dall'utente, log
+>   dichiarato su ogni riga). ⚠️ #62496/62684/62869… erano fra le agganciate
+>   a Regola 8 (fascia nulla = non esclude): l'aggancio resta, la fascia
+>   8–9 è dichiaratamente un riempitivo.
+> - **Team leader: default di nuovo «TUTTE»** (ordine utente, ribalta il
+>   giorno prima). Deploy Ready.
+>
 > 🧪 **03/09/2026-quater — CONTROLLO COMPLETEZZA 01/08→03/09** (dati):
 > - 1.284 consegne: **0 ritiri vuoti, 0 consegne senza indirizzo** ✓ (la
 >   regola «ritiro sempre valorizzato» regge). Stipendi ago-set: 0 righe a
