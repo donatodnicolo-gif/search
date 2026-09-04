@@ -211,6 +211,10 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                è la DATA DI CONSEGNA più urgente in cima. -->
           <thead>
             <tr>
+              <!-- ⭐ 04/09/2026 (regola utente): LA DATA DI CONSEGNA È LA PRIMA COLONNA.
+                   È la domanda con cui si guarda questo elenco — «che cosa parte
+                   quando» — e l'ordinamento di default è già suo. -->
+              <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
               <th class="ordinabile" (click)="ordina('status')">{{ 'sales.col.status' | translate }}{{ freccia('status') }}</th>
               <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
               <!-- ⭐ 04/09 (regola utente): lo stato dell'ordine in Orders, dal vivo. -->
@@ -218,8 +222,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
-              <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
-              <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.amount') | translate }}{{ freccia('amount') }}</th>
+              <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.publicPrice') | translate }}{{ freccia('amount') }}</th>
+              <!-- ⭐ 04/09 (regola utente): all'ufficio servono tutt'e due i numeri. -->
+              @if (!isPartner()) {
+                <th class="num">{{ 'sales.col.partnerPrice' | translate }}</th>
+              }
               <!-- ⭐ 04/09 (regola utente): nello STORICO si vede QUANDO ci è andata. -->
               @if (filtro() === 'storico') {
                 <th class="ordinabile" (click)="ordina('historyAt')">{{ 'sales.col.historyAt' | translate }}{{ freccia('historyAt') }}</th>
@@ -232,6 +239,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <!-- ⭐ 04/09 (regola utente): la riga apre il POP-UP di dettaglio
                    (come nel Customer Service); i bottoni fermano il click. -->
               <tr class="riga-link" (click)="apriDettaglio(s)">
+                <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
                 <td>
                   <span class="badge" [style.--c]="colore(s.status)">
                     <i class="dot"></i>{{ etichetta(s.status) }}
@@ -253,8 +261,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     <span class="motivo">{{ s.assignmentReason }}</span>
                   }
                 </td>
-                <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
                 <td class="num">{{ (s.prezzoPartner ?? s.amount) | number: '1.2-2' }} €</td>
+                @if (!isPartner()) {
+                  <td class="num">{{ nettoPartner(s) | number: '1.2-2' }} €
+                    @if (s.discountPercent) { <span class="muted"> −{{ s.discountPercent }}%</span> }
+                  </td>
+                }
                 @if (filtro() === 'storico') {
                   <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                 }
@@ -304,7 +316,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               </tr>
               @if (modificaId() === s.id) {
                 <tr class="mod-row" (click)="$event.stopPropagation()">
-                  <td [attr.colspan]="filtro() === 'storico' ? 10 : 9">
+                  <td [attr.colspan]="(filtro() === 'storico' ? 10 : 9) + (isPartner() ? 0 : 1)">
                     <div class="mod-grid">
                       <label><span>{{ 'sales.col.amount' | translate }}</span>
                         <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.amount" /></label>

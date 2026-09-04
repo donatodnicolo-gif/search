@@ -52,8 +52,10 @@ type StatPartner = {
   prezzoMin: number;
   prezzoMax: number;
   prezzoModa: number;
-  /** Quanto è rimasto al partner, il più delle volte: il prezzo del patto. */
+  /** Quanto è stato DATO al partner, il più delle volte: il prezzo del patto. */
   nettoModa: number;
+  /** true = il numero viene dal conto della vendita, non da una consegna. */
+  daSuggerimento?: boolean;
   scontoMedio: number;
   ultimaVendita: string;
 };
@@ -155,10 +157,34 @@ export class RiconciliazioniService {
       },
       select: {
         id: true, productId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
-        createdAt: true, externalOrderNumber: true,
+        createdAt: true, externalOrderNumber: true, deliveryId: true,
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    // ⭐ 04/09/2026 (regola utente): «85 € conta, è il prezzo che alla fine è
+    // stato dato al partner; 94,50 € è un suggerimento».
+    //
+    // Il patto vero sta sulla RIGA DELLA CONSEGNA — la fotografia di quel
+    // giorno, quella che va in fattura — non nel conto importo × (1 − quota),
+    // che è solo quello che la vendita si aspettava. Qui si legge la riga della
+    // consegna nata da ogni vendita; dove non c'è, si ripiega sul conto della
+    // vendita e la riga lo dichiara (`daSuggerimento`).
+    const consegneIds = vendite.map((v) => v.deliveryId).filter(Boolean) as string[];
+    const consegne = consegneIds.length
+      ? await this.prisma.delivery.findMany({
+          where: { id: { in: consegneIds } },
+          select: { id: true, products: { select: { productId: true, price: true } } },
+        })
+      : [];
+    const righeConsegna = new Map(consegne.map((c) => [c.id, c.products]));
+    /** Quanto ha preso il partner per QUEL prodotto in QUELLA vendita. */
+    const datoAlPartner = (v: { deliveryId: string | null; productId: string | null; amount: number; discountPercent: number }) => {
+      const righe = v.deliveryId ? righeConsegna.get(v.deliveryId) : null;
+      const riga = righe?.find((r) => r.productId === v.productId) ?? (righe?.length === 1 ? righe[0] : null);
+      if (riga && (riga.price ?? 0) > 0) return { valore: arrotonda(riga.price as number), reale: true };
+      return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false };
+    };
 
     type Gruppo = { productId: string; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
     const gruppi = new Map<string, Gruppo>();
@@ -211,8 +237,10 @@ export class RiconciliazioniService {
             prezzoMin: arrotonda(Math.min(...amounts)),
             prezzoMax: arrotonda(Math.max(...amounts)),
             prezzoModa: moda(amounts),
-            // Il NETTO del partner, vendita per vendita: è il numero del patto.
-            nettoModa: moda(lista.map((v) => arrotonda(v.amount * (1 - v.discountPercent / 100)))),
+            // Il numero del patto: quello DATO, quando la consegna lo dice.
+            nettoModa: moda(lista.map((v) => datoAlPartner(v).valore)),
+            /** false = nessuna consegna lo conferma: è un suggerimento, non un fatto. */
+            daSuggerimento: !lista.some((v) => datoAlPartner(v).reale),
             scontoMedio: arrotonda(lista.reduce((n, v) => n + v.discountPercent, 0) / lista.length),
             ultimaVendita: lista[lista.length - 1].createdAt.toISOString(),
           };

@@ -723,6 +723,7 @@
       "date": "Data",
       "amount": "Totale consegna",
       "delivery": "Consegna",
+      "publicPrice": "Al pubblico",
       "plusMinus": "Plus/minus",
       "openDelivery": "Apri la consegna"
     },
@@ -971,6 +972,7 @@
     "empty": "Nessuna riga: cerca le proposte su un intervallo o aspetta la corsa notturna.",
     "loading": "Caricamento…",
     "col": {
+      "publicPrice": "Al pubblico",
       "product": "Prodotto",
       "province": "Provincia",
       "delivery": "Consegna",
@@ -990,6 +992,7 @@
     },
     "listPrice": "listino {{prezzo}} €",
     "customerPrice": "al cliente {{prezzo}} €",
+    "col2": "",
     "editPartnerPrice": "Prezzo al partner (€)",
     "toPartner": "al partner {{prezzo}} €",
     "partnerInactive": "partner non attivo",
@@ -2348,6 +2351,7 @@
       "order": "Origine",
       "orders": "Stato in Orders",
       "partnerPrice": "Prezzo partner",
+      "publicPrice": "Prezzo al pubblico",
       "historyAt": "Data storico",
       "product": "Prodotto",
       "province": "Prov.",

@@ -181,6 +181,7 @@ interface UltimaCorsa {
               <th>{{ 'reconciliations.col.sales' | translate }}</th>
               <th>{{ 'reconciliations.col.partner' | translate }}</th>
               <th class="num">{{ 'reconciliations.col.price' | translate }}</th>
+              <th class="num">{{ 'reconciliations.col.publicPrice' | translate }}</th>
               <th>{{ 'reconciliations.col.state' | translate }}</th>
               <th class="azioni">{{ 'reconciliations.col.actions' | translate }}</th>
             </tr>
@@ -219,16 +220,17 @@ interface UltimaCorsa {
                   <td class="num mod-prezzo">
                     <label><span>{{ 'reconciliations.editPartnerPrice' | translate }}</span>
                       <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.partnerPrice" [attr.name]="'netto-' + r.id" /></label>
-                    <div class="muted small">{{ 'reconciliations.customerPrice' | translate: { prezzo: fmt(r.prezzo) } }}</div>
                   </td>
+                  <td class="num muted">{{ r.prezzo | number: '1.2-2' }} €</td>
                 } @else {
                   <td>
                     <b>{{ r.partner ?? '—' }}</b>
                     @if (!r.partnerAttivo) { <div class="ko small">{{ 'reconciliations.partnerInactive' | translate }}</div> }
                   </td>
+                  <td class="num"><b>{{ r.prezzoPartner | number: '1.2-2' }} €</b></td>
                   <td class="num">
-                    <div><b>{{ r.prezzoPartner | number: '1.2-2' }} €</b></div>
-                    <div class="muted small">{{ 'reconciliations.customerPrice' | translate: { prezzo: fmt(r.prezzo) } }}@if (r.sconto) { · −{{ r.sconto }}% }</div>
+                    {{ r.prezzo | number: '1.2-2' }} €
+                    @if (r.sconto) { <div class="muted small">−{{ r.sconto }}%</div> }
                   </td>
                 }
                 <td>

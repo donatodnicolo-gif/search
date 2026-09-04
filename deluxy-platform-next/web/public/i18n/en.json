@@ -971,6 +971,7 @@
     "empty": "No rows: search proposals over a range or wait for the nightly run.",
     "loading": "Loading…",
     "col": {
+      "publicPrice": "Public",
       "product": "Product",
       "province": "Province",
       "delivery": "Delivery",
@@ -2348,6 +2349,7 @@
       "order": "Source",
       "orders": "Orders state",
       "partnerPrice": "Partner price",
+      "publicPrice": "Public price",
       "historyAt": "Archived on",
       "product": "Product",
       "province": "Prov.",
