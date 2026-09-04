@@ -497,3 +497,28 @@ non per riempire un buco di stile.
 STATO: applicata a Scout. **Da valutare come regola**: quando si nasconde
 l'azione primaria di una barra, la primaria si RIASSEGNA (al primo passo del
 lavoro di quella schermata), non si lascia il vuoto.
+
+## 04/09/2026 — Piattaforma consegne: tre segnalazioni dell'utente, applicate su suo mandato
+
+1. **«Crea prodotto» non produceva nulla (partner Chanel, form consegna).** La
+   finestra «Nuovo prodotto» usava le classi `overlay` / `dialog` / `dialog-foot`
+   **senza averne lo stile nel componente**: gli stili Angular sono per
+   componente e quelle regole vivevano solo nel dettaglio consegna. La
+   «modale» renderizzava come un blocco in fondo alla pagina, sotto il piede
+   sticky: invisibile per tutti i ruoli. Corretto copiando le regole del
+   dettaglio (Libro §9). **Da valutare come regola**: overlay e dialog sono
+   UN componente condiviso (o un foglio globale), non una classe da
+   ricopiare pagina per pagina — la quarta copia era quella senza CSS.
+2. **«Duplica» anche in visualizzazione sullo storico (partner).** Stava
+   sotto `canEdit()` e spariva insieme a «Modifica» da gialla in poi; ora ha
+   la sua condizione (ufficio sempre, partner su ogni sua consegna tranne le
+   vendite). Regola confermata: un'azione che NON modifica il record non
+   eredita i limiti di chi lo modifica.
+3. **Pattern nuovo per il Libro — le liste si aggiornano da sole** (regola
+   utente: «l'app si deve aggiornare in automatico»). `avviaAutoAggiornamento`
+   (30″) su Consegne, Vendite, Segnalazioni, Attività, Richieste, Ricevute:
+   solo a scheda visibile, sospeso con pop-up/azioni aperte, ricarica
+   silenziosa che conserva filtri e selezione. Insieme a chat e pallini fa
+   il capitolo «tempo reale senza websocket» che il custode deve scrivere.
+
+STATO: applicate (deploy 04/09). Punti 1 e 3 in attesa del custode per la regola.

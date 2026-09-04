@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -253,7 +254,15 @@ export class ReceiptsListComponent {
   /** Origine dell'API (senza /api/v1) per costruire il link ai file caricati. */
   private readonly apiOrigin = environment.apiUrl.replace(/\/api\/v1\/?$/, '');
 
-  constructor() { this.load(); }
+  constructor() {
+    this.load();
+    // ⭐ 04/09 (regola utente): le ricevute nuove e le firme arrivate si
+    // vedono da sole (30″, silenzioso, fermo col pannello firma aperto).
+    avviaAutoAggiornamento({
+      ricarica: () => this.load(true),
+      sospeso: () => !!(this.signFor() || this.busy() || this.loading()),
+    });
+  }
 
   fileHref(r: Receipt): string {
     const url = r.fileUrl ?? '';
@@ -266,13 +275,13 @@ export class ReceiptsListComponent {
     this.closeSign();
   }
 
-  private load(): void {
-    this.loading.set(true);
+  private load(silenzioso = false): void {
+    if (!silenzioso) this.loading.set(true);
     // Si scarica TUTTO e si filtra qui: le viste sono tre e le righe poche
     // (350 storiche + gli stipendi del giro nuovo).
     this.http.get<Receipt[]>(`${environment.apiUrl}/receipts`).subscribe({
       next: (d) => { this.receipts.set(d); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
+      error: () => { if (silenzioso) return; this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
     });
   }
 

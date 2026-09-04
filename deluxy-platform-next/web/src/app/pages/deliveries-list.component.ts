@@ -2,6 +2,7 @@ import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -1733,6 +1734,21 @@ export class DeliveriesListComponent {
     if (this.roleOf() === 'PARTNER') this.caricaProposte();
     // Badge «già inviato» su reclami/rimborsi (02/09): un giro solo, le proprie.
     this.caricaSegnalazioniProprie();
+    // ⭐ 04/09 (regola utente): la lista si riallinea DA SOLA ogni 30″ —
+    // consegne nuove, stati cambiati, assegnazioni — senza ricaricare la
+    // pagina. Silenziosa (niente rotellina, selezione e filtri restano) e
+    // ferma finché un pop-up o un'azione sono in corso. Al partner porta
+    // anche le proposte nuove.
+    avviaAutoAggiornamento({
+      ricarica: () => {
+        this.load(true);
+        if (this.roleOf() === 'PARTNER') this.caricaProposte();
+      },
+      sospeso: () => !!(this.statoFor() || this.assignFor() || this.additionalFor() || this.segnalPer()
+        || this.confermaPendente() || this.azioneDiMassa() || this.inCorsoDiMassa() || this.salvandoStato()
+        || this.salvandoAssegna() || this.propostaInCorso() || this.venditaRispostaInCorso()
+        || this.annullaInCorso() || this.valetStatoInCorso() || this.showMap() || this.loading()),
+    });
     // ⚠️ Province e valet servono SOLO dentro il pop-up "Assegna", ma venivano
     // chiesti all'apertura della pagina: misurato, /valets pesa 445 KB e
     // ritarda la lista di oltre due secondi per una finestra che quasi sempre
@@ -2279,9 +2295,13 @@ export class DeliveriesListComponent {
     this.reload();
   }
 
-  load(): void {
-    this.loading.set(true);
-    this.error.set(null);
+  /** `silenzioso` (04/09): è il giro dell'auto-aggiornamento — niente
+   *  rotellina, la selezione resta, un errore di rete non sporca la pagina. */
+  load(silenzioso = false): void {
+    if (!silenzioso) {
+      this.loading.set(true);
+      this.error.set(null);
+    }
     let params = new HttpParams()
       .set('page', String(this.page()))
       .set('pageSize', String(this.pageSize))
@@ -2323,9 +2343,17 @@ export class DeliveriesListComponent {
           // ⚠️ Cambiando pagina o filtro la selezione si azzera: tenere
           // selezionate righe che non si vedono più vorrebbe dire agire alla
           // cieca su consegne che nessuno sta guardando.
-          this.selezione.set(new Set());
+          // Nel giro silenzioso invece si tiene: si POTANO solo gli id che
+          // non sono più in pagina (stessa ragione, senza far perdere il lavoro).
+          if (!silenzioso) {
+            this.selezione.set(new Set());
+          } else if (this.selezione().size) {
+            const inPagina = new Set((data.items ?? []).map((d) => d.id));
+            this.selezione.set(new Set([...this.selezione()].filter((id) => inPagina.has(id))));
+          }
         },
         error: (err) => {
+          if (silenzioso) return; // il prossimo giro riprova; la pagina non si sporca
           this.loading.set(false);
           this.error.set(
             err?.error?.message ?? this.translate.instant('deliveries.loadError'),

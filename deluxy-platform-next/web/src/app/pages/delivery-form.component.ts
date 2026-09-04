@@ -385,7 +385,12 @@ interface ProductRow {
                        [placeholder]="'deliveryForm.placeholder.searchProduct' | translate"
                        [name]="'prod' + $index" autocomplete="off" />
                 @if (rigaAttiva() === $index) {
-                  <div class="prod-risultati">
+                  <!-- ⭐ 04/09: il mousedown dentro la tendina NON toglie il
+                       fuoco all'input — così il blur (che la chiude dopo
+                       250 ms) non parte prima del click su un risultato o
+                       su «Crea nuovo», nemmeno da touch o dalla barra di
+                       scorrimento. -->
+                  <div class="prod-risultati" (mousedown)="$event.preventDefault()">
                     @for (p of risultatiRicerca(); track p.id) {
                       <button type="button" class="ris" (click)="scegliProdotto(row, p)">
                         @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
@@ -669,6 +674,22 @@ interface ProductRow {
         border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
         position: sticky; bottom: 0; background: var(--surface);
       }
+      /* ⭐ 04/09 (segnalazione partner Chanel: «Crea prodotto non produce
+         nulla»): la finestra «Nuovo prodotto» usava le classi overlay/dialog
+         SENZA averne lo stile — gli stili sono per componente, e questi
+         vivevano solo nel dettaglio consegna. Renderizzava come un blocco in
+         fondo alla pagina, sotto il piede sticky: invisibile. Stesse regole
+         del dettaglio (Libro v1.7 §9: modale dentro la viewport, scorre lei). */
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(440px, 92vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 26px; }
+      .dialog-head { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 0 10px; margin: 0 0 6px; border-bottom: 1px solid var(--hairline); }
+      .dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
+      .modal-close { border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--text-tertiary); cursor: pointer; padding: 2px 8px; border-radius: 999px; }
+      .modal-close:hover { background: var(--fill); color: var(--text); }
+      .crea-corpo { display: flex; flex-direction: column; gap: 12px; padding: 6px 0 4px; }
+      .crea-corpo .fld { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+      .crea-corpo .fld .req::after { content: ' *'; color: var(--red); }
+      .dialog-foot { display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: 0; z-index: 2; background: var(--surface); margin-top: 16px; padding: 12px 0 18px; border-top: 1px solid var(--hairline); }
       .prod-variant { display: block; margin-top: 10px; max-width: 420px; }
       .prod-variant-lbl { display: block; font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-bottom: 4px; }
       .prod-variant .field { width: 100%; font-size: 15px; padding: 10px 12px; }

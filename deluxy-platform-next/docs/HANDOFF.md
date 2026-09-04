@@ -3,6 +3,47 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔄 **04/09/2026 — L'APP SI AGGIORNA DA SOLA, «Crea prodotto» del partner riparato, Duplica anche sullo storico, tabelle brioche** (deployato via `vercel build` + `deploy --prebuilt`, da worktree pulito):
+> - **Auto-aggiornamento delle liste** (regola utente: «gli utenti non devono
+>   aggiornare le pagine»): `web/src/app/core/auto-aggiornamento.ts`
+>   (`avviaAutoAggiornamento`, 30″) su Consegne (+ proposte del partner),
+>   Vendite, Segnalazioni, Attività, Richieste, Ricevute. Polling EDUCATO:
+>   solo a scheda visibile (e riallineo immediato al ritorno), giro saltato
+>   se un pop-up/azione è in corso (`sospeso`), ricarica SILENZIOSA (niente
+>   rotellina, filtri e selezione restano — in Consegne la selezione si
+>   pota solo degli id usciti di pagina), un errore di rete non sporca la
+>   pagina. Si spegne col componente (DestroyRef). Stipendi/Fatturazione
+>   NON inclusi (pagine batch pesanti: «Da pagare» carica 36.642 consegne).
+>   Registrato in SEGNALAZIONI-PERFORMANCE (misura: Consegne 31 KB/20 righe)
+>   e SEGNALAZIONI-UX (pattern nuovo per il Libro).
+> - **🐞 «Crea prodotto» del partner (chanel_consegne) non produceva nulla**:
+>   la finestra «Nuovo prodotto» del form consegna usava le classi
+>   `overlay`/`dialog` SENZA CSS nel componente (gli stili sono per
+>   componente: vivevano solo nel dettaglio) → renderizzava come blocco in
+>   fondo alla pagina sotto il piede sticky, invisibile. Valeva per TUTTI i
+>   ruoli. Aggiunto lo stile (stesse regole del dettaglio, Libro §9) e
+>   `mousedown.preventDefault` sulla tendina prodotti così il blur non la
+>   chiude prima del click (touch/scrollbar).
+> - **Duplica in VISUALIZZAZIONE anche sullo storico** (regola utente):
+>   `canDuplicate()` nel dettaglio — ufficio sempre, partner su ogni sua
+>   consegna tranne le VENDITE (nascono dagli ordini). Prima stava sotto
+>   `canEdit()` → sparivano insieme da gialla in poi.
+> - **Tabelle prezzi brioche** (`api/scripts/tabella-prezzi-brioche.mjs`,
+>   sola lettura su prod): casati14 = partner «Casati 14»
+>   (cmt5taar100n3i6v4bmgnv5i2, NESSUN utente di login con quel nome);
+>   malia = «Mali'A». Le 12 brioche che casati14 vede sono TUTTE di Mali'A
+>   (via partnerLinks) coi prezzi identici per i due (es. Brioches vuota
+>   0,84/1,20 €, crema 0,95/1,32); in più una archiviata (CAS6 Clivati) e
+>   un «test brioche 1». Consegna #61746 del 30/07 (delivered): 8 righe,
+>   prezzi scritti = listino di oggi; ⚠️ «Croissant al pistacchio senza
+>   uova» in quella consegna NON è più nel perimetro di casati14.
+> - ⚙️ Ambiente: Node 24.20.0 reinstallato stamattina; CLI Vercel loggata;
+>   deploy prebuilt da `app/.claude/worktrees/deploy-delivery` (linkato a
+>   `delivery`, Root Directory = deluxy-platform-next → `vercel build` va
+>   lanciato dalla cartella PADRE). ⚠️ La cartella principale
+>   `app/deluxy-platform-next` ha il branch locale indietro di 4 commit con
+>   le stesse modifiche non committate nel tree: da riallineare.
+>
 > ✉️ **03/09/2026-sedecies — MAIL a ogni cambio stato segnalazione + la modifica vendita arriva al Customer Service** (deployato):
 > - **Mail automatica** all'interessato (valet o partner) a OGNI cambio di
 >   stato di una segnalazione, via AI Mail. Difese della trappola nota:

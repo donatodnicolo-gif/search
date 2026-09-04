@@ -1,6 +1,7 @@
 import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -253,6 +254,12 @@ export class RichiesteComponent {
 
   constructor() {
     this.carica();
+    // ⭐ 04/09 (regola utente): le richieste delle altre app compaiono da
+    // sole (30″, silenzioso, fermo col form aperto o una conferma pendente).
+    avviaAutoAggiornamento({
+      ricarica: () => this.carica(true),
+      sospeso: () => this.formAperto() || this.salvando() || !!this.confermaPendente() || this.caricamento(),
+    });
   }
 
   cambiaFiltro(s: string): void {
@@ -260,8 +267,8 @@ export class RichiesteComponent {
     this.carica();
   }
 
-  private carica(): void {
-    this.caricamento.set(true);
+  private carica(silenzioso = false): void {
+    if (!silenzioso) this.caricamento.set(true);
     this.http
       .get<{ richieste: Richiesta[]; daLeggere: number }>(`${this.api}/richieste`, {
         params: { stato: this.filtro() },
@@ -273,6 +280,7 @@ export class RichiesteComponent {
           this.caricamento.set(false);
         },
         error: (e) => {
+          if (silenzioso) return;
           this.caricamento.set(false);
           this.errore.set(this.messaggio(e));
         },

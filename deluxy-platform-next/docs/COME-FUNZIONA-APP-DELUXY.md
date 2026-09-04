@@ -9,6 +9,7 @@
 > **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
 >
 > **Changelog**
+> - 04/09/2026 — **L'app si aggiorna da sola**: Consegne (e le proposte del partner), Vendite, Segnalazioni, Attività, Richieste e Ricevute si riallineano ogni **30 secondi** senza ricaricare la pagina — solo con la scheda visibile, mai mentre un pop-up o un'azione sono aperti, senza rotellina e senza perdere filtri o selezione (§3.1, «Aggiornamento automatico»). **«Crea prodotto» nel form consegna riparato**: la finestra «Nuovo prodotto» non aveva lo stile della modale e finiva invisibile in fondo alla pagina (segnalato dal partner Chanel); la tendina prodotti non si chiude più prima del click. **Duplica anche in visualizzazione sullo storico**: nel dettaglio consegna il partner vede «Duplica» su ogni sua consegna (non sulle vendite), l'ufficio sempre — prima spariva insieme a «Modifica» da gialla in poi.
 > - 31/08/2026 (11) — **Vendite: si vede il numero d'ordine Shopify.** La colonna Ordine mostra **#numero · brand** (es. #2824 · Flowers). Il numero viaggia dallo smistamento (campo nuovo `externalOrderNumber`) ed è stato riempito anche su TUTTE le 106 vendite già esistenti, leggendolo dal registro ordini. Compare anche nei cartellini «Ordini proposti a te».
 > - 31/08/2026 (10) — **Preventivi anche dall'ufficio.** Admin e operation hanno il form di richiesta preventivo in cima alla pagina Preventivi, con in più la tendina **«Partner (per chi è la richiesta)»** (solo partner attivi): l'API lo permetteva già, il modulo era nascosto. E nel form consegna la tendina Partner mostra **solo i partner attivi** della provincia dell'indirizzo.
 > - 31/08/2026 (9) — **I bottoni del valet anche IN LISTA.** Su ogni consegna in lavorazione la riga (e il cartellino mobile) porta **Metti in consegna** (agisce subito), **Consegnata** e **Non consegnata** (aprono il dettaglio col pop-up giusto già aperto: firma/DDT o motivo). Verificato in produzione con un account valet vero, firma compresa.
@@ -529,6 +530,16 @@ Portato il sistema di notifiche dell'app reale nel nuovo ambiente: campanello co
 - **Non ancora portati**: SMS, WhatsApp, Mail (servono credenziali Twilio/WATI/SMTP) e il job notturno `checkingPartnerContract` per la scadenza contratto. L'interfaccia `NotificationsService.notifyUsers()` è già pronta a ospitarli.
 - Senza chiavi VAPID configurate il sistema resta funzionante con le sole notifiche in-app (nessun push al browser).
 
+
+#### Aggiornamento automatico delle liste **[NUOVO 04/09/2026]**
+
+Regola dell'utente: «gli utenti non devono aggiornare le pagine per vedere nuove consegne, ordini ecc.». Le liste **Consegne** (con le proposte in attesa del partner), **Vendite**, **Segnalazioni**, **Attività**, **Richieste** e **Ricevute** si riallineano da sole ogni **30 secondi** (`web/src/app/core/auto-aggiornamento.ts`, `avviaAutoAggiornamento`). È lo stesso «tempo reale» della chat e dei pallini: un polling, senza websocket.
+
+- **Solo a scheda visibile**: una scheda in secondo piano non chiede nulla; tornandoci si riallinea subito.
+- **Mai sotto le mani**: il giro si salta se è aperto un pop-up (assegna, stato, plus, segnalazione, conferma), un'azione di massa, una modifica in linea (Vendite), il form «Nuova» (Segnalazioni/Richieste), il pannello firma (Ricevute) o se una chiamata è ancora in corso.
+- **Silenzioso**: niente rotellina, filtri, pagina e ordinamento restano; in Consegne la selezione multipla resta e si pota solo degli id usciti dalla pagina; un errore di rete nel giro silenzioso non sporca la pagina (riprova al giro dopo).
+- **Non incluse** Stipendi e Fatturazione: pagine batch pesanti («Da pagare» carica 36.642 consegne), si ricaricano a mano.
+- Peso dichiarato (registro PERFORMANCE): Consegne 31 KB per 20 righe (misura del 24/08) ogni 30″ per scheda aperta.
 ## 7-bis. Servizi e Calcoli (pricing) — sezione interna
 
 I **servizi** si definiscono in **Amministrazione → Servizi** (nuovo ambiente): nome, tipo, e **destinazione** (Partner / Valet / entrambi). Le **tariffe** si impostano nella scheda del singolo partner/valet. Nell'app reale sono in *Setup → Servizi Partner* (`/servizi`) e *Valet → Servizi Valet* (`/valet/servizi`).

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -457,6 +458,12 @@ export class SegnalazioniComponent {
 
   constructor() {
     this.carica();
+    // ⭐ 04/09 (regola utente): nuove segnalazioni e cambi di stato arrivano
+    // da soli (30″, silenzioso, fermo col form «Nuova» aperto).
+    avviaAutoAggiornamento({
+      ricarica: () => this.carica(true),
+      sospeso: () => this.nuovaAperta() || this.salvando() || this.caricando(),
+    });
     if (this.isUfficio()) {
       this.http.get<any[]>(`${environment.apiUrl}/partners`).subscribe((d) =>
         this.partners.set((d ?? []).map((p) => ({ id: p.id, nome: p.insegna }))));
@@ -466,14 +473,15 @@ export class SegnalazioniComponent {
     }
   }
 
-  carica(): void {
-    this.caricando.set(true);
+  carica(silenzioso = false): void {
+    if (!silenzioso) this.caricando.set(true);
     const params: any = {};
     if (this.filtro()) params.stato = this.filtro();
     if (this.filtroTipo()) params.tipo = this.filtroTipo();
     this.http.get<Segn[]>(`${environment.apiUrl}/segnalazioni`, { params }).subscribe({
       next: (d) => { this.lista.set(d ?? []); this.caricando.set(false); },
-      error: () => { this.lista.set([]); this.caricando.set(false); },
+      // Nel giro silenzioso un errore non svuota la lista: si tiene l'ultima buona.
+      error: () => { if (silenzioso) return; this.lista.set([]); this.caricando.set(false); },
     });
   }
 

@@ -136,7 +136,11 @@ interface DeliveryDetail {
           <button type="button" class="act" [disabled]="!mapsUrl(d)" (click)="openMaps(d)">{{ 'deliveryDetail.act.maps' | translate }}</button>
           @if (canEdit()) {
             <a class="act" [routerLink]="['/deliveries', d.id, 'edit']">{{ 'deliveryDetail.act.edit' | translate }}</a>
-            <!-- Duplica: crea una NUOVA consegna coi dati di questa (ufficio e partner). -->
+          }
+          <!-- Duplica: crea una NUOVA consegna coi dati di questa (ufficio e
+               partner). ⭐ 04/09 (regola utente): anche sullo STORICO — una
+               consegna chiusa si ricrea uguale senza ricompilare il form. -->
+          @if (canDuplicate()) {
             <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ duplica: d.id }">{{ 'common.duplicate' | translate }}</a>
           }
           <!-- Il link di tracciamento si condivide col CLIENTE: lo vede anche
@@ -1334,6 +1338,15 @@ export class DeliveryDetailComponent {
       const d = this.delivery();
       return d?.status === 'created' && d?.serviceType?.pricingModel !== 'VENDITA';
     }
+    return false;
+  }
+  /** Duplica (04/09, regola utente): l'ufficio sempre; il partner su ogni
+   *  SUA consegna, storico compreso — ma non sulle vendite, che nascono dagli
+   *  ordini e non si ricreano a mano. Lo stato della copia riparte da capo. */
+  canDuplicate(): boolean {
+    const r = this.auth.user()?.role;
+    if (r === 'ADMIN' || r === 'OPERATION') return true;
+    if (r === 'PARTNER') return this.delivery()?.serviceType?.pricingModel !== 'VENDITA';
     return false;
   }
 

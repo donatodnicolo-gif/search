@@ -24,3 +24,4 @@
 
 | Data | App | Segnalazione | Esito (misura prima → dopo) |
 |---|---|---|---|
+| 04/09 | piattaforma | **Auto-aggiornamento delle liste** (regola utente): polling 30″ su Consegne, Vendite, Segnalazioni, Attività, Richieste, Ricevute — SOLO a scheda visibile, saltato con pop-up/azioni in corso o chiamata pendente, sola lettura. Peso per scheda aperta: Consegne 31 KB/20 righe (misura 24/08), Vendite = lista intera (da misurare), Ricevute ~350 righe. Escluse Stipendi/Fatturazione (Da pagare = 36.642 consegne). | applicato; **da misurare in produzione** dopo una settimana: richieste/min su /deliveries e /sales e tempo medio; se pesa, si passa a `updatedAt` incrementale |

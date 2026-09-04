@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -238,11 +239,21 @@ export class ActivitiesListComponent {
     this.carica();
   }
 
-  constructor() { this.carica(); }
+  constructor() {
+    this.carica();
+    // ⭐ 04/09 (regola utente): le attività seguono le consegne da sole
+    // (30″, silenzioso, fermo mentre si segna una riga).
+    avviaAutoAggiornamento({
+      ricarica: () => this.carica(true),
+      sospeso: () => !!this.inCorso() || this.caricando(),
+    });
+  }
 
-  carica(): void {
-    this.caricando.set(true);
-    this.errore.set(null);
+  carica(silenzioso = false): void {
+    if (!silenzioso) {
+      this.caricando.set(true);
+      this.errore.set(null);
+    }
     const params: Record<string, string> = {};
     if (this.giorno) params['date'] = this.giorno;
     this.http
@@ -257,6 +268,7 @@ export class ActivitiesListComponent {
           this.caricando.set(false);
         },
         error: (e) => {
+          if (silenzioso) return;
           this.caricando.set(false);
           this.errore.set(e?.error?.message ?? 'Caricamento non riuscito');
         },

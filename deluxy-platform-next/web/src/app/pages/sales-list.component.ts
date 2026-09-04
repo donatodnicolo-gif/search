@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -513,18 +514,31 @@ export class SalesListComponent {
     });
   }
 
-  constructor() { this.carica(); }
+  constructor() {
+    this.carica();
+    // ⭐ 04/09 (regola utente): le vendite arrivano DA SOLE (il cron smista
+    // ogni 15′, il partner risponde): giro silenzioso ogni 30″, fermo mentre
+    // si modifica, si inserisce o si tira.
+    avviaAutoAggiornamento({
+      ricarica: () => this.carica(true),
+      sospeso: () => !!(this.modificaId() || this.modInCorso() || this.inserisciVendita()
+        || this.tirando() || this.inCorso() || this.caricando()),
+    });
+  }
 
   ricarica(): void { this.carica(); }
 
-  private carica(): void {
-    this.caricando.set(true);
-    this.erroreCarico.set(null);
+  private carica(silenzioso = false): void {
+    if (!silenzioso) {
+      this.caricando.set(true);
+      this.erroreCarico.set(null);
+    }
     this.http.get<Sale[]>(`${environment.apiUrl}/sales`).subscribe({
       next: (r) => { this.vendite.set(r ?? []); this.caricando.set(false); },
       // ⚠️ Legge 9 del Libro: un fallimento NON e' mai una lista vuota.
       // Prima qui c'era vendite.set([]) — il guasto sembrava «zero vendite».
       error: (e) => {
+        if (silenzioso) return;
         this.caricando.set(false);
         this.erroreCarico.set(e?.error?.message ?? 'Caricamento non riuscito: riprova.');
       },
