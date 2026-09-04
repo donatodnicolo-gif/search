@@ -14,7 +14,9 @@ interface Sale {
   id: string;
   status: string;
   brand: string;
-  amount: number;
+  amount: number | null;
+  /** Al PARTNER arriva solo questo: importo × (1 − sconto%). */
+  prezzoPartner?: number | null;
   createdAt: string;
   deliveryDate?: string | null;
   externalOrderId?: string | null;
@@ -174,7 +176,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
               <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
-              <th class="ordinabile num" (click)="ordina('amount')">{{ 'sales.col.amount' | translate }}{{ freccia('amount') }}</th>
+              <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.amount') | translate }}{{ freccia('amount') }}</th>
               <!-- ⭐ 04/09 (regola utente): nello STORICO si vede QUANDO ci è andata. -->
               @if (filtro() === 'storico') {
                 <th class="ordinabile" (click)="ordina('historyAt')">{{ 'sales.col.historyAt' | translate }}{{ freccia('historyAt') }}</th>
@@ -209,7 +211,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                   }
                 </td>
                 <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
-                <td class="num">{{ s.amount | number: '1.2-2' }} €</td>
+                <td class="num">{{ (s.prezzoPartner ?? s.amount) | number: '1.2-2' }} €</td>
                 @if (filtro() === 'storico') {
                   <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                 }
@@ -333,14 +335,24 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
           <dl class="coppie">
             <dt>{{ 'sales.detail.product' | translate }}</dt>
             <dd>{{ v.product?.name ?? v.productName ?? '—' }}@if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }</dd>
-            <dt>{{ 'sales.detail.amount' | translate }}</dt>
-            <dd>{{ v.amount | number: '1.2-2' }} €@if (v.discountPercent) { <span class="muted"> · {{ 'sales.detail.discount' | translate }} {{ v.discountPercent }}%</span> }</dd>
+            <dt>{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.detail.amount') | translate }}</dt>
+            @if (isPartner()) {
+              <dd>{{ v.prezzoPartner | number: '1.2-2' }} €</dd>
+            } @else {
+              <dd>{{ v.amount | number: '1.2-2' }} €@if (v.discountPercent) { <span class="muted"> · {{ 'sales.detail.discount' | translate }} {{ v.discountPercent }}%</span> }</dd>
+            }
             <dt>{{ 'sales.detail.partner' | translate }}</dt>
             <dd>{{ v.partner?.insegna ?? ('sales.noPartner' | translate) }}@if (v.assignmentReason) { <div class="cella-sub">{{ v.assignmentReason }}</div> }</dd>
-            <dt>{{ 'sales.detail.recipient' | translate }}</dt>
-            <dd>{{ ((v.recipientFirstName || '') + ' ' + (v.recipientLastName || '')).trim() || '—' }}@if (v.recipientPhone) { <div class="cella-sub">{{ v.recipientPhone }}</div> }</dd>
-            <dt>{{ 'sales.detail.address' | translate }}</dt>
-            <dd>{{ v.recipientAddress || '—' }}@if (v.province?.code) { <span class="muted"> · {{ v.province?.code }}</span> }</dd>
+            <!-- ⭐ 04/09 (regola utente): al partner niente destinatario né indirizzo. -->
+            @if (!isPartner()) {
+              <dt>{{ 'sales.detail.recipient' | translate }}</dt>
+              <dd>{{ ((v.recipientFirstName || '') + ' ' + (v.recipientLastName || '')).trim() || '—' }}@if (v.recipientPhone) { <div class="cella-sub">{{ v.recipientPhone }}</div> }</dd>
+              <dt>{{ 'sales.detail.address' | translate }}</dt>
+              <dd>{{ v.recipientAddress || '—' }}@if (v.province?.code) { <span class="muted"> · {{ v.province?.code }}</span> }</dd>
+            } @else if (v.province?.code) {
+              <dt>{{ 'sales.detail.address' | translate }}</dt>
+              <dd>{{ v.province?.code }}</dd>
+            }
             <dt>{{ 'sales.detail.delivery' | translate }}</dt>
             <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
             <dt>{{ 'sales.detail.linkedDelivery' | translate }}</dt>
@@ -577,7 +589,7 @@ export class SalesListComponent {
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
         case 'deliveryDate': return s.deliveryDate ?? null;
-        case 'amount': return s.amount ?? null;
+        case 'amount': return s.prezzoPartner ?? s.amount ?? null;
         default: return (s as any)[campo] ?? null;
       }
     };
@@ -607,11 +619,18 @@ export class SalesListComponent {
   colore(stato: string) { return STATI[stato]?.colore ?? '#6e6e73'; }
 
   /** Un partner risponde solo alle vendite proposte a lui; admin e operation a tutte. */
+  isPartner(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
+  }
+
   puoRispondere(s: Sale): boolean {
     const u = this.auth.user();
     if (!u) return false;
     if (u.role === 'PARTNER') return s.partner?.id === (u as any).partnerId;
-    return this.canManage();
+    // ⭐ 04/09 (regola utente): l'ufficio accetta/rifiuta SOLO se la vendita è
+    // davvero andata a un partner. Senza partner non c'è niente da accettare:
+    // si «Inserisce» dall'ufficio.
+    return this.canManage() && !!s.partner?.id;
   }
 
   righeConteggio(c: Record<string, number>) {

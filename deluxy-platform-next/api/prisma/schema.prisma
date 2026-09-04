@@ -843,6 +843,9 @@ model Product {
   fields                  ProductField[]
   deliveryProducts        DeliveryProduct[]
   sales                   Sale[]
+  /// ⭐ 04/09/2026 (regola utente): le proposte dell'AI di fissare il prodotto
+  /// su un partner a un prezzo, con la decisione dell'ufficio.
+  reconciliations         ProductReconciliation[]
   active                  Boolean            @default(true)
   // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
   // visibile nella lista principale; uno archiviato va nella sezione Archivio.
@@ -860,6 +863,45 @@ model Product {
 }
 
 // Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
+/// RICONCILIAZIONI PRODOTTO ↔ PARTNER (04/09/2026, regola utente). Ogni corsa
+/// (notturna o manuale) legge le vendite accettate in una finestra, calcola i
+/// numeri per prodotto e chiede all'AI se conviene fissare il prodotto su un
+/// partner a un prezzo. La riga e' la PROPOSTA col motivo; solo «accetta»
+/// dell'ufficio tocca il prodotto, e la riga conserva com'era prima.
+model ProductReconciliation {
+  id                String    @id @default(cuid())
+  productId         String
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Finestra di vendite analizzata.
+  from              DateTime
+  to                DateTime
+  salesCount        Int
+  /// JSON: per partner {partnerId, insegna, attivo, vendite, quotaPercento, prezzoMin, prezzoMax, prezzoModa, scontoMedio}
+  stats             String
+  /// La proposta: riconciliare si'/no, con chi, a quanto, perche'.
+  recommend         Boolean
+  partnerId         String?
+  price             Float?
+  reason            String
+  /// alta | media | bassa
+  confidence        String
+  model             String
+  /// Com'era il prodotto quando e' nata la proposta (per poter disfare a mano).
+  previousPartnerId String?
+  previousType      String
+  previousPrice     Float
+  /// proposta | nessuna (l'AI non consiglia) | accettata | rifiutata
+  status            String    @default("proposta")
+  /// notte | manuale
+  trigger           String
+  decidedAt         DateTime?
+  decidedBy         String?
+  createdAt         DateTime  @default(now())
+
+  @@index([productId, createdAt])
+  @@index([status, createdAt])
+}
+
 model ProductVariant {
   /// id nel database originario MySQL
   legacyId     Int?    @unique

@@ -3,6 +3,35 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧭 **04/09/2026-septies — RICONCILIAZIONI prodotto ↔ partner (AI, notte + manuale); Vendite: Accetta ufficio solo con partner; maschera-partner** (IN LOCALE, non pushato né deployato — regola utente: push/deploy solo a comando).
+> - **Riconciliazioni** (`api/src/products/riconciliazioni.module.ts`, pagina
+>   `web/src/app/pages/product-reconciliations.component.ts`, rotta
+>   `/products/riconciliazioni` PRIMA di `products/:id`, tab in Prodotti per
+>   ADMIN/OPERATION). Tabella `ProductReconciliation` (schema + script
+>   `api/scripts/applica-migrazione-riconciliazioni.mjs`, additivo, **NON
+>   ancora eseguito in prod**). Cron `GET /cron/riconciliazioni` alle 03:30
+>   (vercel.json, CRON_SECRET), 90 giorni; manuale `POST /riconciliazioni/analizza
+>   {da,a}` restituisce subito le righe. I numeri li fa il codice (vendite
+>   `accettata` con partner e prodotto, per partner: quota %, min/max/moda,
+>   sconto medio); tetto 80 prodotti, lotti di 20 a `AiService.strutturato`
+>   (nuovo metodo generico: motore Claude/OpenAI da Impostazioni, schema strict).
+>   Vincoli di codice sopra la risposta: partner solo fra quelli visti e attivo,
+>   prezzo mai con varianti, «già impostato così» → stato `nessuna`.
+>   `accetta` → product.partnerId + type UNICO (+ price se proposto), in
+>   transazione; la riga conserva previousPartnerId/Type/Price.
+> - ⚠️ NON provato contro l'AI vera (manca chiave). Prima prova: Impostazioni →
+>   chiave, poi Prodotti → Riconciliazioni → intervallo → Analizza ora.
+> - **Vendite, Accetta dell'ufficio** solo se `s.partner?.id` (web
+>   `puoRispondere`) e 400 in `accetta` senza `partnerId` (API).
+> - **Maschera-partner** `SalesService.perPartner` (findAll + findOne): via
+>   destinatario/indirizzo/telefono/customerId, `amount`/`discountPercent`/
+>   `product.price` → null, `prezzoPartner` = amount × (1 − sconto%), logs
+>   senza «modifica». Web: colonna «Prezzo partner», dettaglio senza
+>   destinatario/indirizzo (solo sigla provincia), `isPartner()`.
+>   Registrata in SEGNALAZIONI-SICUREZZA (04/09).
+> - Docs: COME-FUNZIONA §3.6 (Riconciliazioni) e §3.7 (nota bottoni e
+>   riservatezza), guida-visiva (2 avvisi). Guida NON ripubblicata.
+>
 > 🤖 **04/09/2026-sexies — MOTORE AI a scelta: Claude o ChatGPT (OpenAI)** (IN LOCALE, non pushato né deployato — regola utente: push/deploy solo a comando).
 > - Richiesta utente: «implementa openai». In **Impostazioni → Intelligenza
 >   artificiale**: select **Motore AI** (`aiProvider` = anthropic | openai,

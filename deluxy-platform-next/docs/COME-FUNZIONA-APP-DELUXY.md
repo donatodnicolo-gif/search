@@ -363,7 +363,20 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 - **Prodotto Collections** (`/collections`): collezioni shop per provincia: Collection Name, Handle (es. `province-products/rm`), Descrizione, Provincia, Codice provincia, Categoria prodotto. **[NUOVO]**
 - **Cakes Order Product** (`/cake/orders`): torte acquistate e realizzate con l'AI (8 presenti) con foto.
 
+#### Riconciliazioni prodotto ↔ partner (`/products/riconciliazioni`) **[NUOVO 04/09/2026]**
+
+Solo **Admin e Operation** (terzo tab in Prodotti). L'AI legge le **vendite accettate dai partner** in una finestra di date e **propone** se fissare un prodotto su un partner a un prezzo, così che ogni vendita successiva vada a quel partner a quel prezzo. **L'AI propone, una persona decide.**
+
+- **Corsa notturna** (`GET /api/v1/cron/riconciliazioni`, Vercel 03:30, `CRON_SECRET`): ultimi 90 giorni; esito in `AppSetting.riconciliazioniUltimaCorsa`, mostrato in testa alla pagina.
+- **Lancio manuale**: intervallo «vendite dal / al» + **Analizza ora** (`POST /api/v1/riconciliazioni/analizza {da, a}`): la risposta torna subito con le righe scritte, e la tabella le mostra (filtro «Tutte», anche i «no»).
+- **I numeri li fa il codice**: per ogni prodotto, vendite per partner (quota %, prezzo min/max/moda, sconto medio), com'è oggi il prodotto (tipo, partner proprietario, listino). Tetto 80 prodotti per corsa, i più venduti prima; a lotti di 20 al modello (`AiService.strutturato`, motore scelto in Impostazioni).
+- **Regole date al modello**: proporre solo se un partner domina (≥3 vendite e ≥70%); `partnerId` solo fra quelli visti per quel prodotto (il codice lo ri-verifica, e vuole il partner attivo); prezzo = moda se stabile, mai su prodotti con varianti; «già impostato così» se il prodotto è già UNICO di quel partner a quel listino; motivo coi numeri; confidenza alta/media/bassa.
+- **Tabella** `ProductReconciliation`: proposta (partner, prezzo, motivo, confidenza, modello), i numeri, **com'era prima** (partner, tipo, listino), stato `proposta | nessuna | accettata | rifiutata`, innesco `notte | manuale`, chi ha deciso e quando. Una proposta aperta per prodotto: la corsa nuova sostituisce la vecchia non decisa; le decise restano.
+- **Riconcilia** (`POST /riconciliazioni/:id/accetta`, con conferma): il prodotto diventa **UNICO** di quel partner e, se proposto, prende quel **prezzo di listino**; da lì lo smistamento lo propone solo a lui (candidati UNICO → proprietario). **Ignora** lascia tutto com'è.
+
 ### 3.7 Vendite (`/all/vendita`)
+
+> **Bottoni e riservatezza (04/09/2026, regola utente).** Accetta/Rifiuta compaiono su una vendita **proposta**: al partner solo se proposta a lui; all'ufficio **solo se la vendita è davvero andata a un partner** (senza partner si «Inserisce»; l'API rifiuta l'accettazione con 400). Al **PARTNER** lista e dettaglio arrivano **mascherati dall'API** (`SalesService.perPartner`, un solo punto per lista e dettaglio): niente destinatario, indirizzo, telefono, cliente; niente importo pubblico, sconto o listino del prodotto — vede solo il **Prezzo partner** = importo × (1 − sconto%) (lo sconto è la quota Deluxy della categoria in provincia, fotografata sulla vendita); del registro non vede le righe «modifica» (elencano campi con nomi e importi) e l'ufficio gli appare come «Ufficio Deluxy».
 
 - Viste per piattaforma: All Vendite + Deluxy (`/vendita`), Cakes (`/cakes/vendita`), Business (`/business/vendita`), Deluxy Flowers (`/flowers/vendita`), Deluxy Experience (`/experience/vendita`), Deluxy.Com (`/deluxydotcom/vendita`).
 - Colonne: Platform, System ID, ID ordine effettivo, Ordine, Data, Cliente, Indirizzo, Telefono, Canale (es. Online Store), Totale, Costo consegna, Stato del pagamento (paid…), Stato di adempimento (Unfulfilled…), Elementi, SKU, Metodo di consegna, Vendor, Stato (es. Da Gestire).

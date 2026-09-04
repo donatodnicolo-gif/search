@@ -21,6 +21,7 @@ import { PartnersModule } from './partners/partners.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { RiconciliazioniModule } from './products/riconciliazioni.module';
 import { ProvincesModule } from './provinces/provinces.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { ServiceTypesModule } from './service-types/service-types.module';
@@ -58,6 +59,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     SegnalazioniModule,
     ChatModule,
     ProductsModule,
+    RiconciliazioniModule,
     CategoriesModule,
     CustomersModule,
     SalesModule,

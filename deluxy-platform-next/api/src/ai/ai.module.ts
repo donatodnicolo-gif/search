@@ -245,6 +245,107 @@ export class AiService {
   }
 
   /**
+   * USCITA STRUTTURATA GENERICA (04/09/2026): istruzioni + testo + schema →
+   * JSON, col motore scelto in Impostazioni (Claude o ChatGPT). La usano le
+   * Riconciliazioni; la lettura delle consegne resta sul suo percorso perché
+   * porta anche le immagini.
+   * ⚠️ Per OpenAI `strict` vuole ogni proprietà in `required`: qui lo schema
+   * arriva già completo da chi chiama.
+   */
+  async strutturato<T>(opts: {
+    istruzioni: string;
+    testo: string;
+    schema: Record<string, unknown>;
+    nome: string;
+    maxToken?: number;
+  }): Promise<{ dati: T; modello: string; token: { letti: number | null; scritti: number | null } }> {
+    const { motore, chiave } = await this.settings.motoreAi();
+    if (!chiave) {
+      throw new ServiceUnavailableException(
+        motore === 'openai'
+          ? 'La chiave OpenAI non è impostata: si incolla in Impostazioni → Intelligenza artificiale.'
+          : 'La chiave dell\'AI non è impostata: si incolla in Impostazioni → aiApiKey.',
+      );
+    }
+    const maxToken = opts.maxToken ?? 8000;
+
+    if (motore === 'openai') {
+      let corpo: {
+        status?: string;
+        incomplete_details?: { reason?: string };
+        output?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
+        usage?: { input_tokens?: number; output_tokens?: number };
+        error?: { message?: string };
+      };
+      try {
+        const r = await fetch(OPENAI_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chiave}` },
+          body: JSON.stringify({
+            model: MODELLO_OPENAI,
+            instructions: opts.istruzioni,
+            input: [{ role: 'user', content: [{ type: 'input_text', text: opts.testo }] }],
+            reasoning: { effort: 'low' },
+            max_output_tokens: maxToken,
+            text: { format: { type: 'json_schema', name: opts.nome, strict: true, schema: opts.schema } },
+          }),
+          signal: AbortSignal.timeout(120_000),
+        });
+        corpo = (await r.json()) as typeof corpo;
+        if (!r.ok) throw new Error(corpo?.error?.message || `HTTP ${r.status}`);
+      } catch (e) {
+        throw new ServiceUnavailableException(`L'AI (OpenAI) non ha risposto: ${(e as Error).message.slice(0, 200)}`);
+      }
+      if (corpo.status === 'incomplete') {
+        throw new ServiceUnavailableException('La risposta dell\'AI si è interrotta a metà: riduci l\'intervallo.');
+      }
+      const parte = corpo.output?.find((o) => o.type === 'message')?.content?.[0];
+      if (!parte || parte.type !== 'output_text' || !parte.text) {
+        throw new ServiceUnavailableException('L\'AI ha risposto in un formato inatteso.');
+      }
+      try {
+        return {
+          dati: JSON.parse(parte.text) as T,
+          modello: MODELLO_OPENAI,
+          token: { letti: corpo.usage?.input_tokens ?? null, scritti: corpo.usage?.output_tokens ?? null },
+        };
+      } catch {
+        throw new ServiceUnavailableException('L\'AI ha risposto qualcosa che non è il formato atteso.');
+      }
+    }
+
+    const claude = new Anthropic({ apiKey: chiave });
+    let risposta: Anthropic.Message;
+    try {
+      risposta = await claude.messages.create({
+        model: MODELLO,
+        max_tokens: maxToken,
+        system: opts.istruzioni,
+        messages: [{ role: 'user', content: [{ type: 'text', text: opts.testo }] }],
+        output_config: { format: { type: 'json_schema', schema: opts.schema } },
+      });
+    } catch (e) {
+      throw new ServiceUnavailableException(`L'AI non ha risposto: ${(e as Error).message.slice(0, 200)}`);
+    }
+    if (risposta.stop_reason === 'max_tokens') {
+      throw new ServiceUnavailableException('La risposta dell\'AI si è interrotta a metà: riduci l\'intervallo.');
+    }
+    const blocco = risposta.content.find((b) => b.type === 'text');
+    if (!blocco || blocco.type !== 'text') {
+      throw new ServiceUnavailableException('L\'AI ha risposto in un formato inatteso.');
+    }
+    try {
+      return {
+        dati: JSON.parse(blocco.text) as T,
+        modello: MODELLO,
+        token: { letti: risposta.usage?.input_tokens ?? null, scritti: risposta.usage?.output_tokens ?? null },
+      };
+    } catch {
+      throw new ServiceUnavailableException('L\'AI ha risposto qualcosa che non è il formato atteso.');
+    }
+  }
+
+  /**
    * La stessa lettura con ChatGPT (API Responses, uscita strutturata).
    * ⚠️ In modalita' `strict` OpenAI vuole OGNI proprieta' in `required` e
    * `additionalProperties:false` su ogni oggetto: lo schema di Claude ha solo

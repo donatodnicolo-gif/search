@@ -233,6 +233,14 @@ export const routes: Routes = [
           import('./pages/products-list.component').then((m) => m.ProductsListComponent),
       },
       {
+        // ⚠️ Prima di `products/:id`: altrimenti «riconciliazioni» sarebbe un id.
+        path: 'products/riconciliazioni',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'] },
+        loadComponent: () =>
+          import('./pages/product-reconciliations.component').then((m) => m.ProductReconciliationsComponent),
+      },
+      {
         path: 'products/new',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'] },

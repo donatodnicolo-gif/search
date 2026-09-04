@@ -75,7 +75,36 @@ export class SalesService {
     // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
-    return vendite.map((v) => ({ ...v, ordine: stati.get(SalesService.numeroShopify(v.externalOrderId) ?? '') ?? null }));
+    return vendite.map((v) => {
+      const conStato = { ...v, ordine: stati.get(SalesService.numeroShopify(v.externalOrderId) ?? '') ?? null };
+      return user.role === Role.PARTNER ? SalesService.perPartner(conStato) : conStato;
+    });
+  }
+
+  /**
+   * ⭐ 04/09 (regola utente): al PARTNER niente dati personali (destinatario,
+   * cliente) e niente prezzi pubblici. Vede SOLO il suo prezzo:
+   * importo × (1 − sconto%) — lo sconto e' la quota Deluxy sulla categoria in
+   * quella provincia, fotografata sulla vendita. Il registro gli arriva senza
+   * le righe «modifica», che elencano campi con nomi e importi.
+   * Si applica in findAll e findOne: un solo punto, cosi' la lista e il
+   * dettaglio non possono raccontare due cose diverse.
+   */
+  private static perPartner<T extends { amount: number; discountPercent: number }>(v: T) {
+    const {
+      recipientFirstName: _n, recipientLastName: _c, recipientAddress: _i, recipientPhone: _t, customerId: _k,
+      amount, discountPercent, ...resto
+    } = v as T & Record<string, unknown>;
+    const prodotto = (resto as { product?: Record<string, unknown> | null }).product;
+    const logs = (resto as { logs?: Array<{ type: string }> }).logs;
+    return {
+      ...resto,
+      amount: null,
+      discountPercent: null,
+      prezzoPartner: Math.round(amount * (1 - (discountPercent ?? 0) / 100) * 100) / 100,
+      product: prodotto ? { ...prodotto, price: null } : prodotto,
+      ...(logs ? { logs: logs.filter((l) => l.type !== 'modifica') } : {}),
+    };
   }
 
   /** La coda numerica di «gid://shopify/Order/N» (o «N»): la chiave con cui Orders si trova. */
@@ -418,6 +447,11 @@ export class SalesService {
         `La vendita non e' in attesa di risposta (stato: ${vendita.status}).`,
       );
     }
+    // ⭐ 04/09 (regola utente): si accetta solo una vendita davvero andata a un
+    // partner. Senza partner la consegna non saprebbe da chi ritirare.
+    if (!vendita.partnerId) {
+      throw new BadRequestException("La vendita non è andata a nessun partner: si inserisce dall'ufficio.");
+    }
 
     const variante = vendita.productVariantId
       ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId } })
@@ -520,7 +554,7 @@ export class SalesService {
       const serviceType = vendita.serviceTypeId
         ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
         : null;
-      return { ...vendita, logs, serviceType, delivery, refusedPartnerIds: null, assignmentReason: null };
+      return SalesService.perPartner({ ...vendita, logs, serviceType, delivery, refusedPartnerIds: null, assignmentReason: null });
     }
     const serviceType = vendita.serviceTypeId
       ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
