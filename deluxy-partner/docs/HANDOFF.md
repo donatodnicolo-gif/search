@@ -52,6 +52,10 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (16:40) — ✅ DEPLOY IN PRODUZIONE del netto in compensazione: `5od7ydnyq` (build su Vercel, 1 min)
+>
+> Deciso dall'utente («fai push & deploy anche di finance»). Push già completo (`17802033` + il commit Marketing `c78516ce` rimasto in locale). `vercel build` locale muore su `npm install` (EPERM symlink di questo PC) → `npx vercel@latest deploy --prod --yes` da `scoutwt/deluxy-partner` (working tree pulito = origin). Health 200, `database:true`. Con questo il webhook di produzione conosce le richieste multi-mese: si può pagare la 48,30 senza la finestra descritta sotto. Restano all'utente: annullare la 49 e chiudere le 7 «pagate fuori dall'app» su Transactions, poi «Paga il netto 48,30 €» da ANTOFLOWERS.
+>
 > ### 04/09/2026 (15:30) — ANTOFLOWERS: «Paga» mandava il mese lordo (185,22 €) invece del netto in compensazione (48,30 €) — CORRETTO in codice, richiesta sbagliata DA ANNULLARE
 >
 > Segnalato dall'utente: «richiesto 48,3 € ma in app (Transactions) compare 185,22». Letto sui dati veri:
