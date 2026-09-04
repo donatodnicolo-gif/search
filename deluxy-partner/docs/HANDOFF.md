@@ -52,6 +52,22 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (mattina) — punto di ripresa: produzione viva e in uso, i 3 script di riparazione NON sono mai stati lanciati
+>
+> Verificato (non dedotto):
+> - **Produzione** = commit `9f3274b3` (03/09 19:57, fix font `.afm` del PDF + «Emetti su FIC» in alto): `vercel ls` mostra il deploy Production `● Ready` di 15 h prima (i37xrfvpi); health 200 in 0,36 s, `database:true`. ⚠️ Il PDF in produzione **non è stato riprovato** (pagina dietro il login).
+> - **L'app è usata**: Renato Cassoli ha creato/modificato 3 vendite vendor il 04/09 tra le 09:34 e le 09:45 (ora di Roma). Il cron FIC delle 6:15 ha importato 1 fattura il 03/09; 4 partner creati dal registro il 03/09.
+> - 🔴 **I tre script di riparazione del 02/09 NON risultano eseguiti**: zero righe nel registro modifiche con le loro frasi («Tolte dai servizi…», «Corretto il bonifico/incasso…», «…importata da FIC già pagata»), nessun `backup-*.json` in `scripts/`. Ci sono ancora **124 `FatturaServizio` con descrizione «Commission…»** (il 02/09 il censimento ne contava 132: le altre 8 rispondono al criterio del numero = `commFattNumero`, o sono state tolte a mano). Quindi il fatturato per tipologia che Budgets legge da `/api/v1/fatturato` è **ancora gonfiato** e i 9 mesi coi bonifici gemelli sono **ancora sommati**.
+> - ✅ **Giugno 2026 di 142 RESTAURANT è stato sistemato A MANO**: il 02/09 alle 13:29 (Roma) «Annullati i pagamenti registrati per Giugno 2026» → `bonificoImporto` = NULL; la 460/2026 resta agganciata come `commFattNumero`. È il caso per cui il commit `e2a2fea9` ha insegnato allo script a non stornare un saldo già annullato. Poco prima (13:59) Renato ha richiesto a Transactions 89,87 € per luglio di 142 RESTAURANT.
+> - ❓ **Riconsenso FIC (note di credito + acquisti) non verificato**: la prova sul token (403 o 200 su `credit_note` e `received_documents`) è stata bloccata dal classificatore; si controlla da `/fatture/note-credito` o da Impostazioni → FIC.
+>
+> Stato della macchina e del repo (cambia il modo di lavorare):
+> - **Node v24.20.0 c'è di nuovo** (reinstallato il 04/09 alle 10:10, `C:\Program Files\nodejs`); nelle sessioni aperte prima va rimesso nel PATH a ogni comando. **La CLI Vercel è loggata** (`vercel whoami` → donatodnicolo-gif), quindi `vercel ls`/`vercel --prod` funzionano da qui.
+> - ⚠️ **Il worktree `scoutwt` ha HEAD (`a145bace`) INDIETRO di 12 commit rispetto a `origin/scout-ui` (`fe42328f`)**, e i file di quei commit compaiono come «modifiche non committate» perché qualcuno ha committato e pushato da un altro checkout. Per `deluxy-partner` il contenuto è IDENTICO a origin (`git diff origin/scout-ui -- deluxy-partner` vuoto); per scout/standard ci sono differenze vere (30 file). ⚠️ Inoltre 8 file oggi **untracked** (statistiche di messaging, migrazioni scout) **esistono già tracciati su origin**: un `merge --ff-only` si rifiuterebbe di sovrascriverli. Prima di committare qui: `git stash` → `git merge --ff-only origin/scout-ui` → `git stash pop`, oppure `git reset --mixed origin/scout-ui` (non tocca i file). Ho provato il reset: **bloccato dal classificatore**, lo fa una persona.
+> - `src/components/StampaButton.tsx` è un file orfano untracked (il 02/09 è stato sostituito da `AzioniDocumento.tsx`, nessun import): da cancellare.
+>
+> **Cosa aspetta un gesto tuo, in ordine**: (1) allineare il worktree (sopra); (2) lanciare i 3 script del 02/09 da `scoutwt/deluxy-partner` con Node nel PATH — prima a secco senza `--esegui`, poi con; (3) riconsenso FIC; (4) i 4 mesi ambigui dei bonifici (ARTE E FIORI mar, CLIVATI gen+feb, ENRICO RIZZI feb) restano da guardare a mano.
+
 > ### 02/09/2026 (sera) — Pro-forma e preventivi: documento elegante, stampa A4, «Scarica PDF», PDF allegato all'email
 >
 > Chiesto dall'utente: «le pro-forme devono essere eleganti con logo e adattate a poter essere condivise col cliente, in particolare facendo stampa; metti anche un bottone per scaricare il PDF».
