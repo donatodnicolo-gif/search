@@ -7,8 +7,8 @@ import { prisma } from "./db";
 import { registra } from "./registro";
 import { euro } from "./format";
 import { nomeMese } from "./calc";
-import { richiediPagamentoPartner, riferimentoSaldo, richiestaRifacibile, transactionsConfigurato } from "./transactions";
-import { partiteAperte, descriviPartite } from "./saldo-netto";
+import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } from "./transactions";
+import { partiteAperte, partiteDaChiedere, nettoDaChiedere, descriviPartite } from "./saldo-netto";
 
 // «Richiedi pagamento»: manda a **deluxy-transactions** la richiesta di pagare
 // il dovuto di un partner.
@@ -69,19 +69,14 @@ export async function richiediPagamento(
   let mesiCoinvolti = [mese];
   let dettaglioRegistro = periodo;
   if (partner.compensazione) {
-    const { partite, netto } = await partiteAperte(partnerId, anno);
-    const inCorso = partite.filter(
-      (p) => p.mese !== mese && p.saldo?.richiestaRif && !richiestaRifacibile(p.saldo.richiestaStato, p.saldo.richiestaIl)
-    );
-    if (inCorso.length > 0) {
-      torna(
-        destinazione,
-        "errorePag",
-        `${periodo} — in compensazione si chiede il netto dell'anno, ma c'è già una richiesta in corso per ${inCorso
-          .map((p) => nomeMese(p.mese))
-          .join(", ")} (${inCorso[0].saldo?.richiestaRif}): aspetta il suo esito o annullala in Transactions.`
-      );
-    }
+    // I mesi che hanno GIÀ una richiesta in corso non entrano nel netto: la
+    // loro cifra è già in coda su Transactions, contarla di nuovo la
+    // chiederebbe due volte (verificato il 04/09 su 7 partner con luglio già
+    // in attesa e agosto nuovo). Restano i mesi mai richiesti, a credito e a
+    // debito, e quelli la cui richiesta è stata annullata o rifiutata.
+    const tutte = await partiteAperte(partnerId, anno);
+    const partite = partiteDaChiedere(tutte.partite, mese);
+    const netto = nettoDaChiedere(tutte.partite, mese);
     if (netto < 0.01) {
       torna(
         destinazione,

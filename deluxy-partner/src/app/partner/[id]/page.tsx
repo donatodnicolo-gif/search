@@ -11,6 +11,7 @@ import { tokenPartner } from "@/lib/riconciliazione";
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
+import { nettoDaChiedere } from "@/lib/saldo-netto";
 import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
 import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
@@ -883,8 +884,16 @@ export default async function PartnerDetail({
               richiestaRif={saldo?.richiestaRif ?? null}
               richiestaStato={saldo?.richiestaStato ?? null}
               richiestaIl={saldo?.richiestaIl ?? null}
-              // rolling.residuo = da incassare − da bonificare sull'anno intero
-              nettoCompensato={partner.compensazione ? -rolling.residuo : null}
+              // Stessa formula del server (saldo-netto.ts): il netto dei mesi
+              // senza richiesta in corso, visto da questo mese.
+              nettoCompensato={
+                partner.compensazione
+                  ? nettoDaChiedere(
+                      mesi.map((m) => ({ mese: m.mese, delta: m.riepilogo.daBonificare - m.riepilogo.daIncassare, saldo: m.saldo })),
+                      mese
+                    )
+                  : null
+              }
             />
           </div>
         </div>

@@ -34,6 +34,21 @@ dettaglio della richiesta (`/richieste/TRX-2026-000049` → «annulla», motivo:
 importo lordo del mese al posto del netto). Il webhook rimette agosto
 «rifacibile» in Finance. 🔴 **Finché resta `in_attesa`, non pagarla.**
 
+**Verifica di TUTTA la coda di Finance (16:00, chiesta dall'utente)** — 17
+richieste aperte confrontate con i dati di Finance di oggi. Solo la 49 ha
+l'importo sbagliato per compensazione. Ma **7 richieste `in_attesa` sono di
+mesi che Finance ha già segnato pagati a mano** (bonifico fatto dal portale
+della banca e annotato con «Abbiamo pagato»): `-000004` 249,28 · `-000005`
+484,00 · `-000006` 9,83 · `-000007` 2.336,59 · `-000008` 942,42 · `-000009`
+686,31 · `-000011` 85,48 — **4.794,45 € che, pagati da qui, uscirebbero due
+volte.** Vanno chiuse dal dettaglio come «già pagata fuori dall'app» con la
+data del bonifico (Finance ha le date: 24/08, 05/08, 27/08, 21/08, 05/08,
+05/08, 24/08). Il resto della coda (`-000003` in distinta, `-000010`,
+`-000012` … `-000017`, `-000039`) porta importi che tornano coi mesi (la 13 è
+sotto di 3,60 € per un'aggiunta successiva). ⚠️ Regola per il futuro: quando
+Finance annota un bonifico a mano su un mese con richiesta in corso, dovrebbe
+annullare la richiesta qui — oggi non lo fa (da costruire in Finance).
+
 Dopo il 28/08 sono entrati due commit non ancora scritti qui: **29/08 accesso
 senza codice a 6 cifre** (login email+password, deciso dall'utente) e **coda con
 ricerca + scorciatoie di periodo** (Oggi / 7 giorni / Mese / Trimestre / Anno).
