@@ -36,6 +36,9 @@ type MediaCaricato = {
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
 
+type Variante = { nome: string; prezzo: string; costo: string; giacenza: string };
+const varianteVuota = (): Variante => ({ nome: "", prezzo: "", costo: "", giacenza: "0" });
+
 /** Sette cifre casuali, mai con lo zero davanti (così resta di sette anche letto come numero). */
 export function skuCasuale(): string {
   return String(Math.floor(1_000_000 + Math.random() * 9_000_000));
@@ -67,6 +70,15 @@ export function FormProdottoNuovo({
   const [scrivendo, setScrivendo] = useState(false);
   const [erroreAi, setErroreAi] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaCaricato[]>([]);
+  // Varianti (chieste dall'utente il 04/09/2026): ogni variante ha il suo SKU,
+  // derivato da quello principale con un numero in coda («4839201-1»). Lo SKU
+  // della variante non si scrive: segue quello principale, così restano
+  // agganciati anche se lo si rigenera.
+  const [haVarianti, setHaVarianti] = useState(false);
+  const [nomeOpzione, setNomeOpzione] = useState("Formato");
+  const [varianti, setVarianti] = useState<Variante[]>([varianteVuota()]);
+  const aggiornaVariante = (i: number, campo: keyof Variante, valore: string) =>
+    setVarianti((v) => v.map((x, j) => (j === i ? { ...x, [campo]: valore } : x)));
   const [caricando, setCaricando] = useState(false);
   const [erroreMedia, setErroreMedia] = useState<string | null>(null);
 
@@ -192,6 +204,12 @@ export function FormProdottoNuovo({
   return (
     <form action={azione} ref={form}>
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
+      <input type="hidden" name="nomeOpzione" value={nomeOpzione} />
+      <input
+        type="hidden"
+        name="variantiJson"
+        value={JSON.stringify(haVarianti ? varianti.filter((v) => v.nome.trim()) : [])}
+      />
       <input type="hidden" name="negozioId" value={negozioId} />
 
       {/* ---------- Anagrafica ---------- */}
@@ -412,8 +430,80 @@ export function FormProdottoNuovo({
           <div className="campo-modulo">
             <label htmlFor="prezzoVendita">Prezzo di vendita (€)</label>
             <input id="prezzoVendita" name="prezzoVendita" type="number" step="0.01" min="0" defaultValue="0" />
+            {haVarianti && (
+              <span className="cella-sub">Con le varianti è il prezzo base: se lo lasci a 0 vale il prezzo della variante più economica.</span>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* ---------- Varianti ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Varianti</div>
+        <div className="pill-scelta" style={{ marginBottom: 12 }}>
+          <label className="pill-opt" style={{ cursor: "pointer" }}>
+            <input type="checkbox" checked={haVarianti} onChange={(e) => setHaVarianti(e.target.checked)} />
+            Il prodotto ha varianti (formati, misure, colori)
+          </label>
+        </div>
+        {haVarianti && (
+          <>
+            <div className="modulo">
+              <div className="campo-modulo">
+                <label htmlFor="nomeOpzione">Nome dell&apos;opzione</label>
+                <input id="nomeOpzione" value={nomeOpzione} onChange={(e) => setNomeOpzione(e.target.value)} placeholder="Formato" />
+              </div>
+            </div>
+            <div className="tabella-wrap" style={{ marginTop: 12 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Variante *</th>
+                    <th>SKU</th>
+                    <th className="num">Prezzo (€)</th>
+                    <th className="num">Costo (€)</th>
+                    <th className="num">Giacenza</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {varianti.map((v, i) => (
+                    <tr key={i}>
+                      <td>
+                        <input value={v.nome} onChange={(e) => aggiornaVariante(i, "nome", e.target.value)} placeholder="Medium" aria-label={`Nome variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        {/* Derivato, non scritto: segue lo SKU principale. */}
+                        <code>{sku || "…"}-{i + 1}</code>
+                      </td>
+                      <td>
+                        <input value={v.prezzo} onChange={(e) => aggiornaVariante(i, "prezzo", e.target.value)} inputMode="decimal" className="num" placeholder="95,00" aria-label={`Prezzo variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        <input value={v.costo} onChange={(e) => aggiornaVariante(i, "costo", e.target.value)} inputMode="decimal" className="num" placeholder="0" aria-label={`Costo variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        <input value={v.giacenza} onChange={(e) => aggiornaVariante(i, "giacenza", e.target.value)} type="number" min={0} className="num" aria-label={`Giacenza variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        <button type="button" className="icon-btn" onClick={() => setVarianti((x) => x.filter((_, j) => j !== i))} disabled={varianti.length === 1} title="Togli questa variante">
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" className="btn btn-secondario small" style={{ marginTop: 12 }} onClick={() => setVarianti((v) => [...v, varianteVuota()])}>
+              Aggiungi variante
+            </button>
+            <p className="cella-sub" style={{ marginTop: 8 }}>
+              Gli SKU delle varianti sono lo SKU principale più «-1», «-2»…: se rigeneri quello principale, seguono. Su
+              Shopify diventano le varianti dell&apos;opzione «{nomeOpzione || "Formato"}».
+            </p>
+          </>
+        )}
       </div>
 
       {/* ---------- Pubblicazione ---------- */}

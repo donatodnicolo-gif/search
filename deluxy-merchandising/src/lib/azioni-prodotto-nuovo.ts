@@ -43,18 +43,35 @@ function skuCasuale(): string {
   return String(Math.floor(1_000_000 + Math.random() * 9_000_000));
 }
 
-/** Il codice libero: quello chiesto se non è preso, altrimenti uno nuovo. */
-async function codiceLibero(chiesto: string): Promise<{ codice: string; cambiato: boolean }> {
+/**
+ * Il codice libero: quello chiesto se non è preso, altrimenti uno nuovo.
+ * Con `quanteVarianti` > 0 devono essere liberi anche gli SKU derivati
+ * («-1», «-2»…): un codice principale libero con una variante già presa non
+ * serve a niente, quindi si controllano insieme.
+ */
+async function codiceLibero(chiesto: string, quanteVarianti = 0): Promise<{ codice: string; cambiato: boolean }> {
   const preso = async (c: string) =>
     (await prisma.prodotto.findUnique({ where: { codice: c }, select: { id: true } })) != null ||
     (await prisma.variante.findUnique({ where: { sku: c }, select: { id: true } })) != null;
+  const tuttiLiberi = async (c: string) => {
+    if (await preso(c)) return false;
+    for (let i = 1; i <= quanteVarianti; i++) if (await preso(`${c}-${i}`)) return false;
+    return true;
+  };
   const iniziale = chiesto || skuCasuale();
-  if (!(await preso(iniziale))) return { codice: iniziale, cambiato: false };
+  if (await tuttiLiberi(iniziale)) return { codice: iniziale, cambiato: false };
   for (let i = 0; i < 25; i++) {
     const c = skuCasuale();
-    if (!(await preso(c))) return { codice: c, cambiato: true };
+    if (await tuttiLiberi(c)) return { codice: c, cambiato: true };
   }
   throw new Error("Non ho trovato un codice libero dopo 25 tentativi.");
+}
+
+type VarianteDalForm = { nome: string; prezzo: string; costo: string; giacenza: string };
+
+function soldiDa(v: string): number {
+  const n = parseFloat((v || "").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 type MediaDalForm = {
@@ -107,8 +124,28 @@ export async function creaProdottoCompleto(fd: FormData) {
   const oggi = giornoRoma(new Date());
   const finestraAperta = (!pubblicatoDal || pubblicatoDal <= oggi) && (!pubblicatoFinoAl || pubblicatoFinoAl >= oggi);
 
-  const { codice, cambiato } = await codiceLibero(testo(fd, "codice").replace(/\D/g, ""));
-  const prezzo = numero(fd, "prezzoVendita");
+  // Varianti: nome obbligatorio, SKU derivato dal principale («-1», «-2»…).
+  let variantiForm: VarianteDalForm[] = [];
+  try {
+    variantiForm = (JSON.parse(testo(fd, "variantiJson") || "[]") as VarianteDalForm[]).filter((v) => v && v.nome?.trim());
+  } catch {
+    variantiForm = [];
+  }
+  const nomeOpzione = testo(fd, "nomeOpzione") || "Formato";
+  const { codice, cambiato } = await codiceLibero(testo(fd, "codice").replace(/\D/g, ""), variantiForm.length);
+  const varianti = variantiForm.map((v, i) => ({
+    nome: v.nome.trim(),
+    sku: `${codice}-${i + 1}`,
+    prezzo: soldiDa(v.prezzo),
+    costo: soldiDa(v.costo),
+    giacenza: Math.max(0, Math.round(Number(v.giacenza) || 0)),
+  }));
+  // Con le varianti il prezzo del prodotto è la BASE: quello scritto, o se è
+  // zero il prezzo della variante più economica (modello «base + delta»).
+  const prezzoScritto = numero(fd, "prezzoVendita");
+  const prezzo =
+    varianti.length && prezzoScritto === 0 ? Math.min(...varianti.map((v) => v.prezzo).filter((p) => p > 0), Infinity) : prezzoScritto;
+  const prezzoBase = Number.isFinite(prezzo) ? prezzo : 0;
   const descrizione = testo(fd, "descrizione") || null;
   const avvisi: string[] = [];
   if (cambiato) avvisi.push(`Lo SKU scelto era già in uso: assegnato ${codice}.`);
@@ -137,15 +174,21 @@ export async function creaProdottoCompleto(fd: FormData) {
       vendor: "",
       tags: [],
       stato,
-      prezzo: String(prezzo),
+      prezzo: String(prezzoBase),
       prezzoConfronto: "",
       sku: codice,
       immagini: [],
       fisico: true,
-      controllaStock: false,
+      controllaStock: varianti.some((v) => v.giacenza > 0),
       giacenza: "0",
-      nomeOpzione: "Formato",
-      varianti: [],
+      nomeOpzione,
+      varianti: varianti.map((v) => ({
+        nome: v.nome,
+        sku: v.sku,
+        prezzo: String(v.prezzo || prezzoBase),
+        prezzoConfronto: "",
+        giacenza: String(v.giacenza),
+      })),
       metafield: [],
     });
     cronaca.push(...esito.passi);
@@ -206,8 +249,19 @@ export async function creaProdottoCompleto(fd: FormData) {
       materiali: testo(fd, "materiali") || null,
       palette: testo(fd, "palette") || null,
       costoProduzione: numero(fd, "costoProduzione"),
-      prezzoVendita: prezzo,
+      prezzoVendita: prezzoBase,
       immagine: immagini[0]?.url ?? null,
+      varianti: varianti.length
+        ? {
+            create: varianti.map((v) => ({
+              nome: v.nome,
+              sku: v.sku,
+              deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase,
+              deltaCosto: v.costo ? v.costo - numero(fd, "costoProduzione") : 0,
+              giacenza: v.giacenza,
+            })),
+          }
+        : undefined,
       negozioNome: negozioOk.nome,
       collezioneShopifyId: collezione?.id ?? null,
       pubblicatoDal,
@@ -245,7 +299,13 @@ export async function creaProdottoCompleto(fd: FormData) {
       prodottoId: p.id,
       da: "—",
       a: fase,
-      nota: [shopifyId ? `Creato su ${negozioOk.nome} (${handle ?? shopifyId}).` : "Prodotto creato.", ...cronaca].join(" "),
+      nota: [
+        shopifyId ? `Creato su ${negozioOk.nome} (${handle ?? shopifyId}).` : "Prodotto creato.",
+        varianti.length ? `${varianti.length} varianti (${varianti.map((v) => v.sku).join(", ")}).` : "",
+        ...cronaca,
+      ]
+        .filter(Boolean)
+        .join(" "),
       origine: shopifyId ? "shopify" : "ui",
     },
   });
