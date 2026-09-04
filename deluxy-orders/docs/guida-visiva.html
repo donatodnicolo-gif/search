@@ -265,7 +265,7 @@
       <div class="fact"><b>4</b><span>negozi Shopify collegati</span></div>
       <div class="fact"><b>~14.400</b><span>ordini nel registro</span></div>
       <div class="fact"><b>9</b><span>app che leggono da qui</span></div>
-      <div class="fact"><b>ogni 15′</b><span>si aggiorna da solo</span></div>
+      <div class="fact"><b>ogni 5′</b><span>si aggiorna da solo</span></div>
     </div>
   </div>
 
@@ -285,7 +285,7 @@
       <div class="step">
         <div class="step-k">Entra nel registro</div>
         <div class="step-t">Deluxy Orders</div>
-        <div class="step-d">Ogni 15 minuti l'ordine entra qui con cliente, prodotti, consegna e pagamento. Qui si classifica e si tiene la verità.</div>
+        <div class="step-d">Ogni 5 minuti l'ordine entra qui con cliente, prodotti, consegna e pagamento. Qui si classifica e si tiene la verità.</div>
         <span class="who ord">Registro + controllo</span>
       </div>
       <div class="step">
@@ -405,7 +405,7 @@
     <div class="flow">
       <div class="flow-col">
         <h4>Entra</h4>
-        <div class="sub">Shopify, ogni 15 minuti</div>
+        <div class="sub">Shopify, ogni 5 minuti</div>
         <div class="chiplist">
           <span class="chip">ordini + righe</span><span class="chip">cliente</span><span class="chip">consegna</span>
           <span class="chip">pagamento</span><span class="chip">annullamenti</span><span class="chip">rischio frode</span><span class="chip">foto prodotti</span>
@@ -434,7 +434,7 @@
       <div class="card">
         <div class="icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg></div>
         <h4>La sincronizzazione da Shopify</h4>
-        <p>Ogni 15 minuti gli ordini nuovi entrano nel registro; una volta al giorno un giro completo raccoglie rimborsi, annullamenti ed evasioni. Riscrive solo ciò che è davvero cambiato.</p>
+        <p>Ogni 5 minuti gli ordini nuovi entrano nel registro; una volta al giorno un giro completo raccoglie rimborsi, annullamenti ed evasioni. Riscrive solo ciò che è davvero cambiato.</p>
       </div>
       <div class="card">
         <div class="icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12h16"/><path d="m14 6 6 6-6 6"/></svg></div>
@@ -477,6 +477,21 @@
         <table>
           <thead><tr><th>Data</th><th>Cosa</th><th>Tipo</th></tr></thead>
           <tbody>
+            <tr>
+              <td class="date">31 ago 2026</td>
+              <td class="what"><b>Gli ordini arrivano in 5 minuti invece di 11</b><span>Misurato su 91 ordini veri: si aspettava due giri di controllo in fila (Orders leggeva Shopify ogni 15&#8242;, il Customer Service leggeva Orders ogni 15&#8242;). Ora tutti e due guardano ogni 5 minuti. Verificato in produzione il 4 settembre: 5 minuti e mezzo dalla vendita alla scheda.</span></td>
+              <td><span class="tag p">Automatico</span></td>
+            </tr>
+            <tr>
+              <td class="date">31 ago 2026</td>
+              <td class="what"><b>Ogni tabella si ordina dalle intestazioni</b><span>Si clicca il titolo di una colonna e l&#39;elenco si riordina: ordini, controllo, incassa, script, automazioni, eventi, analisi, marketing, categorie, chiavi, rubrica, schede cliente. Dove l&#39;elenco &egrave; a pagine si ordina tutto l&#39;archivio, non la pagina che si sta guardando. La riga si apre col click.</span></td>
+              <td><span class="tag u">Interfaccia</span></td>
+            </tr>
+            <tr>
+              <td class="date">31 ago 2026</td>
+              <td class="what"><b>Codice prodotto sulle righe scritte a mano</b><span>I prodotti digitati a mano nel Nuovo ordine (riconsegne e preventivi compresi) partono con un codice di sette cifre, cos&igrave; arrivano identificati alla piattaforma consegne invece che senza codice.</span></td>
+              <td><span class="tag f">Funzione</span></td>
+            </tr>
             <tr>
               <td class="date">29 ago 2026</td>
               <td class="what"><b>Interfaccia allineata alle app sorelle</b><span>Stessi token del Design System v1.4: focus dorato su ogni campo, intestazioni di tabella in tono minore, badge nella tinta tenue di sempre, bottoni e menu uniformati. L'app ora «somiglia» a Finance, CS e alle altre.</span></td>

@@ -1,6 +1,6 @@
 # Handoff — Deluxy Orders
 
-Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
+Stato al **04/09/2026** (sezione qui sotto; il corpo del documento
 è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
@@ -12,6 +12,100 @@ già pagate** — quelle valgono più dell'elenco delle funzioni.
 > proprio quello scope, e **i negozi condividono una sola app Shopify** (3 negozi,
 > 1 `clientId`) → lo scope copre anche Orders. La sua `/incassa` può creare il
 > link di pagamento. Ignorare le righe più sotto che lo danno per mancante.
+
+## 04/09/2026 — Fotografia: l'app è LIVE al 31/08, e questo documento era indietro di tre giornate
+
+Ripreso in mano il 04/09 («leggi l'handoff e aggiorna la memoria»). L'handoff si
+fermava al **27/08**, ma nel frattempo erano entrate **tre giornate di lavoro mai
+scritte qui** (28, 29 e 31 agosto): sono ricostruite più sotto dai commit.
+
+**Cosa c'è in produzione.** `deluxy-orders.vercel.app` → deploy
+**`deluxy-orders-kz9o5cysz`** del **31/08 alle 23:27**, `● Ready`. Alias
+**verificato**: `vercel inspect deluxy-orders.vercel.app` risponde con quel
+deploy — qui l'alias segue il deploy davvero (non è il caso di Finance, dove il
+dominio era rimasto indietro). Dal 31/08 nessun altro deploy: **locale e
+produzione coincidono**, non c'è lavoro fermo da pubblicare.
+
+⚠️ Onestà sul metodo: il deploy è nato **7 secondi dopo** il commit `00fee53f`.
+È un `--prebuilt` (la build gira prima, poi si carica l'output), quindi quasi
+certamente contiene tutto — ma i metadati di un prebuilt **non portano lo sha di
+git** e questo dai metadati non si può provare. L'unica cosa provata dal vivo è
+il cron a 5 minuti (qui sotto).
+
+### Contato sul database il 04/09 alle 20:44 (non ricordato)
+
+|  | 30/07 | **04/09** |
+|---|---|---|
+| ordini | 14.027 | **14.562** |
+| ordini con `costoFornitore` | 371 (3%) | **845 (5,8%)** |
+| `TagCliente` confermati a mano | 0 | **0** |
+| negozi attivi | 3 | **3** (+ `business.deluxy.it` ancora spento) |
+
+- Ultimi 7 giorni: **113 ordini**.
+- ⭐ **La sync a 5 minuti funziona in produzione, misurata**: l'ultimo ordine
+  (**#1831**, cakedesign.me) è nato su Shopify alle **18:29:57 UTC** ed era in
+  Orders alle **18:35:30** → **5 minuti e 33 secondi**. Prima della modifica del
+  31/08 la mediana era 6,4 minuti e il caso peggiore 15,9.
+- 🔴 **`TagCliente` è ANCORA vuota.** Il punto aperto n.2 (1.105 «probabili
+  aziende» da confermare, **317.669 €** di venduto quasi certamente B2B contati
+  come privati in Analisi e Marketing) **non si è mosso di una riga dal 30/07**.
+  Finché si conferma un cliente alla volta non si smaltisce: serve la conferma in
+  blocco dalla lista.
+- Il costo fornitore cresce (371 → 845) ma resta una **fetta**: il margine
+  misurato è vero su quella, non su tutto lo storico.
+
+⚠️ **Il branch `scout-ui` è ahead 19 / behind 22 rispetto a `origin`.** Non è
+roba di Orders (sono le altre app della cartella `scoutwt/`), ma chi pusha da qui
+lo deve sapere prima: in questa cartella hanno lavorato più sessioni.
+
+### Le tre giornate che mancavano
+
+**28/08 — la guida visiva** (`c83aa7f1`): nasce `docs/guida-visiva.html`, la
+guida per chi comincia, col «Registro delle funzionalità» da aggiornare a ogni
+funzione nuova (regola 0-bis).
+
+**29/08 — allineamento al Design System v1.4** (`59dd79de`, registro in
+`afab7b9b`), con `architetto-ux` come custode: token, focus dorato sui campi,
+intestazioni di tabella in tono minore, badge nella tinta tenue, bottoni e menu
+uniformati alle app sorelle.
+
+**31/08 — tre lavori in una sera:**
+
+1. **Gli ordini arrivano in 5 minuti invece di 11** (`2babecdc`). Misurato PRIMA
+   di toccare, su 91 ordini veri di sette giorni: Shopify→Orders mediana 6,4 min
+   (90° 13,3, peggiore 15,9), Shopify→CS mediana 11,0 (peggiore 20,3). Non era
+   lentezza: erano **due attese in fila, una per cron** (Orders leggeva Shopify
+   ogni 15′, il CS leggeva Orders ogni 15′). Entrambi i giri passano a **5
+   minuti**. ⚠️ Più spesso non vuol dire più carico: la lettura CS→Orders è
+   incrementale (`aggiornatiDa`), un giro a vuoto costa una domanda e zero righe;
+   la finestra su Shopify resta `giorni=2`, si guarda solo più spesso.
+   ⚠️ **Il rimedio strutturale è un altro e NON è stato fatto**: un **webhook
+   Shopify** verso Orders porterebbe l'attesa da minuti a **secondi**. Orders non
+   ha una rotta webhook e i webhook vanno registrati sui tre negozi: è una cosa
+   da fare insieme all'utente, non da accendere di nascosto. **Resta aperta.**
+2. **SKU di 7 cifre sulle righe scritte a mano** (`2babecdc`). Le righe del Nuovo
+   ordine che non vengono dal catalogo (titolo + prezzo a mano, riconsegne e
+   preventivi compresi) partono con uno SKU casuale a sette cifre, così arrivano
+   valorizzate alla piattaforma consegne. ⚠️ **Casuali e non progressive**: non
+   c'è nessuna sequenza a cui appoggiarsi (la riga vive su Shopify) e un contatore
+   su tabella condivisa da più app si scontra da solo. ⚠️ Mai `0000000`: sembra
+   un campo non compilato, cioè proprio ciò che si sta evitando.
+3. **Le tabelle si ordinano dalle intestazioni** (`c661e4f0`, `1b44114a`,
+   `2f9e08cd`, `00fee53f`) — Libro UX&UI §8, su tutta l'app: ordini, controllo,
+   incassa, script, automazioni, eventi, analisi, marketing, categorie, chiavi
+   API, rubrica, schede cliente, coda quota. La riga si apre col click.
+   ⚠️ **Tre trappole pagate lì, da non ripetere:**
+   - dove l'elenco è **paginato o tagliato** l'ordinamento va nella **query**,
+     non sull'array: ordinare le righe già estratte riordina solo la pagina che
+     si sta guardando — una tabella che *sembra* ordinata e non lo è;
+   - **spareggio sempre sulla data**: su una colonna con molti valori uguali
+     (stato, evasione) senza secondo criterio l'ordine fra le pagine non è
+     stabile, e la stessa riga può comparire due volte o sparire fra pagina 1 e 2;
+   - le **colonne calcolate a schermo non fingono di ordinare**: il «Margine» di
+     /controllo non è una colonna del database (lo fa `margineOrdine`), ordinarlo
+     darebbe un ordine vero solo dentro la pagina corrente. Meglio nessun
+     ordinamento che uno che mente.
+
 
 ## 27/08/2026 — Audit di sicurezza (red-team + verifica ostile): la porta esterna TIENE, due hardening
 
