@@ -117,8 +117,10 @@ di sessione; deploy da fare con l'utente):**
     (`productVariantsBulkCreate`, già in `creaProdottoSuShopify`); qui nascono
     righe `Variante` con `deltaPrezzo`/`deltaCosto` rispetto alla base. Con le
     varianti il prezzo del prodotto è la base: se lasciato a 0 vale quello
-    della variante più economica. ⚠️ Non ancora deployato al momento di questa
-    riga (vedi STATO DEPLOY).
+    della variante più economica. ✅ Deployato alle 15:30 del 04/09
+    (`deluxy-merchandising-j5ptz29ci`, build remota), riquadro «Varianti»
+    verificato 200 in produzione; la creazione con varianti su Shopify resta
+    da collaudare come il resto del modulo.
 9. **Sincronizzazione all'apertura** (`src/lib/sincronizza-apertura.ts`,
    chiamata dal cruscotto `/`): se l'ultimo import `ok` di un negozio è più
    vecchio di **4 ore**, dopo la risposta (`after()` di Next, `maxDuration
