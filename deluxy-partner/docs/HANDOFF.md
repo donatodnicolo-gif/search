@@ -52,6 +52,14 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (13:20) — ANTOFLOWERS (Antonella Ricchetti), aprile: «non risulta la fattura 300/2026» — diagnosi, nessuna modifica
+>
+> Chiesto dall'utente dalla scheda `/partner/cmro01a7n0032i65crhroe3u5`. Guardato sui dati veri e sulla scheda resa in locale (server 3040 sul DB di produzione):
+> - **La 300/2026 c'è, ed è al posto giusto**: è la **fattura commissioni di aprile** (`SaldoMensile` 2026/4: `commFattEmessa=true`, `commFattNumero="300/2026"`). La scheda la mostra sulla riga «Vendite come vendor» di aprile come badge verde «Fatt. comm. 300/2026», non fra i «Servizi a fatturazione» — per regola: la commissione è già dentro il dovuto (80 € − 16 × 1,22 = 60,48 €), registrarla anche come servizio la conterebbe due volte (è il difetto di 142 RESTAURANT).
+> - ⚠️ **Dove confonde**: la sezione in fondo «Fatture su Fatture in Cloud (2026)» elenca la 300/2026 (04/05/2026, 22,42 € · 18,38 € netto, Saldata) con la tendina «Registra nei conteggi», come se non fosse registrata. `FattureFicPartner.tsx` esclude solo i numeri già in `FatturaServizio`, **non quelli agganciati come `commFattNumero`**. Proposta (da approvare): escludere anche i numeri agganciati ai mesi, o mostrarli con un badge «agganciata come fattura commissioni di aprile» senza tendina. Stesso buco ha spinto il backfill del 31/08 a registrare le commissioni come servizi.
+> - ❓ **Importo che non torna**: su FIC la 300/2026 ha imponibile **18,38 €**; Finance calcola la commissione di aprile su 80 € di vendite (riga «Import PARTNER.xlsx — totale mese») → **16,00 €**. 18,38 € al 20 % corrispondono a **91,90 €** di venduto: o la vendita di aprile importata dall'xlsx è bassa, o la fattura comprende altro. Da guardare a mano; Finance non lo segnala.
+> - ℹ️ Aprile mostra «Da incassare 71,52 €» con una voce Extra −132,00 € (No IVA) e la nota «71,52 € debito da saldare prossimi mesi (IVA sui 600 € che ha pagato meno nostro venduto)»: sistemazione a mano dell'operatore, non toccata.
+
 > ### 04/09/2026 (13:05) — 142 RESTAURANT: le 5 fatture commissioni tolte dai servizi (chiesto dall'utente sulla 140/2026)
 >
 > Segnalato dall'utente dalla scheda `/partner/cmro00rmp0008i65cjiw5enow`: «la fatt. 140 è di commissione ma la classifichi come consegne»; e il tema di architettura: la commissione è **già scalata dal dovuto** (febbraio: dovuto 40,85 = 50 − 7,50 × 1,22), quindi il residuo di 9,15 € era la stessa fattura contata due volte.
