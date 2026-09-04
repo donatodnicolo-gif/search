@@ -3,6 +3,8 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🚀 **04/09/2026-octies — DEPLOY IN PRODUZIONE di quinquies+sexies+septies (comando utente «fai push e deploy»)** — deploy `delivery-7vtwdpit5` (prebuilt dal worktree `app/.claude/worktrees/deploy-delivery`, Root Dir `deluxy-platform-next`), dominio deluxy-delivery.vercel.app verificato: bundle `main-77YAYVEJ.js` = quello costruito, `GET /api/v1/riconciliazioni/ultima-corsa` → 401 (rotta viva, chiede login). Migrazioni additive ESEGUITE in prod prima del deploy: `applica-migrazione-registro-vendite.mjs` (tabella `SaleLog`, colonna `Sale.historyAt` + backfill sugli storici) e `applica-migrazione-riconciliazioni.mjs` (tabella `ProductReconciliation`). Cron `/api/v1/cron/riconciliazioni` alle 03:30 registrato nel deploy. ⚠️ Ancora da fare: chiave AI in Impostazioni (Claude o OpenAI) e PRIMA PROVA VERA delle Riconciliazioni (Prodotti → Riconciliazioni → Analizza ora); Armani FAT-2026-563 in attesa di «applica».
+>
 > 🧭 **04/09/2026-septies — RICONCILIAZIONI prodotto ↔ partner (AI, notte + manuale); Vendite: Accetta ufficio solo con partner; maschera-partner** (IN LOCALE, non pushato né deployato — regola utente: push/deploy solo a comando).
 > - **Riconciliazioni** (`api/src/products/riconciliazioni.module.ts`, pagina
 >   `web/src/app/pages/product-reconciliations.component.ts`, rotta
