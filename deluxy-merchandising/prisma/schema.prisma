@@ -86,7 +86,34 @@ model Prodotto {
   costoProduzione Float @default(0) // costo pieno di produzione/approvvigionamento
   prezzoVendita   Float @default(0) // prezzo di listino consigliato
   // — Visual merchandising —
-  immagine     String? // URL immagine still-life di prodotto
+  immagine     String? // URL immagine still-life di prodotto (la prima foto)
+  // **Foto e video del prodotto** (04/09/2026): vivono nei Files del negozio
+  // Shopify scelto, qui c'è il riferimento. Vedi `MediaProdotto`.
+  media        MediaProdotto[]
+  // **Il negozio del prodotto** (nome di `NegozioShopify`, es. "Gifts"): dove
+  // stanno le sue foto e dove va quando diventa pubblico. Scelto nel modulo
+  // «Nuovo prodotto»; per i prodotti importati resta vuoto (il negozio si
+  // ricava dalle collezioni).
+  negozioNome  String?
+  // **La collezione del negozio in cui va** quando è pubblico, scelta nel
+  // modulo. Facoltativa: un prodotto può non stare in nessuna collezione.
+  // Alla pubblicazione si scrive su Shopify (`collectionAddProducts`); prima
+  // è solo un'intenzione, che l'import delle collezioni non tocca.
+  collezioneShopifyId String?
+  collezioneShopify   CollezioneShopify? @relation("CollezionePrevista", fields: [collezioneShopifyId], references: [id], onDelete: SetNull)
+  // **Finestra di pubblicazione** (04/09/2026): da quando e fino a quando il
+  // prodotto sta sul negozio. `pubblicatoDal` nel futuro → nasce su Shopify
+  // come bozza e il giro notturno lo accende quel giorno; passato
+  // `pubblicatoFinoAl` il giro lo rimette in bozza e la fase torna «approvato».
+  // Vuoti = da subito, per sempre. Sono giorni del calendario di Roma.
+  pubblicatoDal    DateTime?
+  pubblicatoFinoAl DateTime?
+  // **Pruning** (04/09/2026): il merchandiser propone i prodotti da spegnere
+  // sul negozio (venduto fermo, fine stagione…) e qualcuno li archivia con
+  // conferma. La proposta non tocca niente: è una lista da guardare insieme.
+  pruningPropostoIl  DateTime?
+  pruningMotivo      String?
+  pruningArchiviatoIl DateTime?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
@@ -243,6 +270,29 @@ model Variante {
 }
 
 // Storico delle fasi del ciclo di vita del prodotto (pipeline di sviluppo).
+// **Una foto o un video del prodotto.** Il file sta nei Files del negozio
+// Shopify (`negozio`), caricato dal modulo prodotto prima ancora che il
+// prodotto sia pubblico; `shopifyFileId` è il suo id là (MediaImage o Video),
+// che alla pubblicazione si aggancia al prodotto con `fileUpdate`. `url` è
+// l'indirizzo definitivo sul CDN quando Shopify ha finito di elaborarlo;
+// finché non c'è, `stato` dice «in elaborazione».
+model MediaProdotto {
+  id            String   @id @default(cuid())
+  prodottoId    String
+  prodotto      Prodotto @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  tipo          String   // immagine | video
+  url           String?
+  anteprima     String?
+  shopifyFileId String?
+  negozio       String?
+  nome          String?
+  stato         String   @default("pronto") // pronto | in-elaborazione | fallito
+  ordine        Int      @default(0)
+  creatoIl      DateTime @default(now())
+
+  @@index([prodottoId, ordine])
+}
+
 model TappaSviluppo {
   id         String   @id @default(cuid())
   prodottoId String
@@ -387,6 +437,12 @@ model Impostazione {
 model CategoriaProdotto {
   chiave      String   @id // es. BOUQUET — è quella scritta su Prodotto.categoria
   nome        String
+  // **Per quale brand vale** (04/09/2026, chiesto dall'utente): il nome del
+  // negozio Shopify ("Gifts", "Flowers", "Cake") oppure vuoto = per tutti.
+  // Nel modulo «Nuovo prodotto» si vedono solo le categorie del negozio scelto
+  // più quelle comuni. Non è un filtro sui dati: un prodotto già classificato
+  // tiene la sua categoria anche se il brand non combacia.
+  negozio     String?
   descrizione String? // che cosa ci va dentro e cosa no: guida umana e guida AI
   colore      String? // token del design system, es. "var(--green)"
   ordine      Int      @default(0)
@@ -572,6 +628,8 @@ model CollezioneShopify {
   aggiornataIl DateTime @updatedAt
   creataIl     DateTime @default(now())
   prodotti     ProdottoInCollezioneShopify[]
+  // I prodotti nati nel modulo che la indicano come destinazione (vedi Prodotto.collezioneShopifyId).
+  prodottiPrevisti Prodotto[] @relation("CollezionePrevista")
 
   @@unique([negozio, shopifyId])
   @@index([negozio])

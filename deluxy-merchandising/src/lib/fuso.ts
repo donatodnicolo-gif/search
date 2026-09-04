@@ -68,12 +68,39 @@ export function sommaGiorniRoma(d: Date, n: number): Date {
  * col calendario, come in `giornoRoma`: nessuna libreria, nessuna assunzione su
  * quale sia l'ora legale in quel mese.
  */
-function mezzanotteRomaDi(giorno: string): Date {
+export function mezzanotteRomaDi(giorno: string): Date {
   for (const offset of ["+02:00", "+01:00"]) {
     const candidata = new Date(`${giorno}T00:00:00${offset}`);
     if (isoRoma(candidata) === giorno) return candidata;
   }
   return new Date(`${giorno}T00:00:00Z`);
+}
+
+/**
+ * Vero se `s` è un giorno «YYYY-MM-DD» che **esiste** sul calendario.
+ *
+ * Serve ai campi data scritti dall'utente nell'indirizzo: «2026-02-30» ha la
+ * forma giusta ma non è un giorno, e `new Date` lo accetterebbe spostandolo
+ * al 2 marzo senza dirlo.
+ */
+export function isoGiornoValido(s: unknown): s is string {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/**
+ * La mezzanotte di Roma dello **stesso giorno del calendario, un anno prima**.
+ *
+ * È il metro del confronto «stesso periodo dell'anno scorso»: il 4 settembre
+ * 2026 si confronta col 4 settembre 2025, non con 365 giorni prima (che dopo un
+ * anno bisestile è il 5). Il 29 febbraio, che l'anno prima non esiste, cade sul
+ * 28.
+ */
+export function annoPrimaRoma(d: Date): Date {
+  const [anno, mese, giorno] = isoRoma(d).split("-");
+  const candidato = `${Number(anno) - 1}-${mese}-${giorno}`;
+  return mezzanotteRomaDi(isoGiornoValido(candidato) ? candidato : `${Number(anno) - 1}-${mese}-28`);
 }
 
 /** La mezzanotte di Roma del **primo giorno del mese** in cui cade `d`. */

@@ -1,6 +1,7 @@
 import { euro } from "@/lib/dominio";
 import { intervalloIt } from "@/lib/fuso";
 import { scomposizioneVendite, type LenteScomposta, type VoceScomposizione } from "@/lib/scomposizione";
+import type { Finestra } from "@/lib/vendite";
 
 // **Da cosa viene la differenza** — la sezione che risponde alla domanda che
 // tutte le altre lasciavano aperta.
@@ -35,7 +36,7 @@ function BarraContributo({ valore, massimo }: { valore: number; massimo: number 
   );
 }
 
-function TabellaLente({ lente }: { lente: LenteScomposta }) {
+function TabellaLente({ lente, finestra }: { lente: LenteScomposta; finestra: Finestra }) {
   const massimo = Math.max(...lente.voci.map((v) => Math.abs(v.delta)), 0);
   return (
     <div className="scheda">
@@ -54,8 +55,17 @@ function TabellaLente({ lente }: { lente: LenteScomposta }) {
         <thead>
           <tr>
             <th>Voce</th>
-            <th className="num">Prima</th>
-            <th className="num">Ora</th>
+            {/* «Prima» e «Ora» con le date sotto (chiesto dall'utente il
+                04/09/2026): una tabella letta da sola — o in uno screenshot —
+                non dice altrimenti QUALE periodo sia il «prima». */}
+            <th className="num">
+              Prima
+              <span className="th-sub">{intervalloIt(finestra.dalPrec, finestra.alPrec)}</span>
+            </th>
+            <th className="num">
+              Ora
+              <span className="th-sub">{intervalloIt(finestra.dal, finestra.al)}</span>
+            </th>
             <th className="num">Differenza</th>
             <th style={{ width: 120 }}>Peso</th>
           </tr>
@@ -88,8 +98,8 @@ function TabellaLente({ lente }: { lente: LenteScomposta }) {
   );
 }
 
-export async function Scomposizione({ giorni, brand }: { giorni: number; brand: string | null }) {
-  const s = await scomposizioneVendite(giorni, brand);
+export async function Scomposizione({ finestra, brand }: { finestra: Finestra; brand: string | null }) {
+  const s = await scomposizioneVendite(finestra, brand);
   const { totale, effetti, movimento } = s;
 
   if (totale.ricavo === 0 && totale.ricavoPrec === 0) {
@@ -119,8 +129,11 @@ export async function Scomposizione({ giorni, brand }: { giorni: number; brand: 
         Da cosa viene la differenza
       </div>
       <div className="scheda-periodo">
-        {intervalloIt(s.finestra.dal, s.finestra.al)} contro{" "}
+        <b>Ora</b> = {intervalloIt(s.finestra.dal, s.finestra.al)} · <b>Prima</b> ={" "}
         {intervalloIt(s.finestra.dalPrec, s.finestra.alPrec)}
+        {s.finestra.confronto === "anno-prima"
+          ? " (gli stessi giorni dell'anno scorso)"
+          : " (il periodo subito prima, della stessa lunghezza)"}
       </div>
 
       <div className="scheda scheda-sintesi">
@@ -247,12 +260,12 @@ export async function Scomposizione({ giorni, brand }: { giorni: number; brand: 
 
       {/* — Le lenti additive — */}
       {additive.map((l) => (
-        <TabellaLente key={l.chiave} lente={l} />
+        <TabellaLente key={l.chiave} lente={l} finestra={s.finestra} />
       ))}
 
       {/* — La lente non additiva, dichiarata — */}
       {altre.map((l) => (
-        <TabellaLente key={l.chiave} lente={l} />
+        <TabellaLente key={l.chiave} lente={l} finestra={s.finestra} />
       ))}
 
       {s.lentiVuote.length > 0 && (

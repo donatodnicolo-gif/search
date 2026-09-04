@@ -29,7 +29,10 @@ export default async function SviluppoPage() {
             <h1 className="page-title">Sviluppo prodotto</h1>
             <p className="page-sub">La pipeline di sviluppo (PLM): dal concept alla vendita. Apri un prodotto per farlo avanzare di fase.</p>
           </div>
-          <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
+          <div style={{ display: "flex", gap: 10 }}>
+            <a className="btn btn-secondario" href="/sviluppo/calendario">Calendario pubblicazioni</a>
+            <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
+          </div>
         </div>
 
         <div className="board">

@@ -11,7 +11,16 @@
 
 import { prisma } from "./db";
 import { calcolaMargine } from "./dominio";
-import { giornoMeseRoma, giornoRoma, primoDelMeseRoma, sommaGiorniRoma } from "./fuso";
+import {
+  annoPrimaRoma,
+  giornoMeseRoma,
+  giornoRoma,
+  isoGiornoValido,
+  mezzanotteRomaDi,
+  primoDellAnnoRoma,
+  primoDelMeseRoma,
+  sommaGiorniRoma,
+} from "./fuso";
 
 // ---------- Finestre temporali ----------
 
@@ -36,12 +45,24 @@ export function fineGiorno(d: Date): Date {
   return new Date(sommaGiorniRoma(d, 1).getTime() - 1);
 }
 
+export type ConfrontoFinestra = "precedente" | "anno-prima";
+
 export type Finestra = {
+  /** Quanti giorni di calendario copre il periodo, estremi compresi. */
   giorni: number;
+  /** Come si chiama per chi legge: «Mese in corso», «Ultimi 3 mesi»… */
+  nome: string;
   dal: Date;
   al: Date;
-  // Il periodo immediatamente precedente, della stessa lunghezza: è il metro di
-  // paragone di ogni confronto ("+18% sul periodo precedente").
+  /**
+   * Il metro di paragone di ogni confronto («+18% sul periodo precedente»).
+   * - `precedente`: la finestra immediatamente prima, della stessa lunghezza
+   *   (le finestre scorrevoli del cruscotto: 28, 56, 90… giorni).
+   * - `anno-prima`: gli **stessi giorni dell'anno scorso** — il metro giusto
+   *   per un negozio stagionale, dove settembre si confronta con settembre e
+   *   non con agosto (i periodi di calendario di /vendite, dal 04/09/2026).
+   */
+  confronto: ConfrontoFinestra;
   dalPrec: Date;
   alPrec: Date;
 };
@@ -51,7 +72,110 @@ export function finestra(giorni: number): Finestra {
   const dal = sommaGiorniRoma(new Date(), -(giorni - 1));
   const alPrec = new Date(dal.getTime() - 1);
   const dalPrec = sommaGiorniRoma(alPrec, -(giorni - 1));
-  return { giorni, dal, al, dalPrec, alPrec };
+  return {
+    giorni,
+    nome: ETICHETTA_FINESTRA[giorni] ?? `Ultimi ${giorni} giorni`,
+    confronto: "precedente",
+    dal,
+    al,
+    dalPrec,
+    alPrec,
+  };
+}
+
+// ---------- Periodi di calendario, col confronto sull'anno prima ----------
+//
+// Chiesti dall'utente il 04/09/2026 per /vendite: «mese corrente, mese scorso,
+// trimestre, anno e intervallo personalizzato, con confronto stessi periodi
+// anno precedente». Sono pezzi di **calendario**, non finestre che scorrono:
+// «mese in corso» riparte il primo del mese, e il suo «prima» non è agosto ma
+// **gli stessi giorni di settembre dell'anno scorso** — giorno per giorno, così
+// il 4 del mese si confrontano quattro giorni con quattro giorni. Sono le
+// scorciatoie che il Libro UX (§8-bis) chiede a ogni elenco con una data;
+// l'intervallo libero resta l'opzione in più, mai l'unica via.
+
+export const PERIODI_CALENDARIO = [
+  { chiave: "mese", nome: "Mese in corso" },
+  { chiave: "scorso", nome: "Mese scorso" },
+  { chiave: "trimestre", nome: "Ultimi 3 mesi" },
+  { chiave: "anno", nome: "Anno in corso" },
+] as const;
+
+export type ChiaveCalendario = (typeof PERIODI_CALENDARIO)[number]["chiave"] | "personalizzato";
+
+export function isChiaveCalendario(v: unknown): v is ChiaveCalendario {
+  return v === "personalizzato" || (typeof v === "string" && PERIODI_CALENDARIO.some((p) => p.chiave === v));
+}
+
+/** Giorni di calendario di Roma fra due momenti, estremi compresi. */
+function giorniFra(dal: Date, al: Date): number {
+  return Math.round((giornoRoma(al).getTime() - giornoRoma(dal).getTime()) / 86_400_000) + 1;
+}
+
+/**
+ * La finestra di un periodo di calendario, con «prima» = stessi giorni
+ * dell'anno scorso. Per `personalizzato` servono `dal` e `al` in forma
+ * «YYYY-MM-DD»: se non sono giorni veri torna `null`, e il chiamante sceglie
+ * un periodo di ripiego **dicendolo** — non si indovina un intervallo.
+ */
+export function finestraCalendario(
+  chiave: ChiaveCalendario,
+  libero?: { dal?: string; al?: string }
+): Finestra | null {
+  const oggi = new Date();
+  let dal: Date;
+  let al: Date;
+  let nome: string;
+  if (chiave === "personalizzato") {
+    const d = libero?.dal;
+    const a = libero?.al;
+    if (!isoGiornoValido(d) || !isoGiornoValido(a)) return null;
+    const inizio = mezzanotteRomaDi(d);
+    const fine = mezzanotteRomaDi(a);
+    // Due date al contrario sono una svista, non un intervallo vuoto.
+    dal = inizio <= fine ? inizio : fine;
+    al = fineGiorno(inizio <= fine ? fine : inizio);
+    nome = "Intervallo personalizzato";
+  } else if (chiave === "mese") {
+    dal = primoDelMeseRoma(oggi);
+    al = fineGiorno(oggi);
+    nome = "Mese in corso";
+  } else if (chiave === "scorso") {
+    al = new Date(primoDelMeseRoma(oggi).getTime() - 1);
+    dal = primoDelMeseRoma(al);
+    nome = "Mese scorso";
+  } else if (chiave === "trimestre") {
+    // Il mese in corso e i due interi prima: come «Trimestre» in Finance.
+    const primoDelMeseScorso = primoDelMeseRoma(sommaGiorniRoma(primoDelMeseRoma(oggi), -1));
+    dal = primoDelMeseRoma(sommaGiorniRoma(primoDelMeseScorso, -1));
+    al = fineGiorno(oggi);
+    nome = "Ultimi 3 mesi";
+  } else {
+    dal = primoDellAnnoRoma(oggi);
+    al = fineGiorno(oggi);
+    nome = "Anno in corso";
+  }
+  const dalPrec = annoPrimaRoma(dal);
+  const alPrec = fineGiorno(annoPrimaRoma(giornoRoma(al)));
+  return { giorni: giorniFra(dal, al), nome, confronto: "anno-prima", dal, al, dalPrec, alPrec };
+}
+
+/**
+ * Il filtro sulle date che carica i **due periodi** di una finestra in una
+ * query sola. Col confronto «precedente» i due periodi sono contigui e basta
+ * un intervallo; con «anno prima» fra i due c'è un buco di un anno, e caricare
+ * tutto da `dalPrec` ad `al` vorrebbe dire leggere dodici mesi di righe per
+ * buttarne undici. `contorno` aggiunge le settimane appena prima di `dal`
+ * (servono allo sparkline dei prodotti, non ai conti).
+ */
+export function doveNeiDuePeriodi(f: Finestra, contorno?: Date): Record<string, unknown> {
+  if (f.confronto === "precedente") return { data: { gte: f.dalPrec, lte: f.al } };
+  const intervalli: Record<string, unknown>[] = [
+    { data: { gte: f.dalPrec, lte: f.alPrec } },
+    { data: { gte: f.dal, lte: f.al } },
+  ];
+  if (contorno && contorno < f.dal) intervalli.push({ data: { gte: contorno, lt: f.dal } });
+  return { OR: intervalli };
 }
 
 // ---------- Periodi scelti dall'utente ----------
@@ -77,7 +201,24 @@ export function isPeriodo(v: unknown): v is ChiavePeriodo {
   return typeof v === "string" && PERIODI.some((p) => p.chiave === v);
 }
 
-export type Periodo = { chiave: ChiavePeriodo; nome: string; dal: Date; al: Date };
+export type Periodo = { chiave: ChiavePeriodo | "personalizzato"; nome: string; dal: Date; al: Date };
+
+/**
+ * Un intervallo scelto a mano («dal … al …», in forma YYYY-MM-DD), o `null`
+ * se le date non sono giorni veri: chi chiama ripiega su un periodo standard
+ * e lo dice in pagina. Due date al contrario si raddrizzano.
+ */
+export function periodoPersonalizzato(dal: unknown, al: unknown): Periodo | null {
+  if (!isoGiornoValido(dal) || !isoGiornoValido(al)) return null;
+  const inizio = mezzanotteRomaDi(dal);
+  const fine = mezzanotteRomaDi(al);
+  return {
+    chiave: "personalizzato",
+    nome: "Intervallo personalizzato",
+    dal: inizio <= fine ? inizio : fine,
+    al: fineGiorno(inizio <= fine ? fine : inizio),
+  };
+}
 
 /** Il periodo scelto, in date vere. Sempre nel calendario di Roma. */
 export function periodoDa(chiave: ChiavePeriodo): Periodo {
@@ -214,9 +355,14 @@ export async function confrontoParzialeDi(
     primaVendita: prima.data,
     // Sul calendario di Roma, non a millisecondi diviso 86.400.000: nei giorni
     // del cambio d'ora il conto uscirebbe sfalsato di uno.
-    giorniSenzaDati: Math.max(
-      1,
-      Math.round((giornoRoma(prima.data).getTime() - giornoRoma(f.dalPrec).getTime()) / 86_400_000)
+    // Mai più dei giorni del periodo: se l'archivio comincia DOPO la fine del
+    // «prima» (succede col confronto sull'anno scorso), manca tutto, non di più.
+    giorniSenzaDati: Math.min(
+      f.giorni,
+      Math.max(
+        1,
+        Math.round((giornoRoma(prima.data).getTime() - giornoRoma(f.dalPrec).getTime()) / 86_400_000)
+      )
     ),
   };
 }
@@ -334,10 +480,17 @@ function etichettaGiorno(d: Date): string {
  * i menu a tendina); il periodo di confronto segue lo stesso filtro.
  */
 export async function analizzaVendite(
-  giorni: number,
+  // Un numero è una finestra scorrevole di N giorni (il cruscotto); una
+  // `Finestra` già fatta è un periodo di calendario col suo confronto (/vendite).
+  periodo: number | Finestra,
   filtro?: { collezioneId?: string | null; categoria?: string | null; canale?: string | null }
 ): Promise<Analisi> {
-  const f = finestra(giorni);
+  const f = typeof periodo === "number" ? finestra(periodo) : periodo;
+  const giorni = f.giorni;
+  // Lo sparkline dei prodotti copre 8 settimane fisse prima della fine del periodo.
+  const settimaneSparkline = 8;
+  const msGiorno = 24 * 60 * 60 * 1000;
+  const inizioSpark = new Date(f.al.getTime() - settimaneSparkline * 7 * msGiorno);
 
   const whereProdotto: Record<string, unknown> = {};
   if (filtro?.collezioneId) whereProdotto.collezioneId = filtro.collezioneId;
@@ -363,7 +516,7 @@ export async function analizzaVendite(
   };
 
   const righe = (await prisma.vendita.findMany({
-    where: { data: { gte: f.dalPrec, lte: f.al }, ...dovePassa },
+    where: { AND: [doveNeiDuePeriodi(f, inizioSpark), dovePassa] },
     select: SELECT_VENDITA,
     orderBy: { data: "asc" },
   })) as VenditaCaricata[];
@@ -375,7 +528,12 @@ export async function analizzaVendite(
   const parziale = await confrontoParzialeDi(f, dovePassa);
 
   const correnti = righe.filter((r) => r.data >= f.dal);
-  const precedenti = righe.filter((r) => r.data < f.dal);
+  const precedenti = righe.filter((r) => r.data <= f.alPrec);
+  // Col confronto sull'anno prima fra i due periodi c'è un buco di un anno: le
+  // righe caricate per lo sparkline (le settimane appena prima di `dal`) non
+  // stanno né di qua né di là, e servono solo a disegnare. Col confronto
+  // «precedente» questo insieme è vuoto.
+  const contorno = righe.filter((r) => r.data > f.alPrec && r.data < f.dal);
 
   // — Serie temporale: giorni fino a 8 settimane, poi settimane (leggibilità) —
   const passo: "giorno" | "settimana" = giorni <= 56 ? "giorno" : "settimana";
@@ -436,9 +594,6 @@ export async function analizzaVendite(
 
   // — Per prodotto —
   const perProdotto = new Map<string, RigaProdotto>();
-  const settimaneSparkline = 8;
-  const msGiorno = 24 * 60 * 60 * 1000;
-  const inizioSpark = new Date(f.al.getTime() - settimaneSparkline * 7 * msGiorno);
   for (const r of correnti) {
     if (!r.prodotto) continue;
     const p = r.prodotto;
@@ -495,6 +650,18 @@ export async function analizzaVendite(
       );
       riga.serie[i] += r.quantita;
     }
+  }
+  // Le settimane fra il «prima» dell'anno scorso e l'inizio del periodo: solo
+  // per lo sparkline, non entrano in nessun totale né confronto.
+  for (const r of contorno) {
+    if (!r.prodotto) continue;
+    const riga = perProdotto.get(r.prodotto.id);
+    if (!riga || r.data < inizioSpark) continue;
+    const i = Math.min(
+      settimaneSparkline - 1,
+      Math.floor((r.data.getTime() - inizioSpark.getTime()) / (7 * msGiorno))
+    );
+    riga.serie[i] += r.quantita;
   }
   // Prodotti che vendevano prima e ora non vendono più: vanno visti, non nascosti.
   for (const r of precedenti) {
@@ -1227,14 +1394,15 @@ export type BestSeller = {
  * il pool (5 connessioni condivise) libero per il resto della pagina.
  */
 export async function bestSellerPerSito(opzioni: {
-  periodo: ChiavePeriodo;
+  /** Una delle pillole, oppure un intervallo già fatto (quello personalizzato). */
+  periodo: ChiavePeriodo | Periodo;
   vista?: "pezzi" | "valore";
   canale?: string | null;
   quanti?: number;
 }): Promise<BestSeller> {
   const vista = opzioni.vista ?? "pezzi";
   const quanti = opzioni.quanti ?? 10;
-  const p = periodoDa(opzioni.periodo);
+  const p = typeof opzioni.periodo === "string" ? periodoDa(opzioni.periodo) : opzioni.periodo;
 
   const righe = await prisma.vendita.findMany({
     where: {

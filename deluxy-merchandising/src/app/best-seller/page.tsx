@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
+import { IntervalloLibero } from "@/components/IntervalloLibero";
 import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { brandCorrente } from "@/lib/brand";
 import { euro, percentuale } from "@/lib/dominio";
 import { dataIt } from "@/lib/fuso";
-import { bestSellerPerSito, isPeriodo, PERIODI, type ChiavePeriodo } from "@/lib/vendite";
+import {
+  bestSellerPerSito,
+  isPeriodo,
+  PERIODI,
+  periodoPersonalizzato,
+  type ChiavePeriodo,
+  type Periodo,
+} from "@/lib/vendite";
 
 export const dynamic = "force-dynamic";
 
@@ -24,20 +32,31 @@ export const dynamic = "force-dynamic";
 export default async function BestSellerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; vista?: string }>;
+  searchParams: Promise<{ periodo?: string; dal?: string; al?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
+  // L'intervallo personalizzato (dal 04/09/2026, chiesto dall'utente) vive
+  // nell'indirizzo come le pillole: `?periodo=personalizzato&dal=…&al=…`. Con
+  // date non valide si ripiega sui 30 giorni e lo si scrive in pagina.
+  const libero: Periodo | null = sp.periodo === "personalizzato" ? periodoPersonalizzato(sp.dal, sp.al) : null;
+  const liberoNonValido = sp.periodo === "personalizzato" && !libero;
   const periodo: ChiavePeriodo = isPeriodo(sp.periodo) ? sp.periodo : "30g";
   const vista = sp.vista === "valore" ? "valore" : "pezzi";
 
   // L'ambito vale qui come in ogni pagina: in globale i siti sono affiancati,
   // dentro un brand si vede solo quello.
   const brand = await brandCorrente();
-  const dati = await bestSellerPerSito({ periodo, vista, canale: brand, quanti: 10 });
+  const dati = await bestSellerPerSito({ periodo: libero ?? periodo, vista, canale: brand, quanti: 10 });
 
   const link = (p: { periodo?: ChiavePeriodo; vista?: "pezzi" | "valore" }) => {
     const q = new URLSearchParams();
-    q.set("periodo", p.periodo ?? periodo);
+    if (p.periodo) q.set("periodo", p.periodo);
+    else if (libero) {
+      // Cambiando solo la vista, l'intervallo scelto a mano resta.
+      q.set("periodo", "personalizzato");
+      q.set("dal", sp.dal ?? "");
+      q.set("al", sp.al ?? "");
+    } else q.set("periodo", periodo);
     q.set("vista", p.vista ?? vista);
     return `/best-seller?${q}`;
   };
@@ -69,14 +88,15 @@ export default async function BestSellerPage({
             {PERIODI.map((p) => (
               <a
                 key={p.chiave}
-                className={`pill-opt${p.chiave === periodo ? " attuale" : ""}`}
+                className={`pill-opt${!libero && p.chiave === periodo ? " attuale" : ""}`}
                 href={link({ periodo: p.chiave })}
-                aria-current={p.chiave === periodo ? "true" : undefined}
+                aria-current={!libero && p.chiave === periodo ? "true" : undefined}
               >
                 {p.nome}
               </a>
             ))}
           </div>
+          <IntervalloLibero action="/best-seller" dal={sp.dal} al={sp.al} attivo={!!libero} nascosti={{ vista }} />
           <div className="pill-scelta" role="group" aria-label="Ordina per" style={{ marginLeft: "auto" }}>
             <a className={`pill-opt${vista === "pezzi" ? " attuale" : ""}`} href={link({ vista: "pezzi" })}>
               Per pezzi
@@ -90,6 +110,7 @@ export default async function BestSellerPage({
         <p className="page-sub" style={{ marginTop: -4 }}>
           Periodo: <b>{dati.periodo.nome.toLowerCase()}</b>, dal {dataIt(dati.periodo.dal)} al{" "}
           {dataIt(dati.periodo.al)} · in tutto {dati.totale.pezzi} pezzi per {euro(dati.totale.ricavo)}.
+          {liberoNonValido && <b> Le date dell'intervallo non erano giorni validi: mostro gli ultimi 30 giorni.</b>}
         </p>
 
         {dati.siti.length === 0 ? (

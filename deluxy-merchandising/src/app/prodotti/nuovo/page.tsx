@@ -1,107 +1,73 @@
+import Link from "next/link";
+import { FormProdottoNuovo } from "@/components/FormProdottoNuovo";
 import { Sidebar } from "@/components/Sidebar";
+import { creaProdottoCompleto } from "@/lib/azioni-prodotto-nuovo";
+import { elencoCategorie } from "@/lib/classificazione";
 import { prisma } from "@/lib/db";
-import { creaProdotto } from "@/lib/azioni";
-import { CATEGORIE, ETICHETTA_CATEGORIA, ETICHETTA_FASE, FASI_PLM } from "@/lib/dominio";
+import { elencoNegozi } from "@/lib/negozi";
+import { statoSegreto } from "@/lib/segreti";
 
 export const dynamic = "force-dynamic";
 
-export default async function NuovoProdottoPage() {
-  const collezioni = await prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } });
+// **Nuovo prodotto** — il modulo unico (04/09/2026). Fa nascere la scheda qui
+// e, se la fase è «Pubblico», anche sul negozio Shopify scelto: foto e video,
+// collezione, traduzioni e finestra di pubblicazione compresi. L'altro modulo,
+// «Nuovo su Shopify», resta per chi vuole varianti, magazzino e campi extra.
+export default async function NuovoProdottoPage({ searchParams }: { searchParams: Promise<{ errore?: string }> }) {
+  const sp = await searchParams;
+  const [negozi, categorie, collezioni, prompt, chiaveAi] = await Promise.all([
+    elencoNegozi(),
+    elencoCategorie(),
+    prisma.collezioneShopify.findMany({
+      where: { tipo: "manuale" },
+      orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
+      select: { id: true, titolo: true, negozio: true },
+    }),
+    prisma.promptCategoria.findMany({ select: { categoria: true } }),
+    statoSegreto("OPENAI_API_KEY"),
+  ]);
+  const conPrompt = new Set(prompt.map((p) => p.categoria));
 
   return (
     <div className="layout">
       <Sidebar attiva="prodotti" />
       <main className="main" style={{ maxWidth: 860 }}>
-        <a className="ritorno" href="/prodotti">← Prodotti</a>
+        <Link className="ritorno" href="/prodotti">
+          ← Prodotti
+        </Link>
         <div className="page-head">
-          <h1 className="page-title">Nuovo prodotto</h1>
+          <div>
+            <h1 className="page-title">Nuovo prodotto</h1>
+            <p className="page-sub">
+              La scheda nasce qui; con la fase <b>Pubblico</b> nasce anche sul negozio Shopify scelto, con foto,
+              collezione e traduzioni. Per varianti, magazzino e campi extra c&apos;è{" "}
+              <Link href="/prodotti/nuovo-shopify">Nuovo su Shopify</Link>.
+            </p>
+          </div>
         </div>
 
-        <form action={creaProdotto}>
-          <div className="scheda">
-            <div className="scheda-titolo">Anagrafica</div>
-            <div className="modulo">
-              <div className="campo-modulo largo">
-                <label>Nome <span className="obbligatorio">*</span></label>
-                <input name="nome" required placeholder="Es. Bouquet Ora Blu" />
-              </div>
-              <div className="campo-modulo">
-                <label>Codice / SKU</label>
-                <input name="codice" placeholder="Auto se vuoto (es. FN-26-001)" />
-              </div>
-              <div className="campo-modulo">
-                <label>Collezione</label>
-                <select name="collezioneId" defaultValue="">
-                  <option value="">— Nessuna —</option>
-                  {collezioni.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="campo-modulo">
-                <label>Categoria</label>
-                <select name="categoria" defaultValue="BOUQUET">
-                  {CATEGORIE.map((c) => (
-                    <option key={c} value={c}>{ETICHETTA_CATEGORIA[c]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="campo-modulo">
-                <label>Fase iniziale</label>
-                <select name="fase" defaultValue="concept">
-                  {FASI_PLM.map((f) => (
-                    <option key={f} value={f}>{ETICHETTA_FASE[f]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="campo-modulo largo">
-                <label>Descrizione</label>
-                <textarea name="descrizione" rows={2} placeholder="Descrizione commerciale" />
-              </div>
-            </div>
+        {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+        {negozi.filter((n) => n.attivo).length === 0 && (
+          <div className="nota-info">
+            <span className="nota-icona">◆</span>
+            <span>
+              Nessun negozio collegato: senza, non c&apos;è dove mettere le foto né dove pubblicare. Collegane uno da{" "}
+              <Link href="/impostazioni">Negozi &amp; permessi</Link>.
+            </span>
           </div>
+        )}
 
-          <div className="scheda">
-            <div className="scheda-titolo">Scheda creativa</div>
-            <div className="modulo">
-              <div className="campo-modulo largo">
-                <label>Brief</label>
-                <textarea name="brief" rows={2} placeholder="Il concept del prodotto" />
-              </div>
-              <div className="campo-modulo">
-                <label>Materiali / fiori</label>
-                <input name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" />
-              </div>
-              <div className="campo-modulo">
-                <label>Palette</label>
-                <input name="palette" placeholder="Indaco · avorio · oro" />
-              </div>
-              <div className="campo-modulo largo">
-                <label>Immagine (URL)</label>
-                <input name="immagine" placeholder="https://…" />
-              </div>
-            </div>
-          </div>
-
-          <div className="scheda">
-            <div className="scheda-titolo">Costi & prezzo</div>
-            <div className="modulo">
-              <div className="campo-modulo">
-                <label>Costo di produzione (€)</label>
-                <input name="costoProduzione" type="number" step="0.01" min="0" defaultValue="0" />
-              </div>
-              <div className="campo-modulo">
-                <label>Prezzo di vendita (€)</label>
-                <input name="prezzoVendita" type="number" step="0.01" min="0" defaultValue="0" />
-              </div>
-            </div>
-          </div>
-
-          <div className="azioni-modulo">
-            <a className="btn btn-secondario" href="/prodotti">Annulla</a>
-            <button type="submit" className="btn">Crea prodotto</button>
-          </div>
-        </form>
+        <FormProdottoNuovo
+          negozi={negozi
+            .filter((n) => n.attivo)
+            .map((n) => ({ id: n.id, nome: n.nome, dominio: n.dominio, puoScrivere: n.permessi.includes("write_products") }))}
+          categorie={categorie
+            .filter((c) => c.attiva && c.chiave !== "DA_CLASSIFICARE")
+            .map((c) => ({ chiave: c.chiave, nome: c.nome, negozio: c.negozio, conPrompt: conPrompt.has(c.chiave) }))}
+          collezioni={collezioni}
+          aiPronta={chiaveAi.presente}
+          azione={creaProdottoCompleto}
+        />
       </main>
     </div>
   );

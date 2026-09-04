@@ -35,6 +35,8 @@ export async function salvaCategoriaAzione(fd: FormData) {
   const dati = {
     nome,
     descrizione: testo(fd, "descrizione") || null,
+    // Per quale brand/negozio vale (04/09/2026): vuoto = per tutti.
+    negozio: testo(fd, "negozio") || null,
     ordine: intero(fd, "ordine"),
     attiva: fd.get("attiva") != null,
   };

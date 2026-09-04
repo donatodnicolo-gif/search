@@ -48,11 +48,15 @@ export type FasePlm = (typeof FASI_PLM)[number];
 // Fasi "vive" mostrate nel board di sviluppo (l'archiviato è fuori pipeline).
 export const FASI_PIPELINE: FasePlm[] = ["concept", "prototipo", "approvato", "in_vendita"];
 
+// «Pubblico» e non «In vendita» (deciso dall'utente il 04/09/2026): la chiave
+// resta `in_vendita` per non toccare i dati, ma il significato è dichiarato —
+// pubblico vuol dire **che sta sul negozio Shopify**. Dal modulo «Nuovo
+// prodotto» scegliere Pubblico lo crea davvero sul negozio.
 export const ETICHETTA_FASE: Record<string, string> = {
   concept: "Concept",
   prototipo: "Prototipo",
   approvato: "Approvato",
-  in_vendita: "In vendita",
+  in_vendita: "Pubblico",
   archiviato: "Archiviato",
 };
 export const COLORE_FASE: Record<string, string> = {

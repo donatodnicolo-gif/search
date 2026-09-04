@@ -12,14 +12,21 @@ import { brandCorrente } from "@/lib/brand";
 import { prisma } from "@/lib/db";
 import { CATEGORIE, etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
 import { ordersBase, ordersConfigurato, ultimoImport } from "@/lib/orders";
+import { IntervalloLibero } from "@/components/IntervalloLibero";
+import { intervalloIt } from "@/lib/fuso";
 import {
   analizzaVendite,
   coloreDelta,
   COLORE_TENDENZA,
   delta,
-  ETICHETTA_FINESTRA,
   ETICHETTA_TENDENZA,
   FINESTRE,
+  finestra as finestraScorrevole,
+  finestraCalendario,
+  isChiaveCalendario,
+  PERIODI_CALENDARIO,
+  type ChiaveCalendario,
+  type Finestra,
   type Tendenza,
 } from "@/lib/vendite";
 
@@ -39,6 +46,9 @@ export default async function VenditePage({
   searchParams,
 }: {
   searchParams: Promise<{
+    periodo?: string;
+    dal?: string;
+    al?: string;
     giorni?: string;
     collezione?: string;
     categoria?: string;
@@ -49,9 +59,30 @@ export default async function VenditePage({
   }>;
 }) {
   const sp = await searchParams;
-  const giorni = FINESTRE.includes(Number(sp.giorni) as (typeof FINESTRE)[number])
-    ? Number(sp.giorni)
-    : 90;
+  // Il periodo (dal 04/09/2026): le pillole di calendario — mese in corso, mese
+  // scorso, ultimi 3 mesi, anno in corso — e l'intervallo libero, tutti col
+  // confronto sugli **stessi giorni dell'anno prima**. `?giorni=` resta letto
+  // per i link vecchi (cruscotto, preferiti): lì il confronto è col periodo
+  // subito precedente, com'era. Un intervallo libero con date non valide
+  // ripiega sul mese in corso **dicendolo**, non in silenzio.
+  const chiesto: ChiaveCalendario | null = isChiaveCalendario(sp.periodo) ? sp.periodo : null;
+  let f: Finestra | null = chiesto ? finestraCalendario(chiesto, sp) : null;
+  const liberoNonValido = chiesto === "personalizzato" && !f;
+  const giorniVecchi = FINESTRE.includes(Number(sp.giorni) as (typeof FINESTRE)[number]);
+  if (!f && !chiesto && giorniVecchi) f = finestraScorrevole(Number(sp.giorni));
+  if (!f) f = finestraCalendario("mese") as Finestra;
+  const periodoAttivo: ChiaveCalendario | null =
+    chiesto && !liberoNonValido ? chiesto : !chiesto && giorniVecchi ? null : "mese";
+  const giorni = f.giorni;
+  const etichettaPrima = f.confronto === "anno-prima" ? "anno prima" : "prima";
+  const rispettoA = f.confronto === "anno-prima" ? "sugli stessi giorni dell'anno prima" : "sul periodo precedente";
+  const conPeriodo = (chiave: ChiaveCalendario) => {
+    const q = new URLSearchParams();
+    if (sp.collezione) q.set("collezione", sp.collezione);
+    if (sp.categoria) q.set("categoria", sp.categoria);
+    q.set("periodo", chiave);
+    return `/vendite?${q}`;
+  };
 
   // Il brand non si sceglie qui: è l'ambito dell'app, in alto a destra, e vale
   // in ogni pagina. Due selettori di brand in due posti diversi sono il modo
@@ -59,7 +90,7 @@ export default async function VenditePage({
   const brand = await brandCorrente();
 
   const [analisi, collezioni, ultimo] = await Promise.all([
-    analizzaVendite(giorni, {
+    analizzaVendite(f, {
       collezioneId: sp.collezione || null,
       categoria: sp.categoria || null,
       canale: brand,
@@ -101,8 +132,10 @@ export default async function VenditePage({
             </h1>
             <p className="page-sub">
               Il venduto reale letto dal registro Deluxy Orders{brand ? ` per ${brand}` : ", su tutti i brand"}:
-              cosa tira, cosa si è spento, quanto margine porta davvero ogni prodotto. Il confronto è sempre
-              con il periodo precedente della stessa lunghezza.
+              cosa tira, cosa si è spento, quanto margine porta davvero ogni prodotto.{" "}
+              {f.confronto === "anno-prima"
+                ? "Il confronto è con gli stessi giorni dell'anno prima."
+                : "Il confronto è con il periodo precedente della stessa lunghezza."}
             </p>
           </div>
           <form action={importaDaOrders}>
@@ -133,14 +166,43 @@ export default async function VenditePage({
           </div>
         )}
 
-        <FormFiltri>
-          <select name="giorni" defaultValue={String(giorni)} aria-label="Periodo">
-            {FINESTRE.map((g) => (
-              <option key={g} value={g}>
-                {ETICHETTA_FINESTRA[g]}
-              </option>
+        <div className="filtri" style={{ alignItems: "center" }}>
+          <div className="pill-scelta" role="group" aria-label="Periodo">
+            {PERIODI_CALENDARIO.map((p) => (
+              <a
+                key={p.chiave}
+                className={`pill-opt${p.chiave === periodoAttivo ? " attuale" : ""}`}
+                href={conPeriodo(p.chiave)}
+                aria-current={p.chiave === periodoAttivo ? "true" : undefined}
+              >
+                {p.nome}
+              </a>
             ))}
-          </select>
+          </div>
+          <IntervalloLibero
+            action="/vendite"
+            dal={sp.dal}
+            al={sp.al}
+            attivo={periodoAttivo === "personalizzato"}
+            nascosti={{ collezione: sp.collezione, categoria: sp.categoria }}
+          />
+        </div>
+        <p className="page-sub" style={{ marginTop: -8 }}>
+          Periodo: <b>{f.nome.toLowerCase()}</b>, {intervalloIt(f.dal, f.al)} · confronto con{" "}
+          {f.confronto === "anno-prima" ? "gli stessi giorni dell'anno prima, " : "il periodo precedente, "}
+          {intervalloIt(f.dalPrec, f.alPrec)}.
+          {liberoNonValido && (
+            <b> Le date dell'intervallo non erano giorni validi: mostro il mese in corso.</b>
+          )}
+        </p>
+
+        <FormFiltri>
+          {/* Il periodo vive nelle pillole qui sopra: cambiando collezione o
+              categoria non si deve perdere. */}
+          {sp.periodo && <input type="hidden" name="periodo" value={sp.periodo} />}
+          {sp.dal && <input type="hidden" name="dal" value={sp.dal} />}
+          {sp.al && <input type="hidden" name="al" value={sp.al} />}
+          {!sp.periodo && sp.giorni && <input type="hidden" name="giorni" value={sp.giorni} />}
           <select name="collezione" defaultValue={sp.collezione ?? ""} aria-label="Collezione">
             <option value="">Tutte le collezioni</option>
             {collezioni.map((c) => (
@@ -163,20 +225,23 @@ export default async function VenditePage({
           <Kpi
             valore={euro(totale.ricavo)}
             etichetta="Ricavo del periodo"
+            rispettoA={rispettoA}
             variazione={analisi.delta.ricavo}
-            sotto={`prima ${euro(precedente.ricavo)}`}
+            sotto={`${etichettaPrima} ${euro(precedente.ricavo)}`}
           />
           <Kpi
             valore={String(totale.pezzi)}
             etichetta="Pezzi venduti"
+            rispettoA={rispettoA}
             variazione={analisi.delta.pezzi}
-            sotto={`prima ${precedente.pezzi} pz`}
+            sotto={`${etichettaPrima} ${precedente.pezzi} pz`}
           />
           {totale.quotaConCosto > 0 ? (
             <Kpi
               valore={euro(totale.margine)}
               etichetta="Margine stimato"
-              variazione={analisi.delta.margine}
+              rispettoA={rispettoA}
+            variazione={analisi.delta.margine}
               sotto={`${percentuale(totale.marginePct)} su ${percentuale(totale.quotaConCosto)} del venduto con costo inserito`}
             />
           ) : (
@@ -224,7 +289,7 @@ export default async function VenditePage({
             ferma la pagina: il resto di /vendite si vede subito. */}
         {analisi.totaleRighe > 0 && (
           <Suspense fallback={<ScheletroScomposizione />}>
-            <Scomposizione giorni={giorni} brand={brand} />
+            <Scomposizione finestra={f} brand={brand} />
           </Suspense>
         )}
 
@@ -275,7 +340,7 @@ export default async function VenditePage({
                           {p.tendenza === "fermo" ? "fermo" : delta(p.deltaPezzi)}
                         </span>
                         <span className="lista-sub">
-                          {p.pezzi} pz ora · {p.pezziPrec} pz prima
+                          {p.pezzi} pz ora · {p.pezziPrec} pz {etichettaPrima}
                         </span>
                       </li>
                     ))}
@@ -433,11 +498,14 @@ function Kpi({
   etichetta,
   variazione,
   sotto,
+  rispettoA = "sul periodo precedente",
 }: {
   valore: string;
   etichetta: string;
   variazione?: number | null;
   sotto?: string;
+  /** Contro cosa si misura la variazione: il periodo precedente o l'anno prima. */
+  rispettoA?: string;
 }) {
   return (
     <div className="kpi">
@@ -445,7 +513,7 @@ function Kpi({
       <div className="kpi-etichetta">{etichetta}</div>
       {variazione !== undefined && (
         <div className="kpi-delta" style={{ color: coloreDelta(variazione ?? null) }}>
-          {delta(variazione ?? null)} sul periodo precedente
+          {delta(variazione ?? null)} {rispettoA}
         </div>
       )}
       {sotto && <div className="kpi-sotto">{sotto}</div>}

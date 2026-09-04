@@ -83,9 +83,10 @@ export default async function ProdottiPage({
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
+            <a className="btn btn-secondario" href="/prodotti/pruning" title="Proponi i prodotti da spegnere sul negozio">Pruning</a>
             <a className="btn btn-secondario" href="/prodotti/riconcilia">Riconcilia doppioni</a>
-            <a className="btn btn-secondario" href="/prodotti/nuovo">Nuovo prodotto</a>
-            <a className="btn" href="/prodotti/nuovo-shopify">Nuovo su Shopify</a>
+            <a className="btn btn-secondario" href="/prodotti/nuovo-shopify" title="Con varianti, magazzino e campi extra">Nuovo su Shopify</a>
+            <a className="btn" href="/prodotti/nuovo">Nuovo prodotto</a>
           </div>
         </div>
 

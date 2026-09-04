@@ -46,7 +46,7 @@ import { prisma } from "./db";
 import { fasciaDi } from "./fasce";
 import { vocabolario, type Vocabolario } from "./gruppi";
 import { etichettaRisposta } from "./risposta-bisogno";
-import { finestra, FILTRO_BUON_FINE, type Finestra } from "./vendite";
+import { doveNeiDuePeriodi, finestra, FILTRO_BUON_FINE, type Finestra } from "./vendite";
 
 /** Quante voci si mostrano per lente prima di raccogliere il resto in una riga. */
 const VOCI_PER_LENTE = 8;
@@ -308,10 +308,14 @@ function lenteOccasioni(
  * questi numeri combaciano con quelli del resto della pagina.
  */
 export async function scomposizioneVendite(
-  giorni: number,
+  // Un numero è una finestra scorrevole; una `Finestra` è un periodo di
+  // calendario col suo confronto (/vendite dal 04/09/2026: stessi giorni
+  // dell'anno prima). Stesso metro di `analizzaVendite`, così i due
+  // «prima» della pagina sono lo stesso periodo.
+  periodo: number | Finestra,
   canale: string | null
 ): Promise<Scomposizione> {
-  const f = finestra(giorni);
+  const f = typeof periodo === "number" ? finestra(periodo) : periodo;
   // Lo stesso metro per le due domande: le righe dei due periodi e la prima
   // riga mai entrata in archivio. Se il «prima» si misura sul venduto a buon
   // fine di questo ambito, l'inizio dell'archivio va cercato con lo stesso
@@ -326,7 +330,7 @@ export async function scomposizioneVendite(
   };
   const [righe, v] = await Promise.all([
     prisma.vendita.findMany({
-      where: { data: { gte: f.dalPrec, lte: f.al }, ...dovePassa },
+      where: { AND: [doveNeiDuePeriodi(f), dovePassa] },
       select: {
         data: true,
         canale: true,

@@ -27,7 +27,7 @@ export default async function ClassificazionePage({
   searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
-  const [categorie, linee, collezioni, senzaCategoria, categorieShopify] = await Promise.all([
+  const [categorie, linee, collezioni, senzaCategoria, categorieShopify, negozi] = await Promise.all([
     elencoCategorie(),
     elencoLinee(),
     prisma.collezione.findMany({
@@ -36,6 +36,8 @@ export default async function ClassificazionePage({
     }),
     prisma.prodotto.count({ where: { categoria: "DA_CLASSIFICARE" } }),
     prisma.categoriaShopify.findMany({ orderBy: [{ prodotti: "desc" }, { nome: "asc" }] }),
+    // I brand/negozi per cui una categoria può valere (04/09/2026).
+    prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
   ]);
 
   return (
@@ -95,6 +97,16 @@ export default async function ClassificazionePage({
                         <div className="rm-nome">
                           <input name="nome" defaultValue={c.nome} aria-label={`Nome di ${c.nome}`} />
                           <div className="cella-sub">{c.chiave}</div>
+                          {/* Per quale brand vale: nel modulo «Nuovo prodotto» si
+                              vedono le categorie del negozio scelto più le comuni. */}
+                          <select name="negozio" defaultValue={c.negozio ?? ""} aria-label={`Brand di ${c.nome}`} style={{ marginTop: 6 }}>
+                            <option value="">Tutti i brand</option>
+                            {negozi.map((n) => (
+                              <option key={n.nome} value={n.nome}>
+                                Solo {n.nome}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <textarea
                           name="descrizione"
@@ -152,6 +164,17 @@ export default async function ClassificazionePage({
             <div className="campo-modulo">
               <label htmlFor="cat-nome">Nuova categoria</label>
               <input id="cat-nome" name="nome" placeholder="Es. Piante rare" required />
+            </div>
+            <div className="campo-modulo">
+              <label htmlFor="cat-negozio">Vale per</label>
+              <select id="cat-negozio" name="negozio" defaultValue="">
+                <option value="">Tutti i brand</option>
+                {negozi.map((n) => (
+                  <option key={n.nome} value={n.nome}>
+                    Solo {n.nome}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="campo-modulo">
               <label htmlFor="cat-ordine">Ordine</label>

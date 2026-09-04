@@ -18,6 +18,8 @@ import { CATEGORIE, ETICHETTA_CATEGORIA } from "./dominio";
 export type CategoriaVoce = {
   chiave: string;
   nome: string;
+  /** Il negozio/brand per cui vale, o null = per tutti (04/09/2026). */
+  negozio: string | null;
   descrizione: string | null;
   ordine: number;
   attiva: boolean;
@@ -69,6 +71,7 @@ export async function elencoCategorie(): Promise<CategoriaVoce[]> {
   return righe.map((r) => ({
     chiave: r.chiave,
     nome: r.nome,
+    negozio: r.negozio ?? null,
     descrizione: r.descrizione,
     ordine: r.ordine,
     attiva: r.attiva,

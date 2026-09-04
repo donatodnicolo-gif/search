@@ -23,6 +23,10 @@
       "schedule": "50 3 * * *"
     },
     {
+      "path": "/api/cron/pubblicazioni",
+      "schedule": "5 4 * * *"
+    },
+    {
       "path": "/api/cron/rotazioni",
       "schedule": "20 5 * * *"
     }

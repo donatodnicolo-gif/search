@@ -331,6 +331,11 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 
 .tabella-scomposizione { width: 100%; }
 .tabella-scomposizione th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); font-weight: 600; }
+/* Le date sotto «Prima» e «Ora»: quale periodo è, senza cercarlo in testata. */
+.tabella-scomposizione th .th-sub {
+  display: block; font-weight: 400; text-transform: none; letter-spacing: 0;
+  font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 2px;
+}
 .tabella-scomposizione td { vertical-align: middle; }
 /* La riga che raccoglie le voci oltre il taglio non è una voce come le altre:
    si vede che è un contenitore, non un fornitore che si chiama «altre 12». */
@@ -520,6 +525,47 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .pill-opt .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill-opt:hover:not(:disabled) { background: var(--fill); color: var(--text); }
 .pill-opt.attuale { background: var(--fill); border-color: transparent; font-weight: 600; color: var(--text); cursor: default; }
+
+/* L'intervallo personalizzato accanto alle pillole di periodo: chiuso è una
+   pillola come le altre, aperto srotola i due campi data sulla stessa riga. */
+.intervallo-libero { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.intervallo-libero summary { list-style: none; }
+.intervallo-libero summary::-webkit-details-marker { display: none; }
+.intervallo-libero summary.attuale { cursor: pointer; }
+.intervallo-libero-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.intervallo-libero-form .campo-inline input[type="date"] { width: auto; }
+.intervallo-libero-form .btn { padding: 6px 14px; font-size: 13px; }
+
+/* Foto e video caricati nel modulo prodotto. */
+.galleria-media { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.media-voce {
+  position: relative; width: 120px; display: flex; flex-direction: column; gap: 4px;
+  background: var(--fill); border-radius: var(--radius-m); padding: 6px; font-size: 11.5px; color: var(--text-secondary);
+}
+.media-voce img { width: 108px; height: 108px; object-fit: cover; border-radius: var(--radius-s, 6px); display: block; }
+.media-voce .media-segnaposto { width: 108px; height: 108px; display: grid; place-items: center; font-size: 28px; color: var(--text-tertiary); }
+.media-voce .media-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-voce.fallito { outline: 1px solid var(--red); }
+.media-voce .icon-btn { position: absolute; top: 2px; right: 2px; background: var(--surface); }
+
+/* Il calendario delle pubblicazioni (/sviluppo/calendario). */
+.calendario { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendario .giorno-nome { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); padding: 0 6px 4px; }
+.calendario .giorno {
+  min-height: 88px; background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-m);
+  padding: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 3px;
+}
+.calendario .giorno.fuori-mese { opacity: .45; }
+.calendario .giorno.oggi { border-color: var(--gold-strong); }
+.calendario .giorno .numero { font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; }
+.calendario .evento { display: block; padding: 2px 6px; border-radius: var(--radius-pill); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
+.calendario .evento.inizio { background: color-mix(in srgb, var(--green) 14%, transparent); }
+.calendario .evento.fine { background: color-mix(in srgb, var(--red) 12%, transparent); }
+@media (max-width: 800px) {
+  .calendario { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .calendario .giorno { min-height: 54px; padding: 3px; }
+  .calendario .evento { font-size: 10px; padding: 1px 4px; }
+}
 
 .due-colonne { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }
 @media (max-width: 1000px) { .due-colonne { grid-template-columns: 1fr; } }

@@ -1,6 +1,115 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 26/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 04/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+
+## 04/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Fotografia contata sul database il 04/09**: 4.630 prodotti, **1.149 attivi sul
+negozio e tutti e 1.149 senza costo**, 346 collezioni Shopify, 7.247 righe di
+venduto, 0 collezioni maison, 0 linee, 0 tipologie, 1.475 `DA_CLASSIFICARE`
+(2 fra gli attivi), 0 prodotti con un SEO nostro, **10 prodotti con `origine ≠
+merchandising`** (il POST `/api/v1/prodotti` è stato esercitato da fuori: al
+26/08 erano 0). Import del venduto ogni quarto d'ora vivo (194 giri in 48 ore,
+1 fallito). I tre negozi risultano verificati ancora dal 26/07.
+
+✅ **Il punto aperto n.8 (import collezioni fermo dal 04/08) È CHIUSO** dal
+28-29/08: `src/app/api/cron/collezioni/route.ts` + tre voci in `vercel.json`
+(Gifts 03:10, Flowers 03:35, Cake 03:50 UTC, un negozio per chiamata). Gira
+ogni notte da almeno il 02/09 con esito `ok` (Gifts 237 collezioni / 32.458
+appartenenze, Flowers 62 / 8.339, Cake 47 / 3.051). Quindi il «1.149 attivi» è
+di stanotte, non più una foto vecchia.
+
+⚠️ **Rotazione «Fiori» slittata di un giorno**: ultima corsa **01/09** dopo
+quella del 24/08 = 8 giorni. È il difetto latente descritto il 26/08
+(`ultimaEsecuzioneIl` scritto a fine corsa, `eScaduta` con `Math.floor`): il
+31/08 la regola risultava a 6 giorni e il giro l'ha saltata. Da correggere
+(confrontare i giorni di calendario, non i millisecondi). «Best Sellers»
+mensile: ultima 11/08, dovuta il 10/09.
+
+⚠️ **Produzione indietro di un commit** prima di oggi: il login con «Password
+dimenticata?» (commit `567520c4` del 31/08) NON era deployato (verificato:
+`/login` in produzione non contiene il testo). Gli ultimi deploy sono del 28/08.
+
+**Fatto oggi (tutto in locale, `tsc` 0, pagine verificate via fetch col cookie
+di sessione; deploy da fare con l'utente):**
+
+1. **Periodi di calendario su `/vendite` con confronto sull'anno prima**
+   (chiesto dall'utente): pillole «Mese in corso · Mese scorso · Ultimi 3 mesi ·
+   Anno in corso» + «Intervallo personalizzato» (`?periodo=…&dal=&al=`, form
+   GET senza JS in `IntervalloLibero.tsx`). Il «prima» sono **gli stessi giorni
+   dell'anno scorso** (`Finestra.confronto = "anno-prima"`,
+   `finestraCalendario()` in `vendite.ts`, `annoPrimaRoma()` in `fuso.ts`: il
+   29/02 cade sul 28). `?giorni=` resta letto per i link vecchi col confronto
+   «precedente». Regola nuova per i due periodi non contigui:
+   `doveNeiDuePeriodi()` carica **solo** i due intervalli (non dodici mesi in
+   mezzo) e `analizzaVendite`/`scomposizioneVendite` accettano `number |
+   Finestra`; lo sparkline a 8 settimane si nutre di un `contorno` caricato a
+   parte. `confrontoParzialeDi` ora tappa `giorniSenzaDati` a `f.giorni`
+   («cioè tutti» quando l'archivio comincia dopo la fine del prima). Verificato:
+   anno in corso → 01/01→04/09/2026 contro 01/01→04/09/2025 con l'avviso
+   parziale (archivio dal 26/07/2025); mese in corso senza avviso.
+2. **`/best-seller` con intervallo personalizzato** (stesso componente).
+3. **«Prima» e «Ora» con le date sotto** nelle tabelle della scomposizione
+   (`th .th-sub`), e la riga di testata dice «Ora = … · Prima = … (gli stessi
+   giorni dell'anno scorso)».
+4. **«Nuovo prodotto» rifatto come modulo unico** (`FormProdottoNuovo.tsx`,
+   `azioni-prodotto-nuovo.ts`), su sette richieste dell'utente:
+   - **SKU automatico di 7 cifre casuali, univoco** (`codiceLibero()`:
+     controlla `Prodotto.codice` e `Variante.sku`, rigenera se preso e lo dice
+     nel banner);
+   - **Brand / negozio** scelto per primo: decide categorie, collezioni e dove
+     vanno le foto;
+   - **collezione**: le manuali del negozio scelto, oppure «Nessuna»
+     (`Prodotto.collezioneShopifyId`, relazione «CollezionePrevista»);
+   - **categorie per brand**: `CategoriaProdotto.negozio` (null = tutti), si
+     imposta in `/classificazione` (select «Tutti i brand / Solo Gifts…»);
+   - **«Pubblico» al posto di «In vendita»** (`ETICHETTA_FASE`, chiave
+     `in_vendita` invariata) e **pubblico = va su Shopify**: con quella fase il
+     prodotto si crea PRIMA sul negozio (`creaProdottoSuShopify`, stato ACTIVE o
+     DRAFT se la finestra non è aperta) e poi qui con `shopifyId`; se il negozio
+     rifiuta, nasce qui come «approvato» con l'errore nel banner e nella tappa;
+   - **foto e video**: nuovo `MediaProdotto` + `shopify-media.ts`. I file vanno
+     nei **Files del negozio** (`stagedUploadsCreate` → upload **dal browser**
+     all'indirizzo temporaneo → `fileCreate` → attesa `READY`), anche se il
+     prodotto non è pubblico; alla pubblicazione si agganciano con
+     `fileUpdate(referencesToAdd)` — vale anche per i video, che con un URL
+     esterno non si potrebbero. Rotte `/api/media/prepara` e
+     `/api/media/registra` (dietro il login), ripiego via server solo sotto
+     4 MB (limite Vercel 4,5 MB). ⚠️ **L'upload dal browser verso lo storage di
+     Shopify non è stato provato** (CORS): il ripiego c'è, ma va collaudato con
+     un file vero;
+   - **descrizione con l'AI** (stessa rotta `/api/ai/descrizione`);
+   - **traduzioni automatiche** alla pubblicazione (`ai-traduzioni.ts` →
+     `translationsRegister` con i digest, `shopify-traduzioni-scrittura.ts`):
+     8 lingue fisse, se Shopify rifiuta il lotto si riprova lingua per lingua e
+     si riporta quali ha rifiutato. ⚠️ **Mai eseguita contro un negozio vero**;
+   - **finestra di pubblicazione** `pubblicatoDal`/`pubblicatoFinoAl` + cron
+     `/api/cron/pubblicazioni` (04:05 UTC in `vercel.json`): accende (ACTIVE)
+     il giorno d'apertura, spegne (DRAFT, fase → approvato) il giorno dopo la
+     chiusura, scrivendo prima su Shopify. ⚠️ Mai girato.
+   Tutte le mutation nuove **validate contro lo schema Admin** col connettore
+   Shopify (stagedUploadsCreate, fileCreate, fileUpdate, fileDelete,
+   translatableResource, translationsRegister, collectionAddProducts).
+   «Nuovo su Shopify» resta per varianti/magazzino/campi extra; in `/prodotti`
+   il bottone primario è ora «Nuovo prodotto».
+5. **`/sviluppo/calendario`**: il calendario mese per mese delle date di
+   pubblicazione (▶ entra, ■ ultimo giorno) + tabella dei prodotti con finestra.
+   Link da `/sviluppo`.
+6. **`/prodotti/pruning`** (chiesto dall'utente): il merchandiser **propone**
+   (`pruningPropostoIl`, `pruningMotivo`) fra i candidati — attivi sul negozio
+   ordinati dal venduto più fermo a 180 giorni — e le proposte si **archiviano
+   sul negozio con conferma** (`productUpdate status: ARCHIVED`, poi fase
+   «archiviato» qui) o si ritirano. Il negozio si ricava da `negozioNome` o
+   dalle collezioni del prodotto. ⚠️ Archiviazione mai eseguita contro Shopify.
+7. Schema: `prisma db push` fatto sul Postgres condiviso (solo colonne additive
+   + tabella `MediaProdotto`).
+
+**Da fare / da provare (in ordine):** deploy precompilato (`vercel build` +
+`deploy --prebuilt --prod` da qui, con l'utente); provare **un caricamento di
+foto vero** e **una pubblicazione vera** su un negozio (Cake, il più piccolo)
+con un prodotto di prova, poi cancellarlo; correggere lo slittamento delle
+rotazioni; il cambio fase → «Pubblico» **dalla scheda** prodotto non pubblica
+ancora (solo il modulo nuovo lo fa): scritto qui perché non sembri fatto.
 Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena sopra «COME AVVIARE».
 
 ## 24/08/2026 — Audit architettura: il seed non può più svuotare la produzione
@@ -610,7 +719,7 @@ collezioni, 6.821 righe di venduto, 3 negozi collegati e verificati.
 5. **Collezioni di servizio in vetrina** (ricontato il 26/08/2026). ❌ La parte sui prodotti **era falsa**: `_Additional Price` oggi **si chiama «Extra»** (l'import Shopify le ha riscritto il nome) ed è **già escluso dalle analisi** col motivo «Non è un prodotto» — è l'**unico** prodotto escluso di tutto il catalogo, e il documento lo diceva già alla voce del 27/07 contraddicendosi qui. `Torta Tisamisu Modena` **non è più prima per quantità**: sulla finestra di **default (90 giorni) è seconda** dietro «Monet - Giardino a Giverny», a 28 giorni non compare affatto, ed è prima solo a 56 giorni — i 75 pezzi sono un colpo unico ormai vecchio. ✅ **Resta vero per le collezioni**: «Globo basis collection - Do not delete» e «Smart Products Filter Index - Do not delete» sono indici dei temi, sono ancora `attiva`, e **le collezioni sospese in tutto il database sono 0** — sospenderle a mano non è mai stato fatto.
 6. **Giacenze**: nessuna fonte di magazzino collegata. ⚠️ **Ricontato il 26/08/2026**: non è vero che siano «tutte a 0» — su **9.637 varianti ne hanno una 3** (Bouquet Ora Blu Medium 24 e Deluxe 8, Composizione Crepuscolo 12: **44 pezzi in tutto**, evidentemente messi a mano). Cambia poco nella sostanza — le ipotesi di ordinativo partono comunque da «scorta ignota» e propongono la copertura piena per tutto il resto — ma un numero scritto come assoluto e falso è il modo in cui una lista smette di essere creduta.
 7. **SSO Hub** non agganciato; **fornitori** locali, da valutare se collegarli al registro Anagrafiche; **immagini** solo via URL.
-8. 🔴 **L'IMPORT DELLE COLLEZIONI SHOPIFY È FERMO DAL 04/08/2026** (scoperto il 26/08 da un audit ostile — 22 giorni). **Nessun cron lo lancia**: `vercel.json` ha solo `/api/cron/vendite` e `/api/cron/rotazioni`, l'import si preme a mano da `/collezioni`. Conta più di quanto sembri, perché questo documento avverte già (voce del 03/08) che **`statoShopify`, `pubblicataShopify`, `ggDispMin`, il GID del prodotto, foto, prezzi e appartenenze si popolano SOLO reimportando** — quindi il «1.100 attivi su Shopify», che è il numero su cui poggia il punto 1 e mezzo cruscotto, **è una fotografia dei negozi vecchia di tre settimane**. Da decidere: un cron settimanale, o accettarlo e **dichiararlo in pagina** con la data dell'ultimo import (come si è fatto per il venduto con `FreschezzaVenduto`).
+8. ✅ **RISOLTO il 28-29/08/2026: cron notturno `/api/cron/collezioni` (un negozio per chiamata), verificato vivo il 04/09** — sotto, la segnalazione com'era. ~~🔴 **L'IMPORT DELLE COLLEZIONI SHOPIFY È FERMO DAL 04/08/2026**~~ (scoperto il 26/08 da un audit ostile — 22 giorni). **Nessun cron lo lancia**: `vercel.json` ha solo `/api/cron/vendite` e `/api/cron/rotazioni`, l'import si preme a mano da `/collezioni`. Conta più di quanto sembri, perché questo documento avverte già (voce del 03/08) che **`statoShopify`, `pubblicataShopify`, `ggDispMin`, il GID del prodotto, foto, prezzi e appartenenze si popolano SOLO reimportando** — quindi il «1.100 attivi su Shopify», che è il numero su cui poggia il punto 1 e mezzo cruscotto, **è una fotografia dei negozi vecchia di tre settimane**. Da decidere: un cron settimanale, o accettarlo e **dichiararlo in pagina** con la data dell'ultimo import (come si è fatto per il venduto con `FreschezzaVenduto`).
 9. 🔴 **Il modulo «Collezioni & stagioni» — il PLM di maison, il primo che ogni descrizione dell'app elenca — è VUOTO**: `Collezione` ha **0 righe** e **0 prodotti su 4.610** hanno un `collezioneId`. Le «343 collezioni» di cui parla tutto il documento sono quelle **di Shopify** (`CollezioneShopify`), che è un'altra cosa. Non compariva in nessuna lista di punti aperti.
 10. ⚠️ **`pubblicataShopify` è `true` su tutte e 343 le collezioni**, perché senza lo scope `read_publications` (punto 3) la lettura è best-effort e in mancanza mostra tutto. Quindi **ogni conto «solo le pubblicate» è in realtà un conto su tutte** — compreso il «collezioni pubblicate senza prodotti: 1 su 343» citato più su come risultato. Lo scope mancante era annotato; il suo effetto sui numeri no.
 11. ⚠️ **Il SEO nostro è catalogato fra i «già risolti» ma non è mai stato esercitato sui prodotti**: `spingiSeoSuShopify` esiste, ma **0 prodotti su 4.610** hanno un `seoTitolo` nostro e **0** un `seoSpintoIl` (sulle collezioni sono 4 e 2). Codice sì, dati no.

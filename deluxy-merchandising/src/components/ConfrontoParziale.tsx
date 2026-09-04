@@ -24,13 +24,15 @@ export function AvvisoConfrontoParziale({
   if (!parziale) return null;
   return (
     <div className="avviso avviso-attenzione">
-      <strong>Il confronto è parziale.</strong> Il periodo precedente comincia il{" "}
-      {dataIt(finestra.dalPrec)}, ma il venduto in archivio parte dal{" "}
+      <strong>Il confronto è parziale.</strong> Il periodo di confronto
+      {finestra.confronto === "anno-prima" ? " (gli stessi giorni dell'anno scorso)" : ""} va dal{" "}
+      {dataIt(finestra.dalPrec)} al {dataIt(finestra.alPrec)}, ma il venduto in archivio parte dal{" "}
       {dataIt(parziale.primaVendita)}: dei {finestra.giorni} giorni del «prima» ne mancano{" "}
-      <strong>{parziale.giorniSenzaDati}</strong>. Le variazioni percentuali restano
-      sottrazioni esatte fra i due periodi, ma <strong>non sono una crescita</strong>: in
-      buona parte sono archivio che non c'era. Su una finestra più corta il confronto
-      torna pieno.
+      <strong>{parziale.giorniSenzaDati}</strong>
+      {parziale.giorniSenzaDati >= finestra.giorni ? " — cioè tutti" : ""}. Le variazioni
+      percentuali restano sottrazioni esatte fra i due periodi, ma{" "}
+      <strong>non sono una crescita</strong>: in buona parte sono archivio che non c'era. Il
+      confronto torna pieno quando il «prima» cade dopo l'inizio dell'archivio.
     </div>
   );
 }
