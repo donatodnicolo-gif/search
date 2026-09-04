@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mandaInApp, prefillInApp } from '@/lib/manda-in-app'
 import { partnerPiattaforma, serviziPiattaforma } from '@/lib/piattaforma'
 import { utenteCorrente } from '@/lib/sessione'
+import { db } from '@/lib/db'
+import { nomeSalute, saluteDaOrders } from '@/lib/salute-ordine'
 import type { NuovaConsegna } from '@/lib/piattaforma'
 
 export const dynamic = 'force-dynamic'
@@ -54,6 +56,28 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
   const campi = (await req.json().catch(() => ({}))) as NuovaConsegna
+
+  // ⚠️⚠️ ANCHE QUESTO È «MANDARE AVANTI», ed è il modo più caro di farlo: di
+  // là nasce una consegna vera, con un valet e una paga. La regola dell'utente
+  // (04/09/2026) vale qui come sui passi della lavorazione — e qui prima che
+  // altrove, perché una consegna creata su un ordine annullato non si disfa
+  // spegnendo un'etichetta.
+  const o = await db.ordine.findUnique({
+    where: { id },
+    select: { numero: true, shopifyId: true },
+  })
+  if (o) {
+    const s = await saluteDaOrders(o.numero, o.shopifyId)
+    if (s.stato === 'ok' && !s.conforme) {
+      return NextResponse.json(
+        {
+          errore: `Su Deluxy Orders quest'ordine risulta «${nomeSalute(s.salute)}», non conforme: non si manda in app. ${s.perche}`.trim(),
+          salute: s.salute,
+        },
+        { status: 409 }
+      )
+    }
+  }
 
   const esito = await mandaInApp(id, campi, { id: io.id, nome: io.nome })
   if (!esito.ok) return NextResponse.json({ errore: esito.errore }, { status: 400 })

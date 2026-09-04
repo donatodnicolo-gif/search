@@ -1,6 +1,7 @@
 import { db } from './db'
 import { totaleConUniti } from './unione-ordini'
 import { brandRicercaDaNegozio } from './negozi'
+import { saluteDaOrders } from './salute-ordine'
 import {
   ordineDaOrders,
   pezziOrdine,
@@ -55,6 +56,18 @@ export type OrdineDettaglioDto = {
   fasciaConsegnaOriginale?: string
   consegnaSpostataDa?: string
   statoNome: string
+  /**
+   * LA SALUTE secondo Deluxy Orders: conforme | a_rischio | non_pagato |
+   * cancellato | nullo, oppure `''` quando non si è potuta chiedere.
+   *
+   * ⚠️ Chiesta a Orders ogni volta che si apre la scheda, mai copiata in
+   * tabella: di là non è una colonna, si ricalcola dai campi veri, e una copia
+   * qui sarebbe vecchia proprio nel momento in cui conta (un ordine annullato
+   * stamattina resterebbe «conforme» fino al prossimo giro di sync).
+   */
+  salute: string
+  /** Perché non si è potuta chiedere: si scrive, non si tace. */
+  saluteNota: string
   statoColore: string
   note: string
   gestione: string
@@ -163,6 +176,12 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   // in fila raddoppierebbero l'attesa di chi apre una scheda.
   const quota = await leggiQuotaFornitore(ordine.totale)
 
+  // ── LA SALUTE, CHIESTA A ORDERS ──
+  // ⚠️ Si chiede, non si copia: di là non è una colonna e cambia da sola
+  // quando l'ordine viene annullato o rimborsato. Un fallimento non ferma la
+  // scheda — si scrive che non si è potuta chiedere, e la si mostra così.
+  const esitoSalute = await saluteDaOrders(ordine.numero, ordine.shopifyId).catch(() => null)
+
   const chiamate = await db.chiamata.findMany({
     where: { ordineId: ordine.id },
     orderBy: { quando: 'desc' },
@@ -206,6 +225,8 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       fasciaConsegnaOriginale: ordine.fasciaConsegnaOriginale,
       consegnaSpostataDa: ordine.consegnaSpostataDa,
       statoNome: ordine.statoNome,
+      salute: esitoSalute?.stato === 'ok' ? esitoSalute.salute : '',
+      saluteNota: esitoSalute?.stato === 'sconosciuta' ? esitoSalute.perche : '',
       statoColore: ordine.statoColore,
       note: ordine.note,
       gestione: ordine.gestione,
@@ -328,6 +349,11 @@ export async function dettaglioOrdineArchivio(
         dataConsegna: o.consegna?.data ?? null,
         fasciaConsegna: o.consegna?.fascia ?? '',
         statoNome: o.classificazione?.stato?.nome ?? '',
+        // ⚠️ Un ordine di solo archivio la salute ce l'ha eccome: arriva nella
+        // stessa risposta di Orders, e su un ordine vecchio serve pure di più —
+        // e' li' che si va a guardare com'e' finita.
+        salute: (o.salute ?? '').trim(),
+        saluteNota: '',
         statoColore: '',
         note: '',
         // Lo stato di lavorazione è NOSTRO e vale sugli ordini che lavoriamo:

@@ -22,6 +22,10 @@ import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/l
 import { leggiJson } from '@/lib/leggi-json'
 import { linkPagamentoOrdine } from '@/lib/link-ordine'
 import { nomeStatoConsegna, nomeStatoVendita } from '@/lib/piattaforma-stati'
+// ⚠️ Dalle REGOLE, non da `salute-ordine`: quello parla con Orders e con la
+// configurazione cifrata, e questo file e' un componente client — importarlo
+// rompe la build con «node:crypto is not handled by plugins».
+import { mandaAvanti, nomeSalute, percheSalute } from '@/lib/salute-regole'
 import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
 import type { BozzaMail } from './ComponiMail'
 
@@ -170,6 +174,10 @@ type OrdineDettaglio = {
   fasciaConsegnaOriginale?: string
   consegnaSpostataDa?: string
   statoNome: string
+  /** La salute secondo Deluxy Orders: conforme | a_rischio | non_pagato | cancellato | nullo. */
+  salute?: string
+  /** Perché non si è potuta chiedere (vuoto se si è potuta). */
+  saluteNota?: string
   statoColore: string
   note: string
   gestione: string
@@ -705,7 +713,11 @@ export function DettaglioOrdine({
         body: JSON.stringify({ gestione }),
       })
       if (!res.ok) {
-        setErrore('Stato non salvato.')
+        // ⚠️⚠️ Il 409 della salute porta con sé il MOTIVO, e mostrarlo come
+        // «Stato non salvato» sarebbe la peggiore delle risposte: chi legge
+        // riprova, e riprova, senza sapere che il no viene da Orders.
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        setErrore(d.errore || 'Stato non salvato.')
         await carica()
       } else {
         // ⚠️⚠️ Mettendo «Gestito» le note del diario di quest'ordine si chiudono
@@ -909,6 +921,16 @@ export function DettaglioOrdine({
   // La bozza della mail, calcolata una volta sola: la usano sia il bottone
   // «Email» sia l'indirizzo cliccabile fra i recapiti. Prima viveva dentro
   // l'IIFE dei canali, e l'indirizzo non poteva raggiungerla.
+  /**
+   * La salute è conforme? `null` = non lo sappiamo (Orders non ha risposto, o
+   * è un ordine che di là non c'è).
+   *
+   * ⚠️⚠️ Tre valori e non due: «non lo so» non deve diventare né un divieto —
+   * Orders giù fermerebbe tutto il lavoro — né un permesso silenzioso. Si passa
+   * e si scrive che il controllo non c'è stato.
+   */
+  const salteConforme: boolean | null = ordine?.salute ? ordine.salute === 'conforme' : null
+
   const bozzaMail: BozzaMail | null =
     ordine && lingua && ordine.email
       ? {
@@ -977,8 +999,32 @@ export function DettaglioOrdine({
                 automatico della piattaforma o se ce lo teniamo noi. La verità
                 sta su Orders (la piattaforma legge da lì): il bottone scrive
                 prima là, e solo se va aggiorna quello che si vede qui. */}
+            {/* ── LA SALUTE, IN TESTA ──
+                ⚠️⚠️ Sta qui e non in fondo perché è la prima domanda: questa
+                vendita vale? Se la risposta non è «conforme» l'ordine non si
+                manda avanti, quindi tutto quello che c'è sotto — il messaggio
+                al fornitore, la ricerca in zona, «manda in app» — è lavoro che
+                non va fatto. Scoprirlo dopo aver telefonato è scoprirlo tardi.
+                ⚠️ La calcola Deluxy Orders: qui si mostra, non si ricalcola. */}
+            {ordine?.salute && ordine.salute !== 'conforme' ? (
+              <div
+                role="alert"
+                className="avviso-errore"
+                style={{ marginTop: 8, marginBottom: 0 }}
+              >
+                Su Deluxy Orders quest&apos;ordine risulta{' '}
+                <strong>{nomeSalute(ordine.salute)}</strong>. {percheSalute(ordine.salute)} Non si
+                manda avanti: si può solo chiuderlo.
+              </div>
+            ) : null}
             {ordine && ordine.id && !ordine.annullatoIl ? (
               <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {ordine.salute === 'conforme' ? (
+                  <span className="badge" title="La salute della vendita secondo Deluxy Orders">
+                    <span className="dot" />
+                    conforme
+                  </span>
+                ) : null}
                 <span
                   className="badge"
                   style={{ color: ordine.smistamento === 'manuale' ? 'var(--gold-strong, #8a6d2f)' : 'var(--text-secondary)' }}
@@ -1741,19 +1787,53 @@ export function DettaglioOrdine({
                           e la bacheca smette di dire il vero.
                           ⚠️ Lo stato in corso è pieno: la fila dice **dove
                           siamo**, non «cosa posso fare». */}
+                      {/* ── SE LA SALUTE NON È CONFORME, L'ORDINE NON VA AVANTI ──
+                          ⚠️⚠️ Regola dell'utente (04/09/2026): la salute la
+                          calcola Deluxy Orders (conforme · a rischio · non
+                          pagato · cancellato · nullo) e qui si chiede, non si
+                          ricopia.
+                          ⚠️ Si spengono SOLO i passi che mandano avanti.
+                          «Gestito» e «Da iniziare» restano cliccabili: un
+                          ordine annullato dal cliente deve poter essere chiuso,
+                          altrimenti resta in lista per sempre e la regola si
+                          impara ad aggirarla.
+                          ⚠️ Il vero divieto è nella rotta, non qui: questi
+                          bottoni spenti servono a non far perdere tempo. */}
+                      {salteConforme === false ? (
+                        <p className="avviso-errore" style={{ marginTop: 0 }}>
+                          Su Deluxy Orders quest&apos;ordine risulta{' '}
+                          <strong>{nomeSalute(ordine.salute ?? '')}</strong>, non conforme:{' '}
+                          <strong>non si manda avanti</strong>. {percheSalute(ordine.salute ?? '')}{' '}
+                          Puoi solo chiuderlo o riportarlo a «Da iniziare».
+                        </p>
+                      ) : null}
+                      {ordine.saluteNota ? (
+                        <p className="cella-sub" style={{ marginTop: 0 }}>
+                          ⚠️ Non ho potuto chiedere la salute a Orders: {ordine.saluteNota} Il
+                          controllo non è stato fatto.
+                        </p>
+                      ) : null}
                       <span className="passi-ordine">
-                        {PASSI.map((k) => (
-                          <button
-                            key={k}
-                            className={
-                              ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
-                            }
-                            onClick={() => cambiaGestione(k)}
-                            title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
-                          >
-                            {nomeGestione(k)}
-                          </button>
-                        ))}
+                        {PASSI.map((k) => {
+                          const bloccato = salteConforme === false && mandaAvanti(k)
+                          return (
+                            <button
+                              key={k}
+                              className={
+                                ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
+                              }
+                              onClick={() => cambiaGestione(k)}
+                              disabled={bloccato}
+                              title={
+                                bloccato
+                                  ? `Non si può: su Orders quest'ordine risulta «${nomeSalute(ordine.salute ?? '')}», non conforme.`
+                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
+                              }
+                            >
+                              {nomeGestione(k)}
+                            </button>
+                          )
+                        })}
                         {/* La chiusura sta accanto ai passi ma non è uno di
                             loro: dice che abbiamo finito, non dove siamo. */}
                         <span className="passi-chiusura">
