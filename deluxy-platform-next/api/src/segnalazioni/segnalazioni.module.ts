@@ -106,7 +106,8 @@ export class SegnalazioniService {
    * ⭐ 03/09 (regola utente): sui tipi con IMPORTO (rimborsi e reclami dei
    * valet) il giro ha il VERDETTO — aperta → in_lavorazione → approvata |
    * respinta → pagata. All'APPROVAZIONE, se c'è una consegna collegata,
-   * l'importo si applica alla sua paga (valetAdditionalPrice += importo):
+   * l'importo si applica ai COSTI RIMBORSATI della consegna (refundedCosts +=
+   * importo, regola utente 05/09: l'area C e gli acquisti non sono paga):
    * così entra da solo nel prossimo stipendio. `importoApplicatoIl` fa da
    * guardia (mai due volte) e il riaprire STORNA.
    */
@@ -136,34 +137,37 @@ export class SegnalazioniService {
         throw new BadRequestException('Importo già applicato alla consegna: riaprire prima (lo storna), poi respingere');
       }
       if (nuovo === 'approvata' && !s.importoApplicatoIl && s.deliveryId) {
-        // L'importo entra nella paga della consegna, una volta sola.
+        // ⭐ 05/09/2026 (regola utente): l'importo approvato — area C, acquisti,
+        // rimborsi — va nei COSTI RIMBORSATI, non più nel plus/minus. Il
+        // plus/minus è paga, ed entrava nel costo della consegna e nel margine:
+        // un'area C non è il prezzo del viaggio, è una spesa che torna indietro.
         const d = await this.prisma.delivery.findUnique({
-          where: { id: s.deliveryId }, select: { id: true, valetAdditionalPrice: true },
+          where: { id: s.deliveryId }, select: { id: true, refundedCosts: true },
         });
         if (d) {
           await this.prisma.delivery.update({
             where: { id: d.id },
             data: {
-              valetAdditionalPrice: Math.round((((d.valetAdditionalPrice ?? 0) + (s.importo ?? 0))) * 100) / 100,
+              refundedCosts: Math.round((((d.refundedCosts ?? 0) + (s.importo ?? 0))) * 100) / 100,
               logs: { create: { type: 'note', userId: user.sub ?? null,
-                message: `Plus/minus valet +${(s.importo ?? 0).toFixed(2)} € da ${s.tipo} approvato (segnalazione ${s.id})` } },
+                message: `Costi rimborsati +${(s.importo ?? 0).toFixed(2)} € da ${s.tipo} approvato (segnalazione ${s.id}) — si pagano al valet, non fanno costo di consegna` } },
             },
           });
           data.importoApplicatoIl = new Date();
         }
       }
       if (nuovo === 'aperta' && s.importoApplicatoIl && s.deliveryId) {
-        // Riaperta dopo l'approvazione: lo storno riporta la paga com'era.
+        // Riaperta dopo l'approvazione: lo storno riporta i costi com'erano.
         const d = await this.prisma.delivery.findUnique({
-          where: { id: s.deliveryId }, select: { id: true, valetAdditionalPrice: true },
+          where: { id: s.deliveryId }, select: { id: true, refundedCosts: true },
         });
         if (d) {
           await this.prisma.delivery.update({
             where: { id: d.id },
             data: {
-              valetAdditionalPrice: Math.round((((d.valetAdditionalPrice ?? 0) - (s.importo ?? 0))) * 100) / 100,
+              refundedCosts: Math.round((((d.refundedCosts ?? 0) - (s.importo ?? 0))) * 100) / 100,
               logs: { create: { type: 'note', userId: user.sub ?? null,
-                message: `Storno plus/minus valet −${(s.importo ?? 0).toFixed(2)} € (segnalazione ${s.id} riaperta)` } },
+                message: `Storno costi rimborsati −${(s.importo ?? 0).toFixed(2)} € (segnalazione ${s.id} riaperta)` } },
             },
           });
         }

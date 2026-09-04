@@ -385,7 +385,7 @@ export class SalariesService {
       where,
       select: {
         id: true, valetId: true, valetServiceId: true, date: true, ddtNumber: true, status: true,
-        valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
+        valetSalary: true, valetAdditionalPrice: true, refundedCosts: true, hours: true, extraKm: true,
         distanceKm: true, extraOutOfCity: true,
         paymentOnDelivery: true, paymentAmount: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
@@ -596,6 +596,11 @@ export class SalariesService {
           : 0;
         return {
           id: d.id, code: d.code, date: d.date, status: d.status,
+          // ⭐ 05/09/2026 (regola utente): i COSTI RIMBORSATI viaggiano a parte.
+          // Si pagano al valet (sono soldi suoi anticipati) ma non sono
+          // compenso: non entrano nella paga, non fanno costo di consegna e
+          // non toccano il margine.
+          rimborsi: Math.round(((d as any).refundedCosts ?? 0) * 100) / 100,
           address: d.recipientAddress,
           orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
           service: d.serviceType?.name ?? '—',
@@ -634,6 +639,10 @@ export class SalariesService {
     const dettaglio = await this.pendingDetail(user, valetId, dal, al, servizi);
     const pagabili = dettaglio.deliveries.filter((d) => d.amount != null && !d.esclusaDaRegola);
     const lordo = arrotonda2(pagabili.reduce((s, d) => s + (d.amount ?? 0), 0));
+    // ⭐ 05/09/2026 (regola utente): i costi rimborsati delle righe pagabili.
+    // Non entrano nel lordo — che è compenso, e sul compenso si calcolano
+    // rimborso forfetario e ritenuta — ma il valet li riceve col bonifico.
+    const costiRimborsati = arrotonda2(pagabili.reduce((s, d) => s + ((d as any).rimborsi ?? 0), 0));
     // I contanti delle righe marcate (non pagabili / da approvare) non entrano
     // nel conto: quelle consegne non fanno parte del denaro di questo recap.
     const contanti = arrotonda2(dettaglio.deliveries
@@ -661,7 +670,8 @@ export class SalariesService {
             corrispettivoLordo,
             ritenuta: arrotonda2(corrispettivoLordo - nettoCompenso),
             nettoCompenso,
-            totaleBonifico: lordo,
+            // Il bonifico porta anche i costi anticipati dal valet.
+            totaleBonifico: arrotonda2(lordo + costiRimborsati),
             // Marca da bollo da 2 € sopra i 77,47 € di prestazione.
             bollo: corrispettivoLordo > 77.47,
           };
@@ -678,8 +688,10 @@ export class SalariesService {
         consegne: pagabili.length,
         nonPagabili: dettaglio.deliveries.length - pagabili.length,
         lordo,
+        /** Area C, parcheggi, acquisti: si rendono, non si guadagnano. */
+        costiRimborsati,
         contanti,
-        netto: arrotonda2(lordo - contanti),
+        netto: arrotonda2(lordo + costiRimborsati - contanti),
       },
     };
   }

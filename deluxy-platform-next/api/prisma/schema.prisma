@@ -1155,6 +1155,13 @@ model Delivery {
   hoursDecision      String?
   hoursDecidedAt     DateTime?
   hoursDecidedBy     String?
+  /// ⭐ 05/09/2026 (regola utente): COSTI RIMBORSATI — l'area C, il parcheggio,
+  /// l'acquisto fatto per conto nostro. Sono soldi che TORNANO al valet, non
+  /// il prezzo del viaggio: prima finivano nel plus/minus, che entra nella paga
+  /// e nel costo della consegna e quindi sporcava il margine. Da qui in poi
+  /// stanno in un campo loro: si pagano al valet, non fanno costo di consegna,
+  /// e si sommano nel Conto Economico della Finanza.
+  refundedCosts      Float?
   ddtNumber          String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»

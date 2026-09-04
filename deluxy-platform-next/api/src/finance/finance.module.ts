@@ -429,6 +429,26 @@ export class FinanceService {
    */
   static readonly PLUS_MASSIMO_NEL_COSTO = 5;
 
+  /**
+   * ⭐ 05/09/2026 (regola utente): I COSTI RIMBORSATI DEL PERIODO.
+   *
+   * Area C, parcheggi, acquisti fatti dal valet per conto nostro: da oggi
+   * hanno un campo loro (`Delivery.refundedCosts`) e NON passano più dal
+   * plus/minus. Non sono costo della consegna — non toccano il margine — ma
+   * sono soldi che escono davvero: il Conto Economico li sottrae.
+   */
+  async costiRimborsati(from?: string, to?: string): Promise<number> {
+    const dove: Record<string, unknown> = { deletedAt: null, refundedCosts: { not: null } };
+    if (from || to) {
+      dove.date = {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(`${to}T23:59:59.999Z`) } : {}),
+      };
+    }
+    const somma = await this.prisma.delivery.aggregate({ where: dove as any, _sum: { refundedCosts: true } });
+    return Math.round((somma._sum.refundedCosts ?? 0) * 100) / 100;
+  }
+
   static plusNelCosto(valetAdditionalPrice?: number | null): number {
     const plus = valetAdditionalPrice ?? 0;
     if (plus <= 0) return 0;
@@ -850,7 +870,17 @@ export class FinanceService {
     const saleValue = round2(publicPrice + deliveryFee);
     const takings = sum((o) => o.takings);
     const totalMargin = sum((o) => o.totalMargin);
+    // ⭐ 05/09/2026 (regola utente): il CONTO ECONOMICO. Il margine dice quanto
+    // rende il mestiere; il conto economico dice quanto resta davvero, e i
+    // costi rimborsati (area C, parcheggi, acquisti del valet) sono soldi
+    // usciti che il margine, per come è definito, non vede.
+    const costiRimborsati = await this.costiRimborsati(from, to);
+    const contoEconomico = round2(totalMargin - costiRimborsati);
     return {
+      /** Rimborsi al valet del periodo: NON sono costo di consegna. */
+      costiRimborsati,
+      /** Margine meno i costi rimborsati: quello che resta in cassa. */
+      contoEconomico,
       deliveries: ordini.reduce((s, o) => s + o.consegne, 0),
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
       excluded: escluse,

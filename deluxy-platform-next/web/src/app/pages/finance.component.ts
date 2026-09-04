@@ -98,6 +98,10 @@ interface Summary {
   incassiCommission: number;
   totalMargin: number;
   totalMarginPercent: number;
+  /** ⭐ 05/09/2026: rimborsi al valet del periodo (area C, acquisti). */
+  costiRimborsati?: number;
+  /** Margine meno i costi rimborsati: quello che resta davvero. */
+  contoEconomico?: number;
   /** Gli ordini del periodo, col loro riepilogo. */
   ordini: RecapOrdine[];
   /** Ordini in cui risulta pagata piu' di una consegna. */
@@ -251,6 +255,11 @@ interface Summary {
           <div class="stat"><span class="k">{{ 'finance.c.vat' | translate }}</span><span class="v">{{ euro(s.vat) }}</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.incassiCommission' | translate }}</span><span class="v">{{ euro(s.incassiCommission) }}</span></div>
           <div class="stat hi"><span class="k">{{ 'finance.c.totalMargin' | translate }}</span><span class="v" [class.neg]="s.totalMargin < 0">{{ euro(s.totalMargin) }}</span><span class="pct">{{ s.totalMarginPercent | number: '1.0-2' }}%</span></div>
+          <!-- ⭐ 05/09/2026 (regola utente): i costi rimborsati non sono costo di
+               consegna e non toccano il margine, ma sono soldi usciti: il Conto
+               Economico li toglie e dice quanto resta davvero. -->
+          <div class="stat"><span class="k">{{ 'finance.c.refunded' | translate }}</span><span class="v">{{ euro(s.costiRimborsati ?? 0) }}</span></div>
+          <div class="stat hi"><span class="k">{{ 'finance.c.economicResult' | translate }}</span><span class="v" [class.neg]="(s.contoEconomico ?? 0) < 0">{{ euro(s.contoEconomico ?? 0) }}</span></div>
         </div>
       }
     } @else {

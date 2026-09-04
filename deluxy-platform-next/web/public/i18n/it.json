@@ -1272,7 +1272,9 @@
       "anomalia": "Anomalia",
       "takingsNet": "Guadagno netto IVA",
       "feeContract": "Fee registrata",
-      "sale": "ID Vendita"
+      "sale": "ID Vendita",
+      "refunded": "Costi rimborsati",
+      "economicResult": "Conto Economico"
     },
     "m": {
       "deliveries": "Consegne"

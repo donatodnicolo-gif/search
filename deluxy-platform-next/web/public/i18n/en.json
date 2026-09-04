@@ -1270,7 +1270,9 @@
       "anomalia": "Anomaly",
       "takingsNet": "Profit net of VAT",
       "feeContract": "Recorded fee",
-      "sale": "Sale ID"
+      "sale": "Sale ID",
+      "refunded": "Refunded costs",
+      "economicResult": "Economic result"
     },
     "m": {
       "deliveries": "Deliveries"
