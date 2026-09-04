@@ -155,6 +155,21 @@ async function scriviTutto(formData: FormData) {
     if (typeof k === 'string' && k.trim()) await salvaImpostazione('piattaformaApiKey', k.trim())
   }
 
+  // ── Merchandising: la scheda del prodotto (04/09/2026) ──
+  {
+    const v = formData.get('merchandisingUrl')
+    if (typeof v === 'string' && indirizzoAmmesso(v)) {
+      await salvaImpostazione('merchandisingUrl', v.trim())
+    }
+  }
+  // ⚠️ Come per la piattaforma: campo segreto vuoto = «non l'ho toccata».
+  if (formData.get('svuota_merchandisingApiKey') === '1') {
+    await salvaImpostazione('merchandisingApiKey', '')
+  } else {
+    const k = formData.get('merchandisingApiKey')
+    if (typeof k === 'string' && k.trim()) await salvaImpostazione('merchandisingApiKey', k.trim())
+  }
+
   // ── Fuori turno risponde l'AI ──
   //
   // ⚠️⚠️ Stesso meccanismo del primo contatto, e qui pesa ancora di più: è

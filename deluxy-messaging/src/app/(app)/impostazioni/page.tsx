@@ -71,6 +71,8 @@ export default async function PaginaImpostazioni({
     'partnerApiKey',
     'anagraficheUrl',
     'anagraficheApiKey',
+    'merchandisingUrl',
+    'merchandisingApiKey',
   ])
 
   // URL pubblico dell'app: da APP_URL, altrimenti dall'host della richiesta.
@@ -565,6 +567,34 @@ export default async function PaginaImpostazioni({
                 Ultimo giro: {config.piattaformaSyncEsito}
               </p>
             ) : null}
+          </div>
+
+          {/* ── MERCHANDISING: LA SCHEDA DEL PRODOTTO ──
+              ⚠️ Chiesto dall'utente il 04/09/2026. Il prodotto ha una casa sola
+              (Standard Deluxy §7) e non è questa: qui si chiede, non si copia. */}
+          <div className="card">
+            <h2>Merchandising (schede prodotto)</h2>
+            <p className="descrizione">
+              Con la chiave, dal dettaglio di un ordine si apre la{' '}
+              <strong>scheda del prodotto</strong> accanto: categoria, descrizione, costo di
+              produzione, prezzo di listino e fase di vita, presi da Merchandising. Senza chiave
+              il bottone lo dice e non finge di non trovare niente. La chiave si crea di là in{' '}
+              <strong>Impostazioni → Chiavi API</strong> ed è di sola lettura.
+            </p>
+            <label className="campo">
+              <span>Indirizzo</span>
+              <input
+                name="merchandisingUrl"
+                defaultValue={config.merchandisingUrl}
+                placeholder="https://deluxy-merchandising.vercel.app"
+              />
+            </label>
+            <CampoSegreto
+              nome="merchandisingApiKey"
+              etichetta="Chiave API"
+              valore={config.merchandisingApiKey}
+              segnaposto="dlxm_…"
+            />
           </div>
 
           <div className="card">

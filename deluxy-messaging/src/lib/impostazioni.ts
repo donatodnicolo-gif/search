@@ -48,6 +48,9 @@ const CHIAVI_CIFRATE = new Set([
   'shopifyClientSecret',
   'googleMapsApiKey',
   'piattaformaApiKey',
+  // La chiave di sola lettura di Merchandising (04/09/2026): serve alla scheda
+  // prodotto che si apre dal dettaglio dell'ordine.
+  'merchandisingApiKey',
 ])
 
 /**

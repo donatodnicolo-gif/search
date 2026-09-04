@@ -611,6 +611,36 @@
         </p>
         <div class="log">
           <div class="log-item">
+            <span class="when">04/09/2026</span>
+            <span class="what"><b>«Dettaglio prodotto»: la scheda del prodotto si apre di fianco
+              all'ordine.</b> Nella colonna «Chiedi al fornitore», sotto ogni prodotto, c'è il
+              bottone <b>Dettaglio prodotto</b>: si apre un pannello sul lato destro con la scheda
+              presa da <b>Merchandising</b> — categoria, fase di vita, descrizione, costo di
+              produzione, prezzo di listino, vendor — e in fondo a quanto è stato venduto su
+              questo ordine. L'ordine resta visibile sotto: le due cose si guardano insieme.
+              ⚠️ Il prodotto si cerca <em>prima per SKU</em> e poi per nome, e il pannello lo
+              dice: «trovato per nome» vuol dire che potrebbe essere un altro prodotto che si
+              chiama uguale, e i numeri vanno controllati. Se in Merchandising quel prodotto non
+              c'è, il pannello lo scrive invece di mostrare un prodotto somigliante.
+              ⚠️ Serve la chiave: <b>Impostazioni → Merchandising</b> (indirizzo + chiave di sola
+              lettura creata di là in Impostazioni → Chiavi API). Senza, il pannello dice che
+              manca la chiave.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">04/09/2026</span>
+            <span class="what"><b>«Hanno già preparato ordini per noi» adesso conosce le province
+              dei paesi piccoli.</b> Su un ordine a Genova comparivano fornitori che avevano
+              consegnato a Marnate, Galliate, Porto Rotondo — cioè Varese, Novara, Sassari — sotto
+              la scritta «non si sa dove consegnano». Non era un errore del testo: la provincia si
+              ricavava solo dai capoluoghi, quindi di quei comuni non si sapeva niente e per
+              prudenza restavano in elenco. Adesso la provincia di un comune si <b>chiede</b> a
+              Google la prima volta e poi resta imparata, quindi chi consegna altrove esce
+              davvero: su quell'ordine l'elenco è passato da <b>6 righe sbagliate a 1</b>.
+              ⚠️ Nessuno sparisce in silenzio: la riga «Fuori dall'elenco: N consegnano altrove»
+              adesso <b>si apre</b> e mostra chi sono e in che province hanno consegnato. Se il
+              filtro toglie uno che serviva, lo si vede e lo si chiama lo stesso.</span>
+          </div>
+          <div class="log-item">
             <span class="when">02/09/2026</span>
             <span class="what"><b>Nuova sezione «Statistiche»: i numeri dell'app in una pagina.</b>
               Dalla barra a sinistra (Qualità → Statistiche) o da Oggi. Si sceglie il periodo —

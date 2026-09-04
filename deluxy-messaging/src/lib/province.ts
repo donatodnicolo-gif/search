@@ -40,6 +40,23 @@ const SIGLE: Record<string, string> = {
   VITERBO: 'VT',
 }
 
+/**
+ * Le province SOPPRESSE, ricondotte a quella di oggi.
+ *
+ * ⚠️⚠️ Non è pedanteria da atlante: Google Maps risponde ancora con le vecchie.
+ * Misurato il 04/09/2026 — «Porto Rotondo» torna `OT` (Olbia-Tempio, abolita nel
+ * 2016) mentre «Romazzino», che è a tre chilometri, torna `SS`. Senza questa
+ * tabella lo stesso fornitore risulterebbe di due province diverse a seconda del
+ * comune, e `siglaProvincia('OT')` tornerebbe vuoto — cioè «non lo sappiamo» su
+ * un dato che sappiamo benissimo.
+ */
+const SOPPRESSE: Record<string, string> = {
+  OT: 'SS', // Olbia-Tempio → Sassari
+  OG: 'NU', // Ogliastra → Nuoro
+  VS: 'SU', // Medio Campidano → Sud Sardegna
+  CI: 'SU', // Carbonia-Iglesias → Sud Sardegna
+}
+
 /** Tutte le sigle valide, per riconoscerle quando arrivano già così. */
 const TUTTE = new Set(Object.values(SIGLE))
 
@@ -54,12 +71,14 @@ export function siglaProvincia(valore: string | null | undefined): string {
   const v = (valore ?? '').trim().toUpperCase().replace(/[().]/g, '').trim()
   if (!v) return ''
   if (v.length === 2 && TUTTE.has(v)) return v
+  if (v.length === 2 && SOPPRESSE[v]) return SOPPRESSE[v]
   const dritto = SIGLE[v]
   if (dritto) return dritto
   // «Firenze FI», «20144 Milano (MI)»: se dentro c'è una sigla nota, vale quella.
   const parole = v.split(/[\s,]+/).filter(Boolean)
   for (const p of parole) if (p.length === 2 && TUTTE.has(p)) return p
   for (const p of parole) if (SIGLE[p]) return SIGLE[p]
+  for (const p of parole) if (p.length === 2 && SOPPRESSE[p]) return SOPPRESSE[p]
   return ''
 }
 

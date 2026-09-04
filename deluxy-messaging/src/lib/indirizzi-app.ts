@@ -29,6 +29,8 @@ export const CAMPI_INDIRIZZO = new Set([
   'partnerUrl',
   'anagraficheUrl',
   'piattaformaUrl',
+  // 04/09/2026: anche verso Merchandising parte una chiave nell'header.
+  'merchandisingUrl',
 ])
 
 /**
