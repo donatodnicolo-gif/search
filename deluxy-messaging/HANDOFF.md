@@ -1,5 +1,136 @@
 # Handoff — Deluxy Customer Service
 
+## 04/09/2026 (10) — la scheda del prodotto, di fianco all'ordine
+
+Chiesto dall'utente: «nel pop-up della vendita fai aprire dettaglio prodotto
+nella relativa colonna che apre un pop-up di fianco con i dettagli del prodotto
+con provenienza app merchandising».
+
+- **Dove**: colonna «Chiedi al fornitore», sotto ogni riga, bottone
+  **Dettaglio prodotto**. Il pannello (`.scheda-prodotto`) è **ancorato al bordo
+  destro**, non centrato: una seconda modale coprirebbe l'ordine, e le due cose
+  servono insieme — si legge il prodotto mentre si scrive al fornitore.
+- ⚠️ **Niente copie**: il prodotto ha una casa sola ed è Merchandising (Standard
+  §7). `src/lib/merchandising.ts` chiama `GET /api/v1/prodotti?q=` con la chiave
+  nell'header **dal server** (`/api/prodotto-merchandising`, verificata 307 verso
+  /login senza cookie). Qui non nasce nessuna tabella e nessun campo.
+- ⚠️⚠️ **Prima per SKU, poi per nome, e si DICE quale**: la rotta di
+  Merchandising cerca per nome, quindi lo SKU si usa dopo, sulle righe tornate.
+  Un match per nome porta un avviso in pannello: sul catalogo (4.632 prodotti)
+  lo stesso bouquet esiste in più taglie, e un costo di produzione letto sulla
+  scheda sbagliata è peggio di nessun costo. **Nessun ripiego sul primo
+  risultato.**
+- I tre «no» sono distinti e detti distinti: *non configurato* (si risolve in
+  Impostazioni), *non trovato* (in Merchandising non c'è), *errore* (l'app non
+  risponde). `leggiJson` per la sessione scaduta, come ovunque.
+- Impostazioni → **Merchandising**: `merchandisingUrl` (nella lista bianca degli
+  indirizzi) e `merchandisingApiKey` (in `CHIAVI_CIFRATE`, campo segreto).
+
+🔴 **MANCA la chiave, ed è un gesto dell'utente**: in Merchandising →
+Impostazioni → Chiavi API se ne crea una di sola lettura (`dlxm_…`, si vede una
+volta sola) e si incolla in Impostazioni → Merchandising. Verificato il
+04/09/2026: di là esiste **una sola chiave**, `deluxy-platform`, e l'hash non si
+può riusare. Finché manca, il pannello dice che manca la chiave.
+
+⚠️ **Limite noto dell'API di Merchandising**: `brief`, `materiali`, `palette`
+NON sono fra i campi pubblicati — e `materiali` sarebbe il dato più utile a chi
+telefona a un fioraio. Va aggiunto **di là**, nella rotta `/api/v1/prodotti`,
+non letto da qui.
+
+## 04/09/2026 (9) — «non si sa dove consegnano»: adesso la provincia si CHIEDE
+
+Segnalazione dell'utente sull'ordine **#2867** (consegna a Genova): «non capisco
+ancora perché mi escono fornitori di province che non sono Genova (da civico 95
+in giù)». Aveva ragione, e il riquadro si contraddiceva da solo — titolo «non si
+sa dove consegnano», righe «ha consegnato a Marnate, Galliate, Cadrezzate con
+Osmate».
+
+⚠️⚠️ **Non era il filtro del 29/08 a essere rotto: era il dato.** La provincia si
+ricavava da `siglaProvincia`, che risponde **solo sui capoluoghi**. Marnate non è
+un capoluogo → provincia ignota → `vicinanza 0` → «non si sa» → e chi non si sa
+resta in elenco (regola giusta). Risultato: l'elenco di Genova pieno di gente di
+Varese.
+
+⚠️ **La strada dell'indirizzo è chiusa e l'ho misurata**: sugli 80 ordini con un
+fornitore scritto, `indirizzo` è vuoto su **79** (resta in Orders). L'unica cosa
+che c'è è il nome del comune.
+
+**Quindi la provincia si chiede, non si indovina** — `src/lib/comuni.ts`:
+
+- Google Geocoding, **una volta per comune**, e la risposta resta in
+  `Impostazione.comuniProvince` (JSON). I comuni distinti in tutto l'archivio
+  sono **74**.
+- Tetto di **12 comuni per apertura di scheda** e 4 in parallelo: questo giro sta
+  dentro la scheda di un ordine. I restanti si imparano alle aperture dopo, e
+  intanto nessuno sparisce (chi non è ancora stato chiesto resta «non si sa»).
+- `!` = trovato ma fuori Italia, `?` = Google non sa dirlo: si conservano per non
+  richiedere all'infinito, e da fuori valgono «non lo sappiamo».
+- Errore di rete: **non si scrive niente** e al giro dopo si riprova.
+- ⚠️ `province.ts` conosce ora le **province soppresse** (OT→SS, OG→NU, VS→SU,
+  CI→SU): Google risponde ancora «OT» per Porto Rotondo e «SS» per Romazzino,
+  che sono a tre chilometri.
+
+⚠️ **Da qui il segnale può ESCLUDERE**, al contrario dei comuni del registro
+Anagrafiche che potevano solo includere. È lecito solo perché è un fatto letto:
+se la risposta manca, il fornitore torna ignoto e resta in elenco.
+
+**Misurato sui dati veri il 04/09/2026** (`nostriFornitori()`, 71 fornitori,
+56 comuni su 74 risolti):
+
+| consegna | prima | dopo |
+|---|---|---|
+| Genova (GE) | 0 in zona · 27 «non si sa» · 28 altrove | 0 in zona · **1** «non si sa» · 54 altrove |
+| Roma (RM) | 0 in zona | **1 in zona** (Valmontone) |
+| Olbia (SS) | 0 in zona | **2 in zona** (Porto Rotondo, Porto Cervo) |
+| Como (CO) | 1 in zona | **3 in zona** (Blevio, Cadenabbia, Tremezzo) |
+
+⚠️⚠️ **E chi esce si può guardare**: «Fuori dall'elenco: N consegnano altrove»
+adesso **si apre** e mostra nomi, città e province. Un filtro che toglie 54 righe
+e non si può controllare è un filtro di cui ci si fida per fede.
+
+Corretto anche il testo che si contraddiceva: «non si sa dove consegnano» →
+**«non sappiamo in che provincia consegnano»**.
+
+## 04/09/2026 (8) — la fotografia ricontata (la sezione MANCA era ferma al 26/08)
+
+Ricontato sul database di produzione (`node scripts/conta.mjs` più letture di
+sola lettura). ⚠️ Fra parentesi il 26/08, che è quello che l'handoff diceva
+ancora.
+
+- **Ordini 1.514** (1.371): gestito 1.392, da_gestire **98**, attesa_consegna 17,
+  in_pagamento 4, ricerca_fornitore 2, comunicazione 1. **404 senza data di
+  consegna.**
+- **Conversazioni 747** (644) — email 483, WhatsApp 190, widget 48, Instagram 26,
+  **Messenger 0**. **5.220 messaggi**, 5 non lette, **165 prese in carico** (91).
+- **Utenti 3**: nicolo (admin), federica e **eva.ascenzi** (operatori). ⚠️
+  Riccardo non c'è più: qualunque conteggio storico fatto sul NOME lo perde.
+- 🔴🔴 **CHARGEBACK: 4 da rispondere, e due scadono OGGI.** #12726 (99,94 €) e
+  #1741 (103,34 €) scadenza **04/09/2026**; #2714 (84,54 €) il **10/09**; #12829
+  (115,77 €) il **17/09**. Su tutti e quattro: **prove mai inviate** e **bozza a
+  ZERO caratteri**. Le perse restano **11** (2.257,66 €).
+- 🟡 **Richieste di pagamento 81** (22), e adesso **35 sono partite davvero**
+  (erano ZERO): canale `transactions`, tutte e 35 `in_attesa` di là. Le altre
+  **46** (4.898 €) non sono mai uscite, e il motivo è scritto sulla riga:
+  33 «Nessun canale di pagamento configurato», 7 «Partner non configurato»,
+  **5 «IBAN non valido: il checksum non torna»**, 1 link di pagamento non
+  completo. ⚠️ La più recente è del **26/08**: da quando il canale Transactions
+  è acceso non se ne è più fermata nessuna.
+- 🔴 **La piattaforma consegne è ancora scollegata**: `piattaformaApiKey` **non
+  esiste come riga** in `Impostazione`, quindi `appStato` e `appConsegnaStato`
+  sono vuoti su **1.514 ordini su 1.514** e il cron dei 15 minuti gira a vuoto.
+  Il pezzo mancante è sempre lo stesso gesto: chiave di sola lettura di là,
+  incollata in Impostazioni.
+- **Reclami 9, tutti aperti** (6), due di gravità 3 (#12790, #12826); il più
+  vecchio è #1731, aperto il **27/07**. **Rimborsi «richiesto» 6** (4).
+- **Note di diario 31**, di cui **18 da fare**. **Turni: 5 righe**, invariato.
+- Sync ordini vivo: ultimo giro **04/09 17:50 UTC**, «ok: 45 ordini, 0 nuovi»;
+  webhook Meta ricevuto alle 17:50.
+- Chiavi ancora **vuote**: `partnerUrl`, `searchUrl`, `waBusinessAccountId`,
+  `widgetTitolo`/`widgetMessaggio`, `shopifyToken` (giusto),
+  `openaiModelloImmagini`, `openaiModelloRisposte`. **`apreSulSito` false** su
+  tutti e tre i siti, invariato dal 17/08.
+
+
 ## 02/09/2026 (8) — la sezione Statistiche
 
 Chiesto dall'utente: «crea una sezione statistiche dove fai vedere tutte le KPI
@@ -7663,6 +7794,13 @@ locale, altrimenti nulla si decifra.
   Verificato con le funzioni reali: FL/CK/DL corretti sui 3 negozi dell'utente.
 
 ## MANCA
+
+> ⚠️⚠️ **RICONTATA IL 04/09/2026 IN CIMA A QUESTO FILE** (tappa 8). Tutto
+> quello che sta qui sotto è **storia**: la riga «richieste di pagamento: ZERO
+> inviate» è falsa da quando il canale Transactions è acceso (35 partite), gli
+> utenti non sono più gli stessi e i chargeback da rispondere sono quattro, non
+> due. È la **quinta volta** che questa sezione invecchia: prima di scrivere
+> «manca X», ricontarlo.
 
 > ⚠️ **Questa sezione era ferma al 28/07 e diceva il falso su quasi tutto.** Ricontata sul
 > database di produzione il **15/08/2026** e di nuovo il **17/08/2026 pomeriggio**

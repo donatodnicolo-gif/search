@@ -19,6 +19,7 @@ import {
   type Chiesto,
 } from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
+import { leggiJson } from '@/lib/leggi-json'
 import { linkPagamentoOrdine } from '@/lib/link-ordine'
 import { nomeStatoConsegna, nomeStatoVendita } from '@/lib/piattaforma-stati'
 import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
@@ -82,10 +83,55 @@ type NostriDto = {
   inZona: NostroFornitoreDto[]
   senzaLuogo: NostroFornitoreDto[]
   altrove: number
+  /**
+   * Chi consegna per certo da un'altra parte. ⚠️ Dal 04/09/2026 arriva anche
+   * l'elenco, non solo il numero: da quando la provincia dei comuni si chiede a
+   * Google questo gruppo è diventato grosso, e un filtro che toglie sei righe
+   * deve poter essere controllato da chi telefona.
+   */
+  altroveChi: NostroFornitoreDto[]
   altroMestiere: number
 }
 
-const NOSTRI_VUOTI: NostriDto = { inZona: [], senzaLuogo: [], altrove: 0, altroMestiere: 0 }
+const NOSTRI_VUOTI: NostriDto = {
+  inZona: [],
+  senzaLuogo: [],
+  altrove: 0,
+  altroveChi: [],
+  altroMestiere: 0,
+}
+
+/**
+ * La risposta di `/api/prodotto-merchandising`: o la scheda, o il motivo per cui
+ * non c'è. ⚠️ I tre «no» sono diversi e si dicono diversi — «non configurato»
+ * si risolve in Impostazioni, «non trovato» vuol dire che quel prodotto in
+ * Merchandising non c'è, «errore» vuol dire che l'app non risponde. Un unico
+ * «nessun dettaglio» manderebbe a cercare nel posto sbagliato.
+ */
+type SchedaProdotto =
+  | {
+      stato: 'ok'
+      comeTrovato: 'codice' | 'nome'
+      prodotto: {
+        id: string
+        codice: string
+        nome: string
+        fase: string
+        categoria: string
+        descrizione: string | null
+        costoProduzione: number
+        prezzoVendita: number
+        immagine: string | null
+        tipoShopify: string | null
+        vendorShopify: string | null
+        origine: string
+        esclusoDaAnalisi: boolean
+        aggiornatoIl: string
+      }
+    }
+  | { stato: 'non-trovato' }
+  | { stato: 'non-configurato'; manca: 'chiave' | 'indirizzo' }
+  | { stato: 'errore'; messaggio: string }
 
 type Riga = {
   titolo: string
@@ -376,7 +422,19 @@ export function DettaglioOrdine({
    *  registro non sa dove stiano. */
   const [nostri, setNostri] = useState<NostriDto>(NOSTRI_VUOTI)
   /** Ha chiesto di vedere anche quelli di cui non sappiamo dove consegnano. */
+  /**
+   * LA SCHEDA DEL PRODOTTO, chiesta a Merchandising (04/09/2026).
+   *
+   * ⚠️ Non si carica insieme all'ordine: si carica quando qualcuno la chiede.
+   * Su un ordine con quattro righe sarebbero quattro chiamate a un'altra app
+   * per una cosa che nella maggior parte dei casi non si guarda.
+   */
+  const [schedaRiga, setSchedaRiga] = useState<number | null>(null)
+  const [scheda, setScheda] = useState<SchedaProdotto | null>(null)
+  const [schedaCarica, setSchedaCarica] = useState(false)
   const [nostriTutti, setNostriTutti] = useState(false)
+  /** «Fuori dall'elenco: N consegnano altrove» — aperto o chiuso. */
+  const [altroveAperti, setAltroveAperti] = useState(false)
   // ⚠️ «Dai a lui» sulla riga di un fornitore in zona: il modulo qui sopra si
   // apre già pieno. Senza, chi ha appena telefonato dovrebbe ricopiare a mano
   // nome, città e telefono che ha davanti agli occhi — e non lo farebbe.
@@ -824,6 +882,7 @@ export function DettaglioOrdine({
       setZona(d.fornitori ?? [])
       setNostri(d.nostri ?? NOSTRI_VUOTI)
       setNostriTutti(false)
+      setAltroveAperti(false)
       setZonaProvincia(d.provincia ?? '')
       setZonaMestiere(d.mestiere ?? '')
       setZonaDaDove(d.daDove ?? '')
@@ -855,6 +914,39 @@ export function DettaglioOrdine({
           ordineNumero: ordine.numero,
         }
       : null
+
+  /**
+   * Apre (o chiude) la scheda del prodotto di una riga.
+   *
+   * ⚠️ Ricliccare sullo stesso prodotto chiude: è lo stesso gesto che apre, e
+   * un pannello che si può solo aprire costringe a cercare la ✕.
+   */
+  async function apriScheda(indice: number, riga: Riga) {
+    if (schedaRiga === indice) {
+      setSchedaRiga(null)
+      setScheda(null)
+      return
+    }
+    setSchedaRiga(indice)
+    setScheda(null)
+    setSchedaCarica(true)
+    try {
+      const q = new URLSearchParams({ sku: riga.sku ?? '', titolo: riga.titolo ?? '' })
+      const r = await fetch(`/api/prodotto-merchandising?${q.toString()}`)
+      // ⚠️ `leggiJson` e non `r.json()`: una sessione scaduta risponde 307 verso
+      // /login, che `fetch` segue tornando la pagina di login con stato 200 —
+      // e la scheda direbbe «non trovato» invece di «rientra». È il guasto del
+      // 27/08/2026, e vale per ogni fetch di questa app.
+      const d = await leggiJson<SchedaProdotto>(r)
+      if (d.stato === 'ok') setScheda(d.dati)
+      else if (d.stato === 'sessione-scaduta') setScheda({ stato: 'errore', messaggio: 'Sessione scaduta: rientra e riprova.' })
+      else setScheda({ stato: 'errore', messaggio: d.messaggio })
+    } catch (e) {
+      setScheda({ stato: 'errore', messaggio: (e as Error).message })
+    } finally {
+      setSchedaCarica(false)
+    }
+  }
 
   return (
     <div className="velo" onClick={onChiudi} role="presentation">
@@ -1050,6 +1142,24 @@ export function DettaglioOrdine({
                           ))}
                         </ul>
                       ) : null}
+                      {/* ── DETTAGLIO PRODOTTO (04/09/2026, chiesto dall'utente) ──
+                          Si apre di fianco, non al posto dell'ordine: chi
+                          telefona al fornitore ha bisogno delle due cose
+                          insieme — l'ordine da una parte, che cos'è quel
+                          prodotto dall'altra.
+                          ⚠️ Il bottone c'è SEMPRE, anche senza chiave e anche
+                          per un prodotto che in Merchandising non c'è: è il
+                          pannello che poi dice quale dei tre casi è. Un bottone
+                          che compare a volte non si impara. */}
+                      <div style={{ marginTop: 6 }}>
+                        <button
+                          className="btn btn-secondario small"
+                          onClick={() => apriScheda(i, r)}
+                          disabled={schedaCarica && schedaRiga === i}
+                        >
+                          {schedaCarica && schedaRiga === i ? 'Apro…' : 'Dettaglio prodotto'}
+                        </button>
+                      </div>
                       {r.immagine ? (
                         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                           <button
@@ -2122,7 +2232,12 @@ export function DettaglioOrdine({
                           Nessuno dei nostri risulta aver consegnato in provincia di{' '}
                           {zonaProvincia || spedizione.provincia || 'questa'}.
                         </strong>{' '}
-                        Questi lavorano con noi e non si sa dove consegnano: non sono una
+                        {/* ⚠️⚠️ Il testo diceva «non si sa dove consegnano» e la riga
+                            sotto scriveva dove avevano consegnato: due frasi che si
+                            smentivano nello stesso riquadro (segnalato il 04/09/2026
+                            sull'ordine #2867). Quello che non si sa non è il comune —
+                            è la PROVINCIA di quel comune. */}
+                        Di questi non sappiamo in che provincia consegnano: non sono una
                         proposta per la zona, sono gente a cui si può chiedere.
                       </p>
                     )}
@@ -2173,16 +2288,45 @@ export function DettaglioOrdine({
                     {nostri.altrove > 0 || nostri.altroMestiere > 0 ? (
                       <p className="cella-sub" style={{ marginTop: 6 }}>
                         Fuori dall&apos;elenco:{' '}
-                        {[
-                          nostri.altrove > 0 ? `${nostri.altrove} consegnano altrove` : '',
-                          nostri.altroMestiere > 0
-                            ? `${nostri.altroMestiere} fanno l'altro mestiere`
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        {/* ⚠️⚠️ «Consegnano altrove» adesso si APRE. Fino al
+                            04/09/2026 era un numero e basta, e finché la provincia
+                            si ricavava solo dai capoluoghi valeva poco (quasi
+                            nessuno ci finiva). Da quando la provincia si chiede a
+                            Google qui dentro va gente vera: se il filtro sbaglia
+                            una riga, chi telefona deve poterla vedere — non
+                            scoprire un elenco più corto e fidarsi. */}
+                        {nostri.altrove > 0 ? (
+                          <button
+                            type="button"
+                            className="come-link"
+                            onClick={() => setAltroveAperti((v) => !v)}
+                          >
+                            {nostri.altrove} consegnano altrove
+                          </button>
+                        ) : null}
+                        {nostri.altrove > 0 && nostri.altroMestiere > 0 ? ' · ' : ''}
+                        {nostri.altroMestiere > 0
+                          ? `${nostri.altroMestiere} fanno l'altro mestiere`
+                          : ''}
                         .
                       </p>
+                    ) : null}
+                    {altroveAperti && nostri.altroveChi.length > 0 ? (
+                      <ul className="elenco-nostri-fornitori" style={{ marginTop: 4 }}>
+                        {nostri.altroveChi.slice(0, 8).map((f) => (
+                          <li key={`altrove-${f.nome}`}>
+                            <span className="cella-nome">{f.nome}</span>{' '}
+                            <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                            {f.citta.length ? (
+                              <span className="cella-sub">
+                                {' '}
+                                · ha consegnato a {f.citta.slice(0, 3).join(', ')}
+                                {f.province.length ? ` (${f.province.join(', ')})` : ''}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
                   </div>
                 ) : null}
@@ -2441,6 +2585,137 @@ export function DettaglioOrdine({
           </div>
         ) : null}
       </div>
+
+      {/* ── LA SCHEDA DEL PRODOTTO, DI FIANCO ──
+          Chiesta dall'utente il 04/09/2026: «fai aprire dettaglio prodotto
+          nella relativa colonna che apre un pop-up di fianco con i dettagli del
+          prodotto con provenienza app merchandising».
+
+          ⚠️ È un pannello ANCORATO AL BORDO, non una seconda modale al centro:
+          una finestra sopra la finestra copre l'ordine, e le due cose servono
+          insieme (vedi la trappola «finestra dentro la finestra»).
+
+          ⚠️ Sta dentro il velo ma FERMA il clic: cliccare qui non chiude
+          l'ordine sotto. */}
+      {schedaRiga !== null ? (
+        <aside
+          className="scheda-prodotto"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-label="Dettaglio del prodotto"
+        >
+          <div className="scheda-prodotto-testa">
+            <div>
+              <div className="cella-nome">{righe[schedaRiga]?.titolo || 'Prodotto'}</div>
+              {/* ⚠️ DA DOVE VIENE, scritto sempre: è una scheda di un'altra app,
+                  e chi legge un costo di produzione deve sapere di chi è il
+                  numero che sta guardando. */}
+              <div className="cella-sub">da Merchandising</div>
+            </div>
+            <button
+              className="pannello-chiudi"
+              onClick={() => {
+                setSchedaRiga(null)
+                setScheda(null)
+              }}
+              aria-label="Chiudi la scheda del prodotto"
+            >
+              ✕
+            </button>
+          </div>
+
+          {schedaCarica ? <p className="descrizione">Chiedo a Merchandising…</p> : null}
+
+          {!schedaCarica && scheda?.stato === 'non-configurato' ? (
+            <p className="descrizione">
+              Merchandising non è collegato:{' '}
+              {scheda.manca === 'chiave' ? 'manca la chiave API' : "manca l'indirizzo"}. Si mette in{' '}
+              <strong>Impostazioni → Merchandising</strong>; la chiave si crea di là in
+              Impostazioni → Chiavi API, di sola lettura.
+            </p>
+          ) : null}
+
+          {!schedaCarica && scheda?.stato === 'non-trovato' ? (
+            <p className="descrizione">
+              In Merchandising non c&apos;è una scheda per questo prodotto — né con lo SKU{' '}
+              <code>{righe[schedaRiga]?.sku || '(nessuno)'}</code> né con questo nome esatto.
+              {/* ⚠️ Non si mostra «il primo risultato somigliante»: un bouquet
+                  che si chiama quasi uguale ha un altro costo, e chi legge non
+                  ha modo di accorgersene. */}
+            </p>
+          ) : null}
+
+          {!schedaCarica && scheda?.stato === 'errore' ? (
+            <div className="avviso-errore">{scheda.messaggio}</div>
+          ) : null}
+
+          {!schedaCarica && scheda?.stato === 'ok' ? (
+            <div>
+              {scheda.prodotto.immagine ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={scheda.prodotto.immagine}
+                  alt={scheda.prodotto.nome}
+                  className="scheda-prodotto-foto"
+                />
+              ) : null}
+              {/* ⚠️⚠️ COME È STATO TROVATO. Per SKU è quel prodotto; per nome è
+                  un prodotto che si chiama così — e su un catalogo con tre
+                  taglie dello stesso bouquet non è la stessa cosa. Chi legge il
+                  costo deve sapere quanto fidarsi. */}
+              {scheda.comeTrovato === 'nome' ? (
+                <p className="cella-sub" style={{ marginTop: 8 }}>
+                  ⚠️ Trovato <strong>per nome</strong>, non per SKU: controlla che sia lo stesso
+                  prodotto prima di usare questi numeri.
+                </p>
+              ) : null}
+              <dl className="scheda-prodotto-dati">
+                <dt>Codice</dt>
+                <dd>{scheda.prodotto.codice || '—'}</dd>
+                <dt>Nome</dt>
+                <dd>{scheda.prodotto.nome}</dd>
+                <dt>Categoria</dt>
+                <dd>{scheda.prodotto.categoria || '—'}</dd>
+                <dt>Fase</dt>
+                <dd>{scheda.prodotto.fase || '—'}</dd>
+                <dt>Costo di produzione</dt>
+                <dd>{soldi(scheda.prodotto.costoProduzione, 'EUR')}</dd>
+                <dt>Prezzo di listino</dt>
+                <dd>{soldi(scheda.prodotto.prezzoVendita, 'EUR')}</dd>
+                {scheda.prodotto.vendorShopify ? (
+                  <>
+                    <dt>Vendor</dt>
+                    <dd>{scheda.prodotto.vendorShopify}</dd>
+                  </>
+                ) : null}
+                {scheda.prodotto.tipoShopify ? (
+                  <>
+                    <dt>Tipo</dt>
+                    <dd>{scheda.prodotto.tipoShopify}</dd>
+                  </>
+                ) : null}
+                <dt>Origine</dt>
+                <dd>{scheda.prodotto.origine || '—'}</dd>
+              </dl>
+              {scheda.prodotto.descrizione ? (
+                <div style={{ marginTop: 10 }}>
+                  <div className="cella-nome">Descrizione</div>
+                  <p className="descrizione" style={{ whiteSpace: 'pre-wrap' }}>
+                    {scheda.prodotto.descrizione}
+                  </p>
+                </div>
+              ) : null}
+              {/* ⚠️ Il prezzo di questa vendita NON è il listino: si mostrano
+                  accanto, perché lo sconto è esattamente la cosa che si va a
+                  cercare quando si apre questa scheda. */}
+              <p className="cella-sub" style={{ marginTop: 10 }}>
+                Su quest&apos;ordine è stato venduto a{' '}
+                {soldi(righe[schedaRiga]?.prezzo ?? 0, ordine?.valuta ?? 'EUR')}.
+              </p>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
     </div>
   )
 }

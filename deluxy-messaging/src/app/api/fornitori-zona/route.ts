@@ -7,7 +7,8 @@ import {
   type Mestiere,
 } from '@/lib/fornitori-zona'
 import { lavoroPerFornitore } from '@/lib/lavoro-fornitore'
-import { nostriFornitori, perQuestaConsegna } from '@/lib/nostri-fornitori'
+import { conProvinceRicavate, nostriFornitori, perQuestaConsegna } from '@/lib/nostri-fornitori'
+import { provincePerComuni } from '@/lib/comuni'
 import { siglaProvincia } from '@/lib/province'
 import { chiaveNome, type LavoroDato } from '@/lib/cerca-fornitore'
 import { utenteCorrente } from '@/lib/sessione'
@@ -74,7 +75,20 @@ export async function GET(req: NextRequest) {
   // apparire solo quelli collegati a quella provincia», «Bliss Cake è su
   // Milano», «e poi due sono legati ai fiori». Chi consegna per certo altrove o
   // fa l'altro mestiere esce; chi non si sa dov'è resta da parte, contato.
-  const elencoNostri = await nostriFornitori().catch(() => [])
+  //
+  // ⚠️⚠️ CORREZIONE DEL 04/09/2026, segnalata dall'utente sull'ordine #2867
+  // (consegna a Genova): «non capisco ancora perché mi escono fornitori di
+  // province che non sono Genova (da civico 95 in giù)». Aveva ragione, e non
+  // era il filtro a essere rotto: la provincia si ricavava da `siglaProvincia`,
+  // che risponde solo sui capoluoghi, quindi «Marnate» e «Galliate» non
+  // dicevano niente e quei fornitori finivano fra quelli di cui «non si sa dove
+  // consegnano» — mentre la riga accanto scriveva esattamente dove avevano
+  // consegnato. Adesso la provincia dei comuni si CHIEDE a Google una volta
+  // sola e si conserva (`provincePerComuni`), quindi «altrove» si può dire.
+  const grezzoNostri = await nostriFornitori().catch(() => [])
+  const comuniVisti = grezzoNostri.flatMap((f) => f.citta)
+  const provinceComuni = await provincePerComuni(comuniVisti).catch(() => ({}))
+  const elencoNostri = conProvinceRicavate(grezzoNostri, provinceComuni)
   const nostri = perQuestaConsegna(elencoNostri, { citta, provincia, paese, mestiere })
 
   if (!provincia) {

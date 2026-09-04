@@ -125,6 +125,40 @@ export async function nostriFornitori(): Promise<NostroFornitore[]> {
 }
 
 /**
+ * Le province che mancavano, aggiunte a ogni fornitore.
+ *
+ * ⚠️⚠️ NASCE DALLA SEGNALAZIONE DEL 04/09/2026 (ordine #2867, consegna a
+ * Genova): sotto «non si sa dove consegnano» comparivano fornitori che avevano
+ * consegnato a Marnate, Galliate, Cadrezzate con Osmate — cioè in provincia di
+ * Varese e di Novara, scritto lì accanto nella stessa riga. Non era un testo
+ * sbagliato: `siglaProvincia` risponde solo sui capoluoghi, quindi di quei
+ * comuni la provincia non si ricavava e il fornitore restava «ignoto» — e
+ * l'ignoto, giustamente, non si scarta.
+ *
+ * Qui la provincia arriva **chiesta** (vedi `src/lib/comuni.ts`), non dedotta:
+ * `mappa` è `comune minuscolo → sigla`, un comune assente resta ignoto.
+ *
+ * ⚠️ Da questo momento il segnale può anche ESCLUDERE, al contrario dei comuni
+ * del registro Anagrafiche che potevano solo includere. È giusto che sia così
+ * solo perché la risposta è un fatto letto da Google e non un'inferenza: se
+ * arrivasse vuota, il fornitore torna ignoto e resta nell'elenco.
+ */
+export function conProvinceRicavate(
+  elenco: NostroFornitore[],
+  mappa: Record<string, string>
+): NostroFornitore[] {
+  if (!Object.keys(mappa).length) return elenco
+  return elenco.map((f) => {
+    const province = [...f.province]
+    for (const c of f.citta) {
+      const sigla = mappa[(c ?? '').trim().toLowerCase()] ?? ''
+      if (sigla && !province.includes(sigla)) province.push(sigla)
+    }
+    return province.length === f.province.length ? f : { ...f, province }
+  })
+}
+
+/**
  * I nostri fornitori, messi nell'ordine giusto per QUESTA consegna.
  *
  * ⚠️⚠️ L'ordine è la decisione: davanti a una consegna di domani si scrive ai
@@ -169,6 +203,14 @@ export type NostriPerConsegna = {
   senzaLuogo: NostroFornitore[]
   /** Quanti sono stati tolti perché consegnano per certo da un'altra parte. */
   altrove: number
+  /**
+   * E CHI sono. ⚠️ Aggiunto il 04/09/2026: da quando la provincia si chiede a
+   * Google (`src/lib/comuni.ts`) questo gruppo non è più quasi vuoto — su una
+   * consegna a Genova ci finiscono i fornitori di Varese, Novara, Sassari. Un
+   * numero da solo non si controlla: se il filtro sbaglia una riga, chi lavora
+   * deve poterlo vedere e telefonare lo stesso. Si aprono con un clic.
+   */
+  altroveChi: NostroFornitore[]
   /** Quanti sono stati tolti perché fanno l'altro mestiere. */
   altroMestiere: number
 }
@@ -217,6 +259,7 @@ export function perQuestaConsegna(
     inZona: messi.filter((f) => (f.vicinanza ?? 0) >= 2),
     senzaLuogo: messi.filter((f) => (f.vicinanza ?? 0) === 0),
     altrove: messi.filter((f) => f.vicinanza === 1).length,
+    altroveChi: messi.filter((f) => f.vicinanza === 1),
     altroMestiere: elenco.length - giusti.length,
   }
 }
