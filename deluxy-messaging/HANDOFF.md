@@ -1,5 +1,121 @@
 # Handoff — Deluxy Customer Service
 
+## 04/09/2026 (13) — il pop-up dell'ordine riorganizzato, con due agenti ostili
+
+Chiesto dall'utente: «riorganizza questo pop-up, analizza prima con un agente
+ostile tutte le info che mostra e poi allinea tutte le informazioni in modo che
+siano organizzate con logica; approva il risultato finale e procedi a mostrarlo
+con l'agente ostile».
+
+Due giri di `ux-ostile`: il primo ha censito **ogni** blocco del pannello e ha
+prodotto 16 accuse (12 piene, 4 ridimensionate, 6 refutate); il secondo ha
+ricevuto la riorganizzazione col mandato di demolirla, e ha trovato altre 9 cose
+vere. Tutte e nove corrette prima di questo commit.
+
+### Il difetto strutturale: la posizione dei riquadri dipendeva dal contenuto
+
+⚠️⚠️ `.griglia-dettaglio` era `column-count: 3`, cioè un **flusso**, non una
+griglia: il browser distribuiva i riquadri per pareggiare le altezze. Bastava
+che il cliente avesse telefonato, o scritto tre mail, perché la card «Ordine» —
+indirizzo, totale, i passi, tutte le azioni — passasse dalla seconda colonna
+alla terza. Chi apre dieci ordini di fila cercava l'indirizzo ogni volta a
+un'altezza diversa; l'ordine di Tab e dei lettori di schermo restava quello del
+DOM, che a schermo non si vedeva più.
+
+E `gridColumn: '1 / -1'` sulla card dei fornitori — scritta per prendere tutta
+la larghezza, con tanto di commento che lo dichiarava — **dentro un
+`column-count` non esiste**: usciva larga 385px come le altre, e la griglia
+delle tessere (`minmax(260px, 1fr)`) ci stava a **una per riga**. Cioè
+l'elenco «in una striscia stretta» che quel commento diceva di aver eliminato.
+
+### Come è organizzato adesso
+
+Tre colonne esplicite, ognuna con un mestiere, e ogni riquadro ha una casa fissa:
+
+| colonna | che cosa | contiene |
+|---|---|---|
+| 1 · **IL LAVORO** | che cosa va fatto, e chi lo prepara | piattaforma consegne · Chiedi al fornitore · Chi prepara quest'ordine |
+| 2 · **IL CLIENTE** | cosa ci siamo detti, cosa resta da fare | Ha telefonato · Diario · Messaggi del cliente |
+| 3 · **L'ORDINE** | chi, dove, quando, quanto, a che punto, cosa si può fare | la card Ordine con lavorazione, riconsegna, unione, fattura, azioni |
+
+Sotto le tre colonne, a **tutta larghezza**, la fascia «Fornitori in provincia
+di X». Misurato a 1400px: colonne 385px ciascuna allineate in testa, fascia
+1187px, **quattro tessere per riga** invece di una.
+
+⚠️ Il riquadro «Se ne sta occupando la piattaforma consegne» è salito in cima
+alla colonna 1. Prima stava a metà della card «Ordine», in un'altra colonna: il
+suo stesso commento diceva «si vede PRIMA delle azioni, chi cerca un fornitore
+deve accorgersene prima di cominciare», e chi cerca un fornitore da lì non
+passava mai. Il costo di non vederlo è telefonare a un fioraio per un ordine che
+un partner sta già preparando.
+
+⚠️ **Riconsegna e Unione sono diventati `<details>` chiusi**: erano due moduli
+sempre aperti, per casi rari, fra «a che punto siamo» e le azioni vere. I due
+bottoni della testata li aprono (`vaiAlRiquadro` mette `open = true`). Nascono
+**aperti** quando hanno qualcosa da dire: un link di riconsegna già creato, un
+ordine unito, o un esito da leggere.
+
+### Le nove cose che il secondo ostile ha trovato, e che sono corrette
+
+1. ⚠️⚠️ **Fra 800 e 1150px tornava il buco.** Tre colonne in due posti mettono
+   la terza da sola sulla riga sotto, con mezzo pannello bianco alla sua destra
+   per tutta la sua altezza — lo stesso difetto che il flusso a colonne evitava.
+   Adesso a quelle larghezze sopra stanno **il lavoro e l'ordine**, sotto a
+   tutta larghezza **il cliente**. Misurato a 1000px: due colonne da 442px in
+   riga 1, la terza a 899px sotto. A 760px una colonna sola, nell'ordine giusto.
+2. ⚠️⚠️ **«Disfa l'unione» richiudeva il riquadro e si portava via l'esito.**
+   Svuotando `ordine.unitoA` la prop `open` passava da vero a falso e React
+   scriveva `open=false`: il messaggio del server — l'unica cosa che dice se è
+   andata bene — non si leggeva mai. Adesso `esitoUnione` tiene aperto.
+3. **«A chi abbiamo già chiesto» mancava sugli ordini senza provincia.** Quel
+   dato non dipende dalla provincia (viene da `/api/ordini/[id]/chiesti`), ma
+   stava dentro il ramo con la provincia: due persone potevano scrivere allo
+   stesso fioraio senza saperlo, che è il caso per cui quella riga esiste.
+4. **Il badge «su Orders: X» poteva sfondare la colonna** (una pillola è
+   `inline-flex` e non va a capo, dentro una `dd` il cui minimo è il
+   min-content): `min-width: 0` sulla cella e `max-width: 100%` sulla pillola.
+5. **La colonna 1 partiva 12px più in basso delle altre**: due `marginTop: 12`
+   inline ereditati dalla vecchia posizione. Lo stacco lo dà il `gap`.
+6. **Il titolo del riquadro Unione ripeteva il corpo**: «Unito a #1777» due
+   volte, una sotto l'altra.
+7. **La misura 403px era impossibile** (403 × 3 + 32 = 1241, più larga del
+   pannello): ricopiata dal primo audit senza rifare il conto, e già scolpita in
+   due commenti. È 385px.
+8. **Un commento raccontava come risolto un difetto vivo**: il bottone WhatsApp
+   compare anche sui numeri fissi (bastano 8 cifre) e porta a una chat che non
+   esiste, segnando «chiesto» un fornitore a cui non è arrivato niente. Il
+   commento adesso dice che è aperto.
+9. **La frase del ramo senza provincia diceva «qui accanto»** mentre la fascia
+   sta sotto.
+
+Più, nello stesso giro: senza provincia la fascia **non sparisce più** (c'era
+`: null`, e chi lavorava ne concludeva che in quella zona non abbiamo
+fornitori); il badge dello stato di Orders è etichettato, perché erano due
+tassonomie diverse disegnate identiche; e nelle tessere c'è il **numero di
+telefono** come link, che c'era nei dati e serviva solo a comporre il link di
+WhatsApp.
+
+### 🔴 Quello che ho lasciato aperto, e perché
+
+- ⚠️⚠️ **Due messaggi allo stesso fornitore con due orari diversi.** Il
+  messaggio della colonna 1 dice «con **ritiro** 15-19» (`ritiro.ts`, un'ora
+  prima); quello delle tessere dice «**consegna** a … all'ora 16-20»
+  (`messaggio-fornitore.ts`, fascia grezza). Le due etichette sono corrette e
+  diverse, ma un fioraio che legge la seconda prepara per le 16 e il valet
+  arriva alle 15. ⚠️ **La riorganizzazione ha reso questo secondo percorso
+  quattro volte più raggiungibile** (una tessera per riga → quattro). Non l'ho
+  toccato di mia iniziativa: cambia il testo che arriva davvero a un fornitore,
+  ed è lo stesso testo dell'app di ricerca. **Serve la decisione dell'utente.**
+- La quota indicativa al fornitore si calcola su `ordine.totale` e non su
+  `totaleConUniti`: sugli ordini uniti propone una cifra su metà vendita.
+- La lista dei fornitori si richiude a ogni clic sui passi di lavorazione
+  (l'effetto dipende dall'oggetto `ordine` intero, non dal suo id).
+- Segnare il passo «In App» a mano fa sparire il modulo «Manda in app». Non è
+  un vicolo cieco (`Interrompi: lo facciamo noi` lo riporta indietro), ma adesso
+  l'affermazione «se ne sta occupando la piattaforma» sta in cima al pannello,
+  quindi una etichetta messa a mano è più visibile di prima. Accanto c'è la
+  smentita: «Nessuna consegna creata da qui».
+
 ## 04/09/2026 (12) — il diario sale in cima alla colonna dei messaggi
 
 Chiesto dall'utente, con la foto del riquadro: «metti questa cosa in Messaggi
