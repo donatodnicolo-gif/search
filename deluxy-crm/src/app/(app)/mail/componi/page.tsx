@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
 import { configurazioneMail } from "@/lib/mail";
 import { inviaMailPersonalizzata } from "@/lib/actions";
@@ -21,6 +22,7 @@ type Query = {
 // riempiono coi dati veri (cliente, evento), e il testo si rilegge PRIMA di
 // inviare: la personalizzazione sbagliata è peggio della mail generica.
 export default async function Componi({ searchParams }: { searchParams: Promise<Query> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const codice = sp.cliente?.trim();
 

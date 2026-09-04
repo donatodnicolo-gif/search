@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { prisma } from "@/lib/db";
 import { configurazioneMail } from "@/lib/mail";
 import { inviaMailALista } from "@/lib/actions";
@@ -21,6 +22,7 @@ export default async function MailAllaLista({
   params: Promise<{ id: string }>;
   searchParams: Promise<Query>;
 }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const { id } = await params;
   const sp = await searchParams;
 

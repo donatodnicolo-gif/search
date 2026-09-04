@@ -173,3 +173,31 @@ model MessaggioWhatsApp {
   @@index([inviatoIl])
   @@index([listaId])
 }
+
+// La password di squadra, quando è stata cambiata dall'app. Riga unica
+// (id "team"). Finché la riga non esiste vale la password di nascita in
+// CRM_APP_PASSWORD; da quando esiste, vale SOLO questa (scrypt salt:hash).
+// `versione` cresce a ogni cambio: le sessioni portano la versione con cui
+// sono nate, e una versione diversa le chiude (revoca, Libro Sicurezza §1).
+model PasswordTeam {
+  id         String   @id @default("team")
+  hash       String
+  versione   Int      @default(1)
+  cambiataDa String   @default("")
+  cambiataIl DateTime @default(now())
+}
+
+// Link «password dimenticata»: a database c'è SOLO lo SHA-256 del token, mai
+// il token. Monouso (usatoIl) e a tempo (scadeIl). ipHash serve a contare le
+// richieste, non a identificare: è l'hash dell'IP col segreto dell'app.
+model TokenResetPassword {
+  id       String    @id @default(cuid())
+  hash     String    @unique
+  scadeIl  DateTime
+  usatoIl  DateTime?
+  ipHash   String    @default("")
+  creatoIl DateTime  @default(now())
+
+  @@index([creatoIl])
+  @@index([ipHash, creatoIl])
+}

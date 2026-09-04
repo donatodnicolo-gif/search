@@ -17,6 +17,7 @@ export type Sessione = {
   email?: string;
   ruolo: Ruolo;
   via: "sso" | "password";
+  gen?: number; // versione della password con cui è nata (revoca: sessione-server.ts)
   exp: number; // secondi epoch
 };
 
@@ -95,7 +96,9 @@ export async function leggiSessione(token: string | undefined): Promise<Sessione
   }
 }
 
-// Confronto a tempo costante fra la password digitata e quella di team.
+// Confronto a tempo costante fra la password digitata e quella di NASCITA
+// (CRM_APP_PASSWORD). Vale solo finché nessuno l'ha cambiata dall'app: da
+// allora decide il database (password-team.ts, che chiama questa come ripiego).
 export async function verificaPasswordTeam(digitata: string): Promise<boolean> {
   const attesa = process.env.CRM_APP_PASSWORD;
   if (!attesa || !digitata) return false;

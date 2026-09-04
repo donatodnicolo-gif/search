@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
 import { numeriWA, numeroWhatsApp } from "@/lib/whatsapp";
 import { inviaWhatsAppSingolo } from "@/lib/actions";
@@ -14,6 +15,7 @@ type Query = { cliente?: string; template?: string; occasione?: string; esito?: 
 // (numero del marchio, vale la finestra 24h di Meta) o dal WhatsApp
 // dell'operatore (wa.me col testo pronto — per il clienteling spesso è meglio).
 export default async function ComponiWhatsApp({ searchParams }: { searchParams: Promise<Query> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const codice = sp.cliente?.trim();
 

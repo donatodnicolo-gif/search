@@ -1,12 +1,15 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { leggiSessione, SESSION_COOKIE } from "@/lib/auth";
+import { authAttiva } from "@/lib/auth";
+import { sessioneCorrente } from "@/lib/sessione-server";
 
 // La shell dell'app (sidebar + contenuto). Il login vive fuori da questo
-// gruppo: niente sidebar prima di essere entrati.
+// gruppo: niente sidebar prima di essere entrati. La sessione si legge QUI
+// lato Node, con la revoca: se la password del team è cambiata dopo
+// l'accesso, il cookie (firmato ma vecchio) non basta più e si torna al login.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const jar = await cookies();
-  const sessione = await leggiSessione(jar.get(SESSION_COOKIE)?.value);
+  const sessione = await sessioneCorrente();
+  if (authAttiva() && !sessione) redirect("/logout");
 
   return (
     <div className="app">

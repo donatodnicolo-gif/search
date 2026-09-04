@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { catalogoListe, elencoClienti, ricorrenze } from "@/lib/orders";
 import { dataIt, euro, giornoMese, quandoLeggibile, segmento, tipoRicorrenza, TIPI_ATTIVITA } from "@/lib/etichette";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // richiamato, cosa c'è in agenda. Tutto ciò che riguarda ordini e ricorrenze
 // arriva da Deluxy Orders; qui vive solo la relazione (attività, eventi, mail).
 export default async function Oggi() {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const oggi = new Intl.DateTimeFormat("it-IT", {
     timeZone: "Europe/Rome",
     weekday: "long",

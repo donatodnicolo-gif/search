@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { ordiniCliente, ricorrenze, schedaCliente } from "@/lib/orders";
 import { aggiungiRicorrenza, registraAttivita } from "@/lib/actions";
 import { TornaIndietro } from "@/components/TornaIndietro";
@@ -30,6 +31,7 @@ export default async function Scheda({
   params: Promise<Params>;
   searchParams: Promise<Query>;
 }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   // Il segmento può arrivare ancora percent-encoded (monica%40…): si
   // normalizza una volta qui, così ogni encodeURIComponent a valle ne fa UNA.
   const { codice: codiceRaw } = await params;

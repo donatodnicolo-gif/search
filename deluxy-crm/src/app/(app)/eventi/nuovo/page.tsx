@@ -1,8 +1,10 @@
 import { salvaEvento } from "@/lib/actions";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function NuovoEvento({ searchParams }: { searchParams: Promise<{ errore?: string }> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   return (
     <>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authAttiva, configAuthCompleta, creaSessione, DURATA_SESSIONE_S, inProduzione, SESSION_COOKIE } from "@/lib/auth";
 import { leggiTokenSso } from "@/lib/sso";
 import { isRuolo, type Ruolo } from "@/lib/ruoli";
+import { generazionePassword } from "@/lib/password-team";
 
 // GET /api/sso?token=… — ingresso dal Deluxy Hub (Single Sign-On). Il Hub ha
 // già riconosciuto la persona: qui si legge il token cifrato, si controlla che
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
     email: payload.email?.trim().toLowerCase() || undefined,
     ruolo,
     via: "sso",
+    gen: await generazionePassword(), // anche l'SSO esce se il team cambia password
   });
 
   const res = NextResponse.redirect(new URL("/", req.url));

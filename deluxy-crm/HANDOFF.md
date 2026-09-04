@@ -10,6 +10,40 @@ region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
 ## Stato al 04/09/2026 (ripresa breve)
 
+- **FATTO 04/09 (mattina, commit da fare a tsc verde): la password del team si
+  cambia e si recupera dall'app** (richiesta dell'utente: «consentimi di fare
+  reset password da app», confermati indirizzo deluxy.delivery@gmail.com e
+  password unica senza account personali). Modelli `PasswordTeam` (riga unica,
+  scrypt, `versione`) e `TokenResetPassword` (solo SHA-256, monouso, 60 min);
+  `lib/password-team.ts`, `lib/password-actions.ts`, `lib/sessione-server.ts`
+  (revoca: le sessioni portano `gen`, layout e ogni action passano da
+  `sessioneCorrente()`); pagine `/login` (bottone «Mandami il link di
+  recupero» nel `<details>`, avviso onesto se la posta non è configurata),
+  `/reimposta-password` (pubblica, porta = token), card «Password del team» in
+  Impostazioni (serve la password attuale; dal Hub solo admin). Il link va
+  SEMPRE a `CRM_RESET_EMAIL` → `MAIL_UTENTE`. Freni: 3/ora globali, 5/ora per
+  hash-IP. README, `.env.example`, registro sicurezza (riga «DIFESA NUOVA», da
+  far smontare all'ostile) e Manuale Deluxy (riga 04/09) aggiornati.
+  **Passata dall'ostile e corretta nello stesso giro** (verdetto completo
+  nel registro sicurezza, riga Decise 04/09): revoca in testa a TUTTE le 18
+  pagine (`dentroOppureFuori()`: il layout da solo non basta, Next non lo
+  ri-renderizza nelle navigazioni RSC) e su `/api/interno/*` (401);
+  origine del link FISSA (`CRM_URL` → deluxy-crm.vercel.app, mai dagli
+  header); l'admin del Hub (SSO) cambia la password SENZA quella attuale (così
+  il proprietario espelle chi ha la password anche a posta spenta); token
+  bruciato con updateMany condizionato in transazione; contatore «richieste
+  24h» in Impostazioni. Node installato alle 10:10: `prisma generate` ok,
+  **tsc 0, build 0, `prisma db push` FATTO** (2 tabelle nello schema crm).
+  ⚠️ **Manca**: (1) `npx vercel login` (CLI scollegata) e deploy; (2)
+  `MAIL_API_KEY` nelle env, altrimenti il link non parte (il login lo dice);
+  (3) **decisione b5 del proprietario**: la casella di reset è
+  deluxy.delivery@gmail.com (= `MAIL_UTENTE`), letta in AI Mail — chi la legge
+  può reimpostare la password e diventare admin del CRM; se non è solo
+  l'amministratore, impostare `CRM_RESET_EMAIL` su una casella sua. Finché
+  la riga `PasswordTeam` non esiste vale ancora `CRM_APP_PASSWORD`, che resta
+  obbligatoria per il fail-closed.
+
+
 - **Repo `app/` trovato con HEAD rotto** («bad object HEAD»): 17 commit del
   03/09 (16:09→18:29, compreso `b0512b4a` di questo handoff) avevano gli
   oggetti spariti dal `.git` locale. Erano su GitHub: **riparato con

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { dataIt, statoEvento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
 
@@ -12,6 +13,7 @@ export default async function Eventi({
 }: {
   searchParams: Promise<{ q?: string; periodo?: string }>;
 }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;
 

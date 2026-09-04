@@ -1,10 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { authAttiva, leggiSessione, SESSION_COOKIE, type Sessione } from "./auth";
+import { authAttiva, type Sessione } from "./auth";
+import { sessioneCorrente } from "./sessione-server";
 import { spingiEventoInAgenda } from "./calendario";
 import { inviaMail } from "./mail";
 import { proponiRicorrenza, schedaCliente } from "./orders";
@@ -13,12 +13,13 @@ import { sostituisciVariabili } from "./variabili";
 import { TIPI_ATTIVITA } from "./etichette";
 
 // Ogni action ricontrolla la sessione (il middleware non basta: una server
-// action è un endpoint). In sviluppo senza segreto la porta è aperta.
+// action è un endpoint), e la ricontrolla CON la revoca (sessione-server.ts):
+// password cambiata = fuori, cookie da cancellare. In sviluppo senza segreto
+// la porta è aperta.
 async function richiediSessione(): Promise<Sessione | null> {
   if (!authAttiva()) return null; // sviluppo locale: aperto
-  const jar = await cookies();
-  const sessione = await leggiSessione(jar.get(SESSION_COOKIE)?.value);
-  if (!sessione) redirect("/login");
+  const sessione = await sessioneCorrente();
+  if (!sessione) redirect("/logout");
   return sessione;
 }
 

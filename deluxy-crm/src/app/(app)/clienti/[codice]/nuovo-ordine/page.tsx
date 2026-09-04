@@ -1,4 +1,5 @@
 import { ordiniCliente, schedaCliente } from "@/lib/orders";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { negoziCS, type NegozioCS } from "@/lib/nuovo-ordine";
 import FormNuovoOrdine from "@/components/FormNuovoOrdine";
 import { TornaIndietro } from "@/components/TornaIndietro";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 // pagamento. Tutto precompilato dalla scheda: contatti dal registro Orders,
 // indirizzo dall'ultimo ordine consegnato.
 export default async function NuovoOrdinePerCliente({ params }: { params: Promise<{ codice: string }> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const { codice: codiceRaw } = await params;
   const codice = decodeURIComponent(codiceRaw);
 

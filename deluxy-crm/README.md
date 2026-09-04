@@ -41,11 +41,23 @@ Postgres **`crm`** sul cluster condiviso.
 
 ## Accesso
 
-Password di team (`CRM_APP_PASSWORD`, come Orders/Scripts) **oppure** SSO dal
-Deluxy Hub (`/api/sso`, app `"crm"`, stesso `HUB_SSO_SECRET`). In produzione
-senza password l'app risponde **503** (fail-closed). Il CRM non tiene utenti
-propri: gli utenti vivono nel Hub. In locale senza `CRM_SESSION_SECRET` l'app
-è aperta (sviluppo).
+Password di team **oppure** SSO dal Deluxy Hub (`/api/sso`, app `"crm"`,
+stesso `HUB_SSO_SECRET`). In produzione senza password l'app risponde **503**
+(fail-closed). Il CRM non tiene utenti propri: gli utenti vivono nel Hub. In
+locale senza `CRM_SESSION_SECRET` l'app è aperta (sviluppo).
+
+**La password del team (dal 04/09/2026)** nasce in `CRM_APP_PASSWORD` e si
+sposta nel database (tabella `PasswordTeam`, hash scrypt, riga unica) la prima
+volta che qualcuno la cambia dall'app: da allora l'env non conta più. Si cambia
+da **Impostazioni → Password del team** (serve quella attuale; dal Hub solo gli
+admin) oppure dal login con **«Password dimenticata?» → «Mandami il link»**: il
+link monouso (un'ora, solo l'hash a database) parte via AI Mail alla casella
+`CRM_RESET_EMAIL` (o `MAIL_UTENTE` se manca) — sempre la stessa, nessun
+indirizzo si digita nel modulo pubblico, che risponde sempre allo stesso modo.
+Ogni cambio alza `versione`: le sessioni portano la versione con cui sono nate
+(`gen`) e `sessioneCorrente()` (lato Node) chiude quelle vecchie — è la revoca.
+Freni sul modulo pubblico: 3 richieste/ora in tutto, 5 per IP (solo l'hash
+dell'IP a database).
 
 ## Variabili (nomi in `.env.example`)
 
@@ -53,6 +65,8 @@ propri: gli utenti vivono nel Hub. In locale senza `CRM_SESSION_SECRET` l'app
 `CRM_SESSION_SECRET` · `HUB_SSO_SECRET` · `ORDERS_URL`/`ORDERS_API_KEY`
 (chiave con scrittura: `npm run chiave -- deluxy-crm --scrittura` da Orders) ·
 `MAIL_URL`/`MAIL_API_KEY`/`MAIL_UTENTE` (token da AI Mail → Impostazioni App) ·
+`CRM_RESET_EMAIL` (casella che riceve il link «password dimenticata»; se manca
+si usa `MAIL_UTENTE`) ·
 `CALENDARIO_URL`/`CALENDARIO_API_KEY`/`CALENDARIO_UTENTE` (facoltative) ·
 `HUB_URL`/`HUB_KEYS_TOKEN` (cassaforte, facoltative: le env fanno da riserva).
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { creaTemplateDiPartenza, eliminaTemplate, salvaTemplate } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
 import { VARIABILI_DISPONIBILI } from "@/lib/variabili";
@@ -11,6 +12,7 @@ type Query = { modifica?: string; esito?: string; errore?: string };
 // riempiono da sole coi dati del cliente (e dell'evento) al momento della
 // composizione: si scrive una volta, si personalizza sempre.
 export default async function Template({ searchParams }: { searchParams: Promise<Query> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const templates = await prisma.templateMail.findMany({ orderBy: { nome: "asc" } });
   const inModifica = sp.modifica ? templates.find((t) => t.id === sp.modifica) : undefined;

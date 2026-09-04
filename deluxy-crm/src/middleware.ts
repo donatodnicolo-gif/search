@@ -46,7 +46,9 @@ export async function middleware(req: NextRequest) {
     );
   }
 
-  if (!authAttiva() || pathname === "/login") return NextResponse.next();
+  // Pagine pubbliche: il login e il secondo tempo del recupero password (la
+  // sua unica porta è il token monouso nell'URL).
+  if (!authAttiva() || pathname === "/login" || pathname === "/reimposta-password") return NextResponse.next();
 
   const sessione = await leggiSessione(req.cookies.get(SESSION_COOKIE)?.value);
   if (sessione) return NextResponse.next();

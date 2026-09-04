@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { configurazioneMail } from "@/lib/mail";
 import { dataIt } from "@/lib/etichette";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // AI Mail (la casella aziendale), quindi ogni mail resta anche negli
 // «Inviati» della posta: qui si vede il filo per cliente.
 export default async function Mail({ searchParams }: { searchParams: Promise<{ esito?: string; errore?: string }> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const [inviate, config] = await Promise.all([
     prisma.mailInviata.findMany({ orderBy: { inviataIl: "desc" }, take: 100 }),

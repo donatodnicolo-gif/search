@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { statoOrders } from "@/lib/orders";
 import { configurazioneMail, statoMail } from "@/lib/mail";
 import { statoCS } from "@/lib/nuovo-ordine";
 import { chiaveApp } from "@/lib/chiavi-app";
+import { statoPasswordTeam } from "@/lib/password-team";
+import { sessioneCorrente } from "@/lib/sessione-server";
+import CardPasswordTeam from "@/components/CardPasswordTeam";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +14,10 @@ export const dynamic = "force-dynamic";
 // presenza delle chiavi): una chiamata vera a ciascuna app dice se il filo
 // regge. Le chiavi vivono nella cassaforte del Hub o nelle env di Vercel: qui
 // non si mostrano mai i valori.
-export default async function Impostazioni() {
-  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db] = await Promise.all([
+export default async function Impostazioni({ searchParams }: { searchParams: Promise<{ password?: string }> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
+  const sp = await searchParams;
+  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db, password, sessione] = await Promise.all([
     statoOrders(),
     statoMail(),
     configurazioneMail(),
@@ -24,7 +30,13 @@ export default async function Impostazioni() {
       () => true,
       () => false,
     ),
+    statoPasswordTeam().catch(() => null),
+    sessioneCorrente(),
   ]);
+  // Dal Hub solo gli admin cambiano la password del team; con la password
+  // di squadra chiunque è dentro la può cambiare (conosce quella attuale).
+  const passwordSoloLettura = Boolean(sessione && sessione.via === "sso" && sessione.ruolo !== "admin");
+  const passwordAdminHub = Boolean(sessione && sessione.via === "sso" && sessione.ruolo === "admin");
   const openaiOk = Boolean(openaiKey);
 
   const Stato = ({ ok, testoOk, testoNo }: { ok: boolean; testoOk: string; testoNo: string }) => (
@@ -135,6 +147,15 @@ export default async function Impostazioni() {
             (ingresso dal Hub senza password).
           </p>
         </div>
+
+        {password ? (
+          <CardPasswordTeam stato={password} esito={sp.password} soloLettura={passwordSoloLettura} adminHub={passwordAdminHub} />
+        ) : (
+          <div className="card">
+            <div className="card-titolo">Password del team</div>
+            <div className="card-sub">Tabella non ancora creata: lancia <code className="chip">npm run db:push</code> (schema crm).</div>
+          </div>
+        )}
       </div>
     </>
   );

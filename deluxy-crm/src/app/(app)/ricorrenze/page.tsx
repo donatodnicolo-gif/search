@@ -1,4 +1,5 @@
 import { ricorrenze } from "@/lib/orders";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { euro, giornoMese, quandoLeggibile, tipoRicorrenza } from "@/lib/etichette";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ type Params = { giorni?: string; page?: string };
 // occasioni lette dagli ordini e confermate da una persona. La fonte è il
 // registro di Deluxy Orders; qui si decide CHI sentire e QUANDO.
 export default async function Ricorrenze({ searchParams }: { searchParams: Promise<Params> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const giorni = [7, 14, 30, 60, 90].includes(Number(sp.giorni)) ? Number(sp.giorni) : 30;
   const page = Math.max(1, Number(sp.page ?? "1") || 1);

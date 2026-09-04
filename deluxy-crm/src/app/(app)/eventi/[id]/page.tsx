@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { prisma } from "@/lib/db";
 import { elencoClienti } from "@/lib/orders";
 import { aggiungiInvitato, cambiaStatoEvento, cambiaStatoInvito, rimuoviInvito, salvaEvento } from "@/lib/actions";
@@ -22,6 +23,7 @@ export default async function DettaglioEvento({
   params: Promise<Params>;
   searchParams: Promise<Query>;
 }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const { id } = await params;
   const sp = await searchParams;
   const qui = `/eventi/${id}`;

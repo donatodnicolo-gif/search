@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessioneApiValida } from "@/lib/sessione-server";
 import { prodottiCS } from "@/lib/nuovo-ordine";
 
 // Proxy per la UI: la ricerca nel catalogo del negozio passa dal server, così
@@ -7,6 +8,8 @@ import { prodottiCS } from "@/lib/nuovo-ordine";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  // Il middleware (Edge) controlla firma e scadenza; qui la revoca (password cambiata).
+  if (!(await sessioneApiValida())) return NextResponse.json({ errore: "Sessione non più valida" }, { status: 401 });
   const p = req.nextUrl.searchParams;
   const negozio = p.get("negozio")?.trim();
   const q = p.get("q")?.trim();

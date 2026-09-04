@@ -1,4 +1,5 @@
 import { catalogoListe, elencoClienti } from "@/lib/orders";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { dataIt, euro, segmento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
 
@@ -17,6 +18,7 @@ type Params = { q?: string; lista?: string; ordina?: string; verso?: string; pag
 // trappola dell'OR largo col take). La recency è già espressa dalle liste
 // (Nuovi, Da riattivare, Persi), che Orders calcola su TUTTI i clienti.
 export default async function Clienti({ searchParams }: { searchParams: Promise<Params> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;
   const lista = sp.lista?.trim() || undefined;

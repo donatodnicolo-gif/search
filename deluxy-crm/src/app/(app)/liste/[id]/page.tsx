@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { prisma } from "@/lib/db";
 import { eliminaLista, rigeneraLista, rimuoviMembro } from "@/lib/actions";
 import { dataIt, euro, segmento } from "@/lib/etichette";
@@ -21,6 +22,7 @@ export default async function DettaglioLista({
   params: Promise<{ id: string }>;
   searchParams: Promise<Query>;
 }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const { id } = await params;
   const sp = await searchParams;
   const lista = await prisma.listaClienti.findUnique({

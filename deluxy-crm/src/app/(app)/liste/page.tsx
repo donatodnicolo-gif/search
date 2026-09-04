@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { creaListaAI } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
@@ -15,6 +16,7 @@ type Query = { errore?: string };
 // veri di Orders (liste, segmenti, spesa, gusti), il CRM li esegue e mostra
 // COME ha ragionato. «Non contattare» è sempre escluso.
 export default async function Liste({ searchParams }: { searchParams: Promise<Query> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const liste = await prisma.listaClienti.findMany({
     orderBy: { creatoIl: "desc" },

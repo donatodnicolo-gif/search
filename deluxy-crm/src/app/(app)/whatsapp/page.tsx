@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { dentroOppureFuori } from "@/lib/sessione-server";
 import { eliminaTemplateWA, salvaTemplateWA } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
 import { VARIABILI_DISPONIBILI } from "@/lib/variabili";
@@ -12,6 +13,7 @@ type Query = { modifica?: string; esito?: string; errore?: string };
 // da Meta, per scrivere a freddo dall'API, sono un'altra cosa e per ora non
 // ci sono: a freddo si usa il canale assistito.
 export default async function WhatsApp({ searchParams }: { searchParams: Promise<Query> }) {
+  await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const [templates, messaggi] = await Promise.all([
     prisma.templateWhatsApp.findMany({ orderBy: { nome: "asc" } }),
