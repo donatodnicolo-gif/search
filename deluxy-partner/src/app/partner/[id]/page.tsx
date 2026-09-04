@@ -16,6 +16,7 @@ import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
 import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
+import { RigaLink } from "@/components/RigaLink";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -346,7 +347,11 @@ export default async function PartnerDetail({
                 </thead>
                 <tbody>
                   {ultimiMovimenti.map((m) => (
-                    <tr key={m.id}>
+                    // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta
+                    // la riga porta alla scheda del movimento. I bottoni
+                    // «Scollega» e «Non è di questo partner» restano loro: la
+                    // riga non naviga se il click nasce su un comando.
+                    <RigaLink key={m.id} href={`/movimenti/${m.id}`} className="riga-link">
                       <td style={{ whiteSpace: "nowrap" }}>
                         <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
                       </td>
@@ -405,7 +410,7 @@ export default async function PartnerDetail({
                           </form>
                         )}
                       </td>
-                    </tr>
+                    </RigaLink>
                   ))}
                 </tbody>
               </table>
@@ -427,7 +432,8 @@ export default async function PartnerDetail({
               <table>
                 <tbody>
                   {movimentiEsclusi.map((m) => (
-                    <tr key={m.id}>
+                    // stessa regola della tabella sopra: la riga apre il movimento
+                    <RigaLink key={m.id} href={`/movimenti/${m.id}`} className="riga-link">
                       <td style={{ whiteSpace: "nowrap" }}>
                         <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
                       </td>
@@ -447,7 +453,7 @@ export default async function PartnerDetail({
                           </BottoneInvio>
                         </form>
                       </td>
-                    </tr>
+                    </RigaLink>
                   ))}
                 </tbody>
               </table>
