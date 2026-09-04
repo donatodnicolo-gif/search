@@ -117,8 +117,17 @@ export class SegnalazioniService {
     if (body.stato) {
       const nuovo = body.stato;
       const conDenaro = (s.importo ?? 0) > 0;
-      if (['approvata', 'respinta', 'pagata'].includes(nuovo) && !conDenaro) {
-        throw new BadRequestException('Il verdetto vale solo per rimborsi e reclami con importo');
+      // ⭐ 04/09/2026 (regola utente): «bisogna dire se il reclamo è stato
+      // approvato o rifiutato, non “chiudi”». Il verdetto vale per RIMBORSI e
+      // RECLAMI anche senza importo: chiudere e basta non dice se avevamo
+      // torto o ragione, e chi l'ha aperto resta senza risposta.
+      // «Pagata» resta solo dove c'è denaro: non si paga un reclamo da 0 €.
+      const conVerdetto = conDenaro || s.tipo === 'reclamo' || s.tipo === 'rimborso';
+      if (['approvata', 'respinta'].includes(nuovo) && !conVerdetto) {
+        throw new BadRequestException('Il verdetto vale per rimborsi e reclami, non per le segnalazioni interne');
+      }
+      if (nuovo === 'pagata' && !conDenaro) {
+        throw new BadRequestException('Si segna pagata solo una richiesta con un importo');
       }
       if (nuovo === 'pagata' && s.stato !== 'approvata') {
         throw new BadRequestException('Si segna pagata solo una richiesta approvata');

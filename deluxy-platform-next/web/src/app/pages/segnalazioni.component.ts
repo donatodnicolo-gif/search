@@ -233,13 +233,17 @@ interface Rif { id: string; nome: string }
                                giro è col VERDETTO: approva/respingi, poi pagata.
                                All'approvazione l'importo entra nella paga della
                                consegna collegata; riaprire lo storna. -->
-                          @if (conDenaro(s)) {
+                          @if (conVerdetto(s)) {
                             @if (s.stato === 'aperta' || s.stato === 'in_lavorazione') {
                               @if (s.stato !== 'in_lavorazione') { <button class="btn btn-secondary mini" (click)="aggiorna(s, 'in_lavorazione')">{{ 'segnalazioni.take' | translate }}</button> }
                               <button class="btn btn-primary mini" (click)="aggiorna(s, 'approvata')">{{ 'segnalazioni.approve' | translate }}</button>
                               <button class="btn btn-secondary mini danger" (click)="aggiorna(s, 'respinta')">{{ 'segnalazioni.rejectAction' | translate }}</button>
                             } @else if (s.stato === 'approvata') {
-                              <button class="btn btn-primary mini" (click)="aggiorna(s, 'pagata')">{{ 'segnalazioni.markPaid' | translate }}</button>
+                              <!-- «Pagata» solo dove c'è un importo: un reclamo
+                                   approvato senza denaro non si paga. -->
+                              @if (conDenaro(s)) {
+                                <button class="btn btn-primary mini" (click)="aggiorna(s, 'pagata')">{{ 'segnalazioni.markPaid' | translate }}</button>
+                              }
                               <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button>
                             } @else {
                               <button class="btn btn-secondary mini" (click)="aggiorna(s, 'aperta')">{{ 'segnalazioni.reopen' | translate }}</button>
@@ -508,6 +512,15 @@ export class SegnalazioniComponent {
   /** Ha un importo da approvare: rimborso o reclamo con denaro. */
   conDenaro(s: Segn): boolean {
     return (s.importo ?? 0) > 0;
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): un RECLAMO si approva o si respinge, non si
+   * «chiude». Vale anche senza importo: la risposta che serve a chi l'ha
+   * aperto è se aveva ragione, non che la pratica è archiviata.
+   */
+  conVerdetto(s: Segn): boolean {
+    return this.conDenaro(s) || s.tipo === 'reclamo' || s.tipo === 'rimborso';
   }
 
   constructor() {
