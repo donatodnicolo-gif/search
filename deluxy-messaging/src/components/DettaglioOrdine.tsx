@@ -605,6 +605,11 @@ export function DettaglioOrdine({
   function vaiAlRiquadro(id: string) {
     const el = document.getElementById(id)
     if (!el) return
+    // ⚠️ Dal 04/09/2026 Riconsegna e Unione sono due <details> chiusi: portarci
+    // qualcuno senza aprirli vorrebbe dire far lampeggiare una riga di titolo e
+    // lasciargli cercare il comando. Il bottone in testata promette di
+    // arrivarci, quindi apre.
+    if (el instanceof HTMLDetailsElement) el.open = true
     el.scrollIntoView({ block: 'center', behavior: 'smooth' })
     el.classList.add('riquadro-acceso')
     window.setTimeout(() => el.classList.remove('riquadro-acceso'), 1600)
@@ -1098,14 +1103,116 @@ export function DettaglioOrdine({
         {!caricato ? <p style={{ color: 'var(--text-secondary)' }}>Carico…</p> : null}
 
         {ordine ? (
-          /* ⚠️ A COLONNE, non una pila.
-             Nel dettaglio ci sono cinque riquadri — fornitore, messaggi del
-             cliente, dati dell'ordine, destinatario, azioni — e in una colonna
-             sola stanno su due schermate: si scorre, e quello che serve resta
-             sopra o sotto il bordo. Affiancati si vedono insieme.
-             I riquadri hanno altezze molto diverse, quindi si allineano in alto
-             invece di allungarsi a vuoto per pareggiare il vicino. */
+          /* ⚠️⚠️ TRE COLONNE ESPLICITE, non un flusso a colonne.
+             Fino al 04/09/2026 qui c'era `column-count: 3`: il browser
+             distribuiva i riquadri per pareggiare le altezze, quindi **la
+             posizione di ogni riquadro dipendeva dal contenuto dell'ordine**.
+             Misurato da una revisione ostile: la card «Ordine» — indirizzo,
+             totale, i passi, tutte le azioni — cadeva ora nella seconda ora
+             nella terza colonna a seconda che il cliente avesse telefonato o
+             scritto tre mail; l'ordine di lettura a schermo (1 → 5 → 7) non
+             era quello del DOM, quindi anche Tab e i lettori di schermo
+             raccontavano una storia diversa da quella che si vedeva; e
+             `gridColumn: '1 / -1'` sulla card dei fornitori — scritta per
+             prendere tutta la larghezza — **non aveva alcun effetto** dentro un
+             elemento a colonne: usciva larga 385px come le altre, e la griglia delle tessere
+             ci stava a una per riga.
+             Adesso ogni colonna è un contenitore suo e ha un MESTIERE:
+               1. IL LAVORO — che cosa va fatto e chi lo prepara;
+               2. IL CLIENTE — cosa ci siamo detti e cosa resta da fare;
+               3. L'ORDINE — chi, dove, quando, quanto, e le azioni.
+             Un riquadro sta sempre nello stesso posto, su qualunque ordine. */
+          <>
           <div className="griglia-dettaglio">
+            {/* ── COLONNA 1 · IL LAVORO ──
+                Che cosa va fatto, e chi lo prepara. In cima chi ha il comando
+                di quest'ordine: se se ne sta già occupando la piattaforma,
+                cercare un fornitore qui sotto è lavoro doppio — e prima stava
+                a metà della card «Ordine», in un'altra colonna, dove chi cerca
+                un fornitore non passa mai. */}
+            <div className="colonna-dettaglio">
+              {/* ── LA PIATTAFORMA STA GESTENDO QUESTO ORDINE ──
+                  ⚠️⚠️ Si vede PRIMA delle azioni, non in fondo: chi apre la
+                  scheda per cercare un fornitore deve accorgersene prima di
+                  cominciare, non dopo aver telefonato a qualcuno.
+                  ⚠️ E c'è la via d'uscita accanto: uno stato che dice «se ne
+                  occupa un altro» senza un modo di riprenderselo si aggira
+                  lavorando di nascosto, che è il contrario di quello che serve. */}
+              {ordine.gestione === 'in_app' || ordine.appStato ? (
+                <div className="card" style={{ padding: 10 }}>
+                  <div className="cella-nome">
+                    Se ne sta occupando la piattaforma consegne
+                    {ordine.appPartner ? ` — ${ordine.appPartner}` : ''}
+                  </div>
+                  <div className="cella-sub">
+                    {nomeStatoVendita(ordine.appStato ?? '')}
+                    {typeof ordine.appCostoPartner === 'number' && ordine.appCostoPartner > 0
+                      ? ` · al partner ${ordine.appCostoPartner.toLocaleString('it-IT', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })}`
+                      : ''}
+                    {ordine.appInterrottoIl ? ' · interrotta da noi' : ''}
+                  </div>
+                  {/* ⚠️⚠️ SE LA CONSEGNA C'È SI DICE QUALE: «In App» senza un
+                      numero è una parola che nessuno può verificare — e capita
+                      per davvero, perché il passo si può anche solo segnare a
+                      mano. Il numero è quello che si legge di là. */}
+                  {/* ── A CHE PUNTO È IL GIRO ──
+                      ⚠️⚠️ Chiesto dall'utente il 02/09/2026: «per ogni vendita
+                      riesci a recuperare lo stato all'interno dell'app
+                      delivery?». Lo stato della VENDITA qui sopra dice se un
+                      partner ha preso il lavoro; questo dice se è stata
+                      consegnata. Prima un ordine appena proposto e uno già
+                      consegnato si leggevano uguali — e al cliente che chiama
+                      si rispondeva a naso. */}
+                  {ordine.appConsegnaStato ? (
+                    <div className="cella-sub">
+                      Consegna: <strong>{nomeStatoConsegna(ordine.appConsegnaStato)}</strong>
+                      {ordine.appConsegnaData
+                        ? ` · ${new Date(ordine.appConsegnaData).toLocaleDateString('it-IT', {
+                            day: 'numeric',
+                            month: 'long',
+                          })}`
+                        : ''}
+                      {ordine.appConsegnaFascia ? ` ${ordine.appConsegnaFascia}` : ''}
+                    </div>
+                  ) : null}
+                  <div className="cella-sub">
+                    {ordine.appConsegnaNumero
+                      ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''}`
+                      : "Nessuna consegna creata da qui: se di là non c'è, l'etichetta è solo nostra."}
+                  </div>
+                  {!ordine.appInterrottoIl ? (
+                    <button
+                      className="btn btn-secondario small"
+                      style={{ marginTop: 8 }}
+                      disabled={interrompendo}
+                      onClick={() => void interrompiApp()}
+                      title="L'ordine torna a noi e Orders non lo smisterà più in automatico"
+                    >
+                      {interrompendo ? 'Interrompo…' : 'Interrompi: lo facciamo noi'}
+                    </button>
+                  ) : null}
+                  {esitoInterruzione ? (
+                    <p className="cella-sub" style={{ marginTop: 6 }}>
+                      {esitoInterruzione}
+                    </p>
+                  ) : null}
+                </div>
+              ) : ordine.id ? (
+                /* ⚠️⚠️ SI VEDE SOLO SE NON C'È GIÀ: un ordine che la piattaforma
+                   sta già lavorando non si manda una seconda volta — sarebbero
+                   due consegne, due valet e due paghe per lo stesso regalo. Il
+                   riquadro qui sopra e questo sono la stessa casella in due
+                   momenti: «ci sta pensando lei» oppure «mandiamocelo». */
+                /* ⚠️ Niente margine inline: adesso questo blocco e' il primo della
+                   colonna, e un margine in cima la faceva partire 12px piu' in basso
+                   delle altre due. Lo stacco lo da' il `gap` della colonna. */
+                <div>
+                  <MandaInApp ordineId={ordine.id} onFatto={() => void carica()} />
+                </div>
+              ) : null}
             {/* IL FORM RAPIDO: foto + messaggio da mandare al fornitore. */}
             <div className="card" style={{ marginBottom: 16 }}>
               <h3 style={{ marginTop: 0, fontSize: 15 }}>Chiedi al fornitore</h3>
@@ -1329,7 +1436,6 @@ export function DettaglioOrdine({
                 ) : null}
               </p>
             </div>
-
             {/* Cosa si sono detti: mail e chat collegate a questo ordine, con la
                 risposta a portata di mano. Uscire, cercare la conversazione in
                 Inbox e tornare indietro è il modo migliore per non rispondere. */}
@@ -1365,7 +1471,14 @@ export function DettaglioOrdine({
                 onCambiato={() => void carica()}
               />
             ) : null}
+            </div>
 
+            {/* ── COLONNA 2 · IL CLIENTE ──
+                Cosa ci siamo detti e cosa resta da fare. In cima la telefonata
+                senza risposta, che è la cosa più urgente che ci sia su un
+                ordine; poi il diario, che è la lista di quello che resta da
+                fare; poi le conversazioni. */}
+            <div className="colonna-dettaglio">
             {/* ── HA CHIAMATO ──
                 ⚠️⚠️ Sopra i messaggi, non sotto: una telefonata a cui nessuno ha
                 risposto è la cosa più urgente che ci sia su un ordine — il
@@ -1397,7 +1510,6 @@ export function DettaglioOrdine({
                 </a>
               </div>
             ) : null}
-
             {/* ── IL DIARIO DI QUESTO ORDINE ──
                 ⚠️ È il motivo per cui il diario esiste: prima queste righe stavano
                 in una chat interna e chi apriva l'ordine non sapeva che ci fosse
@@ -1424,9 +1536,13 @@ export function DettaglioOrdine({
                 <DiarioOrdine numero={ordine.numero} rileggiA={rileggiDiario} inCima />
               </div>
             )}
-
             {ordine.id ? <MessaggiOrdine ordineId={ordine.id} /> : null}
+            </div>
 
+            {/* ── COLONNA 3 · L'ORDINE ──
+                Chi compra, chi riceve, dove, quando, quanto, a che punto siamo
+                e cosa si può fare. */}
+            <div className="colonna-dettaglio">
             {/* I dati dell'ordine. */}
             <div className="card">
               <h3 style={{ marginTop: 0, fontSize: 15 }}>Ordine</h3>
@@ -1675,9 +1791,21 @@ export function DettaglioOrdine({
                       )}
                     </>
                   )}
+                  {/* ⚠️⚠️ DUE TASSONOMIE, e adesso si vede quale e' quale.
+                      Il badge qui sopra e' la NOSTRA lavorazione; questo e' lo
+                      stato della pipeline di Deluxy Orders, un vocabolario
+                      diverso (dichiarato diverso in src/lib/gestione.ts). Erano
+                      due pillole identiche appiccicate, e potevano dire cose
+                      che sembrano in conflitto — «Attesa consegna» accanto a
+                      «Consegnato». Chi non conosce le due tassonomie leggeva la
+                      seconda come nostra. */}
                   {ordine.statoNome ? (
-                    <span className="badge" style={{ marginLeft: 6 }}>
-                      {ordine.statoNome}
+                    <span
+                      className="badge"
+                      style={{ marginLeft: 6 }}
+                      title="Lo stato di quest'ordine su Deluxy Orders: e' un'altra tassonomia, non la nostra lavorazione"
+                    >
+                      su Orders: {ordine.statoNome}
                     </span>
                   ) : null}
                 </dd>
@@ -1696,9 +1824,26 @@ export function DettaglioOrdine({
                   telefono con un cliente già arrabbiato.
                   ⚠️ È un ordine NUOVO e resta una BOZZA finché il cliente non
                   paga: nessun incasso registrato che non sia vero. */}
+              {/* ⚠️⚠️ CHIUSO DI DEFAULT dal 04/09/2026, su segnalazione di una
+                  revisione ostile: era un modulo sempre aperto, per un caso
+                  raro, incastrato fra «a che punto siamo» e le azioni vere —
+                  quaranta righe che chi cerca «Chiedi rimborso» scavalcava ogni
+                  volta. I due bottoni in testata («Riconsegna», «Unisci
+                  ordini») lo aprono e ci portano.
+                  ⚠️ SI APRE DA SOLO se un link esiste già: un riquadro chiuso
+                  che nasconde un dato vero e' peggio di uno aperto che non
+                  serve. */}
               {ordine.id ? (
-                <div id="riquadro-riconsegna" className="card" style={{ padding: 10, marginTop: 12 }}>
-                  <div className="cella-nome">Riconsegna</div>
+                <details
+                  id="riquadro-riconsegna"
+                  className="card riquadro-a-scomparsa"
+                  style={{ padding: 10, marginTop: 12 }}
+                  /* ⚠️ Anche quando c'e' un esito da leggere: il messaggio del server
+                     e' renderizzato QUI DENTRO, e un riquadro che si richiude se lo
+                     porta via. */
+                  open={Boolean(ordine.riconsegnaLink) || Boolean(linkRiconsegna) || Boolean(esitoRiconsegna)}
+                >
+                  <summary className="cella-nome">Riconsegna</summary>
                   <div className="cella-sub">
                     Un link di pagamento da mandare al cliente per riportare {ordine.numero}:
                     cliente e indirizzo sono già quelli di quest&apos;ordine.
@@ -1792,7 +1937,7 @@ export function DettaglioOrdine({
                       {esitoRiconsegna}
                     </p>
                   ) : null}
-                </div>
+                </details>
               ) : null}
 
               {/* ── DUE ORDINI, UNA VENDITA SOLA ──
@@ -1803,11 +1948,39 @@ export function DettaglioOrdine({
                   è positivo.
                   ⚠️ L'unione è NOSTRA: in Deluxy Orders restano due ordini, ed è
                   scritto qui sotto invece che lasciato scoprire. */}
+              {/* ⚠️ Stessa scelta della riconsegna, e stessa eccezione: se
+                  quest'ordine e' unito a un altro, o ne ha di uniti a se', il
+                  riquadro nasce APERTO — quello non e' uno strumento raro, e'
+                  un fatto su questa vendita. */}
               {ordine.id ? (
-                <div id="riquadro-unione" className="card" style={{ padding: 10, marginTop: 12 }}>
+                <details
+                  id="riquadro-unione"
+                  className="card riquadro-a-scomparsa"
+                  style={{ padding: 10, marginTop: 12 }}
+                  /* ⚠️⚠️ `esitoUnione` non e' un di piu': premendo «Disfa l'unione»
+                     `ordine.unitoA` si svuota, quindi questa prop passerebbe da vero a
+                     falso e React RICHIUDEREBBE il riquadro — portandosi dentro il
+                     messaggio del server, che e' l'unica cosa che dice se e' andata
+                     bene. Trovato da una revisione ostile prima che lo trovasse un
+                     utente. */
+                  open={
+                    Boolean(ordine.unitoA) ||
+                    Boolean(ordine.uniti?.length) ||
+                    Boolean(esitoUnione)
+                  }
+                >
+                  <summary className="cella-nome">
+                    {ordine.unitoA
+                      ? `Unito a ${ordine.unitoA}`
+                      : ordine.uniti?.length
+                        ? `Ordini uniti a questo · ${ordine.uniti.length}`
+                        : 'Unisci un altro ordine'}
+                  </summary>
                   {ordine.unitoA ? (
                     <>
-                      <div className="cella-nome">Unito a {ordine.unitoA}</div>
+                      {/* ⚠️ Il nome sta nel titolo del riquadro (che in questo caso
+                          nasce aperto): ripeterlo qui sotto erano due righe identiche
+                          una sull'altra. */}
                       <div className="cella-sub">
                         Si lavora dalla scheda di {ordine.unitoA}: questo non compare più come
                         ordine a sé.
@@ -1865,88 +2038,9 @@ export function DettaglioOrdine({
                       {esitoUnione}
                     </p>
                   ) : null}
-                </div>
+                </details>
               ) : null}
 
-              {/* ── LA PIATTAFORMA STA GESTENDO QUESTO ORDINE ──
-                  ⚠️⚠️ Si vede PRIMA delle azioni, non in fondo: chi apre la
-                  scheda per cercare un fornitore deve accorgersene prima di
-                  cominciare, non dopo aver telefonato a qualcuno.
-                  ⚠️ E c'è la via d'uscita accanto: uno stato che dice «se ne
-                  occupa un altro» senza un modo di riprenderselo si aggira
-                  lavorando di nascosto, che è il contrario di quello che serve. */}
-              {ordine.gestione === 'in_app' || ordine.appStato ? (
-                <div className="card" style={{ padding: 10, marginTop: 12 }}>
-                  <div className="cella-nome">
-                    Se ne sta occupando la piattaforma consegne
-                    {ordine.appPartner ? ` — ${ordine.appPartner}` : ''}
-                  </div>
-                  <div className="cella-sub">
-                    {nomeStatoVendita(ordine.appStato ?? '')}
-                    {typeof ordine.appCostoPartner === 'number' && ordine.appCostoPartner > 0
-                      ? ` · al partner ${ordine.appCostoPartner.toLocaleString('it-IT', {
-                          style: 'currency',
-                          currency: 'EUR',
-                        })}`
-                      : ''}
-                    {ordine.appInterrottoIl ? ' · interrotta da noi' : ''}
-                  </div>
-                  {/* ⚠️⚠️ SE LA CONSEGNA C'È SI DICE QUALE: «In App» senza un
-                      numero è una parola che nessuno può verificare — e capita
-                      per davvero, perché il passo si può anche solo segnare a
-                      mano. Il numero è quello che si legge di là. */}
-                  {/* ── A CHE PUNTO È IL GIRO ──
-                      ⚠️⚠️ Chiesto dall'utente il 02/09/2026: «per ogni vendita
-                      riesci a recuperare lo stato all'interno dell'app
-                      delivery?». Lo stato della VENDITA qui sopra dice se un
-                      partner ha preso il lavoro; questo dice se è stata
-                      consegnata. Prima un ordine appena proposto e uno già
-                      consegnato si leggevano uguali — e al cliente che chiama
-                      si rispondeva a naso. */}
-                  {ordine.appConsegnaStato ? (
-                    <div className="cella-sub">
-                      Consegna: <strong>{nomeStatoConsegna(ordine.appConsegnaStato)}</strong>
-                      {ordine.appConsegnaData
-                        ? ` · ${new Date(ordine.appConsegnaData).toLocaleDateString('it-IT', {
-                            day: 'numeric',
-                            month: 'long',
-                          })}`
-                        : ''}
-                      {ordine.appConsegnaFascia ? ` ${ordine.appConsegnaFascia}` : ''}
-                    </div>
-                  ) : null}
-                  <div className="cella-sub">
-                    {ordine.appConsegnaNumero
-                      ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''}`
-                      : "Nessuna consegna creata da qui: se di là non c'è, l'etichetta è solo nostra."}
-                  </div>
-                  {!ordine.appInterrottoIl ? (
-                    <button
-                      className="btn btn-secondario small"
-                      style={{ marginTop: 8 }}
-                      disabled={interrompendo}
-                      onClick={() => void interrompiApp()}
-                      title="L'ordine torna a noi e Orders non lo smisterà più in automatico"
-                    >
-                      {interrompendo ? 'Interrompo…' : 'Interrompi: lo facciamo noi'}
-                    </button>
-                  ) : null}
-                  {esitoInterruzione ? (
-                    <p className="cella-sub" style={{ marginTop: 6 }}>
-                      {esitoInterruzione}
-                    </p>
-                  ) : null}
-                </div>
-              ) : ordine.id ? (
-                /* ⚠️⚠️ SI VEDE SOLO SE NON C'È GIÀ: un ordine che la piattaforma
-                   sta già lavorando non si manda una seconda volta — sarebbero
-                   due consegne, due valet e due paghe per lo stesso regalo. Il
-                   riquadro qui sopra e questo sono la stessa casella in due
-                   momenti: «ci sta pensando lei» oppure «mandiamocelo». */
-                <div style={{ marginTop: 12 }}>
-                  <MandaInApp ordineId={ordine.id} onFatto={() => void carica()} />
-                </div>
-              ) : null}
 
               {/* ── LA FATTURA ──
                   ⚠️ SEMPRE, in qualunque stato sia l'ordine: il cliente la
@@ -2125,6 +2219,8 @@ export function DettaglioOrdine({
                   : null}
               </div>
             </div>
+            </div>
+          </div>
 
             {/* ── FORNITORI IN ZONA: un riquadro suo ──
                 Stava incastrato in fondo alla prima colonna, sotto il
@@ -2135,7 +2231,7 @@ export function DettaglioOrdine({
                 sono i partner e i prospect già censiti in Anagrafiche, che
                 prima non venivano mai proposti. */}
             {spedizione?.provincia ? (
-              <div className="card" style={{ gridColumn: '1 / -1' }}>
+              <div className="card fascia-fornitori">
                 <h3 style={{ marginTop: 0, fontSize: 15 }}>
                   Fornitori in provincia di {zonaProvincia || spedizione.provincia}
                 </h3>
@@ -2408,6 +2504,24 @@ export function DettaglioOrdine({
                           <div className="cella-nome">{fz.nome}</div>
                           <div className="cella-sub">
                             {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
+                            {/* ⚠️⚠️ IL NUMERO C'ERA E NON SI VEDEVA. Fino al
+                                04/09/2026 `fz.telefono` serviva solo a comporre
+                                il link di WhatsApp: per telefonare bisognava
+                                uscire dal pannello e cercare il fornitore in
+                                Anagrafiche. Scritto qui, si legge e si chiama.
+                                🔴 RESTA APERTO, e non lo chiude questo commento:
+                                su un FISSO — che WhatsApp non ha — il bottone verde
+                                compare lo stesso (bastano 8 cifre) e porta a una
+                                chat che non esiste, segnando «chiesto» un fornitore
+                                a cui non è arrivato niente. */}
+                            {fz.telefono ? (
+                              <>
+                                {' · '}
+                                <a href={`tel:${fz.telefono.replace(/[^\d+]/g, '')}`}>
+                                  {fz.telefono}
+                                </a>
+                              </>
+                            ) : null}
                             {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
                           </div>
                           {/* ── QUANTO LAVORO GLI ABBIAMO GIÀ DATO ──
@@ -2603,8 +2717,34 @@ export function DettaglioOrdine({
                   </button>
                 ) : null}
               </div>
-            ) : null}
-          </div>
+            ) : (
+              /* ⚠️⚠️ SENZA PROVINCIA NON SPARISCE: prima il ramo era `: null`,
+                 e su un ordine di cui Orders non manda la provincia tutta la
+                 fascia — registro, chi ha già lavorato per noi, chi è stato
+                 chiesto, i conteggi degli esclusi — semplicemente non c'era.
+                 Chi lavora ne concludeva che in quella zona non abbiamo
+                 fornitori, che è l'errore contro cui questa fascia esiste. */
+              <div className="card fascia-fornitori">
+                <h3 style={{ marginTop: 0, fontSize: 15 }}>Fornitori in zona</h3>
+                {/* ⚠️⚠️ «A CHI ABBIAMO GIÀ CHIESTO» VALE ANCHE QUI, e prima no:
+                    quel dato non dipende dalla provincia (arriva da
+                    /api/ordini/[id]/chiesti, che vuole solo l'id), ma stava
+                    dentro il ramo con la provincia. Su un ordine senza
+                    provincia — l'estero, un indirizzo incompleto — due persone
+                    potevano scrivere allo stesso fioraio senza saperlo, che è
+                    proprio il caso per cui questa riga esiste. Trovato da una
+                    revisione ostile il 04/09/2026. */}
+                <p className="cella-sub" style={{ marginTop: -4 }}>{riassunto(chiesti)}</p>
+                {esitoChiesto ? <p className="cella-sub">{esitoChiesto}</p> : null}
+                <p className="descrizione" style={{ marginBottom: 0 }}>
+                  Di questa consegna non so la provincia, quindi non posso proporre nessuno. Non
+                  vuol dire che non ne abbiamo: vuol dire che non so dove cercare. Controlla
+                  l&apos;indirizzo qui sopra, nel riquadro «Ordine», oppure cerca il fornitore su
+                  Google.
+                </p>
+              </div>
+            )}
+          </>
         ) : null}
       </div>
 

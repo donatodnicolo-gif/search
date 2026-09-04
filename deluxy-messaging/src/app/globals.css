@@ -4251,56 +4251,100 @@ td .azioni-ordine {
   width: min(1240px, 100%);
 }
 
-/* ⚠️ TRE COLONNE, ognuna con il suo mestiere:
-     1. il RECAP dell'ordine — foto, biglietto, messaggio per il fornitore: è
-        quello che si guarda per decidere se il prodotto è fattibile;
-     2. i MESSAGGI del cliente, per sapere cosa ci si è già detti;
-     3. l'ORDINE come sta su Shopify — chi compra, chi riceve, indirizzo, totale.
-   Non è un `auto-fit`: le tre cose vanno guardate INSIEME, e un riquadro che
-   cambia colonna a seconda della larghezza costringe a ricercarlo ogni volta. */
+/* ⚠️⚠️ TRE COLONNE ESPLICITE, una per mestiere:
+     1. IL LAVORO — il prodotto, il biglietto, il messaggio, chi lo prepara;
+     2. IL CLIENTE — la telefonata, il diario, le conversazioni;
+     3. L'ORDINE — chi, dove, quando, quanto, a che punto, cosa si può fare.
+
+   FINO AL 04/09/2026 QUI C'ERA `column-count: 3`, ed era un flusso, non una
+   griglia: il browser distribuiva i riquadri per pareggiare le altezze, quindi
+   **dove finiva un riquadro dipendeva dal contenuto dell'ordine**. Misurato da
+   una revisione ostile: bastava che il cliente avesse telefonato, o scritto
+   tre mail, perché la card «Ordine» — indirizzo, totale, i passi, tutte le
+   azioni — passasse dalla seconda colonna alla terza. Chi apre dieci ordini di
+   fila cercava l'indirizzo ogni volta a un'altezza diversa. In più l'ordine di
+   Tab e dei lettori di schermo restava quello del DOM, che a schermo non si
+   vedeva più; e la terza colonna finiva 1.367px prima delle altre, cioè lo
+   stesso buco che il flusso a colonne doveva evitare.
+
+   Adesso ogni colonna è un contenitore suo: i riquadri stanno dove li mette
+   chi scrive il componente, e ci restano.
+
+   ⚠️ `align-items: start`: le colonne hanno altezze molto diverse e non devono
+   allungarsi a vuoto per pareggiare la vicina. */
 .griglia-dettaglio {
-  /* ⚠️⚠️ COLONNE CHE SI RIEMPIONO, non una griglia a righe. Con `grid` i cinque
-     riquadri stanno su due righe, e siccome hanno altezze molto diverse la
-     seconda riga comincia sotto il PIÙ ALTO della prima: misurato su un ordine
-     vero, il riquadro «Ordine» — destinatario, indirizzo, totale, i bottoni per
-     chiamare il cliente — cadeva a **y=1.101** con **due colonne vuote di
-     fianco** e circa **3.000px di buco**. Con `column-count` i riquadri
-     scendono a riempire la colonna più corta, e il pannello si accorcia.
-     ⚠️ `break-inside: avoid` sulle card: senza, una card si spezza a metà fra
-     due colonne. */
-  column-count: 3;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
-.griglia-dettaglio > .card {
-  break-inside: avoid;
-  /* Nelle colonne lo stacco verticale non lo dà il `gap`: lo dà il margine. */
-  margin-bottom: 16px !important;
-  /* Chrome ha bisogno di questo per non tagliare l'ombra della card. */
-  display: inline-block;
-  width: 100%;
+/* Dentro una colonna i riquadri sono una pila, e lo stacco lo dà il `gap`.
+   ⚠️ Prima lo dava un `margin-bottom: 16px !important` che una seconda regola,
+   dieci righe più sotto e con lo stesso selettore, riportava a `0 !important`:
+   le card bianche si toccavano e tre riquadri diversi si leggevano come uno
+   solo. Le due regole sono state tolte tutte e due. */
+.colonna-dettaglio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
-/* Sotto i 1100px due colonne, sotto gli 800 una sola: tre colonne da 250px non
-   contengono un indirizzo. */
-@media (max-width: 1100px) {
-  .griglia-dettaglio { column-count: 2; }
-}
-@media (max-width: 800px) {
-  .griglia-dettaglio { column-count: 1; }
-}
-
-/* Dentro la griglia il margine sotto delle card non serve più: lo spazio lo
-   dà il `gap`, e sommati facevano due buchi diversi fra una riga e l'altra. */
-.griglia-dettaglio > .card {
+/* ⚠️ I margini che le card si portano da fuori qui non servono e sballano il
+   `gap`: dentro la colonna comanda il contenitore. */
+.colonna-dettaglio > .card,
+.colonna-dettaglio > .riquadro-fornitore {
   margin-bottom: 0 !important;
 }
 
-/* Sotto i 1150px tre colonne diventano tre strisce illeggibili: si passa a due
-   e poi a una — che è il comportamento giusto su un portatile piccolo. */
+/* ── LA FASCIA DEI FORNITORI, SOTTO LE TRE COLONNE ──
+   ⚠️⚠️ Questa card aveva scritto `gridColumn: '1 / -1'` per prendere tutta la
+   larghezza, e il commento nel componente lo dichiarava — ma dentro un
+   `column-count` quella proprietà **non esiste**: usciva larga 385px come le
+   altre due, e la griglia delle tessere (`repeat(auto-fill, minmax(260px,
+   1fr))`) ci stava a UNA per riga. Cioè l'elenco «in una striscia stretta» che quel commento
+   diceva di aver eliminato. Adesso è fuori dalla griglia e la larghezza piena
+   ce l'ha davvero: le tessere si affiancano e si confrontano. */
+.fascia-fornitori {
+  margin-top: 16px;
+}
+
+/* Sotto i 1150px tre colonne diventano tre strisce illeggibili: si passa a
+   due, e sotto gli 800 a una. ⚠️ La soglia è 1150 come dice questa frase: fino
+   al 04/09/2026 il commento diceva 1150 e la regola scattava a 1100, quindi
+   fra le due larghezze restavano tre colonne strette. */
 @media (max-width: 1150px) {
   .griglia-dettaglio {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* ⚠️⚠️ CON TRE COLONNE E DUE POSTI, la terza finirebbe DA SOLA sulla riga
+     sotto, con mezzo pannello bianco alla sua destra per tutta la sua altezza —
+     cioè esattamente il buco che il vecchio flusso a colonne evitava, e che una
+     revisione ostile ha visto arrivare prima che lo vedesse un utente. Quindi
+     si sceglie: sopra le due colonne che si guardano INSIEME mentre si lavora
+     l'ordine (il lavoro e l'ordine), sotto a tutta larghezza la conversazione
+     col cliente, che si legge di seguito e non ha bisogno di stare accanto. */
+  .colonna-dettaglio:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .colonna-dettaglio:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 800px) {
+  .griglia-dettaglio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* A una colonna sola le collocazioni esplicite di sopra tornerebbero a
+     spostare le cose: si annullano e vale l'ordine del DOM. */
+  .colonna-dettaglio:nth-child(2),
+  .colonna-dettaglio:nth-child(3) {
+    grid-column: auto;
+    grid-row: auto;
   }
 }
 
@@ -5200,8 +5244,11 @@ td .azioni-ordine {
   .pannello {
     padding: 12px;
   }
+  /* ⚠️ A 700px la griglia è già a una colonna sola (regola sopra): qui resta
+     solo lo stacco più stretto. Fino al 04/09/2026 c'era anche un
+     `grid-template-columns: auto-fit` che, con `column-count`, non faceva
+     niente — una regola morta che raccontava un layout inesistente. */
   .griglia-dettaglio {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 12px;
   }
 }
@@ -6202,4 +6249,53 @@ tr.riga-click:focus-visible {
     max-height: 70dvh;
     border-radius: var(--radius-l) var(--radius-l) 0 0;
   }
+}
+
+/* ── RIQUADRI A SCOMPARSA DENTRA LA CARD «ORDINE» (04/09/2026) ───────────────
+   Riconsegna e Unione servono di rado e stavano sempre aperti, con i loro
+   moduli, fra «a che punto siamo» e le azioni: una revisione ostile li ha
+   contati in ~40-50 righe che chi cerca «Chiedi rimborso» scavalca ogni volta.
+   Adesso sono <details>, e i due bottoni della testata li aprono.
+   ⚠️ Nascono aperti quando hanno qualcosa da dire (un link di riconsegna già
+   creato, un ordine unito): un riquadro chiuso che nasconde un fatto è peggio
+   di uno aperto che non serve. */
+.riquadro-a-scomparsa > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* La freccetta la disegniamo noi: quella di sistema cambia da browser a
+   browser ed è grigia su grigio. */
+.riquadro-a-scomparsa > summary::-webkit-details-marker {
+  display: none;
+}
+
+.riquadro-a-scomparsa > summary::before {
+  content: '›';
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: var(--testo-tenue, #6e6e73);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.riquadro-a-scomparsa[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* ⚠️ Una pillola e' `inline-flex` e non va a capo: dentro una `dd` di
+   `.coppie` (traccia `1fr`, minimo = min-content) un badge lungo allarga la
+   colonna finche' il pannello prende la barra orizzontale. Con `min-width: 0`
+   sulla cella e un tetto sulla pillola, il testo lungo va a capo dentro il
+   badge invece di spingere fuori la card. Segnalato da una revisione ostile il
+   04/09/2026, sul badge «su Orders: Attesa consegna». */
+.coppie dd {
+  min-width: 0;
+}
+
+.badge {
+  max-width: 100%;
 }
