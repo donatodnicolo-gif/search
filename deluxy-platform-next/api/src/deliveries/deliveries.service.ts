@@ -899,12 +899,28 @@ export class DeliveriesService {
     const tariffa = listino?.price ?? d.serviceType?.basePrice ?? null;
     const valore = tariffa != null ? Math.round(tariffa * oreFatturate * 100) / 100 : null;
 
+    // ⚠️ Anche la PAGA DEL VALET va riscritta: su 9.167 consegne a ora, 7.310
+    // hanno la paga SCRITTA sulla consegna, e in stipendio lo scritto vince sul
+    // listino. Senza questa riga il partner approvava mezz'ora in piu' e al
+    // valet non arrivava un centesimo. Se il valet non ha quel servizio a
+    // listino non si inventa nulla: la paga resta com'era, e il log lo dice.
+    const listinoValet = d.valetId
+      ? await this.prisma.valetService.findFirst({
+          where: { valetId: d.valetId, serviceTypeId: d.serviceTypeId ?? '-' },
+          select: { salary: true },
+        })
+      : null;
+    const pagaValet = listinoValet?.salary != null
+      ? Math.round(listinoValet.salary * oreFatturate * 100) / 100
+      : null;
+
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         status: DeliveryStatus.APPROVED,
         hours: oreFatturate,
         price: valore,
+        ...(pagaValet != null ? { valetSalary: pagaValet } : {}),
         hoursDecision: approva ? 'approvate' : 'rifiutate',
         hoursDecidedAt: new Date(),
         hoursDecidedBy: user.email,
@@ -914,8 +930,8 @@ export class DeliveriesService {
             type: 'note',
             userId: user.sub,
             message: approva
-              ? `Ore APPROVATE dal partner: ${d.hoursFrom}–${d.hoursTo} = ${oreFatturate} h fatturate${valore != null ? ` · valore ${valore} €` : ''}`
-              : `Ore RIFIUTATE dal partner: valgono le previste (${oreFatturate} h)${valore != null ? ` · valore ${valore} €` : ''}`,
+              ? `Ore APPROVATE dal partner: ${d.hoursFrom}–${d.hoursTo} = ${oreFatturate} h fatturate${valore != null ? ` · valore ${valore} €` : ''}${pagaValet != null ? ` · paga valet ${pagaValet} €` : ' · paga valet invariata (nessun listino)'}`
+              : `Ore RIFIUTATE dal partner: valgono le previste (${oreFatturate} h)${valore != null ? ` · valore ${valore} €` : ''}${pagaValet != null ? ` · paga valet ${pagaValet} €` : ' · paga valet invariata (nessun listino)'}`,
           },
         },
       },
