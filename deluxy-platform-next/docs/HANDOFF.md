@@ -3,6 +3,33 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 📋 **04/09/2026-quater — CAMPO «REGOLE» SULLA CONSEGNA: il valore della regola esce dal plus/minus** (regola utente; deployato + migrazione dati):
+> - **Nuova logica** (utente): «crea visibile un campo valore Regole dove
+>   metti i valori che ora finiscono in plus/minus relativi all'applicazione
+>   di una regola. Plus/Minus viene d'ora in poi utilizzato solo per
+>   variazioni di importi manuali». Colonna nuova `Delivery.ruleAdjustment`
+>   (ALTER additivo, tabella nostra): il valore della regola carnet
+>   FOTOGRAFATO all'aggancio (`agganciaRegolaCarnet` lo scrive insieme a
+>   `deliveryRuleId`). `additionalPrice` = solo variazioni manuali.
+> - **Formula** (`prezzoConsegna`, una casa): `extra = plus manuale +
+>   (ruleAdjustment ?? aggiustamento della regola)`. Sostituisce la lettura
+>   provvisoria di stamattina («il plus recepisce la regola»). Stessa somma
+>   nel costo verso Orders/Budgets (`app-api`, `orders-sync`) e nella
+>   Finanza (`feeContractAmount`), che prima ignoravano la regola non copiata.
+> - **A schermo**: dettaglio consegna → riga «Regole» (valore + nome regola)
+>   separata da «Plus / minus»; form consegna → «Regole» in sola lettura
+>   accanto al plus; Fatturazione › Da fatturare → colonna «Regole» (con il
+>   plus manuale accanto). Maschere: `ruleAdjustment` è nei SOLDI_DEL_PARTNER
+>   (il valet non lo riceve) e nei CAMPI_DI_UFFICIO (il partner non lo scrive).
+> - **Migrazione** `api/scripts/migra-plus-in-regole.mjs` (anteprima /
+>   `--applica`, backup JSON + riga nel registro di ogni consegna): con A =
+>   aggiustamento regola, P = plus scritto → P==A: Regole=A, plus svuotato
+>   (3.455); P vuoto: Regole=A (3.373); P≠A (54): Regole=A, plus manuale =
+>   P−A (totale invariato, elenco nell'anteprima). Esito nel messaggio
+>   all'utente. Ordine di rilascio: ALTER → deploy → dati.
+> - Script aggiornati alla formula nuova: `tabella-consegne-partner.mjs`,
+>   `ricalcola-righe-bozze-regola.mjs` (bozza Armani FAT-2026-563 in attesa
+>   dell'ok: +26,25 €).
 > 🌿 **04/09/2026 — TEMA SHOPIFY «Deluxy Flowers for Business»: replica del sito base44** (in locale, NON caricato su nessun negozio):
 > - Richiesta: «https://deluxy-floral-studio.base44.app/ la puoi rifare su
 >   Shopify identica?». Fatto come **tema Online Store 2.0 autonomo** in

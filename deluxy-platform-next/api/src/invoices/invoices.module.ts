@@ -78,6 +78,8 @@ export type ConsegnaDaPrezzare = {
   /** Ultimo ripiego del valore merce, dove le righe non dicono niente. */
   productValue?: number | null;
   additionalPrice?: number | null;
+  /** ⭐ 04/09: il valore della regola carnet applicata (campo «Regole»). */
+  ruleAdjustment?: number | null;
   hours?: number | null;
   distanceKm?: number | null;
   extraKm?: number | null;
@@ -132,17 +134,15 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // già stato pagato in anticipo, rifatturarlo sarebbe chiedere due volte.
   if (regola && regola.toBill === false) return null;
 
-  // ⭐ 04/09/2026 (regola utente, caso Armani): «il plus/minus RECEPISCE la
-  // regola, non è un ulteriore valore». Con una regola carnet agganciata il
-  // plus scritto sulla consegna È lo sconto della regola (il legacy lo
-  // ricopiava lì: 3.455 consegne su 6.882 hanno plus == aggiustamento) e si
-  // conta UNA volta: vale il plus scritto se c'è (fotografia, anche se
-  // corretto a mano), altrimenti l'aggiustamento della regola. Prima si
-  // sommavano: −18 −18 su una consegna da 27,98 € → fatturato 0 invece di 9,98.
-  // Senza regola il plus/minus resta quello che è sempre stato.
-  const extra = regola
-    ? ((d.additionalPrice ?? 0) !== 0 ? (d.additionalPrice as number) : (regola.partnerBillingAdjustment ?? 0))
-    : (d.additionalPrice ?? 0);
+  // ⭐ 04/09/2026 (regola utente, caso Armani): DUE campi distinti sulla
+  // consegna — `additionalPrice` è il plus/minus MANUALE, `ruleAdjustment` è
+  // il valore della REGOLA carnet fotografato all'aggancio (prima finiva nel
+  // plus e si sommava alla regola: −18 −18 su 27,98 € → fatturato 0 invece
+  // di 9,98; 3.455 consegne su 6.882 avevano la copia). Si sommano i due
+  // campi; se la consegna ha la regola ma non ancora la fotografia (righe
+  // non migrate) vale l'aggiustamento della regola.
+  const extra = (d.additionalPrice ?? 0)
+    + (d.ruleAdjustment ?? (regola?.partnerBillingAdjustment ?? 0));
   const arrotonda = (n: number) => Math.round(n * 100) / 100;
   // Lo sconto non puo' far pagare al partner meno di zero.
   const mai_negativo = (n: number) => Math.max(0, arrotonda(n));
@@ -389,7 +389,7 @@ export class InvoicesService {
       where,
       select: {
         id: true, partnerId: true, serviceTypeId: true, date: true,
-        price: true, additionalPrice: true, hours: true, productValue: true,
+        price: true, additionalPrice: true, ruleAdjustment: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
@@ -612,7 +612,7 @@ export class InvoicesService {
       },
       select: {
         id: true, code: true, date: true, serviceTypeId: true,
-        price: true, additionalPrice: true, hours: true, productValue: true,
+        price: true, additionalPrice: true, ruleAdjustment: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         deliveryTimeFrom: true, deliveryTimeTo: true,
         // L'INDIRIZZO del destinatario entra nel recap su decisione
@@ -650,6 +650,8 @@ export class InvoicesService {
         orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
         indirizzo: d.recipientAddress ?? null,
         plusMinus: d.additionalPrice ?? 0,
+        // ⭐ 04/09: il valore della regola carnet, separato dal plus manuale.
+        regole: (d as any).ruleAdjustment ?? 0,
       };
       // Le consegne senza tariffa (o che una regola carnet dice di non
       // fatturare) ora si VEDONO, marcate «non fatturabile»: prima erano solo
@@ -983,7 +985,7 @@ export class InvoicesService {
       select: {
         id: true, code: true, date: true, status: true, serviceTypeId: true, partnerId: true,
 
-        price: true, additionalPrice: true, hours: true, productValue: true,
+        price: true, additionalPrice: true, ruleAdjustment: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },

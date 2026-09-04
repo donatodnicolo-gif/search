@@ -77,6 +77,8 @@ interface DeliveryDetail {
   deluxyDelivery?: boolean;
   price?: number;
   additionalPrice?: number;
+  /** ⭐ 04/09: valore della regola carnet applicata (campo «Regole»). */
+  ruleAdjustment?: number | null;
   productValue?: number;
   /** Il conto di una vendita: lo calcola il SERVER, coi suoi centesimi. */
   economiaVendita?: {
@@ -303,11 +305,17 @@ interface DeliveryDetail {
                    sconto della regola (es. −25 del carnet) — che però NON si
                    ricopia nel campo: la fatturazione lo somma già dal vivo,
                    scriverlo nel dato lo raddoppierebbe. -->
+              <!-- ⭐ 04/09 (regola utente): DUE righe distinte — «Regole» è il
+                   valore della regola carnet applicata (campo ruleAdjustment),
+                   «Plus / minus» sono SOLO le variazioni manuali. -->
+              @if (regole(d) != null) {
+                <dt>{{ 'deliveryDetail.regoleImporto' | translate }}</dt>
+                <dd>{{ regole(d) }} €
+                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule.name }})</span> }
+                </dd>
+              }
               <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
-              <dd>@if (plusMinus(d) != null) {
-                    {{ plusMinus(d) }} €
-                    @if (regolaSuPlus(d); as r) { <span class="muted">({{ r }})</span> }
-                  } @else { — }</dd>
+              <dd>@if (plusMinus(d) != null) { {{ plusMinus(d) }} € } @else { — }</dd>
               <!-- Valore prodotti: quello scritto SULLA CONSEGNA (accordo col
                    partner), che non è il prezzo di catalogo né quello pubblico
                    Shopify. Senza questa riga il 215 di una vendita sembrava
@@ -345,11 +353,15 @@ interface DeliveryDetail {
                    paga del valet e i margini, che sono conti nostri. -->
               <dt>{{ 'deliveryDetail.costoPartner' | translate }}</dt>
               <dd>{{ d.price != null ? d.price + ' €' : '—' }}</dd>
+              @if (regole(d) != null) {
+                <dt>{{ 'deliveryDetail.regoleImporto' | translate }}</dt>
+                <dd>{{ regole(d) }} €
+                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule.name }})</span> }
+                </dd>
+              }
               @if (plusMinus(d) != null) {
                 <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
-                <dd>{{ plusMinus(d) }} €
-                  @if (regolaSuPlus(d); as r) { <span class="muted">({{ r }})</span> }
-                </dd>
+                <dd>{{ plusMinus(d) }} €</dd>
               }
               @if (d.billable != null) {
                 <dt>{{ 'deliveryDetail.daFatturare' | translate }}</dt>
@@ -1085,23 +1097,19 @@ export class DeliveryDetailComponent {
     return d.serviceType?.pricingModel === 'VENDITA';
   }
 
-  /**
-   * Plus/minus EFFETTIVO. ⭐ 04/09 (regola utente, caso Armani): con una
-   * regola carnet il plus scritto sulla consegna RECEPISCE la regola — non le
-   * si somma. Vale il plus scritto se c'è, altrimenti l'aggiustamento della
-   * regola (stessa lettura di `prezzoConsegna` in fatturazione).
-   */
+  /** Plus/minus: ⭐ 04/09 (regola utente) SOLO le variazioni manuali. */
   plusMinus(d: DeliveryDetail): number | null {
-    const regola = d.deliveryRule?.toBill === false ? 0 : (d.deliveryRule?.partnerBillingAdjustment ?? 0);
-    if (d.additionalPrice == null && !regola) return null;
-    const scritto = d.additionalPrice ?? 0;
-    const effettivo = d.deliveryRule ? (scritto !== 0 ? scritto : regola) : scritto;
-    return Math.round(effettivo * 100) / 100;
+    if (d.additionalPrice == null) return null;
+    return Math.round(d.additionalPrice * 100) / 100;
   }
-  regolaSuPlus(d: DeliveryDetail): string | null {
-    const a = d.deliveryRule?.partnerBillingAdjustment;
-    if (!a || d.deliveryRule?.toBill === false) return null;
-    return `${a > 0 ? '+' : ''}${a} € ${this.translate.instant('deliveryDetail.dallaRegola')}`;
+  /** «Regole»: il valore della regola carnet applicata alla consegna
+   *  (fotografia all'aggancio); se manca la fotografia ma c'è la regola, il
+   *  suo aggiustamento — stessa lettura di `prezzoConsegna`. */
+  regole(d: DeliveryDetail): number | null {
+    if (d.deliveryRule?.toBill === false) return null;
+    const v = d.ruleAdjustment ?? (d.deliveryRule ? (d.deliveryRule.partnerBillingAdjustment ?? 0) : null);
+    if (v == null) return null;
+    return Math.round(v * 100) / 100;
   }
 
   /**

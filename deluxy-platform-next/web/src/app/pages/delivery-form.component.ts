@@ -472,6 +472,14 @@ interface ProductRow {
                 <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
               <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
+              <!-- ⭐ 04/09 (regola utente): «Regole» è il valore della regola
+                   carnet fotografato all'aggancio — si LEGGE, non si scrive
+                   (lo scrive il sistema); il plus/minus qui sopra è solo
+                   per le variazioni manuali. -->
+              @if (model.ruleAdjustment != null) {
+                <label class="fld"><span>{{ 'deliveryForm.pricing.regole' | translate }}</span>
+                  <input class="field num" type="number" [value]="model.ruleAdjustment" disabled /></label>
+              }
               <!-- ⚠️ Niente «Consegna prezzo» qui (l'utente, 26/08): quello che
                    il cliente paga per la consegna non si indica sulle consegne
                    — entra nei MARGINI, dalla cache dell'ordine Shopify. -->
@@ -1313,6 +1321,8 @@ export class DeliveryFormComponent implements AfterViewInit {
     payable: true,
     price: null as number | null,
     additionalPrice: null as number | null,
+    /** Solo lettura: valore della regola carnet applicata (04/09). */
+    ruleAdjustment: null as number | null,
     deliveryPrice: null as number | null,
     valetSalary: null as number | null,
     valetAdditionalPrice: null as number | null,
@@ -1740,7 +1750,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
-    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
+    for (const key of ['paymentAmount', 'price', 'additionalPrice', 'ruleAdjustment', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
     }
     // Prodotti della consegna

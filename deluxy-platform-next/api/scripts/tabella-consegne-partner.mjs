@@ -40,11 +40,13 @@ function valoreProdotti(righe, productValue) {
 /** Replica di prezzoConsegna (invoices.module.ts) + la SPIEGAZIONE del listino applicato. */
 function prezzoConsegna(d, listino, regola) {
   if (regola && regola.toBill === false) return { amount: null, spiega: `regola «${regola.name}»: NON si fattura (carnet pagato in anticipo)` };
-  const extra = (d.additionalPrice ?? 0) + (regola?.partnerBillingAdjustment ?? 0);
+  // 04/09: plus MANUALE + valore della REGOLA (campo ruleAdjustment; ripiego sulla regola se non migrata)
+  const extra = (d.additionalPrice ?? 0) + (d.ruleAdjustment ?? (regola?.partnerBillingAdjustment ?? 0));
   const maiNeg = (n) => Math.max(0, q2(n));
   const vp = valoreProdotti(d.products, d.productValue);
   const modello = d.serviceType?.pricingModel ?? '';
-  const extraTxt = (regola?.partnerBillingAdjustment ? ` ${regola.partnerBillingAdjustment > 0 ? '+' : ''}${q2(regola.partnerBillingAdjustment)} regola «${regola.name}»` : '') + (d.additionalPrice ? ` ${d.additionalPrice > 0 ? '+' : ''}${q2(d.additionalPrice)} plus/minus` : '');
+  const regoleVal = d.ruleAdjustment ?? (regola?.partnerBillingAdjustment ?? 0);
+  const extraTxt = (regoleVal ? ` ${regoleVal > 0 ? "+" : ""}${q2(regoleVal)} Regole «${regola?.name ?? ""}»` : "") + (d.additionalPrice ? ` ${d.additionalPrice > 0 ? "+" : ""}${q2(d.additionalPrice)} plus/minus manuale` : "");
   if ((d.price ?? 0) > 0) {
     return { amount: maiNeg(d.price + extra), spiega: `prezzo SCRITTO in consegna ${eur(d.price)}${extraTxt}` };
   }
@@ -102,7 +104,7 @@ for (const p of partners) {
   const listini = new Map(p.services.map((s) => [s.serviceTypeId, s]));
   const cons = await prisma.delivery.findMany({
     where: { partnerId: p.id, deletedAt: null, date: { gte: dal, lte: al } },
-    select: { id: true, code: true, date: true, status: true, serviceTypeId: true, price: true, additionalPrice: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, billable: true, invoiced: true, productValue: true,
+    select: { id: true, code: true, date: true, status: true, serviceTypeId: true, price: true, additionalPrice: true, ruleAdjustment: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, billable: true, invoiced: true, productValue: true,
       recipientFirstName: true, recipientLastName: true, recipientAddress: true,
       serviceType: { select: { name: true, pricingModel: true, minHours: true } },
       deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },

@@ -519,6 +519,7 @@ export class AppApiService {
         billable: true,
         price: true,
         additionalPrice: true,
+        ruleAdjustment: true,
         serviceType: { select: { name: true, code: true, pricingModel: true } },
       },
     });
@@ -533,7 +534,7 @@ export class AppApiService {
     for (const d of consegne) {
       // `billable=false` non si scarta: si conta a ricavo zero e si dichiara.
       // Un servizio fatto e non fatturabile è una decisione, non un buco.
-      const ricavo = d.billable === false ? 0 : (d.price ?? 0) + (d.additionalPrice ?? 0);
+      const ricavo = d.billable === false ? 0 : (d.price ?? 0) + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0);
       const mese =
         Number(
           new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', month: 'numeric' }).format(d.date),
@@ -672,7 +673,7 @@ export class AppApiService {
     latitude: true, longitude: true, distanceKm: true,
     startedAt: true, deliveredAt: true, receivedBy: true,
     payable: true, billable: true, invoiced: true, paymentStatus: true,
-    price: true, additionalPrice: true, productValue: true, deliveryPrice: true,
+    price: true, additionalPrice: true, ruleAdjustment: true, productValue: true, deliveryPrice: true,
     valetSalary: true, valetAdditionalPrice: true, hours: true,
     paymentOnDelivery: true, paymentAmount: true,
     ddtNumber: true, ddtBrand: true, notes: true,
@@ -717,7 +718,8 @@ export class AppApiService {
       ? Math.round(paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25 * 100) / 100
       : 0;
     const feePercent = d.partner?.commissionPercent ?? 0;
-    const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
+    // ⭐ 04/09: il prezzo del partner comprende plus MANUALE e valore della REGOLA.
+    const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0);
     const r2 = (n: number) => Math.round(n * 100) / 100;
 
     return {
@@ -782,6 +784,7 @@ export class AppApiService {
       economiaPartner: {
         prezzo: d.price ?? null,
         plusMinus: d.additionalPrice ?? null,
+        regole: (d as any).ruleAdjustment ?? null,
         prezzoTotale: r2(prezzoPartner),
         feePercent,
         fee: feePercent > 0 ? r2((feePercent / 100) * prezzoPartner) : 0,

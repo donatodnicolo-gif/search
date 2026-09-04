@@ -539,3 +539,16 @@ da un'email cablata nel codice**. La data non si eredita sul Duplica dallo
 storico (stessa giornata).
 
 STATO: applicata (deploy 04/09).
+
+## 04/09/2026 (3) — Piattaforma consegne: «Regole» e «Plus / minus» diventano due campi
+
+Regola utente: il valore della regola carnet applicata ha un campo suo
+(«Regole», `ruleAdjustment`, scritto dal sistema all'aggancio); il plus/minus
+resta solo per le variazioni manuali. Mostrati distinti nel dettaglio consegna,
+nel form (Regole in sola lettura) e in Fatturazione › Da fatturare (colonna
+«Regole» col plus manuale accanto). **Regola per il Libro**: un importo
+calcolato dal sistema e uno scritto a mano non condividono mai lo stesso campo
+— il primo si legge, il secondo si scrive; se stanno insieme, uno dei due
+prima o poi viene contato due volte (qui: 3.455 consegne).
+
+STATO: applicata (deploy 04/09).

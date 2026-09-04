@@ -1383,7 +1383,7 @@ export class DeliveriesService {
       const rp = await this.prisma.deliveryRulePartner.findMany({
         where: { partnerId: d.partnerId, deliveryRule: { active: true } },
         select: { deliveryRule: { select: {
-          id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true,
+          id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true, partnerBillingAdjustment: true,
           timeFrom: true, timeTo: true, dailyRule: true, dailyCount: true, totalRule: true, totalCount: true,
           kmDistance: true,
           partners: { select: { partnerId: true } },
@@ -1411,7 +1411,9 @@ export class DeliveriesService {
           });
           if (usate >= g.totalCount) continue;
         }
-        await this.prisma.delivery.update({ where: { id: deliveryId }, data: { deliveryRuleId: g.id } });
+        // ⭐ 04/09 (regola utente): all'aggancio si FOTOGRAFA il valore della regola
+        // nel campo «Regole» della consegna — separato dal plus/minus manuale.
+        await this.prisma.delivery.update({ where: { id: deliveryId }, data: { deliveryRuleId: g.id, ruleAdjustment: (g as any).partnerBillingAdjustment ?? 0 } });
         return g.id;
       }
       return null;
@@ -2194,7 +2196,7 @@ export class DeliveriesService {
    * anche qui, o il difetto si riapre da solo.
    */
   private static readonly CAMPI_DI_UFFICIO = [
-    'price', 'additionalPrice', 'deliveryPrice', 'flexiblePrice', 'isFlexiblePrice',
+    'price', 'additionalPrice', 'ruleAdjustment', 'deliveryPrice', 'flexiblePrice', 'isFlexiblePrice',
     'valetSalary', 'valetAdditionalPrice', 'valetServiceId',
     'billable', 'payable', 'invoiced',
     'status', 'paymentStatus',
@@ -2311,6 +2313,7 @@ export class DeliveriesService {
   private static readonly SOLDI_DEL_PARTNER = [
     'price',
     'additionalPrice',
+    'ruleAdjustment',
     'deliveryPrice',
     'flexiblePrice',
     'isFlexiblePrice',

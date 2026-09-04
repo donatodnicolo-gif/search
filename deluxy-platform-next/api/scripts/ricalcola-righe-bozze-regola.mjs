@@ -37,9 +37,8 @@ function valoreProdotti(righe, productValue) {
 /** Replica di prezzoConsegna (invoices.module.ts) con la regola del 04/09. */
 function prezzoConsegna(d, listino, regola) {
   if (regola && regola.toBill === false) return null;
-  const extra = regola
-    ? ((d.additionalPrice ?? 0) !== 0 ? d.additionalPrice : (regola.partnerBillingAdjustment ?? 0))
-    : (d.additionalPrice ?? 0);
+  // 04/09: plus MANUALE + valore della REGOLA (campo ruleAdjustment; ripiego sulla regola se non migrata)
+  const extra = (d.additionalPrice ?? 0) + (d.ruleAdjustment ?? (regola?.partnerBillingAdjustment ?? 0));
   const maiNeg = (n) => Math.max(0, q2(n));
   const vp = valoreProdotti(d.products, d.productValue);
   if ((d.price ?? 0) > 0) return maiNeg(d.price + extra);
@@ -68,7 +67,7 @@ const bozze = await prisma.invoice.findMany({
   select: { id: true, number: true, netAmount: true, totalAmount: true, financeRef: true, financeSentAt: true, periodStart: true, periodEnd: true,
     partner: { select: { id: true, insegna: true, services: { select: { serviceTypeId: true, price: true, includedKm: true, extraKmPrice: true, extraOutOfCityPrice: true, pricePerItem: true } } } },
     lines: { select: { id: true, amount: true, deliveryId: true,
-      delivery: { select: { code: true, serviceTypeId: true, price: true, additionalPrice: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, productValue: true,
+      delivery: { select: { code: true, serviceTypeId: true, price: true, additionalPrice: true, ruleAdjustment: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, productValue: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
         products: { where: { deletedAt: null }, select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { price: true, publicPrice: true } } } } } } } },

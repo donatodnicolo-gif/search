@@ -62,6 +62,9 @@ interface Pending {
   to: string;
 }
 interface PendingDelivery {
+  /** ⭐ 04/09: valore della regola carnet applicata e plus/minus MANUALE, distinti. */
+  regole?: number;
+  plusMinus?: number;
   id: string; code: number; date: string; status: string;
   /** null = non prezzabile: nessun prezzo sulla consegna, nessun listino. */
   amount: number | null;
@@ -331,6 +334,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           <th>{{ 'invoices.pending.service' | translate }}</th>
                           <th class="num">{{ 'invoices.pending.sold' | translate }}</th>
                           <th class="num">{{ 'invoices.line.net' | translate }}</th>
+                          <!-- ⭐ 04/09 (regola utente): il valore della REGOLA carnet
+                               applicata («Regole») e il plus/minus MANUALE, distinti. -->
+                          <th class="num">{{ 'invoices.line.regole' | translate }}</th>
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
                         </tr></thead>
                         <tbody>
@@ -356,6 +362,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               <td class="num">
                                 @if (nettoRiga(d); as netto) { <strong class="dovuto">{{ netto | number: '1.2-2' }} €</strong> }
                                 @else { <span class="muted">—</span> }
+                              </td>
+                              <td class="num">
+                                @if (d.regole) { <span [title]="d.regola?.name || ''">{{ d.regole | number: '1.2-2' }} €</span> }
+                                @else { <span class="muted">—</span> }
+                                @if (d.plusMinus) { <span class="muted" [title]="'deliveryDetail.additionalPrice' | translate"> · {{ d.plusMinus > 0 ? '+' : '' }}{{ d.plusMinus | number: '1.2-2' }}</span> }
                               </td>
                               <td class="num">
                                 @if (d.esclusaDaRegola) {

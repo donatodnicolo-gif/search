@@ -967,7 +967,7 @@ export class FinanceService {
     const takingsNet = takings < 0 ? takings : takings / (1 + VAT);
     // L'IVA e' quella gia' tolta dal guadagno: si mostra, non si risottrae.
     const vat = takings - takingsNet;
-    const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
+    const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0));
     // ⚠️ Netto su lordo darebbe una percentuale piu' bassa del vero e nessuno
     // saprebbe di quale delle due sta guardando: l'utente la vuole sul NETTO.
     const feePercent = saleValue > 0 && haValorePartner ? (takingsNet / saleValue) * 100 : 0;

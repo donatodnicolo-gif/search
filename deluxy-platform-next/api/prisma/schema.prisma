@@ -1117,7 +1117,11 @@ model Delivery {
   billable           Boolean           @default(true) // da fatturare
   payable            Boolean           @default(true) // da pagare
   price              Float? // prezzo per il partner
-  additionalPrice    Float? // plus/minus prezzo partner
+  additionalPrice    Float? // plus/minus prezzo partner — ⭐ 04/09/2026: SOLO variazioni MANUALI
+  /// ⭐ 04/09/2026 (regola utente): il valore della REGOLA CARNET applicata a
+  /// questa consegna (sconto/maggiorazione in fattura), fotografato
+  /// all'aggancio. Prima finiva nel plus/minus e si sommava alla regola.
+  ruleAdjustment     Float?
   deliveryPrice      Float? // "Consegna prezzo": tariffa consegna al cliente (Finanza)
   valetSalary        Float? // paga del valet
   valetAdditionalPrice Float? // plus/minus paga valet

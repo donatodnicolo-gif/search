@@ -306,7 +306,7 @@ export class OrdersSyncService {
       select: {
         code: true, realOrderNumber: true, status: true,
         valetSalary: true, valetAdditionalPrice: true, payable: true,
-        price: true, additionalPrice: true,
+        price: true, additionalPrice: true, ruleAdjustment: true,
         partner: { select: { commissionPercent: true } },
         valet: { select: { hasVat: true, withholdingPercent: true } },
       },
@@ -343,7 +343,7 @@ export class OrdersSyncService {
         ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
         : 0;
       c.costoConsegna += paga + ritenuta;
-      const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
+      const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0);
       const feePercent = d.partner?.commissionPercent ?? 0;
       if (feePercent > 0) c.feeConsegna += (feePercent / 100) * prezzoPartner;
       else c.senzaFee++;

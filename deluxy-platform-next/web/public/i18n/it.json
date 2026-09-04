@@ -525,6 +525,7 @@
       "description": "Indirizzo",
       "amount": "Importo",
       "net": "Netto",
+      "regole": "Regole",
       "openDelivery": "Apri la consegna in una nuova scheda"
     },
     "noLines": "Nessuna consegna da fatturare in questa fattura.",
@@ -1439,6 +1440,7 @@
       "billable": "Da fatturare",
       "price": "Prezzo (€)",
       "plusMinus": "Plus / minus (€)",
+      "regole": "Regole (valore della regola carnet, si legge)",
       "deliveryPrice": "Consegna prezzo (€)",
       "payableGroup": "Da pagare (valet)",
       "payable": "Da pagare",
@@ -2001,6 +2003,7 @@
     "distance": "Distanza",
     "price": "Prezzo",
     "additionalPrice": "Plus / minus",
+    "regoleImporto": "Regole",
     "productValue": "Valore prodotti",
     "deliveryPrice": "Prezzo consegna",
     "valetSalary": "Salario valet",

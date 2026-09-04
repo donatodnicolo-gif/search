@@ -525,6 +525,7 @@
       "description": "Address",
       "amount": "Amount",
       "net": "Net",
+      "regole": "Rules",
       "openDelivery": "Open the delivery in a new tab"
     },
     "noLines": "No billable deliveries in this invoice.",
@@ -1439,6 +1440,7 @@
       "billable": "To be billed",
       "price": "Price (€)",
       "plusMinus": "Plus / minus (€)",
+      "regole": "Rules (carnet rule value, read-only)",
       "deliveryPrice": "Delivery price (€)",
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
@@ -2001,6 +2003,7 @@
     "distance": "Distance",
     "price": "Price",
     "additionalPrice": "Plus / minus",
+    "regoleImporto": "Rules",
     "productValue": "Product value",
     "deliveryPrice": "Delivery price",
     "valetSalary": "Valet salary",
