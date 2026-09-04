@@ -1650,3 +1650,64 @@ tbody tr.riga-link:hover { background: var(--fill-hover); }
   color: var(--text-tertiary);
   letter-spacing: 0.01em;
 }
+
+/* ---------- Salute dell'ordine ---------- */
+/* Una parola sola che dice se la vendita vale: conforme, a rischio, non
+   pagato, cancellato, nullo (la regola sta in src/lib/salute.ts).
+   ⚠️ Non è la pipeline Deluxy né la lavorazione del Customer Service: per non
+   confonderle a vista, questa pillola ha il pallino pieno a sinistra e il
+   dettaglio in tono minore, una forma che nessun'altra pillola usa. */
+.badge-salute {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.badge-salute .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.badge-salute-dettaglio { color: var(--text-secondary); font-weight: 500; }
+/* Nelle card sta su una riga sua, come facevano i badge che ha sostituito */
+.card-ordine .badge-salute { margin-top: 6px; }
+td .badge-salute { margin-top: 0; }
+/* I due stati chiusi restano leggibili ma spenti: la partita è finita */
+.badge-salute.salute-cancellato,
+.badge-salute.salute-nullo { color: var(--text-secondary); }
+.badge-salute.salute-a_rischio { background: var(--red-soft); color: var(--red); }
+.badge-salute.salute-a_rischio .badge-salute-dettaglio { color: inherit; opacity: 0.85; }
+
+/* La striscia dei conteggi sotto i filtri: quanti ordini per salute, DENTRO il
+   filtro acceso. Ognuna accende o spegne il proprio filtro. */
+.riga-salute {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.chip-salute {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.chip-salute .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.chip-salute b { color: var(--text); font-variant-numeric: tabular-nums; }
+.chip-salute:hover { background: var(--fill); color: var(--text); }
+.chip-salute.attiva { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.chip-salute.attiva b { color: var(--on-ink); }
+/* Zero non si nasconde: dire «nessuno a rischio» è un'informazione, farlo
+   sparire lascerebbe il dubbio che non sia stato contato. */
+.chip-salute.vuota { opacity: 0.5; }

@@ -2,11 +2,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import {
   whereOrdini, euro, dataBreve, consegnaBreve, urgenzaConsegna,
-  evasioneLeggibile, pagamentoLeggibile, motivoLeggibile, coloreEvasione, STATI_PAGAMENTO,
-  rischioLeggibile, rischioDaSegnalare, coloreRischio,
+  evasioneLeggibile, pagamentoLeggibile, coloreEvasione, STATI_PAGAMENTO,
   problematico, motiviProblema, STATI_PROBLEMA,
 } from "@/lib/ordini";
 import { statiOrdinati } from "@/lib/stati";
+import { SALUTI_IN_ORDINE, ETICHETTE_SALUTE, saluteOrdine, whereSalute } from "@/lib/salute";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
@@ -24,6 +24,7 @@ import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
 import { RigaLink, SchedaLink } from "@/components/RigaLink";
 import { ChipsPeriodo } from "@/components/ChipsPeriodo";
+import { BadgeSalute } from "@/components/BadgeSalute";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,17 @@ export default async function ElencoOrdini({
   // Due viste: colonne per brand (predefinita) ed elenco in tabella.
   const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
-  const [stati, brand, etichette, anni, totale, somma, problemiAperti, arrivatiOra, ordini] = await Promise.all([
+  // Quanti ordini per SALUTE, DENTRO il filtro acceso: è la fotografia del
+  // taglio che si sta guardando, non una statistica generale. Si conta sul
+  // database e non sulle righe estratte, perché l'elenco è paginato: contare
+  // le 50 righe a schermo darebbe la salute della pagina, non del filtro.
+  const contaSalute = Promise.all(
+    SALUTI_IN_ORDINE.map((s) =>
+      prisma.ordine.count({ where: { AND: [where, whereSalute(s)] } }).then((n) => ({ salute: s, n })),
+    ),
+  );
+
+  const [stati, brand, etichette, anni, totale, somma, problemiAperti, arrivatiOra, ordini, saluti] = await Promise.all([
     statiOrdinati(),
     brandConColore(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
@@ -100,6 +111,7 @@ export default async function ElencoOrdini({
           take: PER_PAGINA,
         })
       : Promise.resolve([]),
+    contaSalute,
   ]);
 
   // Vista a colonne: per ogni brand, i suoi ordini più recenti (con gli stessi
@@ -272,7 +284,7 @@ export default async function ElencoOrdini({
         <ZonaFiltri
           attivi={
             [
-              sp.brand, sp.anno, sp.stato, sp.categoria, sp.shopify, sp.problema,
+              sp.brand, sp.anno, sp.stato, sp.salute, sp.categoria, sp.shopify, sp.problema,
               sp.rischio, sp.urgenza, sp.estero, sp.pagamento, sp.app, sp.etichetta,
             ].filter(Boolean).length
           }
@@ -296,6 +308,15 @@ export default async function ElencoOrdini({
           <option value="">Tutti gli stati</option>
           {stati.map((s) => (
             <option key={s.id} value={s.chiave}>{s.nome}</option>
+          ))}
+        </select>
+        {/* SALUTE dell'ordine: la lettura di Orders in una parola. Sta subito
+            dopo la pipeline perché sono la stessa domanda vista da due lati —
+            «a che punto è» e «vale» — e chi filtra per una spesso vuole l'altra. */}
+        <select name="salute" defaultValue={sp.salute ?? ""}>
+          <option value="">Ogni salute</option>
+          {SALUTI_IN_ORDINE.map((s) => (
+            <option key={s} value={s}>{ETICHETTE_SALUTE[s].nome}</option>
           ))}
         </select>
         <select name="categoria" defaultValue={sp.categoria ?? ""}>
@@ -361,6 +382,33 @@ export default async function ElencoOrdini({
         <Link className="btn btn-secondario small" href="/">Azzera</Link>
       </form>
 
+      {/* LA SALUTE DEL FILTRO — i cinque valori con quanti ordini ci sono
+          dentro, ognuno cliccabile. Sono conteggi sul DATABASE e non sulle 50
+          righe della pagina: contare le righe a schermo darebbe la salute
+          della pagina, che non vuol dire niente.
+          Le voci a zero restano visibili e spente: «zero a rischio» è
+          un'informazione, farle sparire lascerebbe il dubbio che non siano
+          state contate. */}
+      <div className="riga-salute" role="group" aria-label="Salute degli ordini nel filtro">
+        {saluti.map(({ salute: s, n }) => {
+          const attiva = sp.salute === s;
+          const e = ETICHETTE_SALUTE[s];
+          return (
+            <Link
+              key={s}
+              className={`chip-salute${attiva ? " attiva" : ""}${n === 0 ? " vuota" : ""}`}
+              href={conFiltro({ salute: attiva ? "" : s, page: "" })}
+              title={`${e.spiega}${attiva ? " — clicca per togliere il filtro" : ""}`}
+              aria-pressed={attiva}
+            >
+              <span className="dot" style={{ background: e.colore }} aria-hidden="true" />
+              {e.nome}
+              <b>{n.toLocaleString("it-IT")}</b>
+            </Link>
+          );
+        })}
+      </div>
+
       {/* ---------- Vista a colonne per brand ---------- */}
       {vista === "brand" &&
         (nessunNegozio ? (
@@ -403,18 +451,14 @@ export default async function ElencoOrdini({
                           {o.problemaGestito ? "✓ Rimborso parziale verificato" : "⚠ Rimborso parziale"}
                         </div>
                       )}
-                      {/* Rischio frode: solo medio/alto, altrimenti è rumore */}
-                      {rischioDaSegnalare(o.rischioLivello) && !o.annullatoIl && (
-                        <div className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }}>
-                          ⚠ {rischioLeggibile(o.rischioLivello)}
-                        </div>
-                      )}
-                      {/* Annullato: va detto subito, non si deduce dal pagamento */}
-                      {o.annullatoIl ? (
-                        <div className="badge-annullato">
-                          Annullato{motivoLeggibile(o.motivoAnnullamento) ? ` · ${motivoLeggibile(o.motivoAnnullamento)}` : ""}
-                        </div>
-                      ) : (
+                      {/* LA SALUTE in una pillola sola: prende il posto dei due
+                          badge separati «rischio» e «annullato», che dicevano
+                          la stessa cosa con due vocabolari diversi e non
+                          dicevano niente degli ordini non pagati. Il motivo
+                          resta scritto dentro la pillola («Cancellato ·
+                          magazzino»), quindi non si perde nulla. */}
+                      <BadgeSalute ordine={o} />
+                      {o.annullatoIl ? null : (
                         <div className="riga-stati">
                           <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
                             {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
@@ -530,6 +574,15 @@ export default async function ElencoOrdini({
                   {ord.th("totale", "Totale", true)}
                   {ord.th("evasione", "Evasione")}
                   {ord.th("pagamento", "Pagamento")}
+                  {/* ⚠️ «Salute» NON ordina, di proposito: non è una colonna del
+                      database (la calcola `saluteOrdine` sulle righe già
+                      estratte), quindi un ordinamento varrebbe solo dentro la
+                      pagina che si sta guardando — una tabella che mente. Per
+                      vedere una salute sola c'è il filtro, che invece chiede
+                      al database tutto l'archivio. */}
+                  <th title="Conforme, a rischio, non pagato, cancellato o nullo. Non si ordina: si filtra.">
+                    Salute
+                  </th>
                   {ord.th("stato", "Stato")}
                   <th>Destinazione</th>
                   <th>Etichette</th>
@@ -551,11 +604,8 @@ export default async function ElencoOrdini({
                         <SegnoCanale ordine={o} />
                       </Link>
                       <PillNuovo arrivato={o.createdAt} da={daQuandoSeiQui} />
-                      {rischioDaSegnalare(o.rischioLivello) && (
-                        <span className="badge-rischio" style={{ color: coloreRischio(o.rischioLivello) }} title={o.rischioMotivi ?? ""}>
-                          ⚠ {rischioLeggibile(o.rischioLivello)}
-                        </span>
-                      )}
+                      {/* Il rischio non si ripete qui: sta nella colonna Salute,
+                          col livello e i motivi di Shopify nel tooltip. */}
                       {problematico(o) && (
                         <span
                           className={`badge-problema${o.problemaGestito ? " gestito" : ""}`}
@@ -595,20 +645,24 @@ export default async function ElencoOrdini({
                         </div>
                       )}
                     </td>
+                    {/* Evasione: adesso la dice SEMPRE, anche sugli annullati.
+                        Prima al loro posto compariva «Annullato · motivo», che
+                        è la stessa cosa che dice la colonna Salute qui accanto
+                        — e nel frattempo nascondeva se la merce fosse partita
+                        o no, che sugli annullati è proprio la domanda. */}
                     <td>
-                      {o.annullatoIl ? (
-                        <span className="badge-annullato">
-                          Annullato{motivoLeggibile(o.motivoAnnullamento) ? ` · ${motivoLeggibile(o.motivoAnnullamento)}` : ""}
-                        </span>
-                      ) : (
-                        <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
-                          {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
-                        </span>
-                      )}
+                      <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
+                        {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
+                      </span>
                     </td>
                     <td>
                       <span className="badge neutro">{o.categoriaPagamento}</span>
                       <div className="cella-sub">{pagamentoLeggibile(o.financialStatus) ?? ""}</div>
+                    </td>
+                    {/* La salute c'è su OGNI riga, anche quando è «Conforme»:
+                        una cella vuota si legge come «non lo sappiamo». */}
+                    <td>
+                      <BadgeSalute ordine={o} mostraConforme />
                     </td>
                     <td>
                       <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />

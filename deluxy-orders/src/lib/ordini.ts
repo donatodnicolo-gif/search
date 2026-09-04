@@ -7,6 +7,7 @@ import { daLontano, variantiCitta } from "./luoghi";
 import { giorniDiAnticipo } from "./urgenza";
 import { etichettaLavorazioneCs } from "./customer-service";
 import { margineOrdine } from "./controllo";
+import { saluteOrdine, saluteValida, whereSalute } from "./salute";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -116,6 +117,16 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const rischio = p.get("rischio")?.trim();
   if (rischio === "sospetti") where.rischioLivello = { in: ["MEDIUM", "HIGH"] };
   else if (rischio) where.rischioLivello = rischio;
+
+  // SALUTE dell'ordine (conforme | a rischio | non pagato | cancellato |
+  // nullo): la regola è scritta una volta sola in `salute.ts`, qui si applica.
+  // ⚠️ Va in `AND` e NON su `where.annullatoIl`/`where.financialStatus`: quei
+  // due campi li usano già i filtri `shopify`, `pagamento` e `problema` qui
+  // sopra, e scriverli una seconda volta ne cancellerebbe uno in silenzio —
+  // l'elenco mostrerebbe un risultato diverso da quello che dicono i filtri
+  // accesi, che è il modo più veloce di perdere fiducia in una tabella.
+  const salute = p.get("salute")?.trim();
+  if (saluteValida(salute)) and.push(whereSalute(salute));
 
   // Da dove è arrivato l'ordine. `canale=sconosciuto` chiede proprio quelli su
   // cui Shopify non sa dire niente: sono una coda di lavoro per il marketing,
@@ -271,6 +282,12 @@ export function serializzaOrdine(
     data: o.data.toISOString(),
     totale: o.totale,
     valuta: o.valuta,
+    // La SALUTE dell'ordine in una parola: conforme | a_rischio | non_pagato |
+    // cancellato | nullo (regola in `salute.ts`). Sta in cima e non dentro
+    // `shopify` perché non è un campo di Shopify: è la lettura che ne dà
+    // Orders, ed è quella che le altre app devono usare invece di rifarsi i
+    // conti su `financialStatus` e `annullatoIl` ognuna a modo suo.
+    salute: saluteOrdine(o),
     shopify: {
       financialStatus: o.financialStatus,
       fulfillmentStatus: o.fulfillmentStatus,

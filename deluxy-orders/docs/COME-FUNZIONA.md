@@ -1348,7 +1348,107 @@ dato che su un ordine di tre anni fa non cambia niente. Gli ordini storici
 importati prima di questa funzione restano senza valutazione; se un ordine
 viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 
+## La SALUTE dell'ordine (04/09/2026)
+Una parola sola che dice **se la vendita vale**, su ogni ordine del registro.
+Nasce da una regola dell'utente e sostituisce il mestiere di leggere tre campi
+Shopify a mano (annullamento, motivo, pagamento) e tirarne le somme ognuno a
+modo suo.
+
+| Salute | Vuol dire | Quanti (04/09) |
+|---|---|---|
+| **Conforme** | Pagato e senza rischio. Che sia già evaso o ancora in attesa di evasione non cambia nulla. | 13.818 · 94,9% |
+| **A rischio** | Shopify segnala un rischio di frode medio o alto: va guardato a mano. | 124 · 0,9% |
+| **Non pagato** | Il denaro non è ancora arrivato — tipicamente un bonifico in attesa. | 61 · 0,4% |
+| **Cancellato** | Annullato o rimborsato per una **nostra** decisione: fornitore non trovato, merce assente, pagamento rifiutato. | 39 · 0,3% |
+| **Nullo** | Annullato o rimborsato **su richiesta del cliente** (ha sbagliato a ordinare). | 521 · 3,6% |
+
+**Dove si vede**: una pillola nella colonna «Salute» dell'elenco (su *ogni*
+riga, «Conforme» compreso: una cella vuota si leggerebbe come «non lo
+sappiamo»), sulle card della vista per brand (lì solo quando c'è qualcosa da
+sapere, per non ripetere «Conforme» su 95 righe su 100), in cima alla scheda
+del singolo ordine, e nella **striscia dei conteggi** sotto i filtri — cinque
+pillole cliccabili che dicono quanti ordini per salute ci sono **dentro il
+filtro acceso**. Si filtra anche dal menu «Ogni salute».
+
+La pillola non dice solo il verdetto, dice il **perché**: «Cancellato ·
+magazzino», «A rischio · rischio alto» (coi motivi di Shopify nel tooltip),
+«Non pagato · in attesa».
+
+### Come si decide (l'ordine conta)
+Le regole si applicano in quest'ordine e la prima che vale vince. Prima si
+chiude la partita (annullato o rimborsato: il denaro è tornato, il resto non
+serve più), poi si guarda il rischio, e solo alla fine il pagamento.
+
+1. **Nullo** — annullato con motivo `CUSTOMER` («a richiesta del cliente», è
+   Shopify a chiamarlo così), **oppure** rimborsato senza che l'ordine sia
+   stato annullato.
+2. **Cancellato** — annullato per qualunque altro motivo (`STAFF`,
+   `INVENTORY`, `DECLINED`, `FRAUD`, `OTHER`).
+3. **A rischio** — raccomandazione `INVESTIGATE`/`CANCEL` **o** livello
+   `MEDIUM`/`HIGH`. Si guardano tutte e due le colonne perché Shopify può
+   aggiornare il verdetto senza toccare il livello.
+4. **Conforme** — pagamento `PAID` o `PARTIALLY_REFUNDED`.
+5. **Non pagato** — tutto il resto: `PENDING`, `PARTIALLY_PAID`, `VOIDED` senza
+   annullamento, e qualunque codice nuovo che Shopify dovesse introdurre.
+
+⚠️ **Perché «conforme» è scritta in positivo e «non pagato» è il ripiego**: per
+essere dichiarato sano un ordine deve avere un pagamento che riconosciamo, non
+semplicemente non avere nulla che non va. Se domani Shopify inventa uno stato
+che non conosciamo, quell'ordine finisce in una coda di lavoro invece di essere
+dichiarato a posto.
+
+⚠️ **`annullatoIl: null` nel secondo ramo della regola 1 non è un dettaglio**:
+senza, i 22 ordini annullati dal magazzino o dallo staff *e poi* rimborsati
+risulterebbero «nulli» — cioè colpa del cliente, quando la decisione è stata
+nostra.
+
+### Le due decisioni dell'utente, e cosa non sappiamo
+- **I 171 rimborsi senza motivo → «nulli»** (deciso il 04/09/2026). Su quegli
+  ordini Shopify **non registra nessun motivo**: non si sa se il rimborso l'ha
+  chiesto il cliente o l'abbiamo deciso noi. È una scelta, non un dato. Si può
+  smettere di indovinare: Shopify espone la **nota del rimborso** e **chi l'ha
+  emesso**, e la sync oggi **non legge affatto i rimborsi**.
+- **I 93 rimborsi parziali → «conformi»** (deciso il 04/09/2026). L'ordine è
+  avvenuto ed è stato pagato; il rimborso parziale è un'altra dimensione e ha
+  già la sua coda (`problema=aperti`).
+
+### Tre cose da sapere prima di toccarla
+1. **Non è una colonna del database.** Si calcola dai campi che Orders già
+   possiede. Nessuna copia da tenere allineata, nessun backfill: cambia da sola
+   quando cambia il dato.
+2. **Non è la pipeline né lo stato del Customer Service.** Sono tre tassonomie
+   diverse sullo stesso record: la pipeline (`StatoOrdine`) dice *a che punto*
+   siamo, il CS (`csGestione`) dice *chi ci sta lavorando*, la salute dice *se
+   la vendita vale*. Per questo si chiama «salute» e non «stato».
+3. **La colonna «Salute» non si ordina, di proposito.** Non essendo una colonna
+   del database, l'ordinamento varrebbe solo dentro la pagina che si sta
+   guardando — una tabella che mente. Per vedere una salute sola c'è il filtro,
+   che chiede al database tutto l'archivio.
+
+### Dove sta scritta, e come si controlla
+La regola è in **`src/lib/salute.ts`**, in un posto solo. Lì ogni regola porta
+insieme il suo test in memoria (`vale`, per la pillola sulla riga già estratta)
+e il suo filtro Prisma (`dove`, per il filtro dell'elenco, che è paginato e
+deve chiedere al database): sono due linguaggi per la stessa frase, e tenerli
+attaccati è l'unico modo perché non divergano.
+
+```
+npm run verifica:salute
+```
+
+conta tutto il registro in tutti e due i modi e confronta **ordine per ordine**,
+non solo i totali (due errori opposti si compenserebbero nei conteggi). Al
+04/09/2026: **14.563 su 14.563 coincidono**, nessun ordine esce da due filtri,
+nessuno resta fuori da tutti. Da rilanciare ogni volta che si tocca una regola.
+
+Le altre app la leggono dal campo `salute` di `GET /api/v1/ordini` — sta in
+cima e non dentro `shopify` perché non è un campo di Shopify: è la lettura che
+ne dà Orders, ed è quella da usare invece di rifarsi i conti su
+`financialStatus` e `annullatoIl` ognuna a modo suo.
+
 ## Classificazione «a piacimento»
+- **Salute** (calcolata, non si modifica): se la vendita vale — conforme, a
+  rischio, non pagato, cancellato, nullo. Vedi la sezione qui sopra.
 - **Stato/pipeline**: dove si trova l'ordine nel flusso.
 - **Etichette libere**: raggruppamenti trasversali (urgente, VIP, reso…).
 - **Categorie**: pagamento (dedotta e correggibile), tipo consegna, tipo

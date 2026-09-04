@@ -13,6 +13,7 @@
     "sync": "node scripts/sync-ordini.mjs",
     "import:storico": "tsx scripts/import-storico.ts",
     "verifica:totali": "tsx scripts/verifica-totali.ts",
+    "verifica:salute": "tsx scripts/verifica-salute.ts",
     "negozi:da-finance": "node scripts/importa-negozi-da-finance.mjs",
     "importa:provenienza": "tsx scripts/importa-provenienza.ts",
     "importa:mittente": "tsx scripts/importa-mittente.ts",

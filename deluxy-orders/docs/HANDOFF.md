@@ -13,6 +13,93 @@ già pagate** — quelle valgono più dell'elenco delle funzioni.
 > 1 `clientId`) → lo scope copre anche Orders. La sua `/incassa` può creare il
 > link di pagamento. Ignorare le righe più sotto che lo danno per mancante.
 
+## 04/09/2026 (sera) — LA SALUTE DELL'ORDINE: una parola su tutti e 14.563
+
+Richiesta dell'utente: «assegna uno stato a tutti gli ordini» — conforme, a
+rischio, non pagato, cancellati, nulli. Fatta, **in locale**, non pubblicata.
+
+**Contato PRIMA di scrivere una riga** (è il motivo per cui la regola tiene):
+
+| Salute | Ordini | % |
+|---|---|---|
+| Conforme | 13.818 | 94,9% |
+| Nullo | 521 | 3,6% |
+| A rischio | 124 | 0,9% |
+| Non pagato | 61 | 0,4% |
+| Cancellato | 39 | 0,3% |
+
+**Dove si vede**: colonna «Salute» nell'elenco (su ogni riga), pillola sulle
+card della vista per brand (solo quando non è conforme), pillola in cima alla
+scheda dell'ordine, **striscia di cinque conteggi cliccabili** sotto i filtri
+(contano dentro il filtro acceso), menu «Ogni salute», e campo `salute` nelle
+API `/api/v1/ordini`. La pillola dice anche il perché: «Cancellato · magazzino»,
+«A rischio · rischio alto».
+
+### Le due cose che il dato NON dice, e cosa ha deciso l'utente
+1. **171 ordini rimborsati senza essere annullati**: Shopify non registra
+   nessun motivo, quindi **non si sa chi abbia chiesto il rimborso** — il
+   cliente (nullo) o noi (cancellato). Decisione dell'utente del 04/09:
+   **nulli**. È una scelta, non un dato, e nel codice è scritto così.
+   🔴 **Si può smettere di indovinare**: Shopify espone la **nota del rimborso**
+   e **chi l'ha emesso**, e la sync oggi **non legge i rimborsi affatto**
+   (`src/lib/shopify.ts` chiede `cancelReason` ma niente `refunds`). Aggiungere
+   il campo + backfill sui 171 è il modo di fondare quella riga su un dato.
+2. **93 rimborsi parziali**: decisione dell'utente, **conformi** — l'ordine è
+   avvenuto ed è stato pagato, il rimborso parziale ha già la sua coda
+   (`problema=aperti`).
+
+### Le trappole schivate (e come)
+- ⚠️ **La regola scritta in due posti che divergono.** La pillola sulla riga la
+  calcola in memoria, il filtro dell'elenco — che è **paginato** — la deve
+  chiedere al database: due scritture della stessa frase. In `salute.ts` ogni
+  regola porta insieme il suo `vale` (memoria) e il suo `dove` (Prisma), e
+  `whereSalute` costruisce il filtro dalla stessa lista («la mia condizione, E
+  nessuna di quelle che vengono prima»), così la precedenza è scritta una volta
+  sola. **`npm run verifica:salute`** conta il registro in tutti e due i modi e
+  confronta **ordine per ordine**, non i totali: al 04/09 **14.563 su 14.563
+  coincidono**, nessuno esce da due filtri, nessuno resta fuori da tutti.
+- ⚠️ **Il filtro che ne cancella un altro in silenzio.** `whereOrdini` scriveva
+  già `where.annullatoIl` e `where.financialStatus` per i filtri `shopify`,
+  `pagamento` e `problema`. Se la salute li avesse riscritti, accendere due
+  filtri insieme avrebbe dato un elenco diverso da quello che dicono i menu.
+  Va in `AND`. **Verificato dal vivo**: `?salute=nullo&shopify=validi` dà 171 —
+  esattamente il gruppo dei rimborsi senza annullamento — e la zona filtri dice
+  «Filtri (2)».
+- ⚠️ **La colonna che finge di ordinare.** «Salute» non è una colonna del
+  database: l'intestazione **non ordina** (stessa regola del 31/08 sul margine
+  di /controllo). Per vedere una salute sola c'è il filtro, che chiede
+  al database tutto l'archivio.
+- ⚠️ **`annullatoIl: null` nel ramo dei rimborsi**: senza, i 22 ordini annullati
+  da magazzino/staff *e poi* rimborsati diventavano «nulli», cioè colpa del
+  cliente quando la decisione era nostra.
+- ⚠️ **Le classi CSS senza regole** (trappola già pagata in questo repo): gli
+  stili di `.badge-salute`, `.riga-salute` e `.chip-salute` sono in
+  `globals.css` e usano solo token esistenti di `tokens.css` (verificati uno
+  per uno).
+
+### Cosa è stato tolto, e perché non si è perso niente
+Nell'elenco il badge «rischio» e il badge «Annullato · motivo» **non si
+ripetono più**: dicevano la stessa cosa della colonna Salute con due vocabolari
+diversi, e nessuno dei due diceva niente degli ordini **non pagati**. Il motivo
+resta scritto dentro la pillola, i motivi del rischio nel tooltip. In più la
+colonna **Evasione ora parla anche sugli annullati**: prima al suo posto
+compariva «Annullato», e nel frattempo nascondeva se la merce fosse partita o
+no — che su un ordine annullato è proprio la domanda.
+
+### File
+`src/lib/salute.ts` (la regola, in un posto solo) · `src/components/BadgeSalute.tsx`
+· `scripts/verifica-salute.ts` + `npm run verifica:salute` · `src/lib/ordini.ts`
+(filtro `salute=` e campo `salute` nelle API) · `src/app/page.tsx` ·
+`src/app/ordini/[id]/page.tsx` · `src/app/globals.css`.
+
+**Verificato**: `tsc --noEmit` pulito, `next build` completa, `verifica:salute`
+14.563/14.563, e dal vivo su `localhost:3150` (conteggi 13.818/124/61/39/521,
+filtro «a rischio» → 124 righe tutte «A rischio», «cancellato» → 39 con il
+motivo, combinazione con `shopify=validi` → 171).
+
+🔴 **Non pubblicato**: commit locale, in attesa dell'ok dell'utente per push e
+deploy.
+
 ## 04/09/2026 — Fotografia: l'app è LIVE al 31/08, e questo documento era indietro di tre giornate
 
 Ripreso in mano il 04/09 («leggi l'handoff e aggiorna la memoria»). L'handoff si
