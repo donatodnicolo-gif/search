@@ -24,6 +24,7 @@
 //    stesso prodotto si uniscono a mano in /prodotti/riconcilia.
 
 import { prisma } from "./db";
+import { aliasGraphql, chiaveDef, definizioniDelNegozio, valoriDaRisposta, type DefinizioneMetafield } from "./metafield-definizioni";
 import { VERSIONE_API } from "./negozi";
 import { riapplicaStandingPerNegozio } from "./ordinamento-vetrina";
 
@@ -272,7 +273,81 @@ type ProdottoShopifyApi = {
   nonFisico: { value: string } | null;
   partnerId: { value: string } | null;
   partnerIndirizzo: { value: string } | null;
+  /** Tutti i metafield letti dalle definizioni del negozio: `{ "custom.x": valore grezzo }`. */
+  mf?: Record<string, string>;
 };
+
+// I metafield che le colonne tipizzate leggono da sempre, con la chiave
+// `namespace.key` corrispondente: servono a ricostruire gli alias storici da
+// una lettura dinamica, e a leggerli anche quando il negozio non ha una
+// definizione (is_unique, partner_id… sono metafield senza definizione).
+const ALIAS_STORICI: Record<string, string> = {
+  consegna: "prodotto.consegna",
+  zone: "custom.nations_availability",
+  citta: "custom.citta",
+  occasioni: "custom.occasioni",
+  tipologiaMeta: "custom.tipologia",
+  classificazione: "custom.classificazione",
+  dataMeta: "custom.data",
+  orario: "custom.orario_consegna",
+  bestSeller: "custom.best_seller",
+  minimoOrario: "custom.minimo_orario",
+  modello: "custom.modello",
+  modelli: "custom.modelli",
+  fiori: "custom.fiori",
+  coloreFiori: "custom.colore_fiori",
+  gusti: "custom.gusti",
+  dolci: "custom.dolci",
+  daChiFatto: "custom.da_chi_fatto",
+  claim: "custom.descrizione_cattura_vendite",
+  pezzoUnico: "custom.is_unique",
+  nonFisico: "custom.not_physical",
+  partnerId: "custom.partner_id",
+  partnerIndirizzo: "custom.partner_address",
+};
+
+/** Dall'oggetto `{ "custom.x": valore }` ai campi alias che il resto del modulo legge. */
+export function nodoDaMf(mf: Record<string, string>): Record<string, { value: string } | null> {
+  const fuori: Record<string, { value: string } | null> = {};
+  for (const [alias, chiave] of Object.entries(ALIAS_STORICI)) {
+    const v = mf[chiave];
+    fuori[alias] = v != null && v !== "" ? { value: v } : null;
+  }
+  return fuori;
+}
+
+/**
+ * Le definizioni estese con le chiavi storiche che il negozio non definisce:
+ * così la lettura dinamica non perde niente di quello che si leggeva prima.
+ */
+function definizioniEstese(defs: DefinizioneMetafield[]): DefinizioneMetafield[] {
+  const presenti = new Set(defs.map(chiaveDef));
+  const extra: DefinizioneMetafield[] = [];
+  for (const chiave of Object.values(ALIAS_STORICI)) {
+    if (presenti.has(chiave)) continue;
+    const [namespace, key] = chiave.split(".");
+    extra.push({ namespace, key, nome: key, descrizione: null, tipo: "single_line_text_field", scelte: null, min: null, max: null, posizione: null });
+    presenti.add(chiave);
+  }
+  return [...defs, ...extra];
+}
+
+/**
+ * Le colonne tipizzate del prodotto ricavate dai valori dei metafield (quello
+ * che il modulo prodotto compila): le stesse che l'import scrive, così
+ * condizioni e lenti vedono un prodotto nato qui come uno importato.
+ */
+export function colonneDaMetafield(mf: Record<string, string>) {
+  const p = nodoDaMf(mf) as unknown as ProdottoShopifyApi;
+  const ggRaw = p.consegna?.value?.trim();
+  const gg = ggRaw ? Number.parseInt(ggRaw, 10) : NaN;
+  return {
+    ...metafieldDa(p),
+    zoneConsegna: zoneDa(p.zone?.value),
+    cittaShopify: cittaDa(p.citta?.value),
+    ggDispMin: Number.isFinite(gg) ? gg : null,
+  };
+}
 
 /**
  * Le zone di consegna dal metafield, **una per una**.
@@ -365,13 +440,40 @@ export function cittaDa(valore: string | null | undefined): string | null {
 // punti mandando in throttling proprio il negozio più grande. Un alias costa
 // quasi niente — e in più tiene la lista **dichiarata qui**, invece che
 // implicita in quello che il negozio si trova ad avere.
-async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
+async function leggiProdotti(n: Negozio, defs: DefinizioneMetafield[] = []): Promise<ProdottoShopifyApi[]> {
   const fuori: ProdottoShopifyApi[] = [];
   let cursore: string | null = null;
-  for (let pagina = 0; pagina < 400; pagina++) {
+  // **Lettura dinamica dei metafield** (04/09/2026): con le definizioni del
+  // negozio si chiede un alias per ciascuna (più le chiavi storiche senza
+  // definizione) e si salva tutto in `mf`; i campi alias storici si
+  // ricostruiscono da lì, così `metafieldDa` e il resto non cambiano. Ogni
+  // alias costa un punto per prodotto: con ~35 alias si scende a 20 (o 15)
+  // prodotti per pagina per restare sotto il tetto di 1.000 punti a chiamata.
+  // Senza definizioni (negozio che non risponde) resta la lista fissa di prima.
+  const estese = defs.length ? definizioniEstese(defs) : [];
+  const perPagina = estese.length ? (estese.length > 30 ? 15 : 20) : 25;
+  for (let pagina = 0; pagina < 600; pagina++) {
     const dati: {
       products: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: ProdottoShopifyApi[] };
-    } = await graphql(
+    } = estese.length
+      ? await graphql(
+          n,
+          `query($cursore: String) {
+             products(first: ${perPagina}, after: $cursore) {
+               pageInfo { hasNextPage endCursor }
+               nodes {
+                 id title handle productType vendor tags status descriptionHtml createdAt publishedAt
+                 category { id name fullName }
+                 seo { title description }
+                 featuredImage { url }
+                 variants(first: 10) { nodes { sku title price } }
+                 ${aliasGraphql(estese)}
+               }
+             }
+           }`,
+          { cursore }
+        )
+      : await graphql(
       n,
       `query($cursore: String) {
          products(first: 25, after: $cursore) {
@@ -409,6 +511,13 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
        }`,
       { cursore }
     );
+    if (estese.length) {
+      for (const nodo of dati.products.nodes) {
+        const mf = valoriDaRisposta(nodo as unknown as Record<string, unknown>, estese);
+        Object.assign(nodo, nodoDaMf(mf), { mf });
+        estese.forEach((_, i) => delete (nodo as unknown as Record<string, unknown>)[`mf_${i}`]);
+      }
+    }
     fuori.push(...dati.products.nodes);
     if (!dati.products.pageInfo.hasNextPage) break;
     cursore = dati.products.pageInfo.endCursor;
@@ -588,6 +697,7 @@ async function creaProdottiMancanti(
           descrizione: descrizioneDa(p.descriptionHtml) ?? null,
           seoTitoloShopify: p.seo?.title ?? null,
           seoDescrizioneShopify: p.seo?.description ?? null,
+          metafieldShopify: p.mf,
           tipoShopify: p.productType?.trim() || null,
           categoriaShopifyId: p.category?.id ?? null,
           categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
@@ -658,7 +768,7 @@ async function creaProdottiMancanti(
  * scrive niente**: serve a guardare il conto prima di toccare dati veri.
  */
 export async function anteprimaAbbinamento(n: Negozio) {
-  const prodottiShopify = await leggiProdotti(n);
+  const prodottiShopify = await leggiProdotti(n, await definizioniDelNegozio(n));
   const ix = await costruisciIndici();
   const orfani = prodottiShopify.filter((p) => !abbina(p, ix));
   return {
@@ -686,7 +796,7 @@ export async function anteprimaAbbinamento(n: Negozio) {
 export async function allineaProdottiAlNegozio(
   n: Negozio,
 ): Promise<{ negozio: string; letti: number; aggiornati: number; senzaScheda: number }> {
-  const prodottiShopify = await leggiProdotti(n);
+  const prodottiShopify = await leggiProdotti(n, await definizioniDelNegozio(n));
   const ix = await costruisciIndici();
   // Stesso vincolo dell'import: **un prodotto del negozio ↔ una scheda**, e la
   // chiave più forte vince. Senza, gli otto «Sacher» si riscriverebbero a
@@ -736,6 +846,7 @@ export async function allineaProdottiAlNegozio(
             prezzoVendita: prezzoDa(p) ?? undefined,
             seoTitoloShopify: p.seo?.title ?? null,
             seoDescrizioneShopify: p.seo?.description ?? null,
+          metafieldShopify: p.mf,
           },
         });
       }),
@@ -760,7 +871,10 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
   try {
     const osId = await trovaOnlineStore(n);
-    const [collezioni, prodottiShopify] = await Promise.all([leggiCollezioni(n, osId), leggiProdotti(n)]);
+    // Le definizioni dei metafield si rileggono a ogni import: sono il
+    // vocabolario del modulo prodotto e gli alias della lettura qui sotto.
+    const defs = await definizioniDelNegozio(n, { forza: true });
+    const [collezioni, prodottiShopify] = await Promise.all([leggiCollezioni(n, osId), leggiProdotti(n, defs)]);
     base.collezioniLette = collezioni.length;
     base.prodottiLetti = prodottiShopify.length;
 
@@ -849,7 +963,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
     // — Quello che Shopify sa del prodotto —
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; zoneConsegna: string | null; cittaShopify: string | null; pubblicatoIlShopify: Date | null; creatoIlShopify: Date | null; occasioniShopify: string | null; tipologiaShopify: string | null; classificazioneShopify: string | null; dataShopify: string | null; orarioShopify: string | null; bestSellerShopify: boolean | null; minimoOrario: number | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; zoneConsegna: string | null; cittaShopify: string | null; pubblicatoIlShopify: Date | null; creatoIlShopify: Date | null; occasioniShopify: string | null; tipologiaShopify: string | null; classificazioneShopify: string | null; dataShopify: string | null; orarioShopify: string | null; bestSellerShopify: boolean | null; minimoOrario: number | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null; metafieldShopify: Record<string, string> | undefined }[] = [];
     for (const p of prodottiShopify) {
       const nostroId = risolto.get(p.id);
       if (!nostroId) continue;
@@ -899,6 +1013,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         // seoDescrizione) sta in campi separati e non si tocca mai.
         seoTitoloShopify: p.seo?.title ?? null,
         seoDescrizioneShopify: p.seo?.description ?? null,
+        metafieldShopify: p.mf,
       });
     }
 
@@ -998,6 +1113,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               prezzoVendita: d.prezzoVendita,
               seoTitoloShopify: d.seoTitoloShopify,
               seoDescrizioneShopify: d.seoDescrizioneShopify,
+              metafieldShopify: d.metafieldShopify,
             },
           })
         )

@@ -79,7 +79,10 @@ export type ProdottoNuovo = {
   giacenza: string;
   nomeOpzione: string; // es. "Formato"
   varianti: VarianteNuova[];
-  metafield: { chiave: string; valore: string }[]; // namespace "deluxy"
+  // I metafield: quelli del modulo «Nuovo su Shopify» sono testo nel namespace
+  // "deluxy"; quelli del modulo prodotto arrivano dalle definizioni del negozio
+  // con namespace e tipo propri (list.single_line_text_field, boolean…).
+  metafield: { chiave: string; valore: string; namespace?: string; tipo?: string }[];
 };
 
 export type EsitoCreazione = {
@@ -115,9 +118,9 @@ export async function creaProdottoSuShopify(
   };
   if (p.metafield.length > 0) {
     input.metafields = p.metafield.map((m) => ({
-      namespace: "deluxy",
+      namespace: m.namespace ?? "deluxy",
       key: m.chiave,
-      type: "single_line_text_field",
+      type: m.tipo ?? "single_line_text_field",
       value: m.valore,
     }));
   }
@@ -267,4 +270,129 @@ export async function creaProdottoSuShopify(
   }
 
   return { ok: errori.length === 0, prodottoId, handle, errori, passi };
+}
+
+// ---------- Aggiornare un prodotto già sul negozio ----------
+
+export type AggiornamentoProdotto = {
+  shopifyId: string;
+  titolo?: string;
+  descrizioneHtml?: string;
+  stato?: "ACTIVE" | "DRAFT";
+  /** I tag: l'elenco completo, sostituisce quello del negozio. */
+  tags?: string[];
+  metafield?: { namespace: string; key: string; type: string; value: string }[];
+  /** Le varianti del modulo: quelle con uno SKU già sul negozio si aggiornano, le altre si creano (se il prodotto ha già un'opzione). */
+  varianti?: { sku: string; nome: string; prezzo: string; giacenza?: string }[];
+  nomeOpzione?: string;
+  /** Prezzo della variante unica, quando il prodotto non ha varianti. */
+  prezzo?: string;
+  sku?: string;
+};
+
+/**
+ * Aggiorna un prodotto esistente (04/09/2026: «ogni prodotto si modifica con
+ * lo stesso modulo»). Un passo per volta e ognuno riporta il suo esito:
+ * `productUpdate` per titolo, descrizione, stato e metafield; poi le varianti
+ * per SKU — quelle che il negozio ha già si aggiornano, quelle nuove si
+ * creano solo se il prodotto ha già un'opzione (aggiungere la prima opzione a
+ * un prodotto «senza varianti» è un'altra operazione, e si dice).
+ */
+export async function aggiornaProdottoSuShopify(
+  negozio: { dominio: string; token: string },
+  a: AggiornamentoProdotto
+): Promise<{ ok: boolean; errori: ErroreShopify[]; passi: string[] }> {
+  const passi: string[] = [];
+  const errori: ErroreShopify[] = [];
+
+  const input: Record<string, unknown> = { id: a.shopifyId };
+  if (a.titolo != null) input.title = a.titolo;
+  if (a.descrizioneHtml != null) input.descriptionHtml = a.descrizioneHtml;
+  if (a.stato) input.status = a.stato;
+  if (a.tags) input.tags = a.tags;
+  if (a.metafield?.length) input.metafields = a.metafield;
+  const r = await graphql<{ productUpdate: { product: { id: string } | null; userErrors: { field: string[] | null; message: string }[] } }>(
+    negozio,
+    `mutation aggiornaProdotto($input: ProductInput!) {
+       productUpdate(input: $input) { product { id } userErrors { field message } }
+     }`,
+    { input }
+  );
+  const errU = [...r.errori, ...(r.dati?.productUpdate?.userErrors ?? []).map((e) => ({ campo: e.field?.join(".") ?? null, messaggio: e.message }))];
+  if (errU.length) errori.push(...errU);
+  else passi.push(`Scheda aggiornata sul negozio${a.metafield?.length ? ` con ${a.metafield.length} campi` : ""}.`);
+
+  // ---- Varianti ----
+  const lettura = await graphql<{
+    product: { options: { name: string }[]; variants: { nodes: { id: string; sku: string | null; title: string }[] } } | null;
+  }>(
+    negozio,
+    `query varianti($id: ID!) {
+       product(id: $id) { options { name } variants(first: 100) { nodes { id sku title } } }
+     }`,
+    { id: a.shopifyId }
+  );
+  const esistenti = lettura.dati?.product?.variants.nodes ?? [];
+  const haOpzioneVera = (lettura.dati?.product?.options ?? []).some((o) => o.name !== "Title");
+  const perSku = new Map(esistenti.filter((v) => v.sku).map((v) => [v.sku as string, v]));
+
+  if (a.varianti && a.varianti.length) {
+    const daAggiornare = a.varianti.filter((v) => perSku.has(v.sku));
+    const nuove = a.varianti.filter((v) => !perSku.has(v.sku));
+    if (daAggiornare.length) {
+      const r2 = await graphql<{ productVariantsBulkUpdate: { userErrors: { field: string[] | null; message: string }[] } }>(
+        negozio,
+        `mutation aggiornaVarianti($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+           productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } }
+         }`,
+        {
+          productId: a.shopifyId,
+          variants: daAggiornare.map((v) => ({ id: perSku.get(v.sku)!.id, price: soldi(v.prezzo) ?? "0.00" })),
+        }
+      );
+      const e2 = [...r2.errori, ...(r2.dati?.productVariantsBulkUpdate?.userErrors ?? []).map((e) => ({ campo: e.field?.join(".") ?? null, messaggio: e.message }))];
+      if (e2.length) errori.push(...e2);
+      else passi.push(`${daAggiornare.length} varianti aggiornate.`);
+    }
+    if (nuove.length) {
+      if (!haOpzioneVera) {
+        errori.push({ campo: "varianti", messaggio: `${nuove.length} varianti nuove non aggiunte: il prodotto sul negozio non ha ancora un'opzione (si aggiunge dall'admin di Shopify, poi qui si aggiornano).` });
+      } else {
+        const nomeOpzione = lettura.dati?.product?.options[0]?.name ?? a.nomeOpzione ?? "Formato";
+        const r3 = await graphql<{ productVariantsBulkCreate: { userErrors: { field: string[] | null; message: string }[] } }>(
+          negozio,
+          `mutation creaVarianti($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+             productVariantsBulkCreate(productId: $productId, variants: $variants) { userErrors { field message } }
+           }`,
+          {
+            productId: a.shopifyId,
+            variants: nuove.map((v) => ({
+              optionValues: [{ optionName: nomeOpzione, name: v.nome }],
+              price: soldi(v.prezzo) ?? "0.00",
+              inventoryItem: { sku: v.sku },
+            })),
+          }
+        );
+        const e3 = [...r3.errori, ...(r3.dati?.productVariantsBulkCreate?.userErrors ?? []).map((e) => ({ campo: e.field?.join(".") ?? null, messaggio: e.message }))];
+        if (e3.length) errori.push(...e3);
+        else passi.push(`${nuove.length} varianti nuove create.`);
+      }
+    }
+  } else if (a.prezzo != null && esistenti.length === 1) {
+    const r4 = await graphql<{ productVariantsBulkUpdate: { userErrors: { field: string[] | null; message: string }[] } }>(
+      negozio,
+      `mutation aggiornaVariante($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+         productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } }
+       }`,
+      {
+        productId: a.shopifyId,
+        variants: [{ id: esistenti[0].id, price: soldi(a.prezzo) ?? "0.00", inventoryItem: a.sku ? { sku: a.sku } : undefined }],
+      }
+    );
+    const e4 = [...r4.errori, ...(r4.dati?.productVariantsBulkUpdate?.userErrors ?? []).map((e) => ({ campo: e.field?.join(".") ?? null, messaggio: e.message }))];
+    if (e4.length) errori.push(...e4);
+    else passi.push("Prezzo aggiornato sulla variante unica.");
+  }
+
+  return { ok: errori.length === 0, errori, passi };
 }
