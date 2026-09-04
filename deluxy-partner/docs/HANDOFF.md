@@ -52,6 +52,12 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### ✅ 05/09/2026 (00:00) — in produzione anche la regola dell'elenco: `oji4w5icl`
+>
+> «Fai push & deploy». Push del commit `164f27b8` sopra origin col solito worktree temporaneo (`a029452a`), poi `npx vercel@latest deploy --prod --yes` (il precompilato resta impossibile su questa macchina).
+> - ⚠️ **L'alias non ha seguito NEMMENO stavolta** (quarta di fila): a deploy pronto il dominio serviva ancora `q4gv2s8e9`. `vercel alias set` → ora punta a `oji4w5icl`. **È sistematico su questo progetto: metterlo in conto come passo del deploy, non come eccezione.**
+> - **Verificato**: dominio → `oji4w5icl` ● Ready; health 200 in 0,73 s; `/partner` senza sessione risponde 307 verso il login, cioè il middleware fa il suo mestiere. ⚠️ Il contenuto dell'elenco **non è verificabile dall'esterno** (pagina dietro il login): la prova è quella locale — 84 partner, GIADA CAKE e Fiori Rimini dentro — sullo stesso codice che è stato pubblicato.
+
 > ### 04/09/2026 (23:55) — «Attivo» è chi ha una fattura **o** una vendita (regola dell'utente)
 >
 > Segnalato subito dopo il deploy: nell'elenco partner, con il filtro predefinito, **GIADA CAKE non c'era più**. Non era un difetto: il filtro «Attivi · con fattura 2026» teneva solo chi ha una fattura dell'anno, e dopo la regola «senza documento su FIC non è una fattura» quella da 450 € non contava più. Misurato: da **81 a 79 partner**, usciti **GIADA CAKE e Fiori Rimini** — tutti e due con una vendita vendor nel 2026 e la fattura mai emessa (Bottega dei Fiori resta perché ha altre fatture vere).
