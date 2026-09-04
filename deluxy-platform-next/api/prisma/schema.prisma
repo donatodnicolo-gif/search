@@ -1141,6 +1141,20 @@ model Delivery {
   richieste  RichiestaConsegna[]
   recurringServiceId String?
   recurringService   RecurringService? @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
+  /// ⭐ 04/09/2026 (regola utente): ORE DICHIARATE DAL VALET, in attesa del sì
+  /// del partner. Il valet chiude un servizio A ORA dicendo quando ha davvero
+  /// iniziato e finito; il partner approva (valgono le sue) o rifiuta (valgono
+  /// quelle previste). Alla decisione si riscrivono ore, prezzo e fatturazione.
+  hoursFrom          String?   // "HH:MM" proposto dal valet
+  hoursTo            String?
+  hoursProposedAt    DateTime?
+  /// Le ore PREVISTE, fotografate prima della proposta: se il partner rifiuta
+  /// si torna a queste, e senza la fotografia non si potrebbe.
+  hoursOriginal      Float?
+  /// approvate | rifiutate
+  hoursDecision      String?
+  hoursDecidedAt     DateTime?
+  hoursDecidedBy     String?
   ddtNumber          String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»

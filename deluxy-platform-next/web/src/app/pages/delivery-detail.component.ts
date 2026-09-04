@@ -29,6 +29,14 @@ interface DeliveryProductRow {
 interface DeliveryDetail {
   id: string;
   code: number;
+  /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
+  hoursFrom?: string | null;
+  hoursTo?: string | null;
+  hoursOriginal?: number | null;
+  hoursDecision?: string | null;
+  hoursDecidedBy?: string | null;
+  hours?: number | null;
+  partnerId?: string | null;
   date: string;
   status: string;
   paymentStatus: string;
@@ -680,6 +688,35 @@ interface DeliveryDetail {
       </div>
     }
 
+    <!-- ⭐ 04/09/2026 (regola utente): ORE DA APPROVARE. Il partner vede quello
+         che il valet ha dichiarato e decide; l'ufficio può decidere al posto suo. -->
+    @if (delivery(); as d) {
+      @if (d.status === 'delivered_time_to_approve') {
+        <section class="card ore-approvazione">
+          <h2>{{ 'deliveryDetail.ore.titolo' | translate }}</h2>
+          <p>{{ 'deliveryDetail.ore.dichiarate' | translate: { dalle: d.hoursFrom, alle: d.hoursTo } }}</p>
+          <p class="muted">{{ 'deliveryDetail.ore.previste' | translate: { ore: d.hoursOriginal ?? '—' } }}</p>
+          @if (puoDecidereOre()) {
+            <div class="azioni">
+              <button type="button" class="act primary" [disabled]="oreInCorso()" (click)="decidiOre(true)">
+                {{ 'deliveryDetail.ore.approva' | translate }}
+              </button>
+              <button type="button" class="act" [disabled]="oreInCorso()" (click)="decidiOre(false)">
+                {{ 'deliveryDetail.ore.rifiuta' | translate }}
+              </button>
+            </div>
+          } @else {
+            <p class="muted">{{ 'deliveryDetail.ore.attesa' | translate }}</p>
+          }
+          @if (oreErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </section>
+      } @else if (d.hoursDecision) {
+        <section class="card ore-decise">
+          <p class="muted">{{ ('deliveryDetail.ore.esito_' + d.hoursDecision) | translate: { dalle: d.hoursFrom, alle: d.hoursTo, ore: d.hours, chi: d.hoursDecidedBy } }}</p>
+        </section>
+      }
+    }
+
     <!-- Chiusura del valet: CONSEGNATA (a chi + firma + DDT). Come nella
          vecchia app: receiverType/receiverSign/ddtFile sono gli stessi campi
          del legacy (5.994 «custode» reali). -->
@@ -691,6 +728,20 @@ interface DeliveryDetail {
           <button type="button" class="modal-close" (click)="chiudiChiusura()" [attr.aria-label]="'common.close' | translate">×</button>
         </header>
         <div class="chiusura-corpo">
+          <!-- ⭐ 04/09/2026 (regola utente): SERVIZI A ORA — il valet dice quando
+               ha davvero iniziato e finito. Il default è l'orario previsto: si
+               conferma con un tocco, e chi ha fatto altri orari li corregge.
+               Il partner poi approva o rifiuta. -->
+          @if (aOra()) {
+            <label class="campo-eti">{{ 'deliveryDetail.valet.oreTitolo' | translate }}</label>
+            <div class="ore-riga">
+              <label><span>{{ 'deliveryDetail.valet.oreDalle' | translate }}</span>
+                <input class="field" type="time" step="900" name="oreDalle" [(ngModel)]="oreDalle" /></label>
+              <label><span>{{ 'deliveryDetail.valet.oreAlle' | translate }}</span>
+                <input class="field" type="time" step="900" name="oreAlle" [(ngModel)]="oreAlle" /></label>
+            </div>
+            <p class="muted piccolo">{{ 'deliveryDetail.valet.oreHint' | translate }}</p>
+          }
           <label class="campo-eti">{{ 'deliveryDetail.valet.aChi' | translate }}</label>
           <div class="chips">
             @for (t of TIPI_RICEVENTE; track t) {
@@ -821,6 +872,9 @@ interface DeliveryDetail {
   `,
   styles: [
     `
+      .ore-riga { display: flex; gap: 12px; flex-wrap: wrap; }
+      .ore-riga label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .ore-approvazione { border-left: 3px solid var(--orange, #ff9500); }
       .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
@@ -1243,6 +1297,10 @@ export class DeliveryDetailComponent {
   }
 
   apriChiusura(tipo: 'delivered' | 'not_delivered'): void {
+    // orari di default: quelli previsti dal servizio (regola utente 04/09)
+    const d = this.delivery();
+    this.oreDalle = (d as any)?.deliveryTimeFrom ?? '';
+    this.oreAlle = (d as any)?.deliveryTimeTo ?? '';
     this.azioneErrore.set(null);
     this.receiverTipo = 'recipient';
     this.nomeRicevente = '';
@@ -1324,6 +1382,38 @@ export class DeliveryDetailComponent {
     img.src = url;
   }
 
+  /** Il servizio si paga a ORE: allora la chiusura chiede gli orari. */
+  aOra(): boolean {
+    return (this.delivery()?.serviceType?.pricingModel ?? '') === 'A_ORA';
+  }
+
+  /** Decide il PARTNER della consegna; l'ufficio può sempre. */
+  puoDecidereOre(): boolean {
+    const u = this.auth.user();
+    if (!u) return false;
+    if (u.role === 'PARTNER') return (this.delivery() as any)?.partnerId === (u as any).partnerId;
+    return ['ADMIN', 'OPERATION'].includes(u.role);
+  }
+
+  readonly oreInCorso = signal(false);
+  readonly oreErrore = signal<string | null>(null);
+  oreDalle = '';
+  oreAlle = '';
+
+  decidiOre(approva: boolean): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.oreInCorso.set(true);
+    this.oreErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ore/${approva ? 'approva' : 'rifiuta'}`, {}).subscribe({
+      next: () => { this.oreInCorso.set(false); this.load(); },
+      error: (e) => {
+        this.oreInCorso.set(false);
+        this.oreErrore.set(e?.error?.message ?? 'Operazione non riuscita');
+      },
+    });
+  }
+
   confermaConsegnata(): void {
     const corpo: Record<string, string> = { status: 'delivered', receiverType: this.receiverTipo };
     const nome = this.nomeRicevente.trim();
@@ -1334,6 +1424,12 @@ export class DeliveryDetailComponent {
     }
     const ddt = this.ddtFoto();
     if (ddt) corpo['ddtFile'] = ddt;
+    // Sui servizi a ora gli orari viaggiano con la chiusura: è quello che fa
+    // nascere la richiesta di approvazione al partner.
+    if (this.aOra() && this.oreDalle && this.oreAlle) {
+      corpo['oreDalle'] = this.oreDalle;
+      corpo['oreAlle'] = this.oreAlle;
+    }
     this.cambiaStato('delivered', corpo);
   }
 

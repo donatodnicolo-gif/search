@@ -80,8 +80,21 @@
     "recurringSub": "Una consegna che si ripete: la dichiari una volta, le consegne nascono da sole.",
     "other": "Ti serve altro?",
     "otherSub": "Chiedi un preventivo: ti rispondiamo su misura.",
-    "model": { "PREZZO_FISSO": "A prezzo fisso", "A_ORA": "A ore", "VENDITA": "Vendita", "MAGAZZINO": "Magazzino", "CORPORATE": "Aziendale" },
-    "price": { "from": "da {{n}} €", "kmIncl": "{{n}} km inclusi", "perHour": "{{n}} €/ora", "minHours": "min {{n}} h", "fee": "quota Deluxy {{n}}%", "perItem": "{{n}} €/pezzo" }
+    "model": {
+      "PREZZO_FISSO": "A prezzo fisso",
+      "A_ORA": "A ore",
+      "VENDITA": "Vendita",
+      "MAGAZZINO": "Magazzino",
+      "CORPORATE": "Aziendale"
+    },
+    "price": {
+      "from": "da {{n}} €",
+      "kmIncl": "{{n}} km inclusi",
+      "perHour": "{{n}} €/ora",
+      "minHours": "min {{n}} h",
+      "fee": "quota Deluxy {{n}}%",
+      "perItem": "{{n}} €/pezzo"
+    }
   },
   "quotes": {
     "title": "Preventivi",
@@ -2057,7 +2070,11 @@
       },
       "dettaglioPh": "Aggiungi un dettaglio (obbligatorio se scegli «Altro»)",
       "motivoObbligatorio": "Scegli un motivo o scrivi cosa è successo.",
-      "confirmNotDelivered": "Conferma: non consegnata"
+      "confirmNotDelivered": "Conferma: non consegnata",
+      "oreTitolo": "Orario del servizio",
+      "oreDalle": "Iniziato alle",
+      "oreAlle": "Finito alle",
+      "oreHint": "Sono gli orari previsti: correggili se hai iniziato o finito a un altro orario. Il partner li approva o li rifiuta."
     },
     "title": "Consegna #{{code}}",
     "section": {
@@ -2162,7 +2179,17 @@
       "manca": "Scrivi un motivo.",
       "importoManca": "Indica un importo valido."
     },
-    "download": "Scarica"
+    "download": "Scarica",
+    "ore": {
+      "titolo": "Ore da approvare",
+      "dichiarate": "Il valet dichiara {{dalle}}–{{alle}}.",
+      "previste": "Ore previste: {{ore}}.",
+      "approva": "Approva le ore del valet",
+      "rifiuta": "Rifiuta: valgono le previste",
+      "attesa": "In attesa che il partner approvi o rifiuti.",
+      "esito_approvate": "Ore approvate da {{chi}}: {{dalle}}–{{alle}}, fatturate {{ore}} h.",
+      "esito_rifiutate": "Ore rifiutate da {{chi}}: valgono le previste, fatturate {{ore}} h."
+    }
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
@@ -2384,7 +2411,6 @@
       }
     },
     "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
-    "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
     "acceptedOk": "Vendita accettata.",
     "refusedPartner": "Vendita rifiutata: torna all'ufficio per l'inserimento.",
     "refusedOffice": "Vendita rifiutata: in storico come non accettata.",
@@ -2399,8 +2425,22 @@
       "aperto": "Aperto",
       "evasione": "evasione:",
       "smistamento": "smistamento:",
-      "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" },
-      "salute": { "conforme": "conforme", "a_rischio": "a rischio", "non_pagato": "non pagato", "cancellato": "cancellato", "nullo": "nullo" }
+      "stato": {
+        "da_gestire": "Da gestire",
+        "in_lavorazione": "In lavorazione",
+        "in_app": "In app",
+        "in_consegna": "In consegna",
+        "consegnato": "Consegnato",
+        "annullato": "Annullato",
+        "chiuso": "Chiuso"
+      },
+      "salute": {
+        "conforme": "conforme",
+        "a_rischio": "a rischio",
+        "non_pagato": "non pagato",
+        "cancellato": "cancellato",
+        "nullo": "nullo"
+      }
     },
     "notConform": {
       "tag": "ordine {{salute}}",
@@ -2425,7 +2465,12 @@
       "base_categoria": "«{{prodotto}}» non è mai stato venduto: ecco la stessa categoria in provincia di {{provincia}}.",
       "base_nessuna": "Nessun precedente da mostrare.",
       "none": "Nessuna vendita accettata da cui imparare.",
-      "col": { "partner": "Partner", "times": "Volte", "price": "Prezzo", "last": "Ultima volta" },
+      "col": {
+        "partner": "Partner",
+        "times": "Volte",
+        "price": "Prezzo",
+        "last": "Ultima volta"
+      },
       "net": "al partner {{prezzo}} €",
       "old": "più di un anno fa",
       "inactive": "non attivo",

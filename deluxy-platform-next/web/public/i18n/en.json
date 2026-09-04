@@ -80,8 +80,21 @@
     "recurringSub": "A delivery that repeats: declare it once, deliveries are created by themselves.",
     "other": "Need something else?",
     "otherSub": "Ask for a quote: we reply with a tailored offer.",
-    "model": { "PREZZO_FISSO": "Fixed price", "A_ORA": "Hourly", "VENDITA": "Sale", "MAGAZZINO": "Warehouse", "CORPORATE": "Corporate" },
-    "price": { "from": "from €{{n}}", "kmIncl": "{{n}} km included", "perHour": "€{{n}}/hour", "minHours": "min {{n}} h", "fee": "Deluxy fee {{n}}%", "perItem": "€{{n}}/item" }
+    "model": {
+      "PREZZO_FISSO": "Fixed price",
+      "A_ORA": "Hourly",
+      "VENDITA": "Sale",
+      "MAGAZZINO": "Warehouse",
+      "CORPORATE": "Corporate"
+    },
+    "price": {
+      "from": "from €{{n}}",
+      "kmIncl": "{{n}} km included",
+      "perHour": "€{{n}}/hour",
+      "minHours": "min {{n}} h",
+      "fee": "Deluxy fee {{n}}%",
+      "perItem": "€{{n}}/item"
+    }
   },
   "quotes": {
     "title": "Quotes",
@@ -2055,7 +2068,11 @@
       },
       "dettaglioPh": "Add a detail (required if you choose \"Other\")",
       "motivoObbligatorio": "Pick a reason or write what happened.",
-      "confirmNotDelivered": "Confirm: not delivered"
+      "confirmNotDelivered": "Confirm: not delivered",
+      "oreTitolo": "Service hours",
+      "oreDalle": "Started at",
+      "oreAlle": "Finished at",
+      "oreHint": "These are the planned times: correct them if you started or finished at another time. The partner approves or rejects them."
     },
     "title": "Delivery #{{code}}",
     "section": {
@@ -2160,7 +2177,17 @@
       "manca": "Write a reason.",
       "importoManca": "Enter a valid amount."
     },
-    "download": "Download"
+    "download": "Download",
+    "ore": {
+      "titolo": "Hours to approve",
+      "dichiarate": "The valet declares {{dalle}}–{{alle}}.",
+      "previste": "Planned hours: {{ore}}.",
+      "approva": "Approve the valet hours",
+      "rifiuta": "Reject: planned hours apply",
+      "attesa": "Waiting for the partner to approve or reject.",
+      "esito_approvate": "Hours approved by {{chi}}: {{dalle}}–{{alle}}, billed {{ore}} h.",
+      "esito_rifiutate": "Hours rejected by {{chi}}: planned hours apply, billed {{ore}} h."
+    }
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
@@ -2396,8 +2423,22 @@
       "aperto": "Open",
       "evasione": "fulfilment:",
       "smistamento": "routing:",
-      "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" },
-      "salute": { "conforme": "compliant", "a_rischio": "at risk", "non_pagato": "unpaid", "cancellato": "cancelled", "nullo": "void" }
+      "stato": {
+        "da_gestire": "To handle",
+        "in_lavorazione": "In progress",
+        "in_app": "In app",
+        "in_consegna": "Out for delivery",
+        "consegnato": "Delivered",
+        "annullato": "Cancelled",
+        "chiuso": "Closed"
+      },
+      "salute": {
+        "conforme": "compliant",
+        "a_rischio": "at risk",
+        "non_pagato": "unpaid",
+        "cancellato": "cancelled",
+        "nullo": "void"
+      }
     },
     "notConform": {
       "tag": "order {{salute}}",
@@ -2422,7 +2463,12 @@
       "base_categoria": "“{{prodotto}}” was never sold: here is the same category in the province of {{provincia}}.",
       "base_nessuna": "No precedent to show.",
       "none": "No accepted sale to learn from.",
-      "col": { "partner": "Partner", "times": "Times", "price": "Price", "last": "Last time" },
+      "col": {
+        "partner": "Partner",
+        "times": "Times",
+        "price": "Price",
+        "last": "Last time"
+      },
       "net": "partner gets {{prezzo}} €",
       "old": "more than a year ago",
       "inactive": "inactive",

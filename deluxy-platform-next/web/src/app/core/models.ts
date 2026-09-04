@@ -62,6 +62,12 @@ export interface Delivery {
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
   serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
+  hoursFrom?: string | null;
+  hoursTo?: string | null;
+  hoursOriginal?: number | null;
+  hoursDecision?: string | null;
+  hoursDecidedBy?: string | null;
   /** Provincia SALVATA (geocodificata dal server): l'assegnazione la usa così
    *  com'è, senza ri-dedurla dalla stringa dell'indirizzo (fragile). */
   province?: { id: string; code: string; name: string } | null;

@@ -32,6 +32,21 @@ export class UpdateDeliveryStatusDto {
   @IsIn(['recipient', 'concierge', 'other'])
   receiverType?: string;
 
+  // ---- ORE DEL SERVIZIO A ORA (04/09/2026, regola utente) -------------------
+  /** Quando il valet ha davvero iniziato, "HH:MM". */
+  @ApiProperty({ required: false, description: 'Ora di inizio dichiarata dal valet (HH:MM)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  oreDalle?: string;
+
+  /** Quando ha davvero finito, "HH:MM". */
+  @ApiProperty({ required: false, description: 'Ora di fine dichiarata dal valet (HH:MM)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  oreAlle?: string;
+
   @ApiProperty({ required: false, description: 'Nome di chi ha ritirato' })
   @IsOptional()
   @IsString()

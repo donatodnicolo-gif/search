@@ -133,6 +133,25 @@ export class DeliveriesController {
     return this.deliveriesService.updateStatus(id, dto.status, user, dto);
   }
 
+  /**
+   * ⭐ 04/09/2026 (regola utente): il PARTNER approva o rifiuta le ore che il
+   * valet ha dichiarato su un servizio a ora. Anche l'ufficio, che sul partner
+   * ha sempre l'ultima parola.
+   */
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ore/approva')
+  @ApiOperation({ summary: 'Il partner approva le ore dichiarate dal valet: valgono le sue, e il valore si riscrive' })
+  approvaOre(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.decidiOre(id, true, user);
+  }
+
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ore/rifiuta')
+  @ApiOperation({ summary: 'Il partner rifiuta: valgono le ore previste, e il valore si riscrive' })
+  rifiutaOre(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.decidiOre(id, false, user);
+  }
+
   // Anche il PARTNER: il link di tracciamento serve a condividerlo col CLIENTE.
   // `getTrackingToken` passa da findOne, che applica già il perimetro del
   // partner — può generare il link solo per le consegne che può vedere.

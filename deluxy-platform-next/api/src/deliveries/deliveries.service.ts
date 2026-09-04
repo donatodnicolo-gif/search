@@ -795,6 +795,148 @@ export class DeliveriesService {
   }
 
 
+  /** «18:30» → 18.5. Formato sbagliato = null, mai un numero inventato. */
+  private static orarioValido(v: string | null | undefined): string | null {
+    const t = (v ?? '').trim();
+    const m = t.match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
+    return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
+  }
+
+  /** Ore fra due orari «HH:MM». Oltre la mezzanotte conta il giorno dopo. */
+  private static oreFraOrari(dalle: string | null | undefined, alle: string | null | undefined): number | null {
+    const a = DeliveriesService.orarioValido(dalle);
+    const b = DeliveriesService.orarioValido(alle);
+    if (!a || !b) return null;
+    const min = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    let d = min(b) - min(a);
+    if (d < 0) d += 24 * 60;
+    return d / 60;
+  }
+
+  /**
+   * Le ore che si FATTURANO: si arrotonda alla mezz'ora PIENA successiva
+   * (regola utente 04/09: «se fine viene impostata alle 22 aggiungerai 30
+   * minuti alla fattura oraria»), e non si scende sotto il minimo del servizio.
+   */
+  private static oreDaFatturare(ore: number, minimo?: number | null): number {
+    const aMezzOra = Math.ceil(ore * 2 - 1e-9) / 2;
+    return Math.max(aMezzOra, minimo ?? 0);
+  }
+
+  /** Chi vede le cose di quel partner: i suoi utenti attivi. */
+  private async utentiDelPartner(partnerId: string | null | undefined): Promise<string[]> {
+    if (!partnerId) return [];
+    const u = await this.prisma.user.findMany({
+      where: { partnerId, status: 'active' },
+      select: { id: true },
+    });
+    return u.map((x) => x.id);
+  }
+
+  /** L'utente del valet, se ne ha uno. */
+  private async utenteDelValet(valetId: string | null | undefined): Promise<string[]> {
+    if (!valetId) return [];
+    const u = await this.prisma.user.findFirst({ where: { valetId, status: 'active' }, select: { id: true } });
+    return u ? [u.id] : [];
+  }
+
+  private async avvisaOreDaApprovare(d: { id: string; code: number; hoursFrom?: string | null; hoursTo?: string | null; partnerId?: string | null; partner?: { insegna?: string } | null }, user: JwtUser) {
+    const destinatari = [
+      ...(await this.utentiDelPartner(d.partnerId)),
+      ...(await this.notifications.adminAndOperationIds(user.sub)),
+    ];
+    await this.notifications.notifyUsers(destinatari, {
+      type: NotificationType.DELIVERY_HOURS_TO_APPROVE,
+      title: 'Ore da approvare',
+      body: `Consegna #${d.code}: il valet dichiara ${d.hoursFrom}–${d.hoursTo}`,
+      entityType: 'delivery',
+      entityId: d.id,
+    });
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): IL PARTNER DECIDE SULLE ORE.
+   *
+   * «Se approva il servizio va in storico con l'orario indicato dal valet; se
+   * rifiuta va in storico con l'orario originale. Quando il partner definisce
+   * approvazione o meno, aggiorna il valore del servizio e aggiorna anche
+   * fatturazione.»
+   *
+   * Il valore si riscrive QUI, sulla consegna (`price`), perché in
+   * fatturazione il prezzo scritto vince sul listino: lasciarlo vecchio
+   * avrebbe fatturato le ore di prima con le ore nuove scritte accanto.
+   * Le ore fatturate si arrotondano alla mezz'ora successiva.
+   */
+  async decidiOre(id: string, approva: boolean, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      include: { serviceType: true, partner: { select: { insegna: true } } },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata');
+    if (d.status !== DeliveryStatus.DELIVERED_TIME_TO_APPROVE) {
+      throw new BadRequestException('Questa consegna non ha ore in attesa di approvazione.');
+    }
+    if (user.role === Role.PARTNER && d.partnerId !== user.partnerId) {
+      throw new ForbiddenException('Questa consegna non è tua.');
+    }
+
+    const oreValet = DeliveriesService.oreFraOrari(d.hoursFrom, d.hoursTo);
+    const orePreviste = d.hoursOriginal
+      ?? DeliveriesService.oreFraOrari(d.deliveryTimeFrom, d.deliveryTimeTo)
+      ?? d.hours
+      ?? null;
+    const oreScelte = approva ? oreValet : orePreviste;
+    if (oreScelte == null) throw new BadRequestException('Non ci sono ore da scrivere: manca l\'orario.');
+    const oreFatturate = DeliveriesService.oreDaFatturare(oreScelte, d.serviceType?.minHours ?? null);
+
+    // Il valore del servizio: tariffa oraria del listino del partner × ore.
+    // Senza listino non si inventa un prezzo: si azzera lo scritto e sarà la
+    // fatturazione a dire «non prezzabile», che è la verità.
+    const listino = await this.prisma.partnerService.findFirst({
+      where: { partnerId: d.partnerId ?? '-', serviceTypeId: d.serviceTypeId ?? '-' },
+      select: { price: true },
+    });
+    const tariffa = listino?.price ?? d.serviceType?.basePrice ?? null;
+    const valore = tariffa != null ? Math.round(tariffa * oreFatturate * 100) / 100 : null;
+
+    const aggiornata = await this.prisma.delivery.update({
+      where: { id },
+      data: {
+        status: DeliveryStatus.APPROVED,
+        hours: oreFatturate,
+        price: valore,
+        hoursDecision: approva ? 'approvate' : 'rifiutate',
+        hoursDecidedAt: new Date(),
+        hoursDecidedBy: user.email,
+        ...(approva && d.hoursFrom && d.hoursTo ? { deliveryTimeFrom: d.hoursFrom, deliveryTimeTo: d.hoursTo } : {}),
+        logs: {
+          create: {
+            type: 'note',
+            userId: user.sub,
+            message: approva
+              ? `Ore APPROVATE dal partner: ${d.hoursFrom}–${d.hoursTo} = ${oreFatturate} h fatturate${valore != null ? ` · valore ${valore} €` : ''}`
+              : `Ore RIFIUTATE dal partner: valgono le previste (${oreFatturate} h)${valore != null ? ` · valore ${valore} €` : ''}`,
+          },
+        },
+      },
+      include: DELIVERY_INCLUDE,
+    });
+
+    // Lo sanno il valet (è la sua paga) e l'ufficio (è la fattura).
+    const destinatari = [
+      ...(await this.utenteDelValet(d.valetId)),
+      ...(await this.notifications.adminAndOperationIds(user.sub)),
+    ];
+    await this.notifications.notifyUsers(destinatari, {
+      type: approva ? NotificationType.DELIVERY_HOURS_APPROVED : NotificationType.DELIVERY_HOURS_REJECTED,
+      title: approva ? 'Ore approvate' : 'Ore rifiutate',
+      body: `Consegna #${d.code}: ${oreFatturate} h${approva ? ` (${d.hoursFrom}–${d.hoursTo})` : ' (orario previsto)'}`,
+      entityType: 'delivery',
+      entityId: d.id,
+    });
+    return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
+  }
+
   /**
    * ACCETTA / RIFIUTA del PARTNER sulle consegne di VENDITA (utente, 02/09).
    *
@@ -1776,6 +1918,9 @@ export class DeliveriesService {
       receiverSign?: string;
       ddtFile?: string;
       notDeliveredReason?: string;
+      /** ⭐ 04/09 (regola utente): ore dichiarate dal valet sui servizi a ora. */
+      oreDalle?: string;
+      oreAlle?: string;
     },
   ) {
     const delivery = await this.findOne(id, user);
@@ -1840,7 +1985,9 @@ export class DeliveriesService {
 
     // I dettagli della chiusura si scrivono SOLO con lo stato giusto: un
     // client non deve poter riempire «consegnata a» su una cancellazione.
-    const extra: Record<string, string> = {};
+    // ⚠️ Non solo stringhe: dal 04/09 ci finiscono anche date e null (le ore
+    // in attesa di approvazione), e un Record<string,string> le rifiutava.
+    const extra: Record<string, unknown> = {};
     const racconto: string[] = [];
     if (status === DeliveryStatus.DELIVERED && dettagli) {
       const TIPI: Record<string, string> = {
@@ -1860,6 +2007,41 @@ export class DeliveriesService {
         racconto.push('DDT firmato allegato');
       }
     }
+    // ⭐ 04/09/2026 (regola utente): SERVIZI A ORA — chiudendo, il valet dice
+    // quando ha davvero iniziato e finito. La consegna non va in storico: va in
+    // «ore da approvare», e il PARTNER decide. Approvare vale le ore del valet,
+    // rifiutare quelle previste; in entrambi i casi si riscrive il valore.
+    //
+    // ⚠️ Nessuna sorpresa se il client non manda gli orari (app vecchia): la
+    // consegna chiude come prima. Un automatismo che blocca chi non sa di
+    // doverlo sapere è peggio del problema che risolve.
+    let statoFinale: DeliveryStatus = status;
+    if (
+      status === DeliveryStatus.DELIVERED &&
+      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      dettagli?.oreDalle && dettagli?.oreAlle
+    ) {
+      const dalle = DeliveriesService.orarioValido(dettagli.oreDalle);
+      const alle = DeliveriesService.orarioValido(dettagli.oreAlle);
+      if (!dalle || !alle) throw new BadRequestException('Orari non validi: si scrivono come HH:MM.');
+      if ((DeliveriesService.oreFraOrari(dalle, alle) ?? 0) <= 0) {
+        throw new BadRequestException('L\'ora di fine deve venire dopo quella di inizio.');
+      }
+      statoFinale = DeliveryStatus.DELIVERED_TIME_TO_APPROVE;
+      extra['hoursFrom'] = dalle;
+      extra['hoursTo'] = alle;
+      extra['hoursProposedAt'] = new Date();
+      extra['hoursDecision'] = null;
+      extra['hoursDecidedAt'] = null;
+      extra['hoursDecidedBy'] = null;
+      // La fotografia di quello che era previsto: senza, un rifiuto non
+      // saprebbe a quali ore tornare.
+      extra['hoursOriginal'] = (delivery as any).hours
+        ?? DeliveriesService.oreFraOrari((delivery as any).deliveryTimeFrom, (delivery as any).deliveryTimeTo)
+        ?? null;
+      racconto.push(`ore dichiarate dal valet: ${dalle}–${alle}, in attesa del partner`);
+    }
+
     if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.notDeliveredReason) {
       extra['notDeliveredReason'] = dettagli.notDeliveredReason;
       racconto.push(`motivo: ${dettagli.notDeliveredReason}`);
@@ -1868,12 +2050,12 @@ export class DeliveriesService {
     const updated = await this.prisma.delivery.update({
       where: { id: delivery.id },
       data: {
-        status,
+        status: statoFinale,
         ...extra,
         logs: {
           create: {
             type: logType,
-            message: `Stato: ${delivery.status} -> ${status}`
+            message: `Stato: ${delivery.status} -> ${statoFinale}`
               + (racconto.length ? ` · ${racconto.join(' · ')}` : ''),
             userId: user.sub,
           },
@@ -1884,7 +2066,12 @@ export class DeliveriesService {
 
     // In Storico → le attività della consegna si chiudono da sole (02/09).
     await this.chiudiAttivitaSeStorico(delivery.id, status);
-    await this.notifyStatusChange(updated, status, user);
+    await this.notifyStatusChange(updated, statoFinale, user);
+    // Il partner deve SAPERE che ci sono ore da approvare: senza l'avviso,
+    // la consegna resterebbe ferma in attesa di un gesto che nessuno chiede.
+    if (statoFinale === DeliveryStatus.DELIVERED_TIME_TO_APPROVE) {
+      await this.avvisaOreDaApprovare(updated as any, user);
+    }
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
