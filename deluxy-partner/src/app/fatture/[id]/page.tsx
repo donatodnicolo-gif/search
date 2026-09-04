@@ -7,6 +7,7 @@ import { ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, nomeMes
 import { updateFattura, segnaFatturaPagata, deleteFattura, incassaFatturaParziale } from "@/lib/actions";
 import { ficUrlFattura } from "@/lib/fic";
 import { ScadenzaRapida } from "@/components/ScadenzaRapida";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -186,12 +187,17 @@ export default async function FatturaDetail({
             <button className="btn secondary" type="submit">Riapri (non saldata)</button>
           </form>
         )}
-        <form
-          action={deleteFattura.bind(null, id)}
-        >
-          <button className="btn danger" type="submit" title="Elimina definitivamente questa fattura dall'app (non tocca Fatture in Cloud)">
-            Elimina
-          </button>
+        {/* Dopo la cancellazione questa pagina non esiste più: si torna alla
+            scheda del partner, dove il record spariva, e lì si dice che è
+            fatto. Senza il ritorno l'app rispondeva 404 su un'operazione
+            RIUSCITA (segnalato dall'utente il 04/09/2026). */}
+        <form action={deleteFattura.bind(null, id, `/partner/${fattura.partnerId}?fattEliminata=1`)}>
+          <ConfermaElimina
+            oggetto={`la fattura ${fattura.numero ?? "senza numero"} di ${fattura.partner.nome} (${euro(fattura.imponibile)})`}
+            conseguenza="Sparisce dall'app e dai conti del partner. Su Fatture in Cloud non cambia niente: se il documento esiste, resta lì."
+            inCorso="Elimino…"
+            title="Elimina definitivamente questa fattura dall'app (non tocca Fatture in Cloud)"
+          />
         </form>
       </div>
 

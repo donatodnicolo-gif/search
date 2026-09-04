@@ -8,6 +8,7 @@ import { registra } from "./registro";
 import { euro } from "./format";
 import { nomeMese } from "./calc";
 import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } from "./transactions";
+import { datiBancariPartner, perchePagamentoSenzaIban } from "./dati-bancari";
 import { partiteAperte, partiteDaChiedere, nettoDaChiedere, descriviPartite } from "./saldo-netto";
 
 // «Richiedi pagamento»: manda a **deluxy-transactions** la richiesta di pagare
@@ -93,12 +94,16 @@ export async function richiediPagamento(
   }
   if (!(importo >= 0.01)) torna(destinazione, "errorePag", `${periodo} — importo non valido: non c'è niente da pagare.`);
 
-  const iban = (partner.iban ?? "").replace(/\s+/g, "");
+  // L'IBAN lo possiede il REGISTRO Anagrafiche; qui c'è al più una copia, e
+  // quasi sempre non c'è (18 partner su 119 ce l'hanno). Prima si guardava solo
+  // la copia, e «Paga» rifiutava su partner che l'IBAN ce l'hanno eccome.
+  const banca = await datiBancariPartner(partnerId);
+  const iban = banca.iban;
   if (!iban) {
     // Meglio fermarsi qui che far arrivare a Transactions una richiesta che non
     // può essere pagata: là dentro diventerebbe una pratica ferma che qualcuno
     // deve rincorrere.
-    torna(destinazione, "errorePag", `${periodo} — ${partner.nome} non ha un IBAN in anagrafica: aggiungilo dalla scheda (Modifica, sezione dati bancari) e ripremi Paga.`);
+    torna(destinazione, "errorePag", `${periodo} — ${perchePagamentoSenzaIban(banca, partner.nome)}`);
   }
 
   const precedente = await prisma.saldoMensile.findUnique({
@@ -141,7 +146,7 @@ export async function richiediPagamento(
     // Il beneficiario è il nome a cui esce il bonifico: prima l'intestatario del
     // conto (la banca rifiuta se non combacia con l'IBAN), poi la ragione
     // sociale, per ultima l'insegna.
-    const beneficiario = partner.intestatarioConto?.trim() || partner.ragioneSociale?.trim() || partner.nome;
+    const beneficiario = banca.intestatario?.trim() || partner.ragioneSociale?.trim() || partner.nome;
     try {
       const esito = await richiediPagamentoPartner({
         partnerId,

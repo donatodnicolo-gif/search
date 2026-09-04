@@ -8,6 +8,7 @@ import { registra } from "./registro";
 import { euro } from "./format";
 import { SESSION_COOKIE, sessioneCorrente } from "./auth";
 import { richiediPagamentoLibero, transactionsConfigurato } from "./transactions";
+import { datiBancariPartner, perchePagamentoSenzaIban } from "./dati-bancari";
 import { categorieDaBudgets } from "./categorie-spesa";
 import { cercaBeneficiariRegistro, type BeneficiarioRegistro } from "./anagrafiche";
 import { ficCercaEmesse, type FicFatturaBreve } from "./fic";
@@ -79,12 +80,15 @@ export async function creaRichiestaPagamento(fd: FormData) {
     });
     if (!p) torna("errore", "Partner non trovato.");
     partnerNome = p.nome;
+    // I dati bancari li possiede il registro Anagrafiche: qui c'è al più una
+    // copia, e nella maggior parte dei partner non c'è (vedi `dati-bancari.ts`).
+    const banca = await datiBancariPartner(partnerId);
     // A chi esce il bonifico: vince l'INTESTATARIO DEL CONTO, che la banca
     // verifica contro l'IBAN. Ragione sociale e insegna sono ripieghi: un conto
     // può essere intestato a una persona o a un'altra società.
-    beneficiario = p.intestatarioConto?.trim() || p.ragioneSociale?.trim() || p.nome;
-    iban = (p.iban ?? "").replace(/\s+/g, "").toUpperCase();
-    if (!iban) torna("errore", `${p.nome} non ha un IBAN in anagrafica: aggiungilo, oppure scrivilo qui sotto scegliendo «Beneficiario libero».`);
+    beneficiario = banca.intestatario?.trim() || p.ragioneSociale?.trim() || p.nome;
+    iban = banca.iban;
+    if (!iban) torna("errore", `${perchePagamentoSenzaIban(banca, p.nome)} In alternativa scrivilo qui sotto scegliendo «Beneficiario libero».`);
   }
 
   const importo = numero(fd.get("importo"));

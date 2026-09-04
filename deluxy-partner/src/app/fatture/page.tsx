@@ -226,7 +226,9 @@ export default async function FatturePage({
                           <button className="btn small secondary" type="submit">Riapri</button>
                         </form>
                       )}{" "}
-                      <form action={deleteFattura.bind(null, f.id)} style={{ display: "inline" }}>
+                      {/* dall'elenco non si torna da nessuna parte: la riga
+                          sparisce e l'elenco resta dov'era, coi suoi filtri */}
+                      <form action={deleteFattura.bind(null, f.id, undefined)} style={{ display: "inline" }}>
                         <ConfermaElimina
                           oggetto="questa fattura"
                           conseguenza="Sparisce dal registro; eventuali abbinamenti a pagamenti vanno rifatti."
