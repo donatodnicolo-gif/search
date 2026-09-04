@@ -481,7 +481,7 @@ anche la pausa di «[Opera] ATC - VOLUME» approvata il 26/08. Decide
 l'utente: premere «Esegui adesso» (tutte e due), o annullare prima l'Opera.
 Dopo il deploy, ogni approvazione nuova su Meta esegue da sola.
 
-Commit: vedi `git log`; deploy **da fare** (`npx vercel deploy --prod --yes`).
+Commit `26e68ad3` in locale, **pushato** su origin/scout-ui come `a2b345ca` (cherry-pick da un worktree temporaneo: il branch locale di scoutwt era divergente e con modifiche non committate di altre sessioni — resta divergente, da riallineare con rebase a tree pulito). Deploy **da fare** (`npx vercel deploy --prod --yes`).
 
 ### ⭐⭐⭐ LE SCHEDE ANALISI ERANO FERME DALL'26/08 — doppio guasto trovato e curato (03/09/2026 sera)
 
