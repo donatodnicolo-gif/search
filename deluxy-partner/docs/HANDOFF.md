@@ -52,6 +52,24 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (20:30) — Scheda partner: la riga dei movimenti bancari si apre col click (chiesto dall'utente)
+>
+> Segnalato con uno screenshot della tabella «Ultimi movimenti bancari»: «al click deve aprire dettaglio transazione». Erano cliccabili solo la data e la causale (due `<Link>`); il click sull'importo, sullo stato o sullo spazio vuoto non faceva niente.
+> - **Fatto**: le righe delle DUE tabelle di movimenti della scheda (`src/app/partner/[id]/page.tsx`: gli «Ultimi movimenti bancari» e i «Movimenti esclusi» dentro il `<details>`) usano ora `RigaLink` con `className="riga-link"` verso `/movimenti/[id]`. È la regola del Libro UX&UI v1.6 §8 già applicata su fatture, vendite, pro-forma, spese, ordini, partner, registrazioni e richiedi-pagamento: qui non era stata portata. Nessuna riga di CSS nuova (`tbody tr.riga-link` esiste già: cursore a manina + hover).
+> - **I bottoni dentro la riga restano loro**: `RigaLink` non naviga se il click nasce su `a, button, input, select, textarea, label, details, summary, dialog` — quindi «Scollega», «Non è di questo partner» e «Ripristina» funzionano come prima.
+> - **Verifica reale** (server locale 3040 sul DB di produzione, scheda CHANTILLITTY che ha 5 movimenti): `tsc` verde; 10 righe con classe `riga-link` e `cursor: pointer` calcolato; **click su una cella non-link (l'importo) → navigazione a `/movimenti/cmt78vvky00gflb04bdkj5912`**, titolo «Ilaria Chiarakul» (confermato anche dal log del dev server: `GET /movimenti/… 200`); **click sul bottone «Non è di questo partner» → nessuna navigazione**. ⚠️ Il pannello browser di questa sessione è **nascosto**: viewport 0×0, quindi niente click per coordinate e niente screenshot utili — la prova è passata da un click DOM dopo aver aspettato la compilazione (il primo tentativo sembrava fallito solo perché misurato dopo 1,5 s contro i ~3 s di compilazione del dev server).
+> - Manuale aggiornato nello stesso commit (registro delle novità di `docs/COME-FUNZIONA-FINANCE.html`); ⚠️ **Artifact non ancora ripubblicato**.
+
+> ### 04/09/2026 (20:40) — GIADA CAKE: i movimenti in scheda NON sono suoi, sono omonimi per la parola «CAKE» (diagnosi, nulla cambiato)
+>
+> Chiesto dall'utente: «da dove prendi questi dati per giada cake?» (scheda `/partner/cmsdf6maj0002l7047ks715nv`). Contato sui dati veri:
+> - **Movimenti davvero attribuiti al partner: ZERO** (`TransazioneBancaria.partnerId` = nessuno). Tutte le righe che si vedono sono **candidati per nome**, marcati «per nome — da confermare».
+> - Il filtro della scheda prende i movimenti **non attribuiti** la cui `controparte` CONTIENE uno qualsiasi dei token del nome. Per «GIADA CAKE» i token sono `GIADA` e `CAKE`: **«GIADA» pesca 31 movimenti** (fra cui «Giada Baldari» e le uscite a «Giada Maria Francesca Lo Proto»), **«CAKE» ne pesca 40** (rose cake, moma cakes, Svitly cake, Helena cake, bliss cake…). Sono ~71 candidati, di cui in scheda si vedono i primi 10.
+> - **Causa**: `PAROLE_GENERICHE` in `src/lib/riconciliazione.ts` esclude i mestieri (PASTICCERIA, CIOCCOLATO, GELATERIA, FIORI…) ma **non CAKE / CAKES / TORTE / TORTA / SWEET / BAKERY**: per l'app «CAKE» è un nome proprio. È lo stesso caso di CIOCCOLATO annotato nel codice il 31/07.
+> - ⚠️ **Secondo scarto, più profondo**: la scheda partner è molto più larga del motore di riconciliazione. `matchPartner` confronta **parole intere** e pretende un token forte (≥5 caratteri) **o due token**; la scheda fa un `contains` (sottostringa) e si accontenta di **un token solo**. Per questo la scheda propone accostamenti che la riconciliazione non proporrebbe mai (`CAKE` dentro `cakes`).
+> - **Proposta (da approvare, NON applicata)**: (1) aggiungere le parole di mestiere mancanti a `PAROLE_GENERICHE`; (2) allineare la scheda al motore — parole intere e la stessa soglia di `matchPartner` — così «per nome — da confermare» torna a essere un suggerimento credibile. Da misurare prima: quanti candidati veri si perderebbero sugli altri partner.
+> - ℹ️ Il 04/09 alle 20:05 l'utente ha già escluso a mano un movimento da questa scheda («omonimo»), e alle 20:03 ha disconosciuto e ricreato l'anagrafica del partner.
+
 > ### 04/09/2026 (16:40) — ✅ DEPLOY IN PRODUZIONE del netto in compensazione: `5od7ydnyq` (build su Vercel, 1 min)
 >
 > Deciso dall'utente («fai push & deploy anche di finance»). Push già completo (`17802033` + il commit Marketing `c78516ce` rimasto in locale). `vercel build` locale muore su `npm install` (EPERM symlink di questo PC) → `npx vercel@latest deploy --prod --yes` da `scoutwt/deluxy-partner` (working tree pulito = origin). Health 200, `database:true`.
