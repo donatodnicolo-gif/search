@@ -120,6 +120,15 @@ model Prodotto {
   // (occasioniShopify, fioriShopify…) restano per le condizioni e le lenti;
   // questo è l'insieme completo, compilabile dal modulo prodotto.
   metafieldShopify Json?
+  // **Prezzo partner** (04/09/2026): quanto viene dato al partner per questo
+  // prodotto. Dato interno, non va su Shopify. Le varianti possono averne uno
+  // proprio (`Variante.prezzoPartner`), assoluto.
+  prezzoPartner Float?
+  // **Le collezioni scelte nel modulo** per un prodotto non ancora sul negozio
+  // (id locali di `CollezioneShopify`): alla pubblicazione ci entra; finché è
+  // qui, è solo il programma. Per un prodotto sul negozio contano le
+  // appartenenze vere (`collezioniShopify`).
+  collezioniPreviste Json?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
@@ -267,6 +276,8 @@ model Variante {
   // Delta rispetto al prodotto base (possono essere negativi).
   deltaCosto   Float @default(0)
   deltaPrezzo  Float @default(0)
+  // Quanto viene dato al partner per questa variante (assoluto; vuoto = quello del prodotto).
+  prezzoPartner Float?
   giacenza     Int   @default(0) // stock disponibile
   creataIl   DateTime @default(now())
   vendite    Vendita[]

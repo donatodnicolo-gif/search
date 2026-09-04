@@ -30,7 +30,7 @@ import { definizioniInCache, metafieldPerShopify } from "./metafield-definizioni
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
-import { agganciaFileAlProdotto, aggiungiProdottoACollezione } from "./shopify-media";
+import { agganciaFileAlProdotto, aggiungiProdottoACollezione, rimuoviProdottoDaCollezione } from "./shopify-media";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
 
 function testo(fd: FormData, k: string): string {
@@ -58,7 +58,8 @@ type MediaDalForm = {
   nome: string;
   negozio: string;
 };
-type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string };
+type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string };
+const partnerDa = (v: string | undefined): number | null => (v && v.trim() ? soldiDa(v) : null);
 
 /** È preso da un altro prodotto/variante (escludendo, in modifica, il prodotto stesso). */
 async function preso(codice: string, esclusoProdottoId?: string): Promise<boolean> {
@@ -103,12 +104,13 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
 
   const fase = testo(fd, "fase") || "concept";
   const categoria = testo(fd, "categoria") || "DA_CLASSIFICARE";
-  const collezioneId = testo(fd, "collezioneShopifyId") || null;
-  const collezione = collezioneId
-    ? await prisma.collezioneShopify.findUnique({ where: { id: collezioneId }, select: { id: true, shopifyId: true, titolo: true, tipo: true, negozio: true } })
-    : null;
-  if (collezioneId && !collezione) indietro("La collezione scelta non esiste più: rifai l'import o scegline un'altra.");
-  if (collezione && collezione.negozio !== negozioOk.nome) indietro("La collezione scelta è di un altro negozio.");
+  // Le collezioni: più d'una (chiesto dall'utente), solo manuali del negozio scelto.
+  const collezioniId = [...new Set(leggiJson<string[]>(fd, "collezioniJson", []).map(String).filter(Boolean))];
+  const collezioni = collezioniId.length
+    ? await prisma.collezioneShopify.findMany({ where: { id: { in: collezioniId } }, select: { id: true, shopifyId: true, titolo: true, tipo: true, negozio: true } })
+    : [];
+  if (collezioni.length !== collezioniId.length) indietro("Una delle collezioni scelte non esiste più: rifai l'import o scegline un'altra.");
+  if (collezioni.some((c) => c.negozio !== negozioOk.nome)) indietro("Una delle collezioni scelte è di un altro negozio.");
 
   const media = leggiJson<MediaDalForm[]>(fd, "mediaJson", []).filter((m) => m && m.shopifyFileId && m.stato !== "fallito" && m.negozio === negozioOk.nome);
   const variantiForm = leggiJson<VarianteDalForm[]>(fd, "variantiJson", []).filter((v) => v && v.nome?.trim());
@@ -140,7 +142,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     negozio: negozioOk,
     fase,
     categoria,
-    collezione,
+    collezioni,
     media,
     variantiForm,
     nomeOpzione,
@@ -156,6 +158,8 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     palette: testo(fd, "palette") || null,
     costo: numero(fd, "costoProduzione"),
     prezzoScritto: numero(fd, "prezzoVendita"),
+    // Quanto va al partner: dato interno, vuoto = non indicato (non zero).
+    prezzoPartner: testo(fd, "prezzoPartner") ? numero(fd, "prezzoPartner") : null,
     traduci: fd.get("traduci") != null,
     definizioni,
     metafield,
@@ -174,7 +178,7 @@ function prezzoBaseDa(m: Modulo, varianti: { prezzo: number }[]): number {
   return m.prezzoScritto;
 }
 
-/** I passi comuni dopo la creazione sul negozio: foto, collezione, traduzioni. */
+/** I passi comuni dopo la creazione sul negozio: foto, collezioni, traduzioni. Torna le collezioni in cui è entrato. */
 async function completaSulNegozio(
   m: Modulo,
   negozioToken: { dominio: string; token: string },
@@ -182,19 +186,23 @@ async function completaSulNegozio(
   media: MediaDalForm[],
   cronaca: string[],
   avvisi: string[]
-) {
+): Promise<{ entrate: string[] }> {
+  const entrate: string[] = [];
   if (media.length) {
     const r = await agganciaFileAlProdotto(negozioToken, media.map((x) => x.shopifyFileId), shopifyId);
     if (r.ok) cronaca.push(`${media.length} file agganciati al prodotto.`);
     else avvisi.push(`Foto/video non agganciati: ${r.errore}`);
   }
-  if (m.collezione) {
-    if (m.collezione.tipo !== "manuale") avvisi.push(`«${m.collezione.titolo}» è una collezione automatica: chi ci entra lo decide la regola del negozio.`);
-    else {
-      const r = await aggiungiProdottoACollezione(negozioToken, m.collezione.shopifyId, shopifyId);
-      if (r.ok) cronaca.push(`Messo nella collezione «${m.collezione.titolo}».`);
-      else avvisi.push(`Non entrato in «${m.collezione.titolo}»: ${r.errore}`);
+  for (const c of m.collezioni) {
+    if (c.tipo !== "manuale") {
+      avvisi.push(`«${c.titolo}» è una collezione automatica: chi ci entra lo decide la regola del negozio.`);
+      continue;
     }
+    const r = await aggiungiProdottoACollezione(negozioToken, c.shopifyId, shopifyId);
+    if (r.ok) {
+      cronaca.push(`Messo nella collezione «${c.titolo}».`);
+      entrate.push(c.id);
+    } else avvisi.push(`Non entrato in «${c.titolo}»: ${r.errore}`);
   }
   if (m.traduci) {
     const t = await traduciScheda({ titolo: m.nome, descrizione: m.descrizione ?? "" });
@@ -205,6 +213,7 @@ async function completaSulNegozio(
       if (r.errori.length) avvisi.push(`Traduzioni rifiutate: ${r.errori.join(" · ")}`);
     }
   }
+  return { entrate };
 }
 
 function vaiAllaScheda(id: string, avvisi: string[], okMessaggio: string): never {
@@ -229,6 +238,7 @@ export async function creaProdottoCompleto(fd: FormData) {
     sku: `${codice}-${i + 1}`,
     prezzo: soldiDa(v.prezzo),
     costo: soldiDa(v.costo),
+    prezzoPartner: partnerDa(v.prezzoPartner),
     giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0,
   }));
   const prezzoBase = prezzoBaseDa(m, varianti);
@@ -241,6 +251,7 @@ export async function creaProdottoCompleto(fd: FormData) {
   let fase = m.fase;
   let shopifyStato = "non_pubblicato";
   let statoShopify: string | null = null;
+  let entrate: string[] = [];
 
   if (vuolePubblicare) {
     if (!m.negozio.permessi.includes("write_products")) indietro(`Il negozio ${m.negozio.nome} non ha il permesso write_products: non posso pubblicare.`);
@@ -279,7 +290,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
       if (!m.finestraAperta) cronaca.push(`Nasce come bozza: la finestra di pubblicazione si apre il ${m.dalIso}.`);
-      await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi);
+      entrate = (await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi)).entrate;
     }
   }
 
@@ -298,7 +309,9 @@ export async function creaProdottoCompleto(fd: FormData) {
       prezzoVendita: prezzoBase,
       immagine: immagini[0]?.url ?? null,
       negozioNome: m.negozio.nome,
-      collezioneShopifyId: m.collezione?.id ?? null,
+      collezioneShopifyId: m.collezioni[0]?.id ?? null,
+      collezioniPreviste: m.collezioni.map((c) => c.id),
+      prezzoPartner: m.prezzoPartner,
       pubblicatoDal: m.pubblicatoDal,
       pubblicatoFinoAl: m.pubblicatoFinoAl,
       shopifyId,
@@ -310,16 +323,16 @@ export async function creaProdottoCompleto(fd: FormData) {
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
       ...(Object.keys(m.metafield).length ? colonneDaMetafield(m.metafield) : {}),
       varianti: varianti.length
-        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, giacenza: v.giacenza })) }
+        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza })) }
         : undefined,
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
         : undefined,
     },
   });
-  if (shopifyId && m.collezione && m.collezione.tipo === "manuale" && cronaca.some((c) => c.startsWith("Messo nella collezione"))) {
+  for (const collezioneId of entrate) {
     await prisma.prodottoInCollezioneShopify
-      .create({ data: { collezioneId: m.collezione.id, prodottoId: p.id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId } })
+      .create({ data: { collezioneId, prodottoId: p.id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId as string } })
       .catch(() => undefined);
   }
   await prisma.tappaSviluppo.create({
@@ -340,7 +353,11 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   const indietro = (errore: string): never => redirect(`/prodotti/${id}/modifica?errore=${encodeURIComponent(errore)}`);
   const esistente = await prisma.prodotto.findUnique({
     where: { id },
-    include: { varianti: { include: { _count: { select: { vendite: true } } } }, media: true },
+    include: {
+      varianti: { include: { _count: { select: { vendite: true } } } },
+      media: true,
+      collezioniShopify: { select: { id: true, collezioneId: true, collezione: { select: { shopifyId: true, titolo: true, tipo: true } } } },
+    },
   });
   if (!esistente) indietro("Prodotto non trovato.");
   const prima = esistente as NonNullable<typeof esistente>;
@@ -359,15 +376,21 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   // Numerazione delle varianti nuove: dopo l'ultimo «-N» già usato.
   const usati = prima.varianti.map((v) => v.sku ?? "").map((s) => Number(s.split("-").pop())).filter((n) => Number.isFinite(n));
   let prossimo = usati.length ? Math.max(...usati) + 1 : 1;
-  const varianti: { nome: string; sku: string; prezzo: number; costo: number; giacenza: number; nuova: boolean }[] = [];
+  const varianti: { nome: string; sku: string; prezzo: number; costo: number; prezzoPartner: number | null; giacenza: number; nuova: boolean }[] = [];
   for (const v of m.variantiForm) {
     let sku = v.sku ?? "";
     if (!sku) {
       do sku = `${codice}-${prossimo++}`;
       while (await preso(sku, prima.id));
     }
-    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
+    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), prezzoPartner: partnerDa(v.prezzoPartner), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
   }
+  // Collezioni: quelle manuali in cui sta già, contro quelle scelte ora.
+  const manualiPrima = prima.collezioniShopify.filter((x) => x.collezione.tipo === "manuale");
+  const collezioniAggiunte = m.collezioni.filter((c) => !prima.collezioniShopify.some((x) => x.collezioneId === c.id));
+  const collezioniTolte = manualiPrima.filter((x) => !m.collezioni.some((c) => c.id === x.collezioneId));
+  let entrate: string[] = [];
+  const uscite: string[] = [];
   const prezzoBase = prezzoBaseDa(m, varianti);
   const mediaNuovi = m.media.filter((x) => !prima.media.some((y) => y.shopifyFileId === x.shopifyFileId));
   const mediaTolti = prima.media.filter((y) => !m.media.some((x) => x.shopifyFileId === y.shopifyFileId));
@@ -405,8 +428,14 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         statoShopify = statoVoluto;
         shopifyStato = statoVoluto === "ACTIVE" ? "pubblicato" : "bozza";
       }
-      const collezioneCambiata = m.collezione && m.collezione.id !== prima.collezioneShopifyId;
-      await completaSulNegozio({ ...m, collezione: collezioneCambiata ? m.collezione : null }, token, shopifyId, mediaNuovi, cronaca, avvisi);
+      entrate = (await completaSulNegozio({ ...m, collezioni: collezioniAggiunte }, token, shopifyId, mediaNuovi, cronaca, avvisi)).entrate;
+      for (const x of collezioniTolte) {
+        const r = await rimuoviProdottoDaCollezione(token, x.collezione.shopifyId, shopifyId);
+        if (r.ok) {
+          cronaca.push(`Tolto dalla collezione «${x.collezione.titolo}».`);
+          uscite.push(x.id);
+        } else avvisi.push(`Non tolto da «${x.collezione.titolo}»: ${r.errore}`);
+      }
       if (mediaTolti.length) avvisi.push(`${mediaTolti.length} foto tolte qui restano sul prodotto del negozio: si tolgono dall'admin di Shopify.`);
     }
   } else if (vuolePubblico) {
@@ -445,7 +474,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       shopifyStato = stato === "ACTIVE" ? "pubblicato" : "bozza";
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
-      await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi);
+      entrate = (await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi)).entrate;
     }
   }
 
@@ -467,7 +496,9 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         prezzoVendita: prezzoBase,
         immagine: immagini[0]?.url ?? prima.immagine,
         negozioNome: m.negozio.nome,
-        collezioneShopifyId: m.collezione?.id ?? null,
+        collezioneShopifyId: m.collezioni[0]?.id ?? null,
+        collezioniPreviste: m.collezioni.map((c) => c.id),
+        prezzoPartner: m.prezzoPartner,
         pubblicatoDal: m.pubblicatoDal,
         pubblicatoFinoAl: m.pubblicatoFinoAl,
         shopifyId,
@@ -483,7 +514,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     // Varianti: per SKU. Le nuove nascono, le presenti si aggiornano, quelle
     // sparite dal modulo si tolgono solo se non hanno venduto niente.
     for (const v of varianti) {
-      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, giacenza: v.giacenza };
+      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza };
       const gia = prima.varianti.find((x) => x.sku === v.sku);
       if (gia) await tx.variante.update({ where: { id: gia.id }, data: dati });
       else await tx.variante.create({ data: { prodottoId: id, sku: v.sku, ...dati } });
@@ -500,6 +531,11 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       });
     }
     if (mediaTolti.length) await tx.mediaProdotto.deleteMany({ where: { id: { in: mediaTolti.map((y) => y.id) } } });
+    // Le appartenenze locali seguono quello che il negozio ha accettato.
+    for (const collezioneId of entrate) {
+      await tx.prodottoInCollezioneShopify.create({ data: { collezioneId, prodottoId: id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId as string } }).catch(() => undefined);
+    }
+    if (uscite.length) await tx.prodottoInCollezioneShopify.deleteMany({ where: { id: { in: uscite } } });
     if (fase !== prima.fase || cronaca.length) {
       await tx.tappaSviluppo.create({
         data: { prodottoId: id, da: prima.fase, a: fase, nota: ["Modificato dal modulo.", ...cronaca].join(" "), origine: shopifyId ? "shopify" : "ui" },

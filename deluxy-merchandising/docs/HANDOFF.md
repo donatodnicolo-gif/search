@@ -168,6 +168,23 @@ di sessione; deploy da fare con l'utente):**
       nere con ✓ e conteggio. In modifica, in testa al modulo un **riepilogo**
       («Stai modificando «…» · SKU · fase · sul negozio X: salvando si aggiorna
       anche là · N varianti») con la foto.
+    - **Collezioni multiple** (chiesto dall'utente): in creazione si scelgono
+      più collezioni manuali del negozio (ricerca + chip); in modifica il
+      modulo parte da quelle in cui il prodotto sta (`collezioniShopify`,
+      le automatiche in sola lettura) e aggiunge/toglie le manuali sul negozio
+      (`collectionAddProducts` / `collectionRemoveProducts`, poi le righe
+      locali). Per un prodotto non ancora sul negozio le scelte stanno in
+      `Prodotto.collezioniPreviste` (JSON di id) e si applicano alla
+      pubblicazione. `collezioneShopifyId` resta = la prima.
+    - **Prezzo partner** (`Prodotto.prezzoPartner`, `Variante.prezzoPartner`,
+      assoluti, vuoto = non indicato): quanto va al partner. Interno, non va
+      su Shopify. Nel modulo e nella tabella delle varianti.
+    - **Metafield vuoti in modifica** (segnalato dall'utente su gg_disp_min):
+      i prodotti importati prima di oggi hanno i valori nelle colonne
+      tipizzate ma non in `metafieldShopify`. `metafieldDaColonne()` li
+      ricostruisce (liste → JSON) e il modulo li mostra subito; dopo l'import
+      notturno arrivano anche i campi senza colonna. Il grezzo, quando c'è,
+      vince.
     ⚠️ Niente di tutto questo è stato provato contro un negozio vero; le
     pagine `/prodotti/nuovo` e `/prodotti/<id>/modifica` sono verificate in
     locale (200, riquadri presenti).

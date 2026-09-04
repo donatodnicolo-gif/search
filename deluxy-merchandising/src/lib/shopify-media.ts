@@ -237,6 +237,23 @@ export async function eliminaFile(negozio: NegozioConToken, fileId: string[]): P
   return err.length ? { ok: false, errore: err.join(" · ") } : { ok: true };
 }
 
+/** Toglie il prodotto da una collezione manuale del negozio. */
+export async function rimuoviProdottoDaCollezione(
+  negozio: NegozioConToken,
+  collezioneShopifyId: string,
+  prodottoShopifyId: string
+): Promise<{ ok: boolean; errore?: string }> {
+  const r = await gql(
+    negozio,
+    `mutation togliDallaCollezione($id: ID!, $productIds: [ID!]!) {
+       collectionRemoveProducts(id: $id, productIds: $productIds) { userErrors { field message } }
+     }`,
+    { id: collezioneShopifyId, productIds: [prodottoShopifyId] }
+  );
+  const err = erroriDi(r, "collectionRemoveProducts");
+  return err.length ? { ok: false, errore: err.join(" · ") } : { ok: true };
+}
+
 /** Mette il prodotto in una collezione manuale del negozio. */
 export async function aggiungiProdottoACollezione(
   negozio: NegozioConToken,
