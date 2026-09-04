@@ -272,7 +272,13 @@ export async function analizzaMessaggioOra(
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
   const [sezioni, regole, ctx] = await Promise.all([
-    db.sezione.findMany({ where: { utenteId }, orderBy: { ordine: 'asc' } }),
+    // ⚠️ SENZA la sezione SPAM. Dare una priorità vuol dire «questa mail
+    // conta»: se fra le sezioni offerte al modello c'è anche SPAM, può
+    // rispondere «SPAM» e la mail SPARISCE dalla posta in arrivo, che nasconde
+    // solo quella sezione — segnalato il 04/09/2026 (eva.ascenzi: «ho messo
+    // una priorità e non la vedo più»). Lo spam si giudica solo all'arrivo,
+    // col suo filtro (`valutaSpam` + giudizio AI): qui non si giudica.
+    db.sezione.findMany({ where: { utenteId, nome: { not: 'SPAM' } }, orderBy: { ordine: 'asc' } }),
     db.regola.findMany({ where: { utenteId } }),
     contestoAI(utenteId),
   ])
@@ -331,7 +337,9 @@ export async function analizzaMessaggioOra(
       })),
     })
 
-    const sezioneAI = analisi.sezione
+    // Cintura: se il modello scrive «SPAM» lo stesso (non è fra le scelte, ma
+    // un modello può ignorarle), la mail NON si sposta.
+    const sezioneAI = analisi.sezione && analisi.sezione !== 'SPAM'
       ? (sezioni.find((s) => s.nome === analisi.sezione)?.id ?? null)
       : null
     const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola' || m.smistatoDa === 'spam'

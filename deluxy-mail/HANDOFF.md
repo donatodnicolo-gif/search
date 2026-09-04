@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **29 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **4 settembre 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,53 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 04/09 — «Riassunto rapido» sulla mail singola + la priorità non manda più in SPAM
+
+Due richieste dell'utente, stesso giro. ⚠️ **Scritte SENZA typecheck né build**: su questo
+PC Node.js non c'è (04/09, `where node` vuoto — vedi la memoria «ambiente-macchina-node-assente»),
+quindi niente `tsc`, niente `next build`, niente deploy. Il codice segue i pattern già in
+pagina, ma la prima cosa da fare con Node reinstallato è `npx tsc --noEmit` in `deluxy-mail`
+e poi il deploy precompilato (regola del 04/09 in `CLAUDE.md`).
+
+- **Segnalazione (eva.ascenzi): «ho dato una priorità e la mail è sparita dalla posta in
+  arrivo»**, confermata dall'utente come sistematica. Letto il codice: `impostaPriorita` →
+  `analizzaMessaggioOra` → l'AI sceglie una sezione fra TUTTE quelle dell'utente, **SPAM
+  compresa** (`assicuraSezioneSpam` la crea a tutti con descrizione «posta indesiderata…»);
+  la posta in arrivo (`ListaPosta`, filtro `fuoriSpam`) mostra le mail smistate in qualunque
+  sezione **tranne SPAM**. Quindi l'unica strada, a codice, per cui una priorità fa sparire
+  una mail da «In arrivo» è l'AI che risponde «SPAM». (Non ho potuto guardare il database:
+  niente Node, Python o psql sulla macchina. Diagnosi da confermare aprendo la sezione SPAM
+  di Eva.) Le altre due letture possibili, non causate dalla priorità: scheda «Non smistate»
+  attiva (una mail che riceve una sezione ne esce per definizione) o mail raggruppata sotto
+  la riga della sua conversazione.
+- **Correzione** (`sync.ts`, `analizzaMessaggioOra`): le sezioni date al modello sono lette
+  con `nome: { not: 'SPAM' }`, e una cintura ignora comunque un eventuale «SPAM» nella
+  risposta. Vale per l'analisi da priorità e per la lettura di sottofondo (AI+): lo spam si
+  giudica solo all'arrivo (`valutaSpam` + giudizio AI), non rileggendo una mail che l'utente
+  ha appena detto che conta.
+- **Riassunto rapido sulla mail singola** («metti riassunto rapido anche se non è un thread
+  ma una singola mail»). Il motore c'era già: `riassumiThreadOra` accetta un thread da 1
+  messaggio, era la pagina a nascondere la scheda «Conversazione» (e a non leggere il
+  riassunto salvato) sotto i 2 messaggi. Ora `messaggio/[id]/page.tsx` legge sempre
+  `leggiRiassuntoThread` e, per una mail sola, mostra una scheda `#riassunto` con lo stesso
+  `RiassuntoConversazione` in modalità **`singola`** (titolo «Riassunto rapido», testi
+  senza «parti» e «punti di vista», suggerimenti di domanda diversi, piè «Una mail sola»).
+  In `ai.ts`, `riassumiThread` aggiunge al prompt la nota «È UNA MAIL SOLA» (solo parte di
+  chi scrive, «Tu» solo se ti chiede qualcosa, niente persone inventate) e intesta il
+  blocco «LA MAIL» invece di «CONVERSAZIONE». Nella riga delle azioni rapide, per la mail
+  sola, «Riassunto rapido ↓» accanto a «Correlate»; la nota «L'AI non ha ancora letto questa
+  mail» dice le due strade (priorità = riassunto + attività + smistamento; riassunto rapido
+  = legge e basta). Nessuna priorità, attività o spostamento: `riassumiThreadOra` non tocca
+  il messaggio.
+- **Come è stato committato**: worktree pulito da `origin/scout-ui` (in `scoutwt/` c'è
+  ancora il WIP firma-per-casella di un'altra sessione, che non compila, e il branch locale
+  `scout-ui` ha un commit solo suo — `a145bace`, manuale CRM — e 20 di origin non ancora
+  presi). Il push va su `origin/scout-ui` in fast-forward dal worktree; chi lavora in
+  `scoutwt/` deve prima riallineare `scout-ui` a origin (stash del WIP, rebase, pop).
+- Documenti: questo handoff, `docs/COME-FUNZIONA-AI-MAIL.md` (§ riassunto), la guida visiva
+  (registro, due righe), `MANUALE-DELUXY.html` (registro). ⚠️ La guida visiva come Artifact
+  NON è stata ripubblicata (nessun URL a portata in questa sessione).
 
 ### 03/09 — Customer Service fra le app: «Stato dell'ordine» + Invia sticky su mobile
 
