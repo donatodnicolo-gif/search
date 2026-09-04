@@ -708,6 +708,166 @@ export class SalesService {
    * consegna non nasce: chiuderla PRIMA direbbe il falso, e chi abbandona il
    * form a metà la ritroverebbe dove deve stare.
    */
+  /**
+   * ⭐ 04/09/2026 (regola utente): «CHI ABBIAMO USATO, E A QUANTO».
+   *
+   * Per una vendita ferma, lo storico REALE di quel prodotto in quella
+   * provincia: le vendite ACCETTATE, raggruppate per partner, con quante
+   * volte, i prezzi e l'ultima volta.
+   *
+   * ⚠️ Tre scelte che contano:
+   *  - **niente finestra che taglia**: si legge TUTTO lo storico e le righe
+   *    più vecchie di 12 mesi si marcano `vecchia` — un taglio silenzioso
+   *    farebbe sparire l'unico precedente di un prodotto che gira poco
+   *    ([[trappola-censimento-troncato]]);
+   *  - **l'allargamento si dichiara**: se per quella coppia non c'è niente si
+   *    guarda lo stesso prodotto nelle ALTRE province, poi la stessa categoria
+   *    in QUELLA provincia, e la risposta dice quale dei tre sta leggendo
+   *    ([[trappola-cercare-non-e-affermare]]);
+   *  - **è roba d'ufficio**: nomi e prezzi di altri partner. Il controller la
+   *    apre solo ad ADMIN e OPERATION, mai al partner.
+   */
+  async storicoPartner(id: string) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      select: {
+        productId: true, provinceId: true, productName: true,
+        product: { select: { name: true, categoryId: true, type: true } },
+        province: { select: { code: true, name: true } },
+      },
+    });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (!vendita.productId) {
+      return { base: 'nessuna' as const, regola: null, righe: [], prodotto: vendita.productName, provincia: vendita.province?.code ?? null };
+    }
+
+    const comune = { status: SaleStatus.ACCETTATA, partnerId: { not: null } };
+    const select = {
+      partnerId: true, amount: true, discountPercent: true, createdAt: true,
+      externalOrderNumber: true, provinceId: true,
+    };
+    // 1) la coppia esatta; 2) lo stesso prodotto altrove; 3) la categoria qui.
+    let base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna' = 'coppia';
+    let vendite = await this.prisma.sale.findMany({
+      where: { ...comune, productId: vendita.productId, provinceId: vendita.provinceId },
+      select, orderBy: { createdAt: 'desc' },
+    });
+    if (!vendite.length) {
+      base = 'altre-province';
+      vendite = await this.prisma.sale.findMany({
+        where: { ...comune, productId: vendita.productId, provinceId: { not: vendita.provinceId } },
+        select, orderBy: { createdAt: 'desc' },
+      });
+    }
+    if (!vendite.length && vendita.product?.categoryId) {
+      base = 'categoria';
+      vendite = await this.prisma.sale.findMany({
+        where: { ...comune, provinceId: vendita.provinceId, product: { categoryId: vendita.product.categoryId } },
+        select, orderBy: { createdAt: 'desc' },
+      });
+    }
+    if (!vendite.length) base = 'nessuna';
+
+    const perPartner = new Map<string, typeof vendite>();
+    for (const v of vendite) perPartner.set(v.partnerId!, [...(perPartner.get(v.partnerId!) ?? []), v]);
+
+    const [partner, province, regola, esclusi] = await Promise.all([
+      this.prisma.partner.findMany({
+        where: { id: { in: [...perPartner.keys()] } },
+        select: { id: true, insegna: true, active: true, provinces: { select: { provinceId: true } } },
+      }),
+      this.prisma.province.findMany({
+        where: { id: { in: [...new Set(vendite.map((v) => v.provinceId))] } },
+        select: { id: true, code: true },
+      }),
+      this.prisma.productReconciliation.findFirst({
+        where: { productId: vendita.productId, provinceId: vendita.provinceId },
+        select: { partnerId: true, price: true, discountPercent: true, status: true },
+      }),
+      this.prisma.appSetting.findUnique({ where: { key: 'riconciliazioniPartnerEsclusi' } }),
+    ]);
+    const perId = new Map(partner.map((p) => [p.id, p]));
+    const sigla = new Map(province.map((p) => [p.id, p.code]));
+    const listaEsclusi = (esclusi?.value ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+    const dodiciMesiFa = new Date();
+    dodiciMesiFa.setMonth(dodiciMesiFa.getMonth() - 12);
+
+    const arrotonda = (n: number) => Math.round(n * 100) / 100;
+    const moda = (valori: number[]) => {
+      const conta = new Map<number, number>();
+      for (const v of valori) conta.set(arrotonda(v), (conta.get(arrotonda(v)) ?? 0) + 1);
+      let migliore = arrotonda(valori[0] ?? 0);
+      let max = 0;
+      for (const [v, n] of conta) if (n > max || (n === max && v > migliore)) { max = n; migliore = v; }
+      return migliore;
+    };
+
+    const righe = [...perPartner.entries()].map(([partnerId, lista]) => {
+      const p = perId.get(partnerId);
+      const importi = lista.map((v) => v.amount);
+      const prezzoModa = moda(importi);
+      const scontoModa = moda(lista.map((v) => v.discountPercent));
+      const ultima = lista[0]; // già ordinate dal più recente
+      return {
+        partnerId,
+        insegna: p?.insegna ?? '(partner sconosciuto)',
+        attivo: p?.active ?? false,
+        operaInProvincia: (p?.provinces ?? []).some((x) => x.provinceId === vendita.provinceId),
+        escluso: listaEsclusi.includes(partnerId),
+        vendite: lista.length,
+        prezzoMin: arrotonda(Math.min(...importi)),
+        prezzoMax: arrotonda(Math.max(...importi)),
+        prezzoModa,
+        scontoModa,
+        nettoModa: arrotonda(prezzoModa * (1 - scontoModa / 100)),
+        ultimaData: ultima.createdAt,
+        ultimoOrdine: ultima.externalOrderNumber,
+        ultimaProvincia: sigla.get(ultima.provinceId) ?? null,
+        // Più vecchia di un anno: si mostra, ma segnalata. I prezzi invecchiano.
+        vecchia: ultima.createdAt < dodiciMesiFa,
+      };
+    }).sort((x, y) => y.vendite - x.vendite || y.ultimaData.getTime() - x.ultimaData.getTime());
+
+    return {
+      base,
+      prodotto: vendita.product?.name ?? vendita.productName,
+      provincia: vendita.province?.code ?? null,
+      tipoProdotto: vendita.product?.type ?? null,
+      considerate: vendite.length,
+      regola: regola ? { ...regola, insegna: perId.get(regola.partnerId)?.insegna ?? (await this.prisma.partner.findUnique({ where: { id: regola.partnerId }, select: { insegna: true } }))?.insegna ?? null } : null,
+      righe,
+    };
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): l'ufficio PROPONE la vendita a un partner
+   * scelto a mano (di solito dallo storico qui sopra). Non è un'accettazione:
+   * la palla resta al partner, che può rifiutare come sempre.
+   */
+  async proponiAPartner(id: string, partnerId: string, user: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id }, select: { status: true, partnerId: true } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
+      throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
+    }
+    const partner = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { insegna: true, active: true } });
+    if (!partner) throw new NotFoundException('Partner non trovato');
+    if (!partner.active) throw new BadRequestException('Il partner non è attivo.');
+
+    const aggiornata = await this.prisma.sale.update({
+      where: { id },
+      data: {
+        partnerId,
+        status: SaleStatus.PROPOSTA,
+        historyAt: null,
+        assignmentReason: "scelto a mano dall'ufficio sullo storico",
+      },
+      include: { product: { select: { id: true, name: true } }, partner: { select: { id: true, insegna: true } }, province: true },
+    });
+    await this.registra(id, 'stato', `Proposta a ${partner.insegna} dall'ufficio (scelta a mano sullo storico)`, user);
+    return aggiornata;
+  }
+
   async prendiInMano(id: string, user?: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({ where: { id } });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
@@ -1301,6 +1461,21 @@ export class SalesController {
   @ApiOperation({ summary: 'Modifica i DATI della vendita (importo, destinatario, date…) — non lo stato' })
   modifica(@Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: JwtUser) {
     return this.salesService.modifica(id, body, user);
+  }
+
+  @Get(':id/storico-partner')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Chi abbiamo usato in passato per questo prodotto in questa provincia, e a che prezzo' })
+  storicoPartner(@Param('id') id: string) {
+    return this.salesService.storicoPartner(id);
+  }
+
+  @Post(':id/proponi')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'L\'ufficio propone la vendita a un partner scelto a mano' })
+  proponi(@Param('id') id: string, @Body() body: { partnerId?: string }, @CurrentUser() user: JwtUser) {
+    if (!body?.partnerId) throw new BadRequestException('Serve «partnerId».');
+    return this.salesService.proponiAPartner(id, body.partnerId, user);
   }
 
   @Post(':id/collega-consegna')

@@ -299,6 +299,60 @@ export class RiconciliazioniService {
     }));
   }
 
+  /**
+   * ⭐ 04/09/2026: la riconciliazione nata DA UNA VENDITA (bottone «Crea
+   * riconciliazione» nello storico del pop-up). Nasce come PROPOSTA: la
+   * decisione resta in Riconciliazioni, dove si vede accanto alle altre.
+   */
+  async daVendita(saleId: string, partnerId: string, user: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id: saleId },
+      select: { productId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
+    });
+    if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { active: true, provinces: { where: { provinceId: vendita.provinceId }, select: { provinceId: true } } },
+    });
+    if (!partner) throw new NotFoundException('Partner non trovato');
+    if (!partner.active) throw new BadRequestException('Il partner non è attivo.');
+    if ((await this.esclusiIds()).includes(partnerId)) {
+      throw new BadRequestException('Il partner è escluso dalle riconciliazioni.');
+    }
+    const gia = await this.prisma.productReconciliation.findUnique({
+      where: { productId_provinceId: { productId: vendita.productId, provinceId: vendita.provinceId } },
+      select: { id: true, status: true },
+    });
+    if (gia && gia.status !== 'proposta') {
+      throw new BadRequestException(
+        gia.status === 'accettata'
+          ? 'Per questo prodotto in questa provincia esiste già una regola attiva: modificala in Riconciliazioni.'
+          : 'Questa coppia era stata rifiutata: riaprila dalla pagina Riconciliazioni.',
+      );
+    }
+    const dati = {
+      partnerId,
+      price: arrotonda(vendita.amount),
+      discountPercent: arrotonda(vendita.discountPercent),
+      salesCount: 1,
+      stats: JSON.stringify([]),
+      lastSaleId: saleId,
+      lastOrderNumber: vendita.externalOrderNumber,
+      trigger: 'manuale',
+      status: 'proposta',
+      decidedAt: null,
+      decidedBy: null,
+    };
+    const riga = gia
+      ? await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: dati, select: { id: true } })
+      : await this.prisma.productReconciliation.create({
+          data: { productId: vendita.productId, provinceId: vendita.provinceId, ...dati },
+          select: { id: true },
+        });
+    void user;
+    return (await this.lista({ ids: [riga.id] }))[0];
+  }
+
   /** Accetta = regola attiva (lo smistamento la legge da subito). Rifiuta = mai più proposta. */
   async decidi(id: string, azione: 'accetta' | 'rifiuta', user: JwtUser) {
     const r = await this.prisma.productReconciliation.findUnique({ where: { id } });
@@ -441,6 +495,13 @@ export class RiconciliazioniController {
   analizza(@Body() body: { da?: string; a?: string }) {
     if (!body?.da || !body?.a) throw new BadRequestException('Servono le date «da» e «a».');
     return this.service.genera({ da: new Date(`${body.da}T00:00:00.000Z`), a: new Date(`${body.a}T23:59:59.999Z`), innesco: 'manuale' });
+  }
+
+  @Post('da-vendita')
+  @ApiOperation({ summary: 'Crea (o riscrive) la proposta per il prodotto/provincia di una vendita, col partner scelto' })
+  daVendita(@Body() body: { saleId?: string; partnerId?: string }, @CurrentUser() user: JwtUser) {
+    if (!body?.saleId || !body?.partnerId) throw new BadRequestException('Servono «saleId» e «partnerId».');
+    return this.service.daVendita(body.saleId, body.partnerId, user);
   }
 
   @Post(':id/accetta')

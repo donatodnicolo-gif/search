@@ -3,6 +3,27 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔎 **04/09/2026-duodecies — «CHI ABBIAMO USATO, E A QUANTO» nel pop-up della vendita** (IN LOCALE, non ancora deployato).
+> - `GET /sales/:id/storico-partner` (ADMIN/OPERATION): vendite ACCETTATE per
+>   prodotto × provincia, per partner (volte, min/max/moda, netto, ultima con
+>   ordine, attivo, operaInProvincia, escluso, `vecchia` = ultima oltre 12
+>   mesi). Nessun taglio temporale; allargamento dichiarato in `base`:
+>   coppia → altre-province → categoria → nessuna. Porta anche la `regola`
+>   della riconciliazione se esiste.
+> - `POST /sales/:id/proponi {partnerId}`: l'ufficio propone a mano →
+>   `status proposta`, `assignmentReason` «scelto a mano dall'ufficio sullo
+>   storico», riga nel registro. Solo da proposta/da_gestire, partner attivo.
+> - `POST /riconciliazioni/da-vendita {saleId, partnerId}`: crea/riscrive la
+>   PROPOSTA per quella coppia col prezzo e sconto della vendita; 400 se la
+>   coppia è già accettata o rifiutata, o se il partner è escluso.
+> - Web: bottone «Chi abbiamo usato?» sulla riga Partner del pop-up, tabellina
+>   dentro il pop-up, azioni «Proponi a lui» e «Crea riconciliazione».
+> - ⚠️ Due inciampi già pagati in questo giro: la guardia di un patch-script
+>   coincideva con testo del template (blocco saltato in silenzio, tsc passa
+>   ma `ng` no: **il typecheck NON vede i template**, guardare i log del
+>   dev server); e un backtick dentro il template a backtick ha chiuso la
+>   stringa (NG5002 «Unclosed block»).
+>
 > 🚀 **04/09/2026-undecies — DEPLOY della seconda stesura (comando utente «Pubblica ora»)** — deploy `delivery-3v2udz3o8`, bundle `main-XYRZUFMC.js` servito da deluxy-delivery.vercel.app, rotta `/api/v1/riconciliazioni/esclusi` → 401 (viva). PRIMA del deploy, in produzione: tabella `ProductReconciliation` ricreata nella forma nuova con `--butta-le-righe-vecchie` (80 proposte della prima stesura, tutte NON decise, perse con consenso esplicito) e `riconciliazioniPartnerEsclusi` = Artista Locale (`cmt5t8yjd00ari6v4aa2vlrbc`). Push su origin fino a `f403690a`, cartella app/ riallineata, guida visiva ripubblicata. Da fare: prima corsa vera (Prodotti → Riconciliazioni → Cerca proposte) e conferma della base Shopify per i negozi diversi da deluxygifts.
 >
 > 🧹 **04/09/2026-decies — Riconciliazioni: partner esclusi (Artista Locale) e voce di menu; dettaglio vendita: link Shopify e prezzo partner** (IN LOCALE, l'utente ha detto «per ora non serve pubblicare, ti dirò io quando»).

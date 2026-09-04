@@ -2388,6 +2388,27 @@
       "smistamento": "smistamento:",
       "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" }
     },
+    "history": {
+      "open": "Chi abbiamo usato?",
+      "close": "Chiudi lo storico",
+      "title": "Chi abbiamo usato, e a quanto",
+      "rule": "Regola attiva: {{partner}} a {{prezzo}} €. Le vendite nuove ci vanno da sole.",
+      "base_coppia": "Vendite accettate di «{{prodotto}}» in provincia di {{provincia}}.",
+      "base_altre-province": "In provincia di {{provincia}} non è mai stato venduto: ecco «{{prodotto}}» nelle altre province.",
+      "base_categoria": "«{{prodotto}}» non è mai stato venduto: ecco la stessa categoria in provincia di {{provincia}}.",
+      "base_nessuna": "Nessun precedente da mostrare.",
+      "none": "Nessuna vendita accettata da cui imparare.",
+      "col": { "partner": "Partner", "times": "Volte", "price": "Prezzo", "last": "Ultima volta" },
+      "net": "al partner {{prezzo}} €",
+      "old": "più di un anno fa",
+      "inactive": "non attivo",
+      "notHere": "non opera in questa provincia",
+      "excluded": "escluso dalle riconciliazioni",
+      "propose": "Proponi a lui",
+      "proposedOk": "Vendita proposta a {{partner}}.",
+      "rule.create": "Crea riconciliazione",
+      "rule.created": "Riconciliazione con {{partner}} creata: la trovi in Prodotti → Riconciliazioni, da accettare."
+    },
     "detail": {
       "title": "Vendita",
       "product": "Prodotto",

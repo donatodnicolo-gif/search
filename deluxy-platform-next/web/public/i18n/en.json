@@ -2387,6 +2387,27 @@
       "smistamento": "routing:",
       "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" }
     },
+    "history": {
+      "open": "Who did we use?",
+      "close": "Close history",
+      "title": "Who we used, and at what price",
+      "rule": "Active rule: {{partner}} at {{prezzo}} €. New sales go there by themselves.",
+      "base_coppia": "Accepted sales of “{{prodotto}}” in the province of {{provincia}}.",
+      "base_altre-province": "Never sold in the province of {{provincia}}: here is “{{prodotto}}” in other provinces.",
+      "base_categoria": "“{{prodotto}}” was never sold: here is the same category in the province of {{provincia}}.",
+      "base_nessuna": "No precedent to show.",
+      "none": "No accepted sale to learn from.",
+      "col": { "partner": "Partner", "times": "Times", "price": "Price", "last": "Last time" },
+      "net": "partner gets {{prezzo}} €",
+      "old": "more than a year ago",
+      "inactive": "inactive",
+      "notHere": "does not operate in this province",
+      "excluded": "excluded from reconciliations",
+      "propose": "Propose to them",
+      "proposedOk": "Sale proposed to {{partner}}.",
+      "rule.create": "Create reconciliation",
+      "rule.created": "Reconciliation with {{partner}} created: find it in Products → Reconciliations, to accept."
+    },
     "detail": {
       "title": "Sale",
       "product": "Product",

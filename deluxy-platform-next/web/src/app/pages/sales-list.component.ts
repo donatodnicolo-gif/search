@@ -10,6 +10,34 @@ import { AuthService } from '../core/auth.service';
 import { DeliveryFormComponent } from './delivery-form.component';
 import { ConfermaComponent } from '../shared/conferma.component';
 
+/** ⭐ 04/09 (regola utente): «chi abbiamo usato, e a quanto» per prodotto × provincia. */
+interface RigaStorico {
+  partnerId: string;
+  insegna: string;
+  attivo: boolean;
+  operaInProvincia: boolean;
+  escluso: boolean;
+  vendite: number;
+  prezzoMin: number;
+  prezzoMax: number;
+  prezzoModa: number;
+  scontoModa: number;
+  nettoModa: number;
+  ultimaData: string;
+  ultimoOrdine: string | null;
+  ultimaProvincia: string | null;
+  vecchia: boolean;
+}
+
+interface Storico {
+  base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna';
+  prodotto: string | null;
+  provincia: string | null;
+  considerate: number;
+  regola: { partnerId: string; insegna: string | null; price: number; discountPercent: number; status: string } | null;
+  righe: RigaStorico[];
+}
+
 interface Sale {
   id: string;
   status: string;
@@ -352,7 +380,15 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <dd>{{ nettoPartner(v) | number: '1.2-2' }} €<span class="muted"> · {{ 'sales.detail.partnerPriceHint' | translate }}</span></dd>
             }
             <dt>{{ 'sales.detail.partner' | translate }}</dt>
-            <dd>{{ v.partner?.insegna ?? ('sales.noPartner' | translate) }}@if (v.assignmentReason) { <div class="cella-sub">{{ v.assignmentReason }}</div> }</dd>
+            <dd>{{ v.partner?.insegna ?? ('sales.noPartner' | translate) }}@if (v.assignmentReason) { <div class="cella-sub">{{ v.assignmentReason }}</div> }
+              <!-- ⭐ 04/09 (regola utente): chi abbiamo usato in passato, e a quanto. -->
+              @if (canManage()) {
+                <div><button type="button" class="btn btn-secondary mini" style="margin-top:6px"
+                             (click)="storicoAperto() ? chiudiStorico() : apriStorico(v)">
+                  {{ (storicoAperto() ? 'sales.history.close' : 'sales.history.open') | translate }}
+                </button></div>
+              }
+            </dd>
             <!-- ⭐ 04/09 (regola utente): al partner niente destinatario né indirizzo. -->
             @if (!isPartner()) {
               <dt>{{ 'sales.detail.recipient' | translate }}</dt>
@@ -377,6 +413,74 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             <dd>{{ v.source }}@if (v.externalOrderNumber) { <span class="muted"> · {{ 'sales.detail.order' | translate }} #{{ v.externalOrderNumber }}</span> } <span class="muted">· {{ v.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span></dd>
           </dl>
         </section>
+
+        <!-- ⭐ 04/09 (regola utente): STORICO «chi abbiamo usato e a quanto» per
+             prodotto × provincia. Solo ufficio: sono nomi e prezzi altrui. -->
+        @if (storicoAperto()) {
+          <section class="card pan-card">
+            <h3>{{ 'sales.history.title' | translate }}</h3>
+            @if (storicoCaricando()) {
+              <p class="muted">{{ 'common.loading' | translate }}</p>
+            }
+            <!-- ⚠️ «as» vale solo sul primo @if: niente @else if qui (NG5002). -->
+            @if (storico(); as st) {
+              @if (st.regola && st.regola.status === 'accettata') {
+                <p class="regola-attiva">{{ 'sales.history.rule' | translate: { partner: st.regola.insegna, prezzo: (st.regola.price | number: '1.2-2') } }}</p>
+              }
+              <p class="muted">{{ ('sales.history.base_' + st.base) | translate: { prodotto: st.prodotto, provincia: st.provincia } }}</p>
+              @if (st.righe.length) {
+                <table class="table storico">
+                  <thead>
+                    <tr>
+                      <th>{{ 'sales.history.col.partner' | translate }}</th>
+                      <th class="num">{{ 'sales.history.col.times' | translate }}</th>
+                      <th class="num">{{ 'sales.history.col.price' | translate }}</th>
+                      <th>{{ 'sales.history.col.last' | translate }}</th>
+                      <th class="azioni"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of st.righe; track r.partnerId) {
+                      <tr [class.spenta]="!r.attivo">
+                        <td>
+                          <b>{{ r.insegna }}</b>
+                          <div class="cella-sub">
+                            @if (!r.attivo) { <span class="ko">{{ 'sales.history.inactive' | translate }}</span> }
+                            @else if (!r.operaInProvincia) { <span class="ko">{{ 'sales.history.notHere' | translate }}</span> }
+                            @if (r.escluso) { <span class="muted"> · {{ 'sales.history.excluded' | translate }}</span> }
+                          </div>
+                        </td>
+                        <td class="num">{{ r.vendite }}</td>
+                        <td class="num">
+                          <b>{{ r.prezzoModa | number: '1.2-2' }} €</b>
+                          @if (r.prezzoMin !== r.prezzoMax) { <div class="cella-sub">{{ r.prezzoMin | number: '1.2-2' }}–{{ r.prezzoMax | number: '1.2-2' }} €</div> }
+                          <div class="cella-sub">{{ 'sales.history.net' | translate: { prezzo: (r.nettoModa | number: '1.2-2') } }}</div>
+                        </td>
+                        <td>
+                          {{ r.ultimaData | date: 'dd/MM/yy' }}@if (r.ultimoOrdine) { <span class="muted"> · #{{ r.ultimoOrdine }}</span> }
+                          @if (st.base === 'altre-province' && r.ultimaProvincia) { <span class="muted"> · {{ r.ultimaProvincia }}</span> }
+                          @if (r.vecchia) { <div class="cella-sub muted">{{ 'sales.history.old' | translate }}</div> }
+                        </td>
+                        <td class="azioni">
+                          @if (r.attivo && (v.status === 'proposta' || v.status === 'da_gestire') && r.partnerId !== v.partner?.id) {
+                            <button type="button" class="btn btn-primary mini" [disabled]="inCorso() === v.id"
+                                    (click)="proponiA(v, r)">{{ 'sales.history.propose' | translate }}</button>
+                          }
+                          @if (r.attivo && !r.escluso && r.operaInProvincia && st.base === 'coppia') {
+                            <button type="button" class="btn btn-secondary mini" [disabled]="inCorso() === v.id"
+                                    (click)="creaRiconciliazione(v, r)">{{ 'sales.history.rule.create' | translate }}</button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="muted">{{ 'sales.history.none' | translate }}</p>
+              }
+            }
+          </section>
+        }
 
         <section class="card pan-card">
           <h3>{{ 'sales.detail.registro' | translate }}</h3>
@@ -505,6 +609,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .pan-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .pan-card { padding: 16px 18px; margin-bottom: 12px; }
       .pan-card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 650; }
+      .regola-attiva { margin: 0 0 8px; font-size: 13px; font-weight: 550; }
+      table.storico { width: 100%; font-size: 13px; }
+      table.storico td, table.storico th { padding: 6px 8px; }
+      table.storico tr.spenta { opacity: 0.6; }
+      table.storico .azioni { white-space: nowrap; text-align: right; }
+      table.storico .azioni .btn + .btn { margin-left: 6px; }
       .coppie { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; margin: 0; font-size: 14px; }
       .coppie dt { color: var(--text-tertiary); font-size: 12.5px; }
       .coppie dd { margin: 0; }
@@ -535,6 +645,10 @@ export class SalesListComponent {
   readonly inCorso = signal<string | null>(null);
   readonly esitoSync = signal<any>(null);
   readonly messaggio = signal<{ ok: boolean; testo: string } | null>(null);
+  /** ⭐ 04/09 (regola utente): lo storico «chi abbiamo usato», dentro il pop-up. */
+  readonly storico = signal<Storico | null>(null);
+  readonly storicoAperto = signal(false);
+  readonly storicoCaricando = signal(false);
   // Default «Da gestire» (deciso dall'utente 31/08): all'apertura si vede il
   // lavoro aperto, non tutto lo storico.
   readonly filtro = signal<string>('da_gestire');
@@ -791,7 +905,7 @@ export class SalesListComponent {
       error: (e) => { this.dettaglioCaricando.set(false); this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Dettaglio non disponibile' }); },
     });
   }
-  chiudiDettaglio(): void { this.dettaglio.set(null); }
+  chiudiDettaglio(): void { this.chiudiStorico(); this.dettaglio.set(null); }
   @HostListener('document:keydown.escape')
   suEscape(): void { if (this.confermaPendente()) this.confermaPendente.set(null); else if (this.dettaglio()) this.chiudiDettaglio(); }
 
@@ -856,6 +970,59 @@ export class SalesListComponent {
       this.messaggio.set({ ok: true, testo: this.translate.instant('sales.inseritaOk') });
       this.carica();
     }
+  }
+
+  apriStorico(s: Sale): void {
+    this.storicoAperto.set(true);
+    this.storicoCaricando.set(true);
+    this.storico.set(null);
+    this.http.get<Storico>(`${environment.apiUrl}/sales/${s.id}/storico-partner`).subscribe({
+      next: (st) => { this.storico.set(st); this.storicoCaricando.set(false); },
+      error: (e) => {
+        this.storicoCaricando.set(false);
+        this.storicoAperto.set(false);
+        this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Storico non disponibile' });
+      },
+    });
+  }
+
+  chiudiStorico(): void {
+    this.storicoAperto.set(false);
+    this.storico.set(null);
+  }
+
+  /** L'ufficio propone la vendita al partner scelto sullo storico. */
+  proponiA(s: Sale, r: RigaStorico): void {
+    this.inCorso.set(s.id);
+    this.messaggio.set(null);
+    this.http.post<Sale>(`${environment.apiUrl}/sales/${s.id}/proponi`, { partnerId: r.partnerId }).subscribe({
+      next: () => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.proposedOk', { partner: r.insegna }) });
+        this.carica();
+        this.ricaricaDettaglio(s.id);
+      },
+      error: (e) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Proposta non riuscita' });
+      },
+    });
+  }
+
+  /** Porta la coppia prodotto/provincia in Riconciliazioni, come proposta. */
+  creaRiconciliazione(s: Sale, r: RigaStorico): void {
+    this.inCorso.set(s.id);
+    this.messaggio.set(null);
+    this.http.post(`${environment.apiUrl}/riconciliazioni/da-vendita`, { saleId: s.id, partnerId: r.partnerId }).subscribe({
+      next: () => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.rule.created', { partner: r.insegna }) });
+      },
+      error: (e) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Riconciliazione non creata' });
+      },
+    });
   }
 
   private rispondi(s: Sale, azione: 'accetta' | 'rifiuta'): void {

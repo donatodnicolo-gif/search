@@ -37,3 +37,6 @@ anomalie-prezzo-vendite.csv
 
 # backup dei listini sconto prodotti dagli script (dati veri: mai committati)
 api/backup-sconti-*.json
+
+# Proxy locale per provare la UI contro l'API di produzione (non va nel repo)
+web/proxy.prod.json
