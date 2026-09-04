@@ -25,6 +25,10 @@
 > - 🐞 **Prima uscita: /home BIANCA** (segnalazione utente, 04/09 sera): la
 >   home iniettava `DecimalPipe` senza `providers: [DecimalPipe]` →
 >   NullInjectorError a runtime, pagina vuota. Corretto e rideployato.
+>   Seconda uscita: etichette a chiave (`partnerHome.servicesTitle`…) — le
+>   chiavi nuove NON erano entrate nei JSON i18n (il perl non aveva agganciato
+>   l'ancora, e il build non se ne accorge). Inserite con uno script a righe
+>   che VERIFICA la chiave dopo; rideployato (`delivery-4teephwyy`).
 > - **Duplica dallo storico: la DATA resta vuota** (regola utente): la copia
 >   non eredita la data e il preavviso del servizio non la riempie da solo
 >   (`dataDaScegliere`); resta obbligatoria come sempre.
