@@ -257,6 +257,28 @@ export function FormProdottoNuovo({
       <input type="hidden" name="tagsJson" value={JSON.stringify(tags)} />
       {controllaStock && <input type="hidden" name="controllaStock" value="1" />}
 
+      {/* ---------- In modifica: cosa si sta toccando, e dove finisce ---------- */}
+      {modifica && iniziale && (
+        <div className="riepilogo-modifica">
+          {iniziale.media.find((x) => x.tipo === "immagine" && (x.anteprima || x.url)) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={(iniziale.media.find((x) => x.tipo === "immagine" && (x.anteprima || x.url))?.anteprima ?? iniziale.media.find((x) => x.tipo === "immagine")?.url) as string} alt="" />
+          ) : (
+            <span className="media-segnaposto" style={{ width: 56, height: 56, fontSize: 22 }}>❀</span>
+          )}
+          <div>
+            <div className="riepilogo-titolo">Stai modificando «{iniziale.nome}»</div>
+            <div className="cella-sub">
+              SKU {iniziale.codice} · {ETICHETTA_FASE[iniziale.fase] ?? iniziale.fase} ·{" "}
+              {iniziale.shopifyId
+                ? `sul negozio ${negozi.find((n) => n.id === iniziale.negozioId)?.nome ?? ""}: salvando si aggiorna anche là`
+                : "non è sul negozio: resta qui, salvo scegliere la fase Pubblico"}
+              {iniziale.varianti.length ? ` · ${iniziale.varianti.length} varianti` : ""}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---------- Anagrafica ---------- */}
       <div className="scheda">
         <div className="scheda-titolo">Anagrafica</div>
@@ -413,11 +435,36 @@ export function FormProdottoNuovo({
         {definizioni.length === 0 ? (
           <div className="vuoto-mini">Nessuna definizione letta per questo negozio: arriva col prossimo import delle collezioni.</div>
         ) : (
-          <div className="modulo">
-            {definizioni.map((d) => (
+          (() => {
+            // Prima i campi che il negozio tiene **in evidenza** nell'admin
+            // (quelli appuntati: occasioni, fiori, orario…), nell'ordine
+            // dell'admin; gli altri — spesso campi di prova o di app — stanno
+            // ripiegati, ma si aprono se ne hanno già un valore.
+            const inEvidenza = definizioni.filter((d) => d.posizione != null);
+            const altri = definizioni.filter((d) => d.posizione == null);
+            const principali = inEvidenza.length ? inEvidenza : altri;
+            const secondari = inEvidenza.length ? altri : [];
+            const compilati = secondari.filter((d) => (metafield[chiaveDef(d)] ?? "") !== "").length;
+            const campo = (d: DefinizioneMetafield) => (
               <CampoMetafield key={chiaveDef(d)} def={d} valore={metafield[chiaveDef(d)] ?? ""} onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))} />
-            ))}
-          </div>
+            );
+            return (
+              <>
+                <div className="modulo">{principali.map(campo)}</div>
+                {secondari.length > 0 && (
+                  <details className="altri-campi" open={compilati > 0 || undefined}>
+                    <summary className="pill-opt">
+                      Altri {secondari.length} campi non in evidenza{compilati ? ` · ${compilati} compilati` : ""}
+                    </summary>
+                    <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
+                      Campi che il negozio non tiene in evidenza nell&apos;admin: di prova, di app o usati di rado. Si compilano solo se servono.
+                    </p>
+                    <div className="modulo">{secondari.map(campo)}</div>
+                  </details>
+                )}
+              </>
+            );
+          })()
         )}
       </div>
 
@@ -636,7 +683,16 @@ export function FormProdottoNuovo({
 /** Un metafield reso secondo il suo tipo e i valori ammessi. */
 function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void }) {
   const id = `mf-${def.namespace}-${def.key}`;
-  const etichetta = etichettaDef(def);
+  const compilato = valore !== "";
+  // L'etichetta: il nome dato nell'admin, con la chiave tecnica accanto in
+  // piccolo — con nomi come «Data» o «Test1» è la chiave a dire cos'è.
+  const etichetta = (
+    <>
+      {etichettaDef(def)}
+      <span className="mf-chiave">{chiaveDef(def)}</span>
+      {compilato && <span className="mf-punto" title="Compilato" />}
+    </>
+  );
   const aiuto = def.descrizione ? <span className="cella-sub">{def.descrizione}</span> : null;
 
   if (def.tipo === "list.single_line_text_field" && def.scelte?.length) {
@@ -652,12 +708,14 @@ function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; 
         <label>{etichetta}</label>
         <div className="pill-scelta">
           {def.scelte.map((s) => (
-            <label key={s} className={`pill-opt${scelti.has(s) ? " attuale" : ""}`} style={{ cursor: "pointer" }}>
+            <label key={s} className={`pill-opt chip-scelta${scelti.has(s) ? " selezionato" : ""}`}>
               <input type="checkbox" checked={scelti.has(s)} onChange={(e) => toggle(s, e.target.checked)} hidden />
+              {scelti.has(s) ? "✓ " : ""}
               {s}
             </label>
           ))}
         </div>
+        {scelti.size > 0 && <span className="cella-sub">{scelti.size} scelti</span>}
         {aiuto}
       </div>
     );
@@ -666,7 +724,7 @@ function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; 
     return (
       <div className="campo-modulo largo">
         <label htmlFor={id}>{etichetta}</label>
-        <input id={id} value={listaDa(valore).join("; ")} onChange={(e) => { const l = e.target.value.split(";").map((s) => s.trim()).filter(Boolean); onChange(l.length ? JSON.stringify(l) : ""); }} placeholder="Più valori separati da punto e virgola" />
+        <input id={id} value={listaDa(valore).join("; ")} onChange={(e) => { const l = e.target.value.split(";").map((s) => s.trim()).filter(Boolean); onChange(l.length ? JSON.stringify(l) : ""); }} placeholder="Uno o più valori, separati da ;" />
         {aiuto}
       </div>
     );
