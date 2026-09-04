@@ -52,6 +52,14 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (23:40) — la stessa regola nella «Salute del credito» e nelle fatture da sollecitare (segnalato dall'utente)
+>
+> Segnalato con uno screenshot: sulla scheda GIADA CAKE i mesi dicevano già «da bonificare 55,60 €», ma dieci centimetri più su «Salute del credito» diceva ancora **esposizione 549,00 €, 1 fattura aperta** e la riga rossa «549,00 € di fatture aperte senza data di scadenza». Due verità sulla stessa pagina.
+> - Il credito nasce in `src/lib/stato-credito.ts` (`schedaPartner`, `schedeTutti`), che leggeva TUTTE le `FatturaServizio` aperte. Ora filtra con `eFatturaVera`: **un'esposizione è un credito, e senza documento non c'è credito**. `CAMPI` prende anche `descrizione`, che serve al giudizio.
+> - Stessa cosa per le **fatture aperte passate a «Contatto amministrativo»** nella scheda partner: una riga senza documento non si può sollecitare, non esiste niente da mandare al cliente.
+> - Ricadono a posto anche l'elenco partner, lo scadenzario, `/impostazioni/stati` e l'API `/api/clienti/stato` (la leggono altre app): tutti passano da lì.
+> - **Verifica**: GIADA CAKE → esposizione **0**, fatture aperte **0**, stato «nessuna». Controprova che non ho azzerato tutto: **39 partner su 66 hanno ancora un'esposizione**, CHANEL MILANO 25.904,93 € «ritardo», CHANEL ROMA 18.150,33 €. `tsc` verde.
+
 > ### 04/09/2026 (23:00) — «Una fattura è vera solo se sta su Fatture in Cloud»: le righe senza documento escono dai conti
 >
 > Regola dell'utente: «se non ci sono fatture in Fatture in Cloud non è una fattura vera, diventa vera solo quella in FIC, quindi nella scheda partner non deve apparire».

@@ -17,6 +17,7 @@ import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
 import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
 import { RigaMovimento, ApriDettaglio, type MovimentoDettaglio } from "@/components/MovimentoModale";
+import { eFatturaVera } from "@/lib/fattura-vera";
 import { TIPI_PL } from "@/lib/categorie-spesa";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
@@ -130,10 +131,15 @@ export default async function PartnerDetail({
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
-    prisma.fatturaServizio.findMany({
-      where: { partnerId: id, pagata: false, imponibile: { gt: 0 } },
-      orderBy: [{ scadenza: "asc" }],
-    }),
+    // Le fatture aperte che il contatto amministrativo deve sollecitare: solo
+    // quelle VERE. Una riga senza documento su FIC non si può sollecitare —
+    // non esiste nulla da mandare al cliente.
+    prisma.fatturaServizio
+      .findMany({
+        where: { partnerId: id, pagata: false, imponibile: { gt: 0 } },
+        orderBy: [{ scadenza: "asc" }],
+      })
+      .then((ff) => ff.filter(eFatturaVera)),
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
     analisiPartner(id),
     analisiPartner(id),

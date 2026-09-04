@@ -25,6 +25,7 @@
 
 import { ivato, residuoFattura } from "./calc";
 import { prisma } from "./db";
+import { eFatturaVera } from "./fattura-vera";
 import { leggiRegole, REGOLE_CREDITO_DEFAULT, type RegoleCredito } from "./regole-stati";
 
 export type FatturaCredito = {
@@ -286,6 +287,8 @@ function azioneConsigliata(stato: StatoCredito, scaduto: number): string {
 const CAMPI = {
   id: true, numero: true, imponibile: true, aliquotaIva: true,
   pagata: true, incassato: true, compensata: true, emissione: true, scadenza: true, dataPagamento: true,
+  // serve al giudizio «è una fattura vera?» (vedi `fattura-vera.ts`)
+  descrizione: true,
 } as const;
 
 function daMesiFa(mesi: number, oggi = new Date()): Date {
@@ -310,7 +313,11 @@ export async function schedaPartner(
     where: { partnerId, imponibile: { gt: 0 }, OR: [{ pagata: false }, { emissione: { gte: dal } }, { emissione: null }] },
     select: CAMPI,
   });
-  return schedaCredito(fatture, oggi, regole);
+  // Un'esposizione è un CREDITO: senza un documento su Fatture in Cloud non
+  // esiste (regola dell'utente del 04/09/2026, vedi `fattura-vera.ts`). Se
+  // restasse qui, la scheda del partner direbbe «da incassare 0» nei mesi e
+  // «esposizione 549 €» dieci centimetri più su.
+  return schedaCredito(fatture.filter(eFatturaVera), oggi, regole);
 }
 
 /** Schede credito di tutti i partner, per id (una sola lettura). */
@@ -320,10 +327,12 @@ export async function schedeTutti(
   const oggi = opts?.oggi ?? new Date();
   const regole = opts?.regole ?? (await leggiRegole()).credito;
   const dal = daMesiFa(regole.mesiStorico, oggi);
-  const fatture = await prisma.fatturaServizio.findMany({
-    where: { imponibile: { gt: 0 }, OR: [{ pagata: false }, { emissione: { gte: dal } }, { emissione: null }] },
-    select: { ...CAMPI, partnerId: true },
-  });
+  const fatture = (
+    await prisma.fatturaServizio.findMany({
+      where: { imponibile: { gt: 0 }, OR: [{ pagata: false }, { emissione: { gte: dal } }, { emissione: null }] },
+      select: { ...CAMPI, partnerId: true },
+    })
+  ).filter(eFatturaVera); // stessa regola della scheda: niente documento, niente credito
   const perPartner = new Map<string, FatturaCredito[]>();
   for (const f of fatture) {
     const arr = perPartner.get(f.partnerId);
