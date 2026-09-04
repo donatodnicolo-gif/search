@@ -31,6 +31,14 @@ type ProdottoDaSmistare = {
 
 /** Lo stato di un ordine come lo dice Orders (letto dal vivo, 04/09). */
 type StatoOrdineOrders = {
+  /**
+   * ⭐ 04/09/2026 (regola utente): la SALUTE dell'ordine in Orders —
+   * conforme | a_rischio | non_pagato | cancellato | nullo. Se non è
+   * «conforme» la vendita NON si manda avanti: niente accettazione, niente
+   * consegna, niente proposta a un partner. Resta in Vendite, e l'unica cosa
+   * che si può fare è rifiutarla.
+   */
+  salute: string | null;
   stato: string | null; terminale: boolean | null;
   smistamento: string | null; evasione: string | null;
   fulfillmentStatus: string | null; consegnataIl: string | null; annullato: unknown;
@@ -115,13 +123,71 @@ export class SalesService {
    * SERVER e non finisce mai nella risposta del partner: da lì si vedrebbero
    * i dati del cliente che la maschera-partner toglie.
    */
-  private async linkShopify(externalOrderId: string | null): Promise<string | null> {
-    const id = SalesService.numeroShopify(externalOrderId);
-    if (!id) return null;
+  /** La salute dell'ordine, o null se Orders non risponde / non c'è ordine. */
+  private async saluteOrdine(externalOrderId: string | null | undefined): Promise<string | null> {
+    const ordine = await this.ordineDaOrders(externalOrderId);
+    return typeof ordine?.salute === 'string' ? ordine.salute : (ordine?.salute?.chiave ?? null);
+  }
+
+  private async linkShopify(externalOrderId: string | null, brand?: string | null): Promise<string | null> {
+    // ⚠️ Sull'ordine D2C `externalOrderId` è l'id di **Deluxy Orders** (un
+    // cuid), NON quello di Shopify: verificato su tutte le 489 vendite con
+    // riferimento, nessuna ha un `gid://`. Il numero vero ce l'ha Orders, nel
+    // campo `orderId` (`gid://shopify/Order/N`). Prima si prova la strada
+    // corta (se un domani l'id arrivasse già buono), poi si chiede a Orders.
+    let id = SalesService.numeroShopify(externalOrderId);
+    let marchio = (brand ?? '').trim();
+    if (!id) {
+      const ordine = await this.ordineDaOrders(externalOrderId);
+      id = SalesService.numeroShopify(ordine?.orderId ?? null);
+      marchio = marchio || String(ordine?.brand ?? '').trim();
+    }
+    if (!id) return null; // meglio nessun bottone che un link che non apre niente
     const s = await this.prisma.appSetting.findUnique({ where: { key: 'shopifyAdminUrl' } });
-    const base = (s?.value?.trim() || process.env.SHOPIFY_ADMIN_URL || 'https://admin.shopify.com/store/deluxygifts')
-      .replace(/\/+$/, '');
+    const base = SalesService.baseShopify(s?.value, marchio);
     return base ? `${base}/orders/${id}` : null;
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): «se lo stato non è conforme l'ordine non
+   * può essere mandato avanti». Qui si ferma: accettazione, consegna e
+   * proposta a un partner. La vendita resta dov'è — anche quella di un
+   * prodotto UNICO, che altrimenti sarebbe passata liscia.
+   *
+   * ⚠️ Se Orders non risponde NON si blocca: un servizio giù fermerebbe tutto
+   * l'ufficio, e il rischio di un ordine non conforme accettato è lo stesso
+   * che si correva prima di questa regola. Il silenzio si distingue dal «no».
+   */
+  private async assertOrdineConforme(externalOrderId: string | null | undefined) {
+    const ordine = await this.ordineDaOrders(externalOrderId);
+    const salute = typeof ordine?.salute === 'string' ? ordine.salute : (ordine?.salute?.chiave ?? null);
+    if (salute && salute !== 'conforme') {
+      throw new BadRequestException(
+        `L'ordine in Orders non è conforme (${String(salute).replace(/_/g, ' ')}): non si può mandare avanti. Si può solo rifiutare.`,
+      );
+    }
+  }
+
+  /**
+   * La base dell'admin per quel marchio. L'impostazione `shopifyAdminUrl`
+   * accetta due forme: **un indirizzo solo** (vale per tutti) o un **JSON per
+   * marchio** — es. {"deluxy.it": ".../store/deluxygifts", "*": ".../store/altro"}.
+   * I negozi sono più d'uno e un link al negozio sbagliato apre una pagina
+   * vuota: se il marchio non è in mappa e non c'è la voce "*", niente bottone.
+   */
+  private static baseShopify(valore: string | null | undefined, brand: string): string {
+    const grezzo = (valore ?? '').trim() || process.env.SHOPIFY_ADMIN_URL || '';
+    const pulisci = (v: string) => (v ?? '').trim().replace(/\/+$/, '');
+    if (grezzo.startsWith('{')) {
+      try {
+        const mappa = JSON.parse(grezzo) as Record<string, string>;
+        const chiave = Object.keys(mappa).find((k) => k.toLowerCase() === brand.toLowerCase());
+        return pulisci(mappa[chiave ?? ''] ?? mappa['*'] ?? '');
+      } catch {
+        return '';
+      }
+    }
+    return pulisci(grezzo) || 'https://admin.shopify.com/store/deluxygifts';
   }
 
   /** La coda numerica di «gid://shopify/Order/N» (o «N»): la chiave con cui Orders si trova. */
@@ -165,6 +231,7 @@ export class SalesService {
           const k = SalesService.numeroShopify(o.orderId);
           if (!k) continue;
           mappa.set(k, {
+            salute: typeof o.salute === 'string' ? o.salute : (o.salute?.chiave ?? null),
             stato: o.classificazione?.stato?.chiave ?? null,
             terminale: o.classificazione?.stato?.terminale ?? null,
             smistamento: o.smistamento ?? null,
@@ -466,6 +533,8 @@ export class SalesService {
         `La vendita non e' in attesa di risposta (stato: ${vendita.status}).`,
       );
     }
+    // ⭐ 04/09 (regola utente): un ordine non conforme non va avanti.
+    await this.assertOrdineConforme(vendita.externalOrderId);
     // ⭐ 04/09 (regola utente): si accetta solo una vendita davvero andata a un
     // partner. Senza partner la consegna non saprebbe da chi ritirare.
     if (!vendita.partnerId) {
@@ -573,12 +642,33 @@ export class SalesService {
       const serviceType = vendita.serviceTypeId
         ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
         : null;
-      return SalesService.perPartner({ ...vendita, logs, serviceType, delivery, refusedPartnerIds: null, assignmentReason: null });
+      // Anche al partner la SALUTE: se l'ordine non è conforme deve vedere
+      // l'allarme e non un bottone «Accetta» che darebbe errore.
+      const saluteP = await this.saluteOrdine(vendita.externalOrderId);
+      return SalesService.perPartner({
+        ...vendita, logs, serviceType, delivery, refusedPartnerIds: null, assignmentReason: null,
+        ordine: saluteP ? { salute: saluteP } : null,
+      });
     }
     const serviceType = vendita.serviceTypeId
       ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
       : null;
-    return { ...vendita, serviceType, delivery, shopifyUrl: await this.linkShopify(vendita.externalOrderId) };
+    // Una sola lettura di Orders per il pop-up: da lì escono sia il link
+    // all'ordine sia la salute (che decide i bottoni).
+    const ordineOrders = await this.ordineDaOrders(vendita.externalOrderId);
+    const salute = typeof ordineOrders?.salute === 'string' ? ordineOrders.salute : (ordineOrders?.salute?.chiave ?? null);
+    const idShopify = SalesService.numeroShopify(vendita.externalOrderId) ?? SalesService.numeroShopify(ordineOrders?.orderId ?? null);
+    const baseAdmin = idShopify
+      ? SalesService.baseShopify(
+          (await this.prisma.appSetting.findUnique({ where: { key: 'shopifyAdminUrl' } }))?.value,
+          vendita.brand || String(ordineOrders?.brand ?? ''),
+        )
+      : '';
+    return {
+      ...vendita, serviceType, delivery,
+      shopifyUrl: baseAdmin && idShopify ? `${baseAdmin}/orders/${idShopify}` : null,
+      ordine: salute ? { salute } : null,
+    };
   }
 
   /**
@@ -845,11 +935,12 @@ export class SalesService {
    * la palla resta al partner, che può rifiutare come sempre.
    */
   async proponiAPartner(id: string, partnerId: string, user: JwtUser) {
-    const vendita = await this.prisma.sale.findUnique({ where: { id }, select: { status: true, partnerId: true } });
+    const vendita = await this.prisma.sale.findUnique({ where: { id }, select: { status: true, partnerId: true, externalOrderId: true } });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
       throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
     }
+    await this.assertOrdineConforme(vendita.externalOrderId);
     const partner = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { insegna: true, active: true } });
     if (!partner) throw new NotFoundException('Partner non trovato');
     if (!partner.active) throw new BadRequestException('Il partner non è attivo.');

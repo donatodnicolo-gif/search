@@ -239,7 +239,7 @@
     },
     "orders": {
       "shopifyAdmin": "Shopify admin (for the order link)",
-      "shopifyAdminHint": "Used by the “View on Shopify” button in the sale detail. Empty = historical store.",
+      "shopifyAdminHint": "Used by the “View on Shopify” button in the sale detail. A single address applies to every brand; for different stores paste a JSON per brand, e.g. {\"deluxy.it\": \"https://admin.shopify.com/store/deluxygifts\", \"*\": \"https://admin.shopify.com/store/other\"}. Empty = historical store.",
       "title": "Deluxy Orders (Shopify orders)",
       "url": "Orders address",
       "key": "Orders API key",
@@ -2385,7 +2385,14 @@
       "aperto": "Open",
       "evasione": "fulfilment:",
       "smistamento": "routing:",
-      "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" }
+      "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" },
+      "salute": { "conforme": "compliant", "a_rischio": "at risk", "non_pagato": "unpaid", "cancellato": "cancelled", "nullo": "void" }
+    },
+    "notConform": {
+      "tag": "order {{salute}}",
+      "hint": "The order in Orders is not compliant: this sale cannot move forward.",
+      "title": "Non-compliant order in Orders: {{salute}}",
+      "msg": "This sale cannot be accepted, inserted or proposed to a partner. It stays here in Sales until the order becomes compliant: the only thing you can do is reject it."
     },
     "history": {
       "open": "Who did we use?",

@@ -3,6 +3,25 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🛑 **04/09/2026-terdecies — ORDINE NON CONFORME: la vendita non va avanti; link Shopify riparato (mappa dei 4 negozi)** (comando utente «fai push e deploy e importa lo stato di orders»).
+> - **Salute da Orders**: `StatoOrdineOrders.salute` (elenco, cache 2′) e nel
+>   dettaglio (`findOne`, stessa chiamata del link Shopify). Valori di Orders:
+>   conforme | a_rischio | non_pagato | cancellato | nullo (calcolati là, non
+>   copiati: Standard §7).
+> - **Blocco**: `assertOrdineConforme` in `accetta` e `proponiAPartner` → 400
+>   con la salute scritta. Un prodotto UNICO non conforme resta in Vendite.
+>   ⚠️ Orders irraggiungibile = NON blocca (il silenzio non è un «no»).
+> - **UI**: allarme rosso in testa al pop-up, e in elenco/pop-up l'unico
+>   bottone è Rifiuta (`nonConforme()`, `saluteLeggibile()`); etichette in
+>   `sales.orders.salute.*` e `sales.notConform.*`.
+> - **Link Shopify riparato**: `externalOrderId` sulla vendita è l'id di
+>   **Deluxy Orders**, non di Shopify → il numero si prende da Orders
+>   (`orderId` = gid). La base per marchio è in `shopifyAdminUrl`, ora un JSON
+>   coi 4 negozi letti da `orders."NegozioShopify"` (lettura una tantum, non
+>   dal codice): deluxy.it→deluxygifts, Flowers→fb72b1-2,
+>   cakedesign.me→cakedesign-5921, business.deluxy.it→90bfeb-f5. **Scritto in
+>   produzione il 04/09.**
+>
 > 🔎 **04/09/2026-duodecies — «CHI ABBIAMO USATO, E A QUANTO» nel pop-up della vendita** (IN LOCALE, non ancora deployato).
 > - `GET /sales/:id/storico-partner` (ADMIN/OPERATION): vendite ACCETTATE per
 >   prodotto × provincia, per partner (volte, min/max/moda, netto, ultima con

@@ -239,7 +239,7 @@
     },
     "orders": {
       "shopifyAdmin": "Admin Shopify (per il link all'ordine)",
-      "shopifyAdminHint": "Serve al bottone «Vedi su Shopify» nel dettaglio vendita. Vuoto = negozio storico.",
+      "shopifyAdminHint": "Serve al bottone «Vedi su Shopify» nel dettaglio vendita. Un indirizzo solo vale per tutti i marchi; per negozi diversi si incolla un JSON per marchio, es. {\"deluxy.it\": \"https://admin.shopify.com/store/deluxygifts\", \"*\": \"https://admin.shopify.com/store/altro\"}. Vuoto = negozio storico.",
       "title": "Deluxy Orders (ordini Shopify)",
       "url": "Indirizzo di Orders",
       "key": "Chiave API di Orders",
@@ -2386,7 +2386,14 @@
       "aperto": "Aperto",
       "evasione": "evasione:",
       "smistamento": "smistamento:",
-      "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" }
+      "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" },
+      "salute": { "conforme": "conforme", "a_rischio": "a rischio", "non_pagato": "non pagato", "cancellato": "cancellato", "nullo": "nullo" }
+    },
+    "notConform": {
+      "tag": "ordine {{salute}}",
+      "hint": "L'ordine in Orders non è conforme: la vendita non può essere mandata avanti.",
+      "title": "Ordine non conforme in Orders: {{salute}}",
+      "msg": "Questa vendita non può essere accettata, inserita né proposta a un partner. Resta qui in Vendite finché l'ordine non torna conforme: l'unica cosa che puoi fare è rifiutarla."
     },
     "history": {
       "open": "Chi abbiamo usato?",

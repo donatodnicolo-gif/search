@@ -72,8 +72,8 @@ interface Sale {
   /** ⭐ 04/09 (regola utente): quando la vendita è passata in storico. */
   historyAt?: string | null;
   /** ⭐ 04/09: lo stato dell'ordine in ORDERS, letto dal vivo (null = Orders non raggiungibile o ordine non trovato). */
-  ordine?: { stato: string | null; terminale: boolean | null; smistamento: string | null; evasione: string | null;
-    fulfillmentStatus: string | null; consegnataIl: string | null; annullato: unknown } | null;
+  ordine?: { salute?: string | null; stato?: string | null; terminale?: boolean | null; smistamento?: string | null; evasione?: string | null;
+    fulfillmentStatus?: string | null; consegnataIl?: string | null; annullato?: unknown } | null;
 }
 /** Una riga del registro della vendita (04/09): chi ha fatto cosa, quando. */
 interface SaleLog {
@@ -246,6 +246,16 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                   <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                 }
                 <td class="azioni" (click)="$event.stopPropagation()">
+                  <!-- ⭐ 04/09 (regola utente): ordine NON CONFORME in Orders =
+                       non si manda avanti. Resta solo «Rifiuta». -->
+                  @if (nonConforme(s)) {
+                    <span class="badge ko-badge" [title]="'sales.notConform.hint' | translate">{{ 'sales.notConform.tag' | translate: { salute: saluteLeggibile(s) } }}</span>
+                    @if ((s.status === 'proposta' && puoRispondere(s)) || (canManage() && s.status === 'da_gestire')) {
+                      <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
+                        {{ 'sales.refuse' | translate }}
+                      </button>
+                    }
+                  } @else {
                   @if (s.status === 'proposta' && puoRispondere(s)) {
                     <button class="btn btn-primary mini" [disabled]="inCorso() === s.id" (click)="accetta(s)">
                       {{ 'sales.accept' | translate }}
@@ -267,6 +277,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="inserisci(s)">
                       {{ 'sales.inserisci' | translate }}
                     </button>
+                  }
                   }
                   <!-- ⭐ 03/09 (regola utente): la vendita si MODIFICA da qui —
                        i dati (importo, destinatario, data, provincia), non lo
@@ -346,6 +357,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             <span class="badge" [style.--c]="colore(v.status)"><i class="dot"></i>{{ etichetta(v.status) }}</span>
           </div>
           <div class="pan-azioni">
+            @if (nonConforme(v)) {
+              @if ((v.status === 'proposta' && puoRispondere(v)) || (canManage() && v.status === 'da_gestire')) {
+                <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
+              }
+            } @else {
             @if (v.status === 'proposta' && puoRispondere(v)) {
               <button class="btn btn-primary mini" [disabled]="inCorso() === v.id" (click)="accetta(v)">{{ 'sales.accept' | translate }}</button>
               <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
@@ -359,10 +375,17 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             @if (v.shopifyUrl) {
               <a class="btn btn-secondary mini" [href]="v.shopifyUrl" target="_blank" rel="noopener">{{ 'sales.detail.shopify' | translate }}</a>
             }
+            }
             <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
           </div>
         </header>
 
+        @if (nonConforme(v)) {
+          <div class="allarme">
+            <b>{{ 'sales.notConform.title' | translate: { salute: saluteLeggibile(v) } }}</b>
+            <div>{{ 'sales.notConform.msg' | translate }}</div>
+          </div>
+        }
         <section class="card pan-card">
           <h3>{{ 'sales.detail.title' | translate }}</h3>
           <dl class="coppie">
@@ -609,6 +632,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .pan-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .pan-card { padding: 16px 18px; margin-bottom: 12px; }
       .pan-card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 650; }
+      .allarme { background: rgba(215, 0, 21, 0.08); border: 1px solid rgba(215, 0, 21, 0.28); color: var(--danger, #b3261e); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; }
+      .allarme div { color: var(--text); margin-top: 2px; }
+      .ko-badge { background: rgba(215, 0, 21, 0.1); color: var(--danger, #b3261e); margin-right: 6px; }
       .regola-attiva { margin: 0 0 8px; font-size: 13px; font-weight: 550; }
       table.storico { width: 100%; font-size: 13px; }
       table.storico td, table.storico th { padding: 6px 8px; }
@@ -746,6 +772,20 @@ export class SalesListComponent {
   /** Quanto incassa il partner: importo meno la quota Deluxy (lo sconto della vendita). */
   nettoPartner(v: Sale): number {
     return Math.round((v.amount ?? 0) * (1 - (v.discountPercent ?? 0) / 100) * 100) / 100;
+  }
+
+  /** ⭐ 04/09 (regola utente): l'ordine in Orders non è «conforme». */
+  nonConforme(s: Sale): boolean {
+    const salute = s.ordine?.salute;
+    return !!salute && salute !== 'conforme';
+  }
+
+  /** «non_pagato» → «non pagato», tradotto se c'è la voce. */
+  saluteLeggibile(s: Sale): string {
+    const salute = s.ordine?.salute ?? '';
+    const chiave = 'sales.orders.salute.' + salute;
+    const tradotta = this.translate.instant(chiave);
+    return tradotta === chiave ? salute.replace(/_/g, ' ') : tradotta;
   }
 
   isPartner(): boolean {
