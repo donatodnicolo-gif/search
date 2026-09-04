@@ -185,9 +185,10 @@ di sessione; deploy da fare con l'utente):**
       ricostruisce (liste → JSON) e il modulo li mostra subito; dopo l'import
       notturno arrivano anche i campi senza colonna. Il grezzo, quando c'è,
       vince.
-    ⚠️ Niente di tutto questo è stato provato contro un negozio vero; le
-    pagine `/prodotti/nuovo` e `/prodotti/<id>/modifica` sono verificate in
-    locale (200, riquadri presenti).
+    ✅ **Deployato alle 16:20 del 04/09 su richiesta dell'utente** («fai push
+    & deploy»), build remota, pagine verificate 200 in produzione.
+    ⚠️ Niente di tutto questo è stato provato contro un negozio vero: primo
+    collaudo da fare su Cake con un prodotto di prova.
 9. **Sincronizzazione all'apertura** (`src/lib/sincronizza-apertura.ts`,
    chiamata dal cruscotto `/`): se l'ultimo import `ok` di un negozio è più
    vecchio di **4 ore**, dopo la risposta (`after()` di Next, `maxDuration
