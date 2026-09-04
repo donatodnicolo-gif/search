@@ -11,6 +11,7 @@ import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { ficAllineaStatoFattura, ficAllineaIncassoParziale } from "./fic";
 import { registra } from "./registro";
+import { tipologiaDaUsare } from "./tipologie";
 import { euro } from "./format";
 import { aggiornaPagamentoDaSaldo, eseguiBonificoMese } from "./pagamenti-core";
 
@@ -193,10 +194,16 @@ export async function createFattura(fd: FormData) {
     const p = await prisma.partner.findUnique({ where: { id: partnerId } });
     scadenza = new Date(emissione.getTime() + (p?.ggPagamento ?? 0) * 86400000);
   }
+  // Se la descrizione NOMINA il servizio, decide lei: una «Fee affiliazione»
+  // finisce sotto Affiliazioni anche quando nella tendina è rimasto altro
+  // (regola dell'utente del 04/09/2026 — la tipologia è la voce con cui
+  // Budgets legge il fatturato). La correzione si SCRIVE nel registro: non si
+  // cambiano le carte in silenzio a chi ha appena compilato il modulo.
+  const tip = await tipologiaDaUsare(s(fd, "descrizione"), tipologiaId);
   const nuova = await prisma.fatturaServizio.create({
     data: {
       partnerId,
-      tipologiaId,
+      tipologiaId: tip.id,
       anno,
       mese,
       numero: s(fd, "numero"),
@@ -213,6 +220,9 @@ export async function createFattura(fd: FormData) {
   await registra({
     azione: `Creata fattura servizi ${nuova.numero ?? "s.n."} (${euro(imponibile)})`,
     categoria: "fatture", entita: "fattura", entitaId: nuova.id, partner: nuova.partner.nome,
+    dettaglio: tip.corretta
+      ? `Tipologia messa su «${tip.corretta.nome}» al posto di «${tip.corretta.prima}»: la descrizione nomina l'affiliazione.`
+      : undefined,
   });
   revalidateAll();
   redirect(`/fatture?anno=${anno}&mese=${mese}`);
@@ -229,10 +239,13 @@ export async function updateFattura(id: string, fd: FormData) {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id }, select: { pagata: true } });
   const pagata = b(fd, "pagata");
   const dataPagamento = pagata ? d(fd, "dataPagamento") : null;
+  // stessa regola della creazione: la descrizione, quando nomina il servizio,
+  // vince sulla tendina
+  const tip = await tipologiaDaUsare(s(fd, "descrizione"), tipologiaId);
   await prisma.fatturaServizio.update({
     where: { id },
     data: {
-      tipologiaId,
+      tipologiaId: tip.id,
       anno,
       mese,
       numero: s(fd, "numero"),
@@ -255,6 +268,9 @@ export async function updateFattura(id: string, fd: FormData) {
   await registra({
     azione: `Modificata fattura servizi ${fatt?.numero ?? "s.n."} (${euro(imponibile)})`,
     categoria: "fatture", entita: "fattura", entitaId: id, partner: fatt?.partner.nome ?? null,
+    dettaglio: tip.corretta
+      ? `Tipologia messa su «${tip.corretta.nome}» al posto di «${tip.corretta.prima}»: la descrizione nomina l'affiliazione.`
+      : undefined,
   });
   revalidateAll();
   redirect(`/fatture/${id}?salvato=1`);

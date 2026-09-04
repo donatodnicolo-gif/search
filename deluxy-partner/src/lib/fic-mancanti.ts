@@ -51,6 +51,7 @@
 import { prisma } from "./db";
 import { ficFetch, ficStato } from "./fic";
 import { segnaFatturaPagataConEsito } from "./actions";
+import { tipologiaNominata } from "./tipologie";
 
 export type FatturaFicMancante = {
   ficId: number;
@@ -269,12 +270,20 @@ export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControl
     if (!tipologiaDi.has(f.partnerId)) tipologiaDi.set(f.partnerId, { id: f.tipologiaId, nome: f.tipologia.nome });
   }
 
+  // Il catalogo delle tipologie: serve a quelle che la DESCRIZIONE nomina, che
+  // valgono più di quella imparata (una «Fee affiliazione» non deve ereditare
+  // «Consegne» dall'ultima consegna dello stesso partner — regola dell'utente
+  // del 04/09/2026, caso GIADA CAKE).
+  const catalogo = await prisma.tipologiaServizio.findMany({ select: { id: true, nome: true } });
+
   const mancanti: FatturaFicMancante[] = daAbbinare.map((d) => {
     const dataDoc = d.date!;
     const annoDoc = Number(dataDoc.slice(0, 4));
     const meseDoc = Number(dataDoc.slice(5, 7));
     const scheda = trovaScheda(d.entity?.name ?? "");
-    const tip = scheda ? tipologiaDi.get(scheda.id) ?? null : null;
+    const imparata = scheda ? tipologiaDi.get(scheda.id) ?? null : null;
+    const nominata = tipologiaNominata(oggettoDoc(d));
+    const tip = (nominata ? catalogo.find((t) => t.nome === nominata) : null) ?? imparata;
     const netto = d.amount_net ?? 0;
     const lordo = d.amount_gross ?? netto;
     // L'aliquota dai totali, arrotondata al punto: 22,000001 è 22, e una
