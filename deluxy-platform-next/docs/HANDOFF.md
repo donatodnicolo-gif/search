@@ -33,6 +33,11 @@
 >   dai registri delle consegne (`backup-plus-in-regole-2026-09-04.json`,
 >   6.883 righe con il plus originale). Un solo caso con plus manuale ==
 >   Regole (#55211, −20 e −20: legittimo, totale −40 com'era).
+>   **Correzione sui 54 «diversi»** (domanda utente su #61303 «+12,90»): il
+>   plus ricavato per differenza (P−A) era un numero mai scritto da nessuno;
+>   riportato al plus SCRITTO A MANO (P), Regole = A, riga nel registro. Il
+>   totale torna P + A (quello che la fatturazione calcolava fino a oggi):
+>   #61303 5,10 −5,10 −18 → 0; Brioni #100815 18 +36 −18 → 36.
 > - Script aggiornati alla formula nuova: `tabella-consegne-partner.mjs`,
 >   `ricalcola-righe-bozze-regola.mjs` (bozza Armani FAT-2026-563 in attesa
 >   dell'ok: +26,25 €).

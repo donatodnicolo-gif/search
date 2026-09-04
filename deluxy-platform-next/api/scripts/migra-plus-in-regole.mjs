@@ -9,9 +9,9 @@
  *     della regola e P = plus/minus scritto:
  *       - P == A  (copia del legacy)  → ruleAdjustment = A, plus = null
  *       - P == 0 / null               → ruleAdjustment = A, plus invariato
- *       - P != A (54 casi)            → ruleAdjustment = A, plus = P − A
- *         (il totale fatturabile resta P, com'era scritto: la fotografia vince;
- *          i casi vengono elencati per una verifica a mano)
+ *       - P != A (54 casi)            → ruleAdjustment = A, plus = P (com'era scritto a mano)
+ *         (il plus manuale resta quello scritto; il totale diventa P + A, cioè
+ *          quello che la fatturazione calcolava fino al 04/09; casi elencati)
  *     Backup JSON di ogni riga toccata + una riga nel registro della consegna.
  *
  * Anteprima di default; scrive con --applica. Idempotente: una consegna con
@@ -57,12 +57,12 @@ for (const r of rows) {
   const P = Number(r.plus ?? 0), A = Number(r.adj ?? 0);
   if (P !== 0 && Math.abs(P - A) < 0.005) piano.copia.push({ ...r, nuovoPlus: null });
   else if (P === 0) piano.soloRegola.push({ ...r, nuovoPlus: r.plus });
-  else piano.diverso.push({ ...r, nuovoPlus: q2(P - A) });
+  else piano.diverso.push({ ...r, nuovoPlus: P });
 }
 console.log(`\nconsegne con regola: ${rows.length} — già migrate: ${piano.giaFatte}`);
 console.log(`- plus == regola (copia): ${piano.copia.length} → Regole = A, plus svuotato`);
 console.log(`- plus vuoto: ${piano.soloRegola.length} → Regole = A`);
-console.log(`- plus diverso: ${piano.diverso.length} → Regole = A, plus manuale = P − A (totale invariato):`);
+console.log(`- plus diverso: ${piano.diverso.length} → Regole = A, plus manuale = P com'era scritto:`);
 for (const r of piano.diverso) console.log(`    #${r.code} ${new Date(r.date).toISOString().slice(0, 10)} «${r.regola}» A=${r.adj} P=${r.plus} → plus manuale ${r.nuovoPlus}`);
 
 if (!APPLICA) { console.log('\n(anteprima: niente scritto — usa --applica)'); await prisma.$disconnect(); process.exit(0); }
