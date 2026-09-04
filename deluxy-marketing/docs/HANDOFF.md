@@ -1,9 +1,40 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **27/08/2026 (sera)**. Una finestra Claude nuova deve poter
+> Stato al **04/09/2026**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> ⏱️ **RI-MISURATO IL 04/09 (sola lettura, nessuna modifica al codice)**:
+> · **Produzione = HEAD**: l'ultimo deploy (`deluxy-marketing-kaej4vd0f`,
+>   03/09 ~20:00, Ready) è posteriore all'ultimo commit di codice
+>   (`372a466f`, 03/09 19:56). `/api/health` → `ok: true, database: true`.
+> · **Il 03/09 sono entrate SEI funzionalità** (nuovo gruppo, lancio Meta con
+>   creatività/video/pubblici/brief, annunci Meta dal vivo + carosello/catalogo,
+>   ordinamento campagne, schede analisi ripartite) e **nessuna era nel
+>   Manuale delle funzionalità** né nel registro del manuale Deluxy: registrate
+>   il 04/09 (righe del 03/09 nei tre registri). La regola 0-bis vale anche
+>   quando si lavora di corsa.
+> · ⚠️ Il **brief di lancio campagna NON usa più OpenAI**: il commit
+>   `040f65a6` del 03/09 10:58 l'ha rimesso sul fornitore globale (Claude)
+>   su richiesta dell'utente. La sezione «IL BRIEF DI CREAZIONE CAMPAGNA USA
+>   OPENAI» qui sotto è storia, non stato: la chiave OpenAI resta assente ma
+>   **non serve più a niente**.
+> · 🔴 **La guida visiva NON è più pubblicata**: l'artifact
+>   `24188116-…` risulta cancellato (come quello del manuale Deluxy).
+>   Il 04/09 è stata ripubblicata a un indirizzo nuovo:
+>   https://claude.ai/code/artifact/4e6566ec-a2ff-4efc-b0e4-c6e17f3a7f0a (si aggiorna con
+>   Artifact + url; il file resta `docs/manuale-funzionalita.html`).
+> · ⚠️ **Repo scoutwt divergente**: `scout-ui` locale è «ahead 4, behind 7»
+>   rispetto a origin con gli STESSI commit Finance/Manuale (hash diversi) e,
+>   su origin, tre commit AI Mail che qui mancano; nel working tree ci sono
+>   modifiche non committate di `deluxy-mail` di un'altra sessione. Il push
+>   di marketing va fatto **dopo** aver riallineato il branch (rebase o merge
+>   di origin/scout-ui), non con un `push --force`.
+> · Punti aperti di sempre, invariati: 8.152 nomi + 6.486 email nelle colonne
+>   del DB, 5 segreti in chiaro in `Impostazione`, TikTok senza token e
+>   advertiser id, tetto ADV di Gifts oltre il 100 %.
+>
+> ⏱️ Stato al 27/08 (sera), rimasto valido sotto:
 > ⏱️ **RI-MISURATO IL 27/08 MATTINA** (i dettagli in FATTO, prima sezione). Cosa
 > è cambiato rispetto all'elenco qui sotto, che è del 25/08:
 > · la coda ha **3 fallite** (erano 1) e **1 approvata FERMA** su Meta dal 26/08
@@ -519,7 +550,13 @@ campagna, l'app accoda «Completa la campagna» (da approvare). Non è un
 guasto: è il disegno post-19/08. L'esito vero del caricamento sta in
 Google Ads → Azioni collettive → Caricamenti.
 
-### IL BRIEF DI CREAZIONE CAMPAGNA USA OPENAI (27/08/2026)
+### ~~IL BRIEF DI CREAZIONE CAMPAGNA USA OPENAI~~ — SUPERATO il 03/09 (27/08/2026)
+
+> ⚠️ **Superato**: il 03/09 alle 10:58 (`040f65a6`) il fornitore imposto
+> `openai` è stato tolto da `proponiBriefCampagna` su richiesta
+> dell'utente; il brief usa di nuovo il fornitore globale di Impostazioni →
+> AI (Claude). Resta in `chiediAllAi` la possibilità di imporre un fornitore
+> per singola funzione, oggi non usata da nessuno. Il testo sotto è storia.
 
 Scelta utente: l'AI che compila il brief su /campagne/lancia («Fatti
 scrivere il brief dall'AI») deve essere **OpenAI**, non quella globale.
