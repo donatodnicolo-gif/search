@@ -52,6 +52,8 @@ type StatPartner = {
   prezzoMin: number;
   prezzoMax: number;
   prezzoModa: number;
+  /** Quanto è rimasto al partner, il più delle volte: il prezzo del patto. */
+  nettoModa: number;
   scontoMedio: number;
   ultimaVendita: string;
 };
@@ -209,6 +211,8 @@ export class RiconciliazioniService {
             prezzoMin: arrotonda(Math.min(...amounts)),
             prezzoMax: arrotonda(Math.max(...amounts)),
             prezzoModa: moda(amounts),
+            // Il NETTO del partner, vendita per vendita: è il numero del patto.
+            nettoModa: moda(lista.map((v) => arrotonda(v.amount * (1 - v.discountPercent / 100)))),
             scontoMedio: arrotonda(lista.reduce((n, v) => n + v.discountPercent, 0) / lista.length),
             ultimaVendita: lista[lista.length - 1].createdAt.toISOString(),
           };
@@ -218,6 +222,10 @@ export class RiconciliazioniService {
       const scelto = stats[0];
       const dati = {
         partnerId: scelto.partnerId,
+        // ⭐ 04/09/2026 (regola utente): «l'associazione è per prezzo dato al
+        // partner». Il patto è `partnerPrice`; importo al cliente e quota
+        // restano come riferimento di quello che si è visto.
+        partnerPrice: scelto.nettoModa,
         price: scelto.prezzoModa,
         discountPercent: scelto.scontoMedio,
         salesCount: totale,
@@ -263,6 +271,18 @@ export class RiconciliazioniService {
     });
     const partnerIds = new Set(righe.map((r) => r.partnerId));
     const provinceIds = new Set(righe.map((r) => r.provinceId));
+    // ⭐ 04/09/2026 (regola utente): in tabella si vede la CONSEGNA nata da
+    // quella vendita. Il collegamento è vendita → deliveryId → consegna.
+    const venditeIds = righe.map((r) => r.lastSaleId).filter(Boolean) as string[];
+    const vendite = venditeIds.length
+      ? await this.prisma.sale.findMany({ where: { id: { in: venditeIds } }, select: { id: true, deliveryId: true } })
+      : [];
+    const consegneIds = vendite.map((v) => v.deliveryId).filter(Boolean) as string[];
+    const consegne = consegneIds.length
+      ? await this.prisma.delivery.findMany({ where: { id: { in: consegneIds } }, select: { id: true, code: true } })
+      : [];
+    const consegnaDiVendita = new Map(vendite.map((v) => [v.id, v.deliveryId]));
+    const consegnaPerId = new Map(consegne.map((c) => [c.id, c]));
     const [partner, province] = await Promise.all([
       this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true } }),
       this.prisma.province.findMany({ where: { id: { in: [...provinceIds] } }, select: { id: true, name: true, code: true } }),
@@ -285,7 +305,12 @@ export class RiconciliazioniService {
       partnerAttivo: nome.get(r.partnerId)?.active ?? false,
       prezzo: r.price,
       sconto: r.discountPercent,
-      prezzoPartner: arrotonda(r.price * (1 - r.discountPercent / 100)),
+      // Il patto: se la riga è nata prima della colonna, si ricava dai due campi.
+      prezzoPartner: r.partnerPrice ?? arrotonda(r.price * (1 - r.discountPercent / 100)),
+      consegnaId: r.lastSaleId ? consegnaDiVendita.get(r.lastSaleId) ?? null : null,
+      consegnaCodice: r.lastSaleId
+        ? consegnaPerId.get(consegnaDiVendita.get(r.lastSaleId) ?? '')?.code ?? null
+        : null,
       vendite: r.salesCount,
       stats: JSON.parse(r.stats) as StatPartner[],
       ultimaVenditaId: r.lastSaleId,
@@ -332,6 +357,7 @@ export class RiconciliazioniService {
     }
     const dati = {
       partnerId,
+      partnerPrice: arrotonda(vendita.amount * (1 - vendita.discountPercent / 100)),
       price: arrotonda(vendita.amount),
       discountPercent: arrotonda(vendita.discountPercent),
       salesCount: 1,
@@ -374,10 +400,10 @@ export class RiconciliazioniService {
    * accetta); su una regola attiva vale da subito. Una rifiutata si può
    * modificare solo tornando proposta (l'ufficio la sta ripensando).
    */
-  async modifica(id: string, body: { partnerId?: string; price?: number; discountPercent?: number }, user: JwtUser) {
+  async modifica(id: string, body: { partnerId?: string; partnerPrice?: number; price?: number; discountPercent?: number }, user: JwtUser) {
     const r = await this.prisma.productReconciliation.findUnique({ where: { id } });
     if (!r) throw new NotFoundException('Riconciliazione non trovata');
-    const data: { partnerId?: string; price?: number; discountPercent?: number; status?: string; decidedAt?: Date; decidedBy?: string } = {};
+    const data: { partnerId?: string; partnerPrice?: number; price?: number; discountPercent?: number; status?: string; decidedAt?: Date; decidedBy?: string } = {};
     if (body.partnerId !== undefined) {
       const p = await this.prisma.partner.findUnique({
         where: { id: body.partnerId },
@@ -390,6 +416,11 @@ export class RiconciliazioniService {
       }
       if (!p.provinces.length) throw new BadRequestException('Il partner scelto non opera in questa provincia.');
       data.partnerId = body.partnerId;
+    }
+    if (body.partnerPrice !== undefined) {
+      const n = Number(body.partnerPrice);
+      if (!isFinite(n) || n < 0) throw new BadRequestException('Prezzo al partner non valido.');
+      data.partnerPrice = arrotonda(n);
     }
     if (body.price !== undefined) {
       const n = Number(body.price);
@@ -518,7 +549,7 @@ export class RiconciliazioniController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Modifica partner, prezzo o sconto della riconciliazione' })
-  modifica(@Param('id') id: string, @Body() body: { partnerId?: string; price?: number; discountPercent?: number }, @CurrentUser() user: JwtUser) {
+  modifica(@Param('id') id: string, @Body() body: { partnerId?: string; partnerPrice?: number; price?: number; discountPercent?: number }, @CurrentUser() user: JwtUser) {
     return this.service.modifica(id, body ?? {}, user);
   }
 }

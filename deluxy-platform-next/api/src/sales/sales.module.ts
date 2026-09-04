@@ -18,7 +18,16 @@ import { PrismaService } from '../prisma/prisma.service';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
-type Candidato = { partnerId: string; motivo: string; prezzo?: number; sconto?: number };
+type Candidato = {
+  partnerId: string;
+  motivo: string;
+  /**
+   * ⭐ 04/09/2026 (regola utente): quanto deve incassare il PARTNER, quando
+   * arriva da una riconciliazione accettata. L'importo al cliente non si
+   * tocca: si ricalcola la quota Deluxy perché il partner prenda questa cifra.
+   */
+  prezzoPartner?: number;
+};
 
 /** Quel che serve allo smistamento per decidere: niente di piu'. */
 type ProdottoDaSmistare = {
@@ -191,6 +200,23 @@ export class SalesService {
     return pulisci(grezzo) || 'https://admin.shopify.com/store/deluxygifts';
   }
 
+  /**
+   * La quota Deluxy che lascia al partner esattamente `daDare` su un importo
+   * cliente `importo`.
+   *
+   * ⚠️ Se il patto col partner è più alto dell'importo che incassiamo, la
+   * quota non può essere negativa: si mette a zero e il partner prende tutto
+   * l'importo. Il caso esiste (un prodotto svenduto) e va visto, non nascosto:
+   * la riconciliazione resta scritta col suo prezzo, e il conto lo fa la
+   * Fatturazione sui numeri veri.
+   */
+  private static quotaPerDare(importo: number, daDare: number): number {
+    if (!(importo > 0)) return 0;
+    const quota = (1 - daDare / importo) * 100;
+    if (!isFinite(quota) || quota <= 0) return 0;
+    return Math.round(Math.min(quota, 100) * 100) / 100;
+  }
+
   /** La coda numerica di «gid://shopify/Order/N» (o «N»): la chiave con cui Orders si trova. */
   private static numeroShopify(v?: string | null): string | null {
     const t = (v ?? '').trim();
@@ -324,6 +350,8 @@ export class SalesService {
 
     const quando = body.deliveryDate ? new Date(body.deliveryDate) : new Date();
     const scelto = await this.scegliPartner(product, body.provinceId, quando, []);
+    // L'importo del cliente resta quello di listino (variante compresa).
+    const importoCliente = variante?.price ?? product.price ?? 0;
 
     // Lo SCONTO si cristallizza QUI, alla nascita della vendita: e' la regola
     // CategoryDiscount (categoria del prodotto × provincia), gestita
@@ -355,10 +383,12 @@ export class SalesService {
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
         // il valore della vendita e' il SUO listino, non quello del base.
-        // ⭐ 04/09 (regola utente): se c'e' una RICONCILIAZIONE accettata per
-        // prodotto × provincia, la vendita nasce al SUO prezzo e al suo sconto.
-        amount: scelto?.prezzo ?? variante?.price ?? product.price ?? 0,
-        discountPercent: scelto?.sconto ?? sconto?.discountPercent ?? 0,
+        amount: importoCliente,
+        // ⭐ 04/09 (regola utente): con una riconciliazione accettata la quota
+        // si piega al patto col partner; senza, vale la regola di categoria.
+        discountPercent: scelto?.prezzoPartner !== undefined
+          ? SalesService.quotaPerDare(importoCliente, scelto.prezzoPartner)
+          : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
@@ -953,6 +983,136 @@ export class SalesService {
   }
 
   /**
+   * ⭐ 04/09/2026 (regola utente): «sotto indirizzo, un bottone RICONCILIA che
+   * cerca per quell'indirizzo possibili consegne».
+   *
+   * Le consegne di tipo VENDITA fatte allo stesso indirizzo: sono quelle nate
+   * a mano, che con ogni probabilità sono già questa vendita, entrata due
+   * volte. Si confronta l'indirizzo NORMALIZZATO (minuscole, senza
+   * punteggiatura, senza le parole di via/piazza) e si tengono le consegne in
+   * una finestra di ±10 giorni dalla data della vendita quando c'è.
+   *
+   * ⚠️ Si PROPONE soltanto: nessuna corrispondenza automatica. Due consegne
+   * allo stesso indirizzo in giorni diversi sono cose diverse, e il pop-up le
+   * mostra tutte perché a decidere sia una persona.
+   */
+  async consegneAllIndirizzo(id: string) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      select: { recipientAddress: true, deliveryDate: true, provinceId: true, deliveryId: true },
+    });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    const chiave = SalesService.chiaveIndirizzo(vendita.recipientAddress);
+    if (!chiave) return { indirizzo: vendita.recipientAddress, consegne: [], motivo: 'senza-indirizzo' as const };
+
+    const quando = vendita.deliveryDate ?? null;
+    const da = quando ? new Date(quando.getTime() - 10 * 86400000) : null;
+    const a = quando ? new Date(quando.getTime() + 10 * 86400000) : null;
+    const candidate = await this.prisma.delivery.findMany({
+      where: {
+        provinceId: vendita.provinceId,
+        ...(da && a ? { date: { gte: da, lte: a } } : {}),
+        // Solo i servizi di VENDITA, come chiesto.
+        serviceType: { name: { contains: 'vendita', mode: 'insensitive' } },
+      },
+      select: {
+        id: true, code: true, date: true, status: true, recipientAddress: true,
+        ddtNumber: true, price: true,
+        partner: { select: { insegna: true } },
+        serviceType: { select: { name: true } },
+      },
+      orderBy: { date: 'desc' },
+      take: 200,
+    });
+    const consegne = candidate
+      .filter((d) => SalesService.chiaveIndirizzo(d.recipientAddress) === chiave)
+      .map((d) => ({
+        id: d.id, code: d.code, date: d.date, status: d.status,
+        indirizzo: d.recipientAddress, ddt: d.ddtNumber, prezzo: d.price,
+        partner: d.partner?.insegna ?? null, servizio: d.serviceType?.name ?? null,
+      }));
+    return { indirizzo: vendita.recipientAddress, giaCollegata: vendita.deliveryId, consegne };
+  }
+
+  /**
+   * L'indirizzo ridotto all'osso per confrontarlo: minuscole, via/piazza e
+   * punteggiatura via, spazi normalizzati. «Via Roberto Rossellini, 51 -
+   * 00137 Roma» e «via roberto rossellini 51, 00137, Roma RM» diventano la
+   * stessa chiave. Non è geocodifica: è un confronto onesto fra stringhe, e
+   * infatti serve a PROPORRE, non a decidere.
+   */
+  private static chiaveIndirizzo(indirizzo: string | null | undefined): string | null {
+    const grezzo = (indirizzo ?? '').trim().toLowerCase();
+    if (!grezzo) return null;
+    const pulito = grezzo
+      .replace(/\b(via|viale|piazza|piazzale|corso|largo|vicolo|strada|localita|località|str\.|v\.le|p\.zza)\b/g, ' ')
+      .replace(/\b(italia|italy)\b/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+    return pulito.length >= 6 ? pulito : null;
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): la vendita è la stessa cosa di una consegna
+   * già fatta. Allora: la vendita va in STORICO (accettata, collegata a quella
+   * consegna) e la consegna prende NEL DDT il riferimento della vendita.
+   *
+   * ⚠️ Non si crea niente e non si tocca il prezzo: si dichiara che le due
+   * righe sono lo stesso fatto. Il DDT non si sovrascrive se c'è già: si
+   * aggiunge, perché quel numero è la prova di come è viaggiata la merce.
+   */
+  async riconciliaConConsegna(id: string, deliveryId: string, user: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      select: { id: true, status: true, deliveryId: true, externalOrderNumber: true, externalOrderId: true, brand: true, partnerId: true },
+    });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (vendita.deliveryId) throw new BadRequestException('Questa vendita è già collegata a una consegna.');
+    const consegna = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, code: true, ddtNumber: true, ddtBrand: true, partnerId: true },
+    });
+    if (!consegna) throw new NotFoundException('Consegna non trovata');
+    const giaPresa = await this.prisma.sale.findFirst({ where: { deliveryId, NOT: { id } }, select: { externalOrderNumber: true } });
+    if (giaPresa) {
+      throw new BadRequestException(`Quella consegna è già di un'altra vendita (#${giaPresa.externalOrderNumber ?? '—'}).`);
+    }
+
+    // Il riferimento della vendita nel DDT: il numero d'ordine, che è quello
+    // che una persona riconosce; se manca, l'id esterno.
+    const riferimento = (vendita.externalOrderNumber ?? vendita.externalOrderId ?? vendita.id).trim();
+    const ddt = consegna.ddtNumber?.trim();
+    const nuovoDdt = ddt
+      ? (ddt.split('/').map((t) => t.trim()).includes(riferimento) ? ddt : `${ddt} / ${riferimento}`)
+      : riferimento;
+
+    const [aggiornata] = await this.prisma.$transaction([
+      this.prisma.sale.update({
+        where: { id },
+        data: {
+          deliveryId,
+          status: SaleStatus.ACCETTATA,
+          historyAt: new Date(),
+          partnerId: vendita.partnerId ?? consegna.partnerId ?? null,
+          assignmentReason: `riconciliata con la consegna #${consegna.code} (stesso indirizzo)`,
+        },
+        include: { partner: { select: { id: true, insegna: true } }, province: true },
+      }),
+      this.prisma.delivery.update({
+        where: { id: deliveryId },
+        data: {
+          ddtNumber: nuovoDdt,
+          ddtBrand: consegna.ddtBrand ?? vendita.brand ?? null,
+          logs: { create: { type: 'note', userId: user.sub ?? null,
+            message: `Riconciliata con la vendita ${riferimento}: riferimento aggiunto al DDT` } },
+        },
+      }),
+    ]);
+    await this.registra(id, 'stato', `Riconciliata con la consegna #${consegna.code}: vendita in storico, riferimento ${riferimento} nel DDT`, user);
+    return aggiornata;
+  }
+
+  /**
    * ⭐ 04/09/2026 (regola utente): l'ufficio PROPONE la vendita a un partner
    * scelto a mano (di solito dallo storico qui sopra). Non è un'accettazione:
    * la palla resta al partner, che può rifiutare come sempre.
@@ -1194,10 +1354,16 @@ export class SalesService {
     // SOLO a quel partner, a quel prezzo. Nasce in Prodotti → Riconciliazioni.
     const regola = await this.prisma.productReconciliation.findFirst({
       where: { productId: product.id, provinceId, status: 'accettata' },
-      select: { partnerId: true, price: true, discountPercent: true },
+      select: { partnerId: true, partnerPrice: true, price: true, discountPercent: true },
     });
     if (regola) {
-      return [{ partnerId: regola.partnerId, motivo: 'riconciliazione prodotto/provincia', prezzo: regola.price, sconto: regola.discountPercent }];
+      return [{
+        partnerId: regola.partnerId,
+        motivo: 'riconciliazione prodotto/provincia',
+        // ⭐ Il patto è QUANTO PRENDE IL PARTNER: l'importo al cliente resta
+        // quello di listino, e la quota Deluxy si ricava di conseguenza.
+        prezzoPartner: regola.partnerPrice ?? Math.round(regola.price * (1 - regola.discountPercent / 100) * 100) / 100,
+      }];
     }
     if (!product.categoryId) return [];
 
@@ -1582,6 +1748,21 @@ export class SalesController {
   @ApiOperation({ summary: 'Chi abbiamo usato in passato per questo prodotto in questa provincia, e a che prezzo' })
   storicoPartner(@Param('id') id: string) {
     return this.salesService.storicoPartner(id);
+  }
+
+  @Get(':id/consegne-indirizzo')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Consegne di tipo vendita allo stesso indirizzo di questa vendita' })
+  consegneIndirizzo(@Param('id') id: string) {
+    return this.salesService.consegneAllIndirizzo(id);
+  }
+
+  @Post(':id/riconcilia-consegna')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'La vendita È quella consegna: va in storico e il suo riferimento entra nel DDT' })
+  riconciliaConsegna(@Param('id') id: string, @Body() body: { deliveryId?: string }, @CurrentUser() user: JwtUser) {
+    if (!body?.deliveryId) throw new BadRequestException('Serve «deliveryId».');
+    return this.salesService.riconciliaConConsegna(id, body.deliveryId, user);
   }
 
   @Post(':id/proponi')

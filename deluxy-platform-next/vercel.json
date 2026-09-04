@@ -36,10 +36,6 @@
     {
       "path": "/api/v1/cron/smistamento",
       "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/v1/cron/riconciliazioni",
-      "schedule": "30 3 * * *"
     }
   ],
   "routes": [

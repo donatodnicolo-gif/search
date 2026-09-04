@@ -371,6 +371,17 @@ interface ProductRow {
         @if (productRows.length === 0) { <p class="muted">{{ 'deliveryForm.order.noProducts' | translate }}</p> }
         @for (row of productRows; track $index) {
           <div class="prod-item">
+            <!-- ⭐ 04/09/2026 (regola utente): se il prodotto ha una foto si
+                 vede SEMPRE — in inserimento, in modifica e quando il modulo
+                 arriva da «Inserisci» su una vendita. Prima la foto c'era solo
+                 nel catalogo, e chi prepara la consegna non sapeva che cosa
+                 stava mandando. Cliccandola si guarda grande. -->
+            @if (fotoProdotto(row); as foto) {
+              <button type="button" class="prod-foto" (click)="fotoAperta.set(foto)"
+                      [attr.aria-label]="'deliveryForm.order.photo' | translate">
+                <img [src]="foto" alt="" loading="lazy" />
+              </button>
+            }
             <div class="prod-top">
               <!-- Ricerca prodotto (31/08): si digita e si sceglie dai risultati.
                    Il vecchio menu portava solo i primi 500 di 21.887 — quello
@@ -607,6 +618,15 @@ interface ProductRow {
         </div>
       </div>
     }
+    <!-- La foto del prodotto a schermo: si guarda, non si scarica. -->
+    @if (fotoAperta(); as f) {
+      <div class="foto-scrim" (click)="fotoAperta.set(null)" role="dialog" aria-modal="true">
+        <figure class="foto-box" (click)="$event.stopPropagation()">
+          <button type="button" class="foto-x" (click)="fotoAperta.set(null)" [attr.aria-label]="'common.close' | translate">✕</button>
+          <img [src]="f" alt="" />
+        </figure>
+      </div>
+    }
   `,
   styles: [
     `
@@ -661,6 +681,12 @@ interface ProductRow {
       .muted { color: var(--text-tertiary); font-size: 14px; margin: 0; }
       .divider { height: 1px; background: var(--hairline); margin: 18px 0; }
       .prod-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .prod-foto { border: 1px solid var(--hairline); background: var(--surface); border-radius: 10px; padding: 0; cursor: zoom-in; overflow: hidden; width: 56px; height: 56px; flex: 0 0 auto; }
+      .prod-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .foto-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: grid; place-items: center; z-index: 70; padding: 24px; }
+      .foto-box { position: relative; margin: 0; background: var(--surface); border-radius: 16px; padding: 12px; max-width: min(820px, 92vw); }
+      .foto-box img { max-width: 100%; max-height: 78vh; display: block; border-radius: 10px; }
+      .foto-x { position: absolute; top: 6px; right: 6px; border: 0; background: rgba(0,0,0,0.55); color: #fff; border-radius: 999px; width: 28px; height: 28px; cursor: pointer; }
       .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
       .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
       /* Ricerca prodotto: l'input col menu dei risultati sotto (§9 overflow). */
@@ -1280,6 +1306,24 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly paymentStatuses = Object.entries(DELIVERY_PAYMENT_STATUS_LABELS);
 
   productRows: ProductRow[] = [];
+
+  /** La foto aperta a schermo (null = nessuna). */
+  readonly fotoAperta = signal<string | null>(null);
+
+  /**
+   * La foto del prodotto di questa riga, se c'è.
+   *
+   * ⚠️ Si legge dal CATALOGO già caricato (`products()`), che in modifica e
+   * nel prefill da vendita viene arricchito col prodotto della riga: così la
+   * foto compare anche quando il prodotto non è fra i primi 500 della tendina.
+   * Niente foto = niente riquadro, non un quadrato vuoto.
+   */
+  fotoProdotto(row: ProductRow): string | null {
+    if (!row?.productId) return null;
+    const p = this.products().find((x) => x.id === row.productId) as (Product & { imageUrl?: string | null }) | undefined;
+    const url = (p?.imageUrl ?? '').trim();
+    return url || null;
+  }
 
   model = {
     date: '',

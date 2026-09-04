@@ -29,6 +29,19 @@ interface RigaStorico {
   vecchia: boolean;
 }
 
+/** ⭐ 04/09 (regola utente): consegne di tipo vendita allo stesso indirizzo. */
+interface ConsegnaVicina {
+  id: string;
+  code: number;
+  date: string | null;
+  status: string;
+  indirizzo: string | null;
+  ddt: string | null;
+  prezzo: number | null;
+  partner: string | null;
+  servizio: string | null;
+}
+
 interface Storico {
   base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna';
   prodotto: string | null;
@@ -422,6 +435,35 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <dt>{{ 'sales.detail.address' | translate }}</dt>
               <dd>{{ v.province?.code }}</dd>
             }
+            <!-- ⭐ 04/09 (regola utente): la stessa consegna può essere già stata
+                 fatta a mano. Si cercano quelle allo STESSO indirizzo. -->
+            @if (canManage() && !v.delivery) {
+              <dt></dt>
+              <dd>
+                <button type="button" class="btn btn-secondary mini" [disabled]="vicineCaricando()"
+                        (click)="vicineAperto() ? chiudiVicine() : cercaVicine(v)">
+                  {{ (vicineAperto() ? 'sales.reconcile.close' : 'sales.reconcile.open') | translate }}
+                </button>
+                @if (vicineAperto()) {
+                  @if (vicineCaricando()) { <div class="muted">{{ 'common.loading' | translate }}</div> }
+                  @else if (!vicine().length) { <div class="muted">{{ 'sales.reconcile.none' | translate }}</div> }
+                  @else {
+                    <ul class="vicine">
+                      @for (c of vicine(); track c.id) {
+                        <li>
+                          <span>
+                            <a [href]="'/deliveries/' + c.id" target="_blank" rel="noopener"><b>#{{ c.code }}</b></a>
+                            <span class="muted"> · {{ c.date ? (c.date | date: 'dd/MM/yy') : '—' }}@if (c.partner) { · {{ c.partner }} }@if (c.servizio) { · {{ c.servizio }} }@if (c.ddt) { · DDT {{ c.ddt }} }</span>
+                          </span>
+                          <button type="button" class="btn btn-primary mini" [disabled]="inCorso() === v.id"
+                                  (click)="riconciliaCon(v, c)">{{ 'sales.reconcile.same' | translate }}</button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
+              </dd>
+            }
             <dt>{{ 'sales.detail.delivery' | translate }}</dt>
             <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
             <dt>{{ 'sales.detail.linkedDelivery' | translate }}</dt>
@@ -636,6 +678,8 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .allarme div { color: var(--text); margin-top: 2px; }
       .ko-badge { background: rgba(215, 0, 21, 0.1); color: var(--danger, #b3261e); margin-right: 6px; }
       .regola-attiva { margin: 0 0 8px; font-size: 13px; font-weight: 550; }
+      ul.vicine { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+      ul.vicine li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
       table.storico { width: 100%; font-size: 13px; }
       table.storico td, table.storico th { padding: 6px 8px; }
       table.storico tr.spenta { opacity: 0.6; }
@@ -675,6 +719,10 @@ export class SalesListComponent {
   readonly storico = signal<Storico | null>(null);
   readonly storicoAperto = signal(false);
   readonly storicoCaricando = signal(false);
+  /** ⭐ 04/09: le consegne allo stesso indirizzo, per riconciliare la vendita. */
+  readonly vicine = signal<ConsegnaVicina[]>([]);
+  readonly vicineAperto = signal(false);
+  readonly vicineCaricando = signal(false);
   // Default «Da gestire» (deciso dall'utente 31/08): all'apertura si vede il
   // lavoro aperto, non tutto lo storico.
   readonly filtro = signal<string>('da_gestire');
@@ -945,12 +993,25 @@ export class SalesListComponent {
       error: (e) => { this.dettaglioCaricando.set(false); this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Dettaglio non disponibile' }); },
     });
   }
-  chiudiDettaglio(): void { this.chiudiStorico(); this.dettaglio.set(null); }
+  chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.dettaglio.set(null); }
   @HostListener('document:keydown.escape')
   suEscape(): void { if (this.confermaPendente()) this.confermaPendente.set(null); else if (this.dettaglio()) this.chiudiDettaglio(); }
 
   /** Lo stato in Orders, leggibile: consegnato > annullato > evaso Shopify > classificazione > smistamento. */
+  /**
+   * ⭐ 04/09/2026 (regola utente): la colonna «Stato in Orders» dice prima di
+   * tutto la SALUTE dell'ordine — conforme, a rischio, non pagato, cancellato,
+   * nullo — perché è quella che decide se la vendita si può lavorare. Il punto
+   * della pipeline (evaso, consegnato, annullato) scende sotto, nel
+   * sottotitolo: sono due tassonomie diverse sullo stesso ordine e tenerle
+   * mescolate faceva sembrare «Aperto» un ordine non pagato.
+   */
   etichettaOrders(o: NonNullable<Sale['ordine']>): string {
+    if (o.salute) {
+      const k = 'sales.orders.salute.' + o.salute;
+      const v = this.translate.instant(k);
+      return v === k ? o.salute.replace(/_/g, ' ') : v;
+    }
     const t = (k: string) => this.translate.instant('sales.orders.' + k);
     if (o.consegnataIl) return t('consegnato');
     if (o.annullato) return t('annullato');
@@ -960,11 +1021,30 @@ export class SalesListComponent {
   }
   sottoOrders(o: NonNullable<Sale['ordine']>): string | null {
     const parti: string[] = [];
+    // Con la salute in testa, il punto della pipeline vive qui sotto.
+    if (o.salute) {
+      if (o.consegnataIl) parti.push(this.translate.instant('sales.orders.consegnato'));
+      else if (o.annullato) parti.push(this.translate.instant('sales.orders.annullato'));
+      else if (o.fulfillmentStatus === 'FULFILLED') parti.push(this.translate.instant('sales.orders.evaso'));
+      else if (o.stato) {
+        const k = 'sales.orders.stato.' + o.stato;
+        const v = this.translate.instant(k);
+        parti.push(v === k ? o.stato.replace(/_/g, ' ') : v);
+      }
+    }
     if (o.evasione) parti.push(this.translate.instant('sales.orders.evasione') + ' ' + o.evasione.replace(/_/g, ' '));
     if (o.smistamento) parti.push(this.translate.instant('sales.orders.smistamento') + ' ' + o.smistamento.replace(/_/g, ' '));
     return parti.length ? parti.join(' · ') : null;
   }
   coloreOrders(o: NonNullable<Sale['ordine']>): string {
+    // Il colore segue la SALUTE: conforme verde, a rischio oro, non pagato
+    // rosso, cancellato e nullo grigi. È il semaforo del «si può lavorare?».
+    if (o.salute) {
+      if (o.salute === 'conforme') return '#248A3D';
+      if (o.salute === 'a_rischio') return 'var(--orange, #c93400)';
+      if (o.salute === 'non_pagato') return '#d70015';
+      return '#8e8e93';
+    }
     if (o.consegnataIl || o.fulfillmentStatus === 'FULFILLED') return '#248A3D';
     if (o.annullato) return '#8e8e93';
     if (o.terminale) return '#6e6e73';
@@ -1022,6 +1102,44 @@ export class SalesListComponent {
         this.storicoCaricando.set(false);
         this.storicoAperto.set(false);
         this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Storico non disponibile' });
+      },
+    });
+  }
+
+  cercaVicine(s: Sale): void {
+    this.vicineAperto.set(true);
+    this.vicineCaricando.set(true);
+    this.vicine.set([]);
+    this.http.get<{ consegne: ConsegnaVicina[] }>(`${environment.apiUrl}/sales/${s.id}/consegne-indirizzo`).subscribe({
+      next: (r) => { this.vicine.set(r.consegne ?? []); this.vicineCaricando.set(false); },
+      error: (e) => {
+        this.vicineCaricando.set(false);
+        this.vicineAperto.set(false);
+        this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Ricerca non riuscita' });
+      },
+    });
+  }
+
+  chiudiVicine(): void {
+    this.vicineAperto.set(false);
+    this.vicine.set([]);
+  }
+
+  /** «È questa»: la vendita va in storico e il suo riferimento entra nel DDT. */
+  riconciliaCon(s: Sale, c: ConsegnaVicina): void {
+    this.inCorso.set(s.id);
+    this.messaggio.set(null);
+    this.http.post(`${environment.apiUrl}/sales/${s.id}/riconcilia-consegna`, { deliveryId: c.id }).subscribe({
+      next: () => {
+        this.inCorso.set(null);
+        this.chiudiVicine();
+        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.reconcile.done', { code: c.code }) });
+        this.carica();
+        this.ricaricaDettaglio(s.id);
+      },
+      error: (e) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Riconciliazione non riuscita' });
       },
     });
   }

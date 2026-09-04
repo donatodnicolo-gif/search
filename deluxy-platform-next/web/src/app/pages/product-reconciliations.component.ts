@@ -47,7 +47,11 @@ interface Riga {
   partnerAttivo: boolean;
   prezzo: number;
   sconto: number;
+  /** ⭐ Il PATTO: quanto incassa il partner per quel prodotto in quella provincia. */
   prezzoPartner: number;
+  /** La consegna nata dall'ultima vendita vista: si guarda per capire il caso. */
+  consegnaId: string | null;
+  consegnaCodice: number | null;
   vendite: number;
   stats: StatPartner[];
   ultimoOrdine: string | null;
@@ -173,6 +177,7 @@ interface UltimaCorsa {
             <tr>
               <th>{{ 'reconciliations.col.product' | translate }}</th>
               <th>{{ 'reconciliations.col.province' | translate }}</th>
+              <th>{{ 'reconciliations.col.delivery' | translate }}</th>
               <th>{{ 'reconciliations.col.sales' | translate }}</th>
               <th>{{ 'reconciliations.col.partner' | translate }}</th>
               <th class="num">{{ 'reconciliations.col.price' | translate }}</th>
@@ -190,6 +195,12 @@ interface UltimaCorsa {
                 </td>
                 <td><b>{{ r.provinciaCodice }}</b> <span class="muted">{{ r.provincia }}</span></td>
                 <td>
+                  @if (r.consegnaId) {
+                    <a [routerLink]="['/deliveries', r.consegnaId]">#{{ r.consegnaCodice }}</a>
+                  } @else { <span class="muted">—</span> }
+                  @if (r.ultimoOrdine) { <div class="muted small">ord. #{{ r.ultimoOrdine }}</div> }
+                </td>
+                <td>
                   @for (s of r.stats; track s.partnerId) {
                     <div class="stat">
                       {{ s.insegna }}: <b>{{ s.vendite }}</b> ({{ s.quotaPercento }}%)
@@ -206,11 +217,9 @@ interface UltimaCorsa {
                     </select>
                   </td>
                   <td class="num mod-prezzo">
-                    <label><span>{{ 'reconciliations.editPrice' | translate }}</span>
-                      <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.price" [attr.name]="'prezzo-' + r.id" /></label>
-                    <label><span>{{ 'reconciliations.editDiscount' | translate }}</span>
-                      <input class="field num" type="number" min="0" max="100" step="0.01" [(ngModel)]="mod.discountPercent" [attr.name]="'sconto-' + r.id" /></label>
-                    <div class="muted small">{{ 'reconciliations.toPartner' | translate: { prezzo: fmt(nettoMod()) } }}</div>
+                    <label><span>{{ 'reconciliations.editPartnerPrice' | translate }}</span>
+                      <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.partnerPrice" [attr.name]="'netto-' + r.id" /></label>
+                    <div class="muted small">{{ 'reconciliations.customerPrice' | translate: { prezzo: fmt(r.prezzo) } }}</div>
                   </td>
                 } @else {
                   <td>
@@ -218,8 +227,8 @@ interface UltimaCorsa {
                     @if (!r.partnerAttivo) { <div class="ko small">{{ 'reconciliations.partnerInactive' | translate }}</div> }
                   </td>
                   <td class="num">
-                    <div><b>{{ r.prezzo | number: '1.2-2' }} €</b></div>
-                    <div class="muted small">{{ 'reconciliations.toPartner' | translate: { prezzo: fmt(r.prezzoPartner) } }}@if (r.sconto) { · −{{ r.sconto }}% }</div>
+                    <div><b>{{ r.prezzoPartner | number: '1.2-2' }} €</b></div>
+                    <div class="muted small">{{ 'reconciliations.customerPrice' | translate: { prezzo: fmt(r.prezzo) } }}@if (r.sconto) { · −{{ r.sconto }}% }</div>
                   </td>
                 }
                 <td>
@@ -317,7 +326,7 @@ export class ProductReconciliationsComponent {
 
   readonly modificaId = signal<string | null>(null);
   readonly partnerScelta = signal<{ id: string; insegna: string }[]>([]);
-  mod: { partnerId: string; price: number | null; discountPercent: number | null } = { partnerId: '', price: null, discountPercent: null };
+  mod: { partnerId: string; partnerPrice: number | null } = { partnerId: '', partnerPrice: null };
 
   /** Intervallo di default: gli ultimi 90 giorni, come la corsa notturna. */
   da = '';
@@ -378,11 +387,6 @@ export class ProductReconciliationsComponent {
   /** ⚠️ Anche `undefined`: un numero che non c'è si scrive «—», mai «undefined». */
   fmt(n: number | null | undefined): string {
     return n === null || n === undefined ? '—' : (this.decimal.transform(n, '1.2-2') ?? String(n));
-  }
-
-  nettoMod(): number | null {
-    if (this.mod.price === null) return null;
-    return Math.round(this.mod.price * (1 - (this.mod.discountPercent ?? 0) / 100) * 100) / 100;
   }
 
   private statoDelFiltro(): string {
@@ -470,7 +474,7 @@ export class ProductReconciliationsComponent {
   }
 
   apriModifica(r: Riga): void {
-    this.mod = { partnerId: r.partnerId, price: r.prezzo, discountPercent: r.sconto };
+    this.mod = { partnerId: r.partnerId, partnerPrice: r.prezzoPartner };
     this.partnerScelta.set(r.partner ? [{ id: r.partnerId, insegna: r.partner }] : []);
     this.modificaId.set(r.id);
     this.http.get<{ id: string; insegna: string }[]>(`${environment.apiUrl}/riconciliazioni/partner-in-provincia/${r.provinceId}`).subscribe({
@@ -487,8 +491,7 @@ export class ProductReconciliationsComponent {
     this.errore.set(null);
     this.http.put<Riga>(`${environment.apiUrl}/riconciliazioni/${r.id}`, {
       partnerId: this.mod.partnerId,
-      price: this.mod.price,
-      discountPercent: this.mod.discountPercent ?? 0,
+      partnerPrice: this.mod.partnerPrice,
     }).subscribe({
       next: (aggiornata) => {
         this.inAzione.set(false);

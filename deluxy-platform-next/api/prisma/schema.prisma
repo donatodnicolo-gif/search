@@ -875,7 +875,12 @@ model ProductReconciliation {
   product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   provinceId      String
   partnerId       String
-  /// Importo della vendita (il prezzo «dato»); il partner incassa price × (1 − sconto%).
+  /// ⭐ 04/09/2026 (regola utente): «l'associazione è per prezzo dato al
+  /// partner per quel prodotto». `partnerPrice` E' IL PATTO: quanto incassa il
+  /// partner per quel prodotto in quella provincia. `price` e
+  /// `discountPercent` restano come RIFERIMENTO (importo al cliente e quota
+  /// Deluxy visti nelle vendite passate), non come regola.
+  partnerPrice    Float?
   price           Float
   discountPercent Float     @default(0)
   /// I numeri da cui e' nata: quante vendite e, in JSON, per partner.

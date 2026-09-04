@@ -25,7 +25,6 @@
       "operativita": "Operations",
       "utenti": "Users",
       "prodotti": "Products",
-    "riconciliazioni": "Reconciliations",
       "amministrazione": "Administration",
       "configurazione": "Configuration"
     },
@@ -38,6 +37,7 @@
     "clienti": "Customers",
     "operatori": "Operators",
     "prodotti": "Products",
+    "riconciliazioni": "Reconciliations",
     "categorie": "Categories",
     "servizi": "Services",
     "calcoli": "Calculations",
@@ -973,6 +973,7 @@
     "col": {
       "product": "Product",
       "province": "Province",
+      "delivery": "Delivery",
       "sales": "Sales (to whom, at what)",
       "partner": "Partner",
       "price": "Price",
@@ -988,6 +989,8 @@
       "rules": "⚠️ {{n}} active rules involve a partner just excluded: they stay valid until you change them."
     },
     "listPrice": "list price {{prezzo}} €",
+    "customerPrice": "customer {{prezzo}} €",
+    "editPartnerPrice": "Partner price (€)",
     "toPartner": "partner gets {{prezzo}} €",
     "partnerInactive": "partner inactive",
     "editPrice": "Price (€)",
@@ -1497,7 +1500,8 @@
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",
       "createNew": "Create new product",
-      "chooseVariant": "Choose the variant"
+      "chooseVariant": "Choose the variant",
+      "photo": "View the product photo"
     },
     "pricing": {
       "billableGroup": "To be billed (partner)",
@@ -2398,6 +2402,13 @@
       "hint": "The order in Orders is not compliant: this sale cannot move forward.",
       "title": "Non-compliant order in Orders: {{salute}}",
       "msg": "This sale cannot be accepted, inserted or proposed to a partner. It stays here in Sales until the order becomes compliant: the only thing you can do is reject it."
+    },
+    "reconcile": {
+      "open": "Reconcile with a delivery",
+      "close": "Close the search",
+      "none": "No sale delivery at this address.",
+      "same": "This is it",
+      "done": "Sale reconciled with delivery #{{code}}: archived, and the reference is in the DDT."
     },
     "history": {
       "open": "Who did we use?",

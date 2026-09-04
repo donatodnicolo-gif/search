@@ -219,6 +219,8 @@ export interface Product {
   price?: number;
   sku?: string;
   partner?: { id: string; insegna: string } | null;
+  /** La foto del prodotto: si mostra nel modulo della consegna (04/09/2026). */
+  imageUrl?: string | null;
   /** Le taglie/varianti: senza, una consegna per la «M» nasce col prodotto base. */
   variants?: { id: string; name: string; price?: number | null; publicPrice?: number | null; active?: boolean }[];
 }

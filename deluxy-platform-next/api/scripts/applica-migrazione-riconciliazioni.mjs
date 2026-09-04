@@ -60,6 +60,10 @@ const SQL = [
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "ProductReconciliation_productId_provinceId_key" ON platform."ProductReconciliation"("productId", "provinceId")`,
   `CREATE INDEX IF NOT EXISTS "ProductReconciliation_status_updatedAt_idx" ON platform."ProductReconciliation"("status", "updatedAt")`,
+  // ⭐ 04/09/2026 (regola utente): il prezzo del patto è quello DATO AL PARTNER.
+  `ALTER TABLE platform."ProductReconciliation" ADD COLUMN IF NOT EXISTS "partnerPrice" DOUBLE PRECISION`,
+  // Sulle righe già scritte si ricava dai due campi che c'erano: nessuna perdita.
+  `UPDATE platform."ProductReconciliation" SET "partnerPrice" = round(("price" * (1 - "discountPercent" / 100))::numeric, 2) WHERE "partnerPrice" IS NULL`,
 ];
 for (const s of SQL) { await prisma.$executeRawUnsafe(s); console.log('✓', s.split('\n')[0].trim().slice(0, 80)); }
 const [{ n }] = await prisma.$queryRawUnsafe(`SELECT count(*)::int AS n FROM platform."ProductReconciliation"`);

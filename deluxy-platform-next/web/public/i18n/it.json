@@ -25,7 +25,6 @@
       "operativita": "Operatività",
       "utenti": "Utenti",
       "prodotti": "Prodotti",
-    "riconciliazioni": "Riconciliazioni",
       "amministrazione": "Amministrazione",
       "configurazione": "Configurazione"
     },
@@ -38,6 +37,7 @@
     "clienti": "Clienti",
     "operatori": "Operatori",
     "prodotti": "Prodotti",
+    "riconciliazioni": "Riconciliazioni",
     "categorie": "Categorie",
     "servizi": "Servizi",
     "calcoli": "Calcoli",
@@ -973,6 +973,7 @@
     "col": {
       "product": "Prodotto",
       "province": "Provincia",
+      "delivery": "Consegna",
       "sales": "Vendite (a chi, a quanto)",
       "partner": "Partner",
       "price": "Prezzo",
@@ -988,6 +989,8 @@
       "rules": "⚠️ {{n}} regole attive riguardano un partner appena escluso: restano valide finché non le cambi."
     },
     "listPrice": "listino {{prezzo}} €",
+    "customerPrice": "al cliente {{prezzo}} €",
+    "editPartnerPrice": "Prezzo al partner (€)",
     "toPartner": "al partner {{prezzo}} €",
     "partnerInactive": "partner non attivo",
     "editPrice": "Prezzo (€)",
@@ -1497,7 +1500,8 @@
       "tryAndReturn": "Prova e reso del prodotto",
       "cashToCollect": "Contanti da incassare (€)",
       "createNew": "Crea nuovo prodotto",
-      "chooseVariant": "Scegli la variante"
+      "chooseVariant": "Scegli la variante",
+      "photo": "Guarda la foto del prodotto"
     },
     "pricing": {
       "billableGroup": "Da fatturare (partner)",
@@ -2399,6 +2403,13 @@
       "hint": "L'ordine in Orders non è conforme: la vendita non può essere mandata avanti.",
       "title": "Ordine non conforme in Orders: {{salute}}",
       "msg": "Questa vendita non può essere accettata, inserita né proposta a un partner. Resta qui in Vendite finché l'ordine non torna conforme: l'unica cosa che puoi fare è rifiutarla."
+    },
+    "reconcile": {
+      "open": "Riconcilia con una consegna",
+      "close": "Chiudi la ricerca",
+      "none": "Nessuna consegna di vendita a questo indirizzo.",
+      "same": "È questa",
+      "done": "Vendita riconciliata con la consegna #{{code}}: è in storico e il riferimento è nel DDT."
     },
     "history": {
       "open": "Chi abbiamo usato?",
