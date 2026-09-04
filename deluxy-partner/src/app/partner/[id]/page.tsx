@@ -16,7 +16,8 @@ import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
 import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
-import { RigaLink } from "@/components/RigaLink";
+import { RigaMovimento, ApriDettaglio, type MovimentoDettaglio } from "@/components/MovimentoModale";
+import { TIPI_PL } from "@/lib/categorie-spesa";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -33,6 +34,77 @@ export const dynamic = "force-dynamic";
 
 function siNo(v: boolean) {
   return v ? "Sì" : "No";
+}
+
+// I campi del movimento bancario che servono alla riga della tabella E alla
+// finestra che si apre al click (stessa lista per le due tabelle: quella dei
+// candidati e quella degli esclusi, così le due finestre mostrano le stesse
+// cose). È il record di `/movimenti/[id]`, meno gli altri movimenti della
+// stessa controparte, che restano un motivo per aprire la scheda intera.
+const MOVIMENTO_SELECT = {
+  id: true,
+  data: true,
+  importo: true,
+  divisa: true,
+  descrizione: true,
+  controparte: true,
+  ibanControparte: true,
+  fonte: true,
+  stato: true,
+  esito: true,
+  createdAt: true,
+  partnerId: true,
+  categoriaNome: true,
+  categoriaTipoPL: true,
+  categoriaDa: true,
+  categoriaNota: true,
+  partner: { select: { nome: true } },
+} as const;
+
+type MovimentoDalDb = {
+  id: string;
+  data: Date;
+  importo: number;
+  divisa: string;
+  descrizione: string;
+  controparte: string | null;
+  ibanControparte: string | null;
+  fonte: string | null;
+  stato: string;
+  esito: string | null;
+  createdAt: Date;
+  partnerId: string | null;
+  categoriaNome: string | null;
+  categoriaTipoPL: string | null;
+  categoriaDa: string | null;
+  categoriaNota: string | null;
+  partner: { nome: string } | null;
+};
+
+// Il colore e il nome del tipo di costo si decidono QUI, sul server: la mappa
+// `TIPI_PL` vive in un file che parla con Budgets, e un componente client non
+// deve tirarselo dietro.
+function perLaFinestra(m: MovimentoDalDb): MovimentoDettaglio {
+  return {
+    id: m.id,
+    data: m.data,
+    importo: m.importo,
+    divisa: m.divisa,
+    descrizione: m.descrizione,
+    controparte: m.controparte,
+    ibanControparte: m.ibanControparte,
+    fonte: m.fonte,
+    stato: m.stato,
+    esito: m.esito,
+    createdAt: m.createdAt,
+    partnerId: m.partnerId,
+    partnerNome: m.partner?.nome ?? null,
+    categoriaNome: m.categoriaNome,
+    categoriaDa: m.categoriaDa,
+    categoriaNota: m.categoriaNota,
+    categoriaBadge: m.categoriaTipoPL ? TIPI_PL[m.categoriaTipoPL]?.badge ?? "neutral" : null,
+    categoriaEtichetta: m.categoriaTipoPL ? TIPI_PL[m.categoriaTipoPL]?.label ?? m.categoriaTipoPL : null,
+  };
 }
 
 export default async function PartnerDetail({
@@ -99,7 +171,11 @@ export default async function PartnerDetail({
     },
     orderBy: [{ data: "desc" }, { id: "desc" }],
     take: 10,
-    select: { id: true, data: true, importo: true, descrizione: true, controparte: true, stato: true, partnerId: true },
+    // I campi in più (IBAN, divisa, fonte, esito, categoria) servono alla
+    // FINESTRA del dettaglio, che si apre senza cambiare pagina: prenderli qui
+    // costa niente (dieci righe già caricate) ed evita una seconda query al
+    // click. Il record è lo stesso di `/movimenti/[id]`.
+    select: MOVIMENTO_SELECT,
   });
   // I movimenti esclusi a mano da questa scheda (per l'undo): dettagli dei soli
   // id esclusi, così si possono rimettere fra i candidati.
@@ -107,7 +183,7 @@ export default async function PartnerDetail({
     ? await prisma.transazioneBancaria.findMany({
         where: { id: { in: esclusiIds } },
         orderBy: [{ data: "desc" }],
-        select: { id: true, data: true, importo: true, descrizione: true, controparte: true },
+        select: MOVIMENTO_SELECT,
       })
     : [];
   // Le fatture FIC intestate a questo partner: servono a proporre quale
@@ -347,18 +423,17 @@ export default async function PartnerDetail({
                 </thead>
                 <tbody>
                   {ultimiMovimenti.map((m) => (
-                    // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta
-                    // la riga porta alla scheda del movimento. I bottoni
-                    // «Scollega» e «Non è di questo partner» restano loro: la
-                    // riga non naviga se il click nasce su un comando.
-                    <RigaLink key={m.id} href={`/movimenti/${m.id}`} className="riga-link">
+                    // La riga si apre col click e mostra il movimento in una
+                    // FINESTRA, senza cambiare pagina (chiesto il 04/09/2026):
+                    // qui i movimenti si scorrono uno dopo l'altro, e cambiare
+                    // pagina farebbe perdere il posto nell'elenco. I bottoni
+                    // «Scollega» e «Non è di questo partner» restano loro.
+                    <RigaMovimento key={m.id} movimento={perLaFinestra(m)}>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
+                        <ApriDettaglio title="Apri il dettaglio del movimento">{dataIt(m.data)}</ApriDettaglio>
                       </td>
                       <td style={{ maxWidth: 380 }}>
-                        <Link href={`/movimenti/${m.id}`} style={{ fontWeight: 500, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={m.descrizione}>
-                          {m.descrizione}
-                        </Link>
+                        <ApriDettaglio forte title={m.descrizione}>{m.descrizione}</ApriDettaglio>
                         {m.controparte && <div className="muted" style={{ fontSize: 12 }}>{m.controparte}</div>}
                       </td>
                       <td style={{ fontSize: 12.5 }}>
@@ -410,7 +485,7 @@ export default async function PartnerDetail({
                           </form>
                         )}
                       </td>
-                    </RigaLink>
+                    </RigaMovimento>
                   ))}
                 </tbody>
               </table>
@@ -432,15 +507,13 @@ export default async function PartnerDetail({
               <table>
                 <tbody>
                   {movimentiEsclusi.map((m) => (
-                    // stessa regola della tabella sopra: la riga apre il movimento
-                    <RigaLink key={m.id} href={`/movimenti/${m.id}`} className="riga-link">
+                    // stessa regola della tabella sopra: la riga apre la finestra
+                    <RigaMovimento key={m.id} movimento={perLaFinestra(m)}>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
+                        <ApriDettaglio title="Apri il dettaglio del movimento">{dataIt(m.data)}</ApriDettaglio>
                       </td>
                       <td style={{ maxWidth: 380 }}>
-                        <Link href={`/movimenti/${m.id}`} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={m.descrizione}>
-                          {m.descrizione}
-                        </Link>
+                        <ApriDettaglio title={m.descrizione}>{m.descrizione}</ApriDettaglio>
                         {m.controparte && <div className="muted" style={{ fontSize: 12 }}>{m.controparte}</div>}
                       </td>
                       <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
@@ -453,7 +526,7 @@ export default async function PartnerDetail({
                           </BottoneInvio>
                         </form>
                       </td>
-                    </RigaLink>
+                    </RigaMovimento>
                   ))}
                 </tbody>
               </table>
