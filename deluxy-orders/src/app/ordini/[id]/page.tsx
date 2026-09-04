@@ -20,6 +20,7 @@ import { canale } from "@/lib/marketing";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
 import { PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
 import { TornaIndietro } from "@/components/TornaIndietro";
+import { BadgeSalute } from "@/components/BadgeSalute";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,14 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           <h1 className="page-title">{ordine.numero}</h1>
           <p className="page-sub">
             {ordine.brand} · {dataBreve(ordine.data)} · {euro(ordine.totale, ordine.valuta)}
+          </p>
+          {/* La salute sta sotto al titolo, prima di ogni altra cosa: è il
+              verdetto su questa vendita, e chi apre la scheda deve saperlo
+              prima di leggere l'indirizzo. Qui si mostra SEMPRE, «Conforme»
+              compreso — su una scheda singola il silenzio non si distingue da
+              un dato mancante. */}
+          <p style={{ marginTop: 8 }}>
+            <BadgeSalute ordine={ordine} mostraConforme />
           </p>
           {consegnaBreve(ordine.dataConsegna, ordine.fasciaConsegna) && (
             <p className={`consegna consegna-${urgenzaConsegna(ordine.dataConsegna) ?? "futura"}`} style={{ marginTop: 8 }}>

@@ -63,7 +63,7 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza, nuoviDa`) e paginazione (`page, limit`) |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, salute, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza, nuoviDa`) e paginazione (`page, limit`) |
 | GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
 | GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
@@ -94,6 +94,20 @@ La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine
 > ogni totale che lo include è sbagliato in eccesso. I `motivi` sono in italiano, così un'app
 > a valle può dirlo a un operatore senza conoscere i codici Shopify. Filtro: `problema=aperti`
 > (da verificare), `gestiti`, `tutti`.
+
+> **La salute dell'ordine.** Ogni ordine restituito porta `salute`, una parola
+> sola che dice se la vendita vale: `conforme` (pagato e senza rischio),
+> `a_rischio` (Shopify segnala una possibile frode), `non_pagato` (il denaro non
+> e' arrivato), `cancellato` (annullato o rimborsato per una decisione nostra),
+> `nullo` (annullato o rimborsato su richiesta del cliente). Si filtra con
+> `?salute=`.
+>
+> **Usare questo campo invece di rifarsi i conti** su `financialStatus` e
+> `annullatoIl`: la regola vive in un posto solo (`src/lib/salute.ts`), tiene
+> conto della precedenza fra annullamento, rischio e pagamento, e contiene due
+> scelte dell'utente che dai campi grezzi non si possono indovinare (i rimborsi
+> senza motivo registrato valgono `nullo`; i rimborsi parziali restano
+> `conforme`). Chi se la ricalcola in casa arrivera' a numeri diversi dai nostri.
 
 > **Da che tipo di cliente arriva un ordine.** `GET /api/v1/ordini` restituisce
 > dentro `cliente` anche `tipo` (`privato | azienda | horeca | eventi |
