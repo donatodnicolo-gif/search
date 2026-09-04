@@ -18,6 +18,7 @@ import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovim
 import { BottoneInvio } from "@/components/BottoneInvio";
 import { RigaMovimento, ApriDettaglio, type MovimentoDettaglio } from "@/components/MovimentoModale";
 import { eFatturaVera } from "@/lib/fattura-vera";
+import { datiBancariPartner } from "@/lib/dati-bancari";
 import { TIPI_PL } from "@/lib/categorie-spesa";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
@@ -115,7 +116,7 @@ export default async function PartnerDetail({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
-    ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string;
+    ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string; fattEliminata?: string;
   }>;
 }) {
   const { id } = await params;
@@ -127,7 +128,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling, nonEmesse }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
+  const [{ mesi, rolling, nonEmesse }, prec, tariffe, fattureAperte, extra, analisi, , banca] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -143,6 +144,9 @@ export default async function PartnerDetail({
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
     analisiPartner(id),
     analisiPartner(id),
+    // I dati bancari: la copia locale se c'è, altrimenti il registro (che è la
+    // fonte). Una chiamata di rete solo quando la copia manca — vedi `dati-bancari.ts`.
+    datiBancariPartner(id),
   ]);
 
   // Ultimi 10 movimenti bancari della scheda: i CERTI (attribuiti a questo
@@ -290,7 +294,22 @@ export default async function PartnerDetail({
           <div className="info-item"><div className="k">Commissioni a detrazione</div><div className="v">{siNo(partner.commissioniADetrazione)}</div></div>
           <div className="info-item"><div className="k">Debiti 2025</div><div className="v">{euro(partner.debiti2025)}</div></div>
           <div className="info-item"><div className="k">Crediti 2025</div><div className="v">{euro(partner.crediti2025)}</div></div>
-          <div className="info-item"><div className="k">IBAN</div><div className="v">{partner.iban ?? "—"}</div></div>
+          {/* L'IBAN lo possiede il registro Anagrafiche: qui c'è al più una
+              copia, e in 101 partner su 119 non c'è. Mostrare «—» faceva
+              credere che mancasse, mentre nel registro c'era (segnalato il
+              04/09/2026). Il registro si interroga SOLO se la copia manca. */}
+          <div className="info-item">
+            <div className="k">IBAN</div>
+            <div className="v">
+              {banca.iban || "—"}
+              {banca.fonte === "registro" && (
+                <span className="muted" style={{ fontSize: 11, marginLeft: 6 }}>dal registro</span>
+              )}
+              {!banca.iban && !banca.registroRisponde && (
+                <span className="muted" style={{ fontSize: 11, marginLeft: 6 }}>registro non raggiungibile</span>
+              )}
+            </div>
+          </div>
         </div>
         {partner.note && (
           <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--text-secondary)" }}>{partner.note}</p>
@@ -345,6 +364,18 @@ export default async function PartnerDetail({
           <span className={`badge ${/Collegat|rimoss/i.test(sp.anag) ? "green" : "orange"}`}>
             <span className="dot" />{decodeURIComponent(sp.anag)}
           </span>
+        </div>
+      )}
+
+      {/* si arriva qui dalla scheda della fattura appena eliminata: quella
+          pagina non esiste più, e senza una parola l'operazione sembrerebbe
+          non essere avvenuta */}
+      {sp.fattEliminata && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Fattura eliminata</span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            Non è più nei conti di questo partner. Su Fatture in Cloud non è cambiato niente.
+          </p>
         </div>
       )}
 

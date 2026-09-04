@@ -477,7 +477,13 @@ export async function incassaFatturaParziale(id: string, fd: FormData) {
   redirect(`/fatture/${id}?incasso=${esito.saldata ? "saldata" : "parziale"}`);
 }
 
-export async function deleteFattura(id: string) {
+// `tornaA`: dove mandare la persona dopo la cancellazione. Serve quando si
+// elimina DALLA SCHEDA della fattura (`/fatture/[id]`): finita l'azione quella
+// pagina si ridisegna, non trova più il record e risponde **404** — la
+// cancellazione era riuscita, ma sembrava fallita (segnalato dall'utente il
+// 04/09/2026, fattura da 450 € di GIADA CAKE). Dall'ELENCO invece non serve:
+// la riga sparisce e l'elenco resta dov'era.
+export async function deleteFattura(id: string, tornaA?: string) {
   const f = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: { select: { nome: true } } } });
   await prisma.fatturaServizio.delete({ where: { id } });
   await registra({
@@ -485,6 +491,7 @@ export async function deleteFattura(id: string) {
     categoria: "fatture", entita: "fattura", entitaId: id, partner: f?.partner.nome ?? null,
   });
   revalidateAll();
+  if (tornaA) redirect(tornaA);
 }
 
 // Registra una fattura ESISTENTE su Fatture in Cloud come "Servizio a fatturazione"

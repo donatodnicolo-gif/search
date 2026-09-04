@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 05/09/2026 (00:30) — Due segnalazioni dell'utente: il 404 dopo «Elimina», e l'IBAN che c'era ma l'app non vedeva
+>
+> **1. «Elimina» su una fattura rispondeva 404 — ma la cancellazione era RIUSCITA.** Provato dall'utente sulla 450 € di GIADA CAKE: la riga è sparita davvero (registro modifiche, «Eliminata fattura servizi s.n.», 22:06) e i suoi conti sono a posto. Il 404 arrivava dopo: `deleteFattura` non faceva `redirect`, quindi la scheda `/fatture/[id]` si ridisegnava, non trovava più il record e chiamava `notFound()`. Un'operazione riuscita che sembra fallita è peggio di un errore vero: si rifà, e la seconda volta l'errore è vero.
+>   - Fatto: `deleteFattura(id, tornaA?)`. Dalla SCHEDA si torna al partner con `?fattEliminata=1` e un riquadro verde «Fattura eliminata · non è più nei conti di questo partner. Su Fatture in Cloud non è cambiato niente». Dall'ELENCO niente redirect: la riga sparisce e i filtri restano. Il bottone della scheda ora usa `ConfermaElimina` (due passaggi, col numero della fattura e il nome del partner): era l'unico «Elimina» a click nudo rimasto qui.
+> **2. 🔴 «Non ha un IBAN in anagrafica» — ma in anagrafica c'era.** Segnalato con lo screenshot del rifiuto su luglio 2026. Causa: `pagamenti-partner-actions` e `richieste-actions` leggevano `Partner.iban`, la **copia locale**, mentre la fonte è il registro Anagrafiche (lo dice il commento sulla colonna dal primo giorno). Misura: **18 partner su 119 hanno l'IBAN in Finance; 101 no, e 68 di questi sono agganciati al registro** — cioè «Paga» poteva rifiutare su più di metà dei partner.
+>   - Fatto: `src/lib/dati-bancari.ts` — `datiBancariPartner(id)` chiede prima il REGISTRO (`datiFinanziari.iban` + `intestatarioConto`), poi ripiega sulla copia locale; non riscrive mai la copia (Standard §7: riferimento, non copia). Torna anche `registroRisponde`, perché **«non c'è» e «non lo so» sono due problemi diversi**: se il registro è giù l'app lo dice invece di accusare il partner di non avere l'IBAN. Usata dai due punti che pagano e dalla scheda, che mostrava «—» e ora mostra l'IBAN con la nota «dal registro» (interroga il registro solo se la copia manca).
+>   - **Verificato sui dati veri**: GIADA CAKE → `IT21J0…9868`, fonte registro, intestatario «An.Pa. S.r.l.s.»; ANTOFLOWERS → dal registro; 142 RESTAURANT → dalla copia locale. La scheda in locale stampa «IBAN IT21J0306234210000002799868 dal registro». `tsc` verde.
+>   - ⚠️ Nota per chi prova gli script: `npx tsx` da solo **non carica `.env`**, ma importare Prisma sì (lo fa `@prisma/client`). Uno script che tocca il registro senza passare da Prisma parla con `localhost:3060` e risponde «nessun dato» — non è il registro che è vuoto.
+
 > ### ✅ 05/09/2026 (00:00) — in produzione anche la regola dell'elenco: `oji4w5icl`
 >
 > «Fai push & deploy». Push del commit `164f27b8` sopra origin col solito worktree temporaneo (`a029452a`), poi `npx vercel@latest deploy --prod --yes` (il precompilato resta impossibile su questa macchina).
