@@ -52,6 +52,13 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (23:55) — «Attivo» è chi ha una fattura **o** una vendita (regola dell'utente)
+>
+> Segnalato subito dopo il deploy: nell'elenco partner, con il filtro predefinito, **GIADA CAKE non c'era più**. Non era un difetto: il filtro «Attivi · con fattura 2026» teneva solo chi ha una fattura dell'anno, e dopo la regola «senza documento su FIC non è una fattura» quella da 450 € non contava più. Misurato: da **81 a 79 partner**, usciti **GIADA CAKE e Fiori Rimini** — tutti e due con una vendita vendor nel 2026 e la fattura mai emessa (Bottega dei Fiori resta perché ha altre fatture vere).
+> - Deciso dall'utente: **attivo = fattura O vendita**. `src/app/partner/page.tsx`: il default `attivi-fatture` ora usa `haFatturaOVendite`; `attivi-movimenti` resta come alias (i link già in giro continuano a funzionare) e sparisce dalla tendina, che aveva due voci ormai identiche. Via anche il conteggio «di cui N con vendite ma nessuna fattura» e il link «Conta anche le vendite», che non hanno più senso.
+> - **Verificato sul server locale**: l'elenco passa a **84 partner** («con una fattura o una vendita 2026»), GIADA CAKE e Fiori Rimini ci sono; nascosti 35, cioè chi nel 2026 non ha né fatture né vendite. `tsc` verde.
+> - Il senso: sparire dall'elenco perché la fattura non è stata emessa è il contrario di quello che serve — chi lavora si vede, e la fattura che manca si legge sulla sua scheda (riquadro ambra).
+
 > ### ✅ 04/09/2026 (23:40) — PUSHATO E IN PRODUZIONE: `q4gv2s8e9`
 >
 > «Fai push e deploy» dell'utente. Tutto il lavoro della sera è **live**.
