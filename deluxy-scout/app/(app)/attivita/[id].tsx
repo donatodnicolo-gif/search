@@ -818,6 +818,9 @@ export default function SchedaAttivita() {
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>
+                  {/* La nota si legge anche qui (04/09/2026): un task nato da una
+                      trattativa dice da quale, e prima quella riga non si vedeva. */}
+                  {t.note ? <Text style={styles.taskMeta} numberOfLines={2}>{t.note}</Text> : null}
                 </Pressable>
               </View>
             ))

@@ -555,12 +555,17 @@ export interface Task {
    *  ⚠️ È un riferimento, non un nome copiato: «Sentire Marco» non dice quale
    *  Marco né porta il suo numero. */
   contatto_id?: string | null;
+  /** La TRATTATIVA da cui il task è nato o a cui si riferisce (migr. 0117).
+   *  Prima il legame era solo il testo della nota: non si poteva aprirla. */
+  deal_id?: string | null;
   creato_da: string | null; // chi ha creato il task (owner = a chi è assegnato)
   created_at: string;
   completata_at: string | null;
   place_nome?: string | null; // nome del negozio collegato (join, opzionale)
   /** Il contatto risolto (join): nome, ruolo e recapiti per poterlo chiamare. */
   contatto?: { id: string; nome: string; ruolo: string | null; telefono: string | null; email: string | null } | null;
+  /** La trattativa risolta (join): per dire di cosa si tratta e aprirla. */
+  trattativa?: { id: string; oggetto: string | null; fase: string; linea: string | null } | null;
   owner_nome?: string | null; // nome dell'assegnatario (risolto)
   creato_da_nome?: string | null; // nome del creatore (risolto)
 }

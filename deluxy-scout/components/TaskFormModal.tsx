@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
 import type { Priorita, Profilo, Task } from '@/types';
 import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
@@ -55,7 +56,15 @@ export function TaskFormModal({
   onSalvato: () => void;
 }) {
   const inModifica = !!task;
+  const router = useRouter();
   const [titolo, setTitolo] = useState(task?.titolo ?? titoloIniziale ?? '');
+  /** Le note (04/09/2026): il campo esisteva sul database — il task nato da una
+   *  trattativa ci scrive «Prossima attività della trattativa …» — ma il foglio
+   *  non lo mostrava né lo faceva scrivere: i dettagli c'erano e non si vedevano. */
+  const [note, setNote] = useState(task?.note ?? '');
+  /** Il negozio: passato da chi apre il foglio dalla scheda, o letto dal task stesso. */
+  const nomeNegozio = placeNome ?? task?.place_nome ?? null;
+  const trattativa = task?.trattativa ?? null;
   const [priorita, setPriorita] = useState<Priorita>(task?.priorita ?? 'P2');
   const [scadenza, setScadenza] = useState<string | null>(task?.scadenza ?? null);
   const [owner, setOwner] = useState<string | null>(task?.owner ?? null);
@@ -92,6 +101,7 @@ export function TaskFormModal({
       if (inModifica && task) {
         await aggiornaTask(task.id, {
           titolo: t,
+          note: note.trim() || null,
           priorita,
           scadenza,
           owner: assegnatario,
@@ -101,6 +111,7 @@ export function TaskFormModal({
       } else {
         const nuovo = await inserisciTask({
           titolo: t,
+          note: note.trim() || null,
           priorita,
           scadenza,
           owner: assegnatario,
@@ -123,10 +134,27 @@ export function TaskFormModal({
   return (
     // bloccaSfondo: un task scritto a metà non si chiude con un clic fuori.
     <Foglio titolo={inModifica ? 'Modifica task' : 'Nuovo task'} onClose={onClose} bloccaSfondo>
-          {placeNome ? (
+          {nomeNegozio ? (
             <Text numberOfLines={3} style={styles.negozio}>
-              <Ionicons name="storefront-outline" size={13} color={colors.testoSoft} /> {placeNome}
+              <Ionicons name="storefront-outline" size={13} color={colors.testoSoft} /> {nomeNegozio}
             </Text>
+          ) : null}
+          {trattativa ? (
+            // La trattativa da cui il task è nato (migr. 0117): si apre da qui.
+            // Il foglio si chiude prima, o resterebbe sopra la trattativa aperta.
+            <Pressable
+              style={styles.trattativa}
+              onPress={() => {
+                onClose();
+                router.push(`/(app)/trattative?apri=${trattativa.id}`);
+              }}
+              accessibilityRole="link"
+            >
+              <Ionicons name="briefcase-outline" size={13} color={colors.navy} />
+              <Text style={styles.trattativaTxt} numberOfLines={2}>
+                Apri la trattativa{trattativa.oggetto ? ` «${trattativa.oggetto}»` : trattativa.linea ? ` (${trattativa.linea})` : ''}
+              </Text>
+            </Pressable>
           ) : null}
 
           {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
@@ -140,6 +168,16 @@ export function TaskFormModal({
               placeholder="Cosa c'è da fare?"
               placeholderTextColor={colors.grigio}
               autoFocus={!inModifica}
+            />
+
+            <Text style={styles.label}>Note</Text>
+            <TextInput
+              style={[styles.input, styles.note]}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Dettagli: cosa, con chi, cosa è stato detto…"
+              placeholderTextColor={colors.grigio}
+              multiline
             />
 
             <Text style={styles.label}>Priorità</Text>
@@ -247,6 +285,9 @@ export function TaskFormModal({
 
 const styles = StyleSheet.create({
   negozio: { color: colors.testoSoft, fontWeight: '600', fontSize: 13 },
+  trattativa: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
+  trattativaTxt: { color: colors.navy, fontWeight: '600', fontSize: 13, textDecorationLine: 'underline', flexShrink: 1 },
+  note: { minHeight: 72, textAlignVertical: 'top', fontSize: 14, paddingVertical: 10 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

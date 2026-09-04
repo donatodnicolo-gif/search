@@ -8,9 +8,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import type { Task } from '@/types';
-import { colors, coloreProprita, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { useFocusEffect, useRouter } from 'expo-router';
+import type { DealStage, Task } from '@/types';
+import { colors, coloreProprita, labelFase, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
 import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
@@ -27,6 +27,68 @@ function scadenzaInfo(iso: string | null): { txt: string; ritardo: boolean } | n
   const rel =
     gg === 0 ? 'oggi' : gg === 1 ? 'domani' : gg === -1 ? 'ieri' : gg < 0 ? `${-gg} giorni fa` : `tra ${gg} giorni`;
   return { txt: `${data} · ${rel}`, ritardo: gg < 0 };
+}
+
+/** Come si chiama la trattativa collegata: l'oggetto (o la linea), e l'esito se è chiusa. */
+function etichettaTrattativa(t: Task): string | null {
+  const d = t.trattativa;
+  if (!d) return null;
+  const cosa = d.oggetto?.trim() || d.linea?.trim() || 'Trattativa';
+  const chiusa = d.fase === 'closedwon' || d.fase === 'closedlost';
+  return chiusa ? `${cosa} · ${labelFase[d.fase as DealStage].toLowerCase()}` : cosa;
+}
+
+/**
+ * ⭐ I DETTAGLI DEL TASK (04/09/2026, segnalazione dell'utente: «nelle task che
+ * si creano anche da trattative non si vedono i dettagli»). Il task nato dalla
+ * prossima attività di una trattativa portava negozio, nota e — da oggi — la
+ * trattativa stessa (migr. 0117), ma la riga mostrava solo il titolo: chi lo
+ * leggeva non sapeva di cosa fosse né poteva aprire la trattativa. Stesso
+ * blocco in tabella e in scheda, così i due vestiti dicono le stesse cose.
+ */
+function DettagliTask({ t, inTabella }: { t: Task; inTabella?: boolean }) {
+  const router = useRouter();
+  const trattativa = etichettaTrattativa(t);
+  const nulla = !t.place_nome && !t.contatto?.nome && !trattativa && !t.note;
+  if (nulla) return null;
+  return (
+    <View style={styles.dettagli}>
+      {t.place_nome ? (
+        <View style={styles.dettRiga}>
+          <Ionicons name="storefront-outline" size={12} color={colors.testoSoft} />
+          <Text style={styles.dettTxt} numberOfLines={inTabella ? 1 : 2}>{t.place_nome}</Text>
+        </View>
+      ) : null}
+      {t.contatto?.nome ? (
+        <View style={styles.dettRiga}>
+          <Ionicons name="person-outline" size={12} color={colors.testoSoft} />
+          <Text style={styles.dettTxt} numberOfLines={1}>
+            {t.contatto.nome}
+            {t.contatto.telefono ? ` · ${t.contatto.telefono}` : ''}
+          </Text>
+        </View>
+      ) : null}
+      {trattativa && t.trattativa ? (
+        // Il tap apre LA trattativa, non il task: si ferma l'evento della riga.
+        <Pressable
+          style={styles.dettRiga}
+          hitSlop={4}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            router.push(`/(app)/trattative?apri=${t.trattativa!.id}`);
+          }}
+          accessibilityRole="link"
+          accessibilityLabel={`Apri la trattativa ${trattativa}`}
+        >
+          <Ionicons name="briefcase-outline" size={12} color={colors.navy} />
+          <Text style={styles.dettLink} numberOfLines={1}>Trattativa: {trattativa}</Text>
+        </Pressable>
+      ) : null}
+      {t.note ? (
+        <Text style={styles.nota} numberOfLines={2}>{t.note}</Text>
+      ) : null}
+    </View>
+  );
 }
 
 export default function TaskScreen() {
@@ -56,7 +118,9 @@ export default function TaskScreen() {
     const q = cerca.trim().toLowerCase();
     const nrm = (v: unknown) => String(v ?? '').toLowerCase();
     const visibili = q
-      ? tasks.filter((t) => [t.titolo, t.place_nome, t.owner_nome, t.contatto?.nome].some((v) => nrm(v).includes(q)))
+      ? tasks.filter((t) =>
+          [t.titolo, t.place_nome, t.owner_nome, t.contatto?.nome, t.note, etichettaTrattativa(t)].some((v) => nrm(v).includes(q)),
+        )
       : tasks;
     const aperti = visibili.filter((t) => !t.completata);
     const fatti = visibili.filter((t) => t.completata);
@@ -114,9 +178,12 @@ export default function TaskScreen() {
       flex: 1.6,
       valore: (t) => t.titolo,
       cella: (t) => (
-        <Text style={[styles.tabTitolo, t.completata && styles.titoloFatto]} numberOfLines={2}>
-          {t.titolo}
-        </Text>
+        <View style={{ gap: 2 }}>
+          <Text style={[styles.tabTitolo, t.completata && styles.titoloFatto]} numberOfLines={2}>
+            {t.titolo}
+          </Text>
+          <DettagliTask t={t} inTabella />
+        </View>
       ),
     },
     {
@@ -302,14 +369,9 @@ function RigaTask({
               <Text style={styles.meta} numberOfLines={1}>{t.owner_nome}</Text>
             </>
           ) : null}
-          {t.place_nome ? (
-            <>
-              <Text style={styles.metaSep}>·</Text>
-              <Ionicons name="storefront-outline" size={12} color={colors.testoSoft} />
-              <Text numberOfLines={3} style={[styles.meta, { color: colors.testoSoft }]}>{t.place_nome}</Text>
-            </>
-          ) : null}
         </View>
+        {/* Negozio, contatto, trattativa e nota: prima c'era solo il negozio. */}
+        <DettagliTask t={t} />
       </Pressable>
       <Pressable onPress={onDelete} hitSlop={8} style={styles.del}>
         <Ionicons name="trash-outline" size={18} color={colors.grigio} />
@@ -361,6 +423,12 @@ const styles = StyleSheet.create({
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   metaRitardo: { color: colors.errore, fontWeight: '700' },
   tabTitolo: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  dettagli: { gap: 2, marginTop: 2 },
+  dettRiga: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', maxWidth: '100%' },
+  dettTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  // Il link alla trattativa: il colore dice «si apre», senza oro (DS: l'oro non è un'azione).
+  dettLink: { color: colors.navy, fontSize: 12, fontWeight: '600', flexShrink: 1, textDecorationLine: 'underline' },
+  nota: { color: colors.grigio, fontSize: 12, lineHeight: 16 },
   tabMuto: { color: colors.grigio, fontSize: 12.5 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   del: { width: 24, alignItems: 'flex-end' },

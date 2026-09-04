@@ -2227,7 +2227,7 @@ export async function fetchTask(soloMiei: boolean): Promise<Task[]> {
   const uid = u.user?.id ?? null;
   let q = supabase
     .from('tasks')
-    .select('*, places(nome), contacts(id, nome, ruolo, telefono, email)')
+    .select('*, places(nome), contacts(id, nome, ruolo, telefono, email), deals(id, oggetto, fase, linea)')
     .order('completata', { ascending: true })
     .order('scadenza', { ascending: true, nullsFirst: false })
     .order('priorita', { ascending: true })
@@ -2244,6 +2244,7 @@ export async function fetchTask(soloMiei: boolean): Promise<Task[]> {
     ...r,
     place_nome: r.places?.nome ?? null,
     contatto: r.contacts ?? null,
+    trattativa: r.deals ?? null,
   })) as Task[];
 
   const ids = [...new Set(righe.flatMap((t) => [t.owner, t.creato_da]).filter(Boolean))] as string[];
@@ -2312,14 +2313,19 @@ export async function cercaContatti(q: string, max = 8): Promise<ContattoTrovato
 export async function fetchTaskPlace(placeId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('tasks')
-    .select('*, places(nome)')
+    .select('*, places(nome), contacts(id, nome, ruolo, telefono, email), deals(id, oggetto, fase, linea)')
     .eq('place_id', placeId)
     .order('completata', { ascending: true })
     .order('scadenza', { ascending: true, nullsFirst: false })
     .order('priorita', { ascending: true })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const righe = (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
+  const righe = (data ?? []).map((r: any) => ({
+    ...r,
+    place_nome: r.places?.nome ?? null,
+    contatto: r.contacts ?? null,
+    trattativa: r.deals ?? null,
+  })) as Task[];
   const ids = [...new Set(righe.flatMap((t) => [t.owner, t.creato_da]).filter(Boolean))] as string[];
   if (ids.length) {
     const profili = await fetchProfiles();
@@ -2340,6 +2346,8 @@ export async function inserisciTask(t: {
   scadenza?: string | null;
   place_id?: string | null;
   contatto_id?: string | null;
+  /** La trattativa da cui nasce (migr. 0117): un id di `deals`, mai un `hs_…`. */
+  deal_id?: string | null;
   owner?: string | null;
 }): Promise<Task> {
   const { data: u } = await supabase.auth.getUser();
@@ -2354,6 +2362,7 @@ export async function inserisciTask(t: {
       scadenza: t.scadenza ?? null,
       place_id: t.place_id ?? null,
       contatto_id: t.contatto_id ?? null,
+      deal_id: t.deal_id ?? null,
     })
     .select('*')
     .single();

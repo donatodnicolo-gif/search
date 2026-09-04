@@ -1061,6 +1061,12 @@ function TrattativaModal({
         chiusa_il: chiusa ? (eraChiusa ? deal?.chiusa_il ?? isoOggiTratt() : isoOggiTratt()) : null,
       };
 
+      // L'id della riga di `deals` che esce da questo salvataggio: serve al
+      // task della prossima attività (migr. 0117). ⚠️ Solo id VERI di `deals`:
+      // il ramo HubSpot lavora su un id `hs_…` che non è una riga, e con la
+      // foreign key l'insert del task fallirebbe — meglio un task senza legame
+      // che nessun task.
+      let dealIdSalvato: string | null = null;
       if (inModifica && deal) {
         if (deal.origine === 'hubspot' && deal.hubspot_deal_id) {
           // Deal HubSpot: modifica su HubSpot (+ mirror locale) via edge function.
@@ -1068,6 +1074,7 @@ function TrattativaModal({
         } else if (daRegistro) {
           // Riga dal registro: non esiste un deal → creane uno Scout gestibile.
           const nuovo = await inserisciDeal({ place_id: deal.place_id, ...patch });
+          dealIdSalvato = nuovo.id;
           if (env.hubspotSyncUrl()) {
             try {
               await syncTrattativa(nuovo.id);
@@ -1078,6 +1085,7 @@ function TrattativaModal({
         } else {
           // Deal Scout: aggiorna la riga; se già su HubSpot, riporta la modifica.
           await aggiornaDeal(deal.id, patch);
+          dealIdSalvato = deal.id;
           if (deal.hubspot_deal_id && env.hubspotSyncUrl()) {
             try {
               await modificaTrattativaHubspot(deal.hubspot_deal_id, patch);
@@ -1089,6 +1097,7 @@ function TrattativaModal({
       } else {
         // Creazione.
         const nuovo = await inserisciDeal({ place_id: place.id, ...patch });
+        dealIdSalvato = nuovo.id;
         if (env.hubspotSyncUrl()) {
           try {
             await syncTrattativa(nuovo.id);
@@ -1167,6 +1176,9 @@ function TrattativaModal({
             priorita: 'P2',
             scadenza: (fase === 'closedlost' ? riprendereIl : scadenza) ?? null,
             place_id: place.id,
+            // Il legame con la trattativa (migr. 0117): dalla riga del task si
+            // legge di quale si tratta e la si apre. Prima c'era solo la nota.
+            deal_id: dealIdSalvato,
             // Chi segue la trattativa fa l'attività: senza questa riga il task
             // finirebbe a chi ha premuto «Salva», che può essere un altro.
             owner: proprietario ?? null,
