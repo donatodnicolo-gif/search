@@ -552,3 +552,36 @@ calcolato dal sistema e uno scritto a mano non condividono mai lo stesso campo
 prima o poi viene contato due volte (qui: 3.455 consegne).
 
 STATO: applicata (deploy 04/09).
+
+## 04/09/2026 (4) — Piattaforma consegne: le caselle della selezione multipla non si spuntano (video dell'utente)
+
+Nel video l'operatore clicca le caselle di due righe e nessuna resta spuntata:
+la barra «N consegne scelte» non compare. Non è un limite né un difetto
+dell'azione di massa (al server non arrivava niente): è il **«press scale»**
+del DS §2.6 applicato alle righe cliccabili (`.row-link:active { transform:
+scale(0.99) }`, DIFETTO 16). Su una riga larga 1.500 px l'affondo sposta il
+bordo sinistro di ~7 px fra mousedown e mouseup: il mouseup cade fuori dalla
+casella di 16 px e il browser NON genera il click. Vale per qualunque comando
+piccolo ai bordi di una riga cliccabile.
+
+Correzione (globale, `styles.css`): quando la pressione parte da un controllo
+dentro la riga (`:has(:is(input, button, select, a, label):active)`) la riga
+non si muove. **Regola proposta per il Libro**: l'affondo è del bersaglio che
+si preme, mai del contenitore — un contenitore che si muove sotto un comando
+piccolo se lo mangia.
+
+STATO: correzione in locale, in attesa del collaudo dell'utente e del suo ok al deploy.
+
+## 04/09/2026 (5) — Piattaforma consegne: pop-up di dettaglio vendita «come nel Customer Service»
+
+Regola utente: cliccando una riga di Vendite si apre un pop-up identico nella
+struttura a quello del CS (velo + pannello centrato a 760 px che scorre da
+solo, testata sticky con numero/stato/azioni e ✕, coppie dt/dd, in fondo il
+REGISTRO con chi ha fatto cosa). Replicato in Angular con le stesse classi
+concettuali (`.velo`, `.pannello`, `.coppie`, `.registro`). **Per il Libro**:
+è il secondo pop-up di dettaglio con questa forma (CS e piattaforma); se ne
+arriva un terzo va scritto come componente condiviso, non ricopiato.
+Nella stessa pagina: il rifiuto chiede conferma con le conseguenze scritte
+(esiti diversi per partner e ufficio), come da §7.
+
+STATO: in locale, in attesa del collaudo dell'utente.

@@ -28,14 +28,39 @@ type ProdottoDaSmistare = {
   visibleToOtherPartners: boolean;
 };
 
+/** Lo stato di un ordine come lo dice Orders (letto dal vivo, 04/09). */
+type StatoOrdineOrders = {
+  stato: string | null; terminale: boolean | null;
+  smistamento: string | null; evasione: string | null;
+  fulfillmentStatus: string | null; consegnataIl: string | null; annullato: unknown;
+};
+
 @Injectable()
 export class SalesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(user: JwtUser) {
+  /**
+   * ⭐ 04/09/2026 (regola utente): IL REGISTRO DELLA VENDITA — ogni creazione,
+   * cambio di stato, modifica o assegnazione lascia una riga con CHI l'ha
+   * fatto (utente e ruolo). Best-effort: una riga che non si scrive non ferma
+   * la vendita, ma finisce nel log del server.
+   */
+  async registra(
+    saleId: string, type: string, message: string,
+    user?: Pick<JwtUser, 'sub' | 'email' | 'role'> | null,
+  ): Promise<void> {
+    try {
+      await this.prisma.saleLog.create({ data: {
+        saleId, type, message,
+        userId: user?.sub ?? null, userEmail: user?.email ?? null, userRole: (user?.role as string) ?? null,
+      } });
+    } catch (e) { console.error('registro-vendita:', (e as Error).message); }
+  }
+
+  async findAll(user: JwtUser) {
     const where =
       user.role === Role.PARTNER ? { partnerId: user.partnerId ?? '-' } : {};
-    return this.prisma.sale.findMany({
+    const vendite = await this.prisma.sale.findMany({
       where,
       include: {
         product: { select: { id: true, name: true, price: true, type: true } },
@@ -44,6 +69,72 @@ export class SalesService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    // ⭐ 04/09 (regola utente): in tabella si vede anche lo STATO DELL'ORDINE
+    // IN ORDERS (classificazione, evasione, smistamento, consegnato). Letto
+    // dal vivo da Orders — nessuna copia (Standard §7) — con una cache di 2′
+    // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
+    // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
+    const stati = await this.statiDaOrders(vendite);
+    return vendite.map((v) => ({ ...v, ordine: stati.get(SalesService.numeroShopify(v.externalOrderId) ?? '') ?? null }));
+  }
+
+  /** La coda numerica di «gid://shopify/Order/N» (o «N»): la chiave con cui Orders si trova. */
+  private static numeroShopify(v?: string | null): string | null {
+    const t = (v ?? '').trim();
+    if (!t) return null;
+    const coda = t.split('/').pop() ?? '';
+    return /^\d+$/.test(coda) ? coda : null;
+  }
+
+  private statiOrdersCache: { quando: number; da: string; mappa: Map<string, StatoOrdineOrders> } | null = null;
+
+  /**
+   * Gli stati degli ordini in Orders, per numero Shopify, a pagine di 200 dal
+   * primo giorno utile (la vendita più vecchia della lista, al massimo 120
+   * giorni fa). Cache per istanza, 2 minuti.
+   */
+  private async statiDaOrders(vendite: { externalOrderId: string | null; createdAt: Date }[]): Promise<Map<string, StatoOrdineOrders>> {
+    const conOrdine = vendite.filter((v) => SalesService.numeroShopify(v.externalOrderId));
+    if (!conOrdine.length) return new Map();
+    const limite = new Date(); limite.setDate(limite.getDate() - 120);
+    const piuVecchia = conOrdine.reduce((m, v) => (v.createdAt < m ? v.createdAt : m), new Date());
+    const da = (piuVecchia < limite ? limite : piuVecchia).toISOString().slice(0, 10);
+    const adesso = Date.now();
+    if (this.statiOrdersCache && this.statiOrdersCache.da <= da && adesso - this.statiOrdersCache.quando < 120_000) {
+      return this.statiOrdersCache.mappa;
+    }
+    const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
+    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+    const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+    const chiave = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
+    const mappa = new Map<string, StatoOrdineOrders>();
+    if (!url || !chiave) return mappa;
+    try {
+      for (let pagina = 1; pagina <= 25; pagina++) {
+        const q = new URLSearchParams({ page: String(pagina), limit: '200', da, annullati: 'inclusi' });
+        const res = await fetch(`${url}/api/v1/ordini?${q}`, { headers: { 'x-api-key': chiave } });
+        if (!res.ok) break;
+        const body = (await res.json()) as { ordini?: any[]; pagine?: number };
+        for (const o of body.ordini ?? []) {
+          const k = SalesService.numeroShopify(o.orderId);
+          if (!k) continue;
+          mappa.set(k, {
+            stato: o.classificazione?.stato?.chiave ?? null,
+            terminale: o.classificazione?.stato?.terminale ?? null,
+            smistamento: o.smistamento ?? null,
+            evasione: o.evasione ?? null,
+            fulfillmentStatus: o.fulfillmentStatus ?? null,
+            consegnataIl: o.consegnata?.il ?? null,
+            annullato: o.annullato ?? o.cancelledAt ?? null,
+          });
+        }
+        if (!(body.ordini ?? []).length || pagina >= (body.pagine ?? 1)) break;
+      }
+      this.statiOrdersCache = { quando: adesso, da, mappa };
+    } catch (e) {
+      console.error('stati-da-orders:', (e as Error).message);
+    }
+    return mappa;
   }
 
   /**
@@ -254,6 +345,7 @@ export class SalesService {
           partner: { select: { id: true, insegna: true } },
         },
       });
+      await this.registra(vendita.id, 'creata', `Vendita creata da ${body.source ?? 'app'}${body.externalOrderNumber ? ' (ordine #' + body.externalOrderNumber + ')' : ''} · stato ${vendita.status}${(vendita as any).partner?.insegna ? ' · proposta a ' + (vendita as any).partner.insegna : ''}`);
       return { creata: true, vendita };
     }
 
@@ -299,6 +391,7 @@ export class SalesService {
           partner: { select: { id: true, insegna: true } },
         },
       });
+      await this.registra(vendita.id, 'creata', `Vendita creata da ${body.source ?? 'app'}${body.externalOrderNumber ? ' (ordine #' + body.externalOrderNumber + ')' : ''} · stato ${vendita.status}${(vendita as any).partner?.insegna ? ' · proposta a ' + (vendita as any).partner.insegna : ''}`);
       return { creata: true, vendita };
     }
 
@@ -308,6 +401,7 @@ export class SalesService {
       productVariantId: variantId ?? undefined,
       provinceId: provincia.id,
     });
+    await this.registra(vendita.id, 'creata', `Vendita creata da ${body.source ?? 'app'}${body.externalOrderNumber ? ' (ordine #' + body.externalOrderNumber + ')' : ''} · stato ${vendita.status}${(vendita as any).partner?.insegna ? ' · proposta a ' + (vendita as any).partner.insegna : ''}`);
     return { creata: true, vendita };
   }
 
@@ -331,9 +425,10 @@ export class SalesService {
     const consegna = await this.creaConsegna(vendita, variante);
     const aggiornata = await this.prisma.sale.update({
       where: { id },
-      data: { status: SaleStatus.ACCETTATA, deliveryId: consegna?.id ?? null },
+      data: { status: SaleStatus.ACCETTATA, deliveryId: consegna?.id ?? null, historyAt: new Date() },
       include: { partner: { select: { id: true, insegna: true } } },
     });
+    await this.registra(id, 'stato', `Accettata ${user.role === Role.PARTNER ? 'dal partner ' + (aggiornata.partner?.insegna ?? '') : "dall'ufficio"}${consegna ? ' → nasce la consegna #' + (consegna as any).code : ' — consegna NON creata (dati mancanti)'}`, user);
     return {
       vendita: aggiornata,
       consegna,
@@ -381,27 +476,56 @@ export class SalesService {
       where: { id: vendita.id },
       data: {
         status: SaleStatus.ACCETTATA,
+        historyAt: new Date(),
         deliveryId: consegnaId,
         partnerId: vendita.partnerId,
         assignmentReason: [vendita.assignmentReason, 'portata in consegna da Customer Service (31/08)']
           .filter(Boolean).join(' · '),
       },
     });
+    await this.registra(vendita.id, 'stato', `Portata in consegna dal Customer Service (${source})${deliveryId ? ' · agganciata alla consegna esistente' : ' · consegna creata dalla vendita'}`);
     return { portataInConsegna: true, venditaId: vendita.id, deliveryId: consegnaId };
   }
 
   /** Dettaglio di una vendita: serve al prefill del form consegna (ufficio). */
-  async findOne(id: string) {
+  async findOne(id: string, user?: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
       include: {
-        product: { select: { id: true, name: true, price: true, type: true } },
+        product: { select: { id: true, name: true, price: true, type: true, sku: true } },
         partner: { select: { id: true, insegna: true } },
         province: true,
+        // ⭐ 04/09: il pop-up di dettaglio mostra consegna collegata, servizio e REGISTRO.
+        logs: { orderBy: { createdAt: 'asc' } },
       },
     });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
-    return vendita;
+    // La consegna collegata (Sale ha solo deliveryId, senza relazione Prisma).
+    const delivery = vendita.deliveryId
+      ? await this.prisma.delivery.findUnique({ where: { id: vendita.deliveryId }, select: { id: true, code: true, status: true, date: true } })
+      : null;
+    // Il PARTNER vede solo le vendite proposte a lui (o che ha rifiutato lui).
+    if (user?.role === Role.PARTNER) {
+      let rifiutati: string[] = [];
+      try { rifiutati = JSON.parse(vendita.refusedPartnerIds ?? '[]'); } catch { rifiutati = []; }
+      if (vendita.partnerId !== user.partnerId && !rifiutati.includes(user.partnerId ?? '-')) {
+        throw new ForbiddenException("Questa vendita non e' proposta a te.");
+      }
+      // Al partner l'ufficio è «Ufficio Deluxy», non un'email di persona.
+      const logs = vendita.logs.map((l) => ({
+        ...l,
+        userEmail: l.userRole && l.userRole !== Role.PARTNER ? 'Ufficio Deluxy' : l.userEmail,
+        userId: null,
+      }));
+      const serviceType = vendita.serviceTypeId
+        ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
+        : null;
+      return { ...vendita, logs, serviceType, delivery, refusedPartnerIds: null, assignmentReason: null };
+    }
+    const serviceType = vendita.serviceTypeId
+      ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
+      : null;
+    return { ...vendita, serviceType, delivery };
   }
 
   /**
@@ -531,16 +655,17 @@ export class SalesService {
    * consegna non nasce: chiuderla PRIMA direbbe il falso, e chi abbandona il
    * form a metà la ritroverebbe dove deve stare.
    */
-  async prendiInMano(id: string) {
+  async prendiInMano(id: string, user?: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({ where: { id } });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
       throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
     }
-    return this.prisma.sale.update({
+    const presa = await this.prisma.sale.update({
       where: { id },
       data: {
         status: SaleStatus.DA_GESTIRE,
+        historyAt: null,
         // Idempotente: il secondo click non deve accodare il motivo un'altra
         // volta (visto in pagina il 31/08: «presa in mano · presa in mano»).
         assignmentReason: vendita.assignmentReason?.includes('inserimento manuale')
@@ -550,6 +675,8 @@ export class SalesService {
       },
       include: { product: { select: { id: true, name: true } }, province: true },
     });
+    await this.registra(id, 'stato', "Presa in mano dall'ufficio: inserimento manuale (da gestire)", user);
+    return presa;
   }
 
   /**
@@ -557,25 +684,28 @@ export class SalesService {
    * la vendita la aggancia e passa in storico (accettata). Il partner della
    * vendita diventa quello della CONSEGNA: è lì che l'ufficio ha deciso.
    */
-  async collegaConsegna(id: string, deliveryId: string) {
+  async collegaConsegna(id: string, deliveryId: string, user?: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({ where: { id } });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     if (!deliveryId) throw new BadRequestException('deliveryId obbligatorio');
     const consegna = await this.prisma.delivery.findUnique({
-      where: { id: deliveryId }, select: { id: true, partnerId: true },
+      where: { id: deliveryId }, select: { id: true, partnerId: true, code: true },
     });
     if (!consegna) throw new BadRequestException('Consegna inesistente');
     if (vendita.deliveryId && vendita.deliveryId !== deliveryId) {
       throw new BadRequestException('La vendita è già collegata a un\'altra consegna');
     }
-    return this.prisma.sale.update({
+    const agg = await this.prisma.sale.update({
       where: { id },
       data: {
         status: SaleStatus.ACCETTATA,
+        historyAt: new Date(),
         deliveryId,
         partnerId: consegna.partnerId ?? vendita.partnerId,
       },
     });
+    await this.registra(id, 'stato', `Consegna #${consegna.code} inserita dall'ufficio e collegata: vendita accettata (storico)`, user);
+    return agg;
   }
 
   /**
@@ -584,7 +714,7 @@ export class SalesService {
    * lo stato ha le sue azioni (accetta/rifiuta/inserisci), l'aggancio alla
    * consegna il suo endpoint.
    */
-  async modifica(id: string, body: Record<string, unknown>) {
+  async modifica(id: string, body: Record<string, unknown>, user?: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({ where: { id } });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     const data: Record<string, unknown> = {};
@@ -605,53 +735,71 @@ export class SalesService {
       data.provinceId = prov.id;
     }
     if (!Object.keys(data).length) throw new BadRequestException('Niente da modificare');
-    return this.prisma.sale.update({ where: { id }, data });
+    const agg = await this.prisma.sale.update({ where: { id }, data });
+    // Il registro dice COSA è cambiato, prima → dopo, campo per campo.
+    const mostra = (v: unknown) => v instanceof Date ? v.toISOString().slice(0, 10) : (v == null || v === '' ? '—' : String(v));
+    const cambi = Object.keys(data)
+      .filter((k) => mostra((vendita as any)[k]) !== mostra(data[k]))
+      .map((k) => `${k}: ${mostra((vendita as any)[k])} → ${mostra(data[k])}`);
+    if (cambi.length) await this.registra(id, 'modifica', `Modificata dall'ufficio · ${cambi.join(' · ')}`, user);
+    return agg;
   }
 
   /**
    * Il partner rifiuta: la vendita passa al prossimo della lista, e chi ha
    * rifiutato non la rivede piu'. Se non resta nessuno torna «da gestire».
    */
+  /**
+   * ⭐ 04/09/2026 (regola utente) — il RIFIUTO ha due esiti diversi:
+   *  - il PARTNER rifiuta → la vendita NON gira più al prossimo partner: torna
+   *    all'UFFICIO da inserire (da gestire) e resta in Vendite;
+   *  - ADMIN/OPERATION rifiutano → la vendita chiude in STORICO (non accettata).
+   * In entrambi i casi una riga nel registro dice chi e perché.
+   */
   async rifiuta(id: string, user: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
-      include: { product: true },
+      include: { partner: { select: { id: true, insegna: true } } },
     });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     this.assertPuoRispondere(vendita, user);
-
-    const rifiutati: string[] = vendita.refusedPartnerIds
-      ? (JSON.parse(vendita.refusedPartnerIds) as string[])
-      : [];
-    if (vendita.partnerId && !rifiutati.includes(vendita.partnerId)) {
-      rifiutati.push(vendita.partnerId);
+    if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
+      throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
     }
 
-    const quando = vendita.deliveryDate ?? new Date();
-    // ⚠️ Il prodotto puo' non esserci piu': dal 24/08/2026 la vendita e' un
-    // fatto avvenuto e non un puntatore al catalogo, quindi cancellare un
-    // prodotto azzera il collegamento ma lascia la vendita. Senza prodotto non
-    // si puo' ri-smistare — il tipo e la categoria servono a scegliere — e la
-    // vendita torna DA GESTIRE, che e' l'esito onesto.
-    const prossimo = vendita.product
-      ? await this.scegliPartner(
-      vendita.product,
-      vendita.provinceId,
-      quando,
-      rifiutati,
-        )
-      : null;
+    let rifiutati: string[] = [];
+    try { rifiutati = JSON.parse(vendita.refusedPartnerIds ?? '[]'); } catch { rifiutati = []; }
+    if (vendita.partnerId && !rifiutati.includes(vendita.partnerId)) rifiutati.push(vendita.partnerId);
 
-    return this.prisma.sale.update({
+    if (user.role === Role.PARTNER) {
+      const nome = vendita.partner?.insegna ?? 'partner';
+      const agg = await this.prisma.sale.update({
+        where: { id },
+        data: {
+          partnerId: null,
+          status: SaleStatus.DA_GESTIRE,
+          historyAt: null,
+          refusedPartnerIds: JSON.stringify(rifiutati),
+          assignmentReason: `rifiutata da ${nome}: da inserire dall'ufficio`,
+        },
+        include: { partner: { select: { id: true, insegna: true } } },
+      });
+      await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: torna all'ufficio da inserire (da gestire)`, user);
+      return agg;
+    }
+
+    const agg = await this.prisma.sale.update({
       where: { id },
       data: {
-        partnerId: prossimo?.partnerId ?? null,
-        assignmentReason: prossimo?.motivo ?? null,
-        status: prossimo ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
+        status: SaleStatus.NON_ACCETTATA,
+        historyAt: new Date(),
         refusedPartnerIds: JSON.stringify(rifiutati),
+        assignmentReason: [vendita.assignmentReason, "rifiutata dall'ufficio"].filter(Boolean).join(' · '),
       },
       include: { partner: { select: { id: true, insegna: true } } },
     });
+    await this.registra(id, 'stato', "Rifiutata dall'ufficio: in storico come non accettata", user);
+    return agg;
   }
 
   private assertPuoRispondere(vendita: { partnerId: string | null }, user: JwtUser) {
@@ -995,10 +1143,10 @@ export class SalesController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.OPERATION)
-  @ApiOperation({ summary: 'Dettaglio vendita (per il prefill del form consegna)' })
-  findOne(@Param('id') id: string) {
-    return this.salesService.findOne(id);
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Dettaglio vendita col registro (il partner solo le sue)' })
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.salesService.findOne(id, user);
   }
 
   @Get(':id/ordine')
@@ -1010,7 +1158,7 @@ export class SalesController {
 
   @Post()
   @ApiOperation({ summary: 'Crea vendita con smistamento automatico al partner' })
-  create(
+  async create(
     @Body()
     body: {
       productId: string;
@@ -1027,8 +1175,11 @@ export class SalesController {
       deliveryDate?: string;
       serviceTypeId?: string;
     },
+    @CurrentUser() user: JwtUser,
   ) {
-    return this.salesService.create(body);
+    const v = await this.salesService.create(body);
+    await this.salesService.registra(v.id, 'creata', `Vendita creata dall'app · stato ${v.status}${(v as any).partner?.insegna ? ' · proposta a ' + (v as any).partner.insegna : ''}`, user);
+    return v;
   }
 
   @Post('ingest')
@@ -1078,22 +1229,22 @@ export class SalesController {
   @ApiOperation({
     summary: "L'ufficio prende in mano la vendita: ferma il giro automatico, la consegna si inserisce dal form",
   })
-  inserisci(@Param('id') id: string) {
-    return this.salesService.prendiInMano(id);
+  inserisci(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.salesService.prendiInMano(id, user);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Modifica i DATI della vendita (importo, destinatario, date…) — non lo stato' })
-  modifica(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.salesService.modifica(id, body);
+  modifica(@Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: JwtUser) {
+    return this.salesService.modifica(id, body, user);
   }
 
   @Post(':id/collega-consegna')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Collega la consegna inserita a mano e chiude la vendita (accettata)' })
-  collegaConsegna(@Param('id') id: string, @Body() body: { deliveryId?: string }) {
-    return this.salesService.collegaConsegna(id, body?.deliveryId ?? '');
+  collegaConsegna(@Param('id') id: string, @Body() body: { deliveryId?: string }, @CurrentUser() user: JwtUser) {
+    return this.salesService.collegaConsegna(id, body?.deliveryId ?? '', user);
   }
 }
 

@@ -313,6 +313,15 @@ input.field {
 .row-link:active {
   transform: scale(0.99);
 }
+/* ⚠️ 04/09/2026 (video dell'utente: le caselle della selezione multipla non si
+   spuntano): l'affondo sposta di ~7 px il bordo sinistro di una riga larga
+   1.500 px fra mousedown e mouseup, e il click su una casella di 16 px non
+   arriva mai. Se la pressione parte da un CONTROLLO dentro la riga (casella,
+   bottone, link, tendina) la riga NON si muove: l'affondo è per il click
+   sulla riga, non sui suoi comandi. */
+.row-link:has(:is(input, button, select, a, label):active) {
+  transform: none;
+}
 
 /* ⚠️ DIFETTO 7 (Libro UX cap.6 «Empty»): il vuoto canonico ha icona in
    quadratino gold-soft + titolo title-m + frase che insegna (+ azione). Prima

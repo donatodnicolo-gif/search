@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,6 +8,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { DeliveryFormComponent } from './delivery-form.component';
+import { ConfermaComponent } from '../shared/conferma.component';
 
 interface Sale {
   id: string;
@@ -29,6 +30,23 @@ interface Sale {
   recipientLastName?: string | null;
   recipientAddress?: string | null;
   recipientPhone?: string | null;
+  /** Dal dettaglio (GET /sales/:id, 04/09): consegna collegata, servizio, registro. */
+  productName?: string | null;
+  discountPercent?: number;
+  deliveryId?: string | null;
+  delivery?: { id: string; code: number; status: string; date?: string } | null;
+  serviceType?: { id: string; name: string } | null;
+  logs?: SaleLog[];
+  /** ⭐ 04/09 (regola utente): quando la vendita è passata in storico. */
+  historyAt?: string | null;
+  /** ⭐ 04/09: lo stato dell'ordine in ORDERS, letto dal vivo (null = Orders non raggiungibile o ordine non trovato). */
+  ordine?: { stato: string | null; terminale: boolean | null; smistamento: string | null; evasione: string | null;
+    fulfillmentStatus: string | null; consegnataIl: string | null; annullato: unknown } | null;
+}
+/** Una riga del registro della vendita (04/09): chi ha fatto cosa, quando. */
+interface SaleLog {
+  id: string; type: string; message: string; createdAt: string;
+  userEmail?: string | null; userRole?: string | null;
 }
 
 /**
@@ -49,7 +67,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
 @Component({
   selector: 'app-sales-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -150,17 +168,25 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             <tr>
               <th class="ordinabile" (click)="ordina('status')">{{ 'sales.col.status' | translate }}{{ freccia('status') }}</th>
               <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
+              <!-- ⭐ 04/09 (regola utente): lo stato dell'ordine in Orders, dal vivo. -->
+              <th class="ordinabile" (click)="ordina('orders')">{{ 'sales.col.orders' | translate }}{{ freccia('orders') }}</th>
               <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
               <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
               <th class="ordinabile num" (click)="ordina('amount')">{{ 'sales.col.amount' | translate }}{{ freccia('amount') }}</th>
+              <!-- ⭐ 04/09 (regola utente): nello STORICO si vede QUANDO ci è andata. -->
+              @if (filtro() === 'storico') {
+                <th class="ordinabile" (click)="ordina('historyAt')">{{ 'sales.col.historyAt' | translate }}{{ freccia('historyAt') }}</th>
+              }
               <th></th>
             </tr>
           </thead>
           <tbody>
             @for (s of visibili(); track s.id) {
-              <tr>
+              <!-- ⭐ 04/09 (regola utente): la riga apre il POP-UP di dettaglio
+                   (come nel Customer Service); i bottoni fermano il click. -->
+              <tr class="riga-link" (click)="apriDettaglio(s)">
                 <td>
                   <span class="badge" [style.--c]="colore(s.status)">
                     <i class="dot"></i>{{ etichetta(s.status) }}
@@ -168,6 +194,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                 </td>
                 <td class="mono">
                   @if (s.externalOrderNumber) { <strong>#{{ s.externalOrderNumber }}</strong> · }{{ s.brand }}
+                </td>
+                <td class="orders-stato">
+                  @if (s.ordine) {
+                    <span class="badge" [style.--c]="coloreOrders(s.ordine)"><i class="dot"></i>{{ etichettaOrders(s.ordine) }}</span>
+                    @if (sottoOrders(s.ordine); as sub) { <span class="motivo">{{ sub }}</span> }
+                  } @else { <span class="muted">—</span> }
                 </td>
                 <td>{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
@@ -178,11 +210,21 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                 </td>
                 <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
                 <td class="num">{{ s.amount | number: '1.2-2' }} €</td>
-                <td class="azioni">
+                @if (filtro() === 'storico') {
+                  <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+                }
+                <td class="azioni" (click)="$event.stopPropagation()">
                   @if (s.status === 'proposta' && puoRispondere(s)) {
                     <button class="btn btn-primary mini" [disabled]="inCorso() === s.id" (click)="accetta(s)">
                       {{ 'sales.accept' | translate }}
                     </button>
+                    <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
+                      {{ 'sales.refuse' | translate }}
+                    </button>
+                  }
+                  <!-- ⭐ 04/09 (regola utente): l'UFFICIO rifiuta anche una vendita
+                       da gestire — chiude in storico come non accettata. -->
+                  @if (canManage() && s.status === 'da_gestire') {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
                       {{ 'sales.refuse' | translate }}
                     </button>
@@ -205,8 +247,8 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                 </td>
               </tr>
               @if (modificaId() === s.id) {
-                <tr class="mod-row">
-                  <td colspan="8">
+                <tr class="mod-row" (click)="$event.stopPropagation()">
+                  <td [attr.colspan]="filtro() === 'storico' ? 10 : 9">
                     <div class="mod-grid">
                       <label><span>{{ 'sales.col.amount' | translate }}</span>
                         <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.amount" /></label>
@@ -256,6 +298,85 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
           <app-delivery-form [venditaModale]="vid" (chiuso)="chiudiInserimento($event)" />
         </div>
       </div>
+    }
+
+    <!-- ⭐ 04/09 (regola utente): POP-UP DI DETTAGLIO della vendita, identico
+         nella struttura a quello del Customer Service (velo + pannello, testata
+         con numero e stato, coppie dt/dd, in fondo il REGISTRO con chi ha fatto
+         cosa). Si apre cliccando la riga; Esc o il velo lo chiudono. -->
+    @if (dettaglio(); as v) {
+      <div class="velo" (click)="chiudiDettaglio()"></div>
+      <div class="pannello" role="dialog" aria-modal="true" [attr.aria-label]="'sales.detail.title' | translate">
+        <header class="pan-testa">
+          <div class="pan-titolo">
+            <h2>{{ v.externalOrderNumber ? '#' + v.externalOrderNumber : ('sales.detail.title' | translate) }}
+              <span class="muted">· {{ v.brand }}</span></h2>
+            <span class="badge" [style.--c]="colore(v.status)"><i class="dot"></i>{{ etichetta(v.status) }}</span>
+          </div>
+          <div class="pan-azioni">
+            @if (v.status === 'proposta' && puoRispondere(v)) {
+              <button class="btn btn-primary mini" [disabled]="inCorso() === v.id" (click)="accetta(v)">{{ 'sales.accept' | translate }}</button>
+              <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
+            }
+            @if (canManage() && v.status === 'da_gestire') {
+              <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
+            }
+            @if (canManage() && (v.status === 'proposta' || v.status === 'da_gestire')) {
+              <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="chiudiDettaglio(); inserisci(v)">{{ 'sales.inserisci' | translate }}</button>
+            }
+            <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
+          </div>
+        </header>
+
+        <section class="card pan-card">
+          <h3>{{ 'sales.detail.title' | translate }}</h3>
+          <dl class="coppie">
+            <dt>{{ 'sales.detail.product' | translate }}</dt>
+            <dd>{{ v.product?.name ?? v.productName ?? '—' }}@if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }</dd>
+            <dt>{{ 'sales.detail.amount' | translate }}</dt>
+            <dd>{{ v.amount | number: '1.2-2' }} €@if (v.discountPercent) { <span class="muted"> · {{ 'sales.detail.discount' | translate }} {{ v.discountPercent }}%</span> }</dd>
+            <dt>{{ 'sales.detail.partner' | translate }}</dt>
+            <dd>{{ v.partner?.insegna ?? ('sales.noPartner' | translate) }}@if (v.assignmentReason) { <div class="cella-sub">{{ v.assignmentReason }}</div> }</dd>
+            <dt>{{ 'sales.detail.recipient' | translate }}</dt>
+            <dd>{{ ((v.recipientFirstName || '') + ' ' + (v.recipientLastName || '')).trim() || '—' }}@if (v.recipientPhone) { <div class="cella-sub">{{ v.recipientPhone }}</div> }</dd>
+            <dt>{{ 'sales.detail.address' | translate }}</dt>
+            <dd>{{ v.recipientAddress || '—' }}@if (v.province?.code) { <span class="muted"> · {{ v.province?.code }}</span> }</dd>
+            <dt>{{ 'sales.detail.delivery' | translate }}</dt>
+            <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
+            <dt>{{ 'sales.detail.linkedDelivery' | translate }}</dt>
+            <dd>@if (v.delivery) { <a [href]="'/deliveries/' + v.delivery.id" target="_blank" rel="noopener">#{{ v.delivery.code }}</a> <span class="muted">· {{ 'status.delivery.' + v.delivery.status | translate }}</span> } @else { <span class="muted">{{ 'sales.detail.none' | translate }}</span> }</dd>
+            <dt>{{ 'sales.col.orders' | translate }}</dt>
+            <dd>@if (v.ordine) { {{ etichettaOrders(v.ordine) }}@if (sottoOrders(v.ordine); as sub) { <div class="cella-sub">{{ sub }}</div> } } @else { <span class="muted">—</span> }</dd>
+            @if (v.historyAt) {
+              <dt>{{ 'sales.col.historyAt' | translate }}</dt>
+              <dd>{{ v.historyAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
+            }
+            <dt>{{ 'sales.detail.origin' | translate }}</dt>
+            <dd>{{ v.source }}@if (v.externalOrderNumber) { <span class="muted"> · {{ 'sales.detail.order' | translate }} #{{ v.externalOrderNumber }}</span> } <span class="muted">· {{ v.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span></dd>
+          </dl>
+        </section>
+
+        <section class="card pan-card">
+          <h3>{{ 'sales.detail.registro' | translate }}</h3>
+          @if (dettaglioCaricando()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
+          @else if (!v.logs?.length) { <p class="muted">{{ 'sales.detail.noLogs' | translate }}</p> }
+          @else {
+            <ol class="registro">
+              @for (l of v.logs; track l.id) {
+                <li>
+                  <span class="quando">{{ l.createdAt | date: 'dd/MM/yy HH:mm' }}</span>
+                  <span class="chi">{{ chiLog(l) }}</span>
+                  <span class="cosa">{{ l.message }}</span>
+                </li>
+              }
+            </ol>
+          }
+        </section>
+      </div>
+    }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    (confermato)="eseguiConferma()" (annullato)="confermaPendente.set(null)" />
     }
   `,
   styles: [
@@ -346,6 +467,37 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .cerca-riga .field { max-width: 340px; }
       .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
       .btn-riprova { margin-left: 12px; }
+      /* ⭐ 04/09: pop-up di dettaglio — velo + pannello, come nel Customer
+         Service. Il pannello sta dentro la viewport e scorre lui (Libro §9). */
+      .riga-link { cursor: pointer; }
+      .velo { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; backdrop-filter: blur(2px); }
+      .pannello { position: fixed; z-index: 91; top: 4vh; left: 50%; transform: translateX(-50%);
+        width: min(760px, 94vw); max-height: 92vh; overflow-y: auto;
+        background: var(--bg, #f5f5f7); border: 1px solid var(--hairline); border-radius: 20px;
+        padding: 0 18px 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.28); }
+      .pan-testa { position: sticky; top: 0; z-index: 2; background: var(--bg, #f5f5f7);
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        padding: 16px 0 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+      .pan-titolo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .pan-titolo h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
+      .pan-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .pan-card { padding: 16px 18px; margin-bottom: 12px; }
+      .pan-card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 650; }
+      .coppie { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; margin: 0; font-size: 14px; }
+      .coppie dt { color: var(--text-tertiary); font-size: 12.5px; }
+      .coppie dd { margin: 0; }
+      .cella-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+      .registro { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .registro li { display: grid; grid-template-columns: 110px 160px 1fr; gap: 10px; font-size: 13.5px;
+        padding-bottom: 8px; border-bottom: 1px solid var(--hairline); }
+      .registro li:last-child { border-bottom: none; }
+      .registro .quando { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .registro .chi { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      @media (max-width: 640px) {
+        .coppie { grid-template-columns: 1fr; gap: 2px 0; }
+        .coppie dt { margin-top: 8px; }
+        .registro li { grid-template-columns: 1fr; gap: 2px; }
+      }
     `,
   ],
 })
@@ -419,6 +571,8 @@ export class SalesListComponent {
     const chiave = (s: Sale): string | number | null => {
       switch (campo) {
         case 'ordine': return s.externalOrderNumber ? Number(s.externalOrderNumber) || s.externalOrderNumber : null;
+        case 'orders': return s.ordine ? this.etichettaOrders(s.ordine) : null;
+        case 'historyAt': return s.historyAt ? new Date(s.historyAt).getTime() : null;
         case 'prodotto': return s.product?.name ?? null;
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
@@ -521,7 +675,7 @@ export class SalesListComponent {
     // si modifica, si inserisce o si tira.
     avviaAutoAggiornamento({
       ricarica: () => this.carica(true),
-      sospeso: () => !!(this.modificaId() || this.modInCorso() || this.inserisciVendita()
+      sospeso: () => !!(this.modificaId() || this.modInCorso() || this.inserisciVendita() || this.dettaglio() || this.confermaPendente()
         || this.tirando() || this.inCorso() || this.caricando()),
     });
   }
@@ -565,7 +719,75 @@ export class SalesListComponent {
   }
 
   accetta(s: Sale): void { this.rispondi(s, 'accetta'); }
-  rifiuta(s: Sale): void { this.rispondi(s, 'rifiuta'); }
+  /** ⭐ 04/09 (regola utente): il rifiuto CHIEDE conferma e dice l'esito —
+   *  per il partner la vendita torna all'ufficio, per l'ufficio va in storico. */
+  rifiuta(s: Sale): void {
+    const partner = this.auth.user()?.role === 'PARTNER';
+    this.confermaPendente.set({
+      titolo: this.translate.instant(partner ? 'sales.refusePartnerTitle' : 'sales.refuseOfficeTitle', { n: s.externalOrderNumber ?? '' }),
+      messaggio: this.translate.instant(partner ? 'sales.refusePartnerMsg' : 'sales.refuseOfficeMsg'),
+      verbo: this.translate.instant('sales.refuse'),
+      tono: 'danger',
+      azione: () => this.rispondi(s, 'rifiuta'),
+    });
+  }
+
+  // ---- POP-UP DI DETTAGLIO (⭐ 04/09, regola utente) --------------------
+  readonly dettaglio = signal<Sale | null>(null);
+  readonly dettaglioCaricando = signal(false);
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary'; azione: () => void;
+  } | null>(null);
+
+  eseguiConferma(): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione();
+  }
+
+  /** Apre subito coi dati della riga, poi carica il dettaglio completo (registro compreso). */
+  apriDettaglio(s: Sale): void {
+    this.dettaglio.set(s);
+    this.ricaricaDettaglio(s.id);
+  }
+  private ricaricaDettaglio(id: string): void {
+    this.dettaglioCaricando.set(true);
+    this.http.get<Sale>(`${environment.apiUrl}/sales/${id}`).subscribe({
+      next: (v) => { if (this.dettaglio()?.id === id) this.dettaglio.set(v); this.dettaglioCaricando.set(false); },
+      error: (e) => { this.dettaglioCaricando.set(false); this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Dettaglio non disponibile' }); },
+    });
+  }
+  chiudiDettaglio(): void { this.dettaglio.set(null); }
+  @HostListener('document:keydown.escape')
+  suEscape(): void { if (this.confermaPendente()) this.confermaPendente.set(null); else if (this.dettaglio()) this.chiudiDettaglio(); }
+
+  /** Lo stato in Orders, leggibile: consegnato > annullato > evaso Shopify > classificazione > smistamento. */
+  etichettaOrders(o: NonNullable<Sale['ordine']>): string {
+    const t = (k: string) => this.translate.instant('sales.orders.' + k);
+    if (o.consegnataIl) return t('consegnato');
+    if (o.annullato) return t('annullato');
+    if (o.fulfillmentStatus === 'FULFILLED') return t('evaso');
+    if (o.stato) { const k = 'sales.orders.stato.' + o.stato; const v = this.translate.instant(k); return v === k ? o.stato.replace(/_/g, ' ') : v; }
+    return t('aperto');
+  }
+  sottoOrders(o: NonNullable<Sale['ordine']>): string | null {
+    const parti: string[] = [];
+    if (o.evasione) parti.push(this.translate.instant('sales.orders.evasione') + ' ' + o.evasione.replace(/_/g, ' '));
+    if (o.smistamento) parti.push(this.translate.instant('sales.orders.smistamento') + ' ' + o.smistamento.replace(/_/g, ' '));
+    return parti.length ? parti.join(' · ') : null;
+  }
+  coloreOrders(o: NonNullable<Sale['ordine']>): string {
+    if (o.consegnataIl || o.fulfillmentStatus === 'FULFILLED') return '#248A3D';
+    if (o.annullato) return '#8e8e93';
+    if (o.terminale) return '#6e6e73';
+    return 'var(--blue, #0071e3)';
+  }
+
+  /** Chi ha fatto la cosa: l'email dell'operatore, «Ufficio Deluxy» per il partner, «sistema» se automatico. */
+  chiLog(l: SaleLog): string {
+    if (l.userEmail) return l.userEmail;
+    return this.translate.instant('sales.detail.system');
+  }
 
   private readonly router = inject(Router);
 
@@ -611,10 +833,13 @@ export class SalesListComponent {
         // L'avviso arriva quando la vendita e' accettata ma la consegna NON e'
         // nata (mancano destinatario, indirizzo, data o servizio). Va mostrato:
         // dare per creata una consegna che non c'e' e' peggio di un errore.
+        const partner = this.auth.user()?.role === 'PARTNER';
         this.messaggio.set(r?.avviso
           ? { ok: false, testo: r.avviso }
-          : { ok: true, testo: azione === 'accetta' ? 'Vendita accettata.' : 'Vendita rifiutata e ripassata.' });
+          : { ok: true, testo: this.translate.instant(azione === 'accetta' ? 'sales.acceptedOk' : (partner ? 'sales.refusedPartner' : 'sales.refusedOffice')) });
         this.carica();
+        // Il pop-up, se aperto, si aggiorna: stato nuovo e riga nuova nel registro.
+        if (this.dettaglio()?.id === s.id) this.ricaricaDettaglio(s.id);
       },
       error: (e) => {
         this.inCorso.set(null);

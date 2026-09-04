@@ -3,6 +3,43 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🛒 **04/09/2026-quinquies — VENDITE: due rifiuti, pop-up di dettaglio con REGISTRO, stato in Orders, data storico; caselle della selezione multipla** (IN LOCALE, non pushato né deployato — regola utente riaffermata: push/deploy solo a suo comando):
+> - **Selezione multipla (video utente)**: le caselle non si spuntavano. Causa:
+>   `.row-link:active { transform: scale(0.99) }` (DS §2.6) sposta il bordo
+>   sinistro di ~7 px fra mousedown e mouseup, il click sulla casella di 16 px
+>   non arriva. Fix in `styles.css`: niente affondo se la pressione parte da un
+>   controllo dentro la riga (`:has(:is(input,button,select,a,label):active)`).
+> - **Rifiuto della vendita con due esiti** (`SalesService.rifiuta`): il
+>   PARTNER rifiuta → NON gira più al prossimo, torna all'ufficio DA GESTIRE
+>   (partner null, motivo «rifiutata da X: da inserire dall'ufficio», resta in
+>   Vendite); ADMIN/OPERATION rifiutano → STORICO come non accettata. Bottone
+>   «Rifiuta» dell'ufficio anche sulle da gestire; conferma con le conseguenze.
+> - **Pop-up di dettaglio** (click sulla riga, struttura del CS: velo +
+>   pannello, testata con numero/brand/stato/azioni, coppie dt/dd, REGISTRO in
+>   fondo; Esc chiude). `GET /sales/:id` aperto al PARTNER (solo le sue,
+>   ufficio mascherato come «Ufficio Deluxy» nel registro).
+> - **REGISTRO DELLA VENDITA**: tabella nuova `SaleLog` (saleId, type, message,
+>   userId/userEmail/userRole, createdAt) — scritta da: creazione (app/ingest/
+>   sync), accetta, rifiuta (partner/ufficio), presa in mano, modifica (diff
+>   campo: prima → dopo), collega consegna, porta in consegna dal CS, rifiuto
+>   della consegna dal partner (deliveries.service), annullamento da Orders.
+>   `api/scripts/applica-migrazione-registro-vendite.mjs` (CREATE additivo +
+>   colonna `Sale.historyAt` con backfill = updatedAt sullo storico) — **DA
+>   ESEGUIRE PRIMA DEL DEPLOY** (non ancora lanciato).
+> - **Stato in Orders in tabella e nel pop-up** (`findAll` → `ordine`): letto
+>   dal vivo da `GET /api/v1/ordini?da=&limit=200` (pagine, cache 2′ per
+>   istanza; classificazione.stato, evasione, smistamento, fulfillment,
+>   consegnata.il); colonna «Stato in Orders» ordinabile.
+> - **Data storico** (`Sale.historyAt`): scritta quando la vendita passa in
+>   storico (accetta/rifiuto ufficio/collega/CS/annullo Orders), azzerata al
+>   ritorno in da gestire; colonna nel tab Storico e riga nel pop-up.
+> - Anteprima locale: `piattaforma-web-locale` (ng serve prod + proxy verso
+>   l'API di produzione, http://localhost:4200): la parte WEB si vede; le API
+>   nuove (registro, rifiuti, stato Orders) si vedono solo dopo il deploy.
+> - ⚠️ Ho SOVRASCRITTO per errore `deluxy-platform-next/.claude/launch.json`
+>   (non versionato) e l'ho ricreato con `deluxy-next-api`, `deluxy-next-web`
+>   e la voce nuova: se aveva altre voci, sono perse.
+>
 > 📋 **04/09/2026-quater — CAMPO «REGOLE» SULLA CONSEGNA: il valore della regola esce dal plus/minus** (regola utente; deployato + migrazione dati):
 > - **Nuova logica** (utente): «crea visibile un campo valore Regole dove
 >   metti i valori che ora finiscono in plus/minus relativi all'applicazione

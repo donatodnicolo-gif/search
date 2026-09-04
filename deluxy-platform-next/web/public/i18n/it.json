@@ -2274,6 +2274,8 @@
     "col": {
       "status": "Stato",
       "order": "Origine",
+      "orders": "Stato in Orders",
+      "historyAt": "Data storico",
       "product": "Prodotto",
       "province": "Prov.",
       "partner": "Partner",
@@ -2304,7 +2306,42 @@
         "errore": "errori"
       }
     },
-    "inseritaOk": "Consegna inserita; la vendita è passata in storico."
+    "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
+    "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
+    "acceptedOk": "Vendita accettata.",
+    "refusedPartner": "Vendita rifiutata: torna all'ufficio per l'inserimento.",
+    "refusedOffice": "Vendita rifiutata: in storico come non accettata.",
+    "refusePartnerTitle": "Rifiuti la vendita #{{n}}?",
+    "refusePartnerMsg": "Non ti verrà più proposta: torna all'ufficio Deluxy, che la inserirà con un altro fornitore.",
+    "refuseOfficeTitle": "Rifiuti la vendita #{{n}}?",
+    "refuseOfficeMsg": "Chiude in Storico come «Non accettata»: nessun partner la vedrà più. Il registro della vendita lo annota con il tuo nome.",
+    "orders": {
+      "consegnato": "Consegnato",
+      "annullato": "Annullato",
+      "evaso": "Evaso (Shopify)",
+      "aperto": "Aperto",
+      "evasione": "evasione:",
+      "smistamento": "smistamento:",
+      "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" }
+    },
+    "detail": {
+      "title": "Vendita",
+      "product": "Prodotto",
+      "amount": "Importo",
+      "discount": "sconto",
+      "partner": "Partner",
+      "recipient": "Destinatario (chi riceve)",
+      "address": "Indirizzo di consegna",
+      "delivery": "Consegna",
+      "notSet": "non indicata",
+      "linkedDelivery": "Consegna collegata",
+      "none": "nessuna",
+      "origin": "Origine",
+      "order": "ordine",
+      "registro": "Registro",
+      "noLogs": "Nessun evento registrato: il registro parte dal 4 settembre 2026.",
+      "system": "sistema"
+    }
   },
   "activities": {
     "title": "Attività",

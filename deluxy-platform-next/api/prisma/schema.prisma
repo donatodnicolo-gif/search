@@ -1815,8 +1815,14 @@ model Sale {
   deliveryDate       DateTime?
   serviceTypeId      String?
   deliveryId         String?   @unique // consegna generata dall'accettazione
+  /// ⭐ 04/09/2026 (regola utente): QUANDO la vendita è passata in storico
+  /// (accettata, non accettata, annullata). Null finché è aperta.
+  historyAt          DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  /// ⭐ 04/09/2026 (regola utente): il REGISTRO della vendita — cambi di stato,
+  /// modifiche, assegnazioni, con chi li ha fatti.
+  logs            SaleLog[]
 }
 
 // Chiavi API per le ALTRE APP Deluxy (app-to-app, standard §4.3): header
@@ -2020,4 +2026,21 @@ model Segnalazione {
   @@index([stato])
   @@index([partnerId])
   @@index([valetId])
+}
+
+/// ⭐ 04/09/2026 (regola utente): il registro di una vendita — una riga per ogni
+/// evento (creata, cambio di stato, modifica, assegnazione), con chi l'ha fatto.
+/// Tabella nostra (schema platform), CREATE additivo.
+model SaleLog {
+  id        String   @id @default(cuid())
+  saleId    String
+  type      String // creata | stato | modifica | assegnazione | nota
+  message   String
+  userId    String?
+  userEmail String?
+  userRole  String?
+  createdAt DateTime @default(now())
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId, createdAt])
 }

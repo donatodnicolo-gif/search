@@ -867,8 +867,14 @@ export class DeliveriesService {
         if (d.partnerId && !rifiutati.includes(d.partnerId)) rifiutati.push(d.partnerId);
         await tx.sale.update({
           where: { id: vendita.id },
-          data: { status: 'da_gestire', deliveryId: null, refusedPartnerIds: JSON.stringify(rifiutati) },
+          data: { status: 'da_gestire', deliveryId: null, historyAt: null, refusedPartnerIds: JSON.stringify(rifiutati) },
         });
+        // ⭐ 04/09: il registro della vendita dice chi l'ha rifiutata e perché.
+        await tx.saleLog.create({ data: {
+          saleId: vendita.id, type: 'stato',
+          message: `Consegna #${d.code} rifiutata dal partner${testo ? ' — motivo: ' + testo : ''}: la vendita torna all'ufficio (da gestire)`,
+          userId: user.sub, userEmail: user.email, userRole: user.role,
+        } });
       }
     });
     await this.chiudiAttivitaSeStorico(d.id, 'not_accepted');

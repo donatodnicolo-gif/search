@@ -770,8 +770,12 @@ export class OrdersSyncService {
     if (applica && daAnnullare.length) {
       await this.prisma.sale.updateMany({
         where: { id: { in: daAnnullare.map((s) => s.id) } },
-        data: { status: SaleStatus.ANNULLATA, partnerId: null },
+        data: { status: SaleStatus.ANNULLATA, partnerId: null, historyAt: new Date() },
       });
+      // ⭐ 04/09: anche l'annullamento che arriva da Orders finisce nel registro.
+      await this.prisma.saleLog.createMany({ data: daAnnullare.map((s) => ({
+        saleId: s.id, type: 'stato', message: "Annullata: l'ordine è stato annullato in Orders (sincronizzazione automatica)",
+      })) }).catch(() => undefined);
     }
     return {
       ok: true, applicato: applica,

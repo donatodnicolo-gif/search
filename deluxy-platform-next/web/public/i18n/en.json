@@ -2274,6 +2274,8 @@
     "col": {
       "status": "Status",
       "order": "Source",
+      "orders": "Orders state",
+      "historyAt": "Archived on",
       "product": "Product",
       "province": "Prov.",
       "partner": "Partner",
@@ -2304,7 +2306,41 @@
         "errore": "errors"
       }
     },
-    "inseritaOk": "Delivery created; the sale moved to history."
+    "inseritaOk": "Delivery created; the sale moved to history.",
+    "acceptedOk": "Sale accepted.",
+    "refusedPartner": "Sale declined: it goes back to the office for manual entry.",
+    "refusedOffice": "Sale declined: archived as not accepted.",
+    "refusePartnerTitle": "Decline sale #{{n}}?",
+    "refusePartnerMsg": "It will not be offered to you again: it goes back to the Deluxy office, which will place it with another supplier.",
+    "refuseOfficeTitle": "Decline sale #{{n}}?",
+    "refuseOfficeMsg": "It closes in History as \"Not accepted\": no partner will see it again. The sale log records it under your name.",
+    "orders": {
+      "consegnato": "Delivered",
+      "annullato": "Cancelled",
+      "evaso": "Fulfilled (Shopify)",
+      "aperto": "Open",
+      "evasione": "fulfilment:",
+      "smistamento": "routing:",
+      "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" }
+    },
+    "detail": {
+      "title": "Sale",
+      "product": "Product",
+      "amount": "Amount",
+      "discount": "discount",
+      "partner": "Partner",
+      "recipient": "Recipient (who receives)",
+      "address": "Delivery address",
+      "delivery": "Delivery",
+      "notSet": "not set",
+      "linkedDelivery": "Linked delivery",
+      "none": "none",
+      "origin": "Origin",
+      "order": "order",
+      "registro": "Log",
+      "noLogs": "No events recorded: the log starts on 4 September 2026.",
+      "system": "system"
+    }
   },
   "activities": {
     "title": "Activities",
