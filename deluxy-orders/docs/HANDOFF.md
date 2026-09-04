@@ -105,8 +105,33 @@ no — che su un ordine annullato è proprio la domanda.
 filtro «a rischio» → 124 righe tutte «A rischio», «cancellato» → 39 con il
 motivo, combinazione con `shopify=validi` → 171).
 
-🔴 **Non pubblicato**: commit locale, in attesa dell'ok dell'utente per push e
-deploy.
+### ✅ PUBBLICATO il 04/09 alle 21:42 — `deluxy-orders-t3gh4637x` (`dpl_2Xzdmbjj…`)
+
+Push su `origin/scout-ui` (`57dbb223..59718132`) e deploy in produzione, dopo
+l'ok dell'utente.
+
+⚠️ **`vercel build --prod` NON funziona su questa macchina**: `EPERM: operation
+not permitted, symlink 'login.func' -> …` (Windows senza i permessi per i
+symlink — è il limite noto della macchina, non del progetto). Il deploy
+precompilato di `/deploy` qui **non si può fare**: si è usato `vercel deploy
+--prod`, cioè **build su Vercel** (~50 s di Build CPU, come tutti i deploy
+precedenti di Orders).
+
+**Verificato dall'esterno, in due modi indipendenti e senza fare login:**
+1. `vercel inspect deluxy-orders.vercel.app` risolve a `dpl_2Xzdmbjj…`, cioè
+   **l'alias segue il deploy** (non è il caso di Finance, dove il dominio era
+   rimasto indietro di un giorno).
+2. Il **CSS servito in produzione** (`/_next/static/css/f61f45657cfbcf6d.css`,
+   raggiungibile dalla pagina di login che è pubblica) contiene `.badge-salute`,
+   `.chip-salute`, `.riga-salute` e `.salute-a_rischio`: il codice nuovo è
+   davvero là, non è un «Ready» che serve la versione di ieri.
+
+⚠️ **Trappola pagata durante il lavoro**: `next build` lanciato mentre girava
+`next dev` sulla stessa cartella riscrive `.next/` e fa cadere il server di
+sviluppo in *Internal Server Error* (`Cannot find module './1331.js'`,
+`routes-manifest.json` assente). Non è un errore del codice e non va cercato
+lì: si spegne il dev server prima di buildare, e si riapre la pagina DOPO
+l'ultimo comando lanciato.
 
 ## 04/09/2026 — Fotografia: l'app è LIVE al 31/08, e questo documento era indietro di tre giornate
 
