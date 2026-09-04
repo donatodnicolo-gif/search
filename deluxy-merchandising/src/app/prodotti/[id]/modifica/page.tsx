@@ -6,6 +6,7 @@ import { aggiornaProdottoCompleto } from "@/lib/azioni-prodotto-nuovo";
 import { prisma } from "@/lib/db";
 import { isoRoma } from "@/lib/fuso";
 import { datiModuloProdotto } from "@/lib/modulo-prodotto-dati";
+import { metafieldDaColonne } from "@/lib/shopify-collezioni";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function ModificaProdottoPage({
       include: {
         varianti: { orderBy: { creataIl: "asc" } },
         media: { orderBy: { ordine: "asc" } },
-        collezioniShopify: { select: { collezione: { select: { negozio: true } } }, take: 1 },
+        collezioniShopify: { select: { collezione: { select: { id: true, titolo: true, tipo: true, negozio: true } } }, orderBy: { posizione: "asc" } },
       },
     }),
     datiModuloProdotto(),
@@ -38,9 +39,15 @@ export default async function ModificaProdottoPage({
   // Il negozio: quello dichiarato, altrimenti quello delle sue collezioni, altrimenti il primo.
   const nomeNegozio = p.negozioNome ?? p.collezioniShopify[0]?.collezione.negozio ?? null;
   const negozio = dati.negozi.find((n) => n.nome === nomeNegozio) ?? dati.negozi[0];
-  const metafield = (p.metafieldShopify && typeof p.metafieldShopify === "object" && !Array.isArray(p.metafieldShopify)
+  // I campi del negozio: i valori grezzi letti dall'import dinamico e, sotto,
+  // quelli ricostruiti dalle colonne tipizzate — così un prodotto importato
+  // prima del 04/09 mostra subito quello che l'app sa (gg_disp_min, occasioni,
+  // fiori…) senza aspettare l'import notturno. Il grezzo vince.
+  const grezzi = (p.metafieldShopify && typeof p.metafieldShopify === "object" && !Array.isArray(p.metafieldShopify)
     ? (p.metafieldShopify as Record<string, string>)
     : {}) as Record<string, string>;
+  const metafield: Record<string, string> = { ...metafieldDaColonne(p), ...grezzi };
+  const collezioniPreviste = Array.isArray(p.collezioniPreviste) ? (p.collezioniPreviste as string[]) : [];
 
   const iniziale: ProdottoIniziale = {
     id: p.id,
@@ -56,6 +63,7 @@ export default async function ModificaProdottoPage({
     palette: p.palette ?? "",
     costoProduzione: p.costoProduzione,
     prezzoVendita: p.prezzoVendita,
+    prezzoPartner: p.prezzoPartner,
     pubblicatoDal: p.pubblicatoDal ? isoRoma(p.pubblicatoDal) : "",
     pubblicatoFinoAl: p.pubblicatoFinoAl ? isoRoma(p.pubblicatoFinoAl) : "",
     controllaStock: p.varianti.some((v) => v.giacenza > 0),
@@ -66,6 +74,7 @@ export default async function ModificaProdottoPage({
       sku: v.sku,
       prezzo: String(p.prezzoVendita + v.deltaPrezzo),
       costo: v.deltaCosto ? String(p.costoProduzione + v.deltaCosto) : "",
+      prezzoPartner: v.prezzoPartner != null ? String(v.prezzoPartner) : "",
       giacenza: String(v.giacenza),
     })),
     media: p.media
@@ -81,6 +90,10 @@ export default async function ModificaProdottoPage({
       })),
     metafield,
     tags: (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    // Sul negozio contano le appartenenze vere; se non c'è ancora, il programma scelto nel modulo.
+    collezioni: p.collezioniShopify.length
+      ? p.collezioniShopify.map((x) => ({ id: x.collezione.id, titolo: x.collezione.titolo, tipo: x.collezione.tipo }))
+      : dati.collezioni.filter((c) => collezioniPreviste.includes(c.id)).map((c) => ({ id: c.id, titolo: c.titolo, tipo: "manuale" })),
     shopifyId: p.shopifyId,
   };
 

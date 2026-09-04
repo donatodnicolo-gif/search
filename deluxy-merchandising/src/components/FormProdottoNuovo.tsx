@@ -38,7 +38,7 @@ export type MediaCaricato = {
   errore?: string;
 };
 
-export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string };
+export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; prezzoPartner: string; giacenza: string };
 
 /** Quello che il modulo mostra quando si modifica un prodotto esistente. */
 export type ProdottoIniziale = {
@@ -55,6 +55,7 @@ export type ProdottoIniziale = {
   palette: string;
   costoProduzione: number;
   prezzoVendita: number;
+  prezzoPartner: number | null;
   pubblicatoDal: string;
   pubblicatoFinoAl: string;
   controllaStock: boolean;
@@ -64,11 +65,13 @@ export type ProdottoIniziale = {
   media: MediaCaricato[];
   metafield: Record<string, string>;
   tags: string[];
+  /** Le collezioni in cui il prodotto sta già (dall'import), automatiche comprese. */
+  collezioni: { id: string; titolo: string; tipo: string }[];
   shopifyId: string | null;
 };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
-const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", giacenza: "0" });
+const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0" });
 
 /** Sette cifre casuali, mai con lo zero davanti. */
 export function skuCasuale(): string {
@@ -101,7 +104,14 @@ export function FormProdottoNuovo({
   const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
   const [categoria, setCategoria] = useState(iniziale?.categoria === "DA_CLASSIFICARE" ? "" : (iniziale?.categoria ?? ""));
-  const [collezioneId, setCollezioneId] = useState(iniziale?.collezioneShopifyId ?? "");
+  // Collezioni (più d'una, chiesto dall'utente): in creazione si scelgono fra
+  // le manuali del negozio; in modifica si parte da quelle in cui il prodotto
+  // sta già. Le automatiche si vedono ma non si toccano: decide la regola.
+  const [collezioniScelte, setCollezioniScelte] = useState<string[]>(
+    iniziale ? iniziale.collezioni.filter((c) => c.tipo === "manuale").map((c) => c.id) : []
+  );
+  const [cercaCollezione, setCercaCollezione] = useState("");
+  const collezioniAutomatiche = iniziale?.collezioni.filter((c) => c.tipo !== "manuale") ?? [];
   const [sku, setSku] = useState(iniziale?.codice ?? skuCasuale);
   const [descrizione, setDescrizione] = useState(iniziale?.descrizione ?? "");
   const [tono, setTono] = useState("maison");
@@ -146,7 +156,7 @@ export function FormProdottoNuovo({
 
   function cambiaNegozio(id: string) {
     setNegozioId(id);
-    setCollezioneId("");
+    setCollezioniScelte([]);
     const nuovo = negozi.find((n) => n.id === id);
     if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
   }
@@ -336,17 +346,55 @@ export function FormProdottoNuovo({
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
           </div>
-          <div className="campo-modulo">
-            <label htmlFor="collezione">Collezione su Shopify</label>
-            <select id="collezione" name="collezioneShopifyId" value={collezioneId} onChange={(e) => setCollezioneId(e.target.value)}>
-              <option value="">— Nessuna collezione —</option>
-              {collezioniVisibili.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.titolo}
-                </option>
-              ))}
-            </select>
-            <span className="cella-sub">Solo le collezioni manuali di {negozio?.nome ?? "questo negozio"}: in quelle automatiche decide la regola del negozio.</span>
+          <div className="campo-modulo largo">
+            <label>Collezioni su Shopify{collezioniScelte.length ? ` · ${collezioniScelte.length} scelte` : ""}</label>
+            <input type="hidden" name="collezioniJson" value={JSON.stringify(collezioniScelte)} />
+            {(collezioniScelte.length > 0 || collezioniAutomatiche.length > 0) && (
+              <div className="pill-scelta" style={{ marginBottom: 8 }}>
+                {collezioniScelte.map((id) => {
+                  const c = collezioni.find((x) => x.id === id) ?? iniziale?.collezioni.find((x) => x.id === id);
+                  return (
+                    <span key={id} className="pill-opt chip-scelta selezionato">
+                      {c?.titolo ?? id}
+                      <button type="button" className="icon-btn" style={{ padding: 0, width: 18, height: 18, color: "#fff" }} title="Togli da questa collezione" onClick={() => setCollezioniScelte((x) => x.filter((y) => y !== id))}>
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                {collezioniAutomatiche.map((c) => (
+                  <span key={c.id} className="pill-opt" title="Collezione automatica: chi ci entra lo decide la regola del negozio" style={{ cursor: "default" }}>
+                    {c.titolo} <em style={{ fontStyle: "normal", color: "var(--text-tertiary)" }}>· automatica</em>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              value={cercaCollezione}
+              onChange={(e) => setCercaCollezione(e.target.value)}
+              placeholder={`Cerca fra le ${collezioniVisibili.length} collezioni manuali di ${negozio?.nome ?? "questo negozio"}…`}
+              aria-label="Cerca una collezione"
+              style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", border: "1px solid transparent", background: "var(--fill)", width: "100%" }}
+            />
+            {cercaCollezione.trim() && (
+              <div className="pill-scelta" style={{ marginTop: 8 }}>
+                {collezioniVisibili
+                  .filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase()))
+                  .slice(0, 30)
+                  .map((c) => (
+                    <button key={c.id} type="button" className="pill-opt chip-scelta" onClick={() => { setCollezioniScelte((x) => [...x, c.id]); setCercaCollezione(""); }}>
+                      + {c.titolo}
+                    </button>
+                  ))}
+                {collezioniVisibili.filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase())).length === 0 && (
+                  <span className="cella-sub">Nessuna collezione manuale con questo nome.</span>
+                )}
+              </div>
+            )}
+            <span className="cella-sub">
+              Nessuna collezione è ammesso. Le manuali si aggiungono e si tolgono da qui (alla pubblicazione, o subito se il prodotto è già sul negozio);
+              in quelle automatiche decide la regola del negozio.
+            </span>
           </div>
           <div className="campo-modulo">
             <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
@@ -538,6 +586,11 @@ export function FormProdottoNuovo({
             <input id="prezzoVendita" name="prezzoVendita" type="number" step="0.01" min="0" defaultValue={iniziale?.prezzoVendita ?? 0} />
             {haVarianti && <span className="cella-sub">Con le varianti è il prezzo base: se lo lasci a 0 vale il prezzo della variante più economica.</span>}
           </div>
+          <div className="campo-modulo">
+            <label htmlFor="prezzoPartner">Prezzo partner (€)</label>
+            <input id="prezzoPartner" name="prezzoPartner" type="number" step="0.01" min="0" defaultValue={iniziale?.prezzoPartner ?? ""} placeholder="—" />
+            <span className="cella-sub">Quanto viene dato al partner. Dato interno, non va su Shopify. Vuoto = non indicato.</span>
+          </div>
           <div className="campo-modulo largo">
             <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
               <input type="checkbox" checked={controllaStock} onChange={(e) => setControllaStock(e.target.checked)} />
@@ -579,6 +632,7 @@ export function FormProdottoNuovo({
                     <th>SKU</th>
                     <th className="num">Prezzo (€)</th>
                     <th className="num">Costo (€)</th>
+                    <th className="num">Partner (€)</th>
                     {controllaStock && <th className="num">Giacenza</th>}
                     <th />
                   </tr>
@@ -597,6 +651,9 @@ export function FormProdottoNuovo({
                       </td>
                       <td>
                         <input value={v.costo} onChange={(e) => aggiornaVariante(i, "costo", e.target.value)} inputMode="decimal" className="num" placeholder="0" aria-label={`Costo variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        <input value={v.prezzoPartner} onChange={(e) => aggiornaVariante(i, "prezzoPartner", e.target.value)} inputMode="decimal" className="num" placeholder="—" aria-label={`Prezzo partner variante ${i + 1}`} />
                       </td>
                       {controllaStock && (
                         <td>

@@ -337,6 +337,63 @@ function definizioniEstese(defs: DefinizioneMetafield[]): DefinizioneMetafield[]
  * che il modulo prodotto compila): le stesse che l'import scrive, così
  * condizioni e lenti vedono un prodotto nato qui come uno importato.
  */
+/**
+ * Il contrario: dalle colonne tipizzate già importate all'oggetto
+ * `{ "custom.x": valore }`. Serve al modulo di modifica per i prodotti
+ * importati PRIMA della lettura dinamica (04/09/2026): i loro valori stanno
+ * nelle colonne, non ancora in `metafieldShopify`. Le liste tornano JSON;
+ * quello che le colonne non conservano (i campi senza colonna) resta vuoto
+ * finché l'import notturno non riscrive tutto.
+ */
+export function metafieldDaColonne(p: {
+  ggDispMin: number | null;
+  zoneConsegna: string | null;
+  cittaShopify: string | null;
+  occasioniShopify: string | null;
+  tipologiaShopify: string | null;
+  classificazioneShopify: string | null;
+  dataShopify: string | null;
+  orarioShopify: string | null;
+  bestSellerShopify: boolean | null;
+  minimoOrario: number | null;
+  modelloShopify: string | null;
+  fioriShopify: string | null;
+  coloreFioriShopify: string | null;
+  gustiShopify: string | null;
+  dolciShopify: string | null;
+  daChiFattoShopify: string | null;
+  claimShopify: string | null;
+  tipoShopify?: string | null;
+}): Record<string, string> {
+  const mf: Record<string, string> = {};
+  const lista = (chiave: string, v: string | null) => {
+    if (!v) return;
+    const voci = v.split(",").map((s) => s.trim()).filter(Boolean);
+    if (voci.length) mf[chiave] = JSON.stringify(voci);
+  };
+  if (p.ggDispMin != null) mf["prodotto.consegna"] = String(p.ggDispMin);
+  if (p.zoneConsegna) mf["custom.nations_availability"] = p.zoneConsegna.split(",").map((s) => s.trim()).filter(Boolean).join(" ");
+  lista("custom.citta", p.cittaShopify);
+  lista("custom.occasioni", p.occasioniShopify);
+  lista("custom.tipologia", p.tipologiaShopify);
+  lista("custom.classificazione", p.classificazioneShopify);
+  lista("custom.data", p.dataShopify);
+  lista("custom.orario_consegna", p.orarioShopify);
+  if (p.bestSellerShopify != null) mf["custom.best_seller"] = p.bestSellerShopify ? "true" : "false";
+  if (p.minimoOrario != null) mf["custom.minimo_orario"] = String(p.minimoOrario);
+  // `modello` (fiori) e `modelli` (torte) finiscono nella stessa colonna: si
+  // rimette dove ha senso per il tipo di prodotto, e in dubbio su entrambi no —
+  // su `modello`, che è il più usato.
+  lista(p.tipoShopify && /tort|dolc|cake/i.test(p.tipoShopify) ? "custom.modelli" : "custom.modello", p.modelloShopify);
+  lista("custom.fiori", p.fioriShopify);
+  lista("custom.colore_fiori", p.coloreFioriShopify);
+  lista("custom.gusti", p.gustiShopify);
+  lista("custom.dolci", p.dolciShopify);
+  lista("custom.da_chi_fatto", p.daChiFattoShopify);
+  if (p.claimShopify) mf["custom.descrizione_cattura_vendite"] = p.claimShopify;
+  return mf;
+}
+
 export function colonneDaMetafield(mf: Record<string, string>) {
   const p = nodoDaMf(mf) as unknown as ProdottoShopifyApi;
   const ggRaw = p.consegna?.value?.trim();
