@@ -11,7 +11,35 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **28 agosto 2026** (collettore unico); fotografia del 17 agosto
+Aggiornato: **4 settembre 2026** (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+
+## 04/09/2026 — `TRX-2026-000049` (ANTOFLOWERS, 185,22 €) è sbagliata: Finance ha mandato il mese lordo, il dovuto netto è 48,30 €
+
+Segnalato dall'utente («richiesto 48,3 € ma in app compare 185,22»). **Transactions
+ha registrato fedelmente** quello che Finance ha mandato alle 13:15
+(`importoCent 18522`, `riferimentoEsterno saldo-cmro01a7n0032i65crhroe3u5-2026-08`,
+beneficiario «ANTOFLOWERS DI ANTONELLA RICCHETTI», sigillo v2, rischio 65,
+doppia firma): il difetto è **in Finance**, dove per i partner in
+compensazione il bottone «Paga» del mese mandava il lordo del mese invece del
+netto dell'anno (giugno-agosto a credito 453,60 − aprile-maggio a debito 405,30
+= 48,30). Corretto in Finance il 04/09 (vedi
+`deluxy-partner/docs/HANDOFF.md`), non ancora deployato.
+
+**Qui non si può correggere l'importo**: il sigillo copre l'importo, e
+cambiarlo dal DB farebbe scattare l'allarme (giusto così). La strada è
+**annullare** la richiesta e farla rifare da Finance con 48,30 €. L'annullo
+via API con la chiave di Finance (`POST /api/v1/richieste/TRX-2026-000049/annulla`)
+è stato bloccato dal permesso della sessione: **va fatto dall'operatore** dal
+dettaglio della richiesta (`/richieste/TRX-2026-000049` → «annulla», motivo:
+importo lordo del mese al posto del netto). Il webhook rimette agosto
+«rifacibile» in Finance. 🔴 **Finché resta `in_attesa`, non pagarla.**
+
+Dopo il 28/08 sono entrati due commit non ancora scritti qui: **29/08 accesso
+senza codice a 6 cifre** (login email+password, deciso dall'utente) e **coda con
+ricerca + scorciatoie di periodo** (Oggi / 7 giorni / Mese / Trimestre / Anno).
+Nella coda di oggi, oltre alla 49, sono arrivate dal CS `TRX-2026-000047`
+(Ivan Barbiero Fiori, 50 €, iban) e `TRX-2026-000048` (Floralia, 330 €, metodo
+`link`: si chiude solo «pagata fuori dall'app»).
 
 ## 28/08/2026 — Transactions diventa il COLLETTORE UNICO delle richieste di pagamento
 

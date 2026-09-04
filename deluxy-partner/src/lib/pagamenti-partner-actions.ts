@@ -7,10 +7,11 @@ import { prisma } from "./db";
 import { registra } from "./registro";
 import { euro } from "./format";
 import { nomeMese } from "./calc";
-import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } from "./transactions";
+import { richiediPagamentoPartner, riferimentoSaldo, richiestaRifacibile, transactionsConfigurato } from "./transactions";
+import { partiteAperte, descriviPartite } from "./saldo-netto";
 
 // «Richiedi pagamento»: manda a **deluxy-transactions** la richiesta di pagare
-// il dovuto del mese a un partner.
+// il dovuto di un partner.
 //
 // Cosa NON fa, di proposito: non segna il mese come pagato. Il denaro non è
 // ancora uscito — uscirà solo se una persona approva dentro Transactions. Se
@@ -20,10 +21,22 @@ import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } f
 // notifica lo stato `pagata` (vedi /api/pagamenti/notifica), o a mano con
 // «Annota pagato».
 //
+// QUANTO si chiede (04/09/2026). Per un partner SENZA compensazione si chiede
+// il dovuto del mese premuto. Per un partner IN COMPENSAZIONE si chiede il
+// NETTO dell'anno: i mesi a credito del partner meno i mesi a suo debito — la
+// stessa cifra che la scheda mostra nel totale dell'anno. L'importo che arriva
+// dal bottone (`importo`) vale solo nel primo caso: nel secondo lo decide il
+// server, perché il bottone sta su un mese e il netto sta sull'anno. Il caso
+// che ha fatto nascere la regola: ANTOFLOWERS, agosto 2026, 185,22 € mandati
+// contro 48,30 € netti (aprile e maggio a debito del partner per 405,30 €).
+// Tutti i mesi coinvolti ricevono lo stesso riferimento di richiesta: così
+// nessuno di loro mostra più «Paga» finché quella non ha un esito, e il webhook
+// alla `pagata` li chiude tutti insieme.
+//
 // I controlli LOCALI (importo, partner, IBAN) rispondono subito; la chiamata a
 // Transactions — che a freddo può impiegare secondi, timeout 15 s — parte DOPO
 // la risposta (`after`): l'operatore non paga quell'attesa guardando «Invio…».
-// Lo stato transitorio «invio» prenota il mese finché l'esito vero non è
+// Lo stato transitorio «invio» prenota i mesi finché l'esito vero non è
 // scritto; se l'invio fallisce, lo stato diventa «invio_fallito», il motivo
 // finisce nel registro modifiche e il bottone torna disponibile.
 
@@ -43,13 +56,48 @@ export async function richiediPagamento(
   if (!transactionsConfigurato()) {
     torna(destinazione, "errorePag", `${periodo} — Transactions non è collegata: mancano TRANSACTIONS_API_KEY e TRANSACTIONS_HMAC_SECRET.`);
   }
-  if (!(importo >= 0.01)) torna(destinazione, "errorePag", `${periodo} — importo non valido: non c'è niente da pagare.`);
 
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
-    select: { nome: true, ragioneSociale: true, intestatarioConto: true, iban: true },
+    select: { nome: true, ragioneSociale: true, intestatarioConto: true, iban: true, compensazione: true },
   });
   if (!partner) torna(destinazione, "errorePag", "Partner non trovato.");
+
+  // Cosa si chiede davvero: il mese, oppure il netto dell'anno.
+  let causale = `Saldo ${periodo} - ${partner.nome}`;
+  let note = `Dovuto al partner per ${periodo}, richiesto da Deluxy Finance.`;
+  let mesiCoinvolti = [mese];
+  let dettaglioRegistro = periodo;
+  if (partner.compensazione) {
+    const { partite, netto } = await partiteAperte(partnerId, anno);
+    const inCorso = partite.filter(
+      (p) => p.mese !== mese && p.saldo?.richiestaRif && !richiestaRifacibile(p.saldo.richiestaStato, p.saldo.richiestaIl)
+    );
+    if (inCorso.length > 0) {
+      torna(
+        destinazione,
+        "errorePag",
+        `${periodo} — in compensazione si chiede il netto dell'anno, ma c'è già una richiesta in corso per ${inCorso
+          .map((p) => nomeMese(p.mese))
+          .join(", ")} (${inCorso[0].saldo?.richiestaRif}): aspetta il suo esito o annullala in Transactions.`
+      );
+    }
+    if (netto < 0.01) {
+      torna(
+        destinazione,
+        "errorePag",
+        `${periodo} — in compensazione il partner deve ancora ${euro(-netto)} a Deluxy (${descriviPartite(partite)}): non c'è niente da bonificare.`
+      );
+    }
+    importo = netto;
+    mesiCoinvolti = partite.map((p) => p.mese);
+    const spiegazione = descriviPartite(partite);
+    causale = `Saldo netto ${anno} - ${partner.nome}`;
+    note = `Netto in compensazione ${anno}: ${spiegazione} = ${euro(netto)}. Richiesto da Deluxy Finance (dal mese di ${periodo}).`;
+    dettaglioRegistro = `netto ${anno} (${spiegazione})`;
+  }
+  if (!(importo >= 0.01)) torna(destinazione, "errorePag", `${periodo} — importo non valido: non c'è niente da pagare.`);
+
   const iban = (partner.iban ?? "").replace(/\s+/g, "");
   if (!iban) {
     // Meglio fermarsi qui che far arrivare a Transactions una richiesta che non
@@ -64,13 +112,35 @@ export async function richiediPagamento(
   });
   const tentativo = (precedente?.richiestaTentativi ?? 0) + 1;
   const riferimento = riferimentoSaldo(partnerId, anno, mese, tentativo);
-  const chiaveMese = { partnerId_anno_mese: { partnerId, anno, mese } };
+  const adesso = new Date();
 
-  await prisma.saldoMensile.upsert({
-    where: chiaveMese,
-    update: { richiestaRif: riferimento, richiestaStato: "invio", richiestaIl: new Date(), richiestaTentativi: tentativo },
-    create: { partnerId, anno, mese, richiestaRif: riferimento, richiestaStato: "invio", richiestaIl: new Date(), richiestaTentativi: tentativo },
-  });
+  // Il mese premuto conta il tentativo; gli altri mesi coinvolti nel netto
+  // ricevono solo il riferimento e lo stato, così mostrano «in corso» invece
+  // del bottone e una seconda richiesta non può partire da lì.
+  await prisma.$transaction(
+    mesiCoinvolti.map((m) =>
+      prisma.saldoMensile.upsert({
+        where: { partnerId_anno_mese: { partnerId, anno, mese: m } },
+        update: {
+          richiestaRif: riferimento,
+          richiestaStato: "invio",
+          richiestaIl: adesso,
+          ...(m === mese ? { richiestaTentativi: tentativo } : {}),
+        },
+        create: {
+          partnerId,
+          anno,
+          mese: m,
+          richiestaRif: riferimento,
+          richiestaStato: "invio",
+          richiestaIl: adesso,
+          richiestaTentativi: m === mese ? tentativo : 0,
+        },
+      })
+    )
+  );
+  const doveScrivere = { partnerId, anno, mese: { in: mesiCoinvolti } };
+  const importoDefinitivo = importo;
 
   after(async () => {
     // Il beneficiario è il nome a cui esce il bonifico: prima l'intestatario del
@@ -82,45 +152,45 @@ export async function richiediPagamento(
         partnerId,
         beneficiario,
         iban,
-        importo,
+        importo: importoDefinitivo,
         anno,
         mese,
-        causale: `Saldo ${periodo} - ${partner.nome}`,
-        note: `Dovuto al partner per ${periodo}, richiesto da Deluxy Finance.`,
+        causale,
+        note,
         tentativo,
       });
 
       if (esito.ok) {
-        await prisma.saldoMensile.update({
-          where: chiaveMese,
+        await prisma.saldoMensile.updateMany({
+          where: doveScrivere,
           data: { richiestaRif: esito.riferimento, richiestaStato: esito.stato },
         });
         await registra({
-          azione: `Richiesto a Transactions il pagamento di ${euro(importo)} a ${partner.nome}`,
+          azione: `Richiesto a Transactions il pagamento di ${euro(importoDefinitivo)} a ${partner.nome}`,
           categoria: "pagamenti",
           entita: "saldo",
           entitaId: `${partnerId}:${anno}:${mese}`,
           partner: partner.nome,
-          dettaglio: `${esito.riferimento} · ${periodo}${esito.ripetuta ? " · richiesta già esistente, non duplicata" : ""}`,
+          dettaglio: `${esito.riferimento} · ${dettaglioRegistro}${esito.ripetuta ? " · richiesta già esistente, non duplicata" : ""}`,
         });
       } else {
         // Il badge sul mese dice che non è riuscito; il MOTIVO vero sta qui nel
         // registro, perché sul saldo non c'è un campo dove conservarlo.
-        await prisma.saldoMensile.update({ where: chiaveMese, data: { richiestaStato: "invio_fallito" } });
+        await prisma.saldoMensile.updateMany({ where: doveScrivere, data: { richiestaStato: "invio_fallito" } });
         await registra({
           azione: `Richiesta a Transactions NON riuscita per ${partner.nome}`,
           categoria: "pagamenti",
           entita: "saldo",
           entitaId: `${partnerId}:${anno}:${mese}`,
           partner: partner.nome,
-          dettaglio: `${periodo} · ${euro(importo)} · ${esito.errore}`,
+          dettaglio: `${dettaglioRegistro} · ${euro(importoDefinitivo)} · ${esito.errore}`,
         });
       }
     } catch (e) {
-      // Anche un crash imprevisto deve lasciare il mese sbloccabile.
+      // Anche un crash imprevisto deve lasciare i mesi sbloccabili.
       console.warn("[pagamenti] invio a Transactions morto:", (e as Error).message);
       await prisma.saldoMensile
-        .update({ where: chiaveMese, data: { richiestaStato: "invio_fallito" } })
+        .updateMany({ where: doveScrivere, data: { richiestaStato: "invio_fallito" } })
         .catch(() => undefined);
     }
   });

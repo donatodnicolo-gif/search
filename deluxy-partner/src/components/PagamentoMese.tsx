@@ -23,12 +23,19 @@ export function PagamentoMese({
   richiestaRif,
   richiestaStato,
   richiestaIl,
+  nettoCompensato = null,
 }: {
   partnerId: string;
   anno: number;
   mese: number;
   daBonificare: number;
   daIncassare: number;
+  // Partner IN COMPENSAZIONE: il netto dell'anno (crediti del partner meno i
+  // suoi debiti). È QUESTA la cifra che «Paga» chiede a Transactions, non il
+  // dovuto del mese: il bottone deve dirlo, altrimenti si legge 185,22 sul mese
+  // e si trova 48,30 in Transactions (ANTOFLOWERS, 04/09/2026). `null` = partner
+  // senza compensazione, si chiede il mese.
+  nettoCompensato?: number | null;
   bonificoImporto: number | null;
   bonificoData: Date | null;
   note: string | null;
@@ -85,9 +92,33 @@ export function PagamentoMese({
         {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato, richiestaIl)) && (
           <form action={richiedi} className="pay-group">
             <span className="pay-title" style={{ color: "var(--blue)" }}>Chiedi a Transactions</span>
-            <BottoneInvio className="btn small primary" inCorso="Invio…" title="Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
-              Paga
-            </BottoneInvio>
+            {nettoCompensato != null && nettoCompensato < 0.01 ? (
+              // In compensazione il partner deve ancora più di quanto Deluxy
+              // deve a lui: non c'è niente da chiedere, e un bottone qui
+              // manderebbe una richiesta che il server rifiuta.
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                Niente da chiedere: in compensazione il partner deve ancora {euro(-nettoCompensato)} a Deluxy sull&apos;anno.
+              </span>
+            ) : (
+              <BottoneInvio
+                className="btn small primary"
+                inCorso="Invio…"
+                title={
+                  nettoCompensato != null
+                    ? `Chiede a Transactions il NETTO dell'anno in compensazione (${euro(nettoCompensato)}), non il dovuto del mese. NON esce denaro adesso: la richiesta va autorizzata da una persona.`
+                    : "Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona."
+                }
+              >
+                {nettoCompensato != null && Math.abs(nettoCompensato - daBonificare) >= 0.01
+                  ? `Paga il netto ${euro(nettoCompensato)}`
+                  : "Paga"}
+              </BottoneInvio>
+            )}
+            {nettoCompensato != null && nettoCompensato >= 0.01 && Math.abs(nettoCompensato - daBonificare) >= 0.01 && (
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                In compensazione si chiede il netto dell&apos;anno, non i {euro(daBonificare)} del mese.
+              </span>
+            )}
             {(richiestaStato === "invio_fallito" || richiestaStato === "invio") && (
               <span style={{ color: "var(--red)", fontSize: 12.5 }}>
                 L&apos;ultimo invio non è arrivato a Transactions: il motivo è nel registro modifiche. Riprova.

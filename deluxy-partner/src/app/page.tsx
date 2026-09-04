@@ -39,8 +39,17 @@ export default async function Dashboard({
 
   // Mesi con partite aperte. Per i partner senza compensazione le due direzioni
   // sono indipendenti: lo stesso mese puo' avere sia da bonificare sia da incassare.
+  // Per i partner IN COMPENSAZIONE «Paga» chiede il netto dell'anno (crediti
+  // meno debiti del partner), non il mese: `netto` è quella cifra, null per
+  // gli altri. rolling.residuo = da incassare − da bonificare sull'anno.
   const mesiPartner = tutti.flatMap((t) =>
-    t.mesi.map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo, saldo: m.saldo }))
+    t.mesi.map((m) => ({
+      partner: t.partner,
+      mese: m.mese,
+      r: m.riepilogo,
+      saldo: m.saldo,
+      netto: t.partner.compensazione ? -t.rolling.residuo : null,
+    }))
   );
   const daPagareAiPartner = mesiPartner
     .filter((x) => x.r.daBonificare >= 0.01)
@@ -191,7 +200,7 @@ export default async function Dashboard({
                             niente e non si segna niente come pagato. Se la
                             richiesta è già partita, al posto del bottone si
                             mostra a che punto è. */}
-                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl)) && (
+                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl)) && !(x.netto != null && x.netto < 0.01) && (
                           <form
                             action={richiediPagamento.bind(
                               null,
@@ -208,9 +217,13 @@ export default async function Dashboard({
                             <BottoneInvio
                               className="btn small primary"
                               inCorso="Invio…"
-                              title={`Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
+                              title={
+                                x.netto != null
+                                  ? `Chiede a Transactions il NETTO dell'anno in compensazione (${euro(x.netto)}) per ${x.partner.nome}, non i ${euro(x.r.daBonificare)} del mese. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`
+                                  : `Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`
+                              }
                             >
-                              Paga
+                              {x.netto != null && Math.abs(x.netto - x.r.daBonificare) >= 0.01 ? `Paga il netto ${euro(x.netto)}` : "Paga"}
                             </BottoneInvio>
                           </form>
                         )}
