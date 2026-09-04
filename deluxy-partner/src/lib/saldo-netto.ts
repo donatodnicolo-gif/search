@@ -1,6 +1,7 @@
 import { riepilogoPartner, type SaldoRecord } from "./queries";
 import { nomeMese } from "./calc";
 import { euro } from "./format";
+import { richiestaRifacibile } from "./transactions";
 
 // Partite aperte dell'anno di un partner IN COMPENSAZIONE.
 //
@@ -39,6 +40,30 @@ export async function partiteAperte(partnerId: string, anno: number): Promise<Pa
     }))
     .filter((p) => Math.abs(p.delta) >= 0.005);
   return { partite, netto: cent(partite.reduce((a, p) => a + p.delta, 0)) };
+}
+
+type RichiestaDelMese = {
+  richiestaRif: string | null;
+  richiestaStato: string | null;
+  richiestaIl: Date | null;
+} | null;
+
+/** I mesi che entrano nel netto quando si preme «Paga» su `meseCorrente`: il
+ *  mese premuto e tutti quelli SENZA una richiesta in corso. Un mese la cui
+ *  cifra è già in coda su Transactions non si conta di nuovo (verificato il
+ *  04/09/2026 su 5 partner con luglio in attesa e agosto nuovo). Usata sia dal
+ *  server che decide l'importo, sia dalle pagine che lo scrivono sul bottone:
+ *  due formule direbbero due cifre. */
+export function partiteDaChiedere<T extends { mese: number; saldo: RichiestaDelMese }>(partite: T[], meseCorrente: number): T[] {
+  return partite.filter(
+    (p) => p.mese === meseCorrente || !p.saldo?.richiestaRif || richiestaRifacibile(p.saldo.richiestaStato, p.saldo.richiestaIl)
+  );
+}
+
+/** Il netto che «Paga» chiederebbe da `meseCorrente` (può essere ≤ 0: allora
+ *  non c'è niente da chiedere). */
+export function nettoDaChiedere(partite: Array<{ mese: number; delta: number; saldo: RichiestaDelMese }>, meseCorrente: number): number {
+  return cent(partiteDaChiedere(partite, meseCorrente).reduce((a, p) => a + p.delta, 0));
 }
 
 /** «giugno +196,56 · luglio +71,82 · aprile −71,52»: la riga che spiega da dove
