@@ -160,6 +160,14 @@ di sessione; deploy da fare con l'utente):**
       Varianti sparite dal modulo si cancellano qui solo senza vendite; sul
       negozio restano (detto in pagina). `datiModuloProdotto()` serve le due
       pagine.
+    - **Estetica dei campi del negozio** (dopo uno screenshot dell'utente su
+      Cake, pieno di campi di prova): prima i campi **in evidenza** nell'admin
+      (`pinnedPosition`), gli altri ripiegati in «Altri N campi non in
+      evidenza» (aperto da solo se qualcuno è compilato); chiave tecnica in
+      piccolo accanto al nome, pallino verde sui compilati, chip selezionate
+      nere con ✓ e conteggio. In modifica, in testa al modulo un **riepilogo**
+      («Stai modificando «…» · SKU · fase · sul negozio X: salvando si aggiorna
+      anche là · N varianti») con la foto.
     ⚠️ Niente di tutto questo è stato provato contro un negozio vero; le
     pagine `/prodotti/nuovo` e `/prodotti/<id>/modifica` sono verificate in
     locale (200, riquadri presenti).
