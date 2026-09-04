@@ -1,5 +1,100 @@
 # Handoff — Deluxy Customer Service
 
+## 04/09/2026 (15) — in produzione, e il push da un worktree separato
+
+**LIVE**: `dpl_DJkyvCGN1gzkKtRBTPp4PYNHmQjj` →
+`deluxy-messaging-jkfp48hdo-deluxy.vercel.app`, e il dominio
+`deluxy-messaging.vercel.app` ci punta (verificato con `vercel inspect` sul
+dominio, non solo con «Ready»). ⚠️ Verificato anche **dal bundle**: la classe
+`colonna-dettaglio` c'è nel CSS servito in produzione
+(`/_next/static/css/6135e456df876505.css`). «Ready» dice che la build è andata,
+non che il dominio serva quella.
+
+⚠️ **Build su Vercel, non precompilata.** `vercel build --prod` muore su questa
+macchina con `EPERM: operation not permitted, symlink 'chat\[codice].func'`: è
+la trappola già scritta in memoria (i symlink dell'output Vercel su Windows
+senza modalità sviluppatore). Quindi `vercel deploy --prod`, che costa minuti di
+build a Vercel. Resta il modo di pubblicare da qui finché quella non si risolve.
+
+### ⚠️⚠️ Il push è dovuto passare da un worktree separato
+
+`C:\Users\nicol\scoutwt` e `C:\Users\nicol\app` sono **due worktree dello stesso
+repository** (`donatodnicolo-gif/search`), e ce ne sono altri sei. Al momento del
+push:
+
+- il branch locale `scout-ui` era **divergente** dal remoto: gli stessi commit
+  di Orders esistevano due volte con hash diversi (75a6a7bc/fda980c0,
+  04cda80c/59718132, e98c31a5/80d56c7e, 5f162d1c/17d1d8f1);
+- il working tree aveva **modifiche non committate di un'altra sessione** su
+  `deluxy-mail/HANDOFF.md` e due file nuovi, e i commit in arrivo toccavano
+  proprio quel file: né rebase né merge né checkout erano possibili senza
+  metterci le mani.
+
+Soluzione, senza toccare niente di altri: `git worktree add` su
+`origin/scout-ui`, **cherry-pick dei soli quattro commit di CS**, `git diff` per
+verificare che i file di `deluxy-messaging` fossero identici al mio lavoro, push,
+e worktree rimosso. Rete di sicurezza `rete-sicurezza-04-09` sul vecchio HEAD,
+ancora lì.
+
+⚠️ **Il branch locale resta divergente**: la prossima sessione che lavora qui lo
+troverà così. Sistemarlo vuol dire toccare i file non committati di AI Mail,
+che sono di un'altra sessione (worktree `Temp/wt-mail`).
+
+## 04/09/2026 (16) — perché il checkout rifiuta Napoli (analisi, niente toccato)
+
+Segnalazione dell'utente con la foto del checkout: «The product in your cart is
+not available for delivery to your location», indirizzo Via Toledo 46, 80134
+Napoli.
+
+**Non è un difetto: è la configurazione di Shopify, e dice la verità su com'è
+impostata oggi.** Letti i profili di consegna del negozio `deluxy.it`
+(Admin API, sola lettura):
+
+| profilo | varianti | province coperte |
+|---|---|---|
+| **Profilo generale** (predefinito) | 500 | BG, CO, MI, MB, PV, VA con «Consegna in Giacca, Cravatta e Guanti Bianchi»; FI e RM con «Consegna Deluxy» |
+| **Nikky** | 133 | **solo MB** (Monza e Brianza) |
+
+Napoli non sta in nessuna zona, quindi nessuna tariffa si applica e Shopify
+ferma il carrello. **Otto province in tutto**, e 133 prodotti che si possono
+comprare solo per Monza e Brianza.
+
+**Misurato sui nostri ordini** (negozio Deluxy, consegne in Italia, 599 ordini):
+
+| | |
+|---|---|
+| dentro le zone | 523 |
+| **fuori dalle zone** | **13** (1.885 €) |
+| provincia non ricavabile | 63 |
+
+I 13 fuori zona ci sono arrivati lo stesso: sono ordini creati **a mano** (bozze
+dal Customer Service), che le zone di consegna non le attraversano. Cioè la
+strada per vendere fuori zona esiste già, ma passa da una telefonata.
+
+**La domanda vera, che è dell'utente**: quel limite è un fatto del servizio o un
+residuo? I nostri dati dicono che l'operatività è nazionale — i fornitori hanno
+consegnato per noi a Napoli, Sorrento, Castellammare, Bosa, Tropea, Palermo,
+Porto Rotondo, Quartu Sant'Elena. Il valet in giacca e guanti no, quello è
+davvero locale. Oggi i due stanno nello stesso profilo, quindi **il limite del
+valet vale per tutto il catalogo**.
+
+**Le tre strade, in ordine di quanto costano:**
+
+1. **Zona «Resto d'Italia» nel profilo generale**, con una tariffa che copra il
+   costo di far preparare a un fiorista locale. ⚠️ Le province vanno elencate
+   una per una: Shopify non lascia la stessa provincia in due zone dello stesso
+   profilo, quindi non si può mettere «Italia» accanto alle otto che ci sono.
+2. **Separare i due servizi in due profili**: il valet resta sulle otto
+   province, i prodotti che un fioraio locale può fare vanno su un profilo
+   nazionale. È la strada giusta se il catalogo ha davvero due nature.
+3. **Lasciare com'è** e continuare a prendere gli ordini fuori zona al telefono,
+   come per i 13 di quest'anno.
+
+🔴 **Non ho toccato niente**: cambiare le zone di consegna di un negozio vivo
+cambia cosa può comprare un cliente, e la decisione è dell'utente. Da verificare
+anche sugli altri due negozi (`deluxyflowers.com`, `cakedesign.me`): il
+connettore Shopify di questa sessione è agganciato solo a `deluxy.it`.
+
 ## 04/09/2026 (14) — la salute di Orders, e l'ordine non conforme non va avanti
 
 Regola dell'utente: «importa lo stato di Orders; se lo stato non è conforme
