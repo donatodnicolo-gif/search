@@ -373,15 +373,15 @@ export class PartnersService {
   async sincronizzaAnagrafica(
     id: string,
     actor?: JwtUser,
-    scelta?: { anagraficaId?: string | null; creaNuova?: boolean },
+    scelta?: { anagraficaId?: string | null; creaNuova?: boolean; campi?: string[] },
   ) {
     const p = await this.findOne(id, actor);
     if (scelta?.anagraficaId) {
-      const esito = await this.anagrafiche.sincronizzaOra(p as any, scelta.anagraficaId);
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, scelta.anagraficaId, scelta.campi);
       return esito;
     }
     if (scelta?.creaNuova) {
-      const esito = await this.anagrafiche.sincronizzaOra(p as any, null);
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, null, scelta.campi);
       return { ...esito, messaggio: esito.ok ? `Creata una scheda nuova nel registro (scelta dall'ufficio). ${esito.messaggio}` : esito.messaggio };
     }
     const { trovato, candidati } = await this.anagrafiche.cerca({
@@ -394,7 +394,7 @@ export class PartnersService {
         messaggio: `Nel registro ci sono ${candidati.length} record possibili: scegliere a mano quale collegare, o chiedere di crearne una nuova.`,
       };
     }
-    return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null);
+    return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null, scelta?.campi);
   }
 
   /**

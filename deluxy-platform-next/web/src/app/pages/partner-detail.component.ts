@@ -208,14 +208,26 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                   <thead><tr>
                     <th>{{ 'partnerAnagrafica.field' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.here' | translate }}</th>
+                    <th class="scegli">{{ 'partnerAnagrafica.toRegistry' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.registry' | translate }}</th>
-                    <th class="scegli"></th>
+                    <th class="scegli">{{ 'partnerAnagrafica.fromRegistry' | translate }}</th>
                   </tr></thead>
                   <tbody>
                     @for (d of a.differenze; track d.campo) {
                       <tr [class.rischiosa]="rischioso(d.campo)">
                         <td>{{ d.campo }}</td>
                         <td>{{ d.piattaforma ?? '—' }}</td>
+                        <!-- ⭐ 04/09/2026 (regola utente): si sceglie che cosa
+                             mandare, campo per campo. Dove qui non c'è niente
+                             non si spunta: un vuoto non corregge nessuno. -->
+                        <td class="scegli">
+                          @if (d.piattaforma) {
+                            <input type="checkbox" [checked]="daMandare().has(d.campo)" (change)="scegliDaMandare(d.campo)"
+                                   [title]="'partnerAnagrafica.toRegistryHint' | translate">
+                          } @else {
+                            <span class="vuoto" [title]="'partnerAnagrafica.emptyHere' | translate">—</span>
+                          }
+                        </td>
                         <td class="reg">{{ d.registro ?? '—' }}
                           @if (d.scrittoDa) {
                             <span class="provenienza">{{ 'partnerAnagrafica.writtenBy' | translate:{ sistema: d.scrittoDa, quando: (d.scrittoIl | date: 'dd/MM/yyyy') } }}</span>
@@ -803,6 +815,40 @@ export class PartnerDetailComponent {
   }
 
   /** Collega il partner a UNA scheda scelta a mano fra i candidati. */
+  /** I campi della piattaforma scelti per il registro (nomi come in tabella). */
+  readonly daMandare = signal<Set<string>>(new Set());
+  scegliDaMandare(campo: string): void {
+    this.daMandare.update((s) => {
+      const n = new Set(s);
+      if (n.has(campo)) n.delete(campo); else n.add(campo);
+      return n;
+    });
+  }
+
+  /**
+   * Dai nomi di tabella alle chiavi del registro. È la stessa mappa che usa
+   * il confronto lato server: tenerla qui è l'unico modo per mandare solo i
+   * campi spuntati senza inventare un secondo linguaggio.
+   */
+  private static readonly CHIAVI: Record<string, string> = {
+    'Insegna / nome': 'nome', 'Ragione sociale': 'ragioneSociale', Email: 'email',
+    'P.IVA': 'pIva', 'Codice fiscale': 'codiceFiscale', Indirizzo: 'indirizzo',
+    Telefono: 'telefono', Referente: 'contatti', Attivo: 'attivo',
+    'Codice SDI': 'codiceSdi', PEC: 'pec', IBAN: 'iban',
+    'Intestatario conto': 'intestatarioConto', 'Metodo di pagamento': 'metodoPagamento',
+    'Amministrazione — nome': 'amministrazioneNome',
+    'Amministrazione — email': 'amministrazioneEmail',
+    'Amministrazione — telefono': 'amministrazioneTelefono',
+  };
+
+  /** Le chiavi da mandare, o undefined = tutto (comportamento di prima). */
+  private campiScelti(): string[] | undefined {
+    const scelti = [...this.daMandare()]
+      .map((campo) => PartnerDetailComponent.CHIAVI[campo])
+      .filter(Boolean);
+    return scelti.length ? scelti : undefined;
+  }
+
   collegaA(anagraficaId: string): void {
     this.inviaAlRegistro({ anagraficaId });
   }
@@ -812,13 +858,13 @@ export class PartnerDetailComponent {
     this.inviaAlRegistro({ creaNuova: true });
   }
 
-  private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean }): void {
+  private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean; campi?: string[] }): void {
     const p = this.partner();
     if (!p) return;
     this.sincronizzando.set(true);
     this.esitoSync.set(null);
     this.http.post<{ ok: boolean; messaggio: string }>(
-      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, scelta,
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, { ...scelta, campi: scelta.campi ?? this.campiScelti() },
     ).subscribe({
       next: (r) => {
         this.sincronizzando.set(false);
@@ -838,7 +884,9 @@ export class PartnerDetailComponent {
     this.sincronizzando.set(true);
     this.esitoSync.set(null);
     this.http.post<{ ok: boolean; messaggio: string }>(
-      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, {},
+      // ⭐ 04/09 (regola utente): si mandano SOLO i campi spuntati; nessuna
+      // spunta = tutto, come prima.
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, { campi: this.campiScelti() },
     ).subscribe({
       next: (r) => {
         this.sincronizzando.set(false);

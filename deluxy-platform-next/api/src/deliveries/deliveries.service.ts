@@ -880,8 +880,9 @@ export class DeliveriesService {
       throw new ForbiddenException('Questa consegna non è tua.');
     }
 
-    const oreValet = DeliveriesService.oreFraOrari(d.hoursFrom, d.hoursTo);
+    const oreValet = DeliveriesService.oreFraOrari(d.valetStartTime ?? d.hoursFrom, d.valetEndTime ?? d.hoursTo);
     const orePreviste = d.hoursOriginal
+      ?? DeliveriesService.oreFraOrari(d.serviceStartTime, d.serviceEndTime)
       ?? DeliveriesService.oreFraOrari(d.deliveryTimeFrom, d.deliveryTimeTo)
       ?? d.hours
       ?? null;
@@ -924,7 +925,9 @@ export class DeliveriesService {
         hoursDecision: approva ? 'approvate' : 'rifiutate',
         hoursDecidedAt: new Date(),
         hoursDecidedBy: user.email,
-        ...(approva && d.hoursFrom && d.hoursTo ? { deliveryTimeFrom: d.hoursFrom, deliveryTimeTo: d.hoursTo } : {}),
+        ...(approva && (d.valetStartTime ?? d.hoursFrom) && (d.valetEndTime ?? d.hoursTo)
+          ? { deliveryTimeFrom: d.valetStartTime ?? d.hoursFrom, deliveryTimeTo: d.valetEndTime ?? d.hoursTo }
+          : {}),
         logs: {
           create: {
             type: 'note',
@@ -2032,6 +2035,19 @@ export class DeliveriesService {
     // consegna chiude come prima. Un automatismo che blocca chi non sa di
     // doverlo sapere è peggio del problema che risolve.
     let statoFinale: DeliveryStatus = status;
+    // ⭐ 04/09/2026 (regola utente): «per chiudere, il valet DEVE dichiarare le
+    // ore». Su un servizio a ora la chiusura senza orari non passa: sono il
+    // fatto su cui si pagano il valet e il partner, e lasciarli facoltativi
+    // voleva dire fatturare l'orario previsto anche quando non era quello.
+    if (
+      status === DeliveryStatus.DELIVERED &&
+      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      !(dettagli?.oreDalle && dettagli?.oreAlle)
+    ) {
+      throw new BadRequestException(
+        "Servizio a ore: per chiudere la consegna servono l'ora di inizio e quella di fine (senza dichiarare gli orari non si chiude).",
+      );
+    }
     if (
       status === DeliveryStatus.DELIVERED &&
       (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
@@ -2044,6 +2060,13 @@ export class DeliveriesService {
         throw new BadRequestException('L\'ora di fine deve venire dopo quella di inizio.');
       }
       statoFinale = DeliveryStatus.DELIVERED_TIME_TO_APPROVE;
+      // ⚠️ 04/09/2026: gli orari del valet hanno GIÀ una casa in banca dati —
+      // `valetStartTime`/`valetEndTime` del vecchio sistema, con 7.908 consegne
+      // dentro. Scriverne di nuovi accanto avrebbe fatto due verità della
+      // stessa cosa. Qui si scrivono quelle, e `hoursFrom/hoursTo` restano
+      // solo come specchio per chi legge la riga senza sapere la storia.
+      extra['valetStartTime'] = dalle;
+      extra['valetEndTime'] = alle;
       extra['hoursFrom'] = dalle;
       extra['hoursTo'] = alle;
       extra['hoursProposedAt'] = new Date();
@@ -2052,9 +2075,19 @@ export class DeliveriesService {
       extra['hoursDecidedBy'] = null;
       // La fotografia di quello che era previsto: senza, un rifiuto non
       // saprebbe a quali ore tornare.
-      extra['hoursOriginal'] = (delivery as any).hours
+      // L'orario PREVISTO: prima quello del servizio (colonna storica), poi la
+      // fascia della consegna, poi le ore già scritte.
+      const previsteOre = DeliveriesService.oreFraOrari((delivery as any).serviceStartTime, (delivery as any).serviceEndTime)
         ?? DeliveriesService.oreFraOrari((delivery as any).deliveryTimeFrom, (delivery as any).deliveryTimeTo)
+        ?? (delivery as any).hours
         ?? null;
+      extra['hoursOriginal'] = previsteOre;
+      // Se il servizio non aveva orari scritti, si fotografano ora: il rifiuto
+      // deve poter tornare a qualcosa di preciso.
+      if (!(delivery as any).serviceStartTime && (delivery as any).deliveryTimeFrom) {
+        extra['serviceStartTime'] = (delivery as any).deliveryTimeFrom;
+        extra['serviceEndTime'] = (delivery as any).deliveryTimeTo;
+      }
       racconto.push(`ore dichiarate dal valet: ${dalle}–${alle}, in attesa del partner`);
     }
 

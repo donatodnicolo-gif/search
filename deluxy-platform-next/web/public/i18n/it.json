@@ -2075,7 +2075,8 @@
       "oreTitolo": "Orario del servizio",
       "oreDalle": "Iniziato alle",
       "oreAlle": "Finito alle",
-      "oreHint": "Sono gli orari previsti: correggili se hai iniziato o finito a un altro orario. Il partner li approva o li rifiuta."
+      "oreHint": "Sono gli orari previsti: correggili se hai iniziato o finito a un altro orario. Il partner li approva o li rifiuta.",
+      "oreObbligatorie": "Senza l'ora di inizio e di fine non si può chiudere: sono le ore che si pagano e si fatturano."
     },
     "title": "Consegna #{{code}}",
     "section": {
@@ -2338,7 +2339,11 @@
     "here": "In piattaforma",
     "registry": "Nel registro",
     "identical": "Nessuna differenza: i due record coincidono.",
-    "push": "Invia al registro",
+    "push": "Modifica Registro",
+    "toRegistry": "Al registro",
+    "toRegistryHint": "Spunta i campi da scrivere nel registro. Senza spunte si manda tutto.",
+    "fromRegistry": "Qui",
+    "emptyHere": "Qui non c'è niente da mandare.",
     "pushHint": "L’invio sovrascrive nel registro i campi della piattaforma e salva il collegamento.",
     "mirrorTitle": "Attenzione: collegato a un doppione.",
     "mirrorBody": "Il record del registro a cui questo partner è collegato è stato creato dalla piattaforma stessa: contiene i nostri dati, quindi «nessuna differenza» è garantito e non prova nulla. Nel registro esiste un altro record con la stessa P.IVA, ed è quasi certamente l’anagrafica vera:",
@@ -2352,7 +2357,7 @@
     "pushCreateHint": "Nel registro non c’è: si crea una scheda nuova con i dati di questa pagina, e resta collegata.",
     "pushLink": "Collega al registro",
     "pushLinkHint": "La scheda nel registro esiste già: si collega a questo partner e i campi qui sopra vengono riscritti con i nostri.",
-    "pushUpdate": "Aggiorna il registro",
+    "pushUpdate": "Modifica Registro",
     "pushUpdateHint": "Già collegati: si riscrivono nel registro i campi della piattaforma.",
     "pushAmbiguous": "Collega al registro",
     "pushBlocked": "Nel registro ci sono più schede possibili: sceglierne una a mano, per non crearne un’altra.",

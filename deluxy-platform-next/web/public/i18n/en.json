@@ -2073,7 +2073,8 @@
       "oreTitolo": "Service hours",
       "oreDalle": "Started at",
       "oreAlle": "Finished at",
-      "oreHint": "These are the planned times: correct them if you started or finished at another time. The partner approves or rejects them."
+      "oreHint": "These are the planned times: correct them if you started or finished at another time. The partner approves or rejects them.",
+      "oreObbligatorie": "Without start and end time the delivery cannot be closed: those hours are paid and invoiced."
     },
     "title": "Delivery #{{code}}",
     "section": {
@@ -2336,7 +2337,7 @@
     "here": "On the platform",
     "registry": "In the registry",
     "identical": "No differences: the two records match.",
-    "push": "Send to registry",
+    "push": "Edit registry",
     "pushHint": "Sending overwrites the registry fields with the platform values and saves the link.",
     "mirrorTitle": "Careful: linked to a duplicate.",
     "mirrorBody": "The registry record this partner is linked to was created by the platform itself: it holds our own data, so “no differences” is guaranteed and proves nothing. Another registry record carries the same VAT number, and is almost certainly the real one:",
@@ -2350,13 +2351,17 @@
     "pushCreateHint": "It isn’t in the registry: a new record is created from this page, and stays linked.",
     "pushLink": "Link to the registry",
     "pushLinkHint": "The registry record already exists: it gets linked to this partner and the fields above are overwritten with ours.",
-    "pushUpdate": "Update the registry",
+    "pushUpdate": "Edit registry",
     "pushUpdateHint": "Already linked: the platform fields are written over the registry ones.",
     "pushAmbiguous": "Link to the registry",
     "pushBlocked": "The registry holds several possible records: pick one by hand, so another isn’t created.",
     "recheck": "Re-check the registry",
     "linkThis": "Link this one",
-    "createNew": "Create a new record in the registry"
+    "createNew": "Create a new record in the registry",
+    "toRegistry": "To registry",
+    "toRegistryHint": "Tick the fields to write into the registry. With no ticks everything is sent.",
+    "fromRegistry": "Here",
+    "emptyHere": "Nothing here to send."
   },
   "sales": {
     "title": "Sales",

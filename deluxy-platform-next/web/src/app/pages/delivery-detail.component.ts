@@ -31,6 +31,11 @@ interface DeliveryDetail {
   code: number;
   /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
   hoursFrom?: string | null;
+  /** Colonne STORICHE: gli orari del valet e quelli previsti dal servizio. */
+  valetStartTime?: string | null;
+  valetEndTime?: string | null;
+  serviceStartTime?: string | null;
+  serviceEndTime?: string | null;
   hoursTo?: string | null;
   hoursOriginal?: number | null;
   hoursDecision?: string | null;
@@ -694,7 +699,7 @@ interface DeliveryDetail {
       @if (d.status === 'delivered_time_to_approve') {
         <section class="card ore-approvazione">
           <h2>{{ 'deliveryDetail.ore.titolo' | translate }}</h2>
-          <p>{{ 'deliveryDetail.ore.dichiarate' | translate: { dalle: d.hoursFrom, alle: d.hoursTo } }}</p>
+          <p>{{ 'deliveryDetail.ore.dichiarate' | translate: { dalle: d.valetStartTime ?? d.hoursFrom, alle: d.valetEndTime ?? d.hoursTo } }}</p>
           <p class="muted">{{ 'deliveryDetail.ore.previste' | translate: { ore: d.hoursOriginal ?? '—' } }}</p>
           @if (puoDecidereOre()) {
             <div class="azioni">
@@ -712,7 +717,7 @@ interface DeliveryDetail {
         </section>
       } @else if (d.hoursDecision) {
         <section class="card ore-decise">
-          <p class="muted">{{ ('deliveryDetail.ore.esito_' + d.hoursDecision) | translate: { dalle: d.hoursFrom, alle: d.hoursTo, ore: d.hours, chi: d.hoursDecidedBy } }}</p>
+          <p class="muted">{{ ('deliveryDetail.ore.esito_' + d.hoursDecision) | translate: { dalle: d.valetStartTime ?? d.hoursFrom, alle: d.valetEndTime ?? d.hoursTo, ore: d.hours, chi: d.hoursDecidedBy } }}</p>
         </section>
       }
     }
@@ -741,6 +746,7 @@ interface DeliveryDetail {
                 <input class="field" type="time" step="900" name="oreAlle" [(ngModel)]="oreAlle" /></label>
             </div>
             <p class="muted piccolo">{{ 'deliveryDetail.valet.oreHint' | translate }}</p>
+            @if (oreMancanti()) { <p class="ko piccolo">{{ 'deliveryDetail.valet.oreObbligatorie' | translate }}</p> }
           }
           <label class="campo-eti">{{ 'deliveryDetail.valet.aChi' | translate }}</label>
           <div class="chips">
@@ -781,7 +787,7 @@ interface DeliveryDetail {
         </div>
         <div class="dialog-foot">
           <button type="button" class="act" [disabled]="statoInCorso()" (click)="chiudiChiusura()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="confermaConsegnata()">
+          <button type="button" class="act ok" [disabled]="statoInCorso() || oreMancanti()" (click)="confermaConsegnata()">
             {{ 'deliveryDetail.valet.confirmDelivered' | translate }}
           </button>
         </div>
@@ -1299,8 +1305,8 @@ export class DeliveryDetailComponent {
   apriChiusura(tipo: 'delivered' | 'not_delivered'): void {
     // orari di default: quelli previsti dal servizio (regola utente 04/09)
     const d = this.delivery();
-    this.oreDalle = (d as any)?.deliveryTimeFrom ?? '';
-    this.oreAlle = (d as any)?.deliveryTimeTo ?? '';
+    this.oreDalle = (d as any)?.serviceStartTime ?? (d as any)?.deliveryTimeFrom ?? '';
+    this.oreAlle = (d as any)?.serviceEndTime ?? (d as any)?.deliveryTimeTo ?? '';
     this.azioneErrore.set(null);
     this.receiverTipo = 'recipient';
     this.nomeRicevente = '';
@@ -1383,6 +1389,11 @@ export class DeliveryDetailComponent {
   }
 
   /** Il servizio si paga a ORE: allora la chiusura chiede gli orari. */
+  /** Servizio a ore senza orari: non si chiude (regola utente 04/09). */
+  oreMancanti(): boolean {
+    return this.aOra() && !(this.oreDalle && this.oreAlle);
+  }
+
   aOra(): boolean {
     return (this.delivery()?.serviceType?.pricingModel ?? '') === 'A_ORA';
   }
