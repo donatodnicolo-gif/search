@@ -1398,6 +1398,33 @@ export function DettaglioOrdine({
               </div>
             ) : null}
 
+            {/* ── IL DIARIO DI QUESTO ORDINE ──
+                ⚠️ È il motivo per cui il diario esiste: prima queste righe stavano
+                in una chat interna e chi apriva l'ordine non sapeva che ci fosse
+                scritto «pagamento su cs, concordato cambio fiori con mittente».
+                Qui si leggono dove si lavora.
+                ⚠️⚠️ SPOSTATO IN CIMA ALLA COLONNA DEI MESSAGGI il 04/09/2026,
+                chiesto dall'utente: «metti questa cosa in Messaggi cliente in
+                alto». Stava in fondo alla prima colonna, sotto i bottoni per
+                scrivere al cliente — cioè in un punto che si raggiunge solo
+                scorrendo, mentre è la prima cosa da leggere prima di toccare
+                l'ordine: è la lista di quello che resta da fare su questa vendita.
+                ⚠️ Solo sugli ordini che abbiamo in casa: su uno dell'archivio la
+                riga si scriverebbe e non si ritroverebbe più. */}
+            {soloArchivio ? null : (
+              <div className="card">
+                {noteChiuse ? (
+                  <p className="avviso-ok" style={{ marginTop: 0 }}>
+                    {noteChiuse === 1
+                      ? 'Chiusa 1 nota del diario: l’ordine è gestito.'
+                      : `Chiuse ${noteChiuse} note del diario: l’ordine è gestito.`}{' '}
+                    Se una restava da fare, riaprila qui sotto.
+                  </p>
+                ) : null}
+                <DiarioOrdine numero={ordine.numero} rileggiA={rileggiDiario} inCima />
+              </div>
+            )}
+
             {ordine.id ? <MessaggiOrdine ordineId={ordine.id} /> : null}
 
             {/* I dati dell'ordine. */}
@@ -2096,25 +2123,6 @@ export function DettaglioOrdine({
                       )
                     })()
                   : null}
-              {/* ── IL DIARIO DI QUESTO ORDINE ──
-                  ⚠️ È il motivo per cui il diario esiste: prima queste righe
-                  stavano in una chat interna e chi apriva l'ordine non
-                  sapeva che ci fosse scritto «pagamento su cs, concordato
-                  cambio fiori con mittente». Qui si leggono dove si lavora.
-                  ⚠️ Solo sugli ordini che abbiamo in casa: su uno
-                  dell'archivio la riga si scriverebbe e non si ritroverebbe
-                  più. */}
-              {noteChiuse ? (
-                <p className="avviso-ok" style={{ marginTop: 12 }}>
-                  {noteChiuse === 1
-                    ? 'Chiusa 1 nota del diario: l’ordine è gestito.'
-                    : `Chiuse ${noteChiuse} note del diario: l’ordine è gestito.`}{' '}
-                  Se una restava da fare, riaprila qui sotto.
-                </p>
-              ) : null}
-              {soloArchivio ? null : (
-                <DiarioOrdine numero={ordine.numero} rileggiA={rileggiDiario} />
-              )}
               </div>
             </div>
 
@@ -2203,7 +2211,10 @@ export function DettaglioOrdine({
                     ⚠️ Le città scritte accanto sono quelle di CONSEGNA, non
                     l'indirizzo del fornitore: dove abbia il negozio non lo
                     sappiamo, e non lo si scrive come se lo sapessimo. */}
-                {zonaCaricata && (nostri.inZona.length > 0 || nostri.senzaLuogo.length > 0) ? (
+                {zonaCaricata &&
+                (nostri.inZona.length > 0 ||
+                  nostri.senzaLuogo.length > 0 ||
+                  nostri.altrove > 0) ? (
                   <div style={{ marginTop: 14 }}>
                     <div className="cella-nome" style={{ marginBottom: 4 }}>
                       Hanno già preparato ordini per noi
@@ -2211,103 +2222,91 @@ export function DettaglioOrdine({
                     {/* ⚠️⚠️ FINO AL 29/08/2026 QUI NON C'ERA NESSUN FILTRO: la
                         lista ORDINAVA soltanto, e quando in quella zona non
                         aveva lavorato nessuno pareggiavano tutti — quindi si
-                        vedevano i sei più recenti, che sono ovunque. Su un
-                        ordine di cioccolatini a Roma l'utente ha visto un
-                        pasticcere di Milano, quattro fiorai e un negozio di
-                        palloncini: «qui devono apparire solo quelli collegati a
-                        quella provincia».
-                        ⚠️ Il motivo per cui prima non si filtrava era vero
-                        (l'elenco sarebbe rimasto vuoto quasi sempre) e non si
-                        risolve togliendo righe alla cieca: chi consegna per
-                        certo altrove esce, chi NON SI SA dove consegna resta
-                        qui sotto, contato e apribile. */}
+                        vedevano i sei più recenti, che sono ovunque.
+                        ⚠️⚠️ E FINO AL 04/09/2026, quando in zona non c'era
+                        nessuno, la lista RIPIEGAVA su quelli di cui non si sa
+                        dove consegnano. Chiesto dall'utente lo stesso giorno:
+                        «mostra solo quelli di cui sei certo della provincia».
+                        Adesso qui dentro c'è SOLO chi ha una provincia certa e
+                        uguale a questa; se non c'è nessuno l'elenco resta vuoto
+                        e lo dice. Gli altri non spariscono: stanno nelle righe
+                        apribili qui sotto. */}
                     {nostri.inZona.length > 0 ? (
-                      <p className="cella-sub" style={{ marginTop: 0 }}>
-                        Dai nostri ordini, non dal registro: solo chi ha già consegnato in questa
-                        zona.
-                      </p>
+                      <>
+                        <p className="cella-sub" style={{ marginTop: 0 }}>
+                          Dai nostri ordini, non dal registro: solo chi ha già consegnato in questa
+                          zona.
+                        </p>
+                        <ul className="elenco-nostri-fornitori">
+                          {nostri.inZona.slice(0, 6).map((f) => (
+                            <li key={f.nome}>
+                              <span className="cella-nome">{f.nome}</span>{' '}
+                              <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                              {/* ⚠️ La riga dice DOVE, con l'etichetta giusta: le
+                                  città sono quelle di CONSEGNA, non l'indirizzo del
+                                  fornitore — dove abbia il negozio non lo sappiamo e
+                                  non lo si scrive come se lo sapessimo. */}
+                              {f.citta.length ? (
+                                <span className="cella-sub">
+                                  {' '}
+                                  · ha consegnato qui: {f.citta.slice(0, 3).join(', ')}
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
                     ) : (
                       <p className="cella-sub" style={{ marginTop: 0 }}>
                         <strong>
                           Nessuno dei nostri risulta aver consegnato in provincia di{' '}
                           {zonaProvincia || spedizione.provincia || 'questa'}.
                         </strong>{' '}
-                        {/* ⚠️⚠️ Il testo diceva «non si sa dove consegnano» e la riga
-                            sotto scriveva dove avevano consegnato: due frasi che si
-                            smentivano nello stesso riquadro (segnalato il 04/09/2026
-                            sull'ordine #2867). Quello che non si sa non è il comune —
-                            è la PROVINCIA di quel comune. */}
-                        Di questi non sappiamo in che provincia consegnano: non sono una
-                        proposta per la zona, sono gente a cui si può chiedere.
+                        Qui compare solo chi ha una provincia <strong>certa</strong>. Gli altri
+                        sono contati qui sotto e si aprono.
                       </p>
                     )}
-                    <ul className="elenco-nostri-fornitori">
-                      {(nostriTutti || nostri.inZona.length === 0
-                        ? [...nostri.inZona, ...nostri.senzaLuogo]
-                        : nostri.inZona
-                      )
-                        .slice(0, 6)
-                        .map((f) => (
-                          <li key={f.nome}>
-                            <span className="cella-nome">{f.nome}</span>{' '}
-                            <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
-                            {/* ⚠️ La riga dice DOVE, con l'etichetta giusta: le
-                                città sono quelle di CONSEGNA, non l'indirizzo del
-                                fornitore — dove abbia il negozio non lo sappiamo e
-                                non lo si scrive come se lo sapessimo. */}
-                            {f.citta.length ? (
-                              <span className="cella-sub">
-                                {' '}
-                                · {f.inZona ? 'ha consegnato qui:' : 'ha consegnato a'}{' '}
-                                {f.citta.slice(0, 3).join(', ')}
-                              </span>
-                            ) : (
-                              // ⚠️ «Non sappiamo dove» NON è «altrove»: sui suoi
-                              // ordini non c'è nessuna città, e dirlo evita che
-                              // qualcuno lo scarti credendo che sia lontano.
-                              <span className="cella-sub"> · non sappiamo dove ha consegnato</span>
-                            )}
-                          </li>
-                        ))}
-                    </ul>
-                    {/* ⚠️⚠️ CHI È STATO TOLTO SI DICE. Un elenco che si accorcia
-                        in silenzio fa credere che quei fornitori non esistano —
-                        ed è lo stesso errore che nascondeva Passiflora. Qui la
-                        riga dice quanti e perché, e quelli di cui non si sa dove
-                        consegnano si aprono con un clic: non sono stati
-                        scartati, sono stati messi da parte. */}
-                    {!nostriTutti && nostri.inZona.length > 0 && nostri.senzaLuogo.length > 0 ? (
-                      <button
-                        className="bottone secondario mini"
-                        style={{ marginTop: 8 }}
-                        onClick={() => setNostriTutti(true)}
-                      >
-                        Altri {nostri.senzaLuogo.length} lavorano con noi, non sappiamo dove
-                      </button>
-                    ) : null}
-                    {nostri.altrove > 0 || nostri.altroMestiere > 0 ? (
+                    {/* ⚠️⚠️ CHI È FUORI SI DICE, E SI APRE. Un elenco che si
+                        accorcia in silenzio fa credere che quei fornitori non
+                        esistano — è l'errore che nascondeva Passiflora. Le due
+                        ragioni restano separate perché non sono la stessa cosa:
+                        «consegna altrove» è un fatto, «non sappiamo in che
+                        provincia» è un buco nostro. */}
+                    {nostri.altrove > 0 ||
+                    nostri.senzaLuogo.length > 0 ||
+                    nostri.altroMestiere > 0 ? (
                       <p className="cella-sub" style={{ marginTop: 6 }}>
                         Fuori dall&apos;elenco:{' '}
-                        {/* ⚠️⚠️ «Consegnano altrove» adesso si APRE. Fino al
-                            04/09/2026 era un numero e basta, e finché la provincia
-                            si ricavava solo dai capoluoghi valeva poco (quasi
-                            nessuno ci finiva). Da quando la provincia si chiede a
-                            Google qui dentro va gente vera: se il filtro sbaglia
-                            una riga, chi telefona deve poterla vedere — non
-                            scoprire un elenco più corto e fidarsi. */}
-                        {nostri.altrove > 0 ? (
-                          <button
-                            type="button"
-                            className="come-link"
-                            onClick={() => setAltroveAperti((v) => !v)}
-                          >
-                            {nostri.altrove} consegnano altrove
-                          </button>
-                        ) : null}
-                        {nostri.altrove > 0 && nostri.altroMestiere > 0 ? ' · ' : ''}
-                        {nostri.altroMestiere > 0
-                          ? `${nostri.altroMestiere} fanno l'altro mestiere`
-                          : ''}
+                        {[
+                          nostri.altrove > 0 ? 'altrove' : '',
+                          nostri.senzaLuogo.length > 0 ? 'ignoti' : '',
+                          nostri.altroMestiere > 0 ? 'mestiere' : '',
+                        ]
+                          .filter(Boolean)
+                          .map((quale, i) => (
+                            <span key={quale}>
+                              {i > 0 ? ' · ' : ''}
+                              {quale === 'altrove' ? (
+                                <button
+                                  type="button"
+                                  className="come-link"
+                                  onClick={() => setAltroveAperti((v) => !v)}
+                                >
+                                  {nostri.altrove} consegnano altrove
+                                </button>
+                              ) : quale === 'ignoti' ? (
+                                <button
+                                  type="button"
+                                  className="come-link"
+                                  onClick={() => setNostriTutti((v) => !v)}
+                                >
+                                  {nostri.senzaLuogo.length} non sappiamo in che provincia
+                                </button>
+                              ) : (
+                                <span>{nostri.altroMestiere} fanno l&apos;altro mestiere</span>
+                              )}
+                            </span>
+                          ))}
                         .
                       </p>
                     ) : null}
@@ -2324,6 +2323,29 @@ export function DettaglioOrdine({
                                 {f.province.length ? ` (${f.province.join(', ')})` : ''}
                               </span>
                             ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {/* ⚠️ Questi NON sono «altrove»: dei loro ordini non si
+                        ricava nessuna provincia. Sono gente a cui si può
+                        chiedere lo stesso, ma non è una proposta per la zona —
+                        e per questo non stanno nell'elenco di sopra. */}
+                    {nostriTutti && nostri.senzaLuogo.length > 0 ? (
+                      <ul className="elenco-nostri-fornitori" style={{ marginTop: 4 }}>
+                        {nostri.senzaLuogo.slice(0, 8).map((f) => (
+                          <li key={`ignoto-${f.nome}`}>
+                            <span className="cella-nome">{f.nome}</span>{' '}
+                            <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                            {f.citta.length ? (
+                              <span className="cella-sub">
+                                {' '}
+                                · ha consegnato a {f.citta.slice(0, 3).join(', ')}, e di questi
+                                comuni non sappiamo la provincia
+                              </span>
+                            ) : (
+                              <span className="cella-sub"> · non sappiamo dove ha consegnato</span>
+                            )}
                           </li>
                         ))}
                       </ul>
