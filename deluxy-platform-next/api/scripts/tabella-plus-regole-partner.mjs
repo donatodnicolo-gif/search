@@ -34,7 +34,7 @@ const partners = await prisma.partner.findMany({ where: { active: true, OR: [{ i
 const riepilogo = [];
 for (const p of partners) {
   const listini = new Map(p.services.map((s) => [s.serviceTypeId, s]));
-  const cons = await prisma.delivery.findMany({ where: { partnerId: p.id, deletedAt: null, date: { gte: DAL }, deliveryRuleId: { not: null } }, select: { id: true, code: true, date: true, status: true, serviceTypeId: true, price: true, additionalPrice: true, ruleAdjustment: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, productValue: true, billable: true, serviceType: { select: { pricingModel: true, minHours: true } }, deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } }, products: { where: { deletedAt: null }, select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { price: true, publicPrice: true } } } }, invoiceLines: { select: { amount: true, invoice: { select: { number: true, status: true } } } } }, orderBy: { date: 'asc' } });
+  const cons = await prisma.delivery.findMany({ where: { partnerId: p.id, deletedAt: null, date: { gte: DAL }, deliveryRuleId: { not: null } }, select: { id: true, code: true, date: true, status: true, serviceTypeId: true, price: true, additionalPrice: true, ruleAdjustment: true, hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true, productValue: true, billable: true, invoiced: true, serviceType: { select: { pricingModel: true, minHours: true } }, deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } }, products: { where: { deletedAt: null }, select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { price: true, publicPrice: true } } } }, invoiceLines: { select: { amount: true, invoice: { select: { number: true, status: true } } } } }, orderBy: { date: 'asc' } });
   const armani = /armani fiori/i.test(p.insegna);
   const righe = cons.filter((d) => (plusOriginale.get(d.id) ?? 0) !== 0 || (armani && d.date >= new Date('2026-08-01T00:00:00Z')));
   let tot = 0, aperte = 0;
@@ -44,8 +44,8 @@ for (const p of partners) {
     const f = finale(d, l, d.deliveryRule);
     const esclusa = NB.includes(d.status) || !d.billable;
     const inv = d.invoiceLines[0];
-    const stato = inv ? `${inv.invoice.number} (${inv.invoice.status === 'DRAFT' ? 'bozza, riga ' + eur(inv.amount) : inv.invoice.status.toLowerCase()})` : esclusa ? 'esclusa' : 'da fatturare';
-    if (!esclusa && !inv && f != null) { tot += f; aperte++; }
+    const stato = inv ? `${inv.invoice.number} (${inv.invoice.status === 'DRAFT' ? 'bozza, riga ' + eur(inv.amount) : inv.invoice.status.toLowerCase()})` : esclusa ? 'esclusa' : d.invoiced ? 'fatturata (legacy)' : 'da fatturare';
+    if (!esclusa && !inv && !d.invoiced && f != null) { tot += f; aperte++; }
     const regole = d.deliveryRule?.toBill === false ? 'non fatt.' : eur(d.ruleAdjustment ?? (d.deliveryRule.partnerBillingAdjustment ?? 0));
     const cambiata = (plusOriginale.get(d.id) ?? 0) !== 0 ? '●' : '';
     out.push(`| ${d.date.toISOString().slice(5, 10).split('-').reverse().join('/')} | ${d.code} | ${eur(d.price)} | ${d.additionalPrice ? eur(d.additionalPrice) : '—'} | ${regole} | ${f == null ? '—' : eur(f)} | ${stato} ${cambiata} |`);
