@@ -4,7 +4,7 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🆕 **04/09 pomeriggio — tre cambi di comportamento, da DEPLOYARE** (vedi la
+> 🆕 **04/09 pomeriggio — tre cambi di comportamento, LIVE dalle 15:45 (ex9q5a4t7)** (vedi la
 > prima sezione di FATTO): «conclusa» mette in pausa sulla piattaforma ed è
 > uno stato nostro; su Meta **l'approvazione esegue subito**; il **pixel va
 > sempre** (modulo di lancio + ad set + annuncio). 🔴 In coda Meta restano
@@ -481,7 +481,7 @@ anche la pausa di «[Opera] ATC - VOLUME» approvata il 26/08. Decide
 l'utente: premere «Esegui adesso» (tutte e due), o annullare prima l'Opera.
 Dopo il deploy, ogni approvazione nuova su Meta esegue da sola.
 
-Commit `26e68ad3` in locale, **pushato** su origin/scout-ui come `a2b345ca` (cherry-pick da un worktree temporaneo: il branch locale di scoutwt era divergente e con modifiche non committate di altre sessioni — resta divergente, da riallineare con rebase a tree pulito). Deploy **da fare** (`npx vercel deploy --prod --yes`).
+Commit `26e68ad3` in locale, **pushato** su origin/scout-ui come `a2b345ca` (cherry-pick da un worktree temporaneo: il branch locale di scoutwt era divergente e con modifiche non committate di altre sessioni — resta divergente, da riallineare con rebase a tree pulito). **Deployato il 04/09 alle ~15:45** (`deluxy-marketing-ex9q5a4t7`, Ready, build remota): `vercel build` locale muore su `npm install` su questo PC, quindi `npx vercel deploy --prod --yes` da PowerShell con Node nel PATH. `/api/health` ok dopo il deploy. ⚠️ Non collaudato ancora in produzione: la select dei pixel e il tracking_specs (primo lancio), e l'esecuzione all'approvazione (prima approvazione Meta nuova).
 
 ### ⭐⭐⭐ LE SCHEDE ANALISI ERANO FERME DALL'26/08 — doppio guasto trovato e curato (03/09/2026 sera)
 
