@@ -89,7 +89,18 @@ tracciata dall'inizio alla fine.
 - **Incidenti aperti** (`/errori`): gli ERR-* con freeze.
 
 **Campagne**
-- **Tutte le campagne** (`/campagne`): una colonna per brand, verdetto a pallino.
+- **Tutte le campagne** (`/campagne`): una colonna per brand, verdetto a pallino,
+  ordinate per stato (attive prime) e poi per nome.
+- **Lancio campagna** (`/campagne/lancia`): il modulo Google (keyword, RSA,
+  località, budget) e il modulo Meta — immagine, **video** (caricato a pezzi),
+  formato **singolo / carosello / catalogo**, pubblici del brand da spuntare,
+  Pagina Facebook, e il pannello «Fatti scrivere il brief dall'AI» su entrambi.
+  Tutto finisce nella coda da approvare: su Meta l'app crea campagna, ad set e
+  annuncio **in pausa**; su Google parte il bulk upload via script.
+- **Scheda campagna**: su Google il bottone **«Nuovo gruppo»**
+  (`/campagne/[id]/nuovo-gruppo`, col suo brief AI); su Meta il riquadro
+  **«Annunci su Meta (dal vivo)»** con le creatività lette dalla Graph API
+  (le bozze mai pubblicate di Ads Manager non esistono per l'API).
 - **Landing page** (`/landing`): registro con stato (attiva / mismatch / da
   verificare) e performance.
 - **Quante ce n'erano (storico)** (`/campagne-storiche`): il **censimento
@@ -99,7 +110,9 @@ tracciata dall'inizio alla fine.
 **Google Ads** — Campagne Google, Gruppi di annunci, Keywords, Parole cercate,
 Regole di esclusione, Liste di parole escluse, Copy & annunci, Estensioni.
 
-**Meta** — Campagne Meta, Pubblici, Test & AIDA (backlog dei test pianificabili).
+**Meta** — Campagne Meta, Pubblici (censiti da Meta ogni ora o col bottone
+«Censisci da Meta»; quelli spariti da Meta diventano «estinti» e restano solo
+col filtro), Test & AIDA (backlog dei test pianificabili).
 
 **Com'è andata** — Analisi periodo, Ritorno e tracciamento, MKT vs 2025 (delta
 settimana su settimana sull'anno prima), Ordini, Analisi per offerta, Trend
@@ -162,11 +175,21 @@ Impostazioni (token, chiavi API, connettori, istruzioni AI).
 
 ## Registro delle funzionalità
 
+> Guida visiva (resa da questo file): https://claude.ai/code/artifact/4e6566ec-a2ff-4efc-b0e4-c6e17f3a7f0a
+> — ripubblicata il 04/09/2026 (l'artifact precedente risultava cancellato).
+
 Una riga per funzionalità nuova o cambiata, la più recente in cima. **Si scrive
 qui nello stesso commit.**
 
 | Data | Funzionalità | Dove |
 |---|---|---|
+| 2026-09-03 | **Schede analisi ripartite** dopo 8 giorni ferme (dal 26/08): chiamata AI in **streaming** con timeout 280 s, tetto di token a 32.000 per le schede e 16.000 per la riconciliazione, `maxDuration` 300 sulla pagina della scheda, fallimenti scritti nel Registro eventi (non più solo nel JSON del cron) | `lib/scheda-analisi.ts`, `api/cron/drive` |
+| 2026-09-03 | **Campagne ordinate per stato** (attive prime), poi per nome | `/campagne` |
+| 2026-09-03 | **Annunci Meta a schermo, dal vivo** (miniatura, formato, testi, stato, ad set — letti dalla Graph API, nessuna copia in DB) sulla scheda delle campagne Meta; il **lancio Meta sa fare carosello** (2-10 schede, CTA per scheda verso il suo prodotto) **e catalogo** (insieme di prodotti letto dal Business) | `components/AnnunciMeta`, `lib/meta-annunci.ts`, `/campagne/lancia` |
+| 2026-09-03 | **Video nel lancio Meta** (caricato a pezzi da ~3 MB, immagine di copertina obbligatoria); **pubblici censiti da Meta** (cron orario + bottone «Censisci da Meta», stato «estinto») e **spuntabili nel lancio**; **brief AI sul modulo Meta** (descrizione → obiettivo, budget, paesi, età, copy, CTA) | `/campagne/lancia`, `/pubblici`, `lib/pubblici-meta.ts` |
+| 2026-09-03 | **Il lancio Meta carica l'immagine e crea l'annuncio in pausa** (creative + ad dopo campagna e ad set; Pagina Facebook dal modulo o dal pixel); i **brief Google chiedono 15 titoli e 4 descrizioni** per l'Ad Strength «Eccellente» | `/campagne/lancia`, `lib/azioni-brief.ts` |
+| 2026-09-03 | **Nuovo gruppo di annunci su una campagna Google esistente**, con keyword, RSA e «Compila con l'AI»; si accoda un `completa_campagna` (nessun tipo di operazione nuovo) | `/campagne/[id]/nuovo-gruppo` |
+| 2026-09-03 | Il brief di lancio campagna **torna sul fornitore AI globale** (Claude): l'obbligo di OpenAI deciso il 27/08 e messo in codice il 02/09 è stato tolto su richiesta dell'utente | `lib/azioni-brief.ts` |
 | 2026-08-27 | **Guida visiva allineata al Deluxy Design System** (font di sistema, token e oro di casa, come le guide di Anagrafiche/Hub/Orders) | `docs/manuale-funzionalita.html` |
 | 2026-08-27 | **Guida TikTok**: le istruzioni per collegarlo (mancano solo token e advertiser id) | `docs/COLLEGARE-TIKTOK.md` |
 | 2026-08-27 | **Revisione sicurezza**: `state` sull'OAuth Drive, guardia anti-traversata su `fileDrive`, la GET che faceva scrivere una chiave di sola lettura chiusa, freno sul login, tetto e forma su `limite`, traccia sulle chiavi API | più file |
