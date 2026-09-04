@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **4 settembre 2026**.
+> Documento di ripartenza. Aggiornato: **4 settembre 2026 (12:50)**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,43 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 04/09 (12:50) — Ripartenza: allineato, typecheck verde, build bloccata dai symlink di Windows
+
+Punto di ripresa scritto da una sessione nuova (l'utente ha chiesto «lavora su deluxy-mail,
+leggi handoff e aggiorna memoria»). Verificato, non dedotto:
+
+- **Git**: `scout-ui` locale in `scoutwt/` è di nuovo **allineato a origin** (`33a4e682`, 0 avanti
+  / 0 indietro); il commit `b7e2d552` del 04/09 (Riassunto rapido + priorità mai in SPAM) è
+  nella storia. Nessun commit su `deluxy-mail/` dopo di lui.
+- ⚠️ **Il working tree di `scoutwt/deluxy-mail` è INDIETRO rispetto a HEAD**: i file sono quelli
+  di PRIMA di `b7e2d552` più il WIP firma-per-casella (22 file, +373/−267). `git diff` lì mostra
+  la sezione 04/09 di questo handoff come «rimossa», `RiassuntoConversazione.tsx` senza il modo
+  `singola`, `sync.ts` senza `not: 'SPAM'`. **Un `git add`/commit dalla cartella annullerebbe
+  il lavoro del 04/09**: prima `git diff b7e2d552^ -- deluxy-mail > wip.patch` (è il WIP puro),
+  poi `git checkout HEAD -- deluxy-mail`, poi `git apply -3 wip.patch`. Non fatto: la cartella
+  è di un'altra sessione.
+- **Worktree pulito** `C:\Users\nicol\AppData\Local\Temp\wt-mail` (branch `mail-riassunto-singola`)
+  portato in fast-forward a `origin/scout-ui`; `node_modules` presenti, `prisma generate` fatto
+  dalla build; `.vercel/` con `project.json` + `.env.production.local` (da `vercel pull`).
+- **Node c'è** (v24.20.0, npm 11.19, CLI Vercel 59.11.2 loggata come donatodnicolo-gif; nelle
+  shell di Claude serve `export PATH="/c/Program Files/nodejs:$PATH"`).
+- ✅ `npx tsc --noEmit` nel worktree: **0 errori** (18 s).
+- ❌ `npx vercel build --prod`: la build Next è passata (funzioni create, statici raccolti), ma il
+  CLI si ferma con `EPERM: operation not permitted, symlink 'assistente\[id].func' ->
+  '...\bozze.func'`: Vercel deduplica le funzioni identiche con symlink, e **su questo PC un
+  processo non elevato non può crearli** (`whoami /priv` senza `SeCreateSymbolicLinkPrivilege`,
+  nessuna chiave `AppModelUnlock` = Modalità sviluppatore spenta; fallisce anche fuori dal
+  sandbox). Sblocco dell'utente: Impostazioni → Sistema → Per sviluppatori → **Modalità
+  sviluppatore** ON (poi la build gira senza admin), oppure la build da un terminale
+  amministratore. In alternativa `vercel deploy --prod` con build nel cloud (~2 min di Build
+  CPU: è ciò che la regola 04/09 di CLAUDE.md vuole evitare).
+- **Produzione**: alias su `dpl_fN8G51oBmQjqvL62dS2fA8bgsUQ2`, creato **03/09 18:55** →
+  `88208a8a` (cs.statoOrdine + Invia sticky). **`b7e2d552` NON è live**: su eva.ascenzi una
+  priorità può ancora mandare la mail in SPAM. `/api/health` ok, database scrivibile.
+- Artifact della guida visiva: **non esiste più** nella galleria (8 artifact, nessuno di AI Mail;
+  come il MANUALE-DELUXY). Il registro vive nel file `docs/GUIDA-VISIVA.html` (17 voci, le due del
+  04/09 ci sono). Ripubblicarlo è una decisione dell'utente.
 
 ### 04/09 — «Riassunto rapido» sulla mail singola + la priorità non manda più in SPAM
 
