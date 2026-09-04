@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **4 settembre 2026 (13:10)**.
+> Documento di ripartenza. Aggiornato: **4 settembre 2026 (13:30)**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,35 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 04/09 (13:30) — Il commit `090d2d94` (Finance, 12:59) aveva ANNULLATO il 04/09 di AI Mail: ripristinato, e il WIP firma ora compila
+
+È successo esattamente ciò che la tappa 12:50 temeva: la sessione Finance ha committato dalla
+cartella `scoutwt/` con i 21 file di `deluxy-mail` che lì stavano INDIETRO (pre-`b7e2d552`) +
+il WIP firma-per-casella. Risultato su `origin/scout-ui`: via il «Riassunto rapido» sulla mail
+singola, via la cintura anti-SPAM della priorità, via le due righe del registro nella guida e nel
+manuale; dentro il WIP firma **senza** `src/components/firmaClient.ts` (era non tracciato) e con
+`schema.prisma` + `migrate-prod.mjs` per `Account.firma/firmaDati`.
+
+- **Ripristino** (da `wt-mail`): il commit 13:10 ribasato su origin (conflitto in `sync.ts`
+  risolto tenendo la cintura), poi **cherry-pick di `b7e2d552`** (conflitti: `sync.ts` e
+  `HANDOFF.md` → tenuta la versione già a posto; `MANUALE-DELUXY.html` → tenute TUTTE le righe
+  del registro, le altrui e le due di AI Mail). `RiassuntoConversazione.tsx` ha di nuovo il modo
+  `singola`, `sync.ts` la cintura.
+- **Il WIP firma COMPILA**: i «10 errori tsc» di cui parlano gli handoff del 02-03/09 erano tutti
+  `Property 'firma' does not exist on Account` = **client Prisma non rigenerato** dopo la
+  modifica dello schema. `npx prisma generate` + `firmaClient.ts` copiato da `scoutwt` (e
+  committato qui) → `npx tsc --noEmit` **0 errori**. Al primo build `migrate-prod.mjs` aggiunge
+  `Account.firma`/`firmaDati` (ADD COLUMN IF NOT EXISTS). La funzione «firma per casella» va
+  comunque COLLAUDATA a mano (Impostazioni → casella → firma; cambio «Da» nella composizione):
+  compila, non è detto che sia finita.
+- I tre caratteri NUL in `Composizione.tsx` (impronta della minuta: `contenuto: a NUL cc NUL
+  oggetto NUL corpo`) sono separatori voluti, c'erano anche prima: `grep` dice «binary», non è
+  corruzione.
+- ⚠️ In `scoutwt/deluxy-mail` restano `HANDOFF.md` modificato (versione vecchia) e
+  `firmaClient.ts` non tracciato: un `git pull` lì si fermerà su `HANDOFF.md` → `git checkout
+  origin/scout-ui -- deluxy-mail/HANDOFF.md` prima, e cancellare la copia locale di
+  `firmaClient.ts` (ora è nel repo, identica).
 
 ### 04/09 (13:10) — «Mettere una priorità la toglie dalla posta in arrivo»: PROVATO sul database, cintura indurita, riparazione pronta
 
