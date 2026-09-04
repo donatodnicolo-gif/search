@@ -1,5 +1,98 @@
 # Handoff — Deluxy Customer Service
 
+## 04/09/2026 (14) — la salute di Orders, e l'ordine non conforme non va avanti
+
+Regola dell'utente: «importa lo stato di Orders; se lo stato non è conforme
+l'ordine non può essere mandato avanti».
+
+Lo stato è la **salute** che Deluxy Orders ha introdotto oggi stesso (commit
+`75a6a7bc`): una parola sola per ordine, fra **conforme · a rischio · non
+pagato · cancellato · nullo**. Arriva già dalla sua API, in cima alla risposta
+di `GET /api/v1/ordini`.
+
+### ⚠️⚠️ Si CHIEDE, non si copia
+
+Sembrava naturale importarla in colonna con la sync. È sbagliato, e il motivo
+sta scritto nel file di Orders: **di là non è una colonna**, si ricalcola dai
+campi veri (annullamento, motivo, pagamento, rischio) a ogni lettura. Una copia
+qui sarebbe vecchia **proprio nel momento in cui conta**: un ordine annullato
+stamattina resterebbe «conforme» fino al prossimo giro di sync, ed è quello il
+giro in cui qualcuno lo manda a un fioraio.
+
+Quindi la salute si chiede nel momento della decisione: quando si apre la
+scheda, e di nuovo quando si preme un passo. E non si ricalcola in casa: sarebbe
+la stessa regola in due posti, e il giorno che di là la cambiano qui resterebbe
+quella vecchia senza che nessuna delle due schermate dia errore.
+
+### ⚠️⚠️ Il buco che gli annullati aprivano, misurato
+
+`GET /api/v1/ordini` **esclude gli ordini annullati** per difesa (un'app a valle
+potrebbe lavorarli come validi). Ma chi chiede «com'è messo questo ordine» ha
+bisogno proprio di quelli: senza, un ordine annullato tornava «non è nel
+registro» → «non lo so» → **passava**. Misurato su **#12858**, che risultava
+sconosciuto e adesso risulta `nullo`. `ordineDaOrders` ha ora l'opzione
+`conAnnullati`, e la salute la usa.
+
+### I tre casi, tenuti distinti a vista
+
+`conforme` · `non conforme, ed ecco quale` · **`non lo so`**. Il terzo non
+diventa né un divieto né un permesso silenzioso: si passa, e a schermo si legge
+«non ho potuto chiedere la salute a Orders, il controllo non è stato fatto». Se
+«non lo so» valesse «no», Orders giù fermerebbe tutto il lavoro dell'azienda; se
+sparisse dentro un sì muto, la regola si aggirerebbe staccando la spina.
+
+### Cosa si blocca, e cosa no
+
+⚠️ **Solo i passi che mandano avanti**: ricerca fornitore, comunicazione, in
+pagamento, attesa consegna, in app. **«Gestito» e «Da iniziare» restano sempre
+cliccabili**: un ordine annullato dal cliente deve poter essere chiuso,
+altrimenti resta in lista per sempre e la regola si impara ad aggirarla.
+
+⚠️ Bloccato anche **«Manda in app»** (rotta `/api/ordini/[id]/in-app`), e lì
+prima che altrove: di là nasce una consegna vera, con un valet e una paga, e non
+si disfa spegnendo un'etichetta.
+
+⚠️⚠️ **Il divieto è nelle ROTTE, non nei bottoni.** I passi spenti servono a non
+far perdere tempo; il no lo dà il server con un 409 e il motivo scritto. Una
+regola che vive solo nell'interfaccia si aggira con una chiamata, ed è la
+trappola già pagata qui («una server action è un endpoint»).
+
+### Misurato sui 125 ordini aperti, prima di scrivere la regola
+
+| salute | ordini aperti |
+|---|---|
+| conforme | 97 |
+| nullo | 21 |
+| non pagato | 6 |
+| a rischio | 1 |
+
+**28 ordini verrebbero fermati, e sono tutti in «Da iniziare»**: nessun lavoro
+in corso si rompe. Fra questi #2714, che è anche una delle contestazioni aperte.
+
+### Dove si vede
+
+- Una **fascia rossa in testa al pannello** quando la salute non è conforme, col
+  motivo in italiano. Sta in cima perché è la prima domanda: se questa vendita
+  non vale, tutto quello che c'è sotto è lavoro da non fare.
+- Un badge **conforme** accanto a quello dello smistamento quando lo è.
+- Nella lavorazione, la spiegazione e i passi spenti col `title` che dice perché.
+
+### ⚠️ La trappola pagata di nuovo (quinta volta)
+
+`DettaglioOrdine.tsx` è un componente **client**: importando `salute-ordine.ts`
+— che parla con Orders e quindi con la configurazione cifrata — la build muore
+con «Reading from `node:crypto` is not handled by plugins». Le regole pure
+stanno in **`src/lib/salute-regole.ts`**, che non importa niente, come già
+`fornitore-ordine.ts`, `turni.ts`, `refusi.ts` e `glossario.ts`. Trovato
+guardando la pagina, non dal typecheck: `tsc` passava.
+
+### Più: `ignoreCommand` nel vercel.json
+
+Questa app non ce l'aveva, e la regola del repo lo pretende su tutte
+(`git diff --quiet HEAD^ HEAD -- .`): senza, ogni push del monorepo la
+ricostruisce su Vercel. 🔴 Nella cartella `scoutwt` ce l'ha **solo**
+`deluxy-partner`: le altre otto no.
+
 ## 04/09/2026 (13) — il pop-up dell'ordine riorganizzato, con due agenti ostili
 
 Chiesto dall'utente: «riorganizza questo pop-up, analizza prima con un agente

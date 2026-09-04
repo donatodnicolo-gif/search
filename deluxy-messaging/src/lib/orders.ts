@@ -435,6 +435,20 @@ export type OrdineOrdersRaw = {
   consegna?: { data?: string | null; fascia?: string | null } | null
   classificazione?: { stato?: { chiave?: string; nome?: string } | null } | null
   /**
+   * LA SALUTE DELL'ORDINE, in una parola: `conforme` · `a_rischio` ·
+   * `non_pagato` · `cancellato` · `nullo`.
+   *
+   * ⚠️⚠️ La calcola ORDERS (`salute.ts` di la'), da annullamento, motivo,
+   * pagamento e rischio. Qui non si rifa': sarebbe la stessa regola scritta in
+   * due posti, e il giorno che di la' la cambiano questa resterebbe al valore
+   * vecchio senza che nessuna delle due schermate dia errore.
+   *
+   * ⚠️ E non si COPIA in tabella: di la' non e' una colonna, si ricalcola dai
+   * campi veri, quindi cambia da sola quando l'ordine viene annullato o
+   * rimborsato. Una copia qui sarebbe vecchia proprio nel momento in cui conta.
+   */
+  salute?: string | null
+  /**
    * I SOLDI dell'ordine, come li calcola **Orders**.
    *
    * ⚠️⚠️ Il margine si legge da qui e NON si rifà in casa. Lo Standard Deluxy
@@ -485,7 +499,17 @@ export type OrdineOrdersRaw = {
  */
 export async function ordineDaOrders(
   numero: string,
-  shopifyId = ''
+  shopifyId = '',
+  /**
+   * Anche se di là risulta ANNULLATO.
+   *
+   * ⚠️⚠️ `/api/v1/ordini` esclude gli annullati per difesa (un'app a valle
+   * potrebbe lavorarli come validi). Ma chi chiede «com'è messo questo ordine»
+   * per decidere se mandarlo avanti ha bisogno **proprio di quelli**: senza
+   * questa opzione un ordine annullato torna «non è nel registro», cioè
+   * «non lo so», cioè passa. Misurato il 04/09/2026 su #12858.
+   */
+  conAnnullati = false
 ): Promise<
   | { stato: 'ok'; ordine: OrdineOrdersRaw }
   | { stato: 'non-configurato' }
@@ -499,6 +523,7 @@ export async function ordineDaOrders(
 
   try {
     const p = new URLSearchParams({ q: nudo, limit: '20' })
+    if (conAnnullati) p.set('annullati', 'inclusi')
     const res = await fetch(`${c.base}/api/v1/ordini?${p}`, {
       headers: { 'x-api-key': c.chiave },
       signal: AbortSignal.timeout(15000),
