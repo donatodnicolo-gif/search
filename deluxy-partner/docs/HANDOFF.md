@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### ✅ 04/09/2026 (23:40) — PUSHATO E IN PRODUZIONE: `q4gv2s8e9`
+>
+> «Fai push e deploy» dell'utente. Tutto il lavoro della sera è **live**.
+> - **Push**: i sei commit di Finance ricostruiti sopra `origin/scout-ui` in un worktree temporaneo e pushati (`d0f5faf4` → `2db40c28`). Serviva: il worktree `scoutwt` era **36 avanti e 32 indietro** rispetto a origin, con dentro il lavoro non pushato di altre sessioni (CS, Orders, Merchandising, Marketing) — un push del branch avrebbe pubblicato anche il loro. Dopo: `git diff origin/scout-ui HEAD -- deluxy-partner` **vuoto**.
+> - **Deploy**: `vercel build --prod` (precompilato, quello che non costa minuti) **non è possibile su questa macchina** — due errori diversi in fila: prima `EPERM` sul `query_engine-windows.dll.node` **tenuto aperto dal server di sviluppo** (si risolve fermandolo), poi `EPERM: symlink '_not-found.func' -> 'login.func'` (Windows senza permesso sui link simbolici: questo NON si aggira). Ripiego documentato: `npx vercel@latest deploy --prod --yes`, build su Vercel.
+> - ⚠️⚠️ **L'ALIAS DI NUOVO NON HA SEGUITO IL DEPLOY** (terza volta): a deploy `● Ready`, `vercel inspect deluxy-partner.vercel.app` serviva ancora `5od7ydnyq` delle 16:33. Sistemato con `vercel alias set deluxy-partner-q4gv2s8e9-deluxy.vercel.app deluxy-partner.vercel.app`. **Dopo ogni deploy di Finance: inspect del DOMINIO, non del deployment.**
+> - **Verificato in produzione**: il dominio serve `dpl_FTjPmps9…` = `q4gv2s8e9`; health 200 in 0,73 s con `database:true`; e **dal bundle** (la pagina è dietro il login) il foglio di stile servito da `/login` contiene `btn-testo` — la classe nata stasera — insieme a `riga-link` e `modal-foot`.
+> - Il server di sviluppo sulla 3040 è stato fermato per la build e **riacceso** dopo.
+
 > ### 🔖 PUNTI APERTI dalla sera del 04/09/2026 — decisi dall'utente: si lasciano aperti, NON si fanno adesso
 >
 > Sono usciti lavorando su GIADA CAKE. Il codice che li riguarda è già in locale e funziona; questi sono i pezzi **non fatti apposta**, in attesa di una decisione.
