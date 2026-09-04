@@ -28,9 +28,10 @@ rischio, non pagato, cancellati, nulli. Fatta, **in locale**, non pubblicata.
 | Non pagato | 61 | 0,4% |
 | Cancellato | 39 | 0,3% |
 
-**Dove si vede**: colonna «Salute» nell'elenco (su ogni riga), pillola sulle
-card della vista per brand (solo quando non è conforme), pillola in cima alla
-scheda dell'ordine, **striscia di cinque conteggi cliccabili** sotto i filtri
+**Dove si vede** — sempre, «Conforme» compreso: colonna «Salute» nell'elenco,
+pillola su ogni card della vista **Colonne per brand** (in fila con evasione e
+pagamento, così non allunga la card), pillola in cima alla scheda dell'ordine,
+**striscia di cinque conteggi cliccabili** sotto i filtri
 (contano dentro il filtro acceso), menu «Ogni salute», e campo `salute` nelle
 API `/api/v1/ordini`. La pillola dice anche il perché: «Cancellato · magazzino»,
 «A rischio · rischio alto».
@@ -76,6 +77,13 @@ API `/api/v1/ordini`. La pillola dice anche il perché: «Cancellato · magazzin
   stili di `.badge-salute`, `.riga-salute` e `.chip-salute` sono in
   `globals.css` e usano solo token esistenti di `tokens.css` (verificati uno
   per uno).
+
+> **Aggiunta subito dopo, su richiesta dell'utente**: nella vista **Colonne per
+> brand** la pillola compariva solo sugli ordini storti. Ora c'è su tutte le
+> card, «Conforme» compreso, dentro la riga di evasione e pagamento — non
+> aggiunge una riga alla card (moltiplicata per centinaia di card sarebbe una
+> vista più lunga di un terzo). Provato a 1500px e a 375px: niente scorrimento
+> orizzontale, nessuna pillola esce dalla sua card sulle 39 provate.
 
 ### Cosa è stato tolto, e perché non si è perso niente
 Nell'elenco il badge «rischio» e il badge «Annullato · motivo» **non si

@@ -11,11 +11,13 @@ import { motivoLeggibile, pagamentoLeggibile, rischioLeggibile } from "@/lib/ord
  * rischio col livello) dicevano già, e un verdetto senza motivo è un verdetto
  * di cui non ci si fida.
  *
- * `mostraConforme` è falso di default: nelle card, dove lo spazio è poco,
- * ripetere «Conforme» su 95 righe su 100 sarebbe rumore — lì la pillola
- * compare solo quando c'è qualcosa da sapere. Nella tabella invece la colonna
- * esiste per tutti e la si accende (`mostraConforme`), perché una cella vuota
- * si legge come «non lo sappiamo».
+ * Oggi tutti i posti che la usano passano `mostraConforme`: la salute si vede
+ * su OGNI ordine, «Conforme» compreso. Se comparisse solo sui casi storti,
+ * l'assenza della pillola vorrebbe dire due cose diverse — «va tutto bene» e
+ * «non è stata calcolata» — e non si potrebbero distinguere.
+ * L'interruttore resta perché un giorno può servire un posto molto stretto
+ * dove mostrare solo ciò che va guardato; chi lo usa deve però mettere accanto
+ * qualcos'altro che dica che la salute c'è ed è buona.
  */
 export function BadgeSalute({
   ordine,

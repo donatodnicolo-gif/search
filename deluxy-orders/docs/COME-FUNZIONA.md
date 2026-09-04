@@ -1362,13 +1362,17 @@ modo suo.
 | **Cancellato** | Annullato o rimborsato per una **nostra** decisione: fornitore non trovato, merce assente, pagamento rifiutato. | 39 · 0,3% |
 | **Nullo** | Annullato o rimborsato **su richiesta del cliente** (ha sbagliato a ordinare). | 521 · 3,6% |
 
-**Dove si vede**: una pillola nella colonna «Salute» dell'elenco (su *ogni*
-riga, «Conforme» compreso: una cella vuota si leggerebbe come «non lo
-sappiamo»), sulle card della vista per brand (lì solo quando c'è qualcosa da
-sapere, per non ripetere «Conforme» su 95 righe su 100), in cima alla scheda
-del singolo ordine, e nella **striscia dei conteggi** sotto i filtri — cinque
-pillole cliccabili che dicono quanti ordini per salute ci sono **dentro il
-filtro acceso**. Si filtra anche dal menu «Ogni salute».
+**Dove si vede**, sempre e su ogni ordine: nella colonna «Salute» dell'elenco,
+su ogni card della vista **Colonne per brand** (in fila con evasione e
+pagamento, così non allunga la card), in cima alla scheda del singolo ordine, e
+nella **striscia dei conteggi** sotto i filtri — cinque pillole cliccabili che
+dicono quanti ordini per salute ci sono **dentro il filtro acceso**. Si filtra
+anche dal menu «Ogni salute».
+
+⚠️ Si mostra **anche quando è «Conforme»**, in tutti e tre i posti. Se
+comparisse solo sui casi storti, l'assenza della pillola vorrebbe dire due cose
+diverse — «va tutto bene» e «non è stata calcolata» — e non si potrebbero
+distinguere.
 
 La pillola non dice solo il verdetto, dice il **perché**: «Cancellato ·
 magazzino», «A rischio · rischio alto» (coi motivi di Shopify nel tooltip),
