@@ -1,0 +1,37 @@
+<section class="hero">
+  <div class="hero__media">
+    {% render 'b2b-image', image: section.settings.image, asset: section.settings.image_asset, alt: section.settings.image_alt, class: 'cover', loading: 'eager', sizes: '100vw' %}
+  </div>
+  <div class="hero__content">
+    <div class="reveal" data-delay="0.3">
+      <p class="eyebrow eyebrow--light">{{ section.settings.eyebrow }}</p>
+      <h1 class="display hero__title balance">{{ section.settings.title }}<br><em>{{ section.settings.title_italic }}</em></h1>
+      <p class="hero__text">{{ section.settings.text }}</p>
+      <div class="hero__actions">
+        <a href="{{ section.settings.cta1_url }}" class="btn btn--light">{{ section.settings.cta1_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+        <a href="{{ section.settings.cta2_url }}" class="btn btn--ghost-light">{{ section.settings.cta2_label }}</a>
+      </div>
+    </div>
+  </div>
+  <div class="hero__scroll"><span>Scroll</span><i></i></div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero a tutta altezza",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Immagine di sfondo" },
+    { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)", "default": "b2b-hero.jpg" },
+    { "type": "text", "id": "image_alt", "label": "Testo alternativo", "default": "Deluxy Flowers for Business — hotel lobby floral installation" },
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Floral Creative Studio · B2B" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Deluxy Flowers" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — riga in corsivo", "default": "for Business" },
+    { "type": "textarea", "id": "text", "label": "Testo", "default": "Partner floreale continuativo per brand, hospitality, retail, eventi e agenzie. Non solo flower delivery — couture horticulture." },
+    { "type": "text", "id": "cta1_label", "label": "Bottone 1", "default": "Richiedi un Progetto" },
+    { "type": "url", "id": "cta1_url", "label": "Link 1", "default": "/pages/richiedi-un-progetto" },
+    { "type": "text", "id": "cta2_label", "label": "Bottone 2", "default": "Esplora i Servizi" },
+    { "type": "url", "id": "cta2_url", "label": "Link 2", "default": "/pages/servizi" }
+  ],
+  "presets": [{ "name": "Hero a tutta altezza" }]
+}
+{% endschema %}

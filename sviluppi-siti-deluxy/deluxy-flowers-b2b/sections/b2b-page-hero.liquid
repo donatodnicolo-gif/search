@@ -1,0 +1,25 @@
+<section class="page-hero{% if section.settings.style == 'short' %} page-hero--short{% elsif section.settings.style == 'form' %} page-hero--form{% endif %}">
+  <div class="reveal">
+    <p class="eyebrow">{{ section.settings.eyebrow }}</p>
+    <h1 class="display page-hero__title balance">{{ section.settings.title }}<em> {{ section.settings.title_italic }}</em></h1>
+    <p class="page-hero__text">{{ section.settings.text }}</p>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Intestazione pagina",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo" },
+    { "type": "text", "id": "title", "label": "Titolo" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo" },
+    { "type": "textarea", "id": "text", "label": "Testo" },
+    { "type": "select", "id": "style", "label": "Spazio sotto", "default": "normal", "options": [
+      { "value": "normal", "label": "Normale" },
+      { "value": "short", "label": "Ridotto (portfolio)" },
+      { "value": "form", "label": "Modulo (richiesta progetto)" }
+    ] }
+  ],
+  "presets": [{ "name": "Intestazione pagina" }]
+}
+{% endschema %}

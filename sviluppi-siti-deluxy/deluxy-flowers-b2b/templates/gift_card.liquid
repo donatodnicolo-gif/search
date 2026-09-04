@@ -1,0 +1,19 @@
+{% layout none %}
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buono regalo — {{ shop.name }}</title>
+  {{ 'theme.css' | asset_url | stylesheet_tag }}
+  {{ content_for_header }}
+</head>
+<body>
+  <section class="plain">
+    <h1 class="display plain__title">Buono regalo</h1>
+    <p class="rte">Valore: {{ gift_card.initial_value | money }} — Saldo: {{ gift_card.balance | money }}</p>
+    <p class="rte">Codice: <strong>{{ gift_card.code | format_code }}</strong></p>
+    <a href="{{ shop.url }}" class="btn btn--dark">Vai al negozio</a>
+  </section>
+</body>
+</html>

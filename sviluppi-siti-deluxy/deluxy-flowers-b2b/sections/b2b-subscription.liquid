@@ -1,0 +1,61 @@
+<section class="section section--bt">
+  <div class="section-head section-head--stack">
+    <p class="eyebrow eyebrow--tight">{{ section.settings.eyebrow }}</p>
+    <h2 class="display h2 h2--narrow">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+    <p class="lead">{{ section.settings.text }}</p>
+  </div>
+  <div class="hgrid plans-grid">
+    {%- for block in section.blocks -%}
+      <div class="plan reveal" data-delay="{{ forloop.index0 | times: 0.08 }}" {{ block.shopify_attributes }}>
+        <h3 class="display plan__name">{{ block.settings.name }}</h3>
+        <p class="plan__cadence">{{ block.settings.cadence }}</p>
+        <p class="plan__text">{{ block.settings.description }}</p>
+        <ul class="plan__specs">
+          {%- assign specs = block.settings.specs | newline_to_br | split: '<br />' -%}
+          {%- for spec in specs -%}
+            {%- assign s = spec | strip -%}
+            {%- if s != blank -%}<li>{{ s }}</li>{%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endfor -%}
+  </div>
+  {%- if section.settings.roi_title != blank -%}
+    <div class="roi">
+      <div>
+        <h3 class="display roi__title">{{ section.settings.roi_title }}</h3>
+        <p class="roi__text">{{ section.settings.roi_text }}</p>
+      </div>
+      <a href="{{ section.settings.roi_url }}" class="btn btn--dark btn--sm">{{ section.settings.roi_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+    </div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Flower Subscription",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Flower Subscription" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Presenza floreale" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "continuativa" },
+    { "type": "textarea", "id": "text", "label": "Testo", "default": "Da one-off a partner floreale continuativo. Abbonamenti flessibili con progettazione, consegna e cambio gestiti end-to-end." },
+    { "type": "text", "id": "roi_title", "label": "Riquadro — titolo", "default": "ROI of Beauty" },
+    { "type": "textarea", "id": "roi_text", "label": "Riquadro — testo", "default": "La presenza floreale migliora la percezione del brand e il benessere dei dipendenti. Trasformiamo l'estetica in valore misurabile." },
+    { "type": "text", "id": "roi_label", "label": "Riquadro — bottone", "default": "Calcola il tuo programma" },
+    { "type": "url", "id": "roi_url", "label": "Riquadro — link", "default": "/pages/richiedi-un-progetto" }
+  ],
+  "blocks": [
+    {
+      "type": "plan",
+      "name": "Formula",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Nome" },
+        { "type": "text", "id": "cadence", "label": "Cadenza" },
+        { "type": "textarea", "id": "description", "label": "Descrizione" },
+        { "type": "textarea", "id": "specs", "label": "Caratteristiche (una per riga)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Flower Subscription" }]
+}
+{% endschema %}

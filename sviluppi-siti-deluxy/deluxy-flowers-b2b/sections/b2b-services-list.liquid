@@ -1,0 +1,78 @@
+<section class="section section--flush section--bt" data-services-list>
+  <div class="split">
+    <div class="split__list">
+      {%- for block in section.blocks -%}
+        {%- assign n = forloop.index | prepend: '0' | slice: -2, 2 -%}
+        <article class="svc reveal" data-service-item data-delay="{{ forloop.index0 | times: 0.03 }}" {{ block.shopify_attributes }}>
+          <div class="svc__inner">
+            <div class="svc__head">
+              <span class="svc__num">{{ n }}</span>
+              <div>
+                <h2 class="display svc__title">{{ block.settings.name }}</h2>
+                <p class="svc__tag">{{ block.settings.tagline }}</p>
+              </div>
+            </div>
+            <div class="svc__body">
+              <p class="svc__text">{{ block.settings.description }}</p>
+              <div class="svc__img">
+                {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.name, class: 'img-fill', sizes: '100vw' %}
+              </div>
+              {%- assign items = block.settings.items | split: ',' -%}
+              <div class="chips">
+                {%- for item in items -%}{%- assign it = item | strip -%}{%- if it != blank -%}<span>{{ it }}</span>{%- endif -%}{%- endfor -%}
+              </div>
+              {%- if block.settings.features != blank -%}
+                {%- assign features = block.settings.features | split: ',' -%}
+                <div class="svc__features">
+                  <p class="svc__features-label">Personalizzazione</p>
+                  <div class="svc__features-list">
+                    {%- for f in features -%}{%- assign ft = f | strip -%}{%- if ft != blank -%}<span>{% render 'b2b-icon', name: 'check' %}{{ ft }}</span>{%- endif -%}{%- endfor -%}
+                  </div>
+                </div>
+              {%- endif -%}
+            </div>
+          </div>
+        </article>
+      {%- endfor -%}
+    </div>
+    <div class="split__side">
+      <div class="split__sticky">
+        {%- assign total = section.blocks.size | prepend: '0' | slice: -2, 2 -%}
+        {%- for block in section.blocks -%}
+          {%- assign n = forloop.index | prepend: '0' | slice: -2, 2 -%}
+          <div class="slide{% if forloop.first %} is-active{% endif %}" data-service-slide>
+            {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.name, class: 'img-fill', sizes: '42vw' %}
+            <div class="slide__shade"></div>
+            <div class="slide__caption">
+              <p class="slide__count">{{ n }} / {{ total }}</p>
+              <h3 class="display slide__title">{{ block.settings.name }}</h3>
+            </div>
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Servizi (elenco completo)",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "service",
+      "name": "Servizio",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Nome" },
+        { "type": "text", "id": "tagline", "label": "Sottotitolo" },
+        { "type": "textarea", "id": "description", "label": "Descrizione" },
+        { "type": "textarea", "id": "items", "label": "Voci (separate da virgola)" },
+        { "type": "textarea", "id": "features", "label": "Personalizzazione (separate da virgola, vuoto = nascosto)" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Servizi (elenco completo)" }]
+}
+{% endschema %}

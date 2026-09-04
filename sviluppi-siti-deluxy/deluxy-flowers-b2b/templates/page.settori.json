@@ -1,0 +1,30 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-page-hero",
+      "settings": {
+        "eyebrow": "Settori",
+        "title": "Settori che",
+        "title_italic": "serviamo",
+        "text": "Ogni settore ha un linguaggio floreale proprio. Adattiamo palette, composizioni e logistica al contesto specifico di ogni industria.",
+        "style": "normal"
+      }
+    },
+    "tabs": {
+      "type": "b2b-sectors-tabs",
+      "blocks": {
+        "k1": { "type": "sector", "settings": { "name": "Fashion & Luxury", "description": "Vetrine, runway, pop-up e lanci prodotto. Il floral design come estensione della narrazione di marca per i brand più esclusivi.", "image_asset": "b2b-fashion-luxury.jpg" } },
+        "k2": { "type": "sector", "settings": { "name": "Hotels", "description": "Lobby, suite, ristoranti e spa. Presenza floreale continua che eleva l'esperienza degli ospiti ad ogni touchpoint.", "image_asset": "b2b-hotel-hospitality.jpg" } },
+        "k3": { "type": "sector", "settings": { "name": "Restaurants", "description": "Centrotavola, ingressi e sale. Il floral design come elemento distintivo dell'identità del ristorante.", "image_asset": "b2b-restaurant.jpg" } },
+        "k4": { "type": "sector", "settings": { "name": "Offices", "description": "Reception, meeting room e executive office. Benessere estetico quotidiano per spazi di lavoro che comunicano valore.", "image_asset": "b2b-office-flowers.jpg" } },
+        "k5": { "type": "sector", "settings": { "name": "Beauty", "description": "Boutique, counter e lanci. Fiori che dialogano con l'universo beauty attraverso texture, colore e composizione.", "image_asset": "b2b-beauty.jpg" } },
+        "k6": { "type": "sector", "settings": { "name": "Retail", "description": "Vetrine, showroom e corner. Il floral design come strumento di attrazione e conversione nello spazio di vendita.", "image_asset": "b2b-retail-sector.jpg" } },
+        "k7": { "type": "sector", "settings": { "name": "Events", "description": "Gala, convention, press day e product launch. Allestimenti floreali che trasformano ogni evento in esperienza.", "image_asset": "b2b-events-sector.jpg" } },
+        "k8": { "type": "sector", "settings": { "name": "PR & Agencies", "description": "Flower drop coordinati, gift per stampa e ambassador. Logistica floreale per campagne e relazioni pubbliche.", "image_asset": "b2b-pr-agencies.jpg" } }
+      },
+      "block_order": ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"],
+      "settings": { "cta_url": "/pages/richiedi-un-progetto" }
+    }
+  },
+  "order": ["hero", "tabs"]
+}

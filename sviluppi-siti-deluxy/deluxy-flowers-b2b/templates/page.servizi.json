@@ -1,0 +1,41 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-page-hero",
+      "settings": {
+        "eyebrow": "Servizi",
+        "title": "Floral design per ogni",
+        "title_italic": "esigenza B2B",
+        "text": "Undici servizi, una sola visione. Dal gift brandizzato all'allestimento scenografico, dall'abbonamento continuativo al flower drop coordinato.",
+        "style": "normal"
+      }
+    },
+    "list": {
+      "type": "b2b-services-list",
+      "blocks": {
+        "s1": { "type": "service", "settings": { "name": "Corporate Gifting", "tagline": "Bouquet e composizioni floreali per relazioni di valore", "description": "Composizioni florali curate per clienti, dipendenti, partner, VIP, talent, influencer e stampa. Ogni gift è un gesto di brand tangibile — personalizzato in ogni dettaglio.", "items": "Clienti, Dipendenti, Partner, VIP, Talent, Influencer, Stampa", "features": "Personalizzazione colori, Ribbon personalizzati, Card stampate, Packaging brandizzato, Flower box brandizzate, Gift combinati", "image_asset": "b2b-corporate-gifting.jpg" } },
+        "s2": { "type": "service", "settings": { "name": "Event Flowers", "tagline": "Progettazione floreale per momenti che restano", "description": "Dall'evento aziendale al gala, dalla cena al product launch: progettazione floreale su misura che trasforma ogni occasione in un'esperienza memorabile.", "items": "Eventi aziendali, Gala, Cene, Press day, Product launch, Fashion week, Opening, Convention, Private corporate event", "features": "", "image_asset": "b2b-event-flowers.jpg" } },
+        "s3": { "type": "service", "settings": { "name": "Floral Event Setup", "tagline": "Allestimenti floreali completi, dal concept al disallestimento", "description": "Allestimenti floreali integrali per eventi: ogni superficie, ogni angolo, ogni momento progettato per creare impatto scenografico.", "items": "Ingresso, Reception, Tavoli, Buffet, Palco, Backdrop, Photo opportunity, Lounge, Composizioni scenografiche, Installazioni floreali", "features": "", "image_asset": "b2b-event-setup.jpg" } },
+        "s4": { "type": "service", "settings": { "name": "Retail & Boutique Installations", "tagline": "Allestimenti floreali per spazi che vendono", "description": "Vetrine, showroom e pop-up store trasformati in esperienze floreali. Il floral design come strumento di attrazione e narrazione di brand.", "items": "Boutique, Showroom, Vetrine, Pop-up store, Corner, Temporary installation, Lanci prodotto, Fashion week", "features": "", "image_asset": "b2b-retail-boutique.jpg" } },
+        "s5": { "type": "service", "settings": { "name": "Hotel & Hospitality", "tagline": "Fornitura e styling floreale per l'ospitalità di lusso", "description": "Presenza floreale continua e curata per hotel e strutture hospitality. Dal lobby alla suite, ogni spazio riflette lo standard del brand.", "items": "Lobby, Reception, Camere e suite, Ristoranti, Lounge, Spa, Eventi hotel", "features": "", "image_asset": "b2b-hotel-hospitality.jpg" } },
+        "s6": { "type": "service", "settings": { "name": "Office Flowers", "tagline": "Composizioni floreali per spazi di lavoro", "description": "Presenza floreale negli ambienti aziendali: reception, meeting room, executive office. Il benessere estetico come valore quotidiano.", "items": "Reception, Meeting room, Executive office, Spazi aziendali, Eventi interni", "features": "", "image_asset": "b2b-office-flowers.jpg" } },
+        "s7": { "type": "service", "settings": { "name": "Flower Subscription", "tagline": "Abbonamenti florali ricorrenti per aziende e attività", "description": "Presenza floreale continuativa con formule flessibili. Progettazione, consegna, cambio e rotazione gestiti end-to-end.", "items": "Weekly, Bi-weekly, Monthly, Bespoke", "features": "Progettazione composizione, Consegna, Cambio composizioni, Stagionalità, Coordinamento con colori e interior, Fornitura o rotazione dei vasi", "image_asset": "b2b-subscription.jpg" } },
+        "s8": { "type": "service", "settings": { "name": "PR & Influencer Flower Drop", "tagline": "Invii coordinati per campagne, stampa e ambassador", "description": "Bouquet e flower box personalizzati per campagne PR, influencer, celebrity, stampa e ambassador. Coordinazione totale per impatto coordinato.", "items": "Campagne PR, Influencer, Celebrity, Stampa, Ambassador, Lancio prodotto", "features": "", "image_asset": "b2b-pr-flower-drop.jpg" } },
+        "s9": { "type": "service", "settings": { "name": "Branded Flowers", "tagline": "Composizioni sviluppate attorno all'identità del brand", "description": "Ogni composizione nasce dai codici visivi del brand: colori corporate, packaging, nastri, card, flower box e vasi personalizzati.", "items": "Colori corporate, Packaging, Nastri, Card, Flower box, Vasi, Elementi personalizzati", "features": "", "image_asset": "b2b-branded-flowers.jpg" } },
+        "s10": { "type": "service", "settings": { "name": "Seasonal & Christmas Decor", "tagline": "Allestimenti stagionali per ogni occasione speciale", "description": "Decorazioni floreali stagionali per Natale, primavera, San Valentino ed eventi speciali. Vetrine, hotel, ristoranti e uffici trasformati.", "items": "Natale, Primavera, San Valentino, Eventi speciali, Vetrine, Hotel, Ristoranti, Uffici", "features": "Alberi, Ghirlande, Decorazioni floreali, Installazioni, Centrotavola, Decorazioni ingresso", "image_asset": "b2b-seasonal-christmas.jpg" } }
+      },
+      "block_order": ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"],
+      "settings": {}
+    },
+    "cta": {
+      "type": "b2b-cta-row",
+      "settings": {
+        "title": "Non sai quale servizio fa per te?",
+        "title_italic": "Parliamone.",
+        "cta_label": "Richiedi una consulenza",
+        "cta_url": "/pages/richiedi-un-progetto"
+      }
+    }
+  },
+  "order": ["hero", "list", "cta"]
+}

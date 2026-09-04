@@ -1,0 +1,90 @@
+{%- comment -%}
+  Template di servizio richiesti da Shopify (prodotto, collezione, carrello, ricerca, blog, account…).
+  Il sito B2B non li usa: mostrano titolo e contenuto in modo sobrio, senza rompere il tema.
+{%- endcomment -%}
+<section class="plain">
+  {%- case template.name -%}
+    {%- when 'product' -%}
+      <h1 class="display plain__title">{{ product.title }}</h1>
+      <div class="rte">{{ product.description }}</div>
+      {%- form 'product', product -%}
+        <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+        <button type="submit" class="btn btn--dark">{{ product.selected_or_first_available_variant.price | money }} — Aggiungi al carrello</button>
+      {%- endform -%}
+    {%- when 'collection' -%}
+      <h1 class="display plain__title">{{ collection.title }}</h1>
+      <ul class="ftr__list">{%- for product in collection.products -%}<li><a href="{{ product.url }}">{{ product.title }}</a></li>{%- endfor -%}</ul>
+    {%- when 'list-collections' -%}
+      <h1 class="display plain__title">Collezioni</h1>
+      <ul class="ftr__list">{%- for c in collections -%}<li><a href="{{ c.url }}">{{ c.title }}</a></li>{%- endfor -%}</ul>
+    {%- when 'cart' -%}
+      <h1 class="display plain__title">Carrello</h1>
+      {%- if cart.item_count > 0 -%}
+        {%- form 'cart', cart -%}
+          <ul class="ftr__list">{%- for item in cart.items -%}<li>{{ item.quantity }} × {{ item.product.title }} — {{ item.final_line_price | money }}</li>{%- endfor -%}</ul>
+          <p class="rte">Totale: {{ cart.total_price | money }}</p>
+          <button type="submit" name="checkout" class="btn btn--dark">Vai al checkout</button>
+        {%- endform -%}
+      {%- else -%}
+        <p class="rte">Il carrello è vuoto.</p>
+      {%- endif -%}
+    {%- when 'search' -%}
+      <h1 class="display plain__title">Ricerca</h1>
+      <form action="{{ routes.search_url }}" method="get"><input type="search" name="q" value="{{ search.terms | escape }}" placeholder="Cerca"><button type="submit" class="btn btn--dark">Cerca</button></form>
+      {%- if search.performed -%}<ul class="ftr__list">{%- for item in search.results -%}<li><a href="{{ item.url }}">{{ item.title }}</a></li>{%- endfor -%}</ul>{%- endif -%}
+    {%- when 'blog' -%}
+      <h1 class="display plain__title">{{ blog.title }}</h1>
+      <ul class="ftr__list">{%- for article in blog.articles -%}<li><a href="{{ article.url }}">{{ article.title }}</a></li>{%- endfor -%}</ul>
+    {%- when 'article' -%}
+      <h1 class="display plain__title">{{ article.title }}</h1>
+      <div class="rte">{{ article.content }}</div>
+    {%- when 'password' -%}
+      <h1 class="display plain__title">{{ shop.name }}</h1>
+      <p class="rte">{{ shop.password_message }}</p>
+      {%- form 'storefront_password' -%}
+        {{ form.errors | default_errors }}
+        <input type="password" name="password" placeholder="Password"><button type="submit" class="btn btn--dark">Entra</button>
+      {%- endform -%}
+    {%- when 'login' -%}
+      <h1 class="display plain__title">Accedi</h1>
+      {%- form 'customer_login' -%}
+        {{ form.errors | default_errors }}
+        <input type="email" name="customer[email]" placeholder="Email"><input type="password" name="customer[password]" placeholder="Password"><button type="submit" class="btn btn--dark">Accedi</button>
+      {%- endform -%}
+    {%- when 'register' -%}
+      <h1 class="display plain__title">Crea account</h1>
+      {%- form 'create_customer' -%}
+        {{ form.errors | default_errors }}
+        <input type="text" name="customer[first_name]" placeholder="Nome"><input type="text" name="customer[last_name]" placeholder="Cognome"><input type="email" name="customer[email]" placeholder="Email"><input type="password" name="customer[password]" placeholder="Password"><button type="submit" class="btn btn--dark">Crea account</button>
+      {%- endform -%}
+    {%- when 'account' -%}
+      <h1 class="display plain__title">Il tuo account</h1>
+      <p class="rte">{{ customer.name }} — {{ customer.email }}</p>
+      <ul class="ftr__list">{%- for order in customer.orders -%}<li><a href="{{ order.customer_url }}">{{ order.name }} — {{ order.total_price | money }}</a></li>{%- endfor -%}</ul>
+      <a href="{{ routes.account_logout_url }}" class="btn btn--dark btn--sm">Esci</a>
+    {%- when 'order' -%}
+      <h1 class="display plain__title">Ordine {{ order.name }}</h1>
+      <ul class="ftr__list">{%- for line in order.line_items -%}<li>{{ line.quantity }} × {{ line.title }} — {{ line.final_line_price | money }}</li>{%- endfor -%}</ul>
+    {%- when 'addresses' -%}
+      <h1 class="display plain__title">Indirizzi</h1>
+      <ul class="ftr__list">{%- for address in customer.addresses -%}<li>{{ address | format_address }}</li>{%- endfor -%}</ul>
+    {%- when 'activate_account' -%}
+      <h1 class="display plain__title">Attiva account</h1>
+      {%- form 'activate_customer_password' -%}
+        {{ form.errors | default_errors }}
+        <input type="password" name="customer[password]" placeholder="Password"><input type="password" name="customer[password_confirmation]" placeholder="Conferma password"><button type="submit" class="btn btn--dark">Attiva</button>
+      {%- endform -%}
+    {%- when 'reset_password' -%}
+      <h1 class="display plain__title">Nuova password</h1>
+      {%- form 'reset_customer_password' -%}
+        {{ form.errors | default_errors }}
+        <input type="password" name="customer[password]" placeholder="Password"><input type="password" name="customer[password_confirmation]" placeholder="Conferma password"><button type="submit" class="btn btn--dark">Salva</button>
+      {%- endform -%}
+    {%- else -%}
+      <h1 class="display plain__title">{{ page_title }}</h1>
+  {%- endcase -%}
+</section>
+
+{% schema %}
+{ "name": "Pagina di servizio", "settings": [] }
+{% endschema %}

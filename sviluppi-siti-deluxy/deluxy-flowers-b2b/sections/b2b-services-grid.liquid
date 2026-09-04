@@ -1,0 +1,50 @@
+<section class="section section--md section--bt">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow eyebrow--tight">{{ section.settings.eyebrow }}</p>
+      <h2 class="display h2">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+    </div>
+    <a href="{{ section.settings.link_url }}" class="link-arrow">{{ section.settings.link_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+  </div>
+  <div class="hgrid services-grid">
+    {%- for block in section.blocks -%}
+      <div class="group reveal" data-delay="{{ forloop.index0 | times: 0.08 }}" {{ block.shopify_attributes }}>
+        <a href="{{ block.settings.url | default: section.settings.link_url }}" class="service-card">
+          <div class="service-card__img">
+            {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.name, class: 'img-fill img-zoom', sizes: '(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw' %}
+          </div>
+          <h3 class="display service-card__title">{{ block.settings.name }}</h3>
+          <p class="service-card__tag">{{ block.settings.tagline }}</p>
+          <span class="service-card__more">Scopri {% render 'b2b-icon', name: 'arrow-upright' %}</span>
+        </a>
+      </div>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Servizi in griglia",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Servizi" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Cosa" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "progettiamo" },
+    { "type": "text", "id": "link_label", "label": "Link", "default": "Tutti i servizi" },
+    { "type": "url", "id": "link_url", "label": "Destinazione del link", "default": "/pages/servizi" }
+  ],
+  "blocks": [
+    {
+      "type": "service",
+      "name": "Servizio",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Nome" },
+        { "type": "text", "id": "tagline", "label": "Sottotitolo" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" },
+        { "type": "url", "id": "url", "label": "Link (se vuoto: la pagina Servizi)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Servizi in griglia" }]
+}
+{% endschema %}

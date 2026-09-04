@@ -1,0 +1,41 @@
+<section class="section section--bt">
+  <div class="section-head section-head--stack">
+    <p class="eyebrow eyebrow--tight">{{ section.settings.eyebrow }}</p>
+    <h2 class="display h2 h2--narrow">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+  </div>
+  <div class="hgrid sectors-grid">
+    {%- for block in section.blocks -%}
+      <div class="group reveal" data-delay="{{ forloop.index0 | times: 0.05 }}" {{ block.shopify_attributes }}>
+        <a href="{{ section.settings.link_url }}" class="sector-tile">
+          {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.name, class: 'cover img-zoom img-zoom--lg', sizes: '(min-width: 768px) 25vw, 50vw' %}
+          <div class="sector-tile__shade"></div>
+          <h3 class="display sector-tile__title">{{ block.settings.name }}</h3>
+        </a>
+      </div>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Settori in griglia",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Settori" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Per chi" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "progettiamo" },
+    { "type": "url", "id": "link_url", "label": "Destinazione delle tessere", "default": "/pages/settori" }
+  ],
+  "blocks": [
+    {
+      "type": "sector",
+      "name": "Settore",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Nome" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Settori in griglia" }]
+}
+{% endschema %}

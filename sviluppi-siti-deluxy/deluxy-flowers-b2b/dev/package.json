@@ -1,0 +1,7 @@
+{
+  "name": "deluxy-flowers-b2b-dev",
+  "private": true,
+  "description": "Anteprima locale del tema (render Liquid con liquidjs). Non fa parte del tema caricato su Shopify.",
+  "scripts": { "render": "node render.js", "dev": "node render.js && node serve.js" },
+  "dependencies": { "liquidjs": "^10.16.0" }
+}

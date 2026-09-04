@@ -34,3 +34,6 @@ deluxy-platform-next/api/scripts/_*
 /promossi-consegne.json
 /regole-fiorai-proposte.json
 deluxy-platform-next/scripts/_*.mjs
+
+# Tema Shopify B2B: lo zip si rigenera dalla cartella (Compress-Archive), non si versiona
+sviluppi-siti-deluxy/deluxy-flowers-b2b.zip

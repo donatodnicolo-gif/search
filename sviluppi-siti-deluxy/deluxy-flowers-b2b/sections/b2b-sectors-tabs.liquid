@@ -1,0 +1,48 @@
+<section class="section section--flush section--bt" data-sectors>
+  <div class="split">
+    <div class="sectors__list">
+      {%- for block in section.blocks -%}
+        {%- assign n = forloop.index | prepend: '0' | slice: -2, 2 -%}
+        <button type="button" class="sector-tab reveal reveal--x{% if forloop.first %} is-active{% endif %}" data-sector-tab data-delay="{{ forloop.index0 | times: 0.05 }}" {{ block.shopify_attributes }}>
+          <span class="sector-tab__num">{{ n }}</span>
+          <span class="sector-tab__title">{{ block.settings.name }}</span>
+        </button>
+      {%- endfor -%}
+    </div>
+    <div class="sectors__panel">
+      {%- for block in section.blocks -%}
+        <div class="sector-panel{% if forloop.first %} is-active{% endif %}" data-sector-panel>
+          {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.name, class: 'img-fill', sizes: '(min-width: 1024px) 58vw, 100vw' %}
+          <div class="sector-panel__shade"></div>
+          <div class="sector-panel__caption">
+            <h3 class="display sector-panel__title">{{ block.settings.name }}</h3>
+            <p class="sector-panel__text">{{ block.settings.description }}</p>
+            <a href="{{ section.settings.cta_url }}" class="btn btn--light btn--sm">Richiedi per {{ block.settings.name }} {% render 'b2b-icon', name: 'arrow' %}</a>
+          </div>
+        </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Settori (schede)",
+  "settings": [
+    { "type": "url", "id": "cta_url", "label": "Link del bottone «Richiedi per …»", "default": "/pages/richiedi-un-progetto" }
+  ],
+  "blocks": [
+    {
+      "type": "sector",
+      "name": "Settore",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Nome" },
+        { "type": "textarea", "id": "description", "label": "Descrizione" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Settori (schede)" }]
+}
+{% endschema %}

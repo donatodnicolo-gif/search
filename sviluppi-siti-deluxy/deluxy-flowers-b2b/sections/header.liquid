@@ -1,0 +1,53 @@
+{%- assign menu = linklists[section.settings.menu] -%}
+<header class="hdr" data-header>
+  <div class="hdr__bar">
+    <nav class="hdr__nav" aria-label="Principale">
+      <a href="{{ routes.root_url }}" class="logo">{{ section.settings.logo_text }}<em> {{ section.settings.logo_accent }}</em></a>
+      <div class="hdr__links">
+        {%- if menu.links.size > 0 -%}
+          {%- for link in menu.links -%}
+            <a href="{{ link.url }}"{% if link.current %} class="is-active"{% endif %}>{{ link.title }}</a>
+          {%- endfor -%}
+        {%- else -%}
+          <a href="/pages/servizi"{% if request.path == '/pages/servizi' %} class="is-active"{% endif %}>Servizi</a>
+          <a href="/pages/settori"{% if request.path == '/pages/settori' %} class="is-active"{% endif %}>Settori</a>
+          <a href="/pages/progetti"{% if request.path == '/pages/progetti' %} class="is-active"{% endif %}>Progetti</a>
+          <a href="/pages/come-funziona"{% if request.path == '/pages/come-funziona' %} class="is-active"{% endif %}>Come Funziona</a>
+        {%- endif -%}
+      </div>
+      <div class="hdr__right">
+        <a href="{{ section.settings.cta_url }}" class="btn btn--dark hdr__cta">{{ section.settings.cta_label }}</a>
+        <button type="button" class="hdr__burger" aria-label="Menu" aria-expanded="false" data-menu-toggle>
+          {% render 'b2b-icon', name: 'menu' %}{% render 'b2b-icon', name: 'close' %}
+        </button>
+      </div>
+    </nav>
+  </div>
+</header>
+<div class="mobile-menu" data-mobile-menu>
+  <div class="mobile-menu__inner">
+    <a href="{{ routes.root_url }}">Home</a>
+    {%- if menu.links.size > 0 -%}
+      {%- for link in menu.links -%}<a href="{{ link.url }}">{{ link.title }}</a>{%- endfor -%}
+    {%- else -%}
+      <a href="/pages/servizi">Servizi</a>
+      <a href="/pages/settori">Settori</a>
+      <a href="/pages/progetti">Progetti</a>
+      <a href="/pages/come-funziona">Come Funziona</a>
+    {%- endif -%}
+    <a href="{{ section.settings.cta_url }}">{{ section.settings.cta_label }}</a>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    { "type": "text", "id": "logo_text", "label": "Logo — parte in tondo", "default": "Deluxy" },
+    { "type": "text", "id": "logo_accent", "label": "Logo — parte in corsivo", "default": "Flowers" },
+    { "type": "link_list", "id": "menu", "label": "Menu (se vuoto: Servizi, Settori, Progetti, Come Funziona)" },
+    { "type": "text", "id": "cta_label", "label": "Bottone", "default": "Richiedi un Progetto" },
+    { "type": "url", "id": "cta_url", "label": "Link del bottone", "default": "/pages/richiedi-un-progetto" }
+  ]
+}
+{% endschema %}

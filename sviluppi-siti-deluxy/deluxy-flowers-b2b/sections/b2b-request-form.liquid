@@ -1,0 +1,118 @@
+{%- assign sectors = section.settings.sectors | split: ',' -%}
+{%- assign services = section.settings.services | split: ',' -%}
+{%- assign budgets = section.settings.budgets | split: ',' -%}
+<div data-request-form>
+  {%- form 'contact', id: 'RichiestaProgetto', class: 'rform-wrap' -%}
+    {%- if form.posted_successfully? -%}
+      <section class="section section--md">
+        <div class="rform form-success">
+          <h2 class="display rstep__title">{{ section.settings.success_title }}</h2>
+          <p class="rstep__sub">{{ section.settings.success_text }}</p>
+          <a href="{{ routes.root_url }}" class="btn btn--dark">Torna alla home {% render 'b2b-icon', name: 'arrow' %}</a>
+        </div>
+      </section>
+    {%- else -%}
+      <section class="progress">
+        <div class="progress__row">
+          <span class="progress__label" data-step-label>Step 1 di 4</span>
+          <div class="progress__bars"><i class="is-done" data-step-bar></i><i data-step-bar></i><i data-step-bar></i><i data-step-bar></i></div>
+        </div>
+      </section>
+      <section class="section section--md">
+        <div class="rform">
+          {%- if form.errors -%}
+            <div class="form-errors">{{ form.errors | default_errors }}</div>
+          {%- endif -%}
+          <input type="hidden" name="contact[oggetto]" value="Richiesta progetto B2B — Deluxy Flowers for Business">
+
+          <div class="rstep is-active" data-step="1">
+            <h2 class="display rstep__title">Chi sei</h2>
+            <p class="rstep__sub">I tuoi contatti per iniziare la conversazione.</p>
+            <div class="fields">
+              <div class="field"><label class="label" for="rp-azienda">Azienda *</label><input id="rp-azienda" name="contact[azienda]" type="text" placeholder="Nome azienda" autocomplete="organization"></div>
+              <div class="field"><label class="label" for="rp-referente">Referente *</label><input id="rp-referente" name="contact[referente]" type="text" placeholder="Nome e cognome" autocomplete="name"></div>
+              <div class="field"><label class="label" for="rp-email">Email *</label><input id="rp-email" name="contact[email]" type="email" placeholder="email@azienda.com" autocomplete="email"></div>
+              <div class="field"><label class="label" for="rp-telefono">Telefono</label><input id="rp-telefono" name="contact[telefono]" type="tel" placeholder="+39 ..." autocomplete="tel"></div>
+            </div>
+          </div>
+
+          <div class="rstep" data-step="2">
+            <h2 class="display rstep__title">Il tuo settore</h2>
+            <p class="rstep__sub">Seleziona il settore e la location del progetto.</p>
+            <div class="block-mb">
+              <span class="label label--lg">Settore *</span>
+              <input type="hidden" name="contact[settore]" value="">
+              <div class="choices" data-choice-group="contact[settore]">
+                {%- for s in sectors -%}{%- assign sv = s | strip -%}{%- if sv != blank -%}<button type="button" class="choice" data-choice="{{ sv | escape }}">{{ sv }}</button>{%- endif -%}{%- endfor -%}
+              </div>
+            </div>
+            <div class="fields">
+              <div class="field"><label class="label" for="rp-citta">Città *</label><input id="rp-citta" name="contact[citta]" type="text" placeholder="Milano, Roma, ..."></div>
+              <div class="field"><label class="label" for="rp-data">Data evento / inizio</label><input id="rp-data" name="contact[data_evento]" type="date"></div>
+            </div>
+          </div>
+
+          <div class="rstep" data-step="3">
+            <h2 class="display rstep__title">Il progetto</h2>
+            <p class="rstep__sub">Quale servizio ti serve e con quale budget?</p>
+            <div class="block-mb">
+              <span class="label label--lg">Tipo di servizio *</span>
+              <input type="hidden" name="contact[tipo_servizio]" value="">
+              <div class="choices choices--2" data-choice-group="contact[tipo_servizio]">
+                {%- for s in services -%}{%- assign sv = s | strip -%}{%- if sv != blank -%}<button type="button" class="choice choice--slim" data-choice="{{ sv | escape }}">{{ sv }} {% render 'b2b-icon', name: 'check' %}</button>{%- endif -%}{%- endfor -%}
+              </div>
+            </div>
+            <div class="fields fields--mb">
+              <div class="field"><label class="label" for="rp-spazio">Spazio / Evento</label><input id="rp-spazio" name="contact[spazio_evento]" type="text" placeholder="Es. Lobby hotel, vetrina boutique, gala..."></div>
+              <div class="field"><label class="label" for="rp-quantita">Quantità</label><input id="rp-quantita" name="contact[quantita]" type="text" placeholder="Es. 50 composizioni, 3 allestimenti..."></div>
+            </div>
+            <div>
+              <span class="label label--lg">Budget indicativo</span>
+              {%- assign first_budget = budgets | first | strip -%}
+              <input type="hidden" name="contact[budget]" value="{{ first_budget | escape }}">
+              <div class="choices choices--wrap" data-choice-group="contact[budget]">
+                {%- for b in budgets -%}{%- assign bv = b | strip -%}{%- if bv != blank -%}<button type="button" class="choice choice--pill{% if forloop.first %} is-selected{% endif %}" data-choice="{{ bv | escape }}">{{ bv }}</button>{%- endif -%}{%- endfor -%}
+              </div>
+            </div>
+          </div>
+
+          <div class="rstep" data-step="4">
+            <h2 class="display rstep__title">I dettagli</h2>
+            <p class="rstep__sub">Raccontaci la tua visione e carica eventuali reference.</p>
+            <div class="block-mb-sm">
+              <label class="label" for="rp-descrizione">Descrizione progetto</label>
+              <textarea id="rp-descrizione" name="contact[body]" rows="6" class="textarea" placeholder="Descrivi obiettivi, stile, colori, atmosfera desiderata..."></textarea>
+            </div>
+            <div>
+              <label class="label" for="rp-reference">Link a immagini / reference</label>
+              <div class="field"><input id="rp-reference" name="contact[reference]" type="text" placeholder="Incolla uno o più link (Drive, Dropbox, Pinterest...)"></div>
+              <p class="form-note">{{ section.settings.reference_note }}</p>
+            </div>
+          </div>
+
+          <div class="rnav">
+            <button type="button" class="rnav__back" data-back hidden>{% render 'b2b-icon', name: 'arrow-left' %} Indietro</button>
+            <span></span>
+            <button type="button" class="btn btn--dark" data-next>Continua {% render 'b2b-icon', name: 'arrow' %}</button>
+            <button type="submit" class="btn btn--dark" data-submit hidden><span>Invia richiesta</span> {% render 'b2b-icon', name: 'arrow' %}</button>
+          </div>
+        </div>
+      </section>
+    {%- endif -%}
+  {%- endform -%}
+</div>
+
+{% schema %}
+{
+  "name": "Richiesta progetto",
+  "settings": [
+    { "type": "textarea", "id": "sectors", "label": "Settori (separati da virgola)", "default": "Fashion & Luxury, Hotel, Ristorante, Ufficio, Beauty, Retail, Eventi, PR & Agenzia, Altro" },
+    { "type": "textarea", "id": "services", "label": "Tipi di servizio (separati da virgola)", "default": "Corporate Gifting, Event Flowers, Floral Event Setup, Retail & Boutique Installations, Hotel & Hospitality, Office Flowers, Flower Subscription, PR & Influencer Flower Drop, Branded Flowers, Seasonal & Christmas Decor" },
+    { "type": "textarea", "id": "budgets", "label": "Fasce di budget (separate da virgola)", "default": "€ 500 – 1.500, € 1.500 – 5.000, € 5.000 – 15.000, € 15.000 – 50.000, € 50.000+" },
+    { "type": "text", "id": "reference_note", "label": "Nota sotto il campo reference", "default": "Le immagini si possono anche allegare rispondendo alla mail di conferma." },
+    { "type": "text", "id": "success_title", "label": "Messaggio di conferma — titolo", "default": "Richiesta inviata" },
+    { "type": "textarea", "id": "success_text", "label": "Messaggio di conferma — testo", "default": "Ti contatteremo entro 48 ore per un primo riscontro." }
+  ],
+  "presets": [{ "name": "Richiesta progetto" }]
+}
+{% endschema %}

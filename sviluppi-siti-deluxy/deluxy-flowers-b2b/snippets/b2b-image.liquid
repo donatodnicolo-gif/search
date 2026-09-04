@@ -1,0 +1,11 @@
+{%- comment -%}
+  Immagine: usa l'immagine caricata nell'editor se c'è, altrimenti il file in assets/.
+  Parametri: image (image_picker), asset (nome file in assets), alt, class, loading, sizes
+{%- endcomment -%}
+{%- assign img_class = class | default: 'img-fill' -%}
+{%- assign img_loading = loading | default: 'lazy' -%}
+{%- if image != blank -%}
+  {{ image | image_url: width: 2000 | image_tag: class: img_class, alt: alt, loading: img_loading, widths: '600, 900, 1200, 1600, 2000', sizes: sizes }}
+{%- elsif asset != blank -%}
+  <img src="{{ asset | asset_url }}" alt="{{ alt | escape }}" class="{{ img_class }}" loading="{{ img_loading }}" width="{{ width | default: 1376 }}" height="{{ height | default: 768 }}">
+{%- endif -%}

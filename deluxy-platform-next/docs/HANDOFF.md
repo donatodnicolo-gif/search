@@ -3,6 +3,36 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🌿 **04/09/2026 — TEMA SHOPIFY «Deluxy Flowers for Business»: replica del sito base44** (in locale, NON caricato su nessun negozio):
+> - Richiesta: «https://deluxy-floral-studio.base44.app/ la puoi rifare su
+>   Shopify identica?». Fatto come **tema Online Store 2.0 autonomo** in
+>   `sviluppi-siti-deluxy/deluxy-flowers-b2b/` (README dentro): layout, CSS
+>   con gli stessi token (alabaster/obsidian/platinum/sage), Cormorant
+>   Garamond + Inter, le 18 immagini scaricate in `assets/`, 15 sezioni con
+>   blocchi modificabili dall'editor, home + 5 pagine (`page.servizi`,
+>   `page.settori`, `page.progetti`, `page.come-funziona`,
+>   `page.richiedi-un-progetto`) con TUTTI i testi dell'originale (estratti
+>   dal bundle JS del sito, non riscritti). Comportamenti replicati in
+>   `theme.js`: header che si nasconde/sfuma, menu mobile, comparsa
+>   progressiva, immagine laterale che segue il servizio, schede settori,
+>   filtri portfolio con tessere alte, form in 4 passi.
+> - **Form** = `{% form 'contact' %}` nativo (mail al negozio, tutti i campi
+>   come `contact[...]`). Unica differenza dall'originale: niente upload
+>   immagini (il modulo contatti Shopify non accetta allegati) → campo link
+>   + nota. Due immagini (Fashion & Luxury, settore Retail) sono **404 anche
+>   sull'originale**: sostituite con Eventi e Boutique.
+> - Verifiche: `shopify theme check` 0 errori (3 avvisi Google Fonts);
+>   anteprima locale `dev/render.js` (liquidjs) + `dev/serve.js` su
+>   **http://localhost:3230** (launch.json `deluxy-flowers-b2b-preview`);
+>   controllate via DOM tutte le pagine a 1280px (griglie, sticky, filtri,
+>   passi del form). Zip pronto: `sviluppi-siti-deluxy/deluxy-flowers-b2b.zip`.
+> - **MANCA (decide l'utente)**: su QUALE negozio caricarlo (il connettore è
+>   su deluxy.it/deluxygifts; il brand è Deluxy Flowers → fb72b1-2). Poi:
+>   Temi → Aggiungi → Carica zip (arriva non pubblicato), creare le 5 pagine
+>   con gli handle `servizi`, `settori`, `progetti`, `come-funziona`,
+>   `richiedi-un-progetto` e assegnare i template (posso farlo via GraphQL
+>   `pageCreate` una volta scelto il negozio). Pubblicare solo l'utente.
+>
 > 💶 **04/09/2026-ter — IL PLUS/MINUS RECEPISCE LA REGOLA CARNET, NON SI SOMMA (regola utente, caso Armani)** (deployato):
 > - Chiesta la tabella di Armani Fiori (agosto: 20 consegne, Regola 36 −18 €):
 >   su 13 il plus/minus valeva −18 COME la regola e la Fatturazione li

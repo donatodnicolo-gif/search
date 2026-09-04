@@ -1,0 +1,81 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-hero",
+      "settings": {}
+    },
+    "studio": {
+      "type": "b2b-studio",
+      "settings": {}
+    },
+    "services": {
+      "type": "b2b-services-grid",
+      "blocks": {
+        "s1": { "type": "service", "settings": { "name": "Corporate Gifting", "tagline": "Bouquet e composizioni floreali per relazioni di valore", "image_asset": "b2b-corporate-gifting.jpg" } },
+        "s2": { "type": "service", "settings": { "name": "Event Flowers", "tagline": "Progettazione floreale per momenti che restano", "image_asset": "b2b-event-flowers.jpg" } },
+        "s3": { "type": "service", "settings": { "name": "Floral Event Setup", "tagline": "Allestimenti floreali completi, dal concept al disallestimento", "image_asset": "b2b-event-setup.jpg" } },
+        "s4": { "type": "service", "settings": { "name": "Retail & Boutique Installations", "tagline": "Allestimenti floreali per spazi che vendono", "image_asset": "b2b-retail-boutique.jpg" } },
+        "s5": { "type": "service", "settings": { "name": "Hotel & Hospitality", "tagline": "Fornitura e styling floreale per l'ospitalità di lusso", "image_asset": "b2b-hotel-hospitality.jpg" } },
+        "s6": { "type": "service", "settings": { "name": "Office Flowers", "tagline": "Composizioni floreali per spazi di lavoro", "image_asset": "b2b-office-flowers.jpg" } }
+      },
+      "block_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+      "settings": {}
+    },
+    "projects": {
+      "type": "b2b-projects-featured",
+      "blocks": {
+        "p1": { "type": "project", "settings": { "title": "Hotel Lobby Takeover", "category": "Hospitality", "year": "2025", "image_asset": "b2b-hero.jpg" } },
+        "p2": { "type": "project", "settings": { "title": "Fashion Week Runway Arch", "category": "Events", "year": "2025", "image_asset": "b2b-fashion-luxury.jpg" } },
+        "p3": { "type": "project", "settings": { "title": "Boutique Window Installation", "category": "Retail", "year": "2024", "image_asset": "b2b-retail-boutique.jpg" } },
+        "p4": { "type": "project", "settings": { "title": "Gala Dinner Geometries", "category": "Events", "year": "2025", "image_asset": "b2b-event-flowers.jpg" } }
+      },
+      "block_order": ["p1", "p2", "p3", "p4"],
+      "settings": {}
+    },
+    "sectors": {
+      "type": "b2b-sectors-grid",
+      "blocks": {
+        "k1": { "type": "sector", "settings": { "name": "Fashion & Luxury", "image_asset": "b2b-fashion-luxury.jpg" } },
+        "k2": { "type": "sector", "settings": { "name": "Hotels", "image_asset": "b2b-hotel-hospitality.jpg" } },
+        "k3": { "type": "sector", "settings": { "name": "Restaurants", "image_asset": "b2b-restaurant.jpg" } },
+        "k4": { "type": "sector", "settings": { "name": "Offices", "image_asset": "b2b-office-flowers.jpg" } },
+        "k5": { "type": "sector", "settings": { "name": "Beauty", "image_asset": "b2b-beauty.jpg" } },
+        "k6": { "type": "sector", "settings": { "name": "Retail", "image_asset": "b2b-retail-sector.jpg" } },
+        "k7": { "type": "sector", "settings": { "name": "Events", "image_asset": "b2b-events-sector.jpg" } },
+        "k8": { "type": "sector", "settings": { "name": "PR & Agencies", "image_asset": "b2b-pr-agencies.jpg" } }
+      },
+      "block_order": ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"],
+      "settings": {}
+    },
+    "subscription": {
+      "type": "b2b-subscription",
+      "blocks": {
+        "w": { "type": "plan", "settings": { "name": "Weekly", "cadence": "Ogni settimana", "description": "Presenza floreale continua, sempre fresca e stagionale.", "specs": "Cambio composizione settimanale\nProgettazione stagionale\nConsegna dedicata\nCoordinamento colori e interior\nRotazione vasi inclusa" } },
+        "b": { "type": "plan", "settings": { "name": "Bi-weekly", "cadence": "Ogni due settimane", "description": "Freschezza prolungata con cadenza bilanciata.", "specs": "Cambio composizione ogni 14 giorni\nProgettazione stagionale\nConsegna dedicata\nCoordinamento colori e interior\nFornitura vasi opzionale" } },
+        "m": { "type": "plan", "settings": { "name": "Monthly", "cadence": "Ogni mese", "description": "Presenza floreale essenziale con cadenza mensile.", "specs": "Cambio composizione mensile\nProgettazione stagionale\nConsegna dedicata\nCoordinamento colori e interior\nFornitura vasi opzionale" } },
+        "x": { "type": "plan", "settings": { "name": "Bespoke", "cadence": "Su misura", "description": "Programma completamente personalizzato per esigenze uniche.", "specs": "Cadenza e composizioni personalizzate\nProgettazione dedicata\nMulti-location\nCoordinamento eventi interni\nAccount manager dedicato" } }
+      },
+      "block_order": ["w", "b", "m", "x"],
+      "settings": {}
+    },
+    "process": {
+      "type": "b2b-process",
+      "blocks": {
+        "f1": { "type": "step", "settings": { "number": "01", "title": "Brief", "description": "Ascoltiamo obiettivi, contesto e aspettative. Comprendiamo il brand, l'occasione e il risultato desiderato." } },
+        "f2": { "type": "step", "settings": { "number": "02", "title": "Sopralluogo", "description": "Quando necessario, visitiamo lo spazio per valutare luce, volumi, flussi e opportunità di intervento." } },
+        "f3": { "type": "step", "settings": { "number": "03", "title": "Concept", "description": "Sviluppiamo la direzione creativa: palette, composizioni, materiali e disposizione. Moodboard e proposte visive." } },
+        "f4": { "type": "step", "settings": { "number": "04", "title": "Preventivo", "description": "Definiamo costi, logistica e tempistiche con trasparenza. Ogni voce è dettagliata e giustificata." } },
+        "f5": { "type": "step", "settings": { "number": "05", "title": "Produzione", "description": "Selezione fiori, composizione e preparazione. Qualità controllata in ogni fase del processo creativo." } },
+        "f6": { "type": "step", "settings": { "number": "06", "title": "Delivery & Setup", "description": "Consegna e installazione on-site con team dedicato. Coordinamento totale con gli spazi e gli eventi." } },
+        "f7": { "type": "step", "settings": { "number": "07", "title": "Maintenance & Removal", "description": "Cura, manutenzione e — quando previsto — disallestimento. Il servizio continua oltre la consegna." } }
+      },
+      "block_order": ["f1", "f2", "f3", "f4", "f5", "f6", "f7"],
+      "settings": {}
+    },
+    "cta": {
+      "type": "b2b-cta-image",
+      "settings": {}
+    }
+  },
+  "order": ["hero", "studio", "services", "projects", "sectors", "subscription", "process", "cta"]
+}

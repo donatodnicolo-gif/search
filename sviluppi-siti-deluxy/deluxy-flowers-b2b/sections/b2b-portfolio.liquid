@@ -1,0 +1,46 @@
+{%- assign cats = section.settings.categories | split: ',' -%}
+<div data-portfolio>
+  <section class="filters">
+    <button type="button" class="filter is-active" data-filter="All">All</button>
+    {%- for c in cats -%}{%- assign cat = c | strip -%}{%- if cat != blank -%}<button type="button" class="filter" data-filter="{{ cat | escape }}">{{ cat }}</button>{%- endif -%}{%- endfor -%}
+  </section>
+  <section class="section section--md">
+    <div class="portfolio">
+      {%- for block in section.blocks -%}
+        <div class="group reveal" data-work data-category="{{ block.settings.category | escape }}" data-delay="{{ forloop.index0 | times: 0.06 }}" {{ block.shopify_attributes }}>
+          <div class="work__img">
+            {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.title, class: 'img-fill img-zoom', sizes: '(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw' %}
+            <span class="work__badge">{{ block.settings.category }}</span>
+          </div>
+          <div class="work__meta">
+            <h3 class="display work__title">{{ block.settings.title }}</h3>
+            <span class="work__year">{{ block.settings.year }}</span>
+          </div>
+        </div>
+      {%- endfor -%}
+    </div>
+  </section>
+</div>
+
+{% schema %}
+{
+  "name": "Portfolio con filtri",
+  "settings": [
+    { "type": "text", "id": "categories", "label": "Categorie dei filtri (separate da virgola)", "default": "Events, Retail, Hospitality, Corporate Gifting, Installations, Subscriptions" }
+  ],
+  "blocks": [
+    {
+      "type": "work",
+      "name": "Progetto",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Titolo" },
+        { "type": "text", "id": "category", "label": "Categoria (uguale a una del filtro)" },
+        { "type": "text", "id": "year", "label": "Anno" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Portfolio con filtri" }]
+}
+{% endschema %}

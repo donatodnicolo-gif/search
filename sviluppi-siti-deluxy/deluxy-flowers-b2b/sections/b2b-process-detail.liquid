@@ -1,0 +1,51 @@
+<section class="section section--flush section--bt">
+  {%- for block in section.blocks -%}
+    {%- assign alt = forloop.index0 | modulo: 2 -%}
+    <div class="phase reveal{% if alt == 1 %} phase--alt{% endif %}" data-delay="{{ forloop.index0 | times: 0.05 }}" {{ block.shopify_attributes }}>
+      <div class="phase__text">
+        <span class="phase__num">{{ block.settings.number }}</span>
+        <h2 class="display phase__title">{{ block.settings.title }}</h2>
+        <p class="phase__desc">{{ block.settings.description }}</p>
+      </div>
+      <div class="phase__img">
+        <div class="phase__frame">
+          {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.title, class: 'img-fill', sizes: '(min-width: 1024px) 42vw, 100vw' %}
+        </div>
+      </div>
+    </div>
+  {%- endfor -%}
+</section>
+<section class="section">
+  <div class="ready">
+    <h2 class="display ready__title balance">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+    <p class="ready__text">{{ section.settings.text }}</p>
+    <a href="{{ section.settings.cta_url }}" class="btn btn--dark btn--wide">{{ section.settings.cta_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Come funziona (dettaglio)",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Chiusura — titolo", "default": "Pronto a" },
+    { "type": "text", "id": "title_italic", "label": "Chiusura — parte in corsivo", "default": "iniziare?" },
+    { "type": "textarea", "id": "text", "label": "Chiusura — testo", "default": "Il primo passo è il brief. Raccontaci la tua idea." },
+    { "type": "text", "id": "cta_label", "label": "Bottone", "default": "Richiedi un Progetto" },
+    { "type": "url", "id": "cta_url", "label": "Link", "default": "/pages/richiedi-un-progetto" }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Fase",
+      "settings": [
+        { "type": "text", "id": "number", "label": "Numero" },
+        { "type": "text", "id": "title", "label": "Titolo" },
+        { "type": "textarea", "id": "description", "label": "Descrizione" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Come funziona (dettaglio)" }]
+}
+{% endschema %}

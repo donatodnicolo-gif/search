@@ -1,0 +1,43 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-page-hero",
+      "settings": {
+        "eyebrow": "Portfolio",
+        "title": "Progetti",
+        "title_italic": "scelti",
+        "text": "Una selezione di allestimenti, gift, installazioni e abbonamenti realizzati per brand, hotel, boutique ed eventi.",
+        "style": "short"
+      }
+    },
+    "portfolio": {
+      "type": "b2b-portfolio",
+      "blocks": {
+        "p1": { "type": "work", "settings": { "title": "Hotel Lobby Takeover", "category": "Hospitality", "year": "2025", "image_asset": "b2b-hero.jpg" } },
+        "p2": { "type": "work", "settings": { "title": "Fashion Week Runway Arch", "category": "Events", "year": "2025", "image_asset": "b2b-fashion-luxury.jpg" } },
+        "p3": { "type": "work", "settings": { "title": "Boutique Window Installation", "category": "Retail", "year": "2024", "image_asset": "b2b-retail-boutique.jpg" } },
+        "p4": { "type": "work", "settings": { "title": "Gala Dinner Geometries", "category": "Events", "year": "2025", "image_asset": "b2b-event-flowers.jpg" } },
+        "p5": { "type": "work", "settings": { "title": "Branded Corporate Gift Box", "category": "Corporate Gifting", "year": "2024", "image_asset": "b2b-corporate-gifting.jpg" } },
+        "p6": { "type": "work", "settings": { "title": "Suspended Cloud Installation", "category": "Installations", "year": "2025", "image_asset": "b2b-installation.jpg" } },
+        "p7": { "type": "work", "settings": { "title": "Weekly Office Subscription", "category": "Subscriptions", "year": "2025", "image_asset": "b2b-subscription.jpg" } },
+        "p8": { "type": "work", "settings": { "title": "PR Influencer Flower Drop", "category": "Corporate Gifting", "year": "2024", "image_asset": "b2b-pr-flower-drop.jpg" } },
+        "p9": { "type": "work", "settings": { "title": "Christmas Hotel Entrance", "category": "Installations", "year": "2024", "image_asset": "b2b-seasonal-christmas.jpg" } },
+        "p10": { "type": "work", "settings": { "title": "Restaurant Table Centerpiece", "category": "Hospitality", "year": "2025", "image_asset": "b2b-restaurant.jpg" } },
+        "p11": { "type": "work", "settings": { "title": "Event Backdrop Lounge", "category": "Events", "year": "2025", "image_asset": "b2b-event-setup.jpg" } },
+        "p12": { "type": "work", "settings": { "title": "Beauty Counter Floral", "category": "Retail", "year": "2024", "image_asset": "b2b-beauty.jpg" } }
+      },
+      "block_order": ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12"],
+      "settings": { "categories": "Events, Retail, Hospitality, Corporate Gifting, Installations, Subscriptions" }
+    },
+    "cta": {
+      "type": "b2b-cta-row",
+      "settings": {
+        "title": "Il prossimo progetto",
+        "title_italic": "è il tuo?",
+        "cta_label": "Richiedi un Progetto",
+        "cta_url": "/pages/richiedi-un-progetto"
+      }
+    }
+  },
+  "order": ["hero", "portfolio", "cta"]
+}

@@ -1,0 +1,54 @@
+<section class="section section--bt">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow eyebrow--tight">{{ section.settings.eyebrow }}</p>
+      <h2 class="display h2">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+    </div>
+    <a href="{{ section.settings.link_url }}" class="link-arrow">{{ section.settings.link_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+  </div>
+  <div class="projects-grid">
+    {%- for block in section.blocks -%}
+      <div class="group project reveal" data-delay="{{ forloop.index0 | times: 0.1 }}" {{ block.shopify_attributes }}>
+        <a href="{{ section.settings.link_url }}">
+          <div class="project__img">
+            {% render 'b2b-image', image: block.settings.image, asset: block.settings.image_asset, alt: block.settings.title, class: 'img-fill img-zoom', sizes: '(min-width: 768px) 50vw, 100vw' %}
+          </div>
+          <div class="project__meta">
+            <div>
+              <h3 class="display project__title">{{ block.settings.title }}</h3>
+              <p class="project__cat">{{ block.settings.category }}</p>
+            </div>
+            <span class="project__year">{{ block.settings.year }}</span>
+          </div>
+        </a>
+      </div>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Progetti in evidenza",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Progetti" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Case" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "history" },
+    { "type": "text", "id": "link_label", "label": "Link", "default": "Portfolio completo" },
+    { "type": "url", "id": "link_url", "label": "Destinazione del link", "default": "/pages/progetti" }
+  ],
+  "blocks": [
+    {
+      "type": "project",
+      "name": "Progetto",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Titolo" },
+        { "type": "text", "id": "category", "label": "Categoria" },
+        { "type": "text", "id": "year", "label": "Anno" },
+        { "type": "image_picker", "id": "image", "label": "Immagine" },
+        { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Progetti in evidenza" }]
+}
+{% endschema %}

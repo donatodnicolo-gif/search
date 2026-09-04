@@ -1,0 +1,83 @@
+{%- assign nav = linklists[section.settings.nav_menu] -%}
+{%- assign svc = linklists[section.settings.services_menu] -%}
+<footer class="ftr">
+  <div class="ftr__grid">
+    <div class="ftr__brand">
+      <h2 class="h2 ftr__logo">{{ section.settings.logo_text }}<em> {{ section.settings.logo_accent }}</em></h2>
+      <p class="ftr__text">{{ section.settings.text }}</p>
+      <a href="{{ section.settings.cta_url }}" class="btn btn--sage btn--sm">{{ section.settings.cta_label }}</a>
+    </div>
+    <div class="ftr__nav">
+      <h3 class="ftr__h">Navigazione</h3>
+      <ul class="ftr__list">
+        {%- if nav.links.size > 0 -%}
+          {%- for link in nav.links -%}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{%- endfor -%}
+        {%- else -%}
+          <li><a href="{{ routes.root_url }}">Home</a></li>
+          <li><a href="/pages/servizi">Servizi</a></li>
+          <li><a href="/pages/settori">Settori</a></li>
+          <li><a href="/pages/progetti">Progetti</a></li>
+          <li><a href="/pages/come-funziona">Come Funziona</a></li>
+          <li><a href="/pages/richiedi-un-progetto">Richiedi un Progetto</a></li>
+        {%- endif -%}
+      </ul>
+    </div>
+    <div class="ftr__svc">
+      <h3 class="ftr__h">Servizi</h3>
+      <ul class="ftr__list">
+        {%- if svc.links.size > 0 -%}
+          {%- for link in svc.links -%}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{%- endfor -%}
+        {%- else -%}
+          <li><a href="/pages/servizi">Corporate Gifting</a></li>
+          <li><a href="/pages/servizi">Event Flowers</a></li>
+          <li><a href="/pages/servizi">Floral Event Setup</a></li>
+          <li><a href="/pages/servizi">Retail &amp; Boutique Installations</a></li>
+          <li><a href="/pages/servizi">Hotel &amp; Hospitality</a></li>
+          <li><a href="/pages/servizi">Office Flowers</a></li>
+        {%- endif -%}
+      </ul>
+    </div>
+  </div>
+  <div class="ftr__contacts">
+    <div class="ftr__items">
+      {%- if section.settings.email != blank -%}<a href="mailto:{{ section.settings.email }}">{% render 'b2b-icon', name: 'mail' %} {{ section.settings.email }}</a>{%- endif -%}
+      {%- if section.settings.phone != blank -%}<a href="tel:{{ section.settings.phone | replace: ' ', '' }}">{% render 'b2b-icon', name: 'phone' %} {{ section.settings.phone }}</a>{%- endif -%}
+      {%- if section.settings.place != blank -%}<span>{% render 'b2b-icon', name: 'pin' %} {{ section.settings.place }}</span>{%- endif -%}
+    </div>
+    <div class="ftr__items">
+      {%- if section.settings.instagram_handle != blank -%}<a class="ig" href="{{ section.settings.instagram_url | default: '#' }}">{% render 'b2b-icon', name: 'instagram' %} {{ section.settings.instagram_handle }}</a>{%- endif -%}
+    </div>
+  </div>
+  <div class="ftr__bottom">
+    <p>© {{ 'now' | date: '%Y' }} {{ section.settings.copyright }}</p>
+    <div class="ftr__legal">
+      <a href="{{ section.settings.privacy_url | default: '#' }}">Privacy</a>
+      <a href="{{ section.settings.terms_url | default: '#' }}">Terms</a>
+      <a href="{{ section.settings.cookie_url | default: '#' }}">Cookie</a>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    { "type": "text", "id": "logo_text", "label": "Logo — parte in tondo", "default": "Deluxy" },
+    { "type": "text", "id": "logo_accent", "label": "Logo — parte in corsivo", "default": "Flowers" },
+    { "type": "textarea", "id": "text", "label": "Testo", "default": "Floral creative studio per brand, hospitality, retail ed eventi. Partner floreale continuativo, non solo flower delivery." },
+    { "type": "text", "id": "cta_label", "label": "Bottone", "default": "Inizia un Progetto" },
+    { "type": "url", "id": "cta_url", "label": "Link del bottone", "default": "/pages/richiedi-un-progetto" },
+    { "type": "link_list", "id": "nav_menu", "label": "Menu Navigazione (se vuoto: le sei pagine del sito)" },
+    { "type": "link_list", "id": "services_menu", "label": "Menu Servizi (se vuoto: i sei servizi principali)" },
+    { "type": "text", "id": "email", "label": "Email", "default": "business@deluxyflowers.com" },
+    { "type": "text", "id": "phone", "label": "Telefono", "default": "+39 00 000 0000" },
+    { "type": "text", "id": "place", "label": "Città", "default": "Milano · Italia" },
+    { "type": "text", "id": "instagram_handle", "label": "Instagram — nome", "default": "@deluxyflowers" },
+    { "type": "url", "id": "instagram_url", "label": "Instagram — link" },
+    { "type": "text", "id": "copyright", "label": "Copyright", "default": "Deluxy Flowers. Tutti i diritti riservati." },
+    { "type": "url", "id": "privacy_url", "label": "Link Privacy" },
+    { "type": "url", "id": "terms_url", "label": "Link Terms" },
+    { "type": "url", "id": "cookie_url", "label": "Link Cookie" }
+  ]
+}
+{% endschema %}

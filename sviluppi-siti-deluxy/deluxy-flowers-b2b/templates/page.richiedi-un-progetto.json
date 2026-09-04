@@ -1,0 +1,19 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-page-hero",
+      "settings": {
+        "eyebrow": "Richiedi un Progetto",
+        "title": "Iniziamo una",
+        "title_italic": "consulenza",
+        "text": "Non un checkout — una consultazione. Raccontaci il tuo progetto, ti risponderemo entro 48 ore.",
+        "style": "form"
+      }
+    },
+    "form": {
+      "type": "b2b-request-form",
+      "settings": {}
+    }
+  },
+  "order": ["hero", "form"]
+}

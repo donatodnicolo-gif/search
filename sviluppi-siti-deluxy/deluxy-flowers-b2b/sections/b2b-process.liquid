@@ -1,0 +1,45 @@
+<section class="section section--bt">
+  <div class="section-head section-head--stack">
+    <p class="eyebrow eyebrow--tight">{{ section.settings.eyebrow }}</p>
+    <h2 class="display h2 h2--narrow">{{ section.settings.title }} <em>{{ section.settings.title_italic }}</em></h2>
+  </div>
+  <div class="steps">
+    {%- for block in section.blocks -%}
+      <div class="step reveal" data-delay="{{ forloop.index0 | times: 0.05 }}" {{ block.shopify_attributes }}>
+        <span class="step__num">{{ block.settings.number }}</span>
+        <div>
+          <h3 class="display step__title">{{ block.settings.title }}</h3>
+          <p class="step__text">{{ block.settings.description }}</p>
+        </div>
+      </div>
+    {%- endfor -%}
+  </div>
+  {%- if section.settings.link_label != blank -%}
+    <div class="steps-more"><a href="{{ section.settings.link_url }}" class="link-arrow">{{ section.settings.link_label }} {% render 'b2b-icon', name: 'arrow' %}</a></div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Come funziona (elenco)",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Come Funziona" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Dal brief al" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "disallestimento" },
+    { "type": "text", "id": "link_label", "label": "Link", "default": "Approfondisci il processo" },
+    { "type": "url", "id": "link_url", "label": "Destinazione del link", "default": "/pages/come-funziona" }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Fase",
+      "settings": [
+        { "type": "text", "id": "number", "label": "Numero" },
+        { "type": "text", "id": "title", "label": "Titolo" },
+        { "type": "textarea", "id": "description", "label": "Descrizione" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Come funziona (elenco)" }]
+}
+{% endschema %}

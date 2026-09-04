@@ -1,0 +1,23 @@
+<section class="section">
+  <div class="studio">
+    <div class="studio__a reveal"><p class="eyebrow">{{ section.settings.eyebrow }}</p></div>
+    <div class="studio__b reveal">
+      <h2 class="display studio__title balance">{{ section.settings.title_before }}<em> {{ section.settings.title_italic }}</em> {{ section.settings.title_after }}</h2>
+      <p class="studio__text">{{ section.settings.text }}</p>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Lo Studio",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Sopratitolo", "default": "Lo Studio" },
+    { "type": "textarea", "id": "title_before", "label": "Titolo — prima del corsivo", "default": "Trattiamo ogni composizione come un" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "capolavoro strutturale" },
+    { "type": "textarea", "id": "title_after", "label": "Titolo — dopo il corsivo", "default": "— dove l'imprevedibilità organica della natura incontra la precisione chirurgica del servizio B2B." },
+    { "type": "textarea", "id": "text", "label": "Testo", "default": "Deluxy Flowers non è un fiorista. È un floral creative studio che progetta presenza floreale per aziende, hospitality, retail ed eventi. Dalla singola composizione all'allestimento scenografico, dal gift brandizzato all'abbonamento continuativo — ogni progetto nasce dall'identità del brand e si traduce in fiori." }
+  ],
+  "presets": [{ "name": "Lo Studio" }]
+}
+{% endschema %}

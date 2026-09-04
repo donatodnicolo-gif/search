@@ -1,0 +1,29 @@
+{
+  "sections": {
+    "hero": {
+      "type": "b2b-page-hero",
+      "settings": {
+        "eyebrow": "Come Funziona",
+        "title": "Dal brief al",
+        "title_italic": "disallestimento",
+        "text": "Sette fasi, un unico flusso. Ogni progetto segue un processo strutturato che garantisce qualità, trasparenza e controllo in ogni momento.",
+        "style": "normal"
+      }
+    },
+    "process": {
+      "type": "b2b-process-detail",
+      "blocks": {
+        "f1": { "type": "step", "settings": { "number": "01", "title": "Brief", "description": "Ascoltiamo obiettivi, contesto e aspettative. Comprendiamo il brand, l'occasione e il risultato desiderato.", "image_asset": "b2b-hero.jpg" } },
+        "f2": { "type": "step", "settings": { "number": "02", "title": "Sopralluogo", "description": "Quando necessario, visitiamo lo spazio per valutare luce, volumi, flussi e opportunità di intervento.", "image_asset": "b2b-corporate-gifting.jpg" } },
+        "f3": { "type": "step", "settings": { "number": "03", "title": "Concept", "description": "Sviluppiamo la direzione creativa: palette, composizioni, materiali e disposizione. Moodboard e proposte visive.", "image_asset": "b2b-event-flowers.jpg" } },
+        "f4": { "type": "step", "settings": { "number": "04", "title": "Preventivo", "description": "Definiamo costi, logistica e tempistiche con trasparenza. Ogni voce è dettagliata e giustificata.", "image_asset": "b2b-retail-boutique.jpg" } },
+        "f5": { "type": "step", "settings": { "number": "05", "title": "Produzione", "description": "Selezione fiori, composizione e preparazione. Qualità controllata in ogni fase del processo creativo.", "image_asset": "b2b-office-flowers.jpg" } },
+        "f6": { "type": "step", "settings": { "number": "06", "title": "Delivery & Setup", "description": "Consegna e installazione on-site con team dedicato. Coordinamento totale con gli spazi e gli eventi.", "image_asset": "b2b-seasonal-christmas.jpg" } },
+        "f7": { "type": "step", "settings": { "number": "07", "title": "Maintenance & Removal", "description": "Cura, manutenzione e — quando previsto — disallestimento. Il servizio continua oltre la consegna.", "image_asset": "b2b-branded-flowers.jpg" } }
+      },
+      "block_order": ["f1", "f2", "f3", "f4", "f5", "f6", "f7"],
+      "settings": {}
+    }
+  },
+  "order": ["hero", "process"]
+}

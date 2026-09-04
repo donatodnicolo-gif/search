@@ -1,0 +1,28 @@
+<section class="section section--bt">
+  <div class="cta-image">
+    <div class="cta-image__media">
+      {% render 'b2b-image', image: section.settings.image, asset: section.settings.image_asset, alt: section.settings.title, class: 'cover', sizes: '100vw' %}
+    </div>
+    <div class="cta-image__content reveal">
+      <h2 class="display cta-image__title balance">{{ section.settings.title }}<em> {{ section.settings.title_italic }}</em></h2>
+      <p class="cta-image__text">{{ section.settings.text }}</p>
+      <a href="{{ section.settings.cta_url }}" class="btn btn--light btn--wide">{{ section.settings.cta_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Invito con immagine",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Immagine" },
+    { "type": "text", "id": "image_asset", "label": "File in assets (usato se non carichi un'immagine)", "default": "b2b-event-setup.jpg" },
+    { "type": "text", "id": "title", "label": "Titolo", "default": "Iniziamo a progettare il tuo" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo", "default": "prossimo progetto floreale" },
+    { "type": "textarea", "id": "text", "label": "Testo", "default": "Raccontaci il tuo brand, l'occasione e lo spazio. Trasformeremo la tua visione in fiori." },
+    { "type": "text", "id": "cta_label", "label": "Bottone", "default": "Richiedi un Progetto" },
+    { "type": "url", "id": "cta_url", "label": "Link", "default": "/pages/richiedi-un-progetto" }
+  ],
+  "presets": [{ "name": "Invito con immagine" }]
+}
+{% endschema %}

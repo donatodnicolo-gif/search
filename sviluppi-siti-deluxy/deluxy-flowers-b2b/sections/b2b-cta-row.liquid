@@ -1,0 +1,19 @@
+<section class="section section--bt">
+  <div class="cta-row">
+    <h2 class="display cta-row__title">{{ section.settings.title }}<em> {{ section.settings.title_italic }}</em></h2>
+    <a href="{{ section.settings.cta_url }}" class="btn btn--dark">{{ section.settings.cta_label }} {% render 'b2b-icon', name: 'arrow' %}</a>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Riga di invito",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Titolo" },
+    { "type": "text", "id": "title_italic", "label": "Titolo — parte in corsivo (verde)" },
+    { "type": "text", "id": "cta_label", "label": "Bottone", "default": "Richiedi un Progetto" },
+    { "type": "url", "id": "cta_url", "label": "Link", "default": "/pages/richiedi-un-progetto" }
+  ],
+  "presets": [{ "name": "Riga di invito" }]
+}
+{% endschema %}
