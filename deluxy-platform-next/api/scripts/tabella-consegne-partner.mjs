@@ -113,8 +113,8 @@ for (const p of partners) {
     orderBy: [{ date: 'asc' }, { code: 'asc' }],
   });
   console.log(`\n### Consegne (${cons.length})\n`);
-  console.log('| Data | # | Stato | Servizio | Destinatario | Km | Listino applicato | Valore fatturato | Fattura |');
-  console.log('|---|---|---|---|---|---:|---|---:|---|');
+  console.log('| Data | # | Stato | Servizio | Destinatario | Km | Prezzo | Plus/minus manuale | Regole | Listino applicato | Fatturazione finale | Fattura |');
+  console.log('|---|---|---|---|---|---:|---:|---:|---:|---|---:|---|');
   let tot = 0, nFatt = 0, nEscluse = 0, nNonPrezz = 0, totInFattura = 0;
   for (const d of cons) {
     const nonFatt = NON_BILLABLE.includes(d.status) || !d.billable;
@@ -129,7 +129,8 @@ for (const p of partners) {
     if (valore != null) tot += valore;
     const dest = `${d.recipientFirstName ?? ''} ${d.recipientLastName ?? ''}`.trim() || '—';
     const spiega = nonFatt ? `${calc.spiega} — ESCLUSA (${!d.billable ? 'non fatturabile' : STATO[d.status] ?? d.status})` : calc.spiega;
-    console.log(`| ${d.date.toISOString().slice(0, 10)} | #${d.code} | ${STATO[d.status] ?? d.status} | ${d.serviceType?.name ?? '—'} | ${dest} | ${d.distanceKm != null ? q2(d.distanceKm) : '—'} | ${spiega} | ${riga ? eur(riga.amount) + ' (riga fattura)' : valore != null ? eur(valore) : '—'} | ${inFattura} |`);
+    const regoleCol = d.deliveryRule ? eur(d.ruleAdjustment ?? (d.deliveryRule.partnerBillingAdjustment ?? 0)) : '—';
+    console.log(`| ${d.date.toISOString().slice(0, 10)} | #${d.code} | ${STATO[d.status] ?? d.status} | ${d.serviceType?.name ?? '—'} | ${dest} | ${d.distanceKm != null ? q2(d.distanceKm) : '—'} | ${eur(d.price)} | ${d.additionalPrice ? eur(d.additionalPrice) : '—'} | ${regoleCol} | ${spiega} | ${riga ? eur(riga.amount) + ' (riga fattura)' : valore != null ? eur(valore) : '—'} | ${inFattura} |`);
   }
   console.log(`\n**Totale valore fatturato/fatturabile: ${eur(tot)}** su ${cons.length} consegne — ${nFatt} già in fattura (${eur(totInFattura)}), ${cons.length - nFatt - nEscluse - nNonPrezz} da fatturare col conto della Fatturazione, ${nEscluse} escluse (annullate/non fatturabili), ${nNonPrezz} non prezzabili.`);
 }

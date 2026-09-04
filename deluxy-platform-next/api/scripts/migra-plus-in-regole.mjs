@@ -74,15 +74,15 @@ fs.writeFileSync(nomeBackup, JSON.stringify(backup, null, 1));
 console.log(`\nbackup: ${nomeBackup} (${backup.length} righe)`);
 
 let fatte = 0;
-for (let i = 0; i < tutte.length; i += 200) {
-  const lotto = tutte.slice(i, i + 200);
+for (let i = 0; i < tutte.length; i += 50) {
+  const lotto = tutte.slice(i, i + 50);
   await prisma.$transaction(lotto.flatMap((r) => [
     prisma.delivery.update({ where: { id: r.id }, data: { ruleAdjustment: Number(r.adj ?? 0), additionalPrice: r.nuovoPlus == null ? null : Number(r.nuovoPlus) } }),
     prisma.deliveryLog.create({ data: { deliveryId: r.id, type: 'note',
       message: `Regole: ${Number(r.adj ?? 0)} € dalla «${r.regola}» (campo nuovo, 04/09/2026); plus/minus ${r.plus ?? 0} → ${r.nuovoPlus ?? 0}${r.nuovoPlus == null ? ' (era la copia della regola)' : (Number(r.plus ?? 0) === 0 ? '' : ' (resta la parte manuale)')}` } }),
   ]));
   fatte += lotto.length;
-  console.log(`  ${fatte}/${tutte.length}`);
+  if (fatte % 500 === 0 || fatte === tutte.length) console.log(`  ${fatte}/${tutte.length}`);
 }
 console.log('✓ migrazione applicata');
 await prisma.$disconnect();

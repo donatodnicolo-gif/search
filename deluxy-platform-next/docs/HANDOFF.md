@@ -26,7 +26,13 @@
 >   aggiustamento regola, P = plus scritto → P==A: Regole=A, plus svuotato
 >   (3.455); P vuoto: Regole=A (3.373); P≠A (54): Regole=A, plus manuale =
 >   P−A (totale invariato, elenco nell'anteprima). Esito nel messaggio
->   all'utente. Ordine di rilascio: ALTER → deploy → dati.
+>   all'utente. Ordine di rilascio: ALTER → deploy → dati. **ESEGUITA**:
+>   6.885/6.885 (3.455 copie svuotate, 3.376 solo regola, 54 plus manuale =
+>   P−A). Il primo giro si è fermato a 3.600 per timeout della transazione
+>   (lotti da 200 → 50) e il secondo ha SOVRASCRITTO il backup: ricostruito
+>   dai registri delle consegne (`backup-plus-in-regole-2026-09-04.json`,
+>   6.883 righe con il plus originale). Un solo caso con plus manuale ==
+>   Regole (#55211, −20 e −20: legittimo, totale −40 com'era).
 > - Script aggiornati alla formula nuova: `tabella-consegne-partner.mjs`,
 >   `ricalcola-righe-bozze-regola.mjs` (bozza Armani FAT-2026-563 in attesa
 >   dell'ok: +26,25 €).
