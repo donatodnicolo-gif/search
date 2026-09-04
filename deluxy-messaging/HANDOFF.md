@@ -1,5 +1,50 @@
 # Handoff — Deluxy Customer Service
 
+## 04/09/2026 (12) — il diario sale in cima alla colonna dei messaggi
+
+Chiesto dall'utente, con la foto del riquadro: «metti questa cosa in Messaggi
+cliente in alto».
+
+Il diario stava **in fondo alla prima colonna**, sotto i bottoni per scrivere al
+cliente: un punto che si raggiunge solo scorrendo. Ma è **la lista di quello che
+resta da fare su questa vendita**, cioè la prima cosa da leggere prima di
+toccare l'ordine. Adesso è un riquadro suo, in cima alla colonna centrale, sopra
+«Messaggi del cliente».
+
+- `DiarioOrdine` ha una prop nuova, `inCima`: in cima al riquadro il bordo
+  superiore e il margine sopra **non servono** — sono l'attacco a quello che
+  c'era prima, e lassù disegnano una riga che non separa niente.
+- L'avviso «Chiuse N note del diario: l'ordine è gestito» si è spostato con lui:
+  è la sua risposta, e restare dov'era vorrebbe dire mostrarlo lontano dalle
+  note di cui parla.
+- Invariato: sugli ordini di solo archivio il diario non c'è (la riga si
+  scriverebbe e non si ritroverebbe più).
+
+## 04/09/2026 (11) — nell'elenco dei nostri fornitori resta SOLO la provincia certa
+
+Chiesto dall'utente subito dopo la correzione della sera: «mostra solo quelli di
+cui sei certo della provincia».
+
+⚠️⚠️ **Il ripiego era rimasto acceso.** Con la provincia chiesta a Google
+l'elenco di Genova si era pulito, ma quando in zona non c'è nessuno la lista
+**ripiegava** su quelli di cui non si ricava la provincia — e su #2867 restava
+lì «Fiorista Donatella · non sappiamo dove ha consegnato», sotto un titolo che
+promette fornitori in provincia di GE. Un ripiego che nessuno ha chiesto è
+rumore: chi legge non sa che quella riga vale meno delle altre.
+
+Adesso nell'elenco c'è **solo `inZona`**, cioè solo chi ha una provincia certa e
+uguale a questa. Se non c'è nessuno, l'elenco resta vuoto e lo dice.
+
+⚠️ **Nessuno sparisce**: la riga «Fuori dall'elenco» ha adesso **due bottoni
+separati**, perché le due ragioni non sono la stessa cosa —
+«**N consegnano altrove**» è un fatto (province note e diverse), «**M non
+sappiamo in che provincia**» è un buco nostro (comuni non ancora risolti, o
+ordini senza nessuna città). Si aprono tutti e due, con città e province
+scritte. Chi ha bisogno di telefonare lo stesso li trova con un clic.
+
+Su #2867 (Genova, fiorai): elenco **vuoto**, e sotto «54 consegnano altrove · 1
+non sappiamo in che provincia · 16 fanno l'altro mestiere».
+
 ## 04/09/2026 (10) — la scheda del prodotto, di fianco all'ordine
 
 Chiesto dall'utente: «nel pop-up della vendita fai aprire dettaglio prodotto

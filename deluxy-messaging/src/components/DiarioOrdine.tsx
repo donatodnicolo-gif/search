@@ -14,6 +14,7 @@ import { CampoRigaDiario } from './CampoRigaDiario'
 export function DiarioOrdine({
   numero,
   rileggiA = 0,
+  inCima = false,
 }: {
   numero: string
   /**
@@ -27,6 +28,15 @@ export function DiarioOrdine({
    * una seconda volta.
    */
   rileggiA?: number
+  /**
+   * Sta IN CIMA a un riquadro suo, invece che in fondo a un altro?
+   *
+   * Chiesto dall'utente il 04/09/2026: «metti questa cosa in Messaggi cliente
+   * in alto». Da lassu' la riga di separazione e il margine sopra non servono
+   * piu': sono l'attacco a quello che c'era prima, e in cima disegnano una
+   * riga che non separa niente.
+   */
+  inCima?: boolean
 }) {
   const [note, setNote] = useState<NotaDiario[]>([])
   const [testo, setTesto] = useState('')
@@ -92,7 +102,13 @@ export function DiarioOrdine({
   }
 
   return (
-    <div style={{ marginTop: 12, borderTop: '1px solid var(--hairline)', paddingTop: 10 }}>
+    <div
+      style={
+        inCima
+          ? undefined
+          : { marginTop: 12, borderTop: '1px solid var(--hairline)', paddingTop: 10 }
+      }
+    >
       <div className="cella-nome" style={{ marginBottom: 6 }}>
         Diario{note.length ? ` · ${note.filter((n) => !n.fatta).length} da fare` : ''}
       </div>
