@@ -417,10 +417,20 @@ export function FormProdottoNuovo({
       </div>
 
       {/* ---------- Pubblicazione ---------- */}
-      {pubblico && (
+      {/* Sempre visibile (chiesto dall'utente: «manca date pubblicazione»):
+          le date si possono decidere anche prima che il prodotto sia
+          Pubblico, e restano scritte sulla scheda. Le traduzioni invece
+          hanno senso solo quando si pubblica. */}
+      {
         <div className="scheda">
           <div className="scheda-titolo">Pubblicazione su {negozio?.nome ?? "Shopify"}</div>
-          {!negozio?.puoScrivere && (
+          {!pubblico && (
+            <p className="page-sub" style={{ marginBottom: 12 }}>
+              Il prodotto va sul negozio solo con la fase <b>Pubblico</b>. Le date qui sotto si salvano comunque:
+              sono il programma, e si leggono nel calendario delle pubblicazioni.
+            </p>
+          )}
+          {pubblico && !negozio?.puoScrivere && (
             <div className="avviso-errore" style={{ marginBottom: 12 }}>
               Il negozio scelto non ha il permesso <code>write_products</code>: qui si può creare il prodotto solo
               come bozza interna. Aggiungi il permesso all&apos;app Shopify e rifai la verifica in Negozi &amp; permessi.
@@ -437,19 +447,21 @@ export function FormProdottoNuovo({
               <input id="pubblicatoFinoAl" name="pubblicatoFinoAl" type="date" />
               <span className="cella-sub">Vuoto = per sempre. Il giorno dopo torna bozza sul negozio.</span>
             </div>
-            <div className="campo-modulo largo">
-              <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
-                <input type="checkbox" name="traduci" defaultChecked />
-                Traduci titolo e descrizione nelle 8 lingue del negozio (con l&apos;AI)
-              </label>
-              <span className="cella-sub">
-                Inglese, francese, tedesco, spagnolo, russo, cinese, arabo, giapponese. Le lingue che il negozio non
-                ha configurato vengono rifiutate da Shopify e lo si legge nell&apos;esito.
-              </span>
-            </div>
+            {pubblico && (
+              <div className="campo-modulo largo">
+                <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
+                  <input type="checkbox" name="traduci" defaultChecked />
+                  Traduci titolo e descrizione nelle 8 lingue del negozio (con l&apos;AI)
+                </label>
+                <span className="cella-sub">
+                  Inglese, francese, tedesco, spagnolo, russo, cinese, arabo, giapponese. Le lingue che il negozio non
+                  ha configurato vengono rifiutate da Shopify e lo si legge nell&apos;esito.
+                </span>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      }
 
       <div className="azioni-modulo">
         <a className="btn btn-secondario" href="/prodotti">

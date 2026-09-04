@@ -31,6 +31,7 @@ import {
   prezzoVariante,
   STATI_SHOPIFY,
 } from "@/lib/dominio";
+import { isoRoma } from "@/lib/fuso";
 
 export const dynamic = "force-dynamic";
 
@@ -354,6 +355,26 @@ export default async function ProdottoPage({
                 );
               })}
             </div>
+            {/* La finestra di pubblicazione (04/09/2026): da quando e fino a
+                quando sta sul negozio. Il giro delle 04:05 accende e spegne
+                sul negozio i prodotti collegati a Shopify. */}
+            <form action={salva} className="modulo" style={{ marginTop: 14 }}>
+              <div className="campo-modulo">
+                <label htmlFor="pubblicatoDal">Pubblico dal</label>
+                <input id="pubblicatoDal" name="pubblicatoDal" type="date" defaultValue={prodotto.pubblicatoDal ? isoRoma(prodotto.pubblicatoDal) : ""} />
+              </div>
+              <div className="campo-modulo">
+                <label htmlFor="pubblicatoFinoAl">Fino al</label>
+                <input id="pubblicatoFinoAl" name="pubblicatoFinoAl" type="date" defaultValue={prodotto.pubblicatoFinoAl ? isoRoma(prodotto.pubblicatoFinoAl) : ""} />
+              </div>
+              <div className="campo-modulo largo" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <button type="submit" className="btn btn-secondario small">Salva le date</button>
+                <span className="cella-sub">
+                  Vuote = da subito, per sempre. Si vedono nel <a href="/sviluppo/calendario">calendario delle pubblicazioni</a>.
+                  {!prodotto.shopifyId && " Questo prodotto non è collegato a Shopify: le date restano un programma."}
+                </span>
+              </div>
+            </form>
           </div>
         )}
 

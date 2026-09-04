@@ -19,10 +19,14 @@ import {
   panoramicaBrand,
   type RigaAssortimento,
 } from "@/lib/vendite";
-import { dataIt, intervalloIt } from "@/lib/fuso";
+import { dataIt, dataOraIt, intervalloIt } from "@/lib/fuso";
+import { sincronizzaSeServe } from "@/lib/sincronizza-apertura";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
+// La sincronizzazione all'apertura lancia l'import di un negozio DOPO la
+// risposta (`after()`): il tempo massimo serve a quel lavoro, non alla pagina.
+export const maxDuration = 300;
 
 // Il cruscotto: la prima schermata risponde a "come sta andando", non a "che
 // cosa c'è in archivio". In Globale mostra i brand affiancati — sommarli in un
@@ -38,6 +42,9 @@ export default async function CruscottoPage({
     ? Number(sp.giorni)
     : 90;
   const brand = await brandCorrente();
+  // All'apertura dell'app (04/09/2026, chiesto dall'utente): se l'ultimo import
+  // di un negozio è vecchio più di 4 ore, parte da solo — dopo la risposta.
+  const sync = await sincronizzaSeServe();
   // `finestra` è un calcolo puro sul calendario di Roma, senza database: le date
   // possono quindi uscire **col guscio**, prima che le analisi arrivino in
   // streaming. Chi apre la pagina sa su cosa sta guardando già mentre i numeri
@@ -84,6 +91,33 @@ export default async function CruscottoPage({
         </p>
 
         <FreschezzaVenduto />
+        {sync.stato === "avviata" && (
+          <div className="nota-info">
+            <span className="nota-icona">↻</span>
+            <span>
+              <b>Sincronizzazione con Shopify avviata</b> per {sync.negozi.join(", ")}
+              {sync.ultimo ? ` — l'ultima era delle ${dataOraIt(sync.ultimo)}` : ""}. Catalogo, collezioni e foto
+              si aggiornano nei prossimi minuti: ricarica la pagina fra un po'.
+            </span>
+          </div>
+        )}
+        {sync.stato === "in-corso" && (
+          <div className="nota-info">
+            <span className="nota-icona">↻</span>
+            <span>
+              Sincronizzazione con Shopify <b>in corso</b> per {sync.negozi.join(", ")}: i numeri si aggiornano
+              fra qualche minuto.
+            </span>
+          </div>
+        )}
+        {sync.stato === "non-configurata" && (
+          <div className="nota-info">
+            <span className="nota-icona">◆</span>
+            <span>
+              La sincronizzazione automatica con Shopify è spenta: manca <code>CRON_SECRET</code> nell&apos;ambiente.
+            </span>
+          </div>
+        )}
 
         {/* Il guscio (menu, titolo, periodo) esce subito; le analisi — che
             scandagliano il venduto — arrivano in streaming appena pronte.

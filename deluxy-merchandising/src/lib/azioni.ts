@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 
 // Helper: legge una stringa non vuota dal form
 function str(fd: FormData, k: string): string | null {
@@ -102,11 +103,20 @@ export async function aggiornaProdotto(id: string, fd: FormData) {
       prezzoVendita: fd.has("prezzoVendita") ? num(fd, "prezzoVendita") : undefined,
       immagine: fd.has("immagine") ? str(fd, "immagine") : undefined,
       priorita: fd.has("priorita") ? intero(fd, "priorita") : undefined,
+      // Finestra di pubblicazione (04/09/2026): giorno del calendario di Roma,
+      // vuoto = nessuna data. Il cron delle 04:05 accende e spegne sul negozio.
+      pubblicatoDal: fd.has("pubblicatoDal") ? dataDa(str(fd, "pubblicatoDal")) : undefined,
+      pubblicatoFinoAl: fd.has("pubblicatoFinoAl") ? dataDa(str(fd, "pubblicatoFinoAl")) : undefined,
     },
   });
   revalidatePath(`/prodotti/${id}`);
   revalidatePath("/prodotti");
   revalidatePath("/costi");
+  revalidatePath("/sviluppo/calendario");
+}
+
+function dataDa(iso: string | null): Date | null {
+  return isoGiornoValido(iso) ? mezzanotteRomaDi(iso) : null;
 }
 
 export async function cambiaFase(id: string, nuovaFase: string) {

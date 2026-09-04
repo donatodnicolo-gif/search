@@ -99,8 +99,10 @@ export async function creaProdottoCompleto(fd: FormData) {
 
   const dalIso = testo(fd, "pubblicatoDal");
   const alIso = testo(fd, "pubblicatoFinoAl");
-  const pubblicatoDal = vuolePubblicare && isoGiornoValido(dalIso) ? mezzanotteRomaDi(dalIso) : null;
-  const pubblicatoFinoAl = vuolePubblicare && isoGiornoValido(alIso) ? mezzanotteRomaDi(alIso) : null;
+  // Le date si salvano anche se il prodotto non è ancora Pubblico: sono il
+  // programma, e il calendario delle pubblicazioni le mostra.
+  const pubblicatoDal = isoGiornoValido(dalIso) ? mezzanotteRomaDi(dalIso) : null;
+  const pubblicatoFinoAl = isoGiornoValido(alIso) ? mezzanotteRomaDi(alIso) : null;
   if (pubblicatoDal && pubblicatoFinoAl && pubblicatoFinoAl < pubblicatoDal) indietro("La fine della pubblicazione viene prima dell'inizio.");
   const oggi = giornoRoma(new Date());
   const finestraAperta = (!pubblicatoDal || pubblicatoDal <= oggi) && (!pubblicatoFinoAl || pubblicatoFinoAl >= oggi);

@@ -103,6 +103,22 @@ di sessione; deploy da fare con l'utente):**
    dalle collezioni del prodotto. ⚠️ Archiviazione mai eseguita contro Shopify.
 7. Schema: `prisma db push` fatto sul Postgres condiviso (solo colonne additive
    + tabella `MediaProdotto`).
+8. **Le date di pubblicazione sono sempre visibili** nel modulo (anche senza la
+   fase Pubblico: si salvano come programma) e **si modificano dalla scheda**
+   del prodotto (riquadro «Fase del ciclo di vita», form «Salva le date»,
+   `aggiornaProdotto` legge `pubblicatoDal`/`pubblicatoFinoAl`).
+9. **Sincronizzazione all'apertura** (`src/lib/sincronizza-apertura.ts`,
+   chiamata dal cruscotto `/`): se l'ultimo import `ok` di un negozio è più
+   vecchio di **4 ore**, dopo la risposta (`after()` di Next, `maxDuration
+   300` sulla home) si chiama `/api/cron/collezioni?negozio=X` col
+   `CRON_SECRET` — stesso codice del cron notturno. Lucchetto per negozio in
+   `Impostazione` (`sync-apertura:<negozio>`, scade dopo 20 minuti) contro i
+   doppi avvii; banner in home «Sincronizzazione avviata / in corso». Il
+   venduto non c'entra (già ogni quarto d'ora). ⚠️ In **dev** la home lancia
+   l'import vero sul database condiviso (il `.env` ha `CRON_SECRET`): la prima
+   apertura del 04/09 alle ~15:00 ha fatto partire Cake, Flowers e Gifts dal PC
+   — non spegnere `next dev` mentre un import è in corso (deleteMany +
+   ricostruzione fuori transazione).
 
 **Da fare / da provare (in ordine):** deploy precompilato (`vercel build` +
 `deploy --prebuilt --prod` da qui, con l'utente); provare **un caricamento di
