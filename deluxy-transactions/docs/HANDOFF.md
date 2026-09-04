@@ -32,7 +32,11 @@ via API con la chiave di Finance (`POST /api/v1/richieste/TRX-2026-000049/annull
 è stato bloccato dal permesso della sessione: **va fatto dall'operatore** dal
 dettaglio della richiesta (`/richieste/TRX-2026-000049` → «annulla», motivo:
 importo lordo del mese al posto del netto). Il webhook rimette agosto
-«rifacibile» in Finance. 🔴 **Finché resta `in_attesa`, non pagarla.**
+«rifacibile» in Finance. ✅ **Annullata alle 17:05 del 04/09** su richiesta
+esplicita dell'utente («Annulla tu»), con lo script
+`deluxy-partner/scripts/ritira-richiesta-transactions.mjs` (chiave di Finance,
+`POST …/annulla`, risposta 200 `annullata`). Le 7 «già pagate fuori» restano
+da chiudere dall'operatore: l'API non ha quella chiusura.
 
 **Verifica di TUTTA la coda di Finance (16:00, chiesta dall'utente)** — 17
 richieste aperte confrontate con i dati di Finance di oggi. Solo la 49 ha
