@@ -31,6 +31,9 @@ interface DeliveryDetail {
   code: number;
   /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
   hoursFrom?: string | null;
+  /** RICONSEGNA (05/09/2026): il legame si legge nei due versi. */
+  parentDelivery?: { id: string; code: number; date?: string; notDeliveredReason?: string | null } | null;
+  childDeliveries?: { id: string; code: number; date?: string }[];
   /** Colonne STORICHE: gli orari del valet e quelli previsti dal servizio. */
   valetStartTime?: string | null;
   valetEndTime?: string | null;
@@ -691,6 +694,30 @@ interface DeliveryDetail {
           <button type="button" class="act" (click)="assignOpen.set(false)">{{ 'common.cancel' | translate }}</button>
         </div>
       </div>
+    }
+
+    <!-- RICONSEGNA (05/09/2026, regola utente): la catena si vede da entrambe
+         le parti — da quale consegna nasce questa, e quale l'ha rifatta. Senza,
+         una consegna in storico come «non consegnata» sembra un caso chiuso
+         male invece che un lavoro poi portato a termine. -->
+    @if (delivery(); as d) {
+      @if (d.parentDelivery || (d.childDeliveries?.length ?? 0) > 0) {
+        <section class="card riconsegna-legame">
+          @if (d.parentDelivery; as p) {
+            <p>{{ 'deliveryDetail.redelivery.from' | translate }}
+              <a [routerLink]="['/deliveries', p.id]">#{{ p.code }}</a>
+              <span class="muted">· {{ p.date | date: 'dd/MM/yyyy' }}</span>
+              @if (p.notDeliveredReason) { <span class="muted">· {{ p.notDeliveredReason }}</span> }
+            </p>
+          }
+          @for (c of d.childDeliveries ?? []; track c.id) {
+            <p>{{ 'deliveryDetail.redelivery.to' | translate }}
+              <a [routerLink]="['/deliveries', c.id]">#{{ c.code }}</a>
+              <span class="muted">· {{ c.date | date: 'dd/MM/yyyy' }}</span>
+            </p>
+          }
+        </section>
+      }
     }
 
     <!-- ⭐ 04/09/2026 (regola utente): ORE DA APPROVARE. Il partner vede quello

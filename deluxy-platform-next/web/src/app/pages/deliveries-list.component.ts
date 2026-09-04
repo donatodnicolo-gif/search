@@ -106,6 +106,28 @@ interface PropostaVendita {
             <span class="x" aria-hidden="true">×</span>
           </button>
         }
+        <!-- TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente: «in consegne,
+             anche storico, consenti filtri veloci su tipologie di servizi in
+             alto»). Le linguette sono la FAMIGLIA — cinque valori, coprono
+             tutte le 62.606 consegne — mentre il menu qui accanto sceglie il
+             servizio preciso fra i 48. La domanda vera e' quasi sempre «fammi
+             vedere le vendite», non «fammi vedere il Servizio Ora con
+             Approvazione»: quaranta linguette sarebbero una lista, non una
+             scorciatoia. Valgono in ogni vista, storico compreso. -->
+        <div class="quick-tabs">
+          <button type="button" class="quick-tab" [class.active]="!modello()"
+                  (click)="setModello('')">{{ 'deliveries.svc.all' | translate }}</button>
+          @for (m of MODELLI; track m) {
+            <button type="button" class="quick-tab" [class.active]="modello() === m"
+                    (click)="setModello(m)">{{ 'deliveries.svc.' + m | translate }}</button>
+          }
+        </div>
+        <select class="field" [ngModel]="servizio()" (ngModelChange)="setServizio($event)">
+          <option value="">{{ 'deliveries.svc.allServices' | translate }}</option>
+          @for (s of serviziVisibili(); track s.id) {
+            <option [value]="s.id">{{ s.name }}</option>
+          }
+        </select>
         <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="reload()">
           <option value="">{{ 'deliveries.allStatuses' | translate }}</option>
           @for (key of statusKeys; track key) {
@@ -429,6 +451,15 @@ interface PropostaVendita {
                   }
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
+                  <!-- RICONSEGNA (05/09/2026, regola utente): una consegna non
+                       riuscita non e' finita, e' da rifare. Il bottone riapre
+                       il modulo compilato uguale, con la data da scegliere e il
+                       legame con questa: quando la nuova nasce, questa passa
+                       in storico da sola. -->
+                  @if (d.status === 'not_delivered' && canManage()) {
+                    <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ riconsegna: d.id }"
+                       >{{ 'deliveries.redeliver' | translate }}</a>
+                  }
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
                   }
@@ -1682,6 +1713,42 @@ export class DeliveriesListComponent {
   readonly partnerFiltro = signal<string | null>(null);
   readonly partnerNome = signal<string | null>(null);
 
+  // ============================================================
+  // TIPOLOGIA DI SERVIZIO (05/09/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // Due livelli: la FAMIGLIA (linguette) e il SERVIZIO preciso (menu).
+  // Scegliendo una famiglia il menu si restringe a quella: offrire «Consegna
+  // Standard» dentro «Vendite» darebbe zero righe, e una lista vuota che
+  // poteva saperlo prima e' un difetto, non un risultato.
+  // ============================================================
+  /** Le cinque famiglie, in ordine di quante consegne pesano davvero. */
+  readonly MODELLI = ['PREZZO_FISSO', 'VENDITA', 'A_ORA', 'CORPORATE', 'MAGAZZINO'] as const;
+  readonly serviziTipi = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
+  readonly modello = signal('');
+  readonly servizio = signal('');
+
+  /** I servizi offerti dal menu: tutti, o solo quelli della famiglia scelta. */
+  serviziVisibili(): { id: string; name: string; pricingModel?: string }[] {
+    const m = this.modello();
+    const tutti = this.serviziTipi();
+    return m ? tutti.filter((s) => s.pricingModel === m) : tutti;
+  }
+
+  setModello(m: string): void {
+    if (this.modello() === m) return;
+    this.modello.set(m);
+    // Il servizio scelto puo' non appartenere alla nuova famiglia: si lascia
+    // cadere invece di incrociare due filtri che insieme non danno nulla.
+    const s = this.servizio();
+    if (s && !this.serviziVisibili().some((x) => x.id === s)) this.servizio.set('');
+    this.reload();
+  }
+
+  setServizio(id: string): void {
+    this.servizio.set(id ?? '');
+    this.reload();
+  }
+
   cambiaVista(v: 'attive' | 'storico' | 'tutte'): void {
     if (this.vista === v) return;
     this.vista = v;
@@ -1737,6 +1804,13 @@ export class DeliveriesListComponent {
     // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
     else if (qPartner || this.isPartnerRuolo()) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
+    // La tipologia di servizio torna col tasto indietro come gli altri filtri.
+    this.modello.set(p.get('pricingModel') ?? '');
+    this.servizio.set(p.get('serviceTypeId') ?? '');
+    // L'elenco dei servizi serve al menu: un giro solo, per tutti i ruoli
+    // (anche il partner filtra fra i propri).
+    this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/service-types`)
+      .subscribe({ next: (d) => this.serviziTipi.set(d ?? []), error: () => undefined });
     // ⚠️ 02/09 (regola utente): il partner apre su TUTTE le consegne, e
     // l'ordine è per DATA di consegna crescente — l'orario da solo (default
     // deliveryTimeFrom) mischierebbe i giorni fra loro.
@@ -2105,6 +2179,8 @@ export class DeliveriesListComponent {
         q: this.query.trim() || null,
         page: this.page() > 1 ? this.page() : null,
         partnerId: this.partnerFiltro(),
+        pricingModel: this.modello() || null,
+        serviceTypeId: this.servizio() || null,
       },
       replaceUrl: true,
     });
@@ -2297,12 +2373,16 @@ export class DeliveriesListComponent {
     if (this.statusFilter) n++;
     if (this.dateTo || (this.dateFilter && this.dateFilter !== this.oggi())) n++;
     if (this.partnerFiltro()) n++;
+    if (this.modello()) n++;
+    if (this.servizio()) n++;
     return n;
   }
 
   /** Riporta la pagina al suo stato di default (il vuoto-da-filtro ne ha bisogno). */
   azzeraFiltri(): void {
     this.statusFilter = '';
+    this.modello.set('');
+    this.servizio.set('');
     this.dateTo = '';
     this.dateFilter = this.oggi();
     this.page.set(1);
@@ -2324,6 +2404,8 @@ export class DeliveriesListComponent {
       .set('dir', this.dir())
       .set('view', this.vista);
     if (this.statusFilter) params = params.set('status', this.statusFilter);
+    if (this.modello()) params = params.set('pricingModel', this.modello());
+    if (this.servizio()) params = params.set('serviceTypeId', this.servizio());
     // Un giorno solo resta `date`, com'era. Con due estremi si passa a
     // dateFrom/dateTo, che il backend già capisce: `dateTo` include tutta la
     // giornata finale, se no l'ultimo giorno scelto resterebbe fuori.

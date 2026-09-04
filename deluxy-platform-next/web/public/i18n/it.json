@@ -797,6 +797,15 @@
       "rifiutaMessaggio": "la consegna passa nello Storico come «Non accettata» e l'ordine torna all'ufficio, che potrà riassegnarlo.",
       "motivo": "Motivo (facoltativo)"
     },
+    "svc": {
+      "all": "Tutte le tipologie",
+      "allServices": "Tutti i servizi",
+      "PREZZO_FISSO": "Prezzo fisso",
+      "VENDITA": "Vendite",
+      "A_ORA": "A ore",
+      "CORPORATE": "Corporate",
+      "MAGAZZINO": "Magazzino"
+    },
     "tl": {
       "tutte": "Tutte",
       "soloIo": "Solo io"

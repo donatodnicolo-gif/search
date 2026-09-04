@@ -796,6 +796,15 @@
       "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
       "motivo": "Reason (optional)"
     },
+    "svc": {
+      "all": "All types",
+      "allServices": "All services",
+      "PREZZO_FISSO": "Fixed price",
+      "VENDITA": "Sales",
+      "A_ORA": "Hourly",
+      "CORPORATE": "Corporate",
+      "MAGAZZINO": "Warehouse"
+    },
     "tl": {
       "tutte": "All",
       "soloIo": "Only me"

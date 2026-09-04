@@ -433,6 +433,15 @@ export class DeliveriesService {
     }
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
+    // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
+    // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
+    // sull'archivio che sul lavoro di oggi.
+    const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+    if (servizi.length === 1) scope.serviceTypeId = servizi[0];
+    else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
+    // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
+    // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
+    if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
     // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
     if (query.date) {
       const day = new Date(query.date);
@@ -574,6 +583,15 @@ export class DeliveriesService {
     else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
+    // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
+    // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
+    // sull'archivio che sul lavoro di oggi.
+    const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+    if (servizi.length === 1) scope.serviceTypeId = servizi[0];
+    else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
+    // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
+    // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
+    if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
     if (query.date) {
       const day = new Date(query.date);
       const next = new Date(day);

@@ -9,6 +9,7 @@
 > **Word sempre aggiornato** (per le persone): `docs/COME-FUNZIONA-APP-DELUXY.docx`, generato da questo `.md` con `npm run doc:word` — non modificarlo a mano. Snapshot storico originale: `docs/COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx`.
 >
 > **Changelog**
+> - 05/09/2026 — **Consegne: filtri veloci per tipologia di servizio** in cima alla lista, in ogni vista (Attive, Storico, Tutte) e anche sulla mappa. **Riconsegne**: il legame fra una consegna non riuscita e quella che la rifà torna vivo nell'app. **Costi rimborsati**: area C, parcheggi e acquisti hanno un campo loro, escono dal plus/minus e non toccano più il costo della consegna né il margine; in Finanza nasce il **Conto Economico**. **Ore dei servizi a ora**: il valet le dichiara chiudendo, il partner le approva o le rifiuta, e la decisione riscrive valore del servizio e paga. **Segnalazioni**: un reclamo si **approva o si respinge**, non si «chiude» e basta.
 > - 04/09/2026 (5) — **Vendite**: il **rifiuto ha due esiti** — il partner che rifiuta la rimanda all'ufficio «da gestire» (non gira più al partner successivo), l'ufficio che rifiuta la chiude in storico come non accettata; **pop-up di dettaglio** cliccando la riga (stessa struttura del Customer Service) con in fondo il **registro** della vendita (creazione, cambi di stato, modifiche campo per campo, agganci, con chi li ha fatti); colonna **Stato in Orders** letta dal vivo; nello Storico la **Data storico**. **Consegne**: le caselle della selezione multipla non si spuntavano (l'affondo della riga spostava la casella sotto il mouse): corretto.
 > - 04/09/2026 (4) — **Campo «Regole» sulla consegna**: il valore della regola carnet applicata (sconto o maggiorazione in fattura) ha un campo suo, `ruleAdjustment`, fotografato all'aggancio della regola; il **plus/minus resta solo per le variazioni manuali**. Si vede nel dettaglio consegna (riga «Regole» con il nome della regola), nel form (sola lettura) e in Fatturazione › Da fatturare (colonna «Regole», col plus manuale accanto). In fattura i due si sommano al prezzo. Migrati i dati: nelle 3.455 consegne dove il plus era la copia della regola il valore è passato in «Regole» e il plus è tornato vuoto; nelle 3.373 con la sola regola «Regole» è stato valorizzato; nelle 54 con un plus diverso il plus manuale è diventato la differenza, a totale invariato.
 > - 04/09/2026 (3) — **Il plus/minus recepisce la regola carnet, non si somma a lei** (regola dell'utente, caso Armani Fiori): con una regola agganciata il plus/minus scritto sulla consegna È lo sconto della regola (il legacy lo ricopiava lì su 3.455 consegne) e in fattura conta una volta sola — vale il plus scritto se c'è, altrimenti l'aggiustamento della regola. Prima si sommavano e una consegna da 27,98 € con regola −18 e plus −18 fatturava 0 invece di 9,98. Vale in Fatturazione, Da fatturare, Calcoli, dettaglio consegna e nel costo comunicato a Orders (§7-bis). Le bozze già generate si ricalcolano con `ricalcola-righe-bozze-regola.mjs`.
@@ -141,6 +142,25 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
   - **Valet**: solo **DETTAGLI**.
   - **Convenzione nuovo ambiente**: il bottone **DETTAGLI** non esiste — il dettaglio si apre **cliccando la riga** della consegna (per tutti i ruoli che vedono la lista). I bottoni restano solo per le azioni (Modifica, Assegna, Monitorare, Additional valet). **[NUOVO]**
 - **Vista team leader in Consegne**: un valet **team leader** può, in questa schermata, **vedere tutte le consegne (delle sue province) oppure filtrare per vedere solo le proprie** — ha un filtro "tutte / solo le mie". Un valet normale vede solo le proprie. **[NUOVO]**
+
+#### Filtri veloci per tipologia di servizio **[NUOVO 05/09/2026]**
+
+Regola dell'utente: «in consegne (anche storico) consenti filtri veloci su tipologie di servizi in alto». Sono **due livelli**, perché «tipologia» vuol dire due cose diverse:
+
+- le **linguette** in cima filtrano per **famiglia** del servizio — *Prezzo fisso*, *Vendite*, *A ore*, *Corporate*, *Magazzino* (`pricingModel`). Cinque valori che coprono tutte le consegne: sull'archivio del 05/09/2026 sono 39.402 · 13.735 · 9.165 · 200 · 104, e nessuna consegna resta senza famiglia;
+- il **menu a tendina** accanto sceglie **il servizio preciso** fra i 48 a catalogo. Scegliendo una famiglia il menu si restringe a quella, e un servizio che non le appartiene viene lasciato cadere: incrociare «Vendite» con «Consegna Standard» darebbe zero righe, e una lista vuota che poteva saperlo prima è un difetto, non un risultato.
+
+Il filtro vale in **ogni vista** — Attive, Storico, Tutte — e anche sulla **mappa**, che è la stessa pagina. Entra nel conteggio di «Filtri (N)», si azzera con «Azzera», e torna col tasto indietro come gli altri filtri (sta nell'indirizzo: `pricingModel`, `serviceTypeId`). Lato API: `GET /deliveries?pricingModel=VENDITA&serviceTypeId=<id>`; `serviceTypeId` accetta più id separati da virgola. ⚠️ La famiglia si filtra **sul servizio collegato** (`serviceType.pricingModel`), non su una copia scritta sulla consegna: è un dato del listino e ricopiarlo sarebbe una copia (Standard §7).
+
+#### Riconsegne: la consegna non riuscita si rifà **[NUOVO 05/09/2026]**
+
+Regola dell'utente: «le non consegnate devono essere visibili in consegne con bottone Riconsegna che ricrea il form di consegna con data da inserire e collegamento con la non consegnata; quando questa nuova consegna viene inserita la non consegnata va in storico; in fatturazione la non consegnata va comunque fatturata anche quando è in consegne».
+
+- Il legame **esisteva già in banca dati** (`Delivery.parentDeliveryId`, autorelazione `DeliveryPadre`: 72 consegne collegate, 57 nate da una non consegnata) ma **nessuno lo scriveva più** dall'import del legacy. Ora lo scrive l'app.
+- In **Consegne** una consegna **non consegnata** resta fra le **attive finché non ha una riconsegna**, con il bottone **Riconsegna**. Non è uno stato nuovo — lo stato resta `not_delivered` — è la lista che smette di chiedere una cosa già fatta.
+- Il bottone apre il **form già compilato** con i dati della vecchia (`/deliveries/new?riconsegna=<id>`), **data vuota**: quando si riprova è la sola cosa da decidere. Al salvataggio il form manda `parentDeliveryId`.
+- Appena la riconsegna nasce, la vecchia **passa in Storico** e le due si citano nel registro («Riconsegnata con la consegna #N» / «Riconsegna della #N»). Nel **dettaglio** il legame si legge nei due versi, con il motivo della mancata consegna.
+- **La fatturazione non cambia**: le non consegnate si fatturano già (non sono fra i `NON_BILLABLE_STATUSES`, che sono annullata, invalidata e non accettata), e restano fatturabili sia mentre stanno fra le attive sia dopo il passaggio in storico.
 
 #### Dettaglio consegna (`/consegne/:id`)
 
@@ -432,6 +452,15 @@ Solo **Admin e Operation**, **voce di menu** nella sezione Prodotti (`nav.riconc
 ### 3.8 Finanza (`/finanza`)
 
 Visibile solo agli admin abilitati (es. utente "support").
+
+#### Costi rimborsati e Conto Economico **[NUOVO 05/09/2026]**
+
+Regola dell'utente: «per le aree C e i rimborsi crea un campo *Costi Rimborsati*; il totale va in un Conto Economico in Finanza dove togli anche tutti questi costi».
+
+- Sulla consegna c'è il campo **`refundedCosts`**. Ci finisce l'importo di una **segnalazione approvata** (rimborso, area C, acquisto fatto per conto nostro); riaprendo la segnalazione l'importo si storna.
+- Prima quell'importo entrava nel **plus/minus del valet**, che è **paga**: faceva costo della consegna e **sporcava il margine**. Un'area C non è il prezzo del viaggio, è una spesa che torna indietro.
+- Nel **recap del valet** i costi rimborsati hanno una voce loro: **non** entrano nel lordo (sul lordo si calcolano rimborso forfetario e ritenuta) ma il valet li riceve col bonifico — `totaleBonifico = lordo + costiRimborsati`, `netto = lordo + costiRimborsati − contanti`.
+- In **Finanza** compaiono due numeri nuovi: **Costi rimborsati** del periodo e **Conto Economico** = *margine totale − costi rimborsati*. Il margine resta quello dei servizi; il Conto Economico dice quanto resta davvero.
 
 - Tab **CORRISPETTIVI**: per ogni **vendita** — la parola è letterale, vedi l'ambito qui sotto — Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
 - Tab **MARGINI**: margini totali dell'azienda.
