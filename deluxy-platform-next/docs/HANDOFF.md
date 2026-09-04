@@ -3,6 +3,16 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧮 **04/09/2026-sedecies — RICONCILIAZIONI: il patto è il PREZZO AL PARTNER; consegna in tabella; corsa notturna SOSPESA; «Riconcilia» sulla vendita; stato Orders = salute; foto del prodotto nel modulo** (LIVE, deploy `delivery-qfgd2b3wy`, bundle `main-URFKWPN7.js` verificato).
+> - **Prezzo al partner**: colonna `partnerPrice` (migrazione additiva ESEGUITA in prod, backfill da price×(1−sconto)). `genera` prende la moda dei NETTI per partner; la modifica cambia il prezzo al partner; lo smistamento tiene l'importo cliente di listino e ricava la quota con `SalesService.quotaPerDare` (se il patto supera l'importo, quota 0: non si inventano quote negative).
+> - **Consegna in tabella**: colonna «Consegna» con `#code` (vendita → deliveryId → consegna) e sotto il numero d'ordine.
+> - **Corsa notturna SOSPESA** (regola utente): tolta da `vercel.json` (restano margini e smistamento). La rotta `/cron/riconciliazioni` resta viva per un lancio a mano col segreto.
+> - **Voce di menu riparata**: la chiave era finita in `nav.section`, quindi il menu mostrava la chiave grezza.
+> - **«Riconcilia» sulla vendita** (sotto l'indirizzo, solo ufficio): `GET /sales/:id/consegne-indirizzo` cerca consegne di tipo VENDITA allo stesso indirizzo normalizzato (±10 giorni dalla data); `POST /sales/:id/riconcilia-consegna` mette la vendita in STORICO (accettata, collegata) e aggiunge il riferimento al DDT della consegna (senza sovrascrivere quello che c'era). Rifiuta se la consegna è già di un'altra vendita.
+> - **Stato in Orders = SALUTE**: la colonna mostra conforme/a rischio/non pagato/cancellato/nullo col colore, e la pipeline scende nel sottotitolo.
+> - **Foto del prodotto** nel modulo consegna: miniatura in ogni riga (anche in modifica e quando il modulo arriva da «Inserisci» su una vendita) e visore a schermo.
+> - ⚠️ **2863 non è in Vendite**: in Orders esiste (Flowers, 04/09, conforme) ma ha `evasione = fornitore_diretto`, e lo smistamento salta di proposito gli ordini già affidati in chat (come i `smistamento = manuale`). Non è un difetto: per portarlo in Vendite va tolto quel segno in Orders/CS.
+>
 > 🗂️ **04/09/2026-quindecies — Anagrafica: si sceglie il candidato o si chiede di crearla; orari copiabili su tutta la settimana; province in italiano** (le province SONO GIÀ scritte in produzione; il resto è in locale, non deployato).
 > - **Registro Anagrafiche** (scheda partner): con più candidati ora ogni riga ha «Collega questa» e sotto c'è «Crea una scheda nuova nel registro». API: `POST /partners/:id/anagrafica/sincronizza` accetta `{anagraficaId}` (PATCH sul record scelto) o `{creaNuova:true}` (POST, e il messaggio dice che il doppione è voluto). Senza corpo, il comportamento di prima.
 > - **Orari di apertura**: bottone «Copia su tutta la settimana» su ogni giorno (copia anche «chiuso»; si salva con Salva). Solo dove già si modificano gli orari, quindi ufficio.
