@@ -17,7 +17,8 @@ import { ProductType, Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
-type Candidato = { partnerId: string; motivo: string };
+/** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
+type Candidato = { partnerId: string; motivo: string; prezzo?: number; sconto?: number };
 
 /** Quel che serve allo smistamento per decidere: niente di piu'. */
 type ProdottoDaSmistare = {
@@ -248,8 +249,10 @@ export class SalesService {
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
         // il valore della vendita e' il SUO listino, non quello del base.
-        amount: variante?.price ?? product.price ?? 0,
-        discountPercent: sconto?.discountPercent ?? 0,
+        // ⭐ 04/09 (regola utente): se c'e' una RICONCILIAZIONE accettata per
+        // prodotto × provincia, la vendita nasce al SUO prezzo e al suo sconto.
+        amount: scelto?.prezzo ?? variante?.price ?? product.price ?? 0,
+        discountPercent: scelto?.sconto ?? sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
@@ -895,6 +898,16 @@ export class SalesService {
         }
       }
       return lista;
+    }
+    // ⭐ 04/09 (regola utente): la RICONCILIAZIONE accettata per (prodotto,
+    // provincia) vince su lista di priorita' e ripiego: quel prodotto, li', va
+    // SOLO a quel partner, a quel prezzo. Nasce in Prodotti → Riconciliazioni.
+    const regola = await this.prisma.productReconciliation.findFirst({
+      where: { productId: product.id, provinceId, status: 'accettata' },
+      select: { partnerId: true, price: true, discountPercent: true },
+    });
+    if (regola) {
+      return [{ partnerId: regola.partnerId, motivo: 'riconciliazione prodotto/provincia', prezzo: regola.price, sconto: regola.discountPercent }];
     }
     if (!product.categoryId) return [];
 

@@ -1,11 +1,13 @@
 // ============================================================
-// RICONCILIAZIONI PRODOTTO ↔ PARTNER (04/09/2026, chiesto dall'utente)
+// RICONCILIAZIONI PRODOTTO × PROVINCIA → PARTNER A UN PREZZO
+// (04/09/2026, regola utente — seconda stesura)
 // ------------------------------------------------------------
-// Sezione di Prodotti per Admin e Operation. L'AI (di notte, o a mano su un
-// intervallo di date) legge le vendite accettate dai partner e PROPONE se
-// fissare un prodotto su un partner a un prezzo. Qui si decide: «Riconcilia»
-// tocca il prodotto, «Ignora» lo lascia com'è. Il lancio manuale mostra
-// subito le righe che ha scritto.
+// Sezione di Prodotti per Admin e Operation. Ogni riga è una coppia
+// (prodotto non unico, provincia) vista in una vendita accettata: a quale
+// partner è andata e a che prezzo. «Accetta» la rende regola: da lì le
+// vendite di quel prodotto in quella provincia vanno in automatico a quel
+// partner a quel prezzo. «Rifiuta» = non viene più proposta. «Modifica»
+// cambia partner, prezzo e sconto, anche su una regola già attiva.
 // ============================================================
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -26,6 +28,7 @@ interface StatPartner {
   prezzoMax: number;
   prezzoModa: number;
   scontoMedio: number;
+  ultimaVendita: string;
 }
 
 interface Riga {
@@ -33,44 +36,43 @@ interface Riga {
   productId: string;
   prodotto: string;
   sku: string | null;
-  tipoAttuale: string;
-  partnerAttualeId: string | null;
-  partnerAttuale: string | null;
+  tipoProdotto: string;
   prezzoListino: number;
   conVarianti: boolean;
-  da: string;
-  a: string;
+  provinceId: string;
+  provincia: string | null;
+  provinciaCodice: string | null;
+  partnerId: string;
+  partner: string | null;
+  partnerAttivo: boolean;
+  prezzo: number;
+  sconto: number;
+  prezzoPartner: number;
   vendite: number;
   stats: StatPartner[];
-  riconciliare: boolean;
-  partnerId: string | null;
-  partner: string | null;
-  prezzo: number | null;
-  motivo: string;
-  confidenza: string;
-  modello: string;
-  stato: 'proposta' | 'nessuna' | 'accettata' | 'rifiutata';
+  ultimoOrdine: string | null;
+  stato: 'proposta' | 'accettata' | 'rifiutata';
   innesco: string;
   decisaIl: string | null;
   decisaDa: string | null;
-  creataIl: string;
+  aggiornataIl: string;
 }
 
 interface EsitoCorsa {
-  analizzati: number;
-  proposte: number;
   venditeLette: number;
-  prodottiOltreIlTetto: number;
-  modello: string | null;
+  coppie: number;
+  proposteNuove: number;
+  proposteAggiornate: number;
+  giaDecise: number;
   righe: Riga[];
 }
 
 interface UltimaCorsa {
   quando: string;
   ok: boolean;
-  analizzati?: number;
-  proposte?: number;
   venditeLette?: number;
+  proposteNuove?: number;
+  proposteAggiornate?: number;
   errore?: string;
 }
 
@@ -104,7 +106,7 @@ interface UltimaCorsa {
         @if (ultima(); as u) {
           {{ u.quando | date: 'dd/MM/yyyy HH:mm' }} —
           @if (u.ok) {
-            {{ 'reconciliations.runResult' | translate: { analizzati: u.analizzati, venditeLette: u.venditeLette, proposte: u.proposte } }}
+            {{ 'reconciliations.runResult' | translate: { vendite: u.venditeLette, nuove: u.proposteNuove, aggiornate: u.proposteAggiornate } }}
           } @else {
             <span class="ko">{{ 'reconciliations.lastNightError' | translate }}: {{ u.errore }}</span>
           }
@@ -114,10 +116,9 @@ interface UltimaCorsa {
       </p>
       @if (esito(); as e) {
         <p class="esito ok">
-          {{ 'reconciliations.runResult' | translate: { analizzati: e.analizzati, venditeLette: e.venditeLette, proposte: e.proposte } }}
-          @if (e.prodottiOltreIlTetto > 0) {
-            <br />{{ 'reconciliations.runOver' | translate: { n: e.prodottiOltreIlTetto } }}
-          }
+          {{ 'reconciliations.runResult' | translate: { vendite: e.venditeLette, nuove: e.proposteNuove, aggiornate: e.proposteAggiornate } }}
+          @if (e.giaDecise > 0) { · {{ 'reconciliations.runDecided' | translate: { n: e.giaDecise } }} }
+          @if (e.venditeLette === 0) { <br />{{ 'reconciliations.runNothing' | translate }} }
         </p>
       }
       @if (errore(); as err) {
@@ -144,11 +145,10 @@ interface UltimaCorsa {
           <thead>
             <tr>
               <th>{{ 'reconciliations.col.product' | translate }}</th>
-              <th class="num">{{ 'reconciliations.col.sales' | translate }}</th>
-              <th>{{ 'reconciliations.col.partners' | translate }}</th>
-              <th>{{ 'reconciliations.col.today' | translate }}</th>
-              <th>{{ 'reconciliations.col.proposal' | translate }}</th>
-              <th>{{ 'reconciliations.col.reason' | translate }}</th>
+              <th>{{ 'reconciliations.col.province' | translate }}</th>
+              <th>{{ 'reconciliations.col.sales' | translate }}</th>
+              <th>{{ 'reconciliations.col.partner' | translate }}</th>
+              <th class="num">{{ 'reconciliations.col.price' | translate }}</th>
               <th>{{ 'reconciliations.col.state' | translate }}</th>
               <th class="azioni">{{ 'reconciliations.col.actions' | translate }}</th>
             </tr>
@@ -159,35 +159,44 @@ interface UltimaCorsa {
                 <td>
                   <a [routerLink]="['/products', r.productId]"><b>{{ r.prodotto }}</b></a>
                   @if (r.sku) { <div class="muted mono">{{ r.sku }}</div> }
-                  <div class="muted">{{ r.da | date: 'dd/MM/yy' }} → {{ r.a | date: 'dd/MM/yy' }} · {{ ('reconciliations.trigger_' + r.innesco) | translate }}</div>
+                  <div class="muted">{{ 'reconciliations.listPrice' | translate: { prezzo: fmt(r.prezzoListino) } }}@if (r.ultimoOrdine) { · #{{ r.ultimoOrdine }} }</div>
                 </td>
-                <td class="num">{{ r.vendite }}</td>
+                <td><b>{{ r.provinciaCodice }}</b> <span class="muted">{{ r.provincia }}</span></td>
                 <td>
                   @for (s of r.stats; track s.partnerId) {
                     <div class="stat">
-                      <b>{{ s.insegna }}</b> {{ s.vendite }} ({{ s.quotaPercento }}%)
+                      {{ s.insegna }}: <b>{{ s.vendite }}</b> ({{ s.quotaPercento }}%)
                       · @if (s.prezzoMin === s.prezzoMax) { {{ s.prezzoModa | number: '1.2-2' }} € } @else { {{ s.prezzoMin | number: '1.2-2' }}–{{ s.prezzoMax | number: '1.2-2' }} € }
                     </div>
                   }
                 </td>
+                @if (modificaId() === r.id) {
+                  <td>
+                    <select class="field" [(ngModel)]="mod.partnerId" [attr.name]="'partner-' + r.id">
+                      @for (p of partnerScelta(); track p.id) {
+                        <option [value]="p.id">{{ p.insegna }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="num mod-prezzo">
+                    <label><span>{{ 'reconciliations.editPrice' | translate }}</span>
+                      <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.price" [attr.name]="'prezzo-' + r.id" /></label>
+                    <label><span>{{ 'reconciliations.editDiscount' | translate }}</span>
+                      <input class="field num" type="number" min="0" max="100" step="0.01" [(ngModel)]="mod.discountPercent" [attr.name]="'sconto-' + r.id" /></label>
+                    <div class="muted small">{{ 'reconciliations.toPartner' | translate: { prezzo: fmt(nettoMod()) } }}</div>
+                  </td>
+                } @else {
+                  <td>
+                    <b>{{ r.partner ?? '—' }}</b>
+                    @if (!r.partnerAttivo) { <div class="ko small">{{ 'reconciliations.partnerInactive' | translate }}</div> }
+                  </td>
+                  <td class="num">
+                    <div><b>{{ r.prezzo | number: '1.2-2' }} €</b></div>
+                    <div class="muted small">{{ 'reconciliations.toPartner' | translate: { prezzo: fmt(r.prezzoPartner) } }}@if (r.sconto) { · −{{ r.sconto }}% }</div>
+                  </td>
+                }
                 <td>
-                  <div>{{ 'reconciliations.todayLine' | translate: { tipo: r.tipoAttuale, prezzo: fmt(r.prezzoListino) } }}</div>
-                  @if (r.partnerAttuale) { <div class="muted">{{ 'reconciliations.todayPartner' | translate: { partner: r.partnerAttuale } }}</div> }
-                </td>
-                <td>
-                  @if (r.riconciliare || r.stato === 'accettata') {
-                    <div><b>{{ 'reconciliations.proposalLine' | translate: { partner: r.partner } }}</b></div>
-                    <div class="muted">{{ r.prezzo !== null ? ('reconciliations.proposalPrice' | translate: { prezzo: fmt(r.prezzo) }) : ('reconciliations.proposalNoPrice' | translate) }}</div>
-                  } @else {
-                    <span class="muted">{{ 'reconciliations.noProposal' | translate }}</span>
-                  }
-                  <div class="conf" [class.alta]="r.confidenza === 'alta'" [class.media]="r.confidenza === 'media'" [class.bassa]="r.confidenza === 'bassa'">
-                    {{ 'reconciliations.confidence' | translate: { c: r.confidenza } }}
-                  </div>
-                </td>
-                <td class="motivo">{{ r.motivo }}</td>
-                <td>
-                  <span class="badge" [class.ok]="r.stato === 'accettata'" [class.warn]="r.stato === 'proposta'" [class.off]="r.stato === 'rifiutata' || r.stato === 'nessuna'">
+                  <span class="badge" [class.ok]="r.stato === 'accettata'" [class.warn]="r.stato === 'proposta'" [class.off]="r.stato === 'rifiutata'">
                     {{ ('reconciliations.state_' + r.stato) | translate }}
                   </span>
                   @if (r.decisaIl) {
@@ -195,9 +204,15 @@ interface UltimaCorsa {
                   }
                 </td>
                 <td class="azioni">
-                  @if (r.stato === 'proposta') {
-                    <button type="button" class="btn btn-primary mini" [disabled]="inAzione()" (click)="chiedi(r, 'accetta')">{{ 'reconciliations.accept' | translate }}</button>
-                    <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="chiedi(r, 'rifiuta')">{{ 'reconciliations.reject' | translate }}</button>
+                  @if (modificaId() === r.id) {
+                    <button type="button" class="btn btn-primary mini" [disabled]="inAzione()" (click)="salvaModifica(r)">{{ 'common.save' | translate }}</button>
+                    <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="modificaId.set(null)">{{ 'common.cancel' | translate }}</button>
+                  } @else {
+                    @if (r.stato === 'proposta') {
+                      <button type="button" class="btn btn-primary mini" [disabled]="inAzione()" (click)="chiedi(r, 'accetta')">{{ 'reconciliations.accept' | translate }}</button>
+                      <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="chiedi(r, 'rifiuta')">{{ 'reconciliations.reject' | translate }}</button>
+                    }
+                    <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="apriModifica(r)">{{ 'reconciliations.edit' | translate }}</button>
                   }
                 </td>
               </tr>
@@ -229,16 +244,14 @@ interface UltimaCorsa {
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       .table-wrap { overflow-x: auto; }
       td.num, th.num { text-align: right; }
-      td.motivo { max-width: 360px; font-size: 13px; }
       td.azioni { white-space: nowrap; }
       td.azioni .btn + .btn { margin-left: 6px; }
+      .mod-prezzo label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-align: left; }
+      .mod-prezzo .field { width: 110px; }
       .stat { font-size: 13px; white-space: nowrap; }
       .muted { color: var(--text-secondary); font-size: 13px; }
       .small { font-size: 12px; }
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-      .conf { margin-top: 4px; font-size: 12px; color: var(--text-secondary); }
-      .conf.alta { color: var(--success, #1d7a3a); }
-      .conf.bassa { color: var(--danger, #b3261e); }
       .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight: 550; background: var(--fill); }
       .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
       .badge.ok { color: var(--success, #1d7a3a); background: rgba(29, 122, 58, 0.1); }
@@ -253,7 +266,7 @@ export class ProductReconciliationsComponent {
   private readonly translate = inject(TranslateService);
   private readonly decimal = inject(DecimalPipe);
 
-  readonly filtri = ['Proposte', 'Nessuna', 'Accettate', 'Rifiutate', 'Tutte'] as const;
+  readonly filtri = ['Proposte', 'Accettate', 'Rifiutate', 'Tutte'] as const;
   readonly filtro = signal<(typeof this.filtri)[number]>('Proposte');
   readonly righe = signal<Riga[]>([]);
   readonly caricando = signal(false);
@@ -264,11 +277,19 @@ export class ProductReconciliationsComponent {
   readonly ultima = signal<UltimaCorsa | null>(null);
   readonly conferma = signal<{ titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary'; riga: Riga; azione: 'accetta' | 'rifiuta' } | null>(null);
 
+  /** Modifica in riga: partner (fra chi opera nella provincia), prezzo, sconto. */
+  readonly modificaId = signal<string | null>(null);
+  readonly partnerScelta = signal<{ id: string; insegna: string }[]>([]);
+  mod: { partnerId: string; price: number | null; discountPercent: number | null } = { partnerId: '', price: null, discountPercent: null };
+
   /** Intervallo di default: gli ultimi 90 giorni, come la corsa notturna. */
-  da = this.iso(new Date(Date.now() - 90 * 86400000));
-  a = this.iso(new Date());
+  da = '';
+  a = '';
 
   constructor() {
+    const oggi = new Date();
+    this.a = this.iso(oggi);
+    this.da = this.iso(new Date(oggi.getTime() - 90 * 86400000));
     this.carica();
     this.http.get<UltimaCorsa | null>(`${environment.apiUrl}/riconciliazioni/ultima-corsa`).subscribe({
       next: (u) => this.ultima.set(u),
@@ -284,14 +305,20 @@ export class ProductReconciliationsComponent {
     return n === null ? '' : (this.decimal.transform(n, '1.2-2') ?? String(n));
   }
 
+  nettoMod(): number | null {
+    if (this.mod.price === null) return null;
+    return Math.round(this.mod.price * (1 - (this.mod.discountPercent ?? 0) / 100) * 100) / 100;
+  }
+
   private statoDelFiltro(): string {
     const f = this.filtro();
-    return f === 'Proposte' ? 'proposta' : f === 'Nessuna' ? 'nessuna' : f === 'Accettate' ? 'accettata' : f === 'Rifiutate' ? 'rifiutata' : 'tutte';
+    return f === 'Proposte' ? 'proposta' : f === 'Accettate' ? 'accettata' : f === 'Rifiutate' ? 'rifiutata' : 'tutte';
   }
 
   setFiltro(f: (typeof this.filtri)[number]): void {
     if (this.filtro() === f) return;
     this.filtro.set(f);
+    this.modificaId.set(null);
     this.carica();
   }
 
@@ -309,7 +336,7 @@ export class ProductReconciliationsComponent {
     });
   }
 
-  /** Lancio manuale: l'esito torna subito, e la tabella mostra le righe scritte. */
+  /** Lancio manuale: l'esito torna subito, e la tabella mostra le righe toccate. */
   analizza(): void {
     this.analizzando.set(true);
     this.esito.set(null);
@@ -318,9 +345,12 @@ export class ProductReconciliationsComponent {
       next: (e) => {
         this.analizzando.set(false);
         this.esito.set(e);
-        // Le righe appena scritte, tutte: chi ha lanciato vuole vedere anche i «no».
-        this.filtro.set('Tutte');
-        this.righe.set(e.righe);
+        if (e.righe.length) {
+          this.filtro.set('Proposte');
+          this.righe.set(e.righe);
+        } else {
+          this.carica();
+        }
       },
       error: (e: HttpErrorResponse) => {
         this.analizzando.set(false);
@@ -335,13 +365,12 @@ export class ProductReconciliationsComponent {
       riga: r,
       azione,
       titolo: this.translate.instant(accetta ? 'reconciliations.acceptTitle' : 'reconciliations.rejectTitle'),
-      messaggio: accetta
-        ? this.translate.instant('reconciliations.acceptMsg', {
-            prodotto: r.prodotto,
-            partner: r.partner,
-            prezzo: r.prezzo !== null ? this.translate.instant('reconciliations.acceptPrice', { prezzo: this.fmt(r.prezzo) }) : '',
-          })
-        : this.translate.instant('reconciliations.rejectMsg'),
+      messaggio: this.translate.instant(accetta ? 'reconciliations.acceptMsg' : 'reconciliations.rejectMsg', {
+        prodotto: r.prodotto,
+        provincia: r.provinciaCodice,
+        partner: r.partner,
+        prezzo: this.fmt(r.prezzo),
+      }),
       verbo: this.translate.instant(accetta ? 'reconciliations.accept' : 'reconciliations.reject'),
       tono: accetta ? 'primary' : 'danger',
     });
@@ -356,13 +385,56 @@ export class ProductReconciliationsComponent {
     this.http.post<Riga>(`${environment.apiUrl}/riconciliazioni/${c.riga.id}/${c.azione}`, {}).subscribe({
       next: (aggiornata) => {
         this.inAzione.set(false);
-        this.righe.update((righe) => righe.map((r) => (r.id === aggiornata.id ? aggiornata : r)));
+        this.sostituisci(aggiornata);
       },
       error: (e: HttpErrorResponse) => {
         this.inAzione.set(false);
         this.errore.set(this.translate.instant('reconciliations.errorDecide', { msg: this.msg(e) }));
       },
     });
+  }
+
+  apriModifica(r: Riga): void {
+    this.mod = { partnerId: r.partnerId, price: r.prezzo, discountPercent: r.sconto };
+    this.partnerScelta.set(r.partner ? [{ id: r.partnerId, insegna: r.partner }] : []);
+    this.modificaId.set(r.id);
+    this.http.get<{ id: string; insegna: string }[]>(`${environment.apiUrl}/riconciliazioni/partner-in-provincia/${r.provinceId}`).subscribe({
+      next: (lista) => {
+        // Il partner di oggi resta selezionabile anche se non opera più lì: si vede, non sparisce.
+        const conAttuale = lista.some((p) => p.id === r.partnerId) || !r.partner ? lista : [{ id: r.partnerId, insegna: r.partner! }, ...lista];
+        this.partnerScelta.set(conAttuale);
+      },
+    });
+  }
+
+  salvaModifica(r: Riga): void {
+    this.inAzione.set(true);
+    this.errore.set(null);
+    this.http.put<Riga>(`${environment.apiUrl}/riconciliazioni/${r.id}`, {
+      partnerId: this.mod.partnerId,
+      price: this.mod.price,
+      discountPercent: this.mod.discountPercent ?? 0,
+    }).subscribe({
+      next: (aggiornata) => {
+        this.inAzione.set(false);
+        this.modificaId.set(null);
+        this.sostituisci(aggiornata);
+      },
+      error: (e: HttpErrorResponse) => {
+        this.inAzione.set(false);
+        this.errore.set(this.translate.instant('reconciliations.errorDecide', { msg: this.msg(e) }));
+      },
+    });
+  }
+
+  /** La riga aggiornata prende il posto della vecchia; se non rientra più nel filtro, sparisce. */
+  private sostituisci(aggiornata: Riga): void {
+    const stato = this.statoDelFiltro();
+    this.righe.update((righe) =>
+      stato === 'tutte' || aggiornata.stato === stato
+        ? righe.map((r) => (r.id === aggiornata.id ? aggiornata : r))
+        : righe.filter((r) => r.id !== aggiornata.id),
+    );
   }
 
   private msg(e: HttpErrorResponse): string {

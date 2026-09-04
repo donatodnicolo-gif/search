@@ -1,24 +1,23 @@
 // ============================================================
-// RICONCILIAZIONI PRODOTTO ↔ PARTNER (04/09/2026, chiesto dall'utente)
+// RICONCILIAZIONI PRODOTTO × PROVINCIA → PARTNER A UN PREZZO
+// (04/09/2026, regola utente — seconda stesura, la prima usava l'AI)
 // ------------------------------------------------------------
-// «Per admin e operation in prodotti fai sezione riconciliazioni dove l'AI
-// analizza ogni notte ordini dati a partner e prezzi e comunica se
-// riconciliare il prodotto con partner così che tutte le prossime vendite
-// vadano a quel partner a quel prezzo.» E poi: «dai possibilità di inviare
-// ordini di un intervallo personalizzato e restituire risultati anche con
-// lancio manuale».
+// «Se un prodotto in una vendita non è unico, o è non-unico ma per quella
+// provincia non ha una riconciliazione, mostra prodotto, provincia, partner e
+// prezzo dato, con due bottoni: accetta e rifiuta. Se accetta, le prossime
+// vendite andranno in automatico; se rifiuta non sarà mai più proposta. Metti
+// anche un modifica per modificare la riconciliazione.»
 //
-// ⭐ LA REGOLA: l'AI PROPONE, una persona DECIDE. Ogni corsa (di notte o a
-// mano) legge le vendite ACCETTATE dai partner in una finestra di date, le
-// raggruppa per prodotto, calcola i numeri (quante a chi, a quale prezzo) e
-// chiede al modello se conviene «riconciliare»: fissare il prodotto su quel
-// partner a quel prezzo. La proposta finisce in tabella con il motivo; solo
-// «Riconcilia» dell'ufficio tocca il prodotto (partner proprietario, tipo
-// UNICO, prezzo di listino) — e la riga conserva com'era prima.
+// ⭐ LA REGOLA: una riga per coppia (prodotto, provincia). Nasce come PROPOSTA
+// dalle vendite accettate — a chi è andata davvero, a che prezzo — e diventa
+// REGOLA quando una persona la accetta: da lì lo smistamento propone quel
+// prodotto, in quella provincia, SOLO a quel partner e a quel prezzo
+// (`SalesService.candidati`, prima della lista di priorità). Rifiutata = non
+// si ripropone più. Modificabile in ogni momento (partner, prezzo, sconto).
 //
-// ⚠️ I numeri li calcola il codice, non il modello: al modello arrivano
-// conteggi e prezzi già fatti, e la risposta è vincolata a uno schema con i
-// soli partner presenti nei dati. Un partner inventato non può passare.
+// ⚠️ Niente AI qui: la proposta è un fatto (la vendita c'è stata), non un
+// giudizio. I numeri li fa il codice e la decisione la prende l'ufficio.
+// L'`AiService.strutturato` resta per chi vorrà un parere in più.
 // ============================================================
 import {
   BadRequestException,
@@ -31,21 +30,17 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AiModule, AiService } from '../ai/ai.module';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Quanti prodotti al massimo per corsa (i più venduti prima). */
-const MAX_PRODOTTI_PER_CORSA = 80;
-/** Quanti prodotti per chiamata al modello. */
-const PRODOTTI_PER_CHIAMATA = 20;
-/** Finestra di default della corsa notturna, in giorni. */
+/** Finestra della corsa notturna, in giorni. */
 const GIORNI_NOTTE = 90;
 
 type StatPartner = {
@@ -58,65 +53,15 @@ type StatPartner = {
   prezzoMax: number;
   prezzoModa: number;
   scontoMedio: number;
+  ultimaVendita: string;
 };
-
-type Riepilogo = {
-  productId: string;
-  nome: string;
-  sku: string | null;
-  tipo: string;
-  partnerAttualeId: string | null;
-  partnerAttuale: string | null;
-  prezzoListino: number;
-  conVarianti: boolean;
-  vendite: number;
-  partner: StatPartner[];
-};
-
-const SCHEMA_DECISIONI = {
-  type: 'object' as const,
-  additionalProperties: false,
-  properties: {
-    decisioni: {
-      type: 'array' as const,
-      items: {
-        type: 'object' as const,
-        additionalProperties: false,
-        properties: {
-          productId: { type: 'string' as const },
-          riconciliare: { type: 'boolean' as const },
-          partnerId: { anyOf: [{ type: 'string' as const }, { type: 'null' as const }] },
-          prezzo: { anyOf: [{ type: 'number' as const }, { type: 'null' as const }] },
-          motivo: { type: 'string' as const, description: 'Una o due frasi in italiano, coi numeri' },
-          confidenza: { type: 'string' as const, enum: ['alta', 'media', 'bassa'] },
-        },
-        required: ['productId', 'riconciliare', 'partnerId', 'prezzo', 'motivo', 'confidenza'],
-      },
-    },
-  },
-  required: ['decisioni'],
-};
-
-const ISTRUZIONI = [
-  'Sei il responsabile operativo di Deluxy, consegne di lusso. Decidi se RICONCILIARE un prodotto con un partner: cioè fissare che tutte le prossime vendite di quel prodotto vadano a quel partner a quel prezzo.',
-  'Ricevi, per ogni prodotto, i numeri già calcolati: quante vendite accettate nel periodo, a quali partner, con quale quota percentuale, a quali prezzi (min, max, moda), e com\'è impostato oggi il prodotto (tipo UNICO/NON_UNICO, partner proprietario, prezzo di listino).',
-  '',
-  'REGOLE, in ordine di importanza:',
-  '1. Proponi di riconciliare SOLO se un partner domina chiaramente: almeno 3 vendite e almeno il 70% delle vendite del prodotto. Con meno dati la risposta è riconciliare=false e lo dici nel motivo.',
-  '2. partnerId deve essere uno dei partnerId elencati per QUEL prodotto. Mai altri. Se il partner dominante non è attivo, riconciliare=false.',
-  '3. prezzo: la moda dei prezzi di quel partner, se i prezzi sono stabili (min e max vicini). Se i prezzi ballano molto, lascia prezzo=null e spiegalo. Se il prodotto ha varianti, prezzo=null sempre (il prezzo sta sulle varianti).',
-  '4. Se il prodotto è GIÀ UNICO di quel partner e il prezzo di listino coincide con la moda, riconciliare=false con motivo «già impostato così».',
-  '5. Nel motivo scrivi i numeri (es. «12 vendite su 13 a Flor, sempre a 45 €»): chi legge deve poterti smentire a colpo d\'occhio.',
-  '6. confidenza: alta con molte vendite e prezzi stabili; media con pochi dati o prezzi variabili; bassa se il quadro è ambiguo.',
-  '7. Rispondi per OGNI prodotto ricevuto, con il suo productId esatto.',
-].join('\n');
 
 const arrotonda = (n: number) => Math.round(n * 100) / 100;
 
 function moda(valori: number[]): number {
   const conta = new Map<number, number>();
   for (const v of valori) conta.set(arrotonda(v), (conta.get(arrotonda(v)) ?? 0) + 1);
-  let migliore = valori[0] ?? 0;
+  let migliore = arrotonda(valori[0] ?? 0);
   let max = 0;
   for (const [v, n] of conta) {
     if (n > max || (n === max && v > migliore)) {
@@ -129,270 +74,237 @@ function moda(valori: number[]): number {
 
 @Injectable()
 export class RiconciliazioniService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly ai: AiService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /** I numeri per prodotto: chi ha venduto che cosa, a quanto. Solo codice. */
-  private async riepiloghi(da: Date, a: Date): Promise<{ riepiloghi: Riepilogo[]; prodottiTotali: number; venditeLette: number }> {
+  /**
+   * Le PROPOSTE dalle vendite accettate in [da, a]: per ogni coppia
+   * (prodotto NON unico, provincia) senza una riga già decisa, si scrive o
+   * si aggiorna la proposta col partner più frequente e il suo prezzo più
+   * frequente. Ritorna i conteggi e le righe toccate: il lancio manuale
+   * mostra subito che cosa ha trovato.
+   */
+  async genera(opts: { da: Date; a: Date; innesco: 'notte' | 'manuale' }) {
+    if (isNaN(opts.da.getTime()) || isNaN(opts.a.getTime())) throw new BadRequestException('Intervallo di date non valido.');
+    if (opts.da > opts.a) throw new BadRequestException('La data «da» viene dopo la data «a».');
+
     const vendite = await this.prisma.sale.findMany({
       where: {
         status: 'accettata',
         partnerId: { not: null },
         productId: { not: null },
-        createdAt: { gte: da, lte: a },
+        createdAt: { gte: opts.da, lte: opts.a },
+        product: { type: 'NON_UNICO' },
       },
-      select: { productId: true, partnerId: true, amount: true, discountPercent: true },
+      select: {
+        id: true, productId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
+        createdAt: true, externalOrderNumber: true,
+      },
+      orderBy: { createdAt: 'asc' },
     });
 
-    const perProdotto = new Map<string, Map<string, { amounts: number[]; sconti: number[] }>>();
+    type Gruppo = { productId: string; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
+    const gruppi = new Map<string, Gruppo>();
     for (const v of vendite) {
-      const p = perProdotto.get(v.productId!) ?? new Map();
-      const s = p.get(v.partnerId!) ?? { amounts: [], sconti: [] };
-      s.amounts.push(v.amount);
-      s.sconti.push(v.discountPercent);
-      p.set(v.partnerId!, s);
-      perProdotto.set(v.productId!, p);
+      const chiave = `${v.productId}|${v.provinceId}`;
+      const g = gruppi.get(chiave) ?? { productId: v.productId!, provinceId: v.provinceId, perPartner: new Map(), ultima: v };
+      g.perPartner.set(v.partnerId!, [...(g.perPartner.get(v.partnerId!) ?? []), v]);
+      if (v.createdAt >= g.ultima.createdAt) g.ultima = v;
+      gruppi.set(chiave, g);
+    }
+    if (!gruppi.size) {
+      return { venditeLette: 0, coppie: 0, proposteNuove: 0, proposteAggiornate: 0, giaDecise: 0, righe: [] };
     }
 
-    // I più venduti prima: la corsa ha un tetto e deve guardare dove c'è più da decidere.
-    const ordinati = [...perProdotto.entries()]
-      .map(([productId, partner]) => ({
-        productId,
-        partner,
-        totale: [...partner.values()].reduce((n, s) => n + s.amounts.length, 0),
-      }))
-      .sort((x, y) => y.totale - x.totale);
-    const scelti = ordinati.slice(0, MAX_PRODOTTI_PER_CORSA);
-
-    const prodotti = await this.prisma.product.findMany({
-      where: { id: { in: scelti.map((s) => s.productId) } },
-      select: {
-        id: true, name: true, sku: true, type: true, partnerId: true, price: true, hasVariants: true,
-        partner: { select: { insegna: true } },
-      },
+    const esistenti = await this.prisma.productReconciliation.findMany({
+      where: { productId: { in: [...new Set([...gruppi.values()].map((g) => g.productId))] } },
+      select: { id: true, productId: true, provinceId: true, status: true },
     });
+    const esistente = new Map(esistenti.map((e) => [`${e.productId}|${e.provinceId}`, e]));
+
     const partnerIds = new Set<string>();
-    for (const s of scelti) for (const id of s.partner.keys()) partnerIds.add(id);
+    for (const g of gruppi.values()) for (const id of g.perPartner.keys()) partnerIds.add(id);
     const partner = await this.prisma.partner.findMany({
       where: { id: { in: [...partnerIds] } },
       select: { id: true, insegna: true, active: true },
     });
     const perPartner = new Map(partner.map((p) => [p.id, p]));
-    const perId = new Map(prodotti.map((p) => [p.id, p]));
 
-    const riepiloghi: Riepilogo[] = [];
-    for (const s of scelti) {
-      const p = perId.get(s.productId);
-      if (!p) continue; // prodotto cancellato: niente da riconciliare
-      const stat: StatPartner[] = [...s.partner.entries()]
-        .map(([partnerId, d]) => {
-          const pa = perPartner.get(partnerId);
+    let proposteNuove = 0;
+    let proposteAggiornate = 0;
+    let giaDecise = 0;
+    const toccate: string[] = [];
+    for (const [chiave, g] of gruppi) {
+      const gia = esistente.get(chiave);
+      if (gia && gia.status !== 'proposta') {
+        giaDecise++; // accettata o rifiutata: non si ripropone (regola utente)
+        continue;
+      }
+      const totale = [...g.perPartner.values()].reduce((n, l) => n + l.length, 0);
+      const stats: StatPartner[] = [...g.perPartner.entries()]
+        .map(([partnerId, lista]) => {
+          const amounts = lista.map((v) => v.amount);
+          const p = perPartner.get(partnerId);
           return {
             partnerId,
-            insegna: pa?.insegna ?? '(partner sconosciuto)',
-            attivo: pa?.active ?? false,
-            vendite: d.amounts.length,
-            quotaPercento: Math.round((d.amounts.length / s.totale) * 100),
-            prezzoMin: arrotonda(Math.min(...d.amounts)),
-            prezzoMax: arrotonda(Math.max(...d.amounts)),
-            prezzoModa: moda(d.amounts),
-            scontoMedio: arrotonda(d.sconti.reduce((n, x) => n + x, 0) / d.sconti.length),
+            insegna: p?.insegna ?? '(partner sconosciuto)',
+            attivo: p?.active ?? false,
+            vendite: lista.length,
+            quotaPercento: Math.round((lista.length / totale) * 100),
+            prezzoMin: arrotonda(Math.min(...amounts)),
+            prezzoMax: arrotonda(Math.max(...amounts)),
+            prezzoModa: moda(amounts),
+            scontoMedio: arrotonda(lista.reduce((n, v) => n + v.discountPercent, 0) / lista.length),
+            ultimaVendita: lista[lista.length - 1].createdAt.toISOString(),
           };
         })
-        .sort((x, y) => y.vendite - x.vendite);
-      riepiloghi.push({
-        productId: p.id,
-        nome: p.name,
-        sku: p.sku,
-        tipo: p.type,
-        partnerAttualeId: p.partnerId,
-        partnerAttuale: p.partner?.insegna ?? null,
-        prezzoListino: p.price,
-        conVarianti: p.hasVariants,
-        vendite: s.totale,
-        partner: stat,
-      });
-    }
-    return { riepiloghi, prodottiTotali: ordinati.length, venditeLette: vendite.length };
-  }
-
-  /**
-   * La corsa: legge, chiede al modello, scrive le proposte. Ritorna le righe
-   * scritte, così il lancio manuale mostra subito il risultato.
-   */
-  async analizza(opts: { da: Date; a: Date; innesco: 'notte' | 'manuale' }) {
-    if (!(opts.da instanceof Date) || isNaN(opts.da.getTime()) || isNaN(opts.a.getTime())) {
-      throw new BadRequestException('Intervallo di date non valido.');
-    }
-    if (opts.da > opts.a) throw new BadRequestException('La data «da» viene dopo la data «a».');
-
-    const { riepiloghi, prodottiTotali, venditeLette } = await this.riepiloghi(opts.da, opts.a);
-    if (!riepiloghi.length) {
-      return { analizzati: 0, proposte: 0, venditeLette, prodottiTotali, prodottiOltreIlTetto: 0, modello: null, righe: [] };
-    }
-
-    type Decisione = {
-      productId: string;
-      riconciliare: boolean;
-      partnerId: string | null;
-      prezzo: number | null;
-      motivo: string;
-      confidenza: 'alta' | 'media' | 'bassa';
-    };
-    const decisioni = new Map<string, Decisione>();
-    let modello: string | null = null;
-    for (let i = 0; i < riepiloghi.length; i += PRODOTTI_PER_CHIAMATA) {
-      const lotto = riepiloghi.slice(i, i + PRODOTTI_PER_CHIAMATA);
-      const esito = await this.ai.strutturato<{ decisioni: Decisione[] }>({
-        istruzioni: ISTRUZIONI,
-        testo: `Periodo analizzato: dal ${opts.da.toISOString().slice(0, 10)} al ${opts.a.toISOString().slice(0, 10)}.\n\nPRODOTTI (JSON):\n${JSON.stringify(lotto)}`,
-        schema: SCHEMA_DECISIONI,
-        nome: 'riconciliazioni',
-        maxToken: 12000,
-      });
-      modello = esito.modello;
-      for (const d of esito.dati.decisioni ?? []) decisioni.set(d.productId, d);
-    }
-
-    const righe: string[] = [];
-    let proposte = 0;
-    for (const r of riepiloghi) {
-      const d = decisioni.get(r.productId);
-      // ⚠️ Vincoli di codice sopra la risposta: partner solo fra quelli visti
-      // (e attivo), prezzo mai su prodotti con varianti. Il modello propone,
-      // il codice non gli lascia scavalcare i dati.
-      const partnerValido = d?.partnerId && r.partner.find((p) => p.partnerId === d.partnerId && p.attivo);
-      const riconciliare = Boolean(d?.riconciliare && partnerValido);
-      const prezzo = riconciliare && !r.conVarianti && typeof d?.prezzo === 'number' && d.prezzo > 0 ? arrotonda(d.prezzo) : null;
-      const motivo = d?.motivo?.trim() || 'Il modello non ha risposto per questo prodotto.';
-      const gia = riconciliare && r.tipo === 'UNICO' && r.partnerAttualeId === d!.partnerId && (prezzo === null || prezzo === r.prezzoListino);
-
-      await this.prisma.$transaction(async (tx) => {
-        // Una proposta aperta per prodotto: la corsa nuova sostituisce quella
-        // vecchia non ancora decisa. Le decise restano, sono storia.
-        await tx.productReconciliation.deleteMany({ where: { productId: r.productId, status: { in: ['proposta', 'nessuna'] } } });
-        const riga = await tx.productReconciliation.create({
-          data: {
-            productId: r.productId,
-            from: opts.da,
-            to: opts.a,
-            salesCount: r.vendite,
-            stats: JSON.stringify(r.partner),
-            recommend: riconciliare && !gia,
-            partnerId: riconciliare ? d!.partnerId : null,
-            price: prezzo,
-            reason: gia ? `Già impostato così. ${motivo}` : motivo,
-            confidence: d?.confidenza ?? 'bassa',
-            model: modello ?? '',
-            previousPartnerId: r.partnerAttualeId,
-            previousType: r.tipo,
-            previousPrice: r.prezzoListino,
-            status: riconciliare && !gia ? 'proposta' : 'nessuna',
-            trigger: opts.innesco,
-          },
+        // Il più frequente prima; a parità, chi ha venduto più di recente.
+        .sort((x, y) => y.vendite - x.vendite || y.ultimaVendita.localeCompare(x.ultimaVendita));
+      const scelto = stats[0];
+      const dati = {
+        partnerId: scelto.partnerId,
+        price: scelto.prezzoModa,
+        discountPercent: scelto.scontoMedio,
+        salesCount: totale,
+        stats: JSON.stringify(stats),
+        lastSaleId: g.ultima.id,
+        lastOrderNumber: g.ultima.externalOrderNumber,
+        trigger: opts.innesco,
+      };
+      if (gia) {
+        await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: dati });
+        proposteAggiornate++;
+        toccate.push(gia.id);
+      } else {
+        const r = await this.prisma.productReconciliation.create({
+          data: { productId: g.productId, provinceId: g.provinceId, status: 'proposta', ...dati },
           select: { id: true },
         });
-        righe.push(riga.id);
-      });
-      if (riconciliare && !gia) proposte++;
+        proposteNuove++;
+        toccate.push(r.id);
+      }
     }
 
     return {
-      analizzati: riepiloghi.length,
-      proposte,
-      venditeLette,
-      prodottiTotali,
-      prodottiOltreIlTetto: Math.max(0, prodottiTotali - riepiloghi.length),
-      modello,
-      righe: await this.lista({ ids: righe }),
+      venditeLette: vendite.length,
+      coppie: gruppi.size,
+      proposteNuove,
+      proposteAggiornate,
+      giaDecise,
+      righe: await this.lista({ ids: toccate }),
     };
   }
 
-  /** Le righe con i nomi: prodotto, partner proposto, partner di oggi. */
+  /** Le righe con i nomi: prodotto, provincia, partner (proposto e attuale del prodotto). */
   async lista(filtro: { stato?: string; ids?: string[]; limite?: number }) {
     const righe = await this.prisma.productReconciliation.findMany({
       where: {
         ...(filtro.ids ? { id: { in: filtro.ids } } : {}),
         ...(filtro.stato && filtro.stato !== 'tutte' ? { status: filtro.stato } : {}),
       },
-      orderBy: [{ createdAt: 'desc' }, { salesCount: 'desc' }],
+      orderBy: [{ updatedAt: 'desc' }],
       take: filtro.limite ?? 500,
-      include: { product: { select: { name: true, sku: true, type: true, partnerId: true, price: true, hasVariants: true } } },
+      include: { product: { select: { name: true, sku: true, type: true, price: true, hasVariants: true } } },
     });
-    const partnerIds = new Set<string>();
-    for (const r of righe) {
-      if (r.partnerId) partnerIds.add(r.partnerId);
-      if (r.previousPartnerId) partnerIds.add(r.previousPartnerId);
-      if (r.product.partnerId) partnerIds.add(r.product.partnerId);
-    }
-    const partner = await this.prisma.partner.findMany({
-      where: { id: { in: [...partnerIds] } },
-      select: { id: true, insegna: true },
-    });
-    const nome = new Map(partner.map((p) => [p.id, p.insegna]));
+    const partnerIds = new Set(righe.map((r) => r.partnerId));
+    const provinceIds = new Set(righe.map((r) => r.provinceId));
+    const [partner, province] = await Promise.all([
+      this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true } }),
+      this.prisma.province.findMany({ where: { id: { in: [...provinceIds] } }, select: { id: true, name: true, code: true } }),
+    ]);
+    const nome = new Map(partner.map((p) => [p.id, p]));
+    const prov = new Map(province.map((p) => [p.id, p]));
     return righe.map((r) => ({
       id: r.id,
       productId: r.productId,
       prodotto: r.product.name,
       sku: r.product.sku,
-      tipoAttuale: r.product.type,
-      partnerAttualeId: r.product.partnerId,
-      partnerAttuale: r.product.partnerId ? nome.get(r.product.partnerId) ?? null : null,
+      tipoProdotto: r.product.type,
       prezzoListino: r.product.price,
       conVarianti: r.product.hasVariants,
-      da: r.from,
-      a: r.to,
+      provinceId: r.provinceId,
+      provincia: prov.get(r.provinceId)?.name ?? null,
+      provinciaCodice: prov.get(r.provinceId)?.code ?? null,
+      partnerId: r.partnerId,
+      partner: nome.get(r.partnerId)?.insegna ?? null,
+      partnerAttivo: nome.get(r.partnerId)?.active ?? false,
+      prezzo: r.price,
+      sconto: r.discountPercent,
+      prezzoPartner: arrotonda(r.price * (1 - r.discountPercent / 100)),
       vendite: r.salesCount,
       stats: JSON.parse(r.stats) as StatPartner[],
-      riconciliare: r.recommend,
-      partnerId: r.partnerId,
-      partner: r.partnerId ? nome.get(r.partnerId) ?? null : null,
-      prezzo: r.price,
-      motivo: r.reason,
-      confidenza: r.confidence,
-      modello: r.model,
-      primaPartner: r.previousPartnerId ? nome.get(r.previousPartnerId) ?? null : null,
-      primaTipo: r.previousType,
-      primaPrezzo: r.previousPrice,
+      ultimaVenditaId: r.lastSaleId,
+      ultimoOrdine: r.lastOrderNumber,
       stato: r.status,
       innesco: r.trigger,
       decisaIl: r.decidedAt,
       decisaDa: r.decidedBy,
       creataIl: r.createdAt,
+      aggiornataIl: r.updatedAt,
     }));
   }
 
-  /**
-   * La decisione di una persona. «accetta» tocca il prodotto: partner
-   * proprietario, tipo UNICO, prezzo di listino (solo se proposto). Da quel
-   * momento lo smistamento propone il prodotto SOLO a quel partner
-   * (`candidati`: UNICO → proprietario).
-   */
+  /** Accetta = regola attiva (lo smistamento la legge da subito). Rifiuta = mai più proposta. */
   async decidi(id: string, azione: 'accetta' | 'rifiuta', user: JwtUser) {
     const r = await this.prisma.productReconciliation.findUnique({ where: { id } });
     if (!r) throw new NotFoundException('Riconciliazione non trovata');
     if (r.status !== 'proposta') throw new BadRequestException('Questa proposta è già stata decisa.');
-    if (azione === 'accetta' && !r.partnerId) throw new BadRequestException('La proposta non indica un partner.');
-
-    await this.prisma.$transaction(async (tx) => {
-      if (azione === 'accetta') {
-        await tx.product.update({
-          where: { id: r.productId },
-          data: {
-            partnerId: r.partnerId!,
-            type: 'UNICO',
-            ...(r.price !== null ? { price: r.price } : {}),
-          },
-        });
-      }
-      await tx.productReconciliation.update({
-        where: { id },
-        data: { status: azione === 'accetta' ? 'accettata' : 'rifiutata', decidedAt: new Date(), decidedBy: user.email },
-      });
+    if (azione === 'accetta') {
+      const p = await this.prisma.partner.findUnique({ where: { id: r.partnerId }, select: { active: true } });
+      if (!p?.active) throw new BadRequestException('Il partner della proposta non è attivo: modifica la riconciliazione prima di accettarla.');
+    }
+    await this.prisma.productReconciliation.update({
+      where: { id },
+      data: { status: azione === 'accetta' ? 'accettata' : 'rifiutata', decidedAt: new Date(), decidedBy: user.email },
     });
     return (await this.lista({ ids: [id] }))[0];
+  }
+
+  /**
+   * Modifica partner, prezzo e sconto. Su una proposta resta proposta (poi si
+   * accetta); su una regola attiva vale da subito. Una rifiutata si può
+   * modificare solo tornando proposta (l'ufficio la sta ripensando).
+   */
+  async modifica(id: string, body: { partnerId?: string; price?: number; discountPercent?: number }, user: JwtUser) {
+    const r = await this.prisma.productReconciliation.findUnique({ where: { id } });
+    if (!r) throw new NotFoundException('Riconciliazione non trovata');
+    const data: { partnerId?: string; price?: number; discountPercent?: number; status?: string; decidedAt?: Date; decidedBy?: string } = {};
+    if (body.partnerId !== undefined) {
+      const p = await this.prisma.partner.findUnique({
+        where: { id: body.partnerId },
+        select: { active: true, provinces: { where: { provinceId: r.provinceId }, select: { provinceId: true } } },
+      });
+      if (!p) throw new NotFoundException('Partner non trovato');
+      if (!p.active) throw new BadRequestException('Il partner scelto non è attivo.');
+      if (!p.provinces.length) throw new BadRequestException('Il partner scelto non opera in questa provincia.');
+      data.partnerId = body.partnerId;
+    }
+    if (body.price !== undefined) {
+      const n = Number(body.price);
+      if (!isFinite(n) || n < 0) throw new BadRequestException('Prezzo non valido.');
+      data.price = arrotonda(n);
+    }
+    if (body.discountPercent !== undefined) {
+      const n = Number(body.discountPercent);
+      if (!isFinite(n) || n < 0 || n > 100) throw new BadRequestException('Sconto non valido (0–100).');
+      data.discountPercent = arrotonda(n);
+    }
+    if (!Object.keys(data).length) throw new BadRequestException('Niente da modificare.');
+    if (r.status === 'rifiutata') data.status = 'proposta';
+    if (r.status === 'accettata') {
+      data.decidedAt = new Date();
+      data.decidedBy = user.email;
+    }
+    await this.prisma.productReconciliation.update({ where: { id }, data });
+    return (await this.lista({ ids: [id] }))[0];
+  }
+
+  /** I partner attivi che operano in una provincia (per la modifica). */
+  partnerInProvincia(provinceId: string) {
+    return this.prisma.partner.findMany({
+      where: { active: true, provinces: { some: { provinceId } } },
+      select: { id: true, insegna: true },
+      orderBy: { insegna: 'asc' },
+    });
   }
 
   /** La corsa di notte: ultimi 90 giorni, esito in AppSetting. */
@@ -401,15 +313,16 @@ export class RiconciliazioniService {
     const da = new Date(a.getTime() - GIORNI_NOTTE * 86400000);
     let esito: Record<string, unknown>;
     try {
-      const e = await this.analizza({ da, a, innesco: 'notte' });
-      esito = { ok: true, analizzati: e.analizzati, proposte: e.proposte, venditeLette: e.venditeLette, prodottiOltreIlTetto: e.prodottiOltreIlTetto, modello: e.modello };
+      const e = await this.genera({ da, a, innesco: 'notte' });
+      esito = { ok: true, venditeLette: e.venditeLette, coppie: e.coppie, proposteNuove: e.proposteNuove, proposteAggiornate: e.proposteAggiornate, giaDecise: e.giaDecise };
     } catch (err) {
       esito = { ok: false, errore: (err as Error).message.slice(0, 300) };
     }
+    const value = JSON.stringify({ quando: new Date().toISOString(), da, a, ...esito });
     await this.prisma.appSetting.upsert({
       where: { key: 'riconciliazioniUltimaCorsa' },
-      update: { value: JSON.stringify({ quando: new Date().toISOString(), da, a, ...esito }) },
-      create: { key: 'riconciliazioniUltimaCorsa', value: JSON.stringify({ quando: new Date().toISOString(), da, a, ...esito }) },
+      update: { value },
+      create: { key: 'riconciliazioniUltimaCorsa', value },
     });
     return esito;
   }
@@ -428,7 +341,7 @@ export class RiconciliazioniController {
   constructor(private readonly service: RiconciliazioniService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Le proposte di riconciliazione (stato=proposta|nessuna|accettata|rifiutata|tutte)' })
+  @ApiOperation({ summary: 'Le riconciliazioni (stato=proposta|accettata|rifiutata|tutte)' })
   lista(@Query('stato') stato?: string) {
     return this.service.lista({ stato: stato || 'proposta' });
   }
@@ -439,32 +352,39 @@ export class RiconciliazioniController {
     return this.service.ultimaCorsa();
   }
 
+  @Get('partner-in-provincia/:provinceId')
+  @ApiOperation({ summary: 'Partner attivi che operano nella provincia (per la modifica)' })
+  partner(@Param('provinceId') provinceId: string) {
+    return this.service.partnerInProvincia(provinceId);
+  }
+
   @Post('analizza')
-  @ApiOperation({ summary: 'Lancio manuale su un intervallo di date: analizza e restituisce le proposte' })
+  @ApiOperation({ summary: 'Lancio manuale su un intervallo: genera le proposte dalle vendite accettate e le restituisce' })
   analizza(@Body() body: { da?: string; a?: string }) {
     if (!body?.da || !body?.a) throw new BadRequestException('Servono le date «da» e «a».');
-    const da = new Date(`${body.da}T00:00:00.000Z`);
-    const a = new Date(`${body.a}T23:59:59.999Z`);
-    return this.service.analizza({ da, a, innesco: 'manuale' });
+    return this.service.genera({ da: new Date(`${body.da}T00:00:00.000Z`), a: new Date(`${body.a}T23:59:59.999Z`), innesco: 'manuale' });
   }
 
   @Post(':id/accetta')
-  @ApiOperation({ summary: 'Riconcilia: il prodotto diventa UNICO di quel partner, al prezzo proposto' })
+  @ApiOperation({ summary: 'Accetta: da ora le vendite di quel prodotto in quella provincia vanno a quel partner a quel prezzo' })
   accetta(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.decidi(id, 'accetta', user);
   }
 
   @Post(':id/rifiuta')
-  @ApiOperation({ summary: 'Ignora la proposta: il prodotto resta com\'è' })
+  @ApiOperation({ summary: 'Rifiuta: la coppia prodotto/provincia non viene più proposta' })
   rifiuta(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.decidi(id, 'rifiuta', user);
   }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Modifica partner, prezzo o sconto della riconciliazione' })
+  modifica(@Param('id') id: string, @Body() body: { partnerId?: string; price?: number; discountPercent?: number }, @CurrentUser() user: JwtUser) {
+    return this.service.modifica(id, body ?? {}, user);
+  }
 }
 
-/**
- * La corsa NOTTURNA (vercel.json, 03:30). Identità = `CRON_SECRET`,
- * verificata PRIMA di tutto, come per `cron/margini`.
- */
+/** La corsa NOTTURNA (vercel.json, 03:30). Identità = `CRON_SECRET`, verificata PRIMA di tutto. */
 @ApiTags('cron')
 @Controller('cron')
 export class CronRiconciliazioniController {
@@ -472,7 +392,7 @@ export class CronRiconciliazioniController {
 
   @Get('riconciliazioni')
   @Public()
-  @ApiOperation({ summary: 'Corsa notturna: proposte di riconciliazione prodotto ↔ partner (ultimi 90 giorni)' })
+  @ApiOperation({ summary: 'Corsa notturna: proposte di riconciliazione prodotto × provincia dalle vendite degli ultimi 90 giorni' })
   async corsa(@Headers('authorization') authorization?: string) {
     const segreto = process.env.CRON_SECRET ?? '';
     if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
@@ -481,7 +401,7 @@ export class CronRiconciliazioniController {
 }
 
 @Module({
-  imports: [PrismaModule, AiModule],
+  imports: [PrismaModule],
   controllers: [RiconciliazioniController, CronRiconciliazioniController],
   providers: [RiconciliazioniService],
 })

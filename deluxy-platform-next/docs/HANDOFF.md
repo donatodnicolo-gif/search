@@ -3,6 +3,35 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧭 **04/09/2026-nonies — RICONCILIAZIONI, SECONDA STESURA (regola utente: prodotto × provincia → partner a un prezzo, senza AI)** (IN LOCALE, in attesa del comando di deploy).
+> - L'utente ha ridefinito la funzione: «se un prodotto in una vendita non è
+>   unico, o non-unico senza riconciliazione per quella provincia, mostra
+>   prodotto, provincia, partner e prezzo dato, con Accetta/Rifiuta; accetta =
+>   le prossime vendite in automatico; rifiuta = mai più proposta; e Modifica».
+> - `ProductReconciliation` RIFATTA: una riga per (productId, provinceId)
+>   unique; partnerId, price, discountPercent, salesCount, stats JSON,
+>   lastSaleId/lastOrderNumber, status proposta|accettata|rifiutata, trigger.
+>   Script `applica-migrazione-riconciliazioni.mjs` v2: se trova la tabella
+>   nella forma vecchia VUOTA la ricrea; se ha righe si ferma. In prod la
+>   vecchia è vuota (verificato alle 20:56). **Da eseguire al deploy.**
+> - `RiconciliazioniService.genera({da,a})`: vendite accettate con partner di
+>   prodotti NON_UNICO → per coppia: partner più frequente (a parità il più
+>   recente), prezzo = moda; coppie già decise non riproposte; proposte aperte
+>   aggiornate. `decidi` (accetta vuole partner attivo), `modifica` (partner
+>   attivo che opera nella provincia, prezzo, sconto; rifiutata → torna
+>   proposta), `partnerInProvincia`, cron 03:30 (90 gg).
+> - **Smistamento**: `SalesService.candidati` ramo NON_UNICO legge PRIMA la
+>   regola accettata (prodotto, provincia) → unico candidato, motivo
+>   «riconciliazione prodotto/provincia», e `create` scrive `amount`/
+>   `discountPercent` della regola (`Candidato.prezzo/sconto`).
+> - Pagina riscritta: colonne Prodotto · Provincia · Vendite (a chi, a quanto)
+>   · Partner · Prezzo (al partner X €) · Stato · Azioni (Accetta, Rifiuta,
+>   Modifica in riga con select partner della provincia). Date di default
+>   calcolate nel costruttore (prima potevano uscire entrambe «oggi»).
+> - `AiService.strutturato` resta (non usato dalle riconciliazioni). La
+>   prima stesura con l'AI non ha mai girato: alle 20:55 c'era la chiave OpenAI
+>   ma nessuna chiamata ad analizza nei log.
+>
 > 🚀 **04/09/2026-octies — DEPLOY IN PRODUZIONE di quinquies+sexies+septies (comando utente «fai push e deploy»)** — deploy `delivery-7vtwdpit5` (prebuilt dal worktree `app/.claude/worktrees/deploy-delivery`, Root Dir `deluxy-platform-next`), dominio deluxy-delivery.vercel.app verificato: bundle `main-77YAYVEJ.js` = quello costruito, `GET /api/v1/riconciliazioni/ultima-corsa` → 401 (rotta viva, chiede login). Migrazioni additive ESEGUITE in prod prima del deploy: `applica-migrazione-registro-vendite.mjs` (tabella `SaleLog`, colonna `Sale.historyAt` + backfill sugli storici) e `applica-migrazione-riconciliazioni.mjs` (tabella `ProductReconciliation`). Cron `/api/v1/cron/riconciliazioni` alle 03:30 registrato nel deploy. ⚠️ Ancora da fare: chiave AI in Impostazioni (Claude o OpenAI) e PRIMA PROVA VERA delle Riconciliazioni (Prodotti → Riconciliazioni → Analizza ora); Armani FAT-2026-563 in attesa di «applica».
 >
 > 🧭 **04/09/2026-septies — RICONCILIAZIONI prodotto ↔ partner (AI, notte + manuale); Vendite: Accetta ufficio solo con partner; maschera-partner** (IN LOCALE, non pushato né deployato — regola utente: push/deploy solo a comando).

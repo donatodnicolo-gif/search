@@ -843,8 +843,8 @@ model Product {
   fields                  ProductField[]
   deliveryProducts        DeliveryProduct[]
   sales                   Sale[]
-  /// ⭐ 04/09/2026 (regola utente): le proposte dell'AI di fissare il prodotto
-  /// su un partner a un prezzo, con la decisione dell'ufficio.
+  /// ⭐ 04/09/2026 (regola utente): per provincia, a quale partner e a che
+  /// prezzo vanno le vendite di questo prodotto (proposta → regola).
   reconciliations         ProductReconciliation[]
   active                  Boolean            @default(true)
   // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
@@ -863,43 +863,37 @@ model Product {
 }
 
 // Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
-/// RICONCILIAZIONI PRODOTTO ↔ PARTNER (04/09/2026, regola utente). Ogni corsa
-/// (notturna o manuale) legge le vendite accettate in una finestra, calcola i
-/// numeri per prodotto e chiede all'AI se conviene fissare il prodotto su un
-/// partner a un prezzo. La riga e' la PROPOSTA col motivo; solo «accetta»
-/// dell'ufficio tocca il prodotto, e la riga conserva com'era prima.
+/// RICONCILIAZIONI PRODOTTO × PROVINCIA → PARTNER A UN PREZZO (04/09/2026,
+/// regola utente, seconda stesura). UNA riga per coppia (prodotto NON unico,
+/// provincia): nasce come PROPOSTA dalle vendite accettate (a chi e' andata, a
+/// che prezzo) e diventa REGOLA quando l'ufficio la accetta — da li' lo
+/// smistamento propone quel prodotto in quella provincia SOLO a quel partner a
+/// quel prezzo (SalesService.candidati). Rifiutata = mai piu' proposta.
 model ProductReconciliation {
-  id                String    @id @default(cuid())
-  productId         String
-  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  /// Finestra di vendite analizzata.
-  from              DateTime
-  to                DateTime
-  salesCount        Int
-  /// JSON: per partner {partnerId, insegna, attivo, vendite, quotaPercento, prezzoMin, prezzoMax, prezzoModa, scontoMedio}
-  stats             String
-  /// La proposta: riconciliare si'/no, con chi, a quanto, perche'.
-  recommend         Boolean
-  partnerId         String?
-  price             Float?
-  reason            String
-  /// alta | media | bassa
-  confidence        String
-  model             String
-  /// Com'era il prodotto quando e' nata la proposta (per poter disfare a mano).
-  previousPartnerId String?
-  previousType      String
-  previousPrice     Float
-  /// proposta | nessuna (l'AI non consiglia) | accettata | rifiutata
-  status            String    @default("proposta")
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  provinceId      String
+  partnerId       String
+  /// Importo della vendita (il prezzo «dato»); il partner incassa price × (1 − sconto%).
+  price           Float
+  discountPercent Float     @default(0)
+  /// I numeri da cui e' nata: quante vendite e, in JSON, per partner.
+  salesCount      Int       @default(0)
+  stats           String    @default("[]")
+  lastSaleId      String?
+  lastOrderNumber String?
+  /// proposta | accettata | rifiutata
+  status          String    @default("proposta")
   /// notte | manuale
-  trigger           String
-  decidedAt         DateTime?
-  decidedBy         String?
-  createdAt         DateTime  @default(now())
+  trigger         String    @default("manuale")
+  decidedAt       DateTime?
+  decidedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  @@index([productId, createdAt])
-  @@index([status, createdAt])
+  @@unique([productId, provinceId])
+  @@index([status, updatedAt])
 }
 
 model ProductVariant {
