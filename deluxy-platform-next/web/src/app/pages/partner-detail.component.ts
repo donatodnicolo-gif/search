@@ -257,31 +257,24 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                             (click)="importa()">
                       {{ (importando() ? 'common.saving' : 'partnerAnagrafica.pull') | translate:{ n: daPrendere().size } }}
                     </button>
+                    <!-- ⭐ 04/09/2026 (regola utente): i tre comandi su UNA riga:
+                         prendere dal registro, scrivere nel registro, ricontrollare.
+                         Sono tre gesti sullo stesso confronto e stavano su tre righe. -->
+                    <button type="button" class="btn btn-primary"
+                            [disabled]="sincronizzando() || a.stato === 'ambiguo'"
+                            [title]="a.stato === 'ambiguo' ? ('partnerAnagrafica.pushBlocked' | translate) : ''"
+                            (click)="sincronizza()">
+                      {{ (sincronizzando() ? 'common.saving' : etichettaInvio(a.stato)) | translate }}{{ daMandare().size ? ' (' + daMandare().size + ')' : '' }}
+                    </button>
+                    <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
+                      {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.recheck') | translate }}
+                    </button>
                     @if (esitoImport(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
+                    @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
                   </div>
                   <p class="hint">{{ 'partnerAnagrafica.pullHint' | translate }}</p>
+                  <p class="hint">{{ spiegazioneInvio(a.stato) | translate }}</p>
                 }
-                <!-- ⚠️ I bottoni DICONO che cosa faranno, e cambiano con lo
-                     stato del confronto: «Invia al registro» valeva sia per
-                     creare una scheda che non c'e', sia per riscrivere su una
-                     che c'e' gia' — due gesti diversi sotto la stessa parola.
-                     Nel caso AMBIGUO il bottone resta visibile ma spento: il
-                     server rifiuterebbe comunque (piu' record possibili, per
-                     non crearne un altro), e un bottone che puo' solo fallire
-                     e' peggio di uno spento che dice perche'. -->
-                <div class="azioni">
-                  <button type="button" class="btn btn-primary"
-                          [disabled]="sincronizzando() || a.stato === 'ambiguo'"
-                          [title]="a.stato === 'ambiguo' ? ('partnerAnagrafica.pushBlocked' | translate) : ''"
-                          (click)="sincronizza()">
-                    {{ (sincronizzando() ? 'common.saving' : etichettaInvio(a.stato)) | translate }}
-                  </button>
-                  <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
-                    {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.recheck') | translate }}
-                  </button>
-                  @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
-                </div>
-                <p class="hint">{{ spiegazioneInvio(a.stato) | translate }}</p>
               }
               }
             }
@@ -669,11 +662,16 @@ export class PartnerDetailComponent {
    * Il confronto NON parte da solo all'apertura della scheda: interroga un
    * servizio esterno e può metterci qualche secondo. Si chiede quando serve.
    */
-  confronta(): void {
+  /**
+   * ⚠️ 04/09/2026: `mantieniEsito` esiste perché il messaggio dell'invio
+   * veniva CANCELLATO dal ricarico che lo segue — il bottone funzionava e
+   * sembrava non fare niente. Chi lo preme deve leggere com'è andata.
+   */
+  confronta(mantieniEsito = false): void {
     const p = this.partner();
     if (!p) return;
     this.cercando.set(true);
-    this.esitoSync.set(null);
+    if (!mantieniEsito) this.esitoSync.set(null);
     this.http.get<any>(`${environment.apiUrl}/partners/${p.id}/anagrafica`).subscribe({
       next: (r) => { this.cercando.set(false); this.anagrafica.set(r); this.anagraficaCaricata.set(true); this.preselezione(r.differenze ?? []); },
       error: (e) => {
@@ -869,7 +867,7 @@ export class PartnerDetailComponent {
       next: (r) => {
         this.sincronizzando.set(false);
         this.esitoSync.set(r);
-        if (r.ok) this.confronta();
+        if (r.ok) this.confronta(true);
       },
       error: (e) => {
         this.sincronizzando.set(false);
@@ -893,7 +891,7 @@ export class PartnerDetailComponent {
         this.esitoSync.set(r);
         // Si rilegge: dopo l'invio il collegamento dovrebbe risultare fatto, e
         // mostrare ancora lo stato vecchio farebbe credere che non sia andata.
-        if (r.ok) this.confronta();
+        if (r.ok) this.confronta(true);
       },
       error: (e) => {
         this.sincronizzando.set(false);
