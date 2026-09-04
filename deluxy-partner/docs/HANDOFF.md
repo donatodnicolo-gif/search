@@ -52,6 +52,20 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (23:00) — «Una fattura è vera solo se sta su Fatture in Cloud»: le righe senza documento escono dai conti
+>
+> Regola dell'utente: «se non ci sono fatture in Fatture in Cloud non è una fattura vera, diventa vera solo quella in FIC, quindi nella scheda partner non deve apparire».
+> - **Come si riconosce**: il **numero**. Lo scrive l'import da FIC e lo copia chi registra a mano; una riga senza numero non ha un documento dietro. Chiedere a FIC riga per riga a ogni apertura di scheda sarebbe una chiamata di rete per fattura. ⚠️ Il rovescio dichiarato: una fattura emessa su FIC di cui non è stato scritto il numero qui sparisce dai conti — è il verso giusto in cui sbagliare (meglio non vantare un credito che vantarne uno inventato).
+> - **Dove**: `src/lib/fattura-vera.ts` (`eFatturaVera`, `separaFattureVere`), usato da `riepilogoPartner` (scheda) **e da `riepilogoTutti`** (dashboard, saldi, report): se contasse di là e non di qua, lo stesso partner avrebbe due dovuti diversi secondo la pagina. La divisione avviene su una lista sola, quindi l'elenco del mese e il saldo del mese non possono divergere.
+> - 🔴 **TRAPPOLA TROVATA PROVANDO** (prima versione buttata via): avevo scritto il filtro come `where` di Prisma — un `OR` di `contains` sul numero, e il suo `NOT` per le escluse. **Non funziona su una colonna che può essere NULL**: in SQL `NULL LIKE '%1%'` non è falso, è NULL, e `NOT (NULL)` non è vero. Misura: filtro «vere» 624 su 624, «tenute fuori» **0** — le righe senza numero sparivano da tutte e due le liste. Rifatto in memoria, con UNA funzione: le fatture di un anno sono già caricate, non costa una query in più e non ci sono due rappresentazioni che possono discordare.
+> - ⚠️ **ECCEZIONE DICHIARATA: lo storico del vecchio foglio.** Le righe «Import PARTNER.xlsx» (111 nel 2025 + 4 nel 2026) sono i **totali mensili** del registro di prima, non fatture: sono la base del confronto anno su anno e quasi tutte risultano già pagate. Restano dentro. Se devono uscire anche loro, si cancella una riga di `eFatturaVera`.
+> - **In pagina**: le righe tenute fuori non spariscono in silenzio — sopra i movimenti mensili c'è un riquadro ambra che le elenca, con il link alla riga, e dice che vanno emesse su FIC o tolte. Farle sparire senza dirlo avrebbe fatto riscrivere la stessa riga a chi l'aveva inserita.
+> - **Effetto misurato su GIADA CAKE**: luglio 2026 non dice più «Da incassare 549,00 €» — resta «Da bonificare 55,60 €» (il dovuto vendor), e il riquadro dichiara la riga da 450 €.
+> - 📋 **CENSIMENTO + RICONCILIAZIONE CON FIC** (nuovo `scripts/fatture-senza-documento.mts`, sola lettura; chiesto dall'utente). Per ogni riga senza numero cerca su FIC una fattura con **stesso cliente** (nomi riconciliati), **stesso imponibile** (±0,02) e emessa **entro due mesi** dalla competenza. Su 1.256 fatture emesse lette da FIC (631 del 2025 + 625 del 2026):
+>   - **118 righe senza numero** in tutto. Le **3 scritte a mano nel 2026** (Fiori Rimini 950 €, GIADA CAKE 450 €, Bottega dei Fiori Firenze 300 €, tutte «Fee affiliazione») **non hanno NESSUNA fattura su FIC per quel cliente**: mai emesse. Sono le tre che ora escono dai conti.
+>   - Le altre **115 sono lo storico xlsx**: 50 di clienti mai fatturati su FIC, 64 con il cliente su FIC ma nessuna fattura di quell'importo (sono aggregati mensili, è atteso), **1 sola con un riscontro esatto** — ADOLFO STEFANELLI (TASTE 20) febbraio 2025, 18,52 €, che su FIC è la **105/2025 del 04/03/2025**: a quella riga manca solo il numero. Da scrivere a mano.
+> - **Verifica**: `tsc` verde; conteggi rifatti dopo il cambio (3 righe fuori, 624 dentro); scheda GIADA CAKE riletta dal server locale. ⚠️ Il click nel pannello browser resta non provabile (vedi il blocco delle 21:10).
+
 > ### 04/09/2026 (22:00) — «Se nella fattura è scritto affiliazione, la tipologia deve essere Affiliazioni» (regola dell'utente): riga riparata + regola nel codice
 >
 > Nasce dalla domanda «ma i 450 da dove li prendi?» sulla scheda GIADA CAKE.

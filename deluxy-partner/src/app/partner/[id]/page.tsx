@@ -126,7 +126,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
+  const [{ mesi, rolling, nonEmesse }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -662,6 +662,34 @@ export default async function PartnerDetail({
       </div>
 
       <h2 className="section-title">Movimenti mensili {anno}</h2>
+      {/* Le righe scritte in Finance che su Fatture in Cloud non esistono non
+          entrano nei conti (regola dell'utente del 04/09/2026). Non spariscono
+          in silenzio però: chi le ha scritte deve sapere che non contano, e
+          poterci arrivare per emetterle o cancellarle. */}
+      {nonEmesse.length > 0 && (
+        <div className="card" style={{ padding: "12px 16px", marginBottom: 12, borderColor: "rgba(224,138,0,0.25)", background: "rgba(224,138,0,0.06)" }}>
+          <div style={{ fontSize: 13.5, marginBottom: nonEmesse.length ? 6 : 0 }}>
+            <span className="badge orange"><span className="dot" />
+              {nonEmesse.length === 1 ? "1 fattura senza documento" : `${nonEmesse.length} fatture senza documento`}
+            </span>{" "}
+            <span className="muted">
+              {nonEmesse.length === 1
+                ? "non ha un numero di Fatture in Cloud: non è una fattura vera, quindi resta fuori dai conti di questa scheda. Va emessa su FIC oppure tolta."
+                : "non hanno un numero di Fatture in Cloud: non sono fatture vere, quindi restano fuori dai conti di questa scheda. Vanno emesse su FIC oppure tolte."}
+            </span>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5 }}>
+            {nonEmesse.map((f) => (
+              <li key={f.id} style={{ marginTop: 2 }}>
+                <Link href={`/fatture/${f.id}`} style={{ color: "var(--blue)" }}>
+                  {nomeMese(f.mese)} · {euro(f.imponibile)} +IVA → {euro(f.imponibile * (1 + f.aliquotaIva / 100))}
+                </Link>
+                {f.descrizione ? <span className="muted"> · {f.descrizione}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {mesiConDati.length === 0 && (
         <div className="card">
           <div className="empty">
