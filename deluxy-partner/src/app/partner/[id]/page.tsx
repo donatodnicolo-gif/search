@@ -883,6 +883,8 @@ export default async function PartnerDetail({
               richiestaRif={saldo?.richiestaRif ?? null}
               richiestaStato={saldo?.richiestaStato ?? null}
               richiestaIl={saldo?.richiestaIl ?? null}
+              // rolling.residuo = da incassare − da bonificare sull'anno intero
+              nettoCompensato={partner.compensazione ? -rolling.residuo : null}
             />
           </div>
         </div>

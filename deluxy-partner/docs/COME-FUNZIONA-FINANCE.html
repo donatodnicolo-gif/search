@@ -458,11 +458,11 @@
         </div></div>
         <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
           <div class="chi">Saldi e bonifici</div><h4>Chiudi il mese</h4>
-          <p>In <span class="route">/saldi</span> il dovuto ± extra diventa l'importo da girare al partner. «Richiedi pagamento» manda la richiesta a <strong>Transactions</strong>: qui non esce denaro.</p>
+          <p>In <span class="route">/saldi</span> il dovuto ± extra diventa l'importo da girare al partner. «Richiedi pagamento» manda la richiesta a <strong>Transactions</strong>: qui non esce denaro. <strong>Quanto si chiede</strong> (dal 04/09/2026): per un partner senza compensazione il dovuto del mese premuto; per un partner <em>in compensazione</em> il <strong>netto dell'anno</strong> — i mesi a credito del partner meno i mesi a suo debito, la stessa cifra che la scheda mostra nel totale dell'anno («Da bonificare … (netto)»). Il bottone lo dice («Paga il netto 48,30 €») e, se il partner deve ancora più di quanto gli è dovuto, non compare. Tutti i mesi coinvolti risultano «in corso» finché la richiesta non ha un esito.</p>
         </div></div>
         <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
           <div class="chi">Transactions → FINANCE</div><h4>Il pagamento torna come notifica</h4>
-          <p>Quando Transactions paga, un webhook firmato annota il bonifico sul saldo. Il mese resta «da bonificare» finché la notifica non arriva.</p>
+          <p>Quando Transactions paga, un webhook firmato annota il bonifico sul saldo. Il mese resta «da bonificare» finché la notifica non arriva. Per una richiesta «netto» la notifica chiude <em>tutti</em> i mesi coinvolti insieme: a ognuno il suo delta (positivo = bonificato al partner, negativo = compensato con quello che il partner doveva), e la somma è il netto uscito dalla banca.</p>
         </div></div>
       </div>
     </div>
@@ -574,6 +574,7 @@
   <div class="sec-head"><span class="sec-num">11</span><h2>Questo manuale è vivo</h2></div>
   <h3>Registro delle novità</h3>
   <ul>
+    <li><strong>04/09/2026 · Scheda partner e dashboard</strong> — per i partner <strong>in compensazione</strong> «Paga» chiede a Transactions il <strong>netto dell'anno</strong> (crediti del partner meno i suoi debiti), non il dovuto del mese: la stessa cifra del totale dell'anno sulla scheda. Il bottone lo scrive («Paga il netto 48,30 €»), spiega che non sono i «185,22 € del mese», e non compare se il partner deve ancora più di quanto gli spetta. Tutti i mesi coinvolti risultano «in corso»; alla «pagata» il webhook li chiude insieme, ognuno col suo delta. Il caso: ANTOFLOWERS, agosto 2026, richiesti 185,22 € contro 48,30 € netti (aprile e maggio a debito per 405,30 €).</li>
     <li><strong>02/09/2026 · Pro-forma e preventivi</strong> — il documento è un foglio A4 elegante con il logo del brand (o il wordmark se manca), la scheda del documento, il blocco «Pagamento» con l'IBAN e il piede con numero di pagina. In testa alla scheda due bottoni: <strong>«Stampa»</strong> (solo il foglio, senza l'app) e <strong>«Scarica PDF»</strong> (un PDF vero, generato dal server, con nome file parlante). L'email «Invia al partner» ora <em>allega lo stesso PDF</em>. In alto a destra c'è anche <strong>«Emetti su FIC…»</strong>, finché il documento non ha una fattura vera collegata.</li>
     <li><strong>02/09/2026 · Scheda partner e dashboard</strong> — i bottoni «Abbiamo pagato», «Hanno pagato», «Annulla» e «Annota pagato» mostrano lo stato di attesa e non si premono due volte; e la stessa identica registrazione ripetuta entro 20 secondi viene ignorata dal server. Prima ogni clic <em>sommava</em> un altro bonifico al mese (53 registrazioni gemelle trovate nel registro; 9 mesi corretti, 4 lasciati a una persona perché il saldo era stato toccato anche a mano).</li>
     <li><strong>02/09/2026 · Da Fatture in Cloud</strong> — l'import salta le fatture commissioni e le aggancia al mese; le fatture pagate su FIC entrano «saldate» con l'incasso sul saldo (partner in compensazione). Competenza = mese del servizio dalla descrizione (regola del 31/08).</li>
