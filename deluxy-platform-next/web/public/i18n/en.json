@@ -840,6 +840,7 @@
       "forDelivery": "Delivery #{{code}} · province",
       "noProvince": "province not recognized",
       "noValets": "No valet enabled for this province.",
+      "noValetsService": "No valet has “{{servizio}}” in their price list: there are valets in the province, but none is enabled for this service.",
       "choose": "Assign"
     },
     "additional": {
@@ -2144,6 +2145,10 @@
       "motivo": "Reason",
       "importoPh": "e.g. 8.50",
       "motivoPh": "Describe what happened…",
+      "ricevuta": "Receipt (photo or PDF)",
+      "ricevutaLegacy": "Receipt on the old system (switched off): no longer openable",
+      "ricevutaTogli": "Remove the receipt",
+      "ricevutaGrande": "The receipt is too heavy: 7.5 MB max.",
       "invia": "Send to office",
       "inviata": "Sent to the office. You can find it in Reports.",
       "giaInviata": "already sent on",
@@ -2768,7 +2773,9 @@
     "attachment": "Attachment",
     "attachmentAdd": "Upload a file",
     "attachmentAdded": "File attached",
-    "attachmentView": "Open attachment",
+    "attachmentView": "View the receipt",
+    "attachmentDownload": "Download",
+    "ricevutaLegacy": "Receipt on the old system (switched off): no longer openable",
     "fileTooBig": "File too large (max 5 MB)."
   }
 }

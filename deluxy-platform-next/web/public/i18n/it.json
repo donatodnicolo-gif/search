@@ -840,6 +840,7 @@
       "forDelivery": "Consegna #{{code}} · provincia",
       "noProvince": "provincia non riconosciuta",
       "noValets": "Nessun valet abilitato per questa provincia.",
+      "noValetsService": "Nessun valet ha «{{servizio}}» a listino: i valet della provincia ci sono, ma nessuno è abilitato a questo servizio.",
       "choose": "Assegna"
     },
     "additional": {
@@ -2144,6 +2145,10 @@
       "motivo": "Motivo",
       "importoPh": "es. 8,50",
       "motivoPh": "Descrivi cosa è successo…",
+      "ricevuta": "Ricevuta (foto o PDF)",
+      "ricevutaLegacy": "Ricevuta sul vecchio sistema (spento): non è più apribile",
+      "ricevutaTogli": "Togli la ricevuta",
+      "ricevutaGrande": "La ricevuta è troppo pesante: al massimo 7,5 MB.",
       "invia": "Invia all’ufficio",
       "inviata": "Inviato all’ufficio. Lo trovi in Segnalazioni.",
       "giaInviata": "già inviato il",
@@ -2769,7 +2774,9 @@
     "attachment": "Allegato",
     "attachmentAdd": "Carica un file",
     "attachmentAdded": "File allegato",
-    "attachmentView": "Apri allegato",
+    "attachmentView": "Guarda la ricevuta",
+    "attachmentDownload": "Scarica",
+    "ricevutaLegacy": "Ricevuta sul vecchio sistema (spento): non è più apribile",
     "fileTooBig": "File troppo grande (max 5 MB)."
   }
 }

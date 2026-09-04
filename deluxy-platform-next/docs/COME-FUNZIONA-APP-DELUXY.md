@@ -229,6 +229,17 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 - ⚠️ La **voce** la trascrive il **browser** (Web Speech API), non l'AI: dove il riconoscimento vocale non esiste (Firefox, iOS datati) il bottone 🎤 non compare. Le **immagini** le legge davvero, fino a **4 MB**.
 - ⚠️ Serve la chiave del **motore scelto**. Dal **04/09/2026** in **Impostazioni → Intelligenza artificiale** si sceglie il **motore AI** (`aiProvider`): **Claude (Anthropic)**, il motore storico, con la chiave in `aiApiKey`; oppure **ChatGPT (OpenAI)**, con la chiave in `openaiApiKey` (modello `gpt-5`, API Responses con uscita strutturata, ragionamento basso). Istruzioni, schema dei campi e regola «propone, non crea» sono gli stessi per i due motori: cambia solo chi legge. Senza chiave del motore scelto il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai le chiavi). La risposta dichiara il modello usato (`modello`).
 
+#### Assegnare il valet: perché la lista può essere vuota **[04/09/2026]**
+
+La finestra «Assegna valet» propone i valet **attivi** (niente segnaposto), che hanno **il servizio a listino** (solo per i servizi di mestiere, `scope` ≠ `partner`) e che **operano nella provincia** della consegna. Se la lista è vuota il pannello dice **quale** dei due filtri l'ha svuotata: «nessun valet in questa provincia» oppure «nessun valet ha «X» a listino». ⚠️ Il campo `serviceType.scope` deve viaggiare **anche nel dettaglio** (`DELIVERY_INCLUDE`): quando mancava, un servizio di partner veniva trattato come di mestiere e la lista si svuotava sempre, dando la colpa alla provincia (caso #100928, Firenze, 04/09/2026).
+
+#### Rimborsi dei valet: la ricevuta e che cosa cambia l'approvazione **[04/09/2026]**
+
+- Il valet chiede il rimborso dal **dettaglio della consegna** (o dall'elenco): importo, motivo e **ricevuta** (foto o PDF, fino a 7,5 MB, viaggia come data URL in `allegatoUrl`). Prima il campo non c'era e l'ufficio non aveva nulla da guardare.
+- In **Segnalazioni** l'ufficio **vede** la ricevuta: miniatura e visore a schermo. ⚠️ Un data URL **non si apre** in una scheda nuova (lo blocca il browser): per questo si mostra dentro la pagina.
+- Le ricevute **storiche** (679) stanno su `exapp.deluxy.it`, il vecchio sistema **spento**: non si aprono più e la riga lo dichiara invece di offrire un link morto.
+- **L'approvazione** (`stato = approvata`) somma l'importo alla **paga del valet** della consegna collegata (`valetAdditionalPrice += importo`, una volta sola, con `importoApplicatoIl` a guardia e riga di log). **Non cambia il prezzo della consegna**: è denaro che Deluxy dà al valet, non un prezzo diverso per il partner. Riaprire la segnalazione **storna**.
+
 #### Più consegne insieme **[NUOVO 27/08/2026]**
 
 Per **Admin e Operation** ogni riga della lista ha una casella: spuntandone una o più compare in cima la barra delle azioni — **stato**, **assegna valet**, **plus/minus valet**, ed **elimina** (solo Admin). Rotte `PATCH /api/v1/deliveries/massa/{stato|assegna|plus-valet|elimina}`.

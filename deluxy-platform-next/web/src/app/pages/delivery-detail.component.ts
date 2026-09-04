@@ -660,7 +660,10 @@ interface DeliveryDetail {
           </p>
         }
         @if (assignValets().length === 0) {
-          <p class="muted">{{ 'deliveries.assign.noValets' | translate }}</p>
+          <!-- ⚠️ Una lista ridotta deve dire PERCHÉ (Libro §8): «nessuno in
+               provincia» e «nessuno col servizio a listino» sono due cose
+               diverse, e per mesi la seconda è stata raccontata come la prima. -->
+          <p class="muted">{{ (motivoNienteValet() === 'servizio' ? 'deliveries.assign.noValetsService' : 'deliveries.assign.noValets') | translate: { servizio: delivery()?.serviceType?.name } }}</p>
         } @else {
           <ul class="valet-list">
             @for (v of assignValets(); track v.id) {
@@ -780,6 +783,20 @@ interface DeliveryDetail {
           <label class="campo-eti">{{ 'deliveryDetail.segnal.motivo' | translate }}</label>
           <textarea class="field" rows="3" name="segMotivo" [(ngModel)]="segMotivo"
                     [placeholder]="'deliveryDetail.segnal.motivoPh' | translate"></textarea>
+          <!-- ⭐ 04/09/2026 (regola utente): LA RICEVUTA. Senza questo campo il
+               valet non poteva allegare niente, e l'ufficio non aveva nulla da
+               guardare per approvare: le ricevute vecchie stanno sul sistema
+               legacy, che è spento. La foto viaggia come data URL (l'API la
+               accetta fino a 8 MB) e si vede nel dettaglio della segnalazione. -->
+          <label class="campo-eti">{{ 'deliveryDetail.segnal.ricevuta' | translate }}</label>
+          <input class="field" type="file" accept="image/*,application/pdf" (change)="scegliRicevuta($event)" />
+          @if (segAllegato()) {
+            <div class="ricevuta-scelta">
+              <img [src]="segAllegato()!" alt="" />
+              <button type="button" class="act" (click)="segAllegato.set(null)">{{ 'deliveryDetail.segnal.ricevutaTogli' | translate }}</button>
+            </div>
+          }
+
           @if (segErrore(); as e) { <div class="error-card">{{ e }}</div> }
         </div>
         <div class="dialog-foot">
@@ -804,6 +821,8 @@ interface DeliveryDetail {
   `,
   styles: [
     `
+      .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+      .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
       .allegato { margin: 0; max-width: 220px; }
       .allegato img {
@@ -1049,6 +1068,21 @@ export class DeliveryDetailComponent {
    * restano gli attivi, e il pannello lo dichiara col tag «provincia non
    * riconosciuta».
    */
+  /**
+   * Perché la lista dei valet è vuota: «provincia» (nessuno abilitato lì) o
+   * «servizio» (nessuno ha quel servizio a listino). Il filtro guarda prima la
+   * provincia, e la risposta segue lo stesso ordine.
+   */
+  readonly motivoNienteValet = computed<'provincia' | 'servizio' | null>(() => {
+    if (this.assignValets().length) return null;
+    const attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    const prov = this.assignProvince();
+    const inProvincia = prov
+      ? attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code))
+      : attivi;
+    return inProvincia.length ? 'servizio' : 'provincia';
+  });
+
   readonly assignValets = computed(() => {
     let attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
     // Solo chi ha il SERVIZIO della consegna a listino (regola 31/08/2026):
@@ -1472,6 +1506,21 @@ export class DeliveryDetailComponent {
     this.segnalTipo.set(tipo);
   }
   chiudiSegnalazione(): void { this.segnalTipo.set(null); }
+  /** La ricevuta scelta dal valet: si legge come data URL e viaggia con la richiesta. */
+  readonly segAllegato = signal<string | null>(null);
+  scegliRicevuta(ev: Event): void {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    // 8 MB è il tetto dell'API: meglio dirlo qui che farsi rifiutare l'invio.
+    if (file.size > 7_500_000) {
+      this.segErrore.set(this.translate.instant('deliveryDetail.segnal.ricevutaGrande'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => this.segAllegato.set(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
   inviaSegnalazione(tipo: 'rimborso' | 'reclamo'): void {
     const motivo = this.segMotivo.trim();
     if (!motivo) { this.segErrore.set(this.translate.instant('deliveryDetail.segnal.manca')); return; }
@@ -1488,10 +1537,12 @@ export class DeliveryDetailComponent {
     this.segInCorso.set(true);
     this.http.post(`${environment.apiUrl}/segnalazioni`, {
       tipo, deliveryId: this.id, oggetto, testo: motivo, importo,
+      allegatoUrl: this.segAllegato() ?? undefined,
     }).subscribe({
       next: () => {
         this.segInCorso.set(false);
         this.segnalTipo.set(null);
+        this.segAllegato.set(null);
         this.banner.set(this.translate.instant('deliveryDetail.segnal.inviata'));
         // L'avviso «già inviata» deve comparire subito, non al prossimo giro.
         this.caricaSegnalazioni();

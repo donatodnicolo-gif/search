@@ -3,6 +3,32 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧾 **04/09/2026-quaterdecies — Tre difetti segnalati dall'utente: valet non assegnabile, ricevute che non si aprono, rimborso approvato** (IN LOCALE, non ancora deployato).
+> 1. **«Nessun valet abilitato per questa provincia» (consegna #100928, Firenze)**
+>    — FALSO: su FI ci sono 20 valet, 10 attivi. Causa vera: `DELIVERY_INCLUDE`
+>    (dettaglio) non selezionava `serviceType.scope`, presente invece in
+>    `DELIVERY_LIST_SELECT`. Senza `scope`, il filtro «solo chi ha il servizio a
+>    listino» si applicava anche ai servizi di **partner** (qui «Vendita Deluxy»,
+>    che **nessun** valet ha a listino: 0 su 44 servizi partner). Fix: `scope`
+>    nel select + messaggio che distingue provincia da servizio
+>    (`deliveries.assign.noValetsService`, `motivoNienteValet()` nelle due pagine).
+> 2. **Ricevute dei valet**: due cose rotte. (a) le 679 ricevute storiche
+>    puntano a `exapp.deluxy.it` — il legacy, **spento**: il link non apre nulla
+>    (verificato, connessione rifiutata) → ora si mostra come «ricevuta sul
+>    vecchio sistema (spento)», non come link; (b) **il valet non aveva il campo
+>    per allegarla**: il pop-up rimborso aveva solo importo e motivo, e infatti
+>    tutti i rimborsi di settembre hanno `allegatoUrl` NULL. Aggiunto il campo
+>    foto/PDF (data URL, tetto 7,5 MB come l'API) nel pop-up del dettaglio
+>    consegna, e in Segnalazioni l'allegato immagine si **guarda** (miniatura +
+>    visore a schermo, perché un data URL non si apre in una scheda nuova).
+> 3. **Rimborso approvato**: funziona, ma tocca la PAGA DEL VALET, non il
+>    prezzo della consegna. Esempi veri (04/09, 13:12–13:13): rimborsi da 7,50 €
+>    su #62573, #62343, #62519 → `valetAdditionalPrice` = 7,50 con riga di log,
+>    `importoApplicatoIl` valorizzato; prezzi delle consegne invariati (19 €,
+>    12,27 €, 13,09 €). Su 684 rimborsi tutti hanno la consegna collegata; 3
+>    approvati, 3 applicati, 0 rimasti indietro. **Se si vuole che cambi anche
+>    il prezzo della consegna è una decisione nuova, non un difetto.**
+>
 > 🛑 **04/09/2026-terdecies — ORDINE NON CONFORME: la vendita non va avanti; link Shopify riparato (mappa dei 4 negozi)** (comando utente «fai push e deploy e importa lo stato di orders»).
 > - **Salute da Orders**: `StatoOrdineOrders.salute` (elenco, cache 2′) e nel
 >   dettaglio (`findOne`, stessa chiamata del link Shopify). Valori di Orders:

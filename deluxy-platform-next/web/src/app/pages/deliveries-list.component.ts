@@ -534,7 +534,10 @@ interface PropostaVendita {
         </p>
         @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
         @if (assignValets().length === 0) {
-          <p class="muted">{{ 'deliveries.assign.noValets' | translate }}</p>
+          <!-- ⚠️ Una lista ridotta deve dire PERCHÉ (Libro §8): «nessuno in
+               provincia» e «nessuno col servizio a listino» sono due cose
+               diverse, e per mesi la seconda è stata raccontata come la prima. -->
+          <p class="muted">{{ (motivoNienteValet() === 'servizio' ? 'deliveries.assign.noValetsService' : 'deliveries.assign.noValets') | translate: { servizio: assignFor()?.serviceType?.name } }}</p>
         } @else {
           <ul class="valet-list">
             @for (v of assignValets(); track v.id) {
@@ -1448,6 +1451,18 @@ export class DeliveriesListComponent {
 
   readonly assignValets = computed(() =>
     this.valetAssegnabili(this.assignFor()?.recipientAddress, this.assignFor()?.serviceType?.id, this.assignFor()?.serviceType?.scope, this.assignFor()?.province?.code));
+
+  /**
+   * Perché la lista è vuota: «provincia» o «servizio». Si ripete la selezione
+   * SENZA il filtro del servizio: se restano nomi, il colpevole è il listino.
+   */
+  readonly motivoNienteValet = computed<'provincia' | 'servizio' | null>(() => {
+    if (this.assignValets().length) return null;
+    const d = this.assignFor();
+    if (!d) return null;
+    const senzaServizio = this.valetAssegnabili(d.recipientAddress, undefined, d.serviceType?.scope, d.province?.code);
+    return senzaServizio.length ? 'servizio' : 'provincia';
+  });
 
   /**
    * Per l'assegnazione DI MASSA: i valet buoni per TUTTE le consegne scelte.

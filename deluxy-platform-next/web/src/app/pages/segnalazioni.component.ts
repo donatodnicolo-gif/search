@@ -195,14 +195,31 @@ interface Rif { id: string; nome: string }
                       </a>
                     }
                     <p class="testo">{{ s.testo }}</p>
+                    <!-- ⚠️ 04/09/2026: la ricevuta STORICA punta a exapp.deluxy.it,
+                         il vecchio sistema, che è SPENTO: quel link non apre più
+                         niente. Si dice, invece di offrire un link morto. -->
                     @if (s.ricevutaUrl) {
-                      <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
+                      @if (legacyMorto(s.ricevutaUrl)) {
+                        <span class="ricevuta spenta" [title]="s.ricevutaUrl">📎 {{ 'segnalazioni.ricevutaLegacy' | translate }}</span>
+                      } @else {
+                        <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
+                      }
                     }
+                    <!-- L'allegato caricato dal valet o dall'ufficio: si GUARDA qui.
+                         Un data URL non si apre in una scheda nuova (il browser lo
+                         blocca), quindi la miniatura apre la foto a schermo. -->
                     @if (s.allegatoUrl) {
-                      <a class="ricevuta" [href]="s.allegatoUrl" [download]="'allegato-segnalazione.jpg'"
-                         [attr.target]="s.allegatoUrl.startsWith('data:') ? null : '_blank'" rel="noopener">
-                        📎 {{ 'segnalazioni.attachmentView' | translate }}
-                      </a>
+                      @if (eImmagine(s.allegatoUrl!)) {
+                        <button type="button" class="mini-foto" (click)="fotoAperta.set(s.allegatoUrl!)">
+                          <img [src]="s.allegatoUrl" alt="" />
+                          <span>{{ 'segnalazioni.attachmentView' | translate }}</span>
+                        </button>
+                      } @else {
+                        <a class="ricevuta" [href]="s.allegatoUrl" [download]="'allegato-segnalazione'"
+                           [attr.target]="s.allegatoUrl.startsWith('data:') ? null : '_blank'" rel="noopener">
+                          📎 {{ 'segnalazioni.attachmentView' | translate }}
+                        </a>
+                      }
                     }
                     @if (s.risposta) { <p class="risposta"><strong>{{ 'segnalazioni.answer' | translate }}:</strong> {{ s.risposta }}</p> }
                     @if (s.importoApplicatoIl) {
@@ -243,9 +260,34 @@ interface Rif { id: string; nome: string }
         </table>
       </div>
     }
+
+    <!-- La ricevuta a schermo: si guarda per approvare. Esc o clic fuori chiudono. -->
+    @if (fotoAperta(); as f) {
+      <div class="foto-scrim" (click)="fotoAperta.set(null)" role="dialog" aria-modal="true"
+           [attr.aria-label]="'segnalazioni.attachmentView' | translate">
+        <figure class="foto-box" (click)="$event.stopPropagation()">
+          <button type="button" class="foto-x" (click)="fotoAperta.set(null)" [attr.aria-label]="'common.close' | translate">✕</button>
+          <img [src]="f" alt="" />
+          <figcaption>
+            <a [href]="f" [download]="'ricevuta'" [attr.target]="f.startsWith('data:') ? null : '_blank'" rel="noopener">
+              {{ 'segnalazioni.attachmentDownload' | translate }}
+            </a>
+          </figcaption>
+        </figure>
+      </div>
+    }
   `,
   styles: [
     `
+      .mini-foto { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--hairline); background: var(--surface); border-radius: 10px; padding: 4px 10px 4px 4px; cursor: pointer; font: inherit; font-size: 12px; color: var(--text); }
+      .mini-foto img { width: 40px; height: 40px; object-fit: cover; border-radius: 7px; }
+      .mini-foto:hover { background: var(--fill); }
+      .ricevuta.spenta { color: var(--text-secondary); cursor: help; text-decoration: line-through; }
+      .foto-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: grid; place-items: center; z-index: 60; padding: 24px; }
+      .foto-box { position: relative; margin: 0; background: var(--surface); border-radius: 16px; padding: 14px; max-width: min(900px, 92vw); max-height: 88vh; overflow: auto; }
+      .foto-box img { max-width: 100%; max-height: 74vh; display: block; border-radius: 10px; }
+      .foto-box figcaption { margin-top: 10px; font-size: 13px; text-align: center; }
+      .foto-x { position: absolute; top: 8px; right: 8px; border: 0; background: rgba(0,0,0,0.55); color: #fff; border-radius: 999px; width: 28px; height: 28px; cursor: pointer; font-size: 14px; }
       .form { padding: 18px 20px; margin-bottom: 16px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
@@ -378,6 +420,18 @@ export class SegnalazioniComponent {
   readonly partners = signal<Rif[]>([]);
   readonly valets = signal<Rif[]>([]);
   risposte: Record<string, string> = {};
+  /** La foto a schermo intero: un data URL non si può aprire in una scheda. */
+  readonly fotoAperta = signal<string | null>(null);
+  /** ⚠️ Le espressioni regolari non si scrivono nei template Angular (NG5002): stanno qui. */
+  eImmagine(url: string): boolean {
+    return url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+  }
+
+  /** La ricevuta del vecchio sistema (spento il 31/08/2026): link morto. */
+  legacyMorto(url: string): boolean {
+    return /exapp\.deluxy\.it/i.test(url);
+  }
+
   bozza = { partnerId: '', valetId: '', oggetto: '', testo: '', deliveryId: '', allegatoUrl: '', tipo: 'segnalazione', importo: null as number | null };
 
   // Ricerca consegna da agganciare (ufficio): per codice, indirizzo, destinatario.

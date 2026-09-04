@@ -192,7 +192,12 @@ export function stessoComune(a: string | null, b: string | null): boolean {
 const DELIVERY_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
-  serviceType: { select: { id: true, name: true, pricingModel: true } },
+  // ⚠️ `scope` SERVE anche qui (04/09/2026): l'assegnazione del valet filtra
+  // per listino solo sui servizi di mestiere, e sul dettaglio il campo non
+  // c'era. Senza, un servizio «partner» (es. Vendita Deluxy, che nessun valet
+  // ha a listino per costruzione) svuotava la lista, e la finestra dava la
+  // colpa alla provincia. La lista era in DELIVERY_LIST_SELECT ma non qui.
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
   // Provincia salvata: l'assegnazione la usa senza ri-dedurla dalla stringa.
   province: { select: { id: true, code: true, name: true } },
   customer: { select: { id: true, firstName: true, lastName: true } },
