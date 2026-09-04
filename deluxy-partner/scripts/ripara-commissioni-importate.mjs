@@ -18,20 +18,29 @@
 //   4. cancella la riga.
 // Prima di scrivere salva TUTTO in un JSON (righe + saldi toccati).
 //
-// Uso: node --env-file=.env scripts/ripara-commissioni-importate.mjs [--esegui]
-// Senza --esegui stampa soltanto cosa farebbe.
+// Uso: node --env-file=.env scripts/ripara-commissioni-importate.mjs [--partner <id>] [--attese <n>] [--esegui]
+// Senza --esegui stampa soltanto cosa farebbe. Con --esegui serve --attese <n>:
+// il numero di righe trovate deve coincidere (guardia contro dati cambiati
+// fra la prova a secco e l'esecuzione). --partner limita a una scheda sola
+// (04/09/2026: 142 RESTAURANT, fattura 140/2026 segnalata dall'utente).
 import { PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 
 const p = new PrismaClient();
 const ESEGUI = process.argv.includes("--esegui");
+const arg = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : undefined; };
+const PARTNER = arg("--partner");
+const ATTESE = arg("--attese") ? Number(arg("--attese")) : undefined;
+// un commFattNumero «vero» ha la forma 460/2026 (o solo cifre): le date e le
+// frasi arrivate dall'xlsx («Mon Jun 01 2026…», «Si») non contano come numero
+const numeroVero = (x) => !!x && (/[0-9]+[ ]*[/][ ]*[0-9]{2,4}/.test(x) || /^[ ]*[0-9]{1,5}[ ]*$/.test(x));
 const ivato = (f) => +(f.imponibile * (1 + f.aliquotaIva / 100)).toFixed(2);
 
 const saldiConComm = await p.saldoMensile.findMany({ where: { commFattNumero: { not: null } }, select: { commFattNumero: true } });
 const numeriComm = new Set(saldiConComm.map((s) => (s.commFattNumero ?? "").trim()).filter((x) => /\d/.test(x)));
 
 const tutte = await p.fatturaServizio.findMany({
-  where: { createdAt: { gte: new Date("2026-08-30T00:00:00Z") } },
+  where: { createdAt: { gte: new Date("2026-08-30T00:00:00Z") }, ...(PARTNER ? { partnerId: PARTNER } : {}) },
   include: { partner: { select: { nome: true, compensazione: true } } },
 });
 const eCommissioni = (f) =>
@@ -41,8 +50,8 @@ const eCommissioni = (f) =>
 const righe = tutte.filter(eCommissioni).sort((a, b) => Number(/integrazione|\(2\)/i.test(a.descrizione ?? "")) - Number(/integrazione|\(2\)/i.test(b.descrizione ?? "")));
 
 console.log(`Fatture commissioni registrate come servizi: ${righe.length} — imponibile ${righe.reduce((a, f) => a + f.imponibile, 0).toFixed(2)} €`);
-if (righe.length !== 132) {
-  console.error(`ATTESE 132 (censimento del 02/09), trovate ${righe.length}: mi fermo.`);
+if (ESEGUI && ATTESE !== righe.length) {
+  console.error(`Con --esegui serve --attese uguale alle righe trovate (${righe.length}); ricevuto ${ATTESE ?? "niente"}: mi fermo senza scrivere.`);
   process.exit(1);
 }
 
@@ -90,7 +99,7 @@ for (const f of righe) {
     const tolti = await p.pagamento.deleteMany({ where: { origineTipo: "fattura_servizi", origineId: f.id } });
     pagamentiTolti += tolti.count;
     const s2 = await p.saldoMensile.findUnique({ where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } }, select: { commFattNumero: true } });
-    const haNumero = !!(s2?.commFattNumero && /\d/.test(s2.commFattNumero));
+    const haNumero = numeroVero(s2?.commFattNumero);
     if (!haNumero && f.numero) {
       await p.saldoMensile.upsert({
         where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } },
@@ -101,13 +110,14 @@ for (const f of righe) {
     }
     await p.fatturaServizio.delete({ where: { id: f.id } });
   }
-  dettaglio.push(`${f.numero} ${f.partner.nome} ${f.anno}/${f.mese} ${f.imponibile} €${f.incassoRegistrato ? " (stornato incasso " + v + ")" : ""}`);
+  const sPrev = ESEGUI ? null : await p.saldoMensile.findUnique({ where: { partnerId_anno_mese: { partnerId: f.partnerId, anno: f.anno, mese: f.mese } }, select: { commFattNumero: true, bonificoImporto: true } });
+  dettaglio.push(`${f.numero} ${f.partner.nome} ${f.anno}/${f.mese} ${f.imponibile} €${f.incassoRegistrato ? " (stornato incasso " + v + ")" : ""}${sPrev ? ` — mese: commFatt=${JSON.stringify(sPrev.commFattNumero)} ${numeroVero(sPrev.commFattNumero) ? "(resta)" : "(→ " + f.numero + ")"} bonifico=${sPrev.bonificoImporto}` : ""}`);
 }
 console.log(dettaglio.join("\n"));
 if (ESEGUI) {
   await p.registroModifica.create({
     data: {
-      utente: "riparazione 02/09/2026",
+      utente: PARTNER ? "riparazione 04/09/2026 (un partner)" : "riparazione 02/09/2026",
       azione: `Tolte dai servizi ${righe.length} fatture commissioni importate da FIC il 31/08 (${righe.reduce((a, f) => a + f.imponibile, 0).toFixed(2)} € netti); ${agganciate} agganciate ai mesi come fatture commissioni`,
       categoria: "fatture",
       dettaglio: `Le fatture delle commissioni vendor non sono servizi (già dentro il dovuto vendite). Incassi automatici stornati: ${stornate}; riferimenti Pagamenti tolti: ${pagamentiTolti}. Backup: ${file}. ` + dettaglio.slice(0, 40).join(" · "),

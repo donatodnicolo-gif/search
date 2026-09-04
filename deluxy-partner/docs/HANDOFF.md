@@ -52,12 +52,22 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (13:05) — 142 RESTAURANT: le 5 fatture commissioni tolte dai servizi (chiesto dall'utente sulla 140/2026)
+>
+> Segnalato dall'utente dalla scheda `/partner/cmro00rmp0008i65cjiw5enow`: «la fatt. 140 è di commissione ma la classifichi come consegne»; e il tema di architettura: la commissione è **già scalata dal dovuto** (febbraio: dovuto 40,85 = 50 − 7,50 × 1,22), quindi il residuo di 9,15 € era la stessa fattura contata due volte.
+> - È il difetto sistemico del 02/09 (backfill FIC del 31/08): sul partner erano 5 righe, non una — 5/2026 (dic 2025), **140/2026 (feb)**, 354/2026 (apr), 382/2026 (mag), 460/2026 (giu), 56,25 € di imponibile, tutte «Consegne» per tipologia imparata.
+> - **Eseguito** `scripts/ripara-commissioni-importate.mjs --partner cmro00rmp0008i65cjiw5enow --attese 5 --esegui`: cancellate 5, agganciata 1 (dicembre 2025 aveva come `commFattNumero` una **data spazzatura** dall'xlsx, ora «5/2026»), nessun incasso da stornare (giugno era già annullato a mano il 02/09), tolto 1 riferimento Pagamenti (460/2026, 4,58 €). Backup: `scripts/backup-commissioni-importate-1788519916006.json` (non va in git). Riga nel registro modifiche («riparazione 04/09/2026 (un partner)», 13:05).
+> - **Verificato dopo**: febbraio 2026 = servizi 141/2026 (12 € → 14,64) − dovuto 40,85 = −26,21; bonifico 26,21 → **residuo 0**. Restano al partner solo le 4 fatture di consegne (141, 353, 381, 459).
+> - **Lo script è cambiato**: `--partner <id>` per una scheda sola; la guardia fissa «132 righe» è diventata `--attese <n>` obbligatoria con `--esegui` (deve coincidere con le righe trovate); un `commFattNumero` conta come numero solo se ha la forma «460/2026» o sole cifre (`numeroVero`), così le date/frasi dell'xlsx vengono sostituite; la prova a secco stampa, per ogni riga, cosa farebbe al mese.
+> - ℹ️ Notato e non toccato: il saldo di **luglio 2026** dello stesso partner ha `commFattNumero` = «460/2026», lo stesso numero di giugno. Da guardare a mano.
+> - 🔴 **Gli altri partner hanno ancora lo stesso difetto**: vedi la prova a secco globale nel punto sotto (numero aggiornato) — si lancia lo stesso script senza `--partner`, con `--attese` pari al conteggio della prova.
+
 > ### 04/09/2026 (pomeriggio, 13:00) — ricontrollo: produzione ferma a stamattina, app in uso, gli script di riparazione ANCORA da lanciare
 >
 > Verificato (non dedotto):
 > - **Produzione** = sempre `9f3274b3` (deploy `i37xrfvpi` del 03/09 19:57, nessun deploy nuovo); health 200 in 0,34 s, `database:true`.
 > - **L'app è in uso**: Renato Cassoli oggi ha creato 5 vendite vendor (09:45 → 12:38) e modificato 2 fatture servizi (299/2026 e 386/2026 alle 12:54–12:55); alle 11:19 un partner è nato dal registro Anagrafiche (origine Scout).
-> - 🔴 **I 3 script del 02/09 NON sono ancora stati lanciati**: 124 `FatturaServizio` con descrizione «Commission…» (44.853,53 € di imponibile), 0 righe nel registro modifiche con le loro frasi, nessun `backup-*.json` in `scripts/`. Il fatturato per tipologia letto da Budgets resta gonfiato, i 9 mesi coi bonifici gemelli restano sommati. Comandi e ordine: vedi il blocco «02/09 (pomeriggio)» sotto.
+> - 🔴 **I 3 script del 02/09 NON sono ancora stati lanciati**: **127 fatture commissioni ancora fra i servizi** secondo il criterio dello script (77.439,41 € di imponibile — prova a secco delle 13:06, DOPO le 5 di 142 RESTAURANT; torna con le 132 del 02/09). ⚠️ Un conteggio «descrizione che inizia per Commission» ne dà solo 124/44.853 €: lo script prende anche «commissioni» in mezzo alla descrizione e i numeri già `commFattNumero` di un mese. Zero righe nel registro modifiche con le frasi degli script, nessun `backup-*.json` in `scripts/`. Il fatturato per tipologia letto da Budgets resta gonfiato, i 9 mesi coi bonifici gemelli restano sommati. Comandi e ordine: vedi il blocco «02/09 (pomeriggio)» sotto.
 > - ✅ **Worktree `scoutwt` allineato** a `origin/scout-ui` (0 avanti / 0 indietro). Nella cartella padre ci sono modifiche NON committate di `deluxy-mail` (lavoro in corso di un'altra sessione): non toccarle e non aggiungerle ai commit di Finance.
 > - ✅ `src/components/StampaButton.tsx` (orfano dal 02/09) cancellato.
 > - ⚠️ `vercel.json` **non aveva** `"ignoreCommand"` (regola «Deploy e costi di build» del CLAUDE.md, 04/09): aggiunto. Sul progetto Vercel (`deluxy-partner`, Root Directory `.`) i deploy Production degli ultimi 4 giorni sono tutti da CLI con build su Vercel (46 s – 1 min): per azzerare i minuti di build si passa a `vercel build --prod` + `vercel deploy --prebuilt --prod` (o `/deploy deluxy-partner`).

@@ -9,3 +9,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# backup JSON degli script di riparazione (dati di produzione)
+scripts/backup-*.json
