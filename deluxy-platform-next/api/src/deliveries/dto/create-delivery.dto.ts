@@ -66,6 +66,18 @@ export class DeliveryPickupDto {
 }
 
 export class CreateDeliveryDto {
+  /**
+   * ⭐ 05/09/2026 (regola utente): LA RICONSEGNA. Quando una consegna non è
+   * andata a buon fine se ne fa un'altra, e le due restano legate: qui l'id
+   * della NON CONSEGNATA da cui questa nasce. Il legame esiste già in banca
+   * dati (`parentDeliveryId`, 72 consegne del vecchio sistema, 57 delle quali
+   * nate da una non consegnata) e ora lo scrive anche l'app.
+   */
+  @ApiProperty({ required: false, description: 'Id della consegna non riuscita da cui nasce questa riconsegna' })
+  @IsOptional()
+  @IsString()
+  parentDeliveryId?: string;
+
   @ApiProperty({ example: '2026-07-20' })
   @IsDateString()
   date: string;

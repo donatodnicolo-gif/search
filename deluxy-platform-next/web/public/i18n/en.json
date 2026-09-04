@@ -905,7 +905,8 @@
       "label": "Partner: {{nome}}",
       "remove": "Remove the partner filter"
     },
-    "ruleApplied": "Carnet rule applied"
+    "ruleApplied": "Carnet rule applied",
+    "redeliver": "Redeliver"
   },
   "partners": {
     "title": "Partners",
@@ -2191,6 +2192,10 @@
       "attesa": "Waiting for the partner to approve or reject.",
       "esito_approvate": "Hours approved by {{chi}}: {{dalle}}–{{alle}}, billed {{ore}} h.",
       "esito_rifiutate": "Hours rejected by {{chi}}: planned hours apply, billed {{ore}} h."
+    },
+    "redelivery": {
+      "from": "Redelivery of",
+      "to": "Redelivered with"
     }
   },
   "confirmDelivery": {

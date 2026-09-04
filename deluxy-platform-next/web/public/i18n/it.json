@@ -906,7 +906,8 @@
       "label": "Partner: {{nome}}",
       "remove": "Togli il filtro partner"
     },
-    "ruleApplied": "Regola carnet applicata"
+    "ruleApplied": "Regola carnet applicata",
+    "redeliver": "Riconsegna"
   },
   "partners": {
     "title": "Partner",
@@ -2193,6 +2194,10 @@
       "attesa": "In attesa che il partner approvi o rifiuti.",
       "esito_approvate": "Ore approvate da {{chi}}: {{dalle}}–{{alle}}, fatturate {{ore}} h.",
       "esito_rifiutate": "Ore rifiutate da {{chi}}: valgono le previste, fatturate {{ore}} h."
+    },
+    "redelivery": {
+      "from": "Riconsegna della",
+      "to": "Riconsegnata con"
     }
   },
   "confirmDelivery": {

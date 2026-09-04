@@ -190,6 +190,10 @@ export function stessoComune(a: string | null, b: string | null): boolean {
 }
 
 const DELIVERY_INCLUDE = {
+  // ⭐ 05/09/2026: la riconsegna si legge nei due versi — da quale consegna
+  // nasce e quale l'ha sostituita.
+  parentDelivery: { select: { id: true, code: true, date: true, status: true, notDeliveredReason: true } },
+  childDeliveries: { select: { id: true, code: true, date: true, status: true }, orderBy: { date: 'asc' } },
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   // ⚠️ `scope` SERVE anche qui (04/09/2026): l'assegnazione del valet filtra
@@ -251,6 +255,27 @@ export class DeliveriesService {
    * interroga anche in SQL raw, che un'estensione non tocca — sarebbe stata la
    * garanzia falsa di «un posto solo».
    */
+  /**
+   * ⭐ 05/09/2026 (regola utente): dopo aver creato una riconsegna, la NON
+   * CONSEGNATA da cui nasce esce dalla lista operativa (ha già la sua
+   * risposta) e le due si citano a vicenda nel registro.
+   */
+  private async legaRiconsegna(nuova: { id: string; code: number }, parentDeliveryId: string, user: JwtUser) {
+    const padre = await this.prisma.delivery.findFirst({
+      where: { id: parentDeliveryId, deletedAt: null },
+      select: { id: true, code: true, status: true },
+    });
+    if (!padre) return;
+    await this.prisma.deliveryLog.createMany({
+      data: [
+        { deliveryId: padre.id, type: 'note', userId: user.sub ?? null,
+          message: `Riconsegnata con la consegna #${nuova.code}` },
+        { deliveryId: nuova.id, type: 'note', userId: user.sub ?? null,
+          message: `Riconsegna della #${padre.code} (non consegnata)` },
+      ],
+    });
+  }
+
   private static readonly VIVE = { deletedAt: null } as const;
 
   /**
@@ -387,8 +412,25 @@ export class DeliveriesService {
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
-    else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
-    else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
+    // ⭐ 05/09/2026 (regola utente): «le NON CONSEGNATE devono essere visibili
+    // in Consegne, con il bottone Riconsegna». Restano fra le attive finché
+    // non nasce la riconsegna: da quel momento il lavoro è passato alla nuova
+    // e la vecchia va in storico. Non è uno stato nuovo — lo stato resta
+    // `not_delivered` — è la LISTA che smette di chiedere qualcosa che è
+    // già stato fatto.
+    else if (query.view === 'attive') {
+      scope.OR = [
+        { status: { notIn: DELIVERY_CLOSED_STATUSES } },
+        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} } },
+      ];
+    } else if (query.view === 'storico') {
+      // Speculare: una non consegnata GIÀ riconsegnata è storia.
+      scope.OR = [
+        { status: { in: DELIVERY_CLOSED_STATUSES.filter((s) => s !== DeliveryStatus.NOT_DELIVERED) } },
+        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { some: {} } },
+      ];
+      delete scope.status;
+    }
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
     // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
@@ -1518,6 +1560,10 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // ⭐ 05/09/2026 (regola utente): se nasce come RICONSEGNA, le due consegne
+    // si citano nel registro e la non consegnata esce dalla lista operativa.
+    if (dto.parentDeliveryId) await this.legaRiconsegna(delivery, dto.parentDeliveryId, user);
+
     // Notifica al PARTNER dell'inserimento, se ha abilitato la mail (31/08).
     // Best-effort: non blocca la creazione.
     void this.notificaInserimentoAlPartner(delivery);

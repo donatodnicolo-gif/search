@@ -1397,6 +1397,9 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly selectedService = signal<ServiceType | null>(null);
   /** Duplica (04/09): la data non si eredita e non si riempie da sola. */
   private dataDaScegliere = false;
+  /** ⭐ 05/09: l'id della NON consegnata da cui nasce questa riconsegna. */
+  readonly riconsegnaDi = signal<string | null>(null);
+  readonly codicePadre = signal<number | null>(null);
   /** Servizio arrivato dalla home «Servizi» del partner (`?servizio=`). */
   private servizioDallaHome: string | null = null;
   /** Fasce orarie di consegna generate dal servizio. */
@@ -1639,6 +1642,26 @@ export class DeliveryFormComponent implements AfterViewInit {
         error: () => undefined,
       });
     }
+    // ⭐ 05/09/2026 (regola utente): RICONSEGNA. `?riconsegna=<id>` riempie il
+    // modulo con la consegna NON riuscita, lascia la DATA VUOTA (è il punto:
+    // quando si riprova) e tiene il legame con quella vecchia, che al
+    // salvataggio esce dalla lista operativa.
+    const idRiconsegna = this.route.snapshot.queryParamMap.get('riconsegna');
+    if (idRiconsegna && !idModifica) {
+      this.dataDaScegliere = true;
+      this.riconsegnaDi.set(idRiconsegna);
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${idRiconsegna}`).subscribe({
+        next: (d) => {
+          this.prefill(d);
+          this.editId.set(null);
+          this.model.status = '';
+          this.model.date = '';
+          this.codicePadre.set((d as any)?.code ?? null);
+        },
+        error: () => undefined,
+      });
+    }
+
     // ⭐ 04/09: dalla home «Servizi» del partner si arriva col servizio già
     // scelto (`?servizio=<id>`): si applica appena la lista servizi è qui.
     this.servizioDallaHome = this.route.snapshot.queryParamMap.get('servizio');
@@ -2614,6 +2637,10 @@ export class DeliveryFormComponent implements AfterViewInit {
       }));
     // In modifica invio sempre i prodotti, anche a lista vuota: altrimenti
     // rimuoverli tutti non li cancellerebbe (l'API scrive solo le chiavi presenti).
+    // ⭐ 05/09/2026 (regola utente): il legame con la NON consegnata da cui
+    // nasce questa riconsegna. Solo alla creazione: una modifica non cambia
+    // la storia di come è nata.
+    if (this.riconsegnaDi() && !this.editId()) payload['parentDeliveryId'] = this.riconsegnaDi();
     if (products.length || this.editId()) payload['products'] = products;
 
     this.saving.set(true);
