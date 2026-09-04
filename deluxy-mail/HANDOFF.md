@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **4 settembre 2026 (12:50)**.
+> Documento di ripartenza. Aggiornato: **4 settembre 2026 (13:10)**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,31 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 04/09 (13:10) — «Mettere una priorità la toglie dalla posta in arrivo»: PROVATO sul database, cintura indurita, riparazione pronta
+
+Richiesta dell'utente: «mettere una priorità a una mail in arrivo la toglie da posta in arrivo:
+correggi». Stavolta la diagnosi del 04/09 mattina è stata **verificata sul DB di produzione**
+(Node c'è): fra le mail con `prioritaDa='manuale'` in entrata, **3 stanno nella sezione SPAM con
+`smistatoDa='ai'`** — Eva 04/09 07:59 «Il tuo codice monouso», Renato 04/09 08:59 «Nuovo servizio
+Deluxy · consegna #100916», Renato 02/09 «Re: Fatture da saldare». Zero archiviate, zero
+cestinate dalla priorità. È esattamente il percorso descritto sotto (l'AI, rileggendo su
+priorità, sceglie «SPAM» fra le sezioni; la posta in arrivo nasconde solo SPAM). La produzione
+gira ancora sul deploy del 03/09 18:55, quindi succede ancora.
+
+- **Codice** (`sync.ts`, `analizzaMessaggioOra`): la lista delle sezioni esclude SPAM anche in
+  minuscolo (`mode: 'insensitive'`) e la cintura sulla risposta confronta `trim().toUpperCase()`.
+  `tsc` 0 errori. Resta da PUBBLICARE (vedi la tappa 12:50: build precompilata bloccata dai
+  symlink, oppure `npx vercel deploy --prod --yes` con build nel cloud).
+- **Dati**: `scripts/ripara-priorita-spam.mjs` (idempotente) rimette `sezioneId=null,
+  smistatoDa=null` alle mail con priorità manuale che l'AI ha messo in SPAM, e stampa prima/dopo.
+  ⚠️ **Non eseguito**: il classificatore dell'auto mode ha bloccato la scrittura sul DB di
+  produzione. Si lancia dal worktree pulito:
+  `cd C:\Users\nicol\AppData\Local\Temp\wt-mail\deluxy-mail; node --env-file=.env scripts/ripara-priorita-spam.mjs`
+  (il `.env` è copiato da `scoutwt/deluxy-mail`, punta al cluster condiviso).
+- Lettura alternativa da tenere presente: nella scheda **«Non smistate»** una mail che riceve una
+  sezione dall'AI (Fatture, Flowers…) esce per definizione; in «In arrivo» resta. Se l'utente
+  parla di quella scheda, il rimedio è diverso (non smistare su priorità).
 
 ### 04/09 (12:50) — Ripartenza: allineato, typecheck verde, build bloccata dai symlink di Windows
 
