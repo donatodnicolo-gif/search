@@ -11,6 +11,7 @@ type Dati = {
   daScelte: { id: string; email: string; nome: string }[]
   daId: string
   daIndirizzate: string[]
+  firme: Record<string, string>
   oggettoOriginale: string
   iniziale: { a: string; cc: string; oggetto: string; corpo: string }
   contatti: { email: string; nome: string | null }[]
@@ -91,6 +92,7 @@ export function FinestraScrivi() {
           daScelte: r.daScelte ?? [],
           daId: r.daId ?? '',
           daIndirizzate: r.daIndirizzate ?? [],
+          firme: r.firme ?? {},
           oggettoOriginale: r.oggettoOriginale ?? '',
           iniziale: r.iniziale,
           contatti: r.contatti ?? [],
@@ -166,6 +168,7 @@ export function FinestraScrivi() {
                 daScelte={dati.daScelte}
                 daId={dati.daId}
                 daIndirizzate={dati.daIndirizzate}
+                firme={dati.firme}
                 iniziale={dati.iniziale}
                 // Restando in posta in arrivo non si va da nessuna parte:
                 // la finestra si chiude e la lista si aggiorna da sola.

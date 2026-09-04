@@ -23,12 +23,12 @@ export async function accountAttivoId(utenteId: string): Promise<string | null> 
 /** Le caselle dell'utente per il selettore e la scelta del mittente. */
 export async function caselleUtente(
   utenteId: string
-): Promise<{ id: string; nome: string; email: string; attivo: boolean }[]> {
+): Promise<{ id: string; nome: string; email: string; attivo: boolean; firma: string | null }[]> {
   try {
     return await db.account.findMany({
       where: { utenteId },
       orderBy: { id: 'asc' },
-      select: { id: true, nome: true, email: true, attivo: true },
+      select: { id: true, nome: true, email: true, attivo: true, firma: true },
     })
   } catch {
     return []

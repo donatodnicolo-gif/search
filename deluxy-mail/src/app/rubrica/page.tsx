@@ -108,7 +108,9 @@ export default async function Rubrica({ searchParams }: Props) {
                   // sul nome. Ora tutta la riga apre la scheda; alias e AI
                   // dentro la riga restano cliccabili senza navigare.
                   <RigaLink key={c.email} href={`/rubrica/${encodeURIComponent(c.email)}`} className="row-link">
-                    <td>
+                    {/* I data-label sono le etichette delle schede su telefono
+                        (tabelle → schede, globals.css @900px). */}
+                    <td data-label="Contatto">
                       <Link
                         href={`/rubrica/${encodeURIComponent(c.email)}`}
                         style={{ display: 'flex', alignItems: 'center', gap: 12 }}
@@ -124,19 +126,19 @@ export default async function Rubrica({ searchParams }: Props) {
                         </span>
                       </Link>
                     </td>
-                    <td>
+                    <td data-label="Alias">
                       <EditaAlias email={c.email} alias={c.alias ?? ''} />
                     </td>
-                    <td className="num">{c.messaggi}</td>
-                    <td className="num">
+                    <td className="num" data-label="Messaggi">{c.messaggi}</td>
+                    <td className="num" data-label="Da rispondere">
                       {c.daRispondere > 0 ? (
                         <span className="badge orange">{c.daRispondere}</span>
                       ) : (
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td className="num muted">{dataBreve(c.ultimo)}</td>
-                    <td className="num">
+                    <td className="num muted" data-label="Ultimo">{dataBreve(c.ultimo)}</td>
+                    <td className="num" data-label="Situazione">
                       <BottoneAI email={c.email} aggiornatoIl={analizzatoIl.get(c.email) ?? null} />
                     </td>
                   </RigaLink>

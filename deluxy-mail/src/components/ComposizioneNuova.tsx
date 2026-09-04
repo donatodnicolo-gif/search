@@ -12,6 +12,7 @@ import { mettiFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
 import { useInvioRapido } from './useInvioRapido'
 import { caricaAllegatiGrandi, servonoAPezzi, caricaCorpoGrande, corpoTroppoGrande } from './caricaAllegati'
+import { scambiaFirmaNelCorpo } from './firmaClient'
 import { PRIORITA } from '@/lib/format'
 
 type Props = {
@@ -27,13 +28,31 @@ type Props = {
   caselle?: { id: string; etichetta: string }[]
   /** L'account predefinito da cui inviare (la casella attiva). */
   accountId?: string
+  /** La firma effettiva di ogni casella (id → firma; già col ripiego sulla
+   *  personale): cambiando il «Da», la firma nel corpo segue la casella. */
+  firme?: Record<string, string>
 }
 
 /** Scrittura di una mail da zero (nessun messaggio d'origine). */
-export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequenze = [], caselle = [], accountId }: Props) {
+export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequenze = [], caselle = [], accountId, firme = {} }: Props) {
   const [a, setA] = useState(iniziale.a)
   // Da quale casella parte (multi-account): predefinita l'attiva.
   const [daAccount, setDaAccount] = useState(accountId ?? caselle[0]?.id ?? '')
+
+  /** Cambiare casella cambia anche la FIRMA nel corpo (se il suo blocco c'è
+   *  ancora: un corpo riscritto dall'utente non si tocca). */
+  function cambiaCasella(id: string) {
+    const vecchia = firme[daAccount] ?? ''
+    const nuova = firme[id] ?? ''
+    setDaAccount(id)
+    if (vecchia !== nuova) {
+      const corpoNuovo = scambiaFirmaNelCorpo(corpo, vecchia, nuova)
+      if (corpoNuovo !== null) {
+        setCorpo(corpoNuovo)
+        setVersioneCorpo((v) => v + 1)
+      }
+    }
+  }
 
   // ⚠️ I domini di casa si ricavano dalle etichette delle caselle («Nome
   // <indirizzo>»): sono già qui e non serve chiederli al server. Servono a
@@ -287,7 +306,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
         <div className="full">
           <label className="field-label">Da</label>
           {caselle.length > 1 ? (
-            <select value={daAccount} onChange={(e) => setDaAccount(e.target.value)}>
+            <select value={daAccount} onChange={(e) => cambiaCasella(e.target.value)}>
               {caselle.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.etichetta}

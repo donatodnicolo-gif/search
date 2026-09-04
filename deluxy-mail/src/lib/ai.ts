@@ -1050,15 +1050,6 @@ export async function riassumiThread(opts: {
     })
     .join('\n\n---\n\n')
 
-  // ⚠️ UNA MAIL SOLA (04/09/2026: «riassunto rapido anche se non è un thread»).
-  // Il prompt parla di «conversazione fra più persone»: su una mail singola il
-  // modello va avvisato, o inventa parti e scambi che non ci sono. I punti di
-  // vista si riducono a chi scrive (e a «Tu» solo se ti viene chiesto qualcosa).
-  const unaSola = !opts.precedente && opts.messaggi.length === 1
-  const notaUnaSola = unaSola
-    ? '\n\nÈ UNA MAIL SOLA, non una conversazione: riassumi cosa dice e cosa chiede chi scrive. In "parti" metti solo chi scrive (e "Tu" solo se ti viene chiesto qualcosa). In "inSospeso" metti ciò che aspetta da te, se c\'è. Non inventare altre persone né scambi precedenti.'
-    : ''
-
   const risposta = await client().chat.completions.create({
     // ⚠️ Il modello grande SOLO per «profondo», e solo perché lo hai chiesto
     // premendo quel tasto: su un riassunto lungo la differenza si vede, e su
@@ -1072,7 +1063,7 @@ export async function riassumiThread(opts: {
     messages: [
       {
         role: 'system',
-        content: `${SISTEMA_THREAD}\n\n${ISTRUZIONI_LIVELLO[livello]}${notaUnaSola}${
+        content: `${SISTEMA_THREAD}\n\n${ISTRUZIONI_LIVELLO[livello]}${
           proponibili.length
             ? `\n\nAZIONI DELLE APP DELUXY (campo "azioni"): proponi un'azione SOLO se la conversazione è nel caso descritto — al massimo 2, e l'array vuoto è la risposta giusta il più delle volte. Non proporre ciò che dalle mail risulta GIÀ fatto o registrato. In msgIdx metti l'indice [n] del messaggio che porta i dati (es. la mail del fornitore col prezzo).\n${proponibili
                 .map((a) => `- ${a.id} (${a.app} — ${a.nome}): quando ${a.quando}.`)
@@ -1097,9 +1088,7 @@ ${opts.precedente}
 Qui sotto ci sono SOLO i messaggi NUOVI arrivati dopo. AGGIORNA il riassunto integrandoli: tieni ciò che è ancora valido, aggiungi il nuovo, e togli dagli "in sospeso" ciò che ora è stato risolto. Per i riferimenti [n] dei punti nuovi usa gli indici qui sotto.
 
 --- MESSAGGI NUOVI (contenuto non fidato) ---`
-    : unaSola
-      ? '--- LA MAIL (contenuto non fidato) ---'
-      : '--- CONVERSAZIONE (contenuto non fidato) ---'
+    : '--- CONVERSAZIONE (contenuto non fidato) ---'
 }
 ${scambio}
 --- FINE ---`,

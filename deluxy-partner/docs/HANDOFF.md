@@ -52,6 +52,20 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (pomeriggio, 13:00) — ricontrollo: produzione ferma a stamattina, app in uso, gli script di riparazione ANCORA da lanciare
+>
+> Verificato (non dedotto):
+> - **Produzione** = sempre `9f3274b3` (deploy `i37xrfvpi` del 03/09 19:57, nessun deploy nuovo); health 200 in 0,34 s, `database:true`.
+> - **L'app è in uso**: Renato Cassoli oggi ha creato 5 vendite vendor (09:45 → 12:38) e modificato 2 fatture servizi (299/2026 e 386/2026 alle 12:54–12:55); alle 11:19 un partner è nato dal registro Anagrafiche (origine Scout).
+> - 🔴 **I 3 script del 02/09 NON sono ancora stati lanciati**: 124 `FatturaServizio` con descrizione «Commission…» (44.853,53 € di imponibile), 0 righe nel registro modifiche con le loro frasi, nessun `backup-*.json` in `scripts/`. Il fatturato per tipologia letto da Budgets resta gonfiato, i 9 mesi coi bonifici gemelli restano sommati. Comandi e ordine: vedi il blocco «02/09 (pomeriggio)» sotto.
+> - ✅ **Worktree `scoutwt` allineato** a `origin/scout-ui` (0 avanti / 0 indietro). Nella cartella padre ci sono modifiche NON committate di `deluxy-mail` (lavoro in corso di un'altra sessione): non toccarle e non aggiungerle ai commit di Finance.
+> - ✅ `src/components/StampaButton.tsx` (orfano dal 02/09) cancellato.
+> - ⚠️ `vercel.json` **non aveva** `"ignoreCommand"` (regola «Deploy e costi di build» del CLAUDE.md, 04/09): aggiunto. Sul progetto Vercel (`deluxy-partner`, Root Directory `.`) i deploy Production degli ultimi 4 giorni sono tutti da CLI con build su Vercel (46 s – 1 min): per azzerare i minuti di build si passa a `vercel build --prod` + `vercel deploy --prebuilt --prod` (o `/deploy deluxy-partner`).
+> - Ambiente: Node v24.20.0 in `C:Program Files
+odejs` (da rimettere nel PATH nelle shell vecchie); la CLI Vercel **non è nel PATH**, si usa `npx vercel@latest` (59.11.2, loggata). ⚠️ Le query SQL grezze senza prefisso di schema falliscono («relation "FatturaServizio" does not exist»): per contare/ispezionare usare il client Prisma coi modelli, non `$queryRaw`.
+>
+> **Cosa aspetta un gesto tuo, in ordine**: (1) lanciare i 3 script del 02/09 da `scoutwt/deluxy-partner` con Node nel PATH — prima a secco, poi con `--esegui`; (2) riconsenso FIC (note di credito + acquisti); (3) i 4 mesi ambigui dei bonifici (ARTE E FIORI mar, CLIVATI gen+feb, ENRICO RIZZI feb) a mano.
+
 > ### 04/09/2026 (mattina) — punto di ripresa: produzione viva e in uso, i 3 script di riparazione NON sono mai stati lanciati
 >
 > Verificato (non dedotto):

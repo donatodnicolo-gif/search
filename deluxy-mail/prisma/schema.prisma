@@ -273,6 +273,11 @@ model Account {
 
   nome                 String // etichetta mostrata nell'app, es. "Deluxy Delivery"
   email                String
+  // Firma della CASELLA: se impostata, le mail che partono da qui la usano al
+  // posto della firma personale dell'utente (scegliendo «Da: cs@» la firma
+  // deve dire cs@, non la persona). Vuota = si usa Utente.firma.
+  firma                String?
+  firmaDati            String? // i campi del modulo (JSON), per riaprire il form
   // IMAP
   imapHost             String
   imapPort             Int         @default(993)

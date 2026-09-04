@@ -11,6 +11,7 @@ import { mettiFlash, mostraFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
 import { useInvioRapido } from './useInvioRapido'
 import { caricaAllegatiGrandi, servonoAPezzi, caricaCorpoGrande, corpoTroppoGrande } from './caricaAllegati'
+import { scambiaFirmaNelCorpo } from './firmaClient'
 import { PRIORITA } from '@/lib/format'
 import type { Modo } from '@/lib/rispondi'
 
@@ -36,6 +37,13 @@ type Props = {
    * conversazione, non si aggiunge nessuno.
    */
   daIndirizzate?: string[]
+  /**
+   * La firma EFFETTIVA di ogni casella (id → firma grezza, HTML o testo; già
+   * col ripiego sulla firma personale). Cambiando il «Da», il blocco firma nel
+   * corpo si sostituisce con quella della casella nuova: la firma segue la
+   * casella, non la persona.
+   */
+  firme?: Record<string, string>
   iniziale: { a: string; cc: string; oggetto: string; corpo: string }
   tornaA: string
   /** Valorizzato quando si sta riprendendo una bozza già salvata. */
@@ -56,6 +64,7 @@ export function Composizione({
   daScelte = [],
   daId = '',
   daIndirizzate = [],
+  firme = {},
   iniziale,
   tornaA,
   bozzaId,
@@ -147,6 +156,19 @@ export function Composizione({
     const vecchia = daScelte.find((c) => c.id === daSceltaId)
     setDaSceltaId(id)
     if (!nuova) return
+    // La FIRMA segue la casella: se nel corpo c'è ancora il blocco firma, ci
+    // si mette quella della casella nuova. Se l'utente l'ha cancellato o
+    // riscritto, non si tocca niente (meglio una firma vecchia che un pezzo
+    // di mail sparito). L'editor si rimonta: è l'unico modo per mostrarla.
+    const firmaVecchia = firme[daSceltaId] ?? ''
+    const firmaNuova = firme[id] ?? ''
+    if (firmaVecchia !== firmaNuova) {
+      const corpoNuovo = scambiaFirmaNelCorpo(corpo, firmaVecchia, firmaNuova)
+      if (corpoNuovo !== null) {
+        setCorpo(corpoNuovo)
+        setVersioneCorpo((v) => v + 1)
+      }
+    }
     const voci = (v: string) => v.split(',').map((x) => x.trim()).filter(Boolean)
     const senza = (v: string, email: string) =>
       voci(v).filter((x) => !x.toLowerCase().includes(email.toLowerCase()))

@@ -185,9 +185,8 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     // Le istruzioni AI del thread non si leggono più qui: il form è stato
     // tolto (si usa «Delega Renè») e chi le applica le rilegge da sé.
     const [rt, nt, tai, tch, fatte] = await Promise.all([
-      // Anche per una mail sola: dal 04/09/2026 il «Riassunto rapido» si
-      // chiede pure lì (stesso motore, stessa chiave), e riaprendola si rivede.
-      leggiRiassuntoThread(u.id, chiaveConv),
+      // Il riassunto ha senso solo se c'è davvero uno scambio da riassumere.
+      conversazione.length > 1 ? leggiRiassuntoThread(u.id, chiaveConv) : Promise.resolve(null),
       // Il nome può essere finito su un'altra mail della conversazione (le
       // chiavi cambiano agganciando mail vecchie): si cerca su tutte.
       nomeDiThread(u.id, chiaveConv, conversazione.map((m) => m.id)),
@@ -313,19 +312,13 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               Messaggi ↓
             </a>
           ) : (
-            <>
-              {/* Mail sola: il riassunto sta in una scheda sua, sotto il testo. */}
-              <a href="#riassunto" className="azione-riga" title="Il riassunto dell’AI di questa mail, sotto il testo">
-                Riassunto rapido ↓
-              </a>
-              <Link
-                href={`/messaggio/${id}?ampia=1`}
-                className="azione-riga"
-                title="Le altre mail scambiate con le stesse persone"
-              >
-                Correlate
-              </Link>
-            </>
+            <Link
+              href={`/messaggio/${id}?ampia=1`}
+              className="azione-riga"
+              title="Le altre mail scambiate con le stesse persone"
+            >
+              Correlate
+            </Link>
           )}
           <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
         </div>
@@ -573,10 +566,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             mail su tutte quante. */}
         {!messaggio.riassunto && !messaggio.erroreAI && (
           <div className="nota-sottile">
-            L’AI non ha ancora letto questa mail: dalle una priorità qui sopra e te la riassume
-            (creando anche un’attività), oppure chiedi il{' '}
-            <a href={conversazione.length > 1 ? '#conversazione' : '#riassunto'}>Riassunto rapido ↓</a>{' '}
-            qui sotto, che legge e basta.
+            L’AI non ha ancora letto questa mail: dalle una priorità qui sopra e te la riassume.
           </div>
         )}
 
@@ -705,34 +695,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               allegati: c.allegati,
               priorita: c.priorita,
             }))}
-          />
-        </div>
-      )}
-
-      {/* MAIL SOLA: il «Riassunto rapido» (04/09/2026). Stesso motore e stessi
-          tre livelli della conversazione, ma su questa mail e basta: legge, non
-          dà priorità, non crea attività, non la sposta di sezione. Prima, su una
-          mail singola, l'unico modo di farsela riassumere era la priorità — che
-          fa tutte e tre le cose insieme. */}
-      {conversazione.length === 1 && (
-        <div className="card" id="riassunto">
-          <RiassuntoConversazione
-            messaggioId={messaggio.id}
-            singola
-            azioniApp={azioniApp}
-            giaFatte={azioniFatte}
-            messaggiOra={1}
-            autoAggiorna={false}
-            iniziale={
-              riassuntoThread
-                ? {
-                    analisi: riassuntoThread.analisi,
-                    partecipanti: riassuntoThread.partecipanti,
-                    messaggiVisti: riassuntoThread.messaggiVisti,
-                    generatoIl: riassuntoThread.generatoIl,
-                  }
-                : null
-            }
           />
         </div>
       )}

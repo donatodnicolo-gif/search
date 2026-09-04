@@ -5,7 +5,7 @@ import { FormAccount } from '@/components/FormAccount'
 import { EliminaAccount } from '@/components/EliminaAccount'
 import { ScaricaStorico } from '@/components/ScaricaStorico'
 import { NotifichePush } from '@/components/NotifichePush'
-import { salvaFirmaDati } from '@/lib/actions'
+import { salvaFirmaDati, salvaFirmaCasella } from '@/lib/actions'
 import { leggiFirmaDati } from '@/lib/firma'
 import { dataLunga } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
@@ -107,17 +107,19 @@ export default async function Impostazioni() {
               <tbody>
                 {account.map((a) => (
                   <tr key={a.id}>
-                    <td>
+                    {/* I data-label sono le etichette delle schede su telefono
+                        (tabelle → schede, globals.css @900px). */}
+                    <td data-label="Casella">
                       <strong>{a.nome}</strong>
                       <div className="muted">{a.email}</div>
                     </td>
-                    <td className="muted">
+                    <td className="muted" data-label="Server IMAP">
                       {a.imapHost}:{a.imapPort} · {a.cartella}
                     </td>
-                    <td className="muted">
+                    <td className="muted" data-label="Ultima lettura">
                       {a.ultimoSync ? dataLunga(a.ultimoSync) : 'mai'}
                     </td>
-                    <td>
+                    <td data-label="Stato">
                       {a.ultimoErrore ? (
                         <span className="badge red" title={a.ultimoErrore}>
                           <span className="dot" />
@@ -343,6 +345,76 @@ export default async function Impostazioni() {
           </div>
         </form>
       </div>
+
+      {account.length > 0 && (
+        <>
+          <h2 className="section-title">Firma per casella</h2>
+          <div className="card">
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
+              Se una casella ha una firma sua (es. <strong>cs@</strong> che firma «Customer
+              Service»), le mail che partono da lì usano quella — anche scegliendola dalla
+              tendina «Da» di una risposta. Le caselle senza firma propria usano la tua firma
+              personale qui sopra. Per togliere la firma di una casella, svuota Nome ed Email e
+              salva.
+            </p>
+            {account.map((a) => {
+              const datiCasella = leggiFirmaDati(a.firmaDati)
+              return (
+                <details key={a.id} style={{ borderTop: '1px solid var(--hairline)', padding: '10px 0' }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 14 }}>
+                    <strong>{a.nome}</strong> <span className="muted">{a.email}</span>{' '}
+                    {a.firma ? (
+                      <span className="badge green">
+                        <span className="dot" />
+                        firma propria
+                      </span>
+                    ) : (
+                      <span className="badge neutral">
+                        <span className="dot" />
+                        usa la tua firma
+                      </span>
+                    )}
+                  </summary>
+                  <form action={salvaFirmaCasella} style={{ marginTop: 12 }}>
+                    <input type="hidden" name="accountId" value={a.id} />
+                    <div className="form-grid">
+                      <div>
+                        <label className="field-label">Nome (persona o reparto)</label>
+                        <input type="text" name="nome" defaultValue={datiCasella.nome} placeholder="Customer Service" />
+                      </div>
+                      <div>
+                        <label className="field-label">Ruolo</label>
+                        <input type="text" name="ruolo" defaultValue={datiCasella.ruolo} placeholder="Assistenza clienti" />
+                      </div>
+                      <div>
+                        <label className="field-label">Reparto / azienda</label>
+                        <input type="text" name="reparto" defaultValue={datiCasella.reparto} placeholder="Deluxy White Gloves" />
+                      </div>
+                      <div>
+                        <label className="field-label">Email</label>
+                        <input type="text" name="email" defaultValue={datiCasella.email} placeholder={a.email} />
+                      </div>
+                      <div>
+                        <label className="field-label">Telefono</label>
+                        <input type="text" name="telefono" defaultValue={datiCasella.telefono} placeholder="+39 339 1068285" />
+                      </div>
+                      <div>
+                        <label className="field-label">Sito</label>
+                        <input type="text" name="sito" defaultValue={datiCasella.sito} placeholder="www.deluxy.it" />
+                      </div>
+                    </div>
+                    <div className="form-footer" style={{ marginTop: 14 }}>
+                      <button className="btn primary" type="submit">
+                        Salva firma della casella
+                      </button>
+                    </div>
+                  </form>
+                </details>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       <h2 className="section-title">Notifiche sul telefono</h2>
       <div className="card">

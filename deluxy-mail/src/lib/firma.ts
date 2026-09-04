@@ -37,6 +37,18 @@ export function leggiFirmaDati(json: string | null | undefined): FirmaDati {
   }
 }
 
+/**
+ * La firma con cui scrive una CASELLA: la sua, se impostata, altrimenti quella
+ * personale dell'utente. È il punto unico della regola «la firma segue la
+ * casella»: chi compone una mail non deve ricordarsi il ripiego.
+ */
+export function firmaEffettiva(
+  casella: { firma?: string | null } | null | undefined,
+  utente: { firma?: string | null }
+): string | undefined {
+  return casella?.firma || utente.firma || undefined
+}
+
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

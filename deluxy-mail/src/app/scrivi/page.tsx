@@ -5,6 +5,8 @@ import { richiediUtente } from '@/lib/sessione'
 import { elencoContatti } from '@/lib/contatti'
 import { caselleUtente, accountAttivoId } from '@/lib/accountAttivo'
 import { htmlAPlain, sembraHtml } from '@/lib/htmlMail'
+import { firmaEffettiva } from '@/lib/firma'
+import { avvolgiFirma } from '@/lib/rispondi'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,7 +88,16 @@ export default async function Scrivi({ searchParams }: Props) {
     const t = daUrl(corpo, 8000)
     return t && sembraHtml(t) ? htmlAPlain(t) : t
   })()
-  const firma = u.firma ? `\n\n${u.firma}` : ''
+  // La firma della casella SCELTA (col ripiego su quella personale): la firma
+  // segue la casella, non la persona. Se è HTML viaggia nel blocco marcato,
+  // così cambiando il «Da» dalla tendina si sostituisce da sola.
+  const firme = Object.fromEntries(caselle.map((c) => [c.id, firmaEffettiva(c, u) ?? '']))
+  const firmaScelta = firmaEffettiva(account, u) ?? ''
+  const firma = firmaScelta
+    ? sembraHtml(firmaScelta)
+      ? `\n\n${avvolgiFirma(firmaScelta)}`
+      : `\n\n${firmaScelta}`
+    : ''
 
   const iniziale = bozza
     ? { a: bozza.a, cc: bozza.cc, oggetto: bozza.oggetto, corpo: bozza.corpo }
@@ -145,6 +156,7 @@ export default async function Scrivi({ searchParams }: Props) {
         // Con più caselle: il «Da» è scegliibile; l'attiva è la predefinita.
         caselle={caselle.map((c) => ({ id: c.id, etichetta: `${c.nome} <${c.email}>` }))}
         accountId={account.id}
+        firme={firme}
         iniziale={iniziale}
         bozzaId={bozza?.id}
         contatti={contatti}

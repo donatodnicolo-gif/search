@@ -98,7 +98,7 @@ import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { allineaAttivitaOra } from './registroTask'
 import { scadenzeRipetute, comeSiRipete, type Ripetizione } from './ricorrenzaAttivita'
-import { allineaCartellaDopo, cartellaDiMessaggio } from './cartelleServer'
+import { allineaCartellaDopo } from './cartelleServer'
 import { allineaEventoOra } from './registroCalendario'
 import { creaScriptPronto, elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
 import type { ScriptPronto } from './scriptTesto'
@@ -139,11 +139,11 @@ import {
   type EsitoAzione,
 } from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, NOMI as NOMI_CHIAVI_APP, type NomeChiaveApp } from './chiaviApp'
-import { provaConnessione, salvaInInviata, trovaCartellaInviata, leggiAllegati as leggiAllegatiImap } from './imap'
+import { provaConnessione, salvaInInviata, trovaCartellaInviata } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
 import { utenteCorrente } from './sessione'
-import { costruisciFirma, type FirmaDati } from './firma'
+import { costruisciFirma, firmaEffettiva, type FirmaDati } from './firma'
 import { invitoIcs } from './ics'
 
 function testo(form: FormData, campo: string): string {
@@ -1022,12 +1022,6 @@ export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuo
 }
 
 /**
- * L'HTML di una mail che non lo ha più nel database (alleggerito dopo i 30
- * giorni): si riprende dal server all'apertura, già sanitizzato. La pagina lo
- * chiede DOPO il render, come la traduzione e gli allegati: aprire resta
- * istantaneo, l'impaginato arriva un attimo dopo.
- */
-/**
  * Corpo (HTML dal server, se serve) ED elenco allegati in UNA sola chiamata —
  * cioè una sola connessione IMAP (revisione prestazioni 28/08/2026).
  *
@@ -1055,17 +1049,6 @@ export async function corpoEAllegatiDalServer(
   // in entrambi i casi passa dalla sanificazione, come nelle azioni di prima.
   const grezzo = m.corpoHtml ?? r.html
   return { ok: true, html: grezzo ? sanitizzaHtml(grezzo) : null, allegati: r.allegati }
-}
-
-export async function leggiHtmlMessaggio(messaggioId: string): Promise<{ html: string | null }> {
-  const utenteId = await uid()
-  const m = await db.messaggio.findFirst({
-    where: { id: messaggioId, utenteId },
-    include: { account: true },
-  })
-  if (!m) return { html: null }
-  const html = await htmlDiMessaggio(m)
-  return { html: html ? sanitizzaHtml(html) : null }
 }
 
 export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: string }> {
@@ -1752,26 +1735,6 @@ export async function segnalaSpam(id: string): Promise<{ ok: boolean; messaggio:
   return { ok: true, messaggio: 'Spostata nello SPAM.' }
 }
 
-// ---------- Allegati (letti on-demand dal server) ----------
-
-/** L'elenco degli allegati di un messaggio, letto dal server al momento. */
-export async function elencoAllegati(
-  messaggioId: string
-): Promise<{ nome: string; tipo: string; dimensione: number; parte: string }[]> {
-  const utenteId = await uid()
-  const m = await db.messaggio.findFirst({
-    where: { id: messaggioId, utenteId },
-    include: { account: true, sezione: { select: { nome: true } } },
-  })
-  if (!m || m.uid <= 0) return []
-  const cartella = cartellaDiMessaggio(m, m.account)
-  try {
-    return await leggiAllegatiImap(m.account, m.uid, cartella)
-  } catch {
-    return []
-  }
-}
-
 // ---------- Notifiche push ----------
 
 /** Salva (o aggiorna) l'iscrizione push di QUESTO dispositivo per l'utente. */
@@ -2345,12 +2308,12 @@ async function allegatiInoltrati(
 
   // Un file già riallegato a mano non parte due volte (stesso nome e stessa
   // dimensione: è lo stesso file).
-  const giaCi = new Set(aggiuntiAMano.map((x) => `${x.filename} ${x.content.length}`))
+  const giaCi = new Set(aggiuntiAMano.map((x) => `${x.filename}\u0000${x.content.length}`))
   const tutti = [...aggiuntiAMano]
   let peso = aggiuntiAMano.reduce((s, x) => s + x.content.length, 0)
   let saltati = 0
   for (const a of dalServer) {
-    if (giaCi.has(`${a.nome} ${a.contenuto.length}`)) continue
+    if (giaCi.has(`${a.nome}\u0000${a.contenuto.length}`)) continue
     if (peso + a.contenuto.length > MAX_INOLTRO) {
       saltati++
       continue
@@ -2486,6 +2449,9 @@ export async function preparaComposizione(
   daId?: string
   /** Quelle che erano davvero fra i destinatari dell'originale. */
   daIndirizzate?: string[]
+  /** La firma effettiva di ogni casella (id → firma; già col ripiego sulla
+   *  personale): cambiando il «Da», la firma segue la casella. */
+  firme?: Record<string, string>
   oggettoOriginale?: string
   iniziale?: { a: string; cc: string; oggetto: string; corpo: string }
   contatti?: { email: string; nome: string | null }[]
@@ -2525,16 +2491,23 @@ export async function preparaComposizione(
   // Misurato in produzione: 1.601 mail in cui le due caselle sono diverse.
   const caselleUtente = await db.account.findMany({
     where: { utenteId, attivo: true },
-    select: { id: true, email: true, nome: true },
+    select: { id: true, email: true, nome: true, firma: true },
   })
   const casellaRisposta =
     accountPerRisposta(messaggio, caselleUtente) ?? messaggio.account
+
+  // La firma effettiva di ogni casella, e quella della casella PROPOSTA: la
+  // firma segue la casella, non la persona (stessa regola della pagina intera).
+  const firme = Object.fromEntries(caselleUtente.map((c) => [c.id, firmaEffettiva(c, u) ?? '']))
+  const daIdProposto = caselleUtente.some((c) => c.id === casellaRisposta.id)
+    ? casellaRisposta.id
+    : (caselleUtente[0]?.id ?? '')
 
   const iniziale = preparaRisposta({
     messaggio,
     modo,
     mioIndirizzo: casellaRisposta.email,
-    firma: u.firma || undefined,
+    firma: (daIdProposto && firme[daIdProposto]) || u.firma || undefined,
   })
 
   // Stesso avviso della pagina intera: se la mail è in una lingua che non leggi,
@@ -2558,17 +2531,16 @@ export async function preparaComposizione(
     da: `${casellaRisposta.nome} <${casellaRisposta.email}>`,
     // La finestra rapida mostra la stessa tendina della pagina intera: tutte
     // le caselle, con accanto quali erano davvero fra i destinatari.
-    daScelte: caselleUtente,
+    daScelte: caselleUtente.map((c) => ({ id: c.id, email: c.email, nome: c.nome })),
     // ⚠️ La voce proposta dev'essere UNA DELLE VOCI DELLA TENDINA. La casella
     // della copia può essere disattivata (o di un'altra epoca) e non comparire
     // fra le attive: in quel caso il menu mostrerebbe la prima voce mentre lo
     // stato ne tiene un'altra, e la mail partirebbe da un indirizzo diverso da
     // quello scritto a schermo. Un'etichetta che mente è peggio di una scelta
     // scomoda.
-    daId: caselleUtente.some((c) => c.id === casellaRisposta.id)
-      ? casellaRisposta.id
-      : (caselleUtente[0]?.id ?? ''),
+    daId: daIdProposto,
     daIndirizzate: caselleIndirizzate(messaggio, caselleUtente).map((c) => c.email),
+    firme,
     oggettoOriginale: messaggio.oggetto,
     iniziale,
     contatti,
@@ -5458,6 +5430,36 @@ export async function salvaFirmaDati(form: FormData): Promise<void> {
   await db.utente.update({
     where: { id: u.id },
     data: { firma: costruisciFirma(dati), firmaDati: JSON.stringify(dati) },
+  })
+  revalidatePath('/impostazioni')
+  revalidatePath('/', 'layout')
+}
+
+/** La firma di UNA casella: se impostata, le mail che partono da lì la usano
+ *  al posto della firma personale (scegliendo «Da: cs@» la firma deve dire
+ *  cs@, non la persona). Senza nome né email la firma generata è vuota: si
+ *  toglie l'override e la casella torna alla firma personale. */
+export async function salvaFirmaCasella(form: FormData): Promise<void> {
+  const u = await utenteCorrente()
+  if (!u) return
+  // ⚠️ L'id arriva dal browser: dev'essere una casella DI CHI salva.
+  const mia = await db.account.findFirst({
+    where: { id: testo(form, 'accountId'), utenteId: u.id },
+    select: { id: true },
+  })
+  if (!mia) return
+  const dati: FirmaDati = {
+    nome: testo(form, 'nome'),
+    ruolo: testo(form, 'ruolo'),
+    reparto: testo(form, 'reparto'),
+    email: testo(form, 'email'),
+    telefono: testo(form, 'telefono'),
+    sito: testo(form, 'sito'),
+  }
+  const firma = costruisciFirma(dati)
+  await db.account.update({
+    where: { id: mia.id },
+    data: firma ? { firma, firmaDati: JSON.stringify(dati) } : { firma: null, firmaDati: null },
   })
   revalidatePath('/impostazioni')
   revalidatePath('/', 'layout')

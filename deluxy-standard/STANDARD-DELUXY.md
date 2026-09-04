@@ -275,6 +275,14 @@ Valgono le stesse regole del capitolo 4 (cassaforte del Hub come sorgente,
    restare appesa perché un servizio terzo è lento.
 5. **Il modello AI si sceglie da variabile** (`OPENAI_MODEL`), mai scritto nel
    codice, così si cambia senza rideploy del codice.
+6. **Google Drive = OAuth, MAI service account** (deciso dall'utente il
+   31/08/2026). Deluxy **non ha Google Workspace**, quindi niente service
+   account né chiavi JSON: l'accesso a Drive passa SEMPRE da **OAuth utente**
+   (`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `GOOGLE_REFRESH_TOKEN`), come
+   già fa **marketing** (`src/lib/drive.ts` + `src/lib/drive-scrittura.ts`,
+   rotta di autorizzazione `api/interno/drive/oauth`). Ogni app che deve
+   leggere/scrivere su Drive **riusa questo schema** — con i propri token OAuth
+   o passando dall'app proprietaria — e non introduce un service account.
 
 Servizi esterni oggi in uso e variabili relative:
 

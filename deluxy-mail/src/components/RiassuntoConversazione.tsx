@@ -10,8 +10,6 @@ import { ChiediConversazione } from './ChiediConversazione'
  *  apposta: valgono su qualunque scambio, e servono a far partire il gesto —
  *  la domanda vera la si scrive dopo, quando si è visto che risponde. */
 const SUGGERIMENTI = ['Sai per quando?', 'Che prezzo hanno fatto?', 'Cosa aspettano da me?']
-/** Su una mail sola le domande sono altre: non «chi ha detto cosa», ma «cosa mi chiedono». */
-const SUGGERIMENTI_MAIL = ['Cosa mi chiedono?', 'Entro quando?', 'Che cifre ci sono?']
 
 // I riassunti nuovi hanno msgId (per il link "apri") e, in sospeso, "chi".
 // I vecchi possono avere inSospeso come semplici stringhe: si gestiscono entrambi.
@@ -80,7 +78,6 @@ export function RiassuntoConversazione({
   autoAggiorna = false,
   azioniApp = [],
   giaFatte = [],
-  singola = false,
 }: {
   messaggioId: string
   iniziale: Salvato | null
@@ -106,13 +103,6 @@ export function RiassuntoConversazione({
   /** True se il thread è AI+ e il riassunto è vecchio: lo rigenera da solo
    *  all'apertura, SOLO per questa conversazione (niente conteggi globali). */
   autoAggiorna?: boolean
-  /**
-   * True se è una MAIL SOLA, non una conversazione (04/09/2026: «riassunto
-   * rapido anche se non è un thread»). Stesso motore e stessi tre livelli:
-   * cambiano titolo e parole, perché «punti di vista» e «parti» su una mail
-   * sola suonerebbero come un errore.
-   */
-  singola?: boolean
 }) {
   const [dati, setDati] = useState<Salvato | null>(iniziale)
   // Quale livello si sta generando adesso: serve a far capire QUALE dei tre
@@ -157,7 +147,7 @@ export function RiassuntoConversazione({
   return (
     <div className="ai-box">
       <div className="ai-box-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <span>{singola ? 'Riassunto rapido' : 'Punti di vista della conversazione'}</span>
+        <span>Punti di vista della conversazione</span>
         {/* TRE livelli invece di un tasto solo: una conversazione di tre mail
             si legge in dieci secondi e un riassunto lungo è tempo perso; una
             da trenta, prima di una riunione, va sviscerata. */}
@@ -185,7 +175,7 @@ export function RiassuntoConversazione({
 
       {autoInCorso && (
         <div className="ai-box-text" style={{ color: 'var(--text-tertiary)' }}>
-          L’AI sta aggiornando il riassunto di questa {singola ? 'mail' : 'conversazione'}…
+          L’AI sta aggiornando il riassunto di questa conversazione…
         </div>
       )}
 
@@ -193,21 +183,10 @@ export function RiassuntoConversazione({
 
       {!dati && !errore && (
         <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
-          {singola ? (
-            <>
-              Fai leggere questa mail all’AI: ti dice cosa chiede chi scrive, cosa aspetta da
-              te e le cifre che contano — senza dare una priorità e senza creare attività.{' '}
-              <strong>Veloce</strong> sono due righe, <strong>Medio</strong> il quadro
-              completo, <strong>Profondo</strong> tutto, cifre e date comprese — ci mette di più.
-            </>
-          ) : (
-            <>
-              Più persone in questo scambio. Fai leggere all’AI tutta la conversazione: ti dice
-              cosa chiede ogni parte e cosa resta in sospeso. <strong>Veloce</strong> sono due
-              righe, <strong>Medio</strong> il quadro completo, <strong>Profondo</strong> tutta
-              la vicenda con cifre e date — ci mette di più.
-            </>
-          )}
+          Più persone in questo scambio. Fai leggere all’AI tutta la conversazione: ti dice
+          cosa chiede ogni parte e cosa resta in sospeso. <strong>Veloce</strong> sono due
+          righe, <strong>Medio</strong> il quadro completo, <strong>Profondo</strong> tutta
+          la vicenda con cifre e date — ci mette di più.
         </div>
       )}
 
@@ -415,19 +394,14 @@ export function RiassuntoConversazione({
             <ChiediConversazione
               messaggioId={messaggioId}
               quante={messaggiOra ?? dati.messaggiVisti}
-              invito={
-                singola
-                  ? 'Chiedi qualcosa su questa mail — es. «Cosa mi chiedono?»'
-                  : 'Chiedi qualcosa su questo scambio — es. «Sai per quando?»'
-              }
-              suggerimenti={singola ? SUGGERIMENTI_MAIL : SUGGERIMENTI}
+              invito="Chiedi qualcosa su questo scambio — es. «Sai per quando?»"
+              suggerimenti={SUGGERIMENTI}
             />
           </div>
 
           <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-            {singola
-              ? 'Una mail sola'
-              : `Su ${dati.messaggiVisti} messaggi · ${dati.partecipanti} ${dati.partecipanti === 1 ? 'parte' : 'parti'}`}
+            Su {dati.messaggiVisti} messaggi · {dati.partecipanti}{' '}
+            {dati.partecipanti === 1 ? 'parte' : 'parti'}
             {/* Quale livello si sta guardando: se no, riaprendo la pagina, due
                 righe possono sembrare un riassunto povero invece che veloce. */}
             {dati.analisi.livello && ` · lettura ${dati.analisi.livello}`}

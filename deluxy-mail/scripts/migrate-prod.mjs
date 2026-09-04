@@ -445,6 +445,10 @@ const stmts = [
   `ALTER TABLE "Messaggio" DROP CONSTRAINT IF EXISTS "Messaggio_accountId_uid_key"`,
   `DROP INDEX IF EXISTS "Messaggio_accountId_uid_key"`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "Messaggio_accountId_direzione_uid_key" ON "Messaggio"("accountId", "direzione", "uid")`,
+  // Firma per CASELLA: scegliendo il «Da», la firma segue la casella (vuota =
+  // si usa quella personale dell'utente).
+  `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "firma" TEXT`,
+  `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "firmaDati" TEXT`,
 ]
 
 async function main() {

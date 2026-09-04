@@ -8,6 +8,7 @@ import { elencoContatti } from '@/lib/contatti'
 import { htmlDiMessaggio } from '@/lib/htmlServer'
 import { righeThread } from '@/lib/sync'
 import { anteprimaPulita } from '@/lib/citato'
+import { firmaEffettiva } from '@/lib/firma'
 import { ConversazioneMentreScrivi } from '@/components/ConversazioneMentreScrivi'
 import { TornaIndietro } from '@/components/TornaIndietro'
 
@@ -41,7 +42,7 @@ export default async function Scrivi({ params, searchParams }: Props) {
   // la riapplica `inviaMessaggio` allo spedire: qui si mostra, là si fa.
   const caselle = await db.account.findMany({
     where: { utenteId: u.id, attivo: true },
-    select: { id: true, email: true, nome: true },
+    select: { id: true, email: true, nome: true, firma: true },
   })
   const daCasella = accountPerRisposta(messaggio, caselle) ?? messaggio.account
   // La tendina «Da» c'è SEMPRE (chiesto il 27/08/2026): una risposta si deve
@@ -70,6 +71,10 @@ export default async function Scrivi({ params, searchParams }: Props) {
     daIdBozza ??
     (caselle.some((c) => c.id === daCasella.id) ? daCasella.id : (caselle[0]?.id ?? ''))
 
+  // La firma EFFETTIVA di ogni casella (la sua, o quella personale come
+  // ripiego): serve alla tendina «Da» per far seguire la firma alla casella.
+  const firme = Object.fromEntries(caselle.map((c) => [c.id, firmaEffettiva(c, u) ?? '']))
+
   // La citazione mantiene la formattazione dell'originale: se l'HTML è stato
   // alleggerito (mail vecchia, vive sul server), si riprende da lì. Solo quando
   // serve davvero (niente bozza da riprendere) e best-effort: senza, si cita il
@@ -84,7 +89,9 @@ export default async function Scrivi({ params, searchParams }: Props) {
         // L'indirizzo della casella SCELTA: serve anche a «rispondi a tutti»
         // per non mettersi da soli fra i destinatari.
         mioIndirizzo: daCasella.email,
-        firma: u.firma || undefined,
+        // La firma della casella PROPOSTA, non della persona: scegliendo cs@
+        // la mail non deve firmarsi nicolo.donato@.
+        firma: (daIdProposto && firme[daIdProposto]) || u.firma || undefined,
       })
 
   // Se la mail è straniera E in una lingua che l'utente NON legge, la risposta
@@ -180,9 +187,10 @@ export default async function Scrivi({ params, searchParams }: Props) {
         messaggioId={messaggio.id}
         modo={modo}
         da={`${daCasella.nome} <${daCasella.email}>`}
-        daScelte={caselle}
+        daScelte={caselle.map((c) => ({ id: c.id, email: c.email, nome: c.nome }))}
         daId={daIdProposto}
         daIndirizzate={indirizzate}
+        firme={firme}
         iniziale={iniziale}
         tornaA={`/messaggio/${id}`}
         bozzaId={bozza?.id}

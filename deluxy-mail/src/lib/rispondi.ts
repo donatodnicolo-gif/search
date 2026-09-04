@@ -19,6 +19,17 @@ export function modoValido(m: string | undefined): Modo {
   return m === 'tutti' || m === 'inoltra' ? m : 'rispondi'
 }
 
+/**
+ * Il blocco firma MARCATO. Cambiando casella dalla tendina «Da», il client
+ * ritrova questo blocco nel corpo (anche se l'editor ha normalizzato l'HTML
+ * interno) e ci mette la firma dell'altra casella. Senza marcatore, la firma
+ * resterebbe quella della prima casella proposta — cioè il difetto che la
+ * firma per casella deve chiudere.
+ */
+export function avvolgiFirma(firmaHtml: string): string {
+  return `<div data-firma-casella="1">${firmaHtml}</div>`
+}
+
 /** "Re: " e "Fwd: " non si accumulano: "Re: Re: Re: ..." non lo vuole nessuno. */
 export function prefissa(oggetto: string, prefisso: 'Re' | 'Fwd'): string {
   const pulito = oggetto.replace(/^((re|r|fwd|fw|i)\s*:\s*)+/i, '').trim()
@@ -179,7 +190,7 @@ export function preparaRisposta(opts: {
       const spazio = '<p><br></p>'
       // Se la firma è già HTML (firma Deluxy generata), si usa così com'è;
       // altrimenti si converte il testo in HTML.
-      const firmaHtml = firma ? (sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
+      const firmaHtml = firma ? avvolgiFirma(sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
       return `${spazio}${firmaHtml}${citaHtml(messaggio)}`
     }
     const coda = firma ? `\n\n${firma}` : ''
@@ -191,7 +202,7 @@ export function preparaRisposta(opts: {
     // formattazione dell'originale; altrimenti si resta al testo semplice.
     if (html) {
       const spazio = '<p><br></p>'
-      const firmaHtml = firma ? (sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
+      const firmaHtml = firma ? avvolgiFirma(sembraHtml(firma) ? firma : plainAHtml(firma)) : ''
       return {
         a: '',
         cc: '',

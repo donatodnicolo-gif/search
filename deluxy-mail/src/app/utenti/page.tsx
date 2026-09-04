@@ -40,7 +40,9 @@ export default async function Utenti() {
             <tbody>
               {utenti.map((utente) => (
                 <tr key={utente.id}>
-                  <td>
+                  {/* I data-label sono le etichette delle schede su telefono
+                      (tabelle → schede, globals.css @900px). */}
+                  <td data-label="Utente">
                     <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span className="avatar">{iniziali(utente.nome, utente.email)}</span>
                       <span style={{ minWidth: 0 }}>
@@ -49,14 +51,14 @@ export default async function Utenti() {
                       </span>
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Ruolo">
                     <span className={`badge ${utente.ruolo === 'admin' ? 'gold' : 'neutral'}`}>
                       {utente.ruolo === 'admin' ? 'Amministratore' : 'Utente'}
                     </span>
                   </td>
-                  <td className="num">{utente._count.account}</td>
-                  <td className="num">{utente._count.messaggi}</td>
-                  <td>
+                  <td className="num" data-label="Caselle">{utente._count.account}</td>
+                  <td className="num" data-label="Messaggi">{utente._count.messaggi}</td>
+                  <td data-label="Stato">
                     {utente.attivo ? (
                       <span className="badge green"><span className="dot" />attivo</span>
                     ) : (
