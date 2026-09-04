@@ -3,6 +3,8 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🚀 **04/09/2026-undecies — DEPLOY della seconda stesura (comando utente «Pubblica ora»)** — deploy `delivery-3v2udz3o8`, bundle `main-XYRZUFMC.js` servito da deluxy-delivery.vercel.app, rotta `/api/v1/riconciliazioni/esclusi` → 401 (viva). PRIMA del deploy, in produzione: tabella `ProductReconciliation` ricreata nella forma nuova con `--butta-le-righe-vecchie` (80 proposte della prima stesura, tutte NON decise, perse con consenso esplicito) e `riconciliazioniPartnerEsclusi` = Artista Locale (`cmt5t8yjd00ari6v4aa2vlrbc`). Push su origin fino a `f403690a`, cartella app/ riallineata, guida visiva ripubblicata. Da fare: prima corsa vera (Prodotti → Riconciliazioni → Cerca proposte) e conferma della base Shopify per i negozi diversi da deluxygifts.
+>
 > 🧹 **04/09/2026-decies — Riconciliazioni: partner esclusi (Artista Locale) e voce di menu; dettaglio vendita: link Shopify e prezzo partner** (IN LOCALE, l'utente ha detto «per ora non serve pubblicare, ti dirò io quando»).
 > - **Esclusi**: `AppSetting.riconciliazioniPartnerEsclusi` = id separati da
 >   virgola. Usati in `genera` (le vendite di un escluso non fanno proposte),
