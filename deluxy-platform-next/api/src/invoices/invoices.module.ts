@@ -132,9 +132,17 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // già stato pagato in anticipo, rifatturarlo sarebbe chiedere due volte.
   if (regola && regola.toBill === false) return null;
 
-  // Lo sconto del carnet (negativo nel legacy: −25, −18, −15…) si somma al
-  // plus/minus della consegna.
-  const extra = (d.additionalPrice ?? 0) + (regola?.partnerBillingAdjustment ?? 0);
+  // ⭐ 04/09/2026 (regola utente, caso Armani): «il plus/minus RECEPISCE la
+  // regola, non è un ulteriore valore». Con una regola carnet agganciata il
+  // plus scritto sulla consegna È lo sconto della regola (il legacy lo
+  // ricopiava lì: 3.455 consegne su 6.882 hanno plus == aggiustamento) e si
+  // conta UNA volta: vale il plus scritto se c'è (fotografia, anche se
+  // corretto a mano), altrimenti l'aggiustamento della regola. Prima si
+  // sommavano: −18 −18 su una consegna da 27,98 € → fatturato 0 invece di 9,98.
+  // Senza regola il plus/minus resta quello che è sempre stato.
+  const extra = regola
+    ? ((d.additionalPrice ?? 0) !== 0 ? (d.additionalPrice as number) : (regola.partnerBillingAdjustment ?? 0))
+    : (d.additionalPrice ?? 0);
   const arrotonda = (n: number) => Math.round(n * 100) / 100;
   // Lo sconto non puo' far pagare al partner meno di zero.
   const mai_negativo = (n: number) => Math.max(0, arrotonda(n));

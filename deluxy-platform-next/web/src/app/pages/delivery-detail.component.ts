@@ -1086,14 +1086,17 @@ export class DeliveryDetailComponent {
   }
 
   /**
-   * Plus/minus EFFETTIVO (02/09, utente): quello scritto sulla consegna PIÙ
-   * lo sconto/maggiorazione della regola carnet — che resta nella regola
-   * (unica fonte) e qui si somma solo per la lettura.
+   * Plus/minus EFFETTIVO. ⭐ 04/09 (regola utente, caso Armani): con una
+   * regola carnet il plus scritto sulla consegna RECEPISCE la regola — non le
+   * si somma. Vale il plus scritto se c'è, altrimenti l'aggiustamento della
+   * regola (stessa lettura di `prezzoConsegna` in fatturazione).
    */
   plusMinus(d: DeliveryDetail): number | null {
     const regola = d.deliveryRule?.toBill === false ? 0 : (d.deliveryRule?.partnerBillingAdjustment ?? 0);
     if (d.additionalPrice == null && !regola) return null;
-    return Math.round(((d.additionalPrice ?? 0) + regola) * 100) / 100;
+    const scritto = d.additionalPrice ?? 0;
+    const effettivo = d.deliveryRule ? (scritto !== 0 ? scritto : regola) : scritto;
+    return Math.round(effettivo * 100) / 100;
   }
   regolaSuPlus(d: DeliveryDetail): string | null {
     const a = d.deliveryRule?.partnerBillingAdjustment;

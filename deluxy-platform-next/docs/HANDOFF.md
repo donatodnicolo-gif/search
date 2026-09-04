@@ -3,6 +3,29 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 💶 **04/09/2026-ter — IL PLUS/MINUS RECEPISCE LA REGOLA CARNET, NON SI SOMMA (regola utente, caso Armani)** (deployato):
+> - Chiesta la tabella di Armani Fiori (agosto: 20 consegne, Regola 36 −18 €):
+>   su 13 il plus/minus valeva −18 COME la regola e la Fatturazione li
+>   sommava (`extra = plus + regola`) → fatturato 0 invece dei km (#62706:
+>   27,98 −18 −18 → 0; giusto 9,98). Misurato su tutto l'archivio: **6.882
+>   consegne con regola, 3.455 col plus == aggiustamento** (la copia del
+>   legacy, che contava una volta sola), 3.373 solo regola, 54 plus diverso
+>   (Basara −7,5 vs −8; Brioni #100815 +36 vs −18). Dal 01/08: 179 doppioni
+>   (Chanel Montenapoleone 81, P.di Spagna 43, S.Andrea 15, Armani 14…).
+> - **Formula nuova in `prezzoConsegna`** (una casa: fatturazione, da
+>   fatturare, Calcoli, costo verso Orders): con regola agganciata
+>   `extra = plus scritto se ≠ 0, altrimenti aggiustamento della regola`;
+>   senza regola resta il plus. Stessa lettura nel dettaglio consegna
+>   (`plusMinus`). Lato PAGA VALET non toccato: il doppione lì esiste solo su
+>   416 consegne pre-2026 (Regole 12/19), zero nel 2026.
+> - **Bozze già generate** portano ancora gli importi vecchi:
+>   `api/scripts/ricalcola-righe-bozze-regola.mjs` (anteprima; `--applica`
+>   aggiorna righe e totali; ⚠️ NON tocca FINANCE — le bozze con
+>   `financeRef` vanno riallineate di là). Esito anteprima nel messaggio
+>   all'utente; applicazione in attesa del suo ok.
+> - `api/scripts/tabella-consegne-partner.mjs`: la tabella per partner e
+>   periodo con listino applicato e valore fatturato (sola lettura).
+>
 > 🏠 **04/09/2026-bis — HOME «SERVIZI» PER chanel_consegne + DUPLICA SENZA DATA** (deployato):
 > - **La home del partner rifatta** (regola utente: «solo per
 >   chanel_consegne@deluxy.it ricrea la pagina home con la lista dei servizi
