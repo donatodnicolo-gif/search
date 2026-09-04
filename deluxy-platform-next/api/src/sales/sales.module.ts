@@ -85,7 +85,8 @@ export class SalesService {
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
     return vendite.map((v) => {
-      const conStato = { ...v, ordine: stati.get(SalesService.numeroShopify(v.externalOrderId) ?? '') ?? null };
+      const trovato = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
+      const conStato = { ...v, ordine: trovato };
       return user.role === Role.PARTNER ? SalesService.perPartner(conStato) : conStato;
     });
   }
@@ -205,8 +206,25 @@ export class SalesService {
    * primo giorno utile (la vendita più vecchia della lista, al massimo 120
    * giorni fa). Cache per istanza, 2 minuti.
    */
+  /**
+   * Le CHIAVI con cui una vendita si ritrova in Orders: l'id salvato sulla
+   * vendita (che è l'id di **Deluxy Orders**) e, se mai fosse un gid Shopify,
+   * la sua coda numerica.
+   *
+   * ⚠️ Difetto trovato il 04/09/2026 e riparato: la mappa era costruita SOLO
+   * sul numero Shopify preso da `o.orderId`, mentre la vendita porta l'id di
+   * Orders. Nessuna chiave combaciava e la colonna «Stato in Orders» era
+   * vuota per TUTTI — sembrava che Orders non rispondesse, mentre rispondeva
+   * benissimo ([[trappola-numero-non-e-identita]]).
+   */
+  private static chiaviOrdine(externalOrderId: string | null | undefined): string[] {
+    const grezzo = (externalOrderId ?? '').trim();
+    const numero = SalesService.numeroShopify(externalOrderId);
+    return [grezzo, numero ?? ''].filter(Boolean);
+  }
+
   private async statiDaOrders(vendite: { externalOrderId: string | null; createdAt: Date }[]): Promise<Map<string, StatoOrdineOrders>> {
-    const conOrdine = vendite.filter((v) => SalesService.numeroShopify(v.externalOrderId));
+    const conOrdine = vendite.filter((v) => SalesService.chiaviOrdine(v.externalOrderId).length);
     if (!conOrdine.length) return new Map();
     const limite = new Date(); limite.setDate(limite.getDate() - 120);
     const piuVecchia = conOrdine.reduce((m, v) => (v.createdAt < m ? v.createdAt : m), new Date());
@@ -229,8 +247,9 @@ export class SalesService {
         const body = (await res.json()) as { ordini?: any[]; pagine?: number };
         for (const o of body.ordini ?? []) {
           const k = SalesService.numeroShopify(o.orderId);
-          if (!k) continue;
-          mappa.set(k, {
+          const idOrders = typeof o.id === 'string' ? o.id : null;
+          if (!k && !idOrders) continue;
+          const dati = {
             salute: typeof o.salute === 'string' ? o.salute : (o.salute?.chiave ?? null),
             stato: o.classificazione?.stato?.chiave ?? null,
             terminale: o.classificazione?.stato?.terminale ?? null,
@@ -239,7 +258,11 @@ export class SalesService {
             fulfillmentStatus: o.fulfillmentStatus ?? null,
             consegnataIl: o.consegnata?.il ?? null,
             annullato: o.annullato ?? o.cancelledAt ?? null,
-          });
+          };
+          // Due chiavi per lo stesso ordine: l'id di Orders (quello che la
+          // vendita ha davvero) e il numero Shopify, per chi arrivasse col gid.
+          if (idOrders) mappa.set(idOrders, dati);
+          if (k) mappa.set(k, dati);
         }
         if (!(body.ordini ?? []).length || pagina >= (body.pagine ?? 1)) break;
       }
