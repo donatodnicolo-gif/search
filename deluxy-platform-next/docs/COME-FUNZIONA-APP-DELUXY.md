@@ -229,6 +229,18 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 - ⚠️ La **voce** la trascrive il **browser** (Web Speech API), non l'AI: dove il riconoscimento vocale non esiste (Firefox, iOS datati) il bottone 🎤 non compare. Le **immagini** le legge davvero, fino a **4 MB**.
 - ⚠️ Serve la chiave del **motore scelto**. Dal **04/09/2026** in **Impostazioni → Intelligenza artificiale** si sceglie il **motore AI** (`aiProvider`): **Claude (Anthropic)**, il motore storico, con la chiave in `aiApiKey`; oppure **ChatGPT (OpenAI)**, con la chiave in `openaiApiKey` (modello `gpt-5`, API Responses con uscita strutturata, ragionamento basso). Istruzioni, schema dei campi e regola «propone, non crea» sono gli stessi per i due motori: cambia solo chi legge. Senza chiave del motore scelto il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai le chiavi). La risposta dichiara il modello usato (`modello`).
 
+#### Registro Anagrafiche: scegliere la scheda o crearla **[04/09/2026]**
+
+Quando il registro ha **più schede possibili** la piattaforma non sceglie da sola. Ora però si decide dalla pagina: ogni candidato ha **«Collega questa»** (il partner viene scritto su quella scheda con una PATCH, mantenendo il collegamento) e sotto c'è **«Crea una scheda nuova nel registro»** per quando nessuna va bene. Le due strade passano dalla stessa rotta, `POST /partners/:id/anagrafica/sincronizza`, con `{anagraficaId}` o `{creaNuova:true}`.
+
+#### Orari di apertura: un giorno per tutta la settimana **[04/09/2026]**
+
+Nella scheda del partner, in modifica orari, ogni giorno ha **«Copia su tutta la settimana»**: porta orario di apertura, chiusura e la spunta «chiuso» su tutti gli altri giorni. Niente è scritto finché non si preme **Salva**.
+
+#### Province: sempre in italiano **[04/09/2026]**
+
+I nomi delle province si scrivono in **italiano** (Firenze, non Florence). Undici erano rimasti in inglese dall'import del legacy e sono stati corretti il 04/09/2026 con `api/scripts/traduci-province-in-italiano.mjs`; il **codice** (FI, NA…) non si tocca mai, è l'identità della provincia.
+
 #### Assegnare il valet: perché la lista può essere vuota **[04/09/2026]**
 
 La finestra «Assegna valet» propone i valet **attivi** (niente segnaposto), che hanno **il servizio a listino** (solo per i servizi di mestiere, `scope` ≠ `partner`) e che **operano nella provincia** della consegna. Se la lista è vuota il pannello dice **quale** dei due filtri l'ha svuotata: «nessun valet in questa provincia» oppure «nessun valet ha «X» a listino». ⚠️ Il campo `serviceType.scope` deve viaggiare **anche nel dettaglio** (`DELIVERY_INCLUDE`): quando mancava, un servizio di partner veniva trattato come di mestiere e la lista si svuotava sempre, dando la colpa alla provincia (caso #100928, Firenze, 04/09/2026).

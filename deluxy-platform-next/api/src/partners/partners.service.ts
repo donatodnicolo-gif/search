@@ -359,8 +359,31 @@ export class PartnersService {
    * upsert alla cieca può crearne un doppione, perché la cascata di identità
    * del registro non ritrova un partner con P.IVA diversa e senza città.
    */
-  async sincronizzaAnagrafica(id: string, actor?: JwtUser) {
+  /**
+   * Manda il partner al registro.
+   *
+   * ⭐ 04/09/2026 (regola utente): con più candidati non si sceglie da soli, ma
+   * ORA si può dire quale — `anagraficaId` — oppure chiedere al registro di
+   * **crearne una nuova** (`creaNuova`). Prima la risposta era solo un «no» e
+   * non c'era modo di andare avanti dalla pagina.
+   *
+   * ⚠️ `creaNuova` è una decisione, non un ripiego: si scrive nel messaggio
+   * che il doppione, se c'è, l'abbiamo voluto noi.
+   */
+  async sincronizzaAnagrafica(
+    id: string,
+    actor?: JwtUser,
+    scelta?: { anagraficaId?: string | null; creaNuova?: boolean },
+  ) {
     const p = await this.findOne(id, actor);
+    if (scelta?.anagraficaId) {
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, scelta.anagraficaId);
+      return esito;
+    }
+    if (scelta?.creaNuova) {
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, null);
+      return { ...esito, messaggio: esito.ok ? `Creata una scheda nuova nel registro (scelta dall'ufficio). ${esito.messaggio}` : esito.messaggio };
+    }
     const { trovato, candidati } = await this.anagrafiche.cerca({
       id: p.id, insegna: p.insegna, businessName: p.businessName,
       vatNumber: p.vatNumber, fiscalCode: p.fiscalCode, email: p.email,
@@ -368,7 +391,7 @@ export class PartnersService {
     if (!trovato && candidati.length) {
       return {
         ok: false, stato: 0,
-        messaggio: `Nel registro ci sono ${candidati.length} record possibili: scegliere a mano quale collegare, per non crearne un altro.`,
+        messaggio: `Nel registro ci sono ${candidati.length} record possibili: scegliere a mano quale collegare, o chiedere di crearne una nuova.`,
       };
     }
     return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null);

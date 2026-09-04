@@ -70,8 +70,12 @@ export class PartnersController {
   @Post(':id/anagrafica/sincronizza')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Manda il partner al registro Anagrafiche e attende l\'esito' })
-  sincronizzaAnagrafica(@Param('id') id: string, @CurrentUser() actor: JwtUser) {
-    return this.partnersService.sincronizzaAnagrafica(id, actor);
+  sincronizzaAnagrafica(
+    @Param('id') id: string,
+    @CurrentUser() actor: JwtUser,
+    @Body() body?: { anagraficaId?: string; creaNuova?: boolean },
+  ) {
+    return this.partnersService.sincronizzaAnagrafica(id, actor, body ?? {});
   }
 
   @Post(':id/anagrafica/importa')

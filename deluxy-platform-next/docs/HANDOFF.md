@@ -3,6 +3,11 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🗂️ **04/09/2026-quindecies — Anagrafica: si sceglie il candidato o si chiede di crearla; orari copiabili su tutta la settimana; province in italiano** (le province SONO GIÀ scritte in produzione; il resto è in locale, non deployato).
+> - **Registro Anagrafiche** (scheda partner): con più candidati ora ogni riga ha «Collega questa» e sotto c'è «Crea una scheda nuova nel registro». API: `POST /partners/:id/anagrafica/sincronizza` accetta `{anagraficaId}` (PATCH sul record scelto) o `{creaNuova:true}` (POST, e il messaggio dice che il doppione è voluto). Senza corpo, il comportamento di prima.
+> - **Orari di apertura**: bottone «Copia su tutta la settimana» su ogni giorno (copia anche «chiuso»; si salva con Salva). Solo dove già si modificano gli orari, quindi ufficio.
+> - **Province in italiano** (regola utente): 11 nomi erano inglesi dall'import legacy (Florence, Naples, Milan, Venice, Padua, Mantua, Genoa, Syracuse, South Tyrol, South Sardinia, Monza and Brianza). Script `api/scripts/traduci-province-in-italiano.mjs` (prova senza argomenti, `--applica` per scrivere): **eseguito in produzione il 04/09**, 11 aggiornate, codici intatti. La geocodifica chiede già `language=it`, quindi le nuove nascono in italiano.
+>
 > 🧾 **04/09/2026-quaterdecies — Tre difetti segnalati dall'utente: valet non assegnabile, ricevute che non si aprono, rimborso approvato** (IN LOCALE, non ancora deployato).
 > 1. **«Nessun valet abilitato per questa provincia» (consegna #100928, Firenze)**
 >    — FALSO: su FI ci sono 20 valet, 10 attivi. Causa vera: `DELIVERY_INCLUDE`

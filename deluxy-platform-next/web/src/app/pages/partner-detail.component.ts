@@ -182,11 +182,25 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                 </ul>
               }
 
+              <!-- ⭐ 04/09/2026 (regola utente): si SCEGLIE quale scheda collegare,
+                   e se nessuna va bene si chiede al registro di crearne una. -->
               @if (a.candidati?.length) {
                 <p class="hint">{{ 'partnerAnagrafica.candidates' | translate }}</p>
                 <ul class="candidati">
-                  @for (c of a.candidati; track c.id) { <li>{{ c.nome }} @if (c.pIva) { <span class="mono">· {{ c.pIva }}</span> } </li> }
+                  @for (c of a.candidati; track c.id) {
+                    <li>
+                      <span>{{ c.nome }} @if (c.pIva) { <span class="mono">· {{ c.pIva }}</span> }</span>
+                      @if (canManage()) {
+                        <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()"
+                                (click)="collegaA(c.id)">{{ 'partnerAnagrafica.linkThis' | translate }}</button>
+                      }
+                    </li>
+                  }
                 </ul>
+                @if (canManage()) {
+                  <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()"
+                          (click)="creaNelRegistro()">{{ 'partnerAnagrafica.createNew' | translate }}</button>
+                }
               }
 
               @if (a.differenze?.length) {
@@ -334,6 +348,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                            [name]="'open' + r.dayOfWeek" [disabled]="r.closed" />
                     <input class="field" type="time" step="900" [(ngModel)]="r.closeTime"
                            [name]="'close' + r.dayOfWeek" [disabled]="r.closed" />
+                    <!-- ⭐ 04/09/2026 (regola utente): gli orari di UN giorno su
+                         tutta la settimana, invece di riscriverli sette volte. -->
+                    <button type="button" class="btn btn-secondary mini copia"
+                            [title]="'partnerForm.openingHours.copyAllHint' | translate"
+                            (click)="copiaSuTuttiIGiorni(r)">{{ 'partnerForm.openingHours.copyAll' | translate }}</button>
                   </div>
                 }
               </div>
@@ -556,6 +575,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .hours-time { font-variant-numeric: tabular-nums; }
       .hours-time .sep { margin: 0 4px; color: var(--text-tertiary); }
       .hours-closed { color: var(--text-tertiary); font-style: italic; }
+      .orari-riga .copia { margin-left: 8px; white-space: nowrap; }
+      .candidati li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 0; }
+      .btn.mini { padding: 4px 12px; font-size: 12px; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline); }
@@ -767,6 +789,49 @@ export class PartnerDetailComponent {
   }
 
   /** Manda il partner al registro e ATTENDE l'esito, poi rilegge il confronto. */
+  /**
+   * ⭐ 04/09/2026 (regola utente): copia gli orari di UN giorno su tutti gli
+   * altri. Copia anche «chiuso»: se quel giorno è chiuso, lo diventa la
+   * settimana — è quello che il bottone promette. Niente è salvato finché non
+   * si preme Salva.
+   */
+  copiaSuTuttiIGiorni(riga: { dayOfWeek: number; closed: boolean; openTime: string; closeTime: string }): void {
+    this.righeOrari.update((righe) =>
+      righe.map((r) => (r.dayOfWeek === riga.dayOfWeek
+        ? r
+        : { ...r, closed: riga.closed, openTime: riga.openTime, closeTime: riga.closeTime })));
+  }
+
+  /** Collega il partner a UNA scheda scelta a mano fra i candidati. */
+  collegaA(anagraficaId: string): void {
+    this.inviaAlRegistro({ anagraficaId });
+  }
+
+  /** Nessun candidato va bene: si chiede al registro di crearne una nuova. */
+  creaNelRegistro(): void {
+    this.inviaAlRegistro({ creaNuova: true });
+  }
+
+  private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean }): void {
+    const p = this.partner();
+    if (!p) return;
+    this.sincronizzando.set(true);
+    this.esitoSync.set(null);
+    this.http.post<{ ok: boolean; messaggio: string }>(
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, scelta,
+    ).subscribe({
+      next: (r) => {
+        this.sincronizzando.set(false);
+        this.esitoSync.set(r);
+        if (r.ok) this.confronta();
+      },
+      error: (e) => {
+        this.sincronizzando.set(false);
+        this.esitoSync.set({ ok: false, messaggio: e?.error?.message ?? 'Invio non riuscito' });
+      },
+    });
+  }
+
   sincronizza(): void {
     const p = this.partner();
     if (!p) return;
