@@ -38,6 +38,16 @@
 >   riportato al plus SCRITTO A MANO (P), Regole = A, riga nel registro. Il
 >   totale torna P + A (quello che la fatturazione calcolava fino a oggi):
 >   #61303 5,10 −5,10 −18 → 0; Brioni #100815 18 +36 −18 → 36.
+> - **Prezzi sotto listino riportati al listino** (regola utente «il listino
+>   deve essere per forza 18»): #61303 e #61846 (Montenapoleone, 5,10 = 2,55
+>   km × 2), #61312 (S.Andrea 4,80 +13,20), #60605 (Firenze 20,12 +4,88),
+>   #60962 (Luca Faloni 5,40, già in FAT-LEGACY-512 pagata), #61191/61791/
+>   62048/62333 (Dascanio Como 12,92 = 6,46 km × 2 → 20). Plus di
+>   compensazione tolti; riga nel registro di ognuna. Scansione su TUTTI i
+>   partner dal 01/07 (prezzo fisso in città, prezzo < listino): restano solo
+>   30 di Mali'A a 9,57 (listino 12), stesso destinatario ogni giorno, tutte
+>   fatturate legacy — sembra un prezzo concordato, NON toccate (decide
+>   l'utente).
 > - Script aggiornati alla formula nuova: `tabella-consegne-partner.mjs`,
 >   `ricalcola-righe-bozze-regola.mjs` (bozza Armani FAT-2026-563 in attesa
 >   dell'ok: +26,25 €).
