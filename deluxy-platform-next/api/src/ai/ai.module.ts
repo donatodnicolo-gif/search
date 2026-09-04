@@ -42,6 +42,14 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /** Il modello: quello buono. La scelta di risparmiare la fa l'utente, non noi. */
 const MODELLO = 'claude-opus-5';
+/**
+ * MOTORE OPENAI (04/09/2026, chiesto dall'utente: «implementa openai»).
+ * Stesse istruzioni, stesso schema, stessa regola «propone, non crea»: cambia
+ * solo chi legge. Si parla con l'API Responses via fetch, senza SDK: una
+ * dipendenza in meno da compilare a ogni deploy (regola «Deploy e costi»).
+ */
+const MODELLO_OPENAI = 'gpt-5';
+const OPENAI_URL = 'https://api.openai.com/v1/responses';
 
 /** Un'immagine oltre questo peso non entra in una richiesta: si dice, non si tronca. */
 const MAX_IMMAGINE_BYTE = 4 * 1024 * 1024;
@@ -144,18 +152,22 @@ export class AiService {
       }
     }
 
-    const chiave = (await this.settings.get('aiApiKey'))?.trim() || process.env.ANTHROPIC_API_KEY;
+    const { motore, chiave } = await this.settings.motoreAi();
     if (!chiave) {
       // ⚠️ Non si torna indietro in silenzio: chi preme il bottone deve sapere
       // che manca una chiave, non pensare che la funzione sia rotta.
       throw new ServiceUnavailableException(
-        'La chiave dell\'AI non è impostata: si incolla in Impostazioni → aiApiKey.',
+        motore === 'openai'
+          ? 'La chiave OpenAI non è impostata: si incolla in Impostazioni → Intelligenza artificiale.'
+          : 'La chiave dell\'AI non è impostata: si incolla in Impostazioni → aiApiKey.',
       );
     }
 
     // La data di OGGI, ora di Roma: senza, «domani» non è traducibile e il
     // modello ha l'ordine di lasciare la data vuota.
     const oggi = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
+
+    if (motore === 'openai') return this.leggiConOpenai(dto, testo, oggi, chiave);
 
     const contenuto: Anthropic.ContentBlockParam[] = [];
     if (dto.immagine) {
@@ -228,6 +240,98 @@ export class AiService {
       token: {
         letti: risposta.usage?.input_tokens ?? null,
         scritti: risposta.usage?.output_tokens ?? null,
+      },
+    };
+  }
+
+  /**
+   * La stessa lettura con ChatGPT (API Responses, uscita strutturata).
+   * ⚠️ In modalita' `strict` OpenAI vuole OGNI proprieta' in `required` e
+   * `additionalProperties:false` su ogni oggetto: lo schema di Claude ha solo
+   * tre campi obbligatori, quindi qui si deriva una copia con tutti i campi
+   * richiesti (il «non c'e'» resta `null`, come per Claude).
+   */
+  private async leggiConOpenai(dto: LeggiConsegnaDto, testo: string, oggi: string, chiave: string) {
+    const schemaStretto = {
+      ...SCHEMA_CONSEGNA,
+      required: Object.keys(SCHEMA_CONSEGNA.properties),
+    };
+    const contenuto: Array<Record<string, unknown>> = [];
+    if (dto.immagine) {
+      contenuto.push({
+        type: 'input_image',
+        image_url: `data:${dto.tipoImmagine ?? 'image/jpeg'};base64,${dto.immagine}`,
+        detail: 'high',
+      });
+    }
+    contenuto.push({
+      type: 'input_text',
+      text: `Oggi è ${oggi} (fuso Europe/Rome).\n\nMessaggio da leggere:\n${testo || '(nessun testo: leggi l\'immagine)'}`,
+    });
+
+    let corpo: {
+      status?: string;
+      incomplete_details?: { reason?: string };
+      output?: Array<{ type: string; content?: Array<{ type: string; text?: string; refusal?: string }> }>;
+      usage?: { input_tokens?: number; output_tokens?: number };
+      error?: { message?: string };
+    };
+    try {
+      const r = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chiave}` },
+        body: JSON.stringify({
+          model: MODELLO_OPENAI,
+          instructions: ISTRUZIONI,
+          input: [{ role: 'user', content: contenuto }],
+          // gpt-5 ragiona prima di scrivere e i token del ragionamento contano nel
+          // limite: per un'estrazione basta poco ragionamento e un tetto piu' alto.
+          reasoning: { effort: 'low' },
+          max_output_tokens: 8000,
+          text: {
+            format: { type: 'json_schema', name: 'consegna', strict: true, schema: schemaStretto },
+          },
+        }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      corpo = (await r.json()) as typeof corpo;
+      if (!r.ok) {
+        throw new Error(corpo?.error?.message || `HTTP ${r.status}`);
+      }
+    } catch (e) {
+      // L'errore vero, non un «riprova»: chi lo legge deve poterlo risolvere.
+      throw new ServiceUnavailableException(
+        `L'AI (OpenAI) non ha risposto: ${(e as Error).message.slice(0, 200)}`,
+      );
+    }
+
+    if (corpo.status === 'incomplete' && corpo.incomplete_details?.reason === 'max_output_tokens') {
+      throw new ServiceUnavailableException(
+        'Il messaggio è troppo lungo: la risposta si è interrotta a metà. Prova a spezzarlo.',
+      );
+    }
+    const messaggio = corpo.output?.find((o) => o.type === 'message');
+    const parte = messaggio?.content?.[0];
+    if (parte?.type === 'refusal') {
+      throw new ServiceUnavailableException(
+        'L\'AI si è rifiutata di leggere questo messaggio. Compila il modulo a mano.',
+      );
+    }
+    if (!parte || parte.type !== 'output_text' || !parte.text) {
+      throw new ServiceUnavailableException('L\'AI ha risposto in un formato inatteso.');
+    }
+    let proposta: Record<string, unknown>;
+    try {
+      proposta = JSON.parse(parte.text);
+    } catch {
+      throw new ServiceUnavailableException('L\'AI ha risposto qualcosa che non è il modulo atteso.');
+    }
+    return {
+      proposta,
+      modello: MODELLO_OPENAI,
+      token: {
+        letti: corpo.usage?.input_tokens ?? null,
+        scritti: corpo.usage?.output_tokens ?? null,
       },
     };
   }

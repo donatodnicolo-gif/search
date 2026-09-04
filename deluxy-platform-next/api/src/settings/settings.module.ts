@@ -53,6 +53,12 @@ export const SETTING_KEYS = [
   // delle consegne via AI — si incolla un testo libero (mail, WhatsApp) e
   // l'estrazione compila il form.
   'aiApiKey',
+  // MOTORE AI (04/09/2026, chiesto dall'utente: «implementa openai»): la
+  // lettura delle consegne puo' girare su Claude (Anthropic) o su ChatGPT
+  // (OpenAI). `aiProvider` = 'anthropic' | 'openai'; vuoto = anthropic.
+  // `openaiApiKey` e' SEGRETA come aiApiKey: solo lato server.
+  'aiProvider',
+  'openaiApiKey',
   // Numero WhatsApp di Deluxy per i PARTNER (domande, richieste, preventivi):
   // formato internazionale senza + né spazi (es. 393331234567). E' un numero
   // pubblico per natura: esposto in /settings/public a chi e' autenticato.
@@ -350,6 +356,25 @@ export class SettingsService {
   // segreto + refresh token del consenso. MAI service account (niente
   // Workspace). Ambito `drive` pieno: `drive.file` non vede le cartelle
   // esistenti di una persona (misurato dal marketing il 24/08).
+
+  /**
+   * Il motore AI scelto e la sua chiave (04/09/2026). Vuoto o sconosciuto =
+   * Anthropic, che e' il motore storico. La chiave si legge dal setting del
+   * motore scelto, con la env come ripiego.
+   */
+  async motoreAi(): Promise<{ motore: 'anthropic' | 'openai'; chiave: string }> {
+    const scelto = ((await this.get('aiProvider')) || '').trim().toLowerCase();
+    const motore = scelto === 'openai' ? 'openai' : 'anthropic';
+    const chiave = motore === 'openai'
+      ? ((await this.get('openaiApiKey'))?.trim() || process.env.OPENAI_API_KEY || '')
+      : ((await this.get('aiApiKey'))?.trim() || process.env.ANTHROPIC_API_KEY || '');
+    return { motore, chiave };
+  }
+
+  /** C'e' una chiave per il motore scelto? (Il booleano, mai la chiave.) */
+  async aiConfigurata(): Promise<boolean> {
+    return Boolean((await this.motoreAi()).chiave);
+  }
 
   async driveConfigurato(): Promise<{ id: string; segreto: string; refresh: string; cartella: string }> {
     return {
@@ -668,7 +693,7 @@ export class SettingsController {
       // ⚠️ Il BOOLEANO, mai la chiave: serve solo a non mostrare un bottone
       // «compila con l'AI» che fallirebbe sempre. Un comando che non può
       // funzionare è peggio di un comando assente.
-      aiAttiva: Boolean((await this.service.get('aiApiKey'))?.trim()),
+      aiAttiva: await this.service.aiConfigurata(),
     };
   }
 }

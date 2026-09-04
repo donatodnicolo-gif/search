@@ -3,6 +3,27 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🤖 **04/09/2026-sexies — MOTORE AI a scelta: Claude o ChatGPT (OpenAI)** (IN LOCALE, non pushato né deployato — regola utente: push/deploy solo a comando).
+> - Richiesta utente: «implementa openai». In **Impostazioni → Intelligenza
+>   artificiale**: select **Motore AI** (`aiProvider` = anthropic | openai,
+>   vuoto = anthropic) + campo **Chiave OpenAI** (`openaiApiKey`, segreta,
+>   whitelist `SETTING_KEYS`). `SettingsService.motoreAi()` restituisce motore e
+>   chiave (env `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` come ripiego);
+>   `aiConfigurata()` alimenta `aiAttiva` in `/settings/public`.
+> - `AiService.leggiConsegna`: se il motore è openai → `leggiConOpenai`:
+>   fetch a `https://api.openai.com/v1/responses` (NESSUNA dipendenza nuova),
+>   modello `gpt-5`, `reasoning.effort=low`, `max_output_tokens=8000`,
+>   `text.format json_schema strict` con lo STESSO schema di Claude ma
+>   `required` = tutte le proprietà (regola strict di OpenAI); immagine come
+>   `input_image` data URL. Gestiti: 4xx/5xx (messaggio vero), `incomplete`
+>   per max_output_tokens, `refusal`, JSON non valido. Risposta con
+>   `modello: 'gpt-5'` e token letti/scritti.
+> - ⚠️ NON provato contro OpenAI vero: manca una chiave. Prima prova reale =
+>   incollare la chiave in Impostazioni, scegliere ChatGPT, «Compila con l'AI»
+>   in Nuova consegna. Typecheck api+web OK.
+> - Docs: COME-FUNZIONA (§Compila con l'AI), guida-visiva (avviso 04/09).
+>   Guida visiva NON ripubblicata (si ripubblica col deploy).
+>
 > 🛒 **04/09/2026-quinquies — VENDITE: due rifiuti, pop-up di dettaglio con REGISTRO, stato in Orders, data storico; caselle della selezione multipla** (IN LOCALE, non pushato né deployato — regola utente riaffermata: push/deploy solo a suo comando):
 > - **Selezione multipla (video utente)**: le caselle non si spuntavano. Causa:
 >   `.row-link:active { transform: scale(0.99) }` (DS §2.6) sposta il bordo

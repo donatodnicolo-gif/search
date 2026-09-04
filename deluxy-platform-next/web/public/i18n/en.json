@@ -220,8 +220,12 @@
     },
     "ai": {
       "title": "Artificial intelligence",
+      "provider": "AI engine",
+      "providerAnthropic": "Claude (Anthropic)",
+      "providerOpenai": "ChatGPT (OpenAI)",
       "key": "AI key (Anthropic)",
-      "hint": "Enables loading deliveries via AI: paste a free text (email, message) and the extraction fills the form. Secret key, server-side only."
+      "openaiKey": "OpenAI key",
+      "hint": "Enables loading deliveries via AI: paste a free text (email, message) and the extraction fills the form. The key of the selected engine is used; secret keys, server-side only."
     },
     "partnerChannel": {
       "title": "Partner channel (WhatsApp & commercial lines)",

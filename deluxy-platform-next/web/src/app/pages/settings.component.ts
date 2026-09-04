@@ -215,12 +215,27 @@ interface GeocodeResult {
         <!-- Chiave AI (Anthropic): abilita il caricamento delle consegne via
              AI. Segreta, usata SOLO lato server. -->
         <h3 class="sotto-titolo">{{ 'settings.ai.title' | translate }}</h3>
-        <label class="fld"><span>{{ 'settings.ai.key' | translate }}</span>
+        <label class="fld"><span>{{ 'settings.ai.provider' | translate }}</span>
+          <select class="field" name="aiProvider" [(ngModel)]="model.aiProvider">
+            <option value="anthropic">{{ 'settings.ai.providerAnthropic' | translate }}</option>
+            <option value="openai">{{ 'settings.ai.providerOpenai' | translate }}</option>
+          </select>
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.ai.key' | translate }}</span>
           <div class="key-row">
             <input class="field mono" [type]="showAiKey() ? 'text' : 'password'" name="aiApiKey"
                    [(ngModel)]="model.aiApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="sk-ant-…" />
             <button type="button" class="btn btn-secondary" (click)="showAiKey.set(!showAiKey())">
               {{ (showAiKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.ai.openaiKey' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showOpenaiKey() ? 'text' : 'password'" name="openaiApiKey"
+                   [(ngModel)]="model.openaiApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="sk-…" />
+            <button type="button" class="btn btn-secondary" (click)="showOpenaiKey.set(!showOpenaiKey())">
+              {{ (showOpenaiKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
             </button>
           </div>
         </label>
@@ -334,7 +349,7 @@ export class SettingsComponent {
     anagraficheUrl: '', anagraficheApiKey: '',
     ordersUrl: '', ordersApiKey: '',
     mailUrl: '', mailApiKey: '', mailUtente: '',
-    aiApiKey: '',
+    aiApiKey: '', aiProvider: 'anthropic', openaiApiKey: '',
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '', homePartnerEmails: '',
     hubUrl: '', hubPostaToken: '',
     financeUrl: '', financeApiKey: '',
@@ -352,6 +367,7 @@ export class SettingsComponent {
   readonly showOrdersKey = signal(false);
   readonly showMailKey = signal(false);
   readonly showAiKey = signal(false);
+  readonly showOpenaiKey = signal(false);
   readonly provandoOrders = signal(false);
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
   readonly showHubToken = signal(false);
@@ -474,6 +490,8 @@ export class SettingsComponent {
         // e un campo mai caricato riparte da "" e cancella il valore salvato
         // (aiApiKey lo faceva davvero: il campo c'era, il caricamento no).
         this.model.aiApiKey = s['aiApiKey'] ?? '';
+        this.model.aiProvider = s['aiProvider'] || 'anthropic';
+        this.model.openaiApiKey = s['openaiApiKey'] ?? '';
         this.model.whatsappNumero = s['whatsappNumero'] ?? '';
         this.model.lineeUrl = s['lineeUrl'] ?? '';
         this.model.lineeApiKey = s['lineeApiKey'] ?? '';

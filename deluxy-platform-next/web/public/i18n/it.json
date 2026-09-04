@@ -220,8 +220,12 @@
     },
     "ai": {
       "title": "Intelligenza artificiale",
+      "provider": "Motore AI",
+      "providerAnthropic": "Claude (Anthropic)",
+      "providerOpenai": "ChatGPT (OpenAI)",
       "key": "Chiave AI (Anthropic)",
-      "hint": "Abilita il caricamento delle consegne via AI: si incolla un testo libero (mail, messaggio) e l'estrazione compila il form. Chiave segreta, usata solo lato server."
+      "openaiKey": "Chiave OpenAI",
+      "hint": "Abilita il caricamento delle consegne via AI: si incolla un testo libero (mail, messaggio) e l'estrazione compila il form. Si usa la chiave del motore scelto; chiavi segrete, usate solo lato server."
     },
     "partnerChannel": {
       "title": "Canale partner (WhatsApp e linee commerciali)",

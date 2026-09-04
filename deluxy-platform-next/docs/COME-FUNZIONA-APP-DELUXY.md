@@ -227,7 +227,7 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 - Il modello ha l'ordine di **non inventare**: quello che non c'è resta vuoto. Un `null` **non cancella** quello che si è già scritto a mano.
 - Con **due orari** (dalle–alle) la fascia flessibile si **apre** da sola, altrimenti il secondo orario finirebbe in un campo invisibile. L'indirizzo di ritiro e il prodotto, che non hanno un campo proprio, finiscono nelle **note**.
 - ⚠️ La **voce** la trascrive il **browser** (Web Speech API), non l'AI: dove il riconoscimento vocale non esiste (Firefox, iOS datati) il bottone 🎤 non compare. Le **immagini** le legge davvero, fino a **4 MB**.
-- ⚠️ Serve la chiave Anthropic in **Impostazioni → `aiApiKey`**. Senza chiave il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai la chiave).
+- ⚠️ Serve la chiave del **motore scelto**. Dal **04/09/2026** in **Impostazioni → Intelligenza artificiale** si sceglie il **motore AI** (`aiProvider`): **Claude (Anthropic)**, il motore storico, con la chiave in `aiApiKey`; oppure **ChatGPT (OpenAI)**, con la chiave in `openaiApiKey` (modello `gpt-5`, API Responses con uscita strutturata, ragionamento basso). Istruzioni, schema dei campi e regola «propone, non crea» sono gli stessi per i due motori: cambia solo chi legge. Senza chiave del motore scelto il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai le chiavi). La risposta dichiara il modello usato (`modello`).
 
 #### Più consegne insieme **[NUOVO 27/08/2026]**
 
