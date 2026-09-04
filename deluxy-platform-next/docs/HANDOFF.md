@@ -46,7 +46,10 @@
 >   compensazione tolti; riga nel registro di ognuna. Scansione su TUTTI i
 >   partner dal 01/07 (prezzo fisso in città, prezzo < listino): restano solo
 >   30 di Mali'A a 9,57 (listino 12), stesso destinatario ogni giorno, tutte
->   fatturate legacy — sembra un prezzo concordato, NON toccate (decide
+>   fatturate legacy — l'utente ha deciso: portate a 12 (30 righe, log
+>   su ognuna; erano tutte già fatturate dal legacy, nessuna riga qui). Dopo
+>   questa, la scansione «prezzo fisso in città sotto listino» dal 01/07 è a
+>   ZERO. (era: sembra un prezzo concordato, NON toccate — decide
 >   l'utente).
 > - Script aggiornati alla formula nuova: `tabella-consegne-partner.mjs`,
 >   `ricalcola-righe-bozze-regola.mjs` (bozza Armani FAT-2026-563 in attesa
