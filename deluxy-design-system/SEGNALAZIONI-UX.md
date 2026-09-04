@@ -585,3 +585,46 @@ Nella stessa pagina: il rifiuto chiede conferma con le conseguenze scritte
 (esiti diversi per partner e ufficio), come da §7.
 
 STATO: in locale, in attesa del collaudo dell'utente.
+
+## 04/09/2026 (6) — Customer Service: il pop-up dell'ordine riorganizzato (e `column-count` non è una griglia)
+
+Richiesta utente: «riorganizza questo pop-up, analizza prima con un agente
+ostile tutte le info che mostra e poi allinea tutte le informazioni in modo che
+siano organizzate con logica; approva il risultato finale e procedi a mostrarlo
+con l'agente ostile». Due giri di `ux-ostile`: censimento di ogni blocco + 16
+accuse (12 piene, 6 refutate), poi demolizione della toppa + altre 9 accuse,
+tutte corrette.
+
+**Il difetto, e vale per tutte le app.** Il pannello usava `column-count: 3`,
+cioè un FLUSSO: il browser distribuisce i riquadri per pareggiare le altezze,
+quindi **la posizione di ognuno dipende dal contenuto**. Bastava una telefonata
+del cliente (un riquadro condizionale in più) perché la card «Ordine» passasse
+dalla seconda colonna alla terza; l'ordine di Tab e dei lettori di schermo
+restava quello del DOM, diverso da quello che si vedeva; e una colonna finiva
+molto prima delle altre, cioè lo stesso buco che il flusso doveva evitare.
+
+⚠️⚠️ **`gridColumn` dentro un `column-count` non esiste.** La card dei fornitori
+aveva `gridColumn: '1 / -1'` e un commento che dichiarava «prende tutta la
+larghezza sotto le altre tre»: usciva larga 385px come le altre, e la griglia di
+tessere dentro di lei stava a UNA per riga. Una proprietà del layout precedente
+non dà errore, continua solo a raccontare un'intenzione che nessuno esegue.
+
+**Regola proposta per il Libro.** Un cruscotto a più colonne (una scheda di
+dettaglio, un pannello con riquadri eterogenei) si fa con **colonne esplicite**,
+un contenitore per colonna, e **ogni colonna ha un mestiere dichiarato**. Il
+flusso a colonne vale solo per contenuto omogeneo e intercambiabile. Corollari:
+1. quando si cambia tipo di layout, si cercano le proprietà dell'altro rimaste
+   in giro (`gridColumn`, `grid-template-columns`, `gap`, `break-inside` su
+   selettori che non combaciano più): mentono nei commenti e non danno errore;
+2. il gradino responsive va **disegnato**: tre colonne in due posti mettono la
+   terza da sola su una riga sua, con mezzo schermo vuoto accanto — va deciso
+   quale delle tre va a tutta larghezza;
+3. un `<details>` la cui prop `open` dipende da un dato che l'azione stessa
+   azzera **si richiude portandosi via l'esito** (qui: «Disfa l'unione»
+   nascondeva il messaggio del server). L'esito va fra le condizioni di apertura.
+
+Applicato al CS: tre colonne con un mestiere ciascuna (IL LAVORO · IL CLIENTE ·
+L'ORDINE), fascia dei fornitori fuori dalla griglia a tutta larghezza (tessere
+da 1 a 4 per riga), Riconsegna e Unione a fisarmonica.
+
+STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
