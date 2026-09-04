@@ -52,6 +52,12 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### ✅ 05/09/2026 (00:20) — in produzione IBAN dal registro e fine del 404: `cp4unalaj`
+>
+> Push del commit `c5714bfc` sopra origin col worktree temporaneo (`78f1e1ba`), poi deploy con build su Vercel.
+> - ⚠️ **Alias da spostare a mano anche stavolta** (quinta di fila). Ormai è la regola, non l'eccezione.
+> - **Verificato**: dominio → `cp4unalaj` ● Ready; health 200 in 0,77 s, `database:true`; la scheda partner senza sessione risponde 307 verso il login. ⚠️ Il comportamento nuovo (IBAN dal registro, ritorno dopo l'eliminazione) **non è verificabile da fuori**: sta dietro il login. Vale la prova locale sullo stesso codice — «IBAN IT21J0…9868 dal registro» sulla scheda di GIADA CAKE.
+
 > ### 05/09/2026 (00:30) — Due segnalazioni dell'utente: il 404 dopo «Elimina», e l'IBAN che c'era ma l'app non vedeva
 >
 > **1. «Elimina» su una fattura rispondeva 404 — ma la cancellazione era RIUSCITA.** Provato dall'utente sulla 450 € di GIADA CAKE: la riga è sparita davvero (registro modifiche, «Eliminata fattura servizi s.n.», 22:06) e i suoi conti sono a posto. Il 404 arrivava dopo: `deleteFattura` non faceva `redirect`, quindi la scheda `/fatture/[id]` si ridisegnava, non trovava più il record e chiamava `notFound()`. Un'operazione riuscita che sembra fallita è peggio di un errore vero: si rifà, e la seconda volta l'errore è vero.
