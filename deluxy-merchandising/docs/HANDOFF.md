@@ -120,8 +120,17 @@ di sessione; deploy da fare con l'utente):**
    — non spegnere `next dev` mentre un import è in corso (deleteMany +
    ricostruzione fuori transazione).
 
-**Da fare / da provare (in ordine):** deploy precompilato (`vercel build` +
-`deploy --prebuilt --prod` da qui, con l'utente); provare **un caricamento di
+✅ **Deployato il 04/09 alle 13:05** (`deluxy-merchandising-11dgsk4f0`),
+pagine nuove verificate 200 in produzione col cookie di sessione. ⚠️ Su questo
+PC `vercel build --prod` **fallisce con `EPERM symlink`** (Modalità
+sviluppatore di Windows spenta): il deploy è stato fatto con `npx vercel deploy
+--prod --yes` (build remota, ~1 minuto di Build CPU). Finché non si accende la
+Modalità sviluppatore, il precompilato qui non si può fare. ✅ La
+sincronizzazione all'apertura è stata provata dal PC: Cake 2′, Flowers 3′,
+Gifts ~10′, tutti `ok`, e «Cappelliera Dalie Tramonto» è entrata in «Dolci
+Rientri».
+
+**Da fare / da provare (in ordine):** provare **un caricamento di
 foto vero** e **una pubblicazione vera** su un negozio (Cake, il più piccolo)
 con un prodotto di prova, poi cancellarlo; correggere lo slittamento delle
 rotazioni; il cambio fase → «Pubblico» **dalla scheda** prodotto non pubblica
