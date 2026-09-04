@@ -69,6 +69,10 @@ const ICONE_MODELLO: Record<string, string> = {
   selector: 'app-partner-home',
   standalone: true,
   imports: [DatePipe, DecimalPipe, RouterLink, TranslatePipe],
+  // ⚠️ 04/09: DecimalPipe si INIETTA (prezzo()), quindi va fornito qui — senza
+  // provider NullInjectorError a runtime e la pagina restava BIANCA (segnalato
+  // dall'utente al primo accesso della home).
+  providers: [DecimalPipe],
   template: `
     <!-- ===================== COPERTINA ===================== -->
     <header class="hero">
