@@ -8,6 +8,27 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
+## Stato al 04/09/2026 (ripresa breve)
+
+- **Repo `app/` trovato con HEAD rotto** («bad object HEAD»): 17 commit del
+  03/09 (16:09→18:29, compreso `b0512b4a` di questo handoff) avevano gli
+  oggetti spariti dal `.git` locale. Erano su GitHub: **riparato con
+  `git fetch origin piattaforma-ricerca-insensitive scout-ui`**, fsck 0
+  errori, nessun ref toccato. Origin è ora 4 commit avanti (altra sessione:
+  Segnalazioni/Vendite piattaforma, AI Mail): fast-forward NON fatto per non
+  muovere file di altre app con lavoro sporco.
+- **Node.js non è installato sulla macchina** (`where node` vuoto, winget
+  non lo trova): niente `npx vercel`, tsc, build, dev server finché non si
+  reinstalla (`winget install OpenJS.NodeJS.LTS`, poi `npx vercel login`).
+  Il deploy del commit `a309b6b3` resta quindi da fare.
+- **Password dell'app**: è la sola `CRM_APP_PASSWORD` nelle env Vercel
+  (production). Non è in alcun `.env` locale; l'SSO dal Hub non la aggira
+  (segreto disallineato, Hub §9-ter). Si legge dal pannello Vercel
+  (Settings → Environment Variables → reveal); se è Sensitive va sostituita
+  e rideployata.
+- Produzione invariata: `/login` live senza «dimenticata», `/api/health`
+  ok + database true, `MAIL_API_KEY` ancora assente, nessun fix UX fatto.
+
 ## Stato al 03/09/2026 (ripresa)
 
 - **Produzione ferma al 28/08**: l'ultimo deploy (`vercel ls --prod`) è di 6
