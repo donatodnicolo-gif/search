@@ -137,6 +137,16 @@ export class AuthService {
       valetId: user.valetId,
     };
 
+    // ⭐ 04/09 (regola utente: «solo per chanel_consegne»): la home «Servizi»
+    // all'accesso si accende per le email elencate nell'impostazione
+    // `homePartnerEmails` (Configurazione → Impostazioni). Solo PARTNER.
+    let homeVetrina = false;
+    if (user.role === 'PARTNER') {
+      const elenco = ((await this.settings.get('homePartnerEmails').catch(() => null)) ?? '')
+        .split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+      homeVetrina = elenco.includes(user.email.toLowerCase());
+    }
+
     return {
       accessToken: await this.jwtService.signAsync(payload),
       // Cambio obbligatorio al primo accesso (bonifica password deboli 31/08):
@@ -154,6 +164,7 @@ export class AuthService {
         // Team leader: il frontend mostra «Assegna» ai valet team leader
         // (l'API verifica comunque il perimetro).
         isTeamLeader: (user as any).valet?.isTeamLeader === true,
+        homeVetrina,
       },
     };
   }

@@ -216,6 +216,8 @@
       "whatsapp": "Deluxy WhatsApp number",
       "lineeUrl": "Commercial lines URL (Scout)",
       "lineeKey": "Commercial lines key",
+      "homeEmails": "'Services' home at login (partner emails, comma-separated)",
+      "homeEmailsHint": "Listed partners land on the page of requestable services and get the 'Deluxy services' menu entry; other partners land on Deliveries. Applies from the next login.",
       "hint": "The number (international format without + or spaces, e.g. 393331234567) powers the partners' “Message us on WhatsApp”. Commercial lines come from Deluxy Scout, their master: they are the showcase of requestable services on the Quotes page."
     },
     "orders": {

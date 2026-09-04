@@ -216,6 +216,8 @@
       "whatsapp": "Numero WhatsApp Deluxy",
       "lineeUrl": "Indirizzo linee commerciali (Scout)",
       "lineeKey": "Chiave linee commerciali",
+      "homeEmails": "Home «Servizi» all'accesso (email dei partner, separate da virgola)",
+      "homeEmailsHint": "Chi è in elenco entra sulla pagina dei servizi richiedibili e ha la voce «Servizi Deluxy» nel menu; gli altri partner entrano sulle Consegne. Vale dal login successivo.",
       "hint": "Il numero (formato internazionale senza + né spazi, es. 393331234567) è il «Scrivici su WhatsApp» dei partner. Le linee commerciali arrivano da Deluxy Scout, che ne è il master: sono la vetrina dei servizi richiedibili nella pagina Preventivi."
     },
     "orders": {

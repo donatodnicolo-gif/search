@@ -18,6 +18,8 @@ export interface AuthUser {
   mustChangePassword?: boolean;
   /** Valet team leader: può assegnare consegne nel suo perimetro. */
   isTeamLeader?: boolean;
+  /** Partner con la home «Servizi» all'accesso (impostazione homePartnerEmails, 04/09). */
+  homeVetrina?: boolean;
 }
 
 export interface LoginResponse {

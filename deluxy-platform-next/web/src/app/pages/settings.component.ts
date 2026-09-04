@@ -247,6 +247,14 @@ interface GeocodeResult {
           </div>
         </label>
         <p class="hint">{{ 'settings.partnerChannel.hint' | translate }}</p>
+        <!-- ⭐ 04/09 (regola utente): la home «Servizi» all'accesso si accende
+             per email, partner per partner. -->
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.partnerChannel.homeEmails' | translate }}</span>
+          <input class="field mono" name="homePartnerEmails" [(ngModel)]="model.homePartnerEmails"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore
+                 placeholder="chanel_consegne@deluxy.it, altro@partner.it" />
+        </label>
+        <p class="hint">{{ 'settings.partnerChannel.homeEmailsHint' | translate }}</p>
 
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
@@ -327,7 +335,7 @@ export class SettingsComponent {
     ordersUrl: '', ordersApiKey: '',
     mailUrl: '', mailApiKey: '', mailUtente: '',
     aiApiKey: '',
-    whatsappNumero: '', lineeUrl: '', lineeApiKey: '',
+    whatsappNumero: '', lineeUrl: '', lineeApiKey: '', homePartnerEmails: '',
     hubUrl: '', hubPostaToken: '',
     financeUrl: '', financeApiKey: '',
     driveClientId: '', driveClientSecret: '', driveRefreshToken: '', driveFolderId: '',

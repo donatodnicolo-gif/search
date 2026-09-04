@@ -3,6 +3,29 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🏠 **04/09/2026-bis — HOME «SERVIZI» PER chanel_consegne + DUPLICA SENZA DATA** (deployato):
+> - **La home del partner rifatta** (regola utente: «solo per
+>   chanel_consegne@deluxy.it ricrea la pagina home con la lista dei servizi
+>   che possono essere richiesti»): `/home` non mostra più le linee
+>   commerciali di Scout ma **i servizi del SUO listino** (`/partners/:id`
+>   → `services`, solo attivi, ordine del form: fisso → vendita → a ore),
+>   una tessera per servizio con modello e prezzo (da X €, km inclusi, €/ora,
+>   quota %), che apre il **form consegna col servizio già scelto**
+>   (`/deliveries/new?servizio=<id>`, nuovo parametro). In coda: «Servizio
+>   ricorrente» (→ /recurring-services) e «Ti serve altro?» (→ Preventivi);
+>   restano WhatsApp e le ultime richieste di preventivo.
+> - **Accesa PER EMAIL, non per tutti**: impostazione nuova
+>   `homePartnerEmails` (Configurazione → Impostazioni → Canale partner →
+>   «Home Servizi all'accesso», email separate da virgola). Al login il
+>   server calcola `user.homeVetrina` (solo PARTNER, email in elenco): con
+>   il flag il login atterra su `/home` e in menu compare «Servizi Deluxy»;
+>   senza, tutto come prima (Consegne). **Valore scritto in produzione**:
+>   `chanel_consegne@deluxy.it` (script `imposta-home-partner.mjs`). Vale dal
+>   login successivo (il flag viaggia col login).
+> - **Duplica dallo storico: la DATA resta vuota** (regola utente): la copia
+>   non eredita la data e il preavviso del servizio non la riempie da solo
+>   (`dataDaScegliere`); resta obbligatoria come sempre.
+>
 > 🔄 **04/09/2026 — L'APP SI AGGIORNA DA SOLA, «Crea prodotto» del partner riparato, Duplica anche sullo storico, tabelle brioche** (deployato via `vercel build` + `deploy --prebuilt`, da worktree pulito):
 > - **Auto-aggiornamento delle liste** (regola utente: «gli utenti non devono
 >   aggiornare le pagine»): `web/src/app/core/auto-aggiornamento.ts`

@@ -17,6 +17,8 @@ interface NavItem {
   icon: string;
   roles: Role[];
   supportOnly?: boolean;
+  /** Solo per i partner con la home «Servizi» accesa (impostazione, 04/09). */
+  soloVetrina?: boolean;
 }
 
 /** Icone stroke minimali (24x24, stile SF Symbols). */
@@ -53,7 +55,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // 31/08: NASCOSTA per ora (deciso dall'utente): la prima schermata torna
       // a essere Consegne. La rotta /home esiste ancora: per riaccenderla
       // basta togliere il commento qui e il redirect del login.
-      // { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['PARTNER'] },
+      // ⭐ 04/09 (regola utente): RIACCESA solo per i partner elencati in
+      // Configurazione → Impostazioni → «Home Servizi» (homeVetrina nel login).
+      { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['PARTNER'], soloVetrina: true },
       { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.serviziRicorrenti', path: '/recurring-services', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
       { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
@@ -655,7 +659,8 @@ export class ShellComponent {
       items: section.items.filter(
         (item) =>
           item.roles.includes(user.role) &&
-          (!item.supportOnly || user.isSupport),
+          (!item.supportOnly || user.isSupport) &&
+          (!item.soloVetrina || user.homeVetrina === true),
       ),
     })).filter((section) => section.items.length > 0);
   });

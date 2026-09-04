@@ -1341,6 +1341,10 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   /** Servizio selezionato (aggiornato imperativamente da onServiceChange). */
   readonly selectedService = signal<ServiceType | null>(null);
+  /** Duplica (04/09): la data non si eredita e non si riempie da sola. */
+  private dataDaScegliere = false;
+  /** Servizio arrivato dalla home «Servizi» del partner (`?servizio=`). */
+  private servizioDallaHome: string | null = null;
   /** Fasce orarie di consegna generate dal servizio. */
   readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
   /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
@@ -1378,7 +1382,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     // salvata è quasi sempre nel passato, quindi questa riga la sostituiva con
     // oggi: aprire una consegna del 2024 e salvarla la spostava al giorno
     // corrente, senza dire niente.
-    if (!this.editId() && (!this.model.date || this.model.date < min)) this.model.date = min;
+    // ⭐ 04/09: sul DUPLICA la data resta vuota finché non la sceglie chi
+    // compila (`dataDaScegliere`); si alza solo se è sotto il preavviso.
+    if (!this.editId() && !this.model.date && !this.dataDaScegliere) this.model.date = min;
+    else if (!this.editId() && this.model.date && this.model.date < min) this.model.date = min;
     // ⭐ 27/08 (chiesto dall'utente): cambiando servizio si RICALCOLA anche il
     // listino associato. Prima il prezzo restava quello del servizio di prima,
     // e un numero vecchio accanto a un servizio nuovo non si vede come
@@ -1569,11 +1576,18 @@ export class DeliveryFormComponent implements AfterViewInit {
     // NUOVA. Lo stato riparte da capo (una copia non eredita «consegnata»).
     const idDuplica = this.route.snapshot.queryParamMap.get('duplica');
     if (idDuplica && !idModifica) {
+      // ⭐ 04/09 (regola utente): la copia NON eredita la DATA — resta vuota,
+      // la sceglie chi duplica. Il preavviso del servizio non la riempie da
+      // solo (`dataDaScegliere`): il campo resta obbligatorio come sempre.
+      this.dataDaScegliere = true;
       this.http.get<Record<string, unknown>>(`${api}/deliveries/${idDuplica}`).subscribe({
-        next: (d) => { this.prefill(d); this.editId.set(null); this.model.status = ''; },
+        next: (d) => { this.prefill(d); this.editId.set(null); this.model.status = ''; this.model.date = ''; },
         error: () => undefined,
       });
     }
+    // ⭐ 04/09: dalla home «Servizi» del partner si arriva col servizio già
+    // scelto (`?servizio=<id>`): si applica appena la lista servizi è qui.
+    this.servizioDallaHome = this.route.snapshot.queryParamMap.get('servizio');
 
     // ⭐ 28/08: si arriva dalla sezione RICHIESTE. Si carica il testo nel
     // pannello dell'AI e lo si APRE: chi ha cliccato «crea consegna» da una
@@ -1654,6 +1668,10 @@ export class DeliveryFormComponent implements AfterViewInit {
       // default (31/08). Le due chiamate (vendita e servizi) sono indipendenti:
       // il default si applica in entrambe, chi arriva ultimo vince.
       this.forzaServizioVendita();
+      if (!this.model.serviceTypeId && this.servizioDallaHome
+        && this.serviceTypes().some((s) => s.id === this.servizioDallaHome)) {
+        this.model.serviceTypeId = this.servizioDallaHome;
+      }
       if (this.model.serviceTypeId) {
         const fascia = this.model.deliveryTimeFrom;
         const data = this.model.date;

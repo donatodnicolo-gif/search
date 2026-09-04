@@ -57,6 +57,11 @@ export const SETTING_KEYS = [
   // formato internazionale senza + né spazi (es. 393331234567). E' un numero
   // pubblico per natura: esposto in /settings/public a chi e' autenticato.
   'whatsappNumero',
+  // HOME «SERVIZI» ALL'ACCESSO (04/09/2026, regola utente: «solo per
+  // chanel_consegne»): le email dei PARTNER, separate da virgola, che
+  // entrano sulla pagina dei servizi richiedibili (/home) invece che sulle
+  // Consegne, e hanno la voce «Servizi Deluxy» nel menu. Vuoto = nessuno.
+  'homePartnerEmails',
   // LINEE COMMERCIALI: Scout ne e' il MASTER (edge function `linee`).
   // La vetrina dei servizi richiedibili dal partner si legge da li', mai
   // ricopiata (Standard §7: cache TTL breve si', tabelle-copia no).

@@ -277,12 +277,16 @@ export class LoginComponent {
     this.error.set(null);
     this.auth.login(this.email, this.password).subscribe({
       // 31/08: la vetrina /home e' NASCOSTA per ora (deciso dall'utente) —
-      // tutti atterrano sulle consegne. La rotta /home resta raggiungibile
-      // a mano per il PARTNER, solo non e' piu' la prima schermata.
+      // tutti atterrano sulle consegne. ⭐ 04/09: TRANNE i partner elencati
+      // nell'impostazione «home Servizi» (`homeVetrina` nel login): per loro
+      // la prima schermata e' la pagina dei servizi richiedibili.
       // Se la password è da cambiare (bonifica), si va PRIMA a cambiarla.
-      next: () => this.router.navigate([
-        this.auth.user()?.mustChangePassword ? '/cambia-password' : '/deliveries',
-      ]),
+      next: () => {
+        const u = this.auth.user();
+        this.router.navigate([
+          u?.mustChangePassword ? '/cambia-password' : (u?.homeVetrina ? '/home' : '/deliveries'),
+        ]);
+      },
       error: (err) => {
         this.loading.set(false);
         this.error.set(

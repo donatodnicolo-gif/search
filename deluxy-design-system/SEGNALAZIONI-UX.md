@@ -522,3 +522,19 @@ lavoro di quella schermata), non si lascia il vuoto.
    il capitolo «tempo reale senza websocket» che il custode deve scrivere.
 
 STATO: applicate (deploy 04/09). Punti 1 e 3 in attesa del custode per la regola.
+
+## 04/09/2026 (2) — Piattaforma consegne: la home del partner torna, ma per pochi
+
+Regola utente: «solo per chanel_consegne@deluxy.it ricrea la pagina home con la
+lista dei servizi che possono essere richiesti». La vetrina `/home` (nascosta
+dal 31/08 perché mostrava le linee commerciali di Scout a chi voleva solo
+inserire una consegna) rinasce come **pagina dei servizi del listino del
+partner**: una tessera per servizio (modello + prezzo), che apre il form con
+il servizio già scelto. Si accende **per email** da Impostazioni
+(`homePartnerEmails`), non per ruolo: il flag `homeVetrina` arriva col login e
+decide atterraggio e voce di menu. Pattern da valutare per il Libro: **una
+funzione «per alcuni» si accende da un'impostazione leggibile dall'ufficio, non
+da un'email cablata nel codice**. La data non si eredita sul Duplica dallo
+storico (stessa giornata).
+
+STATO: applicata (deploy 04/09).
