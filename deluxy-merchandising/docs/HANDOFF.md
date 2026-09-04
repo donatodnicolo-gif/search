@@ -121,6 +121,48 @@ di sessione; deploy da fare con l'utente):**
     (`deluxy-merchandising-j5ptz29ci`, build remota), riquadro «Varianti»
     verificato 200 in produzione; la creazione con varianti su Shopify resta
     da collaudare come il resto del modulo.
+11. **Pomeriggio del 04/09 — modulo prodotto completo, IN LOCALE (non
+    deployato: l'utente ha chiesto di pubblicare solo su sua richiesta):**
+    - **giacenza facoltativa**: interruttore «Controlla la giacenza» sul
+      prodotto; spenta, non c'è nemmeno per le varianti e su Shopify lo stock
+      non si traccia;
+    - **date di pubblicazione solo con la fase Pubblico** (deciso dall'utente
+      dopo averle chieste sempre visibili), fine facoltativa; senza fase
+      Pubblico si azzerano;
+    - **tag**: chip con suggerimenti dai tag già in uso sui prodotti attivi
+      importati (`tagShopify`), scritti sul negozio (`tags`) e in `tagShopify`;
+    - **tutti i metafield del negozio**: nuovo `metafield-definizioni.ts` —
+      legge `metafieldDefinitions` (PRODUCT) dal negozio (Gifts 48, Flowers
+      33, Cake 21; verificato coi tre token), tiene solo i tipi compilabili
+      (testo, testo lungo, lista di testi, sì/no, numero, url; via i namespace
+      `shopify*`/app), cache di un giorno in
+      `NegozioShopify.definizioniMetafield`. **L'import legge i metafield in
+      modo dinamico** con un alias per definizione (più le 22 chiavi storiche
+      senza definizione, `ALIAS_STORICI`), 20 prodotti per pagina (15 sopra i
+      30 alias) per il tetto dei 1.000 punti; i valori grezzi vanno in
+      `Prodotto.metafieldShopify` (`{"custom.occasioni": "[\"Natale\"]"}`) e le
+      colonne tipizzate si ricostruiscono da lì (`nodoDaMf`,
+      `colonneDaMetafield`). ⚠️ L'import di Gifts diventa più lento
+      (pagine da 20 invece di 25): da guardare la durata del cron delle 03:10.
+      Nel modulo, riquadro «Campi del negozio»: chip per le liste a scelta,
+      select, sì/no, numeri con min/max, testo. Alla pubblicazione vanno in
+      `productCreate.metafields` con namespace e tipo veri;
+    - **modifica con lo stesso modulo**: `/prodotti/[id]/modifica`
+      (`ProdottoIniziale` precompilato, bottone «✎ Modifica col modulo» sulla
+      scheda) e `aggiornaProdottoCompleto`: aggiorna qui e, se il prodotto è
+      sul negozio, `aggiornaProdottoSuShopify` (nuova in `shopify-admin.ts`:
+      productUpdate titolo/descrizione/stato/tag/metafield, varianti per SKU
+      con `productVariantsBulkUpdate`, nuove con `BulkCreate` solo se c'è già
+      un'opzione, foto nuove agganciate, collezione aggiunta se cambia,
+      traduzioni se spuntato). Fase tolta da Pubblico → DRAFT sul negozio. Un
+      prodotto non sul negozio che passa a Pubblico si pubblica come nuovo (è
+      il punto aperto «dalla scheda non pubblica», chiuso per questa via).
+      Varianti sparite dal modulo si cancellano qui solo senza vendite; sul
+      negozio restano (detto in pagina). `datiModuloProdotto()` serve le due
+      pagine.
+    ⚠️ Niente di tutto questo è stato provato contro un negozio vero; le
+    pagine `/prodotti/nuovo` e `/prodotti/<id>/modifica` sono verificate in
+    locale (200, riquadri presenti).
 9. **Sincronizzazione all'apertura** (`src/lib/sincronizza-apertura.ts`,
    chiamata dal cruscotto `/`): se l'ultimo import `ok` di un negozio è più
    vecchio di **4 ore**, dopo la risposta (`after()` di Next, `maxDuration

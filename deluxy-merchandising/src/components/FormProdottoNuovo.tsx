@@ -1,29 +1,33 @@
 "use client";
 
-// **Il modulo «Nuovo prodotto», rifatto il 04/09/2026 su richiesta dell'utente.**
+// **Il modulo del prodotto — nuovo e modifica** (04/09/2026, richieste dell'utente).
 //
-// Un modulo solo per far nascere un prodotto: scheda, foto e video, prezzo, e
-// — se lo si vuole **Pubblico** — la creazione sul negozio Shopify con la
-// collezione, le traduzioni e la finestra di pubblicazione. Le regole:
+// Un modulo solo per far nascere un prodotto e, dal 04/09 pomeriggio, per
+// modificarne uno esistente («ogni prodotto nell'app poi potrà essere
+// modificato con lo stesso form»). Le regole:
 // - lo **SKU** nasce da solo, 7 cifre casuali, e resta modificabile; il
 //   salvataggio garantisce che sia unico;
-// - la **collezione** è una delle collezioni manuali del negozio scelto, e si
-//   può non sceglierne nessuna;
-// - le **categorie** sono quelle del brand/negozio scelto più quelle comuni;
-// - **Pubblico** vuol dire che va su Shopify: non è un'etichetta;
-// - le **foto e i video** si caricano dal computer e finiscono nei Files del
-//   negozio (dal browser direttamente a Shopify, così i video non passano dal
-//   nostro server); per questo il negozio si sceglie prima delle foto;
-// - la **descrizione** la può proporre l'AI, come nell'altro modulo.
+// - le **varianti** hanno lo SKU principale più «-1», «-2»…: non si scrive,
+//   segue il principale (le varianti già salvate tengono il loro);
+// - la **giacenza** è facoltativa: si accende sul prodotto, e se non c'è sul
+//   padre non c'è nemmeno per le varianti;
+// - la **collezione** è una delle manuali del negozio scelto, o nessuna;
+// - le **categorie** sono quelle del brand/negozio scelto più le comuni;
+// - **Pubblico** vuol dire che va su Shopify;
+// - **foto e video** finiscono nei Files del negozio (dal browser a Shopify);
+// - la **descrizione** la può proporre l'AI;
+// - i **campi del negozio** (i metafield definiti su Shopify: occasioni,
+//   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
 import { useRef, useState } from "react";
 import { ETICHETTA_FASE } from "@/lib/dominio";
+import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
 
 export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean };
 export type CategoriaPerForm = { chiave: string; nome: string; negozio: string | null; conPrompt: boolean };
 export type CollezionePerForm = { id: string; titolo: string; negozio: string };
 
-type MediaCaricato = {
+export type MediaCaricato = {
   shopifyFileId: string;
   tipo: "immagine" | "video";
   url: string | null;
@@ -34,12 +38,39 @@ type MediaCaricato = {
   errore?: string;
 };
 
+export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string };
+
+/** Quello che il modulo mostra quando si modifica un prodotto esistente. */
+export type ProdottoIniziale = {
+  id: string;
+  nome: string;
+  negozioId: string;
+  fase: string;
+  categoria: string;
+  collezioneShopifyId: string;
+  codice: string;
+  descrizione: string;
+  brief: string;
+  materiali: string;
+  palette: string;
+  costoProduzione: number;
+  prezzoVendita: number;
+  pubblicatoDal: string;
+  pubblicatoFinoAl: string;
+  controllaStock: boolean;
+  giacenza: number;
+  nomeOpzione: string;
+  varianti: VarianteForm[];
+  media: MediaCaricato[];
+  metafield: Record<string, string>;
+  tags: string[];
+  shopifyId: string | null;
+};
+
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
+const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", giacenza: "0" });
 
-type Variante = { nome: string; prezzo: string; costo: string; giacenza: string };
-const varianteVuota = (): Variante => ({ nome: "", prezzo: "", costo: "", giacenza: "0" });
-
-/** Sette cifre casuali, mai con lo zero davanti (così resta di sette anche letto come numero). */
+/** Sette cifre casuali, mai con lo zero davanti. */
 export function skuCasuale(): string {
   return String(Math.floor(1_000_000 + Math.random() * 9_000_000));
 }
@@ -48,53 +79,76 @@ export function FormProdottoNuovo({
   negozi,
   categorie,
   collezioni,
+  definizioniPerNegozio,
+  tagEsistenti,
   aiPronta,
   azione,
+  iniziale,
 }: {
   negozi: NegozioPerForm[];
   categorie: CategoriaPerForm[];
   collezioni: CollezionePerForm[];
+  definizioniPerNegozio: Record<string, DefinizioneMetafield[]>;
+  tagEsistenti: string[];
   aiPronta: boolean;
   azione: (fd: FormData) => void;
+  iniziale?: ProdottoIniziale;
 }) {
+  const modifica = !!iniziale;
   const form = useRef<HTMLFormElement>(null);
-  const [negozioId, setNegozioId] = useState(negozi[0]?.id ?? "");
+  const [negozioId, setNegozioId] = useState(iniziale?.negozioId || negozi[0]?.id || "");
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
-  const [fase, setFase] = useState<string>("concept");
+  const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
-  const [categoria, setCategoria] = useState("");
-  const [collezioneId, setCollezioneId] = useState("");
-  const [sku, setSku] = useState(skuCasuale);
-  const [descrizione, setDescrizione] = useState("");
+  const [categoria, setCategoria] = useState(iniziale?.categoria === "DA_CLASSIFICARE" ? "" : (iniziale?.categoria ?? ""));
+  const [collezioneId, setCollezioneId] = useState(iniziale?.collezioneShopifyId ?? "");
+  const [sku, setSku] = useState(iniziale?.codice ?? skuCasuale);
+  const [descrizione, setDescrizione] = useState(iniziale?.descrizione ?? "");
   const [tono, setTono] = useState("maison");
   const [scrivendo, setScrivendo] = useState(false);
   const [erroreAi, setErroreAi] = useState<string | null>(null);
-  const [media, setMedia] = useState<MediaCaricato[]>([]);
-  // Varianti (chieste dall'utente il 04/09/2026): ogni variante ha il suo SKU,
-  // derivato da quello principale con un numero in coda («4839201-1»). Lo SKU
-  // della variante non si scrive: segue quello principale, così restano
-  // agganciati anche se lo si rigenera.
-  const [haVarianti, setHaVarianti] = useState(false);
-  const [nomeOpzione, setNomeOpzione] = useState("Formato");
-  const [varianti, setVarianti] = useState<Variante[]>([varianteVuota()]);
-  const aggiornaVariante = (i: number, campo: keyof Variante, valore: string) =>
-    setVarianti((v) => v.map((x, j) => (j === i ? { ...x, [campo]: valore } : x)));
+  const [media, setMedia] = useState<MediaCaricato[]>(iniziale?.media ?? []);
   const [caricando, setCaricando] = useState(false);
   const [erroreMedia, setErroreMedia] = useState<string | null>(null);
+  const [controllaStock, setControllaStock] = useState(iniziale?.controllaStock ?? false);
+  const [haVarianti, setHaVarianti] = useState((iniziale?.varianti.length ?? 0) > 0);
+  const [nomeOpzione, setNomeOpzione] = useState(iniziale?.nomeOpzione || "Formato");
+  const [varianti, setVarianti] = useState<VarianteForm[]>(iniziale?.varianti.length ? iniziale.varianti : [varianteVuota()]);
+  const [metafield, setMetafield] = useState<Record<string, string>>(iniziale?.metafield ?? {});
+  // Tag (chiesti dall'utente): quelli del prodotto, coi suggerimenti presi
+  // dai tag già in uso sui prodotti importati dal negozio.
+  const [tags, setTags] = useState<string[]>(iniziale?.tags ?? []);
+  const [tagNuovo, setTagNuovo] = useState("");
+  const aggiungiTag = (t: string) => {
+    const pulito = t.trim().replace(/,+$/, "").trim();
+    if (!pulito) return;
+    setTags((x) => (x.some((y) => y.toLowerCase() === pulito.toLowerCase()) ? x : [...x, pulito]));
+    setTagNuovo("");
+  };
 
-  // Categorie e collezioni seguono il negozio scelto.
+  const aggiornaVariante = (i: number, campo: keyof VarianteForm, valore: string) =>
+    setVarianti((v) => v.map((x, j) => (j === i ? { ...x, [campo]: valore } : x)));
+
+  // Lo SKU di una variante: quello già salvato, altrimenti principale + numero
+  // progressivo dopo l'ultimo già assegnato.
+  const skuVariante = (v: VarianteForm, i: number) => {
+    if (v.sku) return v.sku;
+    const usati = varianti.filter((x) => x.sku).length;
+    const posizioneNuova = varianti.slice(0, i).filter((x) => !x.sku).length;
+    return `${sku || "…"}-${usati + posizioneNuova + 1}`;
+  };
+
   const categorieVisibili = categorie.filter((c) => !c.negozio || c.negozio === negozio?.nome);
   const collezioniVisibili = collezioni.filter((c) => c.negozio === negozio?.nome);
   const mediaDiQuestoNegozio = media.filter((m) => m.negozio === negozio?.nome);
   const mediaDiAltri = media.length - mediaDiQuestoNegozio.length;
+  const definizioni = negozio ? definizioniPerNegozio[negozio.nome] ?? [] : [];
 
   function cambiaNegozio(id: string) {
     setNegozioId(id);
     setCollezioneId("");
     const nuovo = negozi.find((n) => n.id === id);
-    if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) {
-      setCategoria("");
-    }
+    if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
   }
 
   async function scriviConAI() {
@@ -105,15 +159,7 @@ export function FormProdottoNuovo({
       const res = await fetch("/api/ai/descrizione", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: leggi("nome"),
-          categoria,
-          tipo: "",
-          materiali: leggi("materiali"),
-          prezzo: leggi("prezzoVendita"),
-          varianti: [],
-          tono,
-        }),
+        body: JSON.stringify({ nome: leggi("nome"), categoria, tipo: "", materiali: leggi("materiali"), prezzo: leggi("prezzoVendita"), varianti: haVarianti ? varianti.map((v) => v.nome).filter(Boolean) : [], tono }),
       });
       const dati = await res.json();
       if (!dati.ok) {
@@ -140,7 +186,6 @@ export function FormProdottoNuovo({
     const file = Array.from(lista);
     const problemi: string[] = [];
     try {
-      // Passo 1: gli indirizzi temporanei.
       const prep = await fetch("/api/media/prepara", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,8 +195,6 @@ export function FormProdottoNuovo({
         setErroreMedia(prep.errore ?? "Shopify non ha accettato il caricamento.");
         return;
       }
-      // Passo 2: il file va dal browser a Shopify. Se non riesce, passa dal
-      // nostro server — ma solo se è piccolo.
       const daRegistrare: { resourceUrl: string; nome: string; mime: string }[] = [];
       for (let i = 0; i < file.length; i++) {
         const b = prep.bersagli[i] as { url: string; resourceUrl: string; parametri: { name: string; value: string }[] };
@@ -176,7 +219,6 @@ export function FormProdottoNuovo({
           else problemi.push(`«${f.name}»: ${r.errore ?? "non caricato"}`);
         }
       }
-      // Passo 3: si registrano fra i Files del negozio.
       if (daRegistrare.length) {
         const r = await fetch("/api/media/registra", {
           method: "POST",
@@ -204,13 +246,16 @@ export function FormProdottoNuovo({
   return (
     <form action={azione} ref={form}>
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
+      <input type="hidden" name="negozioId" value={negozioId} />
       <input type="hidden" name="nomeOpzione" value={nomeOpzione} />
       <input
         type="hidden"
         name="variantiJson"
-        value={JSON.stringify(haVarianti ? varianti.filter((v) => v.nome.trim()) : [])}
+        value={JSON.stringify(haVarianti ? varianti.filter((v) => v.nome.trim()).map((v, i) => ({ ...v, sku: v.sku ?? null, indice: i })) : [])}
       />
-      <input type="hidden" name="negozioId" value={negozioId} />
+      <input type="hidden" name="metafieldJson" value={JSON.stringify(metafield)} />
+      <input type="hidden" name="tagsJson" value={JSON.stringify(tags)} />
+      {controllaStock && <input type="hidden" name="controllaStock" value="1" />}
 
       {/* ---------- Anagrafica ---------- */}
       <div className="scheda">
@@ -220,13 +265,13 @@ export function FormProdottoNuovo({
             <label htmlFor="nome">
               Nome <span className="obbligatorio">*</span>
             </label>
-            <input id="nome" name="nome" required placeholder="Es. Bouquet Ora Blu" />
+            <input id="nome" name="nome" required placeholder="Es. Bouquet Ora Blu" defaultValue={iniziale?.nome ?? ""} />
           </div>
           <div className="campo-modulo">
             <label htmlFor="negozio">
               Brand / negozio <span className="obbligatorio">*</span>
             </label>
-            <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required>
+            <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
               {negozi.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.nome} — {n.dominio}
@@ -235,26 +280,23 @@ export function FormProdottoNuovo({
               ))}
               {negozi.length === 0 && <option value="">Nessun negozio collegato</option>}
             </select>
-            <span className="cella-sub">Decide categorie, collezioni e dove vanno le foto.</span>
+            <span className="cella-sub">
+              {iniziale?.shopifyId ? "Il prodotto è già sul negozio: non si sposta." : "Decide categorie, collezioni, campi e dove vanno le foto."}
+            </span>
           </div>
           <div className="campo-modulo">
             <label htmlFor="codice">Codice / SKU</label>
             <div className="riga-ai" style={{ marginBottom: 0 }}>
-              <input
-                id="codice"
-                name="codice"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                inputMode="numeric"
-                pattern="[0-9]{7}"
-                title="Sette cifre"
-                style={{ flex: 1 }}
-              />
-              <button type="button" className="btn btn-secondario small" onClick={() => setSku(skuCasuale())}>
-                Rigenera
-              </button>
+              <input id="codice" name="codice" value={sku} onChange={(e) => setSku(e.target.value)} inputMode="numeric" pattern="[0-9]{7}" title="Sette cifre" style={{ flex: 1 }} />
+              {!modifica && (
+                <button type="button" className="btn btn-secondario small" onClick={() => setSku(skuCasuale())}>
+                  Rigenera
+                </button>
+              )}
             </div>
-            <span className="cella-sub">Sette cifre casuali, univoche: se esistesse già, al salvataggio se ne genera un altro.</span>
+            <span className="cella-sub">
+              {modifica ? "Cambiarlo cambia anche gli SKU delle varianti nuove; quelle già salvate tengono il loro." : "Sette cifre casuali, univoche: se esistesse già, al salvataggio se ne genera un altro."}
+            </span>
           </div>
           <div className="campo-modulo">
             <label htmlFor="categoria">Categoria</label>
@@ -269,18 +311,12 @@ export function FormProdottoNuovo({
               ))}
             </select>
             <span className="cella-sub">
-              Le categorie del brand scelto più quelle comuni: si impostano in{" "}
-              <a href="/classificazione">Imposta categorie e linee</a>.
+              Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
           </div>
           <div className="campo-modulo">
             <label htmlFor="collezione">Collezione su Shopify</label>
-            <select
-              id="collezione"
-              name="collezioneShopifyId"
-              value={collezioneId}
-              onChange={(e) => setCollezioneId(e.target.value)}
-            >
+            <select id="collezione" name="collezioneShopifyId" value={collezioneId} onChange={(e) => setCollezioneId(e.target.value)}>
               <option value="">— Nessuna collezione —</option>
               {collezioniVisibili.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -288,13 +324,10 @@ export function FormProdottoNuovo({
                 </option>
               ))}
             </select>
-            <span className="cella-sub">
-              Solo le collezioni manuali di {negozio?.nome ?? "questo negozio"}: in quelle automatiche decide la
-              regola del negozio.
-            </span>
+            <span className="cella-sub">Solo le collezioni manuali di {negozio?.nome ?? "questo negozio"}: in quelle automatiche decide la regola del negozio.</span>
           </div>
           <div className="campo-modulo">
-            <label htmlFor="fase">Fase iniziale</label>
+            <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
             <select id="fase" name="fase" value={fase} onChange={(e) => setFase(e.target.value)}>
               {FASI_SCELTA.map((f) => (
                 <option key={f} value={f}>
@@ -303,6 +336,9 @@ export function FormProdottoNuovo({
                 </option>
               ))}
             </select>
+            {modifica && iniziale?.shopifyId && fase !== "in_vendita" && (
+              <span className="cella-sub">Togliendo «Pubblico» il prodotto torna bozza sul negozio: il cliente non lo vede più.</span>
+            )}
           </div>
           <div className="campo-modulo largo">
             <label htmlFor="descrizione">Descrizione</label>
@@ -312,13 +348,7 @@ export function FormProdottoNuovo({
                 <option value="caldo">Tono caldo</option>
                 <option value="essenziale">Tono essenziale</option>
               </select>
-              <button
-                type="button"
-                className="btn btn-secondario small"
-                onClick={scriviConAI}
-                disabled={scrivendo || !aiPronta}
-                title={aiPronta ? "Scrive una proposta partendo dai dati del prodotto" : "Manca la chiave OpenAI"}
-              >
+              <button type="button" className="btn btn-secondario small" onClick={scriviConAI} disabled={scrivendo || !aiPronta} title={aiPronta ? "Scrive una proposta partendo dai dati del prodotto" : "Manca la chiave OpenAI"}>
                 {scrivendo ? "Sto scrivendo…" : "✦ Scrivi con l'AI"}
               </button>
               {descrizione && !scrivendo && (
@@ -327,49 +357,83 @@ export function FormProdottoNuovo({
                 </button>
               )}
             </div>
-            <textarea
-              id="descrizione"
-              name="descrizione"
-              rows={descrizione ? 8 : 3}
-              value={descrizione}
-              onChange={(e) => setDescrizione(e.target.value)}
-              placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)."
-            />
+            <textarea id="descrizione" name="descrizione" rows={descrizione ? 8 : 3} value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)." />
             {erroreAi && <div className="avviso-errore" style={{ marginTop: 8 }}>{erroreAi}</div>}
-            {!aiPronta && (
-              <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>
-            )}
+            {!aiPronta && <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>}
           </div>
         </div>
+      </div>
+
+      {/* ---------- Tag ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Tag</div>
+        <p className="page-sub" style={{ marginBottom: 10 }}>
+          I tag del negozio (occasioni, città, fornitore…): scrivi e premi Invio o virgola. I suggerimenti sono i tag già in uso sui prodotti importati.
+        </p>
+        <div className="pill-scelta" style={{ marginBottom: 8 }}>
+          {tags.map((t) => (
+            <span key={t} className="pill-opt attuale">
+              {t}
+              <button type="button" className="icon-btn" style={{ padding: 0, width: 18, height: 18 }} title={`Togli ${t}`} onClick={() => setTags((x) => x.filter((y) => y !== t))}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <input
+          list="tag-esistenti"
+          value={tagNuovo}
+          onChange={(e) => setTagNuovo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              aggiungiTag(tagNuovo);
+            }
+          }}
+          onBlur={() => aggiungiTag(tagNuovo)}
+          placeholder="Aggiungi un tag…"
+          aria-label="Nuovo tag"
+          style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", border: "1px solid transparent", background: "var(--fill)", width: 280 }}
+        />
+        <datalist id="tag-esistenti">
+          {tagEsistenti.filter((t) => !tags.includes(t)).slice(0, 400).map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+      </div>
+
+      {/* ---------- Campi del negozio (metafield) ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Campi del negozio · {definizioni.length}</div>
+        <p className="page-sub" style={{ marginBottom: 12 }}>
+          I campi che {negozio?.nome ?? "il negozio"} definisce su Shopify (i <i>metafield</i>), coi valori che ammette. Si scrivono sul negozio
+          alla pubblicazione e restano qui sulla scheda. Quelli a scelta chiusa (riferimenti a file, metaobject, prodotti correlati) si
+          impostano nell&apos;admin del negozio.
+        </p>
+        {definizioni.length === 0 ? (
+          <div className="vuoto-mini">Nessuna definizione letta per questo negozio: arriva col prossimo import delle collezioni.</div>
+        ) : (
+          <div className="modulo">
+            {definizioni.map((d) => (
+              <CampoMetafield key={chiaveDef(d)} def={d} valore={metafield[chiaveDef(d)] ?? ""} onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ---------- Foto e video ---------- */}
       <div className="scheda">
         <div className="scheda-titolo">Foto e video</div>
         <p className="page-sub" style={{ marginBottom: 12 }}>
-          Vanno nei <b>Files del negozio {negozio?.nome ?? ""}</b> su Shopify, anche se il prodotto non è ancora
-          pubblico; alla pubblicazione si agganciano al prodotto. La prima immagine è quella principale.
+          Vanno nei <b>Files del negozio {negozio?.nome ?? ""}</b> su Shopify, anche se il prodotto non è ancora pubblico; alla pubblicazione si
+          agganciano al prodotto. La prima immagine è quella principale.
         </p>
         <label className="btn btn-secondario" style={{ cursor: caricando ? "wait" : "pointer" }}>
           {caricando ? "Caricamento in corso…" : "Scegli foto o video"}
-          <input
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            hidden
-            disabled={caricando || !negozio}
-            onChange={(e) => {
-              void caricaFile(e.target.files);
-              e.target.value = "";
-            }}
-          />
+          <input type="file" accept="image/*,video/*" multiple hidden disabled={caricando || !negozio} onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }} />
         </label>
         {erroreMedia && <div className="avviso-errore" style={{ marginTop: 10 }}>{erroreMedia}</div>}
-        {mediaDiAltri > 0 && (
-          <p className="cella-sub" style={{ marginTop: 8 }}>
-            {mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.
-          </p>
-        )}
+        {mediaDiAltri > 0 && <p className="cella-sub" style={{ marginTop: 8 }}>{mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.</p>}
         {mediaDiQuestoNegozio.length > 0 && (
           <ul className="galleria-media" aria-label="File caricati">
             {mediaDiQuestoNegozio.map((m, i) => (
@@ -386,12 +450,7 @@ export function FormProdottoNuovo({
                   {m.stato === "in-elaborazione" ? " · in elaborazione" : ""}
                   {m.stato === "fallito" ? ` · ${m.errore ?? "non riuscito"}` : ""}
                 </span>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title="Togli dal prodotto (il file resta nei Files del negozio)"
-                  onClick={() => setMedia((x) => x.filter((y) => y.shopifyFileId !== m.shopifyFileId))}
-                >
+                <button type="button" className="icon-btn" title="Togli dal prodotto (il file resta nei Files del negozio)" onClick={() => setMedia((x) => x.filter((y) => y.shopifyFileId !== m.shopifyFileId))}>
                   ×
                 </button>
               </li>
@@ -406,34 +465,45 @@ export function FormProdottoNuovo({
         <div className="modulo">
           <div className="campo-modulo largo">
             <label htmlFor="brief">Brief</label>
-            <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto" />
+            <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto" defaultValue={iniziale?.brief ?? ""} />
           </div>
           <div className="campo-modulo">
             <label htmlFor="materiali">Materiali / fiori</label>
-            <input id="materiali" name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" />
+            <input id="materiali" name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" defaultValue={iniziale?.materiali ?? ""} />
           </div>
           <div className="campo-modulo">
             <label htmlFor="palette">Palette</label>
-            <input id="palette" name="palette" placeholder="Indaco · avorio · oro" />
+            <input id="palette" name="palette" placeholder="Indaco · avorio · oro" defaultValue={iniziale?.palette ?? ""} />
           </div>
         </div>
       </div>
 
-      {/* ---------- Costi & prezzo ---------- */}
+      {/* ---------- Costi, prezzo, giacenza ---------- */}
       <div className="scheda">
-        <div className="scheda-titolo">Costi &amp; prezzo</div>
+        <div className="scheda-titolo">Costi, prezzo e giacenza</div>
         <div className="modulo">
           <div className="campo-modulo">
             <label htmlFor="costoProduzione">Costo di produzione (€)</label>
-            <input id="costoProduzione" name="costoProduzione" type="number" step="0.01" min="0" defaultValue="0" />
+            <input id="costoProduzione" name="costoProduzione" type="number" step="0.01" min="0" defaultValue={iniziale?.costoProduzione ?? 0} />
           </div>
           <div className="campo-modulo">
             <label htmlFor="prezzoVendita">Prezzo di vendita (€)</label>
-            <input id="prezzoVendita" name="prezzoVendita" type="number" step="0.01" min="0" defaultValue="0" />
-            {haVarianti && (
-              <span className="cella-sub">Con le varianti è il prezzo base: se lo lasci a 0 vale il prezzo della variante più economica.</span>
-            )}
+            <input id="prezzoVendita" name="prezzoVendita" type="number" step="0.01" min="0" defaultValue={iniziale?.prezzoVendita ?? 0} />
+            {haVarianti && <span className="cella-sub">Con le varianti è il prezzo base: se lo lasci a 0 vale il prezzo della variante più economica.</span>}
           </div>
+          <div className="campo-modulo largo">
+            <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
+              <input type="checkbox" checked={controllaStock} onChange={(e) => setControllaStock(e.target.checked)} />
+              Controlla la giacenza
+            </label>
+            <span className="cella-sub">Facoltativa. Spenta sul prodotto, non c&apos;è nemmeno per le varianti: su Shopify il prodotto non conta lo stock.</span>
+          </div>
+          {controllaStock && !haVarianti && (
+            <div className="campo-modulo">
+              <label htmlFor="giacenza">Giacenza</label>
+              <input id="giacenza" name="giacenza" type="number" min={0} defaultValue={iniziale?.giacenza ?? 0} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -462,7 +532,7 @@ export function FormProdottoNuovo({
                     <th>SKU</th>
                     <th className="num">Prezzo (€)</th>
                     <th className="num">Costo (€)</th>
-                    <th className="num">Giacenza</th>
+                    {controllaStock && <th className="num">Giacenza</th>}
                     <th />
                   </tr>
                 </thead>
@@ -473,8 +543,7 @@ export function FormProdottoNuovo({
                         <input value={v.nome} onChange={(e) => aggiornaVariante(i, "nome", e.target.value)} placeholder="Medium" aria-label={`Nome variante ${i + 1}`} />
                       </td>
                       <td>
-                        {/* Derivato, non scritto: segue lo SKU principale. */}
-                        <code>{sku || "…"}-{i + 1}</code>
+                        <code>{skuVariante(v, i)}</code>
                       </td>
                       <td>
                         <input value={v.prezzo} onChange={(e) => aggiornaVariante(i, "prezzo", e.target.value)} inputMode="decimal" className="num" placeholder="95,00" aria-label={`Prezzo variante ${i + 1}`} />
@@ -482,9 +551,11 @@ export function FormProdottoNuovo({
                       <td>
                         <input value={v.costo} onChange={(e) => aggiornaVariante(i, "costo", e.target.value)} inputMode="decimal" className="num" placeholder="0" aria-label={`Costo variante ${i + 1}`} />
                       </td>
-                      <td>
-                        <input value={v.giacenza} onChange={(e) => aggiornaVariante(i, "giacenza", e.target.value)} type="number" min={0} className="num" aria-label={`Giacenza variante ${i + 1}`} />
-                      </td>
+                      {controllaStock && (
+                        <td>
+                          <input value={v.giacenza} onChange={(e) => aggiornaVariante(i, "giacenza", e.target.value)} type="number" min={0} className="num" aria-label={`Giacenza variante ${i + 1}`} />
+                        </td>
+                      )}
                       <td>
                         <button type="button" className="icon-btn" onClick={() => setVarianti((x) => x.filter((_, j) => j !== i))} disabled={varianti.length === 1} title="Togli questa variante">
                           ×
@@ -499,68 +570,159 @@ export function FormProdottoNuovo({
               Aggiungi variante
             </button>
             <p className="cella-sub" style={{ marginTop: 8 }}>
-              Gli SKU delle varianti sono lo SKU principale più «-1», «-2»…: se rigeneri quello principale, seguono. Su
-              Shopify diventano le varianti dell&apos;opzione «{nomeOpzione || "Formato"}».
+              Gli SKU delle varianti sono lo SKU principale più «-1», «-2»…; le varianti già salvate tengono il loro. Su Shopify diventano le varianti
+              dell&apos;opzione «{nomeOpzione || "Formato"}».
+              {modifica && iniziale?.shopifyId ? " Una variante tolta qui resta sul negozio: si toglie dall'admin di Shopify." : ""}
             </p>
           </>
         )}
       </div>
 
-      {/* ---------- Pubblicazione ---------- */}
-      {/* Sempre visibile (chiesto dall'utente: «manca date pubblicazione»):
-          le date si possono decidere anche prima che il prodotto sia
-          Pubblico, e restano scritte sulla scheda. Le traduzioni invece
-          hanno senso solo quando si pubblica. */}
-      {
-        <div className="scheda">
-          <div className="scheda-titolo">Pubblicazione su {negozio?.nome ?? "Shopify"}</div>
-          {!pubblico && (
-            <p className="page-sub" style={{ marginBottom: 12 }}>
-              Il prodotto va sul negozio solo con la fase <b>Pubblico</b>. Le date qui sotto si salvano comunque:
-              sono il programma, e si leggono nel calendario delle pubblicazioni.
-            </p>
-          )}
-          {pubblico && !negozio?.puoScrivere && (
-            <div className="avviso-errore" style={{ marginBottom: 12 }}>
-              Il negozio scelto non ha il permesso <code>write_products</code>: qui si può creare il prodotto solo
-              come bozza interna. Aggiungi il permesso all&apos;app Shopify e rifai la verifica in Negozi &amp; permessi.
-            </div>
-          )}
-          <div className="modulo">
-            <div className="campo-modulo">
-              <label htmlFor="pubblicatoDal">Pubblico dal</label>
-              <input id="pubblicatoDal" name="pubblicatoDal" type="date" />
-              <span className="cella-sub">Vuoto = da subito. Con una data futura nasce come bozza e si accende quel giorno.</span>
-            </div>
-            <div className="campo-modulo">
-              <label htmlFor="pubblicatoFinoAl">Fino al</label>
-              <input id="pubblicatoFinoAl" name="pubblicatoFinoAl" type="date" />
-              <span className="cella-sub">Vuoto = per sempre. Il giorno dopo torna bozza sul negozio.</span>
-            </div>
-            {pubblico && (
-              <div className="campo-modulo largo">
-                <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
-                  <input type="checkbox" name="traduci" defaultChecked />
-                  Traduci titolo e descrizione nelle 8 lingue del negozio (con l&apos;AI)
-                </label>
-                <span className="cella-sub">
-                  Inglese, francese, tedesco, spagnolo, russo, cinese, arabo, giapponese. Le lingue che il negozio non
-                  ha configurato vengono rifiutate da Shopify e lo si legge nell&apos;esito.
-                </span>
-              </div>
-            )}
+      {/* ---------- Pubblicazione (solo con la fase Pubblico: deciso dall'utente) ---------- */}
+      {pubblico && (
+      <div className="scheda">
+        <div className="scheda-titolo">Pubblicazione su {negozio?.nome ?? "Shopify"}</div>
+        {!negozio?.puoScrivere && (
+          <div className="avviso-errore" style={{ marginBottom: 12 }}>
+            Il negozio scelto non ha il permesso <code>write_products</code>: qui si può salvare il prodotto solo come bozza interna. Aggiungi il permesso
+            all&apos;app Shopify e rifai la verifica in Negozi &amp; permessi.
+          </div>
+        )}
+        <div className="modulo">
+          <div className="campo-modulo">
+            <label htmlFor="pubblicatoDal">Pubblico dal</label>
+            <input id="pubblicatoDal" name="pubblicatoDal" type="date" defaultValue={iniziale?.pubblicatoDal ?? ""} />
+            <span className="cella-sub">Vuoto = da subito. Con una data futura nasce come bozza e si accende quel giorno.</span>
+          </div>
+          <div className="campo-modulo">
+            <label htmlFor="pubblicatoFinoAl">Fino al (facoltativo)</label>
+            <input id="pubblicatoFinoAl" name="pubblicatoFinoAl" type="date" defaultValue={iniziale?.pubblicatoFinoAl ?? ""} />
+            <span className="cella-sub">Vuoto = per sempre. Il giorno dopo torna bozza sul negozio.</span>
+          </div>
+          <div className="campo-modulo largo">
+            <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
+              <input type="checkbox" name="traduci" defaultChecked={!modifica} />
+              {modifica ? "Riscrivi le traduzioni" : "Traduci"} titolo e descrizione nelle 8 lingue del negozio (con l&apos;AI)
+            </label>
+            <span className="cella-sub">
+              Inglese, francese, tedesco, spagnolo, russo, cinese, arabo, giapponese. Le lingue che il negozio non ha configurato vengono rifiutate da
+              Shopify e lo si legge nell&apos;esito.
+            </span>
           </div>
         </div>
-      }
+      </div>
+      )}
 
       <div className="azioni-modulo">
-        <a className="btn btn-secondario" href="/prodotti">
+        <a className="btn btn-secondario" href={modifica ? `/prodotti/${iniziale?.id}` : "/prodotti"}>
           Annulla
         </a>
         <button type="submit" className="btn" disabled={!puoPubblicare || caricando || negozi.length === 0}>
-          {pubblico ? `Crea e pubblica su ${negozio?.nome ?? "Shopify"}` : "Crea prodotto"}
+          {modifica
+            ? pubblico && !iniziale?.shopifyId
+              ? `Salva e pubblica su ${negozio?.nome ?? "Shopify"}`
+              : iniziale?.shopifyId
+                ? "Salva qui e sul negozio"
+                : "Salva le modifiche"
+            : pubblico
+              ? `Crea e pubblica su ${negozio?.nome ?? "Shopify"}`
+              : "Crea prodotto"}
         </button>
       </div>
     </form>
+  );
+}
+
+/** Un metafield reso secondo il suo tipo e i valori ammessi. */
+function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void }) {
+  const id = `mf-${def.namespace}-${def.key}`;
+  const etichetta = etichettaDef(def);
+  const aiuto = def.descrizione ? <span className="cella-sub">{def.descrizione}</span> : null;
+
+  if (def.tipo === "list.single_line_text_field" && def.scelte?.length) {
+    const scelti = new Set(listaDa(valore));
+    const toggle = (s: string, acceso: boolean) => {
+      const n = new Set(scelti);
+      if (acceso) n.add(s);
+      else n.delete(s);
+      onChange(n.size ? JSON.stringify([...n]) : "");
+    };
+    return (
+      <div className="campo-modulo largo">
+        <label>{etichetta}</label>
+        <div className="pill-scelta">
+          {def.scelte.map((s) => (
+            <label key={s} className={`pill-opt${scelti.has(s) ? " attuale" : ""}`} style={{ cursor: "pointer" }}>
+              <input type="checkbox" checked={scelti.has(s)} onChange={(e) => toggle(s, e.target.checked)} hidden />
+              {s}
+            </label>
+          ))}
+        </div>
+        {aiuto}
+      </div>
+    );
+  }
+  if (def.tipo === "list.single_line_text_field") {
+    return (
+      <div className="campo-modulo largo">
+        <label htmlFor={id}>{etichetta}</label>
+        <input id={id} value={listaDa(valore).join("; ")} onChange={(e) => { const l = e.target.value.split(";").map((s) => s.trim()).filter(Boolean); onChange(l.length ? JSON.stringify(l) : ""); }} placeholder="Più valori separati da punto e virgola" />
+        {aiuto}
+      </div>
+    );
+  }
+  if (def.scelte?.length) {
+    return (
+      <div className="campo-modulo">
+        <label htmlFor={id}>{etichetta}</label>
+        <select id={id} value={valore} onChange={(e) => onChange(e.target.value)}>
+          <option value="">—</option>
+          {def.scelte.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        {aiuto}
+      </div>
+    );
+  }
+  if (def.tipo === "boolean") {
+    return (
+      <div className="campo-modulo">
+        <label htmlFor={id}>{etichetta}</label>
+        <select id={id} value={valore} onChange={(e) => onChange(e.target.value)}>
+          <option value="">— non indicato —</option>
+          <option value="true">Sì</option>
+          <option value="false">No</option>
+        </select>
+        {aiuto}
+      </div>
+    );
+  }
+  if (def.tipo === "number_integer" || def.tipo === "number_decimal") {
+    return (
+      <div className="campo-modulo">
+        <label htmlFor={id}>{etichetta}</label>
+        <input id={id} type="number" step={def.tipo === "number_integer" ? 1 : "0.01"} min={def.min ?? undefined} max={def.max ?? undefined} value={valore} onChange={(e) => onChange(e.target.value)} />
+        {aiuto}
+      </div>
+    );
+  }
+  if (def.tipo === "multi_line_text_field") {
+    return (
+      <div className="campo-modulo largo">
+        <label htmlFor={id}>{etichetta}</label>
+        <textarea id={id} rows={2} value={valore} onChange={(e) => onChange(e.target.value)} />
+        {aiuto}
+      </div>
+    );
+  }
+  return (
+    <div className="campo-modulo">
+      <label htmlFor={id}>{etichetta}</label>
+      <input id={id} type={def.tipo === "url" ? "url" : "text"} value={valore} onChange={(e) => onChange(e.target.value)} />
+      {aiuto}
+    </div>
   );
 }

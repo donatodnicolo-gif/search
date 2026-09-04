@@ -114,6 +114,12 @@ model Prodotto {
   pruningPropostoIl  DateTime?
   pruningMotivo      String?
   pruningArchiviatoIl DateTime?
+  // **Tutti i metafield del prodotto letti dal negozio** (04/09/2026), come
+  // oggetto `{"custom.occasioni": "[\"Natale\"]", ...}` coi valori grezzi di
+  // Shopify: si rimandano tali e quali. Le colonne tipizzate qui sopra
+  // (occasioniShopify, fioriShopify…) restano per le condizioni e le lenti;
+  // questo è l'insieme completo, compilabile dal modulo prodotto.
+  metafieldShopify Json?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
@@ -401,6 +407,11 @@ model NegozioShopify {
   // un import che fallisce a metà.
   verificatoIl DateTime?
   permessi     String? // scope separati da virgola, come li dichiara Shopify
+  // **Le definizioni dei metafield di prodotto del negozio** (nome, tipo,
+  // valori ammessi), lette con `metafieldDefinitions` e tenute qui per un
+  // giorno: sono il vocabolario del modulo prodotto e gli alias dell'import.
+  definizioniMetafield   Json?
+  definizioniMetafieldIl DateTime?
   esitoVerifica String? // ok | errore
   messaggio    String?
   creatoIl     DateTime @default(now())

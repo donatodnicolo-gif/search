@@ -117,7 +117,12 @@ export default async function ProdottoPage({
           </div>
           <div className="prodotto-intesta">
             <div className="prodotto-codice">{prodotto.codice}</div>
-            <div className="prodotto-nome">{prodotto.nome}</div>
+            <div className="prodotto-nome">
+              {prodotto.nome}{" "}
+              <a className="btn btn-secondario small" href={`/prodotti/${id}/modifica`} style={{ verticalAlign: "middle", marginLeft: 10 }} title="Lo stesso modulo del nuovo prodotto: scheda, foto, campi del negozio, varianti, pubblicazione">
+                ✎ Modifica col modulo
+              </a>
+            </div>
             <div className="prodotto-badges">
               <Badge testo={ETICHETTA_FASE[prodotto.fase]} colore={COLORE_FASE[prodotto.fase]} />
               <Badge testo={etichettaCategoria(prodotto.categoria)} colore="var(--text-tertiary)" />
