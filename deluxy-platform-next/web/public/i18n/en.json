@@ -1652,7 +1652,8 @@
         "sun": "Sunday"
       },
       "editHint": "Days left empty are not saved: empty means “unknown”, not “open”. Tick “closed” to state the partner does not work that day.",
-      "incomplete": "A day has only one of the two times: set both open and close, or tick “closed”."
+      "incomplete": "A day has only one of the two times: set both open and close, or tick “closed”.",
+      "copyAllHint": "Applies these hours (and “closed”, if ticked) to every other day. Press Save to keep them."
     },
     "payments": {
       "title": "Payments and invoicing",
@@ -2353,7 +2354,9 @@
     "pushUpdateHint": "Already linked: the platform fields are written over the registry ones.",
     "pushAmbiguous": "Link to the registry",
     "pushBlocked": "The registry holds several possible records: pick one by hand, so another isn’t created.",
-    "recheck": "Re-check the registry"
+    "recheck": "Re-check the registry",
+    "linkThis": "Link this one",
+    "createNew": "Create a new record in the registry"
   },
   "sales": {
     "title": "Sales",
@@ -2476,8 +2479,8 @@
       "excluded": "excluded from reconciliations",
       "propose": "Propose to them",
       "proposedOk": "Sale proposed to {{partner}}.",
-      "rule.create": "Create reconciliation",
-      "rule.created": "Reconciliation with {{partner}} created: find it in Products → Reconciliations, to accept."
+      "createRule": "Create reconciliation",
+      "ruleCreated": "Reconciliation with {{partner}} created: find it in Products → Reconciliations, to accept."
     },
     "detail": {
       "title": "Sale",
@@ -2836,5 +2839,18 @@
     "attachmentDownload": "Download",
     "ricevutaLegacy": "Receipt on the old system (switched off): no longer openable",
     "fileTooBig": "File too large (max 5 MB)."
+  },
+  "changePassword": {
+    "title": "Change your password",
+    "forcedTitle": "Choose your password",
+    "forcedHint": "You signed in with a temporary password: choose your own before continuing.",
+    "current": "Current password",
+    "new": "New password (at least 8 characters)",
+    "confirm": "Repeat the new password",
+    "submit": "Save the password",
+    "tooShort": "The new password must be at least 8 characters.",
+    "mismatch": "The two passwords do not match.",
+    "error": "Password change failed.",
+    "ok": "Password updated."
   }
 }

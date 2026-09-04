@@ -545,7 +545,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                           }
                           @if (r.attivo && !r.escluso && r.operaInProvincia && st.base === 'coppia') {
                             <button type="button" class="btn btn-secondary mini" [disabled]="inCorso() === v.id"
-                                    (click)="creaRiconciliazione(v, r)">{{ 'sales.history.rule.create' | translate }}</button>
+                                    (click)="creaRiconciliazione(v, r)">{{ 'sales.history.createRule' | translate }}</button>
                           }
                         </td>
                       </tr>
@@ -1186,7 +1186,7 @@ export class SalesListComponent {
     this.http.post(`${environment.apiUrl}/riconciliazioni/da-vendita`, { saleId: s.id, partnerId: r.partnerId }).subscribe({
       next: () => {
         this.inCorso.set(null);
-        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.rule.created', { partner: r.insegna }) });
+        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.ruleCreated', { partner: r.insegna }) });
       },
       error: (e) => {
         this.inCorso.set(null);

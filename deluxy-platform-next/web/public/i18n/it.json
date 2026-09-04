@@ -1654,7 +1654,8 @@
         "sun": "Domenica"
       },
       "editHint": "I giorni lasciati vuoti non vengono salvati: vuoto vuol dire «non lo so», non «aperto». Spunta «chiuso» per dire che quel giorno il partner non lavora.",
-      "incomplete": "Un giorno ha solo un orario dei due: metti sia apertura sia chiusura, oppure spunta «chiuso»."
+      "incomplete": "Un giorno ha solo un orario dei due: metti sia apertura sia chiusura, oppure spunta «chiuso».",
+      "copyAllHint": "Mette questi orari (e «chiuso», se spuntato) su tutti gli altri giorni. Si salva con Salva."
     },
     "payments": {
       "title": "Pagamenti e fatturazione",
@@ -2355,7 +2356,9 @@
     "pushUpdateHint": "Già collegati: si riscrivono nel registro i campi della piattaforma.",
     "pushAmbiguous": "Collega al registro",
     "pushBlocked": "Nel registro ci sono più schede possibili: sceglierne una a mano, per non crearne un’altra.",
-    "recheck": "Ricontrolla il registro"
+    "recheck": "Ricontrolla il registro",
+    "linkThis": "Collega questa",
+    "createNew": "Crea una scheda nuova nel registro"
   },
   "sales": {
     "title": "Vendite",
@@ -2478,8 +2481,8 @@
       "excluded": "escluso dalle riconciliazioni",
       "propose": "Proponi a lui",
       "proposedOk": "Vendita proposta a {{partner}}.",
-      "rule.create": "Crea riconciliazione",
-      "rule.created": "Riconciliazione con {{partner}} creata: la trovi in Prodotti → Riconciliazioni, da accettare."
+      "createRule": "Crea riconciliazione",
+      "ruleCreated": "Riconciliazione con {{partner}} creata: la trovi in Prodotti → Riconciliazioni, da accettare."
     },
     "detail": {
       "title": "Vendita",
@@ -2838,5 +2841,18 @@
     "attachmentDownload": "Scarica",
     "ricevutaLegacy": "Ricevuta sul vecchio sistema (spento): non è più apribile",
     "fileTooBig": "File troppo grande (max 5 MB)."
+  },
+  "changePassword": {
+    "title": "Cambia la password",
+    "forcedTitle": "Scegli la tua password",
+    "forcedHint": "Sei entrato con una password temporanea: prima di continuare scegline una tua.",
+    "current": "Password attuale",
+    "new": "Nuova password (almeno 8 caratteri)",
+    "confirm": "Ripeti la nuova password",
+    "submit": "Salva la password",
+    "tooShort": "La nuova password deve avere almeno 8 caratteri.",
+    "mismatch": "Le due password non coincidono.",
+    "error": "Cambio password non riuscito.",
+    "ok": "Password aggiornata."
   }
 }
