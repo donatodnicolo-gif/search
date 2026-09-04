@@ -1014,14 +1014,13 @@ export async function fetchProfiles(): Promise<Profilo[]> {
  * `pianificazioni_commerciali` fa rispettare la stessa regola lato server.
  */
 export async function aggiornaResponsabile(profileId: string, responsabile: boolean): Promise<void> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ responsabile })
-    .eq('id', profileId)
-    .select('id');
+  // ⚠️ Non un UPDATE diretto (04/09/2026, migr. 0118): la colonna non ha il
+  // grant di update per `authenticated` — di proposito, o con la policy «il
+  // proprio profilo» chiunque si nominerebbe responsabile da solo. La funzione
+  // controlla is_admin() e scrive lei. Prima l'update falliva con «permission
+  // denied» e il flag non è mai stato assegnabile.
+  const { error } = await supabase.rpc('imposta_responsabile', { p_id: profileId, p_flag: responsabile });
   if (error) throw error;
-  // ⚠️ Una scrittura fermata dalla RLS NON è un errore: torna zero righe.
-  if (!data?.length) throw new Error('Solo l\'amministratore può assegnare il flag responsabile.');
 }
 
 /**

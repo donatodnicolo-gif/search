@@ -124,7 +124,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // strumenti»). Avevo scelto Forniture pensando a chi cerca da dove esce
       // un'intestazione sbagliata; ma non è una cosa che si vende, è
       // configurazione — e si tocca una volta ogni tanto, come le altre qui.
-      { name: 'template-documenti', label: 'Template documenti', icon: 'document-text-outline', soloAdmin: true },
+      // 04/09/2026, richiesta dell'utente: «template deve essere visibile a
+      // tutti gli utenti». Tutti li vedono; li modifica solo l'admin (RLS 0085).
+      { name: 'template-documenti', label: 'Template documenti', icon: 'document-text-outline' },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
       { name: 'script', label: 'Script', icon: 'mail-outline' },
       { name: 'sequenze', label: 'Sequenze', icon: 'git-branch-outline' },

@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
@@ -108,13 +108,13 @@ const VUOTA: Bozza = {
 
 export default function TemplateDocumenti() {
   /**
-   * ⚠️ IL CONFINE STA QUI, non nel menu (27/08/2026, revisione di sicurezza).
-   * Questa schermata scrive le COORDINATE DI PAGAMENTO che finiscono sulle
-   * pro-forma: nasconderla dal menu la toglie di vista, non di portata — la
-   * rotta si scrive a mano nella barra degli indirizzi. La difesa vera è la
-   * RLS (migr. 0085, scrittura riservata all'admin); questo Redirect serve a
-   * non mostrare a un venditore una schermata che poi rifiuterebbe i salvataggi
-   * con un errore del database.
+   * ⭐ TUTTI VEDONO I TEMPLATE (04/09/2026, richiesta dell'utente: «template
+   * deve essere visibile a tutti gli utenti»). Prima la schermata rimandava al
+   * profilo chi non era admin. Ora l'elenco è di tutti — sapere con quale
+   * intestazione esce un documento serve a chi lo emette — ma la SCRITTURA
+   * resta dell'amministratore: la difesa vera è la RLS (migr. 0085), e qui i
+   * bottoni di scrittura non si mostrano a chi poi vedrebbe un errore del
+   * database.
    */
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
@@ -331,10 +331,6 @@ export default function TemplateDocumenti() {
     );
   }
 
-  // Dopo gli hook, mai prima: un `return` anticipato sopra cambierebbe il
-  // numero di hook fra un render e l'altro.
-  if (!admin) return <Redirect href="/(app)/profilo" />;
-
   return (
     <ScrollView
       style={styles.container}
@@ -352,10 +348,17 @@ export default function TemplateDocumenti() {
         </Text>
       ) : null}
 
-      <Pressable style={styles.btnPri} onPress={() => apri(null)}>
-        <Ionicons name="add" size={17} color={colors.bianco} />
-        <Text style={styles.btnPriTxt}>Nuovo template</Text>
-      </Pressable>
+      {admin ? (
+        <Pressable style={styles.btnPri} onPress={() => apri(null)}>
+          <Ionicons name="add" size={17} color={colors.bianco} />
+          <Text style={styles.btnPriTxt}>Nuovo template</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.soloLettura}>
+          <Ionicons name="lock-closed-outline" size={12} color={colors.testoSoft} /> I template li crea e li modifica
+          l&apos;amministratore. Qui si vede con quale intestazione escono i documenti.
+        </Text>
+      )}
 
       {!righe.length && !errore ? (
         <EmptyState
@@ -375,7 +378,7 @@ export default function TemplateDocumenti() {
           return [t.nome, t.brand, t.ragione_sociale].some((v) => nrm(v).includes(q));
         })
         .map((t) => (
-        <Pressable key={t.id} style={styles.card} onPress={() => apri(t)}>
+        <Pressable key={t.id} style={styles.card} onPress={admin ? () => apri(t) : undefined} disabled={!admin}>
           <View style={styles.cardTop}>
             {t.logo_data_url ? (
               <Image source={{ uri: t.logo_data_url }} style={styles.logo} resizeMode="contain" />
@@ -401,6 +404,7 @@ export default function TemplateDocumenti() {
               </View>
             ) : null}
           </View>
+          {admin ? (
           <View style={styles.azioni}>
             {!t.predefinito ? (
               <Pressable
@@ -421,6 +425,7 @@ export default function TemplateDocumenti() {
               <Text style={[styles.btnMiniTxt, { color: colors.errore }]}>Elimina</Text>
             </Pressable>
           </View>
+          ) : null}
         </Pressable>
       ))}
 
@@ -675,6 +680,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   errore: { color: colors.errore, fontSize: 12.5, lineHeight: 18 },
+  soloLettura: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginBottom: 12 },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.l,
