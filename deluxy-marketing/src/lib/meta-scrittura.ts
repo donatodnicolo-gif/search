@@ -666,18 +666,29 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
     note.push(`pubblici nel targeting: ${p.pubblici.map((x) => x.nome ?? x.id).join(", ")}`);
   }
 
-  // ——— 3. Ottimizzazione: che risultato compra l'asta ———
+  // ——— 3. Il pixel: SEMPRE (richiesta utente, 04/09/2026) ———
+  // Sull'ad set decide che risultato compra l'asta (Vendite/Contatti);
+  // sull'annuncio è il tracciamento degli eventi del sito, con qualunque
+  // obiettivo — senza, una campagna Traffico non si vede attribuire gli
+  // acquisti che porta. Prima il pixel entrava solo con Vendite/Contatti.
+  let pixel = p.pixelId?.trim() || null;
+  let pixelMancante: string | null = null;
+  if (!pixel) {
+    const trovato = await pixelDellAccount(idAccount);
+    if (trovato.id) {
+      pixel = trovato.id;
+      note.push(`pixel trovato dall'app sull'account: ${pixel}`);
+    } else {
+      pixelMancante = trovato.motivo ?? "pixel non trovato";
+    }
+  }
+
+  // ——— 3-bis. Ottimizzazione: che risultato compra l'asta ———
   let optimization = "LINK_CLICKS";
   let promotedObject: Record<string, string> | null = null;
   if (p.obiettivoTipo === "vendite" || p.obiettivoTipo === "contatti") {
     optimization = "OFFSITE_CONVERSIONS";
-    let pixel = p.pixelId?.trim() || null;
-    if (!pixel) {
-      const trovato = await pixelDellAccount(idAccount);
-      if (!trovato.id) return parziale(`serve il pixel per ottimizzare sulle conversioni e ${trovato.motivo}`);
-      pixel = trovato.id;
-      note.push(`pixel trovato dall'app sull'account: ${pixel}`);
-    }
+    if (!pixel) return parziale(`serve il pixel per ottimizzare sulle conversioni e ${pixelMancante}`);
     promotedObject = {
       pixel_id: pixel,
       custom_event_type:
@@ -685,6 +696,9 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
     };
   } else if (p.obiettivoTipo === "notorieta") {
     optimization = "REACH";
+  }
+  if (!pixel) {
+    note.push(`SENZA PIXEL sull'annuncio (${pixelMancante}): gli eventi del sito non verranno attribuiti a questa campagna`);
   }
   // Il formato CATALOGO aggancia l'insieme di prodotti all'ad set: è da lì
   // che l'annuncio pesca immagini, prezzi e link.
@@ -856,6 +870,9 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
           adset_id: idAdSet,
           creative: JSON.stringify({ creative_id: idCreative }),
           status: "PAUSED",
+          // Il pixel sull'annuncio: è la spunta «Tracciamento → eventi del
+          // sito» di Ads Manager, e vale con qualunque obiettivo.
+          ...(pixel ? { tracking_specs: JSON.stringify([{ "action.type": ["offsite_conversion"], fb_pixel: [pixel] }]) } : {}),
           access_token: t,
         }),
         cache: "no-store",
@@ -870,7 +887,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
             : cr.videoId
               ? `VIDEO ${cr.videoId} con copertina`
               : "immagine singola";
-      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (${formaDetta}, creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}).`;
+      fraseAnnuncio = `ANNUNCIO ${dati.id} creato IN PAUSA (${formaDetta}, creative ${idCreative}, pagina ${pagina}${cr.cta ? `, CTA ${cr.cta}` : ""}${pixel ? `, pixel ${pixel} in tracciamento` : ", SENZA pixel in tracciamento"}).`;
     } catch (e) {
       return annuncioFallito(`chiamata fallita creando l'annuncio: ${String(e)}`);
     }
@@ -893,7 +910,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
     idCreato: idCampagna,
     dettaglio:
       `campagna ${idCampagna} + ad set ${idAdSet} creati su Meta, tutti e due IN PAUSA${conferma}. ` +
-      `Ottimizzazione ${optimization}${promotedObject ? ` su ${promotedObject.custom_event_type} (pixel ${promotedObject.pixel_id})` : ""}, ` +
+      `Ottimizzazione ${optimization}${promotedObject?.custom_event_type ? ` su ${promotedObject.custom_event_type}` : ""}, pixel ${pixel ?? "NESSUNO"}, ` +
       `budget ${p.budget.toFixed(2)} €/g ${cbo ? "sulla campagna (Advantage/CBO)" : "sull'ad set (ABO)"}. ` +
       fraseAnnuncio +
       (note.length > 0 ? ` Note: ${note.join(" · ")}.` : ""),
@@ -914,7 +931,7 @@ export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Pro
  *
  * Non tocca niente finché `metaPuoScrivere()` non dice di sì.
  */
-export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
+export async function eseguiOperazioniMeta(opzioni: { limite?: number; ids?: string[] } = {}) {
   const { prisma } = await import("./db");
   const permesso = await metaPuoScrivere();
   if (!permesso.puo) {
@@ -929,6 +946,9 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
       canale: "meta_ads",
       stato: "approvata",
       OR: [{ daEseguireDal: null }, { daEseguireDal: { lte: new Date() } }],
+      // Per id quando chi chiama ha appena approvato QUELLE: l'approvazione
+      // esegue le sue, non svuota la coda di quelle approvate giorni fa.
+      ...(opzioni.ids ? { id: { in: opzioni.ids } } : {}),
     },
     orderBy: { approvataIl: "asc" },
     take: opzioni.limite ?? 10,
@@ -1052,11 +1072,15 @@ async function riferisci(id: string, riuscita: boolean, dettaglio: string, dopo?
         },
       });
       // Lo stato dell'app segue quello che è appena successo davvero.
+      // ⚠️ Tranne «conclusa»: è un giudizio nostro, e la pausa su Meta è
+      // proprio il modo in cui si realizza — non lo retrocede a «in pausa».
       if (op.tipo === "pausa_campagna" || op.tipo === "attiva_campagna") {
+        const attuale = await prisma.campagna.findUnique({ where: { id: op.campagnaId }, select: { stato: true } });
+        const tieneConclusa = op.tipo === "pausa_campagna" && attuale?.stato === "conclusa";
         await prisma.campagna.update({
           where: { id: op.campagnaId },
           data: {
-            stato: op.tipo === "pausa_campagna" ? "in_pausa" : "attiva",
+            ...(tieneConclusa ? {} : { stato: op.tipo === "pausa_campagna" ? "in_pausa" : "attiva" }),
             statoPiattaforma: op.tipo === "pausa_campagna" ? "PAUSED" : "ENABLED",
           },
         });

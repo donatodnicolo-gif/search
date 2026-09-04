@@ -190,12 +190,17 @@ export async function creaCampagna(fd: FormData) {
 //     di nuovo raccontare una cosa per un'altra.
 //   · `bozza` / `in_lancio` / `defunta` → restano scelte NOSTRE, si scrivono e
 //     basta: l'import non le tocca (sono `STATI_CAMPAGNA_NOSTRI`).
-//   · `conclusa` → resta il promemoria: eliminare una campagna non è fra le
-//     operazioni che lo script sa fare, e fingere il contrario sarebbe lo
-//     stesso difetto di prima.
+//   · `conclusa` (dal 04/09/2026) → è un giudizio NOSTRO che si scrive
+//     subito (l'import non lo tocca più: sta in `STATI_CAMPAGNA_NOSTRI`) E
+//     mette in coda una `pausa_campagna`: né Meta né Google hanno uno stato
+//     «conclusa», l'effetto sulla piattaforma è la pausa. Prima generava solo
+//     un promemoria — misurato il 04/09 su «[Palloncini] - AWARENESS»:
+//     conclusa alle 13:06, su Meta ancora ENABLED, e alla sync delle 13:07
+//     l'app l'aveva già rimessa «attiva».
 const STATI_DA_ESEGUIRE: Record<string, "pausa_campagna" | "attiva_campagna"> = {
   in_pausa: "pausa_campagna",
   attiva: "attiva_campagna",
+  conclusa: "pausa_campagna",
 };
 
 export async function cambiaStatoCampagna(stato: string, fd: FormData) {
@@ -205,15 +210,49 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
   if (!prima) return;
 
   const daEseguire = STATI_DA_ESEGUIRE[stato];
+  const concludere = stato === "conclusa";
+  const piattaforma = prima.canale === "meta_ads" ? "Meta" : "Google";
 
-  // ——— Gli stati che vivono su Google: si passa dalla coda ———
+  // ——— Gli stati che vivono sulla piattaforma: si passa dalla coda ———
   if (daEseguire) {
+    // «conclusa» è nostra e si scrive SUBITO: la coda porta solo l'effetto
+    // sulla piattaforma (la pausa). Per in_pausa/attiva invece lo stato
+    // dell'app non si tocca finché la piattaforma non ha eseguito.
+    if (concludere && prima.stato !== stato) {
+      await prisma.campagna.update({ where: { id }, data: { stato } });
+      await registra({
+        autore: "utente",
+        tipo: "stato",
+        entita: "campagna",
+        entitaId: id,
+        titolo: `Campagna "${prima.nome}" → conclusa`,
+        dettaglio: `Su ${piattaforma} diventa una pausa (messa in coda).`,
+      });
+      revalidatePath(`/campagne/${id}`);
+      revalidatePath("/campagne");
+    }
+    // Già ferma sulla piattaforma: concluderla non ha niente da eseguire.
+    if (concludere && prima.statoPiattaforma === "PAUSED") {
+      redirect(
+        `/campagne/${id}?esito=${encodeURIComponent(
+          `«${prima.nome}» è conclusa. Su ${piattaforma} era già in pausa: niente da eseguire.`
+        )}`
+      );
+    }
+
     // Una sola in volo per volta: due pause della stessa campagna in coda
     // sarebbero la seconda un doppione che lo script rifà a vuoto.
     const inVolo = await prisma.operazioneAdv.findFirst({
       where: { campagnaId: id, tipo: daEseguire, stato: { in: ["in_attesa", "approvata"] } },
     });
     if (inVolo) {
+      if (concludere) {
+        redirect(
+          `/campagne/${id}?esito=${encodeURIComponent(
+            `«${prima.nome}» è conclusa. La pausa su ${piattaforma} era già in coda (${inVolo.stato === "approvata" ? "approvata" : "da approvare"}): si trova in Operazioni.`
+          )}`
+        );
+      }
       redirect(
         `/campagne/${id}?bloccata=${encodeURIComponent(
           `C'è già un'operazione «${daEseguire}» in coda per questa campagna: approvala in Operazioni invece di rifarla.`
@@ -237,10 +276,12 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
         canale: prima.canale,
         bersaglio: prima.nome,
         idEsterno: prima.idEsterno,
-        motivo: "Deciso dalle pillole di stato sulla scheda campagna",
+        motivo: concludere
+          ? `Campagna conclusa dalle pillole di stato: su ${piattaforma} diventa una pausa`
+          : "Deciso dalle pillole di stato sulla scheda campagna",
         avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
         livello: "L2",
-        prima: `su Google: ${prima.statoPiattaforma ?? "non ancora letto"}`,
+        prima: `su ${piattaforma}: ${prima.statoPiattaforma ?? "non ancora letto"}`,
         campagnaId: id,
       },
     });
@@ -252,14 +293,19 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
       titolo: `In coda (da approvare): ${daEseguire} su "${prima.nome}"`,
       dettaglio: esito.avvisi.join(" — "),
     });
-    // ⚠️ Si dice CHIARAMENTE che finché non si approva su Google non cambia
-    // niente: è tutta la differenza fra questo bottone e quello di prima.
-    const verbo = stato === "in_pausa" ? "messa in pausa" : "riattivata";
+    // ⚠️ Si dice CHIARAMENTE che finché non si approva sulla piattaforma non
+    // cambia niente: è tutta la differenza fra questo bottone e quello di prima.
+    const verbo = stato === "attiva" ? "riattivata" : "messa in pausa";
+    const dopo =
+      prima.canale === "meta_ads"
+        ? "la esegue l'app nel momento in cui la approvi"
+        : "la esegue lo script al giro dopo l'approvazione";
     redirect(
       `/operazioni?esito=${encodeURIComponent(
-        `«${prima.nome}» sarà ${verbo} su Google dopo l'approvazione. Fino ad allora su Google resta ${
-          prima.statoPiattaforma ?? "com'era"
-        }.`
+        (concludere ? `«${prima.nome}» è conclusa nell'app (${piattaforma} non ha uno stato «conclusa»): ` : `«${prima.nome}» `) +
+          `sarà ${verbo} su ${piattaforma} dopo l'approvazione — ${dopo}. Fino ad allora su ${piattaforma} resta ${
+            prima.statoPiattaforma ?? "com'era"
+          }.`
       )}`
     );
   }
@@ -286,21 +332,6 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
         owner: "utente",
         campagnaId: campagna.id,
         eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal passaggio a «in lancio»" } },
-      },
-    });
-  } else if (stato === "conclusa") {
-    // Eliminare una campagna non è fra le operazioni dello script: resta un
-    // lavoro da fare a mano, e lo si dice invece di far finta.
-    await prisma.azione.create({
-      data: {
-        titolo: `Eseguire su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}: concludere "${campagna.nome}"`,
-        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}. ⚠️ Concludere una campagna NON è fra le operazioni che lo script sa eseguire: va fatto in interfaccia. Al termine chiudere questa azione con l'esito reale.`,
-        brand: campagna.brand,
-        canale: campagna.canale,
-        priorita: "alta",
-        owner: "utente",
-        campagnaId: campagna.id,
-        eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal cambio stato campagna nell'app" } },
       },
     });
   }
@@ -1706,18 +1737,54 @@ export async function approvaOperazione(fd: FormData) {
   await registra({
     autore: "utente", tipo: "stato", entita: "operazione", entitaId: id,
     titolo: `Approvata: ${op.tipo} su ${op.bersaglio}`,
-    // ⚠️ Su META non passa nessuno script: esegue l'app, e solo quando
-    //    qualcuno preme «Esegui adesso» in Operazioni. Dire «alla prossima
-    //    passata» anche li vorrebbe dire promettere un automatismo che non
-    //    esiste, e lasciare l'operazione ferma per giorni ad aspettare un
-    //    motore che non partira' mai.
+    // ⚠️ Su META non passa nessuno script: esegue l'app. Fino al 04/09/2026
+    //    solo quando qualcuno premeva «Esegui adesso», e le approvate
+    //    restavano ferme per giorni (la pausa di «[Palloncini] - AWARENESS»,
+    //    approvata alle 13:07 e mai eseguita). Adesso l'approvazione ESEGUE.
     dettaglio:
       op.canale === "meta_ads"
-        ? "Su Meta non c'e nessuno script: esegue l'app quando premi «Esegui adesso» in Operazioni."
+        ? "Su Meta esegue l'app, subito, all'approvazione."
         : "Lo script la eseguira alla prossima passata",
   });
+  const esitoMeta = op.canale === "meta_ads" ? await eseguiSubitoSuMeta([op.id]) : null;
   revalidatePath("/operazioni");
-  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
+  if (op.campagnaId) revalidatePath(`/campagne/${op.campagnaId}`);
+  const qs = new URLSearchParams();
+  if (torna) qs.set("torna", torna);
+  if (esitoMeta) qs.set("esito", esitoMeta);
+  if ([...qs.keys()].length > 0) redirect(`/operazioni?${qs.toString()}`);
+}
+
+/**
+ * Su META l'approvazione esegue (dal 04/09/2026).
+ *
+ * ⚠️ Solo le operazioni APPENA approvate, per id: `eseguiOperazioniMeta` da
+ * solo prenderebbe TUTTE le approvate in coda, comprese quelle approvate
+ * giorni fa e lasciate lì apposta — quelle restano al bottone «Esegui
+ * adesso», che è una decisione, non un effetto collaterale di un altro click.
+ * La persona che approva è davanti allo schermo: è esattamente il «sotto gli
+ * occhi di qualcuno» che la scelta di non avere un cron voleva garantire.
+ */
+async function eseguiSubitoSuMeta(ids: string[]): Promise<string> {
+  const { eseguiOperazioniMeta } = await import("./meta-scrittura");
+  const e = await eseguiOperazioniMeta({ limite: ids.length, ids });
+  const testo = e.spento
+    ? `Approvata, ma la scrittura su Meta è spenta: resta in coda. ${e.nota ?? ""}`.trim()
+    : e.eseguite + e.fallite + e.saltate === 0
+      ? "Approvata; su Meta non è partita (programmata per un altro giorno, o già eseguita)."
+      : `Su Meta, subito: ${e.eseguite} ${e.eseguite === 1 ? "eseguita" : "eseguite"}` +
+        (e.fallite > 0 ? `, ${e.fallite} ${e.fallite === 1 ? "fallita" : "fallite"} (il motivo è sulla riga)` : "") +
+        (e.saltate > 0 ? `, ${e.saltate} senza id di piattaforma` : "") +
+        ".";
+  await registra({
+    autore: "sistema",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: ids[0],
+    titolo: "Eseguita su Meta all'approvazione",
+    dettaglio: testo,
+  });
+  return testo;
 }
 
 // Approvare PIÙ operazioni insieme: si spuntano e si approva in un colpo.
@@ -1746,7 +1813,7 @@ export async function approvaOperazioniSelezionate(fd: FormData) {
   // un'annullata la resusciterebbe senza che nessuno l'abbia chiesto.
   const aperte = await prisma.operazioneAdv.findMany({
     where: { id: { in: scelte }, stato: "in_attesa" },
-    select: { id: true, tipo: true, bersaglio: true },
+    select: { id: true, tipo: true, bersaglio: true, canale: true },
   });
   if (aperte.length === 0) {
     redirect(coda({ bloccata: "Nessuna di quelle scelte era ancora da approvare" }));
@@ -1769,10 +1836,18 @@ export async function approvaOperazioniSelezionate(fd: FormData) {
         : ""),
   });
 
+  // Le Meta partono subito (dal 04/09/2026); le Google aspettano lo script.
+  const idMeta = aperte.filter((o) => o.canale === "meta_ads").map((o) => o.id);
+  const esitoMeta = idMeta.length > 0 ? await eseguiSubitoSuMeta(idMeta) : null;
+  const nGoogle = aperte.length - idMeta.length;
+
   revalidatePath("/operazioni");
   redirect(
     coda({
-      esito: `${aperte.length} ${aperte.length === 1 ? "operazione approvata" : "operazioni approvate"}: lo script le eseguirà alla prossima passata`,
+      esito:
+        `${aperte.length} ${aperte.length === 1 ? "operazione approvata" : "operazioni approvate"}` +
+        (nGoogle > 0 ? `: ${nGoogle} Google, le esegue lo script alla prossima passata` : "") +
+        (esitoMeta ? `. ${esitoMeta}` : ""),
     })
   );
 }
@@ -2689,9 +2764,9 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         (citta.some((c) => !c.chiave)
           ? "Le città dette per nome le traduce l'app quando esegue, chiedendo a Meta: se un nome è ambiguo non sceglie e lo scrive nell'esito. "
           : "") +
-        ((obiettivoTipo === "vendite" || obiettivoTipo === "contatti") && !testo(fd, "pixelId")
-          ? "Il pixel lo cerca l'app sull'account al momento del lancio (se ce n'è più d'uno si ferma e lo dice). "
-          : "") +
+        (testo(fd, "pixelId")
+          ? `Pixel ${testo(fd, "pixelId")}: sull'ad set per l'ottimizzazione e sull'annuncio per il tracciamento. `
+          : "Pixel NON indicato: l'app lo cerca sull'account al momento del lancio (se ce n'è più d'uno si ferma e lo dice). ") +
         (imageHash
           ? "Immagine già caricata nella libreria dell'account: col lancio nascono anche creative e ANNUNCIO, in pausa. "
           : "L'ANNUNCIO NON NASCE DA QUI (nessuna immagine caricata): il creativo si monta in Ads Manager — il copy scritto nel modulo resta nei parametri dell'operazione come brief. ") +

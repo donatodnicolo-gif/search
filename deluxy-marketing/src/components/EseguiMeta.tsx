@@ -29,8 +29,8 @@ export async function EseguiMeta() {
   if (inAttesa === 0 && approvate === 0) {
     return (
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
-        <b>Meta</b>: niente in coda. Quando ci sarà qualcosa da eseguire il bottone compare qui —
-        su Meta esegue l&apos;app, e solo quando qualcuno preme.
+        <b>Meta</b>: niente in coda. Su Meta esegue l&apos;app nel momento in cui approvi; il
+        bottone per le approvate rimaste ferme compare qui quando serve.
       </p>
     );
   }
@@ -40,9 +40,10 @@ export async function EseguiMeta() {
       <div className="scheda-titolo">Operazioni su Meta</div>
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
         Su Google le esegue lo script dentro l&apos;account, da solo. Su Meta le esegue{" "}
-        <b>l&apos;app</b>, e <b>solo quando qualcuno preme</b>: non c&apos;è nessun lavoro
-        automatico, di proposito. Meta accetta pausa e riattivazione (campagne e gruppi) e il
-        cambio di budget — keyword e negative lì non esistono.
+        <b>l&apos;app, nel momento in cui le approvi</b> (dal 04/09/2026): non c&apos;è nessun
+        giro notturno, di proposito. Il bottone qui sotto serve per le approvate rimaste ferme
+        (approvate prima di quella data, o via API). Meta accetta pausa e riattivazione
+        (campagne e gruppi), il cambio di budget e il lancio — keyword e negative lì non esistono.
       </p>
 
       <div className="kpi-riga" style={{ marginBottom: 12 }}>
@@ -54,7 +55,7 @@ export async function EseguiMeta() {
         </div>
         <div className="kpi">
           <div className="kpi-valore">{approvate}</div>
-          <div className="kpi-etichetta">Approvate, aspettano che qualcuno esegua</div>
+          <div className="kpi-etichetta">Approvate, rimaste senza esecuzione</div>
         </div>
       </div>
 

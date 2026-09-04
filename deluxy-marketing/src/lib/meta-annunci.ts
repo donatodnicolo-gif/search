@@ -102,6 +102,32 @@ export async function annunciMeta(
 // Servono al formato «raccolta/catalogo»: l'annuncio pesca le immagini e i
 // link dei prodotti da lì. Lettura viva, come sopra.
 
+export type PixelMeta = { id: string; nome: string };
+
+/**
+ * I pixel dell'account, letti VIVI (`act_/adspixels`): il modulo di lancio
+ * li mostra e, se è uno solo, lo pre-seleziona — così il pixel è INDICATO
+ * prima di accodare, non trovato (o non trovato) al momento di eseguire.
+ * Nessuna copia in DB (Standard §7).
+ */
+export async function pixelDelContoMeta(
+  idAccount: string
+): Promise<{ ok: true; pixel: PixelMeta[] } | { ok: false; errore: string }> {
+  const t = token();
+  if (!t) return { ok: false, errore: "META_ACCESS_TOKEN non impostato" };
+  const conto = `act_${idAccount.replace(/^act_/, "")}`;
+  try {
+    const r = await fetch(`${BASE}/${conto}/adspixels?fields=id,name&limit=25&access_token=${encodeURIComponent(t)}`, {
+      cache: "no-store", signal: AbortSignal.timeout(10_000),
+    });
+    const d = (await r.json()) as { data?: { id: string; name?: string }[]; error?: { message?: string } };
+    if (d.error) return { ok: false, errore: d.error.message ?? "errore Meta sui pixel" };
+    return { ok: true, pixel: (d.data ?? []).map((p) => ({ id: p.id, nome: p.name ?? p.id })) };
+  } catch (e) {
+    return { ok: false, errore: `lettura pixel fallita: ${String(e).slice(0, 160)}` };
+  }
+}
+
 export type InsiemeProdotti = { id: string; nome: string; catalogo: string; prodotti: number | null };
 
 export async function insiemiProdottoMeta(
