@@ -3,7 +3,7 @@ import { SchedeCarosello } from "@/components/SchedeCarosello";
 import { Icona } from "@/components/Icona";
 import { lanciaCampagnaMeta } from "@/lib/azioni";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
-import type { InsiemeProdotti } from "@/lib/meta-annunci";
+import type { InsiemeProdotti, PixelMeta } from "@/lib/meta-annunci";
 
 // Il modulo di lancio per META — un modulo SUO, non il modulo Google con i
 // nomi cambiati. La struttura segue quella della piattaforma:
@@ -55,6 +55,8 @@ export function ModuloLancioMeta({
   tornaBrand,
   pubblici,
   insiemi,
+  pixel,
+  pixelErrore,
 }: {
   brand: string;
   tornaBrand?: string;
@@ -62,6 +64,10 @@ export function ModuloLancioMeta({
   pubblici: { id: string; nome: string; tipo: string; dimensione: number | null; stato: string }[];
   /** Gli insiemi di prodotti del catalogo (per il formato raccolta). */
   insiemi: InsiemeProdotti[];
+  /** I pixel dell'account, letti vivi: uno solo → già scelto. */
+  pixel: PixelMeta[];
+  /** Perché la lettura dei pixel non è riuscita, se non è riuscita. */
+  pixelErrore?: string | null;
 }) {
   return (
     <form className="modulo-creazione" action={lanciaCampagnaMeta}>
@@ -384,13 +390,36 @@ export function ModuloLancioMeta({
             </select>
             <span className="campo-aiuto">Con obiettivo «Contatti» l&apos;evento è Lead, deciso da Meta.</span>
           </div>
+          {/* ⚠️ Il pixel va SEMPRE indicato (richiesta utente 04/09/2026): si
+              legge vivo dall'account e, se è uno, è già scelto. Prima era un
+              campo di testo vuoto «lo trova l'app»: il pixel restava un fatto
+              dell'esecuzione, invisibile a chi accodava. */}
           <div className="campo-modulo">
-            <label>Pixel (id) — vuoto: lo trova l&apos;app</label>
-            <input name="pixelId" placeholder="es. 1234567890" />
+            <label>
+              Pixel
+              {pixel.length === 1 ? " — l'unico dell'account, già scelto" : pixel.length > 1 ? " — scegli quello del sito" : " (id)"}
+            </label>
+            {pixel.length > 0 ? (
+              <select name="pixelId" defaultValue={pixel.length === 1 ? pixel[0].id : ""} required>
+                {pixel.length > 1 && <option value="">— scegli il pixel —</option>}
+                {pixel.map((px) => (
+                  <option key={px.id} value={px.id}>
+                    {px.nome} · {px.id}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input name="pixelId" placeholder="es. 1234567890" />
+            )}
             <span className="campo-aiuto">
-              Se sull&apos;account il pixel è uno solo l&apos;app lo usa; se sono di più si ferma
-              e li elenca nell&apos;esito — con due pixel «prendo il primo» conterebbe le
-              conversioni di un altro sito.
+              Il pixel finisce <b>sull&apos;ad set</b> (che risultato compra l&apos;asta: Vendite,
+              Contatti) e <b>sull&apos;annuncio</b> come tracciamento degli eventi del sito, con
+              qualunque obiettivo — anche Traffico e Notorietà.{" "}
+              {pixel.length > 0
+                ? "Letti adesso dall'account."
+                : pixelErrore
+                  ? `Non ho potuto leggere i pixel dell'account (${pixelErrore}): incolla l'id.`
+                  : "Vuoto: lo trova l'app se sull'account è uno solo; se sono di più si ferma e li elenca nell'esito."}
             </span>
           </div>
         </div>

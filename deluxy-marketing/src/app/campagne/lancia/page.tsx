@@ -6,7 +6,7 @@ import { lanciaCampagna } from "@/lib/azioni";
 import { proponiBriefCampagna, proponiBriefCampagnaMeta } from "@/lib/azioni-brief";
 import { prisma } from "@/lib/db";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
-import { insiemiProdottoMeta, type InsiemeProdotti } from "@/lib/meta-annunci";
+import { insiemiProdottoMeta, pixelDelContoMeta, type InsiemeProdotti, type PixelMeta } from "@/lib/meta-annunci";
 import { accountDiBrand } from "@/lib/operazioni";
 import { ModuloLancioMeta } from "./modulo-meta";
 
@@ -80,16 +80,25 @@ export default async function CreaCampagna({
     : [];
   // Gli insiemi di prodotti del catalogo, letti VIVI: servono al formato
   // «raccolta». Se la lettura fallisce il modulo lo dice, non finge il vuoto.
+  // E i PIXEL dell'account (richiesta utente 04/09/2026: il pixel va sempre
+  // indicato): letti vivi, mostrati nel modulo, pre-scelto se è uno solo.
   let insiemiMeta: InsiemeProdotti[] = [];
+  let pixelMeta: PixelMeta[] = [];
+  let pixelErrore: string | null = null;
   if (meta) {
     try {
       const account = await accountDiBrand("meta_ads", brand);
       if (account) {
-        const esito = await insiemiProdottoMeta(account);
+        const [esito, px] = await Promise.all([insiemiProdottoMeta(account), pixelDelContoMeta(account)]);
         if (esito.ok) insiemiMeta = esito.insiemi;
+        if (px.ok) pixelMeta = px.pixel;
+        else pixelErrore = px.errore;
+      } else {
+        pixelErrore = "nessun account Meta censito per questo brand";
       }
-    } catch {
+    } catch (e) {
       insiemiMeta = [];
+      pixelErrore = String(e).slice(0, 160);
     }
   }
   const linkCanale = (c: string) =>
@@ -137,7 +146,7 @@ export default async function CreaCampagna({
             {/* Il pannello AI sta FUORI dal <form>, come sul modulo Google. */}
             <BriefCampagnaMetaAi brand={brand} azione={proponiBriefCampagnaMeta} />
 
-            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} pubblici={pubbliciMeta} insiemi={insiemiMeta} />
+            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} pubblici={pubbliciMeta} insiemi={insiemiMeta} pixel={pixelMeta} pixelErrore={pixelErrore} />
 
             {/* ⚠️ La stessa distinzione che regge il modulo Google: che cosa
                 arriva davvero sulla piattaforma e che cosa resta a mano. Su

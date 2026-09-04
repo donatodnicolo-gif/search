@@ -180,7 +180,7 @@ export const SPIEGA_STATO_CAMPAGNA: Record<string, string> = {
   in_apprendimento: "Partita da poco: i numeri non sono ancora leggibili.",
   attiva: "Sta girando, si giudica sui numeri.",
   in_pausa: "Ferma, ma può ripartire.",
-  conclusa: "Finita: si guarda solo nello storico.",
+  conclusa: "Finita: si guarda solo nello storico. Sulla piattaforma viene messa in pausa (Meta e Google non hanno «conclusa»).",
   defunta:
     "Da non considerare mai più: sparisce dagli elenchi e dai conteggi operativi. La spesa che ha fatto resta nei totali — quei soldi sono usciti davvero.",
 };
@@ -208,7 +208,13 @@ export const STATI_CAMPAGNA_IGNORATE = ["defunta"] as const;
 // È la stessa distinzione del gruppo — `stato` è il giudizio nostro,
 // `statoPiattaforma` è il fatto di Google — che alla campagna non era mai
 // stata applicata.
-export const STATI_CAMPAGNA_NOSTRI = ["defunta", "in_lancio", "bozza"] as const;
+//
+// ⚠️ `conclusa` è qui dal 04/09/2026: è un giudizio nostro («finita, si guarda
+// solo nello storico»), e sulla piattaforma diventa una PAUSA — Meta e Google
+// non hanno uno stato «conclusa». Prima non c'era, e la sync la riscriveva:
+// misurato su «[Palloncini] - AWARENESS» il 04/09, conclusa alle 13:06 e di
+// nuovo «attiva» alle 13:07 al giro orario di Meta.
+export const STATI_CAMPAGNA_NOSTRI = ["defunta", "in_lancio", "bozza", "conclusa"] as const;
 
 export const CATEGORIE_DRIVE = [
   "definitivi",

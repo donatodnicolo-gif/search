@@ -109,11 +109,13 @@ export async function CodaFerma() {
                     </td>
                     {/* ⚠️ È la differenza che conta: su Google il motore è lo
                         script dentro l'account e passa da solo; su Meta è
-                        l'app, e parte SOLO quando qualcuno preme. Senza
-                        scriverlo, le due attese si leggono identiche. */}
+                        l'app, che dal 04/09/2026 esegue all'approvazione — se
+                        una Meta è qui, è stata approvata prima di quella data
+                        o via API, e la si esegue col bottone. Senza scriverlo,
+                        le due attese si leggono identiche. */}
                     <td className="cella-muta">
                       {meta ? (
-                        <b>l&apos;app, quando qualcuno preme</b>
+                        <b>l&apos;app: col bottone «Esegui adesso» in Operazioni</b>
                       ) : (
                         "lo script, al prossimo giro dell'account"
                       )}

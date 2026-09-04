@@ -108,7 +108,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         // Creata sulla piattaforma via bulk upload: nasce sempre in pausa
         await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "in_pausa" } });
       } else if (operazione.tipo === "pausa_campagna") {
-        await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "in_pausa" } });
+        // «conclusa» è un giudizio nostro che la pausa su Google realizza:
+        // non si retrocede a «in pausa» (dal 04/09/2026).
+        if (campagna.stato !== "conclusa") {
+          await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "in_pausa" } });
+        }
       } else if (operazione.tipo === "attiva_campagna") {
         await prisma.campagna.update({ where: { id: campagna.id }, data: { stato: "attiva" } });
       } else if (operazione.tipo === "budget") {

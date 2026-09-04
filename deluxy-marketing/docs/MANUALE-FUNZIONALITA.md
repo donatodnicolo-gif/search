@@ -84,8 +84,10 @@ tracciata dall'inizio alla fine.
   risultato stimato, ROS), «Ultima corsa dei connettori», «Decisioni prese e non
   ancora eseguite» (approvate ferme + fallite), andamento del mese vs budget.
 - **Da fare** (`/azioni`): le azioni aperte, con scadenza e stato.
-- **Operazioni** (`/operazioni`): la coda con approvazione, divisa Google/Meta;
-  il bottone «Esegui» per Meta; «Rimetti in coda» per le fallite.
+- **Operazioni** (`/operazioni`): la coda con approvazione, divisa Google/Meta.
+  Su Google esegue lo script al giro dopo; su Meta **l'approvazione esegue
+  subito** (dal 04/09/2026) e il bottone «Esegui adesso» serve per le approvate
+  rimaste ferme; «Rimetti in coda» per le fallite.
 - **Incidenti aperti** (`/errori`): gli ERR-* con freeze.
 
 **Campagne**
@@ -94,7 +96,9 @@ tracciata dall'inizio alla fine.
 - **Lancio campagna** (`/campagne/lancia`): il modulo Google (keyword, RSA,
   località, budget) e il modulo Meta — immagine, **video** (caricato a pezzi),
   formato **singolo / carosello / catalogo**, pubblici del brand da spuntare,
-  Pagina Facebook, e il pannello «Fatti scrivere il brief dall'AI» su entrambi.
+  Pagina Facebook, il **pixel** (letto vivo dall'account, già scelto se è uno:
+  va sull'ad set e sull'annuncio, con qualunque obiettivo), e il pannello
+  «Fatti scrivere il brief dall'AI» su entrambi.
   Tutto finisce nella coda da approvare: su Meta l'app crea campagna, ad set e
   annuncio **in pausa**; su Google parte il bulk upload via script.
 - **Scheda campagna**: su Google il bottone **«Nuovo gruppo»**
@@ -183,6 +187,9 @@ qui nello stesso commit.**
 
 | Data | Funzionalità | Dove |
 |---|---|---|
+| 2026-09-04 | **Il pixel va sempre indicato nel lancio Meta**: il modulo legge vivi i pixel dell'account (pre-scelto se è uno solo, da scegliere se sono di più, id a mano se non si leggono); all'esecuzione il pixel va **sull'ad set** per Vendite/Contatti (ottimizzazione) **e sull'annuncio** come tracciamento degli eventi del sito, con qualunque obiettivo (anche Traffico e Notorietà); l'esito e la nota della campagna dicono quale pixel è stato usato | `/campagne/lancia`, `lib/meta-annunci.ts`, `lib/meta-scrittura.ts` |
+| 2026-09-04 | **Su Meta l'approvazione esegue subito**: approvando un'operazione Meta (una o in blocco) l'app la esegue nello stesso istante e mostra l'esito; «Esegui adesso» resta per le approvate rimaste ferme (approvate prima del 04/09 o via API) | `/operazioni`, `lib/azioni.ts`, `lib/meta-scrittura.ts` |
+| 2026-09-04 | **«Conclusa» mette in pausa sulla piattaforma e resta scritta**: portare una campagna (Meta o Google) a conclusa scrive subito lo stato nell'app — la sync non lo sovrascrive più — e accoda una `pausa_campagna` da approvare (se sulla piattaforma è già in pausa, niente da eseguire); prima generava solo un promemoria e la sync la rimetteva «attiva» | `lib/azioni.ts`, `lib/dominio.ts` |
 | 2026-09-03 | **Schede analisi ripartite** dopo 8 giorni ferme (dal 26/08): chiamata AI in **streaming** con timeout 280 s, tetto di token a 32.000 per le schede e 16.000 per la riconciliazione, `maxDuration` 300 sulla pagina della scheda, fallimenti scritti nel Registro eventi (non più solo nel JSON del cron) | `lib/scheda-analisi.ts`, `api/cron/drive` |
 | 2026-09-03 | **Campagne ordinate per stato** (attive prime), poi per nome | `/campagne` |
 | 2026-09-03 | **Annunci Meta a schermo, dal vivo** (miniatura, formato, testi, stato, ad set — letti dalla Graph API, nessuna copia in DB) sulla scheda delle campagne Meta; il **lancio Meta sa fare carosello** (2-10 schede, CTA per scheda verso il suo prodotto) **e catalogo** (insieme di prodotti letto dal Business) | `components/AnnunciMeta`, `lib/meta-annunci.ts`, `/campagne/lancia` |

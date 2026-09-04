@@ -4,7 +4,16 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
-> ⏱️ **RI-MISURATO IL 04/09 (sola lettura, nessuna modifica al codice)**:
+> 🆕 **04/09 pomeriggio — tre cambi di comportamento, da DEPLOYARE** (vedi la
+> prima sezione di FATTO): «conclusa» mette in pausa sulla piattaforma ed è
+> uno stato nostro; su Meta **l'approvazione esegue subito**; il **pixel va
+> sempre** (modulo di lancio + ad set + annuncio). 🔴 In coda Meta restano
+> **due pause approvate e mai eseguite**: «[Palloncini] - AWARENESS» (04/09
+> 13:07, quella che l'utente aspetta di vedere in pausa su Meta) e «[Opera]
+> ATC - VOLUME» (26/08). Si eseguono con «Esegui adesso» in /operazioni —
+> **tutte e due insieme**: se la seconda non si vuole più, annullarla prima.
+>
+> ⏱️ **RI-MISURATO IL 04/09 mattina (sola lettura, nessuna modifica al codice)**:
 > · **Produzione = HEAD**: l'ultimo deploy (`deluxy-marketing-kaej4vd0f`,
 >   03/09 ~20:00, Ready) è posteriore all'ultimo commit di codice
 >   (`372a466f`, 03/09 19:56). `/api/health` → `ok: true, database: true`.
@@ -399,6 +408,80 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐ «CONCLUSA» = PAUSA SULLA PIATTAFORMA, L'APPROVAZIONE META ESEGUE, IL PIXEL SEMPRE (04/09/2026 pomeriggio)
+
+Tre richieste dell'utente in fila, misurate su un caso vero.
+
+**Il caso**: «[Palloncini] - AWARENESS» (Gifts, Meta `120247861398810026`).
+Alle 13:06:50 l'utente la porta a **conclusa** → l'app scrive `conclusa` e
+genera un promemoria («concludere non è fra le operazioni dello script»);
+su Meta niente. Alle 13:07:02 la porta a **in pausa** → `pausa_campagna`
+in coda, **approvata alle 13:07:49**, `eseguitaIl: null`: su Meta esegue
+l'app e solo quando qualcuno preme «Esegui adesso» (scelta del 23/08, «finché
+non avrà fatto qualche giro sotto gli occhi di qualcuno»). Alle 13:07:51 la
+sync oraria di Meta legge ENABLED e riscrive `stato: attiva` — «conclusa»
+non era in `STATI_CAMPAGNA_NOSTRI`. Risultato: nell'app attiva, su Meta
+accesa, in coda un'approvata ferma. L'utente: «dovrei vederla in pausa su
+Meta».
+
+**1. «Conclusa» mette in pausa sulla piattaforma** (`cambiaStatoCampagna`,
+`STATI_DA_ESEGUIRE.conclusa = pausa_campagna`): lo stato si scrive SUBITO
+(giudizio nostro: `conclusa` è entrata in `STATI_CAMPAGNA_NOSTRI`, la sync
+Meta e l'import Google non lo toccano più) e si accoda la pausa, da
+approvare, per Meta e per Google — nessuno dei due ha uno stato «conclusa».
+Se sulla piattaforma è già PAUSED: «niente da eseguire». Se una pausa è già
+in volo: lo dice, senza doppioni. Quando la pausa viene eseguita
+(`riferisci` su Meta, `/api/v1/operazioni/[id]/esito` su Google) lo stato
+**non retrocede** a `in_pausa`: resta conclusa, cambia solo
+`statoPiattaforma`. Il promemoria è sparito: la coda è il tracciamento.
+
+**2. Su Meta l'approvazione esegue** (`eseguiSubitoSuMeta` in
+`approvaOperazione` e `approvaOperazioniSelezionate`): `eseguiOperazioniMeta`
+ha preso un filtro `ids` e parte **solo sulle appena approvate** — non
+svuota la coda delle approvate di giorni prima, che restano al bottone
+«Esegui adesso» (una decisione, non un effetto collaterale di un altro
+click). La persona che approva è davanti allo schermo: è esattamente il
+«sotto gli occhi di qualcuno» che la scelta di non avere un cron voleva.
+L'esito torna nella barra di /operazioni e nel RegistroEvento («Eseguita su
+Meta all'approvazione»). Testi allineati: EseguiMeta, CodaFerma, dettaglio
+dell'approvazione. **Il cron Meta NON esegue**: la scelta di niente giri
+notturni resta.
+
+**3. Il pixel sempre** (richiesta: «per le campagne meta assicurati di
+indicare anche il pixel»). Prima: campo di testo vuoto «lo trova l'app», e
+il pixel entrava SOLO con Vendite/Contatti (`promoted_object`); una campagna
+Traffico nasceva senza pixel sull'annuncio. Ora: `pixelDelContoMeta`
+(`act_/adspixels`, letto vivo, nessuna copia) riempie una select nel
+modulo — **pre-scelto se è uno solo**, da scegliere se sono di più, input
+per l'id se la lettura fallisce (e dice perché). All'esecuzione il pixel si
+risolve **per ogni obiettivo** (indicato o trovato sull'account, se unico):
+sull'ad set con Vendite/Contatti, e **sull'annuncio come `tracking_specs`**
+(`{"action.type":["offsite_conversion"],"fb_pixel":[id]}` — la spunta
+«Tracciamento → eventi del sito» di Ads Manager) con qualunque obiettivo.
+Senza pixel su un obiettivo non-conversione: annuncio creato, nota «SENZA
+PIXEL … gli eventi non verranno attribuiti». L'esito dice sempre «pixel X»
+o «pixel NESSUNO»; la nota della campagna dice il pixel indicato.
+
+**Provato in locale** (`npx tsc --noEmit` pulito dopo `prisma generate` —
+il client era vecchio per `Pubblico.idEsterno` del 03/09): la scheda di
+Palloncini mostra le pillole; il modulo Meta mostra il campo pixel col
+ripiego «Non ho potuto leggere i pixel dell'account (META_ACCESS_TOKEN non
+impostato)» — in locale il token non c'è (è Sensitive su Vercel: il
+`vercel pull` lo riporta vuoto, «Cannot parse access token» provando la
+Graph API). ⚠️ **La lettura viva dei pixel e il `tracking_specs` sono da
+collaudare in produzione col primo lancio**: il codice è nel percorso già
+provato il 03/09, ma non ha ancora girato contro Meta.
+
+🔴 **NON fatto, e perché**: l'esecuzione della pausa di Palloncini. Per
+eseguirla da sola col nuovo percorso serviva rimetterla «da approvare» sul
+DB di produzione e riapprovarla: la scrittura diretta sul DB è stata
+bloccata (giustamente) dal classificatore, e «Esegui adesso» eseguirebbe
+anche la pausa di «[Opera] ATC - VOLUME» approvata il 26/08. Decide
+l'utente: premere «Esegui adesso» (tutte e due), o annullare prima l'Opera.
+Dopo il deploy, ogni approvazione nuova su Meta esegue da sola.
+
+Commit: vedi `git log`; deploy **da fare** (`npx vercel deploy --prod --yes`).
 
 ### ⭐⭐⭐ LE SCHEDE ANALISI ERANO FERME DALL'26/08 — doppio guasto trovato e curato (03/09/2026 sera)
 
