@@ -456,16 +456,25 @@ export default async function ElencoOrdini({
                           la stessa cosa con due vocabolari diversi e non
                           dicevano niente degli ordini non pagati. Il motivo
                           resta scritto dentro la pillola («Cancellato ·
-                          magazzino»), quindi non si perde nulla. */}
-                      <BadgeSalute ordine={o} />
-                      {o.annullatoIl ? null : (
-                        <div className="riga-stati">
-                          <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
-                            {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
-                          </span>
-                          <span className="stato-shopify">{pagamentoLeggibile(o.financialStatus) ?? "—"}</span>
-                        </div>
-                      )}
+                          magazzino»), quindi non si perde nulla.
+                          Si mostra SEMPRE, «Conforme» compreso: se comparisse
+                          solo sui casi storti, una card senza pillola vorrebbe
+                          dire due cose diverse — «va tutto bene» e «non l'ho
+                          guardata» — e non si potrebbe distinguerle.
+                          Sta dentro `riga-stati` insieme a evasione e
+                          pagamento: così non aggiunge una riga alla card, che
+                          moltiplicata per centinaia di card sarebbe una vista
+                          più lunga di un terzo per un dato solo.
+                          Evasione e pagamento si vedono ORA ANCHE SUGLI
+                          ANNULLATI: prima sparivano, e su un ordine annullato
+                          «la merce era partita?» è proprio la domanda. */}
+                      <div className="riga-stati">
+                        <BadgeSalute ordine={o} mostraConforme />
+                        <span className="stato-shopify" style={{ color: coloreEvasione(o.fulfillmentStatus) }}>
+                          {evasioneLeggibile(o.fulfillmentStatus) ?? "—"}
+                        </span>
+                        <span className="stato-shopify">{pagamentoLeggibile(o.financialStatus) ?? "—"}</span>
+                      </div>
                       {/* Stato del Customer Service (come stanno lavorando
                           l'ordine) e, per i chiusi, il margine in € e %. */}
                       {o.csGestione && !o.annullatoIl && (

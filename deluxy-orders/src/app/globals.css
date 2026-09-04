@@ -1671,9 +1671,13 @@ tbody tr.riga-link:hover { background: var(--fill-hover); }
 }
 .badge-salute .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .badge-salute-dettaglio { color: var(--text-secondary); font-weight: 500; }
-/* Nelle card sta su una riga sua, come facevano i badge che ha sostituito */
-.card-ordine .badge-salute { margin-top: 6px; }
+/* Nelle card vive dentro .riga-stati, in fila con evasione e pagamento: la
+   riga porta gia' il suo margine, la pillola non ne aggiunge un altro. */
+.riga-stati .badge-salute { margin-top: 0; }
 td .badge-salute { margin-top: 0; }
+/* Su card strette il dettaglio ("· magazzino") puo' far uscire la pillola:
+   la riga va a capo invece di tagliare, e il testo resta per intero. */
+.card-ordine .riga-stati { align-items: center; row-gap: 6px; }
 /* I due stati chiusi restano leggibili ma spenti: la partita è finita */
 .badge-salute.salute-cancellato,
 .badge-salute.salute-nullo { color: var(--text-secondary); }
