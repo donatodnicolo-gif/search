@@ -311,7 +311,7 @@ interface DeliveryDetail {
               @if (regole(d) != null) {
                 <dt>{{ 'deliveryDetail.regoleImporto' | translate }}</dt>
                 <dd>{{ regole(d) }} €
-                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule.name }})</span> }
+                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule?.name }})</span> }
                 </dd>
               }
               <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt>
@@ -356,7 +356,7 @@ interface DeliveryDetail {
               @if (regole(d) != null) {
                 <dt>{{ 'deliveryDetail.regoleImporto' | translate }}</dt>
                 <dd>{{ regole(d) }} €
-                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule.name }})</span> }
+                  @if (d.deliveryRule?.name) { <span class="muted">({{ d.deliveryRule?.name }})</span> }
                 </dd>
               }
               @if (plusMinus(d) != null) {
