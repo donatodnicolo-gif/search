@@ -68,7 +68,19 @@
     "servicesEyebrow": "Our services",
     "requestsEyebrow": "In progress",
     "seeAll": "See all",
-    "backToServices": "All services"
+    "backToServices": "All services",
+    "sub2": "Pick a service: the delivery form opens already set up.",
+    "newDelivery": "New delivery",
+    "servicesTitle": "The services you can request",
+    "servicesSub": "They come from your price list. Each card opens the delivery form with the service already selected.",
+    "request": "Request",
+    "noServices": "No service on your price list yet: write to us and we will enable it.",
+    "recurring": "Recurring service",
+    "recurringSub": "A delivery that repeats: declare it once, deliveries are created by themselves.",
+    "other": "Need something else?",
+    "otherSub": "Ask for a quote: we reply with a tailored offer.",
+    "model": { "PREZZO_FISSO": "Fixed price", "A_ORA": "Hourly", "VENDITA": "Sale", "MAGAZZINO": "Warehouse", "CORPORATE": "Corporate" },
+    "price": { "from": "from €{{n}}", "kmIncl": "{{n}} km included", "perHour": "€{{n}}/hour", "minHours": "min {{n}} h", "fee": "Deluxy fee {{n}}%", "perItem": "€{{n}}/item" }
   },
   "quotes": {
     "title": "Quotes",

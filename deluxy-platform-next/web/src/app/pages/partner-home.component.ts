@@ -43,7 +43,8 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
 
 /** Icone per MODELLO di prezzo (24x24 stroke, come la sidebar). */
 const ICONE_MODELLO: Record<string, string> = {
-  PREZZO_FISSO: '<rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/>',
+  // Furgone: la consegna. (Il pacco col fiocco somigliava al regalo della VENDITA.)
+  PREZZO_FISSO: '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H14v10H3ZM14 9h3.6a1.5 1.5 0 0 1 1.2.6l2 2.7a1 1 0 0 1 .2.6V16h-7Z"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',
   A_ORA: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   VENDITA: '<rect x="3.5" y="8.5" width="17" height="11.5" rx="2"/><path d="M3.5 13h17M12 8.5V20"/><path d="M12 8.5S10.5 4 8 4a2.2 2.2 0 0 0 0 4.5Zm0 0S13.5 4 16 4a2.2 2.2 0 0 1 0 4.5Z"/>',
   MAGAZZINO: '<path d="M3.5 9.5 12 5l8.5 4.5V20h-17Z"/><path d="M8.5 20v-6h7v6"/>',

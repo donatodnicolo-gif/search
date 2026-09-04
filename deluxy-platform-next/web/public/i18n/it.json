@@ -68,7 +68,19 @@
     "servicesEyebrow": "I nostri servizi",
     "requestsEyebrow": "In corso",
     "seeAll": "Vedi tutte",
-    "backToServices": "Tutti i servizi"
+    "backToServices": "Tutti i servizi",
+    "sub2": "Scegli il servizio: il modulo della consegna si apre già impostato.",
+    "newDelivery": "Nuova consegna",
+    "servicesTitle": "I servizi che puoi richiedere",
+    "servicesSub": "Sono quelli del tuo listino. Ogni tessera apre il modulo di consegna con il servizio già scelto.",
+    "request": "Richiedi",
+    "noServices": "Nessun servizio a listino: scrivici e lo attiviamo.",
+    "recurring": "Servizio ricorrente",
+    "recurringSub": "Una consegna che si ripete: la dichiari una volta, le consegne nascono da sole.",
+    "other": "Ti serve altro?",
+    "otherSub": "Chiedi un preventivo: ti rispondiamo su misura.",
+    "model": { "PREZZO_FISSO": "A prezzo fisso", "A_ORA": "A ore", "VENDITA": "Vendita", "MAGAZZINO": "Magazzino", "CORPORATE": "Aziendale" },
+    "price": { "from": "da {{n}} €", "kmIncl": "{{n}} km inclusi", "perHour": "{{n}} €/ora", "minHours": "min {{n}} h", "fee": "quota Deluxy {{n}}%", "perItem": "{{n}} €/pezzo" }
   },
   "quotes": {
     "title": "Preventivi",
