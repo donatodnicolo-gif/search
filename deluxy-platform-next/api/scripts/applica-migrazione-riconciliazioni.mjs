@@ -27,11 +27,14 @@ const nomi = colonne.map((c) => c.column_name);
 const formaVecchia = nomi.length && !nomi.includes('provinceId');
 if (formaVecchia) {
   const [{ n }] = await prisma.$queryRawUnsafe(`SELECT count(*)::int AS n FROM platform."ProductReconciliation"`);
-  if (n > 0) {
-    console.error(`⛔ La tabella nella forma vecchia contiene ${n} righe: non la butto. Decidi tu.`);
+  // Le righe della forma vecchia sono proposte dell'AI mai decise: si buttano
+  // SOLO con il flag esplicito (consenso dell'utente), mai in silenzio.
+  if (n > 0 && !process.argv.includes('--butta-le-righe-vecchie')) {
+    console.error(`⛔ La tabella nella forma vecchia contiene ${n} righe: non la butto senza --butta-le-righe-vecchie.`);
     await prisma.$disconnect();
     process.exit(1);
   }
+  if (n > 0) console.log(`⚠️ butto ${n} righe della forma vecchia (flag esplicito)`);
   await prisma.$executeRawUnsafe(`DROP TABLE platform."ProductReconciliation"`);
   console.log('✓ tabella vuota nella forma vecchia rimossa');
 }
