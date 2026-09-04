@@ -34,14 +34,16 @@ region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
   bruciato con updateMany condizionato in transazione; contatore «richieste
   24h» in Impostazioni. Node installato alle 10:10: `prisma generate` ok,
   **tsc 0, build 0, `prisma db push` FATTO** (2 tabelle nello schema crm).
-  ⚠️ **Manca**: (1) `npx vercel login` (CLI scollegata) e deploy; (2)
-  `MAIL_API_KEY` nelle env, altrimenti il link non parte (il login lo dice);
-  (3) **decisione b5 del proprietario**: la casella di reset è
-  deluxy.delivery@gmail.com (= `MAIL_UTENTE`), letta in AI Mail — chi la legge
-  può reimpostare la password e diventare admin del CRM; se non è solo
-  l'amministratore, impostare `CRM_RESET_EMAIL` su una casella sua. Finché
-  la riga `PasswordTeam` non esiste vale ancora `CRM_APP_PASSWORD`, che resta
-  obbligatoria per il fail-closed.
+  ✅ **DEPLOYATO alle 10:25** (`vercel deploy --prod`, deployment
+  deluxy-5u0gym4f5, Ready, alias deluxy-crm.vercel.app; verificato: /login
+  mostra «Mandami il link di recupero» + avviso posta non configurata,
+  /reimposta-password risponde «Link non più valido», /api/health ok). Con
+  questo deploy è andato live anche il commit del login del 31/08.
+  **Decisione del proprietario (b5)**: la casella di reset RESTA
+  deluxy.delivery@gmail.com (nessuna `CRM_RESET_EMAIL`). ⚠️ **Manca solo
+  `MAIL_API_KEY`** nelle env: finché non c'è il link non parte (il login lo
+  dice in arancione). Finché la riga `PasswordTeam` non esiste vale ancora
+  `CRM_APP_PASSWORD`, che resta obbligatoria per il fail-closed.
 
 
 - **Repo `app/` trovato con HEAD rotto** («bad object HEAD»): 17 commit del
@@ -65,7 +67,7 @@ region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
 ## Stato al 03/09/2026 (ripresa)
 
-- **Produzione ferma al 28/08**: l'ultimo deploy (`vercel ls --prod`) è di 6
+- (superato il 04/09: deployato) **Produzione ferma al 28/08**: l'ultimo deploy (`vercel ls --prod`) è di 6
   giorni fa; il commit `a309b6b3` del 31/08 (login: `<details>` «Password
   dimenticata?» che dice la verità sulla password unica di squadra) è in git ma
   **NON è live** (`curl /login | grep dimenticata` → 0). tsc 0 e build 0 il
