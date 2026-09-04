@@ -52,6 +52,14 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 04/09/2026 (13:25) — ✅ SCRIPT 1 ESEGUITO SU TUTTI I PARTNER: le 127 fatture commissioni tolte dai servizi
+>
+> Deciso dall'utente («SI sistema su tutti i partner»). Eseguito `scripts/ripara-commissioni-importate.mjs --attese 127 --esegui` da `scoutwt/deluxy-partner`:
+> - **cancellate 127** righe `FatturaServizio` (77.439,41 € di imponibile), **agganciate 13** ai mesi come `commFattNumero` (gli altri mesi avevano già il numero), incassi automatici stornati 0, riferimenti Pagamenti tolti 0. Backup: `scripts/backup-commissioni-importate-1788520548437.json` (ignorato da git). Riga nel registro modifiche («riparazione 02/09/2026», 13:25).
+> - Con le 5 di 142 RESTAURANT delle 13:05 fanno **132 = il censimento del 02/09**. La prova a secco rilanciata dopo trova **0** righe.
+> - Effetto: il fatturato per tipologia (`/api/v1/fatturato`, letto da Budgets) e i saldi mese dei partner in compensazione **non contano più due volte** la commissione.
+> - 🔴 **Restano da lanciare gli script 2 e 3** del 02/09 (`ripara-bonifici-doppi.mjs`, poi `ripara-incassi-importati.mjs`): prima a secco, poi con `--esegui`. ⚠️ Hanno ancora la guardia fissa sul conteggio del 02/09: se i numeri sono cambiati, adattarli come lo script 1 (`--attese`).
+
 > ### 04/09/2026 (13:20) — ANTOFLOWERS (Antonella Ricchetti), aprile: «non risulta la fattura 300/2026» — diagnosi, nessuna modifica
 >
 > Chiesto dall'utente dalla scheda `/partner/cmro01a7n0032i65crhroe3u5`. Guardato sui dati veri e sulla scheda resa in locale (server 3040 sul DB di produzione):
@@ -75,7 +83,7 @@
 > Verificato (non dedotto):
 > - **Produzione** = sempre `9f3274b3` (deploy `i37xrfvpi` del 03/09 19:57, nessun deploy nuovo); health 200 in 0,34 s, `database:true`.
 > - **L'app è in uso**: Renato Cassoli oggi ha creato 5 vendite vendor (09:45 → 12:38) e modificato 2 fatture servizi (299/2026 e 386/2026 alle 12:54–12:55); alle 11:19 un partner è nato dal registro Anagrafiche (origine Scout).
-> - 🔴 **I 3 script del 02/09 NON sono ancora stati lanciati**: **127 fatture commissioni ancora fra i servizi** secondo il criterio dello script (77.439,41 € di imponibile — prova a secco delle 13:06, DOPO le 5 di 142 RESTAURANT; torna con le 132 del 02/09). ⚠️ Un conteggio «descrizione che inizia per Commission» ne dà solo 124/44.853 €: lo script prende anche «commissioni» in mezzo alla descrizione e i numeri già `commFattNumero` di un mese. Zero righe nel registro modifiche con le frasi degli script, nessun `backup-*.json` in `scripts/`. Il fatturato per tipologia letto da Budgets resta gonfiato, i 9 mesi coi bonifici gemelli restano sommati. Comandi e ordine: vedi il blocco «02/09 (pomeriggio)» sotto.
+> - 🔴 **I 3 script del 02/09 NON sono ancora stati lanciati**: **127 fatture commissioni ancora fra i servizi** (✅ tolte alle 13:25, vedi sopra) secondo il criterio dello script (77.439,41 € di imponibile — prova a secco delle 13:06, DOPO le 5 di 142 RESTAURANT; torna con le 132 del 02/09). ⚠️ Un conteggio «descrizione che inizia per Commission» ne dà solo 124/44.853 €: lo script prende anche «commissioni» in mezzo alla descrizione e i numeri già `commFattNumero` di un mese. Zero righe nel registro modifiche con le frasi degli script, nessun `backup-*.json` in `scripts/`. Il fatturato per tipologia letto da Budgets resta gonfiato, i 9 mesi coi bonifici gemelli restano sommati. Comandi e ordine: vedi il blocco «02/09 (pomeriggio)» sotto.
 > - ✅ **Worktree `scoutwt` allineato** a `origin/scout-ui` (0 avanti / 0 indietro). Nella cartella padre ci sono modifiche NON committate di `deluxy-mail` (lavoro in corso di un'altra sessione): non toccarle e non aggiungerle ai commit di Finance.
 > - ✅ `src/components/StampaButton.tsx` (orfano dal 02/09) cancellato.
 > - ⚠️ `vercel.json` **non aveva** `"ignoreCommand"` (regola «Deploy e costi di build» del CLAUDE.md, 04/09): aggiunto. Sul progetto Vercel (`deluxy-partner`, Root Directory `.`) i deploy Production degli ultimi 4 giorni sono tutti da CLI con build su Vercel (46 s – 1 min): per azzerare i minuti di build si passa a `vercel build --prod` + `vercel deploy --prebuilt --prod` (o `/deploy deluxy-partner`).
