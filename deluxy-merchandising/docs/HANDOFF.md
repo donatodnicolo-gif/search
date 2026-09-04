@@ -107,6 +107,18 @@ di sessione; deploy da fare con l'utente):**
    fase Pubblico: si salvano come programma) e **si modificano dalla scheda**
    del prodotto (riquadro «Fase del ciclo di vita», form «Salva le date»,
    `aggiornaProdotto` legge `pubblicatoDal`/`pubblicatoFinoAl`).
+10. **Varianti nel modulo Nuovo prodotto** (chieste dall'utente dopo il
+    deploy, commit `e9d8167a`): riquadro «Varianti» con nome dell'opzione e
+    righe (nome, prezzo, costo, giacenza). Lo SKU di ogni variante **non si
+    scrive**: è quello principale più «-N» (`4839201-1`, `-2`…), mostrato in
+    riga e ricalcolato se si rigenera il principale.
+    `codiceLibero(chiesto, quanteVarianti)` verifica che siano liberi anche i
+    derivati. Su Shopify vanno come varianti dell'opzione
+    (`productVariantsBulkCreate`, già in `creaProdottoSuShopify`); qui nascono
+    righe `Variante` con `deltaPrezzo`/`deltaCosto` rispetto alla base. Con le
+    varianti il prezzo del prodotto è la base: se lasciato a 0 vale quello
+    della variante più economica. ⚠️ Non ancora deployato al momento di questa
+    riga (vedi STATO DEPLOY).
 9. **Sincronizzazione all'apertura** (`src/lib/sincronizza-apertura.ts`,
    chiamata dal cruscotto `/`): se l'ultimo import `ok` di un negozio è più
    vecchio di **4 ore**, dopo la risposta (`after()` di Next, `maxDuration
