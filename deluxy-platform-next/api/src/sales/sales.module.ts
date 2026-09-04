@@ -108,6 +108,22 @@ export class SalesService {
     };
   }
 
+  /**
+   * ⭐ 04/09 (regola utente): il LINK all'ordine su Shopify, per il dettaglio.
+   * La base è configurabile in Impostazioni (`shopifyAdminUrl`) perché i
+   * negozi sono più d'uno; di default il negozio storico. Lo costruisce il
+   * SERVER e non finisce mai nella risposta del partner: da lì si vedrebbero
+   * i dati del cliente che la maschera-partner toglie.
+   */
+  private async linkShopify(externalOrderId: string | null): Promise<string | null> {
+    const id = SalesService.numeroShopify(externalOrderId);
+    if (!id) return null;
+    const s = await this.prisma.appSetting.findUnique({ where: { key: 'shopifyAdminUrl' } });
+    const base = (s?.value?.trim() || process.env.SHOPIFY_ADMIN_URL || 'https://admin.shopify.com/store/deluxygifts')
+      .replace(/\/+$/, '');
+    return base ? `${base}/orders/${id}` : null;
+  }
+
   /** La coda numerica di «gid://shopify/Order/N» (o «N»): la chiave con cui Orders si trova. */
   private static numeroShopify(v?: string | null): string | null {
     const t = (v ?? '').trim();
@@ -562,7 +578,7 @@ export class SalesService {
     const serviceType = vendita.serviceTypeId
       ? await this.prisma.serviceType.findUnique({ where: { id: vendita.serviceTypeId }, select: { id: true, name: true } })
       : null;
-    return { ...vendita, serviceType, delivery };
+    return { ...vendita, serviceType, delivery, shopifyUrl: await this.linkShopify(vendita.externalOrderId) };
   }
 
   /**

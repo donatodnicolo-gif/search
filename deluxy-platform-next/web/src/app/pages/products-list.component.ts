@@ -40,9 +40,6 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       <button type="button" class="tab" [class.on]="archived()" (click)="setArchived(true)">
         {{ 'products.tabArchive' | translate }}
       </button>
-      @if (isUfficio()) {
-        <a class="tab" routerLink="/products/riconciliazioni">{{ 'products.tabReconciliations' | translate }}</a>
-      }
     </div>
 
     <!-- Filtri Sì/No come nella lista prodotti dell'app reale (manuale §3.6):
@@ -205,7 +202,6 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
       .tab:hover { background: var(--fill); }
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-      a.tab { text-decoration: none; display: inline-flex; align-items: center; }
       /* Selezione multipla */
       th.sel, td.sel { width: 34px; text-align: center; }
       tr.scelta { background: color-mix(in srgb, var(--ink) 4%, transparent); }
@@ -380,10 +376,6 @@ export class ProductsListComponent {
   }
 
   readonly archived = signal(false);
-  /** Le Riconciliazioni sono dell'ufficio: Admin e Operation. */
-  isUfficio(): boolean {
-    return ['ADMIN', 'OPERATION'].includes(this.auth.user()?.role ?? '');
-  }
 
   /**
    * I filtri Sì/No, nell'ordine in cui li mostra l'app reale (manuale §3.6).

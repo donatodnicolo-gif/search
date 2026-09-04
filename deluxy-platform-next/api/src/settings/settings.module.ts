@@ -42,6 +42,10 @@ export const SETTING_KEYS = [
   'anagraficheApiKey',
   'ordersUrl',
   'ordersApiKey',
+  // Base dell'admin Shopify per il bottone «Vedi su Shopify» nel dettaglio
+  // vendita (04/09/2026): es. https://admin.shopify.com/store/deluxygifts.
+  // Vuoto = si usa il negozio storico.
+  'shopifyAdminUrl',
   'merchandisingUrl',
   'merchandisingApiKey',
   // AI Mail: il canale SMTP appartiene a quell'app (Standard §5.3), qui si

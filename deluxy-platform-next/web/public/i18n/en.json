@@ -25,6 +25,7 @@
       "operativita": "Operations",
       "utenti": "Users",
       "prodotti": "Products",
+    "riconciliazioni": "Reconciliations",
       "amministrazione": "Administration",
       "configurazione": "Configuration"
     },
@@ -237,6 +238,8 @@
       "hint": "The number (international format without + or spaces, e.g. 393331234567) powers the partners' “Message us on WhatsApp”. Commercial lines come from Deluxy Scout, their master: they are the showcase of requestable services on the Quotes page."
     },
     "orders": {
+      "shopifyAdmin": "Shopify admin (for the order link)",
+      "shopifyAdminHint": "Used by the “View on Shopify” button in the sale detail. Empty = historical store.",
       "title": "Deluxy Orders (Shopify orders)",
       "url": "Orders address",
       "key": "Orders API key",
@@ -974,6 +977,14 @@
       "price": "Price",
       "state": "State",
       "actions": "Actions"
+    },
+    "excluded": {
+      "title": "Excluded partners",
+      "none": "none",
+      "add": "Exclude a partner…",
+      "addBtn": "Exclude",
+      "remove": "Remove from excluded",
+      "rules": "⚠️ {{n}} active rules involve a partner just excluded: they stay valid until you change them."
     },
     "listPrice": "list price {{prezzo}} €",
     "toPartner": "partner gets {{prezzo}} €",
@@ -2390,6 +2401,8 @@
       "none": "none",
       "origin": "Origin",
       "order": "order",
+      "shopify": "View on Shopify ↗",
+      "partnerPriceHint": "what the partner gets",
       "registro": "Log",
       "noLogs": "No events recorded: the log starts on 4 September 2026.",
       "system": "system"

@@ -3,6 +3,32 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧹 **04/09/2026-decies — Riconciliazioni: partner esclusi (Artista Locale) e voce di menu; dettaglio vendita: link Shopify e prezzo partner** (IN LOCALE, l'utente ha detto «per ora non serve pubblicare, ti dirò io quando»).
+> - **Esclusi**: `AppSetting.riconciliazioniPartnerEsclusi` = id separati da
+>   virgola. Usati in `genera` (le vendite di un escluso non fanno proposte),
+>   `modifica` (400) e `partnerInProvincia`. Gestione dalla pagina (chip +
+>   select), rotte `GET/PUT /riconciliazioni/esclusi`, `GET
+>   /riconciliazioni/partner-attivi`; script
+>   `imposta-riconciliazioni-esclusi.mjs "Artista Locale"`. **NON ancora
+>   scritto in produzione** (nessun tocco alla prod finché non si pubblica):
+>   `cmt5t8yjd00ari6v4aa2vlrbc`. Misura: negli ultimi 90 gg Artista Locale fa
+>   134 vendite su 247 e 112 coppie su 214.
+> - **Menu**: voce `nav.riconciliazioni` in sezione Prodotti (ADMIN/OPERATION);
+>   `NavItem.exact` nuovo, messo su `/products` perché `routerLinkActive` è a
+>   prefisso e accendeva due voci. Tolto il tab dall'elenco prodotti.
+> - **Dettaglio vendita**: `shopifyUrl` costruito dal server in `findOne` SOLO
+>   per l'ufficio (`SalesService.linkShopify`, base `shopifyAdminUrl` in
+>   Impostazioni → sezione Orders, default `admin.shopify.com/store/deluxygifts`
+>   — l'unico dominio myshopify trovato nel repo, **da confermare** per gli
+>   altri negozi); riga «Prezzo partner» = importo × (1 − sconto%) anche per
+>   l'ufficio.
+> - `fmt` della pagina riconciliazioni accetta `undefined` → «—» (la pagina
+>   nuova su API vecchia mostrava «al partner undefined €»).
+> - ⚠️ **Al deploy, nell'ordine**: `applica-migrazione-riconciliazioni.mjs
+>   --butta-le-righe-vecchie` (80 righe della prima stesura, tutte NON decise),
+>   poi `imposta-riconciliazioni-esclusi.mjs "Artista Locale"`, poi build+deploy,
+>   push, guida ripubblicata.
+>
 > 🧭 **04/09/2026-nonies — RICONCILIAZIONI, SECONDA STESURA (regola utente: prodotto × provincia → partner a un prezzo, senza AI)** (IN LOCALE, in attesa del comando di deploy).
 > - L'utente ha ridefinito la funzione: «se un prodotto in una vendita non è
 >   unico, o non-unico senza riconciliazione per quella provincia, mostra

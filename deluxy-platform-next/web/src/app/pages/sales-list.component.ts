@@ -22,6 +22,8 @@ interface Sale {
   externalOrderId?: string | null;
   /** Il numero d'ordine Shopify (es. 2824), riempito anche sul pregresso. */
   externalOrderNumber?: string | null;
+  /** Link all'ordine su Shopify: lo costruisce il server, e all'ufficio soltanto. */
+  shopifyUrl?: string | null;
   source: string;
   product?: { id: string; name: string } | null;
   variantName?: string | null;
@@ -326,6 +328,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             @if (canManage() && (v.status === 'proposta' || v.status === 'da_gestire')) {
               <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="chiudiDettaglio(); inserisci(v)">{{ 'sales.inserisci' | translate }}</button>
             }
+            @if (v.shopifyUrl) {
+              <a class="btn btn-secondary mini" [href]="v.shopifyUrl" target="_blank" rel="noopener">{{ 'sales.detail.shopify' | translate }}</a>
+            }
             <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
           </div>
         </header>
@@ -340,6 +345,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <dd>{{ v.prezzoPartner | number: '1.2-2' }} €</dd>
             } @else {
               <dd>{{ v.amount | number: '1.2-2' }} €@if (v.discountPercent) { <span class="muted"> · {{ 'sales.detail.discount' | translate }} {{ v.discountPercent }}%</span> }</dd>
+            }
+            <!-- ⭐ 04/09 (regola utente): anche all'ufficio il prezzo del partner. -->
+            @if (!isPartner()) {
+              <dt>{{ 'sales.col.partnerPrice' | translate }}</dt>
+              <dd>{{ nettoPartner(v) | number: '1.2-2' }} €<span class="muted"> · {{ 'sales.detail.partnerPriceHint' | translate }}</span></dd>
             }
             <dt>{{ 'sales.detail.partner' | translate }}</dt>
             <dd>{{ v.partner?.insegna ?? ('sales.noPartner' | translate) }}@if (v.assignmentReason) { <div class="cella-sub">{{ v.assignmentReason }}</div> }</dd>
@@ -619,6 +629,11 @@ export class SalesListComponent {
   colore(stato: string) { return STATI[stato]?.colore ?? '#6e6e73'; }
 
   /** Un partner risponde solo alle vendite proposte a lui; admin e operation a tutte. */
+  /** Quanto incassa il partner: importo meno la quota Deluxy (lo sconto della vendita). */
+  nettoPartner(v: Sale): number {
+    return Math.round((v.amount ?? 0) * (1 - (v.discountPercent ?? 0) / 100) * 100) / 100;
+  }
+
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }

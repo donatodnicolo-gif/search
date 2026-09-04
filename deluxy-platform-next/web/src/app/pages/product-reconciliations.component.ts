@@ -124,6 +124,33 @@ interface UltimaCorsa {
       @if (errore(); as err) {
         <p class="esito ko">{{ err }}</p>
       }
+      <!-- ⭐ 04/09 (regola utente): partner esclusi — le loro vendite non
+           generano proposte e non si possono scegliere nella modifica. -->
+      <div class="esclusi">
+        <b>{{ 'reconciliations.excluded.title' | translate }}:</b>
+        @if (esclusi().length) {
+          @for (p of esclusi(); track p.id) {
+            <span class="chip">{{ p.insegna }}
+              <button type="button" class="x" [disabled]="inAzione()" (click)="togliEscluso(p.id)"
+                      [attr.aria-label]="'reconciliations.excluded.remove' | translate">×</button>
+            </span>
+          }
+        } @else {
+          <span class="muted">{{ 'reconciliations.excluded.none' | translate }}</span>
+        }
+        <select class="field mini" name="nuovoEscluso" [(ngModel)]="nuovoEscluso" [disabled]="inAzione()">
+          <option value="">{{ 'reconciliations.excluded.add' | translate }}</option>
+          @for (p of partnerAttivi(); track p.id) {
+            <option [value]="p.id">{{ p.insegna }}</option>
+          }
+        </select>
+        <button type="button" class="btn btn-secondary mini" [disabled]="inAzione() || !nuovoEscluso" (click)="aggiungiEscluso()">
+          {{ 'reconciliations.excluded.addBtn' | translate }}
+        </button>
+        @if (regoleColpite() > 0) {
+          <span class="ko small">{{ 'reconciliations.excluded.rules' | translate: { n: regoleColpite() } }}</span>
+        }
+      </div>
     </section>
 
     <!-- Filtro sullo stato -->
@@ -235,6 +262,11 @@ interface UltimaCorsa {
       .lancio { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; }
       .lancio .fld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-secondary); }
       .lancio .hint { flex-basis: 100%; margin: 4px 0 0; font-size: 13px; color: var(--text-secondary); }
+      .esclusi { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+      .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--fill); border-radius: 980px; padding: 3px 6px 3px 12px; }
+      .chip .x { border: 0; background: none; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-secondary); padding: 0 4px; }
+      .chip .x:hover { color: var(--danger, #b3261e); }
+      .field.mini { padding: 4px 10px; font-size: 12px; max-width: 240px; }
       .esito { flex-basis: 100%; margin: 0; font-size: 13px; }
       .esito.ok { color: var(--success, #1d7a3a); }
       .esito.ko, .ko { color: var(--danger, #b3261e); }
@@ -278,6 +310,11 @@ export class ProductReconciliationsComponent {
   readonly conferma = signal<{ titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary'; riga: Riga; azione: 'accetta' | 'rifiuta' } | null>(null);
 
   /** Modifica in riga: partner (fra chi opera nella provincia), prezzo, sconto. */
+  readonly esclusi = signal<{ id: string; insegna: string }[]>([]);
+  readonly partnerAttivi = signal<{ id: string; insegna: string }[]>([]);
+  readonly regoleColpite = signal(0);
+  nuovoEscluso = '';
+
   readonly modificaId = signal<string | null>(null);
   readonly partnerScelta = signal<{ id: string; insegna: string }[]>([]);
   mod: { partnerId: string; price: number | null; discountPercent: number | null } = { partnerId: '', price: null, discountPercent: null };
@@ -291,9 +328,46 @@ export class ProductReconciliationsComponent {
     this.a = this.iso(oggi);
     this.da = this.iso(new Date(oggi.getTime() - 90 * 86400000));
     this.carica();
+    this.caricaEsclusi();
     this.http.get<UltimaCorsa | null>(`${environment.apiUrl}/riconciliazioni/ultima-corsa`).subscribe({
       next: (u) => this.ultima.set(u),
       error: () => this.ultima.set(null),
+    });
+  }
+
+  caricaEsclusi(): void {
+    this.http.get<{ partner: { id: string; insegna: string }[] }>(`${environment.apiUrl}/riconciliazioni/esclusi`)
+      .subscribe({ next: (e) => this.esclusi.set(e.partner) });
+    this.http.get<{ id: string; insegna: string }[]>(`${environment.apiUrl}/riconciliazioni/partner-attivi`)
+      .subscribe({ next: (l) => this.partnerAttivi.set(l) });
+  }
+
+  aggiungiEscluso(): void {
+    if (!this.nuovoEscluso) return;
+    this.scriviEsclusi([...this.esclusi().map((p) => p.id), this.nuovoEscluso]);
+  }
+
+  togliEscluso(id: string): void {
+    this.scriviEsclusi(this.esclusi().map((p) => p.id).filter((x) => x !== id));
+  }
+
+  private scriviEsclusi(partnerIds: string[]): void {
+    this.inAzione.set(true);
+    this.errore.set(null);
+    this.http.put<{ partner: { id: string; insegna: string }[]; regoleAttive: number }>(
+      `${environment.apiUrl}/riconciliazioni/esclusi`, { partnerIds },
+    ).subscribe({
+      next: (e) => {
+        this.inAzione.set(false);
+        this.nuovoEscluso = '';
+        this.esclusi.set(e.partner);
+        this.regoleColpite.set(e.regoleAttive);
+        this.caricaEsclusi();
+      },
+      error: (e: HttpErrorResponse) => {
+        this.inAzione.set(false);
+        this.errore.set(this.translate.instant('reconciliations.errorDecide', { msg: this.msg(e) }));
+      },
     });
   }
 
@@ -301,8 +375,9 @@ export class ProductReconciliationsComponent {
     return d.toISOString().slice(0, 10);
   }
 
-  fmt(n: number | null): string {
-    return n === null ? '' : (this.decimal.transform(n, '1.2-2') ?? String(n));
+  /** ⚠️ Anche `undefined`: un numero che non c'è si scrive «—», mai «undefined». */
+  fmt(n: number | null | undefined): string {
+    return n === null || n === undefined ? '—' : (this.decimal.transform(n, '1.2-2') ?? String(n));
   }
 
   nettoMod(): number | null {

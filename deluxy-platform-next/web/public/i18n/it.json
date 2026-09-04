@@ -25,6 +25,7 @@
       "operativita": "Operatività",
       "utenti": "Utenti",
       "prodotti": "Prodotti",
+    "riconciliazioni": "Riconciliazioni",
       "amministrazione": "Amministrazione",
       "configurazione": "Configurazione"
     },
@@ -237,6 +238,8 @@
       "hint": "Il numero (formato internazionale senza + né spazi, es. 393331234567) è il «Scrivici su WhatsApp» dei partner. Le linee commerciali arrivano da Deluxy Scout, che ne è il master: sono la vetrina dei servizi richiedibili nella pagina Preventivi."
     },
     "orders": {
+      "shopifyAdmin": "Admin Shopify (per il link all'ordine)",
+      "shopifyAdminHint": "Serve al bottone «Vedi su Shopify» nel dettaglio vendita. Vuoto = negozio storico.",
       "title": "Deluxy Orders (ordini Shopify)",
       "url": "Indirizzo di Orders",
       "key": "Chiave API di Orders",
@@ -974,6 +977,14 @@
       "price": "Prezzo",
       "state": "Stato",
       "actions": "Azioni"
+    },
+    "excluded": {
+      "title": "Partner esclusi",
+      "none": "nessuno",
+      "add": "Escludi un partner…",
+      "addBtn": "Escludi",
+      "remove": "Togli dagli esclusi",
+      "rules": "⚠️ {{n}} regole attive riguardano un partner appena escluso: restano valide finché non le cambi."
     },
     "listPrice": "listino {{prezzo}} €",
     "toPartner": "al partner {{prezzo}} €",
@@ -2391,6 +2402,8 @@
       "none": "nessuna",
       "origin": "Origine",
       "order": "ordine",
+      "shopify": "Vedi su Shopify ↗",
+      "partnerPriceHint": "quanto incassa il partner",
       "registro": "Registro",
       "noLogs": "Nessun evento registrato: il registro parte dal 4 settembre 2026.",
       "system": "sistema"

@@ -19,6 +19,12 @@ interface NavItem {
   supportOnly?: boolean;
   /** Solo per i partner con la home «Servizi» accesa (impostazione, 04/09). */
   soloVetrina?: boolean;
+  /**
+   * Evidenzia la voce SOLO sulla rotta esatta. Serve dove una voce è il
+   * prefisso di un'altra (`/products` e `/products/riconciliazioni`):
+   * senza, si accendono tutt'e due e il menu non dice più dove sei.
+   */
+  exact?: boolean;
 }
 
 /** Icone stroke minimali (24x24, stile SF Symbols). */
@@ -83,7 +89,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'nav.section.prodotti',
     items: [
-      { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'], exact: true },
+      // ⭐ 04/09 (regola utente): le Riconciliazioni sono una voce di menu, non
+      // un tab dentro l'elenco prodotti. Ufficio soltanto.
+      { label: 'nav.riconciliazioni', path: '/products/riconciliazioni', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.categorie', path: '/categories', icon: 'folder', roles: ['ADMIN', 'OPERATION'] },
     ],
   },
@@ -178,6 +187,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
                 [routerLink]="item.path"
                 [queryParams]="linkParams(item)"
                 routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: !!item.exact }"
                 class="nav-link"
                 (click)="close()"
                 [title]="collapsed() ? (item.label | translate) : ''"

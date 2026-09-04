@@ -77,6 +77,60 @@ export class RiconciliazioniService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * ⭐ PARTNER ESCLUSI (04/09/2026, regola utente: «escludi da riconciliazioni
+   * l'artista locale»). Una lista di ID in `AppSetting`, non un nome nel
+   * codice: i nomi cambiano e due partner possono chiamarsi uguale, l'id no.
+   * Le loro vendite non generano proposte e non si possono scegliere nella
+   * modifica. ⚠️ Non tocca le regole GIÀ accettate: quelle le ha decise una
+   * persona e si cambiano a mano (l'endpoint dice quante ne sono coinvolte).
+   */
+  private async esclusiIds(): Promise<string[]> {
+    const s = await this.prisma.appSetting.findUnique({ where: { key: 'riconciliazioniPartnerEsclusi' } });
+    return (s?.value ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+  }
+
+  /** Gli esclusi con l'insegna, per la pagina. */
+  async esclusi() {
+    const ids = await this.esclusiIds();
+    if (!ids.length) return { partner: [] as { id: string; insegna: string }[] };
+    const partner = await this.prisma.partner.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, insegna: true },
+      orderBy: { insegna: 'asc' },
+    });
+    return { partner };
+  }
+
+  /** Riscrive la lista degli esclusi e dice quante regole attive li riguardano. */
+  async impostaEsclusi(partnerIds: string[]) {
+    const ids = [...new Set((partnerIds ?? []).map((t) => String(t).trim()).filter(Boolean))];
+    if (ids.length) {
+      const esistono = await this.prisma.partner.count({ where: { id: { in: ids } } });
+      if (esistono !== ids.length) throw new BadRequestException('Uno dei partner indicati non esiste.');
+    }
+    const value = ids.join(',');
+    await this.prisma.appSetting.upsert({
+      where: { key: 'riconciliazioniPartnerEsclusi' },
+      update: { value },
+      create: { key: 'riconciliazioniPartnerEsclusi', value },
+    });
+    const regoleAttive = ids.length
+      ? await this.prisma.productReconciliation.count({ where: { partnerId: { in: ids }, status: 'accettata' } })
+      : 0;
+    return { ...(await this.esclusi()), regoleAttive };
+  }
+
+  /** I partner attivi non esclusi (per aggiungere un escluso dalla pagina). */
+  async partnerAttivi() {
+    const esclusi = await this.esclusiIds();
+    return this.prisma.partner.findMany({
+      where: { active: true, ...(esclusi.length ? { id: { notIn: esclusi } } : {}) },
+      select: { id: true, insegna: true },
+      orderBy: { insegna: 'asc' },
+    });
+  }
+
+  /**
    * Le PROPOSTE dalle vendite accettate in [da, a]: per ogni coppia
    * (prodotto NON unico, provincia) senza una riga già decisa, si scrive o
    * si aggiorna la proposta col partner più frequente e il suo prezzo più
@@ -87,10 +141,12 @@ export class RiconciliazioniService {
     if (isNaN(opts.da.getTime()) || isNaN(opts.a.getTime())) throw new BadRequestException('Intervallo di date non valido.');
     if (opts.da > opts.a) throw new BadRequestException('La data «da» viene dopo la data «a».');
 
+    // Le vendite andate a un partner ESCLUSO non generano proposte.
+    const esclusi = await this.esclusiIds();
     const vendite = await this.prisma.sale.findMany({
       where: {
         status: 'accettata',
-        partnerId: { not: null },
+        partnerId: { not: null, ...(esclusi.length ? { notIn: esclusi } : {}) },
         productId: { not: null },
         createdAt: { gte: opts.da, lte: opts.a },
         product: { type: 'NON_UNICO' },
@@ -275,6 +331,9 @@ export class RiconciliazioniService {
       });
       if (!p) throw new NotFoundException('Partner non trovato');
       if (!p.active) throw new BadRequestException('Il partner scelto non è attivo.');
+      if ((await this.esclusiIds()).includes(body.partnerId)) {
+        throw new BadRequestException('Il partner scelto è escluso dalle riconciliazioni.');
+      }
       if (!p.provinces.length) throw new BadRequestException('Il partner scelto non opera in questa provincia.');
       data.partnerId = body.partnerId;
     }
@@ -298,10 +357,11 @@ export class RiconciliazioniService {
     return (await this.lista({ ids: [id] }))[0];
   }
 
-  /** I partner attivi che operano in una provincia (per la modifica). */
-  partnerInProvincia(provinceId: string) {
+  /** I partner attivi, non esclusi, che operano in una provincia (per la modifica). */
+  async partnerInProvincia(provinceId: string) {
+    const esclusi = await this.esclusiIds();
     return this.prisma.partner.findMany({
-      where: { active: true, provinces: { some: { provinceId } } },
+      where: { active: true, provinces: { some: { provinceId } }, ...(esclusi.length ? { id: { notIn: esclusi } } : {}) },
       select: { id: true, insegna: true },
       orderBy: { insegna: 'asc' },
     });
@@ -356,6 +416,24 @@ export class RiconciliazioniController {
   @ApiOperation({ summary: 'Partner attivi che operano nella provincia (per la modifica)' })
   partner(@Param('provinceId') provinceId: string) {
     return this.service.partnerInProvincia(provinceId);
+  }
+
+  @Get('esclusi')
+  @ApiOperation({ summary: 'I partner esclusi dalle riconciliazioni' })
+  esclusi() {
+    return this.service.esclusi();
+  }
+
+  @Put('esclusi')
+  @ApiOperation({ summary: 'Riscrive la lista dei partner esclusi dalle riconciliazioni' })
+  impostaEsclusi(@Body() body: { partnerIds?: string[] }) {
+    return this.service.impostaEsclusi(body?.partnerIds ?? []);
+  }
+
+  @Get('partner-attivi')
+  @ApiOperation({ summary: 'Partner attivi non esclusi (per aggiungere un escluso)' })
+  partnerAttivi() {
+    return this.service.partnerAttivi();
   }
 
   @Post('analizza')

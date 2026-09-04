@@ -202,7 +202,11 @@ interface GeocodeResult {
             </button>
           </div>
         </label>
-        <p class="hint">{{ 'settings.orders.hint' | translate }}</p>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.orders.shopifyAdmin' | translate }}</span>
+          <input class="field mono" name="shopifyAdminUrl" [(ngModel)]="model.shopifyAdminUrl"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="https://admin.shopify.com/store/deluxygifts" />
+        </label>
+        <p class="hint">{{ 'settings.orders.hint' | translate }} {{ 'settings.orders.shopifyAdminHint' | translate }}</p>
         <div class="key-row" style="margin-top:10px">
           <button type="button" class="btn btn-secondary" [disabled]="provandoOrders()" (click)="provaOrders()">
             {{ (provandoOrders() ? 'common.loading' : 'settings.orders.test') | translate }}
@@ -347,7 +351,7 @@ export class SettingsComponent {
   model = {
     googleMapsApiKey: '', googleMapsBrowserKey: '',
     anagraficheUrl: '', anagraficheApiKey: '',
-    ordersUrl: '', ordersApiKey: '',
+    ordersUrl: '', ordersApiKey: '', shopifyAdminUrl: '',
     mailUrl: '', mailApiKey: '', mailUtente: '',
     aiApiKey: '', aiProvider: 'anthropic', openaiApiKey: '',
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '', homePartnerEmails: '',
@@ -481,6 +485,7 @@ export class SettingsComponent {
         this.model.googleMapsBrowserKey = s['googleMapsBrowserKey'] ?? '';
         this.model.ordersUrl = s['ordersUrl'] ?? '';
         this.model.ordersApiKey = s['ordersApiKey'] ?? '';
+        this.model.shopifyAdminUrl = s['shopifyAdminUrl'] ?? '';
         this.model.mailUrl = s['mailUrl'] ?? '';
         this.model.mailApiKey = s['mailApiKey'] ?? '';
         this.model.mailUtente = s['mailUtente'] ?? '';
