@@ -163,11 +163,21 @@ export default async function PartnerList({
   // vendor (SaldoMensile.commFattEmessa). Contare solo le prime nascondeva 24
   // partner che una fattura ce l'hanno eccome — MARYFLOR ne ha sette nel 2026.
   const haFattura = (t: Riga) => t.fatture.length > 0 || t.saldiRecords.some((s) => s.commFattEmessa);
+  // ⭐ 04/09/2026 (regola dell'utente) — ATTIVO È CHI HA UNA FATTURA **O** DELLE
+  // VENDITE. Prima il filtro di default guardava solo le fatture, e la sera in
+  // cui «senza documento su FIC non è una fattura» è entrata in vigore due
+  // partner che lavorano davvero sono spariti dall'elenco: GIADA CAKE e Fiori
+  // Rimini, tutti e due con una vendita vendor nel 2026 e una fattura mai
+  // emessa. Sparire dall'elenco perché la fattura non è stata fatta è il
+  // contrario di quello che serve: chi lavora si vede, e la fattura mancante
+  // si vede sulla sua scheda (il riquadro ambra).
+  const haFatturaOVendite = (t: Riga) => haFattura(t) || t.vendite.length > 0;
   const passaStato = (t: Riga) => {
     switch (stato) {
-      // default: chi ha almeno una fattura di competenza dell'anno in corso
-      case "attivi-fatture": return haFattura(t);
-      case "attivi-movimenti": return haFattura(t) || t.vendite.length > 0;
+      // default: chi nell'anno in corso ha una fattura o ha venduto
+      // («attivi-movimenti» resta valido: i link già in giro continuano a funzionare)
+      case "attivi-fatture":
+      case "attivi-movimenti": return haFatturaOVendite(t);
       case "attivi": return t.partner.clienteAnno !== "Dismesso";
       case "dismessi": return t.partner.clienteAnno === "Dismesso";
       default: return true;
@@ -178,9 +188,8 @@ export default async function PartnerList({
   // quanti restano fuori per il solo stato, e quanti di quelli hanno comunque
   // lavorato nell'anno (vendite come vendor, senza fattura di servizio)
   const nascostiDalloStato = base.length - filtered.length;
-  const nascostiConVendite = base.filter((t) => !passaStato(t) && t.vendite.length > 0).length;
   const ETICHETTA_STATO: Record<string, string> = {
-    "attivi-fatture": `con almeno una fattura ${ANNO_CORRENTE} (servizi o commissioni)`,
+    "attivi-fatture": `con una fattura o una vendita ${ANNO_CORRENTE}`,
     "attivi-movimenti": `con una fattura o una vendita ${ANNO_CORRENTE}`,
     attivi: "non dismessi",
     dismessi: "dismessi",
@@ -303,8 +312,9 @@ export default async function PartnerList({
             {categorie.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <select name="stato" defaultValue={stato} aria-label="Stato del partner">
-            <option value="attivi-fatture">Attivi · con fattura {ANNO_CORRENTE}</option>{/* servizi o commissioni */}
-            <option value="attivi-movimenti">Attivi · fattura o vendita {ANNO_CORRENTE}</option>
+            {/* una voce sola: fattura (servizi o commissioni) O vendita come
+                vendor — chi lavora si vede anche se la fattura manca */}
+            <option value="attivi-fatture">Attivi · con fattura o vendita {ANNO_CORRENTE}</option>
             <option value="attivi">Non dismessi</option>
             <option value="dismessi">Dismessi</option>
             <option value="tutti">Tutti i partner</option>
@@ -340,15 +350,8 @@ export default async function PartnerList({
         {stato !== "tutti" && nascostiDalloStato > 0 && (
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
             In elenco i <strong>{filtered.length}</strong> partner {ETICHETTA_STATO[stato]}.{" "}
-            Nascosti <strong>{nascostiDalloStato}</strong>
-            {stato === "attivi-fatture" && nascostiConVendite > 0 && (
-              <>, di cui <strong>{nascostiConVendite}</strong> con vendite come vendor nel{" "}
-              {ANNO_CORRENTE} ma nessuna fattura, né di servizi né di commissioni</>
-            )}
-            .{" "}
-            {stato === "attivi-fatture" && nascostiConVendite > 0 && (
-              <><Link href={linkStato("attivi-movimenti")}>Conta anche le vendite</Link> · </>
-            )}
+            Nascosti <strong>{nascostiDalloStato}</strong>, che nel {ANNO_CORRENTE} non hanno né
+            una fattura né una vendita.{" "}
             <Link href={linkStato("tutti")}>Mostra tutti i partner</Link>
           </p>
         )}
