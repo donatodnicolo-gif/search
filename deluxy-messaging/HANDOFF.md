@@ -43,7 +43,7 @@ vero»): il parser non sbaglia mai ad alta voce, l'ho visto leggendo le righe.
 - `scripts/prova-chiamate.mts`: le **due notifiche vere** incollate come casi
   (una col numero a capo e la virgola, una «mentre eri occupato»). 16 prove ok.
 
-### Lo script di riparazione — SCRITTO, NON LANCIATO
+### Lo script di riparazione — LANCIATO il 05/09 col sì dell'utente («fai tu»): 16 su 16 riparate, seconda simulazione 0 da riparare
 
 `npx tsx --env-file=.env scripts/ripara-chiamate-invertite.mts` (senza
 argomenti simula; `--applica` scrive). Per ogni riga il cui `numero` risulta il
@@ -58,15 +58,17 @@ Simulazione sui dati veri:
 | riconosciute su un ordine | 5 — Emanuela Apollaro #12860 · Fenisia Passaro #12871 (3 chiamate) · Anna Jalvemyr #12870 |
 | sconosciute | 11 (fra cui un numero USA, uno svedese, uno tedesco, un fisso di Verona chiamato tre volte) |
 
-🔴 **Aspetta il sì dell'utente**: scrive 16 righe e 16 promemoria in produzione.
-Aperto anche: se azzerare `richiamataIl` (le spunte sono sulla persona
+✅ Applicato: 16 righe e 16 promemoria riscritti (5 su ordini veri, 11 «NON risulta nostro cliente»). Le spunte «richiamato» sono rimaste com'erano.
+Aperto: se azzerare `richiamataIl` (le spunte sono sulla persona
 sbagliata) — decisione di chi lavora.
 
 🔴 **`telefonoChiamate` è vuoto su tutti e tre i negozi**: i due numeri virtuali
 sono `0282952899` (15 chiamate) e `0282941380` (1). Senza sapere di che marchio
 sono, le 11 sconosciute restano «senza marchio». Si scrive in *Negozi*.
 
-**Stato**: parser corretto e script committati in locale, non pushati.
+**Stato**: parser corretto e script committati in locale, non pushati. Dati in produzione già riparati (lo script è idempotente: rilanciato, trova 0).
+
+✅ **Modalità sviluppatore di Windows attivata dall'utente il 05/09** (registro ): dal prossimo deploy si prova di nuovo  + , senza minuti di build fatturati.
 
 ## 05/09/2026 (17:30) — «Pagata» qui chiude la richiesta anche su Transactions
 
