@@ -189,6 +189,22 @@ Riferimenti: Mail `EliminaSezione`/`SvuotaCestino`, Anagrafiche `Riconcilia`. Pe
 - **paginazione** obbligatoria sopra le ~100 righe (riferimento: Anagrafiche, 50/pagina); un `take` senza paginazione né conteggio è una lista che mente;
 - riga cliccabile: `tabindex` + Enter + `focus-visible` oro; azioni di riga col cap. 3.
 
+**Tabelle più larghe della finestra: identità a sinistra, azioni a destra** *(v2.0, 05/09/2026 — segnalazione utente sulla piattaforma `/vendite`: scorrendo a destra per raggiungere i bottoni sparivano numero d'ordine e data, e non si capiva più quale vendita fosse la riga)*
+
+Quando una tabella supera la larghezza del wrapper (10-14 colonne è la norma in questo parco), **`overflow-x: auto` da solo è un bug, non un pattern**: lo scorrimento porta via l'identità del record e lascia numeri senza soggetto.
+
+- **UNA colonna identità congelata a `left: 0`** — quella con cui l'operatore riconosce il record (numero d'ordine, codice, nome). **Deve essere la PRIMA colonna**: il blocco congelato parte sempre dal bordo, mai da una colonna centrale con le altre che le scorrono sotto (NN/g, *Data Tables*: si blocca la colonna più a sinistra, quella dei row header). Se l'identità oggi non è prima, **o si sposta, o entra come sotto-testo nella prima cella** — mai congelarne due.
+- **UNA colonna azioni congelata a `right: 0`** quando la riga ha azioni: è il motivo per cui si scorre. Misura: da 1 scorrimento orizzontale per riga a 0.
+- **Tetto: i blocchi congelati ≤ 40% della larghezza del wrapper**, verificato a 1280×800 e a 1024×768. Se si sfora si scongela **prima** la colonna azioni — l'identità non si sacrifica mai.
+- **Mai più di due blocchi** (uno per lato): ogni colonna congelata è schermo tolto ai dati.
+- **Sotto la soglia mobile non si congela nulla**: la tabella è già schede, e il fondo opaco lascerebbe una cucitura verticale in mezzo alla card.
+- **Le quattro insidie, obbligatorie**: (1) la cella congelata ha **fondo opaco** — e quindi l'hover di riga va **ridipinto sulla cella**, altrimenti la riga si accende tranne lì; (2) **z-index**: intestazioni 2, celle congelate del corpo 1, angoli (sticky sui due assi) 3 — senza, il `tbody`, che viene dopo nel DOM, passa sopra le intestazioni sticky; (3) **`border-collapse: separate; border-spacing: 0`**: con `collapse` i bordi appartengono alla tabella e scorrono via dalla cella sticky — il separatore si disegna con `box-shadow`, non con `border`; (4) la cella sticky resta una **cella di tabella**: `display: flex` su un `td` lo fa uscire dal table layout e rompe `right: 0` — il flex va su un `div` interno.
+- **Le colonne si scelgono per CLASSE, mai con `nth-child`**: una riga espansa con `colspan` e le colonne condizionali spostano i numeri sotto i piedi (trovato in `/vendite`: `nth-child(3)` dava 220px di respiro alla colonna sbagliata).
+- **Tastiera**: `scroll-padding-inline` sul wrapper pari alle due colonne congelate, o il focus portato in vista finisce sotto di esse (WCAG 2.4.11 *Focus Not Obscured*).
+- Resta ferma la `max-height` sul wrapper: è lei a rendere il wrapper il porto di scorrimento su **entrambi** gli assi. WCAG 2.2 SC 1.4.10 esenta le tabelle dati dal divieto di scorrimento 2D **solo** se lo scorrimento è confinato al loro contenitore.
+
+Riferimento d'implementazione: piattaforma `web/src/styles.css` (`.table-wrap.col-fisse`, classi `.col-id` / `.azioni`); prima applicazione `/vendite`. Uniformazione per impatto: `deliveries-list` → `partners-list` → `payments-list` → `invoices-list`, e le altre solo se eccedono davvero in larghezza (la classe è opt-in apposta).
+
 **Celle vuote — la tripletta** (con `aria-label` sul trattino: molti screen reader lo saltano):
 - `—` = **non applicabile** (non ha senso qui);
 - «non disponibile» (testo esplicito) = il dato esiste al mondo ma non l'abbiamo;
