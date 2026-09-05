@@ -440,7 +440,9 @@ export class AiService {
 
 @ApiTags('ai')
 @ApiBearerAuth()
-@Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+// ⭐ 05/09/2026 (regola utente): per ora la compilazione con l'AI è solo per
+// l'ufficio — ai partner la voce è nascosta nel form e la rotta è chiusa.
+@Roles(Role.ADMIN, Role.OPERATION)
 @Controller('ai')
 export class AiController {
   constructor(private readonly service: AiService) {}

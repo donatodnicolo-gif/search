@@ -77,7 +77,9 @@ interface ProductRow {
          la foto di un ordine, e il form si RIEMPIE. Non si salva niente: la
          proposta va rivista e confermata da chi la manda. Solo sulla consegna
          NUOVA — in modifica riscriverebbe sopra a dati gia' controllati. -->
-    @if (!editId() && aiPossibile()) {
+    <!-- ⭐ 05/09/2026 (regola utente): per ora la compilazione con l'AI è solo
+         per l'ufficio — ai partner la voce non si mostra. -->
+    @if (!editId() && aiPossibile() && !isPartner()) {
       <section class="card ai-box" [class.aperto]="aiAperto()">
         @if (!aiAperto()) {
           <button type="button" class="btn btn-secondary" (click)="aiAperto.set(true)">
