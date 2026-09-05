@@ -388,6 +388,15 @@ interface PropostaVendita {
                   @if (d.deliveryRuleId) {
                     <span class="regola-badge" [title]="(d.deliveryRule?.name || '') + ' — ' + ('deliveries.ruleApplied' | translate)">📋</span>
                   }
+                  <!-- ⭐ 05/09/2026 (regola utente): sui servizi di VENDITA si
+                       vede anche la vendita da cui la consegna nasce. Sta qui,
+                       sotto il numero, perché è l'altra identità della stessa
+                       riga; il link porta a quella vendita in Vendite. -->
+                  @if (d.vendita?.ordine; as ordine) {
+                    <a class="rif-vendita" [routerLink]="['/sales']" [queryParams]="{ q: ordine }"
+                       (click)="$event.stopPropagation()"
+                       [title]="'deliveries.saleRef' | translate: { brand: d.vendita?.brand ?? '' }">V {{ ordine }}</a>
+                  }
                 </td>
                 <td>
                   {{ d.date | date: 'dd/MM/yyyy' }}
@@ -906,6 +915,8 @@ interface PropostaVendita {
         padding-left: 14px;
         padding-right: 6px;
       }
+      .rif-vendita { display: block; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
+      .rif-vendita:hover { color: var(--text-primary); text-decoration: underline; }
       .regola-badge { margin-left: 5px; font-size: 12px; cursor: help; vertical-align: middle; }
       .status-dot {
         display: inline-block;

@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, NgZone, computed, inject, signal } from '@angular/core';
 import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { loadGoogleMaps } from '../core/google-maps';
 import { DeliveryFormComponent } from './delivery-form.component';
 import { ConfermaComponent } from '../shared/conferma.component';
 
@@ -30,6 +31,18 @@ interface RigaStorico {
 }
 
 /** ⭐ 04/09 (regola utente): consegne di tipo vendita allo stesso indirizzo. */
+interface ProdottoVendita {
+  id?: string;
+  name?: string;
+  sku?: string | null;
+  line?: string | null;
+  imageUrl?: string | null;
+  /** JSON: array di URL (galleria Shopify). */
+  images?: string | null;
+  /** Il PARTNER CHE LO FA. Vuoto per il ruolo partner: è un altro partner. */
+  partner?: { id: string; insegna: string } | null;
+}
+
 interface ConsegnaVicina {
   id: string;
   code: number;
@@ -40,6 +53,8 @@ interface ConsegnaVicina {
   prezzo: number | null;
   partner: string | null;
   servizio: string | null;
+  /** Da che cosa è stata trovata: il DDT (forte) o l'indirizzo (indiziario). */
+  motivo?: 'ddt' | 'indirizzo';
 }
 
 interface Storico {
@@ -66,7 +81,7 @@ interface Sale {
   /** Link all'ordine su Shopify: lo costruisce il server, e all'ufficio soltanto. */
   shopifyUrl?: string | null;
   source: string;
-  product?: { id: string; name: string } | null;
+  product?: ProdottoVendita | null;
   variantName?: string | null;
   partner?: { id: string; insegna: string } | null;
   province?: { id: string; code: string; name: string } | null;
@@ -107,6 +122,14 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
   non_accettata: { etichetta: 'Non accettata', colore: '#6e6e73' },
   annullata: { etichetta: 'Annullata', colore: '#8e8e93' },
 };
+
+/**
+ * Il Google Plus Code in testa a un indirizzo (es. «F6P2+7H5, Piazza Duca…»):
+ * è un codice di posizione, non un indirizzo leggibile, e si toglie.
+ * ⚠️ Sta qui fuori perché un letterale di espressione regolare dentro un
+ * template Angular non si può scrivere.
+ */
+const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
 
 /** Operatività → Vendite: gli ordini smistati ai partner. */
 @Component({
@@ -332,8 +355,23 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                         <input class="field" [(ngModel)]="mod.recipientLastName" /></label>
                       <label><span>{{ 'sales.mod.telefono' | translate }}</span>
                         <input class="field" [(ngModel)]="mod.recipientPhone" /></label>
+                      <!-- ⭐ 05/09/2026 (regola utente): «modifica indirizzo in
+                           modifica vendita deve essere sincronizzato con Google
+                           Maps». Stesse regole del modulo consegna: si sceglie
+                           dai suggerimenti, e quello che si scrive a mano viene
+                           normalizzato uscendo dal campo. L'indirizzo della
+                           vendita decide la provincia, e la provincia decide a
+                           chi va l'ordine: un indirizzo che Google non
+                           riconosce è un ordine smistato male. -->
                       <label class="largo"><span>{{ 'sales.mod.indirizzo' | translate }}</span>
-                        <input class="field" [(ngModel)]="mod.recipientAddress" /></label>
+                        <input class="field mod-indirizzo" [(ngModel)]="mod.recipientAddress"
+                               (blur)="normalizzaIndirizzo()" autocomplete="off" /></label>
+                      @if (mapsMancante()) {
+                        <div class="mod-errore largo">{{ 'sales.mod.mapsMancante' | translate }}</div>
+                      }
+                      @if (provinciaDaGoogle(); as pc) {
+                        <div class="mod-nota largo">{{ 'sales.mod.provinciaDaGoogle' | translate: { provincia: pc } }}</div>
+                      }
                     </div>
                     @if (modErrore(); as e) { <div class="mod-errore">{{ e }}</div> }
                     <div class="mod-azioni">
@@ -364,6 +402,20 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         </header>
         <div class="ins-body">
           <app-delivery-form [venditaModale]="vid" (chiuso)="chiudiInserimento($event)" />
+        </div>
+      </div>
+    }
+
+    <!-- ⭐ 05/09/2026 (regola utente): le FOTO del prodotto, a schermo. -->
+    @if (foto().length) {
+      <div class="foto-velo" (click)="chiudiFoto()"></div>
+      <div class="foto-box" role="dialog" aria-modal="true">
+        <button type="button" class="foto-x" (click)="chiudiFoto()"
+                [attr.aria-label]="'common.close' | translate">×</button>
+        <div class="foto-scorri">
+          @for (u of foto(); track u) {
+            <img [src]="u" [alt]="'sales.detail.photos' | translate" loading="lazy" />
+          }
         </div>
       </div>
     }
@@ -401,6 +453,14 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <a class="btn btn-secondary mini" [href]="v.shopifyUrl" target="_blank" rel="noopener">{{ 'sales.detail.shopify' | translate }}</a>
             }
             }
+            <!-- ⭐ 05/09/2026 (regola utente): «nel pop-up dei dettagli della
+                 vendita manca il tasto modifica». Sta FUORI dal ramo «non
+                 conforme»: i dati si correggono soprattutto quando qualcosa
+                 non torna. Chiude il pop-up e apre il riquadro di modifica
+                 sulla riga — è lì che i campi si scrivono. -->
+            @if (canManage()) {
+              <button class="btn btn-secondary mini" (click)="modificaDalDettaglio(v)">{{ 'sales.edit' | translate }}</button>
+            }
             <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
           </div>
         </header>
@@ -415,7 +475,29 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
           <h3>{{ 'sales.detail.title' | translate }}</h3>
           <dl class="coppie">
             <dt>{{ 'sales.detail.product' | translate }}</dt>
-            <dd>{{ v.product?.name ?? v.productName ?? '—' }}@if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }</dd>
+            <dd>
+              <!-- ⭐ 05/09/2026 (regola utente): il nome del prodotto si clicca
+                   e si vedono le foto. Se foto non ce ne sono resta testo: un
+                   comando che non fa niente è peggio di nessun comando. -->
+              @if (fotoProdotto(v).length) {
+                <button type="button" class="nome-prodotto" (click)="apriFoto(v)"
+                        [title]="'sales.detail.photos' | translate">
+                  {{ v.product?.name ?? v.productName ?? '—' }}
+                  <span class="conta-foto">🖼 {{ fotoProdotto(v).length }}</span>
+                </button>
+              } @else {
+                {{ v.product?.name ?? v.productName ?? '—' }}
+              }
+              @if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }
+              @if (v.product?.sku) { <span class="muted"> · SKU {{ v.product?.sku }}</span> }
+              <!-- Il PRODUTTORE: il partner che fa il prodotto. Non è per forza
+                   quello a cui la vendita è stata proposta. -->
+              @if (v.product?.partner?.insegna; as chi) {
+                <div class="muted">{{ 'sales.detail.maker' | translate: { chi: chi } }}</div>
+              } @else if (v.product?.line) {
+                <div class="muted">{{ 'sales.detail.line' | translate: { linea: v.product?.line } }}</div>
+              }
+            </dd>
             <dt>{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.detail.amount') | translate }}</dt>
             @if (isPartner()) {
               <dd>{{ v.prezzoPartner | number: '1.2-2' }} €</dd>
@@ -466,6 +548,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                           <span>
                             <a [href]="'/deliveries/' + c.id" target="_blank" rel="noopener"><b>#{{ c.code }}</b></a>
                             <span class="muted"> · {{ c.date ? (c.date | date: 'dd/MM/yy') : '—' }}@if (c.partner) { · {{ c.partner }} }@if (c.servizio) { · {{ c.servizio }} }@if (c.ddt) { · DDT {{ c.ddt }} }</span>
+                            <!-- Una riga proposta deve dire PERCHÉ è lì: il DDT
+                                 uguale è una prova, l'indirizzo è un indizio. -->
+                            <span class="perche">{{ ('sales.reconcile.by.' + (c.motivo ?? 'indirizzo')) | translate }}</span>
                           </span>
                           <button type="button" class="btn btn-primary mini" [disabled]="inCorso() === v.id"
                                   (click)="riconciliaCon(v, c)">{{ 'sales.reconcile.same' | translate }}</button>
@@ -648,6 +733,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .mod-grid .largo { grid-column: 1 / -1; }
       .mod-azioni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
       .mod-errore { margin-top: 8px; color: var(--red); font-size: 13px; }
+      .mod-nota { margin-top: 6px; color: var(--text-secondary); font-size: 12px; }
       .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       .table th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
@@ -690,8 +776,18 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .allarme div { color: var(--text); margin-top: 2px; }
       .ko-badge { background: rgba(215, 0, 21, 0.1); color: var(--danger, #b3261e); margin-right: 6px; }
       .regola-attiva { margin: 0 0 8px; font-size: 13px; font-weight: 550; }
+      .nome-prodotto { background: none; border: 0; padding: 0; font: inherit; color: var(--text-primary);
+        cursor: zoom-in; text-decoration: underline; text-underline-offset: 2px; }
+      .conta-foto { margin-left: 6px; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
+      .foto-velo { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 80; }
+      .foto-box { position: fixed; inset: 5vh 5vw; z-index: 81; background: var(--surface, #fff);
+        border-radius: 14px; padding: 14px; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+      .foto-x { position: absolute; top: 8px; right: 10px; background: none; border: 0; font-size: 24px; cursor: pointer; }
+      .foto-scorri { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
+      .foto-scorri img { max-width: 100%; max-height: 70vh; border-radius: 10px; }
       ul.vicine { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
       ul.vicine li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+      .perche { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
       table.storico { width: 100%; font-size: 13px; }
       table.storico td, table.storico th { padding: 6px 8px; }
       table.storico tr.spenta { opacity: 0.6; }
@@ -877,8 +973,111 @@ export class SalesListComponent {
     amount: null, deliveryDate: '', provinceId: '', recipientFirstName: '', recipientLastName: '', recipientAddress: '', recipientPhone: '',
   };
 
+  /**
+   * Modifica CHIESTA DAL POP-UP (05/09/2026, regola utente). Il pop-up si
+   * chiude e il riquadro di modifica si apre sulla riga della vendita: quella
+   * riga può stare fuori schermo, e un comando che non si vede è un comando
+   * che non c'è — perciò la si porta sotto gli occhi.
+   */
+  modificaDalDettaglio(s: Sale): void {
+    this.chiudiDettaglio();
+    if (this.modificaId() !== s.id) this.apriModifica(s);
+    setTimeout(() => document.querySelector('.mod-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+  }
+
+  /**
+   * L'INDIRIZZO DELLA VENDITA PASSA DA GOOGLE (05/09/2026, regola utente).
+   *
+   * Il riquadro di modifica nasce e muore col click, quindi l'autocomplete non
+   * si può agganciare una volta per tutte all'avvio: si aggancia ogni volta
+   * che il riquadro compare, sul campo che c'è in quel momento.
+   */
+  private readonly zone = inject(NgZone);
+  readonly mapsMancante = signal(false);
+  readonly provinciaDaGoogle = signal<string | null>(null);
+  private autocomplete: any = null;
+  private ultimaSceltaGoogle = 0;
+  private chiaveMaps: string | null | undefined;
+
+  private async agganciaGoogle(): Promise<void> {
+    const input = document.querySelector('.mod-indirizzo') as HTMLInputElement | null;
+    if (!input) return;
+    if (this.chiaveMaps === undefined) {
+      this.chiaveMaps = await new Promise<string | null>((ok) => {
+        this.http.get<{ googleMapsBrowserKey: string | null }>(`${environment.apiUrl}/settings/public`)
+          .subscribe({ next: (c) => ok(c?.googleMapsBrowserKey ?? null), error: () => ok(null) });
+      });
+    }
+    if (!this.chiaveMaps) {
+      // ⚠️ Non in silenzio: senza chiave il campo resta un testo normale, e
+      // sembrerebbe rotto invece che da configurare.
+      this.mapsMancante.set(true);
+      return;
+    }
+    this.mapsMancante.set(false);
+    try {
+      await loadGoogleMaps(this.chiaveMaps);
+      const g = (window as any).google;
+      this.autocomplete = new g.maps.places.Autocomplete(input, {
+        // Anche indirizzi esteri e luoghi con un nome: le stesse regole del
+        // modulo consegna, così i due campi non si comportano in modo diverso.
+        fields: ['formatted_address', 'geometry', 'address_components', 'name'],
+      });
+      this.autocomplete.addListener('place_changed', () => {
+        const place = this.autocomplete.getPlace();
+        this.zone.run(() => this.prendiDaGoogle(place));
+      });
+    } catch {
+      /* script non caricato: resta il campo di testo, e ci pensa il server */
+    }
+  }
+
+  /** L'indirizzo scelto, e la provincia che ne discende. */
+  private prendiDaGoogle(place: any): void {
+    if (!place) return;
+    this.ultimaSceltaGoogle = Date.now();
+    const grezzo = String(place.formatted_address || '');
+    // Via il Google Plus Code davanti: è una posizione in codice, non un
+    // indirizzo leggibile.
+    this.mod.recipientAddress = grezzo.replace(PLUS_CODE, '').trim();
+    const comp = (place.address_components || []).find((c: any) => (c.types || []).includes('administrative_area_level_2'));
+    const code = comp?.short_name as string | undefined;
+    const prov = code ? this.province().find((p) => p.code === code) : undefined;
+    if (prov) {
+      // La provincia SEGUE l'indirizzo: è lei che decide a chi va l'ordine.
+      this.mod.provinceId = prov.id;
+      this.provinciaDaGoogle.set(prov.code);
+    } else {
+      // ⚠️ Se Google dà una provincia che non abbiamo a catalogo NON si
+      // indovina: resta quella scelta a mano.
+      this.provinciaDaGoogle.set(null);
+    }
+  }
+
+  /**
+   * Uscendo dal campo, il testo scritto a mano si normalizza col PRIMO
+   * risultato di Google. Non subito dopo un suggerimento: il click sul menu
+   * di Google fa blur prima di `place_changed`.
+   */
+  normalizzaIndirizzo(): void {
+    setTimeout(() => {
+      if (Date.now() - this.ultimaSceltaGoogle < 800) return;
+      const valore = (this.mod.recipientAddress ?? '').trim();
+      if (!valore) return;
+      const g = (window as any).google;
+      if (!g?.maps?.Geocoder) return;
+      new g.maps.Geocoder().geocode({ address: valore, region: 'it' }, (results: any, status: string) => {
+        this.zone.run(() => {
+          if (status !== 'OK' || !results?.length) return;
+          this.prendiDaGoogle(results[0]);
+        });
+      });
+    }, 250);
+  }
+
   apriModifica(s: Sale): void {
     if (this.modificaId() === s.id) { this.modificaId.set(null); return; }
+    this.provinciaDaGoogle.set(null);
     this.mod = {
       amount: s.amount,
       deliveryDate: (s.deliveryDate ?? '').slice(0, 10),
@@ -896,6 +1095,8 @@ export class SalesListComponent {
         error: () => undefined,
       });
     }
+    // Il campo esiste solo da ora: si aggancia quando il riquadro è in pagina.
+    setTimeout(() => void this.agganciaGoogle(), 0);
   }
 
   salvaModifica(s: Sale): void {
@@ -994,6 +1195,35 @@ export class SalesListComponent {
   }
 
   /** Apre subito coi dati della riga, poi carica il dettaglio completo (registro compreso). */
+  /**
+   * LE FOTO DEL PRODOTTO (05/09/2026, regola utente).
+   *
+   * Le immagini arrivano in due forme: `imageUrl` (la principale) e `images`
+   * (JSON con la galleria di Shopify). Si uniscono senza doppioni, e il JSON
+   * si legge QUI e non nel modello: se è scritto male non deve rompere la
+   * pagina, deve solo dare zero foto.
+   */
+  readonly foto = signal<string[]>([]);
+
+  fotoProdotto(v: Sale): string[] {
+    const p = (v as unknown as { product?: ProdottoVendita }).product;
+    if (!p) return [];
+    const lista: string[] = [];
+    if (p.imageUrl) lista.push(p.imageUrl);
+    if (p.images) {
+      try {
+        const altre = JSON.parse(p.images);
+        if (Array.isArray(altre)) {
+          for (const u of altre) if (typeof u === 'string' && u) lista.push(u);
+        }
+      } catch { /* galleria scritta male: si mostra quello che c'è */ }
+    }
+    return [...new Set(lista)];
+  }
+
+  apriFoto(v: Sale): void { this.foto.set(this.fotoProdotto(v)); }
+  chiudiFoto(): void { this.foto.set([]); }
+
   apriDettaglio(s: Sale): void {
     this.dettaglio.set(s);
     this.ricaricaDettaglio(s.id);
@@ -1007,7 +1237,12 @@ export class SalesListComponent {
   }
   chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.dettaglio.set(null); }
   @HostListener('document:keydown.escape')
-  suEscape(): void { if (this.confermaPendente()) this.confermaPendente.set(null); else if (this.dettaglio()) this.chiudiDettaglio(); }
+  suEscape(): void {
+    // L'ordine conta: si chiude quello che sta SOPRA, non tutto insieme.
+    if (this.foto().length) this.chiudiFoto();
+    else if (this.confermaPendente()) this.confermaPendente.set(null);
+    else if (this.dettaglio()) this.chiudiDettaglio();
+  }
 
   /** Lo stato in Orders, leggibile: consegnato > annullato > evaso Shopify > classificazione > smistamento. */
   /**

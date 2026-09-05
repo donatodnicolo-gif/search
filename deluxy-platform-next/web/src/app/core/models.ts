@@ -62,6 +62,8 @@ export interface Delivery {
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
   serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  /** ⭐ 05/09/2026: la vendita da cui nasce, sui servizi di vendita. */
+  vendita?: { id: string; ordine: string | null; brand: string | null; stato: string } | null;
   /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
   hoursFrom?: string | null;
   hoursTo?: string | null;

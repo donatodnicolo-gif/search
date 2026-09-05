@@ -916,6 +916,7 @@
       "remove": "Togli il filtro partner"
     },
     "ruleApplied": "Regola carnet applicata",
+    "saleRef": "Vendita dell'ordine{{brand}} — apri in Vendite",
     "redeliver": "Riconsegna"
   },
   "partners": {
@@ -1556,6 +1557,7 @@
       "requiredFields": "Compila data, partner, servizio, indirizzo e nome/cognome destinatario.",
       "customerNotSaved": "Cliente non salvato: ",
       "genericShort": "errore",
+      "saleNotClosed": "La consegna #{{code}} è stata creata, ma la vendita NON è passata in storico: va chiusa dalla lista Vendite.",
       "createFailed": "Errore nella creazione della consegna",
       "missing": "Manca: {{campi}}."
     },
@@ -2394,7 +2396,9 @@
       "nome": "Nome destinatario",
       "cognome": "Cognome destinatario",
       "indirizzo": "Indirizzo",
-      "telefono": "Telefono"
+      "telefono": "Telefono",
+      "mapsMancante": "Google Maps non è configurato: l'indirizzo resta un testo libero e la provincia va scelta a mano.",
+      "provinciaDaGoogle": "Provincia aggiornata da Google: {{provincia}}"
     },
     "refuse": "Rifiuta",
     "col": {
@@ -2475,7 +2479,11 @@
     "reconcile": {
       "open": "Riconcilia con una consegna",
       "close": "Chiudi la ricerca",
-      "none": "Nessuna consegna di vendita a questo indirizzo.",
+      "none": "Nessuna consegna con questo numero d'ordine come DDT, né allo stesso indirizzo.",
+      "by": {
+        "ddt": "Trovata dal DDT: porta questo stesso numero d'ordine.",
+        "indirizzo": "Trovata dall'indirizzo: stesso indirizzo, servizio di vendita, entro 10 giorni."
+      },
       "same": "È questa",
       "done": "Vendita riconciliata con la consegna #{{code}}: è in storico e il riferimento è nel DDT."
     },
@@ -2508,6 +2516,9 @@
     "detail": {
       "title": "Vendita",
       "product": "Prodotto",
+      "photos": "Guarda le foto del prodotto",
+      "maker": "Lo fa {{chi}}",
+      "line": "Linea {{linea}}",
       "amount": "Importo",
       "discount": "sconto",
       "partner": "Partner",

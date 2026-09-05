@@ -385,6 +385,21 @@ export class DeliveriesService {
         { code: 'asc' as const },
       ] as any;
     }
+    // ⭐ 05/09/2026 (regola utente): «anche nella ricerca la lista resta
+    // ordinata per DATA DI CONSEGNA decrescente».
+    //
+    // ⚠️ L'ordinamento predefinito della pagina è `deliveryTimeFrom` — l'ORA
+    // del giorno — che ha senso finché si guarda un giorno solo: mette in fila
+    // il giro. Appena la lista attraversa più giorni (una ricerca, «Tutte», lo
+    // Storico) quell'ordine diventa illeggibile, perché confronta le 08:00 del
+    // 2024 con le 09:00 del 2026: cercando «scarlatti» uscivano 04/10/2024,
+    // 24/05/2025, 12/05/2024, 03/09/2026 mescolati.
+    //
+    // La data è la chiave PRIMARIA e l'orario ordina DENTRO il giorno. Su una
+    // lista di un giorno solo non cambia niente (la data è la stessa per
+    // tutti); su tutte le altre rimette le righe in un ordine leggibile.
+    const perOrario = base.some((o) => Object.prototype.hasOwnProperty.call(o, 'deliveryTimeFrom'));
+    if (perOrario) return [{ date: 'desc' as const }, ...base, { code: 'asc' as const }] as any;
     return [...base, { code: 'asc' as const }] as any;
   }
 
@@ -527,6 +542,31 @@ export class DeliveriesService {
             r.valetSalaryDalListino = null;
           }
         }
+      }
+    }
+    // ⭐ 05/09/2026 (regola utente): «nella tabella consegne mostra anche l'id
+    // della vendita in caso di servizio vendita».
+    //
+    // ⚠️ `Sale` NON ha una relazione Prisma verso `Delivery`: `Sale.deliveryId`
+    // è una colonna `@unique` e basta, senza `@relation`. Quindi non si può
+    // `include`, e aggiungere la relazione vorrebbe dire una chiave esterna
+    // nuova sul Postgres condiviso da 14 app — che non si fa in autonomia.
+    // Si chiede in UN GIRO SOLO, per gli id della pagina: trenta righe, una
+    // query su una colonna unica. Niente N+1, niente copia del dato.
+    const idVendita = (rows as any[])
+      .filter((r) => r.serviceType?.pricingModel === 'VENDITA')
+      .map((r) => r.id);
+    if (idVendita.length) {
+      const vendite = await this.prisma.sale.findMany({
+        where: { deliveryId: { in: idVendita } },
+        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true },
+      });
+      const perConsegna = new Map(vendite.map((v) => [v.deliveryId as string, v]));
+      for (const r of rows as any[]) {
+        const v = perConsegna.get(r.id);
+        // ⚠️ Solo se c'è davvero: una consegna di vendita può essere nata a
+        // mano, senza nessuna vendita dietro. Meglio vuoto che inventato.
+        if (v) r.vendita = { id: v.id, ordine: v.externalOrderNumber, brand: v.brand, stato: v.status };
       }
     }
     // Le note interne non si nascondono piu' dopo averle lette: l'elenco non

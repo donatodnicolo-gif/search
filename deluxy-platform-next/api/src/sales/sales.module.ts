@@ -18,6 +18,18 @@ import { PrismaService } from '../prisma/prisma.service';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
+/**
+ * ⭐ 05/09/2026: QUANDO va consegnato — il giorno, e la fascia chiesta dal
+ * cliente se c'è. È questo che si confronta con gli orari del partner.
+ */
+interface FinestraConsegna {
+  giorno: Date;
+  /** «08:00», dalla fascia dell'ordine. Assente = non si sa l'ora. */
+  dalle?: string;
+  /** «12:00». Assente = non si sa l'ora. */
+  alle?: string;
+}
+
 type Candidato = {
   partnerId: string;
   motivo: string;
@@ -121,7 +133,10 @@ export class SalesService {
       amount: null,
       discountPercent: null,
       prezzoPartner: Math.round(amount * (1 - (discountPercent ?? 0) / 100) * 100) / 100,
-      product: prodotto ? { ...prodotto, price: null } : prodotto,
+      // ⚠️ Al partner niente listino E niente PRODUTTORE: il produttore è un
+      // altro partner, e sapere chi fa il prodotto è la stessa informazione
+      // che «Chi abbiamo usato?» tiene riservata all'ufficio.
+      product: prodotto ? { ...prodotto, price: null, partner: null } : prodotto,
       ...(logs ? { logs: logs.filter((l) => l.type !== 'modifica') } : {}),
     };
   }
@@ -348,8 +363,22 @@ export class SalesService {
       throw new NotFoundException('Variante non trovata per questo prodotto');
     }
 
-    const quando = body.deliveryDate ? new Date(body.deliveryDate) : new Date();
-    const scelto = await this.scegliPartner(product, body.provinceId, quando, []);
+    // ⭐ 05/09/2026 (regola utente): la finestra è quella della CONSEGNA, non
+    // l'istante in cui la vendita arriva. Il giorno è quello chiesto
+    // dall'ordine; l'ora è la FASCIA che il cliente ha scelto al checkout
+    // (8–12, 12–16, 16–20), che si chiede a Orders — la stessa che finirà su
+    // `deliveryTimeFrom/To` della consegna.
+    // ⚠️ Se l'ordine non ha una data si guarda OGGI come giorno, ma senza
+    // nessuna ora: «adesso» è quando è arrivata la vendita, non quando si
+    // consegna, e usarlo come orario è esattamente il difetto che si corregge.
+    const ordineChiamante = await this.ordineDaOrders(body.externalOrderId);
+    const fasciaOrdine = SalesService.fasciaInOrari(ordineChiamante?.consegna?.fascia);
+    const finestra: FinestraConsegna = {
+      giorno: body.deliveryDate ? new Date(body.deliveryDate) : new Date(),
+      dalle: fasciaOrdine.dalle,
+      alle: fasciaOrdine.alle,
+    };
+    const scelto = await this.scegliPartner(product, body.provinceId, finestra, []);
     // L'importo del cliente resta quello di listino (variante compresa).
     const importoCliente = variante?.price ?? product.price ?? 0;
 
@@ -667,7 +696,16 @@ export class SalesService {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
       include: {
-        product: { select: { id: true, name: true, price: true, type: true, sku: true } },
+        // ⭐ 05/09/2026 (regola utente): nel pop-up si vede il PRODUTTORE del
+        // prodotto (il partner che lo fa: è lui il produttore, non chi lo
+        // vende) e si aprono le FOTO cliccando il nome.
+        product: {
+          select: {
+            id: true, name: true, price: true, type: true, sku: true,
+            imageUrl: true, images: true, line: true,
+            partner: { select: { id: true, insegna: true } },
+          },
+        },
         partner: { select: { id: true, insegna: true } },
         province: true,
         // ⭐ 04/09: il pop-up di dettaglio mostra consegna collegata, servizio e REGISTRO.
@@ -830,6 +868,15 @@ export class SalesService {
 
   /** «16-20», «08/12», «16:30-20» → orari del form. Formato ignoto = niente:
    *  una fascia inventata è peggio di una mancante. */
+  /**
+   * ⭐ 05/09/2026 (regola utente): «devi confrontare l'ORARIO DI CONSEGNA del
+   * prodotto con l'orario di apertura del partner, non con l'orario di arrivo
+   * della vendita».
+   *
+   * La finestra in cui la consegna deve avvenire: il giorno, e la fascia
+   * chiesta dal cliente sull'ordine (8–12, 12–16, 16–20). Senza fascia resta
+   * il solo giorno, e allora la domanda giusta è «quel giorno è aperto?».
+   */
   private static fasciaInOrari(fascia: unknown): { dalle?: string; alle?: string } {
     const raw = String(fascia ?? '').trim();
     const m = raw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*[-\/–]\s*(\d{1,2})(?:[:.](\d{2}))?$/);
@@ -999,17 +1046,48 @@ export class SalesService {
   async consegneAllIndirizzo(id: string) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
-      select: { recipientAddress: true, deliveryDate: true, provinceId: true, deliveryId: true },
+      select: { recipientAddress: true, deliveryDate: true, provinceId: true, deliveryId: true, externalOrderNumber: true, externalOrderId: true },
     });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     const chiave = SalesService.chiaveIndirizzo(vendita.recipientAddress);
-    if (!chiave) return { indirizzo: vendita.recipientAddress, consegne: [], motivo: 'senza-indirizzo' as const };
+
+    // ⭐ 05/09/2026 — PRIMA IL DDT. Sul DDT della consegna si scrive il NUMERO
+    // D'ORDINE: e' il legame piu' forte che abbiamo, molto piu' dell'indirizzo,
+    // e non dipende da come Shopify ha scritto la via. Nel caso 12847 la
+    // ricerca per indirizzo trovava zero e le due consegne gia' fatte
+    // (#100788 e #100789, stesso giorno, stesso indirizzo, DDT 12847)
+    // restavano invisibili. Si cerca in OGNI stato, storico compreso, e senza
+    // vincolo di servizio: un DDT uguale e' gia' una risposta.
+    // Il DDT porta il NUMERO d'ordine; per le consegne piu' vecchie puo'
+    // portare l'id di Orders. Si cercano tutti e due: costa niente e copre le
+    // due popolazioni senza chiedere a chi guarda di sapere quale sia quale.
+    const rifDdt = [vendita.externalOrderNumber, vendita.externalOrderId]
+      .map((x) => (x ?? '').trim())
+      .filter(Boolean);
+    const perDdt = rifDdt.length
+      ? await this.prisma.delivery.findMany({
+          where: { deletedAt: null, ddtNumber: { in: rifDdt } },
+          select: {
+            id: true, code: true, date: true, status: true, recipientAddress: true,
+            ddtNumber: true, price: true,
+            partner: { select: { insegna: true } },
+            serviceType: { select: { name: true } },
+          },
+          orderBy: { date: 'desc' },
+          take: 50,
+        })
+      : [];
+
+    if (!chiave && !perDdt.length) {
+      return { indirizzo: vendita.recipientAddress, consegne: [], motivo: 'senza-indirizzo' as const };
+    }
 
     const quando = vendita.deliveryDate ?? null;
     const da = quando ? new Date(quando.getTime() - 10 * 86400000) : null;
     const a = quando ? new Date(quando.getTime() + 10 * 86400000) : null;
-    const candidate = await this.prisma.delivery.findMany({
+    const candidate = chiave ? await this.prisma.delivery.findMany({
       where: {
+        deletedAt: null,
         provinceId: vendita.provinceId,
         ...(da && a ? { date: { gte: da, lte: a } } : {}),
         // Solo i servizi di VENDITA, come chiesto.
@@ -1023,13 +1101,23 @@ export class SalesService {
       },
       orderBy: { date: 'desc' },
       take: 200,
-    });
-    const consegne = candidate
-      .filter((d) => SalesService.chiaveIndirizzo(d.recipientAddress) === chiave)
-      .map((d) => ({
+    }) : [];
+    const perIndirizzo = candidate.filter((d) => SalesService.chiaveIndirizzo(d.recipientAddress) === chiave);
+
+    // Le due strade si uniscono senza doppioni; il DDT viene prima perche' e'
+    // il segnale piu' forte, e OGNI riga dice da che cosa e' stata trovata:
+    // un elenco che non spiega perche' e' li' non si puo' verificare.
+    const visti = new Set<string>();
+    const consegne = [
+      ...perDdt.map((d) => ({ d, motivo: 'ddt' as const })),
+      ...perIndirizzo.map((d) => ({ d, motivo: 'indirizzo' as const })),
+    ]
+      .filter(({ d }) => (visti.has(d.id) ? false : (visti.add(d.id), true)))
+      .map(({ d, motivo }) => ({
         id: d.id, code: d.code, date: d.date, status: d.status,
         indirizzo: d.recipientAddress, ddt: d.ddtNumber, prezzo: d.price,
         partner: d.partner?.insegna ?? null, servizio: d.serviceType?.name ?? null,
+        motivo,
       }));
     return { indirizzo: vendita.recipientAddress, giaCollegata: vendita.deliveryId, consegne };
   }
@@ -1042,13 +1130,29 @@ export class SalesService {
    * infatti serve a PROPORRE, non a decidere.
    */
   private static chiaveIndirizzo(indirizzo: string | null | undefined): string | null {
-    const grezzo = (indirizzo ?? '').trim().toLowerCase();
+    let grezzo = (indirizzo ?? '').trim().toLowerCase();
     if (!grezzo) return null;
+    // ⚠️ 05/09/2026 — CASO 12847. Sull'ordine di Shopify il TESTO DEL BIGLIETTO
+    // finisce dentro l'indirizzo: «Via Principe Eugenio 12, Testo biglietto:
+    // Caro Victor, un brindisi alla nuova vita lavorativa!… , 20155, Milano,
+    // MI, IT». Con la dedica dentro, la chiave non somigliava piu' a niente e
+    // il confronto con la consegna vera («Via Principe Eugenio, 12, 20155
+    // Milano MI») dava ZERO — mentre le consegne c'erano, due, con lo stesso
+    // DDT. Il biglietto si taglia via: e' un messaggio, non un indirizzo.
+    // ⚠️ Si taglia FINO AL CAP, non fino in fondo: dopo la dedica torna la
+    // parte vera dell'indirizzo (CAP, citta', provincia), e buttarla via
+    // farebbe fallire il confronto lo stesso, solo per un altro motivo.
+    grezzo = grezzo.replace(/(testo\s*)?bigliett[oi]\s*:[\s\S]*?(?=\b\d{5}\b)/, ' ');
+    // Se dopo la dedica non c'era nessun CAP, allora la coda e' tutta dedica.
+    grezzo = grezzo.replace(/(testo\s*)?bigliett[oi]\s*:[\s\S]*$/, ' ').trim();
     const pulito = grezzo
       .replace(/\b(via|viale|piazza|piazzale|corso|largo|vicolo|strada|localita|località|str\.|v\.le|p\.zza)\b/g, ' ')
       .replace(/\b(italia|italy)\b/g, ' ')
       .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
+      .trim()
+      // La sigla del paese in coda c'e' su una fonte e non sull'altra
+      // (Shopify la scrive, la consegna no): non e' una differenza vera.
+      .replace(/\s+(it|ita)$/, '');
     return pulito.length >= 6 ? pulito : null;
   }
 
@@ -1295,6 +1399,107 @@ export class SalesService {
     }
   }
 
+  /**
+   * RISMISTA LE VENDITE RIMASTE SENZA PARTNER (05/09/2026, regola utente:
+   * «sistema allora tu»).
+   *
+   * Lo smistamento gira UNA VOLTA, alla nascita della vendita. Quando la
+   * regola dell'orario era sbagliata — si confrontava l'ora di ARRIVO della
+   * vendita invece della FASCIA DI CONSEGNA — le vendite che ne uscivano senza
+   * partner restavano ferme per sempre: nessuno le riprovava. Questo metodo le
+   * ripassa con la regola giusta, usando **lo stesso codice** dello
+   * smistamento normale (`scegliPartner`), non una copia che domani diverge.
+   *
+   * ⚠️ Si salta chi non deve essere toccato, e si dice perche':
+   *  - gli ordini ESTERI (si gestiscono a mano per decisione dell'utente);
+   *  - quelle PRESE IN MANO dall'ufficio (qualcuno ci sta gia' lavorando);
+   *  - gli ordini NON CONFORMI in Orders (un ordine non conforme non va
+   *    avanti: proporlo a un partner e' esattamente «andare avanti»);
+   *  - quelle senza prodotto o senza provincia, che non si possono smistare.
+   *
+   * ⚠️ La QUOTA non si riscrive, tranne quando il partner arriva da una
+   * riconciliazione accettata: li' il patto e' il prezzo al partner, come alla
+   * nascita della vendita. Negli altri casi lo sconto resta quello fotografato
+   * il giorno dell'ordine — non si riscrive la storia.
+   */
+  async rismistaAperte(applica = false) {
+    const aperte = await this.prisma.sale.findMany({
+      where: { status: SaleStatus.DA_GESTIRE, partnerId: null, deliveryId: null },
+      include: { product: true, province: { select: { code: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const esito: {
+      ordine: string | null; brand: string | null; provincia: string | null;
+      prodotto: string | null; data: string | null;
+      partner: string | null; motivo: string | null; saltata: string | null;
+    }[] = [];
+
+    for (const v of aperte) {
+      const riga = {
+        ordine: v.externalOrderNumber, brand: v.brand,
+        provincia: v.province?.code ?? null,
+        prodotto: v.product?.name ?? v.productName ?? null,
+        data: v.deliveryDate ? v.deliveryDate.toISOString().slice(0, 10) : null,
+        partner: null as string | null, motivo: null as string | null, saltata: null as string | null,
+      };
+      const perche = (v.assignmentReason ?? '').toLowerCase();
+      if (!v.product) riga.saltata = 'senza prodotto a catalogo';
+      else if (!v.provinceId) riga.saltata = 'senza provincia';
+      else if (perche.includes('estero')) riga.saltata = 'ordine estero: si gestisce a mano';
+      else if (perche.includes('presa in mano')) riga.saltata = "presa in mano dall'ufficio";
+      if (riga.saltata) { esito.push(riga); continue; }
+
+      try {
+        await this.assertOrdineConforme(v.externalOrderId);
+      } catch {
+        riga.saltata = 'ordine non conforme in Orders';
+        esito.push(riga);
+        continue;
+      }
+
+      // La finestra della CONSEGNA: il giorno chiesto e la fascia del cliente.
+      const ordine = await this.ordineDaOrders(v.externalOrderId);
+      const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+      const finestra: FinestraConsegna = {
+        giorno: v.deliveryDate ?? new Date(),
+        dalle: f.dalle,
+        alle: f.alle,
+      };
+      const scelto = await this.scegliPartner(v.product as ProdottoDaSmistare, v.provinceId, finestra, []);
+      if (!scelto) { riga.saltata = 'nessun partner disponibile nemmeno ora'; esito.push(riga); continue; }
+
+      const p = await this.prisma.partner.findUnique({
+        where: { id: scelto.partnerId }, select: { insegna: true },
+      });
+      riga.partner = p?.insegna ?? scelto.partnerId;
+      riga.motivo = scelto.motivo;
+
+      if (applica) {
+        await this.prisma.sale.update({
+          where: { id: v.id },
+          data: {
+            partnerId: scelto.partnerId,
+            assignmentReason: scelto.motivo,
+            status: SaleStatus.PROPOSTA,
+            ...(scelto.prezzoPartner !== undefined
+              ? { discountPercent: SalesService.quotaPerDare(v.amount, scelto.prezzoPartner) }
+              : {}),
+          },
+        });
+        await this.registra(v.id, 'stato',
+          `Rismistata con la regola nuova degli orari (fascia di consegna, non ora di arrivo): proposta a ${riga.partner} — ${scelto.motivo}`);
+      }
+      esito.push(riga);
+    }
+    return {
+      applicato: applica,
+      guardate: aperte.length,
+      proposte: esito.filter((r) => r.partner).length,
+      ferme: esito.filter((r) => !r.partner).length,
+      righe: esito,
+    };
+  }
+
   // --- smistamento -------------------------------------------------------
 
   /**
@@ -1407,7 +1612,7 @@ export class SalesService {
   private async scegliPartner(
     product: ProdottoDaSmistare,
     provinceId: string,
-    quando: Date,
+    finestra: FinestraConsegna,
     escludi: string[],
   ): Promise<Candidato | null> {
     const lista = (await this.candidati(product, provinceId)).filter(
@@ -1428,7 +1633,7 @@ export class SalesService {
     for (const c of lista) {
       const p = perId.get(c.partnerId);
       if (!p) continue; // non attivo, o non opera in quella provincia
-      if (await this.aperto(p.id, p.openingHours, quando)) return c;
+      if (await this.aperto(p.id, p.openingHours, finestra)) return c;
     }
     return null; // nessuno aperto: la vendita resta «da gestire»
   }
@@ -1450,14 +1655,12 @@ export class SalesService {
       closeTime: string | null;
       closed: boolean;
     }[],
-    quando: Date,
+    finestra: FinestraConsegna,
   ): Promise<boolean> {
+    const quando = finestra.giorno;
     const giorno = new Date(
       Date.UTC(quando.getFullYear(), quando.getMonth(), quando.getDate()),
     );
-    const hhmm = `${String(quando.getHours()).padStart(2, '0')}:${String(
-      quando.getMinutes(),
-    ).padStart(2, '0')}`;
 
     // 1) fasce del giorno specifico
     const fasce = await this.prisma.partnerDaySlot.findMany({
@@ -1466,20 +1669,48 @@ export class SalesService {
     if (fasce.length) {
       const utili = fasce.filter((f) => f.available);
       if (!utili.length) return false; // giorno dichiarato chiuso
-      return utili.some((f) => this.dentro(hhmm, f.timeFrom, f.timeTo));
+      return utili.some((f) => this.siSovrappone(finestra, f.timeFrom, f.timeTo));
     }
 
     // 2) eccezione del giorno specifico
     const ecc = await this.prisma.partnerDayException.findUnique({
       where: { partnerId_date: { partnerId, date: giorno } },
     });
-    if (ecc) return ecc.closed ? false : this.dentro(hhmm, ecc.openTime, ecc.closeTime);
+    if (ecc) return ecc.closed ? false : this.siSovrappone(finestra, ecc.openTime, ecc.closeTime);
 
     // 3) orari settimanali
     if (!settimanali.length) return true; // nessun orario configurato: sempre aperto
-    const oggi = settimanali.filter((h) => h.dayOfWeek === quando.getDay());
+    const oggi = settimanali.filter((h) => h.dayOfWeek === giorno.getUTCDay());
     if (!oggi.length) return false;
-    return oggi.some((h) => !h.closed && this.dentro(hhmm, h.openTime, h.closeTime));
+    return oggi.some((h) => !h.closed && this.siSovrappone(finestra, h.openTime, h.closeTime));
+  }
+
+  /**
+   * La consegna e l'apertura si INCROCIANO?
+   *
+   * ⚠️ 05/09/2026 — qui stava il difetto. Prima si confrontava un ISTANTE
+   * (`quando`) con l'orario del partner, e quell'istante era l'ora dentro la
+   * data della vendita: quando l'ordine non porta un'ora, la data arriva a
+   * mezzanotte UTC, cioè le 02:00 italiane, e QUALUNQUE partner con orari
+   * scritti risultava chiuso. Misurato sul database: fra le vendite con data a
+   * mezzanotte il 46% restava senza partner (79 su 171), fra quelle con un
+   * orario vero il 7% (18 su 248) — e le uniche mezzanotte che passavano erano
+   * quelle di partner SENZA orari, che il codice tratta come sempre aperti.
+   * Il caso che l'ha fatto vedere: ordine 12879, Tiramisù di Clivati 1969
+   * (UNICO, quindi c'era un solo partner possibile), consegna di domenica
+   * 06/09 — Clivati apre 07:30–19:30 la domenica, ma alle 02:00 no.
+   *
+   * Ora si confronta la FASCIA DI CONSEGNA con l'apertura, e basta che si
+   * tocchino. Senza fascia la domanda diventa «quel giorno è aperto?»: è
+   * l'unica cosa che si sa, e fingere di sapere l'ora è peggio che non saperla.
+   */
+  private siSovrappone(finestra: FinestraConsegna, apre: string | null, chiude: string | null): boolean {
+    // Il partner non ha scritto gli orari di quel giorno: è aperto.
+    if (!apre || !chiude) return true;
+    // Nessuna fascia sull'ordine: basta che il giorno sia aperto.
+    if (!finestra.dalle || !finestra.alle) return true;
+    // Si toccano davvero: un negozio che chiude alle 16 non serve la 16–20.
+    return finestra.dalle < chiude && apre < finestra.alle;
   }
 
   /** Una fascia senza orari vale tutto il giorno, non zero minuti. */
@@ -1509,6 +1740,8 @@ export class SalesService {
       amount: number;
       discountPercent?: number;
       externalOrderId?: string | null;
+      /** Il numero dell'ordine come lo leggono le persone: è questo il DDT. */
+      externalOrderNumber?: string | null;
       source?: string;
       brand?: string | null;
       productId?: string | null;
@@ -1545,12 +1778,20 @@ export class SalesService {
     // valore-prodotti.ts, non la verita' — dove la riga c'e', parlano le righe.
     const valoreProdotti = arrotonda(vendita.amount);
 
-    // ⭐ LA REGOLA DEL DDT. Su una vendita la consegna viaggia col documento di
-    // trasporto, e il suo numero e' il riferimento della vendita: nei dati veri
-    // e' cosi' su 10.515 consegne su 12.967 con un DDT (l'81%), e il 96% delle
-    // vendite ne ha uno. Qui non veniva scritto: ogni consegna nata da una
-    // vendita partiva senza documento.
-    const numeroDdt = vendita.externalOrderId?.trim() || null;
+    // ⭐ LA REGOLA DEL DDT (corretta il 05/09/2026). Su una vendita la consegna
+    // viaggia col documento di trasporto, e il suo numero e' il riferimento
+    // della vendita: nei dati veri e' cosi' su 10.515 consegne su 12.967 con un
+    // DDT (l'81%), e il 96% delle vendite ne ha uno.
+    //
+    // ⚠️ Qui si scriveva `externalOrderId`, che sulla vendita e' l'id INTERNO
+    // di Deluxy Orders — un cuid tipo `cmthk6uht0002jr044m6xlqvm`, non un
+    // numero di documento. Nel database i DDT sono 16.357 e sono numeri
+    // (15.164 tutti cifre, zero in forma cuid): scriverci un id avrebbe messo
+    // in quel campo una cosa che nessuno riconosce, e avrebbe fatto fallire la
+    // riconciliazione per DDT — che e' il legame piu' forte fra vendita e
+    // consegna (regola utente del 05/09). Vale il NUMERO d'ordine, quello che
+    // le persone leggono; l'id resta come ultimo ripiego se il numero manca.
+    const numeroDdt = vendita.externalOrderNumber?.trim() || vendita.externalOrderId?.trim() || null;
 
     // ⭐ 01/09 (regola utente «sistemati anche gli altri ordini»): anche la via
     // AUTOMATICA porta con sé quello che l'ordine sa già — fascia oraria del

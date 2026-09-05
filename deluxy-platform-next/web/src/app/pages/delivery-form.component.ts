@@ -14,6 +14,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Observable, forkJoin, of } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -586,7 +587,7 @@ interface ProductRow {
         <!-- 02/09 (regole utente): il Salva si accende solo con indirizzi
              validi (partner), ALMENO UN PRODOTTO (fuori dai servizi a ora) e
              il brand DDT sulle vendite. -->
-        <button type="submit" class="btn btn-primary" [disabled]="saving() || !indirizziValidi() || !prodottiObbligatoriOk() || !brandDdtOk()">
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || giaCreata() || !indirizziValidi() || !prodottiObbligatoriOk() || !brandDdtOk()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
         </button>
       </div>
@@ -1164,24 +1165,44 @@ export class DeliveryFormComponent implements AfterViewInit {
     });
   }
 
-  private chiudiVendita(nata: { id?: string } | null | undefined): void {
-    const vendita = this.daVendita();
-    if (!vendita || !nata?.id) return;
-    this.http
-      .post(`${environment.apiUrl}/sales/${vendita}/collega-consegna`, { deliveryId: nata.id })
-      .subscribe({ next: () => undefined, error: () => undefined });
-  }
-
-  private chiudiRichiesta(nata: { id?: string } | null | undefined): void {
+  /**
+   * LA VENDITA (o la richiesta) SI CHIUDE PRIMA DI USCIRE — e «prima» vuol
+   * dire **aspettando la risposta**, non solo avendo lanciato la chiamata.
+   *
+   * ⚠️ 05/09/2026, difetto vero (vendita 2828, ordine #101002): queste due
+   * chiamate partivano e nessuno le aspettava. Il pop-up si chiudeva e la
+   * lista Vendite si ricaricava nello stesso istante, mentre la chiusura era
+   * ancora in volo: la consegna è nata alle 04:10:18,502 e la vendita è
+   * passata in storico alle 04:10:21,611 — **3,1 secondi dopo**, quando la
+   * lista era già stata letta. Chi guardava vedeva la vendita ancora aperta e
+   * doveva ricaricare una seconda volta. Non era una cache: era una corsa.
+   *
+   * ⚠️ E l'errore non si ingoia: se la chiusura fallisce la consegna è nata
+   * lo stesso, ma la vendita resta aperta — e uscire in silenzio la
+   * lascerebbe lì senza che nessuno lo sappia.
+   */
+  private chiusure(nata: { id?: string } | null | undefined): Observable<unknown> {
+    const chiamate: Observable<unknown>[] = [];
     const rich = this.daRichiesta();
-    if (!rich) return;
-    this.http
-      .patch(`${environment.apiUrl}/richieste/${rich}`, {
+    if (rich) {
+      chiamate.push(this.http.patch(`${environment.apiUrl}/richieste/${rich}`, {
         stato: 'accettata',
         ...(nata?.id ? { deliveryId: nata.id } : {}),
-      })
-      .subscribe({ next: () => undefined, error: () => undefined });
+      }));
+    }
+    const vendita = this.daVendita();
+    if (vendita && nata?.id) {
+      chiamate.push(this.http.post(`${environment.apiUrl}/sales/${vendita}/collega-consegna`, { deliveryId: nata.id }));
+    }
+    return chiamate.length ? forkJoin(chiamate) : of(null);
   }
+
+  /**
+   * La consegna È NATA: da qui in poi il modulo non si risalva, altrimenti
+   * ne nasce una seconda. Vale anche quando la chiusura della vendita
+   * fallisce e si resta in pagina a leggere il perché.
+   */
+  readonly giaCreata = signal(false);
 
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
   puoConfigurare(): boolean {
@@ -2681,12 +2702,28 @@ export class DeliveryFormComponent implements AfterViewInit {
         // ⭐ 01/09 (utente): la vendita/richiesta passa in STORICO appena la
         // consegna è nata — PRIMA di ogni uscita. Col «Duplica» si usciva
         // prima di chiuderla e la vendita restava aperta.
-        this.chiudiRichiesta(nata);
-        this.chiudiVendita(nata);
-        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-        // Nel pop-up non si naviga: il genitore chiude e ricarica.
-        if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
-        this.router.navigate(['/deliveries']);
+        // ⭐ 05/09 (difetto segnalato): si ESCE SOLO QUANDO la chiusura ha
+        // risposto, se no la lista si ricarica su una vendita ancora aperta.
+        this.giaCreata.set(true);
+        this.chiusure(nata).subscribe({
+          next: () => {
+            if (duplicate) { this.saving.set(false); this.giaCreata.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+            // Nel pop-up non si naviga: il genitore chiude e ricarica.
+            if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
+            this.router.navigate(['/deliveries']);
+          },
+          error: (err) => {
+            // Si resta qui, con scritto che cosa è successo: la consegna c'è,
+            // la vendita no. Il bottone Salva resta spento (`giaCreata`):
+            // risalvare farebbe una seconda consegna.
+            this.saving.set(false);
+            const dett = err?.error?.message;
+            this.error.set(
+              this.translate.instant('deliveryForm.error.saleNotClosed', { code: nata?.code ?? '' })
+              + (dett ? ' — ' + (Array.isArray(dett) ? dett.join(' · ') : dett) : ''),
+            );
+          },
+        });
       },
       error: (err) => {
         this.saving.set(false);

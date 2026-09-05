@@ -11,7 +11,7 @@
 // ============================================================
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -175,19 +175,24 @@ interface UltimaCorsa {
         <table class="table">
           <thead>
             <tr>
-              <th>{{ 'reconciliations.col.product' | translate }}</th>
-              <th>{{ 'reconciliations.col.province' | translate }}</th>
-              <th>{{ 'reconciliations.col.delivery' | translate }}</th>
-              <th>{{ 'reconciliations.col.sales' | translate }}</th>
-              <th>{{ 'reconciliations.col.partner' | translate }}</th>
-              <th class="num">{{ 'reconciliations.col.price' | translate }}</th>
-              <th class="num">{{ 'reconciliations.col.publicPrice' | translate }}</th>
-              <th>{{ 'reconciliations.col.state' | translate }}</th>
+              <!-- ⭐ 05/09/2026 (regola utente): la tabella si ordina. Il
+                   click sull'intestazione ordina, il secondo click inverte.
+                   L'ordinamento è QUI in pagina, sulle righe già caricate: le
+                   proposte aperte sono poche decine e non c'è impaginazione,
+                   quindi non serve rifare il giro al server. -->
+              <th class="sortable" (click)="ordinaPer('prodotto')">{{ 'reconciliations.col.product' | translate }}<span class="sort-ind">{{ segno('prodotto') }}</span></th>
+              <th class="sortable" (click)="ordinaPer('provincia')">{{ 'reconciliations.col.province' | translate }}<span class="sort-ind">{{ segno('provincia') }}</span></th>
+              <th class="sortable" (click)="ordinaPer('consegna')">{{ 'reconciliations.col.delivery' | translate }}<span class="sort-ind">{{ segno('consegna') }}</span></th>
+              <th class="sortable" (click)="ordinaPer('vendite')">{{ 'reconciliations.col.sales' | translate }}<span class="sort-ind">{{ segno('vendite') }}</span></th>
+              <th class="sortable" (click)="ordinaPer('partner')">{{ 'reconciliations.col.partner' | translate }}<span class="sort-ind">{{ segno('partner') }}</span></th>
+              <th class="num sortable" (click)="ordinaPer('prezzoPartner')">{{ 'reconciliations.col.price' | translate }}<span class="sort-ind">{{ segno('prezzoPartner') }}</span></th>
+              <th class="num sortable" (click)="ordinaPer('prezzo')">{{ 'reconciliations.col.publicPrice' | translate }}<span class="sort-ind">{{ segno('prezzo') }}</span></th>
+              <th class="sortable" (click)="ordinaPer('stato')">{{ 'reconciliations.col.state' | translate }}<span class="sort-ind">{{ segno('stato') }}</span></th>
               <th class="azioni">{{ 'reconciliations.col.actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (r of righe(); track r.id) {
+            @for (r of righeOrdinate(); track r.id) {
               <tr>
                 <td>
                   <a [routerLink]="['/products', r.productId]"><b>{{ r.prodotto }}</b></a>
@@ -267,6 +272,9 @@ interface UltimaCorsa {
   `,
   styles: [
     `
+      th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+      th.sortable:hover { color: var(--text-primary); }
+      .sort-ind { font-size: 11px; opacity: .75; }
       .back { display: inline-block; margin-bottom: 6px; color: var(--text-secondary); text-decoration: none; font-size: 13px; }
       .back:hover { color: var(--text); }
       .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 16px 20px; margin-bottom: 16px; }
@@ -312,6 +320,61 @@ export class ProductReconciliationsComponent {
   readonly filtri = ['Proposte', 'Accettate', 'Rifiutate', 'Tutte'] as const;
   readonly filtro = signal<(typeof this.filtri)[number]>('Proposte');
   readonly righe = signal<Riga[]>([]);
+
+  // ============================================================
+  // ORDINAMENTO DELLA TABELLA (05/09/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // ⚠️ Ordinare NON è filtrare: nessuna riga sparisce, e le righe senza il
+  // valore su cui si ordina (una proposta senza consegna, un partner vuoto)
+  // finiscono IN FONDO in tutti e due i versi — se andassero in cima
+  // scendendo, l'inversione sembrerebbe nasconderle.
+  // ============================================================
+  readonly ordine = signal<string>('');
+  readonly verso = signal<'asc' | 'desc'>('asc');
+
+  ordinaPer(campo: string): void {
+    if (this.ordine() === campo) { this.verso.set(this.verso() === 'asc' ? 'desc' : 'asc'); return; }
+    this.ordine.set(campo);
+    this.verso.set('asc');
+  }
+
+  segno(campo: string): string {
+    if (this.ordine() !== campo) return '';
+    return this.verso() === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  /** Il valore su cui si confronta. `null` = «non ce l'ha»: va in fondo. */
+  private valore(r: Riga, campo: string): string | number | null {
+    switch (campo) {
+      case 'prodotto': return (r.prodotto ?? '').toLowerCase();
+      case 'provincia': return (r.provinciaCodice ?? '').toLowerCase() || null;
+      case 'consegna': return r.consegnaCodice ?? null;
+      case 'vendite': return r.vendite ?? 0;
+      case 'partner': return (r.partner ?? '').toLowerCase() || null;
+      case 'prezzoPartner': return r.prezzoPartner ?? null;
+      case 'prezzo': return r.prezzo ?? null;
+      case 'stato': return r.stato ?? null;
+      default: return null;
+    }
+  }
+
+  readonly righeOrdinate = computed<Riga[]>(() => {
+    const campo = this.ordine();
+    const righe = this.righe();
+    if (!campo) return righe;
+    const giu = this.verso() === 'desc' ? -1 : 1;
+    // Copia: `sort` lavora sul posto e muterebbe il segnale.
+    return [...righe].sort((a, b) => {
+      const va = this.valore(a, campo);
+      const vb = this.valore(b, campo);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;   // i vuoti sempre in fondo,
+      if (vb === null) return -1;  // in tutti e due i versi
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * giu;
+      // I testi si confrontano come li legge una persona (à dopo a, 10 dopo 9).
+      return String(va).localeCompare(String(vb), 'it', { numeric: true }) * giu;
+    });
+  });
   readonly caricando = signal(false);
   readonly analizzando = signal(false);
   readonly inAzione = signal(false);
