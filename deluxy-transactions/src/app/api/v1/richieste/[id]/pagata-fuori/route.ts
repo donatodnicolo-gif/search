@@ -22,8 +22,11 @@ import { notificaOrigine } from "@/lib/webhook";
 // secondo fattore — al suo posto ci sono la firma HMAC della chiave, il
 // vincolo «solo le richieste di QUESTA chiave» (come l'annullo), il motivo
 // obbligatorio e `dichiaratoDa` nell'evento: chi legge il registro sa che la
-// prova non ce l'ha nessuno qui. Una richiesta in distinta già consegnata alla
-// banca non si chiude (lo rifiuta `chiudiRichiestaDichiarata`).
+// prova non ce l'ha nessuno qui. Perimetro = quello dell'annullo via API:
+// solo `in_attesa` o `sospesa` (revisione ostile 05/09: oltre, un login
+// qualsiasi dell'app di origine avrebbe potuto cancellare una decisione
+// firmata da due operatori e spegnere uno sblocco in corso). Dopo
+// l'approvazione risponde 409: la chiude un operatore dentro Transactions.
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +51,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!METODI_FUORI[metodo]) {
     return erroreApi(400, `metodo obbligatorio: uno fra ${Object.keys(METODI_FUORI).join(", ")}.`);
   }
-  const motivo = String(corpo.motivo ?? "").trim();
+  // Tetto sul motivo: finisce nel registro, nell'outbox e nel webhook.
+  const motivo = String(corpo.motivo ?? "").trim().slice(0, 500);
   const dataPagamento = corpo.dataPagamento == null ? "" : String(corpo.dataPagamento).trim();
   if (dataPagamento && !/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
     return erroreApi(400, "dataPagamento nel formato AAAA-MM-GG.");

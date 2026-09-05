@@ -44,6 +44,18 @@ pagate a mano). Costruito:
   con `segnaPagataFuori` nel suo client. Le 7 richieste già pagate a mano
   restano da chiudere dall'operatore (o con lo script di Finance, come
   annullate).
+- **Revisione ostile (agente `sicurezza-ostile`, 05/09)**: 4 accuse
+  demolite (una chiave non chiude richieste altrui; firma/nonce/corpo
+  coperti; nessun anello col webhook; lo sblocco che decade non è un
+  sabotaggio). **Sopravvissuta**: il perimetro arrivava ad `approvata` e alla
+  distinta aperta, più largo dell'annullo, e nel CS «Pagata» non ha controllo
+  di ruolo → un login CS qualsiasi poteva cancellare una doppia firma. Corretto:
+  la rotta si ferma a `in_attesa`/`sospesa` (409 oltre), motivo con tetto 500,
+  i messaggi del CS non promettono più un «riapri» che non esiste. Annotata
+  come pre-esistente la corsa fra chiusura manuale ed esecuzione Qonto
+  (`pagaLottoConQonto` non rilegge lo stato prima di ogni bonifico): da
+  chiudere quando Qonto si accende. Da sapere: alla rotazione della chiave del
+  CS le richieste create con la vecchia rispondono 404 alla chiusura.
 - Verifica: `tsc` verde su entrambe le app; **non ancora deployato** (né
   Transactions né CS) al momento di scrivere.
 
