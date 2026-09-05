@@ -241,7 +241,7 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 
 **Problemi di salvataggio**: verificare numero di caratteri dei telefoni, validare l'indirizzo, verificare presenza prodotto, controllare il messaggio di errore in fondo al form.
 
-**Compila con l'AI** **[NUOVO 27/08/2026]** — in cima al form della consegna **nuova** (mai in modifica) c'è un pannello «✨ Compila con l'AI»: si scrive o si **detta** un testo libero, oppure si carica una **foto** (un ordine scritto a mano, uno screenshot di WhatsApp), e i campi del modulo si riempiono da soli. Rotta `POST /api/v1/ai/consegna-da-testo` (Admin, Operation, Partner).
+**Compila con l'AI** **[NUOVO 27/08/2026]** — in cima al form della consegna **nuova** (mai in modifica) c'è un pannello «✨ Compila con l'AI»: si scrive o si **detta** un testo libero, oppure si carica una **foto** (un ordine scritto a mano, uno screenshot di WhatsApp), e i campi del modulo si riempiono da soli. Rotta `POST /api/v1/ai/consegna-da-testo` (Admin, Operation). **Dal 05/09/2026 il pannello è solo per l'ufficio**: ai partner non si mostra e la rotta li rifiuta (regola utente, «per ora»).
 
 - ⭐ **Propone, non crea.** La rotta non scrive niente: la consegna nasce quando una persona preme **Salva**, come sempre. Ogni campo resta modificabile.
 - Ogni proposta si **dichiara**: confidenza (verde = ci crede molto, oro = da ricontrollare, rosso = da rileggere riga per riga), una frase su che cosa ha capito, e l'elenco dei campi **non trovati**.
