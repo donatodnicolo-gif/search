@@ -1,0 +1,284 @@
+<title>Architettura Vendite Deluxy</title>
+<style>
+  :root {
+    --ground: #F5F5F7;
+    --surface: #FFFFFF;
+    --sunken: #ECECEF;
+    --text: #1D1D1F;
+    --text-2: #6E6E73;
+    --hairline: rgba(0,0,0,.09);
+    --gold: #B8963E;
+    --gold-soft: rgba(184,150,62,.14);
+    --red: #C8352E;
+    --red-soft: rgba(200,53,46,.10);
+    --green: #1F8A4C;
+    --green-soft: rgba(31,138,76,.12);
+    --ink-pill: #1D1D1F;
+    --ink-pill-text: #FFFFFF;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F0F11; --surface: #1A1A1D; --sunken: #232327;
+      --text: #F2F2F4; --text-2: #A1A1A6; --hairline: rgba(255,255,255,.11);
+      --gold: #D4B061; --gold-soft: rgba(212,176,97,.16);
+      --red: #F0605A; --red-soft: rgba(240,96,90,.14);
+      --green: #4FC27E; --green-soft: rgba(79,194,126,.14);
+      --ink-pill: #F2F2F4; --ink-pill-text: #0F0F11;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F0F11; --surface: #1A1A1D; --sunken: #232327;
+    --text: #F2F2F4; --text-2: #A1A1A6; --hairline: rgba(255,255,255,.11);
+    --gold: #D4B061; --gold-soft: rgba(212,176,97,.16);
+    --red: #F0605A; --red-soft: rgba(240,96,90,.14);
+    --green: #4FC27E; --green-soft: rgba(79,194,126,.14);
+    --ink-pill: #F2F2F4; --ink-pill-text: #0F0F11;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--ground); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; display: grid; gap: 28px; }
+  .misura { max-width: 72ch; }
+  h1 { font-size: 34px; letter-spacing: -0.03em; line-height: 1.12; margin: 0 0 6px; text-wrap: balance; }
+  h2 { font-size: 21px; letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance; }
+  h3 { font-size: 15px; letter-spacing: -0.01em; margin: 18px 0 6px; }
+  p { margin: 0 0 10px; }
+  .eyebrow { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); margin-bottom: 8px; }
+  .sub { color: var(--text-2); font-size: 15.5px; margin: 0; }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 22px 24px; }
+  .banda { padding: 0; overflow: hidden; }
+  .banda .dentro { padding: 22px 24px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.nero { background: var(--ink-pill); color: var(--ink-pill-text); }
+  .pill.oro { background: var(--gold-soft); color: var(--gold); }
+  .pill.rosso { background: var(--red-soft); color: var(--red); }
+  .pill.verde { background: var(--green-soft); color: var(--green); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .scorri { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  th { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .fatto { background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+  .fatto .n { font-size: 26px; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .fatto .n.rosso { color: var(--red); }
+  .fatto .l { font-size: 12.5px; color: var(--text-2); }
+  .decisioni { display: grid; gap: 12px; }
+  .decisione { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--hairline); }
+  .decisione:first-of-type { border-top: 0; padding-top: 4px; }
+  .decisione .t { font-weight: 650; letter-spacing: -0.01em; }
+  .decisione .oggi { color: var(--text-2); font-size: 13.5px; }
+  .esempio { background: var(--sunken); border-radius: 12px; padding: 14px 16px; margin: 10px 0; }
+  .esempio b { font-weight: 650; }
+  .passi { counter-reset: p; display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+  .passi li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+  .passi li::before { counter-increment: p; content: counter(p); width: 28px; height: 28px; border-radius: 50%; background: var(--ink-pill); color: var(--ink-pill-text); display: grid; place-items: center; font-size: 12.5px; font-weight: 650; margin-top: 1px; }
+  .passi .rev { color: var(--text-2); font-size: 13px; }
+  .diagramma { background: var(--surface); }
+  .diagramma pre.mermaid { margin: 0; padding: 18px 12px; overflow-x: auto; }
+  .leg { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--text-2); padding: 0 24px 18px; }
+  .leg span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .leg .s::before { background: #DCE9F7; border: 1px solid #7FA6D6; }
+  .leg .u::before { background: #FBE7C6; border: 1px solid #D9A441; }
+  .leg .pa::before { background: #E3F2E7; border: 1px solid #5FA97A; }
+  .leg .k::before { background: #F9D9D7; border: 1px solid #D96C66; }
+  .nota { font-size: 13px; color: var(--text-2); }
+  .procon { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .procon > div { background: var(--sunken); border-radius: 12px; padding: 14px 16px; }
+  .procon h4 { margin: 0 0 6px; font-size: 14px; }
+  .procon ul { margin: 0; padding-left: 16px; font-size: 13.5px; }
+  .procon .scelta { outline: 2px solid var(--gold); outline-offset: -2px; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; background: var(--sunken); padding: 1px 5px; border-radius: 5px; }
+  @media (max-width: 720px) {
+    .decisione { grid-template-columns: 1fr; gap: 6px; }
+    .procon { grid-template-columns: 1fr; }
+    h1 { font-size: 28px; }
+  }
+</style>
+
+<main>
+  <header class="misura">
+    <div class="eyebrow">Piattaforma consegne · studio del 5 settembre 2026</div>
+    <h1>Architettura Vendite Deluxy</h1>
+    <p class="sub">Come una vendita nasce da un ordine, trova il suo partner, diventa una consegna e insegna qualcosa alla prossima. Progettata su tre letture indipendenti del codice reale — un architetto, un investigatore, un revisore ostile — sopra la bozza dell'utente.</p>
+  </header>
+
+  <section class="griglia" aria-label="I numeri che hanno guidato lo studio">
+    <div class="fatto"><div class="n rosso">11.165 €</div><div class="l">valore pubblico letto come guadagno su 116 consegne di vendita da agosto: <code>productValue</code> vuoto, che la Finanza legge come «dato al partner 0»</div></div>
+    <div class="fatto"><div class="n rosso">104,24 → 28,50 €</div><div class="l">margine di #100099 come lo legge la Finanza oggi, e com'è davvero (due vendite, 92,40 € al partner)</div></div>
+    <div class="fatto"><div class="n">1 sola</div><div class="l">vendita per ordine, senza quantità: 24 rose × 5 € entrano oggi come «1 rosa a 5 €»; il secondo prodotto di un ordine non esiste</div></div>
+    <div class="fatto"><div class="n">3 posti</div><div class="l">dove il prezzo partner viene ricostruito dalla percentuale con tre arrotondamenti diversi — sul Tiramisù il patto di 28 € arriva a Orders come 30: margine zero</div></div>
+  </section>
+
+  <section class="card misura">
+    <div class="eyebrow">La bozza</div>
+    <h2>Da dove si parte</h2>
+    <p>Prodotto <b>unico</b>: il proprietario deve essere aperto nell'orario di consegna, o quel giorno se l'ordine non ha orario; il suo prezzo è già a catalogo. Prodotto <b>non unico</b>: la percentuale di sconto per provincia, poi la lista di priorità per categoria. <b>Riconciliazioni</b> da definire: se un partner di Genova vende le rose a 5 € l'una, la prossima vendita di 24 rose deve capire da sola che vale 24 × 5 €.</p>
+    <p>La bozza regge. Quello che manca non è dentro le regole, è <b>sotto</b>: l'unità su cui le regole lavorano. Finché la vendita è «un ordine» e non «una riga con quantità», né le rose di Genova né il secondo prodotto di un ordine hanno un posto dove vivere.</p>
+  </section>
+
+  <section class="card banda diagramma">
+    <div class="dentro">
+      <div class="eyebrow">Il flusso</div>
+      <h2>Vita di una vendita</h2>
+      <p class="nota misura">Dall'ordine sincronizzato da Orders alla consegna, fino alla riconciliazione che alimenta la vendita successiva. Il colore dice chi decide.</p>
+    </div>
+<pre class="mermaid">
+flowchart TD
+  O["Orders: ordine Shopify<br/>righe con sku, quantità, prezzo unitario<br/>fascia di consegna, salute"]:::sis --> S0{"Già affidato in chat<br/>o evaso dal negozio?"}:::sis
+  S0 -- sì --> CS["Resta al Customer Service:<br/>nessuna vendita"]:::uff
+  S0 -- no --> S1{"Paese ≠ Italia?"}:::sis
+  S1 -- sì --> EST["Vendita DA GESTIRE<br/>prezzo partner: non calcolabile"]:::uff
+  S1 -- no --> S2{"Per OGNI riga:<br/>SKU a catalogo?"}:::sis
+  S2 -- no --> SP["Vendita SENZA PRODOTTO<br/>titolo e sku grezzi · da gestire"]:::uff
+  S2 -- sì --> S3{"Tipo prodotto"}:::sis
+  S3 -- UNICO --> U1{"Proprietario attivo, in provincia,<br/>APERTO nella fascia<br/>(o quel giorno, senza fascia)?"}:::sis
+  U1 -- sì --> U2["PROPOSTA al proprietario<br/>partner = listino variante × quantità<br/>fonte: listino_proprietario"]:::sis
+  U1 -- no --> DG["DA GESTIRE<br/>con il motivo scritto"]:::uff
+  S3 -- NON UNICO --> N1{"Patto accettato per<br/>prodotto · variante · provincia?"}:::sis
+  N1 -- sì --> N2["PROPOSTA al partner del patto<br/>partner = unitario del patto × quantità<br/>fonte: patto"]:::sis
+  N1 -- no --> N3["Regola di categoria × provincia<br/>partner = unitario × (1 − %) × quantità<br/>fonte: regola_categoria"]:::sis
+  N3 --> N4{"Lista di priorità:<br/>primo attivo, in provincia,<br/>aperto nella fascia, non escluso,<br/>che non ha già rifiutato?"}:::sis
+  N4 -- trovato --> N5["PROPOSTA · motivo: lista o ripiego"]:::sis
+  N4 -- nessuno --> DG
+  U2 --> C1{"Salute in Orders = conforme?"}:::sis
+  N2 --> C1
+  N5 --> C1
+  C1 -- no --> NC["BLOCCATA: solo rifiuto dell'ufficio"]:::uff
+  C1 -- sì --> P1{"Risposta del PARTNER"}:::par
+  P1 -- rifiuta --> DG
+  P1 -- accetta --> D1["Nasce la CONSEGNA<br/>una riga per vendita: quantità, unitario, vendita<br/>dato al partner = somma dei prezzi partner<br/>DDT = numero ordine + negozio"]:::sis
+  DG --> UF{"L'UFFICIO decide"}:::uff
+  UF -- propone a un partner --> P1
+  UF -- inserisce a mano --> D1
+  UF -- riconcilia con consegna esistente<br/>(prima DDT + negozio, poi indirizzo) --> D2["Aggancio: più vendite → una consegna<br/>il DDT accoda il numero"]:::uff
+  UF -- rifiuta --> NC
+  D1 --> V["Esecuzione: valet o partner<br/>→ consegnata"]:::sis
+  D2 --> V
+  V --> T["Orders legge il costo partner via /api/v1<br/>margine = incassato − costo · Transactions paga"]:::sis
+  V --> R1["Di notte: evidenza dalle righe di consegna<br/>unitario, quantità, variante, partner"]:::sis
+  R1 --> R2{"Riconciliazione PROPOSTA"}:::uff
+  R2 -- accetta --> N1
+  R2 -- rifiuta --> R3["Mai più proposta"]:::uff
+  R2 -- modifica --> R2
+  classDef sis fill:#DCE9F7,stroke:#7FA6D6,color:#1D1D1F
+  classDef uff fill:#FBE7C6,stroke:#D9A441,color:#1D1D1F
+  classDef par fill:#E3F2E7,stroke:#5FA97A,color:#1D1D1F
+  classDef ko fill:#F9D9D7,stroke:#D96C66,color:#1D1D1F
+  class NC ko
+</pre>
+    <div class="leg"><span class="s">decide il sistema</span><span class="u">decide l'ufficio</span><span class="pa">decide il partner</span><span class="k">bloccata</span></div>
+  </section>
+
+  <section class="card">
+    <div class="eyebrow">Prima del codice</div>
+    <h2>Cinque decisioni che la bozza deve prendere</h2>
+    <p class="nota misura">Il revisore ostile ha passato 32 casi contro il codice. Tutto quello che ha trovato ricade su queste cinque scelte: senza di esse qualunque regola sopra resta ambigua.</p>
+    <div class="decisioni">
+      <div class="decisione">
+        <div><span class="pill nero">L'unità</span></div>
+        <div><div class="t">La vendita è l'ordine o la riga?</div>
+          <p>Oggi è l'ordine: la sincronizzazione prende il primo SKU riconosciuto, senza quantità e senza importo pagato. Le rose di Genova, il #12847 servito da due partner, le righe «extra» e «saldo» non hanno un posto. <b>Proposta: una vendita per riga</b>, con <code>quantity</code> e <code>unitPrice</code>, e il legame vendita↔consegna che smette di essere uno-a-uno.</p>
+          <div class="oggi">Nel codice: <code>orders-sync.module.ts</code> sceglie il primo SKU; <code>Sale.deliveryId</code> è UNIQUE.</div></div>
+      </div>
+      <div class="decisione">
+        <div><span class="pill nero">Il patto</span></div>
+        <div><div class="t">Unitario o totale, per prodotto o per variante?</div>
+          <p>La riconciliazione oggi salva la <b>moda dei totali</b> con chiave (prodotto, provincia): una vendita di 12 rose a 60 € produce un patto «60», che poi si applica pari pari a 24 rose. <b>Proposta: patto unitario</b> (<code>partnerUnitPrice</code>, <code>pricingMode</code> unitario o forfait), con la variante nella chiave — il patto «Media» non vale per «Grande» — e una regola dichiarata quando due partner storici hanno prezzi diversi: frequenza, prezzo migliore o ultimo. Non è la stessa cosa, e oggi vince la frequenza senza che nessuno l'abbia deciso.</p></div>
+      </div>
+      <div class="decisione">
+        <div><span class="pill nero">La fotografia</span></div>
+        <div><div class="t">Quando si fissano importo, prezzo partner e quota — e cosa fa una modifica dopo?</div>
+          <p>Oggi tre momenti diversi: la quota alla nascita, il prezzo di riga all'accettazione (che rilegge il listino del giorno), il dato al partner mai. Una modifica di importo o provincia non ricalcola niente; il rismistamento invece riscrive. <b>Proposta: il patto si cristallizza alla PROPOSTA</b> come numero scritto (<code>partnerPrice</code>), si riscrive solo se cambia il partner, e ogni riscrittura lascia una riga nel registro. Un cambio di listino successivo non tocca le vendite passate.</p></div>
+      </div>
+      <div class="decisione">
+        <div><span class="pill nero">Lo zero</span></div>
+        <div><div class="t">Zero è un valore o un buco?</div>
+          <p>Nel codice <code>?? 0</code> compare in tre punti e <code>quotaPerDare</code> restituisce 0 sia quando il partner prende più del pubblico sia quando <code>price</code> e <code>publicPrice</code> coincidono. Risultato: 308 vendite importate a 0 % che Orders legge come «costo pieno», e un sottocosto invisibile. <b>Proposta: <code>partnerPrice = null</code> + fonte «nessuno»</b> significa «non calcolabile» e blocca l'accettazione finché una persona non lo scrive; il sottocosto si registra con un flag, non si schiaccia a zero.</p></div>
+      </div>
+      <div class="decisione">
+        <div><span class="pill nero">Il vuoto</span></div>
+        <div><div class="t">Cosa succede quando l'unico candidato non c'è?</div>
+          <p>Proprietario chiuso quel giorno, fuori provincia, inattivo, escluso, o che ha già rifiutato: oggi la vendita resta «da gestire» in silenzio, e il rismistamento la ripropone <b>allo stesso partner che ha detto no</b> (l'elenco degli esclusi esiste nel codice ma è sempre vuoto). <b>Proposta</b>: chi ha rifiutato è escluso dal giro successivo; per l'unico senza proprietario disponibile l'ufficio riceve un avviso con il motivo, e la vendita porta una scadenza oltre la quale il cliente va avvisato.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="eyebrow">La regola</div>
+    <h2>Il prezzo partner di una riga, in ordine di precedenza</h2>
+    <div class="scorri">
+      <table>
+        <thead><tr><th>Precedenza</th><th>Quando</th><th>Prezzo partner</th><th>Fonte scritta</th><th>Esempio</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td>Esiste un <b>patto accettato</b> per (prodotto, variante, provincia) — cercato dal più specifico al generico</td><td>unitario del patto × quantità (o forfait, una volta sola)</td><td><code>patto</code></td><td><b>Genova, 24 rose rosse a 7,50 €</b>: patto «5 € l'una» → cliente 180 €, partner <b>120 €</b>, quota derivata 33,3 %</td></tr>
+          <tr><td class="mono">2</td><td>Prodotto <b>UNICO</b> (ha un proprietario e un listino suo)</td><td><code>variant.price ?? product.price</code> × quantità — nessun arrotondamento: è un listino, non una stima</td><td><code>listino_proprietario</code></td><td>Tiramisù «4»: partner <b>28 €</b>, cliente 30 €, quota 6,67 %</td></tr>
+          <tr><td class="mono">3</td><td>Prodotto <b>NON UNICO</b> senza patto</td><td>unitario × (1 − % categoria×provincia), arrotondato ai 5, × quantità</td><td><code>regola_categoria</code></td><td>Rose 30 %: 7,50 → 5,25 → 5 € l'una → 120 €. Sotto i 2,50 € si tiene il valore esatto e si segnala</td></tr>
+          <tr><td class="mono">—</td><td>Senza prodotto, estero, non conforme</td><td><b>null</b> — «non calcolabile», mai zero</td><td><code>nessuno</code></td><td>Orders mostra «da definire», non un margine del 100 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="esempio misura"><b>Perché unitario.</b> Lo storico che alimenta le proposte notturne deve leggere le righe di consegna come <i>unitario × quantità</i> e fare la moda sull'unitario. Oggi fa la moda sul totale: 12 rose a 60 € e 24 rose a 120 € sono due prezzi diversi, mentre sono lo stesso patto.</div>
+  </section>
+
+  <section class="card">
+    <div class="eyebrow">Il modello dati</div>
+    <h2>Cosa cambia, e in quale casa vive</h2>
+    <div class="scorri">
+      <table>
+        <thead><tr><th>Dato</th><th>Casa</th><th>Cambiamento</th><th>Perché (Standard §7)</th></tr></thead>
+        <tbody>
+          <tr><td><code>Sale</code></td><td>piattaforma</td><td>+ <code>quantity</code>, <code>unitPrice</code>, <code>partnerUnitPrice</code>, <code>partnerPrice</code>, <code>partnerPriceSource</code>, <code>sottocosto</code>, <code>orderLineKey</code>; <code>deliveryId</code> da UNIQUE a indice</td><td>§7.2: «incarichi ed esecuzione». Il prezzo partner diventa un fatto scritto; <code>discountPercent</code> resta ma derivato</td></tr>
+          <tr><td><code>DeliveryProduct</code></td><td>piattaforma</td><td>+ <code>saleId</code>; <code>price</code> dichiarato unitario; <code>quantity</code> dalla vendita</td><td>la riga sa da quale vendita nasce: è la prova per la riconciliazione e per i margini</td></tr>
+          <tr><td><code>Delivery.productValue</code></td><td>piattaforma</td><td>= somma dei <code>partnerPrice</code> delle vendite collegate</td><td>è il numero che la Finanza legge come «dato al partner»: righe e campo coincidono per costruzione</td></tr>
+          <tr><td><code>ProductReconciliation</code></td><td>piattaforma</td><td>+ <code>variantKey</code>, <code>partnerUnitPrice</code>, <code>pricingMode</code>, <code>evidenceQuantity</code>; unique (prodotto, provincia, variante)</td><td>il patto è per variante e per unità</td></tr>
+          <tr><td>Prezzo cliente</td><td>Orders</td><td>la vendita ne tiene la fotografia del giorno (<code>amount</code>), dichiarata copia</td><td>§7.2: margine per ordine è di Orders</td></tr>
+          <tr><td>Salute dell'ordine</td><td>Orders</td><td>nessuno: letta dal vivo</td><td>mai copiata</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="eyebrow">La domanda dell'utente</div>
+    <h2>Dove devono vivere la % per provincia e le liste di priorità</h2>
+    <p class="nota misura">L'investigatore ha trovato che la quota esiste <b>due volte</b>, e che lo Standard lo prevede: <code>CategoryDiscount</code> nella piattaforma (categoria × provincia, per gli ordini smistati ai partner con account) e <code>QuotaRegola</code> in Orders (provincia × categoria, 60 % di default, per i fornitori trovati in chat). Il Customer Service non ha nessuna delle due: legge la quota da Orders e i fornitori «abituali» li scrive nel registro Anagrafiche.</p>
+    <div class="procon">
+      <div><h4>Orders</h4><ul><li>possiede il margine per ordine (§7.2) e già espone <code>/api/v1/quota-fornitore</code></li><li>ma non conosce le categorie di catalogo né gli account partner: dovrebbe copiarli, e §7.1 lo vieta</li></ul></div>
+      <div><h4>Customer Service</h4><ul><li>è il decisore unico (§7.2) e tiene la graduatoria informale dei fornitori in chat</li><li>ma quella graduatoria riguarda fornitori <b>senza account</b>: un'altra cosa; e neanche lui ha categorie e partner</li></ul></div>
+      <div class="scelta"><h4>Piattaforma <span class="pill oro">raccomandata</span></h4><ul><li>possiede categorie, province, account partner, orari, coperture: le <b>chiavi</b> delle due tabelle sono tutte sue</li><li>lo smistamento le legge in modo sincrono; la UI admin esiste</li><li>obbligo: esporre <code>/api/v1/regole/sconto</code> e <code>/api/v1/liste-priorita</code> così Orders e CS leggono senza copiare; e correggere §7.4, che cita ancora <code>PartnerCategory.priority</code> (455 righe a 0, morta)</li></ul></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="eyebrow">Il cammino</div>
+    <h2>Migrazione in sette passi, ciascuno reversibile</h2>
+    <p class="nota misura">Sul Postgres condiviso da quattordici app: indici e vincoli solo concordati, colonne additive per prime, doppia scrittura finché i lettori non sono passati.</p>
+    <ol class="passi">
+      <li><div><b>Censimento in sola lettura.</b> Vendite per fonte, consegne con <code>productValue</code> vuoto e righe, doppioni potenziali su <code>deliveryId</code>. <div class="rev">Nessuna modifica.</div></div></li>
+      <li><div><b>Colonne additive su <code>Sale</code></b> + doppia scrittura in <code>create</code>, <code>ingest</code>, rismistamento, proposta. Backfill: <code>unitPrice = amount</code>, <code>quantity = 1</code>, <code>partnerPrice</code> dalla quota con fonte dedotta dal motivo; le 308 a 0 % → <code>nessuno</code>, prezzo null. <div class="rev">Rollback: <code>DROP COLUMN</code>.</div></div></li>
+      <li><div><b><code>DeliveryProduct.saleId</code></b> + cascata dei prezzi corretta (<code>product.price</code> prima di <code>publicPrice</code>) + <code>productValue</code> come somma. Backfill delle 116 consegne di agosto, una riga di registro per ognuna col valore precedente. <div class="rev">Rollback: si rimette il valore dai registri.</div></div></li>
+      <li><div><b><code>Sale.deliveryId</code> da UNIQUE a indice</b> — vincolo da concordare. La riconciliazione toglie il blocco «già di un'altra vendita», pretende lo stesso negozio sul DDT e accoda il numero. <div class="rev">Rollback possibile finché non nascono doppioni: va detto.</div></div></li>
+      <li><div><b><code>ProductReconciliation</code> per variante e unitario</b>: colonne additive, poi la nuova unique al posto della vecchia (concordata). Backfill: <code>variantKey = ''</code>, unitario = prezzo attuale. Lo smistamento cerca dallo specifico al generico. <div class="rev">Rollback: si ripristina la vecchia unique, nessuna riga con variante ancora.</div></div></li>
+      <li><div><b>Passaggio dei lettori</b> dietro un'impostazione: l'API per Orders emette <code>costoPartner</code> dal numero scritto (null → «non calcolabile»), la vista partner idem, le proposte notturne leggono unitario × quantità. <div class="rev">Rollback: impostazione spenta.</div></div></li>
+      <li><div><b>API di lettura</b> per regole e liste, emendamento di §7.4, e settimane dopo la pulizia: <code>discountPercent</code> solo derivato, <code>PartnerCategory.priority</code> marcata deprecata (non si cancella: quattordici app).</div></li>
+    </ol>
+  </section>
+
+  <section class="card misura">
+    <div class="eyebrow">In parallelo</div>
+    <h2>Quello che sanguina adesso, indipendente dall'architettura</h2>
+    <p><span class="pill rosso"><i class="dot"></i>denaro</span> Il <code>productValue</code> vuoto fa leggere alla Finanza 11.165 € di guadagno che non esistono. Si risolve col passo 3 da solo, e non aspetta gli altri.</p>
+    <p><span class="pill rosso"><i class="dot"></i>denaro</span> Tre ordini da 180 € (12736, 12737, 12738) proposti ad Angolo Fiorito con quota 0 %: da sistemare prima che accetti.</p>
+    <p><span class="pill oro"><i class="dot"></i>dato</span> 308 vendite importate a 0 %, 186 già accettate: prima capire se arrivano alla fatturazione, poi decidere se correggerle o marcarle «da definire».</p>
+    <p><span class="pill verde"><i class="dot"></i>fatto oggi</span> Riconciliazione dal DDT, orari sulla fascia di consegna, prezzo partner dal listino della variante sugli unici, 9 vendite chiuse per DDT, 6 rismistate, il 12879 corretto.</p>
+  </section>
+</main>
