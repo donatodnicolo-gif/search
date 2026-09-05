@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
 import { effettiPagata } from '@/lib/effetti-pagata'
+import { segnaPagataFuoriTransactions, transactionsConfigurata } from '@/lib/transactions'
 import {
   cosaManca,
   metodoValido,
@@ -50,6 +51,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // ── SEGNARE CHE È STATA PAGATA ──
   if (c.azione === 'pagata' || c.azione === 'nonpagata') {
     if (c.azione === 'nonpagata') {
+      // ⚠️ Se la chiusura è già arrivata a Transactions (o è stata Transactions
+      // a pagare), qui non si disfa: di là la partita è chiusa e un «non
+      // pagata» solo qui farebbe divergere le due app in silenzio.
+      if (r.canale === 'transactions' && r.partnerStato === 'pagata') {
+        return NextResponse.json(
+          {
+            errore:
+              'Questa richiesta risulta pagata anche su Deluxy Transactions: qui non si può più togliere la spunta. ' +
+              'Se è un errore, va riaperta da un operatore dentro Transactions.',
+          },
+          { status: 409 }
+        )
+      }
       // ⚠️ Si può disfare: capita di spuntare la riga sbagliata, e un segno che
       // non si toglie si smette di mettere. ⚠️ La ricevuta però resta: è un
       // documento, e cancellarla per un clic sbagliato sarebbe peggio.
@@ -92,6 +106,30 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     const pagata = await db.richiestaPagamento.update({ where: { id }, data: dati })
 
+    // ── TRANSACTIONS LO VIENE A SAPERE (05/09/2026) ──
+    // Se questa richiesta era già in coda di là e non è stata Transactions a
+    // pagarla, di là va chiusa come «pagata fuori dall'app»: altrimenti resta
+    // in attesa e un operatore la paga una seconda volta (con Finance era
+    // successo su 7 richieste, 4.794 €). L'esito torna alla pagina e, se
+    // fallisce, resta scritto sulla riga (`esitoInvio`): la spunta qui vale
+    // comunque, ma qualcuno deve chiudere a mano di là.
+    let transactions: { ok: boolean; messaggio: string } | null = null
+    if (r.canale === 'transactions' && r.inviataIl && r.partnerStato !== 'pagata' && transactionsConfigurata()) {
+      const t = await segnaPagataFuoriTransactions({
+        riferimento: r.riferimento,
+        pagatoCon: String(dati.pagatoCon),
+        pagataIl: dati.pagataIl as Date,
+        pagataDa: io.nome,
+      })
+      transactions = t.ok ? { ok: true, messaggio: t.messaggio } : { ok: false, messaggio: t.errore }
+      await db.richiestaPagamento.update({
+        where: { id },
+        data: t.ok
+          ? { partnerStato: 'pagata', esitoInvio: '' }
+          : { esitoInvio: `Pagata qui ma NON chiusa su Transactions — ${t.errore}` },
+      })
+    }
+
     // ⚠️ L'ESITO NON RESTA MUTO. Gli effetti (ordine spostato, riconciliazione,
     // avviso al fornitore, registro anagrafiche) sono in `effettiPagata()` —
     // UNA strada sola, la stessa che percorre il webhook di Transactions
@@ -111,6 +149,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       // ⚠️ Cos'è successo all'ORDINE: la pagina lo scrive. '' = non c'era un
       // ordine collegato, o era già avanti.
       ordine: { stato: effetti.statoOrdine, orders: effetti.versoOrders },
+      // Cos'è successo su TRANSACTIONS: null = non era in coda di là.
+      transactions,
     })
   }
 

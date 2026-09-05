@@ -434,7 +434,33 @@ export async function chiudiFuoriDallApp(
   ip?: string | null,
 ): Promise<EsitoChiusura> {
   if (operatore.ruolo === "osservatore") return { ok: false, errore: "Il ruolo osservatore non può chiudere richieste." };
+  return chiudiRichiestaDichiarata(richiestaId, operatore.email, dati, ip);
+}
 
+/** La stessa chiusura, dichiarata dall'APP DI ORIGINE via API (05/09/2026):
+ *  il Customer Service segna «pagata» un fornitore che ha pagato dal portale
+ *  della banca, e la richiesta qui non deve restare in coda — pagarla da qui
+ *  la pagherebbe due volte (successo con 7 richieste di Finance, 4.794 €).
+ *  Non è una porta in più per far uscire denaro (SICUREZZA.md §0-ter): è la
+ *  stessa registrazione di denaro già uscito, con l'attore = nome dell'app e
+ *  `dichiaratoDa` nell'evento, così si distingue dalla chiusura di un
+ *  operatore. Vale solo per le richieste di quella chiave (lo controlla la
+ *  rotta). */
+export async function chiudiDichiarataDallOrigine(
+  richiestaId: string,
+  app: string,
+  dati: { metodo?: string; motivo: string; dataPagamento?: string },
+  ip?: string | null,
+): Promise<EsitoChiusura> {
+  return chiudiRichiestaDichiarata(richiestaId, app, { ...dati, esito: "pagata_fuori", dichiaratoDa: app }, ip);
+}
+
+async function chiudiRichiestaDichiarata(
+  richiestaId: string,
+  attore: string,
+  dati: { esito: "pagata_fuori" | "annullata"; metodo?: string; motivo: string; dataPagamento?: string; dichiaratoDa?: string },
+  ip?: string | null,
+): Promise<EsitoChiusura> {
   const r = await prisma.richiesta.findUnique({ where: { id: richiestaId }, include: { lotto: true } });
   if (!r) return { ok: false, errore: "Richiesta inesistente." };
 
@@ -453,7 +479,7 @@ export async function chiudiFuoriDallApp(
   if (sigilloDellaRiga(r) !== r.sigillo) {
     await registra(
       "sicurezza.allarme",
-      operatore.email,
+      attore,
       { messaggio: "sigillo non corrispondente in chiusura manuale", riferimento: r.riferimento },
       { richiestaId: r.id, ip },
     );
@@ -543,7 +569,7 @@ export async function chiudiFuoriDallApp(
   if (dati.esito === "pagata_fuori") {
     await registra(
       "richiesta.pagata_fuori",
-      operatore.email,
+      attore,
       {
         riferimento: r.riferimento,
         importoCent: r.importoCent,
@@ -551,6 +577,9 @@ export async function chiudiFuoriDallApp(
         metodo,
         metodoTesto: METODI_FUORI[metodo],
         motivo,
+        // Presente solo quando a dichiararla è l'app di origine via API: la
+        // prova non ce l'ha nessuno qui, e chi legge il registro deve vederlo.
+        ...(dati.dichiaratoDa ? { dichiaratoDa: dati.dichiaratoDa } : {}),
         pagataIl: quandoPagata?.toISOString() ?? null,
         uscitaDaDistinta: lottoLasciato,
       },
@@ -567,7 +596,7 @@ export async function chiudiFuoriDallApp(
 
   await registra(
     "richiesta.annullata",
-    operatore.email,
+    attore,
     { riferimento: r.riferimento, importoCent: r.importoCent, motivo, aMano: true, uscitaDaDistinta: lottoLasciato },
     { richiestaId: r.id, ip },
   );

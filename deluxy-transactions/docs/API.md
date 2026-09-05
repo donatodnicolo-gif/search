@@ -149,6 +149,33 @@ Corpo facoltativo `{ "motivo": "…" }`. Funziona solo finché la richiesta è
 `in_attesa` o `sospesa`: dopo l'approvazione la decisione non è più di chi ha
 chiesto. Risposta `409` se è troppo tardi.
 
+## `POST /api/v1/richieste/<id | riferimento | riferimentoEsterno>/pagata-fuori`
+
+Dal 05/09/2026. L'app di origine dichiara che il beneficiario **è già stato
+pagato per un'altra strada** (portale della banca, contanti, compensazione):
+la richiesta esce dalla coda come `pagata` con `pagatoCon: "fuori_app"`, e
+nel registro l'evento `richiesta.pagata_fuori` porta `dichiaratoDa: <app>`.
+Serve a non pagare due volte: senza, la richiesta resterebbe in attesa qui
+mentre di là risulta pagata.
+
+Corpo:
+
+```json
+{ "metodo": "bonifico_banca", "dataPagamento": "2026-09-05", "motivo": "Pagata dal portale Qonto da Anna, op. 123" }
+```
+
+`metodo` obbligatorio, uno fra `bonifico_banca`, `addebito`, `carta`,
+`contanti`, `compensazione`, `altro`. `dataPagamento` facoltativa (`AAAA-MM-GG`,
+non nel futuro; vuota = oggi). `motivo` obbligatorio (almeno 3 caratteri): è
+l'unica traccia del pagamento, scrivi dove e chi. Solo le richieste **della
+tua chiave**, e solo finché sono `in_attesa`, `sospesa`, `approvata` o in una
+distinta ancora aperta: se la distinta è già stata consegnata alla banca la
+risposta è `409` (si chiude la distinta, non la riga). Risposta:
+`{ "stato": "pagata", "pagatoCon": "fuori_app", "messaggio": "…" }`. Il webhook
+parte anche per questa chiusura, col `motivo` seguito da «(dichiarato da
+&lt;app&gt;)». Non c'è la strada inversa: una richiesta chiusa così si riapre
+solo da un operatore dentro Transactions.
+
 ## `GET /api/v1/health`
 
 Aperta, senza firma. Dice solo se l'app è viva e configurata.
