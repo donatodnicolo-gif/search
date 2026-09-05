@@ -4,6 +4,7 @@ import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
 import { effettiPagata } from '@/lib/effetti-pagata'
 import { segnaPagataFuoriTransactions, transactionsConfigurata } from '@/lib/transactions'
+import { inviaRichiestaPagamento } from '@/lib/partner'
 import {
   cosaManca,
   metodoValido,
@@ -189,11 +190,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // verificare: `false` qui vuol dire «non applicabile», non «sbagliato».
   const esito = metodo === 'iban' ? verificaIban(iban) : null
 
-  const aggiornata = await db.richiestaPagamento.update({
+  const corretta = await db.richiestaPagamento.update({
     where: { id },
     data: {
       metodo,
-      iban: metodo === 'iban' ? iban : '',
+      // ⚠️ Normalizzato come alla creazione (senza spazi, maiuscolo): prima la
+      // correzione salvava l'IBAN com'era battuto, e lo stesso IBAN risultava
+      // scritto in due modi a seconda di come era entrato.
+      iban: metodo === 'iban' ? (esito?.normalizzato ?? iban) : '',
       riferimentoPagamento: metodo === 'iban' ? '' : riferimento,
       intestatario,
       importo: typeof c.importo === 'number' && c.importo >= 0 ? c.importo : r.importo,
@@ -201,7 +205,74 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ordineNumero: (c.ordineNumero ?? r.ordineNumero).trim(),
       ibanValido: esito ? esito.valido : false,
       ibanPaese: esito ? esito.paese : '',
+      // ⚠️⚠️ L'esito del VECCHIO invio si cancella qui: descriveva la riga
+      // com'era prima («IBAN non valido»), e lasciarlo sulla riga corretta è
+      // esattamente il difetto segnalato dall'utente il 05/09/2026: «la
+      // modifica non produce nessun risultato e i messaggi rimangono gli
+      // stessi». Qui sotto si riscrive con quello che succede ADESSO.
+      esitoInvio: '',
     },
   })
-  return NextResponse.json({ richiesta: aggiornata, motivoIban: esito?.motivo ?? '' })
+
+  // ── SI RIPROVA L'INVIO, DA SOLO (05/09/2026) ──
+  //
+  // ⚠️⚠️ Una richiesta si corregge quasi sempre perché l'invio era stato
+  // RIFIUTATO (l'AI aveva letto un IBAN di 26 caratteri invece di 27,
+  // Transactions ha risposto 400). Correggere e basta lasciava la riga «non
+  // inviata» con il vecchio errore nel titolo, e per farla partire bisognava
+  // sapere che esiste il bottone «Invia». Il caso vero: GRIFFO FRANCESCO D.I.,
+  // 05/09 ore 15:31. Adesso la correzione fa quello che ha fatto la creazione:
+  // prova a mandarla, e dice com'è andata.
+  //
+  // ⚠️ Se l'IBAN ancora non torna non si chiama Transactions per sentirsi dire
+  // di no: lo si scrive qui, con il motivo, e la riga resta «non inviata».
+  let invio: { ok: boolean; messaggio: string } | null = null
+  if (metodo === 'iban' && esito && !esito.valido) {
+    const messaggio = `Non inviata: ${esito.motivo}`
+    await db.richiestaPagamento.update({ where: { id }, data: { esitoInvio: messaggio } })
+    invio = { ok: false, messaggio }
+  } else if (!(corretta.importo > 0)) {
+    const messaggio = 'Non inviata: serve un importo maggiore di zero.'
+    await db.richiestaPagamento.update({ where: { id }, data: { esitoInvio: messaggio } })
+    invio = { ok: false, messaggio }
+  } else {
+    const e = await inviaRichiestaPagamento({
+      importo: corretta.importo,
+      beneficiario: corretta.intestatario,
+      iban: corretta.iban,
+      metodo: corretta.metodo,
+      riferimentoPagamento: corretta.riferimentoPagamento,
+      bic: corretta.bic,
+      causale: corretta.causale,
+      contatto: corretta.contatto,
+      linkConversazione: corretta.linkConversazione,
+      riferimento: corretta.riferimento,
+      note: corretta.note,
+    })
+    if (e.stato === 'ok') {
+      await db.richiestaPagamento.update({
+        where: { id },
+        data: {
+          inviataIl: new Date(),
+          partnerId: e.id,
+          partnerStato: e.statoRichiesta,
+          canale: e.canale,
+          esitoInvio: '',
+        },
+      })
+      invio = { ok: true, messaggio: `Inviata a Transactions (${e.statoRichiesta}).` }
+    } else if (e.stato === 'non-configurato') {
+      await db.richiestaPagamento.update({
+        where: { id },
+        data: { esitoInvio: 'Nessun canale di pagamento configurato' },
+      })
+      invio = { ok: false, messaggio: 'Corretta qui: nessun canale di pagamento configurato.' }
+    } else {
+      await db.richiestaPagamento.update({ where: { id }, data: { esitoInvio: e.messaggio } })
+      invio = { ok: false, messaggio: `Corretta qui, ma non inviata: ${e.messaggio}` }
+    }
+  }
+
+  const aggiornata = await db.richiestaPagamento.findUnique({ where: { id } })
+  return NextResponse.json({ richiesta: aggiornata, motivoIban: esito?.motivo ?? '', invio })
 }
