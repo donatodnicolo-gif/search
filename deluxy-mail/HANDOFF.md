@@ -41,6 +41,11 @@ Modalità sviluppatore è spenta).
 - ✅ **05/09: script `ripara-priorita-spam.mjs` eseguito dall'utente** — verificato sul DB: mail con
   priorità manuale in SPAM = 0; le tre (Eva «codice monouso», Renato «consegna #100916» e «Fatture
   da saldare») sono tornate senza sezione, cioè in posta in arrivo.
+- ✅ **05/09 — Luca ed Emma SONO DENTRO** (ricontrollo sul DB su richiesta dell'utente; le note del
+  03/09 qui sotto sono superate): entrambe le caselle collegate il 03/09 alle 09:00-09:03 su
+  `pop.securemail.pro`, sync in corso (ultimo 05/09 13:15), storico finito, zero errori — Luca 164
+  messaggi, Emma 112. Emma ha `sessioneVersione=1`: è entrata comunque. **Federica**: utenza
+  attiva ma **nessuna casella** nel DB al 05/09 13:20, contrariamente all'attesa.
 
 ### 04/09 (13:30) — Il commit `090d2d94` (Finance, 12:59) aveva ANNULLATO il 04/09 di AI Mail: ripristinato, e il WIP firma ora compila
 
