@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { DatePipe, Location } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ConfermaComponent } from '../shared/conferma.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -125,7 +126,7 @@ interface DeliveryDetail {
 @Component({
   selector: 'app-delivery-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule],
+  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule, ConfermaComponent],
   template: `
     <div class="form-head">
       <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
@@ -200,12 +201,24 @@ interface DeliveryDetail {
              l'API rifiuta ogni altro passaggio. «Consegnata» apre il pop-up
              a-chi/firma/DDT; «Non consegnata» chiede il motivo: da questi
              stati dipendono paga e fattura, e non si torna indietro da soli. -->
+        <!-- ⭐ 05/09/2026 (regola utente): CONTRASSEGNO. Prima di partire il
+             valet vede quanto deve ritirare in contanti; i contanti gli
+             vengono poi scalati dal bonifico (Stipendi), ma NON abbassano il
+             costo della consegna nei margini: sono soldi del cliente che
+             passano per le sue mani, non paga in meno. -->
+        @if (avvisoContanti(); as importo) {
+          <app-conferma [titolo]="'deliveryDetail.valet.cashTitle' | translate"
+                        [messaggio]="'deliveryDetail.valet.cashMsg' | translate: { importo: importo.toFixed(2) }"
+                        [verbo]="'deliveryDetail.valet.cashOk' | translate" tono="primary"
+                        (confermato)="avvisoContanti.set(null); cambiaStato('in_delivery')"
+                        (annullato)="avvisoContanti.set(null)" />
+        }
         @if (puoLavorare(d)) {
           <div class="valet-azioni">
             <!-- Consegnata/Non consegnata SOLO dopo che è «in consegna»
                  (31/08): prima si mette in consegna, poi si chiude. -->
             @if (d.status !== 'in_delivery') {
-              <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="cambiaStato('in_delivery')">
+              <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="avviaConsegna(d)">
                 {{ 'deliveryDetail.valet.inDelivery' | translate }}
               </button>
             } @else {
@@ -412,7 +425,7 @@ interface DeliveryDetail {
                 @if (d.products?.length) {
                   <span class="scomposto righe-prezzo">
                     @for (p of d.products; track p.id) {
-                      <span class="riga-prezzo">{{ p.product?.name }}{{ (p.variantName || p.productVariant?.name) ? ' (' + (p.variantName || p.productVariant?.name) + ')' : '' }}: {{ (prezzoRiga(p) ?? 0).toFixed(2) }} € × {{ p.quantity }} = {{ ((prezzoRiga(p) ?? 0) * (p.quantity ?? 1)).toFixed(2) }} €</span>
+                      <span class="riga-prezzo">{{ p.product?.name }}{{ (p.variantName || p.productVariant?.name) ? ' (' + (p.variantName || p.productVariant?.name) + ')' : '' }}: {{ (prezzoRiga(p) ?? 0).toFixed(2) }} € × {{ p.quantity }} = {{ ((prezzoRiga(p) ?? 0) * (p.quantity ?? 1)).toFixed(2) }} €@if ($any(p).withoutCommission) { <span class="badge nofee">{{ 'deliveryDetail.noFee' | translate }}</span> }</span>
                     }
                   </span>
                 }
@@ -1044,6 +1057,8 @@ interface DeliveryDetail {
       .conto-vendita .scomposto { display: block; color: var(--text-tertiary); font-size: 12px; }
       .righe-prezzo { margin-top: 3px; }
       .righe-prezzo .riga-prezzo { display: block; font-variant-numeric: tabular-nums; }
+      /* La riga senza fee si dichiara accanto al suo importo: la quota su di lei e zero. */
+      .badge.nofee { margin-left: 8px; font-size: 11px; background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .mt { margin-top: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
@@ -1483,6 +1498,20 @@ export class DeliveryDetailComponent {
     }
     const motivo = [this.motivo ? eti[this.motivo] : '', dett].filter(Boolean).join(' — ');
     this.cambiaStato('not_delivered', { status: 'not_delivered', notDeliveredReason: motivo });
+  }
+
+  /** L'importo del contrassegno da mostrare al valet prima di partire. */
+  readonly avvisoContanti = signal<number | null>(null);
+
+  /**
+   * «Metti in consegna»: se c'è un pagamento alla consegna, PRIMA l'avviso
+   * con la cifra da ritirare in contanti, poi il cambio di stato. Senza
+   * contrassegno si parte subito, come prima.
+   */
+  avviaConsegna(d: { paymentOnDelivery?: boolean; paymentAmount?: number | null }): void {
+    const importo = d.paymentOnDelivery ? Number(d.paymentAmount ?? 0) : 0;
+    if (importo > 0) { this.avvisoContanti.set(importo); return; }
+    this.cambiaStato('in_delivery');
   }
 
   cambiaStato(stato: string, corpo?: Record<string, string>): void {

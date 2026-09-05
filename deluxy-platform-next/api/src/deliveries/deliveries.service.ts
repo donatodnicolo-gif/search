@@ -29,7 +29,7 @@ import {
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { conIva, soloIva } from '../common/iva';
-import { valoreProdotti } from '../common/valore-prodotti';
+import { baseFee, valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 // La formula della paga valet vive in salaries: importarla evita la trappola
 // della regola ricopiata in due posti (il preventivo deve dire la STESSA paga).
@@ -884,9 +884,13 @@ export class DeliveriesService {
     // un prezzo congelato vince solo se > 0 — altrimenti la quota si calcola
     // dal listino, fee% × valore prodotti. Leggere lo 0 diceva «commissione 0».
     const q2 = (n: number) => Math.round(n * 100) / 100;
+    // ⭐ 05/09/2026 (regola utente): le righe SENZA FEE escono dalla base
+    // della quota, non dal venduto. Il partner incassa tutto il valore, Deluxy
+    // trattiene solo sulle righe che hanno la fee.
+    const baseQuota = baseFee(d.products as any, (d as any).productValue);
     const quota = (d.price ?? 0) > 0
       ? d.price!
-      : (feePercent != null ? q2((valore * feePercent) / 100) : null);
+      : (feePercent != null ? q2((baseQuota * feePercent) / 100) : null);
     // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
     // direbbe al partner che non prende niente, ed è peggio di non dire niente.
     if (!valore || quota == null) return null;
@@ -1210,7 +1214,7 @@ export class DeliveriesService {
    * un prodotto cancellato lascerebbe una riga senza nome.
    */
   private async fotografaProdotti(
-    righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; fieldValues?: string; productVariantId?: string }[],
+    righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; withoutCommission?: boolean; fieldValues?: string; productVariantId?: string }[],
     user?: JwtUser,
   ) {
     // ⚠️ Il perimetro vale anche in SCRITTURA (regola dell'utente 31/08):
@@ -1253,6 +1257,8 @@ export class DeliveriesService {
       price: r.price ?? varianti.get(r.productVariantId ?? '')?.price
         ?? prodotti.get(r.productId)?.price ?? null,
       flexiblePrice: r.flexiblePrice ?? false,
+      // ⭐ 05/09/2026 (regola utente): la riga «senza fee» si fotografa qui.
+      withoutCommission: r.withoutCommission ?? false,
       fieldValues: r.fieldValues,
     }));
   }

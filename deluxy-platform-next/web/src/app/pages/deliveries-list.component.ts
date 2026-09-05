@@ -705,6 +705,12 @@ interface PropostaVendita {
         }
       </div>
     }
+    @if (avvisoContanti(); as a) {
+      <app-conferma [titolo]="'deliveryDetail.valet.cashTitle' | translate"
+                    [messaggio]="'deliveryDetail.valet.cashMsg' | translate: { importo: a.importo.toFixed(2) }"
+                    [verbo]="'deliveryDetail.valet.cashOk' | translate" tono="primary"
+                    (confermato)="valetInConsegna(a.d)" (annullato)="avvisoContanti.set(null)" />
+    }
     @if (confermaPendente(); as c) {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
@@ -2102,7 +2108,15 @@ export class DeliveriesListComponent {
     });
   }
 
+  /** ⭐ 05/09/2026: il contrassegno da mostrare al valet prima di partire (dalla riga). */
+  readonly avvisoContanti = signal<{ d: Delivery; importo: number } | null>(null);
+
   valetInConsegna(d: Delivery): void {
+    // ⭐ 05/09/2026 (regola utente): con un pagamento alla consegna il valet
+    // vede PRIMA quanto deve ritirare in contanti. Stesso avviso del dettaglio.
+    const importo = d.paymentOnDelivery ? Number(d.paymentAmount ?? 0) : 0;
+    if (importo > 0 && !this.avvisoContanti()) { this.avvisoContanti.set({ d, importo }); return; }
+    this.avvisoContanti.set(null);
     this.valetStatoInCorso.set(d.id);
     this.http.patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status: 'in_delivery' }).subscribe({
       next: () => { this.valetStatoInCorso.set(null); this.load(); },

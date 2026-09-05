@@ -38,6 +38,17 @@ export class DeliveryProductDto {
   @IsBoolean()
   flexiblePrice?: boolean;
 
+  /**
+   * ⭐ 05/09/2026 (regola utente): SENZA FEE. Su questa riga Deluxy non
+   * trattiene niente: il valore della riga esce dalla base su cui si calcola
+   * la quota, in fattura e nel conto della vendita. La riga resta nel venduto
+   * (al partner è dovuta per intero), esce solo dalla fee.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Senza fee: la riga non entra nella base della quota Deluxy' })
+  @IsOptional()
+  @IsBoolean()
+  withoutCommission?: boolean;
+
   @ApiPropertyOptional({ description: 'JSON {nomeCampo: valore} per i campi prodotto' })
   @IsOptional()
   @IsString()

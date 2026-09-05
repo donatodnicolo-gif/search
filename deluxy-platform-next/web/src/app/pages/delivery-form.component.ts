@@ -41,6 +41,8 @@ interface ProductRow {
   quantity: number | null;
   flexiblePrice: boolean;
   price: number | null;
+  /** ⭐ 05/09/2026 (regola utente): SENZA FEE — Deluxy non trattiene niente su questa riga. */
+  withoutCommission?: boolean;
   /** Ricerca prodotto (31/08): testo digitato + nome del prodotto scelto. */
   query?: string;
   nomeScelto?: string;
@@ -438,6 +440,12 @@ interface ProductRow {
                    ignorava dal suo dto: qui sparisce anche la spunta). -->
               @if (!isPartner()) {
                 <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
+                <!-- ⭐ 05/09/2026 (regola utente): SENZA FEE, solo sui servizi
+                     di VENDITA — è lì che la fee esiste. Su questa riga Deluxy
+                     non trattiene niente e in fattura la quota è zero. -->
+                @if (isVendita()) {
+                  <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.withoutCommission" [name]="'pnofee' + $index" /><span>{{ 'deliveryForm.order.noFee' | translate }}</span></label>
+                }
               }
               @if (row.flexiblePrice) {
                 <span class="price-lbl">{{ 'deliveryForm.order.priceEuro' | translate }}</span>
@@ -1849,6 +1857,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       quantity: p.quantity ?? 1,
       price: p.price ?? null,
       flexiblePrice: !!p.flexiblePrice,
+      withoutCommission: !!p.withoutCommission,
       // Il nome scelto compare nella ricerca (31/08): senza, la riga
       // precompilata mostrerebbe la casella vuota pur avendo un prodotto.
       nomeScelto: p.productName ?? p.product?.name ?? undefined,
@@ -2655,6 +2664,7 @@ export class DeliveryFormComponent implements AfterViewInit {
         quantity: r.quantity ?? 1,
         flexiblePrice: r.flexiblePrice,
         price: r.flexiblePrice && r.price != null ? Number(r.price) : undefined,
+        withoutCommission: !!r.withoutCommission,
       }));
     // In modifica invio sempre i prodotti, anche a lista vuota: altrimenti
     // rimuoverli tutti non li cancellerebbe (l'API scrive solo le chiavi presenti).

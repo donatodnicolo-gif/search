@@ -1526,6 +1526,7 @@
       "priceLabel": "Prezzo:",
       "addProduct": "Aggiungi prodotto",
       "paymentOnDelivery": "Pagamento alla consegna",
+      "noFee": "Senza fee (Deluxy non trattiene niente su questa riga)",
       "tryAndReturn": "Prova e reso del prodotto",
       "cashToCollect": "Contanti da incassare (€)",
       "createNew": "Crea nuovo prodotto",
@@ -2055,8 +2056,12 @@
     "editTitle": "Modifica operatore"
   },
   "deliveryDetail": {
+    "noFee": "senza fee",
     "valet": {
       "inDelivery": "Metti in consegna",
+      "cashTitle": "Pagamento alla consegna",
+      "cashMsg": "Devi ritirare {{importo}} € in contanti dal destinatario. La cifra ti verrà scalata dal prossimo bonifico.",
+      "cashOk": "Ho capito, metto in consegna",
       "delivered": "Consegnata",
       "notDelivered": "Non consegnata",
       "deliveredTitle": "Consegna #{{code}} consegnata",

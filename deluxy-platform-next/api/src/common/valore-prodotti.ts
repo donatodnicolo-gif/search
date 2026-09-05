@@ -32,6 +32,8 @@
 export type RigaProdotto = {
   price?: number | null;
   quantity?: number | null;
+  /** ⭐ 05/09/2026: riga SENZA FEE — vale nel venduto, non nella base della quota. */
+  withoutCommission?: boolean | null;
   productVariant?: { price?: number | null; publicPrice?: number | null } | null;
   product?: { publicPrice?: number | null; price?: number | null } | null;
 };
@@ -50,6 +52,27 @@ export function valoreProdotti(
   const somma = sommaRighe(righe);
   if (somma === 0 && (productValue ?? 0) > 0) return productValue as number;
   return somma;
+}
+
+/**
+ * ⭐ 05/09/2026 (regola utente): LA BASE SU CUI SI CALCOLA LA FEE.
+ *
+ * È il venduto MENO le righe marcate «senza fee»: su quelle Deluxy non
+ * trattiene niente, e in fattura la quota per quelle righe è zero. Il venduto
+ * intero resta `valoreProdotti` — è quanto è dovuto al partner — e non cambia.
+ *
+ * ⚠️ Se TUTTE le righe sono senza fee la base è 0, e 0 è la risposta giusta:
+ * qui NON si ripiega su `productValue` come fa `valoreProdotti`, perché quel
+ * ripiego serve a non perdere un venduto scritto altrove, mentre qui il vuoto
+ * è voluto. Senza righe (consegna vecchia con solo il campo) vale il campo,
+ * come prima: nessuna riga da escludere.
+ */
+export function baseFee(
+  righe: RigaProdotto[] | null | undefined,
+  productValue?: number | null,
+): number {
+  if (!righe?.length) return valoreProdotti(righe, productValue);
+  return sommaRighe(righe.filter((r) => !r.withoutCommission));
 }
 
 function sommaRighe(righe: RigaProdotto[] | null | undefined): number {

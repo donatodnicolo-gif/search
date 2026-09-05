@@ -1524,6 +1524,7 @@
       "priceLabel": "Price:",
       "addProduct": "Add product",
       "paymentOnDelivery": "Payment on delivery",
+      "noFee": "No fee (Deluxy keeps nothing on this line)",
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",
       "createNew": "Create new product",
@@ -2053,8 +2054,12 @@
     "editTitle": "Edit operator"
   },
   "deliveryDetail": {
+    "noFee": "no fee",
     "valet": {
       "inDelivery": "Start delivery",
+      "cashTitle": "Payment on delivery",
+      "cashMsg": "Collect {{importo}} € in cash from the recipient. The amount will be deducted from your next payout.",
+      "cashOk": "Got it, start delivery",
       "delivered": "Delivered",
       "notDelivered": "Not delivered",
       "deliveredTitle": "Delivery #{{code}} delivered",
