@@ -213,3 +213,25 @@ previsto: da aggiungere se si vedesse abuso (punto aperto, non bloccante).
 esisteva già nel legacy, ristretta (allowlist di origin, sola lettura,
 booleano). Lezione: prima di spegnere un backend, censire chi lo chiama
 anche FUORI dal repo.
+
+## 05/09/2026 — Transactions: l'app di origine dichiara «pagata fuori dall'app» via API (allargamento DICHIARATO)
+
+**Perché**: il Customer Service segna «pagata» un fornitore pagato dal portale della banca e
+su Transactions la stessa richiesta restava `in_attesa`: un operatore l'avrebbe pagata una
+seconda volta. Con Finance era già successo su 7 richieste (4.794,45 €, trovate il 04/09).
+Chiesto dall'utente («se ho messo pagata nel CS aggiorna anche Transactions»).
+
+**Cosa cambia**: rotta `POST /api/v1/richieste/<id|rif|rifEsterno>/pagata-fuori`
+(`deluxy-transactions/src/app/api/v1/richieste/[id]/pagata-fuori/route.ts`), funzione
+`chiudiDichiarataDallOrigine()` in `src/lib/richieste.ts`. Stessa chiusura che fa l'operatore
+(§0-ter di SICUREZZA.md): `pagata`/`fuori_app`, via dalla distinta aperta, sblocco che decade,
+webhook. Al posto del secondo fattore: firma HMAC della chiave con scrittura, **solo le
+richieste della chiave chiamante** (come l'annullo via API), `metodo` e `motivo` obbligatori,
+`dichiaratoDa: <app>` nell'evento e attore = nome dell'app.
+
+**Tesi**: non è una seconda porta per il denaro (da lì non esce un euro); l'abuso possibile —
+far sparire dalla coda una richiesta non pagata — è lo stesso dell'annullo via API, già
+concesso alla stessa chiave. Differenza dall'annullo: vale anche su `approvata` e su una
+distinta ancora aperta (fa decadere lo sblocco). Passata all'agente `sicurezza-ostile` il
+05/09 (esito da riportare qui sotto). Decide il custode: correzione locale accettata,
+oppure restringere a `in_attesa`/`sospesa` come l'annullo.
