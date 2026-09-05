@@ -118,7 +118,7 @@ interface DeliveryDetail {
   receivedBy?: string;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string; hoursApproval?: boolean };
   products?: DeliveryProductRow[];
   logs?: DeliveryLog[];
 }
@@ -1436,8 +1436,10 @@ export class DeliveryDetailComponent {
     return this.aOra() && !(this.oreDalle && this.oreAlle);
   }
 
+  /** Solo il servizio a ore CON APPROVAZIONE chiede le ore al valet (05/09/2026). */
   aOra(): boolean {
-    return (this.delivery()?.serviceType?.pricingModel ?? '') === 'A_ORA';
+    const s = this.delivery()?.serviceType;
+    return (s?.pricingModel ?? '') === 'A_ORA' && s?.hoursApproval === true;
   }
 
   /** Decide il PARTNER della consegna; l'ufficio può sempre. */

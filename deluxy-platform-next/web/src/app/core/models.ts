@@ -61,7 +61,7 @@ export interface Delivery {
   valetSalaryDalListino?: number | null;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string; hoursApproval?: boolean };
   /** Il documento di trasporto: numero e negozio che lo ha emesso. */
   ddtNumber?: string | null;
   ddtBrand?: string | null;

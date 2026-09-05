@@ -630,7 +630,7 @@ interface PropostaVendita {
              dire le ore. Ora, sui servizi a ore, i due orari stanno qui,
              precompilati con quelli previsti: la chiusura passa in «ore da
              approvare» come quando la fa il valet. -->
-        @if (d.serviceType?.pricingModel === 'A_ORA') {
+        @if (d.serviceType?.pricingModel === 'A_ORA' && d.serviceType?.hoursApproval) {
           <div class="ore-lista">
             <label><span>{{ 'deliveryDetail.valet.oreDalle' | translate }}</span>
               <input class="field" type="time" step="900" [(ngModel)]="oreDalle" name="oreDalleLista" /></label>
@@ -1471,7 +1471,7 @@ export class DeliveriesListComponent {
     const corpo: Record<string, string> = { status };
     // Servizio a ore chiuso dall'ufficio: le ore viaggiano con lo stato, come
     // fa il valet. Senza, il server rifiuta — e ha ragione.
-    if (status === 'delivered' && d.serviceType?.pricingModel === 'A_ORA') {
+    if (status === 'delivered' && d.serviceType?.pricingModel === 'A_ORA' && d.serviceType?.hoursApproval) {
       if (!(this.oreDalle && this.oreAlle)) {
         this.actionError.set(this.translate.instant('deliveryDetail.valet.oreObbligatorie'));
         return;

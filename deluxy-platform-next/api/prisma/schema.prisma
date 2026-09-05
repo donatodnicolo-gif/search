@@ -272,6 +272,13 @@ model ServiceType {
   allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
   notes           String?
   hideCustomerInfo Boolean         @default(false)
+  /// ⭐ 05/09/2026 (regola utente): SOLO questo servizio a ore chiede al valet
+  /// di dichiarare le ore e al partner di approvarle («Servizio Ora con
+  /// Approvazione»). Gli altri servizi a ore si chiudono come le altre
+  /// consegne. Il 04/09 il flusso valeva per tutti gli A_ORA e sei consegne di
+  /// Chanel/Clivati/Nikky sono rimaste in «ore da approvare» senza che nessuno
+  /// dovesse approvarle.
+  hoursApproval    Boolean         @default(false)
   active          Boolean          @default(true)
   partnerServices PartnerService[]
   valetServices   ValetService[]

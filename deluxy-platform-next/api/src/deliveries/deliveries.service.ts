@@ -70,7 +70,7 @@ const DELIVERY_LIST_SELECT = {
   hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true,
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
-  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true, hoursApproval: true } },
   // ⚠️ La PROVINCIA SALVATA (geocodificata dal server): l'assegnazione la usa
   // per filtrare i valet. Ri-dedurla dalla stringa dell'indirizzo lato client
   // sbaglia — «Piazza Duca d'Aosta» a Milano veniva letta come provincia AOSTA
@@ -207,7 +207,7 @@ const DELIVERY_INCLUDE = {
   // c'era. Senza, un servizio «partner» (es. Vendita Deluxy, che nessun valet
   // ha a listino per costruzione) svuotava la lista, e la finestra dava la
   // colpa alla provincia. La lista era in DELIVERY_LIST_SELECT ma non qui.
-  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true, hoursApproval: true } },
   // Provincia salvata: l'assegnazione la usa senza ri-dedurla dalla stringa.
   province: { select: { id: true, code: true, name: true } },
   customer: { select: { id: true, firstName: true, lastName: true } },
@@ -2177,9 +2177,16 @@ export class DeliveriesService {
     // ore». Su un servizio a ora la chiusura senza orari non passa: sono il
     // fatto su cui si pagano il valet e il partner, e lasciarli facoltativi
     // voleva dire fatturare l'orario previsto anche quando non era quello.
+    // ⭐ 05/09/2026 (regola utente): «sono solo per i servizi orari CON
+    // approvazione». Dei dieci servizi a ore uno solo prevede ore dichiarate
+    // e approvate («Servizio Ora con Approvazione», flag `hoursApproval`); gli
+    // altri si chiudono come le altre consegne, con le ore previste.
+    const conApprovazione =
+      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      (delivery as any).serviceType?.hoursApproval === true;
     if (
       status === DeliveryStatus.DELIVERED &&
-      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      conApprovazione &&
       !(dettagli?.oreDalle && dettagli?.oreAlle)
     ) {
       throw new BadRequestException(
@@ -2188,7 +2195,7 @@ export class DeliveriesService {
     }
     if (
       status === DeliveryStatus.DELIVERED &&
-      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      conApprovazione &&
       dettagli?.oreDalle && dettagli?.oreAlle
     ) {
       const dalle = DeliveriesService.orarioValido(dettagli.oreDalle);
