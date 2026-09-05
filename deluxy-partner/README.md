@@ -46,6 +46,37 @@ Vercel, progetto `deluxy/deluxy-partner`: `npx vercel --prod` dalla cartella. En
 2. UI solo con i token del design system (`var(--…)`), mai colori hardcodati.
 3. I dati calcolati (commissioni, saldi, rolling) **non si salvano mai** nel DB: si ricavano sempre dai movimenti.
 
+## Deroghe al Libro UX&UI (approvate)
+
+Il Libro UX&UI dice, al §8, che **la riga di una tabella si apre col click e
+porta a una pagina**. In tutte le app Deluxy è così.
+
+**Deroga approvata il 05/09/2026 — i movimenti bancari della scheda partner si
+aprono in una FINESTRA, non cambiando pagina.** Chiesta e confermata
+dall'utente («il dettaglio di una transazione lo apri con un pop-up non
+cambiando pagina», poi «confermo deroga»).
+
+- **Dove vale**: le due tabelle di movimenti della scheda partner
+  (`src/app/partner/[id]/page.tsx`) — gli «Ultimi movimenti bancari» e i
+  «Movimenti esclusi». Nient'altro: negli altri elenchi dell'app la riga
+  continua a portare a una pagina.
+- **Perché**: lì i movimenti si guardano **uno dopo l'altro** per decidere quali
+  sono davvero del partner. Cambiare pagina fa perdere il posto nell'elenco e
+  obbliga a tornare indietro a ogni riga.
+- **A che condizioni**: la finestra è di sola lettura e non è l'unico posto dove
+  vive il dato — dal suo piede si apre la scheda intera del movimento
+  (`/movimenti/[id]`), che ha anche gli altri movimenti della stessa
+  controparte. Rispetta il §9 del Libro: ✕ obbligatoria in testata sticky, ESC,
+  click sullo scrim, tetto d'altezza dentro la viewport, fuoco che entra, non
+  esce col Tab e torna al punto di partenza.
+- **Implementazione**: `src/components/MovimentoModale.tsx` (`RigaMovimento`,
+  `ApriDettaglio`), portale su `document.body` perché dentro un `<td>` la
+  finestra la taglierebbe l'overflow della tabella.
+
+Se un domani si decide che questo schema vale per **tutti** gli elenchi che si
+scorrono per confronto, allora smette di essere una deroga e va scritto nel
+Libro (`deluxy-design-system/LIBRO-UX-UI.md`), non qui.
+
 ## Template dei documenti, uno per brand (27/08/2026)
 
 Richiesta dell'utente: «crea una sezione template dove possiamo fare i template
