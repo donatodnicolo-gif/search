@@ -1541,6 +1541,7 @@
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
       "valetSalary": "Valet salary (€)",
+      "valetSalaryFromListino": "Empty: payroll will use the list pay, {{paga}} €",
       "flexiblePrice": "Flexible price",
       "flexiblePriceDetail": "Flexible price details",
       "flexiblePricePlaceholder": "E.g. from 20 to 50 €",

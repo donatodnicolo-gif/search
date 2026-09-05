@@ -515,8 +515,19 @@ interface ProductRow {
               <span class="group-label">{{ 'deliveryForm.pricing.payableGroup' | translate }}</span>
               <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>{{ 'deliveryForm.pricing.payable' | translate }}</span></label>
               <div class="grid-2">
+                <!-- ⭐ 05/09/2026 (domanda utente: «nel form di modifica si vede
+                     la variazione del salario del valet?»). Il campo mostra SOLO
+                     la paga scritta a mano; quando e' vuota gli stipendi la
+                     ricavano dal listino del valet, e quel numero si vedeva nel
+                     dettaglio ma non qui. Ora si legge sotto il campo: vuoto
+                     non vuol dire zero. -->
                 <label class="fld"><span>{{ 'deliveryForm.pricing.valetSalary' | translate }}</span>
-                  <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
+                  <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary"
+                         [placeholder]="pagaDaListino() != null ? pagaDaListino() : ''" />
+                  @if (model.valetSalary == null && pagaDaListino() != null) {
+                    <span class="slot-hint">{{ 'deliveryForm.pricing.valetSalaryFromListino' | translate: { paga: pagaDaListino() } }}</span>
+                  }
+                </label>
                 <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                   <input class="field num" type="number" step="0.01" name="valetAdditionalPrice" [(ngModel)]="model.valetAdditionalPrice" /></label>
               </div>
@@ -1030,6 +1041,8 @@ export class DeliveryFormComponent implements AfterViewInit {
    * della richiesta: un errore qui non ferma la consegna, che è già nata.
    */
   readonly daVendita = signal<string | null>(null);
+  /** La paga del valet calcolata dal listino (dal dettaglio), quando non e' scritta. */
+  readonly pagaDaListino = signal<number | null>(null);
 
   /**
    * MODALITÀ POP-UP (31/08): il form vive dentro un modale (es. «Inserisci» da
@@ -1846,6 +1859,8 @@ export class DeliveryFormComponent implements AfterViewInit {
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
+    // La paga che gli stipendi ricaverebbero dal listino, se quella scritta manca.
+    this.pagaDaListino.set((d['valetSalaryDalListino'] as number | null | undefined) ?? null);
     for (const key of ['paymentAmount', 'price', 'additionalPrice', 'ruleAdjustment', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
     }

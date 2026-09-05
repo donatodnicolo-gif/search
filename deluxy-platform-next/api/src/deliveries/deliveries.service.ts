@@ -1934,10 +1934,22 @@ export class DeliveriesService {
       };
     }
 
+    // ⭐ 05/09/2026 (segnalazione utente, #101015/#101016: «al salvataggio
+    // non cambia partner»). `partnerId` veniva tolto dal dto per calcolare il
+    // listino (`partnerDaUsare`) e poi NON finiva mai in `data`: si poteva
+    // scegliere un altro partner nel form, il ritiro si spostava al suo
+    // indirizzo, e la consegna restava del partner di prima. Ora si scrive —
+    // solo per l'ufficio: il PARTNER non puo' cedere una consegna a un altro.
+    const cambioPartner =
+      partnerId && user.role !== Role.PARTNER && partnerId !== delivery.partnerId
+        ? { partnerId }
+        : {};
+
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
+        ...cambioPartner,
         ...forzatura,
         ...economiaRicalcolata,
         ...(date ? { date: new Date(date) } : {}),
@@ -1972,6 +1984,16 @@ export class DeliveriesService {
     // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
     // Una difesa messa solo sulle letture non è una difesa.
     // Anche il PUT può cambiare lo stato: le attività seguono (03/09).
+    if (Object.keys(cambioPartner).length) {
+      const [prima, dopo] = await Promise.all([
+        delivery.partnerId ? this.prisma.partner.findUnique({ where: { id: delivery.partnerId }, select: { insegna: true } }) : null,
+        this.prisma.partner.findUnique({ where: { id: partnerId! }, select: { insegna: true } }),
+      ]);
+      await this.prisma.deliveryLog.create({
+        data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
+          message: `Partner cambiato: ${prima?.insegna ?? '—'} → ${dopo?.insegna ?? partnerId}` },
+      });
+    }
     if (dto.status && dto.status !== delivery.status) {
       await this.chiudiAttivitaSeStorico(delivery.id, dto.status);
     }

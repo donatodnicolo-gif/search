@@ -1543,6 +1543,7 @@
       "payableGroup": "Da pagare (valet)",
       "payable": "Da pagare",
       "valetSalary": "Valet salario (€)",
+      "valetSalaryFromListino": "Vuoto: gli stipendi useranno la paga da listino, {{paga}} €",
       "flexiblePrice": "Prezzo flessibile",
       "flexiblePriceDetail": "Dettaglio prezzo flessibile",
       "flexiblePricePlaceholder": "Es. da 20 a 50 €",
