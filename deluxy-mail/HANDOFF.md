@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **4 settembre 2026 (20:45)**.
+> Documento di ripartenza. Aggiornato: **5 settembre 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -38,8 +38,9 @@ Modalità sviluppatore è spenta).
   «Riassunto rapido» sulla mail singola, la firma per casella (WIP completato: **da collaudare**,
   Impostazioni → casella → firma, e il cambio «Da» nella composizione), la cartella Inviata anche
   dal cron (parte del commit 090d2d94).
-- 🔴 **Resta lo script** `scripts/ripara-priorita-spam.mjs` per le 3 mail già finite in SPAM
-  (non eseguito: il classificatore blocca la scrittura sul DB da questa sessione).
+- ✅ **05/09: script `ripara-priorita-spam.mjs` eseguito dall'utente** — verificato sul DB: mail con
+  priorità manuale in SPAM = 0; le tre (Eva «codice monouso», Renato «consegna #100916» e «Fatture
+  da saldare») sono tornate senza sezione, cioè in posta in arrivo.
 
 ### 04/09 (13:30) — Il commit `090d2d94` (Finance, 12:59) aveva ANNULLATO il 04/09 di AI Mail: ripristinato, e il WIP firma ora compila
 
