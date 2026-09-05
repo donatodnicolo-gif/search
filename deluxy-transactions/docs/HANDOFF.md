@@ -56,8 +56,13 @@ pagate a mano). Costruito:
   (`pagaLottoConQonto` non rilegge lo stato prima di ogni bonifico): da
   chiudere quando Qonto si accende. Da sapere: alla rotazione della chiave del
   CS le richieste create con la vecchia rispondono 404 alla chiusura.
-- Verifica: `tsc` verde su entrambe le app; **non ancora deployato** (né
-  Transactions né CS) al momento di scrivere.
+- ✅ **Deploy 05/09 (18:10, col via dell'utente)**: Transactions
+  `9ackx77i2` (`dpl_AjqYLkEM…`), Customer Service `iqjwctfef`
+  (`dpl_A79nwc7M…`), entrambi con build su Vercel da un worktree pulito di
+  `origin/scout-ui` (per non pubblicare i commit locali non pushati delle
+  altre sessioni). Verificato dal dominio: `deluxy-transactions.vercel.app` e
+  `deluxy-messaging.vercel.app` servono i `dpl` nuovi; `POST …/pagata-fuori`
+  senza firma risponde 401 (la rotta c'è); health ok.
 
 ## 04/09/2026 — `TRX-2026-000049` (ANTOFLOWERS, 185,22 €) è sbagliata: Finance ha mandato il mese lordo, il dovuto netto è 48,30 €
 
