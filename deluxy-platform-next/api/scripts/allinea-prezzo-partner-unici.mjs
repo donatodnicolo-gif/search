@@ -48,7 +48,8 @@ async function ordine(id) {
 }
 
 const vendite = await prisma.sale.findMany({
-  where: { product: { type: 'UNICO' }, status: { in: ['da_gestire', 'proposta', 'accettata'] } },
+  // ⭐ Regola utente 05/09: «applica a tutto il 2026 il controllo» — ogni stato, dal 1° gennaio.
+  where: { product: { type: 'UNICO' }, createdAt: { gte: new Date('2026-01-01') } },
   select: { id: true, externalOrderNumber: true, externalOrderId: true, status: true, amount: true, discountPercent: true,
     productVariant: { select: { price: true, publicPrice: true, name: true, sku: true } },
     product: { select: { name: true, price: true, publicPrice: true, sku: true } } },

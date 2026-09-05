@@ -1471,6 +1471,7 @@
       "selectService": "Select a service…",
       "address": "Street …, ZIP City (PR)",
       "selectPartner": "Select a partner…",
+      "partnerInactive": "inactive",
       "selectSlot": "Select a slot…",
       "selectTime": "Select a time…",
       "selectProduct": "Product…",

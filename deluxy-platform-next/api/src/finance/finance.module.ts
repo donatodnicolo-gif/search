@@ -44,7 +44,10 @@
 //   feeContratto       = Delivery.price + additionalPrice  (quota a listino, per confronto)
 //   feePercent         = guadagnoNetto / valoreVendite   (netto su netto: l'utente)
 //   feePercentContract = Partner.commissionPercent
-//   commissioneIncassi = prezzoPubblico x 3%
+//   commissioneIncassi = quella di ORDERS per l ordine (commissioneDa: shopify
+//                        reale > tariffa stimata); ZERO se il metodo non si sa.
+//                        ⚠️ NON e piu il 3% fisso (dal 25/08/2026): il 3% che
+//                        compariva qui era un commento rimasto indietro sul codice.
 //   costoConsegna      = paga del valet + plus/minus, ma ZERO se `payable` e' false
 //   margineTotale      = guadagnoNetto - costoConsegna - commissioneIncassi
 //

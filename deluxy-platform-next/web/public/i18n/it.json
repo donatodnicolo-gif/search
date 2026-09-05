@@ -1473,6 +1473,7 @@
       "selectService": "Seleziona servizio…",
       "address": "Via …, CAP Città (PR)",
       "selectPartner": "Seleziona partner…",
+      "partnerInactive": "non attivo",
       "selectSlot": "Seleziona fascia…",
       "selectTime": "Seleziona orario…",
       "selectProduct": "Prodotto…",
