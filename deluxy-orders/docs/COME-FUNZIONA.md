@@ -1348,6 +1348,66 @@ dato che su un ordine di tre anni fa non cambia niente. Gli ordini storici
 importati prima di questa funzione restano senza valutazione; se un ordine
 viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 
+### Il costo del fornitore preso dalle CONSEGNE, per DDT (05/09/2026)
+
+Il costo del fornitore arrivava da tre porte — a mano, dalla causale bancaria,
+da Finance — più il ritiro dalle **vendite** della piattaforma. Ne manca una
+quarta, ed è quella che copre l'archivio: le **consegne**.
+
+`npm run costi:consegne` legge `GET /api/v1/app/consegne` dalla piattaforma,
+trova l'ordine col **DDT** e ne scrive il costo.
+
+**Perché il DDT è l'id dell'ordine.** Non è una convenzione di Orders: la
+scrive la piattaforma. In `api/src/sales/sales.module.ts`, quando il partner
+accetta e nasce la consegna, `numeroDdt = vendita.externalOrderId` — e per le
+vendite con `source = deluxy-orders` quello è l'id dell'ordine di qui.
+
+**Quale numero si prende — è la decisione che vale i soldi.** Si prende
+`economiaPartner.valoreProdotti`, che la piattaforma documenta come «quanto vale
+la merce **per il partner**»: la somma delle righe, col prezzo partner davanti a
+quello al pubblico nella cascata dei ripieghi.
+
+⚠️ **NON** si prende `economiaPartner.prezzoTotale` (`price + plus + regole`),
+che sembra il candidato naturale e sarebbe il **denaro al contrario**: quello è
+ciò che Deluxy **fattura al partner** per il servizio di consegna — lo dice il
+modello `Invoice` della piattaforma, «somma di price + additionalPrice delle
+consegne billable ed effettuate». Metterlo in `costoFornitore` farebbe sembrare
+un incasso un costo. Fra l'altro, sulle consegne nate da una vendita D2C il
+campo `price` non viene nemmeno scritto.
+
+**Cosa NON tocca, e lo dichiara:**
+
+| Caso | Cosa fa |
+|---|---|
+| L'ordine ha già un costo | Non lo tocca — **la mano batte il ritiro**, chiunque l'abbia scritto |
+| L'ordine ha **più consegne** | **Salta e le elenca**: due consegne possono essere due spedizioni vere (somma giusta) o la stessa rifatta (somma doppia). Il dato non dice quale: decide una persona |
+| Consegna annullata, non accettata, invalidata | Scartata |
+| Valore merce a zero | Scartato |
+| DDT numerico che corrisponde a più ordini | **Rifiutato come ambiguo**, non si sceglie |
+
+⚠️ **Perché la diffidenza sul DDT numerico**: le consegne vecchie portano come
+DDT il *numero* d'ordine, non l'id. Misurato sul registro il 05/09/2026: su
+14.577 ordini ci sono 11.873 numeri distinti, e **1.872 numeri vivono su più di
+un brand — 4.576 ordini, il 31,4%**. Senza il brand, un DDT numerico su tre
+attaccherebbe il costo a un ordine plausibile e sbagliato. Con `ddtBrand` si
+disambigua; senza, si rifiuta.
+
+**Si lancia in PROVA, sempre la prima volta.** Tocca il campo su cui si calcola
+il margine di ogni ordine:
+
+```
+npm run costi:consegne              # guarda e non scrive niente
+npm run costi:consegne -- --scrivi  # scrive davvero
+```
+
+La prova stampa quante consegne ha letto, cosa ha scartato e perché, quanti
+ordini prenderebbero il costo e per quanti euro, quindici esempi, e l'elenco
+degli ordini con più consegne da guardare a mano.
+
+Gli ordini che ricevono il costo così hanno `costoDa = "consegna"` e una riga
+nella loro storia che dice da dove viene e che **è il valore della merce, non il
+prezzo della consegna**.
+
 ## La SALUTE dell'ordine (04/09/2026)
 Una parola sola che dice **se la vendita vale**, su ogni ordine del registro.
 Nasce da una regola dell'utente e sostituisce il mestiere di leggere tre campi

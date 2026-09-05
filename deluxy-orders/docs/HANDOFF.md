@@ -13,6 +13,73 @@ già pagate** — quelle valgono più dell'elenco delle funzioni.
 > 1 `clientId`) → lo scope copre anche Orders. La sua `/incassa` può creare il
 > link di pagamento. Ignorare le righe più sotto che lo danno per mancante.
 
+## 05/09/2026 — Il costo del fornitore dalle CONSEGNE, cercate per DDT (scritto, MAI ESEGUITO)
+
+Richiesta dell'utente: «importa dal prezzo partner dato da app delivery con
+ricerca sulla base di DDT pari a id dell'ordine per piattaforma». Nasce dal
+punto aperto n.2: il costo fornitore c'era su **872 ordini su 14.577 (6,0%)**.
+
+Fatto: `src/lib/costi-consegne.ts` + `npm run costi:consegne` (in PROVA per
+definizione, scrive solo con `--scrivi`).
+
+### ⭐ La verifica che ha cambiato il lavoro: due «prezzi partner», versi opposti
+
+La richiesta diceva «prezzo partner», e sulla consegna il campo che si chiama
+così è `price` — «prezzo per il partner» nello schema. **Sarebbe stato il denaro
+al contrario.** Il modello `Invoice` della piattaforma lo dice senza margini:
+«Fatturazione partner: somma di `price + additionalPrice` delle consegne
+`billable` ed effettuate». Cioè `price` è quello che **Deluxy fattura al
+partner** per la consegna: un incasso, non un costo. Fra l'altro, sulle consegne
+nate da una vendita D2C non viene nemmeno scritto (`sales.module.ts` non lo
+passa alla `delivery.create`).
+
+Quello giusto è **`economiaPartner.valoreProdotti`**, che la piattaforma
+documenta in `common/valore-prodotti.ts` come «quanto vale la merce PER IL
+PARTNER» — somma delle righe, col prezzo partner davanti al pubblico nella
+cascata dei ripieghi, ed è il numero su cui la piattaforma stessa fattura.
+
+### Perché il DDT è l'id dell'ordine (l'utente aveva ragione)
+Non è una convenzione di Orders, la scrive la piattaforma: in
+`api/src/sales/sales.module.ts`, `const numeroDdt = vendita.externalOrderId`, e
+per `source = deluxy-orders` quello è l'id dell'ordine di qui. Il commento
+accanto dice che nei dati veri è così su 10.515 consegne su 12.967 con un DDT.
+
+### Le trappole chiuse
+- ⚠️ **Il numero d'ordine non identifica un ordine.** Le consegne vecchie
+  portano come DDT il *numero*, non l'id. Misurato qui il 05/09: su 14.577
+  ordini ci sono 11.873 numeri distinti, e **1.872 numeri vivono su più brand —
+  4.576 ordini, il 31,4%**. Un DDT numerico si accetta solo se, `ddtBrand`
+  compreso, corrisponde a UN ordine solo; altrimenti si conta come ambiguo e si
+  lascia stare. Un costo attaccato all'ordine sbagliato è peggio di un costo
+  mancante, perché non si vede.
+- ⚠️ **Più consegne sullo stesso ordine NON si sommano.** Possono essere due
+  spedizioni vere (somma giusta) o la stessa rifatta (somma doppia): il dato non
+  dice quale. Si saltano e si ELENCANO.
+- ⚠️ **La mano batte il ritiro**: se `costoFornitore` c'è già non si tocca,
+  chiunque l'abbia scritto. Stessa regola del ritiro dalle vendite.
+- ⚠️ `not_delivered` **non** è fra gli stati scartati: la consegna non è
+  arrivata, ma il fiorista il mazzo l'aveva preparato. Si contano a parte.
+
+### 🔴 NON È MAI STATO ESEGUITO, e va detto
+`PLATFORM_API_KEY` **non c'è in locale**, e su Vercel torna mascherata come
+`[SENSITIVE]` (`vercel env pull` non scarica i Secret) — provato anche sul
+progetto `delivery`, stesso esito. Quindi:
+
+- il codice compila (`tsc` pulito) e la catena regge fino alla chiamata, che
+  risponde con l'errore di configurazione, giusto;
+- **nessun numero è stato misurato sui dati veri**: quante consegne hanno un
+  DDT che corrisponde, quanti euro entrerebbero, quanti ordini hanno più
+  consegne. Sono esattamente le cose che la PROVA stampa.
+- ⚠️ Nemmeno il confronto più interessante è stato fatto: dove un ordine ha già
+  `costoDa = "piattaforma"` (preso dalla VENDITA, `prezzoAlPartner` = importo ×
+  (1 − sconto), arrotondato a 5) il valore merce della CONSEGNA è un numero
+  diverso, e **quanto diverso non lo sappiamo**. Il modulo non sovrascrive, ma
+  quel confronto va guardato prima di fidarsi dei due numeri insieme.
+
+**Come lo si fa girare**: con `PLATFORM_URL` e `PLATFORM_API_KEY` in
+`.env.local` (chiave da `api/scripts/crea-chiave-app.mjs` sulla piattaforma),
+poi `npm run costi:consegne`. Legge e basta.
+
 ## 04/09/2026 (sera) — LA SALUTE DELL'ORDINE: una parola su tutti e 14.563
 
 Richiesta dell'utente: «assegna uno stato a tutti gli ordini» — conforme, a
