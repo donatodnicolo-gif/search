@@ -548,10 +548,25 @@ export class OrdersSyncService {
     };
     const esempi: { ordine: string; esito: Esito; dettaglio?: string }[] = [];
     const daGestire: string[] = [];
+    /** Gli ordini che NON sono entrati perche' non si capisce dove vanno: vanno detti. */
+    const senzaProvincia: string[] = [];
 
     for (const o of ordini) {
       const etichetta = `${o.brand ?? ''} ${o.numero ?? o.id}`.trim();
-      const codice = o.spedizione?.provincia?.trim().toUpperCase() ?? '';
+      let codice = o.spedizione?.provincia?.trim().toUpperCase() ?? '';
+      // ⭐ 05/09/2026 (regola utente, caso #12881 «four season milano»: citta'
+      // vuota, CAP nullo, provincia nulla, consegna OGGI — e la vendita non
+      // entrava). Un ordine conforme e pagato non puo' sparire perche' chi
+      // ordina ha scritto il nome del posto invece della via. Se la provincia
+      // non c'e' o non e' una sigla nota, si DEDUCE: prima dai nomi di citta'
+      // e provincia che abbiamo in banca dati, poi chiedendo a Google lo stesso
+      // indirizzo che si chiederebbe per una consegna. Solo se nemmeno cosi' si
+      // capisce dove va, resta «senza provincia» — e stavolta si vede.
+      let provinciaDedotta: string | null = null;
+      if (!codice || !province.has(codice)) {
+        const dedotta = await this.deduciProvincia(o, province);
+        if (dedotta) { codice = dedotta.codice; provinciaDedotta = dedotta.come; }
+      }
       // ⚠️ Non il PRIMO SKU dell'ordine, il primo RICONOSCIUTO a catalogo
       // (misurato 01/09): su cakedesign la prima riga con SKU è spesso
       // l'«Extra» (9KY, non a catalogo) e l'ordine intero finiva scartato
@@ -611,6 +626,7 @@ export class OrdersSyncService {
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
             esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata && provinciaDedotta) dettaglio = [dettaglio, provinciaDedotta].filter(Boolean).join(' · ');
             if (r.creata) { dettaglio = `estero (${o.spedizione?.paese ?? '?'})`; daGestire.push(etichetta); }
           } catch (err) {
             esito = 'errore';
@@ -619,7 +635,14 @@ export class OrdersSyncService {
           }
         }
       }
-      else if (!codice) { esito = 'senza-provincia'; }
+      else if (!codice) {
+        esito = 'senza-provincia';
+        // Prima moriva qui in silenzio. Ora il rendiconto dice QUALE ordine e
+        // CHE indirizzo aveva, cosi' l'ufficio lo fa entrare a mano.
+        dettaglio = `indirizzo: ${[o.spedizione?.indirizzo, o.spedizione?.cap, o.spedizione?.citta].filter(Boolean).join(', ') || '—'}`;
+        senzaProvincia.push(`${etichetta} — ${dettaglio}`);
+        this.logger.warn(`Ordine ${etichetta} senza provincia e non deducibile (${dettaglio}): NON entrato in Vendite`);
+      }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
       else if (!sku || !prodotti.has(sku)) {
         // ⭐ 01/09 (regola utente «fai nascere la vendita»): senza SKU o con
@@ -653,6 +676,7 @@ export class OrdersSyncService {
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
             esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata && provinciaDedotta) dettaglio = [dettaglio, provinciaDedotta].filter(Boolean).join(' · ');
             if (r.creata) { dettaglio = nota; daGestire.push(etichetta); }
           } catch (err) {
             esito = 'errore';
@@ -715,6 +739,8 @@ export class OrdersSyncService {
       // - `creataMaTuttiChiusiOra`: vendite CREATE (un partner c'è) ma DA_GESTIRE
       //   perché in questo momento è tutto chiuso: si propongono quando riaprono.
       creataMaTuttiChiusiOra: daGestire.length,
+      /** ⭐ 05/09: gli ordini NON entrati perche' non si capisce dove vanno — da far entrare a mano. */
+      senzaProvincia: senzaProvincia.slice(0, 20),
       esempiDiCosaNonEntra: esempi,
     };
   }
@@ -726,6 +752,58 @@ export class OrdersSyncService {
    * nomi e un cognome, non uno e due. Se il nome e' una parola sola il cognome
    * resta vuoto e la consegna non si crea — meglio che inventarlo.
    */
+  /** Nomi di citta' e provincia → sigla, caricati una volta per corsa. */
+  private nomiLuoghi: { nome: string; codice: string }[] | null = null;
+
+  /**
+   * DEDUCE LA PROVINCIA di un ordine che non la dichiara (05/09/2026).
+   *
+   * 1) I NOMI che abbiamo in banca dati — le citta' della tabella `City` e i
+   *    nomi delle province — cercati come parola intera nel testo di
+   *    indirizzo + citta' + CAP, dal nome piu' lungo al piu' corto (cosi'
+   *    «Cesano Maderno» vince su «Maderno», e «Monza e Brianza» su «Monza»).
+   *    «four season milano» → Milano → MI. Costa niente e non chiama nessuno.
+   * 2) Se i nomi non bastano, GOOGLE: lo stesso geocode che la piattaforma usa
+   *    per le consegne (`settings.geocode`), che torna la sigla della
+   *    provincia. Best-effort: se non risponde, si passa.
+   * Torna la sigla e COME l'ha trovata, perche' nel rendiconto si legga che e'
+   * una deduzione e non un dato dell'ordine.
+   */
+  private async deduciProvincia(
+    o: OrdineOrders,
+    province: Map<string, string>,
+  ): Promise<{ codice: string; come: string } | null> {
+    const testo = [o.spedizione?.indirizzo, o.spedizione?.citta, o.spedizione?.cap]
+      .map((x) => (x ?? '').trim()).filter(Boolean).join(' ').toLowerCase();
+    if (!testo) return null;
+
+    if (!this.nomiLuoghi) {
+      const [citta, prov] = await Promise.all([
+        this.prisma.city.findMany({ select: { name: true, province: { select: { code: true } } } }),
+        this.prisma.province.findMany({ select: { name: true, code: true } }),
+      ]);
+      this.nomiLuoghi = [
+        ...citta.map((c) => ({ nome: c.name.toLowerCase(), codice: c.province.code })),
+        ...prov.filter((p) => p.code !== 'EE').map((p) => ({ nome: p.name.toLowerCase(), codice: p.code })),
+      ]
+        .filter((x) => x.nome.length >= 4) // «Bra», «Rho»: troppo corti per cercarli dentro un testo
+        .sort((a, b) => b.nome.length - a.nome.length);
+    }
+    const sicuro = (t: string) => t.replace(/[.*+?^${}()|[]\]/g, '\$&');
+    for (const l of this.nomiLuoghi) {
+      if (new RegExp(`(^|[^a-zà-ú])${sicuro(l.nome)}([^a-zà-ú]|$)`, 'i').test(testo) && province.has(l.codice)) {
+        return { codice: l.codice, come: `provincia dedotta dall'indirizzo: ${l.codice} («${l.nome}»)` };
+      }
+    }
+
+    try {
+      const g = await this.settings.geocode(testo);
+      const sigla = (g?.provinceCode ?? '').toUpperCase();
+      if (sigla && province.has(sigla)) return { codice: sigla, come: `provincia dedotta da Google: ${sigla}` };
+    } catch { /* Google non risponde: non e' un motivo per inventare */ }
+    return null;
+  }
+
   private destinatario(o: OrdineOrders) {
     const intero = (o.spedizione?.nome ?? '').trim();
     const taglio = intero.lastIndexOf(' ');
