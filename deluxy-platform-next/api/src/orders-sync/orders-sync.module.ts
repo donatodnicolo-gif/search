@@ -789,7 +789,7 @@ export class OrdersSyncService {
         .filter((x) => x.nome.length >= 4) // «Bra», «Rho»: troppo corti per cercarli dentro un testo
         .sort((a, b) => b.nome.length - a.nome.length);
     }
-    const sicuro = (t: string) => t.replace(/[.*+?^${}()|[]\]/g, '\$&');
+    const sicuro = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     for (const l of this.nomiLuoghi) {
       if (new RegExp(`(^|[^a-zà-ú])${sicuro(l.nome)}([^a-zà-ú]|$)`, 'i').test(testo) && province.has(l.codice)) {
         return { codice: l.codice, come: `provincia dedotta dall'indirizzo: ${l.codice} («${l.nome}»)` };
