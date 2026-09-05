@@ -1169,6 +1169,12 @@ model Delivery {
   /// stanno in un campo loro: si pagano al valet, non fanno costo di consegna,
   /// e si sommano nel Conto Economico della Finanza.
   refundedCosts      Float?
+  /// ⭐ 05/09/2026 (regola utente): RITIRO VERIFICATO. Se la consegna o il
+  /// partner chiedono il codice del valet, al ritiro il PARTNER inserisce il
+  /// codice (l'id del valet) e, se combacia con chi ritira, qui restano quando
+  /// e chi. Senza questa verifica il valet non puo' mettere «in consegna».
+  pickupVerifiedAt   DateTime?
+  pickupVerifiedBy   String?
   ddtNumber          String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»

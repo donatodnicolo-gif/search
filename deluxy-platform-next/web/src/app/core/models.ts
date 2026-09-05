@@ -54,6 +54,10 @@ export interface Delivery {
   deliveryRule?: { name: string } | null;
   paymentOnDelivery: boolean;
   paymentAmount?: number;
+  /** ⭐ 05/09/2026: codice del valet al ritiro. */
+  valetIdentityCheck?: boolean;
+  deliveryCodeRequired?: boolean;
+  pickupVerifiedAt?: string | null;
   price?: number;
   /** Paga del valet: arrivano SOLO al valet della consegna (maschera server). */
   valetSalary?: number | null;

@@ -55,6 +55,8 @@ const DELIVERY_LIST_SELECT = {
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
+  // ⭐ 05/09/2026: il ritiro verificato col codice del valet (bottone «in consegna»).
+  valetIdentityCheck: true, deliveryCodeRequired: true, pickupVerifiedAt: true,
   // ⭐ 05/09/2026 (regola utente): il DDT si vede anche in ELENCO. Era
   // cercabile (sta in SEARCH_FIELDS) ma non usciva: si poteva trovare una
   // consegna dal suo numero di documento e poi non vederlo a schermo.
@@ -68,7 +70,7 @@ const DELIVERY_LIST_SELECT = {
   // Questi campi servono al calcolo (e la maschera li toglie a chi non deve).
   valetId: true, valetSalary: true, valetAdditionalPrice: true, valetServiceId: true,
   hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true,
-  partner: { select: { id: true, insegna: true } },
+  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true, scope: true, hoursApproval: true } },
   // ⚠️ La PROVINCIA SALVATA (geocodificata dal server): l'assegnazione la usa
@@ -200,7 +202,7 @@ const DELIVERY_INCLUDE = {
   // nasce e quale l'ha sostituita.
   parentDelivery: { select: { id: true, code: true, date: true, status: true, notDeliveredReason: true } },
   childDeliveries: { select: { id: true, code: true, date: true, status: true }, orderBy: { date: 'asc' } },
-  partner: { select: { id: true, insegna: true } },
+  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   // ⚠️ `scope` SERVE anche qui (04/09/2026): l'assegnazione del valet filtra
   // per listino solo sui servizi di mestiere, e sul dettaglio il campo non
@@ -663,7 +665,7 @@ export class DeliveriesService {
         recipientAddress: true,
         deliveryTimeFrom: true,
         deliveryTimeTo: true,
-        partner: { select: { id: true, insegna: true } },
+        partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
         valet: { select: { firstName: true, lastName: true } },
         // ⚠️ Servono SOLO alla mascheratura qui sotto (ramo partner su
         // vendita e deroga «consegna da fornitore»): la mappa era l'unica
@@ -2065,6 +2067,60 @@ export class DeliveriesService {
     });
   }
 
+  /** Chi chiede il codice del valet al ritiro: la consegna o il suo partner. */
+  private static ritiroDaVerificare(d: {
+    valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null;
+    partner?: { valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null } | null;
+  }): boolean {
+    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || d.partner?.valetIdentityCheck || d.partner?.deliveryCodeRequired);
+  }
+
+  /**
+   * ⭐ 05/09/2026 (regola utente): «se e' abilitato, il partner deve inserire il
+   * codice del valet tramite un pop-up che gli compare al momento del ritiro;
+   * se corrisponde all'id del valet che fa il ritiro, la consegna puo' essere
+   * poi messa in consegna dal valet e di conseguenza consegnata».
+   *
+   * Il codice e' l'ID del valet come lo conoscono le persone (`legacyId`,
+   * ce l'hanno tutti e 52 gli attivi). Il confronto e' sul numero, spazi e
+   * zeri iniziali tolti. Tentativo sbagliato: 400 con il motivo, e una riga di
+   * registro — chi ha provato che codice, senza scrivere il codice giusto.
+   */
+  async verificaRitiro(id: string, codice: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      include: { valet: { select: { id: true, legacyId: true, firstName: true, lastName: true } }, partner: { select: { id: true, valetIdentityCheck: true, deliveryCodeRequired: true } } },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata');
+    if (user.role === Role.PARTNER && d.partnerId !== user.partnerId) throw new ForbiddenException('Questa consegna non è tua.');
+    if (!d.valetId || !d.valet) throw new BadRequestException('La consegna non ha ancora un valet assegnato: niente da verificare.');
+    if (![DeliveryStatus.ASSIGNED, DeliveryStatus.ACCEPTED, DeliveryStatus.IN_PREPARATION].includes(d.status as DeliveryStatus)) {
+      throw new BadRequestException('Il codice si verifica al ritiro, prima che la consegna parta.');
+    }
+    if (d.pickupVerifiedAt) return { verificato: true, quando: d.pickupVerifiedAt, gia: true };
+    const atteso = String(d.valet.legacyId ?? '').replace(/^0+/, '');
+    const dato = String(codice ?? '').trim().replace(/^0+/, '');
+    if (!atteso) throw new BadRequestException('Questo valet non ha un codice: avvisa l\'ufficio.');
+    if (!dato || dato !== atteso) {
+      await this.prisma.deliveryLog.create({
+        data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
+          message: `Verifica del codice del valet FALLITA al ritiro (inserito «${String(codice ?? '').trim().slice(0, 12)}»)` },
+      });
+      throw new BadRequestException('Il codice non corrisponde al valet assegnato a questa consegna.');
+    }
+    const agg = await this.prisma.delivery.update({
+      where: { id },
+      data: {
+        pickupVerifiedAt: new Date(),
+        pickupVerifiedBy: user.email ?? user.sub ?? null,
+        logs: { create: { type: 'note', userId: user.sub ?? null,
+          message: `Ritiro verificato: il codice del valet ${d.valet.firstName} ${d.valet.lastName} combacia (inserito dal partner)` } },
+      },
+      select: { pickupVerifiedAt: true },
+    });
+    return { verificato: true, quando: agg.pickupVerifiedAt, gia: false };
+  }
+
   async updateStatus(
     id: string,
     status: DeliveryStatus,
@@ -2080,6 +2136,7 @@ export class DeliveriesService {
       oreAlle?: string;
     },
   ) {
+    let racconto_forzatura: string | null = null;
     const delivery = await this.findOne(id, user);
 
     // CONSEGNE DA FORNITORE (31/08/2026): quando è il partner stesso a fare la
@@ -2108,6 +2165,23 @@ export class DeliveriesService {
     // (in consegna) e chiude (consegnata / non consegnata). La rotta gli era
     // aperta su QUALSIASI stato — avrebbe potuto cancellare o retrocedere una
     // consegna chiusa, e da una chiusa dipende la sua paga.
+    // ⭐ 05/09/2026 (regola utente): CODICE DEL VALET AL RITIRO. Se la consegna
+    // o il partner lo chiedono, il valet non puo' mettere «in consegna» finche'
+    // il partner non ha verificato il suo codice al ritiro. L'ufficio puo'
+    // forzare, e il registro lo dice.
+    if (
+      status === DeliveryStatus.IN_DELIVERY &&
+      DeliveriesService.ritiroDaVerificare(delivery as any) &&
+      !(delivery as any).pickupVerifiedAt
+    ) {
+      if (user.role === Role.VALET) {
+        throw new ForbiddenException(
+          'Questa consegna chiede la verifica del codice del valet al ritiro: il partner deve inserire il tuo codice prima che tu possa metterla in consegna.',
+        );
+      }
+      racconto_forzatura = 'ritiro NON verificato col codice del valet: messa in consegna dall\'ufficio';
+    }
+
     if (user.role === Role.VALET || consegnaDaFornitore) {
       const versoConsentito = [
         DeliveryStatus.IN_DELIVERY,
@@ -2146,6 +2220,7 @@ export class DeliveriesService {
     // in attesa di approvazione), e un Record<string,string> le rifiutava.
     const extra: Record<string, unknown> = {};
     const racconto: string[] = [];
+    if (racconto_forzatura) racconto.push(racconto_forzatura);
     if (status === DeliveryStatus.DELIVERED && dettagli) {
       const TIPI: Record<string, string> = {
         recipient: 'destinatario', concierge: 'custode/portineria', other: 'altro',

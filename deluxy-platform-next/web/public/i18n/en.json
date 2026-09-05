@@ -2057,6 +2057,14 @@
   },
   "deliveryDetail": {
     "noFee": "no fee",
+    "codice": {
+      "titolo": "Valet code at pickup",
+      "spiega": "This delivery requires valet verification: enter the code {{valet}} gives you at pickup. If it matches, they can go.",
+      "campo": "Valet code",
+      "verifica": "Verify the code",
+      "verificato": "Pickup verified on {{quando}}: the valet code matches.",
+      "valetAttende": "The partner must verify your code at pickup before you can start the delivery."
+    },
     "valet": {
       "inDelivery": "Start delivery",
       "cashTitle": "Payment on delivery",

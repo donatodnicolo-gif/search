@@ -138,6 +138,17 @@ export class DeliveriesController {
    * valet ha dichiarato su un servizio a ora. Anche l'ufficio, che sul partner
    * ha sempre l'ultima parola.
    */
+  /**
+   * ⭐ 05/09/2026 (regola utente): il PARTNER verifica il codice del valet al
+   * ritiro. Anche l'ufficio. Corpo: { codice }.
+   */
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ritiro/verifica')
+  @ApiOperation({ summary: 'Il partner inserisce il codice del valet al ritiro: se combacia, il valet può partire' })
+  verificaRitiro(@Param('id') id: string, @Body() body: { codice?: string }, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.verificaRitiro(id, String(body?.codice ?? ''), user);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @Post(':id/ore/approva')
   @ApiOperation({ summary: 'Il partner approva le ore dichiarate dal valet: valgono le sue, e il valore si riscrive' })

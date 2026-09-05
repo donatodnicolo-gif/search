@@ -505,7 +505,8 @@ interface PropostaVendita {
                   @if (puoLavorare(d)) {
                     <!-- Consegnata/Non consegnata solo dopo «in consegna» (31/08). -->
                     @if (d.status !== 'in_delivery') {
-                      <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id" (click)="valetInConsegna(d)">
+                      <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id || (isValetRuolo() && ritiroDaVerificare(d) && !d.pickupVerifiedAt)"
+                              [title]="(isValetRuolo() && ritiroDaVerificare(d) && !d.pickupVerifiedAt) ? ('deliveryDetail.codice.valetAttende' | translate) : ''" (click)="valetInConsegna(d)">
                         {{ 'deliveryDetail.valet.inDelivery' | translate }}
                       </button>
                     } @else {
@@ -2171,6 +2172,12 @@ export class DeliveriesListComponent {
         });
       },
     });
+  }
+
+  /** ⭐ 05/09/2026: chi chiede il codice del valet al ritiro (consegna o partner). */
+  ritiroDaVerificare(d: Delivery): boolean {
+    const p = d.partner as { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean } | undefined;
+    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || p?.valetIdentityCheck || p?.deliveryCodeRequired);
   }
 
   /** ⭐ 05/09/2026: il contrassegno da mostrare al valet prima di partire (dalla riga). */

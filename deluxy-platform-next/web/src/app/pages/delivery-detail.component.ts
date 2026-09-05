@@ -116,7 +116,10 @@ interface DeliveryDetail {
   longitude?: number;
   trackingToken?: string;
   receivedBy?: string;
-  partner?: { id: string; insegna: string };
+  partner?: { id: string; insegna: string; valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean };
+  valetIdentityCheck?: boolean;
+  pickupVerifiedAt?: string | null;
+  pickupVerifiedBy?: string | null;
   valet?: { id: string; firstName: string; lastName: string } | null;
   serviceType?: { id: string; name: string; pricingModel: string; scope?: string; hoursApproval?: boolean };
   products?: DeliveryProductRow[];
@@ -213,12 +216,37 @@ interface DeliveryDetail {
                         (confermato)="avvisoContanti.set(null); cambiaStato('in_delivery')"
                         (annullato)="avvisoContanti.set(null)" />
         }
+        <!-- ⭐ 05/09/2026 (regola utente): CODICE DEL VALET AL RITIRO. Se la
+             consegna o il partner lo chiedono, il partner inserisce qui il
+             codice del valet quando ritira; se combacia, il valet può partire.
+             Finché non combacia, «Metti in consegna» è spento e dice perché. -->
+        @if (ritiroDaVerificare(d) && !d.pickupVerifiedAt && d.valet && ['assigned','accepted','in_preparation'].includes(d.status)) {
+          @if (isPartner() || canManage()) {
+            <section class="card codice-valet">
+              <h2>{{ 'deliveryDetail.codice.titolo' | translate }}</h2>
+              <p class="muted">{{ 'deliveryDetail.codice.spiega' | translate: { valet: d.valet.firstName + ' ' + d.valet.lastName } }}</p>
+              <div class="ore-riga">
+                <label><span>{{ 'deliveryDetail.codice.campo' | translate }}</span>
+                  <input class="field" type="text" inputmode="numeric" autocomplete="off" name="codiceValet" [(ngModel)]="codiceValet" /></label>
+                <button type="button" class="act primary" [disabled]="codiceInCorso() || !codiceValet.trim()" (click)="verificaCodice()">
+                  {{ 'deliveryDetail.codice.verifica' | translate }}
+                </button>
+              </div>
+              @if (codiceErrore(); as e) { <div class="error-card">{{ e }}</div> }
+            </section>
+          } @else if (isValet()) {
+            <div class="card avviso-codice">{{ 'deliveryDetail.codice.valetAttende' | translate }}</div>
+          }
+        }
+        @if (d.pickupVerifiedAt) {
+          <p class="muted piccolo">{{ 'deliveryDetail.codice.verificato' | translate: { quando: (d.pickupVerifiedAt | date: 'dd/MM HH:mm') } }}</p>
+        }
         @if (puoLavorare(d)) {
           <div class="valet-azioni">
             <!-- Consegnata/Non consegnata SOLO dopo che è «in consegna»
                  (31/08): prima si mette in consegna, poi si chiude. -->
             @if (d.status !== 'in_delivery') {
-              <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="avviaConsegna(d)">
+              <button type="button" class="act primary" [disabled]="statoInCorso() || (isValet() && ritiroDaVerificare(d) && !d.pickupVerifiedAt)" (click)="avviaConsegna(d)">
                 {{ 'deliveryDetail.valet.inDelivery' | translate }}
               </button>
             } @else {
@@ -1057,6 +1085,9 @@ interface DeliveryDetail {
       .conto-vendita .scomposto { display: block; color: var(--text-tertiary); font-size: 12px; }
       .righe-prezzo { margin-top: 3px; }
       .righe-prezzo .riga-prezzo { display: block; font-variant-numeric: tabular-nums; }
+      .codice-valet .ore-riga { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+      .codice-valet label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .avviso-codice { background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); font-size: 13px; }
       /* La riga senza fee si dichiara accanto al suo importo: la quota su di lei e zero. */
       .badge.nofee { margin-left: 8px; font-size: 11px; background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
@@ -1504,6 +1535,27 @@ export class DeliveryDetailComponent {
 
   /** L'importo del contrassegno da mostrare al valet prima di partire. */
   readonly avvisoContanti = signal<number | null>(null);
+
+  // ⭐ 05/09/2026: CODICE DEL VALET AL RITIRO (regola utente).
+  codiceValet = '';
+  readonly codiceInCorso = signal(false);
+  readonly codiceErrore = signal<string | null>(null);
+
+  /** Chi chiede il codice: la consegna o il suo partner. */
+  ritiroDaVerificare(d: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean; partner?: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean } | null }): boolean {
+    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || d.partner?.valetIdentityCheck || d.partner?.deliveryCodeRequired);
+  }
+
+  verificaCodice(): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.codiceInCorso.set(true);
+    this.codiceErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ritiro/verifica`, { codice: this.codiceValet.trim() }).subscribe({
+      next: () => { this.codiceInCorso.set(false); this.codiceValet = ''; this.load(); },
+      error: (e) => { this.codiceInCorso.set(false); this.codiceErrore.set(e?.error?.message ?? 'Verifica non riuscita'); },
+    });
+  }
 
   /**
    * «Metti in consegna»: se c'è un pagamento alla consegna, PRIMA l'avviso

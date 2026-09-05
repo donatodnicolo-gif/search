@@ -2059,6 +2059,14 @@
   },
   "deliveryDetail": {
     "noFee": "senza fee",
+    "codice": {
+      "titolo": "Codice del valet al ritiro",
+      "spiega": "Questa consegna chiede la verifica del valet: inserisci il codice che ti dà {{valet}} al ritiro. Se combacia, può partire.",
+      "campo": "Codice valet",
+      "verifica": "Verifica il codice",
+      "verificato": "Ritiro verificato il {{quando}}: il codice del valet combacia.",
+      "valetAttende": "Il partner deve verificare il tuo codice al ritiro prima che tu possa mettere in consegna."
+    },
     "valet": {
       "inDelivery": "Metti in consegna",
       "cashTitle": "Pagamento alla consegna",
