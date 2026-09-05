@@ -1763,6 +1763,16 @@ export class DeliveryFormComponent implements AfterViewInit {
         // Partner già scelto (prefill da vendita o modifica): il ritiro di
         // default è il suo indirizzo, ora che la lista è arrivata. In MODIFICA
         // no: si rispetta l'indirizzo già salvato.
+        // ⭐ 05/09/2026: in creazione (duplica, riconsegna, da vendita) un
+        // partner ereditato che oggi NON è attivo non resta nel campo: la
+        // tendina non lo mostra, e un valore che non si vede non si salva.
+        if (this.model.partnerId && !this.editId()) {
+          const p = this.partners().find((x) => x.id === this.model.partnerId);
+          if (p && p.active === false) {
+            this.model.partnerId = '';
+            this.partnerSel.set('');
+          }
+        }
         if (this.model.partnerId && !this.editId()) this.applicaRitiroPartner();
         // Arrivati i listini: la vendita forzata si riallinea a quella DEL
         // partner e la proposta di prezzo si rifà con la fee giusta.
@@ -2324,12 +2334,22 @@ export class DeliveryFormComponent implements AfterViewInit {
    * gia' salvato sulla consegna. Senza, in modifica la tendina non contiene il
    * valore selezionato e appare vuota.
    */
+  /**
+   * ⭐ 05/09/2026 (regola utente): «l'unico stato da lista è ATTIVO». In
+   * tendina stanno SOLO i partner attivi (disattivati e cancellati fuori,
+   * sempre). L'unica eccezione è la MODIFICA di una consegna che ha già un
+   * partner oggi non attivo: si tiene, etichettato, perché cancellarlo dal
+   * campo vorrebbe dire costringere a riassegnare una consegna magari già
+   * fatta solo per correggere una nota. In creazione, duplica e riconsegna
+   * l'eccezione non vale: una consegna nuova nasce solo su un partner attivo.
+   */
   readonly partnerOptions = computed(() => {
     const lista = this.filteredPartners();
     const scelto = this.partnerSel();
     if (!scelto || lista.some((p) => p.id === scelto)) return lista;
+    if (!this.editId()) return lista;
     const mancante = this.partners().find((p) => p.id === scelto);
-    return mancante ? [mancante, ...lista] : lista;
+    return mancante ? [{ ...mancante, insegna: `${mancante.insegna} — ${this.translate.instant('deliveryForm.placeholder.partnerInactive')}` }, ...lista] : lista;
   });
 
   /** Stesso ragionamento per il valet. */
