@@ -289,6 +289,7 @@
   <div class="table-scroll"><table>
     <thead><tr><th>App</th><th>Cosa fa</th><th>Di cosa è la casa</th><th>Porta</th></tr></thead>
     <tbody>
+      <tr><td>05/09/2026</td><td>Customer Service → Transactions</td><td><b>«Pagata» nel Customer Service chiude la richiesta anche su Transactions.</b> Se una richiesta di pagamento era già in coda su Transactions e nel CS la segni pagata (bonifico dal portale della banca, contanti, compensazione), Transactions la chiude da sola come «pagata fuori dall'app» con data e canale: nessuno la paga due volte. Se Transactions non risponde, la spunta nel CS vale lo stesso e la riga dice che di là va chiusa a mano. Una volta chiusa di là, «non pagata» nel CS non si toglie più: si riapre solo da un operatore in Transactions. È la rotta nuova <code>pagata-fuori</code> dell'API di Transactions, riservata alle richieste dell'app che chiama; Finance non la usa ancora.</td></tr>
       <tr><td class="app"><a href="https://deluxy-orders.vercel.app">Orders</a></td>
         <td>Il registro di tutti gli ordini dei siti Shopify: incassi, stato, evasione.</td>
         <td class="possiede"><b>Il ricavo D2C e il margine</b> di ogni ordine — la formula del margine vive solo qui.</td>

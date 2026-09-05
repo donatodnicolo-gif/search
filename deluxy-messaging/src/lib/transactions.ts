@@ -204,6 +204,58 @@ export async function scaricaAllegatoTransactions(
   }
 }
 
+/** Da dove esce il denaro nel nostro vocabolario (`USCITE`) → il vocabolario di
+ *  Transactions (`METODI_FUORI`). «app» non arriva mai qui: se ha pagato
+ *  Transactions è lei a dircelo, non il contrario. Vuoto = «non indicato» qui,
+ *  «altro» di là: di là il metodo è obbligatorio. */
+function metodoFuoriDa(pagatoCon: string): string {
+  switch (pagatoCon) {
+    case 'banca':
+      return 'bonifico_banca'
+    case 'contanti':
+      return 'contanti'
+    case 'compensazione':
+      return 'compensazione'
+    default:
+      return 'altro'
+  }
+}
+
+/**
+ * Dice a Transactions che il fornitore è GIÀ stato pagato per un'altra strada
+ * (05/09/2026): la richiesta di là esce dalla coda come «pagata fuori
+ * dall'app», altrimenti un operatore la pagherebbe una seconda volta. Si
+ * chiama quando qui si preme «Pagata» su una richiesta già mandata a
+ * Transactions e non ancora pagata di là. La risposta torna alla pagina: un
+ * fallimento si scrive, non si tace.
+ */
+export async function segnaPagataFuoriTransactions(d: {
+  riferimento: string
+  pagatoCon: string
+  pagataIl: Date
+  pagataDa: string
+}): Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }> {
+  const riferimentoEsterno = `cs-${d.riferimento}`
+  try {
+    const { stato, dati } = await chiamataFirmata(
+      'POST',
+      `/api/v1/richieste/${encodeURIComponent(riferimentoEsterno)}/pagata-fuori`,
+      {
+        metodo: metodoFuoriDa(d.pagatoCon),
+        dataPagamento: d.pagataIl.toISOString().slice(0, 10),
+        motivo: `Segnata pagata nel Customer Service da ${d.pagataDa}${d.pagatoCon ? ` (${d.pagatoCon})` : ' (canale non indicato)'}.`,
+      }
+    )
+    if (stato === 200 || stato === 201) {
+      return { ok: true, messaggio: String(dati?.messaggio ?? 'Transactions aggiornata.') }
+    }
+    const msg = dati?.errore ?? dati?.error ?? dati?.messaggio
+    return { ok: false, errore: `Transactions ha risposto ${stato}${msg ? `: ${String(msg)}` : ''}` }
+  } catch (e) {
+    return { ok: false, errore: `Transactions non raggiungibile: ${(e as Error).message}` }
+  }
+}
+
 /** A che punto è una richiesta già inviata (per la spunta sulla scheda). */
 export async function statoRichiestaTransactions(
   riferimento: string

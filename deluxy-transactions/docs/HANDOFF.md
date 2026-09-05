@@ -11,7 +11,41 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **4 settembre 2026** (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+Aggiornato: **5 settembre 2026** (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+
+## 05/09/2026 — «Se ho messo pagata nel Customer Service, aggiorna anche Transactions»
+
+Chiesto dall'utente dopo la verifica del 04/09 (7 richieste in attesa già
+pagate a mano). Costruito:
+
+- **`POST /api/v1/richieste/<id|riferimento|riferimentoEsterno>/pagata-fuori`**
+  (rotta nuova): l'app di origine dichiara il pagamento fatto altrove; la
+  richiesta diventa `pagata` / `pagatoCon: fuori_app`, esce dalla distinta se
+  era in una aperta, lo sblocco decade, il webhook parte con il motivo
+  «… (dichiarato da <app>)». Solo le richieste della chiave chiamante,
+  `metodo` in `METODI_FUORI` obbligatorio, `motivo` obbligatorio,
+  `dataPagamento` facoltativa e mai nel futuro. Codice:
+  `chiudiDichiarataDallOrigine()` in `src/lib/richieste.ts` — la chiusura
+  dell'operatore (`chiudiFuoriDallApp`) e quella dell'app passano dalla stessa
+  funzione interna `chiudiRichiestaDichiarata(attore)`; l'evento porta
+  `dichiaratoDa` solo nel secondo caso. Documentato in `API.md` e in
+  `SICUREZZA.md` §0-ter (non è una porta in più: da lì non esce un euro).
+- **Customer Service** (`deluxy-messaging`): premendo «Pagata» su una
+  richiesta già in coda qui (`canale = transactions`, non ancora `pagata` di
+  qua) chiama la rotta con metodo mappato da «Da dove esce» (banca →
+  `bonifico_banca`, contanti, compensazione, altro) e la data; esito nella
+  risposta (`transactions`) e, se fallisce, in `esitoInvio` sulla riga
+  («Pagata qui ma NON chiusa su Transactions — …»). Il «non pagata» è
+  rifiutato con 409 se di qua risulta già pagata: si riapre solo da un
+  operatore qui. Il webhook di ritorno trova la riga già pagata e non rifà
+  gli effetti (avviso al fornitore ecc.).
+- **Finance NON ancora collegata** allo stesso modo («Abbiamo pagato» →
+  pagata-fuori): un'altra sessione sta modificando quei file oggi; da fare
+  con `segnaPagataFuori` nel suo client. Le 7 richieste già pagate a mano
+  restano da chiudere dall'operatore (o con lo script di Finance, come
+  annullate).
+- Verifica: `tsc` verde su entrambe le app; **non ancora deployato** (né
+  Transactions né CS) al momento di scrivere.
 
 ## 04/09/2026 — `TRX-2026-000049` (ANTOFLOWERS, 185,22 €) è sbagliata: Finance ha mandato il mese lordo, il dovuto netto è 48,30 €
 

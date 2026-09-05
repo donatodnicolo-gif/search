@@ -158,6 +158,24 @@ Non si chiude a mano una richiesta che sta in una distinta **già esportata o
 pagata**: quel file è fuori, e dire «pagata a mano» nasconderebbe che sta per
 essere pagata anche da lì. In quel caso si chiude la distinta.
 
+**Dal 05/09/2026 la stessa dichiarazione può farla l'app di origine via API**
+(`POST /api/v1/richieste/<id>/pagata-fuori`, `chiudiDichiarataDallOrigine()`).
+Il caso: il Customer Service segna «pagata» un fornitore pagato dal portale
+della banca, e qui la richiesta restava in coda — con Finance era già
+successo su 7 richieste per 4.794 €, pronte a uscire due volte. Non cambia la
+natura della porta: da lì continua a non uscire un euro. Cambia chi dichiara,
+e al posto del secondo fattore dell'operatore ci sono: la **firma HMAC** della
+chiave (punto 1), il vincolo **solo le richieste di quella chiave** (come
+l'annullo via API: un'app non chiude le richieste di un'altra), il **motivo
+obbligatorio**, e nell'evento `richiesta.pagata_fuori` il campo
+**`dichiaratoDa: <app>`** con l'attore = nome dell'app, così nel registro una
+chiusura dichiarata da un'app non si confonde con quella di una persona.
+L'abuso resta lo stesso del paragrafo sopra (far sparire una richiesta non
+pagata) e resta nelle mani di chi già poteva annullarla; la prova, se c'è,
+sta nell'app che ha dichiarato (la ricevuta del CS), non qui. Le due
+garanzie non facoltative — via dalla distinta, sblocco che decade — valgono
+uguali: è la stessa funzione.
+
 ## 1. Chi può chiedere un pagamento (le altre app)
 
 | Controllo | Perché |
