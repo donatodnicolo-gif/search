@@ -486,6 +486,14 @@ interface PropostaVendita {
                   @if (canAssign() && !canManage() && !consegnaChiusa(d)) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
                   }
+                  <!-- ⭐ 05/09/2026: le ORE DA APPROVARE si decidono anche da
+                       qui. Il bottone c'era solo nel dettaglio e in un giorno
+                       nessuna delle sei consegne in attesa era stata decisa:
+                       un comando che vive solo dove non si guarda non esiste. -->
+                  @if (d.status === 'delivered_time_to_approve' && puoDecidereOreRiga(d)) {
+                    <button type="button" class="act primary" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, true)">{{ 'deliveryDetail.ore.approva' | translate }}</button>
+                    <button type="button" class="act" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, false)">{{ 'deliveryDetail.ore.rifiuta' | translate }}</button>
+                  }
                   @if (canManage()) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
                     <button type="button" class="act" (click)="openMonitor(d)">{{ 'deliveries.actions.monitor' | translate }}</button>
@@ -615,6 +623,22 @@ interface PropostaVendita {
           · <span class="tag">{{ 'status.delivery.' + d.status | translate }}</span>
         </p>
         @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
+        <!-- ⭐ 05/09/2026 (segnalazione utente: «i servizi orari ora non si
+             possono chiudere»). Dal 04/09 il server esige le ORE per chiudere
+             un servizio a ore — regola giusta — ma questo pop-up mandava solo
+             lo stato, e l'ufficio si vedeva rifiutare la chiusura senza poter
+             dire le ore. Ora, sui servizi a ore, i due orari stanno qui,
+             precompilati con quelli previsti: la chiusura passa in «ore da
+             approvare» come quando la fa il valet. -->
+        @if (d.serviceType?.pricingModel === 'A_ORA') {
+          <div class="ore-lista">
+            <label><span>{{ 'deliveryDetail.valet.oreDalle' | translate }}</span>
+              <input class="field" type="time" step="900" [(ngModel)]="oreDalle" name="oreDalleLista" /></label>
+            <label><span>{{ 'deliveryDetail.valet.oreAlle' | translate }}</span>
+              <input class="field" type="time" step="900" [(ngModel)]="oreAlle" name="oreAlleLista" /></label>
+            <p class="muted piccolo">{{ 'deliveryDetail.valet.oreHint' | translate }}</p>
+          </div>
+        }
         <ul class="valet-list">
           @for (s of statusKeys; track s) {
             <li>
@@ -931,6 +955,9 @@ interface PropostaVendita {
       }
       .rif-vendita { display: block; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
       .rif-vendita:hover { color: var(--text-primary); text-decoration: underline; }
+      .ore-lista { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 4px 0 10px; }
+      .ore-lista label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .ore-lista .piccolo { flex-basis: 100%; margin: 0; font-size: 12px; }
       .regola-badge { margin-left: 5px; font-size: 12px; cursor: help; vertical-align: middle; }
       .status-dot {
         display: inline-block;
@@ -1426,19 +1453,36 @@ export class DeliveriesListComponent {
   readonly salvandoStato = signal(false);
 
   /** Apre il pop-up di cambio stato senza far scattare l'apertura del dettaglio. */
+  /** Gli orari per chiudere un servizio A ORE dal pop-up di stato (precompilati con i previsti). */
+  oreDalle = '';
+  oreAlle = '';
+
   apriStato(d: Delivery, ev: Event): void {
     ev.stopPropagation();
     this.actionError.set(null);
+    this.oreDalle = (d as any).serviceStartTime ?? d.deliveryTimeFrom ?? '';
+    this.oreAlle = (d as any).serviceEndTime ?? d.deliveryTimeTo ?? '';
     this.statoFor.set(d);
   }
 
   cambiaStato(status: string): void {
     const d = this.statoFor();
     if (!d) return;
+    const corpo: Record<string, string> = { status };
+    // Servizio a ore chiuso dall'ufficio: le ore viaggiano con lo stato, come
+    // fa il valet. Senza, il server rifiuta — e ha ragione.
+    if (status === 'delivered' && d.serviceType?.pricingModel === 'A_ORA') {
+      if (!(this.oreDalle && this.oreAlle)) {
+        this.actionError.set(this.translate.instant('deliveryDetail.valet.oreObbligatorie'));
+        return;
+      }
+      corpo['oreDalle'] = this.oreDalle;
+      corpo['oreAlle'] = this.oreAlle;
+    }
     this.salvandoStato.set(true);
     this.actionError.set(null);
     this.http
-      .patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status })
+      .patch(`${environment.apiUrl}/deliveries/${d.id}/status`, corpo)
       .subscribe({
         next: () => {
           this.salvandoStato.set(false);
@@ -1453,6 +1497,27 @@ export class DeliveriesListComponent {
           this.actionError.set(err?.error?.message ?? this.translate.instant('common.saveError'));
         },
       });
+  }
+
+  // ⭐ 05/09/2026: ORE DA APPROVARE dalla riga (ufficio, o il partner della consegna).
+  readonly oreDecisioneInCorso = signal<string | null>(null);
+
+  puoDecidereOreRiga(d: Delivery): boolean {
+    if (this.canManage()) return true;
+    const u = this.auth.user();
+    return u?.role === 'PARTNER' && !!u.partnerId && d.partner?.id === u.partnerId;
+  }
+
+  decidiOreRiga(d: Delivery, approva: boolean): void {
+    this.oreDecisioneInCorso.set(d.id);
+    this.actionError.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ore/${approva ? 'approva' : 'rifiuta'}`, {}).subscribe({
+      next: () => { this.oreDecisioneInCorso.set(null); this.load(); },
+      error: (err) => {
+        this.oreDecisioneInCorso.set(null);
+        this.actionError.set(err?.error?.message ?? this.translate.instant('common.saveError'));
+      },
+    });
   }
 
   /** ⚠️ Misurato: la PATCH di assegnazione impiega ~5s e la ricarica altri ~2,5.
