@@ -452,6 +452,22 @@ export async function chiudiDichiarataDallOrigine(
   dati: { metodo?: string; motivo: string; dataPagamento?: string },
   ip?: string | null,
 ): Promise<EsitoChiusura> {
+  // Stesso perimetro dell'annullo via API (revisione ostile 05/09): finché
+  // nessuno qui ha firmato. Una richiesta approvata o in distinta la chiude
+  // solo un operatore di Transactions — altrimenti un login qualsiasi
+  // dell'app di origine potrebbe far sparire una decisione presa da due
+  // persone e spegnere uno sblocco in corso.
+  const r = await prisma.richiesta.findUnique({ where: { id: richiestaId }, select: { stato: true } });
+  if (!r) return { ok: false, errore: "Richiesta inesistente." };
+  if (!["in_attesa", "sospesa"].includes(r.stato)) {
+    return {
+      ok: false,
+      errore:
+        r.stato === "pagata"
+          ? "Questa richiesta risulta già pagata da Transactions."
+          : `La richiesta è «${ETICHETTE[r.stato] ?? r.stato}»: dopo l'approvazione la chiude solo un operatore dentro Transactions.`,
+    };
+  }
   return chiudiRichiestaDichiarata(richiestaId, app, { ...dati, esito: "pagata_fuori", dichiaratoDa: app }, ip);
 }
 

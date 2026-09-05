@@ -58,8 +58,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         return NextResponse.json(
           {
             errore:
-              'Questa richiesta risulta pagata anche su Deluxy Transactions: qui non si può più togliere la spunta. ' +
-              'Se è un errore, va riaperta da un operatore dentro Transactions.',
+              'Questa richiesta risulta pagata anche su Deluxy Transactions: qui non si può più togliere la spunta, ' +
+              'e di là una richiesta chiusa non si riapre. Se è un errore, si fa una richiesta nuova.',
           },
           { status: 409 }
         )
@@ -126,7 +126,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         where: { id },
         data: t.ok
           ? { partnerStato: 'pagata', esitoInvio: '' }
-          : { esitoInvio: `Pagata qui ma NON chiusa su Transactions — ${t.errore}` },
+          : { esitoInvio: `Pagata qui ma NON chiusa su Transactions — ${t.errore} Va chiusa a mano da un operatore dentro Transactions.` },
       })
     }
 

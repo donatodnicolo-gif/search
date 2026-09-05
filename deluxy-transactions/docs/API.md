@@ -167,10 +167,10 @@ Corpo:
 `metodo` obbligatorio, uno fra `bonifico_banca`, `addebito`, `carta`,
 `contanti`, `compensazione`, `altro`. `dataPagamento` facoltativa (`AAAA-MM-GG`,
 non nel futuro; vuota = oggi). `motivo` obbligatorio (almeno 3 caratteri): è
-l'unica traccia del pagamento, scrivi dove e chi. Solo le richieste **della
-tua chiave**, e solo finché sono `in_attesa`, `sospesa`, `approvata` o in una
-distinta ancora aperta: se la distinta è già stata consegnata alla banca la
-risposta è `409` (si chiude la distinta, non la riga). Risposta:
+l'unica traccia del pagamento, scrivi dove e chi (max 500 caratteri). Solo le
+richieste **della tua chiave**, e solo finché sono `in_attesa` o `sospesa` —
+lo stesso perimetro dell'annullo: dopo l'approvazione la risposta è `409` e
+la chiude un operatore dentro Transactions. Risposta:
 `{ "stato": "pagata", "pagatoCon": "fuori_app", "messaggio": "…" }`. Il webhook
 parte anche per questa chiusura, col `motivo` seguito da «(dichiarato da
 &lt;app&gt;)». Non c'è la strada inversa: una richiesta chiusa così si riapre

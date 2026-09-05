@@ -170,11 +170,25 @@ l'annullo via API: un'app non chiude le richieste di un'altra), il **motivo
 obbligatorio**, e nell'evento `richiesta.pagata_fuori` il campo
 **`dichiaratoDa: <app>`** con l'attore = nome dell'app, così nel registro una
 chiusura dichiarata da un'app non si confonde con quella di una persona.
-L'abuso resta lo stesso del paragrafo sopra (far sparire una richiesta non
-pagata) e resta nelle mani di chi già poteva annullarla; la prova, se c'è,
-sta nell'app che ha dichiarato (la ricevuta del CS), non qui. Le due
-garanzie non facoltative — via dalla distinta, sblocco che decade — valgono
-uguali: è la stessa funzione.
+**Il perimetro è quello dell'annullo via API: solo `in_attesa` e `sospesa`.**
+La prima versione arrivava fino ad `approvata` e alla distinta aperta; la
+revisione ostile del 05/09 ha mostrato che così un login qualsiasi dell'app
+di origine (nel CS non c'è controllo di ruolo su «Pagata») avrebbe potuto
+cancellare una decisione firmata da due operatori e spegnere uno sblocco in
+corso — senza secondo fattore e senza che nessuno qui fosse coinvolto. Dopo
+l'approvazione risponde `409` e la chiude solo un operatore di Transactions.
+Con questo perimetro l'abuso possibile è davvero lo stesso dell'annullo (far
+sparire dalla coda una richiesta non pagata, nelle mani di chi già poteva
+annullarla); la prova, se c'è, sta nell'app che ha dichiarato (la ricevuta
+del CS), non qui. Una richiesta chiusa così **non si riapre**: si rifà.
+
+Annotata dalla stessa revisione, **pre-esistente** e non di questa rotta: la
+chiusura manuale di una riga mentre il pagatore sta eseguendo la distinta è
+una corsa — `pagaLottoConQonto` legge le righe una volta e non rilegge lo
+stato prima di ogni bonifico (`pagamento-banca.ts`), quindi una riga chiusa
+«pagata fuori» negli stessi secondi verrebbe pagata lo stesso e riscritta
+`qonto`. Oggi Qonto è spento (0 bonifici mai usciti); da chiudere rileggendo
+`stato === "in_lotto"` subito prima di ogni `creaBonifico`.
 
 ## 1. Chi può chiedere un pagamento (le altre app)
 
