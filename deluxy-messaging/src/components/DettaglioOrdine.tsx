@@ -201,6 +201,18 @@ type OrdineDettaglio = {
   unitoDaNome?: string
   uniti?: { numero: string; totale: number }[]
   totaleConUniti?: number
+  /** Gli altri ordini dello stesso cliente che si potrebbero unire a questo. */
+  candidatiUnione?: {
+    id: string
+    numero: string
+    totale: number
+    data: string
+    dataConsegna: string | null
+    citta: string
+    gestione: string
+    perche: string
+    forte: boolean
+  }[]
   riconsegnaLink?: string
   riconsegnaNumero?: string
   /** Le telefonate di questo cliente per quest'ordine. */
@@ -662,16 +674,24 @@ export function DettaglioOrdine({
     }
   }
 
-  /** Unisce un altro ordine a questo. L'esito si mostra per intero. */
-  async function unisci() {
+  /**
+   * Unisce un altro ordine a questo. L'esito si mostra per intero.
+   *
+   * `numero` arriva dal bottone di un SUGGERIMENTO (gli altri ordini dello
+   * stesso cliente); senza, si prende quello battuto nella casella. Stessa
+   * rotta, stesse regole: il suggerimento non salta nessun controllo.
+   */
+  async function unisci(numero?: string) {
     if (!ordine?.id || unendo) return
+    const daUnire = (numero ?? numeroDaUnire).trim()
+    if (!daUnire) return
     setUnendo(true)
     setEsitoUnione('')
     try {
       const res = await fetch(`/api/ordini/${ordine.id}/unisci`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero: numeroDaUnire.trim() }),
+        body: JSON.stringify({ numero: daUnire }),
       })
       const d = (await res.json().catch(() => ({}))) as { messaggio?: string }
       setEsitoUnione(d.messaggio || 'Unione non riuscita.')
@@ -2046,7 +2066,11 @@ export function DettaglioOrdine({
                   open={
                     Boolean(ordine.unitoA) ||
                     Boolean(ordine.uniti?.length) ||
-                    Boolean(esitoUnione)
+                    Boolean(esitoUnione) ||
+                    // ⚠️ Un altro ordine dello stesso cliente con la STESSA data di
+                    // consegna non è uno strumento da cercare: è un fatto su questa
+                    // vendita, e si vede senza aprire niente.
+                    Boolean(ordine.candidatiUnione?.some((c) => c.forte))
                   }
                 >
                   <summary className="cella-nome">
@@ -2095,6 +2119,66 @@ export function DettaglioOrdine({
                           secondo: la bacheca ne mostrerà uno solo e il valore si somma.
                         </div>
                       )}
+                      {/* ── GLI ALTRI ORDINI DI QUESTO CLIENTE, PROPOSTI ──
+                          Chiesto il 05/09/2026. Il cliente si riconosce per telefono o
+                          email come in rubrica, MAI per nome (gli omonimi esistono). Ogni
+                          riga dice PERCHÉ la proponiamo: la stessa data di consegna è il
+                          segnale forte e sta in cima; gli altri sono ordini della stessa
+                          persona, che quasi sempre sono regali diversi — si propongono,
+                          non si uniscono da soli. Il bottone passa dalla stessa rotta
+                          della casella: nessun controllo saltato. */}
+                      {ordine.candidatiUnione?.length ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div className="cella-nome">
+                            Altri ordini di questo cliente
+                            {ordine.candidatiUnione.some((c) => c.forte)
+                              ? ' · uno ha la stessa data di consegna'
+                              : ''}
+                          </div>
+                          <ul
+                            className="cella-sub"
+                            style={{ margin: '4px 0 0', paddingLeft: 0, listStyle: 'none' }}
+                          >
+                            {ordine.candidatiUnione.map((c) => (
+                              <li
+                                key={c.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '4px 0',
+                                  borderTop: '1px solid var(--hairline)',
+                                }}
+                              >
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                  <strong style={{ fontWeight: 600 }}>{c.numero}</strong>
+                                  {' · '}
+                                  {euroBreve(c.totale)}
+                                  {c.citta ? ` · ${c.citta}` : ''}
+                                  <br />
+                                  <span style={{ color: c.forte ? 'var(--green)' : undefined }}>
+                                    {c.forte ? '● ' : ''}
+                                    {c.perche}
+                                  </span>
+                                </span>
+                                <button
+                                  className="btn btn-secondario small"
+                                  disabled={unendo}
+                                  title={`Unisci ${c.numero} a ${ordine.numero}: si lavoreranno come un ordine solo`}
+                                  onClick={() => void unisci(c.numero)}
+                                >
+                                  {unendo ? 'Unisco…' : 'Unisci'}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="cella-sub" style={{ marginTop: 4, opacity: 0.8 }}>
+                            Stesso telefono o stessa email di quest’ordine, fra gli ordini
+                            degli ultimi due mesi. Non è detto che siano la stessa vendita:
+                            unisci solo se è lo stesso lavoro pagato due volte.
+                          </div>
+                        </div>
+                      ) : null}
                       <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                         <input
                           value={numeroDaUnire}

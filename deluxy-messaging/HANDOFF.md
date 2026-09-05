@@ -1,5 +1,61 @@
 # Handoff — Deluxy Customer Service
 
+## 05/09/2026 (17) — «Unisci un altro ordine» propone gli altri ordini del cliente
+
+Chiesto dall'utente: «unisci a un altro ordine: proponi già suggerimenti sulla
+base di altri acquisti fatti da quel cliente». Fino a qui il numero da unire
+andava saputo e battuto a mano: chi apriva #1777 non aveva modo di scoprire da
+lì che la stessa persona aveva pagato anche #1798.
+
+**Dove**: `candidatiUnione()` in `src/lib/unione-ordini.ts` (accanto alle regole
+dell'unione, non in una lib nuova); il dettaglio la porta in
+`OrdineDettaglioDto.candidatiUnione` (`dettaglio-ordine.ts`, vuoto sull'archivio);
+il riquadro «Unisci un altro ordine» in `DettaglioOrdine.tsx` elenca i candidati
+con un bottone «Unisci» ciascuno, che passa dalla STESSA rotta
+`POST /api/ordini/[id]/unisci` della casella. Nessuna rotta nuova, nessun campo
+nuovo, nessuna copia.
+
+### Le regole
+
+- ⚠️⚠️ **Il cliente si riconosce per telefono o email, MAI per nome**: gli
+  omonimi esistono, e proporre l'ordine di un omonimo vuol dire far unire due
+  lavori di due persone. Si seguono anche le unioni di rubrica fatte a mano
+  (`clienti-uniti.ts`). Rispetto alla rubrica, che tiene UNA chiave (telefono se
+  c'è, altrimenti email), qui valgono ENTRAMBE: Rodrigo Taddeo ha #2557 con un
+  numero e #2558 con un altro, stessa email, stessa consegna.
+- ⚠️⚠️ **Il telefono si confronta sulle cifre, nel database**
+  (`RIGHT(regexp_replace(telefono,'\D','','g'),9)` in una `$queryRaw` su
+  `messaging."Ordine"`): in tabella lo stesso cliente sta come «+393289167199» e
+  «+39 350 846 2424». La prima versione usava `endsWith` sul testo e il riquadro
+  restava VUOTO in silenzio — trovato provando su Rodrigo, dopo che otto telefoni
+  a campione erano tutti senza spazi (trappola del parser provato su pochi dati).
+- **Si propone solo ciò che si può unire**: a sé (`unitoA = ''`), senza figli, non
+  annullato, e mai se l'ordine aperto è già unito a un altro. Un suggerimento che
+  il bottone poi rifiuta insegna a non guardare i suggerimenti.
+- **Ordine**: prima la STESSA data di consegna (`forte`, in verde, e il riquadro
+  nasce aperto), poi per vicinanza nel tempo dell'ordine. Ogni riga dice perché
+  («stessa consegna il 21 lug · ordinato nella stessa ora», «ordinato 11 giorni
+  dopo»). Tetto 6.
+- **È un suggerimento, non un'unione**: due ordini della stessa persona a un
+  mese di distanza sono quasi sempre due regali. A schermo è scritto.
+- Se `candidatiUnione` fallisce la scheda si apre lo stesso, senza suggerimenti
+  e con la casella: niente pagina bianca per un di più.
+
+### Misurato sui dati veri (1.518 ordini locali)
+
+| | |
+|---|---|
+| clienti (per email) con più di un ordine unibile | 103 |
+| di cui con due ordini sulla stessa data di consegna | 4 |
+| #2557 (Rodrigo Taddeo) | propone #2558 · stessa consegna 21 lug · stessa ora; i due annullati (#2577 e un altro) NON compaiono |
+| #1777 (ada hunca) | propone #1798 · ordinato 11 giorni dopo (⚠️ i due NON risultano uniti in tabella, contrariamente a quanto suggerisce la nota del 26/08) |
+
+Verifica a schermo con una pagina temporanea sotto `/widget/` (metodo di
+memoria), poi cancellata: `git status` pulito prima del commit. Typecheck ok.
+
+**Stato**: in locale, NON pushato né deployato (regola del 04/09: si guarda,
+poi si pubblica a comando).
+
 ## 04/09/2026 (15) — in produzione, e il push da un worktree separato
 
 **LIVE**: `dpl_DJkyvCGN1gzkKtRBTPp4PYNHmQjj` →

@@ -1,5 +1,5 @@
 import { db } from './db'
-import { totaleConUniti } from './unione-ordini'
+import { candidatiUnione, totaleConUniti, type CandidatoUnione } from './unione-ordini'
 import { brandRicercaDaNegozio } from './negozi'
 import { saluteDaOrders } from './salute-ordine'
 import {
@@ -95,6 +95,13 @@ export type OrdineDettaglioDto = {
   uniti: { numero: string; totale: number }[]
   /** Il totale suo più quello degli ordini uniti: è la base vera del margine. */
   totaleConUniti: number
+  /**
+   * Gli altri ordini dello STESSO CLIENTE che si potrebbero unire a questo,
+   * dal più probabile (stessa data di consegna) al meno. Vuoto se l'ordine è
+   * già unito a un altro, se il cliente non ha né telefono né email, o se non
+   * ha altri ordini in casa. Vedi `candidatiUnione` in unione-ordini.ts.
+   */
+  candidatiUnione: CandidatoUnione[]
   /** L'ultimo link di riconsegna già creato: si rivede aprendo la scheda. */
   riconsegnaLink: string
   riconsegnaNumero: string
@@ -161,6 +168,10 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   // ⚠️ Gli ordini uniti a questo: servono al riquadro e al TOTALE su cui ha
   // senso guardare il margine (il costo del fornitore è uno solo).
   const insieme = await totaleConUniti(ordine.numero ?? '', ordine.totale ?? 0)
+  // ⚠️ E gli altri ordini dello stesso cliente da PROPORRE: finora il numero
+  // da unire andava saputo a memoria. Se fallisce non ferma la scheda: si
+  // resta senza suggerimenti, con la casella per scriverlo a mano.
+  const candidati = await candidatiUnione(ordine.id).catch(() => [] as CandidatoUnione[])
   const senzaCancelletto = (ordine.numero ?? '').replace(/^#+/, '')
   const aperta = senzaCancelletto
     ? await db.richiestaPagamento.findFirst({
@@ -247,6 +258,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       unitoDaNome: ordine.unitoDaNome ?? '',
       uniti: insieme.uniti,
       totaleConUniti: insieme.totale,
+      candidatiUnione: candidati,
       riconsegnaLink: ordine.riconsegnaLink ?? '',
       riconsegnaNumero: ordine.riconsegnaNumero ?? '',
       chiamate: chiamate.map((c) => ({
@@ -375,6 +387,9 @@ export async function dettaglioOrdineArchivio(
         unitoDaNome: '',
         uniti: [],
         totaleConUniti: 0,
+        // Un ordine d'archivio non si unisce (non ha una riga nostra): niente
+        // da proporre.
+        candidatiUnione: [],
         riconsegnaLink: '',
         riconsegnaNumero: '',
         // Le chiamate si attaccano a un ordine NOSTRO (per id): su uno
