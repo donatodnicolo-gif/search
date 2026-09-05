@@ -68,7 +68,7 @@ sono, le 11 sconosciute restano «senza marchio». Si scrive in *Negozi*.
 
 **Stato**: parser corretto e script committati in locale, non pushati. Dati in produzione già riparati (lo script è idempotente: rilanciato, trova 0).
 
-✅ **Modalità sviluppatore di Windows attivata dall'utente il 05/09** (registro ): dal prossimo deploy si prova di nuovo  + , senza minuti di build fatturati.
+✅ **Modalità sviluppatore di Windows attivata dall'utente il 05/09** (registro `AllowDevelopmentWithoutDevLicense = 1`): dal prossimo deploy si prova di nuovo `vercel build --prod` + `vercel deploy --prebuilt --prod`, senza minuti di build fatturati.
 
 ## 05/09/2026 (17:30) — «Pagata» qui chiude la richiesta anche su Transactions
 
