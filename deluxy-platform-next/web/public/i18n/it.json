@@ -916,7 +916,7 @@
       "remove": "Togli il filtro partner"
     },
     "ruleApplied": "Regola carnet applicata",
-    "saleRef": "Vendita dell'ordine{{brand}} — apri in Vendite",
+    "saleRef": "Apri questa vendita in Vendite",
     "redeliver": "Riconsegna"
   },
   "partners": {

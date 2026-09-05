@@ -55,6 +55,12 @@ const DELIVERY_LIST_SELECT = {
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
+  // ⭐ 05/09/2026 (regola utente): il DDT si vede anche in ELENCO. Era
+  // cercabile (sta in SEARCH_FIELDS) ma non usciva: si poteva trovare una
+  // consegna dal suo numero di documento e poi non vederlo a schermo.
+  // Il brand viaggia col numero: con quattro negozi lo stesso DDT esiste su
+  // piu' d'uno, e il numero da solo non identifica la vendita.
+  ddtNumber: true, ddtBrand: true,
   // VENDITA (02/09): serve alla lista per accendere Accetta/Rifiuta del partner.
   acceptSale: true,
   // PAGA DEL VALET in tabella (02/09, regola utente): al valet la colonna

@@ -388,14 +388,22 @@ interface PropostaVendita {
                   @if (d.deliveryRuleId) {
                     <span class="regola-badge" [title]="(d.deliveryRule?.name || '') + ' — ' + ('deliveries.ruleApplied' | translate)">📋</span>
                   }
-                  <!-- ⭐ 05/09/2026 (regola utente): sui servizi di VENDITA si
-                       vede anche la vendita da cui la consegna nasce. Sta qui,
-                       sotto il numero, perché è l'altra identità della stessa
-                       riga; il link porta a quella vendita in Vendite. -->
-                  @if (d.vendita?.ordine; as ordine) {
-                    <a class="rif-vendita" [routerLink]="['/sales']" [queryParams]="{ q: ordine }"
-                       (click)="$event.stopPropagation()"
-                       [title]="'deliveries.saleRef' | translate: { brand: d.vendita?.brand ?? '' }">V {{ ordine }}</a>
+                  <!-- ⭐ 05/09/2026 (regola utente): sotto il numero di consegna
+                       si vede il DDT della vendita — numero e negozio. È
+                       l'altra identità della stessa riga, ed è il riferimento
+                       con cui la consegna si ritrova dall'ordine.
+                       ⚠️ Il brand sta accanto al numero e non è un vezzo: con
+                       quattro negozi lo stesso numero di DDT esiste su più
+                       d'uno, e da solo non identifica la vendita.
+                       Se la vendita è collegata il DDT è un link a lei. -->
+                  @if (d.ddtNumber || d.vendita?.ordine) {
+                    @if (d.vendita?.ordine; as ordine) {
+                      <a class="rif-vendita" [routerLink]="['/sales']" [queryParams]="{ q: ordine }"
+                         (click)="$event.stopPropagation()"
+                         [title]="'deliveries.saleRef' | translate">DDT {{ d.ddtNumber ?? ordine }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</a>
+                    } @else {
+                      <span class="rif-vendita">DDT {{ d.ddtNumber }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</span>
+                    }
                   }
                 </td>
                 <td>

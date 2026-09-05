@@ -915,7 +915,7 @@
       "remove": "Remove the partner filter"
     },
     "ruleApplied": "Carnet rule applied",
-    "saleRef": "Sale for the order{{brand}} — open in Sales",
+    "saleRef": "Open this sale in Sales",
     "redeliver": "Redeliver"
   },
   "partners": {
