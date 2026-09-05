@@ -235,3 +235,15 @@ concesso alla stessa chiave. Differenza dall'annullo: vale anche su `approvata` 
 distinta ancora aperta (fa decadere lo sblocco). Passata all'agente `sicurezza-ostile` il
 05/09 (esito da riportare qui sotto). Decide il custode: correzione locale accettata,
 oppure restringere a `in_attesa`/`sospesa` come l'annullo.
+
+**Esito ostile (05/09, stesso giorno)**: 4 demolite (chiave altrui, replay/corpo, anello
+webhook, sblocco come sabotaggio); **1 sopravvissuta**: il perimetro arrivava ad `approvata`
+e alla distinta aperta — più largo dell'annullo — e nel CS «Pagata» non ha controllo di
+ruolo, quindi un login CS qualsiasi poteva far sparire una doppia firma e spegnere uno
+sblocco. **Toppa applicata subito**: la rotta si ferma a `in_attesa`/`sospesa` come
+l'annullo (409 oltre), motivo con tetto 500, via la promessa del «riapri» che non esiste.
+**Aperto per il custode, pre-esistente**: corsa fra chiusura manuale/API e
+`pagaLottoConQonto` (legge le righe una volta, non rilegge lo stato prima di ogni
+`creaBonifico`); Qonto oggi spento. Proposta: rileggere `stato === "in_lotto"` prima di
+ogni bonifico. Facoltativo: controllo di ruolo nel CS su «Pagata» per le richieste in
+canale Transactions.
