@@ -1,5 +1,99 @@
 # Handoff — Deluxy Customer Service
 
+## 05/09/2026 (18) — le chiamate arrivano, ma erano registrate AL CONTRARIO
+
+L'utente ha creato `chiamate@deluxy.it` (casella di tipo **chiamate**, in tabella
+dal 31/08) e ha chiesto «dovresti aver ricevuto anche chiamate». Ricevute: **16
+notifiche GlooboBiz dal 01/09 al 04/09**, tutte registrate come righe
+`Chiamata`. Il cron funziona. Ma il contenuto era sbagliato in tutte e sedici.
+
+### ⚠️⚠️ Il parser prendeva il NOSTRO numero per il chiamante
+
+Il testo vero dice: «hai ricevuto un nuova chiamata sul tuo Numero Virtuale
+390282952899, dal numero 00393398321681». Nessuna delle etichette scritte a
+mano il 26/08 («chiamata da», «chiamante», «from»…) c'era, quindi il parser
+cadeva sul ripiego «primo numero del testo» — che è il nostro centralino. Il
+cliente finiva in `numeroChiamato`.
+
+E siccome l'ordine **#12359** (Sharaya Romero) ha proprio `+390282952899` come
+telefono del cliente, **15 telefonate di 12 persone diverse risultavano tutte
+di Sharaya Romero**, con esito «ordine» e un promemoria «Richiamare Sharaya
+Romero» per ciascuna. Tutte e 16 sono state spuntate «richiamato» da qualcuno
+(l'ultima stamattina alle 06:40): si è richiamato il numero sbagliato, o si è
+spuntato per far sparire la riga.
+
+Era esattamente il rischio scritto nel file il 26/08 («un parser scritto
+sull'esempio che si ha in mano ne riconosceva 1 su 3 quando è arrivato il dato
+vero»): il parser non sbaglia mai ad alta voce, l'ho visto leggendo le righe.
+
+### La correzione (`src/lib/chiamate.ts`)
+
+- Etichette nuove, **le composte prima delle corte**: `dal numero` in testa ai
+  chiamanti (deve vincere su `da`), `numero virtuale` e `sul tuo numero` in
+  testa ai chiamati.
+- `numeriDaNotifica(oggetto, testo, nostri)`: il parser resta puro, ma riceve i
+  **nostri** numeri; nel ripiego il chiamante è il primo numero che **non** è
+  nostro. Un'etichetta esplicita vale comunque più della lista.
+- `nostriNumeri()`: i `telefonoChiamate` dei negozi + i numeri che le notifiche
+  passate chiamano «numero virtuale», **riletti dal testo**.
+  ⚠️⚠️ La prima versione leggeva la colonna `numeroChiamato` delle righe passate:
+  erano proprio quelle invertite, quindi la lista dei «nostri» conteneva i dodici
+  clienti e la riparazione trovava **0 righe da riparare su 16**. La prova la
+  scriveva l'accusato ([[trappola-la-prova-la-scrive-l-accusato]]).
+- `scripts/prova-chiamate.mts`: le **due notifiche vere** incollate come casi
+  (una col numero a capo e la virgola, una «mentre eri occupato»). 16 prove ok.
+
+### Lo script di riparazione — SCRITTO, NON LANCIATO
+
+`npx tsx --env-file=.env scripts/ripara-chiamate-invertite.mts` (senza
+argomenti simula; `--applica` scrive). Per ogni riga il cui `numero` risulta il
+nostro: scambia numero ↔ chiamato, ricalcola le cifre, rifà il riconoscimento,
+riscrive il promemoria. **Non tocca `richiamataIl`.**
+
+Simulazione sui dati veri:
+
+| | |
+|---|---|
+| da riparare | **16 su 16** |
+| riconosciute su un ordine | 5 — Emanuela Apollaro #12860 · Fenisia Passaro #12871 (3 chiamate) · Anna Jalvemyr #12870 |
+| sconosciute | 11 (fra cui un numero USA, uno svedese, uno tedesco, un fisso di Verona chiamato tre volte) |
+
+🔴 **Aspetta il sì dell'utente**: scrive 16 righe e 16 promemoria in produzione.
+Aperto anche: se azzerare `richiamataIl` (le spunte sono sulla persona
+sbagliata) — decisione di chi lavora.
+
+🔴 **`telefonoChiamate` è vuoto su tutti e tre i negozi**: i due numeri virtuali
+sono `0282952899` (15 chiamate) e `0282941380` (1). Senza sapere di che marchio
+sono, le 11 sconosciute restano «senza marchio». Si scrive in *Negozi*.
+
+**Stato**: parser corretto e script committati in locale, non pushati.
+
+## 05/09/2026 (17:30) — «Pagata» qui chiude la richiesta anche su Transactions
+
+Chiesto dall'utente («se ho messo pagata su app customer service aggiorna
+anche transaction»). Prima: la spunta «Pagata» con ricevuta scriveva solo qui;
+su Transactions la stessa richiesta restava `in_attesa`, pronta a essere pagata
+una seconda volta (con Finance è successo su 7 richieste, 4.794 €).
+
+- **Dove**: `PATCH /api/pagamenti/[id]` (azione `pagata`): se la riga era già
+  in coda di là (`canale = transactions`, `inviataIl`, `partnerStato ≠ pagata`)
+  chiama `segnaPagataFuoriTransactions()` (`src/lib/transactions.ts`) →
+  `POST /api/v1/richieste/cs-<riferimento>/pagata-fuori` (rotta nuova di
+  Transactions, 05/09). «Da dove esce» diventa il metodo di là: banca →
+  `bonifico_banca`, contanti → `contanti`, compensazione → `compensazione`,
+  altro/vuoto → `altro`; la data è `pagataIl`; il motivo dice chi ha premuto.
+- **Esito**: nella risposta c'è `transactions: { ok, messaggio } | null`
+  (null = non era in coda di là). Se fallisce, la spunta qui resta e
+  `esitoInvio` scrive «Pagata qui ma NON chiusa su Transactions — …»:
+  qualcuno chiude a mano di là. ⚠️ La pagina (`RichiediPagamento.tsx`) non
+  mostra ancora quel campo della risposta: legge `esitoInvio` dalla riga.
+- **Il «non pagata» non torna indietro** se di là risulta già `pagata`
+  (409 con spiegazione): la partita si riapre solo da un operatore dentro
+  Transactions. Nessun giro: il webhook di ritorno (`pagata`,
+  `pagatoCon: fuori_app`) trova `pagataIl` già scritto e non rifà gli effetti.
+- Verifica: `tsc` verde; **non deployato** al momento di scrivere. Manuale
+  aggiornato (registro).
+
 ## 05/09/2026 (17) — «Unisci un altro ordine» propone gli altri ordini del cliente
 
 Chiesto dall'utente: «unisci a un altro ordine: proponi già suggerimenti sulla

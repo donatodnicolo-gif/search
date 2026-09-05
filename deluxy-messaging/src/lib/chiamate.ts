@@ -44,8 +44,25 @@ export type EsitoChiamata = 'ordine' | 'cliente' | 'sconosciuto'
 // misura quante si riconoscono, e se la copertura è bassa si aggiungono le
 // etichette del centralino che usiamo (vedi `scripts/prova-chiamate.mts`).
 
-/** Le etichette che precedono il numero di CHI CHIAMA, nelle notifiche note. */
+/**
+ * Le etichette che precedono il numero di CHI CHIAMA, nelle notifiche note.
+ *
+ * ⚠️⚠️ LA PRIMA NOTIFICA VERA (GlooboBiz, 01/09/2026) NON AVEVA NESSUNA DI
+ * QUESTE, e il parser è caduto sul ripiego «primo numero»: nel testo «hai
+ * ricevuto una chiamata sul tuo Numero Virtuale 390282952899, dal numero
+ * 00393398321681» il primo numero è il NOSTRO. Risultato: 16 chiamate su 16
+ * registrate con i numeri invertiti — il chiamante era sempre il nostro
+ * centralino, e siccome un ordine (#12359) ha proprio quel numero come telefono
+ * del cliente, 15 telefonate di 12 persone diverse risultavano tutte di
+ * «Sharaya Romero», con promemoria di richiamare... noi stessi. Scoperto il
+ * 05/09 leggendo le righe in tabella, non da un errore: il parser non sbaglia
+ * mai ad alta voce.
+ *
+ * Le etichette composte stanno PRIMA di quelle corte: «dal numero» deve
+ * vincere su «da», o si torna al ripiego.
+ */
 const ETICHETTE_CHIAMANTE = [
+  'dal numero',
   'chiamata da',
   'chiamata persa da',
   'chiamante',
@@ -60,6 +77,8 @@ const ETICHETTE_CHIAMANTE = [
 
 /** Le etichette che precedono il NOSTRO numero, quello che ha squillato. */
 const ETICHETTE_CHIAMATO = [
+  'numero virtuale',
+  'sul tuo numero',
   'numero chiamato',
   'chiamato',
   'destinazione',
@@ -115,11 +134,25 @@ export type NumeriNotifica = {
   come: 'etichetta' | 'primo numero' | 'niente'
 }
 
-export function numeriDaNotifica(oggetto: string, testo: string): NumeriNotifica {
+/**
+ * @param nostri I NOSTRI numeri, quelli che squillano (`NegozioShopify.telefonoChiamate`
+ *   e i numeri già visti come «chiamato»). Servono al ripiego: se il primo numero
+ *   del testo è uno dei nostri, non è lui che ha chiamato. Il parser resta puro —
+ *   chi lo chiama glieli passa.
+ */
+export function numeriDaNotifica(oggetto: string, testo: string, nostri: string[] = []): NumeriNotifica {
   const tutto = `${oggetto ?? ''}\n${testo ?? ''}`
+  const eNostro = (n: string) => {
+    const c = cifreTelefono(n)
+    return Boolean(c) && nostri.some((x) => cifreTelefono(x) === c)
+  }
 
   const conEtichetta = dopoEtichetta(tutto, ETICHETTE_CHIAMANTE)
   const chiamato = dopoEtichetta(tutto, ETICHETTE_CHIAMATO)
+  // ⚠️ Un'etichetta letta nel testo («dal numero X») vale più della lista dei
+  // nostri numeri: quella lista è IMPARATA, e se è stata imparata da righe
+  // sbagliate direbbe che il cliente è il centralino. `nostri` serve solo al
+  // ripiego, dove non c'è nient'altro a cui appoggiarsi.
   if (conEtichetta) {
     return { chiamante: conEtichetta, chiamato: chiamato === conEtichetta ? '' : chiamato, come: 'etichetta' }
   }
@@ -133,7 +166,13 @@ export function numeriDaNotifica(oggetto: string, testo: string): NumeriNotifica
     if (n && !candidati.includes(n)) candidati.push(n)
   }
   if (candidati.length === 0) return { chiamante: '', chiamato: '', come: 'niente' }
-  return { chiamante: candidati[0], chiamato: chiamato || candidati[1] || '', come: 'primo numero' }
+  // ⚠️ Il primo numero che NON è nostro. Se il testo dice «sul tuo numero X, dal
+  // numero Y» senza che nessuna etichetta lo colga, X è comunque riconoscibile
+  // come nostro — e allora ha chiamato Y.
+  const nonNostri = candidati.filter((n) => !eNostro(n))
+  const primo = nonNostri[0] ?? ''
+  const altro = chiamato || candidati.find((n) => n !== primo && (eNostro(n) || !nonNostri.includes(n))) || candidati.find((n) => n !== primo) || ''
+  return { chiamante: primo, chiamato: altro, come: 'primo numero' }
 }
 
 // ── CHI HA CHIAMATO ──────────────────────────────────────────────────────────
@@ -224,6 +263,39 @@ export async function riconosciChiamante(numero: string): Promise<Riconoscimento
   return NIENTE
 }
 
+/**
+ * I NOSTRI numeri: quelli dichiarati sui negozi (`telefonoChiamate`) più
+ * quelli che le notifiche passate hanno già indicato come «chiamato».
+ *
+ * ⚠️ I secondi valgono solo se letti da un'etichetta certa: un «chiamato»
+ * ricavato dal ripiego potrebbe essere il cliente, e da lì in poi ogni sua
+ * chiamata verrebbe scartata come nostra. Per questo si prendono dai negozi e
+ * dalle righe la cui notifica dice «numero virtuale» in chiaro.
+ */
+export async function nostriNumeri(): Promise<string[]> {
+  const negozi = await db.negozioShopify.findMany({
+    where: { NOT: { telefonoChiamate: '' } },
+    select: { telefonoChiamate: true },
+  })
+  // ⚠️⚠️ NON si legge la colonna `numeroChiamato` delle righe passate: la prima
+  // versione lo faceva, e siccome quelle righe erano proprio quelle INVERTITE,
+  // la lista dei «nostri» numeri conteneva i dodici clienti — e lo script di
+  // riparazione, fidandosene, trovava 0 righe da riparare su 16. La prova la
+  // scriveva l'accusato. Si RILEGGE il testo con l'etichetta certa («numero
+  // virtuale»): quella non dipende da come la riga era stata registrata.
+  const recenti = await db.chiamata.findMany({
+    orderBy: { quando: 'desc' },
+    take: 200,
+    select: { oggetto: true, testo: true },
+  })
+  const nostri = new Set(negozi.map((n) => n.telefonoChiamate))
+  for (const c of recenti) {
+    const n = dopoEtichetta(`${c.oggetto}\n${c.testo}`, ETICHETTE_CHIAMATO)
+    if (n) nostri.add(n)
+  }
+  return [...nostri]
+}
+
 /** Il marchio a cui appartiene il numero che ha squillato. */
 async function negozioDelNumeroChiamato(numeroChiamato: string): Promise<string | null> {
   const cifre = cifreTelefono(numeroChiamato)
@@ -270,7 +342,10 @@ export async function registraChiamataDaMail(
     if (gia) return { stato: 'gia', id: gia.id }
   }
 
-  const numeri = numeriDaNotifica(m.oggetto, m.testo)
+  // I nostri numeri: quelli scritti sui negozi, più quelli già visti squillare.
+  // Servono al parser per non prendere il centralino per il cliente.
+  const nostri = await nostriNumeri()
+  const numeri = numeriDaNotifica(m.oggetto, m.testo, nostri)
   const r = numeri.chiamante ? await riconosciChiamante(numeri.chiamante) : NIENTE
 
   // Il marchio, in ordine di certezza: quello dell'ordine riconosciuto, poi il
