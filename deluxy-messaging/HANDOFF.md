@@ -1,5 +1,69 @@
 # Handoff — Deluxy Customer Service
 
+## 05/09/2026 (19) — Pagamenti: la correzione riprova l'invio, e la foto dell'IBAN
+
+Due segnalazioni dell'utente sulla pagina Pagamenti.
+
+### 1. «La modifica di una richiesta non produce nessun risultato, i messaggi restano gli stessi»
+
+**Vero, ed è il caso GRIFFO FRANCESCO D.I.** (05/09 ore 15:31, letta da foto
+`2871.jpeg`): l'AI ha letto un IBAN di **26 caratteri invece di 27**,
+Transactions ha risposto 400 «IBAN non valido», la riga è rimasta «non inviata»
+con quell'errore nel titolo del badge. L'utente ha corretto → `PATCH modifica`
+aggiornava i campi e rispondeva «Corretta.», **ma**:
+
+- non cancellava `esitoInvio`: il vecchio «Transactions ha risposto 400» restava
+  sulla riga corretta;
+- **non riprovava l'invio**: per farla partire bisognava sapere che esiste il
+  bottone «Invia». La creazione invia da sola, la correzione no.
+
+**Correzione** (`src/app/api/pagamenti/[id]/route.ts`, ramo «correggere»):
+`esitoInvio` si azzera, l'IBAN si normalizza come alla creazione, e poi **si
+riprova l'invio** con la stessa `inviaRichiestaPagamento` del POST. Tre esiti,
+tutti scritti sulla riga e tornati alla pagina (`invio`): IBAN ancora non valido
+→ «Non inviata: <motivo>» senza chiamare Transactions (si sa già che dice no);
+importo zero → «Non inviata: serve un importo…»; altrimenti l'esito vero
+dell'invio (inviata con stato, oppure il motivo del rifiuto).
+
+Nella pagina (`RichiediPagamento.tsx`): `modifica()` mostra l'esito per intero
+(«Corretta e inviata a Transactions (in_attesa)» oppure il motivo in rosso), e
+`apriPerModifica()` mette **sotto il campo IBAN il motivo** per cui la riga era
+ferma, letto da `esitoInvio` — chi corregge deve sapere cosa correggere.
+
+⚠️ Non provato end-to-end da qui: il PATCH vuole la sessione e scriverebbe in
+produzione (la casa dei dati è la stessa anche da localhost). Typecheck ok.
+**Da guardare dall'utente**: `http://localhost:3140/pagamenti`, riga GRIFFO,
+«Modifica»: sotto l'IBAN deve comparire «Lunghezza sbagliata per IT: 26
+caratteri invece di 27»; corretto l'IBAN e salvato, la riga deve passare a
+«in attesa» (inviata) oppure dire in rosso perché no.
+
+### 2. «La foto caricata per l'IBAN viene salvata in JSON e non è scaricabile»
+
+**Non riprodotto.** Verificato sui dati veri: le due richieste con la foto
+(AGENZIA FUNEBRE SAN MARTINO `CAGLIARI.jpeg`, GRIFFO `2871.jpeg`) hanno in
+`fonteDati` un JPEG vero (byte `ffd8ffe0`, 198 KB e 66 KB); la rotta
+`/api/pagamenti/[id]/fonte`, provata in locale con una copia senza sessione,
+risponde `200 image/jpeg`, `Content-Disposition: attachment; filename="2871.jpeg"`.
+Il bollino 🖼️ della riga è un `<a download>` su quella rotta.
+
+Quello che PUÒ essere successo: **14 richieste su 16 lette da immagine sono
+precedenti al 02/09**, quando la foto non si conservava — su quelle il bollino
+è spento e il file non c'è (è scritto nel titolo). Se invece il clic scarica un
+file `.json`, è la risposta d'errore della rotta (401 sessione / 404 senza
+fonte): serve sapere **su quale riga e da quale schermata**. Chiesto all'utente.
+Il file si guarda nell'elenco Pagamenti, non nel pop-up dell'ordine (lì c'è
+solo la ricevuta 📎).
+
+### Contesto
+
+- Al 05/09: 87 richieste, 68 a mano · 16 da immagine · 3 da testo; 55 con
+  ricevuta, **2 con la foto d'origine**.
+- ⚠️ In cartella un'altra sessione ha committato `ae21ac05` (Transactions:
+  «pagata fuori dall'app» via API) mentre lavoravo qui: due sessioni nello
+  stesso worktree, contro la regola 4.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 05/09/2026 (18) — le chiamate arrivano, ma erano registrate AL CONTRARIO
 
 L'utente ha creato `chiamate@deluxy.it` (casella di tipo **chiamate**, in tabella

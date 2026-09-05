@@ -667,12 +667,30 @@ export function RichiediPagamento() {
           ordineNumero: ordineScelto?.numero || ordineNumero,
         }),
       })
-      const d = (await res.json().catch(() => ({}))) as { errore?: string; motivoIban?: string }
+      const d = (await res.json().catch(() => ({}))) as {
+        errore?: string
+        motivoIban?: string
+        invio?: { ok: boolean; messaggio: string } | null
+      }
       if (!res.ok) {
         setErrore(d.errore || 'Correzione non riuscita.')
         return
       }
-      if (d.motivoIban) setIbanNota(d.motivoIban)
+      // ⚠️⚠️ L'ESITO SI DICE PER INTERO (05/09/2026). Prima la correzione
+      // rispondeva «Corretta.» e basta, e la riga restava «non inviata» col
+      // vecchio errore: chi aveva corretto l'IBAN non sapeva se fosse partita
+      // né perché no, e provava a correggere di nuovo. Adesso il server
+      // riprova l'invio e qui si scrive com'è andata — e se l'IBAN ancora non
+      // torna, il motivo sta in rosso, non in una nota sotto un campo vuoto.
+      if (d.invio && !d.invio.ok) {
+        setErrore(d.invio.messaggio)
+        setAvviso('Corretta.')
+      } else if (d.invio?.ok) {
+        setAvviso(`Corretta e ${d.invio.messaggio.charAt(0).toLowerCase()}${d.invio.messaggio.slice(1)}`)
+      } else {
+        setAvviso('Corretta.')
+      }
+      setIbanNota('')
       setModificoId('')
       setIban('')
       setRiferimento('')
@@ -683,7 +701,6 @@ export function RichiediPagamento() {
       setCausale('')
       setOrdineNumero('')
       setOrdineScelto(null)
-      setAvviso('Corretta.')
       await carica()
     } catch {
       setErrore('Correzione non riuscita: problema di rete.')
@@ -702,6 +719,16 @@ export function RichiediPagamento() {
     setOrdineNumero(r.ordineNumero)
     setOrdineScelto(null)
     setErrore('')
+    // ⚠️ Se la riga è ferma per un IBAN che non torna, lo si dice APRENDO il
+    // modulo, sotto il campo: chi corregge deve sapere cosa c'è da correggere.
+    // Il motivo preciso sta nell'esito dell'invio (es. «26 caratteri invece di
+    // 27»); se non c'è, almeno che non torna.
+    setIbanNota(
+      (r.metodo || 'iban') === 'iban' && !r.ibanValido && r.iban
+        ? r.esitoInvio?.replace(/^Non inviata:\s*/i, '') ||
+            'L’IBAN salvato non supera la verifica: controlla le cifre e la lunghezza.'
+        : ''
+    )
     setAvviso(`Stai correggendo la richiesta di ${r.intestatario}.`)
     // ⚠️ Si porta lo schermo sul modulo: su un telefono la tabella sta in
     // fondo, e senza questo si preme «Modifica» e non succede niente di
