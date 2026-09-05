@@ -1396,6 +1396,13 @@ export class DeliveriesService {
     const partnerId =
       user.role === Role.PARTNER ? user.partnerId : dto.partnerId;
     if (!partnerId) throw new BadRequestException('partnerId obbligatorio');
+    // ⭐ 05/09/2026 (regola utente): il partner con «verifica identita' del
+    // valet» sulla scheda la chiede SEMPRE sulle sue consegne. Quando inserisce
+    // lui, il flag si accende da solo: la sua politica non si aggira dal form.
+    if (user.role === Role.PARTNER) {
+      const politica = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { valetIdentityCheck: true } });
+      if (politica?.valetIdentityCheck) dto.valetIdentityCheck = true;
+    }
 
     const serviceType = await this.prisma.serviceType.findUnique({
       where: { id: dto.serviceTypeId },
@@ -2072,7 +2079,11 @@ export class DeliveriesService {
     valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null;
     partner?: { valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null } | null;
   }): boolean {
-    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || d.partner?.valetIdentityCheck || d.partner?.deliveryCodeRequired);
+    // ⭐ 05/09/2026 (regola utente): decide il flag DELLA CONSEGNA. Quello del
+    // partner e' la politica di default che il form propone (modificabile);
+    // `deliveryCodeRequired` e' un'altra cosa (il codice del CLIENTE) e non
+    // entra qui.
+    return d.valetIdentityCheck === true;
   }
 
   /**

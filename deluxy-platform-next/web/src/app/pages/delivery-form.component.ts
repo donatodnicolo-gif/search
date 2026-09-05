@@ -62,11 +62,14 @@ interface ProductRow {
         <h1>{{ (editId() ? 'deliveryForm.editTitle' : 'deliveryForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'deliveryForm.caption' | translate }}</p>
       </div>
-      <!-- Il codice di consegna e' un flag di testa, in alto a destra: come
-           nell'app attuale, non sepolto in fondo alla documentazione. -->
-      <label class="toggle testa-flag">
-        <input type="checkbox" [(ngModel)]="model.deliveryCodeRequired" />
-        <span>{{ 'deliveryForm.field.deliveryCodeRequired' | translate }}</span>
+      <!-- ⭐ 05/09/2026 (regola utente): la casella in alto a destra è la
+           VERIFICA IDENTITÀ DEL VALET — al ritiro il partner inserisce il
+           codice del valet. Se il partner ha il flag sulla sua scheda arriva
+           già accesa per tutte le sue consegne (e si può spegnere); se no, si
+           accende qui per la singola consegna. -->
+      <label class="toggle testa-flag" [title]="'deliveryForm.field.valetIdentityCheckHint' | translate">
+        <input type="checkbox" [(ngModel)]="model.valetIdentityCheck" (change)="identitaToccata = true" />
+        <span>{{ 'deliveryForm.field.valetIdentityCheck' | translate }}</span>
       </label>
     </div>
 
@@ -1422,6 +1425,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     personalizeSaleNotes: '',
     internalNotes: '',
     deliveryCodeRequired: false,
+    valetIdentityCheck: false,
   };
 
   /** Prodotti del partner selezionato per primi. */
@@ -1773,7 +1777,7 @@ export class DeliveryFormComponent implements AfterViewInit {
             this.partnerSel.set('');
           }
         }
-        if (this.model.partnerId && !this.editId()) this.applicaRitiroPartner();
+        if (this.model.partnerId && !this.editId()) { this.applicaPoliticaIdentita(); this.applicaRitiroPartner(); }
         // Arrivati i listini: la vendita forzata si riallinea a quella DEL
         // partner e la proposta di prezzo si rifà con la fee giusta.
         if (this.daVendita()) { this.forzaServizioVendita(); this.proponiPrezzoDiListino(); }
@@ -1865,7 +1869,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'deliveredByPartner',
       'smsOnCreated', 'smsOnDeparted',
       'smsOnArrived', 'paymentOnDelivery', 'tryAndReturn', 'billable', 'payable',
-      'isFlexiblePrice', 'deliveryCodeRequired', 'anonymousSender',
+      'isFlexiblePrice', 'deliveryCodeRequired', 'valetIdentityCheck', 'anonymousSender',
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
@@ -1968,8 +1972,19 @@ export class DeliveryFormComponent implements AfterViewInit {
   });
 
   /** Cambiando partner, un servizio non più a listino va tolto. */
+  /** L'utente ha toccato la casella «verifica identità»: la scelta del partner non la riscrive più. */
+  identitaToccata = false;
+
+  /** La politica del partner scelto accende la verifica identità (solo in creazione, se non toccata a mano). */
+  private applicaPoliticaIdentita(): void {
+    if (this.editId() || this.identitaToccata) return;
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    if (p) this.model.valetIdentityCheck = p.valetIdentityCheck === true;
+  }
+
   onPartnerChange(): void {
     this.partnerSel.set(this.model.partnerId);
+    this.applicaPoliticaIdentita();
     this.applicaRitiroPartner();
     const suoi = this.servizioDelPartner();
     if (this.model.serviceTypeId && suoi.length
@@ -2645,6 +2660,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       paymentOnDelivery: m.paymentOnDelivery,
       tryAndReturn: m.tryAndReturn,
       deliveryCodeRequired: m.deliveryCodeRequired,
+      valetIdentityCheck: m.valetIdentityCheck,
       smsOnCreated: m.smsOnCreated,
       smsOnDeparted: m.smsOnDeparted,
       smsOnArrived: m.smsOnArrived,

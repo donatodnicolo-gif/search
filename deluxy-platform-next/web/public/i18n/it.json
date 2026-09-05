@@ -1456,6 +1456,8 @@
       "internalNotes": "Note interne",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Codice di consegna richiesto",
+      "valetIdentityCheck": "Verifica identità del valet",
+      "valetIdentityCheckHint": "Al ritiro il partner inserisce il codice del valet: senza, il valet non può mettere in consegna. Se il partner ha il flag sulla scheda arriva già accesa.",
       "ddtBrand": "Brand del DDT",
       "pickupAddress": "Indirizzo di ritiro",
       "pickupAddressPh": "Se vuoto, ritiro dal partner"

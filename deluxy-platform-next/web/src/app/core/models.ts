@@ -178,6 +178,9 @@ export interface Partner {
   contactName?: string;
   paymentStatus?: string;
   active: boolean;
+  /** ⭐ 05/09/2026: politica del partner — al ritiro si verifica il codice del valet. */
+  valetIdentityCheck?: boolean;
+  deliveryCodeRequired?: boolean;
   provinces?: { province: Province }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.

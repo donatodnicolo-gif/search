@@ -248,6 +248,18 @@ export class CreateDeliveryDto {
   @IsBoolean()
   deliveryCodeRequired?: boolean;
 
+  /**
+   * ⭐ 05/09/2026 (regola utente): VERIFICA IDENTITÀ DEL VALET su questa
+   * consegna — al ritiro il partner inserisce il codice del valet. Se il
+   * partner ha il flag sulla sua scheda, il form lo propone acceso per tutte le
+   * sue consegne (modificabile); se non lo ha, si accende per la singola
+   * consegna dalla casella in alto a destra.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Il partner deve verificare il codice del valet al ritiro' })
+  @IsOptional()
+  @IsBoolean()
+  valetIdentityCheck?: boolean;
+
   // Note
   @ApiPropertyOptional()
   @IsOptional()

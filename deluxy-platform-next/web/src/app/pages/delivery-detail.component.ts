@@ -1543,7 +1543,7 @@ export class DeliveryDetailComponent {
 
   /** Chi chiede il codice: la consegna o il suo partner. */
   ritiroDaVerificare(d: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean; partner?: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean } | null }): boolean {
-    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || d.partner?.valetIdentityCheck || d.partner?.deliveryCodeRequired);
+    return d.valetIdentityCheck === true;
   }
 
   verificaCodice(): void {

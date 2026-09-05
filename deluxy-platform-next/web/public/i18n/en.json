@@ -1454,6 +1454,8 @@
       "internalNotes": "Internal notes",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Delivery code required",
+      "valetIdentityCheck": "Valet identity check",
+      "valetIdentityCheckHint": "At pickup the partner enters the valet code: without it the valet cannot start. Comes pre-checked when the partner has the flag on its profile.",
       "ddtBrand": "DDT brand",
       "pickupAddress": "Pickup address",
       "pickupAddressPh": "If empty, pickup from the partner"

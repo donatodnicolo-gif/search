@@ -2176,8 +2176,7 @@ export class DeliveriesListComponent {
 
   /** ⭐ 05/09/2026: chi chiede il codice del valet al ritiro (consegna o partner). */
   ritiroDaVerificare(d: Delivery): boolean {
-    const p = d.partner as { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean } | undefined;
-    return !!(d.valetIdentityCheck || d.deliveryCodeRequired || p?.valetIdentityCheck || p?.deliveryCodeRequired);
+    return d.valetIdentityCheck === true;
   }
 
   /** ⭐ 05/09/2026: il contrassegno da mostrare al valet prima di partire (dalla riga). */
