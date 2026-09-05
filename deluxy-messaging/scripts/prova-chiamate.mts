@@ -26,7 +26,42 @@ function prova(nome: string, atteso: string, oggetto: string, testo: string) {
   )
 }
 
-console.log('══ DEVE RICONOSCERE CHI HA CHIAMATO ══')
+console.log('══ LE NOTIFICHE VERE (GlooboBiz, dal 01/09/2026) ══')
+// ⚠️⚠️ Queste due sono le PRIME notifiche vere, incollate dalla tabella. Il
+// parser scritto a mano le prendeva AL CONTRARIO: nessuna etichetta nota, quindi
+// «primo numero» — che è il nostro. 16 chiamate su 16 registrate col nostro
+// centralino come chiamante (handoff 05/09).
+prova(
+  'GlooboBiz, «sul tuo Numero Virtuale X, dal numero Y» (X a capo, virgola)',
+  '00393398321681',
+  'Hai ricevuto una chiamata sul tuo Numero Virtuale',
+  'Ciao\n\nIn data 01/09/2026 16:18 hai ricevuto un nuova chiamata sul tuo Numero Virtuale\n390282952899, dal numero 00393398321681.\n\nRicevi quest\'email di servizio perché hai attivato la ricezione della mail per\nogni chiamata ricevuta.'
+)
+prova(
+  'GlooboBiz, chiamata persa «mentre eri occupato»',
+  '00491796974947',
+  'Hai ricevuto una nuova chiamata sul tuo Numero Virtuale!',
+  'Ciao\n\nil giorno 04/09/2026 14:39 hai ricevuto una chiamata sul tuo Numero Virtuale\n00390282941380 dal numero 00491796974947, mentre eri occupato/a o non\nraggiungibile.\n\nPer non perdere il tuo contatto, richiama subito il numero 00491796974947!'
+)
+{
+  const g = numeriDaNotifica(
+    'Hai ricevuto una chiamata sul tuo Numero Virtuale',
+    'hai ricevuto un nuova chiamata sul tuo Numero Virtuale\n390282952899, dal numero 00393398321681.'
+  )
+  const ok = g.chiamato === '390282952899'
+  if (!ok) male++
+  console.log(`${ok ? 'ok  ' : 'NO  '} GlooboBiz: il NOSTRO numero finisce in «chiamato» (avuto «${g.chiamato}»)`)
+}
+{
+  // Senza etichette riconosciute, ma sapendo quali numeri sono nostri, il
+  // ripiego non deve più scambiare il centralino per il cliente.
+  const g = numeriDaNotifica('Notifica', 'Numeri: 390282952899 e 00393398321681.', ['+390282952899'])
+  const ok = g.chiamante === '00393398321681' && g.chiamato === '390282952899'
+  if (!ok) male++
+  console.log(`${ok ? 'ok  ' : 'NO  '} ripiego con i nostri numeri noti: salta il centralino (avuto «${g.chiamante}» / «${g.chiamato}»)`)
+}
+
+console.log('\n══ DEVE RICONOSCERE CHI HA CHIAMATO ══')
 prova(
   'chiamata persa, formato italiano con spazi',
   '+393498853209',
