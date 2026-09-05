@@ -228,7 +228,12 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       </section>
     } @else {
 
-      <div class="table-wrap card">
+      <!-- ⭐ 05/09/2026 — COLONNE CONGELATE (Libro §8 v2.0, verdetto del
+           custode UX su segnalazione dell'utente: «scorrendo a destra la
+           tabella diventa così», con numero d'ordine e data spariti).
+           L'identità resta a sinistra, le azioni a destra: chi deve solo
+           accettare o rifiutare non scorre più. -->
+      <div class="table-wrap card col-fisse">
         <table class="table">
           <!-- ⭐ 03/09 (regola utente): colonne ordinabili al click; il default
                è la DATA DI CONSEGNA più urgente in cima. -->
@@ -237,7 +242,13 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               <!-- ⭐ 04/09/2026 (regola utente): LA DATA DI CONSEGNA È LA PRIMA COLONNA.
                    È la domanda con cui si guarda questo elenco — «che cosa parte
                    quando» — e l'ordinamento di default è già suo. -->
-              <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
+              <!-- ⚠️ Il blocco congelato parte dal BORDO: la colonna
+                   congelata dev'essere la PRIMA. Qui la prima è la data di
+                   consegna per una regola dell'utente del 04/09, quindi
+                   l'identità (numero d'ordine) viaggia dentro questa stessa
+                   cella come sotto-testo — invece di congelarne due, che il
+                   custode vieta. -->
+              <th class="ordinabile col-id" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
               <th class="ordinabile" (click)="ordina('status')">{{ 'sales.col.status' | translate }}{{ freccia('status') }}</th>
               <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
               <!-- ⭐ 04/09 (regola utente): lo stato dell'ordine in Orders, dal vivo. -->
@@ -254,7 +265,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               @if (filtro() === 'storico') {
                 <th class="ordinabile" (click)="ordina('historyAt')">{{ 'sales.col.historyAt' | translate }}{{ freccia('historyAt') }}</th>
               }
-              <th></th>
+              <th class="azioni"></th>
             </tr>
           </thead>
           <tbody>
@@ -262,7 +273,11 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               <!-- ⭐ 04/09 (regola utente): la riga apre il POP-UP di dettaglio
                    (come nel Customer Service); i bottoni fermano il click. -->
               <tr class="riga-link" (click)="apriDettaglio(s)">
-                <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
+                <td class="col-id">{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}
+                  @if (s.externalOrderNumber) {
+                    <div class="cella-sub mono">#{{ s.externalOrderNumber }}</div>
+                  }
+                </td>
                 <td>
                   <span class="badge" [style.--c]="colore(s.status)">
                     <i class="dot"></i>{{ etichetta(s.status) }}
@@ -277,7 +292,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                     @if (sottoOrders(s.ordine); as sub) { <span class="motivo">{{ sub }}</span> }
                   } @else { <span class="muted">—</span> }
                 </td>
-                <td>{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
+                <td class="prodotto">{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
                   @if (s.assignmentReason) {
@@ -294,6 +309,10 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                   <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                 }
                 <td class="azioni" (click)="$event.stopPropagation()">
+                  <!-- ⚠️ Il flex sta su questo div, NON sul <td>: una cella di
+                       tabella con display:flex esce dal layout tabellare e
+                       «position: sticky; right: 0» smette di funzionare. -->
+                  <div class="azioni-riga">
                   <!-- ⭐ 04/09 (regola utente): ordine NON CONFORME in Orders =
                        non si manda avanti. Resta solo «Rifiuta». -->
                   @if (nonConforme(s)) {
@@ -335,6 +354,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                       {{ (modificaId() === s.id ? 'common.cancel' : 'sales.edit') | translate }}
                     </button>
                   }
+                  </div>
                 </td>
               </tr>
               @if (modificaId() === s.id) {
@@ -723,7 +743,6 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
       /* La tabella non aveva NESSUNO stile (nessuna regola globale la copre):
          stesso vestito della lista consegne. */
-      .table-wrap { overflow-x: auto; }
       th.ordinabile { cursor: pointer; user-select: none; }
       th.ordinabile:hover { color: var(--text); }
       .mod-row td { background: var(--fill); padding: 14px 16px; }
@@ -742,8 +761,12 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       .table tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
       .table tr:last-child td { border-bottom: none; }
       .table td { vertical-align: middle; }
-      .table td:nth-child(3) { white-space: normal; min-width: 220px; }
-      .azioni { display: flex; gap: 10px /* audit 31/08: 6px fra Accetta e Rifiuta, esiti opposti */; justify-content: flex-end; white-space: nowrap; }
+      /* ⚠️ Era «td:nth-child(3)», che dava il respiro alla colonna SBAGLIATA
+         (Stato in Orders, non Prodotto) e prendeva in pieno anche la riga di
+         modifica, che ha un solo td con colspan. Le colonne si scelgono per
+         classe: i numeri si spostano da soli quando una colonna è condizionale. */
+      .table td.prodotto { white-space: normal; min-width: 220px; }
+      .azioni-riga { display: flex; gap: 10px /* audit 31/08: 6px fra Accetta e Rifiuta, esiti opposti */; justify-content: flex-end; white-space: nowrap; }
       .btn.mini { padding: 4px 12px; font-size: 12.5px; }
       .vuoto { padding: 40px 28px; text-align: center; color: var(--text-secondary); font-size: 14px; }
       .esito { margin-top: 10px; color: var(--danger, #d70015); font-size: 13.5px; }
