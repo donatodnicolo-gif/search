@@ -345,6 +345,8 @@ export class SalesService {
     recipientPhone?: string;
     deliveryDate?: string;
     serviceTypeId?: string;
+    /** Quanto ha pagato il cliente, se chi chiama lo sa (Orders lo sa). */
+    amount?: number;
   }) {
     const product = await this.prisma.product.findUnique({
       where: { id: body.productId },
@@ -379,8 +381,27 @@ export class SalesService {
       alle: fasciaOrdine.alle,
     };
     const scelto = await this.scegliPartner(product, body.provinceId, finestra, []);
-    // L'importo del cliente resta quello di listino (variante compresa).
-    const importoCliente = variante?.price ?? product.price ?? 0;
+    // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
+    // Clivati): «non devi togliere la % per il prezzo partner, ma prendere il
+    // prezzo partner per variante già presente per quel prodotto».
+    //
+    // Nel catalogo `price` e' quanto prende il PARTNER e `publicPrice` quanto
+    // paga il CLIENTE: la variante «4» ha price 28 e publicPrice 30, Orders
+    // dice che il cliente ha pagato 30, e le 15 consegne passate di quella
+    // variante hanno dato al partner 28. Qui invece `price` veniva letto come
+    // importo del cliente e poi ci si toglieva la quota di categoria (20%):
+    // 28 → 22,40 al partner, cioe' 5,60 in meno del suo listino, e un cliente
+    // registrato a 28 invece che a 30.
+    //
+    // Ora: il cliente paga quanto dice Orders (o il listino pubblico), il
+    // partner PROPRIETARIO prende il SUO prezzo di listino per quella variante,
+    // e la quota e' la differenza. Vale per i prodotti UNICI, che hanno un
+    // padrone e un listino suo; sui NON UNICI resta la regola di categoria.
+    const prezzoPubblicoListino = variante?.publicPrice ?? variante?.price ?? product.publicPrice ?? product.price ?? 0;
+    const importoCliente = body.amount && body.amount > 0 ? body.amount : prezzoPubblicoListino;
+    const prezzoPartnerDaListino = product.type === ProductType.UNICO
+      ? (variante?.price ?? product.price ?? null)
+      : null;
 
     // Lo SCONTO si cristallizza QUI, alla nascita della vendita: e' la regola
     // CategoryDiscount (categoria del prodotto × provincia), gestita
@@ -415,9 +436,13 @@ export class SalesService {
         amount: importoCliente,
         // ⭐ 04/09 (regola utente): con una riconciliazione accettata la quota
         // si piega al patto col partner; senza, vale la regola di categoria.
+        // Ordine di precedenza: patto di riconciliazione > listino del
+        // proprietario (UNICO) > regola di categoria × provincia.
         discountPercent: scelto?.prezzoPartner !== undefined
           ? SalesService.quotaPerDare(importoCliente, scelto.prezzoPartner)
-          : sconto?.discountPercent ?? 0,
+          : prezzoPartnerDaListino !== null
+            ? SalesService.quotaPerDare(importoCliente, prezzoPartnerDaListino)
+            : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
