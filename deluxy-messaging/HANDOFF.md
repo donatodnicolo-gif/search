@@ -72,8 +72,8 @@ lettura `consegnePerDdt` cercava solo il numero. Due correzioni:
   **stamattina aveva agganciato per sbaglio 3 ordini Cake a consegne Flowers:
   #1762→#44961, #1832→#47351, #1800→#46016** (controllo con
   `consegnePerDdt` senza marchio su tutti i 344 ordini agganciati negli ultimi 90
-  giorni; gli altri 341 sono del marchio giusto). 🔴 Da scollegare: dalla scheda
-  con la «×», o con `npx tsx scripts/scollega-tre-cake.mts`.
+  giorni; gli altri 341 sono del marchio giusto). ✅ Scollegati dall'utente con
+  `npx tsx scripts/scollega-tre-cake.mts` (06/09, «andato a buon fine»).
 - Colonna nuova `Ordine.appConsegneEscluse` (id, uno per riga) + rotta
   `POST /api/ordini/<id>/scollega-consegna { consegnaId }`: toglie l'aggancio se
   era quella e mette l'id fra le escluse, così la lettura per DDT e la regola non
