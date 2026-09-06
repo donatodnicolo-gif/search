@@ -1,5 +1,30 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (50) — «Senza costo di consegna» non bastava: Shopify la ricalcolava al checkout
+
+Utente: «avevo messo flag per no costo consegna ma poi Shopify me lo ha
+riportato lo stesso» (bozza #D5685 su deluxy.it, 460 €, Milano). Misurato con
+`draftOrder` via GraphQL: `shippingLine: null`, `totalShippingPrice 0`. È
+proprio quello il difetto: dal 31/08 la spunta mandava il TITOLO VUOTO e
+`creaOrdine` non metteva nessuna riga di spedizione — «meglio del silenzio di
+una riga a zero», diceva il commento — ma una bozza SENZA riga lascia al
+checkout di Shopify il calcolo della tariffa del negozio, e il cliente si
+trovava la consegna in conto. Ora la spunta manda `{ titolo: 'Consegna
+offerta', prezzo: 0 }` (`NuovoOrdine.tsx`): la riga a zero il checkout la
+rispetta. Etichetta della spunta aggiornata.
+
+⚠️ TRAPPOLA (per la memoria): **su una bozza Shopify «nessuna riga di
+spedizione» non vuol dire gratis** — vuol dire «decide il checkout».
+
+Per le bozze già create con la spunta (prima di questa correzione):
+`scripts/consegna-offerta-su-bozza.mts <negozioId> <gid bozza> [--applica]`
+(simulazione senza flag; con `--applica` fa `draftOrderUpdate` con la riga a 0;
+il link della fattura resta lo stesso; le COMPLETED non si toccano). Per
+#D5685: negozio `cms0f20710003i6xwpscvoy9r`, bozza
+`gid://shopify/DraftOrder/1583583134026` — 🔴 da applicare col sì dell'utente.
+
+**Verifica**: `tsc` 0; simulazione dello script sulla #D5685 ok. **Stato**: in locale.
+
 ## 06/09/2026 (49) — Lente nella chat; «Manda in app» anche se interrotta; Unisci/Riconsegna tornano pillole
 
 **Cercare dentro una chat** (utente: «metti una icona lente per cercare dentro
