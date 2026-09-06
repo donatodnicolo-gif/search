@@ -206,6 +206,7 @@ export async function GET(req: NextRequest) {
     for (const p of esito.partner) {
       pezzi.push({
         ...fornitoreVuoto(),
+        idRegistro: p.id ?? '',
         nome: p.nome || p.ragioneSociale,
         ragioneSociale: p.ragioneSociale,
         citta: p.citta,

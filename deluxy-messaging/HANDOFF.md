@@ -1,5 +1,29 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (44) — «Chi lo prepara» propone chi conosciamo già
+
+Utente, sulla scheda #2876: «dovrebbe esserci un marco fiori come fornitore
+visibile». **Marco Fiori** è nel registro Anagrafiche (FIORISTA, Torino, stato
+prospect; c'è anche un doppione «Marco Fiori Torino» da classificare), ma il
+campo «Chi lo prepara» di `FornitoreOrdine.tsx` era un input nudo: non cercava
+da nessuna parte, e chi scriveva il nome a mano registrava il fornitore una
+seconda volta senza città né telefono (invisibile alla lista «in zona»).
+
+Ora, scrivendo almeno due lettere, dopo 400 ms il campo chiede a
+`/api/fornitori/cerca` (la stessa ricerca di «Paga»: ordini passati, pagamenti
+fatti, registro Anagrafiche — **senza Google Maps**, che si paga a chiamata) e
+mostra fino a otto risultati «nostri» sotto il campo (lista corta dentro il
+modulo, niente pop-up: il riquadro sta in un pannello che scorre). Ogni riga:
+nome, categoria del registro (verde se di mestiere), «nome simile» se la
+corrispondenza è parziale, città · ordini già dati · pagato N volte · stato ·
+telefono. Scegliendone uno si compilano nome e `fornitoreId` (nuovo campo
+`idRegistro` in `FornitoreTrovato`, valorizzato dalla rotta col `p.id` del
+registro) e i recapiti **solo se qui erano vuoti**. Cambiando poi il nome, l'id
+del registro si azzera. Esc chiude la lista; «nessuno che si chiama così» si
+dice, con le tre fonti.
+
+**Verifica**: `tsc` 0. **Stato**: in locale, commit sì; deploy insieme al (43).
+
 ## 06/09/2026 (43) — «Gestito» chiede di chiudere anche di là; «Non consegnata» riapre l'ordine; nuovi in cima; la «×» che scollega
 
 Quattro richieste dell'utente nel pomeriggio, tutte sul confine fra qui e la

@@ -4002,6 +4002,14 @@ td .azioni-ordine {
   overflow-y: auto;
 }
 
+/* La lista dei suggerimenti sotto «Chi lo prepara»: corta, dentro il modulo,
+   niente pop-up (il riquadro sta in un pannello che scorre — Trappola: overflow
+   taglia i pop-up). */
+.suggerimenti-fornitore {
+  max-height: 240px;
+  margin-top: 6px;
+}
+
 .riga-fornitore-trovato {
   display: flex;
   flex-direction: column;
