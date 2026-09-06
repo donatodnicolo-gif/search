@@ -134,8 +134,9 @@ export class ValetsService {
         teamLeaderExcludedPartners: teamLeaderExcludedPartnerIds?.length
           ? JSON.stringify(teamLeaderExcludedPartnerIds)
           : undefined,
+        // ⭐ 06/09 (regola utente): `provinceIds` sono le province scelte A MANO, oltre alle aree.
         provinces: provinceIds?.length
-          ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
+          ? { create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })) }
           : undefined,
         services: services?.length ? { create: services } : undefined,
       },
@@ -182,7 +183,7 @@ export class ValetsService {
           ? {
               provinces: {
                 deleteMany: {},
-                create: provinceIds.map((provinceId) => ({ provinceId })),
+                create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })),
               },
             }
           : {}),
@@ -192,6 +193,7 @@ export class ValetsService {
     });
     // ⭐ 06/09 (regola utente): le AREE decidono le province effettive del valet (unione).
     if (areaIds) await this.aree.assegnaAlValet(id, areaIds);
+    else if (provinceIds) await this.aree.ricalcolaProvinceValet(id);
     return this.findOne(id);
   }
 

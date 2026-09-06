@@ -221,7 +221,7 @@ export interface Partner {
   raggioMaxConsegnaKm?: number | null;
   mestieri?: { mestiere: Mestiere; origine?: string }[];
   aree?: { area: { id: string; nome: string } }[];
-  provinces?: { province: Province }[];
+  provinces?: { province: Province; manuale?: boolean }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.
    * ⚠️ Il prezzo arriva gia' in questa risposta (PARTNER_INCLUDE lato API): il
@@ -251,7 +251,7 @@ export interface Valet {
   vehicle?: string;
   isTeamLeader: boolean;
   active: boolean;
-  provinces?: { province: Province }[];
+  provinces?: { province: Province; manuale?: boolean }[];
 }
 
 export const VEHICLE_OPTIONS = ['Auto', 'Bicicletta', 'Furgone', 'Moto/Scooter'];
@@ -270,7 +270,7 @@ export interface ValetRef {
   /** Account segnaposto dell'import: non è una persona da proporre. */
   placeholder?: boolean;
   salaryFrequency?: string; // monthly | weekly
-  provinces?: { province: Province }[];
+  provinces?: { province: Province; manuale?: boolean }[];
   /** Il listino del valet: serve a proporre solo chi ha il servizio abilitato. */
   services?: { serviceTypeId?: string; serviceType?: { id?: string } | null }[];
 }

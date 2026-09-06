@@ -95,7 +95,8 @@ export class AreeService {
     const aree = await this.prisma.partnerArea.findMany({ where: { partnerId }, select: { area: { select: { province: { select: { provinceId: true } } } } } });
     const ids = [...new Set(aree.flatMap((x) => x.area.province.map((p) => p.provinceId)))];
     await this.prisma.$transaction([
-      this.prisma.partnerProvince.deleteMany({ where: { partnerId } }),
+      // ⭐ 06/09 (regola utente): le province scelte a mano (manuale=true) restano; si rifanno solo quelle delle aree.
+      this.prisma.partnerProvince.deleteMany({ where: { partnerId, manuale: false } }),
       ...(ids.length ? [this.prisma.partnerProvince.createMany({ data: ids.map((provinceId) => ({ partnerId, provinceId })), skipDuplicates: true })] : []),
     ]);
     return ids;
@@ -106,7 +107,7 @@ export class AreeService {
     const aree = await this.prisma.valetArea.findMany({ where: { valetId }, select: { area: { select: { province: { select: { provinceId: true } } } } } });
     const ids = [...new Set(aree.flatMap((x) => x.area.province.map((p) => p.provinceId)))];
     await this.prisma.$transaction([
-      this.prisma.valetProvince.deleteMany({ where: { valetId } }),
+      this.prisma.valetProvince.deleteMany({ where: { valetId, manuale: false } }),
       ...(ids.length ? [this.prisma.valetProvince.createMany({ data: ids.map((provinceId) => ({ valetId, provinceId })), skipDuplicates: true })] : []),
     ]);
     return ids;

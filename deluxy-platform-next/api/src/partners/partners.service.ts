@@ -108,8 +108,9 @@ export class PartnersService {
         contractStart: scalar.contractStart ? new Date(scalar.contractStart) : undefined,
         contractEnd: scalar.contractEnd ? new Date(scalar.contractEnd) : undefined,
         pickupAddresses: pickupAddresses?.length ? JSON.stringify(pickupAddresses) : undefined,
+        // ⭐ 06/09 (regola utente): `provinceIds` sono le province scelte A MANO, oltre alle aree.
         provinces: provinceIds?.length
-          ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
+          ? { create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })) }
           : undefined,
         categories: categoryIds?.length
           ? {
@@ -655,7 +656,7 @@ export class PartnersService {
           ? {
               provinces: {
                 deleteMany: {},
-                create: provinceIds.map((provinceId) => ({ provinceId })),
+                create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })),
               },
             }
           : {}),
@@ -681,6 +682,7 @@ export class PartnersService {
     });
     // ⭐ 06/09 (regola utente): con le AREE le province effettive si ricalcolano (unione delle aree).
     if (areaIds) await this.aree.assegnaAlPartner(id, areaIds);
+    else if (provinceIds) await this.aree.ricalcolaProvincePartner(id); // le province delle aree tornano accanto a quelle a mano
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;

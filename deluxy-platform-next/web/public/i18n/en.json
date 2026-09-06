@@ -1669,6 +1669,7 @@
     },
     "provinces": {
       "title": "Served provinces",
+      "titoloInPiu": "Extra provinces",
       "subtitle": "The partner will only be selectable for deliveries in these provinces.",
       "empty": "No province configured.",
       "cerca": "Search province…",
@@ -1793,7 +1794,7 @@
     "requiredHint": "Fields marked with * are required.",
     "createButton": "Create valet",
     "remove": "Remove",
-    "provincesHint": "Provinces where the valet operates.",
+    "provincesHint": "Single extra provinces on top of the areas: the valet works in the union of both.",
     "areeHint": "The valet works in the provinces of its areas. Areas are managed in Settings → Areas.",
     "addProvince": "+ Add province…",
     "provincesEmpty": "No province selected.",

@@ -479,6 +479,8 @@ model PartnerProvince {
   id         String   @id @default(cuid())
   partnerId  String
   provinceId String
+  /// ⭐ 06/09/2026 (regola utente): provincia scelta a mano, OLTRE alle aree — il ricalcolo dalle aree non la tocca.
+  manuale    Boolean  @default(false)
   partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   province   Province @relation(fields: [provinceId], references: [id])
 
@@ -693,6 +695,8 @@ model ValetProvince {
   id         String   @id @default(cuid())
   valetId    String
   provinceId String
+  /// ⭐ 06/09/2026 (regola utente): provincia scelta a mano, OLTRE alle aree — il ricalcolo dalle aree non la tocca.
+  manuale    Boolean  @default(false)
   valet      Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
   province   Province @relation(fields: [provinceId], references: [id])
 

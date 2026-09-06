@@ -1671,7 +1671,8 @@
     },
     "provinces": {
       "title": "Province servite",
-      "subtitle": "Il partner sarà selezionabile solo nelle consegne di queste province.",
+      "titoloInPiu": "Province in più",
+      "subtitle": "Oltre alle aree, singole province scelte a mano: il partner opera nell'unione delle due.",
       "empty": "Nessuna provincia configurata.",
       "cerca": "Cerca provincia…",
       "scelte": "{{n}} province scelte"
@@ -1795,7 +1796,7 @@
     "requiredHint": "I campi con * sono obbligatori.",
     "createButton": "Crea valet",
     "remove": "Rimuovi",
-    "provincesHint": "Province in cui il valet opera.",
+    "provincesHint": "Singole province in più, oltre alle aree: il valet opera nell'unione delle due.",
     "areeHint": "Il valet lavora nelle province delle sue aree. Le aree si creano in Configurazione → Aree.",
     "addProvince": "+ Aggiungi provincia…",
     "provincesEmpty": "Nessuna provincia selezionata.",

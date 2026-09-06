@@ -127,9 +127,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       </section>
 
       <!-- Province servite (dettaglio, sola lettura quando ci sono le aree) -->
-      <section class="card block" [hidden]="selectedAree.size > 0">
+      <section class="card block">
         <header class="block-head">
-          <h2>{{ 'partnerForm.provinces.title' | translate }}</h2>
+          <h2>{{ (selectedAree.size > 0 ? 'partnerForm.provinces.titoloInPiu' : 'partnerForm.provinces.title') | translate }}</h2>
           <span class="block-sub">{{ 'partnerForm.provinces.subtitle' | translate }}</span>
         </header>
         @if (provinces().length === 0) { <p class="muted">{{ 'partnerForm.provinces.empty' | translate }}</p> }
@@ -478,6 +478,7 @@ export class PartnerFormComponent {
   provinceEffettive(): string[] {
     const s = new Set<string>();
     for (const a of this.aree()) if (this.selectedAree.has(a.id)) for (const p of a.province) s.add(p.code);
+    for (const p of this.provinces()) if (this.selectedProvinces.has(p.id)) s.add(p.code); // ⭐ 06/09: province in più, scelte a mano
     return [...s].sort();
   }
   readonly serviceTypes = signal<ServiceType[]>([]);
@@ -614,8 +615,10 @@ export class PartnerFormComponent {
     }
     // Province / categorie / servizi collegati
     this.selectedProvinces.clear();
+    // ⭐ 06/09: con le aree, nelle chip restano solo le province scelte a mano (manuale); senza aree, tutte.
+    const haAree = (((p as any).aree ?? []) as unknown[]).length > 0;
     for (const pp of (p['provinces'] as any[]) ?? []) {
-      if (pp?.province?.id) this.selectedProvinces.add(pp.province.id);
+      if (pp?.province?.id && (!haAree || pp.manuale)) this.selectedProvinces.add(pp.province.id);
     }
     this.selectedAree.clear();
     for (const a of ((p as any).aree ?? []) as { area?: { id: string } }[]) if (a?.area?.id) this.selectedAree.add(a.area.id);
@@ -742,8 +745,10 @@ export class PartnerFormComponent {
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
     if (this.selectedMestieri.size || isEdit) payload['mestiereIds'] = [...this.selectedMestieri];
     // Con le aree scelte, le province le decide il server (unione): non si mandano le singole.
-    if (this.selectedAree.size) { payload['areaIds'] = [...this.selectedAree]; delete payload['provinceIds']; }
+    // ⭐ 06/09 (regola utente): aree E province a mano viaggiano insieme; le province effettive sono l'unione.
+    if (this.selectedAree.size) payload['areaIds'] = [...this.selectedAree];
     else if (isEdit) payload['areaIds'] = [];
+    if (isEdit) payload['provinceIds'] = [...this.selectedProvinces];
 
     const addrs = m.isMultiPickup
       ? this.pickupAddresses.map((a) => a.trim()).filter(Boolean)

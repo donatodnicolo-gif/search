@@ -110,7 +110,7 @@ interface ValetServiceRow {
       </section>
 
       <!-- Province di competenza -->
-      <section class="card block" [hidden]="selectedAree.size > 0">
+      <section class="card block">
         <header class="block-head">
           <h2>{{ 'valetForm.sections.provinces' | translate }}</h2>
           <span class="block-sub">{{ 'valetForm.provincesHint' | translate }}</span>
@@ -378,7 +378,7 @@ export class ValetFormComponent {
   readonly aree = signal<Area[]>([]);
   readonly selectedAree = new Set<string>();
   togglaArea(id: string): void { if (this.selectedAree.has(id)) this.selectedAree.delete(id); else this.selectedAree.add(id); }
-  provinceEffettive(): string[] { const s = new Set<string>(); for (const a of this.aree()) if (this.selectedAree.has(a.id)) for (const p of a.province) s.add(p.code); return [...s].sort(); }
+  provinceEffettive(): string[] { const s = new Set<string>(); for (const a of this.aree()) if (this.selectedAree.has(a.id)) for (const p of a.province) s.add(p.code); for (const p of this.provinces()) if (this.selectedProvinces.has(p.id)) s.add(p.code); return [...s].sort(); }
   readonly tlProvinces = new Set<string>();
   readonly tlPartners = new Set<string>();
   readonly tlExcludedPartners = new Set<string>();
@@ -467,8 +467,9 @@ export class ValetFormComponent {
     this.selectedAree.clear();
     for (const a of ((v as any).aree ?? []) as { area?: { id: string } }[]) if (a?.area?.id) this.selectedAree.add(a.area.id);
     this.selectedProvinces.clear();
+    const haAree = (((v as any).aree ?? []) as unknown[]).length > 0;
     for (const vp of (v['provinces'] as any[]) ?? []) {
-      if (vp?.province?.id) this.selectedProvinces.add(vp.province.id);
+      if (vp?.province?.id && (!haAree || vp.manuale)) this.selectedProvinces.add(vp.province.id);
     }
     // Le liste team leader sono salvate come stringa JSON di id lato API
     this.fillIdSet(this.tlProvinces, v['teamLeaderProvinces']);
@@ -573,8 +574,9 @@ export class ValetFormComponent {
     // Deselezionare tutti i mezzi in modifica deve svuotare il campo.
     if (isEdit && !m.vehicle.trim()) payload['vehicle'] = '';
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
-    if (this.selectedAree.size) { payload['areaIds'] = [...this.selectedAree]; delete payload['provinceIds']; }
+    if (this.selectedAree.size) payload['areaIds'] = [...this.selectedAree];
     else if (isEdit) payload['areaIds'] = [];
+    if (isEdit) payload['provinceIds'] = [...this.selectedProvinces];
     // Se il valet non è più team leader, le liste vanno azzerate.
     const tlProv = m.isTeamLeader ? [...this.tlProvinces] : [];
     const tlPart = m.isTeamLeader ? [...this.tlPartners] : [];
