@@ -14,10 +14,10 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 ## Dove siamo (29/08/2026 — aggiornato 06/09/2026)
 
 - 🆕 **06/09/2026 — Budgets legge l'organico da qui** (decisione dell'utente: «personale e team
-  devono arrivare da app personale»). \`GET /api/v1/persone\` accetta **\`?storia=1\`**: con
-  \`compensi=1\` escono \`inquadramenti[]\` e \`compensi[]\` completi, decorrenze future comprese,
+  devono arrivare da app personale»). `GET /api/v1/persone` accetta **`?storia=1`**: con
+  `compensi=1` escono `inquadramenti[]` e `compensi[]` completi, decorrenze future comprese,
   così Budgets sa da quale mese una persona costa. Il POST di proposta verso Budgets
-  (\`lib/budgets.ts\`) resta ma di là risponde «non serve più»: si può togliere. 🔴 **Da
+  (`lib/budgets.ts`) resta ma di là risponde «non serve più»: si può togliere. 🔴 **Da
   pubblicare** (build locale ok, deploy da lanciare a mano). Da sistemare qui, perché Budgets lo
   mostra: quattro persone senza funzione (Nicolò Donato, Eva, Luca Salso, Renato Cassoli —
   responsabile di Operation ma non dentro), e due nomi che Budgets aveva e qui mancano (Emma
