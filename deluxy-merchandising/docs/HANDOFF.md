@@ -115,8 +115,25 @@ delle schede (`Prodotto.codice`, es. `TORTA-LOVE-ME-DELUXE`) **non** è stato
 toccato: è la chiave unica usata ovunque; il nuovo codice a 7 cifre vive nelle
 `Variante.sku`.
 
+🔍 **SKU duplicati sui negozi** (chiesto dall'utente subito dopo;
+`scripts/sku-duplicati.ts`, sola lettura, tutti gli stati; rapporto
+`docs/sku-duplicati-2026-09-06.md`). Dentro un negozio, lo stesso SKU su
+prodotti diversi: Cake 194, Flowers 104, Gifts 176 — **quasi tutti fra prodotti
+archiviati** (le vecchie torte/bouquet copiati con lo SKU). Fra prodotti
+**attivi** solo su Flowers: **4 prodotti pubblicati due volte** (handle e
+handle`-1`, stessi SKU, entrambi ACTIVE: «MAXI Bouquet Rose Bianche, Gialle e
+Arancioni» 6 SKU, «Champagne e Fiori di Stagione», «Cento Rose Bianche»,
+«Ortensie Balloon») — il cliente vede due schede uguali; da spegnerne una. SKU
+ripetuto **fra le varianti dello stesso prodotto**: Flowers «Bouquet Verdi» (5
+varianti con lo stesso SKU), Gifts 16 prodotti (DUNE 7, i tre lettini MIRA
+8-9, poi singoli). Fra negozi: 3.399 SKU su due negozi = lo stesso prodotto
+venduto su Flowers/Cake e Gifts (voluto); 59 coppie con titoli diversi, quasi
+tutte rinomine («Cuore» ↔ «Cream Tart - I love U», «007» ↔ «Bouquet - James
+Bond»). Niente scritto: è una verifica.
+
 **Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
-dell'utente) e controllo della riga di Gifts la notte dopo; decidere se
+dell'utente) e controllo della riga di Gifts la notte dopo; decidere cosa fare
+dei 4 doppioni attivi su Flowers e degli SKU ripetuti fra varianti; decidere se
 allargare le 10 varianti (con gli SKU ora completi sul negozio, è l'unico
 motivo per cui il database non li ha tutti); correggere lo slittamento delle rotazioni (Fiori
 dovuta l'08/09); il collaudo del modulo prodotto su Cake resta da fare (vedi
