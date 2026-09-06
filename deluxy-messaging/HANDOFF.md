@@ -1,5 +1,25 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (25) — «In App» chiede conferma anche dalla scheda in bacheca
+
+Segnalazione dell'utente con la foto della bacheca (colonna Cake, #1834): «ho
+indicato in app ma non mi ha chiesto se volessi inserirla». Vero: la conferma
+del punto (20) l'avevo messa solo sui passi DENTRO il pop-up dell'ordine; la
+scheda in bacheca ha gli stessi passi (`OrdiniLista.tsx`, `PASSI.map` nella
+card) e lì «In App» segnava solo lo stato, come prima.
+
+Adesso anche in bacheca: premendo «In App» su un ordine che non lo è, la
+domanda; con OK si apre **il pop-up dell'ordine già sul modulo «Manda in app»**
+(prop nuova `apriMandaInApp` di `DettaglioOrdine`, che parte con `apriInApp = 1`);
+con Annulla resta il vecchio gesto (solo lo stato). Il flag si azzera alla
+chiusura del pop-up.
+
+⚠️ La lezione: la stessa azione stava in due posti e l'avevo cambiata in uno
+solo. I passi della lavorazione vivono in `DettaglioOrdine` E in `OrdiniLista`
+(card): una regola sui passi va applicata in tutti e due.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (24) — Chiamate: il «00» al posto del «+» non conta; gli spazi negli ordini sì
 
 Domanda dell'utente: «nella mail che arriva in chiamate il prefisso + è scritto

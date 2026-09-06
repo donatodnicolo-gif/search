@@ -1009,6 +1009,13 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   // chi lavora il compito di ricercare la riga che aveva appena letto.
   const parametri = useSearchParams()
   const [dettaglio, setDettaglio] = useState(parametri.get('apri') ?? '')
+  /**
+   * Il pop-up si apre col modulo «Manda in app» già aperto: succede quando dalla
+   * scheda in bacheca si preme «In App» e si risponde sì (utente, 06/09/2026:
+   * «ho indicato in app ma non mi ha chiesto se volessi inserirla»). La stessa
+   * domanda la fa il pop-up: qui vale per chi lavora dalle colonne.
+   */
+  const [dettaglioConInApp, setDettaglioConInApp] = useState(false)
   /** La scheda si apre da sola una volta sola: vedi `carica()`. */
   const apertaDaLink = useRef(false)
   // L'ordine dell'ARCHIVIO aperto nel pannello (null = nessuno). Sta a parte
@@ -2110,8 +2117,30 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               className={
                                 o.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                               }
-                              onClick={() => segna(o.id, k)}
-                              title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
+                              onClick={() => {
+                                // ⚠️ «In App» non è un'etichetta come le altre: di là
+                                // deve nascere una consegna. Si chiede; col sì si apre
+                                // il pop-up dell'ordine sul modulo «Manda in app», con
+                                // «Annulla» resta il vecchio gesto (solo lo stato).
+                                if (k === 'in_app' && o.gestione !== 'in_app') {
+                                  const si = window.confirm(
+                                    'Vuoi inserire la consegna nella piattaforma consegne?\n\n' +
+                                      'OK: si apre la scheda dell\'ordine con il modulo per inserirla (partner, servizio, prodotto, prezzo).\n' +
+                                      'Annulla: segna solo lo stato «In App», senza creare niente di là.'
+                                  )
+                                  if (si) {
+                                    setDettaglioConInApp(true)
+                                    setDettaglio(o.id)
+                                    return
+                                  }
+                                }
+                                void segna(o.id, k)
+                              }}
+                              title={
+                                k === 'in_app'
+                                  ? 'Inserisci la consegna nella piattaforma (ti chiedo prima)'
+                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
+                              }
                             >
                               {nomeGestione(k)}
                             </button>
@@ -2611,8 +2640,10 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       {dettaglio ? (
         <DettaglioOrdine
           ordineId={dettaglio}
+          apriMandaInApp={dettaglioConInApp}
           onChiudi={() => {
             setDettaglio('')
+            setDettaglioConInApp(false)
             carica()
           }}
           onScriviMail={(b) => setMail(b)}
