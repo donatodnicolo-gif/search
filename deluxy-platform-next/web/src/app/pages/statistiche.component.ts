@@ -363,7 +363,7 @@ const VERSO: Record<string, 1 | -1 | 0> = {
         @for (k of ['partner', 'valet', 'province']; track k) {
           <section class="card blocco">
             <h2>{{ 'statistiche.top.' + k | translate }}</h2>
-            <table class="compatta">
+            <div class="scorri"><table class="compatta classifica">
               <thead><tr>
                 <th class="sortable" (click)="ordinaLista(k, 'nome')">{{ 'statistiche.top.nome' | translate }}<span class="sort-ind">{{ segnoLista(k, 'nome') }}</span></th>
                 <th class="num sortable" (click)="ordinaLista(k, 'corrente')">{{ 'statistiche.top.consegne' | translate }}<span class="sort-ind">{{ segnoLista(k, 'corrente') }}</span></th>
@@ -400,12 +400,12 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                   <tr class="muted"><td>{{ 'statistiche.top.altri' | translate: { n: d.top[k].altri } }}</td><td class="num">{{ num(d.top[k].altriConsegne) }}</td><td class="num">{{ pctTxt(pct(d.top[k].altriConsegne, d.top[k].totale)) }}</td><td></td><td></td></tr>
                 }
               </tbody>
-            </table>
+            </table></div>
           </section>
         }
         <section class="card blocco">
           <h2>{{ 'statistiche.stati.titolo' | translate }}</h2>
-          <table class="compatta">
+          <div class="scorri"><table class="compatta classifica">
             <thead><tr>
               <th class="sortable" (click)="ordinaLista('stati', 'stato')">{{ 'statistiche.stati.stato' | translate }}<span class="sort-ind">{{ segnoLista('stati', 'stato') }}</span></th>
               <th class="num sortable" (click)="ordinaLista('stati', 'corrente')">{{ 'statistiche.stati.n' | translate }}<span class="sort-ind">{{ segnoLista('stati', 'corrente') }}</span></th>
@@ -430,7 +430,7 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                 }
               }
             </tbody>
-          </table>
+          </table></div>
         </section>
       </div>
       }
@@ -486,7 +486,17 @@ const VERSO: Record<string, 1 | -1 | 0> = {
     .seg.ok { background: var(--green); } .seg.presto { background: var(--amber); } .seg.tardi { background: var(--red); }
     .numeri { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px 18px; margin-top: 12px; }
     .numero { display: flex; flex-direction: column; gap: 2px; }
-    .griglia-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    /* ⭐ 06/09 (segnalazione utente, screenshot): con quattro tessere da 280px le cinque colonne
+       non ci stavano — la Δ andava a capo e «In orario» finiva tagliata dal bordo. Ora la
+       tessera nasce larga per le sue colonne (2×2 su un desktop normale), i numeri non vanno
+       mai a capo, e sotto i 480px la tabella scorre dentro la tessera (Libro UX: le tabelle
+       larghe scorrono nel loro contenitore, la pagina no). */
+    .griglia-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 14px; }
+    .griglia-3 .card { min-width: 0; }
+    .scorri { overflow-x: auto; max-width: 100%; }
+    table.classifica th.num, table.classifica td.num, table.classifica td.delta { white-space: nowrap; }
+    table.classifica th:first-child, table.classifica td:first-child { min-width: 120px; }
+    table.classifica th.num, table.classifica td.num { padding-left: 6px; padding-right: 6px; width: 1%; }
     table.compatta { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     table.compatta th, table.compatta td { padding: 6px 8px; border-bottom: 1px solid var(--hairline); text-align: left; }
     table.compatta th.num, table.compatta td.num { text-align: right; font-variant-numeric: tabular-nums; }
