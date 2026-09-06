@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
@@ -204,7 +204,70 @@ const LIMITE_TESTO = 900
 // Una bolla del thread. Le mail arrivano lunghissime e piene di link di
 // tracciamento: qui si mostrano ripulite, accorciate e coi link ridotti al
 // nome del sito. Il testo com'era arrivato resta a un clic di distanza.
-function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
+/** Senza accenti e minuscolo: «perche» trova «Perché». */
+function normalizzaPerRicerca(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+/** Un messaggio contiene il testo cercato (originale o traduzione)? */
+function messaggioContiene(m: MessaggioDto, cerca: string): boolean {
+  const q = normalizzaPerRicerca(cerca.trim())
+  if (!q) return false
+  return (
+    normalizzaPerRicerca(m.testo ?? '').includes(q) ||
+    normalizzaPerRicerca((m.traduzione as string | null) ?? '').includes(q) ||
+    normalizzaPerRicerca(m.oggetto ?? '').includes(q)
+  )
+}
+
+/**
+ * Il testo con le occorrenze cercate dentro `<mark>` (ricerca nella chat,
+ * utente 06/09/2026). Confronto senza accenti e senza maiuscole, ma i pezzi
+ * restituiti sono quelli originali: si evidenzia, non si riscrive.
+ */
+function conEvidenza(testo: string, cerca: string): ReactNode {
+  const q = normalizzaPerRicerca(cerca.trim())
+  if (!q || !testo) return testo
+  // ⚠️ La normalizzazione può cambiare la lunghezza (accenti scomposti): si
+  // cerca carattere per carattere sull'originale, confrontando la forma
+  // normalizzata di ogni finestra. Testi da chat: costa niente.
+  const nodi: ReactNode[] = []
+  let da = 0
+  let i = 0
+  while (i < testo.length) {
+    let fine = -1
+    // La finestra più corta a partire da i la cui forma normalizzata è q.
+    for (let j = i + 1; j <= Math.min(testo.length, i + q.length + 8); j++) {
+      const n = normalizzaPerRicerca(testo.slice(i, j))
+      if (n === q) { fine = j; break }
+      if (!q.startsWith(n)) break
+    }
+    if (fine > 0) {
+      if (da < i) nodi.push(testo.slice(da, i))
+      nodi.push(<mark key={`m${i}`}>{testo.slice(i, fine)}</mark>)
+      da = fine
+      i = fine
+    } else {
+      i++
+    }
+  }
+  if (da < testo.length) nodi.push(testo.slice(da))
+  return nodi.length === 1 && typeof nodi[0] === 'string' ? nodi[0] : nodi
+}
+
+function Bolla({
+  m,
+  canale,
+  evidenzia = '',
+  corrente = false,
+}: {
+  m: MessaggioDto
+  canale: string
+  /** Il testo cercato nella chat: le occorrenze si evidenziano. */
+  evidenzia?: string
+  /** È il risultato su cui si sta: bordo oro, e la barra di ricerca ci scorre sopra. */
+  corrente?: boolean
+}) {
   const [tutto, setTutto] = useState(false)
   const [grezzo, setGrezzo] = useState(false)
   // ⚠️ Quando c'è la traduzione si parte da QUELLA, non dall'originale: chi apre
@@ -260,7 +323,10 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   const reazioneVecchia = !allegato && /^\[reaction\]$/i.test(m.testo.trim())
 
   return (
-    <div className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
+    <div
+      id={`msg-${m.id}`}
+      className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}${corrente ? ' corrente' : ''}`}
+    >
       {m.oggetto ? <span className="oggetto">{m.oggetto}</span> : null}
       {allegato ? (
         eFoto ? (
@@ -310,9 +376,11 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
               {p.etichetta}
             </a>
           ) : (
-            <span key={i}>{p.testo}</span>
+            <span key={i}>{evidenzia ? conEvidenza(p.testo, evidenzia) : p.testo}</span>
           )
         )
+      ) : evidenzia ? (
+        conEvidenza(visibile, evidenzia)
       ) : (
         visibile
       )}
@@ -1626,6 +1694,38 @@ export function Inbox({
   // Il pannello del riassunto: chiuso di suo. Aprirlo mostra quello gia' salvato,
   // rifarlo e' un gesto in piu' — l'AI non si scomoda da sola.
   const [riassuntoAperto, setRiassuntoAperto] = useState(false)
+  // ── CERCARE DENTRO LA CHAT (utente, 06/09/2026: «una icona lente») ──
+  // Una lente in testata apre una barra sopra i messaggi: si scrive, le
+  // occorrenze si evidenziano nelle bolle, ▲ ▼ (o Invio / Maiusc+Invio) vanno
+  // al risultato prima/dopo e la lista ci scorre sopra. Cerca nell'originale e
+  // nella traduzione, senza accenti e maiuscole. Esc chiude.
+  const [cercaChatAperta, setCercaChatAperta] = useState(false)
+  const [cercaChat, setCercaChat] = useState('')
+  const [cercaChatIndice, setCercaChatIndice] = useState(0)
+  const cercaChatRef = useRef<HTMLInputElement>(null)
+  const trovatiChat = useMemo(
+    () => (cercaChatAperta && cercaChat.trim().length >= 2 ? messaggi.filter((m) => messaggioContiene(m, cercaChat)).map((m) => m.id) : []),
+    [cercaChatAperta, cercaChat, messaggi]
+  )
+  // Cambiando testo si riparte dal risultato più recente (in fondo), che è
+  // quasi sempre quello che si cerca.
+  useEffect(() => {
+    setCercaChatIndice(trovatiChat.length ? trovatiChat.length - 1 : 0)
+  }, [trovatiChat])
+  useEffect(() => {
+    const id = trovatiChat[cercaChatIndice]
+    if (!id) return
+    document.getElementById(`msg-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [trovatiChat, cercaChatIndice])
+  // Cambiando conversazione la ricerca si chiude: era su un'altra chat.
+  useEffect(() => {
+    setCercaChatAperta(false)
+    setCercaChat('')
+  }, [selezionataId])
+  function vaiAlTrovato(passo: 1 | -1) {
+    if (!trovatiChat.length) return
+    setCercaChatIndice((i) => (i + passo + trovatiChat.length) % trovatiChat.length)
+  }
   /**
    * Il modulo del nuovo ordine, aperto ACCANTO alla chat.
    *
@@ -2438,6 +2538,24 @@ export function Inbox({
                   >
                     Riassunto
                   </button>
+                  {/* La lente: cerca dentro questa chat (Libro §3: icona ≥ 18px in
+                      un bersaglio ≥ 28px, col title che dice cosa fa). */}
+                  <button
+                    type="button"
+                    className={`icona-28${cercaChatAperta ? ' attivo' : ''}`}
+                    onClick={() => {
+                      setCercaChatAperta((v) => !v)
+                      setTimeout(() => cercaChatRef.current?.focus(), 30)
+                    }}
+                    aria-label="Cerca nella conversazione"
+                    aria-pressed={cercaChatAperta}
+                    title="Cerca una parola in questa conversazione"
+                  >
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M20 20l-3.5-3.5" />
+                    </svg>
+                  </button>
                   {/* ── La nota sul diario ──
                       ⚠️ Il numero delle note da fare sta SUL BOTTONE: dentro un
                       pannello chiuso, una nota lasciata a un collega non
@@ -2591,6 +2709,54 @@ export function Inbox({
               />
             ) : null}
 
+            {cercaChatAperta ? (
+              <div className="barra-cerca-chat" role="search">
+                <input
+                  ref={cercaChatRef}
+                  value={cercaChat}
+                  onChange={(e) => setCercaChat(e.target.value)}
+                  placeholder="Cerca in questa conversazione…"
+                  aria-label="Cerca nella conversazione"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.stopPropagation()
+                      setCercaChatAperta(false)
+                      setCercaChat('')
+                      return
+                    }
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      vaiAlTrovato(e.shiftKey ? -1 : 1)
+                    }
+                  }}
+                />
+                <span className="cella-sub conteggio" aria-live="polite">
+                  {cercaChat.trim().length < 2
+                    ? 'almeno 2 lettere'
+                    : trovatiChat.length
+                      ? `${cercaChatIndice + 1} di ${trovatiChat.length}`
+                      : 'nessun messaggio'}
+                </span>
+                <button type="button" className="icona-28" onClick={() => vaiAlTrovato(-1)} disabled={!trovatiChat.length} aria-label="Risultato precedente" title="Precedente (Maiusc+Invio)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+                </button>
+                <button type="button" className="icona-28" onClick={() => vaiAlTrovato(1)} disabled={!trovatiChat.length} aria-label="Risultato successivo" title="Successivo (Invio)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                <button
+                  type="button"
+                  className="icona-28"
+                  onClick={() => {
+                    setCercaChatAperta(false)
+                    setCercaChat('')
+                  }}
+                  aria-label="Chiudi la ricerca"
+                  title="Chiudi (Esc)"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
             <div className="messaggi" ref={contenitoreRef}>
               {messaggi.map((m, i) => {
                 // Il separatore del giorno, quando il giorno cambia: il meta
@@ -2603,7 +2769,12 @@ export function Inbox({
                         <span>{etichettaGiorno(m.creatoIl)}</span>
                       </div>
                     ) : null}
-                    <Bolla m={m} canale={selezionata.canale} />
+                    <Bolla
+                      m={m}
+                      canale={selezionata.canale}
+                      evidenzia={cercaChatAperta && cercaChat.trim().length >= 2 ? cercaChat : ''}
+                      corrente={cercaChatAperta && trovatiChat[cercaChatIndice] === m.id}
+                    />
                   </Fragment>
                 )
               })}

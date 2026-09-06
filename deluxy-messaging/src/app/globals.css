@@ -4536,6 +4536,70 @@ td .azioni-ordine {
 .thread .composer .strumenti {
   display: contents;
 }
+/* Un bersaglio da 28px con dentro un'icona da 18-19px (Libro §3, desktop):
+   la lente della chat, le frecce della ricerca. */
+.icona-28 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icona-28:hover:not(:disabled) { background: var(--fill); }
+.icona-28.attivo { background: var(--ink); color: var(--on-ink, #fff); }
+.icona-28:disabled { opacity: 0.35; cursor: default; }
+
+/* La barra «cerca in questa conversazione», sopra i messaggi. */
+.barra-cerca-chat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface);
+}
+.barra-cerca-chat input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 14px;
+}
+.barra-cerca-chat input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.barra-cerca-chat .conteggio {
+  white-space: nowrap;
+  min-width: 78px;
+  text-align: right;
+}
+/* Le occorrenze nelle bolle: oro tenue, e il risultato corrente ha il bordo. */
+.bolla mark {
+  background: var(--gold-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+.bolla.out mark {
+  background: rgba(184, 150, 62, 0.55);
+}
+.bolla.corrente {
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
 /* Un bersaglio da 44px con dentro un'icona (Libro §10): tondo, discreto. */
 .icona-44 {
   display: inline-flex;

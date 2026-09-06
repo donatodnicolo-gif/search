@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
 import { Conferma } from './Conferma'
@@ -630,21 +630,6 @@ export function DettaglioOrdine({
     return () => document.removeEventListener('keydown', tasto)
   }, [onChiudi])
 
-  // ── Menu «⋯» della testata (06/09/2026: Libro §9-ter, tre zone di azioni) ──
-  // Esc e clic fuori lo chiudono. L'Esc dentro il menu NON chiude la scheda:
-  // si ferma prima del listener sul documento qui sopra.
-  const [menuAzioniAperto, setMenuAzioniAperto] = useState(false)
-  const menuAzioniRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!menuAzioniAperto) return
-    const fuori = (e: MouseEvent) => {
-      if (menuAzioniRef.current && !menuAzioniRef.current.contains(e.target as Node)) {
-        setMenuAzioniAperto(false)
-      }
-    }
-    document.addEventListener('mousedown', fuori)
-    return () => document.removeEventListener('mousedown', fuori)
-  }, [menuAzioniAperto])
 
   const [spostaAperto, setSpostaAperto] = useState(false)
   const [spostaData, setSpostaData] = useState('')
@@ -1235,7 +1220,11 @@ export function DettaglioOrdine({
                 Stessa condizione di prima: non si mostra se la piattaforma se ne
                 sta già occupando — sarebbero due consegne. Il modulo resta nella
                 prima colonna e si apre da qui, come dal passo «In App». */}
-            {ordine && ordine.id && !ordine.annullatoIl && ordine.gestione !== 'in_app' && !ordine.appStato ? (
+            {/* ⚠️ Si nasconde SOLO se la piattaforma ci sta lavorando davvero:
+                «In App», o una vendita di là non interrotta. Interrotta da noi
+                (utente, 06/09/2026, #2876: «scomparso bottone per inserire in
+                app») si può rimandare — la finestra sa che la vendita c'è già. */}
+            {ordine && ordine.id && !ordine.annullatoIl && ordine.gestione !== 'in_app' && !(ordine.appStato && !ordine.appInterrottoIl) ? (
               <button
                 type="button"
                 className="btn btn-secondario small"
@@ -1256,64 +1245,29 @@ export function DettaglioOrdine({
                 Apri in Shopify ↗
               </a>
             ) : null}
-            {/* ── ALTRE AZIONI «⋯» (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) ──
-                «Unisci» e «Riconsegna» stanno in due riquadri in fondo alla
-                terza colonna: le due voci ci portano e il riquadro si accende
-                un attimo. Erano due pillole in testata; ora è un menu, così in
-                testa restano l'identità e i due comandi di ogni giorno. */}
+            {/* ── UNISCI e RICONSEGNA restano PILLOLE (decisione dell'utente,
+                06/09/2026: «lascia pulsanti unisci e riconsegna visibili» —
+                deroga al Libro §9-ter, annotata). Portano al riquadro in fondo
+                alla terza colonna, che si apre e si accende un attimo. */}
             {ordine?.id ? (
-              <div
-                className="menu-azioni"
-                ref={menuAzioniRef}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Escape' || !menuAzioniAperto) return
-                  // Esc chiude il menu, non la scheda.
-                  e.stopPropagation()
-                  setMenuAzioniAperto(false)
-                }}
-              >
+              <>
                 <button
                   type="button"
                   className="btn btn-secondario small"
-                  aria-label="Altre azioni"
-                  aria-haspopup="menu"
-                  aria-expanded={menuAzioniAperto}
-                  title="Altre azioni"
-                  onClick={() => setMenuAzioniAperto((v) => !v)}
+                  onClick={() => vaiAlRiquadro('riquadro-unione')}
+                  title="Unisci a questo un altro ordine che è la stessa vendita"
                 >
-                  ⋯
+                  Unisci ordini
                 </button>
-                {menuAzioniAperto ? (
-                  <ul role="menu" aria-label="Altre azioni">
-                    <li role="none">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuAzioniAperto(false)
-                          vaiAlRiquadro('riquadro-unione')
-                        }}
-                        title="Unisci a questo un altro ordine che è la stessa vendita"
-                      >
-                        Unisci un altro ordine…
-                      </button>
-                    </li>
-                    <li role="none">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuAzioniAperto(false)
-                          vaiAlRiquadro('riquadro-riconsegna')
-                        }}
-                        title="Crea il link di pagamento per una riconsegna"
-                      >
-                        Riconsegna…
-                      </button>
-                    </li>
-                  </ul>
-                ) : null}
-              </div>
+                <button
+                  type="button"
+                  className="btn btn-secondario small"
+                  onClick={() => vaiAlRiquadro('riquadro-riconsegna')}
+                  title="Crea il link di pagamento per una riconsegna"
+                >
+                  Riconsegna
+                </button>
+              </>
             ) : null}
             {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
             <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi (Esc)" onClick={onChiudi}>
@@ -1467,15 +1421,12 @@ export function DettaglioOrdine({
                     </p>
                   ) : null}
                 </div>
-              ) : ordine.id ? (
-                /* ⚠️⚠️ SI VEDE SOLO SE NON C'È GIÀ: un ordine che la piattaforma
-                   sta già lavorando non si manda una seconda volta — sarebbero
-                   due consegne, due valet e due paghe per lo stesso regalo. Il
-                   riquadro qui sopra e questo sono la stessa casella in due
-                   momenti: «ci sta pensando lei» oppure «mandiamocelo». */
-                /* ⚠️ Niente margine inline: adesso questo blocco e' il primo della
-                   colonna, e un margine in cima la faceva partire 12px piu' in basso
-                   delle altre due. Lo stacco lo da' il `gap` della colonna. */
+              ) : null}
+              {/* ⚠️ La finestra «Manda in app» è montata sempre (da chiusa non
+                  rende niente): si apre dal bottone in testata o dal passo «In
+                  App». Il doppio invio lo evita la condizione del bottone, non
+                  il montaggio — e la finestra stessa dice se di là c'è già. */}
+              {ordine.id ? (
                 <div>
                   <MandaInApp
                     ordineId={ordine.id}
