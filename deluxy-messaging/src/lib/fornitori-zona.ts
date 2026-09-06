@@ -250,6 +250,8 @@ async function tuttoIlRegistro(): Promise<EsitoPartner> {
     partner,
     categorie: [...new Set(partner.map((p) => p.categoria).filter(Boolean))].sort(),
     citta: [...new Set(partner.map((p) => p.citta).filter(Boolean))].sort(),
+    // Questo esito serve alla zona, non alla tendina: le varianti restano vuote.
+    cittaVarianti: {},
   }
   memoria = { quando: Date.now(), esito }
   return esito

@@ -1,3 +1,4 @@
+import { confrontaTesto, primaMaiuscola } from './testo'
 import { leggiImpostazioni } from './impostazioni'
 
 // Ponte verso Deluxy Anagrafiche, il registro centralizzato dei partner B2B.
@@ -39,7 +40,20 @@ export type Partner = {
 }
 
 export type EsitoPartner =
-  | { stato: 'ok'; totale: number; partner: Partner[]; categorie: string[]; citta: string[] }
+  | {
+      stato: 'ok'
+      totale: number
+      partner: Partner[]
+      categorie: string[]
+      /** Le città come si MOSTRANO («Modena»), una per città, in ordine alfabetico. */
+      citta: string[]
+      /**
+       * Per ogni città mostrata, le forme in cui sta scritta nel registro
+       * («MODENA», «Modena»): il filtro del registro distingue le maiuscole,
+       * quindi per filtrare vanno chieste tutte.
+       */
+      cittaVarianti: Record<string, string[]>
+    }
   | { stato: 'non-configurato' }
   | { stato: 'errore'; messaggio: string }
 
@@ -155,8 +169,19 @@ export async function partnerAttivi(opzioni: {
 
   // Le tendine dei filtri si costruiscono da quello che è tornato: il registro
   // non ha un endpoint per l'elenco delle categorie.
-  const categorie = [...new Set(partner.map((x) => x.categoria).filter(Boolean))].sort()
-  const citta = [...new Set(partner.map((x) => x.citta).filter(Boolean))].sort()
+  const categorie = [...new Set(partner.map((x) => x.categoria).filter(Boolean))].sort(confrontaTesto)
+  // ⚠️ Raggruppate per come si leggono, non per come sono scritte (utente,
+  // 06/09/2026: «FIRENZE» e «Firenze» erano due voci, e l'ordine non era
+  // alfabetico perché le maiuscole vengono prima nel confronto grezzo).
+  const perEtichetta = new Map<string, Set<string>>()
+  for (const x of partner) {
+    if (!x.citta) continue
+    const etichetta = primaMaiuscola(x.citta)
+    if (!perEtichetta.has(etichetta)) perEtichetta.set(etichetta, new Set())
+    perEtichetta.get(etichetta)!.add(x.citta)
+  }
+  const citta = [...perEtichetta.keys()].sort(confrontaTesto)
+  const cittaVarianti = Object.fromEntries([...perEtichetta].map(([e, s]) => [e, [...s]]))
 
-  return { stato: 'ok', totale: dati.totale ?? partner.length, partner, categorie, citta }
+  return { stato: 'ok', totale: dati.totale ?? partner.length, partner, categorie, citta, cittaVarianti }
 }

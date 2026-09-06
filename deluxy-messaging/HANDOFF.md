@@ -1,5 +1,27 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (32) — Partner & Fornitori: la tendina delle città, uniformata
+
+Segnalazione dell'utente: «cliccando città escono doppie e non in ordine
+alfabetico: uniforma e raggruppa, prima lettera maiuscola».
+
+**Causa**: il registro tiene le città come sono state scritte («FIRENZE» e
+«Firenze», «MILANO» e «Milano», «NAPOLI» e «Napoli»: 27 voci per 24 città), e
+l'elenco si faceva con un `Set` + `sort()` grezzo, in cui le maiuscole
+vengono prima delle minuscole. ⚠️ Il filtro `citta` del registro distingue le
+maiuscole: «MODENA» trova 2, «Modena» 0 — quindi non basta scrivere bene
+l'etichetta, bisogna filtrare con TUTTE le forme.
+
+**Corretto**: `src/lib/testo.ts` (`primaMaiuscola`, `confrontaTesto` con
+`localeCompare('it')`); in `anagrafiche.ts` le città si raggruppano per come
+si leggono e tornano con `cittaVarianti` (etichetta → forme originali); la
+rotta `/api/partner` accetta `citta` più volte e fonde i risultati (una
+chiamata per variante, doppioni tolti per id); la pagina manda le varianti
+della città scelta e mostra città e provincia con la prima maiuscola. Le
+categorie si ordinano allo stesso modo.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (31) — Partner & Fornitori: «cerco modena ed esce 0», mentre l'ordine ne mostra tre
 
 Segnalazione dell'utente. **Misurato sul registro**: `q=modena` fra i soli
