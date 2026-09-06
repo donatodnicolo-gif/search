@@ -475,13 +475,17 @@ export class SalesService {
         // ⭐ 06/09/2026 (regola utente): «le % di sconto con arrotondamento
         // dovrebbero arrivare direttamente da Orders». Se Orders manda la sua,
         // vince (arrotondata ai centesimi); altrimenti valgono le regole di qui.
-        discountPercent: body.discountPercent != null && isFinite(Number(body.discountPercent))
-          ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
-          : scelto?.prezzoPartner !== undefined
+        // Precedenza: riconciliazione prodotto/provincia > prezzo partner di listino
+        // (prodotto UNICO, regola 05/09) > % di ORDERS (se la manda, arrotondata) >
+        // CategoryDiscount della piattaforma. La % di Orders sostituisce la regola
+        // per categoria×provincia, non il prezzo di un prodotto specifico.
+        discountPercent: scelto?.prezzoPartner !== undefined
           ? SalesService.quotaPerDare(importoCliente, scelto.prezzoPartner)
           : prezzoPartnerDaListino !== null
             ? SalesService.quotaPerDare(importoCliente, prezzoPartnerDaListino)
-            : sconto?.discountPercent ?? 0,
+            : body.discountPercent != null && isFinite(Number(body.discountPercent))
+              ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
+              : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
