@@ -90,9 +90,35 @@ varianti. **Due limiti strutturali emersi, non corretti:**
   («lo stesso prodotto venduto su Flowers e su Gifts è davvero la stessa
   scheda»), da sapere quando si contano gli attivi per negozio.
 
+✅ **SKU ASSEGNATI (chiesto dall'utente il 06/09 pomeriggio: «aggiungi sku a
+tutti i prodotti e varianti pubblicati su Shopify»).** `scripts/assegna-sku.ts`
+(prova a secco senza `--applica`; piano prima/dopo in
+`docs/assegnazione-sku-2026-09-06.md`, reversibile svuotando gli SKU elencati).
+Regola applicata = quella del modulo Nuovo prodotto: se il prodotto ha già SKU
+con una base comune (`LWWELG-1…-5`) si continua la numerazione (`-6…-10`; il
+gemello su Gifts prende `-11…-15`, perché lo SKU è unico fra i tre negozi e il
+database, 14.816 valori presi letti prima di scegliere); senza alcuno SKU nasce
+un codice di 7 cifre (`3860878`, varianti `3860878-1…-27`; «Default Title»
+prende il codice da solo). Scritto con `productVariantsBulkUpdate`
+(`inventoryItem.sku`): **81 prodotti, 317 varianti, 0 errori**; riverificato
+coi negozi: **0 varianti senza SKU su 1.483 prodotti attivi**
+(`docs/verifica-sku-2026-09-06-dopo.md`). Nel database: 88 varianti aggiornate
+nella stessa passata + 1 con `scripts/riempi-sku-dal-negozio.ts` (seconda
+passata solo sul DB, per nome di variante). **Restano 97 varianti ACTIVE senza
+sku qui, e non è colpa dell'assegnazione**: lo SKU sul negozio esiste ma è
+**già tenuto da un'altra scheda** (le otto «Sacher», «Tiramisù», «Bouquet
+Girasoli»… — i 236 gruppi di doppioni mai riconciliati, `Variante.sku` è
+`@unique`), più 5 nomi che sul negozio non esistono più. Si chiudono solo
+riconciliando i doppioni, non scrivendo SKU. E le 449 varianti oltre la decima
+non esistono qui finché l'import legge `variants(first: 10)`. ⚠️ Il codice
+delle schede (`Prodotto.codice`, es. `TORTA-LOVE-ME-DELUXE`) **non** è stato
+toccato: è la chiave unica usata ovunque; il nuovo codice a 7 cifre vive nelle
+`Variante.sku`.
+
 **Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
 dell'utente) e controllo della riga di Gifts la notte dopo; decidere se
-allargare le 10 varianti; correggere lo slittamento delle rotazioni (Fiori
+allargare le 10 varianti (con gli SKU ora completi sul negozio, è l'unico
+motivo per cui il database non li ha tutti); correggere lo slittamento delle rotazioni (Fiori
 dovuta l'08/09); il collaudo del modulo prodotto su Cake resta da fare (vedi
 04/09).
 
