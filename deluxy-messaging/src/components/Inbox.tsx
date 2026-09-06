@@ -1401,11 +1401,14 @@ export function Inbox({
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
     if (!vv) return
     const aggiorna = () => {
-      // ⚠️ Solo quando il viewport visibile è davvero più basso della finestra
-      // (tastiera aperta): altrimenti si torna a 100dvh. Misurato nel browser
-      // emulato: visualViewport diceva 617 su una finestra da 812 senza
-      // tastiera, e il foglio restava corto di 200px.
-      const tastiera = vv.height < window.innerHeight - 120
+      // ⚠️⚠️ Solo con la TASTIERA APERTA per davvero, cioè col campo di
+      // scrittura a fuoco. Non basta «il viewport visibile è più basso della
+      // finestra»: l'utente ha visto il foglio fermarsi a due terzi dello
+      // schermo con il bianco sotto (06/09), perché il browser riportava
+      // un'altezza visibile più bassa anche senza tastiera (barra degli
+      // indirizzi, finestra ridotta, emulazione). Senza fuoco si sta a 100dvh.
+      const aFuoco = document.activeElement?.closest?.('.composer') != null
+      const tastiera = aFuoco && vv.height < window.innerHeight - 120
       if (tastiera) document.documentElement.style.setProperty('--vv', `${Math.round(vv.height)}px`)
       else document.documentElement.style.removeProperty('--vv')
       const c = contenitoreRef.current
@@ -1413,8 +1416,12 @@ export function Inbox({
     }
     aggiorna()
     vv.addEventListener('resize', aggiorna)
+    document.addEventListener('focusin', aggiorna)
+    document.addEventListener('focusout', aggiorna)
     return () => {
       vv.removeEventListener('resize', aggiorna)
+      document.removeEventListener('focusin', aggiorna)
+      document.removeEventListener('focusout', aggiorna)
       document.documentElement.style.removeProperty('--vv')
     }
   }, [])

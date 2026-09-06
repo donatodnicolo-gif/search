@@ -43,6 +43,8 @@ dello schermo (81% a viewport pieno); bolle 281px (80%); composer 62px con
 campo 16px e Invia 44×44; foglio delle azioni fisso in basso con nove voci da
 44px, tutte presenti; nessuno scorrimento laterale. Desktop invariato.
 
+⚠️⚠️ **Seconda passata (foto dell'utente: il foglio si fermava a due terzi, bianco sotto).** Due cause, entrambe misurate: (1) l'involucro `.thread-con-ordine` è alto `min(76vh, 720px)` per il desktop e la sua regola sta PIÙ AVANTI nel file — a parità di specificità vinceva lei, e `.thread` dentro è al 100% → 617px su 812. Corretto con tre classi (`.pannello.pannello-thread .thread-con-ordine`) e `100%` del pannello fisso invece di `100dvh` (nel browser emulato dvh dava 617). (2) `--vv` si scrive solo con il campo di scrittura A FUOCO (tastiera vera): senza, un browser che riporta un viewport visibile più basso della finestra accorciava il foglio. Dopo: foglio 812/812, composer sul bordo, messaggi 81%.
+
 ⚠️ Nel browser emulato `visualViewport.height` era 617 su 812 senza tastiera:
 per questo `--vv` si scrive solo quando è più basso di almeno 120px, altrimenti
 si torna a 100dvh.

@@ -4534,11 +4534,21 @@ td .azioni-ordine {
     overflow: hidden;
   }
 
-  /* Altezza = viewport VISIBILE (`--vv` dal JS, che segue la tastiera),
-     altrimenti 100dvh. Solo `.messaggi` scorre. */
-  .pannello-thread .thread {
-    height: var(--vv, 100dvh);
-    max-height: var(--vv, 100dvh);
+  /* Altezza = tutta la finestra fissa (100% del pannello con inset 0), o il
+     viewport VISIBILE (`--vv` dal JS) quando la tastiera è aperta. Solo
+     `.messaggi` scorre.
+     ⚠️⚠️ Anche `.thread-con-ordine`: è l'involucro che il desktop alza a
+     `min(76vh, 720px)` e dentro cui `.thread` è al 100% — la regola sul solo
+     `.thread` non lo toccava, e il foglio si fermava a due terzi dello schermo
+     con il bianco sotto (utente, 06/09/2026, foto). E `100%` invece di
+     `100dvh`: nel browser emulato dvh dava 617 su una finestra da 812. */
+  /* ⚠️ Tre classi, non due: `.pannello-thread .thread-con-ordine` è scritta
+     PIÙ AVANTI in questo file e a parità di specificità vinceva lei (misurato:
+     617px = 76vh anche con questa regola). */
+  .pannello.pannello-thread .thread-con-ordine,
+  .pannello.pannello-thread .thread {
+    height: var(--vv, 100%);
+    max-height: var(--vv, 100%);
   }
 
   /* ── La testata: una riga da 56px + la sottoriga scorrevole ── */
