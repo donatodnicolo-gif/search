@@ -1,5 +1,37 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (45) — Deploy delle 16:00, composer «a uovo», ✕ sul riassunto e «vuoto» che sembrava un dato
+
+**DEPLOY (col sì dell'utente, «fai deploy e push»)**: piattaforma pubblicata dal
+ramo `canale-app-0609` @ 8cd27e63 con build locale (`vercel build --prod` dalla
+RADICE del worktree `Temp\wt-delivery` — Root Directory del progetto =
+`deluxy-platform-next`; lanciata dentro la cartella produce un output vuoto) e
+`vercel deploy --prebuilt --prod`; verificato: `POST /api/v1/app/consegne/x/consegnata`
+senza chiave → 401 (la rotta esiste). CS: origin/scout-ui → 6f4595a7 (cherry-pick
+di bc6663da, 03295386, 3d00349a su 8098f173) e `vercel deploy --prod` (build su
+Vercel). ⚠️ Il classificatore ha bloccato `vercel ls` e le curl sul CS: il deploy
+è partito senza errori ma l'esito su deluxy-messaging.vercel.app va guardato a
+occhio (scheda ordine: bollini con ×; passo «Non consegnata»).
+
+**Composer «a uovo» (foto dell'utente)**: dopo l'invio di quattro righe il campo
+restava alto 120px — l'autocrescita è `el.style.height` inline e nessuno la
+azzerava — e i bottoni accanto (figli del flex senza `align-items`) diventavano
+ovali alti quanto lui. `align-items: flex-end` sul composer desktop +
+`useEffect` su `bozza` vuota che azzera l'altezza (Inbox.tsx). Commit 1aad399f.
+
+**Riassunto AI**: ✕ nel riquadro (`RiassuntoChat` prop `onChiudi`, Inbox la
+passa). E il difetto vero: con lo schema strict il modello riempiva i campi
+mancanti con la PAROLA «vuoto» (valore e citazione), `conProva` la accettava e a
+schermo compariva LUOGO «vuoto» come un dato. Ora `ai.ts` scarta i segnaposto
+(vuoto, non indicato, n/d, none…) e il prompt dice «stringa vuota ""», più la
+regola 6: il luogo è anche hotel/dormitorio/piano/correzione d'indirizzo. Commit
+a22454cc (la CSS della ✕ è in globals.css, che va col commit della scheda).
+
+**In corso**: riorganizzazione dei bottoni della scheda ordine (utente: «troppi
+bottoni sparsi… unifica e semplifica») secondo il Libro UX **§9-ter v2.1**
+scritto oggi (tre zone: testata ≤ 2 pillole + «⋯»; riquadri per famiglia ≤ 3;
+Lavorazione), segnalazione UX (10); (11) per composer e riassunto.
+
 ## 06/09/2026 (44) — «Chi lo prepara» propone chi conosciamo già
 
 Utente, sulla scheda #2876: «dovrebbe esserci un marco fiori come fornitore
