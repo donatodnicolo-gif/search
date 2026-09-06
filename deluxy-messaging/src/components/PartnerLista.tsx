@@ -19,6 +19,8 @@ type Partner = {
   indirizzo: string
   telefono: string
   email: string
+  /** Lo stato commerciale nel registro: attivo · prospect · … */
+  stato: string
   statoFinanziario: string
   ultimaVisita: string
   note: string
@@ -145,6 +147,16 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
   const [qCercata, setQCercata] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroCitta, setFiltroCitta] = useState('')
+  /**
+   * Quali stati del registro chiedere: solo gli `attivo` (di suo) o tutti,
+   * prospect compresi. ⚠️ Utente, 06/09/2026: «cerco modena ma esce 0, mentre un
+   * ordine in provincia di Modena mostra dei fornitori». Quelli erano tre
+   * PROSPECT: la scheda dell'ordine chiede tutti gli stati, questa pagina solo
+   * gli attivi — e a zero risultati non diceva che altrove qualcosa c'era.
+   */
+  const [statoRegistro, setStatoRegistro] = useState<'attivo' | 'tutti'>('attivo')
+  /** Quanti ce ne sarebbero fra tutti gli stati, quando fra gli attivi non c'è niente. */
+  const [altriStati, setAltriStati] = useState<number | null>(null)
 
   // la ricerca vera la fa il registro: cerca su tutti i campi, referenti inclusi
   useEffect(() => {
@@ -159,6 +171,7 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
       if (qCercata) p.set('q', qCercata)
       if (filtroCategoria) p.set('categoria', filtroCategoria)
       if (filtroCitta) p.set('citta', filtroCitta)
+      if (statoRegistro === 'tutti') p.set('stato', 'tutti')
       const res = await fetch('/api/partner?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
         partner?: Partner[]
@@ -174,6 +187,21 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
       }
       setPartner(d.partner ?? [])
       setTotale(d.totale ?? 0)
+      // ⚠️ Zero fra gli attivi con dei filtri: si chiede quanti ce ne sono fra
+      // TUTTI gli stati, e lo si dice. Un elenco vuoto che tace quello che c'è
+      // in prospect insegna a non cercare più qui (trappola «il fallimento che
+      // sembra una lista vuota»).
+      setAltriStati(null)
+      if (
+        statoRegistro === 'attivo' &&
+        (d.partner ?? []).length === 0 &&
+        (qCercata || filtroCategoria || filtroCitta)
+      ) {
+        p.set('stato', 'tutti')
+        const r2 = await fetch('/api/partner?' + p.toString())
+        const d2 = (await r2.json().catch(() => ({}))) as { totale?: number; partner?: Partner[] }
+        if (r2.ok) setAltriStati(d2.totale ?? d2.partner?.length ?? 0)
+      }
       // le tendine si riempiono col primo giro senza filtri, poi restano
       if (!filtroCategoria && !filtroCitta && !qCercata) {
         setCategorie(d.categorie ?? [])
@@ -184,7 +212,7 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, filtroCategoria, filtroCitta])
+  }, [qCercata, filtroCategoria, filtroCitta, statoRegistro])
 
   useEffect(() => {
     carica()
@@ -221,7 +249,7 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
 
       <div className="kpi-riga">
         <div className="kpi">
-          <span className="kpi-etichetta">Partner attivi</span>
+          <span className="kpi-etichetta">{statoRegistro === 'tutti' ? 'Nel registro (tutti gli stati)' : 'Partner attivi'}</span>
           <span className="kpi-valore">{totale}</span>
         </div>
         <div className="kpi">
@@ -270,13 +298,26 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
             </option>
           ))}
         </select>
-        {q || filtroCategoria || filtroCitta ? (
+        {/* ⚠️ Lo stato si SCEGLIE, e si vede: «solo attivi» è la vista di
+            lavoro, «tutti» serve a trovare chi abbiamo censito e non ancora
+            attivato (prospect) — gli stessi che la scheda dell'ordine propone. */}
+        <select
+          value={statoRegistro}
+          onChange={(e) => setStatoRegistro(e.target.value === 'tutti' ? 'tutti' : 'attivo')}
+          aria-label="Stato nel registro"
+          title="Solo i partner attivi, oppure tutti gli stati del registro (prospect compresi)"
+        >
+          <option value="attivo">Solo partner attivi</option>
+          <option value="tutti">Tutti gli stati (anche prospect)</option>
+        </select>
+        {q || filtroCategoria || filtroCitta || statoRegistro === 'tutti' ? (
           <button
             className="btn btn-secondario"
             onClick={() => {
               setQ('')
               setFiltroCategoria('')
               setFiltroCitta('')
+              setStatoRegistro('attivo')
             }}
           >
             Azzera
@@ -291,8 +332,19 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
           {errore
             ? 'Nessun elenco da mostrare.'
             : q || filtroCategoria || filtroCitta
-              ? 'Nessun partner attivo con questi filtri.'
+              ? statoRegistro === 'tutti'
+                ? 'Nessuno nel registro con questi filtri, in nessuno stato.'
+                : 'Nessun partner attivo con questi filtri.'
               : 'Nessun partner attivo nel registro.'}
+          {/* ⚠️ Quello che c'è altrove si dice, col numero e col bottone. */}
+          {altriStati ? (
+            <div style={{ marginTop: 8 }}>
+              Fra prospect e altri stati del registro ce ne sono <strong>{altriStati}</strong>.{' '}
+              <button className="btn btn-secondario small" onClick={() => setStatoRegistro('tutti')}>
+                Mostra tutti gli stati
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="tabella-wrap">
@@ -333,7 +385,16 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
                     }}
                   >
                     <td>
-                      <div className="cella-nome">{p.nome}</div>
+                      <div className="cella-nome">
+                        {p.nome}
+                        {/* Lo stato si vede solo quando l'elenco mescola gli stati: un
+                            prospect fra gli attivi, senza etichetta, sembra un partner. */}
+                        {statoRegistro === 'tutti' && p.stato && p.stato !== 'attivo' ? (
+                          <span className="badge" style={{ marginLeft: 6 }}>
+                            {p.stato === 'prospect' ? 'prospect' : p.stato}
+                          </span>
+                        ) : null}
+                      </div>
                       {p.ragioneSociale && p.ragioneSociale !== p.nome ? (
                         <div className="cella-sub">{p.ragioneSociale}</div>
                       ) : null}

@@ -1,5 +1,23 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (31) — Partner & Fornitori: «cerco modena ed esce 0», mentre l'ordine ne mostra tre
+
+Segnalazione dell'utente. **Misurato sul registro**: `q=modena` fra i soli
+partner **attivi** → 0; fra **tutti gli stati** → 3, tutti **prospect** (I fiori
+di Valentina, L'Atelier di Helena Cake Artist, Naturalmente Piante e Fiori).
+La scheda dell'ordine (`fornitori-zona.ts`) chiede al registro TUTTI gli stati
+dal 27/08 (caso Borgomanero); la pagina Partner chiedeva solo `stato=attivo`,
+e a zero risultati taceva quello che c'era altrove.
+
+**Corretto**: `/api/partner` accetta `stato=tutti`; nella pagina una tendina
+«Solo partner attivi / Tutti gli stati (anche prospect)», di suo attivi; con
+zero risultati fra gli attivi (e un filtro attivo) si fa una seconda chiamata
+con tutti gli stati e si scrive «Fra prospect e altri stati ce ne sono N» col
+bottone «Mostra tutti gli stati»; nella vista «tutti» chi non è attivo porta il
+badge dello stato accanto al nome, e il KPI cambia etichetta. Typecheck ok.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (30) — Menu «Partner & Fornitori» e la vista «Tutti»
 
 Due richieste dell'utente: la voce del menu a sinistra si chiama **«Partner &
