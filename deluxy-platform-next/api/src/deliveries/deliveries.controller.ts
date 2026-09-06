@@ -16,6 +16,7 @@ import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import {
+  AllegaDdtDto,
   AssignValetDto,
   AzioneDiMassaDto,
   AzioneDiMassaImportoDto,
@@ -122,6 +123,17 @@ export class DeliveriesController {
   // PARTNER incluso per due motivi già filtrati nel service: può richiedere la
   // cancellazione, e — se la consegna è «da fornitore» ed è sua — la chiude
   // come un valet (in consegna / consegnata / non consegnata).
+  // ⭐ 06/09/2026 (regola utente): il valet che ha FATTO la consegna allega il DDT
+  // anche a consegna chiusa (ufficio e partner della consegna: idem). Nessun
+  // vincolo di stato: il documento arriva spesso dopo, e prima non c'era modo
+  // di aggiungerlo se non riaprendo la consegna.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET, Role.PARTNER)
+  @Post(':id/ddt')
+  @ApiOperation({ summary: 'Allega (o sostituisce) la foto del DDT, anche a consegna chiusa' })
+  allegaDdt(@Param('id') id: string, @Body() dto: AllegaDdtDto, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.allegaDdt(id, user, dto.ddtFile);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION, Role.VALET, Role.PARTNER)
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cambio stato (con log automatico)' })

@@ -2036,6 +2036,32 @@ export class DeliveriesService {
   }
 
   /**
+   * ⭐ 06/09/2026 (regola utente): «consenti al valet che ha fatto la consegna di
+   * aggiungere un DDT di allegato anche a consegna chiusa». Il VALET deve essere
+   * quello della consegna (non basta l'ambito da team leader); ufficio e partner
+   * passano dal filtro di ruolo. Nessun vincolo di stato. Il file va su Drive
+   * come alla chiusura e il registro dice chi l'ha messo e quando.
+   */
+  async allegaDdt(id: string, user: JwtUser, dataUrl: string) {
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { id, ...(await this.filtroRuolo(user)) },
+      select: { id: true, code: true, status: true, valetId: true, ddtFile: true },
+    });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    if (user.role === Role.VALET && (!user.valetId || delivery.valetId !== user.valetId)) {
+      throw new ForbiddenException('Il DDT lo allega solo il valet che ha fatto la consegna.');
+    }
+    const ddtFile = await this.allegatoSuDrive(`ddt-consegna-${delivery.code}.jpg`, dataUrl);
+    const aggiornata = await this.prisma.delivery.update({ where: { id: delivery.id }, data: { ddtFile }, select: { id: true, ddtFile: true } });
+    const chiusa = ['delivered', 'delivered_time_to_approve', 'approved', 'not_delivered', 'archived', 'cancelled'].includes(delivery.status);
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: delivery.id, type: 'note', userId: user.sub ?? null,
+        message: `DDT ${delivery.ddtFile ? 'sostituito' : 'allegato'}${chiusa ? ' a consegna chiusa' : ''} (${user.role === Role.VALET ? 'valet' : user.role === Role.PARTNER ? 'partner' : 'ufficio'})` },
+    });
+    return { ok: true, ddtFile: aggiornata.ddtFile };
+  }
+
+  /**
    * Un allegato in base64 → DRIVE (cartella «File App», 02/09 utente): torna
    * il link consultabile. Con Drive scollegato o in errore torna il base64
    * com'era: il percorso di sempre resta la rete di sicurezza.

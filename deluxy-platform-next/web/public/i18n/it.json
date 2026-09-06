@@ -2243,7 +2243,11 @@
       "ritirataDa": "Ritirata da",
       "valet": "Valet",
       "documenti": "Documenti",
-      "nessunDocumento": "nessun documento caricato"
+      "nessunDocumento": "nessun documento caricato",
+      "ddtAggiungi": "Aggiungi la foto del DDT",
+      "ddtSostituisci": "Sostituisci la foto del DDT",
+      "ddtInvio": "Invio del DDT in corso…",
+      "ddtErrore": "DDT non caricato: riprova."
     }
   },
   "confirmDelivery": {

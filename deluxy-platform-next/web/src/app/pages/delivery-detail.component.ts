@@ -633,6 +633,18 @@ interface DeliveryDetail {
               <dd>{{ documentiProva(d) || ('deliveryDetail.prova.nessunDocumento' | translate) }}</dd>
             </dl>
           }
+          <!-- ⭐ 06/09/2026 (regola utente): il valet che ha fatto la consegna (e l'ufficio, e il
+               partner) allega o sostituisce la foto del DDT ANCHE a consegna chiusa. -->
+          @if (puoAllegareDdt(d)) {
+            <div class="ddt-extra">
+              <label class="act ddt-carica" [class.disabled]="ddtInvio()">
+                {{ (d.ddtFile ? 'deliveryDetail.prova.ddtSostituisci' : 'deliveryDetail.prova.ddtAggiungi') | translate }}
+                <input type="file" accept="image/*" capture="environment" (change)="allegaDdt($event)" [disabled]="ddtInvio()" hidden />
+              </label>
+              @if (ddtInvio()) { <span class="muted piccolo">{{ 'deliveryDetail.prova.ddtInvio' | translate }}</span> }
+              @if (ddtErrore(); as e) { <div class="error-card">{{ e }}</div> }
+            </div>
+          }
           @if (!d.receipt && !d.receiverSign && !d.ddtFile) {
             <p class="muted">{{ 'deliveryDetail.noAttachments' | translate }}</p>
           } @else {
@@ -978,6 +990,8 @@ interface DeliveryDetail {
       .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
+      .ddt-extra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .ddt-extra .ddt-carica.disabled { opacity: .5; pointer-events: none; }
       .allegato { margin: 0; max-width: 220px; }
       .allegato img {
         width: 100%;
@@ -1486,20 +1500,50 @@ export class DeliveryDetailComponent {
   onDdt(ev: Event): void {
     const file = (ev.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const MAX = 1280;
-      const scala = Math.min(1, MAX / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scala);
-      canvas.height = Math.round(img.height * scala);
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      this.ddtFoto.set(canvas.toDataURL('image/jpeg', 0.8));
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => URL.revokeObjectURL(url);
-    img.src = url;
+    this.ridimensionaFoto(file).then((f) => this.ddtFoto.set(f)).catch(() => undefined);
+  }
+
+  /** Una foto → JPEG max 1280px lato lungo, come data URL (lo stesso ridimensionamento di sempre). */
+  private ridimensionaFoto(file: File): Promise<string> {
+    return new Promise((ok, ko) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 1280;
+        const scala = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scala);
+        canvas.height = Math.round(img.height * scala);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        ok(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('immagine non leggibile')); };
+      img.src = url;
+    });
+  }
+
+  /** ⭐ 06/09 (regola utente): DDT allegabile anche a consegna chiusa — dal valet CHE HA FATTO la consegna, dall'ufficio o dal partner. */
+  readonly ddtInvio = signal(false);
+  readonly ddtErrore = signal<string | null>(null);
+  puoAllegareDdt(d: { valet?: { id: string } | null }): boolean {
+    if (this.canManage() || this.isPartner()) return true;
+    const mio = this.auth.user()?.valetId;
+    return this.isValet() && !!mio && d.valet?.id === mio;
+  }
+  allegaDdt(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const d = this.delivery();
+    if (!file || !d) return;
+    this.ddtErrore.set(null);
+    this.ddtInvio.set(true);
+    this.ridimensionaFoto(file).then((foto) => {
+      this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ddt`, { ddtFile: foto }).subscribe({
+        next: () => { this.ddtInvio.set(false); input.value = ''; this.load(true); },
+        error: (e) => { this.ddtInvio.set(false); input.value = ''; this.ddtErrore.set(e?.error?.message ?? this.translate.instant('deliveryDetail.prova.ddtErrore')); },
+      });
+    }).catch(() => { this.ddtInvio.set(false); this.ddtErrore.set(this.translate.instant('deliveryDetail.prova.ddtErrore')); });
   }
 
   /** Il servizio si paga a ORE: allora la chiusura chiede gli orari. */

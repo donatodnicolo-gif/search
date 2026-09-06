@@ -118,3 +118,12 @@ export class AzioneDiMassaImportoDto extends AzioneDiMassaDto {
   @IsNumber()
   importo: number;
 }
+
+/** ⭐ 06/09/2026 (regola utente): il DDT si allega anche a consegna chiusa. Solo immagini, come alla chiusura. */
+export class AllegaDdtDto {
+  @ApiProperty({ description: 'Foto del DDT come data URL (image/*)' })
+  @IsString()
+  @Matches(/^data:image\//)
+  @MaxLength(1_100_000)
+  ddtFile: string;
+}

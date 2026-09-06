@@ -2241,7 +2241,11 @@
       "ritirataDa": "Received by",
       "valet": "Valet",
       "documenti": "Documents",
-      "nessunDocumento": "no document uploaded"
+      "nessunDocumento": "no document uploaded",
+      "ddtAggiungi": "Add the delivery note photo",
+      "ddtSostituisci": "Replace the delivery note photo",
+      "ddtInvio": "Uploading the delivery note…",
+      "ddtErrore": "Delivery note not uploaded: try again."
     }
   },
   "confirmDelivery": {
