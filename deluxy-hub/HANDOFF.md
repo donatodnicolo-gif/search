@@ -334,7 +334,22 @@ aggiorna la voce `BUDGETS_API_KEY` in `/chiavi` — le vecchie emesse mai usate
   ovunque. È [[trappola-periodi-fuso-server]] in versione «solo visualizzazione»;
   provato con `TZ=UTC` (09:08 → 11:08).
 
-### ⭐ Dal 06/09/2026 l'organico arriva da PERSONALE, non più da Budgets (in locale, NON pubblicato)
+### ⭐ Dal 06/09/2026 l'organico arriva da PERSONALE, non più da Budgets (PUSHATO, deploy da lanciare a mano)
+
+> **Stato al 06/09 ~09:05**: i tre commit del Hub sono su `origin/scout-ui`
+> (`53659d84`, `a82ecb1e`, `d1dca598`, portati sopra origin per cherry-pick da
+> un worktree temporaneo: la copia locale di scoutwt aveva 69 commit non
+> pushati di altre sessioni con conflitti sul registro del Manuale, non
+> ribasabili in un colpo). `vercel build --prod` in locale è riuscito, ma il
+> `deploy --prebuilt` è fallito su un link simbolico con le parentesi quadre
+> (`functions/cartellino/certificato/[id].func` → ENOENT) e sia la copia dei
+> link sia il ripiego `vercel deploy --prod` sono stati **bloccati dal
+> classificatore dei permessi**: il deploy lo lancia l'utente da
+> `scoutwt/deluxy-hub` con `npx vercel deploy --prod` (build su Vercel).
+> Dopo: incollare `PERSONALE_API_KEY` in /chiavi (progetto `personale`).
+> L'artifact del manuale (78d07a3e) **non esiste più** (come quello del
+> Manuale Deluxy): il file `docs/manuale-funzionalita.html` resta la fonte;
+> ripubblicarlo è una decisione da prendere (nuovo indirizzo).
 
 Regola dell'utente («le persone dell'hub dovrebbero arrivare da app
 personale»): la casa dell'organico è **deluxy-personale** (Standard §7), Budgets
