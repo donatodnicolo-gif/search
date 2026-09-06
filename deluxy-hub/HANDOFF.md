@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **30 agosto 2026**.
+> lavoro sul portale. Aggiornato: **6 settembre 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
@@ -333,6 +333,42 @@ aggiorna la voce `BUDGETS_API_KEY` in `/chiavi` — le vecchie emesse mai usate
   `timeZone: "Europe/Rome"` nei due `dataIt()` — il Cartellino invece lo aveva
   ovunque. È [[trappola-periodi-fuso-server]] in versione «solo visualizzazione»;
   provato con `TZ=UTC` (09:08 → 11:08).
+
+### ⭐ Dal 06/09/2026 l'organico arriva da PERSONALE, non più da Budgets (in locale, NON pubblicato)
+
+Regola dell'utente («le persone dell'hub dovrebbero arrivare da app
+personale»): la casa dell'organico è **deluxy-personale** (Standard §7), Budgets
+è il roster di pianificazione per anno di budget. Personale espone
+`GET /api/v1/team` **nello stesso formato** di Budgets (nato apposta per questo
+passaggio), quindi il cambio è stato un cambio di fonte, non di schermata.
+
+- **Codice**: [`src/lib/organico.ts`](src/lib/organico.ts) →
+  `organicoDaPersonale()`, chiave da cassaforte (progetti `personale` o
+  `deluxy-personale`, nome canonico **`PERSONALE_API_KEY`**, nome libero se il
+  progetto ha una voce sola) e ripiego `process.env.PERSONALE_API_KEY`; URL da
+  `APP_URL_PERSONALE` (default `https://deluxy-personale.vercel.app`). Componente
+  `src/app/utenti/OrganicoPersonale.tsx` (via `OrganicoBudgets.tsx`).
+- **Differenze dichiarate rispetto a Budgets**: niente anno, niente mesi in
+  forza (Personale espone solo gli **attivi**), niente colore di squadra (badge
+  neutro), in più l'**email** della persona e il part-time.
+- **Riconoscimento dell'account**: prima per **email** (Personale ↔ utente del
+  portale), poi per nome normalizzato come prima. «Crea account» passa
+  `?nome=&email=` e il form li precompila (`searchParams.email` nuovo). Nella
+  lista utenti la funzione accanto all'email segue la stessa chiave.
+- **Stipendi**: il Hub NON chiede `?compensi=1`; Personale non li dà di default.
+- 🔴 **Prerequisito in produzione**: in cassaforte non c'è ancora nessuna voce
+  del progetto `personale` (misurato il 06/09: 11 righe, nessuna Personale).
+  In Personale esiste già una chiave di sola lettura chiamata **`deluxy-hub`**
+  (attiva, ultimo uso 24/08) ma il valore non è recuperabile (a database solo
+  l'hash): va **rigenerata** con `npm run chiave -- deluxy-hub` nella cartella
+  `app/deluxy-personale` (stampa una volta sola) e incollata in
+  `/chiavi` → progetto `personale` → `PERSONALE_API_KEY`. Finché manca, la
+  sezione dice cosa manca e il resto di /utenti vive. La riga
+  `budgets / BUDGETS_API_KEY` in cassaforte non serve più al Hub (Finance la usa
+  ancora dalla sua): si può lasciare.
+- Documentato in README («Squadre e persone in /utenti»), manuale visivo
+  (cap. Utenti e «come le app si parlano») e nel Registro del Manuale Deluxy.
+  Artifact del manuale **da ripubblicare** al deploy.
 
 
 ## 5-quinquies. Revisione di layout e UX (27 agosto 2026)
@@ -796,10 +832,9 @@ npm run dev            # http://localhost:3050
   non prova a spedire.
 - ✅ ~~Nessun recupero password autonomo~~ — fatto il 30/08 (§5-octies): serve però la posta configurata, altrimenti il link non parte.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
-  Dal 24/08 la pagina mostra squadre e persone lette da Budgets con «Crea
-  account» precompilato (§5-quater); la chiave di Budgets **c'è** dalla stessa
-  mattina (incollata in cassaforte alle ~12:15, vedi §5-quater): la sezione è
-  viva anche in produzione.
+  Dal 06/09 la pagina mostra funzioni e persone lette da **Personale** con «Crea
+  account» precompilato di nome ed email (§5-quater, nota in fondo); 🔴 serve la
+  chiave `PERSONALE_API_KEY` in cassaforte (progetto `personale`), oggi assente.
 - **`deluxy-acquisti` non è nel catalogo**: l'app esiste nel repo (porta 3100) ma
   non ha una tessera in `apps.ts` né un `APP_URL_ACQUISTI`, quindi dal portale non
   si raggiunge. Da aggiungere quando avrà un URL pubblico.

@@ -84,7 +84,7 @@ connection string Supabase con `?schema=hub` in fondo.
 | `HUB_SESSION_SECRET` | firma il cookie di sessione. **Cambiarlo disconnette tutti.** Generalo con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `HUB_CHIAVI_SECRET` | **facoltativo.** cifra i valori della pagina `/chiavi` (AES-256-GCM, min 32 caratteri). Se assente si riusa `HUB_SESSION_SECRET`, così la cassaforte funziona senza configurare nulla. **Cambiarlo rende illeggibili le chiavi già salvate** |
 | `APP_URL_SEARCH` / `APP_URL_PARTNER` / `APP_URL_SCOUT` | dove puntano le icone |
-| `BUDGETS_API_KEY` | **facoltativa, solo ripiego.** chiave in **entrata** di Budgets: con questa `/utenti` legge squadre e persone da `GET /api/v1/team`. Il posto suo è la cassaforte `/chiavi` (progetto `deluxy-budgets`, va bene anche `budgets`), **che vince sull'ambiente** (scelta dell'utente, 24/08). Senza, la sezione spiega cosa manca |
+| `PERSONALE_API_KEY` | **facoltativa, solo ripiego.** chiave in **entrata** di Personale (sola lettura): con questa `/utenti` legge funzioni e persone da `GET /api/v1/team`. Il posto suo è la cassaforte `/chiavi` (progetto `personale`, va bene anche `deluxy-personale`), **che vince sull'ambiente** (scelta dell'utente, 24/08). Senza, la sezione spiega cosa manca. Fino al 06/09/2026 la sezione leggeva da Budgets (`BUDGETS_API_KEY`): quella chiave non serve più al Hub |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | primo admin creato dal seed (solo primo avvio) |
 
 `.env` è in `.gitignore`: i segreti non finiscono mai nel repo.
@@ -112,36 +112,44 @@ connection string Supabase con `?schema=hub` in fondo.
 | `/` | tutti | home con le icone delle app abilitate per l'utente |
 | `/login` | pubblica | email + password |
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
-| `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina; in mezzo, **squadre e persone lette da Budgets** con lo stato dell'account di ognuno |
+| `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina; in mezzo, **squadre e persone lette da Personale** con lo stato dell'account di ognuno |
 | `/chiavi` | solo admin | cassaforte dei segreti dei progetti: valori cifrati sul database, mascherati in lista, rivelabili uno alla volta |
 | `/stato` | solo admin | semaforo server + database di ogni app del catalogo |
 | `/cartellino` | tutti, **solo da computer** | il proprio cartellino: timbra, ore del mese, ferie/permessi/malattia, certificati |
 | `/cartellino/gestione` | solo admin, **solo da computer** | richieste da approvare, chi è in sede adesso, ore e assenze di tutti |
 
-### Squadre e persone in `/utenti` (da Budgets)
+### Squadre e persone in `/utenti` (da Personale — dal 06/09/2026)
 
-L'organico — squadre, responsabili, ruoli, persone — vive in **Budgets**, dove
-nasce col budget del personale. `/utenti` lo legge da `GET /api/v1/team`
+L'organico — funzioni, responsabili, ruoli, persone — vive in **Personale**,
+la casa dei dati HR. `/utenti` lo legge da `GET /api/v1/team`
 ([`src/lib/organico.ts`](src/lib/organico.ts)) e lo mostra fra il form «Nuovo
-utente» e la lista utenti, **senza tenersene una copia**: squadre e ruoli si
-correggono in Budgets, qui si creano solo gli accessi.
+utente» e la lista utenti, **senza tenersene una copia**: funzioni e ruoli si
+correggono in Personale, qui si creano solo gli accessi. (Fino al 06/09/2026
+la fonte era Budgets, il roster di pianificazione: la regola dell'utente è
+«le persone del Hub arrivano da Personale». Personale espone `/api/v1/team`
+nello stesso formato, nato apposta.)
 
-- Ogni persona è confrontata con gli utenti del portale **per nome normalizzato**
-  (minuscole, spazi compattati, accenti ignorati): se combacia si vede il badge
-  dell'account (attivo/disattivato) con l'email; se no, il bottone **«Crea
-  account»** porta al form con il nome già compilato.
-- Chi non è in forza tutto l'anno ha accanto i suoi mesi («fino a giu», «da
-  set»): un account per chi ha già finito non serve, e la pagina lo fa vedere.
-- La chiave si cerca prima nella cassaforte `/chiavi` (progetto `deluxy-budgets`
-  o `budgets`), poi nell'ambiente (`BUDGETS_API_KEY`) come ripiego: **quello che
-  l'admin scrive in /chiavi comanda** (scelta dell'utente, 24/08). La chiave si
-  ottiene da Budgets → Configurazione → Chiavi: dal 24/08 Budgets **emette
-  chiavi per app** (scope «lettura» basta al Hub, revocabili una a una), e in
-  parallelo resta valida la vecchia chiave condivisa, solo in lettura. Senza
-  chiave o con Budgets giù la sezione **spiega cosa manca** invece di sparire;
-  il resto della pagina funziona comunque (timeout 6 s).
-- Nella lista utenti, chi è riconosciuto nell'organico ha la sua squadra accanto
-  all'email.
+- Ogni persona è confrontata con gli utenti del portale **prima per email**
+  (quella che Personale conosce, la stessa con cui si entra nel portale), **poi
+  per nome normalizzato** (minuscole, spazi compattati, accenti ignorati): se
+  combacia si vede il badge dell'account (attivo/disattivato) con l'email; se
+  no, il bottone **«Crea account»** porta al form con nome ed email già
+  compilati.
+- Personale espone solo chi è **attivo** (i cessati non escono): chi ha finito
+  non compare, e non c'è più l'etichetta dei mesi in forza che aveva Budgets.
+  Il part-time si vede accanto al ruolo.
+- La chiave si cerca prima nella cassaforte `/chiavi` (progetto `personale`
+  o `deluxy-personale`, nome `PERSONALE_API_KEY`; con una voce sola nel progetto
+  vale anche un nome libero), poi nell'ambiente (`PERSONALE_API_KEY`) come
+  ripiego: **quello che l'admin scrive in /chiavi comanda** (scelta
+  dell'utente, 24/08). La chiave si ottiene da Personale → Chiavi delle app
+  (sola lettura basta; o `npm run chiave -- deluxy-hub` nella cartella di
+  Personale, che la stampa una volta sola). Senza chiave o con Personale giù la
+  sezione **spiega cosa manca** invece di sparire; il resto della pagina
+  funziona comunque (timeout 6 s). Gli stipendi non escono: il Hub non chiede
+  `?compensi=1`.
+- Nella lista utenti, chi è riconosciuto nell'organico ha la sua funzione
+  accanto all'email.
 
 ### Il Cartellino
 

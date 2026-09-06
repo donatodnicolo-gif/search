@@ -1,10 +1,10 @@
 import { creaUtente } from "@/lib/actions";
 import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
-import { nomeNormalizzato, organicoDaBudgets, type PersonaBudgets } from "@/lib/organico";
+import { emailNormalizzata, nomeNormalizzato, organicoDaPersonale, type PersonaOrganico } from "@/lib/organico";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
 import { richiediAdmin } from "@/lib/sessione-server";
-import { OrganicoBudgets } from "./OrganicoBudgets";
+import { OrganicoPersonale } from "./OrganicoPersonale";
 import { RigaUtente } from "./RigaUtente";
 import { ScelteApp } from "./ScelteApp";
 
@@ -34,7 +34,7 @@ function dataIt(d: Date | null) {
 export default async function UtentiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; errore?: string; nome?: string; q?: string }>;
+  searchParams: Promise<{ ok?: string; errore?: string; nome?: string; email?: string; q?: string }>;
 }) {
   const sessione = await richiediAdmin();
   const sp = await searchParams;
@@ -44,29 +44,44 @@ export default async function UtentiPage({
   // dati sì.
   const appElenco = catalogoApp().map((a) => ({ id: a.id, nome: a.nome }));
 
-  // L'organico arriva da Budgets in parallelo alla lista utenti: due fonti,
+  // L'organico arriva da Personale in parallelo alla lista utenti: due fonti,
   // nessuna delle due deve aspettare l'altra.
   const [utenti, organico] = await Promise.all([
     prisma.utente.findMany({ orderBy: [{ ruolo: "asc" }, { nome: "asc" }] }),
-    organicoDaBudgets(),
+    organicoDaPersonale(),
   ]);
 
-  // Chi dell'organico ha già un account? Si riconosce dal nome (normalizzato):
-  // l'email in Budgets non esiste, il nome è l'unica lingua comune.
+  // Chi dell'organico ha già un account? Prima dall'EMAIL, se Personale la
+  // conosce (è la stessa con cui si entra nel portale); poi dal nome
+  // normalizzato, per chi in Personale non ha ancora un'email.
+  const utentePerEmail = new Map<string, { email: string; attivo: boolean }>();
   const utentePerNome = new Map<string, { email: string; attivo: boolean }>();
-  for (const u of utenti)
+  for (const u of utenti) {
+    utentePerEmail.set(u.email.toLowerCase(), { email: u.email, attivo: u.attivo });
     utentePerNome.set(nomeNormalizzato(u.nome), { email: u.email, attivo: u.attivo });
-  const accountDi = (p: PersonaBudgets) => utentePerNome.get(nomeNormalizzato(p.nome)) ?? null;
+  }
+  const accountDi = (p: PersonaOrganico) => {
+    const email = emailNormalizzata(p.email);
+    return (email && utentePerEmail.get(email)) || utentePerNome.get(nomeNormalizzato(p.nome)) || null;
+  };
 
-  // E al contrario: la squadra di ogni utente, da mostrare nella lista.
+  // E al contrario: la funzione di ogni utente, da mostrare nella lista
+  // (stessa chiave: prima l'email, poi il nome).
+  const teamPerEmail = new Map<string, string>();
   const teamPerNome = new Map<string, string>();
   if (organico.stato === "ok") {
     for (const t of organico.team)
-      for (const p of t.persone) teamPerNome.set(nomeNormalizzato(p.nome), t.nome);
+      for (const p of t.persone) {
+        const email = emailNormalizzata(p.email);
+        if (email) teamPerEmail.set(email, t.nome);
+        teamPerNome.set(nomeNormalizzato(p.nome), t.nome);
+      }
   }
 
-  // Il nome può arrivare precompilato dal bottone "Crea account" dell'organico.
+  // Nome ed email possono arrivare precompilati dal bottone "Crea account"
+  // dell'organico: l'email è quella che Personale conosce.
   const nomePrecompilato = typeof sp.nome === "string" ? sp.nome : "";
+  const emailPrecompilata = typeof sp.email === "string" ? sp.email : "";
 
   // La ricerca (Libro v1.9 §8-bis): nome o email, insensibile alle maiuscole.
   // Si filtra QUI e non nella query: la lista intera serve comunque sopra, a
@@ -104,7 +119,7 @@ export default async function UtentiPage({
           </label>
           <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Email</span>
-            <input name="email" type="email" required placeholder="maria@deluxy.it" />
+            <input name="email" type="email" required placeholder="maria@deluxy.it" defaultValue={emailPrecompilata} />
           </label>
           <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Password (min 8)</span>
@@ -133,9 +148,9 @@ export default async function UtentiPage({
 
       <div className="section-label">
         Squadre e persone
-        {organico.stato === "ok" ? ` — organico ${organico.anno} da Budgets` : " — da Budgets"}
+        {" — da Personale"}
       </div>
-      <OrganicoBudgets organico={organico} accountDi={accountDi} />
+      <OrganicoPersonale organico={organico} accountDi={accountDi} />
 
       <div className="section-label">
         {q ? `${visibili.length} di ${utenti.length} utenti` : `${utenti.length} utenti`}
@@ -186,7 +201,7 @@ export default async function UtentiPage({
                   attivo: u.attivo,
                   appAbilitate: u.appAbilitate,
                 }}
-                team={teamPerNome.get(nomeNormalizzato(u.nome)) ?? null}
+                team={teamPerEmail.get(u.email.toLowerCase()) ?? teamPerNome.get(nomeNormalizzato(u.nome)) ?? null}
                 appElenco={appElenco}
                 appAbilitateTesto={
                   u.ruolo === "admin"
