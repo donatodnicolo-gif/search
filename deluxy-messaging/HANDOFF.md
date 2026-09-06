@@ -1,5 +1,26 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (39) — IN PRODUZIONE (secondo giro, col «fai commit e deploy» dell'utente)
+
+**Piattaforma**: `dpl_A28v9NzDxBiFyBkvyme7r7aPzaom` (`delivery-33kiq30md`,
+11:46), dal ramo `canale-app-0609` a `a3ee7c62` (= produzione delle 09:19 +
+i default del canale app), build precompilata, dominio verificato con
+`inspect`, `GET /api/v1/app/prodotti` → 401. ⚠️⚠️ La linea dell'altra
+sessione (`platform-0409`, worktree `deploy-delivery`) è arrivata a
+`2b9b74ca` (11:29) con 6 commit NON in produzione (statistiche, puntualità,
+DDT del valet…): **quando pubblicherà, deve prima portarsi dentro
+`canale-app-0609`** (`00b693bf`, `18eeba17`), o il canale app torna a dare
+500 e i default spariscono.
+
+**Customer Service**: 11 commit (`f60cd93c..cf21a203`, riportati per
+cherry-pick su `origin/scout-ui` fino a `405f0195`, nessun conflitto),
+deploy con build su Vercel (il prebuilt resta rotto sui symlink), dominio
+verificato con `inspect`. In produzione: WhatsApp con i prefissi, menu
+«Partner & Fornitori» con «Tutti», ricerca fra i prospect, tendina delle
+città, «Vendita Deluxy» di suo, prezzo dai pagamenti, prodotto scelto dallo
+SKU (e il padre con un pagamento), «Manda in app» in testata, ritiro un'ora
+prima e brand del DDT.
+
 ## 06/09/2026 (38) — La consegna creata dal CS: ritiro, indirizzo di ritiro, «da fornitore», brand DDT
 
 Segnalazione dell'utente sulla consegna #101065 (creata dal CS per #2875, partner
