@@ -981,6 +981,9 @@ model ProductReconciliation {
   id              String    @id @default(cuid())
   productId       String
   product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// ⭐ 06/09/2026 (regola utente): la regola vale «solo se la variante è la stessa» — null = prodotto senza variante.
+  productVariantId String?
+  variant         ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   provinceId      String
   partnerId       String
   /// ⭐ 04/09/2026 (regola utente): «l'associazione è per prezzo dato al
@@ -1005,11 +1008,12 @@ model ProductReconciliation {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  @@unique([productId, provinceId])
+  @@unique([productId, provinceId, productVariantId])
   @@index([status, updatedAt])
 }
 
 model ProductVariant {
+  reconciliations ProductReconciliation[]
   /// id nel database originario MySQL
   legacyId     Int?    @unique
   id           String  @id @default(cuid())

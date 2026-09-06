@@ -691,7 +691,7 @@ export class OrdersSyncService {
           }
         }
       }
-      else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!))) {
+      else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!, prodotti.get(sku)!.variantId))) {
         // FILTRO «solo unici o province con partner» (regola dell'utente): se
         // non è un prodotto unico e in questa provincia non abbiamo nessun
         // partner per la sua categoria, la vendita NON si crea — resta

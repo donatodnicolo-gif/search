@@ -156,7 +156,7 @@ export class RiconciliazioniService {
         product: { type: 'NON_UNICO' },
       },
       select: {
-        id: true, productId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
+        id: true, productId: true, productVariantId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
         createdAt: true, externalOrderNumber: true, deliveryId: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -186,11 +186,14 @@ export class RiconciliazioniService {
       return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false };
     };
 
-    type Gruppo = { productId: string; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
+    // ⭐ 06/09/2026 (regola utente): la coppia diventa TERNA (prodotto, VARIANTE, provincia): la
+    // regola vale «solo se la variante è la stessa». Prodotto senza variante = variante null.
+    type Gruppo = { productId: string; productVariantId: string | null; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
     const gruppi = new Map<string, Gruppo>();
+    const chiaveDi = (productId: string, provinceId: string, variantId: string | null) => `${productId}|${provinceId}|${variantId ?? ''}`;
     for (const v of vendite) {
-      const chiave = `${v.productId}|${v.provinceId}`;
-      const g = gruppi.get(chiave) ?? { productId: v.productId!, provinceId: v.provinceId, perPartner: new Map(), ultima: v };
+      const chiave = chiaveDi(v.productId!, v.provinceId, v.productVariantId ?? null);
+      const g = gruppi.get(chiave) ?? { productId: v.productId!, productVariantId: v.productVariantId ?? null, provinceId: v.provinceId, perPartner: new Map(), ultima: v };
       g.perPartner.set(v.partnerId!, [...(g.perPartner.get(v.partnerId!) ?? []), v]);
       if (v.createdAt >= g.ultima.createdAt) g.ultima = v;
       gruppi.set(chiave, g);
@@ -201,9 +204,9 @@ export class RiconciliazioniService {
 
     const esistenti = await this.prisma.productReconciliation.findMany({
       where: { productId: { in: [...new Set([...gruppi.values()].map((g) => g.productId))] } },
-      select: { id: true, productId: true, provinceId: true, status: true },
+      select: { id: true, productId: true, productVariantId: true, provinceId: true, status: true },
     });
-    const esistente = new Map(esistenti.map((e) => [`${e.productId}|${e.provinceId}`, e]));
+    const esistente = new Map(esistenti.map((e) => [chiaveDi(e.productId, e.provinceId, e.productVariantId ?? null), e]));
 
     const partnerIds = new Set<string>();
     for (const g of gruppi.values()) for (const id of g.perPartner.keys()) partnerIds.add(id);
@@ -268,7 +271,7 @@ export class RiconciliazioniService {
         toccate.push(gia.id);
       } else {
         const r = await this.prisma.productReconciliation.create({
-          data: { productId: g.productId, provinceId: g.provinceId, status: 'proposta', ...dati },
+          data: { productId: g.productId, productVariantId: g.productVariantId, provinceId: g.provinceId, status: 'proposta', ...dati },
           select: { id: true },
         });
         proposteNuove++;
@@ -295,7 +298,7 @@ export class RiconciliazioniService {
       },
       orderBy: [{ updatedAt: 'desc' }],
       take: filtro.limite ?? 500,
-      include: { product: { select: { name: true, sku: true, type: true, price: true, hasVariants: true } } },
+      include: { product: { select: { name: true, sku: true, type: true, price: true, hasVariants: true } }, variant: { select: { id: true, name: true, sku: true } } },
     });
     const partnerIds = new Set(righe.map((r) => r.partnerId));
     const provinceIds = new Set(righe.map((r) => r.provinceId));
@@ -325,6 +328,9 @@ export class RiconciliazioniService {
       tipoProdotto: r.product.type,
       prezzoListino: r.product.price,
       conVarianti: r.product.hasVariants,
+      productVariantId: r.productVariantId ?? null,
+      variante: r.variant?.name ?? null,
+      varianteSku: r.variant?.sku ?? null,
       provinceId: r.provinceId,
       provincia: prov.get(r.provinceId)?.name ?? null,
       provinciaCodice: prov.get(r.provinceId)?.code ?? null,
@@ -360,7 +366,7 @@ export class RiconciliazioniService {
   async daVendita(saleId: string, partnerId: string, user: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id: saleId },
-      select: { productId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
+      select: { productId: true, productVariantId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
     });
     if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
     const partner = await this.prisma.partner.findUnique({
@@ -372,14 +378,14 @@ export class RiconciliazioniService {
     if ((await this.esclusiIds()).includes(partnerId)) {
       throw new BadRequestException('Il partner è escluso dalle riconciliazioni.');
     }
-    const gia = await this.prisma.productReconciliation.findUnique({
-      where: { productId_provinceId: { productId: vendita.productId, provinceId: vendita.provinceId } },
+    const gia = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
       select: { id: true, status: true },
     });
     if (gia && gia.status !== 'proposta') {
       throw new BadRequestException(
         gia.status === 'accettata'
-          ? 'Per questo prodotto in questa provincia esiste già una regola attiva: modificala in Riconciliazioni.'
+          ? 'Per questo prodotto (stessa variante) in questa provincia esiste già una regola attiva: modificala in Riconciliazioni.'
           : 'Questa coppia era stata rifiutata: riaprila dalla pagina Riconciliazioni.',
       );
     }
@@ -400,7 +406,7 @@ export class RiconciliazioniService {
     const riga = gia
       ? await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: dati, select: { id: true } })
       : await this.prisma.productReconciliation.create({
-          data: { productId: vendita.productId, provinceId: vendita.provinceId, ...dati },
+          data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, ...dati },
           select: { id: true },
         });
     void user;

@@ -39,6 +39,9 @@ interface Riga {
   tipoProdotto: string;
   prezzoListino: number;
   conVarianti: boolean;
+  /** ⭐ 06/09: la regola vale per QUESTA variante (null = prodotto senza variante). */
+  variante?: string | null;
+  varianteSku?: string | null;
   provinceId: string;
   provincia: string | null;
   provinciaCodice: string | null;
@@ -196,7 +199,8 @@ interface UltimaCorsa {
               <tr>
                 <td>
                   <a [routerLink]="['/products', r.productId]"><b>{{ r.prodotto }}</b></a>
-                  @if (r.sku) { <div class="muted mono">{{ r.sku }}</div> }
+                  @if (r.variante) { <div class="variante">{{ r.variante }}</div> }
+                  @if (r.varianteSku || r.sku) { <div class="muted mono">{{ r.varianteSku || r.sku }}</div> }
                   <div class="muted">{{ 'reconciliations.listPrice' | translate: { prezzo: fmt(r.prezzoListino) } }}@if (r.ultimoOrdine) { · #{{ r.ultimoOrdine }} }</div>
                 </td>
                 <td><b>{{ r.provinciaCodice }}</b> <span class="muted">{{ r.provincia }}</span></td>
@@ -271,6 +275,7 @@ interface UltimaCorsa {
     }
   `,
   styles: [
+    `.variante { font-size: 12.5px; color: var(--ink-2, #3a3a3c); }`,
     `
       th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
       th.sortable:hover { color: var(--text-primary); }

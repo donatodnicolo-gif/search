@@ -34,6 +34,8 @@ interface FinestraConsegna {
   prezzoPartnerListino?: number | null;
   /** Indirizzo del destinatario: serve al raggio massimo dei partner che consegnano da soli. */
   indirizzo?: string | null;
+  /** ⭐ 06/09 (regola utente): la variante ordinata — la riconciliazione vale solo se è la stessa. */
+  variantId?: string | null;
   giorno: Date;
   /** «08:00», dalla fascia dell'ordine. Assente = non si sa l'ora. */
   dalle?: string;
@@ -445,6 +447,7 @@ export class SalesService {
         ?? (product.categoryId ? (await this.prisma.categoryDiscount.findUnique({ where: { categoryId_provinceId: { categoryId: product.categoryId, provinceId: body.provinceId } }, select: { discountPercent: true } }))?.discountPercent : null) ?? 0,
       prezzoPartnerListino: product.type === ProductType.UNICO ? (variante?.price ?? product.price ?? null) : null,
       indirizzo: body.recipientAddress ?? null,
+      variantId: variante?.id ?? null,
     };
     // ⭐ 06/09/2026 (regola utente, caso #12889 «Elegant Cake» finito a Clivati):
     // «applica questo concetto per ora solo ai fiori, per le torte lascia la
@@ -1667,6 +1670,7 @@ export class SalesService {
         giorno: v.deliveryDate ?? new Date(),
         dalle: f.dalle,
         alle: f.alle,
+        variantId: (v as any).productVariantId ?? null,
       };
       const scelto = await this.scegliPartner(v.product as ProdottoDaSmistare, v.provinceId, finestra, []);
       if (!scelto) { riga.saltata = 'nessun partner disponibile nemmeno ora'; esito.push(riga); continue; }
@@ -1718,26 +1722,25 @@ export class SalesService {
    * ⚠️ NON guarda gli orari (aperto/chiuso ADESSO): «avere un partner» è un
    * fatto della rete, non del momento. Un partner che esiste ma è chiuso ora
    * prende la vendita quando riapre — qui basta che ESISTA, sia attivo e OPERI
-   * nella provincia. Per l'UNICO basta il PROPRIETARIO attivo, a prescindere
-   * dalla provincia: quel prodotto lo fa solo lui.
+   * nella provincia. ⭐ 06/09/2026 (regola utente): vale ANCHE per l'UNICO —
+   * il proprietario deve coprire la provincia (chi consegna ovunque ha l'area
+   * «Tutto il mondo»); prima bastava che fosse attivo.
    */
-  async esisteCandidato(product: ProdottoDaSmistare, provinceId: string): Promise<boolean> {
-    const lista = await this.candidati(product, provinceId);
+  async esisteCandidato(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null): Promise<boolean> {
+    const lista = await this.candidati(product, provinceId, variantId);
     if (!lista.length) return false;
-    const soloUnico = product.type === ProductType.UNICO;
     const n = await this.prisma.partner.count({
       where: {
         id: { in: lista.map((c) => c.partnerId) },
         active: true,
-        // NON_UNICO: deve operare nella provincia. UNICO: basta che sia attivo.
-        ...(soloUnico ? {} : { provinces: { some: { provinceId } } }),
+        provinces: { some: { provinceId } },
       },
     });
     return n > 0;
   }
 
   /** Chi puo' prendere questa vendita, nell'ordine giusto. */
-  private async candidati(product: ProdottoDaSmistare, provinceId: string): Promise<Candidato[]> {
+  private async candidati(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null): Promise<Candidato[]> {
     if (product.type === ProductType.UNICO) {
       const lista: Candidato[] = product.partnerId
         ? [{ partnerId: product.partnerId, motivo: 'proprietario del prodotto unico' }]
@@ -1760,8 +1763,10 @@ export class SalesService {
     // ⭐ 04/09 (regola utente): la RICONCILIAZIONE accettata per (prodotto,
     // provincia) vince su lista di priorita' e ripiego: quel prodotto, li', va
     // SOLO a quel partner, a quel prezzo. Nasce in Prodotti → Riconciliazioni.
+    // ⭐ 06/09 (regola utente): «solo se la variante è la stessa, la riconciliazione approvata,
+    // provincia inclusa e partner aperto» — provincia e apertura le controlla scegliPartner.
     const regola = await this.prisma.productReconciliation.findFirst({
-      where: { productId: product.id, provinceId, status: 'accettata' },
+      where: { productId: product.id, provinceId, status: 'accettata', productVariantId: variantId ?? null },
       select: { partnerId: true, partnerPrice: true, price: true, discountPercent: true },
     });
     if (regola) {
@@ -1870,7 +1875,7 @@ export class SalesService {
     finestra: FinestraConsegna,
     escludi: string[],
   ): Promise<Candidato | null> {
-    const lista = (await this.candidati(product, provinceId)).filter(
+    const lista = (await this.candidati(product, provinceId, finestra.variantId ?? null)).filter(
       (c) => !escludi.includes(c.partnerId),
     );
     if (!lista.length) return null;
