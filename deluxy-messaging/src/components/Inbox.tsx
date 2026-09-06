@@ -1111,9 +1111,18 @@ export function Inbox({
   // stanno i clienti che rischiano di non ricevere risposta da nessuno, che è il
   // guaio opposto a quello delle risposte doppie.
   const [filtroPresa, setFiltroPresa] = useState<'tutte' | 'mie' | 'libere'>('tutte')
+  /**
+   * «Solo non lette» (utente, 06/09/2026: «filtrare rapidamente in inbox le
+   * conversazioni non lette»). È un interruttore a parte, non una quarta
+   * linguetta: si combina con Mie/Libere («le mie non lette») invece di
+   * escluderle. Conta i messaggi arrivati e non ancora aperti (`nonLetti`),
+   * non «Da leggere», che è il segnalibro messo a mano.
+   */
+  const [soloNonLette, setSoloNonLette] = useState(false)
 
   const visibili = useMemo(() => {
     let righe = conversazioni
+    if (soloNonLette) righe = righe.filter((c) => c.nonLetti > 0)
     if (soloOrdini) {
       righe = righe.filter(
         (c) =>
@@ -1126,7 +1135,8 @@ export function Inbox({
     if (filtroPresa === 'libere') righe = righe.filter((c) => !c.presaDaId)
     return righe
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversazioni, soloOrdini, filtroPresa, ioId])
+  }, [conversazioni, soloOrdini, filtroPresa, ioId, soloNonLette])
+  const quanteNonLette = useMemo(() => conversazioni.filter((c) => c.nonLetti > 0).length, [conversazioni])
 
   // I numeri sulle linguette: «Libere 7» dice se vale la pena guardarci prima
   // ancora di cliccare. Si contano sull'elenco intero, non su quello filtrato.
@@ -2053,6 +2063,16 @@ export function Inbox({
               Libere{quanteLibere ? ` ${quanteLibere}` : ''}
             </button>
           </span>
+          {/* «Non lette»: solo le conversazioni con messaggi arrivati e non
+              ancora aperti. Interruttore, si somma alle linguette. */}
+          <button
+            className={`bottone ${soloNonLette ? '' : 'secondario '}mini`}
+            onClick={() => setSoloNonLette((v) => !v)}
+            aria-pressed={soloNonLette}
+            title={soloNonLette ? 'Torna a tutte le conversazioni' : 'Solo le conversazioni con messaggi non letti'}
+          >
+            Non lette{quanteNonLette ? ` ${quanteNonLette}` : ''}
+          </button>
           {/* «Solo ordini»: mostra le conversazioni che parlano di un ordine e le
               chat delle persone. Non è un antispam — non indovina se una mail è
               pubblicità — ma è quello che serve per lavorare. */}
