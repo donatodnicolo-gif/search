@@ -1929,7 +1929,10 @@ export class DeliveriesListComponent {
     if (v === 'attive' || v === 'storico' || v === 'tutte') this.vista = v;
     // Arrivando dalla scheda di un partner senza vista dichiarata si guarda
     // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
-    else if (qPartner || this.isPartnerRuolo()) this.vista = 'tutte';
+    // ⭐ 06/09/2026 (regola utente): il PARTNER all'apertura vede le sue consegne
+    // IN LAVORAZIONE, senza filtro di data (prima: «tutte», storico compreso).
+    else if (this.isPartnerRuolo()) this.vista = 'attive';
+    else if (qPartner) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
     // La tipologia di servizio torna col tasto indietro come gli altri filtri.
     this.modello.set(p.get('pricingModel') ?? '');
