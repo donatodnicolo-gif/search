@@ -47,6 +47,13 @@ chiuso ha funzionato**: ad agosto i servizi della piattaforma valevano 11.251 �
 mese chiuso quella riga è sparita e al suo posto ci sono le **9 fatture «Consegne» di Finance,
 9.972 €**, dentro B2B (10.087 € con le affiliazioni) — agosto chiude a **EBITDA +2.279 €**.
 
+🔴 **PUBBLICAZIONE DA FARE A MANO**: `vercel pull` e `vercel build --prod` sono passati (output in
+`.vercel/output`, commit `84cc0bbf`), ma `vercel deploy --prebuilt --prod` è stato **bloccato dal
+classificatore** dell'assistente — come già `git push` e il comando di `APP_SECRET` il 27/08. Da
+lanciare dalla cartella dell'app: `npx vercel deploy --prebuilt --prod --yes`, poi
+`npx vercel inspect https://deluxy-budgets.vercel.app` deve mostrare il deploy appena fatto.
+⚠️ Se nel frattempo si tocca il codice, rifare prima `npx vercel build --prod`.
+
 📌 Fotografia del 06/09 (locale, dopo le correzioni): Ago EBITDA +2.279 €; Lug–Set −7.651 € col
 settembre in corso; settembre al giorno 6: venduto 15.128 €, ricavi 8.691 € (di cui 2.616 € di
 servizi in corso, 153 servizi), personale 20.686 €. Restano aperti: la Edge `ordini-mese` di
