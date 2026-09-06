@@ -34,7 +34,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
-import { Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -200,28 +200,74 @@ export class DeliveryRulesService {
       : undefined;
   }
 
-  async create(dto: CreateDeliveryRuleDto) {
+  /**
+   * ⭐ 06/09/2026 (regola utente «crea registro»): ogni creazione, modifica e
+   * cancellazione di una regola lascia una riga con CHI, QUANDO e COSA è cambiato.
+   * Best-effort: una riga che non si scrive non ferma la regola.
+   */
+  private async registra(regola: { id: string; name: string }, type: 'creata' | 'modificata' | 'eliminata', user: JwtUser | undefined, message: string, before?: unknown, after?: unknown) {
+    try {
+      await this.prisma.deliveryRuleLog.create({ data: {
+        deliveryRuleId: regola.id, type, userId: user?.sub ?? null, userEmail: user?.email ?? null, message,
+        before: before === undefined ? null : JSON.stringify(before), after: after === undefined ? null : JSON.stringify(after),
+      } });
+    } catch (e) { console.error('registro regole: riga non scritta', (e as Error).message); }
+  }
+
+  /** La fotografia leggibile di una regola, per il registro (solo i campi che contano). */
+  private foto(r: any) {
+    return {
+      name: r.name, dailyRule: r.dailyRule, dailyCount: r.dailyCount, totalRule: r.totalRule, totalCount: r.totalCount,
+      periodStart: r.periodStart ? new Date(r.periodStart).toISOString().slice(0, 10) : null, periodEnd: r.periodEnd ? new Date(r.periodEnd).toISOString().slice(0, 10) : null,
+      timeFrom: r.timeFrom ?? null, timeTo: r.timeTo ?? null, kmDistance: r.kmDistance ?? null, days: r.days ?? null,
+      serviceType: r.serviceType?.name ?? null, partnerBillingAdjustment: r.partnerBillingAdjustment, valetPayAdjustment: r.valetPayAdjustment,
+      toBill: r.toBill, toPay: r.toPay, active: r.active,
+      partners: (r.partners ?? []).map((p: any) => p.partner?.insegna ?? p.partnerId).sort(),
+    };
+  }
+
+  private static readonly ETICHETTE: Record<string, string> = {
+    name: 'nome', dailyRule: 'regola giornaliera', dailyCount: 'consegne al giorno', totalRule: 'carnet totale', totalCount: 'consegne totali',
+    periodStart: 'inizio', periodEnd: 'fine', timeFrom: 'dalle', timeTo: 'alle', kmDistance: 'km', days: 'giorni', serviceType: 'servizio',
+    partnerBillingAdjustment: 'plus/minus partner', valetPayAdjustment: 'plus/minus valet', toBill: 'da fatturare', toPay: 'da pagare', active: 'attiva', partners: 'partner',
+  };
+
+  /** Il registro di una regola, dal più recente. */
+  registro(id: string) {
+    return this.prisma.deliveryRuleLog.findMany({ where: { deliveryRuleId: id }, orderBy: { createdAt: 'desc' } });
+  }
+
+  async create(dto: CreateDeliveryRuleDto, user?: JwtUser) {
     this.validate(dto, true);
-    return this.prisma.deliveryRule.create({
+    // ⭐ 06/09/2026 (domanda utente «creare regole dà un numero? es. Regola 40»): sì —
+    // la regola nuova prende il numero successivo all'ultimo (legacy o già numerato)
+    // e il nome diventa «Regola N · <nome scritto>», così si cita come le importate.
+    const tutte = await this.prisma.deliveryRule.findMany({ select: { legacyId: true, name: true } });
+    const ultimo = Math.max(0, ...tutte.map((r) => r.legacyId ?? Number((r.name.match(/^Regola\s+(\d+)/i) ?? [])[1] ?? 0)));
+    const nome = /^Regola\s+\d+/i.test(dto.name ?? '') ? dto.name : `Regola ${ultimo + 1}${dto.name?.trim() ? ' · ' + dto.name.trim() : ''}`;
+    const creata = await this.prisma.deliveryRule.create({
       data: {
         ...this.data(dto),
-        name: dto.name, // required in create (in data() e' widened a string|undefined)
+        name: nome,
         ...(dto.serviceTypeId ? { serviceType: { connect: { id: dto.serviceTypeId } } } : {}),
         partners: this.partnerCreate(dto.partnerIds),
       },
       include: RULE_INCLUDE,
     });
+    const f = this.foto(creata);
+    await this.registra(creata, 'creata', user, `Regola creata: ${f.name} · partner ${f.partners.join(', ') || '—'} · partner ${f.partnerBillingAdjustment} € · valet ${f.valetPayAdjustment} € · da fatturare ${f.toBill ? 'sì' : 'no'} · da pagare ${f.toPay ? 'sì' : 'no'}`, undefined, f);
+    return creata;
   }
 
-  async update(id: string, dto: UpdateDeliveryRuleDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateDeliveryRuleDto, user?: JwtUser) {
+    const prima = this.foto(await this.findOne(id));
     this.validate(dto, false);
     // Se arriva la lista partner, si riscrive per intero l'estensione.
     const rewritePartners = dto.partnerIds !== undefined;
     if (rewritePartners) {
       await this.prisma.deliveryRulePartner.deleteMany({ where: { deliveryRuleId: id } });
     }
-    return this.prisma.deliveryRule.update({
+    const aggiornata = await this.prisma.deliveryRule.update({
       where: { id },
       data: {
         ...pruneUndefined(this.data(dto)),
@@ -235,11 +281,19 @@ export class DeliveryRulesService {
       },
       include: RULE_INCLUDE,
     });
+    const dopo = this.foto(aggiornata);
+    const cambiati: Record<string, [unknown, unknown]> = {};
+    for (const k of Object.keys(dopo)) if (JSON.stringify((prima as any)[k]) !== JSON.stringify((dopo as any)[k])) cambiati[k] = [(prima as any)[k], (dopo as any)[k]];
+    const testo = Object.entries(cambiati).map(([k, [a, b]]) => `${DeliveryRulesService.ETICHETTE[k] ?? k}: ${fmt(a)} → ${fmt(b)}`).join(' · ');
+    await this.registra(aggiornata, 'modificata', user, testo ? `Regola modificata — ${testo}` : 'Regola salvata senza cambiamenti', Object.fromEntries(Object.entries(cambiati).map(([k, v]) => [k, v[0]])), Object.fromEntries(Object.entries(cambiati).map(([k, v]) => [k, v[1]])));
+    return aggiornata;
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, user?: JwtUser) {
+    const regola = await this.findOne(id);
+    const f = this.foto(regola);
     await this.prisma.deliveryRule.delete({ where: { id } });
+    await this.registra(regola, 'eliminata', user, `Regola eliminata: ${f.name} · partner ${f.partners.join(', ') || '—'}`, f, undefined);
     return { deleted: true };
   }
 
@@ -349,6 +403,14 @@ export class DeliveryRulesService {
 const NON_CONSUMING_STATUSES = ['cancelled', 'not_accepted', 'cancellation_requested'] as const;
 
 /** Rimuove le chiavi undefined per non azzerare per errore campi non inviati in update. */
+/** Un valore del registro in forma leggibile. */
+function fmt(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'sì' : 'no';
+  if (Array.isArray(v)) return v.join(', ') || '—';
+  return String(v);
+}
+
 function pruneUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   const out: Partial<T> = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -383,6 +445,12 @@ export class DeliveryRulesController {
     return this.service.regoleValet();
   }
 
+  @Get(':id/registro')
+  @ApiOperation({ summary: 'Registro della regola: chi ha fatto cosa e quando' })
+  registro(@Param('id') id: string) {
+    return this.service.registro(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio regola carnet' })
   findOne(@Param('id') id: string) {
@@ -391,20 +459,20 @@ export class DeliveryRulesController {
 
   @Post()
   @ApiOperation({ summary: 'Crea regola carnet' })
-  create(@Body() dto: CreateDeliveryRuleDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateDeliveryRuleDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Aggiorna regola carnet' })
-  update(@Param('id') id: string, @Body() dto: UpdateDeliveryRuleDto) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateDeliveryRuleDto, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Elimina regola carnet' })
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }
 

@@ -1186,6 +1186,7 @@
     "total": "Total",
     "newTitle": "New carnet rule",
     "editTitle": "Edit carnet rule",
+    "registro": { "titolo": "History", "vuoto": "No entries: the rule predates the history (6 Sep 2026) or comes from the old system.", "sistema": "system" },
     "col": {
       "name": "Name",
       "rule": "Rule",

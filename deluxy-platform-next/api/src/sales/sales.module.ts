@@ -83,6 +83,12 @@ export class SalesService {
    * ricevono campanella e push (stesso canale delle ore da approvare). Se la
    * notifica fallisce la vendita resta proposta: avvisare non è un prerequisito.
    */
+  /** Le categorie di FIORI: le uniche in cui un prodotto non unico si smista da solo (regola utente 06/09/2026). */
+  static categoriaFiori(nome: string | null | undefined): boolean {
+    const n = String(nome ?? '').toLowerCase();
+    return /fior|flor|rosa|rose|piant|ghirland|cappellier|terrarium|bouquet/.test(n);
+  }
+
   private async avvisaProposta(v: { id: string; partnerId?: string | null; externalOrderNumber?: string | null; amount?: number | null; product?: { name?: string | null } | null }): Promise<void> {
     if (!v.partnerId) return;
     try {
@@ -414,7 +420,19 @@ export class SalesService {
       dalle: fasciaOrdine.dalle,
       alle: fasciaOrdine.alle,
     };
-    const scelto = await this.scegliPartner(product, body.provinceId, finestra, []);
+    // ⭐ 06/09/2026 (regola utente, caso #12889 «Elegant Cake» finito a Clivati):
+    // «applica questo concetto per ora solo ai fiori, per le torte lascia la
+    // regola che proponi solo prodotti unici». Un prodotto NON UNICO si smista
+    // da solo (lista di priorità, partner unico, lista auto) SOLO se la sua
+    // categoria è di FIORI; per tutto il resto (torte, dolci, regali…) la
+    // vendita nasce DA GESTIRE e decide una persona. Gli UNICI restano com'erano.
+    // Il blocco sta PRIMA di scegliPartner: così non nasce nemmeno la lista
+    // di priorità automatica per una coppia che non deve smistarsi da sola.
+    const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true } }) : null;
+    const bloccoNonUnico = product.type !== ProductType.UNICO && !SalesService.categoriaFiori(categoria?.name)
+      ? `prodotto non unico fuori dai fiori (${categoria?.name ?? 'senza categoria'}): niente proposta automatica, si gestisce a mano`
+      : null;
+    const scelto = bloccoNonUnico ? null : await this.scegliPartner(product, body.provinceId, finestra, []);
     // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
     // Clivati): «non devi togliere la % per il prezzo partner, ma prendere il
     // prezzo partner per variante già presente per quel prodotto».
@@ -471,7 +489,7 @@ export class SalesService {
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: [scelto?.motivo ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
+        assignmentReason: [scelto?.motivo ?? bloccoNonUnico ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,

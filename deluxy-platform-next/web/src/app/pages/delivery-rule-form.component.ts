@@ -140,6 +140,17 @@ function emptyForm(): RuleForm {
 
         @if (formError()) { <div class="error-inline">{{ formError() }}</div> }
 
+        <!-- ⭐ 06/09/2026 (regola utente «crea registro»): chi ha creato/modificato la regola e quando. -->
+        @if (ruleId) {
+          <section class="registro">
+            <h3>{{ 'deliveryRules.registro.titolo' | translate }}</h3>
+            @if (registro().length === 0) { <p class="muted">{{ 'deliveryRules.registro.vuoto' | translate }}</p> }
+            @for (r of registro(); track r.id) {
+              <div class="voce"><span class="quando">{{ quando(r.createdAt) }}</span> <span class="chi">{{ r.userEmail || ('deliveryRules.registro.sistema' | translate) }}</span><br /><span class="cosa">{{ r.message }}</span></div>
+            }
+          </section>
+        }
+
         <footer class="modal-foot">
           <button type="button" class="btn btn-secondary" (click)="close()">{{ 'common.cancel' | translate }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ 'common.save' | translate }}</button>
@@ -148,6 +159,13 @@ function emptyForm(): RuleForm {
     </div>
   `,
   styles: [
+    `.registro { margin: 14px 0 4px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+     .registro h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+     .registro .voce { padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
+     .registro .quando { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+     .registro .chi { font-weight: 600; margin-left: 6px; }
+     .registro .cosa { color: var(--text-primary); }
+     .registro .muted { color: var(--text-secondary); font-size: 12.5px; }`,
     `
       .btn-icon { border: none; background: none; cursor: pointer; font-size: 15px; padding: 4px 7px; border-radius: var(--radius-s); color: var(--text-secondary); }
       .btn-icon:hover { background: var(--fill); color: var(--text); }
@@ -188,6 +206,9 @@ export class DeliveryRuleFormComponent implements OnInit {
   readonly partners = signal<PartnerLite[]>([]);
   readonly serviceTypes = signal<ServiceTypeLite[]>([]);
   readonly saving = signal(false);
+  /** Il registro della regola (solo in modifica). */
+  readonly registro = signal<{ id: string; createdAt: string; userEmail: string | null; message: string; type: string }[]>([]);
+  quando(iso: string): string { return new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   readonly formError = signal<string | null>(null);
   model: RuleForm = emptyForm();
 
@@ -196,6 +217,7 @@ export class DeliveryRuleFormComponent implements OnInit {
     this.http.get<ServiceTypeLite[]>(`${this.api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
 
     if (this.ruleId) {
+      this.http.get<any[]>(`${this.api}/delivery-rules/${this.ruleId}/registro`).subscribe({ next: (l) => this.registro.set(l ?? []), error: () => undefined });
       this.http.get<any>(`${this.api}/delivery-rules/${this.ruleId}`).subscribe((r) => {
         this.model = {
           name: r.name,

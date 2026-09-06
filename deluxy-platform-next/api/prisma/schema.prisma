@@ -2143,3 +2143,25 @@ model StockMovement {
   @@index([productId, createdAt])
   @@index([deliveryId])
 }
+
+/// ⭐ 06/09/2026 (regola utente «crea registro»): IL REGISTRO DELLE REGOLE CARNET —
+/// chi ha creato, modificato o eliminato una regola, quando, e che cosa è cambiato.
+/// Nessuna chiave esterna verso DeliveryRule: la regola si cancella davvero, il
+/// registro resta (è la sua ragione d'essere). Tabella creata con
+/// scripts/applica-migrazione-regole-registro.mjs.
+model DeliveryRuleLog {
+  id             String   @id @default(cuid())
+  deliveryRuleId String
+  /// creata | modificata | eliminata
+  type           String
+  userId         String?
+  /// chi (email al momento del fatto: l'utente può cambiare o sparire)
+  userEmail      String?
+  message        String
+  /// fotografia JSON della regola prima e dopo (per la modifica solo i campi cambiati)
+  before         String?
+  after          String?
+  createdAt      DateTime @default(now())
+
+  @@index([deliveryRuleId, createdAt])
+}

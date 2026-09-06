@@ -1188,6 +1188,7 @@
     "total": "Totali",
     "newTitle": "Nuova regola carnet",
     "editTitle": "Modifica regola carnet",
+    "registro": { "titolo": "Registro", "vuoto": "Nessuna riga: la regola è nata prima del registro (6/9/2026) o viene dal vecchio gestionale.", "sistema": "sistema" },
     "col": {
       "name": "Nome",
       "rule": "Regola",
