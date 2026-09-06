@@ -11,7 +11,17 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 - Produzione: **https://deluxy-personale.vercel.app** (Vercel, region `fra1`)
 - UI: Deluxy Design System v1.4 + Libro UX&UI v1.10 (sidebar da gestionale, token in `src/app/tokens.css`)
 
-## Dove siamo (29/08/2026)
+## Dove siamo (29/08/2026 — aggiornato 06/09/2026)
+
+- 🆕 **06/09/2026 — Budgets legge l'organico da qui** (decisione dell'utente: «personale e team
+  devono arrivare da app personale»). \`GET /api/v1/persone\` accetta **\`?storia=1\`**: con
+  \`compensi=1\` escono \`inquadramenti[]\` e \`compensi[]\` completi, decorrenze future comprese,
+  così Budgets sa da quale mese una persona costa. Il POST di proposta verso Budgets
+  (\`lib/budgets.ts\`) resta ma di là risponde «non serve più»: si può togliere. 🔴 **Da
+  pubblicare** (build locale ok, deploy da lanciare a mano). Da sistemare qui, perché Budgets lo
+  mostra: quattro persone senza funzione (Nicolò Donato, Eva, Luca Salso, Renato Cassoli —
+  responsabile di Operation ma non dentro), e due nomi che Budgets aveva e qui mancano (Emma
+  Gariboldi, Michela Avantaggiato).
 
 - ✅ App completa e in produzione: Persone (elenco + KPI), scheda persona
   (dati, mansioni, **mansionario personale**, storico inquadramenti, storico
@@ -299,8 +309,12 @@ resta solo lo SHA-256, il valore si vede una volta sola. CORS aperto su
 - `GET /api/health` — pubblico: `{ ok, app, database }` con `SELECT 1` vero.
 - `GET /api/v1/team[?compensi=1]` — funzioni come squadre + persone, stesso
   formato del `/api/v1/team` di Budgets (il Hub lo sa già leggere).
-- `GET /api/v1/persone[?stato=attivo|cessato|tutti][&compensi=1]` — schede
+- `GET /api/v1/persone[?stato=attivo|cessato|tutti][&compensi=1][&storia=1]` — schede
   complete, benefit compresi (il loro valore mensile solo con `compensi=1`).
+  Con `storia=1` (06/09/2026, per Budgets) escono anche `inquadramenti[]` e —
+  con `compensi=1` — `compensi[]`: tutte le variazioni con la loro decorrenza,
+  comprese quelle future, così chi fa un budget sa da quale mese una persona
+  costa, e quanto.
 - `GET /api/v1/funzioni` — funzioni → mansioni → attività, con chi le copre.
 - `GET /api/v1/organigramma` — albero dei riporti.
 

@@ -18,6 +18,13 @@ import {
 // Parametri:
 //   ?stato=attivo|cessato|tutti   default: attivo
 //   ?compensi=1                   aggiunge la retribuzione corrente
+//   ?storia=1                     aggiunge le STORIE: tutti gli inquadramenti
+//                                 (e, con compensi=1, tutti i compensi) con la
+//                                 loro decorrenza, comprese quelle FUTURE.
+//                                 Nasce il 06/09/2026 per Budgets, che deve
+//                                 sapere che a settembre arriva una persona
+//                                 che ad agosto non costa ancora: il solo
+//                                 «corrente» non glielo direbbe.
 //
 // Il netto in busta NON esce mai: è un dato dichiarato, personale.
 
@@ -30,6 +37,7 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const stato = p.get("stato") === "cessato" ? "cessato" : p.get("stato") === "tutti" ? null : "attivo";
   const conCompensi = p.get("compensi") === "1";
+  const conStoria = p.get("storia") === "1";
 
   const persone = await prisma.persona.findMany({
     where: stato ? { stato } : {},
@@ -97,6 +105,33 @@ export async function GET(req: NextRequest) {
             scadenza: inquadramento.scadenza?.toISOString().slice(0, 10) ?? null,
           }
         : null,
+      ...(conStoria
+        ? {
+            inquadramenti: [...x.inquadramenti]
+              .sort((a, b) => a.decorrenza.getTime() - b.decorrenza.getTime())
+              .map((i) => ({
+                decorrenza: i.decorrenza.toISOString().slice(0, 10),
+                scadenza: i.scadenza?.toISOString().slice(0, 10) ?? null,
+                tipoContratto: i.tipoContratto,
+                tipoContrattoNome: nomeTipoContratto(i.tipoContratto),
+                partTimePct: i.partTimePct,
+              })),
+            ...(conCompensi
+              ? {
+                  compensi: [...x.compensi]
+                    .sort((a, b) => a.decorrenza.getTime() - b.decorrenza.getTime())
+                    .map((c) => ({
+                      decorrenza: c.decorrenza.toISOString().slice(0, 10),
+                      natura: autonomo ? "compenso" : "ral",
+                      ral: Number(c.ral),
+                      mensilita: autonomo ? null : c.mensilita,
+                      contributiPct: c.contributiPct != null ? Number(c.contributiPct) : null,
+                      costoAzienda: costoAziendaAnnuo(c, { autonomo }),
+                    })),
+                }
+              : {}),
+          }
+        : {}),
       ...(conCompensi
         ? {
             compenso: compenso
