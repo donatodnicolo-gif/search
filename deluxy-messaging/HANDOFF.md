@@ -1,5 +1,34 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (24) — Chiamate: il «00» al posto del «+» non conta; gli spazi negli ordini sì
+
+Domanda dell'utente: «nella mail che arriva in chiamate il prefisso + è scritto
+come 00: assicurati che non impatti sul riconoscimento del cliente».
+
+**Non impatta.** La chiave è `cifreTelefono`: si tolgono tutti i non-cifra e si
+tengono le **ultime 9** — «00393398321681», «+393398321681» e «3398321681»
+danno la stessa chiave `398321681`. Verificato sulle 19 chiamate vere: 6
+riconoscibili per cifre, le stesse 6 con la ricerca di prima.
+
+**Impattava un'altra cosa**, misurata sugli ordini con telefono (1.344):
+1.046 con «+», 17 con «00», 236 nudi, **11 con gli SPAZI** («+39 350 846 2424»,
+«+44 7387 995801», «0438 833 603»). `riconosciChiamante` cercava l'ordine con
+`telefono contains <9 cifre>` sul TESTO: dentro un numero con gli spazi le 9
+cifre non ci sono, e quel cliente risultava «sconosciuto» quando chiamava. È
+la stessa trappola del 05/09 su «Unisci un altro ordine».
+
+**Corretto**: in `riconosciChiamante` l'ordine locale si cerca con
+`RIGHT(regexp_replace(telefono,'\D','','g'),9) = cifre` in `$queryRaw`; in
+`schedaCliente` gli ordini si aggiungono per cifre allo stesso modo (reclami,
+rimborsi e conversazioni restano col `contains`: lì i telefoni li scriviamo noi).
+Il ripiego sull'archivio di Orders confrontava già per cifre.
+
+Limite rimasto, dichiarato: `cifreTelefono` vuole **almeno 9 cifre**, quindi un
+fisso corto salvato senza prefisso («06845511», 2 ordini su 1.344) non si
+riconosce mai. Non toccato.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (23) — Chiamate: la riga si apre col click (Libro v1.6)
 
 Segnalazione dell'utente: «chiamate non rispetta la regola che al click apre

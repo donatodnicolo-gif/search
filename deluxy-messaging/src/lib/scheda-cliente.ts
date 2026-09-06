@@ -103,8 +103,23 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
     ],
   }
 
+  // ⚠️⚠️ GLI ORDINI ANCHE PER CIFRE, NEL DATABASE (06/09/2026): `contains` sul
+  // testo non trova le 9 cifre dentro «+39 350 846 2424» (11 ordini su 1.344
+  // hanno gli spazi), e quel cliente in scheda risultava senza quegli ordini.
+  // Si aggiungono gli id trovati confrontando le sole cifre; il `contains`
+  // resta per il resto (e per reclami, rimborsi e conversazioni, dove i
+  // telefoni li scriviamo noi).
+  const idPerCifre = tutteLeCifre.length
+    ? await db.$queryRaw<{ id: string }[]>`
+        SELECT id FROM messaging."Ordine"
+        WHERE RIGHT(regexp_replace(telefono, '\\D', '', 'g'), 9) = ANY(${tutteLeCifre}::text[])`
+    : []
+  const doveOrdini = idPerCifre.length
+    ? { OR: [...dove.OR, { id: { in: idPerCifre.map((r) => r.id) } }] }
+    : dove
+
   const [ordiniLocali, conversazioni, reclami, rimborsi] = await Promise.all([
-    db.ordine.findMany({ where: dove, orderBy: { data: 'desc' } }),
+    db.ordine.findMany({ where: doveOrdini, orderBy: { data: 'desc' } }),
     db.conversazione.findMany({
       where: {
         OR: [
