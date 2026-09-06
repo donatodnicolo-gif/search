@@ -1095,6 +1095,37 @@ export class AppApiService {
    * ⚠️ Gli ELIMINATI e i disattivati non escono: un partner che non riceve
    * consegne, in una tendina di scelta, e' solo un modo di sbagliare.
    */
+  /**
+   * ⭐ 06/09/2026 (regola utente): le PROVINCE ABILITATE = quelle con una lista di priorità che
+   * contiene almeno un partner attivo, coi partner in lista. Serve a Orders per la regola del
+   * territorio («con partner» / «senza partner»): non le province coperte per area, che con
+   * «Tutto il mondo» sarebbero tutte.
+   */
+  async provinceAbilitate() {
+    const liste = await this.prisma.priorityList.findMany({
+      select: {
+        province: { select: { code: true, name: true } },
+        mestiere: { select: { nome: true } },
+        category: { select: { name: true } },
+        entries: { orderBy: { position: 'asc' }, select: { partner: { select: { id: true, insegna: true, active: true, deleted: true } } } },
+      },
+    });
+    const perProvincia = new Map<string, { provincia: string; nome: string; partner: Map<string, { id: string; insegna: string; liste: Set<string> }> }>();
+    for (const l of liste) {
+      const g = perProvincia.get(l.province.code) ?? { provincia: l.province.code, nome: l.province.name, partner: new Map() };
+      for (const e of l.entries) {
+        if (!e.partner.active || e.partner.deleted) continue;
+        const p = g.partner.get(e.partner.id) ?? { id: e.partner.id, insegna: e.partner.insegna, liste: new Set<string>() };
+        p.liste.add(l.mestiere?.nome ?? l.category?.name ?? '');
+        g.partner.set(e.partner.id, p);
+      }
+      if (g.partner.size) perProvincia.set(l.province.code, g);
+    }
+    return [...perProvincia.values()]
+      .sort((a, b) => a.provincia.localeCompare(b.provincia))
+      .map((g) => ({ provincia: g.provincia, nome: g.nome, partner: [...g.partner.values()].map((p) => ({ id: p.id, insegna: p.insegna, liste: [...p.liste].filter(Boolean) })) }));
+  }
+
   async partner() {
     const righe = await this.prisma.partner.findMany({
       where: { active: true, deleted: false },
@@ -1354,6 +1385,13 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
   partner() {
     return this.service.partner();
+  }
+
+  @Get('province-abilitate')
+  @ApiOperation({ summary: 'Le province con una lista di priorità che ha almeno un partner attivo, coi partner in lista: la base della regola del territorio di Orders (con/senza partner)' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  provinceAbilitate() {
+    return this.service.provinceAbilitate();
   }
 
   @Get('prodotti')

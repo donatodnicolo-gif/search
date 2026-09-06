@@ -1024,7 +1024,11 @@ export class SalesService {
     // dal fatto che in provincia ci sia un nostro partner — e questo lo sa SOLO la
     // piattaforma (PartnerProvince): glielo si dice (`conPartner=1|0`), non si lascia
     // indovinare a Orders. Un partner attivo che copre la provincia basta.
-    const conPartner = (await this.prisma.partner.count({ where: { active: true, deleted: false, provinces: { some: { provinceId } } } })) > 0;
+    // ⭐ 06/09 sera (regola utente): «Orders non deve guardare le province dei partner ma la
+    // LISTA dei partner abilitati per provincia» — cioè le liste di priorità: una provincia è
+    // «con partner» se ha almeno una lista con un partner attivo dentro. Chi copre tutta Italia
+    // per area (Artista Locale, ECI…) non rende «con partner» una provincia dove non è in lista.
+    const conPartner = (await this.prisma.priorityList.count({ where: { provinceId, entries: { some: { partner: { active: true, deleted: false } } } } })) > 0;
     const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}`;
     const inCache = this.quotaCache.get(chiave);
     if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
