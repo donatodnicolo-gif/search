@@ -2244,6 +2244,7 @@ export function Inbox({
             <NuovoOrdine
               key={selezionata.id}
               compatto
+              conversazioneId={selezionata.id}
               prefill={{
                 negozioId: selezionata.negozioId ?? '',
                 nome: selezionata.nomeRubrica || selezionata.nome || '',

@@ -713,6 +713,32 @@ const SCHEMA_RIASSUNTO = {
 /** Caratteri di conversazione passati al modello per il riassunto (≈ 40k token). */
 const BUDGET_RIASSUNTO = 150_000
 
+/**
+ * La conversazione come la legge il modello: una riga per battuta, con data e
+ * chi parla, dalla più RECENTE all'indietro finché ci sta nel budget. Se non
+ * ci sta tutto lo si dice al modello, e `battute` lo dice a chi legge.
+ */
+function finestraChat(messaggi: { direzione: string; testo: string; creatoIl: Date }[]) {
+  const righe = messaggi.map(
+    (m) => `[${m.creatoIl.toLocaleString('it-IT')}] ${m.direzione === 'in' ? 'CLIENTE' : 'NOI'}: ${m.testo.slice(0, 1500)}`
+  )
+  let usati = 0
+  let da = righe.length
+  for (let i = righe.length - 1; i >= 0; i--) {
+    if (usati + righe[i].length + 1 > BUDGET_RIASSUNTO) break
+    usati += righe[i].length + 1
+    da = i
+  }
+  const battute = { usate: righe.length - da, totali: righe.length }
+  const testo =
+    (da > 0 ? `[… ${da} battute più vecchie omesse per spazio …]\n` : '') + righe.slice(da).join('\n')
+  return { testo, battute }
+}
+
+/** «vuoto», «n/d», «-»… scritti dal modello al posto della stringa vuota. */
+const SEGNAPOSTO_VUOTO = /^[\s«»"'.\-–—]*(vuoto|vuota|non indicat[oa]|non specificat[oa]|non dett[oa]|nessun[oa]?|n\/?[da]|nd|na|none|null|empty|unknown|not specified|-+)?[\s«»"'.\-–—]*$/i
+const senzaSegnaposto = (s: string | undefined | null) => (SEGNAPOSTO_VUOTO.test((s ?? '').trim()) ? '' : (s ?? '').trim())
+
 const ISTRUZIONI_RIASSUNTO = `Sei l'assistente di un servizio clienti. Ti do una conversazione con un cliente e devi ricavarne quello che serve per preparare l'ordine.
 
 REGOLE, in ordine di importanza:
@@ -723,6 +749,119 @@ REGOLE, in ordine di importanza:
 5. In «daChiedere» metti solo quello che manca DAVVERO per preparare l'ordine (per esempio: manca l'indirizzo, manca l'ora).
 6. Il LUOGO è qualsiasi indicazione su DOVE consegnare, anche parziale: un indirizzo completo (via, CAP, città, anche all'estero, come «Hejrevej 8, 2400 København NV, Denmark»), una città, una via, un hotel o un dormitorio («al dormitorio, non all'hotel»), un piano, una portineria, «a casa sua», «in ufficio». L'indirizzo il cliente lo scrive spesso UNA volta sola, anche molto prima nella conversazione: cercalo in tutta la conversazione, non solo nelle ultime battute. Se il cliente corregge un indirizzo, il luogo è quello corretto e la frase è quella della correzione. Lo stesso vale per il PRODOTTO: anche un colore, una quantità, una dedica chiesta a parole.
 Scrivi in italiano, anche se la conversazione è in un'altra lingua.`
+
+// ————— L'ordine precompilato da una chat —————
+//
+// «Riempi automaticamente grazie all'AI anche quando da una chat si clicca su
+// Nuovo ordine» (utente, 06/09/2026). Stesse regole del riassunto: ogni campo
+// esce SOLO con la frase da cui viene, niente frase niente campo; chi compila
+// vede cosa è stato riempito e da dove, e corregge.
+
+const CAMPO_CON_PROVA = (descr: string) => ({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    valore: { type: 'string', description: `${descr} Stringa vuota "" se il cliente non l'ha detto.` },
+    citazione: { type: 'string', description: 'La frase ESATTA della conversazione da cui viene. Stringa vuota "" se non c\'è.' },
+  },
+  required: ['valore', 'citazione'],
+})
+
+const SCHEMA_ORDINE_DA_CHAT = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    mittenteNome: CAMPO_CON_PROVA('Il NOME di chi ordina (chi scrive), se lo dice.'),
+    mittenteCognome: CAMPO_CON_PROVA('Il COGNOME di chi ordina, se lo dice.'),
+    mittenteTelefono: CAMPO_CON_PROVA('Il telefono di chi ordina, se lo scrive nel testo.'),
+    mittenteEmail: CAMPO_CON_PROVA('L\'email di chi ordina, se la scrive nel testo.'),
+    destinatarioNome: CAMPO_CON_PROVA('Il NOME di chi RICEVE il regalo, se è una persona diversa da chi ordina.'),
+    destinatarioCognome: CAMPO_CON_PROVA('Il COGNOME di chi riceve.'),
+    destinatarioTelefono: CAMPO_CON_PROVA('Il telefono di chi riceve.'),
+    via: CAMPO_CON_PROVA('La via e il numero civico della consegna, come scritti.'),
+    noteCivico: CAMPO_CON_PROVA('Piano, interno, scala, citofono, nome sul campanello, hotel/dormitorio/stanza.'),
+    cap: CAMPO_CON_PROVA('Il CAP della consegna.'),
+    citta: CAMPO_CON_PROVA('La città della consegna.'),
+    provincia: CAMPO_CON_PROVA('La provincia della consegna: per l\'Italia la SIGLA di due lettere (MI, TO, RM); altrimenti come scritta.'),
+    paese: CAMPO_CON_PROVA('Il paese della consegna come codice ISO di due lettere (IT, DK, FR). "IT" se è chiaramente in Italia.'),
+    dataISO: CAMPO_CON_PROVA('Il GIORNO di consegna in formato YYYY-MM-DD. Se il cliente dice «domani» o «sabato», calcolalo dalla data del messaggio in cui lo dice (è scritta fra parentesi quadre all\'inizio della riga). Vuoto se il giorno non è detto o è ambiguo.'),
+    fascia: CAMPO_CON_PROVA('L\'orario o la fascia oraria di consegna, come detta («08-12», «entro le 11», «pomeriggio»).'),
+    prodotto: CAMPO_CON_PROVA('Cosa vuole: prodotto, quantità, colori, personalizzazione, in una riga.'),
+    biglietto: CAMPO_CON_PROVA('Il testo del biglietto/dedica da mettere nel regalo, se il cliente l\'ha dettato.'),
+    noteConsegna: CAMPO_CON_PROVA('Istruzioni per chi consegna (orari in cui c\'è, «chiamare prima», portineria, «non all\'hotel ma al dormitorio»).'),
+  },
+  required: [
+    'mittenteNome', 'mittenteCognome', 'mittenteTelefono', 'mittenteEmail',
+    'destinatarioNome', 'destinatarioCognome', 'destinatarioTelefono',
+    'via', 'noteCivico', 'cap', 'citta', 'provincia', 'paese',
+    'dataISO', 'fascia', 'prodotto', 'biglietto', 'noteConsegna',
+  ],
+} as const
+
+const ISTRUZIONI_ORDINE_DA_CHAT = `Sei l'assistente di un servizio clienti di regali a domicilio (fiori, torte, doni). Ti do una conversazione con un cliente: devi ricavarne i dati per compilare un NUOVO ORDINE.
+
+REGOLE, in ordine di importanza:
+1. NON DEDURRE. Ogni campo lo riempi SOLO se è scritto nella conversazione. Se non c'è, il campo è la stringa vuota "" (NON scrivere «vuoto», «non indicato», «n/d»).
+2. Per ogni campo riempito riporta la FRASE ESATTA da cui viene, copiata. Senza frase, il campo resta vuoto.
+3. L'INDIRIZZO il cliente lo scrive spesso una volta sola, anche molto prima: cercalo in tutta la conversazione. Spezzalo nei campi (via e civico, CAP, città, provincia, paese) senza inventare i pezzi che mancano. Un indirizzo estero è valido: paese = codice ISO.
+4. Chi ORDINA e chi RICEVE sono spesso persone diverse (è un regalo): il destinatario è chi riceve. Se il cliente non nomina un'altra persona, lascia vuoti i campi del destinatario.
+5. Il GIORNO: se è relativo («domani», «venerdì»), calcolalo dalla data del messaggio in cui è detto, che trovi fra parentesi quadre all'inizio della riga, e scrivilo YYYY-MM-DD. Se ci sono più date, prendi l'ULTIMA concordata. Se è ambiguo, lascia vuoto.
+6. Se ci sono più ordini nella conversazione, compila quello di cui si sta parlando ADESSO (le battute più recenti).
+Rispondi con i valori così come sono scritti (nella lingua del cliente), senza tradurli.`
+
+export type CampoConProva = { valore: string; citazione: string }
+export type OrdineDaChat = {
+  battute: { usate: number; totali: number }
+  campi: Record<string, CampoConProva>
+}
+export type EsitoOrdineDaChat =
+  | { stato: 'ok'; ordine: OrdineDaChat; fornitore: string }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+
+/** Legge la conversazione e propone i campi del nuovo ordine, ognuno con la sua frase. */
+export async function estraiOrdineDaChat(
+  messaggi: { direzione: string; testo: string; creatoIl: Date }[]
+): Promise<EsitoOrdineDaChat> {
+  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModelloRisposte'])
+  const chiave = (c.openaiApiKey ?? '').trim()
+  if (!chiave) return { stato: 'non-configurato' }
+  const { testo, battute } = finestraChat(messaggi)
+  if (!testo.trim()) return { stato: 'errore', messaggio: 'Nessun messaggio da leggere.' }
+  const modello = (c.openaiModelloRisposte || MODELLO_RISPOSTE_DEFAULT).trim()
+  try {
+    const client = new OpenAI({ apiKey: chiave, timeout: 45_000, maxRetries: 2 })
+    const risposta = await client.chat.completions.create({
+      model: modello,
+      temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'ordine_da_chat', strict: true, schema: SCHEMA_ORDINE_DA_CHAT as unknown as Record<string, unknown> },
+      },
+      messages: [
+        { role: 'system', content: ISTRUZIONI_ORDINE_DA_CHAT },
+        { role: 'user', content: `CONVERSAZIONE:\n${testo}` },
+      ],
+    })
+    const grezzo = risposta.choices[0]?.message?.content
+    if (!grezzo) return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+    const d = JSON.parse(grezzo) as Record<string, { valore?: string; citazione?: string }>
+    // ⚠️ Controllo NOSTRO: un campo senza la sua frase si butta, e un campo che
+    // dice «vuoto» è vuoto (vedi il riassunto).
+    const campi: Record<string, CampoConProva> = {}
+    for (const k of Object.keys(SCHEMA_ORDINE_DA_CHAT.properties)) {
+      const v = senzaSegnaposto(d[k]?.valore)
+      const cit = senzaSegnaposto(d[k]?.citazione)
+      campi[k] = v && cit ? { valore: v, citazione: cit } : { valore: '', citazione: '' }
+    }
+    // La data deve essere davvero YYYY-MM-DD, non una parola.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(campi.dataISO.valore)) campi.dataISO = { valore: '', citazione: '' }
+    if (campi.paese.valore) campi.paese.valore = campi.paese.valore.toUpperCase().slice(0, 2)
+    return { stato: 'ok', fornitore: `OpenAI ${modello}`, ordine: { battute, campi } }
+  } catch (e) {
+    return { stato: 'errore', messaggio: (e as Error).message }
+  }
+}
 
 export type RiassuntoChat = {
   /** Quante battute ha letto il modello, su quante ce n'erano: se non tutte, chi legge deve saperlo. */
@@ -764,19 +903,7 @@ export async function riassumiConversazione(
   // tutto fino a `BUDGET_RIASSUNTO`. Misurato il 06/09: su 730 conversazioni 8
   // superano gli 80.000 caratteri; con 150.000 ci sta quasi tutto. Se non ci
   // sta, si dice — al modello e a chi legge (`battute`).
-  const righe = messaggi.map(
-    (m) => `[${m.creatoIl.toLocaleString('it-IT')}] ${m.direzione === 'in' ? 'CLIENTE' : 'NOI'}: ${m.testo.slice(0, 1500)}`
-  )
-  let usati = 0
-  let da = righe.length
-  for (let i = righe.length - 1; i >= 0; i--) {
-    if (usati + righe[i].length + 1 > BUDGET_RIASSUNTO) break
-    usati += righe[i].length + 1
-    da = i
-  }
-  const battute = { usate: righe.length - da, totali: righe.length }
-  const testo =
-    (da > 0 ? `[… ${da} battute più vecchie omesse per spazio …]\n` : '') + righe.slice(da).join('\n')
+  const { testo, battute } = finestraChat(messaggi)
   if (!testo.trim()) return { stato: 'errore', messaggio: 'Nessun messaggio da riassumere.' }
 
   const modello = (c.openaiModelloRisposte || MODELLO_RISPOSTE_DEFAULT).trim()
