@@ -68,12 +68,15 @@ anche `righe` dell'ordine per proporre il prodotto.
 - Prima il blocco «Cliente» finiva **anche** sull'indirizzo di consegna: nei
   regali il valet suonava chiedendo di chi aveva pagato. Ora il blocco si chiama
   **«Negozio e mittente (chi ordina e paga)»** e in Consegna c'è **«Riceve
-  un'altra persona»** con nome, cognome e telefono del destinatario →
+  un'altra persona»** — **accesa di suo** (utente: «default è un'altra
+  persona»; gli ordini sono regali) — con nome, cognome e telefono del destinatario →
   `shippingAddress`; il mittente resta il cliente Shopify (link di pagamento) e
   la nota dell'ordine scrive «Mittente (chi ordina): …». `DatiNuovoOrdine.destinatario`.
-- **Consenso marketing: NO, non è di default.** Shopify registra il cliente nato
-  da una bozza come «non iscritto» e l'app non spuntava niente. Ora c'è la
-  casella (spenta di suo); se accesa, dopo la creazione si chiama
+- **Consenso marketing.** Shopify registra il cliente nato da una bozza come
+  «non iscritto» e l'app non spuntava niente. Ora c'è la casella, **ACCESA di
+  suo per decisione dell'utente** («deve essere di default attivo», 06/09; io
+  l'avevo fatta spenta): l'operatore la toglie se il cliente dice di no. Se
+  accesa, dopo la creazione si chiama
   `customerEmailMarketingConsentUpdate` (SUBSCRIBED, SINGLE_OPT_IN, data) sul
   `customer.id` tornato dalla bozza, e l'esito si legge nella pagina «Ordine
   creato» — anche quando NON riesce (probabile: manca lo scope

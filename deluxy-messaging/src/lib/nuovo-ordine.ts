@@ -361,10 +361,11 @@ export type DatiNuovoOrdine = {
   destinatario?: { nome: string; cognome: string; telefono: string }
   /**
    * Il cliente ACCONSENTE alle comunicazioni marketing.
-   * ⚠️ Di suo è NO: Shopify registra un cliente creato da una bozza come
-   * «non iscritto», e qui non si spunta niente al posto suo. Solo con questo a
-   * vero, dopo la creazione, si scrive il consenso sul cliente (single opt-in,
-   * con data). Se la scrittura non riesce si dice: il consenso non si finge.
+   * Shopify registra un cliente creato da una bozza come «non iscritto»: con
+   * questo a vero, dopo la creazione, si scrive il consenso sul cliente (single
+   * opt-in, con data). Nel modulo la spunta nasce ACCESA (decisione
+   * dell'utente, 06/09/2026): l'operatore la toglie se il cliente dice di no.
+   * Se la scrittura non riesce si dice: il consenso non si finge.
    */
   consensoMarketing?: boolean
   consegna: {
