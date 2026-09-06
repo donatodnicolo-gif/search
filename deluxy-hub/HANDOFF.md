@@ -370,12 +370,17 @@ passaggio), quindi il cambio è stato un cambio di fonte, non di schermata.
   dovrebbero essere il team, già preso da Personale»)**: nella lista utenti la
   colonna «Ruolo» è diventata **«Funzione»** e mostra quello che dice Personale
   (`personaleDi(u)`: funzione + ruolo in azienda, per email poi per nome);
-  chi non è in Personale → «Non in Personale», i partner → «Esterno /
-  partner»; l'admin ha in più la pillola oro «Amministratore». La tendina
-  «Ruolo» (nuovo utente e Modifica) è sostituita da **due spunte**
-  (`SpuntePrivilegi.tsx`): Amministratore → `admin`, Esterno / partner →
-  `partner`, nessuna → `commerciale` (`ruoloDaModulo()` in `ruoli.ts`, usato
-  da `creaUtente`/`aggiornaUtente`). L'asse dei privilegi resta
+  chi non è in Personale → «Non in Personale»; l'admin ha in più la pillola
+  oro «Amministratore». La tendina «Ruolo» (nuovo utente e Modifica) è
+  sostituita da **una spunta** (`SpuntePrivilegi.tsx`): Amministratore →
+  `admin`, nessuna → `commerciale` (`ruoloDaModulo()` in `ruoli.ts`, usato da
+  `creaUtente`/`aggiornaUtente`). **Terza regola della mattina: «ad Hub
+  potranno accedere per ora solo utenti interni all'azienda»** → la spunta
+  «Esterno / partner» che c'era per un'ora è stata tolta; il ruolo `partner`
+  resta nell'elenco chiuso ma non si assegna dal portale (al 06/09: 1 admin,
+  9 commerciali, 0 partner). ⚠️ Un eventuale utente partner salvato da
+  «Modifica» tornerebbe `commerciale`: se un giorno si riaprirà agli esterni,
+  rimettere la spunta prima di creare il primo. L'asse dei privilegi resta
   ([[trappola-permessi-con-un-asse-solo]]): la funzione non decide cosa si può
   fare nel portale. Registrato in SEGNALAZIONI-UX (06/09, n. 8).
 - Documentato in README («Squadre e persone in /utenti»), manuale visivo

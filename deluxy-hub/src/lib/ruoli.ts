@@ -28,13 +28,16 @@ export function isRuolo(valore: string): valore is Ruolo {
 
 // Dal 06/09/2026 in /utenti il ruolo NON si sceglie da una tendina: la
 // funzione di una persona (Maison, Commerciale, Operation…) arriva da
-// Personale e qui non si tocca. Restano due privilegi del portale, come spunte:
-// «Amministratore» (gestisce utenti, vede tutto) ed «Esterno / partner» (chi
-// non sta in Personale: vede la propria scheda in Finance). Nessuna spunta =
-// persona del team (ruolo interno «commerciale», che oggi vale come base).
+// Personale e qui non si tocca. Resta UN privilegio del portale, come spunta:
+// «Amministratore» (gestisce utenti, vede tutto). Nessuna spunta = persona del
+// team (ruolo interno «commerciale», che oggi vale come base).
+// Regola dell'utente (06/09/2026): «ad Hub potranno accedere per ora solo
+// utenti interni all'azienda» — il ruolo «partner» resta nell'elenco chiuso
+// (apps.ts lo cita) ma dal portale non si assegna più: un utente che oggi
+// fosse partner, salvato da qui, tornerebbe persona del team. Al 06/09 non ce
+// n'è nessuno (1 admin, 9 commerciali).
 // Il campo `ruolo` a database resta lo stesso: cambia solo come si compila.
 export function ruoloDaModulo(fd: FormData): Ruolo {
   if (fd.get("amministratore") === "on") return "admin";
-  if (fd.get("esterno") === "on") return "partner";
   return "commerciale";
 }
