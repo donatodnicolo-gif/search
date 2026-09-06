@@ -1020,7 +1020,12 @@ export class SalesService {
       categoryId ? this.prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } }) : Promise.resolve(null),
     ]);
     if (!prov?.code) return null;
-    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}`;
+    // ⭐ 06/09/2026 (regola utente, REGOLA DEL TERRITORIO in Orders): lo sconto dipende
+    // dal fatto che in provincia ci sia un nostro partner — e questo lo sa SOLO la
+    // piattaforma (PartnerProvince): glielo si dice (`conPartner=1|0`), non si lascia
+    // indovinare a Orders. Un partner attivo che copre la provincia basta.
+    const conPartner = (await this.prisma.partner.count({ where: { active: true, deleted: false, provinces: { some: { provinceId } } } })) > 0;
+    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}`;
     const inCache = this.quotaCache.get(chiave);
     if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
     let valore: { quota: number; regola: string; sconto: number } | null = null;
@@ -1030,7 +1035,7 @@ export class SalesService {
       const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
       const chiaveApi = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
       if (url && chiaveApi) {
-        const q = new URLSearchParams({ provincia: prov.code, ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
+        const q = new URLSearchParams({ provincia: prov.code, conPartner: conPartner ? '1' : '0', ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
         const res = await fetch(`${url}/api/v1/quota-fornitore?${q}`, { headers: { 'x-api-key': chiaveApi } });
         if (res.ok) {
           const j: any = await res.json();
