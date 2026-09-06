@@ -640,3 +640,25 @@ L'ORDINE), fascia dei fornitori fuori dalla griglia a tutta larghezza (tessere
 da 1 a 4 per riga), Riconsegna e Unione a fisarmonica.
 
 STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
+
+
+## 06/09/2026 (7) — Customer Service: «Paga fornitore» in tre passi (richiesta dell'utente)
+
+**Segnalazione**: Customer Service · `/pagamenti` · l'utente chiede di riorganizzare la
+testa della pagina: «prima chiede se si vuole cercare tra i fornitori già usati, poi
+se si vogliono inserire le coordinate e infine il form delle coordinate». Prima: due
+riquadri affiancati (lettura AI · modulo) con la ricerca fornitori dentro il modulo.
+
+**Applicato** (in locale, `RichiediPagamento.tsx`): un modulo a passi — 1 cerca fra i
+nostri · 2 come inserire (AI o a mano) · 3 il modulo — con i passi come bottoni in
+cima (stessa classe `passi-ordine` della lavorazione dell'ordine), navigabili
+all'indietro; dopo il salvataggio si riparte dal passo 1; «Modifica» porta al 3.
+
+**Per il custode**: il caso è un **modulo a passi** (wizard) per un inserimento che
+ha una via breve (il dato c'è già in casa) e una lunga (dato nuovo). Da valutare
+come pattern del Libro: quando un modulo ha una scorciatoia che evita di digitare
+un dato critico (IBAN), la domanda «lo abbiamo già?» viene PRIMA del modulo, non
+dentro. Stesso caso in Nuovo ordine («Cliente già registrato»), che però sta
+dentro il primo riquadro.
+
+STATO: in locale, committato, in attesa del collaudo dell'utente.
