@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Logger,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
@@ -68,6 +69,8 @@ type StatoOrdineOrders = {
 
 @Injectable()
 export class SalesService {
+  private readonly logger = new Logger(SalesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
@@ -360,6 +363,8 @@ export class SalesService {
    * che non poteva prendere.
    */
   async create(body: {
+    /** ⭐ 06/09/2026: % sconto decisa da Orders (vince se c'è). */
+    discountPercent?: number;
     productId: string;
     productVariantId?: string;
     provinceId: string;
@@ -467,7 +472,12 @@ export class SalesService {
         // si piega al patto col partner; senza, vale la regola di categoria.
         // Ordine di precedenza: patto di riconciliazione > listino del
         // proprietario (UNICO) > regola di categoria × provincia.
-        discountPercent: scelto?.prezzoPartner !== undefined
+        // ⭐ 06/09/2026 (regola utente): «le % di sconto con arrotondamento
+        // dovrebbero arrivare direttamente da Orders». Se Orders manda la sua,
+        // vince (arrotondata ai centesimi); altrimenti valgono le regole di qui.
+        discountPercent: body.discountPercent != null && isFinite(Number(body.discountPercent))
+          ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
+          : scelto?.prezzoPartner !== undefined
           ? SalesService.quotaPerDare(importoCliente, scelto.prezzoPartner)
           : prezzoPartnerDaListino !== null
             ? SalesService.quotaPerDare(importoCliente, prezzoPartnerDaListino)
@@ -513,6 +523,8 @@ export class SalesService {
     productName?: string;
     /** Prezzo pagato dal cliente (riga d'ordine): senza prodotto non c'è un listino da cui prenderlo. */
     amount?: number;
+    /** ⭐ 06/09/2026: % di sconto al partner decisa da ORDERS (già arrotondata): se c'è, vince. */
+    discountPercent?: number;
     /** ⭐ 03/09 (ordini ESTERI): DA GESTIRE senza proposta automatica anche
      *  col prodotto a catalogo — all'estero non abbiamo partner. */
     senzaProposta?: boolean;
@@ -1656,13 +1668,43 @@ export class SalesService {
     // quasi tutto. Si ripiega su chi tratta la categoria, DICENDO che e' un
     // ripiego: cosi' chi guarda una vendita sa se il partner e' stato scelto
     // da una lista o da un'approssimazione.
-    const ripiego = await this.prisma.partnerCategory.findMany({
-      where: { categoryId: product.categoryId },
-      select: { partnerId: true },
+    // ⭐ 06/09/2026 (regola utente): senza lista, chi tratta la categoria ED
+    // è attivo in provincia. Uno solo → proposta automatica. Più d'uno → la
+    // lista di priorità si CREA da sola, ordinata per ordini gestiti fino a
+    // oggi in quella provincia (a parità: nome), e da lì in poi comanda lei
+    // (l'ufficio la può riordinare come le altre).
+    const abilitati = await this.prisma.partner.findMany({
+      where: {
+        active: true,
+        categories: { some: { categoryId: product.categoryId } },
+        provinces: { some: { provinceId } },
+      },
+      select: { id: true, insegna: true },
     });
-    return ripiego.map((x) => ({
-      partnerId: x.partnerId,
-      motivo: 'nessuna lista per questa provincia: scelto fra chi tratta la categoria',
+    if (!abilitati.length) return [];
+    if (abilitati.length === 1) {
+      return [{ partnerId: abilitati[0].id, motivo: 'unico partner della provincia per questa categoria' }];
+    }
+    const gestiti = await this.prisma.sale.groupBy({
+      by: ['partnerId'],
+      where: { partnerId: { in: abilitati.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA },
+      _count: { _all: true },
+    });
+    const conto = new Map(gestiti.map((g) => [g.partnerId as string, g._count._all]));
+    const ordinati = [...abilitati].sort((a, b) =>
+      (conto.get(b.id) ?? 0) - (conto.get(a.id) ?? 0) || a.insegna.localeCompare(b.insegna, 'it'));
+    const creata = await this.prisma.priorityList.create({
+      data: {
+        provinceId,
+        categoryId: product.categoryId,
+        entries: { create: ordinati.map((p, i) => ({ partnerId: p.id, position: i + 1 })) },
+      },
+      include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } },
+    });
+    this.logger.log(`Lista di priorità creata da sola (provincia ${provinceId}, categoria ${product.categoryId}): ${ordinati.map((p) => `${p.insegna} (${conto.get(p.id) ?? 0})`).join(' > ')}`);
+    return creata.entries.map((e) => ({
+      partnerId: e.partnerId,
+      motivo: `lista priorita' creata in automatico (ordini gestiti): ${e.position}a di ${creata.entries.length}`,
     }));
   }
 

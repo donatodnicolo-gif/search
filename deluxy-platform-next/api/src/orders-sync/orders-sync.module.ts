@@ -622,6 +622,9 @@ export class OrdersSyncService {
                 : { productName: titolo ?? etichetta, productSku: skuGrezzo }),
               amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
               brand: o.brand ?? undefined,
+              // ⭐ 06/09/2026: la % di sconto al partner arriva da ORDERS se la manda
+              // (campo `scontoPartnerPercent`, già arrotondato); altrove decide la piattaforma.
+              discountPercent: (o as any).scontoPartnerPercent ?? (o as any).smistamento?.scontoPartnerPercent ?? undefined,
               ...this.destinatario(o),
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
@@ -672,6 +675,9 @@ export class OrdersSyncService {
               // Il prezzo pagato: la riga d'ordine se c'è, altrimenti il totale.
               amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
               brand: o.brand ?? undefined,
+              // ⭐ 06/09/2026: la % di sconto al partner arriva da ORDERS se la manda
+              // (campo `scontoPartnerPercent`, già arrotondato); altrove decide la piattaforma.
+              discountPercent: (o as any).scontoPartnerPercent ?? (o as any).smistamento?.scontoPartnerPercent ?? undefined,
               ...this.destinatario(o),
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
