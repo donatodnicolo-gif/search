@@ -1,5 +1,6 @@
 'use client'
 
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
 import { fasciaDelSito, fascePerNegozio } from '@/lib/fasce-consegna'
@@ -896,7 +897,7 @@ export function NuovoOrdine({
                     {telefono.trim() ? (
                       <a
                         className="bottone secondario"
-                        href={`https://wa.me/${telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(
+                        href={`https://wa.me/${numeroWhatsApp(telefono)}?text=${encodeURIComponent(
                           `Ecco il link per completare l'ordine: ${esito.linkPagamento}`
                         )}`}
                         target="_blank"

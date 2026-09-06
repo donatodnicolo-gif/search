@@ -1,5 +1,6 @@
 'use client'
 
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useState } from 'react'
 import { nomeStato } from '@/lib/preventivi-stati'
 import { ChipsPeriodo } from './ChipsPeriodo'
@@ -491,7 +492,7 @@ export function PreventiviLista() {
                             {p.telefono ? (
                               <a
                                 className="bottone mini"
-                                href={`https://wa.me/${p.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(p.linkPagamento)}`}
+                                href={`https://wa.me/${numeroWhatsApp(p.telefono)}?text=${encodeURIComponent(p.linkPagamento)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >

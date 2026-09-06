@@ -1,5 +1,6 @@
 'use client'
 
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useEffect, useState } from 'react'
 import {
   costoScritto,
@@ -165,7 +166,7 @@ export function FornitoreOrdine({
   }
 
   const registrato = !!dati?.fornitoreNome
-  const cifre = (dati?.fornitoreTelefono || '').replace(/\D/g, '')
+  const cifre = numeroWhatsApp(dati?.fornitoreTelefono)
 
   return (
     <div className="riquadro-fornitore">
