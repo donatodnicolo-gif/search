@@ -34,6 +34,8 @@ type Periodo = 'oggi' | 'settimana' | 'mese' | 'mese-scorso' | 'trimestre' | 'an
 type Confronto = 'precedente' | 'anno-prima';
 type Intervallo = { da: string; a: string };
 type Bucket = 'corrente' | 'confronto';
+/** ⭐ 06/09/2026 (regola utente): filtri per tipologia di servizio, provincia (città) e uno o più partner. */
+type Filtri = { serviceTypeId?: string | null; provinceId?: string | null; partnerIds?: string[] };
 
 const CONCLUSE = ['delivered', 'approved', 'delivered_time_to_approve', 'archived'];
 const TOLLERANZA_RITARDO_MIN = 10;
@@ -97,11 +99,19 @@ export class StatisticheService {
 
   private bounds(i: Intervallo) { return { da: daIso(i.da), a: new Date(`${i.a}T23:59:59.999Z`) }; }
 
-  async calcola(periodo: Periodo, confronto: Confronto) {
+  async calcola(periodo: Periodo, confronto: Confronto, filtri: Filtri = {}) {
     const iv = intervalli(periodo, confronto);
     const c = this.bounds(iv.corrente); const p = this.bounds(iv.confronto);
     const bucket = Prisma.sql`CASE WHEN d."date" BETWEEN ${c.da} AND ${c.a} THEN 'corrente' ELSE 'confronto' END`;
-    const dove = Prisma.sql`d."deletedAt" IS NULL AND ((d."date" BETWEEN ${c.da} AND ${c.a}) OR (d."date" BETWEEN ${p.da} AND ${p.a}))`;
+    // I filtri entrano nella stessa WHERE di tutte le query: un solo criterio, mai due letture diverse.
+    const partnerIds = (filtri.partnerIds ?? []).filter(Boolean);
+    const filtroSql = Prisma.join([
+      Prisma.sql`TRUE`,
+      ...(filtri.serviceTypeId ? [Prisma.sql`d."serviceTypeId" = ${filtri.serviceTypeId}`] : []),
+      ...(filtri.provinceId ? [Prisma.sql`d."provinceId" = ${filtri.provinceId}`] : []),
+      ...(partnerIds.length ? [Prisma.sql`d."partnerId" IN (${Prisma.join(partnerIds)})`] : []),
+    ], ' AND ');
+    const dove = Prisma.sql`d."deletedAt" IS NULL AND ((d."date" BETWEEN ${c.da} AND ${c.a}) OR (d."date" BETWEEN ${p.da} AND ${p.a})) AND ${filtroSql}`;
     const concl = Prisma.sql`d.status IN ('delivered','approved','delivered_time_to_approve','archived')`;
     const oraOk = Prisma.sql`d."deliveryTimeTo" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`;
     const daOk = Prisma.sql`d."deliveryTimeFrom" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`;
@@ -240,13 +250,19 @@ export class StatisticheService {
 
     const totCorrente = riassunto(perBucket(perTipo, 'corrente'));
     const totConfronto = riassunto(perBucket(perTipo, 'confronto'));
-    const economia = await this.economia(iv.corrente, iv.confronto, totCorrente.concluse, totConfronto.concluse);
+    const economia = await this.economia(iv.corrente, iv.confronto, totCorrente.concluse, totConfronto.concluse, filtri);
+    const etichette = {
+      serviceType: filtri.serviceTypeId ? await this.prisma.serviceType.findUnique({ where: { id: filtri.serviceTypeId }, select: { id: true, name: true } }) : null,
+      province: filtri.provinceId ? await this.prisma.province.findUnique({ where: { id: filtri.provinceId }, select: { id: true, code: true, name: true } }) : null,
+      partners: partnerIds.length ? await this.prisma.partner.findMany({ where: { id: { in: partnerIds } }, select: { id: true, insegna: true } }) : [],
+    };
 
     return {
       generatoAlle: new Date().toISOString(),
       periodo: { chiave: periodo, ...iv.corrente, giorni: iv.giorni, pieno: iv.pieno },
       confronto: { tipo: confronto, ...iv.confronto, giorni: giorniFra(iv.confronto.da, iv.confronto.a) },
       regole: { tolleranzaRitardoMin: TOLLERANZA_RITARDO_MIN, tolleranzaAnticipoMin: TOLLERANZA_ANTICIPO_MIN, concluse: CONCLUSE, tettoRigheEconomia: TETTO_RIGHE_ECONOMIA },
+      filtri: etichette,
       totale: { corrente: totCorrente, confronto: totConfronto },
       perTipologia,
       perStato: [...stati.values()].sort((x, y) => y.corrente - x.corrente),
@@ -256,15 +272,72 @@ export class StatisticheService {
   }
 
   /**
+   * ⭐ 06/09/2026 (regola utente): «consenti anche di aprire il dettaglio di
+   * quelle in ritardo». Le consegne in RITARDO del periodo corrente, con gli
+   * stessi filtri e la stessa regola della puntualità (fascia promessa in ora
+   * di Roma, tolleranza +10′), dalla più in ritardo. Tetto 500 righe DICHIARATO
+   * nel payload (`totale` dice quante sono davvero).
+   */
+  async ritardi(periodo: Periodo, confronto: Confronto, filtri: Filtri = {}, limite = 500) {
+    const iv = intervalli(periodo, confronto);
+    const c = this.bounds(iv.corrente);
+    const partnerIds = (filtri.partnerIds ?? []).filter(Boolean);
+    const filtroSql = Prisma.join([
+      Prisma.sql`TRUE`,
+      ...(filtri.serviceTypeId ? [Prisma.sql`d."serviceTypeId" = ${filtri.serviceTypeId}`] : []),
+      ...(filtri.provinceId ? [Prisma.sql`d."provinceId" = ${filtri.provinceId}`] : []),
+      ...(partnerIds.length ? [Prisma.sql`d."partnerId" IN (${Prisma.join(partnerIds)})`] : []),
+    ], ' AND ');
+    const concl = Prisma.sql`d.status IN ('delivered','approved','delivered_time_to_approve','archived')`;
+    const oraOk = Prisma.sql`d."deliveryTimeTo" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`;
+    const daOk = Prisma.sql`d."deliveryTimeFrom" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`;
+    const fine = Prisma.sql`((d."date"::date + d."deliveryTimeTo"::time + CASE WHEN ${daOk} AND d."deliveryTimeTo"::time < d."deliveryTimeFrom"::time THEN interval '1 day' ELSE interval '0' END) AT TIME ZONE 'Europe/Rome')`;
+    const consegnato = Prisma.sql`(d."deliveredAt" AT TIME ZONE 'UTC')`;
+    const tardi = Prisma.sql`(${concl} AND d."deliveredAt" IS NOT NULL AND ${oraOk} AND ${consegnato} > ${fine} + ${Prisma.raw(`interval '${TOLLERANZA_RITARDO_MIN} minutes'`)})`;
+    const dove = Prisma.sql`d."deletedAt" IS NULL AND d."date" BETWEEN ${c.da} AND ${c.a} AND ${filtroSql} AND ${tardi}`;
+    const [righe, conteggio] = await Promise.all([
+      this.prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT d.id, d.code, d."date", d."deliveryTimeFrom" AS "fasciaDa", d."deliveryTimeTo" AS "fasciaA", d."deliveredAt", d.status,
+          p.insegna AS partner, (v."firstName" || ' ' || v."lastName") AS valet, st.name AS servizio, pr.code AS provincia,
+          round(extract(epoch FROM ${consegnato} - ${fine}) / 60)::int AS "ritardoMin"
+        FROM platform."Delivery" d
+        JOIN platform."ServiceType" st ON st.id = d."serviceTypeId"
+        JOIN platform."Partner" p ON p.id = d."partnerId"
+        LEFT JOIN platform."Valet" v ON v.id = d."valetId"
+        LEFT JOIN platform."Province" pr ON pr.id = d."provinceId"
+        WHERE ${dove}
+        ORDER BY "ritardoMin" DESC
+        LIMIT ${limite}`),
+      this.prisma.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM platform."Delivery" d WHERE ${dove}`),
+    ]);
+    return { periodo: { chiave: periodo, ...iv.corrente }, totale: conteggio[0]?.n ?? righe.length, mostrate: righe.length, limite, righe };
+  }
+
+  /**
    * Fee e margine dalla Finanza (una formula sola), ma solo entro il tetto di
    * righe: oltre, «n/d» col motivo — non un numero calcolato su una fetta.
    */
-  private async economia(corrente: Intervallo, confronto: Intervallo, nCorrente: number, nConfronto: number) {
+  private async economia(corrente: Intervallo, confronto: Intervallo, nCorrente: number, nConfronto: number, filtri: Filtri = {}) {
     if (nCorrente > TETTO_RIGHE_ECONOMIA || nConfronto > TETTO_RIGHE_ECONOMIA) {
       return { disponibile: false, motivo: `periodo troppo ampio (${Math.max(nCorrente, nConfronto)} consegne, tetto ${TETTO_RIGHE_ECONOMIA}): fee e margine si leggono in Finanza`, corrente: null, confronto: null };
     }
+    const partnerIds = (filtri.partnerIds ?? []).filter(Boolean);
+    const conFiltri = Boolean(filtri.serviceTypeId || filtri.provinceId || partnerIds.length);
     const conto = async (iv: Intervallo) => {
-      const righe = await this.finance.corrispettivi(iv.da, iv.a, { limite: 5000, soloVendite: true });
+      let righe = await this.finance.corrispettivi(iv.da, iv.a, { limite: 5000, soloVendite: true });
+      if (conFiltri) {
+        // Stesso filtro delle altre query: si tengono le righe delle consegne che lo passano.
+        const ammesse = new Set((await this.prisma.delivery.findMany({
+          where: {
+            deletedAt: null, date: { gte: daIso(iv.da), lte: new Date(`${iv.a}T23:59:59.999Z`) },
+            ...(filtri.serviceTypeId ? { serviceTypeId: filtri.serviceTypeId } : {}),
+            ...(filtri.provinceId ? { provinceId: filtri.provinceId } : {}),
+            ...(partnerIds.length ? { partnerId: { in: partnerIds } } : {}),
+          },
+          select: { id: true },
+        })).map((d) => d.id));
+        righe = righe.filter((r) => ammesse.has(r.deliveryId));
+      }
       const t = { righe: righe.length, venduto: 0, pagato: 0, fee: 0, margine: 0, valet: 0, conVenduto: 0, stimate: 0, anomalie: 0 };
       for (const r of righe) {
         t.venduto += r.saleValue; t.pagato += r.partnerPrice; t.fee += r.feeContract; t.margine += r.totalMargin; t.valet += r.deliveryCost;
@@ -293,16 +366,43 @@ export class StatisticheService {
 export class StatisticheController {
   constructor(private readonly service: StatisticheService) {}
 
-  @Get()
-  @ApiOperation({ summary: 'KPI del periodo (oggi · settimana · mese · mese-scorso · trimestre · anno) con confronto (precedente | anno-prima), per tipologia di servizio' })
-  @ApiQuery({ name: 'periodo', required: false })
-  @ApiQuery({ name: 'confronto', required: false })
-  calcola(@Query('periodo') periodo?: string, @Query('confronto') confronto?: string) {
+  @Get('ritardi')
+  @ApiOperation({ summary: 'Le consegne in ritardo del periodo corrente (stessi filtri e stessa regola della puntualità), dalla più in ritardo' })
+  ritardi(
+    @Query('periodo') periodo?: string,
+    @Query('confronto') confronto?: string,
+    @Query('serviceTypeId') serviceTypeId?: string,
+    @Query('provinceId') provinceId?: string,
+    @Query('partnerIds') partnerIds?: string,
+  ) {
     const p = (periodo ?? 'mese') as Periodo;
     const c = (confronto ?? 'precedente') as Confronto;
     if (!['oggi', 'settimana', 'mese', 'mese-scorso', 'trimestre', 'anno'].includes(p)) throw new BadRequestException('periodo non valido');
     if (!['precedente', 'anno-prima'].includes(c)) throw new BadRequestException('confronto non valido');
-    return this.service.calcola(p, c);
+    const ids = String(partnerIds ?? '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 50);
+    return this.service.ritardi(p, c, { serviceTypeId: serviceTypeId || null, provinceId: provinceId || null, partnerIds: ids });
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'KPI del periodo (oggi · settimana · mese · mese-scorso · trimestre · anno) con confronto (precedente | anno-prima), per tipologia di servizio' })
+  @ApiQuery({ name: 'periodo', required: false })
+  @ApiQuery({ name: 'confronto', required: false })
+  @ApiQuery({ name: 'serviceTypeId', required: false })
+  @ApiQuery({ name: 'provinceId', required: false })
+  @ApiQuery({ name: 'partnerIds', required: false, description: 'id partner separati da virgola' })
+  calcola(
+    @Query('periodo') periodo?: string,
+    @Query('confronto') confronto?: string,
+    @Query('serviceTypeId') serviceTypeId?: string,
+    @Query('provinceId') provinceId?: string,
+    @Query('partnerIds') partnerIds?: string,
+  ) {
+    const p = (periodo ?? 'mese') as Periodo;
+    const c = (confronto ?? 'precedente') as Confronto;
+    if (!['oggi', 'settimana', 'mese', 'mese-scorso', 'trimestre', 'anno'].includes(p)) throw new BadRequestException('periodo non valido');
+    if (!['precedente', 'anno-prima'].includes(c)) throw new BadRequestException('confronto non valido');
+    const ids = String(partnerIds ?? '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 50);
+    return this.service.calcola(p, c, { serviceTypeId: serviceTypeId || null, provinceId: provinceId || null, partnerIds: ids });
   }
 }
 

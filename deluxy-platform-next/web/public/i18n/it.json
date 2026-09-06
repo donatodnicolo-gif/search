@@ -3014,6 +3014,31 @@
       "titolo": "Per stato",
       "stato": "Stato",
       "n": "N"
+    },
+    "filtri": {
+      "servizio": "Tipologia di servizio",
+      "provincia": "Provincia / città",
+      "partner": "Partner",
+      "tutti": "Tutti",
+      "tutte": "Tutte",
+      "partnerScelti": "{{n}} partner scelti",
+      "cercaPartner": "Cerca partner…",
+      "nessunPartner": "Nessun partner",
+      "azzera": "Azzera"
+    },
+    "ritardi": {
+      "apri": "apri le {{n}} in ritardo",
+      "intro": "{{mostrate}} di {{n}} consegne in ritardo, dalla più in ritardo. Clicca una riga per aprirla.",
+      "col": {
+        "code": "Consegna",
+        "date": "Data",
+        "partner": "Partner",
+        "valet": "Valet",
+        "servizio": "Servizio",
+        "fascia": "Fascia promessa",
+        "consegnata": "Consegnata alle",
+        "ritardoMin": "Ritardo"
+      }
     }
   }
 }

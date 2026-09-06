@@ -3012,6 +3012,31 @@
       "titolo": "By status",
       "stato": "Status",
       "n": "N"
+    },
+    "filtri": {
+      "servizio": "Service type",
+      "provincia": "Province / city",
+      "partner": "Partners",
+      "tutti": "All",
+      "tutte": "All",
+      "partnerScelti": "{{n}} partners selected",
+      "cercaPartner": "Search partner…",
+      "nessunPartner": "No partner",
+      "azzera": "Clear"
+    },
+    "ritardi": {
+      "apri": "open the {{n}} late ones",
+      "intro": "{{mostrate}} of {{n}} late deliveries, latest first. Click a row to open it.",
+      "col": {
+        "code": "Delivery",
+        "date": "Date",
+        "partner": "Partner",
+        "valet": "Valet",
+        "servizio": "Service",
+        "fascia": "Promised slot",
+        "consegnata": "Delivered at",
+        "ritardoMin": "Delay"
+      }
     }
   }
 }
