@@ -2347,6 +2347,16 @@ export class DeliveriesService {
       racconto.push(`motivo: ${dettagli.notDeliveredReason}`);
     }
 
+    // ⭐ 06/09/2026 (censimento per le Statistiche): la nuova app non scriveva
+    // MAI `startedAt`/`deliveredAt` — a settembre 230 consegne concluse e zero
+    // orari reali, mentre il legacy li aveva su 678/826 di agosto. Senza, la
+    // puntualità e i tempi di consegna non esistono. Si scrivono al primo
+    // passaggio (mai sovrascritti): partenza = «in consegna», arrivo = consegnata.
+    if (statoFinale === DeliveryStatus.IN_DELIVERY && !(delivery as any).startedAt) extra['startedAt'] = new Date();
+    if ((statoFinale === DeliveryStatus.DELIVERED || statoFinale === DeliveryStatus.DELIVERED_TIME_TO_APPROVE) && !(delivery as any).deliveredAt) {
+      extra['deliveredAt'] = new Date();
+      if (!(delivery as any).startedAt) extra['startedAt'] = (delivery as any).startedAt ?? new Date();
+    }
     const updated = await this.prisma.delivery.update({
       where: { id: delivery.id },
       data: {
