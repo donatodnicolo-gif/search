@@ -29,6 +29,8 @@ type Campi = {
   senderPhone?: string
   deliveryTimeFrom?: string
   deliveryTimeTo?: string
+  pickupTimeFrom?: string
+  pickupTimeTo?: string
   pickupAddress?: string
   notes?: string
   internalNotes?: string
@@ -729,6 +731,28 @@ export function MandaInApp({
                 value={campi.deliveryTimeTo ?? ''}
                 onChange={(e) => cambia('deliveryTimeTo', e.target.value)}
                 placeholder="20:00"
+              />
+            </label>
+          </div>
+
+          {/* ⚠️ Il RITIRO si vede e si cambia (utente, 06/09/2026): di suo è
+              un'ora prima della consegna, che è quando il valet deve avere il
+              prodotto in mano. Prima non si mandava, e di là restava vuoto. */}
+          <div className="campi-affiancati">
+            <label className="campo">
+              <span>Ritiro dalle</span>
+              <input
+                value={campi.pickupTimeFrom ?? ''}
+                onChange={(e) => cambia('pickupTimeFrom', e.target.value)}
+                placeholder="un'ora prima"
+              />
+            </label>
+            <label className="campo">
+              <span>Ritiro alle</span>
+              <input
+                value={campi.pickupTimeTo ?? ''}
+                onChange={(e) => cambia('pickupTimeTo', e.target.value)}
+                placeholder="un'ora prima"
               />
             </label>
           </div>

@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (38) — La consegna creata dal CS: ritiro, indirizzo di ritiro, «da fornitore», brand DDT
+
+Segnalazione dell'utente sulla consegna #101065 (creata dal CS per #2875, partner
+«Artista Locale»): senza orario di ritiro, ritiro «Modena» e basta,
+`deliveredByPartner` falso, brand del DDT non riconosciuto.
+
+**Regole dell'utente, per le consegne create dall'app**:
+1. ritiro di suo **un'ora prima** della consegna;
+2. indirizzo di ritiro **con la provincia**, uguale alla **sede del partner**; per
+   **Artista Locale** uguale all'**indirizzo di consegna**;
+3. per Artista Locale **«consegna da fornitore»** di suo, salvo ordine di
+   **deluxy.it** o **valet assegnato**;
+4. il **brand del DDT** va passato.
+
+**Dove sta la correzione**:
+- **CS** (`manda-in-app.ts`, `MandaInApp.tsx`): il prefill manda
+  `pickupTimeFrom/To` = fascia − 1h (`unOraPrima`), e il modulo li mostra
+  («Ritiro dalle / alle»); il brand del DDT passa da `marchioDdt()`: la tendina
+  della piattaforma accetta SOLO `deluxy.it`, `Flowers`, `cakedesign.me`,
+  `Business` (`marchiDdt` nel suo form) e il CS mandava «FLowers», il nome del
+  nostro negozio — **1 consegna su 12.943** aveva quel valore, tutte le altre uno
+  dei quattro. Misurato prima di scrivere la mappa.
+- **Piattaforma** (ramo `canale-app-0609`, commit `18eeba17`, NON pubblicato):
+  `creaConsegna` applica i default 1-2-3 sui campi vuoti; `ritiroInCittaDiConsegna`
+  per Artista Locale mette l'indirizzo di consegna intero invece della sola città.
+- **#101065 sistemata a mano** nel DB della piattaforma (brand «Flowers», ritiro
+  11:00-15:00 anche sull'attività di ritiro, indirizzo di ritiro = consegna, da
+  fornitore, stato «assegnata» come farebbe la creazione, riga di registro).
+
+**Stato**: CS in locale (commit sì, push no); piattaforma sul ramo, da pubblicare.
+
 ## 06/09/2026 (37) — «Manda in app» sale in testata, accanto a «Tienilo manuale»
 
 Chiesto dall'utente. Il bottone stava in cima alla prima colonna, da solo;

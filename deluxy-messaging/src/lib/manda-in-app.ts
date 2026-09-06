@@ -72,6 +72,30 @@ export function fasciaInOrari(fascia: string): { da: string; a: string } {
   return { da: due(m[1], m[2]), a: due(m[3], m[4]) }
 }
 
+/** «12:00» → «11:00». Vuoto se non è un orario. */
+export function unOraPrima(hhmm: string): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm ?? '').trim())
+  if (!m) return ''
+  return `${String((Number(m[1]) + 23) % 24).padStart(2, '0')}:${m[2]}`
+}
+
+/**
+ * IL BRAND DEL DDT come lo chiama la piattaforma: la sua tendina accetta
+ * SOLO «deluxy.it», «Flowers», «cakedesign.me», «Business» (`marchiDdt` nel
+ * suo form). ⚠️ Utente, 06/09/2026: «non è stato passato il brand per il DDT»
+ * — era passato «FLowers», il nome del nostro negozio, che di là non combacia
+ * con nessuna voce e nel form risulta vuoto (1 consegna su 12.943 con quel
+ * valore, tutte le altre con i quattro giusti).
+ */
+export function marchioDdt(negozioNome: string): string {
+  const n = (negozioNome ?? '').toLowerCase()
+  if (/flower/.test(n)) return 'Flowers'
+  if (/cake/.test(n)) return 'cakedesign.me'
+  if (/business|b2b/.test(n)) return 'Business'
+  if (/deluxy/.test(n)) return 'deluxy.it'
+  return negozioNome ?? ''
+}
+
 /** «Mario Rossi Bianchi» → nome + cognome. Il cognome vuoto non si inventa. */
 function spezzaNome(intero: string): { nome: string; cognome: string } {
   const pezzi = (intero ?? '').trim().split(/\s+/).filter(Boolean)
@@ -129,7 +153,7 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
         ? 'CONSEGNA ANONIMA: non dire da parte di chi.'
         : '',
       ddtNumber: (o.numero ?? '').replace(/^#/, ''),
-      ddtBrand: o.negozioNome ?? '',
+      ddtBrand: marchioDdt(o.negozioNome ?? ''),
       riferimentoEsterno: o.ordersId ?? o.id,
     },
   }
@@ -137,6 +161,10 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
   const fascia = fasciaInOrari(o.fasciaConsegna ?? '')
   vuoto.campi.deliveryTimeFrom = fascia.da
   vuoto.campi.deliveryTimeTo = fascia.a
+  // Il ritiro un'ora prima della consegna (regola utente 06/09/2026): il valet
+  // deve avere il prodotto prima di partire. Si può cambiare nel modulo.
+  vuoto.campi.pickupTimeFrom = unOraPrima(fascia.da)
+  vuoto.campi.pickupTimeTo = unOraPrima(fascia.a)
 
   // ⚠️ IL DESTINATARIO VIENE DALLA SPEDIZIONE, non dal cliente: chi ordina e chi
   // riceve sono due persone diverse in quasi tutti i nostri ordini — è un
