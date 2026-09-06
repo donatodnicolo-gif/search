@@ -18,7 +18,8 @@ import { ScelteApp } from "./ScelteApp";
 // aperto/chiuso che non può vivere dentro un <details> di una cella sola.
 // Dal 06/09/2026 la colonna «Funzione» mostra quello che dice PERSONALE (la
 // funzione e il ruolo della persona), non il ruolo del portale: quello è un
-// privilegio (Amministratore / Esterno) e si vede come pillola in più.
+// privilegio (Amministratore) e si vede come pillola in più. Per ora nel Hub
+// entrano solo persone interne: chi non risulta in Personale è segnalato.
 export type PersonaDelPortale = { team: string | null; ruolo: string | null } | null;
 
 export function RigaUtente({
@@ -55,11 +56,6 @@ export function RigaUtente({
               <span className="badge neutro">
                 <span className="dot" />
                 {personale.team ?? "Senza funzione"}
-              </span>
-            ) : utente.ruolo === "partner" ? (
-              <span className="badge neutro">
-                <span className="dot" />
-                Esterno / partner
               </span>
             ) : (
               <span className="badge neutro">

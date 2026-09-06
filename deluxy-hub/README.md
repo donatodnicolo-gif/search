@@ -41,13 +41,15 @@ tutto il catalogo, a prescindere dalle spunte.
 - **Dal 06/09/2026 in `/utenti` il ruolo non si sceglie da una tendina.** La
   colonna si chiama **Funzione** e mostra quello che dice **Personale** della
   persona (funzione: Maison, Commerciale, Operation…, e sotto il suo ruolo in
-  azienda); chi non risulta in Personale ha «Non in Personale» (o «Esterno /
-  partner» se è un partner). I privilegi del portale sono **due spunte**:
-  «Amministratore» (→ `admin`) ed «Esterno / partner» (→ `partner`); nessuna
-  spunta = `commerciale`, la base per una persona del team
-  (`ruoloDaModulo()` in `ruoli.ts`). Il campo `ruolo` a database e i suoi tre
-  valori restano gli stessi: cambia solo come si compila. Regola dell'utente:
-  «anche i ruoli in Utenti dovrebbero essere il team, preso da Personale».
+  azienda); chi non risulta in Personale ha «Non in Personale». Il privilegio
+  del portale è **una spunta**: «Amministratore» (→ `admin`); nessuna spunta =
+  `commerciale`, la base per una persona del team (`ruoloDaModulo()` in
+  `ruoli.ts`). Il campo `ruolo` a database e i suoi tre valori restano gli
+  stessi: cambia solo come si compila. Regole dell'utente (06/09): «anche i
+  ruoli in Utenti dovrebbero essere il team, preso da Personale» e **«ad Hub
+  potranno accedere per ora solo utenti interni all'azienda»** — perciò il
+  ruolo `partner` non si assegna dal portale (resta nell'elenco chiuso; al
+  06/09 nessun utente lo ha).
 - Il catalogo app è in [`src/lib/apps.ts`](src/lib/apps.ts).
 - Le icone (SVG) sono in [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx).
 
