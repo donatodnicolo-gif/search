@@ -213,7 +213,9 @@ export class AuthService {
     const valet = user.valetId
       ? await this.prisma.valet.findUnique({
           where: { id: user.valetId },
-          select: { phone: true, address: true, city: true, birthPlace: true, birthDate: true,
+          // ⭐ 06/09/2026 (regola utente): il valet vede il PROPRIO codice (legacyId):
+          // è quello che dà al partner al ritiro quando la consegna chiede la verifica.
+          select: { legacyId: true, phone: true, address: true, city: true, birthPlace: true, birthDate: true,
             fiscalCode: true, vehicle: true, iban: true, notifyByEmail: true, notifyByWhatsapp: true },
         })
       : null;

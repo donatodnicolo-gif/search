@@ -204,6 +204,8 @@ export interface Partner {
 
 export interface Valet {
   id: string;
+  /** ⭐ 06/09/2026: il codice del valet (id del legacy), personale: sblocca il ritiro verificato. */
+  legacyId?: number | null;
   firstName: string;
   lastName: string;
   email: string;

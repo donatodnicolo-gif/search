@@ -58,6 +58,16 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
         <div class="card sez">
           <h2>{{ 'profilo.anagrafica' | translate }}</h2>
           <p class="muted">{{ 'profilo.anagraficaHint' | translate }}</p>
+          <!-- ⭐ 06/09/2026 (regola utente): IL CODICE DEL VALET, personale. È quello
+               che il partner inserisce al ritiro quando la consegna chiede la
+               verifica dell'identità: non va detto ad altri. -->
+          @if (valet.legacyId != null) {
+            <div class="card" style="padding:14px 18px;margin:0 0 16px;border-left:3px solid var(--gold)">
+              <div class="muted" style="font-size:12.5px">{{ 'profilo.codiceValet' | translate }}</div>
+              <div style="font-size:26px;font-weight:600;letter-spacing:.06em;font-variant-numeric:tabular-nums">{{ valet.legacyId }}</div>
+              <p class="muted" style="margin:6px 0 0;font-size:13px">{{ 'profilo.codiceValetHint' | translate }}</p>
+            </div>
+          }
           <div class="grid-2">
             <label class="fld"><span>{{ 'profilo.telefono' | translate }}</span>
               <input class="field" name="vPhone" [(ngModel)]="valet.phone" /></label>
