@@ -662,3 +662,34 @@ dentro. Stesso caso in Nuovo ordine («Cliente già registrato»), che però sta
 dentro il primo riquadro.
 
 STATO: in locale, committato, in attesa del collaudo dell'utente.
+
+
+## 06/09/2026 (8) — Hub: in Utenti il ruolo diventa la funzione di Personale, i privilegi due spunte (richiesta dell'utente)
+
+**Segnalazione**: Hub · `/utenti` · l'utente: «anche i ruoli in Utenti dovrebbero
+essere il team, ma dovrebbe essere già preso da app Personale». Prima: pillola oro
+col ruolo del portale («Commerciale» per nove utenti su dieci, cioè un'etichetta che
+non distingueva nessuno) e una tendina «Ruolo» a tre valori (Amministratore /
+Partner / Commerciale) nel modulo nuovo e in Modifica.
+
+**Applicato** (in locale, `RigaUtente.tsx`, `SpuntePrivilegi.tsx`, `ruoli.ts`): la
+colonna si chiama **Funzione** e mostra quello che dice Personale della persona
+(pillola neutra con la funzione, sotto il suo ruolo in azienda); chi non è in
+Personale → «Non in Personale», i partner → «Esterno / partner»; l'admin ha in più la
+pillola oro «Amministratore». La tendina è sostituita da **due spunte** con la loro
+conseguenza scritta accanto: «Amministratore — gestisce gli utenti e vede tutte le
+app» ed «Esterno / partner — non sta in Personale, vede la propria scheda in
+Finance»; nessuna spunta = persona del team. A database il campo e i tre valori
+restano gli stessi.
+
+**Per il custode**: due cose da valutare come regola del Libro. (1) **Un'etichetta
+uguale per tutti non è un'informazione**: quando una colonna mostra lo stesso valore
+su quasi tutte le righe, va sostituita con il dato che distingue (qui la funzione,
+letta dalla sua casa). (2) **Il privilegio si dice come conseguenza, non come nome**:
+una spunta «Amministratore — gestisce gli utenti e vede tutte le app» dice cosa
+succede; una tendina con «Amministratore / Partner / Commerciale» costringe a
+ricordarselo. Scelta dall'utente fra tre opzioni proposte (la terza — mettere le
+funzioni di Personale nella tendina — è stata sconsigliata perché avrebbe fuso
+l'asse dei privilegi con quello dell'organico: [[trappola-permessi-con-un-asse-solo]]).
+
+STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
