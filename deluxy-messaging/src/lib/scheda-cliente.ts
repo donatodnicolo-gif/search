@@ -112,7 +112,7 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
   const idPerCifre = tutteLeCifre.length
     ? await db.$queryRaw<{ id: string }[]>`
         SELECT id FROM messaging."Ordine"
-        WHERE RIGHT(regexp_replace(telefono, '\\D', '', 'g'), 9) = ANY(${tutteLeCifre}::text[])`
+        WHERE RIGHT(regexp_replace(telefono, '[^0-9]', '', 'g'), 9) = ANY(${tutteLeCifre}::text[])`
     : []
   const doveOrdini = idPerCifre.length
     ? { OR: [...dove.OR, { id: { in: idPerCifre.map((r) => r.id) } }] }

@@ -18,10 +18,20 @@ cifre non ci sono, e quel cliente risultava «sconosciuto» quando chiamava. È
 la stessa trappola del 05/09 su «Unisci un altro ordine».
 
 **Corretto**: in `riconosciChiamante` l'ordine locale si cerca con
-`RIGHT(regexp_replace(telefono,'\D','','g'),9) = cifre` in `$queryRaw`; in
+`RIGHT(regexp_replace(telefono,'[^0-9]','','g'),9) = cifre` in `$queryRaw`; in
 `schedaCliente` gli ordini si aggiungono per cifre allo stesso modo (reclami,
 rimborsi e conversazioni restano col `contains`: lì i telefoni li scriviamo noi).
 Il ripiego sull'archivio di Orders confrontava già per cifre.
+
+⚠️⚠️ **`\D` via Prisma NON filtra.** La prima stesura (e la correzione del 05/09
+su «Unisci un altro ordine») usava `regexp_replace(telefono, '\D', '', 'g')`:
+provata da sola, la colonna tornava **identica** («+39 350 846 2424» →
+«+39 350 846 2424»). Con `'[^0-9]'` funziona: #2558 si trova da
+«00393508462424», «+393508462424» e «0039 350 846 2424»; #2555 da
+«00447387995801». Il 05/09 l'avevo data per verificata perché Rodrigo
+combaciava per **email**: la prova va fatta sul caso che passa SOLO per la via
+corretta ([[trappola-regexp-backslash-d-via-prisma]]). Sostituito nei tre punti
+(`chiamate.ts`, `scheda-cliente.ts`, `unione-ordini.ts`).
 
 Limite rimasto, dichiarato: `cifreTelefono` vuole **almeno 9 cifre**, quindi un
 fisso corto salvato senza prefisso («06845511», 2 ordini su 1.344) non si
