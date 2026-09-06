@@ -782,6 +782,7 @@
     }
   },
   "deliveries": {
+    "codice": { "inserisci": "Enter valet code" },
     "recipientHidden": "Shown once you start the delivery",
     "proposte": {
       "title": "Orders proposed to you",

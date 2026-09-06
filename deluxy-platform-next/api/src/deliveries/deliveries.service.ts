@@ -57,6 +57,9 @@ const DELIVERY_LIST_SELECT = {
   paymentOnDelivery: true, paymentAmount: true, price: true,
   // ⭐ 05/09/2026: il ritiro verificato col codice del valet (bottone «in consegna»).
   valetIdentityCheck: true, deliveryCodeRequired: true, pickupVerifiedAt: true,
+  // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
+  // tabella, nella colonna «Consegna», quando sono da approvare.
+  hoursFrom: true, hoursTo: true, hoursOriginal: true,
   // ⭐ 05/09/2026 (regola utente): il DDT si vede anche in ELENCO. Era
   // cercabile (sta in SEARCH_FIELDS) ma non usciva: si poteva trovare una
   // consegna dal suo numero di documento e poi non vederlo a schermo.

@@ -431,7 +431,12 @@ interface PropostaVendita {
                 <td class="muted">{{ d.recipientAddress }}</td>
                 <td class="muted">{{ d.pickupAddress || '—' }}</td>
                 <td>
-                  @if (d.deliveryTimeFrom) {
+                  <!-- ⭐ 06/09/2026 (regola utente): con le ore DA APPROVARE la
+                       colonna mostra gli orari dichiarati dal valet, senza
+                       etichette: si legge e si decide coi bottoni in riga. -->
+                  @if (d.status === 'delivered_time_to_approve' && d.hoursFrom) {
+                    <strong class="ore-valet">{{ d.hoursFrom }}@if (d.hoursTo) {–{{ d.hoursTo }}}</strong>
+                  } @else if (d.deliveryTimeFrom) {
                     {{ d.deliveryTimeFrom }}@if (d.deliveryTimeTo) {–{{ d.deliveryTimeTo }}}
                     @if (d.deliveryFlexible) {
                       <span class="pill pill-flex">{{ 'common.flexible' | translate }}</span>
@@ -493,6 +498,11 @@ interface PropostaVendita {
                   @if (d.status === 'delivered_time_to_approve' && puoDecidereOreRiga(d)) {
                     <button type="button" class="act primary" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, true)">{{ 'deliveryDetail.ore.approva' | translate }}</button>
                     <button type="button" class="act" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, false)">{{ 'deliveryDetail.ore.rifiuta' | translate }}</button>
+                  }
+                  <!-- ⭐ 06/09/2026 (regola utente): il PARTNER inserisce il codice
+                       del valet DALLA RIGA, al ritiro, senza aprire il dettaglio. -->
+                  @if (codiceDaInserire(d)) {
+                    <button type="button" class="act primary" (click)="apriCodice(d, $event)">{{ 'deliveries.codice.inserisci' | translate }}</button>
                   }
                   @if (canManage()) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
@@ -609,6 +619,27 @@ interface PropostaVendita {
         }
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="assignFor.set(null)">{{ 'common.cancel' | translate }}</button>
+        </div>
+      </div>
+    }
+
+    <!-- ⭐ 06/09/2026: CODICE DEL VALET dalla lista (partner/ufficio): stesso
+         endpoint e stessi testi del dettaglio. -->
+    @if (codiceFor(); as d) {
+      <div class="overlay" (click)="codiceFor.set(null)"></div>
+      <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="codiceFor.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
+        <h2>{{ 'deliveryDetail.codice.titolo' | translate }}</h2>
+        <p class="modal-sub">{{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}</p>
+        <p class="muted">{{ 'deliveryDetail.codice.spiega' | translate: { valet: (d.valet ? d.valet.firstName + ' ' + d.valet.lastName : '—') } }}</p>
+        <div class="ore-lista">
+          <label><span>{{ 'deliveryDetail.codice.campo' | translate }}</span>
+            <input class="field" type="text" inputmode="numeric" autocomplete="off" name="codiceValetLista" [(ngModel)]="codiceValet" (keyup.enter)="verificaCodice(d)" /></label>
+        </div>
+        @if (codiceErrore(); as e) { <div class="modal-err">{{ e }}</div> }
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="codiceFor.set(null)">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="act primary" [disabled]="codiceInCorso() || !codiceValet.trim()" (click)="verificaCodice(d)">{{ 'deliveryDetail.codice.verifica' | translate }}</button>
         </div>
       </div>
     }
@@ -956,6 +987,7 @@ interface PropostaVendita {
       }
       .rif-vendita { display: block; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
       .rif-vendita:hover { color: var(--text-primary); text-decoration: underline; }
+      .ore-valet { color: var(--amber); font-weight: 600; }
       .ore-lista { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 4px 0 10px; }
       .ore-lista label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
       .ore-lista .piccolo { flex-basis: 100%; margin: 0; font-size: 12px; }
@@ -2181,6 +2213,36 @@ export class DeliveriesListComponent {
 
   /** ⭐ 05/09/2026: il contrassegno da mostrare al valet prima di partire (dalla riga). */
   readonly avvisoContanti = signal<{ d: Delivery; importo: number } | null>(null);
+
+  // ⭐ 06/09/2026 (regola utente): il partner inserisce il codice del valet DALLA RIGA.
+  readonly codiceFor = signal<Delivery | null>(null);
+  readonly codiceInCorso = signal(false);
+  readonly codiceErrore = signal<string | null>(null);
+  codiceValet = '';
+
+  /** La riga chiede il codice: verifica richiesta, non ancora fatta, valet assegnato, consegna ancora da ritirare. */
+  codiceDaInserire(d: Delivery): boolean {
+    if (!(this.roleOf() === 'PARTNER' || this.canManage())) return false;
+    return this.ritiroDaVerificare(d) && !d.pickupVerifiedAt && !!d.valet
+      && ['assigned', 'accepted', 'in_preparation'].includes(d.status);
+  }
+
+  apriCodice(d: Delivery, ev: Event): void {
+    ev.stopPropagation();
+    this.codiceValet = '';
+    this.codiceErrore.set(null);
+    this.codiceFor.set(d);
+  }
+
+  verificaCodice(d: Delivery): void {
+    if (!this.codiceValet.trim() || this.codiceInCorso()) return;
+    this.codiceInCorso.set(true);
+    this.codiceErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ritiro/verifica`, { codice: this.codiceValet.trim() }).subscribe({
+      next: () => { this.codiceInCorso.set(false); this.codiceFor.set(null); this.load(); },
+      error: (e) => { this.codiceInCorso.set(false); this.codiceErrore.set(e?.error?.message ?? this.translate.instant('common.saveError')); },
+    });
+  }
 
   valetInConsegna(d: Delivery): void {
     // ⭐ 05/09/2026 (regola utente): con un pagamento alla consegna il valet

@@ -783,6 +783,7 @@
     }
   },
   "deliveries": {
+    "codice": { "inserisci": "Inserisci codice valet" },
     "recipientHidden": "Visibile quando la metti in consegna",
     "proposte": {
       "title": "Ordini proposti a te",
