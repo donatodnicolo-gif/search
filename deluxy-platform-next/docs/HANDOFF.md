@@ -3,6 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔧 **06/09/2026 sera — FIX profilo partner**: la riassegnazione del DTO per il PARTNER in `partners.update` scartava i tre campi di vendita (200 «aggiornato» ma niente scritto). Ora passano (gated dal servizio VENDITA). Verificato con chanel_consegne@deluxy.it via API locale.
 > ✅ **06/09/2026 sera — LIVE `delivery-d5kzzuy8p` (bundle main-WYSL6VEA) su app.deluxy.it, pushato fino a 815301bd**: Attività con «Da fare» / «Storico», «con partner» = liste di priorità, sconto dalla regola del territorio di Orders.
 > 🪗 **06/09/2026 sera — Attività: «Da fare» / «Storico»** (LIVE): `activities.service.findAll(user, date, limite, stato)` con `conteggi`, controller `?stato=`, `activities-list.component` con le due linguette e i numeri, i18n `activities.sezione.*`. Verificato via API locale: oggi 10 da fare / 28 concluse.
 > 🪗 **06/09/2026 sera — «con partner» = LISTE DI PRIORITÀ**: `quotaDaOrders` conta le `PriorityList` della provincia con un partner attivo; nuova `GET /app/province-abilitate` (app-api) letta da Orders. 13 province con liste; le liste create da sole oggi (VE, AR, FC, FE, RN, GE) contengono i partner «Tutto il mondo» (Artista Locale, Deluxy Flowers, Cakedesignme): sono nate dallo smistamento automatico dopo l'assegnazione dell'area — da valutare con l'utente se vanno tenute.

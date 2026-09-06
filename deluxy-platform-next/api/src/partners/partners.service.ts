@@ -598,6 +598,13 @@ export class PartnersService {
         // 02/09 (regola utente): gli indirizzi di RITIRO aggiuntivi sono suoi
         // — li imposta dalla scheda profilo.
         ...(Array.isArray(p['pickupAddresses']) ? { pickupAddresses: p['pickupAddresses'] as string[] } : {}),
+        // ⭐ 06/09/2026 sera (difetto segnalato dall'utente: «ho salvato consegna partner, km e
+        // minimo dal profilo e non ha salvato nulla»): questa riassegnazione BUTTAVA i tre campi
+        // di vendita prima che la whitelist qui sotto potesse ammetterli. Passano, e restano
+        // comunque gated dal servizio di VENDITA (controllo più avanti).
+        ...(p['autoDeliveredByPartner'] !== undefined ? { autoDeliveredByPartner: p['autoDeliveredByPartner'] } : {}),
+        ...(p['minimoOrdineVendita'] !== undefined ? { minimoOrdineVendita: p['minimoOrdineVendita'] } : {}),
+        ...(p['raggioMaxConsegnaKm'] !== undefined ? { raggioMaxConsegnaKm: p['raggioMaxConsegnaKm'] } : {}),
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
