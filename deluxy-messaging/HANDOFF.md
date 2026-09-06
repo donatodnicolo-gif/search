@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (26) — La conferma nel nostro stile, e «Automatico» sul menu di chi se ne occupa
+
+Due richieste dell'utente davanti alla bacheca.
+
+**«Dammi pop-up in linea con nostro css».** La domanda del passo «In App» usava
+`window.confirm`: la finestra del browser, «localhost:3140 dice», bottoni OK e
+Annulla — e il Libro UX §7 lo vieta nel codice nuovo. Nasce
+**`src/components/Conferma.tsx`**: la conferma narrativa del canone — il NOME
+dell'oggetto nel titolo («Inserire l'ordine #1834 nella piattaforma
+consegne?»), le CONSEGUENZE nel testo (cosa succede col sì e col no), il bottone
+col VERBO («Sì, apri il modulo» · «No, segna solo lo stato»); `pericoloso` fa il
+primario rosso per le distruzioni. Velo `.velo-conferma` a z 80 (sta SOPRA il
+pannello dell'ordine, z 60) e finestra `.finestra-conferma` (surface, hairline,
+radius-l, shadow-float, `max-height: min(92dvh, …)`). Esc e clic sul velo =
+Annulla, fuoco sul primario così Invio conferma; `role="dialog"`,
+`aria-modal`, `aria-labelledby`. ⚠️ Il velo ferma la propagazione del clic:
+sotto c'è il pannello dell'ordine che chiude al clic sul SUO velo, e senza
+`stopPropagation` annullare la domanda chiudeva anche la scheda.
+Usata in `DettaglioOrdine` (stato `chiediInApp`) e in `OrdiniLista`
+(`chiediInAppPer`). Guardata a schermo con una pagina temporanea sotto
+`/widget/` (poi cancellata): titolo, due paragrafi, pillola nera + pillola grigia.
+Restano 12 `window.confirm` vecchi in altri componenti: migrano quando si tocca
+quel pezzo (il Libro non li pretende in blocco).
+
+**«Per ordini che vanno direttamente in app mostra come Assegna a un valore
+Automatico».** `ComandoPresa` (bacheca): quando l'ordine è `in_app` e nessuno
+l'ha preso, il menu mostra **«Automatico (piattaforma consegne)»** al posto di
+«Assegna a…». Si può comunque assegnare a una persona, e allora vince la persona.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (25) — «In App» chiede conferma anche dalla scheda in bacheca
 
 Segnalazione dell'utente con la foto della bacheca (colonna Cake, #1834): «ho

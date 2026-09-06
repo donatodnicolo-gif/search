@@ -25,6 +25,7 @@ import { linkPagamentoOrdine } from '@/lib/link-ordine'
 import { segnaliOrdine } from '@/lib/segnali-ordine'
 import { fornitoreAtteso } from '@/lib/fornitore-ordine'
 import { DettaglioOrdine } from './DettaglioOrdine'
+import { Conferma } from './Conferma'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
 type OrdineDto = {
@@ -744,7 +745,18 @@ function ComandoPresa({
       }
       aria-label="Assegna l'ordine"
     >
-      <option value="">{ordine.presaDaId ? 'Lascialo libero' : 'Assegna a…'}</option>
+      {/* ⚠️ Un ordine IN APP senza operatore non è «da assegnare»: se ne
+          occupa la piattaforma consegne, da sola. Il menu lo dice (utente,
+          06/09/2026: «per ordini che vanno direttamente in app mostra come
+          Assegna a un valore Automatico»); si può comunque assegnare a una
+          persona, e allora vince la persona. */}
+      <option value="">
+        {ordine.presaDaId
+          ? 'Lascialo libero'
+          : ordine.gestione === 'in_app'
+            ? 'Automatico (piattaforma consegne)'
+            : 'Assegna a…'}
+      </option>
       {operatori.map((u) => (
         <option key={u.id} value={u.id}>
           {u.id === ioId ? `Me ne occupo io (${u.nome})` : u.nome}
@@ -1016,6 +1028,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
    * domanda la fa il pop-up: qui vale per chi lavora dalle colonne.
    */
   const [dettaglioConInApp, setDettaglioConInApp] = useState(false)
+  /** L'ordine per cui si sta chiedendo «inserirlo in piattaforma?» (null = nessuno). */
+  const [chiediInAppPer, setChiediInAppPer] = useState<{ id: string; numero: string } | null>(null)
   /** La scheda si apre da sola una volta sola: vedi `carica()`. */
   const apertaDaLink = useRef(false)
   // L'ordine dell'ARCHIVIO aperto nel pannello (null = nessuno). Sta a parte
@@ -2123,16 +2137,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                                 // il pop-up dell'ordine sul modulo «Manda in app», con
                                 // «Annulla» resta il vecchio gesto (solo lo stato).
                                 if (k === 'in_app' && o.gestione !== 'in_app') {
-                                  const si = window.confirm(
-                                    'Vuoi inserire la consegna nella piattaforma consegne?\n\n' +
-                                      'OK: si apre la scheda dell\'ordine con il modulo per inserirla (partner, servizio, prodotto, prezzo).\n' +
-                                      'Annulla: segna solo lo stato «In App», senza creare niente di là.'
-                                  )
-                                  if (si) {
-                                    setDettaglioConInApp(true)
-                                    setDettaglio(o.id)
-                                    return
-                                  }
+                                  setChiediInAppPer({ id: o.id, numero: o.numero })
+                                  return
                                 }
                                 void segna(o.id, k)
                               }}
@@ -2632,6 +2638,35 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {/* La domanda del passo «In App» premuto sulla scheda, nel nostro stile (Libro §7). */}
+      {chiediInAppPer ? (
+        <Conferma
+          titolo={`Inserire l'ordine ${chiediInAppPer.numero} nella piattaforma consegne?`}
+          verbo="Sì, apri il modulo"
+          annulla="No, segna solo lo stato"
+          onConferma={() => {
+            const id = chiediInAppPer.id
+            setChiediInAppPer(null)
+            setDettaglioConInApp(true)
+            setDettaglio(id)
+          }}
+          onAnnulla={() => {
+            const id = chiediInAppPer.id
+            setChiediInAppPer(null)
+            void segna(id, 'in_app')
+          }}
+        >
+          <p>
+            Con il sì si apre la scheda dell&apos;ordine già sul modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di
+            là nasce una consegna vera.
+          </p>
+          <p>
+            Con il no l&apos;ordine viene solo segnato «In App», senza creare niente sulla
+            piattaforma: serve a chi la consegna l&apos;ha già inserita a mano di là.
+          </p>
+        </Conferma>
       ) : null}
 
       {/* Il dettaglio dell'ordine, aperto cliccando la scheda o la riga.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
+import { Conferma } from './Conferma'
 import { RichiediFattura } from './RichiediFattura'
 import { FornitoreOrdine, type FornitoreProposto } from './FornitoreOrdine'
 import { DiarioOrdine } from './DiarioOrdine'
@@ -442,6 +443,8 @@ export function DettaglioOrdine({
    * poteva verificare.
    */
   const [apriInApp, setApriInApp] = useState(apriMandaInApp ? 1 : 0)
+  /** La domanda «vuoi inserirla in piattaforma?», nella nostra finestra (Libro §7: niente window.confirm). */
+  const [chiediInApp, setChiediInApp] = useState(false)
   const [numeroDaUnire, setNumeroDaUnire] = useState('')
   const [importoRiconsegna, setImportoRiconsegna] = useState('')
   const [motivoRiconsegna, setMotivoRiconsegna] = useState('')
@@ -1013,6 +1016,31 @@ export function DettaglioOrdine({
 
   return (
     <div className="velo" onClick={onChiudi} role="presentation">
+      {/* La domanda del passo «In App», nel nostro stile (Libro §7), sopra il pannello. */}
+      {chiediInApp && ordine ? (
+        <Conferma
+          titolo={`Inserire l'ordine ${ordine.numero} nella piattaforma consegne?`}
+          verbo="Sì, apri il modulo"
+          annulla="No, segna solo lo stato"
+          onConferma={() => {
+            setChiediInApp(false)
+            setApriInApp((n) => n + 1)
+          }}
+          onAnnulla={() => {
+            setChiediInApp(false)
+            void cambiaGestione('in_app')
+          }}
+        >
+          <p>
+            Con il sì si apre il modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di
+            là nasce una consegna vera.
+          </p>
+          <p>
+            Con il no l&apos;ordine viene solo segnato «In App», senza creare niente sulla
+            piattaforma: serve a chi la consegna l&apos;ha già inserita a mano di là.
+          </p>
+        </Conferma>
+      ) : null}
       {/* Il clic dentro il pannello non deve chiuderlo. */}
       <div
         className="pannello pannello-ordine"
@@ -1884,15 +1912,8 @@ export function DettaglioOrdine({
                                 // vecchio gesto — segnare solo lo stato, per chi la
                                 // consegna l'ha già fatta a mano dalla piattaforma.
                                 if (k === 'in_app' && ordine.gestione !== 'in_app') {
-                                  const si = window.confirm(
-                                    'Vuoi inserire la consegna nella piattaforma consegne?\n\n' +
-                                      'OK: si apre il modulo per inserirla (partner, servizio, prodotto, prezzo).\n' +
-                                      'Annulla: segna solo lo stato «In App», senza creare niente di là.'
-                                  )
-                                  if (si) {
-                                    setApriInApp((n) => n + 1)
-                                    return
-                                  }
+                                  setChiediInApp(true)
+                                  return
                                 }
                                 void cambiaGestione(k)
                               }}
