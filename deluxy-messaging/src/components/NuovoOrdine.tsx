@@ -82,12 +82,23 @@ function descriviGruppo(g: { varianti: { prezzo: number; disponibile: boolean }[
   return pezzi.join(' · ')
 }
 
+/** Un campo proposto dall'AI: il valore e la frase della chat da cui viene. */
+type CampoAi = { valore: string; citazione: string }
+
 export function NuovoOrdine({
   prefill,
   compatto = false,
+  conversazioneId = '',
 }: {
   /** Chi è il cliente, quando si arriva da una conversazione. */
   prefill?: { nome?: string; email?: string; telefono?: string; negozioId?: string }
+  /**
+   * La conversazione da cui si parte: il modulo chiede all'AI i campi
+   * dell'ordine (destinatario, indirizzo, giorno, fascia, biglietto, note) e
+   * li compila — solo quelli vuoti, ognuno con la frase da cui viene. Utente,
+   * 06/09/2026.
+   */
+  conversazioneId?: string
   /**
    * Il modulo sta DENTRO qualcosa (la scheda laterale della chat): niente
    * titolone di pagina.
@@ -99,6 +110,13 @@ export function NuovoOrdine({
   compatto?: boolean
 }) {
   const [negozi, setNegozi] = useState<Negozio[]>([])
+  // ── COMPILATO DALL'AI, DALLA CHAT ──
+  /** I campi riempiti dall'AI, con la frase: si mostrano per farli controllare. */
+  const [daAi, setDaAi] = useState<{ etichetta: string; valore: string; citazione: string }[]>([])
+  const [aiStato, setAiStato] = useState<'' | 'leggo' | 'fatto' | 'niente' | 'errore'>('')
+  const [aiErrore, setAiErrore] = useState('')
+  const [aiProdotto, setAiProdotto] = useState<CampoAi | null>(null)
+  const [aiBattute, setAiBattute] = useState<{ usate: number; totali: number } | null>(null)
   // ⚠️ Il negozio arriva dalla conversazione quando si parte da lì: il cliente
   // ha scritto AL marchio, e far scegliere di nuovo è sia un gesto in più sia
   // un modo per sbagliare — un ordine Cake creato su Flowers ha il listino, la
@@ -682,6 +700,92 @@ export function NuovoOrdine({
     )
   }, [])
 
+  // All'apertura da una chat: si chiede all'AI e si riempiono i campi VUOTI.
+  // ⚠️ Solo i vuoti: quello che c'è già (il nome dalla conversazione, una bozza
+  // ripresa, quello che l'operatore ha iniziato a scrivere) non si tocca.
+  useEffect(() => {
+    if (!conversazioneId) return
+    let vivo = true
+    setAiStato('leggo')
+    setAiErrore('')
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/conversazioni/${conversazioneId}/ordine-da-chat`, { method: 'POST' })
+        const d = (await res.json().catch(() => ({}))) as {
+          ordine?: { battute: { usate: number; totali: number }; campi: Record<string, CampoAi> }
+          errore?: string
+        }
+        if (!vivo) return
+        if (!res.ok || !d.ordine) {
+          setAiStato('errore')
+          setAiErrore(d.errore || 'Lettura della chat non riuscita.')
+          return
+        }
+        const c = d.ordine.campi
+        const messi: { etichetta: string; valore: string; citazione: string }[] = []
+        const metti = (campo: CampoAi | undefined, etichetta: string, attuale: string, set: (v: string) => void) => {
+          if (!campo?.valore || attuale.trim()) return
+          set(campo.valore)
+          messi.push({ etichetta, valore: campo.valore, citazione: campo.citazione })
+        }
+        metti(c.mittenteNome, 'Nome', nome, setNome)
+        metti(c.mittenteCognome, 'Cognome', cognome, setCognome)
+        metti(c.mittenteTelefono, 'Telefono', telefono, setTelefono)
+        metti(c.mittenteEmail, 'Email', email, setEmail)
+        if (c.destinatarioNome?.valore || c.destinatarioTelefono?.valore) setAltroDestinatario(true)
+        metti(c.destinatarioNome, 'Destinatario: nome', destNome, setDestNome)
+        metti(c.destinatarioCognome, 'Destinatario: cognome', destCognome, setDestCognome)
+        metti(c.destinatarioTelefono, 'Destinatario: telefono', destTelefono, setDestTelefono)
+        metti(c.via, 'Indirizzo', indirizzo, setIndirizzo)
+        metti(c.noteCivico, 'Civico / note', note, setNote)
+        metti(c.cap, 'CAP', cap, setCap)
+        metti(c.citta, 'Città', citta, setCitta)
+        metti(c.provincia, 'Provincia', provincia, setProvincia)
+        if (c.paese?.valore && c.paese.valore !== 'IT') metti(c.paese, 'Paese', '', setPaese)
+        metti(c.dataISO, 'Giorno', data, setData)
+        if (c.fascia?.valore && !fascia) {
+          // Una fascia del sito si sceglie dalla tendina; un orario a parole va
+          // nella fascia flessibile, che è il posto dove il fornitore la legge.
+          const f = c.fascia.valore.replace(/\s+/g, '')
+          const delSito = fasceDelNegozio.find((x) => x.replace(/\s+/g, '') === f || x.replace(/^0/, '').replace(/-0/, '-') === f.replace(/^0/, '').replace(/-0/, '-'))
+          if (delSito) setFascia(delSito)
+          else {
+            setFasciaLibera(true)
+            setFascia(c.fascia.valore)
+          }
+          messi.push({ etichetta: 'Fascia', valore: delSito ?? c.fascia.valore, citazione: c.fascia.citazione })
+        }
+        metti(c.biglietto, 'Biglietto', biglietto, setBiglietto)
+        if (c.noteConsegna?.valore) {
+          // Le istruzioni per chi consegna stanno nelle note dell'indirizzo, dopo il civico.
+          const gia = note.trim() || c.noteCivico?.valore || ''
+          const nuove = gia && !gia.includes(c.noteConsegna.valore) ? `${gia} · ${c.noteConsegna.valore}` : gia || c.noteConsegna.valore
+          setNote(nuove)
+          messi.push({ etichetta: 'Note per chi consegna', valore: c.noteConsegna.valore, citazione: c.noteConsegna.citazione })
+        }
+        if (c.prodotto?.valore) {
+          setAiProdotto(c.prodotto)
+          // Il prodotto NON si mette in una riga: il prezzo e la variante
+          // vengono dal catalogo, e una riga scritta a mano finirebbe in ordine
+          // senza il prodotto vero. Si porta la richiesta nella ricerca.
+          if (!q.trim() && !righe.length) setQ(c.prodotto.valore.slice(0, 60))
+        }
+        setAiBattute(d.ordine.battute)
+        setDaAi(messi)
+        setAiStato(messi.length || c.prodotto?.valore ? 'fatto' : 'niente')
+      } catch {
+        if (!vivo) return
+        setAiStato('errore')
+        setAiErrore('Lettura della chat non riuscita: problema di rete.')
+      }
+    })()
+    return () => {
+      vivo = false
+    }
+    // Una volta sola, all'apertura: rileggere a ogni tasto sovrascriverebbe il lavoro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversazioneId])
+
   // All'apertura: se c'è una bozza recente, si PROPONE.
   useEffect(() => {
     try {
@@ -950,6 +1054,41 @@ export function NuovoOrdine({
           del cliente di mezz'ora fa mentre se ne sta servendo un altro è il modo
           di mandare un regalo all'indirizzo sbagliato. Chi la riprende lo
           decide guardando di chi è. */}
+      {/* ── Cosa ha compilato l'AI dalla chat, e da dove ──
+          ⚠️ Si mostra SEMPRE cosa è stato riempito e la frase: un campo
+          compilato in silenzio si crede vero, e su un indirizzo di consegna
+          credere è il modo di sbagliare. */}
+      {aiStato === 'leggo' ? (
+        <p className="cella-sub" style={{ margin: '0 0 10px' }}>Leggo la chat per compilare il modulo…</p>
+      ) : null}
+      {aiStato === 'errore' ? <div className="avviso-errore">{aiErrore} Compila a mano.</div> : null}
+      {aiStato === 'niente' ? (
+        <p className="cella-sub" style={{ margin: '0 0 10px' }}>
+          Nella chat non ho trovato indirizzo, giorno o destinatario da riportare: compila a mano.
+        </p>
+      ) : null}
+      {aiStato === 'fatto' ? (
+        <details className="avviso-ok" open style={{ marginBottom: 10 }}>
+          <summary style={{ cursor: 'pointer' }}>
+            <strong>Compilato dalla chat</strong>: {daAi.length} {daAi.length === 1 ? 'campo' : 'campi'}
+            {aiProdotto ? ' + il prodotto chiesto' : ''} — controlla, ogni voce ha la frase da cui viene.
+            {aiBattute && aiBattute.usate < aiBattute.totali ? ` Letto sulle ultime ${aiBattute.usate} battute su ${aiBattute.totali}.` : ''}
+          </summary>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+            {daAi.map((v) => (
+              <li key={v.etichetta} style={{ fontSize: 13 }}>
+                <strong>{v.etichetta}</strong>: {v.valore} <span className="cella-sub">— «{v.citazione}»</span>
+              </li>
+            ))}
+            {aiProdotto ? (
+              <li style={{ fontSize: 13 }}>
+                <strong>Prodotto chiesto</strong>: {aiProdotto.valore}{' '}
+                <span className="cella-sub">— «{aiProdotto.citazione}» · cercalo nel catalogo qui sotto: prezzo e variante vengono da lì.</span>
+              </li>
+            ) : null}
+          </ul>
+        </details>
+      ) : null}
       {bozzaTrovata ? (
         <div className="avviso-ok" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ flex: 1, minWidth: 200 }}>

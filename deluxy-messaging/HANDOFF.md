@@ -1,5 +1,34 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (53) — «Nuovo ordine» dalla chat si compila da solo con l'AI
+
+Utente: «riempi automaticamente grazie a AI anche quando da una chat si clicca
+su pulsante Nuovo Ordine». Prima il modulo laterale riceveva solo nome, email o
+telefono dalla conversazione.
+
+- `ai.ts`: `estraiOrdineDaChat(messaggi)` — schema strict con 18 campi, ognuno
+  `{ valore, citazione }`: mittente (nome, cognome, telefono, email),
+  destinatario (nome, cognome, telefono), indirizzo spezzato (via, note civico,
+  CAP, città, provincia come sigla, paese ISO2), `dataISO` (relative calcolate
+  dalla data del messaggio, altrimenti vuoto; validata `YYYY-MM-DD`), fascia,
+  prodotto, biglietto, note per chi consegna. Stesse regole del riassunto:
+  niente frase → niente campo; «vuoto»/«n/d» scartati (`senzaSegnaposto`);
+  finestra a caratteri `finestraChat()` (helper estratto dal riassunto, che ora
+  la usa anche lui).
+- Rotta `POST /api/conversazioni/<id>/ordine-da-chat` (auth; non salva).
+- `NuovoOrdine`: prop `conversazioneId` (Inbox la passa). All'apertura chiede
+  all'AI e riempie SOLO i campi vuoti (nome dalla conversazione, bozza ripresa
+  e testo già scritto restano); destinatario → `altroDestinatario`; fascia →
+  tendina se è una del sito, altrimenti «flessibile»; note consegna accodate
+  alle note del civico; paese solo se non IT. Il PRODOTTO non diventa una riga
+  (prezzo e variante vengono dal catalogo): va nella casella di ricerca del
+  catalogo e nell'avviso. Sopra il modulo un `<details>` aperto «Compilato
+  dalla chat: N campi» con ogni voce e la sua frase; stati «leggo…», «niente
+  trovato», errore (si compila a mano).
+- Prova sulla chat di Shivam: vedi il commit.
+
+**Verifica**: `tsc` 0. **Stato**: in locale.
+
 ## 06/09/2026 (52) — DEPLOY delle 17:04 e il riassunto che non vedeva l'indirizzo
 
 **DEPLOY (col sì dell'utente)**: cherry-pick di 8757b779, f4d8a8ac, a8568d66,
