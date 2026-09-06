@@ -286,6 +286,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>{{ 'partnerForm.setup.smsEnabled' | translate }}</span></label>
             <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>{{ 'partnerForm.setup.whatsappNotifications' | translate }}</span></label>
             <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>{{ 'partnerForm.setup.mailNotifications' | translate }}</span></label>
+            <!-- ⭐ 06/09/2026 (regola utente): ogni consegna del partner nasce «da fornitore» col valet «Partner Consegna». -->
+            <label class="toggle"><input type="checkbox" name="autoDeliveredByPartner" [(ngModel)]="model.autoDeliveredByPartner" /><span>{{ 'partnerForm.setup.autoDeliveredByPartner' | translate }}</span></label>
+            @if (model.autoDeliveredByPartner) { <p class="hint">{{ 'partnerForm.setup.autoDeliveredByPartnerHint' | translate }}</p> }
             <label class="toggle"><input type="checkbox" name="activityReminder" [(ngModel)]="model.activityReminder" /><span>{{ 'partnerForm.setup.activityReminder' | translate }}</span></label>
           </div>
         </div>
@@ -493,6 +496,7 @@ export class PartnerFormComponent {
     smsTemplatesEnabled: false,
     whatsappNotifications: false,
     mailNotifications: false,
+    autoDeliveredByPartner: false,
     activityReminder: false,
     storeUrl: '',
     imageUrl: '',
@@ -631,6 +635,7 @@ export class PartnerFormComponent {
       smsTemplatesEnabled: m.smsTemplatesEnabled,
       whatsappNotifications: m.whatsappNotifications,
       mailNotifications: m.mailNotifications,
+      autoDeliveredByPartner: m.autoDeliveredByPartner,
       isMultiPickup: m.isMultiPickup,
       valetIdentityCheck: m.valetIdentityCheck,
       deliveryCodeRequired: m.deliveryCodeRequired,

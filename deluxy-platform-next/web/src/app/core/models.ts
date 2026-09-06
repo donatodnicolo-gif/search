@@ -191,6 +191,8 @@ export interface Partner {
   /** ⭐ 05/09/2026: politica del partner — al ritiro si verifica il codice del valet. */
   valetIdentityCheck?: boolean;
   deliveryCodeRequired?: boolean;
+  /** ⭐ 06/09/2026: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna». */
+  autoDeliveredByPartner?: boolean;
   provinces?: { province: Province }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.

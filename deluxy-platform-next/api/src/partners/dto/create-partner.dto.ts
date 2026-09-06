@@ -143,6 +143,11 @@ export class CreatePartnerDto {
   @IsBoolean()
   mailNotifications?: boolean;
 
+  @ApiPropertyOptional({ default: false, description: 'Consegna Partner Automatico: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna»' })
+  @IsOptional()
+  @IsBoolean()
+  autoDeliveredByPartner?: boolean;
+
   @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
   @IsOptional()
   @IsString()

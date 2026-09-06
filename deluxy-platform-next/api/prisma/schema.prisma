@@ -324,6 +324,10 @@ model Partner {
   // Notifiche granulari (come nell'app reale)
   whatsappNotifications Boolean         @default(false)
   mailNotifications   Boolean           @default(false)
+  /// ⭐ 06/09/2026 (regola utente): «Consegna Partner Automatico» — ogni consegna inserita
+  /// per questo partner nasce «consegna da fornitore» (deliveredByPartner) col valet
+  /// «Partner Consegna». Colonna aggiunta con scripts/applica-migrazione-partner-auto.mjs.
+  autoDeliveredByPartner Boolean        @default(false)
   // Pagamenti e contratto
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto

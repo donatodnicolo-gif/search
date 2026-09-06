@@ -1722,6 +1722,8 @@
       "smsEnabled": "Possibilità di inviare SMS",
       "whatsappNotifications": "Notifiche WhatsApp",
       "mailNotifications": "Notifiche mail",
+      "autoDeliveredByPartner": "Consegna Partner Automatico",
+      "autoDeliveredByPartnerHint": "Ogni consegna inserita per questo partner nasce «consegna da fornitore» ed è assegnata al valet «Partner Consegna».",
       "activityReminder": "Promemoria attività"
     },
     "sales": {

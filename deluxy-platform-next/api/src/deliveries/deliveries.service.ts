@@ -1424,6 +1424,13 @@ export class DeliveriesService {
       const politica = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { valetIdentityCheck: true } });
       if (politica?.valetIdentityCheck) dto.valetIdentityCheck = true;
     }
+    // ⭐ 06/09/2026 (regola utente): «Consegna Partner Automatico» sulla scheda del
+    // partner → ogni consegna inserita per lui nasce «consegna da fornitore», a meno
+    // che chi inserisce non abbia deciso esplicitamente il contrario. E ogni consegna
+    // «da fornitore» senza valet prende il valet «Partner Consegna».
+    const auto = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { autoDeliveredByPartner: true } });
+    if (auto?.autoDeliveredByPartner && dto.deliveredByPartner === undefined) dto.deliveredByPartner = true;
+    if (dto.deliveredByPartner && !dto.valetId) dto.valetId = (await this.valetPartnerConsegna()) ?? dto.valetId;
 
     const serviceType = await this.prisma.serviceType.findUnique({
       where: { id: dto.serviceTypeId },
@@ -1818,8 +1825,19 @@ export class DeliveriesService {
     );
   }
 
+  /** Il valet fittizio «Partner Consegna» (legacy 168, consegnapartner@deluxy.it): chi «fa» le consegne da fornitore. */
+  private async valetPartnerConsegna(): Promise<string | null> {
+    const v = await this.prisma.valet.findFirst({
+      where: { deleted: false, OR: [{ legacyId: 168 }, { email: 'consegnapartner@deluxy.it' }, { AND: [{ firstName: { equals: 'Partner', mode: 'insensitive' } }, { lastName: { equals: 'Consegna', mode: 'insensitive' } }] }] },
+      select: { id: true }, orderBy: { legacyId: 'asc' },
+    });
+    return v?.id ?? null;
+  }
+
   async update(id: string, dto: UpdateDeliveryDto, user: JwtUser) {
     const delivery = await this.findOne(id, user);
+    // ⭐ 06/09: se la consegna diventa «da fornitore» e non ha un valet, prende «Partner Consegna».
+    if (dto.deliveredByPartner === true && !dto.valetId && !delivery.valetId) { const v = await this.valetPartnerConsegna(); if (v) dto.valetId = v; }
     // Regola di business: il partner puo' modificare la consegna solo finche' e'
     // "da gestire" (created = il rosso della legenda) e solo se il tipo di
     // servizio non e' VENDITA. Admin/Operation non hanno limiti.
