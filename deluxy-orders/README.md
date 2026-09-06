@@ -73,7 +73,7 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency; con `riepilogo=si` anche riassunto e gusti |
 | GET | `/api/v1/clienti` | i clienti **col riassunto scritto dall'AI** (`q, lista, ordina, verso, page, limit≤500`) |
 | GET | `/api/v1/clienti/:cliente` | la scheda di un cliente col riepilogo completo (riassunto, gusti, un punto per ordine); accetta l'id base64url **o l'email in chiaro** |
-| GET | `/api/v1/quota-fornitore` | la **quota attesa del fornitore** in percentuale (`totale` facoltativo: torna anche l'importo atteso per quell'ordine) |
+| GET | `/api/v1/quota-fornitore` | la **quota attesa del fornitore** in percentuale (`totale` facoltativo: torna anche l'importo atteso per quell'ordine). ⭐ 06/09: regola del territorio per i non unici — `provincia`, `conPartner=1\|0`, `prezzoPubblico` → `sconto` (40 senza partner; 20 Milano / 30 altrove con partner) e `prezzoFornitore` arrotondato a 5 |
 | POST | `/api/v1/sync?giorni=90` | avvia l'import (chiave di scrittura); `giorni=tutto` per lo storico completo |
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).

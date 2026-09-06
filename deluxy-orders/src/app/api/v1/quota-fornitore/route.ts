@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
-import { QUOTA_FORNITORE_DEFAULT, quotaFornitorePer, valutaQuota } from "@/lib/controllo";
+import { QUOTA_FORNITORE_DEFAULT, arrotondaA5, quotaFornitorePer, valutaQuota } from "@/lib/controllo";
+import { provinciaHaPartner } from "@/lib/piattaforma";
 
 // GET /api/v1/quota-fornitore — quanto ci aspettiamo di pagare al fornitore.
 //
@@ -28,7 +29,22 @@ export async function GET(req: NextRequest) {
   // dice da dove viene il numero. Senza parametri: il default, come sempre.
   const provincia = req.nextUrl.searchParams.get("provincia");
   const categoria = req.nextUrl.searchParams.get("categoria");
-  const { quota, regola } = await quotaFornitorePer(provincia, categoria);
+  // ⭐ 06/09/2026 (regola utente): la REGOLA DEL TERRITORIO per i prodotti non unici —
+  // 40 % di sconto dove non abbiamo partner, 20 % a Milano e 30 % altrove dove ce
+  // l'abbiamo, prezzo arrotondato a 5 o a 0. «Con partner» lo dice chi chiama
+  // (`conPartner=1|0`: la piattaforma lo sa) oppure lo si chiede alla piattaforma;
+  // se non si sa, si resta sul default, senza fingere.
+  const grezzoConPartner = req.nextUrl.searchParams.get("conPartner");
+  let conPartner: boolean | null = grezzoConPartner === null ? null : ["1", "true", "si", "sì"].includes(grezzoConPartner.toLowerCase()) ? true : ["0", "false", "no"].includes(grezzoConPartner.toLowerCase()) ? false : null;
+  let fonteConPartner: "chiamante" | "piattaforma" | "sconosciuta" = conPartner === null ? "sconosciuta" : "chiamante";
+  if (conPartner === null && provincia) {
+    const dallaPiattaforma = await provinciaHaPartner(provincia);
+    if (dallaPiattaforma !== null) { conPartner = dallaPiattaforma; fonteConPartner = "piattaforma"; }
+  }
+  const { quota, sconto, regola, motivo } = await quotaFornitorePer(provincia, categoria, conPartner);
+  const grezzoPubblico = req.nextUrl.searchParams.get("prezzoPubblico");
+  const prezzoPubblico = grezzoPubblico === null ? null : Number(grezzoPubblico);
+  const pubblicoValido = prezzoPubblico !== null && Number.isFinite(prezzoPubblico) && prezzoPubblico > 0;
   const grezzo = req.nextUrl.searchParams.get("totale");
   const totale = grezzo === null ? null : Number(grezzo);
 
@@ -48,10 +64,21 @@ export async function GET(req: NextRequest) {
     // (tabella QuotaRegola). Vale per i fornitori in chat: gli smistati dalla
     // piattaforma hanno lo sconto cristallizzato sulla vendita là.
     regola,
+    // Lo sconto sul prezzo pubblico (= 100 − quota) e come si è deciso.
+    sconto,
+    conPartner,
+    fonteConPartner,
+    motivo,
+    ambito: "prodotti non unici: per gli unici vale il listino del proprietario",
+    arrotondamento: "il prezzo al fornitore si arrotonda a 5 o a 0, al più vicino",
     nota:
       regola === "default"
         ? "Quota indicativa di default: nessuna regola per questa provincia."
-        : "Quota decisa per questa provincia (tabella QuotaRegola di Orders).",
+        : regola === "territorio"
+          ? "Regola del territorio (06/09/2026): 40% senza partner; con partner 20% a Milano, 30% altrove."
+          : "Quota decisa per questa provincia (tabella QuotaRegola di Orders).",
     ...(valido ? { totale, atteso: valutaQuota(totale, 0, quota).atteso } : {}),
+    // ⭐ Il PREZZO da dare al fornitore/partner per quel prodotto, già arrotondato.
+    ...(pubblicoValido ? { prezzoPubblico, prezzoFornitore: arrotondaA5(prezzoPubblico * (quota / 100)) } : {}),
   });
 }

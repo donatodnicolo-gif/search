@@ -151,10 +151,36 @@ export async function quotaFornitore(): Promise<number> {
  * ⚠️ Vale per i fornitori in chat: gli ordini smistati dalla piattaforma hanno
  * lo sconto cristallizzato sulla vendita là, e questo numero non c'entra.
  */
+export type RegolaQuota = "provincia+categoria" | "provincia" | "territorio" | "default";
+
+// ⭐ 06/09/2026 (regola utente) — LA REGOLA DEL TERRITORIO, per i prodotti NON UNICI.
+// Il prezzo da dare a fornitori e partner è il prezzo pubblico MENO uno sconto che
+// dipende dalla provincia e dal fatto che lì ci sia un partner:
+//   - provincia SENZA partner (fornitori trovati per l'occasione, da cui prendiamo
+//     una fee): sconto 40 %;
+//   - provincia CON partner: sconto 20 % a Milano, 30 % nelle altre province.
+// Il prezzo si arrotonda a 5 o a 0 (il più vicino). Le regole scritte a mano in
+// QuotaRegola (provincia, categoria) vincono; questa vale dove non ce ne sono.
+// «Con partner» lo sa la piattaforma consegne (Standard §7): chi chiama lo dice
+// (`conPartner`), oppure si chiede a lei — senza saperlo si resta sul default.
+export const SCONTO_TERRITORIO = { senzaPartner: 40, milanoConPartner: 20, provinciaConPartner: 30 } as const;
+
+/** Arrotonda a 5 o a 0, al più vicino (72,5 → 75; 68 → 70; 61 → 60). */
+export function arrotondaA5(n: number): number {
+  return Math.round(n / 5) * 5;
+}
+
+export function scontoTerritorio(provincia: string, conPartner: boolean): { sconto: number; motivo: string } {
+  if (!conPartner) return { sconto: SCONTO_TERRITORIO.senzaPartner, motivo: `provincia ${provincia} senza partner: sconto ${SCONTO_TERRITORIO.senzaPartner}% sul prezzo pubblico` };
+  if (provincia === "MI") return { sconto: SCONTO_TERRITORIO.milanoConPartner, motivo: `Milano con partner: sconto ${SCONTO_TERRITORIO.milanoConPartner}% sul prezzo pubblico` };
+  return { sconto: SCONTO_TERRITORIO.provinciaConPartner, motivo: `provincia ${provincia} con partner: sconto ${SCONTO_TERRITORIO.provinciaConPartner}% sul prezzo pubblico` };
+}
+
 export async function quotaFornitorePer(
   provincia?: string | null,
   categoria?: string | null,
-): Promise<{ quota: number; regola: "provincia+categoria" | "provincia" | "default" }> {
+  conPartner?: boolean | null,
+): Promise<{ quota: number; sconto: number; regola: RegolaQuota; motivo: string }> {
   const prov = provincia?.trim().toUpperCase() ?? "";
   const cat = categoria?.trim().toLowerCase() ?? "";
   if (prov) {
@@ -162,11 +188,16 @@ export async function quotaFornitorePer(
       where: { provincia: prov, categoria: { in: cat ? [cat, ""] : [""] } },
     });
     const precisa = cat ? regole.find((r) => r.categoria === cat) : undefined;
-    if (precisa) return { quota: precisa.percento, regola: "provincia+categoria" };
+    if (precisa) return { quota: precisa.percento, sconto: 100 - precisa.percento, regola: "provincia+categoria", motivo: `regola scritta per ${prov} / ${cat} (QuotaRegola)` };
     const generica = regole.find((r) => r.categoria === "");
-    if (generica) return { quota: generica.percento, regola: "provincia" };
+    if (generica) return { quota: generica.percento, sconto: 100 - generica.percento, regola: "provincia", motivo: `regola scritta per ${prov} (QuotaRegola)` };
+    if (conPartner === true || conPartner === false) {
+      const t = scontoTerritorio(prov, conPartner);
+      return { quota: 100 - t.sconto, sconto: t.sconto, regola: "territorio", motivo: t.motivo };
+    }
   }
-  return { quota: await quotaFornitore(), regola: "default" };
+  const quota = await quotaFornitore();
+  return { quota, sconto: 100 - quota, regola: "default", motivo: prov ? `nessuna regola per ${prov} e non si sa se lì c'è un partner: quota indicativa` : "quota indicativa di default" };
 }
 
 /**

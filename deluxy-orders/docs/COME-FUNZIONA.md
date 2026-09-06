@@ -1668,6 +1668,25 @@ dicono più di dodici mesi.
   contando il valore delle righe), così le tre colonne sommano esatte al lordo.
 
 ### La quota del fornitore (`/api/v1/quota-fornitore`)
+
+> ⭐ **06/09/2026 — LA REGOLA DEL TERRITORIO (decisione dell'utente), per i prodotti NON unici.**
+> Il prezzo da dare a fornitori e partner è il **prezzo pubblico meno uno sconto**:
+> **40 %** nelle province **senza partner** (fornitori trovati per l'occasione, da cui
+> prendiamo una fee); nelle province **con partner** **20 % a Milano** e **30 %**
+> altrove. Il prezzo si **arrotonda a 5 o a 0**, al più vicino (68 → 70, 72,5 → 75).
+> Le regole scritte a mano in `QuotaRegola` (provincia, categoria) vincono; il
+> territorio vale dove non ce ne sono; il default (60) resta solo quando non si sa
+> se nella provincia c'è un partner. **Chi lo sa è la piattaforma consegne**: chi chiama
+> lo dichiara con `conPartner=1|0` (la piattaforma lo fa), altrimenti Orders lo
+> chiede a lei (`GET /api/v1/app/partner`, 10 minuti di cache, `PLATFORM_API_KEY`).
+> Con `prezzoPubblico=85` la risposta porta `prezzoFornitore` già arrotondato
+> (Milano con partner: 85 × 0,80 = 68 → **70**). La risposta dice sempre `regola`
+> (`provincia+categoria` | `provincia` | `territorio` | `default`), `sconto`,
+> `conPartner`, `fonteConPartner` e il `motivo` in chiaro. Per i prodotti UNICI non
+> si chiede: vale il listino del proprietario nella piattaforma. Chi la usa: la
+> piattaforma consegne (sconto della vendita), il Customer Service («al fornitore ≈»),
+> Budgets.
+
 Risponde con la **percentuale che spetta al fornitore** (di norma 60) e, se le
 si passa `?totale=135`, anche l'importo atteso (`atteso: 81`). Esiste perché la
 regola vive **solo qui**: il Customer Service la mostra sulla scheda di un

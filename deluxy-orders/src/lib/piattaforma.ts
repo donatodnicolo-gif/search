@@ -46,6 +46,35 @@ type VoceVendita = {
   } | null;
 };
 
+// ⭐ 06/09/2026: la regola del territorio ha bisogno di sapere se in una provincia
+// abbiamo un partner. Lo sa SOLO la piattaforma consegne (PartnerProvince): si
+// legge il suo elenco dei partner attivi (`GET /api/v1/app/partner`, sigle delle
+// province servite) e si tiene 10 minuti. Senza chiave o senza risposta → null:
+// «non lo so» non diventa «no».
+let cacheProvince: { quando: number; sigle: Set<string> } | null = null;
+export async function provinciaHaPartner(provincia: string): Promise<boolean | null> {
+  const sigla = provincia.trim().toUpperCase();
+  if (!sigla) return null;
+  if (cacheProvince && Date.now() - cacheProvince.quando < 10 * 60_000) return cacheProvince.sigle.has(sigla);
+  const conf = configurazionePiattaforma();
+  if (!conf) return null;
+  try {
+    const res = await fetch(`${conf.url}/api/v1/app/partner`, { headers: { "x-api-key": conf.chiave }, cache: "no-store" });
+    if (!res.ok) return null;
+    const righe = (await res.json()) as { provinces?: { province?: { code?: string } }[]; province?: string[] }[];
+    if (!Array.isArray(righe)) return null;
+    const sigle = new Set<string>();
+    for (const p of righe) {
+      for (const x of p.provinces ?? []) if (x?.province?.code) sigle.add(x.province.code.toUpperCase());
+      for (const c of p.province ?? []) if (typeof c === "string") sigle.add(c.toUpperCase());
+    }
+    cacheProvince = { quando: Date.now(), sigle };
+    return sigle.has(sigla);
+  } catch {
+    return null;
+  }
+}
+
 export type EsitoRitiro = {
   lette: number;
   evasioniSegnate: number;

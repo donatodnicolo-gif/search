@@ -5,6 +5,8 @@ Stato al **04/09/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+> ⭐ **06/09/2026 — REGOLA DEL TERRITORIO su `/api/v1/quota-fornitore`** (decisione utente, prodotti non unici): sconto sul prezzo pubblico 40 % senza partner in provincia, 20 % Milano con partner, 30 % altre province con partner; prezzo arrotondato a 5/0 (`arrotondaA5`). Codice: `lib/controllo.ts` (`SCONTO_TERRITORIO`, `scontoTerritorio`, `quotaFornitorePer(prov, cat, conPartner)` → `{quota, sconto, regola, motivo}`), `lib/piattaforma.ts` (`provinciaHaPartner`: elenco partner della piattaforma, cache 10 min, null se non si sa), rotta con `conPartner`, `prezzoPubblico` → `prezzoFornitore`. QuotaRegola scritte a mano vincono; default 60 solo quando non si sa se c'è un partner. La piattaforma passa `conPartner` da sola. 🔴 `PLATFORM_API_KEY` in prod di Orders: se manca, senza `conPartner` dal chiamante si risponde default (CS e Budgets non lo passano ancora).
+
 > ✅ **RISOLTO (27/08, confermato dall'utente): `write_draft_orders` c'è.** I
 > vecchi «PUNTI APERTI» qui sotto lo davano come mancante e bloccante per
 > `/incassa` («Fatti pagare»). Non lo è più: il Customer Service crea ordini con
