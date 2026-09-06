@@ -429,6 +429,13 @@ export function DettaglioOrdine({
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
   const [interrompendo, setInterrompendo] = useState(false)
+  /**
+   * Il passo «In App» apre il modulo «Manda in app» (utente, 06/09/2026): ogni
+   * incremento è un «apri» per il riquadro. Prima il passo cambiava solo
+   * l'etichetta, e la consegna di là non nasceva — un «In App» che nessuno
+   * poteva verificare.
+   */
+  const [apriInApp, setApriInApp] = useState(0)
   const [numeroDaUnire, setNumeroDaUnire] = useState('')
   const [importoRiconsegna, setImportoRiconsegna] = useState('')
   const [motivoRiconsegna, setMotivoRiconsegna] = useState('')
@@ -1276,7 +1283,19 @@ export function DettaglioOrdine({
                    colonna, e un margine in cima la faceva partire 12px piu' in basso
                    delle altre due. Lo stacco lo da' il `gap` della colonna. */
                 <div>
-                  <MandaInApp ordineId={ordine.id} onFatto={() => void carica()} />
+                  <MandaInApp
+                    ordineId={ordine.id}
+                    onFatto={() => void carica()}
+                    apri={apriInApp}
+                    // Le righe dell'ordine (da Orders): il modulo propone il
+                    // prodotto e il prezzo che il cliente ha comprato.
+                    righe={righe.map((r) => ({
+                      titolo: r.titolo,
+                      prezzo: r.prezzo,
+                      quantita: r.quantita,
+                      sku: r.sku,
+                    }))}
+                  />
                 </div>
               ) : null}
             {/* IL FORM RAPIDO: foto + messaggio da mandare al fornitore. */}
@@ -1842,7 +1861,25 @@ export function DettaglioOrdine({
                               className={
                                 ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                               }
-                              onClick={() => cambiaGestione(k)}
+                              onClick={() => {
+                                // ⚠️ «In App» non è un'etichetta come le altre: di là
+                                // deve nascere una consegna. Si chiede, e con il sì si
+                                // apre il modulo qui sotto; con «Annulla» resta il
+                                // vecchio gesto — segnare solo lo stato, per chi la
+                                // consegna l'ha già fatta a mano dalla piattaforma.
+                                if (k === 'in_app' && ordine.gestione !== 'in_app') {
+                                  const si = window.confirm(
+                                    'Vuoi inserire la consegna nella piattaforma consegne?\n\n' +
+                                      'OK: si apre il modulo per inserirla (partner, servizio, prodotto, prezzo).\n' +
+                                      'Annulla: segna solo lo stato «In App», senza creare niente di là.'
+                                  )
+                                  if (si) {
+                                    setApriInApp((n) => n + 1)
+                                    return
+                                  }
+                                }
+                                void cambiaGestione(k)
+                              }}
                               disabled={bloccato}
                               title={
                                 bloccato

@@ -108,6 +108,17 @@ export function NuovoOrdine({
   const [cognome, setCognome] = useState('')
   const [email, setEmail] = useState(prefill?.email ?? '')
   const [telefono, setTelefono] = useState(prefill?.telefono ?? '')
+  /**
+   * CHI RICEVE, se non è il mittente (utente, 06/09/2026). Prima il nome del
+   * cliente finiva sull'indirizzo di consegna: nei regali il valet chiedeva
+   * di chi aveva pagato, non di chi doveva ricevere.
+   */
+  const [altroDestinatario, setAltroDestinatario] = useState(false)
+  const [destNome, setDestNome] = useState('')
+  const [destCognome, setDestCognome] = useState('')
+  const [destTelefono, setDestTelefono] = useState('')
+  /** Consenso marketing: di suo NO. Si spunta solo se il cliente l'ha detto. */
+  const [consensoMarketing, setConsensoMarketing] = useState(false)
 
   const [data, setData] = useState('')
   const [fascia, setFascia] = useState('')
@@ -250,6 +261,8 @@ export function NuovoOrdine({
     linkPagamento: string
     ordineNumero: string
     inviato: boolean
+    /** Com'è andata la scrittura del consenso marketing ('' = non chiesto). */
+    consensoEsito?: string
   } | null>(null)
 
   // ⚠️⚠️ SEGNALATO IL 27/08/2026: «nel creare un nuovo ordine non vede quali
@@ -760,6 +773,10 @@ export function NuovoOrdine({
         body: JSON.stringify({
           negozioId,
           cliente: { nome, cognome, email, telefono },
+          destinatario: altroDestinatario
+            ? { nome: destNome, cognome: destCognome, telefono: destTelefono }
+            : undefined,
+          consensoMarketing,
           consegna: {
             data,
             fascia,
@@ -796,6 +813,7 @@ export function NuovoOrdine({
         linkPagamento?: string
         ordineNumero?: string
         inviato?: boolean
+        consensoEsito?: string
       }
       if (!res.ok) {
         setErrore(d.errore || 'Ordine non creato.')
@@ -812,6 +830,7 @@ export function NuovoOrdine({
         linkPagamento: d.linkPagamento ?? '',
         ordineNumero: d.ordineNumero ?? '',
         inviato: Boolean(d.inviato),
+        consensoEsito: d.consensoEsito ?? '',
       })
     } catch {
       setErrore('Ordine non creato: problema di rete.')
@@ -827,6 +846,13 @@ export function NuovoOrdine({
           <h1>Ordine creato</h1>
         </div>
         <div className="card">
+          {/* L'esito del consenso marketing, quando l'operatore l'ha spuntato:
+              un consenso che si crede registrato e non lo è vale una multa. */}
+          {esito.consensoEsito ? (
+            <div className={/NON registrato/.test(esito.consensoEsito) ? 'avviso-errore' : 'avviso-ok'}>
+              {esito.consensoEsito}
+            </div>
+          ) : null}
           {esito.ordineNumero ? (
             <>
               <p>
@@ -938,7 +964,7 @@ export function NuovoOrdine({
       ) : null}
 
       <div className="card">
-        <h2 style={{ marginTop: 0, fontSize: 15 }}>Negozio e cliente</h2>
+        <h2 style={{ marginTop: 0, fontSize: 15 }}>Negozio e mittente (chi ordina e paga)</h2>
         <div className="griglia-campi">
           <label className="campo">
             <span>Negozio</span>
@@ -1032,12 +1058,71 @@ export function NuovoOrdine({
             <span>Telefono</span>
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </label>
+          {/* ── IL CONSENSO MARKETING (utente, 06/09/2026: «è di default?») ──
+              ⚠️ NO. Shopify registra il cliente nato da una bozza come «non
+              iscritto», e questa app non decide al posto suo: si spunta solo se
+              il cliente l'ha detto, e allora si scrive sul suo profilo con la
+              data. L'esito si legge a ordine creato. */}
+          <label
+            style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}
+          >
+            <input
+              type="checkbox"
+              checked={consensoMarketing}
+              onChange={(e) => setConsensoMarketing(e.target.checked)}
+            />
+            <span>
+              Il cliente <strong>acconsente alle comunicazioni marketing</strong> (newsletter,
+              promozioni). Di suo è no: senza questa spunta su Shopify resta «non iscritto».
+            </span>
+          </label>
         </div>
       </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0, fontSize: 15 }}>Consegna</h2>
         <div className="griglia-campi">
+          {/* ── CHI RICEVE ──
+              ⚠️ Nei nostri ordini chi paga e chi riceve sono quasi sempre due
+              persone. Senza questa casella il nome del mittente finiva
+              sull'indirizzo di consegna, cioè sul citofono che suona il valet. */}
+          <label
+            style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}
+          >
+            <input
+              type="checkbox"
+              checked={altroDestinatario}
+              onChange={(e) => setAltroDestinatario(e.target.checked)}
+            />
+            <span>
+              <strong>Riceve un&apos;altra persona</strong> — il destinatario non è chi ordina
+            </span>
+          </label>
+          {altroDestinatario ? (
+            <>
+              <label className="campo">
+                <span>Destinatario — nome</span>
+                <input value={destNome} onChange={(e) => setDestNome(e.target.value)} />
+              </label>
+              <label className="campo">
+                <span>Cognome</span>
+                <input value={destCognome} onChange={(e) => setDestCognome(e.target.value)} />
+              </label>
+              <label className="campo">
+                <span>Telefono del destinatario</span>
+                <input
+                  value={destTelefono}
+                  onChange={(e) => setDestTelefono(e.target.value)}
+                  placeholder="lo chiama il valet sotto casa"
+                />
+              </label>
+              <p className="descrizione" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                Il mittente resta il cliente dell&apos;ordine (riceve il link di pagamento); il
+                destinatario va sull&apos;indirizzo di consegna, e nella nota si legge chi ha
+                ordinato.
+              </p>
+            </>
+          ) : null}
           <label className="campo">
             <span>Giorno</span>
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} />

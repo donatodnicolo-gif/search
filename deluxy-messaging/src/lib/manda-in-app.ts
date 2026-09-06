@@ -22,6 +22,7 @@
 
 import { db } from './db'
 import { righeOrdineDaOrders } from './orders'
+import { siglaProvincia } from './province'
 import {
   creaConsegnaInPiattaforma,
   portaVenditaInConsegna,
@@ -41,6 +42,13 @@ export type PrefillInApp = {
   /** Il partner della vendita: senza, la piattaforma non accetta la consegna. */
   partnerId: string
   partnerNome: string
+  /**
+   * La sigla della provincia di consegna («NA»), letta dalla spedizione di
+   * Orders. Vuota = non riconosciuta: allora la tendina dei partner mostra
+   * tutti, e lo dice. Serve a proporre SOLO i partner che servono quella
+   * provincia (utente, 06/09/2026).
+   */
+  provinciaConsegna: string
   /** I campi del modulo, già riempiti con quello che sappiamo. */
   campi: NuovaConsegna
 }
@@ -79,6 +87,7 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
     venditaStato: '',
     partnerId: '',
     partnerNome: '',
+    provinciaConsegna: '',
     campi: {
       date: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : '',
       serviceTypeId: '',
@@ -129,6 +138,11 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
       .map((x) => (x ?? '').trim())
       .filter(Boolean)
       .join(', ')
+    // ⚠️ Prima il campo provincia, poi l'indirizzo intero («… Sant'Agnello NA»):
+    // `siglaProvincia` torna vuoto quando non riconosce, mai una provincia a
+    // caso — e vuoto qui vuol dire «mostra tutti i partner».
+    vuoto.provinciaConsegna =
+      siglaProvincia(s.provincia) || siglaProvincia(vuoto.campi.recipientAddress)
   } else {
     // Ripiego sulla nostra copia: meno fresca, ma meglio di niente — e si vede
     // subito che manca qualcosa, perché i campi restano da correggere.
