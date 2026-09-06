@@ -1,5 +1,23 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (23) — Chiamate: la riga si apre col click (Libro v1.6)
+
+Segnalazione dell'utente: «chiamate non rispetta la regola che al click apre
+dettaglio». Vero: la riga aveva solo il bottone «Ordine #N» e «Notifica», il
+resto della riga era inerte — contro la regola del Libro UX v1.6 («la riga si
+apre col click», decisa dall'utente il 28/08).
+
+`ChiamateLista.tsx`: la riga è `role="link"`, `tabIndex=0`, classe
+`chiamata-cliccabile` (pointer, hover `--fill`, focus oro). Click in un punto
+qualsiasi → se la chiamata è di un ordine si apre **il pannello dell'ordine**
+(`DettaglioOrdine`, montato in pagina; alla chiusura si rilegge l'elenco,
+perché da lì si può aver segnato «Gestito» e le chiamate risultano chiuse); se
+non ha ordine, il dettaglio è **la notifica**, e si apre quella. Le guardie del
+Libro: le azioni dentro la riga (`a,button,input,select,label,textarea,pre`)
+non fanno partire l'apertura; Enter sulla riga vale come il click.
+
+**Stato**: in locale, commit sì, push no. Non provato a schermo (login).
+
 ## 06/09/2026 (22) — Paga fornitore in tre passi
 
 Chiesto dall'utente: «riorganizza: prima chiede se si vuole cercare tra i

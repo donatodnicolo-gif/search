@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { ChipsPeriodo } from './ChipsPeriodo'
+import { DettaglioOrdine } from './DettaglioOrdine'
 import { nelPeriodo, type Periodo } from '@/lib/periodo'
 
 // LE CHIAMATE RICEVUTE.
@@ -84,6 +85,15 @@ export function ChiamateLista() {
   const [daRichiamare, setDaRichiamare] = useState(0)
   const [caricato, setCaricato] = useState(false)
   const [soloAperte, setSoloAperte] = useState(true)
+  /**
+   * L'ordine aperto nel pannello di dettaglio ('' = nessuno).
+   * ⚠️ Libro UX v1.6 («la riga si apre col click», regola dell'utente
+   * 28/08/2026, richiamata il 06/09 proprio su questa pagina): quando la
+   * chiamata è di un ordine, il click in un punto qualsiasi della riga apre
+   * QUEL dettaglio — non solo il bottone «Ordine #N». Per una chiamata senza
+   * ordine il dettaglio è la notifica, e il click apre quella.
+   */
+  const [dettaglio, setDettaglio] = useState('')
   const [marchio, setMarchio] = useState('')
   // Ricerca e periodo (Libro v1.9 §8-bis). La ricerca filtra in memoria le
   // chiamate caricate; il periodo è su QUANDO HA SQUILLATO il telefono
@@ -282,7 +292,31 @@ export function ChiamateLista() {
       ) : (
         <div className="card" style={{ padding: 0 }}>
           {visibili.map((c) => (
-            <div key={c.id} className="chiamata">
+            <div
+              key={c.id}
+              className="chiamata chiamata-cliccabile"
+              role="link"
+              tabIndex={0}
+              title={
+                c.ordineId
+                  ? `Apri l'ordine ${c.ordineNumero}`
+                  : 'Apri la notifica della chiamata'
+              }
+              onClick={(e) => {
+                // ⚠️ Le azioni dentro la riga non fanno partire l'apertura
+                // (Libro v1.6): «Richiamato», il numero da chiamare, i campi
+                // dell'esito restano loro.
+                const el = e.target as HTMLElement
+                if (el.closest('a,button,input,select,label,textarea,pre')) return
+                if (c.ordineId) setDettaglio(c.ordineId)
+                else setNotifica(notifica === c.id ? '' : c.id)
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || e.target !== e.currentTarget) return
+                if (c.ordineId) setDettaglio(c.ordineId)
+                else setNotifica(notifica === c.id ? '' : c.id)
+              }}
+            >
               {/* ⚠️ Ora e marchio sulla STESSA riga: sono due parole corte, e su
                   un telefono ogni blocco che si prende una riga sua costa 20px
                   moltiplicati per il numero di chiamate. */}
@@ -393,6 +427,18 @@ export function ChiamateLista() {
           ))}
         </div>
       )}
+      {/* Il dettaglio dell'ordine, aperto cliccando la riga. Alla chiusura si
+          rilegge l'elenco: dal pannello si può aver segnato l'ordine «Gestito»,
+          e allora le sue chiamate risultano chiuse. */}
+      {dettaglio ? (
+        <DettaglioOrdine
+          ordineId={dettaglio}
+          onChiudi={() => {
+            setDettaglio('')
+            void carica()
+          }}
+        />
+      ) : null}
     </main>
   )
 }
