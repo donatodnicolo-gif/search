@@ -8,8 +8,9 @@ worktree `Tempwt-cs` (build su Vercel): `deluxy-messaging-azfxhjhv1`, target
 production, **Ready** alle 16:20. Contiene: composer, ✕ e «vuoto» del riassunto,
 scheda ordine a tre zone (§9-ter), «In App» → finestra «Manda in app». Il Libro
 UX v2.1 (a1a91301, repo app) pushato su origin/piattaforma-ricerca-insensitive
-via worktree temporaneo (il push diretto era rifiutato: il ramo remoto era
-avanti di commit di un'altra sessione).
+via worktree temporaneo → 66a9eb00 (il push diretto era rifiutato: il ramo
+remoto era avanti di commit di un'altra sessione; conflitto in SEGNALAZIONI-UX
+risolto tenendo il testo nuovo, nessun titolo doppio).
 
 ## 06/09/2026 (47) — «In App» apre subito la finestra «Manda in app»
 
