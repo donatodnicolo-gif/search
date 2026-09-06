@@ -25,6 +25,9 @@ type ProdottoMerch = {
   prezzoVendita?: number | null;
   immagine?: string | null;
   origine?: string | null;
+  /** ⭐ 06/09/2026: la TIPOLOGIA DI VENDITA (unico | quantita | mix | preventivo). La casa
+   *  è Merchandising — qui si legge e basta, e la colonna locale è uno specchio. */
+  tipologiaVendita?: string | null;
 };
 
 /** Da dove viene un prodotto in piattaforma. */
@@ -130,6 +133,7 @@ export class MerchandisingSyncService {
         archived: !vendibile,
         archivedAt: vendibile ? null : new Date(),
         archivedReason: vendibile ? null : 'archiviato-in-merchandising',
+        tipologiaVendita: p.tipologiaVendita ?? null,
         createdFrom: DA_MERCHANDISING,
         reference: p.id,
       });
@@ -153,6 +157,64 @@ export class MerchandisingSyncService {
       attivi: conta.attivi,
       archiviati: conta.archiviati,
       creati: conta.creati,
+    };
+  }
+
+  /**
+   * ⭐ 06/09/2026 (decisione dell'utente): la TIPOLOGIA DI VENDITA ha una casa sola, ed è
+   * Merchandising. Qui si tiene uno specchio, perché lo smistamento la legge a ogni vendita
+   * e non può dipendere da una chiamata di rete; questo metodo lo riallinea.
+   *
+   * Non è una classificazione: non si decide niente qui dentro. Si copia il valore di là,
+   * riconoscendo il prodotto per CODICE (`Product.sku` = `Prodotto.codice`). Chi in
+   * Merchandising non ha ancora una tipologia non si tocca — un campo vuoto non cancella
+   * quello che c'è.
+   */
+  async allineaTipologie(applica = false) {
+    const { url, chiave } = await this.config();
+    if (!url || !chiave) return { ok: false, messaggio: 'Merchandising non configurato.' };
+
+    const daLoro = new Map<string, string>();
+    let pagina = 1;
+    for (;;) {
+      const q = new URLSearchParams({ page: String(pagina), limit: '200' });
+      const res = await fetch(`${url}/api/v1/prodotti?${q}`, { headers: { 'x-api-key': chiave } });
+      if (!res.ok) return { ok: false, messaggio: `Merchandising risponde HTTP ${res.status} alla pagina ${pagina}.` };
+      const body = (await res.json()) as { prodotti?: ProdottoMerch[]; pagine?: number };
+      for (const p of body.prodotti ?? []) {
+        const codice = String(p.codice ?? '').trim().toUpperCase();
+        if (codice && p.tipologiaVendita) daLoro.set(codice, p.tipologiaVendita);
+      }
+      if (!(body.prodotti ?? []).length || pagina >= (body.pagine ?? 1)) break;
+      pagina++;
+    }
+
+    const nostri = await this.prisma.product.findMany({
+      where: { deletedAt: null, NOT: { sku: null } },
+      select: { id: true, sku: true, tipologiaVendita: true },
+    });
+    const daCambiare = nostri.filter((p) => {
+      const t = daLoro.get(p.sku!.trim().toUpperCase());
+      return t && t !== p.tipologiaVendita;
+    });
+    let scritti = 0;
+    if (applica) {
+      for (const p of daCambiare) {
+        await this.prisma.product.update({
+          where: { id: p.id },
+          data: { tipologiaVendita: daLoro.get(p.sku!.trim().toUpperCase()) },
+        });
+        scritti++;
+      }
+      this.logger.log(`Tipologie allineate da Merchandising: ${scritti}`);
+    }
+    return {
+      ok: true,
+      applicato: applica,
+      classificatiInMerchandising: daLoro.size,
+      prodottiQui: nostri.length,
+      daCambiare: daCambiare.length,
+      scritti,
     };
   }
 
@@ -222,6 +284,20 @@ export class MerchandisingSyncController {
   @ApiOperation({ summary: 'Simula il tiraggio dei prodotti da Merchandising, senza scrivere' })
   prova() {
     return this.service.tira({ applica: false });
+  }
+
+  @Get('tipologie/prova')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Quante tipologie di vendita cambierebbero, leggendo Merchandising' })
+  provaTipologie() {
+    return this.service.allineaTipologie(false);
+  }
+
+  @Post('tipologie')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Riallinea la tipologia di vendita dei prodotti leggendola da Merchandising' })
+  tipologie() {
+    return this.service.allineaTipologie(true);
   }
 
   @Post('tira')

@@ -2004,11 +2004,14 @@
       "alternateName": "Alternate product name",
       "stock": "Stock",
       "lineHint": "(values separated by ;)",
-      "alternateNameHint": "(name the partner sees in Deliveries)"
+      "alternateNameHint": "(name the partner sees in Deliveries)",
+      "tipologiaVendita": "Selling type",
+      "tipologiaVenditaHint": "Used by dispatching: it says how the supplier is chosen and how the price is made."
     },
     "placeholder": {
       "name": "E.g. Red Roses Bouquet",
-      "selectCategory": "Select a category…"
+      "selectCategory": "Select a category…",
+      "selectTipologia": "— Choose —"
     },
     "typeOption": {
       "UNICO": "Unique (of one partner)",
@@ -2069,7 +2072,8 @@
     "error": {
       "requiredFields": "Name, category and price are required.",
       "partnerRequired": "A Unique product requires a partner.",
-      "createFailed": "Error creating the product"
+      "createFailed": "Error creating the product",
+      "tipologiaRequired": "Choose the selling type: without it, dispatching cannot handle the product."
     },
     "images": {
       "title": "Images",
@@ -2083,7 +2087,18 @@
       "descFor": "Description ({{platform}})"
     },
     "editTitle": "Edit product",
-    "partnerInactive": "inactive"
+    "partnerInactive": "inactive",
+    "tipologia": {
+      "legenda": "What it means",
+      "unico": "Partner exclusive product",
+      "unicoSpiega": "Only one partner makes it, at their own price: the sale goes to them.",
+      "quantita": "By quantity",
+      "quantitaSpiega": "Sold by number of identical pieces (12 roses, 16 pralines): unit price times quantity.",
+      "mix": "Mix / arrangement",
+      "mixSpiega": "Value arrangement (bouquet, hat box): proposed with the province discount and the priority list.",
+      "preventivo": "By quote",
+      "preventivoSpiega": "The partner quote is needed before accepting the sale (cake design cakes, flower baskets, balloon bouquets)."
+    }
   },
   "serviceForm": {
     "backToServices": "Services",

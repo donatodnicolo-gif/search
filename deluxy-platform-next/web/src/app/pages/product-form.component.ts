@@ -46,6 +46,22 @@ interface ImageRow { url: string; }
               <option value="">{{ 'productForm.placeholder.selectCategory' | translate }}</option>
               @for (c of categories(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
             </select></label>
+          <!-- ⭐ 06/09/2026 (regola utente): «metti l'obbligo di questa specifica anche nel
+               form di creazione e modifica prodotti, specificando a cosa serve». -->
+          <label class="fld"><span class="req">{{ 'productForm.field.tipologiaVendita' | translate }}</span>
+            <select class="field" name="tipologiaVendita" [(ngModel)]="model.tipologiaVendita" required>
+              <option value="">{{ 'productForm.placeholder.selectTipologia' | translate }}</option>
+              @for (t of TIPOLOGIE; track t) { <option [value]="t">{{ ('productForm.tipologia.' + t) | translate }}</option> }
+            </select>
+            <em class="hint">{{ 'productForm.field.tipologiaVenditaHint' | translate }}</em></label>
+          <div class="fld legenda">
+            <span class="legenda-tit">{{ 'productForm.tipologia.legenda' | translate }}</span>
+            <ul>
+              @for (t of TIPOLOGIE; track t) {
+                <li><b>{{ ('productForm.tipologia.' + t) | translate }}</b> — {{ ('productForm.tipologia.' + t + 'Spiega') | translate }}</li>
+              }
+            </ul>
+          </div>
           <label class="fld"><span>{{ 'productForm.field.partner' | translate }} {{ model.isUnique ? '*' : '' }}</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId">
               <option value="">{{ 'productForm.option.noPartner' | translate }}</option>
@@ -244,6 +260,10 @@ interface ImageRow { url: string; }
       .block-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
       .block-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--text-tertiary); }
       .sub-head { font-size: 13px; font-weight: 600; color: var(--text); }
+      .legenda { grid-column: 1 / -1; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--fill, #f5f5f7); }
+      .legenda-tit { font-size: 12.5px; font-weight: 600; color: var(--text); }
+      .legenda ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+      .legenda li { font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 22px; }
@@ -346,9 +366,13 @@ export class ProductFormComponent {
   readonly selectedPlatforms = new Set<string>();
   readonly selectedPartners = new Set<string>();
 
+  /** Le quattro tipologie di vendita: la casa è Merchandising, qui si sceglie e si mostra. */
+  readonly TIPOLOGIE = ['unico', 'quantita', 'mix', 'preventivo'] as const;
+
   model = {
     name: '',
     categoryId: '',
+    tipologiaVendita: '',
     isUnique: false,
     isSuperProduct: false,
     partnerId: '',
@@ -430,6 +454,7 @@ export class ProductFormComponent {
     // tutte e due le cose.
     m['isSuperProduct'] = p['isSuperProduct'] === true;
     m['isUnique'] = p['type'] === 'UNICO';
+    m['tipologiaVendita'] = (p['tipologiaVendita'] as string) ?? (p['type'] === 'UNICO' ? 'unico' : '');
 
     // Piattaforme (JSON array)
     this.selectedPlatforms.clear();
@@ -479,6 +504,10 @@ export class ProductFormComponent {
       this.error.set(this.translate.instant('productForm.error.requiredFields'));
       return;
     }
+    if (!m.tipologiaVendita) {
+      this.error.set(this.translate.instant('productForm.error.tipologiaRequired'));
+      return;
+    }
     if (m.isUnique && !m.partnerId) {
       this.error.set(this.translate.instant('productForm.error.partnerRequired'));
       return;
@@ -494,6 +523,7 @@ export class ProductFormComponent {
     const payload: Record<string, unknown> = {
       name: m.name.trim(),
       categoryId: m.categoryId,
+      tipologiaVendita: m.tipologiaVendita,
       type,
       price: Number(m.price),
       shortDesc: m.shortDesc.trim(),

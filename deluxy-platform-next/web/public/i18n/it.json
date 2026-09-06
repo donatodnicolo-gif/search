@@ -2006,11 +2006,14 @@
       "alternateName": "Nome alternativo del prodotto",
       "stock": "Giacenza",
       "lineHint": "(valori separati da ;)",
-      "alternateNameHint": "(nome che il partner vede in Consegne)"
+      "alternateNameHint": "(nome che il partner vede in Consegne)",
+      "tipologiaVendita": "Tipologia di vendita",
+      "tipologiaVenditaHint": "Serve allo smistamento: dice come si sceglie il fornitore e come si fa il prezzo."
     },
     "placeholder": {
       "name": "Es. Bouquet Rose Rosse",
-      "selectCategory": "Seleziona categoria…"
+      "selectCategory": "Seleziona categoria…",
+      "selectTipologia": "— Scegli —"
     },
     "typeOption": {
       "UNICO": "Unico (di un partner)",
@@ -2071,7 +2074,8 @@
     "error": {
       "requiredFields": "Nome, categoria e prezzo sono obbligatori.",
       "partnerRequired": "Un prodotto Unico richiede un partner.",
-      "createFailed": "Errore nella creazione del prodotto"
+      "createFailed": "Errore nella creazione del prodotto",
+      "tipologiaRequired": "Scegli la tipologia di vendita: senza, lo smistamento non sa come trattare il prodotto."
     },
     "images": {
       "title": "Immagini",
@@ -2085,7 +2089,18 @@
       "descFor": "Descrizione ({{platform}})"
     },
     "editTitle": "Modifica prodotto",
-    "partnerInactive": "non attivo"
+    "partnerInactive": "non attivo",
+    "tipologia": {
+      "legenda": "Che cosa vuol dire",
+      "unico": "Prodotto unico del partner",
+      "unicoSpiega": "Lo fa un partner solo, col suo prezzo di listino: la vendita va a lui.",
+      "quantita": "A quantità",
+      "quantitaSpiega": "Si vende a numero di pezzi identici (12 rose, 16 praline): il prezzo è il prezzo unitario del partner per la quantità.",
+      "mix": "Mix / composizione",
+      "mixSpiega": "Composizione a valore (bouquet, cappelliera): si propone con la percentuale di sconto della provincia e la lista di priorità.",
+      "preventivo": "A preventivo",
+      "preventivoSpiega": "Prima di accettare la vendita serve il preventivo del partner (torte cake design, cesti floreali, bouquet di palloncini)."
+    }
   },
   "serviceForm": {
     "backToServices": "Servizi",

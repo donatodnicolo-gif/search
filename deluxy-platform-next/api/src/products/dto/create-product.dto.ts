@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsObject,
@@ -176,6 +177,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  // ⭐ 06/09/2026 (regola utente): la TIPOLOGIA DI VENDITA dice come si sceglie il fornitore
+  // e come si fa il prezzo. La casa è Merchandising; qui si può scrivere perché un partner
+  // carica il suo prodotto da questa app, e allora la tipologia nasce qui.
+  // Valore chiuso: un testo libero renderebbe la classificazione inservibile.
+  @ApiPropertyOptional({ enum: ['unico', 'quantita', 'mix', 'preventivo'], description: 'Come si vende: unico | quantita | mix | preventivo' })
+  @IsOptional()
+  @IsIn(['unico', 'quantita', 'mix', 'preventivo'])
+  tipologiaVendita?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
