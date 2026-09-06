@@ -85,7 +85,7 @@ export function Sidebar({
         // Subito sotto Pagamenti perche' e' la sua conseguenza: legge i
         // pagamenti gia' fatti e li porta sugli ordini.
         { href: '/riconciliazione', nome: 'Riconciliazione', icona: iconaRiconcilia },
-        { href: '/partner', nome: 'Partner', icona: iconaPartner },
+        { href: '/partner', nome: 'Partner & Fornitori', icona: iconaPartner },
       ],
     },
     {

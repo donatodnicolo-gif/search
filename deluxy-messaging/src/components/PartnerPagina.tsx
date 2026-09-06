@@ -21,22 +21,35 @@ import { FornitoriUsati } from './FornitoriUsati'
 // ⚠️ La sezione si sceglie qui e non con due pagine perché è **un confronto**:
 // «questo l'abbiamo in anagrafica?» si fa passando da una all'altra.
 
-type Sezione = 'partner' | 'fornitori'
+// ⚠️ «Tutti» (utente, 06/09/2026: «metti possibilità di scegliere tutti o come
+// indicato ora solo partner o solo fornitori»): le due sezioni una sotto
+// l'altra. Costa due chiamate invece di una, ed è il prezzo giusto quando si
+// vuole il quadro intero; le due viste singole restano per chi cerca una cosa.
+type Sezione = 'tutti' | 'partner' | 'fornitori'
 
 export function PartnerPagina() {
-  const [sezione, setSezione] = useState<Sezione>('partner')
+  const [sezione, setSezione] = useState<Sezione>('tutti')
 
   return (
     <main>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Partner e fornitori</h1>
+          <h1 className="page-title">Partner &amp; Fornitori</h1>
         </div>
       </div>
 
       {/* ⚠️ Due bottoni e non una tendina: sono due, si vedono tutti e due, e
           quello acceso dice dove sei senza doverlo aprire. */}
       <div className="barra-elenco" role="tablist" aria-label="Sezione">
+        <button
+          role="tab"
+          aria-selected={sezione === 'tutti'}
+          className={`bottone${sezione === 'tutti' ? ' attivo' : ''}`}
+          onClick={() => setSezione('tutti')}
+          title="Tutte e due le sezioni, una sotto l'altra"
+        >
+          Tutti
+        </button>
         <button
           role="tab"
           aria-selected={sezione === 'partner'}
@@ -59,7 +72,18 @@ export function PartnerPagina() {
           delle due carica da una sorgente diversa (il registro Anagrafiche e il
           nostro database), e tenerle vive vorrebbe dire due chiamate a ogni
           apertura per mostrarne una. */}
-      {sezione === 'partner' ? <PartnerLista dentroLaPagina /> : <FornitoriUsati />}
+      {sezione === 'tutti' ? (
+        <>
+          <h2 style={{ fontSize: 17, margin: '12px 0 8px' }}>Partner in anagrafica</h2>
+          <PartnerLista dentroLaPagina />
+          <h2 style={{ fontSize: 17, margin: '24px 0 8px' }}>Fornitori usati</h2>
+          <FornitoriUsati />
+        </>
+      ) : sezione === 'partner' ? (
+        <PartnerLista dentroLaPagina />
+      ) : (
+        <FornitoriUsati />
+      )}
     </main>
   )
 }
