@@ -98,6 +98,12 @@ export const CHIAVI_NOTE = [
       "La spesa pubblicitaria VERA, quella addebitata da Google e Meta: è l'unica fonte dell'ADV a consuntivo. Senza, la riga ADV ripiega sulle uscite di banca categorizzate «Pubblicità», che sono un'altra cosa (cassa, non campagne) e lo dichiara.",
   },
   {
+    nome: "PERSONALE_API_KEY",
+    label: "Personale (deluxy-personale)",
+    serve:
+      "L'organico: persone, contratti, compensi e squadre (dal 06/09/2026 Budgets non ha più un roster suo). Senza, Dipendenti e Team restano vuoti e il costo del personale nel P&L vale ZERO, dichiarato.",
+  },
+  {
     // Unica chiave in ENTRATA: le altre servono a questa app per chiamare
     // fuori, questa serve a farsi chiamare. Sta nella stessa pagina perché per
     // chi la imposta è comunque «la chiave da mettere per far funzionare quella
