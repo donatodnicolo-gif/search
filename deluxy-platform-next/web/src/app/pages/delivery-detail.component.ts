@@ -641,7 +641,7 @@ interface DeliveryDetail {
             <div class="ddt-extra">
               <label class="act ddt-carica" [class.disabled]="ddtInvio()">
                 {{ (d.ddtFile ? 'deliveryDetail.prova.ddtSostituisci' : 'deliveryDetail.prova.ddtAggiungi') | translate }}
-                <input type="file" accept="image/*" capture="environment" (change)="allegaDdt($event)" [disabled]="ddtInvio()" hidden />
+                <input type="file" accept="image/*" (change)="allegaDdt($event)" [disabled]="ddtInvio()" hidden />
               </label>
               @if (ddtInvio()) { <span class="muted piccolo">{{ 'deliveryDetail.prova.ddtInvio' | translate }}</span> }
               @if (ddtErrore(); as e) { <div class="error-card">{{ e }}</div> }
@@ -895,7 +895,7 @@ interface DeliveryDetail {
           } @else {
             <label class="act ddt-carica">
               {{ 'deliveryDetail.valet.ddtAdd' | translate }}
-              <input type="file" accept="image/*" capture="environment" (change)="onDdt($event)" hidden />
+              <input type="file" accept="image/*" (change)="onDdt($event)" hidden />
             </label>
           }
 

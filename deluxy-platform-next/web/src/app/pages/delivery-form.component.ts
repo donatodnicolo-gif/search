@@ -109,7 +109,7 @@ interface ProductRow {
             }
             <label class="btn btn-secondary file">
               {{ 'deliveryForm.ai.image' | translate }}
-              <input type="file" accept="image/*" capture="environment" (change)="aiImmagine($event)" hidden />
+              <input type="file" accept="image/*" (change)="aiImmagine($event)" hidden />
             </label>
             @if (aiNomeImmagine()) { <span class="ai-file">{{ aiNomeImmagine() }}</span> }
             <button type="button" class="btn btn-primary" [disabled]="aiInCorso()" (click)="aiCompila()">
