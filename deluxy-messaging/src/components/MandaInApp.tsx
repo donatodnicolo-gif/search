@@ -93,6 +93,7 @@ export function MandaInApp({
   ordineId,
   righe = [],
   apri = 0,
+  senzaBottone = false,
   urlPiattaforma,
   onFatto,
 }: {
@@ -101,6 +102,8 @@ export function MandaInApp({
   righe?: RigaPerApp[]
   /** Ogni incremento apre il riquadro (dal passo «In App» della lavorazione). */
   apri?: number
+  /** Il bottone «Manda in app» sta altrove (in testata): da chiuso non si mostra niente. */
+  senzaBottone?: boolean
   urlPiattaforma?: string
   onFatto?: () => void
 }) {
@@ -406,6 +409,7 @@ export function MandaInApp({
   }, [dati, campi])
 
   if (!aperto) {
+    if (senzaBottone) return null
     return (
       <button
         className="btn btn-secondario small"
