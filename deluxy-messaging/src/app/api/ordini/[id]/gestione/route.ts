@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { CHIUSURA, gestioneValida } from '@/lib/gestione'
 import { chiudiNoteDellOrdine } from '@/lib/diario-chiusura'
+import { chiudiChiamateDellOrdine } from '@/lib/chiamate'
 import { utenteCorrente } from '@/lib/sessione'
 import { comunicaStatoAOrders } from '@/lib/orders'
 import { mandaAvanti, nomeSalute, saluteDaOrders } from '@/lib/salute-ordine'
@@ -92,6 +93,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   // un elenco senza lasciare un numero fanno credere di non essere mai esistite.
   const noteChiuse =
     gestione === CHIUSURA ? await chiudiNoteDellOrdine(ordine.numero, utente?.nome ?? '') : 0
+  // ⚠️ E LE CHIAMATE (utente, 06/09/2026): una telefonata aperta su un ordine
+  // gestito è lavoro finito che sembra da fare. Stessa regola delle note: solo
+  // verso «gestito», solo le aperte, e il numero torna al client che lo dice.
+  const chiamateChiuse =
+    gestione === CHIUSURA ? await chiudiChiamateDellOrdine(ordine.id, ordine.numero, utente?.nome ?? '') : 0
 
   // ── LO SI COMUNICA A ORDERS ──
   //
@@ -114,6 +120,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   return NextResponse.json({
     ordine,
     noteChiuse,
+    chiamateChiuse,
     orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
     // ⚠️ Se la salute non si è potuta chiedere il passo è andato, ma chi l'ha
     // fatto deve saperlo: il controllo non c'è stato, non è che sia andato bene.

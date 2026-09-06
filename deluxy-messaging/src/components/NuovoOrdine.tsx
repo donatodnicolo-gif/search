@@ -1050,12 +1050,14 @@ export function NuovoOrdine({
             </p>
           ) : null}
 
+          {/* ⚠️ «Nome» da solo, con un destinatario tre riquadri più sotto, si
+              compila con la persona sbagliata (utente, 06/09/2026). */}
           <label className="campo">
-            <span>Nome</span>
+            <span>Nome del mittente</span>
             <input value={nome} onChange={(e) => setNome(e.target.value)} />
           </label>
           <label className="campo">
-            <span>Cognome</span>
+            <span>Cognome del mittente</span>
             <input value={cognome} onChange={(e) => setCognome(e.target.value)} />
           </label>
           <label className="campo">

@@ -171,7 +171,9 @@ export function ChiamateLista() {
   // riconosce la chiamata.
   const cercato = q.trim().toLowerCase()
   const visibili = chiamate.filter((c) => {
-    if (!nelPeriodo(c.quando, periodo)) return false
+    // ⚠️ Il periodo vale solo per le richiamate: un'aperta resta in elenco
+    // qualunque data abbia, finché qualcuno la chiude o chiude l'ordine.
+    if (c.richiamataIl && !nelPeriodo(c.quando, periodo)) return false
     if (!cercato) return true
     return [c.numero, c.chiamante, c.clienteNome, c.ordineNumero, c.negozioNome, c.oggetto]
       .join(' ')
@@ -189,7 +191,9 @@ export function ChiamateLista() {
             promemoria <strong>«richiamare»</strong> in Oggi, e quando il numero è di un cliente
             con un ordine aperto <strong>si vede anche sull&apos;ordine</strong>. Se il numero non
             è nostro, la riga lo dice: si richiama lo stesso, ma sapendo che non c&apos;è nessun
-            ordine di cui parlare.
+            ordine di cui parlare. Una chiamata resta qui <strong>finché non la segni
+            richiamata</strong> o finché <strong>l&apos;ordine per cui ha chiamato non è gestito</strong>:
+            il periodo restringe solo quelle già chiuse.
           </p>
         </div>
       </div>
