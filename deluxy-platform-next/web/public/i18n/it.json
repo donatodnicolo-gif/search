@@ -1796,6 +1796,7 @@
     "createButton": "Crea valet",
     "remove": "Rimuovi",
     "provincesHint": "Province in cui il valet opera.",
+    "areeHint": "Il valet lavora nelle province delle sue aree. Le aree si creano in Configurazione → Aree.",
     "addProvince": "+ Aggiungi provincia…",
     "provincesEmpty": "Nessuna provincia selezionata.",
     "servicesHint": "Salario per servizio. Regola: un solo servizio a ora e uno a prezzo fisso.",

@@ -1794,6 +1794,7 @@
     "createButton": "Create valet",
     "remove": "Remove",
     "provincesHint": "Provinces where the valet operates.",
+    "areeHint": "The valet works in the provinces of its areas. Areas are managed in Settings → Areas.",
     "addProvince": "+ Add province…",
     "provincesEmpty": "No province selected.",
     "servicesHint": "Salary per service. Rule: only one hourly service and one fixed-price service.",

@@ -240,6 +240,8 @@ export interface Partner {
 
 export interface Valet {
   id: string;
+  /** ⭐ 06/09/2026: le aree del valet (le province effettive sono la loro unione). */
+  aree?: { area: { id: string; nome: string } }[];
   /** ⭐ 06/09/2026: il codice del valet (id del legacy), personale: sblocca il ritiro verificato. */
   legacyId?: number | null;
   firstName: string;

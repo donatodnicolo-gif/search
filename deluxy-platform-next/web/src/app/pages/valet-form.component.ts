@@ -6,8 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
-import {
-  Partner,
+import { Area, Partner,
   Province,
   SALARY_FREQUENCY_LABELS,
   ServiceType,
@@ -92,8 +91,26 @@ interface ValetServiceRow {
         </div>
       </section>
 
-      <!-- Province di competenza -->
+      <!-- ⭐ 06/09/2026 (regola utente): AREE anche per i valet. Le province effettive sono l'unione
+           delle aree scelte; l'elenco per provincia resta solo se il valet non ha aree. -->
       <section class="card block">
+        <header class="block-head">
+          <h2>{{ 'partnerForm.aree.title' | translate }}</h2>
+          <span class="block-sub">{{ 'valetForm.areeHint' | translate }}</span>
+        </header>
+        @if (aree().length === 0) { <p class="muted">{{ 'partnerForm.aree.empty' | translate }}</p> }
+        @else {
+          <div class="chips">
+            @for (a of aree(); track a.id) {
+              <button type="button" class="chip" [class.on]="selectedAree.has(a.id)" (click)="togglaArea(a.id)" [attr.aria-pressed]="selectedAree.has(a.id)">{{ a.nome }} <span class="chip-n">{{ a.province.length }}</span></button>
+            }
+          </div>
+          <p class="muted mini">{{ 'partnerForm.aree.effettive' | translate: { n: provinceEffettive().length } }} {{ provinceEffettive().join(', ') || '—' }}</p>
+        }
+      </section>
+
+      <!-- Province di competenza -->
+      <section class="card block" [hidden]="selectedAree.size > 0">
         <header class="block-head">
           <h2>{{ 'valetForm.sections.provinces' | translate }}</h2>
           <span class="block-sub">{{ 'valetForm.provincesHint' | translate }}</span>
@@ -252,6 +269,9 @@ interface ValetServiceRow {
     </form>
   `,
   styles: [
+    `.chip-n { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(120,120,128,.15); font-size: 11px; }
+     .chip.on .chip-n { background: rgba(255,255,255,.22); }
+     .mini { font-size: 12.5px; margin: 8px 0 0; }`,
     `
       .form-head { margin-bottom: 24px; }
       .back { font-size: 13px; color: var(--text-secondary); }
@@ -355,6 +375,10 @@ export class ValetFormComponent {
   readonly justSaved = signal(false);
 
   readonly selectedProvinces = new Set<string>();
+  readonly aree = signal<Area[]>([]);
+  readonly selectedAree = new Set<string>();
+  togglaArea(id: string): void { if (this.selectedAree.has(id)) this.selectedAree.delete(id); else this.selectedAree.add(id); }
+  provinceEffettive(): string[] { const s = new Set<string>(); for (const a of this.aree()) if (this.selectedAree.has(a.id)) for (const p of a.province) s.add(p.code); return [...s].sort(); }
   readonly tlProvinces = new Set<string>();
   readonly tlPartners = new Set<string>();
   readonly tlExcludedPartners = new Set<string>();
@@ -410,6 +434,7 @@ export class ValetFormComponent {
   constructor() {
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
+    this.http.get<Area[]>(`${api}/aree`).subscribe({ next: (d) => this.aree.set(d.filter((a) => a.attiva)), error: () => undefined });
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
 
@@ -439,6 +464,8 @@ export class ValetFormComponent {
     try { this.vehicleModels = JSON.parse(v['vehicleModels'] ?? '{}') ?? {}; }
     catch { this.vehicleModels = {}; }
     // Province di competenza (relazione ValetProvince)
+    this.selectedAree.clear();
+    for (const a of ((v as any).aree ?? []) as { area?: { id: string } }[]) if (a?.area?.id) this.selectedAree.add(a.area.id);
     this.selectedProvinces.clear();
     for (const vp of (v['provinces'] as any[]) ?? []) {
       if (vp?.province?.id) this.selectedProvinces.add(vp.province.id);
@@ -546,6 +573,8 @@ export class ValetFormComponent {
     // Deselezionare tutti i mezzi in modifica deve svuotare il campo.
     if (isEdit && !m.vehicle.trim()) payload['vehicle'] = '';
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
+    if (this.selectedAree.size) { payload['areaIds'] = [...this.selectedAree]; delete payload['provinceIds']; }
+    else if (isEdit) payload['areaIds'] = [];
     // Se il valet non è più team leader, le liste vanno azzerate.
     const tlProv = m.isTeamLeader ? [...this.tlProvinces] : [];
     const tlPart = m.isTeamLeader ? [...this.tlPartners] : [];

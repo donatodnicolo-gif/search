@@ -22,7 +22,7 @@ export class AreaDto {
   @IsOptional() @IsArray() @IsString({ each: true }) provinceIds?: string[];
 }
 
-const AREA_INCLUDE = { province: { include: { province: { select: { id: true, code: true, name: true } } } }, _count: { select: { partners: true } } } as const;
+const AREA_INCLUDE = { province: { include: { province: { select: { id: true, code: true, name: true } } } }, _count: { select: { partners: true, valets: true } } } as const;
 
 @Injectable()
 export class AreeService {
@@ -30,7 +30,7 @@ export class AreeService {
 
   private forma(a: any) {
     const province = (a.province ?? []).map((x: any) => x.province).sort((x: any, y: any) => x.code.localeCompare(y.code));
-    return { id: a.id, nome: a.nome, note: a.note ?? null, attiva: a.attiva, province, partner: a._count?.partners ?? 0, createdAt: a.createdAt, updatedAt: a.updatedAt };
+    return { id: a.id, nome: a.nome, note: a.note ?? null, attiva: a.attiva, province, partner: a._count?.partners ?? 0, valet: a._count?.valets ?? 0, createdAt: a.createdAt, updatedAt: a.updatedAt };
   }
 
   async lista() {
@@ -77,13 +77,15 @@ export class AreeService {
     if (ids) {
       const partner = await this.prisma.partnerArea.findMany({ where: { areaId: id }, select: { partnerId: true } });
       for (const p of partner) await this.ricalcolaProvincePartner(p.partnerId);
+      const valet = await this.prisma.valetArea.findMany({ where: { areaId: id }, select: { valetId: true } });
+      for (const v of valet) await this.ricalcolaProvinceValet(v.valetId);
     }
     return this.forma(a);
   }
 
   async elimina(id: string) {
     const a = await this.una(id);
-    if (a.partner > 0) throw new ConflictException(`L'area è usata da ${a.partner} partner: prima spostali su un'altra area`);
+    if (a.partner > 0 || (a as any).valet > 0) throw new ConflictException(`L'area è usata da ${a.partner} partner e ${(a as any).valet} valet: prima spostali su un'altra area`);
     await this.prisma.area.delete({ where: { id } });
     return { deleted: true };
   }
@@ -97,6 +99,28 @@ export class AreeService {
       ...(ids.length ? [this.prisma.partnerProvince.createMany({ data: ids.map((provinceId) => ({ partnerId, provinceId })), skipDuplicates: true })] : []),
     ]);
     return ids;
+  }
+
+  /** ⭐ Le province effettive del VALET = unione delle sue aree (come per i partner). */
+  async ricalcolaProvinceValet(valetId: string) {
+    const aree = await this.prisma.valetArea.findMany({ where: { valetId }, select: { area: { select: { province: { select: { provinceId: true } } } } } });
+    const ids = [...new Set(aree.flatMap((x) => x.area.province.map((p) => p.provinceId)))];
+    await this.prisma.$transaction([
+      this.prisma.valetProvince.deleteMany({ where: { valetId } }),
+      ...(ids.length ? [this.prisma.valetProvince.createMany({ data: ids.map((provinceId) => ({ valetId, provinceId })), skipDuplicates: true })] : []),
+    ]);
+    return ids;
+  }
+
+  async assegnaAlValet(valetId: string, areaIds: string[]) {
+    const puliti = [...new Set(areaIds.filter(Boolean))];
+    const n = await this.prisma.area.count({ where: { id: { in: puliti } } });
+    if (n !== puliti.length) throw new BadRequestException('Area sconosciuta');
+    await this.prisma.$transaction([
+      this.prisma.valetArea.deleteMany({ where: { valetId } }),
+      ...(puliti.length ? [this.prisma.valetArea.createMany({ data: puliti.map((areaId) => ({ valetId, areaId })), skipDuplicates: true })] : []),
+    ]);
+    return this.ricalcolaProvinceValet(valetId);
   }
 
   /** Scrive le aree del partner e ricalcola le sue province. */

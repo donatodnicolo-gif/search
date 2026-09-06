@@ -439,6 +439,7 @@ model Area {
   attiva    Boolean  @default(true)
   province  AreaProvincia[]
   partners  PartnerArea[]
+  valets    ValetArea[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -451,6 +452,17 @@ model AreaProvincia {
   province   Province @relation(fields: [provinceId], references: [id])
 
   @@unique([areaId, provinceId])
+}
+
+/// ⭐ 06/09/2026 (regola utente): «le aree valgono anche per i valet» — ValetProvince resta la lista effettiva (unione delle aree).
+model ValetArea {
+  id      String @id @default(cuid())
+  valetId String
+  areaId  String
+  valet   Valet  @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  area    Area   @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@unique([valetId, areaId])
 }
 
 model PartnerArea {
@@ -658,6 +670,7 @@ model Valet {
   /// ha più nulla da pagare dal 2025.
   deleted             Boolean           @default(false)
   provinces           ValetProvince[]
+  aree                ValetArea[]
   services            ValetService[]
   deliveries          Delivery[]
   recurringServices   RecurringService[]
