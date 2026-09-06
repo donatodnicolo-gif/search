@@ -185,6 +185,18 @@ export function RichiediPagamento() {
     id: string
     testo: string
   } | null>(null)
+  /**
+   * ── I TRE PASSI (utente, 06/09/2026) ──
+   * «Riorganizza: prima chiede se si vuole cercare tra i fornitori già usati,
+   * poi se si vogliono inserire le coordinate, e infine il form delle
+   * coordinate.» Prima i due riquadri (lettura AI e modulo) stavano affiancati
+   * e la ricerca era dentro il modulo: tre cose insieme, nessun ordine. Adesso
+   * si va in fila — 1 cerca fra i nostri · 2 come inserire · 3 il modulo — e
+   * si può tornare indietro toccando il passo.
+   */
+  const [passo, setPasso] = useState<'cerca' | 'come' | 'modulo'>('cerca')
+  /** Al passo 2 la lettura AI si apre solo se la si sceglie. */
+  const [mostraAi, setMostraAi] = useState(false)
   // La riga che si sta correggendo, e la ricevuta che si sta caricando.
   const [modificoId, setModificoId] = useState('')
   const [ricevuta, setRicevuta] = useState<{
@@ -424,6 +436,8 @@ export function RichiediPagamento() {
       setImporto(d.dati.importo ? String(d.dati.importo) : '')
       setCausale(d.dati.causale)
       setOrigine(immagine ? 'immagine' : 'testo')
+      // Letto: si passa al modulo, dove i campi compilati si controllano.
+      setPasso('modulo')
       setAvviso(
         (d.stringa ? `Letto: ${d.stringa}` : 'Letto.') +
           (d.fornitore ? ` (${d.fornitore})` : '')
@@ -472,6 +486,8 @@ export function RichiediPagamento() {
       )
     }
     setOrigine('manuale')
+    // Trovato: si passa al modulo con i campi già pieni.
+    setPasso('modulo')
   }
 
   /** Il file della ricevuta, letto come data URI. */
@@ -710,6 +726,7 @@ export function RichiediPagamento() {
   /** Riporta una riga dentro il modulo per correggerla. */
   function apriPerModifica(r: Richiesta) {
     setModificoId(r.id)
+    setPasso('modulo')
     setMetodo((r.metodo || 'iban') as Metodo)
     setIban(r.iban)
     setRiferimento(r.riferimentoPagamento)
@@ -835,6 +852,9 @@ export function RichiediPagamento() {
       setTesto('')
       setImmagine(null)
       setOrigine('manuale')
+      // La prossima richiesta ricomincia dalla domanda: «lo abbiamo già usato?».
+      setPasso('cerca')
+      setMostraAi(false)
       await carica()
     } catch {
       setErrore('Salvataggio non riuscito: problema di rete.')
@@ -979,9 +999,86 @@ export function RichiediPagamento() {
         </div>
       ) : null}
 
-      <div className="griglia-impostazioni">
-        {/* Lettura AI */}
-        <div className="card">
+      {/* ── I TRE PASSI ──
+          ⚠️ In fila, non affiancati: la domanda giusta viene prima del modulo.
+          Un IBAN sono ventisette caratteri copiati da una chat o da una foto, e
+          ribatterli è il modo classico di sbagliarne uno — se quel fornitore
+          l'abbiamo già pagato l'IBAN giusto ce l'abbiamo in casa, e va offerto
+          PRIMA che qualcuno cominci a digitare. I passi si possono toccare per
+          tornare indietro. */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="passi-ordine" style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            className={passo === 'cerca' ? 'bottone mini' : 'bottone secondario mini'}
+            onClick={() => setPasso('cerca')}
+          >
+            1 · Fornitore già usato?
+          </button>
+          <button
+            type="button"
+            className={passo === 'come' ? 'bottone mini' : 'bottone secondario mini'}
+            onClick={() => setPasso('come')}
+          >
+            2 · Come inserisci le coordinate
+          </button>
+          <button
+            type="button"
+            className={passo === 'modulo' ? 'bottone mini' : 'bottone secondario mini'}
+            onClick={() => setPasso('modulo')}
+          >
+            3 · Coordinate
+          </button>
+        </div>
+
+        {passo === 'cerca' ? (
+          <>
+            <h2 style={{ marginTop: 0, fontSize: 16 }}>Lo abbiamo già pagato?</h2>
+            <p className="descrizione">
+              Cerca fra i fornitori che abbiamo già usato: se c&apos;è, l&apos;IBAN è già in casa
+              e non si ribatte. Se non lo trovi, è un fornitore nuovo.
+            </p>
+            <CercaFornitore cercaSubito={fornitoreDaOrdine} onScelto={usaFornitore} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <button type="button" className="btn btn-secondario" onClick={() => setPasso('come')}>
+                No, è un fornitore nuovo →
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {passo === 'come' ? (
+          <>
+            <h2 style={{ marginTop: 0, fontSize: 16 }}>Come inseriamo le coordinate?</h2>
+            <p className="descrizione">
+              Se il fornitore te le ha mandate in chat o in foto, le legge l&apos;AI e tu le
+              controlli. Altrimenti le scrivi tu.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={mostraAi ? 'btn' : 'btn btn-secondario'}
+                onClick={() => setMostraAi(true)}
+              >
+                Le leggo da un messaggio o da una foto
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondario"
+                onClick={() => {
+                  setMostraAi(false)
+                  setPasso('modulo')
+                }}
+              >
+                Le scrivo a mano →
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {passo === 'come' && mostraAi ? (
+        <div className="card" style={{ marginBottom: 12 }}>
           <h2 style={{ marginTop: 0 }}>Leggi da messaggio o immagine</h2>
           <p className="descrizione">
             Incolla il messaggio del cliente, oppure carica la schermata della chat o la foto del
@@ -1031,22 +1128,32 @@ export function RichiediPagamento() {
               </button>
             </p>
           ) : null}
-          <button className="btn" onClick={leggiConAi} disabled={leggo}>
-            {leggo ? 'Leggo…' : 'Leggi con l’AI'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn" onClick={leggiConAi} disabled={leggo}>
+              {leggo ? 'Leggo…' : 'Leggi con l’AI'}
+            </button>
+            <button type="button" className="btn btn-secondario" onClick={() => setPasso('modulo')}>
+              Salta: vado al modulo
+            </button>
+          </div>
         </div>
+      ) : null}
 
-        {/* Modulo */}
+      {passo === 'modulo' ? (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Coordinate</h2>
-          {/* ⚠️ La ricerca sta PRIMA dei campi, non accanto: un IBAN sono
-              ventisette caratteri copiati da una chat o da una foto, e
-              ribatterli è il modo classico di sbagliarne uno — un bonifico
-              parte lo stesso, verso un conto che non esiste o, peggio, che
-              esiste. Se quel fornitore l'abbiamo già pagato, l'IBAN giusto ce
-              l'abbiamo in casa: va offerto prima che qualcuno cominci a
-              digitare, non dopo. */}
-          <CercaFornitore cercaSubito={fornitoreDaOrdine} onScelto={usaFornitore} />
+          {/* ⚠️ La ricerca fra i nostri fornitori è il PASSO 1, non sta più qui
+              dentro: si torna indietro toccandolo. Il modulo è l'ultimo passo. */}
+          <p className="cella-sub" style={{ marginTop: -6 }}>
+            {intestatarioScelto
+              ? `Fornitore scelto fra i nostri: ${intestatarioScelto}.`
+              : origine !== 'manuale'
+                ? `Campi letti dall'AI (${origine === 'immagine' ? 'da immagine' : 'da testo'}): controllali.`
+                : 'Fornitore nuovo, coordinate scritte a mano.'}{' '}
+            <button type="button" className="btn btn-secondario small" onClick={() => setPasso('cerca')}>
+              Torna a cercare fra i nostri
+            </button>
+          </p>
 
           {/* ── COME lo paghiamo ──
               ⚠️ Non tutti i fornitori si pagano con un bonifico: chi manda un
@@ -1355,7 +1462,7 @@ export function RichiediPagamento() {
             ) : null}
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* ── IL POP-UP DELLA RICEVUTA ──
           ⚠️ Si apre premendo «Pagata»: la ricevuta si carica NEL momento in cui
