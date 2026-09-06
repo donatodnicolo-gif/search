@@ -33,7 +33,15 @@ import { importaCollezioniDa, type EsitoImportCollezioni } from "@/lib/shopify-c
 export const dynamic = "force-dynamic";
 // Un negozio grande sono migliaia di prodotti letti a pagine, con le collezioni
 // annidate: Shopify fa pagare i campi, non le richieste.
-export const maxDuration = 300;
+//
+// **800 e non 300 (06/09/2026).** Gifts (2.932 prodotti, 237 collezioni) finiva
+// in ~288 s finché i prodotti si leggevano a 25 per pagina; con la lettura
+// dinamica dei metafield (04/09, 48 definizioni → 15 per pagina) ha superato i
+// 300 s e Vercel l'ha ucciso in silenzio due notti di fila e due volte
+// all'apertura («Task timed out after 300 seconds» nei log; nessuna riga in
+// `ImportCollezioni`, che nasceva solo a fine corsa). Il progetto ha Fluid
+// compute sul piano Pro: il tetto è 800 s. Flowers e Cake restano sotto i 60 s.
+export const maxDuration = 800;
 
 export async function GET(req: NextRequest) {
   const segreto = process.env.CRON_SECRET;

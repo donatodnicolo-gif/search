@@ -1,8 +1,102 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 04/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 06/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 04/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+## 06/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Fotografia contata sul database il 06/09**: 4.633 prodotti, **1.149 schede con
+`statoShopify = ACTIVE`** (ma i prodotti attivi sui tre negozi sono **1.483**:
+Gifts 893, Flowers 269, Cake 321 — vedi il limite «una scheda, due negozi» più
+sotto), 346 collezioni Shopify, 7.295 righe di venduto, 1.475 `DA_CLASSIFICARE`,
+**12 prodotti con `origine ≠ merchandising`** (erano 10 il 04/09), 1
+`MediaProdotto`. Venduto vivo: ultimo giro 11:30 UTC `ok`, 0 fallimenti in 48
+ore. Rotazioni: «Fiori» ultima 01/09 (dovuta l'08/09, e lo slittamento del
+`Math.floor` non è ancora corretto), «Best Sellers» 11/08 (dovuta il 10/09).
+
+🔴 **L'IMPORT DI GIFTS È MORTO DAL POMERIGGIO DEL 04/09, IN SILENZIO.** Prove:
+`npx vercel logs deluxy-merchandising.vercel.app` mostra
+`Vercel Runtime Timeout Error: Task timed out after 300 seconds` su
+`GET /api/cron/collezioni` alle 05:10 di Roma del 06/09 (il cron di Gifts) e di
+nuovo alle 13:31 e 13:33 (la sincronizzazione all'apertura lanciata dalla home
+di produzione: anche `GET /` è scaduto a 300 s). In `ImportCollezioni` **nessuna
+riga di Gifts dopo il 04/09 10:52 UTC**, mentre Flowers e Cake hanno la loro
+ogni notte (05/09 e 06/09) e di nuovo alle 11:32/11:33 di oggi. Causa: la
+**lettura dinamica dei metafield** deployata il 04/09 alle 16:20 (Gifts ha 48
+definizioni → 15 prodotti per pagina, 196 pagine invece di 118, con query più
+pesanti) su un import che **durava già ~288 s** — lo si vede dalle righe
+vecchie: il cron parte alle 03:10:00 e la riga, scritta a fine corsa, ha
+`iniziatoIl` 03:14:48. L'avvertimento del 04/09 («da guardare la durata del
+cron delle 03:10») era fondato e nessuno l'ha guardato. E la riga di storico
+nasceva **solo a fine corsa**: un import ucciso non lasciava niente, e
+`/collezioni` mostrava l'ultimo «ok» del 04/09 come se fosse tutto in ordine.
+
+**Corretto in locale (`tsc` 0, NON deployato — l'utente ha chiesto di lavorare
+in locale):**
+1. `src/app/api/cron/collezioni/route.ts`: `maxDuration = 800`. Verificato
+   via API Vercel che il progetto ha **Fluid compute acceso sul piano Pro**
+   (`resourceConfig.fluid: true`, `billing.plan: pro`): il tetto ammesso è
+   800 s. Flowers e Cake restano sotto il minuto.
+2. `importaCollezioniDa` (`shopify-collezioni.ts`): la riga `ImportCollezioni`
+   **nasce all'avvio con esito «in corso»** e a fine corsa diventa
+   «ok»/«errore» **con la durata nel messaggio** («… (durata 288 s)»). Una riga
+   rimasta «in corso» è la prova che la funzione è stata interrotta.
+   `sincronizza-apertura` filtra già `esito: "ok"`, `/collezioni` mostra
+   l'ultima riga per negozio (quindi anche l'«in corso»), `health` la riporta.
+   ⚠️ `iniziatoIl` ora è davvero l'inizio (prima era la fine).
+3. Import di Gifts **lanciato dal PC** alle 13:49 di Roma
+   (`npx tsx scripts/importa-tutte-collezioni.ts Gifts`, processo staccato) per
+   riallineare il catalogo fermo al 04/09 e misurare. ✅ **Esito: `ok` in 594 s
+   dal PC** (237 collezioni, 32.459 appartenenze, 2.932 prodotti), riga nata
+   alle 11:49:22 UTC come «in corso» e chiusa con «(durata 594 s)». Dal PC il
+   04/09 con 25 prodotti per pagina ci mettevano ~10 minuti: la lettura a 15
+   per pagina non ha cambiato molto la durata da qui; su Vercel (fra1) prima
+   erano 288 s, quindi 800 s dovrebbero bastare — ma il numero vero si vede
+   solo dalla riga della prima notte dopo il deploy. ⚠️ Dopo l'import le schede
+   `ACTIVE` sono scese da 1.149 a **1.076**: è l'effetto «una scheda, due
+   negozi» (chi importa per ultimo scrive `statoShopify`), non un calo di
+   catalogo.
+
+⚠️ **Finché non si deploya, in produzione Gifts resta morto**: `statoShopify`,
+appartenenze, prezzi, foto e metafield di Gifts sono fermi al 04/09 (salvo il
+giro dal PC di oggi). Deploy = `npx vercel deploy --prod --yes` dalla cartella
+(build remota: il precompilato su questo PC muore con `EPERM symlink`). Dopo il
+deploy guardare in `/collezioni` la riga di Gifts della notte: «ok (durata N s)»
+con N ben sotto 800.
+
+**Verifica SKU** (chiesta dall'utente: «tutti i prodotti pubblicati su Shopify
+e sul database devono avere il campo SKU»). Nuovo `scripts/verifica-sku.ts`
+(sola lettura: legge i tre negozi coi token dell'app, `status:active`, varianti
+complete anche oltre le 20) e rapporto `docs/verifica-sku-2026-09-06.md` con
+gli elenchi. Risultato: **1.483 prodotti attivi, 8.142 varianti, 317 varianti
+senza SKU su 81 prodotti** — Gifts 40 prodotti/190 varianti (torte di laurea
+con 27 varianti tutte senza SKU, «Torta Love Me Deluxe» 27/27, i Bouquet dei
+compositori 5/10, le Cappelliere 4/8, i quadri «Dream»/«Medio»), Flowers 40/124
+(stessi Bouquet dei compositori, «103 Luxury Roses» 1/1, quadri «Dream»), Cake
+1/3 («Letters»: 60/80/90). Nessuno SKU duplicato fra prodotti diversi dello
+stesso negozio. Nel database: 4.284 varianti dei prodotti ACTIVE, **187 senza
+sku** (rispecchiano il negozio, entro le prime dieci), 0 prodotti attivi senza
+varianti. **Due limiti strutturali emersi, non corretti:**
+- **L'import legge `variants(first: 10)`** (`leggiProdotti`, due query):
+  85 prodotti attivi hanno più di 10 varianti e **449 varianti** oltre la
+  decima **non esistono qui** (Gifts 412: le torte da 27-48 varianti). Se serve
+  lo SKU di ogni variante, va allargato (costo: +1 punto per variante per
+  prodotto sulla pagina, quindi meno prodotti per pagina o una seconda lettura
+  solo per chi supera le dieci, come fa `verifica-sku.ts`).
+- **Una scheda = un prodotto anche se sta su due negozi**: 312 prodotti attivi
+  di Gifts hanno la scheda **con l'id di Flowers (231) o di Cake (74)**, quindi
+  `shopifyId`, `statoShopify` e le varianti valgono per l'altro negozio; 22
+  non hanno nemmeno una scheda con lo stesso handle. Per questo «1.149 attivi»
+  conta le schede, non i prodotti in vendita (1.483). Scelta di disegno
+  («lo stesso prodotto venduto su Flowers e su Gifts è davvero la stessa
+  scheda»), da sapere quando si contano gli attivi per negozio.
+
+**Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
+dell'utente) e controllo della riga di Gifts la notte dopo; decidere se
+allargare le 10 varianti; correggere lo slittamento delle rotazioni (Fiori
+dovuta l'08/09); il collaudo del modulo prodotto su Cake resta da fare (vedi
+04/09).
+
+## 04/09/2026 — PUNTO DI RIPRESA
 
 **Fotografia contata sul database il 04/09**: 4.630 prodotti, **1.149 attivi sul
 negozio e tutti e 1.149 senza costo**, 346 collezioni Shopify, 7.247 righe di
