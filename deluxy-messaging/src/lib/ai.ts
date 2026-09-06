@@ -685,8 +685,8 @@ const SCHEMA_RIASSUNTO = {
     dataCitazione: { type: 'string', description: 'La frase esatta del cliente da cui viene la data. Vuoto se non c’è.' },
     ora: { type: 'string', description: 'L’ora o la fascia oraria che ha chiesto. Vuoto se non l’ha detta.' },
     oraCitazione: { type: 'string', description: 'La frase esatta da cui viene l’ora. Vuoto se non c’è.' },
-    luogo: { type: 'string', description: 'Il luogo di consegna: città, via, «a casa sua». Vuoto se non l’ha detto.' },
-    luogoCitazione: { type: 'string', description: 'La frase esatta da cui viene il luogo. Vuoto se non c’è.' },
+    luogo: { type: 'string', description: 'Il luogo di consegna: città, via, hotel, dormitorio, piano, portineria, «a casa sua». Stringa vuota "" se non l’ha detto.' },
+    luogoCitazione: { type: 'string', description: 'La frase esatta da cui viene il luogo. Stringa vuota "" se non c’è.' },
     prodotto: { type: 'string', description: 'Cosa desidera: prodotto, quantità, colore, personalizzazione. Vuoto se non l’ha detto.' },
     prodottoCitazione: { type: 'string', description: 'La frase esatta da cui viene il prodotto. Vuoto se non c’è.' },
     daChiedere: {
@@ -713,11 +713,12 @@ const SCHEMA_RIASSUNTO = {
 const ISTRUZIONI_RIASSUNTO = `Sei l'assistente di un servizio clienti. Ti do una conversazione con un cliente e devi ricavarne quello che serve per preparare l'ordine.
 
 REGOLE, in ordine di importanza:
-1. NON DEDURRE. Ogni campo lo riempi SOLO se il cliente lo ha detto a parole. Se non l'ha detto, lascia il campo vuoto: «vuoto» è una risposta giusta, un'ipotesi no.
+1. NON DEDURRE. Ogni campo lo riempi SOLO se il cliente lo ha detto a parole. Se non l'ha detto, il campo è la stringa vuota "" (NON scrivere parole come «vuoto», «non indicato», «n/d»): un campo vuoto è una risposta giusta, un'ipotesi no.
 2. Per ogni campo che riempi devi riportare la FRASE ESATTA del cliente da cui l'hai preso, copiata, non riscritta. Se non riesci a indicare la frase, allora quel campo va lasciato vuoto.
 3. NON CONVERTIRE E NON INTERPRETARE i numeri. «08/12» può essere una fascia oraria (dalle 8 alle 12) o una data: riporta quello che c'è scritto, senza scegliere. Non trasformare «domani» in una data.
 4. Il riassunto è per chi deve rispondere adesso: cosa vuole il cliente, a che punto siamo, cosa aspetta da noi. Niente giudizi, niente frasi di cortesia.
 5. In «daChiedere» metti solo quello che manca DAVVERO per preparare l'ordine (per esempio: manca l'indirizzo, manca l'ora).
+6. Il LUOGO è qualsiasi indicazione su DOVE consegnare, anche parziale: una città, una via, un hotel o un dormitorio («al dormitorio, non all'hotel»), un piano, una portineria, «a casa sua», «in ufficio». Se il cliente corregge un indirizzo, il luogo è quello corretto e la frase è quella della correzione. Lo stesso vale per il PRODOTTO: anche un colore, una quantità, una dedica chiesta a parole.
 Scrivi in italiano, anche se la conversazione è in un'altra lingua.`
 
 export type RiassuntoChat = {
@@ -783,8 +784,14 @@ export async function riassumiConversazione(
     // ⚠️ Controllo NOSTRO, non del modello: un campo senza la sua citazione si
     // butta. È la differenza fra «lo ha detto il cliente» e «lo ha pensato l'AI»,
     // e su una data di consegna quella differenza è tutta.
-    const conProva = (valore: string, citazione: string) =>
-      valore.trim() && citazione.trim() ? valore.trim() : ''
+    //
+    // ⚠️ E un campo che dice «vuoto» È vuoto: con lo schema strict il modello
+    // deve riempire tutti i campi, e riempiva i mancanti con la parola «vuoto»
+    // (valore E citazione) — che passava il controllo e a schermo compariva
+    // LUOGO «vuoto» come se fosse un dato (utente, 06/09/2026).
+    const SEGNAPOSTO = /^[\s«»"'.\-–—]*(vuoto|vuota|non indicat[oa]|non specificat[oa]|non dett[oa]|nessun[oa]?|n\/?[da]|nd|na|none|null|empty|unknown|not specified|-+)?[\s«»"'.\-–—]*$/i
+    const pulito = (s: string) => (SEGNAPOSTO.test((s ?? '').trim()) ? '' : (s ?? '').trim())
+    const conProva = (valore: string, citazione: string) => (pulito(valore) && pulito(citazione) ? pulito(valore) : '')
 
     return {
       stato: 'ok',
@@ -792,13 +799,13 @@ export async function riassumiConversazione(
       riassunto: {
         riassunto: (d.riassunto ?? '').trim(),
         data: conProva(d.data ?? '', d.dataCitazione ?? ''),
-        dataCitazione: (d.dataCitazione ?? '').trim(),
+        dataCitazione: pulito(d.dataCitazione ?? ''),
         ora: conProva(d.ora ?? '', d.oraCitazione ?? ''),
-        oraCitazione: (d.oraCitazione ?? '').trim(),
+        oraCitazione: pulito(d.oraCitazione ?? ''),
         luogo: conProva(d.luogo ?? '', d.luogoCitazione ?? ''),
-        luogoCitazione: (d.luogoCitazione ?? '').trim(),
+        luogoCitazione: pulito(d.luogoCitazione ?? ''),
         prodotto: conProva(d.prodotto ?? '', d.prodottoCitazione ?? ''),
-        prodottoCitazione: (d.prodottoCitazione ?? '').trim(),
+        prodottoCitazione: pulito(d.prodottoCitazione ?? ''),
         daChiedere: (d.daChiedere ?? []).map((x) => String(x).trim()).filter(Boolean),
       },
     }

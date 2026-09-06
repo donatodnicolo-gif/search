@@ -26,7 +26,14 @@ type Riassunto = {
   daChiedere: string[]
 }
 
-export function RiassuntoChat({ conversazioneId }: { conversazioneId: string }) {
+export function RiassuntoChat({
+  conversazioneId,
+  onChiudi,
+}: {
+  conversazioneId: string
+  /** La ✕ (Libro §9): chiude il riquadro senza fare niente. Chiesta dall'utente il 06/09/2026. */
+  onChiudi?: () => void
+}) {
   const [riassunto, setRiassunto] = useState<Riassunto | null>(null)
   const [fattoIl, setFattoIl] = useState<string | null>(null)
   const [inCorso, setInCorso] = useState(false)
@@ -98,6 +105,11 @@ export function RiassuntoChat({ conversazioneId }: { conversazioneId: string }) 
         <button className="bottone secondario mini" onClick={rifai} disabled={inCorso}>
           {inCorso ? 'Leggo la chat…' : riassunto ? 'Rifai' : 'Riassumi con l’AI'}
         </button>
+        {onChiudi ? (
+          <button type="button" className="chiudi-riassunto" onClick={onChiudi} aria-label="Chiudi il riassunto" title="Chiudi">
+            ×
+          </button>
+        ) : null}
       </div>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
@@ -109,6 +121,8 @@ export function RiassuntoChat({ conversazioneId }: { conversazioneId: string }) 
             {campi.map((c) => (
               <li key={c.nome} className={c.valore ? '' : 'mancante'}>
                 <span className="nome">{c.nome}</span>
+                {/* «non indicato» è nostro, mai del modello: un valore che dice
+                    «vuoto» viene già scartato da ai.ts. */}
                 <span className="valore">{c.valore || 'non indicato'}</span>
                 {/* La frase del cliente: è quella che rende il dato verificabile
                     in due secondi invece che da credere sulla parola. */}

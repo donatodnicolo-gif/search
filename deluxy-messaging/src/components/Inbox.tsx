@@ -2569,7 +2569,9 @@ export function Inbox({
             {/* Il riassunto: data, ora, luogo e prodotto, ognuno con la frase del
                 cliente da cui viene. Si apre a richiesta e non chiama l'AI da
                 solo: mostra prima quello già salvato. */}
-            {riassuntoAperto ? <RiassuntoChat conversazioneId={selezionata.id} /> : null}
+            {riassuntoAperto ? (
+              <RiassuntoChat conversazioneId={selezionata.id} onChiudi={() => setRiassuntoAperto(false)} />
+            ) : null}
 
             {/* Le note di lavoro di questa conversazione. Si aprono a richiesta
                 — il pannello sta sopra i messaggi, e tenerlo sempre aperto
