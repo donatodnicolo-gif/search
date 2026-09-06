@@ -129,6 +129,12 @@ model Prodotto {
   // qui, è solo il programma. Per un prodotto sul negozio contano le
   // appartenenze vere (`collezioniShopify`).
   collezioniPreviste Json?
+  // **Tipologia di vendita** (06/09/2026, decisione dell'utente: la casa è QUI, in
+  // Merchandising, perché è un fatto del prodotto e non della singola vendita).
+  // Dice alla piattaforma consegne COME si sceglie il fornitore e come si fa il prezzo:
+  // unico | quantita | mix | preventivo. La legenda sta in `src/lib/dominio.ts` e nel
+  // modulo prodotto. Nullo = non ancora classificato (i prodotti importati prima di oggi).
+  tipologiaVendita String?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta

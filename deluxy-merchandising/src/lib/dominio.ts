@@ -116,6 +116,32 @@ export const COLORE_SHOPIFY: Record<string, string> = {
   pubblicato: "var(--green)",
 };
 
+// ---------- Tipologia di vendita (06/09/2026) ----------
+// A che serve: la piattaforma consegne la legge per sapere COME si sceglie il fornitore
+// e come si fa il prezzo. Non è una categoria merceologica — è il modo in cui il
+// prodotto si vende.
+export const TIPOLOGIE_VENDITA = ["unico", "quantita", "mix", "preventivo"] as const;
+export type TipologiaVendita = (typeof TIPOLOGIE_VENDITA)[number];
+
+export const ETICHETTA_TIPOLOGIA_VENDITA: Record<string, string> = {
+  unico: "Prodotto unico del partner",
+  quantita: "A quantità",
+  mix: "Mix / composizione",
+  preventivo: "A preventivo",
+};
+
+export const SPIEGAZIONE_TIPOLOGIA_VENDITA: Record<string, string> = {
+  unico: "Lo fa un partner solo, col suo prezzo di listino: la vendita va a lui.",
+  quantita: "Si vende a numero di pezzi identici (12 rose, 16 praline): il prezzo è il prezzo unitario del partner per la quantità.",
+  mix: "Composizione a valore (bouquet, cappelliera): si propone con la percentuale di sconto della provincia e la lista di priorità.",
+  preventivo: "Prima di accettare la vendita serve il preventivo del partner (torte cake design, cesti floreali, bouquet di palloncini).",
+};
+
+export function etichettaTipologiaVendita(t: string | null | undefined): string {
+  if (!t) return "Da classificare";
+  return ETICHETTA_TIPOLOGIA_VENDITA[t] ?? t;
+}
+
 // ---------- Denaro e margini ----------
 const EUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
 export function euro(n: number): string {

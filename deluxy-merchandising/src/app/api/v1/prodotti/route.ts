@@ -39,6 +39,9 @@ const CAMPI = {
   immagine: true,
   tipoShopify: true,
   vendorShopify: true,
+  // 06/09/2026: la casa della tipologia di vendita è qui, e la piattaforma consegne
+  // la legge da questa rotta invece di riclassificare per conto suo.
+  tipologiaVendita: true,
   origine: true,
   idEsterno: true,
   esclusoDaAnalisi: true,

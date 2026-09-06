@@ -20,7 +20,7 @@
 //   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
 import { useRef, useState } from "react";
-import { ETICHETTA_FASE } from "@/lib/dominio";
+import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
 
 export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean };
@@ -47,6 +47,7 @@ export type ProdottoIniziale = {
   negozioId: string;
   fase: string;
   categoria: string;
+  tipologiaVendita: string | null;
   collezioneShopifyId: string;
   codice: string;
   descrizione: string;
@@ -104,6 +105,8 @@ export function FormProdottoNuovo({
   const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
   const [categoria, setCategoria] = useState(iniziale?.categoria === "DA_CLASSIFICARE" ? "" : (iniziale?.categoria ?? ""));
+  // ⭐ 06/09/2026 (regola utente): la tipologia di vendita è obbligatoria e ha la sua legenda.
+  const [tipologiaVendita, setTipologiaVendita] = useState(iniziale?.tipologiaVendita ?? "");
   // Collezioni (più d'una, chiesto dall'utente): in creazione si scelgono fra
   // le manuali del negozio; in modifica si parte da quelle in cui il prodotto
   // sta già. Le automatiche si vedono ma non si toccano: decide la regola.
@@ -345,6 +348,28 @@ export function FormProdottoNuovo({
             <span className="cella-sub">
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
+          </div>
+          <div className="campo-modulo">
+            <label htmlFor="tipologiaVendita">Tipologia di vendita</label>
+            <select id="tipologiaVendita" name="tipologiaVendita" value={tipologiaVendita} onChange={(e) => setTipologiaVendita(e.target.value)} required>
+              <option value="">— Scegli —</option>
+              {TIPOLOGIE_VENDITA.map((t) => (
+                <option key={t} value={t}>
+                  {ETICHETTA_TIPOLOGIA_VENDITA[t]}
+                </option>
+              ))}
+            </select>
+            <span className="cella-sub">
+              Serve alla piattaforma consegne: dice come si sceglie il fornitore e come si fa il prezzo.
+              {tipologiaVendita ? ` ${SPIEGAZIONE_TIPOLOGIA_VENDITA[tipologiaVendita] ?? ""}` : ""}
+            </span>
+            <ul className="legenda-tipologia">
+              {TIPOLOGIE_VENDITA.map((t) => (
+                <li key={t}>
+                  <b>{ETICHETTA_TIPOLOGIA_VENDITA[t]}</b> — {SPIEGAZIONE_TIPOLOGIA_VENDITA[t]}
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="campo-modulo largo">
             <label>Collezioni su Shopify{collezioniScelte.length ? ` · ${collezioniScelte.length} scelte` : ""}</label>

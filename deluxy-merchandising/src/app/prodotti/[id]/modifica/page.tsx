@@ -55,6 +55,7 @@ export default async function ModificaProdottoPage({
     negozioId: negozio?.id ?? "",
     fase: p.fase === "archiviato" ? "approvato" : p.fase,
     categoria: p.categoria,
+    tipologiaVendita: p.tipologiaVendita ?? null,
     collezioneShopifyId: p.collezioneShopifyId ?? "",
     codice: p.codice,
     descrizione: p.descrizione ?? "",

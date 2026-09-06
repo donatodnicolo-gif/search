@@ -24,6 +24,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { traduciScheda } from "./ai-traduzioni";
+import { TIPOLOGIE_VENDITA } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { definizioniInCache, metafieldPerShopify } from "./metafield-definizioni";
@@ -104,6 +105,12 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
 
   const fase = testo(fd, "fase") || "concept";
   const categoria = testo(fd, "categoria") || "DA_CLASSIFICARE";
+  // ⭐ 06/09/2026 (regola utente): la tipologia di vendita è OBBLIGATORIA — è lei a dire
+  // alla piattaforma consegne come si sceglie il fornitore e come si fa il prezzo. Un
+  // valore inventato non passa: si accettano solo le quattro voci della legenda.
+  const tipologiaVendita = testo(fd, "tipologiaVendita");
+  if (!tipologiaVendita) indietro("Scegli la tipologia di vendita: serve alla piattaforma consegne per assegnare il fornitore.");
+  if (!(TIPOLOGIE_VENDITA as readonly string[]).includes(tipologiaVendita)) indietro("Tipologia di vendita non valida.");
   // Le collezioni: più d'una (chiesto dall'utente), solo manuali del negozio scelto.
   const collezioniId = [...new Set(leggiJson<string[]>(fd, "collezioniJson", []).map(String).filter(Boolean))];
   const collezioni = collezioniId.length
@@ -142,6 +149,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     negozio: negozioOk,
     fase,
     categoria,
+    tipologiaVendita,
     collezioni,
     media,
     variantiForm,
@@ -300,6 +308,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       codice,
       nome: m.nome,
       categoria: m.categoria,
+      tipologiaVendita: m.tipologiaVendita,
       fase,
       descrizione: m.descrizione,
       brief: m.brief,
@@ -487,6 +496,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         codice,
         nome: m.nome,
         categoria: m.categoria,
+        tipologiaVendita: m.tipologiaVendita,
         fase,
         descrizione: m.descrizione,
         brief: m.brief,
