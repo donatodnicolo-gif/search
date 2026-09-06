@@ -232,9 +232,21 @@ export function MandaInApp({
           const prov = (dati?.provinciaConsegna ?? '').toUpperCase()
           const perSku = (x: Prodotto) => (x.sku ?? '').toUpperCase()
           const famiglia = lista.filter((x) => perSku(x).startsWith(sku))
-          const scelta =
-            (prov ? lista.find((x) => perSku(x) === sku + prov) : undefined) ??
-            lista.find((x) => perSku(x) === sku) ??
+          // ⚠️⚠️ REGOLA DELL'UTENTE (06/09/2026): «se l'ordine è passato da un
+          // pagamento tramite app, il prodotto da caricare è quello PADRE, con
+          // prezzo flessibile pari al pagamento richiesto». Il padre è il
+          // prodotto con lo SKU dell'ordine senza sigla di provincia (la
+          // logica futura: SKU legato a prodotto e variante, niente prodotti
+          // per provincia, lo sconto di provincia lo calcola Orders).
+          // Misurato oggi: 1.893 varianti con provincia, 0 con un padre
+          // collegato, e «YBJIPK-1» a sé non esiste — finché non c'è, si prende
+          // la prima della famiglia come SEGNAPOSTO e lo si scrive.
+          const conPagamento = /pagamento/i.test(dati?.prezzoDa ?? '')
+          const padre = lista.find((x) => perSku(x) === sku)
+          const scelta = conPagamento
+            ? (padre ?? (famiglia.length ? famiglia[0] : undefined))
+            : (prov ? lista.find((x) => perSku(x) === sku + prov) : undefined) ??
+            padre ??
             (famiglia.length === 1 ? famiglia[0] : undefined) ??
             // Famiglia con più varianti ma TUTTE uguali (stesso nome, stesso prezzo:
             // cambia solo la sigla di provincia) e nessuna per la provincia di
@@ -248,7 +260,11 @@ export function MandaInApp({
             autoScelto.current = true
             scegliProdotto(scelta)
             setSceltoDaOrdine(
-              perSku(scelta) === sku + prov && prov
+              conPagamento
+                ? padre
+                  ? `dall'ordine: sku ${righe[0].sku}, prodotto padre — prezzo dal pagamento`
+                  : `dall'ordine: sku ${righe[0].sku} — c'è un pagamento, andrebbe il prodotto padre ma a catalogo non esiste ancora: presa la variante ${perSku(scelta).slice(sku.length) || 'prima'} come segnaposto, prezzo dal pagamento`
+                : perSku(scelta) === sku + prov && prov
                 ? `dall'ordine: sku ${righe[0].sku}, variante della provincia ${prov}`
                 : famiglia.length > 1 && prov
                   ? `dall'ordine: sku ${righe[0].sku} — nel catalogo non c'è la variante ${prov}, presa ${perSku(scelta).slice(sku.length) || 'la prima'} (stesso nome e prezzo)`

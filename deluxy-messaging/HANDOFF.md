@@ -1,5 +1,32 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (36) — Regola: con un pagamento in app si carica il prodotto PADRE (e il catalogo cambierà)
+
+**Decisione dell'utente (06/09/2026)**, due parti:
+1. **Il catalogo cambierà**: lo SKU resterà legato a prodotto e variante, **non
+   ci saranno più prodotti con la provincia associata** (oggi YBJIPK-1MI,
+   -1MB, …), e lo sconto di provincia lo calcolerà **Orders** in automatico.
+   È lavoro della piattaforma/Orders, non del CS.
+2. **Da subito**: se l'ordine è passato da un pagamento tramite l'app (una
+   richiesta di pagamento al fornitore), il prodotto da caricare sulla consegna
+   è **quello padre** (lo SKU dell'ordine senza sigla), con **prezzo flessibile
+   pari al pagamento**.
+
+**Misurato sul catalogo**: 16.289 prodotti; 1.893 con la sigla di provincia
+nello SKU, **0 con `parentProductId`**; 197 «padri» attivi con SKU senza
+sigla, ma di famiglie diverse (es. `183-1 Rose Rosse Corte`); **`YBJIPK-1` a
+sé non esiste**.
+
+**Implementato** (`MandaInApp.tsx`): con un pagamento (`prezzoDa` che parla di
+pagamento) la scelta automatica mette PRIMA il padre (SKU esatto) e, finché
+non c'è, la prima della famiglia come **segnaposto dichiarato** («c'è un
+pagamento, andrebbe il prodotto padre ma a catalogo non esiste ancora: presa
+la variante UD come segnaposto, prezzo dal pagamento»). Il prezzo è quello del
+pagamento (60 € su #2875), flessibile. Senza pagamento vale la regola del
+punto (35). Quando i padri entreranno a catalogo, il codice li prende da solo.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (35) — Manda in app: il prodotto lo dice già l'ordine, e si sceglie da solo
 
 Precisazione dell'utente su #2875: «il prodotto però era già indicato». Vero:
