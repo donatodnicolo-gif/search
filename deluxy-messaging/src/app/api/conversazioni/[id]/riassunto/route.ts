@@ -44,10 +44,13 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ errore: 'Conversazione non trovata' }, { status: 404 })
   }
 
+  // ⚠️ TUTTA la conversazione, in ordine: era `take: 200` sui più VECCHI, e con
+  // 326 messaggi il riassunto non vedeva la fine (06/09/2026). Il taglio, se
+  // serve, lo fa la libreria a caratteri, dalla battuta più recente all'indietro.
   const messaggi = await db.messaggio.findMany({
     where: { conversazioneId: id },
     orderBy: { creatoIl: 'asc' },
-    take: 200,
+    take: 5000,
     select: { direzione: true, testo: true, creatoIl: true },
   })
 

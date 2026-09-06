@@ -1,5 +1,35 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (52) — DEPLOY delle 17:04 e il riassunto che non vedeva l'indirizzo
+
+**DEPLOY (col sì dell'utente)**: cherry-pick di 8757b779, f4d8a8ac, a8568d66,
+2968485f su origin/scout-ui (f2e51722) → **8124da8a** (conflitto sull'handoff
+risolto tenendo il locale, più completo), pushato; `vercel deploy --prod` →
+`deluxy-messaging-2n8q474el`, production, **Ready** alle 17:04. In linea:
+lente nella chat (+ correzione «torna sotto»), «Manda in app» con vendita
+interrotta, Unisci/Riconsegna pillole, «Consegna offerta» a 0 €, doppione di
+`non_consegnata` tolto.
+
+**Il riassunto AI non individuava il luogo** (utente: «Hejrevej 8 / 2400
+København NV / Denmark» mandato dal cliente). Misurato sulla chat con Shivam:
+**326 messaggi, l'indirizzo è il n. 34**. Due tagli in fila: la rotta leggeva
+`take: 200` sui più VECCHI e la libreria teneva `slice(-60)` di quelli → il
+modello vedeva le battute 141-200, né l'indirizzo né la fine. Ora la rotta
+legge tutto (`take: 5000`) e `riassumiConversazione` costruisce la finestra a
+CARATTERI dalla più recente all'indietro (`BUDGET_RIASSUNTO` = 150.000; ogni
+battuta ≤ 1.500; misurato: 8 conversazioni su 730 sopra gli 80k); se taglia lo
+dice al modello («[… N battute più vecchie omesse …]») e a chi legge
+(`battute { usate, totali }` nel JSON salvato, riga «Letto sulle ultime X
+battute su Y» nel riquadro). Regola 6 del prompt: l'indirizzo completo, anche
+estero, è un luogo, e va cercato in TUTTA la conversazione.
+
+⚠️ TRAPPOLA: due tagli in due strati (rotta + libreria) si sommano in un buco
+che nessuno dei due vede: «i primi 200» ∩ «gli ultimi 60» = una finestra a caso
+in mezzo alla chat.
+
+**Verifica**: `tsc` 0; prova sulla chat di Shivam (script, senza salvare):
+vedi esito qui sotto nel commit. **Stato**: in locale.
+
 ## 06/09/2026 (51) — La ricerca nella chat «tornava sempre sotto»
 
 Utente, cercando «address» nella chat con Shivam: la lista tornava in fondo e
