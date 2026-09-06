@@ -189,6 +189,7 @@ type OrdineDettaglio = {
   appCostoPartner?: number | null
   appInterrottoIl?: string | null
   appConsegnaNumero?: string
+  appConsegnaId?: string
   /** Lo stato della CONSEGNA di là: created · in_delivery · delivered … */
   appConsegnaStato?: string
   appConsegnaData?: string | null
@@ -440,6 +441,29 @@ export function DettaglioOrdine({
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
   const [interrompendo, setInterrompendo] = useState(false)
+  /** La consegna di là che si sta per SCOLLEGARE (la «x» sul collegamento; utente, 06/09/2026). */
+  const [scollegaConsegna, setScollegaConsegna] = useState<{ id: string; numero: string } | null>(null)
+  const [scollegando, setScollegando] = useState(false)
+
+  async function scollega(c: { id: string; numero: string }) {
+    if (!ordine?.id || scollegando) return
+    setScollegando(true)
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/scollega-consegna`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consegnaId: c.id }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { messaggio?: string; errore?: string }
+      setEsitoInterruzione(d.messaggio || d.errore || 'Scollegamento non riuscito.')
+      await carica()
+    } catch {
+      setEsitoInterruzione('Scollegamento non riuscito: problema di rete.')
+    } finally {
+      setScollegando(false)
+      setScollegaConsegna(null)
+    }
+  }
   /**
    * Il passo «In App» apre il modulo «Manda in app» (utente, 06/09/2026): ogni
    * incremento è un «apri» per il riquadro. Prima il passo cambiava solo
@@ -449,6 +473,42 @@ export function DettaglioOrdine({
   const [apriInApp, setApriInApp] = useState(apriMandaInApp ? 1 : 0)
   /** La domanda «vuoi inserirla in piattaforma?», nella nostra finestra (Libro §7: niente window.confirm). */
   const [chiediInApp, setChiediInApp] = useState(false)
+  /**
+   * «Gestito» con una consegna di là ancora aperta: si chiede se segnarla
+   * consegnata anche nella piattaforma (utente, 06/09/2026). Qui le consegne
+   * ancora aperte su cui fare la domanda ('' = nessuna domanda in corso).
+   */
+  const [chiediConsegnate, setChiediConsegnate] = useState<{ id: string; numero: string; stato: string }[] | null>(null)
+  const [segnandoConsegnate, setSegnandoConsegnate] = useState(false)
+
+  /** Le consegne di là ancora aperte (né consegnate, né annullate, né non riuscite). */
+  function consegneAperte() {
+    return (ordine?.consegneApp ?? []).filter((c) => !['delivered', 'cancelled', 'not_delivered'].includes(c.stato))
+  }
+
+  /** Segna consegnate di là, poi chiude qui. L'esito di ogni consegna si dice. */
+  async function chiudiConConsegne(consegne: { id: string; numero: string }[]) {
+    if (!ordine?.id) return
+    setSegnandoConsegnate(true)
+    const esiti: string[] = []
+    for (const c of consegne) {
+      try {
+        const res = await fetch(`/api/ordini/${ordine.id}/consegna-consegnata`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consegnaId: c.id }),
+        })
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        esiti.push(res.ok ? `#${c.numero} segnata consegnata di là` : `#${c.numero}: ${d.errore || 'non segnata'}`)
+      } catch {
+        esiti.push(`#${c.numero}: problema di rete`)
+      }
+    }
+    setSegnandoConsegnate(false)
+    setChiediConsegnate(null)
+    setEsitoInterruzione(esiti.join(' · '))
+    await cambiaGestione(CHIUSURA)
+  }
   const [numeroDaUnire, setNumeroDaUnire] = useState('')
   const [importoRiconsegna, setImportoRiconsegna] = useState('')
   const [motivoRiconsegna, setMotivoRiconsegna] = useState('')
@@ -1020,6 +1080,58 @@ export function DettaglioOrdine({
 
   return (
     <div className="velo" onClick={onChiudi} role="presentation">
+      {/* La «x» su una consegna di là: si scollega solo da qui, di là non cambia niente. */}
+      {scollegaConsegna && ordine ? (
+        <Conferma
+          titolo={`Scollegare la consegna #${scollegaConsegna.numero} da ${ordine.numero}?`}
+          verbo={scollegando ? 'Scollego…' : 'Sì, scollega'}
+          annulla="No, lascia"
+          pericoloso
+          onConferma={() => void scollega(scollegaConsegna)}
+          onAnnulla={() => setScollegaConsegna(null)}
+          onChiudi={() => setScollegaConsegna(null)}
+        >
+          <p>
+            Serve quando la consegna mostrata è di un altro ordine: il numero DDT è per negozio, e lo stesso numero di
+            un altro marchio può finire qui per sbaglio.
+          </p>
+          <p>
+            Nella piattaforma la consegna resta com&apos;è. Qui non compare più su quest&apos;ordine
+            {ordine.appConsegnaId === scollegaConsegna.id ? ', e l\'aggancio «In App» viene tolto: il passo di lavorazione lo cambi tu' : ''}.
+          </p>
+        </Conferma>
+      ) : null}
+      {/* «Gestito» con consegne di là ancora aperte: segnarle consegnate anche là? */}
+      {chiediConsegnate && ordine ? (
+        <Conferma
+          titolo={
+            chiediConsegnate.length === 1
+              ? `Segnare consegnata anche la consegna #${chiediConsegnate[0].numero} nella piattaforma?`
+              : `Segnare consegnate anche le ${chiediConsegnate.length} consegne nella piattaforma?`
+          }
+          verbo={segnandoConsegnate ? 'Segno…' : 'Sì, consegnata anche di là'}
+          annulla="No, solo Gestito qui"
+          onConferma={() => {
+            if (!segnandoConsegnate) void chiudiConConsegne(chiediConsegnate)
+          }}
+          onAnnulla={() => {
+            setChiediConsegnate(null)
+            void cambiaGestione(CHIUSURA)
+          }}
+          onChiudi={() => setChiediConsegnate(null)}
+        >
+          <p>
+            Nella piattaforma {chiediConsegnate.length === 1 ? 'la consegna risulta' : 'le consegne risultano'}{' '}
+            {chiediConsegnate.map((c) => `#${c.numero} (${nomeStatoConsegna(c.stato)})`).join(', ')}. Con il sì la
+            piattaforma {chiediConsegnate.length === 1 ? 'la mette' : 'le mette'} in storico come consegnata alla data
+            di consegna, e resta scritto che l&apos;ha chiesto il Customer Service.
+          </p>
+          <p>
+            Con il no l&apos;ordine diventa «Gestito» solo qui: di là {chiediConsegnate.length === 1 ? 'resta' : 'restano'}{' '}
+            come {chiediConsegnate.length === 1 ? 'è' : 'sono'}.
+          </p>
+        </Conferma>
+      ) : null}
       {/* La domanda del passo «In App», nel nostro stile (Libro §7), sopra il pannello. */}
       {chiediInApp && ordine ? (
         <Conferma
@@ -1318,16 +1430,36 @@ export function DettaglioOrdine({
                     <div className="cella-sub" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                       <span>{ordine.consegneApp.length === 1 ? 'Consegna in piattaforma:' : `${ordine.consegneApp.length} consegne in piattaforma:`}</span>
                       {ordine.consegneApp.map((c) => (
-                        <a
-                          key={c.id}
-                          className="badge"
-                          href={`${ordine.urlPiattaforma || 'https://deluxy-delivery.vercel.app'}/deliveries/${c.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`Apri la consegna #${c.numero} nella piattaforma (${nomeStatoConsegna(c.stato)})`}
-                        >
-                          #{c.numero} · {nomeStatoConsegna(c.stato)} ↗
-                        </a>
+                        <span key={c.id} className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, paddingRight: 4 }}>
+                          <a
+                            href={`${ordine.urlPiattaforma || 'https://deluxy-delivery.vercel.app'}/deliveries/${c.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                            title={`Apri la consegna #${c.numero} nella piattaforma (${nomeStatoConsegna(c.stato)})`}
+                          >
+                            #{c.numero} · {nomeStatoConsegna(c.stato)} ↗
+                          </a>
+                          {/* La «x»: scollega (utente, 06/09/2026: il #1834 di Cake mostrava il #1834 di Flowers). */}
+                          <button
+                            type="button"
+                            aria-label={`Scollega la consegna #${c.numero} da quest ordine`}
+                            title="Scollega: questa consegna non è di quest ordine"
+                            onClick={() => setScollegaConsegna({ id: c.id, numero: c.numero })}
+                            style={{
+                              border: 0,
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              color: 'inherit',
+                              opacity: 0.6,
+                              lineHeight: 1,
+                              padding: '0 2px',
+                              fontSize: 13,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
                       ))}
                       {ordine.appMandataDaNome ? <span>· mandata da {ordine.appMandataDaNome}</span> : null}
                     </div>
@@ -1983,9 +2115,20 @@ export function DettaglioOrdine({
                                 ? 'bottone mini verde'
                                 : 'bottone secondario mini'
                             }
-                            onClick={() =>
-                              cambiaGestione(ordine.gestione === CHIUSURA ? 'da_gestire' : CHIUSURA)
-                            }
+                            onClick={() => {
+                              if (ordine.gestione === CHIUSURA) {
+                                void cambiaGestione('da_gestire')
+                                return
+                              }
+                              // ⚠️ Una consegna di là ancora aperta: si chiede (utente,
+                              // 06/09/2026), non si decide al posto suo né si tace.
+                              const aperte = consegneAperte()
+                              if (aperte.length) {
+                                setChiediConsegnate(aperte)
+                                return
+                              }
+                              void cambiaGestione(CHIUSURA)
+                            }}
                             title={
                               ordine.gestione === CHIUSURA
                                 ? 'Riapri: rimette l ordine fra quelli da lavorare'

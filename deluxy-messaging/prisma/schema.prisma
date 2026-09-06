@@ -675,6 +675,11 @@ model Ordine {
   appConsegnaStato  String    @default("")
   appConsegnaData   DateTime?
   appConsegnaFascia String    @default("")
+  /// Consegne di là SCOLLEGATE a mano dalla scheda (id, uno per riga): il
+  /// DDT è numerato per negozio e una consegna con lo stesso numero di un
+  /// altro marchio può comparire per sbaglio (#1834, 06/09/2026). Quelle
+  /// qui non si mostrano più e la regola dalle pagamenti non le riaggancia.
+  appConsegneEscluse String   @default("")
 
   // ── Chi se ne sta occupando ──
   //
