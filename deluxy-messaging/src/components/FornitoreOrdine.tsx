@@ -228,7 +228,7 @@ export function FornitoreOrdine({
 
   return (
     <div className="riquadro-fornitore">
-      <div className="riga-titolo-fornitore">
+      <div className="riga-titolo">
         <span className="cella-nome">Chi prepara quest&apos;ordine</span>
         {!apri ? (
           <button className="btn btn-secondario small" onClick={apriPerModifica}>
@@ -284,7 +284,8 @@ export function FornitoreOrdine({
                   Email
                 </a>
               ) : null}
-              <button className="btn btn-secondario small" onClick={() => void togli()} disabled={salvo}>
+              {/* Ultimo e rosso (06/09/2026: Libro §9-ter): è l'unico che toglie. */}
+              <button className="btn btn-pericolo small" onClick={() => void togli()} disabled={salvo}>
                 Togli
               </button>
             </div>
@@ -435,10 +436,9 @@ export function FornitoreOrdine({
             />
           </label>
           {errore ? <p className="errore-riga">{errore}</p> : null}
+          {/* Ordine [Lascia stare] [Registra] (06/09/2026: Libro §9-ter): il primario
+              nero è uno solo, e sta a destra perché il modulo è aperto. */}
           <div className="azioni-fornitore">
-            <button className="btn small" onClick={() => void salva()} disabled={salvo || !nome.trim()}>
-              {salvo ? 'Salvo…' : 'Registra'}
-            </button>
             <button
               className="btn btn-secondario small"
               onClick={() => {
@@ -448,6 +448,9 @@ export function FornitoreOrdine({
               disabled={salvo}
             >
               Lascia stare
+            </button>
+            <button className="btn small" onClick={() => void salva()} disabled={salvo || !nome.trim()}>
+              {salvo ? 'Salvo…' : 'Registra'}
             </button>
           </div>
         </div>

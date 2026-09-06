@@ -3514,6 +3514,25 @@ td .azioni-ordine {
   margin-left: auto;
 }
 
+/* La ✕ del riassunto (Libro §9: ogni riquadro che si apre si chiude anche da
+   lì). Bersaglio da 28px sul desktop, icona leggibile. */
+.riassunto-chat .chiudi-riassunto {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.riassunto-chat .chiudi-riassunto:hover {
+  background: var(--fill);
+  color: var(--text);
+}
+
 .riassunto-chat .testo-riassunto {
   margin: 0 0 10px;
   font-size: 13.5px;
@@ -4066,6 +4085,8 @@ td .azioni-ordine {
   background: var(--surface);
 }
 
+/* Titolo di un riquadro con il suo comando a destra (06/09/2026: Libro §9-ter). */
+.riga-titolo,
 .riga-titolo-fornitore {
   display: flex;
   align-items: center;
@@ -6565,4 +6586,90 @@ tr.riga-click:focus-visible {
 
 .badge {
   max-width: 100%;
+}
+
+/* ── Scheda ordine: tre zone di azioni (06/09/2026: Libro §9-ter) ──
+   Testata = identità + due pillole + menu «⋯»; Lavorazione = passi e governo
+   dello smistamento; sotto, tre riquadri titolati (Cliente, Soldi, Documenti)
+   al posto della fila di nove pillole. Stessa resa dei riquadri esistenti. */
+.riquadro-azioni {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  margin-top: 12px;
+  background: var(--surface);
+}
+.riquadro-azioni > .cella-nome,
+.riquadro-azioni > .riga-titolo {
+  margin-bottom: 8px;
+}
+.azioni-riquadro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+/* La fattura aperta è IL contenuto del riquadro «Documenti»: niente cornice
+   dentro la cornice, e prende tutta la riga (il resto va a capo). */
+.riquadro-azioni .card {
+  flex: 1 1 100%;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Titolo di un campo (biglietto, messaggio) con «Copia» a destra: stesso
+   carattere del titolo dentro `.campo`, che qui sta fuori dalla label perché un
+   bottone dentro una label attiva anche il campo. */
+.titolo-campo > span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Il menu «⋯» della testata: pillola + elenco assoluto sotto, allineato a destra. */
+.menu-azioni {
+  position: relative;
+}
+.menu-azioni ul {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
+  z-index: 30;
+}
+.menu-azioni li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.menu-azioni li button:hover,
+.menu-azioni li button:focus-visible {
+  background: var(--fill);
+  outline: none;
+}
+
+/* Pillola «pericolo» (Togli): la stessa formula del badge rosso, su una pillola. */
+.btn.btn-pericolo {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.btn.btn-pericolo:hover {
+  background: color-mix(in srgb, var(--red) 16%, transparent);
 }

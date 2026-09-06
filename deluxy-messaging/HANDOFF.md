@@ -1,5 +1,40 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (46) — La scheda ordine con tre zone di azioni (Libro §9-ter)
+
+Utente, sulla scheda #2876: «ci sono troppi bottoni sparsi e con azioni diversi,
+unifica in tutto il pop-up e semplifica». L'architetto UX ha contato 42 comandi
+in 8 punti, tre API di bottone, doppioni (Riconsegna/Unisci in testata E in
+colonna destra), tre neri a riposo. Regola nuova nel Libro UX **§9-ter v2.1**
+(segnalazione UX (10)), applicata in `DettaglioOrdine.tsx` senza cambiare un
+handler:
+
+- **Testata**: identità + badge «conforme» + [Manda in app] [Apri in Shopify ↗]
+  + **«⋯»** (`.menu-azioni`: «Unisci un altro ordine…», «Riconsegna…» →
+  `vaiAlRiquadro`; Esc chiude il menu e non la scheda; clic fuori chiude) + ✕.
+- **Lavorazione**: i passi come prima (`.bottone.mini`, corrente pieno); sotto,
+  su una riga: badge «su Orders: …», badge «Riservato a noi / Può andare in
+  automatico» e il bottone «Lascia andare in automatico / Tienilo manuale»
+  (scesi dalla testata).
+- **Colonna sinistra**: «Copia» a destra del titolo di «Biglietto e note» e di
+  «Messaggio per il fornitore» (`.riga-titolo.titolo-campo`; la textarea ha
+  `aria-label` perché il titolo è uscito dalla label); «Cerca fornitore ↗» pillola
+  secondaria sotto il testo. In `FornitoreOrdine`: [Lascia stare] [Registra]
+  (Registra unico nero, a form aperto); «Togli» rosso `.btn-pericolo` (classe
+  nuova, formula del badge rosso).
+- **Colonna destra**: tre riquadri `.riquadro-azioni` al posto delle 9 pillole —
+  **Cliente** («Scheda cliente ↗» a destra del titolo; WhatsApp · Chiama · Email),
+  **Soldi** (Paga fornitore + «Richiesta aperta ↗» quando c'è · Chiedi rimborso),
+  **Documenti** (Richiedi fattura — la card aperta è il contenuto del riquadro,
+  senza cornice — · Apri reclamo). I due `<details>` Riconsegna e Unione in
+  fondo, invariati con l'auto-apertura.
+- **MessaggiOrdine**: «Apri in Inbox» del pop-up mail in testata accanto alla ✕.
+
+Non fatto (collaterali da decidere, in segnalazione (10)): inversione dell'API
+`.btn` (nudo = nero), bersagli `.btn.small` < 32px, fascia «Fornitori in
+provincia» con 4-6 pillole. **Verifica**: `tsc` 0; resa a occhio da fare
+(menu «⋯» nella testata sticky, riga dei regolatori). **Stato**: in locale.
+
 ## 06/09/2026 (45) — Deploy delle 16:00, composer «a uovo», ✕ sul riassunto e «vuoto» che sembrava un dato
 
 **DEPLOY (col sì dell'utente, «fai deploy e push»)**: piattaforma pubblicata dal

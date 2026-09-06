@@ -138,10 +138,16 @@ export function MailAperta({
               · {quandoPerEsteso(messaggio.creatoIl)}
             </div>
           </div>
-          {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler del velo. */}
-          <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi" onClick={onChiudi}>
-            ✕
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            {/* «Apri in Inbox» a destra del titolo (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) */}
+            <a className="btn btn-secondario small" href={`/inbox?c=${conversazione.id}`}>
+              Apri in Inbox
+            </a>
+            {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler del velo. */}
+            <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi" onClick={onChiudi}>
+              ✕
+            </button>
+          </div>
         </div>
 
         {testo ? (
@@ -158,12 +164,6 @@ export function MailAperta({
             prossimo scarico della posta; altrimenti si legge dalla casella, con «Apri in Inbox».
           </p>
         )}
-
-        <div className="mail-aperta-piede">
-          <a className="btn btn-secondario small" href={`/inbox?c=${conversazione.id}`}>
-            Apri in Inbox
-          </a>
-        </div>
       </div>
     </div>
   )
