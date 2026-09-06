@@ -1956,7 +1956,7 @@ export class DeliveriesListComponent {
         this.load(true);
         if (this.roleOf() === 'PARTNER') this.caricaProposte();
       },
-      sospeso: () => !!(this.statoFor() || this.assignFor() || this.additionalFor() || this.segnalPer()
+      sospeso: () => !!(this.statoFor() || this.codiceFor() || this.codiceInCorso() || this.assignFor() || this.additionalFor() || this.segnalPer()
         || this.confermaPendente() || this.azioneDiMassa() || this.inCorsoDiMassa() || this.salvandoStato()
         || this.salvandoAssegna() || this.propostaInCorso() || this.venditaRispostaInCorso()
         || this.annullaInCorso() || this.valetStatoInCorso() || this.showMap() || this.loading()),

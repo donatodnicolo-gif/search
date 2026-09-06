@@ -6,6 +6,7 @@ import { ConfermaComponent } from '../shared/conferma.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { AuthService } from '../core/auth.service';
 import { DELIVERY_CLOSED_STATUSES, Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
@@ -1654,6 +1655,17 @@ export class DeliveryDetailComponent {
   constructor() {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.load();
+    // ⭐ 06/09/2026 (regola utente): anche il DETTAGLIO si riallinea da solo
+    // ogni 30″, come le liste. È qui che il valet aspetta che il partner
+    // verifichi il suo codice, e il partner che il valet chiuda le ore: senza
+    // questo dovevano ricaricare a mano. Silenzioso, e fermo mentre un pop-up
+    // o un'azione sono in corso (non si tira via niente sotto le mani).
+    avviaAutoAggiornamento({
+      ricarica: () => this.load(true),
+      sospeso: () => !!(this.chiusura() || this.assignOpen() || this.confermaAnnulla() || this.segnalTipo()
+        || this.avvisoContanti() != null || this.statoInCorso() || this.busy() || this.annullando()
+        || this.oreInCorso() || this.codiceInCorso() || this.segInCorso() || this.codiceValet.trim() || this.loading()),
+    });
     // I valet servono a chi può assegnare: ufficio E team leader.
     if (this.canAssign()) {
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((v) => this.valets.set(v));
@@ -1676,7 +1688,8 @@ export class DeliveryDetailComponent {
     });
   }
 
-  private load(): void {
+  /** `silenzioso` = giro dell'auto-aggiornamento: niente riapertura del pop-up da `?chiudi`. */
+  private load(silenzioso = false): void {
     this.caricaSegnalazioni();
     this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${this.id}`).subscribe({
       next: (d) => {
@@ -1685,7 +1698,7 @@ export class DeliveryDetailComponent {
         // Arrivando dai bottoni della LISTA (?chiudi=delivered|not_delivered)
         // il pop-up si apre da solo: il valet non deve cercare due volte.
         const chiudi = this.route.snapshot.queryParamMap.get('chiudi');
-        if ((chiudi === 'delivered' || chiudi === 'not_delivered')
+        if (!silenzioso && (chiudi === 'delivered' || chiudi === 'not_delivered')
           && this.puoLavorare(d) && !this.chiusura()) {
           this.apriChiusura(chiudi);
         }
