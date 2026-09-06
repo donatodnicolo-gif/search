@@ -1502,6 +1502,12 @@ export function Inbox({
     )
   }, [cercaRisposta, risposte])
   const bozzaRef = useRef<HTMLTextAreaElement>(null)
+  // ⚠️ Il campo cresce col testo (onInput, fino a 120px) ma l'altezza è uno
+  // stile inline: svuotata la bozza (inviata, o cambiata conversazione) va
+  // rimessa a una riga, o resta alto quattro righe vuote e i bottoni con lui.
+  useEffect(() => {
+    if (!bozza && bozzaRef.current) bozzaRef.current.style.height = ''
+  }, [bozza])
 
   useEffect(() => {
     if (!risposteAperte || risposte.length) return

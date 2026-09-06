@@ -1249,6 +1249,10 @@ button {
 
 .thread .composer {
   display: flex;
+  /* ⚠️ In fondo, non stirati: il campo cresce col testo (fino a 120px) e senza
+     questo i bottoni accanto diventavano ovali alti quanto il campo (foto
+     dell'utente, 06/09/2026). */
+  align-items: flex-end;
   gap: 10px;
   padding: 12px 16px;
   border-top: 1px solid var(--hairline);
