@@ -1104,6 +1104,8 @@ export class SalesService {
     const select = {
       partnerId: true, amount: true, discountPercent: true, createdAt: true,
       externalOrderNumber: true, provinceId: true,
+      // ⭐ 06/09 (regola utente): nell'ultima volta si dice anche COSA (prodotto, variante) e QUANDO si è consegnato.
+      variantName: true, productName: true, deliveryDate: true, product: { select: { name: true } },
     };
     // 1) la coppia esatta; 2) lo stesso prodotto altrove; 3) la categoria qui.
     let base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna' = 'coppia';
@@ -1181,6 +1183,9 @@ export class SalesService {
         nettoModa: arrotonda(prezzoModa * (1 - scontoModa / 100)),
         ultimaData: ultima.createdAt,
         ultimoOrdine: ultima.externalOrderNumber,
+        ultimoProdotto: (ultima as any).product?.name ?? (ultima as any).productName ?? null,
+        ultimaVariante: (ultima as any).variantName ?? null,
+        ultimaConsegna: (ultima as any).deliveryDate ?? null,
         ultimaProvincia: sigla.get(ultima.provinceId) ?? null,
         // Più vecchia di un anno: si mostra, ma segnalata. I prezzi invecchiano.
         vecchia: ultima.createdAt < dodiciMesiFa,

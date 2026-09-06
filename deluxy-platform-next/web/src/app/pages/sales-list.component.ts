@@ -26,6 +26,9 @@ interface RigaStorico {
   nettoModa: number;
   ultimaData: string;
   ultimoOrdine: string | null;
+  ultimoProdotto?: string | null;
+  ultimaVariante?: string | null;
+  ultimaConsegna?: string | null;
   ultimaProvincia: string | null;
   vecchia: boolean;
 }
@@ -292,7 +295,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                     @if (sottoOrders(s.ordine); as sub) { <span class="motivo">{{ sub }}</span> }
                   } @else { <span class="muted">—</span> }
                 </td>
-                <td class="prodotto">{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
+                <td class="prodotto">@if (fotoProdotto(s).length) { <button type="button" class="nome-prodotto" (click)="apriFoto(s); $event.stopPropagation()" [title]="'sales.detail.photos' | translate">{{ s.product?.name }}</button> } @else { {{ s.product?.name ?? s.productName ?? '—' }} }@if (!s.product && s.productName) { <span class="muted"> · {{ 'sales.fuoriCatalogo' | translate }}</span> }@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
                   @if (s.assignmentReason) {
@@ -349,6 +352,11 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                   <!-- ⭐ 03/09 (regola utente): la vendita si MODIFICA da qui —
                        i dati (importo, destinatario, data, provincia), non lo
                        stato, che ha le sue azioni. -->
+                  <!-- ⭐ 06/09/2026 (regola utente): da ogni vendita si richiama l'app
+                       Ricerca fornitori con l'ordine già caricato (brand + numero). -->
+                  @if (canManage() && linkRicercaFornitore(s); as u) {
+                    <a class="btn btn-secondary mini" [href]="u" target="_blank" rel="noopener" (click)="$event.stopPropagation()">{{ 'sales.cercaFornitore' | translate }}</a>
+                  }
                   @if (canManage()) {
                     <button class="btn btn-secondary mini" (click)="apriModifica(s)">
                       {{ (modificaId() === s.id ? 'common.cancel' : 'sales.edit') | translate }}
@@ -454,6 +462,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
             <span class="badge" [style.--c]="colore(v.status)"><i class="dot"></i>{{ etichetta(v.status) }}</span>
           </div>
           <div class="pan-azioni">
+            @if (canManage() && linkRicercaFornitore(v); as u) {
+              <a class="btn btn-secondary mini" [href]="u" target="_blank" rel="noopener">{{ 'sales.cercaFornitore' | translate }}</a>
+            }
             @if (nonConforme(v)) {
               @if ((v.status === 'proposta' && puoRispondere(v)) || (canManage() && v.status === 'da_gestire')) {
                 <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
@@ -640,6 +651,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                         </td>
                         <td>
                           {{ r.ultimaData | date: 'dd/MM/yy' }}@if (r.ultimoOrdine) { <span class="muted"> · #{{ r.ultimoOrdine }}</span> }
+                          <!-- ⭐ 06/09 (regola utente): anche COSA è stato comprato (prodotto e variante) e la data di consegna. -->
+                          @if (r.ultimoProdotto || r.ultimaVariante) { <div class="cella-sub">{{ r.ultimoProdotto }}@if (r.ultimaVariante) { <span class="muted"> ({{ r.ultimaVariante }})</span> }</div> }
+                          @if (r.ultimaConsegna) { <div class="cella-sub muted">{{ 'sales.history.consegnata' | translate }} {{ r.ultimaConsegna | date: 'dd/MM/yy' }}</div> }
                           @if (st.base === 'altre-province' && r.ultimaProvincia) { <span class="muted"> · {{ r.ultimaProvincia }}</span> }
                           @if (r.vecchia) { <div class="cella-sub muted">{{ 'sales.history.old' | translate }}</div> }
                         </td>
@@ -802,8 +816,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       .nome-prodotto { background: none; border: 0; padding: 0; font: inherit; color: var(--text-primary);
         cursor: zoom-in; text-decoration: underline; text-underline-offset: 2px; }
       .conta-foto { margin-left: 6px; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
-      .foto-velo { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 80; }
-      .foto-box { position: fixed; inset: 5vh 5vw; z-index: 81; background: var(--surface, #fff);
+      /* ⭐ 06/09 (segnalazione utente): le foto stanno SOPRA il pop-up di dettaglio (z 95/96 > 90/91): prima si aprivano dietro e sembrava che il click non facesse niente. */
+      .foto-velo { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 95; }
+      .foto-box { position: fixed; inset: 5vh 5vw; z-index: 96; background: var(--surface, #fff);
         border-radius: 14px; padding: 14px; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
       .foto-x { position: absolute; top: 8px; right: 10px; background: none; border: 0; font-size: 24px; cursor: pointer; }
       .foto-scorri { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
@@ -904,7 +919,7 @@ export class SalesListComponent {
     const filtrate = !q ? base : base.filter((s) =>
       (s.externalOrderId ?? '').toLowerCase().includes(q) ||
       (s.externalOrderNumber ?? '').toLowerCase().includes(q) ||
-      (s.product?.name ?? '').toLowerCase().includes(q) ||
+      (s.product?.name ?? s.productName ?? '').toLowerCase().includes(q) ||
       (s.partner?.insegna ?? '').toLowerCase().includes(q) ||
       (s.province?.code ?? '').toLowerCase().includes(q) ||
       s.brand.toLowerCase().includes(q));
@@ -914,7 +929,7 @@ export class SalesListComponent {
         case 'ordine': return s.externalOrderNumber ? Number(s.externalOrderNumber) || s.externalOrderNumber : null;
         case 'orders': return s.ordine ? this.etichettaOrders(s.ordine) : null;
         case 'historyAt': return s.historyAt ? new Date(s.historyAt).getTime() : null;
-        case 'prodotto': return s.product?.name ?? null;
+        case 'prodotto': return s.product?.name ?? s.productName ?? null;
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
         case 'deliveryDate': return s.deliveryDate ?? null;
@@ -1205,6 +1220,29 @@ export class SalesListComponent {
   }
 
   // ---- POP-UP DI DETTAGLIO (⭐ 04/09, regola utente) --------------------
+  /**
+   * ⭐ 06/09/2026 (regola utente): il link all'app Ricerca fornitori (search-deluxy)
+   * con l'ordine già caricato. L'app legge `?brand=&ordine=&categoria=` (deep link,
+   * index.html → applyDeepLink): brand fra deluxy.it / deluxyflowers.com /
+   * cakedesign.me («Flowers» delle vendite = deluxyflowers.com), categoria
+   * «pasticceria» per torte e dolci, «fioraio» per i fiori. Senza numero d'ordine
+   * non c'è niente da caricare: nessun bottone.
+   */
+  linkRicercaFornitore(s: Sale): string | null {
+    const numero = String(s.externalOrderNumber ?? '').replace(/^#/, '').trim();
+    if (!numero) return null;
+    const q = new URLSearchParams({ ordine: numero });
+    const b = String(s.brand ?? '').toLowerCase();
+    const brand = b === 'flowers' || b.includes('deluxyflowers') ? 'deluxyflowers.com' : b.includes('cakedesign') ? 'cakedesign.me' : b.includes('deluxy') ? 'deluxy.it' : '';
+    if (brand) q.set('brand', brand);
+    const cat = String((s.product as { category?: { name?: string | null } | null } | null | undefined)?.category?.name ?? '').toLowerCase();
+    if (/tort|dolc|cake|cdm|pasticc/.test(cat) || brand === 'cakedesign.me') q.set('categoria', 'pasticceria');
+    else if (/fior|flor|rosa|rose|piant|cest|cappellier|ghirland|terrarium/.test(cat) || brand === 'deluxyflowers.com') q.set('categoria', 'fioraio');
+    return `${SalesListComponent.RICERCA_FORNITORI}/?${q.toString()}`;
+  }
+  /** L'app Ricerca fornitori (stesso indirizzo del catalogo del Hub). */
+  private static readonly RICERCA_FORNITORI = 'https://search-deluxy.vercel.app';
+
   readonly dettaglio = signal<Sale | null>(null);
   readonly dettaglioCaricando = signal(false);
   readonly confermaPendente = signal<{

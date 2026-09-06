@@ -2437,6 +2437,8 @@
   "sales": {
     "title": "Vendite",
     "caption": "Gli ordini smistati ai partner.",
+    "cercaFornitore": "Cerca fornitore",
+    "fuoriCatalogo": "fuori catalogo, dal titolo dell'ordine",
     "empty": "Nessuna vendita. Usa «Tira da Orders» per far entrare gli ordini.",
     "noPartner": "— nessun partner",
     "accept": "Accetta",
@@ -2555,6 +2557,7 @@
         "last": "Ultima volta"
       },
       "net": "al partner {{prezzo}} €",
+      "consegnata": "consegnata il",
       "old": "più di un anno fa",
       "inactive": "non attivo",
       "notHere": "non opera in questa provincia",

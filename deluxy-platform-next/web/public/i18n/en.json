@@ -2435,6 +2435,8 @@
   "sales": {
     "title": "Sales",
     "caption": "Orders dispatched to partners.",
+    "cercaFornitore": "Find supplier",
+    "fuoriCatalogo": "not in the catalogue, from the order title",
     "empty": "No sales yet. Use “Pull from Orders” to bring orders in.",
     "noPartner": "— no partner",
     "accept": "Accept",
@@ -2553,6 +2555,7 @@
         "last": "Last time"
       },
       "net": "partner gets {{prezzo}} €",
+      "consegnata": "delivered on",
       "old": "more than a year ago",
       "inactive": "inactive",
       "notHere": "does not operate in this province",
