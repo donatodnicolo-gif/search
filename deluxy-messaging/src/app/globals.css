@@ -1115,8 +1115,26 @@ button {
 .bolla.out {
   align-self: flex-end;
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
   border-bottom-right-radius: var(--radius-s);
+}
+
+/* ── Il separatore del giorno nel filo («Oggi», «Ieri», «mer 3 set») ──
+   Pillola centrata: il meta della bolla porta solo l'ora, e su un thread di
+   tre giorni la data non stava da nessuna parte (regola nuova §9-bis,
+   architetto UX 06/09/2026). Vale anche sul desktop. */
+.separatore-giorno {
+  align-self: center;
+  margin: 6px 0 2px;
+}
+.separatore-giorno span {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .bolla .meta {
@@ -4442,110 +4460,282 @@ td .azioni-ordine {
   cursor: pointer;
 }
 
-/* ── La conversazione sul telefono ────────────────────────────────────────────
+/* ── I pezzi della chat che esistono SOLO sul telefono ──
+   Sul desktop non si vedono: la barra con ← / Archivia / ⋯, il velo del foglio,
+   il «+» del composer, la freccia di Invia. Stesso DOM, due disposizioni. */
+.thread .barra-mobile,
+.velo-foglio,
+.thread .composer .piu,
+.solo-mobile {
+  display: none;
+}
+/* Gli strumenti del composer sul desktop stanno in fila come prima: il
+   contenitore non deve esistere per il layout. */
+.thread .composer .strumenti {
+  display: contents;
+}
+/* Un bersaglio da 44px con dentro un'icona (Libro §10): tondo, discreto. */
+.icona-44 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.icona-44:hover { background: var(--fill); }
+.icona-44:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.icona-44:disabled { opacity: 0.45; cursor: default; }
+
+/* ── LA CONVERSAZIONE SUL TELEFONO: UN FOGLIO A SCHERMO INTERO, COME WHATSAPP ──
  *
- * Aperta da mobile, la finestra della chat andava in pezzi in tre punti diversi:
- * il riquadro di scrittura restava su una riga sola e i suoi bottoni finivano
- * mezzi fuori dal bordo (si vedeva «R…» al posto di «Rispondi», e «Invia» non
- * c'era proprio); la testata teneva le sue azioni su una riga che non ci stava,
- * quindi Riassunto/Archivia/Elimina/Chiudi uscivano dallo schermo; e le bolle,
- * larghe al massimo il 68%, riducevano una mail a una colonnina di due parole
- * per riga.
+ * Chiesto dall'utente il 06/09/2026 («da mobile la chat non è possibile da
+ * utilizzare: ridisegna la UX&UI ispirandoti a WhatsApp»), disegnato con
+ * l'architetto UX (Libro §9 v1.7 foglio/✕/piede sticky, §3 max due azioni a
+ * vista + «⋯», §10 touch/16px/safe-area; regola nuova «§9-bis Conversazione»).
  *
- * ⚠️ Niente viene tolto per fare spazio: i bottoni restano tutti, si allargano
- * su più righe. Un'azione che sparisce su mobile è un'azione che non esiste, e
- * chi risponde dal telefono è chi ha più fretta.
+ * Prima: un pop-up con velo da 8px per lato alto 86vh, la testata su due righe
+ * (nome+badge e NOVE pillole a capo), bolle al 92% che non dicevano più chi
+ * parla, un composer con cinque pillole su tre righe. A 375×812 restava meno
+ * di metà schermo per i messaggi, e tre contenitori scorrevano sullo stesso
+ * asse (velo, pannello, messaggi).
+ *
+ * Adesso: il pannello occupa tutto lo schermo (altezza = viewport visibile,
+ * così la tastiera non copre il composer); scorre SOLO la lista dei messaggi;
+ * la testata è una riga da 56px [← · nome · Archivia · ⋯] con la sottoriga
+ * dei badge che scorre di lato; le nove azioni stanno in un foglio dal basso
+ * aperto da «⋯», in colonna, 44px l'una, «Elimina» ultima e staccata; le bolle
+ * all'80% con testo da 15px; il composer è una riga [+ · campo · Invia] fissa
+ * in fondo con la safe-area, gli strumenti si aprono col «+».
+ * ⚠️ Nessuna azione viene tolta: si spostano nel foglio (Libro §3).
  */
 @media (max-width: 700px) {
-  .velo {
-    padding: 12px 8px;
+  /* Il velo non è più un velo: il foglio prende tutto. */
+  .velo:has(.pannello-thread) {
+    padding: 0;
+    overflow: hidden;
   }
 
-  .pannello-thread {
+  .pannello.pannello-thread {
+    position: fixed;
+    inset: 0;
     width: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    overflow: hidden;
   }
 
-  /* Più alta: sul telefono lo spazio verticale è tutto quello che si ha. */
+  /* Altezza = viewport VISIBILE (`--vv` dal JS, che segue la tastiera),
+     altrimenti 100dvh. Solo `.messaggi` scorre. */
   .pannello-thread .thread {
-    height: 86vh;
+    height: var(--vv, 100dvh);
+    max-height: var(--vv, 100dvh);
   }
 
+  /* ── La testata: una riga da 56px + la sottoriga scorrevole ── */
   .thread .testata-thread {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 12px;
+    gap: 0;
+    padding: 0 6px 6px;
+    background: var(--surface);
   }
 
-  /* Il nome può prendersi tutta la riga: sotto ci sono i badge, non i bottoni. */
-  .thread .testata-thread .nome {
-    max-width: 100%;
+  .thread .barra-mobile {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 56px;
+  }
+  .thread .barra-mobile .nome-mobile {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
   }
 
-  /* ⚠️ Su 360px il gruppo VA a capo anche dentro di sé: «resta attaccato» non è
-     un ordine che il telefono possa eseguire, e quattro bottoni grandi in fila
-     uscirebbero dallo schermo. */
+  /* La riga «chi è» diventa la sottoriga: badge e recapito su UNA riga che
+     scorre di lato (Libro §8.9). Il nome sta già nella barra, la ✕ è la ←. */
+  .thread .testata-thread .riga-chi {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 0 6px 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .thread .testata-thread .riga-chi::-webkit-scrollbar { display: none; }
+  .thread .testata-thread .riga-chi .nome,
+  .thread .testata-thread .riga-chi .chiudi-finestra {
+    display: none;
+  }
+  .thread .testata-thread .riga-chi > * {
+    flex: 0 0 auto;
+  }
+
+  /* ── Le azioni: un foglio dal basso, aperto da «⋯» ── */
+  .testata-thread .riga-azioni {
+    display: none;
+  }
+  .testata-thread.foglio-aperto .riga-azioni {
+    display: flex;
+    flex-direction: column;
+    /* ⚠️ `stretch`, non il `center` della riga desktop: misurato, con center i
+       gruppi si stringevano a 130px e le voci del foglio erano bottoncini
+       centrati invece di righe a tutta larghezza. */
+    align-items: stretch;
+    gap: 0;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    max-height: min(80dvh, calc(var(--vv, 100dvh) - 56px));
+    overflow-y: auto;
+    padding: 10px 12px max(14px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    box-shadow: var(--shadow-float);
+  }
+  .testata-thread.foglio-aperto .riga-azioni::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--hairline-strong);
+    margin: 0 auto 8px;
+  }
   .testata-thread .riga-azioni .gruppo {
-    flex-wrap: wrap;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 0 0 auto;
+    gap: 0;
+    margin: 0;
   }
-
+  .testata-thread .riga-azioni .gruppo:not(:last-child) {
+    margin-right: 0;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
   .testata-thread .riga-azioni .bottone {
-    /* Stretti quanto basta al testo — si accorcia la cornice, non il numero
-       delle azioni — ma alti abbastanza da prendersi col dito. */
-    flex: 0 1 auto;
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 13px;
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    border: 0;
+    background: transparent;
+    font-size: 15px;
+    padding: 10px 8px;
   }
-
-  /* ⚠️ Lo stacco prima di «Elimina» sul telefono è più largo, non più stretto:
-     col dito si sbaglia mira più che col mouse, ed è il bottone che butta via. */
+  /* «Elimina» ultima, staccata, in rosso (Libro §7 conferme; §3 ordine). */
   .testata-thread .riga-azioni .bottone.pericolo {
-    margin-left: 14px;
+    margin-left: 0;
+    margin-top: 6px;
+    border-top: 1px solid var(--hairline);
+    border-radius: 0;
+  }
+  .velo-foglio {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: var(--scrim, rgba(0, 0, 0, 0.35));
   }
 
-  /* La ✕ resta tonda anche qui, solo un po' più grande: col dito si sbaglia
-     mira, e questo è il bottone che chiude. */
-  .testata-thread .chiudi-finestra {
-    width: 38px;
-    height: 38px;
-  }
-
+  /* ── I messaggi ── */
   .thread .messaggi {
     padding: 12px;
+    overscroll-behavior: contain;
   }
-
-  /* Una mail dentro il 68% della larghezza sono due parole per riga. */
+  /* 80%, non 92: al 92 in e out stanno quasi sulla stessa colonna e il lato non
+     dice più chi parla. A 375px sono ~270px, una quarantina di caratteri. */
   .thread .bolla {
-    max-width: 92%;
+    max-width: 80%;
+    font-size: 15px;
   }
 
+  /* ── Il composer: [+ · campo · Invia], fisso in fondo, safe-area ── */
   .thread .composer {
     flex-wrap: wrap;
-    padding: 10px 12px;
-    gap: 8px;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
   }
-
-  /* Il testo su una riga sua, tutta larga: è la cosa che si sta scrivendo. */
+  .thread .composer .piu {
+    display: inline-flex;
+  }
+  /* 16px: sotto, iOS ingrandisce la pagina al focus (Libro §10.2). Il raggio a
+     pillola sul campo è una DEROGA al DS §2.4 (radius-m): a 44px di altezza
+     chiude a pillola e regge quattro righe — annotata nel README. */
   .thread .composer textarea {
-    flex: 1 1 100%;
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 44px;
+    font-size: 16px;
+    line-height: 1.35;
+    padding: 11px 14px;
+    border-radius: var(--radius-l);
   }
-
-  /* Gli aiuti (AI Mail, Risposte, Risposta rapida) stanno su UNA riga sola:
-     stirati a tutta larghezza si prendevano tre righe, e ogni riga qui è una
-     riga di conversazione in meno che si legge. */
-  .thread .composer .bottone.secondario {
-    flex: 0 1 auto;
-    min-height: 40px;
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  /* «Invia» si prende tutta la riga: è l'unica azione irreversibile del gruppo,
-     e va colpita di proposito, non sfiorata mirando a quella accanto. */
-  .thread .composer .bottone:not(.secondario) {
+  /* Gli strumenti: nascosti, e col «+» una riga scorrevole SOPRA il campo. */
+  .thread .composer .strumenti {
+    display: none;
+    order: -1;
     flex: 1 1 100%;
-    min-height: 42px;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .thread .composer .strumenti::-webkit-scrollbar { display: none; }
+  .thread .composer.piu-aperto .strumenti {
+    display: flex;
+  }
+  .thread .composer .strumenti .bottone {
+    flex: 0 0 auto;
+    min-height: 40px;
+    white-space: nowrap;
+  }
+  /* Invia: cerchio nero con la freccia, sempre a vista. */
+  .thread .composer .bottone.invia {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 999px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .thread .composer .bottone.invia .solo-desktop { display: none; }
+  .thread .composer .bottone.invia .solo-mobile { display: inline-block; }
+
+  /* La barra dei refusi: i badge scorrono su una riga, i due bottoni sotto. */
+  .thread .avviso-presa {
+    flex-wrap: wrap;
+  }
+  .thread .avviso-presa > span:first-of-type {
+    flex: 1 1 100%;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .thread .avviso-presa .bottone {
+    min-height: 44px;
   }
 }
 
