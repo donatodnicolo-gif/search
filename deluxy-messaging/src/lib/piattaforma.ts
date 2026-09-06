@@ -196,6 +196,10 @@ export type NuovaConsegna = {
    * la fa la piattaforma.
    */
   products?: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean }[]
+  /** La consegna è GIÀ AVVENUTA: di là nasce in storico («consegnata»). */
+  giaConsegnata?: boolean
+  /** Quando (ISO); senza, il giorno di consegna a fine fascia. */
+  consegnataIl?: string
 }
 
 export type ConsegnaCreata = { id?: string; number?: number; numero?: number }
@@ -367,6 +371,31 @@ export type ConsegnaDdt = {
  * un'altra app, non un nostro database. E si legge quello che serve — numero,
  * stato, ddt — non tutta la consegna.
  */
+/**
+ * Le consegne della piattaforma con un certo numero DDT (= numero d'ordine):
+ * serve per NON crearne una seconda. Vuoto = non c'è.
+ */
+export async function consegnePerDdt(ddt: string): Promise<EsitoPiattaforma<{ consegne: ConsegnaDdt[] }>> {
+  const p = new URLSearchParams({ ddt: ddt.replace(/^#/, '').trim(), limit: '5' })
+  const r = await chiama<{ consegne?: Record<string, unknown>[] } | Record<string, unknown>[]>(
+    `/api/v1/app/consegne?${p.toString()}`
+  )
+  if (r.stato !== 'ok') return r
+  const grezze = Array.isArray(r.dati) ? r.dati : ((r.dati.consegne as Record<string, unknown>[]) ?? [])
+  const consegne: ConsegnaDdt[] = grezze
+    .map((c) => ({
+      id: String(c.id ?? ''),
+      numero: (c.numero ?? c.code) as number | string | undefined,
+      stato: String(c.stato ?? c.status ?? ''),
+      ddtNumero: (c.ddtNumero ?? c.ddtNumber) as string | undefined,
+      ddtBrand: (c.ddtBrand ?? c.ddt_brand) as string | undefined,
+    }))
+    // ⚠️ Si RICONTROLLA il DDT: una piattaforma vecchia che ignora `?ddt=`
+    // tornerebbe le ultime 5 consegne di chiunque, e «esiste già» sarebbe falso.
+    .filter((c) => (c.ddtNumero ?? '').replace(/^#/, '') === ddt.replace(/^#/, '').trim())
+  return { stato: 'ok', dati: { consegne } }
+}
+
 export async function consegneAggiornate(
   da: Date | null,
   limite = 200

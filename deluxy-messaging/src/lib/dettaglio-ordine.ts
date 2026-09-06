@@ -1,3 +1,5 @@
+import { consegnePerDdt } from './piattaforma'
+import { leggiImpostazioni } from './impostazioni'
 import { db } from './db'
 import { candidatiUnione, totaleConUniti, type CandidatoUnione } from './unione-ordini'
 import { brandRicercaDaNegozio } from './negozi'
@@ -102,6 +104,16 @@ export type OrdineDettaglioDto = {
    * ha altri ordini in casa. Vedi `candidatiUnione` in unione-ordini.ts.
    */
   candidatiUnione: CandidatoUnione[]
+  /**
+   * LE CONSEGNE DI QUEST'ORDINE NELLA PIATTAFORMA (utente, 06/09/2026: «metti
+   * l'id della consegna collegata, con click sopra che apre la scheda»).
+   * Chieste per numero DDT, quindi anche quelle nate di là e non da qui, e
+   * anche se sono due (#12887 ne aveva due, consegnate entrambe). Vuoto = di là
+   * non c'è niente, oppure non si è potuto chiedere.
+   */
+  consegneApp: { id: string; numero: string; stato: string }[]
+  /** L'indirizzo della piattaforma, per il link alla scheda della consegna. */
+  urlPiattaforma: string
   /** L'ultimo link di riconsegna già creato: si rivede aprendo la scheda. */
   riconsegnaLink: string
   riconsegnaNumero: string
@@ -192,6 +204,16 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   // quando l'ordine viene annullato o rimborsato. Un fallimento non ferma la
   // scheda — si scrive che non si è potuta chiedere, e la si mostra così.
   const esitoSalute = await saluteDaOrders(ordine.numero, ordine.shopifyId).catch(() => null)
+  // Le consegne di là e l'indirizzo per raggiungerle: una chiamata, in parallelo.
+  const [inApp, impostazioni] = await Promise.all([
+    consegnePerDdt(ordine.numero).catch(() => null),
+    leggiImpostazioni(['piattaformaUrl']).catch(() => ({}) as { piattaformaUrl?: string }),
+  ])
+  const consegneApp =
+    inApp && inApp.stato === 'ok'
+      ? inApp.dati.consegne.map((c) => ({ id: c.id, numero: String(c.numero ?? ''), stato: c.stato }))
+      : []
+  const urlPiattaforma = ((impostazioni as { piattaformaUrl?: string }).piattaformaUrl || 'https://deluxy-delivery.vercel.app').replace(/\/+$/, '')
 
   const chiamate = await db.chiamata.findMany({
     where: { ordineId: ordine.id },
@@ -259,6 +281,8 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       uniti: insieme.uniti,
       totaleConUniti: insieme.totale,
       candidatiUnione: candidati,
+      consegneApp,
+      urlPiattaforma,
       riconsegnaLink: ordine.riconsegnaLink ?? '',
       riconsegnaNumero: ordine.riconsegnaNumero ?? '',
       chiamate: chiamate.map((c) => ({
@@ -390,6 +414,8 @@ export async function dettaglioOrdineArchivio(
         // Un ordine d'archivio non si unisce (non ha una riga nostra): niente
         // da proporre.
         candidatiUnione: [],
+        consegneApp: [],
+        urlPiattaforma: '',
         riconsegnaLink: '',
         riconsegnaNumero: '',
         // Le chiamate si attaccano a un ordine NOSTRO (per id): su uno

@@ -5,6 +5,7 @@ import { CHIUSURA } from './gestione'
 import { chiudiNoteDellOrdine } from './diario-chiusura'
 import { chiudiChiamateDellOrdine } from './chiamate'
 import { comunicaStatoAOrders } from './orders'
+import { consegnePerPagamentiInApp } from './consegne-da-pagamenti'
 
 // TENERE ALLINEATA LA COLONNA «IN APP».
 //
@@ -37,6 +38,10 @@ export type EsitoSync = {
   tornateANoi: number
   /** Consegnate di là e quindi chiuse qui («Gestito»), regola del 06/09/2026. */
   gestite: number
+  /** Vendite gestite con pagamento in app: consegne CREATE di là (già in storico). */
+  consegneCreate: number
+  /** …e consegne che di là c'erano già: solo agganciate. */
+  consegneAgganciate: number
   aggiornate: number
   saltate: number
   righe: string[]
@@ -54,6 +59,8 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     passateInApp: 0,
     tornateANoi: 0,
     gestite: 0,
+    consegneCreate: 0,
+    consegneAgganciate: 0,
     aggiornate: 0,
     saltate: 0,
     righe: [],
@@ -139,6 +146,22 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     )
   }
 
+  // ── LE VENDITE GESTITE CON PAGAMENTO IN APP HANNO LA LORO CONSEGNA DI LÀ ──
+  // Regola dell'utente (06/09/2026). Un ordine «Gestito» con un fornitore
+  // pagato dall'app e nessuna consegna agganciata: si chiede alla piattaforma
+  // se c'è già (per DDT) e si aggancia, altrimenti si crea in storico (Artista
+  // Locale, prezzo = pagamento). Vedi consegne-da-pagamenti.ts.
+  // ⚠️ In un try: un guasto qui non deve far perdere il segnaposto della sync.
+  try {
+    const cp = await consegnePerPagamentiInApp({ prova: opz.prova })
+    esito.consegneCreate += cp.create
+    esito.consegneAgganciate += cp.agganciate
+    for (const r of cp.righe) if (r.esito !== 'saltata') esito.righe.push(`${r.numero}: ${r.testo}`)
+    if (cp.errore) esito.righe.push(`⚠️ consegne da pagamenti: ${cp.errore}`)
+  } catch (e) {
+    esito.righe.push(`⚠️ consegne da pagamenti: ${(e as Error).message}`)
+  }
+
   if (!opz.prova) {
     // ⚠️⚠️ L'ULTIMA DATA LETTA, non `adesso`. Con `adesso` tutto ciò che non si
     // è fatto in tempo a leggere restava indietro per sempre.
@@ -147,7 +170,7 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     // non è misurato, è ricordato: qui resta una riga leggibile da Impostazioni.
     await salvaImpostazione(
       CHIAVE_ESITO,
-      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi} · gestite ${esito.gestite}${esito.errore ? ' · ' + esito.errore : ''}`
+      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi} · gestite ${esito.gestite} · consegne da pagamenti ${esito.consegneCreate}+${esito.consegneAgganciate}${esito.errore ? ' · ' + esito.errore : ''}`
     )
   }
   return esito
