@@ -1,5 +1,25 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (51) — La ricerca nella chat «tornava sempre sotto»
+
+Utente, cercando «address» nella chat con Shivam: la lista tornava in fondo e
+non si fermava sui risultati. Due cause, tutte e due in `Inbox.tsx`:
+1. `trovatiChat` dipendeva dall'ARRAY `messaggi`, che la rilettura ogni 4 s
+   sostituisce con un array nuovo: i risultati «cambiavano» a ogni giro, l'indice
+   tornava all'ultimo e lo scroll ripartiva. Ora la chiave è la STRINGA degli
+   id trovati (`chiaveTrovati`), l'indice si azzera solo quando cambia il testo
+   cercato.
+2. L'effetto del `visualViewport` (tastiera) fa `scrollTop = scrollHeight` a
+   ogni focusin/focusout — quindi anche al focus sul campo di ricerca. Con la
+   barra aperta (`cercaChatApertaRef`) non scorre più; idem l'effetto «in fondo
+   all'arrivo di un messaggio».
+
+⚠️ TRAPPOLA: un `useMemo`/`useEffect` che dipende da un array riletto a
+intervalli «cambia» a ogni giro anche se il contenuto è uguale — la dipendenza
+va messa su una chiave stabile (stringa degli id).
+
+**Verifica**: `tsc` 0; a occhio da fare. **Stato**: in locale.
+
 ## 06/09/2026 (50) — «Senza costo di consegna» non bastava: Shopify la ricalcolava al checkout
 
 Utente: «avevo messo flag per no costo consegna ma poi Shopify me lo ha

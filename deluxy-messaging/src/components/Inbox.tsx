@@ -585,6 +585,8 @@ export function Inbox({
   const [esitoElenco, setEsitoElenco] = useState('')
   const fondoRef = useRef<HTMLDivElement>(null)
   const contenitoreRef = useRef<HTMLDivElement>(null)
+  /** «La ricerca nella chat è aperta», per gli effetti con chiusure vecchie (il viewport). */
+  const cercaChatApertaRef = useRef(false)
   // Lingua e traduzione della conversazione aperta: le decide il server, che è
   // l'unico a sapere quali lingue leggiamo (impostazione).
   const [daTradurre, setDaTradurre] = useState(false)
@@ -918,6 +920,9 @@ export function Inbox({
   // mette sul suo INIZIO; se ci sta, si va in fondo come prima — lo si vede
   // comunque intero, e la chat resta una chat.
   useEffect(() => {
+    // Mentre si cerca nella chat, un messaggio nuovo non porta in fondo: si
+    // sta su un risultato, e la posizione la decide la ricerca.
+    if (cercaChatApertaRef.current) return
     const contenitore = contenitoreRef.current
     if (!contenitore) return
     const ultimo = contenitore.children[messaggi.length - 1] as HTMLElement | undefined
@@ -1479,6 +1484,11 @@ export function Inbox({
       const tastiera = aFuoco && vv.height < window.innerHeight - 120
       if (tastiera) document.documentElement.style.setProperty('--vv', `${Math.round(vv.height)}px`)
       else document.documentElement.style.removeProperty('--vv')
+      // ⚠️ Non mentre si CERCA nella chat: l'effetto scatta anche al focus sul
+      // campo di ricerca (focusin/focusout) e riportava la lista in fondo a
+      // ogni risultato (utente, 06/09/2026: «torna sempre sotto e non si ferma
+      // ai risultati»). Con la barra aperta la posizione la decide la ricerca.
+      if (cercaChatApertaRef.current) return
       const c = contenitoreRef.current
       if (c) c.scrollTop = c.scrollHeight
     }
@@ -1703,15 +1713,22 @@ export function Inbox({
   const [cercaChat, setCercaChat] = useState('')
   const [cercaChatIndice, setCercaChatIndice] = useState(0)
   const cercaChatRef = useRef<HTMLInputElement>(null)
-  const trovatiChat = useMemo(
-    () => (cercaChatAperta && cercaChat.trim().length >= 2 ? messaggi.filter((m) => messaggioContiene(m, cercaChat)).map((m) => m.id) : []),
+  cercaChatApertaRef.current = cercaChatAperta
+  // ⚠️ La chiave è una STRINGA degli id trovati, non l'array: i messaggi si
+  // rileggono ogni pochi secondi e `messaggi` è un array nuovo ogni volta —
+  // con l'array come dipendenza i risultati «cambiavano» a ogni giro, l'indice
+  // tornava all'ultimo e la lista saltava in fondo (utente, 06/09/2026).
+  const chiaveTrovati = useMemo(
+    () => (cercaChatAperta && cercaChat.trim().length >= 2 ? messaggi.filter((m) => messaggioContiene(m, cercaChat)).map((m) => m.id).join('|') : ''),
     [cercaChatAperta, cercaChat, messaggi]
   )
-  // Cambiando testo si riparte dal risultato più recente (in fondo), che è
-  // quasi sempre quello che si cerca.
+  const trovatiChat = useMemo(() => (chiaveTrovati ? chiaveTrovati.split('|') : []), [chiaveTrovati])
+  // Cambiando il TESTO cercato si riparte dal risultato più recente (in
+  // fondo), che è quasi sempre quello che si cerca. Non a ogni rilettura.
   useEffect(() => {
     setCercaChatIndice(trovatiChat.length ? trovatiChat.length - 1 : 0)
-  }, [trovatiChat])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cercaChat, cercaChatAperta])
   useEffect(() => {
     const id = trovatiChat[cercaChatIndice]
     if (!id) return
