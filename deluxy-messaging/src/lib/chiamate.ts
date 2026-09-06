@@ -226,11 +226,27 @@ export async function riconosciChiamante(numero: string): Promise<Riconoscimento
   // 1. Un ordine sulla bacheca: è il legame più forte, e ha un id da mostrare.
   //    ⚠️ Gli annullati no: richiamare per un ordine annullato è peggio che
   //    richiamare senza sapere niente.
-  const locale = await db.ordine.findFirst({
-    where: { telefono: { contains: cifre }, annullatoIl: null },
-    orderBy: { data: 'desc' },
-    select: { id: true, numero: true, clienteNome: true, email: true, negozioId: true },
-  })
+  //
+  //    ⚠️⚠️ SI CONFRONTANO LE CIFRE, NEL DATABASE (06/09/2026). Il centralino
+  //    scrive «00393398321681», Shopify «+393398321681» o «3398321681», e a
+  //    volte «+39 350 846 2424» con gli spazi: il prefisso non conta perché
+  //    `cifreTelefono` tiene le ultime 9 cifre di entrambi — ma un `contains`
+  //    sul TESTO non trova le 9 cifre dentro un numero con gli spazi. Misurato:
+  //    11 ordini su 1.344 con telefono hanno gli spazi, e quei clienti
+  //    risultavano «sconosciuti» quando chiamavano. Stessa trappola già pagata
+  //    su «Unisci un altro ordine».
+  const idLocali = await db.$queryRaw<{ id: string }[]>`
+    SELECT id FROM messaging."Ordine"
+    WHERE "annullatoIl" IS NULL
+      AND RIGHT(regexp_replace(telefono, '\\D', '', 'g'), 9) = ${cifre}
+    ORDER BY data DESC
+    LIMIT 1`
+  const locale = idLocali.length
+    ? await db.ordine.findUnique({
+        where: { id: idLocali[0].id },
+        select: { id: true, numero: true, clienteNome: true, email: true, negozioId: true },
+      })
+    : null
   if (locale) {
     return {
       esito: 'ordine',
