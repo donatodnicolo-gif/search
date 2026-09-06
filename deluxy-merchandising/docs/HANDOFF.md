@@ -155,6 +155,27 @@ Database: 308 + 26 varianti aggiornate; **restano 68 varianti ACTIVE senza
 sku** = schede doppie qui che puntano allo stesso prodotto Shopify (le otto
 «Sacher»…): si chiudono solo con la Riconciliazione.
 
+✅ **Database allineato al negozio, per SKU (sera del 06/09, «fai tu»).** Tre
+script di sola lettura/scrittura locale, ognuno con prova a secco e piano in
+`docs/`: `allinea-sku-db.ts` (183 varianti con SKU vecchio → quello del
+negozio, 151 vuote riempite dove libero; 177 scritte, giri ripetuti sui
+conflitti di unicità), `varianti-dal-negozio.ts` (**440 varianti rinominate
+col titolo che il negozio dà a quello SKU** — «Media»→«Grande», «12»→«15», i
+nomi-codice → «Unica»: i nomi qui erano del primo import; niente cancellato, 6
+righe doppie elencate e lasciate), `gemelli-sku-diversi.ts` (elenco dei 197
+gemelli con SKU diverso, `docs/gemelli-sku-diversi-2026-09-06.md`). **Le
+varianti ACTIVE senza sku sono scese da 187 a 51**, e le 51 sono tutte lo
+stesso caso: **due schede qui per un prodotto che sul negozio è uno** (o il
+gemello sull'altro negozio, o una rinomina: «Bouquet Tramonto Autunnale» ↔
+«Bouquet Dolce Autunno», «Sacher» ↔ «ex-Sacher»), e `Variante.sku` è unico.
+La Riconciliazione dell'app **sposta solo il venduto e lascia le varianti**
+(regola 3 di `azioni-riconciliazione.ts`), quindi non le chiude: si chiudono
+solo decidendo che una delle due schede è quella vera e spostandole le
+varianti — scelta da fare a mano, elenco in
+`docs/varianti-dal-negozio-2026-09-06.md`. ⚠️ Un tentativo di far cancellare
+allo script le righe doppie senza dati è stato fermato dal classificatore di
+sicurezza della sessione: giusto così, si cancella solo a mano.
+
 **Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
 dell'utente) e controllo della riga di Gifts la notte dopo; i 4 prodotti
 pubblicati due volte su Flowers (handle `-1`) ora hanno SKU propri ma restano
