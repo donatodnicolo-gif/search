@@ -5111,6 +5111,10 @@ td .azioni-ordine {
 .chiamata:first-child {
   border-top: 0;
 }
+/* La riga si apre col click (Libro v1.6): si dichiara col pointer e l'hover. */
+.chiamata-cliccabile { cursor: pointer; }
+.chiamata-cliccabile:hover { background: var(--fill); }
+.chiamata-cliccabile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .chiamata-quando {
   display: flex;
   flex-direction: column;
