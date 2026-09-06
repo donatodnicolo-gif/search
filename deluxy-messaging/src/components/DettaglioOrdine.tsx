@@ -471,8 +471,6 @@ export function DettaglioOrdine({
    * poteva verificare.
    */
   const [apriInApp, setApriInApp] = useState(apriMandaInApp ? 1 : 0)
-  /** La domanda «vuoi inserirla in piattaforma?», nella nostra finestra (Libro §7: niente window.confirm). */
-  const [chiediInApp, setChiediInApp] = useState(false)
   /**
    * «Gestito» con una consegna di là ancora aperta: si chiede se segnarla
    * consegnata anche nella piattaforma (utente, 06/09/2026). Qui le consegne
@@ -1148,32 +1146,6 @@ export function DettaglioOrdine({
           </p>
         </Conferma>
       ) : null}
-      {/* La domanda del passo «In App», nel nostro stile (Libro §7), sopra il pannello. */}
-      {chiediInApp && ordine ? (
-        <Conferma
-          titolo={`Inserire l'ordine ${ordine.numero} nella piattaforma consegne?`}
-          verbo="Sì, apri il modulo"
-          annulla="No, segna solo lo stato"
-          onConferma={() => {
-            setChiediInApp(false)
-            setApriInApp((n) => n + 1)
-          }}
-          onAnnulla={() => {
-            setChiediInApp(false)
-            void cambiaGestione('in_app')
-          }}
-          onChiudi={() => setChiediInApp(false)}
-        >
-          <p>
-            Con il sì si apre il modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di
-            là nasce una consegna vera.
-          </p>
-          <p>
-            Con il no l&apos;ordine viene solo segnato «In App», senza creare niente sulla
-            piattaforma: serve a chi la consegna l&apos;ha già inserita a mano di là.
-          </p>
-        </Conferma>
-      ) : null}
       {/* Il clic dentro il pannello non deve chiuderlo. */}
       <div
         className="pannello pannello-ordine"
@@ -1509,6 +1481,7 @@ export function DettaglioOrdine({
                     ordineId={ordine.id}
                     onFatto={() => void carica()}
                     apri={apriInApp}
+                    onSoloStato={ordine.gestione !== 'in_app' ? () => void cambiaGestione('in_app') : undefined}
                     senzaBottone
                     // Le righe dell'ordine (da Orders): il modulo propone il
                     // prodotto e il prezzo che il cliente ha comprato.
@@ -2108,8 +2081,13 @@ export function DettaglioOrdine({
                                 // apre il modulo qui sotto; con «Annulla» resta il
                                 // vecchio gesto — segnare solo lo stato, per chi la
                                 // consegna l'ha già fatta a mano dalla piattaforma.
+                                // ⚠️ «In App» non è un'etichetta come le altre: di là
+                                // deve nascere una consegna. Il clic apre SUBITO la
+                                // finestra «Manda in app» (utente, 06/09/2026); chi la
+                                // consegna l'ha già inserita a mano trova in fondo alla
+                                // finestra «segna solo In App».
                                 if (k === 'in_app' && ordine.gestione !== 'in_app') {
-                                  setChiediInApp(true)
+                                  setApriInApp((n) => n + 1)
                                   return
                                 }
                                 void cambiaGestione(k)
