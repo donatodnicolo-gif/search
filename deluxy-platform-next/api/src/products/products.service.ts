@@ -16,6 +16,7 @@ import {
 } from '../common/list-query';
 import { ProductListQueryDto } from './dto/product-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { StockService } from '../stock/stock.module';
 import { MerchandisingSyncService } from '../merchandising-sync/merchandising-sync.module';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
@@ -33,6 +34,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchandising: MerchandisingSyncService,
+    private readonly stock: StockService,
   ) {}
 
   /** Campi testuali coperti dalla ricerca globale `q`. */
@@ -221,6 +223,11 @@ export class ProductsService {
       platformDescriptions,
       ...scalar
     } = dto;
+    // ⭐ 06/09/2026 (regola utente): la GIACENZA corretta a mano lascia una riga
+    // di movimento «rettifica»: il saldo si puo' sempre rifare dai movimenti.
+    if (scalar.stock !== undefined && scalar.stock !== (product as any).stock) {
+      await this.stock.rettifica(id, (product as any).stock, scalar.stock, user.sub, `giacenza ${(product as any).stock ?? 0} → ${scalar.stock ?? 0} (form prodotto)`);
+    }
     return this.prisma.product.update({
       where: { id },
       data: {

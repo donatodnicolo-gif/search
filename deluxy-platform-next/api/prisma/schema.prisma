@@ -2119,3 +2119,27 @@ model SaleLog {
 
   @@index([saleId, createdAt])
 }
+
+// ------------------------------------------------------------
+// ⭐ 06/09/2026 (regola utente): lo STOCK dei prodotti «Controlla stock» vive
+// nella piattaforma consegne. Product.stock / ProductVariant.stock e' il SALDO;
+// questa tabella e' la sua storia: ogni consegna lo scala, ogni rientro lo
+// rialza, ogni correzione a mano lascia una riga. Tabella creata a mano con
+// scripts/applica-migrazione-stock.mjs (CREATE TABLE IF NOT EXISTS).
+// ------------------------------------------------------------
+model StockMovement {
+  id               String   @id @default(cuid())
+  productId        String
+  productVariantId String?
+  deliveryId       String?
+  /// negativo = uscita (consegna), positivo = rientro / carico / rettifica in su
+  quantity         Int
+  /// consegna | rientro:<stato> | rettifica | carico
+  reason           String
+  note             String?
+  userId           String?
+  createdAt        DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([deliveryId])
+}

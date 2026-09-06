@@ -1054,6 +1054,7 @@
       "type": "Tipo",
       "partner": "Partner",
       "price": "Prezzo",
+      "stock": "Giacenza",
       "status": "Stato"
     },
     "tabActive": "Prodotti",
@@ -1530,6 +1531,8 @@
       "priceLabel": "Prezzo:",
       "addProduct": "Aggiungi prodotto",
       "paymentOnDelivery": "Pagamento alla consegna",
+      "stockHint": "Giacenza: {{n}}",
+      "stockLow": "Giacenza insufficiente: {{n}} disponibili",
       "noFee": "Senza fee (Deluxy non trattiene niente su questa riga)",
       "tryAndReturn": "Prova e reso del prodotto",
       "cashToCollect": "Contanti da incassare (€)",

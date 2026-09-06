@@ -125,6 +125,10 @@ export interface ProductRef {
   platforms?: string | null;
   /** Gestito dall'ufficio: il partner lo vede a catalogo ma non lo tocca. */
   notEditable?: boolean;
+  /** ⭐ 06/09/2026: stock gestito in piattaforma (solo se controlStock). */
+  controlStock?: boolean;
+  stock?: number | null;
+  variants?: { id: string; name: string; price?: number | null; active?: boolean; controlStock?: boolean; stock?: number | null }[];
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
 }

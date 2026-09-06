@@ -134,6 +134,8 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                 <td><span class="pill pill-neutral">{{ p.type ? (('enums.productType.' + p.type) | translate) : '—' }}</span></td>
                 <td class="muted">{{ p.partner?.insegna || '—' }}</td>
                 <td class="num strong">{{ p.price != null ? (p.price + ' €') : '—' }}</td>
+                <!-- ⭐ 06/09/2026: la GIACENZA, solo per chi ha «Controlla stock». Zero o sotto = rosso. -->
+                <td class="num" [class.stock-ko]="p.controlStock && (p.stock ?? 0) <= 0">{{ p.controlStock ? (p.stock ?? 0) : '—' }}</td>
                 <td>
                   @if (p.active === false) { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
                   @else if (p.approved) { <span class="pill s-ok"><span class="dot"></span>{{ 'products.approved' | translate }}</span> }
@@ -192,6 +194,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
       .s-ok { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-wait { background: rgba(255,149,0,0.12); color: #b25000; }
+      .stock-ko { color: var(--red); font-weight: 600; }
       .row-link { cursor: pointer; }
       .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
       .actions-cell { white-space: nowrap; }
@@ -268,6 +271,7 @@ export class ProductsListComponent {
     { field: 'type', label: 'products.col.type', num: false },
     { field: 'partner.insegna', label: 'products.col.partner', num: false },
     { field: 'price', label: 'products.col.price', num: true },
+    { field: 'stock', label: 'products.col.stock', num: true },
     { field: 'approved', label: 'products.col.status', num: false },
   ];
 

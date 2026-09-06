@@ -260,6 +260,16 @@ export class CreateDeliveryDto {
   @IsBoolean()
   valetIdentityCheck?: boolean;
 
+  /**
+   * ⭐ 06/09/2026 (regola utente): STOCK. Con giacenza insufficiente la consegna
+   * non nasce; l'UFFICIO puo' forzare (il saldo va sotto zero e si vede). Il
+   * partner no: per lui il flag e' ignorato.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Ufficio: crea la consegna anche con giacenza insufficiente' })
+  @IsOptional()
+  @IsBoolean()
+  ignoraStock?: boolean;
+
   // Note
   @ApiPropertyOptional()
   @IsOptional()

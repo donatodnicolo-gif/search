@@ -439,6 +439,15 @@ interface ProductRow {
                 </select>
               </label>
             }
+            <!-- ⭐ 06/09/2026 (regola utente): lo STOCK si vede mentre si compila.
+                 Solo per prodotti/varianti con «Controlla stock»: giacenza in
+                 magazzino, rossa se non basta per i pezzi richiesti — il server
+                 rifiuterà, meglio saperlo prima. -->
+            @if (giacenza(row); as g) {
+              <span class="stock-hint" [class.ko]="g.disponibili < (row.quantity ?? 1)">
+                {{ (g.disponibili < (row.quantity ?? 1) ? 'deliveryForm.order.stockLow' : 'deliveryForm.order.stockHint') | translate: { n: g.disponibili } }}
+              </span>
+            }
             <div class="prod-bottom">
               <!-- 02/09 (regola utente): il PREZZO FLESSIBILE è dell'ufficio —
                    il partner non riscrive il prezzo di riga (il server già lo
@@ -682,6 +691,8 @@ interface ProductRow {
       .listino { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
+      .stock-hint { display: inline-block; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 6px; }
+      .stock-hint.ko { color: var(--red); font-weight: 600; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
       .listino-live { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
       .luogo-scelto { display: block; margin-top: 5px; font-size: 13px; color: var(--text-secondary); }
@@ -2425,6 +2436,16 @@ export class DeliveryFormComponent implements AfterViewInit {
     // ⭐ 03/09: la sezione prodotto resta sempre visibile — tolta l'ultima
     // riga, ne rinasce una vuota (le righe senza prodotto non viaggiano).
     if (!this.productRows.length) this.addProduct();
+  }
+
+  /** ⭐ 06/09/2026: la giacenza del prodotto/variante della riga, se «Controlla stock». */
+  giacenza(row: ProductRow): { disponibili: number } | null {
+    const p = this.products().find((x) => x.id === row.productId) as any;
+    if (!p) return null;
+    const v = row.productVariantId ? (p.variants ?? []).find((x: any) => x.id === row.productVariantId) : null;
+    if (v?.controlStock) return { disponibili: v.stock ?? 0 };
+    if (p.controlStock) return { disponibili: p.stock ?? 0 };
+    return null;
   }
 
   /** Prezzo base del prodotto selezionato. */

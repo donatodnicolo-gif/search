@@ -1052,6 +1052,7 @@
       "type": "Type",
       "partner": "Partner",
       "price": "Price",
+      "stock": "Stock",
       "status": "Status"
     },
     "tabActive": "Products",
@@ -1528,6 +1529,8 @@
       "priceLabel": "Price:",
       "addProduct": "Add product",
       "paymentOnDelivery": "Payment on delivery",
+      "stockHint": "Stock: {{n}}",
+      "stockLow": "Not enough stock: {{n}} available",
       "noFee": "No fee (Deluxy keeps nothing on this line)",
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",

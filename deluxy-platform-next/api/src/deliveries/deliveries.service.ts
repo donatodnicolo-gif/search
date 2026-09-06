@@ -19,6 +19,7 @@ import {
   DELIVERY_CLOSED_STATUSES,
 } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.module';
+import { StockService } from '../stock/stock.module';
 import {
   PagedResult,
   buildOrderBy,
@@ -242,6 +243,7 @@ export class DeliveriesService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
+    private readonly stock: StockService,
   ) {}
 
   /**
@@ -1193,6 +1195,7 @@ export class DeliveriesService {
         },
       });
       await this.chiudiAttivitaSeStorico(d.id, DeliveryStatus.CANCELLED);
+      await this.stock.rientra(d.id, 'cancelled', user.sub);
       return { ok: true, status: DeliveryStatus.CANCELLED };
     }
     if (d.status === DeliveryStatus.ASSIGNED) {
@@ -1547,7 +1550,13 @@ export class DeliveriesService {
     // passavano lo stesso. Misurato — la toppa va smontata come il difetto.
     // Con la riassegnazione non resta nessuna strada che veda il dto sporco.
     dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
-    const { products, pickups, partnerId: _p, ...scalar } = dto;
+    const { products, pickups, partnerId: _p, ignoraStock, ...scalar } = dto;
+    // ⭐ 06/09/2026 (regola utente): STOCK. I prodotti «Controlla stock» devono
+    // esserci in magazzino: se no la consegna non nasce (400 col nome e i pezzi).
+    // L'ufficio puo' forzare; il partner no.
+    if (products?.length) {
+      await this.stock.verifica(products as any, ignoraStock === true && user.role !== Role.PARTNER);
+    }
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
 
@@ -1648,6 +1657,8 @@ export class DeliveriesService {
 
     // Notifica al PARTNER dell'inserimento, se ha abilitato la mail (31/08).
     // Best-effort: non blocca la creazione.
+    // ⭐ 06/09/2026: la merce e' impegnata da quando la consegna esiste.
+    if (products?.length) await this.stock.scala(delivery.id, products as any, user.sub);
     void this.notificaInserimentoAlPartner(delivery);
     // Se nasce GIÀ assegnata a un valet, avvisa anche lui.
     if (delivery.valetId) void this.notificaAssegnazioneAlValet(delivery);
@@ -1817,7 +1828,12 @@ export class DeliveriesService {
     // danno, ma non il PREZZO: un partner poteva riportare a zero una consegna
     // ancora da gestire, e sarebbe finita in fattura a zero.
     dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
-    const { products, pickups, partnerId, date, ...scalar } = dto;
+    const { products, pickups, partnerId, date, ignoraStock, ...scalar } = dto;
+    // ⭐ 06/09/2026: righe cambiate = la vecchia merce rientra, la nuova si scala.
+    if (products) {
+      await this.stock.rientra(id, 'modifica', user.sub);
+      await this.stock.verifica(products as any, ignoraStock === true && user.role !== Role.PARTNER);
+    }
     // Stessa regola della creazione: per un partner "locale" il ritiro segue il
     // destinatario, anche quando la modifica arriva a mano dal pannello.
     const partnerDaUsare = partnerId ?? delivery.partnerId;
@@ -1990,6 +2006,7 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    if (products?.length) await this.stock.scala(id, products as any, user.sub, 'consegna');
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
@@ -2349,6 +2366,11 @@ export class DeliveriesService {
 
     // In Storico → le attività della consegna si chiudono da sole (02/09).
     await this.chiudiAttivitaSeStorico(delivery.id, status);
+    // ⭐ 06/09/2026: annullata, non accettata, invalidata o NON consegnata = la
+    // merce torna in magazzino (solo se la consegna l'aveva scalata).
+    if ([DeliveryStatus.CANCELLED, DeliveryStatus.INVALIDATED, DeliveryStatus.NOT_ACCEPTED, DeliveryStatus.NOT_DELIVERED].includes(statoFinale as DeliveryStatus)) {
+      await this.stock.rientra(delivery.id, String(statoFinale), user.sub);
+    }
     await this.notifyStatusChange(updated, statoFinale, user);
     // Il partner deve SAPERE che ci sono ore da approvare: senza l'avviso,
     // la consegna resterebbe ferma in attesa di un gesto che nessuno chiede.
@@ -2660,6 +2682,7 @@ export class DeliveriesService {
 
   async remove(id: string, user: JwtUser) {
     await this.findOne(id, user);
+    await this.stock.rientra(id, 'eliminata', user.sub);
     await this.prisma.delivery.delete({ where: { id } });
     return { deleted: true };
   }
