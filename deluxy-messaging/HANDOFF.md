@@ -1,5 +1,17 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (33) — Manda in app: «Vendita Deluxy» è il servizio di suo
+
+Regola dell'utente: «per i servizi vendita seleziona sempre come prima opzione
+Vendita Deluxy». In `MandaInApp.tsx`: appena arriva il catalogo (e di nuovo
+quando cambiando partner il servizio si svuota) si preseleziona il servizio il
+cui nome è «Vendita Deluxy» (`eVenditaDeluxy`, regex sul nome), **solo se sta
+nel listino del partner scelto** — altrimenti la piattaforma lo rifiuterebbe
+(400 dal 06/09). In tendina sta in cima. Resta cambiabile. L'effetto scatta solo
+con `serviceTypeId` vuoto, quindi non si rimette sopra a una scelta fatta.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (32) — Partner & Fornitori: la tendina delle città, uniformata
 
 Segnalazione dell'utente: «cliccando città escono doppie e non in ordine

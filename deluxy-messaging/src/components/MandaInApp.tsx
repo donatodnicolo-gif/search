@@ -81,6 +81,11 @@ type Prefill = {
 
 const URL_PIATTAFORMA_DEFAULT = 'https://deluxy-delivery.vercel.app'
 
+/** Il servizio «Vendita Deluxy», come lo chiama il catalogo della piattaforma. */
+function eVenditaDeluxy(s: Servizio): boolean {
+  return /vendita\s*deluxy/i.test(s.nome || s.name || '')
+}
+
 export function MandaInApp({
   ordineId,
   righe = [],
@@ -289,10 +294,28 @@ export function MandaInApp({
   const partnerScelto = (dati?.partner ?? []).find((p) => p.id === campi?.partnerId)
   // I servizi: se il partner scelto porta il suo listino, solo quelli. Se non
   // lo porta (piattaforma vecchia) o non c'è ancora un partner, tutti.
-  const serviziMostrati =
+  const serviziMostrati = (
     partnerScelto?.servizi
       ? (dati?.servizi ?? []).filter((s) => partnerScelto.servizi!.includes(s.id))
       : (dati?.servizi ?? [])
+  )
+    // «Vendita Deluxy» in cima alla tendina: è la prima scelta, e si vede per prima.
+    .slice()
+    .sort((a, b) => Number(eVenditaDeluxy(b)) - Number(eVenditaDeluxy(a)))
+
+  // ── «VENDITA DELUXY» È IL SERVIZIO DI SUO (utente, 06/09/2026) ──
+  // Un ordine del sito mandato in app è quasi sempre una vendita: il servizio
+  // «Vendita Deluxy» si preseleziona appena il catalogo arriva, e di nuovo
+  // quando cambiando partner il servizio si svuota — SOLO se sta nel listino
+  // del partner scelto, altrimenti la piattaforma lo rifiuterebbe. Resta
+  // cambiabile: è una proposta, non un obbligo.
+  useEffect(() => {
+    if (!dati || !campi || campi.serviceTypeId) return
+    const p = dati.partner.find((x) => x.id === campi.partnerId)
+    const lista = p?.servizi ? dati.servizi.filter((s) => p.servizi!.includes(s.id)) : dati.servizi
+    const vendita = lista.find((s) => eVenditaDeluxy(s))
+    if (vendita) setCampi((c) => (c ? { ...c, serviceTypeId: vendita.id } : c))
+  }, [dati, campi])
 
   if (!aperto) {
     return (
