@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const _io = await utenteCorrente()
   if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
-  const provincia = (p.get('provincia') ?? '').trim()
+  let provincia = (p.get('provincia') ?? '').trim()
   /** La città di consegna: serve a mettere in cima chi ha già consegnato lì. */
   const citta = (p.get('citta') ?? '').trim()
   const negozio = (p.get('negozio') ?? '').trim()
@@ -89,6 +89,23 @@ export async function GET(req: NextRequest) {
   const comuniVisti = grezzoNostri.flatMap((f) => f.citta)
   const provinceComuni = await provincePerComuni(comuniVisti).catch(() => ({}))
   const elencoNostri = conProvinceRicavate(grezzoNostri, provinceComuni)
+  // ⚠️⚠️ PROVINCIA MANCANTE MA CITTÀ NOTA: si ricava dal comune, con lo stesso
+  // dizionario (Google, una volta sola) usato per i nostri fornitori. Caso vero
+  // (#2876, 06/09/2026): il cliente turco ha scelto «TR» come paese e Shopify
+  // non ha messo la provincia; l'indirizzo dice «10125 Torino», ma la fascia
+  // rispondeva «non so la provincia» e l'operatore leggeva «0 fornitori». La
+  // provincia ricavata si DICHIARA, perché è una deduzione dal nome del comune.
+  let provinciaRicavata = ''
+  if (!provincia && citta) {
+    const dallaCitta = await provincePerComuni([citta]).catch(() => ({}) as Record<string, string>)
+    const ric = siglaProvincia(dallaCitta[citta.trim().toLowerCase()] ?? '')
+    if (ric) {
+      provincia = ric
+      provinciaRicavata = `Provincia ricavata dalla città «${citta}»: nell'indirizzo dell'ordine manca${
+        paese && paese.toUpperCase() !== 'IT' ? ` e il paese dice «${paese}»` : ''
+      }. Controlla che sia giusta.`
+    }
+  }
   const nostri = perQuestaConsegna(elencoNostri, { citta, provincia, paese, mestiere })
 
   if (!provincia) {
@@ -164,6 +181,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     nostri: nostriInZona,
     provincia: esito.provincia,
+    ...(provinciaRicavata ? { nota: provinciaRicavata } : {}),
     mestiere: mestiere ?? '',
     // ⚠️ Da DOVE viene il filtro, così la schermata può dirlo: un elenco
     // accorciato senza spiegare perché fa credere che i fornitori non ci siano.

@@ -218,6 +218,7 @@ type OrdineDettaglio = {
   }[]
   /** Le consegne di quest'ordine nella piattaforma (per DDT), e dove aprirle. */
   consegneApp?: { id: string; numero: string; stato: string }[]
+  consegneNota?: string
   urlPiattaforma?: string
   riconsegnaLink?: string
   riconsegnaNumero?: string
@@ -481,6 +482,7 @@ export function DettaglioOrdine({
 
   /** Le consegne di là ancora aperte (né consegnate, né annullate, né non riuscite). */
   function consegneAperte() {
+    // Stato vuoto = non lo sappiamo ancora: si chiede lo stesso, non si tace.
     return (ordine?.consegneApp ?? []).filter((c) => !['delivered', 'cancelled', 'not_delivered'].includes(c.stato))
   }
 
@@ -967,7 +969,9 @@ export function DettaglioOrdine({
   // niente da chiedere — e una lista «nazionale» proporrebbe fornitori a 400 km.
   useEffect(() => {
     const provincia = spedizione?.provincia || ''
-    if (!provincia || !ordine) return
+    // ⚠️ Anche con la SOLA città: la rotta ricava la provincia dal comune
+    // (#2876: paese «TR», provincia vuota, città Torino → 06/09/2026).
+    if ((!provincia && !spedizione?.citta) || !ordine) return
     let vivo = true
     ;(async () => {
       const p = new URLSearchParams({ provincia, negozio: ordine.negozioNome })
@@ -1013,7 +1017,7 @@ export function DettaglioOrdine({
     return () => {
       vivo = false
     }
-  }, [spedizione?.provincia, ordine, mestiere, righe])
+  }, [spedizione?.provincia, spedizione?.citta, ordine, mestiere, righe])
 
   const soloArchivio = Boolean(ordine && !ordine.id)
 
@@ -1396,6 +1400,7 @@ export function DettaglioOrdine({
                         </span>
                       ))}
                       {ordine.appMandataDaNome ? <span>· mandata da {ordine.appMandataDaNome}</span> : null}
+                      {ordine.consegneNota ? <span style={{ color: 'var(--red)' }}>· {ordine.consegneNota}</span> : null}
                     </div>
                   ) : (
                     <div className="cella-sub">
@@ -2671,11 +2676,14 @@ export function DettaglioOrdine({
                 ⚠️ Ricerca fornitori cerca su Google chi non conosciamo; questi
                 sono i partner e i prospect già censiti in Anagrafiche, che
                 prima non venivano mai proposti. */}
-            {spedizione?.provincia ? (
+            {spedizione && (spedizione.provincia || zonaProvincia) ? (
               <div className="card fascia-fornitori">
                 <h3 style={{ marginTop: 0, fontSize: 15 }}>
                   Fornitori in provincia di {zonaProvincia || spedizione.provincia}
                 </h3>
+                {zonaNota.startsWith('Provincia ricavata') ? (
+                  <p className="cella-sub" style={{ marginTop: -6 }}>{zonaNota}</p>
+                ) : null}
                 {/* ⚠️⚠️ QUANTI NE HAI GIÀ CHIESTI, in una riga. È la cosa che
                     prima non si poteva sapere: il bottone WhatsApp apriva la
                     chat e finiva lì, e su un ordine urgente guardato da tre

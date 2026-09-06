@@ -1,5 +1,44 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (54) — 🔴 La piattaforma in produzione è TORNATA INDIETRO; la consegna agganciata si vede comunque; provincia dalla città
+
+**Utente**: «il caricamento in app di un ordine non mi fa vedere poi nel pop-up
+la consegna collegata» e «se metto Gestito non mi chiede di segnarla consegnata».
+**Misurato**: le consegne nate oggi da «Manda in app» (#101084 per #2876,
+#101083 per #1836, #101076 per #2873) ESISTONO nella piattaforma con il DDT
+giusto, ma `/api/v1/app/consegne?ddt=2876` torna le ultime righe di chiunque
+(numero 842, senza `ordine.ddt`) e `POST /app/consegne/x/consegnata` risponde
+**404** su app.deluxy.it e su deluxy-delivery.vercel.app. `vercel ls`: tre deploy
+di produzione della piattaforma negli ultimi 51 minuti (delivery-d5kzzuy8p,
+-ex2cd902o, -pfzt51l16) dall'altra sessione, dal ramo `platform-0409`
+(worktree `app/.claude/worktrees/deploy-delivery`, HEAD 4ede8ead) che **NON
+contiene** i commit del canale app di oggi (97b642e5 `?ddt=`/`giaConsegnata`,
+8cd27e63 `consegnata`). Conseguenze in produzione: la scheda non trova le
+consegne per DDT, «Gestito» non chiede niente, e la regola «consegne da
+pagamenti» nella sync rischiava di CREARE DOPPIONI (la ricerca torna «niente»).
+🔴 **Da fare: mergiare `canale-app-0609` in `platform-0409` e ripubblicare la
+piattaforma** (col sì dell'utente; è il ramo dell'altra sessione).
+
+**Difese messe nel CS (in locale)**:
+- `consegnePerDdt` riconosce la piattaforma vecchia (righe tornate, nessuna col
+  DDT chiesto) e torna `errore` «ignora la ricerca per DDT» invece di «[]»: la
+  regola dalle pagamenti NON crea, e la scheda mostra il motivo in rosso.
+- `dettaglio-ordine`: la consegna agganciata (`appConsegnaId`) compare SEMPRE
+  fra i bollini, anche se la ricerca per DDT non la trova, con lo stato copiato
+  (`appConsegnaStato`, vuoto = «non lo so ancora»); `consegneNota` porta il
+  motivo. «Gestito» chiede anche con lo stato vuoto.
+
+**«Non capisco perché esce 0» (Fornitori in zona, #2876)**: Orders manda
+`provincia: ''` e `paese: 'TR'` — il cliente turco ha scelto la Turchia come
+paese, Shopify non ha messo la provincia; l'indirizzo dice «10125 Torino». Ora
+`/api/fornitori-zona` con provincia vuota e città nota la RICAVA dal comune
+(`provincePerComuni`, il dizionario Google già usato per i nostri: Torino → TO)
+e lo dichiara sotto il titolo («Provincia ricavata dalla città «Torino»: nell'
+indirizzo manca e il paese dice «TR». Controlla»); la scheda chiede anche con
+la sola città e mostra la fascia se la provincia arriva.
+
+**Verifica**: `tsc` 0; `provincePerComuni(['Torino'])` → TO. **Stato**: in locale.
+
 ## 06/09/2026 (53) — «Nuovo ordine» dalla chat si compila da solo con l'AI
 
 Utente: «riempi automaticamente grazie a AI anche quando da una chat si clicca

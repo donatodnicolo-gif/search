@@ -114,6 +114,8 @@ export type OrdineDettaglioDto = {
    * non c'è niente, oppure non si è potuto chiedere.
    */
   consegneApp: { id: string; numero: string; stato: string }[]
+  /** Perché la lista delle consegne di là potrebbe essere incompleta ('' = tutto ok). */
+  consegneNota: string
   /** L'indirizzo della piattaforma, per il link alla scheda della consegna. */
   urlPiattaforma: string
   /** L'ultimo link di riconsegna già creato: si rivede aprendo la scheda. */
@@ -216,10 +218,22 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
     consegnePerDdt(ordine.numero, marchioDdt(ordine.negozioNome ?? ''), listaEscluse(ordine.appConsegneEscluse)).catch(() => null),
     leggiImpostazioni(['piattaformaUrl']).catch(() => ({}) as { piattaformaUrl?: string }),
   ])
-  const consegneApp =
+  let consegneApp =
     inApp && inApp.stato === 'ok'
       ? inApp.dati.consegne.map((c) => ({ id: c.id, numero: String(c.numero ?? ''), stato: c.stato }))
       : []
+  // ⚠️ La consegna nata DA QUI (`appConsegnaId`, scritto da «Manda in app») si
+  // mostra sempre, anche quando la ricerca per DDT non la trova o non risponde
+  // (piattaforma vecchia, rete): l'utente l'aveva appena creata e non la vedeva
+  // (06/09/2026). Lo stato è la copia della sync (`appConsegnaStato`).
+  if (ordine.appConsegnaId && !consegneApp.some((c) => c.id === ordine.appConsegnaId)) {
+    consegneApp = [
+      { id: ordine.appConsegnaId, numero: ordine.appConsegnaNumero || '', stato: ordine.appConsegnaStato || '' },
+      ...consegneApp,
+    ]
+  }
+  const consegneNota =
+    inApp && inApp.stato === 'errore' ? inApp.messaggio : inApp && inApp.stato === 'non-configurato' ? 'Piattaforma non collegata (Impostazioni).' : ''
   const urlPiattaforma = ((impostazioni as { piattaformaUrl?: string }).piattaformaUrl || 'https://deluxy-delivery.vercel.app').replace(/\/+$/, '')
 
   const chiamate = await db.chiamata.findMany({
@@ -290,6 +304,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       totaleConUniti: insieme.totale,
       candidatiUnione: candidati,
       consegneApp,
+      consegneNota,
       urlPiattaforma,
       riconsegnaLink: ordine.riconsegnaLink ?? '',
       riconsegnaNumero: ordine.riconsegnaNumero ?? '',
@@ -424,6 +439,7 @@ export async function dettaglioOrdineArchivio(
         // da proporre.
         candidatiUnione: [],
         consegneApp: [],
+        consegneNota: '',
         urlPiattaforma: '',
         riconsegnaLink: '',
         riconsegnaNumero: '',
