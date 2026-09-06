@@ -11,17 +11,27 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 - Produzione: **https://deluxy-personale.vercel.app** (Vercel, region `fra1`)
 - UI: Deluxy Design System v1.4 + Libro UX&UI v1.10 (sidebar da gestionale, token in `src/app/tokens.css`)
 
-## Dove siamo (29/08/2026 — aggiornato 06/09/2026)
+## Dove siamo (29/08/2026 — aggiornato 06/09/2026 sera)
 
 - 🆕 **06/09/2026 — Budgets legge l'organico da qui** (decisione dell'utente: «personale e team
   devono arrivare da app personale»). `GET /api/v1/persone` accetta **`?storia=1`**: con
   `compensi=1` escono `inquadramenti[]` e `compensi[]` completi, decorrenze future comprese,
-  così Budgets sa da quale mese una persona costa. Il POST di proposta verso Budgets
-  (`lib/budgets.ts`) resta ma di là risponde «non serve più»: si può togliere. 🔴 **Da
-  pubblicare** (build locale ok, deploy da lanciare a mano). Da sistemare qui, perché Budgets lo
-  mostra: quattro persone senza funzione (Nicolò Donato, Eva, Luca Salso, Renato Cassoli —
-  responsabile di Operation ma non dentro), e due nomi che Budgets aveva e qui mancano (Emma
-  Gariboldi, Michela Avantaggiato).
+  così Budgets sa da quale mese una persona costa. ✅ **LIVE dal 06/09 10:52** (build remota,
+  `storia=1` verificato in produzione).
+- 🆕 **06/09/2026 sera — il ponte verso Budgets è stato tolto** (`lib/budgets.ts` e la
+  chiamata in `creaPersona`): Budgets rispondeva 200 «non serve più» con `creata:false`, e
+  qui quel corpo cadeva nel ramo «Budgets ha rifiutato la proposta (200)» — un avviso ROSSO
+  su ogni scheda appena creata, per una cosa andata bene. Ora «Crea la persona» porta alla
+  scheda con la nota verde «Budgets la vede da solo: legge l'organico da qui».
+  `BUDGETS_WRITE_KEY` esce dalle credenziali lette dalla cassaforte (se è ancora nel Hub,
+  progetto `personale`, si può togliere; in `.env` locale `BUDGETS_URL`/`BUDGETS_WRITE_KEY`
+  sono inerti). In Budgets la rotta `POST /api/v1/persone` resta finché la produzione di
+  Personale non è aggiornata: dopo si può cancellare di là. 🔴 **In locale, da pubblicare.**
+- 🔴 **Dati da sistemare a mano** (Budgets li mostra come «Senza team» / assenti, verificato
+  sul DB il 06/09 sera): quattro persone senza funzione — Nicolò Donato, Eva, Luca Salso,
+  **Renato Cassoli, che è responsabile di Operation ma non è dentro (Operation: 0 persone)** —
+  e due nomi che Budgets aveva e qui mancano (Emma Gariboldi, Michela Avantaggiato). Sono
+  decisioni sull'organico, non si deducono: si fanno da /persone o da /funzioni.
 
 - ✅ App completa e in produzione: Persone (elenco + KPI), scheda persona
   (dati, mansioni, **mansionario personale**, storico inquadramenti, storico
@@ -185,8 +195,8 @@ Corretto in questo giro, con la misura prima → dopo:
 
 ### Le chiavi delle altre app: cassaforte del Hub (30/08/2026)
 
-Le credenziali che questa app USA per chiamare le altre — `MAIL_API_KEY`, `MAIL_UTENTE`,
-`BUDGETS_WRITE_KEY` — **non abitano qui**: si incollano nella cassaforte del Hub
+Le credenziali che questa app USA per chiamare le altre — `MAIL_API_KEY`, `MAIL_UTENTE`
+(e, fino al 06/09, `BUDGETS_WRITE_KEY`) — **non abitano qui**: si incollano nella cassaforte del Hub
 (`/chiavi` → progetto `personale`), dove sono cifrate AES-256-GCM, e
 `src/lib/credenziali.ts` le legge con lo STESSO `HUB_KEYS_TOKEN` che già serviva per i
 cartellini. Verdetto del custode della sicurezza: un secondo deposito qui sarebbe una
@@ -264,16 +274,16 @@ valore dev'essere recuperabile) — due meccanismi diversi, che non si mescolano
 5. **I task operativi vivono in Deluxy Tasks.** Le "attività" qui sono il
    mansionario (cosa comporta una mansione), non le cose da fare.
 
-## Il ponte verso Budgets (24/08)
+## Il ponte verso Budgets (24/08 → tolto il 06/09/2026)
 
-Quando qui si **pubblica una persona nuova**, l'app la **propone anche al
-roster di Budgets** (`POST /api/v1/persone` di Budgets, chiave
-`BUDGETS_WRITE_KEY` con scope scrittura): là nasce come seme — tipo
-DIPENDENTE, importo 0 (non sposta il P&L), team agganciato per nome, nota che
-dichiara la provenienza. Budgets resta il proprietario del suo roster: mai
-aggiornamenti o cancellazioni da qui, e se il nome là esiste già non si tocca.
-Il ponte non blocca mai la creazione locale: l'esito (proposta / già presente
-/ fallita e perché) compare come avviso sulla scheda appena creata.
+Dal 24/08 al 06/09 una persona pubblicata qui veniva **proposta** anche al
+roster di Budgets (`POST /api/v1/persone`, chiave `BUDGETS_WRITE_KEY`). Dal
+06/09 Budgets non ha più un roster suo e **legge l'organico da qui**
+(`/api/v1/persone?stato=tutti&compensi=1&storia=1` + `/api/v1/team`): una
+persona creata qui compare là da sola, con contratto e compenso, al giro dopo.
+Il ponte è stato tolto lo stesso giorno (vedi «Dove siamo»): non c'è più
+niente da proporre, e la risposta «non serve più» di Budgets veniva mostrata
+come un rifiuto.
 
 ## Cartellini e rapporto al commercialista (25/08)
 

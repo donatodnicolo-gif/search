@@ -1,5 +1,5 @@
-// Le credenziali che QUESTA app usa per chiamare le altre (il token di AI Mail,
-// la chiave di scrittura di Budgets) non abitano qui: vivono nella **cassaforte
+// Le credenziali che QUESTA app usa per chiamare le altre (il token di AI Mail
+// e l'utente della casella) non abitano qui: vivono nella **cassaforte
 // del Hub** — `GET /api/chiavi?progetto=personale`, cifrate AES-256-GCM, con lo
 // STESSO token di servizio che già leggeva i cartellini.
 //
@@ -18,7 +18,9 @@
 const HUB_URL_PREDEFINITO = "https://deluxy-hub.vercel.app";
 const DURATA_CACHE_MS = 5 * 60 * 1000;
 
-export type NomeCredenziale = "MAIL_API_KEY" | "MAIL_UTENTE" | "BUDGETS_WRITE_KEY";
+// (BUDGETS_WRITE_KEY è uscita il 06/09/2026 col ponte verso Budgets: se è
+// ancora nella cassaforte del Hub, progetto «personale», si può togliere.)
+export type NomeCredenziale = "MAIL_API_KEY" | "MAIL_UTENTE";
 export type Origine = "ambiente" | "cassaforte";
 
 // Tre stati DISTINTI, e non è pignoleria: «cassaforte irraggiungibile» non è

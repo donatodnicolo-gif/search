@@ -16,7 +16,6 @@ import {
   TIPI_BENEFIT_BASE,
   TIPI_CONTRATTO,
 } from "./organico";
-import { proponiPersonaABudgets } from "./budgets";
 import { presenzeDalHub } from "./presenze-hub";
 import { inviaMail } from "./posta";
 
@@ -270,21 +269,19 @@ export async function creaPersona(fd: FormData): Promise<void> {
     }
   }
 
-  const persona = await prisma.persona.create({ data: dati, include: { funzione: true } });
+  const persona = await prisma.persona.create({ data: dati });
   revalidatePath("/");
 
-  // Il ponte verso Budgets (regola del 24/08): la persona pubblicata qui si
-  // PROPONE anche al roster di pianificazione. Un guasto là non blocca la
-  // nascita qui: diventa un avviso sulla scheda.
-  const esito = await proponiPersonaABudgets({
-    nome: persona.nome,
-    ruolo: persona.ruolo,
-    team: persona.funzione?.nome ?? null,
-  });
-  const parametro = esito.ok
-    ? `nota=${encodeURIComponent(esito.messaggio)}`
-    : `err=${encodeURIComponent(`La persona è stata creata qui, ma NON è arrivata a Budgets: ${esito.messaggio}`)}`;
-  redirect(`/persone/${persona.id}?${parametro}`);
+  // Dal 06/09/2026 Budgets legge l'organico da qui (/api/v1/persone?storia=1):
+  // la persona compare là da sola, con contratto e compenso, al giro dopo.
+  // Il vecchio ponte (POST al roster di Budgets, 24/08–06/09) è stato tolto:
+  // Budgets rispondeva «non serve più» e qui compariva un avviso rosso su una
+  // scheda appena creata per una cosa andata bene.
+  redirect(
+    `/persone/${persona.id}?nota=${encodeURIComponent(
+      "Persona creata. Budgets la vede da solo: legge l'organico da qui. Ora inquadramento e retribuzione, se li conosci.",
+    )}`,
+  );
 }
 
 export async function aggiornaPersona(fd: FormData): Promise<void> {

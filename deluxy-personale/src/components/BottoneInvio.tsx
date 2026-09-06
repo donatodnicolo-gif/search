@@ -4,9 +4,10 @@ import { useFormStatus } from "react-dom";
 
 // Il bottone che manda un form a una server action, con i tre stati visibili
 // che il Libro §7 (dodicesima legge, «nessun click muto») pretende: in corso,
-// riuscito, fallito. Prima della correzione «Crea la persona» restava identico
-// fino a 4 secondi — dietro c'è la proposta a Budgets con timeout 4000 ms — e
-// l'utente ri-cliccava.
+// riuscito, fallito. Nato perché «Crea la persona» restava identico fino a
+// 4 secondi (allora dietro c'era una chiamata a Budgets con timeout 4000 ms,
+// tolta il 06/09/2026) e l'utente ri-cliccava; su «Invia» dei cartellini la
+// chiamata lunga c'è ancora.
 //
 // `conferma` è facoltativa e serve all'irreversibile (una mail non si ritira):
 // il testo può contenere segnaposto `{nomeCampo}`, sostituiti col valore VERO
