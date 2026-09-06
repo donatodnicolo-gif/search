@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.10 — 28 agosto 2026** · *1.10: l'esito di ogni azione — tre stati visibili, vietati fallimento silenzioso ed esito ambiguo, dodicesima legge (§7).* · *1.9: ogni elenco ha ricerca + filtri principali + scorciatoie di periodo (§8-bis).* · *1.8: le azioni a icona — icona ≥18-19px, bersaglio ≥28px desktop / 44 touch, e il tooltip che dice cosa fa (§3).* · *1.7: le modali stanno DENTRO la viewport (max-height + corpo scorrevole + piede sticky) e la ✕ è obbligatoria (§9).* · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
+**Versione 2.1 — 6 settembre 2026** · *2.1: le azioni in una SCHEDA DI DETTAGLIO — tre zone (testata ≤ 2 pillole + «⋯», riquadri per famiglia ≤ 3 per riga, lavorazione), un solo nero a riposo (il passo corrente), doppioni vietati (§9-ter; segnalazione utente sulla scheda ordine del Customer Service).* · *1.10: l'esito di ogni azione — tre stati visibili, vietati fallimento silenzioso ed esito ambiguo, dodicesima legge (§7).* · *1.9: ogni elenco ha ricerca + filtri principali + scorciatoie di periodo (§8-bis).* · *1.8: le azioni a icona — icona ≥18-19px, bersaglio ≥28px desktop / 44 touch, e il tooltip che dice cosa fa (§3).* · *1.7: le modali stanno DENTRO la viewport (max-height + corpo scorrevole + piede sticky) e la ✕ è obbligatoria (§9).* · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -236,6 +236,26 @@ Vale per web e React Native. La regola madre è un **numero falsificabile**:
 Il `<details>`-dentro-la-cella di Hub (form di 6 controlli che dilata la riga, senza Esc né overlay) non è un pattern: migra.
 
 Il segreto mostrato una volta sola (chiave API generata) vive in una card **col bordo oro**, deliberatamente ingombrante, con «Copia» e «Ho finito» (Tasks/Anagrafiche).
+
+### 9-ter. Le azioni in una scheda di dettaglio
+
+*(v2.1, 06/09/2026 — segnalazione dell'utente sulla scheda ordine del Customer Service: «troppi bottoni sparsi e con azioni diverse, unifica in tutto il pop-up e semplifica». Misurato: 42 comandi in 8 punti, tre API di bottone, due paia di doppioni, tre neri a riposo. Decisione dell'architetto-ux.)*
+
+Una scheda che mostra UN oggetto (ordine, partner, persona) ha **tre zone di azioni e nessun'altra**:
+
+1. **Testata**: identità + stato + **al massimo 2 pillole** (le azioni quotidiane sull'oggetto intero) + **menu «⋯»** con le rare + **✕**. Stessa regola delle azioni di riga (§3: massimo 2 visibili + «⋯»), stessa fonte (HIG Toolbars, NN/g).
+2. **Riquadri per famiglia**: ogni riquadro ha un titolo e porta **solo le azioni sul suo contenuto**, come pillole secondarie small **sotto il contenuto, massimo 3 sulla stessa riga**; la quarta va in «⋯» del riquadro o in un riquadro suo. Un'azione **sul riquadro intero** (Copia, Apri ↗, Modifica) sta **a destra del titolo**, una sola. *Misura del 3: a 1366px le colonne di una scheda sono ~400px; tre pillole small da ~110px stanno su una riga, quattro vanno a capo.*
+3. **Lavorazione (il processo)**: i passi come pillole segmentate — **il passo corrente pieno** (è uno stato, non un invito), gli altri secondari; la chiusura staccata da un filo. Sotto i passi, sulla stessa riga, i **regolatori del processo** (manuale/automatico, badge di stato di altre app).
+
+**Il nero**: a riposo l'unico nero della scheda è il passo corrente. **Un CTA nero compare solo quando un form è aperto** (Registra, Salva, Invia, Crea il link) e sta a destra col suo «Annulla» a sinistra (§4). Copiare, aprire, scaricare **non sono mai primari**: pillole secondarie small.
+
+**Le famiglie**, in quest'ordine dall'alto (prima ciò che si tocca ogni giorno): *Lavorare l'oggetto* → *Cliente/controparte* (contatti + scheda) → *Soldi* → *Documenti* → *Casi rari* (riquadri chiusi, aperti solo se contengono un fatto o su richiesta dal «⋯»).
+
+**Doppioni vietati**: un comando vive in un posto solo. Se «non si trova», la cura è la voce nel «⋯» della testata che porta al riquadro (scroll + apertura + evidenza), non una seconda copia.
+
+**Collaudo**: contare le pillole nere a riposo (= 1, il passo) e le zone con bottoni (= testata + N riquadri titolati + lavorazione); ogni azione raggiungibile in ≤ 2 click dall'apertura della scheda; nessuna azione tolta.
+
+Riferimento: Customer Service `DettaglioOrdine.tsx` (dal 06/09/2026). Debito noto da questa voce: l'API `.btn` del CS è invertita rispetto a §3 (nudo = nero) — resta in Appendice B P2; i bersagli `.btn.small` (~25px) sotto i 32px di §10 — segnalazione separata.
 
 ## 10. Mobile — regole trasversali
 

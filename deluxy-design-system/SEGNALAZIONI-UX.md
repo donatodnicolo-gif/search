@@ -628,3 +628,156 @@ L'ORDINE), fascia dei fornitori fuori dalla griglia a tutta larghezza (tessere
 da 1 a 4 per riga), Riconsegna e Unione a fisarmonica.
 
 STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
+Aggiornamento, stessa mattina: l'utente ha aggiunto «ad Hub potranno accedere per ora
+solo utenti interni all'azienda» → la spunta «Esterno / partner» è stata tolta, resta
+la sola «Amministratore»; la pillola «Esterno / partner» nella lista sparisce con lei.
+
+
+## 06/09/2026 (7) — Customer Service: «Paga fornitore» in tre passi (richiesta dell'utente)
+
+**Segnalazione**: Customer Service · `/pagamenti` · l'utente chiede di riorganizzare la
+testa della pagina: «prima chiede se si vuole cercare tra i fornitori già usati, poi
+se si vogliono inserire le coordinate e infine il form delle coordinate». Prima: due
+riquadri affiancati (lettura AI · modulo) con la ricerca fornitori dentro il modulo.
+
+**Applicato** (in locale, `RichiediPagamento.tsx`): un modulo a passi — 1 cerca fra i
+nostri · 2 come inserire (AI o a mano) · 3 il modulo — con i passi come bottoni in
+cima (stessa classe `passi-ordine` della lavorazione dell'ordine), navigabili
+all'indietro; dopo il salvataggio si riparte dal passo 1; «Modifica» porta al 3.
+
+**Per il custode**: il caso è un **modulo a passi** (wizard) per un inserimento che
+ha una via breve (il dato c'è già in casa) e una lunga (dato nuovo). Da valutare
+come pattern del Libro: quando un modulo ha una scorciatoia che evita di digitare
+un dato critico (IBAN), la domanda «lo abbiamo già?» viene PRIMA del modulo, non
+dentro. Stesso caso in Nuovo ordine («Cliente già registrato»), che però sta
+dentro il primo riquadro.
+
+STATO: in locale, committato, in attesa del collaudo dell'utente.
+
+
+## 06/09/2026 (8) — Hub: in Utenti il ruolo diventa la funzione di Personale, i privilegi due spunte (richiesta dell'utente)
+
+**Segnalazione**: Hub · `/utenti` · l'utente: «anche i ruoli in Utenti dovrebbero
+essere il team, ma dovrebbe essere già preso da app Personale». Prima: pillola oro
+col ruolo del portale («Commerciale» per nove utenti su dieci, cioè un'etichetta che
+non distingueva nessuno) e una tendina «Ruolo» a tre valori (Amministratore /
+Partner / Commerciale) nel modulo nuovo e in Modifica.
+
+**Applicato** (in locale, `RigaUtente.tsx`, `SpuntePrivilegi.tsx`, `ruoli.ts`): la
+colonna si chiama **Funzione** e mostra quello che dice Personale della persona
+(pillola neutra con la funzione, sotto il suo ruolo in azienda); chi non è in
+Personale → «Non in Personale», i partner → «Esterno / partner»; l'admin ha in più la
+pillola oro «Amministratore». La tendina è sostituita da **due spunte** con la loro
+conseguenza scritta accanto: «Amministratore — gestisce gli utenti e vede tutte le
+app» ed «Esterno / partner — non sta in Personale, vede la propria scheda in
+Finance»; nessuna spunta = persona del team. A database il campo e i tre valori
+restano gli stessi.
+
+**Per il custode**: due cose da valutare come regola del Libro. (1) **Un'etichetta
+uguale per tutti non è un'informazione**: quando una colonna mostra lo stesso valore
+su quasi tutte le righe, va sostituita con il dato che distingue (qui la funzione,
+letta dalla sua casa). (2) **Il privilegio si dice come conseguenza, non come nome**:
+una spunta «Amministratore — gestisce gli utenti e vede tutte le app» dice cosa
+succede; una tendina con «Amministratore / Partner / Commerciale» costringe a
+ricordarselo. Scelta dall'utente fra tre opzioni proposte (la terza — mettere le
+funzioni di Personale nella tendina — è stata sconsigliata perché avrebbe fuso
+l'asse dei privilegi con quello dell'organico: [[trappola-permessi-con-un-asse-solo]]).
+
+STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
+
+## 06/09/2026 (9) — Piattaforma consegne: le classifiche di Statistiche traboccavano dalla tessera (segnalazione dell'utente, screenshot)
+
+**Dove**: `deluxy-platform-next/web/src/app/pages/statistiche.component.ts`, blocco «Classifiche + stati» (`.griglia-3`).
+
+**Cosa si vedeva**: quattro tessere in una riga sola (griglia `auto-fit, minmax(280px, 1fr)`), ognuna con una tabella a cinque colonne (Nome, Consegne, %, Δ, In orario). A ~1500px ogni tessera aveva ~350px: i nomi andavano a capo su tre righe, la Δ («▲ +47 · +293,8%») si spezzava in due, e la quinta colonna finiva TAGLIATA dal bordo della tessera («In orario» si leggeva «or»). La tabella non scorreva: era clipping puro, l'informazione era persa.
+
+**Correzione locale**: tessera con larghezza minima dettata dalle sue colonne (`minmax(min(100%, 480px), 1fr)` → 2×2 su un desktop normale, 3 in fila oltre i 1500px), numeri e Δ `white-space: nowrap`, colonne numeriche a larghezza di contenuto (`width: 1%`), colonna nome con minimo 120px, e la tabella dentro un contenitore `.scorri { overflow-x: auto }` come vuole il Libro (§ tabelle: la tabella larga scorre nel suo contenitore, mai la pagina, mai tagliata).
+
+**Per il custode**: candidata a regola generale — **una griglia di tessere con tabelle dentro prende il minimo dalla tabella, non da un numero tondo**: `minmax(280px, 1fr)` va bene per tessere di testo, non per cinque colonne di numeri. E ogni tabella dentro una tessera sta in un contenitore che scorre: il clipping silenzioso è il difetto peggiore perché nessuno lo segnala finché non manca una colonna.
+
+STATO: in locale, committato; attesa del collaudo dell'utente (localhost:4210/statistiche).
+
+
+## 06/09/2026 (8) — Customer Service: la chat sul telefono «come WhatsApp» (richiesta dell'utente, pattern deciso dall'architetto)
+
+**Segnalazione**: Customer Service · pop-up della conversazione a 375–430px · «da
+mobile la chat non è possibile da utilizzare: ridisegna la UX&UI ispirandoti a
+WhatsApp». Misurato prima: velo da 8px con pannello a 86vh, testata su due righe
+con nove pillole a capo, bolle al 92%, composer su tre righe, tre scroll annidati
+sullo stesso asse; meno di metà schermo per i messaggi.
+
+**Decisione dell'architetto (applicata)**: foglio a schermo intero (solo la lista
+scorre, altezza legata al visualViewport con la tastiera); testata 56px sticky
+[← · nome + sottoriga scorrevole · Archivia · ⋯]; le altre azioni in un foglio
+dal basso (44px, gruppi separati, «Elimina» ultima e staccata); bolle max 80%,
+`--ink`/`--on-ink`, 15px, separatori di giorno; composer sticky con safe-area
+[+ · campo 16px che cresce · Invia a icona], avvisi (refusi) sopra il composer.
+Nessuna azione tolta (§3). Deroga: raggio a pillola sul campo (README CS).
+Prerequisito trovato: `layout.tsx` senza `viewportFit: 'cover'` → safe-area = 0.
+
+**Per il Libro (regola nuova proposta, §9-bis «Conversazione», prossimo bump)**:
+*Su mobile è un foglio a schermo intero (100dvh, solo la lista scorre, altezza
+legata al visualViewport). Testata 56px sticky: ← (chiusura) · nome + sottoriga
+scorrevole · max 2 azioni a icona 44px · «⋯» che apre un foglio dal basso con
+tutte le altre, la distruttiva ultima e separata. Bolle max 80%, radius-l con
+coda radius-s, in surface+hairline / out ink+on-ink, 15px, separatore di giorno a
+pillola. Composer sticky con safe-area: «+» · campo 16px che cresce fino a 5
+righe · Invia a icona sempre visibile; avvisi sul testo sopra il composer,
+persistenti. Misura: a 375×812 con tastiera chiusa ≥ 60% dello schermo è lista
+messaggi; nessun elemento interattivo < 44px; nessuna azione persa.*
+
+**Nota di governance**: la soglia mobile del CS è 700px in ~12 media query contro
+i 900 del Libro §2: deroga non scritta, ora annotata nel README del CS.
+
+STATO: in locale, committato, in attesa del collaudo dell'utente sul telefono.
+
+
+## 06/09/2026 (10) — Customer Service: la scheda ordine aveva 42 comandi in 8 punti (segnalazione dell'utente, screenshot)
+
+**Segnalazione**: «ci sono troppi bottoni sparsi e con azioni diversi, unifica in
+tutto il pop-up e semplifica». Misurato dall'architetto: 42 comandi cliccabili in
+8 zone; tre API di bottone che convivono (`.btn`, `.btn.small`, `.bottone.mini`);
+«Riconsegna» e «Unisci ordini» sia in testata sia come riquadri a fisarmonica in
+colonna destra; tre bottoni neri a riposo (Copia biglietto, Copia messaggio,
+Registra); una nuvola di 9 pillole senza titolo né famiglia in fondo alla colonna
+destra.
+
+**Decisione (regola nuova del Libro, §9-ter v2.1, applicata)**: tre zone —
+testata con ≤ 2 pillole [Manda in app] [Apri in Shopify ↗] + «⋯» (Unisci un altro
+ordine…, Riconsegna… → `vaiAlRiquadro`) + ✕; riquadri per famiglia con ≤ 3 pillole
+per riga e l'azione sul riquadro intero a destra del titolo («Copia» del
+biglietto e del messaggio, «Registra il fornitore», «Scheda cliente ↗», «Apri in
+Inbox»); Lavorazione coi passi (corrente pieno, unico nero a riposo) e sotto i
+regolatori (manuale/automatico, badge Orders) spostati dalla testata; tre
+riquadri nuovi «Cliente» [WhatsApp][Chiama][Email], «Soldi» [Paga
+fornitore][Chiedi rimborso], «Documenti» [Richiedi fattura][Apri reclamo]; i due
+`<details>` Riconsegna/Unisci restano in fondo con l'auto-apertura. Nessuna
+azione tolta, nessun handler cambiato.
+
+**Collaterali da decidere (non applicati)**: (a) l'API `.btn` del CS è invertita
+rispetto a §3 (nudo = nero): oggi si aggiunge `btn-secondario small` dove serve;
+l'inversione (51 `.btn` nudi) resta in Appendice B P2. (b) `.btn.small` ≈ 25px e
+`.bottone.mini` ≈ 21px sotto i 32px di §10: portare `.btn.small` a 7-8px di
+padding verticale cambia 165 pillole in tutta l'app — segnalazione separata.
+(c) fascia «Fornitori in provincia»: 4-6 pillole per riga, vale il ≤ 3 — giro
+successivo.
+
+STATO: in locale, in attesa del collaudo dell'utente.
+
+## 06/09/2026 (11) — Customer Service: due difetti della chat sul desktop (segnalazioni dell'utente, screenshot)
+
+**(a) Composer coi bottoni «a uovo»**: dopo l'invio di un messaggio di quattro
+righe il campo restava alto 120px (l'altezza dell'autocrescita è uno stile
+inline che nessuno azzerava) e i bottoni accanto — figli diretti del flex senza
+`align-items` — si stiravano a ovali alti quanto il campo. Correzione locale:
+`align-items: flex-end` sul composer desktop e altezza azzerata quando la bozza
+si svuota. Regola già nel Libro (§10: il campo che cresce fino a 5 righe torna a
+una riga quando è vuoto — da esplicitare al prossimo bump).
+
+**(b) Riassunto AI senza ✕**: il riquadro del riassunto si chiudeva solo
+ripremendo «Riassunto» nella testata. Aggiunta la ✕ (§9: ogni riquadro che si
+apre si chiude anche da lì). Contestuale: il modello scriveva la parola «vuoto»
+nei campi mancanti e a schermo compariva LUOGO «vuoto» come dato — scartato lato
+server (non è UI, ma è la stessa segnalazione).
+
+STATO: in locale, committato.
