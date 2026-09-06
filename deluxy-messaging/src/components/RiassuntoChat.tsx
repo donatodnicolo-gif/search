@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react'
 // «non indicato» è un'informazione, un'ipotesi no.
 
 type Riassunto = {
+  battute?: { usate: number; totali: number }
   riassunto: string
   data: string
   dataCitazione: string
@@ -117,6 +118,14 @@ export function RiassuntoChat({
       {riassunto ? (
         <>
           {riassunto.riassunto ? <p className="testo-riassunto">{riassunto.riassunto}</p> : null}
+          {/* Se il modello non ha potuto leggere tutto, si dice: un «luogo non
+              indicato» su una chat letta a metà non è un fatto. */}
+          {riassunto.battute && riassunto.battute.usate < riassunto.battute.totali ? (
+            <p className="cella-sub" style={{ margin: '0 0 8px' }}>
+              Letto sulle ultime {riassunto.battute.usate} battute su {riassunto.battute.totali}: la
+              conversazione è troppo lunga per leggerla tutta in una volta.
+            </p>
+          ) : null}
           <ul className="campi-riassunto">
             {campi.map((c) => (
               <li key={c.nome} className={c.valore ? '' : 'mancante'}>

@@ -710,6 +710,9 @@ const SCHEMA_RIASSUNTO = {
   ],
 } as const
 
+/** Caratteri di conversazione passati al modello per il riassunto (≈ 40k token). */
+const BUDGET_RIASSUNTO = 150_000
+
 const ISTRUZIONI_RIASSUNTO = `Sei l'assistente di un servizio clienti. Ti do una conversazione con un cliente e devi ricavarne quello che serve per preparare l'ordine.
 
 REGOLE, in ordine di importanza:
@@ -718,10 +721,12 @@ REGOLE, in ordine di importanza:
 3. NON CONVERTIRE E NON INTERPRETARE i numeri. «08/12» può essere una fascia oraria (dalle 8 alle 12) o una data: riporta quello che c'è scritto, senza scegliere. Non trasformare «domani» in una data.
 4. Il riassunto è per chi deve rispondere adesso: cosa vuole il cliente, a che punto siamo, cosa aspetta da noi. Niente giudizi, niente frasi di cortesia.
 5. In «daChiedere» metti solo quello che manca DAVVERO per preparare l'ordine (per esempio: manca l'indirizzo, manca l'ora).
-6. Il LUOGO è qualsiasi indicazione su DOVE consegnare, anche parziale: una città, una via, un hotel o un dormitorio («al dormitorio, non all'hotel»), un piano, una portineria, «a casa sua», «in ufficio». Se il cliente corregge un indirizzo, il luogo è quello corretto e la frase è quella della correzione. Lo stesso vale per il PRODOTTO: anche un colore, una quantità, una dedica chiesta a parole.
+6. Il LUOGO è qualsiasi indicazione su DOVE consegnare, anche parziale: un indirizzo completo (via, CAP, città, anche all'estero, come «Hejrevej 8, 2400 København NV, Denmark»), una città, una via, un hotel o un dormitorio («al dormitorio, non all'hotel»), un piano, una portineria, «a casa sua», «in ufficio». L'indirizzo il cliente lo scrive spesso UNA volta sola, anche molto prima nella conversazione: cercalo in tutta la conversazione, non solo nelle ultime battute. Se il cliente corregge un indirizzo, il luogo è quello corretto e la frase è quella della correzione. Lo stesso vale per il PRODOTTO: anche un colore, una quantità, una dedica chiesta a parole.
 Scrivi in italiano, anche se la conversazione è in un'altra lingua.`
 
 export type RiassuntoChat = {
+  /** Quante battute ha letto il modello, su quante ce n'erano: se non tutte, chi legge deve saperlo. */
+  battute?: { usate: number; totali: number }
   riassunto: string
   data: string
   dataCitazione: string
@@ -747,15 +752,31 @@ export async function riassumiConversazione(
   const chiave = (c.openaiApiKey ?? '').trim()
   if (!chiave) return { stato: 'non-configurato' }
 
-  // Le ultime 60 battute bastano: oltre, il modello paga il contesto e la
-  // conversazione utile è comunque quella recente.
-  const testo = messaggi
-    .slice(-60)
-    .map(
-      (m) =>
-        `[${m.creatoIl.toLocaleString('it-IT')}] ${m.direzione === 'in' ? 'CLIENTE' : 'NOI'}: ${m.testo.slice(0, 1500)}`
-    )
-    .join('\n')
+  // ⚠️⚠️ NON «le ultime 60 battute». Fino al 06/09/2026 si tenevano le ultime
+  // 60 di quelle passate dalla rotta (che a sua volta leggeva le PRIME 200):
+  // nella chat con Shivam (326 messaggi) il modello vedeva le battute 141-200
+  // — né l'indirizzo mandato al messaggio 34 («Hejrevej 8, 2400 København NV»),
+  // né la fine della conversazione. Il cliente l'indirizzo lo scrive UNA volta,
+  // spesso all'inizio: il riassunto deve leggere tutto, a partire dalla fine.
+  //
+  // Finestra a CARATTERI, dalla più recente all'indietro: ogni battuta al
+  // massimo 1.500 caratteri (le mail lunghe si tagliano, la chat no), e in
+  // tutto fino a `BUDGET_RIASSUNTO`. Misurato il 06/09: su 730 conversazioni 8
+  // superano gli 80.000 caratteri; con 150.000 ci sta quasi tutto. Se non ci
+  // sta, si dice — al modello e a chi legge (`battute`).
+  const righe = messaggi.map(
+    (m) => `[${m.creatoIl.toLocaleString('it-IT')}] ${m.direzione === 'in' ? 'CLIENTE' : 'NOI'}: ${m.testo.slice(0, 1500)}`
+  )
+  let usati = 0
+  let da = righe.length
+  for (let i = righe.length - 1; i >= 0; i--) {
+    if (usati + righe[i].length + 1 > BUDGET_RIASSUNTO) break
+    usati += righe[i].length + 1
+    da = i
+  }
+  const battute = { usate: righe.length - da, totali: righe.length }
+  const testo =
+    (da > 0 ? `[… ${da} battute più vecchie omesse per spazio …]\n` : '') + righe.slice(da).join('\n')
   if (!testo.trim()) return { stato: 'errore', messaggio: 'Nessun messaggio da riassumere.' }
 
   const modello = (c.openaiModelloRisposte || MODELLO_RISPOSTE_DEFAULT).trim()
@@ -797,6 +818,7 @@ export async function riassumiConversazione(
       stato: 'ok',
       fornitore: `OpenAI ${modello}`,
       riassunto: {
+        battute,
         riassunto: (d.riassunto ?? '').trim(),
         data: conProva(d.data ?? '', d.dataCitazione ?? ''),
         dataCitazione: pulito(d.dataCitazione ?? ''),
