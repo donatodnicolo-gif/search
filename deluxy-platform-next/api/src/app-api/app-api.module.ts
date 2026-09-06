@@ -24,7 +24,7 @@ import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveriesService } from '../deliveries/deliveries.service';
 import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
 import { JwtUser } from '../common/decorators';
-import { Role } from '../common/enums';
+import { DeliveryStatus, Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
 import { SalesModule, SalesService } from '../sales/sales.module';
@@ -834,7 +834,7 @@ export class AppApiService {
    * seconda chiamata costa quanto quello che e' cambiato, non quanto l'archivio.
    */
   async consegne(opzioni: {
-    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; limit: number;
+    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; ddt?: string; limit: number;
   }) {
     const da = opzioni.aggiornateDa ? new Date(opzioni.aggiornateDa) : null;
     if (opzioni.aggiornateDa && Number.isNaN(da?.getTime())) {
@@ -852,6 +852,10 @@ export class AppApiService {
       ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
       ...(opzioni.stato ? { status: opzioni.stato } : {}),
       ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
+      // ⚠️ Per numero DDT (= numero d'ordine): è così che il Customer Service
+      // chiede «questa vendita ha già una consegna qui?» prima di crearne una
+      // (06/09/2026). Senza, l'unica difesa dai doppioni era la memoria.
+      ...(opzioni.ddt?.trim() ? { ddtNumber: opzioni.ddt.trim() } : {}),
     };
     // Il filtro delle RIGHE di questa pagina: il periodo più il cursore.
     const where = { ...periodo, ...(da ? { updatedAt: { gt: da } } : {}) };
@@ -1036,6 +1040,27 @@ export class AppApiService {
         message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».${marcatore ? ` ${marcatore}` : ''}`,
       },
     });
+    // ── GIÀ CONSEGNATA: registrata a posteriori (06/09/2026) ──
+    // Le vendite che il Customer Service ha gestito con un pagamento in app
+    // sono consegne avvenute: qui nascono direttamente in storico, senza
+    // passare da assegnata/in consegna. Il log lo dice, così fra un mese non
+    // sembra una consegna fatta da un valet in cinque secondi.
+    if (dto.giaConsegnata) {
+      const fine = (dto.deliveryTimeTo ?? '18:00').trim().padStart(5, '0');
+      const giorno = String(dto.date ?? '').slice(0, 10);
+      const quando = dto.consegnataIl ? new Date(dto.consegnataIl) : new Date(`${giorno}T${fine}:00+02:00`);
+      await this.prisma.delivery.update({
+        where: { id: creata.id },
+        data: { status: DeliveryStatus.DELIVERED, deliveredAt: Number.isNaN(quando.getTime()) ? new Date() : quando },
+      });
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: creata.id,
+          type: 'delivered',
+          message: `Stato: ${creata.status} -> delivered (consegna già avvenuta, registrata a posteriori dal canale app «${nomeChiave}»)`,
+        },
+      });
+    }
     // Si risponde nello STESSO formato della lettura: chi crea e poi rilegge
     // non deve imparare due dialetti.
     return this.consegnaPerNumero(creata.code);
@@ -1231,6 +1256,40 @@ export class AppApiService {
   }
 
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
+  /**
+   * SEGNA CONSEGNATA dal canale app (06/09/2026): per id o per numero.
+   * Non si tocca una consegna annullata (sarebbe far rinascere un viaggio mai
+   * partito), e una già consegnata resta com'è. `deliveredAt` = data passata,
+   * altrimenti il giorno di consegna a fine fascia.
+   */
+  async segnaConsegnata(idOCodice: string, consegnataIl: string | undefined, nomeChiave: string) {
+    const perCodice = /^\d+$/.test(idOCodice) ? [{ code: Number(idOCodice) }] : [];
+    const d = await this.prisma.delivery.findFirst({
+      where: { deletedAt: null, OR: [{ id: idOCodice }, ...perCodice] },
+      select: { id: true, code: true, status: true, date: true, deliveryTimeTo: true },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (d.status === DeliveryStatus.DELIVERED) return this.consegnaPerNumero(d.code);
+    if (d.status === DeliveryStatus.CANCELLED) {
+      throw new BadRequestException(`La consegna #${d.code} è annullata: non si segna consegnata.`);
+    }
+    const fine = (d.deliveryTimeTo ?? '18:00').trim().padStart(5, '0');
+    const giorno = d.date.toISOString().slice(0, 10);
+    const quando = consegnataIl ? new Date(consegnataIl) : new Date(`${giorno}T${fine}:00+02:00`);
+    await this.prisma.delivery.update({
+      where: { id: d.id },
+      data: { status: DeliveryStatus.DELIVERED, deliveredAt: Number.isNaN(quando.getTime()) ? new Date() : quando },
+    });
+    await this.prisma.deliveryLog.create({
+      data: {
+        deliveryId: d.id,
+        type: 'delivered',
+        message: `Stato: ${d.status} -> delivered (segnata consegnata dal canale app «${nomeChiave}»: ordine gestito nel Customer Service)`,
+      },
+    });
+    return this.consegnaPerNumero(d.code);
+  }
+
   async consegnaPerNumero(numero: number) {
     if (!Number.isInteger(numero) || numero <= 0 || numero > 2_147_483_647) {
       throw new NotFoundException('Numero consegna non valido.');
@@ -1311,10 +1370,11 @@ export class AppApiController {
     @Query('al') al?: string,
     @Query('stato') stato?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('ddt') ddt?: string,
     @Query('limit') limit = '200',
   ) {
     return this.service.consegne({
-      aggiornateDa, dal, al, stato, partnerId, limit: Number(limit) || 200,
+      aggiornateDa, dal, al, stato, partnerId, ddt, limit: Number(limit) || 200,
     });
   }
 
@@ -1409,6 +1469,20 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
   consegna(@Param('numero') numero: string) {
     return this.service.consegnaPerNumero(Number(numero));
+  }
+
+  // ⚠️ Il Customer Service, quando mette un ordine «Gestito», chiede a chi
+  // lavora se segnare consegnata anche la consegna di qua (06/09/2026). Lo
+  // stato è NOSTRO: si cambia da questa rotta, con la chiave di scrittura, e
+  // resta scritto chi l'ha chiesto. Idempotente: già consegnata = com'è.
+  @Post('consegne/:id/consegnata')
+  @ApiOperation({
+    summary: "Un'altra app (Customer Service) segna la consegna come CONSEGNATA: va in storico con la data e una riga di registro. Idempotente.",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  @UseGuards(ScritturaRichiestaGuard)
+  segnaConsegnata(@Param('id') id: string, @Body() body: { consegnataIl?: string }, @Req() req: any) {
+    return this.service.segnaConsegnata(id, body?.consegnataIl, req.appChiave?.nome ?? 'app sconosciuta');
   }
 
   @Get('vendite/by-ref/:source/:externalOrderId')
