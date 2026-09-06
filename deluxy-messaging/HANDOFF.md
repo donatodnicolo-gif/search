@@ -18,6 +18,13 @@ Annulla, fuoco sul primario così Invio conferma; `role="dialog"`,
 `aria-modal`, `aria-labelledby`. ⚠️ Il velo ferma la propagazione del clic:
 sotto c'è il pannello dell'ordine che chiude al clic sul SUO velo, e senza
 `stopPropagation` annullare la domanda chiudeva anche la scheda.
+**Tre uscite, non due** (utente, subito dopo: «manca la x di chiusura»): la ✕ in
+testata (`pannello-chiudi`, come nel pannello dell'ordine), Esc e il clic sul velo
+sono **«lascia stare»** — si chiude e non succede niente (`onChiudi`); il bottone
+secondario resta un'AZIONE («No, segna solo lo stato» scrive lo stato). Prima
+Esc e velo cadevano su «Annulla», cioè segnavano lo stato senza che nessuno
+l'avesse scelto. Se chi usa il componente non passa `onChiudi`, ricade su
+`onAnnulla`. Guardato a schermo: ✕ → «chiusa senza fare niente».
 Usata in `DettaglioOrdine` (stato `chiediInApp`) e in `OrdiniLista`
 (`chiediInAppPer`). Guardata a schermo con una pagina temporanea sotto
 `/widget/` (poi cancellata): titolo, due paragrafi, pillola nera + pillola grigia.

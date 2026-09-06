@@ -1030,6 +1030,7 @@ export function DettaglioOrdine({
             setChiediInApp(false)
             void cambiaGestione('in_app')
           }}
+          onChiudi={() => setChiediInApp(false)}
         >
           <p>
             Con il sì si apre il modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di

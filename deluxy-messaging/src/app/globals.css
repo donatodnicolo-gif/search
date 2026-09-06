@@ -3783,6 +3783,12 @@ td .azioni-ordine {
   flex-direction: column;
   gap: 10px;
 }
+.conferma-testa {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
 .finestra-conferma h2 {
   margin: 0;
   font-size: 17px;
