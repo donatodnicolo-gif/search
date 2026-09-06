@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
 import { Conferma } from './Conferma'
@@ -632,6 +632,22 @@ export function DettaglioOrdine({
     return () => document.removeEventListener('keydown', tasto)
   }, [onChiudi])
 
+  // ── Menu «⋯» della testata (06/09/2026: Libro §9-ter, tre zone di azioni) ──
+  // Esc e clic fuori lo chiudono. L'Esc dentro il menu NON chiude la scheda:
+  // si ferma prima del listener sul documento qui sopra.
+  const [menuAzioniAperto, setMenuAzioniAperto] = useState(false)
+  const menuAzioniRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuAzioniAperto) return
+    const fuori = (e: MouseEvent) => {
+      if (menuAzioniRef.current && !menuAzioniRef.current.contains(e.target as Node)) {
+        setMenuAzioniAperto(false)
+      }
+    }
+    document.addEventListener('mousedown', fuori)
+    return () => document.removeEventListener('mousedown', fuori)
+  }, [menuAzioniAperto])
+
   const [spostaAperto, setSpostaAperto] = useState(false)
   const [spostaData, setSpostaData] = useState('')
   const [spostaFascia, setSpostaFascia] = useState('')
@@ -1206,62 +1222,6 @@ export function DettaglioOrdine({
                     conforme
                   </span>
                 ) : null}
-                <span
-                  className="badge"
-                  style={{ color: ordine.smistamento === 'manuale' ? 'var(--gold-strong, #8a6d2f)' : 'var(--text-secondary)' }}
-                >
-                  <span className="dot" />
-                  {ordine.smistamento === 'manuale' ? 'Riservato a noi: l’automatico lo salta' : 'Può andare in automatico'}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondario small"
-                  disabled={smistamentoInCorso}
-                  onClick={async () => {
-                    const modo = ordine.smistamento === 'manuale' ? 'auto' : 'manuale'
-                    setSmistamentoInCorso(true)
-                    setSmistamentoErrore('')
-                    try {
-                      const res = await fetch(`/api/ordini/${ordine.id}/smistamento`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ modo }),
-                      })
-                      const d = (await res.json().catch(() => ({}))) as { smistamento?: string; errore?: string }
-                      if (!res.ok) throw new Error(d.errore || `Errore ${res.status}`)
-                      setOrdine({ ...ordine, smistamento: d.smistamento ?? (modo === 'manuale' ? 'manuale' : '') })
-                    } catch (e) {
-                      setSmistamentoErrore((e as Error).message)
-                    } finally {
-                      setSmistamentoInCorso(false)
-                    }
-                  }}
-                >
-                  {smistamentoInCorso
-                    ? 'Un attimo…'
-                    : ordine.smistamento === 'manuale'
-                      ? 'Lascia andare in automatico'
-                      : 'Tienilo manuale'}
-                </button>
-                {/* ── MANDA IN APP, in testata (utente, 06/09/2026) ──
-                    Sta accanto a «Tienilo manuale» perché sono la stessa domanda
-                    vista da due lati: «questo lo facciamo noi» o «lo facciamo fare
-                    alla piattaforma». Il modulo resta nella prima colonna e si
-                    apre da qui, come dal passo «In App». Non si mostra se la
-                    piattaforma se ne sta già occupando: sarebbero due consegne. */}
-                {ordine.id && ordine.gestione !== 'in_app' && !ordine.appStato ? (
-                  <button
-                    type="button"
-                    className="btn small"
-                    onClick={() => setApriInApp((n) => n + 1)}
-                    title="Crea la consegna nella piattaforma consegne: si apre il modulo qui sotto"
-                  >
-                    Manda in app
-                  </button>
-                ) : null}
-                {smistamentoErrore ? (
-                  <span style={{ fontSize: 12, color: 'var(--rosso, #B3261E)' }}>{smistamentoErrore}</span>
-                ) : null}
               </div>
             ) : null}
             {/* ── ANNULLATO: si urla in testa, non si annota in fondo ──
@@ -1299,6 +1259,20 @@ export function DettaglioOrdine({
                 collegamento nasce dal gid, che quell'ambiguità non ce l'ha.
                 ⚠️ Se il link non si può costruire il bottone NON c'è: uno che
                 porta a una pagina d'errore è peggio di uno assente. */}
+            {/* ── MANDA IN APP (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) ──
+                Stessa condizione di prima: non si mostra se la piattaforma se ne
+                sta già occupando — sarebbero due consegne. Il modulo resta nella
+                prima colonna e si apre da qui, come dal passo «In App». */}
+            {ordine && ordine.id && !ordine.annullatoIl && ordine.gestione !== 'in_app' && !ordine.appStato ? (
+              <button
+                type="button"
+                className="btn btn-secondario small"
+                onClick={() => setApriInApp((n) => n + 1)}
+                title="Crea la consegna nella piattaforma consegne: si apre il modulo qui sotto"
+              >
+                Manda in app
+              </button>
+            ) : null}
             {linkShopify ? (
               <a
                 className="btn btn-secondario small"
@@ -1310,30 +1284,64 @@ export function DettaglioOrdine({
                 Apri in Shopify ↗
               </a>
             ) : null}
-            {/* ── DOVE SI TROVANO ──
-                ⚠️⚠️ «Unisci» e «Riconsegna» stanno in due riquadri più in basso,
-                e chi apre la scheda non li vede: segnalato dall'utente, che li ha
-                cercati e non li ha trovati. Un comando che c'è ma non si trova,
-                per chi lavora non esiste. Qui in testa ci sono i due bottoni che
-                ci portano, e il riquadro si accende un attimo — così si capisce
-                dove si è finiti. */}
+            {/* ── ALTRE AZIONI «⋯» (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) ──
+                «Unisci» e «Riconsegna» stanno in due riquadri in fondo alla
+                terza colonna: le due voci ci portano e il riquadro si accende
+                un attimo. Erano due pillole in testata; ora è un menu, così in
+                testa restano l'identità e i due comandi di ogni giorno. */}
             {ordine?.id ? (
-              <>
+              <div
+                className="menu-azioni"
+                ref={menuAzioniRef}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape' || !menuAzioniAperto) return
+                  // Esc chiude il menu, non la scheda.
+                  e.stopPropagation()
+                  setMenuAzioniAperto(false)
+                }}
+              >
                 <button
+                  type="button"
                   className="btn btn-secondario small"
-                  onClick={() => vaiAlRiquadro('riquadro-unione')}
-                  title="Unisci a questo un altro ordine che è la stessa vendita"
+                  aria-label="Altre azioni"
+                  aria-haspopup="menu"
+                  aria-expanded={menuAzioniAperto}
+                  title="Altre azioni"
+                  onClick={() => setMenuAzioniAperto((v) => !v)}
                 >
-                  Unisci ordini
+                  ⋯
                 </button>
-                <button
-                  className="btn btn-secondario small"
-                  onClick={() => vaiAlRiquadro('riquadro-riconsegna')}
-                  title="Crea il link di pagamento per una riconsegna"
-                >
-                  Riconsegna
-                </button>
-              </>
+                {menuAzioniAperto ? (
+                  <ul role="menu" aria-label="Altre azioni">
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuAzioniAperto(false)
+                          vaiAlRiquadro('riquadro-unione')
+                        }}
+                        title="Unisci a questo un altro ordine che è la stessa vendita"
+                      >
+                        Unisci un altro ordine…
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuAzioniAperto(false)
+                          vaiAlRiquadro('riquadro-riconsegna')
+                        }}
+                        title="Crea il link di pagamento per una riconsegna"
+                      >
+                        Riconsegna…
+                      </button>
+                    </li>
+                  </ul>
+                ) : null}
+              </div>
             ) : null}
             {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
             <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi (Esc)" onClick={onChiudi}>
@@ -1631,25 +1639,29 @@ export function DettaglioOrdine({
               <div style={{ marginTop: 14 }}>
                 {biglietto.trim() ? (
                   <>
-                    <label className="campo" style={{ marginBottom: 6 }}>
+                    {/* «Copia» a destra del titolo (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) */}
+                    <div className="riga-titolo titolo-campo">
                       <span>
                         <IconaLettera /> Biglietto e note del cliente
                       </span>
+                      <button
+                        className="btn btn-secondario small"
+                        onClick={() => copia(biglietto, 'biglietto')}
+                        title="Copia il biglietto negli appunti"
+                      >
+                        {copiato === 'biglietto' ? 'Copiato ✓' : 'Copia'}
+                      </button>
+                    </div>
+                    <label className="campo" style={{ marginBottom: 6 }}>
                       <textarea
                         rows={Math.min(12, Math.max(4, biglietto.split('\n').length + 1))}
                         readOnly
                         value={biglietto}
+                        aria-label="Biglietto e note del cliente"
                         style={{ fontFamily: 'inherit', lineHeight: 1.55 }}
                         onFocus={(e) => e.currentTarget.select()}
                       />
                     </label>
-                    <div
-                      style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
-                    >
-                      <button className="btn" onClick={() => copia(biglietto, 'biglietto')}>
-                        {copiato === 'biglietto' ? 'Copiato ✓' : 'Copia biglietto'}
-                      </button>
-                    </div>
                     <p className="descrizione" style={{ marginTop: 6, marginBottom: 0 }}>
                       Sono le <strong>note dell&apos;ordine</strong>, così come le ha scritte il
                       cliente. Di solito è il messaggio del biglietto, ma a volte contiene anche
@@ -1673,17 +1685,24 @@ export function DettaglioOrdine({
               </div>
 
               {/* Il messaggio pronto. */}
-              <label className="campo" style={{ marginTop: 14 }}>
+              {/* «Copia» a destra del titolo (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) */}
+              <div className="riga-titolo titolo-campo" style={{ marginTop: 14 }}>
                 <span>Messaggio per il fornitore</span>
-                <textarea rows={2} readOnly value={msg?.testo ?? ''} />
+                <button
+                  className="btn btn-secondario small"
+                  onClick={() => copia(msg?.testo ?? '', 'msg')}
+                  title="Copia il messaggio negli appunti"
+                >
+                  {copiato === 'msg' ? 'Copiato ✓' : 'Copia'}
+                </button>
+              </div>
+              <label className="campo">
+                <textarea rows={2} readOnly value={msg?.testo ?? ''} aria-label="Messaggio per il fornitore" />
               </label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn" onClick={() => copia(msg?.testo ?? '', 'msg')}>
-                  {copiato === 'msg' ? 'Copiato ✓' : 'Copia messaggio'}
-                </button>
                 {ordine.brandRicerca ? (
                   <a
-                    className="btn btn-secondario"
+                    className="btn btn-secondario small"
                     href={`https://search-deluxy.vercel.app/?brand=${encodeURIComponent(ordine.brandRicerca)}&ordine=${encodeURIComponent(ordine.numero.replace(/^#/, ''))}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -2162,15 +2181,63 @@ export function DettaglioOrdine({
                       che sembrano in conflitto — «Attesa consegna» accanto a
                       «Consegnato». Chi non conosce le due tassonomie leggeva la
                       seconda come nostra. */}
-                  {ordine.statoNome ? (
-                    <span
-                      className="badge"
-                      style={{ marginLeft: 6 }}
-                      title="Lo stato di quest'ordine su Deluxy Orders: e' un'altra tassonomia, non la nostra lavorazione"
-                    >
-                      su Orders: {ordine.statoNome}
-                    </span>
-                  ) : null}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+                    {ordine.statoNome ? (
+                      <span
+                        className="badge"
+                        title="Lo stato di quest'ordine su Deluxy Orders: e' un'altra tassonomia, non la nostra lavorazione"
+                      >
+                        su Orders: {ordine.statoNome}
+                      </span>
+                    ) : null}
+                    {/* ── IL GOVERNO DELLO SMISTAMENTO (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) ──
+                        Stava in testata. Sta sotto i passi perché è la stessa
+                        domanda: chi lavora quest'ordine, noi o la piattaforma. */}
+                    {ordine.id && !ordine.annullatoIl ? (
+                      <>
+                        <span
+                          className="badge"
+                          style={{ color: ordine.smistamento === 'manuale' ? 'var(--gold-strong, #8a6d2f)' : 'var(--text-secondary)' }}
+                        >
+                          <span className="dot" />
+                          {ordine.smistamento === 'manuale' ? 'Riservato a noi: l’automatico lo salta' : 'Può andare in automatico'}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondario small"
+                          disabled={smistamentoInCorso}
+                          onClick={async () => {
+                            const modo = ordine.smistamento === 'manuale' ? 'auto' : 'manuale'
+                            setSmistamentoInCorso(true)
+                            setSmistamentoErrore('')
+                            try {
+                              const res = await fetch(`/api/ordini/${ordine.id}/smistamento`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ modo }),
+                              })
+                              const d = (await res.json().catch(() => ({}))) as { smistamento?: string; errore?: string }
+                              if (!res.ok) throw new Error(d.errore || `Errore ${res.status}`)
+                              setOrdine({ ...ordine, smistamento: d.smistamento ?? (modo === 'manuale' ? 'manuale' : '') })
+                            } catch (e) {
+                              setSmistamentoErrore((e as Error).message)
+                            } finally {
+                              setSmistamentoInCorso(false)
+                            }
+                          }}
+                        >
+                          {smistamentoInCorso
+                            ? 'Un attimo…'
+                            : ordine.smistamento === 'manuale'
+                              ? 'Lascia andare in automatico'
+                              : 'Tienilo manuale'}
+                        </button>
+                        {smistamentoErrore ? (
+                          <span style={{ fontSize: 12, color: 'var(--rosso, #B3261E)' }}>{smistamentoErrore}</span>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
                 </dd>
                 {ordine.note ? (
                   <>
@@ -2179,6 +2246,202 @@ export function DettaglioOrdine({
                   </>
                 ) : null}
               </dl>
+
+
+
+
+              {/* ── TRE ZONE DI AZIONI (spostato qui il 06/09/2026: Libro §9-ter, tre zone di azioni) ──
+                  Erano nove pillole in fila, senza un ordine: adesso stanno in
+                  tre riquadri — Cliente, Soldi, Documenti. TUTTE le azioni ci
+                  sono ancora, con gli stessi comandi di prima: sulla scheda ne
+                  sono rimaste due (Contatta e Gestito), e questo resta il posto
+                  dove ci sono tutte. */}
+              <div className="riquadro-azioni">
+                <div className="riga-titolo">
+                  <span className="cella-nome">Cliente</span>
+                  {/* La scheda del cliente: conversazioni, storico e reclami in un
+                      posto solo. La chiave e email o telefono, mai il nome. */}
+                  <a
+                    className="btn btn-secondario small"
+                    href={`/clienti/scheda?email=${encodeURIComponent(ordine.email)}&telefono=${encodeURIComponent(ordine.telefono)}&paese=${encodeURIComponent(ordine.paese)}`}
+                  >
+                    Scheda cliente ↗
+                  </a>
+                </div>
+                <div className="azioni-riquadro">
+                  {/* Un bottone per ogni canale che questo cliente ha davvero.
+                      Sceglie chi sta lavorando l'ordine: a chi ha appena scritto
+                      una mail si risponde per mail, un ritardo grave si dice al
+                      telefono. Il messaggio è già nella sua lingua e non parte da
+                      solo; la telefonata, ovviamente, non porta nessun testo. */}
+                  {lingua
+                    ? (() => {
+                        const testo = messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero)
+                        // ⚠️ Per WhatsApp serve il prefisso internazionale (vedi whatsapp-link.ts).
+                        const cifre = numeroWhatsApp(ordine.telefono)
+                        const numero = ordine.telefono.replace(/[^\d+]/g, '')
+                        const canali: {
+                          chiave: string
+                          nome: string
+                          titolo: string
+                          url?: string
+                          mail?: BozzaMail
+                        }[] = []
+                        if (cifre.length >= 8) {
+                          canali.push({
+                            chiave: 'whatsapp',
+                            nome: 'WhatsApp',
+                            url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,
+                            titolo: `Scrivi su WhatsApp, in ${nomeLingua(lingua.lingua)}. Il messaggio non parte da solo.`,
+                          })
+                        }
+                        if (cifre.length >= 6) {
+                          canali.push({
+                            chiave: 'telefono',
+                            nome: 'Chiama',
+                            url: `tel:${numero}`,
+                            titolo: `Chiama il cliente. Parla in ${nomeLingua(lingua.lingua)}.`,
+                          })
+                        }
+                        if (ordine.email) {
+                          // Niente `mailto:`: il pop-up manda dalla casella
+                          // aziendale e la mail resta registrata in Inbox.
+                          canali.push({
+                            chiave: 'email',
+                            nome: 'Email',
+                            titolo: `Scrivi una mail in ${nomeLingua(lingua.lingua)}: si apre il modulo, non parte da sola.`,
+                            mail: {
+                              a: ordine.email,
+                              oggetto: oggettoCliente(lingua.lingua, ordine.numero),
+                              testo,
+                              clienteNome: ordine.clienteNome,
+                              ordineNumero: ordine.numero,
+                            },
+                          })
+                        }
+                        return canali.map((c) =>
+                          c.mail ? (
+                            <button
+                              key={c.chiave}
+                              className="btn btn-secondario small"
+                              onClick={() => onScriviMail?.(c.mail!)}
+                              title={c.titolo}
+                              disabled={!onScriviMail}
+                            >
+                              {c.nome}
+                            </button>
+                          ) : (
+                            <a
+                              key={c.chiave}
+                              className="btn btn-secondario small"
+                              href={c.url}
+                              target={c.chiave === 'telefono' ? undefined : '_blank'}
+                              rel="noopener noreferrer"
+                              title={c.titolo}
+                            >
+                              {c.nome}
+                            </a>
+                          )
+                        )
+                      })()
+                    : null}
+                </div>
+              </div>
+              <div className="riquadro-azioni">
+                <div className="cella-nome">Soldi</div>
+                <div className="azioni-riquadro">
+                  {/* ⚠️⚠️ SPENTO se una richiesta è già aperta su quest'ordine.
+                      Premendolo di nuovo nasceva una richiesta gemella: due righe
+                      per lo stesso ordine, due avvisi a chi paga, e nessuna delle
+                      due che dice che l'altra esiste — cioè il modo in cui si
+                      paga due volte lo stesso fornitore.
+                      ⚠️ Spento, non nascosto: resta lì e porta ALLA richiesta che
+                      c'è già. Un bottone che sparisce fa credere che la funzione
+                      non ci sia. */}
+                  {ordine.pagamentoApertoId ? (
+                    // ⚠️⚠️ NON PIÙ SPENTO, e i bottoni sono DUE. Chiesto
+                    // dall'utente il 26/08/2026: «consenti di emettere due
+                    // pagamenti sullo stesso ordine ma chiedi prima conferma». Un
+                    // ordine può avere due fornitori — i fiori e la torta — o un
+                    // acconto e un saldo, e col bottone spento l'unico modo di
+                    // fare la seconda richiesta era segnare «pagata» la prima:
+                    // cioè scrivere il falso sul registro dei soldi usciti, pur di
+                    // sbloccare un bottone.
+                    // ⚠️ L'avviso non si perde: c'è il segno ⚠️, la pagina
+                    // Pagamenti lo riaccende in cima al modulo con nome e importo
+                    // di quella che c'è già, e la conferma la chiede il
+                    // salvataggio. Qui i bottoni sono due perché nel pannello c'è
+                    // spazio, e «dov'è quella che c'è già?» è una domanda che ci
+                    // si fa con l'ordine aperto davanti.
+                    <>
+                      <a
+                        className="btn btn-secondario small"
+                        href={linkPagamentoOrdine(ordine)}
+                        title={`⚠️ C'è già una richiesta aperta${
+                          ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+                        }. Puoi farne una seconda (due fornitori, o acconto e saldo): te lo chiede prima di salvare.`}
+                      >
+                        Paga fornitore ⚠️
+                      </a>
+                      <a
+                        className="btn btn-secondario small"
+                        href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
+                        title={`Apri la richiesta di pagamento già aperta${
+                          ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+                        }.`}
+                      >
+                        Richiesta aperta ↗
+                      </a>
+                    </>
+                  ) : (
+                    <a className="btn btn-secondario small" href={linkPagamentoOrdine(ordine)}>
+                      Paga fornitore
+                    </a>
+                  )}
+                  {/* ⚠️⚠️ TELEFONO ED EMAIL ci vanno. Da qui mancavano — mentre lo
+                      stesso comando sulla scheda della bacheca li passa — e la
+                      richiesta di rimborso nasceva senza recapiti: la pagina
+                      Rimborsi li legge dall'indirizzo e li mette nel modulo.
+                      Stesso bottone, stesso risultato: se un giorno divergono
+                      ancora, diverge quello che finisce nel modulo. */}
+                  <a
+                    className="btn btn-secondario small"
+                    href={`/rimborsi?${new URLSearchParams({
+                      ordineId: ordine.id,
+                      ordine: ordine.numero,
+                      cliente: ordine.clienteNome,
+                      telefono: ordine.telefono ?? '',
+                      email: ordine.email ?? '',
+                      negozio: ordine.negozioNome,
+                      totale: String(ordine.totale || ''),
+                      pagamento: ordine.statoPagamento ?? '',
+                    }).toString()}`}
+                  >
+                    Chiedi rimborso
+                  </a>
+                </div>
+              </div>
+              <div className="riquadro-azioni">
+                <div className="cella-nome">Documenti</div>
+                <div className="azioni-riquadro">
+                  {/* ── LA FATTURA ──
+                      ⚠️ SEMPRE, in qualunque stato sia l'ordine: il cliente la
+                      chiede quando gli pare — al telefono, tre giorni dopo, a
+                      consegna avvenuta. Legarla allo stato di lavorazione vorrebbe
+                      dire non poterla registrare proprio nel caso più frequente,
+                      cioè a cose fatte. */}
+                  {ordine.id ? (
+                    <RichiediFattura
+                      ordineId={ordine.id}
+                      clienteNome={ordine.clienteNome}
+                      email={ordine.email}
+                    />
+                  ) : null}
+                  <a className="btn btn-secondario small" href={`/reclami?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&telefono=${encodeURIComponent(ordine.telefono)}&email=${encodeURIComponent(ordine.email)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
+                    Apri reclamo
+                  </a>
+                </div>
+              </div>
 
               {/* ── RICONSEGNA ──
                   ⚠️⚠️ Il caso vero: il valet arriva e il destinatario non c'è.
@@ -2467,185 +2730,6 @@ export function DettaglioOrdine({
                   ) : null}
                 </details>
               ) : null}
-
-
-              {/* ── LA FATTURA ──
-                  ⚠️ SEMPRE, in qualunque stato sia l'ordine: il cliente la
-                  chiede quando gli pare — al telefono, tre giorni dopo, a
-                  consegna avvenuta. Legarla allo stato di lavorazione vorrebbe
-                  dire non poterla registrare proprio nel caso più frequente,
-                  cioè a cose fatte. */}
-              {ordine.id ? (
-                <RichiediFattura
-                  ordineId={ordine.id}
-                  clienteNome={ordine.clienteNome}
-                  email={ordine.email}
-                />
-              ) : null}
-
-              {/* TUTTE le azioni dell'ordine stanno qui. Sulla scheda ne sono
-                  rimaste due (Contatta e Gestito): le altre occupavano 97px per
-                  scheda su 237, e con la scheda cliccabile questo è il posto
-                  giusto — ma devono esserci TUTTE, altrimenti spostarle è
-                  togliere funzioni. */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                {/* ⚠️⚠️ SPENTO se una richiesta è già aperta su quest'ordine.
-                    Premendolo di nuovo nasceva una richiesta gemella: due righe
-                    per lo stesso ordine, due avvisi a chi paga, e nessuna delle
-                    due che dice che l'altra esiste — cioè il modo in cui si
-                    paga due volte lo stesso fornitore.
-                    ⚠️ Spento, non nascosto: resta lì e porta ALLA richiesta che
-                    c'è già. Un bottone che sparisce fa credere che la funzione
-                    non ci sia. */}
-                {ordine.pagamentoApertoId ? (
-                  // ⚠️⚠️ NON PIÙ SPENTO, e i bottoni sono DUE. Chiesto
-                  // dall'utente il 26/08/2026: «consenti di emettere due
-                  // pagamenti sullo stesso ordine ma chiedi prima conferma». Un
-                  // ordine può avere due fornitori — i fiori e la torta — o un
-                  // acconto e un saldo, e col bottone spento l'unico modo di
-                  // fare la seconda richiesta era segnare «pagata» la prima:
-                  // cioè scrivere il falso sul registro dei soldi usciti, pur di
-                  // sbloccare un bottone.
-                  // ⚠️ L'avviso non si perde: c'è il segno ⚠️, la pagina
-                  // Pagamenti lo riaccende in cima al modulo con nome e importo
-                  // di quella che c'è già, e la conferma la chiede il
-                  // salvataggio. Qui i bottoni sono due perché nel pannello c'è
-                  // spazio, e «dov'è quella che c'è già?» è una domanda che ci
-                  // si fa con l'ordine aperto davanti.
-                  <>
-                    <a
-                      className="btn btn-secondario small"
-                      href={linkPagamentoOrdine(ordine)}
-                      title={`⚠️ C'è già una richiesta aperta${
-                        ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
-                      }. Puoi farne una seconda (due fornitori, o acconto e saldo): te lo chiede prima di salvare.`}
-                    >
-                      Paga fornitore ⚠️
-                    </a>
-                    <a
-                      className="btn btn-secondario small"
-                      href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
-                      title={`Apri la richiesta di pagamento già aperta${
-                        ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
-                      }.`}
-                    >
-                      Richiesta aperta ↗
-                    </a>
-                  </>
-                ) : (
-                  <a className="btn btn-secondario small" href={linkPagamentoOrdine(ordine)}>
-                    Paga fornitore
-                  </a>
-                )}
-                {/* La scheda del cliente: conversazioni, storico e reclami in un
-                    posto solo. La chiave e email o telefono, mai il nome. */}
-                <a
-                  className="btn btn-secondario small"
-                  href={`/clienti/scheda?email=${encodeURIComponent(ordine.email)}&telefono=${encodeURIComponent(ordine.telefono)}&paese=${encodeURIComponent(ordine.paese)}`}
-                >
-                  Scheda cliente
-                </a>
-                <a className="btn btn-secondario small" href={`/reclami?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&telefono=${encodeURIComponent(ordine.telefono)}&email=${encodeURIComponent(ordine.email)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
-                  Apri reclamo
-                </a>
-                {/* ⚠️⚠️ TELEFONO ED EMAIL ci vanno. Da qui mancavano — mentre lo
-                    stesso comando sulla scheda della bacheca li passa — e la
-                    richiesta di rimborso nasceva senza recapiti: la pagina
-                    Rimborsi li legge dall'indirizzo e li mette nel modulo.
-                    Stesso bottone, stesso risultato: se un giorno divergono
-                    ancora, diverge quello che finisce nel modulo. */}
-                <a
-                  className="btn btn-secondario small"
-                  href={`/rimborsi?${new URLSearchParams({
-                    ordineId: ordine.id,
-                    ordine: ordine.numero,
-                    cliente: ordine.clienteNome,
-                    telefono: ordine.telefono ?? '',
-                    email: ordine.email ?? '',
-                    negozio: ordine.negozioNome,
-                    totale: String(ordine.totale || ''),
-                    pagamento: ordine.statoPagamento ?? '',
-                  }).toString()}`}
-                >
-                  Chiedi rimborso
-                </a>
-                {/* Un bottone per ogni canale che questo cliente ha davvero.
-                    Sceglie chi sta lavorando l'ordine: a chi ha appena scritto
-                    una mail si risponde per mail, un ritardo grave si dice al
-                    telefono. Il messaggio è già nella sua lingua e non parte da
-                    solo; la telefonata, ovviamente, non porta nessun testo. */}
-                {lingua
-                  ? (() => {
-                      const testo = messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero)
-                      // ⚠️ Per WhatsApp serve il prefisso internazionale (vedi whatsapp-link.ts).
-                      const cifre = numeroWhatsApp(ordine.telefono)
-                      const numero = ordine.telefono.replace(/[^\d+]/g, '')
-                      const canali: {
-                        chiave: string
-                        nome: string
-                        titolo: string
-                        url?: string
-                        mail?: BozzaMail
-                      }[] = []
-                      if (cifre.length >= 8) {
-                        canali.push({
-                          chiave: 'whatsapp',
-                          nome: 'WhatsApp',
-                          url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,
-                          titolo: `Scrivi su WhatsApp, in ${nomeLingua(lingua.lingua)}. Il messaggio non parte da solo.`,
-                        })
-                      }
-                      if (cifre.length >= 6) {
-                        canali.push({
-                          chiave: 'telefono',
-                          nome: 'Chiama',
-                          url: `tel:${numero}`,
-                          titolo: `Chiama il cliente. Parla in ${nomeLingua(lingua.lingua)}.`,
-                        })
-                      }
-                      if (ordine.email) {
-                        // Niente `mailto:`: il pop-up manda dalla casella
-                        // aziendale e la mail resta registrata in Inbox.
-                        canali.push({
-                          chiave: 'email',
-                          nome: 'Email',
-                          titolo: `Scrivi una mail in ${nomeLingua(lingua.lingua)}: si apre il modulo, non parte da sola.`,
-                          mail: {
-                            a: ordine.email,
-                            oggetto: oggettoCliente(lingua.lingua, ordine.numero),
-                            testo,
-                            clienteNome: ordine.clienteNome,
-                            ordineNumero: ordine.numero,
-                          },
-                        })
-                      }
-                      return canali.map((c) =>
-                        c.mail ? (
-                          <button
-                            key={c.chiave}
-                            className="btn btn-secondario small"
-                            onClick={() => onScriviMail?.(c.mail!)}
-                            title={c.titolo}
-                            disabled={!onScriviMail}
-                          >
-                            {c.nome}
-                          </button>
-                        ) : (
-                          <a
-                            key={c.chiave}
-                            className="btn btn-secondario small"
-                            href={c.url}
-                            target={c.chiave === 'telefono' ? undefined : '_blank'}
-                            rel="noopener noreferrer"
-                            title={c.titolo}
-                          >
-                            {c.nome}
-                          </a>
-                        )
-                      )
-                    })()
-                  : null}
-              </div>
             </div>
             </div>
           </div>

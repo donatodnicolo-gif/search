@@ -181,7 +181,10 @@ export function RichiediFattura({
   }
 
   return (
-    <div className="card" style={{ padding: 10, marginTop: 12 }}>
+    // Dal 06/09/2026 (Libro §9-ter) sta dentro il riquadro «Documenti» della
+    // scheda ordine: è il suo contenuto, non una card dentro la card (vedi
+    // `.riquadro-azioni .card` in globals.css).
+    <div className="card" style={{ padding: 0, marginTop: 0 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <div className="cella-nome" style={{ flex: 1 }}>
           Fattura
