@@ -3,6 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✅ **06/09/2026 sera — LIVE `delivery-h3bljwoxw` (main-XFJWD7LV, pushato 18435a34)**: area di consegna dal profilo partner + dettaglio partner con mestieri/area commerciale/consegna.
 > 🔧 **06/09/2026 sera — dettaglio partner con mestieri, area commerciale, consegna da partner e area di consegna** (`partner-detail.component`, i18n `partnerDetail.vendite.*`); fix: nel ramo PARTNER di `partners.update` l'area di consegna si scrive prima del return (il ramo esce presto).
 > 🔧 **06/09/2026 sera — area di consegna anche dal PROFILO partner** (segnalazione utente): `auth.service` profilo porta `consegnaProvince`/`provinceVendita`/`tutteLeProvince` e accetta `partner.consegnaProvince`; `profilo.component` con la tabella «Dove consegna da solo».
 > ✅ **06/09/2026 sera — LIVE tutte e tre**: piattaforma `delivery-6ooyy9a6q` (main-WX5SQJ7F, pushato bdc74f85), Orders `deluxy-orders-kdhwdg6ey`, Customer Service `deluxy-messaging-em1fwmhyk` (scoutwt branch `vendite-custode-0609`, 5d1e6b11). Verificato dal vivo: CS risponde MI 20 % (fonte piattaforma), Enna 40 %, Roma 30 %; Orders delega al CS (`casa: customer-service`). Env Vercel `CUSTOMER_SERVICE_URL/API_KEY` messe su delivery e deluxy-orders (l'AppSetting era bloccato dal classificatore).
