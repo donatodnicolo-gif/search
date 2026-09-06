@@ -148,7 +148,7 @@ interface ProductRow {
             @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
-            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" (blur)="normalizzaIndirizzo('consegna')" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" (input)="indirizzoDigitato('consegna')" (blur)="normalizzaIndirizzo('consegna')" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             <!-- 02/09 (regola utente): il partner salva solo indirizzi «da
                  Google» con città e provincia — senza, il Salva resta spento. -->
             @if (isPartner() && model.recipientAddress && !indirizzoConsegnaOk()) {
@@ -231,7 +231,7 @@ interface ProductRow {
              partner. -->
         <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
           <input #pickupInput class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
-                 (blur)="normalizzaIndirizzo('ritiro')" autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
+                 (input)="indirizzoDigitato('ritiro')" (blur)="normalizzaIndirizzo('ritiro')" autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
           @if (isPartner() && (model.pickupAddress ?? '').trim() && !indirizzoRitiroOk()) {
             <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
           }</label>
@@ -2244,6 +2244,8 @@ export class DeliveryFormComponent implements AfterViewInit {
                 const place = this.autocompleteRitiro.getPlace();
                 this.zone.run(() => {
                   this.ultimaSceltaGoogle = Date.now();
+                  this.indirizzoDaGoogle.ritiro = true;
+                  this.indirizzoToccato.ritiro = false;
                   const testo = place?.formatted_address || ritiro.value || '';
                   this.model.pickupAddress = this.pulisciIndirizzo(testo);
                   this.aggiornaPreventivo();
@@ -2280,7 +2282,23 @@ export class DeliveryFormComponent implements AfterViewInit {
    * (e per il partner resta l'avviso col Salva spento).
    */
   private ultimaSceltaGoogle = 0;
+  /**
+   * ⭐ 06/09/2026 (regola utente): «se l'indirizzo è stato scelto da Google è
+   * ok; in modifica o duplica, se il campo non viene toccato, NON fare la
+   * chiamata a Google: falla solo se si prova a modificarlo». Prima ogni uscita
+   * dal campo — anche solo passandoci col tab su una consegna esistente —
+   * rimandava l'indirizzo salvato a Google e lo riscriveva col primo risultato.
+   * Ora si distingue: toccato a mano (si digita) → al blur si normalizza;
+   * scelto da Google o mai toccato → si lascia com'è.
+   */
+  private indirizzoToccato = { consegna: false, ritiro: false };
+  private indirizzoDaGoogle = { consegna: false, ritiro: false };
+  indirizzoDigitato(campo: 'consegna' | 'ritiro'): void {
+    this.indirizzoToccato[campo] = true;
+    this.indirizzoDaGoogle[campo] = false;
+  }
   normalizzaIndirizzo(campo: 'consegna' | 'ritiro'): void {
+    if (!this.indirizzoToccato[campo] || this.indirizzoDaGoogle[campo]) return;
     setTimeout(() => {
       // Un suggerimento appena scelto NON si sovrascrive: il click sul menu
       // di Google fa blur prima di place_changed.
@@ -2307,6 +2325,8 @@ export class DeliveryFormComponent implements AfterViewInit {
   private onPlaceSelected(place: any): void {
     if (!place) return;
     this.ultimaSceltaGoogle = Date.now();
+    this.indirizzoDaGoogle.consegna = true;
+    this.indirizzoToccato.consegna = false;
     const grezzo = place.formatted_address || this.addressInput?.nativeElement.value || '';
     const address = this.pulisciIndirizzo(grezzo);
     this.model.recipientAddress = address;
