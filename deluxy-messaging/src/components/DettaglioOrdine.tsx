@@ -1177,12 +1177,30 @@ export function DettaglioOrdine({
             ) : null}
             {ordine && ordine.id && !ordine.annullatoIl ? (
               <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* ⚠️ TRE STATI A VISTA, sempre (utente, 06/09/2026: «non vedo
+                    più lo stato conforme o meno»): con la salute vuota qui non
+                    compariva niente, e niente si legge come «tutto bene» — mentre
+                    voleva dire che Orders non aveva risposto. */}
                 {ordine.salute === 'conforme' ? (
                   <span className="badge" title="La salute della vendita secondo Deluxy Orders">
                     <span className="dot" />
                     conforme
                   </span>
-                ) : null}
+                ) : ordine.salute ? (
+                  <span className="badge rosso" title={`Su Deluxy Orders: ${nomeSalute(ordine.salute)}. ${percheSalute(ordine.salute)}`}>
+                    <span className="dot" />
+                    {nomeSalute(ordine.salute)}
+                  </span>
+                ) : (
+                  <span
+                    className="badge"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    title={`Non ho potuto chiedere la salute a Deluxy Orders: ${ordine.saluteNota || 'nessuna risposta'}`}
+                  >
+                    <span className="dot" />
+                    salute non chiesta{ordine.saluteNota ? ` · ${ordine.saluteNota}` : ''}
+                  </span>
+                )}
               </div>
             ) : null}
             {/* ── ANNULLATO: si urla in testa, non si annota in fondo ──

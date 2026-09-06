@@ -1,5 +1,26 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (55) — La salute di Orders in testata, in TRE stati
+
+Utente: «non vedo neanche più lo stato di un ordine che arriva da app Orders
+(conforme o meno)». Misurato in locale: `saluteDaOrders` risponde «conforme»
+per #2876/#2873/#1836 in 1-1,5 s e il DTO porta `salute: 'conforme'`; la
+bacheca non ha mai mostrato la salute (solo la scheda). Il buco vero: con la
+salute VUOTA (Orders non risponde, chiave assente, timeout) la testata non
+mostrava NIENTE — il badge «conforme» era l'unico previsto — e «niente» si
+legge come «va bene». Ora la testata dice sempre uno di tre: «conforme»
+(verde), il nome della non conformità (rosso, col perché nel title), o «salute
+non chiesta · motivo» (grigio). Il motivo viene da `saluteNota`. Se in
+produzione compare il grigio, il problema è la chiamata a Orders dal server di
+Vercel (`ORDERS_URL`/`ORDERS_API_KEY` o le Impostazioni), non la scheda.
+
+Il «TR» di #2876: è il campo PAESE dell'indirizzo di spedizione su Shopify
+(ISO «TR» = Turchia), scelto dal cliente turco; la città è Torino e il CAP
+10125. Per un paese non italiano Shopify non chiede la provincia, per questo
+arrivava vuota. La (54) la ricava dalla città.
+
+**Verifica**: `tsc` 0. **Stato**: in locale.
+
 ## 06/09/2026 (54) — 🔴 La piattaforma in produzione è TORNATA INDIETRO; la consegna agganciata si vede comunque; provincia dalla città
 
 **Utente**: «il caricamento in app di un ordine non mi fa vedere poi nel pop-up
