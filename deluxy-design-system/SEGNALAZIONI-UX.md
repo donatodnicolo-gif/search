@@ -742,3 +742,54 @@ messaggi; nessun elemento interattivo < 44px; nessuna azione persa.*
 i 900 del Libro §2: deroga non scritta, ora annotata nel README del CS.
 
 STATO: in locale, committato, in attesa del collaudo dell'utente sul telefono.
+
+
+## 06/09/2026 (10) — Customer Service: la scheda ordine aveva 42 comandi in 8 punti (segnalazione dell'utente, screenshot)
+
+**Segnalazione**: «ci sono troppi bottoni sparsi e con azioni diversi, unifica in
+tutto il pop-up e semplifica». Misurato dall'architetto: 42 comandi cliccabili in
+8 zone; tre API di bottone che convivono (`.btn`, `.btn.small`, `.bottone.mini`);
+«Riconsegna» e «Unisci ordini» sia in testata sia come riquadri a fisarmonica in
+colonna destra; tre bottoni neri a riposo (Copia biglietto, Copia messaggio,
+Registra); una nuvola di 9 pillole senza titolo né famiglia in fondo alla colonna
+destra.
+
+**Decisione (regola nuova del Libro, §9-ter v2.1, applicata)**: tre zone —
+testata con ≤ 2 pillole [Manda in app] [Apri in Shopify ↗] + «⋯» (Unisci un altro
+ordine…, Riconsegna… → `vaiAlRiquadro`) + ✕; riquadri per famiglia con ≤ 3 pillole
+per riga e l'azione sul riquadro intero a destra del titolo («Copia» del
+biglietto e del messaggio, «Registra il fornitore», «Scheda cliente ↗», «Apri in
+Inbox»); Lavorazione coi passi (corrente pieno, unico nero a riposo) e sotto i
+regolatori (manuale/automatico, badge Orders) spostati dalla testata; tre
+riquadri nuovi «Cliente» [WhatsApp][Chiama][Email], «Soldi» [Paga
+fornitore][Chiedi rimborso], «Documenti» [Richiedi fattura][Apri reclamo]; i due
+`<details>` Riconsegna/Unisci restano in fondo con l'auto-apertura. Nessuna
+azione tolta, nessun handler cambiato.
+
+**Collaterali da decidere (non applicati)**: (a) l'API `.btn` del CS è invertita
+rispetto a §3 (nudo = nero): oggi si aggiunge `btn-secondario small` dove serve;
+l'inversione (51 `.btn` nudi) resta in Appendice B P2. (b) `.btn.small` ≈ 25px e
+`.bottone.mini` ≈ 21px sotto i 32px di §10: portare `.btn.small` a 7-8px di
+padding verticale cambia 165 pillole in tutta l'app — segnalazione separata.
+(c) fascia «Fornitori in provincia»: 4-6 pillole per riga, vale il ≤ 3 — giro
+successivo.
+
+STATO: in locale, in attesa del collaudo dell'utente.
+
+## 06/09/2026 (11) — Customer Service: due difetti della chat sul desktop (segnalazioni dell'utente, screenshot)
+
+**(a) Composer coi bottoni «a uovo»**: dopo l'invio di un messaggio di quattro
+righe il campo restava alto 120px (l'altezza dell'autocrescita è uno stile
+inline che nessuno azzerava) e i bottoni accanto — figli diretti del flex senza
+`align-items` — si stiravano a ovali alti quanto il campo. Correzione locale:
+`align-items: flex-end` sul composer desktop e altezza azzerata quando la bozza
+si svuota. Regola già nel Libro (§10: il campo che cresce fino a 5 righe torna a
+una riga quando è vuoto — da esplicitare al prossimo bump).
+
+**(b) Riassunto AI senza ✕**: il riquadro del riassunto si chiudeva solo
+ripremendo «Riassunto» nella testata. Aggiunta la ✕ (§9: ogni riquadro che si
+apre si chiude anche da lì). Contestuale: il modello scriveva la parola «vuoto»
+nei campi mancanti e a schermo compariva LUOGO «vuoto» come dato — scartato lato
+server (non è UI, ma è la stessa segnalazione).
+
+STATO: in locale, committato.
