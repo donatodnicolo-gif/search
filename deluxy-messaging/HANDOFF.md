@@ -28,6 +28,8 @@ Verificato dopo: **6 su 6** — consegne #101070–#101075, tutte `delivered`,
 Artista Locale, DDT Flowers, un prodotto ciascuna, ritiro un'ora prima; nel CS
 tutte «Gestito» con la consegna agganciata.
 
+⚠️ **#2826 e #2845**: la VENDITA di là era già intestata a un partner (Negozio Fiori Cannavo, Montenero In Fiore) — **decisione dell'utente: si lascia com'era**, anche se la consegna è di Artista Locale. Il tentativo di allinearle era stato bloccato dal classificatore: verificato che non è cambiato niente. **#2871**: la consegna c'è (#101075) ma la vendita in piattaforma no (Orders non l'ha mai smistata): la crea l'utente da Orders o dalla piattaforma, poi da qui si aggancia e si accetta col canale app.
+
 Da fare (detto all'utente): la stessa regola nella sync del CS, così un
 pagamento in app senza consegna in piattaforma la crea da solo al giro dopo.
 
