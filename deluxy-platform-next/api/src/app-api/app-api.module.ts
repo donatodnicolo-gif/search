@@ -1171,7 +1171,7 @@ export class AppApiService {
       where: { status: 'accettata', ...(provincia ? { provinceId: provincia.id } : {}) },
       select: {
         productId: true, productVariantId: true, provinceId: true, partnerId: true, partnerPrice: true, price: true, discountPercent: true, updatedAt: true, salesCount: true,
-        product: { select: { name: true, sku: true, publicPrice: true, price: true, category: { select: { name: true, mestiere: { select: { nome: true } } } } } },
+        product: { select: { name: true, sku: true, publicPrice: true, price: true, tipologiaVendita: true, category: { select: { name: true, mestiere: { select: { nome: true } } } } } },
         variant: { select: { name: true, sku: true, publicPrice: true } },
       },
     });
@@ -1183,7 +1183,7 @@ export class AppApiService {
     const unici = await this.prisma.product.findMany({
       where: { type: 'UNICO', active: true, deletedAt: null, partnerId: { not: null }, partner: vivo, ...(provincia ? { partner: { ...vivo, provinces: { some: { provinceId: provincia.id } } } } : {}) },
       select: {
-        id: true, name: true, sku: true, price: true, publicPrice: true, updatedAt: true,
+        id: true, name: true, sku: true, price: true, publicPrice: true, updatedAt: true, tipologiaVendita: true,
         partner: { select: { id: true, insegna: true, provinces: { select: { province: { select: { code: true } } } } } },
         category: { select: { name: true, mestiere: { select: { nome: true } } } },
         variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
@@ -1199,6 +1199,7 @@ export class AppApiService {
         origine: 'riconciliazione', prodottoId: r.productId, prodotto: r.product.name, sku: r.variant?.sku ?? r.product.sku ?? null,
         varianteId: r.productVariantId ?? null, variante: r.variant?.name ?? '',
         categoria: r.product.category?.name ?? null, mestiere: r.product.category?.mestiere?.nome ?? null,
+        tipologia: r.product.tipologiaVendita ?? null,
         provincia: siglePerProvincia.get(r.provinceId) ?? null, partnerId: r.partnerId, partner: insegna,
         prezzoPartner: r.partnerPrice ?? Math.round(r.price * (1 - r.discountPercent / 100) * 100) / 100,
         pubblico: r.variant?.publicPrice ?? r.product.publicPrice ?? r.product.price ?? null,
@@ -1214,6 +1215,7 @@ export class AppApiService {
           origine: 'unico', prodottoId: u.id, prodotto: u.name, sku: v?.sku ?? u.sku ?? null,
           varianteId: v?.id ?? null, variante: v?.name ?? '',
           categoria: u.category?.name ?? null, mestiere: u.category?.mestiere?.nome ?? null,
+          tipologia: u.tipologiaVendita ?? 'unico',
           provincia: provincia?.code ?? null, province,
           partnerId: u.partner.id, partner: u.partner.insegna,
           prezzoPartner: v?.price ?? u.price, pubblico: v?.publicPrice ?? u.publicPrice ?? null,
@@ -1348,6 +1350,9 @@ export class AppApiService {
       price: true,
       publicPrice: true,
       type: true,
+      // 06/09 sera: la tipologia di vendita serve al Customer Service per sapere se un
+      // prodotto va a preventivo prima di proporlo.
+      tipologiaVendita: true,
       partnerId: true,
       partner: { select: { insegna: true } },
     } as const;

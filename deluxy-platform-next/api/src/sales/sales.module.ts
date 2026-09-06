@@ -460,7 +460,16 @@ export class SalesService {
     const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true, mestiere: { select: { nome: true, smistamentoAutomatico: true } } } }) : null;
     // Col mestiere assegnato decide il SUO interruttore «smistamento automatico» (oggi acceso solo su Fiorista); senza, il vecchio criterio sul nome.
     const automatico = categoria?.mestiere ? categoria.mestiere.smistamentoAutomatico : SalesService.categoriaFiori(categoria?.name);
-    const bloccoGrezzo = product.type !== ProductType.UNICO && !automatico
+    // ⭐ 06/09/2026 sera (regola utente): «i prodotti a preventivo richiedono il preventivo a
+    // tutti i partner che fanno quel mestiere: prima di poter accettare la vendita, il
+    // Customer Service deve inserire il preventivo dato dal partner». Quindi un prodotto a
+    // PREVENTIVO non si smista mai da solo, nemmeno se il mestiere è automatico e nemmeno se
+    // in provincia c'è un partner solo: senza un prezzo concordato non c'è una proposta, c'è
+    // un'ipotesi. Il preventivo lo raccoglie il Customer Service e resta scritto lì.
+    const aPreventivo = (product as any).tipologiaVendita === 'preventivo';
+    const bloccoGrezzo = aPreventivo
+      ? 'prodotto a preventivo: serve prima il preventivo del partner (lo raccoglie il Customer Service)'
+      : product.type !== ProductType.UNICO && !automatico
       ? `prodotto non unico di un mestiere senza smistamento automatico (${categoria?.mestiere?.nome ?? categoria?.name ?? 'senza categoria'}): si gestisce a mano`
       : null;
     // ⭐ 06/09/2026 sera (regola utente): «in vendita, se non c'è più di un partner per
@@ -469,7 +478,7 @@ export class SalesService {
     // serviva a non far scegliere alla macchina fra più fornitori. La vendita nasce
     // PROPOSTA a lui e la accetta (o la rifiuta) lui, come tutte le altre.
     // Si conta in SOLA LETTURA: chiedere quanti sono non deve creare una lista di priorità.
-    const unSoloPartner = bloccoGrezzo
+    const unSoloPartner = bloccoGrezzo && !aPreventivo
       ? (await this.candidati(product, body.provinceId, finestra.variantId ?? null, true)).length === 1
       : false;
     const bloccoNonUnico = bloccoGrezzo && !unSoloPartner ? bloccoGrezzo : null;
