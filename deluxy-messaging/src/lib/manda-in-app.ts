@@ -89,9 +89,10 @@ export function unOraPrima(hhmm: string): string {
  */
 export function marchioDdt(negozioNome: string): string {
   const n = (negozioNome ?? '').toLowerCase()
+  // «Business» prima di «flower»: il negozio B2B si chiama «Deluxy Flowers for Business».
+  if (/business|b2b/.test(n)) return 'Business'
   if (/flower/.test(n)) return 'Flowers'
   if (/cake/.test(n)) return 'cakedesign.me'
-  if (/business|b2b/.test(n)) return 'Business'
   if (/deluxy/.test(n)) return 'deluxy.it'
   return negozioNome ?? ''
 }
