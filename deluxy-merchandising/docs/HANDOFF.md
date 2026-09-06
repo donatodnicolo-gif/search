@@ -131,9 +131,35 @@ venduto su Flowers/Cake e Gifts (voluto); 59 coppie con titoli diversi, quasi
 tutte rinomine («Cuore» ↔ «Cream Tart - I love U», «007» ↔ «Bouquet - James
 Bond»). Niente scritto: è una verifica.
 
+✅ **SKU RESI UNICI (chiesto dall'utente: «ogni prodotto o variante deve avere
+una sku unica», con la precisazione «un prodotto pubblicato su più piattaforme
+condivide la stessa sku»).** Regola applicata: **unico dentro ogni negozio**,
+fra prodotti e fra varianti dello stesso prodotto; **lo stesso prodotto su due
+negozi tiene lo stesso SKU**. `scripts/sku-unici.ts` (prova a secco, poi
+`--applica`; piano prima/dopo in `docs/sku-unici-2026-09-06.md`). Chi tiene lo
+SKU: ACTIVE > DRAFT > ARCHIVED, a parità il più vecchio; chi perde riceve un
+codice nuovo di 7 cifre (`-N` per variante); fra varianti dello stesso
+prodotto la prima tiene e le altre continuano la base. **Terzo passo**: le 95
+varianti di Gifts a cui la mattina avevo dato SKU diversi dal gemello su
+Flowers (`-11…-15` contro `-6…-10`) sono tornate allo SKU di origine; 4 no
+(Cappelliera Munch: numerazione Si/No invertita fra i due negozi, lo SKU di
+Flowers è già su un'altra variante dello stesso prodotto Gifts); **193
+differenze storiche** fra gemelli (stesso handle e titolo di variante, SKU
+diverso da prima di oggi) **lasciate come sono** — da decidere se allineare
+anche quelle. Scritto in due riprese (la prima esecuzione è morta a metà di
+Flowers senza lasciare il piano: ora il piano si scrive PRIMA di toccare i
+negozi, e ogni prodotto è in try/catch): **Cake 23 + Flowers 38 + Gifts 129 =
+190 prodotti, 734 varianti, 0 errori**. Ricontrollo (`sku-duplicati.ts`): **0
+duplicati in tutti e tre i negozi**; fra negozi 3.494 SKU condivisi = gemelli.
+Database: 308 + 26 varianti aggiornate; **restano 68 varianti ACTIVE senza
+sku** = schede doppie qui che puntano allo stesso prodotto Shopify (le otto
+«Sacher»…): si chiudono solo con la Riconciliazione.
+
 **Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
-dell'utente) e controllo della riga di Gifts la notte dopo; decidere cosa fare
-dei 4 doppioni attivi su Flowers e degli SKU ripetuti fra varianti; decidere se
+dell'utente) e controllo della riga di Gifts la notte dopo; i 4 prodotti
+pubblicati due volte su Flowers (handle `-1`) ora hanno SKU propri ma restano
+due schede uguali per il cliente: da spegnerne una; decidere se allineare le
+193 differenze storiche fra gemelli; decidere se
 allargare le 10 varianti (con gli SKU ora completi sul negozio, è l'unico
 motivo per cui il database non li ha tutti); correggere lo slittamento delle rotazioni (Fiori
 dovuta l'08/09); il collaudo del modulo prodotto su Cake resta da fare (vedi
