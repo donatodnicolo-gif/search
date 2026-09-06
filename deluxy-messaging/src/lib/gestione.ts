@@ -22,6 +22,16 @@ export const GESTIONI = [
   // mano, si INTERROMPE (bottone sulla scheda), altrimenti si lavora in due
   // sullo stesso ordine senza saperlo.
   { chiave: 'in_app', nome: 'In App', colore: '#5856d6' },
+  // ⚠️ «Non consegnata» (utente, 06/09/2026): la consegna in piattaforma NON è
+  // riuscita e l'ordine torna fra gli APERTI, perché il Customer Service deve
+  // organizzarne un'altra. Lo mette la sincronizzazione quando di là la
+  // consegna passa a «not_delivered», o una persona a mano. Non è chiusura.
+  { chiave: 'non_consegnata', nome: 'Non consegnata', colore: '#b3261e' },
+  // ⚠️ «Non consegnata» (utente, 06/09/2026): la consegna in piattaforma NON è
+  // riuscita e l'ordine torna fra gli APERTI, perché il Customer Service deve
+  // organizzarne un'altra. Lo mette la sincronizzazione quando di là la
+  // consegna passa a «not_delivered», o una persona a mano. Non è chiusura.
+  { chiave: 'non_consegnata', nome: 'Non consegnata', colore: '#b3261e' },
   // ⚠️ `comunicazione` NON si toglie anche se non è fra i quattro passi: lo
   // scrive da sola l'app quando scrivi al cliente (WhatsApp, Email, Chiama), e
   // toglierlo dal vocabolario farebbe comparire uno stato senza nome sugli
@@ -66,6 +76,10 @@ export const PASSI = [
   // lavoro su una consegna che non esiste: per questo il riquadro sulla scheda
   // dice sempre SE la consegna c'è (numero e stato) o se c'è solo l'etichetta.
   'in_app',
+  // ⚠️ «NON CONSEGNATA» (06/09/2026): la consegna di là non è riuscita e
+  // l'ordine è di nuovo nostro. Sta DOPO «In App» perché viene da lì, ed è un
+  // passo aperto: da qui si organizza un'altra consegna (anche di nuovo in app).
+  'non_consegnata',
 ] as const
 
 /** Lo stato che chiude l'ordine: uno solo, e tenuto separato apposta. */

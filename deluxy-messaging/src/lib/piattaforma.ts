@@ -329,6 +329,22 @@ export async function creaConsegnaInPiattaforma(
 }
 
 /**
+ * SEGNA CONSEGNATA una consegna della piattaforma (utente, 06/09/2026: quando
+ * il CS mette «Gestito», chiede se chiudere anche la consegna di là). Passa
+ * dalla rotta `POST /app/consegne/:id/consegnata` — lo stato è suo, e resta
+ * scritto chi l'ha chiesto. Idempotente; le annullate sono rifiutate di là.
+ */
+export async function segnaConsegnataInPiattaforma(
+  idConsegna: string,
+  consegnataIl?: string
+): Promise<EsitoPiattaforma<ConsegnaCreata>> {
+  return scrivi<ConsegnaCreata>(
+    `/api/v1/app/consegne/${encodeURIComponent(idConsegna)}/consegnata`,
+    consegnataIl ? { consegnataIl } : {}
+  )
+}
+
+/**
  * Dice alla piattaforma che la vendita è andata in consegna: di là passa in
  * storico (accettata).
  *
@@ -375,7 +391,19 @@ export type ConsegnaDdt = {
  * Le consegne della piattaforma con un certo numero DDT (= numero d'ordine):
  * serve per NON crearne una seconda. Vuoto = non c'è.
  */
-export async function consegnePerDdt(ddt: string): Promise<EsitoPiattaforma<{ consegne: ConsegnaDdt[] }>> {
+/**
+ * @param marchio Il marchio del DDT atteso (Flowers, cakedesign.me, deluxy.it,
+ *   Business): ⚠️ IL NUMERO DA SOLO NON IDENTIFICA UN ORDINE — ogni negozio ha
+ *   la sua numerazione, e il #1834 di Cake mostrava la consegna del #1834 di
+ *   Flowers (utente, 06/09/2026). Una riga col marchio diverso si scarta; senza
+ *   marchio di là (consegne vecchie) si tiene, e a schermo si può scollegare.
+ * @param escluse Id di consegne scollegate a mano dalla scheda: non tornano.
+ */
+export async function consegnePerDdt(
+  ddt: string,
+  marchio?: string,
+  escluse: string[] = []
+): Promise<EsitoPiattaforma<{ consegne: ConsegnaDdt[] }>> {
   const p = new URLSearchParams({ ddt: ddt.replace(/^#/, '').trim(), limit: '5' })
   const r = await chiama<{ consegne?: Record<string, unknown>[] } | Record<string, unknown>[]>(
     `/api/v1/app/consegne?${p.toString()}`
@@ -402,7 +430,22 @@ export async function consegnePerDdt(ddt: string): Promise<EsitoPiattaforma<{ co
     // ⚠️ Si RICONTROLLA il DDT: una piattaforma vecchia che ignora `?ddt=`
     // tornerebbe le ultime 5 consegne di chiunque, e «esiste già» sarebbe falso.
     .filter((c) => (c.ddtNumero ?? '').replace(/^#/, '') === ddt.replace(/^#/, '').trim())
+    .filter((c) => !marchio || !c.ddtBrand || stessoMarchio(c.ddtBrand, marchio))
+    .filter((c) => !escluse.includes(c.id))
   return { stato: 'ok', dati: { consegne } }
+}
+
+/** «Flowers» = «flowers» = «Deluxy Flowers»; «cakedesign.me» = «Cake». */
+export function stessoMarchio(a: string, b: string): boolean {
+  const n = (s: string) => {
+    const t = s.toLowerCase()
+    if (/business|b2b/.test(t)) return 'business'
+    if (/flower/.test(t)) return 'flowers'
+    if (/cake/.test(t)) return 'cake'
+    if (/deluxy/.test(t)) return 'deluxy'
+    return t.trim()
+  }
+  return n(a) === n(b)
 }
 
 export async function consegneAggiornate(

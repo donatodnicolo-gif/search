@@ -155,7 +155,13 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
         : '',
       ddtNumber: (o.numero ?? '').replace(/^#/, ''),
       ddtBrand: marchioDdt(o.negozioNome ?? ''),
-      riferimentoEsterno: o.ordersId ?? o.id,
+      // ⚠️ Il riferimento rende la creazione IDEMPOTENTE di là: dopo una
+      // consegna NON riuscita bisogna cambiarlo, o la piattaforma risponderebbe
+      // con la vecchia consegna invece di crearne una nuova.
+      riferimentoEsterno:
+        o.appConsegnaId && (o.appConsegnaStato === 'not_delivered' || o.gestione === 'non_consegnata')
+          ? `${o.ordersId || o.id}-r${Date.now().toString(36)}`
+          : (o.ordersId ?? o.id),
     },
   }
 

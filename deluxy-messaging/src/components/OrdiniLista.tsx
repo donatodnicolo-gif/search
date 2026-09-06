@@ -27,6 +27,7 @@ import { segnaliOrdine } from '@/lib/segnali-ordine'
 import { fornitoreAtteso } from '@/lib/fornitore-ordine'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import { Conferma } from './Conferma'
+import { nomeStatoConsegna } from '@/lib/piattaforma-stati'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
 type OrdineDto = {
@@ -57,6 +58,9 @@ type OrdineDto = {
   // segnati prima di questa modifica: si parte da adesso, non si indovina.
   gestioneDaNome: string
   gestioneIl: string | null
+  /** La consegna nella piattaforma agganciata a quest'ordine, e il suo stato copiato. */
+  appConsegnaId?: string
+  appConsegnaStato?: string
   clienteTipo: string
   clienteTipoDa: string
   // Che numero ha questo ordine per quel cliente (1 = il suo primo), contato da
@@ -1031,6 +1035,27 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [dettaglioConInApp, setDettaglioConInApp] = useState(false)
   /** L'ordine per cui si sta chiedendo «inserirlo in piattaforma?» (null = nessuno). */
   const [chiediInAppPer, setChiediInAppPer] = useState<{ id: string; numero: string } | null>(null)
+  /**
+   * «Gestito» sulla scheda di un ordine con una consegna di là ancora aperta:
+   * si chiede se segnarla consegnata anche nella piattaforma (utente, 06/09/2026).
+   */
+  const [chiediConsegnataPer, setChiediConsegnataPer] = useState<OrdineDto | null>(null)
+  const [segnandoConsegnata, setSegnandoConsegnata] = useState(false)
+  const consegnaApertaDiLa = (o: OrdineDto) =>
+    Boolean(o.appConsegnaId) && !['delivered', 'cancelled', 'not_delivered', ''].includes(o.appConsegnaStato ?? '')
+
+  /**
+   * I NUOVI SEMPRE IN CIMA (utente, 06/09/2026: «gli ordini nuovi vanno sempre
+   * riportati in cima, sempre in ordine per i più urgenti»). Il server ordina
+   * per urgenza; qui si tira su chi è appena arrivato, tenendo fra loro
+   * l'ordine di urgenza (partizione stabile), e sotto tutti gli altri come
+   * prima. Un ordine entrato mentre lavori non deve finire in fondo alla
+   * colonna solo perché la consegna è fra tre giorni.
+   */
+  function nuoviInCima(lista: OrdineDto[]): OrdineDto[] {
+    const nuovo = (o: OrdineDto) => arrivatoAdesso(o.creatoIl, sessioneDa) || appenaArrivato(o.creatoIl, adesso)
+    return [...lista.filter(nuovo), ...lista.filter((o) => !nuovo(o))]
+  }
   /** La scheda si apre da sola una volta sola: vedi `carica()`. */
   const apertaDaLink = useRef(false)
   // L'ordine dell'ARCHIVIO aperto nel pannello (null = nessuno). Sta a parte
@@ -1865,7 +1890,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           {negozi
             .filter((n) => !negozio || n.id === negozio)
             .map((n) => {
-              const suoi = ordini.filter((o) => o.negozioId === n.id)
+              const suoi = nuoviInCima(ordini.filter((o) => o.negozioId === n.id))
               return (
                 <div className="colonna" key={n.id}>
                   <div className="colonna-testata">
@@ -2165,9 +2190,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               className={
                                 o.gestione === CHIUSURA ? 'bottone mini verde' : 'bottone secondario mini'
                               }
-                              onClick={() =>
-                                segna(o.id, o.gestione === CHIUSURA ? 'da_gestire' : CHIUSURA)
-                              }
+                              onClick={() => {
+                                if (o.gestione === CHIUSURA) {
+                                  void segna(o.id, 'da_gestire')
+                                  return
+                                }
+                                if (consegnaApertaDiLa(o)) {
+                                  setChiediConsegnataPer(o)
+                                  return
+                                }
+                                void segna(o.id, CHIUSURA)
+                              }}
                               title={
                                 o.gestione === CHIUSURA
                                   ? 'Riapri: rimette l ordine fra quelli da lavorare'
@@ -2335,7 +2368,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
               </tr>
             </thead>
             <tbody>
-              {ordini.map((o) => (
+              {nuoviInCima(ordini).map((o) => (
                 // Anche la riga apre il dettaglio: la colonna Azioni ferma il clic.
                 <tr
                   key={o.id}
@@ -2641,6 +2674,44 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         </div>
       ) : null}
 
+      {/* «Gestito» sulla scheda con una consegna di là ancora aperta. */}
+      {chiediConsegnataPer ? (
+        <Conferma
+          titolo={`Segnare consegnata anche la consegna di ${chiediConsegnataPer.numero} nella piattaforma?`}
+          verbo={segnandoConsegnata ? 'Segno…' : 'Sì, consegnata anche di là'}
+          annulla="No, solo Gestito qui"
+          onConferma={async () => {
+            if (segnandoConsegnata) return
+            const o = chiediConsegnataPer
+            setSegnandoConsegnata(true)
+            try {
+              await fetch(`/api/ordini/${o.id}/consegna-consegnata`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ consegnaId: o.appConsegnaId }),
+              })
+            } catch {
+              // l'esito preciso si legge nella scheda dell'ordine
+            }
+            setSegnandoConsegnata(false)
+            setChiediConsegnataPer(null)
+            void segna(o.id, CHIUSURA)
+          }}
+          onAnnulla={() => {
+            const o = chiediConsegnataPer
+            setChiediConsegnataPer(null)
+            void segna(o.id, CHIUSURA)
+          }}
+          onChiudi={() => setChiediConsegnataPer(null)}
+        >
+          <p>
+            Nella piattaforma la consegna risulta «{nomeStatoConsegna(chiediConsegnataPer.appConsegnaStato ?? '')}». Con
+            il sì la piattaforma la mette in storico come consegnata alla data di consegna, e resta scritto che
+            l&apos;ha chiesto il Customer Service.
+          </p>
+          <p>Con il no l&apos;ordine diventa «Gestito» solo qui: di là resta com&apos;è.</p>
+        </Conferma>
+      ) : null}
       {/* La domanda del passo «In App» premuto sulla scheda, nel nostro stile (Libro §7). */}
       {chiediInAppPer ? (
         <Conferma

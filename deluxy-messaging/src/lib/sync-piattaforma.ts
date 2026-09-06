@@ -271,8 +271,33 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
     }
   }
 
+  // ── 0-bis. NON CONSEGNATA di là: l'ordine torna fra gli APERTI ──
+  //
+  // ⚠️ Regola dell'utente (06/09/2026): «se è non consegnata in app, riporta
+  // la vendita in ordini aperti così che il CS possa organizzare una nuova
+  // consegna». Scatta al CAMBIO (la copia di qui non diceva ancora
+  // «not_delivered»): rifare la mossa a ogni giro rimetterebbe «Non consegnata»
+  // sopra un ordine che nel frattempo qualcuno ha rimandato in app o chiuso.
+  // Una consegna nuova da qui riparte con un riferimento diverso, così la
+  // piattaforma non risponde con la vecchia (vedi manda-in-app.ts).
+  const statoConsegna = v.consegna?.stato ?? ''
+  if (statoConsegna === 'not_delivered' && (ordine.appConsegnaStato ?? '') !== 'not_delivered') {
+    dati.gestione = 'non_consegnata'
+    dati.gestioneIl = new Date()
+    dati.gestioneDaId = ''
+    dati.gestioneDaNome = 'Piattaforma consegne'
+    dati.appGestionePrima = ''
+    if (!prova) await db.ordine.update({ where: { id: ordine.id }, data: dati })
+    return {
+      esito: 'tornato',
+      testo: `${ordine.numero}: NON consegnata di là${partner ? ` (${partner})` : ''} → torna fra gli aperti come «Non consegnata»`,
+    }
+  }
+
   // ── 1. L'ordine passa in app ──
-  if (nelleSueMani && ordine.gestione !== CHIUSURA && !ordine.appInterrottoIl) {
+  // ⚠️ Non se qui è «Non consegnata»: di là la vendita resta accettata, ma il
+  // lavoro è tornato nostro finché non si organizza un'altra consegna.
+  if (nelleSueMani && ordine.gestione !== CHIUSURA && ordine.gestione !== 'non_consegnata' && !ordine.appInterrottoIl) {
     if (ordine.gestione !== 'in_app') {
       dati.appGestionePrima = ordine.gestione
       dati.gestione = 'in_app'

@@ -22,7 +22,8 @@
 
 import { db } from './db'
 import { CHIUSURA } from './gestione'
-import { mandaInApp, prefillInApp } from './manda-in-app'
+import { mandaInApp, marchioDdt, prefillInApp } from './manda-in-app'
+import { listaEscluse } from './dettaglio-ordine'
 import { righeOrdineDaOrders } from './orders'
 import { consegnePerDdt, partnerPiattaforma, prodottiPiattaforma, serviziPiattaforma } from './piattaforma'
 
@@ -74,7 +75,7 @@ export async function consegnePerPagamentiInApp(opz: {
       gestione: CHIUSURA,
       dataConsegna: { gte: dal },
     },
-    select: { id: true, numero: true, shopifyId: true, negozioNome: true, clienteNome: true, citta: true, dataConsegna: true, fornitoreNome: true },
+    select: { id: true, numero: true, shopifyId: true, negozioNome: true, clienteNome: true, citta: true, dataConsegna: true, fornitoreNome: true, appConsegneEscluse: true },
     orderBy: { dataConsegna: 'asc' },
   })
   if (opz.soloNumeri?.length) ordini = ordini.filter((o) => opz.soloNumeri!.includes(o.numero))
@@ -101,7 +102,9 @@ export async function consegnePerPagamentiInApp(opz: {
     if (!pagata) continue
 
     // ── C'è già di là? Allora si aggancia e basta ──
-    const gia = await consegnePerDdt(ddt)
+    // ⚠️ Col marchio: il DDT è numerato per negozio, e senza marchio la regola
+    // agganciava al #1834 di Cake la consegna del #1834 di Flowers.
+    const gia = await consegnePerDdt(ddt, marchioDdt(o.negozioNome ?? ''), listaEscluse(o.appConsegneEscluse))
     if (gia.stato !== 'ok') {
       esito.righe.push({ numero: o.numero, esito: 'errore', testo: `non ho potuto chiedere alla piattaforma: ${gia.stato === 'errore' ? gia.messaggio : 'non collegata'}` })
       continue

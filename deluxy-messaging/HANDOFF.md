@@ -1,5 +1,75 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (43) — «Gestito» chiede di chiudere anche di là; «Non consegnata» riapre l'ordine; nuovi in cima; la «×» che scollega
+
+Quattro richieste dell'utente nel pomeriggio, tutte sul confine fra qui e la
+piattaforma consegne.
+
+**1. «Gestito» con una consegna di là ancora aperta chiede se segnarla
+consegnata anche nella piattaforma.** Sia dalla scheda (bottone «Gestito»,
+`DettaglioOrdine.tsx`) sia dalla bacheca (scheda dell'ordine, `OrdiniLista.tsx`):
+se l'ordine ha una consegna in piattaforma non ancora consegnata/annullata/non
+riuscita, prima del cambio di stato compare la nostra `Conferma` («Sì,
+consegnata anche di là» / «No, solo Gestito qui»). Con il sì si chiama
+`POST /api/ordini/<id>/consegna-consegnata` → `segnaConsegnataInPiattaforma`
+(`piattaforma.ts`) → rotta nuova della piattaforma
+`POST /api/v1/app/consegne/:id/consegnata` (chiave CON scrittura; idempotente;
+rifiuta le annullate; `deliveredAt` = fine fascia del giorno di consegna; riga
+di registro «segnata consegnata dal canale app»). Poi l'ordine diventa Gestito
+qui. La copia `appConsegnaStato` passa subito a `delivered`.
+⚠️ **La rotta della piattaforma è sul ramo `canale-app-0609` (commit 8cd27e63)
+e va pubblicata prima del CS**, altrimenti il sì risponde «non trovata».
+
+**2. Nuovo passo «Non consegnata» (`non_consegnata`, rosso), dopo «In App» nei
+`PASSI`.** È uno stato APERTO: l'ordine torna nella lista di lavoro perché il CS
+deve organizzare un'altra consegna. Lo scrive la sync (`sync-piattaforma.ts`,
+ramo 0-bis) quando di là la consegna passa a `not_delivered` — solo al CAMBIO,
+cioè se la copia di qui non lo diceva già, altrimenti a ogni giro rimetterebbe lo
+stato sopra un ordine già rimandato in app. Il ramo 1 (→ In App) non scatta più
+su un ordine «Non consegnata». Rimandandolo in app, `manda-in-app.ts` usa un
+`riferimentoEsterno` con suffisso (`<ordersId>-r<tempo>`): il riferimento rende
+la creazione idempotente di là, e senza suffisso la piattaforma risponderebbe con
+la consegna vecchia. `PASSI_CHE_MANDANO_AVANTI` (salute) NON lo include: non è un
+passo avanti, è un ritorno.
+
+**3. I nuovi sempre in cima.** `nuoviInCima()` in `OrdiniLista.tsx`: partizione
+stabile — prima chi è «arrivato adesso» (`arrivatoAdesso`/`appenaArrivato`, la
+stessa condizione dell'etichetta NUOVO), fra loro nell'ordine di urgenza del
+server, poi tutti gli altri come prima. Vale per le colonne della bacheca e per
+la vista elenco.
+
+**4. La «×» che scollega una consegna di là (#1834).** L'ordine #1834 di *Cake*
+mostrava la consegna #47399 di *Flowers*: **il numero DDT è per negozio** e la
+lettura `consegnePerDdt` cercava solo il numero. Due correzioni:
+- `consegnePerDdt(ddt, marchio, escluse)` scarta le righe con `ddtBrand` di un
+  altro marchio (`stessoMarchio`: Flowers/cake/deluxy/business), tiene quelle
+  senza marchio. Il marchio atteso viene da `marchioDdt(negozioNome)`. Vale anche
+  per la regola «consegne da pagamenti» (`consegne-da-pagamenti.ts`), che
+  **stamattina aveva agganciato per sbaglio 3 ordini Cake a consegne Flowers:
+  #1762→#44961, #1832→#47351, #1800→#46016** (controllo con
+  `consegnePerDdt` senza marchio su tutti i 344 ordini agganciati negli ultimi 90
+  giorni; gli altri 341 sono del marchio giusto). 🔴 Da scollegare: dalla scheda
+  con la «×», o con `npx tsx scripts/scollega-tre-cake.mts`.
+- Colonna nuova `Ordine.appConsegneEscluse` (id, uno per riga) + rotta
+  `POST /api/ordini/<id>/scollega-consegna { consegnaId }`: toglie l'aggancio se
+  era quella e mette l'id fra le escluse, così la lettura per DDT e la regola non
+  la ripropongono. Sulla scheda ogni bollino di consegna ha la «×» (Conferma
+  «pericolosa» che spiega: di là non cambia niente; il passo di lavorazione lo
+  cambi tu). La colonna è stata aggiunta con `ALTER TABLE … ADD COLUMN IF NOT
+  EXISTS` da script: ⚠️ **`prisma db push` qui NON si usa** — `prisma migrate
+  diff` contro il DB propone di buttare via tutte le foreign key dello schema
+  `messaging` (deriva fra schema.prisma e tabelle reali). Ogni colonna nuova va
+  aggiunta con l'SQL della sola colonna.
+
+Perché #1834 era «In App» senza `appConsegnaId` non l'ho ricostruito (la sync
+aggancia per `ordersId`, non per DDT): con la «×» e il marchio sul DDT la scheda
+è corretta; il passo lo può cambiare chi lavora.
+
+**Verifica**: `tsc` 0 errori; colonna presente (information_schema). **Stato**:
+in locale, commit sì; deploy da fare in quest'ordine: piattaforma
+(`canale-app-0609`, prebuilt da `Temp\wt-delivery`) poi CS (cherry-pick su
+`origin/scout-ui`, `vercel deploy --prod`).
+
 ## 06/09/2026 (42) — La regola nella sync, e le consegne di là cliccabili dalla scheda
 
 **La regola gira da sola** (`src/lib/consegne-da-pagamenti.ts`, chiamata da

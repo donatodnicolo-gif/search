@@ -1,4 +1,5 @@
 import { consegnePerDdt } from './piattaforma'
+import { marchioDdt } from './manda-in-app'
 import { leggiImpostazioni } from './impostazioni'
 import { db } from './db'
 import { candidatiUnione, totaleConUniti, type CandidatoUnione } from './unione-ordini'
@@ -86,6 +87,7 @@ export type OrdineDettaglioDto = {
    * vedere, invece di credere che di là stia lavorando qualcuno.
    */
   appConsegnaNumero: string
+  appConsegnaId: string
   appMandataDaNome: string
   /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
   pagamentoApertoId: string
@@ -169,6 +171,11 @@ export type DettaglioOrdinePayload = {
  * Se Orders non risponde, l'ordine si apre comunque con i dati locali e si dice
  * perché i prodotti non ci sono: meglio mezzo dettaglio che una pagina bianca.
  */
+/** Gli id scollegati a mano, uno per riga nella colonna. */
+export function listaEscluse(testo: string | null | undefined): string[] {
+  return (testo ?? '').split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+}
+
 export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdinePayload | null> {
   const ordine = await db.ordine.findUnique({ where: { id } })
   if (!ordine) return null
@@ -206,7 +213,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   const esitoSalute = await saluteDaOrders(ordine.numero, ordine.shopifyId).catch(() => null)
   // Le consegne di là e l'indirizzo per raggiungerle: una chiamata, in parallelo.
   const [inApp, impostazioni] = await Promise.all([
-    consegnePerDdt(ordine.numero).catch(() => null),
+    consegnePerDdt(ordine.numero, marchioDdt(ordine.negozioNome ?? ''), listaEscluse(ordine.appConsegneEscluse)).catch(() => null),
     leggiImpostazioni(['piattaformaUrl']).catch(() => ({}) as { piattaformaUrl?: string }),
   ])
   const consegneApp =
@@ -270,6 +277,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       appCostoPartner: ordine.appCostoPartner ?? null,
       appInterrottoIl: ordine.appInterrottoIl ? ordine.appInterrottoIl.toISOString() : null,
       appConsegnaNumero: ordine.appConsegnaNumero ?? '',
+      appConsegnaId: ordine.appConsegnaId ?? '',
       appMandataDaNome: ordine.appMandataDaNome ?? '',
       // ⚠️ La richiesta ancora DA PAGARE su quest'ordine: spegne il bottone
       // «Paga fornitore». Una già pagata non blocca (secondo fornitore).
@@ -403,6 +411,7 @@ export async function dettaglioOrdineArchivio(
         appCostoPartner: null,
         appInterrottoIl: null,
         appConsegnaNumero: '',
+        appConsegnaId: '',
         appMandataDaNome: '',
         pagamentoApertoId: '',
         pagamentoApertoA: '',
