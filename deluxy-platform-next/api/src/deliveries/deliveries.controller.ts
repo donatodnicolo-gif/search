@@ -199,6 +199,13 @@ export class DeliveriesController {
     return this.deliveriesService.confirmDeliveredByToken(token, body.receivedBy);
   }
 
+  @Public()
+  @Post('not-delivered/:token')
+  @ApiOperation({ summary: 'Dal link pubblico: NON consegnata, col motivo (06/09/2026)' })
+  notDeliveredByLink(@Param('token') token: string, @Body() body: { motivo?: string }) {
+    return this.deliveriesService.notDeliveredByToken(token, body?.motivo);
+  }
+
   // ============================================================
   // AZIONI SU PIÙ CONSEGNE INSIEME (27/08/2026, chiesto dall'utente)
   // ------------------------------------------------------------

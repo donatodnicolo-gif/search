@@ -176,7 +176,8 @@ interface DeliveryDetail {
           @if (canShare()) {
             <button type="button" class="act" (click)="share(d)">{{ 'deliveryDetail.act.share' | translate }}</button>
           }
-          @if (canManage()) {
+          <!-- ⭐ 06/09: sulle consegne «da fornitore» il link di conferma lo copia anche il PARTNER. -->
+          @if (canManage() || (isPartner() && d.deliveredByPartner)) {
             <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
           }
           <!-- Assegna: ufficio E team leader (nel suo perimetro). -->

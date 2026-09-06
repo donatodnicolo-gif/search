@@ -62,6 +62,9 @@ const DELIVERY_LIST_SELECT = {
   // ⭐ 06/09/2026 (regola utente): la PUNTUALITÀ (in orario / in ritardo / in anticipo)
   // si calcola da qui: orario reale d'arrivo e di partenza.
   deliveredAt: true, startedAt: true,
+  // ⭐ 06/09/2026 (regola utente): il LINK DI CONFERMA per le consegne «da fornitore».
+  trackingToken: true,
+  deliveredByPartner: true,
   // ⭐ 06/09/2026 (regola utente): una NON CONSEGNATA senza riconsegna è «da gestire» — l'elenco lo evidenzia.
   childDeliveries: { select: { id: true } },
   // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
@@ -596,7 +599,7 @@ export class DeliveriesService {
     // mostrano.
     // ⭐ 06/09/2026 (regola utente): ogni consegna porta l'attributo di PUNTUALITÀ,
     // per tutti i servizi, calcolato con la stessa regola delle Statistiche.
-    return { items: rows.map((r) => ({ ...this.soloIMieiSoldi(r as any, user), puntualita: puntualitaConsegna(r as any) })), total, page, pageSize };
+    return { items: rows.map((r) => ({ ...this.soloIMieiSoldi(r as any, user), puntualita: puntualitaConsegna(r as any), linkConsegnata: (r as any).deliveredByPartner ? DeliveriesService.linkConsegnata((r as any).trackingToken) : null })), total, page, pageSize };
   }
 
   /**
@@ -855,7 +858,7 @@ export class DeliveriesService {
     }
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null }, user),
       user,
     );
   }
@@ -1687,6 +1690,13 @@ export class DeliveriesService {
     // Best-effort: non blocca la creazione.
     // ⭐ 06/09/2026: la merce e' impegnata da quando la consegna esiste.
     if (products?.length) await this.stock.scala(delivery.id, products as any, user.sub);
+    // ⭐ 06/09: una consegna «da fornitore» nasce già col token, così il link di conferma
+    // c'è subito (nell'elenco, nel dettaglio, nella risposta al canale app).
+    if ((delivery as any).deliveredByPartner && !(delivery as any).trackingToken) {
+      const token = randomBytes(24).toString('hex');
+      await this.prisma.delivery.update({ where: { id: delivery.id }, data: { trackingToken: token } });
+      (delivery as any).trackingToken = token;
+    }
     void this.notificaInserimentoAlPartner(delivery);
     // Se nasce GIÀ assegnata a un valet, avvisa anche lui.
     if (delivery.valetId) void this.notificaAssegnazioneAlValet(delivery);
@@ -1823,6 +1833,15 @@ export class DeliveriesService {
        `Vedi i dettagli qui: ${link}`, '',
        'Deluxy'].join('\n'),
     );
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): per ogni consegna «da fornitore» un LINK con cui il
+   * partner la mette in «consegnata» o «non consegnata» dal telefono, senza login:
+   * la pagina pubblica /consegnata/<token> (stesso token del monitoraggio).
+   */
+  static linkConsegnata(token: string | null | undefined): string | null {
+    return token ? `https://app.deluxy.it/consegnata/${token}` : null;
   }
 
   /** Il valet fittizio «Partner Consegna» (legacy 168, consegnapartner@deluxy.it): chi «fa» le consegne da fornitore. */
@@ -2671,6 +2690,7 @@ export class DeliveriesService {
       where: { id: delivery.id },
       data: {
         status: 'delivered',
+        deliveredAt: delivery.deliveredAt ?? new Date(),
         receivedBy: receivedBy?.trim() || null,
         logs: {
           create: {
@@ -2683,6 +2703,23 @@ export class DeliveriesService {
       },
     });
     return { esito: 'confermata', code: delivery.code };
+  }
+
+  /** ⭐ 06/09/2026 (regola utente): dal link pubblico anche «NON consegnata», col motivo. Stesse guardie del «consegnata». */
+  async notDeliveredByToken(token: string, motivo?: string) {
+    const delivery = await this.prisma.delivery.findFirst({ where: { trackingToken: token, deletedAt: null } });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    if (delivery.status === DeliveryStatus.NOT_DELIVERED) return { esito: 'gia_non_consegnata', code: delivery.code };
+    if (DELIVERY_CLOSED_STATUSES.includes(delivery.status)) {
+      throw new ConflictException('Questa consegna è chiusa e non si cambia dal link: chiedi all’ufficio.');
+    }
+    const testo = (motivo ?? '').trim();
+    await this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { status: DeliveryStatus.NOT_DELIVERED, notDeliveredReason: testo || null, logs: { create: { type: 'not_delivered', message: testo ? `Non consegnata (dal link): ${testo}` : 'Non consegnata (dal link)' } } },
+    });
+    await this.chiudiAttivitaSeStorico(delivery.id, DeliveryStatus.NOT_DELIVERED).catch(() => undefined);
+    return { esito: 'non_consegnata', code: delivery.code };
   }
 
   async assignValet(id: string, valetId: string, user: JwtUser) {

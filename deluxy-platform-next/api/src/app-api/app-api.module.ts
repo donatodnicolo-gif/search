@@ -672,6 +672,7 @@ export class AppApiService {
     recipientPhone: true, recipientIntercom: true,
     latitude: true, longitude: true, distanceKm: true,
     startedAt: true, deliveredAt: true, receivedBy: true,
+    deliveredByPartner: true, trackingToken: true,
     payable: true, billable: true, invoiced: true, paymentStatus: true,
     price: true, additionalPrice: true, ruleAdjustment: true, productValue: true, deliveryPrice: true,
     valetSalary: true, valetAdditionalPrice: true, hours: true,
@@ -726,6 +727,10 @@ export class AppApiService {
       id: d.id,
       numero: d.code,
       codicePubblico: d.identifier ?? null,
+      // ⭐ 06/09/2026 (regola utente): la consegna «da fornitore» porta il LINK con cui il partner
+      // la mette in consegnata / non consegnata (pagina pubblica, senza login). Null se non è da fornitore.
+      consegnaPartner: !!d.deliveredByPartner,
+      linkConferma: d.deliveredByPartner && d.trackingToken ? `https://app.deluxy.it/consegnata/${d.trackingToken}` : null,
       data: d.date,
       // ── ESITO ────────────────────────────────────────────────────────────
       esito: {

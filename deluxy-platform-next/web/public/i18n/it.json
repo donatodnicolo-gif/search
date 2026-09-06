@@ -2286,8 +2286,11 @@
     "title": "Conferma consegna #{{code}}",
     "receivedBy": "Chi ha ritirato",
     "receivedByPlaceholder": "Nome e cognome di chi ha ricevuto",
-    "confirm": "Conferma consegna",
+    "confirm": "Consegnata",
+    "notDelivered": "Non consegnata",
     "done": "Consegna confermata ✓ Grazie.",
+    "doneNon": "Segnata come non consegnata. L'ufficio la gestirà.",
+    "popup": { "titoloSi": "Confermi la consegna #{{code}}?", "titoloNo": "Consegna #{{code}} non consegnata?", "motivo": "Perché", "motivoPh": "es. destinatario assente, indirizzo errato…", "confermaSi": "Sì, consegnata", "confermaNo": "Sì, non consegnata" },
     "closed": "Questa consegna è chiusa (annullata, non consegnata o non accettata): dal link non si può confermare. Scrivi all’ufficio."
   },
   "tracking": {

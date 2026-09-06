@@ -2284,7 +2284,10 @@
     "title": "Confirm delivery #{{code}}",
     "receivedBy": "Received by",
     "receivedByPlaceholder": "Name of who received it",
-    "confirm": "Confirm delivery",
+    "confirm": "Delivered",
+    "notDelivered": "Not delivered",
+    "doneNon": "Marked as not delivered. The office will handle it.",
+    "popup": { "titoloSi": "Confirm delivery #{{code}}?", "titoloNo": "Delivery #{{code}} not delivered?", "motivo": "Why", "motivoPh": "e.g. recipient absent, wrong address…", "confermaSi": "Yes, delivered", "confermaNo": "Yes, not delivered" },
     "done": "Delivery confirmed ✓ Thank you.",
     "closed": "This delivery is closed (cancelled, not delivered or not accepted): it cannot be confirmed from this link. Please contact the office."
   },
