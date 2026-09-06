@@ -47,11 +47,14 @@ const candidati = await p.product.findMany({
   where: {
     deletedAt: null, archived: false,
     createdAt: { lt: new Date(grazia) },
-    NOT: [{ sku: { startsWith: 'STELO-' } }, { sku: { startsWith: 'PP-' } }],
+    // ⚠️ 06/09 sera: il NOT su una colonna che può essere NULL scarta anche i NULL (in SQL NOT(NULL)
+    // è NULL, non TRUE): con  i prodotti SENZA SKU sparivano dai candidati e non
+    // venivano archiviati. Il filtro sui listini si fa dopo, in memoria.
   },
   select: { id: true, name: true, sku: true, type: true, createdAt: true, createdFrom: true, partner: { select: { insegna: true, active: true, deleted: true } }, category: { select: { name: true } } },
 });
 const daArchiviare = candidati.filter((x) => {
+  if ((x.sku ?? '').startsWith('STELO-') || (x.sku ?? '').startsWith('PP-')) return false; // listini caricati oggi
   if (viviIds.has(x.id)) return false;
   if (x.type === 'UNICO' && x.partner && x.partner.active && !x.partner.deleted) return false; // è il listino di un partner vivo
   return true;

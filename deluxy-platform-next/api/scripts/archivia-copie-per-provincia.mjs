@@ -39,19 +39,28 @@ const prodotti = await p.product.findMany({
   select: { id: true, name: true, sku: true, price: true, archived: true, variants: { select: { id: true, sku: true } } },
 });
 const perSku = new Map(prodotti.filter((x) => x.sku).map((x) => [x.sku.toUpperCase(), x]));
+// ⚠️ 06/09 sera (segnalazione utente su NZDWTK-3RM): il master può essere una VARIANTE, non un
+// prodotto: «NZDWTK-3RM» è la copia romana della variante «NZDWTK-3». Senza guardare anche le
+// varianti quelle copie restavano a catalogo.
+const varianti = await p.productVariant.findMany({ select: { sku: true } });
+const skuVarianti = new Set(varianti.filter((v) => v.sku).map((v) => v.sku.toUpperCase()));
 
 const copie = [];
 for (const pr of prodotti) {
   const sku = pr.sku.toUpperCase();
   const sigla = sigle.find((c) => sku.endsWith(c) && sku.length > c.length + 2);
   if (!sigla) continue;
-  const master = perSku.get(sku.slice(0, -sigla.length));
-  if (!master || master.id === pr.id) continue; // senza master non è una copia: non si tocca
+  const senzaSigla = sku.slice(0, -sigla.length);
+  const master = perSku.get(senzaSigla);
+  const masterVariante = skuVarianti.has(senzaSigla);
+  if ((!master && !masterVariante) || master?.id === pr.id) continue; // senza master non è una copia: non si tocca
   // «prodotti con varianti che hanno la provincia alla fine dello sku»: almeno una variante col suffisso
-  const varianti = pr.variants.filter((v) => (v.sku ?? '').toUpperCase().endsWith(sigla));
-  copie.push({ ...pr, sigla, masterId: master.id, masterSku: master.sku, varianti: varianti.length, variantIds: pr.variants.map((v) => v.id) });
+  const suePerSigla = pr.variants.filter((v) => (v.sku ?? '').toUpperCase().endsWith(sigla));
+  copie.push({ ...pr, sigla, masterId: master?.id ?? null, masterSku: master?.sku ?? senzaSigla + ' (variante)', varianti: suePerSigla.length, variantIds: pr.variants.map((v) => v.id) });
 }
-const conVarianti = copie.filter((c) => c.varianti > 0);
+// 06/09 sera: si archiviano TUTTE le copie riconosciute, con o senza varianti proprie (la copia di
+// una variante non ha varianti sue). Il criterio resta stretto: serve il master.
+const conVarianti = copie;
 const senzaVarianti = copie.filter((c) => c.varianti === 0);
 
 // ── L'IMPATTO SULLE CONSEGNE, misurato prima di toccare qualcosa ──────────────

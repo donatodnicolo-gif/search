@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional } from 'class-validator';
 import { ListQueryDto } from '../../common/list-query';
 
 /** Query della lista prodotti: contratto comune + sezione Archivio. */
@@ -31,6 +31,11 @@ export class ProductListQueryDto extends ListQueryDto {
   @Transform(({ value }) => treStati(value))
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional({ description: 'Solo i prodotti di questo partner (il suo listino)' })
+  @IsOptional()
+  @IsString()
+  partnerId?: string;
 
   @ApiPropertyOptional({ description: 'Approvato (Shopify): true / false / assente' })
   @IsOptional()

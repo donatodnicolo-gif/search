@@ -744,6 +744,8 @@ interface ProductRow {
         border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
         max-height: 280px; overflow-y: auto;
       }
+      /* ⭐ 06/09 sera: i prodotti del partner in grassetto, in cima alla tendina. */
+      .prod-risultati .ris.suo { font-weight: 650; }
       .prod-risultati .ris {
         display: block; width: 100%; text-align: left; border: none; background: none;
         padding: 10px 12px; font: inherit; font-size: 14px; cursor: pointer; color: var(--text);

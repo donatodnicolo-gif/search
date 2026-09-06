@@ -96,7 +96,10 @@ export class ProductsService {
     if (query.unique !== undefined) {
       perTipo['type'] = query.unique ? ProductType.UNICO : { not: ProductType.UNICO };
     }
-    const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo };
+    // ⭐ 06/09 sera (regola utente): il listino di UN partner — serve alla tendina della consegna,
+    // che mostra prima i prodotti del partner scelto.
+    const perPartner = query.partnerId ? { partnerId: query.partnerId } : {};
+    const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo, ...perPartner };
     const search = textSearch(query.q, ProductsService.SEARCH_FIELDS);
     // scope e ricerca vanno in AND: la ricerca non deve allargare la visibilita'
     const where = search ? { AND: [scope, search] } : scope;
