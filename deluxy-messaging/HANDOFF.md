@@ -1,5 +1,37 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (22) — Paga fornitore in tre passi
+
+Chiesto dall'utente: «riorganizza: prima chiede se si vuole cercare tra i
+fornitori già usati, poi se si vogliono inserire le coordinate e infine il form
+delle coordinate».
+
+**Prima**: due riquadri affiancati (`griglia-impostazioni`) — la lettura AI a
+sinistra, il modulo a destra con la ricerca fornitori DENTRO, sopra i campi. Tre
+cose insieme e nessun ordine: si poteva battere un IBAN senza aver mai visto che
+il fornitore l'avevamo già.
+
+**Adesso** (`RichiediPagamento.tsx`, stato `passo`: cerca · come · modulo, e
+`mostraAi`):
+1. **«Lo abbiamo già pagato?»** — `CercaFornitore` (cerca da sola col nome che
+   arriva dall'ordine); scegliendone uno si va al modulo coi campi pieni; «No, è
+   un fornitore nuovo →» porta al passo 2.
+2. **«Come inseriamo le coordinate?»** — «Le leggo da un messaggio o da una
+   foto» apre il riquadro AI (letto → modulo, con «Salta: vado al modulo»);
+   «Le scrivo a mano →» va al modulo.
+3. **Coordinate** — il modulo di sempre, senza la ricerca dentro; in testa dice
+   da dove vengono i campi (fornitore dei nostri / letti dall'AI / a mano) e ha
+   «Torna a cercare fra i nostri».
+I tre passi in cima sono bottoni (`passi-ordine`, come la lavorazione
+dell'ordine) e si toccano per tornare indietro. «Modifica» su una riga salvata
+porta dritto al passo 3; dopo un salvataggio si ricomincia dal passo 1.
+
+Registrato in `deluxy-design-system/SEGNALAZIONI-UX.md` come cambiamento chiesto
+dall'utente (il custode del layout lo valuta come pattern «modulo a passi»).
+Typecheck ok; non provato a schermo (login).
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (21) — Le chiamate restano aperte finché non sono gestite (o l'ordine lo è); il parser vecchio in produzione le inverte ancora
 
 Regola dell'utente: «lascia aperte tutte le chiamate fino a quando non sono
