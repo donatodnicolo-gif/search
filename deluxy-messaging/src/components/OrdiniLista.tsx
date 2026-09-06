@@ -2657,6 +2657,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
             setChiediInAppPer(null)
             void segna(id, 'in_app')
           }}
+          onChiudi={() => setChiediInAppPer(null)}
         >
           <p>
             Con il sì si apre la scheda dell&apos;ordine già sul modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di
