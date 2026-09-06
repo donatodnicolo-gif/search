@@ -119,6 +119,8 @@ Componente unico consigliato per i primi tre stati (una card, cambia icona/tono)
 
 **Avvertenze sul dato** (non errori di sistema): componente «Avviso» oro=cautela / rosso=grave (promosso da Fondo — «Come NON leggere questa pagina»); e ogni metrica aggregata **dichiara la propria copertura** («su X% dei dati previsti») o si rifiuta di mostrare il numero.
 
+**Tessera KPI con confronto** *(v1.11, 06/09/2026 — verdetto architetto-ux per le Statistiche della piattaforma)*: una tessera che riassume un indicatore di periodo ha **quattro righe** nell'ordine: etichetta (12.5px, terziario) → valore (22px, `tabular-nums`) → **Δ** verso il confronto con freccia + assoluto + percentuale («▲ +12 · +8,3%») → **base** «su N di M · K senza dato». Il confronto fra un periodo **parziale** e il precedente si fa **a parità di giorni trascorsi** (1–6 set vs 1–6 ago), mai parziale contro pieno, e le **date effettive** dei due intervalli si scrivono in testa. Le medie **escludono** le righe senza dato e ne dichiarano il numero; sotto il **50 %** di copertura il numero non si mostra: «n/d» col motivo. Verde/rosso **solo** se il verso «buono» dell'indicatore è dichiarato in una mappa tipizzata dell'app (come `stati.ts`); altrimenti neutro con la sola freccia. Precedente 0 o n/d → «—» (mai «+∞%»). Un solo grafico per pagina, e solo dove tre quote a somma 100 si leggono più in fretta di tre numeri (barra impilata). Riferimento: piattaforma `/statistiche` (`web/src/app/pages/statistiche.component.ts`).
+
 ## 7. Feedback e conferme
 
 **Tre canali, tre ruoli** (mai confusi):
