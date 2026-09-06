@@ -1300,7 +1300,12 @@ export class DeliveriesService {
     // si DICHIARA quando era anche esagerata: un valore sopra la soglia e' la
     // firma dell'errore, e chi rilegge la consegna deve poterla riconoscere.
     const kmScartati = distanceKm != null && distanceKm > KM_MASSIMI_IN_CITTA ? distanceKm : null;
-    return { pickupAddress: citta, distanceKm: null, kmScartati };
+    // ⚠️ 06/09/2026 (regola utente): il ritiro e' l'INDIRIZZO di consegna per
+    // intero, con via e provincia, non la sola citta'. «Modena» come ritiro
+    // faceva calcolare la distanza dal centro della citta' e lasciava il valet
+    // senza un posto dove andare; l'indirizzo intero da' distanza zero, che e'
+    // il vero significato di «il fornitore sta dove abita chi riceve».
+    return { pickupAddress: (recipientAddress ?? '').trim(), distanceKm: null, kmScartati };
   }
 
   /**
@@ -1556,7 +1561,13 @@ export class DeliveriesService {
     // passavano lo stesso. Misurato — la toppa va smontata come il difetto.
     // Con la riassegnazione non resta nessuna strada che veda il dto sporco.
     dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
-    const { products, pickups, partnerId: _p, ignoraStock, ...scalar } = dto;
+    // ⚠️⚠️ `riferimentoEsterno` È DEL DTO, NON DELLA TABELLA (06/09/2026). Il
+    // canale app lo usa per l'idempotenza e lo legge dal registro, ma qui lo
+    // spread `...scalar` lo portava dritto in `prisma.delivery.create` →
+    // `Unknown argument riferimentoEsterno` → 500 su OGNI consegna mandata
+    // dal Customer Service (ordine #2873, 06/09 ore 07:18). Il form della
+    // piattaforma non lo manda, quindi di qua non si vedeva mai.
+    const { products, pickups, partnerId: _p, ignoraStock, riferimentoEsterno: _rif, ...scalar } = dto;
     // ⭐ 06/09/2026 (regola utente): STOCK. I prodotti «Controlla stock» devono
     // esserci in magazzino: se no la consegna non nasce (400 col nome e i pezzi).
     // L'ufficio puo' forzare; il partner no.

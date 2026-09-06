@@ -943,6 +943,23 @@ export class AppApiService {
     if (!dto.partnerId) {
       throw new BadRequestException('partnerId obbligatorio: dal canale app non c\'è un partner sottinteso.');
     }
+    // ⚠️⚠️ IL SERVIZIO DEVE STARE NEL LISTINO DEL PARTNER (utente, 06/09/2026).
+    // La regola già valeva per il partner che inserisce da solo (31/08); dal
+    // canale app l'utente è OPERATION e passava qualunque servizio, col prezzo
+    // di base al posto di quello del listino. Il menu del Customer Service è
+    // filtrato, ma un filtro nella sola lettura si aggira passando l'id: il no
+    // lo dà la rotta, col motivo.
+    if (dto.serviceTypeId) {
+      const abilitato = await this.prisma.partnerService.findUnique({
+        where: { partnerId_serviceTypeId: { partnerId: dto.partnerId, serviceTypeId: dto.serviceTypeId } },
+        select: { id: true },
+      });
+      if (!abilitato) {
+        throw new BadRequestException(
+          'Servizio non abilitato per questo partner: nel suo listino sulla piattaforma non c\'è. Scegli un servizio abilitato, o fallo attivare.',
+        );
+      }
+    }
     // ⚠️ IDEMPOTENZA (Libro PERFORMANCE, legge 6; giuria 28/08/2026): un retry
     // di rete del chiamante (timeout, 502) NON deve creare una seconda
     // consegna vera — con paga valet e notifiche. Se il chiamante manda un
@@ -968,6 +985,35 @@ export class AppApiService {
         });
         if (esistente) return this.consegnaPerNumero(esistente.code);
       }
+    }
+    // ── I DEFAULT DELLE CONSEGNE CREATE DAL CANALE APP (utente, 06/09/2026,
+    // consegna #101065 nata dal Customer Service senza ritiro né brand) ──
+    // 1. Ritiro = un'ora prima della consegna, quando chi chiama non lo dice.
+    // 2. Indirizzo di ritiro = la sede del partner (con la provincia, com'è
+    //    scritta sul partner); per «Artista Locale» = l'indirizzo di consegna
+    //    per intero (il fornitore sta dove abita chi riceve).
+    // 3. Per «Artista Locale» la consegna la fa il fornitore
+    //    (`deliveredByPartner`), a meno che l'ordine sia di deluxy.it (il
+    //    valet in guanti bianchi) o ci sia già un valet assegnato.
+    // Solo i campi VUOTI: quello che l'app dichiara resta suo.
+    const menoUnOra = (hhmm?: string): string | undefined => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm ?? '').trim());
+      if (!m) return undefined;
+      return `${String((Number(m[1]) + 23) % 24).padStart(2, '0')}:${m[2]}`;
+    };
+    if (!dto.pickupTimeFrom?.trim() && dto.deliveryTimeFrom) dto.pickupTimeFrom = menoUnOra(dto.deliveryTimeFrom);
+    if (!dto.pickupTimeTo?.trim() && dto.deliveryTimeTo) dto.pickupTimeTo = menoUnOra(dto.deliveryTimeTo);
+    const partnerScelto = await this.prisma.partner.findUnique({
+      where: { id: dto.partnerId },
+      select: { insegna: true, address: true },
+    });
+    const artistaLocale = (partnerScelto?.insegna ?? '').trim().toLowerCase() === 'artista locale';
+    if (!dto.pickupAddress?.trim()) {
+      dto.pickupAddress = artistaLocale ? (dto.recipientAddress ?? '').trim() : (partnerScelto?.address ?? '').trim();
+    }
+    if (artistaLocale && dto.deliveredByPartner === undefined) {
+      const daDeluxyIt = (dto.ddtBrand ?? '').trim().toLowerCase() === 'deluxy.it';
+      dto.deliveredByPartner = !daDeluxyIt && !dto.valetId;
     }
     const utenteApp: JwtUser = {
       sub: `app:${nomeChiave}`,
@@ -1056,6 +1102,11 @@ export class AppApiService {
         // tendina serve «MI», e tutto il resto sarebbe roba che viaggia per
         // niente su una chiamata fatta a ogni apertura del modulo.
         provinces: { select: { province: { select: { code: true } } } },
+        // ⚠️ I SERVIZI ABILITATI = le righe del suo listino (PartnerService).
+        // Chiesto dall'utente il 06/09/2026: dal Customer Service il tipo di
+        // servizio deve stare fra quelli abilitati al partner scelto. Solo gli
+        // id: il nome lo dà già il catalogo (/app/servizi).
+        services: { select: { serviceTypeId: true } },
       },
     });
     return righe.map((p) => ({
@@ -1063,7 +1114,84 @@ export class AppApiService {
       insegna: p.insegna,
       citta: p.city ?? '',
       province: p.provinces.map((x) => x.province.code),
+      servizi: p.services.map((s) => s.serviceTypeId),
     }));
+  }
+
+  /**
+   * IL CATALOGO PRODOTTI per chi crea una consegna dal canale app (06/09/2026).
+   *
+   * Chiesto dall'utente: «consentimi di specificare il prodotto e il prezzo in
+   * modo flessibile». La riga di consegna vuole un `productId` di QUESTO
+   * catalogo (la fotografia del prodotto si fa qui); il prezzo si può scrivere
+   * (`price` + `flexiblePrice`). Quindi chi compila di là deve poter cercare
+   * qui. Solo attivi, non archiviati, non cancellati.
+   *
+   * ⚠️ Con `partnerId` l'elenco è il perimetro di quel partner (i suoi, il
+   * catalogo comune, i visibili, i collegati) — gli stessi criteri di
+   * `perimetroProdottiPartner` — e i SUOI vengono prima. Senza, tutto.
+   *
+   * `generico` = il prodotto del catalogo comune «Servizio Consegna»: serve
+   * quando la merce non sta a catalogo e si descrive nelle note.
+   */
+  async prodotti(q?: string, partnerId?: string) {
+    const testo = (q ?? '').trim();
+    const dove: Record<string, unknown> = { deletedAt: null, archived: false, active: true };
+    if (partnerId) {
+      dove['OR'] = [
+        { partnerId },
+        { partnerId: null },
+        { visibleToOtherPartners: true },
+        { partnerLinks: { some: { partnerId } } },
+      ];
+    }
+    if (testo) {
+      dove['AND'] = [
+        {
+          OR: [
+            { name: { contains: testo, mode: 'insensitive' } },
+            { sku: { contains: testo, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    const seleziona = {
+      id: true,
+      name: true,
+      sku: true,
+      price: true,
+      publicPrice: true,
+      type: true,
+      partnerId: true,
+      partner: { select: { insegna: true } },
+    } as const;
+    const [righe, generico] = await Promise.all([
+      this.prisma.product.findMany({ where: dove, orderBy: { name: 'asc' }, take: 30, select: seleziona }),
+      this.prisma.product.findFirst({
+        where: {
+          deletedAt: null,
+          archived: false,
+          partnerId: null,
+          name: { in: ['Servizio Consegna', 'Servizio Consegne'] },
+        },
+        select: seleziona,
+      }),
+    ]);
+    const forma = (p: (typeof righe)[number]) => ({
+      id: p.id,
+      nome: p.name,
+      sku: p.sku ?? '',
+      prezzo: p.price,
+      prezzoPubblico: p.publicPrice ?? null,
+      tipo: p.type,
+      partnerId: p.partnerId ?? '',
+      partner: p.partner?.insegna ?? '',
+    });
+    // I prodotti DEL partner scelto prima, poi il catalogo comune, poi gli altri.
+    const peso = (p: (typeof righe)[number]) =>
+      partnerId && p.partnerId === partnerId ? 0 : p.partnerId ? 2 : 1;
+    righe.sort((a, b) => peso(a) - peso(b) || a.name.localeCompare(b.name));
+    return { prodotti: righe.map(forma), generico: generico ? forma(generico) : null };
   }
 
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
@@ -1221,6 +1349,16 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
   partner() {
     return this.service.partner();
+  }
+
+  @Get('prodotti')
+  @ApiOperation({
+    summary:
+      'Il catalogo prodotti per chi crea una consegna dal canale app: q = ricerca su nome e sku, partnerId = perimetro di quel partner (i suoi prima). Torna anche il prodotto generico «Servizio Consegna»',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  prodotti(@Query('q') q?: string, @Query('partnerId') partnerId?: string) {
+    return this.service.prodotti(q, partnerId);
   }
 
   @Get('consegne/:numero')

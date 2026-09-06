@@ -732,6 +732,15 @@ POST /api/v1/app/richieste       x-api-key: <chiave con scrittura>
 
 ⚠️ Le chiavi **non hanno ancora uno scope per rotta**: una chiave di sola lettura legge *tutto* il canale app, compresi nome, indirizzo e telefono dei destinatari. È un punto aperto dichiarato nell'handoff.
 
+### Canale app: partner, servizi e prodotti per chi crea una consegna **[06/09/2026]**
+
+Il Customer Service crea consegne da `POST /api/v1/app/consegne` (stessa strada del form). Per compilarle bene, il canale app espone:
+
+- **`GET /api/v1/app/partner`** — i partner **attivi**: id, insegna, città, **sigle delle province servite** e **`servizi`** (gli id dei tipi di servizio nel loro listino, cioè `PartnerService`). Chi compila filtra per provincia di consegna e per listino.
+- **`GET /api/v1/app/prodotti?q=&partnerId=`** — il catalogo (attivi, non archiviati): `q` cerca su nome e sku; con `partnerId` l'elenco è il perimetro di quel partner (i suoi, il catalogo comune, i visibili, i collegati), i suoi prima. Torna anche `generico`, il prodotto «Servizio Consegna» del catalogo comune per la merce fuori catalogo. La riga di consegna porta `productId`, `quantity`, `price` e `flexiblePrice`.
+- ⚠️ **Il servizio deve stare nel listino del partner** anche dal canale app: `creaConsegna` risponde `400` altrimenti. Prima la regola valeva solo per il ruolo PARTNER.
+- ⚠️ **Corretto il 06/09**: `riferimentoEsterno` (l'idempotenza del canale app) finiva nel `create` di Prisma e ogni consegna via API dava **500**.
+
 ## 9. Piano di modernizzazione (staging)
 
 - **Problema**: Node.js v12 e Angular datati — dipendenze deprecate, difficoltà a integrare strumenti moderni, manutenzione rischiosa.
