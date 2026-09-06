@@ -13,10 +13,16 @@ export async function GET(req: NextRequest) {
   const _io = await utenteCorrente()
   if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
+  // ⚠️ `stato=tutti` = anche prospect e gli altri stati del registro (utente,
+  // 06/09/2026: «cerco modena ma esce 0, mentre un ordine in provincia di
+  // Modena mostra dei fornitori» — quelli erano PROSPECT, e questa pagina
+  // chiedeva al registro solo gli attivi). Di suo restano gli attivi.
+  const stato = p.get('stato') === 'tutti' ? 'tutti' : 'attivo'
   const esito = await partnerAttivi({
     q: p.get('q') ?? '',
     categoria: p.get('categoria') ?? '',
     citta: p.get('citta') ?? '',
+    stato,
   })
 
   if (esito.stato === 'non-configurato') {
