@@ -432,6 +432,21 @@ export async function consegnePerDdt(
     .filter((c) => (c.ddtNumero ?? '').replace(/^#/, '') === ddt.replace(/^#/, '').trim())
     .filter((c) => !marchio || !c.ddtBrand || stessoMarchio(c.ddtBrand, marchio))
     .filter((c) => !escluse.includes(c.id))
+  // ⚠️⚠️ UNA PIATTAFORMA VECCHIA SI RICONOSCE: tornano righe di chiunque, senza
+  // il DDT chiesto. Il 06/09/2026 la produzione è stata ripubblicata da un ramo
+  // senza il filtro `?ddt=`: questa lettura tornava «nessuna consegna» per ordini
+  // che di là la consegna ce l'avevano, la scheda non la mostrava, e la regola
+  // «consegne da pagamenti» avrebbe CREATO doppioni. Un «non lo so» dichiarato
+  // vale più di un «niente» falso.
+  const ddtChiesto = ddt.replace(/^#/, '').trim()
+  const nessunaColDdt = grezze.length > 0 && !grezze.some((c) => {
+    const ordine = (c.ordine ?? {}) as Record<string, unknown>
+    const n = (c.ddtNumero ?? c.ddtNumber ?? ordine.ddt ?? ordine.ddtNumber) as string | undefined
+    return (n ?? '').replace(/^#/, '') === ddtChiesto
+  })
+  if (nessunaColDdt) {
+    return { stato: 'errore', messaggio: 'La piattaforma in linea ignora la ricerca per DDT (versione vecchia): non so se la consegna c\'è.' }
+  }
   return { stato: 'ok', dati: { consegne } }
 }
 
