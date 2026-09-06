@@ -18,6 +18,7 @@ import { quotaDeluxyAnno } from "@/lib/quota";
 import { primoMeseAperto } from "@/lib/periodo";
 import { eur, MESI } from "@/lib/format";
 import { TeamEditor } from "@/components/TeamEditor";
+import { AvvisoOrganico } from "@/components/AvvisoOrganico";
 
 export const dynamic = "force-dynamic";
 
@@ -211,11 +212,14 @@ export default async function TeamPage({
         <div>
           <h1 className="page-title">Team</h1>
           <p className="page-caption">
-            Le squadre aziendali con il loro responsabile e il costo del lavoro {dati.year}.
-            Le persone si assegnano a un team dalla scheda in Dipendenti.
+            Le squadre aziendali con il loro responsabile e il costo del lavoro {dati.year}. Squadre e
+            persone sono le <strong>funzioni</strong> di Deluxy Personale (si assegnano là); qui si
+            dichiara il ruolo economico di ciascuna.
           </p>
         </div>
       </div>
+
+      <AvvisoOrganico organico={dati.organico} />
 
       {/* ⭐ 27/08/2026, richiesta dell'utente: «devi farmi vedere i costi
           consuntivati e la proiezione a tutto il 2026». Qui c'erano solo i

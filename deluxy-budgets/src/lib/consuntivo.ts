@@ -184,6 +184,11 @@ export async function caricaConsuntivo(
   const eff = effettoSu(rettifiche, dati.year, mesi);
 
   const mancanti: string[] = [];
+  // Il personale viene da Personale (06/09/2026): se non è arrivato, la riga
+  // «Personale» vale zero — e zero qui è un buco, non un organico vuoto.
+  if (dati.organico.stato !== "ok") {
+    mancanti.push(`organico da Personale (${dati.organico.motivo ?? "non risponde"}): il costo del personale è a ZERO`);
+  }
   if (!fatt.ok) mancanti.push("fatturato da Finance");
   if (!spese.ok) mancanti.push("uscite di banca");
   if (!ordini.ok) mancanti.push("venduto ecommerce da Orders");

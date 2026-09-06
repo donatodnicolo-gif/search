@@ -1,72 +1,55 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-const TIPI = ["DIPENDENTE", "STAGISTA", "CONSULENTE"];
-const PERIODICITA = ["ANNUO", "MENSILE"];
+// Dal 06/09/2026 le persone ARRIVANO DA PERSONALE (decisione dell'utente:
+// «personale e team devono arrivare da app personale»). Qui non si crea né si
+// cancella più nessuno — chi vuole una persona in più la scrive dove abita,
+// in Personale, e Budgets la vede al giro dopo. Questa rotta salva SOLO ciò
+// che è pianificazione di Budgets: a quale maison attribuire il costo, e una
+// nota. Una riga per anno di budget, agganciata all'id della persona in
+// Personale (l'unicità la garantisce l'upsert qui sotto: il vincolo a
+// database avrebbe richiesto un push con --accept-data-loss).
 
-// Numero entro un range, con fallback: `Number(undefined)` è NaN e `??` non lo
-// intercetta, quindi il controllo va fatto esplicitamente.
-function numero(v: unknown, min: number, max: number, fallback: number): number {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
+const CHIUSA = {
+  error:
+    "Le persone si creano e si eliminano in Deluxy Personale (la casa dei dati HR): Budgets le legge da lì.",
+};
+
+export async function POST() {
+  return NextResponse.json(CHIUSA, { status: 410 });
 }
 
-// Ripulisce il payload del form: i valori fuori scala qui diventerebbero
-// costi sbagliati nel P&L, quindi si normalizzano una volta sola.
-function normalizza(body: Record<string, unknown>) {
-  const mesi = Array.isArray(body.mesi)
-    ? [...new Set((body.mesi as unknown[]).map(Number))].filter((m) => m >= 1 && m <= 12).sort((a, b) => a - b)
-    : [];
-  return {
-    nome: String(body.nome ?? "").trim(),
-    ruolo: body.ruolo ? String(body.ruolo).trim() : null,
-    tipo: TIPI.includes(String(body.tipo)) ? String(body.tipo) : "DIPENDENTE",
-    importo: Math.max(0, Number(body.importo) || 0),
-    superminimo: Math.max(0, Number(body.superminimo) || 0),
-    // 0 non ha senso (costo nullo) e oltre 100 non è part-time: si resta nel range utile
-    partTimePct: Math.min(100, Math.max(1, Number(body.partTimePct) || 100)),
-    periodicita: PERIODICITA.includes(String(body.periodicita)) ? String(body.periodicita) : "ANNUO",
-    contributiPct: Math.min(200, Math.max(0, Number(body.contributiPct) || 0)),
-    mensilita: [12, 13, 14].includes(Number(body.mensilita)) ? Number(body.mensilita) : 14,
-    inpsPct: numero(body.inpsPct, 0, 50, 9.19),
-    addizionaliPct: numero(body.addizionaliPct, 0, 10, 2),
-    mesi: JSON.stringify(mesi),
-    maisonId: body.maisonId ? String(body.maisonId) : null,
-    teamId: body.teamId ? String(body.teamId) : null,
-    budget: body.budget === true,
-    note: body.note ? String(body.note).trim() : null,
-  };
-}
-
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ error: "payload non valido" }, { status: 400 });
-  const dati = normalizza(body);
-  if (!dati.nome) return NextResponse.json({ error: "nome mancante" }, { status: 400 });
-
-  const creato = await prisma.dipendente.create({
-    data: { year: Number(body.year) || new Date().getFullYear(), ...dati },
-  });
-  return NextResponse.json({ ok: true, id: creato.id });
+export async function DELETE() {
+  return NextResponse.json(CHIUSA, { status: 410 });
 }
 
 export async function PUT(req: Request) {
-  const body = await req.json().catch(() => null);
-  if (!body || typeof body.id !== "string") {
-    return NextResponse.json({ error: "id mancante" }, { status: 400 });
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body.personaleId !== "string" || !body.personaleId.trim()) {
+    return NextResponse.json({ error: "personaleId mancante" }, { status: 400 });
   }
-  const dati = normalizza(body);
-  if (!dati.nome) return NextResponse.json({ error: "nome mancante" }, { status: 400 });
+  const year = Number(body.year) || new Date().getFullYear();
+  const personaleId = body.personaleId.trim();
+  const nome = String(body.nome ?? "").trim() || "(da Personale)";
+  const dati = {
+    maisonId: body.maisonId ? String(body.maisonId) : null,
+    note: body.note ? String(body.note).trim() : null,
+  };
+  // La maison deve esistere: un id inventato attribuirebbe il costo a nessuno.
+  if (dati.maisonId) {
+    const m = await prisma.maison.findUnique({ where: { id: dati.maisonId } });
+    if (!m) return NextResponse.json({ error: "maison sconosciuta" }, { status: 400 });
+  }
 
-  await prisma.dipendente.update({ where: { id: body.id }, data: dati });
-  return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id mancante" }, { status: 400 });
-  await prisma.dipendente.delete({ where: { id } }).catch(() => null);
-  return NextResponse.json({ ok: true });
+  const esistente = await prisma.dipendente.findFirst({ where: { year, personaleId } });
+  if (esistente) {
+    await prisma.dipendente.update({ where: { id: esistente.id }, data: dati });
+    return NextResponse.json({ ok: true, id: esistente.id });
+  }
+  // La riga nasce vuota di tutto il resto (importo 0, tipo DIPENDENTE): quei
+  // campi non si leggono più, il costo viene da Personale.
+  const creato = await prisma.dipendente.create({
+    data: { year, personaleId, nome, tipo: "DIPENDENTE", ...dati },
+  });
+  return NextResponse.json({ ok: true, id: creato.id });
 }

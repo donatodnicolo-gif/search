@@ -1,5 +1,11 @@
 "use client";
 
+// Dal 06/09/2026 le squadre SONO le funzioni di Deluxy Personale (decisione
+// dell'utente): nome, responsabile e persone arrivano da lì e qui non si
+// creano né si sciolgono. Quello che resta di Budgets — e che questo editor
+// scrive — è il RUOLO ECONOMICO della squadra (struttura o ambiti di ricavo),
+// il colore, l'ordine e una nota, agganciati all'id della funzione.
+
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -65,18 +71,17 @@ export function TeamEditor({
 
   async function salva() {
     if (!form) return;
-    if (!form.nome.trim()) {
-      setErrore("Indicare il nome del team.");
-      return;
-    }
     setSalvo(true);
     setErrore(null);
     const res = await fetch("/api/team", {
-      method: form.id ? "PUT" : "POST",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
-        responsabile: form.responsabile || null,
+        // L'id della squadra È l'id della funzione in Personale.
+        personaleId: form.id,
+        nome: form.nome,
+        colore: form.colore,
+        ordine: form.ordine,
         note: form.note || null,
         struttura: form.ruolo === "struttura",
         ambiti: form.ruolo === "struttura" ? [] : form.ambiti,
@@ -90,16 +95,6 @@ export function TeamEditor({
     }
     setForm(null);
     router.refresh();
-  }
-
-  async function elimina(t: TeamConOrganico) {
-    const avviso =
-      t.persone.length > 0
-        ? `Sciogliere il team "${t.nome}"? Le ${t.persone.length} persone restano a budget, ma senza team.`
-        : `Eliminare il team "${t.nome}"?`;
-    if (!confirm(avviso)) return;
-    const res = await fetch(`/api/team?id=${encodeURIComponent(t.id)}`, { method: "DELETE" });
-    if (res.ok) router.refresh();
   }
 
   const tipoLabel = (tipo: string) => TIPI_PERSONA.find((x) => x.key === tipo)?.label ?? tipo;
@@ -127,25 +122,16 @@ export function TeamEditor({
       </div>
 
       <div className="page-head" style={{ marginBottom: 12 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Squadre</h2>
-        <button
-          className="btn primary"
-          onClick={() => {
-            setErrore(null);
-            setForm({ ...VUOTO, ordine: team.length });
-          }}
-        >
-          Crea team
-        </button>
+        <h2 className="section-title" style={{ margin: 0 }}>Squadre · le funzioni di Personale</h2>
       </div>
 
       {team.length === 0 ? (
         <div className="card empty">
           <div className="empty-icon">◇</div>
-          <div className="empty-title">Nessun team creato</div>
+          <div className="empty-title">Nessuna squadra</div>
           <div className="empty-text">
-            Crea le squadre (Commerciale, Operations, Marketing…) e assegna le persone dalla scheda in{" "}
-            <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link>.
+            Le squadre sono le funzioni di Deluxy Personale (Funzioni e mansioni): si creano e si
+            popolano là, e qui compaiono al giro dopo con il loro costo.
           </div>
         </div>
       ) : (
@@ -183,14 +169,7 @@ export function TeamEditor({
                     });
                   }}
                 >
-                  Modifica
-                </button>
-                <button
-                  className="btn secondary small"
-                  style={{ color: "var(--red)" }}
-                  onClick={() => elimina(t)}
-                >
-                  Sciogli
+                  Ruolo economico
                 </button>
               </div>
             </div>
@@ -269,8 +248,8 @@ export function TeamEditor({
             </table>
           </div>
           <p className="page-caption" style={{ marginTop: 12 }}>
-            Assegna un team dalla scheda della persona in{" "}
-            <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link>.
+            La squadra di una persona è la sua <strong>funzione</strong> in Deluxy Personale: si assegna
+            là, dalla scheda della persona o dalla pagina Funzioni.
           </p>
         </div>
       )}
@@ -278,27 +257,12 @@ export function TeamEditor({
       {form && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 className="section-title" style={{ marginTop: 0 }}>
-            {form.id ? "Modifica team" : "Nuovo team"}
+            {form.nome} · ruolo economico e aspetto
           </h2>
+          <p className="page-caption" style={{ marginTop: -6, marginBottom: 12 }}>
+            Nome{form.responsabile ? ` e responsabile (${form.responsabile})` : ""} vengono da Personale e si cambiano là.
+          </p>
           <div className="form-grid">
-            <div>
-              <label className="field-label">Nome del team</label>
-              <input
-                type="text"
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Es. Commerciale"
-              />
-            </div>
-            <div>
-              <label className="field-label">Responsabile</label>
-              <input
-                type="text"
-                value={form.responsabile}
-                onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
-                placeholder="Chi risponde del team"
-              />
-            </div>
             <div>
               <label className="field-label">Colore del badge</label>
               <select value={form.colore} onChange={(e) => setForm({ ...form, colore: e.target.value })}>

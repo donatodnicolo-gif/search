@@ -221,6 +221,13 @@ model Team {
   struttura     Boolean      @default(false)
   ambiti        String? // JSON: array di slug
   persone       Dipendente[]
+  // Dal 06/09/2026 le squadre SONO le funzioni di Personale: questa riga
+  // conserva solo ciò che è pianificazione di Budgets (ruolo economico,
+  // colore, ordine, note) agganciato all'id della funzione. Null = riga del
+  // vecchio roster non ancora collegata (scripts/collega-personale.mts).
+  // (unicità garantita dal codice: upsert per personaleId — il vincolo a
+  // database avrebbe richiesto un db push con --accept-data-loss)
+  personaleId   String?
 }
 
 // Persone a costo: dipendenti (RAL + contributi), stagisti (rimborso) e
@@ -251,6 +258,12 @@ model Dipendente {
   // Sciogliere un team non deve cancellare le persone: restano senza team.
   team          Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
   teamId        String?
+  // Dal 06/09/2026 le persone arrivano da Personale: di questa riga si usano
+  // SOLO maisonId, budget e note, agganciati all'id della persona in
+  // Personale (un aggancio per anno di budget). Tutto il resto — RAL,
+  // contratto, mesi — resta scritto per storia ma non si legge più.
+  // (unicità per anno garantita dal codice, come per Team)
+  personaleId   String?
 }
 
 // CFO — ricostruzione dei costi dagli addebiti bancari.

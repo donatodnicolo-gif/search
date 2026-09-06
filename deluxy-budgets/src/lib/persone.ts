@@ -36,6 +36,21 @@ export type Persona = {
   // Persona con un budget proprio: risponde di un numero e lo propone.
   budget: boolean;
   note: string | null;
+  // Dal 06/09/2026 le persone arrivano da Personale (organico.ts), che tiene
+  // compensi e contratti come STORIE: qui il lordo e gli oneri di CIASCUN
+  // mese, così un aumento da luglio o un'assunzione da settembre costano dal
+  // mese giusto. Assente = riga scritta a mano (vecchio roster): vale
+  // `importo` spalmato sui `mesi`.
+  perMese?: { lordo: number; contributiPct: number }[];
+  // Solo per mostrarli: il part-time vero (il RAL di Personale è già
+  // riproporzionato), il nome del contratto, l'email, lo stato in Personale
+  // e la finestra in forza.
+  tempoPct?: number | null;
+  contratto?: string | null;
+  email?: string | null;
+  stato?: string;
+  dal?: string | null;
+  al?: string | null;
 };
 
 // ---------- Costo del personale ----------
@@ -78,13 +93,24 @@ export function smetteNellAnno(p: Persona): boolean {
 
 export function tfrDi(p: Persona): number {
   if (!smetteNellAnno(p)) return 0;
-  const lordoMaturato = (lordoAnnuo(p) / 12) * p.mesi.length;
+  const lordoMaturato = p.perMese
+    ? p.mesi.reduce((s, m) => s + (p.perMese![m - 1]?.lordo ?? 0), 0)
+    : (lordoAnnuo(p) / 12) * p.mesi.length;
   return lordoMaturato / TFR_DIVISORE;
+}
+
+// Il lordo di un mese: dalla storia di Personale quando c'è, altrimenti un
+// dodicesimo dell'annuo. Chi mostra «costo mese» e chi somma l'anno passano
+// di qui — un solo conto.
+export function lordoMese(p: Persona, month: number): number {
+  if (!p.mesi.includes(month)) return 0;
+  return p.perMese ? p.perMese[month - 1]?.lordo ?? 0 : lordoAnnuo(p) / 12;
 }
 
 export function costoPersonaMese(p: Persona, month: number): number {
   if (!p.mesi.includes(month)) return 0;
-  const stipendio = (lordoAnnuo(p) / 12) * (1 + p.contributiPct / 100);
+  const contributi = p.perMese ? p.perMese[month - 1]?.contributiPct ?? 0 : p.contributiPct;
+  const stipendio = lordoMese(p, month) * (1 + contributi / 100);
   // Il TFR cade **tutto nel mese in cui il rapporto finisce**, perche e li che
   // si liquida: spalmarlo sui dodicesimi direbbe che quel costo esce a gennaio,
   // e non e vero.

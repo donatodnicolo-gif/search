@@ -10,6 +10,7 @@ import { quotaDeluxyAnno } from "@/lib/quota";
 import { costoPremi, misuraPremi } from "@/lib/premi";
 import { prisma } from "@/lib/db";
 import { RigaLink } from "@/components/RigaLink";
+import { AvvisoOrganico } from "@/components/AvvisoOrganico";
 
 export const dynamic = "force-dynamic";
 
@@ -398,6 +399,10 @@ export default async function ContoEconomico({
           <Link className="btn secondary" href="/impostazioni">Costi e premi</Link>
         </div>
       </div>
+
+      {/* Il personale viene da Personale (06/09/2026): se non è arrivato, la
+          riga «Personale» qui sotto è a zero, e va detto PRIMA della tabella. */}
+      {dati.organico.stato !== "ok" && <AvvisoOrganico organico={dati.organico} />}
 
       <div className="kpi-grid">
         <div className="kpi">

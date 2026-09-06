@@ -4,6 +4,72 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 06/09/2026 (pomeriggio): persone e squadre arrivano da Personale — il roster di Budgets non esiste più
+
+Decisione dell'utente, in una riga: «personale e team devono arrivare da app personale». È lo
+Standard §7 applicato all'organico: la casa dei dati HR è `deluxy-personale`, e Budgets fin qui
+ne teneva una copia sua (tabella `Dipendente`, editor in /dipendenti, tabella `Team`), con un
+POST di «proposta» da Personale per tenerle allineate. Da oggi **si legge, non si copia**:
+
+- **`src/lib/personale.ts`** legge `/api/v1/persone?stato=tutti&compensi=1&storia=1` e
+  `/api/v1/team` con la chiave `PERSONALE_API_KEY` (ambiente → Configurazione → Chiavi →
+  cassaforte del Hub, il solito `chiave()`), cache 60 s, timeout 6 s. Cessate comprese: chi è
+  uscito a giugno è costato sei mesi.
+- **`src/lib/organico.ts`** traduce ogni persona in una riga di costo **mese per mese**: in
+  forza dall'assunzione (o dalla prima decorrenza) alla cessazione — la SCADENZA di un
+  inquadramento non chiude niente, Turchiello ha scadenza 30/06 e uscita 31/07 — e per ogni mese
+  il compenso in vigore a quella data, comprese le decorrenze FUTURE. Per questo Personale ha
+  ricevuto **`?storia=1`** (inquadramenti[] e compensi[] con decorrenza): senza, chi decorre da
+  settembre non costerebbe finché settembre non arriva, e un budget serve proprio a saperlo prima.
+  ⚠️ Il RAL di Personale è già l'importo effettivo (part-time applicato: Cassoli 18.750 =
+  25.000 × 75%): `partTimePct` va a 100 e il part-time vero resta in `tempoPct`, solo da mostrare.
+  Contributi non dichiarati su un dipendente → contata al solo lordo e detto in pagina; autonomo
+  senza oneri → costa il compenso (sulla fattura non ci sono oneri nascosti).
+- **`Persona` ha `perMese[]`** (lordo e oneri di ciascun mese): `costoPersonaMese`, `tfrDi` e il
+  nuovo `lordoMese` passano di lì; le righe scritte a mano (senza `perMese`) valgono come prima.
+- **`caricaAnno`** riempie `persone` e `team` da Personale ed espone **`dati.organico`**
+  (stato ok / senza-chiave / errore, `storia`, `avvisi`, `nonInPersonale`). Le squadre SONO le
+  funzioni di Personale (id = id della funzione). Se Personale non risponde, persone e team sono
+  **vuoti e dichiarati**: `caricaConsuntivo` mette «organico da Personale» fra i `mancanti`, e
+  /pl, /team, /dipendenti mostrano l'avviso (`AvvisoOrganico`). Niente ripiego sul vecchio
+  roster: sarebbe la tabella-copia che il contratto vieta, con un numero vecchio che sembra giusto.
+- **Cosa resta di Budgets, agganciato per id** (colonna `personaleId` su `Dipendente` e `Team`,
+  `prisma db push` del 06/09 — solo due colonne nulle; il vincolo di unicità è nel codice perché
+  il push col vincolo chiedeva `--accept-data-loss`, bloccato): per la persona la **maison** a cui
+  attribuire il costo e una nota (`OrganicoEditor` in /dipendenti → `PUT /api/dipendenti`,
+  upsert per anno+personaleId); per la squadra il **ruolo economico** (struttura/ambiti), colore,
+  ordine, note (`TeamEditor` → `PUT /api/team`, upsert per personaleId). POST e DELETE di
+  entrambe rispondono **410**: si crea e si cancella dove si abita. `POST /api/v1/persone`
+  (la proposta da Personale) risponde 200 «non serve più» — Personale la chiama ancora dopo
+  ogni nuova persona e un 410 le farebbe comparire un errore per una cosa andata bene; quando si
+  toglie la chiamata di là, la rotta si cancella.
+- **`scripts/collega-personale.mts`** (prova a vuoto / `scrivi`) ha agganciato per nome
+  normalizzato **11 persone e 3 squadre** — eseguito il 06/09: Maison, Commerciale e Operation
+  hanno conservato il loro ruolo economico (D2C · Eventi+B2B+Commerciale · struttura).
+- `DipendentiEditor.tsx` è stato **cancellato** (postava su rotte che ora rispondono 410).
+
+📌 **Cosa è cambiato nei numeri, e va detto all'utente.** Costo del personale 2026: **221.737 €**
+(era ~218.877 nel P&L del 26/08). Due nomi del vecchio roster **non esistono in Personale** e non
+contano più — **Emma Gariboldi** (era a importo 0) e **Michela Avantaggiato** (700 €/mese, ~7.700 €
+l'anno): la pagina li elenca finché qualcuno non li scrive in Personale o decide che erano piano.
+Tre persone nel vecchio roster **saltavano agosto** (Zicchinella, Avantaggiato, Cassoli): Personale
+non ha quel concetto e ora agosto conta. **Carine Turchiello** era 1.200 €/mese fino a giugno, in
+Personale è compenso 10.000 € annuo fino al 31/07 → 5.833 €. **Quattro persone senza funzione in
+Personale** (Nicolò Donato, Eva, Luca Salso, Renato Cassoli — che è il responsabile di Operation ma
+non ci sta dentro) finiscono in «Senza team» nel conto per team: si sistema assegnando la funzione
+in Personale, non qui.
+
+🔴 **Da fare per accendere tutto in produzione**: (1) **deploy di Personale** (route `persone`
+con `storia=1`: finché manca, Budgets usa il corrente e lo dichiara in pagina); (2)
+**`PERSONALE_API_KEY` in produzione di Budgets** — la chiave emessa il 24/08 per
+deluxy-budgets sta in `deluxy-personale/chiavi-emesse.local.md`; in locale è nel `.env`
+(scritta oggi), in produzione va in Vercel o in Configurazione → Chiavi o nella cassaforte del
+Hub (progetto deluxy-budgets, nome `PERSONALE_API_KEY`) — senza, /pl mostra l'avviso e il
+personale vale zero; (3) **deploy di Budgets**. ⚠️ Una chiave di SCRITTURA di Budgets
+(`BUDGETS_WRITE_KEY`, emessa per Personale) è finita in chiaro nell'output di una sessione
+dell'assistente il 06/09: conviene **rigenerarla** (`scripts/emetti-chiave.mjs`) e aggiornarla
+nell'`.env`/Vercel di Personale.
+
 ### 06/09/2026: il mese è girato, e «Aggiornato» ha mostrato tre cose sbagliate su settembre
 
 Prima sessione dopo il giro del mese (l'ultima era del 31/08). Aperta la vista «Questo mese» al

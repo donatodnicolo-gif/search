@@ -43,6 +43,8 @@ export function leggiVociFinance(json: string | null): string[] {
 
 export * from "./persone";
 import { costoPersonaAnno, costoPersonaMese, type Persona } from "./persone";
+import { fetchOrganicoPersonale } from "./personale";
+import { personaDaPersonale } from "./organico";
 
 
 export type TeamBudget = {
@@ -153,8 +155,24 @@ export type LineaBudgetPL = {
   mesi: number[];
 };
 
+// Da dove viene l'organico, e cosa non è arrivato (06/09/2026). Le pagine che
+// mostrano persone o il loro costo lo dichiarano: un costo del personale a
+// zero perché Personale non risponde NON è «nessun dipendente».
+export type StatoOrganico = {
+  stato: "ok" | "senza-chiave" | "errore";
+  motivo?: string;
+  // Personale vecchio, senza storie: il compenso corrente vale per tutti i mesi.
+  storia: boolean;
+  // Persone in forza senza compenso, contributi non dichiarati, ecc.
+  avvisi: string[];
+  // Il vecchio roster di Budgets conteneva nomi che Personale non conosce:
+  // si dicono finché qualcuno non li mette dove abitano.
+  nonInPersonale: string[];
+};
+
 export type DatiAnno = {
   year: number;
+  organico: StatoOrganico;
   maisons: MaisonBudget[];
   scenari: { livello: Livello; moltiplicatore: number; premio: number; note: string | null }[];
   costi: { id: string; tipo: string; label: string; valore: number; maisonId: string | null }[];
@@ -176,13 +194,16 @@ export type DatiAnno = {
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
-  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie, piattaforme, split, lineeDb] =
+  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie, piattaforme, split, lineeDb, organicoP] =
     await Promise.all([
       prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
       prisma.budgetEntry.findMany({ where: { year } }),
       prisma.advPercent.findMany({ where: { year } }),
       prisma.scenarioConfig.findMany({ where: { year } }),
       prisma.costConfig.findMany({ where: { year } }),
+      // Le righe di `Dipendente` e `Team` non sono più l'organico (06/09/2026):
+      // servono per gli ATTRIBUTI di pianificazione agganciati a Personale
+      // (personaleId) e per dire quali nomi del vecchio roster là non esistono.
       prisma.dipendente.findMany({ where: { year }, orderBy: { nome: "asc" } }),
       prisma.team.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
       prisma.tipologiaServizio.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
@@ -192,7 +213,54 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
         orderBy: { ordine: "asc" },
         include: { targets: { where: { year } } },
       }),
+      fetchOrganicoPersonale(),
     ]);
+
+  // ---- L'organico: persone e squadre da Personale ----
+  const organico: StatoOrganico = {
+    stato: organicoP.stato,
+    motivo: organicoP.stato === "ok" ? undefined : organicoP.stato === "errore" ? organicoP.motivo : "manca PERSONALE_API_KEY",
+    storia: organicoP.stato === "ok" ? organicoP.storia : false,
+    avvisi: [],
+    nonInPersonale: dipendenti.filter((d) => !d.personaleId).map((d) => d.nome),
+  };
+  const persone: Persona[] = [];
+  const teamOut: TeamBudget[] = [];
+  if (organicoP.stato === "ok") {
+    const attrPer = new Map(dipendenti.filter((d) => d.personaleId).map((d) => [d.personaleId!, d]));
+    for (const p of organicoP.persone) {
+      const a = attrPer.get(p.id);
+      const { persona, avvisi } = personaDaPersonale(
+        p,
+        year,
+        a ? { maisonId: a.maisonId, budget: a.budget, note: a.note } : null
+      );
+      // Chi non ha nemmeno un mese in forza nell'anno (cessato l'anno prima,
+      // assunto l'anno dopo) non sta nel roster dell'anno — ma non è un
+      // errore, quindi niente avviso.
+      if (persona.mesi.length === 0 && !persona.dal) continue;
+      if (persona.mesi.length === 0 && persona.al && persona.al < `${year}-01-01`) continue;
+      if (persona.mesi.length === 0 && persona.dal && persona.dal > `${year}-12-31`) continue;
+      persone.push(persona);
+      organico.avvisi.push(...avvisi);
+    }
+    persone.sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+    const attrTeam = new Map(team.filter((t) => t.personaleId).map((t) => [t.personaleId!, t]));
+    organicoP.funzioni.forEach((f, i) => {
+      const t = attrTeam.get(f.id);
+      teamOut.push({
+        id: f.id,
+        nome: f.nome,
+        responsabile: f.responsabile,
+        colore: t?.colore ?? null,
+        ordine: t?.ordine ?? i,
+        note: t?.note ?? null,
+        struttura: t?.struttura ?? false,
+        ambiti: t ? leggiAmbiti(t.ambiti) : null,
+      });
+    });
+    teamOut.sort((a, b) => a.ordine - b.ordine || a.nome.localeCompare(b.nome, "it"));
+  }
 
   const out: MaisonBudget[] = maisons.map((m) => {
     const mesi: MeseMaison[] = [];
@@ -249,6 +317,7 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
 
   return {
     year,
+    organico,
     maisons: out,
     struttura,
     linee: lineeDb.map((l) => ({
@@ -264,35 +333,8 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       note: s.note,
     })),
     costi,
-    persone: dipendenti.map((d) => ({
-      id: d.id,
-      nome: d.nome,
-      ruolo: d.ruolo,
-      tipo: d.tipo,
-      importo: d.importo,
-      superminimo: d.superminimo,
-      partTimePct: d.partTimePct,
-      periodicita: d.periodicita,
-      contributiPct: d.contributiPct,
-      mensilita: d.mensilita,
-      inpsPct: d.inpsPct,
-      addizionaliPct: d.addizionaliPct,
-      mesi: leggiMesi(d.mesi),
-      maisonId: d.maisonId,
-      teamId: d.teamId,
-      budget: d.budget,
-      note: d.note,
-    })),
-    team: team.map((t) => ({
-      id: t.id,
-      nome: t.nome,
-      responsabile: t.responsabile,
-      colore: t.colore,
-      ordine: t.ordine,
-      note: t.note,
-      struttura: t.struttura,
-      ambiti: leggiAmbiti(t.ambiti),
-    })),
+    persone,
+    team: teamOut,
     tipologie: tipologie.map((t) => ({
       id: t.id,
       slug: t.slug,
