@@ -106,6 +106,14 @@ export type ConsuntivoPeriodo = {
     percentualeFornitori: number;
     mesiNonCaricati: number[];
   } | null;
+  // La riga ecommerce MESE PER MESE, e da dove viene ciascun mese (06/09/2026).
+  // Serve a chi mostra lo stesso conto spezzato per brand (/aggiornato, tabella
+  // maison): sui mesi che la piattaforma non ha ancora misurato — il mese
+  // appena aperto — quella tabella ripartisce QUESTO numero, invece di
+  // scrivere zero accanto a un conto economico che una stima ce l'ha già.
+  // Due tabelle sulla stessa pagina non possono raccontare due ricavi.
+  ricavoEcommerceMese: number[];
+  ecommerceFonteMese: ("misurato" | "vendor" | "quota" | "nessuna")[];
   // Il ricavo ecommerce MISURATO (primo margine + fee scritti dalla piattaforma
   // sugli ordini di Orders): dal 26/08/2026 è la PRIMA fonte della riga
   // ecommerce, sui mesi in cui l'economia copre almeno metà del lordo. `null`
@@ -141,6 +149,8 @@ export async function caricaConsuntivo(
     commissioniIncassi: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
     quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null, economia: null,
+    ricavoEcommerceMese: Array(12).fill(0) as number[],
+    ecommerceFonteMese: Array(12).fill("nessuna") as ("misurato" | "vendor" | "quota" | "nessuna")[],
     competenza: null,
     perMese: [],
   };
@@ -228,15 +238,18 @@ export async function caricaConsuntivo(
   // Un solo array per il mese e per il totale: il totale è la somma dei mesi,
   // così le due letture non possono divergere (è già successo con la quota).
   const ricavoEcommerceMese = Array(12).fill(0) as number[];
+  const ecommerceFonteMese = Array(12).fill("nessuna") as ("misurato" | "vendor" | "quota" | "nessuna")[];
   for (let i = 0; i < 12; i++) {
     const e = econ.mesi[i];
-    if (e.misurato) { ricavoEcommerceMese[i] = e.ricavo; continue; }
+    if (e.misurato) { ricavoEcommerceMese[i] = e.ricavo; ecommerceFonteMese[i] = "misurato"; continue; }
     const riga = daVendor ? d2c.mesi.find((x) => x.mese === i + 1) : null;
-    ricavoEcommerceMese[i] = daVendor
-      ? (riga?.caricato ? riga.ricavo : 0)
-      : vend.ok
-        ? fatturatoDaVenduto(vend.mese[i] ?? 0, quota)
-        : 0;
+    if (daVendor) {
+      ricavoEcommerceMese[i] = riga?.caricato ? riga.ricavo : 0;
+      ecommerceFonteMese[i] = riga?.caricato ? "vendor" : "nessuna";
+    } else if (vend.ok) {
+      ricavoEcommerceMese[i] = fatturatoDaVenduto(vend.mese[i] ?? 0, quota);
+      ecommerceFonteMese[i] = "quota";
+    }
   }
   const ricavoEcommerce = sommaMesi(ricavoEcommerceMese, mesi);
 
@@ -286,10 +299,25 @@ export async function caricaConsuntivo(
   // spegnerebbe il ritrovamento in silenzio, e un costo aggiunto senza aver
   // tolto quello vecchio sarebbe contato due volte proprio dove si stava
   // cercando di essere più precisi.
+  //
+  // ⚠️⚠️ **«Non si trova» va chiesto al CATALOGO, non alle righe del periodo**
+  // (06/09/2026). Fino a ieri si cercava la categoria fra le controparti di
+  // banca dei mesi richiesti: su un mese appena aperto — settembre al sesto
+  // giorno, nessun bonifico ai valet ancora uscito — la riga non c'era, e il
+  // conto concludeva che la categoria «non esiste»: cartello rosso «manca una
+  // fonte» e costo delle consegne della piattaforma tenuto FUORI, proprio sul
+  // mese in cui la banca non lo vede ancora e la piattaforma è l'unica a
+  // saperlo. Una categoria che esiste ma non ha righe nel periodo vale zero
+  // in banca: non c'è niente da togliere, e il conto della piattaforma entra
+  // per intero. Il cartello resta per il caso vero — la categoria rinominata
+  // o cancellata nel CFO.
+  const categoriaConsegneEsiste = categorie.some(
+    (c) => c.nome.trim().toLowerCase() === CATEGORIA_CONSEGNE_BANCA.toLowerCase()
+  );
   const rigaBanca = rigaBancaConsegne(ricostruito);
   const { delta: deltaConsegne, esposta: consegneEsposte } = sostituzioneConsegne(
     costiConsegne,
-    rigaBanca?.perMese ?? null,
+    rigaBanca?.perMese ?? (categoriaConsegneEsiste ? (Array(12).fill(0) as number[]) : null),
     mesi,
     // Il roster degli stipendi: chi è qui dentro non si conta anche fra le
     // consegne — il suo costo è già nella riga «personale».
@@ -297,7 +325,7 @@ export async function caricaConsuntivo(
   );
   for (const m of mesi) cogsMese[m - 1] = (cogsMese[m - 1] ?? 0) + (deltaConsegne[m - 1] ?? 0);
   cogs += mesi.reduce((s, m) => s + (deltaConsegne[m - 1] ?? 0), 0);
-  if (costiConsegne.ok && !rigaBanca) {
+  if (costiConsegne.ok && !categoriaConsegneEsiste) {
     mancanti.push(
       `la categoria di banca «${CATEGORIA_CONSEGNE_BANCA}» non esiste: il costo delle consegne della piattaforma NON è entrato nel conto (sommarlo avrebbe contato due volte gli stessi bonifici)`
     );
@@ -456,6 +484,8 @@ export async function caricaConsuntivo(
     advCompetenza: { dentro: advDentro, fuori: advFuori },
     quota,
     pagatoAiPartner,
+    ricavoEcommerceMese,
+    ecommerceFonteMese,
     economia: econ.esposta && econPeriodo.mesiMisurati.length > 0
       ? {
           ricavo: econPeriodo.ricavo,

@@ -4,6 +4,57 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 06/09/2026: il mese è girato, e «Aggiornato» ha mostrato tre cose sbagliate su settembre
+
+Prima sessione dopo il giro del mese (l'ultima era del 31/08). Aperta la vista «Questo mese» al
+sesto giorno di settembre, la pagina diceva tre cose che non erano vere — nessuna delle tre era
+visibile ad agosto, perché tutte nascono da un mese **appena aperto**:
+
+1. 🔴 **Cartello rosso «manca una fonte: la categoria di banca "Consegne (valet e corrieri)" non
+   esiste»**, e il costo delle consegne della piattaforma tenuto fuori dal conto. La categoria
+   esiste eccome: `consuntivo.ts` la cercava **fra le controparti di banca del periodo**, e a
+   settembre nessun bonifico ai valet era ancora uscito, quindi la riga non c'era. Il controllo
+   era pensato per la categoria rinominata nel CFO, e sul mese nuovo scattava a vuoto — proprio
+   dove la banca non vede ancora niente e la piattaforma è l'unica a sapere il costo. Ora si chiede
+   al **catalogo** (`caricaCategorie`): categoria esistente senza righe nel periodo = zero in
+   banca, niente da togliere, e il conto della piattaforma entra per intero (settembre: +55 € di
+   COGS, 764 → 820). Il cartello resta per il caso vero.
+2. 🔴 **«Ricavo Deluxy 0 €» per tutte e tre le maison**, quindi «Prodotti, partner e IVA» pari a
+   tutto il venduto e **contributo negativo** per ognuna — mentre il conto economico tre righe
+   più su, per lo stesso mese, il ricavo ecommerce ce l'aveva (6.051 €: la cascata di
+   `consuntivo.ts`, quota del 40%). La piattaforma scrive l'economia sugli ordini **dopo la
+   consegna**: al 6 settembre 0 ordini su 94 col dato, e la tabella maison leggeva solo il misurato.
+   Due tabelle sulla stessa pagina con due ricavi diversi — il difetto di famiglia. Ora
+   `caricaConsuntivo` espone `ricavoEcommerceMese` + `ecommerceFonteMese` (misurato / vendor /
+   quota / nessuna) e la tabella maison, mese per mese, usa il dato del brand dove la piattaforma ha
+   misurato e **ripartisce il numero del conto economico in proporzione al venduto** dove no: la
+   colonna somma per costruzione alla riga sopra (verificato: 2.574 + 653 + 2.824 = 6.051), ogni riga
+   porta il segno «**stima**» coi mesi che lo sono (sul trimestre: «stima Set»), la didascalia dice
+   la quota usata e che il dato misurato la sostituirà da solo.
+3. ⚠️ **EBITDA di settembre −12.817 €** con sei giorni di ricavi e trenta di personale: non è un
+   errore ed è restato così, ma ora sotto il conto economico una riga lo dice («Set è in corso,
+   giorno 6 di 30: vendite, servizi e uscite di banca arrivano fin qui; personale e pubblicità a
+   competenza sono del mese intero. L'EBITDA del mese si legge a fine mese»). Non si pro-rata il
+   personale: farebbe credere che i ricavi dei giorni che mancano ci saranno.
+
+⭐ **Due false piste, da non rincorrere la prossima volta.** All'apertura la pagina mostrava anche
+«Vendite ecommerce · Set 0 €» e «B2B agosto 1.998 €»: entrambi erano la **cache dei fetch di Next
+salvata su disco** (`.next/cache`, `revalidate: 60`) dalla sessione del 31/08, servita stantia
+al primo giro e rinfrescata dopo. Interrogando Orders e Finance a mano i numeri veri c'erano
+(Orders settembre 15.127 €; Finance agosto Consegne 9.972 + Eventi 2.720 + Affiliazioni 115 + Altro
+24). In produzione non succede: la cache è per deploy. ✅ **Il passaggio di consegne sul mese
+chiuso ha funzionato**: ad agosto i servizi della piattaforma valevano 11.251 € dal listino; a
+mese chiuso quella riga è sparita e al suo posto ci sono le **9 fatture «Consegne» di Finance,
+9.972 €**, dentro B2B (10.087 € con le affiliazioni) — agosto chiude a **EBITDA +2.279 €**.
+
+📌 Fotografia del 06/09 (locale, dopo le correzioni): Ago EBITDA +2.279 €; Lug–Set −7.651 € col
+settembre in corso; settembre al giorno 6: venduto 15.128 €, ricavi 8.691 € (di cui 2.616 € di
+servizi in corso, 153 servizi), personale 20.686 €. Restano aperti: la Edge `ordini-mese` di
+Scout non deployata (blocco «ordini chiusi in Scout» spento), `APP_SECRET` e `HUB_SSO_SECRET`
+in produzione, i punti 1–9 di «Cosa aspetta una decisione». Aggiunto l'`ignoreCommand` al
+`vercel.json` (regola del 04/09 per tutte le app; qui il progetto non è collegato a git, quindi
+è solo coerenza).
+
 ### 30/08/2026 (sera, seconda passata): il commerciale del mese in corso arriva da Scout — manca solo il deploy della Edge
 
 Domanda dell'utente: «stai prendendo da app delivery i dati delle consegne per il mese in corso? i

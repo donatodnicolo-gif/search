@@ -7,6 +7,7 @@ import { abbinaMaison, fetchRicaviD2C, fetchRicaviIntervallo } from "@/lib/order
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { fetchOrdiniChiusiMese } from "@/lib/scout";
 import { fetchRicaviServizi, fetchRicaviServiziIntervallo } from "@/lib/consegne";
+import { economiaD2C } from "@/lib/economia-d2c";
 import { eur, pct, MESI } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -222,18 +223,57 @@ export default async function AggiornatoPage({
   ]);
   const venduto = raggruppa(ricaviRes, dati.maisons);
 
-  // Il ricavo Deluxy misurato per brand: fee + primo margine scritti dalla
-  // piattaforma sugli ordini (economia della vendita, 26/08). Per brand e per
-  // i mesi del periodo; se Orders non porta i campi il numero non si inventa.
+  // Il ricavo Deluxy per brand: fee + primo margine scritti dalla piattaforma
+  // sugli ordini (economia della vendita, 26/08), sui mesi MISURATI.
+  //
+  // ⚠️ **Sui mesi non misurati vale la stessa stima del conto economico**
+  // (06/09/2026). Il sesto giorno di settembre la piattaforma non aveva ancora
+  // scritto l'economia su nessun ordine del mese (0 su 94): questa tabella
+  // segnava «Ricavo Deluxy 0 €», quindi «Prodotti, partner e IVA» pari a
+  // tutto il venduto e un contributo negativo per ogni maison — mentre il
+  // conto economico tre righe più su, per lo stesso mese, il ricavo ecommerce
+  // ce l'aveva (la cascata di consuntivo.ts: fee vendor → quota). Due tabelle
+  // sulla stessa pagina raccontavano due ricavi diversi, il difetto di
+  // famiglia di quest'app. Ora, mese per mese: se la piattaforma ha misurato
+  // il mese si usa il dato del brand; altrimenti si ripartisce fra i brand il
+  // ricavo ecommerce del mese del conto economico, in proporzione al venduto —
+  // così la colonna somma per costruzione alla riga del conto sopra, e la riga
+  // porta il segno «stima» coi mesi che lo sono.
+  const econ = economiaD2C(ricaviRes);
+  const vendutoTotMese = venduto.ok ? venduto.mese : (Array(12).fill(0) as number[]);
   const ricavoDeluxy = new Map<string, number>();
+  const mesiStimatiPer = new Map<string, number[]>();
   if (ricaviRes.ok) {
     for (const b of ricaviRes.dati.brand) {
       const slug = abbinaMaison(b.brand, dati.maisons);
-      if (!slug || !b.feeMese || !b.primoMargineMese) continue;
-      const v = sommaMesi(b.feeMese, mesi) + sommaMesi(b.primoMargineMese, mesi);
+      if (!slug) continue;
+      let v = 0;
+      const stimati: number[] = [];
+      for (const m of mesi) {
+        const i = m - 1;
+        const vendM = b.mesi[i] ?? 0;
+        if (econ.mesi[i].misurato) {
+          v += (b.feeMese?.[i] ?? 0) + (b.primoMargineMese?.[i] ?? 0);
+        } else if (cons.ecommerceFonteMese[i] !== "nessuna" && vendM > 0 && (vendutoTotMese[i] ?? 0) > 0) {
+          v += (cons.ricavoEcommerceMese[i] ?? 0) * (vendM / (vendutoTotMese[i] ?? 1));
+          stimati.push(m);
+        } else if (vendM > 0) {
+          // Venduto senza nessuna fonte per il ricavo: non si inventa, ma non
+          // è nemmeno zero — la riga lo dichiara come stima mancante.
+          stimati.push(m);
+        }
+      }
       ricavoDeluxy.set(slug, (ricavoDeluxy.get(slug) ?? 0) + v);
+      const gia = mesiStimatiPer.get(slug) ?? [];
+      mesiStimatiPer.set(slug, [...new Set([...gia, ...stimati])].sort((a, c) => a - c));
     }
   }
+  const mesiStimatiTutti = [...new Set([...mesiStimatiPer.values()].flat())].sort((a, c) => a - c);
+  const fonteStima = mesiStimatiTutti.length > 0
+    ? mesiStimatiTutti.some((m) => cons.ecommerceFonteMese[m - 1] === "vendor")
+      ? "dalle fatture ai vendor di Finance"
+      : `con la quota del ${pct(cons.quota.percentuale, 1)} (${cons.quota.misurata ? "misurata" : "stimata"})`
+    : "";
 
   // Risultati maison: il venduto dei NEGOZI contro il budget **D2C** degli
   // stessi mesi — stessa coppia di /maison: il venduto ecommerce si confronta
@@ -257,7 +297,8 @@ export default async function AggiornatoPage({
     });
     const budget = budgetMesi.reduce((s, v) => s + v, 0);
     const mesiSenzaBudget = mesi.filter((_, i) => (budgetMesi[i] ?? 0) === 0);
-    const ricavo = ricavoDeluxy.get(m.slug) ?? null;
+    const ricavo = ricavoDeluxy.has(m.slug) ? ricavoDeluxy.get(m.slug)! : null;
+    const mesiStimati = mesiStimatiPer.get(m.slug) ?? [];
     const advMesi = advBrand.ok ? advBrand.perMaison.get(m.slug) : undefined;
     const adv = advMesi ? mesi.reduce((s, mm) => s + (advMesi[mm - 1] ?? 0), 0) : null;
     // Il PONTE fra venduto e ricavo (31/08, richiesta utente: «hai tolto tutti
@@ -268,7 +309,7 @@ export default async function AggiornatoPage({
     // una stima.
     const prodotti = vend !== null && ricavo !== null ? vend - ricavo : null;
     const contributo = ricavo !== null && adv !== null ? ricavo - adv : null;
-    return { nome: m.nome, vend, budget, mesiSenzaBudget, ricavo, prodotti, adv, contributo };
+    return { nome: m.nome, vend, budget, mesiSenzaBudget, ricavo, mesiStimati, prodotti, adv, contributo };
   }).filter((r) => r.vend !== null || r.budget > 0);
   const vendTot = righeM.reduce((s, r) => s + (r.vend ?? 0), 0);
   // I totali di colonna: il budget totale ha senso solo se NESSUNA riga ha
@@ -373,6 +414,20 @@ export default async function AggiornatoPage({
         </table>
       </div>
 
+      {/* Il mese in corso non è un mese: al sesto giorno i ricavi sono di sei
+          giorni e il personale è di trenta (06/09/2026). Un EBITDA a −12.761 €
+          con la sola vista mese fa pensare a un tracollo; è il calendario. Si
+          scrive sotto il conto, non si aggiusta: pro-ratare il personale
+          farebbe credere che i ricavi dei giorni che mancano ci saranno. */}
+      {parziale && (
+        <p className="page-caption" style={{ marginTop: 8 }}>
+          <strong>{MESI[meseInCorso - 1]} è in corso</strong> (giorno {oggi.getUTCDate()} di{" "}
+          {new Date(Date.UTC(anno, meseInCorso, 0)).getUTCDate()}): vendite, servizi e uscite di banca arrivano fin qui;{" "}
+          <strong>personale</strong> e pubblicità a competenza sono del <strong>mese intero</strong>. L&apos;EBITDA del mese
+          si legge a fine mese — prima, per costruzione, pende verso il negativo.
+        </p>
+      )}
+
       <h2 className="section-title" style={{ marginTop: 24 }}>Risultati maison · dal venduto al contributo</h2>
       <div className="table-wrap">
         <table>
@@ -405,7 +460,14 @@ export default async function AggiornatoPage({
                     : "—"}
                 </td>
                 <td className="num">{r.prodotti !== null ? `− ${eur(r.prodotti)}` : "—"}</td>
-                <td className="num">{r.ricavo !== null ? eur(r.ricavo) : "—"}</td>
+                <td className="num">
+                  {r.ricavo !== null ? eur(r.ricavo) : "—"}
+                  {r.mesiStimati.length > 0 && (
+                    <span style={{ color: "var(--text-tertiary)", fontSize: 12, marginLeft: 6 }} title={`stima su ${r.mesiStimati.map((m) => MESI[m - 1]).join(", ")}`}>
+                      stima{mesi.length > 1 ? ` ${r.mesiStimati.map((m) => MESI[m - 1]).join(", ")}` : ""}
+                    </span>
+                  )}
+                </td>
                 <td className="num">{r.adv !== null ? `− ${eur(r.adv)}` : "—"}</td>
                 <td className={`num ${r.contributo !== null ? (r.contributo >= 0 ? "pos" : "neg") : ""}`} style={{ fontWeight: 600 }}>
                   {r.contributo !== null ? eur(r.contributo) : "—"}
@@ -432,7 +494,14 @@ export default async function AggiornatoPage({
         </table>
       </div>
       <p className="page-caption" style={{ marginTop: 8 }}>
-        <strong>Prodotti, partner e IVA</strong> = venduto − ricavo Deluxy: quello che dei negozi non resta — il costo dei prodotti, la quota dei partner e l&apos;IVA sulle vendite (il venduto è lordo IVA, il ricavo no). <strong>Ricavo Deluxy</strong> = fee + primo margine scritti dalla piattaforma sugli ordini.{" "}
+        <strong>Prodotti, partner e IVA</strong> = venduto − ricavo Deluxy: quello che dei negozi non resta — il costo dei prodotti, la quota dei partner e l&apos;IVA sulle vendite (il venduto è lordo IVA, il ricavo no). <strong>Ricavo Deluxy</strong> = fee + primo margine scritti dalla piattaforma sugli ordini
+        {mesiStimatiTutti.length > 0 ? (
+          <>
+            {" "}— <strong>tranne {mesiStimatiTutti.map((m) => MESI[m - 1]).join(", ")}</strong>, che la piattaforma non ha ancora misurato
+            {parziale && mesiStimatiTutti.includes(meseInCorso) ? " (gli ordini del mese in corso ricevono l’economia dopo la consegna)" : ""}: lì è la stessa stima del conto economico sopra, {fonteStima}, ripartita fra i brand in proporzione al venduto — e si sostituisce da sola col dato misurato quando arriva
+          </>
+        ) : null}
+        .{" "}
         <strong>Pubblicità</strong> = campagne per brand da Marketing (le campagne eliminate non ci
         sono: il totale vero di cassa resta la banca, nel conto economico sopra).{" "}
         <strong>Contributo</strong> = ricavo − pubblicità: struttura e personale non si ripartiscono

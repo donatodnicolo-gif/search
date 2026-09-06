@@ -150,6 +150,10 @@ export default async function ContoEconomico({
           quota: QUOTA_STIMATA,
           pagatoAiPartner: 0,
           d2c: null,
+          // Il budget non ha una riga ecommerce mese per mese con una fonte:
+          // qui dentro non si applica.
+          ricavoEcommerceMese: Array(12).fill(0) as number[],
+          ecommerceFonteMese: Array(12).fill("nessuna") as ("misurato" | "vendor" | "quota" | "nessuna")[],
           economia: null,
           competenza: null,
           perMese: [],
