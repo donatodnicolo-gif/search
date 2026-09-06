@@ -2645,6 +2645,12 @@
     "capped": "Ne vedi {{mostrate}} su {{totale}}: la lista è tagliata per non caricarne decine di migliaia.",
     "markDone": "Segna fatta",
     "markPending": "Riapri",
+    "sezione": {
+      "aperte": "Da fare",
+      "storico": "Storico",
+      "storicoNota": "Le attività concluse: fatte e saltate, dalla più recente. «Riapri» le riporta tra quelle da fare.",
+      "storicoVuoto": "Nessuna attività conclusa"
+    },
     "type": {
       "PICKUP": "Ritiro",
       "DELIVERY": "Consegna"

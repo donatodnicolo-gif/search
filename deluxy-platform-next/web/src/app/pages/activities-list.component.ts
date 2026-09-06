@@ -62,6 +62,18 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       </div>
     </div>
 
+    <!-- ⭐ 06/09/2026 (regola utente): due sezioni — DA FARE e STORICO (le concluse: fatte e
+         saltate). I numeri sulle linguette contano sullo stesso giorno e perimetro. -->
+    <div class="sezioni" role="tablist">
+      <button type="button" class="sezione" role="tab" [class.active]="sezione() === 'aperte'" [attr.aria-selected]="sezione() === 'aperte'" (click)="vaiASezione('aperte')">
+        {{ 'activities.sezione.aperte' | translate }} <span class="n">{{ conteggi().aperte }}</span>
+      </button>
+      <button type="button" class="sezione" role="tab" [class.active]="sezione() === 'storico'" [attr.aria-selected]="sezione() === 'storico'" (click)="vaiASezione('storico')">
+        {{ 'activities.sezione.storico' | translate }} <span class="n">{{ conteggi().storico }}</span>
+      </button>
+    </div>
+    @if (sezione() === 'storico') { <p class="sezione-nota">{{ 'activities.sezione.storicoNota' | translate }}</p> }
+
     <!-- Quando si guarda «tutte» si vede una fetta, e va detto: 57.253 righe
          non stanno in una pagina e fingere di mostrarle tutte è peggio che
          ammettere il taglio. -->
@@ -73,7 +85,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
     } @else if (!attivita().length) {
       <div class="card state-card">
-        <strong>{{ 'activities.emptyTitle' | translate }}</strong>
+        <strong>{{ (sezione() === 'storico' ? 'activities.sezione.storicoVuoto' : 'activities.emptyTitle') | translate }}</strong>
         <span class="muted">{{ 'activities.emptyHint' | translate }}</span>
       </div>
     } @else {
@@ -153,6 +165,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .quick { display: inline-flex; background: var(--fill, #f5f5f7); border-radius: 980px; padding: 2px; }
       .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
       .quick-tab.active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+      .sezioni { display: inline-flex; gap: 4px; margin-bottom: 14px; padding: 3px; border-radius: 980px; background: var(--fill, #f5f5f7); }
+      .sezione { border: 0; background: none; border-radius: 980px; padding: 7px 16px; font: inherit; font-size: 13.5px; font-weight: 550; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+      .sezione.active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+      .sezione .n { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 980px; background: rgba(0,0,0,.06); font-variant-numeric: tabular-nums; }
+      .sezione.active .n { background: rgba(0,0,0,.08); }
+      .sezione-nota { margin: -6px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .avviso { margin: 0 0 12px; font-size: 13px; color: var(--gold-strong, #B8963E); font-weight: 550; }
       .table-wrap { overflow-x: auto; }
       td { vertical-align: middle; }
@@ -204,6 +222,10 @@ export class ActivitiesListComponent {
 
   readonly totale = signal(0);
   readonly mostrate = signal(0);
+  /** ⭐ 06/09: la sezione — le cose da fare o lo storico delle concluse. */
+  readonly sezione = signal<'aperte' | 'storico'>('aperte');
+  readonly conteggi = signal<{ aperte: number; storico: number }>({ aperte: 0, storico: 0 });
+  vaiASezione(s: 'aperte' | 'storico'): void { this.sezione.set(s); this.carica(); }
   readonly caricando = signal(true);
   readonly errore = signal<string | null>(null);
   readonly inCorso = signal<string | null>(null);
@@ -254,10 +276,10 @@ export class ActivitiesListComponent {
       this.caricando.set(true);
       this.errore.set(null);
     }
-    const params: Record<string, string> = {};
+    const params: Record<string, string> = { stato: this.sezione() };
     if (this.giorno) params['date'] = this.giorno;
     this.http
-      .get<{ items: Activity[]; totale: number; mostrate: number }>(
+      .get<{ items: Activity[]; totale: number; mostrate: number; conteggi?: { aperte: number; storico: number } }>(
         `${environment.apiUrl}/activities`, { params },
       )
       .subscribe({
@@ -265,6 +287,7 @@ export class ActivitiesListComponent {
           this.attivita.set(r.items ?? []);
           this.totale.set(r.totale ?? 0);
           this.mostrate.set(r.mostrate ?? 0);
+          this.conteggi.set(r.conteggi ?? { aperte: 0, storico: 0 });
           this.caricando.set(false);
         },
         error: (e) => {

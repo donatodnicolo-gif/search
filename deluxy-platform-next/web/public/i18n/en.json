@@ -2643,6 +2643,12 @@
     "capped": "Showing {{mostrate}} of {{totale}}: the list is capped so it does not load tens of thousands.",
     "markDone": "Mark done",
     "markPending": "Reopen",
+    "sezione": {
+      "aperte": "To do",
+      "storico": "History",
+      "storicoNota": "Completed activities: done and skipped, most recent first. «Reopen» brings one back to the to-do list.",
+      "storicoVuoto": "No completed activities"
+    },
     "type": {
       "PICKUP": "Pickup",
       "DELIVERY": "Delivery"

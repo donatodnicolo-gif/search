@@ -25,7 +25,7 @@ export class ActivitiesService {
    * Il totale vero si restituisce sempre: chi guarda deve sapere che sta
    * vedendo una fetta, non tutto.
    */
-  async findAll(user: JwtUser, date?: string, limite = 300) {
+  async findAll(user: JwtUser, date?: string, limite = 300, stato: 'aperte' | 'storico' | 'tutte' = 'tutte') {
     let where: any = {};
 
     if (user.role === Role.VALET) {
@@ -86,6 +86,16 @@ export class ActivitiesService {
       where.scheduledAt = { gte: day, lt: next };
     }
 
+    // ⭐ 06/09/2026 (regola utente): la pagina ha due sezioni — le attività DA FARE e lo
+    // STORICO delle concluse (fatte e saltate). I conteggi delle due sezioni si danno sempre,
+    // sullo stesso perimetro e giorno, così le linguette dicono quante ce ne sono di là.
+    const base = { ...where };
+    if (stato === 'aperte') where = { ...where, status: 'pending' };
+    else if (stato === 'storico') where = { ...where, status: { in: ['done', 'skipped'] } };
+    const conteggi = await this.prisma.$transaction([
+      this.prisma.activity.count({ where: { ...base, status: 'pending' } }),
+      this.prisma.activity.count({ where: { ...base, status: { in: ['done', 'skipped'] } } }),
+    ]);
     const tetto = Math.min(1000, Math.max(1, limite));
     const [totale, items] = await this.prisma.$transaction([
       this.prisma.activity.count({ where }),
@@ -97,11 +107,12 @@ export class ActivitiesService {
         },
         valet: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: [{ scheduledAt: 'asc' }, { timeFrom: 'asc' }, { sortOrder: 'asc' }],
+      // Lo storico si legge dal più recente; le cose da fare in ordine di giro.
+      orderBy: stato === 'storico' ? [{ scheduledAt: 'desc' }, { timeFrom: 'desc' }, { sortOrder: 'asc' }] : [{ scheduledAt: 'asc' }, { timeFrom: 'asc' }, { sortOrder: 'asc' }],
         take: tetto,
       }),
     ]);
-    return { items, totale, mostrate: items.length, tetto };
+    return { items, totale, mostrate: items.length, tetto, conteggi: { aperte: conteggi[0], storico: conteggi[1] } };
   }
 
   /** Riordino manuale delle attivita' (drag & drop nel frontend). */
