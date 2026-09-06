@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (41) — Le vendite gestite con pagamento in app hanno la loro consegna in piattaforma, in storico
+
+Regola dell'utente: «le vendite che abbiamo già gestito con pagamento in app:
+crea la consegna anche in app delivery e porta sempre nella stessa app la
+vendita in storico». Partner: **sempre «Artista Locale»** (decisione
+dell'utente; nessuno dei sei fornitori esiste come partner di là).
+
+**Misurato**: 87 ordini con una richiesta di pagamento al fornitore fatta
+dall'app, tutti pagati; 81 avevano già una consegna in piattaforma (per numero
+DDT), **6 no**: #2826, #2845, #2867, #2869, #2868, #2871 (tutti Flowers, tutti
+«Gestito»).
+
+**`scripts/consegne-da-pagamenti-in-app.mts`** (simula; `--applica` scrive;
+`#numero` per limitare): per ognuno crea la consegna dal canale app con
+`mandaInApp` (Artista Locale, Vendita Deluxy, ritiro −1h, DDT numero + brand,
+fornitore e pagamento nelle note, prodotto padre → prima della famiglia →
+generico, prezzo flessibile = pagamento), poi la porta in **storico** con una
+scrittura diretta sul DB della piattaforma (`status = delivered`,
+`deliveredAt` = fine fascia del giorno di consegna, `deliveredByPartner`,
+riga di `DeliveryLog` che dice «registrata a posteriori»), e nel CS lascia
+«Gestito» (da «Piattaforma consegne») con lo stato della consegna copiato.
+
+⚠️ **Lanciato dall'utente dal suo terminale** (il classificatore della
+sessione ha bloccato la scrittura in produzione da qui), il 06/09 verso le 12:30.
+Verificato dopo: **6 su 6** — consegne #101070–#101075, tutte `delivered`,
+Artista Locale, DDT Flowers, un prodotto ciascuna, ritiro un'ora prima; nel CS
+tutte «Gestito» con la consegna agganciata.
+
+Da fare (detto all'utente): la stessa regola nella sync del CS, così un
+pagamento in app senza consegna in piattaforma la crea da solo al giro dopo.
+
 ## 06/09/2026 (40) — La chat sul telefono, come WhatsApp
 
 Chiesto dall'utente: «da mobile la chat non è possibile da utilizzare:
