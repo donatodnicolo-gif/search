@@ -1,0 +1,1523 @@
+
+<script>
+
+    let allowCheckoutSubmit = false;
+    async function fnCheckDelivery(event) {
+
+        if (allowCheckoutSubmit) {
+          return true;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        $('#divCheckDelivery').html('&nbsp;');
+        const dtConsegna = ($("#DeliveryDate_def").val() || "").trim();
+        const fasciaOraria = ($("#ddlFasciaOraria").val() || "").trim();
+        //var provincia = $("#ddlProvincia").val();
+        /*
+        if (provincia == ""){
+            $('#divCheckDelivery').text('Selezionare la provincia di consegna');
+            return false;
+        }*/
+        if (dtConsegna == "") {
+            $('#divCheckDelivery').text('{{"general.new.select_delivery_date" | t}}');
+            return false;
+        }
+        // Deluxy 06/09/2026: al checkout passa solo una data scelta dal calendario (AAAA-MM-GG)
+        var dtParti = dtConsegna.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        var dtOk = false;
+        if (dtParti) {
+            var dtObj = new Date(Number(dtParti[1]), Number(dtParti[2]) - 1, Number(dtParti[3]));
+            dtOk = dtObj.getFullYear() === Number(dtParti[1]) && dtObj.getMonth() === Number(dtParti[2]) - 1 && dtObj.getDate() === Number(dtParti[3]);
+        }
+        if (!dtOk) {
+            $("#DeliveryDate_def").val("");
+            $('#divCheckDelivery').text('{{"general.new.select_delivery_date" | t}}');
+            return false;
+        }
+        if (fasciaOraria == "") {
+            $('#divCheckDelivery').text('Seleziona la fascia oraria di consegna');
+            return false;
+        } 
+
+        if (fasciaOraria) {
+          try {
+            const response = await $.ajax({
+              type: 'POST',
+              url: '/cart/update.js',
+              data: {
+                  attributes: {
+                      'Fascia_Oraria_Consegna': fasciaOraria,
+                      'Data_Consegna': dtConsegna
+                  }
+              },
+              dataType: 'json'
+            });
+
+            console.log('Items added into cart--> Proceed to checkout:', response);
+            allowCheckoutSubmit = true;
+            document.getElementById('bntCheckout').click();
+          } catch (error) {
+            console.error('Error adding Fascia_Oraria_Consegna:', error);
+          }
+        }
+
+        $('#divCheckDelivery').html("<p style='color:green'>Attendi qualche secondo per completare il tuo acquisto!</p>");
+        $("#bntCheckout").css("visibility", "hidden");
+
+        return true;
+    }
+
+
+    function fnCheckTesto() {
+        $('#divCheckDelivery').html('&nbsp;');
+    }
+</script>
+
+  <style type="text/css">
+    [class*="_additional__"],
+    [class*="__additional_"] {
+      display: none !important;
+    }
+  </style>
+
+{% assign product_id_to_check = 14989429899587 %}
+{% assign product_found = false %}
+{% assign product_price = 0 %}
+{% assign ai_cake_price = 0 %}
+
+<div class="page-width page-content">
+  {%- render 'breadcrumbs' -%}
+  {% assign delDate = '' %}
+  <div class="grid">
+    <div class="grid__item">
+      {% assign real_item_count = 0 %}
+      {% for item in cart.items %}
+        {% unless item.product.title contains '_Additional Price' %}
+          {% assign real_item_count = real_item_count | plus: 1 %}
+        {% endunless %}
+      {% endfor %}
+      {% if real_item_count > 0 %}
+        <form action="{{ routes.cart_url }}" method="post" novalidate class="cart" id="cartForm">
+          <div class="cart__inner__section">
+            <div style="margin-bottom: 40px">
+              <center><h2> {{ 'general.new.replologo' | t }}</h2></center>
+            </div>
+            <div class="nascondi hide">
+              <div class="bevy_share_button" id="bevyshare_button"></div>
+            </div>
+            <div class="cart__row small--hide">
+              <div class="grid grid--full">
+                <div class="grid__item medium-up--two-fifths medium-up--push-three-fifths">
+                  <div class="grid grid--full">
+                    <div class="grid__item one-third small--half text-right">
+                      {{ 'cart.label.price' | t }}
+                    </div>
+                    <div class="grid__item one-third small--half text-center">
+                      {{ 'cart.label.quantity' | t }}
+                    </div>
+                    <div class="grid__item one-third small--half text-right">
+                      {{ 'cart.label.total' | t }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% assign cartProdId = '' %}
+            {% assign matched_ids = '' %}
+            {% for item in cart.items %}   
+            {% unless item.product.title contains '_Additional Price' %}          
+              {% assign cartProdId = cartProdId | append: item.product_id | append: ',' %}
+              {% if item.product.metafields.prodotto.consegna == blank
+                or item.product.metafields.prodotto.consegna == 0
+              %}
+                {% assign delivery_date = 'now' | date: '%B %d, %Y' %}
+              {% elsif item.product.metafields.prodotto.consegna == 1 %}
+                {% assign days = 1 | times: 86400 %}
+                {% assign delivery_date = 'now' | date: '%s' | plus: days | date: '%B %d, %Y' %}
+              {% else %}
+                {% assign days = item.product.metafields.prodotto.consegna | times: 86400 %}
+                {% assign delivery_date = 'now' | date: '%s' | plus: days | date: '%B %d, %Y' %}
+              {% endif %}
+
+              
+              {% assign current_id = item.properties.__additional_price_id %}
+              {% assign ai_cake_price = 0 %}
+
+              {% if current_id and matched_ids contains current_id %}
+              {%- comment -%} Already matched {%- endcomment -%}
+              {% else %}
+                {% for price_item in cart.items %}
+                  {% if price_item.product_id == 14989429899587 and price_item.properties.__additional_price_id == current_id %}
+                    {% assign ai_cake_price = price_item.final_line_price %}
+                    {% assign matched_ids = matched_ids | append: current_id | append: ',' %}
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+
+              <div
+                class="cart__row cart__top__border cart_item_dates {{ item.product.title | split: ' ' | join: '__' | downcase }}"
+                date-cart-date="{{ delivery_date }}"
+              >
+                <div class="grid grid--full cart__row--table-large">
+                  <div class="grid__item medium-up--three-fifths">
+                    <div class="grid">
+                      <div class="grid__item one-quarter">
+                        <a href="{{ item.url }}" class="cart__image">
+                          {%- assign img_url = item | img_url: 'master' -%}
+                          <img
+                            height=""
+                            width=""
+                            loading="lazy"
+                            class="lazyload"
+                            src="{{ img_url }}"
+                            data-widths="[180, 360, 540]"
+                            data-aspectratio="{{ item.aspect_ratio }}"
+                            data-sizes="auto"
+                            alt="{{ item.title | escape }}"
+                          >
+                        </a>
+                      </div>
+                      <div class="grid__item three-quarters">
+                        <a href="{{ item.url }}" class="h4 cart__product-name">
+                          {{ item.product.title -}}
+                          <span class="ga_cart_upsell" data-productid="{{ item.product_id }}"></span>
+                        </a>
+
+                        {%- unless item.product.has_only_default_variant -%}
+                          <div class="cart__variant-meta">
+                            {{ item.variant.title }}
+                          </div>
+                        {%- endunless -%}
+                        <div class="cart__product-meta {% if item.selling_plan_allocation == empty %}hide {% endif %}">
+                          {{ item.selling_plan_allocation.selling_plan.name }}
+                        </div>
+                        {% assign days = 1 | times: 86400 %}
+                        {% comment %}
+                          {{
+                          item.product.metafields.prodotto.consegna }}
+                        {% endcomment %}
+
+                        <div>
+                          <span class="deliv_date_select_span_confirm"></span>
+                          <!-- <span class="deliv_date_select_span_confirm22">{{ 'general.new.delivery_confirmed_for_the_date' | t }}{{ delivery_date }}</span> -->
+                          <br>
+                          <br>
+                          <span class="not_confirm_del_div" style="display: none">
+                            <a href="">{{ 'cart.general.edit_button' | t }}</a> -
+                            <a href="https://api.whatsapp.com/send?phone=390282941380">{{ 'cart.general.contact_us_button' | t }}</a>
+                          </span>
+                        </div>
+
+                        {% assign delDate = delivery_date | join: ',' %}
+                        <span class="selected_del_date_local"></span>
+                        <br>
+                        {%- assign property_size = item.properties | size -%}
+                        {% if property_size > 0 %}
+                          {%- comment -%}
+                            {%- for p in
+                            item.properties -%}{% if p.first == '_bundle' %}{% continue
+                            %}{% endif %}{% if p.first == '__is_bundle_product' %}{%
+                            continue %}{% endif %}{% if p.first == '_upsell_bundle' %}{%
+                            continue %}{% endif %}{% if p.first == '_bundle' %}{%
+                            continue %}{% endif %}{% if p.first == '__is_bundle_product'
+                            %}{% continue %}{% endif %}{% if p.first == '_upsell_bundle'
+                            %}{% continue %}{% endif %} {%- assign
+                            first_character_in_key = p.first | truncate: 1, '' -%} {%
+                            unless p.last == blank or first_character_in_key == '_' %}
+                            <div class="cart__product-meta">
+                              {{ p.first }}: {% if p.last contains '/uploads/' %}
+                              <a href="{{ p.last }}">
+                                {% assign file_type = p.last | split: '.' | last |
+                                downcase %} {% assign file_types =
+                                'jpg,jpeg,webp,gif,png,apng,avif,svg,bmp,ico,tiff' |
+                                split: ',' %} {% if file_types contains file_type %}
+                                <div class="bcpo-cart-file">
+                                  <img
+                                    src="{{ p.last }}"
+                                    style="max-width: 50px; height: auto"
+                                  />
+                                </div>
+                                {% else %}
+                                <span class="bcpo-cart-file">Uploaded file</span>
+                                {% endif %}
+                              </a>
+                              {% else %} {{ p.last }} {% endif %}
+                            </div>
+                            {% endunless %} {% endfor %}
+                          {%- endcomment -%}
+                          {%- for p in item.properties -%}
+                            {% if p.first == '_bundle' -%}
+                              {%- continue -%}
+                            {%- endif -%}
+                            {%- if p.first == '__is_bundle_product' -%}
+                              {%- continue -%}
+                            {%- endif -%}
+                            {%- if p.first == '_upsell_bundle' -%}
+                              {%- continue -%}
+                            {%- endif %}
+                            {%- unless p.last == blank -%}
+                            
+                            {% if p.first != 'ai_cake_image_url' %}  <!-- JAMTECH ADDED THIS CONDITION -->
+                              
+                              <li
+                                class="product-details__item product-details__item--cart product-details__item--property{%if property_size == 0%} hide{% endif %} {{ p.first | split: ' ' | join: '__' | downcase }}"
+                                data-cart-item-property
+                              >
+                                <span
+                                  class="product-details__item-label"
+                                  data-cart-item-property-name
+                                >
+                                  <strong>{{- p.first | capitalize }}:</strong>
+                                </span>
+
+                                {%- comment -%}
+                                  Check if there was an uploaded file
+                                  associated
+                                {%- endcomment -%}
+                                <span data-cart-item-property-value>
+                                  {%- if p.last contains 'uploads' -%}
+                                    <a href="{{ p.last }}">Uploaded File</a>
+                                  {%- else -%}
+                                    {{ p.last | capitalize }}
+                                  {%- endif -%}
+                                </span>
+                              </li>
+                              {% endif %} <!-- JAMTECH ADDED THIS CONDITION -->
+                              <!-- <div>{{ p.first }}</div> -->
+                            {%- endunless -%}
+                          {%- endfor -%}
+                          <button
+                            type="button"
+                            style="display: none"
+                            class="edit_cart_option btn btn--primary button"
+                            data-product_id="{{item.product_id}}"
+                            data-key="{{item.key}}"
+                            data-variant_id="{{item.variant_id}}"
+                            data-quantity="{{item.quantity}}"
+                          >
+                            {{ 'cart.general.edit_options' | t }}
+                          </button>
+                        {% endif %}
+
+                        <p>
+                          <a
+                            href="{{ routes.cart_change_url }}?line={{ forloop.index }}&amp;quantity=0"
+                            class="btn btn--secondary btn--small small--hide"
+                          >
+                            {{ 'cart.general.remove' | t }}
+                          </a>
+                          <a
+                            href="{{ routes.cart_change_url }}?line={{ forloop.index }}&amp;quantity=0"
+                            class="btn btn--small medium-up--hide"
+                          >
+                            <small>{{ 'cart.general.remove' | t }}</small>
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+            
+                  <div class="grid__item medium-up--two-fifths">
+                    <div class="grid grid--full cart__row--table-large">
+                      <div class="grid__item one-third medium-up--text-right">
+                        <label class="medium-up--hide">
+                          {{ 'cart.label.price' | t }}
+                        </label>
+                        {% if item.original_price != item.final_price %}
+                        <h1>Price not equal</h1>
+                          <span class="visually-hidden">{{ 'products.general.regular_price' | t }}</span>
+                          <small class="cart__price cart__price--strikethrough"
+                            ><span
+                              class="bcpo-cart-item-price"
+                              data-key="{{item.key}}"
+                            >
+                              <span
+                                class="bcpo-cart-item-original-price"
+                                data-key="{{item.key}}"
+                              >
+                                {% if item.product_id == 8841852158275 or item.product_id == 14989429899587 %}
+                                  {{ ai_cake_price | money }}
+                                {% else %}
+                                  {% if ai_cake_price > 0 %}
+                                    {{ item.original_price | plus: ai_cake_price | money }}
+                                  {% else %}
+                                    {{ item.original_price | money }}
+                                  {% endif %}
+                                {% endif %}
+                                
+                              </span>
+                            </span></small
+                          >
+                          <span class="visually-hidden">{{ 'products.general.sale_price' | t }}</span>
+                          <span class="cart__price cart__discount"
+                            ><span
+                              class="bcpo-cart-item-price"
+                              data-key="{{item.key}}"
+                            >
+                              {{- item.final_price | money -}}
+                            </span></span
+                          >
+                        {% else %}
+                          <span class="cart__price"
+                            ><span
+                              class="bcpo-cart-item-price"
+                              data-key="{{item.key}}"
+                            >
+                              <span
+                                class="bcpo-cart-item-original-price"
+                                data-key="{{item.key}}"
+                              >
+                                {% if item.product_id == 8841852158275 or item.product_id == 14989429899587 %}
+                                  {{ ai_cake_price | money }}
+                                {% else %}
+                                  {% if ai_cake_price > 0 %}
+                                    {{ item.original_price | plus: ai_cake_price | money }}
+                                  {% else %}
+                                    {{ item.original_price | money }}
+                                  {% endif %}
+                                {% endif %}
+                              </span>
+                            </span></span
+                          >
+                        {% endif %}
+                        {%- if item.line_level_discount_allocations != blank -%}
+                          {%- for discount_allocation in item.line_level_discount_allocations -%}
+                            <small class="cart__discount">
+                              {{- discount_allocation.discount_application.title }} (-
+                              {{- discount_allocation.amount | money -}}
+                              )</small
+                            >
+                          {%- endfor -%}
+                        {%- endif -%}
+                        {%- if item.unit_price_measurement -%}
+                          {%- capture unit_price_base_unit -%}
+                    <span class="unit-price-base--{{ section_id }}">
+                      {%- if item.unit_price_measurement -%} {%- if
+                      item.unit_price_measurement.reference_value != 1 -%} {{
+                      item.unit_price_measurement.reference_value }} {%- endif
+                      -%} {{ item.unit_price_measurement.reference_unit }} {%-
+                      endif -%}
+                    </span>
+                    {%- endcapture -%}
+
+                          <div class="product__unit-price">
+                            {{ item.unit_price | money }}/{{ unit_price_base_unit }}
+                          </div>
+                        {%- endif -%}
+                      </div>
+
+                      <div class="grid__item one-third text-center">
+                        <label
+                          for="cart_updates_{{ item.key }}"
+                          class="medium-up--hide"
+                        >
+                          {{- 'cart.label.quantity' | t -}}
+                        </label>
+                        <input
+                          type="number"
+                          name="updates[]"
+                          id="cart_updates_{{ item.key }}"
+                          class="cart__product-qty"
+                          value="{{ item.quantity }}"
+                          min="0"
+                          data-id="{{ item.key }}"
+                        >
+                      </div>
+
+                      <div class="grid__item one-third text-right">
+                        <label class="medium-up--hide">
+                          {{ 'cart.label.total' | t }}
+                        </label>
+                        
+                        {% if item.original_line_price != item.final_line_price %}
+                          <span class="visually-hidden">{{ 'products.general.regular_price' | t }}</span>
+                          <small class="cart__price cart__price--strikethrough"
+                            ><span
+                              class="bcpo-cart-item-line-price"
+                              data-key="{{item.key}}"
+                            >
+                              <span
+                                class="bcpo-cart-item-original-line-price"
+                                data-key="{{item.key}}"
+                              >
+                                {% if item.product_id == 8841852158275 or item.product_id == 14989429899587 %}
+                                  {{ ai_cake_price | money }}
+                                {% else %}
+                                  {% if ai_cake_price > 0 %}
+                                    {{ item.original_price | plus: ai_cake_price | money }}
+                                  {% else %}
+                                    {{ item.original_price | money }}
+                                  {% endif %}
+                                {% endif %}
+                              </span>
+                            </span></small
+                          >
+                          <span class="visually-hidden">{{ 'products.general.sale_price' | t }}</span>
+                          <span class="cart__price cart__discount"
+                            ><span
+                              class="bcpo-cart-item-line-price"
+                              data-key="{{item.key}}"
+                            > 
+                              {{- item.final_line_price | money -}}
+                            </span></span
+                          >
+                        {% else %}
+                          <span class="cart__price"
+                            ><span
+                              class="bcpo-cart-item-line-price"
+                              data-key="{{item.key}}"
+                            >
+                              <span
+                                class="bcpo-cart-item-original-line-price"
+                                data-key="{{item.key}}"
+                              >
+                              {% if item.product_id == 8841852158275 or item.product_id == 14989429899587 %}
+                                  {{ ai_cake_price | money }}
+                                {% else %}
+                                  {% if ai_cake_price > 0 %}
+                                    {{ item.original_price | plus: ai_cake_price | money }}
+                                  {% else %}
+                                    {{ item.original_price | money }}
+                                  {% endif %}
+                                {% endif %}
+
+                              </span>
+                            </span></span
+                          >
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endunless %}
+            {% endfor %}
+            <div class="cart__row cart__total__row">
+              <div class="grid">
+                {% if settings.cart_notes_enable %}
+                  <div class="grid__item medium-up--one-half">
+                    <!-- <label for="CartSpecialInstructions">{{ 'cart.general.note' | t }}</label> ORIGINAL LABEL -->
+                    <label for="CartSpecialInstructions"></label>
+                    <!-- DG CUSTOM -->
+                  </div>
+                {% endif %}
+
+                <div
+                  class="grid__item medium-up--one-half text-center medium-up--text-right{% unless settings.cart_notes_enable %} medium-up--push-one-half{% endunless %}"
+                >
+                  {% if cart.cart_level_discount_applications != blank %}
+                    <div class="grid grid--full cart__row--table">
+                      <div class="grid__item one-half">
+                        <p class="h4 cart__total">
+                          {{ 'cart.general.discounts' | t }}
+                        </p>
+                      </div>
+                      <div class="grid__item one-half">
+                        {% for cart_discount in cart.cart_level_discount_applications %}
+                          <p class="h4 cart__discount">
+                            {{ cart_discount.title }} (-{{ cart_discount.total_allocated_amount | money }})
+                          </p>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  {% endif %}
+
+                  <div class="grid grid--full cart__row--table">
+                    <div class="grid__item one-half">
+                      <p class="h4">{{ 'cart.general.subtotal' | t }}</p>
+                    </div>
+                    <div class="grid__item one-half">
+                      <p class="h4">
+                        <span class="bcpo-cart-original-total"
+                          ><span class="bcpo-cart-original-total">{{ cart.total_price | money }}</span></span
+                        >
+                      </p>
+                    </div>
+                  </div>
+
+                  {% if settings.cart_terms_conditions_enable %}
+                    <p class="ajaxcart__note ajaxcart__note--terms">
+                      <input type="checkbox" id="CartPageAgree">
+                      <label for="CartPageAgree">
+                        {% if settings.cart_terms_conditions_link != blank %}
+                          {{ 'cart.general.terms_html' | t: url: settings.cart_terms_conditions_link }}
+                        {% else %}
+                          {{ 'cart.general.terms' | t }}
+                        {% endif %}
+                      </label>
+                    </p>
+                  {% endif %}
+                </div>
+              </div>
+
+              {%- comment -%}
+                <div class="cart__row">
+                  <div class="globo_widget_7320"></div>
+                </div>
+              {%- endcomment -%}
+
+              <div class="cart__checkout-wrapper">
+                {% comment %}
+                  <button type="submit" name="update">
+                    {{ 'cart.general.update' | t }}
+                  </button>
+                {% endcomment %}
+                {% comment %}
+                  <button
+                    type="submit"
+                    onclick="javascript:return fnCheckDelivery();"
+                    name="checkout"
+                    id="bntCheckout"
+                    class="btn cart__checkout{% if settings.cart_terms_conditions_enable %} cart__checkout--page{% endif %}"
+                  >
+                    {{ 'cart.general.checkout' | t }}
+                  </button>
+                {% endcomment %}
+                {% comment %}
+                  {% if additional_checkout_buttons
+                  and settings.cart_additional_buttons %}
+                  <div class="additional-checkout-buttons">
+                    {{ content_for_additional_checkout_buttons }}
+                  </div>
+                  {% endif %}
+                {% endcomment %}
+                {% if additional_checkout_buttons %}
+                  <div class="additional-checkout-buttons">
+                    {{ content_for_additional_checkout_buttons }}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <input type="hidden" id="cartPrdtId" value="{{ cartProdId }}">
+
+          <div class="cart__row__form">
+            <header class="section-header">
+              <h2>{{ 'general.new.replohead' | t }}</h2>
+            </header>
+            {% render 'delivery_date_hour_c' %}
+            <select
+              id="ddlFasciaOraria"
+              name="attributes[Fascia_Oraria_Consegna]"
+              onchange="fnCheckTesto();"
+            >
+              <option value=""><p>Seleziona la fascia oraria</p></option>
+              <option value="07-08">07:00 - 08:00</option>
+              <option value="08-09">08:00 - 09:00</option>
+              <option value="09-10">09:00 - 10:00</option>
+              <option value="10-11">10:00 - 11:00</option>
+              <option value="11-12">11:00 - 12:00</option>
+              <option value="12-13">12:00 - 13:00</option>
+              <option value="13-14">13:00 - 14:00</option>
+              <option value="14-15">14:00 - 15:00</option>
+              <option value="15-16">15:00 - 16:00</option>
+              <option value="16-17">16:00 - 17:00</option>
+              <option value="17-18">17:00 - 18:00</option>
+              <option value="18-19">18:00 - 19:00</option>
+              <option value="19-20">19:00 - 20:00</option>
+              <option value="20-21">20:00 - 21:00</option>
+              <option value="21-22">21:00 - 22:00</option>
+            </select>
+          </div>
+          {% if settings.cart_notes_enable %}
+            <div class="cart__note cart-form-col">
+              <label for="CartSpecialInstructions">
+                {{ 'general.new.replocart' | t }}
+              </label>
+              <!-- DG CUSTOM -->
+              <textarea
+                style="width: 100%"
+                name="note"
+                class="input-full cart-notes"
+                id="CartSpecialInstructions"
+                maxlength="200"
+              >
+                      {{ cart.note }}</textarea>
+            </div>
+          {% endif %}
+          <div class="cart__note__button">
+            <button
+              type="submit"
+              onclick="javascript:return fnCheckDelivery(event);"
+              name="checkout"
+              id="bntCheckout"
+              class="btn"
+            >
+              {{ 'general.new.replotuo' | t }}
+            </button>
+            <br>
+            <br>
+            <!-- <small>
+              {{ 'cart.general.shipping_at_checkout' | t -}}
+              <br>
+            </small> -->
+          </div>
+          <div id="divCheckDelivery" style="color: red">&nbsp;</div>
+          <div class="cart-contact-details">
+            <small>{{ 'general.new.replodetail' | t }}</small>
+            <a href="javascript:void(0)" class="btn customlink-expert"> {{ 'general.new.replocustomlink' | t }}</a>
+          </div>
+        </form>
+      {% else %}
+
+      <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("click", function (e) {
+      const target = e.target.closest(".customlink-expert");
+      if (target) {
+        const modalId = target.dataset.target;
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          modal.style.right = "0"; // slide in the specific modal
+        }
+      }
+
+      // Optional: Close logic
+      if (e.target.closest(".close-modal")) {
+        const modal = e.target.closest(".modal-dialogue");
+        if (modal) {
+          modal.style.right = "-100%"; // slide out
+        }
+      }
+    });
+  });
+</script>
+      
+        <header class="section-header section-header--404">
+          <h1 class="section-header__title">{{ 'cart.general.title' | t }}</h1>
+          <div class="rte text-spacing">
+            <p>{{ 'cart.general.empty' | t }}</p>
+            {% comment %}
+              <p>
+                {{ 'cart.general.continue_browsing_html' | t: url:
+                routes.all_products_collection_url }}
+              </p>
+            {% endcomment %}
+            <p>
+              {{ 'cart.general.continue_browsing_html' | t: url: '/collections' }}
+            </p>
+          </div>
+        </header>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<a href="#" class="modal-link" style="display: none"> Modal btn </a>
+<input type="hidden" id="max_del_date">
+<input type="hidden" id="last_prod_date">
+
+<div id="custom-modal" class="custom-modal">
+    <div class="custom-modal-dialog">
+        <div class="custom-modal-content">
+            <span class="close-modal">X</span>
+            <div class="custom-modal-body">
+                <div class="custom-modal-inner">
+                    <!-- Contetn here -->
+
+                    <div class="deliver_div_before" style="display:none">
+                        <p>Product</p>
+
+
+                        {% for item in cart.items %}
+                        {% unless item.product.title contains '_Additional Price' %}
+                        {% if item.product.metafields.prodotto.consegna == blank or
+                        item.product.metafields.prodotto.consegna == 0 %}
+                        {% assign delivery_date = 'now' | date: "%Y-%m-%d" %}
+                        {% elsif item.product.metafields.prodotto.consegna == 1 %}
+                        {% assign days = 1 | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% else %}
+                        {% assign days = item.product.metafields.prodotto.consegna | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% endif %}
+
+                        <div class="popup-product" id="{{ delivery_date }}">
+                            <b>{{ item.product.title -}}</b>
+                        </div>
+                        {% endunless %}
+                        {% endfor %}
+
+                        <p> is not available. Not possibility to conclude the purchase <span
+                                class="del_select_before"></span></p>
+                        <p>Please <a href="javascript:void(0)" class="btn customlink-expert" 
+                                title=""><span
+                                    style="text-decoration:underline">Contattaci via Whatsapp</span></a></p>
+                    </div>
+
+                    <div class="deliver_div" style="display:none">
+                        <p>Product</p>
+
+
+                        {% for item in cart.items %}
+                        {% unless item.product.title contains '_Additional Price' %}
+                        {% if item.product.metafields.prodotto.consegna == blank or
+                        item.product.metafields.prodotto.consegna == 0 %}
+                        {% assign delivery_date = 'now' | date: "%Y-%m-%d" %}
+                        {% elsif item.product.metafields.prodotto.consegna == 1 %}
+                        {% assign days = 1 | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% else %}
+                        {% assign days = item.product.metafields.prodotto.consegna | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% endif %}
+
+                        <div class="popup-product" id="{{ delivery_date }}">
+                            <b>{{ item.product.title -}}</b>
+                        </div>
+                        {% endunless %}
+                        {% endfor %}
+
+                        <p>will deliver on <span class="del_select"></span><span class="del_select_end"></span> <span
+                                class="del_rest_end"></span></p>
+
+                    </div>
+
+                    <div class="deliver_div_cart" style="display:none">
+                        <p>{{ 'general.new.contact_an_expert_heading' | t }}</p>
+
+
+                        {% for item in cart.items %}
+                        {% unless item.product.title contains '_Additional Price' %}
+                        {% if item.product.metafields.prodotto.consegna == blank or
+                        item.product.metafields.prodotto.consegna == 0 %}
+                        {% assign delivery_date = 'now' | date: "%Y-%m-%d" %}
+                        {% elsif item.product.metafields.prodotto.consegna == 1 %}
+                        {% assign days = 1 | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% else %}
+                        {% assign days = item.product.metafields.prodotto.consegna | times: 86400 %}
+                        {% assign delivery_date = 'now' | date: '%s' | plus: days | date: "%Y-%m-%d" %}
+                        {% endif %}
+
+                        <div class="popup-product" id="{{ delivery_date }}" data-label="{{ delivery_date }}">
+                            <b>{{ item.product.title }}</b>
+                        </div>
+                        {% endunless %}
+                        {% endfor %}
+
+                        <!-- <p>will deliver on <span class="del_select"></span><span class="del_select_end"></span> <span
+                                class="del_rest_end"></span></p> -->
+                        <div class="contact__btn__cart"">
+                          <a href="javascript:void(0)" class="btn customlink-expert"
+                                title="">
+                          {{ 'general.new.contact_an_expert_btn' | t }}
+                          </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style></style>
+
+<script>
+  /*
+  $(document).ready(function () {
+    $('.customlink-expert').on('click', function (e) {
+      e.preventDefault();
+      $('body').removeClass('modal-open');
+      $('.custom-modal').css({
+        opacity: '0',
+        visibility: 'hidden',
+        'pointer-events': 'none' 
+      });
+    });
+  });
+  */
+</script>
+
+<script> 
+  // JTPTL code
+//   function parseItalianDateToISO(italianDateStr) {
+//     const monthMap = {
+//       'Gennaio': '01', 'Febbraio': '02', 'Marzo': '03',
+//       'Aprile': '04', 'Maggio': '05', 'Giugno': '06',
+//       'Luglio': '07', 'Agosto': '08', 'Settembre': '09',
+//       'Ottobre': '10', 'Novembre': '11', 'Dicembre': '12'
+//     };
+//     try {
+//       const parts = italianDateStr.trim().split(' ');
+//       const day = parts[2]?.replace(',', '');
+//       const month = monthMap[parts[1]];
+//       const year = parts[3];
+//       if (!day || !month || !year) return '';
+//       return `${year}-${month}-${day.padStart(2, '0')}`;
+//     } catch (e) {
+//       return '';
+//     }
+//   }
+
+//   document.addEventListener('DOMContentLoaded', function () {
+//     const selectedDateItalianStr = localStorage.getItem('delivery_date_val');
+//     if (!selectedDateItalianStr) return;
+
+//     const parsedDateStr = parseItalianDateToISO(selectedDateItalianStr);
+//     const selectedDate = new Date(parsedDateStr);
+
+//     console.log("selectedDate:", parsedDateStr);
+
+//     if (isNaN(selectedDate.getTime())) return;
+    
+// $('.cart__inner__section .cart__row .cart__top__border').each(function(index) {
+//   const $borderEl = $(this); 
+//   console.log('Index:', index);
+//   console.log('Text:', $borderEl.text());
+// });
+
+    
+//   });
+</script>
+
+
+
+<script>
+    $(document).ready(function () {
+      var bookingID = JSON.parse(localStorage.getItem("bookings"));
+      console.log("bookingIDbookingIDbookingID", bookingID);
+
+      var cartPrdtId = $('#cartPrdtId').val();
+      var max_del_date = $('#max_del_date').val();
+      var cartPrdtIdSplit = cartPrdtId.split(',');
+      var filteredPrdtID = cartPrdtIdSplit.filter(elm => elm);
+
+      var arrayNew = [];
+
+      if (bookingID && bookingID.length) {
+          $.each(bookingID, function (key, value) {
+              console.log(value.productDataDate);
+              arrayNew.push(value.productDataDate);
+          });
+      } else {
+          console.error('bookingID is null, undefined, or empty.');
+      }
+
+      var arrayNewReverse = arrayNew.reverse();
+      var DateArrayNew = [];
+
+      jQuery('.deliv_date_select_span').each(function (i) {
+          var arrayDateVal = arrayNewReverse[i];
+
+          $(this).text('DELIVERY CONFIRMED FOR THE DATE' + ' ' + arrayDateVal);
+
+          const months = {
+              'gennaio': '01',
+              'febbraio': '02',
+              'marzo': '03',
+              'aprile': '04',
+              'maggio': '05',
+              'giugno': '06',
+              'luglio': '07',
+              'agosto': '08',
+              'settembre': '09',
+              'ottobre': '10',
+              'novembre': '11',
+              'dicembre': '12'
+          };
+
+          var localDateSplit = arrayDateVal.split(' ');
+          var localDay = localDateSplit[2].replace(/,(\s+)?$/, '');
+          var localMonth = months[localDateSplit[1].toLowerCase()];
+          var localYear = localDateSplit[3];
+
+          if (localDay < 10) {
+              localDay = '0' + localDay;
+          }
+
+          var maxDeliveryDate = localYear + "-" + localMonth + "-" + localDay;
+          maxDeliveryDate = maxDeliveryDate.replace(/,(\s+)?$/, '');
+
+          DateArrayNew.push(maxDeliveryDate);
+      });
+
+      function maxi_date(all_dates) {
+          var max_dt = all_dates[0],
+              max_dtObj = new Date(all_dates[0]);
+
+          all_dates.forEach(function (dt) {
+              if (new Date(dt) > max_dtObj) {
+                  max_dt = dt;
+                  max_dtObj = new Date(dt);
+              }
+          });
+
+          return max_dt;
+      }
+
+      var newMaxDateVal = maxi_date(DateArrayNew);
+      localStorage.setItem("new_delivery_date_val", newMaxDateVal);
+
+      var localDate = localStorage.getItem("delivery_date_val");
+      console.log("localStorage delivery_date_val:", localDate);
+      console.log("localDate " + localDate);
+
+      var last_prod_date = $('#last_prod_date').val();
+      var maxDate = $('#max_del_date').val();
+
+      console.log("last_prod_date:", last_prod_date);
+      console.log("maxDate:", maxDate);
+
+      console.log("last_prod_date " + last_prod_date);
+      console.log("max_del_date " + maxDate);
+
+      if (maxDate < last_prod_date) {
+        console.log("maxDate is Lesser");
+      
+        $('body').addClass("modal-open");
+        $('.deliver_div_cart').css('display', 'block');
+        //$('.deliver_div_before').show();
+        $('#bntCheckout').attr('disabled', true);
+      
+        // Show/hide popup products based on ID
+        jQuery('.popup-product').each(function () {
+          var idElement = $(this).attr('id');
+          if (idElement > maxDate) {
+            $(this).show();
+          } else {
+            $(this).hide();
+          }
+        });
+      
+        // Month mappings
+        const cartMonths = {
+          'January': '01',
+          'February': '02',
+          'March': '03',
+          'April': '04',
+          'May': '05',
+          'June': '06',
+          'July': '07',
+          'August': '08',
+          'September': '09',
+          'October': '10',
+          'November': '11',
+          'December': '12'
+        };
+      
+        // Iterate over each cart item
+        jQuery('.cart_item_dates').each(function () {
+          var cartEachDate = $(this).attr('date-cart-date');
+          var cartDateSplit = cartEachDate.split(' ');
+      
+          var cartDay = cartDateSplit[1].replace(/,/, '').padStart(2, '0');
+          var cartMonth = cartMonths[cartDateSplit[0]];
+          var cartYear = cartDateSplit[2];
+      
+          var cartDeliveryDateStr = `${cartYear}-${cartMonth}-${cartDay}`;
+          var cartDeliveryDate = new Date(cartDeliveryDateStr);
+          var maxDateObj = new Date(maxDate);
+      
+          // Fallback label
+          let labelDate = maxDate;
+          if (localDate) labelDate = localDate;
+      
+          if (!localDate || localDate.trim() === '') {
+            $(this).find('.deliv_date_select_span_confirm').text(
+              '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + ' ' + maxDate
+            );
+          } else {
+            if (maxDateObj > cartDeliveryDate) {
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + labelDate
+              );
+              $(this).find('.not_confirm_del_div').hide();
+            } else if (maxDateObj.getTime() === cartDeliveryDate.getTime()) {
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + labelDate
+              );
+              $(this).find('.not_confirm_del_div').hide();
+            } else {
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + labelDate
+              );
+              $(this).find('.not_confirm_del_div').show();
+            }
+          }
+        });
+      } 
+      else if (maxDate == last_prod_date) {
+        console.log("maxDate == last_prod_date");
+      
+        jQuery('.cart_item_dates').each(function () {
+          var cartEachDate = $(this).attr('date-cart-date');
+      
+          const cartMonths = {
+            'January': '01',
+            'February': '02',
+            'March': '03',
+            'April': '04',
+            'May': '05',
+            'June': '06',
+            'July': '07',
+            'August': '08',
+            'September': '09',
+            'October': '10',
+            'November': '11',
+            'December': '12'
+          };
+      
+          var cartDateSplit = cartEachDate.split(' ');
+          var cartDay = cartDateSplit[1].replace(/,(\s+)?$/, '').padStart(2, '0');
+          var cartMonth = cartMonths[cartDateSplit[0]];
+          var cartYear = cartDateSplit[2];
+          var cartDeliveryDate = `${cartYear}-${cartMonth}-${cartDay}`.trim();
+      
+          var formattedDate = '';
+          var formattedLabel = '';
+          
+          if (localDate) {
+            const parsedDate = localDate.match(/(\w+) (\w+) (\d+), (\d+)/);
+      
+            const monthMap = {
+              'gennaio': '01',
+              'febbraio': '02',
+              'marzo': '03',
+              'aprile': '04',
+              'maggio': '05',
+              'giugno': '06',
+              'luglio': '07',
+              'agosto': '08',
+              'settembre': '09',
+              'ottobre': '10',
+              'novembre': '11',
+              'dicembre': '12'
+            };
+      
+            if (parsedDate) {
+              const day = parsedDate[3].padStart(2, '0');
+              const month = monthMap[parsedDate[2].toLowerCase()];
+              const year = parsedDate[4];
+              formattedDate = `${year}-${month}-${day}`.trim();
+            }
+          }
+      
+          var today = new Date();
+          const todayStr = today.toISOString().split('T')[0];
+      
+          var tomorrow = new Date(today);
+          tomorrow.setDate(today.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      
+          let auto_max_date = maxDate;
+          if (auto_max_date === todayStr) {
+            auto_max_date = '{{ "general.new.today" | t }}';
+          } else if (auto_max_date === tomorrowStr) {
+            auto_max_date = '{{ "general.new.tomorrow" | t }}';
+          } else {
+            auto_max_date = localStorage.getItem('auto_delivery_date');
+          }
+      
+          // Assign display label
+          if (formattedDate === todayStr) {
+            formattedLabel = '{{ "general.new.today" | t }}';
+          } else if (formattedDate === tomorrowStr) {
+            formattedLabel = '{{ "general.new.tomorrow" | t }}';
+          } else {
+            formattedLabel = localDate;
+          }
+      
+          // Debug logs
+          console.log("----------------------");
+          console.log("Formatted Date:", formattedDate);
+          console.log("Cart Delivery Date:", cartDeliveryDate);
+          console.log("FD RAW:", JSON.stringify(formattedDate));
+          console.log("CD RAW:", JSON.stringify(cartDeliveryDate));
+          console.log("++++++++++++++++++++");
+      
+          // Final logic
+          if (!localDate || localDate.trim() === '') {
+            $(this).find('.deliv_date_select_span_confirm').text(
+              '{{ "general.new.delivery_confirmed_for_the_date" | t }}' + ' ' + auto_max_date
+            );
+          } else {
+            const date1 = new Date(formattedDate);
+            const date2 = new Date(cartDeliveryDate);
+      
+            if (isNaN(date1.getTime())) {
+              console.error("Invalid formattedDate:", formattedDate);
+              return;
+            }
+      
+            if (date1 > date2) {
+              console.log("formattedDate > cartDeliveryDate");
+      
+              $('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }}' + ' ' + formattedLabel
+              );
+              $('.del_select').text(maxDate);
+            } else if (date1.getTime() === date2.getTime()) {
+              console.log("formattedDate = cartDeliveryDate");
+      
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }}' + ' ' + formattedLabel
+              );
+            } else if (date1 < date2) {
+              console.log("formattedDate < cartDeliveryDate");
+      
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.is_not_available_for" | t }}' + ' ' + formattedLabel
+              );
+              $('body').addClass("modal-open");
+              $('.deliver_div_cart').show();
+            }
+          }
+        });
+      } 
+      else if (maxDate > last_prod_date) {
+        console.log("maxDate is Greater");
+      
+        const cartMonths = {
+          'January': '01',
+          'February': '02',
+          'March': '03',
+          'April': '04',
+          'May': '05',
+          'June': '06',
+          'July': '07',
+          'August': '08',
+          'September': '09',
+          'October': '10',
+          'November': '11',
+          'December': '12'
+        };
+      
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      
+        const maxDateObj = new Date(maxDate);
+      
+        jQuery('.cart_item_dates').each(function () {
+          const cartEachDate = $(this).attr('date-cart-date'); // Example: "June 10, 2025"
+          const cartDateSplit = cartEachDate.split(' ');
+      
+          const cartDay = cartDateSplit[1].replace(/,/, '').padStart(2, '0');
+          const cartMonth = cartMonths[cartDateSplit[0]];
+          const cartYear = cartDateSplit[2];
+          const cartDeliveryDateStr = `${cartYear}-${cartMonth}-${cartDay}`;
+          const cartDeliveryDateObj = new Date(cartDeliveryDateStr);
+      
+          // Format maxDate for display
+          let cartMaxDisplayDate = maxDate;
+          if (maxDate === todayStr) {
+            cartMaxDisplayDate = '{{"general.new.today" | t}}';
+          } else if (maxDate === tomorrowStr) {
+            cartMaxDisplayDate = '{{"general.new.tomorrow" | t}}';
+          }
+      
+          // Fallback to display value
+          const labelDate = localDate || cartMaxDisplayDate;
+      
+          if (!localDate || localDate.trim() === '') {
+            $(this).find('.deliv_date_select_span_confirm').text(
+              '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + ' ' + cartMaxDisplayDate
+            );
+          } else {
+            if (maxDateObj > cartDeliveryDateObj) {
+              $('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + localDate
+              );
+            } else if (maxDateObj.getTime() === cartDeliveryDateObj.getTime()) {
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + localDate
+              );
+            } else {
+              $(this).find('.deliv_date_select_span_confirm').text(
+                '{{ "general.new.delivery_confirmed_for_the_date" | t }} ' + localDate
+              );
+              $(this).find('.not_confirm_del_div').show();
+            }
+          }
+        });
+}
+      else { }
+
+
+      var parsedDate;
+      var formattedDate;
+
+      if (localDate) {
+          // Parse the date using a regular expression
+          parsedDate = localDate.match(/(\w+) (\w+) (\d+), (\d+)/);
+
+          // Map month names to their numeric representation
+          var monthMap = {
+              'gennaio': '01',
+              'febbraio': '02',
+              'marzo': '03',
+              'aprile': '04',
+              'maggio': '05',
+              'giugno': '06',
+              'luglio': '07',
+              'agosto': '08',
+              'settembre': '09',
+              'ottobre': '10',
+              'novembre': '11',
+              'dicembre': '12'
+          };
+
+          // Extract the matched parts
+          var day = parsedDate[3];
+          day = day.length === 1 ? '0' + day : day;
+
+          var month = monthMap[parsedDate[2].toLowerCase()];
+          var year = parsedDate[4];
+
+          // Create a new Date object in the desired format
+          formattedDate = year + '-' + month + '-' + day;
+
+          console.log("formattedDate: " + formattedDate);
+
+          // Deluxy 06/09/2026: se il mese non e' riconosciuto si usa la prima data utile
+          if (!month || !/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+              formattedDate = maxDate;
+          }
+
+          if (maxDate > formattedDate) {
+              formattedDate = maxDate;
+          }
+
+      } 
+      else {
+          // Use maxDate if localDate is null
+          formattedDate = maxDate;
+      }
+
+      if (formattedDate) {
+          console.log("OVERWRITING INPUT VALUE");
+          console.log("formattedDate:", formattedDate);
+          console.log("Current input value before overwrite:", $('#DeliveryDate_def').val());
+
+          $('#DeliveryDate_def').val(formattedDate);
+
+          console.log("Input value after overwrite:", $('#DeliveryDate_def').val());
+      }
+
+      function handlePickupDateChange() {
+          console.log("FUNCTION JAMTECH");
+
+          $.ajax({
+              type: 'POST',
+              url: '/cart/update.js', // Shopify endpoint to update the cart
+              data: {
+                  attributes: {
+                      'Data_Consegna': formattedDate
+                  }
+              },
+              dataType: 'json',
+              success: function (data) {
+                  // Update was successful, you can perform additional actions if needed
+                  console.log('Order details updated successfully');
+              },
+              error: function (error) {
+                  console.error('Error updating order details:', error);
+              }
+          });
+      }
+
+      $('.pickup_date').change(function (e) {
+          console.log("pickup_date JAMTECH");
+          console.log("====================================");
+          console.log("PICKUP DATE CHANGED");
+          console.log("Selected Date:", $(this).val());
+          console.log("Current Input Value:", $('#DeliveryDate_def').val());
+          console.log("====================================");
+          //e.preventDefault();
+          //e.stopImmediatePropagation();
+          var last_prod_date = $('#last_prod_date').val();
+          var last_prod_date_split = last_prod_date.split('-');
+
+          var selectedDate = $(this).val();
+          var selectedDateSplit = selectedDate.split('-');
+
+          var maxDate = $('#max_del_date').val();
+          var maxDateSplit = maxDate.split('-');
+
+          var lastProdDate = new Date(last_prod_date_split[0], last_prod_date_split[1], last_prod_date_split[2]);
+          var firstDate = new Date(selectedDateSplit[0], selectedDateSplit[1], selectedDateSplit[2]);
+          var secondDate = new Date(maxDateSplit[0], maxDateSplit[1], maxDateSplit[2]);
+          
+          if (firstDate < secondDate && firstDate >= lastProdDate) {
+            //$('.modal-link').trigger('click');
+            $('.middle_date_div').show();
+            $('.deliver_div').hide();
+            $('.middle_date').text(selectedDate);
+
+          } else if (firstDate < secondDate) {
+              //$('.modal-link').trigger('click');
+              $('.middle_date_div').hide();
+              $('.deliver_div').hide();
+              $('.deliver_div_cart').show();
+              $('.del_select').text(maxDate);
+              $('.del_select').text(localDate);
+              $('.del_select_end').text(' and rest on ' + maxDate);
+              $('.del_select_end').show();
+             console.log("FORCING INPUT TO MAX DATE");
+              console.log("Selected Date:", selectedDate);
+              console.log("maxDate:", maxDate);
+
+              $('#DeliveryDate_def').val(maxDate);
+
+              jQuery('.popup-product').each(function () {
+                  var idElement = $(this).attr('id');
+                  var idElemSplit = idElement.split('-');
+                  var idElemVal = new Date(idElemSplit[0], idElemSplit[1], idElemSplit[2]);
+
+                  if (idElemVal <= firstDate || idElemVal >= firstDate) {
+                      $(this).show();
+                      $('.del_select').text(maxDate);
+
+                      if (idElemVal < lastProdDate) {
+                          $('.del_select_end').text('and rest on ' + maxDate);
+                      } else {
+                          $('.del_select_end').hide();
+                      }
+
+                      if (idElemVal > firstDate) {
+                          $(this).addClass('show').attr('data-label', '{{ 'general.new.is_not_available_for' | t}}' + selectedDate);
+                          $(this).removeClass('hide');
+                      } else {
+                          $(this).removeClass('show');
+                          $(this).addClass('hide');
+                      }
+
+                  } else {
+                      $(this).hide();
+                  }
+              });
+          }
+
+          $.ajax({
+              type: 'POST',
+              url: '/cart/update.js', // Shopify endpoint to update the cart
+              data: {
+                  attributes: {
+                      'Data_Consegna': selectedDate
+                  }
+              },
+              dataType: 'json',
+              success: function (data) {
+                  // Update was successful, you can perform additional actions if needed
+                  console.log('Order details updated succ essfully');
+                      console.log("Cart attribute updated");
+                      console.log("Selected Date Sent:", selectedDate);
+                      console.log(data);
+              },
+              error: function (error) {
+                  console.error('Error updating order details:', error);
+              }
+          });
+      });
+
+      handlePickupDateChange();
+
+    });
+
+    (function ($) {
+      "use strict";
+      $(document).ready(function () {
+          $('.modal-link').on('click', function () {
+              $('body').addClass("modal-open");
+          });
+          $('.close-modal').on('click', function () {
+              $('body').removeClass("modal-open");
+          });
+      });
+    }(jQuery));
+
+    jQuery('.popup-product').each(function () {
+      var idElement = $(this).attr('id');
+      // $(this).show();
+      var POPlocalDate = localStorage.getItem("delivery_date_val");
+      POPparsedDate = POPlocalDate.match(/(\w+) (\w+) (\d+), (\d+)/);
+
+      // Map month names to their numeric representation
+      var monthMap = {
+          'gennaio': '01',
+          'febbraio': '02',
+          'marzo': '03',
+          'aprile': '04',
+          'maggio': '05',
+          'giugno': '06',
+          'luglio': '07',
+          'agosto': '08',
+          'settembre': '09',
+          'ottobre': '10',
+          'novembre': '11',
+          'dicembre': '12'
+      };
+
+      // Extract the matched parts
+      var day = POPparsedDate[3];
+      day = day.length === 1 ? '0' + day : day;
+
+      var month = monthMap[POPparsedDate[2].toLowerCase()];
+      var year = POPparsedDate[4];
+
+      // Create a new Date object in the desired format
+      POPformattedDate = year + '-' + month + '-' + day;
+
+      if (idElement > POPformattedDate) {
+          $(this).addClass('show').attr('data-label', '{{ 'general.new.is_not_available_for' | t}}' + POPformattedDate);
+      } else {
+          $(this).addClass('hide');
+      }
+    });
+
+
+jQuery('.popup-product').each(function () {
+    var idElement = $(this).attr('id');
+    //$(this).show();
+    var POPlocalDate = localStorage.getItem("delivery_date_val");
+    POPparsedDate = POPlocalDate.match(/(\w+) (\w+) (\d+), (\d+)/);
+    // Map month names to their numeric representation
+    var monthMap = {
+        'gennaio': '01',
+        'febbraio': '02',
+        'marzo': '03',
+        'aprile': '04',
+        'maggio': '05',
+        'giugno': '06',
+        'luglio': '07',
+        'agosto': '08',
+        'settembre': '09',
+        'ottobre': '10',
+        'novembre': '11',
+        'dicembre': '12'
+    };
+
+    // Extract the matched parts
+    var day = POPparsedDate[3];
+    day = day.length === 1 ? '0' + day : day;
+
+    var month = monthMap[POPparsedDate[2].toLowerCase()];
+    var year = POPparsedDate[4];
+
+    // Create a new Date object in the desired format
+    POPformattedDate = year + '-' + month + '-' + day;
+
+    if (idElement > POPformattedDate) {
+        $(this).addClass('show').attr('data-label', '{{ 'general.new.is_not_available_for' | t}}' + POPformattedDate);
+    } else {
+        $(this).addClass('hide');
+    }
+    
+});
+
+
+</script>
+
+
+
+
+
+<!-- bcpo done -->

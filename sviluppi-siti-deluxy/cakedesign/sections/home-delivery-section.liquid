@@ -1,0 +1,356 @@
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<div class="page-width section-{{ section.id }}-padding">
+  <div class="home-delivery-date-container">
+    <div class="home-delivery-inner">
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle1 delivery_date">
+          <img src="{{ 'Oc-Black.svg' | asset_url }}" width="40" height="40" class="icon">
+          {{ section.settings.delivery_label }}
+          <span class="text-date-selct-cst">{{ section.settings.select_date_label }}</span>
+          <input type="hidden" class="date_input" value="">
+        </div>
+      </div>
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle occasion_name">
+          <img src="{{ 'per.png' | asset_url }}" width="40" height="40" class="icon">
+          {{ section.settings.for_label }}
+          <span>
+            {% comment %} {% for block in section.blocks limit:1 %}
+    {{ block.settings.collections_list.title }}
+  {% endfor %} {% endcomment %}
+  {{ section.settings.default_collection.title }}</span>
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            role="presentation"
+            class="icon icon--wide icon-chevron-down"
+            viewBox="0 0 28 16"
+          >
+            <path d="M1.57 1.59l12.76 12.77L27.1 1.59" stroke-width="2" stroke="currentColor" fill="none" fill-rule="evenodd"></path>
+          </svg>
+          <input type="hidden" class="occasion_input" value="">
+        </div>
+      </div>
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn">
+          <button class="btn btn--full btn--secondary" id="submit_btn">
+            <span>{{ section.settings.find_cake_label }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% assign today_date = 'now' | date: '%A %B %e, %Y' %}
+
+<div class="modal-popup" id="occasion">
+  <div class="modal-popup-overlay modal-toggle"></div>
+  <div class="modal-popup-wrapper modal-popup-transition">
+    <div class="modal-popup-header">
+      <button class="modal-popup-close modal-popup-toggle">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64">
+          <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path>
+        </svg>
+      </button>
+      <h2 class="modal-popup-heading">{{ section.settings.modal_heading }}</h2>
+    </div>
+
+    <div class="modal-popup-body">
+      <div class="modal-popup-content">
+        <ul class="select-occasion">
+          {% for block in section.blocks %}
+            <li id="{{ block.settings.collections_list.handle }}">{{ block.settings.collections_list.title }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dateselect" class="modal-popup">
+  <div class="modal-popup-overlay modal-popup-toggle1"></div>
+  <div class="modal-popup-wrapper modal-popup-transition">
+    <div class="modal-popup-header">
+      <button class="modal-popup-close modal-popup-toggle1">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64">
+          <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path>
+        </svg>
+      </button>
+      <h2 class="modal-popup-heading"></h2>
+    </div>
+    <div class="modal-popup-body">
+      <div class="modal-popup-content">
+        <div id="deliverydate"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  table.ui.celled.center.aligned.unstackable.table.seven.column.day {
+    cursor: pointer;
+  }
+</style>
+
+<link rel="stylesheet" href="{{ 'semantic.min.css' | asset_url }}">
+<script src="{{ 'jquery-2.1.4.js' | asset_url }}"></script>
+<script src="{{ 'semantic.min.js' | asset_url }}"></script>
+
+<script>
+  $('.modal-popup-toggle').on('click', function(e) {
+    e.preventDefault();
+    $('#occasion').toggleClass('is-visible');
+  });
+
+  $('.modal-popup-toggle1').on('click', function(e) {
+    e.preventDefault();
+    $('#dateselect').toggleClass('is-visible');
+  });
+
+  // Regole cakedesign.me: dalle 14:00 (ora italiana) la prima data selezionabile e' domani
+  var __dlxP = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+  var today = new Date(Number(__dlxP.year), Number(__dlxP.month) - 1, Number(__dlxP.day));
+  if (Number(__dlxP.hour) >= 14) { today.setDate(today.getDate() + 1); }
+
+  // Determine language
+  const isEnglish = window.location.pathname.startsWith('/en');
+
+  const calendarDays = isEnglish
+    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    : ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+
+  const calendarMonths = isEnglish
+    ? ['January', 'February', 'March', 'April', 'May', 'June',
+       'July', 'August', 'September', 'October', 'November', 'December']
+    : ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+  $('#deliverydate').calendar({
+    type: 'date',
+    firstDayOfWeek: 1,
+    text: {
+      days: calendarDays,
+      months: calendarMonths
+    },
+    minDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+    maxDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 365),
+    onChange: function(date, text, mode) {
+      const dayName = calendarDays[date.getDay()];
+      $('.delivery_date > span').html(dayName + ' ' + text);
+      // Deluxy 06/09/2026: nel browser la data si salva SEMPRE nel formato italiano
+      // ("Gio Settembre 11, 2026"): e' quello che il carrello sa leggere. In inglese
+      // cambia solo cio' che si mostra, non cio' che si salva.
+      const giorniIt = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+      const mesiIt = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+      const valoreIt = giorniIt[date.getDay()] + ' ' + mesiIt[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear();
+      $('.date_input').val(valoreIt);
+      $('#dateselect').toggleClass('is-visible');
+    }
+  });
+
+  jQuery(".select-occasion li").click(function() {
+    var occasionValueText = $(this).text();
+    var occasionValueId = $(this).attr('id');
+    $('.occasion_name > span').html(occasionValueText);
+    $('.occasion_input').val(occasionValueId);
+    $('#occasion').toggleClass('is-visible');
+  });
+
+  jQuery('#submit_btn').click(function() {
+    var dateVal = $('.date_input').val();
+    var occasionVal = $('.occasion_input').val();
+
+    // ✅ Fallback to default collection if none selected
+    if (!occasionVal || occasionVal.trim() === "") {
+      occasionVal = "{{ section.settings.default_collection.handle }}";
+    }
+
+    // Save dates
+    localStorage.setItem("delivery_date_val", dateVal);
+    localStorage.setItem("saved_delivery_date", dateVal);
+    var englishFormattedDate = parseAndFormatItalianDate(dateVal);
+    localStorage.setItem("delivery_date_val_eng", englishFormattedDate);
+    localStorage.setItem("saved_delivery_date_eng", englishFormattedDate);
+
+    // ✅ Detect locale prefix
+    var pathParts = window.location.pathname.split('/');
+    var localePrefix = "";
+    if (pathParts.length > 1 && pathParts[1].length === 2) {
+      localePrefix = "/" + pathParts[1]; // e.g. /it, /fr
+    }
+
+    // ✅ Redirect to correct localized collection
+    window.location.href = localePrefix + "/collections/" + occasionVal;
+  });
+
+  jQuery(document).ready(function() {
+    var localDate = localStorage.getItem("delivery_date_val");
+    if(localDate){
+      $('.delivery_date > span').html(localDate);
+      $('.date_input').val(localDate);
+    }
+  });
+
+  function parseAndFormatItalianDate(italianDate) {
+    var months = {
+      'Gennaio': 'January', 'Febbraio': 'February', 'Marzo': 'March', 'Aprile': 'April',
+      'Maggio': 'May', 'Giugno': 'June', 'Luglio': 'July', 'Agosto': 'August',
+      'Settembre': 'September', 'Ottobre': 'October', 'Novembre': 'November', 'Dicembre': 'December'
+    };
+    var dateParts = italianDate?.match(/(\w+)\s+(\w+)\s+(\d+),\s+(\d+)/);
+    if (dateParts && dateParts?.length === 5) {
+      var month = months[dateParts[2]];
+      var day = parseInt(dateParts[3], 10);
+      var year = parseInt(dateParts[4], 10);
+      var convertedDate = new Date(year, Object.values(months).indexOf(month), day);
+      return convertedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    return "Invalid Date";
+  }
+</script>
+
+<script>
+jQuery(function () {
+  if (!location.pathname.startsWith('/en')) return;
+
+  const translations = {
+    'Consegna': 'Delivery',
+    'seleziona una data': 'Select a date',
+    'Per': 'For',
+    'Stupire': 'Surprise',
+    'Trova la tua torta': 'Find your cake',
+    'Qual è l\'occasione del tuo regalo?': 'What is the occasion for your gift?',
+  };
+
+  function translateText() {
+    // Translate text in .home-delivery-date-container
+    jQuery('.home-delivery-date-container').find('*').contents().filter(function () {
+      return this.nodeType === 3 && this.nodeValue.trim();
+    }).each(function () {
+      let text = this.nodeValue.trim();
+      if (translations[text]) this.nodeValue = this.nodeValue.replace(text, translations[text]);
+    });
+
+    // Translate text in modal popup heading
+    jQuery('.modal-popup-heading').each(function () {
+      let text = jQuery(this).text().trim();
+      if (translations[text]) jQuery(this).text(translations[text]);
+    });
+  }
+
+  translateText();
+
+  // Observe and translate new content
+  new MutationObserver(() => translateText()).observe(document.body, { childList: true, subtree: true });
+});
+</script>
+
+
+
+{% schema %}
+{
+  "name": "Home Delivery Section",
+  "settings": [
+    {
+      "type": "collection",
+      "id": "default_collection",  
+      "label": "Default Collection"
+    },
+    {
+      "type": "header",
+      "content": "Section Padding Top&Bottom"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Padding Top",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Padding Bottom",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "text",
+      "id": "delivery_label",
+      "label": "Delivery label",
+      "default": "Consegna"
+    },
+    {
+      "type": "text",
+      "id": "select_date_label",
+      "label": "Select date label",
+      "default": "seleziona una data"
+    },
+    {
+      "type": "text",
+      "id": "for_label",
+      "label": "\"For\" text",
+      "default": "Per"
+    },
+    {
+      "type": "text",
+      "id": "surprise_label",
+      "label": "Occasion default",
+      "default": "Stupire"
+    },
+    {
+      "type": "text",
+      "id": "find_cake_label",
+      "label": "Find cake button",
+      "default": "Trova la tua torta"
+    },
+    {
+      "type": "text",
+      "id": "modal_heading",
+      "label": "Modal heading",
+      "default": "Qual è l'occasione del tuo regalo?"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "collectionlist",
+      "name": "Collection Name",
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collections_list",
+          "label": "Collection"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Home Delivery Section"
+    }
+  ]
+}
+{% endschema %}
+
+{% stylesheet %}{% endstylesheet %}
+{% javascript %}{% endjavascript %}

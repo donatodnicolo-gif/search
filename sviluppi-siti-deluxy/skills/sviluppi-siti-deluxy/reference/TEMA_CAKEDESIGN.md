@@ -37,6 +37,45 @@ non dare per scontato che i file siano identici — controlla sempre gli anchor.
   ORA: `minDate = oggi(Roma) + prodotto.consegna`, `+1` se lead 0 e ora ≥ 14;
   `start` (data iniziale) clampato a `minDate` e protetto da NaN.
 
+## Modifiche del 06/09/2026 (data di consegna solo dal calendario)
+
+Caso reale: ordini #1834 (`Data_Consegna = 2026-undefined-11`), #1806 (`2026-undefined-18`) e
+#1835 (`16 of september`), tutti da clienti sul sito in inglese. Copie dei file corretti in
+`sviluppi-siti-deluxy/cakedesign/`. Caricati sul tema **«Version to work on»** (id
+`182632743235`) e verificati con l'md5: `home-delivery-section` e `delivery_date_hour_c`;
+**`main-cart.liquid` NON caricato** (bloccato dal classificatore del connettore, 3 tentativi):
+va incollato a mano dal file nel repo.
+
+`sections/home-delivery-section.liquid` (home, widget `#deliverydate`):
+- in `/en` il calendario formattava la data con i mesi inglesi e la salvava così in
+  `localStorage.delivery_date_val` («Fri September 11, 2026»); il carrello conosce solo i mesi
+  italiani → mese `undefined`. ORA `onChange` mostra il testo nella lingua del sito ma in
+  `.date_input` (e quindi nel localStorage) scrive SEMPRE il formato italiano
+  «Ven Settembre 11, 2026».
+
+`snippets/delivery_date_hour_c.liquid` (carrello):
+- **normalizzatore** in testa al file, eseguito al parse (prima di ogni altro script del
+  carrello, anche dei blocchi a parse-time di `main-cart`): `delivery_date_val` e
+  `saved_delivery_date` vengono riportati al formato italiano se il mese è inglese; se non
+  sono una data reale (`undefined`, testo libero, 30 febbraio) si cancellano e il carrello
+  ripropone la prima data utile;
+- `$(window).ready`: se la data ricostruita non è `AAAA-MM-GG` si azzera `localDate`
+  (prima scriveva «2026-undefined-11» nel campo);
+- `fnCheckDate`: guardia iniziale, con un valore non ISO esce (prima crollava con
+  `TypeError` su «Invalid Date» e lasciava il campo sporco);
+- input `#DeliveryDate_def`: `readonly autocomplete="off" inputmode="none"` → si compila
+  solo dal datepicker jQuery UI (che si apre anche su input readonly). Prima era testo libero.
+
+`sections/main-cart.liquid` (DA CARICARE A MANO):
+- `fnCheckDelivery`: al checkout passa solo `AAAA-MM-GG` con giorno reale, altrimenti svuota
+  il campo e mostra `general.new.select_delivery_date`;
+- blocco «OVERWRITING INPUT VALUE» (`monthMap` italiano): mese non riconosciuto → `maxDate`.
+- Restano altri tre `monthMap` solo italiani (etichette e popup): coperti dal normalizzatore.
+
+Prova simulata (`harness.js` in sessione): «Fri September 11, 2026» → «Ven Settembre 11, 2026»;
+«undefined», «16 of september», «Wed February 30, 2026» → cancellati; checkout blocca
+«2026-undefined-11», «16 of september», «2026-02-30», «2026-9-1».
+
 ## Insidie specifiche
 
 - `fnCheckDate` attiva usa `currentHour` (`getItalyHour()`): già in ora italiana, ma il
