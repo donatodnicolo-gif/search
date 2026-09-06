@@ -435,10 +435,19 @@ export async function elencoChiamate(opzioni?: {
   const giorni = opzioni?.giorni ?? 30
   const dal = new Date(Date.now() - giorni * 24 * 60 * 60 * 1000)
 
+  // ⚠️⚠️ UNA CHIAMATA APERTA NON ESCE MAI DALL'ELENCO PER ANZIANITÀ (utente,
+  // 06/09/2026: «lascia aperte tutte le chiamate fino a quando non sono
+  // indicate come gestite o l'ordine non viene gestito»). Prima la finestra dei
+  // 30 giorni valeva per tutte: una telefonata di cinque settimane fa a cui
+  // nessuno aveva risposto SPARIVA, senza che nessuno l'avesse chiusa — cioè
+  // l'unico modo di farla sparire era ignorarla abbastanza a lungo. Il periodo
+  // vale solo per le richiamate; le aperte ci sono sempre.
+  const finestra = { OR: [{ richiamataIl: null }, { quando: { gte: dal } }] }
+
   const [righe, negozi] = await Promise.all([
     db.chiamata.findMany({
       where: {
-        quando: { gte: dal },
+        ...finestra,
         ...(opzioni?.soloDaRichiamare ? { richiamataIl: null } : {}),
         ...(opzioni?.negozioId ? { negozioId: opzioni.negozioId } : {}),
       },
@@ -455,12 +464,14 @@ export async function elencoChiamate(opzioni?: {
   // sparire proprio le più vecchie, cioè quelle che aspettano da più tempo.
   const conteggi = await db.chiamata.groupBy({
     by: ['negozioId'],
-    where: { quando: { gte: dal } },
+    where: finestra,
     _count: { _all: true },
   })
+  // Le aperte si contano TUTTE, di qualunque data: è il numero che dice quanto
+  // lavoro aspetta, e una finestra lo farebbe sembrare più piccolo di com'è.
   const aperte = await db.chiamata.groupBy({
     by: ['negozioId'],
-    where: { quando: { gte: dal }, richiamataIl: null },
+    where: { richiamataIl: null },
     _count: { _all: true },
   })
   const aperteDi = new Map(aperte.map((a) => [a.negozioId ?? '', a._count._all]))
@@ -532,6 +543,62 @@ export async function segnaRichiamata(
       })
   }
   return { ok: true }
+}
+
+/**
+ * L'ORDINE È GESTITO: le sue chiamate aperte si chiudono con lui.
+ *
+ * ⚠️ Regola dell'utente (06/09/2026): una chiamata resta aperta finché qualcuno
+ * la segna richiamata **oppure l'ordine per cui ha chiamato viene gestito**. Un
+ * ordine chiuso con tre «richiamare» ancora accesi è lavoro finito che sembra
+ * da fare: qualcuno richiama un cliente già servito.
+ *
+ * Si chiudono per `ordineId` e per numero (le due forme), solo quelle ancora
+ * aperte — la spunta di una persona non si riscrive — e con l'esito che dice
+ * COME sono state chiuse: fra un mese «richiamato da Nicolò — chiusa con
+ * l'ordine» si distingue da una telefonata fatta davvero. Anche i promemoria
+ * collegati si spuntano: due liste che dicono cose diverse sulla stessa
+ * telefonata sono peggio di una.
+ *
+ * Torna quante ne ha chiuse; un fallimento non ferma la chiusura dell'ordine.
+ */
+export async function chiudiChiamateDellOrdine(
+  ordineId: string,
+  numero: string,
+  chiNome: string
+): Promise<number> {
+  const senza = (numero ?? '').replace(/^#+/, '').trim()
+  const forme = senza ? [senza, `#${senza}`] : []
+  const dove = {
+    richiamataIl: null,
+    OR: [
+      ...(ordineId ? [{ ordineId }] : []),
+      ...(forme.length ? [{ ordineNumero: { in: forme } }] : []),
+    ],
+  }
+  if (!dove.OR.length) return 0
+  try {
+    const aperte = await db.chiamata.findMany({ where: dove, select: { id: true, attivitaId: true } })
+    if (!aperte.length) return 0
+    const adesso = new Date()
+    await db.chiamata.updateMany({
+      where: { id: { in: aperte.map((c) => c.id) }, richiamataIl: null },
+      data: {
+        richiamataIl: adesso,
+        richiamataDaNome: chiNome.slice(0, 80),
+        esitoRichiamata: `Chiusa con l'ordine ${senza ? `#${senza}` : ''}: segnato «Gestito».`.replace('  ', ' '),
+      },
+    })
+    const promemoria = aperte.map((c) => c.attivitaId).filter(Boolean)
+    if (promemoria.length) {
+      await db.attivita
+        .updateMany({ where: { id: { in: promemoria }, fatta: false }, data: { fatta: true, fattaIl: adesso } })
+        .catch(() => {})
+    }
+    return aperte.length
+  } catch {
+    return 0
+  }
 }
 
 /** Corregge a mano il numero di una chiamata, e rifà il riconoscimento. */

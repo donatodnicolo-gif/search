@@ -752,7 +752,8 @@ export function DettaglioOrdine({
         // rileggere continua a mostrarle da fare — cioè il contrario di quello
         // che è appena successo. Una schermata così fa premere il bottone una
         // seconda volta.
-        const d = (await res.json().catch(() => ({}))) as { noteChiuse?: number }
+        const d = (await res.json().catch(() => ({}))) as { noteChiuse?: number; chiamateChiuse?: number }
+        setChiamateChiuse(d.chiamateChiuse ?? 0)
         if (d.noteChiuse) {
           setNoteChiuse(d.noteChiuse)
           setRileggiDiario((n) => n + 1)
@@ -768,6 +769,8 @@ export function DettaglioOrdine({
   // che fa rileggere l'elenco qui sotto. Righe che spariscono senza lasciare un
   // numero fanno credere di essersi perse.
   const [noteChiuse, setNoteChiuse] = useState(0)
+  /** Quante chiamate aperte si sono chiuse con «Gestito»: si dice, non si tace. */
+  const [chiamateChiuse, setChiamateChiuse] = useState(0)
   const [rileggiDiario, setRileggiDiario] = useState(0)
 
   async function copia(testo: string, quale: string) {
@@ -1610,6 +1613,13 @@ export function DettaglioOrdine({
                 riga si scriverebbe e non si ritroverebbe più. */}
             {soloArchivio ? null : (
               <div className="card">
+                {chiamateChiuse ? (
+                  <p className="cella-sub" style={{ marginTop: 6 }}>
+                    {chiamateChiuse === 1
+                      ? 'Chiusa anche 1 chiamata che aspettava di essere richiamata.'
+                      : `Chiuse anche ${chiamateChiuse} chiamate che aspettavano di essere richiamate.`}
+                  </p>
+                ) : null}
                 {noteChiuse ? (
                   <p className="avviso-ok" style={{ marginTop: 0 }}>
                     {noteChiuse === 1

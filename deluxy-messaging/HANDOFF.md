@@ -1,5 +1,41 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (21) — Le chiamate restano aperte finché non sono gestite (o l'ordine lo è); il parser vecchio in produzione le inverte ancora
+
+Regola dell'utente: «lascia aperte tutte le chiamate fino a quando non sono
+indicate come gestite o l'ordine non viene gestito».
+
+- **Prima**: `elencoChiamate` guardava gli ultimi 30 giorni per TUTTE le righe.
+  Una telefonata di cinque settimane fa a cui nessuno aveva risposto usciva
+  dall'elenco da sola — l'unico modo di farla sparire era ignorarla abbastanza.
+  Misurato oggi: 0 chiamate più vecchie di 30 giorni (la casella è del 31/08),
+  quindi il buco non aveva ancora morso. Avrebbe morso a ottobre.
+- **Adesso**: la finestra vale solo per le RICHIAMATE; le aperte ci sono sempre
+  (`OR: [{richiamataIl: null}, {quando ≥ dal}]`), e il conteggio «da
+  richiamare» è su tutte le aperte. Anche il filtro periodo della pagina (chip
+  Oggi/Settimana/…) non nasconde più le aperte. Il sottotitolo lo dice.
+- **Chiuse con l'ordine**: `chiudiChiamateDellOrdine(ordineId, numero, chi)` in
+  `chiamate.ts`, chiamata dalla rotta `gestione` quando il passo è «Gestito»
+  (accanto a `chiudiNoteDellOrdine`). Solo le aperte; esito «Chiusa con
+  l'ordine #N: segnato «Gestito»» e nome di chi ha premuto; si spuntano anche
+  i promemoria. La scheda dice «Chiuse anche N chiamate…». Riportando l'ordine
+  indietro non si riaprono (stessa scelta delle note).
+
+### ⚠️⚠️ La produzione inverte ancora
+
+Dopo la riparazione di ieri sono entrate **3 chiamate nuove, di nuovo al
+contrario**: in produzione gira il vecchio parser (il fix è in locale). Ho
+rilanciato `ripara-chiamate-invertite.mts --applica`: 3 su 3 riparate (una è
+Selin Atayeva #12887, due un numero francese senza ordine). **Finché il CS non
+è pubblicato ogni telefonata arriva invertita**: dopo il deploy va rilanciato lo
+script una volta ancora (idempotente).
+
+Stato del 06/09 mattina: 19 chiamate, 2 aperte (il numero francese, chiamato
+due volte alle 16:00 del 05/09), 11 «senza marchio» perché `telefonoChiamate`
+è ancora vuoto sui tre negozi.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (20) — Manda in app: partner della provincia, servizi del listino, prodotto e prezzo; il 500 della piattaforma; Nuovo ordine col mittente
 
 Cinque richieste dell'utente nella stessa mattina, tutte sul modulo «Manda in
