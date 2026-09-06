@@ -1678,7 +1678,10 @@ dicono più di dodici mesi.
 > territorio vale dove non ce ne sono; il default (60) resta solo quando non si sa
 > se nella provincia c'è un partner. **Chi lo sa è la piattaforma consegne**: chi chiama
 > lo dichiara con `conPartner=1|0` (la piattaforma lo fa), altrimenti Orders lo
-> chiede a lei (`GET /api/v1/app/partner`, 10 minuti di cache, `PLATFORM_API_KEY`).
+> chiede a lei (`GET /api/v1/app/province-abilitate`, 10 minuti di cache, `PLATFORM_API_KEY`).
+> **«Con partner» = la provincia ha una lista di partner abilitati** (le liste di
+> priorità della piattaforma con un partner attivo), non «un partner copre quella
+> provincia per area»: oggi 12 province (MI, RM, FI, GE, VA, VE, AR, FC, FE, RN, MB, PI).
 > Con `prezzoPubblico=85` la risposta porta `prezzoFornitore` già arrotondato
 > (Milano con partner: 85 × 0,80 = 68 → **70**). La risposta dice sempre `regola`
 > (`provincia+categoria` | `provincia` | `territorio` | `default`), `sconto`,

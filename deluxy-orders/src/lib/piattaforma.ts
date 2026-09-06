@@ -47,9 +47,8 @@ type VoceVendita = {
 };
 
 // ⭐ 06/09/2026: la regola del territorio ha bisogno di sapere se in una provincia
-// abbiamo un partner. Lo sa SOLO la piattaforma consegne (PartnerProvince): si
-// legge il suo elenco dei partner attivi (`GET /api/v1/app/partner`, sigle delle
-// province servite) e si tiene 10 minuti. Senza chiave o senza risposta → null:
+// abbiamo un partner. Lo sa SOLO la piattaforma consegne: le sue LISTE di partner
+// abilitati per provincia (`GET /api/v1/app/province-abilitate`), tenute 10 minuti. Senza chiave o senza risposta → null:
 // «non lo so» non diventa «no».
 let cacheProvince: { quando: number; sigle: Set<string> } | null = null;
 export async function provinciaHaPartner(provincia: string): Promise<boolean | null> {
@@ -59,15 +58,15 @@ export async function provinciaHaPartner(provincia: string): Promise<boolean | n
   const conf = configurazionePiattaforma();
   if (!conf) return null;
   try {
-    const res = await fetch(`${conf.url}/api/v1/app/partner`, { headers: { "x-api-key": conf.chiave }, cache: "no-store" });
+    // ⭐ 06/09 sera (regola utente): NON le province coperte dai partner (con l'area «Tutto il
+    // mondo» sarebbero tutte), ma le province con una LISTA di partner abilitati: la piattaforma
+    // le espone in `GET /api/v1/app/province-abilitate` (liste di priorità con un partner attivo).
+    const res = await fetch(`${conf.url}/api/v1/app/province-abilitate`, { headers: { "x-api-key": conf.chiave }, cache: "no-store" });
     if (!res.ok) return null;
-    const righe = (await res.json()) as { provinces?: { province?: { code?: string } }[]; province?: string[] }[];
+    const righe = (await res.json()) as { provincia?: string; partner?: unknown[] }[];
     if (!Array.isArray(righe)) return null;
     const sigle = new Set<string>();
-    for (const p of righe) {
-      for (const x of p.provinces ?? []) if (x?.province?.code) sigle.add(x.province.code.toUpperCase());
-      for (const c of p.province ?? []) if (typeof c === "string") sigle.add(c.toUpperCase());
-    }
+    for (const p of righe) if (p?.provincia && Array.isArray(p.partner) && p.partner.length) sigle.add(p.provincia.toUpperCase());
     cacheProvince = { quando: Date.now(), sigle };
     return sigle.has(sigla);
   } catch {
