@@ -926,6 +926,30 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     messaggio: "",
   };
 
+  // **La riga di storico nasce all'avvio, non a fine corsa** (06/09/2026).
+  // Prima si scriveva solo alla fine: un import ucciso dal limite di durata
+  // della funzione non lasciava niente — Gifts è morto così per due notti e
+  // due aperture di fila, e `/collezioni` continuava a mostrare l'ultimo «ok»
+  // del 04/09 come se fosse tutto in ordine. Ora la riga esiste da subito con
+  // esito «in corso»; a fine corsa diventa «ok»/«errore» con la durata. Una riga
+  // rimasta «in corso» è la prova che la funzione è stata interrotta prima di
+  // concludere. `sincronizza-apertura` e le pagine guardano solo gli «ok».
+  const inizio = Date.now();
+  let traccia: { id: string } | null = null;
+  try {
+    traccia = await prisma.importCollezioni.create({
+      data: {
+        negozio: n.nome,
+        esito: "in corso",
+        messaggio:
+          "Import avviato e non ancora concluso. Se questa riga resta così, la funzione è stata interrotta prima di finire (limite di durata): il catalogo del negozio è fermo all'ultimo import «ok».",
+      },
+      select: { id: true },
+    });
+  } catch {
+    // Senza la riga d'avvio si scrive comunque l'esito alla fine, come prima.
+  }
+
   try {
     const osId = await trovaOnlineStore(n);
     // Le definizioni dei metafield si rileggono a ogni import: sono il
@@ -1200,18 +1224,23 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.messaggio = e instanceof Error ? e.message : "Errore sconosciuto durante l'import.";
   }
 
-  await prisma.importCollezioni.create({
-    data: {
-      negozio: n.nome,
-      collezioniLette: base.collezioniLette,
-      prodottiLetti: base.prodottiLetti,
-      abbinamenti: base.abbinamenti,
-      prodottiCreati: base.prodottiCreati,
-      prodottiIgnoti: base.prodottiIgnoti,
-      esito: base.ok ? "ok" : "errore",
-      messaggio: base.messaggio,
-    },
-  });
+  // La durata sta nel messaggio perché è il numero che decide se il cron ce la
+  // fa: la si legge in `/collezioni` senza aprire i log di Vercel.
+  const durata = Math.round((Date.now() - inizio) / 1000);
+  const esitoFinale = {
+    collezioniLette: base.collezioniLette,
+    prodottiLetti: base.prodottiLetti,
+    abbinamenti: base.abbinamenti,
+    prodottiCreati: base.prodottiCreati,
+    prodottiIgnoti: base.prodottiIgnoti,
+    esito: base.ok ? "ok" : "errore",
+    messaggio: `${base.messaggio} (durata ${durata} s)`,
+  };
+  if (traccia) {
+    await prisma.importCollezioni.update({ where: { id: traccia.id }, data: esitoFinale });
+  } else {
+    await prisma.importCollezioni.create({ data: { negozio: n.nome, ...esitoFinale } });
+  }
 
   return base;
 }
