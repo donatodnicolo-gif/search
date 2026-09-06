@@ -1112,7 +1112,12 @@
     "nProvince": "{{n}} province",
     "vuoto": "Nessuna area.",
     "confermaElimina": "Eliminare l'area «{{nome}}»?",
-    "col": { "nome": "Area", "note": "Note", "province": "Province", "partner": "Partner" }
+    "col": {
+      "nome": "Area",
+      "note": "Note",
+      "province": "Province",
+      "partner": "Partner"
+    }
   },
   "listino": {
     "title": "Il tuo listino dei fiori",
@@ -1125,15 +1130,43 @@
     "nonLoFaccio": "non lo faccio",
     "salva": "Salva il listino",
     "nota": "Lascia vuoto un fiore che non fai. I prezzi restano tuoi: puoi cambiarli quando vuoi da qui.",
-    "col": { "fiore": "Fiore", "prezzo": "€ per stelo", "stato": "" }
+    "col": {
+      "fiore": "Fiore",
+      "prezzo": "€ per stelo",
+      "stato": ""
+    }
   },
   "mestieri": {
     "title": "Mestieri",
     "caption": "{{n}} mestieri raccolgono {{c}} categorie del catalogo",
-    "col": { "nome": "Mestiere", "categorie": "Categorie", "prodotti": "Prodotti", "partner": "Partner", "liste": "Liste", "automatico": "Smistamento automatico" },
-    "auto": { "si": "i non unici si smistano da soli", "no": "i non unici vanno all'ufficio" },
-    "nuovo": { "bottone": "Nuovo mestiere", "titolo": "Nuovo mestiere", "nomePh": "Nome del mestiere (es. Gelateria)", "hint": "Nasce vuoto: poi collochi le categorie qui sotto e lo assegni ai partner nella loro scheda." },
-    "categorie": { "title": "Categorie del catalogo", "sub": "{{n}} da assegnare", "col": { "nome": "Categoria", "mestiere": "Mestiere" }, "daAssegnare": "— da assegnare —", "archiviata": "archiviata" }
+    "col": {
+      "nome": "Mestiere",
+      "categorie": "Categorie",
+      "prodotti": "Prodotti",
+      "partner": "Partner",
+      "liste": "Liste",
+      "automatico": "Smistamento automatico"
+    },
+    "auto": {
+      "si": "i non unici si smistano da soli",
+      "no": "i non unici vanno all'ufficio"
+    },
+    "nuovo": {
+      "bottone": "Nuovo mestiere",
+      "titolo": "Nuovo mestiere",
+      "nomePh": "Nome del mestiere (es. Gelateria)",
+      "hint": "Nasce vuoto: poi collochi le categorie qui sotto e lo assegni ai partner nella loro scheda."
+    },
+    "categorie": {
+      "title": "Categorie del catalogo",
+      "sub": "{{n}} da assegnare",
+      "col": {
+        "nome": "Categoria",
+        "mestiere": "Mestiere"
+      },
+      "daAssegnare": "— da assegnare —",
+      "archiviata": "archiviata"
+    }
   },
   "categories": {
     "title": "Categorie",
@@ -1224,7 +1257,11 @@
     "total": "Totali",
     "newTitle": "Nuova regola carnet",
     "editTitle": "Modifica regola carnet",
-    "registro": { "titolo": "Registro", "vuoto": "Nessuna riga: la regola è nata prima del registro (6/9/2026) o viene dal vecchio gestionale.", "sistema": "sistema" },
+    "registro": {
+      "titolo": "Registro",
+      "vuoto": "Nessuna riga: la regola è nata prima del registro (6/9/2026) o viene dal vecchio gestionale.",
+      "sistema": "sistema"
+    },
     "col": {
       "name": "Nome",
       "rule": "Regola",
@@ -1416,7 +1453,9 @@
     "notificheEmail": "Avvisami per email",
     "notificheWhatsapp": "Avvisami su WhatsApp",
     "negozio": "Il tuo negozio",
-    "vendite": { "titolo": "Le tue vendite" },
+    "vendite": {
+      "titolo": "Le tue vendite"
+    },
     "negozioHint": "Insegna, listino e condizioni si cambiano con l'ufficio; i contatti sono tuoi.",
     "ritiri": "Altri indirizzi di ritiro",
     "ritiriHint": "Oltre all'indirizzo del negozio. Compaiono tra le scelte quando si crea una consegna.",
@@ -2349,7 +2388,14 @@
     "notDelivered": "Non consegnata",
     "done": "Consegna confermata ✓ Grazie.",
     "doneNon": "Segnata come non consegnata. L'ufficio la gestirà.",
-    "popup": { "titoloSi": "Confermi la consegna #{{code}}?", "titoloNo": "Consegna #{{code}} non consegnata?", "motivo": "Perché", "motivoPh": "es. destinatario assente, indirizzo errato…", "confermaSi": "Sì, consegnata", "confermaNo": "Sì, non consegnata" },
+    "popup": {
+      "titoloSi": "Confermi la consegna #{{code}}?",
+      "titoloNo": "Consegna #{{code}} non consegnata?",
+      "motivo": "Perché",
+      "motivoPh": "es. destinatario assente, indirizzo errato…",
+      "confermaSi": "Sì, consegnata",
+      "confermaNo": "Sì, non consegnata"
+    },
     "closed": "Questa consegna è chiusa (annullata, non consegnata o non accettata): dal link non si può confermare. Scrivi all’ufficio."
   },
   "tracking": {
@@ -2700,6 +2746,17 @@
       "delivery": "Consegna",
       "valet": "Valet",
       "status": "Stato"
+    },
+    "filtri": {
+      "citta": "Città",
+      "tutteCitta": "Tutte le città",
+      "valet": "Valet",
+      "tuttiValet": "Tutti i valet",
+      "chi": "Chi",
+      "soloIo": "Solo io",
+      "tutti": "Tutti",
+      "conPartner": "Consegne da partner",
+      "notaPartner": "Le consegne portate dal partner sono escluse: non c'è un giro da fare. La spunta le rimette."
     }
   },
   "smsTemplates": {

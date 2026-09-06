@@ -1110,7 +1110,12 @@
     "nProvince": "{{n}} provinces",
     "vuoto": "No areas.",
     "confermaElimina": "Delete the area «{{nome}}»?",
-    "col": { "nome": "Area", "note": "Notes", "province": "Provinces", "partner": "Partners" }
+    "col": {
+      "nome": "Area",
+      "note": "Notes",
+      "province": "Provinces",
+      "partner": "Partners"
+    }
   },
   "listino": {
     "title": "Your flower price list",
@@ -1123,15 +1128,43 @@
     "nonLoFaccio": "I don't do it",
     "salva": "Save the price list",
     "nota": "Leave a flower empty if you don't do it. The prices stay yours: change them here whenever you want.",
-    "col": { "fiore": "Flower", "prezzo": "€ per stem", "stato": "" }
+    "col": {
+      "fiore": "Flower",
+      "prezzo": "€ per stem",
+      "stato": ""
+    }
   },
   "mestieri": {
     "title": "Trades",
     "caption": "{{n}} trades gather {{c}} catalogue categories",
-    "col": { "nome": "Trade", "categorie": "Categories", "prodotti": "Products", "partner": "Partners", "liste": "Lists", "automatico": "Automatic routing" },
-    "auto": { "si": "non-unique products route automatically", "no": "non-unique products go to the office" },
-    "nuovo": { "bottone": "New trade", "titolo": "New trade", "nomePh": "Trade name (e.g. Ice cream shop)", "hint": "It starts empty: then place categories below and assign it to partners in their sheet." },
-    "categorie": { "title": "Catalogue categories", "sub": "{{n}} to assign", "col": { "nome": "Category", "mestiere": "Trade" }, "daAssegnare": "— to assign —", "archiviata": "archived" }
+    "col": {
+      "nome": "Trade",
+      "categorie": "Categories",
+      "prodotti": "Products",
+      "partner": "Partners",
+      "liste": "Lists",
+      "automatico": "Automatic routing"
+    },
+    "auto": {
+      "si": "non-unique products route automatically",
+      "no": "non-unique products go to the office"
+    },
+    "nuovo": {
+      "bottone": "New trade",
+      "titolo": "New trade",
+      "nomePh": "Trade name (e.g. Ice cream shop)",
+      "hint": "It starts empty: then place categories below and assign it to partners in their sheet."
+    },
+    "categorie": {
+      "title": "Catalogue categories",
+      "sub": "{{n}} to assign",
+      "col": {
+        "nome": "Category",
+        "mestiere": "Trade"
+      },
+      "daAssegnare": "— to assign —",
+      "archiviata": "archived"
+    }
   },
   "categories": {
     "title": "Categories",
@@ -1222,7 +1255,11 @@
     "total": "Total",
     "newTitle": "New carnet rule",
     "editTitle": "Edit carnet rule",
-    "registro": { "titolo": "History", "vuoto": "No entries: the rule predates the history (6 Sep 2026) or comes from the old system.", "sistema": "system" },
+    "registro": {
+      "titolo": "History",
+      "vuoto": "No entries: the rule predates the history (6 Sep 2026) or comes from the old system.",
+      "sistema": "system"
+    },
     "col": {
       "name": "Name",
       "rule": "Rule",
@@ -1414,7 +1451,9 @@
     "notificheEmail": "Notify me by email",
     "notificheWhatsapp": "Notify me on WhatsApp",
     "negozio": "Your shop",
-    "vendite": { "titolo": "Your sales" },
+    "vendite": {
+      "titolo": "Your sales"
+    },
     "negozioHint": "Name, price list and terms are changed with the office; contact details are yours.",
     "ritiri": "Other pickup addresses",
     "ritiriHint": "In addition to the shop address. They show up as choices when creating a delivery.",
@@ -2346,7 +2385,14 @@
     "confirm": "Delivered",
     "notDelivered": "Not delivered",
     "doneNon": "Marked as not delivered. The office will handle it.",
-    "popup": { "titoloSi": "Confirm delivery #{{code}}?", "titoloNo": "Delivery #{{code}} not delivered?", "motivo": "Why", "motivoPh": "e.g. recipient absent, wrong address…", "confermaSi": "Yes, delivered", "confermaNo": "Yes, not delivered" },
+    "popup": {
+      "titoloSi": "Confirm delivery #{{code}}?",
+      "titoloNo": "Delivery #{{code}} not delivered?",
+      "motivo": "Why",
+      "motivoPh": "e.g. recipient absent, wrong address…",
+      "confermaSi": "Yes, delivered",
+      "confermaNo": "Yes, not delivered"
+    },
     "done": "Delivery confirmed ✓ Thank you.",
     "closed": "This delivery is closed (cancelled, not delivered or not accepted): it cannot be confirmed from this link. Please contact the office."
   },
@@ -2698,6 +2744,17 @@
       "delivery": "Delivery",
       "valet": "Valet",
       "status": "Status"
+    },
+    "filtri": {
+      "citta": "City",
+      "tutteCitta": "All cities",
+      "valet": "Valet",
+      "tuttiValet": "All valets",
+      "chi": "Who",
+      "soloIo": "Only me",
+      "tutti": "Everyone",
+      "conPartner": "Partner-delivered",
+      "notaPartner": "Deliveries carried by the partner are hidden: there is no round to run. The checkbox brings them back."
     }
   },
   "smsTemplates": {

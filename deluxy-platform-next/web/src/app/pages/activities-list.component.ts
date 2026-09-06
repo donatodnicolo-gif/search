@@ -74,6 +74,32 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
     </div>
     @if (sezione() === 'storico') { <p class="sezione-nota">{{ 'activities.sezione.storicoNota' | translate }}</p> }
 
+    <!-- ⭐ 06/09/2026 sera (regola utente): «metti filtri in alto per città o permetti di
+         selezionare un valet; a un valet consenti di vedere solo io oppure tutti». Città e
+         valet filtrano quello che è già in pagina; «solo io» invece cambia il perimetro e va
+         chiesto al server (il team leader vede la squadra). -->
+    <div class="filtri">
+      <select class="field sel" [(ngModel)]="citta" name="citta">
+        <option value="">{{ 'activities.filtri.tutteCitta' | translate }}</option>
+        @for (c of cittaDisponibili(); track c) { <option [value]="c">{{ c }}</option> }
+      </select>
+      <select class="field sel" [(ngModel)]="valetScelto" name="valetScelto">
+        <option value="">{{ 'activities.filtri.tuttiValet' | translate }}</option>
+        @for (v of valetDisponibili(); track v.id) { <option [value]="v.id">{{ v.nome }}</option> }
+      </select>
+      @if (eValet()) {
+        <div class="quick">
+          <button type="button" class="quick-tab" [class.active]="!soloIo" (click)="cambiaSoloIo(false)">{{ 'activities.filtri.tutti' | translate }}</button>
+          <button type="button" class="quick-tab" [class.active]="soloIo" (click)="cambiaSoloIo(true)">{{ 'activities.filtri.soloIo' | translate }}</button>
+        </div>
+      }
+      <label class="spunta">
+        <input type="checkbox" [(ngModel)]="conPartner" name="conPartner" (ngModelChange)="carica()" />
+        <span>{{ 'activities.filtri.conPartner' | translate }}</span>
+      </label>
+    </div>
+    @if (!conPartner) { <p class="sezione-nota">{{ 'activities.filtri.notaPartner' | translate }}</p> }
+
     <!-- Quando si guarda «tutte» si vede una fetta, e va detto: 57.253 righe
          non stanno in una pagina e fingere di mostrarle tutte è peggio che
          ammettere il taglio. -->
@@ -96,6 +122,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
       @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: attivitaVisibili().length, m: attivita().length } }}</span>
+      }
+      @if (!cerca.trim() && (citta || valetScelto)) {
         <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: attivitaVisibili().length, m: attivita().length } }}</span>
       }
     </div>
@@ -171,6 +200,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .sezione .n { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 980px; background: rgba(0,0,0,.06); font-variant-numeric: tabular-nums; }
       .sezione.active .n { background: rgba(0,0,0,.08); }
       .sezione-nota { margin: -6px 0 12px; font-size: 13px; color: var(--text-secondary); }
+      .filtri { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+      .filtri .sel { max-width: 220px; }
+      .filtri .spunta { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
       .avviso { margin: 0 0 12px; font-size: 13px; color: var(--gold-strong, #B8963E); font-weight: 550; }
       .table-wrap { overflow-x: auto; }
       td { vertical-align: middle; }
@@ -210,10 +242,51 @@ export class ActivitiesListComponent {
 
   /** §8-bis: la ricerca. Si riconosce un'attività per consegna, valet, indirizzo. */
   cerca = '';
+  /** ⭐ 06/09 sera: i due filtri in alto. Vivono sul client: la lista è già tutta qui. */
+  citta = '';
+  valetScelto = '';
+  /** «Solo io» e «Consegne da partner» cambiano il perimetro: quelli li decide il server. */
+  soloIo = false;
+  conPartner = false;
+  cambiaSoloIo(v: boolean): void { this.soloIo = v; this.carica(); }
+
+  /**
+   * La città dentro l'indirizzo, nei formati che il campo contiene davvero
+   * («Via X 1, 20121 Milano MI, Italia»). Specchio client di `cittaDaIndirizzo`
+   * del server: qui serve solo a raggruppare, non a calcolare un fuori-città.
+   */
+  private cittaDi(a: Activity): string | null {
+    const ind = a.address || a.delivery?.recipientAddress || '';
+    const parti = ind.split(',').map((x) => x.trim()).filter(Boolean);
+    while (parti.length && /^(italia|italy)$/i.test(parti[parti.length - 1])) parti.pop();
+    if (!parti.length) return null;
+    // ⚠️ La sigla di provincia da sola non è una città: «…, 20100 MI» dava «MI» in tendina.
+    // Se la coda si riduce alla sigla si guarda il pezzo prima («…, Milano, MI»).
+    const pulisci = (x: string) => x.replace(/^\d{5}\s*/, '').replace(/\s+[A-Z]{2}$/, '').trim();
+    let coda = pulisci(parti[parti.length - 1]);
+    if ((!coda || /^[A-Z]{2}$/.test(coda) || /\d/.test(coda)) && parti.length >= 2) coda = pulisci(parti[parti.length - 2]);
+    return coda && !/\d/.test(coda) && !/^[A-Z]{2}$/.test(coda) && coda.length <= 40 ? coda : null;
+  }
+
+  /** Le città e i valet presenti in quello che si sta guardando: niente tendine con opzioni vuote. */
+  cittaDisponibili(): string[] {
+    const s = new Set<string>();
+    for (const a of this.attivita()) { const c = this.cittaDi(a); if (c) s.add(c); }
+    return [...s].sort((x, y) => x.localeCompare(y, 'it'));
+  }
+  valetDisponibili(): { id: string; nome: string }[] {
+    const m = new Map<string, string>();
+    for (const a of this.attivita()) if (a.valet) m.set(a.valet.id, `${a.valet.lastName} ${a.valet.firstName}`.trim());
+    return [...m].map(([id, nome]) => ({ id, nome })).sort((x, y) => x.nome.localeCompare(y.nome, 'it'));
+  }
+
   attivitaVisibili(): Activity[] {
     const q = this.cerca.trim().toLowerCase();
-    if (!q) return this.attivita();
-    return this.attivita().filter((a) =>
+    let items = this.attivita();
+    if (this.citta) items = items.filter((a) => this.cittaDi(a) === this.citta);
+    if (this.valetScelto) items = items.filter((a) => a.valet?.id === this.valetScelto);
+    if (!q) return items;
+    return items.filter((a) =>
       String(a.delivery?.code ?? '').includes(q) ||
       (a.address ?? '').toLowerCase().includes(q) ||
       (a.delivery?.recipientAddress ?? '').toLowerCase().includes(q) ||
@@ -232,6 +305,8 @@ export class ActivitiesListComponent {
 
   /** Si parte da oggi: «tutte» sono 57.253 e nessuno le legge. */
   giorno = this.oggi();
+
+  readonly eValet = computed(() => this.auth.user()?.role === 'VALET');
 
   readonly puoAgire = computed(() =>
     ['ADMIN', 'OPERATION', 'VALET'].includes(this.auth.user()?.role ?? ''),
@@ -278,6 +353,8 @@ export class ActivitiesListComponent {
     }
     const params: Record<string, string> = { stato: this.sezione() };
     if (this.giorno) params['date'] = this.giorno;
+    if (this.soloIo) params['mie'] = '1';
+    if (this.conPartner) params['conPartner'] = '1';
     this.http
       .get<{ items: Activity[]; totale: number; mostrate: number; conteggi?: { aperte: number; storico: number } }>(
         `${environment.apiUrl}/activities`, { params },

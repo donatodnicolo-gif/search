@@ -25,7 +25,14 @@ export class ActivitiesService {
    * Il totale vero si restituisce sempre: chi guarda deve sapere che sta
    * vedendo una fetta, non tutto.
    */
-  async findAll(user: JwtUser, date?: string, limite = 300, stato: 'aperte' | 'storico' | 'tutte' = 'tutte') {
+  async findAll(
+    user: JwtUser,
+    date?: string,
+    limite = 300,
+    stato: 'aperte' | 'storico' | 'tutte' = 'tutte',
+    soloIo = false,
+    conPartner = false,
+  ) {
     let where: any = {};
 
     if (user.role === Role.VALET) {
@@ -78,6 +85,16 @@ export class ActivitiesService {
     } else if (user.role === Role.PARTNER) {
       where.delivery = { partnerId: user.partnerId ?? '-' };
     }
+
+    // ⭐ 06/09/2026 sera (regola utente): «escludi da attività le consegne con consegna
+    // partner». Quando la porta il partner non c'è nessun giro da fare — quelle righe erano
+    // rumore in mezzo al lavoro vero. NON si nascondono per sempre: `conPartner=1` le
+    // rimette (in pagina è la spunta «Consegne da partner»), perché una cosa che sparisce
+    // senza un modo di rivederla è una cosa persa.
+    if (!conPartner) (where.AND ??= []).push({ delivery: { deliveredByPartner: false } });
+    // ⭐ 06/09 sera: un valet team leader vede il giro di tutta la squadra; «solo io» gli
+    // lascia il proprio. Vale solo per lui: per gli altri il perimetro è già il suo.
+    if (soloIo && user.role === Role.VALET) (where.AND ??= []).push({ valetId: user.valetId ?? '-' });
 
     if (date) {
       const day = new Date(date);
