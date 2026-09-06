@@ -708,3 +708,37 @@ STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al
 **Per il custode**: candidata a regola generale — **una griglia di tessere con tabelle dentro prende il minimo dalla tabella, non da un numero tondo**: `minmax(280px, 1fr)` va bene per tessere di testo, non per cinque colonne di numeri. E ogni tabella dentro una tessera sta in un contenitore che scorre: il clipping silenzioso è il difetto peggiore perché nessuno lo segnala finché non manca una colonna.
 
 STATO: in locale, committato; attesa del collaudo dell'utente (localhost:4210/statistiche).
+
+
+## 06/09/2026 (8) — Customer Service: la chat sul telefono «come WhatsApp» (richiesta dell'utente, pattern deciso dall'architetto)
+
+**Segnalazione**: Customer Service · pop-up della conversazione a 375–430px · «da
+mobile la chat non è possibile da utilizzare: ridisegna la UX&UI ispirandoti a
+WhatsApp». Misurato prima: velo da 8px con pannello a 86vh, testata su due righe
+con nove pillole a capo, bolle al 92%, composer su tre righe, tre scroll annidati
+sullo stesso asse; meno di metà schermo per i messaggi.
+
+**Decisione dell'architetto (applicata)**: foglio a schermo intero (solo la lista
+scorre, altezza legata al visualViewport con la tastiera); testata 56px sticky
+[← · nome + sottoriga scorrevole · Archivia · ⋯]; le altre azioni in un foglio
+dal basso (44px, gruppi separati, «Elimina» ultima e staccata); bolle max 80%,
+`--ink`/`--on-ink`, 15px, separatori di giorno; composer sticky con safe-area
+[+ · campo 16px che cresce · Invia a icona], avvisi (refusi) sopra il composer.
+Nessuna azione tolta (§3). Deroga: raggio a pillola sul campo (README CS).
+Prerequisito trovato: `layout.tsx` senza `viewportFit: 'cover'` → safe-area = 0.
+
+**Per il Libro (regola nuova proposta, §9-bis «Conversazione», prossimo bump)**:
+*Su mobile è un foglio a schermo intero (100dvh, solo la lista scorre, altezza
+legata al visualViewport). Testata 56px sticky: ← (chiusura) · nome + sottoriga
+scorrevole · max 2 azioni a icona 44px · «⋯» che apre un foglio dal basso con
+tutte le altre, la distruttiva ultima e separata. Bolle max 80%, radius-l con
+coda radius-s, in surface+hairline / out ink+on-ink, 15px, separatore di giorno a
+pillola. Composer sticky con safe-area: «+» · campo 16px che cresce fino a 5
+righe · Invia a icona sempre visibile; avvisi sul testo sopra il composer,
+persistenti. Misura: a 375×812 con tastiera chiusa ≥ 60% dello schermo è lista
+messaggi; nessun elemento interattivo < 44px; nessuna azione persa.*
+
+**Nota di governance**: la soglia mobile del CS è 700px in ~12 media query contro
+i 900 del Libro §2: deroga non scritta, ora annotata nel README del CS.
+
+STATO: in locale, committato, in attesa del collaudo dell'utente sul telefono.
