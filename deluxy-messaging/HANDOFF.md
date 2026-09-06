@@ -1,5 +1,97 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (20) — Manda in app: partner della provincia, servizi del listino, prodotto e prezzo; il 500 della piattaforma; Nuovo ordine col mittente
+
+Cinque richieste dell'utente nella stessa mattina, tutte sul modulo «Manda in
+app» della scheda ordine (#2873, Sant'Agnello NA) e su «Nuovo ordine».
+
+### 1. «Mostra solo i partner abilitati per quella provincia, e attivi»
+
+`prefillInApp` ora porta **`provinciaConsegna`** (sigla, da `spedizione.provincia`
+di Orders o dall'indirizzo intero via `siglaProvincia`; vuota = non riconosciuta).
+`MandaInApp.tsx` mostra solo i partner con quella sigla in `province`, e scrive
+sotto la tendina «Solo i partner attivi che servono la provincia NA (3)», con il
+bottone **«Mostra anche i N di altre province»**: chi esce si conta e si può
+riaprire ([[trappola-il-fallimento-che-sembra-una-lista-vuota]]). Provincia non
+riconosciuta = elenco intero, e lo dice. «Attivi» lo garantisce già la piattaforma
+(`/app/partner` = `active: true, deleted: false`).
+
+### 2. «Il tipo di servizio deve essere tra quelli abilitati al partner»
+
+**Piattaforma** (`api/src/app-api/app-api.module.ts`): `/app/partner` torna anche
+**`servizi`** = gli id di `PartnerService` (il listino). E **`creaConsegna` rifiuta
+con 400** un servizio che non sta nel listino del partner: la regola del 31/08
+valeva solo per il ruolo PARTNER, dal canale app l'utente è OPERATION e passava
+tutto — il filtro nella sola lettura si aggira passando l'id.
+**CS**: la tendina «Servizio» si restringe al listino del partner scelto (con la
+riga «Solo i 3 servizi nel listino di X»); cambiando partner, un servizio fuori
+listino si svuota. Se il partner non ha servizi a listino lo dice: va abilitato
+di là.
+
+### 3. «La piattaforma quando provo a inserire risponde con errore 500»
+
+**Vero, e non era del CS.** Log Vercel del progetto `delivery`, 06/09 07:18:
+`PrismaClientValidationError … Unknown argument riferimentoEsterno` in
+`DeliveriesService.create`. `riferimentoEsterno` è un campo del **DTO** (serve
+all'idempotenza del canale app), ma lo spread `...scalar` lo portava dritto in
+`prisma.delivery.create`. Il form della piattaforma non lo manda, quindi di là
+non si vedeva mai: **ogni consegna mandata dal CS dava 500**. Corretto
+destrutturandolo (`riferimentoEsterno: _rif`) in `deliveries.service.ts`.
+⚠️ **Va pubblicata la piattaforma**, non il CS: finché di là gira il vecchio
+codice, il 500 resta.
+
+### 4. «Consentimi di specificare il prodotto e il prezzo in modo flessibile»
+
+La riga di consegna vuole un `productId` del catalogo della piattaforma (la
+fotografia del prodotto la fa lei) e accetta `price` + `flexiblePrice`.
+**Piattaforma**: nuova **`GET /api/v1/app/prodotti?q=&partnerId=`** (attivi, non
+archiviati; con `partnerId` il perimetro di quel partner — i suoi prima; torna
+anche `generico` = «Servizio Consegna» del catalogo comune).
+**CS**: rotta `GET /api/piattaforma/prodotti` (sessione davanti, chiave dietro) e
+nel modulo la sezione **Prodotto**: cerca per nome/sku nel perimetro del partner,
+**proposto dalla prima riga dell'ordine** (titolo, prezzo, quantità) ma scelto da
+una persona; **Quantità** e **Prezzo prodotto** modificabili — un prezzo diverso dal
+listino viaggia come `flexiblePrice`; **«Prodotto generico: lo descrivo io»** per
+la merce fuori catalogo, con la descrizione che finisce nelle note del valet.
+`NuovaConsegna.products` nel tipo; `mandaInApp` lo passa com'è.
+
+### 5. «Se clicco In App chiedimi conferma, e se dico sì mostra il pop-up per inserire»
+
+`DettaglioOrdine.tsx`: il passo **«In App»** della lavorazione chiede
+`window.confirm`: OK → si apre il modulo «Manda in app» (prop `apri`, contatore;
+il riquadro si porta a vista); Annulla → il vecchio gesto, cioè si segna solo
+l'etichetta (per chi la consegna l'ha già fatta a mano di là). Il modulo riceve
+anche `righe` dell'ordine per proporre il prodotto.
+
+### 6. Nuovo ordine: «manca la possibilità di specificare i dati del mittente» e «il consenso marketing è di default?»
+
+- Prima il blocco «Cliente» finiva **anche** sull'indirizzo di consegna: nei
+  regali il valet suonava chiedendo di chi aveva pagato. Ora il blocco si chiama
+  **«Negozio e mittente (chi ordina e paga)»** e in Consegna c'è **«Riceve
+  un'altra persona»** con nome, cognome e telefono del destinatario →
+  `shippingAddress`; il mittente resta il cliente Shopify (link di pagamento) e
+  la nota dell'ordine scrive «Mittente (chi ordina): …». `DatiNuovoOrdine.destinatario`.
+- **Consenso marketing: NO, non è di default.** Shopify registra il cliente nato
+  da una bozza come «non iscritto» e l'app non spuntava niente. Ora c'è la
+  casella (spenta di suo); se accesa, dopo la creazione si chiama
+  `customerEmailMarketingConsentUpdate` (SUBSCRIBED, SINGLE_OPT_IN, data) sul
+  `customer.id` tornato dalla bozza, e l'esito si legge nella pagina «Ordine
+  creato» — anche quando NON riesce (probabile: manca lo scope
+  `write_customers` sul token). Il consenso non si finge.
+
+### Verifica
+
+Typecheck ok su CS e piattaforma (per la piattaforma è servito `prisma generate`:
+il client in `node_modules` era vecchio — [[trappola-errori-tsc-da-client-prisma-vecchio]]).
+Il server di sviluppo del CS compila. ⚠️ Non provato a schermo dietro il login;
+e finché la piattaforma non è pubblicata, da localhost il CS parla con la
+produzione di là: niente `servizi` sui partner (tendina servizi piena), rotta
+prodotti assente («va pubblicata di là»), e il 500 sull'inserimento.
+
+**Stato**: in locale, commit sì (CS in `scoutwt`, piattaforma in `app/` sul
+branch `piattaforma-ricerca-insensitive`), push e deploy a comando. **Da
+pubblicare PRIMA la piattaforma, poi il CS.**
+
 ## 05/09/2026 (19) — Pagamenti: la correzione riprova l'invio, e la foto dell'IBAN
 
 Due segnalazioni dell'utente sulla pagina Pagamenti.

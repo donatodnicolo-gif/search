@@ -22,6 +22,16 @@ export async function POST(req: NextRequest) {
       email: d.cliente?.email ?? '',
       telefono: d.cliente?.telefono ?? '',
     },
+    // Chi riceve, se non è il mittente: si passa com'è, la lib decide se vale.
+    destinatario: d.destinatario
+      ? {
+          nome: d.destinatario.nome ?? '',
+          cognome: d.destinatario.cognome ?? '',
+          telefono: d.destinatario.telefono ?? '',
+        }
+      : undefined,
+    // ⚠️ Di suo NO: solo se il modulo lo dichiara a vero.
+    consensoMarketing: d.consensoMarketing === true,
     consegna: {
       data: d.consegna?.data ?? '',
       fascia: d.consegna?.fascia ?? '',

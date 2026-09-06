@@ -185,6 +185,14 @@ export type NuovaConsegna = {
    * due volte a due valet diversi.
    */
   riferimentoEsterno?: string
+  /**
+   * LA MERCE (06/09/2026, chiesto dall'utente: «specificare il prodotto e il
+   * prezzo in modo flessibile»). Il prodotto è uno del catalogo della
+   * piattaforma (`/app/prodotti`); il prezzo si può scrivere, e allora
+   * `flexiblePrice` dice che non è quello di listino. La fotografia della riga
+   * la fa la piattaforma.
+   */
+  products?: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean }[]
 }
 
 export type ConsegnaCreata = { id?: string; number?: number; numero?: number }
@@ -261,6 +269,36 @@ export type PartnerPiattaforma = {
   citta?: string
   /** Le sigle delle province che serve: «MI», «RM»… */
   province?: string[]
+  /** Gli id dei tipi di servizio nel suo listino: solo quelli si possono mandare. */
+  servizi?: string[]
+}
+
+/** Un prodotto del catalogo della piattaforma, come lo dà `/app/prodotti`. */
+export type ProdottoPiattaforma = {
+  id: string
+  nome: string
+  sku: string
+  prezzo: number
+  prezzoPubblico: number | null
+  tipo: string
+  partnerId: string
+  partner: string
+}
+
+/**
+ * Il catalogo prodotti della piattaforma, cercato per nome o sku, nel
+ * perimetro del partner quando c'è. `generico` è il prodotto «Servizio
+ * Consegna» del catalogo comune: per la merce che non sta a catalogo.
+ */
+export async function prodottiPiattaforma(
+  q: string,
+  partnerId: string
+): Promise<EsitoPiattaforma<{ prodotti: ProdottoPiattaforma[]; generico: ProdottoPiattaforma | null }>> {
+  const p = new URLSearchParams()
+  if (q) p.set('q', q)
+  if (partnerId) p.set('partnerId', partnerId)
+  const coda = p.toString()
+  return chiama(`/api/v1/app/prodotti${coda ? `?${coda}` : ''}`)
 }
 
 /**

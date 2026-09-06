@@ -349,7 +349,24 @@ export async function cercaProdotti(negozioId: string, q: string): Promise<Esito
 
 export type DatiNuovoOrdine = {
   negozioId: string
+  /** CHI ORDINA E PAGA (il mittente): diventa il cliente Shopify, riceve il link. */
   cliente: { nome: string; cognome: string; email: string; telefono: string }
+  /**
+   * CHI RICEVE, quando non è la stessa persona (utente, 06/09/2026: «manca in
+   * nuovo ordine la possibilità di specificare i dati del mittente»). Fino a
+   * qui il nome del cliente finiva anche sull'indirizzo di consegna, e nei
+   * regali — che sono quasi tutti i nostri ordini — il valet suonava chiedendo
+   * di chi aveva pagato. Vuoto o assente = riceve il mittente stesso.
+   */
+  destinatario?: { nome: string; cognome: string; telefono: string }
+  /**
+   * Il cliente ACCONSENTE alle comunicazioni marketing.
+   * ⚠️ Di suo è NO: Shopify registra un cliente creato da una bozza come
+   * «non iscritto», e qui non si spunta niente al posto suo. Solo con questo a
+   * vero, dopo la creazione, si scrive il consenso sul cliente (single opt-in,
+   * con data). Se la scrittura non riesce si dice: il consenso non si finge.
+   */
+  consensoMarketing?: boolean
   consegna: {
     /** `2026-08-25`. Vuota = nessuna data (l'ordine tornerà «non indicata»). */
     data: string
@@ -429,7 +446,15 @@ export type DatiNuovoOrdine = {
 }
 
 export type EsitoNuovoOrdine =
-  | { ok: true; bozzaId: string; linkPagamento: string; ordineNumero: string; inviato: boolean }
+  | {
+      ok: true
+      bozzaId: string
+      linkPagamento: string
+      ordineNumero: string
+      inviato: boolean
+      /** Com'è andata la scrittura del consenso marketing: '' = non chiesto. */
+      consensoEsito?: string
+    }
   | { ok: false; errore: string }
 
 /**
@@ -455,12 +480,25 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   // qui, dove si sa perché; il testo intero resta nella nota dell'ordine.
   const taglia = (v: string, max: number) => (v.length > max ? v.slice(0, max) : v)
 
+  // Il destinatario vale solo se ha almeno un nome: un blocco vuoto è «riceve
+  // il mittente», non «riceve nessuno».
+  const destinatario =
+    d.destinatario && (d.destinatario.nome.trim() || d.destinatario.cognome.trim())
+      ? d.destinatario
+      : null
+
   const note = [
     // ⚠️⚠️ Per PRIMA, e in maiuscolo (utente, 02/09/2026): la consegna anonima
     // è l'unica riga della nota che, se non viene letta, rovina il regalo —
     // il valet dice «da parte di …» e la sorpresa è finita. In fondo alla nota,
     // sotto il biglietto e le note di consegna, si legge dopo.
     d.anonima ? 'CONSEGNA ANONIMA: non dire da parte di chi.' : '',
+    // Chi ha ordinato, quando riceve un altro: sull'ordine Shopify il cliente
+    // è il mittente, ma chi legge la nota (fornitore, valet, noi fra un mese)
+    // deve vederlo scritto accanto al destinatario.
+    destinatario
+      ? `Mittente (chi ordina): ${[d.cliente.nome, d.cliente.cognome].map((x) => x.trim()).filter(Boolean).join(' ') || '—'}${d.cliente.telefono.trim() ? ` · ${d.cliente.telefono.trim()}` : ''}`
+      : '',
     d.biglietto.trim() ? `Biglietto: ${d.biglietto.trim()}` : '',
     d.consegna.civicoNote.trim() ? `Note consegna: ${d.consegna.civicoNote.trim()}` : '',
     d.pagamento === 'pagato' && d.mezzoPagamento.trim()
@@ -515,8 +553,10 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
           }
     ),
     shippingAddress: {
-      firstName: d.cliente.nome.trim() || 'Cliente',
-      lastName: d.cliente.cognome.trim() || '.',
+      // ⚠️ Sull'indirizzo di consegna va CHI RICEVE. Il mittente resta il
+      // cliente Shopify (email, telefono, link di pagamento).
+      firstName: (destinatario ? destinatario.nome : d.cliente.nome).trim() || 'Cliente',
+      lastName: (destinatario ? destinatario.cognome : d.cliente.cognome).trim() || '.',
       // ⚠️⚠️ TAGLIATI A 255, che è il limite di Shopify. Segnalato dall'utente
       // il 31/08/2026: incollando delle note di consegna lunghe, Shopify
       // rifiutava TUTTA la creazione con «Address2 in shipping exceeds maximum
@@ -533,7 +573,9 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       zip: d.consegna.cap.trim(),
       provinceCode: d.consegna.provincia.trim() || undefined,
       countryCode: (d.consegna.paese.trim() || 'IT').toUpperCase(),
-      phone: d.cliente.telefono.trim() || undefined,
+      // Il telefono di chi riceve, se lo sappiamo: è quello che il valet chiama
+      // sotto casa. Altrimenti quello del mittente, che almeno risponde.
+      phone: (destinatario?.telefono.trim() || d.cliente.telefono.trim()) || undefined,
     },
     ...(d.spedizione.titolo.trim()
       ? {
@@ -552,6 +594,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
           id: string
           invoiceUrl: string
           name: string
+          customer?: { id: string } | null
           totalPriceSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
         } | null
         userErrors?: { field: string[]; message: string }[]
@@ -567,6 +610,9 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
           id
           invoiceUrl
           name
+          # Il cliente che Shopify ha creato o riconosciuto: serve per scrivergli
+          # il consenso marketing, se chiesto.
+          customer { id }
           # Il totale lo calcola Shopify (sconti, spedizione, tasse): il nostro
           # sarebbe una somma a mano, e sulle righe prese dal catalogo non
           # conosciamo nemmeno il prezzo.
@@ -586,6 +632,46 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   const soldi = bozza.totalPriceSet?.shopMoney
   const importo = Number(soldi?.amount ?? 0) || 0
   const valuta = soldi?.currencyCode || 'EUR'
+
+  // ── IL CONSENSO MARKETING, solo se chiesto ──
+  // ⚠️ Di suo Shopify lascia il cliente «non iscritto», e questa app non
+  // decide al posto suo. Se la spunta c'è, si scrive sul cliente con data e
+  // livello (single opt-in: detto a voce o per messaggio, non da un doppio
+  // clic). Se non riesce — di solito manca lo scope write_customers — si dice.
+  let consensoEsito = ''
+  if (d.consensoMarketing) {
+    if (!bozza.customer?.id) {
+      consensoEsito = 'Consenso NON registrato: Shopify non ha collegato un cliente alla bozza (serve almeno l’email).'
+    } else {
+      const c = await graphql<{
+        data?: { customerEmailMarketingConsentUpdate?: { userErrors?: { message: string }[] } }
+        errors?: { message: string }[]
+      }>(
+        n,
+        t,
+        `mutation Consenso($input: CustomerEmailMarketingConsentUpdateInput!) {
+          customerEmailMarketingConsentUpdate(input: $input) { userErrors { message } }
+        }`,
+        {
+          input: {
+            customerId: bozza.customer.id,
+            emailMarketingConsent: {
+              marketingState: 'SUBSCRIBED',
+              marketingOptInLevel: 'SINGLE_OPT_IN',
+              consentUpdatedAt: new Date().toISOString(),
+            },
+          },
+        }
+      ).catch((e): { data?: undefined; errors: { message: string }[] } => ({
+        errors: [{ message: e instanceof Error ? e.message : 'errore' }],
+      }))
+      const errore =
+        c.errors?.[0]?.message || c.data?.customerEmailMarketingConsentUpdate?.userErrors?.[0]?.message
+      consensoEsito = errore
+        ? `Consenso marketing NON registrato su Shopify: ${errore}`
+        : 'Consenso marketing registrato sul cliente Shopify (iscritto, oggi).'
+    }
+  }
 
   if (d.pagamento === 'link') {
     // ⚠️ La mail con il link la manda Shopify solo se c'è un indirizzo: senza,
@@ -620,6 +706,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       linkPagamento: bozza.invoiceUrl ?? '',
       ordineNumero: '',
       inviato,
+      consensoEsito,
     }
   }
 
@@ -669,6 +756,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     linkPagamento: '',
     ordineNumero: numeroVero,
     inviato: false,
+    consensoEsito,
   }
 }
 
