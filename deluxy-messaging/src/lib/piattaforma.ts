@@ -171,6 +171,9 @@ export type NuovaConsegna = {
   senderPhone?: string
   deliveryTimeFrom?: string
   deliveryTimeTo?: string
+  /** Il ritiro: di suo un'ora prima della consegna (regola utente 06/09/2026). */
+  pickupTimeFrom?: string
+  pickupTimeTo?: string
   pickupAddress?: string
   partnerId?: string
   notes?: string
