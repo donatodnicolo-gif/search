@@ -509,6 +509,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/sms-templates-list.component').then((m) => m.SmsTemplatesListComponent),
       },
+      // ⭐ 06/09/2026: AREE (gruppi di province con un nome), ufficio.
+      {
+        path: 'aree',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Aree' },
+        loadComponent: () =>
+          import('./pages/aree.component').then((m) => m.AreeComponent),
+      },
       // ⭐ 06/09/2026: MESTIERI (8 voci nostre fra catalogo e partner), ufficio.
       {
         path: 'mestieri',

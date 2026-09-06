@@ -61,7 +61,8 @@
     "richieste": "Requests",
     "segnalazioni": "Reports",
     "statistiche": "Statistics",
-    "mestieri": "Trades"
+    "mestieri": "Trades",
+    "aree": "Areas"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -1098,6 +1099,18 @@
       "notYours": "{{n}} skipped because not yours."
     }
   },
+  "aree": {
+    "title": "Areas",
+    "caption": "{{n}} areas: named groups of provinces, assigned to partners",
+    "nuova": "New area",
+    "modifica": "Edit area",
+    "nomePh": "e.g. Milan and hinterland",
+    "province": "Provinces of the area ({{n}} selected)",
+    "nProvince": "{{n}} provinces",
+    "vuoto": "No areas.",
+    "confermaElimina": "Delete the area «{{nome}}»?",
+    "col": { "nome": "Area", "note": "Notes", "province": "Provinces", "partner": "Partners" }
+  },
   "mestieri": {
     "title": "Trades",
     "caption": "{{n}} trades gather {{c}} catalogue categories",
@@ -1379,6 +1392,7 @@
     "notificheEmail": "Notify me by email",
     "notificheWhatsapp": "Notify me on WhatsApp",
     "negozio": "Your shop",
+    "vendite": { "titolo": "Your sales" },
     "negozioHint": "Name, price list and terms are changed with the office; contact details are yours.",
     "ritiri": "Other pickup addresses",
     "ritiriHint": "In addition to the shop address. They show up as choices when creating a delivery.",
@@ -1647,6 +1661,12 @@
       "contactSurname": "Contact last name",
       "contactSurnamePlaceholder": "Last name"
     },
+    "aree": {
+      "title": "Areas served",
+      "subtitle": "The partner receives deliveries in the provinces of its areas. Areas are managed in Settings → Areas.",
+      "empty": "No areas defined: use the provinces below.",
+      "effettive": "{{n}} provinces covered:"
+    },
     "provinces": {
       "title": "Served provinces",
       "subtitle": "The partner will only be selectable for deliveries in these provinces.",
@@ -1739,8 +1759,8 @@
       "smsEnabled": "Ability to send SMS",
       "whatsappNotifications": "WhatsApp notifications",
       "mailNotifications": "Email notifications",
-      "autoDeliveredByPartner": "Automatic partner delivery",
-      "autoDeliveredByPartnerHint": "Every delivery entered for this partner is born as «delivered by the partner» and assigned to the «Partner Consegna» valet.",
+      "autoDeliveredByPartner": "Delivered by partner",
+      "autoDeliveredByPartnerHint": "This partner delivers on its own: deliveries are born as «by the partner», assigned to the «Partner Consegna» valet, with the confirmation link. With the flag on you may set a maximum radius; empty = accepts everything in its provinces.",
       "activityReminder": "Activity reminder"
     },
     "sales": {

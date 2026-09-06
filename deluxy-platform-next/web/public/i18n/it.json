@@ -61,7 +61,8 @@
     "richieste": "Richieste",
     "segnalazioni": "Segnalazioni",
     "statistiche": "Statistiche",
-    "mestieri": "Mestieri"
+    "mestieri": "Mestieri",
+    "aree": "Aree"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -1100,6 +1101,18 @@
       "notYours": "{{n}} esclusi perché non tuoi."
     }
   },
+  "aree": {
+    "title": "Aree",
+    "caption": "{{n}} aree: gruppi di province con un nome, da assegnare ai partner",
+    "nuova": "Nuova area",
+    "modifica": "Modifica area",
+    "nomePh": "es. Milano e hinterland",
+    "province": "Province dell'area ({{n}} scelte)",
+    "nProvince": "{{n}} province",
+    "vuoto": "Nessuna area.",
+    "confermaElimina": "Eliminare l'area «{{nome}}»?",
+    "col": { "nome": "Area", "note": "Note", "province": "Province", "partner": "Partner" }
+  },
   "mestieri": {
     "title": "Mestieri",
     "caption": "{{n}} mestieri raccolgono {{c}} categorie del catalogo",
@@ -1381,6 +1394,7 @@
     "notificheEmail": "Avvisami per email",
     "notificheWhatsapp": "Avvisami su WhatsApp",
     "negozio": "Il tuo negozio",
+    "vendite": { "titolo": "Le tue vendite" },
     "negozioHint": "Insegna, listino e condizioni si cambiano con l'ufficio; i contatti sono tuoi.",
     "ritiri": "Altri indirizzi di ritiro",
     "ritiriHint": "Oltre all'indirizzo del negozio. Compaiono tra le scelte quando si crea una consegna.",
@@ -1649,6 +1663,12 @@
       "contactSurname": "Cognome referente",
       "contactSurnamePlaceholder": "Cognome"
     },
+    "aree": {
+      "title": "Aree servite",
+      "subtitle": "Il partner riceve le consegne delle province delle sue aree. Le aree si creano in Configurazione → Aree.",
+      "empty": "Nessuna area definita: usa le province qui sotto.",
+      "effettive": "{{n}} province coperte:"
+    },
     "provinces": {
       "title": "Province servite",
       "subtitle": "Il partner sarà selezionabile solo nelle consegne di queste province.",
@@ -1680,9 +1700,9 @@
       "subtitle": "Cosa fa il partner: è quello che guarda lo smistamento. Le categorie sotto sono il dettaglio.",
       "empty": "Nessun mestiere definito.",
       "minimo": "Minimo d'ordine sulle vendite (€ al partner)",
-      "minimoHint": "Sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo.",
+      "minimoHint": "Sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo. Vuoto = nessun limite.",
       "raggio": "Raggio massimo per le consegne che fa lui (km)",
-      "raggioHint": "Oltre questa distanza dal negozio la consegna non gli viene proposta.",
+      "raggioHint": "Oltre questa distanza dal negozio la consegna non gli viene proposta. Vuoto = accetta tutto nelle sue province.",
       "nessunLimite": "nessun limite"
     },
     "categories": {
@@ -1741,8 +1761,8 @@
       "smsEnabled": "Possibilità di inviare SMS",
       "whatsappNotifications": "Notifiche WhatsApp",
       "mailNotifications": "Notifiche mail",
-      "autoDeliveredByPartner": "Consegna Partner Automatico",
-      "autoDeliveredByPartnerHint": "Ogni consegna inserita per questo partner nasce «consegna da fornitore» ed è assegnata al valet «Partner Consegna».",
+      "autoDeliveredByPartner": "Consegna da Partner",
+      "autoDeliveredByPartnerHint": "Le consegne di questo partner le fa lui: nascono «da fornitore», assegnate al valet «Partner Consegna», con il link di conferma. Con il flag acceso puoi dare un raggio massimo; vuoto = accetta tutto nelle sue province.",
       "activityReminder": "Promemoria attività"
     },
     "sales": {

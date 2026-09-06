@@ -6,6 +6,7 @@ import {
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AreeService } from '../aree/aree.module';
 import { titleCaseInsegna } from '../common/nome-proprio';
 import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
@@ -30,6 +31,7 @@ const PARTNER_INCLUDE = {
   services: { include: { serviceType: true } },
   categories: { include: { category: true } },
   mestieri: { include: { mestiere: true } },
+  aree: { include: { area: { select: { id: true, nome: true } } } },
   openingHours: true,
 } as const;
 
@@ -41,6 +43,7 @@ export class PartnersService {
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
     private readonly anagrafiche: AnagraficheSyncService,
+    private readonly aree: AreeService,
   ) {}
 
   findAll(includiEliminati = false) {
@@ -97,7 +100,7 @@ export class PartnersService {
   }
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
-    const { provinceIds, categoryIds, mestiereIds, services, openingHours, pickupAddresses, ...scalar } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, services, openingHours, pickupAddresses, ...scalar } = dto;
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
@@ -123,6 +126,8 @@ export class PartnersService {
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
+    // ⭐ 06/09 (regola utente): le AREE decidono le province effettive (unione).
+    if (areaIds?.length) await this.aree.assegnaAlPartner(partner.id, areaIds);
     // Un gesto solo: crea l'utente PARTNER collegato (invitato). Gestione
     // dell'invito dalla pagina Utenti.
     await this.users.provisionForAnagrafica(
@@ -595,7 +600,7 @@ export class PartnersService {
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
-    const { provinceIds, categoryIds, mestiereIds, services, openingHours, pickupAddresses, ...rest } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
       ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
@@ -615,6 +620,17 @@ export class PartnersService {
       // whitelist li buttava in silenzio: si salvava solo il telefono.
       if (scalar.email !== undefined) allowed.email = scalar.email;
       if (scalar.address !== undefined) allowed.address = scalar.address;
+      // ⭐ 06/09/2026 (regola utente): con un servizio di VENDITA il partner regola da solo
+      // «Consegna da Partner», minimo d'ordine e raggio (la rotta del profilo lo controlla già; qui
+      // vale anche per chi chiama /partners/:id direttamente).
+      if ((scalar as any).autoDeliveredByPartner !== undefined || (scalar as any).minimoOrdineVendita !== undefined || (scalar as any).raggioMaxConsegnaKm !== undefined) {
+        const vend = await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } });
+        if (vend > 0) {
+          if ((scalar as any).autoDeliveredByPartner !== undefined) allowed.autoDeliveredByPartner = (scalar as any).autoDeliveredByPartner;
+          if ((scalar as any).minimoOrdineVendita !== undefined) allowed.minimoOrdineVendita = (scalar as any).minimoOrdineVendita;
+          if ((scalar as any).raggioMaxConsegnaKm !== undefined) allowed.raggioMaxConsegnaKm = (scalar as any).raggioMaxConsegnaKm;
+        }
+      }
       if ((scalar as any).pickupAddresses !== undefined) allowed.pickupAddresses = (scalar as any).pickupAddresses;
       const aggiornatoPartner = await this.prisma.partner.update({
         where: { id },
@@ -663,6 +679,8 @@ export class PartnersService {
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
+    // ⭐ 06/09 (regola utente): con le AREE le province effettive si ricalcolano (unione delle aree).
+    if (areaIds) await this.aree.assegnaAlPartner(id, areaIds);
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;

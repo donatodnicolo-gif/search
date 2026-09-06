@@ -173,6 +173,7 @@ model Province {
   legacyId             Int?      @unique
   name              String
   code              String             @unique // es. "MI"
+  aree              AreaProvincia[]
   cities            City[]
   partnerProvinces  PartnerProvince[]
   valetProvinces    ValetProvince[]
@@ -333,6 +334,7 @@ model Partner {
   /// ⭐ 06/09/2026 (regola utente): per le consegne che fa LUI, il raggio massimo (km) che accetta; null = nessun limite.
   raggioMaxConsegnaKm    Float?
   mestieri            PartnerMestiere[]
+  aree                PartnerArea[]
   // Pagamenti e contratto
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
@@ -425,6 +427,40 @@ model QuoteRequest {
   reply        String? // risposta dell'ufficio, visibile al partner
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+/// ⭐ 06/09/2026 (regola utente): le AREE — gruppi di province con un nome, assegnate ai partner
+/// al posto delle province una per una. PartnerProvince resta la lista EFFETTIVA (unione delle aree).
+/// Tabelle e aree iniziali con scripts/applica-migrazione-aree.mjs.
+model Area {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  note      String?
+  attiva    Boolean  @default(true)
+  province  AreaProvincia[]
+  partners  PartnerArea[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AreaProvincia {
+  id         String   @id @default(cuid())
+  areaId     String
+  provinceId String
+  area       Area     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([areaId, provinceId])
+}
+
+model PartnerArea {
+  id        String  @id @default(cuid())
+  partnerId String
+  areaId    String
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  area      Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, areaId])
 }
 
 model PartnerProvince {

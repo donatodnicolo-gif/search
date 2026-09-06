@@ -124,13 +124,35 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
               + {{ 'profilo.aggiungiRitiro' | translate }}
             </button>
           </div>
+          <!-- ⭐ 06/09/2026 (regola utente): con un servizio di VENDITA il partner regola da qui
+               «Consegna da Partner», il minimo d'ordine e il raggio massimo. -->
+          @if (partner.haVendita) {
+            <div class="vendite">
+              <h3>{{ 'profilo.vendite.titolo' | translate }}</h3>
+              <label class="toggle"><input type="checkbox" name="pAuto" [(ngModel)]="partner.autoDeliveredByPartner" /><span>{{ 'partnerForm.setup.autoDeliveredByPartner' | translate }}</span></label>
+              <p class="muted mini">{{ 'partnerForm.setup.autoDeliveredByPartnerHint' | translate }}</p>
+              <div class="grid-2">
+                <label class="fld"><span>{{ 'partnerForm.mestieri.minimo' | translate }}</span>
+                  <input class="field" type="number" min="0" step="1" name="pMinimo" [(ngModel)]="partner.minimoOrdineVendita" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+                  <span class="muted mini">{{ 'partnerForm.mestieri.minimoHint' | translate }}</span></label>
+                @if (partner.autoDeliveredByPartner) {
+                <label class="fld"><span>{{ 'partnerForm.mestieri.raggio' | translate }}</span>
+                  <input class="field" type="number" min="0" step="1" name="pRaggio" [(ngModel)]="partner.raggioMaxConsegnaKm" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+                  <span class="muted mini">{{ 'partnerForm.mestieri.raggioHint' | translate }}</span></label>
+                }
+              </div>
+            </div>
+          }
           @if (esitoNegozio(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
           <div class="azioni"><button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salvaPartner()">{{ 'common.save' | translate }}</button></div>
         </div>
       }
     }
   `,
-  styles: [`
+  styles: [
+    `.vendite { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+     .vendite h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+     .vendite .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; }`,`
     .intro { margin: 4px 0 18px; }
     .sez { max-width: 720px; margin-bottom: 16px; padding: 20px 22px; }
     .sez h2 { margin: 0 0 6px; font-size: 18px; }
@@ -212,6 +234,11 @@ export class ProfiloComponent {
       pickupAddresses: (this.partner.pickupAddresses ?? [])
         .map((r: string) => (r ?? '').trim())
         .filter((r: string) => !!r),
+      ...(this.partner.haVendita ? {
+        autoDeliveredByPartner: !!this.partner.autoDeliveredByPartner,
+        minimoOrdineVendita: this.partner.minimoOrdineVendita === '' || this.partner.minimoOrdineVendita == null ? null : Number(this.partner.minimoOrdineVendita),
+        raggioMaxConsegnaKm: this.partner.raggioMaxConsegnaKm === '' || this.partner.raggioMaxConsegnaKm == null ? null : Number(this.partner.raggioMaxConsegnaKm),
+      } : {}),
     } }, this.esitoNegozio);
   }
 

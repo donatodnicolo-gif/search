@@ -95,6 +95,16 @@ export interface Province {
   cities?: { name: string }[];
 }
 
+/** ⭐ 06/09/2026: le AREE — gruppi di province con un nome, assegnate ai partner. */
+export interface Area {
+  id: string;
+  nome: string;
+  note?: string | null;
+  attiva: boolean;
+  province: { id: string; code: string; name: string }[];
+  partner?: number;
+}
+
 /** ⭐ 06/09/2026: i MESTIERI (8) — il livello nostro fra le categorie del catalogo e i partner. */
 export interface Mestiere {
   id: string;
@@ -210,6 +220,7 @@ export interface Partner {
   /** ⭐ 06/09/2026: raggio massimo (km) per le consegne che fa lui; null = nessun limite. */
   raggioMaxConsegnaKm?: number | null;
   mestieri?: { mestiere: Mestiere; origine?: string }[];
+  aree?: { area: { id: string; nome: string } }[];
   provinces?: { province: Province }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.
