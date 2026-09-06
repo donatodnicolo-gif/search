@@ -3101,3 +3101,13 @@ npm install
 npm run db:push   # crea le tabelle (serve DIRECT_URL)
 npm run dev       # http://localhost:3140
 ```
+
+
+## Deroghe al Design System (annotate qui come chiede il Libro UX)
+
+- **06/09/2026 — campo del composer della chat, sul telefono**: raggio a pillola
+  (`--radius-l`) invece del `--radius-m` dei campi (DS §2.4). Decisione
+  dell'architetto UX: a 44px di altezza il campo chiude a pillola come su
+  WhatsApp e regge quattro righe di testo; sul desktop resta `--radius-m`.
+- **Soglia mobile dell'app a 700px** (il Libro §2 dice 900): dodici media query
+  storiche. Non cambiata oggi; segnalata al custode (SEGNALAZIONI-UX 8).

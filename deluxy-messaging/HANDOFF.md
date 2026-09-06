@@ -1,5 +1,54 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (40) — La chat sul telefono, come WhatsApp
+
+Chiesto dall'utente: «da mobile la chat non è possibile da utilizzare:
+ridisegna la UX&UI ispirandoti a WhatsApp». Pattern deciso con l'agente
+`architetto-ux` (Libro §9 v1.7 foglio/✕/piede sticky, §3 max due azioni a
+vista + «⋯», §10 touch/16px/safe-area; regola nuova proposta **§9-bis
+Conversazione**), registrato in `SEGNALAZIONI-UX.md` (8).
+
+**Prima, misurato a 375×812**: pop-up con velo da 8px alto 86vh; testata su
+due righe con NOVE pillole a capo; bolle al 92% (in e out quasi sulla stessa
+colonna); composer con cinque pillole su tre righe; tre contenitori che
+scorrevano sullo stesso asse. Meno di metà schermo per i messaggi.
+
+**Adesso** (`Inbox.tsx`, `globals.css`, `layout.tsx`; stesso DOM del desktop,
+due stati in più — `fogliAzioni`, `piuAperto` — e il resto via CSS sotto i
+700px):
+- **foglio a schermo intero** (`.pannello-thread` fixed inset 0, altezza
+  `--vv` = viewport visibile quando la tastiera è aperta, altrimenti 100dvh);
+  scorre SOLO `.messaggi`;
+- **testata di una riga da 56px**: ← (chiude) · nome · Archivia · «⋯», tutti
+  bersagli da 44px con `aria-label`; la riga «chi è» (canale, numero,
+  marchio, account) diventa la sottoriga che scorre di lato;
+- **le nove azioni in un foglio dal basso** aperto da «⋯»: in colonna, 44px
+  l'una, i gruppi separati da un filo, «Elimina» ultima e staccata; velo che
+  chiude toccando fuori; qualunque azione chiude il foglio (`onClickCapture`);
+- **bolle all'80%**, testo 15px, `--on-ink` al posto di `#fff`;
+  **separatori di giorno** («Oggi», «Ieri», «mer 3 set») anche sul desktop;
+- **composer fisso in fondo** con safe-area: [+ · campo · Invia]; il campo è
+  16px (niente zoom iOS), cresce fino a 5 righe (`onInput`), raggio a
+  pillola (deroga DS §2.4, nel README); «+» apre la riga scorrevole degli
+  strumenti (Risposte, Allega, Risposta rapida, Traduci, AI Mail); Invia è
+  un cerchio nero con la freccia, etichetta per lo screen reader;
+- la barra dei refusi resta sopra il composer, badge su una riga scorrevole,
+  bottoni da 44px;
+- `layout.tsx` esporta `viewport` con `viewportFit: 'cover'`: senza,
+  `env(safe-area-inset-*)` valeva zero.
+
+**Misurato dopo, a 375×812** (anteprima con conversazione finta, poi
+cancellata): barra 56px con tre icone 44×44; sottoriga 28px; messaggi ≥ 57%
+dello schermo (81% a viewport pieno); bolle 281px (80%); composer 62px con
+campo 16px e Invia 44×44; foglio delle azioni fisso in basso con nove voci da
+44px, tutte presenti; nessuno scorrimento laterale. Desktop invariato.
+
+⚠️ Nel browser emulato `visualViewport.height` era 617 su 812 senza tastiera:
+per questo `--vv` si scrive solo quando è più basso di almeno 120px, altrimenti
+si torna a 100dvh.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (39) — IN PRODUZIONE (secondo giro, col «fai commit e deploy» dell'utente)
 
 **Piattaforma**: `dpl_A28v9NzDxBiFyBkvyme7r7aPzaom` (`delivery-33kiq30md`,

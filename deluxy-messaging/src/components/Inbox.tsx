@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
@@ -157,6 +157,30 @@ function oraMessaggio(iso: string): string {
   if (d.toDateString() === new Date().toDateString()) return ora
   const giorno = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
   return giorno + ' · ' + ora
+}
+
+/** La chiave del giorno di un messaggio: cambia = separatore. */
+function giornoChiave(iso: string): string {
+  return new Date(iso).toDateString()
+}
+
+/**
+ * «Oggi», «Ieri», «3 set»: il separatore fra un giorno e l'altro nel filo
+ * (architetto UX, 06/09/2026, regola nuova §9-bis). Il meta della bolla porta
+ * solo l'ora, e su un thread di tre giorni la data non stava da nessuna parte.
+ */
+function etichettaGiorno(iso: string): string {
+  const d = new Date(iso)
+  const oggi = new Date()
+  const ieri = new Date(oggi)
+  ieri.setDate(oggi.getDate() - 1)
+  if (d.toDateString() === oggi.toDateString()) return 'Oggi'
+  if (d.toDateString() === ieri.toDateString()) return 'Ieri'
+  const opz: Intl.DateTimeFormatOptions =
+    d.getFullYear() === oggi.getFullYear()
+      ? { weekday: 'short', day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' }
+  return d.toLocaleDateString('it-IT', opz)
 }
 
 /**
@@ -1359,6 +1383,42 @@ export function Inbox({
 
   const [risposteAperte, setRisposteAperte] = useState(false)
 
+  // ── LA CHAT SUL TELEFONO, COME WHATSAPP (utente + architetto UX, 06/09/2026) ──
+  // Sotto i 700px la conversazione è un foglio a schermo intero: testata di una
+  // riga (← · nome · Archivia · ⋯), le altre azioni in un foglio dal basso, il
+  // composer fisso in fondo con «+» per gli strumenti e Invia a icona. Tutto
+  // via CSS: il DOM è lo stesso del desktop, cambiano solo questi due stati.
+  /** Il foglio dal basso con tutte le azioni della testata (solo mobile). */
+  const [fogliAzioni, setFogliAzioni] = useState(false)
+  /** Gli strumenti del composer (Risposte, Allega, Risposta rapida…) aperti col «+». */
+  const [piuAperto, setPiuAperto] = useState(false)
+
+  // ⚠️ La tastiera del telefono: `100dvh` non la vede, e il composer finiva
+  // sotto. L'altezza vera è `visualViewport.height`, messa in una variabile CSS
+  // (`--vv`) che il foglio usa al posto di 100dvh; a ogni cambio si riporta il
+  // filo in fondo, o l'ultimo messaggio resta coperto proprio mentre si scrive.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return
+    const aggiorna = () => {
+      // ⚠️ Solo quando il viewport visibile è davvero più basso della finestra
+      // (tastiera aperta): altrimenti si torna a 100dvh. Misurato nel browser
+      // emulato: visualViewport diceva 617 su una finestra da 812 senza
+      // tastiera, e il foglio restava corto di 200px.
+      const tastiera = vv.height < window.innerHeight - 120
+      if (tastiera) document.documentElement.style.setProperty('--vv', `${Math.round(vv.height)}px`)
+      else document.documentElement.style.removeProperty('--vv')
+      const c = contenitoreRef.current
+      if (c) c.scrollTop = c.scrollHeight
+    }
+    aggiorna()
+    vv.addEventListener('resize', aggiorna)
+    return () => {
+      vv.removeEventListener('resize', aggiorna)
+      document.documentElement.style.removeProperty('--vv')
+    }
+  }, [])
+
 
   const [risposte, setRisposte] = useState<ScriptDto[]>([])
   const [cercaRisposta, setCercaRisposta] = useState('')
@@ -2085,7 +2145,57 @@ export function Inbox({
                 ⚠️ La riga di sopra è di SOLA LETTURA: non c'è niente da
                 cliccare che cambi qualcosa, quindi non si sbaglia gesto
                 cercando un dato. */}
-            <div className="testata-thread">
+            <div className={`testata-thread${fogliAzioni ? ' foglio-aperto' : ''}`}>
+              {/* ── LA BARRA DEL TELEFONO (solo sotto i 700px, via CSS) ──
+                  Una riga da 56px come WhatsApp: ← che chiude, il nome, e
+                  due sole azioni a icona — Archivia (quella da cento volte al
+                  giorno) e «⋯» che apre il foglio con tutte le altre. La riga
+                  «chi è» qui sotto diventa la sottoriga scorrevole. */}
+              <div className="barra-mobile">
+                <button
+                  type="button"
+                  className="icona-44 indietro"
+                  onClick={chiudiFinestra}
+                  aria-label="Chiudi la conversazione"
+                  title="Chiudi"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M15 5l-7 7 7 7" />
+                  </svg>
+                </button>
+                <div className="nome-mobile">
+                  {selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno}
+                </div>
+                <button
+                  type="button"
+                  className="icona-44"
+                  onClick={() =>
+                    cestino ? ripristina(selezionata.id) : archivia(selezionata.id, !archivio)
+                  }
+                  disabled={inCorsoTogli}
+                  aria-label={cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
+                  title={cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="4" rx="1" />
+                    <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="icona-44"
+                  onClick={() => setFogliAzioni((v) => !v)}
+                  aria-label="Altre azioni"
+                  aria-expanded={fogliAzioni}
+                  title="Altre azioni"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="5" cy="12" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="19" cy="12" r="2" />
+                  </svg>
+                </button>
+              </div>
               <div className="riga-chi">
                 <span
                   className="nome"
@@ -2226,7 +2336,15 @@ export function Inbox({
                   ⚠️ «Elimina» era il vicino di «Archivia» con 6px in mezzo:
                   uno si usa cento volte al giorno, l'altro butta via la
                   conversazione. Adesso c'è una lineetta e uno stacco. */}
-              <div className="riga-azioni">
+              {/* Sul telefono la riga delle azioni è un FOGLIO DAL BASSO (Libro
+                  §9): questo velo lo chiude toccando fuori. Sul desktop non esiste. */}
+              {fogliAzioni ? (
+                <div className="velo-foglio" role="presentation" onClick={() => setFogliAzioni(false)} />
+              ) : null}
+              {/* ⚠️ `onClickCapture`: premuta una qualsiasi azione, il foglio si
+                  chiude da solo (l'azione parte lo stesso). Sul desktop il foglio
+                  non c'è e questo non fa niente. */}
+              <div className="riga-azioni" onClickCapture={() => setFogliAzioni(false)}>
                 <span className="gruppo">
                   <button
                     className={`bottone ${selezionata.presaDaId === ioId ? 'secondario ' : ''}mini`}
@@ -2459,9 +2577,21 @@ export function Inbox({
             ) : null}
 
             <div className="messaggi" ref={contenitoreRef}>
-              {messaggi.map((m) => (
-                <Bolla key={m.id} m={m} canale={selezionata.canale} />
-              ))}
+              {messaggi.map((m, i) => {
+                // Il separatore del giorno, quando il giorno cambia: il meta
+                // della bolla porta solo l'ora.
+                const nuovoGiorno = i === 0 || giornoChiave(m.creatoIl) !== giornoChiave(messaggi[i - 1].creatoIl)
+                return (
+                  <Fragment key={m.id}>
+                    {nuovoGiorno ? (
+                      <div className="separatore-giorno" role="separator" aria-label={etichettaGiorno(m.creatoIl)}>
+                        <span>{etichettaGiorno(m.creatoIl)}</span>
+                      </div>
+                    ) : null}
+                    <Bolla m={m} canale={selezionata.canale} />
+                  </Fragment>
+                )
+              })}
               <div ref={fondoRef} />
             </div>
 
@@ -2672,10 +2802,32 @@ export function Inbox({
               </div>
             ) : null}
 
-            <div className="composer">
+            <div className={`composer${piuAperto ? ' piu-aperto' : ''}`}>
+              {/* «+» (solo telefono): apre la riga degli strumenti — Risposte,
+                  Allega, Risposta rapida, Traduci, AI Mail — che sul desktop
+                  stanno in fila accanto al campo. */}
+              <button
+                type="button"
+                className="icona-44 piu"
+                onClick={() => setPiuAperto((v) => !v)}
+                aria-label="Altri strumenti"
+                aria-expanded={piuAperto}
+                title="Risposte pronte, allegati, risposta rapida"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
               <textarea
                 ref={bozzaRef}
                 rows={1}
+                // Cresce col testo fino a cinque righe (poi scorre): `rows=1`
+                // da solo resta una riga e il testo lungo sparisce sopra.
+                onInput={(e) => {
+                  const el = e.currentTarget
+                  el.style.height = 'auto'
+                  el.style.height = `${Math.min(120, el.scrollHeight)}px`
+                }}
                 // ⚠️ La lingua serve al correttore del BROWSER: con un solo
                 // dizionario installato, ogni parola dell'altra lingua risulta
                 // sbagliata e le sottolineature diventano rumore da ignorare.
@@ -2716,6 +2868,9 @@ export function Inbox({
                   }
                 }}
               />
+              {/* Gli STRUMENTI: sul desktop in fila, sul telefono una riga
+                  scorrevole sopra il campo che si apre col «+». */}
+              <div className="strumenti">
               {/* Sulle mail: la stessa risposta, ma scritta dal programma di
                   posta vero (allegati, formattazione, thread lungo). Quello che
                   parte da lì NON torna in questa conversazione — sta nel
@@ -2795,12 +2950,21 @@ export function Inbox({
                   {traducendo ? 'Traduco…' : `Traduci in ${linguaCliente}`}
                 </button>
               ) : null}
+              </div>
+              {/* Invia: sempre a vista. Sul telefono è un cerchio nero con la
+                  freccia (l'etichetta resta per chi legge con lo screen reader),
+                  sul desktop la pillola con la parola. */}
               <button
-                className="bottone"
+                className="bottone invia"
                 onClick={invia}
                 disabled={inviando || controllando || !bozza.trim()}
+                aria-label={controllando ? 'Rileggo…' : 'Invia'}
+                title={controllando ? 'Rileggo…' : 'Invia'}
               >
-                {controllando ? 'Rileggo…' : 'Invia'}
+                <span className="solo-desktop">{controllando ? 'Rileggo…' : 'Invia'}</span>
+                <svg className="solo-mobile" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M3 11.5 20.5 4l-4.2 16.5-5.3-6.2L3 11.5z" />
+                </svg>
               </button>
             </div>
           </>
