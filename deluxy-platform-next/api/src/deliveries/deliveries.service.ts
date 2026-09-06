@@ -1262,7 +1262,13 @@ export class DeliveriesService {
     // passavano lo stesso. Misurato — la toppa va smontata come il difetto.
     // Con la riassegnazione non resta nessuna strada che veda il dto sporco.
     dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
-    const { products, pickups, partnerId: _p, ...scalar } = dto;
+    // ⚠️⚠️ `riferimentoEsterno` È DEL DTO, NON DELLA TABELLA (06/09/2026). Il
+    // canale app lo usa per l'idempotenza e lo legge dal registro, ma qui lo
+    // spread `...scalar` lo portava dritto in `prisma.delivery.create` →
+    // `Unknown argument riferimentoEsterno` → 500 su OGNI consegna mandata
+    // dal Customer Service (ordine #2873, 06/09 ore 07:18). Il form della
+    // piattaforma non lo manda, quindi di qua non si vedeva mai.
+    const { products, pickups, partnerId: _p, riferimentoEsterno: _rif, ...scalar } = dto;
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
 
