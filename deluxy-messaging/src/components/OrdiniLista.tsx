@@ -1033,8 +1033,6 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
    * domanda la fa il pop-up: qui vale per chi lavora dalle colonne.
    */
   const [dettaglioConInApp, setDettaglioConInApp] = useState(false)
-  /** L'ordine per cui si sta chiedendo «inserirlo in piattaforma?» (null = nessuno). */
-  const [chiediInAppPer, setChiediInAppPer] = useState<{ id: string; numero: string } | null>(null)
   /**
    * «Gestito» sulla scheda di un ordine con una consegna di là ancora aperta:
    * si chiede se segnarla consegnata anche nella piattaforma (utente, 06/09/2026).
@@ -2163,14 +2161,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                                 // il pop-up dell'ordine sul modulo «Manda in app», con
                                 // «Annulla» resta il vecchio gesto (solo lo stato).
                                 if (k === 'in_app' && o.gestione !== 'in_app') {
-                                  setChiediInAppPer({ id: o.id, numero: o.numero })
+                                  // Apre la scheda già sulla finestra «Manda in app»
+                                  // (utente, 06/09/2026: niente domanda prima).
+                                  setDettaglioConInApp(true)
+                                  setDettaglio(o.id)
                                   return
                                 }
                                 void segna(o.id, k)
                               }}
                               title={
                                 k === 'in_app'
-                                  ? 'Inserisci la consegna nella piattaforma (ti chiedo prima)'
+                                  ? 'Inserisci la consegna nella piattaforma: si apre il modulo'
                                   : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
                               }
                             >
@@ -2712,36 +2713,6 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           <p>Con il no l&apos;ordine diventa «Gestito» solo qui: di là resta com&apos;è.</p>
         </Conferma>
       ) : null}
-      {/* La domanda del passo «In App» premuto sulla scheda, nel nostro stile (Libro §7). */}
-      {chiediInAppPer ? (
-        <Conferma
-          titolo={`Inserire l'ordine ${chiediInAppPer.numero} nella piattaforma consegne?`}
-          verbo="Sì, apri il modulo"
-          annulla="No, segna solo lo stato"
-          onConferma={() => {
-            const id = chiediInAppPer.id
-            setChiediInAppPer(null)
-            setDettaglioConInApp(true)
-            setDettaglio(id)
-          }}
-          onAnnulla={() => {
-            const id = chiediInAppPer.id
-            setChiediInAppPer(null)
-            void segna(id, 'in_app')
-          }}
-          onChiudi={() => setChiediInAppPer(null)}
-        >
-          <p>
-            Con il sì si apre la scheda dell&apos;ordine già sul modulo «Manda in app»: partner, servizio, prodotto e prezzo, e di
-            là nasce una consegna vera.
-          </p>
-          <p>
-            Con il no l&apos;ordine viene solo segnato «In App», senza creare niente sulla
-            piattaforma: serve a chi la consegna l&apos;ha già inserita a mano di là.
-          </p>
-        </Conferma>
-      ) : null}
-
       {/* Il dettaglio dell'ordine, aperto cliccando la scheda o la riga.
           Alla chiusura si rilegge l'elenco: dal pannello si può aver segnato
           qualcosa, e tornare a un elenco vecchio sarebbe confondente. */}

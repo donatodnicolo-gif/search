@@ -3824,6 +3824,35 @@ td .azioni-ordine {
   flex-direction: column;
   gap: 10px;
 }
+/* La finestra «Manda in app» (06/09/2026): stessa cornice della Conferma ma
+   larga quanto serve al modulo (partner, servizio, prodotto, prezzo), col
+   corpo che scorre dentro (Libro §9: max-height, mai la pagina). */
+.finestra-manda-in-app {
+  width: min(780px, 100%);
+  max-width: 780px;
+  max-height: min(92dvh, 940px);
+  overflow-y: auto;
+}
+.finestra-manda-in-app .conferma-testa {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+  padding-bottom: 6px;
+}
+.link-discreto {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+.link-discreto:hover {
+  color: var(--text);
+}
+
 .conferma-testa {
   display: flex;
   align-items: flex-start;

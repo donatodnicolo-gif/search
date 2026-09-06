@@ -1,5 +1,26 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (47) — «In App» apre subito la finestra «Manda in app»
+
+Utente: «click "in app" di un ordine: si deve aprire pop-up di inserimento
+consegna in piattaforma delivery». Prima: domanda (Conferma) «inserirla in
+piattaforma?» → sì → il modulo si apriva come RIQUADRO nella prima colonna della
+scheda. Ora:
+- `MandaInApp` da aperto è una **finestra** (`velo-conferma` + `finestra-conferma
+  finestra-manda-in-app`, 780px, corpo che scorre, testata sticky con ✕; Esc e
+  clic sul velo chiudono, Esc si ferma lì e non chiude la scheda sotto).
+- Il clic su «In App» (scheda: `setApriInApp`; bacheca: apre la scheda con
+  `apriMandaInApp`) apre subito la finestra, senza domanda. Le due `Conferma`
+  «inserire l'ordine nella piattaforma?» sono tolte (stati `chiediInApp`,
+  `chiediInAppPer` rimossi).
+- Il vecchio «No, segna solo lo stato» sopravvive come riga discreta in fondo
+  alla finestra («La consegna è già stata inserita a mano? Segna solo In App,
+  senza creare niente» → `onSoloStato` → `cambiaGestione('in_app')`), mostrata
+  solo se l'ordine non è già In App. Nessuna azione tolta.
+- Il bottone «Manda in app» in testata apre la stessa finestra.
+
+**Verifica**: `tsc` 0; a occhio da fare (dietro login). **Stato**: in locale.
+
 ## 06/09/2026 (46) — La scheda ordine con tre zone di azioni (Libro §9-ter)
 
 Utente, sulla scheda #2876: «ci sono troppi bottoni sparsi e con azioni diversi,

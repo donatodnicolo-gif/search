@@ -98,6 +98,7 @@ export function MandaInApp({
   senzaBottone = false,
   urlPiattaforma,
   onFatto,
+  onSoloStato,
 }: {
   ordineId: string
   /** Le righe dell'ordine: il modulo propone prodotto, prezzo e quantità da qui. */
@@ -108,6 +109,12 @@ export function MandaInApp({
   senzaBottone?: boolean
   urlPiattaforma?: string
   onFatto?: () => void
+  /**
+   * «La consegna è già di là, inserita a mano»: segna solo lo stato «In App»
+   * senza creare niente. Era il «No» della vecchia domanda; ora è una riga
+   * discreta in fondo alla finestra (il clic su «In App» apre subito il modulo).
+   */
+  onSoloStato?: () => void
 }) {
   const [aperto, setAperto] = useState(false)
   const [dati, setDati] = useState<Prefill | null>(null)
@@ -425,14 +432,41 @@ export function MandaInApp({
 
   const base = (urlPiattaforma || URL_PIATTAFORMA_DEFAULT).replace(/\/+$/, '')
 
+  // ⚠️ FINESTRA, non riquadro nella colonna (utente, 06/09/2026: «al click su
+  // In App si deve aprire il pop-up di inserimento consegna»). Stesso velo e
+  // stessa cornice della Conferma (Libro §9): ✕, Esc e clic sul velo chiudono;
+  // Esc si ferma qui e non chiude anche la scheda dell'ordine sotto.
   return (
-    <div className="card" style={{ padding: 10, marginTop: 12 }} ref={riquadro}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <div className="cella-nome" style={{ flex: 1 }}>
-          Manda in app — nuova consegna
-        </div>
-        <button className="btn btn-secondario small" onClick={() => setAperto(false)}>
-          Chiudi
+    <div
+      className="velo-conferma velo-manda-in-app"
+      onClick={(e) => {
+        e.stopPropagation()
+        setAperto(false)
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return
+        e.stopPropagation()
+        setAperto(false)
+      }}
+    >
+    <div
+      className="finestra-conferma finestra-manda-in-app"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="manda-in-app-titolo"
+      onClick={(e) => e.stopPropagation()}
+      ref={riquadro}
+    >
+      <div className="conferma-testa">
+        <h2 id="manda-in-app-titolo">Manda in app — nuova consegna</h2>
+        <button
+          type="button"
+          className="pannello-chiudi"
+          aria-label="Chiudi senza mandare"
+          title="Chiudi senza mandare (Esc)"
+          onClick={() => setAperto(false)}
+        >
+          ✕
         </button>
       </div>
 
@@ -900,6 +934,22 @@ export function MandaInApp({
           </div>
         </>
       ) : null}
+      {onSoloStato && !fatto ? (
+        <p className="cella-sub" style={{ marginTop: 10 }}>
+          La consegna è già stata inserita a mano nella piattaforma?{' '}
+          <button
+            type="button"
+            className="link-discreto"
+            onClick={() => {
+              setAperto(false)
+              onSoloStato()
+            }}
+          >
+            Segna solo «In App», senza creare niente
+          </button>
+        </p>
+      ) : null}
+    </div>
     </div>
   )
 }
