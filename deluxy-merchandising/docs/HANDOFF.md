@@ -56,12 +56,18 @@ in locale):**
    negozi» (chi importa per ultimo scrive `statoShopify`), non un calo di
    catalogo.
 
-⚠️ **Finché non si deploya, in produzione Gifts resta morto**: `statoShopify`,
-appartenenze, prezzi, foto e metafield di Gifts sono fermi al 04/09 (salvo il
-giro dal PC di oggi). Deploy = `npx vercel deploy --prod --yes` dalla cartella
-(build remota: il precompilato su questo PC muore con `EPERM symlink`). Dopo il
-deploy guardare in `/collezioni` la riga di Gifts della notte: «ok (durata N s)»
-con N ben sotto 800.
+✅ **PUSHATO E DEPLOYATO alle 15:28 del 06/09** (utente: «fai push & deploy»).
+Push: worktree temporaneo da `origin/scout-ui` + cherry-pick dei sei commit
+Merchandising + `push HEAD:scout-ui` (origin ora a `86521098`); l'unico
+conflitto era `MANUALE-DELUXY.html` (righe locali di altre sessioni non
+pushate, e il file su origin è CRLF): risolto prendendo origin e reinserendo
+la riga finale. Deploy: `npx vercel deploy --prod --yes --scope deluxy` →
+`deluxy-merchandising-c39kkjakx`, target production, Ready, `fra1`. ⚠️ Senza
+`--scope deluxy` il deploy rispondeva **«Not authorized»** (la CLI era
+autenticata e `ls`/`logs` funzionavano): da ora mettere sempre lo scope.
+**Da guardare domani mattina** in `/collezioni`: la riga di Gifts della notte
+deve dire «ok (durata N s)» con N ben sotto 800; se dice «in corso», il cron è
+morto di nuovo e si legge `npx vercel logs deluxy-merchandising.vercel.app`.
 
 **Verifica SKU** (chiesta dall'utente: «tutti i prodotti pubblicati su Shopify
 e sul database devono avere il campo SKU»). Nuovo `scripts/verifica-sku.ts`
