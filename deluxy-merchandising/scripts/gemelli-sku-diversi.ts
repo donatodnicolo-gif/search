@@ -73,5 +73,64 @@ async function main() {
   writeFileSync(file, md.join("\n") + "\n");
   console.log(`${righe.length} varianti su ${new Set(righe.map((r) => r.handle)).size} prodotti; entrambi attivi: ${entrambiAttivi.length}; rapporto in ${file}`);
   for (const r of righe.slice(0, 30)) console.log(`${r.statoOrigine}/${r.statoGifts} | ${r.titolo} | ${r.variante} | ${r.origine}: ${r.skuOrigine} | Gifts: ${r.skuGifts}`);
+
+  // — Allineamento (`--applica`, chiesto dall'utente il 06/09): Gifts prende lo
+  //   SKU di Flowers/Cake. Un prodotto per mutation, con tutte le sue varianti
+  //   insieme, così gli scambi interni (Munch: Si↔No) non passano da uno stato
+  //   intermedio. Si salta solo se lo SKU voluto è già di un ALTRO prodotto
+  //   Gifts (unicità dentro il negozio). Il piano si scrive prima di scrivere.
+  if (!process.argv.includes("--applica")) return;
+  const { erroriDi } = await import("../src/lib/shopify-scrittura");
+  const gifts = negozi.find((n) => n.nome === "Gifts")!;
+  const tuttiGifts = perNegozio.get("Gifts") ?? [];
+  const skuAltrove = new Map<string, string>(); // sku → productId (Gifts)
+  for (const v of tuttiGifts) if (!vuoto(v.sku)) skuAltrove.set(chiave(v.sku!), v.product.id);
+  // variante Gifts per handle+titolo (prodotto attivo preferito, come sopra)
+  const varGifts = new Map<string, V>();
+  for (const [handle, m] of perHandle) {
+    const g = m.get("Gifts"); if (!g) continue;
+    const attivi = g.filter((v) => v.product.status === "ACTIVE");
+    for (const v of (attivi.length ? attivi : g)) varGifts.set(`${handle}|${v.title}`, v);
+  }
+  type Piano = { prodottoId: string; titolo: string; varianti: { id: string; titolo: string; prima: string; dopo: string }[] };
+  const piani = new Map<string, Piano>();
+  const saltate: string[] = [];
+  for (const r of righe) {
+    const v = varGifts.get(`${r.handle}|${r.variante}`);
+    if (!v) continue;
+    const chi = skuAltrove.get(chiave(r.skuOrigine));
+    if (chi && chi !== v.product.id) { saltate.push(`${r.titolo} · ${r.variante}: ${r.skuOrigine} è già di un altro prodotto Gifts`); continue; }
+    const p = piani.get(v.product.id) ?? { prodottoId: v.product.id, titolo: r.titolo, varianti: [] };
+    p.varianti.push({ id: v.id, titolo: r.variante, prima: r.skuGifts, dopo: r.skuOrigine });
+    piani.set(v.product.id, p);
+  }
+  // dentro lo stesso prodotto, due varianti non possono finire con lo stesso SKU
+  for (const [pid, p] of piani) {
+    const finali = new Map<string, number>();
+    const altre = tuttiGifts.filter((x) => x.product.id === pid && !p.varianti.some((c) => c.id === x.id) && !vuoto(x.sku)).map((x) => chiave(x.sku!));
+    for (const s of [...p.varianti.map((c) => chiave(c.dopo)), ...altre]) finali.set(s, (finali.get(s) ?? 0) + 1);
+    if ([...finali.values()].some((n) => n > 1)) { saltate.push(`${p.titolo}: l'allineamento darebbe lo stesso SKU a due varianti del prodotto`); piani.delete(pid); }
+  }
+  const tot = [...piani.values()].reduce((a, p) => a + p.varianti.length, 0);
+  const mdA = [`# Gemelli allineati a Flowers/Cake — ${new Date().toISOString().slice(0, 10)}`, "", `${piani.size} prodotti Gifts, ${tot} varianti. Per tornare indietro: colonna «prima».`, "", "| Prodotto | Variante | Prima | Dopo |", "|---|---|---|---|",
+    ...[...piani.values()].flatMap((p) => p.varianti.map((v) => `| ${p.titolo.replace(/\|/g, "/")} | ${v.titolo.replace(/\|/g, "/")} | \`${v.prima}\` | \`${v.dopo}\` |`)), "", "## Saltate", "", ...saltate.map((s) => `- ${s}`), "", "## Esito", "", "(in corso)", ""];
+  const fileA = `docs/gemelli-allineati-${new Date().toISOString().slice(0, 10)}.md`;
+  writeFileSync(fileA, mdA.join("\n") + "\n");
+  console.log(`\nAllineamento: ${piani.size} prodotti, ${tot} varianti; saltate ${saltate.length}`);
+  let ok = 0, err = 0; const esiti: string[] = [];
+  for (const p of piani.values()) {
+    try {
+      const r = await graphqlNegozio(gifts.dominio, gifts.token,
+        `mutation($productId:ID!, $variants:[ProductVariantsBulkInput!]!){ productVariantsBulkUpdate(productId:$productId, variants:$variants){ userErrors{ field message } } }`,
+        { productId: p.prodottoId, variants: p.varianti.map((v) => ({ id: v.id, inventoryItem: { sku: v.dopo } })) });
+      const errori = erroriDi(r, "productVariantsBulkUpdate");
+      if (errori.length) { err++; esiti.push(`❌ ${p.titolo}: ${errori.join("; ")}`); } else ok++;
+    } catch (e) { err++; esiti.push(`❌ ${p.titolo}: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}`); }
+    await attendi(400);
+  }
+  mdA[mdA.length - 2] = `Negozio Gifts: ${ok} prodotti aggiornati, ${err} errori.\n\n${esiti.map((e) => `- ${e}`).join("\n")}`;
+  writeFileSync(fileA, mdA.join("\n") + "\n");
+  console.log(`Gifts: ${ok} ok, ${err} errori · piano in ${fileA}`);
+  for (const e of esiti) console.log(e);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
