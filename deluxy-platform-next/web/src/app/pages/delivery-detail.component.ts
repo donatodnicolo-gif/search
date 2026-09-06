@@ -61,7 +61,7 @@ interface DeliveryDetail {
   /** Consegna anonima: il mittente non arriva a nessuno (03/09). */
   anonymousSender?: boolean;
   /** Regola di listino applicata (fatturazione): al valet non arriva. */
-  deliveryRule?: { id: string; name: string; toBill?: boolean; partnerBillingAdjustment?: number | null } | null;
+  deliveryRule?: { id: string; name: string; toBill?: boolean; toPay?: boolean; partnerBillingAdjustment?: number | null; valetPayAdjustment?: number | null } | null;
   /** Regola paga valet (scaglioni sui ritiri): al partner non arriva. */
   valetDeliveryRule?: { id: string; name: string; tiers?: string | null } | null;
   deliveryTimeFrom?: string;
@@ -118,6 +118,7 @@ interface DeliveryDetail {
   trackingToken?: string;
   receivedBy?: string;
   receiverType?: string;
+  notDeliveredReason?: string | null;
   deliveredAt?: string | null;
   startedAt?: string | null;
   puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
@@ -409,7 +410,8 @@ interface DeliveryDetail {
               <!-- ⚠️ Lo ZERO scritto non è la paga (01/09, #62899): per gli
                    Stipendi vince solo un numero > 0 — con 0 si calcola dal
                    listino, e qui si mostra QUELLA, non lo zero che mente. -->
-              <dd>@if ((d.valetSalary ?? 0) > 0) { {{ d.valetSalary }} € }
+              <dd>@if (d.deliveryRule?.toPay === false) { 0 € <span class="muted">({{ 'deliveryDetail.valetPayRule' | translate: { nome: d.deliveryRule?.name } }})</span> }
+                  @else if ((d.valetSalary ?? 0) > 0) { {{ d.valetSalary }} € }
                   @else if (d.valetSalaryDalListino != null) { {{ d.valetSalaryDalListino }} € <span class="muted">({{ 'deliveryDetail.fromListino' | translate }})</span> }
                   @else { — }</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
@@ -780,6 +782,14 @@ interface DeliveryDetail {
          una consegna in storico come «non consegnata» sembra un caso chiuso
          male invece che un lavoro poi portato a termine. -->
     @if (delivery(); as d) {
+      <!-- ⭐ 06/09/2026 (regola utente): NON CONSEGNATA senza riconsegna = DA GESTIRE, con un avviso. -->
+      @if (d.status === 'not_delivered' && !(d.childDeliveries?.length)) {
+        <div class="warn-card gestire" role="alert">
+          <b>{{ 'deliveryDetail.nonConsegnata.alert' | translate }}</b> {{ 'deliveryDetail.nonConsegnata.cosa' | translate }}
+          @if (d.notDeliveredReason) { <span class="muted"> · {{ d.notDeliveredReason }}</span> }
+          @if (canManage()) { <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ riconsegna: d.id }">{{ 'deliveryDetail.nonConsegnata.riconsegna' | translate }}</a> }
+        </div>
+      }
       @if (d.parentDelivery || (d.childDeliveries?.length ?? 0) > 0) {
         <section class="card riconsegna-legame">
           @if (d.parentDelivery; as p) {
@@ -989,6 +999,7 @@ interface DeliveryDetail {
       .ore-approvazione { border-left: 3px solid var(--orange, #ff9500); }
       .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
+      .warn-card.gestire { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border-left: 4px solid #ff9500; background: rgba(255, 149, 0, 0.08); color: #8a5a00; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
       .ddt-extra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
       .ddt-extra .ddt-carica.disabled { opacity: .5; pointer-events: none; }

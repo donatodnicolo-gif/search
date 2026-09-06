@@ -546,6 +546,8 @@ export class FinanceService {
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
         valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
+        // ⭐ 06/09: la regola carnet decide anche la paga del valet (toPay=false → 0, plus/minus).
+        deliveryRule: { select: { name: true, toPay: true, valetPayAdjustment: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
@@ -674,6 +676,8 @@ export class FinanceService {
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
         valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
+        // ⭐ 06/09: la regola carnet decide anche la paga del valet (toPay=false → 0, plus/minus).
+        deliveryRule: { select: { name: true, toPay: true, valetPayAdjustment: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
@@ -1094,11 +1098,14 @@ export class FinanceService {
     // La paga del valet: scritta, altrimenti dal LISTINO (stessa regola degli Stipendi).
     const plusValet = FinanceService.plusNelCosto(d.valetAdditionalPrice);
     let pagaValet = 0;
-    if (d.payable !== false) {
+    // ⭐ 06/09/2026 (caso 101061): una regola carnet con «Da pagare = No» azzera la paga anche
+    // qui — prima il margine contava un costo valet che Stipendi non avrebbe mai pagato.
+    const regola = (d as any).deliveryRule as { toPay?: boolean | null; valetPayAdjustment?: number | null } | null;
+    if (d.payable !== false && regola?.toPay !== false) {
       if ((d.valetSalary ?? 0) > 0) pagaValet = Math.max(0, d.valetSalary + plusValet);
       else {
         const listino = scegliListinoValet(d, ctx.perId, ctx.perValet);
-        const paga = listino ? pagaConsegna(d, listino) : null;
+        const paga = listino ? pagaConsegna(d, listino, regola ?? null) : null;
         pagaValet = paga ? Math.max(0, paga.amount) : Math.max(0, plusValet);
       }
     }

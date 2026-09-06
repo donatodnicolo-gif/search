@@ -784,6 +784,10 @@
     }
   },
   "deliveries": {
+    "nonConsegnate": {
+      "alert": "{{n}} non consegnate da gestire.",
+      "cosa": "Ogni notte tornano alla data di oggi finché non si decide: riconsegna o chiusura."
+    },
     "codice": {
       "inserisci": "Inserisci codice valet"
     },
@@ -2139,6 +2143,7 @@
     "productValue": "Valore prodotti",
     "deliveryPrice": "Prezzo consegna",
     "valetSalary": "Salario valet",
+    "valetPayRule": "regola «{{nome}}»: il valet non si paga",
     "valetAdditionalPrice": "Plus / minus valet",
     "intercom": "Citofono",
     "phone": "Telefono",
@@ -2237,6 +2242,11 @@
     "redelivery": {
       "from": "Riconsegna della",
       "to": "Riconsegnata con"
+    },
+    "nonConsegnata": {
+      "alert": "Non consegnata: da gestire.",
+      "cosa": "Ogni notte torna alla data di oggi finché non si decide: riconsegna o chiusura.",
+      "riconsegna": "Crea la riconsegna"
     },
     "prova": {
       "consegnataAlle": "Consegnata il",

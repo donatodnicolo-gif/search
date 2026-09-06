@@ -62,6 +62,8 @@ const DELIVERY_LIST_SELECT = {
   // ⭐ 06/09/2026 (regola utente): la PUNTUALITÀ (in orario / in ritardo / in anticipo)
   // si calcola da qui: orario reale d'arrivo e di partenza.
   deliveredAt: true, startedAt: true,
+  // ⭐ 06/09/2026 (regola utente): una NON CONSEGNATA senza riconsegna è «da gestire» — l'elenco lo evidenzia.
+  childDeliveries: { select: { id: true } },
   // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
   // tabella, nella colonna «Consegna», quando sono da approvare.
   hoursFrom: true, hoursTo: true, hoursOriginal: true,
@@ -793,6 +795,8 @@ export class DeliveriesService {
     // ⚠️ Una regola carnet con «non pagare» (toPay=false, es. Regola 10)
     // azzera la paga: qui non si calcola niente, come fa Stipendi.
     const regolaNonPaga = (delivery as any).deliveryRule?.toPay === false;
+    // ⭐ 06/09: con la regola «non pagare» la paga è ZERO, e si dice — non «—».
+    if (regolaNonPaga) valetSalaryDalListino = 0;
     if (!regolaNonPaga && (['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
       // ⚠️ 03/09: STESSO conto di Stipendi (pagaConsegna), non più la stima
       // semplificata «base × ore» — quella ignorava fuori città, km extra e
@@ -1713,7 +1717,7 @@ export class DeliveriesService {
         select: { deliveryRule: { select: {
           id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true, partnerBillingAdjustment: true,
           timeFrom: true, timeTo: true, dailyRule: true, dailyCount: true, totalRule: true, totalCount: true,
-          kmDistance: true,
+          kmDistance: true, toPay: true, toBill: true,
           partners: { select: { partnerId: true } },
         } } },
       });
@@ -1741,7 +1745,14 @@ export class DeliveriesService {
         }
         // ⭐ 04/09 (regola utente): all'aggancio si FOTOGRAFA il valore della regola
         // nel campo «Regole» della consegna — separato dal plus/minus manuale.
-        await this.prisma.delivery.update({ where: { id: deliveryId }, data: { deliveryRuleId: g.id, ruleAdjustment: (g as any).partnerBillingAdjustment ?? 0 } });
+        // ⭐ 06/09/2026 (regola utente, caso 101061 — Regola 8 di Chanel Sant'Andrea con
+        // «Da pagare = No» lasciava la consegna «da pagare»): all'aggancio la regola porta
+        // con sé anche i due interruttori del legacy, «Da fatturare» e «Da pagare».
+        // Con toPay=false il valet è a 0 dappertutto — Stipendi, dettaglio, Finanza.
+        await this.prisma.delivery.update({ where: { id: deliveryId }, data: {
+          deliveryRuleId: g.id, ruleAdjustment: (g as any).partnerBillingAdjustment ?? 0,
+          payable: (g as any).toPay ?? true, billable: (g as any).toBill ?? true,
+        } });
         return g.id;
       }
       return null;
@@ -2044,6 +2055,43 @@ export class DeliveriesService {
       await this.chiudiAttivitaSeStorico(delivery.id, dto.status);
     }
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): «le non consegnate cambiano data aggiornandosi
+   * alla data di oggi alla mezzanotte, per ricordare che devono essere gestite».
+   * Ogni notte (cron Vercel `/cron/non-consegnate`) le NON CONSEGNATE che non
+   * hanno ancora una riconsegna e portano una data passata si riportano a OGGI
+   * (giorno di Roma): così restano in testa all'elenco di chi deve decidere —
+   * riconsegna o chiusura. Lo stato non cambia; la data di prima resta nel
+   * registro della consegna. Idempotente: una seconda corsa lo stesso giorno
+   * non trova niente. Nessuna mail: è un promemoria in app, non un avviso.
+   */
+  async riportaNonConsegnateAOggi(): Promise<{ oggi: string; riportate: number; codici: number[] }> {
+    const parti = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const oggi = new Date(parti + 'T00:00:00.000Z'); // le date delle consegne sono mezzanotte UTC del giorno
+    // ⚠️ Finestra di 30 giorni (misurato 06/09: senza, il primo giro avrebbe riportato a oggi
+    // 1.694 non consegnate, 684 del 2021 — residui del legacy, non lavoro da fare). Una
+    // riportata resta in finestra finché qualcuno decide; le vecchie stanno nello storico.
+    const limite = new Date(oggi.getTime() - 30 * 86400000);
+    const daRiportare = await this.prisma.delivery.findMany({
+      where: { deletedAt: null, status: DeliveryStatus.NOT_DELIVERED, date: { lt: oggi, gte: limite }, childDeliveries: { none: {} } },
+      select: { id: true, code: true, date: true },
+      orderBy: { code: 'asc' },
+    });
+    if (!daRiportare.length) return { oggi: parti, riportate: 0, codici: [] };
+    const giorno = (d: Date) => d.toISOString().slice(0, 10).split('-').reverse().join('/');
+    await this.prisma.$transaction([
+      this.prisma.delivery.updateMany({ where: { id: { in: daRiportare.map((d) => d.id) } }, data: { date: oggi } }),
+      this.prisma.deliveryLog.createMany({
+        data: daRiportare.map((d) => ({
+          deliveryId: d.id, type: 'note', userId: null,
+          message: `Riportata a oggi (era il ${giorno(d.date)}): non consegnata da gestire — riconsegna o chiusura`,
+        })),
+      }),
+    ]);
+    console.log(`Non consegnate riportate a oggi (${parti}): ${daRiportare.length}`);
+    return { oggi: parti, riportate: daRiportare.length, codici: daRiportare.map((d) => d.code) };
   }
 
   /**

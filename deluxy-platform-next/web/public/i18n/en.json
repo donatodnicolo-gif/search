@@ -783,6 +783,10 @@
     }
   },
   "deliveries": {
+    "nonConsegnate": {
+      "alert": "{{n}} not delivered to handle.",
+      "cosa": "Every night they move to today's date until someone decides: redelivery or closure."
+    },
     "codice": {
       "inserisci": "Enter valet code"
     },
@@ -2137,6 +2141,7 @@
     "productValue": "Product value",
     "deliveryPrice": "Delivery price",
     "valetSalary": "Valet salary",
+    "valetPayRule": "rule «{{nome}}»: the valet is not paid",
     "valetAdditionalPrice": "Valet plus / minus",
     "intercom": "Intercom",
     "phone": "Phone",
@@ -2235,6 +2240,11 @@
     "redelivery": {
       "from": "Redelivery of",
       "to": "Redelivered with"
+    },
+    "nonConsegnata": {
+      "alert": "Not delivered: to handle.",
+      "cosa": "Every night it moves to today's date until someone decides: redelivery or closure.",
+      "riconsegna": "Create the redelivery"
     },
     "prova": {
       "consegnataAlle": "Delivered on",

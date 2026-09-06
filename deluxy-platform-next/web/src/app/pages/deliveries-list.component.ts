@@ -242,6 +242,13 @@ interface PropostaVendita {
           </div>
         }
         @if (propostaAvviso(); as a) { <div class="warn-card">{{ a }}</div> }
+        <!-- ⭐ 06/09/2026 (regola utente): le NON CONSEGNATE senza riconsegna vanno gestite —
+             riportate a oggi ogni notte, e qui un avviso finché qualcuno decide. -->
+        @if (daGestire().length; as n) {
+          <div class="warn-card gestire" role="alert">
+            <b>{{ 'deliveries.nonConsegnate.alert' | translate: { n } }}</b> {{ 'deliveries.nonConsegnate.cosa' | translate }}
+          </div>
+        }
       </div>
     }
 
@@ -349,6 +356,7 @@ interface PropostaVendita {
             @for (d of deliveries(); track d.id) {
               <tr
                 class="row-link"
+                [class.da-gestire]="eDaGestire(d)"
                 [attr.tabindex]="canDetails() ? 0 : null"
                 (click)="openDetail(d)"
                 (keydown.enter)="openDetail(d)"
@@ -1222,6 +1230,9 @@ interface PropostaVendita {
       .proposta-info .riga2 { font-size: 13px; }
       .proposta-azioni { display: flex; gap: 8px; }
       .proposta-azioni .rifiuto { color: var(--red); }
+      .warn-card.gestire { border-left: 4px solid #ff9500; }
+      tr.da-gestire td { background: rgba(255, 149, 0, 0.07); }
+      tr.da-gestire td:first-child { box-shadow: inset 4px 0 0 #ff9500; }
       .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
                    border-radius: 10px; padding: 10px 12px; font-size: 13px; }
       .tag.warn {
@@ -1722,6 +1733,9 @@ export class DeliveriesListComponent {
   }
 
   readonly deliveries = signal<Delivery[]>([]);
+  /** ⭐ 06/09 (regola utente): non consegnata SENZA riconsegna = da gestire (riconsegna o chiusura). */
+  eDaGestire(d: Delivery): boolean { return d.status === 'not_delivered' && !(d.childDeliveries?.length); }
+  readonly daGestire = computed(() => this.deliveries().filter((d) => this.eDaGestire(d)));
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
