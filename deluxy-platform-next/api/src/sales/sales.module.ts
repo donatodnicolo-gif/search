@@ -454,6 +454,15 @@ export class SalesService {
         })
       : null;
 
+    // ⭐ 06/09/2026 (regola utente: «anche per app delivery deve essere preso da
+    // Orders»). La quota al fornitore per provincia e categoria ha UNA casa,
+    // Orders (`GET /api/v1/quota-fornitore`, Standard §7.4): la si chiede lì,
+    // arrotondata ai centesimi, e vale al posto della regola locale
+    // CategoryDiscount. Se Orders risponde «default» (nessuna regola per quella
+    // provincia) o non risponde, resta la regola locale — e il motivo lo dice.
+    const quotaOrders = scelto?.prezzoPartner === undefined && prezzoPartnerDaListino === null && body.discountPercent == null
+      ? await this.quotaDaOrders(body.provinceId, product.categoryId)
+      : null;
     const creata = await this.prisma.sale.create({
       data: {
         productId: product.id,
@@ -462,7 +471,7 @@ export class SalesService {
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: scelto?.motivo ?? null,
+        assignmentReason: [scelto?.motivo ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
@@ -485,7 +494,9 @@ export class SalesService {
             ? SalesService.quotaPerDare(importoCliente, prezzoPartnerDaListino)
             : body.discountPercent != null && isFinite(Number(body.discountPercent))
               ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
-              : sconto?.discountPercent ?? 0,
+              : quotaOrders
+                ? quotaOrders.sconto
+                : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
@@ -919,6 +930,52 @@ export class SalesService {
 
   /** L'ordine dietro una vendita, letto da Deluxy Orders. Best-effort: `null`
    *  quando non c'è o Orders non risponde — chi chiama non inventa. */
+  /** Memoria breve della quota per (provincia, categoria): la corsa dello smistamento chiede la stessa coppia decine di volte. */
+  private quotaCache = new Map<string, { quando: number; valore: { quota: number; regola: string; sconto: number } | null }>();
+
+  /**
+   * La quota al FORNITORE per provincia e categoria, chiesta a Orders
+   * (`GET /api/v1/quota-fornitore?provincia=&categoria=`). Orders risponde con
+   * `quota` = quanto va al fornitore in % e `regola` = da dove viene
+   * («provincia+categoria», «provincia», «default»). Lo SCONTO della vendita è
+   * il complemento (100 − quota), arrotondato ai centesimi. Con «default» si
+   * torna null: la regola locale vale finché Orders non ha la sua per quella
+   * provincia. Categoria: il NOME della categoria di piattaforma, minuscolo —
+   * Orders confronta in minuscolo.
+   */
+  private async quotaDaOrders(provinceId: string, categoryId: string | null | undefined): Promise<{ quota: number; regola: string; sconto: number } | null> {
+    const [prov, cat] = await Promise.all([
+      this.prisma.province.findUnique({ where: { id: provinceId }, select: { code: true } }),
+      categoryId ? this.prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } }) : Promise.resolve(null),
+    ]);
+    if (!prov?.code) return null;
+    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}`;
+    const inCache = this.quotaCache.get(chiave);
+    if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
+    let valore: { quota: number; regola: string; sconto: number } | null = null;
+    try {
+      const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
+      const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+      const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+      const chiaveApi = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
+      if (url && chiaveApi) {
+        const q = new URLSearchParams({ provincia: prov.code, ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
+        const res = await fetch(`${url}/api/v1/quota-fornitore?${q}`, { headers: { 'x-api-key': chiaveApi } });
+        if (res.ok) {
+          const j: any = await res.json();
+          const quota = Number(j?.quota);
+          if (Number.isFinite(quota) && quota > 0 && quota < 100 && j?.regola && j.regola !== 'default') {
+            valore = { quota, regola: String(j.regola), sconto: Math.round((100 - quota) * 100) / 100 };
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Quota da Orders non letta (${chiave}): ${(err as Error).message}`);
+    }
+    this.quotaCache.set(chiave, { quando: Date.now(), valore });
+    return valore;
+  }
+
   private async ordineDaOrders(externalOrderId: string | null | undefined): Promise<any | null> {
     const rif = (externalOrderId ?? '').trim();
     if (!rif) return null;
