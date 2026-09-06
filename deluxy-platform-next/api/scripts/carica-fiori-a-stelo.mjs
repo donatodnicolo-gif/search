@@ -4,8 +4,8 @@
  * Fonte: gli aggregati dello studio sui prezzi unitari (scratchpad pu_agg.json: per fiorista, per
  * tipo di fiore, mediana del prezzo AL PARTNER per stelo sulle righe delle consegne degli ultimi 3 anni).
  * Regole: solo fioristi (mest F), solo fiori con almeno 3 osservazioni; categoria «Fiori a stelo»
- * (mestiere Fiorista, creata se manca); prodotto UNICO del partner, `notEditable` (il partner non lo
- * tocca: lo gestisce l'ufficio), prezzo = mediana per stelo, sku `STELO-<fiore>-<partnerId>`.
+ * (mestiere Fiorista, creata se manca); prodotto UNICO del partner, modificabile dal fioraio nella
+ * sua pagina Listino, prezzo = mediana per stelo, sku `STELO-<fiore>-<partnerId>`.
  * Idempotente (upsert per sku). PROVA di default; `--scrivi` per scrivere.
  */
 import fs from 'node:fs';
@@ -38,11 +38,11 @@ for (const pa of partners) {
     if (!(f.n >= 3) || !(f.med > 0)) { saltati++; continue; }
     const sku = `STELO-${f.tipo.toUpperCase().replace(/[^A-Z0-9]+/g, '-')}-${pa.id}`;
     const nome = `${titolo(f.label ?? f.tipo)} a stelo`;
-    const descr = `Prezzo per stelo, dallo storico delle consegne (${f.n} righe, ${f.steli ?? '?'} steli, ultima ${f.ultima ?? '?'}); minimo ${f.min} €, massimo ${f.max} €. Caricato il 06/09/2026 dall'ufficio: non modificabile dal partner.`;
+    const descr = `Prezzo per stelo, dallo storico delle consegne (${f.n} righe, ${f.steli ?? '?'} steli, ultima ${f.ultima ?? '?'}); minimo ${f.min} €, massimo ${f.max} €. Caricato il 06/09/2026 dall'ufficio: il fioraio lo può correggere dal suo Listino.`;
     righe.push({ partner: partner.insegna, prodotto: nome, sku, prezzo: f.med, n: f.n, ultima: f.ultima });
     if (!SCRIVI) continue;
     const gia = await p.product.findFirst({ where: { sku }, select: { id: true } });
-    const dati = { name: nome, description: descr, price: f.med, type: 'UNICO', partnerId: partner.id, categoryId: cat.id, notEditable: true, approved: true, active: true, hasVariants: false, visibleToOtherPartners: false, deletedAt: null, createdFrom: 'storico-consegne-2026-09-06' };
+    const dati = { name: nome, description: descr, price: f.med, type: 'UNICO', partnerId: partner.id, categoryId: cat.id, notEditable: false, approved: true, active: true, hasVariants: false, visibleToOtherPartners: false, deletedAt: null, createdFrom: 'storico-consegne-2026-09-06' };
     if (gia) { await p.product.update({ where: { id: gia.id }, data: dati }); aggiornati++; }
     else { await p.product.create({ data: { ...dati, sku } }); creati++; }
   }

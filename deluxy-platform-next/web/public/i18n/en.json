@@ -62,6 +62,7 @@
     "segnalazioni": "Reports",
     "statistiche": "Statistics",
     "mestieri": "Trades",
+    "listino": "Price list",
     "aree": "Areas"
   },
   "partnerHome": {
@@ -1110,6 +1111,19 @@
     "vuoto": "No areas.",
     "confermaElimina": "Delete the area «{{nome}}»?",
     "col": { "nome": "Area", "note": "Notes", "province": "Provinces", "partner": "Partners" }
+  },
+  "listino": {
+    "title": "Your flower price list",
+    "caption": "The price of a single flower, per stem: it is what you get. It lets us propose orders with the right quantity (say 12 roses) without asking every time.",
+    "primoAccesso": "Fill in your flower price list",
+    "primoAccessoSub": "Write what you get for a single stem. Where a price is already there, we took it from your past deliveries: confirm it or correct it.",
+    "vai": "Fill it in",
+    "compilato": "Price list confirmed on {{quando}}.",
+    "daConfermare": "to confirm",
+    "nonLoFaccio": "I don't do it",
+    "salva": "Save the price list",
+    "nota": "Leave a flower empty if you don't do it. The prices stay yours: change them here whenever you want.",
+    "col": { "fiore": "Flower", "prezzo": "€ per stem", "stato": "" }
   },
   "mestieri": {
     "title": "Trades",
@@ -2636,6 +2650,8 @@
     "detail": {
       "title": "Sale",
       "product": "Product",
+      "righeOrdine": "Order ({{n}} lines)",
+      "rigaDellaVendita": "this sale's line",
       "photos": "See the product photos",
       "maker": "Made by {{chi}}",
       "line": "Line {{linea}}",

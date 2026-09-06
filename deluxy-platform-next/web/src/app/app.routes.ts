@@ -99,6 +99,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/partner-home.component').then((m) => m.PartnerHomeComponent),
       },
+      // ⭐ 06/09/2026 sera (regola utente): il LISTINO del fioraio — il prezzo dei fiori a stelo,
+      // da compilare al primo accesso. L'ufficio ci arriva con ?partnerId= dalla scheda partner.
+      {
+        path: 'listino',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'], title: 'Listino' },
+        loadComponent: () =>
+          import('./pages/listino-fiori.component').then((m) => m.ListinoFioriComponent),
+      },
       // ---- Preventivi: il form e le richieste ----
       {
         path: 'quotes',

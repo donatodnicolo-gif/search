@@ -90,6 +90,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'nav.section.prodotti',
     items: [
       { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'], exact: true },
+      // ⭐ 06/09/2026 sera (regola utente): il listino dei fiori a stelo del fioraio.
+      { label: 'nav.listino', path: '/listino', icon: 'euro', roles: ['PARTNER'] },
       // ⭐ 04/09 (regola utente): le Riconciliazioni sono una voce di menu, non
       // un tab dentro l'elenco prodotti. Ufficio soltanto.
       { label: 'nav.riconciliazioni', path: '/products/riconciliazioni', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },

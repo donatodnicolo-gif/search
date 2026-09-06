@@ -492,8 +492,11 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
             @if (canManage()) {
               <button class="btn btn-secondary mini" (click)="modificaDalDettaglio(v)">{{ 'sales.edit' | translate }}</button>
             }
-            <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
           </div>
+          <!-- ⭐ 06/09/2026 sera (segnalazione utente, Libro UX §9 e §9-ter): la ✕ è OBBLIGATORIA e sta
+               NELL'ANGOLO in alto a destra della testata, staccata dalle azioni: in fila con le pillole
+               grigie non si riconosceva come «chiudi». La testata è sticky: resta visibile scorrendo. -->
+          <button type="button" class="pan-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate" [attr.title]="'common.close' | translate">×</button>
         </header>
 
         @if (nonConforme(v)) {
@@ -505,6 +508,24 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
         <section class="card pan-card">
           <h3>{{ 'sales.detail.title' | translate }}</h3>
           <dl class="coppie">
+            <!-- ⭐ 06/09/2026 sera (segnalazione utente: «non riporta i prodotti di questa vendita
+                 correttamente, sono indicate solo le rose»). La VENDITA porta un prodotto solo — il
+                 primo SKU riconosciuto — ma l'ordine ne ha spesso di più: qui si mostrano TUTTE le
+                 righe dell'ordine, lette da Orders, col segno su quella che ha generato la vendita. -->
+            @if (ordine()?.prodotti?.length) {
+              <dt>{{ 'sales.detail.righeOrdine' | translate: { n: ordine()!.prodotti!.length } }}</dt>
+              <dd>
+                <ul class="righe-ordine">
+                  @for (r of ordine()!.prodotti!; track $index) {
+                    <li>
+                      <span class="q">{{ r.quantita }}×</span> {{ r.nome || '—' }}
+                      @if (r.sku) { <span class="muted"> · {{ r.sku }}</span> }
+                      @if (r.productId && r.productId === v.product?.id) { <span class="muted"> · {{ 'sales.detail.rigaDellaVendita' | translate }}</span> }
+                    </li>
+                  }
+                </ul>
+              </dd>
+            }
             <dt>{{ 'sales.detail.product' | translate }}</dt>
             <dd>
               <!-- ⭐ 05/09/2026 (regola utente): il nome del prodotto si clicca
@@ -593,7 +614,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               </dd>
             }
             <dt>{{ 'sales.detail.delivery' | translate }}</dt>
-            <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
+            <!-- ⭐ 06/09/2026 sera (segnalazione utente: «manca l'orario di consegna richiesto»):
+                 la fascia chiesta dal cliente sta sull'ordine (attributo Shopify), non sulla vendita. -->
+            <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (fasciaOrdine(); as f) { <b class="fascia">· {{ f }}</b> }@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
             <dt>{{ 'sales.detail.linkedDelivery' | translate }}</dt>
             <dd>@if (v.delivery) { <a [href]="'/deliveries/' + v.delivery.id" target="_blank" rel="noopener">#{{ v.delivery.code }}</a> <span class="muted">· {{ 'status.delivery.' + v.delivery.status | translate }}</span> } @else { <span class="muted">{{ 'sales.detail.none' | translate }}</span> }</dd>
             <dt>{{ 'sales.col.orders' | translate }}</dt>
@@ -796,6 +819,10 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       /* ⭐ 04/09: pop-up di dettaglio — velo + pannello, come nel Customer
          Service. Il pannello sta dentro la viewport e scorre lui (Libro §9). */
       .riga-link { cursor: pointer; }
+      .righe-ordine { margin: 0; padding-left: 18px; }
+      .righe-ordine li { margin: 1px 0; }
+      .righe-ordine .q { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+      .fascia { margin-left: 4px; }
       .velo { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; backdrop-filter: blur(2px); }
       .pannello { position: fixed; z-index: 91; top: 4vh; left: 50%; transform: translateX(-50%);
         width: min(760px, 94vw); max-height: 92vh; overflow-y: auto;
@@ -803,7 +830,10 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
         padding: 0 18px 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.28); }
       .pan-testa { position: sticky; top: 0; z-index: 2; background: var(--bg, #f5f5f7);
         display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-        padding: 16px 0 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+        padding: 16px 44px 12px 0; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+      .pan-x { position: absolute; top: 12px; right: 0; border: 1px solid var(--hairline); background: var(--surface, #fff); width: 32px; height: 32px; border-radius: 50%;
+        font-size: 19px; line-height: 1; cursor: pointer; color: var(--text-secondary, #555); display: grid; place-items: center; }
+      .pan-x:hover { background: var(--fill, #f0f0f2); color: var(--text); }
       .pan-titolo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .pan-titolo h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
       .pan-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1245,6 +1275,13 @@ export class SalesListComponent {
 
   readonly dettaglio = signal<Sale | null>(null);
   readonly dettaglioCaricando = signal(false);
+  /** ⭐ 06/09 sera: l'ORDINE dietro la vendita (righe e fascia oraria), letto da Orders quando si apre il pop-up. */
+  readonly ordine = signal<{ disponibile?: boolean; consegnaDalle?: string; consegnaAlle?: string; prodotti?: { productId: string | null; nome: string | null; quantita: number; sku: string | null }[] } | null>(null);
+  fasciaOrdine(): string | null {
+    const o = this.ordine();
+    if (!o?.consegnaDalle && !o?.consegnaAlle) return null;
+    return o.consegnaDalle && o.consegnaAlle ? `${o.consegnaDalle}–${o.consegnaAlle}` : (o.consegnaDalle ?? o.consegnaAlle ?? null);
+  }
   readonly confermaPendente = signal<{
     titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary'; azione: () => void;
   } | null>(null);
@@ -1291,12 +1328,20 @@ export class SalesListComponent {
   }
   private ricaricaDettaglio(id: string): void {
     this.dettaglioCaricando.set(true);
+    // L'ordine dietro la vendita: righe e fascia oraria. Silenzioso: è un di più, non deve rompere il pop-up.
+    this.ordine.set(null);
+    if (this.canManage()) {
+      this.http.get<{ disponibile?: boolean }>(`${environment.apiUrl}/sales/${id}/ordine`).subscribe({
+        next: (o) => { if (this.dettaglio()?.id === id) this.ordine.set(o?.disponibile === false ? null : o); },
+        error: () => undefined,
+      });
+    }
     this.http.get<Sale>(`${environment.apiUrl}/sales/${id}`).subscribe({
       next: (v) => { if (this.dettaglio()?.id === id) this.dettaglio.set(v); this.dettaglioCaricando.set(false); },
       error: (e) => { this.dettaglioCaricando.set(false); this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Dettaglio non disponibile' }); },
     });
   }
-  chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.dettaglio.set(null); }
+  chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.ordine.set(null); this.dettaglio.set(null); }
   @HostListener('document:keydown.escape')
   suEscape(): void {
     // L'ordine conta: si chiude quello che sta SOPRA, non tutto insieme.

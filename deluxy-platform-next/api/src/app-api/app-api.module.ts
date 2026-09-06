@@ -17,7 +17,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiQuery, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
@@ -1151,6 +1151,79 @@ export class AppApiService {
     };
   }
 
+  /**
+   * ⭐ 06/09/2026 sera — I PREZZI CHE UN PARTNER FA SU UN PRODOTTO (regola utente: «liste di prodotto»).
+   * Il Customer Service costruisce da qui le sue liste per prodotto e provincia: a Roma la Vintage Cake
+   * la fa Pappagallo a 50 € e un'altra pasticceria a 60 € → si propone prima a Pappagallo.
+   * Tre sorgenti, tutte già nella piattaforma:
+   *  · `riconciliazione` — patto ACCETTATO per (prodotto, variante, provincia): il prezzo al partner è il patto;
+   *  · `unico` — prodotto UNICO del partner: il suo listino (ci sono anche i «Fiori a stelo» caricati il 06/09);
+   *  · `listino` — prezzo al partner di listino del prodotto/variante, quando il prodotto ha un proprietario.
+   * ⚠️ Non è una copia da tenere: si legge quando serve. Gli ESCLUSI DALLE PROPOSTE non escono.
+   */
+  async prezziPartner(sigla?: string) {
+    const code = (sigla ?? '').trim().toUpperCase();
+    const provincia = code ? await this.prisma.province.findFirst({ where: { code }, select: { id: true, code: true } }) : null;
+    if (code && !provincia) throw new NotFoundException(`Provincia sconosciuta: ${sigla}`);
+    const vivo = { active: true, deleted: false, esclusoDalleProposte: false } as const;
+
+    const ric = await this.prisma.productReconciliation.findMany({
+      where: { status: 'accettata', ...(provincia ? { provinceId: provincia.id } : {}) },
+      select: {
+        productId: true, productVariantId: true, provinceId: true, partnerId: true, partnerPrice: true, price: true, discountPercent: true, updatedAt: true, salesCount: true,
+        product: { select: { name: true, sku: true, publicPrice: true, price: true, category: { select: { name: true, mestiere: { select: { nome: true } } } } } },
+        variant: { select: { name: true, sku: true, publicPrice: true } },
+      },
+    });
+    // ⚠️ La riconciliazione non ha la relazione con Province: la sigla si legge a parte.
+    const siglePerProvincia = new Map((await this.prisma.province.findMany({ select: { id: true, code: true } })).map((x) => [x.id, x.code]));
+    const partnerIds = [...new Set(ric.map((r) => r.partnerId))];
+    const partnerOk = new Map((await this.prisma.partner.findMany({ where: { id: { in: partnerIds }, ...vivo }, select: { id: true, insegna: true } })).map((p) => [p.id, p.insegna]));
+
+    const unici = await this.prisma.product.findMany({
+      where: { type: 'UNICO', active: true, deletedAt: null, partnerId: { not: null }, partner: vivo, ...(provincia ? { partner: { ...vivo, provinces: { some: { provinceId: provincia.id } } } } : {}) },
+      select: {
+        id: true, name: true, sku: true, price: true, publicPrice: true, updatedAt: true,
+        partner: { select: { id: true, insegna: true, provinces: { select: { province: { select: { code: true } } } } } },
+        category: { select: { name: true, mestiere: { select: { nome: true } } } },
+        variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
+      },
+      take: 3000,
+    });
+
+    const righe: Record<string, unknown>[] = [];
+    for (const r of ric) {
+      const insegna = partnerOk.get(r.partnerId);
+      if (!insegna) continue; // partner spento, cancellato o escluso dalle proposte
+      righe.push({
+        origine: 'riconciliazione', prodottoId: r.productId, prodotto: r.product.name, sku: r.variant?.sku ?? r.product.sku ?? null,
+        varianteId: r.productVariantId ?? null, variante: r.variant?.name ?? '',
+        categoria: r.product.category?.name ?? null, mestiere: r.product.category?.mestiere?.nome ?? null,
+        provincia: siglePerProvincia.get(r.provinceId) ?? null, partnerId: r.partnerId, partner: insegna,
+        prezzoPartner: r.partnerPrice ?? Math.round(r.price * (1 - r.discountPercent / 100) * 100) / 100,
+        pubblico: r.variant?.publicPrice ?? r.product.publicPrice ?? r.product.price ?? null,
+        osservazioni: r.salesCount, aggiornatoIl: r.updatedAt,
+      });
+    }
+    for (const u of unici) {
+      if (!u.partner) continue;
+      const province = u.partner.provinces.map((x) => x.province.code);
+      const varianti = u.variants.length ? u.variants : [null];
+      for (const v of varianti) {
+        righe.push({
+          origine: 'unico', prodottoId: u.id, prodotto: u.name, sku: v?.sku ?? u.sku ?? null,
+          varianteId: v?.id ?? null, variante: v?.name ?? '',
+          categoria: u.category?.name ?? null, mestiere: u.category?.mestiere?.nome ?? null,
+          provincia: provincia?.code ?? null, province,
+          partnerId: u.partner.id, partner: u.partner.insegna,
+          prezzoPartner: v?.price ?? u.price, pubblico: v?.publicPrice ?? u.publicPrice ?? null,
+          osservazioni: null, aggiornatoIl: u.updatedAt,
+        });
+      }
+    }
+    return { provincia: provincia?.code ?? null, righe: righe.filter((r) => typeof r['prezzoPartner'] === 'number' && (r['prezzoPartner'] as number) > 0) };
+  }
+
   /** Le aree commerciali (gruppi di province) coi partner che vendono: per le liste di priorità PER AREA del Customer Service. */
   async areeCommerciali() {
     const aree = await this.prisma.area.findMany({
@@ -1469,6 +1542,14 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
   venditaProvincia(@Param('sigla') sigla: string) {
     return this.service.venditaProvincia(sigla);
+  }
+
+  @Get('prezzi-partner')
+  @ApiOperation({ summary: 'I prezzi che i partner fanno su un prodotto: patti di riconciliazione accettati e listini dei prodotti UNICI (con i «Fiori a stelo»). Il Customer Service ci costruisce le liste di prodotto' })
+  @ApiQuery({ name: 'provincia', required: false, description: 'sigla; senza, tutte' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  prezziPartner(@Query('provincia') provincia?: string) {
+    return this.service.prezziPartner(provincia);
   }
 
   @Get('aree-commerciali')

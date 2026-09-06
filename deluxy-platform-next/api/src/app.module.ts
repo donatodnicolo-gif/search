@@ -37,6 +37,7 @@ import { SalesModule } from './sales/sales.module';
 import { StockModule } from './stock/stock.module';
 import { MestieriModule } from './mestieri/mestieri.module';
 import { AreeModule } from './aree/aree.module';
+import { ListinoModule } from './listino/listino.module';
 import { StatisticheModule } from './statistiche/statistiche.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
@@ -70,6 +71,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     StockModule,
     MestieriModule,
     AreeModule,
+    ListinoModule,
     StatisticheModule,
     OrdersSyncModule,
     RecurringModule,

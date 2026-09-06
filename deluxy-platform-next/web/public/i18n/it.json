@@ -62,6 +62,7 @@
     "segnalazioni": "Segnalazioni",
     "statistiche": "Statistiche",
     "mestieri": "Mestieri",
+    "listino": "Listino",
     "aree": "Aree"
   },
   "partnerHome": {
@@ -1112,6 +1113,19 @@
     "vuoto": "Nessuna area.",
     "confermaElimina": "Eliminare l'area «{{nome}}»?",
     "col": { "nome": "Area", "note": "Note", "province": "Province", "partner": "Partner" }
+  },
+  "listino": {
+    "title": "Il tuo listino dei fiori",
+    "caption": "Il prezzo di un fiore singolo, per stelo: è quello che incassi tu. Serve a proporti gli ordini con la quantità giusta (per esempio 12 rose) senza chiedertelo ogni volta.",
+    "primoAccesso": "Compila il tuo listino dei fiori",
+    "primoAccessoSub": "Scrivi quanto prendi per un singolo stelo. Dove c'è già un prezzo l'abbiamo ricavato dalle tue consegne passate: confermalo o correggilo.",
+    "vai": "Compila ora",
+    "compilato": "Listino confermato il {{quando}}.",
+    "daConfermare": "da confermare",
+    "nonLoFaccio": "non lo faccio",
+    "salva": "Salva il listino",
+    "nota": "Lascia vuoto un fiore che non fai. I prezzi restano tuoi: puoi cambiarli quando vuoi da qui.",
+    "col": { "fiore": "Fiore", "prezzo": "€ per stelo", "stato": "" }
   },
   "mestieri": {
     "title": "Mestieri",
@@ -2638,6 +2652,8 @@
     "detail": {
       "title": "Vendita",
       "product": "Prodotto",
+      "righeOrdine": "Ordine ({{n}} righe)",
+      "rigaDellaVendita": "è la riga di questa vendita",
       "photos": "Guarda le foto del prodotto",
       "maker": "Lo fa {{chi}}",
       "line": "Linea {{linea}}",
