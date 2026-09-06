@@ -27,11 +27,6 @@ export const GESTIONI = [
   // organizzarne un'altra. Lo mette la sincronizzazione quando di là la
   // consegna passa a «not_delivered», o una persona a mano. Non è chiusura.
   { chiave: 'non_consegnata', nome: 'Non consegnata', colore: '#b3261e' },
-  // ⚠️ «Non consegnata» (utente, 06/09/2026): la consegna in piattaforma NON è
-  // riuscita e l'ordine torna fra gli APERTI, perché il Customer Service deve
-  // organizzarne un'altra. Lo mette la sincronizzazione quando di là la
-  // consegna passa a «not_delivered», o una persona a mano. Non è chiusura.
-  { chiave: 'non_consegnata', nome: 'Non consegnata', colore: '#b3261e' },
   // ⚠️ `comunicazione` NON si toglie anche se non è fra i quattro passi: lo
   // scrive da sola l'app quando scrivi al cliente (WhatsApp, Email, Chiama), e
   // toglierlo dal vocabolario farebbe comparire uno stato senza nome sugli
