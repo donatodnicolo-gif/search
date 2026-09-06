@@ -1,5 +1,29 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (56) — «Non lette» in Inbox; DEPLOY di tutto (piattaforma col merge dei due rami, CS)
+
+**«Non lette»** (utente: «filtrare rapidamente in inbox le conversazioni non
+lette»): interruttore `Non lette N` accanto a «Solo ordini» in `Inbox.tsx`
+(`soloNonLette`, filtra `nonLetti > 0`, si somma a Tutte/Mie/Libere). È
+diverso da «Da leggere», che è il segnalibro messo a mano.
+
+**DEPLOY piattaforma (col sì dell'utente: «fai deploy di tutto e assicurati
+siano importati i tuoi sviluppi e quelli dell'altra app»)**: merge
+`origin/canale-app-0609` (8cd27e63) su 119adc73 (l'ultimo pubblicato
+dall'altra sessione, ramo `platform-0409`, worktree `deploy-delivery`) →
+**e51cb2a9**, nessun conflitto, `tsc` api 0; build prebuilt dalla radice di
+`Temp\wt-merge` e `vercel deploy --prebuilt --prod` → `delivery-a8wt9w9le`.
+Pushato su `origin/canale-app-0609` e creato `origin/platform-0409` allo
+stesso commit: ⚠️ l'altra sessione deve fare `git pull` (o merge) prima del
+prossimo deploy, altrimenti la produzione torna indietro un'altra volta.
+
+⚠️ Un'altra sessione sta scrivendo ADESSO nella cartella del CS: file NON
+tracciati `src/lib/vendite.ts`, `src/app/api/vendite/{liste,sconti}/route.ts`
+(Vendite → Sconti per provincia, modello Prisma `scontoProvincia` che non
+esiste ancora) — 22 errori tsc tutti lì, zero nei file tracciati. Non sono
+miei: non li committo, non li tocco. Regola 4 delle REGOLE-DI-LAVORO (una
+sessione per cartella) violata: da dire all'utente.
+
 ## 06/09/2026 (55) — La salute di Orders in testata, in TRE stati
 
 Utente: «non vedo neanche più lo stato di un ordine che arriva da app Orders
