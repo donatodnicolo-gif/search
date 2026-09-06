@@ -986,6 +986,35 @@ export class AppApiService {
         if (esistente) return this.consegnaPerNumero(esistente.code);
       }
     }
+    // ── I DEFAULT DELLE CONSEGNE CREATE DAL CANALE APP (utente, 06/09/2026,
+    // consegna #101065 nata dal Customer Service senza ritiro né brand) ──
+    // 1. Ritiro = un'ora prima della consegna, quando chi chiama non lo dice.
+    // 2. Indirizzo di ritiro = la sede del partner (con la provincia, com'è
+    //    scritta sul partner); per «Artista Locale» = l'indirizzo di consegna
+    //    per intero (il fornitore sta dove abita chi riceve).
+    // 3. Per «Artista Locale» la consegna la fa il fornitore
+    //    (`deliveredByPartner`), a meno che l'ordine sia di deluxy.it (il
+    //    valet in guanti bianchi) o ci sia già un valet assegnato.
+    // Solo i campi VUOTI: quello che l'app dichiara resta suo.
+    const menoUnOra = (hhmm?: string): string | undefined => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm ?? '').trim());
+      if (!m) return undefined;
+      return `${String((Number(m[1]) + 23) % 24).padStart(2, '0')}:${m[2]}`;
+    };
+    if (!dto.pickupTimeFrom?.trim() && dto.deliveryTimeFrom) dto.pickupTimeFrom = menoUnOra(dto.deliveryTimeFrom);
+    if (!dto.pickupTimeTo?.trim() && dto.deliveryTimeTo) dto.pickupTimeTo = menoUnOra(dto.deliveryTimeTo);
+    const partnerScelto = await this.prisma.partner.findUnique({
+      where: { id: dto.partnerId },
+      select: { insegna: true, address: true },
+    });
+    const artistaLocale = (partnerScelto?.insegna ?? '').trim().toLowerCase() === 'artista locale';
+    if (!dto.pickupAddress?.trim()) {
+      dto.pickupAddress = artistaLocale ? (dto.recipientAddress ?? '').trim() : (partnerScelto?.address ?? '').trim();
+    }
+    if (artistaLocale && dto.deliveredByPartner === undefined) {
+      const daDeluxyIt = (dto.ddtBrand ?? '').trim().toLowerCase() === 'deluxy.it';
+      dto.deliveredByPartner = !daDeluxyIt && !dto.valetId;
+    }
     const utenteApp: JwtUser = {
       sub: `app:${nomeChiave}`,
       email: `${nomeChiave}@app.deluxy`,

@@ -1294,7 +1294,12 @@ export class DeliveriesService {
     // si DICHIARA quando era anche esagerata: un valore sopra la soglia e' la
     // firma dell'errore, e chi rilegge la consegna deve poterla riconoscere.
     const kmScartati = distanceKm != null && distanceKm > KM_MASSIMI_IN_CITTA ? distanceKm : null;
-    return { pickupAddress: citta, distanceKm: null, kmScartati };
+    // ⚠️ 06/09/2026 (regola utente): il ritiro e' l'INDIRIZZO di consegna per
+    // intero, con via e provincia, non la sola citta'. «Modena» come ritiro
+    // faceva calcolare la distanza dal centro della citta' e lasciava il valet
+    // senza un posto dove andare; l'indirizzo intero da' distanza zero, che e'
+    // il vero significato di «il fornitore sta dove abita chi riceve».
+    return { pickupAddress: (recipientAddress ?? '').trim(), distanceKm: null, kmScartati };
   }
 
   /**
