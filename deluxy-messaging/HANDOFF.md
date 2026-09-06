@@ -1,5 +1,40 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (28) — IN PRODUZIONE: piattaforma e Customer Service (col sì dell'utente)
+
+**Piattaforma consegne**: deploy `dpl_DiSFQdpoTuByy8h24JbFU5sjYmAk`
+(`delivery-bgw81i8b4`, 09:19), verificato sul dominio con `vercel inspect` e
+con `GET /api/v1/app/prodotti` senza chiave → **401** (la rotta esiste; prima
+404). **Build precompilata riuscita** (`vercel build --prod` + `--prebuilt`):
+la Modalità sviluppatore ha risolto l'EPERM dei symlink.
+⚠️⚠️ **Da dove**: la linea viva della piattaforma è il worktree
+`app/.claude/worktrees/deploy-delivery` (branch `platform-0409`) di un'altra
+sessione, che aveva modifiche non salvate e stava committando in quel momento.
+Non l'ho toccato: worktree temporaneo su **`6b899ea8`** (= il commit del
+deploy che era in produzione) + cherry-pick del fix `ffb15d69` (conflitto in
+`deliveries.service.ts` fuso a mano con lo stock: `ignoraStock,
+riferimentoEsterno: _rif`) → commit `00b693bf`, salvato su origin nel ramo
+**`canale-app-0609`**. 🔴 **Quella sessione deve cherry-pickare `00b693bf` in
+`platform-0409`**, altrimenti il suo prossimo deploy rimette il 500. I suoi 3
+commit successivi (3b9b1799, 95ad9bd5, e13bf20a) NON sono in produzione: li
+pubblica lei.
+
+**Customer Service**: push dei 16 commit (05–06/09) su `origin/scout-ui` per
+cherry-pick da un worktree temporaneo (`24f61c9c..eda04fd0`; il registro globale
+`MANUALE-DELUXY.html` aveva già le mie righe da un riallineamento di un'altra
+sessione, quindi lì ha vinto origin, verificato riga per riga). Deploy
+`dpl_4eCsvg3Csop8qJuLCrjdq11WZnXD` (`deluxy-messaging-dqn2jusvx`, 09:26),
+dominio verificato con `inspect`.
+⚠️ **Precompilato NON riuscito per il CS**: `vercel build` ok, ma
+`deploy --prebuilt` muore su `ENOENT …/functions/account-meta.func` (362
+link simbolici fra le funzioni Next, creati su Windows), `--archive=tgz` dà
+«Unexpected error», e anche sostituendo i link con copie (33 MB) lo stesso
+errore vuoto. Ripiego: **build su Vercel** (`vercel deploy --prod`), come
+ieri. Da capire con calma; intanto la strada che funziona è quella.
+
+**Dopo il deploy**: `ripara-chiamate-invertite.mts --applica` → 0 da riparare
+(le 19 erano già a posto, nessuna nuova arrivata al contrario).
+
 ## 06/09/2026 (27) — Consegnata sulla piattaforma = «Gestito» qui, da sola
 
 Regola dell'utente: «tutti gli ordini che vanno in consegnato in app delivery
