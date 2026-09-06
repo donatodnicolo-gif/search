@@ -73,6 +73,9 @@ type Prefill = {
   partnerNome: string
   /** La sigla della provincia di consegna, '' se non riconosciuta. */
   provinciaConsegna?: string
+  /** Il prezzo del prodotto dedotto dai pagamenti (o dal fornitore registrato). */
+  prezzoProposto?: number | null
+  prezzoDa?: string
   campi: Campi
   servizi: Servizio[]
   partner: Partner[]
@@ -163,10 +166,19 @@ export function MandaInApp({
     if (!aperto || !righe.length) return
     const r = righe[0]
     setCercaProdotto((v) => v || r.titolo)
-    setPrezzo((v) => v || (r.prezzo ? String(r.prezzo).replace('.', ',') : ''))
+    // ⚠️ NON il prezzo pagato dal cliente: quello è un altro numero. Il prezzo
+    // del prodotto qui è quello al partner, e arriva dal prefill (pagamenti).
     setQuantita((v) => (v === '1' && r.quantita > 1 ? String(r.quantita) : v))
     setDescrizione((v) => v || r.titolo)
   }, [aperto, righe])
+
+  // Il prezzo proposto dal server (pagamento al fornitore, costo registrato,
+  // costo partner): entra solo se il campo è ancora vuoto.
+  useEffect(() => {
+    if (!dati || !dati.prezzoProposto) return
+    const p = dati.prezzoProposto
+    setPrezzo((v) => v || String(p).replace('.', ','))
+  }, [dati])
 
   // La ricerca a catalogo: dopo mezzo secondo di pausa, nel perimetro del
   // partner scelto. Si rifà cambiando partner, perché cambia il perimetro.
@@ -222,16 +234,23 @@ export function MandaInApp({
     // prezzo scritto qui (flessibile quando non è quello di listino). Col
     // prodotto generico la descrizione va nelle note, sotto gli occhi del valet.
     const qta = Math.max(1, Math.round(Number(quantita) || 1))
-    const products = prodotto
+    // ⚠️ Un PREZZO senza prodotto scelto non si perde (utente, 06/09/2026: «manca
+    // la possibilità di specificare il prezzo in modo flessibile»): va sul
+    // prodotto generico del catalogo, flessibile, con la descrizione della merce
+    // (quella scritta, o il titolo della riga dell'ordine) nelle note del valet.
+    const scelto = prodotto ?? (prezzoValido && generico ? generico : null)
+    const daPrezzo = !prodotto && Boolean(scelto)
+    const products = scelto
       ? [
           {
-            productId: prodotto.id,
+            productId: scelto.id,
             quantity: qta,
-            ...(prezzoValido ? { price: prezzoNumero, flexiblePrice: prezzoFlessibile } : {}),
+            ...(prezzoValido ? { price: prezzoNumero, flexiblePrice: daPrezzo || prezzoFlessibile } : {}),
           },
         ]
       : undefined
-    const notaMerce = eGenerico && descrizione.trim() ? `Prodotto: ${descrizione.trim()}` : ''
+    const merce = descrizione.trim() || righe[0]?.titolo || ''
+    const notaMerce = (eGenerico || daPrezzo) && merce ? `Prodotto: ${merce}` : ''
     const corpo: Campi = {
       ...campi,
       products,
@@ -562,38 +581,54 @@ export function MandaInApp({
               </>
             )}
           </div>
-          {prodotto ? (
-            <>
-              {eGenerico ? (
-                <label className="campo">
-                  <span>Che cosa va consegnato (finisce nelle note per il valet)</span>
-                  <input
-                    value={descrizione}
-                    onChange={(e) => setDescrizione(e.target.value)}
-                    placeholder="es. Bouquet 50 rose rosse e bianche"
-                  />
-                </label>
-              ) : null}
-              <div className="campi-affiancati">
-                <label className="campo">
-                  <span>Quantità</span>
-                  <input value={quantita} onChange={(e) => setQuantita(e.target.value)} inputMode="numeric" />
-                </label>
-                <label className="campo">
-                  <span>
-                    Prezzo prodotto (€)
-                    {prezzoFlessibile ? <span className="cella-sub"> · diverso dal listino: flessibile</span> : null}
-                  </span>
-                  <input
-                    value={prezzo}
-                    onChange={(e) => setPrezzo(e.target.value)}
-                    inputMode="decimal"
-                    placeholder={prodotto.prezzo ? String(prodotto.prezzo).replace('.', ',') : '0,00'}
-                  />
-                </label>
-              </div>
-            </>
+          {/* ⚠️ Quantità e PREZZO stanno sempre a vista, con o senza prodotto scelto
+              (utente, 06/09/2026): prima comparivano solo dopo aver scelto un prodotto
+              dal catalogo, e sembrava che il prezzo non si potesse scrivere. */}
+          {eGenerico || !prodotto ? (
+            <label className="campo">
+              <span>Che cosa va consegnato (finisce nelle note per il valet)</span>
+              <input
+                value={descrizione}
+                onChange={(e) => setDescrizione(e.target.value)}
+                placeholder="es. Bouquet 50 rose rosse e bianche"
+              />
+            </label>
           ) : null}
+          <div className="campi-affiancati">
+            <label className="campo">
+              <span>Quantità</span>
+              <input value={quantita} onChange={(e) => setQuantita(e.target.value)} inputMode="numeric" />
+            </label>
+            <label className="campo">
+              <span>
+                Prezzo prodotto (€)
+                {prezzoFlessibile ? <span className="cella-sub"> · diverso dal listino: flessibile</span> : null}
+              </span>
+              <input
+                value={prezzo}
+                onChange={(e) => setPrezzo(e.target.value)}
+                inputMode="decimal"
+                placeholder={prodotto?.prezzo ? String(prodotto.prezzo).replace('.', ',') : '0,00'}
+              />
+              {dati.prezzoProposto ? (
+                <span className="cella-sub">
+                  Proposto {dati.prezzoProposto.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
+                  {dati.prezzoDa ? ` — dal ${dati.prezzoDa}` : ''}. Si può cambiare.
+                </span>
+              ) : (
+                <span className="cella-sub">
+                  Nessun pagamento né costo registrato su quest&apos;ordine: scrivi il prezzo al partner.
+                </span>
+              )}
+              {!prodotto && prezzoValido ? (
+                <span className="cella-sub">
+                  {generico
+                    ? 'Senza un prodotto scelto, il prezzo va sul prodotto generico con la descrizione qui sopra.'
+                    : 'Scegli un prodotto dal catalogo: senza, la piattaforma non ha dove mettere questo prezzo.'}
+                </span>
+              ) : null}
+            </label>
+          </div>
 
           <div className="campi-affiancati">
             <label className="campo">

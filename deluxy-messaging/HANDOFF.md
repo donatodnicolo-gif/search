@@ -1,5 +1,33 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (34) — Manda in app: il prezzo del prodotto sempre a vista, dedotto dai pagamenti
+
+Segnalazione dell'utente su #2875: «manca la possibilità di specificare il
+prezzo del prodotto in modo flessibile, prezzo che può già dedurre dai
+pagamenti effettuati».
+
+**Due cose erano vere.** (1) Quantità e prezzo comparivano SOLO dopo aver
+scelto un prodotto dal catalogo: senza, sembrava che il prezzo non si potesse
+scrivere. (2) Il prezzo proposto era quello pagato dal CLIENTE (la riga
+dell'ordine, 85 €), che è un altro numero: il prezzo del prodotto sulla
+consegna è quello al partner.
+
+**Corretto**:
+- `prefillInApp` porta `prezzoProposto` + `prezzoDa`: la richiesta di
+  pagamento al fornitore su quell'ordine (prima le pagate, poi le aperte:
+  `orderBy pagataIl desc nulls last`), altrimenti il costo registrato sul
+  fornitore, altrimenti il costo partner della vendita in piattaforma. #2875 →
+  **60 € dal pagamento a Sarracino Orsolina** (misurato).
+- Nel modulo il campo prezzo sta sempre a vista, con sotto «Proposto 60,00 € —
+  dal pagamento a …. Si può cambiare», oppure «nessun pagamento né costo
+  registrato: scrivi il prezzo al partner».
+- Un prezzo SENZA prodotto scelto non si perde: va sul prodotto generico del
+  catalogo («Servizio Consegna»), flessibile, con la descrizione della merce
+  (scritta, o il titolo della riga dell'ordine) nelle note del valet. Se il
+  generico manca, lo dice.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (33) — Manda in app: «Vendita Deluxy» è il servizio di suo
 
 Regola dell'utente: «per i servizi vendita seleziona sempre come prima opzione
