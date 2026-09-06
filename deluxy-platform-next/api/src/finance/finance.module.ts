@@ -36,20 +36,37 @@
 // E' la stessa scelta gia' fatta in Deluxy Orders (margine sempre al netto IVA,
 // 22% su tutto).
 //
-//   prezzoPubblico     = somma( DeliveryProduct.price x quantita )
-//   datoAlPartner      = Delivery.productValue        <- SCRITTO, non dedotto
-//   guadagnoLordo      = prezzoPubblico - datoAlPartner
-//   guadagnoNetto      = guadagnoLordo / 1.22         <- il guadagno vero
+// ⭐ 05–06/09/2026 (regola utente, confermata: «l'IVA è tra totale venduto e
+// quanto pagato ai partner e va detratta ai fini del margine; pagato al partner
+// è il prezzo partner vero; sì 22%; manca l'aggiunta delle fee a nostro favore»):
+//
+//   venduto            = quello che il CLIENTE ha pagato: da Orders (prodotti +
+//                        consegna) dove la cache c'è; altrove il prezzo PUBBLICO
+//                        di listino delle righe (variante > prodotto). ⚠️ Le righe
+//                        di consegna (`DeliveryProduct.price`) sono a prezzo
+//                        PARTNER, non pubblico: usarle come venduto azzerava il
+//                        margine (verificato su Tiramisù «4»: riga 28, Orders 30).
+//   pagatoAlPartner    = Delivery.productValue se scritto, altrimenti la somma
+//                        delle righe (prezzo partner × quantità) — è la stessa
+//                        base della Fatturazione.
+//   guadagnoLordo      = venduto - pagatoAlPartner
+//   guadagnoNetto      = guadagnoLordo / 1.22         <- l'IVA sta nella differenza
 //   iva                = guadagnoLordo - guadagnoNetto
-//   feeContratto       = Delivery.price + additionalPrice  (quota a listino, per confronto)
+//   feeContratto       = Delivery.price + additionalPrice + regola (la quota che
+//                        fatturiamo al partner, netta); sulle VENDITE senza prezzo
+//                        scritto = fee% del listino partner × base fee (righe
+//                        senza «Senza fee»), come fa la Fatturazione.
 //   feePercent         = guadagnoNetto / valoreVendite   (netto su netto: l'utente)
 //   feePercentContract = Partner.commissionPercent
 //   commissioneIncassi = quella di ORDERS per l ordine (commissioneDa: shopify
 //                        reale > tariffa stimata); ZERO se il metodo non si sa.
 //                        ⚠️ NON e piu il 3% fisso (dal 25/08/2026): il 3% che
 //                        compariva qui era un commento rimasto indietro sul codice.
-//   costoConsegna      = paga del valet + plus/minus, ma ZERO se `payable` e' false
-//   margineTotale      = guadagnoNetto - costoConsegna - commissioneIncassi
+//   costoConsegna      = paga del valet + plus/minus; se la paga NON e' scritta
+//                        si legge dal LISTINO del valet (`pagaConsegna`, la stessa
+//                        regola degli Stipendi: fuori città, km, ore); ZERO se
+//                        `payable` e' false
+//   margineTotale      = guadagnoNetto + feeContratto - costoConsegna - commissioneIncassi
 //
 // ⚠️ L'IVA **non si sottrae due volte**: il guadagno netto l'ha gia' tolta. La
 // colonna IVA c'e' per farla vedere, non per rientrare nel margine.
@@ -92,6 +109,8 @@ import { Roles, CurrentUser, JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { baseFee } from '../common/valore-prodotti';
+import { pagaConsegna, scegliListinoValet } from '../salaries/salaries.module';
 
 /** IVA applicata al corrispettivo (22%). */
 const VAT = 0.22;
@@ -273,6 +292,15 @@ interface TariffaIncasso {
 }
 
 /** Quello che il cliente ha pagato online, dalla cache di Orders. */
+/** Quello che serve a computeRow per non fare una query per riga. */
+interface ContestoMargine {
+  perId: Map<string, any>;
+  perValet: Map<string, any[]>;
+  feePct: Map<string, number>;
+  tariffe: TariffaIncasso[];
+}
+const CONTESTO_VUOTO: ContestoMargine = { perId: new Map(), perValet: new Map(), feePct: new Map(), tariffe: [] };
+
 interface ClientePagato {
   prodotti: number;
   consegna: number;
@@ -517,20 +545,21 @@ export class FinanceService {
       // deduce cio' che e' gia' scritto, ed e' l'errore appena corretto.
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
-        valet: { select: { hasVat: true, withholdingPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
             // `price`/`publicPrice` del prodotto servono al ripiego dichiarato
             // dove il prezzo di riga manca (variante → pubblico → base).
             product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
-            productVariant: { select: { name: true, publicPrice: true } },
+            productVariant: { select: { name: true, price: true, publicPrice: true } },
           },
         },
       },
       orderBy: { date: 'desc' },
     });
-    let rows = deliveries.map((d) => this.computeRow(d));
+    const ctx = await this.contestoMargine(deliveries);
+    let rows = deliveries.map((d) => this.computeRow(d, ctx));
     // Il BRAND sta sull'ordine (cache di Orders), non sulla consegna: si
     // filtra per numero d'ordine. Le consegne senza ordine restano fuori dal
     // filtro — chi filtra per brand cerca ordini di quel brand.
@@ -621,18 +650,19 @@ export class FinanceService {
       },
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
-        valet: { select: { hasVat: true, withholdingPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
             product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
-            productVariant: { select: { name: true, publicPrice: true } },
+            productVariant: { select: { name: true, price: true, publicPrice: true } },
           },
         },
       },
     });
-    const rows = deliveries.map((d) => this.computeRow(d));
-    const ordini = this.recap(rows, await this.tariffe(), await this.clientePagato(rows));
+    const ctx = await this.contestoMargine(deliveries);
+    const rows = deliveries.map((d) => this.computeRow(d, ctx));
+    const ordini = this.recap(rows, ctx.tariffe, await this.clientePagato(rows));
     const mappa = new Map<string, { venduto: number; primoMargine: number; feeVendita: number; margineFinale: number; metodoIncasso: string | null; commissioneIncassi: number }>();
     for (const o of ordini) {
       const numero = o.righe.map((r) => r.realOrderNumber).find(Boolean);
@@ -963,23 +993,55 @@ export class FinanceService {
     return totale ? { totale, annullate, fuoriPeriodo, nonVendite } : null;
   }
 
-  private computeRow(d: any): CorrispettivoRow {
+  /**
+   * Il contesto che serve a leggere UNA consegna senza una query per riga:
+   * listini dei valet (paga da listino quando non è scritta), fee% del listino
+   * partner per le vendite senza prezzo scritto, tariffe d'incasso.
+   */
+  private async contestoMargine(deliveries: any[]): Promise<ContestoMargine> {
+    const valetIds = [...new Set(deliveries.map((d) => d.valetId).filter(Boolean))] as string[];
+    const listini = valetIds.length
+      ? await this.prisma.valetService.findMany({
+          where: { valetId: { in: valetIds } },
+          include: { serviceType: { select: { pricingModel: true, minHours: true } } },
+        })
+      : [];
+    const perId = new Map<string, any>(listini.map((r) => [r.id, r]));
+    const perValet = new Map<string, any[]>();
+    for (const r of listini) {
+      const arr = perValet.get(r.valetId) ?? [];
+      arr.push(r);
+      perValet.set(r.valetId, arr);
+    }
+    const coppie = deliveries
+      .filter((d) => d.serviceType?.pricingModel === 'VENDITA' && !((d.price ?? 0) > 0) && d.partnerId && d.serviceTypeId)
+      .map((d) => ({ partnerId: d.partnerId as string, serviceTypeId: d.serviceTypeId as string }));
+    const feePct = new Map<string, number>();
+    if (coppie.length) {
+      const righe = await this.prisma.partnerService.findMany({
+        where: { OR: [...new Map(coppie.map((c) => [c.partnerId + '|' + c.serviceTypeId, c])).values()] },
+        select: { partnerId: true, serviceTypeId: true, price: true },
+      });
+      for (const r of righe) if (r.price != null) feePct.set(r.partnerId + '|' + r.serviceTypeId, r.price);
+    }
+    return { perId, perValet, feePct, tariffe: await this.tariffe() };
+  }
+
+  private computeRow(d: any, ctx: ContestoMargine = CONTESTO_VUOTO): CorrispettivoRow {
     const lines: any[] = d.products ?? [];
-    // Il prezzo pubblico e' la fotografia di quel giorno, non il catalogo di oggi.
-    // ⚠️ RIPIEGO DICHIARATO (deciso dall'utente il 25-26/08): dove la riga non
-    // ha un prezzo scritto si scala di un gradino alla volta — pubblico della
-    // VARIANTE, poi pubblico del PRODOTTO, poi il suo prezzo base (che per i
-    // fiorai vecchio stile E' il prezzo di vendita: «Bouquet Rose Rosa €70»,
-    // base 70). Cosi' si recupera tutto il recuperabile: 201 vendite contavano
-    // ZERO venduto pur avendo il prezzo a catalogo. `vendutoStimato` lo dice a
-    // schermo: e' il listino di oggi, non la fotografia di quel giorno.
+    // Il PREZZO PUBBLICO della riga: il listino (variante > prodotto). La riga di
+    // consegna (`l.price`) è a prezzo PARTNER e vale solo come ripiego, segnato
+    // come stima: senza, il venduto sarebbe il pagato e il margine zero.
     const prezzoRiga = (l: any): { v: number; stimato: boolean } => {
-      if (l.price != null) return { v: l.price, stimato: false };
-      const stima = l.productVariant?.publicPrice
-        ?? l.product?.publicPrice
-        ?? l.product?.price;
-      return stima != null ? { v: stima, stimato: true } : { v: 0, stimato: false };
+      const pubblico = l.productVariant?.publicPrice ?? l.product?.publicPrice;
+      if (pubblico != null) return { v: pubblico, stimato: false };
+      if (l.price != null) return { v: l.price, stimato: true };
+      return { v: 0, stimato: false };
     };
+    // Il PREZZO PARTNER della riga: quello scritto sulla consegna (la fotografia
+    // di quel giorno), altrimenti il listino partner della variante/prodotto.
+    const prezzoPartnerRiga = (l: any): number =>
+      l.price ?? l.productVariant?.price ?? l.product?.price ?? 0;
     let vendutoStimato = false;
     const publicPrice = lines.reduce((s, l) => {
       const { v, stimato } = prezzoRiga(l);
@@ -988,69 +1050,44 @@ export class FinanceService {
     }, 0);
     const deliveryFee = d.deliveryPrice ?? 0;
     const saleValue = publicPrice + deliveryFee;
-    // ⚠️ SI LEGGE, non si calcola. E il vuoto resta vuoto: dove `productValue`
-    // manca (418 vendite) non si mette zero, si dichiara — con zero il partner
-    // risulterebbe non aver preso niente e il guadagno sarebbe tutto nostro.
-    const haValorePartner = (d.productValue ?? 0) > 0;
-    const partnerPrice = d.productValue ?? 0;
+    // Pagato al partner: scritto, altrimenti la somma delle righe a prezzo partner
+    // (regola utente 05/09: «il prezzo partner vero», stessa base della Fatturazione).
+    const daRighe = lines.reduce((s: number, l: any) => s + prezzoPartnerRiga(l) * (l.quantity ?? 1), 0);
+    const partnerPrice = (d.productValue ?? 0) > 0 ? d.productValue : daRighe;
+    const haValorePartner = partnerPrice > 0;
     const takings = haValorePartner ? saleValue - partnerPrice : 0;
-    // ⚠️ Se il pagato al partner SUPERA il valore della vendita non c'e' IVA
-    // da scorporare (deciso dall'utente 26/08): la perdita e' tutta perdita,
-    // non −10 di cui −1,80 «di IVA».
     const takingsNet = takings < 0 ? takings : takings / (1 + VAT);
-    // L'IVA e' quella gia' tolta dal guadagno: si mostra, non si risottrae.
     const vat = takings - takingsNet;
-    const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0));
-    // ⚠️ Netto su lordo darebbe una percentuale piu' bassa del vero e nessuno
-    // saprebbe di quale delle due sta guardando: l'utente la vuole sul NETTO.
+    // La fee a nostro favore: la quota scritta; sulle vendite senza quota, la
+    // fee% del listino partner sulla base fee (righe «Senza fee» escluse).
+    const quotaScritta = d.price ?? 0;
+    const pct = d.serviceType?.pricingModel === 'VENDITA' && !(quotaScritta > 0)
+      ? ctx.feePct.get(String(d.partnerId) + '|' + String(d.serviceTypeId))
+      : undefined;
+    const quota = pct != null ? round2((baseFee(lines as any, d.productValue) * pct) / 100) : quotaScritta;
+    const feeContractAmount = Math.max(0, quota + (d.additionalPrice ?? 0) + ((d as any).ruleAdjustment ?? 0));
     const feePercent = saleValue > 0 && haValorePartner ? (takingsNet / saleValue) * 100 : 0;
-    // ⚠️ Se la consegna non e' pagabile, il suo costo e' ZERO: l'importo resta
-    // scritto sulla riga (serve a sapere quanto sarebbe valsa) ma non si paga.
-    // Segnalato dall'utente il 25/08/2026. Misurato: 817 vendite a buon fine
-    // hanno `payable = false` e un importo scritto lo stesso, per **10.463,15 €**
-    // che la pagina contava come costo — su tutte le consegne sono 1.280 per
-    // 16.071,10 €. Sono i giri in cui una sola consegna porta la paga e le altre
-    // no, cioe' proprio le regole carnet.
-    // ⭐ IL MINUS NON TOCCA IL MARGINE (deciso dall'utente il 26/08/2026):
-    // il legacy registrava il CONTANTE trattenuto dal valet come minus sulla
-    // paga (es. #31675: minus −1.237,60 su una paga di 15). Quel minus e' un
-    // DEBITO del valet verso di noi e incide SOLO su quanto gli paghiamo
-    // (lo stipendio lo tiene, vedi salaries): la consegna a noi e' costata la
-    // paga piena. Prima il pavimento a zero lo azzerava del tutto — meglio del
-    // costo negativo che GONFIAVA il margine, ma comunque sbagliato: 471
-    // vendite risultavano costate 0 invece della paga vera (2.963,26 € di
-    // costo che il margine non vedeva).
-    // ⭐ E IL PLUS SOPRA I 5 € NON E' UN COSTO DELLA CONSEGNA (deciso
-    // dall'utente il 26/08/2026): quasi sempre e' il RIMBORSO di qualcosa che
-    // il valet ha comprato per conto nostro — soldi che tornano indietro a lui,
-    // non il prezzo del viaggio. Il plus piccolo (fino a 5 €) resta: quello e'
-    // maggiorazione di paga vera.
+    // La paga del valet: scritta, altrimenti dal LISTINO (stessa regola degli Stipendi).
     const plusValet = FinanceService.plusNelCosto(d.valetAdditionalPrice);
-    const pagaValet = d.payable === false
-      ? 0
-      : Math.max(0, (d.valetSalary ?? 0) + plusValet);
-    // ⭐ 27/08 (deciso dall'utente): per i valet SENZA P.IVA la paga e' il
-    // NETTO che ricevono — sopra, Deluxy versa la RITENUTA D'ACCONTO, che e'
-    // un costo vero della consegna. Formula dalla ricevuta reale: la quota %
-    // di rimborso della scheda non e' imponibile, il resto si grossa a lordo
-    // (÷0,8) e la ritenuta e' il 20% del lordo = compensoNetto × 25%.
-    // Per le P.IVA non si aggiunge nulla (fatturano, le tasse sono loro).
+    let pagaValet = 0;
+    if (d.payable !== false) {
+      if ((d.valetSalary ?? 0) > 0) pagaValet = Math.max(0, d.valetSalary + plusValet);
+      else {
+        const listino = scegliListinoValet(d, ctx.perId, ctx.perValet);
+        const paga = listino ? pagaConsegna(d, listino) : null;
+        pagaValet = paga ? Math.max(0, paga.amount) : Math.max(0, plusValet);
+      }
+    }
     const ritenutaStimata = pagaValet > 0 && d.valet && d.valet.hasVat === false
       ? round2(pagaValet * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25)
       : 0;
     const deliveryCost = round2(pagaValet + ritenutaStimata);
-    const incassiCommission = saleValue * INCASSI;
-    // ⭐ LA FEE REGISTRATA E' RICAVO, e nel margine ci va (deciso dall'utente
-    // il 26/08): il partner non riceve il valore prodotti intero ma quel
-    // valore MENO la quota (cosi' la legge anche la Fatturazione: «dovuto =
-    // valore prodotti − trattenuto»). LORDA: «per le fee non c'e' da togliere
-    // IVA» (l'utente, 26/08 sera).
+    // Commissione d'incasso della riga: dalla tariffa del metodo, se si conosce;
+    // il riepilogo per ordine la sostituisce con quella VERA di Orders.
+    const tar = this.tariffa(ctx.tariffe, d.paymentGateway ?? null, d.paymentBrand ?? null);
+    const incassiCommission = tar ? round2((saleValue * tar.percentuale) / 100 + tar.fissa) : saleValue * INCASSI;
     const totalMargin = takingsNet + feeContractAmount - deliveryCost - incassiCommission;
     const feeContract = d.partner?.commissionPercent ?? 0;
-    // ⚠️ Le tre cose che rendono la riga non attendibile, in ordine di gravita'.
-    // Un guadagno a zero NON e' fra queste: con un partner a fee 0% e' una
-    // scelta commerciale, non un buco (delle 3.003 vendite senza quota, 2.880
-    // erano proprio questo — accusarle tutte avrebbe segnalato righe sane).
     const anomalia: Anomalia =
       saleValue <= 0
         ? 'venduto_a_zero'
