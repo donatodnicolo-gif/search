@@ -193,6 +193,8 @@ export type PropostaVendita = {
   prezzoFornitore: number | null
   mestiere: string
   candidati: { id: string; insegna: string; posizione: number; consegnaDaPartner: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; fonte: string }[]
+  /** ⭐ 06/09 sera: i prodotti dell'ordine che vanno A PREVENTIVO, con chi un prezzo l'ha già dato. */
+  preventivi: { codice: string; prodotto: string; conPrezzo: { partnerId: string; partner: string; prezzo: number }[] }[]
   note: string[]
   piattaforma: 'ok' | 'non-risponde'
 }
@@ -217,6 +219,8 @@ export async function propostaVendita(input: {
   righe: { prezzo: number; quantita: number }[] | null
   provincia: string
   mestiere?: string
+  /** Gli SKU delle righe dell'ordine: servono a riconoscere i prodotti A PREVENTIVO. */
+  sku?: string[]
 }): Promise<PropostaVendita> {
   const note: string[] = []
   const sigla = siglaProvincia(input.provincia) || input.provincia.trim().toUpperCase() || null
@@ -260,5 +264,30 @@ export async function propostaVendita(input: {
       if (sottoMinimo.length) note.push(`Sotto il minimo d'ordine di: ${sottoMinimo.map((p) => `${p.insegna} (${p.minimoOrdine} €)`).join(', ')}.`)
     }
   }
-  return { provincia: sigla, guantiBianchi, speseConsegna, extraPagato, anomalia, conPartner, sconto, prezzoPubblico, prezzoFornitore, mestiere, candidati, note, piattaforma: stato ? 'ok' : 'non-risponde' }
+  // ⭐ 06/09/2026 sera (regola utente): «i prodotti a preventivo richiedono il preventivo a
+  // tutti i partner che fanno quel mestiere: prima di poter accettare la vendita il Customer
+  // Service deve inserire il preventivo dato dal partner». Qui si dice quali righe dell'ordine
+  // sono a preventivo e chi un prezzo l'ha già dato: la piattaforma consegne, dal canto suo,
+  // non le smista da sola.
+  const preventivi: PropostaVendita['preventivi'] = []
+  for (const codice of [...new Set((input.sku ?? []).map((x) => (x ?? '').trim()).filter(Boolean))]) {
+    const esito = await leggiDallaPiattaforma<{ items?: { sku: string | null; name: string; tipologiaVendita?: string | null }[] }>(
+      `/api/v1/app/prodotti?q=${encodeURIComponent(codice)}`,
+    )
+    if (esito.stato !== 'ok') continue
+    const p = (esito.dati.items ?? []).find((x) => (x.sku ?? '').trim().toUpperCase() === codice.toUpperCase())
+    if (!p || p.tipologiaVendita !== 'preventivo') continue
+    const scritti = await db.prezzoProdottoPartner.findMany({ where: { codice: codice.toUpperCase() } })
+    const conPrezzo = scritti
+      .filter((r) => r.prezzo > 0 && (!r.provincia || r.provincia === sigla))
+      .map((r) => ({ partnerId: r.partnerId, partner: r.partner, prezzo: r.prezzo }))
+    preventivi.push({ codice: codice.toUpperCase(), prodotto: p.name, conPrezzo })
+    note.push(
+      conPrezzo.length
+        ? `«${p.name}» va a preventivo: ${conPrezzo.map((c) => `${c.partner} ${c.prezzo} €`).join(', ')}.`
+        : `«${p.name}» va a preventivo e nessun partner ha ancora dato un prezzo: chiedilo e scrivilo in Vendite → Liste di prodotto, poi la vendita si può accettare.`,
+    )
+  }
+
+  return { provincia: sigla, guantiBianchi, speseConsegna, extraPagato, anomalia, conPartner, sconto, prezzoPubblico, prezzoFornitore, mestiere, candidati, preventivi, note, piattaforma: stato ? 'ok' : 'non-risponde' }
 }

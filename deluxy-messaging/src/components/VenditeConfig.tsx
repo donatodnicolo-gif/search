@@ -15,7 +15,7 @@ type Stato = { provincia: string; nome: string; conPartner: boolean; partner: Pa
 type Lista = { id: string; area: string; province: string[]; mestiere: string; partner: { id: string; insegna: string }[]; origine: string; importataIl: string | null; modificataIl: string | null; modificataDa: string | null }
 
 export function VenditeConfig({ amministratore }: { amministratore: boolean }) {
-  const [area, setArea] = useState<'sconti' | 'partner' | 'liste'>('sconti')
+  const [area, setArea] = useState<'sconti' | 'partner' | 'liste' | 'prodotti'>('sconti')
   return (
     <div>
       <div className="page-head">
@@ -30,6 +30,7 @@ export function VenditeConfig({ amministratore }: { amministratore: boolean }) {
             ['sconti', 'Sconti per provincia'],
             ['partner', 'Partner per provincia'],
             ['liste', 'Liste di priorità per area'],
+            ['prodotti', 'Liste di prodotto'],
           ] as const
         ).map(([k, nome]) => (
           <button key={k} type="button" role="tab" aria-selected={area === k} className={`bottone ${area === k ? '' : 'secondario'} mini`} onClick={() => setArea(k)}>
@@ -40,6 +41,7 @@ export function VenditeConfig({ amministratore }: { amministratore: boolean }) {
       {area === 'sconti' && <Sconti amministratore={amministratore} />}
       {area === 'partner' && <PartnerPerProvincia />}
       {area === 'liste' && <Liste amministratore={amministratore} />}
+      {area === 'prodotti' && <ListeProdotto amministratore={amministratore} />}
     </div>
   )
 }
@@ -239,6 +241,160 @@ function Liste({ amministratore }: { amministratore: boolean }) {
           </ol>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ⭐ 06/09/2026 sera — LISTE DI PRODOTTO (regola utente).
+// Due tipologie sole: «a quantità» (il prezzo è quello unitario del partner) e «a preventivo»
+// (nessuno ha un prezzo: si chiede, e la risposta resta scritta qui per le prossime vendite).
+// I «mix» non entrano: là il prezzo lo fa la regola del territorio, e una lista di prodotto
+// sarebbe una seconda verità sullo stesso numero.
+type RigaProdotto = { id: string; codice: string; prodotto: string; variante: string; tipologia: string; mestiere: string; provincia: string; partnerId: string; partner: string; prezzo: number; unita: string; pubblico: number | null; fonte: string; nota: string; rispostoIl: string | null }
+type RigaLista = { partnerId: string; partner: string; posizione: number; prezzo: number | null; unita: string; fonte: string | null; chiestoIl: string | null; rispostoIl: string | null; nota: string }
+
+function ListeProdotto({ amministratore }: { amministratore: boolean }) {
+  const [righe, setRighe] = useState<RigaProdotto[]>([])
+  const [tipologia, setTipologia] = useState('')
+  const [cerca, setCerca] = useState('')
+  const [errore, setErrore] = useState('')
+  const [esito, setEsito] = useState('')
+  const [lavoro, setLavoro] = useState(false)
+  const [aperto, setAperto] = useState<{ codice: string; prodotto: string; mestiere: string; provincia: string } | null>(null)
+  const [lista, setLista] = useState<RigaLista[]>([])
+  const [nuovo, setNuovo] = useState<Record<string, string>>({})
+
+  const carica = useCallback(async () => {
+    const q = new URLSearchParams()
+    if (tipologia) q.set('tipologia', tipologia)
+    if (cerca.trim()) q.set('cerca', cerca.trim())
+    const r = await fetch(`/api/vendite/prodotti?${q}`)
+    const d = await r.json()
+    if (!r.ok) return setErrore(d.errore ?? 'Errore')
+    setErrore('')
+    setRighe(d.righe)
+  }, [tipologia, cerca])
+  useEffect(() => { void carica() }, [carica])
+
+  const importa = async () => {
+    setLavoro(true); setErrore(''); setEsito('')
+    const r = await fetch('/api/vendite/prodotti', { method: 'POST' })
+    const d = await r.json()
+    setLavoro(false)
+    if (!r.ok) return setErrore(d.errore ?? 'Errore')
+    setEsito(`Letti ${d.letti} prezzi dalla piattaforma: ${d.create} nuovi, ${d.aggiornate} aggiornati, ${d.lasciate} lasciati perché sono preventivi scritti qui.`)
+    void carica()
+  }
+
+  const apriLista = async (codice: string, prodotto: string, mestiere: string, provincia: string) => {
+    setAperto({ codice, prodotto, mestiere, provincia })
+    const q = new URLSearchParams({ codice, provincia })
+    if (mestiere) q.set('mestiere', mestiere)
+    const res = await fetch(`/api/vendite/prodotti?${q}`)
+    const d = await res.json()
+    if (!res.ok) return setErrore(d.errore ?? 'Errore')
+    setLista(d.righe)
+    if (d.piattaforma !== 'ok') setErrore('La piattaforma consegne non ha risposto: i partner della provincia non sono stati letti.')
+  }
+
+  const apri = async (r: RigaProdotto) => {
+    const prov = r.provincia || (typeof window !== 'undefined' ? window.prompt('Per quale provincia? (sigla, es. MI)')?.trim().toUpperCase() ?? '' : '')
+    if (!prov) return
+    await apriLista(r.codice, r.prodotto, r.mestiere, prov)
+  }
+
+  const scriviPreventivo = async (partnerId: string, partner: string) => {
+    if (!aperto) return
+    const prezzo = Number((nuovo[partnerId] ?? '').replace(',', '.'))
+    if (!Number.isFinite(prezzo) || prezzo <= 0) return setErrore('Il preventivo è un prezzo maggiore di zero.')
+    setLavoro(true)
+    const r = await fetch('/api/vendite/prodotti', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ codice: aperto.codice, prodotto: aperto.prodotto, mestiere: aperto.mestiere, provincia: aperto.provincia, partnerId, partner, prezzo, tipologia: 'preventivo' }),
+    })
+    const d = await r.json()
+    setLavoro(false)
+    if (!r.ok) return setErrore(d.errore ?? 'Errore')
+    setErrore('')
+    setNuovo({ ...nuovo, [partnerId]: '' })
+    await apriLista(aperto.codice, aperto.prodotto, aperto.mestiere, aperto.provincia)
+    void carica()
+  }
+
+  const euro = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+
+  return (
+    <div className="card">
+      <p className="descrizione">
+        Qui stanno i prezzi che un <strong>partner</strong> fa su un <strong>prodotto</strong>, per i due casi in cui la percentuale di sconto non basta:
+        i prodotti <strong>a quantità</strong> (12 rose = 12 × il suo prezzo a stelo) e quelli <strong>a preventivo</strong> (una torta di cake design).
+        La tipologia la decide Merchandising. I preventivi scritti qui restano e valgono per le prossime vendite: l&apos;importazione dalla piattaforma non li tocca.
+      </p>
+      <div className="filtri">
+        {amministratore && <button type="button" className="bottone mini" onClick={importa} disabled={lavoro}>Importa i prezzi dalla piattaforma</button>}
+        <select className="campo" value={tipologia} onChange={(e) => setTipologia(e.target.value)}>
+          <option value="">Tutte e due le tipologie</option>
+          <option value="quantita">A quantità</option>
+          <option value="preventivo">A preventivo</option>
+        </select>
+        <input className="campo" placeholder="Cerca prodotto, codice o partner" value={cerca} onChange={(e) => setCerca(e.target.value)} />
+      </div>
+      {errore && <p className="avviso-errore">{errore}</p>}
+      {esito && <p className="avviso-ok">{esito}</p>}
+
+      {aperto && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="page-head">
+            <div>
+              <h3 style={{ margin: 0 }}>{aperto.prodotto}</h3>
+              <p className="page-sub">{aperto.codice} · {aperto.provincia}{aperto.mestiere ? ` · ${aperto.mestiere}` : ''} — i partner in ordine di priorità. Chi non ha un prezzo è chi devi ancora sentire.</p>
+            </div>
+            <button type="button" className="bottone secondario mini" onClick={() => setAperto(null)}>Chiudi</button>
+          </div>
+          <table className="tabella">
+            <thead><tr><th>#</th><th>Partner</th><th>Prezzo</th><th>Da dove</th><th>Preventivo</th></tr></thead>
+            <tbody>
+              {lista.map((r) => (
+                <tr key={r.partnerId}>
+                  <td>{r.posizione}</td>
+                  <td>{r.partner}</td>
+                  <td>{r.prezzo != null ? `${euro(r.prezzo)}${r.unita ? ` ${r.unita}` : ''}` : '—'}</td>
+                  <td>{r.fonte === 'preventivo' ? 'preventivo dato dal partner' : r.fonte === 'piattaforma' ? 'prezzo già praticato' : 'mai chiesto'}</td>
+                  <td>
+                    {amministratore ? (
+                      <span style={{ display: 'inline-flex', gap: 6 }}>
+                        <input className="campo mini" style={{ width: 90 }} inputMode="decimal" placeholder="€" value={nuovo[r.partnerId] ?? ''} onChange={(e) => setNuovo({ ...nuovo, [r.partnerId]: e.target.value })} />
+                        <button type="button" className="bottone mini" disabled={lavoro} onClick={() => scriviPreventivo(r.partnerId, r.partner)}>Scrivi</button>
+                      </span>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
+              {lista.length === 0 && <tr><td colSpan={5}>Nessun partner con questo mestiere in {aperto.provincia}.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <table className="tabella">
+        <thead><tr><th>Prodotto</th><th>Codice</th><th>Tipologia</th><th>Partner</th><th>Provincia</th><th>Prezzo</th><th>Da dove</th><th></th></tr></thead>
+        <tbody>
+          {righe.map((r) => (
+            <tr key={r.id}>
+              <td>{r.prodotto}{r.variante ? ` · ${r.variante}` : ''}</td>
+              <td className="mono">{r.codice}</td>
+              <td>{r.tipologia === 'quantita' ? 'A quantità' : r.tipologia === 'preventivo' ? 'A preventivo' : r.tipologia}</td>
+              <td>{r.partner}</td>
+              <td>{r.provincia || 'ovunque'}</td>
+              <td>{euro(r.prezzo)}{r.unita ? ` ${r.unita}` : ''}</td>
+              <td>{r.fonte === 'preventivo' ? 'preventivo' : 'già praticato'}</td>
+              <td><button type="button" className="bottone secondario mini" onClick={() => apri(r)}>Chi altro</button></td>
+            </tr>
+          ))}
+          {righe.length === 0 && <tr><td colSpan={8}>Nessuna riga: importa i prezzi dalla piattaforma, o scrivi il primo preventivo da un ordine.</td></tr>}
+        </tbody>
+      </table>
     </div>
   )
 }

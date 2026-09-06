@@ -16,6 +16,7 @@ type Proposta = {
   prezzoFornitore: number | null
   mestiere: string
   candidati: { id: string; insegna: string; posizione: number; consegnaDaPartner: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; fonte: string }[]
+  preventivi: { codice: string; prodotto: string; conPrezzo: { partnerId: string; partner: string; prezzo: number }[] }[]
   note: string[]
   piattaforma: 'ok' | 'non-risponde'
 }
@@ -73,6 +74,16 @@ export function PropostaVendita({ ordineId, valuta }: { ordineId: string; valuta
       ) : (
         <p className="descrizione">Nessun partner da proporre in automatico.</p>
       )}
+      {/* ⭐ 06/09 sera: i prodotti A PREVENTIVO. Senza un prezzo dato dal partner la vendita
+          non si accetta, e la piattaforma non la smista da sola: si telefona e si scrive. */}
+      {(p.preventivi ?? []).map((v) => (
+        <div key={v.codice} className={v.conPrezzo.length ? 'descrizione' : 'avviso-errore'} style={{ marginBottom: 6 }}>
+          <strong>{v.prodotto}</strong> va a preventivo.{' '}
+          {v.conPrezzo.length
+            ? <>Prezzi già dati: {v.conPrezzo.map((c) => `${c.partner} ${euro(c.prezzo)}`).join(' · ')}.</>
+            : <>Nessun partner ha ancora dato un prezzo: chiediglielo e scrivilo in <a href="/vendite">Vendite → Liste di prodotto</a>, poi la vendita si può accettare.</>}
+        </div>
+      ))}
       {p.note.map((n, i) => <p key={i} className="descrizione cella-muta" style={{ marginBottom: 2 }}>{n}</p>)}
       {p.piattaforma === 'non-risponde' && <p className="avviso-errore">La piattaforma consegne non ha risposto.</p>}
     </div>

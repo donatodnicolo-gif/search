@@ -2309,3 +2309,47 @@ model ListaPrioritaArea {
 
   @@unique([area, mestiere])
 }
+
+/// ⭐ 06/09/2026 sera — LISTE DI PRODOTTO (regola utente).
+/// Per i prodotti che NON hanno un prezzo di listino valido ovunque — quelli «a quantità»
+/// (12 rose: prezzo unitario del partner × quantità) e quelli «a preventivo» (una torta di
+/// cake design) — il prezzo è di QUEL partner per QUEL prodotto. Qui c'è il registro:
+/// una riga per prodotto (codice + variante), partner e provincia.
+///
+/// Due sorgenti, dichiarate in `fonte`:
+///  · `piattaforma` — importato da `GET /api/v1/app/prezzi-partner` (patti di riconciliazione
+///    accettati e listini dei prodotti unici): è un prezzo già praticato, non un'ipotesi;
+///  · `preventivo` — lo ha chiesto il Customer Service al partner e lo ha scritto qui. Resta,
+///    e vale per le prossime vendite dello stesso prodotto.
+///
+/// ⚠️ Il prezzo NON si copia da nessun'altra parte: chi possiede il prodotto è Merchandising,
+/// chi possiede il partner è la piattaforma; qui vive solo il PATTO fra i due, che è roba del
+/// Customer Service.
+model PrezzoProdottoPartner {
+  id             String    @id @default(cuid())
+  /// SKU del prodotto (o della variante): è la chiave con cui lo riconoscono tutte le app
+  codice         String
+  prodotto       String
+  variante       String    @default("")
+  /// unico | quantita | mix | preventivo — la tipologia decisa in Merchandising
+  tipologia      String
+  mestiere       String    @default("")
+  provincia      String    @default("") // sigla; vuoto = vale ovunque
+  partnerId      String
+  partner        String
+  prezzo         Float
+  /// per i prodotti a quantità: a che cosa si riferisce il prezzo (a stelo, cad., alla scatola)
+  unita          String    @default("")
+  pubblico       Float?
+  fonte          String // piattaforma | preventivo
+  nota           String    @default("")
+  chiestoIl      DateTime?
+  rispostoIl     DateTime?
+  scrittoDa      String?
+  creatoIl       DateTime  @default(now())
+  aggiornatoIl   DateTime  @updatedAt
+
+  @@unique([codice, variante, partnerId, provincia])
+  @@index([codice])
+  @@index([partnerId])
+}
