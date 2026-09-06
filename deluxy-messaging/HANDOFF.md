@@ -1,5 +1,18 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (30) — Menu «Partner & Fornitori» e la vista «Tutti»
+
+Due richieste dell'utente: la voce del menu a sinistra si chiama **«Partner &
+Fornitori»** (`Sidebar.tsx`; allineati anche i titoli in `PartnerPagina` e
+`PartnerLista`), e dentro la pagina si può scegliere **Tutti** oltre a «Partner
+in anagrafica» e «Fornitori usati» (`PartnerPagina.tsx`, `Sezione = 'tutti' |
+'partner' | 'fornitori'`). «Tutti» monta le due sezioni una sotto l'altra con un
+titolo ciascuna, ed è la vista di partenza: costa due chiamate (registro
+Anagrafiche + nostro database) invece di una, che è il prezzo del quadro intero;
+le due viste singole restano. Typecheck ok.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (29) — WhatsApp componeva male i numeri senza prefisso
 
 Segnalazione dell'utente: «nella lista fornitori di un ordine quando clicco

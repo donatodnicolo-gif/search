@@ -198,7 +198,7 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
     <Cornice>
       <div className="page-head">
         <div>
-          {dentroLaPagina ? null : <h1 className="page-title">Partner</h1>}
+          {dentroLaPagina ? null : <h1 className="page-title">Partner &amp; Fornitori</h1>}
           <p className="page-sub">
             I partner <strong>attivi</strong> letti dal registro{' '}
             <strong>Deluxy Anagrafiche</strong>, la fonte di verità delle anagrafiche. Non ne
