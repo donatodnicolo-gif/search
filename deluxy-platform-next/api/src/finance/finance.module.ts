@@ -1056,7 +1056,8 @@ export class FinanceService {
     // consegna (`l.price`) è a prezzo PARTNER e vale solo come ripiego, segnato
     // come stima: senza, il venduto sarebbe il pagato e il margine zero.
     const prezzoRiga = (l: any): { v: number; stimato: boolean } => {
-      const pubblico = l.productVariant?.publicPrice ?? l.product?.publicPrice;
+      // Un prezzo pubblico a 0 a catalogo è «non indicato», non «gratis» (#101019: listino 0, riga 100, cliente 130).
+      const pubblico = [l.productVariant?.publicPrice, l.product?.publicPrice].find((v: any) => v != null && v > 0);
       if (pubblico != null) return { v: pubblico, stimato: false };
       if (l.price != null) return { v: l.price, stimato: true };
       return { v: 0, stimato: false };

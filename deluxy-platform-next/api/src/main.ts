@@ -22,7 +22,12 @@ async function bootstrap() {
   // deluxy.it chiama /api/province-cities/... dai tempi del legacy (vedi il
   // controller). Cambiare l'indirizzo vorrebbe dire toccare il tema.
   app.setGlobalPrefix('api/v1', {
-    exclude: [{ path: 'api/province-cities/:code/:city', method: RequestMethod.ALL }],
+    exclude: [
+      { path: 'api/province-cities/:code/:city', method: RequestMethod.ALL },
+      // ⭐ 06/09/2026: il vecchio plugin WooCommerce (deluxy-send-order) chiama
+      // questo indirizzo: si serve com'è, senza toccare i siti dei partner.
+      { path: 'api/deliveries/sync/woo-order', method: RequestMethod.POST },
+    ],
   });
   // File caricati (es. ricevute firmate) serviti staticamente da /uploads.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
