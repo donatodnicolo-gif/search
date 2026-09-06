@@ -73,6 +73,8 @@ export type PartnerInProvincia = {
   citta: string | null
   mestieri: string[]
   consegnaDaPartner: boolean
+  /** ⭐ 06/09 sera: partner «nostro» di ripiego, mai nelle proposte. */
+  esclusoDalleProposte?: boolean
   consegnaInProvincia: boolean
   minimoOrdine: number | null
   raggioKm: number | null
@@ -240,8 +242,9 @@ export async function propostaVendita(input: {
     const ordine: { id: string; insegna: string }[] = listaArea?.partner ?? stato.listePriorita.find((l) => l.mestiere === mestiere)?.partner.map((p) => ({ id: p.id, insegna: p.insegna })) ?? []
     const fonte = listaArea ? `lista dell'area «${listaArea.area}»` : 'lista di priorità della provincia (piattaforma)'
     const perId = new Map(stato.partner.map((p) => [p.id, p]))
-    const conMestiere = stato.partner.filter((p) => p.mestieri.includes(mestiere))
-    const sequenza = [...ordine.filter((o) => perId.has(o.id)).map((o) => perId.get(o.id)!), ...conMestiere.filter((p) => !ordine.some((o) => o.id === p.id))]
+    // (06/09 sera, regola utente) gli ESCLUSI DALLE PROPOSTE — Artista Locale, Deluxy Flowers, Cakedesignme — non si propongono mai.
+    const conMestiere = stato.partner.filter((p) => p.mestieri.includes(mestiere) && !p.esclusoDalleProposte)
+    const sequenza = [...ordine.filter((o) => perId.has(o.id) && !perId.get(o.id)!.esclusoDalleProposte).map((o) => perId.get(o.id)!), ...conMestiere.filter((p) => !ordine.some((o) => o.id === p.id))]
     if (guantiBianchi) {
       if (fuoriBase && extraPagato === false) anomalia = `Consegna deluxy.it fuori da ${PROVINCE_GUANTI_BIANCHI.join('/')} (${sigla}) SENZA extra pagato: da verificare col cliente prima di proporre.`
       if (fuoriBase && extraPagato === null) note.push('Righe dell\'ordine non lette: non si sa se l\'extra fuori provincia è stato pagato.')

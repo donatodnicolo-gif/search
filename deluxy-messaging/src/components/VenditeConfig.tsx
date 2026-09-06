@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 //    dall'importazione finché non la si ripristina.
 
 type Sconto = { provincia: string; nome: string; conPartner: number | null; senzaPartner: number | null; predefinitoConPartner: number; predefinitoSenzaPartner: number; nota: string; aggiornatoIl: string | null }
-type Partner = { id: string; insegna: string; citta: string | null; mestieri: string[]; consegnaDaPartner: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; areeCommerciali: string[] }
+type Partner = { id: string; insegna: string; citta: string | null; mestieri: string[]; consegnaDaPartner: boolean; esclusoDalleProposte?: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; areeCommerciali: string[] }
 type Stato = { provincia: string; nome: string; conPartner: boolean; partner: Partner[]; listePriorita: { id: string; mestiere: string | null; categoria: string | null; partner: { posizione: number; insegna: string }[] }[]; areeCommerciali: { nome: string; province: number }[]; sconto: { sconto: number; quota: number; regola: string; motivo: string } }
 type Lista = { id: string; area: string; province: string[]; mestiere: string; partner: { id: string; insegna: string }[]; origine: string; importataIl: string | null; modificataIl: string | null; modificataDa: string | null }
 
@@ -133,7 +133,7 @@ function PartnerPerProvincia() {
             <tbody>
               {stato.partner.map((p) => (
                 <tr key={p.id}>
-                  <td><strong>{p.insegna}</strong> <span className="cella-muta">{p.citta ?? ''}</span></td>
+                  <td><strong>{p.insegna}</strong> <span className="cella-muta">{p.citta ?? ''}</span>{p.esclusoDalleProposte && <> <span className="badge">escluso dalle proposte</span></>}</td>
                   <td>{p.mestieri.join(', ')}</td>
                   <td style={{ textAlign: 'center' }}>{p.consegnaDaPartner ? <span className="badge verde">sì</span> : <span className="badge">no</span>}</td>
                   <td style={{ textAlign: 'center' }}>{p.consegnaDaPartner ? (p.consegnaInProvincia ? <span className="badge verde">sì</span> : <span className="badge rosso">no</span>) : '—'}</td>
