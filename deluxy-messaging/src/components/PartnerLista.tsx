@@ -1,5 +1,6 @@
 'use client'
 
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useState } from 'react'
 
 // I partner attivi, letti dal registro Deluxy Anagrafiche a ogni apertura (non
@@ -107,7 +108,7 @@ function linkContatto(p: Partner): { url: string; come: string; chi: string } | 
   const saluto = chi ? ' ' + chi.split('(')[0].trim().split(' ')[0] : ''
   const testo = `Buongiorno${saluto}, vi scriviamo da Deluxy.`
 
-  const cifre = telefono.replace(/[^\d]/g, '')
+  const cifre = numeroWhatsApp(telefono)
   if (cifre.length >= 8) {
     return {
       url: `https://wa.me/${cifre}?text=${encodeURIComponent(testo)}`,

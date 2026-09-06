@@ -1,5 +1,6 @@
 'use client'
 
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ZonaFiltri } from '@/components/ZonaFiltri'
@@ -431,7 +432,7 @@ function canaliContatto(o: OrdineDto): CanaleContatto[] {
   const comune = { lingua, linguaDa: da }
   const canali: CanaleContatto[] = []
 
-  const cifre = o.telefono.replace(/[^\d]/g, '')
+  const cifre = numeroWhatsApp(o.telefono)
   if (cifre.length >= 8) {
     canali.push({
       ...comune,

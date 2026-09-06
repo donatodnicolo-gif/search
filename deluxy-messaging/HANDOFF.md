@@ -1,5 +1,27 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (29) — WhatsApp componeva male i numeri senza prefisso
+
+Segnalazione dell'utente: «nella lista fornitori di un ordine quando clicco
+WhatsApp sembra non comporre bene il numero». **Vero, e in dieci punti
+dell'app**: ogni link faceva `telefono.replace(/[^\d]/g, '')` e lo metteva in
+`wa.me/<cifre>`. Ma `wa.me` vuole il numero INTERNAZIONALE senza «+»: un fisso
+del registro scritto «081496704» diventava un numero di un altro paese,
+«3331234567» idem, «0039…» portava due zeri di troppo. Misurato: **236 clienti su
+1.344** hanno il numero nudo senza prefisso, 17 con «00»; nel registro Anagrafiche
+i fissi stanno spesso senza prefisso (es. «081496704»).
+
+**Corretto** con `src/lib/whatsapp-link.ts` (pura, client-safe):
+`numeroWhatsApp(telefono)` — se il numero dichiara il paese («+» o «00») si
+tiene quello (tolto il «00»); se non lo dichiara e ha la forma italiana
+(cellulare 3xx a 9-10 cifre, fisso 0xx a 6-11) si antepone **39**; il resto passa
+com'è, perché un paese non si indovina. Usata in DettaglioOrdine (cliente,
+riconsegna ×2, fornitori in zona), FornitoreOrdine, PartnerLista, OrdiniLista,
+NuovoOrdine, PreventiviLista. Provata su 12 casi (fisso nudo → 39081496704,
+«+39 331 830 0570» → 393318300570, «0033…» → 33…, estero con «+» intatto).
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (28) — IN PRODUZIONE: piattaforma e Customer Service (col sì dell'utente)
 
 **Piattaforma consegne**: deploy `dpl_DiSFQdpoTuByy8h24JbFU5sjYmAk`

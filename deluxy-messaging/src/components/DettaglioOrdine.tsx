@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
 import { Conferma } from './Conferma'
+import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { RichiediFattura } from './RichiediFattura'
 import { FornitoreOrdine, type FornitoreProposto } from './FornitoreOrdine'
 import { DiarioOrdine } from './DiarioOrdine'
@@ -2072,7 +2073,7 @@ export function DettaglioOrdine({
                         {ordine.telefono ? (
                           <a
                             className="btn btn-secondario small"
-                            href={`https://wa.me/${ordine.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(ordine.riconsegnaLink ?? '')}`}
+                            href={`https://wa.me/${numeroWhatsApp(ordine.telefono)}?text=${encodeURIComponent(ordine.riconsegnaLink ?? '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -2097,7 +2098,7 @@ export function DettaglioOrdine({
                         {ordine.telefono ? (
                           <a
                             className="btn btn-secondario small"
-                            href={`https://wa.me/${ordine.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(linkRiconsegna)}`}
+                            href={`https://wa.me/${numeroWhatsApp(ordine.telefono)}?text=${encodeURIComponent(linkRiconsegna)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -2389,7 +2390,8 @@ export function DettaglioOrdine({
                 {lingua
                   ? (() => {
                       const testo = messaggioCliente(lingua.lingua, ordine.clienteNome, ordine.numero)
-                      const cifre = ordine.telefono.replace(/[^\d]/g, '')
+                      // ⚠️ Per WhatsApp serve il prefisso internazionale (vedi whatsapp-link.ts).
+                      const cifre = numeroWhatsApp(ordine.telefono)
                       const numero = ordine.telefono.replace(/[^\d+]/g, '')
                       const canali: {
                         chiave: string
@@ -2737,7 +2739,9 @@ export function DettaglioOrdine({
                           .filter(Boolean)
                           .join(' '),
                       })
-                      const cifre = (fz.telefono || '').replace(/[^\d]/g, '')
+                      // ⚠️ I fissi del registro stanno spesso senza prefisso («081496704»):
+                      // così WhatsApp li componeva male (utente, 06/09/2026).
+                      const cifre = numeroWhatsApp(fz.telefono)
                       return (
                         <div key={fz.id} className="card" style={{ padding: 10 }}>
                           <div className="cella-nome">{fz.nome}</div>
