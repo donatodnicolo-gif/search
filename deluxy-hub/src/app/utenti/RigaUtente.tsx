@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { aggiornaUtente, eliminaUtente } from "@/lib/actions";
-import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
+import { SpuntePrivilegi } from "./SpuntePrivilegi";
 import { ConfermaAzione } from "@/components/ConfermaAzione";
 import { ScelteApp } from "./ScelteApp";
 
@@ -16,16 +16,23 @@ import { ScelteApp } from "./ScelteApp";
 //
 // È l'unica ragione per cui questa riga è un componente client: serve uno stato
 // aperto/chiuso che non può vivere dentro un <details> di una cella sola.
+// Dal 06/09/2026 la colonna «Funzione» mostra quello che dice PERSONALE (la
+// funzione e il ruolo della persona), non il ruolo del portale: quello è un
+// privilegio (Amministratore / Esterno) e si vede come pillola in più.
+export type PersonaDelPortale = { team: string | null; ruolo: string | null } | null;
+
 export function RigaUtente({
   utente,
-  team,
+  personale,
   appElenco,
   appAbilitateTesto,
   ultimoAccesso,
   puoEliminare,
 }: {
   utente: { id: string; nome: string; email: string; ruolo: string; attivo: boolean; appAbilitate: string[] };
-  team: string | null;
+  // null = la persona non risulta in Personale (un esterno, o un nome/email
+  // che non combacia).
+  personale: PersonaDelPortale;
   appElenco: readonly { id: string; nome: string }[];
   appAbilitateTesto: string;
   // Già formattato sul server in ora di Roma: formattarlo qui darebbe il fuso
@@ -40,17 +47,35 @@ export function RigaUtente({
       <tr>
         <td>
           <div style={{ fontWeight: 500 }}>{utente.nome}</div>
-          <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>
-            {utente.email}
-            {team ? ` · ${team}` : ""}
-          </div>
+          <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>{utente.email}</div>
         </td>
         <td>
-          <span className="badge gold">
-            <span className="dot" />
-            {RUOLO_INFO[utente.ruolo as Ruolo]?.etichetta ?? utente.ruolo}
-          </span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {personale ? (
+              <span className="badge neutro">
+                <span className="dot" />
+                {personale.team ?? "Senza funzione"}
+              </span>
+            ) : utente.ruolo === "partner" ? (
+              <span className="badge neutro">
+                <span className="dot" />
+                Esterno / partner
+              </span>
+            ) : (
+              <span className="badge neutro">
+                <span className="dot" />
+                Non in Personale
+              </span>
+            )}
+            {utente.ruolo === "admin" && (
+              <span className="badge gold">
+                <span className="dot" />
+                Amministratore
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
+            {personale?.ruolo ? `${personale.ruolo} · ` : ""}
             {appAbilitateTesto}
           </div>
         </td>
@@ -84,16 +109,7 @@ export function RigaUtente({
                 <span>Nome</span>
                 <input name="nome" defaultValue={utente.nome} required />
               </label>
-              <label className="campo" style={{ marginBottom: 0 }}>
-                <span>Ruolo</span>
-                <select name="ruolo" defaultValue={utente.ruolo}>
-                  {RUOLI.map((r) => (
-                    <option key={r} value={r}>
-                      {RUOLO_INFO[r].etichetta}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SpuntePrivilegi ruolo={utente.ruolo} />
               <label className="campo" style={{ marginBottom: 0 }}>
                 <span>Nuova password (vuoto = invariata)</span>
                 <input name="password" type="password" autoComplete="new-password" />

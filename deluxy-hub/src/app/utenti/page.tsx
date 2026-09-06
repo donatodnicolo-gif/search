@@ -2,10 +2,10 @@ import { creaUtente } from "@/lib/actions";
 import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
 import { emailNormalizzata, nomeNormalizzato, organicoDaPersonale, type PersonaOrganico } from "@/lib/organico";
-import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { OrganicoPersonale } from "./OrganicoPersonale";
-import { RigaUtente } from "./RigaUtente";
+import { RigaUtente, type PersonaDelPortale } from "./RigaUtente";
+import { SpuntePrivilegi } from "./SpuntePrivilegi";
 import { ScelteApp } from "./ScelteApp";
 
 const MESSAGGI_OK: Record<string, string> = {
@@ -65,18 +65,24 @@ export default async function UtentiPage({
     return (email && utentePerEmail.get(email)) || utentePerNome.get(nomeNormalizzato(p.nome)) || null;
   };
 
-  // E al contrario: la funzione di ogni utente, da mostrare nella lista
-  // (stessa chiave: prima l'email, poi il nome).
-  const teamPerEmail = new Map<string, string>();
-  const teamPerNome = new Map<string, string>();
+  // E al contrario: cosa dice Personale di ogni utente (funzione e ruolo), da
+  // mostrare nella lista al posto del ruolo del portale (stessa chiave: prima
+  // l'email, poi il nome). Chi è in Personale senza funzione conta comunque
+  // come «in Personale».
+  const personaPerEmail = new Map<string, PersonaDelPortale>();
+  const personaPerNome = new Map<string, PersonaDelPortale>();
   if (organico.stato === "ok") {
-    for (const t of organico.team)
-      for (const p of t.persone) {
-        const email = emailNormalizzata(p.email);
-        if (email) teamPerEmail.set(email, t.nome);
-        teamPerNome.set(nomeNormalizzato(p.nome), t.nome);
-      }
+    const registra = (p: PersonaOrganico, team: string | null) => {
+      const voce = { team, ruolo: p.ruolo || null };
+      const email = emailNormalizzata(p.email);
+      if (email) personaPerEmail.set(email, voce);
+      personaPerNome.set(nomeNormalizzato(p.nome), voce);
+    };
+    for (const t of organico.team) for (const p of t.persone) registra(p, t.nome);
+    for (const p of organico.senzaTeam) registra(p, null);
   }
+  const personaleDi = (u: { email: string; nome: string }): PersonaDelPortale =>
+    personaPerEmail.get(u.email.toLowerCase()) ?? personaPerNome.get(nomeNormalizzato(u.nome)) ?? null;
 
   // Nome ed email possono arrivare precompilati dal bottone "Crea account"
   // dell'organico: l'email è quella che Personale conosce.
@@ -125,16 +131,7 @@ export default async function UtentiPage({
             <span>Password (min 8)</span>
             <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>
-          <label className="campo" style={{ marginBottom: 0 }}>
-            <span>Ruolo</span>
-            <select name="ruolo" defaultValue="commerciale">
-              {RUOLI.map((r) => (
-                <option key={r} value={r}>
-                  {RUOLO_INFO[r].etichetta}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SpuntePrivilegi ruolo="commerciale" />
           <ScelteApp app={appElenco} selezionate={appPerRuolo("commerciale").map((a) => a.id)} />
           <button
             type="submit"
@@ -183,7 +180,7 @@ export default async function UtentiPage({
           <thead>
             <tr>
               <th>Nome</th>
-              <th>Ruolo</th>
+              <th>Funzione</th>
               <th>Stato</th>
               <th>Ultimo accesso</th>
               <th />
@@ -201,7 +198,7 @@ export default async function UtentiPage({
                   attivo: u.attivo,
                   appAbilitate: u.appAbilitate,
                 }}
-                team={teamPerEmail.get(u.email.toLowerCase()) ?? teamPerNome.get(nomeNormalizzato(u.nome)) ?? null}
+                personale={personaleDi(u)}
                 appElenco={appElenco}
                 appAbilitateTesto={
                   u.ruolo === "admin"
