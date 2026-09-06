@@ -59,7 +59,7 @@ Personale** (Nicolò Donato, Eva, Luca Salso, Renato Cassoli — che è il respo
 non ci sta dentro) finiscono in «Senza team» nel conto per team: si sistema assegnando la funzione
 in Personale, non qui.
 
-🔴 **Da fare per accendere tutto in produzione**: (1) **deploy di Personale** (route `persone`
+✅ **PUBBLICATO il 06/09/2026 alle 10:48 (Budgets, deploy `qbwxfvfzi`, dpl_iK3MPQNk…) e 10:52 (Personale, dpl_J7LoWvMV…), con build REMOTA** — il precompilato su questa macchina è caduto tre volte (dev server che riscrive `.next`, symlink di Windows nell'output, voci `.env` nei `filePathMap`) più un «Unexpected error»; i rimedi sono in memoria ma la strada buona resta `npx vercel deploy --prod --yes`. Verificato: `/api/health` ok, `/api/v1/persone?storia=1` di Personale risponde con le storie (11 persone). Il testo che segue era la lista prima del deploy: (1) ~~**deploy di Personale**~~ (route `persone`
 con `storia=1`: finché manca, Budgets usa il corrente e lo dichiara in pagina); (2)
 **`PERSONALE_API_KEY` in produzione di Budgets** — la chiave emessa il 24/08 per
 deluxy-budgets sta in `deluxy-personale/chiavi-emesse.local.md`; in locale è nel `.env`
