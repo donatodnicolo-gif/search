@@ -2237,6 +2237,13 @@
     "redelivery": {
       "from": "Riconsegna della",
       "to": "Riconsegnata con"
+    },
+    "prova": {
+      "consegnataAlle": "Consegnata il",
+      "ritirataDa": "Ritirata da",
+      "valet": "Valet",
+      "documenti": "Documenti",
+      "nessunDocumento": "nessun documento caricato"
     }
   },
   "confirmDelivery": {
@@ -3027,7 +3034,11 @@
       "partnerScelti": "{{n}} partner scelti",
       "cercaPartner": "Cerca partner…",
       "nessunPartner": "Nessun partner",
-      "azzera": "Azzera"
+      "azzera": "Azzera",
+      "valet": "Valet",
+      "valetScelti": "{{n}} valet scelti",
+      "cercaValet": "Cerca valet…",
+      "nessunValet": "Nessun valet"
     },
     "ritardi": {
       "apri": "apri le {{n}} in ritardo",
@@ -3058,6 +3069,18 @@
       "apriConsegne": "Apri in Consegne",
       "apriPartner": "Scheda partner",
       "apriValet": "Scheda valet"
+    }
+  },
+  "puntualita": {
+    "titolo": "Puntualità",
+    "in_orario": "In orario",
+    "in_ritardo": "In ritardo",
+    "in_anticipo": "In anticipo",
+    "consegnataAlle": "consegnata alle",
+    "breve": {
+      "in_orario": "In orario",
+      "in_ritardo": "Ritardo +",
+      "in_anticipo": "Anticipo −"
     }
   }
 }

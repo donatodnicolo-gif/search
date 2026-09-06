@@ -860,6 +860,13 @@ export class SalesService {
     disponibile: boolean;
     mittenteFirstName?: string; mittenteLastName?: string;
     contrassegno?: boolean;
+    /** ⭐ 06/09/2026 (regola utente, caso 12879): il TIPO di vendita lo decide l'ordine —
+     *  contrassegno = pagamento alla consegna; altrimenti singola (1 pezzo) o multipla (2+). */
+    tipoVendita?: 'contrassegno' | 'singola' | 'multipla';
+    /** Pezzi da consegnare (somma delle quantità delle righe con SKU: gli extra senza SKU sono personalizzazioni). */
+    pezzi?: number;
+    /** Totale dell'ordine (prodotti + consegna): è l'importo del contrassegno. */
+    totale?: number;
     /** Fascia oraria chiesta dal cliente (attributo Shopify, es. «16-20»), già
      *  spezzata negli orari del form: dalle «16:00» alle «20:00». */
     consegnaDalle?: string; consegnaAlle?: string;
@@ -888,7 +895,9 @@ export class SalesService {
     // Orders sta in `classificazione.categoriaPagamento` (bonifico | carta |
     // contrassegno | altro); come rete, anche il nome del gateway.
     const categoria = String(ordine?.classificazione?.categoriaPagamento ?? '').toLowerCase();
-    const gateway = String(ordine?.pagamento?.gateway ?? '').toLowerCase();
+    // ⚠️ Orders espone il gateway in `shopify.gateway` (misurato sul 12879: «shopify_payments»);
+    // `pagamento.gateway` non esiste e lasciava sempre la rete vuota.
+    const gateway = String(ordine?.shopify?.gateway ?? ordine?.pagamento?.gateway ?? '').toLowerCase();
     const contrassegno = categoria === 'contrassegno' || /contrassegno|cash on delivery|\bcod\b/.test(gateway);
 
     // Tutte le righe dell'ordine, risolte a prodotto/variante di piattaforma via SKU.
@@ -909,6 +918,18 @@ export class SalesService {
       prodotti.push({ productId, productVariantId, nome: r?.titolo ?? null, quantita: Number(r?.quantita) || 1, sku: sku || null });
     }
 
+    // ⭐ 06/09/2026 (regola utente, caso 12879 — usciva «con pagamento alla
+    // consegna» pur essendo pagato con carta): il tipo di vendita lo decide
+    // l'ORDINE, non l'ordine alfabetico del listino.
+    //  - COD/contrassegno → «Vendita con Pagamento alla Consegna», flag
+    //    contrassegno acceso con l'importo = totale dell'ordine;
+    //  - già pagato, un pezzo → «Vendita Deluxy»;
+    //  - già pagato, più pezzi → «Vendita Deluxy Multipla».
+    // I pezzi sono le righe CON SKU (prodotti): la riga «Selections» senza
+    // SKU (candelina, scritta) è una personalizzazione, non un secondo pezzo.
+    const pezzi = righe.filter((r) => String(r?.sku ?? '').trim()).reduce((t, r) => t + (Number(r?.quantita) || 1), 0);
+    const tipoVendita: 'contrassegno' | 'singola' | 'multipla' = contrassegno ? 'contrassegno' : pezzi > 1 ? 'multipla' : 'singola';
+    const totale = Number(ordine?.totale);
     // ⭐ FASCIA ORARIA DEL CLIENTE (regola utente 01/09: «la fascia oraria la
     // hai già nell'ordine»). Su Shopify è un attributo tipo «16-20» o «08/12»:
     // si spezza in dalle/alle per il form. Un formato non riconosciuto si
@@ -924,6 +945,7 @@ export class SalesService {
 
     return {
       disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
+      tipoVendita, pezzi, totale: Number.isFinite(totale) ? totale : undefined,
       consegnaDalle, consegnaAlle, biglietto, note, prodotti,
     };
   }

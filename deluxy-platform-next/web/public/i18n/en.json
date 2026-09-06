@@ -2235,6 +2235,13 @@
     "redelivery": {
       "from": "Redelivery of",
       "to": "Redelivered with"
+    },
+    "prova": {
+      "consegnataAlle": "Delivered on",
+      "ritirataDa": "Received by",
+      "valet": "Valet",
+      "documenti": "Documents",
+      "nessunDocumento": "no document uploaded"
     }
   },
   "confirmDelivery": {
@@ -3025,7 +3032,11 @@
       "partnerScelti": "{{n}} partners selected",
       "cercaPartner": "Search partner…",
       "nessunPartner": "No partner",
-      "azzera": "Clear"
+      "azzera": "Clear",
+      "valet": "Valets",
+      "valetScelti": "{{n}} valets selected",
+      "cercaValet": "Search valet…",
+      "nessunValet": "No valet"
     },
     "ritardi": {
       "apri": "open the {{n}} late ones",
@@ -3056,6 +3067,18 @@
       "apriConsegne": "Open in Deliveries",
       "apriPartner": "Partner card",
       "apriValet": "Valet card"
+    }
+  },
+  "puntualita": {
+    "titolo": "Punctuality",
+    "in_orario": "On time",
+    "in_ritardo": "Late",
+    "in_anticipo": "Early",
+    "consegnataAlle": "delivered at",
+    "breve": {
+      "in_orario": "On time",
+      "in_ritardo": "Late +",
+      "in_anticipo": "Early −"
     }
   }
 }

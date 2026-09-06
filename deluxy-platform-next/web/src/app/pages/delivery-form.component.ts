@@ -179,7 +179,7 @@ interface ProductRow {
             </label>
           }
           <label class="fld"><span class="req">{{ 'deliveryForm.field.service' | translate }}</span>
-            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
+            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" (change)="servizioToccato = true" required>
               <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
               @for (s of serviceOptions(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
@@ -983,9 +983,29 @@ export class DeliveryFormComponent implements AfterViewInit {
    * finché la lista servizi non è arrivata: la richiama chi la carica.
    */
   /** ⭐ 06/09/2026 (regola utente): fra i servizi di VENDITA la prima scelta è sempre «Vendita Deluxy». */
+  /** Il tipo di vendita che l'ORDINE dietro la vendita impone (da /sales/:id/ordine); null = non ancora noto. */
+  readonly tipoVenditaOrdine = signal<'contrassegno' | 'singola' | 'multipla' | null>(null);
+  /** L'utente ha scelto il servizio a mano: da lì in poi il form non glielo cambia più. */
+  servizioToccato = false;
+
+  /**
+   * ⭐ 06/09/2026 (regola utente, caso 12879): il servizio di vendita lo decide
+   * l'ordine — contrassegno → «Vendita con Pagamento alla Consegna»; pagato con
+   * un pezzo → «Vendita Deluxy»; pagato con più pezzi → «Vendita Deluxy
+   * Multipla». Finché l'ordine non è arrivato (o non c'è) vale «Vendita
+   * Deluxy». ⚠️ Prima la regex aveva perso le barre (`s*` invece di `\s*`): non
+   * combaciava mai e vinceva la prima in ordine alfabetico — «Vendita con
+   * Pagamento alla Consegna», anche su ordini pagati con carta.
+   */
   private venditaPreferita(lista: { id: string; name: string; pricingModel?: string | null }[]): any {
     const vendite = lista.filter((s) => s.pricingModel === 'VENDITA');
-    return vendite.find((s) => /^s*venditas+deluxys*$/i.test(s.name)) ?? vendite[0] ?? null;
+    const cerca = (re: RegExp) => vendite.find((s) => re.test(String(s.name ?? '').trim()));
+    const deluxy = cerca(/^vendita\s+deluxy$/i);
+    switch (this.tipoVenditaOrdine()) {
+      case 'contrassegno': return cerca(/pagamento\s+alla\s+consegna/i) ?? deluxy ?? vendite[0] ?? null;
+      case 'multipla': return cerca(/multipla/i) ?? deluxy ?? vendite[0] ?? null;
+      default: return deluxy ?? vendite[0] ?? null;
+    }
   }
 
   private forzaServizioVendita(): void {
@@ -1002,6 +1022,15 @@ export class DeliveryFormComponent implements AfterViewInit {
       // carica dopo la vendita).
       if (vendDelPartner && !suoi.some((s) => s.id === attuale.id)) {
         this.model.serviceTypeId = vendDelPartner.id;
+        this.onServiceChange();
+        return;
+      }
+      // ⭐ 06/09: l'ordine ha detto il suo tipo (contrassegno / singola / multipla)
+      // e la vendita scelta non è quella: si passa alla giusta — a meno che
+      // l'utente non l'abbia scelta a mano.
+      const giusta = vendDelPartner ?? this.venditaPreferita(this.serviceTypes());
+      if (this.tipoVenditaOrdine() && giusta && giusta.id !== attuale.id && !this.servizioToccato) {
+        this.model.serviceTypeId = giusta.id;
         this.onServiceChange();
       }
       return;
@@ -1143,7 +1172,15 @@ export class DeliveryFormComponent implements AfterViewInit {
         const m = this.model as Record<string, unknown>;
         if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
         if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
-        if (o.contrassegno) this.model.paymentOnDelivery = true;
+        // ⭐ 06/09 (caso 12879): il tipo di vendita e il contrassegno li decide l'ordine.
+        if (o.tipoVendita) this.tipoVenditaOrdine.set(o.tipoVendita);
+        if (o.contrassegno) {
+          this.model.paymentOnDelivery = true;
+          // Importo del contrassegno = valore dell'ordine (prodotti + consegna). Solo se vuoto.
+          if (!this.model.paymentAmount && typeof o.totale === 'number' && o.totale > 0) this.model.paymentAmount = o.totale;
+        }
+        this.forzaServizioVendita();
+        this.proponiPrezzoDiListino();
 
         // ⭐ FASCIA ORARIA dal cliente (es. «16-20»): è la finestra VERA chiesta
         // sull'ordine, non una fascia da 1 ora — quindi si apre la fascia

@@ -58,6 +58,10 @@ export interface Delivery {
   valetIdentityCheck?: boolean;
   deliveryCodeRequired?: boolean;
   pickupVerifiedAt?: string | null;
+  /** ⭐ 06/09/2026: puntualità calcolata dal server (stessa regola delle Statistiche). */
+  puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
+  deliveredAt?: string | null;
+  startedAt?: string | null;
   price?: number;
   /** Paga del valet: arrivano SOLO al valet della consegna (maschera server). */
   valetSalary?: number | null;

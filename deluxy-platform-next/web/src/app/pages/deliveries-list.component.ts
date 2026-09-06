@@ -383,6 +383,14 @@ interface PropostaVendita {
                          li' c'e' la legenda, e la tabella e' gia' troppo larga. -->
                     <span class="st-testo">{{ 'status.delivery.' + d.status | translate }}</span>
                   </button>
+                  <!-- ⭐ 06/09/2026 (regola utente): l'attributo di PUNTUALITÀ su ogni
+                       consegna conclusa, per tutti i servizi: verde in orario, rosso
+                       in ritardo (coi minuti oltre la tolleranza), ambra in anticipo. -->
+                  @if (d.puntualita; as pu) {
+                    <span class="punt" [class]="'punt ' + pu.esito" [title]="('puntualita.' + pu.esito | translate) + (pu.minuti ? ' · ' + pu.minuti + ' min' : '')">
+                      {{ 'puntualita.breve.' + pu.esito | translate }}@if (pu.minuti) { {{ pu.minuti }}′ }
+                    </span>
+                  }
                 </td>
                 <td class="mono">{{ d.code }}
                   @if (d.deliveryRuleId) {
@@ -856,6 +864,10 @@ interface PropostaVendita {
         white-space: nowrap;
       }
       .quick-tab:hover { color: var(--text-primary); }
+      .punt { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+      .punt.in_orario { color: var(--green); background: rgba(36, 138, 61, .10); }
+      .punt.in_ritardo { color: var(--red); background: rgba(215, 0, 21, .10); }
+      .punt.in_anticipo { color: var(--amber, #b8930f); background: rgba(184, 147, 15, .12); }
       .quick-tab.active {
         background: var(--surface, #fff);
         color: var(--text-primary);

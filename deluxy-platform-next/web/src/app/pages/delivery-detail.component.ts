@@ -117,6 +117,10 @@ interface DeliveryDetail {
   longitude?: number;
   trackingToken?: string;
   receivedBy?: string;
+  receiverType?: string;
+  deliveredAt?: string | null;
+  startedAt?: string | null;
+  puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
   partner?: { id: string; insegna: string; valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean };
   valetIdentityCheck?: boolean;
   pickupVerifiedAt?: string | null;
@@ -312,6 +316,11 @@ interface DeliveryDetail {
             <dd>{{ d.pickupTimeFrom ? (d.pickupTimeFrom + (d.pickupTimeTo ? '–' + d.pickupTimeTo : '')) : '—' }}
               @if (d.pickupFlexible) { <span class="tag">{{ 'common.flexible' | translate }}</span> }</dd>
             <dt>{{ 'deliveryDetail.pickupAddress' | translate }}</dt><dd>{{ d.pickupAddress || '—' }}</dd>
+            @if (d.puntualita; as pu) {
+              <dt>{{ 'puntualita.titolo' | translate }}</dt>
+              <dd><span class="punt" [class]="'punt ' + pu.esito">{{ 'puntualita.' + pu.esito | translate }}@if (pu.minuti) { · {{ pu.minuti }} min }</span>
+                @if (d.deliveredAt) { <span class="muted"> · {{ 'puntualita.consegnataAlle' | translate }} {{ d.deliveredAt | date: 'HH:mm' }}</span> }</dd>
+            }
             <dt>{{ 'deliveries.col.valet' | translate }}</dt>
             <dd>{{ d.valet ? (d.valet.firstName + ' ' + d.valet.lastName) : ('common.notAssigned' | translate) }}</dd>
           </dl>
@@ -608,6 +617,22 @@ interface DeliveryDetail {
         <!-- Allegati: la foto/ricevuta della consegna e il documento DDT -->
         <section class="card block">
           <h2>{{ 'deliveryDetail.section.attachments' | translate }}</h2>
+          <!-- ⭐ 06/09/2026 (regola utente): la PROVA DI CONSEGNA si legge anche dal
+               PARTNER — quando, chi ha ritirato (tipo e nome), quale valet, e sotto
+               firma e documenti da scaricare. -->
+          @if (consegnaEffettuata(d)) {
+            <dl class="prova">
+              <dt>{{ 'deliveryDetail.prova.consegnataAlle' | translate }}</dt>
+              <dd>{{ d.deliveredAt ? (d.deliveredAt | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                @if (d.puntualita; as pu) { <span class="punt" [class]="'punt ' + pu.esito">{{ 'puntualita.' + pu.esito | translate }}@if (pu.minuti) { · {{ pu.minuti }} min }</span> }</dd>
+              <dt>{{ 'deliveryDetail.prova.ritirataDa' | translate }}</dt>
+              <dd>{{ d.receiverType ? ('deliveryDetail.valet.tipo.' + d.receiverType | translate) : '—' }}{{ d.receivedBy ? ' · ' + d.receivedBy : '' }}</dd>
+              <dt>{{ 'deliveryDetail.prova.valet' | translate }}</dt>
+              <dd>{{ d.valet ? (d.valet.firstName + ' ' + d.valet.lastName) : '—' }}</dd>
+              <dt>{{ 'deliveryDetail.prova.documenti' | translate }}</dt>
+              <dd>{{ documentiProva(d) || ('deliveryDetail.prova.nessunDocumento' | translate) }}</dd>
+            </dl>
+          }
           @if (!d.receipt && !d.receiverSign && !d.ddtFile) {
             <p class="muted">{{ 'deliveryDetail.noAttachments' | translate }}</p>
           } @else {
@@ -997,6 +1022,12 @@ interface DeliveryDetail {
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
       /* Azioni del valet: bersagli larghi, e' un flusso da telefono. */
+      .punt { display: inline-block; font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+      .punt.in_orario { color: var(--green); background: rgba(36, 138, 61, .10); }
+      .punt.in_ritardo { color: var(--red); background: rgba(215, 0, 21, .10); }
+      .punt.in_anticipo { color: var(--amber, #b8930f); background: rgba(184, 147, 15, .12); }
+      .prova { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; font-size: 13.5px; }
+      .prova dt { color: var(--text-tertiary); } .prova dd { margin: 0; }
       .valet-azioni { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
       .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
@@ -1351,6 +1382,15 @@ export class DeliveryDetailComponent {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
   }
   /** Consegna EFFETTUATA (consegnata o non): il valet può chiedere rimborso o reclamare. */
+  /** I documenti che provano la consegna, come elenco leggibile (vuoto = nessuno). */
+  documentiProva(d: DeliveryDetail): string {
+    const voci: string[] = [];
+    if (d.receiverSign) voci.push(this.translate.instant('deliveryDetail.sign'));
+    if (d.receipt) voci.push(this.translate.instant('deliveryDetail.receipt'));
+    if (d.ddtFile) voci.push(this.translate.instant('deliveryDetail.ddtFile'));
+    return voci.join(' · ');
+  }
+
   consegnaEffettuata(d: { status: string }): boolean {
     return ['delivered', 'not_delivered', 'approved', 'invalidated'].includes(d.status);
   }

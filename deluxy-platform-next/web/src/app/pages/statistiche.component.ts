@@ -112,6 +112,41 @@ const VERSO: Record<string, 1 | -1 | 0> = {
           </div>
         }
       </div>
+      <!-- ⭐ 06/09/2026 (regola utente): anche uno o più VALET attivi. -->
+      <div class="gruppo partner-filtro">
+        <span class="eti">{{ 'statistiche.filtri.valet' | translate }}</span>
+        <div class="partner-scelta">
+          <button type="button" class="field compatto apri" (click)="elencoValetAperto.set(!elencoValetAperto())">
+            @if (valetIds().length) { {{ 'statistiche.filtri.valetScelti' | translate: { n: valetIds().length } }} } @else { {{ 'statistiche.filtri.tutti' | translate }} }
+            <span class="freccia">▾</span>
+          </button>
+          @if (elencoValetAperto()) {
+            <div class="overlay-trasparente" (click)="elencoValetAperto.set(false)"></div>
+            <div class="elenco-partner card">
+              <input class="field compatto" type="search" [placeholder]="'statistiche.filtri.cercaValet' | translate" [ngModel]="cercaValet()" (ngModelChange)="cercaValet.set($event)" />
+              <div class="righe">
+                @for (v of valetFiltrati(); track v.id) {
+                  <label class="riga-partner">
+                    <input type="checkbox" [checked]="valetIds().includes(v.id)" (change)="togliOMettiValet(v.id)" />
+                    <span>{{ v.nome }}</span>
+                  </label>
+                } @empty { <p class="muted piccolo">{{ 'statistiche.filtri.nessunValet' | translate }}</p> }
+              </div>
+              <div class="azioni-elenco">
+                <button type="button" class="act" (click)="valetIds.set([]); applicaFiltri()">{{ 'statistiche.filtri.azzera' | translate }}</button>
+                <button type="button" class="act primary" (click)="elencoValetAperto.set(false)">{{ 'common.close' | translate }}</button>
+              </div>
+            </div>
+          }
+        </div>
+        @if (valetIds().length) {
+          <div class="chips">
+            @for (id of valetIds(); track id) {
+              <span class="chip-filtro" (click)="togliOMettiValet(id)">{{ nomeValet(id) }} <span class="x">×</span></span>
+            }
+          </div>
+        }
+      </div>
       @if (dati(); as d) {
         <p class="date muted">
           {{ intervallo(d.periodo.da, d.periodo.a) }} ({{ d.periodo.giorni }} {{ 'statistiche.giorni' | translate }})
@@ -515,6 +550,25 @@ export class StatisticheComponent {
   readonly province = signal<{ id: string; code: string; name: string }[]>([]);
   readonly partners = signal<{ id: string; insegna: string }[]>([]);
   readonly elencoPartnerAperto = signal(false);
+  readonly valetIds = signal<string[]>([]);
+  readonly valets = signal<{ id: string; nome: string }[]>([]);
+  readonly elencoValetAperto = signal(false);
+  readonly cercaValet = signal('');
+  readonly valetFiltrati = computed(() => {
+    const q = this.cercaValet().trim().toLowerCase();
+    const scelti = new Set(this.valetIds());
+    return this.valets()
+      .filter((v) => !q || v.nome.toLowerCase().includes(q))
+      .sort((a, b) => Number(scelti.has(b.id)) - Number(scelti.has(a.id)) || a.nome.localeCompare(b.nome, 'it'))
+      .slice(0, 200);
+  });
+  nomeValet(id: string): string { return this.valets().find((v) => v.id === id)?.nome ?? this.dati()?.filtri?.valets?.map((v: any) => ({ id: v.id, nome: `${v.firstName} ${v.lastName}` })).find((v: any) => v.id === id)?.nome ?? id; }
+  togliOMettiValet(id: string): void {
+    const s = new Set(this.valetIds());
+    if (s.has(id)) s.delete(id); else s.add(id);
+    this.valetIds.set([...s]);
+    this.applicaFiltri();
+  }
   readonly cercaPartner = signal('');
   readonly partnerFiltrati = computed(() => {
     const q = this.cercaPartner().trim().toLowerCase();
@@ -535,6 +589,7 @@ export class StatisticheComponent {
   private caricaElenchi(): void {
     this.http.get<any[]>(`${environment.apiUrl}/service-types`).subscribe({ next: (r) => this.servizi.set((Array.isArray(r) ? r : (r as any).items ?? []).map((s: any) => ({ id: s.id, name: s.name })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'it'))), error: () => {} });
     this.http.get<any[]>(`${environment.apiUrl}/provinces`).subscribe({ next: (r) => this.province.set((Array.isArray(r) ? r : (r as any).items ?? []).map((p: any) => ({ id: p.id, code: p.code, name: p.name })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'it'))), error: () => {} });
+    this.http.get<any>(`${environment.apiUrl}/valets`).subscribe({ next: (r) => this.valets.set((Array.isArray(r) ? r : r?.items ?? []).filter((v: any) => v.active !== false && !v.placeholder).map((v: any) => ({ id: v.id, nome: `${v.lastName ?? ''} ${v.firstName ?? ''}`.trim() }))), error: () => {} });
     this.http.get<any>(`${environment.apiUrl}/partners`, { params: { pageSize: 500 } }).subscribe({ next: (r) => this.partners.set((Array.isArray(r) ? r : r?.items ?? []).filter((p: any) => p.active !== false).map((p: any) => ({ id: p.id, insegna: p.insegna }))), error: () => {} });
   }
 
@@ -548,6 +603,7 @@ export class StatisticheComponent {
     this.pricingModel.set(this.MODELLI.includes(q.get('pricingModel') ?? '') ? (q.get('pricingModel') as string) : '');
     this.provinceId.set(q.get('provinceId') ?? '');
     this.partnerIds.set((q.get('partnerIds') ?? '').split(',').map((x) => x.trim()).filter(Boolean));
+    this.valetIds.set((q.get('valetIds') ?? '').split(',').map((x) => x.trim()).filter(Boolean));
     this.caricaElenchi();
     this.carica();
   }
@@ -556,7 +612,7 @@ export class StatisticheComponent {
     this.periodo.set(p); this.confronto.set(c);
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { periodo: p, confronto: c, pricingModel: this.pricingModel() || null, serviceTypeId: this.serviceTypeId() || null, provinceId: this.provinceId() || null, partnerIds: this.partnerIds().length ? this.partnerIds().join(',') : null },
+      queryParams: { periodo: p, confronto: c, pricingModel: this.pricingModel() || null, serviceTypeId: this.serviceTypeId() || null, provinceId: this.provinceId() || null, partnerIds: this.partnerIds().length ? this.partnerIds().join(',') : null, valetIds: this.valetIds().length ? this.valetIds().join(',') : null },
       replaceUrl: true,
     });
     this.carica();
@@ -570,6 +626,7 @@ export class StatisticheComponent {
     if (this.pricingModel()) params['pricingModel'] = this.pricingModel();
     if (this.provinceId()) params['provinceId'] = this.provinceId();
     if (this.partnerIds().length) params['partnerIds'] = this.partnerIds().join(',');
+    if (this.valetIds().length) params['valetIds'] = this.valetIds().join(',');
     this.espansa.set(null);
     this.http.get<any>(`${environment.apiUrl}/statistiche`, { params }).subscribe({
       next: (d) => { this.dati.set(d); this.loading.set(false); },
@@ -713,6 +770,7 @@ export class StatisticheComponent {
     if (this.pricingModel()) params['pricingModel'] = this.pricingModel();
     if (this.provinceId()) params['provinceId'] = this.provinceId();
     if (this.partnerIds().length) params['partnerIds'] = this.partnerIds().join(',');
+    if (this.valetIds().length) params['valetIds'] = this.valetIds().join(',');
     this.http.get<any>(`${environment.apiUrl}/statistiche/ritardi`, { params }).subscribe({
       next: (r) => { this.ritardi.set(r); this.ritardiCaricamento.set(false); },
       error: () => { this.ritardi.set(null); this.ritardiCaricamento.set(false); },

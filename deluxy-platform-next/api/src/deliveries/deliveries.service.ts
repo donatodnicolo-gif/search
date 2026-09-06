@@ -20,6 +20,7 @@ import {
 } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.module';
 import { StockService } from '../stock/stock.module';
+import { puntualitaConsegna } from '../common/puntualita';
 import {
   PagedResult,
   buildOrderBy,
@@ -58,6 +59,9 @@ const DELIVERY_LIST_SELECT = {
   paymentOnDelivery: true, paymentAmount: true, price: true,
   // ⭐ 05/09/2026: il ritiro verificato col codice del valet (bottone «in consegna»).
   valetIdentityCheck: true, deliveryCodeRequired: true, pickupVerifiedAt: true,
+  // ⭐ 06/09/2026 (regola utente): la PUNTUALITÀ (in orario / in ritardo / in anticipo)
+  // si calcola da qui: orario reale d'arrivo e di partenza.
+  deliveredAt: true, startedAt: true,
   // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
   // tabella, nella colonna «Consegna», quando sono da approvare.
   hoursFrom: true, hoursTo: true, hoursOriginal: true,
@@ -588,7 +592,9 @@ export class DeliveriesService {
     // ⚠️ Anche la LISTA: nascondere i numeri solo nel dettaglio lascerebbe la
     // stessa fuga da un'altra rotta. Si toglie dove i dati escono, non dove si
     // mostrano.
-    return { items: rows.map((r) => this.soloIMieiSoldi(r as any, user)), total, page, pageSize };
+    // ⭐ 06/09/2026 (regola utente): ogni consegna porta l'attributo di PUNTUALITÀ,
+    // per tutti i servizi, calcolato con la stessa regola delle Statistiche.
+    return { items: rows.map((r) => ({ ...this.soloIMieiSoldi(r as any, user), puntualita: puntualitaConsegna(r as any) })), total, page, pageSize };
   }
 
   /**
@@ -845,7 +851,7 @@ export class DeliveriesService {
     }
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any) }, user),
       user,
     );
   }
