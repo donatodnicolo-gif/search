@@ -13,8 +13,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
-import { ProductType, Role, SaleStatus } from '../common/enums';
+import { NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
@@ -67,7 +68,35 @@ type StatoOrdineOrders = {
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  /**
+   * ⭐ 06/09/2026 (segnalazione utente: «perché non vengono mandate notifiche?»):
+   * finora una vendita PROPOSTA al partner non avvisava nessuno — il partner la
+   * scopriva solo entrando in Vendite. Ora gli utenti attivi di quel partner
+   * ricevono campanella e push (stesso canale delle ore da approvare). Se la
+   * notifica fallisce la vendita resta proposta: avvisare non è un prerequisito.
+   */
+  private async avvisaProposta(v: { id: string; partnerId?: string | null; externalOrderNumber?: string | null; amount?: number | null; product?: { name?: string | null } | null }): Promise<void> {
+    if (!v.partnerId) return;
+    try {
+      const utenti = await this.prisma.user.findMany({ where: { partnerId: v.partnerId, status: 'active' }, select: { id: true } });
+      if (!utenti.length) return;
+      const importo = v.amount != null ? ` · ${Number(v.amount).toFixed(2)} €` : '';
+      await this.notifications.notifyUsers(utenti.map((u) => u.id), {
+        type: NotificationType.SALE_PROPOSED,
+        title: 'Nuova vendita proposta',
+        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${importo} — accetta o rifiuta in Vendite`,
+        entityType: 'sale',
+        entityId: v.id,
+      });
+    } catch {
+      // la vendita è già scritta: un avviso mancato non la annulla
+    }
+  }
 
   /**
    * ⭐ 04/09/2026 (regola utente): IL REGISTRO DELLA VENDITA — ogni creazione,
@@ -420,7 +449,7 @@ export class SalesService {
         })
       : null;
 
-    return this.prisma.sale.create({
+    const creata = await this.prisma.sale.create({
       data: {
         productId: product.id,
         // Fotografia della variante: id + nome, come per il prodotto.
@@ -460,6 +489,8 @@ export class SalesService {
         partner: { select: { id: true, insegna: true } },
       },
     });
+    if (creata.status === SaleStatus.PROPOSTA && creata.partnerId) await this.avvisaProposta(creata);
+    return creata;
   }
 
   /**
@@ -1268,6 +1299,7 @@ export class SalesService {
       include: { product: { select: { id: true, name: true } }, partner: { select: { id: true, insegna: true } }, province: true },
     });
     await this.registra(id, 'stato', `Proposta a ${partner.insegna} dall'ufficio (scelta a mano sullo storico)`, user);
+    await this.avvisaProposta(aggiornata);
     return aggiornata;
   }
 
@@ -1856,6 +1888,10 @@ export class SalesService {
         deliveryFlexible: Boolean(fasciaDalle && fasciaAlle && fasciaAlle !== fasciaDalle) || undefined,
         personalizeSaleNotes: biglietto,
         notes: notaShopify,
+        // ⭐ 06/09/2026: l'id Shopify dell'ordine (`realOrderNumber`) è la chiave
+        // con cui Finanza trova quello che il cliente ha pagato (cache di Orders).
+        // Senza, 162 consegne di vendita su 636 dal 01/08 restavano «stimate».
+        realOrderNumber: SalesService.numeroShopify(ordine?.orderId ?? null) ?? undefined,
         productValue: vendita.productId ? null : valoreProdotti,
         ddtNumber: numeroDdt,
         // Con piu' brand lo stesso numero DDT esiste su negozi diversi: il
@@ -2048,6 +2084,7 @@ export class SalesController {
 }
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [SalesController],
   providers: [SalesService],
   exports: [SalesService],

@@ -611,6 +611,29 @@ export class FinanceService {
    * consegna, per numero d'ordine Shopify. E' la fonte dei margini dove c'e'.
    */
   private async clientePagato(rows: CorrispettivoRow[]) {
+    // ⭐ 06/09/2026: le consegne nate dalle VENDITE non avevano `realOrderNumber`
+    // (162 su 636 dal 01/08) e la cache non le trovava mai. Qui si risale dalla
+    // vendita collegata (`Sale.deliveryId` → `externalOrderId` = id interno di
+    // Orders = `OrdineCliente.ordersId`) e si scrive sulla riga la chiave giusta.
+    const senzaNumero = rows.filter((r) => !r.realOrderNumber);
+    if (senzaNumero.length) {
+      const vendite = await this.prisma.sale.findMany({
+        where: { deliveryId: { in: senzaNumero.map((r) => r.deliveryId) }, externalOrderId: { not: null } },
+        select: { deliveryId: true, externalOrderId: true },
+      });
+      const perOrdersId = new Map(vendite.map((v) => [v.externalOrderId as string, v.deliveryId as string]));
+      if (perOrdersId.size) {
+        const trovate = await this.prisma.ordineCliente.findMany({
+          where: { ordersId: { in: [...perOrdersId.keys()] } },
+          select: { orderId: true, ordersId: true },
+        });
+        const chiavePerConsegna = new Map(trovate.map((c) => [perOrdersId.get(c.ordersId as string) as string, c.orderId]));
+        for (const r of senzaNumero) {
+          const k = chiavePerConsegna.get(r.deliveryId);
+          if (k) r.realOrderNumber = k;
+        }
+      }
+    }
     const numeri = [...new Set(rows.map((r) => r.realOrderNumber).filter(Boolean))] as string[];
     if (!numeri.length) return new Map<string, ClientePagato>();
     const righe = await this.prisma.ordineCliente.findMany({
