@@ -1547,6 +1547,7 @@
       "payableGroup": "Da pagare (valet)",
       "payable": "Da pagare",
       "valetSalary": "Valet salario (€)",
+      "feeVenditaHint": "Fee {{pct}} % su {{base}} € = {{fee}} € — si calcola alla fatturazione sulle righe senza «Senza fee»; vuoto = automatico",
       "valetSalaryFromListino": "Vuoto: gli stipendi useranno la paga da listino, {{paga}} €",
       "flexiblePrice": "Prezzo flessibile",
       "flexiblePriceDetail": "Dettaglio prezzo flessibile",

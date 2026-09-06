@@ -1545,6 +1545,7 @@
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
       "valetSalary": "Valet salary (€)",
+      "feeVenditaHint": "Fee {{pct}}% on {{base}} € = {{fee}} € — computed at invoicing on rows without «No fee»; empty = automatic",
       "valetSalaryFromListino": "Empty: payroll will use the list pay, {{paga}} €",
       "flexiblePrice": "Flexible price",
       "flexiblePriceDetail": "Flexible price details",

@@ -494,7 +494,16 @@ interface ProductRow {
             }
             <div class="grid-2">
               <label class="fld"><span>{{ 'deliveryForm.pricing.price' | translate }}</span>
-                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
+                <!-- ⭐ 06/09/2026 (regola utente: «fai in modo che i numeri siano
+                     sempre visibili»): sulla VENDITA il campo resta vuoto (la
+                     fee si calcola alla fatturazione), ma il numero che ne
+                     uscirà si legge QUI: fee% × base fee delle righe. -->
+                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price"
+                       [placeholder]="feeVendita() ? feeVendita()!.feeTesto : ('deliveryForm.placeholder.auto' | translate)" />
+                @if (model.price == null && feeVendita(); as fv) {
+                  <span class="slot-hint">{{ 'deliveryForm.pricing.feeVenditaHint' | translate: { pct: fv.pctTesto, base: fv.baseTesto, fee: fv.feeTesto } }}</span>
+                }
+              </label>
               <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
               <!-- ⭐ 04/09 (regola utente): «Regole» è il valore della regola
@@ -1543,6 +1552,31 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (attuale != null && attuale !== this.prezzoProposto) return;
     this.model.price = prezzo;
     this.prezzoProposto = prezzo;
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): LA FEE DELLA VENDITA SI VEDE. Il campo prezzo
+   * sulla vendita resta vuoto di proposito (regola 01/09: fee% × valore prodotti
+   * si calcola alla fatturazione), ma «auto» non diceva niente. Qui si fa lo
+   * stesso conto della fatturazione — fee% del listino partner × base fee
+   * (righe senza «Senza fee», prezzo × quantità) — e lo si mostra come
+   * segnaposto e come riga sotto il campo. Non scrive nel modello.
+   */
+  feeVendita(): { pct: number; base: number; fee: number; pctTesto: string; baseTesto: string; feeTesto: string } | null {
+    const s = this.selectedService();
+    if (!s || s.pricingModel !== 'VENDITA') return null;
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    const riga = (p?.services ?? []).find((r) => (r.serviceTypeId ?? r.serviceType?.id) === this.model.serviceTypeId);
+    if (!riga || riga.price == null) return null;
+    const base = this.productRows.reduce((tot, r) => {
+      if (!r.productId || r.withoutCommission) return tot;
+      const prezzo = this.rowPrice(r);
+      return tot + (prezzo ?? 0) * Math.max(1, r.quantity ?? 1);
+    }, 0);
+    if (!(base > 0)) return null;
+    const fee = Math.round((base * riga.price) / 100 * 100) / 100;
+    const it = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return { pct: riga.price, base, fee, pctTesto: riga.price.toLocaleString('it-IT'), baseTesto: it(base), feeTesto: it(fee) };
   }
 
   /** Anteprima del listino in costruzione: distanza, extra km, prezzo, paga. */
