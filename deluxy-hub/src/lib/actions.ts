@@ -7,7 +7,7 @@ import { prisma } from "./db";
 import { hashPassword, verificaPassword } from "./password";
 import { SESSION_COOKIE, DURATA_SESSIONE_S, creaSessione } from "./session";
 import { richiediAdmin, sessioneCorrente } from "./sessione-server";
-import { isRuolo, type Ruolo } from "./ruoli";
+import { ruoloDaModulo, type Ruolo } from "./ruoli";
 import { idAppValidi } from "./apps";
 
 function testo(fd: FormData, campo: string): string {
@@ -110,9 +110,9 @@ export async function creaUtente(fd: FormData) {
   const email = testo(fd, "email").toLowerCase();
   const nome = testo(fd, "nome");
   const password = String(fd.get("password") ?? "");
-  const ruolo = testo(fd, "ruolo");
+  const ruolo = ruoloDaModulo(fd);
 
-  if (!email || !nome || password.length < 8 || !isRuolo(ruolo)) {
+  if (!email || !nome || password.length < 8) {
     redirect("/utenti?errore=dati");
   }
   if (await prisma.utente.findUnique({ where: { email } })) {
@@ -138,11 +138,11 @@ export async function aggiornaUtente(fd: FormData) {
 
   const id = testo(fd, "id");
   const nome = testo(fd, "nome");
-  const ruolo = testo(fd, "ruolo");
+  const ruolo = ruoloDaModulo(fd);
   const attivo = fd.get("attivo") === "on";
   const password = String(fd.get("password") ?? "");
 
-  if (!id || !nome || !isRuolo(ruolo)) redirect("/utenti?errore=dati");
+  if (!id || !nome) redirect("/utenti?errore=dati");
 
   const dati: {
     nome: string;

@@ -366,6 +366,18 @@ passaggio), quindi il cambio è stato un cambio di fonte, non di schermata.
   sezione dice cosa manca e il resto di /utenti vive. La riga
   `budgets / BUDGETS_API_KEY` in cassaforte non serve più al Hub (Finance la usa
   ancora dalla sua): si può lasciare.
+- **Secondo giro, stessa mattina (regola utente: «anche i ruoli in Utenti
+  dovrebbero essere il team, già preso da Personale»)**: nella lista utenti la
+  colonna «Ruolo» è diventata **«Funzione»** e mostra quello che dice Personale
+  (`personaleDi(u)`: funzione + ruolo in azienda, per email poi per nome);
+  chi non è in Personale → «Non in Personale», i partner → «Esterno /
+  partner»; l'admin ha in più la pillola oro «Amministratore». La tendina
+  «Ruolo» (nuovo utente e Modifica) è sostituita da **due spunte**
+  (`SpuntePrivilegi.tsx`): Amministratore → `admin`, Esterno / partner →
+  `partner`, nessuna → `commerciale` (`ruoloDaModulo()` in `ruoli.ts`, usato
+  da `creaUtente`/`aggiornaUtente`). L'asse dei privilegi resta
+  ([[trappola-permessi-con-un-asse-solo]]): la funzione non decide cosa si può
+  fare nel portale. Registrato in SEGNALAZIONI-UX (06/09, n. 8).
 - Documentato in README («Squadre e persone in /utenti»), manuale visivo
   (cap. Utenti e «come le app si parlano») e nel Registro del Manuale Deluxy.
   Artifact del manuale **da ripubblicare** al deploy.
