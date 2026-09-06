@@ -1,5 +1,16 @@
 # Deluxy Customer Service
 
+## Vendite: sconti per provincia, partner per provincia, liste per area (06/09/2026)
+
+Dal 06/09/2026 **questa app decide a chi proporre un ordine e con che sconto** (Orders tiene solo l'ordine; la piattaforma consegne dice chi c'è ed esegue). Pagina **Vendite** (amministratore):
+- **Sconti per provincia** — regola del territorio sul prezzo pubblico dei prodotti non unici: 40 % dove non abbiamo partner, 20 % a Milano e 30 % altrove dove ce l'abbiamo; prezzo al fornitore arrotondato a 5 o a 0; per provincia si personalizza (vuoto = predefinito).
+- **Partner per provincia** — chi vende lì, con che mestiere, chi consegna da solo e se lo fa in quella provincia (minimo e raggio), le liste della provincia, le aree commerciali: letto dalla piattaforma, 10 minuti di cache.
+- **Liste di priorità per area commerciale** — importate dalla piattaforma (unione delle liste delle province dell'area; con un solo partner attivo la lista nasce da lui); riordinabili qui, e una lista toccata a mano non viene più sovrascritta finché non la ripristini. Per ora si smistano da qui solo i fiori.
+
+Sulla scheda ordine, **«Proposta di vendita»**: consegna deluxy.it in guanti bianchi (fuori MI/RM/FI serve l'extra pagato: senza è un'anomalia da segnalare) oppure consegna del partner (solo chi consegna da solo in quella provincia), a chi proporre in ordine, sconto e prezzo al fornitore. L'extra si legge come totale dell'ordine meno le righe prodotto.
+
+API per le altre app (chiave `ApiKey`): `GET /api/v1/quota-fornitore?provincia=MI&conPartner=1|0&prezzoPubblico=85` → `quota`, `sconto`, `regola`, `prezzoFornitore`. È la **casa** della quota: Orders vi delega.
+
 Il **servizio clienti** dell'ecosistema Deluxy. Si aprono e si lavorano i **reclami**
 sugli ordini — ognuno con una casistica, le azioni da eseguire e la colpa attribuita a un
 **valet** o a un **partner**, da cui nascono i **giudizi** — e attorno restano gli

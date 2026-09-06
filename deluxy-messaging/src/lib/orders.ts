@@ -714,7 +714,18 @@ export type QuotaFornitore = {
 }
 
 /** Legge la quota da Orders. `null` quando non si sa: allora non si mostra niente. */
-export async function leggiQuotaFornitore(totale?: number): Promise<QuotaFornitore | null> {
+export async function leggiQuotaFornitore(totale?: number, provincia?: string | null): Promise<QuotaFornitore | null> {
+  // ⭐ 06/09/2026 (nuova architettura vendite): la casa della quota è QUESTA app (lib/vendite.ts):
+  // sconto per provincia, con/senza partner deciso dalla piattaforma. Orders non la tiene più.
+  try {
+    const { scontoPerProvincia, statoProvincia } = await import('./vendite')
+    const sigla = (provincia ?? '').trim().toUpperCase()
+    const stato = sigla ? await statoProvincia(sigla) : null
+    const deciso = await scontoPerProvincia(sigla, stato ? stato.conPartner : null)
+    return { quota: deciso.quota, atteso: totale && totale > 0 ? totale * (deciso.quota / 100) : undefined, dove: 'Customer Service → Vendite' + (deciso.regola === 'default' ? ' (quota indicativa: provincia o partner non noti)' : '') }
+  } catch {
+    // ripiego: il vecchio percorso, finché Orders risponde
+  }
   const c = await configOrders()
   if (!c) return null
   try {

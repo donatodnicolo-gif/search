@@ -20,9 +20,30 @@ import { provinciaHaPartner } from "@/lib/piattaforma";
 // sparpagliano moltiplicazioni per le app.
 export const dynamic = "force-dynamic";
 
+// ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (decisione utente): «Orders gestisce solo
+// l'ordine». La casa dello sconto per provincia è il CUSTOMER SERVICE (pagina Vendite): questa
+// rotta gli DELEGA la domanda, stesso contratto, così chi la chiamava qui non si accorge del
+// trasloco. Serve CUSTOMER_SERVICE_URL + CUSTOMER_SERVICE_API_KEY; senza, o se il CS non
+// risponde, vale il motore locale e la risposta lo dichiara (`casa`).
+async function delegaAlCustomerService(q: URLSearchParams): Promise<Record<string, unknown> | null> {
+  const url = (process.env.CUSTOMER_SERVICE_URL ?? "").trim().replace(/\/+$/, "");
+  const chiave = (process.env.CUSTOMER_SERVICE_API_KEY ?? "").trim();
+  if (!url || !chiave) return null;
+  try {
+    const res = await fetch(`${url}/api/v1/quota-fornitore?${q.toString()}`, { headers: { "x-api-key": chiave }, signal: AbortSignal.timeout(6000), cache: "no-store" });
+    if (!res.ok) return null;
+    const j = (await res.json()) as Record<string, unknown>;
+    return typeof j?.quota === "number" ? j : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const cliente = await autentica(req);
   if (cliente instanceof NextResponse) return cliente;
+  const dalCs = await delegaAlCustomerService(req.nextUrl.searchParams);
+  if (dalCs) return NextResponse.json({ ...dalCs, casa: "customer-service", delegataDa: "deluxy-orders" });
 
   // Dal 24/08/2026 la quota può variare PER PROVINCIA (e categoria): la
   // cascata è (provincia, categoria) → (provincia) → default, e la risposta
@@ -55,6 +76,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     quota,
+    casa: "deluxy-orders (ripiego: Customer Service non configurato o non raggiunto)",
     predefinita: QUOTA_FORNITORE_DEFAULT,
     chiave: "controllo.quotaFornitore",
     dove: "Deluxy Orders → Impostazioni",

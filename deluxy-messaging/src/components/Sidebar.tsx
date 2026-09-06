@@ -159,6 +159,8 @@ export function Sidebar({
               { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },
               { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
               { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
+              // ⭐ 06/09/2026: sconti per provincia, partner per provincia, liste per area (custode: questa app).
+              { href: '/vendite', nome: 'Vendite', icona: iconaImpostazioni },
             ]
           : []),
       ],

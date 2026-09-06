@@ -67,6 +67,11 @@ const TUTTE = new Set(Object.values(SIGLE))
  * risultati di un'altra provincia**. Un fornitore proposto a 400 km fa perdere
  * una telefonata e la fiducia nella lista.
  */
+/** Sigla → nome esteso (Title Case), per le tabelle: l'inverso di SIGLE. */
+export const PROVINCE: Record<string, string> = Object.fromEntries(
+  Object.entries(SIGLE).map(([nome, sigla]) => [sigla, nome.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m) => m.toUpperCase())])
+)
+
 export function siglaProvincia(valore: string | null | undefined): string {
   const v = (valore ?? '').trim().toUpperCase().replace(/[().]/g, '').trim()
   if (!v) return ''

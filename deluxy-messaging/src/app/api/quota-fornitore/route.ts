@@ -6,6 +6,8 @@ export const dynamic = 'force-dynamic'
 
 // Quanto è previsto che vada al fornitore, in percentuale sul venduto.
 //
+// ⭐ 06/09/2026: la regola ORA VIVE QUI (lib/vendite.ts, pagina Vendite): sconto per provincia,
+// con/senza partner deciso dalla piattaforma. Il testo sotto è storia.
 // ⚠️⚠️ La regola NON sta qui e non si ricopia: vive in **Deluxy Orders**
 // (`controllo.quotaFornitore`) ed è lui l'unico a saperla. Un 60% scritto nel
 // nostro codice resterebbe al vecchio valore il giorno che la cambiano là, e

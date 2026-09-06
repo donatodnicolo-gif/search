@@ -433,6 +433,38 @@ sera stessa dopo la verifica sul codice della piattaforma):**
   piattaforma via API; per i fornitori in chat, il costo concordato dal CS
   (con la quota come bussola).
 
+**⭐ NUOVA ARCHITETTURA VENDITE (06/09/2026 sera, decisa dall'utente) — SOSTITUISCE il
+paragrafo «Sconti per provincia e lista di priorità» qui sopra.**
+
+- **Orders gestisce SOLO l'ordine** (registro, salute, margine). La sua rotta
+  `GET /api/v1/quota-fornitore` resta per compatibilità e DELEGA al Customer Service.
+- **Il Customer Service è il custode di due cose**, con due aree dedicate nella sua
+  pagina «Vendite»: (1) lo **sconto per provincia** sul prezzo pubblico dei prodotti
+  NON unici — regola del territorio: **40 %** dove non abbiamo partner (fornitori
+  dell'occasione, da cui prendiamo una fee), **20 % a Milano** e **30 % altrove** dove
+  ce l'abbiamo, prezzo arrotondato a 5 o a 0, personalizzabile per provincia; (2) le
+  **liste di priorità per AREA COMMERCIALE** (gruppi di province della piattaforma),
+  importate dalla piattaforma e modificabili lì. Casa della quota:
+  `GET /api/v1/quota-fornitore` del CS (`provincia`, `conPartner`, `prezzoPubblico`).
+- **La piattaforma consegne dice chi c'è ed esegue.** Ogni partner ha un'**area
+  commerciale** (dove VENDE) e, solo con «Consegna da Partner», un'**area di
+  consegna** (dove consegna da solo) con **minimo d'ordine e raggio per provincia**
+  (di default = le province che aveva). Il concetto di partner resta legato al
+  **mestiere**. API: `GET /api/v1/app/vendita/provincia/:sigla` (partner attivi con
+  servizio di vendita, mestieri, consegna da partner e se consegna QUI, liste della
+  provincia, aree commerciali, `conPartner`), `/app/aree-commerciali`, `/app/liste-priorita`.
+  «Con partner» = la provincia ha una lista di priorità con un partner attivo.
+- **Il giro**: l'ordine arriva al CS → il CS chiede alla piattaforma chi c'è in
+  provincia (se non lo sa già) → applica lo sconto con/senza partner → **deluxy.it =
+  guanti bianchi**: fuori MI/RM/FI serve l'**extra pagato** (letto come totale −
+  righe prodotto): con l'extra propone a TUTTI i partner della lista dell'area
+  commerciale (consegna nostra), senza extra è un'**anomalia** da segnalare; **altri
+  marchi**: propone solo a chi **consegna da solo in quella provincia**, nell'ordine
+  della lista, filtrato su «Consegna da Partner» attivo. Per ora si smistano da qui
+  **solo i fiori**. La piattaforma poi esegue (proposta al partner, consegna, valet).
+- Il paragrafo del 24/08 sopra resta come storia: `CategoryDiscount` della piattaforma
+  è il ripiego quando il CS non risponde.
+
 **Deviazione dichiarata — `deluxy-messaging` (24/08/2026, decisa dall'utente).**
 Due punti di §7.4 sono stati cambiati, e vale la pena scrivere perché.
 

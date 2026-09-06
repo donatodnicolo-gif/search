@@ -1669,6 +1669,13 @@ dicono più di dodici mesi.
 
 ### La quota del fornitore (`/api/v1/quota-fornitore`)
 
+> ⭐⭐ **06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (decisione dell'utente): «Orders gestisce solo l'ordine».**
+> La casa dello sconto per provincia e delle liste di priorità è il **Customer Service** (pagina
+> Vendite: sconti per provincia, partner per provincia, liste per area commerciale importate dalla
+> piattaforma). Questa rotta **delega** la domanda al CS (`CUSTOMER_SERVICE_URL` + `CUSTOMER_SERVICE_API_KEY`,
+> stesso contratto) e risponde col suo numero (`casa: customer-service`); il motore qui sotto resta
+> solo come ripiego quando il CS non è raggiungibile, e la risposta lo dice.
+
 > ⭐ **06/09/2026 — LA REGOLA DEL TERRITORIO (decisione dell'utente), per i prodotti NON unici.**
 > Il prezzo da dare a fornitori e partner è il **prezzo pubblico meno uno sconto**:
 > **40 %** nelle province **senza partner** (fornitori trovati per l'occasione, da cui

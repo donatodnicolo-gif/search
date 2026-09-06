@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
+import { PropostaVendita } from './PropostaVendita'
 import { Conferma } from './Conferma'
 import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { RichiediFattura } from './RichiediFattura'
@@ -1679,9 +1680,11 @@ export function DettaglioOrdine({
                     style: 'currency',
                     currency: ordine.valuta || 'EUR',
                   })}
-                  . È la quota uguale per tutti: si cambia in {quota.dove}.
+                  . Si cambia in {quota.dove}.
                 </p>
               ) : null}
+              {/* ⭐ 06/09/2026 — nuova architettura vendite: a chi proporre e con che sconto lo decide questa app. */}
+              <PropostaVendita ordineId={ordine.id} valuta={ordine.valuta} />
               <p className="descrizione" style={{ marginBottom: 0 }}>
                 {ritiro ? (
                   <>

@@ -2281,3 +2281,31 @@ model RichiestaFattura {
   @@index([stato, creatoIl])
   @@index([negozioId, stato])
 }
+
+// ⭐ 06/09/2026 — VENDITE (nuova architettura, decisione utente): il Customer Service è il custode
+// dello SCONTO PER PROVINCIA (regola del territorio: 40 senza partner; 20 Milano / 30 altrove con
+// partner) e delle LISTE DI PRIORITÀ PER AREA COMMERCIALE importate dalla piattaforma consegne.
+// Orders gestisce solo l'ordine; «c'è un partner in provincia?» lo dice la piattaforma.
+model ScontoProvincia {
+  provincia    String   @id // sigla MAIUSCOLA
+  conPartner   Float? // null = predefinito della regola del territorio
+  senzaPartner Float?
+  nota         String   @default("")
+  modificatoDa String?
+  aggiornatoIl DateTime @default(now()) @updatedAt
+}
+
+model ListaPrioritaArea {
+  id           String    @id @default(cuid())
+  area         String // nome dell'area commerciale della piattaforma
+  province     String    @default("[]") // JSON: sigle
+  mestiere     String
+  partner      String    @default("[]") // JSON: [{id, insegna}] in ordine di priorità
+  origine      String    @default("")
+  importataIl  DateTime?
+  modificataIl DateTime? // toccata a mano: l'importazione non la sovrascrive
+  modificataDa String?
+  creataIl     DateTime  @default(now())
+
+  @@unique([area, mestiere])
+}

@@ -109,6 +109,11 @@ async function chiama<T>(percorso: string): Promise<EsitoPiattaforma<T>> {
   }
 }
 
+/** ⭐ 06/09/2026: una lettura qualsiasi dalla piattaforma (le Vendite chiedono chi c'è in provincia, aree, liste). */
+export async function leggiDallaPiattaforma<T>(percorso: string): Promise<EsitoPiattaforma<T>> {
+  return chiama<T>(percorso)
+}
+
 /**
  * Lo stato di UN ordine nella piattaforma, per l'id che ha in Deluxy Orders.
  *
