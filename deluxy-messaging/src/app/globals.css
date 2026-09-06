@@ -3757,6 +3757,51 @@ td .azioni-ordine {
 
 .finestra-pagata .campo { margin: 0; }
 
+/* ── LA CONFERMA NARRATIVA (Libro §7): finestra piccola, sopra tutto ──
+   Sta SOPRA il pannello dell'ordine (z 60): la si apre anche da lì. */
+.velo-conferma {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: saturate(140%) blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.finestra-conferma {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-float);
+  padding: 18px 20px;
+  width: min(440px, 100%);
+  max-height: min(92dvh, calc(100dvh - 32px));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.finestra-conferma h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.conferma-testo {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.conferma-testo p { margin: 0 0 6px; }
+.conferma-testo p:last-child { margin-bottom: 0; }
+.conferma-azioni {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
 .finestra-pagata .errore-riga {
   margin: 0;
   font-size: 12.5px;
