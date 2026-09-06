@@ -49,6 +49,17 @@ export type PrefillInApp = {
    * provincia (utente, 06/09/2026).
    */
   provinciaConsegna: string
+  /**
+   * IL PREZZO DEL PRODOTTO, dedotto da quello che abbiamo già pagato (utente,
+   * 06/09/2026, caso #2875: fornitore Sarracino Orsolina pagata 60 €). In
+   * ordine: la richiesta di pagamento al fornitore su quest'ordine → il costo
+   * registrato sul fornitore → il costo partner della vendita in piattaforma.
+   * `null` = non sappiamo niente, e il campo resta vuoto: il prezzo pagato dal
+   * CLIENTE non è mai una proposta, è un altro numero.
+   */
+  prezzoProposto: number | null
+  /** Da dove viene, in una riga da leggere sotto il campo. */
+  prezzoDa: string
   /** I campi del modulo, già riempiti con quello che sappiamo. */
   campi: NuovaConsegna
 }
@@ -88,6 +99,8 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
     partnerId: '',
     partnerNome: '',
     provinciaConsegna: '',
+    prezzoProposto: null,
+    prezzoDa: '',
     campi: {
       date: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : '',
       serviceTypeId: '',
@@ -182,6 +195,28 @@ export async function prefillInApp(ordineId: string): Promise<PrefillInApp | nul
   } else {
     vuoto.perche =
       "Quest'ordine non ha ancora un id in Deluxy Orders: la vendita di là non si può agganciare, ma la consegna si può creare lo stesso."
+  }
+
+  // ── IL PREZZO DEL PRODOTTO, DA QUELLO CHE ABBIAMO GIÀ PAGATO ──
+  const senza = (o.numero ?? '').replace(/^#+/, '')
+  const pagata = await db.richiestaPagamento.findFirst({
+    where: {
+      importo: { gt: 0 },
+      OR: [{ ordineId: o.id }, ...(senza ? [{ ordineNumero: { in: [senza, `#${senza}`] } }] : [])],
+    },
+    // Prima quelle PAGATE (le più recenti), poi le richieste ancora aperte.
+    orderBy: [{ pagataIl: { sort: 'desc', nulls: 'last' } }, { creatoIl: 'desc' }],
+    select: { importo: true, intestatario: true, pagataIl: true },
+  })
+  if (pagata) {
+    vuoto.prezzoProposto = pagata.importo
+    vuoto.prezzoDa = `${pagata.pagataIl ? 'pagamento' : 'richiesta di pagamento'} a ${pagata.intestatario}`
+  } else if (o.fornitoreCosto && o.fornitoreCosto > 0) {
+    vuoto.prezzoProposto = o.fornitoreCosto
+    vuoto.prezzoDa = `costo registrato sul fornitore ${o.fornitoreNome}`.trim()
+  } else if (o.appCostoPartner && o.appCostoPartner > 0) {
+    vuoto.prezzoProposto = o.appCostoPartner
+    vuoto.prezzoDa = 'costo partner della vendita in piattaforma'
   }
 
   return vuoto
