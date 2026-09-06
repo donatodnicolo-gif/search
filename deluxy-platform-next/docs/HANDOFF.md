@@ -3,6 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🪗 **06/09/2026 sera — flag «Escluso dalle proposte»** (`Partner.esclusoDalleProposte`, acceso a Artista Locale / Deluxy Flowers / Cakedesignme): saltati da `scegliPartner`/`esisteCandidato`/liste auto, marcati e tolti dalle liste nelle app-api, e nel CS (`vendite.ts`) mai proposti. «Con partner» = partner attivo con VENDITA non escluso in provincia, o lista con uno così (`quotaDaOrders`, `venditaProvincia`).
 > ✅ **06/09/2026 sera — LIVE `delivery-h3bljwoxw` (main-XFJWD7LV, pushato 18435a34)**: area di consegna dal profilo partner + dettaglio partner con mestieri/area commerciale/consegna.
 > 🔧 **06/09/2026 sera — dettaglio partner con mestieri, area commerciale, consegna da partner e area di consegna** (`partner-detail.component`, i18n `partnerDetail.vendite.*`); fix: nel ramo PARTNER di `partners.update` l'area di consegna si scrive prima del return (il ramo esce presto).
 > 🔧 **06/09/2026 sera — area di consegna anche dal PROFILO partner** (segnalazione utente): `auth.service` profilo porta `consegnaProvince`/`provinceVendita`/`tutteLeProvince` e accetta `partner.consegnaProvince`; `profilo.component` con la tabella «Dove consegna da solo».

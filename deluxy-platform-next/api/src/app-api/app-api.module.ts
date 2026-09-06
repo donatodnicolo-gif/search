@@ -1116,7 +1116,7 @@ export class AppApiService {
       where: { active: true, deleted: false, provinces: { some: { provinceId: provincia.id } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } },
       orderBy: { insegna: 'asc' },
       select: {
-        id: true, insegna: true, city: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true,
+        id: true, insegna: true, city: true, autoDeliveredByPartner: true, esclusoDalleProposte: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true,
         mestieri: { select: { mestiere: { select: { chiave: true, nome: true } } } },
         aree: { select: { area: { select: { id: true, nome: true } } } },
         consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } },
@@ -1124,12 +1124,14 @@ export class AppApiService {
     });
     const liste = await this.prisma.priorityList.findMany({
       where: { provinceId: provincia.id },
-      select: { id: true, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true } } } } },
+      select: { id: true, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } } },
     });
     const aree = await this.prisma.area.findMany({ where: { attiva: true, province: { some: { provinceId: provincia.id } } }, select: { id: true, nome: true, _count: { select: { province: true } } }, orderBy: { nome: 'asc' } });
     return {
       provincia: provincia.code, nome: provincia.name,
-      conPartner: liste.some((l) => l.entries.some((e) => e.partner.active && !e.partner.deleted)),
+      // «con partner» ignora gli ESCLUSI DALLE PROPOSTE (regola utente 06/09 sera).
+      // «con partner» = almeno un partner attivo con servizio di vendita non escluso (o una lista con uno così).
+      conPartner: partner.some((p) => !p.esclusoDalleProposte) || liste.some((l) => l.entries.some((e) => e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte)),
       partner: partner.map((p) => {
         const qui = p.consegnaProvince.find((x) => x.provinceId === provincia.id) ?? null;
         const haArea = p.consegnaProvince.length > 0;
@@ -1137,13 +1139,14 @@ export class AppApiService {
           id: p.id, insegna: p.insegna, citta: p.city,
           mestieri: p.mestieri.map((m) => m.mestiere.nome),
           consegnaDaPartner: p.autoDeliveredByPartner,
+          esclusoDalleProposte: p.esclusoDalleProposte,
           consegnaInProvincia: p.autoDeliveredByPartner && (!haArea || !!qui),
           minimoOrdine: qui?.minimoOrdine ?? p.minimoOrdineVendita ?? null,
           raggioKm: qui?.raggioKm ?? p.raggioMaxConsegnaKm ?? null,
           areeCommerciali: p.aree.map((a) => a.area.nome),
         };
       }),
-      listePriorita: liste.map((l) => ({ id: l.id, mestiere: l.mestiere?.nome ?? null, categoria: l.category?.name ?? null, partner: l.entries.filter((e) => e.partner.active && !e.partner.deleted).map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna })) })),
+      listePriorita: liste.map((l) => ({ id: l.id, mestiere: l.mestiere?.nome ?? null, categoria: l.category?.name ?? null, partner: l.entries.filter((e) => e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte).map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna })) })),
       areeCommerciali: aree.map((a) => ({ id: a.id, nome: a.nome, province: a._count.province })),
     };
   }
@@ -1153,25 +1156,25 @@ export class AppApiService {
     const aree = await this.prisma.area.findMany({
       where: { attiva: true },
       orderBy: { nome: 'asc' },
-      select: { id: true, nome: true, province: { select: { province: { select: { code: true, name: true } } } }, partners: { select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, autoDeliveredByPartner: true, mestieri: { select: { mestiere: { select: { nome: true } } } }, services: { select: { serviceType: { select: { pricingModel: true } } } } } } } } },
+      select: { id: true, nome: true, province: { select: { province: { select: { code: true, name: true } } } }, partners: { select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true, autoDeliveredByPartner: true, mestieri: { select: { mestiere: { select: { nome: true } } } }, services: { select: { serviceType: { select: { pricingModel: true } } } } } } } } },
     });
     return aree.map((a) => ({
       id: a.id, nome: a.nome,
       province: a.province.map((x) => x.province.code).sort(),
-      partner: a.partners.map((x) => x.partner).filter((p) => p.active && !p.deleted).map((p) => ({ id: p.id, insegna: p.insegna, vendita: p.services.some((s) => s.serviceType.pricingModel === 'VENDITA'), consegnaDaPartner: p.autoDeliveredByPartner, mestieri: p.mestieri.map((m) => m.mestiere.nome) })),
+      partner: a.partners.map((x) => x.partner).filter((p) => p.active && !p.deleted && !p.esclusoDalleProposte).map((p) => ({ id: p.id, insegna: p.insegna, vendita: p.services.some((s) => s.serviceType.pricingModel === 'VENDITA'), consegnaDaPartner: p.autoDeliveredByPartner, mestieri: p.mestieri.map((m) => m.mestiere.nome) })),
     }));
   }
 
   /** Tutte le liste di priorità (provincia × mestiere/categoria, partner in ordine): il Customer Service le importa e le tiene per area commerciale. */
   async listePriorita() {
     const liste = await this.prisma.priorityList.findMany({
-      select: { id: true, province: { select: { code: true, name: true } }, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, updatedAt: true, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true } } } } },
+      select: { id: true, province: { select: { code: true, name: true } }, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, updatedAt: true, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } } },
     });
     const aree = await this.prisma.area.findMany({ where: { attiva: true }, select: { id: true, nome: true, province: { select: { province: { select: { code: true } } } } } });
     return liste.map((l) => ({
       id: l.id, provincia: l.province.code, nomeProvincia: l.province.name, mestiere: l.mestiere?.nome ?? null, mestiereChiave: l.mestiere?.chiave ?? null, categoria: l.category?.name ?? null, aggiornataIl: l.updatedAt,
       areeCommerciali: aree.filter((a) => a.province.some((x) => x.province.code === l.province.code)).map((a) => a.nome),
-      partner: l.entries.map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna, attivo: e.partner.active && !e.partner.deleted })),
+      partner: l.entries.map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna, attivo: e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte, escluso: e.partner.esclusoDalleProposte })),
     }));
   }
 
@@ -1181,14 +1184,14 @@ export class AppApiService {
         province: { select: { code: true, name: true } },
         mestiere: { select: { nome: true } },
         category: { select: { name: true } },
-        entries: { orderBy: { position: 'asc' }, select: { partner: { select: { id: true, insegna: true, active: true, deleted: true } } } },
+        entries: { orderBy: { position: 'asc' }, select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } },
       },
     });
     const perProvincia = new Map<string, { provincia: string; nome: string; partner: Map<string, { id: string; insegna: string; liste: Set<string> }> }>();
     for (const l of liste) {
       const g = perProvincia.get(l.province.code) ?? { provincia: l.province.code, nome: l.province.name, partner: new Map() };
       for (const e of l.entries) {
-        if (!e.partner.active || e.partner.deleted) continue;
+        if (!e.partner.active || e.partner.deleted || e.partner.esclusoDalleProposte) continue;
         const p = g.partner.get(e.partner.id) ?? { id: e.partner.id, insegna: e.partner.insegna, liste: new Set<string>() };
         p.liste.add(l.mestiere?.nome ?? l.category?.name ?? '');
         g.partner.set(e.partner.id, p);

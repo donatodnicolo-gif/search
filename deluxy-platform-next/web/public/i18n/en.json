@@ -1780,6 +1780,8 @@
       "smsEnabled": "Ability to send SMS",
       "whatsappNotifications": "WhatsApp notifications",
       "mailNotifications": "Email notifications",
+      "esclusoDalleProposte": "Excluded from automatic proposals",
+      "esclusoDalleProposteHint": "An in-house fallback partner (Artista Locale, Deluxy Flowers, Cakedesignme): it never enters the lists orders are proposed to and does not make a province «with partner». Office only.",
       "autoDeliveredByPartner": "Delivered by partner",
       "autoDeliveredByPartnerHint": "This partner delivers on its own: deliveries are born as «by the partner», assigned to the «Partner Consegna» valet, with the confirmation link. With the flag on you may set a maximum radius; empty = accepts everything in its provinces.",
       "activityReminder": "Activity reminder"

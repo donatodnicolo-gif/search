@@ -215,6 +215,8 @@ export interface Partner {
   deliveryCodeRequired?: boolean;
   /** ⭐ 06/09/2026: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna». */
   autoDeliveredByPartner?: boolean;
+  /** ⭐ 06/09 sera: escluso dalle proposte automatiche (partner «nostro» di ripiego). */
+  esclusoDalleProposte?: boolean;
   /** ⭐ 06/09/2026: minimo che il partner vuole incassare su una vendita (€); null = nessun minimo. */
   minimoOrdineVendita?: number | null;
   /** ⭐ 06/09/2026: raggio massimo (km) per le consegne che fa lui; null = nessun limite. */

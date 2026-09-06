@@ -334,6 +334,10 @@ model Partner {
   minimoOrdineVendita    Float?
   /// ⭐ 06/09/2026 (regola utente): per le consegne che fa LUI, il raggio massimo (km) che accetta; null = nessun limite.
   raggioMaxConsegnaKm    Float?
+  /// ⭐ 06/09/2026 sera (regola utente): ESCLUSO DALLE PROPOSTE — i partner «nostri» di ripiego
+  /// (Artista Locale, Deluxy Flowers, Cakedesignme) non entrano nelle liste a cui proporre gli ordini
+  /// e non rendono «con partner» una provincia. Lo decide l'ufficio dalla scheda; il partner non se lo toglie.
+  esclusoDalleProposte   Boolean        @default(false)
   mestieri            PartnerMestiere[]
   aree                PartnerArea[]
   consegnaProvince    PartnerConsegnaProvincia[]

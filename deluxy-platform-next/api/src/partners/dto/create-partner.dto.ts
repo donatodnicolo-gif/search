@@ -148,6 +148,11 @@ export class CreatePartnerDto {
   @IsBoolean()
   autoDeliveredByPartner?: boolean;
 
+  @ApiPropertyOptional({ description: 'Escluso dalle proposte automatiche: non entra nelle liste a cui proporre gli ordini e non conta come «partner in provincia» (solo ufficio)' })
+  @IsOptional()
+  @IsBoolean()
+  esclusoDalleProposte?: boolean;
+
   @ApiPropertyOptional({ description: 'Minimo d\'ordine (€ al cliente) che il partner vuole ricevere sui servizi di vendita' })
   @IsOptional()
   @IsNumber()

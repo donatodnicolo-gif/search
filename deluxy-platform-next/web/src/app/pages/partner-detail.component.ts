@@ -38,6 +38,7 @@ interface PartnerDetail {
   mestieri?: { mestiere: { id: string; nome: string } }[];
   aree?: { area: { id: string; nome: string } }[];
   autoDeliveredByPartner?: boolean;
+  esclusoDalleProposte?: boolean;
   minimoOrdineVendita?: number | null;
   raggioMaxConsegnaKm?: number | null;
   consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null; province?: { id: string; code: string; name: string } }[];
@@ -332,6 +333,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
 
           <section class="card block">
             <h2>{{ 'partnerDetail.vendite.consegna' | translate }}</h2>
+            @if (p.esclusoDalleProposte) { <p class="riga-si"><span class="badge-no">{{ 'partnerForm.setup.esclusoDalleProposte' | translate }}</span><span class="muted mini">{{ 'partnerForm.setup.esclusoDalleProposteHint' | translate }}</span></p> }
             @if (p.autoDeliveredByPartner) {
               <p class="riga-si"><span class="badge-si">{{ 'partnerDetail.vendite.consegnaSi' | translate }}</span>
                 <span class="muted mini">{{ 'partnerDetail.vendite.predefiniti' | translate: { minimo: p.minimoOrdineVendita ?? '—', raggio: p.raggioMaxConsegnaKm ?? '—' } }}</span></p>
@@ -623,6 +625,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .mini { font-size: 12.5px; margin: 8px 0 6px; }
       .riga-si { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
       .badge-si { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; background: rgba(36,138,61,.12); color: #248A3D; }
+      .badge-no { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; background: rgba(0,0,0,.06); color: var(--text-secondary); }
       .badge-si::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
       .tab-consegna { width: 100%; border-collapse: collapse; font-size: 13px; }
       .tab-consegna th { text-align: left; font-size: 11.5px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }

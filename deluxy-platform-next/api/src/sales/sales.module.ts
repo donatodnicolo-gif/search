@@ -1028,7 +1028,12 @@ export class SalesService {
     // LISTA dei partner abilitati per provincia» — cioè le liste di priorità: una provincia è
     // «con partner» se ha almeno una lista con un partner attivo dentro. Chi copre tutta Italia
     // per area (Artista Locale, ECI…) non rende «con partner» una provincia dove non è in lista.
-    const conPartner = (await this.prisma.priorityList.count({ where: { provinceId, entries: { some: { partner: { active: true, deleted: false } } } } })) > 0;
+    // (06/09 sera) …e il partner in lista non dev'essere ESCLUSO DALLE PROPOSTE (i nostri di ripiego non contano).
+    // ⭐ 06/09 sera (regola utente, con il flag «escluso dalle proposte» ora si può): «con partner» = in
+    // provincia c'è almeno un partner ATTIVO con un servizio di VENDITA, non escluso — o una lista con
+    // un partner così. I nostri di ripiego (Artista Locale, Deluxy Flowers, Cakedesignme) non contano.
+    const conPartner = (await this.prisma.partner.count({ where: { active: true, deleted: false, esclusoDalleProposte: false, provinces: { some: { provinceId } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } } })) > 0
+      || (await this.prisma.priorityList.count({ where: { provinceId, entries: { some: { partner: { active: true, deleted: false, esclusoDalleProposte: false } } } } })) > 0;
     const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}`;
     const inCache = this.quotaCache.get(chiave);
     if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
@@ -1748,6 +1753,7 @@ export class SalesService {
       where: {
         id: { in: lista.map((c) => c.partnerId) },
         active: true,
+        esclusoDalleProposte: false,
         provinces: { some: { provinceId } },
       },
     });
@@ -1805,7 +1811,7 @@ export class SalesService {
     if (mestiere) {
       const listaM = await this.prisma.priorityList.findFirst({ where: { provinceId, mestiereId: mestiere.id }, include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } } });
       if (listaM?.entries.length) return listaM.entries.map((e) => ({ partnerId: e.partnerId, motivo: `lista priorita' ${mestiere.nome} ${e.position}a di ${listaM.entries.length}` }));
-      const abilitatiM = await this.prisma.partner.findMany({ where: { active: true, deleted: false, mestieri: { some: { mestiereId: mestiere.id } }, provinces: { some: { provinceId } } }, select: { id: true, insegna: true } });
+      const abilitatiM = await this.prisma.partner.findMany({ where: { active: true, deleted: false, esclusoDalleProposte: false, mestieri: { some: { mestiereId: mestiere.id } }, provinces: { some: { provinceId } } }, select: { id: true, insegna: true } });
       if (abilitatiM.length === 1) return [{ partnerId: abilitatiM[0].id, motivo: `unico partner ${mestiere.nome} della provincia` }];
       if (abilitatiM.length > 1) {
         const gestitiM = await this.prisma.sale.groupBy({ by: ['partnerId'], where: { partnerId: { in: abilitatiM.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA }, _count: { _all: true } });
@@ -1852,6 +1858,7 @@ export class SalesService {
     const abilitati = await this.prisma.partner.findMany({
       where: {
         active: true,
+        esclusoDalleProposte: false,
         categories: { some: { categoryId: product.categoryId } },
         provinces: { some: { provinceId } },
       },
@@ -1899,6 +1906,8 @@ export class SalesService {
       where: {
         id: { in: lista.map((c) => c.partnerId) },
         active: true,
+        // ⭐ 06/09 sera (regola utente): gli ESCLUSI DALLE PROPOSTE si saltano, da qualunque lista arrivino.
+        esclusoDalleProposte: false,
         provinces: { some: { provinceId } },
       },
       include: { openingHours: true, consegnaProvince: { where: { provinceId }, select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },

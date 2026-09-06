@@ -215,6 +215,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         <div class="consegna-partner">
           <label class="toggle"><input type="checkbox" name="autoDeliveredByPartner" [(ngModel)]="model.autoDeliveredByPartner" /><span>{{ 'partnerForm.setup.autoDeliveredByPartner' | translate }}</span></label>
           <p class="hint">{{ 'partnerForm.setup.autoDeliveredByPartnerHint' | translate }}</p>
+          <!-- ⭐ 06/09 sera (regola utente): i partner «nostri» di ripiego non entrano nelle proposte. -->
+          <label class="toggle"><input type="checkbox" name="esclusoDalleProposte" [(ngModel)]="model.esclusoDalleProposte" /><span>{{ 'partnerForm.setup.esclusoDalleProposte' | translate }}</span></label>
+          <p class="hint">{{ 'partnerForm.setup.esclusoDalleProposteHint' | translate }}</p>
         </div>
         <div class="mestieri-campi">
           <label class="campo">{{ 'partnerForm.mestieri.minimo' | translate }}
@@ -626,6 +629,7 @@ export class PartnerFormComponent {
     whatsappNotifications: false,
     mailNotifications: false,
     autoDeliveredByPartner: false,
+    esclusoDalleProposte: false,
     minimoOrdineVendita: null as number | null,
     raggioMaxConsegnaKm: null as number | null,
     activityReminder: false,
@@ -778,6 +782,7 @@ export class PartnerFormComponent {
       whatsappNotifications: m.whatsappNotifications,
       mailNotifications: m.mailNotifications,
       autoDeliveredByPartner: m.autoDeliveredByPartner,
+      esclusoDalleProposte: !!m.esclusoDalleProposte,
       minimoOrdineVendita: m.minimoOrdineVendita === null || m.minimoOrdineVendita === undefined || (m.minimoOrdineVendita as unknown) === '' ? null : Number(m.minimoOrdineVendita),
       raggioMaxConsegnaKm: m.raggioMaxConsegnaKm === null || m.raggioMaxConsegnaKm === undefined || (m.raggioMaxConsegnaKm as unknown) === '' ? null : Number(m.raggioMaxConsegnaKm),
       isMultiPickup: m.isMultiPickup,
