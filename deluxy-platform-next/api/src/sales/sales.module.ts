@@ -460,9 +460,19 @@ export class SalesService {
     const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true, mestiere: { select: { nome: true, smistamentoAutomatico: true } } } }) : null;
     // Col mestiere assegnato decide il SUO interruttore «smistamento automatico» (oggi acceso solo su Fiorista); senza, il vecchio criterio sul nome.
     const automatico = categoria?.mestiere ? categoria.mestiere.smistamentoAutomatico : SalesService.categoriaFiori(categoria?.name);
-    const bloccoNonUnico = product.type !== ProductType.UNICO && !automatico
+    const bloccoGrezzo = product.type !== ProductType.UNICO && !automatico
       ? `prodotto non unico di un mestiere senza smistamento automatico (${categoria?.mestiere?.nome ?? categoria?.name ?? 'senza categoria'}): si gestisce a mano`
       : null;
+    // ⭐ 06/09/2026 sera (regola utente): «in vendita, se non c'è più di un partner per
+    // provincia, lascia la vendita in vendita per il partner da accettare, in caso di
+    // prodotto non-unico». Con UN partner solo non c'è nessuna scelta da fare — il blocco
+    // serviva a non far scegliere alla macchina fra più fornitori. La vendita nasce
+    // PROPOSTA a lui e la accetta (o la rifiuta) lui, come tutte le altre.
+    // Si conta in SOLA LETTURA: chiedere quanti sono non deve creare una lista di priorità.
+    const unSoloPartner = bloccoGrezzo
+      ? (await this.candidati(product, body.provinceId, finestra.variantId ?? null, true)).length === 1
+      : false;
+    const bloccoNonUnico = bloccoGrezzo && !unSoloPartner ? bloccoGrezzo : null;
     const scelto = bloccoNonUnico ? null : await this.scegliPartner(product, body.provinceId, finestra, []);
     // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
     // Clivati): «non devi togliere la % per il prezzo partner, ma prendere il
@@ -520,7 +530,7 @@ export class SalesService {
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: [scelto?.motivo ?? bloccoNonUnico ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
+        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
@@ -1761,7 +1771,13 @@ export class SalesService {
   }
 
   /** Chi puo' prendere questa vendita, nell'ordine giusto. */
-  private async candidati(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null): Promise<Candidato[]> {
+  /**
+   * @param soloLettura conta i candidati SENZA creare nulla. Serve alla regola «un solo
+   *   partner in provincia» (06/09 sera): lì si guarda quanti sono PRIMA di decidere se la
+   *   vendita si smista da sola, e una lista di priorità creata per l'occasione sarebbe un
+   *   effetto collaterale di una domanda.
+   */
+  private async candidati(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null, soloLettura = false): Promise<Candidato[]> {
     if (product.type === ProductType.UNICO) {
       const lista: Candidato[] = product.partnerId
         ? [{ partnerId: product.partnerId, motivo: 'proprietario del prodotto unico' }]
@@ -1814,6 +1830,7 @@ export class SalesService {
       const abilitatiM = await this.prisma.partner.findMany({ where: { active: true, deleted: false, esclusoDalleProposte: false, mestieri: { some: { mestiereId: mestiere.id } }, provinces: { some: { provinceId } } }, select: { id: true, insegna: true } });
       if (abilitatiM.length === 1) return [{ partnerId: abilitatiM[0].id, motivo: `unico partner ${mestiere.nome} della provincia` }];
       if (abilitatiM.length > 1) {
+        if (soloLettura) return abilitatiM.map((p) => ({ partnerId: p.id, motivo: `partner ${mestiere.nome} della provincia` }));
         const gestitiM = await this.prisma.sale.groupBy({ by: ['partnerId'], where: { partnerId: { in: abilitatiM.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA }, _count: { _all: true } });
         const contoM = new Map(gestitiM.map((g) => [g.partnerId as string, g._count._all]));
         const ordinatiM = [...abilitatiM].sort((a, b) => (contoM.get(b.id) ?? 0) - (contoM.get(a.id) ?? 0) || a.insegna.localeCompare(b.insegna, 'it'));
@@ -1868,6 +1885,7 @@ export class SalesService {
     if (abilitati.length === 1) {
       return [{ partnerId: abilitati[0].id, motivo: 'unico partner della provincia per questa categoria' }];
     }
+    if (soloLettura) return abilitati.map((p) => ({ partnerId: p.id, motivo: 'partner della provincia per questa categoria' }));
     const gestiti = await this.prisma.sale.groupBy({
       by: ['partnerId'],
       where: { partnerId: { in: abilitati.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA },
