@@ -60,6 +60,8 @@ export function riassuntoLavoro(l: LavoroDato | undefined): string {
 export type FonteFornitore = 'pagamento' | 'ordine' | 'registro' | 'maps'
 
 export type FornitoreTrovato = {
+  /** L'id nel registro Anagrafiche, quando viene da lì: si salva sull'ordine come `fornitoreId`. */
+  idRegistro: string
   /** Come si chiama, nella forma migliore che abbiamo. */
   nome: string
   /** La ragione sociale, quando il registro ce l'ha: è quella che va sull'IBAN. */
@@ -126,6 +128,7 @@ export type FornitoreTrovato = {
  */
 export function fornitoreVuoto(): FornitoreTrovato {
   return {
+    idRegistro: '',
     nome: '',
     ragioneSociale: '',
     citta: '',
@@ -384,6 +387,7 @@ export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[]
     // parziali per natura — il registro non ha l'IBAN, i pagamenti non hanno la
     // città — e l'ultima che arriva cancellerebbe il lavoro delle altre.
     per.set(k, {
+      idRegistro: prec.idRegistro || p.idRegistro,
       nome: prec.nome || p.nome,
       ragioneSociale: prec.ragioneSociale || p.ragioneSociale,
       citta: prec.citta || p.citta,

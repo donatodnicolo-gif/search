@@ -1,7 +1,8 @@
 'use client'
 
 import { numeroWhatsApp } from '@/lib/whatsapp-link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { CORRISPONDENZA_VERA, diMestiere, type FornitoreTrovato } from '@/lib/cerca-fornitore'
 import {
   costoScritto,
   costoValido,
@@ -63,6 +64,63 @@ export function FornitoreOrdine({
   const [nota, setNota] = useState('')
   const [salvo, setSalvo] = useState(false)
   const [errore, setErrore] = useState('')
+
+  // ── CHI CONOSCIAMO GIÀ, mentre si scrive il nome (utente, 06/09/2026) ──
+  //
+  // ⚠️ «Marco Fiori» era nel registro Anagrafiche (fiorista, Torino) e il campo
+  // non lo proponeva: chi scriveva il nome a mano lo registrava una seconda
+  // volta, senza città né telefono, e al prossimo ordine in quella provincia
+  // nessuno lo ritrovava. Si cerca dove cerca già «Paga» (`/api/fornitori/cerca`:
+  // ordini passati, pagamenti fatti, registro), senza Google Maps — che si paga
+  // a chiamata e qui non serve: si sta registrando uno che si conosce.
+  const [suggeriti, setSuggeriti] = useState<FornitoreTrovato[]>([])
+  const [cercoNome, setCercoNome] = useState(false)
+  const [cercatoNome, setCercatoNome] = useState('')
+  /** Il nome scelto dalla lista: non si ricerca finché non lo cambi. */
+  const [nomeScelto, setNomeScelto] = useState('')
+  const ultimaRicerca = useRef('')
+
+  useEffect(() => {
+    const t = nome.trim()
+    if (!apri || t.length < 2 || t === nomeScelto) {
+      setSuggeriti([])
+      setCercatoNome('')
+      return
+    }
+    const timer = setTimeout(async () => {
+      ultimaRicerca.current = t
+      setCercoNome(true)
+      try {
+        const res = await fetch(`/api/fornitori/cerca?q=${encodeURIComponent(t)}`)
+        if (!res.ok) return
+        const d = (await res.json()) as { fornitori: FornitoreTrovato[] }
+        // Si scarta la risposta di una ricerca vecchia (le chiamate tornano in disordine).
+        if (ultimaRicerca.current !== t) return
+        // Solo chi conosciamo: prima chi si chiama davvero così, al massimo otto.
+        const nostri = (d.fornitori ?? []).filter((f) => !(f.fonti.length === 1 && f.fonti[0] === 'maps'))
+        setSuggeriti(nostri.slice(0, 8))
+        setCercatoNome(t)
+      } catch {
+        // rete assente: si riprova scrivendo
+      } finally {
+        setCercoNome(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [nome, apri, nomeScelto])
+
+  /** Prende nome e recapiti dal fornitore scelto; quello che qui è già scritto non si cancella. */
+  function scegliSuggerito(f: FornitoreTrovato) {
+    const n = f.ragioneSociale && f.nome && f.ragioneSociale !== f.nome ? f.nome : f.nome || f.ragioneSociale
+    setNome(n)
+    setNomeScelto(n)
+    setIdRegistro(f.idRegistro || '')
+    setCitta((c) => c || f.citta || '')
+    setTelefono((v) => v || f.telefono || '')
+    setEmail((v) => v || f.email || '')
+    setSuggeriti([])
+    setCercatoNome('')
+  }
 
   useEffect(() => setDati(iniziale), [iniziale])
 
@@ -254,10 +312,70 @@ export function FornitoreOrdine({
             <span>Chi lo prepara</span>
             <input
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => {
+                setNome(e.target.value)
+                if (idRegistro && e.target.value.trim() !== nomeScelto) setIdRegistro('')
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && suggeriti.length) {
+                  e.preventDefault()
+                  setSuggeriti([])
+                }
+              }}
               placeholder="Pasticceria Rossi"
+              autoComplete="off"
               autoFocus
             />
+            {cercoNome ? <span className="cella-sub">Cerco fra ordini, pagamenti e registro…</span> : null}
+            {suggeriti.length ? (
+              <ul className="elenco-fornitori-trovati suggerimenti-fornitore" role="listbox" aria-label="Fornitori che conosciamo già">
+                {suggeriti.map((f, i) => (
+                  <li key={`${f.nome}-${i}`}>
+                    <button
+                      type="button"
+                      className="riga-fornitore-trovato"
+                      onClick={() => scegliSuggerito(f)}
+                      title="Compila nome e recapiti con questo fornitore"
+                    >
+                      <span className="titolo">
+                        {f.nome || f.ragioneSociale}
+                        {f.ragioneSociale && f.nome && f.ragioneSociale !== f.nome ? (
+                          <span className="cella-sub"> · {f.ragioneSociale}</span>
+                        ) : null}
+                        {f.categoria ? (
+                          <span
+                            className="badge"
+                            style={{ marginLeft: 6, color: diMestiere(f.categoria) ? 'var(--green)' : 'var(--text-tertiary)' }}
+                          >
+                            {f.categoria.toLowerCase()}
+                          </span>
+                        ) : null}
+                        {f.corrispondenza < CORRISPONDENZA_VERA ? (
+                          <span className="badge" style={{ marginLeft: 6, color: 'var(--text-tertiary)' }}>
+                            nome simile
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="cella-sub">
+                        {[
+                          f.citta,
+                          f.ordini ? `${f.ordini} ${f.ordini === 1 ? 'ordine' : 'ordini'} già dati` : '',
+                          f.pagamenti ? `pagato ${f.pagamenti} ${f.pagamenti === 1 ? 'volta' : 'volte'}` : '',
+                          f.stato,
+                          f.telefono,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || 'solo il nome: recapiti da scrivere'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : cercatoNome && !cercoNome ? (
+              <span className="cella-sub">
+                Nessuno che si chiama così fra i nostri ordini, i pagamenti fatti e il registro Anagrafiche: si registra come nuovo.
+              </span>
+            ) : null}
           </label>
           <div className="due-campi">
             <label className="campo">
