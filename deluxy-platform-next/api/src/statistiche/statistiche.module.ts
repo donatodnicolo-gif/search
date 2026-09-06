@@ -35,7 +35,8 @@ type Confronto = 'precedente' | 'anno-prima';
 type Intervallo = { da: string; a: string };
 type Bucket = 'corrente' | 'confronto';
 /** ⭐ 06/09/2026 (regola utente): filtri per tipologia di servizio, provincia (città) e uno o più partner. */
-type Filtri = { serviceTypeId?: string | null; provinceId?: string | null; partnerIds?: string[] };
+type Filtri = { serviceTypeId?: string | null; pricingModel?: string | null; provinceId?: string | null; partnerIds?: string[] };
+const MODELLI = ['VENDITA', 'PREZZO_FISSO', 'A_ORA', 'MAGAZZINO', 'CORPORATE'];
 
 const CONCLUSE = ['delivered', 'approved', 'delivered_time_to_approve', 'archived'];
 const TOLLERANZA_RITARDO_MIN = 10;
@@ -108,6 +109,9 @@ export class StatisticheService {
     const filtroSql = Prisma.join([
       Prisma.sql`TRUE`,
       ...(filtri.serviceTypeId ? [Prisma.sql`d."serviceTypeId" = ${filtri.serviceTypeId}`] : []),
+      // ⭐ 06/09/2026 (regola utente): la MACROTIPOLOGIA (vendita, prezzo fisso, a ora,
+      // magazzino, aziendale), non il singolo servizio (es. «Chanel Roma a ora»).
+      ...(filtri.pricingModel ? [Prisma.sql`d."serviceTypeId" IN (SELECT id FROM platform."ServiceType" WHERE "pricingModel" = ${filtri.pricingModel})`] : []),
       ...(filtri.provinceId ? [Prisma.sql`d."provinceId" = ${filtri.provinceId}`] : []),
       ...(partnerIds.length ? [Prisma.sql`d."partnerId" IN (${Prisma.join(partnerIds)})`] : []),
     ], ' AND ');
@@ -129,7 +133,7 @@ export class StatisticheService {
 
     const [perTipo, perStato, topPartner, topValet, topProvince] = await Promise.all([
       this.prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT ${bucket} AS bucket, st.id AS "serviceTypeId", st.name AS nome, st."pricingModel" AS modello,
+        SELECT ${bucket} AS bucket, st."pricingModel" AS "serviceTypeId", st."pricingModel" AS nome, st."pricingModel" AS modello,
           count(*)::int AS totali,
           count(*) FILTER (WHERE ${concl})::int AS concluse,
           count(*) FILTER (WHERE d.status = 'not_delivered')::int AS non_consegnate,
@@ -155,7 +159,7 @@ export class StatisticheService {
         FROM platform."Delivery" d
         JOIN platform."ServiceType" st ON st.id = d."serviceTypeId"
         WHERE ${dove}
-        GROUP BY 1, 2, 3, 4`),
+        GROUP BY 1, 2`),
       this.prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT ${bucket} AS bucket, d.status AS stato, count(*)::int AS n
         FROM platform."Delivery" d WHERE ${dove} GROUP BY 1, 2`),
@@ -253,6 +257,7 @@ export class StatisticheService {
     const economia = await this.economia(iv.corrente, iv.confronto, totCorrente.concluse, totConfronto.concluse, filtri);
     const etichette = {
       serviceType: filtri.serviceTypeId ? await this.prisma.serviceType.findUnique({ where: { id: filtri.serviceTypeId }, select: { id: true, name: true } }) : null,
+      pricingModel: filtri.pricingModel ?? null,
       province: filtri.provinceId ? await this.prisma.province.findUnique({ where: { id: filtri.provinceId }, select: { id: true, code: true, name: true } }) : null,
       partners: partnerIds.length ? await this.prisma.partner.findMany({ where: { id: { in: partnerIds } }, select: { id: true, insegna: true } }) : [],
     };
@@ -285,6 +290,7 @@ export class StatisticheService {
     const filtroSql = Prisma.join([
       Prisma.sql`TRUE`,
       ...(filtri.serviceTypeId ? [Prisma.sql`d."serviceTypeId" = ${filtri.serviceTypeId}`] : []),
+      ...(filtri.pricingModel ? [Prisma.sql`d."serviceTypeId" IN (SELECT id FROM platform."ServiceType" WHERE "pricingModel" = ${filtri.pricingModel})`] : []),
       ...(filtri.provinceId ? [Prisma.sql`d."provinceId" = ${filtri.provinceId}`] : []),
       ...(partnerIds.length ? [Prisma.sql`d."partnerId" IN (${Prisma.join(partnerIds)})`] : []),
     ], ' AND ');
@@ -297,8 +303,9 @@ export class StatisticheService {
     const dove = Prisma.sql`d."deletedAt" IS NULL AND d."date" BETWEEN ${c.da} AND ${c.a} AND ${filtroSql} AND ${tardi}`;
     const [righe, conteggio] = await Promise.all([
       this.prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT d.id, d.code, d."date", d."deliveryTimeFrom" AS "fasciaDa", d."deliveryTimeTo" AS "fasciaA", d."deliveredAt", d.status,
-          p.insegna AS partner, (v."firstName" || ' ' || v."lastName") AS valet, st.name AS servizio, pr.code AS provincia,
+        SELECT d.id, d.code, d."date", d."deliveryTimeFrom" AS "fasciaDa", d."deliveryTimeTo" AS "fasciaA", d."deliveredAt", d."startedAt", d.status,
+          d."recipientAddress" AS indirizzo, d."pickupAddress" AS ritiro, d."distanceKm" AS km, d."ddtNumber" AS ddt,
+          p.insegna AS partner, p.id AS "partnerId", (v."firstName" || ' ' || v."lastName") AS valet, v.id AS "valetId", st.name AS servizio, st."pricingModel" AS modello, pr.code AS provincia,
           round(extract(epoch FROM ${consegnato} - ${fine}) / 60)::int AS "ritardoMin"
         FROM platform."Delivery" d
         JOIN platform."ServiceType" st ON st.id = d."serviceTypeId"
@@ -322,7 +329,7 @@ export class StatisticheService {
       return { disponibile: false, motivo: `periodo troppo ampio (${Math.max(nCorrente, nConfronto)} consegne, tetto ${TETTO_RIGHE_ECONOMIA}): fee e margine si leggono in Finanza`, corrente: null, confronto: null };
     }
     const partnerIds = (filtri.partnerIds ?? []).filter(Boolean);
-    const conFiltri = Boolean(filtri.serviceTypeId || filtri.provinceId || partnerIds.length);
+    const conFiltri = Boolean(filtri.serviceTypeId || filtri.pricingModel || filtri.provinceId || partnerIds.length);
     const conto = async (iv: Intervallo) => {
       let righe = await this.finance.corrispettivi(iv.da, iv.a, { limite: 5000, soloVendite: true });
       if (conFiltri) {
@@ -331,6 +338,7 @@ export class StatisticheService {
           where: {
             deletedAt: null, date: { gte: daIso(iv.da), lte: new Date(`${iv.a}T23:59:59.999Z`) },
             ...(filtri.serviceTypeId ? { serviceTypeId: filtri.serviceTypeId } : {}),
+            ...(filtri.pricingModel ? { serviceType: { pricingModel: filtri.pricingModel } } : {}),
             ...(filtri.provinceId ? { provinceId: filtri.provinceId } : {}),
             ...(partnerIds.length ? { partnerId: { in: partnerIds } } : {}),
           },
@@ -374,13 +382,15 @@ export class StatisticheController {
     @Query('serviceTypeId') serviceTypeId?: string,
     @Query('provinceId') provinceId?: string,
     @Query('partnerIds') partnerIds?: string,
+    @Query('pricingModel') pricingModel?: string,
   ) {
+    if (pricingModel && !MODELLI.includes(pricingModel)) throw new BadRequestException('pricingModel non valido');
     const p = (periodo ?? 'mese') as Periodo;
     const c = (confronto ?? 'precedente') as Confronto;
     if (!['oggi', 'settimana', 'mese', 'mese-scorso', 'trimestre', 'anno'].includes(p)) throw new BadRequestException('periodo non valido');
     if (!['precedente', 'anno-prima'].includes(c)) throw new BadRequestException('confronto non valido');
     const ids = String(partnerIds ?? '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 50);
-    return this.service.ritardi(p, c, { serviceTypeId: serviceTypeId || null, provinceId: provinceId || null, partnerIds: ids });
+    return this.service.ritardi(p, c, { serviceTypeId: serviceTypeId || null, pricingModel: pricingModel || null, provinceId: provinceId || null, partnerIds: ids });
   }
 
   @Get()
@@ -388,6 +398,7 @@ export class StatisticheController {
   @ApiQuery({ name: 'periodo', required: false })
   @ApiQuery({ name: 'confronto', required: false })
   @ApiQuery({ name: 'serviceTypeId', required: false })
+  @ApiQuery({ name: 'pricingModel', required: false, description: 'macrotipologia: VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE' })
   @ApiQuery({ name: 'provinceId', required: false })
   @ApiQuery({ name: 'partnerIds', required: false, description: 'id partner separati da virgola' })
   calcola(
@@ -396,13 +407,15 @@ export class StatisticheController {
     @Query('serviceTypeId') serviceTypeId?: string,
     @Query('provinceId') provinceId?: string,
     @Query('partnerIds') partnerIds?: string,
+    @Query('pricingModel') pricingModel?: string,
   ) {
+    if (pricingModel && !MODELLI.includes(pricingModel)) throw new BadRequestException('pricingModel non valido');
     const p = (periodo ?? 'mese') as Periodo;
     const c = (confronto ?? 'precedente') as Confronto;
     if (!['oggi', 'settimana', 'mese', 'mese-scorso', 'trimestre', 'anno'].includes(p)) throw new BadRequestException('periodo non valido');
     if (!['precedente', 'anno-prima'].includes(c)) throw new BadRequestException('confronto non valido');
     const ids = String(partnerIds ?? '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 50);
-    return this.service.calcola(p, c, { serviceTypeId: serviceTypeId || null, provinceId: provinceId || null, partnerIds: ids });
+    return this.service.calcola(p, c, { serviceTypeId: serviceTypeId || null, pricingModel: pricingModel || null, provinceId: provinceId || null, partnerIds: ids });
   }
 }
 

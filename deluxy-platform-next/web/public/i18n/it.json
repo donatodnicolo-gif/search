@@ -2952,7 +2952,9 @@
       "pagatoPartner": "Pagato ai partner",
       "feeTotale": "Fee Deluxy",
       "costoValet": "Costo valet",
-      "margineTotale": "Margine"
+      "margineTotale": "Margine",
+      "concluse": "Concluse",
+      "annullate": "Annullate"
     },
     "base": "su {{n}} di {{m}}",
     "su": "su {{n}} di {{m}} concluse",
@@ -2974,7 +2976,8 @@
       "anticipo": "in anticipo",
       "ritardo": "in ritardo",
       "base": "Valutabili {{n}} su {{m}} consegnate · {{senza}} senza orario reale o fascia · tolleranza +{{tol}} min sul ritardo, −{{ant}} min sull’anticipo",
-      "nd": "Nessuna consegna valutabile nel periodo (serve l’orario reale di consegna e la fascia promessa)."
+      "nd": "Nessuna consegna valutabile nel periodo (serve l’orario reale di consegna e la fascia promessa).",
+      "confronto": "Confronto {{periodo}}: su {{n}} consegne valutabili"
     },
     "tipologia": {
       "titolo": "Per tipologia di servizio",
@@ -3039,6 +3042,22 @@
         "consegnata": "Consegnata alle",
         "ritardoMin": "Ritardo"
       }
+    },
+    "prima": "prima {{v}}",
+    "tendina": {
+      "indirizzo": "Indirizzo",
+      "ritiro": "Ritiro",
+      "partito": "Partito alle",
+      "consegnato": "Consegnato alle",
+      "oltre": "{{v}} oltre la fascia",
+      "km": "Km",
+      "stato": "Stato",
+      "concluse": "concluse",
+      "suValutabili": "su {{n}} valutabili, {{r}} in ritardo",
+      "apriConsegna": "Apri la consegna #{{code}}",
+      "apriConsegne": "Apri in Consegne",
+      "apriPartner": "Scheda partner",
+      "apriValet": "Scheda valet"
     }
   }
 }

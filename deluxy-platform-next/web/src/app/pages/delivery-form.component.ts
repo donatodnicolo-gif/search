@@ -982,13 +982,19 @@ export class DeliveryFormComponent implements AfterViewInit {
    * quello scelto non lo è (o manca), sceglie il primo servizio VENDITA. No-op
    * finché la lista servizi non è arrivata: la richiama chi la carica.
    */
+  /** ⭐ 06/09/2026 (regola utente): fra i servizi di VENDITA la prima scelta è sempre «Vendita Deluxy». */
+  private venditaPreferita(lista: { id: string; name: string; pricingModel?: string | null }[]): any {
+    const vendite = lista.filter((s) => s.pricingModel === 'VENDITA');
+    return vendite.find((s) => /^s*venditas+deluxys*$/i.test(s.name)) ?? vendite[0] ?? null;
+  }
+
   private forzaServizioVendita(): void {
     if (!this.daVendita() || !this.serviceTypes().length) return;
     // ⭐ 01/09 (segnalazione utente: «i servizi elencati non sono quelli del
     // partner»): la vendita si sceglie PRIMA dal listino del partner; il
     // catalogo intero è solo il ripiego di chi un listino non ce l'ha.
     const suoi = this.servizioDelPartner();
-    const vendDelPartner = suoi.find((s) => s.pricingModel === 'VENDITA');
+    const vendDelPartner = this.venditaPreferita(suoi);
     const attuale = this.serviceTypes().find((s) => s.id === this.model.serviceTypeId);
     if (attuale && attuale.pricingModel === 'VENDITA') {
       // Già una vendita: ma se è fuori dal listino del partner e il partner ne
@@ -1000,7 +1006,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       }
       return;
     }
-    const vend = vendDelPartner ?? this.serviceTypes().find((s) => s.pricingModel === 'VENDITA');
+    const vend = vendDelPartner ?? this.venditaPreferita(this.serviceTypes());
     if (vend && this.model.serviceTypeId !== vend.id) {
       this.model.serviceTypeId = vend.id;
       this.onServiceChange();
@@ -2009,8 +2015,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     // modello (fisso, vendita, a ora, resto), poi per nome.
     const peso = (m?: string | null) =>
       m === 'PREZZO_FISSO' ? 0 : m === 'VENDITA' ? 1 : m === 'A_ORA' ? 2 : 3;
+    // ⭐ 06/09/2026 (regola utente): fra le vendite «Vendita Deluxy» sta per prima.
+    const primaVendita = (x: { name: string; pricingModel?: string | null }) => (x.pricingModel === 'VENDITA' && /^s*venditas+deluxys*$/i.test(x.name) ? 0 : 1);
     const ordinata = [...base].sort(
-      (a, b) => peso(a.pricingModel) - peso(b.pricingModel) || a.name.localeCompare(b.name, 'it'),
+      (a, b) => peso(a.pricingModel) - peso(b.pricingModel) || primaVendita(a) - primaVendita(b) || a.name.localeCompare(b.name, 'it'),
     );
     const scelto = this.servizioSel();
     if (!scelto || ordinata.some((s) => s.id === scelto)) return ordinata;

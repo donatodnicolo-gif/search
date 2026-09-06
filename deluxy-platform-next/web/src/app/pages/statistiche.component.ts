@@ -65,9 +65,10 @@ const VERSO: Record<string, 1 | -1 | 0> = {
            nell'URL come periodo e confronto, e valgono su TUTTA la pagina. -->
       <div class="gruppo">
         <span class="eti">{{ 'statistiche.filtri.servizio' | translate }}</span>
-        <select class="field compatto" [ngModel]="serviceTypeId()" (ngModelChange)="serviceTypeId.set($event); applicaFiltri()">
-          <option value="">{{ 'statistiche.filtri.tutti' | translate }}</option>
-          @for (s of servizi(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+        <!-- ⭐ 06/09/2026 (regola utente): la MACROTIPOLOGIA, non il singolo servizio. -->
+        <select class="field compatto" [ngModel]="pricingModel()" (ngModelChange)="pricingModel.set($event); applicaFiltri()">
+          <option value="">{{ 'statistiche.filtri.tutte' | translate }}</option>
+          @for (m of MODELLI; track m) { <option [value]="m">{{ 'enums.servicePricing.' + m | translate }}</option> }
         </select>
       </div>
       <div class="gruppo">
@@ -146,6 +147,20 @@ const VERSO: Record<string, 1 | -1 | 0> = {
             <div class="seg presto" [style.width.%]="d.totale.corrente.puntualita.pctAnticipo ?? 0">{{ pctTxt(d.totale.corrente.puntualita.pctAnticipo) }} {{ 'statistiche.puntualita.anticipo' | translate }}</div>
             <div class="seg tardi" [style.width.%]="d.totale.corrente.puntualita.pctRitardo ?? 0">{{ pctTxt(d.totale.corrente.puntualita.pctRitardo) }} {{ 'statistiche.puntualita.ritardo' | translate }}</div>
           </div>
+          <!-- ⭐ 06/09/2026 (regola utente: «anche le tempistiche devono entrare nel
+               confronto»): la stessa barra per il periodo di confronto, più sottile. -->
+          @if (d.totale.confronto.puntualita.valutabili > 0) {
+            <div class="barra sottile" [attr.title]="intervallo(d.confronto.da, d.confronto.a)">
+              <div class="seg ok" [style.width.%]="d.totale.confronto.puntualita.pctInOrario ?? 0">{{ pctTxt(d.totale.confronto.puntualita.pctInOrario) }}</div>
+              <div class="seg presto" [style.width.%]="d.totale.confronto.puntualita.pctAnticipo ?? 0">{{ pctTxt(d.totale.confronto.puntualita.pctAnticipo) }}</div>
+              <div class="seg tardi" [style.width.%]="d.totale.confronto.puntualita.pctRitardo ?? 0">{{ pctTxt(d.totale.confronto.puntualita.pctRitardo) }}</div>
+            </div>
+            <p class="muted piccolo confronto-riga">
+              {{ 'statistiche.puntualita.confronto' | translate: { periodo: intervallo(d.confronto.da, d.confronto.a), n: num(d.totale.confronto.puntualita.valutabili) } }}
+              · <span class="delta" [class.su]="tono(d.totale.corrente.puntualita.pctInOrario, d.totale.confronto.puntualita.pctInOrario, 1) === 'bene'" [class.giu]="tono(d.totale.corrente.puntualita.pctInOrario, d.totale.confronto.puntualita.pctInOrario, 1) === 'male'">{{ 'statistiche.puntualita.inOrario' | translate }} {{ deltaPp(d.totale.corrente.puntualita.pctInOrario, d.totale.confronto.puntualita.pctInOrario) }}</span>
+              · <span class="delta" [class.su]="tono(d.totale.corrente.puntualita.pctRitardo, d.totale.confronto.puntualita.pctRitardo, -1) === 'bene'" [class.giu]="tono(d.totale.corrente.puntualita.pctRitardo, d.totale.confronto.puntualita.pctRitardo, -1) === 'male'">{{ 'statistiche.puntualita.ritardo' | translate }} {{ deltaPp(d.totale.corrente.puntualita.pctRitardo, d.totale.confronto.puntualita.pctRitardo) }}</span>
+            </p>
+          }
           <p class="muted piccolo">
             {{ 'statistiche.puntualita.base' | translate: { n: num(d.totale.corrente.puntualita.valutabili), m: num(d.totale.corrente.concluse), senza: num(d.totale.corrente.puntualita.nonValutabili), tol: d.regole.tolleranzaRitardoMin, ant: d.regole.tolleranzaAnticipoMin } }}
             @if (d.totale.corrente.puntualita.ritardo > 0) {
@@ -168,7 +183,7 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                     </tr></thead>
                     <tbody>
                       @for (x of righeOrdinate('ritardi', r.righe); track x.id) {
-                        <tr class="row-link" tabindex="0" (click)="vai(['/deliveries', x.id])" (keydown.enter)="vai(['/deliveries', x.id])">
+                        <tr class="row-link" [class.aperta]="espansa() === 'r:' + x.id" tabindex="0" (click)="espandi('r:' + x.id)" (keydown.enter)="espandi('r:' + x.id)">
                           <td class="strong">#{{ x.code }}</td>
                           <td>{{ giorno(x.date) }}</td>
                           <td>{{ x.partner }}</td>
@@ -178,6 +193,25 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                           <td>{{ oraDi(x.deliveredAt) }}</td>
                           <td class="num ko strong">{{ minTxt(x.ritardoMin) }}</td>
                         </tr>
+                        @if (espansa() === 'r:' + x.id) {
+                          <tr class="tendina"><td colspan="8">
+                            <div class="tendina-corpo">
+                              <dl>
+                                <dt>{{ 'statistiche.tendina.indirizzo' | translate }}</dt><dd>{{ x.indirizzo || '—' }}</dd>
+                                <dt>{{ 'statistiche.tendina.ritiro' | translate }}</dt><dd>{{ x.ritiro || '—' }}</dd>
+                                <dt>{{ 'statistiche.tendina.partito' | translate }}</dt><dd>{{ oraDi(x.startedAt) }}</dd>
+                                <dt>{{ 'statistiche.tendina.consegnato' | translate }}</dt><dd>{{ oraDi(x.deliveredAt) }} · {{ 'statistiche.tendina.oltre' | translate: { v: minTxt(x.ritardoMin) } }}</dd>
+                                <dt>{{ 'statistiche.tendina.km' | translate }}</dt><dd>{{ kmTxt(x.km) }}</dd>
+                                <dt>{{ 'statistiche.tendina.stato' | translate }}</dt><dd><span class="pill" [class]="'pill s-' + x.status"><span class="dot" [class]="'dot s-' + x.status"></span>{{ 'status.delivery.' + x.status | translate }}</span>{{ x.ddt ? ' · DDT ' + x.ddt : '' }}</dd>
+                              </dl>
+                              <div class="tendina-azioni">
+                                <button type="button" class="act primary" (click)="vai(['/deliveries', x.id]); $event.stopPropagation()">{{ 'statistiche.tendina.apriConsegna' | translate: { code: x.code } }}</button>
+                                @if (x.partnerId) { <button type="button" class="act" (click)="vai(['/partners', x.partnerId]); $event.stopPropagation()">{{ 'statistiche.tendina.apriPartner' | translate }}</button> }
+                                @if (x.valetId) { <button type="button" class="act" (click)="vai(['/valets', x.valetId]); $event.stopPropagation()">{{ 'statistiche.tendina.apriValet' | translate }}</button> }
+                              </div>
+                            </div>
+                          </td></tr>
+                        }
                       }
                     </tbody>
                   </table>
@@ -192,7 +226,7 @@ const VERSO: Record<string, 1 | -1 | 0> = {
           @for (t of tempi(); track t.chiave) {
             <div class="numero">
               <span class="k">{{ 'statistiche.kpi.' + t.chiave | translate }}</span>
-              <span class="v">{{ t.valore }}</span>
+              <span class="v">{{ t.valore }} <span class="prima muted">{{ t.prima ? ('statistiche.prima' | translate: { v: t.prima }) : '' }}</span></span>
               <span class="delta" [class.su]="t.tono === 'bene'" [class.giu]="t.tono === 'male'">{{ t.delta }}</span>
               <span class="base">{{ t.base }}</span>
             </div>
@@ -214,19 +248,41 @@ const VERSO: Record<string, 1 | -1 | 0> = {
             </tr></thead>
             <tbody>
               @for (r of righeTipologia(); track r.serviceTypeId) {
-                <tr class="row-link" tabindex="0" (click)="vaiConsegne({ serviceTypeId: r.serviceTypeId })" (keydown.enter)="vaiConsegne({ serviceTypeId: r.serviceTypeId })">
-                  <td class="col-id strong">{{ r.nome }} <span class="muted piccolo">· {{ 'enums.servicePricing.' + r.modello | translate }}</span></td>
+                <tr class="row-link" [class.aperta]="espansa() === 't:' + r.modello" tabindex="0" (click)="espandi('t:' + r.modello)" (keydown.enter)="espandi('t:' + r.modello)">
+                  <td class="col-id strong">{{ 'enums.servicePricing.' + r.modello | translate }}</td>
                   <td class="num">{{ num(r.corrente.totali) }}</td>
                   <td class="num delta" [class.su]="tono(r.corrente.totali, r.confronto.totali, 1) === 'bene'" [class.giu]="tono(r.corrente.totali, r.confronto.totali, 1) === 'male'">{{ deltaTxt(r.corrente.totali, r.confronto.totali) }}</td>
                   <td class="num">{{ num(r.corrente.concluse) }}</td>
                   <td class="num">{{ pctTxt(r.corrente.tassoNonConsegnate) }}</td>
                   <td class="num">{{ pctTxt(r.corrente.tassoAnnullate) }}</td>
-                  <td class="num">{{ euroTxt(r.corrente.prezzoMedio) }} <span class="muted piccolo">{{ baseTxt(r.corrente.prezzoN, r.corrente.concluse) }}</span></td>
-                  <td class="num">{{ pctTxt(r.corrente.puntualita.pctInOrario) }} <span class="muted piccolo">{{ baseTxt(r.corrente.puntualita.valutabili, r.corrente.concluse) }}</span></td>
-                  <td class="num">{{ minTxt(r.corrente.puntualita.ritardoMedioMin) }}</td>
-                  <td class="num">{{ minTxt(r.corrente.tempoMedioMin) }}</td>
-                  <td class="num">{{ kmTxt(r.corrente.kmMedi) }}</td>
+                  <td class="num">{{ euroTxt(r.corrente.prezzoMedio) }} <span class="muted piccolo">{{ baseTxt(r.corrente.prezzoN, r.corrente.concluse) }}</span>
+                    <div class="delta piccolo">{{ deltaTxt(r.corrente.prezzoMedio, r.confronto.prezzoMedio, false, ' €') }}</div></td>
+                  <td class="num">{{ pctTxt(r.corrente.puntualita.pctInOrario) }} <span class="muted piccolo">{{ baseTxt(r.corrente.puntualita.valutabili, r.corrente.concluse) }}</span>
+                    <div class="delta piccolo" [class.su]="tono(r.corrente.puntualita.pctInOrario, r.confronto.puntualita.pctInOrario, 1) === 'bene'" [class.giu]="tono(r.corrente.puntualita.pctInOrario, r.confronto.puntualita.pctInOrario, 1) === 'male'">{{ deltaPp(r.corrente.puntualita.pctInOrario, r.confronto.puntualita.pctInOrario) }}</div></td>
+                  <td class="num">{{ minTxt(r.corrente.puntualita.ritardoMedioMin) }}
+                    <div class="delta piccolo" [class.su]="tono(r.corrente.puntualita.ritardoMedioMin, r.confronto.puntualita.ritardoMedioMin, -1) === 'bene'" [class.giu]="tono(r.corrente.puntualita.ritardoMedioMin, r.confronto.puntualita.ritardoMedioMin, -1) === 'male'">{{ deltaTxt(r.corrente.puntualita.ritardoMedioMin, r.confronto.puntualita.ritardoMedioMin, false, ' min') }}</div></td>
+                  <td class="num">{{ minTxt(r.corrente.tempoMedioMin) }}
+                    <div class="delta piccolo">{{ deltaTxt(r.corrente.tempoMedioMin, r.confronto.tempoMedioMin, false, ' min') }}</div></td>
+                  <td class="num">{{ kmTxt(r.corrente.kmMedi) }}
+                    <div class="delta piccolo">{{ deltaTxt(r.corrente.kmMedi, r.confronto.kmMedi, false, ' km') }}</div></td>
                 </tr>
+                @if (espansa() === 't:' + r.modello) {
+                  <tr class="tendina"><td colspan="11">
+                    <div class="tendina-corpo">
+                      <table class="compatta confronto-tab">
+                        <thead><tr><th></th><th class="num">{{ intervallo(d.periodo.da, d.periodo.a) }}</th><th class="num">{{ intervallo(d.confronto.da, d.confronto.a) }}</th><th class="num">Δ</th></tr></thead>
+                        <tbody>
+                          @for (v of vociTipologia(r); track v.k) {
+                            <tr><td>{{ 'statistiche.kpi.' + v.k | translate }}</td><td class="num strong">{{ v.cur }}</td><td class="num muted">{{ v.prev }}</td><td class="num delta" [class.su]="v.tono === 'bene'" [class.giu]="v.tono === 'male'">{{ v.delta }}</td></tr>
+                          }
+                        </tbody>
+                      </table>
+                      <div class="tendina-azioni">
+                        <button type="button" class="act primary" (click)="vaiConsegne({ pricingModel: r.modello }); $event.stopPropagation()">{{ 'statistiche.tendina.apriConsegne' | translate }}</button>
+                      </div>
+                    </div>
+                  </td></tr>
+                }
               }
             </tbody>
             <tfoot><tr>
@@ -236,11 +292,11 @@ const VERSO: Record<string, 1 | -1 | 0> = {
               <td class="num strong">{{ num(d.totale.corrente.concluse) }}</td>
               <td class="num">{{ pctTxt(d.totale.corrente.tassoNonConsegnate) }}</td>
               <td class="num">{{ pctTxt(d.totale.corrente.tassoAnnullate) }}</td>
-              <td class="num">{{ euroTxt(d.totale.corrente.prezzoMedio) }}</td>
-              <td class="num">{{ pctTxt(d.totale.corrente.puntualita.pctInOrario) }}</td>
-              <td class="num">{{ minTxt(d.totale.corrente.puntualita.ritardoMedioMin) }}</td>
-              <td class="num">{{ minTxt(d.totale.corrente.tempoMedioMin) }}</td>
-              <td class="num">{{ kmTxt(d.totale.corrente.kmMedi) }}</td>
+              <td class="num">{{ euroTxt(d.totale.corrente.prezzoMedio) }}<div class="delta piccolo">{{ deltaTxt(d.totale.corrente.prezzoMedio, d.totale.confronto.prezzoMedio, false, ' €') }}</div></td>
+              <td class="num">{{ pctTxt(d.totale.corrente.puntualita.pctInOrario) }}<div class="delta piccolo">{{ deltaPp(d.totale.corrente.puntualita.pctInOrario, d.totale.confronto.puntualita.pctInOrario) }}</div></td>
+              <td class="num">{{ minTxt(d.totale.corrente.puntualita.ritardoMedioMin) }}<div class="delta piccolo">{{ deltaTxt(d.totale.corrente.puntualita.ritardoMedioMin, d.totale.confronto.puntualita.ritardoMedioMin, false, ' min') }}</div></td>
+              <td class="num">{{ minTxt(d.totale.corrente.tempoMedioMin) }}<div class="delta piccolo">{{ deltaTxt(d.totale.corrente.tempoMedioMin, d.totale.confronto.tempoMedioMin, false, ' min') }}</div></td>
+              <td class="num">{{ kmTxt(d.totale.corrente.kmMedi) }}<div class="delta piccolo">{{ deltaTxt(d.totale.corrente.kmMedi, d.totale.confronto.kmMedi, false, ' km') }}</div></td>
             </tr></tfoot>
           </table>
         </div>
@@ -282,13 +338,28 @@ const VERSO: Record<string, 1 | -1 | 0> = {
               </tr></thead>
               <tbody>
                 @for (r of righeOrdinate(k, d.top[k].top); track r.id) {
-                  <tr class="row-link" tabindex="0" (click)="vaiTop(k, r)" (keydown.enter)="vaiTop(k, r)">
+                  <tr class="row-link" [class.aperta]="espansa() === k + ':' + r.id" tabindex="0" (click)="espandi(k + ':' + r.id)" (keydown.enter)="espandi(k + ':' + r.id)">
                     <td>{{ r.nome }}</td>
                     <td class="num">{{ num(r.corrente) }}</td>
                     <td class="num muted">{{ pctTxt(r.pctDelTotale) }}</td>
                     <td class="num delta">{{ deltaTxt(r.corrente, r.confronto, true) }}</td>
                     <td class="num">{{ r.pctInOrario != null ? pctTxt(r.pctInOrario) : ('statistiche.top.baseBassa' | translate: { n: r.puntN }) }}</td>
                   </tr>
+                  @if (espansa() === k + ':' + r.id) {
+                    <tr class="tendina"><td colspan="5">
+                      <div class="tendina-corpo">
+                        <dl>
+                          <dt>{{ 'statistiche.top.consegne' | translate }}</dt><dd>{{ num(r.corrente) }} · {{ 'statistiche.prima' | translate: { v: num(r.confronto) } }} · {{ num(r.concluse) }} {{ 'statistiche.tendina.concluse' | translate }}</dd>
+                          <dt>{{ 'statistiche.top.puntuali' | translate }}</dt><dd>{{ r.pctInOrario != null ? pctTxt(r.pctInOrario) : 'n/d' }} · {{ 'statistiche.tendina.suValutabili' | translate: { n: num(r.puntN), r: num(r.ritardo) } }}</dd>
+                        </dl>
+                        <div class="tendina-azioni">
+                          @if (k === 'partner') { <button type="button" class="act primary" (click)="vai(['/partners', r.id]); $event.stopPropagation()">{{ 'statistiche.tendina.apriPartner' | translate }}</button> <button type="button" class="act" (click)="vaiConsegne({ partnerId: r.id }); $event.stopPropagation()">{{ 'statistiche.tendina.apriConsegne' | translate }}</button> }
+                          @else if (k === 'valet') { <button type="button" class="act primary" (click)="vai(['/valets', r.id]); $event.stopPropagation()">{{ 'statistiche.tendina.apriValet' | translate }}</button> }
+                          @else { <button type="button" class="act primary" (click)="vaiTop(k, r); $event.stopPropagation()">{{ 'statistiche.tendina.apriConsegne' | translate }}</button> }
+                        </div>
+                      </div>
+                    </td></tr>
+                  }
                 }
                 @if (d.top[k].altri > 0) {
                   <tr class="muted"><td>{{ 'statistiche.top.altri' | translate: { n: d.top[k].altri } }}</td><td class="num">{{ num(d.top[k].altriConsegne) }}</td><td class="num">{{ pctTxt(pct(d.top[k].altriConsegne, d.top[k].totale)) }}</td><td></td><td></td></tr>
@@ -308,12 +379,20 @@ const VERSO: Record<string, 1 | -1 | 0> = {
             </tr></thead>
             <tbody>
               @for (s of righeOrdinate('stati', d.perStato); track s.stato) {
-                <tr class="row-link" tabindex="0" (click)="vaiConsegne({ status: s.stato })" (keydown.enter)="vaiConsegne({ status: s.stato })">
+                <tr class="row-link" [class.aperta]="espansa() === 's:' + s.stato" tabindex="0" (click)="espandi('s:' + s.stato)" (keydown.enter)="espandi('s:' + s.stato)">
                   <td><span class="pill" [class]="'pill s-' + s.stato"><span class="dot" [class]="'dot s-' + s.stato"></span>{{ 'status.delivery.' + s.stato | translate }}</span></td>
                   <td class="num">{{ num(s.corrente) }}</td>
                   <td class="num muted">{{ pctTxt(pct(s.corrente, d.totale.corrente.totali)) }}</td>
                   <td class="num delta">{{ deltaTxt(s.corrente, s.confronto, true) }}</td>
                 </tr>
+                @if (espansa() === 's:' + s.stato) {
+                  <tr class="tendina"><td colspan="4">
+                    <div class="tendina-corpo">
+                      <p class="muted piccolo">{{ num(s.corrente) }} · {{ 'statistiche.prima' | translate: { v: num(s.confronto) } }}</p>
+                      <div class="tendina-azioni"><button type="button" class="act primary" (click)="vaiConsegne({ status: s.stato }); $event.stopPropagation()">{{ 'statistiche.tendina.apriConsegne' | translate }}</button></div>
+                    </div>
+                  </td></tr>
+                }
               }
             </tbody>
           </table>
@@ -356,6 +435,17 @@ const VERSO: Record<string, 1 | -1 | 0> = {
     .base { font-size: 12px; color: var(--text-tertiary); }
     .blocco { padding: 16px 18px; margin-bottom: 16px; }
     .blocco h2 { font-size: 16px; margin: 0 0 12px; letter-spacing: -0.01em; }
+    .barra.sottile { height: 16px; margin-top: 2px; opacity: .75; } .barra.sottile .seg { font-size: 11px; }
+    .confronto-riga { margin: 4px 0 8px; }
+    .prima { font-size: 12.5px; font-weight: 400; letter-spacing: 0; }
+    td .delta.piccolo { font-size: 11.5px; line-height: 1.2; }
+    tr.aperta td { background: var(--fill, rgba(120,120,128,.06)); }
+    tr.tendina > td { background: var(--surface-sunken, #f5f5f7); padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
+    .tendina-corpo { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; }
+    .tendina-corpo dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 13px; }
+    .tendina-corpo dt { color: var(--text-tertiary); } .tendina-corpo dd { margin: 0; }
+    .tendina-azioni { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+    .confronto-tab { max-width: 560px; }
     .barra { display: flex; height: 30px; border-radius: 8px; overflow: hidden; background: var(--fill, rgba(120,120,128,.08)); margin-bottom: 8px; }
     .seg { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; min-width: 0; }
     .seg.ok { background: var(--green); } .seg.presto { background: var(--amber); } .seg.tardi { background: var(--red); }
@@ -398,6 +488,27 @@ export class StatisticheComponent {
   readonly ordinamento = signal<{ chiave: string; verso: 1 | -1 }>({ chiave: 'consegne', verso: -1 });
   // ⭐ 06/09/2026: filtri (tipologia, provincia, partner) — nell'URL come il periodo.
   readonly serviceTypeId = signal<string>('');
+  readonly MODELLI = ['VENDITA', 'PREZZO_FISSO', 'A_ORA', 'MAGAZZINO', 'CORPORATE'];
+  readonly pricingModel = signal<string>('');
+  /** ⭐ 06/09/2026 (regola utente): il dettaglio si apre in una TENDINA sotto la riga, senza cambiare pagina. */
+  readonly espansa = signal<string | null>(null);
+  espandi(chiave: string): void { this.espansa.set(this.espansa() === chiave ? null : chiave); }
+  /** Le voci corrente/confronto di una macrotipologia, per la tendina. */
+  vociTipologia(r: any): { k: string; cur: string; prev: string; delta: string; tono: string }[] {
+    const c = r.corrente, p = r.confronto;
+    return [
+      { k: 'consegne', cur: this.num(c.totali), prev: this.num(p.totali), delta: this.deltaTxt(c.totali, p.totali, true), tono: this.tono(c.totali, p.totali, 1) },
+      { k: 'concluse', cur: this.num(c.concluse), prev: this.num(p.concluse), delta: this.deltaTxt(c.concluse, p.concluse, true), tono: this.tono(c.concluse, p.concluse, 1) },
+      { k: 'prezzoMedio', cur: this.euroTxt(c.prezzoMedio), prev: this.euroTxt(p.prezzoMedio), delta: this.deltaTxt(c.prezzoMedio, p.prezzoMedio, false, ' €'), tono: 'neutro' },
+      { k: 'puntualita', cur: this.pctTxt(c.puntualita.pctInOrario), prev: this.pctTxt(p.puntualita.pctInOrario), delta: this.deltaPp(c.puntualita.pctInOrario, p.puntualita.pctInOrario), tono: this.tono(c.puntualita.pctInOrario, p.puntualita.pctInOrario, 1) },
+      { k: 'ritardoMedio', cur: this.minTxt(c.puntualita.ritardoMedioMin), prev: this.minTxt(p.puntualita.ritardoMedioMin), delta: this.deltaTxt(c.puntualita.ritardoMedioMin, p.puntualita.ritardoMedioMin, false, ' min'), tono: this.tono(c.puntualita.ritardoMedioMin, p.puntualita.ritardoMedioMin, -1) },
+      { k: 'anticipoMedio', cur: this.minTxt(c.puntualita.anticipoMedioMin), prev: this.minTxt(p.puntualita.anticipoMedioMin), delta: this.deltaTxt(c.puntualita.anticipoMedioMin, p.puntualita.anticipoMedioMin, false, ' min'), tono: 'neutro' },
+      { k: 'tempoMedio', cur: this.minTxt(c.tempoMedioMin), prev: this.minTxt(p.tempoMedioMin), delta: this.deltaTxt(c.tempoMedioMin, p.tempoMedioMin, false, ' min'), tono: 'neutro' },
+      { k: 'kmMedi', cur: this.kmTxt(c.kmMedi), prev: this.kmTxt(p.kmMedi), delta: this.deltaTxt(c.kmMedi, p.kmMedi, false, ' km'), tono: 'neutro' },
+      { k: 'guasti', cur: this.pctTxt(c.tassoNonConsegnate), prev: this.pctTxt(p.tassoNonConsegnate), delta: this.deltaPp(c.tassoNonConsegnate, p.tassoNonConsegnate), tono: this.tono(c.tassoNonConsegnate, p.tassoNonConsegnate, -1) },
+      { k: 'annullate', cur: this.pctTxt(c.tassoAnnullate), prev: this.pctTxt(p.tassoAnnullate), delta: this.deltaPp(c.tassoAnnullate, p.tassoAnnullate), tono: this.tono(c.tassoAnnullate, p.tassoAnnullate, -1) },
+    ];
+  }
   readonly provinceId = signal<string>('');
   readonly partnerIds = signal<string[]>([]);
   readonly servizi = signal<{ id: string; name: string }[]>([]);
@@ -434,6 +545,7 @@ export class StatisticheComponent {
     if (p && this.PERIODI.includes(p)) this.periodo.set(p);
     if (c && this.CONFRONTI.includes(c)) this.confronto.set(c);
     this.serviceTypeId.set(q.get('serviceTypeId') ?? '');
+    this.pricingModel.set(this.MODELLI.includes(q.get('pricingModel') ?? '') ? (q.get('pricingModel') as string) : '');
     this.provinceId.set(q.get('provinceId') ?? '');
     this.partnerIds.set((q.get('partnerIds') ?? '').split(',').map((x) => x.trim()).filter(Boolean));
     this.caricaElenchi();
@@ -444,7 +556,7 @@ export class StatisticheComponent {
     this.periodo.set(p); this.confronto.set(c);
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { periodo: p, confronto: c, serviceTypeId: this.serviceTypeId() || null, provinceId: this.provinceId() || null, partnerIds: this.partnerIds().length ? this.partnerIds().join(',') : null },
+      queryParams: { periodo: p, confronto: c, pricingModel: this.pricingModel() || null, serviceTypeId: this.serviceTypeId() || null, provinceId: this.provinceId() || null, partnerIds: this.partnerIds().length ? this.partnerIds().join(',') : null },
       replaceUrl: true,
     });
     this.carica();
@@ -455,8 +567,10 @@ export class StatisticheComponent {
     this.loading.set(true); this.error.set(null);
     const params: Record<string, string> = { periodo: this.periodo(), confronto: this.confronto() };
     if (this.serviceTypeId()) params['serviceTypeId'] = this.serviceTypeId();
+    if (this.pricingModel()) params['pricingModel'] = this.pricingModel();
     if (this.provinceId()) params['provinceId'] = this.provinceId();
     if (this.partnerIds().length) params['partnerIds'] = this.partnerIds().join(',');
+    this.espansa.set(null);
     this.http.get<any>(`${environment.apiUrl}/statistiche`, { params }).subscribe({
       next: (d) => { this.dati.set(d); this.loading.set(false); },
       error: (e) => { this.loading.set(false); this.error.set(e?.error?.message ?? this.translate.instant('common.loadError')); },
@@ -521,11 +635,11 @@ export class StatisticheComponent {
     const d = this.dati(); if (!d) return [];
     const T = d.totale.corrente, P = d.totale.confronto;
     return [
-      { chiave: 'ritardoMedio', valore: this.minTxt(T.puntualita.ritardoMedioMin), delta: this.deltaTxt(T.puntualita.ritardoMedioMin, P.puntualita.ritardoMedioMin, false, ' min'), tono: this.tono(T.puntualita.ritardoMedioMin, P.puntualita.ritardoMedioMin, -1), base: this.translate.instant('statistiche.suRitardi', { n: this.num(T.puntualita.ritardo) }) },
-      { chiave: 'anticipoMedio', valore: this.minTxt(T.puntualita.anticipoMedioMin), delta: this.deltaTxt(T.puntualita.anticipoMedioMin, P.puntualita.anticipoMedioMin, false, ' min'), tono: 'neutro', base: this.translate.instant('statistiche.suAnticipi', { n: this.num(T.puntualita.anticipo) }) },
-      { chiave: 'tempoMedio', valore: this.coperturaOk(T.tempoN, T.concluse) ? this.minTxt(T.tempoMedioMin) : 'n/d', delta: this.deltaTxt(T.tempoMedioMin, P.tempoMedioMin, false, ' min'), tono: 'neutro', base: this.coperturaTxt(T.tempoN, T.concluse) },
-      { chiave: 'kmMedi', valore: this.coperturaOk(T.kmN, T.concluse) ? this.kmTxt(T.kmMedi) : 'n/d', delta: this.deltaTxt(T.kmMedi, P.kmMedi, false, ' km'), tono: 'neutro', base: this.coperturaTxt(T.kmN, T.concluse) + (T.pctFuoriCitta != null ? ` · ${this.translate.instant('statistiche.fuoriCitta', { p: this.pctTxt(T.pctFuoriCitta) })}` : '') },
-      { chiave: 'leadTime', valore: T.leadTimeGiorni == null ? 'n/d' : `${T.leadTimeGiorni.toLocaleString('it-IT', { maximumFractionDigits: 1 })} ${this.translate.instant('statistiche.gg')}`, delta: this.deltaTxt(T.leadTimeGiorni, P.leadTimeGiorni, false), tono: 'neutro', base: this.coperturaTxt(T.leadN, T.totali) },
+      { chiave: 'ritardoMedio', prima: this.minTxt(P.puntualita.ritardoMedioMin), valore: this.minTxt(T.puntualita.ritardoMedioMin), delta: this.deltaTxt(T.puntualita.ritardoMedioMin, P.puntualita.ritardoMedioMin, false, ' min'), tono: this.tono(T.puntualita.ritardoMedioMin, P.puntualita.ritardoMedioMin, -1), base: this.translate.instant('statistiche.suRitardi', { n: this.num(T.puntualita.ritardo) }) },
+      { chiave: 'anticipoMedio', prima: this.minTxt(P.puntualita.anticipoMedioMin), valore: this.minTxt(T.puntualita.anticipoMedioMin), delta: this.deltaTxt(T.puntualita.anticipoMedioMin, P.puntualita.anticipoMedioMin, false, ' min'), tono: 'neutro', base: this.translate.instant('statistiche.suAnticipi', { n: this.num(T.puntualita.anticipo) }) },
+      { chiave: 'tempoMedio', prima: this.minTxt(P.tempoMedioMin), valore: this.coperturaOk(T.tempoN, T.concluse) ? this.minTxt(T.tempoMedioMin) : 'n/d', delta: this.deltaTxt(T.tempoMedioMin, P.tempoMedioMin, false, ' min'), tono: 'neutro', base: this.coperturaTxt(T.tempoN, T.concluse) },
+      { chiave: 'kmMedi', prima: this.kmTxt(P.kmMedi), valore: this.coperturaOk(T.kmN, T.concluse) ? this.kmTxt(T.kmMedi) : 'n/d', delta: this.deltaTxt(T.kmMedi, P.kmMedi, false, ' km'), tono: 'neutro', base: this.coperturaTxt(T.kmN, T.concluse) + (T.pctFuoriCitta != null ? ` · ${this.translate.instant('statistiche.fuoriCitta', { p: this.pctTxt(T.pctFuoriCitta) })}` : '') },
+      { chiave: 'leadTime', prima: P.leadTimeGiorni == null ? 'n/d' : `${P.leadTimeGiorni.toLocaleString('it-IT', { maximumFractionDigits: 1 })} ${this.translate.instant('statistiche.gg')}`, valore: T.leadTimeGiorni == null ? 'n/d' : `${T.leadTimeGiorni.toLocaleString('it-IT', { maximumFractionDigits: 1 })} ${this.translate.instant('statistiche.gg')}`, delta: this.deltaTxt(T.leadTimeGiorni, P.leadTimeGiorni, false), tono: 'neutro', base: this.coperturaTxt(T.leadN, T.totali) },
     ];
   });
 
@@ -577,6 +691,7 @@ export class StatisticheComponent {
     const d = this.dati(); if (!d) return;
     const q: Record<string, string> = { view: 'tutte', date: d.periodo.da, dateTo: d.periodo.a, ...extra };
     if (this.serviceTypeId() && !extra['serviceTypeId']) q['serviceTypeId'] = this.serviceTypeId();
+    if (this.pricingModel() && !extra['pricingModel']) q['pricingModel'] = this.pricingModel();
     if (this.partnerIds().length === 1 && !extra['partnerId']) q['partnerId'] = this.partnerIds()[0];
     this.router.navigate(['/deliveries'], { queryParams: q });
   }
@@ -595,6 +710,7 @@ export class StatisticheComponent {
     this.ritardiAperti.set(true); this.ritardiCaricamento.set(true);
     const params: Record<string, string> = { periodo: this.periodo(), confronto: this.confronto() };
     if (this.serviceTypeId()) params['serviceTypeId'] = this.serviceTypeId();
+    if (this.pricingModel()) params['pricingModel'] = this.pricingModel();
     if (this.provinceId()) params['provinceId'] = this.provinceId();
     if (this.partnerIds().length) params['partnerIds'] = this.partnerIds().join(',');
     this.http.get<any>(`${environment.apiUrl}/statistiche/ritardi`, { params }).subscribe({

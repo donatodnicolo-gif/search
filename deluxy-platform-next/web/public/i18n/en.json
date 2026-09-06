@@ -2950,7 +2950,9 @@
       "pagatoPartner": "Paid to partners",
       "feeTotale": "Deluxy fee",
       "costoValet": "Valet cost",
-      "margineTotale": "Margin"
+      "margineTotale": "Margin",
+      "concluse": "Completed",
+      "annullate": "Cancelled"
     },
     "base": "on {{n}} of {{m}}",
     "su": "on {{n}} of {{m}} completed",
@@ -2972,7 +2974,8 @@
       "anticipo": "early",
       "ritardo": "late",
       "base": "Assessable {{n}} of {{m}} delivered · {{senza}} without real time or slot · tolerance +{{tol}} min late, −{{ant}} min early",
-      "nd": "No assessable delivery in the period (real delivery time and promised slot are needed)."
+      "nd": "No assessable delivery in the period (real delivery time and promised slot are needed).",
+      "confronto": "Comparison {{periodo}}: on {{n}} assessable deliveries"
     },
     "tipologia": {
       "titolo": "By service type",
@@ -3037,6 +3040,22 @@
         "consegnata": "Delivered at",
         "ritardoMin": "Delay"
       }
+    },
+    "prima": "before {{v}}",
+    "tendina": {
+      "indirizzo": "Address",
+      "ritiro": "Pickup",
+      "partito": "Departed at",
+      "consegnato": "Delivered at",
+      "oltre": "{{v}} past the slot",
+      "km": "Km",
+      "stato": "Status",
+      "concluse": "completed",
+      "suValutabili": "on {{n}} assessable, {{r}} late",
+      "apriConsegna": "Open delivery #{{code}}",
+      "apriConsegne": "Open in Deliveries",
+      "apriPartner": "Partner card",
+      "apriValet": "Valet card"
     }
   }
 }
