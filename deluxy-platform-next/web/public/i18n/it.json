@@ -59,7 +59,8 @@
     "serviziDeluxy": "Servizi Deluxy",
     "chiaviApp": "Chiavi delle app",
     "richieste": "Richieste",
-    "segnalazioni": "Segnalazioni"
+    "segnalazioni": "Segnalazioni",
+    "statistiche": "Statistiche"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -783,7 +784,9 @@
     }
   },
   "deliveries": {
-    "codice": { "inserisci": "Inserisci codice valet" },
+    "codice": {
+      "inserisci": "Inserisci codice valet"
+    },
     "recipientHidden": "Visibile quando la metti in consegna",
     "proposte": {
       "title": "Ordini proposti a te",
@@ -973,7 +976,8 @@
       "provinces": "Province",
       "vehicle": "Mezzo",
       "teamLeader": "Team leader",
-      "status": "Stato"
+      "status": "Stato",
+      "codice": "Codice"
     }
   },
   "reconciliations": {
@@ -1368,7 +1372,9 @@
     "aggiungiRitiro": "Aggiungi indirizzo di ritiro",
     "insegna": "Insegna",
     "emailNegozio": "Email del negozio",
-    "salvato": "Salvato."
+    "salvato": "Salvato.",
+    "codiceValet": "Il tuo codice valet",
+    "codiceValetHint": "È personale: lo dici solo al partner al momento del ritiro, quando la consegna chiede la verifica della tua identità. Non comunicarlo ad altri."
   },
   "deliveryForm": {
     "backToDeliveries": "Consegne",
@@ -2908,5 +2914,106 @@
     "mismatch": "Le due password non coincidono.",
     "error": "Cambio password non riuscito.",
     "ok": "Password aggiornata."
+  },
+  "statistiche": {
+    "title": "Statistiche",
+    "sub": "Come sta andando, per periodo e per tipologia di servizio, con il confronto.",
+    "periodo": "Periodo",
+    "confronto": "Confronto",
+    "giorni": "giorni",
+    "vs": "vs",
+    "pariGiorni": "a pari giorni trascorsi",
+    "aggiornato": "aggiornato alle",
+    "p": {
+      "oggi": "Oggi",
+      "settimana": "Settimana",
+      "mese": "Mese",
+      "mese-scorso": "Mese scorso",
+      "trimestre": "Trimestre",
+      "anno": "Anno"
+    },
+    "c": {
+      "precedente": "Periodo precedente",
+      "anno-prima": "Anno prima"
+    },
+    "kpi": {
+      "consegne": "Consegne",
+      "prezzoMedio": "Prezzo medio servizio",
+      "feeMedia": "Fee media (vendite)",
+      "margineMedio": "Margine medio (vendite)",
+      "puntualita": "Puntualità (in orario)",
+      "guasti": "Non consegnate + annullate",
+      "ritardoMedio": "Ritardo medio",
+      "anticipoMedio": "Anticipo medio",
+      "tempoMedio": "Tempo medio di consegna",
+      "kmMedi": "Km medi",
+      "leadTime": "Anticipo dell’ordine",
+      "venduto": "Venduto",
+      "pagatoPartner": "Pagato ai partner",
+      "feeTotale": "Fee Deluxy",
+      "costoValet": "Costo valet",
+      "margineTotale": "Margine"
+    },
+    "base": "su {{n}} di {{m}}",
+    "su": "su {{n}} di {{m}} concluse",
+    "suTutte": "su tutte le {{m}}",
+    "copertura": "su {{n}} di {{m}} · {{senza}} senza dato",
+    "nessuna": "nessuna consegna",
+    "baseConsegne": "{{concluse}} concluse · prima {{vs}}",
+    "baseGuasti": "{{nc}} non consegnate · {{an}} annullate",
+    "suRitardi": "sui {{n}} ritardi",
+    "suAnticipi": "sui {{n}} anticipi",
+    "suRighe": "su {{n}} righe di vendita",
+    "delVenduto": "del venduto",
+    "fuoriCitta": "{{p}} fuori città",
+    "gg": "gg",
+    "puntualita": {
+      "titolo": "Puntualità e tempi",
+      "barra": "Quote in orario, in anticipo, in ritardo",
+      "inOrario": "in orario",
+      "anticipo": "in anticipo",
+      "ritardo": "in ritardo",
+      "base": "Valutabili {{n}} su {{m}} consegnate · {{senza}} senza orario reale o fascia · tolleranza +{{tol}} min sul ritardo, −{{ant}} min sull’anticipo",
+      "nd": "Nessuna consegna valutabile nel periodo (serve l’orario reale di consegna e la fascia promessa)."
+    },
+    "tipologia": {
+      "titolo": "Per tipologia di servizio",
+      "totale": "Totale",
+      "nota": "Prezzo = prezzo al partner + plus/minus + regola, sulle concluse con prezzo. Puntualità sulle valutabili. n/d = dato mancante, escluso dalla media.",
+      "col": {
+        "nome": "Tipologia",
+        "consegne": "Consegne",
+        "delta": "Δ",
+        "concluse": "Concluse",
+        "nonConsegnate": "Non cons. %",
+        "annullate": "Annullate %",
+        "prezzoMedio": "Prezzo medio",
+        "puntualita": "In orario",
+        "ritardoMedio": "Ritardo medio",
+        "tempoMedio": "Tempo cons.",
+        "kmMedi": "Km medi"
+      }
+    },
+    "economia": {
+      "titolo": "Vendite: fee e margine (dalla Finanza)",
+      "nota": "Formula della Finanza: (venduto − pagato) ÷ 1,22 + fee − valet − commissione. {{righe}} righe, {{stimate}} col venduto stimato (prodotto senza prezzo pubblico), {{anomalie}} anomalie.",
+      "nd": "Fee e margine non disponibili per questo periodo.",
+      "ndBreve": "periodo troppo ampio"
+    },
+    "top": {
+      "partner": "Partner",
+      "valet": "Valet",
+      "province": "Province",
+      "nome": "Nome",
+      "consegne": "Consegne",
+      "puntuali": "In orario",
+      "altri": "altri {{n}}",
+      "baseBassa": "n/d ({{n}})"
+    },
+    "stati": {
+      "titolo": "Per stato",
+      "stato": "Stato",
+      "n": "N"
+    }
   }
 }

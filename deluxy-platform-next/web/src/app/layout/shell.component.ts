@@ -109,6 +109,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // in due posti) ed esce dal menu. La rotta /payments resta viva.
       { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.regoleValet', path: '/valet-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      // ⭐ 06/09/2026: Statistiche prima di Finanza (verdetto UX): operatività
+      // condivisa (ADMIN, OPERATION) ≠ economia riservata (Finanza, solo ADMIN).
+      { label: 'nav.statistiche', path: '/statistiche', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },

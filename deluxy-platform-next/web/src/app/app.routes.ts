@@ -117,6 +117,14 @@ export const routes: Routes = [
           ),
       },
       {
+        // ⭐ 06/09/2026: STATISTICHE (KPI per periodo con confronto), ufficio.
+        path: 'statistiche',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'], title: 'Statistiche' },
+        loadComponent: () =>
+          import('./pages/statistiche.component').then((m) => m.StatisticheComponent),
+      },
+      {
         path: 'finance',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN'], title: 'Finanza' },

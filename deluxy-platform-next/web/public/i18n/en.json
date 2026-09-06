@@ -59,7 +59,8 @@
     "serviziDeluxy": "Deluxy services",
     "chiaviApp": "App keys",
     "richieste": "Requests",
-    "segnalazioni": "Reports"
+    "segnalazioni": "Reports",
+    "statistiche": "Statistics"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -782,7 +783,9 @@
     }
   },
   "deliveries": {
-    "codice": { "inserisci": "Enter valet code" },
+    "codice": {
+      "inserisci": "Enter valet code"
+    },
     "recipientHidden": "Shown once you start the delivery",
     "proposte": {
       "title": "Orders proposed to you",
@@ -972,7 +975,8 @@
       "provinces": "Provinces",
       "vehicle": "Vehicle",
       "teamLeader": "Team leader",
-      "status": "Status"
+      "status": "Status",
+      "codice": "Code"
     }
   },
   "reconciliations": {
@@ -1366,7 +1370,9 @@
     "aggiungiRitiro": "Add pickup address",
     "insegna": "Shop name",
     "emailNegozio": "Shop email",
-    "salvato": "Saved."
+    "salvato": "Saved.",
+    "codiceValet": "Your valet code",
+    "codiceValetHint": "It is personal: tell it only to the partner at pickup, when the delivery asks to verify your identity. Do not share it with anyone else."
   },
   "deliveryForm": {
     "backToDeliveries": "Deliveries",
@@ -2906,5 +2912,106 @@
     "mismatch": "The two passwords do not match.",
     "error": "Password change failed.",
     "ok": "Password updated."
+  },
+  "statistiche": {
+    "title": "Statistics",
+    "sub": "How it is going, by period and service type, with comparison.",
+    "periodo": "Period",
+    "confronto": "Compare with",
+    "giorni": "days",
+    "vs": "vs",
+    "pariGiorni": "same elapsed days",
+    "aggiornato": "updated at",
+    "p": {
+      "oggi": "Today",
+      "settimana": "Week",
+      "mese": "Month",
+      "mese-scorso": "Last month",
+      "trimestre": "Quarter",
+      "anno": "Year"
+    },
+    "c": {
+      "precedente": "Previous period",
+      "anno-prima": "Year before"
+    },
+    "kpi": {
+      "consegne": "Deliveries",
+      "prezzoMedio": "Average service price",
+      "feeMedia": "Average fee (sales)",
+      "margineMedio": "Average margin (sales)",
+      "puntualita": "On time",
+      "guasti": "Not delivered + cancelled",
+      "ritardoMedio": "Average delay",
+      "anticipoMedio": "Average early",
+      "tempoMedio": "Average delivery time",
+      "kmMedi": "Average km",
+      "leadTime": "Order lead time",
+      "venduto": "Sold",
+      "pagatoPartner": "Paid to partners",
+      "feeTotale": "Deluxy fee",
+      "costoValet": "Valet cost",
+      "margineTotale": "Margin"
+    },
+    "base": "on {{n}} of {{m}}",
+    "su": "on {{n}} of {{m}} completed",
+    "suTutte": "on all {{m}}",
+    "copertura": "on {{n}} of {{m}} · {{senza}} without data",
+    "nessuna": "no deliveries",
+    "baseConsegne": "{{concluse}} completed · before {{vs}}",
+    "baseGuasti": "{{nc}} not delivered · {{an}} cancelled",
+    "suRitardi": "on {{n}} late",
+    "suAnticipi": "on {{n}} early",
+    "suRighe": "on {{n}} sale rows",
+    "delVenduto": "of sold",
+    "fuoriCitta": "{{p}} out of town",
+    "gg": "days",
+    "puntualita": {
+      "titolo": "Punctuality and times",
+      "barra": "On time, early, late shares",
+      "inOrario": "on time",
+      "anticipo": "early",
+      "ritardo": "late",
+      "base": "Assessable {{n}} of {{m}} delivered · {{senza}} without real time or slot · tolerance +{{tol}} min late, −{{ant}} min early",
+      "nd": "No assessable delivery in the period (real delivery time and promised slot are needed)."
+    },
+    "tipologia": {
+      "titolo": "By service type",
+      "totale": "Total",
+      "nota": "Price = partner price + plus/minus + rule, on completed with price. Punctuality on assessable ones. n/d = missing data, excluded from the average.",
+      "col": {
+        "nome": "Type",
+        "consegne": "Deliveries",
+        "delta": "Δ",
+        "concluse": "Completed",
+        "nonConsegnate": "Not deliv. %",
+        "annullate": "Cancelled %",
+        "prezzoMedio": "Avg price",
+        "puntualita": "On time",
+        "ritardoMedio": "Avg delay",
+        "tempoMedio": "Deliv. time",
+        "kmMedi": "Avg km"
+      }
+    },
+    "economia": {
+      "titolo": "Sales: fee and margin (from Finance)",
+      "nota": "Finance formula: (sold − paid) ÷ 1.22 + fee − valet − commission. {{righe}} rows, {{stimate}} with estimated sold (product without public price), {{anomalie}} anomalies.",
+      "nd": "Fee and margin not available for this period.",
+      "ndBreve": "period too wide"
+    },
+    "top": {
+      "partner": "Partners",
+      "valet": "Valets",
+      "province": "Provinces",
+      "nome": "Name",
+      "consegne": "Deliveries",
+      "puntuali": "On time",
+      "altri": "others {{n}}",
+      "baseBassa": "n/d ({{n}})"
+    },
+    "stati": {
+      "titolo": "By status",
+      "stato": "Status",
+      "n": "N"
+    }
   }
 }

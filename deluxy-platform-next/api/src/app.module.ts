@@ -35,6 +35,7 @@ import { AvailabilityModule } from './availability/availability.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { SalesModule } from './sales/sales.module';
 import { StockModule } from './stock/stock.module';
+import { StatisticheModule } from './statistiche/statistiche.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
 import { AiModule } from './ai/ai.module';
