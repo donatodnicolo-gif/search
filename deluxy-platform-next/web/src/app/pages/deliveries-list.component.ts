@@ -1649,12 +1649,16 @@ export class DeliveriesListComponent {
 
   assign(valetId: string): void {
     const d = this.assignFor();
-    if (!d) return;
+    // ⭐ 06/09/2026 (#101058): `salvandoAssegna` spegneva il bottone nel
+    // template ma nessuno lo accendeva — ogni tocco (o un Invio tenuto premuto)
+    // era una chiamata in piu'. Ora la prima chiamata chiude la porta.
+    if (!d || this.salvandoAssegna()) return;
+    this.salvandoAssegna.set(true);
     this.http
       .patch(`${environment.apiUrl}/deliveries/${d.id}/assign`, { valetId })
       .subscribe({
-        next: () => { this.assignFor.set(null); this.load(); },
-        error: (err) => this.actionError.set(err?.error?.message ?? 'Errore'),
+        next: () => { this.salvandoAssegna.set(false); this.assignFor.set(null); this.load(); },
+        error: (err) => { this.salvandoAssegna.set(false); this.actionError.set(err?.error?.message ?? 'Errore'); },
       });
   }
 

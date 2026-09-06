@@ -2570,6 +2570,15 @@ export class DeliveriesService {
     const delivery = await this.findOne(id, user);
     const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });
     if (!valet) throw new BadRequestException('Valet inesistente');
+    // ⭐ 06/09/2026 (segnalazione utente, #101058: 19 righe «Assegnata al valet
+    // Leonardo Bergamasco» in 5 secondi). Il server scriveva una riga di
+    // registro per OGNI chiamata, anche se il valet era gia' quello: un tasto
+    // tenuto premuto o toccato piu' volte riempiva lo storico e rifaceva paga e
+    // regola ogni volta. Stesso valet, consegna gia' «in gestione» = niente da
+    // cambiare: si risponde com'e', senza scrivere.
+    if ((delivery as any).valetId === valetId && delivery.status === DeliveryStatus.ASSIGNED) {
+      return this.soloIMieiSoldi(this.hideInternalNotes(delivery, user), user);
+    }
 
     // TEAM LEADER che assegna (31/08/2026, utente): un valet può assegnare
     // SOLO se è team leader e SOLO nel suo perimetro (province di

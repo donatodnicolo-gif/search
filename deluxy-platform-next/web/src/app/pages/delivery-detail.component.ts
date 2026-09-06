@@ -1805,6 +1805,7 @@ export class DeliveryDetailComponent {
   // ---- ASSEGNA ----
   openAssign(): void { this.actionError.set(null); this.assignOpen.set(true); }
   assign(valetId: string): void {
+    if (this.busy()) return;
     this.busy.set(true);
     this.http.patch(`${environment.apiUrl}/deliveries/${this.id}/assign`, { valetId }).subscribe({
       next: () => { this.busy.set(false); this.assignOpen.set(false); this.load(); },
