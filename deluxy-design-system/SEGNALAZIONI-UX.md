@@ -640,6 +640,9 @@ L'ORDINE), fascia dei fornitori fuori dalla griglia a tutta larghezza (tessere
 da 1 a 4 per riga), Riconsegna e Unione a fisarmonica.
 
 STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
+Aggiornamento, stessa mattina: l'utente ha aggiunto «ad Hub potranno accedere per ora
+solo utenti interni all'azienda» → la spunta «Esterno / partner» è stata tolta, resta
+la sola «Amministratore»; la pillola «Esterno / partner» nella lista sparisce con lei.
 
 
 ## 06/09/2026 (7) — Customer Service: «Paga fornitore» in tre passi (richiesta dell'utente)
