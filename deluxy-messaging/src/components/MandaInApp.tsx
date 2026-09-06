@@ -120,6 +120,14 @@ export function MandaInApp({
   const [cercando, setCercando] = useState(false)
   const [erroreProdotti, setErroreProdotti] = useState('')
   const [prodotto, setProdotto] = useState<Prodotto | null>(null)
+  /** Perché il prodotto è stato scelto da solo («sku YBJIPK-1MO dell'ordine»), '' se l'ha scelto una persona. */
+  const [sceltoDaOrdine, setSceltoDaOrdine] = useState('')
+  /** La scelta automatica si fa UNA volta: se poi l'operatore cambia, non si rimette sopra. */
+  const autoScelto = useRef(false)
+  const prodottoRef = useRef<Prodotto | null>(null)
+  prodottoRef.current = prodotto
+  /** L'operatore ha scritto il prezzo a mano: da lì in poi nessun automatismo lo tocca. */
+  const prezzoToccato = useRef(false)
   const [quantita, setQuantita] = useState('1')
   const [prezzo, setPrezzo] = useState('')
   /** Con il prodotto generico la merce si descrive a parole: finisce nelle note. */
@@ -165,7 +173,10 @@ export function MandaInApp({
   useEffect(() => {
     if (!aperto || !righe.length) return
     const r = righe[0]
-    setCercaProdotto((v) => v || r.titolo)
+    // ⚠️ Prima lo SKU, poi il titolo: nel catalogo lo stesso bouquet esiste in
+    // una variante per provincia (YBJIPK-1MI, YBJIPK-1MB, …) e il titolo ne
+    // trova trenta; lo SKU dell'ordine («YBJIPK-1») trova la famiglia giusta.
+    setCercaProdotto((v) => v || r.sku || r.titolo)
     // ⚠️ NON il prezzo pagato dal cliente: quello è un altro numero. Il prezzo
     // del prodotto qui è quello al partner, e arriva dal prefill (pagamenti).
     setQuantita((v) => (v === '1' && r.quantita > 1 ? String(r.quantita) : v))
@@ -175,9 +186,11 @@ export function MandaInApp({
   // Il prezzo proposto dal server (pagamento al fornitore, costo registrato,
   // costo partner): entra solo se il campo è ancora vuoto.
   useEffect(() => {
-    if (!dati || !dati.prezzoProposto) return
-    const p = dati.prezzoProposto
-    setPrezzo((v) => v || String(p).replace('.', ','))
+    if (!dati || !dati.prezzoProposto || prezzoToccato.current) return
+    // ⚠️ Vince sul listino della variante scelta da sola dallo SKU (85 €): il
+    // prezzo al partner è quello pagato (60 €), e l'ordine in cui arrivano le
+    // due risposte non deve decidere quale resta.
+    setPrezzo(String(dati.prezzoProposto).replace('.', ','))
   }, [dati])
 
   // La ricerca a catalogo: dopo mezzo secondo di pausa, nel perimetro del
@@ -204,8 +217,45 @@ export function MandaInApp({
           setTrovati([])
           return
         }
-        setTrovati(d.prodotti ?? [])
+        const lista = d.prodotti ?? []
+        setTrovati(lista)
         setGenerico(d.generico ?? null)
+        // ── IL PRODOTTO LO DICE GIÀ L'ORDINE (utente, 06/09/2026: «il prodotto
+        // però era già indicato») ── Si sceglie da solo SOLO con una
+        // corrispondenza certa: lo SKU dell'ordine più la sigla della provincia
+        // di consegna (YBJIPK-1 + MO → YBJIPK-1MO, è così che il catalogo
+        // distingue le varianti), oppure lo SKU esatto, oppure una famiglia con
+        // UN solo membro. Con più candidati e nessuno certo si lascia scegliere:
+        // una taglia sbagliata fotografata sulla consegna è peggio di un clic.
+        const sku = (righe[0]?.sku ?? '').trim().toUpperCase()
+        if (sku && !prodottoRef.current && !autoScelto.current) {
+          const prov = (dati?.provinciaConsegna ?? '').toUpperCase()
+          const perSku = (x: Prodotto) => (x.sku ?? '').toUpperCase()
+          const famiglia = lista.filter((x) => perSku(x).startsWith(sku))
+          const scelta =
+            (prov ? lista.find((x) => perSku(x) === sku + prov) : undefined) ??
+            lista.find((x) => perSku(x) === sku) ??
+            (famiglia.length === 1 ? famiglia[0] : undefined) ??
+            // Famiglia con più varianti ma TUTTE uguali (stesso nome, stesso prezzo:
+            // cambia solo la sigla di provincia) e nessuna per la provincia di
+            // consegna: si prende la prima e lo si scrive. #2875 (Modena): la
+            // famiglia YBJIPK-1 esiste per UD, MB, MI, CE, CH e non per MO.
+            (famiglia.length > 1 &&
+            famiglia.every((x) => x.nome === famiglia[0].nome && x.prezzo === famiglia[0].prezzo)
+              ? famiglia[0]
+              : undefined)
+          if (scelta) {
+            autoScelto.current = true
+            scegliProdotto(scelta)
+            setSceltoDaOrdine(
+              perSku(scelta) === sku + prov && prov
+                ? `dall'ordine: sku ${righe[0].sku}, variante della provincia ${prov}`
+                : famiglia.length > 1 && prov
+                  ? `dall'ordine: sku ${righe[0].sku} — nel catalogo non c'è la variante ${prov}, presa ${perSku(scelta).slice(sku.length) || 'la prima'} (stesso nome e prezzo)`
+                  : `dall'ordine: sku ${righe[0].sku}`
+            )
+          }
+        }
       } catch {
         setErroreProdotti('Catalogo non disponibile: problema di rete.')
       } finally {
@@ -217,10 +267,13 @@ export function MandaInApp({
 
   function scegliProdotto(p: Prodotto) {
     setProdotto(p)
+    if (autoScelto.current && prodottoRef.current) setSceltoDaOrdine('')
     // ⚠️ Il prezzo NON si sovrascrive se l'operatore l'ha già scritto (o se
     // viene dall'ordine): è il prezzo di QUESTA vendita, il listino è un
     // ripiego quando non si sa altro.
-    setPrezzo((v) => v || (p.prezzo ? String(p.prezzo).replace('.', ',') : ''))
+    // …e nemmeno se c'è un prezzo proposto dai pagamenti: quello è il prezzo
+    // di QUESTA vendita, il listino della variante no.
+    if (!dati?.prezzoProposto) setPrezzo((v) => v || (p.prezzo ? String(p.prezzo).replace('.', ',') : ''))
   }
 
   const prezzoNumero = Number(prezzo.replace(',', '.'))
@@ -528,12 +581,20 @@ export function MandaInApp({
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <strong style={{ fontWeight: 600 }}>{prodotto.nome}</strong>
                   <span className="cella-sub">
+                    {sceltoDaOrdine ? ` · scelto ${sceltoDaOrdine}` : ''}
                     {prodotto.sku ? ` · ${prodotto.sku}` : ''}
                     {prodotto.partner ? ` · ${prodotto.partner}` : ' · catalogo comune'}
                     {` · listino ${prodotto.prezzo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`}
                   </span>
                 </span>
-                <button type="button" className="btn btn-secondario small" onClick={() => setProdotto(null)}>
+                <button
+                  type="button"
+                  className="btn btn-secondario small"
+                  onClick={() => {
+                    setProdotto(null)
+                    setSceltoDaOrdine('')
+                  }}
+                >
                   Cambia
                 </button>
               </div>
@@ -606,7 +667,10 @@ export function MandaInApp({
               </span>
               <input
                 value={prezzo}
-                onChange={(e) => setPrezzo(e.target.value)}
+                onChange={(e) => {
+                  prezzoToccato.current = true
+                  setPrezzo(e.target.value)
+                }}
                 inputMode="decimal"
                 placeholder={prodotto?.prezzo ? String(prodotto.prezzo).replace('.', ',') : '0,00'}
               />

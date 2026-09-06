@@ -1,5 +1,29 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (35) — Manda in app: il prodotto lo dice già l'ordine, e si sceglie da solo
+
+Precisazione dell'utente su #2875: «il prodotto però era già indicato». Vero:
+la riga dell'ordine porta lo SKU («YBJIPK-1», Bouquet Ortensie Rosa e Fucsia -
+Medio), e il modulo chiedeva comunque un clic sul catalogo.
+
+**Come è fatto il catalogo** (misurato): lo stesso bouquet esiste in una
+variante per provincia, con lo SKU dell'ordine + la sigla (YBJIPK-1UD, -1MB,
+-1MI, -1CE, -1CH); per MO non c'è; il titolo trova trenta righe, lo SKU la
+famiglia giusta.
+
+**Corretto** (`MandaInApp.tsx`): la ricerca parte dallo SKU dell'ordine (poi
+dal titolo); arrivati i risultati, il prodotto si sceglie da solo UNA volta e
+solo con una corrispondenza certa, in quest'ordine: SKU + sigla della provincia
+di consegna → SKU esatto → famiglia con un solo membro → famiglia con più
+varianti tutte uguali (stesso nome e prezzo, cambia solo la sigla) e nessuna per
+la provincia: si prende la prima e lo si scrive («nel catalogo non c'è la
+variante MO, presa UD, stesso nome e prezzo»). Altrimenti si lascia scegliere.
+«Cambia» o una scelta a mano azzerano l'etichetta e non si rimette sopra.
+Il prezzo resta quello dedotto dai pagamenti (60 €), non il listino della
+variante (85 €): la scelta automatica non lo sovrascrive.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (34) — Manda in app: il prezzo del prodotto sempre a vista, dedotto dai pagamenti
 
 Segnalazione dell'utente su #2875: «manca la possibilità di specificare il
