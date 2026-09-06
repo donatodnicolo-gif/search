@@ -386,7 +386,13 @@ export function DettaglioOrdine({
   onChiudi,
   onScriviMail,
   linkShopify = '',
+  apriMandaInApp = false,
 }: {
+  /**
+   * Aprire subito il modulo «Manda in app»: ci arriva chi ha premuto «In App»
+   * sulla scheda in bacheca e ha detto sì alla domanda (06/09/2026).
+   */
+  apriMandaInApp?: boolean
   /** L'ordine che abbiamo in casa. */
   ordineId?: string
   /**
@@ -435,7 +441,7 @@ export function DettaglioOrdine({
    * l'etichetta, e la consegna di là non nasceva — un «In App» che nessuno
    * poteva verificare.
    */
-  const [apriInApp, setApriInApp] = useState(0)
+  const [apriInApp, setApriInApp] = useState(apriMandaInApp ? 1 : 0)
   const [numeroDaUnire, setNumeroDaUnire] = useState('')
   const [importoRiconsegna, setImportoRiconsegna] = useState('')
   const [motivoRiconsegna, setMotivoRiconsegna] = useState('')
