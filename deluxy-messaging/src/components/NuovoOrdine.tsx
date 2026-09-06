@@ -112,13 +112,21 @@ export function NuovoOrdine({
    * CHI RICEVE, se non è il mittente (utente, 06/09/2026). Prima il nome del
    * cliente finiva sull'indirizzo di consegna: nei regali il valet chiedeva
    * di chi aveva pagato, non di chi doveva ricevere.
+   * ⚠️ Nasce ACCESA (decisione dell'utente, 06/09/2026: «default è un'altra
+   * persona»): i nostri ordini sono regali, chi riceve e chi paga sono due
+   * persone quasi sempre. Si toglie quando il cliente ordina per sé.
    */
-  const [altroDestinatario, setAltroDestinatario] = useState(false)
+  const [altroDestinatario, setAltroDestinatario] = useState(true)
   const [destNome, setDestNome] = useState('')
   const [destCognome, setDestCognome] = useState('')
   const [destTelefono, setDestTelefono] = useState('')
-  /** Consenso marketing: di suo NO. Si spunta solo se il cliente l'ha detto. */
-  const [consensoMarketing, setConsensoMarketing] = useState(false)
+  /**
+   * Consenso marketing: ACCESO di suo (decisione dell'utente, 06/09/2026: «deve
+   * essere di default attivo»). L'operatore lo toglie se il cliente dice di no.
+   * Shopify da solo lascerebbe il cliente «non iscritto»: e' questa spunta che
+   * lo iscrive, dopo la creazione.
+   */
+  const [consensoMarketing, setConsensoMarketing] = useState(true)
 
   const [data, setData] = useState('')
   const [fascia, setFascia] = useState('')
@@ -1058,11 +1066,11 @@ export function NuovoOrdine({
             <span>Telefono</span>
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </label>
-          {/* ── IL CONSENSO MARKETING (utente, 06/09/2026: «è di default?») ──
-              ⚠️ NO. Shopify registra il cliente nato da una bozza come «non
-              iscritto», e questa app non decide al posto suo: si spunta solo se
-              il cliente l'ha detto, e allora si scrive sul suo profilo con la
-              data. L'esito si legge a ordine creato. */}
+          {/* ── IL CONSENSO MARKETING (utente, 06/09/2026: «deve essere di default
+              attivo») ── Shopify registra il cliente nato da una bozza come «non
+              iscritto»; qui la spunta nasce ACCESA e a ordine creato il consenso
+              si scrive sul suo profilo con la data. Chi ha il cliente al telefono
+              la toglie se dice di no. L'esito si legge a ordine creato. */}
           <label
             style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}
           >
@@ -1073,7 +1081,7 @@ export function NuovoOrdine({
             />
             <span>
               Il cliente <strong>acconsente alle comunicazioni marketing</strong> (newsletter,
-              promozioni). Di suo è no: senza questa spunta su Shopify resta «non iscritto».
+              promozioni). Togli la spunta se dice di no: senza, su Shopify resta «non iscritto».
             </span>
           </label>
         </div>
@@ -1096,6 +1104,7 @@ export function NuovoOrdine({
             />
             <span>
               <strong>Riceve un&apos;altra persona</strong> — il destinatario non è chi ordina
+              (togli la spunta se il cliente ordina per sé)
             </span>
           </label>
           {altroDestinatario ? (
