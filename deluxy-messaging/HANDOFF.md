@@ -1,5 +1,38 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (27) — Consegnata sulla piattaforma = «Gestito» qui, da sola
+
+Regola dell'utente: «tutti gli ordini che vanno in consegnato in app delivery
+devono essere segnati come Gestito dal Customer Service». Nasce guardando
+#12887 (Selin Atayeva): consegnata il 05/09 alle 20:01 dal valet, e qui ancora
+«In App» con «consegna scaduta da 1 giorno» — un lavoro finito che sembrava in
+ritardo.
+
+**Misurato prima**: 109 ordini con consegna «delivered» copiata dalla
+piattaforma; 108 già «Gestito» (a mano), **1 no** (#12887).
+
+**La regola** (`sync-piattaforma.ts`, `allineaUno`, passo «0» prima di tutti):
+se la consegna di là è `delivered` e qui il passo non è «Gestito», l'ordine
+passa a **Gestito** con `gestioneDaNome = 'Piattaforma consegne'` (non un
+operatore: fra un mese si deve distinguere), si chiudono note e chiamate come
+quando lo preme una persona, e lo si dice a Orders (best-effort). Vale
+qualunque sia il passo (anche dopo un'interruzione). Esito nuovo `gestito` nei
+conteggi della sync e nella riga di `piattaformaSyncEsito`.
+
+⚠️ **La sync legge solo le vendite aggiornate dall'ultimo giro**: la regola non
+tocca da sola le righe copiate in passato. Per quelle
+`scripts/sync-piattaforma-ora.mts --recupera` (prova) / `--applica --recupera`
+(scrive): passa sugli ordini con `appConsegnaStato = 'delivered'` non gestiti.
+**Lanciato il 06/09**: #12887 → Gestito, note e chiamate chiuse, Orders avvisato
+(vedi l'esito nel terminale, riportato all'utente).
+
+⚠️ Sullo stesso #12887 la piattaforma ha **due consegne consegnate** (#101045
+Fabbrica Delle Feste e #101052 Fiorista Tonino, stesso indirizzo, stesso valet,
+stessa ora): una è di troppo, e la decisione è dell'utente — di là.
+
+**Stato**: in locale, commit sì, push no. In produzione la regola parte col deploy
+del CS; finché non c'è, il recupero a mano fa lo stesso lavoro.
+
 ## 06/09/2026 (26) — La conferma nel nostro stile, e «Automatico» sul menu di chi se ne occupa
 
 Due richieste dell'utente davanti alla bacheca.
