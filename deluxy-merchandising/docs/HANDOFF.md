@@ -176,6 +176,22 @@ varianti — scelta da fare a mano, elenco in
 allo script le righe doppie senza dati è stato fermato dal classificatore di
 sicurezza della sessione: giusto così, si cancella solo a mano.
 
+✅ **Gemelli allineati (chiesto dall'utente: «allinea anche i 197 gemelli
+prendendo Flowers e Cake come origine»)**: `gemelli-sku-diversi.ts --applica`
+scrive su Gifts, prodotto per prodotto con tutte le varianti insieme (gli
+scambi Si↔No non passano da stati intermedi), saltando solo gli SKU già di un
+altro prodotto Gifts. Due giri: **147 + 27 = 174 varianti su 49 prodotti, 0
+errori**; fra i due, tre prodotti Gifts senza gemello che tenevano SKU copiati
+da prodotti di Cake (Stella ← «Summer Number», Zodiaco Cake ← «Zodiaco funny
+cake», Foglie D'Autunno) hanno avuto un codice nuovo per fare posto. Piano
+prima/dopo in `docs/gemelli-allineati-2026-09-06.md` (ricostruito dal commit
+`eefb41d2`: il secondo giro aveva sovrascritto il file del primo — ⚠️ il
+piano di un'azione va scritto su un file **con l'ora nel nome**, non col solo
+giorno). Restano **23 varianti su 12 prodotti** diverse, nessuna attiva su
+entrambi i lati (catene fra archiviati). Ricontrollo duplicati: **0, 0, 0**.
+DB riallineato: varianti ACTIVE senza sku **49**, sempre il caso «due schede
+qui per un prodotto solo».
+
 **Da fare / da provare (in ordine):** deploy delle due correzioni (decisione
 dell'utente) e controllo della riga di Gifts la notte dopo; i 4 prodotti
 pubblicati due volte su Flowers (handle `-1`) ora hanno SKU propri ma restano
