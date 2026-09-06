@@ -23,6 +23,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveriesService } from '../deliveries/deliveries.service';
 import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
+import { DeliveryStatus } from '@prisma/client';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
@@ -829,7 +830,7 @@ export class AppApiService {
    * seconda chiamata costa quanto quello che e' cambiato, non quanto l'archivio.
    */
   async consegne(opzioni: {
-    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; limit: number;
+    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; ddt?: string; limit: number;
   }) {
     const da = opzioni.aggiornateDa ? new Date(opzioni.aggiornateDa) : null;
     if (opzioni.aggiornateDa && Number.isNaN(da?.getTime())) {
@@ -847,6 +848,10 @@ export class AppApiService {
       ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
       ...(opzioni.stato ? { status: opzioni.stato } : {}),
       ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
+      // ⚠️ Per numero DDT (= numero d'ordine): è così che il Customer Service
+      // chiede «questa vendita ha già una consegna qui?» prima di crearne una
+      // (06/09/2026). Senza, l'unica difesa dai doppioni era la memoria.
+      ...(opzioni.ddt?.trim() ? { ddtNumber: opzioni.ddt.trim() } : {}),
     };
     // Il filtro delle RIGHE di questa pagina: il periodo più il cursore.
     const where = { ...periodo, ...(da ? { updatedAt: { gt: da } } : {}) };
@@ -1031,6 +1036,27 @@ export class AppApiService {
         message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».${marcatore ? ` ${marcatore}` : ''}`,
       },
     });
+    // ── GIÀ CONSEGNATA: registrata a posteriori (06/09/2026) ──
+    // Le vendite che il Customer Service ha gestito con un pagamento in app
+    // sono consegne avvenute: qui nascono direttamente in storico, senza
+    // passare da assegnata/in consegna. Il log lo dice, così fra un mese non
+    // sembra una consegna fatta da un valet in cinque secondi.
+    if (dto.giaConsegnata) {
+      const fine = (dto.deliveryTimeTo ?? '18:00').trim().padStart(5, '0');
+      const giorno = String(dto.date ?? '').slice(0, 10);
+      const quando = dto.consegnataIl ? new Date(dto.consegnataIl) : new Date(`${giorno}T${fine}:00+02:00`);
+      await this.prisma.delivery.update({
+        where: { id: creata.id },
+        data: { status: DeliveryStatus.DELIVERED, deliveredAt: Number.isNaN(quando.getTime()) ? new Date() : quando },
+      });
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: creata.id,
+          type: 'delivered',
+          message: `Stato: ${creata.status} -> delivered (consegna già avvenuta, registrata a posteriori dal canale app «${nomeChiave}»)`,
+        },
+      });
+    }
     // Si risponde nello STESSO formato della lettura: chi crea e poi rilegge
     // non deve imparare due dialetti.
     return this.consegnaPerNumero(creata.code);
@@ -1275,10 +1301,11 @@ export class AppApiController {
     @Query('al') al?: string,
     @Query('stato') stato?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('ddt') ddt?: string,
     @Query('limit') limit = '200',
   ) {
     return this.service.consegne({
-      aggiornateDa, dal, al, stato, partnerId, limit: Number(limit) || 200,
+      aggiornateDa, dal, al, stato, partnerId, ddt, limit: Number(limit) || 200,
     });
   }
 
