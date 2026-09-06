@@ -17,6 +17,7 @@ import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
@@ -25,6 +26,14 @@ import { NotificationsModule, NotificationsService } from '../notifications/noti
  * cliente se c'è. È questo che si confronta con gli orari del partner.
  */
 interface FinestraConsegna {
+  /** Importo pagato dal cliente. */
+  importo?: number | null;
+  /** Sconto (quota Deluxy) stimato per (provincia, categoria): serve a stimare il prezzo partner. */
+  scontoPct?: number | null;
+  /** Sui prodotti UNICI il prezzo partner è quello di listino della variante/prodotto. */
+  prezzoPartnerListino?: number | null;
+  /** Indirizzo del destinatario: serve al raggio massimo dei partner che consegnano da soli. */
+  indirizzo?: string | null;
   giorno: Date;
   /** «08:00», dalla fascia dell'ordine. Assente = non si sa l'ora. */
   dalle?: string;
@@ -74,6 +83,7 @@ export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -83,6 +93,14 @@ export class SalesService {
    * ricevono campanella e push (stesso canale delle ore da approvare). Se la
    * notifica fallisce la vendita resta proposta: avvisare non è un prerequisito.
    */
+  /** Distanza in linea d'aria (km) fra due punti: basta per il raggio del partner, non serve la strada. */
+  static kmInLineaDAria(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const r = (x: number) => (x * Math.PI) / 180;
+    const dLat = r(lat2 - lat1), dLng = r(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   /** Le categorie di FIORI: le uniche in cui un prodotto non unico si smista da solo (regola utente 06/09/2026). */
   static categoriaFiori(nome: string | null | undefined): boolean {
     const n = String(nome ?? '').toLowerCase();
@@ -419,6 +437,14 @@ export class SalesService {
       giorno: body.deliveryDate ? new Date(body.deliveryDate) : new Date(),
       dalle: fasciaOrdine.dalle,
       alle: fasciaOrdine.alle,
+      importo: body.amount && body.amount > 0 ? body.amount : null,
+      // ⭐ 06/09 (regola utente): «il minimo ordine dovrà essere confrontato con il prezzo
+      // partner di una vendita» — qui la stima: listino per gli unici, altrimenti importo
+      // cliente meno la quota (Orders, poi la regola locale). La cifra vera si scrive dopo.
+      scontoPct: body.discountPercent ?? (await this.quotaDaOrders(body.provinceId, product.categoryId))?.sconto
+        ?? (product.categoryId ? (await this.prisma.categoryDiscount.findUnique({ where: { categoryId_provinceId: { categoryId: product.categoryId, provinceId: body.provinceId } }, select: { discountPercent: true } }))?.discountPercent : null) ?? 0,
+      prezzoPartnerListino: product.type === ProductType.UNICO ? (variante?.price ?? product.price ?? null) : null,
+      indirizzo: body.recipientAddress ?? null,
     };
     // ⭐ 06/09/2026 (regola utente, caso #12889 «Elegant Cake» finito a Clivati):
     // «applica questo concetto per ora solo ai fiori, per le torte lascia la
@@ -428,9 +454,11 @@ export class SalesService {
     // vendita nasce DA GESTIRE e decide una persona. Gli UNICI restano com'erano.
     // Il blocco sta PRIMA di scegliPartner: così non nasce nemmeno la lista
     // di priorità automatica per una coppia che non deve smistarsi da sola.
-    const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true } }) : null;
-    const bloccoNonUnico = product.type !== ProductType.UNICO && !SalesService.categoriaFiori(categoria?.name)
-      ? `prodotto non unico fuori dai fiori (${categoria?.name ?? 'senza categoria'}): niente proposta automatica, si gestisce a mano`
+    const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true, mestiere: { select: { nome: true, smistamentoAutomatico: true } } } }) : null;
+    // Col mestiere assegnato decide il SUO interruttore «smistamento automatico» (oggi acceso solo su Fiorista); senza, il vecchio criterio sul nome.
+    const automatico = categoria?.mestiere ? categoria.mestiere.smistamentoAutomatico : SalesService.categoriaFiori(categoria?.name);
+    const bloccoNonUnico = product.type !== ProductType.UNICO && !automatico
+      ? `prodotto non unico di un mestiere senza smistamento automatico (${categoria?.mestiere?.nome ?? categoria?.name ?? 'senza categoria'}): si gestisce a mano`
       : null;
     const scelto = bloccoNonUnico ? null : await this.scegliPartner(product, body.provinceId, finestra, []);
     // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
@@ -1747,6 +1775,28 @@ export class SalesService {
     }
     if (!product.categoryId) return [];
 
+    // ⭐ 06/09/2026 (decisione utente: 8 MESTIERI). Prima si guarda il MESTIERE della
+    // categoria: lista di priorità per (provincia, mestiere) → unico partner col mestiere
+    // in provincia → lista creata da sola per ordini gestiti. Se la categoria non ha
+    // ancora un mestiere, o nessun partner lo ha in provincia, si ricade sul giro per
+    // categoria (transizione): niente resta fermo per una mappa incompleta.
+    const cat = await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { mestiere: { select: { id: true, nome: true } } } });
+    const mestiere = cat?.mestiere ?? null;
+    if (mestiere) {
+      const listaM = await this.prisma.priorityList.findFirst({ where: { provinceId, mestiereId: mestiere.id }, include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } } });
+      if (listaM?.entries.length) return listaM.entries.map((e) => ({ partnerId: e.partnerId, motivo: `lista priorita' ${mestiere.nome} ${e.position}a di ${listaM.entries.length}` }));
+      const abilitatiM = await this.prisma.partner.findMany({ where: { active: true, deleted: false, mestieri: { some: { mestiereId: mestiere.id } }, provinces: { some: { provinceId } } }, select: { id: true, insegna: true } });
+      if (abilitatiM.length === 1) return [{ partnerId: abilitatiM[0].id, motivo: `unico partner ${mestiere.nome} della provincia` }];
+      if (abilitatiM.length > 1) {
+        const gestitiM = await this.prisma.sale.groupBy({ by: ['partnerId'], where: { partnerId: { in: abilitatiM.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA }, _count: { _all: true } });
+        const contoM = new Map(gestitiM.map((g) => [g.partnerId as string, g._count._all]));
+        const ordinatiM = [...abilitatiM].sort((a, b) => (contoM.get(b.id) ?? 0) - (contoM.get(a.id) ?? 0) || a.insegna.localeCompare(b.insegna, 'it'));
+        const creataM = await this.prisma.priorityList.create({ data: { provinceId, mestiereId: mestiere.id, entries: { create: ordinatiM.map((p, i) => ({ partnerId: p.id, position: i + 1 })) } }, include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } } });
+        this.logger.log(`Lista di priorità ${mestiere.nome} creata da sola (provincia ${provinceId}): ${ordinatiM.map((p) => `${p.insegna} (${contoM.get(p.id) ?? 0})`).join(' > ')}`);
+        return creataM.entries.map((e) => ({ partnerId: e.partnerId, motivo: `lista priorita' ${mestiere.nome} creata in automatico (ordini gestiti): ${e.position}a di ${creataM.entries.length}` }));
+      }
+    }
+
     // ⭐ La LISTA PRIORITA' vera: una per coppia (provincia, categoria), coi
     // partner in un ordine deciso da qualcuno. Importate dal legacy il
     // 24/08/2026: 26 liste, 48 partner.
@@ -1834,10 +1884,24 @@ export class SalesService {
       include: { openingHours: true },
     });
     const perId = new Map(partners.map((p) => [p.id, p]));
+    let destino: { lat: number; lng: number } | null | undefined;
 
     for (const c of lista) {
       const p = perId.get(c.partnerId);
       if (!p) continue; // non attivo, o non opera in quella provincia
+      // ⭐ 06/09/2026 (regola utente): il partner può dire il MINIMO d'ordine che vuole
+      // ricevere sulle vendite: sotto quella cifra si passa al successivo.
+      const minimo = (p as any).minimoOrdineVendita as number | null;
+      const prezzoPartner = c.prezzoPartner ?? finestra.prezzoPartnerListino ?? (finestra.importo != null ? Math.round(finestra.importo * (1 - (finestra.scontoPct ?? 0) / 100) * 100) / 100 : null);
+      if (minimo != null && prezzoPartner != null && prezzoPartner < minimo) { this.logger.log(`${p.insegna}: al partner andrebbero ${prezzoPartner} €, sotto il suo minimo di ${minimo} €: si passa oltre`); continue; }
+      // ⭐ 06/09/2026 (regola utente): il partner che CONSEGNA DA SOLO può dire il raggio
+      // massimo (km in linea d'aria dal suo negozio): oltre, la vendita passa al successivo.
+      // Serve la sua posizione e quella del destinatario (geocodifica, una volta per giro).
+      const raggio = (p as any).raggioMaxConsegnaKm as number | null;
+      if (raggio != null && (p as any).autoDeliveredByPartner && (p as any).latitude != null && (p as any).longitude != null && finestra.indirizzo) {
+        if (destino === undefined) { const g = await this.settings.geocode(finestra.indirizzo).catch(() => null); destino = g?.lat != null && g?.lng != null ? { lat: g.lat, lng: g.lng } : null; }
+        if (destino) { const km = SalesService.kmInLineaDAria((p as any).latitude, (p as any).longitude, destino.lat, destino.lng); if (km > raggio) { this.logger.log(`${p.insegna}: destinatario a ${km.toFixed(1)} km, oltre il suo raggio di ${raggio} km: si passa oltre`); continue; } }
+      }
       if (await this.aperto(p.id, p.openingHours, finestra)) return c;
     }
     return null; // nessuno aperto: la vendita resta «da gestire»
@@ -2232,7 +2296,7 @@ export class SalesController {
 }
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, SettingsModule],
   controllers: [SalesController],
   providers: [SalesService],
   exports: [SalesService],

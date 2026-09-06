@@ -509,6 +509,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/sms-templates-list.component').then((m) => m.SmsTemplatesListComponent),
       },
+      // ⭐ 06/09/2026: MESTIERI (8 voci nostre fra catalogo e partner), ufficio.
+      {
+        path: 'mestieri',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Mestieri' },
+        loadComponent: () =>
+          import('./pages/mestieri.component').then((m) => m.MestieriComponent),
+      },
       // ---- Province e città (dal database, import legacy) ----
       {
         path: 'provinces',

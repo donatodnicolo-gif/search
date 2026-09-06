@@ -328,6 +328,11 @@ model Partner {
   /// per questo partner nasce «consegna da fornitore» (deliveredByPartner) col valet
   /// «Partner Consegna». Colonna aggiunta con scripts/applica-migrazione-partner-auto.mjs.
   autoDeliveredByPartner Boolean        @default(false)
+  /// ⭐ 06/09/2026 (regola utente): sui servizi di VENDITA, il minimo d'ordine che il partner vuole ricevere (€ al cliente); null = nessun minimo.
+  minimoOrdineVendita    Float?
+  /// ⭐ 06/09/2026 (regola utente): per le consegne che fa LUI, il raggio massimo (km) che accetta; null = nessun limite.
+  raggioMaxConsegnaKm    Float?
+  mestieri            PartnerMestiere[]
   // Pagamenti e contratto
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
@@ -469,13 +474,17 @@ model PriorityList {
   legacyId   Int?     @unique
   provinceId String
   province   Province @relation(fields: [provinceId], references: [id])
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
+  /// ⭐ 06/09/2026: le liste NUOVE sono per (provincia, mestiere); quelle per categoria restano come transizione.
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  mestiereId String?
+  mestiere   Mestiere? @relation(fields: [mestiereId], references: [id])
   entries    PriorityEntry[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([provinceId, categoryId])
+  @@unique([provinceId, mestiereId])
 }
 
 /// Un partner dentro una lista priorita', con la sua posizione.
@@ -735,8 +744,43 @@ model ValetAvailability {
 // isAutoDiscounted + parentProductId: prodotti scontati generati
 //   automaticamente dagli sconti % per categoria/provincia
 // ------------------------------------------------------------
+/// ⭐ 06/09/2026 (decisione utente): gli 8 MESTIERI — il livello nostro fra il catalogo
+/// (65 categorie, non si toccano) e i partner. Tabelle create con
+/// scripts/applica-migrazione-mestieri.mjs, che le semina e colloca le categorie.
+model Mestiere {
+  id                    String   @id @default(cuid())
+  chiave                String   @unique
+  nome                  String
+  ordine                Int      @default(0)
+  /// I prodotti NON unici di questo mestiere si smistano da soli (oggi: solo Fiorista).
+  smistamentoAutomatico Boolean  @default(false)
+  attivo                Boolean  @default(true)
+  categorie             Category[]
+  partners              PartnerMestiere[]
+  liste                 PriorityList[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+/// Partner × mestiere: sostituisce le 400 assegnazioni fini di PartnerCategory nella lingua dei partner.
+model PartnerMestiere {
+  id         String   @id @default(cuid())
+  partnerId  String
+  mestiereId String
+  /// ufficio | categorie (dedotto dalle categorie) | storico (dedotto dalle vendite)
+  origine    String   @default("ufficio")
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  mestiere   Mestiere @relation(fields: [mestiereId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([partnerId, mestiereId])
+}
+
 model Category {
   id               String             @id @default(cuid())
+  /// ⭐ 06/09/2026: il mestiere che raccoglie questa categoria (null = da assegnare).
+  mestiereId       String?
+  mestiere         Mestiere?          @relation(fields: [mestiereId], references: [id])
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
   legacyId             Int?      @unique
   name             String             @unique

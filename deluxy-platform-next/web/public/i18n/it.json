@@ -60,7 +60,8 @@
     "chiaviApp": "Chiavi delle app",
     "richieste": "Richieste",
     "segnalazioni": "Segnalazioni",
-    "statistiche": "Statistiche"
+    "statistiche": "Statistiche",
+    "mestieri": "Mestieri"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -1099,6 +1100,13 @@
       "notYours": "{{n}} esclusi perché non tuoi."
     }
   },
+  "mestieri": {
+    "title": "Mestieri",
+    "caption": "{{n}} mestieri raccolgono {{c}} categorie del catalogo",
+    "col": { "nome": "Mestiere", "categorie": "Categorie", "prodotti": "Prodotti", "partner": "Partner", "liste": "Liste", "automatico": "Smistamento automatico" },
+    "auto": { "si": "i non unici si smistano da soli", "no": "i non unici vanno all'ufficio" },
+    "categorie": { "title": "Categorie del catalogo", "sub": "{{n}} da assegnare", "col": { "nome": "Categoria", "mestiere": "Mestiere" }, "daAssegnare": "— da assegnare —", "archiviata": "archiviata" }
+  },
   "categories": {
     "title": "Categorie",
     "caption": "categorie di prodotto.",
@@ -1665,6 +1673,16 @@
       "colKmIncluded": "Km inclusi",
       "colExtraKm": "€ per km extra",
       "colOutOfCity": "€ fuori città"
+    },
+    "mestieri": {
+      "title": "Mestieri",
+      "subtitle": "Cosa fa il partner: è quello che guarda lo smistamento. Le categorie sotto sono il dettaglio.",
+      "empty": "Nessun mestiere definito.",
+      "minimo": "Minimo d'ordine sulle vendite (€ al partner)",
+      "minimoHint": "Sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo.",
+      "raggio": "Raggio massimo per le consegne che fa lui (km)",
+      "raggioHint": "Oltre questa distanza dal negozio la consegna non gli viene proposta.",
+      "nessunLimite": "nessun limite"
     },
     "categories": {
       "title": "Categorie vendute",

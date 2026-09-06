@@ -60,7 +60,8 @@
     "chiaviApp": "App keys",
     "richieste": "Requests",
     "segnalazioni": "Reports",
-    "statistiche": "Statistics"
+    "statistiche": "Statistics",
+    "mestieri": "Trades"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -1097,6 +1098,13 @@
       "notYours": "{{n}} skipped because not yours."
     }
   },
+  "mestieri": {
+    "title": "Trades",
+    "caption": "{{n}} trades gather {{c}} catalogue categories",
+    "col": { "nome": "Trade", "categorie": "Categories", "prodotti": "Products", "partner": "Partners", "liste": "Lists", "automatico": "Automatic routing" },
+    "auto": { "si": "non-unique products route automatically", "no": "non-unique products go to the office" },
+    "categorie": { "title": "Catalogue categories", "sub": "{{n}} to assign", "col": { "nome": "Category", "mestiere": "Trade" }, "daAssegnare": "— to assign —", "archiviata": "archived" }
+  },
   "categories": {
     "title": "Categories",
     "caption": "product categories.",
@@ -1663,6 +1671,16 @@
       "colKmIncluded": "Km included",
       "colExtraKm": "€ per extra km",
       "colOutOfCity": "€ out of town"
+    },
+    "mestieri": {
+      "title": "Trades",
+      "subtitle": "What the partner does: routing looks here first. Categories below are the detail.",
+      "empty": "No trades defined.",
+      "minimo": "Minimum order on sales (€ to the partner)",
+      "minimoHint": "Below this amount (what the partner would earn) the sale goes to the next partner.",
+      "raggio": "Maximum radius for deliveries they make (km)",
+      "raggioHint": "Beyond this distance from the shop the delivery is not proposed to them.",
+      "nessunLimite": "no limit"
     },
     "categories": {
       "title": "Sold categories",

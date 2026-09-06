@@ -148,6 +148,22 @@ export class CreatePartnerDto {
   @IsBoolean()
   autoDeliveredByPartner?: boolean;
 
+  @ApiPropertyOptional({ description: 'Minimo d\'ordine (€ al cliente) che il partner vuole ricevere sui servizi di vendita' })
+  @IsOptional()
+  @IsNumber()
+  minimoOrdineVendita?: number | null;
+
+  @ApiPropertyOptional({ description: 'Raggio massimo (km) per le consegne che fa il partner' })
+  @IsOptional()
+  @IsNumber()
+  raggioMaxConsegnaKm?: number | null;
+
+  @ApiPropertyOptional({ type: [String], description: 'Mestieri del partner (id di Mestiere)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mestiereIds?: string[];
+
   @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
   @IsOptional()
   @IsString()

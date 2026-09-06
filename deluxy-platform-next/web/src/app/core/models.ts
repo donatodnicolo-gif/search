@@ -95,9 +95,21 @@ export interface Province {
   cities?: { name: string }[];
 }
 
+/** ⭐ 06/09/2026: i MESTIERI (8) — il livello nostro fra le categorie del catalogo e i partner. */
+export interface Mestiere {
+  id: string;
+  chiave: string;
+  nome: string;
+  ordine: number;
+  smistamentoAutomatico: boolean;
+  attivo: boolean;
+}
+
 export interface Category {
   id: string;
   name: string;
+  /** ⭐ 06/09/2026: il mestiere che raccoglie la categoria (null = da assegnare). */
+  mestiereId?: string | null;
   notes?: string;
   aiPrompt?: string;
   fields?: { id: string; name: string; fieldType: string }[];
@@ -193,6 +205,11 @@ export interface Partner {
   deliveryCodeRequired?: boolean;
   /** ⭐ 06/09/2026: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna». */
   autoDeliveredByPartner?: boolean;
+  /** ⭐ 06/09/2026: minimo che il partner vuole incassare su una vendita (€); null = nessun minimo. */
+  minimoOrdineVendita?: number | null;
+  /** ⭐ 06/09/2026: raggio massimo (km) per le consegne che fa lui; null = nessun limite. */
+  raggioMaxConsegnaKm?: number | null;
+  mestieri?: { mestiere: Mestiere; origine?: string }[];
   provinces?: { province: Province }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.

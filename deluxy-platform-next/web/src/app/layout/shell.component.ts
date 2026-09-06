@@ -120,6 +120,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
+      { label: 'nav.mestieri', path: '/mestieri', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.utentiRuoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
       { label: 'nav.chiaviApp', path: '/api-keys', icon: 'key', roles: ['ADMIN'] },

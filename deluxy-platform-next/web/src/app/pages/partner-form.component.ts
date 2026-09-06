@@ -8,6 +8,7 @@ import { environment } from '../../environments/environment';
 import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
 import {
   Category,
+  Mestiere,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   Province,
@@ -172,6 +173,31 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <input class="field num" type="number" step="0.01" name="extraOutOfCityPrice" [(ngModel)]="model.extraOutOfCityPrice" /></label>
           <label class="fld"><span>{{ 'partnerForm.services.commissionPercent' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="commissionPercent" [(ngModel)]="model.commissionPercent" /></label>
+        </div>
+      </section>
+
+      <!-- ⭐ 06/09/2026 (decisione utente): i MESTIERI del partner — 8 chip al posto di 65 caselle.
+           Le categorie sotto restano il dettaglio del catalogo; lo smistamento guarda prima qui. -->
+      <section class="card block">
+        <header class="block-head">
+          <h2>{{ 'partnerForm.mestieri.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.mestieri.subtitle' | translate }}</span>
+        </header>
+        @if (mestieri().length === 0) { <p class="muted">{{ 'partnerForm.mestieri.empty' | translate }}</p> }
+        @else {
+          <div class="chips">
+            @for (m of mestieri(); track m.id) {
+              <button type="button" class="chip" [class.on]="selectedMestieri.has(m.id)" (click)="toggle(selectedMestieri, m.id)" [attr.aria-pressed]="selectedMestieri.has(m.id)">{{ m.nome }}</button>
+            }
+          </div>
+        }
+        <div class="grid-2 mt">
+          <label class="campo">{{ 'partnerForm.mestieri.minimo' | translate }}
+            <input class="field num" type="number" min="0" step="1" name="minimoOrdineVendita" [(ngModel)]="model.minimoOrdineVendita" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+            <span class="hint">{{ 'partnerForm.mestieri.minimoHint' | translate }}</span></label>
+          <label class="campo">{{ 'partnerForm.mestieri.raggio' | translate }}
+            <input class="field num" type="number" min="0" step="1" name="raggioMaxConsegnaKm" [(ngModel)]="model.raggioMaxConsegnaKm" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+            <span class="hint">{{ 'partnerForm.mestieri.raggioHint' | translate }}</span></label>
         </div>
       </section>
 
@@ -410,6 +436,8 @@ export class PartnerFormComponent {
 
   readonly provinces = signal<Province[]>([]);
   readonly categories = signal<Category[]>([]);
+  readonly mestieri = signal<Mestiere[]>([]);
+  readonly selectedMestieri = new Set<string>();
   readonly serviceTypes = signal<ServiceType[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -497,6 +525,8 @@ export class PartnerFormComponent {
     whatsappNotifications: false,
     mailNotifications: false,
     autoDeliveredByPartner: false,
+    minimoOrdineVendita: null as number | null,
+    raggioMaxConsegnaKm: null as number | null,
     activityReminder: false,
     storeUrl: '',
     imageUrl: '',
@@ -511,6 +541,7 @@ export class PartnerFormComponent {
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));
+    this.http.get<Mestiere[]>(`${api}/mestieri`).subscribe({ next: (d) => this.mestieri.set(d.filter((m) => m.attivo)), error: () => undefined });
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
 
     // Modalita' modifica: /partners/:id/edit
@@ -543,6 +574,8 @@ export class PartnerFormComponent {
     for (const pp of (p['provinces'] as any[]) ?? []) {
       if (pp?.province?.id) this.selectedProvinces.add(pp.province.id);
     }
+    this.selectedMestieri.clear();
+    for (const m of ((p as any).mestieri ?? []) as { mestiere?: { id: string } }[]) if (m?.mestiere?.id) this.selectedMestieri.add(m.mestiere.id);
     this.selectedCategories.clear();
     for (const c of (p['categories'] as any[]) ?? []) {
       if (c?.category?.id) this.selectedCategories.add(c.category.id);
@@ -636,6 +669,8 @@ export class PartnerFormComponent {
       whatsappNotifications: m.whatsappNotifications,
       mailNotifications: m.mailNotifications,
       autoDeliveredByPartner: m.autoDeliveredByPartner,
+      minimoOrdineVendita: m.minimoOrdineVendita === null || m.minimoOrdineVendita === undefined || (m.minimoOrdineVendita as unknown) === '' ? null : Number(m.minimoOrdineVendita),
+      raggioMaxConsegnaKm: m.raggioMaxConsegnaKm === null || m.raggioMaxConsegnaKm === undefined || (m.raggioMaxConsegnaKm as unknown) === '' ? null : Number(m.raggioMaxConsegnaKm),
       isMultiPickup: m.isMultiPickup,
       valetIdentityCheck: m.valetIdentityCheck,
       deliveryCodeRequired: m.deliveryCodeRequired,
@@ -661,6 +696,7 @@ export class PartnerFormComponent {
     const isEdit = !!this.editId();
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
     if (this.selectedCategories.size || isEdit) payload['categoryIds'] = [...this.selectedCategories];
+    if (this.selectedMestieri.size || isEdit) payload['mestiereIds'] = [...this.selectedMestieri];
 
     const addrs = m.isMultiPickup
       ? this.pickupAddresses.map((a) => a.trim()).filter(Boolean)

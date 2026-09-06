@@ -29,6 +29,7 @@ const PARTNER_INCLUDE = {
   provinces: { include: { province: true } },
   services: { include: { serviceType: true } },
   categories: { include: { category: true } },
+  mestieri: { include: { mestiere: true } },
   openingHours: true,
 } as const;
 
@@ -96,7 +97,7 @@ export class PartnersService {
   }
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
-    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...scalar } = dto;
+    const { provinceIds, categoryIds, mestiereIds, services, openingHours, pickupAddresses, ...scalar } = dto;
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
@@ -117,6 +118,7 @@ export class PartnersService {
           : undefined,
         services: services?.length ? { create: services } : undefined,
         openingHours: openingHours?.length ? { create: openingHours } : undefined,
+        mestieri: mestiereIds?.length ? { create: mestiereIds.map((mestiereId) => ({ mestiereId })) } : undefined,
       },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
@@ -593,7 +595,7 @@ export class PartnersService {
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
-    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
+    const { provinceIds, categoryIds, mestiereIds, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
       ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
@@ -656,6 +658,7 @@ export class PartnersService {
         ...(openingHours
           ? { openingHours: { deleteMany: {}, create: openingHours } }
           : {}),
+        ...(mestiereIds ? { mestieri: { deleteMany: {}, create: mestiereIds.map((mestiereId) => ({ mestiereId })) } } : {}),
       },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
