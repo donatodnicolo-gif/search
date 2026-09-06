@@ -1,5 +1,39 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (42) — La regola nella sync, e le consegne di là cliccabili dalla scheda
+
+**La regola gira da sola** (`src/lib/consegne-da-pagamenti.ts`, chiamata da
+`sincronizzaConPiattaforma` a ogni giro e dallo script
+`consegne-da-pagamenti-in-app.mts`): ordine «Gestito», non annullato, con una
+richiesta di pagamento al fornitore PAGATA, senza consegna agganciata, consegna
+negli ultimi 60 giorni → si chiede alla piattaforma `GET /app/consegne?ddt=<n>`;
+se c'è, si aggancia (id + stato) e basta; se no, si crea dal canale app con
+Artista Locale, Vendita Deluxy, prodotto padre/famiglia/generico a prezzo
+flessibile = pagamento, fornitore e pagamento nelle note, **`giaConsegnata`**:
+di là nasce direttamente in storico («consegnata» a fine fascia del giorno di
+consegna, con log). Qui l'ordine resta «Gestito» da «Piattaforma consegne».
+Conteggi nuovi nella sync: `consegneCreate`, `consegneAgganciate` (riga di
+`piattaformaSyncEsito`: «consegne da pagamenti N+M»). Tutto in un `try`: un
+guasto non fa perdere il segnaposto. ⚠️ Niente più scritture dirette sul DB
+della piattaforma: lo stato lo mette lei (Standard §7).
+
+**Piattaforma** (ramo `canale-app-0609`, commit `97b642e5`): `GET
+/app/consegne` accetta `?ddt=`; `POST /app/consegne` accetta `giaConsegnata`
++ `consegnataIl` nel DTO (whitelist!), e dopo il create mette `delivered` +
+`deliveredAt` + log «registrata a posteriori». `consegnePerDdt` nel CS
+**ricontrolla il DDT** sulle righe tornate: una piattaforma vecchia che ignora
+`?ddt=` tornerebbe le ultime 5 di chiunque.
+
+**Le consegne di là, cliccabili** (utente: «metti l'id della consegna collegata
+con click sopra che apre la scheda»): `dettaglioOrdineLocale` chiede
+`consegnePerDdt(numero)` (anche quelle nate di là, anche se sono due) e
+`piattaformaUrl`; la scheda, sotto «In App», mostra un badge-link per consegna
+«#101075 · consegnata ↗» verso `<piattaforma>/deliveries/<id>`. Se il DDT non
+trova niente resta la riga di prima.
+
+Prova: script in simulazione → 0 candidati (le sei sono già fatte); sync in
+prova integra. **Stato**: in locale, commit sì; deploy a seguire.
+
 ## 06/09/2026 (41) — Le vendite gestite con pagamento in app hanno la loro consegna in piattaforma, in storico
 
 Regola dell'utente: «le vendite che abbiamo già gestito con pagamento in app:

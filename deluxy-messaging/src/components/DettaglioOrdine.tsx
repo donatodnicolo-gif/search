@@ -215,6 +215,9 @@ type OrdineDettaglio = {
     perche: string
     forte: boolean
   }[]
+  /** Le consegne di quest'ordine nella piattaforma (per DDT), e dove aprirle. */
+  consegneApp?: { id: string; numero: string; stato: string }[]
+  urlPiattaforma?: string
   riconsegnaLink?: string
   riconsegnaNumero?: string
   /** Le telefonate di questo cliente per quest'ordine. */
@@ -1306,11 +1309,35 @@ export function DettaglioOrdine({
                       {ordine.appConsegnaFascia ? ` ${ordine.appConsegnaFascia}` : ''}
                     </div>
                   ) : null}
-                  <div className="cella-sub">
-                    {ordine.appConsegnaNumero
-                      ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''}`
-                      : "Nessuna consegna creata da qui: se di là non c'è, l'etichetta è solo nostra."}
-                  </div>
+                  {/* ── LE CONSEGNE DI LÀ, CLICCABILI (utente, 06/09/2026) ──
+                      Per numero DDT, quindi anche quelle nate dalla piattaforma
+                      e non da qui, e anche se sono più di una: due consegne
+                      consegnate sullo stesso ordine (#12887) sono un fatto da
+                      vedere, non da nascondere dietro un numero solo. */}
+                  {ordine.consegneApp?.length ? (
+                    <div className="cella-sub" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                      <span>{ordine.consegneApp.length === 1 ? 'Consegna in piattaforma:' : `${ordine.consegneApp.length} consegne in piattaforma:`}</span>
+                      {ordine.consegneApp.map((c) => (
+                        <a
+                          key={c.id}
+                          className="badge"
+                          href={`${ordine.urlPiattaforma || 'https://deluxy-delivery.vercel.app'}/deliveries/${c.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Apri la consegna #${c.numero} nella piattaforma (${nomeStatoConsegna(c.stato)})`}
+                        >
+                          #{c.numero} · {nomeStatoConsegna(c.stato)} ↗
+                        </a>
+                      ))}
+                      {ordine.appMandataDaNome ? <span>· mandata da {ordine.appMandataDaNome}</span> : null}
+                    </div>
+                  ) : (
+                    <div className="cella-sub">
+                      {ordine.appConsegnaNumero
+                        ? `Consegna ${ordine.appConsegnaNumero}${ordine.appMandataDaNome ? ` · mandata da ${ordine.appMandataDaNome}` : ''} (non trovata di là col numero DDT)`
+                        : "Nessuna consegna creata da qui: se di là non c'è, l'etichetta è solo nostra."}
+                    </div>
+                  )}
                   {!ordine.appInterrottoIl ? (
                     <button
                       className="btn btn-secondario small"
