@@ -34,6 +34,13 @@ interface PartnerDetail {
   invoiceEmail?: string;
   provinces?: { province: { id: string; code: string; name: string } }[];
   categories?: { category: { id: string; name: string } }[];
+  /** ⭐ 06/09 sera (richiesta utente): mestieri, area commerciale, consegna da partner e area di consegna. */
+  mestieri?: { mestiere: { id: string; nome: string } }[];
+  aree?: { area: { id: string; nome: string } }[];
+  autoDeliveredByPartner?: boolean;
+  minimoOrdineVendita?: number | null;
+  raggioMaxConsegnaKm?: number | null;
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null; province?: { id: string; code: string; name: string } }[];
   hasWarehouse?: boolean;
   services?: {
     serviceType?: { id: string; name?: string; pricingModel?: string };
@@ -295,9 +302,26 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             </dl>
           </section>
 
+          <!-- ⭐ 06/09 sera (richiesta utente): nel dettaglio si vedono MESTIERE, AREA COMMERCIALE,
+               se CONSEGNA DA SOLO e in quali province (area di consegna). Le «Categorie» non si mostrano più. -->
           <section class="card block">
-            <h2>{{ 'partnerForm.provinces.title' | translate }}</h2>
+            <h2>{{ 'partnerForm.mestieri.title' | translate }}</h2>
+            @if (p.mestieri?.length) {
+              <div class="chips">
+                @for (m of p.mestieri; track m.mestiere.id) { <span class="chip on">{{ m.mestiere.nome }}</span> }
+              </div>
+            } @else { <p class="muted">{{ 'partnerDetail.vendite.senzaMestiere' | translate }}</p> }
+          </section>
+
+          <section class="card block">
+            <h2>{{ 'partnerDetail.vendite.areaCommerciale' | translate }}</h2>
+            @if (p.aree?.length) {
+              <div class="chips">
+                @for (a of p.aree; track a.area.id) { <span class="chip on">{{ a.area.nome }}</span> }
+              </div>
+            }
             @if (p.provinces?.length) {
+              <p class="muted mini">{{ 'partnerForm.aree.effettive' | translate: { n: p.provinces?.length ?? 0 } }}</p>
               <div class="chips">
                 @for (pp of p.provinces; track pp.province.id) {
                   <span class="chip">{{ pp.province.code }} · {{ pp.province.name }}</span>
@@ -307,12 +331,23 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           </section>
 
           <section class="card block">
-            <h2>{{ 'partnerForm.categories.title' | translate }}</h2>
-            @if (p.categories?.length) {
-              <div class="chips">
-                @for (c of p.categories; track c.category.id) { <span class="chip">{{ c.category.name }}</span> }
-              </div>
-            } @else { <p class="muted">{{ 'partnerForm.categories.empty' | translate }}</p> }
+            <h2>{{ 'partnerDetail.vendite.consegna' | translate }}</h2>
+            @if (p.autoDeliveredByPartner) {
+              <p class="riga-si"><span class="badge-si">{{ 'partnerDetail.vendite.consegnaSi' | translate }}</span>
+                <span class="muted mini">{{ 'partnerDetail.vendite.predefiniti' | translate: { minimo: p.minimoOrdineVendita ?? '—', raggio: p.raggioMaxConsegnaKm ?? '—' } }}</span></p>
+              @if (p.consegnaProvince?.length) {
+                <table class="tab-consegna">
+                  <thead><tr><th>{{ 'partnerForm.consegna.colProvincia' | translate }}</th><th>{{ 'partnerForm.consegna.colMinimo' | translate }}</th><th>{{ 'partnerForm.consegna.colRaggio' | translate }}</th></tr></thead>
+                  <tbody>
+                    @for (r of p.consegnaProvince; track r.provinceId) {
+                      <tr><td><b>{{ r.province?.code ?? '?' }}</b> <span class="muted">{{ r.province?.name ?? '' }}</span></td><td>{{ r.minimoOrdine ?? (p.minimoOrdineVendita ?? '—') }}</td><td>{{ r.raggioKm ?? (p.raggioMaxConsegnaKm ?? '—') }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } @else { <p class="muted mini">{{ 'partnerForm.consegna.vuoto' | translate }}</p> }
+            } @else {
+              <p class="muted">{{ 'partnerDetail.vendite.consegnaNo' | translate }}</p>
+            }
           </section>
 
           <section class="card block">
@@ -584,6 +619,14 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .candidati li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 0; }
       .btn.mini { padding: 4px 12px; font-size: 12px; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
+      .chip.on { background: var(--text); color: #fff; border-color: var(--text); }
+      .mini { font-size: 12.5px; margin: 8px 0 6px; }
+      .riga-si { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+      .badge-si { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; background: rgba(36,138,61,.12); color: #248A3D; }
+      .badge-si::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .tab-consegna { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .tab-consegna th { text-align: left; font-size: 11.5px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+      .tab-consegna td { padding: 4px 8px; border-top: 1px solid var(--hairline); }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline); }
       table.mini th { color: var(--text-tertiary); font-weight: 500; font-size: 12px; }

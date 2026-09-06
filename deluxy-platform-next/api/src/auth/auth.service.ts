@@ -226,16 +226,19 @@ export class AuthService {
           // FINANCE e fatture riconoscono il negozio.
           // ⭐ 06/09/2026 (regola utente): il partner con un servizio di VENDITA regola da qui
           // «Consegna da Partner», minimo d'ordine e raggio.
-          select: { insegna: true, email: true, phone: true, address: true, pickupAddresses: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true, services: { select: { serviceType: { select: { pricingModel: true } } } } },
+          select: { insegna: true, email: true, phone: true, address: true, pickupAddresses: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true, services: { select: { serviceType: { select: { pricingModel: true } } } }, provinces: { select: { province: { select: { id: true, code: true, name: true } } } }, consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },
         })
       : null;
     // Gli indirizzi di ritiro aggiuntivi vivono come JSON: al form arrivano
     // già come lista (02/09, regola utente: il partner li imposta da qui).
     let ritiri: string[] = [];
     try { ritiri = grezzo?.pickupAddresses ? JSON.parse(grezzo.pickupAddresses) : []; } catch { ritiri = []; }
-    const { services: serviziPartner, ...grezzoSenzaServizi } = (grezzo ?? {}) as any;
+    const { services: serviziPartner, provinces: provinceVendita, ...grezzoSenzaServizi } = (grezzo ?? {}) as any;
     const haVendita = Array.isArray(serviziPartner) && serviziPartner.some((x: any) => x?.serviceType?.pricingModel === 'VENDITA');
-    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita } : null;
+    // ⭐ 06/09 sera (segnalazione utente): dal profilo il partner sceglie anche l'AREA DI CONSEGNA —
+    // le province dove vende (area commerciale) e l'elenco di tutte le province gli servono per sceglierla.
+    const tutteLeProvince = grezzo && haVendita ? await this.prisma.province.findMany({ select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }) : [];
+    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita, provinceVendita: (provinceVendita ?? []).map((x: any) => x.province), tutteLeProvince } : null;
     return { user: { email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }, valet, partner };
   }
 
@@ -246,7 +249,7 @@ export class AuthService {
       valet?: { phone?: string; address?: string; city?: string; birthPlace?: string;
         birthDate?: string | null; fiscalCode?: string; vehicle?: string; iban?: string;
         notifyByEmail?: boolean; notifyByWhatsapp?: boolean };
-      partner?: { phone?: string; email?: string; address?: string; pickupAddresses?: string[]; autoDeliveredByPartner?: boolean; minimoOrdineVendita?: number | null; raggioMaxConsegnaKm?: number | null };
+      partner?: { phone?: string; email?: string; address?: string; pickupAddresses?: string[]; autoDeliveredByPartner?: boolean; minimoOrdineVendita?: number | null; raggioMaxConsegnaKm?: number | null; consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[] };
     },
     partners?: { update: (id: string, dto: any, user: JwtUser) => Promise<unknown> },
   ) {
@@ -329,13 +332,15 @@ export class AuthService {
         cambiati.push('indirizzi di ritiro');
       }
       // ⭐ 06/09/2026 (regola utente): impostazioni di vendita, solo se il partner ha un servizio di VENDITA.
-      if (body.partner.autoDeliveredByPartner !== undefined || body.partner.minimoOrdineVendita !== undefined || body.partner.raggioMaxConsegnaKm !== undefined) {
+      if (body.partner.autoDeliveredByPartner !== undefined || body.partner.minimoOrdineVendita !== undefined || body.partner.raggioMaxConsegnaKm !== undefined || Array.isArray(body.partner.consegnaProvince)) {
         const vend = await this.prisma.partnerService.count({ where: { partnerId: user.partnerId, serviceType: { pricingModel: 'VENDITA' } } });
         if (vend > 0) {
           if (typeof body.partner.autoDeliveredByPartner === 'boolean') { p['autoDeliveredByPartner'] = body.partner.autoDeliveredByPartner; cambiati.push('consegna da partner'); }
           const num = (v: unknown) => (v === null || v === '' || v === undefined ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : undefined);
           if (body.partner.minimoOrdineVendita !== undefined) { const m = num(body.partner.minimoOrdineVendita); if (m !== undefined) { p['minimoOrdineVendita'] = m; cambiati.push('minimo ordine'); } }
           if (body.partner.raggioMaxConsegnaKm !== undefined) { const r = num(body.partner.raggioMaxConsegnaKm); if (r !== undefined) { p['raggioMaxConsegnaKm'] = r; cambiati.push('raggio massimo'); } }
+          // ⭐ 06/09 sera: l'AREA DI CONSEGNA (province + minimo/raggio per provincia) dal profilo.
+          if (Array.isArray(body.partner.consegnaProvince)) { p['consegnaProvince'] = body.partner.consegnaProvince.filter((r) => r && typeof r.provinceId === 'string').slice(0, 120); cambiati.push('area di consegna'); }
         }
       }
       if (Object.keys(p).length) await partners.update(user.partnerId, p, jwtUser);

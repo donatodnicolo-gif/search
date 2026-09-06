@@ -1251,6 +1251,14 @@
     }
   },
   "partnerDetail": {
+    "vendite": {
+      "areaCommerciale": "Area commerciale (dove vende)",
+      "consegna": "Consegna da partner",
+      "consegnaSi": "Consegna da solo",
+      "consegnaNo": "Non consegna da solo: le sue consegne le fa un valet.",
+      "predefiniti": "Predefiniti: minimo d'ordine {{minimo}} €, raggio {{raggio}} km",
+      "senzaMestiere": "Nessun mestiere assegnato: lo smistamento non lo trova."
+    },
     "carnet": {
       "none": "Nessuna regola carnet attiva per questo partner.",
       "remaining": "Rimaste",

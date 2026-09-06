@@ -668,8 +668,14 @@ export class PartnersService {
         include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
       });
-      this.anagrafiche.sincronizza(aggiornatoPartner);
-      return aggiornatoPartner;
+      // ⭐ 06/09 sera (segnalazione utente): area di consegna dal profilo: il ramo PARTNER esce qui,
+      // quindi va scritta QUI (gated dal servizio di VENDITA come gli altri campi di vendita).
+      if (consegnaProvince && (await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } })) > 0) {
+        await this.scriviAreaDiConsegna(id, consegnaProvince);
+      }
+      const conArea = await this.findOne(id);
+      this.anagrafiche.sincronizza(conArea);
+      return conArea;
     }
 
     const aggiornato = await this.prisma.partner.update({

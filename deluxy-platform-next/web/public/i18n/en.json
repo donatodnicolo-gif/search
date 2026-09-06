@@ -1249,6 +1249,14 @@
     }
   },
   "partnerDetail": {
+    "vendite": {
+      "areaCommerciale": "Commercial area (where it sells)",
+      "consegna": "Partner delivery",
+      "consegnaSi": "Delivers on its own",
+      "consegnaNo": "Does not deliver on its own: a valet delivers.",
+      "predefiniti": "Defaults: minimum order {{minimo}} €, radius {{raggio}} km",
+      "senzaMestiere": "No trade assigned: routing cannot find it."
+    },
     "carnet": {
       "none": "No active carnet rule for this partner.",
       "remaining": "Remaining",
