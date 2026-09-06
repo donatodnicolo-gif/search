@@ -31,8 +31,22 @@ con click sopra che apre la scheda»): `dettaglioOrdineLocale` chiede
 «#101075 · consegnata ↗» verso `<piattaforma>/deliveries/<id>`. Se il DDT non
 trova niente resta la riga di prima.
 
-Prova: script in simulazione → 0 candidati (le sei sono già fatte); sync in
-prova integra. **Stato**: in locale, commit sì; deploy a seguire.
+⚠️⚠️ **Il lettore di `/app/consegne` leggeva la forma sbagliata.** La riga
+serializzata della piattaforma mette lo stato in `esito.stato` e il DDT in
+`ordine.ddt`; `consegneAggiornate` (e la nuova `consegnePerDdt`) leggevano
+`stato`/`ddtNumber` in cima → sempre vuoti. Conseguenze: (a) la chiusura degli
+ordini dalle consegne in `consegne-piattaforma.ts` **non ha mai chiuso niente**
+(le righe non passavano il filtro degli stati); (b) la prima simulazione della
+regola nuova proponeva di **creare 18 consegne che di là esistevano già** — il
+ricontrollo del DDT le scartava tutte come «non trovate». Trovato guardando la
+risposta grezza (`Object.keys`), corretto in tutti e due i lettori (si accettano
+entrambe le forme). Simulazione dopo la correzione: **0 create, 18 agganciate**
+(#2785, #2778, #2780, #2783, #2784, #2787, #2786, #2626, #1762, #2819, #12822,
+#2754, #2782, #1800, #1832, #2872, #2712, #2652: ordini gestiti con pagamento in
+app la cui consegna di là c'era già ma qui non era agganciata). L'aggancio vero
+lo fa il primo giro della sync in produzione.
+
+**Stato**: in locale, commit sì; deploy a seguire.
 
 ## 06/09/2026 (41) — Le vendite gestite con pagamento in app hanno la loro consegna in piattaforma, in storico
 
