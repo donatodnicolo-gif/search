@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Injectable, Module, NotFoundException, Param, Put } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { Roles } from '../common/decorators';
@@ -20,6 +20,10 @@ export class AggiornaMestiereDto {
   @IsOptional() @IsString() nome?: string;
   @IsOptional() @IsBoolean() smistamentoAutomatico?: boolean;
   @IsOptional() @IsBoolean() attivo?: boolean;
+}
+export class CreaMestiereDto {
+  @IsString() nome!: string;
+  @IsOptional() @IsBoolean() smistamentoAutomatico?: boolean;
 }
 export class AssegnaCategoriaDto {
   /** null = torna «da assegnare» */
@@ -67,6 +71,16 @@ export class MestieriService {
     return this.prisma.category.update({ where: { id: categoryId }, data: { mestiereId: mestiereId ?? null }, select: { id: true, name: true, mestiereId: true } });
   }
 
+  /** Un mestiere nuovo: la chiave nasce dal nome, l'ordine è l'ultimo (prima di «interni», che resta in coda). */
+  async crea(dto: CreaMestiereDto) {
+    const nome = String(dto.nome ?? '').trim();
+    if (!nome) throw new BadRequestException('Serve il nome del mestiere');
+    const base = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'mestiere';
+    let chiave = base; for (let i = 2; await this.prisma.mestiere.findUnique({ where: { chiave } }); i++) chiave = `${base}_${i}`;
+    const ultimo = await this.prisma.mestiere.aggregate({ _max: { ordine: true }, where: { ordine: { lt: 99 } } });
+    return this.prisma.mestiere.create({ data: { chiave, nome, ordine: (ultimo._max.ordine ?? 0) + 1, smistamentoAutomatico: !!dto.smistamentoAutomatico } });
+  }
+
   async aggiorna(id: string, dto: AggiornaMestiereDto) {
     const m = await this.prisma.mestiere.findUnique({ where: { id } });
     if (!m) throw new NotFoundException('Mestiere non trovato');
@@ -88,6 +102,11 @@ export class MestieriController {
   @Get('categorie')
   @ApiOperation({ summary: 'Le categorie col mestiere assegnato (le «da assegnare» prima)' })
   categorie() { return this.service.categorie(); }
+
+  @Post()
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Crea un mestiere nuovo' })
+  crea(@Body() dto: CreaMestiereDto) { return this.service.crea(dto); }
 
   @Put('categorie/:categoryId')
   @Roles(Role.ADMIN, Role.OPERATION)

@@ -1103,6 +1103,7 @@
     "caption": "{{n}} trades gather {{c}} catalogue categories",
     "col": { "nome": "Trade", "categorie": "Categories", "prodotti": "Products", "partner": "Partners", "liste": "Lists", "automatico": "Automatic routing" },
     "auto": { "si": "non-unique products route automatically", "no": "non-unique products go to the office" },
+    "nuovo": { "bottone": "New trade", "titolo": "New trade", "nomePh": "Trade name (e.g. Ice cream shop)", "hint": "It starts empty: then place categories below and assign it to partners in their sheet." },
     "categorie": { "title": "Catalogue categories", "sub": "{{n}} to assign", "col": { "nome": "Category", "mestiere": "Trade" }, "daAssegnare": "— to assign —", "archiviata": "archived" }
   },
   "categories": {

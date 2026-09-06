@@ -191,7 +191,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             }
           </div>
         }
-        <div class="grid-2 mt">
+        <div class="mestieri-campi">
           <label class="campo">{{ 'partnerForm.mestieri.minimo' | translate }}
             <input class="field num" type="number" min="0" step="1" name="minimoOrdineVendita" [(ngModel)]="model.minimoOrdineVendita" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
             <span class="hint">{{ 'partnerForm.mestieri.minimoHint' | translate }}</span></label>
@@ -357,6 +357,10 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
     </form>
   `,
   styles: [
+    `.mestieri-campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 24px; margin-top: 16px; }
+     .mestieri-campi .campo { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 550; }
+     .mestieri-campi .field { max-width: 240px; }
+     .mestieri-campi .hint { font-weight: 400; font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }`,
     `
       .form-head { margin-bottom: 24px; }
       .back { font-size: 13px; color: var(--text-secondary); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }

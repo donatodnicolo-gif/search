@@ -1105,6 +1105,7 @@
     "caption": "{{n}} mestieri raccolgono {{c}} categorie del catalogo",
     "col": { "nome": "Mestiere", "categorie": "Categorie", "prodotti": "Prodotti", "partner": "Partner", "liste": "Liste", "automatico": "Smistamento automatico" },
     "auto": { "si": "i non unici si smistano da soli", "no": "i non unici vanno all'ufficio" },
+    "nuovo": { "bottone": "Nuovo mestiere", "titolo": "Nuovo mestiere", "nomePh": "Nome del mestiere (es. Gelateria)", "hint": "Nasce vuoto: poi collochi le categorie qui sotto e lo assegni ai partner nella loro scheda." },
     "categorie": { "title": "Categorie del catalogo", "sub": "{{n}} da assegnare", "col": { "nome": "Categoria", "mestiere": "Mestiere" }, "daAssegnare": "— da assegnare —", "archiviata": "archiviata" }
   },
   "categories": {
