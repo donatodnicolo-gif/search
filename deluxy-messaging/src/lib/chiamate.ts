@@ -238,7 +238,7 @@ export async function riconosciChiamante(numero: string): Promise<Riconoscimento
   const idLocali = await db.$queryRaw<{ id: string }[]>`
     SELECT id FROM messaging."Ordine"
     WHERE "annullatoIl" IS NULL
-      AND RIGHT(regexp_replace(telefono, '\\D', '', 'g'), 9) = ${cifre}
+      AND RIGHT(regexp_replace(telefono, '[^0-9]', '', 'g'), 9) = ${cifre}
     ORDER BY data DESC
     LIMIT 1`
   const locale = idLocali.length

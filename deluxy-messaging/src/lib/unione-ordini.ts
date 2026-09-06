@@ -279,7 +279,7 @@ export async function candidatiUnione(idPrincipale: string, tetto = 6): Promise<
       AND "annullatoIl" IS NULL
       AND (
         (${chiavi.telefoni.length} > 0
-          AND RIGHT(regexp_replace(telefono, '\\D', '', 'g'), 9) = ANY(${chiavi.telefoni}::text[]))
+          AND RIGHT(regexp_replace(telefono, '[^0-9]', '', 'g'), 9) = ANY(${chiavi.telefoni}::text[]))
         OR (${chiavi.email.length} > 0
           AND lower(trim(email)) = ANY(${chiavi.email}::text[]))
       )
