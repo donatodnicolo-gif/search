@@ -399,6 +399,10 @@ interface PropostaVendita {
                       {{ 'puntualita.breve.' + pu.esito | translate }}@if (pu.minuti) { {{ pu.minuti }}′ }
                     </span>
                   }
+                  <!-- ⭐ 06/09 (segnalazione utente): «da gestire» NON è un colore — la pillola
+                       «Non consegnata» è già rossa e un'altra tinta accanto si confondeva. È un
+                       chip nero con la parola, e la riga resta su fondo neutro. -->
+                  @if (eDaGestire(d)) { <span class="chip-gestire">{{ 'deliveries.nonConsegnate.chip' | translate }}</span> }
                 </td>
                 <td class="mono">{{ d.code }}
                   @if (d.deliveryRuleId) {
@@ -1230,9 +1234,10 @@ interface PropostaVendita {
       .proposta-info .riga2 { font-size: 13px; }
       .proposta-azioni { display: flex; gap: 8px; }
       .proposta-azioni .rifiuto { color: var(--red); }
-      .warn-card.gestire { border-left: 4px solid #ff9500; }
-      tr.da-gestire td { background: rgba(255, 149, 0, 0.07); }
-      tr.da-gestire td:first-child { box-shadow: inset 4px 0 0 #ff9500; }
+      .warn-card.gestire { border-left: 4px solid var(--ink, #1d1d1f); background: var(--surface-sunken, #f5f5f7); color: var(--text-primary, #1d1d1f); }
+      tr.da-gestire td { background: var(--surface-sunken, #f5f5f7); }
+      tr.da-gestire td:first-child { box-shadow: inset 4px 0 0 var(--ink, #1d1d1f); }
+      .chip-gestire { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ink, #1d1d1f); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: middle; white-space: nowrap; }
       .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
                    border-radius: 10px; padding: 10px 12px; font-size: 13px; }
       .tag.warn {

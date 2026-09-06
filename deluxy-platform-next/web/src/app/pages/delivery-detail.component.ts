@@ -999,7 +999,7 @@ interface DeliveryDetail {
       .ore-approvazione { border-left: 3px solid var(--orange, #ff9500); }
       .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
-      .warn-card.gestire { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border-left: 4px solid #ff9500; background: rgba(255, 149, 0, 0.08); color: #8a5a00; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .warn-card.gestire { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border-left: 4px solid var(--ink, #1d1d1f); background: var(--surface-sunken, #f5f5f7); color: var(--text-primary, #1d1d1f); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
       .ddt-extra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
       .ddt-extra .ddt-carica.disabled { opacity: .5; pointer-events: none; }

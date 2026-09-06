@@ -785,6 +785,7 @@
   },
   "deliveries": {
     "nonConsegnate": {
+      "chip": "Da gestire",
       "alert": "{{n}} non consegnate da gestire.",
       "cosa": "Ogni notte tornano alla data di oggi finché non si decide: riconsegna o chiusura."
     },

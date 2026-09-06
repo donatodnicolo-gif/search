@@ -784,6 +784,7 @@
   },
   "deliveries": {
     "nonConsegnate": {
+      "chip": "To handle",
       "alert": "{{n}} not delivered to handle.",
       "cosa": "Every night they move to today's date until someone decides: redelivery or closure."
     },
