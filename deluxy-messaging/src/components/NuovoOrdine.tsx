@@ -803,13 +803,16 @@ export function NuovoOrdine({
             quantita: r.quantita,
           })),
           biglietto,
-          // ⚠️⚠️ Con «senza costo di consegna» si manda il TITOLO VUOTO, non
-          // zero: `creaOrdine` in quel caso non aggiunge nessuna riga di
-          // spedizione alla bozza. Una riga «Consegna — 0,00 €» invece la
-          // aggiungerebbe, e il cliente leggerebbe sul link una voce a zero che
-          // nessuno gli ha promesso — che è peggio del silenzio.
+          // ⚠️⚠️ Con «senza costo di consegna» si manda una riga «Consegna
+          // offerta» a ZERO, non il titolo vuoto. Fino al 06/09/2026 si mandava
+          // il vuoto (nessuna riga sulla bozza) credendo che bastasse: ma una
+          // bozza SENZA riga di spedizione lascia al checkout di Shopify il
+          // calcolo della tariffa, e il cliente si trovava la consegna in conto
+          // (utente, bozza #D5685: «avevo messo flag per no costo consegna ma
+          // Shopify me lo ha riportato lo stesso»). Con la riga a zero il
+          // checkout la rispetta e non ricalcola niente.
           spedizione: senzaConsegna
-            ? { titolo: '', prezzo: 0 }
+            ? { titolo: 'Consegna offerta', prezzo: 0 }
             : { titolo: spedizioneTitolo, prezzo: Number(spedizionePrezzo) || 0 },
           pagamento,
           mezzoPagamento: mezzo,
@@ -1545,7 +1548,7 @@ export function NuovoOrdine({
                   }
                 }}
               />
-              Senza costo di consegna (non si aggiunge nessuna riga di spedizione)
+              Senza costo di consegna (sull'ordine va la riga «Consegna offerta» a 0 €, così il sito non la ricalcola)
             </label>
             {/* ⚠️ Le tariffe si continuano a CHIEDERE e a mostrare anche con la
                 spunta accesa: serve sapere quanto si sta regalando. Non si
