@@ -1,5 +1,4 @@
-import {
-  ForbiddenException,
+import { BadRequestException, ForbiddenException,
   Injectable,
   NotFoundException,  Logger,
 } from '@nestjs/common';
@@ -32,6 +31,7 @@ const PARTNER_INCLUDE = {
   categories: { include: { category: true } },
   mestieri: { include: { mestiere: true } },
   aree: { include: { area: { select: { id: true, nome: true } } } },
+  consegnaProvince: { include: { province: { select: { id: true, code: true, name: true } } } },
   openingHours: true,
 } as const;
 
@@ -100,7 +100,7 @@ export class PartnersService {
   }
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
-    const { provinceIds, categoryIds, mestiereIds, areaIds, services, openingHours, pickupAddresses, ...scalar } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...scalar } = dto;
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
@@ -129,6 +129,7 @@ export class PartnersService {
     });
     // ⭐ 06/09 (regola utente): le AREE decidono le province effettive (unione).
     if (areaIds?.length) await this.aree.assegnaAlPartner(partner.id, areaIds);
+    if (consegnaProvince?.length) await this.scriviAreaDiConsegna(partner.id, consegnaProvince);
     // Un gesto solo: crea l'utente PARTNER collegato (invitato). Gestione
     // dell'invito dalla pagina Utenti.
     await this.users.provisionForAnagrafica(
@@ -579,6 +580,21 @@ export class PartnersService {
     if (count) this.logger.log(`Partner ${partnerId} riattivato: ${count} prodotti ripescati`);
   }
 
+  /** ⭐ 06/09 sera: riscrive l'area di consegna (province + minimo/raggio per provincia). Lista vuota = nessuna. */
+  private async scriviAreaDiConsegna(partnerId: string, righe: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[]) {
+    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+    const viste = new Set<string>();
+    const pulite = righe.filter((r) => r && typeof r.provinceId === 'string' && !viste.has(r.provinceId) && viste.add(r.provinceId));
+    if (pulite.length) {
+      const n = await this.prisma.province.count({ where: { id: { in: pulite.map((r) => r.provinceId) } } });
+      if (n !== pulite.length) throw new BadRequestException('Provincia sconosciuta nell\'area di consegna');
+    }
+    await this.prisma.$transaction([
+      this.prisma.partnerConsegnaProvincia.deleteMany({ where: { partnerId } }),
+      ...(pulite.length ? [this.prisma.partnerConsegnaProvincia.createMany({ data: pulite.map((r) => ({ partnerId, provinceId: r.provinceId, minimoOrdine: num(r.minimoOrdine), raggioKm: num(r.raggioKm) })), skipDuplicates: true })] : []),
+    ]);
+  }
+
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {
     if (user.role === Role.PARTNER && user.partnerId !== id) {
       throw new ForbiddenException('Accesso non consentito');
@@ -605,10 +621,11 @@ export class PartnersService {
         ...(p['autoDeliveredByPartner'] !== undefined ? { autoDeliveredByPartner: p['autoDeliveredByPartner'] } : {}),
         ...(p['minimoOrdineVendita'] !== undefined ? { minimoOrdineVendita: p['minimoOrdineVendita'] } : {}),
         ...(p['raggioMaxConsegnaKm'] !== undefined ? { raggioMaxConsegnaKm: p['raggioMaxConsegnaKm'] } : {}),
+        ...(Array.isArray(p['consegnaProvince']) ? { consegnaProvince: p['consegnaProvince'] as any } : {}),
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
-    const { provinceIds, categoryIds, mestiereIds, areaIds, services, openingHours, pickupAddresses, ...rest } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
       ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
@@ -690,6 +707,10 @@ export class PartnersService {
     // ⭐ 06/09 (regola utente): con le AREE le province effettive si ricalcolano (unione delle aree).
     if (areaIds) await this.aree.assegnaAlPartner(id, areaIds);
     else if (provinceIds) await this.aree.ricalcolaProvincePartner(id); // le province delle aree tornano accanto a quelle a mano
+    // ⭐ 06/09 sera: l'AREA DI CONSEGNA (per il PARTNER solo con un servizio di VENDITA, come gli altri campi di vendita).
+    if (consegnaProvince && ((user.role as Role) !== Role.PARTNER || (await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } })) > 0)) {
+      await this.scriviAreaDiConsegna(id, consegnaProvince);
+    }
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;

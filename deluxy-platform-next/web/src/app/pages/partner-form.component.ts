@@ -226,6 +226,42 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <span class="hint">{{ 'partnerForm.mestieri.raggioHint' | translate }}</span></label>
           }
         </div>
+        <!-- ⭐ 06/09 sera (nuova architettura vendite): AREA DI CONSEGNA — dove consegna da solo, con minimo
+             e raggio PER PROVINCIA; i campi sopra sono i predefiniti. Solo con «Consegna da Partner». -->
+        @if (model.autoDeliveredByPartner) {
+        <div class="area-consegna">
+          <h3>{{ 'partnerForm.consegna.title' | translate }}</h3>
+          <p class="hint">{{ 'partnerForm.consegna.sub' | translate }}</p>
+          <div class="consegna-riga-add">
+            <select class="field" (change)="aggiungiConsegna($any($event.target).value); $any($event.target).value=''">
+              <option value="">{{ 'partnerForm.consegna.aggiungi' | translate }}</option>
+              @for (p of provinceNonInConsegna(); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
+            </select>
+            @if (provinceEffettive().length && consegna.length === 0) {
+              <button type="button" class="btn btn-secondary btn-sm" (click)="consegnaDalleVendite()">{{ 'partnerForm.consegna.copiaVendite' | translate }}</button>
+            }
+            @if (consegna.length > 1) {
+              <button type="button" class="btn btn-secondary btn-sm" (click)="copiaATutte()">{{ 'partnerForm.consegna.copiaTutte' | translate }}</button>
+            }
+          </div>
+          @if (consegna.length === 0) { <p class="muted mini">{{ 'partnerForm.consegna.vuoto' | translate }}</p> }
+          @else {
+          <table class="tab-consegna">
+            <thead><tr><th>{{ 'partnerForm.consegna.colProvincia' | translate }}</th><th>{{ 'partnerForm.consegna.colMinimo' | translate }}</th><th>{{ 'partnerForm.consegna.colRaggio' | translate }}</th><th></th></tr></thead>
+            <tbody>
+              @for (r of consegna; track r.provinceId; let i = $index) {
+                <tr>
+                  <td><b>{{ codiceProvincia(r.provinceId) }}</b> <span class="muted">{{ nomeProvincia(r.provinceId) }}</span></td>
+                  <td><input class="field num" type="number" min="0" step="1" [name]="'cmin' + i" [(ngModel)]="r.minimoOrdine" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                  <td><input class="field num" type="number" min="0" step="1" [name]="'ckm' + i" [(ngModel)]="r.raggioKm" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                  <td><button type="button" class="x" (click)="rimuoviConsegna(r.provinceId)" [attr.title]="'common.remove' | translate">✕</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          }
+        </div>
+        }
       </section>
 
       <!-- ⭐ 06/09 (decisione utente): la sezione «Categorie vendute» non serve più — contano i MESTIERI.
@@ -383,6 +419,17 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
     </form>
   `,
   styles: [
+    `.area-consegna { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+     .area-consegna h3 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; }
+     .consegna-riga-add { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+     .consegna-riga-add .field { max-width: 320px; }
+     .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+     .tab-consegna { width: 100%; max-width: 640px; border-collapse: collapse; }
+     .tab-consegna th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+     .tab-consegna td { padding: 4px 8px; vertical-align: middle; }
+     .tab-consegna .num { max-width: 140px; }
+     .tab-consegna .x { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text-tertiary); font-size: 14px; }
+     .mini { font-size: 12.5px; margin: 6px 0 0; }`,
     `.consegna-partner { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
      .consegna-partner .hint { margin: 4px 0 0; font-size: 12.5px; color: var(--text-secondary); }
      .chip-n { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(120,120,128,.15); font-size: 11px; }
@@ -472,6 +519,17 @@ export class PartnerFormComponent {
   readonly categories = signal<Category[]>([]);
   readonly mestieri = signal<Mestiere[]>([]);
   readonly selectedMestieri = new Set<string>();
+  /** ⭐ 06/09 sera: l'area di consegna — province dove consegna da solo, con minimo e raggio per provincia. */
+  consegna: { provinceId: string; minimoOrdine: number | null; raggioKm: number | null }[] = [];
+  provinceNonInConsegna(): Province[] { const gia = new Set(this.consegna.map((r) => r.provinceId)); return this.provinces().filter((p) => !gia.has(p.id)); }
+  codiceProvincia(id: string): string { return this.provinces().find((p) => p.id === id)?.code ?? '?'; }
+  nomeProvincia(id: string): string { return this.provinces().find((p) => p.id === id)?.name ?? ''; }
+  aggiungiConsegna(id: string): void { if (id && !this.consegna.some((r) => r.provinceId === id)) this.consegna = [...this.consegna, { provinceId: id, minimoOrdine: null, raggioKm: null }]; }
+  rimuoviConsegna(id: string): void { this.consegna = this.consegna.filter((r) => r.provinceId !== id); }
+  /** Copia i valori della prima riga su tutte le altre. */
+  copiaATutte(): void { const [prima] = this.consegna; if (!prima) return; this.consegna = this.consegna.map((r) => ({ ...r, minimoOrdine: prima.minimoOrdine, raggioKm: prima.raggioKm })); }
+  /** Parte dalle province dove VENDE (area commerciale): comodo quando consegna ovunque vende. */
+  consegnaDalleVendite(): void { const codici = new Set(this.provinceEffettive()); this.consegna = this.provinces().filter((p) => codici.has(p.code)).map((p) => ({ provinceId: p.id, minimoOrdine: null, raggioKm: null })); }
   readonly aree = signal<Area[]>([]);
   readonly selectedAree = new Set<string>();
   /** Le sigle delle province coperte dalle aree scelte (unione), per dirlo a chi compila. */
@@ -622,6 +680,9 @@ export class PartnerFormComponent {
     }
     this.selectedAree.clear();
     for (const a of ((p as any).aree ?? []) as { area?: { id: string } }[]) if (a?.area?.id) this.selectedAree.add(a.area.id);
+    this.consegna = (((p as any).consegnaProvince ?? []) as { provinceId?: string; province?: { id: string }; minimoOrdine?: number | null; raggioKm?: number | null }[])
+      .map((r) => ({ provinceId: r.provinceId ?? r.province?.id ?? '', minimoOrdine: r.minimoOrdine ?? null, raggioKm: r.raggioKm ?? null }))
+      .filter((r) => !!r.provinceId);
     this.selectedMestieri.clear();
     for (const m of ((p as any).mestieri ?? []) as { mestiere?: { id: string } }[]) if (m?.mestiere?.id) this.selectedMestieri.add(m.mestiere.id);
     this.selectedCategories.clear();
@@ -749,6 +810,9 @@ export class PartnerFormComponent {
     if (this.selectedAree.size) payload['areaIds'] = [...this.selectedAree];
     else if (isEdit) payload['areaIds'] = [];
     if (isEdit) payload['provinceIds'] = [...this.selectedProvinces];
+    // ⭐ 06/09 sera: l'area di consegna viaggia solo con «Consegna da Partner»; spento = nessuna.
+    if (m.autoDeliveredByPartner) payload['consegnaProvince'] = this.consegna.map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine === null || (r.minimoOrdine as unknown) === '' ? null : Number(r.minimoOrdine), raggioKm: r.raggioKm === null || (r.raggioKm as unknown) === '' ? null : Number(r.raggioKm) }));
+    else if (isEdit) payload['consegnaProvince'] = [];
 
     const addrs = m.isMultiPickup
       ? this.pickupAddresses.map((a) => a.trim()).filter(Boolean)

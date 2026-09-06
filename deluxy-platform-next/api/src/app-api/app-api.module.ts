@@ -1101,6 +1101,80 @@ export class AppApiService {
    * territorio («con partner» / «senza partner»): non le province coperte per area, che con
    * «Tutto il mondo» sarebbero tutte.
    */
+  /**
+   * ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (regola utente): il Customer Service decide a chi
+   * proporre l'ordine e con che sconto; la piattaforma gli dice CHI C'È in una provincia: i partner
+   * attivi con un servizio di VENDITA, i loro mestieri, se consegnano da soli e se lo fanno in QUELLA
+   * provincia (area di consegna, con minimo e raggio), le aree commerciali che la contengono e le liste
+   * di priorità (per mestiere) della provincia.
+   */
+  async venditaProvincia(sigla: string) {
+    const code = (sigla ?? '').trim().toUpperCase();
+    const provincia = await this.prisma.province.findFirst({ where: { code }, select: { id: true, code: true, name: true } });
+    if (!provincia) throw new NotFoundException(`Provincia sconosciuta: ${sigla}`);
+    const partner = await this.prisma.partner.findMany({
+      where: { active: true, deleted: false, provinces: { some: { provinceId: provincia.id } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } },
+      orderBy: { insegna: 'asc' },
+      select: {
+        id: true, insegna: true, city: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true,
+        mestieri: { select: { mestiere: { select: { chiave: true, nome: true } } } },
+        aree: { select: { area: { select: { id: true, nome: true } } } },
+        consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } },
+      },
+    });
+    const liste = await this.prisma.priorityList.findMany({
+      where: { provinceId: provincia.id },
+      select: { id: true, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true } } } } },
+    });
+    const aree = await this.prisma.area.findMany({ where: { attiva: true, province: { some: { provinceId: provincia.id } } }, select: { id: true, nome: true, _count: { select: { province: true } } }, orderBy: { nome: 'asc' } });
+    return {
+      provincia: provincia.code, nome: provincia.name,
+      conPartner: liste.some((l) => l.entries.some((e) => e.partner.active && !e.partner.deleted)),
+      partner: partner.map((p) => {
+        const qui = p.consegnaProvince.find((x) => x.provinceId === provincia.id) ?? null;
+        const haArea = p.consegnaProvince.length > 0;
+        return {
+          id: p.id, insegna: p.insegna, citta: p.city,
+          mestieri: p.mestieri.map((m) => m.mestiere.nome),
+          consegnaDaPartner: p.autoDeliveredByPartner,
+          consegnaInProvincia: p.autoDeliveredByPartner && (!haArea || !!qui),
+          minimoOrdine: qui?.minimoOrdine ?? p.minimoOrdineVendita ?? null,
+          raggioKm: qui?.raggioKm ?? p.raggioMaxConsegnaKm ?? null,
+          areeCommerciali: p.aree.map((a) => a.area.nome),
+        };
+      }),
+      listePriorita: liste.map((l) => ({ id: l.id, mestiere: l.mestiere?.nome ?? null, categoria: l.category?.name ?? null, partner: l.entries.filter((e) => e.partner.active && !e.partner.deleted).map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna })) })),
+      areeCommerciali: aree.map((a) => ({ id: a.id, nome: a.nome, province: a._count.province })),
+    };
+  }
+
+  /** Le aree commerciali (gruppi di province) coi partner che vendono: per le liste di priorità PER AREA del Customer Service. */
+  async areeCommerciali() {
+    const aree = await this.prisma.area.findMany({
+      where: { attiva: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, province: { select: { province: { select: { code: true, name: true } } } }, partners: { select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, autoDeliveredByPartner: true, mestieri: { select: { mestiere: { select: { nome: true } } } }, services: { select: { serviceType: { select: { pricingModel: true } } } } } } } } },
+    });
+    return aree.map((a) => ({
+      id: a.id, nome: a.nome,
+      province: a.province.map((x) => x.province.code).sort(),
+      partner: a.partners.map((x) => x.partner).filter((p) => p.active && !p.deleted).map((p) => ({ id: p.id, insegna: p.insegna, vendita: p.services.some((s) => s.serviceType.pricingModel === 'VENDITA'), consegnaDaPartner: p.autoDeliveredByPartner, mestieri: p.mestieri.map((m) => m.mestiere.nome) })),
+    }));
+  }
+
+  /** Tutte le liste di priorità (provincia × mestiere/categoria, partner in ordine): il Customer Service le importa e le tiene per area commerciale. */
+  async listePriorita() {
+    const liste = await this.prisma.priorityList.findMany({
+      select: { id: true, province: { select: { code: true, name: true } }, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, updatedAt: true, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true } } } } },
+    });
+    const aree = await this.prisma.area.findMany({ where: { attiva: true }, select: { id: true, nome: true, province: { select: { province: { select: { code: true } } } } } });
+    return liste.map((l) => ({
+      id: l.id, provincia: l.province.code, nomeProvincia: l.province.name, mestiere: l.mestiere?.nome ?? null, mestiereChiave: l.mestiere?.chiave ?? null, categoria: l.category?.name ?? null, aggiornataIl: l.updatedAt,
+      areeCommerciali: aree.filter((a) => a.province.some((x) => x.province.code === l.province.code)).map((a) => a.nome),
+      partner: l.entries.map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna, attivo: e.partner.active && !e.partner.deleted })),
+    }));
+  }
+
   async provinceAbilitate() {
     const liste = await this.prisma.priorityList.findMany({
       select: {
@@ -1385,6 +1459,27 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
   partner() {
     return this.service.partner();
+  }
+
+  @Get('vendita/provincia/:sigla')
+  @ApiOperation({ summary: 'Chi c\'è in una provincia per le VENDITE: partner attivi con servizio di vendita (mestieri, consegna da partner e se consegna in questa provincia con minimo/raggio), liste di priorità della provincia, aree commerciali che la contengono' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  venditaProvincia(@Param('sigla') sigla: string) {
+    return this.service.venditaProvincia(sigla);
+  }
+
+  @Get('aree-commerciali')
+  @ApiOperation({ summary: 'Le aree commerciali (gruppi di province) coi partner attivi che vendono' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  areeCommerciali() {
+    return this.service.areeCommerciali();
+  }
+
+  @Get('liste-priorita')
+  @ApiOperation({ summary: 'Tutte le liste di priorità (provincia × mestiere) coi partner in ordine e le aree commerciali della provincia: il Customer Service le importa' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  listePriorita() {
+    return this.service.listePriorita();
   }
 
   @Get('province-abilitate')

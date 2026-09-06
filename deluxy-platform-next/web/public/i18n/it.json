@@ -1701,10 +1701,22 @@
       "subtitle": "Cosa fa il partner: è quello che guarda lo smistamento. Le categorie sotto sono il dettaglio.",
       "empty": "Nessun mestiere definito.",
       "minimo": "Minimo d'ordine sulle vendite (€ al partner)",
-      "minimoHint": "Sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo. Vuoto = nessun limite.",
+      "minimoHint": "Predefinito: sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo. Vuoto = nessun limite. Per provincia, vedi l'area di consegna.",
       "raggio": "Raggio massimo per le consegne che fa lui (km)",
       "raggioHint": "Oltre questa distanza dal negozio la consegna non gli viene proposta. Vuoto = accetta tutto nelle sue province.",
       "nessunLimite": "nessun limite"
+    },
+    "consegna": {
+      "title": "Dove consegna da solo (area di consegna)",
+      "sub": "Le province in cui il partner consegna in autonomia, con minimo d'ordine e raggio per provincia. Vuoto = i valori predefiniti qui sopra. Le province dove VENDE restano nell'area commerciale.",
+      "aggiungi": "+ Aggiungi provincia…",
+      "copiaVendite": "Parti dalle province dove vende",
+      "copiaTutte": "Copia i valori della prima riga a tutte",
+      "vuoto": "Nessuna provincia di consegna: consegna da solo in tutte le province dove vende, coi valori predefiniti.",
+      "colProvincia": "Provincia",
+      "colMinimo": "Minimo d'ordine (€)",
+      "colRaggio": "Raggio (km)",
+      "predefinito": "predefinito"
     },
     "categories": {
       "title": "Categorie vendute",

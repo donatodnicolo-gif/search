@@ -1431,8 +1431,11 @@ export class DeliveriesService {
     // partner → ogni consegna inserita per lui nasce «consegna da fornitore», a meno
     // che chi inserisce non abbia deciso esplicitamente il contrario. E ogni consegna
     // «da fornitore» senza valet prende il valet «Partner Consegna».
-    const auto = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { autoDeliveredByPartner: true } });
-    if (auto?.autoDeliveredByPartner && dto.deliveredByPartner === undefined) dto.deliveredByPartner = true;
+    const auto = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { autoDeliveredByPartner: true, consegnaProvince: { select: { provinceId: true } } } });
+    // ⭐ 06/09 sera (nuova architettura vendite): con un'AREA DI CONSEGNA dichiarata, il partner consegna
+    // da solo SOLO nelle province di quell'area; fuori, la consegna la fa un valet.
+    const consegnaQui = !auto?.consegnaProvince?.length || auto.consegnaProvince.some((x) => x.provinceId === (dto as any).provinceId);
+    if (auto?.autoDeliveredByPartner && consegnaQui && dto.deliveredByPartner === undefined) dto.deliveredByPartner = true;
     if (dto.deliveredByPartner && !dto.valetId) dto.valetId = (await this.valetPartnerConsegna()) ?? dto.valetId;
 
     const serviceType = await this.prisma.serviceType.findUnique({

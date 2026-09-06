@@ -1034,10 +1034,16 @@ export class SalesService {
     if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
     let valore: { quota: number; regola: string; sconto: number } | null = null;
     try {
-      const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
+      // ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (regola utente): la casa dello sconto per
+      // provincia è il CUSTOMER SERVICE (pagina Vendite), non più Orders, che gestisce solo l'ordine.
+      // Si chiede prima a lui (`customerServiceUrl` / `customerServiceApiKey` in AppSetting o
+      // CUSTOMER_SERVICE_URL / CUSTOMER_SERVICE_API_KEY); Orders resta il ripiego finché delega anche lui.
+      const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey', 'customerServiceUrl', 'customerServiceApiKey'] } } });
       const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
-      const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
-      const chiaveApi = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
+      const urlCs = (map['customerServiceUrl'] || process.env.CUSTOMER_SERVICE_URL || '').replace(/\/+$/, '');
+      const chiaveCs = map['customerServiceApiKey'] || process.env.CUSTOMER_SERVICE_API_KEY || '';
+      const url = urlCs && chiaveCs ? urlCs : (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+      const chiaveApi = urlCs && chiaveCs ? chiaveCs : (map['ordersApiKey'] || process.env.ORDERS_API_KEY || '');
       if (url && chiaveApi) {
         const q = new URLSearchParams({ provincia: prov.code, conPartner: conPartner ? '1' : '0', ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
         const res = await fetch(`${url}/api/v1/quota-fornitore?${q}`, { headers: { 'x-api-key': chiaveApi } });
@@ -1895,7 +1901,7 @@ export class SalesService {
         active: true,
         provinces: { some: { provinceId } },
       },
-      include: { openingHours: true },
+      include: { openingHours: true, consegnaProvince: { where: { provinceId }, select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },
     });
     const perId = new Map(partners.map((p) => [p.id, p]));
     let destino: { lat: number; lng: number } | null | undefined;
@@ -1905,13 +1911,16 @@ export class SalesService {
       if (!p) continue; // non attivo, o non opera in quella provincia
       // ⭐ 06/09/2026 (regola utente): il partner può dire il MINIMO d'ordine che vuole
       // ricevere sulle vendite: sotto quella cifra si passa al successivo.
-      const minimo = (p as any).minimoOrdineVendita as number | null;
+      // ⭐ 06/09 sera (nuova architettura vendite): minimo e raggio valgono PER PROVINCIA di consegna
+      // (area di consegna del partner); la riga vuota eredita i predefiniti del partner.
+      const perQui = ((p as any).consegnaProvince ?? [])[0] as { minimoOrdine: number | null; raggioKm: number | null } | undefined;
+      const minimo = (perQui?.minimoOrdine ?? (p as any).minimoOrdineVendita) as number | null;
       const prezzoPartner = c.prezzoPartner ?? finestra.prezzoPartnerListino ?? (finestra.importo != null ? Math.round(finestra.importo * (1 - (finestra.scontoPct ?? 0) / 100) * 100) / 100 : null);
       if (minimo != null && prezzoPartner != null && prezzoPartner < minimo) { this.logger.log(`${p.insegna}: al partner andrebbero ${prezzoPartner} €, sotto il suo minimo di ${minimo} €: si passa oltre`); continue; }
       // ⭐ 06/09/2026 (regola utente): il partner che CONSEGNA DA SOLO può dire il raggio
       // massimo (km in linea d'aria dal suo negozio): oltre, la vendita passa al successivo.
       // Serve la sua posizione e quella del destinatario (geocodifica, una volta per giro).
-      const raggio = (p as any).raggioMaxConsegnaKm as number | null;
+      const raggio = (perQui?.raggioKm ?? (p as any).raggioMaxConsegnaKm) as number | null;
       if (raggio != null && (p as any).autoDeliveredByPartner && (p as any).latitude != null && (p as any).longitude != null && finestra.indirizzo) {
         if (destino === undefined) { const g = await this.settings.geocode(finestra.indirizzo).catch(() => null); destino = g?.lat != null && g?.lng != null ? { lat: g.lat, lng: g.lng } : null; }
         if (destino) { const km = SalesService.kmInLineaDAria((p as any).latitude, (p as any).longitude, destino.lat, destino.lng); if (km > raggio) { this.logger.log(`${p.insegna}: destinatario a ${km.toFixed(1)} km, oltre il suo raggio di ${raggio} km: si passa oltre`); continue; } }

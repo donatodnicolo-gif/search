@@ -176,6 +176,7 @@ model Province {
   aree              AreaProvincia[]
   cities            City[]
   partnerProvinces  PartnerProvince[]
+  consegnePartner   PartnerConsegnaProvincia[]
   valetProvinces    ValetProvince[]
   categoryDiscounts CategoryDiscount[]
   sales             Sale[]
@@ -335,6 +336,7 @@ model Partner {
   raggioMaxConsegnaKm    Float?
   mestieri            PartnerMestiere[]
   aree                PartnerArea[]
+  consegnaProvince    PartnerConsegnaProvincia[]
   // Pagamenti e contratto
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
@@ -463,6 +465,22 @@ model ValetArea {
   area    Area   @relation(fields: [areaId], references: [id], onDelete: Cascade)
 
   @@unique([valetId, areaId])
+}
+
+/// ⭐ 06/09/2026 sera (nuova architettura vendite, regola utente): AREA DI CONSEGNA = dove il partner
+/// consegna DA SOLO (vale solo con «Consegna da Partner» acceso), con minimo d'ordine e raggio PER
+/// PROVINCIA di consegna (vuoti = i valori predefiniti del partner). L'area COMMERCIALE (PartnerArea /
+/// PartnerProvince) resta «dove vende».
+model PartnerConsegnaProvincia {
+  id           String   @id @default(cuid())
+  partnerId    String
+  provinceId   String
+  minimoOrdine Float?
+  raggioKm     Float?
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  province     Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([partnerId, provinceId])
 }
 
 model PartnerArea {

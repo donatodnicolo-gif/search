@@ -219,6 +219,8 @@ export interface Partner {
   minimoOrdineVendita?: number | null;
   /** ⭐ 06/09/2026: raggio massimo (km) per le consegne che fa lui; null = nessun limite. */
   raggioMaxConsegnaKm?: number | null;
+  /** ⭐ 06/09 sera: area di CONSEGNA (dove consegna da solo), minimo e raggio per provincia. */
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null; province?: { id: string; code: string; name: string } }[];
   mestieri?: { mestiere: Mestiere; origine?: string }[];
   aree?: { area: { id: string; nome: string } }[];
   provinces?: { province: Province; manuale?: boolean }[];

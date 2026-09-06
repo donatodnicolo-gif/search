@@ -1704,6 +1704,18 @@
       "raggioHint": "Beyond this distance from the shop the delivery is not proposed to them.",
       "nessunLimite": "no limit"
     },
+    "consegna": {
+      "title": "Where it delivers on its own (delivery area)",
+      "sub": "Provinces where the partner delivers by itself, with minimum order and radius per province. Empty = the default values above. Provinces where it SELLS stay in the commercial area.",
+      "aggiungi": "+ Add province…",
+      "copiaVendite": "Start from the provinces where it sells",
+      "copiaTutte": "Copy the first row's values to all",
+      "vuoto": "No delivery province: it delivers on its own in every province where it sells, with the default values.",
+      "colProvincia": "Province",
+      "colMinimo": "Minimum order (€)",
+      "colRaggio": "Radius (km)",
+      "predefinito": "default"
+    },
     "categories": {
       "title": "Sold categories",
       "subtitle": "They determine priority and discounts by province.",

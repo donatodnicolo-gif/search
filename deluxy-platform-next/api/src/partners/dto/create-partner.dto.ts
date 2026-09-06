@@ -164,6 +164,11 @@ export class CreatePartnerDto {
   @IsString({ each: true })
   mestiereIds?: string[];
 
+  @ApiPropertyOptional({ type: [Object], description: 'Area di CONSEGNA (solo con Consegna da Partner): province dove consegna da solo, con minimo d\'ordine e raggio per provincia (vuoti = predefiniti del partner)' })
+  @IsOptional()
+  @IsArray()
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[];
+
   @ApiPropertyOptional({ type: [String], description: 'Aree del partner (id di Area): le province effettive sono la loro unione' })
   @IsOptional()
   @IsArray()
