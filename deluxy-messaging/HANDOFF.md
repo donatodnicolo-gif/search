@@ -1,5 +1,16 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (48) — DEPLOY delle 16:21 (col sì dell'utente: «fai push & deploy»)
+
+CS: cherry-pick di 1aad399f, a22454cc, a737863e, 84c6c1fd, 100d2c16 su
+origin/scout-ui (6f4595a7) → **f2e51722**, pushato; `vercel deploy --prod` dal
+worktree `Tempwt-cs` (build su Vercel): `deluxy-messaging-azfxhjhv1`, target
+production, **Ready** alle 16:20. Contiene: composer, ✕ e «vuoto» del riassunto,
+scheda ordine a tre zone (§9-ter), «In App» → finestra «Manda in app». Il Libro
+UX v2.1 (a1a91301, repo app) pushato su origin/piattaforma-ricerca-insensitive
+via worktree temporaneo (il push diretto era rifiutato: il ramo remoto era
+avanti di commit di un'altra sessione).
+
 ## 06/09/2026 (47) — «In App» apre subito la finestra «Manda in app»
 
 Utente: «click "in app" di un ordine: si deve aprire pop-up di inserimento
