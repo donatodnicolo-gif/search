@@ -1128,6 +1128,22 @@ export function DettaglioOrdine({
                       ? 'Lascia andare in automatico'
                       : 'Tienilo manuale'}
                 </button>
+                {/* ── MANDA IN APP, in testata (utente, 06/09/2026) ──
+                    Sta accanto a «Tienilo manuale» perché sono la stessa domanda
+                    vista da due lati: «questo lo facciamo noi» o «lo facciamo fare
+                    alla piattaforma». Il modulo resta nella prima colonna e si
+                    apre da qui, come dal passo «In App». Non si mostra se la
+                    piattaforma se ne sta già occupando: sarebbero due consegne. */}
+                {ordine.id && ordine.gestione !== 'in_app' && !ordine.appStato ? (
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => setApriInApp((n) => n + 1)}
+                    title="Crea la consegna nella piattaforma consegne: si apre il modulo qui sotto"
+                  >
+                    Manda in app
+                  </button>
+                ) : null}
                 {smistamentoErrore ? (
                   <span style={{ fontSize: 12, color: 'var(--rosso, #B3261E)' }}>{smistamentoErrore}</span>
                 ) : null}
@@ -1326,6 +1342,7 @@ export function DettaglioOrdine({
                     ordineId={ordine.id}
                     onFatto={() => void carica()}
                     apri={apriInApp}
+                    senzaBottone
                     // Le righe dell'ordine (da Orders): il modulo propone il
                     // prodotto e il prezzo che il cliente ha comprato.
                     righe={righe.map((r) => ({

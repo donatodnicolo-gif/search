@@ -1,5 +1,28 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (37) — «Manda in app» sale in testata, accanto a «Tienilo manuale»
+
+Chiesto dall'utente. Il bottone stava in cima alla prima colonna, da solo;
+ora sta nella riga dei badge, dopo «Tienilo manuale» / «Lascia andare in
+automatico», e si vede solo quando la piattaforma NON se ne sta già occupando
+(`gestione !== 'in_app'` e nessun `appStato`). Premuto, apre il modulo nella
+prima colonna (stesso contatore `apriInApp` del passo «In App»); il modulo con
+`senzaBottone` da chiuso non mostra più il suo bottone.
+
+**La testata, bottone per bottone** (risposta all'utente):
+- **Apri in Shopify ↗**: la pagina dell'ordine su Shopify, in un'altra scheda.
+- **Unisci ordini**: porta al riquadro «Unisci un altro ordine» (due ordini,
+  una vendita sola).
+- **Riconsegna**: porta al riquadro della riconsegna (una consegna da rifare).
+- **✕**: chiude la scheda.
+- **conforme / a rischio / …**: la salute della vendita secondo Orders.
+- **Può andare in automatico / Riservato a noi**: se lo smistamento automatico
+  della piattaforma può prenderlo o no.
+- **Tienilo manuale / Lascia andare in automatico**: cambia quella scelta.
+- **Manda in app**: crea la consegna nella piattaforma, da qui.
+
+**Stato**: in locale, commit sì, push no.
+
 ## 06/09/2026 (36) — Regola: con un pagamento in app si carica il prodotto PADRE (e il catalogo cambierà)
 
 **Decisione dell'utente (06/09/2026)**, due parti:
