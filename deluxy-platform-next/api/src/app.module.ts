@@ -66,6 +66,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     CustomersModule,
     SalesModule,
     StockModule,
+    StatisticheModule,
     OrdersSyncModule,
     RecurringModule,
     AiModule,

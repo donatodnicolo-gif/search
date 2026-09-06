@@ -225,7 +225,12 @@ const VERSO: Record<string, 1 | -1 | 0> = {
   `,
   styles: [`
     .sub { color: var(--text-secondary); margin: 4px 0 0; }
-    .quick-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    /* Segmented come in Consegne (stessa classe, stesso aspetto): sfondo incassato, pillola nera per la voce attiva. */
+    .quick-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-sunken, #ececef); max-width: 100%; overflow-x: auto; }
+    .quick-tab { border: 0; background: transparent; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; font-weight: 550; color: var(--text-secondary); cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
+    .quick-tab:hover { color: var(--text-primary); }
+    .quick-tab.active { background: var(--surface, #fff); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); font-weight: 600; }
+    .quick-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     .filtri { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: flex-end; padding: 14px 18px; margin-bottom: 16px; }
     .gruppo { display: flex; flex-direction: column; gap: 6px; }
     .eti { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-tertiary); font-weight: 600; }
