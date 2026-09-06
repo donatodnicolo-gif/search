@@ -382,14 +382,23 @@ export async function consegnePerDdt(ddt: string): Promise<EsitoPiattaforma<{ co
   )
   if (r.stato !== 'ok') return r
   const grezze = Array.isArray(r.dati) ? r.dati : ((r.dati.consegne as Record<string, unknown>[]) ?? [])
+  // ⚠️⚠️ LA FORMA VERA della riga di `/app/consegne` (misurata il 06/09/2026):
+  // lo stato sta in `esito.stato` e il DDT in `ordine.ddt` / `ordine.ddtBrand`,
+  // non in cima. Leggendo `stato`/`ddtNumber` in cima si trovava sempre «niente»
+  // — e la regola delle consegne da pagamenti proponeva di CREARE 18 consegne
+  // che di là esistevano già. Si accettano tutte e due le forme.
   const consegne: ConsegnaDdt[] = grezze
-    .map((c) => ({
-      id: String(c.id ?? ''),
-      numero: (c.numero ?? c.code) as number | string | undefined,
-      stato: String(c.stato ?? c.status ?? ''),
-      ddtNumero: (c.ddtNumero ?? c.ddtNumber) as string | undefined,
-      ddtBrand: (c.ddtBrand ?? c.ddt_brand) as string | undefined,
-    }))
+    .map((c) => {
+      const esito = (c.esito ?? {}) as Record<string, unknown>
+      const ordine = (c.ordine ?? {}) as Record<string, unknown>
+      return {
+        id: String(c.id ?? ''),
+        numero: (c.numero ?? c.code) as number | string | undefined,
+        stato: String(c.stato ?? c.status ?? esito.stato ?? ''),
+        ddtNumero: (c.ddtNumero ?? c.ddtNumber ?? ordine.ddt ?? ordine.ddtNumber) as string | undefined,
+        ddtBrand: (c.ddtBrand ?? c.ddt_brand ?? ordine.ddtBrand) as string | undefined,
+      }
+    })
     // ⚠️ Si RICONTROLLA il DDT: una piattaforma vecchia che ignora `?ddt=`
     // tornerebbe le ultime 5 consegne di chiunque, e «esiste già» sarebbe falso.
     .filter((c) => (c.ddtNumero ?? '').replace(/^#/, '') === ddt.replace(/^#/, '').trim())
@@ -411,12 +420,20 @@ export async function consegneAggiornate(
   // forma. Una lista vuota per «forma diversa» sembrerebbe «nessuna consegna»,
   // che è la bugia peggiore qui dentro — l'ordine resterebbe aperto per sempre.
   const grezze = Array.isArray(r.dati) ? r.dati : ((r.dati.consegne as Record<string, unknown>[]) ?? [])
-  const consegne: ConsegnaDdt[] = grezze.map((c) => ({
-    id: String(c.id ?? ''),
-    numero: (c.numero ?? c.code) as number | string | undefined,
-    stato: String(c.stato ?? c.status ?? ''),
-    ddtNumero: (c.ddtNumero ?? c.ddtNumber) as string | undefined,
-    ddtBrand: (c.ddtBrand ?? c.ddt_brand) as string | undefined,
-  }))
+  // ⚠️⚠️ Stessa lettura di `consegnePerDdt`: la piattaforma mette lo stato in
+  // `esito.stato` e il DDT in `ordine.ddt`. Con la lettura «in cima» questa
+  // funzione tornava righe con stato e DDT vuoti, e la chiusura degli ordini
+  // dalle consegne (consegne-piattaforma.ts) non ha mai chiuso niente.
+  const consegne: ConsegnaDdt[] = grezze.map((c) => {
+    const esito = (c.esito ?? {}) as Record<string, unknown>
+    const ordine = (c.ordine ?? {}) as Record<string, unknown>
+    return {
+      id: String(c.id ?? ''),
+      numero: (c.numero ?? c.code) as number | string | undefined,
+      stato: String(c.stato ?? c.status ?? esito.stato ?? ''),
+      ddtNumero: (c.ddtNumero ?? c.ddtNumber ?? ordine.ddt ?? ordine.ddtNumber) as string | undefined,
+      ddtBrand: (c.ddtBrand ?? c.ddt_brand ?? ordine.ddtBrand) as string | undefined,
+    }
+  })
   return { stato: 'ok', dati: { consegne } }
 }
