@@ -1,5 +1,48 @@
 # Handoff — Deluxy Customer Service
 
+## 06/09/2026 (49) — Lente nella chat; «Manda in app» anche se interrotta; Unisci/Riconsegna tornano pillole
+
+**Cercare dentro una chat** (utente: «metti una icona lente per cercare dentro
+una chat»). In `Inbox.tsx`, nel gruppo «capire questa conversazione» accanto a
+Riassunto, una lente (`.icona-28`, 19px, Libro §3) apre `.barra-cerca-chat`
+sopra i messaggi: campo, «N di M», ▲ ▼, ×. Invio = successivo, Maiusc+Invio =
+precedente, Esc chiude (si ferma lì, non chiude la chat). Confronto senza accenti
+e maiuscole (`normalizzaPerRicerca`) su testo, traduzione e oggetto; da 2
+lettere. Le occorrenze vanno in `<mark>` dentro le bolle (`conEvidenza`, che
+cerca sull'originale finestra per finestra così gli accenti scomposti non
+spostano i tagli); la bolla corrente ha `id="msg-<id>"`, bordo oro e ci si
+scorre sopra (`scrollIntoView`). Si parte dal risultato più recente. Cambiando
+conversazione la ricerca si chiude. Sul telefono la lente sta nel foglio «⋯»
+(stesso DOM).
+
+**«Scomparso bottone per inserire in app» (#2876)**: la vendita di là era
+«interrotta da noi» e la condizione nascondeva «Manda in app» appena esisteva
+`appStato`; peggio, `MandaInApp` era MONTATO solo in quel ramo, quindi anche
+il passo «In App» non faceva nulla («clicco In App ma non succede nulla»).
+Ora: bottone visibile se non In App e non (`appStato` senza `appInterrottoIl`)
+— «se è interrotta dev'essere visibile così possiamo reinserire o cercare un
+nuovo match»; la finestra è montata sempre (da chiusa non rende niente).
+
+**Unisci ordini / Riconsegna**: l'utente le rivuole PILLOLE in testata («lascia
+pulsanti unisci e riconsegna visibili»): via il menu «⋯» (conteneva solo
+quelle), via stato ed effetto del menu. Deroga al Libro §9-ter (≤ 2 pillole)
+annotata nella segnalazione UX (10). Testata ora: [Manda in app] [Apri in
+Shopify ↗] [Unisci ordini] [Riconsegna] ✕.
+
+**Verifica**: `tsc` 0; a occhio da fare. **Stato**: in locale.
+
+## 06/09/2026 (48) — DEPLOY delle 16:21 (col sì dell'utente: «fai push & deploy»)
+
+CS: cherry-pick di 1aad399f, a22454cc, a737863e, 84c6c1fd, 100d2c16 su
+origin/scout-ui (6f4595a7) → **f2e51722**, pushato; `vercel deploy --prod` dal
+worktree `Tempwt-cs` (build su Vercel): `deluxy-messaging-azfxhjhv1`, target
+production, **Ready** alle 16:20. Contiene: composer, ✕ e «vuoto» del riassunto,
+scheda ordine a tre zone (§9-ter), «In App» → finestra «Manda in app». Il Libro
+UX v2.1 (a1a91301, repo app) pushato su origin/piattaforma-ricerca-insensitive
+via worktree temporaneo → 66a9eb00 (il push diretto era rifiutato: il ramo
+remoto era avanti di commit di un'altra sessione; conflitto in SEGNALAZIONI-UX
+risolto tenendo il testo nuovo, nessun titolo doppio).
+
 ## 06/09/2026 (47) — «In App» apre subito la finestra «Manda in app»
 
 Utente: «click "in app" di un ordine: si deve aprire pop-up di inserimento
