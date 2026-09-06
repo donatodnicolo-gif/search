@@ -18,12 +18,22 @@ export async function GET(req: NextRequest) {
   // Modena mostra dei fornitori» — quelli erano PROSPECT, e questa pagina
   // chiedeva al registro solo gli attivi). Di suo restano gli attivi.
   const stato = p.get('stato') === 'tutti' ? 'tutti' : 'attivo'
-  const esito = await partnerAttivi({
-    q: p.get('q') ?? '',
-    categoria: p.get('categoria') ?? '',
-    citta: p.get('citta') ?? '',
-    stato,
-  })
+  // ⚠️ La città può arrivare più volte: sono le VARIANTI con cui è scritta nel
+  // registro («MODENA», «Modena»), che il filtro di là distingue. Si chiede una
+  // volta per variante e si fondono i risultati; con una sola, una chiamata.
+  const cittaScelte = p.getAll('citta').map((c) => c.trim()).filter(Boolean)
+  const chiedi = (citta: string) =>
+    partnerAttivi({ q: p.get('q') ?? '', categoria: p.get('categoria') ?? '', citta, stato })
+  let esito = await chiedi(cittaScelte[0] ?? '')
+  if (esito.stato === 'ok' && cittaScelte.length > 1) {
+    const altri = await Promise.all(cittaScelte.slice(1).map(chiedi))
+    const visti = new Set(esito.partner.map((x) => x.id))
+    for (const a of altri) {
+      if (a.stato !== 'ok') continue
+      for (const x of a.partner) if (!visti.has(x.id)) { visti.add(x.id); esito.partner.push(x) }
+    }
+    esito = { ...esito, totale: esito.partner.length }
+  }
 
   if (esito.stato === 'non-configurato') {
     return NextResponse.json(
@@ -40,5 +50,6 @@ export async function GET(req: NextRequest) {
     partner: esito.partner,
     categorie: esito.categorie,
     citta: esito.citta,
+    cittaVarianti: esito.cittaVarianti,
   })
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { primaMaiuscola } from '@/lib/testo'
 import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -138,6 +139,8 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
   const [partner, setPartner] = useState<Partner[]>([])
   const [categorie, setCategorie] = useState<string[]>([])
   const [citta, setCitta] = useState<string[]>([])
+  /** Per ogni città mostrata, le forme in cui sta nel registro (per filtrare). */
+  const [cittaVarianti, setCittaVarianti] = useState<Record<string, string[]>>({})
   const [totale, setTotale] = useState(0)
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
@@ -170,7 +173,8 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
       const p = new URLSearchParams()
       if (qCercata) p.set('q', qCercata)
       if (filtroCategoria) p.set('categoria', filtroCategoria)
-      if (filtroCitta) p.set('citta', filtroCitta)
+      // Tutte le forme della città scelta: il registro distingue le maiuscole.
+      for (const v of cittaVarianti[filtroCitta] ?? (filtroCitta ? [filtroCitta] : [])) p.append('citta', v)
       if (statoRegistro === 'tutti') p.set('stato', 'tutti')
       const res = await fetch('/api/partner?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
@@ -178,6 +182,7 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
         totale?: number
         categorie?: string[]
         citta?: string[]
+        cittaVarianti?: Record<string, string[]>
         errore?: string
       }
       if (!res.ok) {
@@ -206,12 +211,16 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
       if (!filtroCategoria && !filtroCitta && !qCercata) {
         setCategorie(d.categorie ?? [])
         setCitta(d.citta ?? [])
+        setCittaVarianti(d.cittaVarianti ?? {})
       }
     } catch {
       setErrore('Registro non raggiungibile: problema di rete.')
     } finally {
       setCaricato(true)
     }
+    // ⚠️ `cittaVarianti` non sta fra le dipendenze di proposito: cambia solo
+    // col primo caricamento, e metterlo qui farebbe ripartire la chiamata.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qCercata, filtroCategoria, filtroCitta, statoRegistro])
 
   useEffect(() => {
@@ -425,8 +434,10 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
                     </td>
                     <td className="cella-muta">{p.categoria}</td>
                     <td className="cella-muta">
-                      {p.citta}
-                      {p.provincia ? ` (${p.provincia})` : ''}
+                      {primaMaiuscola(p.citta)}
+                      {p.provincia
+                        ? ` (${p.provincia.length > 3 ? primaMaiuscola(p.provincia) : p.provincia})`
+                        : ''}
                     </td>
                     <td>
                       {fin ? (
