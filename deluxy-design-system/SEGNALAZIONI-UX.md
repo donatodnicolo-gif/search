@@ -696,3 +696,15 @@ funzioni di Personale nella tendina — è stata sconsigliata perché avrebbe fu
 l'asse dei privilegi con quello dell'organico: [[trappola-permessi-con-un-asse-solo]]).
 
 STATO: in locale, committato, in attesa del collaudo dell'utente e del suo ok al deploy.
+
+## 06/09/2026 (9) — Piattaforma consegne: le classifiche di Statistiche traboccavano dalla tessera (segnalazione dell'utente, screenshot)
+
+**Dove**: `deluxy-platform-next/web/src/app/pages/statistiche.component.ts`, blocco «Classifiche + stati» (`.griglia-3`).
+
+**Cosa si vedeva**: quattro tessere in una riga sola (griglia `auto-fit, minmax(280px, 1fr)`), ognuna con una tabella a cinque colonne (Nome, Consegne, %, Δ, In orario). A ~1500px ogni tessera aveva ~350px: i nomi andavano a capo su tre righe, la Δ («▲ +47 · +293,8%») si spezzava in due, e la quinta colonna finiva TAGLIATA dal bordo della tessera («In orario» si leggeva «or»). La tabella non scorreva: era clipping puro, l'informazione era persa.
+
+**Correzione locale**: tessera con larghezza minima dettata dalle sue colonne (`minmax(min(100%, 480px), 1fr)` → 2×2 su un desktop normale, 3 in fila oltre i 1500px), numeri e Δ `white-space: nowrap`, colonne numeriche a larghezza di contenuto (`width: 1%`), colonna nome con minimo 120px, e la tabella dentro un contenitore `.scorri { overflow-x: auto }` come vuole il Libro (§ tabelle: la tabella larga scorre nel suo contenitore, mai la pagina, mai tagliata).
+
+**Per il custode**: candidata a regola generale — **una griglia di tessere con tabelle dentro prende il minimo dalla tabella, non da un numero tondo**: `minmax(280px, 1fr)` va bene per tessere di testo, non per cinque colonne di numeri. E ogni tabella dentro una tessera sta in un contenitore che scorre: il clipping silenzioso è il difetto peggiore perché nessuno lo segnala finché non manca una colonna.
+
+STATO: in locale, committato; attesa del collaudo dell'utente (localhost:4210/statistiche).
