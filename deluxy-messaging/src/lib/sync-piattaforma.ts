@@ -2,6 +2,9 @@ import { db } from './db'
 import { leggiImpostazioni, salvaImpostazione } from './impostazioni'
 import { eInApp, nomeStatoVendita, venditeAggiornate, type VoceInApp } from './piattaforma'
 import { CHIUSURA } from './gestione'
+import { chiudiNoteDellOrdine } from './diario-chiusura'
+import { chiudiChiamateDellOrdine } from './chiamate'
+import { comunicaStatoAOrders } from './orders'
 
 // TENERE ALLINEATA LA COLONNA «IN APP».
 //
@@ -32,6 +35,8 @@ export type EsitoSync = {
   lette: number
   passateInApp: number
   tornateANoi: number
+  /** Consegnate di là e quindi chiuse qui («Gestito»), regola del 06/09/2026. */
+  gestite: number
   aggiornate: number
   saltate: number
   righe: string[]
@@ -48,6 +53,7 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     lette: 0,
     passateInApp: 0,
     tornateANoi: 0,
+    gestite: 0,
     aggiornate: 0,
     saltate: 0,
     righe: [],
@@ -104,6 +110,7 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
       const riga = await allineaUno(v, opz.prova === true)
       if (riga.esito === 'in-app') esito.passateInApp++
       else if (riga.esito === 'tornato') esito.tornateANoi++
+      else if (riga.esito === 'gestito') esito.gestite++
       else if (riga.esito === 'aggiornato') esito.aggiornate++
       else esito.saltate++
       if (riga.testo) esito.righe.push(riga.testo)
@@ -140,13 +147,13 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     // non è misurato, è ricordato: qui resta una riga leggibile da Impostazioni.
     await salvaImpostazione(
       CHIAVE_ESITO,
-      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi}${esito.errore ? ' · ' + esito.errore : ''}`
+      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi} · gestite ${esito.gestite}${esito.errore ? ' · ' + esito.errore : ''}`
     )
   }
   return esito
 }
 
-type RigaEsito = { esito: 'in-app' | 'tornato' | 'aggiornato' | 'saltato'; testo: string }
+type RigaEsito = { esito: 'in-app' | 'tornato' | 'gestito' | 'aggiornato' | 'saltato'; testo: string }
 
 async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
   const idOrders = v.vendita.riferimentoEsterno ?? ''
@@ -162,6 +169,7 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
     select: {
       id: true,
       numero: true,
+      shopifyId: true,
       gestione: true,
       appStato: true,
       appVenditaId: true,
@@ -203,6 +211,42 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
   // l ordine e stato mandato in app da qui, quello e il nostro e non si
   // sovrascrive. Serve per gli ordini che la piattaforma ha smistato da sola.
   if (v.consegna?.id && !ordine.appConsegnaId) dati.appConsegnaId = v.consegna.id
+
+  // ── 0. CONSEGNATA DI LÀ = «GESTITO» QUI ──
+  //
+  // ⚠️⚠️ Regola dell'utente (06/09/2026): «tutti gli ordini che vanno in
+  // consegnato in app delivery devono essere segnati come Gestito dal Customer
+  // Service». Il caso vero: #12887, consegnata il 05/09 alle 20:01 dal valet,
+  // e qui ancora «In App» con la scritta «consegna scaduta da 1 giorno» — un
+  // lavoro finito che sembrava in ritardo. Misurato prima di scrivere: 109
+  // ordini con consegna «delivered» di là, 108 già chiusi a mano, 1 no.
+  //
+  // Vale QUALUNQUE sia il passo qui (anche se qualcuno l'ha interrotto e ripreso
+  // a mano): la consegna è avvenuta, e un ordine consegnato non resta da fare.
+  // Si chiudono con lui note e chiamate, come quando «Gestito» lo preme una
+  // persona, e lo si dice a Orders (best-effort: un fallimento di là non
+  // annulla il fatto qui). Il nome di chi ha chiuso è la piattaforma, non un
+  // operatore: fra un mese si deve poter distinguere.
+  if ((v.consegna?.stato ?? '') === 'delivered' && ordine.gestione !== CHIUSURA) {
+    const adesso = new Date()
+    dati.gestione = CHIUSURA
+    dati.gestioneIl = adesso
+    dati.gestioneDaId = ''
+    dati.gestioneDaNome = 'Piattaforma consegne'
+    dati.appGestionePrima = ''
+    if (!prova) {
+      await db.ordine.update({ where: { id: ordine.id }, data: dati })
+      await chiudiNoteDellOrdine(ordine.numero, 'Piattaforma consegne')
+      await chiudiChiamateDellOrdine(ordine.id, ordine.numero, 'Piattaforma consegne')
+      await comunicaStatoAOrders(ordine.numero, ordine.shopifyId, CHIUSURA, 'Piattaforma consegne', adesso).catch(
+        () => null
+      )
+    }
+    return {
+      esito: 'gestito',
+      testo: `${ordine.numero}: consegnata di là${partner ? ` (${partner})` : ''} → Gestito`,
+    }
+  }
 
   // ── 1. L'ordine passa in app ──
   if (nelleSueMani && ordine.gestione !== CHIUSURA && !ordine.appInterrottoIl) {
