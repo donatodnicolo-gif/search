@@ -943,6 +943,11 @@ model Product {
   /// vende* e *com'è fatto* — e un prodotto può essere unico E combinato.
   /// Averle fuse in un enum rendeva quella combinazione inesprimibile.
   type                    String // UNICO | NON_UNICO
+  /// ⭐ 06/09/2026 sera (regola utente): COME SI VENDE questo prodotto — decide come il Customer
+  /// Service lo propone. unico = listino del partner · quantita = prezzo per pezzo × numero (12 rose)
+  /// · mix = composizione a valore, si propone con lo sconto e la lista di priorità · preventivo =
+  /// si chiede il preventivo ai partner del mestiere prima di accettare. Casa definitiva: Merchandising.
+  tipologiaVendita        String?
   /// Com'è fatto: combinazione di più prodotti (i componenti stanno in
   /// ProductComponent). Indipendente da `type`.
   isSuperProduct          Boolean            @default(false)

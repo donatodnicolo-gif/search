@@ -28,6 +28,10 @@ const SCRIVI = process.argv.includes('--scrivi');
 const TUTTI = process.argv.includes('--tutti');
 const FILE = process.argv.find((a) => a.endsWith('.json')) ?? 'C:/Users/nicol/AppData/Local/Temp/claude/C--Users-nicol-app-deluxy-platform-next/d2bc95f0-a0a3-4271-a49f-3c9c76403920/scratchpad/ddt-prezzi-padre.json';
 const MIN_CONSEGNE = 3;
+// ⭐ 06/09 sera (regola utente): i partner col LISTINO PROPRIO non entrano nelle proposte, quindi
+// non si caricano nemmeno i loro prodotti da qui. Con --con-listino-proprio si includono lo stesso.
+const LISTINO_PROPRIO = [/martesana/i, /clivati/i, /gru[eè]/i, /stefanelli/i, /^142/i, /rizzi/i];
+const CON_LISTINO_PROPRIO = process.argv.includes('--con-listino-proprio');
 const dati = JSON.parse(fs.readFileSync(FILE, 'utf8'));
 const righe = Array.isArray(dati) ? dati : (dati.righe ?? dati.rows ?? []);
 const p = new PrismaClient();
@@ -36,7 +40,8 @@ const eTorta = (r) => /cake|torta|pasticc|dolc/i.test(`${r.mestiere ?? ''} ${r.c
 const buone = righe.filter((r) =>
   (r.n ?? 0) >= MIN_CONSEGNE && r.mediana > 0 && !r.partnerInterno && r.partnerId &&
   !(r.pubblico && Math.abs((r.prezzoConsigliato ?? r.mediana) - r.pubblico) < 0.01) &&
-  (TUTTI || eTorta(r)),
+  (TUTTI || eTorta(r)) &&
+  (CON_LISTINO_PROPRIO || !LISTINO_PROPRIO.some((x) => x.test(r.partner ?? ''))),
 );
 // una riga per (partner, prodotto+variante): vince la provincia con più consegne
 const perChiave = new Map();
