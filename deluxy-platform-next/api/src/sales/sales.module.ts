@@ -2526,7 +2526,13 @@ export class SalesService {
     // creata (dati mancanti)» su 15 vendite dal 24/08 (#12901 di Rizzi, 655 €,
     // accettata in 20 secondi e mai diventata consegna). Il servizio di una
     // vendita è UNO: «Vendita Deluxy». Se la vendita non lo dice, vale quello.
-    const serviceTypeId = vendita.serviceTypeId ?? (await this.servizioVenditaDeluxy());
+    // ⭐ 07/09/2026 (regola utente): il servizio lo decide il PAGAMENTO dell'ordine,
+    // come nel modulo dell'ufficio — e col contrassegno il valet deve sapere quanto
+    // incassare, se no il denaro non lo chiede nessuno.
+    const scelta = vendita.serviceTypeId
+      ? { serviceTypeId: vendita.serviceTypeId, contrassegno: false, importo: null as number | null }
+      : await this.servizioDaPagamento(vendita.externalOrderId);
+    const serviceTypeId = scelta.serviceTypeId;
     if (!vendita.partnerId || !serviceTypeId || !vendita.deliveryDate) return null;
     if (!vendita.recipientFirstName || !vendita.recipientLastName || !vendita.recipientAddress) {
       return null;
@@ -2600,6 +2606,10 @@ export class SalesService {
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
         pickupAddress: indirizzoRitiro,
+        // ⭐ 07/09/2026: sul contrassegno il valet deve sapere che incassa, e quanto.
+        // Il servizio da solo non basta: il flag e l'importo sono quello che l'app gli
+        // mostra prima di mettersi in consegna.
+        ...(scelta.contrassegno ? { paymentOnDelivery: true, paymentAmount: scelta.importo ?? undefined } : {}),
         // La finestra chiesta dal cliente sull'ordine (es. «16-20»): aperta
         // come fascia flessibile quando è una finestra vera.
         deliveryTimeFrom: fasciaDalle,
@@ -2662,6 +2672,55 @@ export class SalesService {
    * dell'istanza. Null solo se in questo database non esiste: allora la
    * consegna non nasce, ed è giusto che si veda.
    */
+  /**
+   * ⭐ 07/09/2026 (regola utente: «applica anche in caso di vendite automatiche»).
+   *
+   * IL SERVIZIO LO DECIDE L'ORDINE, SU TUTTE E DUE LE STRADE.
+   *
+   * Dal 06/09 il modulo che l'ufficio apre «prendendo in mano» una vendita sceglie il
+   * tipo di servizio dal PAGAMENTO: contrassegno → «Vendita con Pagamento alla
+   * Consegna», già pagato con più pezzi → «Vendita Deluxy Multipla», altrimenti
+   * «Vendita Deluxy» (nato dal caso 12879, che usciva «con pagamento alla consegna»
+   * pur essendo pagato con carta). Ma la consegna che nasce DA SOLA quando il partner
+   * accetta prendeva sempre «Vendita Deluxy»: stesso ordine, due risposte diverse a
+   * seconda di chi lo tocca per primo — e su un contrassegno vuol dire un valet che
+   * non sa di dover incassare.
+   *
+   * Best-effort per scelta: se Orders non risponde si torna a «Vendita Deluxy». Una
+   * consegna che nasce col servizio di ripiego è meglio di una consegna che non nasce.
+   */
+  private async servizioDaPagamento(externalOrderId: string | null | undefined): Promise<{ serviceTypeId: string | null; contrassegno: boolean; importo: number | null }> {
+    const ripiego = { serviceTypeId: await this.servizioVenditaDeluxy(), contrassegno: false, importo: null as number | null };
+    if (!externalOrderId) return ripiego;
+    let ordine: any = null;
+    try {
+      ordine = await this.ordineDaOrders(externalOrderId);
+    } catch {
+      return ripiego;
+    }
+    if (!ordine) return ripiego;
+    // Le stesse due fonti del modulo: la categoria di pagamento classificata da Orders,
+    // e come rete il nome del gateway Shopify.
+    const categoria = String(ordine?.classificazione?.categoriaPagamento ?? '').toLowerCase();
+    const gateway = String(ordine?.shopify?.gateway ?? ordine?.pagamento?.gateway ?? '').toLowerCase();
+    const contrassegno = categoria === 'contrassegno' || /contrassegno|cash on delivery|\bcod\b/.test(gateway);
+    // I pezzi sono le righe CON SKU: una riga senza SKU è una personalizzazione
+    // (la candelina, la scritta sulla torta), non un secondo pezzo.
+    const righe: any[] = Array.isArray(ordine?.righe) ? ordine.righe : [];
+    const pezzi = righe.filter((r) => String(r?.sku ?? '').trim()).reduce((t, r) => t + (Number(r?.quantita) || 1), 0);
+    const totale = Number(ordine?.totale);
+    const nome = contrassegno ? 'Vendita con Pagamento alla Consegna' : pezzi > 1 ? 'Vendita Deluxy Multipla' : 'Vendita Deluxy';
+    const st = await this.prisma.serviceType.findFirst({
+      where: { name: { equals: nome, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    return {
+      serviceTypeId: st?.id ?? ripiego.serviceTypeId,
+      contrassegno,
+      importo: contrassegno && Number.isFinite(totale) && totale > 0 ? totale : null,
+    };
+  }
+
   private async servizioVenditaDeluxy(): Promise<string | null> {
     if (this.servizioVenditaDeluxyId !== undefined) return this.servizioVenditaDeluxyId;
     const st = await this.prisma.serviceType.findFirst({

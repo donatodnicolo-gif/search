@@ -788,12 +788,27 @@ export class OrdersSyncService {
             smist: info.smist,
           });
         }
-        // Nessun candidato per NESSUNA riga: la vendita non si crea, come prima.
         const conCandidato: typeof daCreare = [];
         for (const riga of daCreare) {
           if (await this.sales.esisteCandidato(riga.smist, province.get(codice)!, riga.variantId ?? null)) conCandidato.push(riga);
         }
-        if (!conCandidato.length && !senzaProdotto.length) {
+        // ⭐ 07/09/2026 (segnalazione utente: «in Vendite non c'è il 12902») — SENZA
+        // PARTNER NON VUOL DIRE SENZA ORDINE.
+        //
+        // Il Bouquet Portofino è un prodotto UNICO di Deluxy Flowers, che ha il flag
+        // «escluso dalle proposte»: lo smistamento lo salta — giusto, a quei partner non
+        // si propone in automatico — e non trovando nessun altro candidato concludeva
+        // che non c'era niente da fare. L'ordine spariva: non in Vendite, non altrove,
+        // e nessuno sapeva che esisteva. Misurato sul vivo: 2 ordini su 224 in 14 giorni
+        // (#12902 Bouquet Portofino 150 € Pavia, #2880 Bouquet Girasoli 135 € Cagliari).
+        //
+        // È la terza volta che questa app perde ordini nello stesso modo (01/09: senza
+        // SKU; 07/09: riga senza SKU riconosciuta dal nome). La regola è sempre quella:
+        // se non so a chi darlo, l'ordine si fa VEDERE lo stesso. La vendita nasce DA
+        // GESTIRE, senza proposta automatica — che è esattamente ciò che il flag voleva:
+        // niente automatismo, non il silenzio.
+        const senzaCandidato = daCreare.filter((r) => !conCandidato.includes(r));
+        if (!conCandidato.length && !senzaProdotto.length && !senzaCandidato.length) {
           esito = 'senza-partner';
         } else if (!opzioni.applica) {
           const gia = await this.prisma.sale.findFirst({
@@ -822,6 +837,27 @@ export class OrdersSyncService {
               });
               if (r.creata) creata++; else gia++;
               if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE && !daGestire.includes(etichetta)) daGestire.push(etichetta);
+            }
+            // ⭐ 07/09/2026: le righe col prodotto riconosciuto ma SENZA nessun partner a
+            // cui proporle (unico di un partner escluso, o provincia scoperta): la vendita
+            // nasce DA GESTIRE, col prodotto agganciato — l'ufficio la vede e decide.
+            for (const riga of senzaCandidato) {
+              const r3 = await this.sales.ingest({
+                source: 'deluxy-orders',
+                externalOrderId: o.id,
+                externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+                provinceId: province.get(codice)!,
+                productId: riga.productId,
+                productVariantId: riga.variantId,
+                amount: riga.amount ?? undefined,
+                quantity: riga.quantity ?? undefined,
+                productName: riga.titolo ?? undefined,
+                senzaProposta: true,
+                brand: o.brand ?? undefined,
+                ...this.destinatario(o),
+                deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+              });
+              if (r3.creata) { creata++; if (!daGestire.includes(etichetta)) daGestire.push(etichetta); } else gia++;
             }
             // Le righe senza prodotto a catalogo: una vendita DA GESTIRE ciascuna, col titolo.
             // Servono a vedere che l'ordine è composto e che manca ancora un pezzo.
@@ -1129,7 +1165,11 @@ export class CronMarginiController {
     // vecchi vanno ripassati (è successo con le righe senza SKU). Il tetto è 90 giorni:
     // oltre, la corsa non sta nei 300 secondi della funzione e sarebbe un troncamento muto.
     const richiesta = (daQuery ?? '').trim();
-    const valida = /^d{4}-d{2}-d{2}$/.test(richiesta) ? new Date(`${richiesta}T00:00:00.000Z`) : null;
+    // ⚠️ 07/09/2026: qui c'era `/^d{4}-d{2}-d{2}$/` — senza i backslash, cioè la LETTERA
+    // «d» ripetuta, non le cifre. Nessuna data passava mai la validazione e `?da=` veniva
+    // ignorato in silenzio: il recupero dell'arretrato non ha mai funzionato, e la finestra
+    // restava sempre quella di 3 giorni. È la trappola del backslash mangiato dalle patch.
+    const valida = /^\d{4}-\d{2}-\d{2}$/.test(richiesta) ? new Date(`${richiesta}T00:00:00.000Z`) : null;
     const limiteMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const scelta = valida && !isNaN(valida.getTime()) && valida >= limiteMin ? valida : new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const da = scelta.toISOString().slice(0, 10);
