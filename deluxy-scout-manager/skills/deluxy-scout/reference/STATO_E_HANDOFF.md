@@ -20,6 +20,7 @@ Ultimo aggiornamento: **7 settembre 2026**. Questo documento permette a un altro
 > 5. (Facoltativo) nuovo build EAS Android per `expo-document-picker`.
 >
 > 📌 **Punti aperti (7 set 2026)** — elenco completo, dal più importante:
+> 0. **Nuovo Supabase**: farsi dare ref/URL/anon key nuovi e sapere se i dati sono stati migrati (scenario A) o il progetto è vuoto (B); aggiornare `.env` + `eas.json`; rideployare le 9 funzioni e reimpostare i secret; poi rideploy web. Finché non è fatto, il sito live parla col progetto vecchio.
 > 1. **Pubblicazione** di quanto sopra (migrazioni 0029–0031, deploy `hubspot-sync` + `notifica-chiusura`, deploy web) — bloccata dai token.
 > 2. **Verifica visiva utente** (login-gated, non testabile dall'agente): Trattative (priorità, pop-up chiusura, allegati), Pianificazione (settimane, strade → Maps), Oggi (piano di oggi), scheda negozio («Apri una trattativa»).
 > 3. **Scope note HubSpot**: se la Service key non ha `crm.objects.notes.write`, le note delle visite senza trattativa aperta restano solo in Scout. Valutare una Private App con lo scope note (o proprietà custom sulla Company).
@@ -85,14 +86,27 @@ Ultimo aggiornamento: **7 settembre 2026**. Questo documento permette a un altro
 >   - **Nota**: Anagrafiche **non ha entità "trattative"** — la trattativa è lo `stato` del Partner (`in_trattativa`) + `account` + `ultimaVisita`. Mappature: BOUTIQUE→moda, FIORISTA→fioraio, PASTICCERIA/CIOCCOLATERIA→pasticceria, RISTORANTE/ENOTECA→ristorante premium, GIFTING/MERCHANDISING→azienda corporate, CATERING/PARTY→event planner; `attivo`→cliente, `in_trattativa`→visitato, `non_interessato`→perso, resto→da_visitare.
 >   - ⚠️ **~30+ doppioni noti** tra registro e negozi scoperti da Google (Gucci, Prada, Jimmy Choo, Dolce & Gabbana…, spesso a 0-40 m): **non fusi di proposito**. Lo script li elenca a fine run; serve una strategia di merge (decidere quale record vince e cosa fare di visite/contatti).
 
-> ⚡ **COME RIPRENDERE IN UNA NUOVA FINESTRA (checklist)**
+
+> 🖥️ **NUOVO PC + NUOVO PROGETTO SUPABASE (7 set 2026)** — l'utente ha comunicato che **Supabase è cambiato** e che **tutti i progetti sono su un nuovo PC**. Conseguenze, da leggere PRIMA di qualunque comando:
+> - **Tutti i percorsi Windows** di questo file (`C:\Users\nicol\app`, il worktree `C:\Users\nicol\scoutwt`, la junction `node_modules`) sono **storici**: sul nuovo PC si lavora nella cartella dove è stato clonato il repo `search`, sottocartella `deluxy-scout/`, branch `main` (dopo il merge di `claude/deluxy-scout-handoff-memory-xgrh2i`). Non ricreare worktree/junction.
+> - **Il project ref `fdsziebgkljfsugqqbqd` è quello VECCHIO.** Il nuovo ref/URL/anon key **non sono noti all'agente**: chiederli all'utente (Dashboard → Project Settings → API) e **non** dedurli da questo file. Gli script (`mgmt-query`, `import-anagrafiche`, `recupera-telefoni`) ora **esigono `SUPABASE_REF`** e non hanno più un default: impossibile scrivere per sbaglio sul progetto vecchio.
+> - **Da aggiornare con i valori nuovi** (una volta noti): `deluxy-scout/.env` (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_HUBSPOT_SYNC_URL` = `<url>/functions/v1/hubspot-sync`), `eas.json` → profilo `preview.env` (stessi tre valori: oggi contiene ancora quelli vecchi), la chiave Anagrafiche di sola lettura (`ANAGRAFICHE_API_KEY`, in `.env`) se non è già sul nuovo PC, e poi **rideploy web** (il bundle include URL e anon key: finché non si rideploya, deluxy-scout.vercel.app parla col progetto vecchio).
+> - **Due scenari possibili — chiedere all'utente quale**:
+>   - **(A) Dati migrati** sul nuovo progetto (schema + righe copiati): applicare solo le migrazioni mancanti, oggi **0029, 0030, 0031**, e verificare che 0013 e 0014-0028 ci siano (`select column_name from information_schema.columns where table_name='deals'`).
+>   - **(B) Progetto nuovo e vuoto**: applicare **tutte** le migrazioni in ordine `0001 … 0031` (`node scripts/mgmt-query.mjs supabase/migrations/00XX_*.sql`), poi seed/import: 0003 mette linee + category_rules; negozi da CSV (`import-places.mjs`) o dal registro (`import-anagrafiche.mjs` con `ANAGRAFICHE_API_KEY`); CRM HubSpot con `sync_crm` (Profilo → «Sincronizza contatti da HubSpot»); utenti con `create-user.mjs` (3 venditori) + `raw_user_meta_data.nome`; cron notturno 0009. Le foto vetrina e gli allegati del bucket vecchio non si spostano da soli.
+> - **Edge Functions da rideployare TUTTE sul nuovo progetto** (`SUPABASE_ACCESS_TOKEN=<PAT>`; `npx -y supabase@latest functions deploy <nome> --project-ref <REF-NUOVO>`): `hubspot-sync`, `hubspot-match` (**`--no-verify-jwt`**, serve al cron), `geocode`, `discover`, `anagrafiche`, `notifica-task`, `promemoria`, `calendario-ics` (**`--no-verify-jwt`**), `notifica-chiusura` (nuova).
+> - **Secret da reimpostare sul nuovo progetto** (`npx -y supabase@latest secrets set … --project-ref <REF-NUOVO>`): `HUBSPOT_TOKEN`, `GOOGLE_GEOCODING_KEY` (stessa chiave Maps `AIza…qTH8`), `ANAGRAFICHE_API_KEY`, `SMTP_HOST/PORT/USER/PASS/FROM` (le email oggi arrivano: ricopiarli), opzionale `ANTHROPIC_API_KEY`. `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` li fornisce Supabase da solo alle funzioni.
+> - **Vercel** (deploy web) e **EAS** (build APK) non cambiano: `scripts/deploy-web.sh` resta pinnato al progetto Vercel `deluxy-scout`; la chiave Maps Android è già variabile EAS.
+> - Il file `supabase/.temp/linked-project.json` (stato del CLI che puntava al progetto vecchio) è stato tolto dal repo e ignorato.
+
+> ⚡ **COME RIPRENDERE IN UNA NUOVA FINESTRA (checklist)** — ⚠️ i punti 2, 5 e 6 qui sotto descrivono il PC e il progetto Supabase VECCHI: vale il riquadro «Nuovo PC + nuovo Supabase» sopra.
 > 1. Apri una nuova sessione Claude Code nel progetto e scrivi **"continua deluxy-scout"** (la memoria si carica da sola e rimanda a questo file). Rileggi anche **`deluxy-design-system/DESIGN-SYSTEM.md`** (regole UX&UI) prima di toccare schermate.
 > 2. **Lavora nel worktree** `C:\Users\nicol\scoutwt` (branch `scout-ui`), **non** in `C:\Users\nicol\app`. Se il worktree non c'è più: `git -C C:\Users\nicol\app worktree add -b scout-ui C:\Users\nicol\scoutwt scout-ui` (o `deluxy-scout`), poi ricrea la junction `node_modules` (`cmd //c "mklink /J node_modules C:\Users\nicol\app\deluxy-scout\node_modules"`) e copia `.env`.
 > 3. **Node**: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`. Verifica con `npx tsc --noEmit` + `npx jest`.
 > 4. **Token da rifornire** (io NON li salvo — chiedili all'utente quando servono): `EXPO_TOKEN` (build APK), `VERCEL_TOKEN` (deploy web), `SUPABASE_PAT`/`SUPABASE_ACCESS_TOKEN` (migrazioni + deploy Edge Functions), e opzionale `ANTHROPIC_API_KEY` (match AI). Google Maps/HubSpot vivono già come secret server.
 > 5. **Deploy web**: usa **`VERCEL_TOKEN=<token> bash scripts/deploy-web.sh`** (fa build + **fix font** + deploy **pinnato per projectId** + **verifica post-deploy** sul `<title>`). ⚠️ Font: senza il fix Vercel esclude `assets/node_modules` (font @expo/vector-icons) e le icone diventano quadratini → lo script li sposta in `assets/vendor`. URL: deluxy-scout.vercel.app.
 > ⚠️ **SOVRASCRITTURA RISOLTA (15 lug 2026)**: il progetto Vercel `deluxy-scout` aveva un'**integrazione Git** col repo condiviso `donatodnicolo-gif/search` (branch `main`, root = **app fiorai**): ogni push su `main` ripubblicava l'app fiorai su deluxy-scout.vercel.app, cancellando Scout. **Integrazione Git SCOLLEGATA** dal progetto (via API). Ora Scout si aggiorna **solo** via `deploy-web.sh` (pinnato per ID `prj_rnV0sqhZJ4GXiNXrT5OJXLb7Pjem`, org `team_vt9JRBhnxbY4spm5LzhNyxoY`). Se il dominio tornasse a mostrare "Trova Fiorai & Pasticcerie": qualcuno ha ricollegato il Git al progetto deluxy-scout → riscollegarlo e rideployare.
-> 6. **Migrazioni — stato VERIFICATO sul DB il 16 lug 2026**: applicate fino a **0012**, più **0014 (`profiles`) ✅ applicata** e **0015 (`profiles.ultimo_accesso`) ✅ applicata**. **⚠️ Resta NON applicata la 0013 (`visits.concorrenti`)**: il campo "Concorrenti già presenti" esiste nella UI ma **il dato viene scartato in silenzio** (degrada con grazia). Per attivarlo: `node scripts/mgmt-query.mjs supabase/migrations/0013_concorrenti.sql` con `SUPABASE_PAT`, poi **rideploya `hubspot-sync`**.
+> 6. **Migrazioni — stato VERIFICATO sul DB VECCHIO il 16 lug 2026** (sul nuovo progetto va riverificato, vedi scenari A/B sopra): applicate fino a **0012**, più **0014 (`profiles`) ✅ applicata** e **0015 (`profiles.ultimo_accesso`) ✅ applicata**. **⚠️ Resta NON applicata la 0013 (`visits.concorrenti`)**: il campo "Concorrenti già presenti" esiste nella UI ma **il dato viene scartato in silenzio** (degrada con grazia). Per attivarlo: `node scripts/mgmt-query.mjs supabase/migrations/0013_concorrenti.sql` con `SUPABASE_PAT`, poi **rideploya `hubspot-sync`**.
 > 6b. **Web deployato** con: campo Concorrenti + fix nomi mobile (card a colonna <560px) + **dashboard Team per admin** (riepilogo rete, scheda per venditore, feed) + **drill-down venditore giorno per giorno con KPI** + **editing nome** (Profilo per sé, dettaglio venditore per l'admin). URL live aggiornato.
 > 7. `scout-ui` è **pushato su GitHub** (origin/scout-ui). Dopo ogni tappa: commit + `git push`. Per integrare: merge su `deluxy-scout`.
 
@@ -115,8 +129,8 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
 - **Identità visiva**: icona, adaptive icon (Android), splash e favicon brandizzate navy/oro (pin di mappa oro) — generate da SVG con `scripts/gen-icons.mjs` (dep dev `sharp`), collegate in `app.config.ts`. In `assets/`.
 - **Rifiniture**: ricerca testuale nella lista target (nome/indirizzo/zona/categoria); dettaglio visita con foto vetrina (tap su una visita nello storico della scheda); **export CSV** di attività e visite dalla schermata Profilo (BOM UTF-8, condivisione via `expo-sharing`). Bundle a 1276 moduli.
 - **Build EAS Android**: progetto **@deluxyoff/deluxy-scout** (projectId `81ab09df-c772-4c2b-b860-c590df0ec789`, owner `deluxyoff`). Primo **APK preview** generato con successo. Variabili Supabase nel profilo `preview` di `eas.json`. Fix necessario per SDK 52: plugin `expo-build-properties` con `android.kotlinVersion: '1.9.25'` (il default 1.9.24 rompeva `expo-modules-core:compileReleaseKotlin` per mismatch col Compose Compiler 1.5.15). Owner impostato in `app.config.ts` (`owner: 'deluxyoff'`, `extra.eas.projectId`). La build si lancia con `EXPO_TOKEN` (personal access token Expo) in modo non-interattivo: `npx eas-cli build -p android --profile preview --non-interactive --no-wait`.
-- **Supabase** — org "Deluxy" (free), progetto **deluxy-scout**:
-  - Project ref: **`fdsziebgkljfsugqqbqd`** · URL: **`https://fdsziebgkljfsugqqbqd.supabase.co`**
+- **Supabase (VECCHIO, fino a set 2026 — il progetto è cambiato, vedi riquadro in cima)** — org "Deluxy" (free), progetto **deluxy-scout**:
+  - Project ref: **`fdsziebgkljfsugqqbqd`** · URL: **`https://fdsziebgkljfsugqqbqd.supabase.co`** ← non più validi
   - Migrazioni applicate e verificate (schema + RLS + seed): 9 linee (3 standby con `attiva_bool=false`), 20 `category_rules`, RLS attivo su tutte le tabelle, storage bucket `vetrine`. Accenti UTF-8 corretti.
   - Anon (publishable) key già in `deluxy-scout/.env`.
 - **HubSpot** — account "Deluxy Srl", portal **`147623810`**, regione **EU (app-eu1)**:
@@ -185,7 +199,7 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
 - Il token HubSpot vive come secret della Edge Function; se va rigenerato: HubSpot → Sviluppo → Chiavi → Chiavi di servizio → "Deluxy Scout" → Ruota, poi `supabase secrets set HUBSPOT_TOKEN=...`.
 
 ## 5. Come riprendere (comandi esatti, PowerShell)
-Prependi sempre Node al PATH: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`.
+⚠️ Percorsi e project ref qui sotto sono quelli del PC/progetto VECCHI: sul nuovo PC sostituire `Set-Location` con la cartella del clone e `<ref>` col nuovo project ref (riquadro in cima). Prependi Node al PATH solo se serve: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`.
 
 ```powershell
 # 0. posizionati
@@ -207,6 +221,7 @@ npx expo start
 **Eseguire SQL sul DB** (serve `SUPABASE_PAT` = Personal Access Token Supabase, dashboard → Account → Access Tokens):
 ```powershell
 $env:SUPABASE_PAT = "<pat>"
+$env:SUPABASE_REF = "<ref>"     # obbligatorio dal 7 set 2026 (nessun default)
 node scripts/mgmt-query.mjs -e "select count(*) from places;"
 node scripts/mgmt-query.mjs supabase/migrations/000X_file.sql
 ```

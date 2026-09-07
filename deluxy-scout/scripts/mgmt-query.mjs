@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 // Esegue un file .sql sul database Supabase tramite la Management API.
-// Uso: SUPABASE_PAT=sbp_... node scripts/mgmt-query.mjs <file.sql | -e "SQL inline">
+// Uso: SUPABASE_REF=<ref> SUPABASE_PAT=sbp_... node scripts/mgmt-query.mjs <file.sql | -e "SQL inline">
 //
 // Non richiede la password del DB: usa il Personal Access Token dell'account.
 // Il token NON viene mai scritto su file: si passa via variabile d'ambiente.
 import { readFileSync } from 'node:fs';
 
-const PROJECT_REF = process.env.SUPABASE_REF || 'fdsziebgkljfsugqqbqd';
+// Il project ref NON è più cablato (il progetto Supabase è cambiato a set 2026):
+// va passato con SUPABASE_REF, così non si scrive per sbaglio sul progetto vecchio.
+const PROJECT_REF = process.env.SUPABASE_REF;
+if (!PROJECT_REF) {
+  console.error('Manca SUPABASE_REF (project ref del progetto Supabase, es. abcdefghijklmnopqrst)');
+  process.exit(1);
+}
 const PAT = process.env.SUPABASE_PAT;
 
 if (!PAT) {

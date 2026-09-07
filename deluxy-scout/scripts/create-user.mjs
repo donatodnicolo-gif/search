@@ -6,7 +6,7 @@
 // puoi accedere subito dall'app senza passaggio di conferma email.
 //
 // Uso (PowerShell):
-//   $env:SUPABASE_URL = "https://fdsziebgkljfsugqqbqd.supabase.co"
+//   $env:SUPABASE_URL = "https://<project-ref>.supabase.co"   # il progetto NUOVO (set 2026)
 //   $env:SUPABASE_SERVICE_ROLE_KEY = "<service_role>"   # Dashboard → Project Settings → API
 //   $env:SCOUT_EMAIL = "nome@deluxy.it"
 //   $env:SCOUT_PASSWORD = "<password scelta da te>"     # min 6 caratteri

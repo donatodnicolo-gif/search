@@ -9,7 +9,7 @@
 //   { action: 'discover', lat, lng, radius? }  → { places, cached, nuovi }
 //
 // Riusa il secret GOOGLE_GEOCODING_KEY (Places API). Deploy:
-//   supabase functions deploy discover --project-ref fdsziebgkljfsugqqbqd
+//   supabase functions deploy discover --project-ref <ref>
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const NEARBY = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';

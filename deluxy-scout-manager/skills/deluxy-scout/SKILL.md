@@ -28,7 +28,8 @@ attività del territorio con priorità e ipotesi di interesse pre-calcolate, reg
 - **Una visita NON apre una trattativa** (7 set 2026): la trattativa si crea a mano (Trattative / scheda negozio). Nessun default di linea nel form; priorità P0-P3; motivo obbligatorio alla chiusura vinta/persa.
 - UI: **Deluxy Design System** (`deluxy-design-system/DESIGN-SYSTEM.md`, il "custode UX&UI"): sfondo `#F5F5F7`, azioni primarie nere (ink `#111318`), oro `#B8963E` solo come accento, bottoni a pillola, badge dot+tinta, kit `components/ui.tsx`. Mai oro sui bottoni primari, mai colori hardcodati che esistono come token.
 
-## Ambiente (Windows) — trappole note
+## Ambiente — trappole note
+- **Nuovo PC + nuovo progetto Supabase (set 2026)**: i percorsi `C:\Users\nicol\…` e il project ref `fdsziebgkljfsugqqbqd` nei documenti sono VECCHI. Chiedere all'utente ref/URL/anon key nuovi; gli script vogliono `SUPABASE_REF`. Dettagli nel riquadro in cima a `reference/STATO_E_HANDOFF.md`.
 - **Node**: installato in `C:\Program Files\nodejs` ma **potrebbe non essere nel PATH** della sessione. Prependilo a ogni comando:
   `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"` (PowerShell).
 - **Dashboard Supabase nel browser**: Google Translate traduce la pagina e **crasha React**; inoltre un gestore di appunti **sovrascrive la clipboard**. → **Non** usare il SQL Editor del browser per le migrazioni. Usa gli **script** (Management API), vedi sotto.

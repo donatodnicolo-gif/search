@@ -15,8 +15,8 @@
 // che non deve finire nel client.
 //
 // Deploy:
-//   supabase functions deploy geocode --project-ref fdsziebgkljfsugqqbqd
-//   supabase secrets set GOOGLE_GEOCODING_KEY=AIza... --project-ref fdsziebgkljfsugqqbqd
+//   supabase functions deploy geocode --project-ref <ref>
+//   supabase secrets set GOOGLE_GEOCODING_KEY=AIza... --project-ref <ref>
 //
 // Prerequisiti Google Cloud: abilitare "Geocoding API" e "Places API" + billing;
 // chiave con restrizione API = quelle due (nessuna restrizione app Android).

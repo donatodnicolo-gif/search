@@ -21,7 +21,8 @@ import { readFileSync } from 'node:fs';
 const ANAG_URL = process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app';
 const ANAG_KEY = process.env.ANAGRAFICHE_API_KEY;
 const PAT = process.env.SUPABASE_PAT;
-const REF = process.env.SUPABASE_REF || 'fdsziebgkljfsugqqbqd';
+const REF = process.env.SUPABASE_REF; // project ref (non più cablato: il progetto è cambiato)
+if (!REF) { console.error('Manca SUPABASE_REF (project ref Supabase)'); process.exit(1); }
 const DRY = process.argv.includes('--dry');
 
 let GKEY = process.env.GOOGLE_GEOCODING_KEY;

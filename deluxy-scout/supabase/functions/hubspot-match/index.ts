@@ -10,8 +10,8 @@
 //
 // Secret richiesti: HUBSPOT_TOKEN (già presente), ANTHROPIC_API_KEY (da impostare).
 // Deploy:
-//   supabase functions deploy hubspot-match --project-ref fdsziebgkljfsugqqbqd
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref fdsziebgkljfsugqqbqd
+//   supabase functions deploy hubspot-match --project-ref <ref>
+//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref <ref>
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const HUBSPOT = 'https://api.hubapi.com';
