@@ -36,6 +36,11 @@ interface FinestraConsegna {
   indirizzo?: string | null;
   /** ⭐ 06/09 (regola utente): la variante ordinata — la riconciliazione vale solo se è la stessa. */
   variantId?: string | null;
+  /** ⭐ 07/09 (regola utente): quanti PEZZI. Su un prodotto «a quantità» il prezzo al partner
+   *  è il suo prezzo UNITARIO per i pezzi, non il pubblico meno la percentuale. */
+  pezzi?: number | null;
+  /** Il titolo della riga d'ordine: dice QUALE fiore, quando il prodotto è un generico. */
+  titolo?: string | null;
   giorno: Date;
   /** «08:00», dalla fascia dell'ordine. Assente = non si sa l'ora. */
   dalle?: string;
@@ -504,6 +509,8 @@ export class SalesService {
       prezzoPartnerListino: product.type === ProductType.UNICO ? (variante?.price ?? product.price ?? null) : null,
       indirizzo: body.recipientAddress ?? null,
       variantId: variante?.id ?? null,
+      pezzi: body.quantity && body.quantity > 1 ? Math.round(body.quantity) : null,
+      titolo: body.productName ?? null,
     };
     // ⭐ 06/09/2026 (regola utente, caso #12889 «Elegant Cake» finito a Clivati):
     // «applica questo concetto per ora solo ai fiori, per le torte lascia la
@@ -2247,6 +2254,61 @@ export class SalesService {
     return m;
   }
 
+  /**
+   * ⭐ 07/09/2026 (regola utente: «è un ordine a quantità») — IL PREZZO UNITARIO DEL PARTNER.
+   *
+   * Su un prodotto «a quantità» il prezzo NON è il pubblico meno la percentuale del
+   * territorio: è quanto quel partner fa UN pezzo, per i pezzi ordinati. «50 rose rosse» da
+   * Cannavo, che fa la rosa a 6 €, sono 300 € — e se il cliente ne ha pagati 300 il margine
+   * è zero: è un fatto che l'ufficio deve vedere, non una cosa da nascondere dietro una
+   * percentuale che tornava per finta.
+   *
+   * Dove sta il prezzo unitario, in ordine:
+   *  · il LISTINO DEL FIORAIO — i suoi «fiori a stelo», sku STELO-FIORE-partner, che il
+   *    fioraio compila lui dalla pagina Listino;
+   *  · un preventivo/accordo scritto sullo stesso prodotto (PP-codice-partner).
+   * Il fiore si riconosce dal nome del prodotto o dal titolo della riga d'ordine.
+   */
+  private async prezzoUnitario(product: ProdottoDaSmistare & { name?: string | null }, titolo: string | null, partnerIds: string[]): Promise<Map<string, { unitario: number; da: string }>> {
+    const fuori = new Map<string, { unitario: number; da: string }>();
+    if (!partnerIds.length) return fuori;
+    const testo = `${product.name ?? ''} ${titolo ?? ''}`.toLowerCase();
+    // I fiori che hanno un listino a stelo: la parola nel titolo decide quale.
+    const FIORI: { chiave: string; re: RegExp }[] = [
+      { chiave: 'ROSA', re: /\brose\b|\brosa\b|\broses\b/ },
+      { chiave: 'TULIPANO', re: /tulipan/ },
+      { chiave: 'GIRASOLE', re: /girasol/ },
+      { chiave: 'ORTENSIA', re: /ortensi/ },
+      { chiave: 'PEONIA', re: /peoni/ },
+      { chiave: 'ORCHIDEA', re: /orchide/ },
+      { chiave: 'LISIANTHUS', re: /lisianthus|lisiantus/ },
+      { chiave: 'GERBERA', re: /gerber/ },
+      { chiave: 'GIGLIO', re: /giglio|lilium/ },
+      { chiave: 'GAROFANO', re: /garofan/ },
+    ];
+    const fiore = FIORI.find((f) => f.re.test(testo))?.chiave ?? null;
+    const skuBase = (product.sku ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28);
+    const righe = await this.prisma.product.findMany({
+      where: {
+        active: true, deletedAt: null, archived: false,
+        partnerId: { in: partnerIds },
+        OR: [
+          ...(fiore ? [{ sku: { startsWith: `STELO-${fiore}-` } }] : []),
+          ...(skuBase ? [{ sku: { startsWith: `PP-${skuBase}-` } }] : []),
+        ],
+      },
+      select: { partnerId: true, price: true, sku: true },
+    });
+    for (const r of righe) {
+      if (!r.partnerId || r.price == null || r.price <= 0) continue;
+      const da = (r.sku ?? '').startsWith('STELO-') ? 'listino del fioraio' : 'prezzo concordato';
+      const gia = fuori.get(r.partnerId);
+      // Il listino a stelo è quello unitario vero: vince sul patto sul prodotto intero.
+      if (!gia || da === 'listino del fioraio') fuori.set(r.partnerId, { unitario: r.price, da });
+    }
+    return fuori;
+  }
+
   private async scegliPartner(
     product: ProdottoDaSmistare,
     provinceId: string,
@@ -2257,6 +2319,25 @@ export class SalesService {
       (c) => !escludi.includes(c.partnerId),
     );
     if (!lista.length) return null;
+
+    // ⭐ 07/09/2026 (regola utente: «è un ordine a quantità»). Su un prodotto A QUANTITÀ il
+    // prezzo al partner è il SUO unitario per i pezzi. Chi non ha un prezzo unitario resta in
+    // lista — si propone lo stesso, ma col prezzo della percentuale, e il motivo lo dice.
+    if (product.tipologiaVendita === 'quantita' && (finestra.pezzi ?? 0) > 1) {
+      const pezzi = Math.round(finestra.pezzi!);
+      const unitari = await this.prezzoUnitario(product as ProdottoDaSmistare & { name?: string | null }, finestra.titolo ?? null, lista.map((c) => c.partnerId));
+      lista = lista.map((c) => {
+        const u = unitari.get(c.partnerId);
+        if (!u) return { ...c, motivo: `${c.motivo} · senza prezzo unitario: vale la percentuale` };
+        const totale = Math.round(u.unitario * pezzi * 100) / 100;
+        const troppo = finestra.importo != null && totale >= finestra.importo;
+        return {
+          ...c,
+          prezzoPartner: totale,
+          motivo: `${c.motivo} · ${pezzi} × ${u.unitario} € (${u.da}) = ${totale} €${troppo ? ' ⚠️ pari o sopra il prezzo pagato dal cliente' : ''}`,
+        };
+      });
+    }
 
     // ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO si propone SOLO a chi un prezzo
     // l'ha già dato, e a quel prezzo. Se non l'ha dato nessuno la lista si svuota e la vendita
