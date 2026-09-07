@@ -1688,6 +1688,9 @@ td .badge-salute { margin-top: 0; }
 .badge-salute.salute-cancellato,
 .badge-salute.salute-nullo { color: var(--text-secondary); }
 .badge-salute.salute-a_rischio { background: var(--red-soft); color: var(--red); }
+/* Non conforme (07/09): prova o importo zero — viola, per non confondersi né col rischio né col chiuso. */
+.badge-salute.salute-non_conforme { background: var(--purple-soft); color: var(--purple); }
+.badge-salute.salute-non_conforme .badge-salute-dettaglio { color: inherit; opacity: 0.85; }
 .badge-salute.salute-a_rischio .badge-salute-dettaglio { color: inherit; opacity: 0.85; }
 
 /* La striscia dei conteggi sotto i filtri: quanti ordini per salute, DENTRO il

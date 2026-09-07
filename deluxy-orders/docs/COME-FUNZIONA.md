@@ -1482,18 +1482,19 @@ Nasce da una regola dell'utente e sostituisce il mestiere di leggere tre campi
 Shopify a mano (annullamento, motivo, pagamento) e tirarne le somme ognuno a
 modo suo.
 
-| Salute | Vuol dire | Quanti (04/09) |
+| Salute | Vuol dire | Quanti (07/09) |
 |---|---|---|
-| **Conforme** | Pagato e senza rischio. Che sia già evaso o ancora in attesa di evasione non cambia nulla. | 13.818 · 94,9% |
-| **A rischio** | Shopify segnala un rischio di frode medio o alto: va guardato a mano. | 124 · 0,9% |
-| **Non pagato** | Il denaro non è ancora arrivato — tipicamente un bonifico in attesa. | 61 · 0,4% |
+| **Conforme** | Pagato e senza rischio. Che sia già evaso o ancora in attesa di evasione non cambia nulla. | 13.843 · 94,4% |
+| **A rischio** | Shopify segnala un rischio di frode medio o alto: va guardato a mano. | 124 · 0,8% |
+| **Non pagato** | Il denaro non è ancora arrivato — tipicamente un bonifico in attesa. | 62 · 0,4% |
+| **Non conforme** | **Non è una vendita**: un ordine di **prova** (il cliente si chiama «Test») o un ordine a **importo zero**. Regola dell'utente del 07/09/2026. | 175 · 1,2% |
 | **Cancellato** | Annullato o rimborsato per una **nostra** decisione: fornitore non trovato, merce assente, pagamento rifiutato. | 39 · 0,3% |
-| **Nullo** | Annullato o rimborsato **su richiesta del cliente** (ha sbagliato a ordinare). | 521 · 3,6% |
+| **Nullo** | Annullato o rimborsato **su richiesta del cliente** (ha sbagliato a ordinare). | 420 · 2,9% |
 
 **Dove si vede**, sempre e su ogni ordine: nella colonna «Salute» dell'elenco,
 su ogni card della vista **Colonne per brand** (in fila con evasione e
 pagamento, così non allunga la card), in cima alla scheda del singolo ordine, e
-nella **striscia dei conteggi** sotto i filtri — cinque pillole cliccabili che
+nella **striscia dei conteggi** sotto i filtri — sei pillole cliccabili che
 dicono quanti ordini per salute ci sono **dentro il filtro acceso**. Si filtra
 anche dal menu «Ogni salute».
 
@@ -1504,13 +1505,20 @@ distinguere.
 
 La pillola non dice solo il verdetto, dice il **perché**: «Cancellato ·
 magazzino», «A rischio · rischio alto» (coi motivi di Shopify nel tooltip),
-«Non pagato · in attesa».
+«Non pagato · in attesa», «Non conforme · ordine di prova» / «· importo zero».
 
 ### Come si decide (l'ordine conta)
 Le regole si applicano in quest'ordine e la prima che vale vince. Prima si
-chiude la partita (annullato o rimborsato: il denaro è tornato, il resto non
-serve più), poi si guarda il rischio, e solo alla fine il pagamento.
+toglie ciò che non è una vendita, poi si chiude la partita (annullato o
+rimborsato: il denaro è tornato, il resto non serve più), poi si guarda il
+rischio, e solo alla fine il pagamento.
 
+0. **Non conforme** — il cliente si chiama **«Test»** (la parola intera, non
+   un pezzo di nome: «Caterina Testa» e «Mario Testino» sono clienti veri,
+   «ORDINETEST TEST», «ordine test» e «Test Dev» sono prove) **oppure** il
+   totale è **0**. Viene prima di tutto perché una prova annullata resta una
+   prova: se finisse fra i «cancellati» o i «nulli» sporcherebbe i conti delle
+   decisioni vere (16 prove con importo stavano lì fino al 07/09).
 1. **Nullo** — annullato con motivo `CUSTOMER` («a richiesta del cliente», è
    Shopify a chiamarlo così), **oppure** rimborsato senza che l'ordine sia
    stato annullato.
@@ -1522,6 +1530,14 @@ serve più), poi si guarda il rischio, e solo alla fine il pagamento.
 4. **Conforme** — pagamento `PAID` o `PARTIALLY_REFUNDED`.
 5. **Non pagato** — tutto il resto: `PENDING`, `PARTIALLY_PAID`, `VOIDED` senza
    annullamento, e qualunque codice nuovo che Shopify dovesse introdurre.
+
+⚠️ **Il `NOT` sul nome cliente vuoto** (trappola pagata il 07/09): il filtro
+del database esclude dalle regole successive quelle precedenti con un
+`NOT (…)`, e in SQL `NOT (NULL ILIKE …)` è `NULL`, non vero — 691 ordini senza
+nome cliente sparivano da **tutte** le salute. La regola sul nome porta davanti
+`clienteNome IS NOT NULL` in `AND`, così sul nome mancante è falsa di sicuro e
+il `NOT` la riporta a vera. `npm run verifica:salute` lo avrebbe detto, e lo ha
+detto.
 
 ⚠️ **Perché «conforme» è scritta in positivo e «non pagato» è il ripiego**: per
 essere dichiarato sano un ordine deve avere un pagamento che riconosciamo, non

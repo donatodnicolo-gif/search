@@ -1,4 +1,4 @@
-import { ETICHETTE_SALUTE, saluteOrdine, type OrdineDaValutare } from "@/lib/salute";
+import { ETICHETTE_SALUTE, motivoNonConforme, saluteOrdine, type OrdineDaValutare } from "@/lib/salute";
 import { motivoLeggibile, pagamentoLeggibile, rischioLeggibile } from "@/lib/ordini";
 
 /**
@@ -34,6 +34,7 @@ export function BadgeSalute({
   if (s === "a_rischio") dettaglio = rischioLeggibile(ordine.rischioLivello);
   else if (s === "cancellato" || s === "nullo") dettaglio = motivoLeggibile(ordine.motivoAnnullamento);
   else if (s === "non_pagato") dettaglio = pagamentoLeggibile(ordine.financialStatus);
+  else if (s === "non_conforme") dettaglio = motivoNonConforme(ordine);
 
   // I motivi del rischio ce li dà Shopify e sono la cosa più utile da leggere
   // prima di decidere: finiscono nel tooltip, sotto la spiegazione.

@@ -5,6 +5,71 @@ Stato al **07/09/2026** (sezioni qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 07/09/2026 (4) — SALUTE «NON CONFORME»: le prove e gli ordini a zero non sono vendite (in locale, NON pubblicato)
+
+Richiesta dell'utente: «un ordine con cliente Test è un ordine non conforme,
+oggi ne dovresti aver ricevuto 1; anche un ordine con valore 0». Contato prima
+di scrivere: oggi le prove sono **due**, non una (Flowers #2881 «ordine test» e
+deluxy.it #12897 «ORDINETEST TEST», entrambe a 0 € dalla stessa email interna);
+a importo zero ce ne sono **159** (72 non annullati); coi nomi «test» 40+, ma
+fra questi ci sono clienti veri: «Caterina Testa», «Mario Testino», «simona
+malatesta», «viktortest777@gmail.com» (450 €, nomi veri).
+
+### Cosa c'è ora
+Sesta salute **`non_conforme`** in `src/lib/salute.ts`, **prima di tutte le
+altre**: cliente «Test» (parola intera: `^|\s` + `test` + `\s|# Handoff — Deluxy Orders
+
+Stato al **07/09/2026** (sezioni qui sotto; il corpo del documento
+è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
+ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
+già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+, e nel filtro
+Prisma le quattro forme `equals / startsWith "test " / endsWith " test" /
+contains " test "`, tutte `insensitive`) **oppure** `totale = 0`. Pillola viola
+(`--purple`) col motivo («ordine di prova» batte «importo zero»), chip nella
+striscia, voce nel menu «Ogni salute», campo `salute` delle API. Precedenza
+davanti a nullo/cancellato per scelta: una prova annullata resta una prova.
+
+**Contato con `verifica:salute`** (memoria = database su **14.663/14.663**):
+conforme 13.843 · a rischio 124 · non pagato 62 · **non conforme 175** ·
+cancellato 39 · nullo 420. I 175 = 159 a zero + **16 prove con importo** che
+prima stavano fra i «nulli» (test.1112@gmail.com, «test Test» da 35 a 935 €).
+
+### Le trappole pagate qui
+- 🔴 **`NOT (NULL ILIKE …)` è NULL, e la riga sparisce da tutti i filtri.**
+  `whereSalute` esclude le regole precedenti con `NOT { OR }`; con un
+  `clienteNome` vuoto la condizione sul nome dava NULL e **691 ordini non
+  uscivano da nessuna salute** (in memoria «conforme», dal database «nessun
+  filtro»). Rimedio: `AND [ clienteNome != null, OR[…] ]` — sul nome mancante
+  il blocco è FALSE sicuro e il NOT lo riporta a TRUE. **Vale per ogni regola
+  futura su una colonna nullable.** Scritto anche in COME-FUNZIONA.
+- ⚠️ **Il regex scritto via `node -e` in una stringa di shell perde i
+  backslash**: era finito nel file `/(^|s)test(s|$)/i` — compilava, non
+  matchava niente, e la memoria dava 159 (solo gli zero) contro 175 del
+  database. Lo ha beccato `verifica:salute`, non tsc. Le espressioni regolari
+  si scrivono col Write/Edit, non con `sed`/`node -e` da shell.
+- ⚠️ La parola «test» **intera**, non `contains`: altrimenti Testa, Testino e
+  malatesta diventano prove.
+
+### Verificato
+`tsc --noEmit` pulito · `npm run verifica:salute` ✅ 14.663/14.663 · a schermo
+`/?salute=non_conforme`: striscia «Non conforme 175» (le altre a 0, come deve
+essere col filtro acceso), 77 pillole viola nella vista per brand, dettagli
+«ordine di prova» / «importo zero», #12897 e #12874 in cima alla colonna
+deluxy.it.
+
+### Da decidere (utente)
+Le 175 «non conformi» **contano ancora nei totali** di Analisi/Marketing/
+Clienti (le prove a 0 € non spostano gli euro; le 16 con importo, 4.582 €, sì)
+e i loro «clienti» stanno nell'elenco Clienti. Toglierli da lì è un'altra
+regola (fonte: la salute), non l'ho fatto.
+
+### File
+`src/lib/salute.ts` · `src/components/BadgeSalute.tsx` · `src/app/globals.css`
+· `scripts/verifica-salute.ts` · `docs/COME-FUNZIONA.md` · `docs/guida-visiva.html`
+· `MANUALE-DELUXY.html`.
+
 ## 07/09/2026 (3) — LA CODA «PROBABILI AZIENDE» SI SMALTISCE IN BLOCCO (in locale, NON pubblicato)
 
 Ripreso il 07/09 pomeriggio («leggi handoff, aggiorna memoria, lavora in locale

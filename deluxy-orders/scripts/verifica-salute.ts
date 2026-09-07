@@ -25,6 +25,8 @@ async function main() {
       id: true,
       numero: true,
       brand: true,
+      clienteNome: true,
+      totale: true,
       annullatoIl: true,
       motivoAnnullamento: true,
       financialStatus: true,

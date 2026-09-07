@@ -1,8 +1,13 @@
 // LA SALUTE DELL'ORDINE — una parola sola che dice se la vendita è buona.
 //
-// Regola dell'utente (04/09/2026): ogni ordine del registro ha uno di cinque
-// valori, e uno solo.
+// Regola dell'utente (04/09/2026, sesto valore il 07/09): ogni ordine del
+// registro ha uno di sei valori, e uno solo.
 //
+//   non conforme  NON è una vendita: un ordine di PROVA (il cliente si chiama
+//                 «Test») o un ordine a importo ZERO. Viene prima di tutto il
+//                 resto — una prova annullata resta una prova, non un
+//                 «cancellato» — perché non deve mai contare come un ordine
+//                 vero, né buono né storto.
 //   conforme    ordine senza problemi (pagato, nessun rischio; che sia già
 //               evaso o ancora in attesa di evasione non cambia nulla)
 //   a rischio   Shopify segnala un rischio di frode da guardare a mano
@@ -28,11 +33,13 @@
 
 import { Prisma } from "@prisma/client";
 
-export const SALUTI = ["conforme", "a_rischio", "non_pagato", "cancellato", "nullo"] as const;
+export const SALUTI = ["conforme", "a_rischio", "non_pagato", "non_conforme", "cancellato", "nullo"] as const;
 export type Salute = (typeof SALUTI)[number];
 
 // I campi che servono per decidere: chi chiama può passare l'ordine intero.
 export type OrdineDaValutare = {
+  clienteNome: string | null;
+  totale: number;
   annullatoIl: Date | null;
   motivoAnnullamento: string | null;
   financialStatus: string | null;
@@ -48,6 +55,44 @@ export type OrdineDaValutare = {
 // conosciamo: meglio un ordine in una coda di lavoro che uno dichiarato sano
 // senza sapere se è stato pagato.
 const PAGAMENTI_BUONI = ["PAID", "PARTIALLY_REFUNDED"];
+
+// L'ORDINE DI PROVA: il cliente si chiama «Test» — la parola intera, non un
+// pezzo di nome. Contato il 07/09 sul registro: «Caterina Testa», «Mario
+// Testino» e «simona malatesta» sono clienti veri, «ORDINETEST TEST», «ordine
+// test», «Test Dev», «test Test» e «Test Tracciamento» sono prove. Quindi la
+// parola «test» da sola, all'inizio, alla fine o in mezzo al nome, con gli
+// spazi intorno. In memoria è un'espressione regolare; nel filtro Prisma (che
+// non ha i confini di parola) sono le stesse quattro forme scritte una per una
+// — e `verifica-salute` controlla che dicano la stessa cosa su ogni ordine.
+const RE_PROVA = /(^|\s)test(\s|$)/i;
+// ⚠️ `clienteNome: { not: null }` davanti non è ridondante: `whereSalute` mette
+// questo blocco dentro un `NOT (…)` per le regole successive, e in SQL
+// `NOT (NULL ILIKE …)` è NULL — la riga senza nome cliente sparirebbe da
+// TUTTI i filtri (misurato il 07/09: 691 ordini senza nessuna salute). Con
+// l'AND il blocco è FALSE sicuro quando il nome manca, e il NOT lo riporta a TRUE.
+const DOVE_PROVA: Prisma.OrdineWhereInput = {
+  AND: [
+    { clienteNome: { not: null } },
+    {
+      OR: [
+        { clienteNome: { equals: "test", mode: "insensitive" } },
+        { clienteNome: { startsWith: "test ", mode: "insensitive" } },
+        { clienteNome: { endsWith: " test", mode: "insensitive" } },
+        { clienteNome: { contains: " test ", mode: "insensitive" } },
+      ],
+    },
+  ],
+};
+
+/** Vero se il cliente dell'ordine si chiama «Test» (ordine di prova). */
+export function ordineDiProva(o: Pick<OrdineDaValutare, "clienteNome">): boolean {
+  return o.clienteNome !== null && RE_PROVA.test(o.clienteNome);
+}
+
+/** Perché un ordine è «non conforme»: la prova batte l'importo zero (è più informativo). */
+export function motivoNonConforme(o: Pick<OrdineDaValutare, "clienteNome" | "totale">): string {
+  return ordineDiProva(o) ? "ordine di prova" : "importo zero";
+}
 
 // LE REGOLE, IN ORDINE DI PRECEDENZA — scritte UNA volta sola.
 //
@@ -65,6 +110,17 @@ const REGOLE: Array<{
   vale: (o: OrdineDaValutare) => boolean;
   dove: Prisma.OrdineWhereInput;
 }> = [
+  {
+    // NON CONFORME — non è una vendita. Regola dell'utente (07/09/2026): un
+    // ordine col cliente «Test» è di prova, e un ordine a importo zero non è
+    // un ordine. Sta PRIMA di tutto: una prova annullata o rimborsata resta
+    // una prova, e non deve finire fra i «cancellati» o i «nulli» a sporcare
+    // i conti delle decisioni vere. Contato il 07/09: 159 ordini a zero (72
+    // non annullati), le prove nascono dal sito quasi ogni giorno (due oggi).
+    chiave: "non_conforme",
+    vale: (o) => ordineDiProva(o) || o.totale === 0,
+    dove: { OR: [DOVE_PROVA, { totale: 0 }] },
+  },
   {
     // NULLO — l'ha voluto il cliente.
     // Due casi: l'annullamento con motivo `CUSTOMER` (Shopify lo chiama «at
@@ -178,6 +234,11 @@ export const ETICHETTE_SALUTE: Record<Salute, { nome: string; colore: string; sp
     colore: "var(--orange)",
     spiega: "Il denaro non è ancora arrivato — tipicamente un bonifico in attesa.",
   },
+  non_conforme: {
+    nome: "Non conforme",
+    colore: "var(--purple)",
+    spiega: "Non è una vendita: un ordine di prova (cliente «Test») o un ordine a importo zero.",
+  },
   cancellato: {
     nome: "Cancellato",
     colore: "var(--text-secondary)",
@@ -192,7 +253,7 @@ export const ETICHETTE_SALUTE: Record<Salute, { nome: string; colore: string; sp
 };
 
 /** L'ordine in cui si mostrano nei conti e nel menu del filtro: prima il buono, poi le code, in fondo il chiuso. */
-export const SALUTI_IN_ORDINE: Salute[] = ["conforme", "a_rischio", "non_pagato", "cancellato", "nullo"];
+export const SALUTI_IN_ORDINE: Salute[] = ["conforme", "a_rischio", "non_pagato", "non_conforme", "cancellato", "nullo"];
 
 /** Vero se la stringa che arriva dall'indirizzo è una salute che conosciamo. */
 export function saluteValida(s: string | null | undefined): s is Salute {
