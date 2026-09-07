@@ -16,6 +16,15 @@ Ready, alias deluxy-merchandising.vercel.app), `npx vercel deploy --prod --yes
 **Stanotte** i cron girano col codice nuovo: varianti + mappa dei negozi; da
 guardare domattina la durata di Gifts (03:10 UTC) in fondo a `/collezioni`.
 
+✅ **`canaleVendite` di Business Deluxy corretto alle 16:21** (utente: «correggi
+canaleVendite di Business Deluxy in Impostazioni»): da «BUsiness» a
+**`business.deluxy.it`**, che è il `brand` con cui Orders registra quel negozio
+(letto in `orders."NegozioShopify"`: 57 ordini già con quel nome). Scritto sulla
+stessa colonna che salva il modulo di /impostazioni; in produzione il menù Ambito
+mostra già `business.deluxy.it`. ⚠️ In `Vendita` non c'è ancora nessuna riga di
+quel canale: l'import del venduto guarda solo gli ultimi giorni (vedi sotto per
+le date degli ordini Business in Orders).
+
 Tre cose fatte oggi sera: la diagnosi del
 panettone, la **pubblicazione su più negozi**, e l'**architettura del modulo
 descrizione** analizzata sui quattro siti.
