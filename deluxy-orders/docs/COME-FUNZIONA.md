@@ -1594,6 +1594,31 @@ cima e non dentro `shopify` perché non è un campo di Shopify: è la lettura ch
 ne dà Orders, ed è quella da usare invece di rifarsi i conti su
 `financialStatus` e `annullatoIl` ognuna a modo suo.
 
+### Gli ordini di PROVA non escono dalle API (07/09/2026)
+Decisione dell'utente: **un ordine col cliente «Test» non passa alle altre
+app** — Customer Service, piattaforma consegne, Budgets, Marketing,
+Merchandising, CRM — esattamente come già gli annullati. Vale per
+`GET /api/v1/ordini` (elenco, anche con `aggiornatiDa`/`nuoviDa`),
+`/api/v1/ordini/:id` (risponde **410** col motivo, come per un annullato),
+`/api/v1/ricavi`, `/api/v1/province`, `/api/v1/margini` e
+`/api/v1/marketing`. Chi deve gestirne uno davvero (per esempio chiuderlo
+dopo averlo già copiato) passa **`prove=incluse`**.
+
+⚠️ **Solo le prove, non gli ordini a importo zero**: uno zero può essere un
+omaggio o una riconsegna, cioè un ordine vero da lavorare. Restano quindi
+«non conformi» nel registro ma **passano** alle altre app.
+
+Nel registro di Orders (elenco, scheda, analisi, clienti) le prove **si vedono
+ancora**, con la salute «Non conforme»: è il posto dove si controlla che siano
+prove. Misurato il 07/09 sui dati veri: `/api/v1/ordini?aggiornatiDa=2026-09-06`
+14.247 contro 14.272 con `prove=incluse` (25 prove sul registro);
+`/api/v1/ricavi?anno=2026` 4.043 ordini contro 4.056, stesso lordo (le
+prove con importo erano già fuori perché annullate o stornate).
+
+⚠️ Un'esclusione dall'API **non cancella ciò che è già passato**: le due prove
+del 07/09 erano già nel Customer Service come «da lavorare» prima di questa
+regola, e lì vanno chiuse a mano.
+
 ## Classificazione «a piacimento»
 - **Salute** (calcolata, non si modifica): se la vendita vale — conforme, a
   rischio, non pagato, cancellato, nullo. Vedi la sezione qui sopra.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { nomeCanale } from "@/lib/marketing";
 import { venditePerCanale } from "@/lib/canali";
+import { proveIncluse } from "@/lib/salute";
 
 // GET /api/v1/marketing — quanto vale ogni CANALE DI PROVENIENZA, e quanta
 // parte di quel valore sono clienti nuovi invece che clienti che tornano.
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   const gte = new Date(`${da}T00:00:00+01:00`);
   const lt = new Date(`${a}T00:00:00+01:00`);
 
-  const v = await venditePerCanale(gte, lt, brand);
+  const v = await venditePerCanale(gte, lt, brand, { senzaProve: !proveIncluse(req.nextUrl.searchParams) });
 
   return NextResponse.json({
     anno,

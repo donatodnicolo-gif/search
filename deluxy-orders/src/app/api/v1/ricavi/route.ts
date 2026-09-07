@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma, SCHEMA } from "@/lib/db";
+import { SQL_NON_PROVA, WHERE_NON_PROVA, proveIncluse } from "@/lib/salute";
 
 // GET /api/v1/ricavi — venduto aggregato per brand e per mese (sola lettura).
 //
@@ -99,9 +100,12 @@ export async function GET(req: NextRequest) {
   const brand = p.get("brand")?.trim() || null;
   const conAnnullati = p.get("annullati")?.trim().toLowerCase() === "inclusi";
   const conRimborsati = p.get("rimborsati")?.trim().toLowerCase() === "inclusi";
+  // Gli ordini di prova (cliente «Test») restano fuori dal lordo, come gli
+  // annullati: 16 con importo sul registro al 07/09. `prove=incluse` li rimette.
+  const conProve = proveIncluse(p);
 
   const dentro = { gte: new Date(`${da}T00:00:00+01:00`), lt: new Date(`${a}T00:00:00+01:00`) };
-  const base = { data: dentro, ...(brand ? { brand } : {}) };
+  const base = { data: dentro, ...(brand ? { brand } : {}), ...(conProve ? {} : { AND: [WHERE_NON_PROVA] }) };
 
   const [righe, annullati, rimborsati, parziali] = await Promise.all([
     prisma.$queryRawUnsafe<Riga[]>(
@@ -123,6 +127,7 @@ export async function GET(req: NextRequest) {
           ${brand ? "AND brand = $3" : ""}
           ${conAnnullati ? "" : `AND "annullatoIl" IS NULL`}
           ${conRimborsati ? "" : `AND ("financialStatus" IS NULL OR "financialStatus" NOT IN ('REFUNDED','VOIDED'))`}
+          ${conProve ? "" : `AND ${SQL_NON_PROVA}`}
         GROUP BY 1, 2
         ORDER BY 1, 2`,
       ...(brand ? [dentro.gte, dentro.lt, brand] : [dentro.gte, dentro.lt])

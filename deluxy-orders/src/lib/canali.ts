@@ -1,4 +1,5 @@
 import { prisma, SCHEMA } from "./db";
+import { SQL_NON_PROVA } from "./salute";
 import { CANALI, canale as canalePerChiave, nomeCanale } from "./marketing";
 
 // QUANTO VALE OGNI CANALE DI PROVENIENZA.
@@ -83,10 +84,13 @@ const CHIAVE = `COALESCE(
   NULLIF(LOWER(TRIM(o."clienteNome")), '')
 )`;
 
-function cte(brand: string | null): string {
+// `senzaProve`: le rotte API lo passano a true (gli ordini di prova col cliente
+// «Test» non escono verso le altre app, decisione del 07/09); la pagina interna
+// /marketing li vede ancora, come ogni altra pagina del registro.
+function cte(brand: string | null, senzaProve = false): string {
   return `
     WITH base AS (
-      SELECT o."id", o."data", o."brand", o."totale", o."annullatoIl", o."financialStatus",
+      SELECT o."id", o."data", o."brand", o."totale", o."annullatoIl", o."financialStatus", o."clienteNome",
              o."canaleMarketing", o."utmCampaign", o."utmSource", o."visitaSorgente",
              ${CHIAVE} AS chiave
         FROM "${SCHEMA}"."Ordine" o
@@ -106,10 +110,16 @@ function cte(brand: string | null): string {
          AND "annullatoIl" IS NULL
          AND ("financialStatus" IS NULL OR "financialStatus" NOT IN ('REFUNDED','VOIDED'))
          ${brand ? `AND "brand" = $3` : ""}
+         ${senzaProve ? `AND ${SQL_NON_PROVA}` : ""}
     )`;
 }
 
-export async function venditePerCanale(da: Date, a: Date, brand: string | null): Promise<Vendite> {
+export async function venditePerCanale(
+  da: Date,
+  a: Date,
+  brand: string | null,
+  opzioni: { senzaProve?: boolean } = {},
+): Promise<Vendite> {
   const parametri: unknown[] = brand ? [da, a, brand] : [da, a];
 
   const [righe, campagne, sorgenti, esclusi, tracciati] = await Promise.all([
@@ -128,7 +138,7 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
         clienti: number;
       }[]
     >(
-      `${cte(brand)}
+      `${cte(brand, opzioni.senzaProve)}
        SELECT COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto') AS canale,
               EXTRACT(MONTH FROM ("data" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome'))::int AS mese,
               COUNT(*)::int AS ordini,
@@ -148,7 +158,7 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
       ...parametri,
     ),
     prisma.$queryRawUnsafe<RigaCampagna[]>(
-      `${cte(brand)}
+      `${cte(brand, opzioni.senzaProve)}
        SELECT "utmCampaign" AS campagna,
               COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto') AS canale,
               COUNT(*)::int AS ordini,
@@ -165,7 +175,7 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
     // cui è arrivata la persona. Senza questa riga «Klaviyo» sarebbe invisibile,
     // sepolto dentro «Email» insieme a Shopify Email e alle newsletter.
     prisma.$queryRawUnsafe<RigaSorgente[]>(
-      `${cte(brand)}
+      `${cte(brand, opzioni.senzaProve)}
        SELECT LOWER(COALESCE(NULLIF(TRIM("utmSource"), ''), NULLIF(TRIM("visitaSorgente"), ''), '(non indicata)')) AS sorgente,
               COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto') AS canale,
               COUNT(*)::int AS ordini,
@@ -187,7 +197,7 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
       _sum: { totale: true },
     }),
     prisma.$queryRawUnsafe<{ tracciati: number }[]>(
-      `${cte(brand)}
+      `${cte(brand, opzioni.senzaProve)}
        SELECT COUNT(*) FILTER (WHERE COALESCE(TRIM("utmSource"), '') <> '')::int AS tracciati FROM dentro`,
       ...parametri,
     ),

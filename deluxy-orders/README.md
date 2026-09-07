@@ -63,11 +63,11 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | Metodo | Rotta | Scopo |
 | --- | --- | --- |
 | GET | `/api/v1/health` | sonda pubblica |
-| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, salute, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza, nuoviDa`) e paginazione (`page, limit`) |
-| GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato) |
+| GET | `/api/v1/ordini` | elenco con filtri (`q, brand, stato, salute, categoria, app, etichetta, da, a, consegnaDa, consegnaA, pagamento, shopify, rischio, problema, canale, citta, paese, cittaMittente, paeseMittente, estero, urgenza, nuoviDa`) e paginazione (`page, limit`). Gli **ordini di prova** (cliente «Test») non escono, come gli annullati: `prove=incluse` li rimette |
+| GET | `/api/v1/ordini/:id` | un ordine con la classificazione (410 se annullato o se è una **prova** col cliente «Test»; `prove=incluse` per averlo) |
 | PATCH | `/api/v1/ordini/:id` | riclassifica (chiave di scrittura): `stato`, `etichette[]`, `categoriaPagamento`, `tipoConsegna`, `tipoProdotto`, `canale`, `assegnatoApp`, `fornitore`, `responsabile`, `classificazioni{}`, `noteInterne` |
-| GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`) |
-| GET | `/api/v1/marketing` | venduto **per canale di provenienza**, con lo split clienti nuovi / clienti che tornano, i dodici mesi e le **campagne** per nome (`anno` oppure `da`/`a`; `brand`) |
+| GET | `/api/v1/ricavi` | venduto **aggregato per brand e per mese** (`anno`, oppure `da`/`a`; `brand`; `annullati=inclusi`, `rimborsati=inclusi`, `prove=incluse`) |
+| GET | `/api/v1/marketing` | venduto **per canale di provenienza**, con lo split clienti nuovi / clienti che tornano, i dodici mesi e le **campagne** per nome (`anno` oppure `da`/`a`; `brand`; `prove=incluse`) |
 | GET | `/api/v1/stati` | la pipeline degli stati (per interpretare `stato`) |
 | GET | `/api/v1/liste` | catalogo delle liste di clienti, con conteggi, criteri e soglie |
 | GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency; con `riepilogo=si` anche riassunto e gusti |

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { WHERE_NON_PROVA, proveIncluse } from "@/lib/salute";
 import { QUOTA_FORNITORE_DEFAULT } from "@/lib/controllo";
 
 // GET /api/v1/margini — il **margine per brand**, misurato sugli ordini
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest) {
     data: { gte: new Date(`${da}T00:00:00+01:00`), lt: new Date(`${a}T00:00:00+01:00`) },
     annullatoIl: null,
     financialStatus: { notIn: RIMBORSI },
+    // Le prove (cliente «Test») non hanno un margine da misurare. `prove=incluse` le rimette.
+    ...(proveIncluse(p) ? {} : { AND: [WHERE_NON_PROVA] }),
   };
 
   const [tutti, misurati] = await Promise.all([

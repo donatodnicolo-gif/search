@@ -84,6 +84,22 @@ const DOVE_PROVA: Prisma.OrdineWhereInput = {
   ],
 };
 
+// FUORI DALLE API (decisione dell'utente, 07/09/2026): gli ordini di PROVA non
+// passano alle altre app — Customer Service, piattaforma, Budgets, Marketing —
+// come già gli annullati; quelli a importo zero invece passano (sono ordini
+// veri, es. omaggi). Chi li vuole davvero passa `prove=incluse`. Due forme
+// della stessa frase: quella Prisma per le rotte a oggetto, quella SQL (le
+// stesse quattro ILIKE, senza espressioni regolari) per le rotte grezze.
+// ⚠️ Il `NOT` va bene qui perché DOVE_PROVA è già null-safe (vedi sopra).
+export const WHERE_NON_PROVA: Prisma.OrdineWhereInput = { NOT: DOVE_PROVA };
+export const SQL_NON_PROVA =
+  `("clienteNome" IS NULL OR NOT ("clienteNome" ILIKE 'test' OR "clienteNome" ILIKE 'test %' OR "clienteNome" ILIKE '% test' OR "clienteNome" ILIKE '% test %'))`;
+
+/** Vero se chi chiama ha chiesto esplicitamente anche gli ordini di prova. */
+export function proveIncluse(p: URLSearchParams): boolean {
+  return p.get("prove")?.trim().toLowerCase() === "incluse";
+}
+
 /** Vero se il cliente dell'ordine si chiama «Test» (ordine di prova). */
 export function ordineDiProva(o: Pick<OrdineDaValutare, "clienteNome">): boolean {
   return o.clienteNome !== null && RE_PROVA.test(o.clienteNome);

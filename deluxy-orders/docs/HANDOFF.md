@@ -5,6 +5,46 @@ Stato al **07/09/2026** (sezioni qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 07/09/2026 (5) — LE PROVE NON ESCONO DALLE API (in locale, NON pubblicato)
+
+Domanda dell'utente: «mi confermi che i non conformi non passano alle altre
+app?». Verificato sul codice: **no, passavano** — `/api/v1/ordini` escludeva
+solo gli annullati, il campo `salute` c'è nella risposta ma nessuna app lo usa
+per filtrare, e ricavi/province/margini/marketing contavano anche le prove.
+Decisione: **escludere SOLO gli ordini di prova** (cliente «Test»), non quelli a
+importo zero (possono essere omaggi/riconsegne da lavorare).
+
+### Cosa c'è ora
+`salute.ts` esporta `WHERE_NON_PROVA` (Prisma, `NOT` di `DOVE_PROVA`, che è
+null-safe), `SQL_NON_PROVA` (le stesse quattro `ILIKE`, senza espressioni
+regolari) e `proveIncluse(p)` (`?prove=incluse`). Applicato in:
+`/api/v1/ordini` (AND in coda al `whereOrdini`), `/api/v1/ordini/[id]`
+(**410** col motivo, come l'annullato), `/api/v1/ricavi` (SQL grezzo +
+aggregati), `/api/v1/province` (`filtri`), `/api/v1/margini` (`base`),
+`/api/v1/marketing` (→ `venditePerCanale(…, { senzaProve })`: il motore è lo
+stesso della pagina interna, che continua a vederle; la `base` del CTE ora
+porta `clienteNome`). Le rotte clienti/liste/eventi NON sono toccate: sono
+clienti, non ordini (i «clienti» di prova ci restano — da decidere).
+
+### Verificato dal vivo (chiave di sola lettura temporanea, poi cancellata)
+`?q=ORDINETEST` → 0 (con `prove=incluse` → 2) · `?q=Caterina Testa` → 1 (il
+cliente vero resta) · `?aggiornatiDa=2026-09-06` 14.247 vs 14.272 (25 prove) ·
+`/ordini/<id #12897>` → **410** «è un ordine di prova…», con `prove=incluse`
+200 · `/ricavi?anno=2026` 4.043 vs 4.056 ordini, lordo identico (le 16 prove
+con importo erano già fuori: annullate/VOIDED) · `/province` settembre 99 vs 102
+· `/margini` deluxy.it 2.609 vs 2.620 · `/marketing` 4.043 vs 4.056.
+`tsc` pulito.
+
+### Da fare a mano / da decidere
+- 🔴 Le due prove di oggi (#2881 Flowers, #12897 deluxy.it) sono **già nel
+  Customer Service** come «da lavorare»: l'API non cancella ciò che è passato.
+- I «clienti» di prova (test.1112@gmail.com, test@jtplapps.in, …) stanno
+  ancora in `/api/v1/clienti` e `/liste`.
+
+### File
+`src/lib/salute.ts` · `src/lib/canali.ts` · `src/app/api/v1/{ordini,ordini/[id],ricavi,province,margini,marketing}/route.ts`
+· `README.md` · `docs/COME-FUNZIONA.md` · `docs/guida-visiva.html` · `MANUALE-DELUXY.html`.
+
 ## 07/09/2026 (4) — SALUTE «NON CONFORME»: le prove e gli ordini a zero non sono vendite (in locale, NON pubblicato)
 
 Richiesta dell'utente: «un ordine con cliente Test è un ordine non conforme,

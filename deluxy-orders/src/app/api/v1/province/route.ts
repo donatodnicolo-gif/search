@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma, SCHEMA } from "@/lib/db";
+import { SQL_NON_PROVA, proveIncluse } from "@/lib/salute";
 
 // GET /api/v1/province — venduto aggregato per PROVINCIA di consegna.
 //
@@ -65,6 +66,8 @@ export async function GET(req: NextRequest) {
     filtri.push(`brand = $${valori.length}`);
   }
   if (!conAnnullati) filtri.push(`"annullatoIl" IS NULL`);
+  // Le prove (cliente «Test») non fanno venduto per territorio. `prove=incluse` per vederle.
+  if (!proveIncluse(p)) filtri.push(SQL_NON_PROVA);
   if (!conRimborsati)
     filtri.push(`("financialStatus" IS NULL OR "financialStatus" NOT IN ('REFUNDED','VOIDED'))`);
   const dove = filtri.length ? `WHERE ${filtri.join(" AND ")}` : "";

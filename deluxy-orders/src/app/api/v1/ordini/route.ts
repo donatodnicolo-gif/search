@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { whereOrdini, serializzaOrdine, INCLUDE_ORDINE } from "@/lib/ordini";
+import { WHERE_NON_PROVA, proveIncluse } from "@/lib/salute";
 import { ordinali } from "@/lib/repeater";
 import { tipologiePerOrdini } from "@/lib/tipologia-cliente";
 
@@ -42,6 +43,13 @@ export async function GET(req: NextRequest) {
     where.annullatoIl = { gte: da };
   } else if (annullati === "solo") where.annullatoIl = { not: null };
   else if (annullati !== "inclusi") where.annullatoIl = null;
+
+  // Gli ordini di PROVA (cliente «Test») non escono, come gli annullati: sono
+  // finiti nel Customer Service come «da lavorare» il 07/09. `prove=incluse`
+  // per chi li vuole. Gli ordini a importo zero passano: sono ordini veri.
+  if (!proveIncluse(p)) {
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), WHERE_NON_PROVA];
+  }
   const page = Math.max(1, Number(p.get("page") ?? "1") || 1);
   const limit = Math.min(200, Math.max(1, Number(p.get("limit") ?? "50") || 50));
 

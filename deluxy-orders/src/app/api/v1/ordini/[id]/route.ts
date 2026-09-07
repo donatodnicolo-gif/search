@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { serializzaOrdine, INCLUDE_ORDINE } from "@/lib/ordini";
 import { ordinali } from "@/lib/repeater";
 import { CATEGORIE_PAGAMENTO } from "@/lib/classificazione";
+import { ordineDiProva, proveIncluse } from "@/lib/salute";
 
 // GET /api/v1/ordini/:id — un ordine con la sua classificazione (sola lettura).
 // Come l'elenco, un ordine ANNULLATO non viene servito: risponde 410 (non più
@@ -23,6 +24,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return erroreApi(
       410,
       `Ordine ${ordine.numero} annullato il ${ordine.annullatoIl.toISOString().slice(0, 10)}: non viene servito. Usa ?annullati=inclusi se devi gestirlo comunque.`,
+    );
+  }
+  // Stessa regola dell'elenco: un ordine di PROVA (cliente «Test») non si
+  // serve, salvo `?prove=incluse` — a chi lo ha già copiato e vuole chiuderlo.
+  if (ordineDiProva(ordine) && !proveIncluse(req.nextUrl.searchParams)) {
+    return erroreApi(
+      410,
+      `Ordine ${ordine.numero} è un ordine di prova (cliente «${ordine.clienteNome}»): non viene servito. Usa ?prove=incluse se devi gestirlo comunque.`,
     );
   }
   return NextResponse.json(serializzaOrdine(ordine, undefined, await ordinali([ordine.id])));
