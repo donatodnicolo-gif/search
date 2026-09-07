@@ -586,7 +586,9 @@ export class DeliveriesService {
       if (range) Object.assign(scope, range);
     }
 
-    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS);
+    // ⚠️ 07/09/2026: `realOrderNumber` è l'id lungo di Shopify (14 cifre): si confronta
+    // dall'inizio, altrimenti quattro cifre qualsiasi pescano consegne a caso.
+    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS, ['realOrderNumber']);
     // ⭐⭐ IL NUMERO DELLA CONSEGNA (26/08/2026). Fino a ieri cercare «62637»
     // — il numero che l'app stampa dappertutto e manda perfino nelle notifiche
     // — rispondeva 200 con ZERO righe: `code` e' un `Int` e `textSearch` sa

@@ -79,14 +79,24 @@ export function paginate(query: ListQueryDto): { skip: number; take: number; pag
  * serve quindi `mode: 'insensitive'` su ogni foglia, altrimenti cercare
  * "rossi" non trova "Rossi".
  */
-export function textSearch(q: string | undefined, fields: string[]): Record<string, unknown> | undefined {
+/**
+ * @param soloInizio campi che si confrontano dall'INIZIO (`startsWith`) invece che ovunque.
+ *
+ * ⚠️ 07/09/2026 (segnalazione utente): cercando «2804» fra le consegne usciva anche la #62785,
+ * che con 2804 non c'entra niente — il suo `realOrderNumber` è «13328047014213», e quelle
+ * quattro cifre stanno in mezzo per caso. Su un identificativo lungo il `contains` non è una
+ * ricerca, è una lotteria: chi cerca un numero d'ordine lo scrive dall'inizio.
+ */
+export function textSearch(q: string | undefined, fields: string[], soloInizio: string[] = []): Record<string, unknown> | undefined {
   const term = (q ?? '').trim();
   if (!term || fields.length === 0) return undefined;
   return {
     OR: fields.map((field) => {
       const parts = field.split('.');
       // Costruisce l'oggetto annidato partendo dalla foglia
-      let node: Record<string, unknown> = { contains: term, mode: 'insensitive' };
+      let node: Record<string, unknown> = soloInizio.includes(field)
+        ? { startsWith: term, mode: 'insensitive' }
+        : { contains: term, mode: 'insensitive' };
       for (let i = parts.length - 1; i >= 0; i--) {
         node = { [parts[i]]: node };
       }
