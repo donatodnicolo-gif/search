@@ -1393,7 +1393,15 @@ export class DeliveriesService {
     partnerId: string,
     recipientAddress: string | null | undefined,
     distanceKm?: number | null,
+    ritiroSceltoDallUfficio = false,
   ): Promise<{ pickupAddress: string; distanceKm: null; kmScartati: number | null } | null> {
+    // ⭐ 07/09/2026 (regola utente: «consenti a operatore o admin di cambiare
+    // l'indirizzo di ritiro anche se il partner è Artista Locale»). La regola
+    // sotto è un DEFAULT sensato, non un vincolo: quando l'ufficio scrive un
+    // ritiro a mano, quello vince. Prima il campo tornava indietro in silenzio
+    // a ogni salvataggio, e chi lo aveva cambiato non capiva perché.
+    // Il PARTNER resta soggetto alla regola: non può spostarsi il ritiro da solo.
+    if (ritiroSceltoDallUfficio) return null;
     const partner = await this.prisma.partner.findUnique({
       where: { id: partnerId },
       select: { insegna: true },
@@ -1564,6 +1572,7 @@ export class DeliveriesService {
       partnerId,
       dto.recipientAddress,
       dto.distanceKm,
+      user.role !== Role.PARTNER && !!dto.pickupAddress?.trim(),
     );
     if (inCitta) {
       dto.pickupAddress = inCitta.pickupAddress;
@@ -2058,12 +2067,22 @@ export class DeliveriesService {
     // Stessa regola della creazione: per un partner "locale" il ritiro segue il
     // destinatario, anche quando la modifica arriva a mano dal pannello.
     const partnerDaUsare = partnerId ?? delivery.partnerId;
+    // ⭐ 07/09/2026 (regola utente): l'ufficio ha scritto un ritiro DIVERSO da
+    // quello che c'era? Allora è una scelta, e vince sulla regola del «ritiro in
+    // città». Serve il confronto, non la sola presenza: il form rimanda sempre
+    // tutti i campi, e senza confronto ogni salvataggio sembrerebbe una scelta.
+    const ritiroAMano =
+      user.role !== Role.PARTNER &&
+      dto.pickupAddress != null &&
+      !!dto.pickupAddress.trim() &&
+      dto.pickupAddress.trim() !== (delivery.pickupAddress ?? '').trim();
     const inCitta =
       partnerDaUsare && (dto.recipientAddress || dto.pickupAddress != null)
         ? await this.ritiroInCittaDiConsegna(
             partnerDaUsare,
             dto.recipientAddress ?? delivery.recipientAddress,
             dto.distanceKm ?? delivery.distanceKm,
+            ritiroAMano,
           )
         : null;
     // ⚠️ `distanceKm: null` esplicito, non `undefined`: in Prisma undefined vuol
@@ -2242,6 +2261,16 @@ export class DeliveriesService {
       await this.prisma.deliveryLog.create({
         data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
           message: `Partner cambiato: ${prima?.insegna ?? '—'} → ${dopo?.insegna ?? partnerId}` },
+      });
+    }
+    // ⭐ 07/09/2026: il ritiro cambiato a mano si SCRIVE nel registro. Su un
+    // partner col «ritiro in città» è una deroga a una regola dell'app, e chi
+    // riapre la consegna deve poter sapere che l'indirizzo è una scelta di
+    // qualcuno, non il risultato di un calcolo.
+    if (ritiroAMano) {
+      await this.prisma.deliveryLog.create({
+        data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
+          message: `Ritiro cambiato a mano: ${delivery.pickupAddress?.trim() || '—'} → ${dto.pickupAddress!.trim()}` },
       });
     }
     if (dto.status && dto.status !== delivery.status) {
