@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **5 settembre 2026**.
+> Documento di ripartenza. Aggiornato: **7 settembre 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,60 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 07/09 — «Come mai compare Chanel?»: il badge cliente si prendeva TUTTO il dominio deluxy.it
+
+Domanda dell'utente su una notifica d'ordine Shopify che portava il badge verde
+«Chanel Roma Piazza Di Spagna». **Verificato sul database di produzione, non dedotto**:
+
+- Il mittente di `[DELUXY] Ordine #12895 effettuato da Massimiliano Titta` è **`info@deluxy.it`**
+  (`Messaggio.mittente`, tre copie della stessa notifica su caselle diverse).
+- Il badge verde è `clienteNome` in `RigaMail.tsx` (titolo «Cliente del registro Anagrafiche»),
+  calcolato in `ListaPosta.tsx` con `idxClienti.perEmail.get(mittente) || perDominio.get(dominio)`.
+- `costruisciIndice()` in `anagrafiche.ts` metteva nel dizionario **il dominio** di ogni recapito
+  dei partner attivi, escludendo solo i provider generici (`DOMINI_GENERICI`: gmail, libero…).
+  **`deluxy.it` non era nella lista**: basta UN partner del registro con un recapito su un nostro
+  dominio e si intesta tutto il dominio, primo arrivato primo servito (`!perDominio.has(dom)`).
+- Dimensione del guaio: **13.904 mail in arrivo** hanno un mittente `@deluxy.it`. Stesso guaio,
+  silenzioso, sull'API `GET /api/v1/messaggi?cliente=…` (`recapitiCliente`), quella che il
+  **Finance** usa per la card «Posta con il cliente»: chiedendo quel partner rispondeva con la
+  posta di casa.
+- **Correzione** (`src/lib/anagrafiche.ts`): nuova `dominiPropri()` che legge i domini delle
+  **caselle configurate** (`Account.email` → `deluxy.it`, `deluxyflowers.com`; letti dal DB, non
+  da una lista a mano che invecchierebbe). Un recapito su un nostro dominio **non entra
+  nell'indice**, né per email esatta né per dominio; le altre email dello stesso partner
+  continuano a valere. `npx tsc --noEmit`: 0 errori.
+- ⚠️ **Non verificabile in locale**: la chiave di Anagrafiche sta nel DB **cifrata con
+  l'`APP_SECRET` di PRODUZIONE**, e l'`APP_SECRET` del `.env` locale è un altro (`decifra` →
+  «unable to authenticate data»); `vercel env pull` restituisce `[SENSITIVE]` per i 12 segreti
+  (vedi [[trappola-vercel-env-sensitive-pull]]). Quindi in locale l'indice clienti è **vuoto** e
+  il badge non compare né prima né dopo. Per provarlo qui basta una riga
+  `ANAGRAFICHE_PARTNER_KEY=…` (sola lettura) nel `.env` del worktree.
+- 🔴 **Resta un dato sbagliato in ANAGRAFICHE**: quel partner ha un recapito `@deluxy.it`. Chi è
+  si legge da https://deluxy-mail.vercel.app/clienti (la pagina Clienti mostra email e domini di
+  ciascuno) o cercando «Chanel Roma Piazza Di Spagna» nel registro. La toppa di AI Mail la rende
+  innocua, non la corregge.
+
+### 07/09 — Ripartenza: worktree allineato, typecheck verde, locale acceso sul DB di produzione
+
+Punto di ripresa di una sessione nuova (l'utente ha chiesto «lavora su deluxy-mail, leggi handoff
+e aggiorna memoria, lavora prima su locale»). Verificato, non dedotto:
+
+- **Si lavora nel worktree** `C:\Users\nicol\AppData\Local\Temp\wt-mail` (branch
+  `mail-riassunto-singola`). `git diff --stat mail-riassunto-singola scout-ui -- deluxy-mail` è
+  **vuoto**: per AI Mail i file sono identici a `origin/scout-ui`. Il branch è 219 commit indietro
+  per le altre app e 0 avanti; `git merge --ff-only` e `git reset --hard` sono stati **bloccati dal
+  classificatore dell'auto mode**, quindi l'allineamento formale lo lancia l'utente se serve.
+- **`scoutwt/` è rientrato**: `scout-ui` allineato a origin (0 avanti / 0 indietro) e il working
+  tree di `deluxy-mail` lì è **pulito** — la trappola del 04/09 (i 21 file indietro pronti a essere
+  ricommittati da un'altra sessione) **non c'è più**. Resta solo `zz-diag.mjs` non tracciato.
+- ⚠️ **`app/deluxy-mail` è ancora la copia del 20/07** (il suo `HANDOFF.md` porta quella data):
+  non è una versione, è un fossile. Non lavorarci e non deployare da lì.
+- **`npx tsc --noEmit`: 0 errori** (dopo `prisma generate`).
+- **Produzione sana**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}`.
+- **Locale acceso**: `npm run dev` dal worktree → http://localhost:3070, `/api/health` 200.
+  ⚠️ In `wt-mail` c'è **solo `.env`** (niente `.env.local`): il server locale parla col **database
+  di PRODUZIONE**. Va bene per guardare; ogni azione che scrive tocca i dati veri.
 
 ### 04/09 (20:45) — IN PRODUZIONE: `ae574132` pubblicato con build nel cloud (`dpl_8YhXobY4Pae5DWBMLSGwR5vt8ZuX`)
 

@@ -1189,6 +1189,16 @@ Anagrafiche in stato **attivo** (cache 10 minuti) con:
 - i **domini** di quelle email, ma solo se **non generici** (gmail, libero,
   outlook… sono esclusi: un cliente su Gmail si porterebbe dietro mezzo mondo).
 
+⚠️ **I nostri domini non entrano nell'indice** (07/09/2026). Un recapito su un
+dominio delle **caselle configurate** (`deluxy.it`, `deluxyflowers.com`… si
+leggono dal database, non da una lista scritta a mano) viene saltato: né per
+email esatta né per dominio. Il motivo: bastava **un** partner del registro con
+un recapito `@deluxy.it` per intestarsi l'intero dominio, e la notifica d'ordine
+di Shopify (`info@deluxy.it`) compariva in posta col badge verde di quel
+partner — quasi **14.000** mail in arrivo. Stesso guaio, silenzioso, sull'API
+`?cliente=`: chiedendo la posta di quel partner rispondeva con la posta di casa.
+Le altre email dello stesso partner continuano a valere.
+
 Da lì partono le due direzioni:
 
 - `clientePerMittente()` — dato un mittente, di che cliente è: alimenta la

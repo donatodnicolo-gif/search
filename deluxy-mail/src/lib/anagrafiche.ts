@@ -6,6 +6,7 @@
 // un'azienda) usa la stessa chiave: se è di sola lettura, il server risponde 401/403.
 
 import { leggiChiaviApp } from './chiaviApp'
+import { db } from './db'
 
 const ANAGRAFICHE_URL = (process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app').replace(/\/$/, '')
 
@@ -135,10 +136,34 @@ const ATTESA_MAX = 1200
 
 const VUOTO = (): IndiceClienti => ({ at: 0, perEmail: new Map(), perDominio: new Map() })
 
+/**
+ * I domini NOSTRI: quelli delle caselle configurate nell'app (`deluxy.it`,
+ * `deluxyflowers.com`, …). Un indirizzo di casa non identifica mai un cliente.
+ * ⚠️ Il 07/09/2026 la notifica d'ordine di Shopify (`info@deluxy.it`) arrivava
+ * col badge verde «Chanel Roma Piazza Di Spagna»: bastava UN partner del
+ * registro con un recapito `@deluxy.it` per intestarsi l'intero dominio — e con
+ * lui quasi 14.000 mail in arrivo. Si legge dal database, non da una lista
+ * scritta a mano: le caselle si aggiungono, la lista invecchierebbe.
+ */
+async function dominiPropri(): Promise<Set<string>> {
+  try {
+    const caselle = await db.account.findMany({ select: { email: true } })
+    return new Set(
+      caselle
+        .map((c) => (c.email.split('@')[1] || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+  } catch {
+    // Senza database si va avanti: meglio un badge in più che la posta ferma.
+    return new Set<string>()
+  }
+}
+
 /** Scarica davvero l'elenco dei clienti attivi e ne costruisce l'indice. */
 async function costruisciIndice(): Promise<IndiceClienti> {
   const perEmail = new Map<string, { id: string; nome: string }>()
   const perDominio = new Map<string, { id: string; nome: string }>()
+  const propri = await dominiPropri()
   const k = await chiaveLettura()
   if (k) {
     // Cap a 10 pagine (1000 clienti): oltre, il costo non vale il badge.
@@ -151,8 +176,12 @@ async function costruisciIndice(): Promise<IndiceClienti> {
           .filter((x): x is string => Boolean(x))
           .map((x) => x.toLowerCase())
         for (const em of emails) {
-          if (!perEmail.has(em)) perEmail.set(em, rif)
           const dom = em.split('@')[1]
+          // Un recapito su un NOSTRO dominio non entra proprio nell'indice: né
+          // per email esatta né per dominio. Le altre email dello stesso
+          // partner continuano a valere.
+          if (dom && propri.has(dom)) continue
+          if (!perEmail.has(em)) perEmail.set(em, rif)
           // Il dominio associa solo se NON è un provider generico (gmail, ecc.):
           // altrimenti "un cliente su gmail" trascinerebbe mezzo mondo.
           if (dom && !DOMINI_GENERICI.has(dom) && !perDominio.has(dom)) perDominio.set(dom, rif)
