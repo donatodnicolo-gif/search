@@ -4,6 +4,52 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> ⏱️ **RI-MISURATO IL 07/09 SERA (sola lettura sul DB di produzione;
+> nessuna modifica al codice, nessuna scrittura)**:
+> · ✅ **La campagna Natale B2B È ACCESA**: l'`attiva_campagna` proposta
+>   dall'app alle 14:10 è stata **approvata alle 15:17** ed **eseguita alle
+>   15:18** («campagna riattivata, confermato rileggendo»). ⚠️ La prima
+>   approvazione dell'utente, alle 14:59, **non era arrivata sul database**:
+>   è passata al secondo tentativo. Se ricapita, guardare la pillola di stato
+>   sulla scheda campagna (si ferma apposta se c'è già un'operazione in coda).
+>   Il percorso della Natale B2B è ora **tutto eseguito**: bulk upload 09:09 →
+>   `completa_campagna` 14:10 → 10 negative 14:09 → attivazione 15:18.
+>   Insieme sono passati il budget di Fiori Milano ITA (10 → 12 €/g) e alcune
+>   negative.
+> · 🆕 **In coda c'è la PRIMA `pausa_annuncio` vera** (15:20, «Annuncio 1 in
+>   Fiori a Domicilio + località d'interesse», id
+>   `248-656-1148:195404652177:813390261104`): è il primo uso in produzione del
+>   bottone messo oggi pomeriggio. Approvandola e facendo girare lo script si
+>   chiude il collaudo che mancava.
+> · Coda Google: **22 in attesa** (21 negative create fra le 14:50 e le 15:06 su
+>   Roma English · Roma italian · Torte MILANO · Fiori Firenze, più la
+>   `pausa_annuncio`), **133 eseguite · 30 annullate · 3 fallite** (le tre note).
+> · 🔴 **Meta invariato**: sempre le stesse **due pause approvate e mai
+>   eseguite** (Opera 26/08, Palloncini 04/09), 0 in attesa — confermato anche
+>   da `/api/health?meta=1` (`approvate: 2`). Il percorso «l'approvazione
+>   esegue subito» **non ha ancora girato**: serve un'approvazione Meta NUOVA.
+> · ⚠️ **NUOVO PUNTO APERTO — 16 esiti su 20 eseguiti oggi dicono «ATTENZIONE:
+>   rileggendo la campagna non risulta ancora»** (quasi tutte negative, nessuna
+>   con `divergenzaAccettataIl`). L'app lo scrive bene, ma **oggi nessuno lo può
+>   sapere**: la conferma arriva solo dal sync notturno di Google (l'ultimo è
+>   delle 05:14, prima delle esecuzioni delle 14:09–15:18). **Da ricontrollare
+>   domattina**: se il sync le legge era il ritardo di Google dentro la stessa
+>   esecuzione; se non le legge sono **16 rifiuti muti** dello script, ed è un
+>   difetto da guardare subito.
+> · 🔴 **Il pooler si è saturato anche stasera**: la prima chiamata a
+>   `/api/health` ha risposto `database: false` (le tre successive ok). Non è
+>   un caso isolato: un'ALTRA sessione sta lavorando ORA su
+>   `src/lib/db.ts` (modifica **non committata**, `urlPooler()` che forza
+>   `connection_limit=1` sul `:6543`) per l'incidente delle 17:31 e 17:37
+>   — `FATAL: authentication did not complete within 15000ms`, digest
+>   3126821648, segnalato dall'utente — dopo l'`EMAXCONN` della mattina su
+>   Customer Service. ⚠️ **Non committare quel file** finché quella sessione
+>   non ha finito: il pooler Supavisor è condiviso da tutte le app Deluxy.
+>   Nessun commit di **codice** dopo `85c77b8b`: i tre successivi (`3e92a70e`,
+>   `8f041358`, `22faa23a`) toccano solo `docs/`, quindi **produzione = HEAD**.
+>   Cartella `deluxy-marketing/` pulita; nel working tree restano modifiche di
+>   deluxy-merchandising e deluxy-mail di altre sessioni: **non toccarle**.
+>
 > ⏱️ **RI-MISURATO IL 07/09 pomeriggio (sola lettura sul DB di produzione;
 > `npx tsc --noEmit` pulito in locale dopo `prisma generate`; nessuna modifica
 > al codice)**:
