@@ -459,6 +459,10 @@ export class SalesService {
     serviceTypeId?: string;
     /** Quanto ha pagato il cliente, se chi chiama lo sa (Orders lo sa). */
     amount?: number;
+    /** ⭐ 07/09/2026: quanti pezzi. Sui generici a quantità il prezzo unitario è amount / quantity. */
+    quantity?: number;
+    /** Titolo della riga d ordine: sui generici resta scritto che cosa aveva chiesto il cliente. */
+    productName?: string;
   }) {
     const product = await this.prisma.product.findUnique({
       where: { id: body.productId },
@@ -591,6 +595,9 @@ export class SalesService {
     const creata = await this.prisma.sale.create({
       data: {
         productId: product.id,
+        // ⭐ 07/09/2026: i pezzi («50 rose») e il titolo scritto dal cliente sul generico.
+        quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
+        productName: body.productName ?? product.name ?? null,
         // Fotografia della variante: id + nome, come per il prodotto.
         productVariantId: variante?.id ?? null,
         variantName: variante?.name ?? null,
@@ -663,6 +670,8 @@ export class SalesService {
     productName?: string;
     /** Prezzo pagato dal cliente (riga d'ordine): senza prodotto non c'è un listino da cui prenderlo. */
     amount?: number;
+    /** ⭐ 07/09/2026: quanti pezzi («50 rose rosse»). Il prezzo unitario è amount / quantity. */
+    quantity?: number;
     /** ⭐ 06/09/2026: % di sconto al partner decisa da ORDERS (già arrotondata): se c'è, vince. */
     discountPercent?: number;
     /** ⭐ 03/09 (ordini ESTERI): DA GESTIRE senza proposta automatica anche
@@ -749,6 +758,7 @@ export class SalesService {
           customerId: body.customerId,
           brand: body.brand ?? 'DELUXY',
           amount: body.amount ?? 0,
+          quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
           discountPercent: 0,
           status: SaleStatus.DA_GESTIRE,
           source: body.source ?? 'app',
@@ -795,6 +805,7 @@ export class SalesService {
           customerId: body.customerId,
           brand: body.brand ?? 'DELUXY',
           amount: body.amount ?? prodotto.price ?? 0,
+          quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
           discountPercent: 0,
           status: SaleStatus.DA_GESTIRE,
           source: body.source ?? 'app',
@@ -2407,6 +2418,8 @@ export class SalesService {
       deliveryDate: Date | null;
       serviceTypeId: string | null;
       amount: number;
+      /** ⭐ 07/09/2026: i pezzi della vendita (generici a quantità). */
+      quantity?: number;
       discountPercent?: number;
       externalOrderId?: string | null;
       /** Il numero dell'ordine come lo leggono le persone: è questo il DDT. */
@@ -2522,12 +2535,22 @@ export class SalesService {
                 productSku: vendita.product?.sku ?? null,
                 productVariantId: vendita.productVariantId ?? null,
                 variantName: vendita.variantName ?? variante?.name ?? null,
-                quantity: 1,
+                // ⭐ 07/09/2026 (regola utente): i PEZZI della vendita — «50 rose rosse» è una
+                // riga da 50, non da 1 — e sui GENERICI il prezzo è quello dell ordine diviso i
+                // pezzi (prezzo flessibile del generico), perché a listino il generico vale 0.
+                quantity: Math.max(1, Number(vendita.quantity) || 1),
                 // Il prezzo di riga e' quello del PARTNER (canone 29/08: la fee
                 // si calcola sul SUO prezzo — la prova: la quota registrata e'
                 // il 20% esatto della variante `price`, non del pubblico). Il
                 // pubblico e' il ripiego; se nessuno lo dichiara resta vuoto.
-                price: variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null,
+                price: (() => {
+                  const pezzi = Math.max(1, Number(vendita.quantity) || 1);
+                  const listino = variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null;
+                  if (listino) return listino;
+                  // Generico (listino 0 o assente): quanto prende il partner, diviso i pezzi.
+                  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
+                  return alPartner > 0 ? Math.round((alPartner / pezzi) * 100) / 100 : null;
+                })(),
               }],
             }
           : undefined,

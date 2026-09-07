@@ -2009,6 +2009,9 @@ model Sale {
   provinceId      String
   province        Province  @relation(fields: [provinceId], references: [id])
   brand           String    @default("DELUXY")
+  /// ⭐ 07/09/2026 — QUANTI PEZZI: «50 rose rosse» è una vendita di 50 rose, non una di rose.
+  /// Serve ai prodotti GENERICI a quantità, dove il prezzo è flessibile e si moltiplica.
+  quantity        Int      @default(1)
   amount          Float
   discountPercent Float     @default(0)
   /// da_gestire | proposta | accettata | non_accettata | annullata

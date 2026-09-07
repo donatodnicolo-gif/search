@@ -527,6 +527,11 @@ export class OrdersSyncService {
     // nomi che identificano un prodotto solo: un nome ripetuto non riconosce niente.
     const perNome = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
     const nomiDoppi = new Set<string>();
+    // ⭐ 07/09/2026 (regola utente): I GENERICI DEL CATALOGO. Un ordine «a mano» — la bozza
+    // Shopify «bouquet Milano 300 €», o «50 rose rosse» — non ha un prodotto vero dietro:
+    // adesso invece di nascere muto si ricostruisce col generico giusto, con la QUANTITÀ letta
+    // dal titolo e il prezzo che arriva dall'ordine (prezzo flessibile).
+    const generici = new Map<string, { productId: string; smist: ProdInfo }>();
     for (const p of await this.prisma.product.findMany({
       where: { NOT: { sku: null } },
       select: { id: true, sku: true, name: true, archived: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
@@ -567,6 +572,9 @@ export class OrdersSyncService {
     const senzaProvincia: string[] = [];
 
     for (const n of nomiDoppi) perNome.delete(n);
+    for (const [sku, voce] of prodotti) {
+      if (sku.startsWith('GEN-')) generici.set(sku, { productId: voce.productId, smist: voce.smist });
+    }
 
     for (const o of ordini) {
       const etichetta = `${o.brand ?? ''} ${o.numero ?? o.id}`.trim();
@@ -721,7 +729,7 @@ export class OrdersSyncService {
         // ⚠️ Le righe uguali si contano una volta sola: due unità dello stesso prodotto sono
         // una vendita di quantità due, non due vendite.
         const viste = new Set<string>();
-        const daCreare: { productId: string; variantId?: string; amount?: number; smist: any }[] = [];
+        const daCreare: { productId: string; variantId?: string; amount?: number; quantity?: number; titolo?: string; smist: any }[] = [];
         // ⭐ 07/09/2026 (segnalazione utente sull'ordine 12893: «vedo ancora un solo record in
         // vendita anche se ci sono più prodotti»). Il secondo prodotto — «Van Gogh - Notte
         // Stellata», 85 € — arriva da Shopify con lo SKU VUOTO, e una riga senza SKU non si
@@ -739,6 +747,25 @@ export class OrdersSyncService {
             const titolo = String(r?.titolo ?? '').trim();
             if (titolo) info = perNome.get(titolo.toLowerCase()) ?? undefined;
             if (!info) {
+              // ⭐ 07/09/2026 (regola utente): «quando arriva un ordine generico ricostruiscilo
+              // usando i generici — bouquet Milano 300 € diventa Bouquet a prezzo flessibile
+              // 300 €; 50 rose rosse diventa Rose, quantità 50, prezzo flessibile per rosa».
+              const scelta = OrdersSyncService.genericoPerTitolo(titolo);
+              const gen = scelta ? generici.get(scelta.sku) : null;
+              if (gen && (r?.prezzo ?? 0) > 0) {
+                const chiaveG = `${gen.productId}|${scelta!.pezzi ?? 1}`;
+                if (!viste.has(chiaveG)) {
+                  viste.add(chiaveG);
+                  daCreare.push({
+                    productId: gen.productId,
+                    amount: (r?.prezzo ?? 0) * (r?.quantita ?? 1),
+                    quantity: scelta!.pezzi ?? (r?.quantita ?? 1),
+                    titolo,
+                    smist: gen.smist,
+                  });
+                }
+                continue;
+              }
               if (titolo && (r?.prezzo ?? 0) > 0 && !senzaProdotto.some((x) => x.titolo.toLowerCase() === titolo.toLowerCase())) {
                 senzaProdotto.push({ titolo, amount: r?.prezzo ?? undefined });
               }
@@ -776,6 +803,8 @@ export class OrdersSyncService {
                 productId: riga.productId,
                 productVariantId: riga.variantId,
                 amount: riga.amount ?? undefined,
+                quantity: riga.quantity ?? undefined,
+                productName: riga.titolo ?? undefined,
                 brand: o.brand ?? undefined,
                 ...this.destinatario(o),
                 deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
@@ -833,6 +862,36 @@ export class OrdersSyncService {
       senzaProvincia: senzaProvincia.slice(0, 20),
       esempiDiCosaNonEntra: esempi,
     };
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente) — QUALE GENERICO, e QUANTI PEZZI.
+   *
+   * Un titolo scritto a mano dice già tutto: «50 rose rosse» → Rose, 50 pezzi; «bouquet
+   * Milano 300 €» → Bouquet, un pezzo. Si guarda la parola, non il prezzo; il numero conta
+   * solo se sta all'inizio o davanti alla parola («50 rose», «rose x 24»).
+   *
+   * L'ordine delle regole conta: «cappelliera di rose» è una cappelliera, non delle rose.
+   */
+  static genericoPerTitolo(titolo: string): { sku: string; pezzi: number | null } | null {
+    const t = (titolo ?? '').toLowerCase().trim();
+    if (!t) return null;
+    const numero = t.match(/(?:^|\b)(\d{1,3})\s*(?:x\s*)?(?=[a-zàèéìòù])/) ?? t.match(/\bx\s*(\d{1,3})\b/);
+    const pezzi = numero ? Number(numero[1]) : null;
+    const REGOLE: { sku: string; re: RegExp; conta: boolean }[] = [
+      { sku: 'GEN-CAPPELLIERA', re: /cappellier/, conta: false },
+      { sku: 'GEN-PALLONCINI', re: /pallonc|balloon/, conta: true },
+      { sku: 'GEN-TORTE', re: /torta|torte|cake|dolc|tiramis|crostat|pasticc|mignon|macaron|pralin|cioccolat|brioche|croissant|colazion/, conta: false },
+      { sku: 'GEN-VINO', re: /vino|champagne|prosecco|spumante|bollicin|bottigli/, conta: true },
+      { sku: 'GEN-GASTRONOMIA', re: /sushi|maki|nigiri|gunkan|tempura|sashimi|poke|frutta|salumi|formagg|gastronom/, conta: true },
+      { sku: 'GEN-BOUQUET', re: /bouquet|mazzo/, conta: false },
+      { sku: 'GEN-ROSE', re: /\brose\b|\brosa\b|\broses\b/, conta: true },
+      { sku: 'GEN-FIORI', re: /fior|ortensi|orchide|tulipan|girasol|peoni|piant|composizion|cesto/, conta: true },
+    ];
+    const scelta = REGOLE.find((x) => x.re.test(t));
+    if (!scelta) return null;
+    // I pezzi valgono solo dove contare ha senso: un «bouquet 3» non sono tre bouquet.
+    return { sku: scelta.sku, pezzi: scelta.conta ? pezzi : null };
   }
 
   /**
