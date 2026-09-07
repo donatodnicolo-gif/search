@@ -1105,7 +1105,8 @@
       "blocked": "{{n}} non eliminabili perché usati in consegne o vendite: archiviati.",
       "notYours": "{{n}} esclusi perché non tuoi."
     },
-    "tabListino": "Il mio listino"
+    "tabListino": "Il mio listino",
+    "unarchive": "Togli dall'archivio"
   },
   "aree": {
     "title": "Aree",
@@ -2738,7 +2739,16 @@
       "partnerPriceHint": "quanto incassa il partner",
       "registro": "Registro",
       "noLogs": "Nessun evento registrato: il registro parte dal 4 settembre 2026.",
-      "system": "sistema"
+      "system": "sistema",
+      "loFa": "Lo fa {{chi}}",
+      "inConsegna": "già in consegna",
+      "venditaSenzaConsegna": "vendita aperta, ancora senza consegna",
+      "nessunaVendita": "nessuna vendita per questa riga",
+      "ordineIncompleto": "⚠️ Ordine composto: non tutte le vendite sono andate in consegna. Controlla prima di consegnarne una sola.",
+      "salvaPreventivo": "Salva preventivo",
+      "preventivoTitolo": "Preventivo del partner",
+      "preventivoSotto": "Prima di inserire un prodotto a preventivo serve il prezzo concordato: salvandolo nasce anche la regola per le prossime volte.",
+      "preventivoPrezzo": "Prezzo al partner (€)"
     }
   },
   "activities": {

@@ -567,6 +567,12 @@ interface DeliveryDetail {
                       @if (p.variantName || p.productVariant?.name) {
                         <span class="variante">{{ p.variantName || p.productVariant?.name }}</span>
                       }
+                      <!-- ⭐ 07/09/2026 (regola utente): la NOTA DI SPECIFICA, che arriva da
+                           Merchandising: «20-25 fiori», «18-20 cm». È quello che il fioraio
+                           deve sapere per fare il bouquet giusto. -->
+                      @if ($any(p).productVariant?.note || $any(p).product?.note; as nota) {
+                        <span class="nota-specifica">{{ nota }}</span>
+                      }
                     </td>
                     <td class="num">{{ p.quantity }}</td>
                     @if (!isPartner()) {
@@ -1168,6 +1174,7 @@ interface DeliveryDetail {
       .log-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .log-user { color: var(--text-secondary); }
       .log-ref { color: var(--text-tertiary); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+      .nota-specifica { display: inline-block; margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 980px; background: var(--fill); color: var(--text-secondary); }
       .variante { margin-left: 6px; font-size: 11px; background: var(--fill); color: var(--text-secondary); border-radius: 980px; padding: 2px 8px; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }

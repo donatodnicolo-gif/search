@@ -3,7 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, HostListener, NgZone, computed, inject, signal } from '@angular/core';
 import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -37,6 +37,10 @@ interface RigaStorico {
 interface ProdottoVendita {
   id?: string;
   name?: string;
+  /** ⭐ 07/09/2026: unico | quantita | mix | preventivo — decide se serve il preventivo. */
+  tipologiaVendita?: string | null;
+  /** La specifica che arriva da Merchandising: «20-25 fiori», «18-20 cm». */
+  note?: string | null;
   sku?: string | null;
   line?: string | null;
   imageUrl?: string | null;
@@ -138,7 +142,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
 @Component({
   selector: 'app-sales-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent, ConfermaComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent, ConfermaComponent, RouterLink],
   template: `
     <div class="page-header">
       <div>
@@ -343,6 +347,14 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                   }
                   <!-- L'ufficio prende in mano: ferma il giro automatico e
                        apre il form consegna coi dati della vendita (31/08). -->
+                  <!-- ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO si inserisce solo
+                       dopo aver salvato il prezzo del partner — e salvarlo crea la regola per
+                       le prossime volte. Il bottone sta accanto a «Inserisci», non altrove. -->
+                  @if (canManage() && aPreventivo(s) && (s.status === 'proposta' || s.status === 'da_gestire')) {
+                    <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="apriPreventivo(s)">
+                      {{ 'sales.detail.salvaPreventivo' | translate }}
+                    </button>
+                  }
                   @if (canManage() && (s.status === 'proposta' || s.status === 'da_gestire')) {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="inserisci(s)">
                       {{ 'sales.inserisci' | translate }}
@@ -515,15 +527,36 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
             @if (ordine()?.prodotti?.length) {
               <dt>{{ 'sales.detail.righeOrdine' | translate: { n: ordine()!.prodotti!.length } }}</dt>
               <dd>
-                <ul class="righe-ordine">
+                <!-- ⭐ 07/09/2026 (regola utente «devo poter vedere foto e produttore di tutti
+                     i prodotti nell'ordine»): ogni riga con la sua foto, chi lo fa, la nota di
+                     specifica (quanti fiori) e dove è finita — la sua vendita e la sua consegna. -->
+                <ul class="righe-ordine ricche">
                   @for (r of ordine()!.prodotti!; track $index) {
                     <li>
-                      <span class="q">{{ r.quantita }}×</span> {{ r.nome || '—' }}
-                      @if (r.sku) { <span class="muted"> · {{ r.sku }}</span> }
-                      @if (r.productId && r.productId === v.product?.id) { <span class="muted"> · {{ 'sales.detail.rigaDellaVendita' | translate }}</span> }
+                      @if (r.immagine) {
+                        <img class="mini" [src]="r.immagine" [alt]="r.nome || ''" loading="lazy" />
+                      } @else { <span class="mini vuota" aria-hidden="true"></span> }
+                      <span class="testo">
+                        <b><span class="q">{{ r.quantita }}×</span> {{ r.nome || '—' }}</b>
+                        @if (r.productId && r.productId === v.product?.id) { <span class="qui">{{ 'sales.detail.rigaDellaVendita' | translate }}</span> }
+                        <span class="sotto">
+                          @if (r.produttore) { <span>{{ 'sales.detail.loFa' | translate: { chi: r.produttore } }}</span> }
+                          @if (r.prezzo != null) { <span class="muted"> · {{ r.prezzo | number: '1.2-2' }} €</span> }
+                          @if (r.sku) { <span class="muted"> · {{ r.sku }}</span> }
+                        </span>
+                        @if (r.nota) { <span class="nota">{{ r.nota }}</span> }
+                        <span class="sotto">
+                          @if (r.consegnaId) { <a [routerLink]="['/deliveries', r.consegnaId]">{{ 'sales.detail.inConsegna' | translate }}</a> }
+                          @else if (r.venditaId) { <span class="manca">{{ 'sales.detail.venditaSenzaConsegna' | translate }}</span> }
+                          @else if (r.productId) { <span class="manca">{{ 'sales.detail.nessunaVendita' | translate }}</span> }
+                        </span>
+                      </span>
                     </li>
                   }
                 </ul>
+                @if (ordine()?.incompleto) {
+                  <p class="alert-composto">{{ 'sales.detail.ordineIncompleto' | translate }}</p>
+                }
               </dd>
             }
             <dt>{{ 'sales.detail.product' | translate }}</dt>
@@ -723,6 +756,31 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     (confermato)="eseguiConferma()" (annullato)="confermaPendente.set(null)" />
     }
+  
+    <!-- ⭐ 07/09/2026: il preventivo del partner. Salvarlo fa tre cose: dà il prezzo alla
+         vendita, la propone a quel partner e scrive la regola per gli ordini successivi. -->
+    @if (preventivoDi(); as pv) {
+      <div class="ins-overlay" (click)="preventivoDi.set(null)"></div>
+      <div class="ins-modal prev-modal" role="dialog" aria-modal="true">
+        <header class="ins-head">
+          <h2>{{ 'sales.detail.preventivoTitolo' | translate }}</h2>
+          <button type="button" class="chiudi" (click)="preventivoDi.set(null)" aria-label="Chiudi">✕</button>
+        </header>
+        <div class="prev-corpo">
+          <p class="muted">{{ 'sales.detail.preventivoSotto' | translate }}</p>
+          <p><b>{{ pv.product?.name || pv.productName }}</b> @if (pv.partner) { <span class="muted">· {{ pv.partner.insegna }}</span> }</p>
+          <label class="fld">
+            <span>{{ 'sales.detail.preventivoPrezzo' | translate }}</span>
+            <input class="field" type="number" step="0.01" min="0" [(ngModel)]="prezzoPreventivo" name="prezzoPreventivo" />
+          </label>
+          @if (messaggio(); as m) { <p [class.avviso-errore]="!m.ok">{{ m.testo }}</p> }
+          <div class="prev-azioni">
+            <button type="button" class="btn btn-secondary" (click)="preventivoDi.set(null)">{{ 'common.cancel' | translate }}</button>
+            <button type="button" class="btn btn-primary" [disabled]="inCorso() === pv.id" (click)="salvaPreventivo(pv)">{{ 'sales.detail.salvaPreventivo' | translate }}</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -819,6 +877,20 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       /* ⭐ 04/09: pop-up di dettaglio — velo + pannello, come nel Customer
          Service. Il pannello sta dentro la viewport e scorre lui (Libro §9). */
       .riga-link { cursor: pointer; }
+      .prev-modal { max-width: 460px; }
+      .prev-corpo { padding: 16px 18px 18px; display: grid; gap: 10px; }
+      .prev-corpo .fld { display: grid; gap: 4px; font-size: 13px; }
+      .prev-azioni { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+      .righe-ordine.ricche { list-style: none; padding-left: 0; display: grid; gap: 8px; }
+      .righe-ordine.ricche li { display: flex; gap: 10px; align-items: flex-start; }
+      .righe-ordine .mini { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; border: 1px solid var(--hairline); flex: none; background: var(--fill); }
+      .righe-ordine .mini.vuota { display: inline-block; }
+      .righe-ordine .testo { display: grid; gap: 1px; min-width: 0; }
+      .righe-ordine .sotto { font-size: 12.5px; color: var(--text-secondary); }
+      .righe-ordine .nota { font-size: 12.5px; color: var(--text); background: var(--fill); border-radius: 6px; padding: 1px 7px; justify-self: start; }
+      .righe-ordine .qui { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; margin-left: 6px; color: var(--gold-strong, #B8963E); }
+      .righe-ordine .manca { color: var(--orange, #c93400); font-weight: 550; }
+      .alert-composto { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: rgba(201, 52, 0, .08); color: var(--orange, #c93400); font-size: 13px; font-weight: 550; }
       .righe-ordine { margin: 0; padding-left: 18px; }
       .righe-ordine li { margin: 1px 0; }
       .righe-ordine .q { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
@@ -1276,7 +1348,17 @@ export class SalesListComponent {
   readonly dettaglio = signal<Sale | null>(null);
   readonly dettaglioCaricando = signal(false);
   /** ⭐ 06/09 sera: l'ORDINE dietro la vendita (righe e fascia oraria), letto da Orders quando si apre il pop-up. */
-  readonly ordine = signal<{ disponibile?: boolean; consegnaDalle?: string; consegnaAlle?: string; prodotti?: { productId: string | null; nome: string | null; quantita: number; sku: string | null }[] } | null>(null);
+  readonly ordine = signal<{
+    disponibile?: boolean; consegnaDalle?: string; consegnaAlle?: string;
+    prodotti?: {
+      productId: string | null; nome: string | null; quantita: number; sku: string | null;
+      prezzo?: number | null; immagine?: string | null; produttore?: string | null; nota?: string | null;
+      venditaId?: string | null; consegnaId?: string | null;
+    }[];
+    /** ⭐ 07/09: le vendite nate dallo stesso ordine e se l'ordine è ancora a metà. */
+    vendite?: { id: string; prodotto: string | null; stato: string; consegnaId: string | null; partner: string | null }[];
+    incompleto?: boolean;
+  } | null>(null);
   fasciaOrdine(): string | null {
     const o = this.ordine();
     if (!o?.consegnaDalle && !o?.consegnaAlle) return null;
@@ -1418,6 +1500,40 @@ export class SalesListComponent {
    * con la consegna agganciata) solo quando il form salva.
    */
   /** La vendita per cui è aperto il pop-up di inserimento consegna. */
+  /** ⭐ 07/09: la vendita per cui si sta salvando il preventivo. */
+  readonly preventivoDi = signal<Sale | null>(null);
+  prezzoPreventivo: number | null = null;
+
+  /** Il prodotto della vendita va a preventivo? */
+  aPreventivo(s: Sale): boolean { return s.product?.tipologiaVendita === 'preventivo'; }
+
+  apriPreventivo(s: Sale): void {
+    this.prezzoPreventivo = s.prezzoPartner ?? null;
+    this.messaggio.set(null);
+    this.preventivoDi.set(s);
+  }
+
+  salvaPreventivo(s: Sale): void {
+    const prezzo = Number(this.prezzoPreventivo);
+    if (!Number.isFinite(prezzo) || prezzo <= 0) {
+      this.messaggio.set({ ok: false, testo: 'Il preventivo è un prezzo maggiore di zero.' });
+      return;
+    }
+    this.inCorso.set(s.id);
+    this.http.post(`${environment.apiUrl}/sales/${s.id}/preventivo`, { prezzo }).subscribe({
+      next: (r: any) => {
+        this.inCorso.set(null);
+        this.preventivoDi.set(null);
+        this.messaggio.set({ ok: true, testo: `Preventivo salvato: ${r?.partner ?? 'il partner'} a ${prezzo} €. Da adesso questo prodotto in questa provincia va a lui in automatico.` });
+        this.carica();
+      },
+      error: (err) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: err?.error?.message ?? 'Preventivo non salvato' });
+      },
+    });
+  }
+
   readonly inserisciVendita = signal<string | null>(null);
 
   inserisci(s: Sale): void {

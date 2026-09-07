@@ -1103,7 +1103,8 @@
       "blocked": "{{n}} could not be deleted because used in deliveries or sales: archived instead.",
       "notYours": "{{n}} skipped because not yours."
     },
-    "tabListino": "My price list"
+    "tabListino": "My price list",
+    "unarchive": "Unarchive"
   },
   "aree": {
     "title": "Areas",
@@ -2736,7 +2737,16 @@
       "partnerPriceHint": "what the partner gets",
       "registro": "Log",
       "noLogs": "No events recorded: the log starts on 4 September 2026.",
-      "system": "system"
+      "system": "system",
+      "loFa": "Made by {{chi}}",
+      "inConsegna": "already in delivery",
+      "venditaSenzaConsegna": "sale open, no delivery yet",
+      "nessunaVendita": "no sale for this row",
+      "ordineIncompleto": "⚠️ Composite order: not all sales reached a delivery. Check before delivering only one.",
+      "salvaPreventivo": "Save quote",
+      "preventivoTitolo": "Partner quote",
+      "preventivoSotto": "A quote product needs the agreed price before it can be inserted: saving it also creates the rule for next time.",
+      "preventivoPrezzo": "Partner price (€)"
     }
   },
   "activities": {

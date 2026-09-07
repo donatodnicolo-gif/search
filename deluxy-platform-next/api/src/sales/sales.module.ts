@@ -154,7 +154,7 @@ export class SalesService {
     const vendite = await this.prisma.sale.findMany({
       where,
       include: {
-        product: { select: { id: true, name: true, price: true, type: true } },
+        product: { select: { id: true, name: true, price: true, type: true, tipologiaVendita: true, note: true } },
         partner: { select: { id: true, insegna: true } },
         province: true,
       },
@@ -631,8 +631,17 @@ export class SalesService {
     if (!body?.source || !body?.externalOrderId) {
       throw new BadRequestException('Servono «source» e «externalOrderId».');
     }
+    // ⭐ 07/09/2026 (regola utente: «in vendita dovrei vedere due flussi, uno per il bouquet e
+    // uno per la torta»). Un ordine con una torta e un bouquet ha DUE fornitori diversi: fino a
+    // ieri la seconda riga non nasceva perché il doppione si misurava sull'ORDINE. Adesso si
+    // misura sulla RIGA — prodotto e variante — e l'ordine senza prodotto riconosciuto resta
+    // uno solo, com'era (là non c'è una riga da distinguere).
     const gia = await this.prisma.sale.findFirst({
-      where: { source: body.source, externalOrderId: body.externalOrderId },
+      where: {
+        source: body.source,
+        externalOrderId: body.externalOrderId,
+        ...(body.productId ? { productId: body.productId, productVariantId: body.productVariantId ?? null } : {}),
+      },
       include: { partner: { select: { id: true, insegna: true } } },
     });
     if (gia) return { creata: false, motivo: 'ordine gia ricevuto', vendita: gia };
@@ -950,7 +959,18 @@ export class SalesService {
     biglietto?: string;
     /** Note Shopify dell'ordine (testo libero del cliente). */
     note?: string;
-    prodotti?: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[];
+    /** ⭐ 07/09/2026 (regola utente «devo poter vedere foto e produttore di tutti i prodotti
+     *  nell'ordine»): ogni riga porta la foto, chi lo fa e il prezzo pagato. */
+    prodotti?: {
+      productId: string | null; productVariantId: string | null; nome: string | null;
+      quantita: number; sku: string | null; prezzo: number | null;
+      immagine: string | null; produttore: string | null; nota: string | null;
+      venditaId: string | null; consegnaId: string | null;
+    }[];
+    /** ⭐ 07/09/2026: le altre vendite nate dallo stesso ordine (ordine composto). */
+    vendite?: { id: string; prodotto: string | null; stato: string; consegnaId: string | null; partner: string | null }[];
+    /** Acceso quando l'ordine ha più vendite e non tutte sono finite in consegna. */
+    incompleto?: boolean;
   }> {
     const sale = await this.prisma.sale.findUnique({
       where: { id }, select: { externalOrderId: true },
@@ -978,7 +998,12 @@ export class SalesService {
 
     // Tutte le righe dell'ordine, risolte a prodotto/variante di piattaforma via SKU.
     const righe: any[] = Array.isArray(ordine?.righe) ? ordine.righe : [];
-    const prodotti: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[] = [];
+    const prodotti: {
+      productId: string | null; productVariantId: string | null; nome: string | null;
+      quantita: number; sku: string | null; prezzo: number | null;
+      immagine: string | null; produttore: string | null; nota: string | null;
+      venditaId: string | null; consegnaId: string | null;
+    }[] = [];
     for (const r of righe) {
       const sku = String(r?.sku ?? '').trim();
       let productId: string | null = null;
@@ -991,8 +1016,57 @@ export class SalesService {
           if (p) productId = p.id;
         }
       }
-      prodotti.push({ productId, productVariantId, nome: r?.titolo ?? null, quantita: Number(r?.quantita) || 1, sku: sku || null });
+      // ⭐ 07/09/2026: la foto e CHI LO FA. Il produttore è il partner del prodotto quando c'è
+      // (il proprietario di un unico), altrimenti la linea/marca scritta a catalogo: senza,
+      // guardando un ordine con due righe non si capisce chi deve fare cosa.
+      let immagine: string | null = null;
+      let produttore: string | null = null;
+      let nota: string | null = null;
+      if (productId) {
+        const pr = await this.prisma.product.findUnique({
+          where: { id: productId },
+          select: { imageUrl: true, line: true, note: true, partner: { select: { insegna: true } } },
+        });
+        immagine = pr?.imageUrl ?? null;
+        produttore = pr?.partner?.insegna ?? pr?.line ?? null;
+        nota = pr?.note ?? null;
+        if (productVariantId) {
+          const v = await this.prisma.productVariant.findUnique({ where: { id: productVariantId }, select: { imageUrl: true, note: true } });
+          if (v?.imageUrl) immagine = v.imageUrl;
+          if (v?.note) nota = v.note;
+        }
+      }
+      // La vendita che porta QUESTA riga (e la consegna che ne è nata), per vedere i due flussi.
+      const venditaRiga = productId
+        ? await this.prisma.sale.findFirst({
+            where: { externalOrderId: sale.externalOrderId, productId, ...(productVariantId ? { productVariantId } : {}) },
+            select: { id: true, deliveryId: true },
+          })
+        : null;
+      prodotti.push({
+        productId, productVariantId, nome: r?.titolo ?? null,
+        quantita: Number(r?.quantita) || 1, sku: sku || null,
+        prezzo: Number.isFinite(Number(r?.prezzo)) ? Number(r.prezzo) : null,
+        immagine, produttore, nota,
+        venditaId: venditaRiga?.id ?? null, consegnaId: venditaRiga?.deliveryId ?? null,
+      });
     }
+
+    // ⭐ 07/09/2026 (regola utente): «se un ordine è composto e tutte le vendite associate non
+    // sono andate in consegne, metti un alert» — così non si consegna mezzo ordine.
+    const sorelle = await this.prisma.sale.findMany({
+      where: { externalOrderId: sale.externalOrderId },
+      select: { id: true, status: true, deliveryId: true, productName: true, product: { select: { name: true } }, partner: { select: { insegna: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const vendite = sorelle.map((x) => ({
+      id: x.id,
+      prodotto: x.product?.name ?? x.productName ?? null,
+      stato: x.status,
+      consegnaId: x.deliveryId ?? null,
+      partner: x.partner?.insegna ?? null,
+    }));
+    const incompleto = vendite.length > 1 && vendite.some((v) => !v.consegnaId && v.stato !== 'annullata');
 
     // ⭐ 06/09/2026 (regola utente, caso 12879 — usciva «con pagamento alla
     // consegna» pur essendo pagato con carta): il tipo di vendita lo decide
@@ -1022,7 +1096,7 @@ export class SalesService {
     return {
       disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
       tipoVendita, pezzi, totale: Number.isFinite(totale) ? totale : undefined,
-      consegnaDalle, consegnaAlle, biglietto, note, prodotti,
+      consegnaDalle, consegnaAlle, biglietto, note, prodotti, vendite, incompleto,
     };
   }
 
@@ -1499,9 +1573,110 @@ export class SalesService {
     return aggiornata;
   }
 
-  async prendiInMano(id: string, user?: JwtUser) {
-    const vendita = await this.prisma.sale.findUnique({ where: { id } });
+  /**
+   * ⭐ 07/09/2026 (regola utente) — IL PREZZO CONCORDATO di una vendita a preventivo.
+   * Due posti, in ordine: la RICONCILIAZIONE accettata per (prodotto, variante, provincia) —
+   * che è il patto scritto — e il listino `PP-*` del partner. Torna null se non c'è.
+   */
+  private async prezzoConcordato(vendita: { productId: string | null; productVariantId: string | null; provinceId: string; partnerId: string | null }): Promise<number | null> {
+    if (!vendita.productId) return null;
+    const ric = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null, status: 'accettata' },
+      select: { partnerPrice: true, price: true, discountPercent: true },
+    });
+    if (ric) return ric.partnerPrice ?? Math.round(ric.price * (1 - ric.discountPercent / 100) * 100) / 100;
+    if (!vendita.partnerId) return null;
+    const prodotto = await this.prisma.product.findUnique({ where: { id: vendita.productId }, select: { id: true, sku: true, type: true, partnerId: true, categoryId: true, visibleToOtherPartners: true, tipologiaVendita: true } });
+    if (!prodotto) return null;
+    const variante = vendita.productVariantId
+      ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId }, select: { sku: true } })
+      : null;
+    const preventivi = await this.preventiviDelProdotto(prodotto as unknown as ProdottoDaSmistare, variante?.sku ?? null);
+    return preventivi.get(vendita.partnerId) ?? null;
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): «per un prodotto a preventivo, prima di poter essere
+   * inserito va salvato il preventivo; salvarlo genera automaticamente una riconciliazione che
+   * permetterà per i prossimi ordini di mandare il prodotto in automatico».
+   *
+   * Quindi qui succedono tre cose insieme, ed è giusto che siano una sola mossa:
+   *  1. la vendita prende il partner e il prezzo concordato (e lo sconto che ne deriva);
+   *  2. nasce — o si aggiorna — una RICONCILIAZIONE ACCETTATA per prodotto, variante e
+   *     provincia: da lì in poi l'ordine uguale si smista da solo, a quel prezzo;
+   *  3. il registro dice chi ha raccolto il preventivo e quando.
+   */
+  async salvaPreventivo(id: string, body: { partnerId?: string; prezzo: number }, user: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { product: { select: { name: true, tipologiaVendita: true } } },
+    });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (!vendita.productId || !vendita.provinceId) {
+      throw new BadRequestException('La vendita non ha un prodotto a catalogo o una provincia: il preventivo non si può legare a niente.');
+    }
+    const prezzo = Number(body?.prezzo);
+    if (!Number.isFinite(prezzo) || prezzo <= 0) throw new BadRequestException('Il preventivo è un prezzo maggiore di zero.');
+    const partnerId = body?.partnerId || vendita.partnerId;
+    if (!partnerId) throw new BadRequestException('Serve il partner che ha dato il preventivo.');
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { insegna: true, active: true, deleted: true, esclusoDalleProposte: true, provinces: { where: { provinceId: vendita.provinceId }, select: { provinceId: true } } },
+    });
+    if (!partner || partner.deleted) throw new NotFoundException('Partner non trovato.');
+    if (!partner.active) throw new BadRequestException('Il partner non è attivo.');
+    if (!partner.provinces.length) throw new BadRequestException(`${partner.insegna} non lavora in questa provincia.`);
+
+    const importo = vendita.amount ?? 0;
+    const sconto = importo > 0 ? SalesService.quotaPerDare(importo, prezzo) : 0;
+
+    // La riconciliazione: il patto che vale da domani.
+    const gia = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
+      select: { id: true },
+    });
+    const datiRic = {
+      partnerId,
+      partnerPrice: prezzo,
+      price: importo,
+      discountPercent: sconto,
+      salesCount: 1,
+      lastSaleId: id,
+      lastOrderNumber: vendita.externalOrderNumber,
+      trigger: 'preventivo',
+      status: 'accettata',
+      decidedAt: new Date(),
+      decidedBy: user.email ?? user.sub ?? null,
+    };
+    if (gia) await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: datiRic });
+    else await this.prisma.productReconciliation.create({ data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, stats: JSON.stringify([]), ...datiRic } });
+
+    const aggiornata = await this.prisma.sale.update({
+      where: { id },
+      data: {
+        partnerId,
+        discountPercent: sconto,
+        status: SaleStatus.PROPOSTA,
+        assignmentReason: [vendita.assignmentReason, `preventivo di ${partner.insegna}: ${prezzo} €`].filter(Boolean).join(' · '),
+      },
+      include: { partner: { select: { id: true, insegna: true } } },
+    });
+    await this.registra(id, 'stato', `Preventivo salvato: ${partner.insegna} fa «${vendita.product?.name ?? 'il prodotto'}» a ${prezzo} € — riconciliazione accettata per le prossime volte`, user);
+    await this.avvisaProposta(aggiornata as any);
+    return { ok: true, prezzo, partner: partner.insegna, vendita: aggiornata };
+  }
+
+  async prendiInMano(id: string, user?: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id }, include: { product: { select: { name: true, tipologiaVendita: true } } } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    // ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO non si inserisce finché il
+    // preventivo non è stato raccolto. Non è una formalità: senza il prezzo concordato la
+    // consegna nascerebbe con un costo inventato, e il partner lo scoprirebbe a cose fatte.
+    if (vendita.product?.tipologiaVendita === 'preventivo' && !(await this.prezzoConcordato(vendita))) {
+      throw new BadRequestException(
+        `«${vendita.product?.name ?? 'Il prodotto'}» va a preventivo: prima salva il preventivo del partner (bottone «Salva preventivo»), poi si può inserire.`,
+      );
+    }
     if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
       throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
     }
@@ -2408,6 +2583,13 @@ export class SalesController {
   })
   rifiuta(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.salesService.rifiuta(id, user);
+  }
+
+  @Post(':id/preventivo')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Salva il preventivo dato dal partner: la vendita prende quel prezzo e nasce la riconciliazione accettata' })
+  salvaPreventivo(@Param('id') id: string, @Body() body: { partnerId?: string; prezzo: number }, @CurrentUser() user: JwtUser) {
+    return this.salesService.salvaPreventivo(id, body, user);
   }
 
   @Post(':id/inserisci')

@@ -10,6 +10,10 @@ import { AuthService } from '../core/auth.service';
 interface ProductDetail {
   id: string;
   name: string;
+  /** ⭐ 07/09/2026: stato archiviato, per il bottone nella scheda. */
+  archived?: boolean;
+  /** La specifica che arriva da Merchandising («20-25 fiori»). */
+  note?: string | null;
   /** La data ORIGINALE del legacy, non quella dell'import. */
   createdAt?: string | null;
   sku?: string | null;
@@ -242,6 +246,17 @@ export class ProductDetailComponent {
   indietro(): void {
     if (window.history.length > 1) this.location.back();
     else this.router.navigate(['/products']);
+  }
+
+  /** ⭐ 07/09/2026 (regola utente): archiviare dalla scheda, senza passare dalla modifica.
+   *  Lo stato archiviato è separato da «attivo»: il prodotto esce dalla lista e resta leggibile. */
+  readonly inCorso = signal(false);
+  cambiaArchivio(p: ProductDetail): void {
+    this.inCorso.set(true);
+    this.http.patch(`${environment.apiUrl}/products/${p.id}/archive`, { archived: !p.archived }).subscribe({
+      next: () => { this.inCorso.set(false); this.product.set({ ...p, archived: !p.archived }); },
+      error: (e) => { this.inCorso.set(false); this.error.set(e?.error?.message ?? "Operazione non riuscita"); },
+    });
   }
 
   readonly product = signal<ProductDetail | null>(null);

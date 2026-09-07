@@ -691,41 +691,72 @@ export class OrdersSyncService {
           }
         }
       }
-      else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!, prodotti.get(sku)!.variantId))) {
-        // FILTRO «solo unici o province con partner» (regola dell'utente): se
-        // non è un prodotto unico e in questa provincia non abbiamo nessun
-        // partner per la sua categoria, la vendita NON si crea — resta
-        // all'ordine originale. Prima ne nascevano di orfane «da gestire» che
-        // nessuno avrebbe mai preso (43 dal primo giro del 24/08).
-        esito = 'senza-partner';
-      }
-      else if (!opzioni.applica) {
-        // In simulazione si controlla comunque se la vendita c'e' gia', se no
-        // il conto direbbe «creata» per ordini gia' entrati e sarebbe falso.
-        const gia = await this.prisma.sale.findFirst({
-          where: { source: 'deluxy-orders', externalOrderId: o.id },
-          select: { id: true },
-        });
-        esito = gia ? 'gia-presente' : 'creata';
-      } else {
-        try {
-          const r = await this.sales.ingest({
-            source: 'deluxy-orders',
-            externalOrderId: o.id,
-            externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
-            provinceId: province.get(codice)!,
-            productId: prodotti.get(sku)!.productId,
-            productVariantId: prodotti.get(sku)!.variantId ?? undefined,
-            brand: o.brand ?? undefined,
-            ...this.destinatario(o),
-            deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+      else {
+        // ⭐ 07/09/2026 (regola utente: «in vendita dovrei vedere due flussi, uno per il
+        // bouquet e uno per la torta») — UNA VENDITA PER RIGA D'ORDINE.
+        //
+        // Prima si prendeva UN solo SKU per ordine (il primo riconosciuto) e nasceva una
+        // vendita sola: un ordine con una torta e un bouquet — due fornitori diversi, due
+        // lavori diversi — entrava per metà, e l'altra metà non la vedeva nessuno.
+        // Adesso ogni riga a catalogo fa la sua vendita, con il SUO prezzo; le righe senza
+        // prodotto riconosciuto (le personalizzazioni, gli extra) restano fuori come prima.
+        //
+        // ⚠️ Le righe uguali si contano una volta sola: due unità dello stesso prodotto sono
+        // una vendita di quantità due, non due vendite.
+        const viste = new Set<string>();
+        const daCreare: { productId: string; variantId?: string; amount?: number; smist: any }[] = [];
+        for (const r of o.righe ?? []) {
+          const s2 = String(r?.sku ?? '').trim().toUpperCase();
+          if (!s2 || !prodotti.has(s2)) continue;
+          const info = prodotti.get(s2)!;
+          const chiave = `${info.productId}|${info.variantId ?? ''}`;
+          if (viste.has(chiave)) continue;
+          viste.add(chiave);
+          daCreare.push({ productId: info.productId, variantId: info.variantId ?? undefined, amount: r?.prezzo ?? undefined, smist: info.smist });
+        }
+        // Nessun candidato per NESSUNA riga: la vendita non si crea, come prima.
+        const conCandidato: typeof daCreare = [];
+        for (const riga of daCreare) {
+          if (await this.sales.esisteCandidato(riga.smist, province.get(codice)!, riga.variantId ?? null)) conCandidato.push(riga);
+        }
+        if (!conCandidato.length) {
+          esito = 'senza-partner';
+        } else if (!opzioni.applica) {
+          const gia = await this.prisma.sale.findFirst({
+            where: { source: 'deluxy-orders', externalOrderId: o.id },
+            select: { id: true },
           });
-          esito = r.creata ? 'creata' : 'gia-presente';
-          if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE) daGestire.push(etichetta);
-        } catch (err) {
-          esito = 'errore';
-          dettaglio = (err as Error).message;
-          this.logger.warn(`Ordine ${o.id}: ${dettaglio}`);
+          esito = gia ? 'gia-presente' : 'creata';
+          if (conCandidato.length > 1) dettaglio = `ordine composto: ${conCandidato.length} vendite`;
+        } else {
+          let creata = 0, gia = 0;
+          try {
+            for (const riga of conCandidato) {
+              const r = await this.sales.ingest({
+                source: 'deluxy-orders',
+                externalOrderId: o.id,
+                externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+                provinceId: province.get(codice)!,
+                productId: riga.productId,
+                productVariantId: riga.variantId,
+                amount: riga.amount ?? undefined,
+                brand: o.brand ?? undefined,
+                ...this.destinatario(o),
+                deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+              });
+              if (r.creata) creata++; else gia++;
+              if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE && !daGestire.includes(etichetta)) daGestire.push(etichetta);
+            }
+            esito = creata ? 'creata' : 'gia-presente';
+            if (conCandidato.length > 1) dettaglio = `ordine composto: ${creata} vendite nuove, ${gia} già presenti`;
+            if (conCandidato.length < daCreare.length) {
+              dettaglio = [dettaglio, `${daCreare.length - conCandidato.length} righe senza partner in provincia`].filter(Boolean).join(' · ');
+            }
+          } catch (err) {
+            esito = 'errore';
+            dettaglio = (err as Error).message;
+            this.logger.warn(`Ordine ${o.id}: ${dettaglio}`);
+          }
         }
       }
       conteggio[esito]++;

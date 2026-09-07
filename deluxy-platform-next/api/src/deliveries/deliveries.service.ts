@@ -238,8 +238,9 @@ const DELIVERY_INCLUDE = {
     include: {
       // imageUrl: al click sul nome la scheda mostra la FOTO (28/08, parita'
       // con l'app attuale chiesta dall'utente).
-      product: { select: { id: true, name: true, price: true, publicPrice: true, imageUrl: true } },
-      productVariant: { select: { id: true, name: true, price: true, publicPrice: true } },
+      // ⭐ 07/09/2026: la NOTA DI SPECIFICA arriva fino al fioraio, che deve sapere quanti fiori mettere.
+      product: { select: { id: true, name: true, price: true, publicPrice: true, note: true, imageUrl: true } },
+      productVariant: { select: { id: true, name: true, price: true, publicPrice: true, note: true } },
     },
   },
   pickups: true,

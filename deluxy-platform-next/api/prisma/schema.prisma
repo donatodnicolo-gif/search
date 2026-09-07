@@ -948,6 +948,11 @@ model Product {
   /// · mix = composizione a valore, si propone con lo sconto e la lista di priorità · preventivo =
   /// si chiede il preventivo ai partner del mestiere prima di accettare. Casa definitiva: Merchandising.
   tipologiaVendita        String?
+  /// ⭐ 07/09/2026 — NOTE DI SPECIFICA ("20-25 fiori", "18-20 cm", "6/8 porzioni"): che cosa
+  /// c'è dentro davvero. La casa è Merchandising, che le ricostruisce dalla descrizione del
+  /// negozio; qui arrivano con la vendita e si mostrano al FIORAIO, che deve sapere quanti
+  /// fiori mettere nel bouquet.
+  note                    String?
   /// Com'è fatto: combinazione di più prodotti (i componenti stanno in
   /// ProductComponent). Indipendente da `type`.
   isSuperProduct          Boolean            @default(false)
@@ -1053,6 +1058,7 @@ model ProductVariant {
   publicPrice  Float? // prezzo pubblico variante
   sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
   imageUrl     String? // immagine della variante
+  note         String? // nota di specifica della TAGLIA (⭐ 07/09/2026): «Medio: 10-15 fiori»
   prepDays     Int? // giorni di preparazione variante
   controlStock Boolean @default(false) // controlla stock variante
   stock        Int? // giacenza variante
