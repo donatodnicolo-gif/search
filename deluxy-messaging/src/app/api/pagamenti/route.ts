@@ -7,6 +7,7 @@ import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcil
 import { utenteCorrente } from '@/lib/sessione'
 import { chiaveFornitore } from '@/lib/richieste-fornitore'
 import { sembraIlCliente } from '@/lib/riconciliazione'
+import { chiPrepara } from '@/lib/chi-prepara'
 import { avvisaPagamentoDaFare } from '@/lib/avviso-pagamento-da-fare'
 import {
   segnalaFornitorePagatoAlRegistro,
@@ -36,6 +37,7 @@ export async function GET() {
       iban: true,
       bic: true,
       intestatario: true,
+      fornitore: true,
       importo: true,
       valuta: true,
       causale: true,
@@ -123,6 +125,13 @@ export async function POST(req: NextRequest) {
     iban?: string
     bic?: string
     intestatario?: string
+    /**
+     * CHI PREPARA L'ORDINE, quando è diverso dal nome sul conto (07/09/2026,
+     * regola dell'utente: «l'intestatario conto di un fornitore può essere
+     * diverso da ragione sociale»). È il nome scelto dalla ricerca; va
+     * sull'ordine e nel registro. Vuoto = è lo stesso dell'intestatario.
+     */
+    fornitore?: string
     importo?: number
     valuta?: string
     causale?: string
@@ -203,8 +212,15 @@ export async function POST(req: NextRequest) {
   // ⚠️ E non si blocca se l'ordine non ce l'abbiamo (più vecchio di 60 giorni):
   // lì non possiamo confrontare niente, e impedire di pagare un ordine vecchio
   // sarebbe un danno vero per proteggere da un sospetto che non abbiamo.
+  //
+  // ⚠️⚠️ Il confronto è su CHI PREPARA (`fornitore`), non sul nome sul conto
+  // (07/09/2026). Prima i due nomi erano uno solo, e chi scriveva sul conto il
+  // nome giusto per la banca — «Mario Rossi» per la pasticceria «C&G Sweet
+  // Bakery» — si vedeva rifiutare la richiesta come se stesse pagando un
+  // estraneo. Il fornitore lo dice il modulo; il nome sul conto è libero.
   const numeroChiesto = (c.ordineNumero ?? '').trim()
   const intestatarioChiesto = (c.intestatario ?? '').trim()
+  const fornitoreChiesto = chiPrepara({ fornitore: c.fornitore, intestatario: intestatarioChiesto })
   if (numeroChiesto) {
     const senzaCancelletto = numeroChiesto.replace('#', '')
     const o = await db.ordine.findFirst({
@@ -214,13 +230,14 @@ export async function POST(req: NextRequest) {
     if (
       o &&
       o.fornitoreNome &&
-      chiaveFornitore(o.fornitoreNome) !== chiaveFornitore(intestatarioChiesto) &&
-      !sembraIlCliente(intestatarioChiesto, o.clienteNome)
+      chiaveFornitore(o.fornitoreNome) !== chiaveFornitore(fornitoreChiesto) &&
+      !sembraIlCliente(intestatarioChiesto, o.clienteNome) &&
+      !sembraIlCliente(fornitoreChiesto, o.clienteNome)
     ) {
       return NextResponse.json(
         {
           errore:
-            `${o.numero} risulta preparato da «${o.fornitoreNome}», ma stai chiedendo di pagare «${intestatarioChiesto}». ` +
+            `${o.numero} risulta preparato da «${o.fornitoreNome}», ma stai chiedendo di pagare «${fornitoreChiesto}». ` +
             'Uno dei due è sbagliato: correggi il fornitore sull’ordine, oppure il nome qui.',
         },
         { status: 409 }
@@ -319,6 +336,9 @@ export async function POST(req: NextRequest) {
       iban: metodo === 'iban' ? esitoIban.normalizzato : '',
       bic: (c.bic ?? '').replace(/\s/g, '').toUpperCase(),
       intestatario: (c.intestatario ?? '').trim(),
+      // Chi prepara, se il modulo l'ha detto: si conserva anche quando coincide
+      // con l'intestatario, perché «l'ha scelto» è un fatto in più del nome.
+      fornitore: (c.fornitore ?? '').trim(),
       importo: Number(c.importo) || 0,
       valuta: (c.valuta || 'EUR').toUpperCase(),
       causale: (c.causale ?? '').trim(),

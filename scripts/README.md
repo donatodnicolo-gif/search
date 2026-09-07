@@ -59,6 +59,16 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/allinea-supabase.mjs
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF`
 - **Nota**: la lista di migrazioni e funzioni sta in cima allo script — **aggiungerci le nuove**, altrimenti restano non applicate. È già successo che una schermata risultasse vuota solo perché la Edge Function non era stata rideployata, senza che niente lo dicesse.
 
+### applica-fornitore-pagamento.mjs — deluxy-messaging
+Aggiunge la colonna `fornitore` a `RichiestaPagamento` (schema `messaging`): chi **prepara** l'ordine, separato dall'**intestatario del conto**, che è il nome a cui esce il bonifico e può essere diverso (ditta individuale, società che incassa per il negozio). Le righe vecchie restano vuote = vale l'intestatario. Come le altre `applica-*.mjs` di questa app (`applica-migrazione-vendite`, `applica-migrazione-liste-prodotto`, `applica-non-consegnata-id`): `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, direttamente in produzione.
+
+```bash
+cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
+
 ### APPLICA-MIGRAZIONI.cmd — deluxy-scout
 Lo stesso di `allinea-supabase.mjs`, ma **con un doppio clic**: chiede il token in una finestra, esegue, e resta aperto a mostrare l'esito. Il token non viene salvato da nessuna parte — vive solo in quella finestra.
 

@@ -1223,9 +1223,31 @@ si scrive in rosso. Due IBAN vogliono dire che è cambiato qualcosa — un conto
 nuovo, un'altra società, un omonimo — e indovinare vuol dire mandare i soldi a
 qualcun altro. Da lì non si torna indietro.
 
-⚠️ **L'intestatario è la ragione sociale** quando c'è, non l'insegna: il bonifico
-va a «Rossi S.r.l.», non a «Pasticceria Rossi», e una banca che non riconosce il
-nome può rimandarlo indietro giorni dopo.
+⚠️ **Il fornitore scelto è la ragione sociale** quando c'è, non l'insegna: è il
+nome che va sull'ordine («Rossi S.r.l.», non «Pasticceria Rossi») e nel registro.
+
+⚠️⚠️ **L'intestatario del conto può essere un altro nome** (dal 07/09/2026,
+regola dell'utente: «l'intestatario conto di un fornitore può essere diverso da
+ragione sociale»). Una ditta individuale incassa a nome della persona, una
+società incassa per il negozio, e la banca confronta l'IBAN col nome sul conto —
+non con l'insegna. Sul modulo sono **due cose**: il fornitore lo si *sceglie*
+(ricerca, registro, Maps, o «è un fornitore nuovo») e resta chi prepara l'ordine;
+il campo **Intestatario del conto** si compila con quel nome ma si può
+riscrivere liberamente — sotto compare «diverso dal fornitore scelto: va bene, se
+è il nome sul conto», con un bottone per rimettere il nome del fornitore. Prima
+i due nomi erano uno solo: riscrivere l'intestatario faceva dimenticare al modulo
+il fornitore scelto e il server rifiutava la richiesta («#1826 risulta preparato
+da C&G Sweet Bakery, ma stai chiedendo di pagare Mario Rossi»). Adesso a
+Transactions va l'intestatario come beneficiario, sull'ordine e nel registro
+Anagrafiche va il fornitore (e l'intestatario finisce nel campo
+`intestatarioConto` del registro, che esisteva già per questo). Scegliendo di
+nuovo lo stesso fornitore, la ricerca ripropone **il nome sul conto dell'ultimo
+pagamento** insieme al suo IBAN. Nella tabella dei pagamenti, sotto
+l'intestatario, si legge «per ‹fornitore›» quando i due nomi non coincidono; il
+confronto col fornitore scritto sull'ordine si fa sul fornitore, non sul nome
+della banca. Le richieste vecchie (92 al 07/09) non hanno il campo: per loro
+vale l'intestatario, come è sempre stato (`chiPrepara` in
+`src/lib/chi-prepara.ts`).
 
 ⚠️ **L'importo non si tocca mai.** È quello dell'ordine da cui si arriva:
 sovrascriverlo con l'ultimo pagamento fatto a quella persona vorrebbe dire pagare

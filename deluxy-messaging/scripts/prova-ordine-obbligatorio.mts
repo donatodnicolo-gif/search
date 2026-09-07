@@ -60,22 +60,28 @@ prova('vuota → niente', ordineNominatoNellaCausale('') === '')
 // ══════════════════════════════════════════════════════════════════════════
 console.log('\n══ SCELTO O SCRITTO ══')
 {
-  const scritto = cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'p', intestatarioScelto: '' })
+  const scritto = cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'p', fornitoreScelto: '' })
   prova('«p» scritto a mano si blocca', scritto.includes('scritto a mano'), scritto.slice(0, 70))
   // ⚠️ Non si vietano i nomi corti: e una regola sull ASPETTO, e ci sono
   // insegne di due lettere. Il punto e da dove viene il nome.
-  prova('  ma «p» SCELTO passa', !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'p', intestatarioScelto: 'p' }))
+  prova('  ma «p» SCELTO passa', !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'p', fornitoreScelto: 'p' }))
 }
 prova('un nome scelto dalla ricerca passa',
-  !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Fioreria X', intestatarioScelto: 'Fioreria X' }))
+  !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Fioreria X', fornitoreScelto: 'Fioreria X' }))
 prova('un nome lungo ma scritto a mano si blocca',
-  !!cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Pasticceria Rossi Snc', intestatarioScelto: '' }))
+  !!cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Pasticceria Rossi Snc', fornitoreScelto: '' }))
+// ⚠️⚠️ 07/09/2026, regola dell utente: «l intestatario conto di un fornitore
+// puo essere diverso da ragione sociale». Il fornitore scelto e «C&G Sweet
+// Bakery», sul conto c e «Mario Rossi»: passa, perche il fornitore E scelto —
+// e il nome sul conto e un altra cosa.
+prova('intestatario diverso dal fornitore scelto passa',
+  !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Mario Rossi', fornitoreScelto: 'C&G Sweet Bakery' }))
 // ⚠️ Dove il campo non c e proprio (la rotta, che non puo sapere da dove viene
 // il nome) la regola NON si applica: e un controllo della schermata.
 prova('senza il campo, la regola non si applica',
   !cosaManca({ ...base, causale: '', ordineNumero: '', intestatario: 'Chiunque' }))
 prova('e senza nome vince il messaggio di prima',
-  cosaManca({ ...base, intestatario: '', intestatarioScelto: '' }).includes('chi va pagato'))
+  cosaManca({ ...base, intestatario: '', fornitoreScelto: '' }).includes('chi va pagato'))
 
 console.log(male === 0 ? '\nTutto a posto.' : `\n${male} SBAGLIATI.`)
 process.exit(male === 0 ? 0 : 1)

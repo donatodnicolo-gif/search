@@ -11,6 +11,7 @@ import {
   unisci,
   type FornitoreTrovato,
 } from '@/lib/cerca-fornitore'
+import { chiPrepara } from '@/lib/chi-prepara'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -79,13 +80,16 @@ export async function GET(req: NextRequest) {
       .findMany({
         // ⚠️ OR sulle parole, non `contains` della frase intera: vedi sopra.
         where: {
-          OR: parole.map((p) => ({
-            intestatario: { contains: p, mode: 'insensitive' as const },
-          })),
+          // ⚠️ Su tutti e due i nomi (07/09/2026): chi cerca «Sweet Bakery»
+          // deve trovare il pagamento fatto sul conto di «Mario Rossi».
+          OR: parole.flatMap((p) => [
+            { intestatario: { contains: p, mode: 'insensitive' as const } },
+            { fornitore: { contains: p, mode: 'insensitive' as const } },
+          ]),
         },
         orderBy: { creatoIl: 'desc' },
         take: 200,
-        select: { intestatario: true, iban: true, creatoIl: true },
+        select: { intestatario: true, fornitore: true, iban: true, creatoIl: true },
       })
       .catch(() => []),
     db.ordine
@@ -118,17 +122,29 @@ export async function GET(req: NextRequest) {
   const pezzi: FornitoreTrovato[] = []
 
   // ── 1. Chi abbiamo già pagato ──
-  const perNome = new Map<string, { nome: string; iban: Set<string>; primo: string; quanti: number }>()
+  // ⚠️ Raggruppati per CHI PREPARA, e con accanto il NOME SUL CONTO dell'ultimo
+  // pagamento (07/09/2026): scegliendo «C&G Sweet Bakery» il modulo si compila
+  // con l'IBAN e con «Mario Rossi» come intestatario, com'è stato pagato
+  // l'ultima volta — invece di riproporre l'insegna, che la banca rifiuterebbe.
+  const perNome = new Map<
+    string,
+    { nome: string; intestatarioConto: string; iban: Set<string>; primo: string; quanti: number }
+  >()
   for (const r of daPagamenti) {
-    const k = chiaveNome(r.intestatario)
+    const nome = chiPrepara(r)
+    const k = chiaveNome(nome)
     if (!k) continue
-    const p = perNome.get(k) ?? { nome: r.intestatario, iban: new Set<string>(), primo: '', quanti: 0 }
+    const p = perNome.get(k) ?? { nome, intestatarioConto: '', iban: new Set<string>(), primo: '', quanti: 0 }
     p.quanti++
     const iban = (r.iban || '').replace(/\s+/g, '').toUpperCase()
     if (iban) {
       // ⚠️ Le richieste arrivano dalla più recente: il primo IBAN che si vede è
       // quello dell'ultimo pagamento, ed è quello che si propone — se è l'unico.
-      if (!p.primo) p.primo = iban
+      // Il nome sul conto viaggia con lui: è quello che sta su QUELL'IBAN.
+      if (!p.primo) {
+        p.primo = iban
+        p.intestatarioConto = r.intestatario.trim()
+      }
       p.iban.add(iban)
     }
     perNome.set(k, p)
@@ -145,6 +161,9 @@ export async function GET(req: NextRequest) {
       // dire che è cambiato qualcosa — un conto nuovo, un'altra società, un
       // omonimo — e indovinare vuol dire mandare i soldi a qualcun altro.
       iban: p.iban.size === 1 ? p.primo : '',
+      // Il nome sul conto solo insieme all'IBAN che propone: senza IBAN non c'è
+      // un conto di cui dire l'intestatario.
+      intestatarioConto: p.iban.size === 1 ? p.intestatarioConto : '',
       ibanDiversi: p.iban.size,
       ordini: 0,
       ultimoCosto: null,

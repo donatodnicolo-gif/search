@@ -39,6 +39,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     azione?: 'modifica' | 'pagata' | 'nonpagata'
     iban?: string
     intestatario?: string
+    /** Chi prepara l'ordine, se diverso dal nome sul conto (07/09/2026). */
+    fornitore?: string
     importo?: number
     causale?: string
     metodo?: string
@@ -179,6 +181,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   const iban = (c.iban ?? r.iban).trim()
   const intestatario = (c.intestatario ?? r.intestatario).trim()
+  // Chi prepara, separato dal nome sul conto (07/09/2026): si corregge come
+  // gli altri campi, e se il modulo non lo manda resta quello che c'era.
+  const fornitore = (c.fornitore ?? r.fornitore).trim()
   const riferimento = (c.riferimentoPagamento ?? r.riferimentoPagamento).trim()
 
   const manca = cosaManca({ metodo, iban, riferimento, intestatario })
@@ -200,6 +205,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       iban: metodo === 'iban' ? (esito?.normalizzato ?? iban) : '',
       riferimentoPagamento: metodo === 'iban' ? '' : riferimento,
       intestatario,
+      fornitore,
       importo: typeof c.importo === 'number' && c.importo >= 0 ? c.importo : r.importo,
       causale: (c.causale ?? r.causale).trim(),
       ordineNumero: (c.ordineNumero ?? r.ordineNumero).trim(),

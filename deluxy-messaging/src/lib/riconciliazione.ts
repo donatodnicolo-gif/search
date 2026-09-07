@@ -17,11 +17,19 @@
 
 import { chiaveNome } from './cerca-fornitore'
 import { calcolaMargine, type EsitoMargine } from './margine'
+import { chiPrepara } from './chi-prepara'
 
 /** Un pagamento già fatto, con l'ordine a cui è collegato. */
 export type DaRiconciliare = {
   richiestaId: string
+  /** Il nome SUL CONTO: a chi sono usciti i soldi. */
   intestatario: string
+  /**
+   * CHI PREPARA l'ordine, quando il modulo l'ha detto (07/09/2026). È il nome
+   * che va sull'ordine; l'intestatario può essere la persona, non l'insegna.
+   * Vuoto o assente = riga vecchia: vale l'intestatario (`chiPrepara`).
+   */
+  fornitore?: string
   iban: string
   importo: number
   metodo: string
@@ -212,9 +220,14 @@ export function decidi(d: DaRiconciliare): Riga {
         'Questo pagamento non è collegato a nessun ordine: collegalo dalla pagina Pagamenti e torna qui.',
     }
   }
+  // ⚠️ CHI PREPARA: il fornitore scelto, se il modulo l'ha detto, altrimenti il
+  // nome sul conto (07/09/2026). È questo che si confronta con l'ordine e che
+  // ci finisce sopra — non il nome della banca.
+  const chi = chiPrepara(d)
   // ⚠️ Prima di tutto: è un rimborso? Vedi sopra — è l'errore che non si può
-  // più correggere una volta fatto, perché nessuno lo vede.
-  if (sembraIlCliente(d.intestatario, d.ordine.clienteNome)) {
+  // più correggere una volta fatto, perché nessuno lo vede. Si guarda il nome
+  // SUL CONTO (è lì che vanno i soldi) e anche chi prepara: basta uno dei due.
+  if (sembraIlCliente(d.intestatario, d.ordine.clienteNome) || sembraIlCliente(chi, d.ordine.clienteNome)) {
     return {
       ...base,
       verdetto: 'rimborso-al-cliente',
@@ -251,7 +264,7 @@ export function decidi(d: DaRiconciliare): Riga {
   // ⚠️ La regola severa era già in questo file, con scritto sopra il motivo, ed
   // era usata per il registro Anagrafiche. Semplicemente non era stata applicata
   // qui. ([[trappola-cercare-non-e-affermare]])
-  const stessoNome = !!d.ordine.fornitoreNome && stessaIdentita(d.intestatario, d.ordine.fornitoreNome)
+  const stessoNome = !!d.ordine.fornitoreNome && stessaIdentita(chi, d.ordine.fornitoreNome)
   if (stessoNome) {
     // Già a posto sul nome: resta da guardare il costo.
     if (d.ordine.fornitoreCosto === null) {
@@ -285,14 +298,14 @@ export function decidi(d: DaRiconciliare): Riga {
       ...base,
       statoDaAllineare,
       verdetto: 'costo-diverso',
-      frase: `Su ${d.ordine.numero} risulta che lo prepara ${d.ordine.fornitoreNome}, ma il pagamento è a ${d.intestatario}. Non lo sovrascrivo.`,
+      frase: `Su ${d.ordine.numero} risulta che lo prepara ${d.ordine.fornitoreNome}, ma il pagamento è ${chi === d.intestatario ? `a ${chi}` : `per ${chi} (sul conto di ${d.intestatario})`}. Non lo sovrascrivo.`,
     }
   }
   return {
     ...base,
     statoDaAllineare,
     verdetto: 'da-registrare',
-    frase: `Registro ${d.intestatario} come chi prepara ${d.ordine.numero}, con un costo di ${euroBreve(d.importo)}${
+    frase: `Registro ${chi} come chi prepara ${d.ordine.numero}, con un costo di ${euroBreve(d.importo)}${
       margine && margine.verdetto !== 'senza-verdetto' ? ` — margine ${margine.marginePct.toFixed(0)}%` : ''
     }.`,
   }

@@ -11,6 +11,7 @@ import {
   type DaRiconciliare,
 } from '@/lib/riconciliazione'
 import { riconciliaDaPagamento } from '@/lib/riconcilia'
+import { chiPrepara } from '@/lib/chi-prepara'
 import { comunicaStatoAOrders } from '@/lib/orders'
 import { fornitoriDaCollegare, ricontrollaNelRegistro } from '@/lib/fornitori-da-collegare'
 
@@ -39,6 +40,7 @@ export async function GET() {
     select: {
       id: true,
       intestatario: true,
+      fornitore: true,
       iban: true,
       importo: true,
       metodo: true,
@@ -90,7 +92,9 @@ export async function GET() {
   const daCercare = richieste.slice(0, TETTO_REGISTRO)
   const esiti = await Promise.all(
     daCercare.map((r) =>
-      partnerAttivi({ q: r.intestatario, stato: 'tutti', perPagina: 25 }).catch(() => ({
+      // ⚠️ Nel registro si cerca CHI PREPARA, non il nome sul conto: il conto
+      // può essere della persona, e il registro conosce l'insegna (07/09/2026).
+      partnerAttivi({ q: chiPrepara(r), stato: 'tutti', perPagina: 25 }).catch(() => ({
         stato: 'errore' as const,
         messaggio: 'non ha risposto',
       }))
@@ -122,15 +126,16 @@ export async function GET() {
         ? esito.partner
             .filter(
               (p) =>
-                stessaIdentita(r.intestatario, p.ragioneSociale) ||
-                stessaIdentita(r.intestatario, p.nome)
+                stessaIdentita(chiPrepara(r), p.ragioneSociale) ||
+                stessaIdentita(chiPrepara(r), p.nome)
             )
-            .sort((a, b) => paroleTrovate(b, r.intestatario) - paroleTrovate(a, r.intestatario))
+            .sort((a, b) => paroleTrovate(b, chiPrepara(r)) - paroleTrovate(a, chiPrepara(r)))
         : []
     const p = candidati[0]
     const dato: DaRiconciliare = {
       richiestaId: r.id,
       intestatario: r.intestatario,
+      fornitore: r.fornitore,
       iban: r.iban,
       importo: r.importo,
       metodo: r.metodo,
@@ -204,6 +209,7 @@ export async function POST(req: NextRequest) {
     where: { id: corpo.richiestaId },
     select: {
       intestatario: true,
+      fornitore: true,
       importo: true,
       ordineNumero: true,
       pagataIl: true,

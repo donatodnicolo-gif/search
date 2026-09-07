@@ -120,7 +120,22 @@ model RichiestaPagamento {
   id                   String    @id @default(cuid())
   iban                 String
   bic                  String    @default("")
+  /**
+   * Il NOME SUL CONTO: a chi esce il bonifico. È quello che va a Transactions
+   * come `beneficiario`, e che la banca confronta con l'IBAN.
+   * ⚠️⚠️ Non è per forza chi ha preparato l'ordine (07/09/2026, regola
+   * dell'utente): una ditta individuale incassa a nome della persona, una
+   * società incassa per il negozio. Chi prepara sta in `fornitore`.
+   */
   intestatario         String
+  /**
+   * CHI PREPARA L'ORDINE — l'identità del fornitore (insegna o ragione
+   * sociale), scelta dalla ricerca (nostri, registro, Google Maps). È il nome
+   * che finisce su `Ordine.fornitoreNome` e nel registro Anagrafiche.
+   * ⚠️ Vuoto = riga nata prima del 07/09/2026: vale l'intestatario, che fino
+   * ad allora era l'unico nome (vedi `chiPrepara` in src/lib/chi-prepara.ts).
+   */
+  fornitore            String    @default("")
   importo              Float     @default(0)
   valuta               String    @default("EUR")
   causale              String    @default("")

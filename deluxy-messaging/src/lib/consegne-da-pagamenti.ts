@@ -22,6 +22,7 @@
 
 import { db } from './db'
 import { CHIUSURA } from './gestione'
+import { chiPrepara } from './chi-prepara'
 import { mandaInApp, marchioDdt, prefillInApp } from './manda-in-app'
 import { listaEscluse } from './dettaglio-ordine'
 import { righeOrdineDaOrders } from './orders'
@@ -63,7 +64,7 @@ export async function consegnePerPagamentiInApp(opz: {
       importo: { gt: 0 },
       OR: [{ NOT: { ordineNumero: '' } }, { NOT: { ordineId: '' } }],
     },
-    select: { ordineNumero: true, ordineId: true, intestatario: true, importo: true, pagataIl: true },
+    select: { ordineNumero: true, ordineId: true, intestatario: true, fornitore: true, importo: true, pagataIl: true },
   })
   if (!richieste.length) return vuoto
   const numeri = [...new Set(richieste.map((r) => '#' + r.ordineNumero.replace(/^#/, '')).filter((n) => n !== '#'))]
@@ -142,7 +143,7 @@ export async function consegnePerPagamentiInApp(opz: {
     }
     if (!prodotto) { esito.righe.push({ numero: o.numero, esito: 'saltata', testo: `nessun prodotto utilizzabile (sku «${sku}»)` }); continue }
     const quando = pagata.pagataIl ? pagata.pagataIl.toLocaleDateString('it-IT') : ''
-    const notaFornitore = `Fornitore pagato dall'app: ${pagata.intestatario || o.fornitoreNome} — ${pagata.importo.toFixed(2)} € (pagamento del ${quando}). Consegna già avvenuta, registrata a posteriori dal Customer Service.`
+    const notaFornitore = `Fornitore pagato dall'app: ${chiPrepara(pagata) || o.fornitoreNome} — ${pagata.importo.toFixed(2)} € (pagamento del ${quando}). Consegna già avvenuta, registrata a posteriori dal Customer Service.`
     const fine = (pre.campi.deliveryTimeTo || '18:00').padStart(5, '0')
     const giorno = (o.dataConsegna ?? new Date()).toISOString().slice(0, 10)
     const campi = {

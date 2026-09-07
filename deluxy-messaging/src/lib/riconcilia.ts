@@ -1,6 +1,7 @@
 import { db } from './db'
 import { comunicaCostoAOrders } from './orders'
 import { decidi, type Verdetto } from './riconciliazione'
+import { chiPrepara } from './chi-prepara'
 
 // PORTARE SULL'ORDINE QUELLO CHE IL PAGAMENTO SA GIÀ.
 //
@@ -57,6 +58,7 @@ export async function riconciliaDaPagamento(
     where: { id: richiestaId },
     select: {
       intestatario: true,
+      fornitore: true,
       importo: true,
       ordineNumero: true,
       ordineId: true,
@@ -67,6 +69,10 @@ export async function riconciliaDaPagamento(
   if (!r) {
     return { fatto: false, verdetto: 'senza-richiesta', messaggio: 'Richiesta non trovata.' }
   }
+  // ⚠️⚠️ Sull'ordine va CHI PREPARA, non il nome sul conto (07/09/2026): sono
+  // due campi da quando l'intestatario può essere diverso dalla ragione
+  // sociale. Sulle righe vecchie coincidono, e `chiPrepara` fa il ripiego.
+  const fornitore = chiPrepara(r)
   // ⚠️⚠️ Di suo una richiesta NON PAGATA non dimostra chi ha preparato
   // l'ordine: il fornitore può ancora dire di no, e scriverlo vorrebbe dire
   // archiviare un'intenzione come se fosse un fatto.
@@ -154,6 +160,7 @@ export async function riconciliaDaPagamento(
   const g = decidi({
     richiestaId,
     intestatario: r.intestatario,
+    fornitore,
     iban: '',
     importo: r.importo,
     metodo: r.metodo,
@@ -181,7 +188,7 @@ export async function riconciliaDaPagamento(
   await db.ordine.update({
     where: { id: ordine.id },
     data: {
-      fornitoreNome: ordine.fornitoreNome || r.intestatario,
+      fornitoreNome: ordine.fornitoreNome || fornitore,
       fornitoreCosto: r.importo,
       // ⚠️⚠️ I RECAPITI NON ARRIVANO DA QUI: una richiesta di pagamento non li
       // ha (ha un IBAN, non un telefono). Per questo l'avviso al fornitore, che
@@ -210,13 +217,13 @@ export async function riconciliaDaPagamento(
     ordine.numero,
     ordine.shopifyId,
     r.importo,
-    ordine.fornitoreNome || r.intestatario
+    ordine.fornitoreNome || fornitore
   )
 
   return {
     fatto: true,
     verdetto: 'da-registrare',
-    messaggio: `${ordine.numero}: ora risulta preparato da ${ordine.fornitoreNome || r.intestatario}, costo ${r.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}.`,
+    messaggio: `${ordine.numero}: ora risulta preparato da ${ordine.fornitoreNome || fornitore}, costo ${r.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}.`,
     orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
   }
 }

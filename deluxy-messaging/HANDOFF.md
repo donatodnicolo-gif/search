@@ -1,11 +1,77 @@
 # Handoff — Deluxy Customer Service
 
+> ⭐ **07/09/2026 sera — L'INTESTATARIO DEL CONTO PUÒ ESSERE DIVERSO DAL FORNITORE** (regola dell'utente: «l'intestatario conto di un fornitore può essere diverso da ragione sociale quindi deve essere consentito»). Su `RichiestaPagamento` c'era UN nome (`intestatario`) che faceva due mestieri: beneficiario del bonifico e fornitore che prepara l'ordine. Riscrivere sul conto il nome giusto per la banca («Mario Rossi» per «C&G Sweet Bakery») azzerava il fornitore scelto nel modulo e il POST rispondeva 409. Ora sono due campi: nuova colonna `RichiestaPagamento.fornitore` (creata in prod con `scripts/applica-fornitore-pagamento.mjs`; le 92 righe vecchie restano vuote = vale l'intestatario, ripiego unico in `chiPrepara()` di `src/lib/chi-prepara.ts`). Modulo: lo stato `intestatarioScelto` si chiama `fornitoreScelto`, riscrivere l'intestatario NON lo cancella più, sotto il campo si legge «diverso dal fornitore scelto: va bene…» con «Rimetti X»; `usaFornitore` compila l'intestatario col nome sul conto dell'ultimo pagamento (`FornitoreTrovato.intestatarioConto`, nuovo, dai pagamenti insieme all'IBAN). Server: 409, `riconcilia.ts`, `decidi()`, riconciliazione a mano, `registro-fornitori` (nome = fornitore, `intestatarioConto` = intestatario, campo che Anagrafiche aveva già), `fornitori-usati`, `fornitori-da-collegare`, `consegne-da-pagamenti`, ricerca `/api/fornitori/cerca` (cerca su tutti e due i nomi, raggruppa per chi prepara) usano `chiPrepara`. A Transactions va sempre l'intestatario come `beneficiario`. Tabella pagamenti: sotto l'intestatario «per ‹fornitore›» quando differiscono; il rosso sul fornitore dell'ordine confronta il fornitore, non il nome della banca. Prova: `npx tsx scripts/prova-ordine-obbligatorio.mts` (caso nuovo «intestatario diverso dal fornitore scelto passa»). In locale, da pubblicare.
 > 🔧 **07/09/2026 — «non consegnata» riapre davvero l'ordine** (segnalazione utente: «un ordine non consegnato viene riaperto come non consegnato in ordini aperti anche su app customer service»). La regola c'era dal 06/09 ma scattava solo al CAMBIO di stato: 5 ordini avevano già `appConsegnaStato=not_delivered` scritto quando è nata, e sono rimasti chiusi con la consegna fallita. Ora la riapertura guarda LA CONSEGNA: nuova colonna `Ordine.appNonConsegnataId` (creata in prod con `scripts/applica-non-consegnata-id.mjs`), scatta una volta per consegna, recupera l'arretrato e non ridiscute un ordine già ripreso in mano. I 5 rientrano al primo giro del cron `/api/cron/piattaforma` (ogni 15 minuti).
 > ⭐ **07/09/2026 — CONTROLLO A MONTE SUL PRODOTTO nella proposta di vendita** (regola utente: «rose rosse 9 è un prodotto a numero, è il controllo che customer service dovrebbe fare a monte»): `propostaVendita` riceve le righe intere dell'ordine (`righe2`: titolo, variante, sku, quantità), chiede alla piattaforma che prodotto è e distingue tre strade — **a numero** (pezzi dal nome della variante o dal titolo × quantità, prezzo = unitario del partner × pezzi, «vale più della percentuale»), **a preventivo** (chi un prezzo l'ha dato e chi no), **mix** (regola del territorio). Difetti corretti trovati per strada: la risposta della piattaforma si chiama `prodotti` e non `items` (il blocco preventivi del 06/09 non trovava mai niente) e la tipologia non usciva affatto; lo SKU della riga è quello della VARIANTE. `liste-prodotto` importa anche i prezzi da DDT (sku `PP-*`) riportandoli al codice di catalogo con `codiceDiCatalogo()`.
 > ✅ **06/09/2026 notte — LIVE `deluxy-messaging-4crxbij9y`** (build remota dalla cartella locale; il ramo pushato è `liste-prodotto-0609`, perché scout-ui locale è divergente e il diff verso origin è di sole aggiunte). Insieme: Merchandising `deluxy-merchandising-6yncyp8cz` e piattaforma `delivery-9zk1xd5s7`.
 > ⭐ **06/09/2026 sera — LISTE DI PRODOTTO e PREVENTIVI** (regola utente): nuova tabella `PrezzoProdottoPartner` (schema messaging, creata con `scripts/applica-migrazione-liste-prodotto.mjs`): il prezzo che UN partner fa su UN prodotto, per le due tipologie in cui la percentuale non basta — «a quantità» e «a preventivo» (la tipologia la decide Merchandising e la piattaforma la rimanda su `/app/prezzi-partner` e `/app/prodotti`). `src/lib/liste-prodotto.ts`: `importaPrezziDallaPiattaforma` (non tocca i preventivi scritti qui), `listaProdotto` (partner in ordine di priorità, con e senza prezzo: chi non ce l'ha è chi devi sentire), `salvaPreventivo`, `preventivoMancante`. Rotta `/api/vendite/prodotti` (GET elenco o lista di un prodotto, POST importa, PUT scrive il preventivo — scrivere è dell'admin), quarta linguetta «Liste di prodotto» in `VenditeConfig`. Nella proposta di vendita gli SKU dell'ordine dicono quali righe vanno a preventivo: senza un prezzo dato, l'avviso rosso dice che la vendita non si accetta. Lato piattaforma: un prodotto `tipologiaVendita=preventivo` non si smista MAI da solo.
 > 🔧 **06/09/2026 sera — «Escluso dalle proposte»**: la piattaforma marca i partner di ripiego (`esclusoDalleProposte` su `/app/vendita/provincia/:sigla`, tolti dalle liste esposte); `propostaVendita` non li propone mai; la pagina Vendite → Partner li mostra con l'etichetta.
 > ⭐⭐ **06/09/2026 sera — NUOVA ARCHITETTURA VENDITE: il CS è il CUSTODE di sconti e liste** (decisione utente; commit sul branch `cs-vendite-custode` di scoutwt). Orders gestisce solo l'ordine; qui: `src/lib/vendite.ts` (regola del territorio 40/20/30 + `ScontoProvincia` personalizzati; `statoProvincia` dalla piattaforma `GET /api/v1/app/vendita/provincia/:sigla`, cache 10 min; `ListaPrioritaArea` importate da `/app/aree-commerciali` + `/app/liste-priorita`, le modificate a mano non si sovrascrivono; `propostaVendita`: deluxy.it = guanti bianchi → fuori MI/RM/FI serve l'extra pagato (= totale − righe prodotto) altrimenti ANOMALIA; altri marchi → solo chi consegna da solo in provincia; sconto e prezzo al fornitore a 5). Pagina **/vendite** (admin: Sconti · Partner per provincia · Liste per area), rotte `/api/vendite/{sconti,partner,liste}`, `GET /api/v1/quota-fornitore` (chiave app: la CASA della quota, contratto identico a quello che aveva Orders), blocco «Proposta di vendita» in `DettaglioOrdine` (`PropostaVendita.tsx`, `/api/ordini/[id]/proposta-vendita`). `leggiQuotaFornitore` ora calcola qui. Tabelle create con `scripts/applica-migrazione-vendite.mjs`. Chiavi ApiKey create: `deluxy-delivery`, `deluxy-orders`. 🔖 Per ora si smistano da qui solo i FIORI; l'invio ai partner usa le richieste fornitore esistenti (a mano, nell'ordine proposto).
+
+## 07/09/2026 sera — Il nome sul conto non è il fornitore
+
+**Segnalazione dell'utente** (con la schermata del modulo «Paga fornitore» su
+#1826, C&G Sweet Bakery, 115 €): «l'intestatario conto di un fornitore può
+essere diverso da ragione sociale quindi deve essere consentito un intestatario
+conto diverso da ragione sociale».
+
+**Il difetto, misurato nel codice**: `RichiestaPagamento.intestatario` era
+l'unico nome e faceva due cose — il beneficiario del bonifico (va a Transactions
+e la banca lo confronta con l'IBAN) e il fornitore che prepara l'ordine (va su
+`Ordine.fornitoreNome`, nel registro Anagrafiche, nei conteggi «fornitori
+usati»). Nel modulo, l'`onChange` dell'intestatario azzerava `intestatarioScelto`
+e la scheda di Maps («toccando il campo a mano il nome smette di essere
+scelto»), quindi ricompariva la domanda «Da dove viene “Mario Rossi”?» e il
+bottone si spegneva; e anche dichiarandolo «nuovo», la rotta POST confrontava
+`chiaveFornitore(o.fornitoreNome)` con l'intestatario e rispondeva 409 «#1826
+risulta preparato da C&G Sweet Bakery, ma stai chiedendo di pagare Mario Rossi».
+Non c'era modo di pagare una ditta individuale col nome della persona senza
+riscrivere anche il fornitore sull'ordine.
+
+**La correzione**: due nomi, due campi.
+- `prisma/schema.prisma`: `RichiestaPagamento.fornitore String @default("")`,
+  colonna aggiunta in produzione con `scripts/applica-fornitore-pagamento.mjs`
+  (idempotente; 92 righe vecchie restano vuote).
+- `src/lib/chi-prepara.ts`: `chiPrepara(r) = r.fornitore || r.intestatario`,
+  l'unico posto dove vive il ripiego per le righe vecchie. Non importa `db`.
+- Modulo `RichiediPagamento.tsx`: `intestatarioScelto` → `fornitoreScelto`
+  (è il fornitore, non il nome sul conto); l'`onChange` dell'intestatario non
+  azzera più niente; sotto il campo, se i due nomi differiscono
+  (`chiaveNome`), «Diverso dal fornitore scelto (X): va bene, se è il nome sul
+  conto — il bonifico esce a Y, l'ordine resta preparato da X» + bottone
+  «Rimetti X». `usaFornitore` mette `fornitoreScelto = ragioneSociale || nome`
+  e `intestatario = intestatarioConto || ragioneSociale || nome`. POST e PATCH
+  mandano `fornitore: fornitoreScelto`; «Salvando, #N risulterà preparato da»
+  legge il fornitore; `apriPerModifica` ripristina `fornitoreScelto` da
+  `r.fornitore || r.intestatario`; in tabella sotto l'intestatario «per
+  ‹fornitore›» e il rosso su «chi prepara» confronta `chiPrepara(r)`.
+- `cosaManca` (`metodo-pagamento.ts`): parametro `fornitoreScelto`, stesso
+  controllo «va scelto, non scritto» — il nome sul conto è libero.
+- `FornitoreTrovato.intestatarioConto` (nuovo, in `cerca-fornitore.ts` e
+  `fornitoreVuoto`): la rotta `/api/fornitori/cerca` cerca sui due nomi,
+  raggruppa i pagamenti per `chiPrepara` e attacca al risultato il nome sul
+  conto dell'IBAN che propone (solo se l'IBAN è unico); `unisci` lo porta con
+  l'IBAN.
+- Server: `POST /api/pagamenti` legge `fornitore`, il 409 confronta
+  `chiPrepara`, salva la colonna; `PATCH` la corregge; `GET` la restituisce.
+  `riconcilia.ts` passa `fornitore` a `decidi()` e scrive `chiPrepara` su
+  `fornitoreNome` e verso Orders; `decidi()` (`riconciliazione.ts`,
+  `DaRiconciliare.fornitore?`) confronta chi prepara con l'ordine, e il
+  sospetto rimborso guarda tutti e due i nomi; `/api/riconciliazione` cerca
+  nel registro chi prepara; `registro-fornitori.ts` manda al registro
+  `nome = ordine.fornitoreNome || chiPrepara(r)` e — come già faceva —
+  `intestatarioConto = r.intestatario` (Anagrafiche ha quel campo dal suo
+  README: «è il nome a cui esce il bonifico, non coincide sempre con l'insegna»);
+  `fornitori-usati` raggruppa per chi prepara (`scrittoCome` resta il nome
+  sul conto), `fornitori-da-collegare` idem, `consegne-da-pagamenti` scrive
+  nella nota della consegna chi prepara.
+- Non cambiano: `beneficiario` verso Transactions (= intestatario, giusto),
+  l'avviso WhatsApp a chi fa i bonifici (nome sul conto), «pagamento aperto
+  per X» sulla scheda ordine.
+
+**Verifica**: `tsc` 0; `npx tsx scripts/prova-ordine-obbligatorio.mts` tutto
+a posto col caso nuovo; `npm run build` (vedi sotto); provato a schermo in
+locale su /pagamenti. **Stato**: in locale, da pubblicare col sì dell'utente.
 
 ## 07/09/2026 — COLLAUDO dell'utente: «funziona tutto»
 

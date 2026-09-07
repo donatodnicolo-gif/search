@@ -1,5 +1,6 @@
 import { db } from './db'
 import { chiaveNome } from './cerca-fornitore'
+import { chiPrepara } from './chi-prepara'
 import { segnalaFornitorePagatoAlRegistro } from './registro-fornitori'
 
 // I FORNITORI PAGATI CHE IL REGISTRO NON SA CHI SONO.
@@ -61,6 +62,7 @@ export async function fornitoriDaCollegare(): Promise<FornitoreDaCollegare[]> {
     select: {
       id: true,
       intestatario: true,
+      fornitore: true,
       importo: true,
       valuta: true,
       ordineNumero: true,
@@ -75,13 +77,14 @@ export async function fornitoriDaCollegare(): Promise<FornitoreDaCollegare[]> {
 
   const per = new Map<string, FornitoreDaCollegare>()
   for (const r of righe) {
-    const k = chiaveNome(r.intestatario)
+    // Chi prepara, non il nome sul conto: è l'insegna che va nel registro.
+    const k = chiaveNome(chiPrepara(r))
     if (!k) continue
     const f =
       per.get(k) ??
       ({
         chiave: k,
-        nome: r.intestatario.trim(),
+        nome: chiPrepara(r),
         totale: 0,
         valuta: r.valuta || 'EUR',
         pagamenti: 0,

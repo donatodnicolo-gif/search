@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
-import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
+import { chiaveNome, ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
+import { chiPrepara } from '@/lib/chi-prepara'
 import type { DettaglioMaps } from '@/lib/maps-fornitori'
 import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
 import { CellaCopiabile } from './CellaCopiabile'
@@ -53,7 +54,10 @@ function quandoPagata(iso: string | null): string {
 type Richiesta = {
   id: string
   iban: string
+  /** Il nome SUL CONTO: a chi esce il bonifico. */
   intestatario: string
+  /** Chi prepara l'ordine, se diverso (07/09/2026). Vuoto = l'intestatario. */
+  fornitore: string
   importo: number
   valuta: string
   causale: string
@@ -129,7 +133,7 @@ export function RichiediPagamento() {
   // partire la ricerca da sola, perché chi arriva qui vuole pagare LUI.
   const [fornitoreDaOrdine, setFornitoreDaOrdine] = useState('')
   /**
-   * Il nome dell'intestatario che è stato SCELTO, non digitato.
+   * IL FORNITORE che è stato SCELTO, non digitato: chi prepara l'ordine.
    *
    * ⚠️⚠️ Segnalato dall'utente guardando la sua schermata: nel campo c'era
    * scritto **«p»**. Un campo di testo obbligatorio si soddisfa con una lettera,
@@ -139,8 +143,17 @@ export function RichiediPagamento() {
    * ⚠️ Non basta vietare i nomi corti: il punto è che il fornitore va **scelto**
    * — dai nostri, dal registro, o da Google Maps — oppure dichiarato nuovo
    * apposta. Scriverlo e basta è il gesto che salta il controllo.
+   *
+   * ⚠️⚠️ NON È L'INTESTATARIO DEL CONTO (07/09/2026, regola dell'utente:
+   * «l'intestatario conto di un fornitore può essere diverso da ragione
+   * sociale»). Fino ad allora i due nomi erano uno solo, e riscrivere sul conto
+   * il nome giusto per la banca — la persona di una ditta individuale —
+   * cancellava il fornitore scelto e faceva rifiutare la richiesta. Adesso
+   * questo è chi prepara (va sull'ordine e nel registro), `intestatario` è il
+   * nome sul conto (va a Transactions come beneficiario), e si possono
+   * scrivere diversi.
    */
-  const [intestatarioScelto, setIntestatarioScelto] = useState('')
+  const [fornitoreScelto, setFornitoreScelto] = useState('')
   /**
    * LA SCHEDA DI GOOGLE MAPS del fornitore scelto, quando viene da lì.
    *
@@ -150,7 +163,7 @@ export function RichiediPagamento() {
    * di quei dati: qui **non si salva niente**, sta in memoria il tempo di
    * compilare il modulo.
    *
-   * ⚠️ Si azzera insieme a `intestatarioScelto`: la scheda vale per QUEL
+   * ⚠️ Si azzera insieme a `fornitoreScelto`: la scheda vale per QUEL
    * fornitore, e un nome riscritto a mano sopra non è più lui. Mandarla lo
    * stesso vorrebbe dire attaccare indirizzo e telefono di un'attività al nome
    * di un'altra.
@@ -294,7 +307,7 @@ export function RichiediPagamento() {
       // ⚠️ Arrivando dal bottone «Paga» di un ordine il fornitore è già stato
       // scelto una volta — su quell'ordine — e richiederlo di nuovo sarebbe
       // chiedere due volte la stessa cosa.
-      setIntestatarioScelto(fornitore)
+      setFornitoreScelto(fornitore)
     }
     // ⚠️ Si tiene da parte QUANTO VALE L'ORDINE, anche quando l'importo del
     // modulo diventa il costo del fornitore: senza, la percentuale di margine
@@ -467,8 +480,12 @@ export function RichiediPagamento() {
    * pagare la cifra di un altro ordine.
    */
   function usaFornitore(f: FornitoreTrovato, daMaps?: DettaglioMaps) {
-    setIntestatario(f.ragioneSociale || f.nome)
-    setIntestatarioScelto(f.ragioneSociale || f.nome)
+    // Chi prepara: la ragione sociale se c'è, altrimenti l'insegna.
+    setFornitoreScelto(f.ragioneSociale || f.nome)
+    // ⚠️ Il nome SUL CONTO: com'è stato pagato l'ultima volta, se lo sappiamo
+    // (viaggia con l'IBAN); altrimenti la ragione sociale o il nome, da
+    // correggere a mano se la banca vuole un altro nome (07/09/2026).
+    setIntestatario(f.intestatarioConto || f.ragioneSociale || f.nome)
     // ⚠️ La scheda di Maps si tiene solo se questo fornitore viene da Maps:
     // scegliendone poi uno dei nostri, quella di prima deve sparire.
     setLuogoMaps(daMaps ?? null)
@@ -476,7 +493,11 @@ export function RichiediPagamento() {
       setIban(f.iban)
       setIbanNota('')
       setAvviso(
-        `Compilato con i dati che avevamo: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}. Controlla prima di salvare.`
+        `Compilato con i dati che avevamo: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}${
+          f.intestatarioConto && chiaveNome(f.intestatarioConto) !== chiaveNome(f.ragioneSociale || f.nome)
+            ? `, sul conto di ${f.intestatarioConto}`
+            : ''
+        }. Controlla prima di salvare.`
       )
     } else {
       setAvviso(
@@ -661,7 +682,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      intestatarioScelto,
+      fornitoreScelto,
     })
     if (manca) {
       setErrore(manca)
@@ -678,6 +699,7 @@ export function RichiediPagamento() {
           iban,
           riferimentoPagamento: riferimento,
           intestatario,
+          fornitore: fornitoreScelto,
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           ordineNumero: ordineScelto?.numero || ordineNumero,
@@ -711,7 +733,7 @@ export function RichiediPagamento() {
       setIban('')
       setRiferimento('')
       setIntestatario('')
-      setIntestatarioScelto('')
+      setFornitoreScelto('')
       setLuogoMaps(null)
       setImporto('')
       setCausale('')
@@ -731,6 +753,10 @@ export function RichiediPagamento() {
     setIban(r.iban)
     setRiferimento(r.riferimentoPagamento)
     setIntestatario(r.intestatario)
+    // ⚠️ Una riga salvata ha già il suo fornitore: sulle righe vecchie (senza
+    // il campo) è il nome sul conto, come è sempre stato.
+    setFornitoreScelto(r.fornitore || r.intestatario)
+    setLuogoMaps(null)
     setImporto(r.importo ? String(r.importo).replace('.', ',') : '')
     setCausale(r.causale)
     setOrdineNumero(r.ordineNumero)
@@ -766,6 +792,8 @@ export function RichiediPagamento() {
           iban,
           riferimentoPagamento: riferimento,
           intestatario,
+          // Chi prepara, separato dal nome sul conto (07/09/2026).
+          fornitore: fornitoreScelto,
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           origine,
@@ -843,7 +871,7 @@ export function RichiediPagamento() {
       setIban('')
       setRiferimento('')
       setIntestatario('')
-      setIntestatarioScelto('')
+      setFornitoreScelto('')
       setLuogoMaps(null)
       setImporto('')
       setCausale('')
@@ -926,7 +954,7 @@ export function RichiediPagamento() {
   const richiesteVisibili = richieste.filter((r) => {
     if (!nelPeriodo(r.creatoIl, periodo)) return false
     if (!cercato) return true
-    return [r.intestatario, r.causale, r.ordineNumero, r.riferimentoPagamento, r.iban]
+    return [r.intestatario, r.fornitore, r.causale, r.ordineNumero, r.riferimentoPagamento, r.iban]
       .join(' ')
       .toLowerCase()
       .includes(cercato)
@@ -1145,8 +1173,8 @@ export function RichiediPagamento() {
           {/* ⚠️ La ricerca fra i nostri fornitori è il PASSO 1, non sta più qui
               dentro: si torna indietro toccandolo. Il modulo è l'ultimo passo. */}
           <p className="cella-sub" style={{ marginTop: -6 }}>
-            {intestatarioScelto
-              ? `Fornitore scelto fra i nostri: ${intestatarioScelto}.`
+            {fornitoreScelto
+              ? `Fornitore scelto fra i nostri: ${fornitoreScelto}.`
               : origine !== 'manuale'
                 ? `Campi letti dall'AI (${origine === 'immagine' ? 'da immagine' : 'da testo'}): controllali.`
                 : 'Fornitore nuovo, coordinate scritte a mano.'}{' '}
@@ -1229,18 +1257,33 @@ export function RichiediPagamento() {
             <span>Intestatario del conto</span>
             <input
               value={intestatario}
-              onChange={(e) => {
-                setIntestatario(e.target.value)
-                // ⚠️ Toccando il campo a mano il nome smette di essere «scelto»:
-                // altrimenti si sceglie un fornitore, si riscrive il nome sopra,
-                // e resta marcato come verificato quando non lo è più.
-                if (e.target.value.trim() !== intestatarioScelto.trim()) {
-                  setIntestatarioScelto('')
-                  setLuogoMaps(null)
-                }
-              }}
+              // ⚠️⚠️ Riscrivere il nome sul conto NON toglie il fornitore scelto
+              // (07/09/2026). Prima lo faceva — «toccando il campo a mano il
+              // nome smette di essere scelto» — e chi scriveva «Mario Rossi»
+              // sul conto della pasticceria «C&G Sweet Bakery» si vedeva
+              // chiedere di nuovo da dove venisse il fornitore, e il server
+              // rifiutava. Il fornitore è chi prepara, e resta quello; qui c'è
+              // il nome che la banca confronta con l'IBAN. Se sono diversi lo
+              // si dice sotto, e si può rimettere il nome del fornitore.
+              onChange={(e) => setIntestatario(e.target.value)}
               placeholder="Mario Rossi"
             />
+            {fornitoreScelto.trim() &&
+            intestatario.trim() &&
+            chiaveNome(intestatario) !== chiaveNome(fornitoreScelto) ? (
+              <span className="cella-sub" style={{ marginTop: 6 }}>
+                Diverso dal fornitore scelto (<strong>{fornitoreScelto}</strong>): va bene, se è
+                il nome sul conto — il bonifico esce a <strong>{intestatario.trim()}</strong>,
+                l&apos;ordine resta preparato da {fornitoreScelto}.{' '}
+                <button
+                  type="button"
+                  className="btn btn-secondario small"
+                  onClick={() => setIntestatario(fornitoreScelto)}
+                >
+                  Rimetti {fornitoreScelto}
+                </button>
+              </span>
+            ) : null}
           </label>
           {/* ── COSA ENTRERÀ IN ANAGRAFICA ──
               ⚠️⚠️ Chiesto dall'utente il 27/08/2026: da Maps si importa tutto
@@ -1278,7 +1321,7 @@ export function RichiediPagamento() {
               E resta la strada per chi è nuovo davvero: la maggior parte dei
               fornitori la prima volta non li conosciamo, e un modulo che non
               lascia pagare un fioraio nuovo non si usa. */}
-          {intestatario.trim() && !intestatarioScelto.trim() ? (
+          {intestatario.trim() && !fornitoreScelto.trim() ? (
             <div className="serve-scelta">
               {/* ⚠️⚠️ Il messaggio di prima diceva «cercalo qui sopra e toccalo»:
                   «qui sopra» non è un posto, e chi legge non sa **cosa** deve
@@ -1300,7 +1343,7 @@ export function RichiediPagamento() {
               <button
                 type="button"
                 className="btn btn-secondario small"
-                onClick={() => setIntestatarioScelto(intestatario)}
+                onClick={() => setFornitoreScelto(intestatario)}
               >
                 È un fornitore nuovo, l&apos;ho cercato
               </button>
@@ -1358,12 +1401,13 @@ export function RichiediPagamento() {
               ⚠️ Si dice PRIMA di salvare, non dopo: è una scrittura su un altro
               record, e una cosa che succede in silenzio su un ordine si scopre
               quando dà fastidio. */}
-          {(ordineScelto?.numero || ordineNumero) && intestatario.trim() ? (
+          {(ordineScelto?.numero || ordineNumero) && (fornitoreScelto.trim() || intestatario.trim()) ? (
             <p className="cella-sub">
               Salvando, <strong>{ordineScelto?.numero || ordineNumero}</strong> risulterà preparato
-              da <strong>{intestatario.trim()}</strong>
+              da <strong>{fornitoreScelto.trim() || intestatario.trim()}</strong>
               {ordineScelto?.fornitoreNome &&
-              ordineScelto.fornitoreNome.trim() !== intestatario.trim() ? (
+              chiaveNome(ordineScelto.fornitoreNome) !==
+                chiaveNome(fornitoreScelto.trim() || intestatario.trim()) ? (
                 <>
                   {' '}
                   — ⚠️ ma su quell&apos;ordine risulta già{' '}
@@ -1426,7 +1470,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      intestatarioScelto,
+      fornitoreScelto,
     })}
               title={cosaManca({
       metodo,
@@ -1435,7 +1479,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      intestatarioScelto,
+      fornitoreScelto,
     }) || undefined}
             >
               {modificoId ? 'Salva la correzione' : 'Salva la richiesta'}
@@ -1448,7 +1492,7 @@ export function RichiediPagamento() {
                   setIban('')
                   setRiferimento('')
                   setIntestatario('')
-      setIntestatarioScelto('')
+      setFornitoreScelto('')
       setLuogoMaps(null)
                   setImporto('')
                   setCausale('')
@@ -1700,7 +1744,25 @@ export function RichiediPagamento() {
                       </>
                     }
                   />
-                  <CellaCopiabile testo={r.intestatario} className="cella-nome" />
+                  {/* ⚠️ Il nome sul conto, e sotto — solo se diverso — chi
+                      prepara (07/09/2026): in tabella si deve leggere a chi
+                      sono usciti i soldi E per chi. */}
+                  <CellaCopiabile
+                    testo={r.intestatario}
+                    className="cella-nome"
+                    mostrato={
+                      r.fornitore && chiaveNome(r.fornitore) !== chiaveNome(r.intestatario) ? (
+                        <>
+                          {r.intestatario}
+                          <span className="cella-sub" style={{ display: 'block' }}>
+                            per {r.fornitore}
+                          </span>
+                        </>
+                      ) : (
+                        r.intestatario
+                      )
+                    }
+                  />
                   <CellaCopiabile
                     className="cella-num"
                     testo={r.importo ? String(r.importo).replace('.', ',') : ''}
@@ -1773,14 +1835,17 @@ export function RichiediPagamento() {
                   <td className="cella-muta">
                     {r.fornitoreOrdine ? (
                       <span
+                        // ⚠️ Si confronta con CHI PREPARA secondo la richiesta,
+                        // non col nome sul conto (07/09/2026): «Mario Rossi» sul
+                        // conto di «C&G Sweet Bakery» non è un disallineamento.
                         title={
-                          r.fornitoreOrdine.trim() === r.intestatario.trim()
+                          chiaveNome(r.fornitoreOrdine) === chiaveNome(chiPrepara(r))
                             ? 'È lo stesso a cui va il pagamento'
-                            : `⚠️ Il pagamento va a ${r.intestatario}, ma l'ordine risulta preparato da ${r.fornitoreOrdine}`
+                            : `⚠️ Il pagamento è per ${chiPrepara(r)}, ma l'ordine risulta preparato da ${r.fornitoreOrdine}`
                         }
                         style={{
                           color:
-                            r.fornitoreOrdine.trim() === r.intestatario.trim()
+                            chiaveNome(r.fornitoreOrdine) === chiaveNome(chiPrepara(r))
                               ? undefined
                               : 'var(--red)',
                         }}

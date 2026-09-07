@@ -198,10 +198,14 @@ export function cosaManca(d: {
   causale?: string
   ordineNumero?: string
   /**
-   * Il nome che è stato SCELTO dalla ricerca (o dichiarato nuovo apposta).
-   * Vuoto = digitato a mano e mai confermato.
+   * IL FORNITORE che è stato SCELTO dalla ricerca (o dichiarato nuovo
+   * apposta): chi prepara l'ordine. Vuoto = nessuno scelto, il nome sul conto
+   * è stato solo digitato.
+   * ⚠️ Dal 07/09/2026 è un campo a sé dall'intestatario: il nome sul conto può
+   * essere diverso dall'insegna (la persona di una ditta individuale), e
+   * riscriverlo NON toglie il fornitore scelto.
    */
-  intestatarioScelto?: string
+  fornitoreScelto?: string
 }): string {
   if (!d.intestatario.trim()) return 'Serve almeno il nome di chi va pagato.'
 
@@ -224,8 +228,8 @@ export function cosaManca(d: {
   // ⚠️ Il controllo vive QUI e non nella rotta: «da dove viene il nome» è un
   // fatto della schermata, e il server non può saperlo. Chiude lo sbaglio di chi
   // compila, non è un cancello contro chi chiama l'API a mano.
-  if (d.intestatarioScelto !== undefined && !d.intestatarioScelto.trim()) {
-    return `«${d.intestatario.trim()}» l’hai scritto a mano: cercalo qui sopra e toccalo, oppure premi «è un fornitore nuovo».`
+  if (d.fornitoreScelto !== undefined && !d.fornitoreScelto.trim()) {
+    return `«${d.intestatario.trim()}» l’hai scritto a mano: cerca il fornitore e toccalo, oppure premi «è un fornitore nuovo».`
   }
 
   // ⚠️⚠️ UN PAGAMENTO CHE PARLA DI UN ORDINE DEVE AVERE QUELL'ORDINE COLLEGATO.

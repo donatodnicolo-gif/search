@@ -2,6 +2,7 @@ import { db } from './db'
 import { leggiImpostazioni } from './impostazioni'
 import { agganciaAffidabile } from './aggancio-fornitore'
 import { chiaveFornitore } from './richieste-fornitore'
+import { chiPrepara } from './chi-prepara'
 import { siglaProvincia } from './province'
 import { mestierePerNegozio } from './fornitori-zona'
 import { contattoDaMaps } from './anagrafica-da-maps'
@@ -127,6 +128,7 @@ async function calcola(
     where: { id: richiestaId },
     select: {
       intestatario: true,
+      fornitore: true,
       iban: true,
       ibanValido: true,
       metodo: true,
@@ -169,7 +171,11 @@ async function calcola(
       },
     })
   }
-  const nome = (ordine?.fornitoreNome || r.intestatario || '').trim()
+  // ⚠️ Poi CHI PREPARA secondo la richiesta (`fornitore`, dal 07/09/2026), e
+  // solo in ultimo il nome sul conto: nel registro entra l'insegna, e il nome
+  // della banca — che può essere la persona — va nel suo campo,
+  // `intestatarioConto`, qui sotto.
+  const nome = (ordine?.fornitoreNome || chiPrepara(r) || '').trim()
   if (!nome) {
     return { ok: false, esito: 'senza-nome', messaggio: 'Il pagamento non dice a chi è andato.' }
   }

@@ -72,6 +72,13 @@ export type FornitoreTrovato = {
   /** L'IBAN, SOLO se lo abbiamo già usato per pagarlo. */
   iban: string
   /**
+   * Il NOME SUL CONTO di quell'IBAN, com'è stato pagato l'ultima volta
+   * (07/09/2026). Può essere diverso dall'insegna e dalla ragione sociale — la
+   * persona per una ditta individuale — ed è quello che la banca confronta.
+   * Vuoto = non lo sappiamo: il modulo propone la ragione sociale o il nome.
+   */
+  intestatarioConto: string
+  /**
    * ⚠️ Se di questo nome risultano IBAN DIVERSI, qui c'è il conto e `iban`
    * resta vuoto. Scegliere il più recente sarebbe la cosa peggiore: due IBAN
    * diversi vogliono dire che è cambiato qualcosa (un conto nuovo, un'altra
@@ -135,6 +142,7 @@ export function fornitoreVuoto(): FornitoreTrovato {
     telefono: '',
     email: '',
     iban: '',
+    intestatarioConto: '',
     ibanDiversi: 0,
     ordini: 0,
     ultimoCosto: null,
@@ -394,6 +402,8 @@ export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[]
       telefono: prec.telefono || p.telefono,
       email: prec.email || p.email,
       iban: prec.iban || p.iban,
+      // Il nome sul conto segue l'IBAN: viene dalla stessa fonte (i pagamenti).
+      intestatarioConto: prec.iban ? prec.intestatarioConto : p.intestatarioConto,
       ibanDiversi: Math.max(prec.ibanDiversi, p.ibanDiversi),
       ordini: prec.ordini + p.ordini,
       ultimoCosto: prec.ultimoCosto ?? p.ultimoCosto,

@@ -1,5 +1,6 @@
 import { db } from './db'
 import { chiaveNome } from './cerca-fornitore'
+import { chiPrepara } from './chi-prepara'
 
 // A CHI ABBIAMO PAGATO, E QUANTO — l'elenco dei fornitori pagati davvero.
 //
@@ -92,6 +93,7 @@ export async function fornitoriUsati(): Promise<EsitoFornitoriUsati> {
       select: {
         id: true,
         intestatario: true,
+        fornitore: true,
         ordineNumero: true,
         importo: true,
         valuta: true,
@@ -144,7 +146,12 @@ export async function fornitoriUsati(): Promise<EsitoFornitoriUsati> {
 
   const per = new Map<string, FornitorePagato>()
   for (const r of richieste) {
-    const nome = r.intestatario.trim()
+    // ⚠️ Si raggruppa per CHI PREPARA (07/09/2026): il nome sul conto può
+    // essere la persona («Mario Rossi») mentre il fornitore è l'insegna («C&G
+    // Sweet Bakery»), e contare per nome di banca spaccherebbe un fornitore in
+    // due — o ne unirebbe due che condividono un conto. `scrittoCome` resta
+    // il nome della riga, che qui è quello a cui sono usciti i soldi.
+    const nome = chiPrepara(r)
     const k = chiaveNome(nome)
     if (!k) continue
     const o = r.ordineNumero ? perNumero.get(soloCifre(r.ordineNumero)) : undefined
@@ -174,7 +181,7 @@ export async function fornitoriUsati(): Promise<EsitoFornitoriUsati> {
     f.pagamenti.push({
       id: r.id,
       ordineNumero: r.ordineNumero,
-      scrittoCome: nome,
+      scrittoCome: r.intestatario.trim(),
       importo: r.importo ?? 0,
       valuta: r.valuta || 'EUR',
       pagatoIl: quando,
