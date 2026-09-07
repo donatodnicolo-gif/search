@@ -11,9 +11,14 @@ import type { TrattativaConLuogo } from '@/lib/db';
 import type { DealStage, StatoAffiliazione } from '@/types';
 import type { CostoDeiLavori, RiepilogoPreventivi } from '@/lib/preventivi';
 import { RiassuntoPreventivi } from '@/components/PreventiviTrattativa';
+import { PriorityBadge } from '@/components/PriorityBadge';
+import { prioritaDi, rangoPriorita } from '@/lib/trattative';
 import { useMemo } from 'react';
 
-type Colonna = 'negozio' | 'trattativa' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
+// `priorita` è una chiave d'ordine SENZA intestazione: l'ordine di partenza
+// (07/09/2026) è quello per priorità già dato dalla schermata, e a parità di
+// priorità il sort — stabile — lascia le righe come arrivano.
+type Colonna = 'priorita' | 'negozio' | 'trattativa' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
 
 /** gg/mm/aa compatto, sia per date pure («2026-09-01») sia per timestamp. */
 function dataBreve(iso: string | null | undefined): string {
@@ -41,6 +46,7 @@ export function TabellaTrattative({
   onOrdine,
   preventiviDi,
   costoDi,
+  allegatiDi,
 }: {
   righe: TrattativaConLuogo[];
   /** L'ordine della pipeline: la colonna Fase si ordina per posizione, non per alfabeto. */
@@ -66,15 +72,19 @@ export function TabellaTrattative({
    */
   preventiviDi?: (d: TrattativaConLuogo) => RiepilogoPreventivi | undefined;
   costoDi?: (d: TrattativaConLuogo) => CostoDeiLavori | undefined;
+  /** Quanti documenti/link allegati (migr. 0121): un chip sotto la prossima azione. */
+  allegatiDi?: (d: TrattativaConLuogo) => number;
 }) {
-  // Default: la più RECENTE in cima (richiesta dell'utente, 26/08/2026).
-  // Prima ordinava per valore, e con metà delle trattative senza importo la
-  // prima riga era una a caso: chi apre questa pagina vuole vedere l'ultima
-  // che ha aperto, non la più cara.
-  const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'aperta', verso: 'desc' }, ['valore', 'fase']);
+  // Default (07/09/2026): per PRIORITÀ, P0 in cima. Dentro la stessa priorità
+  // vale l'ordine con cui la schermata consegna le righe — chiuse in fondo,
+  // scadenza vicina, poi la più RECENTE (che era il default dal 26/08: «chi
+  // apre questa pagina vuole vedere l'ultima che ha aperto»). Il sort è
+  // stabile, quindi con tutte a P2 non cambia niente rispetto a prima.
+  const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'priorita', verso: 'asc' }, ['valore', 'fase']);
   const ordinate = useMemo(
     () =>
       ordinaRighe(righe, ordine, (d, c) => {
+        if (c === 'priorita') return rangoPriorita(d);
         if (c === 'negozio') return d.place_nome ?? '';
         if (c === 'trattativa') return d.titolo ?? null;
         if (c === 'linea') return (d.linee?.length ? d.linee.join(', ') : d.linea) ?? null;
@@ -148,7 +158,15 @@ export function TabellaTrattative({
               <Text style={styles.negozio} numberOfLines={1}>{d.place_nome ?? '—'}</Text>
               {d.place_account ? <Text style={styles.sotto} numberOfLines={1}>{d.place_account}</Text> : null}
             </Pressable>
-            <Text style={styles.cellaLinea} numberOfLines={2}>{titoloTxt}</Text>
+            <View style={styles.colLinea}>
+              {/* La priorità (migr. 0120): solo dove si può scrivere (righe di
+                  Scout) e solo se non è la P2 di default — un badge su ogni
+                  riga sarebbe rumore. */}
+              {d.origine !== 'hubspot' && !daRegistro && prioritaDi(d) !== 'P2' ? (
+                <PriorityBadge small priorita={prioritaDi(d)} />
+              ) : null}
+              <Text style={styles.cellaLineaTxt} numberOfLines={2}>{titoloTxt}</Text>
+            </View>
             <Text style={styles.cellaTag} numberOfLines={2}>{lineaTxt}</Text>
             <View style={styles.colFase}>
               {daRegistro ? (
@@ -170,7 +188,14 @@ export function TabellaTrattative({
             </View>
             <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
             <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
-            <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
+            <View style={styles.colAzione}>
+              <Text style={styles.cellaAzioneTxt} numberOfLines={2}>{d.next_action || '—'}</Text>
+              {(() => {
+                const n = allegatiDi?.(d) ?? 0;
+                const pezzi = [d.link ? 'link' : null, n ? (n === 1 ? '1 allegato' : `${n} allegati`) : null].filter(Boolean);
+                return pezzi.length ? <Text style={styles.sotto} numberOfLines={1}>{pezzi.join(' · ')}</Text> : null;
+              })()}
+            </View>
             {/* ⚠️ LE AZIONI IN UNA CELLA A LARGHEZZA FISSA (26/08/2026).
                 Prima erano icone sciolte in fondo alla riga: ognuna aggiungeva
                 larghezza che l'INTESTAZIONE non aveva, e bastava una riga con
@@ -325,7 +350,7 @@ const styles = StyleSheet.create({
   colData: { width: 76, alignItems: 'flex-end' },
   negozio: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   sotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
-  cellaLinea: { flex: 1, minWidth: 0, color: colors.testo, fontSize: 13, lineHeight: 17 },
+  cellaLineaTxt: { color: colors.testo, fontSize: 13, lineHeight: 17 },
   cellaTag: { flex: 0.9, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
   cellaValore: {
     // ⚠️ Niente `width` qui: la larghezza la dà `colDx`, che ora avvolge
@@ -347,7 +372,7 @@ const styles = StyleSheet.create({
   },
   // ⚠️ Stesso flex della cella: se cambia uno, va cambiato l'altro.
   colAzione: { flex: 1.2, minWidth: 0 },
-  cellaAzione: { flex: 1.2, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
+  cellaAzioneTxt: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
   // Le azioni: larghezza fissa e allineate a destra, così la riga finisce
   // sempre nello stesso punto — con tre icone o con nessuna.
   // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web lo scarta in

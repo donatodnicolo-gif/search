@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Pianificazione, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, DealAllegato, EsitoVisita, FonteLead, Lead, Linea, Ordine, Pianificazione, PianoGiorno, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, TipoAttivitaPiano, Visit } from '@/types';
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { hubspotAttivo, syncVisita } from '@/lib/hubspot';
@@ -1441,6 +1441,10 @@ export async function aggiornaDeal(
       | 'motivo_perso'
       | 'riprendere_il'
       | 'chiusa_il'
+      // Migr. 0120 (07/09/2026): priorità, link e motivo della chiusura.
+      | 'priorita'
+      | 'link'
+      | 'motivo_chiusura'
       // ⭐ CHI LA PORTA AVANTI (27/08/2026, richiesta dell'utente: «manca la
       // possibilità di segnalare chi sta portando avanti la trattativa»).
       // ⚠️ Passarla a un collega FALLIVA fino alla migr. 0093: la policy
@@ -1520,6 +1524,12 @@ export async function inserisciDeal(d: {
   scadenza?: string | null;
   oggetto?: string | null;
   canale?: Deal['canale'];
+  priorita?: Deal['priorita'];
+  link?: string | null;
+  motivo_chiusura?: string | null;
+  motivo_perso?: Deal['motivo_perso'];
+  riprendere_il?: string | null;
+  chiusa_il?: string | null;
 }): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
   // Cadenza: nessuna trattativa senza prossima scadenza. Se il chiamante non ne
@@ -3048,9 +3058,11 @@ export async function registraVisitaRapida(
   eliminaBozzaVisita(placeId).catch(() => {});
   sincronizzaPlaceRegistro(placeId).catch(() => {}); // best-effort verso Anagrafiche
 
-  // Best effort: porta subito la visita su HubSpot (company+contact+deal).
+  // Best effort: porta subito la visita su HubSpot (company+contact+note).
   // Se fallisce resta hubspot_synced=false e verrà ripresa dai sync successivi.
-  // I "non target" NON creano deal su HubSpot: non inquinare la pipeline.
+  // ⚠️ NON apre una trattativa (07/09/2026): la visita aggiorna azienda e
+  // contatto e porta le note; la trattativa si apre a mano. I "non target"
+  // non si mandano proprio: non inquinare il CRM.
   if (opts.esito !== 'non_target' && env.hubspotSyncUrl() && (await hubspotAttivo())) {
     try {
       await syncVisita(visita.id);
@@ -3818,4 +3830,230 @@ export async function collegaPreventivoARichiesta(id: string, numero: string, ur
     .update({ preventivo_numero: numero, preventivo_url: url, stato: 'preventivo_inviato' })
     .eq('id', id);
   if (error) throw error;
+}
+
+// ── Allegati delle trattative (migr. 0121, 07/09/2026) ─────────────────────────
+//
+// Documenti e link agganciati a una trattativa: la presentazione fatta per quel
+// cliente, il preventivo mandato, la cartella condivisa. I file stanno nel
+// bucket PRIVATO `allegati` e si aprono con un URL firmato a scadenza; i link
+// sono link. La chiave è quella di `chiaveTrattativa` (uuid Scout o `hs_<id>`).
+
+const BUCKET_ALLEGATI = 'allegati';
+/** Tetto per file: sopra, il caricamento dal telefono muore a metà e la riga resta orfana. */
+const MAX_ALLEGATO_BYTES = 20 * 1024 * 1024;
+
+export async function fetchAllegatiTrattativa(dealKey: string): Promise<DealAllegato[]> {
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .select('*')
+    .eq('deal_key', dealKey)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DealAllegato[];
+}
+
+/** Quanti allegati ha ogni trattativa (chiave → n): per il chip nell'elenco. */
+export async function fetchConteggioAllegati(): Promise<Map<string, number>> {
+  const righe = await tutteLeRighe<{ deal_key: string }>('deal_allegati', 'deal_key', 'id');
+  const m = new Map<string, number>();
+  for (const r of righe) m.set(r.deal_key, (m.get(r.deal_key) ?? 0) + 1);
+  return m;
+}
+
+export async function inserisciAllegatoLink(dealKey: string, titolo: string, url: string): Promise<DealAllegato> {
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .insert({ deal_key: dealKey, tipo: 'link', titolo: titolo.trim() || url, url, path: null })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as DealAllegato;
+}
+
+/** Nome di file che non fa danni in un percorso: lettere, cifre, punto, trattino. */
+function nomeFileSicuro(nome: string): string {
+  const pulito = nome.replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  return (pulito || 'documento').slice(-80);
+}
+
+/**
+ * Carica un documento scelto col picker e registra la riga. Sul web il picker
+ * dà già il `File`; sul telefono si legge dall'URI. ⚠️ Se la riga non si
+ * scrive, il file caricato si TOGLIE: un file nel bucket senza riga è
+ * invisibile a tutti e occupa spazio per sempre.
+ */
+export async function caricaAllegatoFile(
+  dealKey: string,
+  file: { uri: string; name: string; mimeType?: string | null; size?: number | null; file?: Blob | null },
+): Promise<DealAllegato> {
+  if (file.size && file.size > MAX_ALLEGATO_BYTES) {
+    throw new Error(`Il file supera i ${Math.round(MAX_ALLEGATO_BYTES / 1024 / 1024)} MB: comprimilo o allega un link.`);
+  }
+  const blob = file.file ?? (await (await fetch(file.uri)).blob());
+  if (blob.size > MAX_ALLEGATO_BYTES) {
+    throw new Error(`Il file supera i ${Math.round(MAX_ALLEGATO_BYTES / 1024 / 1024)} MB: comprimilo o allega un link.`);
+  }
+  const path = `${dealKey}/${Date.now()}-${nomeFileSicuro(file.name)}`;
+  const { error: errUpload } = await supabase.storage
+    .from(BUCKET_ALLEGATI)
+    .upload(path, blob, { contentType: file.mimeType ?? blob.type ?? 'application/octet-stream', upsert: false });
+  if (errUpload) throw errUpload;
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .insert({ deal_key: dealKey, tipo: 'file', titolo: file.name, url: path, path })
+    .select('*')
+    .single();
+  if (error) {
+    await supabase.storage.from(BUCKET_ALLEGATI).remove([path]).catch(() => {});
+    throw error;
+  }
+  return data as DealAllegato;
+}
+
+/** L'indirizzo da aprire: il link com'è, oppure un URL firmato di un'ora sul file privato. */
+export async function urlAllegato(a: DealAllegato): Promise<string> {
+  if (a.tipo === 'link') return a.url;
+  const { data, error } = await supabase.storage.from(BUCKET_ALLEGATI).createSignedUrl(a.path ?? a.url, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/**
+ * Toglie un allegato. ⚠️ Con la RLS una DELETE rifiutata torna zero righe e
+ * nessun errore: si controlla con `.select`, o l'app direbbe «tolto» a chi
+ * non poteva toglierlo. Il file si rimuove DOPO la riga: se la riga non va
+ * via, il file resta raggiungibile da chi la vede.
+ */
+export async function eliminaAllegato(a: DealAllegato): Promise<void> {
+  const { data, error } = await supabase.from('deal_allegati').delete().eq('id', a.id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Non è stato tolto: può toglierlo solo chi lo ha messo (o l’amministratore).');
+  if (a.tipo === 'file' && a.path) {
+    await supabase.storage.from(BUCKET_ALLEGATI).remove([a.path]).catch(() => {});
+  }
+}
+
+// ── Chiusura di una trattativa: l'email a responsabile e venditore (07/09/2026) ─
+
+/**
+ * Manda l'email con il motivo della chiusura (Edge Function `notifica-chiusura`,
+ * stesso SMTP dei task). Non lancia: torna l'esito, e chi chiama decide se
+ * dirlo. `sent: false` con `reason` è una risposta normale (SMTP assente,
+ * trattativa non chiusa), non un guasto.
+ */
+export async function notificaChiusuraTrattativa(
+  dealId: string,
+): Promise<{ sent: boolean; reason?: string; error?: string; inviate?: number }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/notifica-chiusura`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.supabaseAnonKey(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ deal_id: dealId }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { sent: false, error: j?.error ?? `HTTP ${res.status}` };
+    return j;
+  } catch (e: any) {
+    return { sent: false, error: e?.message ?? 'rete' };
+  }
+}
+
+// ── L'agenda settimanale del commerciale (migr. 0122, 07/09/2026) ──────────────
+
+/** uuid v4: lega fra loro le righe di un'attività scritta su più giorni. */
+function uuidV4(): string {
+  const c = (globalThis as any).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+/**
+ * Le attività della settimana che inizia a `lunedi`: le fissate su quella
+ * settimana più le ricorrenti (`settimana` null). Le proprie, o di tutta la
+ * squadra (`tutti`): in quel caso si risolve anche il nome del collega.
+ */
+export async function fetchPianoGiorni(lunedi: string, { tutti = false }: { tutti?: boolean } = {}): Promise<PianoGiorno[]> {
+  let q = supabase
+    .from('pianificazione_giorni')
+    .select('*')
+    .or(`settimana.is.null,settimana.eq.${lunedi}`)
+    .order('giorno_settimana')
+    .order('ordine')
+    .order('created_at');
+  if (!tutti) {
+    const { data: u } = await supabase.auth.getUser();
+    q = q.eq('owner', u.user?.id ?? '');
+  }
+  const { data, error } = await q;
+  if (error) throw error;
+  const righe = (data ?? []) as PianoGiorno[];
+  if (tutti && righe.length) {
+    const profili = await fetchProfiles().catch(() => [] as Profilo[]);
+    const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const r of righe) r.owner_nome = nome.get(r.owner) ?? null;
+  }
+  return righe;
+}
+
+/**
+ * Scrive un'attività su uno o più giorni: una riga per giorno, legate dallo
+ * stesso `gruppo`. `settimana` = il lunedì per «solo questa settimana», null
+ * per «ogni settimana».
+ */
+export async function inserisciAttivitaPiano(a: {
+  giorni: number[];
+  settimana: string | null;
+  tipo: TipoAttivitaPiano;
+  titolo: string;
+  strade: string[];
+  zona: string | null;
+  note: string | null;
+}): Promise<PianoGiorno[]> {
+  const giorni = [...new Set(a.giorni)].filter((g) => g >= 1 && g <= 7).sort();
+  if (!giorni.length) throw new Error('Scegli almeno un giorno.');
+  const titolo = a.titolo.trim();
+  if (!titolo) throw new Error('Scrivi cosa farai.');
+  const { data: u } = await supabase.auth.getUser();
+  const gruppo = giorni.length > 1 ? uuidV4() : null;
+  const righe = giorni.map((g) => ({
+    owner: u.user?.id,
+    giorno_settimana: g,
+    settimana: a.settimana,
+    tipo: a.tipo,
+    titolo,
+    strade: a.tipo === 'visita' ? a.strade : [],
+    zona: a.zona?.trim() || null,
+    note: a.note?.trim() || null,
+    gruppo,
+  }));
+  const { data, error } = await supabase.from('pianificazione_giorni').insert(righe).select('*');
+  if (error) throw error;
+  return (data ?? []) as PianoGiorno[];
+}
+
+/** Modifica UNA riga (un giorno). Con la RLS una UPDATE rifiutata torna zero righe: si controlla. */
+export async function aggiornaAttivitaPiano(
+  id: string,
+  patch: Partial<Pick<PianoGiorno, 'giorno_settimana' | 'settimana' | 'tipo' | 'titolo' | 'strade' | 'zona' | 'note' | 'ordine'>>,
+): Promise<void> {
+  const { data, error } = await supabase.from('pianificazione_giorni').update(patch).eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Non è stata modificata: puoi cambiare solo le tue attività.');
+}
+
+export async function eliminaAttivitaPiano(id: string): Promise<void> {
+  const { data, error } = await supabase.from('pianificazione_giorni').delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Non è stata tolta: puoi togliere solo le tue attività.');
 }

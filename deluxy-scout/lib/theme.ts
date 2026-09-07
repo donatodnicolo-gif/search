@@ -4,7 +4,7 @@
 // (navy/oro/…) e i cataloghi semantici dell'app. Le chiavi in collisione sono
 // state RINOMINATE nelle schermate prima dello swap (Libro UX&UI, cap. 12):
 // spacing locale md16/lg24/xl32 → DS lg/xxl/xxxl; radius sm/md/lg → DS s/m/l.
-import type { DealStage, Priorita, StatoAffiliazione, StatoPlace } from '@/types';
+import type { DealStage, PrioritaDeal, StatoAffiliazione, StatoPlace } from '@/types';
 import {
   colors as ds,
   motion,
@@ -68,11 +68,22 @@ export const colors = {
   scrim: ds.scrim,
 } as const;
 
-// Colore per priorità: P1 oro (accento) / P2 ink / P3 grigio.
-export const coloreProprita: Record<Priorita, string> = {
+// Colore per priorità: P0 rosso (urgente, solo trattative) / P1 oro (accento) /
+// P2 ink / P3 grigio. La mappa copre anche `PrioritaDeal`, che contiene
+// `Priorita`: negozi e task continuano a usare P1–P3.
+export const coloreProprita: Record<PrioritaDeal, string> = {
+  P0: colors.errore,
   P1: colors.oro,
   P2: colors.ink,
   P3: colors.grigio,
+};
+
+/** Etichetta leggibile della priorità, per badge e tooltip. */
+export const labelPriorita: Record<PrioritaDeal, string> = {
+  P0: 'Urgente',
+  P1: 'Alta',
+  P2: 'Media',
+  P3: 'Bassa',
 };
 
 export const labelStato: Record<StatoPlace, string> = {

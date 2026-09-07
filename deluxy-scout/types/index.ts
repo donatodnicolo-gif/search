@@ -2,6 +2,20 @@
 
 export type Priorita = 'P1' | 'P2' | 'P3';
 
+/**
+ * Priorità di una TRATTATIVA (migr. 0120, richiesta dell'utente del
+ * 07/09/2026): P0 in più rispetto ai negozi e ai task, perché una trattativa
+ * può essere «da chiudere oggi» in un modo in cui un negozio da visitare non
+ * lo è mai. Default P2: le righe nate prima della migrazione stanno lì.
+ */
+export type PrioritaDeal = 'P0' | 'P1' | 'P2' | 'P3';
+export const PRIORITA_DEAL: { valore: PrioritaDeal; label: string; aiuto: string }[] = [
+  { valore: 'P0', label: 'Urgente', aiuto: 'si muove oggi' },
+  { valore: 'P1', label: 'Alta', aiuto: 'questa settimana' },
+  { valore: 'P2', label: 'Media', aiuto: 'nel giro normale' },
+  { valore: 'P3', label: 'Bassa', aiuto: 'quando c’è tempo' },
+];
+
 export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
@@ -351,6 +365,16 @@ export interface Deal {
   riprendere_il?: string | null; // quando ricompare in Home (YYYY-MM-DD)
   chiusa_il?: string | null; // quando è stata vinta/persa
   /**
+   * Migr. 0120 (07/09/2026). `priorita`: P0–P3, l'elenco si ordina per
+   * questa; assente sulle righe da HubSpot/registro → vale P2 (`prioritaDi`).
+   * `link`: il riferimento esterno della trattativa. `motivo_chiusura`: il
+   * perché, a parole, di una vinta o di una persa — obbligatorio alla
+   * chiusura; NON sostituisce `motivo_perso`, che è la categoria della persa.
+   */
+  priorita?: PrioritaDeal | null;
+  link?: string | null;
+  motivo_chiusura?: string | null;
+  /**
    * Quando è stata ANNULLATA col cestino (migr. 0072). NULL = viva.
    *
    * ⚠️ Non è una fase: le cinque fasi sono quelle che viaggiano verso HubSpot,
@@ -536,6 +560,56 @@ export interface Lead {
   mail_ref?: string | null;
   /** Message-ID della posta: serve a non reimportare due volte (migr. 0042). */
   mail_id?: string | null;
+}
+
+/** Le due fasi che chiudono una trattativa: da qui in poi è storia, non lavoro. */
+export const FASI_CHIUSE: readonly DealStage[] = ['closedwon', 'closedlost'];
+
+/**
+ * Un documento o un link allegato a una trattativa (migr. 0121). `deal_key` è
+ * l'uuid di `deals` oppure `hs_<id>` per le trattative che vivono solo nella
+ * copia di HubSpot: la stessa lista in tutti e due i casi.
+ */
+export interface DealAllegato {
+  id: string;
+  deal_key: string;
+  tipo: 'link' | 'file';
+  titolo: string;
+  /** Il link (tipo = link) o il percorso nel bucket privato `allegati` (tipo = file). */
+  url: string;
+  path: string | null;
+  owner: string | null;
+  created_at: string;
+}
+
+/**
+ * Un'attività dell'agenda settimanale del commerciale (migr. 0122): un giorno
+ * della settimana, fissata a una settimana (`settimana` = il lunedì) oppure
+ * ricorrente (`settimana` = null). Per le visite, le strade da battere.
+ */
+export type TipoAttivitaPiano = 'visita' | 'chiamate' | 'appuntamento' | 'ufficio' | 'altro';
+export const TIPI_ATTIVITA_PIANO: { valore: TipoAttivitaPiano; label: string; icona: string }[] = [
+  { valore: 'visita', label: 'Visite', icona: 'walk-outline' },
+  { valore: 'chiamate', label: 'Chiamate', icona: 'call-outline' },
+  { valore: 'appuntamento', label: 'Appuntamento', icona: 'people-outline' },
+  { valore: 'ufficio', label: 'Ufficio', icona: 'desktop-outline' },
+  { valore: 'altro', label: 'Altro', icona: 'ellipsis-horizontal-outline' },
+];
+export interface PianoGiorno {
+  id: string;
+  owner: string;
+  giorno_settimana: number; // 1 = lunedì … 7 = domenica
+  settimana: string | null; // YYYY-MM-DD del lunedì; null = ogni settimana
+  tipo: TipoAttivitaPiano;
+  titolo: string;
+  strade: string[];
+  zona: string | null;
+  note: string | null;
+  gruppo: string | null;
+  ordine: number;
+  created_at: string;
+  /** Risolto dai profili in lettura (non è una colonna). */
+  owner_nome?: string | null;
 }
 
 // Perché una trattativa si perde. Il motivo decide come (e se) riprenderla.

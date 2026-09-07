@@ -92,14 +92,20 @@ export class RateLimitError extends Error {
 export interface SyncVisitResult {
   hubspot_company_id: string;
   hubspot_contact_id: string | null;
-  hubspot_deal_id: string;
+  /** La trattativa Scout già APERTA su cui sono finite le note, se c'era. Una
+   *  visita non ne crea una (07/09/2026): qui non arriva mai un deal nuovo. */
+  hubspot_deal_id: string | null;
   note_id: string | null;
 }
 
 /**
- * Sincronizza una visita: crea/aggiorna Company+Contact, crea Deal (linea→proprietà,
- * fase→dealstage) e scrive Briefing/Note post meeting/Esito e analisi come Nota.
- * Ritorna gli id HubSpot generati.
+ * Sincronizza una visita: crea/aggiorna Company+Contact e porta le note della
+ * visita su HubSpot — sulla trattativa già aperta di quel negozio, se c'è,
+ * altrimenti come Nota sull'azienda.
+ *
+ * ⚠️ NON crea trattative (07/09/2026, richiesta dell'utente: «ogni visita non
+ * deve aprire una trattativa»). La trattativa si apre a mano, quando c'è
+ * un'opportunità concreta: dalla scheda del negozio o da Trattative.
  */
 export function syncVisita(visitId: string): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visitId });
@@ -134,10 +140,17 @@ export function aggiornaValoriTrattative(): Promise<{ aggiornati: number }> {
   return callSync<{ aggiornati: number }>('refresh_deal_values', {});
 }
 
-/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action) + mirror. */
+/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action/motivo di chiusura) + mirror. */
 export function modificaTrattativaHubspot(
   hubspotDealId: string,
-  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+  patch: {
+    linea?: string | null;
+    fase?: string | null;
+    valore_atteso?: number | null;
+    next_action?: string | null;
+    /** Va nella proprietà «Esito e analisi» del deal (migr. 0120). */
+    motivo_chiusura?: string | null;
+  },
 ): Promise<{ ok: boolean; hubspot_deal_id: string }> {
   return callSync('update_deal', { hubspot_deal_id: hubspotDealId, patch });
 }

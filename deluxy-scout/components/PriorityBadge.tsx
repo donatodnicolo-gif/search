@@ -1,20 +1,24 @@
 // Badge priorità in stile DS (pillola con dot + tinta 10%).
 // La sigla P1/P2/P3 è affiancata dall'etichetta leggibile ("Alta"…);
 // nella variante small resta solo la sigla, il colore fa da guida.
+// Dal 07/09/2026 accetta anche P0 (le trattative): stesso vestito, un colore
+// in più — il rosso dell'urgenza, che sui negozi e sui task non esiste.
 import { StyleSheet, Text, View } from 'react-native';
-import type { Priorita } from '@/types';
-import { coloreProprita, radius } from '@/lib/theme';
+import type { Priorita, PrioritaDeal } from '@/types';
+import { coloreProprita, labelPriorita, radius } from '@/lib/theme';
 import { tinta } from '@/components/ui';
 
-const LABEL: Record<Priorita, string> = { P1: 'Alta', P2: 'Media', P3: 'Bassa' };
-
-export function PriorityBadge({ priorita, small }: { priorita: Priorita; small?: boolean }) {
+export function PriorityBadge({ priorita, small }: { priorita: Priorita | PrioritaDeal; small?: boolean }) {
   const colore = coloreProprita[priorita];
   return (
-    <View style={[styles.badge, { backgroundColor: tinta(colore) }, small && styles.small]}>
+    <View
+      style={[styles.badge, { backgroundColor: tinta(colore) }, small && styles.small]}
+      accessibilityLabel={`Priorità ${priorita} · ${labelPriorita[priorita]}`}
+      {...({ title: `Priorità ${labelPriorita[priorita].toLowerCase()}` } as any)}
+    >
       <View style={[styles.dot, { backgroundColor: colore }]} />
       <Text style={[styles.txt, { color: colore }, small && styles.txtSmall]}>
-        {small ? priorita : `${priorita} · ${LABEL[priorita]}`}
+        {small ? priorita : `${priorita} · ${labelPriorita[priorita]}`}
       </Text>
     </View>
   );

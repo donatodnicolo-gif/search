@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -31,6 +32,8 @@ import {
   fetchContatti,
   fetchTutteTrattative,
   ordiniPerTrattativa,
+  fetchConteggioAllegati,
+  notificaChiusuraTrattativa,
   inserisciDeal,
   inserisciTask,
   type PlaceLite,
@@ -43,7 +46,10 @@ import {
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { env } from '@/lib/env';
-import { CANALI, MOTIVI_PERSO, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
+import { CANALI, FASI_CHIUSE, MOTIVI_PERSO, PRIORITA_DEAL, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type PrioritaDeal, type StatoAffiliazione } from '@/types';
+import { chiaveTrattativa, linkApribile, normalizzaLink, ordinaTrattative, prioritaDi, prioritaMassima, rangoPriorita, richiedeMotivoChiusura } from '@/lib/trattative';
+import { PriorityBadge } from '@/components/PriorityBadge';
+import { AllegatiTrattativa } from '@/components/AllegatiTrattativa';
 import { LineaSelector } from '@/components/LineaSelector';
 import { Card, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -193,6 +199,8 @@ export default function Trattative() {
   const [lavori, setLavori] = useState<LavoroConPreventivi[]>([]);
   /** id → trattativa degli ordini: serve a far RISALIRE i preventivi. */
   const [ordiniDeal, setOrdiniDeal] = useState<{ id: string; deal_id: string | null }[]>([]);
+  /** Quanti allegati ha ogni trattativa (chiave → n), per il chip in riga (migr. 0121). */
+  const [allegatiN, setAllegatiN] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   // Il sopra-menù: si parte dalle APERTE, che sono il lavoro. Vinte e perse si
@@ -244,14 +252,17 @@ export default function Trattative() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, l, o] = await Promise.all([
+      const [d, l, o, a] = await Promise.all([
         fetchTutteTrattative({ includiAnnullate: true }),
         fetchLavori().catch(() => [] as LavoroConPreventivi[]),
         ordiniPerTrattativa().catch(() => [] as { id: string; deal_id: string | null }[]),
+        // Col suo catch: se la tabella degli allegati manca, l'elenco vive lo stesso.
+        fetchConteggioAllegati().catch(() => new Map<string, number>()),
       ]);
       setDeals(d);
       setLavori(l);
       setOrdiniDeal(o);
+      setAllegatiN(a);
     } finally {
       setLoading(false);
     }
@@ -328,7 +339,7 @@ export default function Trattative() {
 
   const filtrate = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return deals.filter((d) => {
+    const passano = deals.filter((d) => {
       // Prima il sopra-menù: aperte / vinte / perse. Poi, dentro le aperte,
       // l'eventuale sotto-stato.
       // «Tutte» non filtra per vista: ci sono anche le annullate, che sono
@@ -342,10 +353,14 @@ export default function Trattative() {
         if (!linee.includes(lineaFiltro)) return false;
       }
       if (!q) return true;
-      return [d.place_nome, d.linea, d.titolo, d.place_account, d.place_zona, labelFase[d.fase]]
+      return [d.place_nome, d.linea, d.titolo, d.place_account, d.place_zona, labelFase[d.fase], d.oggetto, d.motivo_chiusura]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
+    // ⭐ L'ORDINE È PER PRIORITÀ (07/09/2026, richiesta dell'utente): P0 in
+    // cima, poi le chiuse in fondo, la scadenza vicina, la più recente. Con
+    // tutte a P2 — il giorno della migrazione — è l'ordine di prima.
+    return ordinaTrattative(passano);
   }, [deals, query, vista, faseFiltro, cittaFiltro, accountFiltro, lineaFiltro]);
 
   const sezioni = useMemo<Sezione[]>(() => {
@@ -359,7 +374,12 @@ export default function Trattative() {
       }
       map.get(key)!.data.push(d);
     }
-    return [...map.values()].sort((a, b) => a.title.localeCompare(b.title));
+    // I gruppi-negozio seguono la priorità più alta che contengono; a parità,
+    // il nome. (Le righe dentro sono già nell'ordine di `filtrate`.)
+    return [...map.values()].sort((a, b) => {
+      const p = rangoPriorita({ priorita: prioritaMassima(a.data) }) - rangoPriorita({ priorita: prioritaMassima(b.data) });
+      return p !== 0 ? p : a.title.localeCompare(b.title);
+    });
   }, [filtrate]);
 
   const totale = useMemo(
@@ -616,7 +636,7 @@ export default function Trattative() {
       loading={loading}
       icona="briefcase-outline"
       titolo="Nessuna trattativa"
-      aiuto="Le trattative nascono da una visita con esito positivo o da qui: crea la prima col bottone in basso."
+      aiuto="Le trattative si aprono a mano, quando c'è un'opportunità concreta: dalla scheda di un negozio («Apri una trattativa») o da qui, col bottone in basso. Una visita non ne apre mai una."
       azione="Nuova trattativa"
       onAzione={() => setFormAperto(true)}
     />
@@ -645,6 +665,7 @@ export default function Trattative() {
                 onCancella={chiediCancellaDeal}
                 preventiviDi={preventiviDi}
                 costoDi={costoDi}
+                allegatiDi={(d) => allegatiN.get(chiaveTrattativa(d)) ?? 0}
               />
             </View>
           )}
@@ -682,6 +703,7 @@ export default function Trattative() {
             deal={item}
             preventivi={preventiviDi(item)}
             costo={costoDi(item)}
+            allegati={allegatiN.get(chiaveTrattativa(item)) ?? 0}
             onEdit={() => setEditDeal(item)}
             onElimina={() => chiediEliminaDeal(item)}
             onRipristina={() => ripristina(item)}
@@ -785,6 +807,7 @@ function RigaDeal({
   deal,
   preventivi,
   costo,
+  allegati,
   onEdit,
   onElimina,
   onRipristina,
@@ -795,6 +818,8 @@ function RigaDeal({
   /** I preventivi fornitore di questa trattativa, se ce ne sono. */
   preventivi?: RiepilogoPreventivi;
   costo?: CostoDeiLavori;
+  /** Quanti documenti/link allegati (migr. 0121). */
+  allegati?: number;
   onEdit: () => void;
   onElimina: () => void;
   onRipristina?: () => void;
@@ -882,6 +907,10 @@ function RigaDeal({
         ) : null}
       </View>
       <View style={styles.dealMetaRow}>
+        {/* La priorità (migr. 0120): solo sulle trattative di Scout, che sono
+            le uniche dove si può scrivere. P2 è il default e non si mostra —
+            un badge su ogni riga sarebbe rumore, non informazione. */}
+        {suoDiScout && !daRegistro && prioritaDi(deal) !== 'P2' ? <PriorityBadge small priorita={prioritaDi(deal)} /> : null}
         {/* Fase: dealstage per Scout/HubSpot; stato registro per le righe da Anagrafiche. */}
         {daRegistro ? (
           <RegistroBadge stato={deal.anagrafiche_stato ?? 'in_trattativa'} />
@@ -903,6 +932,25 @@ function RigaDeal({
           <Text style={styles.origine}>dal registro</Text>
         ) : deal.hubspot_deal_id ? (
           <Text style={styles.hs}>su HubSpot ✓</Text>
+        ) : null}
+        {/* Link e allegati (migr. 0120/0121): un chip dice che ci sono; si
+            aprono dalla scheda. Il link si apre anche da qui, senza entrare. */}
+        {linkApribile(deal.link) ? (
+          <Pressable
+            style={styles.lineaTag}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              Linking.openURL(deal.link!);
+            }}
+            accessibilityLabel="Apri il link di riferimento"
+          >
+            <Text style={styles.lineaTagTxt}>Link ↗</Text>
+          </Pressable>
+        ) : null}
+        {allegati ? (
+          <View style={styles.lineaTag}>
+            <Text style={styles.lineaTagTxt}>{allegati === 1 ? '1 allegato' : `${allegati} allegati`}</Text>
+          </View>
         ) : null}
       </View>
       <View style={styles.ownerRow}>
@@ -948,6 +996,10 @@ function RigaDeal({
           {deal.riprendere_il ? ` · da riprendere il ${formattaData(deal.riprendere_il)}` : ''}
         </Text>
       ) : null}
+      {/* Il perché della chiusura, a parole (migr. 0120): sulle vinte e sulle perse. */}
+      {FASI_CHIUSE.includes(deal.fase) && deal.motivo_chiusura ? (
+        <Text style={styles.persaTxt} numberOfLines={2}>Motivo: {deal.motivo_chiusura}</Text>
+      ) : null}
       {deal.next_action ? <Text style={styles.nextAction}>Prossima azione: {deal.next_action}</Text> : null}
     </Pressable>
   );
@@ -988,9 +1040,11 @@ function TrattativaModal({
       : placeIniziale ?? null,
   );
   const [contatti, setContatti] = useState<Contact[]>([]);
-  // In MODIFICA si parte da ciò che è SALVATO — anche niente: preselezionare
-  // «Consegne» su una trattativa senza linea faceva vedere nel form un dato
-  // che la tabella (onesta) non mostrava. Il default vale solo in CREAZIONE.
+  // Si parte da ciò che è SALVATO — anche niente. ⚠️ NESSUNA LINEA
+  // PRESELEZIONATA (07/09/2026, richiesta dell'utente): prima in creazione
+  // partiva «Consegne», e chi apriva una trattativa di gifting o eventi senza
+  // toccare le chip la salvava come consegne — un dato scritto da un default,
+  // non da una persona. La linea la sceglie chi apre la trattativa.
   // ⚠️ CANONIZZATE all'apertura (26/08/2026). Una trattativa salvata con un
   // nome vecchio — «Eventi» invece di «Eventi & Catering» — faceva comparire un
   // chip in più nel selettore, perché quello mostra anche i valori scelti che
@@ -998,7 +1052,7 @@ function TrattativaModal({
   // catalogo ne ha nove, e due chip che sono la stessa cosa. Ricondotto qui, il
   // valore vecchio si sana da solo al primo salvataggio.
   const [linee, setLinee] = useState<string[]>(
-    deal ? canonizzaLinee(deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : ['Consegne'],
+    deal ? canonizzaLinee(deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : [],
   );
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
   const [valore, setValore] = useState(scriviImporto(deal?.valore_atteso));
@@ -1026,6 +1080,13 @@ function TrattativaModal({
   }, []);
   const [motivoPerso, setMotivoPerso] = useState<MotivoPerso | null>((deal?.motivo_perso as MotivoPerso) ?? null);
   const [riprendereIl, setRiprendereIl] = useState<string | null>(deal?.riprendere_il ?? null);
+  // Migr. 0120 (07/09/2026): priorità, link di riferimento, motivo della chiusura.
+  const [priorita, setPriorita] = useState<PrioritaDeal>(deal ? prioritaDi(deal) : 'P2');
+  const [link, setLink] = useState(deal?.link ?? '');
+  const [motivoChiusura, setMotivoChiusura] = useState(deal?.motivo_chiusura ?? '');
+  // Le righe che vivono solo su HubSpot non hanno una riga in `deals`: priorità,
+  // link, allegati e motivo non avrebbero dove stare. Si dice, non si finge.
+  const soloHubspot = deal?.origine === 'hubspot';
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1112,7 +1173,34 @@ function TrattativaModal({
       const valNum = leggiImporto(valore);
       const chiusa = fase === 'closedwon' || fase === 'closedlost';
       const eraChiusa = deal?.fase === 'closedwon' || deal?.fase === 'closedlost';
+      // ⭐ IL MOTIVO DELLA CHIUSURA È OBBLIGATORIO (07/09/2026, richiesta
+      // dell'utente). Quando la trattativa PASSA a vinta o persa, senza il
+      // perché non si salva: una chiusura senza motivo è un numero senza
+      // storia, e fra sei mesi nessuno sa cosa ha funzionato o no. Chi la
+      // risalva già chiusa nella stessa fase non lo riscrive.
+      const chiusuraNuova = richiedeMotivoChiusura(deal?.fase, fase);
+      const motivoTxt = motivoChiusura.trim();
+      if (chiusuraNuova && !motivoTxt) {
+        setErrore(
+          fase === 'closedwon'
+            ? 'Scrivi il motivo: perché l’abbiamo vinta? Va a responsabile e venditore.'
+            : 'Scrivi il motivo: perché è persa? Va a responsabile e venditore.',
+        );
+        setSalvando(false);
+        return;
+      }
+      const linkNorm = normalizzaLink(link);
+      if (linkNorm && !linkApribile(linkNorm)) {
+        setErrore('Il link di riferimento deve essere un indirizzo web (https://…).');
+        setSalvando(false);
+        return;
+      }
       const patch = {
+        priorita,
+        link: linkNorm,
+        // Il perché resta finché la trattativa è chiusa; riaperta, si azzera
+        // come la memoria della persa qui sotto.
+        motivo_chiusura: chiusa ? motivoTxt || deal?.motivo_chiusura || null : null,
         linea: linee[0] ?? null,
         linee,
         fase,
@@ -1263,6 +1351,18 @@ function TrattativaModal({
           );
         }
       }
+
+      // ⭐ LA CHIUSURA SI COMUNICA (07/09/2026): il motivo va per email a
+      // responsabile e venditore (Edge `notifica-chiusura`). Best-effort ma
+      // non muto: la trattativa è chiusa comunque, e se la mail non parte lo
+      // si dice. Solo sulle righe di Scout: una trattativa solo-HubSpot non
+      // ha una riga da cui leggere il motivo.
+      if (chiusuraNuova && dealIdSalvato) {
+        const esito = await notificaChiusuraTrattativa(dealIdSalvato);
+        if (!esito.sent && esito.error) {
+          avvisa('Trattativa chiusa, email no', `L'email del motivo non è partita: ${esito.error}.`);
+        }
+      }
       onSalvata();
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel salvataggio');
@@ -1374,6 +1474,29 @@ function TrattativaModal({
               placeholderTextColor={colors.grigio}
             />
 
+            {/* ⭐ LA PRIORITÀ (migr. 0120, 07/09/2026): P0 in cima all'elenco.
+                Non sulle righe solo-HubSpot: non c'è una riga dove scriverla. */}
+            {!soloHubspot ? (
+              <>
+                <Text style={styles.campoLabel}>Priorità</Text>
+                <View style={styles.chipRow}>
+                  {PRIORITA_DEAL.map((p) => (
+                    <Pressable
+                      key={p.valore}
+                      style={[styles.chip, priorita === p.valore && styles.chipOn]}
+                      onPress={() => setPriorita(p.valore)}
+                      accessibilityState={{ selected: priorita === p.valore }}
+                      {...({ title: p.aiuto } as any)}
+                    >
+                      <Text style={[styles.chipTxt, priorita === p.valore && styles.chipTxtOn]}>
+                        {p.valore} · {p.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
             {/* ⭐ CHI LA PORTA AVANTI (27/08/2026). Prima il proprietario si
                 vedeva in tabella ma non si poteva cambiare: una trattativa
                 passata di mano restava intestata a chi l'aveva aperta, e i
@@ -1430,6 +1553,37 @@ function TrattativaModal({
                 </Pressable>
               ))}
             </View>
+
+            {/* ⭐ IL MOTIVO DELLA CHIUSURA (migr. 0120): obbligatorio quando si
+                passa a vinta o persa, in linea nel foglio e non in un pop-up
+                sopra il foglio ([[trappola-finestra-dentro-la-finestra]]).
+                Sulle vinte dice cosa ha funzionato; sulle perse si affianca
+                alla categoria qui sotto, che decide la strategia di ripresa. */}
+            {FASI_CHIUSE.includes(fase) ? (
+              <>
+                <Text style={styles.campoLabel}>
+                  {fase === 'closedwon' ? 'Perché l’abbiamo vinta' : 'Perché è persa'}
+                  {richiedeMotivoChiusura(deal?.fase, fase) ? ' · obbligatorio' : ''}
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.inputLungo]}
+                  value={motivoChiusura}
+                  onChangeText={setMotivoChiusura}
+                  placeholder={
+                    fase === 'closedwon'
+                      ? 'es. prezzo in linea, hanno apprezzato la prova delle vetrine'
+                      : 'es. hanno scelto un fornitore locale più economico'
+                  }
+                  placeholderTextColor={colors.grigio}
+                  multiline
+                />
+                <Text style={styles.sub}>
+                  {soloHubspot
+                    ? 'Va su HubSpot in «Esito e analisi».'
+                    : 'Va per email a responsabile e venditore, e su HubSpot in «Esito e analisi».'}
+                </Text>
+              </>
+            ) : null}
 
             {/* Persa: il motivo decide la strategia di ripresa (pipeline differita) */}
             {fase === 'closedlost' ? (
@@ -1498,6 +1652,25 @@ function TrattativaModal({
               placeholderTextColor={colors.grigio}
             />
 
+            {/* Link di riferimento (migr. 0120): la cartella, il preventivo online,
+                la presentazione. Uno solo, sempre a portata; i documenti veri
+                stanno negli allegati qui sotto. */}
+            {!soloHubspot ? (
+              <>
+                <Text style={styles.campoLabel}>Link di riferimento</Text>
+                <TextInput
+                  style={styles.input}
+                  value={link}
+                  onChangeText={setLink}
+                  placeholder="https://… (cartella, preventivo online, presentazione)"
+                  placeholderTextColor={colors.grigio}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+              </>
+            ) : null}
+
             {/* Scadenza follow-up */}
             <Text style={styles.campoLabel}>Scadenza follow-up</Text>
             <View style={styles.chipRow}>
@@ -1548,6 +1721,16 @@ function TrattativaModal({
                   }}
                 />
               </View>
+            ) : null}
+
+            {/* ⭐ DOCUMENTI E LINK ALLEGATI (migr. 0121, 07/09/2026). Solo in
+                modifica: la chiave è l'id della trattativa, che in creazione
+                non c'è ancora. Non sulle righe del registro: non sono una
+                trattativa finché non si salva. */}
+            {inModifica && deal && !daRegistro ? (
+              <AllegatiTrattativa dealKey={chiaveTrattativa(deal)} />
+            ) : !inModifica ? (
+              <Text style={styles.sub}>Documenti e link si allegano dopo il primo salvataggio, riaprendo la trattativa.</Text>
             ) : null}
 
             {/* Elimina: solo sulle trattative nate in Scout. Quelle da HubSpot o
@@ -1754,6 +1937,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.testo,
   },
+  // Il motivo della chiusura: due righe almeno, si scrive a parole.
+  inputLungo: { minHeight: 64, textAlignVertical: 'top' },
   risultato: {
     flexDirection: 'row',
     alignItems: 'center',

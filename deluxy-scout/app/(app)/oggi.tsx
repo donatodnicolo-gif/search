@@ -28,8 +28,13 @@ import {
   chiudiRichiamo,
   fetchUltimoContattoPerPlace,
   inviaPromemoriaEmail,
+  fetchPianoGiorni,
   type TrattativaConLuogo,
 } from '@/lib/db';
+import type { PianoGiorno } from '@/types';
+import { TIPI_ATTIVITA_PIANO } from '@/types';
+import { lunediDi, pianoDelGiorno, urlStrada } from '@/lib/pianificazione-settimana';
+import { Linking } from 'react-native';
 import { daRicontattare, placeIdConTrattativaAperta, type Richiamo } from '@/lib/metrics';
 import { giorniDaOggi } from '@/lib/statoVisita';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
@@ -150,6 +155,8 @@ export default function Oggi() {
   const [ordini, setOrdini] = useState<OrdineConLuogo[]>([]);
   const [richiesteCliente, setRichiesteCliente] = useState<RichiestaCliente[]>([]);
   const [richiestePagamento, setRichiestePagamento] = useState<RichiestaPagamento[]>([]);
+  /** Il piano di oggi dall'agenda settimanale (migr. 0122, 07/09/2026). */
+  const [pianoOggi, setPianoOggi] = useState<PianoGiorno[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviando, setInviando] = useState(false);
 
@@ -174,6 +181,11 @@ export default function Oggi() {
         fetchRichiesteCliente().catch(() => []),
         fetchRichiestePagamento().catch(() => []),
       ]);
+      // L'agenda del giorno, col suo catch: se la tabella manca la Home vive.
+      const oggiIso = isoOggi();
+      fetchPianoGiorni(lunediDi(oggiIso))
+        .then((r) => setPianoOggi(pianoDelGiorno(r, oggiIso)))
+        .catch(() => setPianoOggi([]));
       setOrdini(ord);
       setRichiesteCliente(richC);
       setRichiestePagamento(richP);
@@ -502,6 +514,49 @@ export default function Oggi() {
         })}
       </Canale>
 
+      {/* 0-bis. IL PIANO DI OGGI (07/09/2026): cosa avevi deciso di fare oggi
+          nell'agenda settimanale — con le strade da battere che aprono Maps.
+          Solo se c'è: una sezione vuota ogni mattina sarebbe rumore. */}
+      {pianoOggi.length ? (
+        <Canale
+          icona="calendar-outline"
+          titolo="Il piano di oggi"
+          conteggio={pianoOggi.length}
+          cta="Apri la Pianificazione"
+          onCta={() => router.push('/(app)/da-completare')}
+          vuoto=""
+        >
+          {pianoOggi.map((a) => {
+            const t = TIPI_ATTIVITA_PIANO.find((x) => x.valore === a.tipo);
+            return (
+              <View key={a.id} style={styles.pianoRiga}>
+                <View style={styles.riga}>
+                  <Ionicons name={(t?.icona ?? 'ellipse-outline') as any} size={16} color={colors.navy} />
+                  <Text style={styles.rigaTitolo} numberOfLines={2}>{a.titolo}</Text>
+                  <Text style={styles.rigaMeta}>{t?.label ?? a.tipo}{a.zona ? ` · ${a.zona}` : ''}</Text>
+                </View>
+                {a.strade?.length ? (
+                  <View style={styles.stradeRiga}>
+                    {a.strade.map((s) => (
+                      <Pressable
+                        key={s}
+                        style={styles.stradaChip}
+                        onPress={() => Linking.openURL(urlStrada(s, a.zona))}
+                        accessibilityLabel={`Apri ${s} in Google Maps`}
+                      >
+                        <Ionicons name="navigate-outline" size={11} color={colors.navy} />
+                        <Text style={styles.stradaChipTxt} numberOfLines={1}>{s}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                {a.note ? <Text style={styles.rigaSotto} numberOfLines={2}>{a.note}</Text> : null}
+              </View>
+            );
+          })}
+        </Canale>
+      ) : null}
+
       {/* 1a. TERRITORIO — il giro di oggi. SOLO se oggi è un giorno di giro
           (una visita pianificata per oggi, o una dei giorni scorsi mai
           chiusa): senza, la sezione non si monta — prima si riempiva da sola
@@ -814,6 +869,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   riga: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
+  // Il piano di oggi: la riga più, sotto, le strade come chip che aprono Maps.
+  pianoRiga: { gap: 2 },
+  stradeRiga: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, paddingLeft: 24, paddingBottom: 4 },
+  stradaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.sfondo, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
+  stradaChipTxt: { color: colors.navy, fontSize: 11.5, fontWeight: '600' },
   rigaTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
   rigaSotto: { color: colors.testoSoft, fontSize: 12 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12, maxWidth: 150, textAlign: 'right' },

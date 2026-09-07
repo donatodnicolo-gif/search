@@ -1,5 +1,97 @@
 # Deluxy Scout
 
+> **07/09/2026 sera — sei richieste rifatte su `scout-ui` · IN LOCALE, NON PUBBLICATE**
+> (migrazioni **0120–0122 applicate** e verificate sul database; `tsc` 0 errori,
+> **116 test verdi** (18 nuovi); Metro compila; niente deploy: né web, né Edge)
+>
+> Le richieste le aveva fatte l'utente da UN ALTRO account Claude, in una
+> sessione cloud che ha pushato il ramo `claude/deluxy-scout-handoff-memory-xgrh2i`
+> (commit `b84efa67`, autore «Claude»). ⚠️ Quel ramo partiva dalla **copia di
+> luglio** di Scout (merge-base con `scout-ui` = 20/07, 360 commit indietro; le sue
+> migrazioni 0029–0031 collidono con `0029_proforma` ecc.): **non si merge**. Il
+> commit vale come specifica; il lavoro è stato rifatto qui, punto per punto.
+> ⚠️ Nell'handoff di quel ramo c'è scritto «nuovo PC + nuovo progetto Supabase»:
+> è una deduzione sbagliata (la sessione cloud non aveva il `.env`). Il progetto
+> è sempre `fdsziebgkljfsugqqbqd`. Non cambiare niente per quel motivo.
+>
+> 1. **Una visita NON apre più una trattativa.** `hubspot-sync` `sync_visit` fa
+>    Company + Contatto e porta le note della visita sulla trattativa Scout **già
+>    aperta** di quel negozio (se collegata a HubSpot), altrimenti come **Nota**
+>    sull'azienda (best effort: serve lo scope `crm.objects.notes.write`, se
+>    manca le note restano in Scout — che è comunque la casa del dato). Prima a
+>    OGNI visita nasceva un deal su HubSpot **e una riga in `deals`**, con l'esito
+>    trasformato in fase: la pipeline si riempiva di trattative mai decise.
+>    Nella scheda negozio la sezione «Trattative» (era «Trattative (HubSpot)»)
+>    ha il bottone **«+ Apri una trattativa»** (form già intestato al negozio) e
+>    le righe si aprono. ⚠️ **Finché la Edge `hubspot-sync` non è rideployata,
+>    in produzione le visite CONTINUANO a creare deal**: il client non decide.
+> 2. **Nuova trattativa senza «Consegne» preselezionata**: le linee partono
+>    vuote, le sceglie chi apre. (Un default scriveva «consegne» su trattative di
+>    gifting ed eventi senza che nessuno l'avesse scelto.)
+> 3. **Priorità P0–P3** (migr. **0120**, `deals.priorita`, default P2): chip nel
+>    foglio; badge in riga e in tabella **solo se ≠ P2** (un badge su ogni riga
+>    sarebbe rumore); l'**elenco si ordina per priorità** — poi chiuse in fondo,
+>    scadenza vicina, più recente (`lib/trattative.ts` → `ordinaTrattative`,
+>    test in `__tests__/trattative.test.ts`); i gruppi-negozio seguono la
+>    priorità più alta. Con tutte a P2 — com'è oggi: **85 su 85** — l'ordine è
+>    quello di prima. ⚠️ Solo sulle righe di Scout: la copia `hubspot_deals` NON
+>    ha la colonna (HubSpot è in dismissione; aprirla alla scrittura per tre
+>    campi che vivrebbero solo lì avrebbe fatto una seconda casa del dato).
+> 4. **Motivo di chiusura OBBLIGATORIO** (migr. 0120, `deals.motivo_chiusura`):
+>    passando a vinta o persa il foglio chiede «Perché l'abbiamo vinta / Perché è
+>    persa» e senza non salva (`richiedeMotivoChiusura`: solo quando la fase
+>    CAMBIA verso una chiusa; risalvare una già chiusa non lo richiede). In
+>    linea nel foglio, NON in un pop-up sopra il foglio (Libro: finestra dentro
+>    finestra). Su HubSpot va in `deluxy_esito_analisi`. **Email** a
+>    responsabile + venditore + chi chiude dalla nuova Edge **`notifica-chiusura`**
+>    (stesso SMTP e stessi secret di `notifica-task`): responsabile =
+>    `profiles.responsabile` (⚠️ oggi 0 profili con la bandierina → va
+>    all'amministratore), best-effort ma non muto (se non parte, l'avviso lo
+>    dice). ⚠️ `motivo_perso` (categoria della persa, migr. 0040) resta com'è:
+>    sono due cose diverse. In Trattative si cerca anche nel motivo.
+> 5. **Link di riferimento + documenti allegati** (migr. **0121**): campo
+>    «Link di riferimento» (`deals.link`, si apre dal chip «Link ↗» in riga);
+>    tabella `deal_allegati` (chiave testo: uuid Scout o `hs_<id>`) + bucket
+>    **`allegati` PRIVATO** — diverso da `vetrine`, che è pubblico ed è un punto
+>    aperto — aperto con URL firmato di un'ora; tutti leggono, toglie chi ha
+>    messo o `is_admin()`; tetto 20 MB; se la riga non si scrive il file
+>    caricato si toglie. Componente `components/AllegatiTrattativa.tsx`
+>    (+ Link in linea, + Documento con `expo-document-picker ~13.0.3` — nuova
+>    dipendenza, nativa: per l'APK serve un build EAS, il web è pronto). Solo in
+>    modifica (in creazione non c'è ancora la chiave). Chip «N allegati» in riga
+>    e in tabella sotto la prossima azione.
+> 6. **La settimana giorno per giorno** (migr. **0122**, tabella
+>    `pianificazione_giorni` — NON è `pianificazioni_commerciali`, che è il piano
+>    della squadra per linea): `components/PianoSettimana.tsx` sotto il
+>    PianoCommerciale nella schermata Pianificazione — 7 giorni (colonne sopra i
+>    900px, elenco sotto), «+» per giorno, foglio con cosa/tipo (visite,
+>    chiamate, appuntamento, ufficio, altro)/giorni (più d'uno = più righe legate
+>    da `gruppo`)/«solo questa settimana» o «ogni settimana» (`settimana` null)/
+>    zona/**strade** una per riga (chip → Google Maps con la zona, se no Milano)/
+>    note; «Il mio piano / Tutta la squadra» (RLS: leggono tutti, si scrive il
+>    proprio, l'admin corregge tutti — lezione dei task del 31/08). In **Oggi**
+>    la sezione **«Il piano di oggi»** con le strade, solo se c'è qualcosa.
+>    Helper puri in `lib/pianificazione-settimana.ts` (test in
+>    `__tests__/pianificazione-settimana.test.ts`). ⚠️ Le due pianificazioni
+>    hanno OGNUNA la propria settimana selezionata: l'agenda parte dalla
+>    corrente. Da guardare se stona (custode UX).
+>
+> **Verificato**: `tsc` 0 errori; jest **116/116** (9 suite → 11); le tre
+> migrazioni applicate con `mgmt-query` e controllate sul DB vero (colonne,
+> bucket privato, 85 deals tutti P2); **RLS provata col ruolo `authenticated`**
+> in transazione poi rollback (insert in `pianificazione_giorni`, select su
+> `deal_allegati`, update di `deals.priorita` → passano; dopo il rollback 0/0).
+> ⚠️ **NON provato a schermo**: l'app è dietro login e non si entra al posto
+> dell'utente. Metro ricompila senza errori.
+>
+> **Per pubblicare (a comando dell'utente, in quest'ordine)**:
+> 1. `npx supabase functions deploy hubspot-sync` (senza, le visite creano deal);
+> 2. `npx supabase functions deploy notifica-chiusura` (senza, niente email —
+>    la chiusura si salva lo stesso, e l'avviso dice che la mail non è partita);
+> 3. `bash scripts/deploy-web.sh`; marcatori da cercare nel bundle: «Apri una
+>    trattativa», «Perché è persa», «Documenti e link allegati», «La settimana
+>    giorno per giorno», «Il piano di oggi» (⚠️ accettando `\xNN` per gli accentati).
+
 > **07/09/2026 — i preventivi fornitore si vedono DALLA TRATTATIVA · IN PRODUZIONE**
 > (deploy `deluxy-scout-yn46h6g4w`, 4 verifiche verdi e marcatori controllati
 > nel bundle vivo)
@@ -117,7 +209,8 @@
 App di prospezione commerciale sul territorio per il Team Commerciale Deluxy a
 Milano. Mappa tutte le attività del territorio con priorità e ipotesi di interesse
 pre-calcolate, registra le visite (anche offline) e **alimenta HubSpot** creando
-company, contatti, deal e note.
+company, contatti e note. Le trattative (deal) si aprono **a mano** quando c'è
+un'opportunità concreta: una visita non apre mai una trattativa (07/09/2026).
 
 Scritta in **Expo / React Native** ma **consegnata come sito**: la versione viva è
 quella web — https://deluxy-scout.vercel.app — che si usa dal browser, anche dal
@@ -226,14 +319,18 @@ per questo Briefing/Note/Esito vanno come proprietà del deal, vedi sotto.)
 Briefing / Note post meeting / Esito e analisi in queste proprietà del deal
 (visibili nella view **"trattative def"** aggiungendone le colonne).
 
-Mappatura esito visita → `dealstage`:
+**Cosa fa una visita su HubSpot (`sync_visit`)** — dal 07/09/2026 una visita
+**non crea un deal**: aggiorna Company + Contatto e porta le sue note (a) nelle
+proprietà `deluxy_*` della trattativa Scout **già aperta** su quel negozio, se
+esiste ed è collegata a HubSpot, altrimenti (b) come **Nota** sull'azienda (best
+effort: richiede lo scope `crm.objects.notes.write`; se manca, le note restano
+in Scout). I «non target» non vengono sincronizzati. La vecchia mappatura
+esito → `dealstage` non esiste più.
 
-| Esito app | dealstage HubSpot |
-|---|---|
-| Interessato | `decisionmakerboughtin` |
-| Da richiamare | `appointmentscheduled` |
-| Chiuso | `closedwon` |
-| Non target | `closedlost` |
+**Cosa fa una trattativa (`sync_deal`)** — creata da Trattative o dal bottone
+«Apri una trattativa» nella scheda negozio: Company + tutti i contatti + Deal
+con `amount` e fase (le 5 dealstage della pipeline). Alla chiusura il motivo
+(obbligatorio) va in `deluxy_esito_analisi`.
 
 Se `EXPO_PUBLIC_HUBSPOT_SYNC_URL` è vuoto, l'app funziona lo stesso: le visite
 restano su Supabase con `hubspot_synced=false` e verranno sincronizzate appena

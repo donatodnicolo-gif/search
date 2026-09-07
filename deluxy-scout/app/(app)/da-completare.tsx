@@ -39,6 +39,23 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 import { PianoCommerciale } from '@/components/PianoCommerciale';
+import { PianoSettimana } from '@/components/PianoSettimana';
+
+/**
+ * La testa della schermata: il piano della SQUADRA per settimana × linea
+ * (PianoCommerciale) e, sotto, l'agenda di CHI VA SUL TERRITORIO giorno per
+ * giorno (PianoSettimana, migr. 0122 — 07/09/2026). Riferimento di componente
+ * definito UNA volta a livello di modulo: passato come `ListHeaderComponent`
+ * non si rimonta a ogni lettera scritta nella ricerca.
+ */
+function TestaPianificazione() {
+  return (
+    <>
+      <PianoCommerciale />
+      <PianoSettimana />
+    </>
+  );
+}
 
 type Riga =
   | { tipo: 'richiamo'; richiamo: Richiamo }
@@ -368,7 +385,8 @@ export default function DaCompletare() {
         // dell'utente: «mostra in primis un calendario…»). Riferimento di
         // COMPONENTE, non elemento: un elemento inline si rimonterebbe a ogni
         // lettera scritta nella ricerca qui sopra, rifacendo le fetch.
-        ListHeaderComponent={PianoCommerciale}
+        // Dal 07/09/2026 sotto il piano c'è l'agenda giorno per giorno.
+        ListHeaderComponent={TestaPianificazione}
         sections={sezioniVista}
         keyExtractor={(r: any, i) =>
           Array.isArray(r)

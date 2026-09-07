@@ -3,7 +3,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
-import { canonizzaLinee } from '@/types';
+import { FASI_CHIUSE, canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing, touchMin } from '@/lib/theme';
 import { COLORE_A_RISCHIO, COLORE_PERSO, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, aRischio, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
@@ -950,21 +950,44 @@ export default function SchedaAttivita() {
           </Pressable>
         </Sezione>
 
-        <Sezione titolo="Trattative (HubSpot)">
+        {/* ⭐ UNA VISITA NON APRE UNA TRATTATIVA (07/09/2026, richiesta
+            dell'utente). La trattativa si apre QUI, a mano, quando c'è
+            un'opportunità concreta — e il bottone sta dove uno la cerca,
+            sotto l'elenco, non solo fra le azioni rapide in alto. */}
+        <Sezione titolo="Trattative">
           {deal.length === 0 ? (
             <View>
               <Text style={styles.vuoto}>Nessuna trattativa aperta.</Text>
-              <Text style={styles.vuotoAiuto}>Le trattative HubSpot collegate al negozio compaiono qui.</Text>
+              <Text style={styles.vuotoAiuto}>
+                Una visita non apre una trattativa: si apre a mano, quando c&apos;è un&apos;opportunità concreta.
+              </Text>
             </View>
           ) : (
             deal.map((d) => (
-              <View key={d.id} style={styles.deal}>
-                <Text style={styles.dealLinea}>{d.linea ?? 'Deal'}</Text>
+              <Pressable
+                key={d.id}
+                style={styles.deal}
+                onPress={() => router.push(`/(app)/trattative?apri=${d.id}` as never)}
+                accessibilityLabel="Apri la trattativa"
+              >
+                <Text style={styles.dealLinea}>{d.oggetto ?? (d.linee?.length ? d.linee.join(', ') : d.linea) ?? 'Trattativa'}</Text>
                 <Text style={styles.meta}>Fase: {labelFase[d.fase] ?? d.fase}</Text>
-                {d.valore_atteso ? <Text style={styles.meta}>Valore: € {d.valore_atteso}</Text> : null}
-              </View>
+                {d.valore_atteso ? <Text style={styles.meta}>Valore: € {d.valore_atteso.toLocaleString('it-IT')}</Text> : null}
+                {FASI_CHIUSE.includes(d.fase) && d.motivo_chiusura ? <Text style={styles.meta}>Motivo: {d.motivo_chiusura}</Text> : null}
+              </Pressable>
             ))
           )}
+          <Pressable
+            style={styles.btnSecondario}
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/trattative',
+                params: { nuovoPer: place.id, nuovoNome: place.nome },
+              })
+            }
+          >
+            <Text style={styles.btnSecondarioTxt}>+ Apri una trattativa</Text>
+          </Pressable>
         </Sezione>
 
         <Sezione titolo={`Storico visite (${visite.length})`}>
