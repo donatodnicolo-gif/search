@@ -179,3 +179,24 @@ Il messaggio da dare a ogni sessione che lavora su un'app Deluxy:
 Schemi: `messaging` (Customer Service) · `mail` (AI Mail) · `orders` · `platform`
 (consegne) · `marketing` · `merchandising` · `crm` · `partner` · `personale` ·
 `hub` · `tasks` · `budgets` · `transactions` · `anagrafiche`.
+
+### Contro-esempio, dallo stesso censimento: il Customer Service NON ha bisogno di indici
+
+Il censimento aveva segnalato `Ordine` con 98,8 milioni di righe lette in 69.614
+letture intere, e due query con medie di 156 e 1.190 ms. Rimisurate a database
+tranquillo, tre giri di fila:
+
+| Query | media dalla classifica (3 settimane) | misura a freddo |
+|---|---|---|
+| messaggi in entrata (pallino inbox) | 156 ms | **5,1 ms** |
+| messaggi di aiuto | 1.190 ms | **1,8 ms** |
+
+Piano: Seq Scan, 309 blocchi **tutti in cache, zero letture da disco**. Su tabelle
+da 1.500-5.500 righe la scansione è la scelta GIUSTA del planner: un indice non
+migliorerebbe nulla e costerebbe a ogni scrittura di messaggio, che qui sono
+continue. **Nessun indice creato.**
+
+Le medie alte venivano dalle ore in cui il database era in ginocchio: la stessa
+query che oggi costa 5 ms ne costava 300. È la conferma della regola: **la misura
+si prende a database tranquillo, e si guarda il piano, non i millisecondi**. Il
+censimento serve a fare i sospetti, non le condanne.
