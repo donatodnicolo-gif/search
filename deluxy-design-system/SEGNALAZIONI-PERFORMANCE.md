@@ -31,3 +31,85 @@
 | 07/09 | piattaforma | 🔴 **INCIDENTE: l'app non caricava più** («Caricamento consegne…» infinito). Nello schema `platform` le tabelle figlie della consegna avevano SOLO la primary key, nessun indice sulla chiave esterna: `DeliveryLog` 36.548 righe, `DeliveryProduct` 59.727, `Activity` 58.429, e `Delivery` niente su `parentDeliveryId` (63.137 righe, 89 MB). EXPLAIN dei log di UNA consegna: `Seq Scan`, **Rows Removed by Filter: 36.547** per restituirne 2, **4.541 ms**, 862 buffer. Con l'auto-aggiornamento a 30″ le richieste si accumulavano: transazioni ferme da **94 e 117 s**, e AI Mail a 25 s sullo stesso cluster. Connessioni 33/60, nessun lock: non era il pooler. | **7 indici creati** (dall'utente, script `indici-emergenza.mjs`): DeliveryLog(deliveryId), DeliveryProduct(deliveryId), Activity(deliveryId), Activity(valetId), Delivery(parentDeliveryId), Sale(partnerId), Sale(productId). **PRIMA 4.541 ms → DOPO 8 ms** (Seq Scan → Index Scan, 862 → 4 buffer); connessioni attive 10-14 → 2. `@@index` aggiunti a `schema.prisma` col perché. ⚠️ **Il pooler Supavisor NON accetta `CREATE INDEX CONCURRENTLY`** («cannot run inside a transaction block»): si ripiega sull'indice normale, che blocca le sole scritture di quella tabella — il più lento 66 s su Delivery. Da sapere per le prossime volte. ⚠️ **Prima diagnosi sbagliata**, da non ripetere: avevo accusato il solo `parentDeliveryId` misurando col cronometro a database già congestionato (21 s), dove OGNI query sembra lenta — la stessa, a cluster libero, faceva 1,4 s. Sotto contesa si misura il PIANO della singola query, mai il tempo di risposta. |
 | 04/09 | piattaforma | **Auto-aggiornamento delle liste** (regola utente): polling 30″ su Consegne, Vendite, Segnalazioni, Attività, Richieste, Ricevute — SOLO a scheda visibile, saltato con pop-up/azioni in corso o chiamata pendente, sola lettura. Peso per scheda aperta: Consegne 31 KB/20 righe (misura 24/08), Vendite = lista intera (da misurare), Ricevute ~350 righe. Escluse Stipendi/Fatturazione (Da pagare = 36.642 consegne). | applicato; **da misurare in produzione** dopo una settimana: richieste/min su /deliveries e /sales e tempo medio; se pesa, si passa a `updatedAt` incrementale |
 | 06/09 | piattaforma | **Statistiche (piattaforma)**: KPI per periodo con confronto, 5 query SQL aggregate sui DUE periodi (bucket) invece di caricare righe in TS (verdetto architetto-performance: anno+anno prima = 36k righe ≈ 80 MB, ~16 s in TS); puntualità calcolata in SQL (`AT TIME ZONE 'Europe/Rome'`); fee/margine dalla Finanza SOLO sotto 2.000 righe per periodo, altrimenti «n/d» dichiarato; nessun `take`, copertura sempre nel payload. | Misura prod 06/09: mese 4,4 s (con corrispettivi su 106 righe), anno 2,0 s (solo SQL, 13.457+10.345 righe), payload 23–40 KB. Indice `(deletedAt,date)` già presente: nessun indice nuovo. Aperto: tabella persistita `DeliveryEconomia` (scritta dal notturno) per togliere il tetto 2.000; cache solo se p75 > 2 s. EXPLAIN ANALYZE da allegare prima del prossimo giro. |
+
+## 07/09/2026 — L'ecosistema giù per ore: l'indice mancante su `Delivery.updatedAt` (misurato, applicato)
+
+**Segnalazione dell'utente**: dal pomeriggio tutte le app rispondono «Application
+error» a intermittenza; «fino alle 16 tutti utilizzavano tutte le app e non
+c'erano problemi»; poi «le app sono instabili, tornano giù appena si tenta di
+fare qualcosa». È stato l'utente stesso a indicare la pista giusta: «Delivery.updatedAt
+non ha indice — cercare le consegne per data di modifica manda la query in timeout».
+
+### La misura che decide (a freddo: pooler già riavviato, zero transazioni bloccate)
+
+```
+EXPLAIN (ANALYZE) SELECT id, code, "updatedAt" FROM platform."Delivery"
+WHERE "deletedAt" IS NULL AND "updatedAt" > now() - interval '1 hour'
+ORDER BY "updatedAt" LIMIT 200
+
+PRIMA  Seq Scan · Rows Removed by Filter: 63.165 · Execution Time 39.082 ms  (39 secondi per 9 righe)
+DOPO   Index Scan · 2,6 ms
+```
+
+**PRIMA 39.082 ms → DOPO 2,6 ms** (~15.000×). Indice creato dall'utente:
+`CREATE INDEX "Delivery_updatedAt_idx" ON platform."Delivery" ("updatedAt") WHERE "deletedAt" IS NULL`
+— parziale, **600 kB**, creato in 11 secondi (lock in scrittura per quel tempo).
+Script con misura prima/dopo: `deluxy-messaging/scripts/indice-delivery-updatedat.mts`.
+
+**Perché fermava TUTTE le app**: è la query del cursore app-to-app
+(`GET /api/v1/app/consegne?aggiornateDa=`, la sincronizzazione del Customer
+Service). Le 14 app condividono **un solo pool** verso Postgres (misurate ~16-17
+connessioni Supavisor): ogni chiamata ne teneva una per 39 secondi.
+
+### Il consiglio dei due agenti (architetto + ostile)
+
+L'architetto ha ricostruito la catena (postazione locale con 14 connessioni e uno
+`schema-engine` appeso da 26 ore come innesco; `connection_limit`, cron
+sincronizzati e transazioni orfane come amplificatori) e ha concluso «nessun
+indice serve». **L'ostile ha demolito 8 punti su 13**, e ha ragione su questi:
+
+- `connection_limit=5` è stato letto dai `.env` **LOCALI**: in produzione le
+  `DATABASE_URL` sono Secret e non si leggono. L'unico valore noto è quello della
+  piattaforma (3), stampato dal messaggio P2024. **Tredici valori sono ignoti.**
+- Confusione fra i due pool: **200** = connessioni client (app → pooler), **~17** =
+  connessioni server (pooler → Postgres). Postgres a 24-31/60 non c'entrava.
+- Le «8 idle in transaction» sono **uno scatto, non un campionamento** (violata la
+  trappola `misurare-sotto-contesa` scritta la mattina stessa), e alcune erano
+  connessioni **sane** (`DEALLOCATE ALL` è la query di reset del pooler).
+- Il meccanismo «Vercel congela l'istanza con la transazione aperta» **non esiste
+  nel codice** delle app accusate: le `$transaction` interattive hanno il default
+  Prisma di 5 s. L'unico punto reale è
+  `deluxy-platform-next/api/src/deliveries/deliveries.service.ts:620`
+  (`$transaction([findMany, count])` nella lista consegne).
+- Il `connection_limit=3` scolpito in `deluxy-marketing/src/lib/db.ts` è **tarato
+  sotto contesa**: va rimisurato a cluster libero.
+
+**Resta in piedi**: `idle_in_transaction_session_timeout` era 0; lo `schema-engine`
+appeso 26 ore su `:5432` (che è il pooler in **session mode**, non Postgres
+diretto: tiene un backend dedicato); il pool server piccolo; e l'unico esperimento
+causale ripetuto due volte (spegnere i dev server locali → il DB torna su).
+
+### Da misurare, in ordine (nessuno l'ha ancora fatto)
+
+1. `default_pool_size` di Supavisor (dashboard Supabase): è l'unico numero che
+   spiega perché 14 connessioni locali mettono in ginocchio 14 app.
+2. `pg_stat_statements` per `total_exec_time`: chi consuma davvero.
+3. **Il censimento degli indici FK sul Customer Service**: la home fa 14 query in
+   parallelo, le statistiche 21, le novità 19, e `Ordine.gestione`,
+   `Ordine.dataConsegna`, `Conversazione.archiviata/eliminataIl` **non hanno
+   indice**. È l'app che è saltata per prima.
+4. `deluxy-orders/src/app/layout.tsx:20`: `prisma.ordine.count()` **senza where**,
+   nel layout, quindi a ogni pagina.
+5. Campionare `pg_stat_activity` ogni 30 s per un'ora, non fotografarlo.
+
+### Cure applicate oggi, e il loro rischio
+
+| Cura | Stato | Rischio segnalato dall'ostile |
+|---|---|---|
+| Indice `Delivery_updatedAt_idx` | ✅ applicata, misurata 39.082 → 2,6 ms | nessuno rilevato; 600 kB, scritture su Delivery leggermente più costose |
+| `ALTER DATABASE postgres SET idle_in_transaction_session_timeout = 60s` | ⚠️ applicata sul DB **condiviso** | può troncare import/migrazioni che passano da `DIRECT_URL` (= pooler in session mode). **Da restringere al ruolo delle app o alzare** |
+| Marketing `connection_limit=3, pool_timeout=20` | ⚠️ in produzione | numero tarato sotto contesa: rimisurare a freddo |
+| Riavvio pooler + redeploy | ✅ ripristino | il merito del redeploy non ha controfattuale |
+
+**Sentinella proposta** (un numero solo): sessioni «idle in transaction» da oltre
+30 s — allarme a 3, emergenza a 5.

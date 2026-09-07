@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/v1/cron/smistamento",
-      "schedule": "*/15 * * * *"
+      "schedule": "11,26,41,56 * * * *"
     },
     {
       "path": "/api/v1/cron/non-consegnate",
