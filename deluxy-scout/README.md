@@ -1,6 +1,8 @@
 # Deluxy Scout
 
-> **07/09/2026 — i preventivi fornitore si vedono DALLA TRATTATIVA**
+> **07/09/2026 — i preventivi fornitore si vedono DALLA TRATTATIVA · IN PRODUZIONE**
+> (deploy `deluxy-scout-yn46h6g4w`, 4 verifiche verdi e marcatori controllati
+> nel bundle vivo)
 > (richiesta dell'utente: «fai vedere anche in trattative e per trattativa
 > quali sono i preventivi che abbiamo ricevuto»). Nessuna migrazione.
 >
