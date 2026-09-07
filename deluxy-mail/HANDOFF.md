@@ -45,9 +45,14 @@ e attenzione: `ReadAllText` toglie il BOM dalla stringa, quindi confrontare prim
 «nessun cambiamento» mentre il file su disco ce l'ha ancora. Si controlla sui BYTE
 (`239 187 191`). Vedi [[trappola-powershell-utf8]].
 
-**Misura PRIMA congelata per il confronto** (`pg_stat_statements`, 11:43): la pulizia HTML era a
-**5.497 chiamate, 15.278.552 ms totali, media 2.779,4 ms**. Da riprendere fra 24 ore: le chiamate
-devono smettere di crescere di 288 al giorno.
+✅ **PRIMA → DOPO, verificato sul database di produzione.** `pg_stat_statements` alle 11:43:
+**5.497 chiamate, 15.278.552 ms, media 2.779,4 ms**, e cresceva di 288 chiamate al giorno.
+Alle 11:55: **5.498 chiamate** — l'ultima è quella delle **11:45:44**, il primo giro di cron col
+codice nuovo, che ha trovato zero righe e ha scritto il segnalino
+`html.pulizia.dormi_fino_a` (risveglio 08/09 11:45:44). **I due giri di cron successivi non
+hanno fatto nessuna query.** Da 288 giri al giorno a 1. Conferma sulle 24 ore da riprendere
+l'08/09, e con lei il riscontro sull'elenco della posta: se la contesa era davvero quella, le
+oscillazioni 7015 / 1281 / 1,9 ms devono restringersi.
 
 ### 07/09 (pomeriggio) — «È lentissima l'apertura dell'app e il refresh»: misurato, e tre correzioni
 
