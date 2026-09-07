@@ -1,8 +1,100 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 06/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 06/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+## 07/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Dove si lavora**: il codice vivo di quest'app sta sul branch **`vendite-custode-0609`**
+(origin) — `main` del repo `donatodnicolo-gif/search` è un'altra storia (senza
+antenati comuni) e **non contiene** `deluxy-merchandising/`. La sessione remota
+del 07/09 ha lavorato sul branch `claude/deluxy-merchandising-handoff-8k65dh`
+creato **sopra** `origin/vendite-custode-0609` (richiesta dell'utente: «lavora
+prima in locale»); niente è stato pushato né deployato senza conferma.
+
+**Fatto in locale il 07/09 (tsc 0, build ok — vedi sotto), NON deployato:**
+
+1. **Scheda prodotto più comprensibile** (`/prodotti/[id]`, chiesto dall'utente
+   sulla scheda `cmtqyte5s006mla041aih05nn`: «fare migliore UX&UI più
+   comprensibile: vista con varianti e prezzo e vista del prezzo pubblico e
+   prezzo partner»). Prima il prezzo delle varianti si vedeva solo in «Costi &
+   margini» come delta, e il **prezzo partner non compariva in nessun punto della
+   scheda** (solo nel modulo di modifica). Ora in Panoramica:
+   - **riga di 4 KPI** in testa: prezzo pubblico (o intervallo min–max), prezzo
+     partner (o «da indicare»), differenza pubblico − partner, numero di varianti;
+   - card **«Varianti e prezzi»** con segmented **Varianti e prezzo · Pubblico e
+     partner** (`?vista=prezzi|partner`, link → stato nell'URL, Libro §8). Vista 1:
+     variante · SKU · cosa comprende · prezzo pubblico · giacenza. Vista 2:
+     variante · pubblico · partner (con «del prodotto» se ereditato) · differenza ·
+     quota al partner. Celle mancanti col canone del Libro: `cella-manca` «da
+     indicare» dove il dato dovrebbe esserci, «—» con `aria-label` dove non si
+     applica. Nota sotto la tabella: la differenza **non è il margine** (quello è
+     di Orders, Standard §7.4);
+   - le righe le calcola **una sola funzione pura** `righePrezzi` +
+     `sintesiPrezzi` ([src/lib/prezzi-scheda.ts](../src/lib/prezzi-scheda.ts)):
+     KPI e tabella non possono divergere;
+   - la card **Riconciliazione** è diventata ripiegabile (`<details>`, aperta solo
+     se la scheda è unita o ha assorbito): occupava il primo schermo con un'azione
+     rara;
+   - in **Costi & margini**: campo «Prezzo partner (€)» nel form base, colonna
+     «Partner» nella tabella varianti, il form «Aggiungi variante» prende anche
+     prezzo partner e «Cosa comprende» (griglia via classe `.modulo-varianti`,
+     non più `gridTemplateColumns` inline).
+2. **«Cosa comprende» = nota di prodotto e di variante** (chiesto dall'utente:
+   «per tutte le colazioni mettere in note variante o prodotto il menù indicato
+   così come per i fiori abbiamo l'indicazione sui numeri di fiori»). Schema:
+   **`Prodotto.note String?`** e **`Variante.note String?`** ⚠️ **serve
+   `npx prisma db push` sul Postgres condiviso PRIMA del deploy** (senza, ogni
+   pagina che legge `note` va in errore). Si scrive in Panoramica → Anagrafica
+   (textarea con ancora `#nota-prodotto`) e nel modulo nuovo/modifica (textarea
+   di prodotto in «Scheda creativa» + colonna «Cosa comprende» per variante);
+   `aggiornaProdotto`, `aggiungiVariante`, `creaProdottoCompleto` e
+   `aggiornaProdottoCompleto` la salvano (tetto 1000/2000 caratteri, vuota =
+   null). Nella scheda la nota della variante vince su quella del prodotto; sulle
+   **colazioni/brunch** (`eColazione`: Tipo del negozio o nome) una nota vuota si
+   mostra come **«da indicare (il menù)»** in testa alla scheda e nella tabella.
+3. **Script `scripts/menu-colazioni.ts`** (NON ancora eseguito: qui non c'è
+   `.env`): per ogni colazione/brunch legge il menù — prima da un metafield del
+   negozio che parli di menù/contenuto, poi dalla **descrizione** (testo piatto,
+   l'import toglie l'HTML: si cerca «comprende:», «menù:», «all'interno
+   troverai…» e si taglia dove cambia argomento: consegna, ordine, allergeni…) —
+   e lo scrive su `Prodotto.note` (una variante o nessuna) o su ogni
+   `Variante.note` senza nota (più varianti). Prova a secco di default,
+   `--applica` per scrivere, `--sovrascrivi`, `--solo-attivi`; rapporto in
+   `docs/menu-colazioni-<data>.md` con l'elenco di quelli **da compilare a mano**.
+   Euristica in [src/lib/menu-colazioni.ts](../src/lib/menu-colazioni.ts),
+   provata su 6 descrizioni di esempio (4 riconosciute, 2 giustamente scartate).
+   Dal 06/09 le colazioni sono ~43 «Colazioni» + 70 «Colazioni & Brunch» + 3
+   «Brunch» come Tipo del negozio.
+4. **Token allineati al DS v1.4**: `src/app/tokens.css` era fermo alla v1.0
+   (mancavano `--surface-sunken`, `--*-soft`, `--grey`, `--scrim`,
+   `--touch-min`…): ora è la copia byte-identica di
+   `deluxy-design-system/tokens/tokens.css` (Libro §12). Nuove classi in
+   `globals.css`: `.scheda-testa`, `.vista-scelta` (segmented su
+   `--surface-sunken`, 44px su touch), `.cella-manca`, `.prodotto-comprende`,
+   `.modulo-varianti`, `.testo-guida`, stile di `details.scheda > summary` +
+   `.scheda-stato` (prima Riconciliazione e «Come lo descrive il negozio» avevano
+   il marker di default del browser).
+5. README: sezione sui prezzi/«Cosa comprende» e **«Custode del layout»** con le
+   deroghe annotate. Registro del Manuale (`MANUALE-DELUXY.html`): due righe del
+   07/09 (la ripubblicazione dell'artifact resta da fare dal PC).
+
+**Per mettere in produzione (in ordine, ogni passo con conferma dell'utente):**
+1. `git fetch` + merge/rebase del branch di lavoro su `origin/vendite-custode-0609`
+   (o cherry-pick dei commit «Merchandising:» del 07/09), come fatto il 06/09;
+2. `cd deluxy-merchandising && npx prisma db push` (aggiunge le due colonne
+   `note`, non tocca dati);
+3. `npx tsc --noEmit && npm run build`, poi `npx vercel deploy --prod --yes --scope deluxy`;
+4. `npx tsx scripts/menu-colazioni.ts` → leggere il rapporto → `--applica`;
+5. aprire `/prodotti/cmtqyte5s006mla041aih05nn` e una colazione (es. «Colazione
+   Luxury - Clivati 1969 Milano») e controllare le due viste e la nota;
+6. ripubblicare `MANUALE-DELUXY.html` allo stesso indirizzo dell'artifact.
+
+**Verifica fatta il 07/09 in remoto**: `npx tsc --noEmit` = 0 errori;
+`npm run build` completato senza errori (Next 15, tutte le rotte dinamiche; fatto
+con un `DATABASE_URL` fittizio: la build non tocca il database); le funzioni pure provate con tsx (`prezzi-scheda`, `menu-colazioni`).
+Non provato nel browser: nell'ambiente remoto non c'è database né `.env`.
+
+## 06/09/2026 — PUNTO DI RIPRESA
 
 **Fotografia contata sul database il 06/09**: 4.633 prodotti, **1.149 schede con
 `statoShopify = ACTIVE`** (ma i prodotti attivi sui tre negozi sono **1.483**:

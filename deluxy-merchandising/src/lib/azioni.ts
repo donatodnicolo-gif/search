@@ -95,12 +95,16 @@ export async function aggiornaProdotto(id: string, fd: FormData) {
       collezioneId: fd.has("collezioneId") ? str(fd, "collezioneId") : undefined,
       categoria: str(fd, "categoria") ?? undefined,
       descrizione: fd.has("descrizione") ? str(fd, "descrizione") : undefined,
+      // «Cosa comprende» (07/09/2026): il menù, il numero di fiori, i pezzi. Nota interna.
+      note: fd.has("note") ? str(fd, "note") : undefined,
       brief: fd.has("brief") ? str(fd, "brief") : undefined,
       materiali: fd.has("materiali") ? str(fd, "materiali") : undefined,
       palette: fd.has("palette") ? str(fd, "palette") : undefined,
       noteSviluppo: fd.has("noteSviluppo") ? str(fd, "noteSviluppo") : undefined,
       costoProduzione: fd.has("costoProduzione") ? num(fd, "costoProduzione") : undefined,
       prezzoVendita: fd.has("prezzoVendita") ? num(fd, "prezzoVendita") : undefined,
+      // Quanto va al partner: vuoto = non indicato (non zero). Dato interno.
+      prezzoPartner: fd.has("prezzoPartner") ? (str(fd, "prezzoPartner") ? num(fd, "prezzoPartner") : null) : undefined,
       immagine: fd.has("immagine") ? str(fd, "immagine") : undefined,
       priorita: fd.has("priorita") ? intero(fd, "priorita") : undefined,
       // Finestra di pubblicazione (04/09/2026): giorno del calendario di Roma,
@@ -142,6 +146,8 @@ export async function aggiungiVariante(prodottoId: string, fd: FormData) {
       sku: str(fd, "sku"),
       deltaCosto: num(fd, "deltaCosto"),
       deltaPrezzo: num(fd, "deltaPrezzo"),
+      prezzoPartner: str(fd, "prezzoPartner") ? num(fd, "prezzoPartner") : null,
+      note: str(fd, "note"),
       giacenza: intero(fd, "giacenza"),
     },
   });

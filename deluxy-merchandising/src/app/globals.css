@@ -1341,3 +1341,50 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
   .riga-chips-scorri::-webkit-scrollbar { display: none; }
   .riga-chips-scorri > * { flex: 0 0 auto; }
 }
+
+/* ---------- Scheda prodotto: «Varianti e prezzi» (07/09/2026) ----------
+   Chiesto dall'utente: la scheda era poco comprensibile — il prezzo delle
+   varianti stava solo in «Costi & margini» come delta, e il prezzo partner non
+   si vedeva da nessuna parte. Due viste nella stessa card, scelte con un
+   segmented (Libro §8: quick-tabs su --surface-sunken; lo stato sta nell'URL). */
+.scheda-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.scheda-testa .scheda-titolo { margin-bottom: 0; }
+.vista-scelta {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--surface-sunken); border-radius: var(--radius-pill);
+}
+.vista-scelta a {
+  display: inline-flex; align-items: center; min-height: 28px; padding: 4px 14px;
+  border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); text-decoration: none; white-space: nowrap;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.vista-scelta a:hover { color: var(--text); }
+.vista-scelta a[aria-current="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-card); }
+@media (pointer: coarse) { .vista-scelta a { min-height: var(--touch-min); } }
+/* Dovrebbe esserci e non c'è (Libro §8, tripletta delle celle vuote): coda di
+   lavoro visibile, non un buco. Da Anagrafiche. */
+.cella-manca { color: var(--orange); font-style: italic; }
+/* La nota «cosa comprende» in testa alla scheda: il menù della colazione, il
+   numero di fiori. Sta sotto i badge, in chiaro, perché è la prima cosa che
+   chi prepara l'ordine vuole sapere. */
+.prodotto-comprende {
+  margin-top: 10px; padding: 10px 14px; max-width: 720px;
+  background: var(--fill); border-radius: var(--radius-m);
+  font-size: 13.5px; line-height: 1.45; color: var(--text);
+}
+.prodotto-comprende b { font-weight: 600; margin-right: 6px; color: var(--text-secondary); }
+/* Il modulo «Aggiungi variante» dentro Costi & margini: sette campi, in
+   colonne che si adattano — via classe, mai via stile inline. */
+.modulo-varianti { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.modulo-varianti .campo-modulo.largo { grid-column: 1 / -1; }
+.testo-guida { font-size: 13px; color: var(--text-secondary); line-height: 1.45; margin-top: 4px; }
+/* Le card ripiegabili (`details.scheda`): il titolo è il bottone, con lo
+   stato a destra e la freccia che gira. Prima Riconciliazione e «Come lo
+   descrive il negozio» usavano il marker di default del browser. */
+details.scheda > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; }
+details.scheda > summary::-webkit-details-marker { display: none; }
+details.scheda > summary::before { content: "›"; display: inline-block; font-size: 15px; line-height: 1; color: var(--text-tertiary); transition: transform 150ms var(--ease); }
+details.scheda[open] > summary::before { transform: rotate(90deg); }
+details.scheda:not([open]) > summary { margin-bottom: 0; }
+.scheda-stato { margin-left: auto; font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-tertiary); }

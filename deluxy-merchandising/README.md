@@ -56,6 +56,42 @@ Il menù è raggruppato per mestiere: **Panoramica** (cruscotto) · **Vendite**
 La **scheda prodotto 360°** (`/prodotti/[id]`) riunisce tutto in tab:
 Panoramica · Sviluppo · Costi & margini · Visual · Shopify.
 
+**In Panoramica, prima di tutto, i prezzi** (07/09/2026): quattro numeri in testa
+— prezzo pubblico, prezzo partner, differenza, quante varianti — e la card
+**«Varianti e prezzi»** con due viste scelte da un interruttore (lo stato sta
+nell'URL, `?vista=prezzi|partner`):
+
+- **Varianti e prezzo** — variante, SKU, **cosa comprende**, prezzo pubblico,
+  giacenza;
+- **Pubblico e partner** — per ogni variante il prezzo del sito accanto a quanto
+  va al partner, la differenza e la quota. Se la variante non ha un prezzo
+  partner suo vale quello del prodotto (scritto «del prodotto»); se manca del
+  tutto la cella dice «da indicare», non «—». La differenza **non è il margine**:
+  quello si calcola in Orders sull'ordine vero (Standard §7.4).
+
+**«Cosa comprende»** (`Prodotto.note`, `Variante.note`) è la nota interna che dice
+cosa c'è dentro: il menù della colazione, il numero di fiori, i pezzi del cesto.
+Non va su Shopify. Si scrive in Panoramica → Anagrafica per tutto il prodotto, o
+variante per variante nel modulo di modifica (colonna «Cosa comprende»). Per le
+colazioni e i brunch la nota **deve** esserci — come per i fiori il numero di
+fiori sta nel nome della variante — e finché manca la scheda lo dice in testa
+(«da indicare»). Lo script `scripts/menu-colazioni.ts` la riempie leggendo il
+menù dalla descrizione del negozio (rapporto in `docs/`, prova a secco di default).
+
+### Custode del layout (Libro UX&UI)
+
+Le scelte di interfaccia di quest'app seguono il
+[Libro UX&UI](../deluxy-design-system/LIBRO-UX-UI.md) e il
+[Design System](../deluxy-design-system/DESIGN-SYSTEM.md) v1.4 (`src/app/tokens.css`
+è la copia byte-identica dei token). Deroghe note, con motivo:
+
+- `th` in MAIUSCOLO 11px (Libro §8 vuole 12px sentence case): stile storico di
+  tutte le tabelle dell'app, da cambiare in una passata unica, non tabella per
+  tabella.
+- Il segmented «Varianti e prezzo · Pubblico e partner» è fatto di link (pagina
+  server-rendered, stato nell'URL) e non di bottoni con JS: stessa forma dei
+  quick-tabs della piattaforma, applicazione al click senza script.
+
 ## Avvio in locale
 
 ```bash

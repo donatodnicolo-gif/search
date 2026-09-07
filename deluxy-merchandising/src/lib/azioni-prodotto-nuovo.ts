@@ -58,8 +58,10 @@ type MediaDalForm = {
   nome: string;
   negozio: string;
 };
-type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string };
+type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string; note?: string };
 const partnerDa = (v: string | undefined): number | null => (v && v.trim() ? soldiDa(v) : null);
+// «Cosa comprende» di una variante: pulita, tetto di 1000 caratteri, vuota = nessuna (vale quella del prodotto).
+const notaDa = (v: string | undefined): string | null => (v ?? "").trim().slice(0, 1000) || null;
 
 /** È preso da un altro prodotto/variante (escludendo, in modifica, il prodotto stesso). */
 async function preso(codice: string, esclusoProdottoId?: string): Promise<boolean> {
@@ -153,6 +155,8 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     finestraAperta,
     dalIso,
     descrizione: testo(fd, "descrizione") || null,
+    // «Cosa comprende» (07/09/2026): il menù, il numero di fiori. Nota interna, non va sul negozio.
+    note: testo(fd, "note").trim().slice(0, 2000) || null,
     brief: testo(fd, "brief") || null,
     materiali: testo(fd, "materiali") || null,
     palette: testo(fd, "palette") || null,
@@ -239,6 +243,7 @@ export async function creaProdottoCompleto(fd: FormData) {
     prezzo: soldiDa(v.prezzo),
     costo: soldiDa(v.costo),
     prezzoPartner: partnerDa(v.prezzoPartner),
+    note: notaDa(v.note),
     giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0,
   }));
   const prezzoBase = prezzoBaseDa(m, varianti);
@@ -302,6 +307,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       categoria: m.categoria,
       fase,
       descrizione: m.descrizione,
+      note: m.note,
       brief: m.brief,
       materiali: m.materiali,
       palette: m.palette,
@@ -323,7 +329,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
       ...(Object.keys(m.metafield).length ? colonneDaMetafield(m.metafield) : {}),
       varianti: varianti.length
-        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza })) }
+        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, note: v.note, giacenza: v.giacenza })) }
         : undefined,
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
@@ -376,14 +382,14 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   // Numerazione delle varianti nuove: dopo l'ultimo «-N» già usato.
   const usati = prima.varianti.map((v) => v.sku ?? "").map((s) => Number(s.split("-").pop())).filter((n) => Number.isFinite(n));
   let prossimo = usati.length ? Math.max(...usati) + 1 : 1;
-  const varianti: { nome: string; sku: string; prezzo: number; costo: number; prezzoPartner: number | null; giacenza: number; nuova: boolean }[] = [];
+  const varianti: { nome: string; sku: string; prezzo: number; costo: number; prezzoPartner: number | null; note: string | null; giacenza: number; nuova: boolean }[] = [];
   for (const v of m.variantiForm) {
     let sku = v.sku ?? "";
     if (!sku) {
       do sku = `${codice}-${prossimo++}`;
       while (await preso(sku, prima.id));
     }
-    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), prezzoPartner: partnerDa(v.prezzoPartner), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
+    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), prezzoPartner: partnerDa(v.prezzoPartner), note: notaDa(v.note), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
   }
   // Collezioni: quelle manuali in cui sta già, contro quelle scelte ora.
   const manualiPrima = prima.collezioniShopify.filter((x) => x.collezione.tipo === "manuale");
@@ -489,6 +495,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         categoria: m.categoria,
         fase,
         descrizione: m.descrizione,
+        note: m.note,
         brief: m.brief,
         materiali: m.materiali,
         palette: m.palette,
@@ -514,7 +521,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     // Varianti: per SKU. Le nuove nascono, le presenti si aggiornano, quelle
     // sparite dal modulo si tolgono solo se non hanno venduto niente.
     for (const v of varianti) {
-      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza };
+      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, note: v.note, giacenza: v.giacenza };
       const gia = prima.varianti.find((x) => x.sku === v.sku);
       if (gia) await tx.variante.update({ where: { id: gia.id }, data: dati });
       else await tx.variante.create({ data: { prodottoId: id, sku: v.sku, ...dati } });

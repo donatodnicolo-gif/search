@@ -32,6 +32,7 @@ import {
   STATI_SHOPIFY,
 } from "@/lib/dominio";
 import { isoRoma } from "@/lib/fuso";
+import { differenza, eColazione, euroIntervallo, righePrezzi, sintesiPrezzi } from "@/lib/prezzi-scheda";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +49,14 @@ export default async function ProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; esito?: string; messaggio?: string; seoConferma?: string; modifica?: string; seoModifica?: string }>;
+  searchParams: Promise<{ tab?: string; vista?: string; esito?: string; messaggio?: string; seoConferma?: string; modifica?: string; seoModifica?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw, esito, messaggio, seoConferma, modifica, seoModifica } = await searchParams;
+  const { tab: tabRaw, vista: vistaRaw, esito, messaggio, seoConferma, modifica, seoModifica } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
+  // Le due viste di «Varianti e prezzi» (07/09/2026): lo stato sta nell'URL
+  // (Libro §8), così un link porta esattamente alla vista che si stava guardando.
+  const vista: "prezzi" | "partner" = vistaRaw === "partner" ? "partner" : "prezzi";
 
   const [prodotto, collezioni] = await Promise.all([
     prisma.prodotto.findUnique({
@@ -103,6 +107,16 @@ export default async function ProdottoPage({
   const target = prodotto.collezione?.margineTarget ?? null;
   const salva = aggiornaProdotto.bind(null, id);
 
+  // «Varianti e prezzi» (07/09/2026): valori assoluti per ogni variante, prezzo
+  // partner ereditato dal prodotto quando la variante non ne ha uno, nota
+  // «cosa comprende». Il riepilogo in testa e la tabella leggono le STESSE righe.
+  const righe = righePrezzi(prodotto, prodotto.varianti);
+  const sintesi = sintesiPrezzi(righe);
+  // Colazioni e brunch: la nota col menù DEVE esserci (come il numero di fiori
+  // per i fiori): una nota vuota è una coda di lavoro, non un «—».
+  const colazione = eColazione(prodotto);
+  const notaProdotto = prodotto.note?.trim() || null;
+
   return (
     <div className="layout">
       <Sidebar attiva="prodotti" />
@@ -139,6 +153,23 @@ export default async function ProdottoPage({
                 </a>
               )}
             </div>
+            {/* «Cosa comprende» (07/09/2026): il menù della colazione, il numero
+                di fiori. È la prima cosa che chi prepara l'ordine vuole sapere,
+                quindi sta qui in chiaro e non in fondo a un tab. Sulle colazioni
+                senza nota si dice che manca. */}
+            {notaProdotto ? (
+              <div className="prodotto-comprende">
+                <b>Cosa comprende</b>
+                {notaProdotto}
+              </div>
+            ) : colazione && !righe.some((r) => r.comprende) ? (
+              <div className="prodotto-comprende">
+                <b>Cosa comprende</b>
+                <span className="cella-manca">da indicare: il menù di questa colazione non è ancora scritto</span>
+                {" — "}
+                <a href="#nota-prodotto">scrivilo qui sotto</a>
+              </div>
+            ) : null}
             {/* I campi del negozio — titolo, descrizione, foto, prezzo — si
                 correggono **su Shopify**: qui verrebbero riscritti al primo
                 import. Da qui ci si arriva in un clic, invece di cercare il
@@ -173,8 +204,13 @@ export default async function ProdottoPage({
             venduto smette di contarsi due volte. Sta in alto perché finché due
             schede sono separate, tutto quello che si legge sotto è diviso a
             metà. */}
-        <div className="scheda">
-          <div className="scheda-titolo">Riconciliazione</div>
+        <details className="scheda" open={!!prodotto.unitoA || prodotto.assorbiti.length > 0}>
+          <summary className="scheda-titolo">
+            Riconciliazione
+            <span className="scheda-stato">
+              {prodotto.unitoA ? "unita a un'altra scheda" : prodotto.assorbiti.length > 0 ? `ha assorbito ${prodotto.assorbiti.length}` : "nessuna scheda unita"}
+            </span>
+          </summary>
           {prodotto.unitoA ? (
             <>
               <p className="page-sub" style={{ marginTop: 0 }}>
@@ -217,7 +253,7 @@ export default async function ProdottoPage({
               </a>
             </>
           )}
-        </div>
+        </details>
 
         {/* ---------- Composizione ----------
             Se il prodotto è fatto di altri prodotti, il suo costo è la somma
@@ -343,6 +379,147 @@ export default async function ProdottoPage({
           ))}
         </div>
 
+        {/* ---------- Riepilogo prezzi + Varianti e prezzi (07/09/2026) ----------
+            Chiesto dall'utente: «fare migliore UX&UI più comprensibile: vista con
+            varianti e prezzo e vista del prezzo pubblico e prezzo partner». Prima
+            il prezzo delle varianti si trovava solo in Costi & margini, come delta,
+            e il prezzo partner non si vedeva in nessun punto della scheda. */}
+        {tab === "panoramica" && (
+          <>
+            <div className="kpi-riga">
+              <div className="kpi">
+                <div className="kpi-valore">{euroIntervallo(sintesi.pubblico, euro) ?? <span className="cella-manca">da indicare</span>}</div>
+                <div className="kpi-etichetta">Prezzo pubblico</div>
+                <div className="kpi-sotto">{sintesi.pubblico ? "quello che il cliente paga sul sito" : "nessun prezzo di vendita"}</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{sintesi.partner ? euroIntervallo(sintesi.partner, euro) : <span className="cella-manca">da indicare</span>}</div>
+                <div className="kpi-etichetta">Prezzo partner</div>
+                <div className="kpi-sotto">
+                  {sintesi.partner
+                    ? sintesi.senzaPartner > 0
+                      ? `manca su ${sintesi.senzaPartner} ${sintesi.senzaPartner === 1 ? "variante" : "varianti"}`
+                      : "quanto va a chi lo prepara"
+                    : "si scrive nel modulo o in Costi & margini"}
+                </div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{euroIntervallo(sintesi.differenza, euro) ?? <span aria-label="non calcolabile senza prezzo partner">—</span>}</div>
+                <div className="kpi-etichetta">Differenza</div>
+                <div className="kpi-sotto">prezzo pubblico meno prezzo partner</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{sintesi.varianti || <span aria-label="nessuna">—</span>}</div>
+                <div className="kpi-etichetta">{sintesi.varianti === 1 ? "Variante" : "Varianti"}</div>
+                <div className="kpi-sotto">{sintesi.varianti ? "formati in vendita" : "prodotto senza varianti"}</div>
+              </div>
+            </div>
+
+            <div className="scheda">
+              <div className="scheda-testa">
+                <div className="scheda-titolo">Varianti e prezzi</div>
+                <nav className="vista-scelta" aria-label="Vista della tabella">
+                  <a href="?tab=panoramica&vista=prezzi" aria-current={vista === "prezzi" ? "true" : undefined}>Varianti e prezzo</a>
+                  <a href="?tab=panoramica&vista=partner" aria-current={vista === "partner" ? "true" : undefined}>Pubblico e partner</a>
+                </nav>
+              </div>
+              <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)", marginBottom: 12 }}>
+                {vista === "prezzi" ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Variante</th>
+                        <th>SKU</th>
+                        <th>Cosa comprende</th>
+                        <th className="num">Prezzo pubblico</th>
+                        <th className="num">Giacenza</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {righe.map((r) => (
+                        <tr key={r.id}>
+                          <td className="cella-nome">{r.nome}</td>
+                          <td className="cella-muta">{r.sku ?? <span aria-label="senza SKU">—</span>}</td>
+                          <td>
+                            {r.comprende ? (
+                              <>
+                                {r.comprende}
+                                {r.comprendeDelProdotto && <div className="cella-sub">nota del prodotto</div>}
+                              </>
+                            ) : colazione ? (
+                              <span className="cella-manca">da indicare (il menù)</span>
+                            ) : (
+                              <span aria-label="non indicato">—</span>
+                            )}
+                          </td>
+                          <td className="num">{r.pubblico > 0 ? euro(r.pubblico) : <span className="cella-manca">da indicare</span>}</td>
+                          <td className="num">{r.giacenza == null ? <span aria-label="non applicabile">—</span> : r.giacenza}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Variante</th>
+                        <th className="num">Prezzo pubblico</th>
+                        <th className="num">Prezzo partner</th>
+                        <th className="num">Differenza</th>
+                        <th className="num">Quota al partner</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {righe.map((r) => {
+                        const d = differenza(r);
+                        return (
+                          <tr key={r.id}>
+                            <td className="cella-nome">
+                              {r.nome}
+                              {r.sku && <div className="cella-sub">{r.sku}</div>}
+                            </td>
+                            <td className="num">{r.pubblico > 0 ? euro(r.pubblico) : <span className="cella-manca">da indicare</span>}</td>
+                            <td className="num">
+                              {r.partner != null ? (
+                                <>
+                                  {euro(r.partner)}
+                                  {r.partnerDelProdotto && <div className="cella-sub">del prodotto</div>}
+                                </>
+                              ) : (
+                                <span className="cella-manca">da indicare</span>
+                              )}
+                            </td>
+                            <td className="num" style={{ color: d && d.euro < 0 ? "var(--red)" : undefined }}>
+                              {d ? euro(d.euro) : <span aria-label="non calcolabile">—</span>}
+                            </td>
+                            <td className="num">{r.partner != null && r.pubblico > 0 ? percentuale(r.partner / r.pubblico) : <span aria-label="non calcolabile">—</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <p className="page-sub" style={{ marginBottom: 0 }}>
+                {vista === "prezzi" ? (
+                  <>
+                    Il <b>prezzo pubblico</b> è quello del sito. <b>Cosa comprende</b> è la nota interna — il menù della colazione, il
+                    numero di fiori, i pezzi del cesto — che non va su Shopify: si scrive qui sotto in Anagrafica per tutto il prodotto, o
+                    variante per variante nel <a href={`/prodotti/${id}/modifica`}>modulo</a>.
+                  </>
+                ) : (
+                  <>
+                    Il <b>prezzo partner</b> è quanto va a chi prepara il prodotto: dato interno, non va su Shopify. Se una variante non ne
+                    ha uno vale quello del prodotto («del prodotto»). Si cambia nel <a href={`/prodotti/${id}/modifica`}>modulo</a> o in
+                    Costi &amp; margini. La differenza è solo prezzo pubblico meno prezzo partner: <b>non è il margine</b>, che si calcola
+                    in Orders sull&apos;ordine vero.
+                  </>
+                )}
+              </p>
+            </div>
+          </>
+        )}
+
         {/* ---------- Fase (visibile in Panoramica e Sviluppo) ---------- */}
         {(tab === "panoramica" || tab === "sviluppo") && (
           <div className="scheda">
@@ -413,6 +590,20 @@ export default async function ProdottoPage({
                 <div className="campo-modulo largo">
                   <label>Descrizione</label>
                   <textarea name="descrizione" rows={3} defaultValue={prodotto.descrizione ?? ""} />
+                </div>
+                <div className="campo-modulo largo">
+                  <label htmlFor="nota-prodotto">Cosa comprende (menù, numero di fiori, pezzi)</label>
+                  <textarea
+                    id="nota-prodotto"
+                    name="note"
+                    rows={3}
+                    defaultValue={prodotto.note ?? ""}
+                    placeholder={colazione ? "Es. 2 cornetti, 2 succhi d'arancia, 2 yogurt, frutta fresca, marmellate" : "Es. 25 rose rosse · oppure il menù della colazione"}
+                  />
+                  <span className="testo-guida">
+                    Nota interna: non va su Shopify. Vale per tutto il prodotto; se cambia da variante a variante (il menù per 1 o per 2
+                    persone) si scrive sulla singola variante nel <a href={`/prodotti/${id}/modifica`}>modulo</a>.
+                  </span>
                 </div>
               </div>
               <div className="azioni-modulo">
@@ -513,6 +704,11 @@ export default async function ProdottoPage({
                       <label>Prezzo di vendita (€)</label>
                       <input name="prezzoVendita" type="number" step="0.01" min="0" defaultValue={prodotto.prezzoVendita} />
                     </div>
+                    <div className="campo-modulo">
+                      <label>Prezzo partner (€)</label>
+                      <input name="prezzoPartner" type="number" step="0.01" min="0" defaultValue={prodotto.prezzoPartner ?? ""} placeholder="—" />
+                      <span className="testo-guida">Quanto va al partner. Vuoto = non indicato. Le varianti possono averne uno proprio.</span>
+                    </div>
                   </div>
                   <div className="azioni-modulo">
                     <button type="submit" className="btn">Salva</button>
@@ -542,7 +738,7 @@ export default async function ProdottoPage({
                     <thead>
                       <tr>
                         <th>Variante</th><th>SKU</th><th className="num">Prezzo</th><th className="num">Costo</th>
-                        <th>Margine</th><th className="num">Giacenza</th><th></th>
+                        <th>Margine</th><th className="num">Partner</th><th className="num">Giacenza</th><th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -556,6 +752,7 @@ export default async function ProdottoPage({
                             <td className="num">{euro(pv.prezzo)}</td>
                             <td className="num">{euro(pv.costo)}</td>
                             <td>{percentuale(mv.marginePct)}</td>
+                            <td className="num">{v.prezzoPartner != null ? euro(v.prezzoPartner) : prodotto.prezzoPartner != null ? <span className="cella-muta" title="Vale il prezzo partner del prodotto">{euro(prodotto.prezzoPartner)}</span> : <span aria-label="non indicato">—</span>}</td>
                             <td className="num">{v.giacenza}</td>
                             <td className="num">
                               <form action={eliminaVariante.bind(null, v.id, id)}>
@@ -570,12 +767,14 @@ export default async function ProdottoPage({
                 </div>
               )}
               <form action={aggiungiVariante.bind(null, id)}>
-                <div className="modulo" style={{ gridTemplateColumns: "repeat(5, minmax(0,1fr))" }}>
+                <div className="modulo modulo-varianti">
                   <div className="campo-modulo"><label>Nome</label><input name="nome" placeholder="Deluxe" required /></div>
                   <div className="campo-modulo"><label>SKU</label><input name="sku" placeholder="opz." /></div>
                   <div className="campo-modulo"><label>Δ prezzo (€)</label><input name="deltaPrezzo" type="number" step="0.01" defaultValue="0" /></div>
                   <div className="campo-modulo"><label>Δ costo (€)</label><input name="deltaCosto" type="number" step="0.01" defaultValue="0" /></div>
+                  <div className="campo-modulo"><label>Prezzo partner (€)</label><input name="prezzoPartner" type="number" step="0.01" min="0" placeholder="—" /></div>
                   <div className="campo-modulo"><label>Giacenza</label><input name="giacenza" type="number" step="1" defaultValue="0" /></div>
+                  <div className="campo-modulo largo"><label>Cosa comprende</label><input name="note" placeholder="Es. menù per 2 persone · 25 rose" /></div>
                 </div>
                 <div className="azioni-modulo">
                   <button type="submit" className="btn btn-secondario">Aggiungi variante</button>

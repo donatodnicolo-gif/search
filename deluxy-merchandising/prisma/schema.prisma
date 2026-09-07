@@ -75,6 +75,13 @@ model Prodotto {
   // Fase del ciclo di vita (PLM): concept | prototipo | approvato | in_vendita | archiviato
   fase         String   @default("concept")
   descrizione  String?
+  // **Cosa comprende** (07/09/2026, chiesto dall'utente: «per tutte le colazioni
+  // mettere in note variante o prodotto il menù indicato, così come per i fiori
+  // abbiamo l'indicazione sui numeri di fiori»). La nota interna che dice cosa
+  // c'è dentro: il menù della colazione, il numero di fiori, i pezzi del cesto.
+  // Vale per tutto il prodotto; se cambia da variante a variante sta su
+  // `Variante.note`. Non va su Shopify: si legge nella scheda e nel modulo.
+  note         String?
   // — Scheda creativa / PLM —
   brief        String? // brief creativo iniziale
   materiali    String? // materiali / fiori / componenti principali (testo)
@@ -278,6 +285,9 @@ model Variante {
   deltaPrezzo  Float @default(0)
   // Quanto viene dato al partner per questa variante (assoluto; vuoto = quello del prodotto).
   prezzoPartner Float?
+  // Cosa comprende QUESTA variante (il menù per 2 persone, 25 rose): vuota =
+  // vale la nota del prodotto. Vedi `Prodotto.note`.
+  note         String?
   giacenza     Int   @default(0) // stock disponibile
   creataIl   DateTime @default(now())
   vendite    Vendita[]

@@ -58,6 +58,7 @@ export default async function ModificaProdottoPage({
     collezioneShopifyId: p.collezioneShopifyId ?? "",
     codice: p.codice,
     descrizione: p.descrizione ?? "",
+    note: p.note ?? "",
     brief: p.brief ?? "",
     materiali: p.materiali ?? "",
     palette: p.palette ?? "",
@@ -76,6 +77,7 @@ export default async function ModificaProdottoPage({
       costo: v.deltaCosto ? String(p.costoProduzione + v.deltaCosto) : "",
       prezzoPartner: v.prezzoPartner != null ? String(v.prezzoPartner) : "",
       giacenza: String(v.giacenza),
+      note: v.note ?? "",
     })),
     media: p.media
       .filter((x) => x.shopifyFileId)

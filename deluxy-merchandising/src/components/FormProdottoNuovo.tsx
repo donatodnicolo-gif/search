@@ -38,7 +38,8 @@ export type MediaCaricato = {
   errore?: string;
 };
 
-export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; prezzoPartner: string; giacenza: string };
+// `note` (07/09/2026): cosa comprende QUESTA variante — il menù per 2 persone, 25 rose. Vuota = vale la nota del prodotto.
+export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; prezzoPartner: string; giacenza: string; note: string };
 
 /** Quello che il modulo mostra quando si modifica un prodotto esistente. */
 export type ProdottoIniziale = {
@@ -50,6 +51,8 @@ export type ProdottoIniziale = {
   collezioneShopifyId: string;
   codice: string;
   descrizione: string;
+  /** «Cosa comprende» (07/09/2026): nota interna — menù, numero di fiori, pezzi. */
+  note: string;
   brief: string;
   materiali: string;
   palette: string;
@@ -71,7 +74,7 @@ export type ProdottoIniziale = {
 };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
-const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0" });
+const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0", note: "" });
 
 /** Sette cifre casuali, mai con lo zero davanti. */
 export function skuCasuale(): string {
@@ -570,6 +573,16 @@ export function FormProdottoNuovo({
             <label htmlFor="palette">Palette</label>
             <input id="palette" name="palette" placeholder="Indaco · avorio · oro" defaultValue={iniziale?.palette ?? ""} />
           </div>
+          {/* «Cosa comprende» (07/09/2026, chiesto dall'utente): per le colazioni
+              il menù, per i fiori il numero di fiori. Nota interna, non va su
+              Shopify; si legge nella scheda prodotto in «Varianti e prezzi». */}
+          <div className="campo-modulo largo">
+            <label htmlFor="note">Cosa comprende (menù, numero di fiori, pezzi)</label>
+            <textarea id="note" name="note" rows={2} placeholder="Es. 2 cornetti, 2 succhi d'arancia, 2 yogurt, frutta fresca · oppure: 25 rose rosse" defaultValue={iniziale?.note ?? ""} />
+            <span className="cella-sub">
+              Nota interna, non va sul negozio. Vale per tutto il prodotto; se cambia da variante a variante si scrive nella colonna «Cosa comprende» delle varianti.
+            </span>
+          </div>
         </div>
       </div>
 
@@ -633,6 +646,7 @@ export function FormProdottoNuovo({
                     <th className="num">Prezzo (€)</th>
                     <th className="num">Costo (€)</th>
                     <th className="num">Partner (€)</th>
+                    <th>Cosa comprende</th>
                     {controllaStock && <th className="num">Giacenza</th>}
                     <th />
                   </tr>
@@ -654,6 +668,9 @@ export function FormProdottoNuovo({
                       </td>
                       <td>
                         <input value={v.prezzoPartner} onChange={(e) => aggiornaVariante(i, "prezzoPartner", e.target.value)} inputMode="decimal" className="num" placeholder="—" aria-label={`Prezzo partner variante ${i + 1}`} />
+                      </td>
+                      <td>
+                        <input value={v.note} onChange={(e) => aggiornaVariante(i, "note", e.target.value)} placeholder="menù per 2 · 25 rose" aria-label={`Cosa comprende la variante ${i + 1}`} style={{ minWidth: 160 }} />
                       </td>
                       {controllaStock && (
                         <td>
