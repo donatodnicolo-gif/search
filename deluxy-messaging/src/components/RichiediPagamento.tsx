@@ -210,6 +210,19 @@ export function RichiediPagamento() {
   const [passo, setPasso] = useState<'cerca' | 'come' | 'modulo'>('cerca')
   /** Al passo 2 la lettura AI si apre solo se la si sceglie. */
   const [mostraAi, setMostraAi] = useState(false)
+  /**
+   * «No, è un fornitore nuovo →» premuto al PASSO 1.
+   *
+   * ⚠️⚠️ Segnalato dall'utente il 07/09/2026 («è un fornitore nuovo l'ho già
+   * scritto prima»): al passo 1 aveva detto che il fornitore è nuovo, e al
+   * passo 3 il modulo glielo richiedeva con «Da dove viene “Monopoli Angelo”?»
+   * e un secondo bottone «è un fornitore nuovo». Era la stessa domanda fatta
+   * due volte, perché il passo 1 cambiava solo pagina e non si ricordava la
+   * risposta. Adesso la risposta si tiene: dichiarato nuovo al passo 1, il nome
+   * scritto nel modulo È il fornitore, senza altre domande. Scegliendo poi uno
+   * dei nostri dalla ricerca, la dichiarazione decade.
+   */
+  const [dichiaratoNuovo, setDichiaratoNuovo] = useState(false)
   // La riga che si sta correggendo, e la ricevuta che si sta caricando.
   const [modificoId, setModificoId] = useState('')
   const [ricevuta, setRicevuta] = useState<{
@@ -482,6 +495,8 @@ export function RichiediPagamento() {
   function usaFornitore(f: FornitoreTrovato, daMaps?: DettaglioMaps) {
     // Chi prepara: la ragione sociale se c'è, altrimenti l'insegna.
     setFornitoreScelto(f.ragioneSociale || f.nome)
+    // Scelto uno dei nostri: non è più «nuovo», qualunque cosa si fosse detto al passo 1.
+    setDichiaratoNuovo(false)
     // ⚠️ Il nome SUL CONTO: com'è stato pagato l'ultima volta, se lo sappiamo
     // (viaggia con l'IBAN); altrimenti la ragione sociale o il nome, da
     // correggere a mano se la banca vuole un altro nome (07/09/2026).
@@ -682,7 +697,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      fornitoreScelto,
+      fornitoreScelto: fornitoreEffettivo,
     })
     if (manca) {
       setErrore(manca)
@@ -699,7 +714,7 @@ export function RichiediPagamento() {
           iban,
           riferimentoPagamento: riferimento,
           intestatario,
-          fornitore: fornitoreScelto,
+          fornitore: fornitoreEffettivo,
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           ordineNumero: ordineScelto?.numero || ordineNumero,
@@ -734,6 +749,7 @@ export function RichiediPagamento() {
       setRiferimento('')
       setIntestatario('')
       setFornitoreScelto('')
+      setDichiaratoNuovo(false)
       setLuogoMaps(null)
       setImporto('')
       setCausale('')
@@ -756,6 +772,7 @@ export function RichiediPagamento() {
     // ⚠️ Una riga salvata ha già il suo fornitore: sulle righe vecchie (senza
     // il campo) è il nome sul conto, come è sempre stato.
     setFornitoreScelto(r.fornitore || r.intestatario)
+    setDichiaratoNuovo(false)
     setLuogoMaps(null)
     setImporto(r.importo ? String(r.importo).replace('.', ',') : '')
     setCausale(r.causale)
@@ -793,7 +810,7 @@ export function RichiediPagamento() {
           riferimentoPagamento: riferimento,
           intestatario,
           // Chi prepara, separato dal nome sul conto (07/09/2026).
-          fornitore: fornitoreScelto,
+          fornitore: fornitoreEffettivo,
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           origine,
@@ -872,6 +889,7 @@ export function RichiediPagamento() {
       setRiferimento('')
       setIntestatario('')
       setFornitoreScelto('')
+      setDichiaratoNuovo(false)
       setLuogoMaps(null)
       setImporto('')
       setCausale('')
@@ -950,6 +968,14 @@ export function RichiediPagamento() {
 
   // Il filtro in memoria sull'elenco: periodo sulla data della richiesta,
   // ricerca sui campi con cui si riconosce la riga.
+  /**
+   * CHI PREPARA, per come lo sa il modulo adesso: il fornitore scelto dalla
+   * ricerca, oppure — se al passo 1 si è detto «è nuovo» — il nome scritto
+   * nell'intestatario. Vuoto = nessuna delle due: il nome è stato solo
+   * digitato, e il modulo chiede da dove viene.
+   */
+  const fornitoreEffettivo = fornitoreScelto.trim() || (dichiaratoNuovo ? intestatario.trim() : '')
+
   const cercato = cerca.trim().toLowerCase()
   const richiesteVisibili = richieste.filter((r) => {
     if (!nelPeriodo(r.creatoIl, periodo)) return false
@@ -1068,7 +1094,15 @@ export function RichiediPagamento() {
             </p>
             <CercaFornitore cercaSubito={fornitoreDaOrdine} onScelto={usaFornitore} />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              <button type="button" className="btn btn-secondario" onClick={() => setPasso('come')}>
+              <button
+                type="button"
+                className="btn btn-secondario"
+                onClick={() => {
+                  // ⚠️ La risposta si TIENE: al passo 3 non si richiede.
+                  setDichiaratoNuovo(true)
+                  setPasso('come')
+                }}
+              >
                 No, è un fornitore nuovo →
               </button>
             </div>
@@ -1175,7 +1209,9 @@ export function RichiediPagamento() {
           <p className="cella-sub" style={{ marginTop: -6 }}>
             {fornitoreScelto
               ? `Fornitore scelto fra i nostri: ${fornitoreScelto}.`
-              : origine !== 'manuale'
+              : dichiaratoNuovo
+                ? 'Fornitore nuovo (detto al passo 1): il nome che scrivi qui sotto è lui.'
+                : origine !== 'manuale'
                 ? `Campi letti dall'AI (${origine === 'immagine' ? 'da immagine' : 'da testo'}): controllali.`
                 : 'Fornitore nuovo, coordinate scritte a mano.'}{' '}
             <button type="button" className="btn btn-secondario small" onClick={() => setPasso('cerca')}>
@@ -1321,7 +1357,7 @@ export function RichiediPagamento() {
               E resta la strada per chi è nuovo davvero: la maggior parte dei
               fornitori la prima volta non li conosciamo, e un modulo che non
               lascia pagare un fioraio nuovo non si usa. */}
-          {intestatario.trim() && !fornitoreScelto.trim() ? (
+          {intestatario.trim() && !fornitoreEffettivo ? (
             <div className="serve-scelta">
               {/* ⚠️⚠️ Il messaggio di prima diceva «cercalo qui sopra e toccalo»:
                   «qui sopra» non è un posto, e chi legge non sa **cosa** deve
@@ -1401,7 +1437,7 @@ export function RichiediPagamento() {
               ⚠️ Si dice PRIMA di salvare, non dopo: è una scrittura su un altro
               record, e una cosa che succede in silenzio su un ordine si scopre
               quando dà fastidio. */}
-          {(ordineScelto?.numero || ordineNumero) && (fornitoreScelto.trim() || intestatario.trim()) ? (
+          {(ordineScelto?.numero || ordineNumero) && (fornitoreEffettivo || intestatario.trim()) ? (
             <p className="cella-sub">
               Salvando, <strong>{ordineScelto?.numero || ordineNumero}</strong> risulterà preparato
               da <strong>{fornitoreScelto.trim() || intestatario.trim()}</strong>
@@ -1470,7 +1506,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      fornitoreScelto,
+      fornitoreScelto: fornitoreEffettivo,
     })}
               title={cosaManca({
       metodo,
@@ -1479,7 +1515,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
-      fornitoreScelto,
+      fornitoreScelto: fornitoreEffettivo,
     }) || undefined}
             >
               {modificoId ? 'Salva la correzione' : 'Salva la richiesta'}
@@ -1493,6 +1529,7 @@ export function RichiediPagamento() {
                   setRiferimento('')
                   setIntestatario('')
       setFornitoreScelto('')
+      setDichiaratoNuovo(false)
       setLuogoMaps(null)
                   setImporto('')
                   setCausale('')
