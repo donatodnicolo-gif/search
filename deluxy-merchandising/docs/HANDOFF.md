@@ -2,7 +2,127 @@
 
 Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 07/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+## 07/09/2026 pomeriggio — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Come stavano le cose alle 14:10, contate sul database e sul repo prima di
+toccare niente** (l'handoff della mattina qui sotto era già invecchiato di lato):
+- ✅ **Business Deluxy HA `write_products`** (66 scope, `verificatoIl` 07:58 UTC
+  = 09:58 di Roma, esito ok): il punto n.1 della mattina è chiuso — qualcuno ha
+  dato lo scope e premuto «Verifica ora». Il token si rinnova da solo (scade
+  08/09 06:55 UTC).
+- ✅ **Gli SKU su Business Deluxy sono stati assegnati e resi unici da un'altra
+  sessione** fra le 10:55 e le 11:21: cinque piani in `docs/*-2026-09-07.md`
+  che erano su disco e **non committati** (ora sì, commit `6d4e5589`):
+  `assegnazione-sku` 16 prodotti/111 varianti, `sku-unici` 154 prodotti/354
+  varianti (123 archiviati), `sku-duplicati` 0 su tutti e quattro i negozi,
+  `allinea-sku-db` 159 + 248, `varianti-dal-negozio` 225 rinomine.
+  `verifica-sku.json` (11:17): **Business Deluxy 346 attivi, 1.347 varianti, 0
+  senza SKU**. Punto n.3 della mattina chiuso. ⭐ Stessa lezione di sempre:
+  **prima dell'handoff `git status` e `ls -lt docs/`, non solo `git log`** —
+  il lavoro di un'altra sessione può stare su disco senza commit.
+- 🔴 **`canaleVendite` del negozio nuovo è ancora «BUsiness»** (letto alle
+  14:10). `Vendita.canale` ha solo `cakedesign.me`, `deluxy.it`, `Flowers`:
+  non so come Orders chiamerà il canale del B2B, quindi non l'ho corretto —
+  va scritto in `/impostazioni` con il nome esatto, altrimenti alla prima
+  vendita si apre una seconda voce nell'Ambito.
+- Import di Business Deluxy anche alle 12:05 UTC (ok, 175 s, 3 schede create):
+  qualcuno ha aperto la home in produzione o l'ha lanciato.
+- Rotazione «Fiori» ancora all'01/09: **dovuta domani 08/09** (codice nuovo
+  in produzione dalle 10:47).
+
+**Lavorato oggi pomeriggio, IN LOCALE (`tsc` 0, NON pushato, NON deployato —
+«lavora poi su locale prima del push»): le varianti oltre la decima.**
+Era il limite strutturale scritto due volte nell'handoff del 06/09 («l'import
+legge `variants(first: 10)` → 449 varianti oltre la decima non esistono qui»)
+e la richiesta dell'utente del 06/09 era «tutti i prodotti pubblicati su
+Shopify e sul database devono avere il campo SKU»: nel database mancavano
+proprio le varianti.
+1. **`leggiProdotti` rilegge per intero chi torna con dieci varianti piene**
+   (`nodes(ids)` a 5 prodotti per chiamata, `variants(first: 100)`, stessa
+   gestione del limite di `graphql`). Prodotti con più di 10 varianti: Gifts
+   127, Business Deluxy 67, Cake 56, Flowers 5 (contati tutti gli stati).
+   Costo misurato: Cake da 77 a **81 s**, Business da 175-179 a **239 s**
+   (ma lì ha anche creato 1.227 varianti), Flowers 151 s (variava già fra 95
+   e 198). ⚠️ **Gifts: la durata del cron delle 03:10 va guardata domattina
+   dopo il deploy** — era 428-447 s su un tetto di 800.
+2. **L'import ora aggiunge le varianti che il negozio ha e la scheda no**
+   (`allineaVarianti`, chiamata a ogni import dopo l'aggiornamento delle
+   schede). Prima le varianti nascevano **solo** con la scheda
+   (`creaProdottiMancanti`) e chi esisteva già restava con quelle del primo
+   giorno: «Torta della Nonna» aveva **1** variante qui e **11** sul negozio.
+   Regole, in un posto solo: la variante si riconosce **per SKU** (è la sua
+   identità) e in mancanza **per nome** (`normalizza`, «Default Title» →
+   «Unica»); se non c'è in nessuno dei due modi **nasce** (con `deltaPrezzo`
+   rispetto al prezzo minimo del prodotto, come alla creazione); **mai tolta,
+   mai rinominata**; una variante omonima senza SKU **lo riceve** se è libero;
+   uno SKU già di un'altra scheda **non si ruba e la variante NON nasce**
+   (è un doppione: si conta come «lasciata fuori» nel messaggio dell'import e
+   si chiude riconciliando). Il messaggio in fondo a `/collezioni` dice
+   «N varianti aggiunte a schede che non le avevano; M SKU scritti…; K
+   varianti del negozio lasciate fuori perché lo SKU è già di un'altra scheda».
+   `EsitoImportCollezioni` ha `variantiAggiunte`, `skuRiempiti`,
+   `variantiSaltate` (solo nel messaggio: **nessun cambio di schema**).
+   `risolviProdotti` è la funzione unica «un prodotto del negozio ↔ una
+   scheda» (prima stava inline nell'import).
+3. **Prova a secco**: `npx tsx scripts/varianti-mancanti.ts [negozio]` →
+   `docs/varianti-mancanti-<giorno>-<ora>.md` (l'ora nel nome: la trappola del
+   06/09 dei piani sovrascritti). Piani: `…-1417.md` Cake (1.087),
+   `…-1425.md` Business Deluxy (1.227 + 1 SKU + 18 saltate), `…-1428.md`
+   Flowers (679, 14 saltate), `…-1419.md` Gifts + Business + Flowers **col
+   codice della prima versione** (dove «∅ (preso)» conflaziona «SKU di
+   un'altra scheda» e «il negozio non ha lo SKU»): Gifts 2.617 di cui 552 ∅.
+4. ✅ **Applicato dal PC oggi, negozio per negozio, col codice nuovo**
+   (l'import vero, non uno script a parte — è lo stesso passo che farà il cron
+   dopo il deploy): **Cake 1.087** varianti aggiunte (14:19, 81 s) — poi
+   seconda prova a secco: **0 da creare, 0 da riempire: il giro è
+   idempotente**; **Business Deluxy 1.227** aggiunte + 1 SKU scritto + 18
+   lasciate fuori (239 s); **Flowers 557** aggiunte + 9 lasciate fuori (151 s;
+   erano 679 nel piano perché 122 sono arrivate prima dalle gemelle di
+   Business); **Gifts: VEDI RIGA SOTTO**.
+   **Gifts 1.440** aggiunte + **23 SKU scritti** su varianti omonime che non
+   l'avevano + 18 lasciate fuori, **569 s dal PC** (alle 08:08 dal cron erano
+   447 s; dal PC il 06/09 erano 594 s senza questo passo, quindi la misura
+   vera del costo è quella di Vercel domattina). Verifica finale sul
+   database: varianti **11.067 → 15.378** (4.311 nate oggi dalle 14:15, di cui 739 senza SKU: 682 su schede ARCHIVED, 25 DRAFT, 32 ACTIVE); varianti ACTIVE senza sku 111 → **140** (le 8 di Cake + quelle dei prodotti non attivi di Business che qui stanno su una scheda attiva per un altro negozio); schede ACTIVE 1.259 → **1.203** perché Gifts ha importato per ultimo e «chi importa per ultimo scrive statoShopify» (effetto noto «una scheda, due negozi», non un calo di catalogo).
+   ⚠️ **Cake è stato applicato con la PRIMA versione della regola**, che una
+   variante con lo SKU di un'altra scheda la creava **senza SKU**: sono nate
+   **21 varianti senza SKU** (righe «∅ (preso)» in `…-1417.md`: Easter Heart
+   Garden 8, Vintage Cake Mother's Day 4, Millefoglie 4, Pastiera 2, Cuore,
+   Sacher, Torta Crema e Fragole), **8 su schede ACTIVE** — le varianti ACTIVE
+   senza sku sono passate da 111 a **119** per questo. Non le ho cancellate
+   (mai cancellare da script); se le si vuole togliere sono quelle 21, a mano.
+   Dalla seconda versione in poi (Business, Flowers, Gifts) non succede più.
+5. ⚠️ **371 delle 1.227 varianti di Business Deluxy sono nate senza SKU perché
+   il negozio stesso non ce l'ha**: «Romantico brindisi» 86 combinazioni,
+   «telegramma e tulipani» 80, «Red passion» 60 — prodotti **non attivi**
+   (la verifica dice 0 senza SKU fra gli attivi). Stessa regola di
+   `creaProdottiMancanti`: si rispecchia il negozio. Se un domani vanno in
+   vendita, lo SKU va dato lì (`assegna-sku.ts`) e l'import lo riporterà qui
+   («SKU scritti su varianti che non l'avevano», riconosciute per nome).
+6. **Verificato in locale**: `/collezioni` (server su :3120) mostra la riga
+   «Cake · 07 set 2026 · … 1087 varianti aggiunte a schede che non le avevano
+   … (durata 81 s)». ⚠️ In dev **non ho aperto la home**: gli ultimi import
+   erano più vecchi di 4 ore e la sincronizzazione all'apertura avrebbe
+   lanciato i tre import dal PC in parallelo. La pagina `/collezioni` pesa
+   **4,1 MB** di HTML: non l'ho toccata, ma è la trappola «elenco coi figli».
+
+**Cosa cambia col deploy** (quando l'utente lo chiede): i cron notturni fanno
+il passo delle varianti da soli (stanotte, col codice vecchio in produzione,
+non succede niente di male: i dati sono già allineati dal PC e il vecchio
+import non tocca le varianti). Il primo numero da guardare è **la durata di
+Gifts alle 03:10** in fondo a `/collezioni`.
+
+**Da fare (in ordine):** correggere `canaleVendite` di Business Deluxy in
+`/impostazioni`; push & deploy **a comando** (worktree + cherry-pick su
+`origin/scout-ui`, `npx vercel deploy --prod --yes --scope deluxy`);
+**domattina** in fondo a `/collezioni`: riga di Business Deluxy delle 04:15
+«ok (durata N s)», Gifts sotto gli 800 s, e «Rotazione Fiori» scattata
+l'08/09 in `/visual/rotazioni`; le **119 varianti ACTIVE senza sku** sono
+schede doppie per lo stesso prodotto (si chiudono riconciliando, non
+scrivendo SKU); i **1.259 prodotti ACTIVE senza costo** (punto n.1 storico,
+allargato dal negozio nuovo); il resto sotto, alla mattina e al 06/09.
+
+## 07/09/2026 mattina — punto di ripresa della mattina
 
 ✅ **L'IMPORT DI GIFTS È RISORTO, e il numero dice perché moriva.** Prima notte
 dopo il deploy delle 15:28 del 06/09: `07/09 03:10:04 UTC · Gifts · ok · 237

@@ -39,6 +39,13 @@ export type EsitoImportCollezioni = {
   abbinamenti: number;
   prodottiCreati: number;
   prodottiIgnoti: number;
+  // Varianti che il negozio ha e la scheda non aveva, nate in questo import
+  // (07/09/2026); e SKU scritti su varianti con lo stesso nome che non l'avevano.
+  variantiAggiunte: number;
+  skuRiempiti: number;
+  // Varianti del negozio lasciate fuori perché il loro SKU è già di un'altra
+  // scheda: sono i doppioni, si chiudono riconciliando, non creando fantasmi.
+  variantiSaltate: number;
   messaggio: string;
 };
 
@@ -580,7 +587,207 @@ async function leggiProdotti(n: Negozio, defs: DefinizioneMetafield[] = []): Pro
     if (!dati.products.pageInfo.hasNextPage) break;
     cursore = dati.products.pageInfo.endCursor;
   }
+
+  // **Le varianti oltre la decima** (07/09/2026). Le pagine chiedono
+  // `variants(first: 10)` perché ogni variante costa un punto per prodotto e la
+  // pagina deve restare sotto il tetto; ma 90 prodotti attivi ne hanno di più
+  // (le torte di laurea arrivano a 48) e **449 varianti non esistevano qui**: la
+  // verifica SKU le contava per difetto e il database non poteva averle. Chi
+  // torna con la decima variante piena potrebbe averne altre: si rilegge per
+  // intero, cinque prodotti per chiamata (5 × ~102 punti), con la stessa
+  // gestione del limite. Oltre le cento varianti si tronca ancora: nessun
+  // prodotto dei quattro negozi ci arriva.
+  const troncati = fuori.filter((p) => p.variants.nodes.length >= 10);
+  for (let i = 0; i < troncati.length; i += 5) {
+    const gruppo = troncati.slice(i, i + 5);
+    const dati = await graphql<{ nodes: ({ id: string; variants: ProdottoShopifyApi["variants"] } | null)[] }>(
+      n,
+      `query($ids: [ID!]!) {
+         nodes(ids: $ids) {
+           ... on Product { id variants(first: 100) { nodes { sku title price } } }
+         }
+       }`,
+      { ids: gruppo.map((p) => p.id) }
+    );
+    for (const nodo of dati.nodes) {
+      if (!nodo) continue;
+      const p = gruppo.find((x) => x.id === nodo.id);
+      // Si sostituisce solo se la rilettura ha almeno quello che c'era: una
+      // risposta vuota o parziale non deve far sparire varianti già lette.
+      if (p && nodo.variants.nodes.length >= p.variants.nodes.length) p.variants = nodo.variants;
+    }
+  }
   return fuori;
+}
+
+/**
+ * **Un prodotto del negozio ↔ una scheda.** Senza questo vincolo otto prodotti
+ * Shopify diversi che si chiamano «Sacher» finivano tutti sulla stessa scheda:
+ * l'ordine mostrava il nome sbagliato e il venduto di uno veniva attribuito
+ * all'altro. Misurato prima della correzione: 111 schede rappresentavano più
+ * prodotti dello **stesso** negozio (89 su Gifts). Chi ha la chiave più forte
+ * si prende la scheda; gli altri restano orfani (e l'import ne crea una). Il
+ * vincolo è **per negozio** — lo stesso prodotto venduto su Flowers e su Gifts
+ * è davvero la stessa scheda, e quello resta giusto.
+ * Una funzione sola per l'import e per le anteprime: risolvere in due modi
+ * diversi vorrebbe dire contare cose diverse.
+ */
+function risolviProdotti(prodottiShopify: ProdottoShopifyApi[], ix: Indici): { risolto: Map<string, string>; orfani: ProdottoShopifyApi[] } {
+  const risolto = new Map<string, string>(); // gid Shopify → id nostro
+  const orfani: ProdottoShopifyApi[] = [];
+  const candidati = prodottiShopify
+    .map((p) => ({ p, m: abbina(p, ix) }))
+    .sort((a, b) => (b.m?.forza ?? 0) - (a.m?.forza ?? 0));
+  const presi = new Set<string>();
+  for (const { p, m } of candidati) {
+    if (m && !presi.has(m.id)) {
+      presi.add(m.id);
+      risolto.set(p.id, m.id);
+    } else {
+      orfani.push(p);
+    }
+  }
+  return { risolto, orfani };
+}
+
+/** Come si chiama qui una variante del negozio: "Default Title" è il prodotto senza varianti, qui «Unica». */
+function nomeVariante(titolo: string | null): string {
+  return (titolo && titolo !== "Default Title" ? titolo : "Unica").slice(0, 120);
+}
+
+type VarianteDaCreare = { prodottoId: string; nome: string; sku: string | null; deltaPrezzo: number };
+
+/**
+ * **Le varianti che il negozio ha e la scheda no** (07/09/2026).
+ *
+ * L'import creava le varianti solo alla nascita della scheda: chi esisteva già
+ * restava con le varianti del primo giorno (e, fino a oggi, con le prime
+ * dieci). Qui si aggiunge quello che manca, **senza mai togliere né
+ * rinominare**: la variante si riconosce per SKU — è la sua identità — e in
+ * mancanza per nome; se non c'è in nessuno dei due modi, nasce. Uno SKU già di
+ * un'altra scheda (i doppioni mai riconciliati) non si ruba **e la variante non
+ * nasce**: una variante senza SKU accanto a una con lo SKU su un'altra scheda
+ * è un fantasma che allunga l'elenco dei «senza SKU» senza dire niente di
+ * nuovo — quei casi si chiudono riconciliando le due schede, e qui si contano
+ * (`saltate`) perché restino visibili. Alla creazione di una scheda nuova
+ * (`creaProdottiMancanti`) la regola resta quella di prima: la variante nasce
+ * senza SKU, perché una scheda senza varianti non si può nemmeno leggere.
+ * Una variante con lo stesso nome e senza SKU lo riceve, se è libero.
+ * Con `applica: false` conta e basta: è la prova a secco.
+ */
+async function allineaVarianti(
+  prodottiShopify: ProdottoShopifyApi[],
+  risolto: Map<string, string>,
+  ix: Indici,
+  applica: boolean,
+): Promise<{
+  daCreare: (VarianteDaCreare & { titoloProdotto: string })[];
+  daRiempire: { id: string; nome: string; titoloProdotto: string; sku: string }[];
+  saltate: { titoloProdotto: string; nome: string; sku: string }[];
+  create: number;
+  riempiti: number;
+}> {
+  const idSchede = [...new Set(risolto.values())];
+  const esistenti: { id: string; prodottoId: string; sku: string | null; nome: string }[] = [];
+  for (let i = 0; i < idSchede.length; i += 2000) {
+    esistenti.push(
+      ...(await prisma.variante.findMany({
+        where: { prodottoId: { in: idSchede.slice(i, i + 2000) } },
+        select: { id: true, prodottoId: true, sku: true, nome: true },
+      })),
+    );
+  }
+  // Gli SKU presi in tutta l'app: l'indice (letto prima delle schede create in
+  // questo giro) più le varianti delle schede risolte, che li comprendono.
+  const skuPresi = new Set<string>(ix.perSku.keys());
+  for (const v of esistenti) if (v.sku) skuPresi.add(v.sku.trim().toLowerCase());
+  const perScheda = new Map<string, { id: string; sku: string | null; nome: string }[]>();
+  for (const v of esistenti) perScheda.set(v.prodottoId, [...(perScheda.get(v.prodottoId) ?? []), v]);
+
+  const daCreare: (VarianteDaCreare & { titoloProdotto: string })[] = [];
+  const daRiempire: { id: string; nome: string; titoloProdotto: string; sku: string }[] = [];
+  const saltate: { titoloProdotto: string; nome: string; sku: string }[] = [];
+  for (const p of prodottiShopify) {
+    const prodottoId = risolto.get(p.id);
+    if (!prodottoId) continue;
+    const mie = perScheda.get(prodottoId) ?? [];
+    perScheda.set(prodottoId, mie);
+    const prezzo = prezzoDa(p) ?? 0;
+    for (const v of p.variants.nodes) {
+      const sku = v.sku?.trim() || null;
+      const chiave = sku?.toLowerCase() ?? null;
+      const nome = nomeVariante(v.title);
+      const mia =
+        (chiave ? mie.find((m) => m.sku?.trim().toLowerCase() === chiave) : undefined) ??
+        mie.find((m) => normalizza(m.nome) === normalizza(nome));
+      if (mia) {
+        if (mia.sku == null && chiave && sku && !skuPresi.has(chiave)) {
+          skuPresi.add(chiave);
+          mia.sku = sku;
+          daRiempire.push({ id: mia.id, nome: mia.nome, titoloProdotto: p.title, sku });
+        }
+        continue;
+      }
+      if (chiave && sku && skuPresi.has(chiave)) {
+        saltate.push({ titoloProdotto: p.title, nome, sku });
+        continue;
+      }
+      if (chiave) skuPresi.add(chiave);
+      const pv = Number.parseFloat(v.price ?? "");
+      const nuova = {
+        prodottoId,
+        nome,
+        sku,
+        deltaPrezzo: Number.isFinite(pv) && prezzo > 0 ? Math.round((pv - prezzo) * 100) / 100 : 0,
+      };
+      daCreare.push({ ...nuova, titoloProdotto: p.title });
+      // Così una seconda variante del negozio con lo stesso nome non nasce due volte.
+      mie.push({ id: "", sku: nuova.sku, nome });
+    }
+  }
+
+  let create = 0;
+  let riempiti = 0;
+  if (applica) {
+    for (let i = 0; i < daCreare.length; i += 300) {
+      const esito = await prisma.variante.createMany({
+        data: daCreare.slice(i, i + 300).map(({ prodottoId, nome, sku, deltaPrezzo }) => ({ prodottoId, nome, sku, deltaPrezzo })),
+        skipDuplicates: true,
+      });
+      create += esito.count;
+    }
+    for (let i = 0; i < daRiempire.length; i += SCRITTURE_INSIEME) {
+      const parte = daRiempire.slice(i, i + SCRITTURE_INSIEME);
+      // Uno SKU che nel frattempo è stato preso non deve fermare il giro.
+      const esiti = await Promise.all(
+        parte.map((r) => prisma.variante.update({ where: { id: r.id }, data: { sku: r.sku } }).then(() => 1, () => 0)),
+      );
+      riempiti += esiti.reduce((a, b) => a + b, 0);
+    }
+  }
+  return { daCreare, daRiempire, saltate, create, riempiti };
+}
+
+/**
+ * **Prova a secco** dell'allineamento delle varianti: legge il negozio e dice
+ * quali varianti nascerebbero e quali SKU si riempirebbero, senza scrivere.
+ */
+export async function anteprimaVarianti(n: Negozio) {
+  const prodottiShopify = await leggiProdotti(n, await definizioniDelNegozio(n));
+  const ix = await costruisciIndici();
+  const { risolto, orfani } = risolviProdotti(prodottiShopify, ix);
+  const piano = await allineaVarianti(prodottiShopify, risolto, ix, false);
+  return {
+    negozio: n.nome,
+    letti: prodottiShopify.length,
+    riconosciuti: risolto.size,
+    orfani: orfani.length,
+    variantiNegozio: prodottiShopify.reduce((a, p) => a + p.variants.nodes.length, 0),
+    prodottiConPiuDiDieciVarianti: prodottiShopify.filter((p) => p.variants.nodes.length > 10).length,
+    daCreare: piano.daCreare,
+    daRiempire: piano.daRiempire,
+    saltate: piano.saltate,
+  };
 }
 
 /**
@@ -924,6 +1131,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     abbinamenti: 0,
     prodottiCreati: 0,
     prodottiIgnoti: 0,
+    variantiAggiunte: 0,
+    skuRiempiti: 0,
+    variantiSaltate: 0,
     messaggio: "",
   };
 
@@ -1015,28 +1225,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     // collezione completa: prima i prodotti sconosciuti venivano contati e
     // buttati, e la collezione risultava mezza vuota.
     const ix = await costruisciIndici();
-    // **Un prodotto del negozio ↔ una scheda.** Senza questo vincolo otto
-    // prodotti Shopify diversi che si chiamano «Sacher» finivano tutti sulla
-    // stessa scheda: l'ordine mostrava il nome sbagliato e il venduto di uno
-    // veniva attribuito all'altro. Misurato prima della correzione: 111 schede
-    // rappresentavano più prodotti dello **stesso** negozio (89 su Gifts).
-    // Chi ha la chiave più forte si prende la scheda; agli altri se ne crea una.
-    // Il vincolo è **per negozio** — lo stesso prodotto venduto su Flowers e su
-    // Gifts è davvero la stessa scheda, e quello resta giusto.
-    const risolto = new Map<string, string>(); // gid Shopify → id nostro
-    const orfani: ProdottoShopifyApi[] = [];
-    const candidati = prodottiShopify
-      .map((p) => ({ p, m: abbina(p, ix) }))
-      .sort((a, b) => (b.m?.forza ?? 0) - (a.m?.forza ?? 0));
-    const presi = new Set<string>();
-    for (const { p, m } of candidati) {
-      if (m && !presi.has(m.id)) {
-        presi.add(m.id);
-        risolto.set(p.id, m.id);
-      } else {
-        orfani.push(p);
-      }
-    }
+    // Un prodotto del negozio ↔ una scheda: vedi `risolviProdotti`.
+    const { risolto, orfani } = risolviProdotti(prodottiShopify, ix);
     if (orfani.length > 0) {
       const nati = await creaProdottiMancanti(orfani, n.nome, ix);
       for (const [gid, id] of nati) risolto.set(gid, id);
@@ -1220,6 +1410,12 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       );
     }
 
+    // — Le varianti che il negozio ha e la scheda no — (vedi `allineaVarianti`)
+    const varianti = await allineaVarianti(prodottiShopify, risolto, ix, true);
+    base.variantiAggiunte = varianti.create;
+    base.skuRiempiti = varianti.riempiti;
+    base.variantiSaltate = varianti.saltate.length;
+
     await aggiornaRegistroCategorie();
 
     // Regole standing: le collezioni con una tipologia che ha una regola si
@@ -1236,6 +1432,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       `${base.collezioniLette} collezioni lette, ${base.abbinamenti} appartenenze salvate su ${base.prodottiLetti} prodotti del negozio` +
       (base.prodottiCreati ? `; ${base.prodottiCreati} schede create per prodotti che qui non c'erano (costo e categoria da compilare)` : "") +
       (base.prodottiIgnoti ? `; ${base.prodottiIgnoti} prodotti del negozio non corrispondono a nessun prodotto qui` : "") +
+      (base.variantiAggiunte ? `; ${base.variantiAggiunte} varianti aggiunte a schede che non le avevano` : "") +
+      (base.skuRiempiti ? `; ${base.skuRiempiti} SKU scritti su varianti che non l'avevano` : "") +
+      (base.variantiSaltate ? `; ${base.variantiSaltate} varianti del negozio lasciate fuori perché lo SKU è già di un'altra scheda (doppioni da riconciliare)` : "") +
       (pubblicazioneLetta
         ? "."
         : "; stato di pubblicazione non leggibile (manca lo scope read_publications): mostrate tutte in Visual, sospendi a mano quelle che non vuoi.");
