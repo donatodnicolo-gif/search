@@ -5,6 +5,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  HostListener,
   Input,
   NgZone,
   Output,
@@ -399,7 +400,7 @@ interface ProductRow {
                      primi prodotti — digitare serve solo per cercare. -->
                 <input class="field" [ngModel]="row.nomeScelto || row.query || ''"
                        (ngModelChange)="onProductQuery(row, $index, $event)"
-                       (focus)="alFuocoProdotto(row, $index)"
+                       (focus)="alFuocoProdotto(row, $index, $event.target)"
                        (blur)="sfuocaProdotto($index)"
                        [placeholder]="'deliveryForm.placeholder.searchProduct' | translate"
                        [name]="'prod' + $index" autocomplete="off" />
@@ -409,7 +410,9 @@ interface ProductRow {
                        250 ms) non parte prima del click su un risultato o
                        su «Crea nuovo», nemmeno da touch o dalla barra di
                        scorrimento. -->
-                  <div class="prod-risultati" (mousedown)="$event.preventDefault()">
+                  <div class="prod-risultati" [class.su]="tendinaSopra()"
+                       [style.max-height.px]="altezzaTendina()"
+                       (mousedown)="$event.preventDefault()">
                     <!-- ⭐ 06/09-07/09/2026 (regola utente): PRIMA i prodotti UNICI del partner
                          della consegna, in grassetto e in ordine alfabetico; poi tutti gli altri.
                          Escono solo i prodotti ATTIVI: un archiviato non si propone. -->
@@ -741,12 +744,23 @@ interface ProductRow {
       .prod-cerca { position: relative; min-width: 0; }
       .prod-cerca .field { width: 100%; font-size: 15px; padding: 10px 12px; }
       .qty { text-align: center; }
+      /* ⭐ 07/09/2026 (segnalazione utente: «la lista a un certo punto si interrompe
+         e non si può scorrere di più»). L'altezza era fissa a 280px: con la riga
+         prodotto in fondo alla pagina la tendina finiva SOTTO il bordo della
+         finestra, e gli ultimi risultati restavano fuori dallo schermo — la barra
+         interna arrivava in fondo, ma quei prodotti non si vedevano. Da oggi
+         l'altezza la decide altezzaTendina() sullo spazio che c'è davvero, e se
+         sotto lo spazio non basta la tendina si apre VERSO L'ALTO (.su).
+         overscroll-behavior: contain tiene lo scorrimento dentro la tendina:
+         arrivati in fondo non parte quello della pagina, che faceva sembrare
+         bloccata la lista. */
       .prod-risultati {
         position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
         background: var(--surface); border: 1px solid var(--hairline-strong);
         border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
-        max-height: 280px; overflow-y: auto;
+        overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
       }
+      .prod-risultati.su { top: auto; bottom: calc(100% + 4px); }
       .prod-risultati .ris {
         display: block; width: 100%; text-align: left; border: none; background: none;
         padding: 10px 12px; font: inherit; font-size: 14px; cursor: pointer; color: var(--text);
@@ -2596,9 +2610,47 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** ⭐ 03/09 (regola utente): al CLICK sull'input la tendina si apre subito,
    *  coi primi prodotti del perimetro — senza dover digitare. In coda c'è
    *  sempre «Crea nuovo». */
-  alFuocoProdotto(row: ProductRow, index: number): void {
+  alFuocoProdotto(row: ProductRow, index: number, campo?: EventTarget | null): void {
     this.rigaAttiva.set(index);
+    this.misuraTendina(campo);
     if (!(row.query ?? '').trim()) this.caricaProdottiIniziali();
+  }
+
+  /** Quanto è alta la tendina, e se si apre verso l'alto. */
+  readonly altezzaTendina = signal(280);
+  readonly tendinaSopra = signal(false);
+
+  /**
+   * ⭐ 07/09/2026 — LA TENDINA STA DENTRO LO SCHERMO.
+   *
+   * Con l'altezza fissa a 280px una riga prodotto in fondo alla pagina apriva una
+   * tendina che finiva sotto il bordo della finestra: la barra interna scorreva
+   * tutti i risultati, ma gli ultimi restavano fuori e sembrava che la lista si
+   * interrompesse. Qui si guarda lo spazio VERO sopra e sotto il campo: si sceglie
+   * il lato più capiente e l'altezza non supera mai quello che c'è.
+   */
+  private campoTendina: HTMLElement | null = null;
+
+  /** Se la pagina scorre o cambia misura mentre la tendina e' aperta, lo spazio
+   *  disponibile cambia: si rimisura, se no torna a uscire dallo schermo. */
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  rimisuraTendina(): void {
+    if (this.rigaAttiva() !== null && this.campoTendina) this.misuraTendina(this.campoTendina);
+  }
+
+  private misuraTendina(campo?: EventTarget | null): void {
+    const el = campo instanceof HTMLElement ? campo : this.campoTendina;
+    if (!el) { this.altezzaTendina.set(280); this.tendinaSopra.set(false); return; }
+    this.campoTendina = el;
+    const r = el.getBoundingClientRect();
+    const margine = 16;
+    const sotto = Math.max(0, window.innerHeight - r.bottom - margine);
+    const sopra = Math.max(0, r.top - margine);
+    // Sotto i 160px non ci stanno nemmeno quattro righe: meglio aprire in su.
+    const inSu = sotto < 160 && sopra > sotto;
+    this.tendinaSopra.set(inSu);
+    this.altezzaTendina.set(Math.max(120, Math.min(280, inSu ? sopra : sotto)));
   }
 
   /** ⭐ È un prodotto UNICO del partner di questa consegna? Va in cima e in grassetto. */
