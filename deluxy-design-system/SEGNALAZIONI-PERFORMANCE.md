@@ -113,3 +113,69 @@ causale ripetuto due volte (spegnere i dev server locali → il DB torna su).
 
 **Sentinella proposta** (un numero solo): sessioni «idle in transaction» da oltre
 30 s — allarme a 3, emergenza a 5.
+
+## 07/09/2026 — AL CUSTODE: gli indici mancanti sono un difetto di FAMIGLIA, non di un'app
+
+**Cosa è successo, in un giorno solo.** Lo stesso difetto — una query che filtra o
+ordina su una colonna senza indice — ha fermato l'ecosistema **tre volte**, in tre
+app diverse, con lo stesso meccanismo: la query legge tutta la tabella, tiene
+occupata una delle **~16 connessioni** che il pooler condiviso apre verso Postgres,
+e le altre tredici app restano senza. Chi guarda vede «Application error» e accusa
+il database, che invece era a 24-31 connessioni su 60: sanissimo.
+
+| Dove | Query | PRIMA | DOPO l'indice |
+|---|---|---|---|
+| Piattaforma (mattina) | chiavi esterne senza indice, elenco consegne | 4.541 ms | 8 ms |
+| Piattaforma (sera) | `Delivery.updatedAt` — cursore della sincronizzazione | 39.082 ms → 251 ms a freddo | **0,09 ms** |
+| AI Mail (sera) | pulizia HTML (`corpoHtml IS NOT NULL AND uid > … AND data < …`) | 5.288 ms | **310 ms** |
+
+La pulizia di AI Mail, da sola, ha consumato **4 ore e 15 minuti di CPU** dal 18/08
+(5.498 chiamate, 2,8 s l'una): era la query numero uno dell'intero cluster.
+
+**La lezione**: nessuna delle tre era «lenta per colpa del database». Ma nessuna
+delle tre è stata trovata guardando l'app che si era fermata — si trovano solo
+guardando *le statistiche del database*. E il difetto non ha motivo di stare in
+una sola app: dove non è stato cercato, non è stato trovato.
+
+### Strumento comune (nuovo): `strumenti/censimento-indici.mts`
+
+Si copia in `scripts/` di ogni app e si lancia con lo schema di quell'app. Non
+scrive niente: legge le statistiche di Postgres e stampa tre elenchi — le tabelle
+lette per intero più spesso, le query più costose di quello schema, gli indici che
+nessuno usa (che costano a ogni scrittura). Prima prova, sul Customer Service:
+
+| tabella | righe | letture intere | righe lette |
+|---|---|---|---|
+| Ordine | 1.567 | 69.614 | **98,8 milioni** |
+| Conversazione | 769 | 56.445 | 36,3 milioni |
+| Messaggio | 5.565 | 5.721 | 26,8 milioni |
+
+Query più costose del CS: `MessaggioAiuto` **1.190 ms** a chiamata (676 s totali),
+`Messaggio` 156 ms × 5.504 chiamate (859 s). Le tabelle sono piccole, quindi ogni
+scansione costa poco — ma sono decine di migliaia, e su un pooler condiviso il
+conto lo pagano tutti.
+
+### Proposta di REGOLA per il Libro PERFORMANCE (bump 1.1)
+
+> **Ogni app censisce i propri indici, e lo rifà quando cambia una query.**
+> Prima di pubblicare una funzione che filtra, ordina o conta su una colonna
+> nuova, si controlla che quella colonna sia indicizzata. Una volta al mese, e
+> dopo ogni incidente, si lancia `censimento-indici.mts` sullo schema dell'app.
+> Un indice non si crea mai in autonomia sul database condiviso: si porta la
+> misura qui, si concorda, e si crea con uno script che riporta **PRIMA e DOPO**.
+> ⚠️ La misura si prende a database TRANQUILLO: sotto carico il cronometro mente
+> (39 secondi diventavano 251 ms a freddo). Si guarda il **piano** — Seq Scan? —
+> non i millisecondi.
+
+### Cosa chiedere alle altre app
+
+Il messaggio da dare a ogni sessione che lavora su un'app Deluxy:
+
+> Copia `deluxy-design-system/strumenti/censimento-indici.mts` in `scripts/` e
+> lancialo sullo schema della tua app. Se una tabella compare con milioni di
+> «righe lette» o una query supera i 200 ms di media, porta la misura al custode
+> (SEGNALAZIONI-PERFORMANCE) prima di creare qualunque indice.
+
+Schemi: `messaging` (Customer Service) · `mail` (AI Mail) · `orders` · `platform`
+(consegne) · `marketing` · `merchandising` · `crm` · `partner` · `personale` ·
+`hub` · `tasks` · `budgets` · `transactions` · `anagrafiche`.
