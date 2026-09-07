@@ -42,7 +42,8 @@ const candidati = await p.product.findMany({
   },
   select: { id: true, name: true, sku: true, price: true, partnerId: true, active: true },
 });
-const daArchiviare = candidati.filter((x) => !(x.partnerId === null && GENERICI.includes(x.name.trim().toLowerCase())));
+const intoccabili = await partnerIntoccabili(p);
+const daArchiviare = candidati.filter((x) => !(x.partnerId === null && GENERICI.includes(x.name.trim().toLowerCase())) && !(x.partnerId && intoccabili.has(x.partnerId)));
 const salvati = candidati.filter((x) => x.partnerId === null && GENERICI.includes(x.name.trim().toLowerCase()));
 
 const ids = daArchiviare.map((x) => x.id);
@@ -80,3 +81,12 @@ if (RIPRISTINA) {
   console.log('prodotti non archiviati rimasti a catalogo:', restano);
 } else console.log('PROVA: nulla scritto. `--scrivi` per archiviare.');
 await p.$disconnect();
+
+// ⭐ 07/09/2026 (regola utente): «tutti quelli che sono abbinati a Chanel non vanno toccati».
+// Le voci di Chanel (WFJ, Handbags, SLG, RTW, Flowers…) non sono prodotti da vetrina: sono le
+// righe con cui le boutique inseriscono le loro consegne, e senza quelle il loro modulo resta
+// vuoto. Una pulizia che le porta via non fa ordine, rompe un lavoro.
+async function partnerIntoccabili(prisma) {
+  const righe = await prisma.partner.findMany({ where: { insegna: { contains: 'chanel', mode: 'insensitive' } }, select: { id: true } });
+  return new Set(righe.map((x) => x.id));
+}

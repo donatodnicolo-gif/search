@@ -49,10 +49,11 @@ if (!deluxy) { console.error('Partner «Deluxy» non trovato: senza di lui i gen
 
 const candidati = await p.product.findMany({
   where: { deletedAt: null, archived: false, type: 'NON_UNICO', active: false, approved: false },
-  select: { id: true, name: true, sku: true, price: true, platforms: true, categoryId: true, category: { select: { name: true } } },
+  select: { id: true, name: true, sku: true, price: true, platforms: true, partnerId: true, categoryId: true, category: { select: { name: true } } },
 });
 // «non su Shopify»: nessuna piattaforma dichiarata.
-const fuoriShopify = candidati.filter((x) => (x.platforms ?? '').replace(/[[\]"\s]/g, '').length === 0);
+const intoccabili = await partnerIntoccabili(p);
+const fuoriShopify = candidati.filter((x) => (x.platforms ?? '').replace(/[[\]"\s]/g, '').length === 0 && !(x.partnerId && intoccabili.has(x.partnerId)));
 
 const gruppi = new Map();
 const resto = [];
@@ -135,3 +136,11 @@ if (RIPRISTINA) {
 } else console.log('PROVA: nulla scritto. `--scrivi` per applicare.');
 
 await p.$disconnect();
+
+// ⭐ 07/09/2026 (regola utente): «tutti quelli che sono abbinati a Chanel non vanno toccati».
+// Le voci di Chanel (WFJ, Handbags, SLG, RTW, Flowers…) sono le righe con cui le boutique
+// inseriscono le loro consegne: portarle via non fa ordine, rompe un lavoro.
+async function partnerIntoccabili(prisma) {
+  const righe = await prisma.partner.findMany({ where: { insegna: { contains: 'chanel', mode: 'insensitive' } }, select: { id: true } });
+  return new Set(righe.map((x) => x.id));
+}
