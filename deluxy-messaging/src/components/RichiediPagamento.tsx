@@ -1111,6 +1111,27 @@ export function RichiediPagamento() {
 
         {passo === 'come' ? (
           <>
+            {/* ── FORNITORE NUOVO: PRIMA GOOGLE MAPS ──
+                ⚠️⚠️ Chiesto dall'utente il 07/09/2026: «al click di no è un
+                fornitore nuovo metti possibilità di ricercarlo tramite maps
+                come prima». Con i tre passi, chi diceva «nuovo» finiva alle
+                coordinate e Maps non lo vedeva più. Qui si cerca solo fuori
+                (in casa si è già cercato al passo 1): scegliendo un risultato
+                si compilano nome, città e telefono, la scheda di Google
+                viaggia con la richiesta fino al registro Anagrafiche, e si
+                passa al modulo. Chi non lo trova va avanti lo stesso. */}
+            {dichiaratoNuovo ? (
+              <>
+                <h2 style={{ marginTop: 0, fontSize: 16 }}>Lo troviamo su Google Maps?</h2>
+                <p className="descrizione">
+                  Fra i nostri non c&apos;è: cercalo su Google Maps, così nome, indirizzo e
+                  telefono si compilano da soli e finiscono in anagrafica. Se non lo trovi,
+                  vai avanti e scrivi tutto a mano.
+                </p>
+                <CercaFornitore soloMaps onScelto={usaFornitore} />
+                <hr style={{ border: 0, borderTop: '1px solid var(--hairline)', margin: '14px 0' }} />
+              </>
+            ) : null}
             <h2 style={{ marginTop: 0, fontSize: 16 }}>Come inseriamo le coordinate?</h2>
             <p className="descrizione">
               Se il fornitore te le ha mandate in chat o in foto, le legge l&apos;AI e tu le

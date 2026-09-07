@@ -20,9 +20,22 @@ import type { DettaglioMaps } from '@/lib/maps-fornitori'
 export function CercaFornitore({
   cercaSubito,
   onScelto,
+  soloMaps = false,
 }: {
   /** Il nome che arriva dall'ordine: si cerca da solo, senza far digitare. */
   cercaSubito?: string
+  /**
+   * SOLO GOOGLE MAPS: la casella per chi ha già detto «è un fornitore nuovo».
+   *
+   * ⚠️⚠️ Chiesto dall'utente il 07/09/2026 («al click di no è un fornitore
+   * nuovo metti possibilità di ricercarlo tramite maps come prima»). Fino al
+   * passo unico, Maps stava sotto la ricerca fra i nostri; con i tre passi chi
+   * premeva «No, è un fornitore nuovo» passava alle coordinate e Maps non lo
+   * vedeva più — cioè doveva ricopiare a mano nome, indirizzo e telefono di
+   * un negozio che Google conosce. Qui la ricerca in casa non parte (l'ha
+   * già fatta al passo 1) e la barra di Maps è sempre a vista.
+   */
+  soloMaps?: boolean
   /**
    * ⚠️ Il secondo argomento c'è **solo** se il fornitore viene da Google Maps,
    * ed è la scheda intera del luogo: indirizzo a pezzi, CAP, provincia,
@@ -105,10 +118,13 @@ export function CercaFornitore({
   // Mezzo secondo di pausa: si cerca su tre fonti, una delle quali è un'altra
   // app, e una chiamata per ogni tasto le tempesterebbe.
   useEffect(() => {
+    // ⚠️ In modalità «solo Maps» la ricerca in casa non parte: è già stata
+    // fatta al passo 1, e qui si cerca fuori, con un bottone.
+    if (soloMaps) return
     if (cercaSubito && q === cercaSubito) return
     const t = setTimeout(() => void cerca(q), 500)
     return () => clearTimeout(t)
-  }, [q, cerca, cercaSubito])
+  }, [q, cerca, cercaSubito, soloMaps])
 
   /**
    * La ricerca su Google Maps: solo su richiesta.
@@ -191,12 +207,26 @@ export function CercaFornitore({
   return (
     <div className="cerca-fornitore">
       <label className="campo">
-        <span>Cerca il fornitore — magari lo conosciamo già</span>
+        <span>
+          {soloMaps
+            ? 'Cercalo su Google Maps — nome, indirizzo e telefono si compilano da soli'
+            : 'Cerca il fornitore — magari lo conosciamo già'}
+        </span>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          // ⚠️ Invio = cerca su Maps, solo in questa modalità: qui il bottone è
+          // l'unica ricerca, e chi scrive un nome si aspetta che Invio la faccia.
+          onKeyDown={(e) => {
+            if (soloMaps && e.key === 'Enter') {
+              e.preventDefault()
+              void cercaMaps()
+            }
+          }}
           placeholder="Pasticceria Rossi"
-          aria-label="Cerca un fornitore fra quelli che conosciamo"
+          aria-label={
+            soloMaps ? 'Cerca un fornitore su Google Maps' : 'Cerca un fornitore fra quelli che conosciamo'
+          }
         />
       </label>
 
@@ -224,7 +254,7 @@ export function CercaFornitore({
         ) : null
       ) : null}
 
-      {fatto && !cerco && risultati.length === 0 ? (
+      {!soloMaps && fatto && !cerco && risultati.length === 0 ? (
         <p className="cella-sub">
           {/* ⚠️ Si dice che è NORMALE, e si dice DOVE si è cercato. Senza,
               «nessun risultato» sembra un guasto della ricerca, e chi lo legge
@@ -332,8 +362,8 @@ export function CercaFornitore({
           equivalenti, e non lo sono.
           ⚠️ E si dice che si paga a chiamata: è la ragione per cui c'è un
           bottone invece di partire da sola. */}
-      {fatto && q.trim().length >= 2 ? (
-        <div className="cerca-fuori">
+      {soloMaps || (fatto && q.trim().length >= 2) ? (
+        <div className="cerca-fuori" style={soloMaps ? { borderTop: 'none', paddingTop: 0, marginTop: 0 } : undefined}>
           <label className="campo" style={{ margin: 0, flex: '1 1 160px' }}>
             <span>Zona in cui cercare</span>
             <input
@@ -347,10 +377,10 @@ export function CercaFornitore({
             type="button"
             className="btn btn-secondario small"
             onClick={() => void cercaMaps()}
-            disabled={cercoMaps}
+            disabled={cercoMaps || q.trim().length < 2}
             title="Cerca su Google Maps chi non è ancora fra i nostri. Questa ricerca si paga: parte solo premendo qui."
           >
-            {cercoMaps ? 'Cerco su Maps…' : 'Cerca anche su Google Maps'}
+            {cercoMaps ? 'Cerco su Maps…' : soloMaps ? 'Cerca su Google Maps' : 'Cerca anche su Google Maps'}
           </button>
         </div>
       ) : null}
