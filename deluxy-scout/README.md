@@ -1,8 +1,22 @@
 # Deluxy Scout
 
-> **07/09/2026 sera — sei richieste rifatte su `scout-ui` · IN LOCALE, NON PUBBLICATE**
-> (migrazioni **0120–0122 applicate** e verificate sul database; `tsc` 0 errori,
-> **116 test verdi** (18 nuovi); Metro compila; niente deploy: né web, né Edge)
+> **07/09/2026 sera — sei richieste rifatte su `scout-ui` · IN PRODUZIONE**
+> (push `33660898` su `origin/scout-ui`; Edge **`hubspot-sync`** e **`notifica-chiusura`**
+> deployate; web **`deluxy-scout-e5q2qlhep`** con le 4 verifiche di `deploy-web.sh`
+> verdi e i 7 marcatori trovati nel bundle vivo `entry-1b902817…`; migrazioni
+> **0120–0122 applicate**; `tsc` 0 errori, **116 test verdi**, 18 nuovi)
+>
+> **E le trattative già nate da una visita sono state ANNULLATE** (richiesta
+> dell'utente la sera stessa: «annulla tutte le trattative che derivano da una
+> visita»): **37 su 84 vive** (`scripts/annulla-trattative-da-visita.sql`,
+> idempotente, con la prova a secco). Riconosciute dall'impronta della vecchia
+> Edge: senza oggetto, canale e valore, senza ordine, e nate entro 5 minuti da
+> una visita dello stesso negozio — oppure, per le 14 di luglio senza
+> `created_at`, con la fase uguale a quella che l'esito della visita produceva.
+> Stanno in «Annullate», da dove si rimettono in gioco una per una. Restano
+> vive **47**, fra cui 6 di luglio che NON sono state toccate perché qualcuno le
+> aveva lavorate (valore o fase cambiati a mano: Flavio Castellani, Fred Perry,
+> Moorer, Roberto Festa) o non hanno visite (Armani Fiori, Balloon Planet).
 >
 > Le richieste le aveva fatte l'utente da UN ALTRO account Claude, in una
 > sessione cloud che ha pushato il ramo `claude/deluxy-scout-handoff-memory-xgrh2i`
@@ -84,13 +98,18 @@
 > ⚠️ **NON provato a schermo**: l'app è dietro login e non si entra al posto
 > dell'utente. Metro ricompila senza errori.
 >
-> **Per pubblicare (a comando dell'utente, in quest'ordine)**:
-> 1. `npx supabase functions deploy hubspot-sync` (senza, le visite creano deal);
-> 2. `npx supabase functions deploy notifica-chiusura` (senza, niente email —
->    la chiusura si salva lo stesso, e l'avviso dice che la mail non è partita);
-> 3. `bash scripts/deploy-web.sh`; marcatori da cercare nel bundle: «Apri una
->    trattativa», «Perché è persa», «Documenti e link allegati», «La settimana
->    giorno per giorno», «Il piano di oggi» (⚠️ accettando `\xNN` per gli accentati).
+> **Pubblicato così (07/09 sera, a comando «fai push e deploy»)**:
+> 1. push di `scout-ui` **fino al commit di Scout** (`git push origin 33660898:refs/heads/scout-ui`):
+>    i commit di altre sessioni committati DOPO restano a loro, e con HEAD che
+>    tocca solo `deluxy-scout/` l'`ignoreCommand` di Vercel non ricostruisce le
+>    altre app;
+> 2. `SUPABASE_ACCESS_TOKEN=$SUPABASE_PAT npx -y supabase@latest functions deploy hubspot-sync --project-ref … --no-verify-jwt`
+>    (è in `SENZA_JWT`: la sessione la verifica il codice) e `… deploy notifica-chiusura`
+>    (senza `--no-verify-jwt`, come `notifica-task`);
+> 3. Metro SPENTO, poi `bash scripts/deploy-web.sh`; marcatori controllati nel
+>    bundle vivo con un copione che accetta anche `\xNN`/`\uNNNN` («Perché è
+>    persa» in produzione è `Perch\xe9 \xe8 persa`).
+> ⚠️ Non provato a schermo dopo il deploy: l'app è dietro login.
 
 > **07/09/2026 — i preventivi fornitore si vedono DALLA TRATTATIVA · IN PRODUZIONE**
 > (deploy `deluxy-scout-yn46h6g4w`, 4 verifiche verdi e marcatori controllati
