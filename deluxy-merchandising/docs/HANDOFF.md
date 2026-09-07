@@ -136,13 +136,42 @@ settimane, cioè proprio il tempo in cui ci si lavora sopra.
   in `/impostazioni` (non l'ho toccato: è un dato scelto da chi ha collegato il
   negozio).
 
+✅ **PUSHATO E DEPLOYATO il 07/09** (utente: «fai push & deploy»). Push su
+`origin/scout-ui` col solito worktree + cherry-pick. Due deploy: il primo
+(`imagu727q`, 10:32) e il secondo (`aqzxv6k0p`, 10:47) con la correzione qui
+sotto. Verificato in produzione, tre chiamate di fila per pagina, tutte 200:
+`/prodotti` (globale e con l'ambito nuovo), `/anagrafica`, `/`,
+`/visual/rotazioni`. Il menù Ambito online mostra **BUsiness, cakedesign.me,
+deluxy.it, Flowers**; «Rotazione Fiori» dichiara **prossima 08 set 2026**; i
+cron registrati sul deploy sono **otto**, compreso
+`/api/cron/collezioni?negozio=Business%20Deluxy` alle 04:15.
+
+🔴 **Subito dopo il primo deploy la produzione ha dato 500 per qualche minuto:
+`FATAL: (EMAXCONN) max client connections reached, limit: 200`** — il tetto dei
+client del **pooler Supavisor**, condiviso da tutte le app del cluster (dal
+database si vedevano solo 31 connessioni: sono due limiti diversi, e guardare
+`pg_stat_activity` non dice niente su questo). Colpite Merchandising **e
+Personale**, che non avevo toccato; Orders, Budgets e CRM reggevano. Si è
+ripreso da solo in pochi minuti.
+- **La mia parte di colpa, corretta e deployata**: `brandDisponibili()` girava
+  le sue **due** letture in `Promise.all`, e quella funzione la chiama il
+  **layout**, cioè ogni pagina dell'app — raddoppiava le connessioni in volo su
+  tutto il sito nel momento peggiore, quando un deploy sostituisce le lambda e
+  le vecchie non si sono ancora spente. Ora vanno **in fila**. È la regola già
+  pagata qui il 21/08 («una query nuova si aggiunge in coda, non in parallelo,
+  finché non si è contato quante ne sono già in volo»), che avevo violato nel
+  punto più caldo possibile.
+- ⭐ **Da ricordare per ogni app del cluster**: il limite che ferma tutto non è
+  `connection_limit` della singola app ma i **200 client del pooler**, ed è
+  condiviso; un deploy è il momento di massima pressione, perché per qualche
+  minuto convivono istanze vecchie e nuove.
+
 **Da fare (in ordine):** dare `write_products` a Business Deluxy e premere
-«Verifica ora»; correggere `canaleVendite` del negozio nuovo; poi pubblicare le
-correzioni di oggi — **il cron nuovo e la regola delle foto entrano in vigore
-solo col deploy**, quindi finché non si pubblica il negozio nuovo non si
-aggiorna di notte e l'import notturno continua a scambiare le foto; assegnare
-gli SKU ai prodotti di Business Deluxy (gli script del 06/09 valgono già,
-servono i permessi); il resto sotto, al 06/09.
+«Verifica ora»; correggere `canaleVendite` del negozio nuovo (ora è «BUsiness»);
+assegnare gli SKU ai prodotti di Business Deluxy (gli script del 06/09 valgono
+già, servono i permessi); **domattina** guardare in fondo a `/collezioni` che
+il negozio nuovo abbia la sua riga «ok (durata N s)» delle 04:15 e che
+«Rotazione Fiori» sia scattata l'08/09; il resto sotto, al 06/09.
 
 ## 06/09/2026 — punto di ripresa del giorno prima
 
