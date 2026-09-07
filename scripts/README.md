@@ -79,6 +79,19 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs scripts/azzera
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens)
 - **Nota**: **irreversibile e in produzione** — lanciare sempre prima il conteggio. La lista si **ripopola** al primo giro di scoperta Google dalla Mappa e a ogni `import-anagrafiche.mjs`: se si vuole ripartire davvero da zero, non rilanciare l'import.
 
+### annulla-trattative-da-visita.sql — deluxy-scout
+Mette in **Annullate** (non cancella) le trattative che la vecchia sincronizzazione HubSpot apriva a ogni visita, prima della regola del 07/09/2026 (una visita non apre una trattativa). Le riconosce dall’impronta: senza oggetto, canale e valore, senza ordine, nate entro 5 minuti da una visita dello stesso negozio (per le righe di luglio senza `created_at`: la fase che l’esito della visita produceva). Idempotente: tocca solo le vive.
+
+```bash
+# 1) prova a secco: quante ne annullerebbe, senza toccare niente
+cd deluxy-scout && sed "s/^update deals$/select count(*) as candidate from deals/; s/^set annullata_il = now()$//; s/^returning id;$/;/" scripts/annulla-trattative-da-visita.sql > /tmp/prova.sql && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs /tmp/prova.sql
+# 2) annullamento (reversibile: da «Annullate» si rimettono in gioco una per una)
+cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs scripts/annulla-trattative-da-visita.sql
+```
+
+- **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens)
+- **Nota**: lanciato il 07/09/2026 sera: 37 annullate su 84 vive. Le trattative lavorate a mano (valore o fase cambiati) non rientrano nell’impronta e restano.
+
 ### migrate-prod.mjs — deluxy-mail
 Migrazione idempotente (create table/index/column `IF NOT EXISTS` + pulizia dei messaggi duplicati) applicata automaticamente a ogni build/deploy.
 
