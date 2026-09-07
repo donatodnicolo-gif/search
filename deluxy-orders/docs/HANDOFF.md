@@ -28,7 +28,7 @@ clienti, non ordini (i «clienti» di prova ci restano — da decidere).
 
 ### Verificato dal vivo (chiave di sola lettura temporanea, poi cancellata)
 `?q=ORDINETEST` → 0 (con `prove=incluse` → 2) · `?q=Caterina Testa` → 1 (il
-cliente vero resta) · `?aggiornatiDa=2026-09-06` 14.247 vs 14.272 (25 prove) ·
+cliente vero resta) · `?aggiornatiDa=2026-09-06` 14.247 vs 14.272 (25 prove non annullate; **43** in tutto col cliente «Test», 18 già fuori perché annullate) ·
 `/ordini/<id #12897>` → **410** «è un ordine di prova…», con `prove=incluse`
 200 · `/ricavi?anno=2026` 4.043 vs 4.056 ordini, lordo identico (le 16 prove
 con importo erano già fuori: annullate/VOIDED) · `/province` settembre 99 vs 102

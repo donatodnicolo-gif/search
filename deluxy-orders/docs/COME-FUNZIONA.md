@@ -1611,7 +1611,7 @@ omaggio o una riconsegna, cioè un ordine vero da lavorare. Restano quindi
 Nel registro di Orders (elenco, scheda, analisi, clienti) le prove **si vedono
 ancora**, con la salute «Non conforme»: è il posto dove si controlla che siano
 prove. Misurato il 07/09 sui dati veri: `/api/v1/ordini?aggiornatiDa=2026-09-06`
-14.247 contro 14.272 con `prove=incluse` (25 prove sul registro);
+14.247 contro 14.272 con `prove=incluse` (25 prove non annullate; le prove sono **43** in tutto, 18 già fuori perché annullate);
 `/api/v1/ricavi?anno=2026` 4.043 ordini contro 4.056, stesso lordo (le
 prove con importo erano già fuori perché annullate o stornate).
 
