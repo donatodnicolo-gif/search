@@ -17,6 +17,7 @@ type Proposta = {
   mestiere: string
   candidati: { id: string; insegna: string; posizione: number; consegnaDaPartner: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; fonte: string }[]
   preventivi: { codice: string; prodotto: string; conPrezzo: { partnerId: string; partner: string; prezzo: number }[] }[]
+  aQuantita: { codice: string; prodotto: string; pezzi: number | null; offerte: { partnerId: string; partner: string; unitario: number; totale: number | null }[] }[]
   note: string[]
   piattaforma: 'ok' | 'non-risponde'
 }
@@ -74,6 +75,16 @@ export function PropostaVendita({ ordineId, valuta }: { ordineId: string; valuta
       ) : (
         <p className="descrizione">Nessun partner da proporre in automatico.</p>
       )}
+      {/* ⭐ 07/09 sera: i prodotti A NUMERO. Il prezzo non è il pubblico meno la percentuale:
+          è il prezzo unitario del partner per i pezzi, e va guardato prima di proporre. */}
+      {(p.aQuantita ?? []).map((v) => (
+        <div key={v.codice} className="descrizione" style={{ marginBottom: 6 }}>
+          <strong>{v.prodotto}</strong> è un prodotto a numero{v.pezzi ? ` · ${v.pezzi} pezzi` : ' (pezzi non leggibili dalla riga)'}.{' '}
+          {v.offerte.length
+            ? <>Col prezzo unitario dei partner: {v.offerte.map((o) => `${o.partner} ${o.totale != null ? euro(o.totale) : '—'} (${euro(o.unitario)} l'uno)`).join(' · ')}.</>
+            : <>Nessun partner ha un prezzo unitario: chiedilo e scrivilo in <a href="/vendite">Vendite → Liste di prodotto</a>.</>}
+        </div>
+      ))}
       {/* ⭐ 06/09 sera: i prodotti A PREVENTIVO. Senza un prezzo dato dal partner la vendita
           non si accetta, e la piattaforma non la smista da sola: si telefona e si scrive. */}
       {(p.preventivi ?? []).map((v) => (

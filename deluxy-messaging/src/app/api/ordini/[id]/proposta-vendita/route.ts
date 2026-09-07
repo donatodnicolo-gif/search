@@ -21,6 +21,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const provincia = pezzi.stato === 'ok' ? pezzi.spedizione?.provincia ?? '' : ''
   // Gli SKU servono a riconoscere i prodotti A PREVENTIVO: senza preventivo non si propone.
   const sku = pezzi.stato === 'ok' ? pezzi.righe.map((r) => r.sku).filter(Boolean) : []
-  const proposta = await propostaVendita({ negozioNome: ordine.negozioNome ?? '', totale: ordine.totale ?? 0, righe, provincia: provincia || ordine.citta || '', sku })
+  const proposta = await propostaVendita({ negozioNome: ordine.negozioNome ?? '', totale: ordine.totale ?? 0, righe, provincia: provincia || ordine.citta || '', sku, righe2: pezzi.stato === 'ok' ? pezzi.righe.map((r) => ({ titolo: r.titolo, variante: r.variante, sku: r.sku, quantita: r.quantita })) : [] })
   return NextResponse.json({ ordine: { id: ordine.id, numero: ordine.numero, negozio: ordine.negozioNome }, proposta })
 }

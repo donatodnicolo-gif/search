@@ -56,6 +56,20 @@ type PrezzoDallaPiattaforma = {
 export const TIPOLOGIE_CON_LISTA = ['quantita', 'preventivo'] as const
 
 /**
+ * ⭐ 07/09/2026 — LA CHIAVE CON CUI SI RITROVA IL PRODOTTO.
+ *
+ * I prezzi ricavati dai DDT sono nati in piattaforma come prodotti UNICI del partner, con lo
+ * sku `PP-<codice del prodotto di catalogo>-<id partner>`: «PP-MPSXZK-1-cmt5ta48y…» è il
+ * prezzo che Il Pappagallo fa sulla variante MPSXZK-1 (Vintage Ribbon Cake da 6).
+ * Se li salvassimo con quel codice, cercando per lo SKU che arriva sull'ordine (MPSXZK-1) non
+ * li troverebbe nessuno: la lista sarebbe piena e muta. Qui si torna al codice del catalogo.
+ */
+export function codiceDiCatalogo(sku: string): string {
+  const m = /^PP-(.+)-[a-z0-9]{20,}$/i.exec(sku.trim())
+  return (m ? m[1] : sku).trim().toUpperCase()
+}
+
+/**
  * IMPORTA i prezzi già praticati dalla piattaforma consegne (patti di riconciliazione
  * accettati e listini dei prodotti unici) per i prodotti «a quantità» e «a preventivo».
  *
@@ -71,10 +85,16 @@ export async function importaPrezziDallaPiattaforma(provincia?: string): Promise
   if (esito.stato !== 'ok') {
     return { letti: 0, create: 0, aggiornate: 0, lasciate: 0, errore: esito.stato === 'non-configurato' ? 'Piattaforma non configurata (Impostazioni).' : esito.stato === 'errore' ? esito.messaggio : 'Prezzi non letti.' }
   }
-  const righe = esito.dati.righe.filter((r) => r.sku && r.tipologia && (TIPOLOGIE_CON_LISTA as readonly string[]).includes(r.tipologia))
+  // Entrano: i prodotti «a quantità» e «a preventivo», e i PREZZI RICAVATI DAI DDT (sku PP-*),
+  // che in piattaforma sono prodotti unici del partner ma qui sono esattamente quello che
+  // serve: quanto quel partner fa quel prodotto. Restano fuori i «mix» (lì comanda la regola
+  // del territorio) e il resto del listino dei partner, che non è una lista di prodotto.
+  const righe = esito.dati.righe.filter(
+    (r) => r.sku && (/^PP-/i.test(r.sku) || (r.tipologia && (TIPOLOGIE_CON_LISTA as readonly string[]).includes(r.tipologia))),
+  )
   let create = 0, aggiornate = 0, lasciate = 0
   for (const r of righe) {
-    const chiave = { codice: r.sku!.trim().toUpperCase(), variante: r.variante ?? '', partnerId: r.partnerId, provincia: r.provincia ?? '' }
+    const chiave = { codice: codiceDiCatalogo(r.sku!), variante: r.variante ?? '', partnerId: r.partnerId, provincia: r.provincia ?? '' }
     const gia = await db.prezzoProdottoPartner.findUnique({ where: { codice_variante_partnerId_provincia: chiave } })
     if (gia && gia.fonte === 'preventivo') { lasciate++; continue }
     const dati = {
@@ -85,6 +105,7 @@ export async function importaPrezziDallaPiattaforma(provincia?: string): Promise
       prezzo: r.prezzoPartner,
       pubblico: r.pubblico,
       fonte: 'piattaforma',
+      nota: /^PP-/i.test(r.sku!) ? `prezzo ricavato dai DDT delle consegne (${r.sku})` : '',
     }
     if (gia) { await db.prezzoProdottoPartner.update({ where: { id: gia.id }, data: dati }); aggiornate++ }
     else { await db.prezzoProdottoPartner.create({ data: { ...chiave, ...dati } }); create++ }

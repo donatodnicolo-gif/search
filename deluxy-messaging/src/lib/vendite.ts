@@ -181,6 +181,36 @@ export async function importaListeDallaPiattaforma(): Promise<{ aree: number; cr
 
 // ── LA PROPOSTA SU UN ORDINE ──────────────────────────────────────────────────
 
+/** Un prodotto come lo espone la piattaforma consegne (canale app). */
+type ProdottoPiattaforma = {
+  id: string
+  nome: string
+  sku: string
+  prezzo: number | null
+  prezzoPubblico: number | null
+  tipo: string
+  tipologia: string | null
+  varianti?: { id: string; nome: string; sku: string; prezzo: number | null; prezzoPubblico: number | null }[]
+  partnerId: string
+  partner: string
+}
+
+/** Il numero di pezzi scritto in un titolo: «12 rose», «Praline 16», «x 24». */
+export function numeroPezzi(testo: string): number | null {
+  const t = (testo ?? '').toLowerCase()
+  const m =
+    t.match(/(?:^|[^d])(d{1,3})s*(?:xs*)?(?:rose|rosa|steli|stelo|tulipani|girasoli|praline|cupcake|macaron|cioccolatini|pezzi|pz)/) ||
+    t.match(/(?:x|per)s*(d{1,3})/)
+  return m ? Number(m[1]) : null
+}
+
+/** La parola che identifica un fiore o un dolce dentro un titolo, per legarlo al listino. */
+function parolaChiave(nome: string): string {
+  const pulito = (nome ?? '').replace(/[()]/g, ' ').trim()
+  const parole = pulito.split(/s+/).filter((p) => p.length > 3)
+  return parole[1] ?? parole[0] ?? pulito
+}
+
 export type PropostaVendita = {
   provincia: string | null
   guantiBianchi: boolean
@@ -195,6 +225,8 @@ export type PropostaVendita = {
   candidati: { id: string; insegna: string; posizione: number; consegnaDaPartner: boolean; consegnaInProvincia: boolean; minimoOrdine: number | null; raggioKm: number | null; fonte: string }[]
   /** ⭐ 06/09 sera: i prodotti dell'ordine che vanno A PREVENTIVO, con chi un prezzo l'ha già dato. */
   preventivi: { codice: string; prodotto: string; conPrezzo: { partnerId: string; partner: string; prezzo: number }[] }[]
+  /** ⭐ 07/09: i prodotti A NUMERO dell'ordine, coi pezzi e il prezzo unitario dei partner. */
+  aQuantita: { codice: string; prodotto: string; pezzi: number | null; offerte: { partnerId: string; partner: string; unitario: number; totale: number | null }[] }[]
   note: string[]
   piattaforma: 'ok' | 'non-risponde'
 }
@@ -221,6 +253,8 @@ export async function propostaVendita(input: {
   mestiere?: string
   /** Gli SKU delle righe dell'ordine: servono a riconoscere i prodotti A PREVENTIVO. */
   sku?: string[]
+  /** Le righe intere dell'ordine (titolo, variante, sku, quantità): servono al controllo a monte. */
+  righe2?: { titolo?: string; variante?: string; sku?: string; quantita?: number }[]
 }): Promise<PropostaVendita> {
   const note: string[] = []
   const sigla = siglaProvincia(input.provincia) || input.provincia.trim().toUpperCase() || null
@@ -264,30 +298,74 @@ export async function propostaVendita(input: {
       if (sottoMinimo.length) note.push(`Sotto il minimo d'ordine di: ${sottoMinimo.map((p) => `${p.insegna} (${p.minimoOrdine} €)`).join(', ')}.`)
     }
   }
-  // ⭐ 06/09/2026 sera (regola utente): «i prodotti a preventivo richiedono il preventivo a
-  // tutti i partner che fanno quel mestiere: prima di poter accettare la vendita il Customer
-  // Service deve inserire il preventivo dato dal partner». Qui si dice quali righe dell'ordine
-  // sono a preventivo e chi un prezzo l'ha già dato: la piattaforma consegne, dal canto suo,
-  // non le smista da sola.
+  // ⭐ 06/09 sera + 07/09 (regole utente) — IL CONTROLLO A MONTE SUL PRODOTTO.
+  //
+  // Prima di proporre, il Customer Service guarda CHE TIPO di prodotto è, perché il prezzo si
+  // fa in tre modi diversi e la percentuale non basta:
+  //  · «a preventivo» → serve il prezzo dato dal partner, altrimenti non si accetta;
+  //  · «a quantità» (l'utente: «rose rosse 9 è un prodotto a numero») → il prezzo è il
+  //    prezzo UNITARIO del partner per il numero di pezzi, non il pubblico meno lo sconto;
+  //  · «mix» → vale la regola del territorio, ed è il caso già coperto sopra.
+  //
+  // ⚠️ Lo SKU di una riga d'ordine è quello della VARIANTE (DLEIXX-1, non DLEIXX): si cerca
+  // per entrambi, e il numero di pezzi si legge dal nome della variante («9») o dal titolo.
   const preventivi: PropostaVendita['preventivi'] = []
-  for (const codice of [...new Set((input.sku ?? []).map((x) => (x ?? '').trim()).filter(Boolean))]) {
-    const esito = await leggiDallaPiattaforma<{ items?: { sku: string | null; name: string; tipologiaVendita?: string | null }[] }>(
+  const aQuantita: PropostaVendita['aQuantita'] = []
+  const codici = [...new Set((input.righe2 ?? []).map((r) => (r.sku ?? '').trim()).filter(Boolean))]
+  for (const codice of codici) {
+    const esito = await leggiDallaPiattaforma<{ prodotti?: ProdottoPiattaforma[] }>(
       `/api/v1/app/prodotti?q=${encodeURIComponent(codice)}`,
     )
     if (esito.stato !== 'ok') continue
-    const p = (esito.dati.items ?? []).find((x) => (x.sku ?? '').trim().toUpperCase() === codice.toUpperCase())
-    if (!p || p.tipologiaVendita !== 'preventivo') continue
-    const scritti = await db.prezzoProdottoPartner.findMany({ where: { codice: codice.toUpperCase() } })
-    const conPrezzo = scritti
-      .filter((r) => r.prezzo > 0 && (!r.provincia || r.provincia === sigla))
-      .map((r) => ({ partnerId: r.partnerId, partner: r.partner, prezzo: r.prezzo }))
-    preventivi.push({ codice: codice.toUpperCase(), prodotto: p.name, conPrezzo })
-    note.push(
-      conPrezzo.length
-        ? `«${p.name}» va a preventivo: ${conPrezzo.map((c) => `${c.partner} ${c.prezzo} €`).join(', ')}.`
-        : `«${p.name}» va a preventivo e nessun partner ha ancora dato un prezzo: chiedilo e scrivilo in Vendite → Liste di prodotto, poi la vendita si può accettare.`,
+    const su = (x: string | null | undefined) => (x ?? '').trim().toUpperCase()
+    const p = (esito.dati.prodotti ?? []).find(
+      (x) => su(x.sku) === su(codice) || (x.varianti ?? []).some((v) => su(v.sku) === su(codice)),
     )
+    if (!p) continue
+    const variante = (p.varianti ?? []).find((v) => su(v.sku) === su(codice)) ?? null
+    const riga = (input.righe2 ?? []).find((r) => su(r.sku) === su(codice))
+    const nome = `${p.nome}${variante ? ` · ${variante.nome}` : ''}`
+
+    if (p.tipologia === 'preventivo') {
+      const scritti = await db.prezzoProdottoPartner.findMany({ where: { codice: { in: [su(codice), su(p.sku)] } } })
+      const conPrezzo = scritti
+        .filter((r) => r.prezzo > 0 && (!r.provincia || r.provincia === sigla))
+        .map((r) => ({ partnerId: r.partnerId, partner: r.partner, prezzo: r.prezzo }))
+      preventivi.push({ codice: su(codice), prodotto: nome, conPrezzo })
+      note.push(
+        conPrezzo.length
+          ? `«${nome}» va a preventivo: ${conPrezzo.map((c) => `${c.partner} ${c.prezzo} €`).join(', ')}.`
+          : `«${nome}» va a preventivo e nessun partner ha ancora dato un prezzo: chiedilo e scrivilo in Vendite → Liste di prodotto, poi la vendita si può accettare.`,
+      )
+      continue
+    }
+
+    if (p.tipologia === 'quantita') {
+      // I pezzi: il nome della variante è già il numero («9», «12»); altrimenti si legge dal
+      // titolo. Per la quantità della riga si moltiplica: 2 confezioni da 9 sono 18 steli.
+      const daVariante = variante && /^\d{1,3}$/.test(variante.nome.trim()) ? Number(variante.nome.trim()) : null
+      const daTitolo = numeroPezzi(`${riga?.titolo ?? ''} ${p.nome}`)
+      const unitari = daVariante ?? daTitolo
+      const pezzi = unitari ? unitari * (riga?.quantita ?? 1) : null
+      // I prezzi unitari dei partner: quelli scritti nelle liste di prodotto (listino del
+      // fioraio importato dalla piattaforma, o preventivo raccolto qui).
+      const scritti = await db.prezzoProdottoPartner.findMany({
+        where: { OR: [{ codice: { in: [su(codice), su(p.sku)] } }, { prodotto: { contains: parolaChiave(p.nome), mode: 'insensitive' } }] },
+      })
+      const offerte = scritti
+        .filter((r) => r.prezzo > 0 && (!r.provincia || r.provincia === sigla))
+        .map((r) => ({ partnerId: r.partnerId, partner: r.partner, unitario: r.prezzo, totale: pezzi ? Math.round(r.prezzo * pezzi * 100) / 100 : null }))
+        .sort((a, b) => a.unitario - b.unitario)
+      aQuantita.push({ codice: su(codice), prodotto: nome, pezzi, offerte })
+      note.push(
+        pezzi === null
+          ? `«${nome}» è un prodotto a numero, ma il numero di pezzi non si legge dalla riga: mettilo a mano prima di fare il prezzo.`
+          : offerte.length
+            ? `«${nome}» è un prodotto a numero: ${pezzi} pezzi. Col prezzo unitario dei partner sarebbero ${offerte.map((o) => `${o.partner} ${o.totale} € (${o.unitario} € l'uno)`).join(', ')} — questo prezzo vale più della percentuale.`
+            : `«${nome}» è un prodotto a numero (${pezzi} pezzi) ma nessun partner ha un prezzo unitario: chiedilo e scrivilo in Vendite → Liste di prodotto.`,
+      )
+    }
   }
 
-  return { provincia: sigla, guantiBianchi, speseConsegna, extraPagato, anomalia, conPartner, sconto, prezzoPubblico, prezzoFornitore, mestiere, candidati, preventivi, note, piattaforma: stato ? 'ok' : 'non-risponde' }
+  return { provincia: sigla, guantiBianchi, speseConsegna, extraPagato, anomalia, conPartner, sconto, prezzoPubblico, prezzoFornitore, mestiere, candidati, preventivi, aQuantita, note, piattaforma: stato ? 'ok' : 'non-risponde' }
 }
