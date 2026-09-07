@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **5 settembre 2026**.
+> Documento di ripartenza. Aggiornato: **7 settembre 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,167 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 07/09 (11:41) — IN PRODUZIONE `a02fdfc8` (deploy `deluxy-mail-26vp0zskh`, build nel cloud)
+
+Alias `deluxy-mail.vercel.app` → questo deployment (verificato con `vercel inspect`), Ready,
+`/api/health` `{ok:true, database:true, scrivibile:true}`, home 307 in 0,13-0,32 s.
+
+🔴 **La precompilata resta impossibile, e ora si sa fino a dove.** I due rimedi noti FUNZIONANO:
+83 symlink sostituiti con copie vere (6,4 MB) e 89 `.vc-config.json` ripuliti dalle voci `.env*`
+del `filePathMap`. Superati quelli, il CLI si ferma su un **terzo** muro:
+`Builder returned invalid routes: should match pattern "^[a-zA-Z0-9_ :;.,\"'?!(){}\[\]@<>=+*#$&\`|~^%/-]+$"`.
+Il `config.json` generato da Next ha **11 rotte su 182 che contengono `\`**, carattere non
+ammesso da quel pattern (`^/((?!.+\\.rsc).+?)(?:/)?$`, `/\\.prefetch\\.rsc$`…). Non è roba
+nostra: le genera Next, e la build nel cloud le accetta senza fiatare. Finché il CLI valida
+così, **AI Mail si pubblica con `npx vercel deploy --prod --yes`** (~2 min di Build CPU).
+
+⚠️ E una trappola già in memoria in cui sono ricascato: `Set-Content -Encoding utf8` su
+PowerShell 5.1 scrive **UTF-8 CON BOM**, e i 90 `.vc-config.json` sono diventati JSON non
+valido (`Unexpected token '﻿'`). Per riscrivere un JSON da PowerShell serve
+`[System.IO.File]::WriteAllText($f, $testo, (New-Object System.Text.UTF8Encoding($false)))` —
+e attenzione: `ReadAllText` toglie il BOM dalla stringa, quindi confrontare prima/dopo dice
+«nessun cambiamento» mentre il file su disco ce l'ha ancora. Si controlla sui BYTE
+(`239 187 191`). Vedi [[trappola-powershell-utf8]].
+
+✅ **PRIMA → DOPO, verificato sul database di produzione.** `pg_stat_statements` alle 11:43:
+**5.497 chiamate, 15.278.552 ms, media 2.779,4 ms**, e cresceva di 288 chiamate al giorno.
+Alle 11:55: **5.498 chiamate** — l'ultima è quella delle **11:45:44**, il primo giro di cron col
+codice nuovo, che ha trovato zero righe e ha scritto il segnalino
+`html.pulizia.dormi_fino_a` (risveglio 08/09 11:45:44). **I due giri di cron successivi non
+hanno fatto nessuna query.** Da 288 giri al giorno a 1. Conferma sulle 24 ore da riprendere
+l'08/09, e con lei il riscontro sull'elenco della posta: se la contesa era davvero quella, le
+oscillazioni 7015 / 1281 / 1,9 ms devono restringersi.
+
+### 07/09 (pomeriggio) — «È lentissima l'apertura dell'app e il refresh»: misurato, e tre correzioni
+
+Segnalazione dell'utente. **La mia prima diagnosi era sbagliata** e l'ho ritirata: avevo
+accusato l'indice mancante su `platform.Delivery.parentDeliveryId` e le connessioni «idle in
+transaction» del Customer Service. L'indice **esiste ed è in uso** (`idx_scan` 1520; l'avevo
+cercato alle 11:20, prima che l'utente lo creasse, e non avevo riletto); le idle in transaction
+venti minuti dopo erano **zero**. Lezione già scritta nel registro della piattaforma e ripetuta
+qui: *sotto contesa si misura il PIANO della singola query, mai il tempo di risposta* — e
+un'assenza letta su un cluster che altri stanno cambiando si rilegge prima di accusare.
+
+Misure vere (`pg_stat_statements` + EXPLAIN ANALYZE, verificate due volte):
+
+- 🔴 **La query più costosa dell'INTERO cluster condiviso era nostra**: `pulisciHtmlVecchio()`
+  chiamata a ogni giro del cron `*/5 * * * *`. **5.493 chiamate, 15.266.107 ms (4 h 14 min di
+  CPU del database), media 2.779 ms, massimo 76.151 ms, 405 righe rese in tutto.** Nessun indice
+  la sostiene: Index Scan su `Messaggio_pkey` con **44.514 righe scartate** e 15.465 buffer
+  (~121 MB) per chiamata. Righe ancora da pulire: **1**. Cioè ~1,4 GB/ora di ricambio su 224 MB
+  di `shared_buffers` condivisi da 14 app, per non fare niente.
+- La stessa query dell'elenco, **stesso piano e stessi buffer**, misurata sette volte: 7015 /
+  1281 / 849 / 16 / 5 / 2,6 / 1,9 ms. Non è JIT (assente), non è TOAST, non è il pooler: è
+  contesa di CPU sul cluster — e una fetta grossa di quella contesa era la riga qui sopra.
+- **Aprire l'app e ricaricare la pagina** facevano partire `drena()` (`SyncButton`): fino a
+  **50 `POST /api/leggi-posta` in fila**, al montaggio E a ogni `focus`/`visibilitychange`.
+  Budget **per casella, non per richiesta**: 4 caselle × (7 s + 6 s) = **52 s nominali contro
+  `maxDuration = 60`**, controllato DOPO il blocco → si sfora sempre. Dentro, l'AI col client
+  `timeout: 45_000, maxRetries: 2` (fino a 135 s per una chiamata) e l'IMAP **senza alcun
+  timeout dichiarato**. In produzione, 09:01-09:02 UTC: tre `Task timed out after 60 seconds`.
+
+**Le tre correzioni fatte** (tsc 0):
+
+1. `htmlServer.ts` — la pulizia si **riaddormenta 24 ore** quando un giro non trova niente
+   (segnalino `html.pulizia.dormi_fino_a` in `Impostazione`, letto per chiave primaria: costo
+   zero). Non è «finito per sempre»: le mail invecchiano, al risveglio riprende un lotto per
+   giro. Nessun indice nuovo sul cluster condiviso.
+2. `SyncButton.tsx` — niente scarico al montaggio; al ritorno sull'app **un giro solo** e non
+   più spesso di `RITORNO_MIN_MS` (2 min); il **pulsante** «Aggiorna posta» fa lo scarico
+   completo (capacità spostata su chi decide, non tolta). `sync.ts` — `BUDGET_GIRO_MS = 40_000`
+   per RICHIESTA, spartito fra le caselle rimaste, con uscita alla scadenza.
+3. `imap.ts` — `greetingTimeout` 8 s, `connectionTimeout` 10 s, `socketTimeout` 25 s.
+   `ai.ts` — `DENTRO_LO_SCARICO = { timeout: 12_000, maxRetries: 0 }` su `giudicaSpam` e
+   `rilevaETraduci`, le due chiamate che girano nel ciclo di salvataggio.
+
+Tutto registrato in `deluxy-design-system/SEGNALAZIONI-PERFORMANCE.md` (4 voci) con le misure
+PRIMA. **Misura DOPO da riprendere su `pg_stat_statements` 24 ore dopo la pubblicazione.**
+Restano da concordare: `DROP INDEX` di `Messaggio_utenteId_direzione_cestinato_archiviato_data_idx`
+(`idx_scan = 0`, duplicato esatto di `Messaggio_posta_idx`) e la finestra `take: 800` → 400
+dell'elenco (574 conversazioni lette, 300 mostrate: ~44 ms e ~350 KB per pagina).
+
+### 07/09 (10:48) — IN PRODUZIONE: `b70c797b` (deploy `deluxy-mail-e0kkmaz6u`, build nel cloud)
+
+Su comando dell'utente («si»). Pushato su `origin/scout-ui` dopo rebase (due giri: nel frattempo
+altre sessioni avevano pubblicato Orders e Scout; l'unico conflitto era il registro di
+`MANUALE-DELUXY.html`, risolte tenendo TUTTE le righe, anche l'aggiornamento altrui
+«In locale, da pubblicare» → «Pubblicato»).
+
+- `vercel inspect deluxy-mail.vercel.app` → `e0kkmaz6u`, Ready, creato 10:45. `/api/health`
+  `{ok:true, database:true, scrivibile:true}`; la home risponde 307 → `/login` in 0,36 s.
+- ⚠️ **Due deploy identici** dello stesso commit (`758lyg4ns` e `e0kkmaz6u`): il primo comando era
+  in pipe con `tail`, il secondo con `head` — il SIGPIPE ha troncato l'output, non il deploy.
+  Lezione: `vercel deploy` non si mette in pipe, si lascia scorrere.
+- 🔴 **La precompilata è ancora sbarrata**, ma per un motivo NUOVO. La build locale
+  (`vercel build --prod`) ora **riesce**; è il `deploy --prebuilt` a fallire due volte:
+  1. `ENOENT … functions/api/interno/drive/oauth.func` — gli 83 **symlink** che Windows non
+     carica ([[trappola-deploy-prebuilt-symlink-windows]]). Sostituirli con copie funziona
+     (6,4 MB in tutto), **ma il primo script li ha CANCELLATI senza ricopiarli**: in PowerShell
+     5.1 `$_.Target` è un `String[]`, `Join-Path` lo rifiuta, e la `Directory.Delete` girava lo
+     stesso. Va preso `@($_.Target)[0]`, e si **copia prima, si cancella dopo** (copia in
+     `.copia`, delete del link, rename). Rimedio se succede: `rm -rf .vercel/output` e ricostruire.
+  2. Poi `ENOENT: lstat '/vercel/path0/.env'` — ogni `.vc-config.json` porta `.env`,
+     `.env.local`, `.env.example` nel `filePathMap` (Next traccia i file che `@next/env` legge),
+     ma `.vercelignore` li esclude dal pacchetto e il CLI li cerca a vuoto. **Rimedio già noto
+     e non provato qui**: togliere le voci `.env*` dal `filePathMap` di tutti i
+     `.vc-config.json` dopo ogni build (in produzione le variabili arrivano da Vercel).
+  Oggi si è pubblicato con **build nel cloud** (~2 min di Build CPU): `npx vercel deploy --prod
+  --yes`. Al prossimo giro vale la pena ritentare la precompilata coi due rimedi in fila.
+
+### 07/09 — «Come mai compare Chanel?»: il badge cliente si prendeva TUTTO il dominio deluxy.it
+
+Domanda dell'utente su una notifica d'ordine Shopify che portava il badge verde
+«Chanel Roma Piazza Di Spagna». **Verificato sul database di produzione, non dedotto**:
+
+- Il mittente di `[DELUXY] Ordine #12895 effettuato da Massimiliano Titta` è **`info@deluxy.it`**
+  (`Messaggio.mittente`, tre copie della stessa notifica su caselle diverse).
+- Il badge verde è `clienteNome` in `RigaMail.tsx` (titolo «Cliente del registro Anagrafiche»),
+  calcolato in `ListaPosta.tsx` con `idxClienti.perEmail.get(mittente) || perDominio.get(dominio)`.
+- `costruisciIndice()` in `anagrafiche.ts` metteva nel dizionario **il dominio** di ogni recapito
+  dei partner attivi, escludendo solo i provider generici (`DOMINI_GENERICI`: gmail, libero…).
+  **`deluxy.it` non era nella lista**: basta UN partner del registro con un recapito su un nostro
+  dominio e si intesta tutto il dominio, primo arrivato primo servito (`!perDominio.has(dom)`).
+- Dimensione del guaio: **13.904 mail in arrivo** hanno un mittente `@deluxy.it`. Stesso guaio,
+  silenzioso, sull'API `GET /api/v1/messaggi?cliente=…` (`recapitiCliente`), quella che il
+  **Finance** usa per la card «Posta con il cliente»: chiedendo quel partner rispondeva con la
+  posta di casa.
+- **Correzione** (`src/lib/anagrafiche.ts`): nuova `dominiPropri()` che legge i domini delle
+  **caselle configurate** (`Account.email` → `deluxy.it`, `deluxyflowers.com`; letti dal DB, non
+  da una lista a mano che invecchierebbe). Un recapito su un nostro dominio **non entra
+  nell'indice**, né per email esatta né per dominio; le altre email dello stesso partner
+  continuano a valere. `npx tsc --noEmit`: 0 errori.
+- ⚠️ **Non verificabile in locale**: la chiave di Anagrafiche sta nel DB **cifrata con
+  l'`APP_SECRET` di PRODUZIONE**, e l'`APP_SECRET` del `.env` locale è un altro (`decifra` →
+  «unable to authenticate data»); `vercel env pull` restituisce `[SENSITIVE]` per i 12 segreti
+  (vedi [[trappola-vercel-env-sensitive-pull]]). Quindi in locale l'indice clienti è **vuoto** e
+  il badge non compare né prima né dopo. Per provarlo qui basta una riga
+  `ANAGRAFICHE_PARTNER_KEY=…` (sola lettura) nel `.env` del worktree.
+- 🔴 **Resta un dato sbagliato in ANAGRAFICHE**: quel partner ha un recapito `@deluxy.it`. Chi è
+  si legge da https://deluxy-mail.vercel.app/clienti (la pagina Clienti mostra email e domini di
+  ciascuno) o cercando «Chanel Roma Piazza Di Spagna» nel registro. La toppa di AI Mail la rende
+  innocua, non la corregge.
+
+### 07/09 — Ripartenza: worktree allineato, typecheck verde, locale acceso sul DB di produzione
+
+Punto di ripresa di una sessione nuova (l'utente ha chiesto «lavora su deluxy-mail, leggi handoff
+e aggiorna memoria, lavora prima su locale»). Verificato, non dedotto:
+
+- **Si lavora nel worktree** `C:\Users\nicol\AppData\Local\Temp\wt-mail` (branch
+  `mail-riassunto-singola`). `git diff --stat mail-riassunto-singola scout-ui -- deluxy-mail` è
+  **vuoto**: per AI Mail i file sono identici a `origin/scout-ui`. Il branch è 219 commit indietro
+  per le altre app e 0 avanti; `git merge --ff-only` e `git reset --hard` sono stati **bloccati dal
+  classificatore dell'auto mode**, quindi l'allineamento formale lo lancia l'utente se serve.
+- **`scoutwt/` è rientrato**: `scout-ui` allineato a origin (0 avanti / 0 indietro) e il working
+  tree di `deluxy-mail` lì è **pulito** — la trappola del 04/09 (i 21 file indietro pronti a essere
+  ricommittati da un'altra sessione) **non c'è più**. Resta solo `zz-diag.mjs` non tracciato.
+- ⚠️ **`app/deluxy-mail` è ancora la copia del 20/07** (il suo `HANDOFF.md` porta quella data):
+  non è una versione, è un fossile. Non lavorarci e non deployare da lì.
+- **`npx tsc --noEmit`: 0 errori** (dopo `prisma generate`).
+- **Produzione sana**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}`.
+- **Locale acceso**: `npm run dev` dal worktree → http://localhost:3070, `/api/health` 200.
+  ⚠️ In `wt-mail` c'è **solo `.env`** (niente `.env.local`): il server locale parla col **database
+  di PRODUZIONE**. Va bene per guardare; ogni azione che scrive tocca i dati veri.
 
 ### 04/09 (20:45) — IN PRODUZIONE: `ae574132` pubblicato con build nel cloud (`dpl_8YhXobY4Pae5DWBMLSGwR5vt8ZuX`)
 

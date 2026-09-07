@@ -400,8 +400,20 @@ divergere — che è il motivo per cui Scripts esiste.
 
 ## 6a. Scarico della posta in background
 
-Quando apri l'app, la posta **nuova** arretrata si scarica da sola, un blocco alla
-volta, mentre continui a usare l'app (non si blocca nulla). In **Impostazioni** puoi
+> ⚠️ **Cambiato il 07/09/2026.** Fino a quel giorno **aprire l'app** — e ricaricare la
+> pagina, e ogni volta che tornavi sulla scheda — faceva partire lo scarico dell'intero
+> arretrato: fino a **50 richieste in fila**, ognuna con IMAP, AI e scritture. L'utente
+> l'ha detto così: «è lentissima l'apertura dell'applicazione e il refresh della pagina».
+> Ora all'apertura **non parte niente**: la posta arriva col **cron ogni 5 minuti** (che
+> gira comunque, anche ad app chiusa), col **timer** dell'automatico, e tornando sull'app
+> — ma lì un giro solo, e non più spesso di due minuti. Lo scarico completo
+> dell'arretrato è rimasto tutto: lo fa il pulsante **«Aggiorna posta»**, cioè quando sei
+> tu a chiederlo. Nello stesso giro i secondi di una richiesta si **spartiscono fra le
+> caselle** invece di darne 13 a ciascuna (con 4 caselle si sforavano i 60 secondi di
+> Vercel e il giro si buttava), e IMAP e AI hanno finalmente un tempo massimo dichiarato.
+
+Col pulsante **«Aggiorna posta»** la posta **nuova** arretrata si scarica tutta, un
+blocco alla volta, mentre continui a usare l'app (non si blocca nulla). In **Impostazioni** puoi
 anche attivare **"Scarica tutta la posta di sempre (in background)"**: con l'app aperta
 scarica a poco a poco anche l'archivio più vecchio, fino a completare la casella, e poi
 si ferma da solo. Utile la prima volta o dopo aver collegato una casella con molto
@@ -655,7 +667,15 @@ quando la apri. Ora funziona così:
   traduzioni. Anche rispondendo o inoltrando, la citazione mantiene la formattazione:
   l'app se la va a prendere da sola;
 - la pulizia del pregresso è **graduale** (mille mail per giro di sincronizzazione):
-  in poche ore il database si sgonfia, e da lì non ricresce più.
+  in poche ore il database si sgonfia, e da lì non ricresce più;
+- **e quando non c'è più niente da pulire, si riaddormenta per 24 ore** (07/09/2026).
+  La ricerca delle mail da alleggerire non ha un indice che la sostenga: per trovarle
+  scandisce tutta la tabella. Finito il pregresso continuava a farlo **ogni cinque
+  minuti per nulla** — 5.493 giri, **quattro ore e un quarto di CPU del database per 405
+  righe in tutto**: era la query più costosa dell'intero cluster condiviso da 14 app, e
+  il ricambio forzato sulla cache comune rallentava tutti, noi per primi. Non è un
+  interruttore «finito per sempre»: le mail invecchiano, e al risveglio, se trova
+  pregresso, riprende a smaltirlo un lotto per giro come prima.
 
 **Dopo il trasloco del database (19/08/2026)**: nel trasferimento l'impaginato si è portato
 dietro solo gli **ultimi 7 giorni** invece di 30, perché una cache non si trasloca — si
@@ -1188,6 +1208,16 @@ Anagrafiche in stato **attivo** (cache 10 minuti) con:
 - le **email esatte** dell'azienda e dei suoi contatti;
 - i **domini** di quelle email, ma solo se **non generici** (gmail, libero,
   outlook… sono esclusi: un cliente su Gmail si porterebbe dietro mezzo mondo).
+
+⚠️ **I nostri domini non entrano nell'indice** (07/09/2026). Un recapito su un
+dominio delle **caselle configurate** (`deluxy.it`, `deluxyflowers.com`… si
+leggono dal database, non da una lista scritta a mano) viene saltato: né per
+email esatta né per dominio. Il motivo: bastava **un** partner del registro con
+un recapito `@deluxy.it` per intestarsi l'intero dominio, e la notifica d'ordine
+di Shopify (`info@deluxy.it`) compariva in posta col badge verde di quel
+partner — quasi **14.000** mail in arrivo. Stesso guaio, silenzioso, sull'API
+`?cliente=`: chiedendo la posta di quel partner rispondeva con la posta di casa.
+Le altre email dello stesso partner continuano a valere.
 
 Da lì partono le due direzioni:
 

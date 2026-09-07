@@ -142,6 +142,15 @@ export function testoLeggibile(testo: string | undefined, html: string | false |
   return pulito
 }
 
+// ⏱️ TEMPI MASSIMI DICHIARATI (07/09/2026). Senza, restavano i default della
+// libreria (socket a 5 minuti): un server che accetta la connessione e poi non
+// risponde teneva la funzione appesa fino alla mannaia di Vercel a 60 secondi,
+// e il giro tornava senza niente. Questi numeri stanno DENTRO il budget di un
+// giro breve: se una casella non risponde in fretta, si perde lei, non tutte.
+const IMAP_SALUTO_MS = 8_000 // il server deve presentarsi
+const IMAP_CONNESSIONE_MS = 10_000 // apertura del socket + TLS
+const IMAP_SOCKET_MS = 25_000 // silenzio massimo a connessione aperta
+
 function connessione(account: Account): ImapFlow {
   return new ImapFlow({
     host: account.imapHost,
@@ -149,6 +158,9 @@ function connessione(account: Account): ImapFlow {
     secure: account.imapSicuro,
     auth: { user: account.imapUtente, pass: decifra(account.imapPassword) },
     logger: false,
+    greetingTimeout: IMAP_SALUTO_MS,
+    connectionTimeout: IMAP_CONNESSIONE_MS,
+    socketTimeout: IMAP_SOCKET_MS,
     // Provider con certificato per un altro dominio (register.it → securemail.pro):
     // si salta la verifica del NOME sul certificato (la connessione resta cifrata).
     ...(account.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),

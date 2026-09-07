@@ -1011,10 +1011,14 @@ export async function sincronizzaAccount(
   // pulsante / auto-refresh) fa un giro BREVE — solo posta nuova, niente
   // storico — così l'interfaccia non resta bloccata durante la lettura. Il
   // cursore incrementale garantisce che il resto si recuperi ai giri dopo.
-  esaurisci = true
+  esaurisci = true,
+  /** Tetto di tempo IMPOSTO da chi chiama (vedi `sincronizzaUtente`): serve a
+   *  spartire i secondi di UNA richiesta fra tutte le caselle, invece di darne
+   *  altrettanti a ciascuna. */
+  budgetMs?: number
 ): Promise<EsitoSync> {
   const partenza = Date.now()
-  const BUDGET_MS = esaurisci ? 35_000 : 7_000
+  const BUDGET_MS = budgetMs ?? (esaurisci ? 35_000 : 7_000)
 
   let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
@@ -1601,9 +1605,14 @@ async function salvaInviati(
  * background senza bloccare l'app. Se la casella non ha una cartella inviata,
  * non fa nulla.
  */
-export async function sincronizzaInviata(accountId: string, esaurisci = false): Promise<EsitoSync> {
+export async function sincronizzaInviata(
+  accountId: string,
+  esaurisci = false,
+  /** Come in `sincronizzaAccount`: il tetto lo può dettare chi chiama. */
+  budgetMs?: number
+): Promise<EsitoSync> {
   const partenza = Date.now()
-  const BUDGET_MS = esaurisci ? 30_000 : 6_000
+  const BUDGET_MS = budgetMs ?? (esaurisci ? 30_000 : 6_000)
   let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   const esito: EsitoSync = { tipo: 'storico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
 
@@ -2550,12 +2559,33 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
 }
 
 /** Solo le caselle di un utente — per il pulsante "Aggiorna posta".
- *  Giro BREVE (esaurisci=false): legge la posta nuova senza bloccare la UI. */
+ *  Giro BREVE (esaurisci=false): legge la posta nuova senza bloccare la UI.
+ *
+ * 🔴 **Il budget è di questa RICHIESTA, non di ogni casella** (07/09/2026).
+ * Prima ogni casella prendeva i suoi 7 s (in arrivo) + 6 s (inviata): con
+ * quattro caselle fanno **52 secondi nominali contro i 60 di `maxDuration`**,
+ * e siccome il budget si controlla DOPO il blocco si sfora sempre di un blocco
+ * intero. Risultato in produzione quel mattino: tre `Task timed out after 60
+ * seconds`. Un timeout non è un giro lento: è un giro **buttato**, perché la
+ * risposta non torna e il cursore non avanza. Ora i secondi disponibili si
+ * spartiscono fra le caselle rimaste, e quando la scadenza è passata il giro
+ * si ferma e basta: quello che resta lo prende il giro dopo (il cursore
+ * incrementale è fatto apposta). */
+const BUDGET_GIRO_MS = 40_000
+
 export async function sincronizzaUtente(utenteId: string): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { utenteId, attivo: true } })
+  const scadenza = Date.now() + BUDGET_GIRO_MS
   const esiti: EsitoSync[] = []
-  for (const a of account) {
-    esiti.push(await sincronizzaAccount(a.id, 25, false))
+  for (let i = 0; i < account.length; i++) {
+    const a = account[i]
+    // Fuori tempo massimo: meglio una risposta con metà posta che nessuna.
+    if (Date.now() >= scadenza) break
+    // Quel che resta, diviso per le caselle ancora da fare (× 2: in arrivo e
+    // inviata). Mai sotto 2,5 s: un giro troppo corto non chiude nemmeno la
+    // connessione IMAP e sarebbe tempo speso per niente.
+    const quota = Math.max(2_500, Math.floor((scadenza - Date.now()) / ((account.length - i) * 2)))
+    esiti.push(await sincronizzaAccount(a.id, 25, false, quota))
     // ⚠️ ANCHE GLI INVIATI, a ogni giro. Prima no: la cartella «Inviata» la
     // guardava solo lo scarico dello storico, in background e su richiesta.
     // Conseguenza vista il 9/08/2026 («mancano alcune mail inviate»): tutto
@@ -2566,7 +2596,8 @@ export async function sincronizzaUtente(utenteId: string): Promise<EsitoSync[]> 
     // il cursore, al massimo 25, una connessione. Lo storico vecchio resta al
     // drain di background, che ha il suo budget.
     try {
-      esiti.push(await sincronizzaInviata(a.id, false))
+      if (Date.now() >= scadenza) break
+      esiti.push(await sincronizzaInviata(a.id, false, Math.max(2_500, Math.floor((scadenza - Date.now()) / Math.max(1, (account.length - i) * 2 - 1)))))
     } catch {
       /* la posta in arrivo è già stata letta: un inciampo sugli inviati non
          deve far sembrare fallito tutto il giro */

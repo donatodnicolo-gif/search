@@ -143,16 +143,48 @@ export async function htmlDiMessaggio(m: ConCorpoEAccount): Promise<string | nul
  * ⚠️ Lo spazio liberato torna riusabile (il database smette di crescere) dopo
  * l'autovacuum; il NUMERO riportato da Supabase scende solo con un
  * VACUUM FULL, da lanciare una tantum a pulizia finita (libera-spazio.sql).
+ *
+ * 🔴 **E QUANDO NON C'È PIÙ NIENTE DA PULIRE?** (misurato il 07/09/2026) Questa
+ * ricerca non ha un indice che la sostenga: per trovare le mille righe scandisce
+ * TUTTA la tabella e scarta 44.514 righe, ~121 MB di buffer, 2,8 secondi in
+ * media e fino a 76. Finito il pregresso continuava a farlo **ogni cinque
+ * minuti per nulla**: 5.493 chiamate, **15.266.107 ms — quattro ore e un
+ * quarto di CPU del database — per 405 righe in tutto**. Era la query più
+ * costosa dell'INTERO cluster condiviso da 14 app, davanti a piattaforma e
+ * Orders, e il ricambio forzato sui 224 MB di cache comune rallentava tutti,
+ * noi per primi ([[trappola-lavoro-periodico-che-non-ha-piu-lavoro]]).
+ *
+ * Il rimedio NON è un indice (lo schema è condiviso, gli indici si concordano):
+ * è **smettere di chiedere**. Quando un giro non trova niente, la pulizia si
+ * riaddormenta per `RIPOSO_ORE` e nel frattempo costa **zero query**. Non è un
+ * interruttore «finito per sempre»: le mail invecchiano, ogni giorno qualcuna
+ * supera la finestra calda — al risveglio, se trova pane, si rimette a
+ * smaltirlo un lotto per giro come prima.
  */
+const RIPOSO_ORE = 24
+const CHIAVE_RIPOSO = 'html.pulizia.dormi_fino_a'
+
 export async function pulisciHtmlVecchio(lotto = 1000): Promise<number> {
   try {
+    // Il segnalino costa una lettura per chiave primaria su una tabella di
+    // poche righe: è il modo di NON pagare la scansione quando è inutile.
+    const dormi = await db.impostazione
+      .findUnique({ where: { chiave: CHIAVE_RIPOSO }, select: { valore: true } })
+      .catch(() => null)
+    if (dormi && Date.now() < Number(dormi.valore)) return 0
+
     const limite = new Date(Date.now() - GIORNI_HTML_CALDO * 24 * 60 * 60 * 1000)
     const righe = await db.messaggio.findMany({
       where: { corpoHtml: { not: null }, uid: { gt: 0 }, data: { lt: limite } },
       select: { id: true },
       take: lotto,
     })
-    if (righe.length === 0) return 0
+    if (righe.length === 0) {
+      await dormiFinoA(Date.now() + RIPOSO_ORE * 60 * 60 * 1000)
+      return 0
+    }
+    // C'è ancora pregresso: si resta svegli, un lotto per giro come prima.
+    if (dormi) await dormiFinoA(0)
     const r = await db.messaggio.updateMany({
       where: { id: { in: righe.map((x) => x.id) } },
       data: { corpoHtml: null },
@@ -160,5 +192,20 @@ export async function pulisciHtmlVecchio(lotto = 1000): Promise<number> {
     return r.count
   } catch {
     return 0 // database occupato o in sola lettura: si riprova al giro dopo
+  }
+}
+
+/** Scrive (o azzera) il segnalino del riposo. Non fa mai fallire la pulizia:
+ *  se il segnalino non si scrive, il giro dopo si torna a scandire — spreco,
+ *  non danno. */
+async function dormiFinoA(quando: number): Promise<void> {
+  try {
+    await db.impostazione.upsert({
+      where: { chiave: CHIAVE_RIPOSO },
+      create: { chiave: CHIAVE_RIPOSO, valore: String(quando) },
+      update: { valore: String(quando) },
+    })
+  } catch {
+    /* niente: al massimo si riscandisce */
   }
 }
