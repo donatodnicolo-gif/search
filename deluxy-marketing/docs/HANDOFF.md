@@ -539,8 +539,8 @@ vera**: la prima passa dallo script e va guardata nell'esito.
 
 Registrato nei tre manuali (funzionalità, guida visiva, manuale Deluxy).
 Guida visiva RIPUBBLICATA a URL nuovo, la vecchia risultava cancellata; manuale Deluxy ripubblicato allo stesso URL (Artifact con url
-`29dee26b-…`). Push e deploy FATTI (`npx vercel deploy --prod --yes` da
-PowerShell con Node nel PATH → deluxy-marketing-2fkd4ucey, Ready). Resta il giro vero: una pausa di annuncio e un
+`29dee26b-…`). Push e deploy FATTI (`npx.cmd vercel deploy --prod --yes` da
+PowerShell con Node nel PATH, dalla cartella dell’app → deluxy-marketing-2fkd4ucey, Ready; ⚠️ a mano usare `npx.cmd`, non `npx`: la policy degli script PowerShell blocca `npx.ps1`). Resta il giro vero: una pausa di annuncio e un
 «Escludi» dalle ricerche per vedere il pannello in produzione.
 
 ### ⭐⭐ «CONCLUSA» = PAUSA SULLA PIATTAFORMA, L'APPROVAZIONE META ESEGUE, IL PIXEL SEMPRE (04/09/2026 pomeriggio)
