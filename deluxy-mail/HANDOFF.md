@@ -43,10 +43,29 @@ locali della stessa casella.
   (la sua riga non viene cancellata), ma l'originale non c'è più: l'HTML non si riprende più dal
   server e una risincronizzazione non la ritroverà mai.
 
-⚠️ Da valutare col custode: lo svuota-cestino di un utente decide per una casella **condivisa**,
-e chi lo preme non ha modo di saperlo. Le strade sono due — un avviso esplicito («questa casella
-è collegata anche a X: cancellare dal server la toglie anche a lui»), oppure cancellare dal
-server solo le mail che nessun altro utente ha ancora in vita. **Non deciso, non toccato.**
+✅ **CORRETTO in serata, su decisione dell'utente** («cancella definitivamente solo se quella mail
+è stata svuotata dal cestino da tutti gli utenti»). In `src/lib/cestino.ts`:
+
+- nuova `tenuteDaAltriUtenti()`: prima di toccare il server chiede quali di quelle mail un
+  **altro utente** ha ancora **nella stessa casella**. «Ancora» comprende il suo cestino: finché
+  la riga esiste può ripristinarla. Non serve tenere traccia di chi ha già svuotato — quando
+  l'ultimo svuota non trova più nessuno e cancella davvero.
+- ⚠️ **La chiave è (casella, Message-ID)**, non il solo Message-ID: la stessa mail arrivata per
+  conoscenza sta anche in `nicolo@`, che è un'altra scatola, e non deve impedire di cancellare
+  quella di `cs@`. Ripiego sull'UID quando il Message-ID manca (dentro una casella identifica il
+  messaggio). Costo: una lettura degli account + una query a lotti da 500 sui Message-ID.
+- `EsitoSvuota` porta `lasciatePerAltri`, e il riepilogo distingue le tre cifre: senza quella
+  riga uno svuota il cestino, ritrova la posta sul telefono e pensa a un guasto.
+
+**Simulazione sui dati veri** (sola lettura, nessuna cancellazione): Nicolò 755 in cestino →
+505 cancellate dal server, **250 risparmiate**; utente *Customer Service* 201 → **tutte e 201
+risparmiate**; Eleonora, Martina e Renato non cambiano (nessuna casella condivisa fra i loro
+cestini). `tsc` 0 errori.
+
+Due conseguenze accettate a occhi aperti: se l'altro non svuota mai, quelle mail restano sul
+server per sempre (su una casella condivisa lo svuotamento non libera più spazio); e se due
+utenti svuotano nello stesso istante ognuno può vedere l'altro ancora presente e saltare —
+nessun dato perso, ma sul server resta una mail senza più proprietari.
 
 ### 07/09 (sera) — Cosa ha fatto **un'altra finestra** su AI Mail, e la verifica a 10 ore
 
