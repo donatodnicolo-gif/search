@@ -23,6 +23,19 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 07/09 (22:28) — IN PRODUZIONE `b5032a5f` (deploy `deluxy-mail-1ldpyb5kr`, build nel cloud)
+
+La regola del cestino condiviso è live. Alias `deluxy-mail.vercel.app` → questo deployment
+(`vercel inspect`), Ready, `/api/health` `{ok:true, database:true, scrivibile:true}`, home 307
+in 0,10-0,30 s. Terzo deploy della giornata, sempre con build nel cloud (la precompilata resta
+ferma sulle rotte col backslash, vedi la tappa delle 11:41).
+
+⚠️ **Da collaudare a mano, e il collaudo è distruttivo**: l'unico modo di esercitare
+`svuotaCestinoDi` è cancellare davvero. Per provarla in sicurezza: cestinare **una** mail che
+esiste anche per l'altro utente della casella e svuotare — deve comparire nel riepilogo la riga
+«è rimasta nella casella: ce l'ha ancora un altro utente», la copia locale sparisce e sul server
+la mail resta.
+
 ### 07/09 (sera) — Cancellare una mail da una casella CONDIVISA fra due utenti
 
 Domanda dell'utente: «se cancello una mail dal mio account e la mail è di cs@deluxy.it, si
