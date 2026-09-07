@@ -179,8 +179,8 @@ Impostazioni (token, chiavi API, connettori, istruzioni AI).
 
 ## Registro delle funzionalità
 
-> Guida visiva (resa da questo file): https://claude.ai/code/artifact/4e6566ec-a2ff-4efc-b0e4-c6e17f3a7f0a
-> — ripubblicata il 04/09/2026 (l'artifact precedente risultava cancellato).
+> Guida visiva (resa da questo file): https://claude.ai/code/artifact/29dee26b-9450-4960-b0ae-26a3305b6ba4
+> — ripubblicata il 07/09/2026 (l’artifact del 04/09 risultava di nuovo cancellato; anche quello del 27/08 lo era).
 
 Una riga per funzionalità nuova o cambiata, la più recente in cima. **Si scrive
 qui nello stesso commit.**

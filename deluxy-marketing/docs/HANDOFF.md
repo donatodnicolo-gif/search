@@ -89,8 +89,8 @@
 >   **non serve più a niente**.
 > · 🔴 **La guida visiva NON è più pubblicata**: l'artifact
 >   `24188116-…` risulta cancellato (come quello del manuale Deluxy).
->   Il 04/09 è stata ripubblicata a un indirizzo nuovo:
->   https://claude.ai/code/artifact/4e6566ec-a2ff-4efc-b0e4-c6e17f3a7f0a (si aggiorna con
+>   Ripubblicata a un indirizzo nuovo il 04/09 e DI NUOVO il 07/09 (anche quella del 04/09 risultava cancellata):
+>   https://claude.ai/code/artifact/29dee26b-9450-4960-b0ae-26a3305b6ba4 (si aggiorna con
 >   Artifact + url; il file resta `docs/manuale-funzionalita.html`).
 > · ⚠️ **Repo scoutwt divergente**: `scout-ui` locale è «ahead 4, behind 7»
 >   rispetto a origin con gli STESSI commit Finance/Manuale (hash diversi) e,
@@ -538,8 +538,8 @@ completo e 2 nelle colonne con l'id corto. **Non ancora provato con una pausa
 vera**: la prima passa dallo script e va guardata nell'esito.
 
 Registrato nei tre manuali (funzionalità, guida visiva, manuale Deluxy).
-Da fare: ripubblicare la guida visiva (Artifact con url
-`4e6566ec-…`), push e deploy (`npx vercel deploy --prod --yes` da
+Guida visiva RIPUBBLICATA a URL nuovo, la vecchia risultava cancellata; manuale Deluxy ripubblicato allo stesso URL (Artifact con url
+`29dee26b-…`). Da fare: push e deploy (`npx vercel deploy --prod --yes` da
 PowerShell con Node nel PATH), poi un giro vero: una pausa di annuncio e un
 «Escludi» dalle ricerche per vedere il pannello in produzione.
 
