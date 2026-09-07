@@ -41,10 +41,15 @@ export const COOKIE_BRAND = "mrc_brand";
  * a tempo: il dato resta sempre quello vero del momento.
  */
 export const brandDisponibili = cache(async (): Promise<string[]> => {
-  const [venduto, negozi] = await Promise.all([
-    prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true } }),
-    prisma.negozioShopify.findMany({ where: { attivo: true }, select: { nome: true, canaleVendite: true } }),
-  ]);
+  // ⚠️ **Le due query vanno in fila, non in `Promise.all`.** Questa funzione la
+  // chiama il layout, cioè *ogni* pagina dell'app: una query in più in parallelo
+  // qui raddoppia le connessioni in volo su tutto il sito, e il pool è condiviso
+  // fra le app del cluster. È la regola già pagata in quest'app («una query nuova
+  // si aggiunge in coda finché non si è contato quante ne sono già in volo»),
+  // che il 07/09/2026 avevo violato proprio qui. Sono due letture piccole: in
+  // fila costano qualche millisecondo, in parallelo costano una connessione.
+  const venduto = await prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true } });
+  const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true }, select: { nome: true, canaleVendite: true } });
   const tutti = new Set<string>();
   for (const r of venduto) if (r.canale) tutti.add(r.canale);
   for (const n of negozi) {
