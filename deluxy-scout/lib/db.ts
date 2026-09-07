@@ -1,6 +1,21 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, Linea, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPlace, Task, Visit } from '@/types';
+import type {
+  AffiliazioneRow,
+  Contact,
+  Deal,
+  DealAllegato,
+  EsitoVisita,
+  Linea,
+  PianoAttivita,
+  Place,
+  Profilo,
+  RichiestaPagamento,
+  StatoAffiliazione,
+  StatoPlace,
+  Task,
+  Visit,
+} from '@/types';
 import { statoDaEsito } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -293,7 +308,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   //    copia CRM non è popolata (mostra solo Scout + registro).
   const { data: hsDeals } = await supabase
     .from('hubspot_deals')
-    .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
+    .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta, priorita, link, motivo_chiusura')
     .eq('aperta', true);
 
   // Risolvi il nome: negozio Scout collegato → azienda HubSpot → nome del deal.
@@ -331,6 +346,9 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
         scadenza: null,
         owner: null,
         hubspot_deal_id: d.hubspot_id,
+        priorita: d.priorita ?? 'P2',
+        link: d.link ?? null,
+        motivo_chiusura: d.motivo_chiusura ?? null,
         place_nome: nomeNegozio,
         place_zona: place?.zona ?? null,
         titolo: d.nome ?? null,
@@ -357,6 +375,7 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
       scadenza: null,
       owner: null,
       hubspot_deal_id: null,
+      priorita: 'P2',
       place_nome: r.nome,
       place_zona: r.zona ?? null,
       titolo: null,
@@ -409,12 +428,27 @@ export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]
   return (data ?? []) as PlaceLite[];
 }
 
+/** Campi modificabili di una trattativa dal form (Scout o mirror HubSpot). */
+export type DealPatch = Partial<
+  Pick<Deal, 'linea' | 'linee' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza' | 'priorita' | 'link' | 'motivo_chiusura' | 'chiusa_at'>
+>;
+
 /** Modifica una trattativa Scout (tabella `deals`). */
-export async function aggiornaDeal(
-  id: string,
-  patch: Partial<Pick<Deal, 'linea' | 'linee' | 'fase' | 'valore_atteso' | 'next_action' | 'scadenza'>>,
-): Promise<void> {
+export async function aggiornaDeal(id: string, patch: DealPatch): Promise<void> {
   const { error } = await supabase.from('deals').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Le informazioni "locali" (priorità, link, motivo) delle trattative che vivono
+ * solo su HubSpot si salvano sulla copia CRM: sono le uniche colonne che l'app
+ * può scrivere lì (grant per colonna, migrazione 0029).
+ */
+export async function aggiornaTrattativaHubspotLocale(
+  hubspotId: string,
+  patch: Partial<Pick<Deal, 'priorita' | 'link' | 'motivo_chiusura'>>,
+): Promise<void> {
+  const { error } = await supabase.from('hubspot_deals').update(patch).eq('hubspot_id', hubspotId);
   if (error) throw error;
 }
 
@@ -427,6 +461,10 @@ export async function inserisciDeal(d: {
   valore_atteso: number | null;
   next_action: string | null;
   scadenza?: string | null;
+  priorita?: Deal['priorita'];
+  link?: string | null;
+  motivo_chiusura?: string | null;
+  chiusa_at?: string | null;
 }): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
@@ -813,9 +851,10 @@ export async function registraVisitaRapida(
     .eq('id', placeId);
   if (error) throw error;
 
-  // Best effort: porta subito la visita su HubSpot (company+contact+deal).
+  // Best effort: porta subito la visita su HubSpot (company+contatto+note).
+  // NON apre una trattativa: la visita è una visita, la trattativa si crea a mano.
   // Se fallisce resta hubspot_synced=false e verrà ripresa dai sync successivi.
-  // I "non target" NON creano deal su HubSpot: non inquinare la pipeline.
+  // I "non target" non vanno su HubSpot: non inquinare il CRM.
   if (opts.esito !== 'non_target' && env.hubspotSyncUrl()) {
     try {
       await syncVisita(visita.id);
@@ -876,4 +915,140 @@ function mimeDaUri(uri: string): string {
   if (ext === 'png') return 'image/png';
   if (ext === 'heic') return 'image/heic';
   return 'image/jpeg';
+}
+
+// ── Allegati e link delle trattative ──────────────────────────────────────────
+
+/** Allegati (link + documenti) di una trattativa, dal più recente. */
+export async function fetchAllegati(dealKey: string): Promise<DealAllegato[]> {
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .select('*')
+    .eq('deal_key', dealKey)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DealAllegato[];
+}
+
+/** Conteggio allegati per trattativa (per la graffetta in lista). Tollerante. */
+export async function fetchConteggioAllegati(): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const { data, error } = await supabase.from('deal_allegati').select('deal_key');
+  if (error) return out;
+  for (const r of data ?? []) out.set(r.deal_key, (out.get(r.deal_key) ?? 0) + 1);
+  return out;
+}
+
+/** Aggiunge un link (URL esterno) a una trattativa. */
+export async function inserisciAllegatoLink(dealKey: string, titolo: string, url: string): Promise<DealAllegato> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .insert({ deal_key: dealKey, tipo: 'link', titolo: titolo.trim() || url, url: url.trim(), owner: u.user?.id ?? null })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as DealAllegato;
+}
+
+/** Carica un documento nel bucket `allegati` e lo registra sulla trattativa. */
+export async function caricaAllegatoFile(
+  dealKey: string,
+  file: { uri: string; name: string; mimeType?: string | null },
+): Promise<DealAllegato> {
+  const res = await fetch(file.uri);
+  const bytes = await res.arrayBuffer();
+  const safe = file.name.replace(/[^\w.\-]+/g, '_');
+  const path = `${dealKey}/${Date.now().toString(36)}_${safe}`;
+  const { error: upErr } = await supabase.storage
+    .from('allegati')
+    .upload(path, bytes, { contentType: file.mimeType || 'application/octet-stream', upsert: false });
+  if (upErr) throw upErr;
+  const { data: pub } = supabase.storage.from('allegati').getPublicUrl(path);
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('deal_allegati')
+    .insert({ deal_key: dealKey, tipo: 'file', titolo: file.name, url: pub.publicUrl, path, owner: u.user?.id ?? null })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as DealAllegato;
+}
+
+/** Rimuove un allegato (e il file dal bucket, se è un documento). */
+export async function eliminaAllegato(a: DealAllegato): Promise<void> {
+  if (a.path) await supabase.storage.from('allegati').remove([a.path]);
+  const { error } = await supabase.from('deal_allegati').delete().eq('id', a.id);
+  if (error) throw error;
+}
+
+/**
+ * Notifica via email (admin + venditore) i motivi di chiusura di una trattativa
+ * (Edge Function `notifica-chiusura`). Inerte se SMTP non configurato.
+ */
+export async function notificaChiusuraTrattativa(dealKey: string): Promise<{ sent: boolean; reason?: string }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/notifica-chiusura`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ deal_key: dealKey }),
+  });
+  if (!res.ok) throw new Error(`Notifica chiusura ${res.status}`);
+  return (await res.json()) as { sent: boolean; reason?: string };
+}
+
+// ── Pianificazione settimanale ────────────────────────────────────────────────
+
+/**
+ * Attività pianificate visibili (RLS: le mie; l'admin tutte) per una settimana:
+ * quelle fissate su quel lunedì + le ricorrenti (settimana null).
+ * Risolve il nome del venditore (per la vista admin).
+ */
+export async function fetchPiano(lunediIso: string): Promise<PianoAttivita[]> {
+  const { data, error } = await supabase
+    .from('pianificazione')
+    .select('*')
+    .or(`settimana.is.null,settimana.eq.${lunediIso}`)
+    .order('giorno_settimana')
+    .order('ordine')
+    .order('created_at');
+  if (error) throw error;
+  const rows = (data ?? []) as PianoAttivita[];
+  const ownerIds = [...new Set(rows.map((r) => r.owner))];
+  if (ownerIds.length > 1) {
+    const profili = await fetchProfiles();
+    const nomePerId = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+    for (const r of rows) r.owner_nome = nomePerId.get(r.owner) ?? null;
+  }
+  return rows;
+}
+
+/** Crea una o più attività (stessa attività su più giorni = più righe). */
+export async function inserisciPiano(
+  righe: Array<Pick<PianoAttivita, 'giorno_settimana' | 'settimana' | 'tipo' | 'titolo' | 'strade' | 'zona' | 'note'>>,
+): Promise<void> {
+  if (!righe.length) return;
+  const { data: u } = await supabase.auth.getUser();
+  const owner = u.user?.id;
+  const { error } = await supabase.from('pianificazione').insert(righe.map((r) => ({ ...r, owner })));
+  if (error) throw error;
+}
+
+export async function aggiornaPiano(
+  id: string,
+  patch: Partial<Pick<PianoAttivita, 'giorno_settimana' | 'settimana' | 'tipo' | 'titolo' | 'strade' | 'zona' | 'note' | 'ordine'>>,
+): Promise<void> {
+  const { error } = await supabase.from('pianificazione').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function eliminaPiano(id: string): Promise<void> {
+  const { error } = await supabase.from('pianificazione').delete().eq('id', id);
+  if (error) throw error;
 }

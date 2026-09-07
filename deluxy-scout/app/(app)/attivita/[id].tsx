@@ -316,11 +316,11 @@ export default function SchedaAttivita() {
           </Pressable>
         </Sezione>
 
-        <Sezione titolo="Trattative (HubSpot)">
+        <Sezione titolo="Trattative">
           {deal.length === 0 ? (
             <View>
               <Text style={styles.vuoto}>Nessuna trattativa aperta.</Text>
-              <Text style={styles.vuotoAiuto}>Le trattative HubSpot collegate al negozio compaiono qui.</Text>
+              <Text style={styles.vuotoAiuto}>Una visita non apre una trattativa: aprila tu quando c'è un'opportunità concreta.</Text>
             </View>
           ) : (
             deal.map((d) => (
@@ -331,6 +331,9 @@ export default function SchedaAttivita() {
               </View>
             ))
           )}
+          <Pressable style={styles.btnSecondario} onPress={() => router.push(`/(app)/trattative?nuova=${place.id}`)}>
+            <Text style={styles.btnSecondarioTxt}>+ Apri una trattativa</Text>
+          </Pressable>
         </Sezione>
 
         <Sezione titolo={`Storico visite (${visite.length})`}>

@@ -156,6 +156,13 @@ export interface Visit {
   created_at: string;
 }
 
+// Priorità della trattativa: P0 = la più importante … P3 = la meno urgente.
+export type PrioritaDeal = 'P0' | 'P1' | 'P2' | 'P3';
+export const PRIORITA_DEAL: PrioritaDeal[] = ['P0', 'P1', 'P2', 'P3'];
+
+// Fasi che chiudono una trattativa (vinta o persa): richiedono il motivo.
+export const FASI_CHIUSE: DealStage[] = ['closedwon', 'closedlost'];
+
 export interface Deal {
   id: string;
   place_id: string;
@@ -167,6 +174,41 @@ export interface Deal {
   scadenza: string | null; // data di scadenza del follow-up (YYYY-MM-DD)
   owner: string | null;
   hubspot_deal_id: string | null;
+  priorita?: PrioritaDeal; // P0 (massima) … P3; default P2
+  link?: string | null; // link di riferimento (cartella, preventivo, presentazione…)
+  motivo_chiusura?: string | null; // perché è stata vinta/persa (obbligatorio alla chiusura)
+  chiusa_at?: string | null;
+}
+
+// Link o documento allegato a una trattativa (es. la presentazione fatta per il cliente).
+export interface DealAllegato {
+  id: string;
+  deal_key: string; // uuid del deal Scout oppure `hs_<id>` per le trattative solo HubSpot
+  tipo: 'link' | 'file';
+  titolo: string;
+  url: string;
+  path: string | null;
+  owner: string | null;
+  created_at: string;
+}
+
+// Pianificazione settimanale: un'attività in un giorno della settimana.
+export type TipoPiano = 'visita' | 'chiamate' | 'appuntamento' | 'ufficio' | 'altro';
+export const TIPI_PIANO: TipoPiano[] = ['visita', 'chiamate', 'appuntamento', 'ufficio', 'altro'];
+
+export interface PianoAttivita {
+  id: string;
+  owner: string;
+  giorno_settimana: number; // 1 = lunedì … 7 = domenica
+  settimana: string | null; // lunedì della settimana (YYYY-MM-DD); null = ogni settimana
+  tipo: TipoPiano;
+  titolo: string;
+  strade: string[]; // strade da battere (solo per le visite)
+  zona: string | null;
+  note: string | null;
+  ordine: number;
+  created_at: string;
+  owner_nome?: string | null;
 }
 
 // Task personale del venditore (tasklist privata con priorità e scadenza).

@@ -4,7 +4,8 @@
 // il Private App token non deve mai finire nel bundle. L'app chiama la Supabase
 // Edge Function `hubspot-sync` (vedi supabase/functions/hubspot-sync/index.ts),
 // che custodisce il token come secret server-side ed espone azioni ad alto livello:
-//   - sync_visit  → upsert Company + Contact, crea Deal, scrive la Nota
+//   - sync_visit  → upsert Company + Contact e porta le note della visita
+//                   (NON crea trattative: la trattativa si apre a mano, sync_deal)
 //   - deals_for_place → sync inverso: fasi/valori dei deal aperti su HubSpot
 //
 // La mappatura verso HubSpot (companies/contacts/deals/notes, dealstage) è
@@ -51,14 +52,14 @@ export class RateLimitError extends Error {
 export interface SyncVisitResult {
   hubspot_company_id: string;
   hubspot_contact_id: string | null;
-  hubspot_deal_id: string;
+  hubspot_deal_id: string | null; // valorizzato solo se esisteva già una trattativa aperta
   note_id: string | null;
 }
 
 /**
- * Sincronizza una visita: crea/aggiorna Company+Contact, crea Deal (linea→proprietà,
- * fase→dealstage) e scrive Briefing/Note post meeting/Esito e analisi come Nota.
- * Ritorna gli id HubSpot generati.
+ * Sincronizza una visita: crea/aggiorna Company+Contact e porta le note della
+ * visita su HubSpot (sul deal aperto se esiste, altrimenti come Nota).
+ * Una visita NON apre una trattativa. Ritorna gli id HubSpot toccati.
  */
 export function syncVisita(visitId: string): Promise<SyncVisitResult> {
   return callSync<SyncVisitResult>('sync_visit', { visit_id: visitId });
@@ -93,10 +94,16 @@ export function aggiornaValoriTrattative(): Promise<{ aggiornati: number }> {
   return callSync<{ aggiornati: number }>('refresh_deal_values', {});
 }
 
-/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action) + mirror. */
+/** Modifica un deal esistente su HubSpot (fase/valore/linea/next action/motivo chiusura) + mirror. */
 export function modificaTrattativaHubspot(
   hubspotDealId: string,
-  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+  patch: {
+    linea?: string | null;
+    fase?: string | null;
+    valore_atteso?: number | null;
+    next_action?: string | null;
+    motivo_chiusura?: string | null;
+  },
 ): Promise<{ ok: boolean; hubspot_deal_id: string }> {
   return callSync('update_deal', { hubspot_deal_id: hubspotDealId, patch });
 }

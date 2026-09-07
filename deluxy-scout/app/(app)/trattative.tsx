@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -13,22 +14,52 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, spacing } from '@/lib/theme';
+import * as DocumentPicker from 'expo-document-picker';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  coloreAffiliazione,
+  coloreFase,
+  coloreProprita,
+  colors,
+  labelAffiliazione,
+  labelFase,
+  labelPriorita,
+  radius,
+  spacing,
+} from '@/lib/theme';
 import {
   aggiornaDeal,
+  aggiornaTrattativaHubspotLocale,
+  caricaAllegatoFile,
   cercaPlaces,
+  eliminaAllegato,
+  fetchAllegati,
+  fetchConteggioAllegati,
   fetchContatti,
+  fetchPlace,
   fetchTutteTrattative,
+  inserisciAllegatoLink,
   inserisciDeal,
+  notificaChiusuraTrattativa,
+  type DealPatch,
   type PlaceLite,
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { type Contact, type DealStage, type StatoAffiliazione } from '@/types';
+import { chiaveTrattativa, ordinaTrattative, rangoPriorita, richiedeMotivoChiusura } from '@/lib/trattative';
+import {
+  FASI_CHIUSE,
+  PRIORITA_DEAL,
+  type Contact,
+  type DealAllegato,
+  type DealStage,
+  type PrioritaDeal,
+  type StatoAffiliazione,
+} from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { PriorityBadge } from '@/components/PriorityBadge';
+import { Btn, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 
 interface Sezione {
   title: string;
@@ -57,21 +88,42 @@ function formattaData(iso: string): string {
 
 export default function Trattative() {
   const router = useRouter();
+  // `?nuova=<placeId>`: arrivo dalla scheda negozio → apro subito il form con quel negozio.
+  const params = useLocalSearchParams<{ nuova?: string }>();
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
+  const [nAllegati, setNAllegati] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
   const [formAperto, setFormAperto] = useState(false);
+  const [placeIniziale, setPlaceIniziale] = useState<PlaceLite | null>(null);
   const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      setDeals(await fetchTutteTrattative());
+      const [d, n] = await Promise.all([fetchTutteTrattative(), fetchConteggioAllegati()]);
+      setDeals(d);
+      setNAllegati(n);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!params.nuova) return;
+    let attivo = true;
+    fetchPlace(params.nuova)
+      .then((p) => {
+        if (!attivo || !p) return;
+        setPlaceIniziale({ id: p.id, nome: p.nome, indirizzo: p.indirizzo, zona: p.zona });
+        setFormAperto(true);
+      })
+      .catch(() => {});
+    return () => {
+      attivo = false;
+    };
+  }, [params.nuova]);
 
   // Best-effort: allinea gli importi da HubSpot (i deal nati da una visita non
   // hanno `amount`; se impostato su HubSpot lo riportiamo qui). Se aggiorna
@@ -98,15 +150,18 @@ export default function Trattative() {
     return FASI.filter((f) => set.has(f));
   }, [deals]);
 
+  // Filtro testo/fase, poi ordinamento per PRIORITÀ (P0 → P3), scadenza, valore.
   const filtrate = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return deals.filter((d) => {
-      if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
-      if (!q) return true;
-      return [d.place_nome, d.linea, d.titolo, labelFase[d.fase]]
-        .filter(Boolean)
-        .some((v) => (v as string).toLowerCase().includes(q));
-    });
+    return ordinaTrattative(
+      deals.filter((d) => {
+        if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
+        if (!q) return true;
+        return [d.place_nome, d.linea, d.titolo, labelFase[d.fase], d.priorita]
+          .filter(Boolean)
+          .some((v) => (v as string).toLowerCase().includes(q));
+      }),
+    );
   }, [deals, query, faseFiltro]);
 
   const sezioni = useMemo<Sezione[]>(() => {
@@ -120,7 +175,13 @@ export default function Trattative() {
       }
       map.get(key)!.data.push(d);
     }
-    return [...map.values()].sort((a, b) => a.title.localeCompare(b.title));
+    // I gruppi seguono la priorità più alta che contengono, poi il nome.
+    return [...map.values()].sort((a, b) => {
+      const ra = Math.min(...a.data.map(rangoPriorita));
+      const rb = Math.min(...b.data.map(rangoPriorita));
+      if (ra !== rb) return ra - rb;
+      return a.title.localeCompare(b.title);
+    });
   }, [filtrate]);
 
   const totale = useMemo(
@@ -130,10 +191,10 @@ export default function Trattative() {
 
   return (
     <View style={styles.container}>
-      <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
+      <PageIntro testo="Le trattative raggruppate per negozio e ordinate per priorità (P0 = la più importante), da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla, allegare documenti o chiuderla." />
       <View style={styles.head}>
         <Text style={styles.sub}>
-          {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
+          {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')} · ordinate per priorità
         </Text>
         <TextInput
           style={styles.search}
@@ -171,7 +232,7 @@ export default function Trattative() {
             loading={loading}
             icona="briefcase-outline"
             titolo="Nessuna trattativa"
-            aiuto="Le trattative nascono da una visita con esito positivo o da qui: crea la prima col bottone in basso."
+            aiuto="Una visita non apre una trattativa: la crei tu da qui o dalla scheda del negozio, quando c'è davvero un'opportunità."
             azione="Nuova trattativa"
             onAzione={() => setFormAperto(true)}
           />
@@ -192,7 +253,9 @@ export default function Trattative() {
             </Pressable>
           );
         }}
-        renderItem={({ item }) => <RigaDeal deal={item} onEdit={() => setEditDeal(item)} />}
+        renderItem={({ item }) => (
+          <RigaDeal deal={item} nAllegati={nAllegati.get(chiaveTrattativa(item)) ?? 0} onEdit={() => setEditDeal(item)} />
+        )}
       />
 
       <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
@@ -202,9 +265,14 @@ export default function Trattative() {
 
       {formAperto ? (
         <TrattativaModal
-          onClose={() => setFormAperto(false)}
+          placeIniziale={placeIniziale}
+          onClose={() => {
+            setFormAperto(false);
+            setPlaceIniziale(null);
+          }}
           onSalvata={() => {
             setFormAperto(false);
+            setPlaceIniziale(null);
             carica();
           }}
         />
@@ -244,15 +312,17 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
   );
 }
 
-function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => void }) {
+function RigaDeal({ deal, nAllegati, onEdit }: { deal: TrattativaConLuogo; nAllegati: number; onEdit: () => void }) {
   const lineaTxt = deal.linee?.length ? deal.linee.join(', ') : deal.linea;
   const titolo = deal.titolo ?? lineaTxt ?? 'Trattativa';
   // Tipologia di interesse (linee Deluxy) come tag, quando distinta dal titolo.
   const tipologia = lineaTxt && deal.titolo ? lineaTxt : null;
   const daRegistro = deal.origine === 'anagrafiche';
+  const chiusa = FASI_CHIUSE.includes(deal.fase);
   return (
     <Pressable style={styles.deal} onPress={onEdit}>
       <View style={styles.dealHead}>
+        {!daRegistro ? <PriorityBadge priorita={deal.priorita ?? 'P2'} small /> : null}
         <Text style={styles.dealLinea} numberOfLines={1}>
           {titolo}
         </Text>
@@ -293,6 +363,29 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
         </View>
       ) : null}
       {deal.next_action ? <Text style={styles.nextAction}>Prossima azione: {deal.next_action}</Text> : null}
+      {chiusa && deal.motivo_chiusura ? (
+        <Text style={styles.motivoRiga} numberOfLines={2}>
+          Motivo: {deal.motivo_chiusura}
+        </Text>
+      ) : null}
+      {deal.link || nAllegati ? (
+        <View style={styles.allegatiRow}>
+          {deal.link ? (
+            <Pressable style={styles.allegatoChip} onPress={() => Linking.openURL(deal.link!)} hitSlop={6}>
+              <Ionicons name="link-outline" size={13} color={colors.testoSoft} />
+              <Text style={styles.allegatoChipTxt}>Link</Text>
+            </Pressable>
+          ) : null}
+          {nAllegati ? (
+            <View style={styles.allegatoChip}>
+              <Ionicons name="attach-outline" size={13} color={colors.testoSoft} />
+              <Text style={styles.allegatoChipTxt}>
+                {nAllegati} {nAllegati === 1 ? 'allegato' : 'allegati'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -300,37 +393,48 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
 // ── Form crea/modifica trattativa (sincronizzato con negozio + contatti) ───────
 function TrattativaModal({
   deal,
+  placeIniziale,
   onClose,
   onSalvata,
 }: {
   deal?: TrattativaConLuogo;
+  placeIniziale?: PlaceLite | null;
   onClose: () => void;
   onSalvata: () => void;
 }) {
   const inModifica = !!deal;
   const daRegistro = deal?.origine === 'anagrafiche';
+  const daHubspot = deal?.origine === 'hubspot';
+  // Chiave per gli allegati: uuid Scout o hs_<id>; le righe registro non hanno ancora un deal.
+  const dealKey = deal && !daRegistro ? chiaveTrattativa(deal) : null;
   const [ricerca, setRicerca] = useState('');
   const [risultati, setRisultati] = useState<PlaceLite[]>([]);
   const [place, setPlace] = useState<PlaceLite | null>(
-    deal ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null } : null,
+    deal ? { id: deal.place_id, nome: deal.place_nome ?? 'Negozio', indirizzo: null, zona: null } : placeIniziale ?? null,
   );
   const [contatti, setContatti] = useState<Contact[]>([]);
-  const [linee, setLinee] = useState<string[]>(
-    deal?.linee?.length ? deal.linee : deal?.linea ? [deal.linea] : ['Consegne'],
-  );
+  // Nessuna linea preselezionata: la sceglie chi apre la trattativa.
+  const [linee, setLinee] = useState<string[]>(deal?.linee?.length ? deal.linee : deal?.linea ? [deal.linea] : []);
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
+  const [priorita, setPriorita] = useState<PrioritaDeal>(deal?.priorita ?? 'P2');
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
   const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
   const [scadenza, setScadenza] = useState<string | null>(deal?.scadenza ?? null);
+  const [link, setLink] = useState(deal?.link ?? '');
+  const [motivo, setMotivo] = useState(deal?.motivo_chiusura ?? '');
+  const [chiediMotivo, setChiediMotivo] = useState(false);
+  const [allegati, setAllegati] = useState<DealAllegato[]>([]);
+  const [nuovoLink, setNuovoLink] = useState<{ titolo: string; url: string } | null>(null);
+  const [allegando, setAllegando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // In modifica: carica i contatti del negozio già associato (se ce n'è uno Scout).
+  // In modifica: carica i contatti del negozio già associato e gli allegati.
   useEffect(() => {
-    if (deal?.place_id) {
-      fetchContatti(deal.place_id).then(setContatti).catch(() => setContatti([]));
-    }
+    const pid = deal?.place_id ?? placeIniziale?.id;
+    if (pid) fetchContatti(pid).then(setContatti).catch(() => setContatti([]));
+    if (dealKey) fetchAllegati(dealKey).then(setAllegati).catch(() => setAllegati([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -360,28 +464,99 @@ function TrattativaModal({
     }
   }
 
-  async function salva() {
+  // ── Allegati (link + documenti) ─────────────────────────────────────────────
+  async function aggiungiLink() {
+    if (!dealKey || !nuovoLink?.url.trim()) return;
+    setAllegando(true);
+    try {
+      const url = /^https?:\/\//i.test(nuovoLink.url.trim()) ? nuovoLink.url.trim() : `https://${nuovoLink.url.trim()}`;
+      const a = await inserisciAllegatoLink(dealKey, nuovoLink.titolo, url);
+      setAllegati((l) => [a, ...l]);
+      setNuovoLink(null);
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Link non salvato');
+    } finally {
+      setAllegando(false);
+    }
+  }
+
+  async function aggiungiDocumento() {
+    if (!dealKey) return;
+    const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
+    if (res.canceled || !res.assets?.length) return;
+    const f = res.assets[0];
+    setAllegando(true);
+    setErrore(null);
+    try {
+      const a = await caricaAllegatoFile(dealKey, { uri: f.uri, name: f.name, mimeType: f.mimeType });
+      setAllegati((l) => [a, ...l]);
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Documento non caricato');
+    } finally {
+      setAllegando(false);
+    }
+  }
+
+  async function rimuoviAllegato(a: DealAllegato) {
+    setAllegati((l) => l.filter((x) => x.id !== a.id));
+    try {
+      await eliminaAllegato(a);
+    } catch {
+      if (dealKey) fetchAllegati(dealKey).then(setAllegati).catch(() => {});
+    }
+  }
+
+  // ── Salvataggio ─────────────────────────────────────────────────────────────
+  const chiusuraNuova = richiedeMotivoChiusura(deal?.fase, fase);
+  const faseChiusa = FASI_CHIUSE.includes(fase);
+
+  async function salva(motivoConfermato?: string) {
     if (!place || salvando) return;
+    const motivoTxt = (motivoConfermato ?? motivo).trim();
+    // Chiusura (vinta/persa): il motivo è OBBLIGATORIO → pop-up dedicato.
+    if (faseChiusa && !motivoTxt) {
+      setChiediMotivo(true);
+      return;
+    }
+    setChiediMotivo(false);
     setSalvando(true);
     setErrore(null);
     try {
       const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
-      const patch = {
+      const patch: DealPatch = {
         linea: linee[0] ?? null,
         linee,
         fase,
+        priorita,
         valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
         next_action: nextAction.trim() || null,
         scadenza,
+        link: link.trim() || null,
+        motivo_chiusura: faseChiusa ? motivoTxt : null,
+        chiusa_at: faseChiusa ? (deal?.chiusa_at ?? new Date().toISOString()) : null,
       };
+      let keyNotifica: string | null = null;
 
       if (inModifica && deal) {
-        if (deal.origine === 'hubspot' && deal.hubspot_deal_id) {
-          // Deal HubSpot: modifica su HubSpot (+ mirror locale) via edge function.
-          await modificaTrattativaHubspot(deal.hubspot_deal_id, patch);
+        if (daHubspot && deal.hubspot_deal_id) {
+          // Deal HubSpot: priorità/link/motivo restano nella copia locale; il resto va su HubSpot.
+          await aggiornaTrattativaHubspotLocale(deal.hubspot_deal_id, {
+            priorita,
+            link: patch.link,
+            motivo_chiusura: patch.motivo_chiusura,
+          });
+          await modificaTrattativaHubspot(deal.hubspot_deal_id, {
+            linea: patch.linea,
+            fase: patch.fase,
+            valore_atteso: patch.valore_atteso,
+            next_action: patch.next_action,
+            motivo_chiusura: patch.motivo_chiusura,
+          });
+          keyNotifica = `hs_${deal.hubspot_deal_id}`;
         } else if (daRegistro) {
           // Riga dal registro: non esiste un deal → creane uno Scout gestibile.
-          const nuovo = await inserisciDeal({ place_id: deal.place_id, ...patch });
+          const nuovo = await inserisciDeal({ place_id: deal.place_id, ...patch, fase, linea: patch.linea ?? null, valore_atteso: patch.valore_atteso ?? null, next_action: patch.next_action ?? null });
+          keyNotifica = nuovo.id;
           if (env.hubspotSyncUrl()) {
             try {
               await syncTrattativa(nuovo.id);
@@ -392,9 +567,16 @@ function TrattativaModal({
         } else {
           // Deal Scout: aggiorna la riga; se già su HubSpot, riporta la modifica.
           await aggiornaDeal(deal.id, patch);
+          keyNotifica = deal.id;
           if (deal.hubspot_deal_id && env.hubspotSyncUrl()) {
             try {
-              await modificaTrattativaHubspot(deal.hubspot_deal_id, patch);
+              await modificaTrattativaHubspot(deal.hubspot_deal_id, {
+                linea: patch.linea,
+                fase: patch.fase,
+                valore_atteso: patch.valore_atteso,
+                next_action: patch.next_action,
+                motivo_chiusura: patch.motivo_chiusura,
+              });
             } catch {
               /* la modifica è salva su Supabase; il sync si recupera dopo */
             }
@@ -402,7 +584,8 @@ function TrattativaModal({
         }
       } else {
         // Creazione.
-        const nuovo = await inserisciDeal({ place_id: place.id, ...patch });
+        const nuovo = await inserisciDeal({ place_id: place.id, ...patch, fase, linea: patch.linea ?? null, valore_atteso: patch.valore_atteso ?? null, next_action: patch.next_action ?? null });
+        keyNotifica = nuovo.id;
         if (env.hubspotSyncUrl()) {
           try {
             await syncTrattativa(nuovo.id);
@@ -411,6 +594,8 @@ function TrattativaModal({
           }
         }
       }
+      // Chiusa adesso (vinta/persa): manda i motivi via email a responsabile e venditore.
+      if (chiusuraNuova && keyNotifica) notificaChiusuraTrattativa(keyNotifica).catch(() => {});
       onSalvata();
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel salvataggio');
@@ -516,6 +701,22 @@ function TrattativaModal({
             <Text style={styles.campoLabel}>Linee (una o più)</Text>
             <LineaSelector value={linee} onChange={setLinee} />
 
+            {/* Priorità P0 (massima) → P3 */}
+            <Text style={styles.campoLabel}>Priorità</Text>
+            <View style={styles.chipRow}>
+              {PRIORITA_DEAL.map((p) => (
+                <Pressable
+                  key={p}
+                  style={[styles.chip, priorita === p && { backgroundColor: coloreProprita[p], borderColor: coloreProprita[p] }]}
+                  onPress={() => setPriorita(p)}
+                >
+                  <Text style={[styles.chipTxt, priorita === p && styles.chipTxtOn]}>
+                    {p} · {labelPriorita[p]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             {/* Fase */}
             <Text style={styles.campoLabel}>Fase</Text>
             <View style={styles.chipRow}>
@@ -575,13 +776,103 @@ function TrattativaModal({
             </View>
             {scadenza ? <Text style={styles.scadenzaSel}>Scade il {formattaData(scadenza)}</Text> : null}
 
+            {/* Motivo di chiusura: visibile (e obbligatorio) quando la fase è vinta/persa */}
+            {faseChiusa ? (
+              <>
+                <Text style={styles.campoLabel}>
+                  {fase === 'closedwon' ? 'Perché l’abbiamo vinta *' : 'Perché l’abbiamo persa *'}
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.area]}
+                  value={motivo}
+                  onChangeText={setMotivo}
+                  placeholder={fase === 'closedwon' ? 'Cosa ha fatto la differenza…' : 'Prezzo, concorrente, tempi, nessun bisogno…'}
+                  placeholderTextColor={colors.grigio}
+                  multiline
+                />
+                <Text style={styles.notaRegistro}>I motivi vengono inviati via email al responsabile e al venditore.</Text>
+              </>
+            ) : null}
+
+            {/* Link di riferimento (sempre) */}
+            <Text style={styles.campoLabel}>Link di riferimento</Text>
+            <TextInput
+              style={styles.input}
+              value={link}
+              onChangeText={setLink}
+              placeholder="es. cartella Drive, preventivo, presentazione…"
+              placeholderTextColor={colors.grigio}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+
+            {/* Documenti e link allegati (solo su una trattativa già salvata) */}
+            <Text style={styles.campoLabel}>Documenti e link allegati</Text>
+            {dealKey ? (
+              <View style={styles.allegatiBox}>
+                {allegati.length === 0 ? (
+                  <Text style={styles.allegatiVuoto}>Nessun allegato. Aggiungi la presentazione fatta per questo cliente, un preventivo, un link.</Text>
+                ) : (
+                  allegati.map((a) => (
+                    <View key={a.id} style={styles.allegato}>
+                      <Pressable style={styles.allegatoApri} onPress={() => Linking.openURL(a.url)}>
+                        <Ionicons
+                          name={a.tipo === 'link' ? 'link-outline' : 'document-attach-outline'}
+                          size={16}
+                          color={colors.testoSoft}
+                        />
+                        <Text style={styles.allegatoTitolo} numberOfLines={1}>
+                          {a.titolo}
+                        </Text>
+                        <Ionicons name="open-outline" size={14} color={colors.grigio} />
+                      </Pressable>
+                      <Pressable onPress={() => rimuoviAllegato(a)} hitSlop={8} accessibilityLabel="Rimuovi allegato">
+                        <Ionicons name="trash-outline" size={16} color={colors.grigio} />
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+                {nuovoLink ? (
+                  <View style={styles.nuovoLink}>
+                    <TextInput
+                      style={styles.input}
+                      value={nuovoLink.titolo}
+                      onChangeText={(t) => setNuovoLink({ ...nuovoLink, titolo: t })}
+                      placeholder="Titolo (es. Presentazione Deluxy)"
+                      placeholderTextColor={colors.grigio}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={nuovoLink.url}
+                      onChangeText={(t) => setNuovoLink({ ...nuovoLink, url: t })}
+                      placeholder="https://…"
+                      placeholderTextColor={colors.grigio}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+                    <View style={styles.allegatiAzioni}>
+                      <Btn tipo="secondario" small label="Annulla" onPress={() => setNuovoLink(null)} />
+                      <Btn small label="Aggiungi link" onPress={aggiungiLink} disabled={!nuovoLink.url.trim() || allegando} />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.allegatiAzioni}>
+                    <Btn tipo="secondario" small icona="link-outline" label="Link" onPress={() => setNuovoLink({ titolo: '', url: '' })} disabled={allegando} />
+                    <Btn tipo="secondario" small icona="document-attach-outline" label={allegando ? 'Carico…' : 'Documento'} onPress={aggiungiDocumento} disabled={allegando} />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.notaRegistro}>Salva prima la trattativa: poi potrai allegare documenti e link da qui.</Text>
+            )}
+
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           </ScrollView>
 
           <Pressable
             style={[styles.salva, (!place || salvando) && styles.salvaDisabled]}
             disabled={!place || salvando}
-            onPress={salva}
+            onPress={() => salva()}
           >
             {salvando ? (
               <ActivityIndicator color={colors.bianco} />
@@ -589,6 +880,68 @@ function TrattativaModal({
               <Text style={styles.salvaTxt}>{labelSalva}</Text>
             )}
           </Pressable>
+        </View>
+      </View>
+
+      {/* Pop-up obbligatorio alla chiusura: perché vinta / perché persa */}
+      {chiediMotivo ? (
+        <MotivoChiusuraModal
+          fase={fase}
+          negozio={place?.nome ?? ''}
+          iniziale={motivo}
+          onAnnulla={() => setChiediMotivo(false)}
+          onConferma={(m) => {
+            setMotivo(m);
+            salva(m);
+          }}
+        />
+      ) : null}
+    </Modal>
+  );
+}
+
+// ── Pop-up motivo di chiusura (obbligatorio) ──────────────────────────────────
+function MotivoChiusuraModal({
+  fase,
+  negozio,
+  iniziale,
+  onAnnulla,
+  onConferma,
+}: {
+  fase: DealStage;
+  negozio: string;
+  iniziale: string;
+  onAnnulla: () => void;
+  onConferma: (motivo: string) => void;
+}) {
+  const [testo, setTesto] = useState(iniziale);
+  const vinta = fase === 'closedwon';
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onAnnulla}>
+      <View style={styles.popOverlay}>
+        <View style={styles.pop}>
+          <View style={[styles.popIcona, { backgroundColor: vinta ? colors.goldSoft : colors.fill }]}>
+            <Ionicons name={vinta ? 'trophy-outline' : 'flag-outline'} size={22} color={vinta ? colors.goldStrong : colors.testoSoft} />
+          </View>
+          <Text style={styles.popTitolo}>{vinta ? 'Trattativa vinta 🎉' : 'Trattativa persa'}</Text>
+          <Text style={styles.popSotto}>
+            {negozio ? `${negozio} · ` : ''}
+            {vinta ? 'Cosa ha fatto la differenza? Serve a ripetere il successo.' : 'Perché l’abbiamo persa? Serve a non ripetere l’errore.'}
+          </Text>
+          <TextInput
+            style={[styles.input, styles.area]}
+            value={testo}
+            onChangeText={setTesto}
+            placeholder={vinta ? 'es. rapporto col titolare, qualità del servizio, prezzo giusto…' : 'es. prezzo troppo alto, già servito da X, nessun bisogno reale…'}
+            placeholderTextColor={colors.grigio}
+            multiline
+            autoFocus
+          />
+          <Text style={styles.popNota}>Campo obbligatorio · i motivi vengono inviati via email al responsabile e al venditore.</Text>
+          <View style={styles.popAzioni}>
+            <Btn tipo="secondario" label="Annulla" onPress={onAnnulla} />
+            <Btn label={vinta ? 'Conferma vinta' : 'Conferma persa'} onPress={() => onConferma(testo.trim())} disabled={!testo.trim()} />
+          </View>
         </View>
       </View>
     </Modal>
@@ -692,6 +1045,18 @@ const styles = StyleSheet.create({
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   origine: { color: colors.grigio, fontWeight: '600', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
+  motivoRiga: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic' },
+  allegatiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  allegatoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  allegatoChipTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 11.5 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ownerTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
 
@@ -786,6 +1151,7 @@ const styles = StyleSheet.create({
   },
   contattiTitolo: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginBottom: 2 },
   contattoRiga: { fontSize: 13, color: colors.testo },
+  area: { minHeight: 84, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     backgroundColor: colors.bianco,
@@ -796,6 +1162,41 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  // Allegati
+  allegatiBox: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  allegatiVuoto: { color: colors.grigio, fontSize: 12.5, lineHeight: 17 },
+  allegato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  allegatoApri: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  allegatoTitolo: { flex: 1, color: colors.testo, fontWeight: '600', fontSize: 13.5 },
+  allegatiAzioni: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  nuovoLink: { gap: 6 },
+  // Pop-up motivo chiusura (card float centrata)
+  popOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  pop: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  popIcona: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  popTitolo: { fontSize: 19, fontWeight: '600', color: colors.testo, letterSpacing: -0.3 },
+  popSotto: { color: colors.testoSoft, fontSize: 13.5, lineHeight: 19 },
+  popNota: { color: colors.grigio, fontSize: 12 },
+  popAzioni: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.xs },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   scadenzaSel: { color: colors.goldStrong, fontWeight: '700', fontSize: 12, marginTop: 4 },

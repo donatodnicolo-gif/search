@@ -2,7 +2,7 @@
 // (deluxy-design-system/tokens/theme.ts). Stile Apple: sfondi neutri, testo scuro,
 // UN accento oro usato poco, azioni primarie NERE (ink). I nomi storici (navy/oro/…)
 // restano per compatibilità con le schermate, ma i valori sono quelli del DS.
-import type { DealStage, Priorita, StatoAffiliazione, StatoPlace } from '@/types';
+import type { DealStage, Priorita, PrioritaDeal, StatoAffiliazione, StatoPlace, TipoPiano } from '@/types';
 
 export const colors = {
   // Superfici
@@ -69,11 +69,36 @@ export const shadow = {
   },
 } as const;
 
-// Colore per priorità: P1 oro (accento) / P2 ink / P3 grigio.
-export const coloreProprita: Record<Priorita, string> = {
+// Colore per priorità: P0 rosso (massima, solo trattative) / P1 oro (accento) / P2 ink / P3 grigio.
+export const coloreProprita: Record<Priorita | PrioritaDeal, string> = {
+  P0: colors.errore,
   P1: colors.oro,
   P2: colors.ink,
   P3: colors.grigio,
+};
+
+// Etichetta leggibile per la priorità ("P0 · Massima"…).
+export const labelPriorita: Record<Priorita | PrioritaDeal, string> = {
+  P0: 'Massima',
+  P1: 'Alta',
+  P2: 'Media',
+  P3: 'Bassa',
+};
+
+// Tipi di attività della pianificazione settimanale: etichetta + icona line-art.
+export const labelTipoPiano: Record<TipoPiano, string> = {
+  visita: 'Visite sul territorio',
+  chiamate: 'Chiamate',
+  appuntamento: 'Appuntamento',
+  ufficio: 'Ufficio / preventivi',
+  altro: 'Altro',
+};
+export const iconaTipoPiano: Record<TipoPiano, string> = {
+  visita: 'walk-outline',
+  chiamate: 'call-outline',
+  appuntamento: 'people-outline',
+  ufficio: 'business-outline',
+  altro: 'ellipsis-horizontal-circle-outline',
 };
 
 export const labelStato: Record<StatoPlace, string> = {

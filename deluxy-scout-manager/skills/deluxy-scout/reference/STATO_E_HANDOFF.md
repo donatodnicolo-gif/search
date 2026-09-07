@@ -1,6 +1,38 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **20 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **7 settembre 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+
+> 🆕 **Fatto il 7 set 2026** (branch `claude/deluxy-scout-handoff-memory-xgrh2i`, da mergiare su `main`; sviluppato **in locale**, ⏳ **NON ancora pubblicato**: vedi «Per pubblicare» sotto):
+> - **Visita ≠ trattativa** (richiesta utente): registrare una visita (rapida o completa) **non apre più un deal**. `hubspot-sync` `sync_visit` ora fa solo Company + Contatto e porta le note della visita sul deal Scout **già aperto** di quel negozio (se c'è) oppure come **Nota** sull'azienda (best effort: serve lo scope `crm.objects.notes.write`, altrimenti le note restano in Scout). Rimossa la mappatura esito→dealstage. Nella scheda negozio: sezione «Trattative» con bottone **«+ Apri una trattativa»** (→ `/trattative?nuova=<placeId>` apre il form col negozio precompilato). Testi aggiornati (Trattative vuote, scheda negozio).
+> - **Nuova trattativa senza default**: il form non preseleziona più «Consegne» (linee vuote, le sceglie chi apre la trattativa).
+> - **Priorità P0–P3 sulle trattative** (migr. **0029**: `deals.priorita`, default P2; anche su `hubspot_deals` con **grant per colonna** così le trattative solo-HubSpot la salvano nella copia locale). P0 rosso / P1 oro / P2 ink / P3 grigio (`coloreProprita` + `labelPriorita` in `theme.ts`, `PriorityBadge` accetta P0). La lista Trattative è **ordinata per priorità** (P0→P3, poi scadenza vicina, poi valore alto; chiuse in fondo; i gruppi-negozio seguono la priorità più alta che contengono) — logica pura in `lib/trattative.ts` (`ordinaTrattative`, test in `__tests__/trattative.test.ts`).
+> - **Chiusura vinta/persa con motivo obbligatorio**: passando la fase a «Chiusa vinta/persa» compare il **pop-up «Trattativa vinta 🎉 / persa»** (card float DS) con campo obbligatorio; il motivo va in `deals.motivo_chiusura` (+ `chiusa_at`), su HubSpot in `deluxy_esito_analisi` ("Motivo chiusura: …"), e viene **inviato via email** a responsabile + venditore dalla **nuova Edge Function `notifica-chiusura`** (SMTP; inerte senza secret, come `notifica-task`). Regola in `richiedeMotivoChiusura`.
+> - **Link e allegati per trattativa** (migr. **0031**: tabella `deal_allegati` con `deal_key` testo = uuid Scout o `hs_<id>` HubSpot, + bucket Storage **`allegati`**): nel form «Link di riferimento» (campo `deals.link`) + sezione «Documenti e link allegati» (aggiungi **Link** o **Documento** via `expo-document-picker`, apri, elimina). In lista: chip «Link» e «N allegati». Nuova dipendenza **`expo-document-picker ~13.0.3`** (nativo → per l'APK serve un nuovo build EAS; il web è pronto).
+> - **Pianificazione settimanale** (nuova voce drawer «Pianificazione», `app/(app)/pianificazione.tsx`, migr. **0030** tabella `pianificazione`): per ogni **giorno della settimana** le attività (tipo: visite / chiamate / appuntamento / ufficio / altro), su **più giorni insieme**, **solo questa settimana** oppure **ogni settimana** (`settimana` = lunedì o NULL = ricorrente). Per le visite le **strade da battere** (chip; tap → Google Maps sulla strada) + zona. Navigazione settimane, giorno di oggi evidenziato, admin vede «Tutto il team». RLS: proprie; admin legge tutte. Helper puri in `lib/pianificazione.ts` (lunedì, giorno 1..7, fisse+ricorrenti, normalizzazione strade) con test. **Oggi** mostra la sezione «Piano di oggi» con le strade (tollerante se la migrazione manca).
+> - Verifica reale: `npx tsc --noEmit` pulito, **46/46 jest** (7 suite), `npx expo export --platform web` ok.
+> - Doc aggiornate: README Scout (§5 HubSpot), ARCHITETTURA, SKILL (regole d'oro + Design System), questo handoff.
+>
+> ⏳ **Per pubblicare (in ordine, servono i token dell'utente — non salvati):**
+> 1. Merge del branch su `main` (o lavorare da lì).
+> 2. **Migrazioni** (con `SUPABASE_PAT`): `node scripts/mgmt-query.mjs supabase/migrations/0029_deals_priorita_link_motivo.sql`, poi `0030_pianificazione.sql`, poi `0031_deal_allegati.sql`. Senza la 0029 il salvataggio delle trattative fallisce (colonne nuove); senza la 0030 la Pianificazione mostra la card d'errore (Oggi degrada); senza la 0031 gli allegati falliscono.
+> 3. **Edge Functions** (con `SUPABASE_ACCESS_TOKEN`): `npx -y supabase@latest functions deploy hubspot-sync --project-ref fdsziebgkljfsugqqbqd` (obbligatoria: finché non è rideployata, le visite **continuano** a creare deal) e `… deploy notifica-chiusura --project-ref …` (email motivi; inerte senza SMTP).
+> 4. **Web**: `VERCEL_TOKEN=… bash scripts/deploy-web.sh`.
+> 5. (Facoltativo) nuovo build EAS Android per `expo-document-picker`.
+>
+> 📌 **Punti aperti (7 set 2026)** — elenco completo, dal più importante:
+> 1. **Pubblicazione** di quanto sopra (migrazioni 0029–0031, deploy `hubspot-sync` + `notifica-chiusura`, deploy web) — bloccata dai token.
+> 2. **Verifica visiva utente** (login-gated, non testabile dall'agente): Trattative (priorità, pop-up chiusura, allegati), Pianificazione (settimane, strade → Maps), Oggi (piano di oggi), scheda negozio («Apri una trattativa»).
+> 3. **Scope note HubSpot**: se la Service key non ha `crm.objects.notes.write`, le note delle visite senza trattativa aperta restano solo in Scout. Valutare una Private App con lo scope note (o proprietà custom sulla Company).
+> 4. **SMTP non configurato**: tutte le email (notifica-task, promemoria, notifica-chiusura) sono inerti finché non si impostano i secret `SMTP_*`.
+> 5. **Cron promemoria giornaliero** (rimandato dal 19 lug): richiede verify_jwt=false o token dedicato.
+> 6. **Collegamento Pagamenti ↔ app Finance/Partner** (rimandato dal 19 lug).
+> 7. **Doppioni** registro Anagrafiche ↔ negozi Google (~30, es. Gucci/Prada) e il doppione «Moorer»: manca una strategia di merge.
+> 8. **Deal creati prima del fix sync (18 lug)** con `hubspot_deal_id` null: da ri-sincronizzare (batch `sync_deal`).
+> 9. **Migrazione 0013 (`visits.concorrenti`)** ancora da applicare: il campo in UI viene scartato in silenzio.
+> 10. **Sicurezza**: restringere la chiave Google Maps Android (SHA-1 + package) e revocare il PAT Supabase «deluxy-scout-setup» (scadenza 10 ago 2026, già scaduto → verificare).
+> 11. **Mappa nativa** (`mappa.tsx`): ancora sul vecchio flusso DB, senza scoperta Google (Tappa 2 mai fatta); l'APK Android non include reanimated/document-picker → serve un nuovo build EAS.
+> 12. **iOS / store**: nessun setup.
+> 13. **Trattative solo-HubSpot**: priorità/link/motivo vivono nella copia locale `hubspot_deals` (non su HubSpot); allegati per chiave `hs_<id>`. Se un giorno il deal viene «adottato» in Scout, i dati vanno migrati a mano.
 
 > 🆕 **Fatto il 20 lug 2026** (branch `scout-ui`, commit `be96532`):
 > - **Restyling UX completo al Deluxy Design System** su tutte le 20+ schermate. Nuovo **kit condiviso `components/ui.tsx`**: `PageIntro` (caption grigia che spiega ogni sezione), `EmptyState` (icona in quadratino gold-soft + frase d'aiuto + azione), `StatusBadge` (pillola dot + tinta 10% + testo colorato — il pattern badge DS), `Btn` a pillola, `tinta()`. **Da usare per ogni UI futura.**
@@ -54,7 +86,7 @@ Ultimo aggiornamento: **20 luglio 2026**. Questo documento permette a un altro a
 >   - ⚠️ **~30+ doppioni noti** tra registro e negozi scoperti da Google (Gucci, Prada, Jimmy Choo, Dolce & Gabbana…, spesso a 0-40 m): **non fusi di proposito**. Lo script li elenca a fine run; serve una strategia di merge (decidere quale record vince e cosa fare di visite/contatti).
 
 > ⚡ **COME RIPRENDERE IN UNA NUOVA FINESTRA (checklist)**
-> 1. Apri una nuova sessione Claude Code nel progetto e scrivi **"continua deluxy-scout"** (la memoria si carica da sola e rimanda a questo file).
+> 1. Apri una nuova sessione Claude Code nel progetto e scrivi **"continua deluxy-scout"** (la memoria si carica da sola e rimanda a questo file). Rileggi anche **`deluxy-design-system/DESIGN-SYSTEM.md`** (regole UX&UI) prima di toccare schermate.
 > 2. **Lavora nel worktree** `C:\Users\nicol\scoutwt` (branch `scout-ui`), **non** in `C:\Users\nicol\app`. Se il worktree non c'è più: `git -C C:\Users\nicol\app worktree add -b scout-ui C:\Users\nicol\scoutwt scout-ui` (o `deluxy-scout`), poi ricrea la junction `node_modules` (`cmd //c "mklink /J node_modules C:\Users\nicol\app\deluxy-scout\node_modules"`) e copia `.env`.
 > 3. **Node**: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`. Verifica con `npx tsc --noEmit` + `npx jest`.
 > 4. **Token da rifornire** (io NON li salvo — chiedili all'utente quando servono): `EXPO_TOKEN` (build APK), `VERCEL_TOKEN` (deploy web), `SUPABASE_PAT`/`SUPABASE_ACCESS_TOKEN` (migrazioni + deploy Edge Functions), e opzionale `ANTHROPIC_API_KEY` (match AI). Google Maps/HubSpot vivono già come secret server.

@@ -16,15 +16,17 @@ attività del territorio con priorità e ipotesi di interesse pre-calcolate, reg
 (anche offline) e **alimenta HubSpot** (company + contatto + deal). Non sostituisce HubSpot: lo popola.
 
 ## Leggi PRIMA di lavorare
-1. **`reference/STATO_E_HANDOFF.md`** — cosa è già fatto, cosa manca, e i comandi esatti per riprendere.
+1. **`reference/STATO_E_HANDOFF.md`** — cosa è già fatto, cosa manca (sezione «Punti aperti»), e i comandi esatti per riprendere.
 2. **`reference/ARCHITETTURA.md`** — struttura del codice, regole di prodotto invarianti, mappature.
-3. Il codice è in **`deluxy-scout/`** (sotto-cartella del repo `search`). Il `README.md` lì dentro è la guida operativa.
+3. **`deluxy-design-system/DESIGN-SYSTEM.md`** (root del repo) — regole UX&UI obbligatorie per ogni schermata.
+4. Il codice è in **`deluxy-scout/`** (sotto-cartella del repo `search`). Il `README.md` lì dentro è la guida operativa.
 
 ## Regole d'oro (non violarle mai)
 - La mappa mostra **tutte** le attività (mai filtrate via di default). Priorità P1 oro / P2 navy / P3 grigio.
 - Le 3 linee **Clientelling, Concierge, Magazzino** sono in standby: **mai** come ipotesi primaria, solo cross-sell.
 - I **segreti** stanno solo in `deluxy-scout/.env` (già in `.gitignore`) e nei secret della Edge Function. **Mai** committarli, mai metterli nei file del plugin o del repo.
-- Palette: navy `#1B2A4A`, oro `#A6832B`, sfondo `#F2EFE8`.
+- **Una visita NON apre una trattativa** (7 set 2026): la trattativa si crea a mano (Trattative / scheda negozio). Nessun default di linea nel form; priorità P0-P3; motivo obbligatorio alla chiusura vinta/persa.
+- UI: **Deluxy Design System** (`deluxy-design-system/DESIGN-SYSTEM.md`, il "custode UX&UI"): sfondo `#F5F5F7`, azioni primarie nere (ink `#111318`), oro `#B8963E` solo come accento, bottoni a pillola, badge dot+tinta, kit `components/ui.tsx`. Mai oro sui bottoni primari, mai colori hardcodati che esistono come token.
 
 ## Ambiente (Windows) — trappole note
 - **Node**: installato in `C:\Program Files\nodejs` ma **potrebbe non essere nel PATH** della sessione. Prependilo a ogni comando:

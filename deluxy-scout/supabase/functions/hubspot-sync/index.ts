@@ -5,7 +5,10 @@
 // autenticata con il proprio JWT Supabase.
 //
 // Azioni:
-//   - sync_visit       { visit_id }  → upsert Company + Contact, crea Deal, scrive Nota
+//   - sync_visit       { visit_id }  → upsert Company + Contact e porta le note della
+//                                      visita su HubSpot. NON crea trattative: una
+//                                      visita non è un deal (la trattativa si apre
+//                                      a mano, azione `sync_deal`).
 //   - deals_for_place  { place_id }  → sync inverso: fasi/valori dei deal HubSpot
 //
 // Deploy:
@@ -72,6 +75,12 @@ Deno.serve(async (req) => {
 });
 
 // ── Azione: sincronizza una visita ────────────────────────────────────────────
+// Regola commerciale (7 set 2026): registrare una visita NON apre una trattativa.
+// La visita aggiorna Company + Contact su HubSpot e porta le sue note:
+//   - se il negozio ha già una trattativa Scout APERTA su HubSpot → aggiorna le
+//     proprietà note di quel deal (note post meeting / esito / next step);
+//   - altrimenti prova a scrivere una Nota sull'azienda (best effort: la service
+//     key potrebbe non avere lo scope note; in tal caso le note restano in Scout).
 async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
   const { data: visit } = await admin.from('visits').select('*').eq('id', visitId).single();
   if (!visit) throw new Error('Visita non trovata');
@@ -97,31 +106,44 @@ async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
     await admin.from('contacts').update({ hubspot_contact_id: contactId }).eq('id', contatto.id);
   }
 
-  // 3. Deal: linea → deluxy_linea, esito → dealstage, e Briefing / Note post
-  //    meeting / Esito e analisi / Next step scritti come proprietà custom del
-  //    deal (visibili nella view "trattative def").
-  const dealId = await hs.createDeal({
-    nome: `${place.nome} — ${visit.linea_proposta ?? place.linea_ipotizzata ?? 'Deluxy'}`,
-    linea: visit.linea_proposta ?? place.linea_ipotizzata,
-    dealstage: dealstageDaEsito(visit.esito),
-    briefing: visit.briefing,
-    // Concorrenti in coda alle note post meeting (nessuna proprietà HubSpot dedicata
-    // finché non riconciliamo con un elenco strutturato).
-    notePost: [visit.note_post_meeting, visit.concorrenti ? `Concorrenti già presenti: ${visit.concorrenti}` : null]
+  // 3. Note della visita → trattativa aperta esistente (se c'è) oppure Nota sull'azienda.
+  const notePost = [
+    visit.note_post_meeting,
+    visit.concorrenti ? `Concorrenti già presenti: ${visit.concorrenti}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n\n') || null;
+
+  const { data: aperte } = await admin
+    .from('deals')
+    .select('id, hubspot_deal_id, fase')
+    .eq('place_id', place.id)
+    .not('hubspot_deal_id', 'is', null)
+    .not('fase', 'in', '("closedwon","closedlost")')
+    .limit(1);
+  const dealAperto = aperte?.[0] ?? null;
+
+  let noteId: string | null = null;
+  if (dealAperto?.hubspot_deal_id) {
+    await hs.patchDealNote(dealAperto.hubspot_deal_id, {
+      briefing: visit.briefing,
+      notePost,
+      esitoAnalisi: visit.esito_analisi,
+      nextStep: visit.next_step,
+    });
+  } else {
+    const data = new Date(visit.data ?? Date.now()).toLocaleDateString('it-IT');
+    const corpo = [
+      `Visita Deluxy Scout del ${data} — esito: ${labelEsito(visit.esito)}`,
+      visit.briefing ? `Briefing: ${visit.briefing}` : null,
+      notePost ? `Note: ${notePost}` : null,
+      visit.esito_analisi ? `Esito e analisi: ${visit.esito_analisi}` : null,
+      visit.next_step ? `Next step: ${visit.next_step}` : null,
+    ]
       .filter(Boolean)
-      .join('\n\n') || null,
-    esitoAnalisi: visit.esito_analisi,
-    nextStep: visit.next_step,
-    companyId,
-    contactId,
-  });
-  await admin.from('deals').insert({
-    place_id: place.id,
-    linea: visit.linea_proposta ?? place.linea_ipotizzata,
-    fase: dealstageDaEsito(visit.esito),
-    hubspot_deal_id: dealId,
-    owner: visit.owner,
-  });
+      .join('\n');
+    noteId = await hs.createNote(corpo, companyId, contactId).catch(() => null);
+  }
 
   // 4. marca visita sincronizzata
   await admin.from('visits').update({ hubspot_synced: true }).eq('id', visit.id);
@@ -129,8 +151,8 @@ async function syncVisit(admin: any, hs: HubSpot, visitId: string) {
   return {
     hubspot_company_id: companyId,
     hubspot_contact_id: contactId,
-    hubspot_deal_id: dealId,
-    note_id: null,
+    hubspot_deal_id: dealAperto?.hubspot_deal_id ?? null,
+    note_id: noteId,
   };
 }
 
@@ -229,7 +251,13 @@ async function updateDeal(
   admin: any,
   hs: HubSpot,
   hubspotDealId: string,
-  patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+  patch: {
+    linea?: string | null;
+    fase?: string | null;
+    valore_atteso?: number | null;
+    next_action?: string | null;
+    motivo_chiusura?: string | null;
+  },
 ) {
   if (!hubspotDealId) throw new Error('hubspot_deal_id mancante');
   await hs.patchDeal(hubspotDealId, patch);
@@ -241,6 +269,7 @@ async function updateDeal(
   }
   if (patch.valore_atteso !== undefined) mirror.valore = patch.valore_atteso;
   if (patch.linea !== undefined) mirror.linea = patch.linea;
+  if (patch.motivo_chiusura !== undefined) mirror.motivo_chiusura = patch.motivo_chiusura;
   if (Object.keys(mirror).length) {
     await admin.from('hubspot_deals').update(mirror).eq('hubspot_id', hubspotDealId);
   }
@@ -250,6 +279,7 @@ async function updateDeal(
     ...(patch.valore_atteso !== undefined ? { valore_atteso: patch.valore_atteso } : {}),
     ...(patch.linea !== undefined ? { linea: patch.linea } : {}),
     ...(patch.next_action !== undefined ? { next_action: patch.next_action } : {}),
+    ...(patch.motivo_chiusura !== undefined ? { motivo_chiusura: patch.motivo_chiusura } : {}),
   };
   if (Object.keys(dealPatch).length) {
     await admin.from('deals').update(dealPatch).eq('hubspot_deal_id', hubspotDealId);
@@ -388,21 +418,68 @@ class HubSpot {
     return dealId;
   }
 
-  /** Modifica le proprietà di un deal esistente (amount/dealstage/linea/next_action). */
+  /** Modifica le proprietà di un deal esistente (amount/dealstage/linea/next_action/motivo). */
   async patchDeal(
     id: string,
-    patch: { linea?: string | null; fase?: string | null; valore_atteso?: number | null; next_action?: string | null },
+    patch: {
+      linea?: string | null;
+      fase?: string | null;
+      valore_atteso?: number | null;
+      next_action?: string | null;
+      motivo_chiusura?: string | null;
+    },
   ): Promise<void> {
     const props: Record<string, string> = {};
     if (patch.fase !== undefined && patch.fase !== null) props.dealstage = patch.fase;
     if (patch.linea !== undefined) props.deluxy_linea = patch.linea ?? '';
     if (patch.next_action !== undefined) props.deluxy_next_step = patch.next_action ?? '';
     if (patch.valore_atteso !== undefined) props.amount = patch.valore_atteso == null ? '' : String(patch.valore_atteso);
+    // Il motivo di chiusura (vinta/persa) va nella proprietà "Esito e analisi" del deal.
+    if (patch.motivo_chiusura) props.deluxy_esito_analisi = `Motivo chiusura: ${patch.motivo_chiusura}`;
     if (!Object.keys(props).length) return;
     await this.req(`/crm/v3/objects/deals/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ properties: props }),
     });
+  }
+
+  /** Aggiorna le proprietà "note" di un deal con quanto emerso da una visita. */
+  async patchDealNote(
+    id: string,
+    n: { briefing?: string | null; notePost?: string | null; esitoAnalisi?: string | null; nextStep?: string | null },
+  ): Promise<void> {
+    const props: Record<string, string> = {};
+    if (n.briefing) props.deluxy_briefing = n.briefing;
+    if (n.notePost) props.deluxy_note_post = n.notePost;
+    if (n.esitoAnalisi) props.deluxy_esito_analisi = n.esitoAnalisi;
+    if (n.nextStep) props.deluxy_next_step = n.nextStep;
+    if (!Object.keys(props).length) return;
+    await this.req(`/crm/v3/objects/deals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ properties: props }),
+    });
+  }
+
+  /**
+   * Scrive una Nota (engagement) associata all'azienda e, se c'è, al contatto.
+   * Richiede lo scope `crm.objects.notes.write`: se manca, HubSpot risponde 403
+   * e il chiamante deve trattarlo come best effort.
+   */
+  async createNote(body: string, companyId: string, contactId: string | null): Promise<string> {
+    const associations: any[] = [
+      { to: { id: companyId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }] },
+    ];
+    if (contactId) {
+      associations.push({ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] });
+    }
+    const created = await this.req('/crm/v3/objects/notes', {
+      method: 'POST',
+      body: JSON.stringify({
+        properties: { hs_timestamp: new Date().toISOString(), hs_note_body: body },
+        associations,
+      }),
+    });
+    return created.id;
   }
 
   /** Legge in batch le proprietà dei deal per id HubSpot → Map(id → properties). */
@@ -446,19 +523,19 @@ class RateLimit extends Error {
   }
 }
 
-// Esito visita → dealstage HubSpot.
-function dealstageDaEsito(esito: string | null): string {
+// Etichetta leggibile dell'esito visita (per la Nota su HubSpot).
+function labelEsito(esito: string | null): string {
   switch (esito) {
     case 'chiuso':
-      return 'closedwon';
+      return 'Chiuso';
     case 'non_target':
-      return 'closedlost';
+      return 'Non target';
     case 'da_richiamare':
-      return 'appointmentscheduled';
+      return 'Da richiamare';
     case 'interessato':
-      return 'decisionmakerboughtin';
+      return 'Interessato';
     default:
-      return 'appointmentscheduled';
+      return '—';
   }
 }
 

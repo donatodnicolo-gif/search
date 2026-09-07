@@ -14,7 +14,8 @@ app/                        # schermate (Expo Router)
     mappa.web.tsx           # [tab] mappa (WEB): senza react-native-maps → lista + giro + "Dove vai?" (riordina per vicinanza) + "Naviga"
     lista.tsx               # [tab] lista target: filtri + ricerca + tag linea (tipologia interesse) + FAB "nuovo target"
     rubrica.tsx             # [tab] Rubrica: tutti i contatti (join negozio), badge sync HubSpot, tel/email
-    trattative.tsx          # [tab] Trattative: deal raggruppate per negozio (SectionList), fase+valore
+    trattative.tsx          # [tab] Trattative: deal per negozio ordinate per PRIORITÀ P0-P3, link/allegati, pop-up motivo chiusura
+    pianificazione.tsx      # [tab] Pianificazione settimanale: attività per giorno (visite con strade da battere), ricorrenti o per settimana
     dashboard.tsx           # [tab] metriche commerciali (grafici SVG)
     profilo.tsx             # [tab] profilo/impostazioni: utente, coda sync, integrazioni, export CSV, logout
     attivita/[id].tsx       # scheda attività + ipotesi + naviga/modifica + nuova visita + contatti
@@ -48,7 +49,7 @@ L'app gira anche da browser tramite `react-native-web`. La schermata Mappa usa `
 ## Regole di prodotto (invarianti — non violarle)
 1. La mappa mostra **tutte** le attività; i filtri sono opzionali e servono al giro. Priorità: **P1 oro `#A6832B` / P2 navy `#1B2A4A` / P3 grigio**, con icona di stato sovrapposta al pin.
 2. 9 linee di servizio. Le 3 in **standby** (Clientelling, Concierge, Magazzino, `attiva_bool=false`) **non** compaiono come ipotesi primaria: solo nel selettore "cross-sell" della nuova visita.
-3. L'app **alimenta** HubSpot: ogni visita → Company + Contatto + Deal. Non lo sostituisce.
+3. L'app **alimenta** HubSpot: ogni visita → Company + Contatto + note. **Una visita NON apre una trattativa** (regola dal 7 set 2026): il deal si crea a mano dalla sezione Trattative o dalla scheda negozio (`sync_deal`). Non lo sostituisce.
 4. Il campo **next-step** della visita è **obbligatorio** (non si salva senza).
 5. **Offline-first**: senza rete la visita va in coda AsyncStorage con badge "da sincronizzare"; al ritorno online la coda si svuota (foto → visita → stato place → sync HubSpot) con retry e gestione 429.
 6. Segreti solo in `.env` / secret server. Mai nel bundle o nel repo.
@@ -61,7 +62,7 @@ Tabelle: `places`, `contacts`, `visits`, `deals`, `lines`, `category_rules`. Enu
 
 **Esito visita → stato place** (`lib/syncQueue.ts` `statoDaEsito`): interessato/da_richiamare → `visitato`; non_target → `perso`; chiuso → `cliente`.
 
-**Esito visita → dealstage HubSpot** (`supabase/functions/hubspot-sync/index.ts` `dealstageDaEsito`): interessato → `decisionmakerboughtin`; da_richiamare → `appointmentscheduled`; chiuso → `closedwon`; non_target → `closedlost`. (Fasi reali della pipeline: appointmentscheduled, decisionmakerboughtin, contractsent, closedwon, closedlost.)
+**Esito visita → stato negozio** (`statoDaEsito` in `types/index.ts`): interessato/da_richiamare → visitato; chiuso → cliente; non_target → perso. La visita **non** imposta più una dealstage (nessun deal creato). Fasi reali della pipeline: appointmentscheduled, decisionmakerboughtin, contractsent, closedwon, closedlost; le due chiuse richiedono il **motivo di chiusura** (`deals.motivo_chiusura`, obbligatorio nel form, pop-up dedicato).
 
 **Proprietà custom HubSpot** (create da `scripts/hubspot-setup-properties.mjs`):
 - Company: `deluxy_linea`, `deluxy_priorita`.
@@ -71,7 +72,9 @@ Tabelle: `places`, `contacts`, `visits`, `deals`, `lines`, `category_rules`. Enu
 
 ## Edge Function `hubspot-sync` (Deno)
 Proxy sicuro app↔HubSpot; il token vive come secret `HUBSPOT_TOKEN`. Azioni:
-- `sync_visit { visit_id }` → upsert Company (+`hubspot_company_id` sul place), upsert Contact, crea Deal con le proprietà, marca `visits.hubspot_synced=true`.
+- `sync_visit { visit_id }` → upsert Company (+`hubspot_company_id` sul place), upsert Contact, porta le note della visita sul deal Scout aperto (se c'è) o come Nota sull'azienda (best effort, scope note), marca `visits.hubspot_synced=true`. **Non crea deal.**
+- `sync_deal { deal_id }` → Company + tutti i contatti + Deal (amount, fase). `update_deal` accetta anche `motivo_chiusura` (→ `deluxy_esito_analisi`).
+- Edge Function `notifica-chiusura { deal_key }` → email (SMTP, inerte senza secret) con i motivi di chiusura a admin + venditore.
 - `deals_for_place { place_id }` → sync inverso (fasi/valori dei deal per la scheda attività).
 Autentica l'utente via JWT Supabase (`getUser`) e usa la service_role key (iniettata da Supabase) per scrivere sul DB. Gestisce 429 (RateLimit).
 

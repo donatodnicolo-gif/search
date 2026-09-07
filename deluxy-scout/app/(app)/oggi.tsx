@@ -2,14 +2,16 @@
 // Aggrega: agenda di oggi (task + follow-up in scadenza), ritardi, richiami,
 // task aperti; azioni rapide verso le sezioni operative.
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import type { Task } from '@/types';
-import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
+import type { PianoAttivita, Task } from '@/types';
+import { colors, coloreProprita, iconaTipoPiano, labelTipoPiano, radius, spacing } from '@/lib/theme';
+import { isoLocale, lunediDi, pianoDelGiorno, urlStrada } from '@/lib/pianificazione';
 import { useAuth } from '@/lib/auth';
 import {
   fetchAllVisits,
+  fetchPiano,
   fetchPlaces,
   fetchProfilo,
   fetchTask,
@@ -33,6 +35,7 @@ export default function Oggi() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [followup, setFollowup] = useState<TrattativaConLuogo[]>([]);
   const [richiami, setRichiami] = useState<Richiamo[]>([]);
+  const [piano, setPiano] = useState<PianoAttivita[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviando, setInviando] = useState(false);
 
@@ -40,14 +43,18 @@ export default function Oggi() {
     setLoading(true);
     try {
       const uid = session?.user?.id;
-      const [t, tr, places, visits, prof] = await Promise.all([
+      const oggiIso = isoLocale(new Date());
+      const [t, tr, places, visits, prof, pianoSett] = await Promise.all([
         fetchTask(true),
         fetchTutteTrattative(),
         fetchPlaces(),
         fetchAllVisits(),
         uid ? fetchProfilo(uid) : Promise.resolve(null),
+        fetchPiano(lunediDi(oggiIso)).catch(() => [] as PianoAttivita[]), // tollerante se la migrazione 0030 manca
       ]);
       setTasks(t.filter((x) => !x.completata));
+      // Piano di oggi: solo le mie attività pianificate per questo giorno della settimana.
+      setPiano(pianoDelGiorno(pianoSett.filter((p) => !uid || p.owner === uid), oggiIso));
       // Follow-up: le mie trattative con scadenza (o non attribuite).
       setFollowup(tr.filter((d) => d.scadenza && (!d.owner || d.owner === uid)));
       setRichiami(daRicontattare(places, visits));
@@ -139,6 +146,34 @@ export default function Oggi() {
           ))
         )}
       </Sezione>
+
+      {/* Piano di oggi (pianificazione settimanale) */}
+      {piano.length ? (
+        <Sezione titolo="Piano di oggi" colore={colors.testoSoft}>
+          {piano.map((p) => (
+            <View key={p.id} style={styles.pianoRiga}>
+              <View style={styles.pianoHead}>
+                <Ionicons name={iconaTipoPiano[p.tipo] as any} size={16} color={colors.goldStrong} />
+                <Text style={styles.eventoTitolo} numberOfLines={1}>{p.titolo}</Text>
+                <Text style={styles.eventoMeta}>{labelTipoPiano[p.tipo]}</Text>
+              </View>
+              {p.strade.length ? (
+                <View style={styles.pianoStrade}>
+                  {p.strade.map((s) => (
+                    <Pressable key={s} style={styles.pianoStrada} onPress={() => Linking.openURL(urlStrada(s, p.zona ?? 'Milano'))}>
+                      <Ionicons name="navigate-outline" size={11} color={colors.testo} />
+                      <Text style={styles.pianoStradaTxt} numberOfLines={1}>{s}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ))}
+          <Pressable onPress={() => router.push('/(app)/pianificazione')}>
+            <Text style={styles.link}>Apri la pianificazione ›</Text>
+          </Pressable>
+        </Sezione>
+      ) : null}
 
       {/* Richiami */}
       {richiami.length ? (
@@ -249,6 +284,27 @@ const styles = StyleSheet.create({
   eventoTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
   eventoMeta: { color: colors.testoSoft, fontSize: 12, maxWidth: 140 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  pianoRiga: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  pianoHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pianoStrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pianoStrada: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  pianoStradaTxt: { color: colors.testo, fontWeight: '600', fontSize: 12 },
   link: { color: colors.goldStrong, fontWeight: '700', fontSize: 13, paddingVertical: 4 },
   promemoria: {
     flexDirection: 'row',

@@ -3,7 +3,8 @@
 App mobile (React Native + Expo) di prospezione commerciale sul territorio per il
 Team Commerciale Deluxy a Milano. Mappa tutte le attività del territorio con
 priorità e ipotesi di interesse pre-calcolate, registra le visite (anche offline)
-e **alimenta HubSpot** creando company, contatti, deal e note.
+e **alimenta HubSpot** con company, contatti e note. Le trattative (deal) si aprono
+**a mano** quando c'è un'opportunità concreta: una visita non apre mai una trattativa.
 
 Stack: **Expo (Expo Router, TypeScript)** · **Supabase** (DB / Auth / Storage) ·
 **HubSpot API v3** via Supabase Edge Function.
@@ -103,18 +104,21 @@ per questo Briefing/Note/Esito vanno come proprietà del deal, vedi sotto.)
 **Proprietà custom su HubSpot**: creale una volta con
 `HUBSPOT_TOKEN=... node scripts/hubspot-setup-properties.mjs`. Crea su *Company*
 `deluxy_linea`, `deluxy_priorita`; su *Deal* `deluxy_linea`, `deluxy_briefing`,
-`deluxy_note_post`, `deluxy_esito_analisi`, `deluxy_next_step`. La visita scrive
-Briefing / Note post meeting / Esito e analisi in queste proprietà del deal
-(visibili nella view **"trattative def"** aggiungendone le colonne).
+`deluxy_note_post`, `deluxy_esito_analisi`, `deluxy_next_step`.
 
-Mappatura esito visita → `dealstage`:
+**Cosa fa una visita su HubSpot (`sync_visit`)** — dal 7 set 2026 una visita
+**non crea un deal**: aggiorna Company + Contatto e porta le note della visita
+(a) nelle proprietà `deluxy_*` della trattativa Scout **già aperta** su quel
+negozio, se esiste, altrimenti (b) come **Nota** sull'azienda (best effort:
+richiede lo scope `crm.objects.notes.write`; se manca, le note restano in Scout).
+I "non target" non vengono sincronizzati.
 
-| Esito app | dealstage HubSpot |
-|---|---|
-| Interessato | `decisionmakerboughtin` |
-| Da richiamare | `appointmentscheduled` |
-| Chiuso | `closedwon` |
-| Non target | `closedlost` |
+**Cosa fa una trattativa (`sync_deal`)** — creata dalla sezione Trattative (o dal
+bottone «Apri una trattativa» nella scheda negozio): Company + tutti i contatti
++ Deal con `amount` e fase. Le fasi sono le 5 dealstage della pipeline. Alla
+chiusura (vinta/persa) il **motivo è obbligatorio** e finisce in
+`deluxy_esito_analisi` (più email a responsabile e venditore via `notifica-chiusura`).
+Priorità (P0–P3), link e allegati della trattativa restano in Scout.
 
 Se `EXPO_PUBLIC_HUBSPOT_SYNC_URL` è vuoto, l'app funziona lo stesso: le visite
 restano su Supabase con `hubspot_synced=false` e verranno sincronizzate appena
@@ -193,7 +197,8 @@ deluxy-scout/
 1. La mappa mostra **tutte** le attività; i filtri sono opzionali e servono al giro.
 2. Le linee **Clientelling / Concierge / Magazzino** sono in standby: mai ipotesi
    primaria, solo cross-sell manuale.
-3. L'app **alimenta** HubSpot (company + contatto + deal + nota), non lo sostituisce.
+3. L'app **alimenta** HubSpot (company + contatto + nota; deal solo se aperto a mano), non lo sostituisce.
+   **Una visita non apre mai una trattativa.**
 4. `dealstage`: `appointmentscheduled`, `decisionmakerboughtin`, `contractsent`,
    `closedwon`, `closedlost`.
 5. Segreti solo in variabili d'ambiente / secret server; mai nel repo.

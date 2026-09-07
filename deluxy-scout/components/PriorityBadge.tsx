@@ -2,13 +2,13 @@
 // La sigla P1/P2/P3 è affiancata dall'etichetta leggibile ("Alta"…);
 // nella variante small resta solo la sigla, il colore fa da guida.
 import { StyleSheet, Text, View } from 'react-native';
-import type { Priorita } from '@/types';
-import { coloreProprita, radius } from '@/lib/theme';
+import type { Priorita, PrioritaDeal } from '@/types';
+import { coloreProprita, labelPriorita, radius } from '@/lib/theme';
 import { tinta } from '@/components/ui';
 
-const LABEL: Record<Priorita, string> = { P1: 'Alta', P2: 'Media', P3: 'Bassa' };
+const LABEL = labelPriorita;
 
-export function PriorityBadge({ priorita, small }: { priorita: Priorita; small?: boolean }) {
+export function PriorityBadge({ priorita, small }: { priorita: Priorita | PrioritaDeal; small?: boolean }) {
   const colore = coloreProprita[priorita];
   return (
     <View style={[styles.badge, { backgroundColor: tinta(colore) }, small && styles.small]}>

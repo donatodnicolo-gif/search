@@ -95,6 +95,7 @@ export default function AppLayout() {
         <Drawer.Screen name="oggi" options={{ title: 'Oggi', drawerIcon: ({ color, size }) => <DrawerIcon name="sunny-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="task" options={{ title: 'I miei task', drawerIcon: ({ color, size }) => <DrawerIcon name="checkbox-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="calendario" options={{ title: 'Calendario', drawerIcon: ({ color, size }) => <DrawerIcon name="calendar-outline" color={color} size={size ?? 22} /> }} />
+        <Drawer.Screen name="pianificazione" options={{ title: 'Pianificazione', drawerIcon: ({ color, size }) => <DrawerIcon name="calendar-number-outline" color={color} size={size ?? 22} /> }} />
         <Drawer.Screen name="da-completare" options={{ title: 'Da fare', drawerIcon: ({ color, size }) => <DrawerIcon name="time-outline" color={color} size={size ?? 22} /> }} />
         {/* Prospezione sul territorio */}
         <Drawer.Screen name="mappa" options={{ title: 'Mappa', drawerIcon: ({ color, size }) => <DrawerIcon name="map-outline" color={color} size={size ?? 22} /> }} />
