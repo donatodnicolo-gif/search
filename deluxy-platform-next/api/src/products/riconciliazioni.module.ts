@@ -151,6 +151,15 @@ export class RiconciliazioniService {
       where: {
         status: 'accettata',
         partnerId: { not: null, ...(esclusi.length ? { notIn: esclusi } : {}) },
+        // ⭐ 07/09/2026 (segnalazione utente: «perché in riconciliazioni esce El Mourad se non
+        // è attivo?»). Le vendite le aveva accettate davvero — 1797 a Monza, 1794 a Brescia,
+        // 1808 a Como — ma il partner adesso è spento e cancellato: proporlo come fornitore
+        // fisso è una proposta che non può andare a buon fine, perché lo smistamento salta
+        // comunque chi non è attivo. Non è «non ha fatto lui l'ordine»: è che non c'è più.
+        // Stesso motivo per gli ESCLUSI DALLE PROPOSTE (Artista Locale, Deluxy Flowers,
+        // Cakedesignme): lo smistamento non li propone mai, quindi una proposta con il loro
+        // nome non può diventare un patto.
+        partner: { active: true, deleted: false, esclusoDalleProposte: false },
         productId: { not: null },
         createdAt: { gte: opts.da, lte: opts.a },
         // ⭐ 07/09/2026 (regola utente): le proposte servono SOLO dove il prezzo non ce l'ha
@@ -332,12 +341,16 @@ export class RiconciliazioniService {
     const consegnaDiVendita = new Map(vendite.map((v) => [v.id, v.deliveryId]));
     const consegnaPerId = new Map(consegne.map((c) => [c.id, c]));
     const [partner, province] = await Promise.all([
-      this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true } }),
+      this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true, esclusoDalleProposte: true } }),
       this.prisma.province.findMany({ where: { id: { in: [...provinceIds] } }, select: { id: true, name: true, code: true } }),
     ]);
     const nome = new Map(partner.map((p) => [p.id, p]));
     const prov = new Map(province.map((p) => [p.id, p]));
-    return righe.map((r) => ({
+    // ⭐ 07/09/2026: le PROPOSTE di un partner spento o cancellato non si mostrano — nessuno
+    // può accettarle e restano lì a fare rumore. Le righe già ACCETTATE si vedono comunque:
+    // sono accordi presi, e servono a capire un prezzo scritto ieri.
+    const visibili = righe.filter((r) => r.status !== 'proposta' || (nome.get(r.partnerId)?.active && !nome.get(r.partnerId)?.esclusoDalleProposte));
+    return visibili.map((r) => ({
       id: r.id,
       productId: r.productId,
       prodotto: r.product.name,

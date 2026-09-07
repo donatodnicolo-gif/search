@@ -51,7 +51,12 @@ const decide = (pr) => {
   // ── PREVENTIVO ──
   if (/^cdm/i.test(cat) || /^cdm/i.test(pr.line ?? '') || /^cdm/i.test(sku) || /cakedesign/i.test(pr.partner?.insegna ?? '')) return ['preventivo', 'torta cake design (CDM o cakedesign.me)'];
   if (/cesti floreali/i.test(cat)) return ['preventivo', 'fiori in cesto'];
-  if (/palloncin/i.test(cat) || /palloncin/i.test(nome)) return ['preventivo', 'bouquet di palloncini'];
+  // ⚠️ 07/09/2026 (segnalazione utente: «botticelli con palloncini non va in riconciliazione»):
+  // conta solo la CATEGORIA «Palloncini», non la parola nel nome. Col nome finivano a
+  // preventivo 767 prodotti — ogni set che ha un palloncino dentro («Botticelli - Bouquet e
+  // Palloncini», «Set Champagne Brut e Palloncino»), che sono composizioni a valore: il loro
+  // prezzo lo fa la regola del territorio, non una telefonata.
+  if (/^palloncini$/i.test((cat ?? '').trim())) return ['preventivo', 'bouquet di palloncini (categoria Palloncini)'];
   // ipotesi: quello che si concorda a voce non ha un prezzo di listino
   if (/personalizzat|su misura|allestiment|matrimoni|evento|richieste speciali/i.test(`${cat} ${nome}`)) return ['preventivo', 'ipotesi: personalizzato o su misura'];
   if (/cake design|^torte/i.test(cat) && /personalizzat|su misura/i.test(nome)) return ['preventivo', 'ipotesi: torta su misura'];
