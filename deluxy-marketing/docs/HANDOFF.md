@@ -24,11 +24,14 @@
 >   «[Deluxy] Regali B2B (natale)» su Gifts (248-656-1148), budget 12 €/g,
 >   Maximize conversions, lingua it, gruppo «Regalistica Natale B2B» con le
 >   keyword; accodata 08:20, approvata 08:21, **bulk upload INVIATO dallo
->   script alle 09:09 UTC**. Nell'app è `in_pausa` senza `idEsterno`: la
->   conferma arriva col primo giro di anagrafica di Gifts (~03:47 UTC).
->   **Da controllare l'08/09**: registro caricamenti di Google Ads (Azioni
->   collettive → Caricamenti) e che la campagna abbia preso l'id; poi l'app
->   accoda «Completa la campagna» (gruppo, keyword, annuncio, località).
+>   script alle 09:09 UTC**. Alle 13:28 UTC l'utente ha lanciato A MANO il
+>   giro `tutto` su Gifts: l'anagrafica ha trovato la campagna **creata
+>   davvero** (id `24224109539`, PAUSED) e l'app ha accodato da sola
+>   **«Completa la campagna»** (8 keyword · 1 RSA · 1 località) e **10
+>   negative**, tutte `in_attesa`. 🔴 **Restano da approvare in /operazioni**
+>   (11 righe) e poi le prende `esegui` (ogni ora ~:09, o giro a mano);
+>   checklist 4.1 prima di accenderla. Percorso «bulk upload → anagrafica →
+>   completa» collaudato per la prima volta dal 17/08.
 >   Sempre oggi alle 07:02 l'utente ha annullato 4 operazioni Cake
 >   (completa_campagna, attiva_campagna e 2 negative su Torte Matrimonio).
 > · Coda: Google **114 eseguite · 28 annullate · 3 fallite** (le tre note:
