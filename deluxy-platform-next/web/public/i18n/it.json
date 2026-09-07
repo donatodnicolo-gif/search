@@ -245,6 +245,15 @@
       "openaiKey": "Chiave OpenAI",
       "hint": "Abilita il caricamento delle consegne via AI: si incolla un testo libero (mail, messaggio) e l'estrazione compila il form. Si usa la chiave del motore scelto; chiavi segrete, usate solo lato server."
     },
+    "recap": {
+      "title": "Recap giornaliero ai partner",
+      "sub": "Ogni mattina alle 7 ogni partner riceve le sue consegne di oggi; alle 18:30, se domani ha consegne, il promemoria di domani. Parte da AI Mail, come il recap mensile.",
+      "esclusi": "Partner che NON lo ricevono (email, separate da virgola)",
+      "esclusiHint": "Vuoto = a tutti i partner attivi con un'email. Utile per i marchi interni (es. Deluxy Flowers) che non hanno bisogno di un promemoria.",
+      "prova": "Manda una prova a me",
+      "provando": "Invio…",
+      "provaHint": "Arriva nella casella indicata la mail di un partner che ha consegne oggi (o domani), così si vede com'è fatta. Non conta come invio al partner."
+    },
     "partnerChannel": {
       "title": "Canale partner (WhatsApp e linee commerciali)",
       "whatsapp": "Numero WhatsApp Deluxy",

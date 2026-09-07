@@ -42,6 +42,7 @@ import { StatisticheModule } from './statistiche/statistiche.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
 import { AiModule } from './ai/ai.module';
+import { RecapPartnerModule } from './recap-partner/recap-partner.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { SmsTemplatesModule } from './sms-templates/sms-templates.module';
 import { UsersModule } from './users/users.module';
@@ -75,6 +76,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     StatisticheModule,
     OrdersSyncModule,
     RecurringModule,
+    RecapPartnerModule,
     AiModule,
     MerchandisingSyncModule,
     SalariesModule,

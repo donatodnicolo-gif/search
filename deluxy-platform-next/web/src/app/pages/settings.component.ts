@@ -284,6 +284,33 @@ interface GeocodeResult {
         @if (error()) { <div class="error-card card">{{ error() }}</div> }
       </section>
 
+      <!-- ⭐ 07/09 (regola utente): il recap giornaliero ai partner — alle 7 le
+           consegne di oggi, alle 18:30 il promemoria di domani. Qui chi NON lo
+           vuole e la prova nella propria casella. -->
+      <section class="card block">
+        <header class="block-head"><h2>{{ 'settings.recap.title' | translate }}</h2>
+          <span class="block-sub">{{ 'settings.recap.sub' | translate }}</span></header>
+        <label class="fld"><span>{{ 'settings.recap.esclusi' | translate }}</span>
+          <input class="field mono" name="recapPartnerEsclusi" [(ngModel)]="model.recapPartnerEsclusi"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore
+                 placeholder="flowers@deluxy.it, altro@partner.it" />
+        </label>
+        <p class="hint">{{ 'settings.recap.esclusiHint' | translate }}</p>
+        <div class="key-row" style="margin-top:16px">
+          <input class="field" name="provaRecapEmail" [(ngModel)]="provaRecapEmail" autocomplete="off" />
+          <button type="button" class="btn btn-secondary" [disabled]="provandoRecap() || !provaRecapEmail.trim()" (click)="provaRecap()">
+            {{ provandoRecap() ? ('settings.recap.provando' | translate) : ('settings.recap.prova' | translate) }}
+          </button>
+        </div>
+        <p class="hint">{{ 'settings.recap.provaHint' | translate }}</p>
+        @if (esitoRecap(); as r) { <p class="esito" [class.ok]="r.ok" [class.ko]="!r.ok">{{ r.messaggio }}</p> }
+        <div class="actions">
+          <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
+            {{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}
+          </button>
+        </div>
+      </section>
+
       <!-- Prova della geocodifica con la chiave salvata -->
       <section class="card block">
         <header class="block-head"><h2>{{ 'settings.test.title' | translate }}</h2>
@@ -355,6 +382,7 @@ export class SettingsComponent {
     mailUrl: '', mailApiKey: '', mailUtente: '',
     aiApiKey: '', aiProvider: 'anthropic', openaiApiKey: '',
     whatsappNumero: '', lineeUrl: '', lineeApiKey: '', homePartnerEmails: '',
+    recapPartnerEsclusi: '',
     hubUrl: '', hubPostaToken: '',
     financeUrl: '', financeApiKey: '',
     driveClientId: '', driveClientSecret: '', driveRefreshToken: '', driveFolderId: '',
@@ -423,6 +451,34 @@ export class SettingsComponent {
           error: (e) => { this.provandoPosta.set(false); this.esitoPosta.set({ ok: false, messaggio: e?.error?.message ?? 'Prova non riuscita' }); },
         }),
       error: (e) => { this.provandoPosta.set(false); this.esitoPosta.set({ ok: false, messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
+    });
+  }
+
+  /** Recap giornaliero ai partner: la prova arriva nella casella di chi la chiede (07/09). */
+  provaRecapEmail = this.auth.user()?.email ?? '';
+  readonly provandoRecap = signal(false);
+  readonly esitoRecap = signal<{ ok: boolean; messaggio: string } | null>(null);
+
+  /**
+   * Manda a me la mail di un partner che ha consegne oggi (o domani), così si
+   * vede com'è fatta prima che parta alle 7. Salva PRIMA gli esclusi (solo quel
+   * campo, come le altre prove) e non conta come invio al partner.
+   */
+  provaRecap(): void {
+    this.provandoRecap.set(true);
+    this.esitoRecap.set(null);
+    this.http.put(`${environment.apiUrl}/settings`, { recapPartnerEsclusi: this.model.recapPartnerEsclusi }).subscribe({
+      next: () => this.http
+        .post<{ ok: boolean; a: string; partner: string; giorno: string; tipo: string; consegne: number }>(`${environment.apiUrl}/recap-partner/prova`, { a: this.provaRecapEmail.trim() })
+        .subscribe({
+          next: (r) => {
+            this.provandoRecap.set(false);
+            const giorno = r.giorno.split('-').reverse().join('/');
+            this.esitoRecap.set({ ok: true, messaggio: `Inviata a ${r.a}: ${r.tipo === 'mattina' ? 'recap del mattino' : 'promemoria della sera'} di ${r.partner}, ${r.consegne} consegne del ${giorno}. Controlla la casella.` });
+          },
+          error: (e) => { this.provandoRecap.set(false); this.esitoRecap.set({ ok: false, messaggio: e?.error?.message ?? 'Prova non riuscita' }); },
+        }),
+      error: (e) => { this.provandoRecap.set(false); this.esitoRecap.set({ ok: false, messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
     });
   }
 
@@ -500,6 +556,8 @@ export class SettingsComponent {
         this.model.whatsappNumero = s['whatsappNumero'] ?? '';
         this.model.lineeUrl = s['lineeUrl'] ?? '';
         this.model.lineeApiKey = s['lineeApiKey'] ?? '';
+        this.model.homePartnerEmails = s['homePartnerEmails'] ?? '';
+        this.model.recapPartnerEsclusi = s['recapPartnerEsclusi'] ?? '';
         // ⚠️ Hub e FINANCE: erano nel model e nel form ma NON qui — il save manda
         // tutto il model, quindi ogni salvataggio li azzerava (è il motivo per
         // cui hubUrl/hubPostaToken risultavano vuoti). Ora si caricano anche loro.

@@ -245,6 +245,15 @@
       "openaiKey": "OpenAI key",
       "hint": "Enables loading deliveries via AI: paste a free text (email, message) and the extraction fills the form. The key of the selected engine is used; secret keys, server-side only."
     },
+    "recap": {
+      "title": "Daily recap to partners",
+      "sub": "Every morning at 7 each partner receives today's deliveries; at 18:30, if there are deliveries tomorrow, a reminder for tomorrow. Sent via AI Mail, like the monthly recap.",
+      "esclusi": "Partners who do NOT receive it (emails, comma-separated)",
+      "esclusiHint": "Empty = every active partner with an email. Useful for in-house brands (e.g. Deluxy Flowers) that need no reminder.",
+      "prova": "Send me a test",
+      "provando": "Sending…",
+      "provaHint": "The mailbox above receives the mail of a partner with deliveries today (or tomorrow), so you can see how it looks. It does not count as a send to the partner."
+    },
     "partnerChannel": {
       "title": "Partner channel (WhatsApp & commercial lines)",
       "whatsapp": "Deluxy WhatsApp number",

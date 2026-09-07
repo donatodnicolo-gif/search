@@ -21,6 +21,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.module';
 import { StockService } from '../stock/stock.module';
 import { puntualitaConsegna } from '../common/puntualita';
+import { dataBreveRoma, dataLungaRoma, fasciaOraria } from '../common/giorno-roma';
 import {
   PagedResult,
   buildOrderBy,
@@ -1900,21 +1901,75 @@ export class DeliveriesService {
     console.error('notifica-mail: invio fallito (AI Mail:', esito.motivo, '| Hub:', hub.motivo, ')');
   }
 
+  /**
+   * ⭐ 07/09/2026 (regola utente: «indica data, orario di ritiro e usa un testo
+   * più formale»): la mail al partner dice SUBITO quando si lavora — data,
+   * ritiro (chi e a che ora) e consegna al destinatario — e chi riceve cosa,
+   * senza dover aprire il link. Testo formale («Gentile…, vi informiamo»).
+   * Si rilegge la consegna dal database perché chi chiama passa forme diverse
+   * (la creazione, il canale app): una lettura sola, fuori dal percorso di
+   * risposta, e il messaggio è sempre completo. Mai `internalNotes`.
+   */
   private async notificaInserimentoAlPartner(delivery: { id: string; code: number; partnerId: string | null }): Promise<void> {
     if (!delivery.partnerId) return;
-    const partner = await this.prisma.partner.findUnique({
-      where: { id: delivery.partnerId },
-      select: { email: true, insegna: true, mailNotifications: true },
+    const d = await this.prisma.delivery.findUnique({
+      where: { id: delivery.id },
+      select: {
+        id: true, code: true, date: true,
+        deliveryTimeFrom: true, deliveryTimeTo: true, deliveryFlexible: true,
+        pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
+        recipientFirstName: true, recipientLastName: true, recipientAddress: true, recipientIntercom: true, recipientPhone: true,
+        notes: true, deliveredByPartner: true,
+        partner: { select: { email: true, insegna: true, mailNotifications: true } },
+        valet: { select: { firstName: true, lastName: true, phone: true } },
+        serviceType: { select: { name: true } },
+        products: {
+          where: { deletedAt: null },
+          select: {
+            quantity: true, productName: true, variantName: true,
+            product: { select: { name: true, note: true } },
+            productVariant: { select: { name: true, note: true } },
+          },
+        },
+      },
     });
-    if (!partner?.email || !partner.mailNotifications) return;
-    const link = `https://app.deluxy.it/deliveries/${delivery.id}`;
+    if (!d?.partner?.email || !d.partner.mailNotifications) return;
+
+    const link = `https://app.deluxy.it/deliveries/${d.id}`;
+    const dataLunga = dataLungaRoma(d.date, true);
+    const ritiro = d.deliveredByPartner
+      ? `Consegna: a vostra cura (consegna da partner), ${fasciaOraria(d.deliveryTimeFrom, d.deliveryTimeTo, d.deliveryFlexible)}`
+      : `Ritiro: ${fasciaOraria(d.pickupTimeFrom, d.pickupTimeTo, d.pickupFlexible)}, a cura ${d.valet ? `di ${d.valet.firstName} ${d.valet.lastName}${d.valet.phone ? ` (${d.valet.phone})` : ''}` : 'del valet Deluxy'}${d.pickupAddress ? ` — presso ${d.pickupAddress}` : ''}`;
+    const prodotti = d.products.map((p) => {
+      const nome = p.productName || p.product?.name || 'Prodotto';
+      const variante = p.variantName || p.productVariant?.name;
+      const nota = p.productVariant?.note || p.product?.note;
+      return `  - ${p.quantity > 1 ? `${p.quantity} × ` : ''}${nome}${variante ? ` (${variante})` : ''}${nota ? ` — ${nota}` : ''}`;
+    });
+    const destinatario = `${d.recipientFirstName} ${d.recipientLastName}`.trim();
+
     await this.inviaMail(
-      partner.email,
-      `Nuovo servizio Deluxy · consegna #${delivery.code}`,
-      [`Ciao ${partner.insegna ?? ''},`, '',
-       `ti abbiamo inserito una nuova consegna (#${delivery.code}).`,
-       `Vedi i dettagli qui: ${link}`, '',
-       'Deluxy'].join('\n'),
+      d.partner.email,
+      `Nuova consegna Deluxy n. ${d.code} · ${dataBreveRoma(d.date)} · ${d.deliveredByPartner ? 'consegna' : 'ritiro'} ${fasciaOraria(d.deliveredByPartner ? d.deliveryTimeFrom : d.pickupTimeFrom, d.deliveredByPartner ? d.deliveryTimeTo : d.pickupTimeTo, d.deliveredByPartner ? d.deliveryFlexible : d.pickupFlexible)}`,
+      [
+        `Gentile ${d.partner.insegna},`,
+        '',
+        'vi informiamo che è stata inserita una nuova consegna a vostro carico.',
+        '',
+        `Consegna n. ${d.code}${d.serviceType?.name ? ` · ${d.serviceType.name}` : ''}`,
+        `Data: ${dataLunga}`,
+        ritiro,
+        ...(d.deliveredByPartner ? [] : [`Consegna al destinatario: ${fasciaOraria(d.deliveryTimeFrom, d.deliveryTimeTo, d.deliveryFlexible)}`]),
+        `Destinatario: ${destinatario}, ${d.recipientAddress}${d.recipientIntercom ? ` (citofono ${d.recipientIntercom})` : ''}${d.recipientPhone ? ` · tel. ${d.recipientPhone}` : ''}`,
+        ...(prodotti.length ? ['Prodotti:', ...prodotti] : []),
+        ...(d.notes ? [`Note: ${d.notes}`] : []),
+        '',
+        'Tutti i dettagli sono disponibili in piattaforma:',
+        link,
+        '',
+        'Cordiali saluti,',
+        'Deluxy — Piattaforma consegne',
+      ].join('\n'),
     );
   }
 

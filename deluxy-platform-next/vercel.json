@@ -40,6 +40,14 @@
     {
       "path": "/api/v1/cron/non-consegnate",
       "schedule": "5 23 * * *"
+    },
+    {
+      "path": "/api/v1/cron/recap-partner-mattina",
+      "schedule": "0 5,6 * * *"
+    },
+    {
+      "path": "/api/v1/cron/recap-partner-sera",
+      "schedule": "30 16,17 * * *"
     }
   ],
   "routes": [

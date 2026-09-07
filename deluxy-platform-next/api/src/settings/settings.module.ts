@@ -72,6 +72,10 @@ export const SETTING_KEYS = [
   // entrano sulla pagina dei servizi richiedibili (/home) invece che sulle
   // Consegne, e hanno la voce «Servizi Deluxy» nel menu. Vuoto = nessuno.
   'homePartnerEmails',
+  // RECAP GIORNALIERO AI PARTNER (07/09/2026, regola utente: ogni mattina alle
+  // 7 le consegne di oggi, alle 18:30 il promemoria di domani). Le email dei
+  // partner, separate da virgola, che NON lo vogliono. Vuoto = a tutti.
+  'recapPartnerEsclusi',
   // LINEE COMMERCIALI: Scout ne e' il MASTER (edge function `linee`).
   // La vetrina dei servizi richiedibili dal partner si legge da li', mai
   // ricopiata (Standard §7: cache TTL breve si', tabelle-copia no).
@@ -198,6 +202,37 @@ export class SettingsService {
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; errore?: string };
       if (!res.ok || body.ok === false) {
         return { ok: false, motivo: body.error ?? body.errore ?? `AI Mail risponde HTTP ${res.status}` };
+      }
+      return { ok: true, motivo: 'inviata' };
+    } catch (err) {
+      return { ok: false, motivo: `AI Mail non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
+  /**
+   * Come `inviaViaAiMail`, ma il corpo è HTML già pronto (il recap giornaliero
+   * ai partner, 07/09/2026): niente escape, niente `<br>`. Stesso contratto
+   * del recap mensile (`invoices.inviaRecap`), timeout lungo perché l'SMTP
+   * vero ci mette qualche secondo.
+   */
+  async inviaHtmlViaAiMail(a: string, oggetto: string, html: string): Promise<{ ok: boolean; motivo: string }> {
+    const url = ((await this.get('mailUrl')) || process.env.MAIL_URL || 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+    const chiave = (await this.get('mailApiKey')) || process.env.MAIL_API_KEY || '';
+    const utente = (await this.get('mailUtente')) || process.env.MAIL_UTENTE || '';
+    if (!chiave || !utente) {
+      const manca = [!chiave && 'chiave', !utente && 'casella'].filter(Boolean).join(' e ');
+      return { ok: false, motivo: `AI Mail non configurato: manca la ${manca} (mailApiKey/mailUtente).` };
+    }
+    try {
+      const res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a, oggetto, corpo: html }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; errore?: string; messaggio?: string };
+      if (!res.ok || body.ok === false) {
+        return { ok: false, motivo: body.error ?? body.errore ?? body.messaggio ?? `AI Mail risponde HTTP ${res.status}` };
       }
       return { ok: true, motivo: 'inviata' };
     } catch (err) {
