@@ -339,7 +339,15 @@ export function preventivoDecisivo(l: LavoroConPreventivi): {
  * richiesta non è una trattativa, e dedurre il legame sarebbe un'invenzione.
  */
 export function trattativaDelLavoro(
-  l: { deal_id?: string | null; hubspot_deal_id?: string | null; ordine_id?: string | null },
+  l: {
+    deal_id?: string | null;
+    hubspot_deal_id?: string | null;
+    ordine_id?: string | null;
+    /** Accettata e IGNORATA di proposito: vedi la nota qui sopra. Sta nella
+     *  firma perche i chiamanti passano il lavoro intero, e perche il test che
+     *  tiene ferma la regola deve poterla scrivere. */
+    richiesta_id?: string | null;
+  },
   dealDellOrdine: Map<string, string>,
 ): string | null {
   if (l.deal_id) return l.deal_id;
