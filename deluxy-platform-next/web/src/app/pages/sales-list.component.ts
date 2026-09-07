@@ -76,6 +76,8 @@ interface Storico {
 interface Sale {
   id: string;
   status: string;
+  /** ⭐ 07/09/2026: prodotto a preventivo senza prezzo concordato — prima si raccoglie quello. */
+  preventivoMancante?: boolean;
   brand: string;
   amount: number | null;
   /** Al PARTNER arriva solo questo: importo × (1 − sconto%). */
@@ -330,7 +332,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                       </button>
                     }
                   } @else {
-                  @if (s.status === 'proposta' && puoRispondere(s)) {
+                  <!-- ⭐ 07/09/2026 (regola utente): finché manca il preventivo non si accetta,
+                       non si rifiuta e non si inserisce. Si raccoglie il prezzo, e basta. -->
+                  @if (s.status === 'proposta' && puoRispondere(s) && !serveIlPreventivo(s)) {
                     <button class="btn btn-primary mini" [disabled]="inCorso() === s.id" (click)="accetta(s)">
                       {{ 'sales.accept' | translate }}
                     </button>
@@ -340,7 +344,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                   }
                   <!-- ⭐ 04/09 (regola utente): l'UFFICIO rifiuta anche una vendita
                        da gestire — chiude in storico come non accettata. -->
-                  @if (canManage() && s.status === 'da_gestire') {
+                  @if (canManage() && s.status === 'da_gestire' && !serveIlPreventivo(s)) {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
                       {{ 'sales.refuse' | translate }}
                     </button>
@@ -351,11 +355,13 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                        dopo aver salvato il prezzo del partner — e salvarlo crea la regola per
                        le prossime volte. Il bottone sta accanto a «Inserisci», non altrove. -->
                   @if (canManage() && aPreventivo(s) && (s.status === 'proposta' || s.status === 'da_gestire')) {
-                    <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="apriPreventivo(s)">
-                      {{ 'sales.detail.salvaPreventivo' | translate }}
+                    <button class="btn mini" [class.btn-primary]="serveIlPreventivo(s)" [class.btn-secondary]="!serveIlPreventivo(s)"
+                            [disabled]="inCorso() === s.id" (click)="apriPreventivo(s)"
+                            [title]="serveIlPreventivo(s) ? ('sales.detail.preventivoServe' | translate) : ''">
+                      {{ (serveIlPreventivo(s) ? 'sales.detail.chiediPreventivo' : 'sales.detail.salvaPreventivo') | translate }}
                     </button>
                   }
-                  @if (canManage() && (s.status === 'proposta' || s.status === 'da_gestire')) {
+                  @if (canManage() && !serveIlPreventivo(s) && (s.status === 'proposta' || s.status === 'da_gestire')) {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="inserisci(s)">
                       {{ 'sales.inserisci' | translate }}
                     </button>
@@ -1510,6 +1516,13 @@ export class SalesListComponent {
 
   /** Il prodotto della vendita va a preventivo? */
   aPreventivo(s: Sale): boolean { return s.product?.tipologiaVendita === 'preventivo'; }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): finché il preventivo non c'è, su questa vendita si può
+   * fare UNA cosa sola — raccoglierlo. Accetta, Rifiuta e Inserisci spariscono: un bottone
+   * che porta a un errore è peggio di un bottone assente.
+   */
+  serveIlPreventivo(s: Sale): boolean { return this.aPreventivo(s) && s.preventivoMancante === true; }
 
   apriPreventivo(s: Sale): void {
     this.prezzoPreventivo = s.prezzoPartner ?? null;

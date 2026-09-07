@@ -7,6 +7,7 @@ import {
   Logger,
   Module,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -1047,12 +1048,21 @@ export class CronMarginiController {
   @Get('smistamento')
   @Public()
   @ApiOperation({ summary: 'Ogni 15′: propone ai partner gli ordini idonei (unici o province con partner)' })
-  async smistamento(@Headers('authorization') authorization?: string) {
+  async smistamento(@Headers('authorization') authorization?: string, @Query('da') daQuery?: string) {
     const segreto = process.env.CRON_SECRET ?? '';
     if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
     // Solo la finestra recente (ultimi 3 giorni): leggero, così può girare ogni
     // 15 minuti. Idempotente: ciò che è già proposto resta com'è.
-    const da = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    //
+    // ⭐ 07/09/2026 (regola utente «sistema anche eventuali altri»): con `?da=YYYY-MM-DD` si
+    // recupera l'ARRETRATO — serve quando cambia una regola di riconoscimento e gli ordini
+    // vecchi vanno ripassati (è successo con le righe senza SKU). Il tetto è 90 giorni:
+    // oltre, la corsa non sta nei 300 secondi della funzione e sarebbe un troncamento muto.
+    const richiesta = (daQuery ?? '').trim();
+    const valida = /^d{4}-d{2}-d{2}$/.test(richiesta) ? new Date(`${richiesta}T00:00:00.000Z`) : null;
+    const limiteMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const scelta = valida && !isNaN(valida.getTime()) && valida >= limiteMin ? valida : new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const da = scelta.toISOString().slice(0, 10);
     const smistate = await this.service.sincronizza({ applica: true, da, limite: 1000 });
     // ⭐ 28/08: sullo stesso giro si RIEMPIONO a lotti i servizi ricorrenti
     // lunghi. La creazione ne fa due settimane e risponde subito; il resto

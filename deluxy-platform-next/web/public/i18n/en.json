@@ -2746,7 +2746,9 @@
       "salvaPreventivo": "Save quote",
       "preventivoTitolo": "Partner quote",
       "preventivoSotto": "A quote product needs the agreed price before it can be inserted: saving it also creates the rule for next time.",
-      "preventivoPrezzo": "Partner price (€)"
+      "preventivoPrezzo": "Partner price (€)",
+      "chiediPreventivo": "Ask for the quote",
+      "preventivoServe": "Quote product: the partner price comes first, then you can accept or insert."
     }
   },
   "activities": {

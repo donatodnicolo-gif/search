@@ -154,7 +154,7 @@ export class SalesService {
     const vendite = await this.prisma.sale.findMany({
       where,
       include: {
-        product: { select: { id: true, name: true, price: true, type: true, tipologiaVendita: true, note: true } },
+        product: { select: { id: true, name: true, sku: true, price: true, type: true, tipologiaVendita: true, note: true } },
         partner: { select: { id: true, insegna: true } },
         province: true,
       },
@@ -166,9 +166,58 @@ export class SalesService {
     // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
+    // ⭐ 07/09/2026 (regola utente: «prima dovrebbe richiedere il preventivo e nascondere
+    // accetta, rifiuta e inserisci»). Per le vendite di un prodotto A PREVENTIVO si dice se il
+    // prezzo concordato esiste già: senza, in pagina resta solo «Salva preventivo».
+    // Si calcola con due letture per tutta la lista, non una per riga.
+    const daPreventivo = vendite.filter((v) => v.product?.tipologiaVendita === 'preventivo' && v.productId && v.provinceId);
+    const conPrezzo = new Set<string>();
+    if (daPreventivo.length) {
+      const [patti, varianti, listini] = await Promise.all([
+        this.prisma.productReconciliation.findMany({
+          where: {
+            status: 'accettata',
+            productId: { in: [...new Set(daPreventivo.map((v) => v.productId!))] },
+            provinceId: { in: [...new Set(daPreventivo.map((v) => v.provinceId))] },
+          },
+          select: { productId: true, productVariantId: true, provinceId: true },
+        }),
+        this.prisma.productVariant.findMany({
+          where: { id: { in: daPreventivo.map((v) => v.productVariantId).filter(Boolean) as string[] } },
+          select: { id: true, sku: true },
+        }),
+        // I preventivi raccolti vivono come listino del partner: sku «PP-<codice>-<partner>».
+        this.prisma.product.findMany({
+          where: { active: true, deletedAt: null, archived: false, sku: { startsWith: 'PP-' }, partnerId: { not: null } },
+          select: { sku: true, partnerId: true },
+        }),
+      ]);
+      const patto = new Set(patti.map((r) => `${r.productId}|${r.productVariantId ?? ''}|${r.provinceId}`));
+      const skuVariante = new Map(varianti.map((x) => [x.id, (x.sku ?? '').toUpperCase()]));
+      const perPartner = new Map<string, string[]>();
+      for (const l of listini) {
+        const a2 = perPartner.get(l.partnerId!) ?? [];
+        a2.push((l.sku ?? '').toUpperCase());
+        perPartner.set(l.partnerId!, a2);
+      }
+      const chiaveSku = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28);
+      for (const v of daPreventivo) {
+        if (patto.has(`${v.productId}|${v.productVariantId ?? ''}|${v.provinceId}`) || patto.has(`${v.productId}||${v.provinceId}`)) {
+          conPrezzo.add(v.id);
+          continue;
+        }
+        if (!v.partnerId) continue;
+        const basi = [v.productVariantId ? skuVariante.get(v.productVariantId) : null, v.product?.sku]
+          .filter(Boolean)
+          .map((x) => chiaveSku(String(x)));
+        const suoi = perPartner.get(v.partnerId) ?? [];
+        if (basi.some((b2) => suoi.some((sk) => sk.startsWith(`PP-${b2}-`)))) conPrezzo.add(v.id);
+      }
+    }
+    const senzaPreventivo = new Set(daPreventivo.filter((v) => !conPrezzo.has(v.id)).map((v) => v.id));
     return vendite.map((v) => {
       const trovato = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
-      const conStato = { ...v, ordine: trovato };
+      const conStato = { ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id) };
       return user.role === Role.PARTNER ? SalesService.perPartner(conStato) : conStato;
     });
   }
