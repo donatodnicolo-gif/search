@@ -52,13 +52,13 @@
 >   `elaborataIl`: 74 dell'import iniziale del 23/07, 15 dal 25/08 in poi
 >   (doppioni .xlsx compresi). **Non corretto**: da decidere se dedurre per
 >   titolo/cartella o saltare gli `.xlsx` quando esiste il gemello `.md`.
-> · 🆕 **Lavoro del pomeriggio, IN LOCALE (non pushato, non deployato)**:
+> · 🆕 **Lavoro del pomeriggio, PUSHATO (85c77b8b) e DEPLOYATO (deluxy-marketing-2fkd4ucey, ~15:35 UTC, Ready, health ok)**:
 >   pannello laterale dopo «metti in coda» (scheda campagna e gruppo,
 >   Keyword, Parole cercate) al posto del salto a /operazioni; le annullate
 >   solo in archivio; «Metti in pausa» su ogni annuncio della scheda gruppo;
 >   i bottoni non ereditano più il maiuscolo dai titoli di scheda. Vedi la
->   prima sezione di FATTO. Da fare: ripubblicare la guida visiva, push,
->   deploy, primo giro vero.
+>   prima sezione di FATTO. Guida ripubblicata, push e
+>   deploy fatti. Da fare: il primo giro vero in produzione.
 > · Aperti invariati: 8.152 nomi + 6.486 email nelle colonne, 5 segreti in
 >   chiaro in `Impostazione`, TikTok senza token, tetto ADV di Gifts, doppione
 >   RSA WORLD-ENG.
@@ -468,7 +468,7 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
-### ⭐⭐ IL PANNELLO LATERALE DOPO «METTI IN CODA», LE ANNULLATE IN ARCHIVIO, LA PAUSA DI UN ANNUNCIO, I BOTTONI SENZA MAIUSCOLO (07/09/2026 pomeriggio — IN LOCALE, NON PUSHATO NÉ DEPLOYATO)
+### ⭐⭐ IL PANNELLO LATERALE DOPO «METTI IN CODA», LE ANNULLATE IN ARCHIVIO, LA PAUSA DI UN ANNUNCIO, I BOTTONI SENZA MAIUSCOLO (07/09/2026 pomeriggio — pushato come 85c77b8b e deployato: deluxy-marketing-2fkd4ucey, Ready, health ok)
 
 Cinque richieste dell'utente in fila, tutte sulla stessa sessione, tutte
 provate in locale (`npx tsc --noEmit` pulito, dev server sulla 3130, pagine
@@ -539,8 +539,8 @@ vera**: la prima passa dallo script e va guardata nell'esito.
 
 Registrato nei tre manuali (funzionalità, guida visiva, manuale Deluxy).
 Guida visiva RIPUBBLICATA a URL nuovo, la vecchia risultava cancellata; manuale Deluxy ripubblicato allo stesso URL (Artifact con url
-`29dee26b-…`). Da fare: push e deploy (`npx vercel deploy --prod --yes` da
-PowerShell con Node nel PATH), poi un giro vero: una pausa di annuncio e un
+`29dee26b-…`). Push e deploy FATTI (`npx vercel deploy --prod --yes` da
+PowerShell con Node nel PATH → deluxy-marketing-2fkd4ucey, Ready). Resta il giro vero: una pausa di annuncio e un
 «Escludi» dalle ricerche per vedere il pannello in produzione.
 
 ### ⭐⭐ «CONCLUSA» = PAUSA SULLA PIATTAFORMA, L'APPROVAZIONE META ESEGUE, IL PIXEL SEMPRE (04/09/2026 pomeriggio)
