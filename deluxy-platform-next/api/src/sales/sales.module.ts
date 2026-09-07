@@ -2025,9 +2025,17 @@ export class SalesService {
         ? await this.prisma.productVariant.findUnique({ where: { id: finestra.variantId }, select: { sku: true } })
         : null;
       const preventivi = await this.preventiviDelProdotto(product, variante?.sku ?? null);
+      // ⚠️ 07/09/2026: chi ha già un prezzo NELLA CANDIDATURA passa comunque — una
+      // RICONCILIAZIONE ACCETTATA è il patto più forte che esista (prodotto, variante,
+      // provincia, quel partner, quel prezzo) e non va ridiscussa chiedendo un preventivo
+      // che è già stato dato. Il filtro serve a chi un prezzo non ce l'ha.
       lista = lista
-        .filter((c) => preventivi.has(c.partnerId))
-        .map((c) => ({ ...c, prezzoPartner: preventivi.get(c.partnerId)!, motivo: `${c.motivo} · preventivo già dato: ${preventivi.get(c.partnerId)} €` }));
+        .filter((c) => c.prezzoPartner !== undefined || preventivi.has(c.partnerId))
+        .map((c) =>
+          c.prezzoPartner !== undefined
+            ? c
+            : { ...c, prezzoPartner: preventivi.get(c.partnerId)!, motivo: `${c.motivo} · preventivo già dato: ${preventivi.get(c.partnerId)} €` },
+        );
       if (!lista.length) return null;
     }
 
