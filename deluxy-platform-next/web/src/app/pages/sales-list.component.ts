@@ -582,6 +582,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               } @else if (v.product?.line) {
                 <div class="muted">{{ 'sales.detail.line' | translate: { linea: v.product?.line } }}</div>
               }
+              <!-- ⭐ 07/09/2026 (regola utente): la NOTA DI SPECIFICA anche qui, sul prodotto
+                   della vendita: è quello che il fioraio deve mettere dentro. -->
+              @if (v.product?.note; as nota) { <div class="nota-specifica">{{ nota }}</div> }
             </dd>
             <dt>{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.detail.amount') | translate }}</dt>
             @if (isPartner()) {
@@ -877,6 +880,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       /* ⭐ 04/09: pop-up di dettaglio — velo + pannello, come nel Customer
          Service. Il pannello sta dentro la viewport e scorre lui (Libro §9). */
       .riga-link { cursor: pointer; }
+      .nota-specifica { display: inline-block; margin-top: 4px; font-size: 12px; padding: 1px 8px; border-radius: 980px; background: var(--fill); color: var(--text-secondary); }
       .prev-modal { max-width: 460px; }
       .prev-corpo { padding: 16px 18px 18px; display: grid; gap: 10px; }
       .prev-corpo .fld { display: grid; gap: 4px; font-size: 13px; }
