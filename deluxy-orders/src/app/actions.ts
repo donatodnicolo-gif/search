@@ -623,29 +623,11 @@ export async function eliminaStato(fd: FormData) {
 }
 
 // ---- Gestione negozi Shopify (Impostazioni) ----
-export async function creaNegozio(fd: FormData) {
-  const brand = s(fd, "brand");
-  const dominio = s(fd, "dominio");
-  if (!brand || !dominio) return;
-  await prisma.negozioShopify.upsert({
-    where: { brand },
-    create: {
-      brand,
-      dominio,
-      token: s(fd, "token") ?? "",
-      clientId: s(fd, "clientId"),
-      clientSecret: s(fd, "clientSecret"),
-    },
-    update: {
-      dominio,
-      token: s(fd, "token") ?? "",
-      clientId: s(fd, "clientId"),
-      clientSecret: s(fd, "clientSecret"),
-      attivo: true,
-    },
-  });
-  revalidatePath("/impostazioni");
-}
+// ⚠️ La creazione del negozio NON sta piu' qui: e' `salvaNegozio` in
+// `app/negozi/actions.ts`, che prima di salvare conia il token e prova il
+// collegamento con Shopify. Due porte per la stessa cosa, di cui una che non
+// verifica niente, e' il modo migliore per ritrovarsi un negozio "attivo" che
+// non porta un ordine.
 
 // Colore del brand: distingue gli ordini dei vari negozi nell'elenco e nelle colonne.
 export async function cambiaColoreBrand(fd: FormData) {

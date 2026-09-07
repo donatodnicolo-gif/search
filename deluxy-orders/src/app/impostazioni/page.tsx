@@ -2,10 +2,9 @@ import { prisma } from "@/lib/db";
 import { statiOrdinati } from "@/lib/stati";
 import { dataBreve } from "@/lib/ordini";
 import {
-  creaNegozio, toggleNegozio, eliminaNegozio, cambiaColoreBrand, cambiaBrandRicerca,
   creaStato, aggiornaStato, eliminaStato,
   creaEtichetta, eliminaEtichetta,
-  toggleChiave, sincronizza, importaFeedbackOrdini, impostaCategoriaNegozio, ricalcolaCategorieOrdini, riconciliaOrdini,
+  toggleChiave, sincronizza, importaFeedbackOrdini, ricalcolaCategorieOrdini, riconciliaOrdini,
 } from "@/app/actions";
 import { configurazione, riepilogoFeedback } from "@/lib/feedback";
 import { configurazioneFinance, riepilogoMovimenti } from "@/lib/movimenti";
@@ -328,94 +327,24 @@ export default async function Impostazioni({
         </p>
       </div>
 
-      {/* ---------- Negozi Shopify ---------- */}
+      {/* ---------- Negozi Shopify: la gestione sta in /negozi ---------- */}
       <div className="scheda">
         <div className="scheda-titolo">Negozi Shopify</div>
-        {negozi.length === 0 ? (
-          <p className="testo-guida">Nessun negozio. Aggiungine uno qui sotto per iniziare a importare gli ordini.</p>
-        ) : (
-          <div className="tabella-wrap" style={{ marginBottom: 16 }}>
-            <table>
-              <thead>
-                <tr><th>Brand</th><th>Colore</th><th>Nome in Ricerca fornitori</th><th>Specialita'</th><th>Dominio</th><th>Auth</th><th>Ultima sync</th><th>Stato</th><th></th></tr>
-              </thead>
-              <tbody>
-                {negozi.map((n) => (
-                  <tr key={n.id}>
-                    <td className="cella-nome cella-brand">
-                      <span className="brand-dot" style={{ background: n.colore }} />
-                      {n.brand}
-                    </td>
-                    <td>
-                      <form action={cambiaColoreBrand} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <input type="color" name="colore" defaultValue={n.colore} style={{ width: 34, height: 28, padding: 2, border: 0, background: "transparent", cursor: "pointer" }} />
-                        <button className="btn btn-secondario small" type="submit">Salva</button>
-                      </form>
-                    </td>
-                    <td>
-                      <form action={cambiaBrandRicerca} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <input
-                          name="brandRicerca"
-                          defaultValue={n.brandRicerca ?? ""}
-                          placeholder={n.brand}
-                          style={{ font: "inherit", fontSize: 13, width: 150, padding: "6px 9px", borderRadius: "var(--radius-s)", background: "var(--fill)", border: "1px solid transparent" }}
-                        />
-                        <button className="btn btn-secondario small" type="submit">Salva</button>
-                      </form>
-                    </td>
-                    <td>
-                      {/* La specialità del negozio: si usa per classificare i
-                          prodotti che dal titolo non si riconoscono. */}
-                      <form action={impostaCategoriaNegozio} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <select
-                          name="categoriaPredefinita"
-                          defaultValue={n.categoriaPredefinita ?? ""}
-                          style={{ font: "inherit", fontSize: 13, padding: "6px 9px", borderRadius: "var(--radius-s)", background: "var(--fill)", border: "1px solid transparent" }}
-                        >
-                          <option value="">— nessuna: resta «non classificato» —</option>
-                          {CATEGORIE.filter((c) => !c.servizio).map((c) => (
-                            <option key={c.chiave} value={c.chiave}>{c.nome}</option>
-                          ))}
-                        </select>
-                        <button className="btn btn-secondario small" type="submit">Salva</button>
-                      </form>
-                    </td>
-                    <td className="cella-muta">{n.dominio}</td>
-                    <td className="cella-muta">{n.clientId ? "Client credentials" : n.token ? "Token statico" : "—"}</td>
-                    <td className="cella-muta">{n.ultimaSync ? dataBreve(n.ultimaSync) : "mai"}</td>
-                    <td>
-                      <form action={toggleNegozio} style={{ display: "inline" }}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <button className={`badge${n.attivo ? "" : " neutro"}`} style={{ border: 0, cursor: "pointer", color: n.attivo ? "var(--green)" : "var(--text-tertiary)" }}>
-                          <span className="dot" />{n.attivo ? "attivo" : "sospeso"}
-                        </button>
-                      </form>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <form action={eliminaNegozio} style={{ display: "inline" }}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <button className="btn btn-secondario small" type="submit">Elimina</button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <form action={creaNegozio} className="modulo">
-          <div className="campo-modulo"><label>Brand <span className="obbligatorio">*</span></label><input name="brand" required placeholder="deluxyflowers.com" /></div>
-          <div className="campo-modulo"><label>Dominio myshopify <span className="obbligatorio">*</span></label><input name="dominio" required placeholder="fb72b1-2.myshopify.com" /></div>
-          <div className="campo-modulo largo"><label>Token statico (shpat_…) — oppure Client ID/Secret sotto</label><input name="token" placeholder="shpat_…" /></div>
-          <div className="campo-modulo"><label>Client ID (Dev Dashboard)</label><input name="clientId" placeholder="opzionale" /></div>
-          <div className="campo-modulo"><label>Client Secret</label><input name="clientSecret" placeholder="opzionale" /></div>
-          <div className="azioni-modulo largo"><button className="btn" type="submit">Salva negozio</button></div>
-        </form>
-        <p className="testo-guida" style={{ marginTop: 8 }}>
-          Sola lettura ordini (<code className="inline">read_orders</code>). Il token/segreto resta sul server, non viene mai mostrato.
+        <p className="testo-guida">
+          I negozi da cui arrivano gli ordini si collegano nella loro sezione:{" "}
+          <strong>Negozi Shopify</strong>, nel menu qui a sinistra. Lì si aggiunge un negozio, si
+          prova il collegamento con Shopify, si sospende o si cambia colore e specialita.
+          {negozi.length > 0 && (
+            <>
+              {" "}Ora ce ne {negozi.length === 1 ? "e" : "sono"} <strong>{negozi.length}</strong>,
+              di cui <strong>{negozi.filter((n) => n.attivo).length}</strong>{" "}
+              {negozi.filter((n) => n.attivo).length === 1 ? "attivo" : "attivi"}:{" "}
+              {negozi.map((n) => n.brand).join(", ")}.
+            </>
+          )}
+        </p>
+        <p style={{ marginTop: 10 }}>
+          <a className="btn btn-secondario" href="/negozi">Vai ai negozi</a>
         </p>
       </div>
 

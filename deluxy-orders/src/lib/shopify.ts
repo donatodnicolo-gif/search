@@ -696,7 +696,7 @@ export async function tokenNegozio(neg: NegozioAuth): Promise<string> {
   throw new Error("nessun token statico né Client ID/Secret configurati");
 }
 
-// Verifica che un token legga (pagina Impostazioni): torna il nome dello shop.
+// Verifica che un token legga (pagina Negozi): torna il nome dello shop.
 export async function verificaNegozio(
   dominio: string,
   token: string,
@@ -711,5 +711,71 @@ export async function verificaNegozio(
     return { ok: true, messaggio: j?.shop?.name ?? dominio };
   } catch (e) {
     return { ok: false, messaggio: (e as Error).message };
+  }
+}
+
+// Il dominio che Shopify vuole è quello tecnico (`xxx.myshopify.com`), ma nel
+// pannello di Shopify quello che si ha davanti agli occhi è un altro:
+// l'indirizzo dell'admin (`admin.shopify.com/store/xxx`) o il dominio del sito
+// (`deluxy.it`). Qui si accettano le forme che una persona ha davvero sotto
+// mano, invece di far fallire il salvataggio con un errore di battitura.
+export function normalizzaDominio(grezzo: string): { dominio: string | null; motivo?: string } {
+  let d = grezzo.trim().toLowerCase();
+  d = d.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  // admin.shopify.com/store/<handle>[/...]
+  const admin = d.match(/^admin\.shopify\.com\/store\/([a-z0-9-]+)/);
+  if (admin) return { dominio: `${admin[1]}.myshopify.com` };
+  // <handle>.myshopify.com, eventualmente con un percorso dietro
+  const my = d.match(/^([a-z0-9-]+)\.myshopify\.com/);
+  if (my) return { dominio: `${my[1]}.myshopify.com` };
+  // il solo handle, senza dominio
+  if (/^[a-z0-9-]+$/.test(d)) return { dominio: `${d}.myshopify.com` };
+  return {
+    dominio: null,
+    motivo:
+      "serve il dominio tecnico del negozio, quello che finisce in .myshopify.com (lo si legge in Shopify sotto Impostazioni → Domini, o nell'indirizzo dell'admin: admin.shopify.com/store/NOME)",
+  };
+}
+
+// La prova del collegamento, quella che si preme in pagina.
+//
+// ⚠️ Non basta chiedere `shop.json`: quello risponde anche a un'app che NON
+// sa leggere gli ordini, ed è esattamente il caso che rovina la giornata —
+// negozio «collegato», sync che non porta mai niente. Quindi si chiedono
+// DUE cose: chi sei (nome del negozio) e **quanti ordini vedi**
+// (`orders/count`, che richiede `read_orders`). Un negozio è collegato solo
+// se passano tutte e due.
+export async function provaCollegamento(
+  dominio: string,
+  token: string,
+): Promise<{ ok: boolean; negozio: string | null; ordini: number | null; messaggio: string }> {
+  const shop = await verificaNegozio(dominio, token);
+  if (!shop.ok) return { ok: false, negozio: null, ordini: null, messaggio: shop.messaggio };
+  try {
+    const res = await fetch(
+      `https://${dominio}/admin/api/${API_VERSION}/orders/count.json?status=any`,
+      { headers: { "X-Shopify-Access-Token": token }, signal: AbortSignal.timeout(10000) },
+    );
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        negozio: shop.messaggio,
+        ordini: null,
+        messaggio: `«${shop.messaggio}» risponde, ma l'app non ha il permesso di leggere gli ordini (read_orders): aggiungilo nella Dev Dashboard del negozio`,
+      };
+    }
+    if (!res.ok) {
+      return { ok: false, negozio: shop.messaggio, ordini: null, messaggio: `«${shop.messaggio}» risponde, ma il conteggio ordini dà HTTP ${res.status}` };
+    }
+    const j = (await res.json()) as { count?: number };
+    const ordini = typeof j.count === "number" ? j.count : null;
+    return {
+      ok: true,
+      negozio: shop.messaggio,
+      ordini,
+      messaggio: ordini == null ? `Collegato a «${shop.messaggio}»` : `Collegato a «${shop.messaggio}» · ${ordini.toLocaleString("it-IT")} ordini visibili su Shopify`,
+    };
+  } catch (e) {
+    return { ok: false, negozio: shop.messaggio, ordini: null, messaggio: (e as Error).message };
   }
 }

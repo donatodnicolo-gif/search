@@ -756,6 +756,12 @@ th.num { text-align: right; }
 .campo-modulo label {
   font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
 }
+/* L'asterisco dei campi obbligatori. La classe era usata nei moduli da
+   settimane SENZA una regola che la vestisse (trappola gia' pagata qui: le
+   classi senza CSS non si vedono e nessuno se ne accorge). */
+.campo-modulo label .obbligatorio {
+  color: var(--red); font-weight: 600; margin-left: 1px;
+}
 .campo-modulo input,
 .campo-modulo select,
 .campo-modulo textarea {

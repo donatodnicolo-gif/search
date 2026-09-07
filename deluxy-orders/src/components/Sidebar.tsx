@@ -69,6 +69,7 @@ export function Sidebar({
     {
       titolo: "Configurazione",
       voci: [
+        { href: "/negozi", nome: "Negozi Shopify", count: null, icona: iconaNegozi },
         { href: "/categorie", nome: "Categorie prodotti", count: null, icona: iconaCategorie },
         { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni },
       ],
@@ -189,6 +190,15 @@ const iconaCategorie = (
   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
     <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
+// Negozi Shopify: una vetrina — la tenda e la porta.
+const iconaNegozi = (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9.5 4.5 4h15L21 9.5" />
+    <path d="M3 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 3 0" />
+    <path d="M4.5 11.5V20h15v-8.5" />
+    <path d="M9.5 20v-5h5v5" />
   </svg>
 );
 const iconaImpostazioni = (

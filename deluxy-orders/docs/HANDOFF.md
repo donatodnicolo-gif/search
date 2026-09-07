@@ -5,6 +5,71 @@ Stato al **04/09/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 07/09/2026 (2) — I NEGOZI SHOPIFY HANNO UNA SEZIONE LORO, e il collegamento si prova
+
+Richiesta dell'utente: «dove collego tutti i negozi? dammi una sezione dove li
+posso aggiungere». La sezione **esisteva** — ultima scheda di `/impostazioni`,
+sotto altre sette — ed è esattamente il punto: non si trovava. Ora è
+**`/negozi`**, nel menu sotto *Configurazione*.
+
+### La cosa che non c'era: provare il collegamento
+Prima si poteva solo salvare un token e aspettare la sincronizzazione per
+scoprire se era giusto. Ora c'è **«Prova il collegamento»** su ogni negozio, e
+il salvataggio di un negozio nuovo prova da sé.
+
+⚠️ **`shop.json` da solo non è una prova.** Risponde anche a un'app che NON ha
+`read_orders`: negozio «collegato», sync che non porta mai niente, e nessuno
+capisce perché. `provaCollegamento` (`src/lib/shopify.ts`) chiede **due** cose —
+chi sei (`shop.json`) e **quanti ordini vedi** (`orders/count`, che quello scope
+lo richiede) — e su 401/403 lo dice con la parola giusta: «l'app non ha il
+permesso di leggere gli ordini».
+
+### Provato dal vivo, e ha trovato un fatto
+`business.deluxy.it` (il quarto negozio, sospeso dal 26/08) → **«Collegato a
+"Business Deluxy" · 57 ordini visibili su Shopify»**. Quindi le credenziali
+funzionano — il punto aperto del 26/08 («verificare che l'app sia installata»)
+è chiuso. Restano due decisioni **dell'utente**: riattivarlo (oggi è sospeso: 0
+ordini importati, `ultimaSync` mai) e se importare i 57 ordini.
+
+### Le trappole pagate qui
+- ⚠️ **Dieci colonne = il comando fuori dallo schermo.** Mettendo tutto in una
+  tabella sola, «Prova il collegamento» — l'unica azione per cui si viene in
+  questa pagina — finiva oltre il bordo. Diviso in due riquadri: *I negozi
+  collegati* (chi è, come entra, quanti ordini, stato, i due comandi) e *Come si
+  vedono nell'app* (colore, nome in Ricerca fornitori, specialità). Verificato a
+  1280px (tutto in prima schermata) e a 375px (`scrollWidth == clientWidth`:
+  nessuno scorrimento orizzontale del corpo).
+- ⚠️ **`.obbligatorio` non aveva CSS.** La classe era usata nei moduli da
+  settimane: l'asterisco dei campi obbligatori non si vedeva. Regola aggiunta in
+  `globals.css` con `var(--red)` (trappola già pagata in questo repo: le classi
+  senza regole non si vedono e nessuno se ne accorge).
+- ⚠️ **In un file `"use server"` ogni export dev'essere una funzione async.**
+  `normalizzaDominio` (sincrona) faceva fallire la build della pagina: sta in
+  `lib/shopify.ts`. Provata sui casi veri: `admin.shopify.com/store/xxx`,
+  l'URL con `https://`, il solo nome, e `deluxy.it` che viene **rifiutato** col
+  motivo (è il dominio del sito, non quello tecnico).
+- ⚠️ **Due porte per la stessa cosa, di cui una che non verifica.** La vecchia
+  `creaNegozio` di `app/actions.ts` è stata **tolta** (non la usava più nessuno):
+  restava un modo di salvare un negozio senza provarlo.
+- ⚠️ **Il token non si riscrive se non ne arriva uno nuovo**: chi aggiorna il
+  solo dominio non deve ritrovarsi scollegato.
+
+### Verificato
+`tsc --noEmit` pulito · pagina 200 in locale · prova del collegamento riuscita
+sul quarto negozio · percorso d'errore provato dal vivo (dominio `deluxy.it` →
+avviso rosso col motivo, e **nessun negozio scritto**: i negozi in tabella sono
+sempre 4) · nessuno scorrimento orizzontale a 375px.
+
+### File
+`src/app/negozi/page.tsx` · `src/app/negozi/actions.ts` (`salvaNegozio`,
+`provaNegozio`) · `src/lib/shopify.ts` (`provaCollegamento`,
+`normalizzaDominio`) · `src/components/Sidebar.tsx` (voce + icona) ·
+`src/app/impostazioni/page.tsx` (scheda ridotta a riepilogo + link) ·
+`src/app/actions.ts` (tolta `creaNegozio`) · `src/app/globals.css` ·
+`docs/COME-FUNZIONA.md` · `docs/guida-visiva.html` · `MANUALE-DELUXY.html`.
+
+🔴 **In locale, non pubblicato.**
+
 ## 07/09/2026 — Fotografia contata: locale = produzione, e un punto rosso che era falso
 
 Ripreso il 07/09 («leggi l'handoff, aggiorna la memoria, elenca i punti aperti»).

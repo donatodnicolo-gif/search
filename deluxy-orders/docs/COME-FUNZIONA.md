@@ -1203,9 +1203,10 @@ preciso, non la giornata.
   perché l'esito del ritiro viveva **solo** nel JSON del cron, che non legge
   nessuno: per un mese i documenti hanno continuato a dire «il ritiro legge un
   elenco vuoto» mentre aveva già smistato 65 ordini.
-- **Negozi Shopify**: aggiunta/rimozione, attiva/sospendi, tipo di
-  autenticazione, ultima sync e **colore del brand** (quello con cui l'ordine
-  si riconosce a colpo d'occhio in elenco e colonne). Pulsante «Sincronizza ora».
+- **Negozi Shopify**: dal 07/09/2026 **non è più qui** — ha una sezione sua,
+  `/negozi` (menu → Configurazione → *Negozi Shopify*). Nelle Impostazioni resta
+  il riepilogo (quanti sono, quali, quanti attivi) e il collegamento. Vedi
+  «La sezione Negozi Shopify» qui sotto.
 - **Pipeline degli stati**: crea/modifica/elimina stati (nome, colore, ordine,
   quale è predefinito e quali sono «di chiusura»). Eliminare uno stato lascia i
   suoi ordini «senza stato», non li cancella.
@@ -1235,6 +1236,49 @@ preciso, non la giornata.
   dell'azione, non in una querystring. Un segreto in un URL finisce nella
   cronologia del browser e nei log del server, dove resta per sempre e nessuno lo
   va a cercare.
+
+## La sezione Negozi Shopify (`/negozi`, dal 07/09/2026)
+
+Menu → **Configurazione** → *Negozi Shopify*. È il posto dove si collegano i
+negozi da cui arrivano gli ordini. Prima era l'ultima scheda delle Impostazioni,
+sotto altre sette: chi doveva aggiungere un negozio non la trovava.
+
+**Tre riquadri, tre domande diverse:**
+
+1. **I negozi collegati** — chi c'è, con che dominio, *come entra* (app con
+   Client ID/Secret oppure token statico), **quanti ordini ha portato**, quando
+   è stato letto l'ultima volta, se è attivo o sospeso. Due comandi per riga:
+   - **Prova il collegamento** — chiede a Shopify **adesso**: chi risponde e
+     quanti ordini vede. ⚠️ Non basta chiedere `shop.json`: quello risponde
+     anche a un'app che **non** sa leggere gli ordini, ed è proprio il caso che
+     rovina la giornata (negozio «collegato», sync che non porta mai niente).
+     Quindi si chiede anche `orders/count`, che richiede `read_orders`. Se il
+     negozio usa Client ID/Secret il token viene coniato al momento, quindi
+     l'errore di credenziali si vede qui e non alla prossima sincronizzazione.
+   - **Elimina** — toglie il collegamento; gli ordini già importati restano.
+     **Sospendi** (dal badge di stato) invece non cancella niente: smette solo
+     di essere letto.
+2. **Come si vedono nell'app** — colore del brand, nome nell'app Ricerca
+   fornitori, specialità del negozio. Sono personalizzazioni, non collegamento:
+   stanno in una tabella loro perché insieme alle altre facevano dieci colonne e
+   «Prova il collegamento» finiva oltre il bordo dello schermo.
+3. **Aggiungi un negozio** — brand, dominio, e o il token statico o la coppia
+   Client ID + Client Secret. Il salvataggio **prova subito** il collegamento e
+   dice com'è andata, anche quando è un no: un token sbagliato si salva
+   benissimo, e poi il negozio resta lì «attivo» senza portare un ordine.
+   Riscrivere un brand che esiste già **aggiorna** quel negozio; il token si
+   riscrive solo se se ne fornisce uno nuovo, così chi cambia il solo dominio
+   non resta scollegato.
+
+Il **dominio** si può incollare come capita: `xxx.myshopify.com`, l'indirizzo
+dell'admin (`admin.shopify.com/store/xxx`) o il solo nome del negozio — sono
+tutte forme che una persona ha davvero sotto mano. Quello che non si accetta è
+il dominio pubblico del sito (`deluxy.it`), e lo dice invece di fallire.
+
+⚠️ **Sui permessi**: serve `read_orders`; per i link di pagamento di «Fatti
+pagare» anche `write_draft_orders`. Senza `read_all_orders` Shopify mostra a
+un'app **solo gli ultimi 60 giorni** di ordini — lo storico più vecchio non
+arriva, e non è un errore dell'import.
 
 ## Import da Shopify
 Per ogni negozio attivo si scaricano gli ordini via Admin API GraphQL, in sola
