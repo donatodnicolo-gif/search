@@ -5,8 +5,9 @@
 // creare doppioni (chiave negozio + orderId).
 //
 // Uso:
-//   npm run import:storico            # tutto lo storico, tutti i negozi attivi
-//   npm run import:storico -- 365     # solo gli ultimi N giorni
+//   npm run import:storico                        # tutto lo storico, tutti i negozi attivi
+//   npm run import:storico -- 365                 # solo gli ultimi N giorni
+//   npm run import:storico -- business.deluxy.it  # un negozio solo (il suo brand)
 //
 // È un'operazione lunga (decine di migliaia di ordini): stampa l'avanzamento
 // pagina per pagina e si può rilanciare se si interrompe.
@@ -15,12 +16,25 @@ import { prisma } from "../src/lib/db";
 import { assicuraStatiPredefiniti } from "../src/lib/stati";
 
 async function main() {
-  const arg = process.argv.slice(2).find((a) => /^\d+$/.test(a));
+  const args = process.argv.slice(2);
+  const arg = args.find((a) => /^\d+$/.test(a));
   const giorni = arg ? Number(arg) : null;
+  // Qualunque argomento non numerico e' il brand di un negozio: si importa solo
+  // quello. Collegando un negozio nuovo si vuole il SUO storico, non un
+  // ripasso di decine di migliaia di ordini degli altri.
+  const soloBrand = args.find((a) => !/^\d+$/.test(a)) ?? null;
 
-  const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true } });
+  const negozi = await prisma.negozioShopify.findMany({
+    where: soloBrand ? { attivo: true, brand: soloBrand } : { attivo: true },
+  });
   if (negozi.length === 0) {
-    console.error("Nessun negozio attivo: collegane uno in Impostazioni.");
+    if (soloBrand) {
+      const tutti = await prisma.negozioShopify.findMany({ select: { brand: true, attivo: true } });
+      console.error(`Nessun negozio ATTIVO col brand "${soloBrand}".`);
+      console.error("Negozi presenti: " + tutti.map((n) => `${n.brand}${n.attivo ? "" : " (sospeso)"}`).join(", "));
+    } else {
+      console.error("Nessun negozio attivo: collegane uno nella sezione Negozi Shopify.");
+    }
     process.exit(1);
   }
 
@@ -42,7 +56,7 @@ async function main() {
       const min = ((Date.now() - avvio) / 60000).toFixed(1);
       console.log(`[${min} min] ${brand} · pagina ${pagina} · nuovi ${nuovi} · aggiornati ${aggiornati}`);
     }
-  });
+  }, soloBrand);
 
   const totale = await prisma.ordine.count();
   const minuti = ((Date.now() - avvio) / 60000).toFixed(1);

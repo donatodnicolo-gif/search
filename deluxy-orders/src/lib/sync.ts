@@ -22,8 +22,15 @@ import { gestioneIniziale, statoIncassoIniziale } from "./controllo";
 export async function eseguiSyncOrdini(
   giorni: number | null = 90,
   onProgresso?: (info: { brand: string; pagina: number; nuovi: number; aggiornati: number }) => void,
+  // Un solo negozio invece di tutti. Serve all'import storico: quando si
+  // collega un negozio nuovo si vuole il SUO storico, e ripassare per intero
+  // gli altri (decine di migliaia di ordini) non aggiunge niente. Assente =
+  // tutti gli attivi, come prima.
+  soloBrand?: string | null,
 ): Promise<{ nuovi: number; aggiornati: number; errori: string[] }> {
-  const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true } });
+  const negozi = await prisma.negozioShopify.findMany({
+    where: soloBrand ? { attivo: true, brand: soloBrand } : { attivo: true },
+  });
   const dal = giorni == null ? null : new Date(Date.now() - giorni * 86400000);
   const iniziale = await statoPredefinito();
   let nuovi = 0;

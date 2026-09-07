@@ -94,7 +94,22 @@ solo 10 negli ultimi 90 giorni**. Il cron veloce guarda `giorni=2`, quello
 notturno 90 (`api/cron/sync`, default 90, tetto 365). Quindi la sincronizzazione
 porterà **10 ordini**, e i **47 più vecchi non arriveranno mai** da sola: serve
 `npm run import:storico` (nessun filtro di data, ripetibile senza doppioni).
-**Non è stato lanciato**: aspetta l'utente.
+### ✅ FATTO — 57 su 57, e ora l'import si può puntare su UN negozio
+`npm run import:storico` prendeva **tutti** i negozi attivi: per 47 ordini
+avrebbe ripassato 14.600 righe degli altri tre. Ora accetta il **brand** come
+argomento (`npm run import:storico -- business.deluxy.it`); l'argomento
+numerico resta i giorni, e senza argomenti il comportamento è quello di prima.
+`eseguiSyncOrdini` ha un terzo parametro `soloBrand` (assente = tutti gli
+attivi, come sempre).
+
+Lanciato il 07/09: **57 nuovi in 6 secondi, 0 errori**. Registro a **14.657**
+ordini. `npm run verifica:totali` conferma dal vivo, negozio per negozio:
+business.deluxy.it 57/57, cakedesign.me 837/837, deluxy.it 11.884/11.884,
+Flowers 1.879/1.879 — **tutti allineati con Shopify**.
+
+⚠️ Il primo tentativo di `verifica:totali` è morto con `EMAXCONN (limit 200)`
+del pooler Supabase: è il **cluster condiviso dalle 14 app**, non un problema
+di Orders. Rilanciato subito dopo, è passato.
 
 ## 07/09/2026 — Fotografia contata: locale = produzione, e un punto rosso che era falso
 

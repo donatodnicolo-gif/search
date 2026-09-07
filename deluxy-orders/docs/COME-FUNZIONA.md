@@ -1291,6 +1291,14 @@ mano. Rilanciare l'import non crea doppioni (chiave negozio + id Shopify).
   di data, scarica a pagine e salva a blocchi, con ritentativi automatici se
   Shopify applica i limiti di frequenza. Su negozi grandi dura decine di
   minuti; se si interrompe basta rilanciarlo.
+  - **un negozio solo**: `npm run import:storico -- business.deluxy.it` (il
+    brand come argomento). È il caso di quando si collega un negozio nuovo: il
+    suo storico serve, ripassare per intero gli altri no. Un argomento numerico
+    resta il numero di giorni (`-- 365`), e si possono usare insieme.
+  - ⚠️ **Riattivare un negozio non ne importa lo storico.** La sincronizzazione
+    automatica guarda indietro 90 giorni (2 nel giro dei 5 minuti): tutto ciò
+    che è più vecchio arriva solo da qui. Su business.deluxy.it, riattivato il
+    07/09, dei 57 ordini su Shopify solo 10 rientravano nei 90 giorni.
 - **Aggiornamento quotidiano** (ultimi 90 giorni): pulsante «Sincronizza» nella
   UI, `npm run sync`, oppure il cron notturno Vercel `/api/cron/sync`
   (protetto da `CRON_SECRET`). Via API: `POST /api/v1/sync?giorni=90`
