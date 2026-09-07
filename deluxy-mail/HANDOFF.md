@@ -23,6 +23,61 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 07/09 (sera) — Cancellare una mail da una casella CONDIVISA fra due utenti
+
+Domanda dell'utente: «se cancello una mail dal mio account e la mail è di cs@deluxy.it, si
+cancella anche per l'altro account collegato a cs@deluxy.it?». Letto sul codice e sul database.
+
+**Sul database**: due caselle sono configurate da **due utenti diversi** —
+`cs@deluxy.it` (Customer Service + Nicolò) e `amministrazione@deluxy.it` (Nicolò + Renato).
+Ogni utente ha una `Account` sua e **righe `Messaggio` sue** (`utenteId`): sono due copie
+locali della stessa casella.
+
+- **«Cestina» → NO.** `actions.ts` scrive solo `cestinato: true` sulla riga di *quell'*utente.
+  Il server non viene toccato, l'altro utente non vede niente cambiare.
+- **«Svuota cestino» → SÌ, e in modo IRREVERSIBILE per tutti.** `svuotaCestinoDi(utenteId)`
+  (`src/lib/cestino.ts:200+`) chiama `eliminaDalServer()`, che cerca ogni mail **per Message-ID**
+  nella cartella e la marca `\Deleted` **espungendola** (`imap.ts:326+`). La casella è la stessa
+  scatola fisica: la mail sparisce da `cs@deluxy.it` per l'altro utente di AI Mail, per la
+  webmail e per qualunque altro programma. La copia locale dell'altro utente **resta visibile**
+  (la sua riga non viene cancellata), ma l'originale non c'è più: l'HTML non si riprende più dal
+  server e una risincronizzazione non la ritroverà mai.
+
+⚠️ Da valutare col custode: lo svuota-cestino di un utente decide per una casella **condivisa**,
+e chi lo preme non ha modo di saperlo. Le strade sono due — un avviso esplicito («questa casella
+è collegata anche a X: cancellare dal server la toglie anche a lui»), oppure cancellare dal
+server solo le mail che nessun altro utente ha ancora in vita. **Non deciso, non toccato.**
+
+### 07/09 (sera) — Cosa ha fatto **un'altra finestra** su AI Mail, e la verifica a 10 ore
+
+Un'altra sessione ha lavorato sullo stesso problema. Recuperato con
+`git log HEAD..origin/scout-ui -- deluxy-mail`: **un solo commit tocca AI Mail**, `0e06d9c6`
+(18:55), e cambia **un solo file**, `deluxy-mail/vercel.json`:
+
+- **cron `*/5` → `2-57/5`**. Al minuto 0 partivano insieme otto lambda a freddo sullo stesso
+  pool condiviso (messaging × 3, mail, orders, merchandising, piattaforma, calendario): ora
+  ognuna ha il suo minuto, la frequenza non cambia. Niente da rifare da parte nostra.
+- Nessun'altra riga di `deluxy-mail/` è stata toccata: il codice delle tre correzioni di stamattina
+  è intatto.
+
+Quella sessione ha però anche **creato un indice sul cluster condiviso** (verificato sul
+database): `Messaggio_htmlDaPulire_idx` — `btree(data, id) WHERE corpoHtml IS NOT NULL AND
+uid > 0`, **272 kB**, parziale su 4.419 righe di 44.838. Con lui la query della pulizia passa da
+Index Scan sulla pkey a **Index Only Scan: 0,1 ms** invece di 2.780 (misurato tre giri). Lo
+script sta in `deluxy-messaging/scripts/indice-mail-html-da-pulire.mts`.
+
+⚠️ **La sua motivazione conteneva una previsione sbagliata**, e la misura la smentisce: diceva
+che la mia difesa «non dorme mai, perché ogni giorno qualche messaggio invecchia e trova sempre
+una manciata di righe». Il sonno però è **a tempo (24 h)**, non «finché trova zero»: il giro che
+trova righe le pulisce e azzera il segnalino, quello dopo trova zero e torna a dormire. Costo a
+regime: **2 scansioni al giorno**, non 288. Riscontro sul database alle 22:03 —
+`pg_stat_statements` **ferma a 5.498 chiamate e 15.284.103 ms dalle 11:55**: in **10 ore e 18
+minuti la query non è girata nemmeno una volta** (prima sarebbero state ~124 chiamate e ~345 s di
+CPU). Il segnalino dice ancora «risveglio 08/09 11:45:44», e le righe in attesa sono 3.
+
+I due rimedi non si pestano i piedi: il sonno toglie le 286 scansioni inutili, l'indice rende
+istantanee le due che restano. **Nessuno dei due va disfatto.**
+
 ### 07/09 (11:41) — IN PRODUZIONE `a02fdfc8` (deploy `deluxy-mail-26vp0zskh`, build nel cloud)
 
 Alias `deluxy-mail.vercel.app` → questo deployment (verificato con `vercel inspect`), Ready,
