@@ -38,7 +38,7 @@ export default async function CategoriePage({
   const vista = VISTE.find((v) => v.chiave === sp.vista) ?? VISTE[0];
   const ordina = sp.ordina ?? "venduto";
 
-  const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
+  const where = { ...(await filtroProdotti(brand)) } as Record<string, unknown>;
   const gruppi = await calcolaGruppi({ where, brand, per: vista.chiave, ordina });
 
   const pieni = gruppi.filter((g) => !g.etichetta.startsWith("—"));

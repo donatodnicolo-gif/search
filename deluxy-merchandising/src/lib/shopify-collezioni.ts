@@ -24,6 +24,7 @@
 //    stesso prodotto si uniscono a mano in /prodotti/riconcilia.
 
 import { prisma } from "./db";
+import { fotoDaTenere } from "./foto";
 import { aliasGraphql, chiaveDef, definizioniDelNegozio, valoriDaRisposta, type DefinizioneMetafield } from "./metafield-definizioni";
 import { VERSIONE_API } from "./negozi";
 import { riapplicaStandingPerNegozio } from "./ordinamento-vetrina";
@@ -1169,6 +1170,17 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       base.abbinamenti += esito.count;
     }
 
+    // Le foto che le schede hanno **adesso**, per non sostituirle con una più
+    // vecchia qui sotto: una lettura sola, non una per prodotto.
+    const fotoAttuale = new Map<string, string | null>(
+      (
+        await prisma.prodotto.findMany({
+          where: { id: { in: daAggiornare.map((d) => d.id) } },
+          select: { id: true, immagine: true },
+        })
+      ).map((p) => [p.id, p.immagine])
+    );
+
     // Aggiornamento in blocchi: sono migliaia di righe, una per volta ci
     // metterebbe minuti.
     for (let i = 0; i < daAggiornare.length; i += SCRITTURE_INSIEME) {
@@ -1189,7 +1201,14 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               nome: d.nome,
               // `undefined` = non toccare il campo (Prisma lo salta), che è
               // diverso da `null` = cancellalo. Qui serve il primo.
-              immagine: d.immagine,
+              //
+              // **La foto si sostituisce solo con una più recente** (`fotoDaTenere`,
+              // 07/09/2026): lo stesso prodotto sta su più negozi con file diversi, e
+              // scrivendo sempre quella dell'import in corso vinceva l'ultimo cron
+              // della notte — dall'arrivo di «Business Deluxy» centinaia di schede
+              // mostravano foto vecchie di anni, e da fuori sembrava che l'app non si
+              // aggiornasse.
+              immagine: fotoDaTenere(fotoAttuale.get(d.id), d.immagine),
               descrizione: d.descrizione,
               prezzoVendita: d.prezzoVendita,
               seoTitoloShopify: d.seoTitoloShopify,

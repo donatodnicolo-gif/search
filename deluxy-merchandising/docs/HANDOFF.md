@@ -74,11 +74,75 @@ Venduto vivo: giri delle 07:15/07:30/07:45 UTC tutti `ok`, **0 fallimenti in 48
 ore**. Rotazioni: «Fiori» ultima 01/09 (dovuta **domani 08/09**, ora scatterà),
 «Best Sellers» 11/08 (dovuta il 10/09).
 
+🔴 **«Le foto su Shopify sono cambiate, nell'app no» — la causa non era quella
+che sembrava.** Contato prima di toccare niente: `Prodotto.immagine` era
+**identica** al negozio su tutte e 3.534 le schede confrontabili, zero diverse.
+Il vero guasto: **1.926 schede hanno lo stesso prodotto su più negozi con foto
+diverse** (ogni negozio ha il suo file, caricato in un momento suo), e
+`immagine` veniva riscritta dall'**import di ogni negozio** — quindi vinceva
+l'ultimo cron della notte. Con l'arrivo di «Business Deluxy», che gira per
+ultimo, centinaia di schede hanno cominciato a mostrare la foto più vecchia:
+«Semifreddo ai 3 cioccolati» tornava a quella del 2022 di Gifts invece di
+quella del 2024. Da fuori sembrava un'app che non si aggiorna; in realtà si
+aggiornava all'indietro.
+- **Regola nuova, in un posto solo** (`src/lib/foto.ts`, usata dall'import e
+  dallo script): **vince la più recente**, letta dal `?v=<epoch>` che il CDN di
+  Shopify mette in coda all'URL; a parità non si scrive (giro idempotente), e
+  una foto non si cancella mai se il negozio non ne ha.
+- `importaCollezioniDa` ora legge le foto attuali delle schede in **una query
+  sola** e passa da `fotoDaTenere`: **l'import non può più sostituire una foto
+  con una più vecchia**.
+- `scripts/foto-piu-recente.ts` (prova a secco, poi `--applica`; piano
+  prima/dopo in `docs/foto-piu-recente-2026-09-07-08.md`) ha allineato
+  **1.247 schede**. Ricontrollo: **0 da aggiornare**, e resta 0 dopo aver fatto
+  girare per davvero gli import di Cake e Flowers col codice nuovo — è la prova
+  che stanotte non torna indietro.
+- ⚠️ **Trappola in cui sono ricascato io**: aprendo `/` in locale la
+  sincronizzazione all'apertura ha lanciato gli import **veri** dal PC (Cake,
+  Flowers, Gifts), che con la regola vecchia hanno risovrascritto le foto appena
+  sistemate — il primo giro da 539 è stato vanificato e ho dovuto rifarlo dopo
+  averli aspettati. **In dev non si apre la home**: si va diritti alla pagina che
+  serve. La riga «in corso» ha fatto il suo mestiere, mostrando l'import di
+  Gifts ancora in corsa (447 s).
+
+🔴 **«Ho inserito un altro sito ma l'ambito non l'ha recepito».** Vero, e la
+causa è di disegno: `brandDisponibili()` leggeva **solo i canali del venduto**
+(`Vendita.canale`), quindi un negozio collegato che non ha ancora venduto
+niente non compariva nel selettore in alto a destra — e con esso restavano
+invisibili le sue 1.508 schede. Un negozio comincia a esistere quando lo si
+collega, non quando arriva il primo ordine; e il primo ordine può tardare
+settimane, cioè proprio il tempo in cui ci si lavora sopra.
+- `brandDisponibili()` ora unisce **canali del venduto + negozi attivi**, usando
+  il `canaleVendite` del negozio (il nome che il venduto avrà) e in mancanza il
+  nome del negozio: così quando le vendite arrivano si fondono con la voce già
+  presente invece di aprirne una seconda.
+- `filtroProdotti(brand)` è diventata **`async`** (undici chiamanti aggiornati) e
+  ora prende i prodotti **venduti su quel canale _oppure_ presenti nelle
+  collezioni del suo negozio**. Senza il secondo ramo un negozio nuovo dava
+  pagine vuote — non «nessuna vendita», proprio vuote.
+- ⚠️ **I conteggi degli altri brand cambiano, ed è voluto**: deluxy.it 1.768 →
+  **4.015**, Flowers 381 → **796**, cakedesign.me 242 → **570**, BUsiness 0 →
+  **1.508**. Il catalogo di un brand ora è quello che sta sul suo negozio, non
+  solo ciò che ha già venduto. **`filtroVendite` non è cambiata**: classifiche,
+  trend e margini continuano a contare solo vendite vere. La riga sotto il
+  titolo di `/prodotti` lo dichiara. Se si preferisce il criterio vecchio, si
+  torna indietro togliendo il secondo ramo di `filtroProdotti`.
+- Verificato in locale su `/prodotti`, `/anagrafica`, `/categorie`, `/costi` con
+  l'ambito nuovo selezionato: tutte rispondono e mostrano i 1.508 prodotti.
+- ⚠️ **Il nome nel menù esce «BUsiness»**, perché è così che è stato scritto
+  `canaleVendite` sulla scheda del negozio. Quel campo deve contenere il nome
+  **esatto** che il canale avrà nel venduto di Orders, altrimenti quando le
+  vendite arriveranno apriranno una seconda voce accanto a questa. Da correggere
+  in `/impostazioni` (non l'ho toccato: è un dato scelto da chi ha collegato il
+  negozio).
+
 **Da fare (in ordine):** dare `write_products` a Business Deluxy e premere
-«Verifica ora»; poi pubblicare le due correzioni di oggi — **il cron nuovo entra
-in vigore solo col deploy**, quindi finché non si pubblica il negozio nuovo non
-si aggiorna di notte; assegnare gli SKU ai prodotti di Business Deluxy (gli
-script del 06/09 valgono già, servono i permessi); il resto sotto, al 06/09.
+«Verifica ora»; correggere `canaleVendite` del negozio nuovo; poi pubblicare le
+correzioni di oggi — **il cron nuovo e la regola delle foto entrano in vigore
+solo col deploy**, quindi finché non si pubblica il negozio nuovo non si
+aggiorna di notte e l'import notturno continua a scambiare le foto; assegnare
+gli SKU ai prodotti di Business Deluxy (gli script del 06/09 valgono già,
+servono i permessi); il resto sotto, al 06/09.
 
 ## 06/09/2026 — punto di ripresa del giorno prima
 

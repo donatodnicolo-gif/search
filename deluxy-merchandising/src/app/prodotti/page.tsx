@@ -23,7 +23,7 @@ export default async function ProdottiPage({
   // Dentro un brand si vedono i prodotti **venduti su quel brand**: il brand non
   // è un campo della scheda prodotto, è una proprietà del venduto.
   const brand = await brandCorrente();
-  const where: Record<string, unknown> = { ...filtroProdotti(brand) };
+  const where: Record<string, unknown> = { ...(await filtroProdotti(brand)) };
   // La ricerca non distingue le maiuscole (Libro UX&UI v1.9 §8-bis): «torta»
   // deve trovare anche «Torta», come già fa l'anagrafica.
   if (sp.q)
@@ -77,8 +77,13 @@ export default async function ProdottiPage({
           <div>
             <h1 className="page-title">Prodotti{brand ? ` — ${brand}` : ""}</h1>
             <p className="page-sub">
+              {/* La riga dice **come si sceglie chi entra**, e dal 07/09/2026 il
+                  criterio è doppio: non solo il venduto, ma anche il catalogo del
+                  negozio di quel brand — altrimenti un negozio appena collegato
+                  mostrava una pagina vuota. Scriverlo qui evita che il numero in
+                  testa venga letto come «quanti ne ho venduti». */}
               {brand
-                ? `I prodotti venduti almeno una volta su ${brand}. Filtra per collezione, categoria o fase del ciclo di vita.`
+                ? `I prodotti venduti su ${brand} e quelli che stanno nelle collezioni del suo negozio. Filtra per collezione, categoria o fase del ciclo di vita.`
                 : "Il catalogo completo: filtra per collezione, categoria o fase del ciclo di vita."}
             </p>
           </div>

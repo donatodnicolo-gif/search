@@ -157,7 +157,7 @@ async function ContenutoCruscotto({
     analizzaVendite(giorni, { canale: brand }),
     classifiche({ giorni, canale: brand, limite: 5 }),
     calcolaIpotesi({ ...PARAMETRI_DEFAULT, canale: brand }),
-    prisma.prodotto.count({ where: { ...filtroProdotti(brand), fase: { not: "archiviato" } } }),
+    prisma.prodotto.count({ where: { ...(await filtroProdotti(brand)), fase: { not: "archiviato" } } }),
     brand ? null : panoramicaBrand(giorni),
     analizzaAssortimento(giorni, brand),
   ]);

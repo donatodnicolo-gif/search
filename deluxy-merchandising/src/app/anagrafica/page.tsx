@@ -56,7 +56,7 @@ export default async function AnagraficaPage({
   const raggruppa = RAGGRUPPAMENTI.some((r) => r.chiave === sp.raggruppa) ? (sp.raggruppa as string) : "";
   const ordina = sp.ordina ?? "venduto";
 
-  const where: Record<string, unknown> = { ...filtroProdotti(brand) };
+  const where: Record<string, unknown> = { ...(await filtroProdotti(brand)) };
   if (sp.q)
     where.OR = [
       { nome: { contains: sp.q, mode: "insensitive" } },

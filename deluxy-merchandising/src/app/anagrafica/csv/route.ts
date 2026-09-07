@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const brand = await brandCorrente();
 
-  const where: Record<string, unknown> = { ...filtroProdotti(brand) };
+  const where: Record<string, unknown> = { ...(await filtroProdotti(brand)) };
   const q = sp.get("q");
   if (q)
     where.OR = [

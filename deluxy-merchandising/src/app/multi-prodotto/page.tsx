@@ -41,7 +41,7 @@ export default async function MultiProdottoPage({
     cerca.length >= 2
       ? prisma.prodotto.findMany({
           where: {
-            ...filtroProdotti(brand),
+            ...(await filtroProdotti(brand)),
             unitoAId: null,
             OR: [
               { nome: { contains: cerca, mode: "insensitive" } },
