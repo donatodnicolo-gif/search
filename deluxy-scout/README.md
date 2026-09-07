@@ -1,6 +1,8 @@
 # Deluxy Scout
 
-> **07/09/2026 — due segnalazioni dell'utente, chiuse** (migr. `0119`):
+> **07/09/2026 — due segnalazioni dell'utente, chiuse e IN PRODUZIONE**
+> (migr. `0119`; deploy `deluxy-scout-1bzj6v1l6`, le 4 verifiche di
+> `deploy-web.sh` verdi e i marcatori controllati nel bundle vivo):
 > 1. **Ordini ha la RICERCA** (Libro UX&UI v1.9 §8-bis a: «ogni pagina di
 >    elenco ha una ricerca testuale sui campi con cui l'operatore riconosce il
 >    record»). Mancava: gli ordini si scorrevano a occhio, e quando quello che
