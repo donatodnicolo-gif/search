@@ -23,6 +23,10 @@
       "schedule": "50 3 * * *"
     },
     {
+      "path": "/api/cron/collezioni?negozio=Business%20Deluxy",
+      "schedule": "15 4 * * *"
+    },
+    {
       "path": "/api/cron/pubblicazioni",
       "schedule": "5 4 * * *"
     },

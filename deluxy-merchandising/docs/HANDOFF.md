@@ -1,8 +1,86 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 06/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 06/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+## 07/09/2026 — PUNTO DI RIPRESA (leggere prima di tutto)
+
+✅ **L'IMPORT DI GIFTS È RISORTO, e il numero dice perché moriva.** Prima notte
+dopo il deploy delle 15:28 del 06/09: `07/09 03:10:04 UTC · Gifts · ok · 237
+collezioni · 32.459 appartenenze · **durata 428 s**`. 428 è **oltre i 300 s** del
+vecchio limite e ben sotto gli 800 nuovi: la diagnosi del 06/09 era giusta e la
+correzione regge. Flowers 95 s, Cake 42 s. La riga «in corso» → «ok (durata N s)»
+funziona in produzione: **è il modo per accorgersene, si guarda in fondo a
+`/collezioni`**.
+
+🆕 **C'È UN QUARTO NEGOZIO: «Business Deluxy»** (`90bfeb-f5.myshopify.com`),
+aggiunto da un'altra sessione stamattina alle 06:53, **1.715 prodotti sul
+negozio**. Import lanciato a mano alle 07:01 (73 collezioni, 12.904
+appartenenze, **406 schede create**). Effetti sui numeri, da non leggere come
+crescita del catalogo: prodotti 4.633 → **5.042**, collezioni 346 → **419**,
+`DA_CLASSIFICARE` 1.475 → **1.882**, schede ACTIVE 1.076 → **1.254**, varianti
+ACTIVE senza sku 49 → **195** (42 sono del negozio nuovo). I 408 prodotti nati
+oggi sono **tutti senza costo**: il punto aperto n.1 si allarga.
+
+🔴 **Business Deluxy è in SOLA LETTURA: manca `write_products`.** Verificato in
+tre modi (l'utente pensava di averlo già dato, ed è la ragione per cui questa
+riga porta le prove): `access_scopes.json` restituisce **65 scope senza
+write_products**, `currentAppInstallation` lo conferma, e la prova sul campo —
+un `productUpdate` su un id inesistente, che non scrive nulla — risponde
+`ACCESS_DENIED: Required access: 'write_products' access scope`, mentre lo
+stesso identico test su Cake risponde «Product does not exist». Quindi su questo
+negozio **non** funzionano: assegnazione SKU, rotazioni verso Shopify,
+pubblicazione dal modulo prodotto, SEO spinto. ⚠️ **Dopo aver aggiunto lo scope
+sull'app Shopify il token va riconiato**: premere «Verifica ora» sulla scheda
+del negozio in `/impostazioni`, altrimenti resta valido quello vecchio (è a
+client credentials e scade da solo, ma può volerci un giorno).
+
+**Corretto oggi in locale (`tsc` 0, NON deployato — «lavora prima su locale»):**
+1. 🔴 **Il negozio nuovo non aveva un cron: si sarebbe fermato al 07/09.**
+   `vercel.json` aveva solo Gifts/Flowers/Cake — è **la stessa trappola del
+   26/08** (import che esiste solo come bottone e nessuno lo preme; allora
+   costò 22 giorni di catalogo vecchio), ripresentata sul negozio nuovo.
+   Aggiunta la voce `/api/cron/collezioni?negozio=Business%20Deluxy` alle
+   **04:15 UTC**: dopo Cake (03:50 + 42 s) e prima delle rotazioni delle 05:20,
+   con 179 s misurati stamattina. ⭐ **Regola per chi aggiunge un negozio:
+   collegarlo non basta, va messa anche la sua riga in `vercel.json`.**
+2. 🔴 **Lo slittamento delle rotazioni, corretto il giorno prima che colpisse.**
+   `eScaduta` (`src/lib/rotazione.ts`) faceva `Math.floor((adesso − ultima) /
+   24h)` mentre **il commento sopra dichiarava di confrontare i giorni**: il
+   codice contava gli istanti. `ultimaEsecuzioneIl` si scrive a fine corsa
+   (05:20:20) e il cron parte alle 05:20:00, quindi a sette giorni la differenza
+   è 6 g 23 h 59 min → `floor` = 6 → turno saltato, e il ritardo si accumula.
+   Misurato prima di toccare il codice: «Fiori» (ultima 01/09 05:20:20) **domani
+   08/09 sarebbe stata saltata di nuovo**, partendo il 09/09. Ora si confrontano
+   le **mezzanotti di Roma** (`giornoRoma`, il calendario che l'app usa
+   ovunque), con `Math.round` per i giorni del cambio d'ora (23/25 h). Provato:
+   07/09 non parte, **08/09 parte**, 09/09 parte, 28/10 (cambio d'ora) parte,
+   «Best Sellers» mensile parte il 10/09.
+
+⚠️ **Un'altra sessione ha cambiato lo schema e non l'ha scritto qui** (commit
+`3a4358f7`, `1c2a883a` del 07/09): **«tipologia di vendita»** — campo
+obbligatorio nel modulo prodotto, con legenda e API — e **«note di specifica»**
+su prodotto e variante, ricostruite dalla descrizione del negozio; più
+`70d25f1f` che toglie dal repo i file temporanei di lavoro. Toccano
+`prisma/schema.prisma`, `azioni-prodotto-nuovo.ts`, `dominio.ts`. Non li ho
+provati: sono di quella sessione. ⭐ È la lezione già scritta il 04/09 —
+**`git log -- <cartella>` prima dell'handoff, perché il documento invecchia
+anche di lato**.
+
+**Fotografia contata sul database il 07/09**: 5.042 prodotti (**1.254 schede
+ACTIVE**), 419 collezioni, 7.304 righe di venduto, 1.882 `DA_CLASSIFICARE`, 14
+prodotti con `origine ≠ merchandising`, 195 varianti ACTIVE senza sku (Business
+Deluxy 42, Gifts 40, Flowers 3, 110 su schede senza negozio dichiarato).
+Venduto vivo: giri delle 07:15/07:30/07:45 UTC tutti `ok`, **0 fallimenti in 48
+ore**. Rotazioni: «Fiori» ultima 01/09 (dovuta **domani 08/09**, ora scatterà),
+«Best Sellers» 11/08 (dovuta il 10/09).
+
+**Da fare (in ordine):** dare `write_products` a Business Deluxy e premere
+«Verifica ora»; poi pubblicare le due correzioni di oggi — **il cron nuovo entra
+in vigore solo col deploy**, quindi finché non si pubblica il negozio nuovo non
+si aggiorna di notte; assegnare gli SKU ai prodotti di Business Deluxy (gli
+script del 06/09 valgono già, servono i permessi); il resto sotto, al 06/09.
+
+## 06/09/2026 — punto di ripresa del giorno prima
 
 **Fotografia contata sul database il 06/09**: 4.633 prodotti, **1.149 schede con
 `statoShopify = ACTIVE`** (ma i prodotti attivi sui tre negozi sono **1.483**:

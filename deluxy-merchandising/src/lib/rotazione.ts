@@ -7,6 +7,7 @@
 // cron salta, il giro dopo recupera invece di perdere il turno.
 
 import { prisma } from "./db";
+import { giornoRoma } from "./fuso";
 import {
   applicaRegolaSalvata,
   applicaRegoleACollezione,
@@ -72,8 +73,24 @@ const giorniDi = (f: string, ogniQuanti = 1): number =>
  *
  * Mai eseguita = sì (il primo giro parte subito, altrimenti si aspetterebbe un
  * periodo intero senza che succeda niente e sembrerebbe rotta). Poi si guarda
- * quanti giorni sono passati: si confrontano i **giorni**, non gli istanti, così
- * un cron che gira alle 5:00 e il giorno dopo alle 5:01 non salta il turno.
+ * quanti giorni sono passati: si confrontano i **giorni di calendario**, non gli
+ * istanti, così un cron che gira alle 5:00 e il giorno dopo alle 5:01 non salta
+ * il turno.
+ *
+ * ⚠️ **Fino al 07/09/2026 questo commento era vero e il codice no.** Faceva
+ * `Math.floor((adesso − ultima) / 24h)`, cioè contava gli **istanti**:
+ * `ultimaEsecuzioneIl` si scrive a **fine** corsa (05:20:20) mentre il cron
+ * parte alle 05:20:00, quindi sette giorni dopo la differenza è 6 giorni 23 ore
+ * 59 minuti → `floor` = 6, la regola sembrava non scaduta e **il turno slittava
+ * di un giorno, accumulando ritardo a ogni giro**. Successo davvero: «Rotazione
+ * Fiori» 24/08 → 01/09 (otto giorni invece di sette); misurato il 07/09, senza
+ * questa correzione l'08/09 sarebbe slittata di nuovo al 09/09.
+ *
+ * Ora si confrontano le **mezzanotti di Roma** dei due giorni (`giornoRoma`, lo
+ * stesso calendario del resto dell'app): l'ora della corsa non conta più.
+ * `Math.round` e non `Math.floor` perché nei giorni del cambio d'ora due
+ * mezzanotti consecutive distano 23 o 25 ore, e troncare perderebbe di nuovo un
+ * giorno — una volta l'anno, cioè quando nessuno lo starebbe cercando.
  */
 export function eScaduta(
   regola: { frequenza: string; ogniQuanti?: number; attiva: boolean; ultimaEsecuzioneIl: Date | null },
@@ -82,7 +99,9 @@ export function eScaduta(
   if (!regola.attiva) return false;
   if (!regola.ultimaEsecuzioneIl) return true;
   const giorno = 24 * 60 * 60 * 1000;
-  const passati = Math.floor((adesso.getTime() - regola.ultimaEsecuzioneIl.getTime()) / giorno);
+  const passati = Math.round(
+    (giornoRoma(adesso).getTime() - giornoRoma(regola.ultimaEsecuzioneIl).getTime()) / giorno
+  );
   return passati >= giorniDi(regola.frequenza, regola.ogniQuanti);
 }
 
