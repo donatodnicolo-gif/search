@@ -410,8 +410,11 @@ interface ProductRow {
                        su «Crea nuovo», nemmeno da touch o dalla barra di
                        scorrimento. -->
                   <div class="prod-risultati" (mousedown)="$event.preventDefault()">
+                    <!-- ⭐ 06/09-07/09/2026 (regola utente): PRIMA i prodotti UNICI del partner
+                         della consegna, in grassetto e in ordine alfabetico; poi tutti gli altri.
+                         Escono solo i prodotti ATTIVI: un archiviato non si propone. -->
                     @for (p of risultatiRicerca(); track p.id) {
-                      <button type="button" class="ris" (click)="scegliProdotto(row, p)">
+                      <button type="button" class="ris" [class.suo]="suoDelPartner(p)" (click)="scegliProdotto(row, p)">
                         @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
                         {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
                       </button>
@@ -744,13 +747,14 @@ interface ProductRow {
         border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
         max-height: 280px; overflow-y: auto;
       }
-      /* ⭐ 06/09 sera: i prodotti del partner in grassetto, in cima alla tendina. */
-      .prod-risultati .ris.suo { font-weight: 650; }
       .prod-risultati .ris {
         display: block; width: 100%; text-align: left; border: none; background: none;
         padding: 10px 12px; font: inherit; font-size: 14px; cursor: pointer; color: var(--text);
       }
       .prod-risultati .ris:hover { background: var(--fill); }
+      /* ⭐ 06-07/09/2026: i prodotti unici del partner scelto, in grassetto e in cima.
+         Sta DOPO .ris perché quella regola azzera il peso con font: inherit. */
+      .prod-risultati .ris.suo { font-weight: 650; }
       .prod-risultati .ris.crea {
         border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
         position: sticky; bottom: 0; background: var(--surface);
@@ -2078,6 +2082,10 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   onPartnerChange(): void {
     this.partnerSel.set(this.model.partnerId);
+    // ⭐ 07/09/2026 (segnalazione utente: «ho selezionato Clivati 1969 e in elenco non mi mostra
+    // prima i suoi»): la tendina era stata riempita PRIMA di scegliere il partner e nessuno la
+    // rileggeva. Cambiare partner cambia quali prodotti vanno in cima: si ricarica.
+    this.caricaProdottiIniziali();
     this.applicaPoliticaIdentita();
     this.applicaRitiroPartner();
     const suoi = this.servizioDelPartner();
@@ -2577,9 +2585,9 @@ export class DeliveryFormComponent implements AfterViewInit {
       // La ricerca chiede al SERVER (l'API prodotti filtra per q sul perimetro
       // del ruolo): così si arriva a tutti i 21.887, non ai primi 500.
       this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
-        params: { q, pageSize: 20 } as any,
+        params: { q, active: true, pageSize: 20 } as any,
       }).subscribe({
-        next: (d) => this.risultatiRicerca.set(d.items ?? []),
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
         error: () => this.risultatiRicerca.set([]),
       });
     }, 250);
@@ -2593,12 +2601,52 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (!(row.query ?? '').trim()) this.caricaProdottiIniziali();
   }
 
+  /** ⭐ È un prodotto UNICO del partner di questa consegna? Va in cima e in grassetto. */
+  suoDelPartner(p: Product): boolean {
+    const pid = this.model.partnerId;
+    if (!pid) return false;
+    // Il proprietario arriva come campo piatto `partnerId` oppure dentro `partner`: si guardano entrambi.
+    const suo = (p as { partnerId?: string | null }).partnerId ?? p.partner?.id ?? null;
+    return suo === pid && (p as { type?: string }).type === 'UNICO';
+  }
+
+  /** I suoi prima, in ordine alfabetico; poi gli altri, anch'essi in ordine. */
+  private ordinaConSuoiPrima(items: Product[]): Product[] {
+    const suoi = items.filter((x) => this.suoDelPartner(x)).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'it'));
+    const altri = items.filter((x) => !this.suoDelPartner(x)).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'it'));
+    return [...suoi, ...altri];
+  }
+
+  /**
+   * La tendina dei prodotti: DUE letture, non una.
+   *
+   * ⚠️ Una sola lettura da 20 righe non basta: il listino del partner può stare oltre la
+   * ventesima riga del catalogo, e allora «prima i suoi» non si vede proprio — è quello che
+   * succedeva scegliendo Clivati 1969. Si chiede prima il SUO listino (fino a 100 prodotti
+   * unici e attivi), poi il catalogo comune, e si mette insieme.
+   */
   private caricaProdottiIniziali(): void {
-    this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
-      params: { pageSize: 20 } as any,
+    const api = environment.apiUrl;
+    const pid = this.model.partnerId;
+    const generali = this.http.get<{ items: Product[] }>(`${api}/products`, { params: { active: true, pageSize: 20 } as any });
+    if (!pid) {
+      generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
+        error: () => this.risultatiRicerca.set([]),
+      });
+      return;
+    }
+    this.http.get<{ items: Product[] }>(`${api}/products`, {
+      params: { partnerId: pid, unique: true, active: true, pageSize: 100 } as any,
     }).subscribe({
-      next: (d) => this.risultatiRicerca.set(d.items ?? []),
-      error: () => this.risultatiRicerca.set([]),
+      next: (suoi) => generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(this.unisciProdotti(suoi.items ?? [], d.items ?? []))),
+        error: () => this.risultatiRicerca.set(this.ordinaConSuoiPrima(suoi.items ?? [])),
+      }),
+      error: () => generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
+        error: () => this.risultatiRicerca.set([]),
+      }),
     });
   }
 
