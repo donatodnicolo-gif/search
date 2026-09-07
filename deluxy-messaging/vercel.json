@@ -7,11 +7,11 @@
   "crons": [
     {
       "path": "/api/cron/posta",
-      "schedule": "*/5 * * * *"
+      "schedule": "1-56/5 * * * *"
     },
     {
       "path": "/api/cron/ordini",
-      "schedule": "*/5 * * * *"
+      "schedule": "3-58/5 * * * *"
     },
     {
       "path": "/api/cron/contatti",
@@ -39,7 +39,7 @@
     },
     {
       "path": "/api/cron/ai-fuori-turno",
-      "schedule": "*/10 * * * *"
+      "schedule": "6-56/10 * * * *"
     },
     {
       "path": "/api/cron/piattaforma",
