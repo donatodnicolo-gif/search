@@ -200,6 +200,7 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
       appCostoPartner: true,
       appConsegnaId: true,
       appConsegnaStato: true,
+      appNonConsegnataId: true,
       appGestionePrima: true,
       appInterrottoIl: true,
     },
@@ -280,13 +281,19 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
   // sopra un ordine che nel frattempo qualcuno ha rimandato in app o chiuso.
   // Una consegna nuova da qui riparte con un riferimento diverso, così la
   // piattaforma non risponde con la vecchia (vedi manda-in-app.ts).
+  // ⭐ 07/09/2026: si guarda LA CONSEGNA, non il cambio di stato. Prima bastava che la copia
+  // locale dicesse già «not_delivered» perché la riapertura non scattasse mai — ed è successo
+  // a 5 ordini, che sono rimasti chiusi con la consegna fallita. Ora scatta una volta per
+  // consegna: l'arretrato rientra, e un ordine già riaperto non si ridiscute.
   const statoConsegna = v.consegna?.stato ?? ''
-  if (statoConsegna === 'not_delivered' && (ordine.appConsegnaStato ?? '') !== 'not_delivered') {
+  const consegnaId = v.consegna?.id ?? ordine.appConsegnaId ?? ''
+  if (statoConsegna === 'not_delivered' && ordine.gestione !== 'non_consegnata' && (ordine.appNonConsegnataId ?? '') !== consegnaId) {
     dati.gestione = 'non_consegnata'
     dati.gestioneIl = new Date()
     dati.gestioneDaId = ''
     dati.gestioneDaNome = 'Piattaforma consegne'
     dati.appGestionePrima = ''
+    dati.appNonConsegnataId = consegnaId
     if (!prova) await db.ordine.update({ where: { id: ordine.id }, data: dati })
     return {
       esito: 'tornato',

@@ -673,6 +673,13 @@ model Ordine {
    * di là (Standard §7).
    */
   appConsegnaStato  String    @default("")
+  /// ⭐ 07/09/2026 — L'ID DELLA CONSEGNA PER CUI L'ORDINE È GIÀ STATO RIAPERTO.
+  /// La regola «se di là è non consegnata, l'ordine torna fra gli aperti» scattava solo al
+  /// CAMBIO di stato: 5 ordini avevano già «not_delivered» scritto quando la regola è nata,
+  /// e non sono più tornati aperti — la regola c'era e non si vedeva. Con questo campo la
+  /// riapertura scatta una volta per CONSEGNA (non per cambio), quindi recupera anche
+  /// l'arretrato, e non ridiscute un ordine che una persona ha già ripreso in mano.
+  appNonConsegnataId String   @default("")
   appConsegnaData   DateTime?
   appConsegnaFascia String    @default("")
   /// Consegne di là SCOLLEGATE a mano dalla scheda (id, uno per riga): il
