@@ -320,6 +320,22 @@ export class DeliveriesController {
     return this.deliveriesService.annullaDaPartner(id, user);
   }
 
+  // ⭐ 07/09/2026 (regola utente): agganciare una consegna GIÀ INSERITA come riconsegna,
+  // invece di crearne una nuova e ritrovarsi due consegne per lo stesso lavoro.
+  @Post(':id/riconsegna/:childId')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Aggancia una consegna esistente come riconsegna di questa (non consegnata)' })
+  agganciaRiconsegna(@Param('id') id: string, @Param('childId') childId: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.agganciaRiconsegna(id, childId, user);
+  }
+
+  @Delete(':id/riconsegna/:childId')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Scioglie il legame fra una non consegnata e la sua riconsegna' })
+  sciogliRiconsegna(@Param('id') id: string, @Param('childId') childId: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.sciogliRiconsegna(id, childId, user);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION)
   @Delete(':id')
   @Roles(Role.ADMIN)

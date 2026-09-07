@@ -787,7 +787,7 @@
   },
   "deliveries": {
     "nonConsegnate": {
-      "chip": "To handle",
+      "chip": "Not delivered",
       "alert": "{{n}} not delivered to handle.",
       "cosa": "Every night they move to today's date until someone decides: redelivery or closure."
     },
@@ -928,7 +928,11 @@
     },
     "ruleApplied": "Carnet rule applied",
     "saleRef": "Open this sale in Sales",
-    "redeliver": "Redeliver"
+    "redeliver": "Redeliver",
+    "legame": {
+      "daTitolo": "Comes from this failed delivery",
+      "aTitolo": "Redelivered with this one"
+    }
   },
   "partners": {
     "title": "Partners",
@@ -3262,5 +3266,17 @@
       "in_ritardo": "Late +",
       "in_anticipo": "Early −"
     }
+  },
+  "riconsegna": {
+    "titolo": "Redelivery",
+    "sotto": "Delivery #{{numero}} did not arrive. What do you want to do?",
+    "agganciaTitolo": "Link a delivery that already exists",
+    "agganciaSotto": "If the redelivery is already there: find it and link it, instead of creating another.",
+    "nuovaTitolo": "Create a new one",
+    "nuovaSotto": "Opens the form already filled in: only the day is left to choose.",
+    "cercaPh": "Number, recipient or address",
+    "aggancia": "Link",
+    "giaLegata": "already the redelivery of #{{numero}}",
+    "nessuna": "No delivery found for this search."
   }
 }

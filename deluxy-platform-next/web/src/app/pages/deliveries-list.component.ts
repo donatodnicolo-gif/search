@@ -1,4 +1,5 @@
 import { ConfermaComponent } from '../shared/conferma.component';
+import { RiconsegnaDialogComponent } from '../shared/riconsegna-dialog.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
@@ -40,7 +41,7 @@ interface PropostaVendita {
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent],
+  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent, RiconsegnaDialogComponent],
   template: `
     <div class="page-header">
       <div>
@@ -405,6 +406,19 @@ interface PropostaVendita {
                   @if (eDaGestire(d)) { <span class="chip-gestire">{{ 'deliveries.nonConsegnate.chip' | translate }}</span> }
                 </td>
                 <td class="mono">{{ d.code }}
+                  <!-- ⭐ 07/09/2026 (regola utente): «tra le consegne collegate mostra il
+                       collegamento». Dall'elenco si risale alla consegna di partenza e si
+                       arriva alla riconsegna, senza aprire il dettaglio. -->
+                  @if (d.parentDelivery; as p) {
+                    <a class="legame" [routerLink]="['/deliveries', p.id]"
+                       [title]="'deliveries.legame.daTitolo' | translate">↩ #{{ p.code }}</a>
+                  }
+                  @for (c of d.childDeliveries ?? []; track c.id) {
+                    @if (c.code) {
+                      <a class="legame" [routerLink]="['/deliveries', c.id]"
+                         [title]="'deliveries.legame.aTitolo' | translate">↪ #{{ c.code }}</a>
+                    }
+                  }
                   @if (d.deliveryRuleId) {
                     <span class="regola-badge" [title]="(d.deliveryRule?.name || '') + ' — ' + ('deliveries.ruleApplied' | translate)">📋</span>
                   }
@@ -499,8 +513,9 @@ interface PropostaVendita {
                        legame con questa: quando la nuova nasce, questa passa
                        in storico da sola. -->
                   @if (d.status === 'not_delivered' && canManage()) {
-                    <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ riconsegna: d.id }"
-                       >{{ 'deliveries.redeliver' | translate }}</a>
+                    <!-- ⭐ 07/09/2026: prima si chiede — agganciare una consegna già inserita
+                         o crearne una nuova? -->
+                    <button type="button" class="act" (click)="riconsegnaDi.set(d)">{{ 'deliveries.redeliver' | translate }}</button>
                   }
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
@@ -815,6 +830,12 @@ interface PropostaVendita {
           <button type="button" class="btn btn-primary" [disabled]="segInCorso()" (click)="inviaSegnalazione(sp)">{{ 'deliveryDetail.segnal.invia' | translate }}</button>
         </div>
       </div>
+    }
+  
+    <!-- ⭐ 07/09/2026 (regola utente): riconsegna — agganciare o creare. -->
+    @if (riconsegnaDi(); as r) {
+      <app-riconsegna-dialog [deliveryId]="r.id" [code]="r.code"
+                             (chiudi)="riconsegnaDi.set(null)" (agganciata)="load()" />
     }
   `,
   styles: [
@@ -1239,6 +1260,8 @@ interface PropostaVendita {
       .warn-card.gestire { border-left: 4px solid var(--ink, #1d1d1f); background: var(--surface-sunken, #f5f5f7); color: var(--text-primary, #1d1d1f); }
       tr.da-gestire td { background: var(--surface-sunken, #f5f5f7); }
       tr.da-gestire td:first-child { box-shadow: inset 4px 0 0 var(--ink, #1d1d1f); }
+      .legame { margin-left: 6px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text-secondary); white-space: nowrap; }
+      .legame:hover { color: var(--text); }
       .chip-gestire { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ink, #1d1d1f); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: middle; white-space: nowrap; }
       .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
                    border-radius: 10px; padding: 10px 12px; font-size: 13px; }
@@ -1741,6 +1764,9 @@ export class DeliveriesListComponent {
     }
     return cached;
   }
+
+  /** ⭐ 07/09: la non consegnata per cui è aperta la finestra «riconsegna: aggancio o creo?». */
+  readonly riconsegnaDi = signal<Delivery | null>(null);
 
   readonly deliveries = signal<Delivery[]>([]);
   /** ⭐ 06/09 (regola utente): non consegnata SENZA riconsegna = da gestire (riconsegna o chiusura). */

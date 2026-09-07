@@ -788,7 +788,7 @@
   },
   "deliveries": {
     "nonConsegnate": {
-      "chip": "Da gestire",
+      "chip": "Non consegnata",
       "alert": "{{n}} non consegnate da gestire.",
       "cosa": "Ogni notte tornano alla data di oggi finché non si decide: riconsegna o chiusura."
     },
@@ -929,7 +929,11 @@
     },
     "ruleApplied": "Regola carnet applicata",
     "saleRef": "Apri questa vendita in Vendite",
-    "redeliver": "Riconsegna"
+    "redeliver": "Riconsegna",
+    "legame": {
+      "daTitolo": "Nasce da questa consegna non riuscita",
+      "aTitolo": "Riconsegnata con questa"
+    }
   },
   "partners": {
     "title": "Partner",
@@ -3264,5 +3268,17 @@
       "in_ritardo": "Ritardo +",
       "in_anticipo": "Anticipo −"
     }
+  },
+  "riconsegna": {
+    "titolo": "Riconsegna",
+    "sotto": "La consegna #{{numero}} non è arrivata. Che cosa vuoi fare?",
+    "agganciaTitolo": "Aggancia una consegna già inserita",
+    "agganciaSotto": "Se la riconsegna esiste già: la cerchi e la colleghi, senza crearne un'altra.",
+    "nuovaTitolo": "Creane una nuova",
+    "nuovaSotto": "Apre il modulo già compilato: resta solo da scegliere il giorno.",
+    "cercaPh": "Numero, destinatario o indirizzo",
+    "aggancia": "Aggancia",
+    "giaLegata": "già riconsegna della #{{numero}}",
+    "nessuna": "Nessuna consegna trovata con questa ricerca."
   }
 }

@@ -3,6 +3,7 @@ import { DatePipe, Location } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfermaComponent } from '../shared/conferma.component';
+import { RiconsegnaDialogComponent } from '../shared/riconsegna-dialog.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -135,7 +136,7 @@ interface DeliveryDetail {
 @Component({
   selector: 'app-delivery-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule, ConfermaComponent],
+  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule, ConfermaComponent, RiconsegnaDialogComponent],
   template: `
     <div class="form-head">
       <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
@@ -788,8 +789,14 @@ interface DeliveryDetail {
         <div class="warn-card gestire" role="alert">
           <b>{{ 'deliveryDetail.nonConsegnata.alert' | translate }}</b> {{ 'deliveryDetail.nonConsegnata.cosa' | translate }}
           @if (d.notDeliveredReason) { <span class="muted"> · {{ d.notDeliveredReason }}</span> }
-          @if (canManage()) { <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ riconsegna: d.id }">{{ 'deliveryDetail.nonConsegnata.riconsegna' | translate }}</a> }
+          <!-- ⭐ 07/09/2026 (regola utente): prima si chiede — agganciare una consegna già
+               inserita, o crearne una nuova? Il bottone non porta più dritto al modulo. -->
+          @if (canManage()) { <button type="button" class="act" (click)="apriRiconsegna.set(true)">{{ 'deliveryDetail.nonConsegnata.riconsegna' | translate }}</button> }
         </div>
+      }
+      @if (apriRiconsegna()) {
+        <app-riconsegna-dialog [deliveryId]="d.id" [code]="d.code"
+                               (chiudi)="apriRiconsegna.set(false)" (agganciata)="dopoAggancio()" />
       }
       @if (d.parentDelivery || (d.childDeliveries?.length ?? 0) > 0) {
         <section class="card riconsegna-legame">
@@ -1235,6 +1242,11 @@ export class DeliveryDetailComponent {
     this.router.navigate(['/deliveries'], { queryParams });
   }
 
+  /** ⭐ 07/09: la finestra «riconsegna: aggancio o creo?». */
+  readonly apriRiconsegna = signal(false);
+
+  /** Dopo un aggancio riuscito: la scheda si rilegge, il legame è già lì. */
+  dopoAggancio(): void { this.load(); }
   readonly delivery = signal<DeliveryDetail | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);

@@ -61,8 +61,10 @@ export interface Delivery {
   /** ⭐ 06/09/2026: puntualità calcolata dal server (stessa regola delle Statistiche). */
   puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
   deliveredAt?: string | null;
-  /** Riconsegne nate da questa (solo id): una non consegnata senza figlie è «da gestire». */
-  childDeliveries?: { id: string }[];
+  /** Riconsegne nate da questa: una non consegnata senza figlie è «da gestire». */
+  childDeliveries?: { id: string; code?: number }[];
+  /** ⭐ 07/09/2026: da quale consegna non riuscita nasce questa (si risale anche dall'elenco). */
+  parentDelivery?: { id: string; code: number } | null;
   startedAt?: string | null;
   price?: number;
   /** Paga del valet: arrivano SOLO al valet della consegna (maschera server). */

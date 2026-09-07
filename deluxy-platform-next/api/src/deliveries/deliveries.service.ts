@@ -66,7 +66,10 @@ const DELIVERY_LIST_SELECT = {
   trackingToken: true,
   deliveredByPartner: true,
   // ⭐ 06/09/2026 (regola utente): una NON CONSEGNATA senza riconsegna è «da gestire» — l'elenco lo evidenzia.
-  childDeliveries: { select: { id: true } },
+  childDeliveries: { select: { id: true, code: true } },
+  // ⭐ 07/09/2026 (regola utente): «tra le consegne collegate mostra il collegamento» — dalla
+  // riconsegna si risale alla consegna di partenza anche dall'ELENCO, non solo dal dettaglio.
+  parentDelivery: { select: { id: true, code: true } },
   // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
   // tabella, nella colonna «Consegna», quando sono da approvare.
   hoursFrom: true, hoursTo: true, hoursOriginal: true,
@@ -296,6 +299,58 @@ export class DeliveriesService {
           message: `Riconsegna della #${padre.code} (non consegnata)` },
       ],
     });
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): «per le riconsegne consenti di agganciare a un'altra
+   * consegna senza ricrearne una nuova, cercando id o indirizzo».
+   *
+   * Capita spesso: la riconsegna è già stata inserita (dal partner, dal Customer Service, o
+   * a mano il giorno dopo) e rifarla creerebbe un doppione — due consegne per lo stesso
+   * lavoro, due fatture, due paghe. Qui si dichiara soltanto il legame.
+   *
+   * Cosa si controlla, e perché ognuna:
+   *  · la consegna di partenza dev'essere NON CONSEGNATA (le altre non si riconsegnano);
+   *  · non si aggancia una consegna a se stessa, né una che è già la riconsegna di
+   *    qualcun altro (un lavoro ha una storia sola);
+   *  · non si aggancia il proprio padre: sarebbe un anello, e l'elenco girerebbe a vuoto.
+   * Il legame si può SCIOGLIERE (sciogliRiconsegna): un aggancio sbagliato non deve
+   * costringere a cancellare una consegna vera.
+   */
+  async agganciaRiconsegna(parentId: string, childId: string, user: JwtUser) {
+    if (parentId === childId) throw new BadRequestException('Una consegna non è la riconsegna di se stessa.');
+    const [padre, figlia] = await Promise.all([
+      this.prisma.delivery.findFirst({ where: { id: parentId, deletedAt: null }, select: { id: true, code: true, status: true, parentDeliveryId: true } }),
+      this.prisma.delivery.findFirst({ where: { id: childId, deletedAt: null }, select: { id: true, code: true, status: true, parentDeliveryId: true } }),
+    ]);
+    if (!padre) throw new NotFoundException('Consegna non trovata.');
+    if (!figlia) throw new NotFoundException('La consegna da agganciare non esiste.');
+    if (padre.status !== 'not_delivered') {
+      throw new BadRequestException('Si aggancia una riconsegna solo a una consegna NON CONSEGNATA.');
+    }
+    if (figlia.parentDeliveryId && figlia.parentDeliveryId !== padre.id) {
+      throw new BadRequestException(`La consegna #${figlia.code} è già la riconsegna di un'altra.`);
+    }
+    if (padre.parentDeliveryId === figlia.id) {
+      throw new BadRequestException(`La #${figlia.code} è la consegna da cui nasce questa: non può esserne anche la riconsegna.`);
+    }
+    await this.prisma.delivery.update({ where: { id: figlia.id }, data: { parentDeliveryId: padre.id } });
+    await this.legaRiconsegna({ id: figlia.id, code: figlia.code }, padre.id, user);
+    return { ok: true, padre: { id: padre.id, code: padre.code }, riconsegna: { id: figlia.id, code: figlia.code } };
+  }
+
+  /** Scioglie un aggancio sbagliato: la consegna resta, il legame no. */
+  async sciogliRiconsegna(parentId: string, childId: string, user: JwtUser) {
+    const figlia = await this.prisma.delivery.findFirst({ where: { id: childId, parentDeliveryId: parentId, deletedAt: null }, select: { id: true, code: true } });
+    if (!figlia) throw new NotFoundException('Le due consegne non sono collegate.');
+    await this.prisma.delivery.update({ where: { id: figlia.id }, data: { parentDeliveryId: null } });
+    await this.prisma.deliveryLog.createMany({
+      data: [
+        { deliveryId: parentId, type: 'note', userId: user.sub ?? null, message: `Sciolto il legame con la riconsegna #${figlia.code}` },
+        { deliveryId: figlia.id, type: 'note', userId: user.sub ?? null, message: 'Sciolto il legame con la consegna non consegnata di partenza' },
+      ],
+    });
+    return { ok: true };
   }
 
   private static readonly VIVE = { deletedAt: null } as const;
