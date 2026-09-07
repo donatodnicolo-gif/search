@@ -61,6 +61,9 @@ type ProdottoDaSmistare = {
   partnerId: string | null;
   categoryId: string | null;
   visibleToOtherPartners: boolean;
+  /** unico | quantita | mix | preventivo — decisa in Merchandising. */
+  tipologiaVendita?: string | null;
+  sku?: string | null;
 };
 
 /** Lo stato di un ordine come lo dice Orders (letto dal vivo, 04/09). */
@@ -466,10 +469,11 @@ export class SalesService {
     // PREVENTIVO non si smista mai da solo, nemmeno se il mestiere è automatico e nemmeno se
     // in provincia c'è un partner solo: senza un prezzo concordato non c'è una proposta, c'è
     // un'ipotesi. Il preventivo lo raccoglie il Customer Service e resta scritto lì.
+    // ⭐ 07/09/2026 (regola utente): il prodotto a preventivo non è più bloccato in partenza —
+    // `scegliPartner` propone a chi il prezzo l'ha già dato (e a quel prezzo). Resta «da
+    // gestire» solo quando non l'ha dato nessuno, e allora il motivo lo dice.
     const aPreventivo = (product as any).tipologiaVendita === 'preventivo';
-    const bloccoGrezzo = aPreventivo
-      ? 'prodotto a preventivo: serve prima il preventivo del partner (lo raccoglie il Customer Service)'
-      : product.type !== ProductType.UNICO && !automatico
+    const bloccoGrezzo = product.type !== ProductType.UNICO && !automatico
       ? `prodotto non unico di un mestiere senza smistamento automatico (${categoria?.mestiere?.nome ?? categoria?.name ?? 'senza categoria'}): si gestisce a mano`
       : null;
     // ⭐ 06/09/2026 sera (regola utente): «in vendita, se non c'è più di un partner per
@@ -483,6 +487,10 @@ export class SalesService {
       : false;
     const bloccoNonUnico = bloccoGrezzo && !unSoloPartner ? bloccoGrezzo : null;
     const scelto = bloccoNonUnico ? null : await this.scegliPartner(product, body.provinceId, finestra, []);
+    // Un prodotto a preventivo senza nessuno che abbia risposto: si dice perché resta fermo.
+    const bloccoPreventivo = !scelto && aPreventivo && !bloccoNonUnico
+      ? 'prodotto a preventivo: nessun partner ha ancora dato un prezzo (lo chiede il Customer Service, Vendite → Liste di prodotto)'
+      : null;
     // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
     // Clivati): «non devi togliere la % per il prezzo partner, ma prendere il
     // prezzo partner per variante già presente per quel prodotto».
@@ -539,7 +547,7 @@ export class SalesService {
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
+        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? bloccoPreventivo ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
@@ -1963,16 +1971,65 @@ export class SalesService {
     }));
   }
 
+  /**
+   * ⭐ 07/09/2026 (regola utente: «Il Pappagallo l'ha già fatta a 47 €, quindi dovrebbe essere
+   * proposta a lui in automatico») — CHI HA GIÀ UN PREZZO su questo prodotto.
+   *
+   * I preventivi raccolti vivono come prodotti UNICI del partner con lo sku
+   * `PP-<codice del prodotto o della variante>-<id partner>`: è così che li ha scritti
+   * l'analisi dei DDT, ed è così che li scrive il Customer Service quando telefona.
+   * Un prodotto «a preventivo» non si smista al buio, ma se il prezzo esiste già la domanda
+   * è stata fatta: si propone, e al prezzo concordato.
+   */
+  private async preventiviDelProdotto(product: ProdottoDaSmistare, variantSku: string | null): Promise<Map<string, number>> {
+    // ⚠️ Con la VARIANTE si guarda SOLO la variante: «PP-MPSXZK-2-…» (la torta da 10) comincia
+    // per «PP-MPSXZK-» e verrebbe presa per un preventivo della 6 — il prezzo della 10 non è il
+    // prezzo della 6. Senza variante vale il codice del prodotto.
+    const basi = (variantSku ? [variantSku] : [product.sku, product.id])
+      .filter(Boolean)
+      .map((x) => String(x).toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28));
+    if (!basi.length) return new Map();
+    const righe = await this.prisma.product.findMany({
+      where: {
+        active: true, deletedAt: null, archived: false, partnerId: { not: null },
+        OR: basi.map((b) => ({ sku: { startsWith: `PP-${b}-` } })),
+      },
+      select: { partnerId: true, price: true, sku: true },
+    });
+    const m = new Map<string, number>();
+    for (const r of righe) {
+      // La base più specifica (la VARIANTE) vince su quella del prodotto.
+      const specifica = variantSku && r.sku?.toUpperCase().startsWith(`PP-${String(variantSku).toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28)}-`);
+      if (r.partnerId && r.price != null && (specifica || !m.has(r.partnerId))) m.set(r.partnerId, r.price);
+    }
+    return m;
+  }
+
   private async scegliPartner(
     product: ProdottoDaSmistare,
     provinceId: string,
     finestra: FinestraConsegna,
     escludi: string[],
   ): Promise<Candidato | null> {
-    const lista = (await this.candidati(product, provinceId, finestra.variantId ?? null)).filter(
+    let lista = (await this.candidati(product, provinceId, finestra.variantId ?? null)).filter(
       (c) => !escludi.includes(c.partnerId),
     );
     if (!lista.length) return null;
+
+    // ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO si propone SOLO a chi un prezzo
+    // l'ha già dato, e a quel prezzo. Se non l'ha dato nessuno la lista si svuota e la vendita
+    // resta da gestire: è il momento in cui si telefona. L'ordine della lista non cambia —
+    // fra chi ha risposto vince chi viene prima, non chi costa meno.
+    if (product.tipologiaVendita === 'preventivo') {
+      const variante = finestra.variantId
+        ? await this.prisma.productVariant.findUnique({ where: { id: finestra.variantId }, select: { sku: true } })
+        : null;
+      const preventivi = await this.preventiviDelProdotto(product, variante?.sku ?? null);
+      lista = lista
+        .filter((c) => preventivi.has(c.partnerId))
+        .map((c) => ({ ...c, prezzoPartner: preventivi.get(c.partnerId)!, motivo: `${c.motivo} · preventivo già dato: ${preventivi.get(c.partnerId)} €` }));
+      if (!lista.length) return null;
+    }
 
     const partners = await this.prisma.partner.findMany({
       where: {

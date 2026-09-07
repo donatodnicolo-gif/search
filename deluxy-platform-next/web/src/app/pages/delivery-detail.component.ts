@@ -1173,7 +1173,9 @@ interface DeliveryDetail {
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-cancellation_requested { background: #5ac8fa; }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
-      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      /* ⭐ 07/09/2026 (regola utente): non consegnata = nero, non rosso. */
+      .dot.s-not_delivered { background: var(--text, #1d1d1f); }
+      .dot.s-not_accepted { background: var(--red); }
       .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.error { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }

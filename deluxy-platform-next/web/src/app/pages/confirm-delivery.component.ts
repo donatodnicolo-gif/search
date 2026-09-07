@@ -119,7 +119,9 @@ interface PublicTracking {
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
-      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      /* ⭐ 07/09/2026: non consegnata = nero, non rosso (stessa legenda dell'elenco). */
+      .dot.s-not_delivered { background: var(--text, #1d1d1f); }
+      .dot.s-not_accepted { background: var(--red); }
       .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .form { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
       .form.azioni { flex-direction: row; flex-wrap: wrap; }

@@ -29,7 +29,13 @@ export const STATO_CONSEGNA_COLORE: Record<string, string> = {
   delivered: '#248a3d', //                --green   · Consegnata
   approved: '#248a3d', //                 --green   · Approvata
   delivered_time_to_approve: '#ff9500', //arancio legacy: ore da approvare
-  not_delivered: '#d70015', //            --red    · Non consegnata: intervento adesso (era grigia sulla mappa)
+  // ⭐ 07/09/2026 (regola utente: «avevamo stabilito un nuovo colore per le non consegnate,
+  // lo vedo ancora rosso»): NON CONSEGNATA esce dal rosso e prende il NERO, lo stesso della
+  // riga e del chip «DA GESTIRE» introdotti il 06/09. Motivo: col rosso su tre stati diversi
+  // (da gestire, non consegnata, non accettata) chi smista non distingueva «da lavorare» da
+  // «tentata e fallita». Il rosso resta agli altri due. Deroga «legenda storica» qui sopra
+  // ridotta: vale ancora per created e not_accepted.
+  not_delivered: '#1d1d1f', //            --text (nero) · Non consegnata: tentata e fallita, decide una persona
   not_accepted: '#d70015', //             --red    · Non accettata: intervento adesso
   cancelled: '#8a8a8e', //                --grey    · terminato/inerte
   invalidated: '#8a8a8e', //              --grey    · annullata d'ufficio

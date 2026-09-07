@@ -1046,8 +1046,10 @@ interface PropostaVendita {
          card bianca. Praticamente invisibile. E la legenda, che per quel gruppo
          usa una classe mai definita, lo disegnava GRIGIO: pallino e legenda
          dicevano due cose diverse, ed erano sbagliate tutt.e due. */
-      .status-dot.s-not_delivered,
-      .status-dot.s-not_accepted { background: var(--red); }                /* Fallite: rosso pieno */
+      /* ⭐ 07/09/2026 (regola utente): la NON CONSEGNATA non è più rossa — è nera, come la
+         riga «da gestire». Il rosso resta a «da gestire» (created) e «non accettata». */
+      .status-dot.s-not_delivered { background: var(--text, #1d1d1f); }     /* Non consegnata: nero */
+      .status-dot.s-not_accepted { background: var(--red); }                /* Non accettata: rosso pieno */
       .status-dot.s-cancelled,
       .status-dot.s-invalidated,
       .status-dot.s-archived { background: var(--grey); }                   /* Annullate: grigio (--grey) */
@@ -1404,7 +1406,10 @@ interface PropostaVendita {
         background: rgba(36, 138, 61, 0.12);
         color: var(--green);
       }
-      .s-not_delivered,
+      .s-not_delivered {
+        background: rgba(0, 0, 0, 0.07);
+        color: var(--text, #1d1d1f);
+      }
       .s-cancelled,
       .s-not_accepted {
         background: rgba(215, 0, 21, 0.09);
@@ -1775,7 +1780,9 @@ export class DeliveriesListComponent {
     // esiste in nessun foglio: la pastiglia usciva grigia mentre i pallini in
     // tabella erano rossi slavati. Adesso sono due gruppi, ognuno del colore
     // che ha davvero — e un fallimento non si confonde con un annullamento.
-    { cls: 's-not_delivered', statuses: ['not_delivered', 'not_accepted'] },
+    // ⭐ 07/09/2026: separate anche in legenda — la non consegnata è NERA, la non accettata resta rossa.
+    { cls: 's-not_delivered', statuses: ['not_delivered'] },
+    { cls: 's-not_accepted', statuses: ['not_accepted'] },
     { cls: 's-cancelled', statuses: ['cancelled', 'invalidated'] },
   ];
 

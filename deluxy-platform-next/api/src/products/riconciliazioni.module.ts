@@ -153,7 +153,12 @@ export class RiconciliazioniService {
         partnerId: { not: null, ...(esclusi.length ? { notIn: esclusi } : {}) },
         productId: { not: null },
         createdAt: { gte: opts.da, lte: opts.a },
-        product: { type: 'NON_UNICO' },
+        // ⭐ 07/09/2026 (regola utente): le proposte servono SOLO dove il prezzo non ce l'ha
+        // già una regola. Un prodotto «mix» prende la percentuale del territorio, uno «a
+        // quantità» il prezzo unitario del partner: per quelli un patto prodotto/provincia
+        // sarebbe una seconda verità sullo stesso numero. Resta il caso vero: il prodotto
+        // «a preventivo», dove il patto È il prezzo concordato.
+        product: { type: 'NON_UNICO', tipologiaVendita: 'preventivo' },
       },
       select: {
         id: true, productId: true, productVariantId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
@@ -295,6 +300,18 @@ export class RiconciliazioniService {
       where: {
         ...(filtro.ids ? { id: { in: filtro.ids } } : {}),
         ...(filtro.stato && filtro.stato !== 'tutte' ? { status: filtro.stato } : {}),
+        // ⭐ 07/09/2026 (regola utente): le PROPOSTE si mostrano solo per i prodotti dove
+        // servono («bouquet ortensie blu non ci deve essere, 15 rose rosse non ci deve
+        // essere»). I patti già ACCETTATI restano visibili comunque: sono accordi presi, e
+        // nasconderli perché la regola di oggi è cambiata sarebbe riscrivere la storia.
+        ...(filtro.ids
+          ? {}
+          : {
+              OR: [
+                { status: { not: 'proposta' } },
+                { product: { type: 'NON_UNICO', tipologiaVendita: 'preventivo' } },
+              ],
+            }),
       },
       orderBy: [{ updatedAt: 'desc' }],
       take: filtro.limite ?? 500,
