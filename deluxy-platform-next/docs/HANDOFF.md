@@ -3,9 +3,40 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 17 agosto 2026
+**Ultimo aggiornamento:** 7 settembre 2026
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
-**Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+**Working dir:** `C:\Users\nicol\app\deluxy-platform-next` (PC Windows) · dal 07/09 anche `/home/user/search/deluxy-platform-next` (macchina nuova, vedi sotto)
+
+## 🟢 07/09/2026 — Ambiente locale rimesso in piedi sulla macchina nuova + verifiche a runtime
+
+Sessione sul branch `claude/app-consegne-deluxy-o3dr4v` (da portare su `main` per andare online).
+Sulla macchina nuova **non c'era né memoria né ambiente**: ricostruiti entrambi.
+
+- **Memoria del progetto** creata in `~/.claude/projects/-home-user-search/memory/MEMORY.md`
+  (riassume questo handoff, l'ambiente locale e le regole). Una finestra nuova la trova da sola.
+- **DB locale senza Docker**: qui non c'è il daemon Docker, ma c'è il cluster **PostgreSQL 16 di sistema**
+  (`service postgresql start`; ruolo `deluxy`/`deluxy` superuser + db `deluxy` e `deluxy_shadow` già creati).
+  `api/.env` scritto a mano con `DATABASE_URL="postgresql://deluxy:deluxy@localhost:5432/deluxy?schema=public"`
+  e chiavi esterne vuote (ignorato da git, regola 3).
+- **Schema allineato**: `prisma migrate deploy` applica la sola baseline `00000000000000_init_postgres`;
+  `prisma migrate diff --from-migrations --to-schema-datamodel` → **No difference detected**
+  (nessuna migrazione mancante rispetto a `schema.prisma`). Seed ok. Build API e web verdi.
+- **Verificato a runtime** (API `node dist/main.js` su :3000, login `admin@deluxy.it`), i tre punti che
+  erano fermi a «solo build verde»:
+  1. **Ricerca case-insensitive (punto 10)** ✅ — `GET /customers?q=colombo|COLOMBO|Colombo` → sempre 1;
+     `GET /deliveries?q=francesca|FRANCESCA` → 1; `GET /products?q=rose|ROSE` → 1.
+  2. **Regole carnet** ✅ — `POST /delivery-rules` (Daily 2 + Total 10, periodo settembre, partner demo)
+     → creata con `partners[]`; `GET /delivery-rules` la lista; `GET /delivery-rules/partner/:id` la
+     restituisce con `usage`; `DELETE` → `{deleted:true}`.
+  3. **Notifiche in-app** ✅ — valet1 porta la consegna #1 `assigned → in_delivery` con `PATCH /:id/status`
+     → per l'admin `GET /notifications/count` passa da 0 a 1, `GET /notifications` mostra
+     `delivery_in_delivery` «Consegna ritirata — Consegna #1 — Fioraio Milano Centro»; `read-all` → `{updated:1}`.
+  Dati di test ripuliti (regola cancellata, consegna riportata ad `assigned`, notifiche lette).
+- **Web in locale** (`npm run dev:web` su :4200 + API :3000): login `admin@deluxy.it` nel browser (Chromium headless)
+  → atterra su `/deliveries`, lista con la consegna demo, legenda stati, nessun errore in console.
+- Nota: `GET /settings/public` è **volutamente autenticato** (401 senza token): espone la chiave browser
+  Maps solo a utenti loggati. Non è un bug.
+- ⚠️ La **produzione resta giù** (sezione sotto): niente è cambiato lato Vercel, serve ancora il segreto.
 
 ## 🔴 STATO PRODUZIONE — 17/08/2026: l'app è GIÙ (dal 26/07)
 
@@ -54,9 +85,7 @@ demo di `api/prisma/seed.ts` (`admin@deluxy.it / Deluxy2026!`) funzionano davver
 - `api/src/common/list-query.ts`, `textSearch()`: ogni foglia `contains` ora ha **`mode: 'insensitive'`**.
   Da quando il DB è PostgreSQL (20/07) `LIKE` è case-sensitive → cercare `rossi` non trovava `Rossi`
   in **nessuna** lista (consegne, prodotti, clienti). Unico punto in cui il repo costruisce `contains`.
-- ⚠️ **Verificato solo con `npm run build` pulito**: in questa sessione non c'è un DB (il `DATABASE_URL`
-  locale non è nemmeno un URL Postgres → `prisma migrate status` dà P1012) e la produzione è giù.
-  **Da riprovare a runtime** appena il database torna raggiungibile.
+- ✅ **Verificato a runtime il 07/09/2026** sul Postgres locale (vedi sezione in cima); il 17/08 era solo build verde.
 
 > ℹ️ **17/07: `platform-delivery-slots` è stato fuso in `deluxy-scout`** (questa cartella). Il worktree `.claude/worktrees/platform-slots` (porte 3000/4200) era l'ambiente isolato di quel lavoro: se la sessione lì è ancora attiva, deve ripartire da `deluxy-scout` aggiornato per non divergere di nuovo.
 
@@ -66,6 +95,7 @@ demo di `api/prisma/seed.ts` (`admin@deluxy.it / Deluxy2026!`) funzionano davver
 cd C:\Users\nicol\app\deluxy-platform-next
 npm install
 docker compose up -d postgres   # ⚠️ dal 20/07 il DB e' PostgreSQL anche in dev (non piu' SQLite)
+# senza Docker (macchina del 07/09): `service postgresql start` + ruolo/db `deluxy` sul Postgres 16 di sistema
 npm run prisma:migrate   # applica la baseline Postgres
 npm run seed             # dati demo (idempotente)
 npm run dev:api          # http://localhost:3000/api/v1  — Swagger: /api/docs
@@ -376,7 +406,7 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
    - **Client-side** (`web/src/app/core/client-table.ts`): **Partner, Valet, Categorie, Servizi, Operatori** — liste piccole (≤243) usate soprattutto come tendine nei form: la conversione server-side avrebbe rotto ~14 punti di chiamata senza dare valore. Queste API restano array.
    - ⚠️ **Regola per il futuro**: se una lista cresce, spostarla su server-side e aggiornare **tutti** i consumatori (leggere `.items`, passare `pageSize=500` per le tendine).
 9-bis. **Tendina "Cliente esistente" nel form consegna**: carica `pageSize=500`, ma in produzione i clienti sono **4.092** → la tendina è **parziale**. Va sostituita con una **ricerca mentre si scrive** (usa `GET /customers?q=`). Stesso discorso, meno urgente, per i prodotti nel form consegna (8.503, `pageSize=500`).
-10. ~~**Ricerca case-insensitive su PostgreSQL**~~ → **FATTO il 17/08**: `mode: 'insensitive'` aggiunto in `textSearch()` (`api/src/common/list-query.ts`). Build pulita, **runtime da riverificare** (nessun DB in sessione).
+10. ~~**Ricerca case-insensitive su PostgreSQL**~~ → **FATTO il 17/08**: `mode: 'insensitive'` aggiunto in `textSearch()` (`api/src/common/list-query.ts`). **Verificato a runtime il 07/09** (clienti/consegne/prodotti, maiuscole e minuscole indifferenti).
 11. **Image manager Shopify e descrizione per piattaforma**: la parte dati/form c'è (URL multipli + descrizione per piattaforma); manca l'**upload/sincronizzazione reale su Shopify** (stub).
 12. **`trackingToken` senza vincolo unique** — **ora è banale da fare** (20/07): l'ostacolo era il rebuild tabella di SQLite, che non esiste più. Basta `@unique` nello schema + una migrazione. Non l'ho fatto nel lavoro Vercel per non allargarne il perimetro: è un cambio di schema a sé.
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
