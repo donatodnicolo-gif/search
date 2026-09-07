@@ -23,6 +23,32 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 07/09 (11:41) — IN PRODUZIONE `a02fdfc8` (deploy `deluxy-mail-26vp0zskh`, build nel cloud)
+
+Alias `deluxy-mail.vercel.app` → questo deployment (verificato con `vercel inspect`), Ready,
+`/api/health` `{ok:true, database:true, scrivibile:true}`, home 307 in 0,13-0,32 s.
+
+🔴 **La precompilata resta impossibile, e ora si sa fino a dove.** I due rimedi noti FUNZIONANO:
+83 symlink sostituiti con copie vere (6,4 MB) e 89 `.vc-config.json` ripuliti dalle voci `.env*`
+del `filePathMap`. Superati quelli, il CLI si ferma su un **terzo** muro:
+`Builder returned invalid routes: should match pattern "^[a-zA-Z0-9_ :;.,\"'?!(){}\[\]@<>=+*#$&\`|~^%/-]+$"`.
+Il `config.json` generato da Next ha **11 rotte su 182 che contengono `\`**, carattere non
+ammesso da quel pattern (`^/((?!.+\\.rsc).+?)(?:/)?$`, `/\\.prefetch\\.rsc$`…). Non è roba
+nostra: le genera Next, e la build nel cloud le accetta senza fiatare. Finché il CLI valida
+così, **AI Mail si pubblica con `npx vercel deploy --prod --yes`** (~2 min di Build CPU).
+
+⚠️ E una trappola già in memoria in cui sono ricascato: `Set-Content -Encoding utf8` su
+PowerShell 5.1 scrive **UTF-8 CON BOM**, e i 90 `.vc-config.json` sono diventati JSON non
+valido (`Unexpected token '﻿'`). Per riscrivere un JSON da PowerShell serve
+`[System.IO.File]::WriteAllText($f, $testo, (New-Object System.Text.UTF8Encoding($false)))` —
+e attenzione: `ReadAllText` toglie il BOM dalla stringa, quindi confrontare prima/dopo dice
+«nessun cambiamento» mentre il file su disco ce l'ha ancora. Si controlla sui BYTE
+(`239 187 191`). Vedi [[trappola-powershell-utf8]].
+
+**Misura PRIMA congelata per il confronto** (`pg_stat_statements`, 11:43): la pulizia HTML era a
+**5.497 chiamate, 15.278.552 ms totali, media 2.779,4 ms**. Da riprendere fra 24 ore: le chiamate
+devono smettere di crescere di 288 al giorno.
+
 ### 07/09 (pomeriggio) — «È lentissima l'apertura dell'app e il refresh»: misurato, e tre correzioni
 
 Segnalazione dell'utente. **La mia prima diagnosi era sbagliata** e l'ho ritirata: avevo
