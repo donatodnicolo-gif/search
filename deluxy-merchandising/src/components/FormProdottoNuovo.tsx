@@ -38,7 +38,7 @@ export type MediaCaricato = {
   errore?: string;
 };
 
-export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; prezzoPartner: string; giacenza: string };
+export type VarianteForm = { nome: string; sku: string | null; prezzo: string; costo: string; prezzoPartner: string; giacenza: string; note: string };
 
 /** Quello che il modulo mostra quando si modifica un prodotto esistente. */
 export type ProdottoIniziale = {
@@ -48,6 +48,7 @@ export type ProdottoIniziale = {
   fase: string;
   categoria: string;
   tipologiaVendita: string | null;
+  note: string;
   collezioneShopifyId: string;
   codice: string;
   descrizione: string;
@@ -72,7 +73,7 @@ export type ProdottoIniziale = {
 };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
-const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0" });
+const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0", note: "" });
 
 /** Sette cifre casuali, mai con lo zero davanti. */
 export function skuCasuale(): string {
@@ -347,6 +348,15 @@ export function FormProdottoNuovo({
             </select>
             <span className="cella-sub">
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
+            </span>
+          </div>
+          <div className="campo-modulo largo">
+            <label htmlFor="note">Note di specifica</label>
+            <textarea id="note" name="note" rows={2} defaultValue={iniziale?.note ?? ""}
+                      placeholder="Che cosa c'è dentro: «20-25 fiori», «18-20 cm, 650 g - 1 kg», «6/8 porzioni»" />
+            <span className="cella-sub">
+              La legge il fioraio quando riceve l&apos;ordine: è quello che gli dice quanti fiori mettere.
+              Se una taglia ha la sua misura, scrivila sulla variante.
             </span>
           </div>
           <div className="campo-modulo">
@@ -679,6 +689,7 @@ export function FormProdottoNuovo({
                       </td>
                       <td>
                         <input value={v.prezzoPartner} onChange={(e) => aggiornaVariante(i, "prezzoPartner", e.target.value)} inputMode="decimal" className="num" placeholder="—" aria-label={`Prezzo partner variante ${i + 1}`} />
+                        <input value={v.note} onChange={(e) => aggiornaVariante(i, "note", e.target.value)} placeholder="es. 20-25 fiori" aria-label={`Nota variante ${i + 1}`} />
                       </td>
                       {controllaStock && (
                         <td>

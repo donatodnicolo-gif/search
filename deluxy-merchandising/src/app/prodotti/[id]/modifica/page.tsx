@@ -56,6 +56,7 @@ export default async function ModificaProdottoPage({
     fase: p.fase === "archiviato" ? "approvato" : p.fase,
     categoria: p.categoria,
     tipologiaVendita: p.tipologiaVendita ?? null,
+    note: p.note ?? "",
     collezioneShopifyId: p.collezioneShopifyId ?? "",
     codice: p.codice,
     descrizione: p.descrizione ?? "",
@@ -77,7 +78,7 @@ export default async function ModificaProdottoPage({
       costo: v.deltaCosto ? String(p.costoProduzione + v.deltaCosto) : "",
       prezzoPartner: v.prezzoPartner != null ? String(v.prezzoPartner) : "",
       giacenza: String(v.giacenza),
-    })),
+    note: v.note ?? "" })),
     media: p.media
       .filter((x) => x.shopifyFileId)
       .map((x) => ({

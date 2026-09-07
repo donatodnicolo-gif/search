@@ -135,6 +135,11 @@ model Prodotto {
   // unico | quantita | mix | preventivo. La legenda sta in `src/lib/dominio.ts` e nel
   // modulo prodotto. Nullo = non ancora classificato (i prodotti importati prima di oggi).
   tipologiaVendita String?
+  /// ⭐ 07/09/2026 — NOTE DI SPECIFICA: che cosa c'è dentro davvero ("20-25 fiori", "18-20 cm,
+  /// 650 g - 1 kg", "ideale per 6/8 persone"). Le scrive il merchandiser o le ricostruisce lo
+  /// script dalla sezione «Dimensioni» della descrizione; la piattaforma consegne se le porta
+  /// dietro fino al fioraio, che deve sapere quanti fiori mettere.
+  note             String?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
@@ -284,6 +289,8 @@ model Variante {
   deltaPrezzo  Float @default(0)
   // Quanto viene dato al partner per questa variante (assoluto; vuoto = quello del prodotto).
   prezzoPartner Float?
+  /// ⭐ 07/09/2026: la nota di QUESTA taglia («Medio: 10-15 fiori»). Vince su quella del prodotto.
+  note         String?
   giacenza     Int   @default(0) // stock disponibile
   creataIl   DateTime @default(now())
   vendite    Vendita[]

@@ -42,6 +42,10 @@ const CAMPI = {
   // 06/09/2026: la casa della tipologia di vendita è qui, e la piattaforma consegne
   // la legge da questa rotta invece di riclassificare per conto suo.
   tipologiaVendita: true,
+  // ⭐ 07/09/2026: la NOTA DI SPECIFICA («20-25 fiori», «18-20 cm»): la piattaforma consegne
+  // se la porta fino al fioraio, che deve sapere quanti fiori mettere nel bouquet.
+  note: true,
+  varianti: { select: { id: true, nome: true, sku: true, note: true } },
   origine: true,
   idEsterno: true,
   esclusoDaAnalisi: true,

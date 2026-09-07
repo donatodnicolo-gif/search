@@ -59,7 +59,7 @@ type MediaDalForm = {
   nome: string;
   negozio: string;
 };
-type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string };
+type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string; note?: string };
 const partnerDa = (v: string | undefined): number | null => (v && v.trim() ? soldiDa(v) : null);
 
 /** È preso da un altro prodotto/variante (escludendo, in modifica, il prodotto stesso). */
@@ -150,6 +150,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     fase,
     categoria,
     tipologiaVendita,
+    note: testo(fd, "note") || null,
     collezioni,
     media,
     variantiForm,
@@ -243,6 +244,7 @@ export async function creaProdottoCompleto(fd: FormData) {
   const { codice, cambiato } = await codiceLibero(m.codiceChiesto, m.variantiForm.length);
   const varianti = m.variantiForm.map((v, i) => ({
     nome: v.nome.trim(),
+    note: (v.note ?? "").trim() || null,
     sku: `${codice}-${i + 1}`,
     prezzo: soldiDa(v.prezzo),
     costo: soldiDa(v.costo),
@@ -309,6 +311,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       nome: m.nome,
       categoria: m.categoria,
       tipologiaVendita: m.tipologiaVendita,
+      note: m.note,
       fase,
       descrizione: m.descrizione,
       brief: m.brief,
@@ -332,7 +335,7 @@ export async function creaProdottoCompleto(fd: FormData) {
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
       ...(Object.keys(m.metafield).length ? colonneDaMetafield(m.metafield) : {}),
       varianti: varianti.length
-        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza })) }
+        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null })) }
         : undefined,
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
@@ -385,14 +388,14 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   // Numerazione delle varianti nuove: dopo l'ultimo «-N» già usato.
   const usati = prima.varianti.map((v) => v.sku ?? "").map((s) => Number(s.split("-").pop())).filter((n) => Number.isFinite(n));
   let prossimo = usati.length ? Math.max(...usati) + 1 : 1;
-  const varianti: { nome: string; sku: string; prezzo: number; costo: number; prezzoPartner: number | null; giacenza: number; nuova: boolean }[] = [];
+  const varianti: { nome: string; sku: string; prezzo: number; costo: number; note: string | null; prezzoPartner: number | null; giacenza: number; nuova: boolean }[] = [];
   for (const v of m.variantiForm) {
     let sku = v.sku ?? "";
     if (!sku) {
       do sku = `${codice}-${prossimo++}`;
       while (await preso(sku, prima.id));
     }
-    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), prezzoPartner: partnerDa(v.prezzoPartner), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
+    varianti.push({ nome: v.nome.trim(), sku, prezzo: soldiDa(v.prezzo), costo: soldiDa(v.costo), note: (v.note ?? "").trim() || null, prezzoPartner: partnerDa(v.prezzoPartner), giacenza: m.controllaStock ? Math.max(0, Math.round(Number(v.giacenza) || 0)) : 0, nuova: !v.sku });
   }
   // Collezioni: quelle manuali in cui sta già, contro quelle scelte ora.
   const manualiPrima = prima.collezioniShopify.filter((x) => x.collezione.tipo === "manuale");
@@ -497,6 +500,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         nome: m.nome,
         categoria: m.categoria,
         tipologiaVendita: m.tipologiaVendita,
+        note: m.note,
         fase,
         descrizione: m.descrizione,
         brief: m.brief,
@@ -524,7 +528,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     // Varianti: per SKU. Le nuove nascono, le presenti si aggiornano, quelle
     // sparite dal modulo si tolgono solo se non hanno venduto niente.
     for (const v of varianti) {
-      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza };
+      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null };
       const gia = prima.varianti.find((x) => x.sku === v.sku);
       if (gia) await tx.variante.update({ where: { id: gia.id }, data: dati });
       else await tx.variante.create({ data: { prodottoId: id, sku: v.sku, ...dati } });
