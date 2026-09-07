@@ -36,7 +36,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
-import { Role } from '../common/enums';
+import { Role, SaleStatus } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -443,6 +443,238 @@ export class RiconciliazioniService {
     return (await this.lista({ ids: [riga.id] }))[0];
   }
 
+  /**
+   * ⭐ 07/09/2026 (regola utente) — RICONCILIAZIONE A MANO, IN QUATTRO PASSI.
+   *
+   * «In riconciliazioni permettimi di creare una nuova riconciliazione per vendita,
+   * prodotto e provincia presi dalla vendita, prodotto venduto in passato con ricerca
+   * fra tutti i prodotti, scelta della variante, e poi chiedi conferma confrontando i
+   * prezzi e specificando il margine.»
+   *
+   * L'idea: «questa torta che mi hanno ordinato è la stessa cosa di quella che il
+   * partner X fa già a 47 €». Il prodotto e la provincia della REGOLA vengono dalla
+   * vendita da smistare; il partner e il prezzo dal prodotto di RIFERIMENTO, che è già
+   * stato venduto e ha quindi un prezzo vero, non stimato.
+   */
+
+  /** Le vendite che ha senso riconciliare: ferme, con un prodotto a catalogo. */
+  async venditeDaRiconciliare(q?: string) {
+    const testo = (q ?? '').trim();
+    const vendite = await this.prisma.sale.findMany({
+      where: {
+        status: { in: [SaleStatus.DA_GESTIRE, SaleStatus.PROPOSTA] },
+        productId: { not: null },
+        ...(testo
+          ? {
+              OR: [
+                { externalOrderNumber: { contains: testo, mode: 'insensitive' as const } },
+                { productName: { contains: testo, mode: 'insensitive' as const } },
+                { product: { name: { contains: testo, mode: 'insensitive' as const } } },
+                { recipientLastName: { contains: testo, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true, externalOrderNumber: true, amount: true, quantity: true, status: true,
+        variantName: true, productVariantId: true, createdAt: true, deliveryDate: true,
+        recipientLastName: true, recipientAddress: true,
+        product: { select: { id: true, name: true, sku: true, tipologiaVendita: true } },
+        province: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    // Quali hanno già una regola attiva: si dice, per non rifarla.
+    const chiavi = vendite.filter((v) => v.product).map((v) => ({ productId: v.product!.id, provinceId: v.province.id, productVariantId: v.productVariantId ?? null }));
+    const esistenti = chiavi.length
+      ? await this.prisma.productReconciliation.findMany({
+          where: { OR: chiavi },
+          select: { productId: true, provinceId: true, productVariantId: true, status: true, partnerId: true },
+        })
+      : [];
+    return vendite.map((v) => {
+      const gia = esistenti.find(
+        (e) => e.productId === v.product?.id && e.provinceId === v.province.id && (e.productVariantId ?? null) === (v.productVariantId ?? null),
+      );
+      return { ...v, regolaEsistente: gia ? { stato: gia.status, partnerId: gia.partnerId } : null };
+    });
+  }
+
+  /**
+   * Il prodotto di RIFERIMENTO: chi lo ha fatto in passato e a quanto.
+   *
+   * Tre fonti, dalla più forte alla più debole, e si dice sempre QUALE:
+   *  · le vendite ACCETTATE di quel prodotto (prezzo pattuito davvero, con la data);
+   *  · il proprietario, se è un prodotto UNICO (il suo listino);
+   *  · i prezzi concordati caricati dai DDT (sku `PP-<codice>-<partner>`).
+   * Senza nessuna delle tre non si inventa un prezzo: si dice che non c'è.
+   */
+  async riferimento(productId: string, productVariantId?: string | null) {
+    const prodotto = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true, name: true, sku: true, price: true, publicPrice: true, type: true,
+        partnerId: true, partner: { select: { id: true, insegna: true, active: true } },
+        variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true, active: true } },
+      },
+    });
+    if (!prodotto) throw new NotFoundException('Prodotto non trovato');
+    const variante = productVariantId ? prodotto.variants.find((x) => x.id === productVariantId) ?? null : null;
+
+    const righe: { partnerId: string; insegna: string; attivo: boolean; prezzoPartner: number; da: string; quando: Date | null; volte: number }[] = [];
+
+    // 1) le vendite accettate
+    const vendite = await this.prisma.sale.findMany({
+      where: {
+        productId, status: SaleStatus.ACCETTATA, partnerId: { not: null },
+        ...(productVariantId ? { productVariantId } : {}),
+      },
+      select: { partnerId: true, amount: true, discountPercent: true, deliveryDate: true, createdAt: true,
+                partner: { select: { insegna: true, active: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    for (const v of vendite) {
+      const prezzo = arrotonda(v.amount * (1 - (v.discountPercent ?? 0) / 100));
+      const gia = righe.find((r) => r.partnerId === v.partnerId);
+      if (gia) { gia.volte += 1; continue; }
+      righe.push({
+        partnerId: v.partnerId!, insegna: v.partner?.insegna ?? '—', attivo: v.partner?.active ?? false,
+        prezzoPartner: prezzo, da: 'vendita accettata', quando: v.deliveryDate ?? v.createdAt, volte: 1,
+      });
+    }
+
+    // 2) il proprietario di un prodotto unico
+    if (prodotto.type === 'UNICO' && prodotto.partnerId && !righe.some((r) => r.partnerId === prodotto.partnerId)) {
+      const listino = variante?.price ?? variante?.publicPrice ?? prodotto.price ?? prodotto.publicPrice ?? null;
+      if (listino != null && listino > 0) {
+        righe.push({
+          partnerId: prodotto.partnerId, insegna: prodotto.partner?.insegna ?? '—',
+          attivo: prodotto.partner?.active ?? false, prezzoPartner: arrotonda(listino),
+          da: 'listino del prodotto unico', quando: null, volte: 0,
+        });
+      }
+    }
+
+    // 3) i prezzi concordati caricati dai DDT: sku «PP-<codice>-<partner>»
+    const codice = (variante?.sku ?? prodotto.sku ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28);
+    if (codice) {
+      const pp = await this.prisma.product.findMany({
+        where: { sku: { startsWith: `PP-${codice}-` }, active: true, deletedAt: null, archived: false },
+        select: { price: true, partnerId: true, partner: { select: { insegna: true, active: true } } },
+      });
+      for (const x of pp) {
+        if (!x.partnerId || x.price == null || x.price <= 0) continue;
+        if (righe.some((r) => r.partnerId === x.partnerId)) continue;
+        righe.push({
+          partnerId: x.partnerId, insegna: x.partner?.insegna ?? '—', attivo: x.partner?.active ?? false,
+          prezzoPartner: arrotonda(x.price), da: 'prezzo concordato (DDT)', quando: null, volte: 0,
+        });
+      }
+    }
+
+    righe.sort((a, b) => b.volte - a.volte || a.prezzoPartner - b.prezzoPartner);
+    return {
+      prodotto: { id: prodotto.id, name: prodotto.name, sku: prodotto.sku, type: prodotto.type },
+      variante: variante ? { id: variante.id, name: variante.name, sku: variante.sku } : null,
+      varianti: prodotto.variants.filter((v) => v.active !== false).map((v) => ({ id: v.id, name: v.name, sku: v.sku, price: v.price ?? v.publicPrice })),
+      righe,
+    };
+  }
+
+  /**
+   * L'ANTEPRIMA: il confronto dei prezzi e il margine, prima di scrivere.
+   * Il margine è quello che resta a Deluxy: pagato dal cliente − dato al partner.
+   */
+  async anteprimaManuale(saleId: string, partnerId: string, prezzoPartner: number) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id: saleId },
+      select: {
+        productId: true, productVariantId: true, provinceId: true, amount: true, quantity: true,
+        discountPercent: true, variantName: true, externalOrderNumber: true,
+        product: { select: { id: true, name: true, sku: true } },
+        province: { select: { id: true, code: true, name: true } },
+      },
+    });
+    if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId }, select: { id: true, insegna: true, active: true },
+    });
+    if (!partner) throw new NotFoundException('Partner non trovato');
+
+    const alCliente = arrotonda(vendita.amount);
+    const alPartner = arrotonda(prezzoPartner);
+    const margine = arrotonda(alCliente - alPartner);
+    const percentuale = alCliente > 0 ? arrotonda((margine / alCliente) * 100) : 0;
+    // Il confronto con la regola del territorio, per capire se il patto conviene.
+    const conLaPercentuale = arrotonda(alCliente * (1 - (vendita.discountPercent ?? 0) / 100));
+
+    const gia = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
+      select: { id: true, status: true, partnerId: true, partnerPrice: true },
+    });
+
+    return {
+      vendita: {
+        ordine: vendita.externalOrderNumber, prodotto: vendita.product?.name, sku: vendita.product?.sku,
+        variante: vendita.variantName, pezzi: vendita.quantity, provincia: vendita.province?.code, provinciaNome: vendita.province?.name,
+      },
+      partner: { id: partner.id, insegna: partner.insegna, attivo: partner.active },
+      prezzi: {
+        alCliente, alPartner, margine, percentuale,
+        // Quanto prenderebbe il partner con la sola regola del territorio: se il patto
+        // costa di più, il margine si stringe — e chi conferma deve vederlo.
+        conLaPercentuale, scontoTerritorio: arrotonda(vendita.discountPercent ?? 0),
+        differenzaSullaRegola: arrotonda(conLaPercentuale - alPartner),
+      },
+      avvisi: [
+        ...(alPartner >= alCliente ? ['Il prezzo del partner è pari o superiore a quello pagato dal cliente: il margine è zero o negativo.'] : []),
+        ...(!partner.active ? ['Il partner non è attivo: la regola non verrebbe usata dallo smistamento.'] : []),
+        ...(gia && gia.status === 'accettata' ? ['Per questo prodotto, variante e provincia esiste già una regola attiva: confermando la si sostituisce.'] : []),
+      ],
+      regolaEsistente: gia,
+    };
+  }
+
+  /** Scrive la riconciliazione decisa a mano: nasce già ACCETTATA, perché l'ha decisa una persona. */
+  async creaManuale(
+    body: { saleId: string; partnerId: string; prezzoPartner: number; riferimentoProductId?: string; riferimentoVariantId?: string },
+    user: JwtUser,
+  ) {
+    const a = await this.anteprimaManuale(body.saleId, body.partnerId, body.prezzoPartner);
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id: body.saleId },
+      select: { productId: true, productVariantId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
+    });
+    if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+    if ((await this.esclusiIds()).includes(body.partnerId)) {
+      throw new BadRequestException('Il partner è escluso dalle riconciliazioni.');
+    }
+    const dati = {
+      partnerId: body.partnerId,
+      partnerPrice: arrotonda(body.prezzoPartner),
+      price: arrotonda(vendita.amount),
+      discountPercent: arrotonda(vendita.discountPercent ?? 0),
+      salesCount: 1,
+      stats: JSON.stringify([{ da: 'riconciliazione a mano', riferimento: body.riferimentoProductId ?? null, variante: body.riferimentoVariantId ?? null }]),
+      lastSaleId: body.saleId,
+      lastOrderNumber: vendita.externalOrderNumber,
+      trigger: 'manuale',
+      // Decisa da una persona: nasce attiva, e lo smistamento la usa dal giro dopo.
+      status: 'accettata',
+      decidedAt: new Date(),
+      decidedBy: user?.email ?? user?.sub ?? null,
+    };
+    const riga = a.regolaEsistente
+      ? await this.prisma.productReconciliation.update({ where: { id: a.regolaEsistente.id }, data: dati, select: { id: true } })
+      : await this.prisma.productReconciliation.create({
+          data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, ...dati },
+          select: { id: true },
+        });
+    return (await this.lista({ ids: [riga.id] }))[0];
+  }
+
   /** Accetta = regola attiva (lo smistamento la legge da subito). Rifiuta = mai più proposta. */
   async decidi(id: string, azione: 'accetta' | 'rifiuta', user: JwtUser) {
     const r = await this.prisma.productReconciliation.findUnique({ where: { id } });
@@ -590,6 +822,37 @@ export class RiconciliazioniController {
   analizza(@Body() body: { da?: string; a?: string }) {
     if (!body?.da || !body?.a) throw new BadRequestException('Servono le date «da» e «a».');
     return this.service.genera({ da: new Date(`${body.da}T00:00:00.000Z`), a: new Date(`${body.a}T23:59:59.999Z`), innesco: 'manuale' });
+  }
+
+  @Get('vendite-da-riconciliare')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Le vendite ferme che si possono riconciliare (passo 1)' })
+  venditeDaRiconciliare(@Query('q') q?: string) {
+    return this.service.venditeDaRiconciliare(q);
+  }
+
+  @Get('riferimento/:productId')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Chi ha gi\u00e0 fatto questo prodotto e a quanto, con le sue varianti (passi 3-4)' })
+  riferimento(@Param('productId') productId: string, @Query('variantId') variantId?: string) {
+    return this.service.riferimento(productId, variantId || null);
+  }
+
+  @Post('anteprima')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Il confronto dei prezzi e il margine, prima di confermare (passo 5)' })
+  anteprima(@Body() body: { saleId: string; partnerId: string; prezzoPartner: number }) {
+    return this.service.anteprimaManuale(body.saleId, body.partnerId, Number(body.prezzoPartner));
+  }
+
+  @Post('manuale')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Crea la riconciliazione decisa a mano (nasce accettata)' })
+  creaManuale(
+    @Body() body: { saleId: string; partnerId: string; prezzoPartner: number; riferimentoProductId?: string; riferimentoVariantId?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.creaManuale({ ...body, prezzoPartner: Number(body.prezzoPartner) }, user);
   }
 
   @Post('da-vendita')

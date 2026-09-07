@@ -95,6 +95,11 @@ interface UltimaCorsa {
         <h1>{{ 'reconciliations.title' | translate }}</h1>
         <p class="page-caption">{{ 'reconciliations.caption' | translate }}</p>
       </div>
+      <!-- ⭐ 07/09/2026 (regola utente): una regola si può scrivere anche a mano,
+           partendo da una vendita ferma e da un prodotto già venduto in passato. -->
+      <button type="button" class="btn btn-primary" (click)="apriNuova()">
+        + {{ 'reconciliations.nuova.apri' | translate }}
+      </button>
     </div>
 
     <!-- Lancio manuale su un intervallo personalizzato -->
@@ -273,9 +278,220 @@ interface UltimaCorsa {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     (confermato)="esegui()" (annullato)="conferma.set(null)" />
     }
+
+    <!-- ============================================================
+         NUOVA RICONCILIAZIONE A MANO (07/09/2026, regola utente)
+         La vendita dà prodotto e provincia della regola; il prodotto di
+         riferimento, già venduto in passato, dà il partner e il prezzo.
+         Si conferma solo dopo aver visto i due prezzi e il margine.
+         ============================================================ -->
+    @if (nuova()) {
+      <div class="overlay" (click)="chiudiNuova()"></div>
+      <div class="dialog card nuova-riconc" role="dialog" aria-modal="true">
+        <header class="d-head">
+          <h2>{{ 'reconciliations.nuova.titolo' | translate }}</h2>
+          <button type="button" class="icon-btn" (click)="chiudiNuova()" aria-label="Chiudi">✕</button>
+        </header>
+
+        <!-- PASSO 1 — la vendita -->
+        <section class="passo">
+          <h3><span class="n">1</span> {{ 'reconciliations.nuova.passo1' | translate }}</h3>
+          @if (venditaScelta(); as v) {
+            <div class="scelto">
+              <div>
+                <b>#{{ v.externalOrderNumber }}</b> · {{ v.product?.name }}
+                @if (v.variantName) { <span class="muted">({{ v.variantName }})</span> }
+                <div class="cella-sub muted">
+                  {{ v.province?.code }} · {{ v.amount | number: '1.2-2' }} €
+                  @if (v.regolaEsistente) {
+                    · <span class="ko">{{ 'reconciliations.nuova.giaRegola' | translate: { stato: v.regolaEsistente.stato } }}</span>
+                  }
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary mini" (click)="cambiaVendita()">{{ 'reconciliations.nuova.cambia' | translate }}</button>
+            </div>
+          } @else {
+            <input class="field" [ngModel]="qVendita()" (ngModelChange)="cercaVendite($event)" name="qv"
+                   [placeholder]="'reconciliations.nuova.cercaVendita' | translate" autocomplete="off" />
+            <div class="elenco">
+              @for (v of vendite(); track v.id) {
+                <button type="button" class="voce" (click)="scegliVendita(v)">
+                  <b>#{{ v.externalOrderNumber }}</b> · {{ v.product?.name }}
+                  @if (v.variantName) { <span class="muted">({{ v.variantName }})</span> }
+                  <span class="muted"> — {{ v.province?.code }} · {{ v.amount | number: '1.2-2' }} €</span>
+                </button>
+              } @empty {
+                <p class="muted vuoto">{{ 'reconciliations.nuova.nessunaVendita' | translate }}</p>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- PASSI 2-3 — prodotto e provincia, presi dalla vendita -->
+        @if (venditaScelta(); as v) {
+          <section class="passo dedotti">
+            <h3><span class="n">2</span> {{ 'reconciliations.nuova.passo2' | translate }}</h3>
+            <dl>
+              <div><dt>{{ 'reconciliations.nuova.prodotto' | translate }}</dt>
+                <dd>{{ v.product?.name }}@if (v.variantName) { <span class="muted"> · {{ v.variantName }}</span> }</dd></div>
+              <div><dt>{{ 'reconciliations.nuova.provincia' | translate }}</dt>
+                <dd>{{ v.province?.name }} ({{ v.province?.code }})</dd></div>
+            </dl>
+            <p class="hint">{{ 'reconciliations.nuova.dedottiHint' | translate }}</p>
+          </section>
+
+          <!-- PASSO 4 — il prodotto già venduto in passato -->
+          <section class="passo">
+            <h3><span class="n">3</span> {{ 'reconciliations.nuova.passo3' | translate }}</h3>
+            @if (riferimento(); as rif) {
+              <div class="scelto">
+                <div>
+                  <b>{{ rif.prodotto.name }}</b>
+                  @if (rif.variante) { <span class="muted">· {{ rif.variante.name }}</span> }
+                  <div class="cella-sub muted">{{ rif.prodotto.sku }}</div>
+                </div>
+                <button type="button" class="btn btn-secondary mini" (click)="cambiaRiferimento()">{{ 'reconciliations.nuova.cambia' | translate }}</button>
+              </div>
+              @if (rif.varianti.length) {
+                <label class="fld"><span>{{ 'reconciliations.nuova.variante' | translate }}</span>
+                  <select class="field" [ngModel]="varianteScelta()" (ngModelChange)="scegliVariante($event)" name="var">
+                    <option [ngValue]="null">{{ 'reconciliations.nuova.senzaVariante' | translate }}</option>
+                    @for (x of rif.varianti; track x.id) {
+                      <option [ngValue]="x.id">{{ x.name }}@if (x.price) { — {{ x.price | number: '1.2-2' }} € }</option>
+                    }
+                  </select>
+                </label>
+              }
+              <!-- PASSO 5 — chi lo fa, e a quanto -->
+              <h4>{{ 'reconciliations.nuova.chiLoFa' | translate }}</h4>
+              @if (rif.righe.length) {
+                <div class="elenco">
+                  @for (r of rif.righe; track r.partnerId) {
+                    <button type="button" class="voce" [class.attiva]="partnerScelto() === r.partnerId" (click)="scegliPartner(r)">
+                      <b>{{ r.insegna }}</b>@if (!r.attivo) { <span class="ko"> · {{ 'reconciliations.nuova.spento' | translate }}</span> }
+                      <span class="prezzo">{{ r.prezzoPartner | number: '1.2-2' }} €</span>
+                      <div class="cella-sub muted">
+                        {{ r.da }}@if (r.volte > 1) { · {{ 'reconciliations.nuova.volte' | translate: { n: r.volte } }} }
+                        @if (r.quando) { · {{ r.quando | date: 'dd/MM/yy' }} }
+                      </div>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <p class="muted vuoto">{{ 'reconciliations.nuova.nessunPrezzo' | translate }}</p>
+              }
+            } @else {
+              <input class="field" [ngModel]="qProdotto()" (ngModelChange)="cercaProdotti($event)" name="qp"
+                     [placeholder]="'reconciliations.nuova.cercaProdotto' | translate" autocomplete="off" />
+              <div class="elenco">
+                @for (p of prodotti(); track p.id) {
+                  <button type="button" class="voce" (click)="scegliRiferimento(p)">
+                    {{ p.name }}<span class="muted"> · {{ p.sku }}</span>
+                    @if (p.partner) { <span class="muted"> — {{ p.partner.insegna }}</span> }
+                  </button>
+                } @empty {
+                  <p class="muted vuoto">{{ 'reconciliations.nuova.scriviPerCercare' | translate }}</p>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <!-- PASSO 6 — il confronto e il margine -->
+        @if (anteprima(); as a) {
+          <section class="passo confronto">
+            <h3><span class="n">4</span> {{ 'reconciliations.nuova.passo4' | translate }}</h3>
+            <table class="prezzi">
+              <tr><td>{{ 'reconciliations.nuova.alCliente' | translate }}</td><td class="num">{{ a.prezzi.alCliente | number: '1.2-2' }} €</td></tr>
+              <tr><td>{{ 'reconciliations.nuova.alPartner' | translate: { partner: a.partner.insegna } }}</td>
+                  <td class="num">− {{ a.prezzi.alPartner | number: '1.2-2' }} €</td></tr>
+              <tr class="tot" [class.ko]="a.prezzi.margine <= 0">
+                <td><b>{{ 'reconciliations.nuova.margine' | translate }}</b></td>
+                <td class="num"><b>{{ a.prezzi.margine | number: '1.2-2' }} €</b>
+                  <span class="muted"> ({{ a.prezzi.percentuale | number: '1.0-1' }}%)</span></td>
+              </tr>
+            </table>
+            <p class="hint">
+              {{ 'reconciliations.nuova.confrontoRegola' | translate: {
+                   sconto: a.prezzi.scontoTerritorio, conRegola: (a.prezzi.conLaPercentuale | number: '1.2-2') } }}
+              @if (a.prezzi.differenzaSullaRegola !== 0) {
+                <b [class.ko]="a.prezzi.differenzaSullaRegola < 0">
+                  ({{ a.prezzi.differenzaSullaRegola > 0 ? '+' : '' }}{{ a.prezzi.differenzaSullaRegola | number: '1.2-2' }} €)
+                </b>
+              }
+            </p>
+            @for (av of a.avvisi; track av) { <p class="avviso">⚠️ {{ av }}</p> }
+          </section>
+        }
+
+        <footer class="d-foot">
+          @if (erroreNuova()) { <p class="ko">{{ erroreNuova() }}</p> }
+          <button type="button" class="btn btn-secondary" (click)="chiudiNuova()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="!anteprima() || salvando()" (click)="salvaNuova()">
+            {{ (salvando() ? 'common.saving' : 'reconciliations.nuova.conferma') | translate }}
+          </button>
+        </footer>
+      </div>
+    }
   `,
   styles: [
     `.variante { font-size: 12.5px; color: var(--ink-2, #3a3a3c); }`,
+    `
+      /* Nuova riconciliazione: una finestra a passi. Il numero del passo e' un
+         cerchio, cosi' si legge dove si e' arrivati senza contare le sezioni. */
+      .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 50; }
+      .nuova-riconc {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51;
+        width: min(620px, 94vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto;
+        padding: 0 24px 20px;
+      }
+      .nuova-riconc .d-head {
+        position: sticky; top: 0; z-index: 1; background: var(--surface);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 0 12px; border-bottom: 1px solid var(--hairline);
+      }
+      .nuova-riconc .d-head h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+      .nuova-riconc .passo { padding: 16px 0; border-bottom: 1px solid var(--hairline); }
+      .nuova-riconc .passo:last-of-type { border-bottom: none; }
+      .nuova-riconc .passo h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+      .nuova-riconc .passo h3 .n {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px; border-radius: 50%; background: var(--text); color: var(--surface);
+        font-size: 11.5px; font-weight: 700; flex: 0 0 auto;
+      }
+      .nuova-riconc h4 { margin: 14px 0 8px; font-size: 13px; color: var(--text-secondary); }
+      .nuova-riconc .elenco { max-height: 220px; overflow-y: auto; overscroll-behavior: contain; margin-top: 8px; border: 1px solid var(--hairline); border-radius: 10px; }
+      .nuova-riconc .voce {
+        display: block; width: 100%; text-align: left; border: none; background: none;
+        padding: 9px 12px; font: inherit; font-size: 13.5px; cursor: pointer; color: var(--text);
+        border-bottom: 1px solid var(--hairline);
+      }
+      .nuova-riconc .voce:last-child { border-bottom: none; }
+      .nuova-riconc .voce:hover { background: var(--fill); }
+      .nuova-riconc .voce.attiva { background: var(--fill); box-shadow: inset 3px 0 0 var(--text); }
+      .nuova-riconc .voce .prezzo { float: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+      .nuova-riconc .scelto { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .nuova-riconc .dedotti dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+      .nuova-riconc .dedotti dt { font-size: 12px; color: var(--text-secondary); }
+      .nuova-riconc .dedotti dd { margin: 2px 0 0; font-size: 14px; }
+      .nuova-riconc .vuoto { padding: 12px; margin: 0; font-size: 13px; }
+      .nuova-riconc table.prezzi { width: 100%; border-collapse: collapse; font-size: 14px; }
+      .nuova-riconc table.prezzi td { padding: 6px 0; }
+      .nuova-riconc table.prezzi td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .nuova-riconc table.prezzi tr.tot td { border-top: 1px solid var(--hairline); padding-top: 10px; }
+      .nuova-riconc table.prezzi tr.tot.ko td { color: var(--danger, #b3261e); }
+      .nuova-riconc .avviso { margin: 8px 0 0; font-size: 13px; color: var(--danger, #b3261e); }
+      .nuova-riconc .hint { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+      .nuova-riconc .d-foot {
+        position: sticky; bottom: 0; background: var(--surface); padding: 14px 0 0;
+        border-top: 1px solid var(--hairline); display: flex; gap: 10px; justify-content: flex-end; align-items: center;
+      }
+      .nuova-riconc .d-foot .ko { margin: 0 auto 0 0; font-size: 13px; }
+      @media (max-width: 620px) {
+        .nuova-riconc .dedotti dl { grid-template-columns: 1fr; }
+      }
+    `,
     `
       th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
       th.sortable:hover { color: var(--text-primary); }
@@ -336,6 +552,140 @@ export class ProductReconciliationsComponent {
   // ============================================================
   readonly ordine = signal<string>('');
   readonly verso = signal<'asc' | 'desc'>('asc');
+
+  // ============================================================
+  // NUOVA RICONCILIAZIONE A MANO (07/09/2026, regola utente)
+  // ------------------------------------------------------------
+  // Quattro passi: la vendita ferma da smistare → prodotto e provincia presi
+  // da lei → un prodotto già venduto in passato (con la sua variante), che
+  // porta il partner e il PREZZO VERO → il confronto col margine, e solo
+  // allora si conferma.
+  //
+  // ⚠️ Il prezzo non si inventa mai: viene da una vendita accettata, dal
+  // listino di un prodotto unico o da un prezzo concordato sui DDT — e la
+  // riga dice sempre da quale delle tre.
+  // ============================================================
+  readonly nuova = signal(false);
+  readonly qVendita = signal('');
+  readonly vendite = signal<any[]>([]);
+  readonly venditaScelta = signal<any | null>(null);
+  readonly qProdotto = signal('');
+  readonly prodotti = signal<any[]>([]);
+  readonly riferimento = signal<any | null>(null);
+  readonly varianteScelta = signal<string | null>(null);
+  readonly partnerScelto = signal<string | null>(null);
+  readonly prezzoScelto = signal<number | null>(null);
+  readonly anteprima = signal<any | null>(null);
+  readonly salvando = signal(false);
+  readonly erroreNuova = signal<string | null>(null);
+  private timerVendite?: ReturnType<typeof setTimeout>;
+  private timerProdotti?: ReturnType<typeof setTimeout>;
+
+  apriNuova(): void {
+    this.nuova.set(true);
+    this.azzeraNuova();
+    this.cercaVendite('');
+  }
+
+  chiudiNuova(): void {
+    this.nuova.set(false);
+    this.azzeraNuova();
+  }
+
+  private azzeraNuova(): void {
+    this.qVendita.set(''); this.vendite.set([]); this.venditaScelta.set(null);
+    this.qProdotto.set(''); this.prodotti.set([]); this.riferimento.set(null);
+    this.varianteScelta.set(null); this.partnerScelto.set(null); this.prezzoScelto.set(null);
+    this.anteprima.set(null); this.erroreNuova.set(null); this.salvando.set(false);
+  }
+
+  cercaVendite(q: string): void {
+    this.qVendita.set(q);
+    clearTimeout(this.timerVendite);
+    this.timerVendite = setTimeout(() => {
+      this.http.get<any[]>(`${environment.apiUrl}/riconciliazioni/vendite-da-riconciliare`, { params: q ? { q } : {} })
+        .subscribe({ next: (d) => this.vendite.set(d ?? []), error: () => this.vendite.set([]) });
+    }, 250);
+  }
+
+  scegliVendita(v: any): void {
+    this.venditaScelta.set(v);
+    this.vendite.set([]);
+    this.anteprima.set(null);
+  }
+
+  cambiaVendita(): void {
+    this.venditaScelta.set(null);
+    this.anteprima.set(null);
+    this.cercaVendite(this.qVendita());
+  }
+
+  cercaProdotti(q: string): void {
+    this.qProdotto.set(q);
+    clearTimeout(this.timerProdotti);
+    if (!q.trim()) { this.prodotti.set([]); return; }
+    this.timerProdotti = setTimeout(() => {
+      this.http.get<{ items: any[] }>(`${environment.apiUrl}/products`, { params: { q, active: true, pageSize: 20 } as any })
+        .subscribe({ next: (d) => this.prodotti.set(d.items ?? []), error: () => this.prodotti.set([]) });
+    }, 250);
+  }
+
+  scegliRiferimento(p: any): void {
+    this.prodotti.set([]);
+    this.caricaRiferimento(p.id, null);
+  }
+
+  scegliVariante(variantId: string | null): void {
+    this.varianteScelta.set(variantId);
+    const rif = this.riferimento();
+    if (rif) this.caricaRiferimento(rif.prodotto.id, variantId);
+  }
+
+  private caricaRiferimento(productId: string, variantId: string | null): void {
+    this.partnerScelto.set(null); this.prezzoScelto.set(null); this.anteprima.set(null);
+    this.http.get<any>(`${environment.apiUrl}/riconciliazioni/riferimento/${productId}`,
+      { params: variantId ? { variantId } : {} })
+      .subscribe({
+        next: (d) => { this.riferimento.set(d); this.varianteScelta.set(variantId); },
+        error: () => this.erroreNuova.set(this.translate.instant('reconciliations.nuova.erroreRiferimento')),
+      });
+  }
+
+  cambiaRiferimento(): void {
+    this.riferimento.set(null); this.varianteScelta.set(null);
+    this.partnerScelto.set(null); this.prezzoScelto.set(null); this.anteprima.set(null);
+  }
+
+  scegliPartner(r: { partnerId: string; prezzoPartner: number }): void {
+    this.partnerScelto.set(r.partnerId);
+    this.prezzoScelto.set(r.prezzoPartner);
+    const v = this.venditaScelta();
+    if (!v) return;
+    this.erroreNuova.set(null);
+    this.http.post<any>(`${environment.apiUrl}/riconciliazioni/anteprima`,
+      { saleId: v.id, partnerId: r.partnerId, prezzoPartner: r.prezzoPartner })
+      .subscribe({
+        next: (d) => this.anteprima.set(d),
+        error: (e) => { this.anteprima.set(null); this.erroreNuova.set(e?.error?.message ?? this.translate.instant('reconciliations.nuova.erroreAnteprima')); },
+      });
+  }
+
+  salvaNuova(): void {
+    const v = this.venditaScelta();
+    const partnerId = this.partnerScelto();
+    const prezzo = this.prezzoScelto();
+    const rif = this.riferimento();
+    if (!v || !partnerId || prezzo == null) return;
+    this.salvando.set(true);
+    this.erroreNuova.set(null);
+    this.http.post(`${environment.apiUrl}/riconciliazioni/manuale`, {
+      saleId: v.id, partnerId, prezzoPartner: prezzo,
+      riferimentoProductId: rif?.prodotto?.id, riferimentoVariantId: this.varianteScelta() ?? undefined,
+    }).subscribe({
+      next: () => { this.chiudiNuova(); this.carica(); },
+      error: (e) => { this.salvando.set(false); this.erroreNuova.set(e?.error?.message ?? this.translate.instant('reconciliations.nuova.erroreSalva')); },
+    });
+  }
 
   ordinaPer(campo: string): void {
     if (this.ordine() === campo) { this.verso.set(this.verso() === 'asc' ? 'desc' : 'asc'); return; }

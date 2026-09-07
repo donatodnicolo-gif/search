@@ -65,7 +65,7 @@ interface ConsegnaVicina {
 }
 
 interface Storico {
-  base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna';
+  base: 'coppia' | 'nome-simile' | 'categoria' | 'nessuna';
   prodotto: string | null;
   provincia: string | null;
   considerate: number;
@@ -719,7 +719,6 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                           <!-- ⭐ 06/09 (regola utente): anche COSA è stato comprato (prodotto e variante) e la data di consegna. -->
                           @if (r.ultimoProdotto || r.ultimaVariante) { <div class="cella-sub">{{ r.ultimoProdotto }}@if (r.ultimaVariante) { <span class="muted"> ({{ r.ultimaVariante }})</span> }</div> }
                           @if (r.ultimaConsegna) { <div class="cella-sub muted">{{ 'sales.history.consegnata' | translate }} {{ r.ultimaConsegna | date: 'dd/MM/yy' }}</div> }
-                          @if (st.base === 'altre-province' && r.ultimaProvincia) { <span class="muted"> · {{ r.ultimaProvincia }}</span> }
                           @if (r.vecchia) { <div class="cella-sub muted">{{ 'sales.history.old' | translate }}</div> }
                         </td>
                         <td class="azioni">

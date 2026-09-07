@@ -140,16 +140,33 @@ export class SalesService {
     return /fior|flor|rosa|rose|piant|ghirland|cappellier|terrarium|bouquet/.test(n);
   }
 
-  private async avvisaProposta(v: { id: string; partnerId?: string | null; externalOrderNumber?: string | null; amount?: number | null; product?: { name?: string | null } | null }): Promise<void> {
+  private async avvisaProposta(v: {
+    id: string; partnerId?: string | null; externalOrderNumber?: string | null;
+    amount?: number | null; discountPercent?: number | null; quantity?: number | null;
+    product?: { name?: string | null } | null;
+  }): Promise<void> {
     if (!v.partnerId) return;
     try {
       const utenti = await this.prisma.user.findMany({ where: { partnerId: v.partnerId, status: 'active' }, select: { id: true } });
       if (!utenti.length) return;
-      const importo = v.amount != null ? ` · ${Number(v.amount).toFixed(2)} €` : '';
+      // ⭐ 07/09/2026 (segnalazione utente: «è sbagliato, è senza sconto applicato»).
+      //
+      // L'avviso diceva `amount`, cioè quello che paga il CLIENTE: al fioraio di Torino
+      // è arrivato «135,00 €» per una vendita che gliene rende 94,50. Chi legge decide
+      // se accettare guardando quel numero — ed è il numero sbagliato.
+      //
+      // Il partner deve leggere QUANTO PRENDE LUI: il pubblico meno lo sconto del
+      // territorio. Lo si dice per intero, così non resta il dubbio di che numero sia.
+      const pezzi = Math.max(1, Number(v.quantity) || 1);
+      const alPartner = v.amount != null
+        ? Math.round(v.amount * (1 - (Number(v.discountPercent) || 0) / 100) * 100) / 100
+        : null;
+      const importo = alPartner != null ? ` · ${alPartner.toFixed(2)} € a te` : '';
+      const quanti = pezzi > 1 ? ` (×${pezzi})` : '';
       await this.notifications.notifyUsers(utenti.map((u) => u.id), {
         type: NotificationType.SALE_PROPOSED,
         title: 'Nuova vendita proposta',
-        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${importo} — accetta o rifiuta in Vendite`,
+        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${quanti}${importo} — accetta o rifiuta in Vendite`,
         entityType: 'sale',
         entityId: v.id,
       });
@@ -620,7 +637,9 @@ export class SalesService {
     // CategoryDiscount. Se Orders risponde «default» (nessuna regola per quella
     // provincia) o non risponde, resta la regola locale — e il motivo lo dice.
     const quotaOrders = scelto?.prezzoPartner === undefined && prezzoPartnerDaListino === null && body.discountPercent == null
-      ? await this.quotaDaOrders(body.provinceId, product.categoryId)
+      // ⭐ 07/09/2026 (regola utente: «prendi la % da CS con arrotondamento»): col prezzo
+      // pubblico il custode risponde anche col prezzo al fornitore, già arrotondato a 5/0.
+      ? await this.quotaDaOrders(body.provinceId, product.categoryId, importoCliente)
       : null;
     const creata = await this.prisma.sale.create({
       data: {
@@ -633,7 +652,7 @@ export class SalesService {
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? bloccoPreventivo ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
+        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? bloccoPreventivo ?? null, quotaOrders ? `sconto dal Customer Service (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%${quotaOrders.prezzoFornitore != null ? `, ${quotaOrders.prezzoFornitore} € arrotondati` : ''})` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
@@ -657,7 +676,13 @@ export class SalesService {
             : body.discountPercent != null && isFinite(Number(body.discountPercent))
               ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
               : quotaOrders
-                ? quotaOrders.sconto
+                // ⭐ 07/09/2026: se il custode manda il PREZZO (arrotondato da lui), la
+                // percentuale si ricava da quello — così il partner prende esattamente
+                // il numero che il Customer Service ha deciso: 135 € → 95 €, non 94,50.
+                // Senza il prezzo (CS vecchio o non raggiungibile) resta la percentuale.
+                ? quotaOrders.prezzoFornitore != null
+                  ? SalesService.quotaPerDare(importoCliente, quotaOrders.prezzoFornitore)
+                  : quotaOrders.sconto
                 : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
@@ -1224,7 +1249,24 @@ export class SalesService {
    * provincia. Categoria: il NOME della categoria di piattaforma, minuscolo —
    * Orders confronta in minuscolo.
    */
-  private async quotaDaOrders(provinceId: string, categoryId: string | null | undefined): Promise<{ quota: number; regola: string; sconto: number } | null> {
+  /**
+   * ⭐ 07/09/2026 (regola utente: «prendi la % da CS con arrotondamento»).
+   *
+   * Il Customer Service non custodisce solo la percentuale: se gli si passa il
+   * `prezzoPubblico` risponde col `prezzoFornitore` GIÀ ARROTONDATO a 5 o a 0, e lo
+   * dichiara nel campo `arrotondamento`. La piattaforma chiedeva solo la quota e
+   * rifaceva il conto per conto suo, fermandosi ai centesimi: 135 € − 30% le davano
+   * 94,50 € dove il custode della regola dice **95 €**.
+   *
+   * È lo Standard §7: una regola economica non si ricopia, si legge dal proprietario.
+   * Il ripiego locale (`prezzoAlPartner`) resta solo per quando il CS non risponde o
+   * non manda il campo — e applica la stessa regola, scritta una volta sola.
+   */
+  private async quotaDaOrders(
+    provinceId: string,
+    categoryId: string | null | undefined,
+    prezzoPubblico?: number | null,
+  ): Promise<{ quota: number; regola: string; sconto: number; prezzoFornitore?: number | null } | null> {
     const [prov, cat] = await Promise.all([
       this.prisma.province.findUnique({ where: { id: provinceId }, select: { code: true } }),
       categoryId ? this.prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } }) : Promise.resolve(null),
@@ -1244,10 +1286,13 @@ export class SalesService {
     // un partner così. I nostri di ripiego (Artista Locale, Deluxy Flowers, Cakedesignme) non contano.
     const conPartner = (await this.prisma.partner.count({ where: { active: true, deleted: false, esclusoDalleProposte: false, provinces: { some: { provinceId } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } } })) > 0
       || (await this.prisma.priorityList.count({ where: { provinceId, entries: { some: { partner: { active: true, deleted: false, esclusoDalleProposte: false } } } } })) > 0;
-    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}`;
+    // Il prezzo entra nella chiave: la risposta contiene il prezzo al fornitore, che
+    // dipende da quello pubblico. Senza, due prodotti diversi si scambierebbero il prezzo.
+    const perPrezzo = prezzoPubblico != null && Number.isFinite(prezzoPubblico) && prezzoPubblico > 0 ? Math.round(prezzoPubblico * 100) : 0;
+    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}|${perPrezzo}`;
     const inCache = this.quotaCache.get(chiave);
     if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
-    let valore: { quota: number; regola: string; sconto: number } | null = null;
+    let valore: { quota: number; regola: string; sconto: number; prezzoFornitore?: number | null } | null = null;
     try {
       // ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (regola utente): la casa dello sconto per
       // provincia è il CUSTOMER SERVICE (pagina Vendite), non più Orders, che gestisce solo l'ordine.
@@ -1260,13 +1305,25 @@ export class SalesService {
       const url = urlCs && chiaveCs ? urlCs : (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
       const chiaveApi = urlCs && chiaveCs ? chiaveCs : (map['ordersApiKey'] || process.env.ORDERS_API_KEY || '');
       if (url && chiaveApi) {
-        const q = new URLSearchParams({ provincia: prov.code, conPartner: conPartner ? '1' : '0', ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
+        const q = new URLSearchParams({
+          provincia: prov.code,
+          conPartner: conPartner ? '1' : '0',
+          ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}),
+          // Col prezzo pubblico il custode risponde anche col prezzo al fornitore, arrotondato da lui.
+          ...(perPrezzo ? { prezzoPubblico: String(perPrezzo / 100) } : {}),
+        });
         const res = await fetch(`${url}/api/v1/quota-fornitore?${q}`, { headers: { 'x-api-key': chiaveApi } });
         if (res.ok) {
           const j: any = await res.json();
           const quota = Number(j?.quota);
           if (Number.isFinite(quota) && quota > 0 && quota < 100 && j?.regola && j.regola !== 'default') {
-            valore = { quota, regola: String(j.regola), sconto: Math.round((100 - quota) * 100) / 100 };
+            const dalCustode = Number(j?.prezzoFornitore);
+            valore = {
+              quota,
+              regola: String(j.regola),
+              sconto: Math.round((100 - quota) * 100) / 100,
+              prezzoFornitore: Number.isFinite(dalCustode) && dalCustode > 0 ? dalCustode : null,
+            };
           }
         }
       }
@@ -1368,18 +1425,42 @@ export class SalesService {
       // ⭐ 06/09 (regola utente): nell'ultima volta si dice anche COSA (prodotto, variante) e QUANDO si è consegnato.
       variantName: true, productName: true, deliveryDate: true, product: { select: { name: true } },
     };
-    // 1) la coppia esatta; 2) lo stesso prodotto altrove; 3) la categoria qui.
-    let base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna' = 'coppia';
+    // \u2b50 07/09/2026 (regola utente: \u00abstesso prodotto, altre province non \u00e8 un confronto
+    // che ci interessa; fai confronto anche per nomi somiglianti nella stessa provincia\u00bb).
+    //
+    // La cascata guarda SEMPRE la stessa provincia \u2014 \u00e8 l\u00ec che si deve consegnare, e chi ha
+    // fatto quel dolce ad Asti non aiuta a sceglierlo a Milano. Al posto delle altre
+    // province c\u00e8 ora il NOME SOMIGLIANTE: \u00abTorta Chantilly\u00bb trova \u00abChantilly ai frutti
+    // di bosco\u00bb dello stesso territorio, che \u00e8 il confronto che serve davvero.
+    //
+    //  1) lo stesso prodotto, qui;
+    //  2) i prodotti col NOME SOMIGLIANTE, qui;
+    //  3) la stessa categoria, qui.
+    let base: 'coppia' | 'nome-simile' | 'categoria' | 'nessuna' = 'coppia';
     let vendite = await this.prisma.sale.findMany({
       where: { ...comune, productId: vendita.productId, provinceId: vendita.provinceId },
       select, orderBy: { createdAt: 'desc' },
     });
     if (!vendite.length) {
-      base = 'altre-province';
-      vendite = await this.prisma.sale.findMany({
-        where: { ...comune, productId: vendita.productId, provinceId: { not: vendita.provinceId } },
-        select, orderBy: { createdAt: 'desc' },
-      });
+      // Le parole che contano del nome: si scartano le corte e quelle di servizio,
+      // che da sole pescherebbero mezzo catalogo.
+      const SCARTA = new Set(['con', 'del', 'della', 'delle', 'dei', 'degli', 'per', 'and', 'the', 'di', 'da', 'il', 'la', 'le', 'lo', 'un', 'una', 'gli', 'a', 'e']);
+      const parole = (vendita.product?.name ?? vendita.productName ?? '')
+        .toLowerCase()
+        .split(/[^a-z\u00e0\u00e8\u00e9\u00ec\u00f2\u00f9]+/)
+        .filter((w) => w.length >= 4 && !SCARTA.has(w));
+      if (parole.length) {
+        base = 'nome-simile';
+        vendite = await this.prisma.sale.findMany({
+          where: {
+            ...comune,
+            provinceId: vendita.provinceId,
+            productId: { not: vendita.productId },
+            OR: parole.map((w) => ({ product: { name: { contains: w, mode: 'insensitive' as const } } })),
+          },
+          select, orderBy: { createdAt: 'desc' },
+        });
+      }
     }
     if (!vendite.length && vendita.product?.categoryId) {
       base = 'categoria';
