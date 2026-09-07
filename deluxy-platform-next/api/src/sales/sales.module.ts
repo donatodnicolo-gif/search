@@ -684,6 +684,10 @@ export class SalesService {
     /** ⭐ 03/09 (ordini ESTERI): DA GESTIRE senza proposta automatica anche
      *  col prodotto a catalogo — all'estero non abbiamo partner. */
     senzaProposta?: boolean;
+    /** ⭐ 07/09/2026: PERCHÉ questa vendita non si smista da sola. Il testo era cablato
+     *  su «ordine estero» ed è finito su vendite di Pavia e Cagliari: un motivo che mente
+     *  è peggio di un motivo assente, perché chi legge smette di cercare quello vero. */
+    motivo?: string;
     brand?: string;
     customerId?: string;
     recipientFirstName?: string;
@@ -796,9 +800,11 @@ export class SalesService {
         : null;
     if (!provincia) throw new NotFoundException('Provincia non trovata (per id o codice)');
 
-    // ⭐ ESTERO (03/09, regola utente): prodotto agganciato ma NIENTE
-    // smistamento automatico — la vendita nasce DA GESTIRE e decide una
-    // persona (all'estero non abbiamo partner né liste di priorità).
+    // ⭐ NIENTE SMISTAMENTO AUTOMATICO: la vendita nasce DA GESTIRE e decide una
+    // persona. Due i casi: l'ESTERO (03/09, regola utente: fuori Italia non abbiamo
+    // partner né liste) e, dal 07/09, il prodotto che NON HA NESSUN PARTNER a cui
+    // essere proposto — tipicamente l'unico di un partner «escluso dalle proposte».
+    // Il motivo lo dice chi chiama: era cablato su «estero» e usciva anche su Pavia.
     if (body.senzaProposta) {
       const vendita = await this.prisma.sale.create({
         data: {
@@ -808,7 +814,7 @@ export class SalesService {
           productSku: body.productSku ?? prodotto.sku ?? null,
           provinceId: provincia.id,
           partnerId: null,
-          assignmentReason: 'Ordine estero: nessuno smistamento automatico, si gestisce a mano.',
+          assignmentReason: body.motivo ?? 'Ordine estero: nessuno smistamento automatico, si gestisce a mano.',
           customerId: body.customerId,
           brand: body.brand ?? 'DELUXY',
           amount: body.amount ?? prodotto.price ?? 0,

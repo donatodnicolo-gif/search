@@ -853,6 +853,7 @@ export class OrdersSyncService {
                 quantity: riga.quantity ?? undefined,
                 productName: riga.titolo ?? undefined,
                 senzaProposta: true,
+                motivo: 'Nessun partner a cui proporla in questa provincia (prodotto unico di un partner escluso dalle proposte, o provincia scoperta): si gestisce a mano.',
                 brand: o.brand ?? undefined,
                 ...this.destinatario(o),
                 deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
