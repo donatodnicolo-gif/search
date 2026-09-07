@@ -68,7 +68,33 @@ sempre 4) · nessuno scorrimento orizzontale a 375px.
 `src/app/actions.ts` (tolta `creaNegozio`) · `src/app/globals.css` ·
 `docs/COME-FUNZIONA.md` · `docs/guida-visiva.html` · `MANUALE-DELUXY.html`.
 
-🔴 **In locale, non pubblicato.**
+### ✅ PUBBLICATO il 07/09 alle 10:28 — `deluxy-orders-5xycggdps` (`dpl_6a2iaqVknEYUUe2J6rkU8XoNvE7J`)
+
+Su richiesta dell'utente, insieme alla **riattivazione di `business.deluxy.it`**
+(fatta dalla pagina nuova: da «sospeso» ad «attivo», ora 4 attivi su 4 — è una
+scrittura sul database condiviso, quindi valeva già anche per la produzione).
+
+⚠️ Deploy con **build su Vercel** (`vercel deploy --prod`, ~50 s), non
+precompilato: su questa macchina `vercel build` muore con `EPERM ... symlink`
+(limite noto di Windows senza permessi sui symlink). `npm run build` locale
+completa e serviva solo a verificare — `/negozi` compare nell'elenco delle rotte.
+
+**Verificato dall'esterno, senza fare login:**
+1. `vercel inspect deluxy-orders.vercel.app` → `deluxy-orders-5xycggdps`:
+   **l'alias segue il deploy**;
+2. il CSS servito in produzione (`/_next/static/css/5d77b7fffd3ed670.css`,
+   raggiungibile dalla pagina di login che è pubblica) contiene
+   **`obbligatorio`** — la regola nata oggi: il codice nuovo è davvero là;
+3. `GET /negozi` risponde **307 → /login**: la pagina esiste ed è dietro
+   l'autenticazione, come tutta la UI.
+
+### 🔴 Riattivare NON basta a portare i 57 ordini di business.deluxy.it
+Contato su Shopify subito dopo (`orders/count`, sola lettura): **57 in tutto, ma
+solo 10 negli ultimi 90 giorni**. Il cron veloce guarda `giorni=2`, quello
+notturno 90 (`api/cron/sync`, default 90, tetto 365). Quindi la sincronizzazione
+porterà **10 ordini**, e i **47 più vecchi non arriveranno mai** da sola: serve
+`npm run import:storico` (nessun filtro di data, ripetibile senza doppioni).
+**Non è stato lanciato**: aspetta l'utente.
 
 ## 07/09/2026 — Fotografia contata: locale = produzione, e un punto rosso che era falso
 
