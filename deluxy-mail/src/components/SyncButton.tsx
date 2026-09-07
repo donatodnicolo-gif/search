@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation'
 
 const CHIAVE_AUTO = 'aimail:auto'
 
+/** Quanto deve passare fra due giri fatti scattare dal ritorno sull'app.
+ *  `focus`/`visibilitychange` scattano molto spesso: senza questo freno,
+ *  lavorare normalmente significa chiedere posta di continuo. */
+const RITORNO_MIN_MS = 2 * 60 * 1000
+
 /** Etichetta leggibile dell'intervallo ("30 sec", "1 min", "10 min"). */
 function etichetta(sec: number): string {
   return sec < 60 ? `${sec} sec` : `${Math.round(sec / 60)} min`
@@ -30,6 +35,9 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
   // coda navigazioni+azioni di Next e l'app resta cliccabile mentre legge.
   // `inCorsoRef` evita che due giri si sovrappongano.
   const inCorsoRef = useRef(false)
+  // Quando è stato l'ultimo giro fatto scattare dal ritorno sull'app: `focus`
+  // scatta molto più spesso di quanto si creda (anche cliccando nella pagina).
+  const ultimoRitornoRef = useRef(0)
 
   // Quando abbiamo fatto l'ultimo router.refresh(): ogni refresh ri-renderizza
   // TUTTA la pagina (query + lista), quindi durante un drain lungo va diluito.
@@ -127,17 +135,25 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
   // da capo di continuo.
   const vaiRef = useRef(vai)
   vaiRef.current = vai
-  const drenaRef = useRef(drena)
-  drenaRef.current = drena
 
-  // Al montaggio (= apertura dell'app): leggo la preferenza di questo dispositivo
-  // e, se l'automatico è acceso e la scheda è in primo piano, avvio subito lo
-  // scarico di tutta la posta arretrata.
+  // Al montaggio (= apertura dell'app) si legge SOLO la preferenza di questo
+  // dispositivo.
+  //
+  // 🔴 **Qui partiva lo scarico di tutta la posta arretrata** — `drena()`, fino
+  // a 50 `POST /api/leggi-posta` in fila — e ripartiva a ogni `focus` e a ogni
+  // ritorno sulla scheda. Il 07/09/2026 l'utente l'ha detto così: «è lentissima
+  // l'apertura dell'applicazione e il refresh della pagina». Era questo: aprire
+  // l'app voleva dire avviarlo, ricaricare voleva dire riavviarlo, e ogni giro
+  // impegna una lambda con IMAP + AI + scritture mentre la stessa pagina si sta
+  // rendendo sul server (tre `Task timed out after 60 seconds` in produzione
+  // quel mattino). La posta arretrata non resta indietro: il cron `/api/sync`
+  // gira ogni cinque minuti per conto suo.
+  //
+  // Cosa resta: il timer periodico, il ritorno sull'app (un giro solo, e non
+  // più spesso di RITORNO_MIN_MS) e il pulsante — che ora fa lo scarico
+  // completo, perché lì è l'utente a chiederlo.
   useEffect(() => {
-    const acceso = window.localStorage.getItem(CHIAVE_AUTO) !== 'off'
-    setAuto(acceso)
-    if (acceso && document.visibilityState === 'visible') drenaRef.current()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setAuto(window.localStorage.getItem(CHIAVE_AUTO) !== 'off')
   }, [])
 
   useEffect(() => {
@@ -150,15 +166,18 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
     return () => clearInterval(id)
   }, [auto, intervalloSec])
 
-  // OGNI VOLTA che torni sull'app (scheda riportata in primo piano o finestra
-  // rimessa a fuoco), scarica subito la posta arretrata. Copre i casi in cui il
-  // mount non riscatta: scheda lasciata aperta in background, ritorno da un'altra
-  // app, navigazione interna senza reload. `drena` ha il lucchetto `inCorsoRef`,
-  // quindi non si sovrappone al giro d'apertura né al timer.
+  // OGNI VOLTA che torni sull'app (scheda in primo piano o finestra rimessa a
+  // fuoco): **un giro solo**, e non più spesso di RITORNO_MIN_MS. Prima era lo
+  // scarico completo, e `focus` scatta anche cliccando dentro la pagina dopo
+  // aver guardato altrove: bastava lavorare normalmente per rilanciarlo di
+  // continuo.
   useEffect(() => {
     if (!auto) return
     const alRitorno = () => {
-      if (document.visibilityState === 'visible') drenaRef.current()
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - ultimoRitornoRef.current < RITORNO_MIN_MS) return
+      ultimoRitornoRef.current = Date.now()
+      vaiRef.current()
     }
     document.addEventListener('visibilitychange', alRitorno)
     window.addEventListener('focus', alRitorno)
@@ -170,7 +189,10 @@ export function SyncButton({ intervalloSec = 300 }: { intervalloSec?: number }) 
 
   return (
     <div style={{ padding: '0 10px 4px' }}>
-      <button className="btn primary" onClick={vai} disabled={inCorso} style={{ width: '100%' }}>
+      {/* Il pulsante fa lo scarico COMPLETO dell'arretrato (era un giro solo):
+          lo scarico automatico all'apertura non c'è più, e qui è l'utente a
+          chiederlo — nessuna capacità persa, solo spostata su chi decide. */}
+      <button className="btn primary" onClick={drena} disabled={inCorso} style={{ width: '100%' }}>
         {inCorso ? 'Leggo la posta…' : 'Aggiorna posta'}
       </button>
 

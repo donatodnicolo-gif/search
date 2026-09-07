@@ -23,6 +23,54 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 07/09 (pomeriggio) — «È lentissima l'apertura dell'app e il refresh»: misurato, e tre correzioni
+
+Segnalazione dell'utente. **La mia prima diagnosi era sbagliata** e l'ho ritirata: avevo
+accusato l'indice mancante su `platform.Delivery.parentDeliveryId` e le connessioni «idle in
+transaction» del Customer Service. L'indice **esiste ed è in uso** (`idx_scan` 1520; l'avevo
+cercato alle 11:20, prima che l'utente lo creasse, e non avevo riletto); le idle in transaction
+venti minuti dopo erano **zero**. Lezione già scritta nel registro della piattaforma e ripetuta
+qui: *sotto contesa si misura il PIANO della singola query, mai il tempo di risposta* — e
+un'assenza letta su un cluster che altri stanno cambiando si rilegge prima di accusare.
+
+Misure vere (`pg_stat_statements` + EXPLAIN ANALYZE, verificate due volte):
+
+- 🔴 **La query più costosa dell'INTERO cluster condiviso era nostra**: `pulisciHtmlVecchio()`
+  chiamata a ogni giro del cron `*/5 * * * *`. **5.493 chiamate, 15.266.107 ms (4 h 14 min di
+  CPU del database), media 2.779 ms, massimo 76.151 ms, 405 righe rese in tutto.** Nessun indice
+  la sostiene: Index Scan su `Messaggio_pkey` con **44.514 righe scartate** e 15.465 buffer
+  (~121 MB) per chiamata. Righe ancora da pulire: **1**. Cioè ~1,4 GB/ora di ricambio su 224 MB
+  di `shared_buffers` condivisi da 14 app, per non fare niente.
+- La stessa query dell'elenco, **stesso piano e stessi buffer**, misurata sette volte: 7015 /
+  1281 / 849 / 16 / 5 / 2,6 / 1,9 ms. Non è JIT (assente), non è TOAST, non è il pooler: è
+  contesa di CPU sul cluster — e una fetta grossa di quella contesa era la riga qui sopra.
+- **Aprire l'app e ricaricare la pagina** facevano partire `drena()` (`SyncButton`): fino a
+  **50 `POST /api/leggi-posta` in fila**, al montaggio E a ogni `focus`/`visibilitychange`.
+  Budget **per casella, non per richiesta**: 4 caselle × (7 s + 6 s) = **52 s nominali contro
+  `maxDuration = 60`**, controllato DOPO il blocco → si sfora sempre. Dentro, l'AI col client
+  `timeout: 45_000, maxRetries: 2` (fino a 135 s per una chiamata) e l'IMAP **senza alcun
+  timeout dichiarato**. In produzione, 09:01-09:02 UTC: tre `Task timed out after 60 seconds`.
+
+**Le tre correzioni fatte** (tsc 0):
+
+1. `htmlServer.ts` — la pulizia si **riaddormenta 24 ore** quando un giro non trova niente
+   (segnalino `html.pulizia.dormi_fino_a` in `Impostazione`, letto per chiave primaria: costo
+   zero). Non è «finito per sempre»: le mail invecchiano, al risveglio riprende un lotto per
+   giro. Nessun indice nuovo sul cluster condiviso.
+2. `SyncButton.tsx` — niente scarico al montaggio; al ritorno sull'app **un giro solo** e non
+   più spesso di `RITORNO_MIN_MS` (2 min); il **pulsante** «Aggiorna posta» fa lo scarico
+   completo (capacità spostata su chi decide, non tolta). `sync.ts` — `BUDGET_GIRO_MS = 40_000`
+   per RICHIESTA, spartito fra le caselle rimaste, con uscita alla scadenza.
+3. `imap.ts` — `greetingTimeout` 8 s, `connectionTimeout` 10 s, `socketTimeout` 25 s.
+   `ai.ts` — `DENTRO_LO_SCARICO = { timeout: 12_000, maxRetries: 0 }` su `giudicaSpam` e
+   `rilevaETraduci`, le due chiamate che girano nel ciclo di salvataggio.
+
+Tutto registrato in `deluxy-design-system/SEGNALAZIONI-PERFORMANCE.md` (4 voci) con le misure
+PRIMA. **Misura DOPO da riprendere su `pg_stat_statements` 24 ore dopo la pubblicazione.**
+Restano da concordare: `DROP INDEX` di `Messaggio_utenteId_direzione_cestinato_archiviato_data_idx`
+(`idx_scan = 0`, duplicato esatto di `Messaggio_posta_idx`) e la finestra `take: 800` → 400
+dell'elenco (574 conversazioni lette, 300 mostrate: ~44 ms e ~350 KB per pagina).
+
 ### 07/09 (10:48) — IN PRODUZIONE: `b70c797b` (deploy `deluxy-mail-e0kkmaz6u`, build nel cloud)
 
 Su comando dell'utente («si»). Pushato su `origin/scout-ui` dopo rebase (due giri: nel frattempo
