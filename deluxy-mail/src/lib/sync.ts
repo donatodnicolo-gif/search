@@ -272,7 +272,13 @@ export async function analizzaMessaggioOra(
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
   const [sezioni, regole, ctx] = await Promise.all([
-    db.sezione.findMany({ where: { utenteId }, orderBy: { ordine: 'asc' } }),
+    // ⚠️ SENZA la sezione SPAM. Dare una priorità vuol dire «questa mail
+    // conta»: se fra le sezioni offerte al modello c'è anche SPAM, può
+    // rispondere «SPAM» e la mail SPARISCE dalla posta in arrivo, che nasconde
+    // solo quella sezione — segnalato il 04/09/2026 (eva.ascenzi: «ho messo
+    // una priorità e non la vedo più»). Lo spam si giudica solo all'arrivo,
+    // col suo filtro (`valutaSpam` + giudizio AI): qui non si giudica.
+    db.sezione.findMany({ where: { utenteId, nome: { not: 'SPAM', mode: 'insensitive' } }, orderBy: { ordine: 'asc' } }),
     db.regola.findMany({ where: { utenteId } }),
     contestoAI(utenteId),
   ])
@@ -331,7 +337,9 @@ export async function analizzaMessaggioOra(
       })),
     })
 
-    const sezioneAI = analisi.sezione
+    // Cintura: se il modello scrive «SPAM» lo stesso (non è fra le scelte, ma
+    // un modello può ignorarle), la mail NON si sposta.
+    const sezioneAI = analisi.sezione && analisi.sezione.trim().toUpperCase() !== 'SPAM'
       ? (sezioni.find((s) => s.nome === analisi.sezione)?.id ?? null)
       : null
     const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola' || m.smistatoDa === 'spam'
@@ -2412,12 +2420,6 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
 
   const account = await db.account.findMany({ where: { attivo: true } })
   const esiti: EsitoSync[] = []
-  // ⚠️ Lo STORICO della cartella «Inviata» si esaurisce UNA casella per giro,
-  // la prima rimasta indietro: prima non lo faceva nessuno in automatico
-  // (solo il tasto in Impostazioni), e al 29/08/2026 sei caselle su nove
-  // avevano `storicoInviataFinito = false` da settimane. Una sola per giro
-  // perché il suo budget è 30s: tutte insieme sfonderebbero i 300s del cron.
-  const daEsaurire = account.find((a) => !a.storicoInviataFinito)?.id ?? null
   for (const a of account) {
     const prima = new Date()
     const esito = await sincronizzaAccount(a.id)
@@ -2430,16 +2432,6 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
       } catch {
         /* le notifiche non devono far fallire la sincronizzazione */
       }
-    }
-    // ⚠️ La cartella «Inviata» anche dal CRON, non solo quando qualcuno apre
-    // l'app: senza, una mail mandata da webmail o telefono restava fuori da
-    // AI Mail finché qualcuno non premeva «Aggiorna posta». Il giro corto è
-    // una connessione col suo budget (6s); la casella `daEsaurire` fa anche
-    // il suo pezzo di storico.
-    try {
-      esiti.push(await sincronizzaInviata(a.id, a.id === daEsaurire))
-    } catch {
-      /* un inciampo sugli inviati non deve far sembrare fallito il giro */
     }
   }
   return esiti

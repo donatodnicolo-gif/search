@@ -5,6 +5,15 @@
 > 🔧 **06/09/2026 sera — «Escluso dalle proposte»**: la piattaforma marca i partner di ripiego (`esclusoDalleProposte` su `/app/vendita/provincia/:sigla`, tolti dalle liste esposte); `propostaVendita` non li propone mai; la pagina Vendite → Partner li mostra con l'etichetta.
 > ⭐⭐ **06/09/2026 sera — NUOVA ARCHITETTURA VENDITE: il CS è il CUSTODE di sconti e liste** (decisione utente; commit sul branch `cs-vendite-custode` di scoutwt). Orders gestisce solo l'ordine; qui: `src/lib/vendite.ts` (regola del territorio 40/20/30 + `ScontoProvincia` personalizzati; `statoProvincia` dalla piattaforma `GET /api/v1/app/vendita/provincia/:sigla`, cache 10 min; `ListaPrioritaArea` importate da `/app/aree-commerciali` + `/app/liste-priorita`, le modificate a mano non si sovrascrivono; `propostaVendita`: deluxy.it = guanti bianchi → fuori MI/RM/FI serve l'extra pagato (= totale − righe prodotto) altrimenti ANOMALIA; altri marchi → solo chi consegna da solo in provincia; sconto e prezzo al fornitore a 5). Pagina **/vendite** (admin: Sconti · Partner per provincia · Liste per area), rotte `/api/vendite/{sconti,partner,liste}`, `GET /api/v1/quota-fornitore` (chiave app: la CASA della quota, contratto identico a quello che aveva Orders), blocco «Proposta di vendita» in `DettaglioOrdine` (`PropostaVendita.tsx`, `/api/ordini/[id]/proposta-vendita`). `leggiQuotaFornitore` ora calcola qui. Tabelle create con `scripts/applica-migrazione-vendite.mjs`. Chiavi ApiKey create: `deluxy-delivery`, `deluxy-orders`. 🔖 Per ora si smistano da qui solo i FIORI; l'invio ai partner usa le richieste fornitore esistenti (a mano, nell'ordine proposto).
 
+## 07/09/2026 — COLLAUDO dell'utente: «funziona tutto»
+
+Dopo i deploy delle 18:39 (piattaforma delivery-a8wt9w9le, merge e51cb2a9) e 18:41
+(CS f0lkdthy7, origin/scout-ui dddf6c24) l'utente ha provato e confermato. Aperto
+solo: bozza Shopify #D5685 da sistemare con lo script della consegna offerta (col
+suo sì); l'altra sessione deve mergiare platform-0409 prima del prossimo deploy
+della piattaforma; file non tracciati di un'altra sessione in questa cartella
+(vendite/*).
+
 ## 06/09/2026 (56) — «Non lette» in Inbox; DEPLOY di tutto (piattaforma col merge dei due rami, CS)
 
 **«Non lette»** (utente: «filtrare rapidamente in inbox le conversazioni non

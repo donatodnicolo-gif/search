@@ -1,6 +1,6 @@
 # Come funziona AI MAIL 2.0
 
-Documento di riferimento dell'app `deluxy-mail`. Aggiornato al 21 luglio 2026.
+Documento di riferimento dell'app `deluxy-mail`. Aggiornato al 4 settembre 2026.
 
 > 📘 **Guida visiva per chi arriva nuovo**, e **manuale delle funzionalità da tenere aggiornato**:
 > [docs/GUIDA-VISIVA.html](GUIDA-VISIVA.html) — pubblicata anche come Artifact su claude.ai.
@@ -237,6 +237,25 @@ solo finché non ricarichi è una ricerca che rifarai a mano.
 
 In fondo al riassunto è scritto con quale livello è stato fatto, così due righe non
 sembrano un riassunto povero quando erano una lettura veloce.
+
+**Il riassunto rapido c'è anche sulla mail singola (04/09/2026).** Prima i tre livelli
+comparivano solo sotto una conversazione con almeno due messaggi: su una mail sola l'unico
+modo di farsela riassumere era darle una priorità — che però crea anche un'attività e la
+smista in una sezione. Ora sotto ogni mail singola c'è la scheda **«Riassunto rapido»** con
+Veloce, Medio e Profondo: l'AI legge solo quella mail e dice cosa chiede chi scrive, cosa
+aspetta da te e le cifre che contano — **senza** priorità, senza attività e senza spostarla.
+Il riassunto resta salvato e si rivede riaprendo la mail; da lì si può anche fare una
+domanda. Nella riga delle azioni rapide in cima, «Riassunto rapido ↓» porta alla scheda, e
+la nota «L'AI non ha ancora letto questa mail» dice le due strade: priorità (che crea anche
+l'attività) o riassunto rapido (che legge e basta).
+
+**Una priorità non manda più una mail in SPAM (04/09/2026).** Dare una priorità fa leggere
+la mail all'AI, che la smista anche in una sezione; fra le sezioni offerte al modello c'era
+pure SPAM, e quando la sceglieva la mail spariva dalla posta in arrivo, che nasconde solo
+quella sezione. Segnalato da chi aveva appena dato una priorità e non trovava più la mail.
+Ora SPAM non è fra le scelte dell'analisi (né da priorità né in lettura di sottofondo): lo
+spam si giudica solo all'arrivo, col suo filtro. Una mail con priorità resta in posta in
+arrivo e, se smistata, compare anche nella sua sezione.
 
 **Le cifre sono esplicite.** Sotto i punti di vista c'è **«Cifre e prezzi»**: ogni
 prezzo, importo o valore dello scambio, uno per riga, col link «→ apri» alla mail in cui
