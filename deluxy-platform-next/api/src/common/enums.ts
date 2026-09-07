@@ -192,6 +192,13 @@ export enum NotificationType {
   PARTNER_CONTRACT_EXPIRING = 'partner_contract_expiring',
   // Richieste di preventivo dei partner: nuova richiesta (per l'ufficio)
   // e risposta dell'ufficio (per il partner).
+  // ⭐ 04/09/2026 (regola utente): le ore di un servizio A ORA dichiarate dal
+  // valet, e la decisione del partner.
+  DELIVERY_HOURS_TO_APPROVE = 'delivery_hours_to_approve',
+  DELIVERY_HOURS_APPROVED = 'delivery_hours_approved',
+  DELIVERY_HOURS_REJECTED = 'delivery_hours_rejected',
+  /** ⭐ 06/09/2026: una vendita è stata PROPOSTA al partner (campanella + push). */
+  SALE_PROPOSED = 'sale_proposed',
   QUOTE_REQUEST = 'quote_request',
   QUOTE_REPLY = 'quote_reply',
 }

@@ -418,6 +418,73 @@ input.field {
   border-bottom: none;
 }
 
+/* ─── Colonne congelate (Libro UX&UI §8 v2.0, verdetto del custode del
+   05/09/2026, da una segnalazione dell'utente su /vendite: scorrendo a
+   destra per raggiungere i bottoni sparivano numero d'ordine e data, e non
+   si capiva piu' quale vendita fosse la riga).
+
+   Opt-in: <div class="table-wrap card col-fisse">. UNA colonna identita' a
+   sinistra (.col-id, dev'essere la PRIMA) + UNA colonna azioni a destra
+   (.azioni, dev'essere l'ULTIMA). Mai due blocchi per lato: ogni colonna
+   congelata e' schermo tolto ai dati.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ⚠️ `border-collapse: collapse` da' i bordi alla TABELLA, non alle celle:
+   sulla cella sticky il bordo resta indietro e scorre via. Con `separate`
+   + spacing 0 il layout e' identico (le celle hanno solo border-bottom,
+   quindi niente raddoppi) e il separatore viaggia con la cella. */
+.table-wrap.col-fisse table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.table-wrap.col-fisse th.col-id,
+.table-wrap.col-fisse td.col-id {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  /* OPACO, obbligatorio: sticky non e' opaco, e sotto si vedrebbe scorrere
+     il testo delle altre colonne. */
+  background: var(--surface);
+  /* Il separatore e' un'ombra, non un bordo: vedi sopra. */
+  box-shadow: 1px 0 0 var(--hairline);
+}
+.table-wrap.col-fisse th.azioni,
+.table-wrap.col-fisse td.azioni {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: -1px 0 0 var(--hairline);
+}
+/* ⚠️ La `thead` viene PRIMA nel DOM: senza z-index espliciti le celle
+   congelate del corpo passerebbero SOPRA le intestazioni sticky. Ordine:
+   intestazioni 2, angoli (sticky sui due assi) 3. */
+.table-wrap.col-fisse thead th { z-index: 2; }
+.table-wrap.col-fisse thead th.col-id,
+.table-wrap.col-fisse thead th.azioni { z-index: 3; }
+
+/* ⚠️ La cella congelata e' opaca, quindi l'hover di riga (che sta sul <tr>)
+   non la attraversa piu': la riga si accenderebbe TRANNE li'. Si ridipinge
+   sulla cella, con la stessa formula del vestito canonico. */
+.table-wrap.col-fisse tbody tr:hover td.col-id,
+.table-wrap.col-fisse tbody tr:hover td.azioni {
+  background: color-mix(in srgb, rgb(120, 120, 128) 5%, var(--surface));
+}
+/* Tastiera: il focus che il browser porta in vista non deve finire sotto le
+   colonne congelate (WCAG 2.4.11). */
+.table-wrap.col-fisse { scroll-padding-inline: 180px 200px; }
+
+/* Tetto del 40%: quando lo schermo si stringe si scongela PRIMA la colonna
+   azioni — senza identita' la riga e' illeggibile, senza azioni congelate
+   si scorre e basta. */
+@media (max-width: 1100px) {
+  .table-wrap.col-fisse th.azioni,
+  .table-wrap.col-fisse td.azioni {
+    position: static;
+    box-shadow: none;
+  }
+}
+
 /* ============================================================
    MOBILE: le tabelle diventano SCHEDE (stile Deluxy Scout).
    Ogni riga è una card; l'etichetta di colonna arriva da
@@ -430,6 +497,16 @@ input.field {
      arrivano DOPO questo foglio e a parità di specificità vincerebbero
      (nowrap, padding 12/16, text-align): questo blocco è il livello di
      override mobile e deve vincere lui. */
+  /* Le colonne congelate non esistono nelle schede: fondo opaco e
+     separatore lascerebbero una cucitura verticale in mezzo alla card. */
+  .table-wrap.col-fisse th.col-id,
+  .table-wrap.col-fisse td.col-id,
+  .table-wrap.col-fisse th.azioni,
+  .table-wrap.col-fisse td.azioni {
+    position: static !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
   /* Il contenitore smette di essere una card: le card sono le righe. */
   .table-wrap,
   .card.table-wrap {

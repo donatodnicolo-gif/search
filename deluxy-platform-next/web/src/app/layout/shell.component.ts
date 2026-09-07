@@ -90,6 +90,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'nav.section.prodotti',
     items: [
       { label: 'nav.prodotti', path: '/products', icon: 'tag', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'], exact: true },
+      // ⭐ 06/09/2026 sera (regola utente): il listino dei fiori a stelo del fioraio.
+      { label: 'nav.listino', path: '/listino', icon: 'euro', roles: ['PARTNER'] },
       // ⭐ 04/09 (regola utente): le Riconciliazioni sono una voce di menu, non
       // un tab dentro l'elenco prodotti. Ufficio soltanto.
       { label: 'nav.riconciliazioni', path: '/products/riconciliazioni', icon: 'rules', roles: ['ADMIN', 'OPERATION'] },
@@ -109,6 +111,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // in due posti) ed esce dal menu. La rotta /payments resta viva.
       { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.regoleValet', path: '/valet-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      // ⭐ 06/09/2026: Statistiche prima di Finanza (verdetto UX): operatività
+      // condivisa (ADMIN, OPERATION) ≠ economia riservata (Finanza, solo ADMIN).
+      { label: 'nav.statistiche', path: '/statistiche', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },
@@ -117,6 +122,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
+      { label: 'nav.aree', path: '/aree', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.mestieri', path: '/mestieri', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.utentiRuoli', path: '/users', icon: 'users', roles: ['ADMIN'] },
       { label: 'nav.chiaviApp', path: '/api-keys', icon: 'key', roles: ['ADMIN'] },

@@ -32,6 +32,21 @@ export class UpdateDeliveryStatusDto {
   @IsIn(['recipient', 'concierge', 'other'])
   receiverType?: string;
 
+  // ---- ORE DEL SERVIZIO A ORA (04/09/2026, regola utente) -------------------
+  /** Quando il valet ha davvero iniziato, "HH:MM". */
+  @ApiProperty({ required: false, description: 'Ora di inizio dichiarata dal valet (HH:MM)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  oreDalle?: string;
+
+  /** Quando ha davvero finito, "HH:MM". */
+  @ApiProperty({ required: false, description: 'Ora di fine dichiarata dal valet (HH:MM)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  oreAlle?: string;
+
   @ApiProperty({ required: false, description: 'Nome di chi ha ritirato' })
   @IsOptional()
   @IsString()
@@ -102,4 +117,13 @@ export class AzioneDiMassaImportoDto extends AzioneDiMassaDto {
   @ApiProperty()
   @IsNumber()
   importo: number;
+}
+
+/** ⭐ 06/09/2026 (regola utente): il DDT si allega anche a consegna chiusa. Solo immagini, come alla chiusura. */
+export class AllegaDdtDto {
+  @ApiProperty({ description: 'Foto del DDT come data URL (image/*)' })
+  @IsString()
+  @Matches(/^data:image\//)
+  @MaxLength(1_100_000)
+  ddtFile: string;
 }

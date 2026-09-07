@@ -24,6 +24,10 @@ export class IndirizzoGoogleDirective implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly model = inject(NgModel, { optional: true });
   private ultimaScelta = 0;
+  /** ⭐ 06/09/2026 (regola utente): si normalizza al blur SOLO se l'utente ha digitato
+   *  e non ha scelto un suggerimento. Un campo caricato e mai toccato non va a Google. */
+  private toccato = false;
+  private sceltoDaGoogle = false;
 
   ngOnInit(): void {
     chiavePromise ??= new Promise((resolve) => {
@@ -47,10 +51,13 @@ export class IndirizzoGoogleDirective implements OnInit {
           const place = ac.getPlace();
           this.zone.run(() => {
             this.ultimaScelta = Date.now();
+            this.sceltoDaGoogle = true;
+            this.toccato = false;
             this.scrivi(pulisci(place?.formatted_address || this.el.nativeElement.value || ''));
           });
         });
-        this.el.nativeElement.addEventListener('blur', () => this.normalizza());
+        this.el.nativeElement.addEventListener('input', () => { this.toccato = true; this.sceltoDaGoogle = false; });
+        this.el.nativeElement.addEventListener('blur', () => { if (this.toccato && !this.sceltoDaGoogle) this.normalizza(); });
       } catch {
         /* script non caricato: resta il campo normale */
       }

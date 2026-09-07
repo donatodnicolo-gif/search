@@ -7,6 +7,7 @@ import {
   Logger,
   Module,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -521,10 +522,29 @@ export class OrdersSyncService {
     // visibilità): servono a `esisteCandidato` per il filtro «solo unici o
     // province con partner», senza una query per ordine.
     const prodotti = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
+    // ⭐ 07/09/2026: l'indice per NOME quando lo SKU manca (succede: l'ordine 12893 aveva la
+    // riga «Van Gogh - Notte Stellata» senza SKU). Solo prodotti VIVI e non archiviati, e solo
+    // nomi che identificano un prodotto solo: un nome ripetuto non riconosce niente.
+    const perNome = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
+    const nomiDoppi = new Set<string>();
+    // ⭐ 07/09/2026 (regola utente): I GENERICI DEL CATALOGO. Un ordine «a mano» — la bozza
+    // Shopify «bouquet Milano 300 €», o «50 rose rosse» — non ha un prodotto vero dietro:
+    // adesso invece di nascere muto si ricostruisce col generico giusto, con la QUANTITÀ letta
+    // dal titolo e il prezzo che arriva dall'ordine (prezzo flessibile).
+    const generici = new Map<string, { productId: string; smist: ProdInfo }>();
     for (const p of await this.prisma.product.findMany({
       where: { NOT: { sku: null } },
-      select: { id: true, sku: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
+      select: { id: true, sku: true, name: true, archived: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
     })) {
+      const voce = {
+        productId: p.id, variantId: null as string | null,
+        smist: { id: p.id, type: p.type, categoryId: p.categoryId, partnerId: p.partnerId, visibleToOtherPartners: p.visibleToOtherPartners },
+      };
+      const nome = (p as { name?: string }).name?.trim().toLowerCase();
+      if (nome && !(p as { archived?: boolean }).archived) {
+        if (perNome.has(nome)) nomiDoppi.add(nome);
+        else perNome.set(nome, voce);
+      }
       prodotti.set(p.sku!.trim().toUpperCase(), {
         productId: p.id, variantId: null,
         smist: { id: p.id, type: p.type, categoryId: p.categoryId, partnerId: p.partnerId, visibleToOtherPartners: p.visibleToOtherPartners },
@@ -548,10 +568,30 @@ export class OrdersSyncService {
     };
     const esempi: { ordine: string; esito: Esito; dettaglio?: string }[] = [];
     const daGestire: string[] = [];
+    /** Gli ordini che NON sono entrati perche' non si capisce dove vanno: vanno detti. */
+    const senzaProvincia: string[] = [];
+
+    for (const n of nomiDoppi) perNome.delete(n);
+    for (const [sku, voce] of prodotti) {
+      if (sku.startsWith('GEN-')) generici.set(sku, { productId: voce.productId, smist: voce.smist });
+    }
 
     for (const o of ordini) {
       const etichetta = `${o.brand ?? ''} ${o.numero ?? o.id}`.trim();
-      const codice = o.spedizione?.provincia?.trim().toUpperCase() ?? '';
+      let codice = o.spedizione?.provincia?.trim().toUpperCase() ?? '';
+      // ⭐ 05/09/2026 (regola utente, caso #12881 «four season milano»: citta'
+      // vuota, CAP nullo, provincia nulla, consegna OGGI — e la vendita non
+      // entrava). Un ordine conforme e pagato non puo' sparire perche' chi
+      // ordina ha scritto il nome del posto invece della via. Se la provincia
+      // non c'e' o non e' una sigla nota, si DEDUCE: prima dai nomi di citta'
+      // e provincia che abbiamo in banca dati, poi chiedendo a Google lo stesso
+      // indirizzo che si chiederebbe per una consegna. Solo se nemmeno cosi' si
+      // capisce dove va, resta «senza provincia» — e stavolta si vede.
+      let provinciaDedotta: string | null = null;
+      if (!codice || !province.has(codice)) {
+        const dedotta = await this.deduciProvincia(o, province);
+        if (dedotta) { codice = dedotta.codice; provinciaDedotta = dedotta.come; }
+      }
       // ⚠️ Non il PRIMO SKU dell'ordine, il primo RICONOSCIUTO a catalogo
       // (misurato 01/09): su cakedesign la prima riga con SKU è spesso
       // l'«Extra» (9KY, non a catalogo) e l'ordine intero finiva scartato
@@ -607,10 +647,14 @@ export class OrdersSyncService {
                 : { productName: titolo ?? etichetta, productSku: skuGrezzo }),
               amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
               brand: o.brand ?? undefined,
+              // ⭐ 06/09/2026: la % di sconto al partner arriva da ORDERS se la manda
+              // (campo `scontoPartnerPercent`, già arrotondato); altrove decide la piattaforma.
+              discountPercent: (o as any).scontoPartnerPercent ?? (o as any).smistamento?.scontoPartnerPercent ?? undefined,
               ...this.destinatario(o),
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
             esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata && provinciaDedotta) dettaglio = [dettaglio, provinciaDedotta].filter(Boolean).join(' · ');
             if (r.creata) { dettaglio = `estero (${o.spedizione?.paese ?? '?'})`; daGestire.push(etichetta); }
           } catch (err) {
             esito = 'errore';
@@ -619,7 +663,14 @@ export class OrdersSyncService {
           }
         }
       }
-      else if (!codice) { esito = 'senza-provincia'; }
+      else if (!codice) {
+        esito = 'senza-provincia';
+        // Prima moriva qui in silenzio. Ora il rendiconto dice QUALE ordine e
+        // CHE indirizzo aveva, cosi' l'ufficio lo fa entrare a mano.
+        dettaglio = `indirizzo: ${[o.spedizione?.indirizzo, o.spedizione?.cap, o.spedizione?.citta].filter(Boolean).join(', ') || '—'}`;
+        senzaProvincia.push(`${etichetta} — ${dettaglio}`);
+        this.logger.warn(`Ordine ${etichetta} senza provincia e non deducibile (${dettaglio}): NON entrato in Vendite`);
+      }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
       else if (!sku || !prodotti.has(sku)) {
         // ⭐ 01/09 (regola utente «fai nascere la vendita»): senza SKU o con
@@ -649,10 +700,14 @@ export class OrdersSyncService {
               // Il prezzo pagato: la riga d'ordine se c'è, altrimenti il totale.
               amount: (o.righe ?? []).find((r) => r.prezzo != null)?.prezzo ?? o.totale ?? undefined,
               brand: o.brand ?? undefined,
+              // ⭐ 06/09/2026: la % di sconto al partner arriva da ORDERS se la manda
+              // (campo `scontoPartnerPercent`, già arrotondato); altrove decide la piattaforma.
+              discountPercent: (o as any).scontoPartnerPercent ?? (o as any).smistamento?.scontoPartnerPercent ?? undefined,
               ...this.destinatario(o),
               deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
             });
             esito = r.creata ? 'creata' : 'gia-presente';
+            if (r.creata && provinciaDedotta) dettaglio = [dettaglio, provinciaDedotta].filter(Boolean).join(' · ');
             if (r.creata) { dettaglio = nota; daGestire.push(etichetta); }
           } catch (err) {
             esito = 'errore';
@@ -661,41 +716,129 @@ export class OrdersSyncService {
           }
         }
       }
-      else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!))) {
-        // FILTRO «solo unici o province con partner» (regola dell'utente): se
-        // non è un prodotto unico e in questa provincia non abbiamo nessun
-        // partner per la sua categoria, la vendita NON si crea — resta
-        // all'ordine originale. Prima ne nascevano di orfane «da gestire» che
-        // nessuno avrebbe mai preso (43 dal primo giro del 24/08).
-        esito = 'senza-partner';
-      }
-      else if (!opzioni.applica) {
-        // In simulazione si controlla comunque se la vendita c'e' gia', se no
-        // il conto direbbe «creata» per ordini gia' entrati e sarebbe falso.
-        const gia = await this.prisma.sale.findFirst({
-          where: { source: 'deluxy-orders', externalOrderId: o.id },
-          select: { id: true },
-        });
-        esito = gia ? 'gia-presente' : 'creata';
-      } else {
-        try {
-          const r = await this.sales.ingest({
-            source: 'deluxy-orders',
-            externalOrderId: o.id,
-            externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
-            provinceId: province.get(codice)!,
-            productId: prodotti.get(sku)!.productId,
-            productVariantId: prodotti.get(sku)!.variantId ?? undefined,
-            brand: o.brand ?? undefined,
-            ...this.destinatario(o),
-            deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+      else {
+        // ⭐ 07/09/2026 (regola utente: «in vendita dovrei vedere due flussi, uno per il
+        // bouquet e uno per la torta») — UNA VENDITA PER RIGA D'ORDINE.
+        //
+        // Prima si prendeva UN solo SKU per ordine (il primo riconosciuto) e nasceva una
+        // vendita sola: un ordine con una torta e un bouquet — due fornitori diversi, due
+        // lavori diversi — entrava per metà, e l'altra metà non la vedeva nessuno.
+        // Adesso ogni riga a catalogo fa la sua vendita, con il SUO prezzo; le righe senza
+        // prodotto riconosciuto (le personalizzazioni, gli extra) restano fuori come prima.
+        //
+        // ⚠️ Le righe uguali si contano una volta sola: due unità dello stesso prodotto sono
+        // una vendita di quantità due, non due vendite.
+        const viste = new Set<string>();
+        const daCreare: { productId: string; variantId?: string; amount?: number; quantity?: number; titolo?: string; smist: any }[] = [];
+        // ⭐ 07/09/2026 (segnalazione utente sull'ordine 12893: «vedo ancora un solo record in
+        // vendita anche se ci sono più prodotti»). Il secondo prodotto — «Van Gogh - Notte
+        // Stellata», 85 € — arriva da Shopify con lo SKU VUOTO, e una riga senza SKU non si
+        // riconosceva: la vendita non nasceva e metà ordine spariva.
+        // Quando lo SKU manca si prova il NOME, confrontato con il catalogo (esatto, senza
+        // badare a maiuscole): «Van Gogh - Notte Stellata» è un prodotto vero, e chiamarlo per
+        // nome è meno fragile che perderlo. Se non combacia niente, la riga diventa comunque
+        // una vendita DA GESTIRE col titolo — ma solo se ha un prezzo: le righe a 0 € sono
+        // personalizzazioni (candelina, scritta), non prodotti.
+        const senzaProdotto: { titolo: string; amount?: number }[] = [];
+        for (const r of o.righe ?? []) {
+          const s2 = String(r?.sku ?? '').trim().toUpperCase();
+          let info = s2 ? prodotti.get(s2) : undefined;
+          if (!info) {
+            const titolo = String(r?.titolo ?? '').trim();
+            if (titolo) info = perNome.get(titolo.toLowerCase()) ?? undefined;
+            if (!info) {
+              // ⭐ 07/09/2026 (regola utente): «quando arriva un ordine generico ricostruiscilo
+              // usando i generici — bouquet Milano 300 € diventa Bouquet a prezzo flessibile
+              // 300 €; 50 rose rosse diventa Rose, quantità 50, prezzo flessibile per rosa».
+              const scelta = OrdersSyncService.genericoPerTitolo(titolo);
+              const gen = scelta ? generici.get(scelta.sku) : null;
+              if (gen && (r?.prezzo ?? 0) > 0) {
+                const chiaveG = `${gen.productId}|${scelta!.pezzi ?? 1}`;
+                if (!viste.has(chiaveG)) {
+                  viste.add(chiaveG);
+                  daCreare.push({
+                    productId: gen.productId,
+                    amount: (r?.prezzo ?? 0) * (r?.quantita ?? 1),
+                    quantity: scelta!.pezzi ?? (r?.quantita ?? 1),
+                    titolo,
+                    smist: gen.smist,
+                  });
+                }
+                continue;
+              }
+              if (titolo && (r?.prezzo ?? 0) > 0 && !senzaProdotto.some((x) => x.titolo.toLowerCase() === titolo.toLowerCase())) {
+                senzaProdotto.push({ titolo, amount: r?.prezzo ?? undefined });
+              }
+              continue;
+            }
+          }
+          const chiave = `${info.productId}|${info.variantId ?? ''}`;
+          if (viste.has(chiave)) continue;
+          viste.add(chiave);
+          daCreare.push({ productId: info.productId, variantId: info.variantId ?? undefined, amount: r?.prezzo ?? undefined, smist: info.smist });
+        }
+        // Nessun candidato per NESSUNA riga: la vendita non si crea, come prima.
+        const conCandidato: typeof daCreare = [];
+        for (const riga of daCreare) {
+          if (await this.sales.esisteCandidato(riga.smist, province.get(codice)!, riga.variantId ?? null)) conCandidato.push(riga);
+        }
+        if (!conCandidato.length && !senzaProdotto.length) {
+          esito = 'senza-partner';
+        } else if (!opzioni.applica) {
+          const gia = await this.prisma.sale.findFirst({
+            where: { source: 'deluxy-orders', externalOrderId: o.id },
+            select: { id: true },
           });
-          esito = r.creata ? 'creata' : 'gia-presente';
-          if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE) daGestire.push(etichetta);
-        } catch (err) {
-          esito = 'errore';
-          dettaglio = (err as Error).message;
-          this.logger.warn(`Ordine ${o.id}: ${dettaglio}`);
+          esito = gia ? 'gia-presente' : 'creata';
+          if (conCandidato.length > 1) dettaglio = `ordine composto: ${conCandidato.length} vendite`;
+        } else {
+          let creata = 0, gia = 0;
+          try {
+            for (const riga of conCandidato) {
+              const r = await this.sales.ingest({
+                source: 'deluxy-orders',
+                externalOrderId: o.id,
+                externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+                provinceId: province.get(codice)!,
+                productId: riga.productId,
+                productVariantId: riga.variantId,
+                amount: riga.amount ?? undefined,
+                quantity: riga.quantity ?? undefined,
+                productName: riga.titolo ?? undefined,
+                brand: o.brand ?? undefined,
+                ...this.destinatario(o),
+                deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+              });
+              if (r.creata) creata++; else gia++;
+              if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE && !daGestire.includes(etichetta)) daGestire.push(etichetta);
+            }
+            // Le righe senza prodotto a catalogo: una vendita DA GESTIRE ciascuna, col titolo.
+            // Servono a vedere che l'ordine è composto e che manca ancora un pezzo.
+            for (const riga of senzaProdotto) {
+              const r2 = await this.sales.ingest({
+                source: 'deluxy-orders',
+                externalOrderId: o.id,
+                externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+                provinceId: province.get(codice)!,
+                productName: riga.titolo,
+                amount: riga.amount,
+                senzaProposta: true,
+                brand: o.brand ?? undefined,
+                ...this.destinatario(o),
+                deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+              });
+              if (r2.creata) { creata++; if (!daGestire.includes(etichetta)) daGestire.push(etichetta); } else gia++;
+            }
+            esito = creata ? 'creata' : 'gia-presente';
+            if (conCandidato.length + senzaProdotto.length > 1) dettaglio = `ordine composto: ${creata} vendite nuove, ${gia} già presenti`;
+            if (conCandidato.length < daCreare.length) {
+              dettaglio = [dettaglio, `${daCreare.length - conCandidato.length} righe senza partner in provincia`].filter(Boolean).join(' · ');
+            }
+          } catch (err) {
+            esito = 'errore';
+            dettaglio = (err as Error).message;
+            this.logger.warn(`Ordine ${o.id}: ${dettaglio}`);
+          }
         }
       }
       conteggio[esito]++;
@@ -715,8 +858,40 @@ export class OrdersSyncService {
       // - `creataMaTuttiChiusiOra`: vendite CREATE (un partner c'è) ma DA_GESTIRE
       //   perché in questo momento è tutto chiuso: si propongono quando riaprono.
       creataMaTuttiChiusiOra: daGestire.length,
+      /** ⭐ 05/09: gli ordini NON entrati perche' non si capisce dove vanno — da far entrare a mano. */
+      senzaProvincia: senzaProvincia.slice(0, 20),
       esempiDiCosaNonEntra: esempi,
     };
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente) — QUALE GENERICO, e QUANTI PEZZI.
+   *
+   * Un titolo scritto a mano dice già tutto: «50 rose rosse» → Rose, 50 pezzi; «bouquet
+   * Milano 300 €» → Bouquet, un pezzo. Si guarda la parola, non il prezzo; il numero conta
+   * solo se sta all'inizio o davanti alla parola («50 rose», «rose x 24»).
+   *
+   * L'ordine delle regole conta: «cappelliera di rose» è una cappelliera, non delle rose.
+   */
+  static genericoPerTitolo(titolo: string): { sku: string; pezzi: number | null } | null {
+    const t = (titolo ?? '').toLowerCase().trim();
+    if (!t) return null;
+    const numero = t.match(/(?:^|\b)(\d{1,3})\s*(?:x\s*)?(?=[a-zàèéìòù])/) ?? t.match(/\bx\s*(\d{1,3})\b/);
+    const pezzi = numero ? Number(numero[1]) : null;
+    const REGOLE: { sku: string; re: RegExp; conta: boolean }[] = [
+      { sku: 'GEN-CAPPELLIERA', re: /cappellier/, conta: false },
+      { sku: 'GEN-PALLONCINI', re: /pallonc|balloon/, conta: true },
+      { sku: 'GEN-TORTE', re: /torta|torte|cake|dolc|tiramis|crostat|pasticc|mignon|macaron|pralin|cioccolat|brioche|croissant|colazion/, conta: false },
+      { sku: 'GEN-VINO', re: /vino|champagne|prosecco|spumante|bollicin|bottigli/, conta: true },
+      { sku: 'GEN-GASTRONOMIA', re: /sushi|maki|nigiri|gunkan|tempura|sashimi|poke|frutta|salumi|formagg|gastronom/, conta: true },
+      { sku: 'GEN-BOUQUET', re: /bouquet|mazzo/, conta: false },
+      { sku: 'GEN-ROSE', re: /\brose\b|\brosa\b|\broses\b/, conta: true },
+      { sku: 'GEN-FIORI', re: /fior|ortensi|orchide|tulipan|girasol|peoni|piant|composizion|cesto/, conta: true },
+    ];
+    const scelta = REGOLE.find((x) => x.re.test(t));
+    if (!scelta) return null;
+    // I pezzi valgono solo dove contare ha senso: un «bouquet 3» non sono tre bouquet.
+    return { sku: scelta.sku, pezzi: scelta.conta ? pezzi : null };
   }
 
   /**
@@ -726,6 +901,58 @@ export class OrdersSyncService {
    * nomi e un cognome, non uno e due. Se il nome e' una parola sola il cognome
    * resta vuoto e la consegna non si crea — meglio che inventarlo.
    */
+  /** Nomi di citta' e provincia → sigla, caricati una volta per corsa. */
+  private nomiLuoghi: { nome: string; codice: string }[] | null = null;
+
+  /**
+   * DEDUCE LA PROVINCIA di un ordine che non la dichiara (05/09/2026).
+   *
+   * 1) I NOMI che abbiamo in banca dati — le citta' della tabella `City` e i
+   *    nomi delle province — cercati come parola intera nel testo di
+   *    indirizzo + citta' + CAP, dal nome piu' lungo al piu' corto (cosi'
+   *    «Cesano Maderno» vince su «Maderno», e «Monza e Brianza» su «Monza»).
+   *    «four season milano» → Milano → MI. Costa niente e non chiama nessuno.
+   * 2) Se i nomi non bastano, GOOGLE: lo stesso geocode che la piattaforma usa
+   *    per le consegne (`settings.geocode`), che torna la sigla della
+   *    provincia. Best-effort: se non risponde, si passa.
+   * Torna la sigla e COME l'ha trovata, perche' nel rendiconto si legga che e'
+   * una deduzione e non un dato dell'ordine.
+   */
+  private async deduciProvincia(
+    o: OrdineOrders,
+    province: Map<string, string>,
+  ): Promise<{ codice: string; come: string } | null> {
+    const testo = [o.spedizione?.indirizzo, o.spedizione?.citta, o.spedizione?.cap]
+      .map((x) => (x ?? '').trim()).filter(Boolean).join(' ').toLowerCase();
+    if (!testo) return null;
+
+    if (!this.nomiLuoghi) {
+      const [citta, prov] = await Promise.all([
+        this.prisma.city.findMany({ select: { name: true, province: { select: { code: true } } } }),
+        this.prisma.province.findMany({ select: { name: true, code: true } }),
+      ]);
+      this.nomiLuoghi = [
+        ...citta.map((c) => ({ nome: c.name.toLowerCase(), codice: c.province.code })),
+        ...prov.filter((p) => p.code !== 'EE').map((p) => ({ nome: p.name.toLowerCase(), codice: p.code })),
+      ]
+        .filter((x) => x.nome.length >= 4) // «Bra», «Rho»: troppo corti per cercarli dentro un testo
+        .sort((a, b) => b.nome.length - a.nome.length);
+    }
+    const sicuro = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    for (const l of this.nomiLuoghi) {
+      if (new RegExp(`(^|[^a-zà-ú])${sicuro(l.nome)}([^a-zà-ú]|$)`, 'i').test(testo) && province.has(l.codice)) {
+        return { codice: l.codice, come: `provincia dedotta dall'indirizzo: ${l.codice} («${l.nome}»)` };
+      }
+    }
+
+    try {
+      const g = await this.settings.geocode(testo);
+      const sigla = (g?.provinceCode ?? '').toUpperCase();
+      if (sigla && province.has(sigla)) return { codice: sigla, come: `provincia dedotta da Google: ${sigla}` };
+    } catch { /* Google non risponde: non e' un motivo per inventare */ }
+    return null;
+  }
+
   private destinatario(o: OrdineOrders) {
     const intero = (o.spedizione?.nome ?? '').trim();
     const taglio = intero.lastIndexOf(' ');
@@ -880,12 +1107,21 @@ export class CronMarginiController {
   @Get('smistamento')
   @Public()
   @ApiOperation({ summary: 'Ogni 15′: propone ai partner gli ordini idonei (unici o province con partner)' })
-  async smistamento(@Headers('authorization') authorization?: string) {
+  async smistamento(@Headers('authorization') authorization?: string, @Query('da') daQuery?: string) {
     const segreto = process.env.CRON_SECRET ?? '';
     if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
     // Solo la finestra recente (ultimi 3 giorni): leggero, così può girare ogni
     // 15 minuti. Idempotente: ciò che è già proposto resta com'è.
-    const da = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    //
+    // ⭐ 07/09/2026 (regola utente «sistema anche eventuali altri»): con `?da=YYYY-MM-DD` si
+    // recupera l'ARRETRATO — serve quando cambia una regola di riconoscimento e gli ordini
+    // vecchi vanno ripassati (è successo con le righe senza SKU). Il tetto è 90 giorni:
+    // oltre, la corsa non sta nei 300 secondi della funzione e sarebbe un troncamento muto.
+    const richiesta = (daQuery ?? '').trim();
+    const valida = /^d{4}-d{2}-d{2}$/.test(richiesta) ? new Date(`${richiesta}T00:00:00.000Z`) : null;
+    const limiteMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const scelta = valida && !isNaN(valida.getTime()) && valida >= limiteMin ? valida : new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const da = scelta.toISOString().slice(0, 10);
     const smistate = await this.service.sincronizza({ applica: true, da, limite: 1000 });
     // ⭐ 28/08: sullo stesso giro si RIEMPIONO a lotti i servizi ricorrenti
     // lunghi. La creazione ne fa due settimane e risponde subito; il resto

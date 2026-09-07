@@ -2,9 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { DatePipe, Location } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ConfermaComponent } from '../shared/conferma.component';
+import { RiconsegnaDialogComponent } from '../shared/riconsegna-dialog.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { AuthService } from '../core/auth.service';
 import { DELIVERY_CLOSED_STATUSES, Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
@@ -29,6 +32,22 @@ interface DeliveryProductRow {
 interface DeliveryDetail {
   id: string;
   code: number;
+  /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
+  hoursFrom?: string | null;
+  /** RICONSEGNA (05/09/2026): il legame si legge nei due versi. */
+  parentDelivery?: { id: string; code: number; date?: string; notDeliveredReason?: string | null } | null;
+  childDeliveries?: { id: string; code: number; date?: string }[];
+  /** Colonne STORICHE: gli orari del valet e quelli previsti dal servizio. */
+  valetStartTime?: string | null;
+  valetEndTime?: string | null;
+  serviceStartTime?: string | null;
+  serviceEndTime?: string | null;
+  hoursTo?: string | null;
+  hoursOriginal?: number | null;
+  hoursDecision?: string | null;
+  hoursDecidedBy?: string | null;
+  hours?: number | null;
+  partnerId?: string | null;
   date: string;
   status: string;
   paymentStatus: string;
@@ -43,7 +62,7 @@ interface DeliveryDetail {
   /** Consegna anonima: il mittente non arriva a nessuno (03/09). */
   anonymousSender?: boolean;
   /** Regola di listino applicata (fatturazione): al valet non arriva. */
-  deliveryRule?: { id: string; name: string; toBill?: boolean; partnerBillingAdjustment?: number | null } | null;
+  deliveryRule?: { id: string; name: string; toBill?: boolean; toPay?: boolean; partnerBillingAdjustment?: number | null; valetPayAdjustment?: number | null } | null;
   /** Regola paga valet (scaglioni sui ritiri): al partner non arriva. */
   valetDeliveryRule?: { id: string; name: string; tiers?: string | null } | null;
   deliveryTimeFrom?: string;
@@ -99,9 +118,17 @@ interface DeliveryDetail {
   longitude?: number;
   trackingToken?: string;
   receivedBy?: string;
-  partner?: { id: string; insegna: string };
+  receiverType?: string;
+  notDeliveredReason?: string | null;
+  deliveredAt?: string | null;
+  startedAt?: string | null;
+  puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
+  partner?: { id: string; insegna: string; valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean };
+  valetIdentityCheck?: boolean;
+  pickupVerifiedAt?: string | null;
+  pickupVerifiedBy?: string | null;
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string; hoursApproval?: boolean };
   products?: DeliveryProductRow[];
   logs?: DeliveryLog[];
 }
@@ -109,7 +136,7 @@ interface DeliveryDetail {
 @Component({
   selector: 'app-delivery-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule],
+  imports: [RouterLink, DatePipe, TranslatePipe, FormsModule, ConfermaComponent, RiconsegnaDialogComponent],
   template: `
     <div class="form-head">
       <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
@@ -150,7 +177,8 @@ interface DeliveryDetail {
           @if (canShare()) {
             <button type="button" class="act" (click)="share(d)">{{ 'deliveryDetail.act.share' | translate }}</button>
           }
-          @if (canManage()) {
+          <!-- ⭐ 06/09: sulle consegne «da fornitore» il link di conferma lo copia anche il PARTNER. -->
+          @if (canManage() || (isPartner() && d.deliveredByPartner)) {
             <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
           }
           <!-- Assegna: ufficio E team leader (nel suo perimetro). -->
@@ -184,12 +212,49 @@ interface DeliveryDetail {
              l'API rifiuta ogni altro passaggio. «Consegnata» apre il pop-up
              a-chi/firma/DDT; «Non consegnata» chiede il motivo: da questi
              stati dipendono paga e fattura, e non si torna indietro da soli. -->
+        <!-- ⭐ 05/09/2026 (regola utente): CONTRASSEGNO. Prima di partire il
+             valet vede quanto deve ritirare in contanti; i contanti gli
+             vengono poi scalati dal bonifico (Stipendi), ma NON abbassano il
+             costo della consegna nei margini: sono soldi del cliente che
+             passano per le sue mani, non paga in meno. -->
+        @if (avvisoContanti(); as importo) {
+          <app-conferma [titolo]="'deliveryDetail.valet.cashTitle' | translate"
+                        [messaggio]="'deliveryDetail.valet.cashMsg' | translate: { importo: importo.toFixed(2) }"
+                        [verbo]="'deliveryDetail.valet.cashOk' | translate" tono="primary"
+                        (confermato)="avvisoContanti.set(null); cambiaStato('in_delivery')"
+                        (annullato)="avvisoContanti.set(null)" />
+        }
+        <!-- ⭐ 05/09/2026 (regola utente): CODICE DEL VALET AL RITIRO. Se la
+             consegna o il partner lo chiedono, il partner inserisce qui il
+             codice del valet quando ritira; se combacia, il valet può partire.
+             Finché non combacia, «Metti in consegna» è spento e dice perché. -->
+        @if (ritiroDaVerificare(d) && !d.pickupVerifiedAt && d.valet && ['assigned','accepted','in_preparation'].includes(d.status)) {
+          @if (isPartner() || canManage()) {
+            <section class="card codice-valet">
+              <h2>{{ 'deliveryDetail.codice.titolo' | translate }}</h2>
+              <p class="muted">{{ 'deliveryDetail.codice.spiega' | translate: { valet: d.valet.firstName + ' ' + d.valet.lastName } }}</p>
+              <div class="ore-riga">
+                <label><span>{{ 'deliveryDetail.codice.campo' | translate }}</span>
+                  <input class="field" type="text" inputmode="numeric" autocomplete="off" name="codiceValet" [(ngModel)]="codiceValet" /></label>
+                <button type="button" class="act primary" [disabled]="codiceInCorso() || !codiceValet.trim()" (click)="verificaCodice()">
+                  {{ 'deliveryDetail.codice.verifica' | translate }}
+                </button>
+              </div>
+              @if (codiceErrore(); as e) { <div class="error-card">{{ e }}</div> }
+            </section>
+          } @else if (isValet()) {
+            <div class="card avviso-codice">{{ 'deliveryDetail.codice.valetAttende' | translate }}</div>
+          }
+        }
+        @if (d.pickupVerifiedAt) {
+          <p class="muted piccolo">{{ 'deliveryDetail.codice.verificato' | translate: { quando: (d.pickupVerifiedAt | date: 'dd/MM HH:mm') } }}</p>
+        }
         @if (puoLavorare(d)) {
           <div class="valet-azioni">
             <!-- Consegnata/Non consegnata SOLO dopo che è «in consegna»
                  (31/08): prima si mette in consegna, poi si chiude. -->
             @if (d.status !== 'in_delivery') {
-              <button type="button" class="act primary" [disabled]="statoInCorso()" (click)="cambiaStato('in_delivery')">
+              <button type="button" class="act primary" [disabled]="statoInCorso() || (isValet() && ritiroDaVerificare(d) && !d.pickupVerifiedAt)" (click)="avviaConsegna(d)">
                 {{ 'deliveryDetail.valet.inDelivery' | translate }}
               </button>
             } @else {
@@ -254,6 +319,11 @@ interface DeliveryDetail {
             <dd>{{ d.pickupTimeFrom ? (d.pickupTimeFrom + (d.pickupTimeTo ? '–' + d.pickupTimeTo : '')) : '—' }}
               @if (d.pickupFlexible) { <span class="tag">{{ 'common.flexible' | translate }}</span> }</dd>
             <dt>{{ 'deliveryDetail.pickupAddress' | translate }}</dt><dd>{{ d.pickupAddress || '—' }}</dd>
+            @if (d.puntualita; as pu) {
+              <dt>{{ 'puntualita.titolo' | translate }}</dt>
+              <dd><span class="punt" [class]="'punt ' + pu.esito">{{ 'puntualita.' + pu.esito | translate }}@if (pu.minuti) { · {{ pu.minuti }} min }</span>
+                @if (d.deliveredAt) { <span class="muted"> · {{ 'puntualita.consegnataAlle' | translate }} {{ d.deliveredAt | date: 'HH:mm' }}</span> }</dd>
+            }
             <dt>{{ 'deliveries.col.valet' | translate }}</dt>
             <dd>{{ d.valet ? (d.valet.firstName + ' ' + d.valet.lastName) : ('common.notAssigned' | translate) }}</dd>
           </dl>
@@ -342,7 +412,8 @@ interface DeliveryDetail {
               <!-- ⚠️ Lo ZERO scritto non è la paga (01/09, #62899): per gli
                    Stipendi vince solo un numero > 0 — con 0 si calcola dal
                    listino, e qui si mostra QUELLA, non lo zero che mente. -->
-              <dd>@if ((d.valetSalary ?? 0) > 0) { {{ d.valetSalary }} € }
+              <dd>@if (d.deliveryRule?.toPay === false) { 0 € <span class="muted">({{ 'deliveryDetail.valetPayRule' | translate: { nome: d.deliveryRule?.name } }})</span> }
+                  @else if ((d.valetSalary ?? 0) > 0) { {{ d.valetSalary }} € }
                   @else if (d.valetSalaryDalListino != null) { {{ d.valetSalaryDalListino }} € <span class="muted">({{ 'deliveryDetail.fromListino' | translate }})</span> }
                   @else { — }</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
@@ -396,7 +467,7 @@ interface DeliveryDetail {
                 @if (d.products?.length) {
                   <span class="scomposto righe-prezzo">
                     @for (p of d.products; track p.id) {
-                      <span class="riga-prezzo">{{ p.product?.name }}{{ (p.variantName || p.productVariant?.name) ? ' (' + (p.variantName || p.productVariant?.name) + ')' : '' }}: {{ (prezzoRiga(p) ?? 0).toFixed(2) }} € × {{ p.quantity }} = {{ ((prezzoRiga(p) ?? 0) * (p.quantity ?? 1)).toFixed(2) }} €</span>
+                      <span class="riga-prezzo">{{ p.product?.name }}{{ (p.variantName || p.productVariant?.name) ? ' (' + (p.variantName || p.productVariant?.name) + ')' : '' }}: {{ (prezzoRiga(p) ?? 0).toFixed(2) }} € × {{ p.quantity }} = {{ ((prezzoRiga(p) ?? 0) * (p.quantity ?? 1)).toFixed(2) }} €@if ($any(p).withoutCommission) { <span class="badge nofee">{{ 'deliveryDetail.noFee' | translate }}</span> }</span>
                     }
                   </span>
                 }
@@ -496,6 +567,12 @@ interface DeliveryDetail {
                       @if (p.variantName || p.productVariant?.name) {
                         <span class="variante">{{ p.variantName || p.productVariant?.name }}</span>
                       }
+                      <!-- ⭐ 07/09/2026 (regola utente): la NOTA DI SPECIFICA, che arriva da
+                           Merchandising: «20-25 fiori», «18-20 cm». È quello che il fioraio
+                           deve sapere per fare il bouquet giusto. -->
+                      @if ($any(p).productVariant?.note || $any(p).product?.note; as nota) {
+                        <span class="nota-specifica">{{ nota }}</span>
+                      }
                     </td>
                     <td class="num">{{ p.quantity }}</td>
                     @if (!isPartner()) {
@@ -550,6 +627,34 @@ interface DeliveryDetail {
         <!-- Allegati: la foto/ricevuta della consegna e il documento DDT -->
         <section class="card block">
           <h2>{{ 'deliveryDetail.section.attachments' | translate }}</h2>
+          <!-- ⭐ 06/09/2026 (regola utente): la PROVA DI CONSEGNA si legge anche dal
+               PARTNER — quando, chi ha ritirato (tipo e nome), quale valet, e sotto
+               firma e documenti da scaricare. -->
+          @if (consegnaEffettuata(d)) {
+            <dl class="prova">
+              <dt>{{ 'deliveryDetail.prova.consegnataAlle' | translate }}</dt>
+              <dd>{{ d.deliveredAt ? (d.deliveredAt | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                @if (d.puntualita; as pu) { <span class="punt" [class]="'punt ' + pu.esito">{{ 'puntualita.' + pu.esito | translate }}@if (pu.minuti) { · {{ pu.minuti }} min }</span> }</dd>
+              <dt>{{ 'deliveryDetail.prova.ritirataDa' | translate }}</dt>
+              <dd>{{ d.receiverType ? ('deliveryDetail.valet.tipo.' + d.receiverType | translate) : '—' }}{{ d.receivedBy ? ' · ' + d.receivedBy : '' }}</dd>
+              <dt>{{ 'deliveryDetail.prova.valet' | translate }}</dt>
+              <dd>{{ d.valet ? (d.valet.firstName + ' ' + d.valet.lastName) : '—' }}</dd>
+              <dt>{{ 'deliveryDetail.prova.documenti' | translate }}</dt>
+              <dd>{{ documentiProva(d) || ('deliveryDetail.prova.nessunDocumento' | translate) }}</dd>
+            </dl>
+          }
+          <!-- ⭐ 06/09/2026 (regola utente): il valet che ha fatto la consegna (e l'ufficio, e il
+               partner) allega o sostituisce la foto del DDT ANCHE a consegna chiusa. -->
+          @if (puoAllegareDdt(d)) {
+            <div class="ddt-extra">
+              <label class="act ddt-carica" [class.disabled]="ddtInvio()">
+                {{ (d.ddtFile ? 'deliveryDetail.prova.ddtSostituisci' : 'deliveryDetail.prova.ddtAggiungi') | translate }}
+                <input type="file" accept="image/*" (change)="allegaDdt($event)" [disabled]="ddtInvio()" hidden />
+              </label>
+              @if (ddtInvio()) { <span class="muted piccolo">{{ 'deliveryDetail.prova.ddtInvio' | translate }}</span> }
+              @if (ddtErrore(); as e) { <div class="error-card">{{ e }}</div> }
+            </div>
+          }
           @if (!d.receipt && !d.receiverSign && !d.ddtFile) {
             <p class="muted">{{ 'deliveryDetail.noAttachments' | translate }}</p>
           } @else {
@@ -680,6 +785,73 @@ interface DeliveryDetail {
       </div>
     }
 
+    <!-- RICONSEGNA (05/09/2026, regola utente): la catena si vede da entrambe
+         le parti — da quale consegna nasce questa, e quale l'ha rifatta. Senza,
+         una consegna in storico come «non consegnata» sembra un caso chiuso
+         male invece che un lavoro poi portato a termine. -->
+    @if (delivery(); as d) {
+      <!-- ⭐ 06/09/2026 (regola utente): NON CONSEGNATA senza riconsegna = DA GESTIRE, con un avviso. -->
+      @if (d.status === 'not_delivered' && !(d.childDeliveries?.length)) {
+        <div class="warn-card gestire" role="alert">
+          <b>{{ 'deliveryDetail.nonConsegnata.alert' | translate }}</b> {{ 'deliveryDetail.nonConsegnata.cosa' | translate }}
+          @if (d.notDeliveredReason) { <span class="muted"> · {{ d.notDeliveredReason }}</span> }
+          <!-- ⭐ 07/09/2026 (regola utente): prima si chiede — agganciare una consegna già
+               inserita, o crearne una nuova? Il bottone non porta più dritto al modulo. -->
+          @if (canManage()) { <button type="button" class="act" (click)="apriRiconsegna.set(true)">{{ 'deliveryDetail.nonConsegnata.riconsegna' | translate }}</button> }
+        </div>
+      }
+      @if (apriRiconsegna()) {
+        <app-riconsegna-dialog [deliveryId]="d.id" [code]="d.code"
+                               (chiudi)="apriRiconsegna.set(false)" (agganciata)="dopoAggancio()" />
+      }
+      @if (d.parentDelivery || (d.childDeliveries?.length ?? 0) > 0) {
+        <section class="card riconsegna-legame">
+          @if (d.parentDelivery; as p) {
+            <p>{{ 'deliveryDetail.redelivery.from' | translate }}
+              <a [routerLink]="['/deliveries', p.id]">#{{ p.code }}</a>
+              <span class="muted">· {{ p.date | date: 'dd/MM/yyyy' }}</span>
+              @if (p.notDeliveredReason) { <span class="muted">· {{ p.notDeliveredReason }}</span> }
+            </p>
+          }
+          @for (c of d.childDeliveries ?? []; track c.id) {
+            <p>{{ 'deliveryDetail.redelivery.to' | translate }}
+              <a [routerLink]="['/deliveries', c.id]">#{{ c.code }}</a>
+              <span class="muted">· {{ c.date | date: 'dd/MM/yyyy' }}</span>
+            </p>
+          }
+        </section>
+      }
+    }
+
+    <!-- ⭐ 04/09/2026 (regola utente): ORE DA APPROVARE. Il partner vede quello
+         che il valet ha dichiarato e decide; l'ufficio può decidere al posto suo. -->
+    @if (delivery(); as d) {
+      @if (d.status === 'delivered_time_to_approve') {
+        <section class="card ore-approvazione">
+          <h2>{{ 'deliveryDetail.ore.titolo' | translate }}</h2>
+          <p>{{ 'deliveryDetail.ore.dichiarate' | translate: { dalle: d.valetStartTime ?? d.hoursFrom, alle: d.valetEndTime ?? d.hoursTo } }}</p>
+          <p class="muted">{{ 'deliveryDetail.ore.previste' | translate: { ore: d.hoursOriginal ?? '—' } }}</p>
+          @if (puoDecidereOre()) {
+            <div class="azioni">
+              <button type="button" class="act primary" [disabled]="oreInCorso()" (click)="decidiOre(true)">
+                {{ 'deliveryDetail.ore.approva' | translate }}
+              </button>
+              <button type="button" class="act" [disabled]="oreInCorso()" (click)="decidiOre(false)">
+                {{ 'deliveryDetail.ore.rifiuta' | translate }}
+              </button>
+            </div>
+          } @else {
+            <p class="muted">{{ 'deliveryDetail.ore.attesa' | translate }}</p>
+          }
+          @if (oreErrore(); as e) { <div class="error-card">{{ e }}</div> }
+        </section>
+      } @else if (d.hoursDecision) {
+        <section class="card ore-decise">
+          <p class="muted">{{ ('deliveryDetail.ore.esito_' + d.hoursDecision) | translate: { dalle: d.valetStartTime ?? d.hoursFrom, alle: d.valetEndTime ?? d.hoursTo, ore: d.hours, chi: d.hoursDecidedBy } }}</p>
+        </section>
+      }
+    }
+
     <!-- Chiusura del valet: CONSEGNATA (a chi + firma + DDT). Come nella
          vecchia app: receiverType/receiverSign/ddtFile sono gli stessi campi
          del legacy (5.994 «custode» reali). -->
@@ -691,6 +863,21 @@ interface DeliveryDetail {
           <button type="button" class="modal-close" (click)="chiudiChiusura()" [attr.aria-label]="'common.close' | translate">×</button>
         </header>
         <div class="chiusura-corpo">
+          <!-- ⭐ 04/09/2026 (regola utente): SERVIZI A ORA — il valet dice quando
+               ha davvero iniziato e finito. Il default è l'orario previsto: si
+               conferma con un tocco, e chi ha fatto altri orari li corregge.
+               Il partner poi approva o rifiuta. -->
+          @if (aOra()) {
+            <label class="campo-eti">{{ 'deliveryDetail.valet.oreTitolo' | translate }}</label>
+            <div class="ore-riga">
+              <label><span>{{ 'deliveryDetail.valet.oreDalle' | translate }}</span>
+                <input class="field" type="time" step="900" name="oreDalle" [(ngModel)]="oreDalle" /></label>
+              <label><span>{{ 'deliveryDetail.valet.oreAlle' | translate }}</span>
+                <input class="field" type="time" step="900" name="oreAlle" [(ngModel)]="oreAlle" /></label>
+            </div>
+            <p class="muted piccolo">{{ 'deliveryDetail.valet.oreHint' | translate }}</p>
+            @if (oreMancanti()) { <p class="ko piccolo">{{ 'deliveryDetail.valet.oreObbligatorie' | translate }}</p> }
+          }
           <label class="campo-eti">{{ 'deliveryDetail.valet.aChi' | translate }}</label>
           <div class="chips">
             @for (t of TIPI_RICEVENTE; track t) {
@@ -722,7 +909,7 @@ interface DeliveryDetail {
           } @else {
             <label class="act ddt-carica">
               {{ 'deliveryDetail.valet.ddtAdd' | translate }}
-              <input type="file" accept="image/*" capture="environment" (change)="onDdt($event)" hidden />
+              <input type="file" accept="image/*" (change)="onDdt($event)" hidden />
             </label>
           }
 
@@ -730,7 +917,7 @@ interface DeliveryDetail {
         </div>
         <div class="dialog-foot">
           <button type="button" class="act" [disabled]="statoInCorso()" (click)="chiudiChiusura()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="act ok" [disabled]="statoInCorso()" (click)="confermaConsegnata()">
+          <button type="button" class="act ok" [disabled]="statoInCorso() || oreMancanti()" (click)="confermaConsegnata()">
             {{ 'deliveryDetail.valet.confirmDelivered' | translate }}
           </button>
         </div>
@@ -821,9 +1008,15 @@ interface DeliveryDetail {
   `,
   styles: [
     `
+      .ore-riga { display: flex; gap: 12px; flex-wrap: wrap; }
+      .ore-riga label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .ore-approvazione { border-left: 3px solid var(--orange, #ff9500); }
       .ricevuta-scelta { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .ricevuta-scelta img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline); }
+      .warn-card.gestire { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border-left: 4px solid var(--ink, #1d1d1f); background: var(--surface-sunken, #f5f5f7); color: var(--text-primary, #1d1d1f); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
       .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
+      .ddt-extra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .ddt-extra .ddt-carica.disabled { opacity: .5; pointer-events: none; }
       .allegato { margin: 0; max-width: 220px; }
       .allegato img {
         width: 100%;
@@ -868,6 +1061,12 @@ interface DeliveryDetail {
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
       /* Azioni del valet: bersagli larghi, e' un flusso da telefono. */
+      .punt { display: inline-block; font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+      .punt.in_orario { color: var(--green); background: rgba(36, 138, 61, .10); }
+      .punt.in_ritardo { color: var(--red); background: rgba(215, 0, 21, .10); }
+      .punt.in_anticipo { color: var(--amber, #b8930f); background: rgba(184, 147, 15, .12); }
+      .prova { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; font-size: 13.5px; }
+      .prova dt { color: var(--text-tertiary); } .prova dd { margin: 0; }
       .valet-azioni { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
       .valet-azioni .act { padding: 12px 18px; font-size: 15px; }
       .act.ok { background: var(--green, #1f7a3d); color: #fff; border-color: transparent; }
@@ -957,6 +1156,11 @@ interface DeliveryDetail {
       .conto-vendita .scomposto { display: block; color: var(--text-tertiary); font-size: 12px; }
       .righe-prezzo { margin-top: 3px; }
       .righe-prezzo .riga-prezzo { display: block; font-variant-numeric: tabular-nums; }
+      .codice-valet .ore-riga { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+      .codice-valet label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .avviso-codice { background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); font-size: 13px; }
+      /* La riga senza fee si dichiara accanto al suo importo: la quota su di lei e zero. */
+      .badge.nofee { margin-left: 8px; font-size: 11px; background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .mt { margin-top: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
@@ -970,6 +1174,7 @@ interface DeliveryDetail {
       .log-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .log-user { color: var(--text-secondary); }
       .log-ref { color: var(--text-tertiary); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+      .nota-specifica { display: inline-block; margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 980px; background: var(--fill); color: var(--text-secondary); }
       .variante { margin-left: 6px; font-size: 11px; background: var(--fill); color: var(--text-secondary); border-radius: 980px; padding: 2px 8px; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
@@ -982,7 +1187,9 @@ interface DeliveryDetail {
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-cancellation_requested { background: #5ac8fa; }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
-      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      /* ⭐ 07/09/2026 (regola utente): non consegnata = nero, non rosso. */
+      .dot.s-not_delivered { background: var(--text, #1d1d1f); }
+      .dot.s-not_accepted { background: var(--red); }
       .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.error { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
@@ -1042,6 +1249,11 @@ export class DeliveryDetailComponent {
     this.router.navigate(['/deliveries'], { queryParams });
   }
 
+  /** ⭐ 07/09: la finestra «riconsegna: aggancio o creo?». */
+  readonly apriRiconsegna = signal(false);
+
+  /** Dopo un aggancio riuscito: la scheda si rilegge, il legame è già lì. */
+  dopoAggancio(): void { this.load(); }
   readonly delivery = signal<DeliveryDetail | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -1217,6 +1429,15 @@ export class DeliveryDetailComponent {
     return ['assigned', 'accepted', 'in_preparation', 'in_delivery'].includes(d.status);
   }
   /** Consegna EFFETTUATA (consegnata o non): il valet può chiedere rimborso o reclamare. */
+  /** I documenti che provano la consegna, come elenco leggibile (vuoto = nessuno). */
+  documentiProva(d: DeliveryDetail): string {
+    const voci: string[] = [];
+    if (d.receiverSign) voci.push(this.translate.instant('deliveryDetail.sign'));
+    if (d.receipt) voci.push(this.translate.instant('deliveryDetail.receipt'));
+    if (d.ddtFile) voci.push(this.translate.instant('deliveryDetail.ddtFile'));
+    return voci.join(' · ');
+  }
+
   consegnaEffettuata(d: { status: string }): boolean {
     return ['delivered', 'not_delivered', 'approved', 'invalidated'].includes(d.status);
   }
@@ -1243,6 +1464,10 @@ export class DeliveryDetailComponent {
   }
 
   apriChiusura(tipo: 'delivered' | 'not_delivered'): void {
+    // orari di default: quelli previsti dal servizio (regola utente 04/09)
+    const d = this.delivery();
+    this.oreDalle = (d as any)?.serviceStartTime ?? (d as any)?.deliveryTimeFrom ?? '';
+    this.oreAlle = (d as any)?.serviceEndTime ?? (d as any)?.deliveryTimeTo ?? '';
     this.azioneErrore.set(null);
     this.receiverTipo = 'recipient';
     this.nomeRicevente = '';
@@ -1308,20 +1533,89 @@ export class DeliveryDetailComponent {
   onDdt(ev: Event): void {
     const file = (ev.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const MAX = 1280;
-      const scala = Math.min(1, MAX / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scala);
-      canvas.height = Math.round(img.height * scala);
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      this.ddtFoto.set(canvas.toDataURL('image/jpeg', 0.8));
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => URL.revokeObjectURL(url);
-    img.src = url;
+    this.ridimensionaFoto(file).then((f) => this.ddtFoto.set(f)).catch(() => undefined);
+  }
+
+  /** Una foto → JPEG max 1280px lato lungo, come data URL (lo stesso ridimensionamento di sempre). */
+  private ridimensionaFoto(file: File): Promise<string> {
+    return new Promise((ok, ko) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 1280;
+        const scala = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scala);
+        canvas.height = Math.round(img.height * scala);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        ok(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('immagine non leggibile')); };
+      img.src = url;
+    });
+  }
+
+  /** ⭐ 06/09 (regola utente): DDT allegabile anche a consegna chiusa — dal valet CHE HA FATTO la consegna, dall'ufficio o dal partner. */
+  readonly ddtInvio = signal(false);
+  readonly ddtErrore = signal<string | null>(null);
+  puoAllegareDdt(d: { valet?: { id: string } | null }): boolean {
+    if (this.canManage() || this.isPartner()) return true;
+    const mio = this.auth.user()?.valetId;
+    return this.isValet() && !!mio && d.valet?.id === mio;
+  }
+  allegaDdt(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const d = this.delivery();
+    if (!file || !d) return;
+    this.ddtErrore.set(null);
+    this.ddtInvio.set(true);
+    this.ridimensionaFoto(file).then((foto) => {
+      this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ddt`, { ddtFile: foto }).subscribe({
+        next: () => { this.ddtInvio.set(false); input.value = ''; this.load(true); },
+        error: (e) => { this.ddtInvio.set(false); input.value = ''; this.ddtErrore.set(e?.error?.message ?? this.translate.instant('deliveryDetail.prova.ddtErrore')); },
+      });
+    }).catch(() => { this.ddtInvio.set(false); this.ddtErrore.set(this.translate.instant('deliveryDetail.prova.ddtErrore')); });
+  }
+
+  /** Il servizio si paga a ORE: allora la chiusura chiede gli orari. */
+  /** Servizio a ore senza orari: non si chiude (regola utente 04/09). */
+  oreMancanti(): boolean {
+    return this.aOra() && !(this.oreDalle && this.oreAlle);
+  }
+
+  /** Solo il servizio a ore CON APPROVAZIONE chiede le ore al valet (05/09/2026). */
+  aOra(): boolean {
+    const s = this.delivery()?.serviceType;
+    return (s?.pricingModel ?? '') === 'A_ORA' && s?.hoursApproval === true;
+  }
+
+  /** Decide il PARTNER della consegna; l'ufficio può sempre. */
+  puoDecidereOre(): boolean {
+    const u = this.auth.user();
+    if (!u) return false;
+    if (u.role === 'PARTNER') return (this.delivery() as any)?.partnerId === (u as any).partnerId;
+    return ['ADMIN', 'OPERATION'].includes(u.role);
+  }
+
+  readonly oreInCorso = signal(false);
+  readonly oreErrore = signal<string | null>(null);
+  oreDalle = '';
+  oreAlle = '';
+
+  decidiOre(approva: boolean): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.oreInCorso.set(true);
+    this.oreErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ore/${approva ? 'approva' : 'rifiuta'}`, {}).subscribe({
+      next: () => { this.oreInCorso.set(false); this.load(); },
+      error: (e) => {
+        this.oreInCorso.set(false);
+        this.oreErrore.set(e?.error?.message ?? 'Operazione non riuscita');
+      },
+    });
   }
 
   confermaConsegnata(): void {
@@ -1334,6 +1628,12 @@ export class DeliveryDetailComponent {
     }
     const ddt = this.ddtFoto();
     if (ddt) corpo['ddtFile'] = ddt;
+    // Sui servizi a ora gli orari viaggiano con la chiusura: è quello che fa
+    // nascere la richiesta di approvazione al partner.
+    if (this.aOra() && this.oreDalle && this.oreAlle) {
+      corpo['oreDalle'] = this.oreDalle;
+      corpo['oreAlle'] = this.oreAlle;
+    }
     this.cambiaStato('delivered', corpo);
   }
 
@@ -1349,6 +1649,41 @@ export class DeliveryDetailComponent {
     }
     const motivo = [this.motivo ? eti[this.motivo] : '', dett].filter(Boolean).join(' — ');
     this.cambiaStato('not_delivered', { status: 'not_delivered', notDeliveredReason: motivo });
+  }
+
+  /** L'importo del contrassegno da mostrare al valet prima di partire. */
+  readonly avvisoContanti = signal<number | null>(null);
+
+  // ⭐ 05/09/2026: CODICE DEL VALET AL RITIRO (regola utente).
+  codiceValet = '';
+  readonly codiceInCorso = signal(false);
+  readonly codiceErrore = signal<string | null>(null);
+
+  /** Chi chiede il codice: la consegna o il suo partner. */
+  ritiroDaVerificare(d: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean; partner?: { valetIdentityCheck?: boolean; deliveryCodeRequired?: boolean } | null }): boolean {
+    return d.valetIdentityCheck === true;
+  }
+
+  verificaCodice(): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.codiceInCorso.set(true);
+    this.codiceErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ritiro/verifica`, { codice: this.codiceValet.trim() }).subscribe({
+      next: () => { this.codiceInCorso.set(false); this.codiceValet = ''; this.load(); },
+      error: (e) => { this.codiceInCorso.set(false); this.codiceErrore.set(e?.error?.message ?? 'Verifica non riuscita'); },
+    });
+  }
+
+  /**
+   * «Metti in consegna»: se c'è un pagamento alla consegna, PRIMA l'avviso
+   * con la cifra da ritirare in contanti, poi il cambio di stato. Senza
+   * contrassegno si parte subito, come prima.
+   */
+  avviaConsegna(d: { paymentOnDelivery?: boolean; paymentAmount?: number | null }): void {
+    const importo = d.paymentOnDelivery ? Number(d.paymentAmount ?? 0) : 0;
+    if (importo > 0) { this.avvisoContanti.set(importo); return; }
+    this.cambiaStato('in_delivery');
   }
 
   cambiaStato(stato: string, corpo?: Record<string, string>): void {
@@ -1437,6 +1772,17 @@ export class DeliveryDetailComponent {
   constructor() {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.load();
+    // ⭐ 06/09/2026 (regola utente): anche il DETTAGLIO si riallinea da solo
+    // ogni 30″, come le liste. È qui che il valet aspetta che il partner
+    // verifichi il suo codice, e il partner che il valet chiuda le ore: senza
+    // questo dovevano ricaricare a mano. Silenzioso, e fermo mentre un pop-up
+    // o un'azione sono in corso (non si tira via niente sotto le mani).
+    avviaAutoAggiornamento({
+      ricarica: () => this.load(true),
+      sospeso: () => !!(this.chiusura() || this.assignOpen() || this.confermaAnnulla() || this.segnalTipo()
+        || this.avvisoContanti() != null || this.statoInCorso() || this.busy() || this.annullando()
+        || this.oreInCorso() || this.codiceInCorso() || this.segInCorso() || this.codiceValet.trim() || this.loading()),
+    });
     // I valet servono a chi può assegnare: ufficio E team leader.
     if (this.canAssign()) {
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((v) => this.valets.set(v));
@@ -1459,7 +1805,8 @@ export class DeliveryDetailComponent {
     });
   }
 
-  private load(): void {
+  /** `silenzioso` = giro dell'auto-aggiornamento: niente riapertura del pop-up da `?chiudi`. */
+  private load(silenzioso = false): void {
     this.caricaSegnalazioni();
     this.http.get<DeliveryDetail>(`${environment.apiUrl}/deliveries/${this.id}`).subscribe({
       next: (d) => {
@@ -1468,7 +1815,7 @@ export class DeliveryDetailComponent {
         // Arrivando dai bottoni della LISTA (?chiudi=delivered|not_delivered)
         // il pop-up si apre da solo: il valet non deve cercare due volte.
         const chiudi = this.route.snapshot.queryParamMap.get('chiudi');
-        if ((chiudi === 'delivered' || chiudi === 'not_delivered')
+        if (!silenzioso && (chiudi === 'delivered' || chiudi === 'not_delivered')
           && this.puoLavorare(d) && !this.chiusura()) {
           this.apriChiusura(chiudi);
         }
@@ -1575,6 +1922,7 @@ export class DeliveryDetailComponent {
   // ---- ASSEGNA ----
   openAssign(): void { this.actionError.set(null); this.assignOpen.set(true); }
   assign(valetId: string): void {
+    if (this.busy()) return;
     this.busy.set(true);
     this.http.patch(`${environment.apiUrl}/deliveries/${this.id}/assign`, { valetId }).subscribe({
       next: () => { this.busy.set(false); this.assignOpen.set(false); this.load(); },

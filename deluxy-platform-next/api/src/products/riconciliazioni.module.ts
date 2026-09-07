@@ -52,8 +52,10 @@ type StatPartner = {
   prezzoMin: number;
   prezzoMax: number;
   prezzoModa: number;
-  /** Quanto è rimasto al partner, il più delle volte: il prezzo del patto. */
+  /** Quanto è stato DATO al partner, il più delle volte: il prezzo del patto. */
   nettoModa: number;
+  /** true = il numero viene dal conto della vendita, non da una consegna. */
+  daSuggerimento?: boolean;
   scontoMedio: number;
   ultimaVendita: string;
 };
@@ -149,22 +151,63 @@ export class RiconciliazioniService {
       where: {
         status: 'accettata',
         partnerId: { not: null, ...(esclusi.length ? { notIn: esclusi } : {}) },
+        // ⭐ 07/09/2026 (segnalazione utente: «perché in riconciliazioni esce El Mourad se non
+        // è attivo?»). Le vendite le aveva accettate davvero — 1797 a Monza, 1794 a Brescia,
+        // 1808 a Como — ma il partner adesso è spento e cancellato: proporlo come fornitore
+        // fisso è una proposta che non può andare a buon fine, perché lo smistamento salta
+        // comunque chi non è attivo. Non è «non ha fatto lui l'ordine»: è che non c'è più.
+        // Stesso motivo per gli ESCLUSI DALLE PROPOSTE (Artista Locale, Deluxy Flowers,
+        // Cakedesignme): lo smistamento non li propone mai, quindi una proposta con il loro
+        // nome non può diventare un patto.
+        partner: { active: true, deleted: false, esclusoDalleProposte: false },
         productId: { not: null },
         createdAt: { gte: opts.da, lte: opts.a },
-        product: { type: 'NON_UNICO' },
+        // ⭐ 07/09/2026 (regola utente): le proposte servono SOLO dove il prezzo non ce l'ha
+        // già una regola. Un prodotto «mix» prende la percentuale del territorio, uno «a
+        // quantità» il prezzo unitario del partner: per quelli un patto prodotto/provincia
+        // sarebbe una seconda verità sullo stesso numero. Resta il caso vero: il prodotto
+        // «a preventivo», dove il patto È il prezzo concordato.
+        product: { type: 'NON_UNICO', tipologiaVendita: 'preventivo' },
       },
       select: {
-        id: true, productId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
-        createdAt: true, externalOrderNumber: true,
+        id: true, productId: true, productVariantId: true, provinceId: true, partnerId: true, amount: true, discountPercent: true,
+        createdAt: true, externalOrderNumber: true, deliveryId: true,
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    type Gruppo = { productId: string; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
+    // ⭐ 04/09/2026 (regola utente): «85 € conta, è il prezzo che alla fine è
+    // stato dato al partner; 94,50 € è un suggerimento».
+    //
+    // Il patto vero sta sulla RIGA DELLA CONSEGNA — la fotografia di quel
+    // giorno, quella che va in fattura — non nel conto importo × (1 − quota),
+    // che è solo quello che la vendita si aspettava. Qui si legge la riga della
+    // consegna nata da ogni vendita; dove non c'è, si ripiega sul conto della
+    // vendita e la riga lo dichiara (`daSuggerimento`).
+    const consegneIds = vendite.map((v) => v.deliveryId).filter(Boolean) as string[];
+    const consegne = consegneIds.length
+      ? await this.prisma.delivery.findMany({
+          where: { id: { in: consegneIds } },
+          select: { id: true, products: { select: { productId: true, price: true } } },
+        })
+      : [];
+    const righeConsegna = new Map(consegne.map((c) => [c.id, c.products]));
+    /** Quanto ha preso il partner per QUEL prodotto in QUELLA vendita. */
+    const datoAlPartner = (v: { deliveryId: string | null; productId: string | null; amount: number; discountPercent: number }) => {
+      const righe = v.deliveryId ? righeConsegna.get(v.deliveryId) : null;
+      const riga = righe?.find((r) => r.productId === v.productId) ?? (righe?.length === 1 ? righe[0] : null);
+      if (riga && (riga.price ?? 0) > 0) return { valore: arrotonda(riga.price as number), reale: true };
+      return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false };
+    };
+
+    // ⭐ 06/09/2026 (regola utente): la coppia diventa TERNA (prodotto, VARIANTE, provincia): la
+    // regola vale «solo se la variante è la stessa». Prodotto senza variante = variante null.
+    type Gruppo = { productId: string; productVariantId: string | null; provinceId: string; perPartner: Map<string, typeof vendite>; ultima: (typeof vendite)[number] };
     const gruppi = new Map<string, Gruppo>();
+    const chiaveDi = (productId: string, provinceId: string, variantId: string | null) => `${productId}|${provinceId}|${variantId ?? ''}`;
     for (const v of vendite) {
-      const chiave = `${v.productId}|${v.provinceId}`;
-      const g = gruppi.get(chiave) ?? { productId: v.productId!, provinceId: v.provinceId, perPartner: new Map(), ultima: v };
+      const chiave = chiaveDi(v.productId!, v.provinceId, v.productVariantId ?? null);
+      const g = gruppi.get(chiave) ?? { productId: v.productId!, productVariantId: v.productVariantId ?? null, provinceId: v.provinceId, perPartner: new Map(), ultima: v };
       g.perPartner.set(v.partnerId!, [...(g.perPartner.get(v.partnerId!) ?? []), v]);
       if (v.createdAt >= g.ultima.createdAt) g.ultima = v;
       gruppi.set(chiave, g);
@@ -175,9 +218,9 @@ export class RiconciliazioniService {
 
     const esistenti = await this.prisma.productReconciliation.findMany({
       where: { productId: { in: [...new Set([...gruppi.values()].map((g) => g.productId))] } },
-      select: { id: true, productId: true, provinceId: true, status: true },
+      select: { id: true, productId: true, productVariantId: true, provinceId: true, status: true },
     });
-    const esistente = new Map(esistenti.map((e) => [`${e.productId}|${e.provinceId}`, e]));
+    const esistente = new Map(esistenti.map((e) => [chiaveDi(e.productId, e.provinceId, e.productVariantId ?? null), e]));
 
     const partnerIds = new Set<string>();
     for (const g of gruppi.values()) for (const id of g.perPartner.keys()) partnerIds.add(id);
@@ -211,8 +254,10 @@ export class RiconciliazioniService {
             prezzoMin: arrotonda(Math.min(...amounts)),
             prezzoMax: arrotonda(Math.max(...amounts)),
             prezzoModa: moda(amounts),
-            // Il NETTO del partner, vendita per vendita: è il numero del patto.
-            nettoModa: moda(lista.map((v) => arrotonda(v.amount * (1 - v.discountPercent / 100)))),
+            // Il numero del patto: quello DATO, quando la consegna lo dice.
+            nettoModa: moda(lista.map((v) => datoAlPartner(v).valore)),
+            /** false = nessuna consegna lo conferma: è un suggerimento, non un fatto. */
+            daSuggerimento: !lista.some((v) => datoAlPartner(v).reale),
             scontoMedio: arrotonda(lista.reduce((n, v) => n + v.discountPercent, 0) / lista.length),
             ultimaVendita: lista[lista.length - 1].createdAt.toISOString(),
           };
@@ -240,7 +285,7 @@ export class RiconciliazioniService {
         toccate.push(gia.id);
       } else {
         const r = await this.prisma.productReconciliation.create({
-          data: { productId: g.productId, provinceId: g.provinceId, status: 'proposta', ...dati },
+          data: { productId: g.productId, productVariantId: g.productVariantId, provinceId: g.provinceId, status: 'proposta', ...dati },
           select: { id: true },
         });
         proposteNuove++;
@@ -264,10 +309,22 @@ export class RiconciliazioniService {
       where: {
         ...(filtro.ids ? { id: { in: filtro.ids } } : {}),
         ...(filtro.stato && filtro.stato !== 'tutte' ? { status: filtro.stato } : {}),
+        // ⭐ 07/09/2026 (regola utente): le PROPOSTE si mostrano solo per i prodotti dove
+        // servono («bouquet ortensie blu non ci deve essere, 15 rose rosse non ci deve
+        // essere»). I patti già ACCETTATI restano visibili comunque: sono accordi presi, e
+        // nasconderli perché la regola di oggi è cambiata sarebbe riscrivere la storia.
+        ...(filtro.ids
+          ? {}
+          : {
+              OR: [
+                { status: { not: 'proposta' } },
+                { product: { type: 'NON_UNICO', tipologiaVendita: 'preventivo' } },
+              ],
+            }),
       },
       orderBy: [{ updatedAt: 'desc' }],
       take: filtro.limite ?? 500,
-      include: { product: { select: { name: true, sku: true, type: true, price: true, hasVariants: true } } },
+      include: { product: { select: { name: true, sku: true, type: true, price: true, hasVariants: true } }, variant: { select: { id: true, name: true, sku: true } } },
     });
     const partnerIds = new Set(righe.map((r) => r.partnerId));
     const provinceIds = new Set(righe.map((r) => r.provinceId));
@@ -284,12 +341,16 @@ export class RiconciliazioniService {
     const consegnaDiVendita = new Map(vendite.map((v) => [v.id, v.deliveryId]));
     const consegnaPerId = new Map(consegne.map((c) => [c.id, c]));
     const [partner, province] = await Promise.all([
-      this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true } }),
+      this.prisma.partner.findMany({ where: { id: { in: [...partnerIds] } }, select: { id: true, insegna: true, active: true, esclusoDalleProposte: true } }),
       this.prisma.province.findMany({ where: { id: { in: [...provinceIds] } }, select: { id: true, name: true, code: true } }),
     ]);
     const nome = new Map(partner.map((p) => [p.id, p]));
     const prov = new Map(province.map((p) => [p.id, p]));
-    return righe.map((r) => ({
+    // ⭐ 07/09/2026: le PROPOSTE di un partner spento o cancellato non si mostrano — nessuno
+    // può accettarle e restano lì a fare rumore. Le righe già ACCETTATE si vedono comunque:
+    // sono accordi presi, e servono a capire un prezzo scritto ieri.
+    const visibili = righe.filter((r) => r.status !== 'proposta' || (nome.get(r.partnerId)?.active && !nome.get(r.partnerId)?.esclusoDalleProposte));
+    return visibili.map((r) => ({
       id: r.id,
       productId: r.productId,
       prodotto: r.product.name,
@@ -297,6 +358,9 @@ export class RiconciliazioniService {
       tipoProdotto: r.product.type,
       prezzoListino: r.product.price,
       conVarianti: r.product.hasVariants,
+      productVariantId: r.productVariantId ?? null,
+      variante: r.variant?.name ?? null,
+      varianteSku: r.variant?.sku ?? null,
       provinceId: r.provinceId,
       provincia: prov.get(r.provinceId)?.name ?? null,
       provinciaCodice: prov.get(r.provinceId)?.code ?? null,
@@ -332,7 +396,7 @@ export class RiconciliazioniService {
   async daVendita(saleId: string, partnerId: string, user: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id: saleId },
-      select: { productId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
+      select: { productId: true, productVariantId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
     });
     if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
     const partner = await this.prisma.partner.findUnique({
@@ -344,14 +408,14 @@ export class RiconciliazioniService {
     if ((await this.esclusiIds()).includes(partnerId)) {
       throw new BadRequestException('Il partner è escluso dalle riconciliazioni.');
     }
-    const gia = await this.prisma.productReconciliation.findUnique({
-      where: { productId_provinceId: { productId: vendita.productId, provinceId: vendita.provinceId } },
+    const gia = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
       select: { id: true, status: true },
     });
     if (gia && gia.status !== 'proposta') {
       throw new BadRequestException(
         gia.status === 'accettata'
-          ? 'Per questo prodotto in questa provincia esiste già una regola attiva: modificala in Riconciliazioni.'
+          ? 'Per questo prodotto (stessa variante) in questa provincia esiste già una regola attiva: modificala in Riconciliazioni.'
           : 'Questa coppia era stata rifiutata: riaprila dalla pagina Riconciliazioni.',
       );
     }
@@ -372,7 +436,7 @@ export class RiconciliazioniService {
     const riga = gia
       ? await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: dati, select: { id: true } })
       : await this.prisma.productReconciliation.create({
-          data: { productId: vendita.productId, provinceId: vendita.provinceId, ...dati },
+          data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, ...dati },
           select: { id: true },
         });
     void user;

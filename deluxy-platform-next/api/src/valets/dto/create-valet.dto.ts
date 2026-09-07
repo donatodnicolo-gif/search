@@ -169,6 +169,12 @@ export class CreateValetDto {
   @IsString({ each: true })
   provinceIds?: string[];
 
+  @ApiPropertyOptional({ type: [String], description: 'Aree del valet (id di Area): le province effettive sono la loro unione' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  areaIds?: string[];
+
   @ApiPropertyOptional({ type: [ValetServiceDto], description: 'Servizi con salario' })
   @IsOptional()
   @IsArray()

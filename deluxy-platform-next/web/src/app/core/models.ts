@@ -54,6 +54,18 @@ export interface Delivery {
   deliveryRule?: { name: string } | null;
   paymentOnDelivery: boolean;
   paymentAmount?: number;
+  /** ⭐ 05/09/2026: codice del valet al ritiro. */
+  valetIdentityCheck?: boolean;
+  deliveryCodeRequired?: boolean;
+  pickupVerifiedAt?: string | null;
+  /** ⭐ 06/09/2026: puntualità calcolata dal server (stessa regola delle Statistiche). */
+  puntualita?: { esito: 'in_orario' | 'in_ritardo' | 'in_anticipo'; minuti: number } | null;
+  deliveredAt?: string | null;
+  /** Riconsegne nate da questa: una non consegnata senza figlie è «da gestire». */
+  childDeliveries?: { id: string; code?: number }[];
+  /** ⭐ 07/09/2026: da quale consegna non riuscita nasce questa (si risale anche dall'elenco). */
+  parentDelivery?: { id: string; code: number } | null;
+  startedAt?: string | null;
   price?: number;
   /** Paga del valet: arrivano SOLO al valet della consegna (maschera server). */
   valetSalary?: number | null;
@@ -61,7 +73,18 @@ export interface Delivery {
   valetSalaryDalListino?: number | null;
   partner?: { id: string; insegna: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
-  serviceType?: { id: string; name: string; pricingModel: string; scope?: string };
+  serviceType?: { id: string; name: string; pricingModel: string; scope?: string; hoursApproval?: boolean };
+  /** Il documento di trasporto: numero e negozio che lo ha emesso. */
+  ddtNumber?: string | null;
+  ddtBrand?: string | null;
+  /** ⭐ 05/09/2026: la vendita da cui nasce, sui servizi di vendita. */
+  vendita?: { id: string; ordine: string | null; brand: string | null; stato: string } | null;
+  /** ⭐ 04/09/2026: ore dichiarate dal valet e decisione del partner. */
+  hoursFrom?: string | null;
+  hoursTo?: string | null;
+  hoursOriginal?: number | null;
+  hoursDecision?: string | null;
+  hoursDecidedBy?: string | null;
   /** Provincia SALVATA (geocodificata dal server): l'assegnazione la usa così
    *  com'è, senza ri-dedurla dalla stringa dell'indirizzo (fragile). */
   province?: { id: string; code: string; name: string } | null;
@@ -74,9 +97,31 @@ export interface Province {
   cities?: { name: string }[];
 }
 
+/** ⭐ 06/09/2026: le AREE — gruppi di province con un nome, assegnate ai partner. */
+export interface Area {
+  id: string;
+  nome: string;
+  note?: string | null;
+  attiva: boolean;
+  province: { id: string; code: string; name: string }[];
+  partner?: number;
+}
+
+/** ⭐ 06/09/2026: i MESTIERI (8) — il livello nostro fra le categorie del catalogo e i partner. */
+export interface Mestiere {
+  id: string;
+  chiave: string;
+  nome: string;
+  ordine: number;
+  smistamentoAutomatico: boolean;
+  attivo: boolean;
+}
+
 export interface Category {
   id: string;
   name: string;
+  /** ⭐ 06/09/2026: il mestiere che raccoglie la categoria (null = da assegnare). */
+  mestiereId?: string | null;
   notes?: string;
   aiPrompt?: string;
   fields?: { id: string; name: string; fieldType: string }[];
@@ -110,6 +155,10 @@ export interface ProductRef {
   platforms?: string | null;
   /** Gestito dall'ufficio: il partner lo vede a catalogo ma non lo tocca. */
   notEditable?: boolean;
+  /** ⭐ 06/09/2026: stock gestito in piattaforma (solo se controlStock). */
+  controlStock?: boolean;
+  stock?: number | null;
+  variants?: { id: string; name: string; price?: number | null; active?: boolean; controlStock?: boolean; stock?: number | null }[];
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
 }
@@ -163,7 +212,22 @@ export interface Partner {
   contactName?: string;
   paymentStatus?: string;
   active: boolean;
-  provinces?: { province: Province }[];
+  /** ⭐ 05/09/2026: politica del partner — al ritiro si verifica il codice del valet. */
+  valetIdentityCheck?: boolean;
+  deliveryCodeRequired?: boolean;
+  /** ⭐ 06/09/2026: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna». */
+  autoDeliveredByPartner?: boolean;
+  /** ⭐ 06/09 sera: escluso dalle proposte automatiche (partner «nostro» di ripiego). */
+  esclusoDalleProposte?: boolean;
+  /** ⭐ 06/09/2026: minimo che il partner vuole incassare su una vendita (€); null = nessun minimo. */
+  minimoOrdineVendita?: number | null;
+  /** ⭐ 06/09/2026: raggio massimo (km) per le consegne che fa lui; null = nessun limite. */
+  raggioMaxConsegnaKm?: number | null;
+  /** ⭐ 06/09 sera: area di CONSEGNA (dove consegna da solo), minimo e raggio per provincia. */
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null; province?: { id: string; code: string; name: string } }[];
+  mestieri?: { mestiere: Mestiere; origine?: string }[];
+  aree?: { area: { id: string; nome: string } }[];
+  provinces?: { province: Province; manuale?: boolean }[];
   /**
    * I servizi che il partner ha a listino, col PREZZO.
    * ⚠️ Il prezzo arriva gia' in questa risposta (PARTNER_INCLUDE lato API): il
@@ -182,6 +246,10 @@ export interface Partner {
 
 export interface Valet {
   id: string;
+  /** ⭐ 06/09/2026: le aree del valet (le province effettive sono la loro unione). */
+  aree?: { area: { id: string; nome: string } }[];
+  /** ⭐ 06/09/2026: il codice del valet (id del legacy), personale: sblocca il ritiro verificato. */
+  legacyId?: number | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -189,7 +257,7 @@ export interface Valet {
   vehicle?: string;
   isTeamLeader: boolean;
   active: boolean;
-  provinces?: { province: Province }[];
+  provinces?: { province: Province; manuale?: boolean }[];
 }
 
 export const VEHICLE_OPTIONS = ['Auto', 'Bicicletta', 'Furgone', 'Moto/Scooter'];
@@ -208,7 +276,7 @@ export interface ValetRef {
   /** Account segnaposto dell'import: non è una persona da proporre. */
   placeholder?: boolean;
   salaryFrequency?: string; // monthly | weekly
-  provinces?: { province: Province }[];
+  provinces?: { province: Province; manuale?: boolean }[];
   /** Il listino del valet: serve a proporre solo chi ha il servizio abilitato. */
   services?: { serviceTypeId?: string; serviceType?: { id?: string } | null }[];
 }

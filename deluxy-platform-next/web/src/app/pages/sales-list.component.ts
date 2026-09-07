@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, NgZone, computed, inject, signal } from '@angular/core';
 import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { loadGoogleMaps } from '../core/google-maps';
 import { DeliveryFormComponent } from './delivery-form.component';
 import { ConfermaComponent } from '../shared/conferma.component';
 
@@ -25,11 +26,30 @@ interface RigaStorico {
   nettoModa: number;
   ultimaData: string;
   ultimoOrdine: string | null;
+  ultimoProdotto?: string | null;
+  ultimaVariante?: string | null;
+  ultimaConsegna?: string | null;
   ultimaProvincia: string | null;
   vecchia: boolean;
 }
 
 /** ⭐ 04/09 (regola utente): consegne di tipo vendita allo stesso indirizzo. */
+interface ProdottoVendita {
+  id?: string;
+  name?: string;
+  /** ⭐ 07/09/2026: unico | quantita | mix | preventivo — decide se serve il preventivo. */
+  tipologiaVendita?: string | null;
+  /** La specifica che arriva da Merchandising: «20-25 fiori», «18-20 cm». */
+  note?: string | null;
+  sku?: string | null;
+  line?: string | null;
+  imageUrl?: string | null;
+  /** JSON: array di URL (galleria Shopify). */
+  images?: string | null;
+  /** Il PARTNER CHE LO FA. Vuoto per il ruolo partner: è un altro partner. */
+  partner?: { id: string; insegna: string } | null;
+}
+
 interface ConsegnaVicina {
   id: string;
   code: number;
@@ -40,6 +60,8 @@ interface ConsegnaVicina {
   prezzo: number | null;
   partner: string | null;
   servizio: string | null;
+  /** Da che cosa è stata trovata: il DDT (forte) o l'indirizzo (indiziario). */
+  motivo?: 'ddt' | 'indirizzo';
 }
 
 interface Storico {
@@ -54,6 +76,8 @@ interface Storico {
 interface Sale {
   id: string;
   status: string;
+  /** ⭐ 07/09/2026: prodotto a preventivo senza prezzo concordato — prima si raccoglie quello. */
+  preventivoMancante?: boolean;
   brand: string;
   amount: number | null;
   /** Al PARTNER arriva solo questo: importo × (1 − sconto%). */
@@ -66,7 +90,7 @@ interface Sale {
   /** Link all'ordine su Shopify: lo costruisce il server, e all'ufficio soltanto. */
   shopifyUrl?: string | null;
   source: string;
-  product?: { id: string; name: string } | null;
+  product?: ProdottoVendita | null;
   variantName?: string | null;
   partner?: { id: string; insegna: string } | null;
   province?: { id: string; code: string; name: string } | null;
@@ -108,11 +132,19 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
   annullata: { etichetta: 'Annullata', colore: '#8e8e93' },
 };
 
+/**
+ * Il Google Plus Code in testa a un indirizzo (es. «F6P2+7H5, Piazza Duca…»):
+ * è un codice di posizione, non un indirizzo leggibile, e si toglie.
+ * ⚠️ Sta qui fuori perché un letterale di espressione regolare dentro un
+ * template Angular non si può scrivere.
+ */
+const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
+
 /** Operatività → Vendite: gli ordini smistati ai partner. */
 @Component({
   selector: 'app-sales-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent, ConfermaComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent, ConfermaComponent, RouterLink],
   template: `
     <div class="page-header">
       <div>
@@ -205,12 +237,27 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       </section>
     } @else {
 
-      <div class="table-wrap card">
+      <!-- ⭐ 05/09/2026 — COLONNE CONGELATE (Libro §8 v2.0, verdetto del
+           custode UX su segnalazione dell'utente: «scorrendo a destra la
+           tabella diventa così», con numero d'ordine e data spariti).
+           L'identità resta a sinistra, le azioni a destra: chi deve solo
+           accettare o rifiutare non scorre più. -->
+      <div class="table-wrap card col-fisse">
         <table class="table">
           <!-- ⭐ 03/09 (regola utente): colonne ordinabili al click; il default
                è la DATA DI CONSEGNA più urgente in cima. -->
           <thead>
             <tr>
+              <!-- ⭐ 04/09/2026 (regola utente): LA DATA DI CONSEGNA È LA PRIMA COLONNA.
+                   È la domanda con cui si guarda questo elenco — «che cosa parte
+                   quando» — e l'ordinamento di default è già suo. -->
+              <!-- ⚠️ Il blocco congelato parte dal BORDO: la colonna
+                   congelata dev'essere la PRIMA. Qui la prima è la data di
+                   consegna per una regola dell'utente del 04/09, quindi
+                   l'identità (numero d'ordine) viaggia dentro questa stessa
+                   cella come sotto-testo — invece di congelarne due, che il
+                   custode vieta. -->
+              <th class="ordinabile col-id" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
               <th class="ordinabile" (click)="ordina('status')">{{ 'sales.col.status' | translate }}{{ freccia('status') }}</th>
               <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
               <!-- ⭐ 04/09 (regola utente): lo stato dell'ordine in Orders, dal vivo. -->
@@ -218,13 +265,16 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
-              <th class="ordinabile" (click)="ordina('deliveryDate')">{{ 'sales.col.delivery' | translate }}{{ freccia('deliveryDate') }}</th>
-              <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.amount') | translate }}{{ freccia('amount') }}</th>
+              <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.publicPrice') | translate }}{{ freccia('amount') }}</th>
+              <!-- ⭐ 04/09 (regola utente): all'ufficio servono tutt'e due i numeri. -->
+              @if (!isPartner()) {
+                <th class="num">{{ 'sales.col.partnerPrice' | translate }}</th>
+              }
               <!-- ⭐ 04/09 (regola utente): nello STORICO si vede QUANDO ci è andata. -->
               @if (filtro() === 'storico') {
                 <th class="ordinabile" (click)="ordina('historyAt')">{{ 'sales.col.historyAt' | translate }}{{ freccia('historyAt') }}</th>
               }
-              <th></th>
+              <th class="azioni"></th>
             </tr>
           </thead>
           <tbody>
@@ -232,6 +282,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <!-- ⭐ 04/09 (regola utente): la riga apre il POP-UP di dettaglio
                    (come nel Customer Service); i bottoni fermano il click. -->
               <tr class="riga-link" (click)="apriDettaglio(s)">
+                <td class="col-id">{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}
+                  @if (s.externalOrderNumber) {
+                    <div class="cella-sub mono">#{{ s.externalOrderNumber }}</div>
+                  }
+                </td>
                 <td>
                   <span class="badge" [style.--c]="colore(s.status)">
                     <i class="dot"></i>{{ etichetta(s.status) }}
@@ -246,19 +301,27 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     @if (sottoOrders(s.ordine); as sub) { <span class="motivo">{{ sub }}</span> }
                   } @else { <span class="muted">—</span> }
                 </td>
-                <td>{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
+                <td class="prodotto">@if (fotoProdotto(s).length) { <button type="button" class="nome-prodotto" (click)="apriFoto(s); $event.stopPropagation()" [title]="'sales.detail.photos' | translate">{{ s.product?.name }}</button> } @else { {{ s.product?.name ?? s.productName ?? '—' }} }@if (!s.product && s.productName) { <span class="muted"> · {{ 'sales.fuoriCatalogo' | translate }}</span> }@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
                   @if (s.assignmentReason) {
                     <span class="motivo">{{ s.assignmentReason }}</span>
                   }
                 </td>
-                <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
                 <td class="num">{{ (s.prezzoPartner ?? s.amount) | number: '1.2-2' }} €</td>
+                @if (!isPartner()) {
+                  <td class="num">{{ nettoPartner(s) | number: '1.2-2' }} €
+                    @if (s.discountPercent) { <span class="muted"> −{{ s.discountPercent }}%</span> }
+                  </td>
+                }
                 @if (filtro() === 'storico') {
                   <td class="mono">{{ s.historyAt ? (s.historyAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                 }
                 <td class="azioni" (click)="$event.stopPropagation()">
+                  <!-- ⚠️ Il flex sta su questo div, NON sul <td>: una cella di
+                       tabella con display:flex esce dal layout tabellare e
+                       «position: sticky; right: 0» smette di funzionare. -->
+                  <div class="azioni-riga">
                   <!-- ⭐ 04/09 (regola utente): ordine NON CONFORME in Orders =
                        non si manda avanti. Resta solo «Rifiuta». -->
                   @if (nonConforme(s)) {
@@ -269,7 +332,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                       </button>
                     }
                   } @else {
-                  @if (s.status === 'proposta' && puoRispondere(s)) {
+                  <!-- ⭐ 07/09/2026 (regola utente): finché manca il preventivo non si accetta,
+                       non si rifiuta e non si inserisce. Si raccoglie il prezzo, e basta. -->
+                  @if (s.status === 'proposta' && puoRispondere(s) && !serveIlPreventivo(s)) {
                     <button class="btn btn-primary mini" [disabled]="inCorso() === s.id" (click)="accetta(s)">
                       {{ 'sales.accept' | translate }}
                     </button>
@@ -279,14 +344,24 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                   }
                   <!-- ⭐ 04/09 (regola utente): l'UFFICIO rifiuta anche una vendita
                        da gestire — chiude in storico come non accettata. -->
-                  @if (canManage() && s.status === 'da_gestire') {
+                  @if (canManage() && s.status === 'da_gestire' && !serveIlPreventivo(s)) {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="rifiuta(s)">
                       {{ 'sales.refuse' | translate }}
                     </button>
                   }
                   <!-- L'ufficio prende in mano: ferma il giro automatico e
                        apre il form consegna coi dati della vendita (31/08). -->
-                  @if (canManage() && (s.status === 'proposta' || s.status === 'da_gestire')) {
+                  <!-- ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO si inserisce solo
+                       dopo aver salvato il prezzo del partner — e salvarlo crea la regola per
+                       le prossime volte. Il bottone sta accanto a «Inserisci», non altrove. -->
+                  @if (canManage() && aPreventivo(s) && (s.status === 'proposta' || s.status === 'da_gestire')) {
+                    <button class="btn mini" [class.btn-primary]="serveIlPreventivo(s)" [class.btn-secondary]="!serveIlPreventivo(s)"
+                            [disabled]="inCorso() === s.id" (click)="apriPreventivo(s)"
+                            [title]="serveIlPreventivo(s) ? ('sales.detail.preventivoServe' | translate) : ''">
+                      {{ (serveIlPreventivo(s) ? 'sales.detail.chiediPreventivo' : 'sales.detail.salvaPreventivo') | translate }}
+                    </button>
+                  }
+                  @if (canManage() && !serveIlPreventivo(s) && (s.status === 'proposta' || s.status === 'da_gestire')) {
                     <button class="btn btn-secondary mini" [disabled]="inCorso() === s.id" (click)="inserisci(s)">
                       {{ 'sales.inserisci' | translate }}
                     </button>
@@ -295,16 +370,22 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                   <!-- ⭐ 03/09 (regola utente): la vendita si MODIFICA da qui —
                        i dati (importo, destinatario, data, provincia), non lo
                        stato, che ha le sue azioni. -->
+                  <!-- ⭐ 06/09/2026 (regola utente): da ogni vendita si richiama l'app
+                       Ricerca fornitori con l'ordine già caricato (brand + numero). -->
+                  @if (canManage() && linkRicercaFornitore(s); as u) {
+                    <a class="btn btn-secondary mini" [href]="u" target="_blank" rel="noopener" (click)="$event.stopPropagation()">{{ 'sales.cercaFornitore' | translate }}</a>
+                  }
                   @if (canManage()) {
                     <button class="btn btn-secondary mini" (click)="apriModifica(s)">
                       {{ (modificaId() === s.id ? 'common.cancel' : 'sales.edit') | translate }}
                     </button>
                   }
+                  </div>
                 </td>
               </tr>
               @if (modificaId() === s.id) {
                 <tr class="mod-row" (click)="$event.stopPropagation()">
-                  <td [attr.colspan]="filtro() === 'storico' ? 10 : 9">
+                  <td [attr.colspan]="(filtro() === 'storico' ? 10 : 9) + (isPartner() ? 0 : 1)">
                     <div class="mod-grid">
                       <label><span>{{ 'sales.col.amount' | translate }}</span>
                         <input class="field num" type="number" min="0" step="0.01" [(ngModel)]="mod.amount" /></label>
@@ -320,8 +401,23 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                         <input class="field" [(ngModel)]="mod.recipientLastName" /></label>
                       <label><span>{{ 'sales.mod.telefono' | translate }}</span>
                         <input class="field" [(ngModel)]="mod.recipientPhone" /></label>
+                      <!-- ⭐ 05/09/2026 (regola utente): «modifica indirizzo in
+                           modifica vendita deve essere sincronizzato con Google
+                           Maps». Stesse regole del modulo consegna: si sceglie
+                           dai suggerimenti, e quello che si scrive a mano viene
+                           normalizzato uscendo dal campo. L'indirizzo della
+                           vendita decide la provincia, e la provincia decide a
+                           chi va l'ordine: un indirizzo che Google non
+                           riconosce è un ordine smistato male. -->
                       <label class="largo"><span>{{ 'sales.mod.indirizzo' | translate }}</span>
-                        <input class="field" [(ngModel)]="mod.recipientAddress" /></label>
+                        <input class="field mod-indirizzo" [(ngModel)]="mod.recipientAddress"
+                               (blur)="normalizzaIndirizzo()" autocomplete="off" /></label>
+                      @if (mapsMancante()) {
+                        <div class="mod-errore largo">{{ 'sales.mod.mapsMancante' | translate }}</div>
+                      }
+                      @if (provinciaDaGoogle(); as pc) {
+                        <div class="mod-nota largo">{{ 'sales.mod.provinciaDaGoogle' | translate: { provincia: pc } }}</div>
+                      }
                     </div>
                     @if (modErrore(); as e) { <div class="mod-errore">{{ e }}</div> }
                     <div class="mod-azioni">
@@ -356,6 +452,20 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       </div>
     }
 
+    <!-- ⭐ 05/09/2026 (regola utente): le FOTO del prodotto, a schermo. -->
+    @if (foto().length) {
+      <div class="foto-velo" (click)="chiudiFoto()"></div>
+      <div class="foto-box" role="dialog" aria-modal="true">
+        <button type="button" class="foto-x" (click)="chiudiFoto()"
+                [attr.aria-label]="'common.close' | translate">×</button>
+        <div class="foto-scorri">
+          @for (u of foto(); track u) {
+            <img [src]="u" [alt]="'sales.detail.photos' | translate" loading="lazy" />
+          }
+        </div>
+      </div>
+    }
+
     <!-- ⭐ 04/09 (regola utente): POP-UP DI DETTAGLIO della vendita, identico
          nella struttura a quello del Customer Service (velo + pannello, testata
          con numero e stato, coppie dt/dd, in fondo il REGISTRO con chi ha fatto
@@ -370,6 +480,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             <span class="badge" [style.--c]="colore(v.status)"><i class="dot"></i>{{ etichetta(v.status) }}</span>
           </div>
           <div class="pan-azioni">
+            @if (canManage() && linkRicercaFornitore(v); as u) {
+              <a class="btn btn-secondary mini" [href]="u" target="_blank" rel="noopener">{{ 'sales.cercaFornitore' | translate }}</a>
+            }
             @if (nonConforme(v)) {
               @if ((v.status === 'proposta' && puoRispondere(v)) || (canManage() && v.status === 'da_gestire')) {
                 <button class="btn btn-secondary mini" [disabled]="inCorso() === v.id" (click)="rifiuta(v)">{{ 'sales.refuse' | translate }}</button>
@@ -389,8 +502,19 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <a class="btn btn-secondary mini" [href]="v.shopifyUrl" target="_blank" rel="noopener">{{ 'sales.detail.shopify' | translate }}</a>
             }
             }
-            <button type="button" class="ins-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate">×</button>
+            <!-- ⭐ 05/09/2026 (regola utente): «nel pop-up dei dettagli della
+                 vendita manca il tasto modifica». Sta FUORI dal ramo «non
+                 conforme»: i dati si correggono soprattutto quando qualcosa
+                 non torna. Chiude il pop-up e apre il riquadro di modifica
+                 sulla riga — è lì che i campi si scrivono. -->
+            @if (canManage()) {
+              <button class="btn btn-secondary mini" (click)="modificaDalDettaglio(v)">{{ 'sales.edit' | translate }}</button>
+            }
           </div>
+          <!-- ⭐ 06/09/2026 sera (segnalazione utente, Libro UX §9 e §9-ter): la ✕ è OBBLIGATORIA e sta
+               NELL'ANGOLO in alto a destra della testata, staccata dalle azioni: in fila con le pillole
+               grigie non si riconosceva come «chiudi». La testata è sticky: resta visibile scorrendo. -->
+          <button type="button" class="pan-x" (click)="chiudiDettaglio()" [attr.aria-label]="'common.close' | translate" [attr.title]="'common.close' | translate">×</button>
         </header>
 
         @if (nonConforme(v)) {
@@ -402,8 +526,72 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         <section class="card pan-card">
           <h3>{{ 'sales.detail.title' | translate }}</h3>
           <dl class="coppie">
+            <!-- ⭐ 06/09/2026 sera (segnalazione utente: «non riporta i prodotti di questa vendita
+                 correttamente, sono indicate solo le rose»). La VENDITA porta un prodotto solo — il
+                 primo SKU riconosciuto — ma l'ordine ne ha spesso di più: qui si mostrano TUTTE le
+                 righe dell'ordine, lette da Orders, col segno su quella che ha generato la vendita. -->
+            @if (ordine()?.prodotti?.length) {
+              <dt>{{ 'sales.detail.righeOrdine' | translate: { n: ordine()!.prodotti!.length } }}</dt>
+              <dd>
+                <!-- ⭐ 07/09/2026 (regola utente «devo poter vedere foto e produttore di tutti
+                     i prodotti nell'ordine»): ogni riga con la sua foto, chi lo fa, la nota di
+                     specifica (quanti fiori) e dove è finita — la sua vendita e la sua consegna. -->
+                <ul class="righe-ordine ricche">
+                  @for (r of ordine()!.prodotti!; track $index) {
+                    <li>
+                      @if (r.immagine) {
+                        <img class="mini" [src]="r.immagine" [alt]="r.nome || ''" loading="lazy" />
+                      } @else { <span class="mini vuota" aria-hidden="true"></span> }
+                      <span class="testo">
+                        <b><span class="q">{{ r.quantita }}×</span> {{ r.nome || '—' }}</b>
+                        @if (r.productId && r.productId === v.product?.id) { <span class="qui">{{ 'sales.detail.rigaDellaVendita' | translate }}</span> }
+                        <span class="sotto">
+                          @if (r.produttore) { <span>{{ 'sales.detail.loFa' | translate: { chi: r.produttore } }}</span> }
+                          @if (r.prezzo != null) { <span class="muted"> · {{ r.prezzo | number: '1.2-2' }} €</span> }
+                          @if (r.sku) { <span class="muted"> · {{ r.sku }}</span> }
+                        </span>
+                        @if (r.nota) { <span class="nota">{{ r.nota }}</span> }
+                        <span class="sotto">
+                          @if (r.consegnaId) { <a [routerLink]="['/deliveries', r.consegnaId]">{{ 'sales.detail.inConsegna' | translate }}</a> }
+                          @else if (r.venditaId) { <span class="manca">{{ 'sales.detail.venditaSenzaConsegna' | translate }}</span> }
+                          @else if (r.productId) { <span class="manca">{{ 'sales.detail.nessunaVendita' | translate }}</span> }
+                        </span>
+                      </span>
+                    </li>
+                  }
+                </ul>
+                @if (ordine()?.incompleto) {
+                  <p class="alert-composto">{{ 'sales.detail.ordineIncompleto' | translate }}</p>
+                }
+              </dd>
+            }
             <dt>{{ 'sales.detail.product' | translate }}</dt>
-            <dd>{{ v.product?.name ?? v.productName ?? '—' }}@if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }</dd>
+            <dd>
+              <!-- ⭐ 05/09/2026 (regola utente): il nome del prodotto si clicca
+                   e si vedono le foto. Se foto non ce ne sono resta testo: un
+                   comando che non fa niente è peggio di nessun comando. -->
+              @if (fotoProdotto(v).length) {
+                <button type="button" class="nome-prodotto" (click)="apriFoto(v)"
+                        [title]="'sales.detail.photos' | translate">
+                  {{ v.product?.name ?? v.productName ?? '—' }}
+                  <span class="conta-foto">🖼 {{ fotoProdotto(v).length }}</span>
+                </button>
+              } @else {
+                {{ v.product?.name ?? v.productName ?? '—' }}
+              }
+              @if (v.variantName) { <span class="muted"> ({{ v.variantName }})</span> }
+              @if (v.product?.sku) { <span class="muted"> · SKU {{ v.product?.sku }}</span> }
+              <!-- Il PRODUTTORE: il partner che fa il prodotto. Non è per forza
+                   quello a cui la vendita è stata proposta. -->
+              @if (v.product?.partner?.insegna; as chi) {
+                <div class="muted">{{ 'sales.detail.maker' | translate: { chi: chi } }}</div>
+              } @else if (v.product?.line) {
+                <div class="muted">{{ 'sales.detail.line' | translate: { linea: v.product?.line } }}</div>
+              }
+              <!-- ⭐ 07/09/2026 (regola utente): la NOTA DI SPECIFICA anche qui, sul prodotto
+                   della vendita: è quello che il fioraio deve mettere dentro. -->
+              @if (v.product?.note; as nota) { <div class="nota-specifica">{{ nota }}</div> }
+            </dd>
             <dt>{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.detail.amount') | translate }}</dt>
             @if (isPartner()) {
               <dd>{{ v.prezzoPartner | number: '1.2-2' }} €</dd>
@@ -454,6 +642,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                           <span>
                             <a [href]="'/deliveries/' + c.id" target="_blank" rel="noopener"><b>#{{ c.code }}</b></a>
                             <span class="muted"> · {{ c.date ? (c.date | date: 'dd/MM/yy') : '—' }}@if (c.partner) { · {{ c.partner }} }@if (c.servizio) { · {{ c.servizio }} }@if (c.ddt) { · DDT {{ c.ddt }} }</span>
+                            <!-- Una riga proposta deve dire PERCHÉ è lì: il DDT
+                                 uguale è una prova, l'indirizzo è un indizio. -->
+                            <span class="perche">{{ ('sales.reconcile.by.' + (c.motivo ?? 'indirizzo')) | translate }}</span>
                           </span>
                           <button type="button" class="btn btn-primary mini" [disabled]="inCorso() === v.id"
                                   (click)="riconciliaCon(v, c)">{{ 'sales.reconcile.same' | translate }}</button>
@@ -465,7 +656,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               </dd>
             }
             <dt>{{ 'sales.detail.delivery' | translate }}</dt>
-            <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
+            <!-- ⭐ 06/09/2026 sera (segnalazione utente: «manca l'orario di consegna richiesto»):
+                 la fascia chiesta dal cliente sta sull'ordine (attributo Shopify), non sulla vendita. -->
+            <dd>{{ v.deliveryDate ? (v.deliveryDate | date: 'EEEE d MMMM yyyy') : ('sales.detail.notSet' | translate) }}@if (fasciaOrdine(); as f) { <b class="fascia">· {{ f }}</b> }@if (v.serviceType?.name) { <span class="muted"> · {{ v.serviceType?.name }}</span> }</dd>
             <dt>{{ 'sales.detail.linkedDelivery' | translate }}</dt>
             <dd>@if (v.delivery) { <a [href]="'/deliveries/' + v.delivery.id" target="_blank" rel="noopener">#{{ v.delivery.code }}</a> <span class="muted">· {{ 'status.delivery.' + v.delivery.status | translate }}</span> } @else { <span class="muted">{{ 'sales.detail.none' | translate }}</span> }</dd>
             <dt>{{ 'sales.col.orders' | translate }}</dt>
@@ -523,6 +716,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                         </td>
                         <td>
                           {{ r.ultimaData | date: 'dd/MM/yy' }}@if (r.ultimoOrdine) { <span class="muted"> · #{{ r.ultimoOrdine }}</span> }
+                          <!-- ⭐ 06/09 (regola utente): anche COSA è stato comprato (prodotto e variante) e la data di consegna. -->
+                          @if (r.ultimoProdotto || r.ultimaVariante) { <div class="cella-sub">{{ r.ultimoProdotto }}@if (r.ultimaVariante) { <span class="muted"> ({{ r.ultimaVariante }})</span> }</div> }
+                          @if (r.ultimaConsegna) { <div class="cella-sub muted">{{ 'sales.history.consegnata' | translate }} {{ r.ultimaConsegna | date: 'dd/MM/yy' }}</div> }
                           @if (st.base === 'altre-province' && r.ultimaProvincia) { <span class="muted"> · {{ r.ultimaProvincia }}</span> }
                           @if (r.vecchia) { <div class="cella-sub muted">{{ 'sales.history.old' | translate }}</div> }
                         </td>
@@ -533,7 +729,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                           }
                           @if (r.attivo && !r.escluso && r.operaInProvincia && st.base === 'coppia') {
                             <button type="button" class="btn btn-secondary mini" [disabled]="inCorso() === v.id"
-                                    (click)="creaRiconciliazione(v, r)">{{ 'sales.history.rule.create' | translate }}</button>
+                                    (click)="creaRiconciliazione(v, r)">{{ 'sales.history.createRule' | translate }}</button>
                           }
                         </td>
                       </tr>
@@ -568,6 +764,31 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
     @if (confermaPendente(); as c) {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     (confermato)="eseguiConferma()" (annullato)="confermaPendente.set(null)" />
+    }
+  
+    <!-- ⭐ 07/09/2026: il preventivo del partner. Salvarlo fa tre cose: dà il prezzo alla
+         vendita, la propone a quel partner e scrive la regola per gli ordini successivi. -->
+    @if (preventivoDi(); as pv) {
+      <div class="ins-overlay" (click)="preventivoDi.set(null)"></div>
+      <div class="ins-modal prev-modal" role="dialog" aria-modal="true">
+        <header class="ins-head">
+          <h2>{{ 'sales.detail.preventivoTitolo' | translate }}</h2>
+          <button type="button" class="chiudi" (click)="preventivoDi.set(null)" aria-label="Chiudi">✕</button>
+        </header>
+        <div class="prev-corpo">
+          <p class="muted">{{ 'sales.detail.preventivoSotto' | translate }}</p>
+          <p><b>{{ pv.product?.name || pv.productName }}</b> @if (pv.partner) { <span class="muted">· {{ pv.partner.insegna }}</span> }</p>
+          <label class="fld">
+            <span>{{ 'sales.detail.preventivoPrezzo' | translate }}</span>
+            <input class="field" type="number" step="0.01" min="0" [(ngModel)]="prezzoPreventivo" name="prezzoPreventivo" />
+          </label>
+          @if (messaggio(); as m) { <p [class.avviso-errore]="!m.ok">{{ m.testo }}</p> }
+          <div class="prev-azioni">
+            <button type="button" class="btn btn-secondary" (click)="preventivoDi.set(null)">{{ 'common.cancel' | translate }}</button>
+            <button type="button" class="btn btn-primary" [disabled]="inCorso() === pv.id" (click)="salvaPreventivo(pv)">{{ 'sales.detail.salvaPreventivo' | translate }}</button>
+          </div>
+        </div>
+      </div>
     }
   `,
   styles: [
@@ -626,7 +847,6 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
       /* La tabella non aveva NESSUNO stile (nessuna regola globale la copre):
          stesso vestito della lista consegne. */
-      .table-wrap { overflow-x: auto; }
       th.ordinabile { cursor: pointer; user-select: none; }
       th.ordinabile:hover { color: var(--text); }
       .mod-row td { background: var(--fill); padding: 14px 16px; }
@@ -636,6 +856,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .mod-grid .largo { grid-column: 1 / -1; }
       .mod-azioni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
       .mod-errore { margin-top: 8px; color: var(--red); font-size: 13px; }
+      .mod-nota { margin-top: 6px; color: var(--text-secondary); font-size: 12px; }
       .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       .table th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
@@ -644,8 +865,12 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .table tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
       .table tr:last-child td { border-bottom: none; }
       .table td { vertical-align: middle; }
-      .table td:nth-child(3) { white-space: normal; min-width: 220px; }
-      .azioni { display: flex; gap: 10px /* audit 31/08: 6px fra Accetta e Rifiuta, esiti opposti */; justify-content: flex-end; white-space: nowrap; }
+      /* ⚠️ Era «td:nth-child(3)», che dava il respiro alla colonna SBAGLIATA
+         (Stato in Orders, non Prodotto) e prendeva in pieno anche la riga di
+         modifica, che ha un solo td con colspan. Le colonne si scelgono per
+         classe: i numeri si spostano da soli quando una colonna è condizionale. */
+      .table td.prodotto { white-space: normal; min-width: 220px; }
+      .azioni-riga { display: flex; gap: 10px /* audit 31/08: 6px fra Accetta e Rifiuta, esiti opposti */; justify-content: flex-end; white-space: nowrap; }
       .btn.mini { padding: 4px 12px; font-size: 12.5px; }
       .vuoto { padding: 40px 28px; text-align: center; color: var(--text-secondary); font-size: 14px; }
       .esito { margin-top: 10px; color: var(--danger, #d70015); font-size: 13.5px; }
@@ -661,6 +886,25 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       /* ⭐ 04/09: pop-up di dettaglio — velo + pannello, come nel Customer
          Service. Il pannello sta dentro la viewport e scorre lui (Libro §9). */
       .riga-link { cursor: pointer; }
+      .nota-specifica { display: inline-block; margin-top: 4px; font-size: 12px; padding: 1px 8px; border-radius: 980px; background: var(--fill); color: var(--text-secondary); }
+      .prev-modal { max-width: 460px; }
+      .prev-corpo { padding: 16px 18px 18px; display: grid; gap: 10px; }
+      .prev-corpo .fld { display: grid; gap: 4px; font-size: 13px; }
+      .prev-azioni { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+      .righe-ordine.ricche { list-style: none; padding-left: 0; display: grid; gap: 8px; }
+      .righe-ordine.ricche li { display: flex; gap: 10px; align-items: flex-start; }
+      .righe-ordine .mini { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; border: 1px solid var(--hairline); flex: none; background: var(--fill); }
+      .righe-ordine .mini.vuota { display: inline-block; }
+      .righe-ordine .testo { display: grid; gap: 1px; min-width: 0; }
+      .righe-ordine .sotto { font-size: 12.5px; color: var(--text-secondary); }
+      .righe-ordine .nota { font-size: 12.5px; color: var(--text); background: var(--fill); border-radius: 6px; padding: 1px 7px; justify-self: start; }
+      .righe-ordine .qui { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; margin-left: 6px; color: var(--gold-strong, #B8963E); }
+      .righe-ordine .manca { color: var(--orange, #c93400); font-weight: 550; }
+      .alert-composto { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: rgba(201, 52, 0, .08); color: var(--orange, #c93400); font-size: 13px; font-weight: 550; }
+      .righe-ordine { margin: 0; padding-left: 18px; }
+      .righe-ordine li { margin: 1px 0; }
+      .righe-ordine .q { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+      .fascia { margin-left: 4px; }
       .velo { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; backdrop-filter: blur(2px); }
       .pannello { position: fixed; z-index: 91; top: 4vh; left: 50%; transform: translateX(-50%);
         width: min(760px, 94vw); max-height: 92vh; overflow-y: auto;
@@ -668,7 +912,10 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         padding: 0 18px 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.28); }
       .pan-testa { position: sticky; top: 0; z-index: 2; background: var(--bg, #f5f5f7);
         display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-        padding: 16px 0 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+        padding: 16px 44px 12px 0; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+      .pan-x { position: absolute; top: 12px; right: 0; border: 1px solid var(--hairline); background: var(--surface, #fff); width: 32px; height: 32px; border-radius: 50%;
+        font-size: 19px; line-height: 1; cursor: pointer; color: var(--text-secondary, #555); display: grid; place-items: center; }
+      .pan-x:hover { background: var(--fill, #f0f0f2); color: var(--text); }
       .pan-titolo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .pan-titolo h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
       .pan-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -678,8 +925,19 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .allarme div { color: var(--text); margin-top: 2px; }
       .ko-badge { background: rgba(215, 0, 21, 0.1); color: var(--danger, #b3261e); margin-right: 6px; }
       .regola-attiva { margin: 0 0 8px; font-size: 13px; font-weight: 550; }
+      .nome-prodotto { background: none; border: 0; padding: 0; font: inherit; color: var(--text-primary);
+        cursor: zoom-in; text-decoration: underline; text-underline-offset: 2px; }
+      .conta-foto { margin-left: 6px; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
+      /* ⭐ 06/09 (segnalazione utente): le foto stanno SOPRA il pop-up di dettaglio (z 95/96 > 90/91): prima si aprivano dietro e sembrava che il click non facesse niente. */
+      .foto-velo { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 95; }
+      .foto-box { position: fixed; inset: 5vh 5vw; z-index: 96; background: var(--surface, #fff);
+        border-radius: 14px; padding: 14px; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+      .foto-x { position: absolute; top: 8px; right: 10px; background: none; border: 0; font-size: 24px; cursor: pointer; }
+      .foto-scorri { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
+      .foto-scorri img { max-width: 100%; max-height: 70vh; border-radius: 10px; }
       ul.vicine { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
       ul.vicine li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+      .perche { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
       table.storico { width: 100%; font-size: 13px; }
       table.storico td, table.storico th { padding: 6px 8px; }
       table.storico tr.spenta { opacity: 0.6; }
@@ -773,7 +1031,7 @@ export class SalesListComponent {
     const filtrate = !q ? base : base.filter((s) =>
       (s.externalOrderId ?? '').toLowerCase().includes(q) ||
       (s.externalOrderNumber ?? '').toLowerCase().includes(q) ||
-      (s.product?.name ?? '').toLowerCase().includes(q) ||
+      (s.product?.name ?? s.productName ?? '').toLowerCase().includes(q) ||
       (s.partner?.insegna ?? '').toLowerCase().includes(q) ||
       (s.province?.code ?? '').toLowerCase().includes(q) ||
       s.brand.toLowerCase().includes(q));
@@ -783,7 +1041,7 @@ export class SalesListComponent {
         case 'ordine': return s.externalOrderNumber ? Number(s.externalOrderNumber) || s.externalOrderNumber : null;
         case 'orders': return s.ordine ? this.etichettaOrders(s.ordine) : null;
         case 'historyAt': return s.historyAt ? new Date(s.historyAt).getTime() : null;
-        case 'prodotto': return s.product?.name ?? null;
+        case 'prodotto': return s.product?.name ?? s.productName ?? null;
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
         case 'deliveryDate': return s.deliveryDate ?? null;
@@ -865,8 +1123,111 @@ export class SalesListComponent {
     amount: null, deliveryDate: '', provinceId: '', recipientFirstName: '', recipientLastName: '', recipientAddress: '', recipientPhone: '',
   };
 
+  /**
+   * Modifica CHIESTA DAL POP-UP (05/09/2026, regola utente). Il pop-up si
+   * chiude e il riquadro di modifica si apre sulla riga della vendita: quella
+   * riga può stare fuori schermo, e un comando che non si vede è un comando
+   * che non c'è — perciò la si porta sotto gli occhi.
+   */
+  modificaDalDettaglio(s: Sale): void {
+    this.chiudiDettaglio();
+    if (this.modificaId() !== s.id) this.apriModifica(s);
+    setTimeout(() => document.querySelector('.mod-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+  }
+
+  /**
+   * L'INDIRIZZO DELLA VENDITA PASSA DA GOOGLE (05/09/2026, regola utente).
+   *
+   * Il riquadro di modifica nasce e muore col click, quindi l'autocomplete non
+   * si può agganciare una volta per tutte all'avvio: si aggancia ogni volta
+   * che il riquadro compare, sul campo che c'è in quel momento.
+   */
+  private readonly zone = inject(NgZone);
+  readonly mapsMancante = signal(false);
+  readonly provinciaDaGoogle = signal<string | null>(null);
+  private autocomplete: any = null;
+  private ultimaSceltaGoogle = 0;
+  private chiaveMaps: string | null | undefined;
+
+  private async agganciaGoogle(): Promise<void> {
+    const input = document.querySelector('.mod-indirizzo') as HTMLInputElement | null;
+    if (!input) return;
+    if (this.chiaveMaps === undefined) {
+      this.chiaveMaps = await new Promise<string | null>((ok) => {
+        this.http.get<{ googleMapsBrowserKey: string | null }>(`${environment.apiUrl}/settings/public`)
+          .subscribe({ next: (c) => ok(c?.googleMapsBrowserKey ?? null), error: () => ok(null) });
+      });
+    }
+    if (!this.chiaveMaps) {
+      // ⚠️ Non in silenzio: senza chiave il campo resta un testo normale, e
+      // sembrerebbe rotto invece che da configurare.
+      this.mapsMancante.set(true);
+      return;
+    }
+    this.mapsMancante.set(false);
+    try {
+      await loadGoogleMaps(this.chiaveMaps);
+      const g = (window as any).google;
+      this.autocomplete = new g.maps.places.Autocomplete(input, {
+        // Anche indirizzi esteri e luoghi con un nome: le stesse regole del
+        // modulo consegna, così i due campi non si comportano in modo diverso.
+        fields: ['formatted_address', 'geometry', 'address_components', 'name'],
+      });
+      this.autocomplete.addListener('place_changed', () => {
+        const place = this.autocomplete.getPlace();
+        this.zone.run(() => this.prendiDaGoogle(place));
+      });
+    } catch {
+      /* script non caricato: resta il campo di testo, e ci pensa il server */
+    }
+  }
+
+  /** L'indirizzo scelto, e la provincia che ne discende. */
+  private prendiDaGoogle(place: any): void {
+    if (!place) return;
+    this.ultimaSceltaGoogle = Date.now();
+    const grezzo = String(place.formatted_address || '');
+    // Via il Google Plus Code davanti: è una posizione in codice, non un
+    // indirizzo leggibile.
+    this.mod.recipientAddress = grezzo.replace(PLUS_CODE, '').trim();
+    const comp = (place.address_components || []).find((c: any) => (c.types || []).includes('administrative_area_level_2'));
+    const code = comp?.short_name as string | undefined;
+    const prov = code ? this.province().find((p) => p.code === code) : undefined;
+    if (prov) {
+      // La provincia SEGUE l'indirizzo: è lei che decide a chi va l'ordine.
+      this.mod.provinceId = prov.id;
+      this.provinciaDaGoogle.set(prov.code);
+    } else {
+      // ⚠️ Se Google dà una provincia che non abbiamo a catalogo NON si
+      // indovina: resta quella scelta a mano.
+      this.provinciaDaGoogle.set(null);
+    }
+  }
+
+  /**
+   * Uscendo dal campo, il testo scritto a mano si normalizza col PRIMO
+   * risultato di Google. Non subito dopo un suggerimento: il click sul menu
+   * di Google fa blur prima di `place_changed`.
+   */
+  normalizzaIndirizzo(): void {
+    setTimeout(() => {
+      if (Date.now() - this.ultimaSceltaGoogle < 800) return;
+      const valore = (this.mod.recipientAddress ?? '').trim();
+      if (!valore) return;
+      const g = (window as any).google;
+      if (!g?.maps?.Geocoder) return;
+      new g.maps.Geocoder().geocode({ address: valore, region: 'it' }, (results: any, status: string) => {
+        this.zone.run(() => {
+          if (status !== 'OK' || !results?.length) return;
+          this.prendiDaGoogle(results[0]);
+        });
+      });
+    }, 250);
+  }
+
   apriModifica(s: Sale): void {
     if (this.modificaId() === s.id) { this.modificaId.set(null); return; }
+    this.provinciaDaGoogle.set(null);
     this.mod = {
       amount: s.amount,
       deliveryDate: (s.deliveryDate ?? '').slice(0, 10),
@@ -884,6 +1245,8 @@ export class SalesListComponent {
         error: () => undefined,
       });
     }
+    // Il campo esiste solo da ora: si aggancia quando il riquadro è in pagina.
+    setTimeout(() => void this.agganciaGoogle(), 0);
   }
 
   salvaModifica(s: Sale): void {
@@ -969,8 +1332,48 @@ export class SalesListComponent {
   }
 
   // ---- POP-UP DI DETTAGLIO (⭐ 04/09, regola utente) --------------------
+  /**
+   * ⭐ 06/09/2026 (regola utente): il link all'app Ricerca fornitori (search-deluxy)
+   * con l'ordine già caricato. L'app legge `?brand=&ordine=&categoria=` (deep link,
+   * index.html → applyDeepLink): brand fra deluxy.it / deluxyflowers.com /
+   * cakedesign.me («Flowers» delle vendite = deluxyflowers.com), categoria
+   * «pasticceria» per torte e dolci, «fioraio» per i fiori. Senza numero d'ordine
+   * non c'è niente da caricare: nessun bottone.
+   */
+  linkRicercaFornitore(s: Sale): string | null {
+    const numero = String(s.externalOrderNumber ?? '').replace(/^#/, '').trim();
+    if (!numero) return null;
+    const q = new URLSearchParams({ ordine: numero });
+    const b = String(s.brand ?? '').toLowerCase();
+    const brand = b === 'flowers' || b.includes('deluxyflowers') ? 'deluxyflowers.com' : b.includes('cakedesign') ? 'cakedesign.me' : b.includes('deluxy') ? 'deluxy.it' : '';
+    if (brand) q.set('brand', brand);
+    const cat = String((s.product as { category?: { name?: string | null } | null } | null | undefined)?.category?.name ?? '').toLowerCase();
+    if (/tort|dolc|cake|cdm|pasticc/.test(cat) || brand === 'cakedesign.me') q.set('categoria', 'pasticceria');
+    else if (/fior|flor|rosa|rose|piant|cest|cappellier|ghirland|terrarium/.test(cat) || brand === 'deluxyflowers.com') q.set('categoria', 'fioraio');
+    return `${SalesListComponent.RICERCA_FORNITORI}/?${q.toString()}`;
+  }
+  /** L'app Ricerca fornitori (stesso indirizzo del catalogo del Hub). */
+  private static readonly RICERCA_FORNITORI = 'https://search-deluxy.vercel.app';
+
   readonly dettaglio = signal<Sale | null>(null);
   readonly dettaglioCaricando = signal(false);
+  /** ⭐ 06/09 sera: l'ORDINE dietro la vendita (righe e fascia oraria), letto da Orders quando si apre il pop-up. */
+  readonly ordine = signal<{
+    disponibile?: boolean; consegnaDalle?: string; consegnaAlle?: string;
+    prodotti?: {
+      productId: string | null; nome: string | null; quantita: number; sku: string | null;
+      prezzo?: number | null; immagine?: string | null; produttore?: string | null; nota?: string | null;
+      venditaId?: string | null; consegnaId?: string | null;
+    }[];
+    /** ⭐ 07/09: le vendite nate dallo stesso ordine e se l'ordine è ancora a metà. */
+    vendite?: { id: string; prodotto: string | null; stato: string; consegnaId: string | null; partner: string | null }[];
+    incompleto?: boolean;
+  } | null>(null);
+  fasciaOrdine(): string | null {
+    const o = this.ordine();
+    if (!o?.consegnaDalle && !o?.consegnaAlle) return null;
+    return o.consegnaDalle && o.consegnaAlle ? `${o.consegnaDalle}–${o.consegnaAlle}` : (o.consegnaDalle ?? o.consegnaAlle ?? null);
+  }
   readonly confermaPendente = signal<{
     titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary'; azione: () => void;
   } | null>(null);
@@ -982,20 +1385,62 @@ export class SalesListComponent {
   }
 
   /** Apre subito coi dati della riga, poi carica il dettaglio completo (registro compreso). */
+  /**
+   * LE FOTO DEL PRODOTTO (05/09/2026, regola utente).
+   *
+   * Le immagini arrivano in due forme: `imageUrl` (la principale) e `images`
+   * (JSON con la galleria di Shopify). Si uniscono senza doppioni, e il JSON
+   * si legge QUI e non nel modello: se è scritto male non deve rompere la
+   * pagina, deve solo dare zero foto.
+   */
+  readonly foto = signal<string[]>([]);
+
+  fotoProdotto(v: Sale): string[] {
+    const p = (v as unknown as { product?: ProdottoVendita }).product;
+    if (!p) return [];
+    const lista: string[] = [];
+    if (p.imageUrl) lista.push(p.imageUrl);
+    if (p.images) {
+      try {
+        const altre = JSON.parse(p.images);
+        if (Array.isArray(altre)) {
+          for (const u of altre) if (typeof u === 'string' && u) lista.push(u);
+        }
+      } catch { /* galleria scritta male: si mostra quello che c'è */ }
+    }
+    return [...new Set(lista)];
+  }
+
+  apriFoto(v: Sale): void { this.foto.set(this.fotoProdotto(v)); }
+  chiudiFoto(): void { this.foto.set([]); }
+
   apriDettaglio(s: Sale): void {
     this.dettaglio.set(s);
     this.ricaricaDettaglio(s.id);
   }
   private ricaricaDettaglio(id: string): void {
     this.dettaglioCaricando.set(true);
+    // L'ordine dietro la vendita: righe e fascia oraria. Silenzioso: è un di più, non deve rompere il pop-up.
+    this.ordine.set(null);
+    if (this.canManage()) {
+      this.http.get<{ disponibile?: boolean }>(`${environment.apiUrl}/sales/${id}/ordine`).subscribe({
+        next: (o) => { if (this.dettaglio()?.id === id) this.ordine.set(o?.disponibile === false ? null : o); },
+        error: () => undefined,
+      });
+    }
     this.http.get<Sale>(`${environment.apiUrl}/sales/${id}`).subscribe({
       next: (v) => { if (this.dettaglio()?.id === id) this.dettaglio.set(v); this.dettaglioCaricando.set(false); },
       error: (e) => { this.dettaglioCaricando.set(false); this.messaggio.set({ ok: false, testo: e?.error?.message ?? 'Dettaglio non disponibile' }); },
     });
   }
-  chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.dettaglio.set(null); }
+  chiudiDettaglio(): void { this.chiudiStorico(); this.chiudiVicine(); this.ordine.set(null); this.dettaglio.set(null); }
   @HostListener('document:keydown.escape')
-  suEscape(): void { if (this.confermaPendente()) this.confermaPendente.set(null); else if (this.dettaglio()) this.chiudiDettaglio(); }
+  suEscape(): void {
+    // L'ordine conta: si chiude quello che sta SOPRA, non tutto insieme.
+    if (this.foto().length) this.chiudiFoto();
+    else if (this.confermaPendente()) this.confermaPendente.set(null);
+    else if (this.dettaglio()) this.chiudiDettaglio();
+  }
 
   /** Lo stato in Orders, leggibile: consegnato > annullato > evaso Shopify > classificazione > smistamento. */
   /**
@@ -1065,6 +1510,47 @@ export class SalesListComponent {
    * con la consegna agganciata) solo quando il form salva.
    */
   /** La vendita per cui è aperto il pop-up di inserimento consegna. */
+  /** ⭐ 07/09: la vendita per cui si sta salvando il preventivo. */
+  readonly preventivoDi = signal<Sale | null>(null);
+  prezzoPreventivo: number | null = null;
+
+  /** Il prodotto della vendita va a preventivo? */
+  aPreventivo(s: Sale): boolean { return s.product?.tipologiaVendita === 'preventivo'; }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): finché il preventivo non c'è, su questa vendita si può
+   * fare UNA cosa sola — raccoglierlo. Accetta, Rifiuta e Inserisci spariscono: un bottone
+   * che porta a un errore è peggio di un bottone assente.
+   */
+  serveIlPreventivo(s: Sale): boolean { return this.aPreventivo(s) && s.preventivoMancante === true; }
+
+  apriPreventivo(s: Sale): void {
+    this.prezzoPreventivo = s.prezzoPartner ?? null;
+    this.messaggio.set(null);
+    this.preventivoDi.set(s);
+  }
+
+  salvaPreventivo(s: Sale): void {
+    const prezzo = Number(this.prezzoPreventivo);
+    if (!Number.isFinite(prezzo) || prezzo <= 0) {
+      this.messaggio.set({ ok: false, testo: 'Il preventivo è un prezzo maggiore di zero.' });
+      return;
+    }
+    this.inCorso.set(s.id);
+    this.http.post(`${environment.apiUrl}/sales/${s.id}/preventivo`, { prezzo }).subscribe({
+      next: (r: any) => {
+        this.inCorso.set(null);
+        this.preventivoDi.set(null);
+        this.messaggio.set({ ok: true, testo: `Preventivo salvato: ${r?.partner ?? 'il partner'} a ${prezzo} €. Da adesso questo prodotto in questa provincia va a lui in automatico.` });
+        this.carica();
+      },
+      error: (err) => {
+        this.inCorso.set(null);
+        this.messaggio.set({ ok: false, testo: err?.error?.message ?? 'Preventivo non salvato' });
+      },
+    });
+  }
+
   readonly inserisciVendita = signal<string | null>(null);
 
   inserisci(s: Sale): void {
@@ -1174,7 +1660,7 @@ export class SalesListComponent {
     this.http.post(`${environment.apiUrl}/riconciliazioni/da-vendita`, { saleId: s.id, partnerId: r.partnerId }).subscribe({
       next: () => {
         this.inCorso.set(null);
-        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.rule.created', { partner: r.insegna }) });
+        this.messaggio.set({ ok: true, testo: this.translate.instant('sales.history.ruleCreated', { partner: r.insegna }) });
       },
       error: (e) => {
         this.inCorso.set(null);

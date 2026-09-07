@@ -706,9 +706,39 @@ export class RecurringService_ {
     if (user?.role === Role.PARTNER && c.partnerId !== user.partnerId) {
       throw new ForbiddenException('Non è un tuo servizio ricorrente.');
     }
-    // Le consegne gia' generate restano (recurringServiceId va a NULL da FK).
+    // ⭐ 06/09/2026 (regola utente: «in caso di elimina, elimina solo le future»).
+    // Le consegne FUTURE ancora da fare (da domani, ora di Roma, non ancora
+    // partite) si annullano con una riga di registro; quelle di oggi, in corso,
+    // consegnate o già in storico restano com'erano: sono lavoro fatto, e il
+    // loro legame col ricorrente va a NULL per la chiave esterna.
+    const oggi = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
+    const domani = new Date(`${oggi}T00:00:00.000Z`);
+    domani.setUTCDate(domani.getUTCDate() + 1);
+    const future = await this.prisma.delivery.findMany({
+      where: {
+        recurringServiceId: id,
+        deletedAt: null,
+        date: { gte: domani },
+        status: { in: ['created', 'assigned', 'in_preparation', 'accepted'] },
+      },
+      select: { id: true, date: true },
+    });
+    for (const d of future) {
+      await this.prisma.delivery.update({
+        where: { id: d.id },
+        data: { deletedAt: new Date(), status: 'cancelled' },
+      });
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: d.id,
+          type: 'cancelled',
+          userId: user?.sub ?? null,
+          message: `Annullata: il servizio ricorrente «${c.nome}» è stato eliminato (era prevista il ${d.date.toISOString().slice(0, 10)}).`,
+        },
+      });
+    }
     await this.prisma.recurringService.delete({ where: { id } });
-    return { ok: true };
+    return { ok: true, annullateFuture: future.length };
   }
 
   /**

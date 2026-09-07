@@ -99,6 +99,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/partner-home.component').then((m) => m.PartnerHomeComponent),
       },
+      // ⭐ 06/09/2026 sera (regola utente): il LISTINO del fioraio — il prezzo dei fiori a stelo,
+      // da compilare al primo accesso. L'ufficio ci arriva con ?partnerId= dalla scheda partner.
+      {
+        path: 'listino',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'], title: 'Listino' },
+        loadComponent: () =>
+          import('./pages/listino-fiori.component').then((m) => m.ListinoFioriComponent),
+      },
       // ---- Preventivi: il form e le richieste ----
       {
         path: 'quotes',
@@ -115,6 +124,14 @@ export const routes: Routes = [
           import('./pages/valet-rules.component').then(
             (m) => m.ValetRulesComponent,
           ),
+      },
+      {
+        // ⭐ 06/09/2026: STATISTICHE (KPI per periodo con confronto), ufficio.
+        path: 'statistiche',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'], title: 'Statistiche' },
+        loadComponent: () =>
+          import('./pages/statistiche.component').then((m) => m.StatisticheComponent),
       },
       {
         path: 'finance',
@@ -500,6 +517,22 @@ export const routes: Routes = [
         data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         loadComponent: () =>
           import('./pages/sms-templates-list.component').then((m) => m.SmsTemplatesListComponent),
+      },
+      // ⭐ 06/09/2026: AREE (gruppi di province con un nome), ufficio.
+      {
+        path: 'aree',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Aree' },
+        loadComponent: () =>
+          import('./pages/aree.component').then((m) => m.AreeComponent),
+      },
+      // ⭐ 06/09/2026: MESTIERI (8 voci nostre fra catalogo e partner), ufficio.
+      {
+        path: 'mestieri',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Mestieri' },
+        loadComponent: () =>
+          import('./pages/mestieri.component').then((m) => m.MestieriComponent),
       },
       // ---- Province e città (dal database, import legacy) ----
       {

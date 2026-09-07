@@ -1,11 +1,11 @@
-import {
-  ForbiddenException,
+import { BadRequestException, ForbiddenException,
   Injectable,
   NotFoundException,  Logger,
 } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AreeService } from '../aree/aree.module';
 import { titleCaseInsegna } from '../common/nome-proprio';
 import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
@@ -29,6 +29,9 @@ const PARTNER_INCLUDE = {
   provinces: { include: { province: true } },
   services: { include: { serviceType: true } },
   categories: { include: { category: true } },
+  mestieri: { include: { mestiere: true } },
+  aree: { include: { area: { select: { id: true, nome: true } } } },
+  consegnaProvince: { include: { province: { select: { id: true, code: true, name: true } } } },
   openingHours: true,
 } as const;
 
@@ -40,6 +43,7 @@ export class PartnersService {
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
     private readonly anagrafiche: AnagraficheSyncService,
+    private readonly aree: AreeService,
   ) {}
 
   findAll(includiEliminati = false) {
@@ -96,7 +100,7 @@ export class PartnersService {
   }
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
-    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...scalar } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...scalar } = dto;
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
@@ -104,8 +108,9 @@ export class PartnersService {
         contractStart: scalar.contractStart ? new Date(scalar.contractStart) : undefined,
         contractEnd: scalar.contractEnd ? new Date(scalar.contractEnd) : undefined,
         pickupAddresses: pickupAddresses?.length ? JSON.stringify(pickupAddresses) : undefined,
+        // ⭐ 06/09 (regola utente): `provinceIds` sono le province scelte A MANO, oltre alle aree.
         provinces: provinceIds?.length
-          ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
+          ? { create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })) }
           : undefined,
         categories: categoryIds?.length
           ? {
@@ -117,10 +122,14 @@ export class PartnersService {
           : undefined,
         services: services?.length ? { create: services } : undefined,
         openingHours: openingHours?.length ? { create: openingHours } : undefined,
+        mestieri: mestiereIds?.length ? { create: mestiereIds.map((mestiereId) => ({ mestiereId })) } : undefined,
       },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
+    // ⭐ 06/09 (regola utente): le AREE decidono le province effettive (unione).
+    if (areaIds?.length) await this.aree.assegnaAlPartner(partner.id, areaIds);
+    if (consegnaProvince?.length) await this.scriviAreaDiConsegna(partner.id, consegnaProvince);
     // Un gesto solo: crea l'utente PARTNER collegato (invitato). Gestione
     // dell'invito dalla pagina Utenti.
     await this.users.provisionForAnagrafica(
@@ -373,15 +382,15 @@ export class PartnersService {
   async sincronizzaAnagrafica(
     id: string,
     actor?: JwtUser,
-    scelta?: { anagraficaId?: string | null; creaNuova?: boolean },
+    scelta?: { anagraficaId?: string | null; creaNuova?: boolean; campi?: string[] },
   ) {
     const p = await this.findOne(id, actor);
     if (scelta?.anagraficaId) {
-      const esito = await this.anagrafiche.sincronizzaOra(p as any, scelta.anagraficaId);
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, scelta.anagraficaId, scelta.campi);
       return esito;
     }
     if (scelta?.creaNuova) {
-      const esito = await this.anagrafiche.sincronizzaOra(p as any, null);
+      const esito = await this.anagrafiche.sincronizzaOra(p as any, null, scelta.campi);
       return { ...esito, messaggio: esito.ok ? `Creata una scheda nuova nel registro (scelta dall'ufficio). ${esito.messaggio}` : esito.messaggio };
     }
     const { trovato, candidati } = await this.anagrafiche.cerca({
@@ -394,7 +403,7 @@ export class PartnersService {
         messaggio: `Nel registro ci sono ${candidati.length} record possibili: scegliere a mano quale collegare, o chiedere di crearne una nuova.`,
       };
     }
-    return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null);
+    return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null, scelta?.campi);
   }
 
   /**
@@ -571,6 +580,21 @@ export class PartnersService {
     if (count) this.logger.log(`Partner ${partnerId} riattivato: ${count} prodotti ripescati`);
   }
 
+  /** ⭐ 06/09 sera: riscrive l'area di consegna (province + minimo/raggio per provincia). Lista vuota = nessuna. */
+  private async scriviAreaDiConsegna(partnerId: string, righe: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[]) {
+    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+    const viste = new Set<string>();
+    const pulite = righe.filter((r) => r && typeof r.provinceId === 'string' && !viste.has(r.provinceId) && viste.add(r.provinceId));
+    if (pulite.length) {
+      const n = await this.prisma.province.count({ where: { id: { in: pulite.map((r) => r.provinceId) } } });
+      if (n !== pulite.length) throw new BadRequestException('Provincia sconosciuta nell\'area di consegna');
+    }
+    await this.prisma.$transaction([
+      this.prisma.partnerConsegnaProvincia.deleteMany({ where: { partnerId } }),
+      ...(pulite.length ? [this.prisma.partnerConsegnaProvincia.createMany({ data: pulite.map((r) => ({ partnerId, provinceId: r.provinceId, minimoOrdine: num(r.minimoOrdine), raggioKm: num(r.raggioKm) })), skipDuplicates: true })] : []),
+    ]);
+  }
+
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {
     if (user.role === Role.PARTNER && user.partnerId !== id) {
       throw new ForbiddenException('Accesso non consentito');
@@ -590,10 +614,18 @@ export class PartnersService {
         // 02/09 (regola utente): gli indirizzi di RITIRO aggiuntivi sono suoi
         // — li imposta dalla scheda profilo.
         ...(Array.isArray(p['pickupAddresses']) ? { pickupAddresses: p['pickupAddresses'] as string[] } : {}),
+        // ⭐ 06/09/2026 sera (difetto segnalato dall'utente: «ho salvato consegna partner, km e
+        // minimo dal profilo e non ha salvato nulla»): questa riassegnazione BUTTAVA i tre campi
+        // di vendita prima che la whitelist qui sotto potesse ammetterli. Passano, e restano
+        // comunque gated dal servizio di VENDITA (controllo più avanti).
+        ...(p['autoDeliveredByPartner'] !== undefined ? { autoDeliveredByPartner: p['autoDeliveredByPartner'] } : {}),
+        ...(p['minimoOrdineVendita'] !== undefined ? { minimoOrdineVendita: p['minimoOrdineVendita'] } : {}),
+        ...(p['raggioMaxConsegnaKm'] !== undefined ? { raggioMaxConsegnaKm: p['raggioMaxConsegnaKm'] } : {}),
+        ...(Array.isArray(p['consegnaProvince']) ? { consegnaProvince: p['consegnaProvince'] as any } : {}),
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
-    const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
       ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
@@ -613,6 +645,17 @@ export class PartnersService {
       // whitelist li buttava in silenzio: si salvava solo il telefono.
       if (scalar.email !== undefined) allowed.email = scalar.email;
       if (scalar.address !== undefined) allowed.address = scalar.address;
+      // ⭐ 06/09/2026 (regola utente): con un servizio di VENDITA il partner regola da solo
+      // «Consegna da Partner», minimo d'ordine e raggio (la rotta del profilo lo controlla già; qui
+      // vale anche per chi chiama /partners/:id direttamente).
+      if ((scalar as any).autoDeliveredByPartner !== undefined || (scalar as any).minimoOrdineVendita !== undefined || (scalar as any).raggioMaxConsegnaKm !== undefined) {
+        const vend = await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } });
+        if (vend > 0) {
+          if ((scalar as any).autoDeliveredByPartner !== undefined) allowed.autoDeliveredByPartner = (scalar as any).autoDeliveredByPartner;
+          if ((scalar as any).minimoOrdineVendita !== undefined) allowed.minimoOrdineVendita = (scalar as any).minimoOrdineVendita;
+          if ((scalar as any).raggioMaxConsegnaKm !== undefined) allowed.raggioMaxConsegnaKm = (scalar as any).raggioMaxConsegnaKm;
+        }
+      }
       if ((scalar as any).pickupAddresses !== undefined) allowed.pickupAddresses = (scalar as any).pickupAddresses;
       const aggiornatoPartner = await this.prisma.partner.update({
         where: { id },
@@ -625,8 +668,14 @@ export class PartnersService {
         include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
       });
-      this.anagrafiche.sincronizza(aggiornatoPartner);
-      return aggiornatoPartner;
+      // ⭐ 06/09 sera (segnalazione utente): area di consegna dal profilo: il ramo PARTNER esce qui,
+      // quindi va scritta QUI (gated dal servizio di VENDITA come gli altri campi di vendita).
+      if (consegnaProvince && (await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } })) > 0) {
+        await this.scriviAreaDiConsegna(id, consegnaProvince);
+      }
+      const conArea = await this.findOne(id);
+      this.anagrafiche.sincronizza(conArea);
+      return conArea;
     }
 
     const aggiornato = await this.prisma.partner.update({
@@ -637,7 +686,7 @@ export class PartnersService {
           ? {
               provinces: {
                 deleteMany: {},
-                create: provinceIds.map((provinceId) => ({ provinceId })),
+                create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })),
               },
             }
           : {}),
@@ -656,10 +705,18 @@ export class PartnersService {
         ...(openingHours
           ? { openingHours: { deleteMany: {}, create: openingHours } }
           : {}),
+        ...(mestiereIds ? { mestieri: { deleteMany: {}, create: mestiereIds.map((mestiereId) => ({ mestiereId })) } } : {}),
       },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
+    // ⭐ 06/09 (regola utente): con le AREE le province effettive si ricalcolano (unione delle aree).
+    if (areaIds) await this.aree.assegnaAlPartner(id, areaIds);
+    else if (provinceIds) await this.aree.ricalcolaProvincePartner(id); // le province delle aree tornano accanto a quelle a mano
+    // ⭐ 06/09 sera: l'AREA DI CONSEGNA (per il PARTNER solo con un servizio di VENDITA, come gli altri campi di vendita).
+    if (consegnaProvince && ((user.role as Role) !== Role.PARTNER || (await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } })) > 0)) {
+      await this.scriviAreaDiConsegna(id, consegnaProvince);
+    }
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;

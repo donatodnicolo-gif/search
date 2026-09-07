@@ -22,7 +22,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@ne
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
 import { IVA, conIva, soloIva } from '../common/iva';
-import { valoreProdotti as calcolaValoreProdotti } from '../common/valore-prodotti';
+import { baseFee, valoreProdotti as calcolaValoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 
@@ -236,7 +236,9 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
       // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro. Una fee dello 0%
       // e' legittima: la consegna e' avvenuta e non si trattiene niente.
       const feePercento = listino?.price ?? 0;
-      const a = mai_negativo((valoreProdotti * feePercento) / 100 + extra);
+      // ⭐ 05/09/2026 (regola utente): «senza fee» → in fattura la quota di
+      // quelle righe è 0. Si moltiplica la BASE FEE, non il venduto intero.
+      const a = mai_negativo((baseFee(d.products as any, d.productValue) * feePercento) / 100 + extra);
       return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'CORPORATE': {

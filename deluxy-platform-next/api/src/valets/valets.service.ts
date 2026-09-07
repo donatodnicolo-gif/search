@@ -7,11 +7,13 @@ import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { titleCaseNome } from '../common/nome-proprio';
 import { PrismaService } from '../prisma/prisma.service';
+import { AreeService } from '../aree/aree.module';
 import { UsersService } from '../users/users.service';
 import { CreateValetDto, UpdateValetDto } from './dto/create-valet.dto';
 
 const VALET_INCLUDE = {
   provinces: { include: { province: true } },
+  aree: { include: { area: { select: { id: true, nome: true } } } },
   services: { include: { serviceType: true } },
 } as const;
 
@@ -20,6 +22,7 @@ export class ValetsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly aree: AreeService,
   ) {}
 
   /**
@@ -113,7 +116,7 @@ export class ValetsService {
 
   async create(dto: CreateValetDto, actor?: JwtUser) {
     const {
-      provinceIds, services, birthDate,
+      provinceIds, areaIds, services, birthDate,
       teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
     if ((scalar as any).firstName !== undefined) (scalar as any).firstName = titleCaseNome((scalar as any).firstName) ?? (scalar as any).firstName;
@@ -131,13 +134,15 @@ export class ValetsService {
         teamLeaderExcludedPartners: teamLeaderExcludedPartnerIds?.length
           ? JSON.stringify(teamLeaderExcludedPartnerIds)
           : undefined,
+        // ⭐ 06/09 (regola utente): `provinceIds` sono le province scelte A MANO, oltre alle aree.
         provinces: provinceIds?.length
-          ? { create: provinceIds.map((provinceId) => ({ provinceId })) }
+          ? { create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })) }
           : undefined,
         services: services?.length ? { create: services } : undefined,
       },
       include: VALET_INCLUDE,
     });
+    if (areaIds && areaIds.length) await this.aree.assegnaAlValet(valet.id, areaIds);
     // Un gesto solo: crea l'utente VALET collegato (invitato).
     await this.users.provisionForAnagrafica(
       {
@@ -155,12 +160,12 @@ export class ValetsService {
   async update(id: string, dto: UpdateValetDto) {
     await this.findOne(id);
     const {
-      provinceIds, services, birthDate,
+      provinceIds, areaIds, services, birthDate,
       teamLeaderProvinceIds, teamLeaderPartnerIds, teamLeaderExcludedPartnerIds, ...scalar
     } = dto;
     if ((scalar as any).firstName !== undefined) (scalar as any).firstName = titleCaseNome((scalar as any).firstName) ?? (scalar as any).firstName;
     if ((scalar as any).lastName !== undefined) (scalar as any).lastName = titleCaseNome((scalar as any).lastName) ?? (scalar as any).lastName;
-    return this.prisma.valet.update({
+    await this.prisma.valet.update({
       where: { id },
       data: {
         ...scalar,
@@ -178,7 +183,7 @@ export class ValetsService {
           ? {
               provinces: {
                 deleteMany: {},
-                create: provinceIds.map((provinceId) => ({ provinceId })),
+                create: [...new Set(provinceIds)].map((provinceId) => ({ provinceId, manuale: true })),
               },
             }
           : {}),
@@ -186,6 +191,10 @@ export class ValetsService {
       },
       include: VALET_INCLUDE,
     });
+    // ⭐ 06/09 (regola utente): le AREE decidono le province effettive del valet (unione).
+    if (areaIds) await this.aree.assegnaAlValet(id, areaIds);
+    else if (provinceIds) await this.aree.ricalcolaProvinceValet(id);
+    return this.findOne(id);
   }
 
   async remove(id: string) {

@@ -94,6 +94,18 @@ const ICONE_MODELLO: Record<string, string> = {
       </div>
     </header>
 
+    <!-- ⭐ 06/09/2026 sera (regola utente): al PRIMO ACCESSO il fioraio compila il suo listino.
+         L'avviso sparisce quando salva: non è un promemoria perpetuo. -->
+    @if (listinoDaCompilare()) {
+      <div class="avviso-listino">
+        <div>
+          <strong>{{ 'listino.primoAccesso' | translate }}</strong>
+          <span>{{ 'listino.primoAccessoSub' | translate }}</span>
+        </div>
+        <a class="btn btn-dark" routerLink="/listino">{{ 'listino.vai' | translate }}</a>
+      </div>
+    }
+
     <!-- ===================== I SERVIZI DEL LISTINO ===================== -->
     <section class="sezione">
       <div class="sez-head">
@@ -161,6 +173,10 @@ const ICONE_MODELLO: Record<string, string> = {
   `,
   styles: [
     `
+      .avviso-listino { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        padding: 14px 18px; margin: 0 0 20px; border-radius: 14px; background: rgba(184,150,62,.1); border: 1px solid rgba(184,150,62,.28); }
+      .avviso-listino span { display: block; font-size: 13.5px; color: var(--text-secondary); margin-top: 2px; }
+
       :host { display: block; }
 
       /* ---------- Copertina ---------- */
@@ -329,6 +345,8 @@ export class PartnerHomeComponent {
 
   /** Il listino del partner, così com'è arrivato dalla sua scheda. */
   private readonly listino = signal<ServizioListino[]>([]);
+  /** ⭐ 06/09 sera: il fioraio non ha ancora compilato il listino dei fiori a stelo. */
+  readonly listinoDaCompilare = signal(false);
   readonly caricando = signal(true);
   readonly errore = signal<string | null>(null);
   readonly whatsapp = signal<string | null>(null);
@@ -351,6 +369,11 @@ export class PartnerHomeComponent {
   });
 
   constructor() {
+    // ⭐ 06/09 sera (regola utente): l'avviso del primo accesso al listino.
+    this.http.get<{ daCompilare?: boolean; eFiorista?: boolean }>(`${environment.apiUrl}/listino-fiori`).subscribe({
+      next: (l) => this.listinoDaCompilare.set(!!l?.daCompilare && !!l?.eFiorista),
+      error: () => undefined,
+    });
     const u = this.auth.user();
     this.nome.set(u?.firstName ?? '');
 

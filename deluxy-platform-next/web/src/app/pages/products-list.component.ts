@@ -40,6 +40,12 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       <button type="button" class="tab" [class.on]="archived()" (click)="setArchived(true)">
         {{ 'products.tabArchive' | translate }}
       </button>
+      <!-- ⭐ 07/09/2026 (regola utente: «metti per i partner la pagina listino in prodotti»):
+           per il partner il suo listino è una linguetta di questa pagina, non un posto a parte.
+           La voce di menu resta: chi la usava non deve rimparare la strada. -->
+      @if (ePartner()) {
+        <a routerLink="/listino" class="tab">{{ 'products.tabListino' | translate }}</a>
+      }
     </div>
 
     <!-- Filtri Sì/No come nella lista prodotti dell'app reale (manuale §3.6):
@@ -134,6 +140,8 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                 <td><span class="pill pill-neutral">{{ p.type ? (('enums.productType.' + p.type) | translate) : '—' }}</span></td>
                 <td class="muted">{{ p.partner?.insegna || '—' }}</td>
                 <td class="num strong">{{ p.price != null ? (p.price + ' €') : '—' }}</td>
+                <!-- ⭐ 06/09/2026: la GIACENZA, solo per chi ha «Controlla stock». Zero o sotto = rosso. -->
+                <td class="num" [class.stock-ko]="p.controlStock && (p.stock ?? 0) <= 0">{{ p.controlStock ? (p.stock ?? 0) : '—' }}</td>
                 <td>
                   @if (p.active === false) { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
                   @else if (p.approved) { <span class="pill s-ok"><span class="dot"></span>{{ 'products.approved' | translate }}</span> }
@@ -192,6 +200,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
       .s-ok { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-wait { background: rgba(255,149,0,0.12); color: #b25000; }
+      .stock-ko { color: var(--red); font-weight: 600; }
       .row-link { cursor: pointer; }
       .row-link:focus-visible { outline: 2px solid var(--gold-strong); outline-offset: -2px; }
       .actions-cell { white-space: nowrap; }
@@ -202,6 +211,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
       .tab:hover { background: var(--fill); }
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      a.tab { text-decoration: none; display: inline-flex; align-items: center; }
       /* Selezione multipla */
       th.sel, td.sel { width: 34px; text-align: center; }
       tr.scelta { background: color-mix(in srgb, var(--ink) 4%, transparent); }
@@ -238,6 +248,9 @@ import { SavedViewsComponent } from '../core/saved-views.component';
 export class ProductsListComponent {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+
+  /** ⭐ 07/09: solo il partner ha un listino suo da compilare. */
+  ePartner(): boolean { return this.auth.user()?.role === 'PARTNER'; }
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
 
@@ -268,6 +281,7 @@ export class ProductsListComponent {
     { field: 'type', label: 'products.col.type', num: false },
     { field: 'partner.insegna', label: 'products.col.partner', num: false },
     { field: 'price', label: 'products.col.price', num: true },
+    { field: 'stock', label: 'products.col.stock', num: true },
     { field: 'approved', label: 'products.col.status', num: false },
   ];
 

@@ -173,8 +173,10 @@ model Province {
   legacyId             Int?      @unique
   name              String
   code              String             @unique // es. "MI"
+  aree              AreaProvincia[]
   cities            City[]
   partnerProvinces  PartnerProvince[]
+  consegnePartner   PartnerConsegnaProvincia[]
   valetProvinces    ValetProvince[]
   categoryDiscounts CategoryDiscount[]
   sales             Sale[]
@@ -272,6 +274,13 @@ model ServiceType {
   allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
   notes           String?
   hideCustomerInfo Boolean         @default(false)
+  /// ⭐ 05/09/2026 (regola utente): SOLO questo servizio a ore chiede al valet
+  /// di dichiarare le ore e al partner di approvarle («Servizio Ora con
+  /// Approvazione»). Gli altri servizi a ore si chiudono come le altre
+  /// consegne. Il 04/09 il flusso valeva per tutti gli A_ORA e sei consegne di
+  /// Chanel/Clivati/Nikky sono rimaste in «ore da approvare» senza che nessuno
+  /// dovesse approvarle.
+  hoursApproval    Boolean         @default(false)
   active          Boolean          @default(true)
   partnerServices PartnerService[]
   valetServices   ValetService[]
@@ -317,6 +326,24 @@ model Partner {
   // Notifiche granulari (come nell'app reale)
   whatsappNotifications Boolean         @default(false)
   mailNotifications   Boolean           @default(false)
+  /// ⭐ 06/09/2026 (regola utente): «Consegna Partner Automatico» — ogni consegna inserita
+  /// per questo partner nasce «consegna da fornitore» (deliveredByPartner) col valet
+  /// «Partner Consegna». Colonna aggiunta con scripts/applica-migrazione-partner-auto.mjs.
+  autoDeliveredByPartner Boolean        @default(false)
+  /// ⭐ 06/09/2026 (regola utente): sui servizi di VENDITA, il minimo d'ordine che il partner vuole ricevere (€ al cliente); null = nessun minimo.
+  minimoOrdineVendita    Float?
+  /// ⭐ 06/09/2026 (regola utente): per le consegne che fa LUI, il raggio massimo (km) che accetta; null = nessun limite.
+  raggioMaxConsegnaKm    Float?
+  /// ⭐ 06/09/2026 sera (regola utente): ESCLUSO DALLE PROPOSTE — i partner «nostri» di ripiego
+  /// (Artista Locale, Deluxy Flowers, Cakedesignme) non entrano nelle liste a cui proporre gli ordini
+  /// e non rendono «con partner» una provincia. Lo decide l'ufficio dalla scheda; il partner non se lo toglie.
+  esclusoDalleProposte   Boolean        @default(false)
+  /// ⭐ 06/09/2026 sera (regola utente): quando il fioraio ha compilato il suo LISTINO dei fiori a stelo.
+  /// Vuoto = al primo accesso gli si chiede di riempirlo.
+  listinoFioriCompilatoIl DateTime?
+  mestieri            PartnerMestiere[]
+  aree                PartnerArea[]
+  consegnaProvince    PartnerConsegnaProvincia[]
   // Pagamenti e contratto
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
@@ -411,10 +438,74 @@ model QuoteRequest {
   updatedAt    DateTime  @updatedAt
 }
 
+/// ⭐ 06/09/2026 (regola utente): le AREE — gruppi di province con un nome, assegnate ai partner
+/// al posto delle province una per una. PartnerProvince resta la lista EFFETTIVA (unione delle aree).
+/// Tabelle e aree iniziali con scripts/applica-migrazione-aree.mjs.
+model Area {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  note      String?
+  attiva    Boolean  @default(true)
+  province  AreaProvincia[]
+  partners  PartnerArea[]
+  valets    ValetArea[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AreaProvincia {
+  id         String   @id @default(cuid())
+  areaId     String
+  provinceId String
+  area       Area     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([areaId, provinceId])
+}
+
+/// ⭐ 06/09/2026 (regola utente): «le aree valgono anche per i valet» — ValetProvince resta la lista effettiva (unione delle aree).
+model ValetArea {
+  id      String @id @default(cuid())
+  valetId String
+  areaId  String
+  valet   Valet  @relation(fields: [valetId], references: [id], onDelete: Cascade)
+  area    Area   @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@unique([valetId, areaId])
+}
+
+/// ⭐ 06/09/2026 sera (nuova architettura vendite, regola utente): AREA DI CONSEGNA = dove il partner
+/// consegna DA SOLO (vale solo con «Consegna da Partner» acceso), con minimo d'ordine e raggio PER
+/// PROVINCIA di consegna (vuoti = i valori predefiniti del partner). L'area COMMERCIALE (PartnerArea /
+/// PartnerProvince) resta «dove vende».
+model PartnerConsegnaProvincia {
+  id           String   @id @default(cuid())
+  partnerId    String
+  provinceId   String
+  minimoOrdine Float?
+  raggioKm     Float?
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  province     Province @relation(fields: [provinceId], references: [id])
+
+  @@unique([partnerId, provinceId])
+}
+
+model PartnerArea {
+  id        String  @id @default(cuid())
+  partnerId String
+  areaId    String
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  area      Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, areaId])
+}
+
 model PartnerProvince {
   id         String   @id @default(cuid())
   partnerId  String
   provinceId String
+  /// ⭐ 06/09/2026 (regola utente): provincia scelta a mano, OLTRE alle aree — il ricalcolo dalle aree non la tocca.
+  manuale    Boolean  @default(false)
   partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   province   Province @relation(fields: [provinceId], references: [id])
 
@@ -458,13 +549,17 @@ model PriorityList {
   legacyId   Int?     @unique
   provinceId String
   province   Province @relation(fields: [provinceId], references: [id])
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
+  /// ⭐ 06/09/2026: le liste NUOVE sono per (provincia, mestiere); quelle per categoria restano come transizione.
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  mestiereId String?
+  mestiere   Mestiere? @relation(fields: [mestiereId], references: [id])
   entries    PriorityEntry[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([provinceId, categoryId])
+  @@unique([provinceId, mestiereId])
 }
 
 /// Un partner dentro una lista priorita', con la sua posizione.
@@ -602,6 +697,7 @@ model Valet {
   /// ha più nulla da pagare dal 2025.
   deleted             Boolean           @default(false)
   provinces           ValetProvince[]
+  aree                ValetArea[]
   services            ValetService[]
   deliveries          Delivery[]
   recurringServices   RecurringService[]
@@ -624,6 +720,8 @@ model ValetProvince {
   id         String   @id @default(cuid())
   valetId    String
   provinceId String
+  /// ⭐ 06/09/2026 (regola utente): provincia scelta a mano, OLTRE alle aree — il ricalcolo dalle aree non la tocca.
+  manuale    Boolean  @default(false)
   valet      Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
   province   Province @relation(fields: [provinceId], references: [id])
 
@@ -724,8 +822,43 @@ model ValetAvailability {
 // isAutoDiscounted + parentProductId: prodotti scontati generati
 //   automaticamente dagli sconti % per categoria/provincia
 // ------------------------------------------------------------
+/// ⭐ 06/09/2026 (decisione utente): gli 8 MESTIERI — il livello nostro fra il catalogo
+/// (65 categorie, non si toccano) e i partner. Tabelle create con
+/// scripts/applica-migrazione-mestieri.mjs, che le semina e colloca le categorie.
+model Mestiere {
+  id                    String   @id @default(cuid())
+  chiave                String   @unique
+  nome                  String
+  ordine                Int      @default(0)
+  /// I prodotti NON unici di questo mestiere si smistano da soli (oggi: solo Fiorista).
+  smistamentoAutomatico Boolean  @default(false)
+  attivo                Boolean  @default(true)
+  categorie             Category[]
+  partners              PartnerMestiere[]
+  liste                 PriorityList[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+/// Partner × mestiere: sostituisce le 400 assegnazioni fini di PartnerCategory nella lingua dei partner.
+model PartnerMestiere {
+  id         String   @id @default(cuid())
+  partnerId  String
+  mestiereId String
+  /// ufficio | categorie (dedotto dalle categorie) | storico (dedotto dalle vendite)
+  origine    String   @default("ufficio")
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  mestiere   Mestiere @relation(fields: [mestiereId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([partnerId, mestiereId])
+}
+
 model Category {
   id               String             @id @default(cuid())
+  /// ⭐ 06/09/2026: il mestiere che raccoglie questa categoria (null = da assegnare).
+  mestiereId       String?
+  mestiere         Mestiere?          @relation(fields: [mestiereId], references: [id])
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
   legacyId             Int?      @unique
   name             String             @unique
@@ -810,6 +943,16 @@ model Product {
   /// vende* e *com'è fatto* — e un prodotto può essere unico E combinato.
   /// Averle fuse in un enum rendeva quella combinazione inesprimibile.
   type                    String // UNICO | NON_UNICO
+  /// ⭐ 06/09/2026 sera (regola utente): COME SI VENDE questo prodotto — decide come il Customer
+  /// Service lo propone. unico = listino del partner · quantita = prezzo per pezzo × numero (12 rose)
+  /// · mix = composizione a valore, si propone con lo sconto e la lista di priorità · preventivo =
+  /// si chiede il preventivo ai partner del mestiere prima di accettare. Casa definitiva: Merchandising.
+  tipologiaVendita        String?
+  /// ⭐ 07/09/2026 — NOTE DI SPECIFICA ("20-25 fiori", "18-20 cm", "6/8 porzioni"): che cosa
+  /// c'è dentro davvero. La casa è Merchandising, che le ricostruisce dalla descrizione del
+  /// negozio; qui arrivano con la vendita e si mostrano al FIORAIO, che deve sapere quanti
+  /// fiori mettere nel bouquet.
+  note                    String?
   /// Com'è fatto: combinazione di più prodotti (i componenti stanno in
   /// ProductComponent). Indipendente da `type`.
   isSuperProduct          Boolean            @default(false)
@@ -873,6 +1016,9 @@ model ProductReconciliation {
   id              String    @id @default(cuid())
   productId       String
   product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// ⭐ 06/09/2026 (regola utente): la regola vale «solo se la variante è la stessa» — null = prodotto senza variante.
+  productVariantId String?
+  variant         ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   provinceId      String
   partnerId       String
   /// ⭐ 04/09/2026 (regola utente): «l'associazione è per prezzo dato al
@@ -897,11 +1043,12 @@ model ProductReconciliation {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  @@unique([productId, provinceId])
+  @@unique([productId, provinceId, productVariantId])
   @@index([status, updatedAt])
 }
 
 model ProductVariant {
+  reconciliations ProductReconciliation[]
   /// id nel database originario MySQL
   legacyId     Int?    @unique
   id           String  @id @default(cuid())
@@ -911,6 +1058,7 @@ model ProductVariant {
   publicPrice  Float? // prezzo pubblico variante
   sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
   imageUrl     String? // immagine della variante
+  note         String? // nota di specifica della TAGLIA (⭐ 07/09/2026): «Medio: 10-15 fiori»
   prepDays     Int? // giorni di preparazione variante
   controlStock Boolean @default(false) // controlla stock variante
   stock        Int? // giacenza variante
@@ -1141,6 +1289,33 @@ model Delivery {
   richieste  RichiestaConsegna[]
   recurringServiceId String?
   recurringService   RecurringService? @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
+  /// ⭐ 04/09/2026 (regola utente): ORE DICHIARATE DAL VALET, in attesa del sì
+  /// del partner. Il valet chiude un servizio A ORA dicendo quando ha davvero
+  /// iniziato e finito; il partner approva (valgono le sue) o rifiuta (valgono
+  /// quelle previste). Alla decisione si riscrivono ore, prezzo e fatturazione.
+  hoursFrom          String?   // "HH:MM" proposto dal valet
+  hoursTo            String?
+  hoursProposedAt    DateTime?
+  /// Le ore PREVISTE, fotografate prima della proposta: se il partner rifiuta
+  /// si torna a queste, e senza la fotografia non si potrebbe.
+  hoursOriginal      Float?
+  /// approvate | rifiutate
+  hoursDecision      String?
+  hoursDecidedAt     DateTime?
+  hoursDecidedBy     String?
+  /// ⭐ 05/09/2026 (regola utente): COSTI RIMBORSATI — l'area C, il parcheggio,
+  /// l'acquisto fatto per conto nostro. Sono soldi che TORNANO al valet, non
+  /// il prezzo del viaggio: prima finivano nel plus/minus, che entra nella paga
+  /// e nel costo della consegna e quindi sporcava il margine. Da qui in poi
+  /// stanno in un campo loro: si pagano al valet, non fanno costo di consegna,
+  /// e si sommano nel Conto Economico della Finanza.
+  refundedCosts      Float?
+  /// ⭐ 05/09/2026 (regola utente): RITIRO VERIFICATO. Se la consegna o il
+  /// partner chiedono il codice del valet, al ritiro il PARTNER inserisce il
+  /// codice (l'id del valet) e, se combacia con chi ritira, qui restano quando
+  /// e chi. Senza questa verifica il valet non puo' mettere «in consegna».
+  pickupVerifiedAt   DateTime?
+  pickupVerifiedBy   String?
   ddtNumber          String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»
@@ -1287,6 +1462,15 @@ model Delivery {
   parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
   childDeliveries    Delivery[]        @relation("DeliveryPadre")
 
+  /// ⭐ 07/09/2026 (regola utente): una NON CONSEGNATA si toglie dall'elenco Consegne anche
+  /// SENZA riconsegna — «nascondi da consegne, la lascia in storico». Serve per i casi chiusi
+  /// altrove (rimborso, cliente irreperibile, ordine annullato): senza, restavano lì per
+  /// sempre a chiedere una decisione già presa. Non è una cancellazione e non cambia lo
+  /// stato: la consegna resta in Storico, si vede e si fattura come prima, e si può rimettere
+  /// fra le attive.
+  nonConsegnataChiusaIl DateTime?
+  nonConsegnataChiusaDa String?
+
   /// Soft delete del legacy: **431 consegne** (contate in banca il 26/08/2026;
   /// qui c'era scritto 524, numero mai verificato). Sta in un campo suo per non
   /// sovrascrivere lo stato reale della consegna — e infatti sono tutte in
@@ -1325,6 +1509,12 @@ model Delivery {
   @@index([invoiced])
   @@index([paymentStatus])
   @@index([realOrderNumber])
+  /// ⭐ 07/09/2026 — senza questo indice l'elenco Consegne fermava la produzione.
+  /// La lista carica `childDeliveries` (le frecce della riconsegna), e Prisma lo fa con
+  /// `WHERE "parentDeliveryId" IN (...)`: senza indice è una scansione di 63.137 righe
+  /// e 89 MB — misurata 21.163 ms contro i 407 ms della lista stessa. Con l'aggiornamento
+  /// automatico ogni 30 s le richieste si accumulavano e affogavano il cluster condiviso.
+  @@index([parentDeliveryId])
 
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -1368,6 +1558,13 @@ model DeliveryProduct {
   fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
   delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
 }
 
 // Ritiri multipli sotto lo stesso DDT
@@ -1390,6 +1587,13 @@ model DeliveryLog {
   userId     String?
   createdAt  DateTime @default(now())
   delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
 }
 
 // ------------------------------------------------------------
@@ -1445,6 +1649,14 @@ model Activity {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
+  @@index([valetId])
 }
 
 // ------------------------------------------------------------
@@ -1825,6 +2037,9 @@ model Sale {
   provinceId      String
   province        Province  @relation(fields: [provinceId], references: [id])
   brand           String    @default("DELUXY")
+  /// ⭐ 07/09/2026 — QUANTI PEZZI: «50 rose rosse» è una vendita di 50 rose, non una di rose.
+  /// Serve ai prodotti GENERICI a quantità, dove il prezzo è flessibile e si moltiplica.
+  quantity        Int      @default(1)
   amount          Float
   discountPercent Float     @default(0)
   /// da_gestire | proposta | accettata | non_accettata | annullata
@@ -1864,6 +2079,14 @@ model Sale {
   /// ⭐ 04/09/2026 (regola utente): il REGISTRO della vendita — cambi di stato,
   /// modifiche, assegnazioni, con chi li ha fatti.
   logs            SaleLog[]
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([partnerId])
+  @@index([productId])
 }
 
 // Chiavi API per le ALTRE APP Deluxy (app-to-app, standard §4.3): header
@@ -2084,4 +2307,50 @@ model SaleLog {
   sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([saleId, createdAt])
+}
+
+// ------------------------------------------------------------
+// ⭐ 06/09/2026 (regola utente): lo STOCK dei prodotti «Controlla stock» vive
+// nella piattaforma consegne. Product.stock / ProductVariant.stock e' il SALDO;
+// questa tabella e' la sua storia: ogni consegna lo scala, ogni rientro lo
+// rialza, ogni correzione a mano lascia una riga. Tabella creata a mano con
+// scripts/applica-migrazione-stock.mjs (CREATE TABLE IF NOT EXISTS).
+// ------------------------------------------------------------
+model StockMovement {
+  id               String   @id @default(cuid())
+  productId        String
+  productVariantId String?
+  deliveryId       String?
+  /// negativo = uscita (consegna), positivo = rientro / carico / rettifica in su
+  quantity         Int
+  /// consegna | rientro:<stato> | rettifica | carico
+  reason           String
+  note             String?
+  userId           String?
+  createdAt        DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([deliveryId])
+}
+
+/// ⭐ 06/09/2026 (regola utente «crea registro»): IL REGISTRO DELLE REGOLE CARNET —
+/// chi ha creato, modificato o eliminato una regola, quando, e che cosa è cambiato.
+/// Nessuna chiave esterna verso DeliveryRule: la regola si cancella davvero, il
+/// registro resta (è la sua ragione d'essere). Tabella creata con
+/// scripts/applica-migrazione-regole-registro.mjs.
+model DeliveryRuleLog {
+  id             String   @id @default(cuid())
+  deliveryRuleId String
+  /// creata | modificata | eliminata
+  type           String
+  userId         String?
+  /// chi (email al momento del fatto: l'utente può cambiare o sparire)
+  userEmail      String?
+  message        String
+  /// fotografia JSON della regola prima e dopo (per la modifica solo i campi cambiati)
+  before         String?
+  after          String?
+  createdAt      DateTime @default(now())
+
+  @@index([deliveryRuleId, createdAt])
 }

@@ -58,6 +58,16 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
         <div class="card sez">
           <h2>{{ 'profilo.anagrafica' | translate }}</h2>
           <p class="muted">{{ 'profilo.anagraficaHint' | translate }}</p>
+          <!-- ⭐ 06/09/2026 (regola utente): IL CODICE DEL VALET, personale. È quello
+               che il partner inserisce al ritiro quando la consegna chiede la
+               verifica dell'identità: non va detto ad altri. -->
+          @if (valet.legacyId != null) {
+            <div class="card" style="padding:14px 18px;margin:0 0 16px;border-left:3px solid var(--gold)">
+              <div class="muted" style="font-size:12.5px">{{ 'profilo.codiceValet' | translate }}</div>
+              <div style="font-size:26px;font-weight:600;letter-spacing:.06em;font-variant-numeric:tabular-nums">{{ valet.legacyId }}</div>
+              <p class="muted" style="margin:6px 0 0;font-size:13px">{{ 'profilo.codiceValetHint' | translate }}</p>
+            </div>
+          }
           <div class="grid-2">
             <label class="fld"><span>{{ 'profilo.telefono' | translate }}</span>
               <input class="field" name="vPhone" [(ngModel)]="valet.phone" /></label>
@@ -114,13 +124,80 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
               + {{ 'profilo.aggiungiRitiro' | translate }}
             </button>
           </div>
+          <!-- ⭐ 06/09/2026 (regola utente): con un servizio di VENDITA il partner regola da qui
+               «Consegna da Partner», il minimo d'ordine e il raggio massimo. -->
+          @if (partner.haVendita) {
+            <div class="vendite">
+              <h3>{{ 'profilo.vendite.titolo' | translate }}</h3>
+              <label class="toggle"><input type="checkbox" name="pAuto" [(ngModel)]="partner.autoDeliveredByPartner" /><span>{{ 'partnerForm.setup.autoDeliveredByPartner' | translate }}</span></label>
+              <p class="muted mini">{{ 'partnerForm.setup.autoDeliveredByPartnerHint' | translate }}</p>
+              <div class="grid-2">
+                <label class="fld"><span>{{ 'partnerForm.mestieri.minimo' | translate }}</span>
+                  <input class="field" type="number" min="0" step="1" name="pMinimo" [(ngModel)]="partner.minimoOrdineVendita" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+                  <span class="muted mini">{{ 'partnerForm.mestieri.minimoHint' | translate }}</span></label>
+                @if (partner.autoDeliveredByPartner) {
+                <label class="fld"><span>{{ 'partnerForm.mestieri.raggio' | translate }}</span>
+                  <input class="field" type="number" min="0" step="1" name="pRaggio" [(ngModel)]="partner.raggioMaxConsegnaKm" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+                  <span class="muted mini">{{ 'partnerForm.mestieri.raggioHint' | translate }}</span></label>
+                }
+              </div>
+              <!-- ⭐ 06/09 sera (segnalazione utente): dal profilo si sceglie anche DOVE si consegna da soli. -->
+              @if (partner.autoDeliveredByPartner) {
+              <div class="area-consegna">
+                <h4>{{ 'partnerForm.consegna.title' | translate }}</h4>
+                <p class="muted mini">{{ 'partnerForm.consegna.sub' | translate }}</p>
+                <div class="consegna-riga-add">
+                  <select class="field" (change)="aggiungiConsegna($any($event.target).value); $any($event.target).value=''">
+                    <option value="">{{ 'partnerForm.consegna.aggiungi' | translate }}</option>
+                    @for (p of provinceNonInConsegna(); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
+                  </select>
+                  @if ((partner.provinceVendita?.length ?? 0) > 0 && consegna.length === 0) {
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="consegnaDalleVendite()">{{ 'partnerForm.consegna.copiaVendite' | translate }}</button>
+                  }
+                  @if (consegna.length > 1) {
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="copiaATutte()">{{ 'partnerForm.consegna.copiaTutte' | translate }}</button>
+                  }
+                </div>
+                @if (consegna.length === 0) { <p class="muted mini">{{ 'partnerForm.consegna.vuoto' | translate }}</p> }
+                @else {
+                <table class="tab-consegna">
+                  <thead><tr><th>{{ 'partnerForm.consegna.colProvincia' | translate }}</th><th>{{ 'partnerForm.consegna.colMinimo' | translate }}</th><th>{{ 'partnerForm.consegna.colRaggio' | translate }}</th><th></th></tr></thead>
+                  <tbody>
+                    @for (r of consegna; track r.provinceId; let i = $index) {
+                      <tr>
+                        <td><b>{{ codiceProvincia(r.provinceId) }}</b> <span class="muted">{{ nomeProvincia(r.provinceId) }}</span></td>
+                        <td><input class="field num" type="number" min="0" step="1" [name]="'cmin' + i" [(ngModel)]="r.minimoOrdine" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                        <td><input class="field num" type="number" min="0" step="1" [name]="'ckm' + i" [(ngModel)]="r.raggioKm" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                        <td><button type="button" class="x" (click)="rimuoviConsegna(r.provinceId)" [attr.title]="'common.remove' | translate">✕</button></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                }
+              </div>
+              }
+            </div>
+          }
           @if (esitoNegozio(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
           <div class="azioni"><button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salvaPartner()">{{ 'common.save' | translate }}</button></div>
         </div>
       }
     }
   `,
-  styles: [`
+  styles: [
+    `.area-consegna { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+     .area-consegna h4 { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; }
+     .consegna-riga-add { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+     .consegna-riga-add .field { max-width: 320px; }
+     .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+     .tab-consegna { width: 100%; max-width: 640px; border-collapse: collapse; }
+     .tab-consegna th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+     .tab-consegna td { padding: 4px 8px; vertical-align: middle; }
+     .tab-consegna .num { max-width: 140px; }
+     .tab-consegna .x { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text-tertiary); font-size: 14px; }
+     .vendite { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+     .vendite h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+     .vendite .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; }`,`
     .intro { margin: 4px 0 18px; }
     .sez { max-width: 720px; margin-bottom: 16px; padding: 20px 22px; }
     .sez h2 { margin: 0 0 6px; font-size: 18px; }
@@ -155,6 +232,16 @@ export class ProfiloComponent {
   pw = { attuale: '', nuova: '', conferma: '' };
   valet: any = null;
   partner: any = null;
+  /** ⭐ 06/09 sera: l'area di consegna del partner (province + minimo/raggio per provincia). */
+  consegna: { provinceId: string; minimoOrdine: number | null; raggioKm: number | null }[] = [];
+  private tutteLeProvince(): { id: string; code: string; name: string }[] { return (this.partner?.tutteLeProvince ?? []) as { id: string; code: string; name: string }[]; }
+  provinceNonInConsegna() { const gia = new Set(this.consegna.map((r) => r.provinceId)); return this.tutteLeProvince().filter((p) => !gia.has(p.id)); }
+  codiceProvincia(id: string): string { return this.tutteLeProvince().find((p) => p.id === id)?.code ?? '?'; }
+  nomeProvincia(id: string): string { return this.tutteLeProvince().find((p) => p.id === id)?.name ?? ''; }
+  aggiungiConsegna(id: string): void { if (id && !this.consegna.some((r) => r.provinceId === id)) this.consegna = [...this.consegna, { provinceId: id, minimoOrdine: null, raggioKm: null }]; }
+  rimuoviConsegna(id: string): void { this.consegna = this.consegna.filter((r) => r.provinceId !== id); }
+  copiaATutte(): void { const [prima] = this.consegna; if (!prima) return; this.consegna = this.consegna.map((r) => ({ ...r, minimoOrdine: prima.minimoOrdine, raggioKm: prima.raggioKm })); }
+  consegnaDalleVendite(): void { this.consegna = ((this.partner?.provinceVendita ?? []) as { id: string }[]).map((p) => ({ provinceId: p.id, minimoOrdine: null, raggioKm: null })); }
 
   constructor() {
     this.http.get<any>(`${environment.apiUrl}/auth/profilo`).subscribe({
@@ -163,6 +250,7 @@ export class ProfiloComponent {
         this.valet = p?.valet ?? null;
         this.partner = p?.partner ?? null;
         if (this.partner && !Array.isArray(this.partner.pickupAddresses)) this.partner.pickupAddresses = [];
+        this.consegna = ((this.partner?.consegnaProvince ?? []) as { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[]).map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine ?? null, raggioKm: r.raggioKm ?? null }));
         this.caricamento.set(false);
       },
       error: () => this.caricamento.set(false),
@@ -202,6 +290,12 @@ export class ProfiloComponent {
       pickupAddresses: (this.partner.pickupAddresses ?? [])
         .map((r: string) => (r ?? '').trim())
         .filter((r: string) => !!r),
+      ...(this.partner.haVendita ? {
+        autoDeliveredByPartner: !!this.partner.autoDeliveredByPartner,
+        minimoOrdineVendita: this.partner.minimoOrdineVendita === '' || this.partner.minimoOrdineVendita == null ? null : Number(this.partner.minimoOrdineVendita),
+        raggioMaxConsegnaKm: this.partner.raggioMaxConsegnaKm === '' || this.partner.raggioMaxConsegnaKm == null ? null : Number(this.partner.raggioMaxConsegnaKm),
+        consegnaProvince: this.partner.autoDeliveredByPartner ? this.consegna.map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine === null || (r.minimoOrdine as unknown) === '' ? null : Number(r.minimoOrdine), raggioKm: r.raggioKm === null || (r.raggioKm as unknown) === '' ? null : Number(r.raggioKm) })) : [],
+      } : {}),
     } }, this.esitoNegozio);
   }
 

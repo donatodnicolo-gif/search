@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsObject,
@@ -62,6 +63,11 @@ export class ProductVariantDto {
   @IsOptional()
   @IsString()
   sku?: string;
+
+  @ApiPropertyOptional({ description: 'Nota di specifica della taglia: «10-15 fiori» (⭐ 07/09/2026)' })
+  @IsOptional()
+  @IsString()
+  note?: string;
 
   @ApiPropertyOptional({ description: 'Immagine della variante (URL)' })
   @IsOptional()
@@ -176,6 +182,20 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  // ⭐ 06/09/2026 (regola utente): la TIPOLOGIA DI VENDITA dice come si sceglie il fornitore
+  // e come si fa il prezzo. La casa è Merchandising; qui si può scrivere perché un partner
+  // carica il suo prodotto da questa app, e allora la tipologia nasce qui.
+  // Valore chiuso: un testo libero renderebbe la classificazione inservibile.
+  @ApiPropertyOptional({ description: "Nota di specifica del prodotto: che cosa c'è dentro (20-25 fiori, 6/8 porzioni). Arriva da Merchandising e la vede il fioraio." })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ enum: ['unico', 'quantita', 'mix', 'preventivo'], description: 'Come si vende: unico | quantita | mix | preventivo' })
+  @IsOptional()
+  @IsIn(['unico', 'quantita', 'mix', 'preventivo'])
+  tipologiaVendita?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()

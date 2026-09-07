@@ -17,14 +17,14 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiQuery, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveriesService } from '../deliveries/deliveries.service';
 import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
 import { JwtUser } from '../common/decorators';
-import { Role } from '../common/enums';
+import { DeliveryStatus, Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
 import { SalesModule, SalesService } from '../sales/sales.module';
@@ -672,6 +672,7 @@ export class AppApiService {
     recipientPhone: true, recipientIntercom: true,
     latitude: true, longitude: true, distanceKm: true,
     startedAt: true, deliveredAt: true, receivedBy: true,
+    deliveredByPartner: true, trackingToken: true,
     payable: true, billable: true, invoiced: true, paymentStatus: true,
     price: true, additionalPrice: true, ruleAdjustment: true, productValue: true, deliveryPrice: true,
     valetSalary: true, valetAdditionalPrice: true, hours: true,
@@ -726,6 +727,10 @@ export class AppApiService {
       id: d.id,
       numero: d.code,
       codicePubblico: d.identifier ?? null,
+      // ⭐ 06/09/2026 (regola utente): la consegna «da fornitore» porta il LINK con cui il partner
+      // la mette in consegnata / non consegnata (pagina pubblica, senza login). Null se non è da fornitore.
+      consegnaPartner: !!d.deliveredByPartner,
+      linkConferma: d.deliveredByPartner && d.trackingToken ? `https://app.deluxy.it/consegnata/${d.trackingToken}` : null,
       data: d.date,
       // ── ESITO ────────────────────────────────────────────────────────────
       esito: {
@@ -829,7 +834,7 @@ export class AppApiService {
    * seconda chiamata costa quanto quello che e' cambiato, non quanto l'archivio.
    */
   async consegne(opzioni: {
-    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; limit: number;
+    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; ddt?: string; limit: number;
   }) {
     const da = opzioni.aggiornateDa ? new Date(opzioni.aggiornateDa) : null;
     if (opzioni.aggiornateDa && Number.isNaN(da?.getTime())) {
@@ -847,6 +852,10 @@ export class AppApiService {
       ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
       ...(opzioni.stato ? { status: opzioni.stato } : {}),
       ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
+      // ⚠️ Per numero DDT (= numero d'ordine): è così che il Customer Service
+      // chiede «questa vendita ha già una consegna qui?» prima di crearne una
+      // (06/09/2026). Senza, l'unica difesa dai doppioni era la memoria.
+      ...(opzioni.ddt?.trim() ? { ddtNumber: opzioni.ddt.trim() } : {}),
     };
     // Il filtro delle RIGHE di questa pagina: il periodo più il cursore.
     const where = { ...periodo, ...(da ? { updatedAt: { gt: da } } : {}) };
@@ -986,6 +995,35 @@ export class AppApiService {
         if (esistente) return this.consegnaPerNumero(esistente.code);
       }
     }
+    // ── I DEFAULT DELLE CONSEGNE CREATE DAL CANALE APP (utente, 06/09/2026,
+    // consegna #101065 nata dal Customer Service senza ritiro né brand) ──
+    // 1. Ritiro = un'ora prima della consegna, quando chi chiama non lo dice.
+    // 2. Indirizzo di ritiro = la sede del partner (con la provincia, com'è
+    //    scritta sul partner); per «Artista Locale» = l'indirizzo di consegna
+    //    per intero (il fornitore sta dove abita chi riceve).
+    // 3. Per «Artista Locale» la consegna la fa il fornitore
+    //    (`deliveredByPartner`), a meno che l'ordine sia di deluxy.it (il
+    //    valet in guanti bianchi) o ci sia già un valet assegnato.
+    // Solo i campi VUOTI: quello che l'app dichiara resta suo.
+    const menoUnOra = (hhmm?: string): string | undefined => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm ?? '').trim());
+      if (!m) return undefined;
+      return `${String((Number(m[1]) + 23) % 24).padStart(2, '0')}:${m[2]}`;
+    };
+    if (!dto.pickupTimeFrom?.trim() && dto.deliveryTimeFrom) dto.pickupTimeFrom = menoUnOra(dto.deliveryTimeFrom);
+    if (!dto.pickupTimeTo?.trim() && dto.deliveryTimeTo) dto.pickupTimeTo = menoUnOra(dto.deliveryTimeTo);
+    const partnerScelto = await this.prisma.partner.findUnique({
+      where: { id: dto.partnerId },
+      select: { insegna: true, address: true },
+    });
+    const artistaLocale = (partnerScelto?.insegna ?? '').trim().toLowerCase() === 'artista locale';
+    if (!dto.pickupAddress?.trim()) {
+      dto.pickupAddress = artistaLocale ? (dto.recipientAddress ?? '').trim() : (partnerScelto?.address ?? '').trim();
+    }
+    if (artistaLocale && dto.deliveredByPartner === undefined) {
+      const daDeluxyIt = (dto.ddtBrand ?? '').trim().toLowerCase() === 'deluxy.it';
+      dto.deliveredByPartner = !daDeluxyIt && !dto.valetId;
+    }
     const utenteApp: JwtUser = {
       sub: `app:${nomeChiave}`,
       email: `${nomeChiave}@app.deluxy`,
@@ -1002,6 +1040,27 @@ export class AppApiService {
         message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».${marcatore ? ` ${marcatore}` : ''}`,
       },
     });
+    // ── GIÀ CONSEGNATA: registrata a posteriori (06/09/2026) ──
+    // Le vendite che il Customer Service ha gestito con un pagamento in app
+    // sono consegne avvenute: qui nascono direttamente in storico, senza
+    // passare da assegnata/in consegna. Il log lo dice, così fra un mese non
+    // sembra una consegna fatta da un valet in cinque secondi.
+    if (dto.giaConsegnata) {
+      const fine = (dto.deliveryTimeTo ?? '18:00').trim().padStart(5, '0');
+      const giorno = String(dto.date ?? '').slice(0, 10);
+      const quando = dto.consegnataIl ? new Date(dto.consegnataIl) : new Date(`${giorno}T${fine}:00+02:00`);
+      await this.prisma.delivery.update({
+        where: { id: creata.id },
+        data: { status: DeliveryStatus.DELIVERED, deliveredAt: Number.isNaN(quando.getTime()) ? new Date() : quando },
+      });
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: creata.id,
+          type: 'delivered',
+          message: `Stato: ${creata.status} -> delivered (consegna già avvenuta, registrata a posteriori dal canale app «${nomeChiave}»)`,
+        },
+      });
+    }
     // Si risponde nello STESSO formato della lettura: chi crea e poi rilegge
     // non deve imparare due dialetti.
     return this.consegnaPerNumero(creata.code);
@@ -1061,6 +1120,189 @@ export class AppApiService {
    * ⚠️ Gli ELIMINATI e i disattivati non escono: un partner che non riceve
    * consegne, in una tendina di scelta, e' solo un modo di sbagliare.
    */
+  /**
+   * ⭐ 06/09/2026 (regola utente): le PROVINCE ABILITATE = quelle con una lista di priorità che
+   * contiene almeno un partner attivo, coi partner in lista. Serve a Orders per la regola del
+   * territorio («con partner» / «senza partner»): non le province coperte per area, che con
+   * «Tutto il mondo» sarebbero tutte.
+   */
+  /**
+   * ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (regola utente): il Customer Service decide a chi
+   * proporre l'ordine e con che sconto; la piattaforma gli dice CHI C'È in una provincia: i partner
+   * attivi con un servizio di VENDITA, i loro mestieri, se consegnano da soli e se lo fanno in QUELLA
+   * provincia (area di consegna, con minimo e raggio), le aree commerciali che la contengono e le liste
+   * di priorità (per mestiere) della provincia.
+   */
+  async venditaProvincia(sigla: string) {
+    const code = (sigla ?? '').trim().toUpperCase();
+    const provincia = await this.prisma.province.findFirst({ where: { code }, select: { id: true, code: true, name: true } });
+    if (!provincia) throw new NotFoundException(`Provincia sconosciuta: ${sigla}`);
+    const partner = await this.prisma.partner.findMany({
+      where: { active: true, deleted: false, provinces: { some: { provinceId: provincia.id } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } },
+      orderBy: { insegna: 'asc' },
+      select: {
+        id: true, insegna: true, city: true, autoDeliveredByPartner: true, esclusoDalleProposte: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true,
+        mestieri: { select: { mestiere: { select: { chiave: true, nome: true } } } },
+        aree: { select: { area: { select: { id: true, nome: true } } } },
+        consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } },
+      },
+    });
+    const liste = await this.prisma.priorityList.findMany({
+      where: { provinceId: provincia.id },
+      select: { id: true, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } } },
+    });
+    const aree = await this.prisma.area.findMany({ where: { attiva: true, province: { some: { provinceId: provincia.id } } }, select: { id: true, nome: true, _count: { select: { province: true } } }, orderBy: { nome: 'asc' } });
+    return {
+      provincia: provincia.code, nome: provincia.name,
+      // «con partner» ignora gli ESCLUSI DALLE PROPOSTE (regola utente 06/09 sera).
+      // «con partner» = almeno un partner attivo con servizio di vendita non escluso (o una lista con uno così).
+      conPartner: partner.some((p) => !p.esclusoDalleProposte) || liste.some((l) => l.entries.some((e) => e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte)),
+      partner: partner.map((p) => {
+        const qui = p.consegnaProvince.find((x) => x.provinceId === provincia.id) ?? null;
+        const haArea = p.consegnaProvince.length > 0;
+        return {
+          id: p.id, insegna: p.insegna, citta: p.city,
+          mestieri: p.mestieri.map((m) => m.mestiere.nome),
+          consegnaDaPartner: p.autoDeliveredByPartner,
+          esclusoDalleProposte: p.esclusoDalleProposte,
+          consegnaInProvincia: p.autoDeliveredByPartner && (!haArea || !!qui),
+          minimoOrdine: qui?.minimoOrdine ?? p.minimoOrdineVendita ?? null,
+          raggioKm: qui?.raggioKm ?? p.raggioMaxConsegnaKm ?? null,
+          areeCommerciali: p.aree.map((a) => a.area.nome),
+        };
+      }),
+      listePriorita: liste.map((l) => ({ id: l.id, mestiere: l.mestiere?.nome ?? null, categoria: l.category?.name ?? null, partner: l.entries.filter((e) => e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte).map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna })) })),
+      areeCommerciali: aree.map((a) => ({ id: a.id, nome: a.nome, province: a._count.province })),
+    };
+  }
+
+  /**
+   * ⭐ 06/09/2026 sera — I PREZZI CHE UN PARTNER FA SU UN PRODOTTO (regola utente: «liste di prodotto»).
+   * Il Customer Service costruisce da qui le sue liste per prodotto e provincia: a Roma la Vintage Cake
+   * la fa Pappagallo a 50 € e un'altra pasticceria a 60 € → si propone prima a Pappagallo.
+   * Tre sorgenti, tutte già nella piattaforma:
+   *  · `riconciliazione` — patto ACCETTATO per (prodotto, variante, provincia): il prezzo al partner è il patto;
+   *  · `unico` — prodotto UNICO del partner: il suo listino (ci sono anche i «Fiori a stelo» caricati il 06/09);
+   *  · `listino` — prezzo al partner di listino del prodotto/variante, quando il prodotto ha un proprietario.
+   * ⚠️ Non è una copia da tenere: si legge quando serve. Gli ESCLUSI DALLE PROPOSTE non escono.
+   */
+  async prezziPartner(sigla?: string) {
+    const code = (sigla ?? '').trim().toUpperCase();
+    const provincia = code ? await this.prisma.province.findFirst({ where: { code }, select: { id: true, code: true } }) : null;
+    if (code && !provincia) throw new NotFoundException(`Provincia sconosciuta: ${sigla}`);
+    const vivo = { active: true, deleted: false, esclusoDalleProposte: false } as const;
+
+    const ric = await this.prisma.productReconciliation.findMany({
+      where: { status: 'accettata', ...(provincia ? { provinceId: provincia.id } : {}) },
+      select: {
+        productId: true, productVariantId: true, provinceId: true, partnerId: true, partnerPrice: true, price: true, discountPercent: true, updatedAt: true, salesCount: true,
+        product: { select: { name: true, sku: true, publicPrice: true, price: true, tipologiaVendita: true, category: { select: { name: true, mestiere: { select: { nome: true } } } } } },
+        variant: { select: { name: true, sku: true, publicPrice: true } },
+      },
+    });
+    // ⚠️ La riconciliazione non ha la relazione con Province: la sigla si legge a parte.
+    const siglePerProvincia = new Map((await this.prisma.province.findMany({ select: { id: true, code: true } })).map((x) => [x.id, x.code]));
+    const partnerIds = [...new Set(ric.map((r) => r.partnerId))];
+    const partnerOk = new Map((await this.prisma.partner.findMany({ where: { id: { in: partnerIds }, ...vivo }, select: { id: true, insegna: true } })).map((p) => [p.id, p.insegna]));
+
+    const unici = await this.prisma.product.findMany({
+      where: { type: 'UNICO', active: true, deletedAt: null, partnerId: { not: null }, partner: vivo, ...(provincia ? { partner: { ...vivo, provinces: { some: { provinceId: provincia.id } } } } : {}) },
+      select: {
+        id: true, name: true, sku: true, price: true, publicPrice: true, updatedAt: true, tipologiaVendita: true,
+        partner: { select: { id: true, insegna: true, provinces: { select: { province: { select: { code: true } } } } } },
+        category: { select: { name: true, mestiere: { select: { nome: true } } } },
+        variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
+      },
+      take: 3000,
+    });
+
+    const righe: Record<string, unknown>[] = [];
+    for (const r of ric) {
+      const insegna = partnerOk.get(r.partnerId);
+      if (!insegna) continue; // partner spento, cancellato o escluso dalle proposte
+      righe.push({
+        origine: 'riconciliazione', prodottoId: r.productId, prodotto: r.product.name, sku: r.variant?.sku ?? r.product.sku ?? null,
+        varianteId: r.productVariantId ?? null, variante: r.variant?.name ?? '',
+        categoria: r.product.category?.name ?? null, mestiere: r.product.category?.mestiere?.nome ?? null,
+        tipologia: r.product.tipologiaVendita ?? null,
+        provincia: siglePerProvincia.get(r.provinceId) ?? null, partnerId: r.partnerId, partner: insegna,
+        prezzoPartner: r.partnerPrice ?? Math.round(r.price * (1 - r.discountPercent / 100) * 100) / 100,
+        pubblico: r.variant?.publicPrice ?? r.product.publicPrice ?? r.product.price ?? null,
+        osservazioni: r.salesCount, aggiornatoIl: r.updatedAt,
+      });
+    }
+    for (const u of unici) {
+      if (!u.partner) continue;
+      const province = u.partner.provinces.map((x) => x.province.code);
+      const varianti = u.variants.length ? u.variants : [null];
+      for (const v of varianti) {
+        righe.push({
+          origine: 'unico', prodottoId: u.id, prodotto: u.name, sku: v?.sku ?? u.sku ?? null,
+          varianteId: v?.id ?? null, variante: v?.name ?? '',
+          categoria: u.category?.name ?? null, mestiere: u.category?.mestiere?.nome ?? null,
+          tipologia: u.tipologiaVendita ?? 'unico',
+          provincia: provincia?.code ?? null, province,
+          partnerId: u.partner.id, partner: u.partner.insegna,
+          prezzoPartner: v?.price ?? u.price, pubblico: v?.publicPrice ?? u.publicPrice ?? null,
+          osservazioni: null, aggiornatoIl: u.updatedAt,
+        });
+      }
+    }
+    return { provincia: provincia?.code ?? null, righe: righe.filter((r) => typeof r['prezzoPartner'] === 'number' && (r['prezzoPartner'] as number) > 0) };
+  }
+
+  /** Le aree commerciali (gruppi di province) coi partner che vendono: per le liste di priorità PER AREA del Customer Service. */
+  async areeCommerciali() {
+    const aree = await this.prisma.area.findMany({
+      where: { attiva: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, province: { select: { province: { select: { code: true, name: true } } } }, partners: { select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true, autoDeliveredByPartner: true, mestieri: { select: { mestiere: { select: { nome: true } } } }, services: { select: { serviceType: { select: { pricingModel: true } } } } } } } } },
+    });
+    return aree.map((a) => ({
+      id: a.id, nome: a.nome,
+      province: a.province.map((x) => x.province.code).sort(),
+      partner: a.partners.map((x) => x.partner).filter((p) => p.active && !p.deleted && !p.esclusoDalleProposte).map((p) => ({ id: p.id, insegna: p.insegna, vendita: p.services.some((s) => s.serviceType.pricingModel === 'VENDITA'), consegnaDaPartner: p.autoDeliveredByPartner, mestieri: p.mestieri.map((m) => m.mestiere.nome) })),
+    }));
+  }
+
+  /** Tutte le liste di priorità (provincia × mestiere/categoria, partner in ordine): il Customer Service le importa e le tiene per area commerciale. */
+  async listePriorita() {
+    const liste = await this.prisma.priorityList.findMany({
+      select: { id: true, province: { select: { code: true, name: true } }, mestiere: { select: { chiave: true, nome: true } }, category: { select: { name: true } }, updatedAt: true, entries: { orderBy: { position: 'asc' }, select: { position: true, partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } } },
+    });
+    const aree = await this.prisma.area.findMany({ where: { attiva: true }, select: { id: true, nome: true, province: { select: { province: { select: { code: true } } } } } });
+    return liste.map((l) => ({
+      id: l.id, provincia: l.province.code, nomeProvincia: l.province.name, mestiere: l.mestiere?.nome ?? null, mestiereChiave: l.mestiere?.chiave ?? null, categoria: l.category?.name ?? null, aggiornataIl: l.updatedAt,
+      areeCommerciali: aree.filter((a) => a.province.some((x) => x.province.code === l.province.code)).map((a) => a.nome),
+      partner: l.entries.map((e) => ({ posizione: e.position, id: e.partner.id, insegna: e.partner.insegna, attivo: e.partner.active && !e.partner.deleted && !e.partner.esclusoDalleProposte, escluso: e.partner.esclusoDalleProposte })),
+    }));
+  }
+
+  async provinceAbilitate() {
+    const liste = await this.prisma.priorityList.findMany({
+      select: {
+        province: { select: { code: true, name: true } },
+        mestiere: { select: { nome: true } },
+        category: { select: { name: true } },
+        entries: { orderBy: { position: 'asc' }, select: { partner: { select: { id: true, insegna: true, active: true, deleted: true, esclusoDalleProposte: true } } } },
+      },
+    });
+    const perProvincia = new Map<string, { provincia: string; nome: string; partner: Map<string, { id: string; insegna: string; liste: Set<string> }> }>();
+    for (const l of liste) {
+      const g = perProvincia.get(l.province.code) ?? { provincia: l.province.code, nome: l.province.name, partner: new Map() };
+      for (const e of l.entries) {
+        if (!e.partner.active || e.partner.deleted || e.partner.esclusoDalleProposte) continue;
+        const p = g.partner.get(e.partner.id) ?? { id: e.partner.id, insegna: e.partner.insegna, liste: new Set<string>() };
+        p.liste.add(l.mestiere?.nome ?? l.category?.name ?? '');
+        g.partner.set(e.partner.id, p);
+      }
+      if (g.partner.size) perProvincia.set(l.province.code, g);
+    }
+    return [...perProvincia.values()]
+      .sort((a, b) => a.provincia.localeCompare(b.provincia))
+      .map((g) => ({ provincia: g.provincia, nome: g.nome, partner: [...g.partner.values()].map((p) => ({ id: p.id, insegna: p.insegna, liste: [...p.liste].filter(Boolean) })) }));
+  }
+
   async partner() {
     const righe = await this.prisma.partner.findMany({
       where: { active: true, deleted: false },
@@ -1122,6 +1364,11 @@ export class AppApiService {
           OR: [
             { name: { contains: testo, mode: 'insensitive' } },
             { sku: { contains: testo, mode: 'insensitive' } },
+            // ⭐ 07/09/2026: anche lo SKU di una VARIANTE. Le righe di un ordine portano
+            // quello (DLEIXX-1, non DLEIXX), e chi cercava il prodotto per quel codice non
+            // trovava niente: il Customer Service non riusciva a sapere che tipo di prodotto
+            // fosse — a numero, a preventivo, mix.
+            { variants: { some: { sku: { contains: testo, mode: 'insensitive' } } } },
           ],
         },
       ];
@@ -1133,8 +1380,12 @@ export class AppApiService {
       price: true,
       publicPrice: true,
       type: true,
+      // 06/09 sera: la tipologia di vendita serve al Customer Service per sapere se un
+      // prodotto va a preventivo prima di proporlo.
+      tipologiaVendita: true,
       partnerId: true,
       partner: { select: { insegna: true } },
+      variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
     } as const;
     const [righe, generico] = await Promise.all([
       this.prisma.product.findMany({ where: dove, orderBy: { name: 'asc' }, take: 30, select: seleziona }),
@@ -1155,6 +1406,10 @@ export class AppApiService {
       prezzo: p.price,
       prezzoPubblico: p.publicPrice ?? null,
       tipo: p.type,
+      // ⭐ 07/09/2026: la TIPOLOGIA usciva dalla query ma non dalla risposta, e il Customer
+      // Service non poteva fare il controllo a monte («questo è un prodotto a numero»).
+      tipologia: p.tipologiaVendita ?? null,
+      varianti: (p.variants ?? []).map((v) => ({ id: v.id, nome: v.name, sku: v.sku ?? '', prezzo: v.price ?? null, prezzoPubblico: v.publicPrice ?? null })),
       partnerId: p.partnerId ?? '',
       partner: p.partner?.insegna ?? '',
     });
@@ -1166,6 +1421,40 @@ export class AppApiService {
   }
 
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
+  /**
+   * SEGNA CONSEGNATA dal canale app (06/09/2026): per id o per numero.
+   * Non si tocca una consegna annullata (sarebbe far rinascere un viaggio mai
+   * partito), e una già consegnata resta com'è. `deliveredAt` = data passata,
+   * altrimenti il giorno di consegna a fine fascia.
+   */
+  async segnaConsegnata(idOCodice: string, consegnataIl: string | undefined, nomeChiave: string) {
+    const perCodice = /^\d+$/.test(idOCodice) ? [{ code: Number(idOCodice) }] : [];
+    const d = await this.prisma.delivery.findFirst({
+      where: { deletedAt: null, OR: [{ id: idOCodice }, ...perCodice] },
+      select: { id: true, code: true, status: true, date: true, deliveryTimeTo: true },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (d.status === DeliveryStatus.DELIVERED) return this.consegnaPerNumero(d.code);
+    if (d.status === DeliveryStatus.CANCELLED) {
+      throw new BadRequestException(`La consegna #${d.code} è annullata: non si segna consegnata.`);
+    }
+    const fine = (d.deliveryTimeTo ?? '18:00').trim().padStart(5, '0');
+    const giorno = d.date.toISOString().slice(0, 10);
+    const quando = consegnataIl ? new Date(consegnataIl) : new Date(`${giorno}T${fine}:00+02:00`);
+    await this.prisma.delivery.update({
+      where: { id: d.id },
+      data: { status: DeliveryStatus.DELIVERED, deliveredAt: Number.isNaN(quando.getTime()) ? new Date() : quando },
+    });
+    await this.prisma.deliveryLog.create({
+      data: {
+        deliveryId: d.id,
+        type: 'delivered',
+        message: `Stato: ${d.status} -> delivered (segnata consegnata dal canale app «${nomeChiave}»: ordine gestito nel Customer Service)`,
+      },
+    });
+    return this.consegnaPerNumero(d.code);
+  }
+
   async consegnaPerNumero(numero: number) {
     if (!Number.isInteger(numero) || numero <= 0 || numero > 2_147_483_647) {
       throw new NotFoundException('Numero consegna non valido.');
@@ -1246,10 +1535,11 @@ export class AppApiController {
     @Query('al') al?: string,
     @Query('stato') stato?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('ddt') ddt?: string,
     @Query('limit') limit = '200',
   ) {
     return this.service.consegne({
-      aggiornateDa, dal, al, stato, partnerId, limit: Number(limit) || 200,
+      aggiornateDa, dal, al, stato, partnerId, ddt, limit: Number(limit) || 200,
     });
   }
 
@@ -1322,6 +1612,42 @@ export class AppApiController {
     return this.service.partner();
   }
 
+  @Get('vendita/provincia/:sigla')
+  @ApiOperation({ summary: 'Chi c\'è in una provincia per le VENDITE: partner attivi con servizio di vendita (mestieri, consegna da partner e se consegna in questa provincia con minimo/raggio), liste di priorità della provincia, aree commerciali che la contengono' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  venditaProvincia(@Param('sigla') sigla: string) {
+    return this.service.venditaProvincia(sigla);
+  }
+
+  @Get('prezzi-partner')
+  @ApiOperation({ summary: 'I prezzi che i partner fanno su un prodotto: patti di riconciliazione accettati e listini dei prodotti UNICI (con i «Fiori a stelo»). Il Customer Service ci costruisce le liste di prodotto' })
+  @ApiQuery({ name: 'provincia', required: false, description: 'sigla; senza, tutte' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  prezziPartner(@Query('provincia') provincia?: string) {
+    return this.service.prezziPartner(provincia);
+  }
+
+  @Get('aree-commerciali')
+  @ApiOperation({ summary: 'Le aree commerciali (gruppi di province) coi partner attivi che vendono' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  areeCommerciali() {
+    return this.service.areeCommerciali();
+  }
+
+  @Get('liste-priorita')
+  @ApiOperation({ summary: 'Tutte le liste di priorità (provincia × mestiere) coi partner in ordine e le aree commerciali della provincia: il Customer Service le importa' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  listePriorita() {
+    return this.service.listePriorita();
+  }
+
+  @Get('province-abilitate')
+  @ApiOperation({ summary: 'Le province con una lista di priorità che ha almeno un partner attivo, coi partner in lista: la base della regola del territorio di Orders (con/senza partner)' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
+  provinceAbilitate() {
+    return this.service.provinceAbilitate();
+  }
+
   @Get('prodotti')
   @ApiOperation({
     summary:
@@ -1337,6 +1663,20 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
   consegna(@Param('numero') numero: string) {
     return this.service.consegnaPerNumero(Number(numero));
+  }
+
+  // ⚠️ Il Customer Service, quando mette un ordine «Gestito», chiede a chi
+  // lavora se segnare consegnata anche la consegna di qua (06/09/2026). Lo
+  // stato è NOSTRO: si cambia da questa rotta, con la chiave di scrittura, e
+  // resta scritto chi l'ha chiesto. Idempotente: già consegnata = com'è.
+  @Post('consegne/:id/consegnata')
+  @ApiOperation({
+    summary: "Un'altra app (Customer Service) segna la consegna come CONSEGNATA: va in storico con la data e una riga di registro. Idempotente.",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  @UseGuards(ScritturaRichiestaGuard)
+  segnaConsegnata(@Param('id') id: string, @Body() body: { consegnataIl?: string }, @Req() req: any) {
+    return this.service.segnaConsegnata(id, body?.consegnataIl, req.appChiave?.nome ?? 'app sconosciuta');
   }
 
   @Get('vendite/by-ref/:source/:externalOrderId')

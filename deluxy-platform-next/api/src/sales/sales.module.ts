@@ -10,14 +10,44 @@ import {
   Param,
   Patch,
   Post,
+  Logger,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
-import { ProductType, Role, SaleStatus } from '../common/enums';
+import { NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
+/**
+ * ⭐ 05/09/2026: QUANDO va consegnato — il giorno, e la fascia chiesta dal
+ * cliente se c'è. È questo che si confronta con gli orari del partner.
+ */
+interface FinestraConsegna {
+  /** Importo pagato dal cliente. */
+  importo?: number | null;
+  /** Sconto (quota Deluxy) stimato per (provincia, categoria): serve a stimare il prezzo partner. */
+  scontoPct?: number | null;
+  /** Sui prodotti UNICI il prezzo partner è quello di listino della variante/prodotto. */
+  prezzoPartnerListino?: number | null;
+  /** Indirizzo del destinatario: serve al raggio massimo dei partner che consegnano da soli. */
+  indirizzo?: string | null;
+  /** ⭐ 06/09 (regola utente): la variante ordinata — la riconciliazione vale solo se è la stessa. */
+  variantId?: string | null;
+  /** ⭐ 07/09 (regola utente): quanti PEZZI. Su un prodotto «a quantità» il prezzo al partner
+   *  è il suo prezzo UNITARIO per i pezzi, non il pubblico meno la percentuale. */
+  pezzi?: number | null;
+  /** Il titolo della riga d'ordine: dice QUALE fiore, quando il prodotto è un generico. */
+  titolo?: string | null;
+  giorno: Date;
+  /** «08:00», dalla fascia dell'ordine. Assente = non si sa l'ora. */
+  dalle?: string;
+  /** «12:00». Assente = non si sa l'ora. */
+  alle?: string;
+}
+
 type Candidato = {
   partnerId: string;
   motivo: string;
@@ -36,6 +66,9 @@ type ProdottoDaSmistare = {
   partnerId: string | null;
   categoryId: string | null;
   visibleToOtherPartners: boolean;
+  /** unico | quantita | mix | preventivo — decisa in Merchandising. */
+  tipologiaVendita?: string | null;
+  sku?: string | null;
 };
 
 /** Lo stato di un ordine come lo dice Orders (letto dal vivo, 04/09). */
@@ -55,7 +88,52 @@ type StatoOrdineOrders = {
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SalesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly settings: SettingsService,
+  ) {}
+
+  /**
+   * ⭐ 06/09/2026 (segnalazione utente: «perché non vengono mandate notifiche?»):
+   * finora una vendita PROPOSTA al partner non avvisava nessuno — il partner la
+   * scopriva solo entrando in Vendite. Ora gli utenti attivi di quel partner
+   * ricevono campanella e push (stesso canale delle ore da approvare). Se la
+   * notifica fallisce la vendita resta proposta: avvisare non è un prerequisito.
+   */
+  /** Distanza in linea d'aria (km) fra due punti: basta per il raggio del partner, non serve la strada. */
+  static kmInLineaDAria(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const r = (x: number) => (x * Math.PI) / 180;
+    const dLat = r(lat2 - lat1), dLng = r(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /** Le categorie di FIORI: le uniche in cui un prodotto non unico si smista da solo (regola utente 06/09/2026). */
+  static categoriaFiori(nome: string | null | undefined): boolean {
+    const n = String(nome ?? '').toLowerCase();
+    return /fior|flor|rosa|rose|piant|ghirland|cappellier|terrarium|bouquet/.test(n);
+  }
+
+  private async avvisaProposta(v: { id: string; partnerId?: string | null; externalOrderNumber?: string | null; amount?: number | null; product?: { name?: string | null } | null }): Promise<void> {
+    if (!v.partnerId) return;
+    try {
+      const utenti = await this.prisma.user.findMany({ where: { partnerId: v.partnerId, status: 'active' }, select: { id: true } });
+      if (!utenti.length) return;
+      const importo = v.amount != null ? ` · ${Number(v.amount).toFixed(2)} €` : '';
+      await this.notifications.notifyUsers(utenti.map((u) => u.id), {
+        type: NotificationType.SALE_PROPOSED,
+        title: 'Nuova vendita proposta',
+        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${importo} — accetta o rifiuta in Vendite`,
+        entityType: 'sale',
+        entityId: v.id,
+      });
+    } catch {
+      // la vendita è già scritta: un avviso mancato non la annulla
+    }
+  }
 
   /**
    * ⭐ 04/09/2026 (regola utente): IL REGISTRO DELLA VENDITA — ogni creazione,
@@ -81,7 +159,7 @@ export class SalesService {
     const vendite = await this.prisma.sale.findMany({
       where,
       include: {
-        product: { select: { id: true, name: true, price: true, type: true } },
+        product: { select: { id: true, name: true, sku: true, price: true, type: true, tipologiaVendita: true, note: true } },
         partner: { select: { id: true, insegna: true } },
         province: true,
       },
@@ -93,9 +171,58 @@ export class SalesService {
     // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
+    // ⭐ 07/09/2026 (regola utente: «prima dovrebbe richiedere il preventivo e nascondere
+    // accetta, rifiuta e inserisci»). Per le vendite di un prodotto A PREVENTIVO si dice se il
+    // prezzo concordato esiste già: senza, in pagina resta solo «Salva preventivo».
+    // Si calcola con due letture per tutta la lista, non una per riga.
+    const daPreventivo = vendite.filter((v) => v.product?.tipologiaVendita === 'preventivo' && v.productId && v.provinceId);
+    const conPrezzo = new Set<string>();
+    if (daPreventivo.length) {
+      const [patti, varianti, listini] = await Promise.all([
+        this.prisma.productReconciliation.findMany({
+          where: {
+            status: 'accettata',
+            productId: { in: [...new Set(daPreventivo.map((v) => v.productId!))] },
+            provinceId: { in: [...new Set(daPreventivo.map((v) => v.provinceId))] },
+          },
+          select: { productId: true, productVariantId: true, provinceId: true },
+        }),
+        this.prisma.productVariant.findMany({
+          where: { id: { in: daPreventivo.map((v) => v.productVariantId).filter(Boolean) as string[] } },
+          select: { id: true, sku: true },
+        }),
+        // I preventivi raccolti vivono come listino del partner: sku «PP-<codice>-<partner>».
+        this.prisma.product.findMany({
+          where: { active: true, deletedAt: null, archived: false, sku: { startsWith: 'PP-' }, partnerId: { not: null } },
+          select: { sku: true, partnerId: true },
+        }),
+      ]);
+      const patto = new Set(patti.map((r) => `${r.productId}|${r.productVariantId ?? ''}|${r.provinceId}`));
+      const skuVariante = new Map(varianti.map((x) => [x.id, (x.sku ?? '').toUpperCase()]));
+      const perPartner = new Map<string, string[]>();
+      for (const l of listini) {
+        const a2 = perPartner.get(l.partnerId!) ?? [];
+        a2.push((l.sku ?? '').toUpperCase());
+        perPartner.set(l.partnerId!, a2);
+      }
+      const chiaveSku = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28);
+      for (const v of daPreventivo) {
+        if (patto.has(`${v.productId}|${v.productVariantId ?? ''}|${v.provinceId}`) || patto.has(`${v.productId}||${v.provinceId}`)) {
+          conPrezzo.add(v.id);
+          continue;
+        }
+        if (!v.partnerId) continue;
+        const basi = [v.productVariantId ? skuVariante.get(v.productVariantId) : null, v.product?.sku]
+          .filter(Boolean)
+          .map((x) => chiaveSku(String(x)));
+        const suoi = perPartner.get(v.partnerId) ?? [];
+        if (basi.some((b2) => suoi.some((sk) => sk.startsWith(`PP-${b2}-`)))) conPrezzo.add(v.id);
+      }
+    }
+    const senzaPreventivo = new Set(daPreventivo.filter((v) => !conPrezzo.has(v.id)).map((v) => v.id));
     return vendite.map((v) => {
       const trovato = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
-      const conStato = { ...v, ordine: trovato };
+      const conStato = { ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id) };
       return user.role === Role.PARTNER ? SalesService.perPartner(conStato) : conStato;
     });
   }
@@ -121,7 +248,10 @@ export class SalesService {
       amount: null,
       discountPercent: null,
       prezzoPartner: Math.round(amount * (1 - (discountPercent ?? 0) / 100) * 100) / 100,
-      product: prodotto ? { ...prodotto, price: null } : prodotto,
+      // ⚠️ Al partner niente listino E niente PRODUTTORE: il produttore è un
+      // altro partner, e sapere chi fa il prodotto è la stessa informazione
+      // che «Chi abbiamo usato?» tiene riservata all'ufficio.
+      product: prodotto ? { ...prodotto, price: null, partner: null } : prodotto,
       ...(logs ? { logs: logs.filter((l) => l.type !== 'modifica') } : {}),
     };
   }
@@ -316,6 +446,8 @@ export class SalesService {
    * che non poteva prendere.
    */
   async create(body: {
+    /** ⭐ 06/09/2026: % sconto decisa da Orders (vince se c'è). */
+    discountPercent?: number;
     productId: string;
     productVariantId?: string;
     provinceId: string;
@@ -330,6 +462,12 @@ export class SalesService {
     recipientPhone?: string;
     deliveryDate?: string;
     serviceTypeId?: string;
+    /** Quanto ha pagato il cliente, se chi chiama lo sa (Orders lo sa). */
+    amount?: number;
+    /** ⭐ 07/09/2026: quanti pezzi. Sui generici a quantità il prezzo unitario è amount / quantity. */
+    quantity?: number;
+    /** Titolo della riga d ordine: sui generici resta scritto che cosa aveva chiesto il cliente. */
+    productName?: string;
   }) {
     const product = await this.prisma.product.findUnique({
       where: { id: body.productId },
@@ -348,10 +486,92 @@ export class SalesService {
       throw new NotFoundException('Variante non trovata per questo prodotto');
     }
 
-    const quando = body.deliveryDate ? new Date(body.deliveryDate) : new Date();
-    const scelto = await this.scegliPartner(product, body.provinceId, quando, []);
-    // L'importo del cliente resta quello di listino (variante compresa).
-    const importoCliente = variante?.price ?? product.price ?? 0;
+    // ⭐ 05/09/2026 (regola utente): la finestra è quella della CONSEGNA, non
+    // l'istante in cui la vendita arriva. Il giorno è quello chiesto
+    // dall'ordine; l'ora è la FASCIA che il cliente ha scelto al checkout
+    // (8–12, 12–16, 16–20), che si chiede a Orders — la stessa che finirà su
+    // `deliveryTimeFrom/To` della consegna.
+    // ⚠️ Se l'ordine non ha una data si guarda OGGI come giorno, ma senza
+    // nessuna ora: «adesso» è quando è arrivata la vendita, non quando si
+    // consegna, e usarlo come orario è esattamente il difetto che si corregge.
+    const ordineChiamante = await this.ordineDaOrders(body.externalOrderId);
+    const fasciaOrdine = SalesService.fasciaInOrari(ordineChiamante?.consegna?.fascia);
+    const finestra: FinestraConsegna = {
+      giorno: body.deliveryDate ? new Date(body.deliveryDate) : new Date(),
+      dalle: fasciaOrdine.dalle,
+      alle: fasciaOrdine.alle,
+      importo: body.amount && body.amount > 0 ? body.amount : null,
+      // ⭐ 06/09 (regola utente): «il minimo ordine dovrà essere confrontato con il prezzo
+      // partner di una vendita» — qui la stima: listino per gli unici, altrimenti importo
+      // cliente meno la quota (Orders, poi la regola locale). La cifra vera si scrive dopo.
+      scontoPct: body.discountPercent ?? (await this.quotaDaOrders(body.provinceId, product.categoryId))?.sconto
+        ?? (product.categoryId ? (await this.prisma.categoryDiscount.findUnique({ where: { categoryId_provinceId: { categoryId: product.categoryId, provinceId: body.provinceId } }, select: { discountPercent: true } }))?.discountPercent : null) ?? 0,
+      prezzoPartnerListino: product.type === ProductType.UNICO ? (variante?.price ?? product.price ?? null) : null,
+      indirizzo: body.recipientAddress ?? null,
+      variantId: variante?.id ?? null,
+      pezzi: body.quantity && body.quantity > 1 ? Math.round(body.quantity) : null,
+      titolo: body.productName ?? null,
+    };
+    // ⭐ 06/09/2026 (regola utente, caso #12889 «Elegant Cake» finito a Clivati):
+    // «applica questo concetto per ora solo ai fiori, per le torte lascia la
+    // regola che proponi solo prodotti unici». Un prodotto NON UNICO si smista
+    // da solo (lista di priorità, partner unico, lista auto) SOLO se la sua
+    // categoria è di FIORI; per tutto il resto (torte, dolci, regali…) la
+    // vendita nasce DA GESTIRE e decide una persona. Gli UNICI restano com'erano.
+    // Il blocco sta PRIMA di scegliPartner: così non nasce nemmeno la lista
+    // di priorità automatica per una coppia che non deve smistarsi da sola.
+    const categoria = product.categoryId ? await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true, mestiere: { select: { nome: true, smistamentoAutomatico: true } } } }) : null;
+    // Col mestiere assegnato decide il SUO interruttore «smistamento automatico» (oggi acceso solo su Fiorista); senza, il vecchio criterio sul nome.
+    const automatico = categoria?.mestiere ? categoria.mestiere.smistamentoAutomatico : SalesService.categoriaFiori(categoria?.name);
+    // ⭐ 06/09/2026 sera (regola utente): «i prodotti a preventivo richiedono il preventivo a
+    // tutti i partner che fanno quel mestiere: prima di poter accettare la vendita, il
+    // Customer Service deve inserire il preventivo dato dal partner». Quindi un prodotto a
+    // PREVENTIVO non si smista mai da solo, nemmeno se il mestiere è automatico e nemmeno se
+    // in provincia c'è un partner solo: senza un prezzo concordato non c'è una proposta, c'è
+    // un'ipotesi. Il preventivo lo raccoglie il Customer Service e resta scritto lì.
+    // ⭐ 07/09/2026 (regola utente): il prodotto a preventivo non è più bloccato in partenza —
+    // `scegliPartner` propone a chi il prezzo l'ha già dato (e a quel prezzo). Resta «da
+    // gestire» solo quando non l'ha dato nessuno, e allora il motivo lo dice.
+    const aPreventivo = (product as any).tipologiaVendita === 'preventivo';
+    const bloccoGrezzo = product.type !== ProductType.UNICO && !automatico
+      ? `prodotto non unico di un mestiere senza smistamento automatico (${categoria?.mestiere?.nome ?? categoria?.name ?? 'senza categoria'}): si gestisce a mano`
+      : null;
+    // ⭐ 06/09/2026 sera (regola utente): «in vendita, se non c'è più di un partner per
+    // provincia, lascia la vendita in vendita per il partner da accettare, in caso di
+    // prodotto non-unico». Con UN partner solo non c'è nessuna scelta da fare — il blocco
+    // serviva a non far scegliere alla macchina fra più fornitori. La vendita nasce
+    // PROPOSTA a lui e la accetta (o la rifiuta) lui, come tutte le altre.
+    // Si conta in SOLA LETTURA: chiedere quanti sono non deve creare una lista di priorità.
+    const unSoloPartner = bloccoGrezzo && !aPreventivo
+      ? (await this.candidati(product, body.provinceId, finestra.variantId ?? null, true)).length === 1
+      : false;
+    const bloccoNonUnico = bloccoGrezzo && !unSoloPartner ? bloccoGrezzo : null;
+    const scelto = bloccoNonUnico ? null : await this.scegliPartner(product, body.provinceId, finestra, []);
+    // Un prodotto a preventivo senza nessuno che abbia risposto: si dice perché resta fermo.
+    const bloccoPreventivo = !scelto && aPreventivo && !bloccoNonUnico
+      ? 'prodotto a preventivo: nessun partner ha ancora dato un prezzo (lo chiede il Customer Service, Vendite → Liste di prodotto)'
+      : null;
+    // ⭐ 05/09/2026 (regola utente, caso 12879 — Tiramisù «4 porzioni» di
+    // Clivati): «non devi togliere la % per il prezzo partner, ma prendere il
+    // prezzo partner per variante già presente per quel prodotto».
+    //
+    // Nel catalogo `price` e' quanto prende il PARTNER e `publicPrice` quanto
+    // paga il CLIENTE: la variante «4» ha price 28 e publicPrice 30, Orders
+    // dice che il cliente ha pagato 30, e le 15 consegne passate di quella
+    // variante hanno dato al partner 28. Qui invece `price` veniva letto come
+    // importo del cliente e poi ci si toglieva la quota di categoria (20%):
+    // 28 → 22,40 al partner, cioe' 5,60 in meno del suo listino, e un cliente
+    // registrato a 28 invece che a 30.
+    //
+    // Ora: il cliente paga quanto dice Orders (o il listino pubblico), il
+    // partner PROPRIETARIO prende il SUO prezzo di listino per quella variante,
+    // e la quota e' la differenza. Vale per i prodotti UNICI, che hanno un
+    // padrone e un listino suo; sui NON UNICI resta la regola di categoria.
+    const prezzoPubblicoListino = variante?.publicPrice ?? variante?.price ?? product.publicPrice ?? product.price ?? 0;
+    const importoCliente = body.amount && body.amount > 0 ? body.amount : prezzoPubblicoListino;
+    const prezzoPartnerDaListino = product.type === ProductType.UNICO
+      ? (variante?.price ?? product.price ?? null)
+      : null;
 
     // Lo SCONTO si cristallizza QUI, alla nascita della vendita: e' la regola
     // CategoryDiscount (categoria del prodotto × provincia), gestita
@@ -370,15 +590,27 @@ export class SalesService {
         })
       : null;
 
-    return this.prisma.sale.create({
+    // ⭐ 06/09/2026 (regola utente: «anche per app delivery deve essere preso da
+    // Orders»). La quota al fornitore per provincia e categoria ha UNA casa,
+    // Orders (`GET /api/v1/quota-fornitore`, Standard §7.4): la si chiede lì,
+    // arrotondata ai centesimi, e vale al posto della regola locale
+    // CategoryDiscount. Se Orders risponde «default» (nessuna regola per quella
+    // provincia) o non risponde, resta la regola locale — e il motivo lo dice.
+    const quotaOrders = scelto?.prezzoPartner === undefined && prezzoPartnerDaListino === null && body.discountPercent == null
+      ? await this.quotaDaOrders(body.provinceId, product.categoryId)
+      : null;
+    const creata = await this.prisma.sale.create({
       data: {
         productId: product.id,
+        // ⭐ 07/09/2026: i pezzi («50 rose») e il titolo scritto dal cliente sul generico.
+        quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
+        productName: body.productName ?? product.name ?? null,
         // Fotografia della variante: id + nome, come per il prodotto.
         productVariantId: variante?.id ?? null,
         variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
-        assignmentReason: scelto?.motivo ?? null,
+        assignmentReason: [scelto?.motivo ? (unSoloPartner ? `${scelto.motivo} (unico partner in provincia: proposta da accettare)` : scelto.motivo) : bloccoNonUnico ?? bloccoPreventivo ?? null, quotaOrders ? `sconto da Orders (${quotaOrders.regola}: fornitore ${quotaOrders.quota}%)` : null].filter(Boolean).join(' · ') || null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
@@ -386,9 +618,24 @@ export class SalesService {
         amount: importoCliente,
         // ⭐ 04/09 (regola utente): con una riconciliazione accettata la quota
         // si piega al patto col partner; senza, vale la regola di categoria.
+        // Ordine di precedenza: patto di riconciliazione > listino del
+        // proprietario (UNICO) > regola di categoria × provincia.
+        // ⭐ 06/09/2026 (regola utente): «le % di sconto con arrotondamento
+        // dovrebbero arrivare direttamente da Orders». Se Orders manda la sua,
+        // vince (arrotondata ai centesimi); altrimenti valgono le regole di qui.
+        // Precedenza: riconciliazione prodotto/provincia > prezzo partner di listino
+        // (prodotto UNICO, regola 05/09) > % di ORDERS (se la manda, arrotondata) >
+        // CategoryDiscount della piattaforma. La % di Orders sostituisce la regola
+        // per categoria×provincia, non il prezzo di un prodotto specifico.
         discountPercent: scelto?.prezzoPartner !== undefined
           ? SalesService.quotaPerDare(importoCliente, scelto.prezzoPartner)
-          : sconto?.discountPercent ?? 0,
+          : prezzoPartnerDaListino !== null
+            ? SalesService.quotaPerDare(importoCliente, prezzoPartnerDaListino)
+            : body.discountPercent != null && isFinite(Number(body.discountPercent))
+              ? Math.round(Math.min(100, Math.max(0, Number(body.discountPercent))) * 100) / 100
+              : quotaOrders
+                ? quotaOrders.sconto
+                : sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,
@@ -406,6 +653,8 @@ export class SalesService {
         partner: { select: { id: true, insegna: true } },
       },
     });
+    if (creata.status === SaleStatus.PROPOSTA && creata.partnerId) await this.avvisaProposta(creata);
+    return creata;
   }
 
   /**
@@ -428,6 +677,10 @@ export class SalesService {
     productName?: string;
     /** Prezzo pagato dal cliente (riga d'ordine): senza prodotto non c'è un listino da cui prenderlo. */
     amount?: number;
+    /** ⭐ 07/09/2026: quanti pezzi («50 rose rosse»). Il prezzo unitario è amount / quantity. */
+    quantity?: number;
+    /** ⭐ 06/09/2026: % di sconto al partner decisa da ORDERS (già arrotondata): se c'è, vince. */
+    discountPercent?: number;
     /** ⭐ 03/09 (ordini ESTERI): DA GESTIRE senza proposta automatica anche
      *  col prodotto a catalogo — all'estero non abbiamo partner. */
     senzaProposta?: boolean;
@@ -443,8 +696,24 @@ export class SalesService {
     if (!body?.source || !body?.externalOrderId) {
       throw new BadRequestException('Servono «source» e «externalOrderId».');
     }
+    // ⭐ 07/09/2026 (regola utente: «in vendita dovrei vedere due flussi, uno per il bouquet e
+    // uno per la torta»). Un ordine con una torta e un bouquet ha DUE fornitori diversi: fino a
+    // ieri la seconda riga non nasceva perché il doppione si misurava sull'ORDINE. Adesso si
+    // misura sulla RIGA — prodotto e variante — e l'ordine senza prodotto riconosciuto resta
+    // uno solo, com'era (là non c'è una riga da distinguere).
     const gia = await this.prisma.sale.findFirst({
-      where: { source: body.source, externalOrderId: body.externalOrderId },
+      where: {
+        source: body.source,
+        externalOrderId: body.externalOrderId,
+        // Con un prodotto: la riga è quella coppia. Senza (riga fuori catalogo), il doppione
+        // si misura sul TITOLO: due righe diverse dello stesso ordine devono poter nascere
+        // tutte e due, o l'ordine composto torna a essere mezzo.
+        ...(body.productId
+          ? { productId: body.productId, productVariantId: body.productVariantId ?? null }
+          : body.productName
+            ? { productName: body.productName }
+            : {}),
+      },
       include: { partner: { select: { id: true, insegna: true } } },
     });
     if (gia) return { creata: false, motivo: 'ordine gia ricevuto', vendita: gia };
@@ -496,6 +765,7 @@ export class SalesService {
           customerId: body.customerId,
           brand: body.brand ?? 'DELUXY',
           amount: body.amount ?? 0,
+          quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
           discountPercent: 0,
           status: SaleStatus.DA_GESTIRE,
           source: body.source ?? 'app',
@@ -542,6 +812,7 @@ export class SalesService {
           customerId: body.customerId,
           brand: body.brand ?? 'DELUXY',
           amount: body.amount ?? prodotto.price ?? 0,
+          quantity: Math.max(1, Math.round(Number(body.quantity) || 1)),
           discountPercent: 0,
           status: SaleStatus.DA_GESTIRE,
           source: body.source ?? 'app',
@@ -667,7 +938,16 @@ export class SalesService {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
       include: {
-        product: { select: { id: true, name: true, price: true, type: true, sku: true } },
+        // ⭐ 05/09/2026 (regola utente): nel pop-up si vede il PRODUTTORE del
+        // prodotto (il partner che lo fa: è lui il produttore, non chi lo
+        // vende) e si aprono le FOTO cliccando il nome.
+        product: {
+          select: {
+            id: true, name: true, price: true, type: true, sku: true,
+            imageUrl: true, images: true, line: true,
+            partner: { select: { id: true, insegna: true } },
+          },
+        },
         partner: { select: { id: true, insegna: true } },
         province: true,
         // ⭐ 04/09: il pop-up di dettaglio mostra consegna collegata, servizio e REGISTRO.
@@ -739,6 +1019,13 @@ export class SalesService {
     disponibile: boolean;
     mittenteFirstName?: string; mittenteLastName?: string;
     contrassegno?: boolean;
+    /** ⭐ 06/09/2026 (regola utente, caso 12879): il TIPO di vendita lo decide l'ordine —
+     *  contrassegno = pagamento alla consegna; altrimenti singola (1 pezzo) o multipla (2+). */
+    tipoVendita?: 'contrassegno' | 'singola' | 'multipla';
+    /** Pezzi da consegnare (somma delle quantità delle righe con SKU: gli extra senza SKU sono personalizzazioni). */
+    pezzi?: number;
+    /** Totale dell'ordine (prodotti + consegna): è l'importo del contrassegno. */
+    totale?: number;
     /** Fascia oraria chiesta dal cliente (attributo Shopify, es. «16-20»), già
      *  spezzata negli orari del form: dalle «16:00» alle «20:00». */
     consegnaDalle?: string; consegnaAlle?: string;
@@ -746,7 +1033,18 @@ export class SalesService {
     biglietto?: string;
     /** Note Shopify dell'ordine (testo libero del cliente). */
     note?: string;
-    prodotti?: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[];
+    /** ⭐ 07/09/2026 (regola utente «devo poter vedere foto e produttore di tutti i prodotti
+     *  nell'ordine»): ogni riga porta la foto, chi lo fa e il prezzo pagato. */
+    prodotti?: {
+      productId: string | null; productVariantId: string | null; nome: string | null;
+      quantita: number; sku: string | null; prezzo: number | null;
+      immagine: string | null; produttore: string | null; nota: string | null;
+      venditaId: string | null; consegnaId: string | null;
+    }[];
+    /** ⭐ 07/09/2026: le altre vendite nate dallo stesso ordine (ordine composto). */
+    vendite?: { id: string; prodotto: string | null; stato: string; consegnaId: string | null; partner: string | null }[];
+    /** Acceso quando l'ordine ha più vendite e non tutte sono finite in consegna. */
+    incompleto?: boolean;
   }> {
     const sale = await this.prisma.sale.findUnique({
       where: { id }, select: { externalOrderId: true },
@@ -767,12 +1065,19 @@ export class SalesService {
     // Orders sta in `classificazione.categoriaPagamento` (bonifico | carta |
     // contrassegno | altro); come rete, anche il nome del gateway.
     const categoria = String(ordine?.classificazione?.categoriaPagamento ?? '').toLowerCase();
-    const gateway = String(ordine?.pagamento?.gateway ?? '').toLowerCase();
+    // ⚠️ Orders espone il gateway in `shopify.gateway` (misurato sul 12879: «shopify_payments»);
+    // `pagamento.gateway` non esiste e lasciava sempre la rete vuota.
+    const gateway = String(ordine?.shopify?.gateway ?? ordine?.pagamento?.gateway ?? '').toLowerCase();
     const contrassegno = categoria === 'contrassegno' || /contrassegno|cash on delivery|\bcod\b/.test(gateway);
 
     // Tutte le righe dell'ordine, risolte a prodotto/variante di piattaforma via SKU.
     const righe: any[] = Array.isArray(ordine?.righe) ? ordine.righe : [];
-    const prodotti: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[] = [];
+    const prodotti: {
+      productId: string | null; productVariantId: string | null; nome: string | null;
+      quantita: number; sku: string | null; prezzo: number | null;
+      immagine: string | null; produttore: string | null; nota: string | null;
+      venditaId: string | null; consegnaId: string | null;
+    }[] = [];
     for (const r of righe) {
       const sku = String(r?.sku ?? '').trim();
       let productId: string | null = null;
@@ -785,9 +1090,70 @@ export class SalesService {
           if (p) productId = p.id;
         }
       }
-      prodotti.push({ productId, productVariantId, nome: r?.titolo ?? null, quantita: Number(r?.quantita) || 1, sku: sku || null });
+      // ⭐ 07/09/2026: la foto e CHI LO FA. Il produttore è il partner del prodotto quando c'è
+      // (il proprietario di un unico), altrimenti la linea/marca scritta a catalogo: senza,
+      // guardando un ordine con due righe non si capisce chi deve fare cosa.
+      let immagine: string | null = null;
+      let produttore: string | null = null;
+      let nota: string | null = null;
+      if (productId) {
+        const pr = await this.prisma.product.findUnique({
+          where: { id: productId },
+          select: { imageUrl: true, line: true, note: true, partner: { select: { insegna: true } } },
+        });
+        immagine = pr?.imageUrl ?? null;
+        produttore = pr?.partner?.insegna ?? pr?.line ?? null;
+        nota = pr?.note ?? null;
+        if (productVariantId) {
+          const v = await this.prisma.productVariant.findUnique({ where: { id: productVariantId }, select: { imageUrl: true, note: true } });
+          if (v?.imageUrl) immagine = v.imageUrl;
+          if (v?.note) nota = v.note;
+        }
+      }
+      // La vendita che porta QUESTA riga (e la consegna che ne è nata), per vedere i due flussi.
+      const venditaRiga = productId
+        ? await this.prisma.sale.findFirst({
+            where: { externalOrderId: sale.externalOrderId, productId, ...(productVariantId ? { productVariantId } : {}) },
+            select: { id: true, deliveryId: true },
+          })
+        : null;
+      prodotti.push({
+        productId, productVariantId, nome: r?.titolo ?? null,
+        quantita: Number(r?.quantita) || 1, sku: sku || null,
+        prezzo: Number.isFinite(Number(r?.prezzo)) ? Number(r.prezzo) : null,
+        immagine, produttore, nota,
+        venditaId: venditaRiga?.id ?? null, consegnaId: venditaRiga?.deliveryId ?? null,
+      });
     }
 
+    // ⭐ 07/09/2026 (regola utente): «se un ordine è composto e tutte le vendite associate non
+    // sono andate in consegne, metti un alert» — così non si consegna mezzo ordine.
+    const sorelle = await this.prisma.sale.findMany({
+      where: { externalOrderId: sale.externalOrderId },
+      select: { id: true, status: true, deliveryId: true, productName: true, product: { select: { name: true } }, partner: { select: { insegna: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const vendite = sorelle.map((x) => ({
+      id: x.id,
+      prodotto: x.product?.name ?? x.productName ?? null,
+      stato: x.status,
+      consegnaId: x.deliveryId ?? null,
+      partner: x.partner?.insegna ?? null,
+    }));
+    const incompleto = vendite.length > 1 && vendite.some((v) => !v.consegnaId && v.stato !== 'annullata');
+
+    // ⭐ 06/09/2026 (regola utente, caso 12879 — usciva «con pagamento alla
+    // consegna» pur essendo pagato con carta): il tipo di vendita lo decide
+    // l'ORDINE, non l'ordine alfabetico del listino.
+    //  - COD/contrassegno → «Vendita con Pagamento alla Consegna», flag
+    //    contrassegno acceso con l'importo = totale dell'ordine;
+    //  - già pagato, un pezzo → «Vendita Deluxy»;
+    //  - già pagato, più pezzi → «Vendita Deluxy Multipla».
+    // I pezzi sono le righe CON SKU (prodotti): la riga «Selections» senza
+    // SKU (candelina, scritta) è una personalizzazione, non un secondo pezzo.
+    const pezzi = righe.filter((r) => String(r?.sku ?? '').trim()).reduce((t, r) => t + (Number(r?.quantita) || 1), 0);
+    const tipoVendita: 'contrassegno' | 'singola' | 'multipla' = contrassegno ? 'contrassegno' : pezzi > 1 ? 'multipla' : 'singola';
+    const totale = Number(ordine?.totale);
     // ⭐ FASCIA ORARIA DEL CLIENTE (regola utente 01/09: «la fascia oraria la
     // hai già nell'ordine»). Su Shopify è un attributo tipo «16-20» o «08/12»:
     // si spezza in dalle/alle per il form. Un formato non riconosciuto si
@@ -803,12 +1169,79 @@ export class SalesService {
 
     return {
       disponibile: true, mittenteFirstName, mittenteLastName, contrassegno,
-      consegnaDalle, consegnaAlle, biglietto, note, prodotti,
+      tipoVendita, pezzi, totale: Number.isFinite(totale) ? totale : undefined,
+      consegnaDalle, consegnaAlle, biglietto, note, prodotti, vendite, incompleto,
     };
   }
 
   /** L'ordine dietro una vendita, letto da Deluxy Orders. Best-effort: `null`
    *  quando non c'è o Orders non risponde — chi chiama non inventa. */
+  /** Memoria breve della quota per (provincia, categoria): la corsa dello smistamento chiede la stessa coppia decine di volte. */
+  private quotaCache = new Map<string, { quando: number; valore: { quota: number; regola: string; sconto: number } | null }>();
+
+  /**
+   * La quota al FORNITORE per provincia e categoria, chiesta a Orders
+   * (`GET /api/v1/quota-fornitore?provincia=&categoria=`). Orders risponde con
+   * `quota` = quanto va al fornitore in % e `regola` = da dove viene
+   * («provincia+categoria», «provincia», «default»). Lo SCONTO della vendita è
+   * il complemento (100 − quota), arrotondato ai centesimi. Con «default» si
+   * torna null: la regola locale vale finché Orders non ha la sua per quella
+   * provincia. Categoria: il NOME della categoria di piattaforma, minuscolo —
+   * Orders confronta in minuscolo.
+   */
+  private async quotaDaOrders(provinceId: string, categoryId: string | null | undefined): Promise<{ quota: number; regola: string; sconto: number } | null> {
+    const [prov, cat] = await Promise.all([
+      this.prisma.province.findUnique({ where: { id: provinceId }, select: { code: true } }),
+      categoryId ? this.prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } }) : Promise.resolve(null),
+    ]);
+    if (!prov?.code) return null;
+    // ⭐ 06/09/2026 (regola utente, REGOLA DEL TERRITORIO in Orders): lo sconto dipende
+    // dal fatto che in provincia ci sia un nostro partner — e questo lo sa SOLO la
+    // piattaforma (PartnerProvince): glielo si dice (`conPartner=1|0`), non si lascia
+    // indovinare a Orders. Un partner attivo che copre la provincia basta.
+    // ⭐ 06/09 sera (regola utente): «Orders non deve guardare le province dei partner ma la
+    // LISTA dei partner abilitati per provincia» — cioè le liste di priorità: una provincia è
+    // «con partner» se ha almeno una lista con un partner attivo dentro. Chi copre tutta Italia
+    // per area (Artista Locale, ECI…) non rende «con partner» una provincia dove non è in lista.
+    // (06/09 sera) …e il partner in lista non dev'essere ESCLUSO DALLE PROPOSTE (i nostri di ripiego non contano).
+    // ⭐ 06/09 sera (regola utente, con il flag «escluso dalle proposte» ora si può): «con partner» = in
+    // provincia c'è almeno un partner ATTIVO con un servizio di VENDITA, non escluso — o una lista con
+    // un partner così. I nostri di ripiego (Artista Locale, Deluxy Flowers, Cakedesignme) non contano.
+    const conPartner = (await this.prisma.partner.count({ where: { active: true, deleted: false, esclusoDalleProposte: false, provinces: { some: { provinceId } }, services: { some: { serviceType: { pricingModel: 'VENDITA' } } } } })) > 0
+      || (await this.prisma.priorityList.count({ where: { provinceId, entries: { some: { partner: { active: true, deleted: false, esclusoDalleProposte: false } } } } })) > 0;
+    const chiave = `${prov.code}|${(cat?.name ?? '').toLowerCase()}|${conPartner ? 'p' : 'np'}`;
+    const inCache = this.quotaCache.get(chiave);
+    if (inCache && Date.now() - inCache.quando < 5 * 60_000) return inCache.valore;
+    let valore: { quota: number; regola: string; sconto: number } | null = null;
+    try {
+      // ⭐ 06/09/2026 sera — NUOVA ARCHITETTURA VENDITE (regola utente): la casa dello sconto per
+      // provincia è il CUSTOMER SERVICE (pagina Vendite), non più Orders, che gestisce solo l'ordine.
+      // Si chiede prima a lui (`customerServiceUrl` / `customerServiceApiKey` in AppSetting o
+      // CUSTOMER_SERVICE_URL / CUSTOMER_SERVICE_API_KEY); Orders resta il ripiego finché delega anche lui.
+      const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey', 'customerServiceUrl', 'customerServiceApiKey'] } } });
+      const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+      const urlCs = (map['customerServiceUrl'] || process.env.CUSTOMER_SERVICE_URL || '').replace(/\/+$/, '');
+      const chiaveCs = map['customerServiceApiKey'] || process.env.CUSTOMER_SERVICE_API_KEY || '';
+      const url = urlCs && chiaveCs ? urlCs : (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+      const chiaveApi = urlCs && chiaveCs ? chiaveCs : (map['ordersApiKey'] || process.env.ORDERS_API_KEY || '');
+      if (url && chiaveApi) {
+        const q = new URLSearchParams({ provincia: prov.code, conPartner: conPartner ? '1' : '0', ...(cat?.name ? { categoria: cat.name.toLowerCase() } : {}) });
+        const res = await fetch(`${url}/api/v1/quota-fornitore?${q}`, { headers: { 'x-api-key': chiaveApi } });
+        if (res.ok) {
+          const j: any = await res.json();
+          const quota = Number(j?.quota);
+          if (Number.isFinite(quota) && quota > 0 && quota < 100 && j?.regola && j.regola !== 'default') {
+            valore = { quota, regola: String(j.regola), sconto: Math.round((100 - quota) * 100) / 100 };
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Quota da Orders non letta (${chiave}): ${(err as Error).message}`);
+    }
+    this.quotaCache.set(chiave, { quando: Date.now(), valore });
+    return valore;
+  }
+
   private async ordineDaOrders(externalOrderId: string | null | undefined): Promise<any | null> {
     const rif = (externalOrderId ?? '').trim();
     if (!rif) return null;
@@ -830,6 +1263,15 @@ export class SalesService {
 
   /** «16-20», «08/12», «16:30-20» → orari del form. Formato ignoto = niente:
    *  una fascia inventata è peggio di una mancante. */
+  /**
+   * ⭐ 05/09/2026 (regola utente): «devi confrontare l'ORARIO DI CONSEGNA del
+   * prodotto con l'orario di apertura del partner, non con l'orario di arrivo
+   * della vendita».
+   *
+   * La finestra in cui la consegna deve avvenire: il giorno, e la fascia
+   * chiesta dal cliente sull'ordine (8–12, 12–16, 16–20). Senza fascia resta
+   * il solo giorno, e allora la domanda giusta è «quel giorno è aperto?».
+   */
   private static fasciaInOrari(fascia: unknown): { dalle?: string; alle?: string } {
     const raw = String(fascia ?? '').trim();
     const m = raw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*[-\/–]\s*(\d{1,2})(?:[:.](\d{2}))?$/);
@@ -888,6 +1330,8 @@ export class SalesService {
     const select = {
       partnerId: true, amount: true, discountPercent: true, createdAt: true,
       externalOrderNumber: true, provinceId: true,
+      // ⭐ 06/09 (regola utente): nell'ultima volta si dice anche COSA (prodotto, variante) e QUANDO si è consegnato.
+      variantName: true, productName: true, deliveryDate: true, product: { select: { name: true } },
     };
     // 1) la coppia esatta; 2) lo stesso prodotto altrove; 3) la categoria qui.
     let base: 'coppia' | 'altre-province' | 'categoria' | 'nessuna' = 'coppia';
@@ -965,6 +1409,9 @@ export class SalesService {
         nettoModa: arrotonda(prezzoModa * (1 - scontoModa / 100)),
         ultimaData: ultima.createdAt,
         ultimoOrdine: ultima.externalOrderNumber,
+        ultimoProdotto: (ultima as any).product?.name ?? (ultima as any).productName ?? null,
+        ultimaVariante: (ultima as any).variantName ?? null,
+        ultimaConsegna: (ultima as any).deliveryDate ?? null,
         ultimaProvincia: sigla.get(ultima.provinceId) ?? null,
         // Più vecchia di un anno: si mostra, ma segnalata. I prezzi invecchiano.
         vecchia: ultima.createdAt < dodiciMesiFa,
@@ -999,17 +1446,48 @@ export class SalesService {
   async consegneAllIndirizzo(id: string) {
     const vendita = await this.prisma.sale.findUnique({
       where: { id },
-      select: { recipientAddress: true, deliveryDate: true, provinceId: true, deliveryId: true },
+      select: { recipientAddress: true, deliveryDate: true, provinceId: true, deliveryId: true, externalOrderNumber: true, externalOrderId: true },
     });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
     const chiave = SalesService.chiaveIndirizzo(vendita.recipientAddress);
-    if (!chiave) return { indirizzo: vendita.recipientAddress, consegne: [], motivo: 'senza-indirizzo' as const };
+
+    // ⭐ 05/09/2026 — PRIMA IL DDT. Sul DDT della consegna si scrive il NUMERO
+    // D'ORDINE: e' il legame piu' forte che abbiamo, molto piu' dell'indirizzo,
+    // e non dipende da come Shopify ha scritto la via. Nel caso 12847 la
+    // ricerca per indirizzo trovava zero e le due consegne gia' fatte
+    // (#100788 e #100789, stesso giorno, stesso indirizzo, DDT 12847)
+    // restavano invisibili. Si cerca in OGNI stato, storico compreso, e senza
+    // vincolo di servizio: un DDT uguale e' gia' una risposta.
+    // Il DDT porta il NUMERO d'ordine; per le consegne piu' vecchie puo'
+    // portare l'id di Orders. Si cercano tutti e due: costa niente e copre le
+    // due popolazioni senza chiedere a chi guarda di sapere quale sia quale.
+    const rifDdt = [vendita.externalOrderNumber, vendita.externalOrderId]
+      .map((x) => (x ?? '').trim())
+      .filter(Boolean);
+    const perDdt = rifDdt.length
+      ? await this.prisma.delivery.findMany({
+          where: { deletedAt: null, ddtNumber: { in: rifDdt } },
+          select: {
+            id: true, code: true, date: true, status: true, recipientAddress: true,
+            ddtNumber: true, price: true,
+            partner: { select: { insegna: true } },
+            serviceType: { select: { name: true } },
+          },
+          orderBy: { date: 'desc' },
+          take: 50,
+        })
+      : [];
+
+    if (!chiave && !perDdt.length) {
+      return { indirizzo: vendita.recipientAddress, consegne: [], motivo: 'senza-indirizzo' as const };
+    }
 
     const quando = vendita.deliveryDate ?? null;
     const da = quando ? new Date(quando.getTime() - 10 * 86400000) : null;
     const a = quando ? new Date(quando.getTime() + 10 * 86400000) : null;
-    const candidate = await this.prisma.delivery.findMany({
+    const candidate = chiave ? await this.prisma.delivery.findMany({
       where: {
+        deletedAt: null,
         provinceId: vendita.provinceId,
         ...(da && a ? { date: { gte: da, lte: a } } : {}),
         // Solo i servizi di VENDITA, come chiesto.
@@ -1023,13 +1501,23 @@ export class SalesService {
       },
       orderBy: { date: 'desc' },
       take: 200,
-    });
-    const consegne = candidate
-      .filter((d) => SalesService.chiaveIndirizzo(d.recipientAddress) === chiave)
-      .map((d) => ({
+    }) : [];
+    const perIndirizzo = candidate.filter((d) => SalesService.chiaveIndirizzo(d.recipientAddress) === chiave);
+
+    // Le due strade si uniscono senza doppioni; il DDT viene prima perche' e'
+    // il segnale piu' forte, e OGNI riga dice da che cosa e' stata trovata:
+    // un elenco che non spiega perche' e' li' non si puo' verificare.
+    const visti = new Set<string>();
+    const consegne = [
+      ...perDdt.map((d) => ({ d, motivo: 'ddt' as const })),
+      ...perIndirizzo.map((d) => ({ d, motivo: 'indirizzo' as const })),
+    ]
+      .filter(({ d }) => (visti.has(d.id) ? false : (visti.add(d.id), true)))
+      .map(({ d, motivo }) => ({
         id: d.id, code: d.code, date: d.date, status: d.status,
         indirizzo: d.recipientAddress, ddt: d.ddtNumber, prezzo: d.price,
         partner: d.partner?.insegna ?? null, servizio: d.serviceType?.name ?? null,
+        motivo,
       }));
     return { indirizzo: vendita.recipientAddress, giaCollegata: vendita.deliveryId, consegne };
   }
@@ -1042,13 +1530,29 @@ export class SalesService {
    * infatti serve a PROPORRE, non a decidere.
    */
   private static chiaveIndirizzo(indirizzo: string | null | undefined): string | null {
-    const grezzo = (indirizzo ?? '').trim().toLowerCase();
+    let grezzo = (indirizzo ?? '').trim().toLowerCase();
     if (!grezzo) return null;
+    // ⚠️ 05/09/2026 — CASO 12847. Sull'ordine di Shopify il TESTO DEL BIGLIETTO
+    // finisce dentro l'indirizzo: «Via Principe Eugenio 12, Testo biglietto:
+    // Caro Victor, un brindisi alla nuova vita lavorativa!… , 20155, Milano,
+    // MI, IT». Con la dedica dentro, la chiave non somigliava piu' a niente e
+    // il confronto con la consegna vera («Via Principe Eugenio, 12, 20155
+    // Milano MI») dava ZERO — mentre le consegne c'erano, due, con lo stesso
+    // DDT. Il biglietto si taglia via: e' un messaggio, non un indirizzo.
+    // ⚠️ Si taglia FINO AL CAP, non fino in fondo: dopo la dedica torna la
+    // parte vera dell'indirizzo (CAP, citta', provincia), e buttarla via
+    // farebbe fallire il confronto lo stesso, solo per un altro motivo.
+    grezzo = grezzo.replace(/(testo\s*)?bigliett[oi]\s*:[\s\S]*?(?=\b\d{5}\b)/, ' ');
+    // Se dopo la dedica non c'era nessun CAP, allora la coda e' tutta dedica.
+    grezzo = grezzo.replace(/(testo\s*)?bigliett[oi]\s*:[\s\S]*$/, ' ').trim();
     const pulito = grezzo
       .replace(/\b(via|viale|piazza|piazzale|corso|largo|vicolo|strada|localita|località|str\.|v\.le|p\.zza)\b/g, ' ')
       .replace(/\b(italia|italy)\b/g, ' ')
       .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
+      .trim()
+      // La sigla del paese in coda c'e' su una fonte e non sull'altra
+      // (Shopify la scrive, la consegna no): non e' una differenza vera.
+      .replace(/\s+(it|ita)$/, '');
     return pulito.length >= 6 ? pulito : null;
   }
 
@@ -1139,12 +1643,114 @@ export class SalesService {
       include: { product: { select: { id: true, name: true } }, partner: { select: { id: true, insegna: true } }, province: true },
     });
     await this.registra(id, 'stato', `Proposta a ${partner.insegna} dall'ufficio (scelta a mano sullo storico)`, user);
+    await this.avvisaProposta(aggiornata);
     return aggiornata;
   }
 
-  async prendiInMano(id: string, user?: JwtUser) {
-    const vendita = await this.prisma.sale.findUnique({ where: { id } });
+  /**
+   * ⭐ 07/09/2026 (regola utente) — IL PREZZO CONCORDATO di una vendita a preventivo.
+   * Due posti, in ordine: la RICONCILIAZIONE accettata per (prodotto, variante, provincia) —
+   * che è il patto scritto — e il listino `PP-*` del partner. Torna null se non c'è.
+   */
+  private async prezzoConcordato(vendita: { productId: string | null; productVariantId: string | null; provinceId: string; partnerId: string | null }): Promise<number | null> {
+    if (!vendita.productId) return null;
+    const ric = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null, status: 'accettata' },
+      select: { partnerPrice: true, price: true, discountPercent: true },
+    });
+    if (ric) return ric.partnerPrice ?? Math.round(ric.price * (1 - ric.discountPercent / 100) * 100) / 100;
+    if (!vendita.partnerId) return null;
+    const prodotto = await this.prisma.product.findUnique({ where: { id: vendita.productId }, select: { id: true, sku: true, type: true, partnerId: true, categoryId: true, visibleToOtherPartners: true, tipologiaVendita: true } });
+    if (!prodotto) return null;
+    const variante = vendita.productVariantId
+      ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId }, select: { sku: true } })
+      : null;
+    const preventivi = await this.preventiviDelProdotto(prodotto as unknown as ProdottoDaSmistare, variante?.sku ?? null);
+    return preventivi.get(vendita.partnerId) ?? null;
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): «per un prodotto a preventivo, prima di poter essere
+   * inserito va salvato il preventivo; salvarlo genera automaticamente una riconciliazione che
+   * permetterà per i prossimi ordini di mandare il prodotto in automatico».
+   *
+   * Quindi qui succedono tre cose insieme, ed è giusto che siano una sola mossa:
+   *  1. la vendita prende il partner e il prezzo concordato (e lo sconto che ne deriva);
+   *  2. nasce — o si aggiorna — una RICONCILIAZIONE ACCETTATA per prodotto, variante e
+   *     provincia: da lì in poi l'ordine uguale si smista da solo, a quel prezzo;
+   *  3. il registro dice chi ha raccolto il preventivo e quando.
+   */
+  async salvaPreventivo(id: string, body: { partnerId?: string; prezzo: number }, user: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { product: { select: { name: true, tipologiaVendita: true } } },
+    });
     if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (!vendita.productId || !vendita.provinceId) {
+      throw new BadRequestException('La vendita non ha un prodotto a catalogo o una provincia: il preventivo non si può legare a niente.');
+    }
+    const prezzo = Number(body?.prezzo);
+    if (!Number.isFinite(prezzo) || prezzo <= 0) throw new BadRequestException('Il preventivo è un prezzo maggiore di zero.');
+    const partnerId = body?.partnerId || vendita.partnerId;
+    if (!partnerId) throw new BadRequestException('Serve il partner che ha dato il preventivo.');
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { insegna: true, active: true, deleted: true, esclusoDalleProposte: true, provinces: { where: { provinceId: vendita.provinceId }, select: { provinceId: true } } },
+    });
+    if (!partner || partner.deleted) throw new NotFoundException('Partner non trovato.');
+    if (!partner.active) throw new BadRequestException('Il partner non è attivo.');
+    if (!partner.provinces.length) throw new BadRequestException(`${partner.insegna} non lavora in questa provincia.`);
+
+    const importo = vendita.amount ?? 0;
+    const sconto = importo > 0 ? SalesService.quotaPerDare(importo, prezzo) : 0;
+
+    // La riconciliazione: il patto che vale da domani.
+    const gia = await this.prisma.productReconciliation.findFirst({
+      where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
+      select: { id: true },
+    });
+    const datiRic = {
+      partnerId,
+      partnerPrice: prezzo,
+      price: importo,
+      discountPercent: sconto,
+      salesCount: 1,
+      lastSaleId: id,
+      lastOrderNumber: vendita.externalOrderNumber,
+      trigger: 'preventivo',
+      status: 'accettata',
+      decidedAt: new Date(),
+      decidedBy: user.email ?? user.sub ?? null,
+    };
+    if (gia) await this.prisma.productReconciliation.update({ where: { id: gia.id }, data: datiRic });
+    else await this.prisma.productReconciliation.create({ data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, stats: JSON.stringify([]), ...datiRic } });
+
+    const aggiornata = await this.prisma.sale.update({
+      where: { id },
+      data: {
+        partnerId,
+        discountPercent: sconto,
+        status: SaleStatus.PROPOSTA,
+        assignmentReason: [vendita.assignmentReason, `preventivo di ${partner.insegna}: ${prezzo} €`].filter(Boolean).join(' · '),
+      },
+      include: { partner: { select: { id: true, insegna: true } } },
+    });
+    await this.registra(id, 'stato', `Preventivo salvato: ${partner.insegna} fa «${vendita.product?.name ?? 'il prodotto'}» a ${prezzo} € — riconciliazione accettata per le prossime volte`, user);
+    await this.avvisaProposta(aggiornata as any);
+    return { ok: true, prezzo, partner: partner.insegna, vendita: aggiornata };
+  }
+
+  async prendiInMano(id: string, user?: JwtUser) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id }, include: { product: { select: { name: true, tipologiaVendita: true } } } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    // ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO non si inserisce finché il
+    // preventivo non è stato raccolto. Non è una formalità: senza il prezzo concordato la
+    // consegna nascerebbe con un costo inventato, e il partner lo scoprirebbe a cose fatte.
+    if (vendita.product?.tipologiaVendita === 'preventivo' && !(await this.prezzoConcordato(vendita))) {
+      throw new BadRequestException(
+        `«${vendita.product?.name ?? 'Il prodotto'}» va a preventivo: prima salva il preventivo del partner (bottone «Salva preventivo»), poi si può inserire.`,
+      );
+    }
     if (![SaleStatus.PROPOSTA, SaleStatus.DA_GESTIRE].includes(vendita.status as SaleStatus)) {
       throw new BadRequestException(`La vendita non è aperta (stato: ${vendita.status}).`);
     }
@@ -1237,11 +1843,15 @@ export class SalesService {
    * rifiutato non la rivede piu'. Se non resta nessuno torna «da gestire».
    */
   /**
-   * ⭐ 04/09/2026 (regola utente) — il RIFIUTO ha due esiti diversi:
-   *  - il PARTNER rifiuta → la vendita NON gira più al prossimo partner: torna
-   *    all'UFFICIO da inserire (da gestire) e resta in Vendite;
+   * ⭐ 07/09/2026 (regola utente: «se rifiuta va al secondo partner in lista») — il RIFIUTO:
+   *  - il PARTNER rifiuta → la vendita passa al PROSSIMO della lista di priorità, con gli
+   *    stessi controlli della prima proposta (provincia, apertura, variante, minimo, raggio);
+   *    chi ha rifiutato non la rivede più. Solo quando la lista è finita torna all'UFFICIO
+   *    da inserire (da gestire) — e il motivo lo dice.
    *  - ADMIN/OPERATION rifiutano → la vendita chiude in STORICO (non accettata).
-   * In entrambi i casi una riga nel registro dice chi e perché.
+   * In ogni caso una riga nel registro dice chi e perché.
+   * ⚠️ Sostituisce la regola del 04/09/2026, per cui il rifiuto del partner riportava
+   * SEMPRE la vendita all'ufficio senza provare il secondo della lista.
    */
   async rifiuta(id: string, user: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
@@ -1260,6 +1870,47 @@ export class SalesService {
 
     if (user.role === Role.PARTNER) {
       const nome = vendita.partner?.insegna ?? 'partner';
+
+      // Il PROSSIMO della lista, cercato con lo stesso codice della prima proposta: chi ha
+      // già rifiutato è escluso, e i controlli (provincia, apertura, variante, minimo,
+      // raggio, non escluso dalle proposte) valgono uguali. Se qualcosa non si può leggere —
+      // il prodotto, la provincia, l'ordine in Orders — non si tira a indovinare: si torna
+      // all'ufficio, che è il comportamento sicuro.
+      let prossimo: Candidato | null = null;
+      const prodotto = vendita.productId
+        ? await this.prisma.product.findUnique({ where: { id: vendita.productId } })
+        : null;
+      if (prodotto && vendita.provinceId) {
+        const ordine = await this.ordineDaOrders(vendita.externalOrderId).catch(() => null);
+        const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+        const finestra: FinestraConsegna = {
+          giorno: vendita.deliveryDate ?? new Date(),
+          dalle: f.dalle,
+          alle: f.alle,
+          variantId: (vendita as any).productVariantId ?? null,
+        };
+        prossimo = await this.scegliPartner(prodotto as unknown as ProdottoDaSmistare, vendita.provinceId, finestra, rifiutati)
+          .catch(() => null);
+      }
+
+      if (prossimo) {
+        const dopo = await this.prisma.partner.findUnique({ where: { id: prossimo.partnerId }, select: { insegna: true } });
+        const agg = await this.prisma.sale.update({
+          where: { id },
+          data: {
+            partnerId: prossimo.partnerId,
+            status: SaleStatus.PROPOSTA,
+            historyAt: null,
+            refusedPartnerIds: JSON.stringify(rifiutati),
+            assignmentReason: `rifiutata da ${nome} · proposta a ${dopo?.insegna ?? 'partner successivo'} (${prossimo.motivo})`,
+          },
+          include: { partner: { select: { id: true, insegna: true } } },
+        });
+        await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: proposta a ${dopo?.insegna ?? prossimo.partnerId} — ${prossimo.motivo}`, user);
+        await this.avvisaProposta(agg);
+        return agg;
+      }
+
       const agg = await this.prisma.sale.update({
         where: { id },
         data: {
@@ -1267,11 +1918,11 @@ export class SalesService {
           status: SaleStatus.DA_GESTIRE,
           historyAt: null,
           refusedPartnerIds: JSON.stringify(rifiutati),
-          assignmentReason: `rifiutata da ${nome}: da inserire dall'ufficio`,
+          assignmentReason: `rifiutata da ${nome}: nessun altro partner disponibile, da inserire dall'ufficio`,
         },
         include: { partner: { select: { id: true, insegna: true } } },
       });
-      await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: torna all'ufficio da inserire (da gestire)`, user);
+      await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: nessun altro partner nella lista, torna all'ufficio (da gestire)`, user);
       return agg;
     }
 
@@ -1295,6 +1946,108 @@ export class SalesService {
     }
   }
 
+  /**
+   * RISMISTA LE VENDITE RIMASTE SENZA PARTNER (05/09/2026, regola utente:
+   * «sistema allora tu»).
+   *
+   * Lo smistamento gira UNA VOLTA, alla nascita della vendita. Quando la
+   * regola dell'orario era sbagliata — si confrontava l'ora di ARRIVO della
+   * vendita invece della FASCIA DI CONSEGNA — le vendite che ne uscivano senza
+   * partner restavano ferme per sempre: nessuno le riprovava. Questo metodo le
+   * ripassa con la regola giusta, usando **lo stesso codice** dello
+   * smistamento normale (`scegliPartner`), non una copia che domani diverge.
+   *
+   * ⚠️ Si salta chi non deve essere toccato, e si dice perche':
+   *  - gli ordini ESTERI (si gestiscono a mano per decisione dell'utente);
+   *  - quelle PRESE IN MANO dall'ufficio (qualcuno ci sta gia' lavorando);
+   *  - gli ordini NON CONFORMI in Orders (un ordine non conforme non va
+   *    avanti: proporlo a un partner e' esattamente «andare avanti»);
+   *  - quelle senza prodotto o senza provincia, che non si possono smistare.
+   *
+   * ⚠️ La QUOTA non si riscrive, tranne quando il partner arriva da una
+   * riconciliazione accettata: li' il patto e' il prezzo al partner, come alla
+   * nascita della vendita. Negli altri casi lo sconto resta quello fotografato
+   * il giorno dell'ordine — non si riscrive la storia.
+   */
+  async rismistaAperte(applica = false) {
+    const aperte = await this.prisma.sale.findMany({
+      where: { status: SaleStatus.DA_GESTIRE, partnerId: null, deliveryId: null },
+      include: { product: true, province: { select: { code: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const esito: {
+      ordine: string | null; brand: string | null; provincia: string | null;
+      prodotto: string | null; data: string | null;
+      partner: string | null; motivo: string | null; saltata: string | null;
+    }[] = [];
+
+    for (const v of aperte) {
+      const riga = {
+        ordine: v.externalOrderNumber, brand: v.brand,
+        provincia: v.province?.code ?? null,
+        prodotto: v.product?.name ?? v.productName ?? null,
+        data: v.deliveryDate ? v.deliveryDate.toISOString().slice(0, 10) : null,
+        partner: null as string | null, motivo: null as string | null, saltata: null as string | null,
+      };
+      const perche = (v.assignmentReason ?? '').toLowerCase();
+      if (!v.product) riga.saltata = 'senza prodotto a catalogo';
+      else if (!v.provinceId) riga.saltata = 'senza provincia';
+      else if (perche.includes('estero')) riga.saltata = 'ordine estero: si gestisce a mano';
+      else if (perche.includes('presa in mano')) riga.saltata = "presa in mano dall'ufficio";
+      if (riga.saltata) { esito.push(riga); continue; }
+
+      try {
+        await this.assertOrdineConforme(v.externalOrderId);
+      } catch {
+        riga.saltata = 'ordine non conforme in Orders';
+        esito.push(riga);
+        continue;
+      }
+
+      // La finestra della CONSEGNA: il giorno chiesto e la fascia del cliente.
+      const ordine = await this.ordineDaOrders(v.externalOrderId);
+      const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+      const finestra: FinestraConsegna = {
+        giorno: v.deliveryDate ?? new Date(),
+        dalle: f.dalle,
+        alle: f.alle,
+        variantId: (v as any).productVariantId ?? null,
+      };
+      const scelto = await this.scegliPartner(v.product as ProdottoDaSmistare, v.provinceId, finestra, []);
+      if (!scelto) { riga.saltata = 'nessun partner disponibile nemmeno ora'; esito.push(riga); continue; }
+
+      const p = await this.prisma.partner.findUnique({
+        where: { id: scelto.partnerId }, select: { insegna: true },
+      });
+      riga.partner = p?.insegna ?? scelto.partnerId;
+      riga.motivo = scelto.motivo;
+
+      if (applica) {
+        await this.prisma.sale.update({
+          where: { id: v.id },
+          data: {
+            partnerId: scelto.partnerId,
+            assignmentReason: scelto.motivo,
+            status: SaleStatus.PROPOSTA,
+            ...(scelto.prezzoPartner !== undefined
+              ? { discountPercent: SalesService.quotaPerDare(v.amount, scelto.prezzoPartner) }
+              : {}),
+          },
+        });
+        await this.registra(v.id, 'stato',
+          `Rismistata con la regola nuova degli orari (fascia di consegna, non ora di arrivo): proposta a ${riga.partner} — ${scelto.motivo}`);
+      }
+      esito.push(riga);
+    }
+    return {
+      applicato: applica,
+      guardate: aperte.length,
+      proposte: esito.filter((r) => r.partner).length,
+      ferme: esito.filter((r) => !r.partner).length,
+      righe: esito,
+    };
+  }
+
   // --- smistamento -------------------------------------------------------
 
   /**
@@ -1310,26 +2063,32 @@ export class SalesService {
    * ⚠️ NON guarda gli orari (aperto/chiuso ADESSO): «avere un partner» è un
    * fatto della rete, non del momento. Un partner che esiste ma è chiuso ora
    * prende la vendita quando riapre — qui basta che ESISTA, sia attivo e OPERI
-   * nella provincia. Per l'UNICO basta il PROPRIETARIO attivo, a prescindere
-   * dalla provincia: quel prodotto lo fa solo lui.
+   * nella provincia. ⭐ 06/09/2026 (regola utente): vale ANCHE per l'UNICO —
+   * il proprietario deve coprire la provincia (chi consegna ovunque ha l'area
+   * «Tutto il mondo»); prima bastava che fosse attivo.
    */
-  async esisteCandidato(product: ProdottoDaSmistare, provinceId: string): Promise<boolean> {
-    const lista = await this.candidati(product, provinceId);
+  async esisteCandidato(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null): Promise<boolean> {
+    const lista = await this.candidati(product, provinceId, variantId);
     if (!lista.length) return false;
-    const soloUnico = product.type === ProductType.UNICO;
     const n = await this.prisma.partner.count({
       where: {
         id: { in: lista.map((c) => c.partnerId) },
         active: true,
-        // NON_UNICO: deve operare nella provincia. UNICO: basta che sia attivo.
-        ...(soloUnico ? {} : { provinces: { some: { provinceId } } }),
+        esclusoDalleProposte: false,
+        provinces: { some: { provinceId } },
       },
     });
     return n > 0;
   }
 
   /** Chi puo' prendere questa vendita, nell'ordine giusto. */
-  private async candidati(product: ProdottoDaSmistare, provinceId: string): Promise<Candidato[]> {
+  /**
+   * @param soloLettura conta i candidati SENZA creare nulla. Serve alla regola «un solo
+   *   partner in provincia» (06/09 sera): lì si guarda quanti sono PRIMA di decidere se la
+   *   vendita si smista da sola, e una lista di priorità creata per l'occasione sarebbe un
+   *   effetto collaterale di una domanda.
+   */
+  private async candidati(product: ProdottoDaSmistare, provinceId: string, variantId: string | null = null, soloLettura = false): Promise<Candidato[]> {
     if (product.type === ProductType.UNICO) {
       const lista: Candidato[] = product.partnerId
         ? [{ partnerId: product.partnerId, motivo: 'proprietario del prodotto unico' }]
@@ -1352,8 +2111,10 @@ export class SalesService {
     // ⭐ 04/09 (regola utente): la RICONCILIAZIONE accettata per (prodotto,
     // provincia) vince su lista di priorita' e ripiego: quel prodotto, li', va
     // SOLO a quel partner, a quel prezzo. Nasce in Prodotti → Riconciliazioni.
+    // ⭐ 06/09 (regola utente): «solo se la variante è la stessa, la riconciliazione approvata,
+    // provincia inclusa e partner aperto» — provincia e apertura le controlla scegliPartner.
     const regola = await this.prisma.productReconciliation.findFirst({
-      where: { productId: product.id, provinceId, status: 'accettata' },
+      where: { productId: product.id, provinceId, status: 'accettata', productVariantId: variantId ?? null },
       select: { partnerId: true, partnerPrice: true, price: true, discountPercent: true },
     });
     if (regola) {
@@ -1366,6 +2127,29 @@ export class SalesService {
       }];
     }
     if (!product.categoryId) return [];
+
+    // ⭐ 06/09/2026 (decisione utente: 8 MESTIERI). Prima si guarda il MESTIERE della
+    // categoria: lista di priorità per (provincia, mestiere) → unico partner col mestiere
+    // in provincia → lista creata da sola per ordini gestiti. Se la categoria non ha
+    // ancora un mestiere, o nessun partner lo ha in provincia, si ricade sul giro per
+    // categoria (transizione): niente resta fermo per una mappa incompleta.
+    const cat = await this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { mestiere: { select: { id: true, nome: true } } } });
+    const mestiere = cat?.mestiere ?? null;
+    if (mestiere) {
+      const listaM = await this.prisma.priorityList.findFirst({ where: { provinceId, mestiereId: mestiere.id }, include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } } });
+      if (listaM?.entries.length) return listaM.entries.map((e) => ({ partnerId: e.partnerId, motivo: `lista priorita' ${mestiere.nome} ${e.position}a di ${listaM.entries.length}` }));
+      const abilitatiM = await this.prisma.partner.findMany({ where: { active: true, deleted: false, esclusoDalleProposte: false, mestieri: { some: { mestiereId: mestiere.id } }, provinces: { some: { provinceId } } }, select: { id: true, insegna: true } });
+      if (abilitatiM.length === 1) return [{ partnerId: abilitatiM[0].id, motivo: `unico partner ${mestiere.nome} della provincia` }];
+      if (abilitatiM.length > 1) {
+        if (soloLettura) return abilitatiM.map((p) => ({ partnerId: p.id, motivo: `partner ${mestiere.nome} della provincia` }));
+        const gestitiM = await this.prisma.sale.groupBy({ by: ['partnerId'], where: { partnerId: { in: abilitatiM.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA }, _count: { _all: true } });
+        const contoM = new Map(gestitiM.map((g) => [g.partnerId as string, g._count._all]));
+        const ordinatiM = [...abilitatiM].sort((a, b) => (contoM.get(b.id) ?? 0) - (contoM.get(a.id) ?? 0) || a.insegna.localeCompare(b.insegna, 'it'));
+        const creataM = await this.prisma.priorityList.create({ data: { provinceId, mestiereId: mestiere.id, entries: { create: ordinatiM.map((p, i) => ({ partnerId: p.id, position: i + 1 })) } }, include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } } });
+        this.logger.log(`Lista di priorità ${mestiere.nome} creata da sola (provincia ${provinceId}): ${ordinatiM.map((p) => `${p.insegna} (${contoM.get(p.id) ?? 0})`).join(' > ')}`);
+        return creataM.entries.map((e) => ({ partnerId: e.partnerId, motivo: `lista priorita' ${mestiere.nome} creata in automatico (ordini gestiti): ${e.position}a di ${creataM.entries.length}` }));
+      }
+    }
 
     // ⭐ La LISTA PRIORITA' vera: una per coppia (provincia, categoria), coi
     // partner in un ordine deciso da qualcuno. Importate dal legacy il
@@ -1394,41 +2178,223 @@ export class SalesService {
     // quasi tutto. Si ripiega su chi tratta la categoria, DICENDO che e' un
     // ripiego: cosi' chi guarda una vendita sa se il partner e' stato scelto
     // da una lista o da un'approssimazione.
-    const ripiego = await this.prisma.partnerCategory.findMany({
-      where: { categoryId: product.categoryId },
-      select: { partnerId: true },
+    // ⭐ 06/09/2026 (regola utente): senza lista, chi tratta la categoria ED
+    // è attivo in provincia. Uno solo → proposta automatica. Più d'uno → la
+    // lista di priorità si CREA da sola, ordinata per ordini gestiti fino a
+    // oggi in quella provincia (a parità: nome), e da lì in poi comanda lei
+    // (l'ufficio la può riordinare come le altre).
+    const abilitati = await this.prisma.partner.findMany({
+      where: {
+        active: true,
+        esclusoDalleProposte: false,
+        categories: { some: { categoryId: product.categoryId } },
+        provinces: { some: { provinceId } },
+      },
+      select: { id: true, insegna: true },
     });
-    return ripiego.map((x) => ({
-      partnerId: x.partnerId,
-      motivo: 'nessuna lista per questa provincia: scelto fra chi tratta la categoria',
+    if (!abilitati.length) return [];
+    if (abilitati.length === 1) {
+      return [{ partnerId: abilitati[0].id, motivo: 'unico partner della provincia per questa categoria' }];
+    }
+    if (soloLettura) return abilitati.map((p) => ({ partnerId: p.id, motivo: 'partner della provincia per questa categoria' }));
+    const gestiti = await this.prisma.sale.groupBy({
+      by: ['partnerId'],
+      where: { partnerId: { in: abilitati.map((p) => p.id) }, provinceId, status: SaleStatus.ACCETTATA },
+      _count: { _all: true },
+    });
+    const conto = new Map(gestiti.map((g) => [g.partnerId as string, g._count._all]));
+    const ordinati = [...abilitati].sort((a, b) =>
+      (conto.get(b.id) ?? 0) - (conto.get(a.id) ?? 0) || a.insegna.localeCompare(b.insegna, 'it'));
+    const creata = await this.prisma.priorityList.create({
+      data: {
+        provinceId,
+        categoryId: product.categoryId,
+        entries: { create: ordinati.map((p, i) => ({ partnerId: p.id, position: i + 1 })) },
+      },
+      include: { entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } } },
+    });
+    this.logger.log(`Lista di priorità creata da sola (provincia ${provinceId}, categoria ${product.categoryId}): ${ordinati.map((p) => `${p.insegna} (${conto.get(p.id) ?? 0})`).join(' > ')}`);
+    return creata.entries.map((e) => ({
+      partnerId: e.partnerId,
+      motivo: `lista priorita' creata in automatico (ordini gestiti): ${e.position}a di ${creata.entries.length}`,
     }));
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente: «Il Pappagallo l'ha già fatta a 47 €, quindi dovrebbe essere
+   * proposta a lui in automatico») — CHI HA GIÀ UN PREZZO su questo prodotto.
+   *
+   * I preventivi raccolti vivono come prodotti UNICI del partner con lo sku
+   * `PP-<codice del prodotto o della variante>-<id partner>`: è così che li ha scritti
+   * l'analisi dei DDT, ed è così che li scrive il Customer Service quando telefona.
+   * Un prodotto «a preventivo» non si smista al buio, ma se il prezzo esiste già la domanda
+   * è stata fatta: si propone, e al prezzo concordato.
+   */
+  private async preventiviDelProdotto(product: ProdottoDaSmistare, variantSku: string | null): Promise<Map<string, number>> {
+    // ⚠️ Con la VARIANTE si guarda SOLO la variante: «PP-MPSXZK-2-…» (la torta da 10) comincia
+    // per «PP-MPSXZK-» e verrebbe presa per un preventivo della 6 — il prezzo della 10 non è il
+    // prezzo della 6. Senza variante vale il codice del prodotto.
+    const basi = (variantSku ? [variantSku] : [product.sku, product.id])
+      .filter(Boolean)
+      .map((x) => String(x).toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28));
+    if (!basi.length) return new Map();
+    const righe = await this.prisma.product.findMany({
+      where: {
+        active: true, deletedAt: null, archived: false, partnerId: { not: null },
+        OR: basi.map((b) => ({ sku: { startsWith: `PP-${b}-` } })),
+      },
+      select: { partnerId: true, price: true, sku: true },
+    });
+    const m = new Map<string, number>();
+    for (const r of righe) {
+      // La base più specifica (la VARIANTE) vince su quella del prodotto.
+      const specifica = variantSku && r.sku?.toUpperCase().startsWith(`PP-${String(variantSku).toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28)}-`);
+      if (r.partnerId && r.price != null && (specifica || !m.has(r.partnerId))) m.set(r.partnerId, r.price);
+    }
+    return m;
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente: «è un ordine a quantità») — IL PREZZO UNITARIO DEL PARTNER.
+   *
+   * Su un prodotto «a quantità» il prezzo NON è il pubblico meno la percentuale del
+   * territorio: è quanto quel partner fa UN pezzo, per i pezzi ordinati. «50 rose rosse» da
+   * Cannavo, che fa la rosa a 6 €, sono 300 € — e se il cliente ne ha pagati 300 il margine
+   * è zero: è un fatto che l'ufficio deve vedere, non una cosa da nascondere dietro una
+   * percentuale che tornava per finta.
+   *
+   * Dove sta il prezzo unitario, in ordine:
+   *  · il LISTINO DEL FIORAIO — i suoi «fiori a stelo», sku STELO-FIORE-partner, che il
+   *    fioraio compila lui dalla pagina Listino;
+   *  · un preventivo/accordo scritto sullo stesso prodotto (PP-codice-partner).
+   * Il fiore si riconosce dal nome del prodotto o dal titolo della riga d'ordine.
+   */
+  private async prezzoUnitario(product: ProdottoDaSmistare & { name?: string | null }, titolo: string | null, partnerIds: string[]): Promise<Map<string, { unitario: number; da: string }>> {
+    const fuori = new Map<string, { unitario: number; da: string }>();
+    if (!partnerIds.length) return fuori;
+    const testo = `${product.name ?? ''} ${titolo ?? ''}`.toLowerCase();
+    // I fiori che hanno un listino a stelo: la parola nel titolo decide quale.
+    const FIORI: { chiave: string; re: RegExp }[] = [
+      { chiave: 'ROSA', re: /\brose\b|\brosa\b|\broses\b/ },
+      { chiave: 'TULIPANO', re: /tulipan/ },
+      { chiave: 'GIRASOLE', re: /girasol/ },
+      { chiave: 'ORTENSIA', re: /ortensi/ },
+      { chiave: 'PEONIA', re: /peoni/ },
+      { chiave: 'ORCHIDEA', re: /orchide/ },
+      { chiave: 'LISIANTHUS', re: /lisianthus|lisiantus/ },
+      { chiave: 'GERBERA', re: /gerber/ },
+      { chiave: 'GIGLIO', re: /giglio|lilium/ },
+      { chiave: 'GAROFANO', re: /garofan/ },
+    ];
+    const fiore = FIORI.find((f) => f.re.test(testo))?.chiave ?? null;
+    const skuBase = (product.sku ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 28);
+    const righe = await this.prisma.product.findMany({
+      where: {
+        active: true, deletedAt: null, archived: false,
+        partnerId: { in: partnerIds },
+        OR: [
+          ...(fiore ? [{ sku: { startsWith: `STELO-${fiore}-` } }] : []),
+          ...(skuBase ? [{ sku: { startsWith: `PP-${skuBase}-` } }] : []),
+        ],
+      },
+      select: { partnerId: true, price: true, sku: true },
+    });
+    for (const r of righe) {
+      if (!r.partnerId || r.price == null || r.price <= 0) continue;
+      const da = (r.sku ?? '').startsWith('STELO-') ? 'listino del fioraio' : 'prezzo concordato';
+      const gia = fuori.get(r.partnerId);
+      // Il listino a stelo è quello unitario vero: vince sul patto sul prodotto intero.
+      if (!gia || da === 'listino del fioraio') fuori.set(r.partnerId, { unitario: r.price, da });
+    }
+    return fuori;
   }
 
   private async scegliPartner(
     product: ProdottoDaSmistare,
     provinceId: string,
-    quando: Date,
+    finestra: FinestraConsegna,
     escludi: string[],
   ): Promise<Candidato | null> {
-    const lista = (await this.candidati(product, provinceId)).filter(
+    let lista = (await this.candidati(product, provinceId, finestra.variantId ?? null)).filter(
       (c) => !escludi.includes(c.partnerId),
     );
     if (!lista.length) return null;
+
+    // ⭐ 07/09/2026 (regola utente: «è un ordine a quantità»). Su un prodotto A QUANTITÀ il
+    // prezzo al partner è il SUO unitario per i pezzi. Chi non ha un prezzo unitario resta in
+    // lista — si propone lo stesso, ma col prezzo della percentuale, e il motivo lo dice.
+    if (product.tipologiaVendita === 'quantita' && (finestra.pezzi ?? 0) > 1) {
+      const pezzi = Math.round(finestra.pezzi!);
+      const unitari = await this.prezzoUnitario(product as ProdottoDaSmistare & { name?: string | null }, finestra.titolo ?? null, lista.map((c) => c.partnerId));
+      lista = lista.map((c) => {
+        const u = unitari.get(c.partnerId);
+        if (!u) return { ...c, motivo: `${c.motivo} · senza prezzo unitario: vale la percentuale` };
+        const totale = Math.round(u.unitario * pezzi * 100) / 100;
+        const troppo = finestra.importo != null && totale >= finestra.importo;
+        return {
+          ...c,
+          prezzoPartner: totale,
+          motivo: `${c.motivo} · ${pezzi} × ${u.unitario} € (${u.da}) = ${totale} €${troppo ? ' ⚠️ pari o sopra il prezzo pagato dal cliente' : ''}`,
+        };
+      });
+    }
+
+    // ⭐ 07/09/2026 (regola utente): un prodotto A PREVENTIVO si propone SOLO a chi un prezzo
+    // l'ha già dato, e a quel prezzo. Se non l'ha dato nessuno la lista si svuota e la vendita
+    // resta da gestire: è il momento in cui si telefona. L'ordine della lista non cambia —
+    // fra chi ha risposto vince chi viene prima, non chi costa meno.
+    if (product.tipologiaVendita === 'preventivo') {
+      const variante = finestra.variantId
+        ? await this.prisma.productVariant.findUnique({ where: { id: finestra.variantId }, select: { sku: true } })
+        : null;
+      const preventivi = await this.preventiviDelProdotto(product, variante?.sku ?? null);
+      // ⚠️ 07/09/2026: chi ha già un prezzo NELLA CANDIDATURA passa comunque — una
+      // RICONCILIAZIONE ACCETTATA è il patto più forte che esista (prodotto, variante,
+      // provincia, quel partner, quel prezzo) e non va ridiscussa chiedendo un preventivo
+      // che è già stato dato. Il filtro serve a chi un prezzo non ce l'ha.
+      lista = lista
+        .filter((c) => c.prezzoPartner !== undefined || preventivi.has(c.partnerId))
+        .map((c) =>
+          c.prezzoPartner !== undefined
+            ? c
+            : { ...c, prezzoPartner: preventivi.get(c.partnerId)!, motivo: `${c.motivo} · preventivo già dato: ${preventivi.get(c.partnerId)} €` },
+        );
+      if (!lista.length) return null;
+    }
 
     const partners = await this.prisma.partner.findMany({
       where: {
         id: { in: lista.map((c) => c.partnerId) },
         active: true,
+        // ⭐ 06/09 sera (regola utente): gli ESCLUSI DALLE PROPOSTE si saltano, da qualunque lista arrivino.
+        esclusoDalleProposte: false,
         provinces: { some: { provinceId } },
       },
-      include: { openingHours: true },
+      include: { openingHours: true, consegnaProvince: { where: { provinceId }, select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },
     });
     const perId = new Map(partners.map((p) => [p.id, p]));
+    let destino: { lat: number; lng: number } | null | undefined;
 
     for (const c of lista) {
       const p = perId.get(c.partnerId);
       if (!p) continue; // non attivo, o non opera in quella provincia
-      if (await this.aperto(p.id, p.openingHours, quando)) return c;
+      // ⭐ 06/09/2026 (regola utente): il partner può dire il MINIMO d'ordine che vuole
+      // ricevere sulle vendite: sotto quella cifra si passa al successivo.
+      // ⭐ 06/09 sera (nuova architettura vendite): minimo e raggio valgono PER PROVINCIA di consegna
+      // (area di consegna del partner); la riga vuota eredita i predefiniti del partner.
+      const perQui = ((p as any).consegnaProvince ?? [])[0] as { minimoOrdine: number | null; raggioKm: number | null } | undefined;
+      const minimo = (perQui?.minimoOrdine ?? (p as any).minimoOrdineVendita) as number | null;
+      const prezzoPartner = c.prezzoPartner ?? finestra.prezzoPartnerListino ?? (finestra.importo != null ? Math.round(finestra.importo * (1 - (finestra.scontoPct ?? 0) / 100) * 100) / 100 : null);
+      if (minimo != null && prezzoPartner != null && prezzoPartner < minimo) { this.logger.log(`${p.insegna}: al partner andrebbero ${prezzoPartner} €, sotto il suo minimo di ${minimo} €: si passa oltre`); continue; }
+      // ⭐ 06/09/2026 (regola utente): il partner che CONSEGNA DA SOLO può dire il raggio
+      // massimo (km in linea d'aria dal suo negozio): oltre, la vendita passa al successivo.
+      // Serve la sua posizione e quella del destinatario (geocodifica, una volta per giro).
+      const raggio = (perQui?.raggioKm ?? (p as any).raggioMaxConsegnaKm) as number | null;
+      if (raggio != null && (p as any).autoDeliveredByPartner && (p as any).latitude != null && (p as any).longitude != null && finestra.indirizzo) {
+        if (destino === undefined) { const g = await this.settings.geocode(finestra.indirizzo).catch(() => null); destino = g?.lat != null && g?.lng != null ? { lat: g.lat, lng: g.lng } : null; }
+        if (destino) { const km = SalesService.kmInLineaDAria((p as any).latitude, (p as any).longitude, destino.lat, destino.lng); if (km > raggio) { this.logger.log(`${p.insegna}: destinatario a ${km.toFixed(1)} km, oltre il suo raggio di ${raggio} km: si passa oltre`); continue; } }
+      }
+      if (await this.aperto(p.id, p.openingHours, finestra)) return c;
     }
     return null; // nessuno aperto: la vendita resta «da gestire»
   }
@@ -1450,14 +2416,12 @@ export class SalesService {
       closeTime: string | null;
       closed: boolean;
     }[],
-    quando: Date,
+    finestra: FinestraConsegna,
   ): Promise<boolean> {
+    const quando = finestra.giorno;
     const giorno = new Date(
       Date.UTC(quando.getFullYear(), quando.getMonth(), quando.getDate()),
     );
-    const hhmm = `${String(quando.getHours()).padStart(2, '0')}:${String(
-      quando.getMinutes(),
-    ).padStart(2, '0')}`;
 
     // 1) fasce del giorno specifico
     const fasce = await this.prisma.partnerDaySlot.findMany({
@@ -1466,20 +2430,48 @@ export class SalesService {
     if (fasce.length) {
       const utili = fasce.filter((f) => f.available);
       if (!utili.length) return false; // giorno dichiarato chiuso
-      return utili.some((f) => this.dentro(hhmm, f.timeFrom, f.timeTo));
+      return utili.some((f) => this.siSovrappone(finestra, f.timeFrom, f.timeTo));
     }
 
     // 2) eccezione del giorno specifico
     const ecc = await this.prisma.partnerDayException.findUnique({
       where: { partnerId_date: { partnerId, date: giorno } },
     });
-    if (ecc) return ecc.closed ? false : this.dentro(hhmm, ecc.openTime, ecc.closeTime);
+    if (ecc) return ecc.closed ? false : this.siSovrappone(finestra, ecc.openTime, ecc.closeTime);
 
     // 3) orari settimanali
     if (!settimanali.length) return true; // nessun orario configurato: sempre aperto
-    const oggi = settimanali.filter((h) => h.dayOfWeek === quando.getDay());
+    const oggi = settimanali.filter((h) => h.dayOfWeek === giorno.getUTCDay());
     if (!oggi.length) return false;
-    return oggi.some((h) => !h.closed && this.dentro(hhmm, h.openTime, h.closeTime));
+    return oggi.some((h) => !h.closed && this.siSovrappone(finestra, h.openTime, h.closeTime));
+  }
+
+  /**
+   * La consegna e l'apertura si INCROCIANO?
+   *
+   * ⚠️ 05/09/2026 — qui stava il difetto. Prima si confrontava un ISTANTE
+   * (`quando`) con l'orario del partner, e quell'istante era l'ora dentro la
+   * data della vendita: quando l'ordine non porta un'ora, la data arriva a
+   * mezzanotte UTC, cioè le 02:00 italiane, e QUALUNQUE partner con orari
+   * scritti risultava chiuso. Misurato sul database: fra le vendite con data a
+   * mezzanotte il 46% restava senza partner (79 su 171), fra quelle con un
+   * orario vero il 7% (18 su 248) — e le uniche mezzanotte che passavano erano
+   * quelle di partner SENZA orari, che il codice tratta come sempre aperti.
+   * Il caso che l'ha fatto vedere: ordine 12879, Tiramisù di Clivati 1969
+   * (UNICO, quindi c'era un solo partner possibile), consegna di domenica
+   * 06/09 — Clivati apre 07:30–19:30 la domenica, ma alle 02:00 no.
+   *
+   * Ora si confronta la FASCIA DI CONSEGNA con l'apertura, e basta che si
+   * tocchino. Senza fascia la domanda diventa «quel giorno è aperto?»: è
+   * l'unica cosa che si sa, e fingere di sapere l'ora è peggio che non saperla.
+   */
+  private siSovrappone(finestra: FinestraConsegna, apre: string | null, chiude: string | null): boolean {
+    // Il partner non ha scritto gli orari di quel giorno: è aperto.
+    if (!apre || !chiude) return true;
+    // Nessuna fascia sull'ordine: basta che il giorno sia aperto.
+    if (!finestra.dalle || !finestra.alle) return true;
+    // Si toccano davvero: un negozio che chiude alle 16 non serve la 16–20.
+    return finestra.dalle < chiude && apre < finestra.alle;
   }
 
   /** Una fascia senza orari vale tutto il giorno, non zero minuti. */
@@ -1507,8 +2499,12 @@ export class SalesService {
       deliveryDate: Date | null;
       serviceTypeId: string | null;
       amount: number;
+      /** ⭐ 07/09/2026: i pezzi della vendita (generici a quantità). */
+      quantity?: number;
       discountPercent?: number;
       externalOrderId?: string | null;
+      /** Il numero dell'ordine come lo leggono le persone: è questo il DDT. */
+      externalOrderNumber?: string | null;
       source?: string;
       brand?: string | null;
       productId?: string | null;
@@ -1545,12 +2541,20 @@ export class SalesService {
     // valore-prodotti.ts, non la verita' — dove la riga c'e', parlano le righe.
     const valoreProdotti = arrotonda(vendita.amount);
 
-    // ⭐ LA REGOLA DEL DDT. Su una vendita la consegna viaggia col documento di
-    // trasporto, e il suo numero e' il riferimento della vendita: nei dati veri
-    // e' cosi' su 10.515 consegne su 12.967 con un DDT (l'81%), e il 96% delle
-    // vendite ne ha uno. Qui non veniva scritto: ogni consegna nata da una
-    // vendita partiva senza documento.
-    const numeroDdt = vendita.externalOrderId?.trim() || null;
+    // ⭐ LA REGOLA DEL DDT (corretta il 05/09/2026). Su una vendita la consegna
+    // viaggia col documento di trasporto, e il suo numero e' il riferimento
+    // della vendita: nei dati veri e' cosi' su 10.515 consegne su 12.967 con un
+    // DDT (l'81%), e il 96% delle vendite ne ha uno.
+    //
+    // ⚠️ Qui si scriveva `externalOrderId`, che sulla vendita e' l'id INTERNO
+    // di Deluxy Orders — un cuid tipo `cmthk6uht0002jr044m6xlqvm`, non un
+    // numero di documento. Nel database i DDT sono 16.357 e sono numeri
+    // (15.164 tutti cifre, zero in forma cuid): scriverci un id avrebbe messo
+    // in quel campo una cosa che nessuno riconosce, e avrebbe fatto fallire la
+    // riconciliazione per DDT — che e' il legame piu' forte fra vendita e
+    // consegna (regola utente del 05/09). Vale il NUMERO d'ordine, quello che
+    // le persone leggono; l'id resta come ultimo ripiego se il numero manca.
+    const numeroDdt = vendita.externalOrderNumber?.trim() || vendita.externalOrderId?.trim() || null;
 
     // ⭐ 01/09 (regola utente «sistemati anche gli altri ordini»): anche la via
     // AUTOMATICA porta con sé quello che l'ordine sa già — fascia oraria del
@@ -1590,6 +2594,10 @@ export class SalesService {
         deliveryFlexible: Boolean(fasciaDalle && fasciaAlle && fasciaAlle !== fasciaDalle) || undefined,
         personalizeSaleNotes: biglietto,
         notes: notaShopify,
+        // ⭐ 06/09/2026: l'id Shopify dell'ordine (`realOrderNumber`) è la chiave
+        // con cui Finanza trova quello che il cliente ha pagato (cache di Orders).
+        // Senza, 162 consegne di vendita su 636 dal 01/08 restavano «stimate».
+        realOrderNumber: SalesService.numeroShopify(ordine?.orderId ?? null) ?? undefined,
         productValue: vendita.productId ? null : valoreProdotti,
         ddtNumber: numeroDdt,
         // Con piu' brand lo stesso numero DDT esiste su negozi diversi: il
@@ -1608,12 +2616,22 @@ export class SalesService {
                 productSku: vendita.product?.sku ?? null,
                 productVariantId: vendita.productVariantId ?? null,
                 variantName: vendita.variantName ?? variante?.name ?? null,
-                quantity: 1,
+                // ⭐ 07/09/2026 (regola utente): i PEZZI della vendita — «50 rose rosse» è una
+                // riga da 50, non da 1 — e sui GENERICI il prezzo è quello dell ordine diviso i
+                // pezzi (prezzo flessibile del generico), perché a listino il generico vale 0.
+                quantity: Math.max(1, Number(vendita.quantity) || 1),
                 // Il prezzo di riga e' quello del PARTNER (canone 29/08: la fee
                 // si calcola sul SUO prezzo — la prova: la quota registrata e'
                 // il 20% esatto della variante `price`, non del pubblico). Il
                 // pubblico e' il ripiego; se nessuno lo dichiara resta vuoto.
-                price: variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null,
+                price: (() => {
+                  const pezzi = Math.max(1, Number(vendita.quantity) || 1);
+                  const listino = variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null;
+                  if (listino) return listino;
+                  // Generico (listino 0 o assente): quanto prende il partner, diviso i pezzi.
+                  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
+                  return alPartner > 0 ? Math.round((alPartner / pezzi) * 100) / 100 : null;
+                })(),
               }],
             }
           : undefined,
@@ -1727,6 +2745,13 @@ export class SalesController {
     return this.salesService.rifiuta(id, user);
   }
 
+  @Post(':id/preventivo')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Salva il preventivo dato dal partner: la vendita prende quel prezzo e nasce la riconciliazione accettata' })
+  salvaPreventivo(@Param('id') id: string, @Body() body: { partnerId?: string; prezzo: number }, @CurrentUser() user: JwtUser) {
+    return this.salesService.salvaPreventivo(id, body, user);
+  }
+
   @Post(':id/inserisci')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({
@@ -1782,6 +2807,7 @@ export class SalesController {
 }
 
 @Module({
+  imports: [NotificationsModule, SettingsModule],
   controllers: [SalesController],
   providers: [SalesService],
   exports: [SalesService],

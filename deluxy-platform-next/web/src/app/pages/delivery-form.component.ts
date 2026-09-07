@@ -5,6 +5,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  HostListener,
   Input,
   NgZone,
   Output,
@@ -14,6 +15,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Observable, forkJoin, of } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -40,6 +42,8 @@ interface ProductRow {
   quantity: number | null;
   flexiblePrice: boolean;
   price: number | null;
+  /** ⭐ 05/09/2026 (regola utente): SENZA FEE — Deluxy non trattiene niente su questa riga. */
+  withoutCommission?: boolean;
   /** Ricerca prodotto (31/08): testo digitato + nome del prodotto scelto. */
   query?: string;
   nomeScelto?: string;
@@ -59,11 +63,14 @@ interface ProductRow {
         <h1>{{ (editId() ? 'deliveryForm.editTitle' : 'deliveryForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'deliveryForm.caption' | translate }}</p>
       </div>
-      <!-- Il codice di consegna e' un flag di testa, in alto a destra: come
-           nell'app attuale, non sepolto in fondo alla documentazione. -->
-      <label class="toggle testa-flag">
-        <input type="checkbox" [(ngModel)]="model.deliveryCodeRequired" />
-        <span>{{ 'deliveryForm.field.deliveryCodeRequired' | translate }}</span>
+      <!-- ⭐ 05/09/2026 (regola utente): la casella in alto a destra è la
+           VERIFICA IDENTITÀ DEL VALET — al ritiro il partner inserisce il
+           codice del valet. Se il partner ha il flag sulla sua scheda arriva
+           già accesa per tutte le sue consegne (e si può spegnere); se no, si
+           accende qui per la singola consegna. -->
+      <label class="toggle testa-flag" [title]="'deliveryForm.field.valetIdentityCheckHint' | translate">
+        <input type="checkbox" [(ngModel)]="model.valetIdentityCheck" (change)="identitaToccata = true" />
+        <span>{{ 'deliveryForm.field.valetIdentityCheck' | translate }}</span>
       </label>
     </div>
 
@@ -71,7 +78,9 @@ interface ProductRow {
          la foto di un ordine, e il form si RIEMPIE. Non si salva niente: la
          proposta va rivista e confermata da chi la manda. Solo sulla consegna
          NUOVA — in modifica riscriverebbe sopra a dati gia' controllati. -->
-    @if (!editId() && aiPossibile()) {
+    <!-- ⭐ 05/09/2026 (regola utente): per ora la compilazione con l'AI è solo
+         per l'ufficio — ai partner la voce non si mostra. -->
+    @if (!editId() && aiPossibile() && !isPartner()) {
       <section class="card ai-box" [class.aperto]="aiAperto()">
         @if (!aiAperto()) {
           <button type="button" class="btn btn-secondary" (click)="aiAperto.set(true)">
@@ -101,7 +110,7 @@ interface ProductRow {
             }
             <label class="btn btn-secondary file">
               {{ 'deliveryForm.ai.image' | translate }}
-              <input type="file" accept="image/*" capture="environment" (change)="aiImmagine($event)" hidden />
+              <input type="file" accept="image/*" (change)="aiImmagine($event)" hidden />
             </label>
             @if (aiNomeImmagine()) { <span class="ai-file">{{ aiNomeImmagine() }}</span> }
             <button type="button" class="btn btn-primary" [disabled]="aiInCorso()" (click)="aiCompila()">
@@ -140,7 +149,7 @@ interface ProductRow {
             @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
-            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" (blur)="normalizzaIndirizzo('consegna')" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
+            <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" (input)="indirizzoDigitato('consegna')" (blur)="normalizzaIndirizzo('consegna')" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             <!-- 02/09 (regola utente): il partner salva solo indirizzi «da
                  Google» con città e provincia — senza, il Salva resta spento. -->
             @if (isPartner() && model.recipientAddress && !indirizzoConsegnaOk()) {
@@ -171,7 +180,7 @@ interface ProductRow {
             </label>
           }
           <label class="fld"><span class="req">{{ 'deliveryForm.field.service' | translate }}</span>
-            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
+            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" (change)="servizioToccato = true" required>
               <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
               @for (s of serviceOptions(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
@@ -223,7 +232,7 @@ interface ProductRow {
              partner. -->
         <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
           <input #pickupInput class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress" (ngModelChange)="aggiornaPreventivo()"
-                 (blur)="normalizzaIndirizzo('ritiro')" autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
+                 (input)="indirizzoDigitato('ritiro')" (blur)="normalizzaIndirizzo('ritiro')" autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" />
           @if (isPartner() && (model.pickupAddress ?? '').trim() && !indirizzoRitiroOk()) {
             <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
           }</label>
@@ -391,7 +400,7 @@ interface ProductRow {
                      primi prodotti — digitare serve solo per cercare. -->
                 <input class="field" [ngModel]="row.nomeScelto || row.query || ''"
                        (ngModelChange)="onProductQuery(row, $index, $event)"
-                       (focus)="alFuocoProdotto(row, $index)"
+                       (focus)="alFuocoProdotto(row, $index, $event.target)"
                        (blur)="sfuocaProdotto($index)"
                        [placeholder]="'deliveryForm.placeholder.searchProduct' | translate"
                        [name]="'prod' + $index" autocomplete="off" />
@@ -401,9 +410,14 @@ interface ProductRow {
                        250 ms) non parte prima del click su un risultato o
                        su «Crea nuovo», nemmeno da touch o dalla barra di
                        scorrimento. -->
-                  <div class="prod-risultati" (mousedown)="$event.preventDefault()">
+                  <div class="prod-risultati" [class.su]="tendinaSopra()"
+                       [style.max-height.px]="altezzaTendina()"
+                       (mousedown)="$event.preventDefault()">
+                    <!-- ⭐ 06/09-07/09/2026 (regola utente): PRIMA i prodotti UNICI del partner
+                         della consegna, in grassetto e in ordine alfabetico; poi tutti gli altri.
+                         Escono solo i prodotti ATTIVI: un archiviato non si propone. -->
                     @for (p of risultatiRicerca(); track p.id) {
-                      <button type="button" class="ris" (click)="scegliProdotto(row, p)">
+                      <button type="button" class="ris" [class.suo]="suoDelPartner(p)" (click)="scegliProdotto(row, p)">
                         @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
                         {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
                       </button>
@@ -431,12 +445,27 @@ interface ProductRow {
                 </select>
               </label>
             }
+            <!-- ⭐ 06/09/2026 (regola utente): lo STOCK si vede mentre si compila.
+                 Solo per prodotti/varianti con «Controlla stock»: giacenza in
+                 magazzino, rossa se non basta per i pezzi richiesti — il server
+                 rifiuterà, meglio saperlo prima. -->
+            @if (giacenza(row); as g) {
+              <span class="stock-hint" [class.ko]="g.disponibili < (row.quantity ?? 1)">
+                {{ (g.disponibili < (row.quantity ?? 1) ? 'deliveryForm.order.stockLow' : 'deliveryForm.order.stockHint') | translate: { n: g.disponibili } }}
+              </span>
+            }
             <div class="prod-bottom">
               <!-- 02/09 (regola utente): il PREZZO FLESSIBILE è dell'ufficio —
                    il partner non riscrive il prezzo di riga (il server già lo
                    ignorava dal suo dto: qui sparisce anche la spunta). -->
               @if (!isPartner()) {
                 <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
+                <!-- ⭐ 05/09/2026 (regola utente): SENZA FEE, solo sui servizi
+                     di VENDITA — è lì che la fee esiste. Su questa riga Deluxy
+                     non trattiene niente e in fattura la quota è zero. -->
+                @if (isVendita()) {
+                  <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.withoutCommission" [name]="'pnofee' + $index" /><span>{{ 'deliveryForm.order.noFee' | translate }}</span></label>
+                }
               }
               @if (row.flexiblePrice) {
                 <span class="price-lbl">{{ 'deliveryForm.order.priceEuro' | translate }}</span>
@@ -480,7 +509,16 @@ interface ProductRow {
             }
             <div class="grid-2">
               <label class="fld"><span>{{ 'deliveryForm.pricing.price' | translate }}</span>
-                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
+                <!-- ⭐ 06/09/2026 (regola utente: «fai in modo che i numeri siano
+                     sempre visibili»): sulla VENDITA il campo resta vuoto (la
+                     fee si calcola alla fatturazione), ma il numero che ne
+                     uscirà si legge QUI: fee% × base fee delle righe. -->
+                <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price"
+                       [placeholder]="feeVendita() ? feeVendita()!.feeTesto : ('deliveryForm.placeholder.auto' | translate)" />
+                @if (model.price == null && feeVendita(); as fv) {
+                  <span class="slot-hint">{{ 'deliveryForm.pricing.feeVenditaHint' | translate: { pct: fv.pctTesto, base: fv.baseTesto, fee: fv.feeTesto } }}</span>
+                }
+              </label>
               <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
               <!-- ⭐ 04/09 (regola utente): «Regole» è il valore della regola
@@ -506,8 +544,19 @@ interface ProductRow {
               <span class="group-label">{{ 'deliveryForm.pricing.payableGroup' | translate }}</span>
               <label class="toggle mb"><input type="checkbox" name="payable" [(ngModel)]="model.payable" /><span>{{ 'deliveryForm.pricing.payable' | translate }}</span></label>
               <div class="grid-2">
+                <!-- ⭐ 05/09/2026 (domanda utente: «nel form di modifica si vede
+                     la variazione del salario del valet?»). Il campo mostra SOLO
+                     la paga scritta a mano; quando e' vuota gli stipendi la
+                     ricavano dal listino del valet, e quel numero si vedeva nel
+                     dettaglio ma non qui. Ora si legge sotto il campo: vuoto
+                     non vuol dire zero. -->
                 <label class="fld"><span>{{ 'deliveryForm.pricing.valetSalary' | translate }}</span>
-                  <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary" /></label>
+                  <input class="field num" type="number" step="0.01" name="valetSalary" [(ngModel)]="model.valetSalary"
+                         [placeholder]="pagaDaListino() != null ? pagaDaListino() : ''" />
+                  @if (model.valetSalary == null && pagaDaListino() != null) {
+                    <span class="slot-hint">{{ 'deliveryForm.pricing.valetSalaryFromListino' | translate: { paga: pagaDaListino() } }}</span>
+                  }
+                </label>
                 <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                   <input class="field num" type="number" step="0.01" name="valetAdditionalPrice" [(ngModel)]="model.valetAdditionalPrice" /></label>
               </div>
@@ -586,7 +635,7 @@ interface ProductRow {
         <!-- 02/09 (regole utente): il Salva si accende solo con indirizzi
              validi (partner), ALMENO UN PRODOTTO (fuori dai servizi a ora) e
              il brand DDT sulle vendite. -->
-        <button type="submit" class="btn btn-primary" [disabled]="saving() || !indirizziValidi() || !prodottiObbligatoriOk() || !brandDdtOk()">
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || giaCreata() || !indirizziValidi() || !prodottiObbligatoriOk() || !brandDdtOk()">
           {{ saving() ? ('common.saving' | translate) : ((editId() ? 'common.save' : 'deliveryForm.submit') | translate) }}
         </button>
       </div>
@@ -648,6 +697,8 @@ interface ProductRow {
       .listino { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
+      .stock-hint { display: inline-block; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 6px; }
+      .stock-hint.ko { color: var(--red); font-weight: 600; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
       .listino-live { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
       .luogo-scelto { display: block; margin-top: 5px; font-size: 13px; color: var(--text-secondary); }
@@ -693,17 +744,31 @@ interface ProductRow {
       .prod-cerca { position: relative; min-width: 0; }
       .prod-cerca .field { width: 100%; font-size: 15px; padding: 10px 12px; }
       .qty { text-align: center; }
+      /* ⭐ 07/09/2026 (segnalazione utente: «la lista a un certo punto si interrompe
+         e non si può scorrere di più»). L'altezza era fissa a 280px: con la riga
+         prodotto in fondo alla pagina la tendina finiva SOTTO il bordo della
+         finestra, e gli ultimi risultati restavano fuori dallo schermo — la barra
+         interna arrivava in fondo, ma quei prodotti non si vedevano. Da oggi
+         l'altezza la decide altezzaTendina() sullo spazio che c'è davvero, e se
+         sotto lo spazio non basta la tendina si apre VERSO L'ALTO (.su).
+         overscroll-behavior: contain tiene lo scorrimento dentro la tendina:
+         arrivati in fondo non parte quello della pagina, che faceva sembrare
+         bloccata la lista. */
       .prod-risultati {
         position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
         background: var(--surface); border: 1px solid var(--hairline-strong);
         border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
-        max-height: 280px; overflow-y: auto;
+        overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
       }
+      .prod-risultati.su { top: auto; bottom: calc(100% + 4px); }
       .prod-risultati .ris {
         display: block; width: 100%; text-align: left; border: none; background: none;
         padding: 10px 12px; font: inherit; font-size: 14px; cursor: pointer; color: var(--text);
       }
       .prod-risultati .ris:hover { background: var(--fill); }
+      /* ⭐ 06-07/09/2026: i prodotti unici del partner scelto, in grassetto e in cima.
+         Sta DOPO .ris perché quella regola azzera il peso con font: inherit. */
+      .prod-risultati .ris.suo { font-weight: 650; }
       .prod-risultati .ris.crea {
         border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
         position: sticky; bottom: 0; background: var(--surface);
@@ -937,13 +1002,39 @@ export class DeliveryFormComponent implements AfterViewInit {
    * quello scelto non lo è (o manca), sceglie il primo servizio VENDITA. No-op
    * finché la lista servizi non è arrivata: la richiama chi la carica.
    */
+  /** ⭐ 06/09/2026 (regola utente): fra i servizi di VENDITA la prima scelta è sempre «Vendita Deluxy». */
+  /** Il tipo di vendita che l'ORDINE dietro la vendita impone (da /sales/:id/ordine); null = non ancora noto. */
+  readonly tipoVenditaOrdine = signal<'contrassegno' | 'singola' | 'multipla' | null>(null);
+  /** L'utente ha scelto il servizio a mano: da lì in poi il form non glielo cambia più. */
+  servizioToccato = false;
+
+  /**
+   * ⭐ 06/09/2026 (regola utente, caso 12879): il servizio di vendita lo decide
+   * l'ordine — contrassegno → «Vendita con Pagamento alla Consegna»; pagato con
+   * un pezzo → «Vendita Deluxy»; pagato con più pezzi → «Vendita Deluxy
+   * Multipla». Finché l'ordine non è arrivato (o non c'è) vale «Vendita
+   * Deluxy». ⚠️ Prima la regex aveva perso le barre (`s*` invece di `\s*`): non
+   * combaciava mai e vinceva la prima in ordine alfabetico — «Vendita con
+   * Pagamento alla Consegna», anche su ordini pagati con carta.
+   */
+  private venditaPreferita(lista: { id: string; name: string; pricingModel?: string | null }[]): any {
+    const vendite = lista.filter((s) => s.pricingModel === 'VENDITA');
+    const cerca = (re: RegExp) => vendite.find((s) => re.test(String(s.name ?? '').trim()));
+    const deluxy = cerca(/^vendita\s+deluxy$/i);
+    switch (this.tipoVenditaOrdine()) {
+      case 'contrassegno': return cerca(/pagamento\s+alla\s+consegna/i) ?? deluxy ?? vendite[0] ?? null;
+      case 'multipla': return cerca(/multipla/i) ?? deluxy ?? vendite[0] ?? null;
+      default: return deluxy ?? vendite[0] ?? null;
+    }
+  }
+
   private forzaServizioVendita(): void {
     if (!this.daVendita() || !this.serviceTypes().length) return;
     // ⭐ 01/09 (segnalazione utente: «i servizi elencati non sono quelli del
     // partner»): la vendita si sceglie PRIMA dal listino del partner; il
     // catalogo intero è solo il ripiego di chi un listino non ce l'ha.
     const suoi = this.servizioDelPartner();
-    const vendDelPartner = suoi.find((s) => s.pricingModel === 'VENDITA');
+    const vendDelPartner = this.venditaPreferita(suoi);
     const attuale = this.serviceTypes().find((s) => s.id === this.model.serviceTypeId);
     if (attuale && attuale.pricingModel === 'VENDITA') {
       // Già una vendita: ma se è fuori dal listino del partner e il partner ne
@@ -952,10 +1043,19 @@ export class DeliveryFormComponent implements AfterViewInit {
       if (vendDelPartner && !suoi.some((s) => s.id === attuale.id)) {
         this.model.serviceTypeId = vendDelPartner.id;
         this.onServiceChange();
+        return;
+      }
+      // ⭐ 06/09: l'ordine ha detto il suo tipo (contrassegno / singola / multipla)
+      // e la vendita scelta non è quella: si passa alla giusta — a meno che
+      // l'utente non l'abbia scelta a mano.
+      const giusta = vendDelPartner ?? this.venditaPreferita(this.serviceTypes());
+      if (this.tipoVenditaOrdine() && giusta && giusta.id !== attuale.id && !this.servizioToccato) {
+        this.model.serviceTypeId = giusta.id;
+        this.onServiceChange();
       }
       return;
     }
-    const vend = vendDelPartner ?? this.serviceTypes().find((s) => s.pricingModel === 'VENDITA');
+    const vend = vendDelPartner ?? this.venditaPreferita(this.serviceTypes());
     if (vend && this.model.serviceTypeId !== vend.id) {
       this.model.serviceTypeId = vend.id;
       this.onServiceChange();
@@ -1021,6 +1121,8 @@ export class DeliveryFormComponent implements AfterViewInit {
    * della richiesta: un errore qui non ferma la consegna, che è già nata.
    */
   readonly daVendita = signal<string | null>(null);
+  /** La paga del valet calcolata dal listino (dal dettaglio), quando non e' scritta. */
+  readonly pagaDaListino = signal<number | null>(null);
 
   /**
    * MODALITÀ POP-UP (31/08): il form vive dentro un modale (es. «Inserisci» da
@@ -1090,7 +1192,15 @@ export class DeliveryFormComponent implements AfterViewInit {
         const m = this.model as Record<string, unknown>;
         if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
         if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
-        if (o.contrassegno) this.model.paymentOnDelivery = true;
+        // ⭐ 06/09 (caso 12879): il tipo di vendita e il contrassegno li decide l'ordine.
+        if (o.tipoVendita) this.tipoVenditaOrdine.set(o.tipoVendita);
+        if (o.contrassegno) {
+          this.model.paymentOnDelivery = true;
+          // Importo del contrassegno = valore dell'ordine (prodotti + consegna). Solo se vuoto.
+          if (!this.model.paymentAmount && typeof o.totale === 'number' && o.totale > 0) this.model.paymentAmount = o.totale;
+        }
+        this.forzaServizioVendita();
+        this.proponiPrezzoDiListino();
 
         // ⭐ FASCIA ORARIA dal cliente (es. «16-20»): è la finestra VERA chiesta
         // sull'ordine, non una fascia da 1 ora — quindi si apre la fascia
@@ -1164,24 +1274,44 @@ export class DeliveryFormComponent implements AfterViewInit {
     });
   }
 
-  private chiudiVendita(nata: { id?: string } | null | undefined): void {
-    const vendita = this.daVendita();
-    if (!vendita || !nata?.id) return;
-    this.http
-      .post(`${environment.apiUrl}/sales/${vendita}/collega-consegna`, { deliveryId: nata.id })
-      .subscribe({ next: () => undefined, error: () => undefined });
-  }
-
-  private chiudiRichiesta(nata: { id?: string } | null | undefined): void {
+  /**
+   * LA VENDITA (o la richiesta) SI CHIUDE PRIMA DI USCIRE — e «prima» vuol
+   * dire **aspettando la risposta**, non solo avendo lanciato la chiamata.
+   *
+   * ⚠️ 05/09/2026, difetto vero (vendita 2828, ordine #101002): queste due
+   * chiamate partivano e nessuno le aspettava. Il pop-up si chiudeva e la
+   * lista Vendite si ricaricava nello stesso istante, mentre la chiusura era
+   * ancora in volo: la consegna è nata alle 04:10:18,502 e la vendita è
+   * passata in storico alle 04:10:21,611 — **3,1 secondi dopo**, quando la
+   * lista era già stata letta. Chi guardava vedeva la vendita ancora aperta e
+   * doveva ricaricare una seconda volta. Non era una cache: era una corsa.
+   *
+   * ⚠️ E l'errore non si ingoia: se la chiusura fallisce la consegna è nata
+   * lo stesso, ma la vendita resta aperta — e uscire in silenzio la
+   * lascerebbe lì senza che nessuno lo sappia.
+   */
+  private chiusure(nata: { id?: string } | null | undefined): Observable<unknown> {
+    const chiamate: Observable<unknown>[] = [];
     const rich = this.daRichiesta();
-    if (!rich) return;
-    this.http
-      .patch(`${environment.apiUrl}/richieste/${rich}`, {
+    if (rich) {
+      chiamate.push(this.http.patch(`${environment.apiUrl}/richieste/${rich}`, {
         stato: 'accettata',
         ...(nata?.id ? { deliveryId: nata.id } : {}),
-      })
-      .subscribe({ next: () => undefined, error: () => undefined });
+      }));
+    }
+    const vendita = this.daVendita();
+    if (vendita && nata?.id) {
+      chiamate.push(this.http.post(`${environment.apiUrl}/sales/${vendita}/collega-consegna`, { deliveryId: nata.id }));
+    }
+    return chiamate.length ? forkJoin(chiamate) : of(null);
   }
+
+  /**
+   * La consegna È NATA: da qui in poi il modulo non si risalva, altrimenti
+   * ne nasce una seconda. Vale anche quando la chiusura della vendita
+   * fallisce e si resta in pagina a leggere il perché.
+   */
+  readonly giaCreata = signal(false);
 
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
   puoConfigurare(): boolean {
@@ -1380,6 +1510,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     personalizeSaleNotes: '',
     internalNotes: '',
     deliveryCodeRequired: false,
+    valetIdentityCheck: false,
   };
 
   /** Prodotti del partner selezionato per primi. */
@@ -1397,6 +1528,9 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly selectedService = signal<ServiceType | null>(null);
   /** Duplica (04/09): la data non si eredita e non si riempie da sola. */
   private dataDaScegliere = false;
+  /** ⭐ 05/09: l'id della NON consegnata da cui nasce questa riconsegna. */
+  readonly riconsegnaDi = signal<string | null>(null);
+  readonly codicePadre = signal<number | null>(null);
   /** Servizio arrivato dalla home «Servizi» del partner (`?servizio=`). */
   private servizioDallaHome: string | null = null;
   /** Fasce orarie di consegna generate dal servizio. */
@@ -1492,6 +1626,31 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (attuale != null && attuale !== this.prezzoProposto) return;
     this.model.price = prezzo;
     this.prezzoProposto = prezzo;
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): LA FEE DELLA VENDITA SI VEDE. Il campo prezzo
+   * sulla vendita resta vuoto di proposito (regola 01/09: fee% × valore prodotti
+   * si calcola alla fatturazione), ma «auto» non diceva niente. Qui si fa lo
+   * stesso conto della fatturazione — fee% del listino partner × base fee
+   * (righe senza «Senza fee», prezzo × quantità) — e lo si mostra come
+   * segnaposto e come riga sotto il campo. Non scrive nel modello.
+   */
+  feeVendita(): { pct: number; base: number; fee: number; pctTesto: string; baseTesto: string; feeTesto: string } | null {
+    const s = this.selectedService();
+    if (!s || s.pricingModel !== 'VENDITA') return null;
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    const riga = (p?.services ?? []).find((r) => (r.serviceTypeId ?? r.serviceType?.id) === this.model.serviceTypeId);
+    if (!riga || riga.price == null) return null;
+    const base = this.productRows.reduce((tot, r) => {
+      if (!r.productId || r.withoutCommission) return tot;
+      const prezzo = this.rowPrice(r);
+      return tot + (prezzo ?? 0) * Math.max(1, r.quantity ?? 1);
+    }, 0);
+    if (!(base > 0)) return null;
+    const fee = Math.round((base * riga.price) / 100 * 100) / 100;
+    const it = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return { pct: riga.price, base, fee, pctTesto: riga.price.toLocaleString('it-IT'), baseTesto: it(base), feeTesto: it(fee) };
   }
 
   /** Anteprima del listino in costruzione: distanza, extra km, prezzo, paga. */
@@ -1639,6 +1798,26 @@ export class DeliveryFormComponent implements AfterViewInit {
         error: () => undefined,
       });
     }
+    // ⭐ 05/09/2026 (regola utente): RICONSEGNA. `?riconsegna=<id>` riempie il
+    // modulo con la consegna NON riuscita, lascia la DATA VUOTA (è il punto:
+    // quando si riprova) e tiene il legame con quella vecchia, che al
+    // salvataggio esce dalla lista operativa.
+    const idRiconsegna = this.route.snapshot.queryParamMap.get('riconsegna');
+    if (idRiconsegna && !idModifica) {
+      this.dataDaScegliere = true;
+      this.riconsegnaDi.set(idRiconsegna);
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${idRiconsegna}`).subscribe({
+        next: (d) => {
+          this.prefill(d);
+          this.editId.set(null);
+          this.model.status = '';
+          this.model.date = '';
+          this.codicePadre.set((d as any)?.code ?? null);
+        },
+        error: () => undefined,
+      });
+    }
+
     // ⭐ 04/09: dalla home «Servizi» del partner si arriva col servizio già
     // scelto (`?servizio=<id>`): si applica appena la lista servizi è qui.
     this.servizioDallaHome = this.route.snapshot.queryParamMap.get('servizio');
@@ -1698,7 +1877,17 @@ export class DeliveryFormComponent implements AfterViewInit {
         // Partner già scelto (prefill da vendita o modifica): il ritiro di
         // default è il suo indirizzo, ora che la lista è arrivata. In MODIFICA
         // no: si rispetta l'indirizzo già salvato.
-        if (this.model.partnerId && !this.editId()) this.applicaRitiroPartner();
+        // ⭐ 05/09/2026: in creazione (duplica, riconsegna, da vendita) un
+        // partner ereditato che oggi NON è attivo non resta nel campo: la
+        // tendina non lo mostra, e un valore che non si vede non si salva.
+        if (this.model.partnerId && !this.editId()) {
+          const p = this.partners().find((x) => x.id === this.model.partnerId);
+          if (p && p.active === false) {
+            this.model.partnerId = '';
+            this.partnerSel.set('');
+          }
+        }
+        if (this.model.partnerId && !this.editId()) { this.applicaPoliticaIdentita(); this.applicaRitiroPartner(); }
         // Arrivati i listini: la vendita forzata si riallinea a quella DEL
         // partner e la proposta di prezzo si rifà con la fee giusta.
         if (this.daVendita()) { this.forzaServizioVendita(); this.proponiPrezzoDiListino(); }
@@ -1790,10 +1979,12 @@ export class DeliveryFormComponent implements AfterViewInit {
       'deliveryFlexible', 'pickupFlexible', 'deluxyDelivery', 'deliveredByPartner',
       'smsOnCreated', 'smsOnDeparted',
       'smsOnArrived', 'paymentOnDelivery', 'tryAndReturn', 'billable', 'payable',
-      'isFlexiblePrice', 'deliveryCodeRequired', 'anonymousSender',
+      'isFlexiblePrice', 'deliveryCodeRequired', 'valetIdentityCheck', 'anonymousSender',
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
+    // La paga che gli stipendi ricaverebbero dal listino, se quella scritta manca.
+    this.pagaDaListino.set((d['valetSalaryDalListino'] as number | null | undefined) ?? null);
     for (const key of ['paymentAmount', 'price', 'additionalPrice', 'ruleAdjustment', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
     }
@@ -1805,6 +1996,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       quantity: p.quantity ?? 1,
       price: p.price ?? null,
       flexiblePrice: !!p.flexiblePrice,
+      withoutCommission: !!p.withoutCommission,
       // Il nome scelto compare nella ricerca (31/08): senza, la riga
       // precompilata mostrerebbe la casella vuota pur avendo un prodotto.
       nomeScelto: p.productName ?? p.product?.name ?? undefined,
@@ -1880,8 +2072,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     // modello (fisso, vendita, a ora, resto), poi per nome.
     const peso = (m?: string | null) =>
       m === 'PREZZO_FISSO' ? 0 : m === 'VENDITA' ? 1 : m === 'A_ORA' ? 2 : 3;
+    // ⭐ 06/09/2026 (regola utente): fra le vendite «Vendita Deluxy» sta per prima.
+    const primaVendita = (x: { name: string; pricingModel?: string | null }) => (x.pricingModel === 'VENDITA' && /^s*venditas+deluxys*$/i.test(x.name) ? 0 : 1);
     const ordinata = [...base].sort(
-      (a, b) => peso(a.pricingModel) - peso(b.pricingModel) || a.name.localeCompare(b.name, 'it'),
+      (a, b) => peso(a.pricingModel) - peso(b.pricingModel) || primaVendita(a) - primaVendita(b) || a.name.localeCompare(b.name, 'it'),
     );
     const scelto = this.servizioSel();
     if (!scelto || ordinata.some((s) => s.id === scelto)) return ordinata;
@@ -1890,8 +2084,23 @@ export class DeliveryFormComponent implements AfterViewInit {
   });
 
   /** Cambiando partner, un servizio non più a listino va tolto. */
+  /** L'utente ha toccato la casella «verifica identità»: la scelta del partner non la riscrive più. */
+  identitaToccata = false;
+
+  /** La politica del partner scelto accende la verifica identità (solo in creazione, se non toccata a mano). */
+  private applicaPoliticaIdentita(): void {
+    if (this.editId() || this.identitaToccata) return;
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    if (p) this.model.valetIdentityCheck = p.valetIdentityCheck === true;
+  }
+
   onPartnerChange(): void {
     this.partnerSel.set(this.model.partnerId);
+    // ⭐ 07/09/2026 (segnalazione utente: «ho selezionato Clivati 1969 e in elenco non mi mostra
+    // prima i suoi»): la tendina era stata riempita PRIMA di scegliere il partner e nessuno la
+    // rileggeva. Cambiare partner cambia quali prodotti vanno in cima: si ricarica.
+    this.caricaProdottiIniziali();
+    this.applicaPoliticaIdentita();
     this.applicaRitiroPartner();
     const suoi = this.servizioDelPartner();
     if (this.model.serviceTypeId && suoi.length
@@ -2104,6 +2313,8 @@ export class DeliveryFormComponent implements AfterViewInit {
                 const place = this.autocompleteRitiro.getPlace();
                 this.zone.run(() => {
                   this.ultimaSceltaGoogle = Date.now();
+                  this.indirizzoDaGoogle.ritiro = true;
+                  this.indirizzoToccato.ritiro = false;
                   const testo = place?.formatted_address || ritiro.value || '';
                   this.model.pickupAddress = this.pulisciIndirizzo(testo);
                   this.aggiornaPreventivo();
@@ -2140,7 +2351,23 @@ export class DeliveryFormComponent implements AfterViewInit {
    * (e per il partner resta l'avviso col Salva spento).
    */
   private ultimaSceltaGoogle = 0;
+  /**
+   * ⭐ 06/09/2026 (regola utente): «se l'indirizzo è stato scelto da Google è
+   * ok; in modifica o duplica, se il campo non viene toccato, NON fare la
+   * chiamata a Google: falla solo se si prova a modificarlo». Prima ogni uscita
+   * dal campo — anche solo passandoci col tab su una consegna esistente —
+   * rimandava l'indirizzo salvato a Google e lo riscriveva col primo risultato.
+   * Ora si distingue: toccato a mano (si digita) → al blur si normalizza;
+   * scelto da Google o mai toccato → si lascia com'è.
+   */
+  private indirizzoToccato = { consegna: false, ritiro: false };
+  private indirizzoDaGoogle = { consegna: false, ritiro: false };
+  indirizzoDigitato(campo: 'consegna' | 'ritiro'): void {
+    this.indirizzoToccato[campo] = true;
+    this.indirizzoDaGoogle[campo] = false;
+  }
   normalizzaIndirizzo(campo: 'consegna' | 'ritiro'): void {
+    if (!this.indirizzoToccato[campo] || this.indirizzoDaGoogle[campo]) return;
     setTimeout(() => {
       // Un suggerimento appena scelto NON si sovrascrive: il click sul menu
       // di Google fa blur prima di place_changed.
@@ -2167,6 +2394,8 @@ export class DeliveryFormComponent implements AfterViewInit {
   private onPlaceSelected(place: any): void {
     if (!place) return;
     this.ultimaSceltaGoogle = Date.now();
+    this.indirizzoDaGoogle.consegna = true;
+    this.indirizzoToccato.consegna = false;
     const grezzo = place.formatted_address || this.addressInput?.nativeElement.value || '';
     const address = this.pulisciIndirizzo(grezzo);
     this.model.recipientAddress = address;
@@ -2256,12 +2485,22 @@ export class DeliveryFormComponent implements AfterViewInit {
    * gia' salvato sulla consegna. Senza, in modifica la tendina non contiene il
    * valore selezionato e appare vuota.
    */
+  /**
+   * ⭐ 05/09/2026 (regola utente): «l'unico stato da lista è ATTIVO». In
+   * tendina stanno SOLO i partner attivi (disattivati e cancellati fuori,
+   * sempre). L'unica eccezione è la MODIFICA di una consegna che ha già un
+   * partner oggi non attivo: si tiene, etichettato, perché cancellarlo dal
+   * campo vorrebbe dire costringere a riassegnare una consegna magari già
+   * fatta solo per correggere una nota. In creazione, duplica e riconsegna
+   * l'eccezione non vale: una consegna nuova nasce solo su un partner attivo.
+   */
   readonly partnerOptions = computed(() => {
     const lista = this.filteredPartners();
     const scelto = this.partnerSel();
     if (!scelto || lista.some((p) => p.id === scelto)) return lista;
+    if (!this.editId()) return lista;
     const mancante = this.partners().find((p) => p.id === scelto);
-    return mancante ? [mancante, ...lista] : lista;
+    return mancante ? [{ ...mancante, insegna: `${mancante.insegna} — ${this.translate.instant('deliveryForm.placeholder.partnerInactive')}` }, ...lista] : lista;
   });
 
   /** Stesso ragionamento per il valet. */
@@ -2286,6 +2525,16 @@ export class DeliveryFormComponent implements AfterViewInit {
     // ⭐ 03/09: la sezione prodotto resta sempre visibile — tolta l'ultima
     // riga, ne rinasce una vuota (le righe senza prodotto non viaggiano).
     if (!this.productRows.length) this.addProduct();
+  }
+
+  /** ⭐ 06/09/2026: la giacenza del prodotto/variante della riga, se «Controlla stock». */
+  giacenza(row: ProductRow): { disponibili: number } | null {
+    const p = this.products().find((x) => x.id === row.productId) as any;
+    if (!p) return null;
+    const v = row.productVariantId ? (p.variants ?? []).find((x: any) => x.id === row.productVariantId) : null;
+    if (v?.controlStock) return { disponibili: v.stock ?? 0 };
+    if (p.controlStock) return { disponibili: p.stock ?? 0 };
+    return null;
   }
 
   /** Prezzo base del prodotto selezionato. */
@@ -2350,9 +2599,9 @@ export class DeliveryFormComponent implements AfterViewInit {
       // La ricerca chiede al SERVER (l'API prodotti filtra per q sul perimetro
       // del ruolo): così si arriva a tutti i 21.887, non ai primi 500.
       this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
-        params: { q, pageSize: 20 } as any,
+        params: { q, active: true, pageSize: 20 } as any,
       }).subscribe({
-        next: (d) => this.risultatiRicerca.set(d.items ?? []),
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
         error: () => this.risultatiRicerca.set([]),
       });
     }, 250);
@@ -2361,17 +2610,95 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** ⭐ 03/09 (regola utente): al CLICK sull'input la tendina si apre subito,
    *  coi primi prodotti del perimetro — senza dover digitare. In coda c'è
    *  sempre «Crea nuovo». */
-  alFuocoProdotto(row: ProductRow, index: number): void {
+  alFuocoProdotto(row: ProductRow, index: number, campo?: EventTarget | null): void {
     this.rigaAttiva.set(index);
+    this.misuraTendina(campo);
     if (!(row.query ?? '').trim()) this.caricaProdottiIniziali();
   }
 
+  /** Quanto è alta la tendina, e se si apre verso l'alto. */
+  readonly altezzaTendina = signal(280);
+  readonly tendinaSopra = signal(false);
+
+  /**
+   * ⭐ 07/09/2026 — LA TENDINA STA DENTRO LO SCHERMO.
+   *
+   * Con l'altezza fissa a 280px una riga prodotto in fondo alla pagina apriva una
+   * tendina che finiva sotto il bordo della finestra: la barra interna scorreva
+   * tutti i risultati, ma gli ultimi restavano fuori e sembrava che la lista si
+   * interrompesse. Qui si guarda lo spazio VERO sopra e sotto il campo: si sceglie
+   * il lato più capiente e l'altezza non supera mai quello che c'è.
+   */
+  private campoTendina: HTMLElement | null = null;
+
+  /** Se la pagina scorre o cambia misura mentre la tendina e' aperta, lo spazio
+   *  disponibile cambia: si rimisura, se no torna a uscire dallo schermo. */
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  rimisuraTendina(): void {
+    if (this.rigaAttiva() !== null && this.campoTendina) this.misuraTendina(this.campoTendina);
+  }
+
+  private misuraTendina(campo?: EventTarget | null): void {
+    const el = campo instanceof HTMLElement ? campo : this.campoTendina;
+    if (!el) { this.altezzaTendina.set(280); this.tendinaSopra.set(false); return; }
+    this.campoTendina = el;
+    const r = el.getBoundingClientRect();
+    const margine = 16;
+    const sotto = Math.max(0, window.innerHeight - r.bottom - margine);
+    const sopra = Math.max(0, r.top - margine);
+    // Sotto i 160px non ci stanno nemmeno quattro righe: meglio aprire in su.
+    const inSu = sotto < 160 && sopra > sotto;
+    this.tendinaSopra.set(inSu);
+    this.altezzaTendina.set(Math.max(120, Math.min(280, inSu ? sopra : sotto)));
+  }
+
+  /** ⭐ È un prodotto UNICO del partner di questa consegna? Va in cima e in grassetto. */
+  suoDelPartner(p: Product): boolean {
+    const pid = this.model.partnerId;
+    if (!pid) return false;
+    // Il proprietario arriva come campo piatto `partnerId` oppure dentro `partner`: si guardano entrambi.
+    const suo = (p as { partnerId?: string | null }).partnerId ?? p.partner?.id ?? null;
+    return suo === pid && (p as { type?: string }).type === 'UNICO';
+  }
+
+  /** I suoi prima, in ordine alfabetico; poi gli altri, anch'essi in ordine. */
+  private ordinaConSuoiPrima(items: Product[]): Product[] {
+    const suoi = items.filter((x) => this.suoDelPartner(x)).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'it'));
+    const altri = items.filter((x) => !this.suoDelPartner(x)).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'it'));
+    return [...suoi, ...altri];
+  }
+
+  /**
+   * La tendina dei prodotti: DUE letture, non una.
+   *
+   * ⚠️ Una sola lettura da 20 righe non basta: il listino del partner può stare oltre la
+   * ventesima riga del catalogo, e allora «prima i suoi» non si vede proprio — è quello che
+   * succedeva scegliendo Clivati 1969. Si chiede prima il SUO listino (fino a 100 prodotti
+   * unici e attivi), poi il catalogo comune, e si mette insieme.
+   */
   private caricaProdottiIniziali(): void {
-    this.http.get<{ items: Product[] }>(`${environment.apiUrl}/products`, {
-      params: { pageSize: 20 } as any,
+    const api = environment.apiUrl;
+    const pid = this.model.partnerId;
+    const generali = this.http.get<{ items: Product[] }>(`${api}/products`, { params: { active: true, pageSize: 20 } as any });
+    if (!pid) {
+      generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
+        error: () => this.risultatiRicerca.set([]),
+      });
+      return;
+    }
+    this.http.get<{ items: Product[] }>(`${api}/products`, {
+      params: { partnerId: pid, unique: true, active: true, pageSize: 100 } as any,
     }).subscribe({
-      next: (d) => this.risultatiRicerca.set(d.items ?? []),
-      error: () => this.risultatiRicerca.set([]),
+      next: (suoi) => generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(this.unisciProdotti(suoi.items ?? [], d.items ?? []))),
+        error: () => this.risultatiRicerca.set(this.ordinaConSuoiPrima(suoi.items ?? [])),
+      }),
+      error: () => generali.subscribe({
+        next: (d) => this.risultatiRicerca.set(this.ordinaConSuoiPrima(d.items ?? [])),
+        error: () => this.risultatiRicerca.set([]),
+      }),
     });
   }
 
@@ -2557,6 +2884,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       paymentOnDelivery: m.paymentOnDelivery,
       tryAndReturn: m.tryAndReturn,
       deliveryCodeRequired: m.deliveryCodeRequired,
+      valetIdentityCheck: m.valetIdentityCheck,
       smsOnCreated: m.smsOnCreated,
       smsOnDeparted: m.smsOnDeparted,
       smsOnArrived: m.smsOnArrived,
@@ -2611,9 +2939,14 @@ export class DeliveryFormComponent implements AfterViewInit {
         quantity: r.quantity ?? 1,
         flexiblePrice: r.flexiblePrice,
         price: r.flexiblePrice && r.price != null ? Number(r.price) : undefined,
+        withoutCommission: !!r.withoutCommission,
       }));
     // In modifica invio sempre i prodotti, anche a lista vuota: altrimenti
     // rimuoverli tutti non li cancellerebbe (l'API scrive solo le chiavi presenti).
+    // ⭐ 05/09/2026 (regola utente): il legame con la NON consegnata da cui
+    // nasce questa riconsegna. Solo alla creazione: una modifica non cambia
+    // la storia di come è nata.
+    if (this.riconsegnaDi() && !this.editId()) payload['parentDeliveryId'] = this.riconsegnaDi();
     if (products.length || this.editId()) payload['products'] = products;
 
     this.saving.set(true);
@@ -2654,12 +2987,28 @@ export class DeliveryFormComponent implements AfterViewInit {
         // ⭐ 01/09 (utente): la vendita/richiesta passa in STORICO appena la
         // consegna è nata — PRIMA di ogni uscita. Col «Duplica» si usciva
         // prima di chiuderla e la vendita restava aperta.
-        this.chiudiRichiesta(nata);
-        this.chiudiVendita(nata);
-        if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-        // Nel pop-up non si naviga: il genitore chiude e ricarica.
-        if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
-        this.router.navigate(['/deliveries']);
+        // ⭐ 05/09 (difetto segnalato): si ESCE SOLO QUANDO la chiusura ha
+        // risposto, se no la lista si ricarica su una vendita ancora aperta.
+        this.giaCreata.set(true);
+        this.chiusure(nata).subscribe({
+          next: () => {
+            if (duplicate) { this.saving.set(false); this.giaCreata.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+            // Nel pop-up non si naviga: il genitore chiude e ricarica.
+            if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
+            this.router.navigate(['/deliveries']);
+          },
+          error: (err) => {
+            // Si resta qui, con scritto che cosa è successo: la consegna c'è,
+            // la vendita no. Il bottone Salva resta spento (`giaCreata`):
+            // risalvare farebbe una seconda consegna.
+            this.saving.set(false);
+            const dett = err?.error?.message;
+            this.error.set(
+              this.translate.instant('deliveryForm.error.saleNotClosed', { code: nata?.code ?? '' })
+              + (dett ? ' — ' + (Array.isArray(dett) ? dett.join(' · ') : dett) : ''),
+            );
+          },
+        });
       },
       error: (err) => {
         this.saving.set(false);

@@ -49,6 +49,8 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
               <th class="sortable" (click)="table.sortBy('firstName')">{{ 'valets.col.firstName' | translate }}<span class="sort-ind">{{ table.indicator('firstName') }}</span></th>
               <th class="sortable" (click)="table.sortBy('email')">{{ 'valets.col.email' | translate }}<span class="sort-ind">{{ table.indicator('email') }}</span></th>
               <th class="sortable" (click)="table.sortBy('phone')">{{ 'valets.col.phone' | translate }}<span class="sort-ind">{{ table.indicator('phone') }}</span></th>
+              <!-- ⭐ 06/09/2026 (regola utente): il CODICE del valet, con cui il partner sblocca il ritiro. -->
+              <th class="sortable num" (click)="table.sortBy('legacyId')">{{ 'valets.col.codice' | translate }}<span class="sort-ind">{{ table.indicator('legacyId') }}</span></th>
               <th>{{ 'valets.col.provinces' | translate }}</th>
               <th class="sortable" (click)="table.sortBy('vehicle')">{{ 'valets.col.vehicle' | translate }}<span class="sort-ind">{{ table.indicator('vehicle') }}</span></th>
               <th class="sortable" (click)="table.sortBy('isTeamLeader')">{{ 'valets.col.teamLeader' | translate }}<span class="sort-ind">{{ table.indicator('isTeamLeader') }}</span></th>
@@ -63,6 +65,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td>{{ v.firstName }}</td>
                 <td class="muted">{{ v.email }}</td>
                 <td>{{ v.phone || '—' }}</td>
+                <td class="num mono">{{ v.legacyId ?? '—' }}</td>
                 <td>
                   @for (vp of (v.provinces || []); track vp.province.id) {
                     <span class="pill pill-neutral">{{ vp.province.code }}</span>

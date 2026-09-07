@@ -19,6 +19,8 @@ import {
   DELIVERY_CLOSED_STATUSES,
 } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.module';
+import { StockService } from '../stock/stock.module';
+import { puntualitaConsegna } from '../common/puntualita';
 import {
   PagedResult,
   buildOrderBy,
@@ -29,7 +31,7 @@ import {
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { conIva, soloIva } from '../common/iva';
-import { valoreProdotti } from '../common/valore-prodotti';
+import { baseFee, valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 // La formula della paga valet vive in salaries: importarla evita la trappola
 // della regola ricopiata in due posti (il preventivo deve dire la STESSA paga).
@@ -55,6 +57,30 @@ const DELIVERY_LIST_SELECT = {
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
+  // ⭐ 05/09/2026: il ritiro verificato col codice del valet (bottone «in consegna»).
+  valetIdentityCheck: true, deliveryCodeRequired: true, pickupVerifiedAt: true,
+  // ⭐ 06/09/2026 (regola utente): la PUNTUALITÀ (in orario / in ritardo / in anticipo)
+  // si calcola da qui: orario reale d'arrivo e di partenza.
+  deliveredAt: true, startedAt: true,
+  // ⭐ 06/09/2026 (regola utente): il LINK DI CONFERMA per le consegne «da fornitore».
+  trackingToken: true,
+  deliveredByPartner: true,
+  // ⭐ 06/09/2026 (regola utente): una NON CONSEGNATA senza riconsegna è «da gestire» — l'elenco lo evidenzia.
+  childDeliveries: { select: { id: true, code: true } },
+  // ⭐ 07/09/2026 (regola utente): «tra le consegne collegate mostra il collegamento» — dalla
+  // riconsegna si risale alla consegna di partenza anche dall'ELENCO, non solo dal dettaglio.
+  parentDelivery: { select: { id: true, code: true } },
+  // ⭐ 07/09/2026: se è nascosta, l'elenco non la chiede più (e il dettaglio lo dice).
+  nonConsegnataChiusaIl: true,
+  // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
+  // tabella, nella colonna «Consegna», quando sono da approvare.
+  hoursFrom: true, hoursTo: true, hoursOriginal: true,
+  // ⭐ 05/09/2026 (regola utente): il DDT si vede anche in ELENCO. Era
+  // cercabile (sta in SEARCH_FIELDS) ma non usciva: si poteva trovare una
+  // consegna dal suo numero di documento e poi non vederlo a schermo.
+  // Il brand viaggia col numero: con quattro negozi lo stesso DDT esiste su
+  // piu' d'uno, e il numero da solo non identifica la vendita.
+  ddtNumber: true, ddtBrand: true,
   // VENDITA (02/09): serve alla lista per accendere Accetta/Rifiuta del partner.
   acceptSale: true,
   // PAGA DEL VALET in tabella (02/09, regola utente): al valet la colonna
@@ -62,9 +88,9 @@ const DELIVERY_LIST_SELECT = {
   // Questi campi servono al calcolo (e la maschera li toglie a chi non deve).
   valetId: true, valetSalary: true, valetAdditionalPrice: true, valetServiceId: true,
   hours: true, distanceKm: true, extraKm: true, extraOutOfCity: true,
-  partner: { select: { id: true, insegna: true } },
+  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
-  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true, hoursApproval: true } },
   // ⚠️ La PROVINCIA SALVATA (geocodificata dal server): l'assegnazione la usa
   // per filtrare i valet. Ri-dedurla dalla stringa dell'indirizzo lato client
   // sbaglia — «Piazza Duca d'Aosta» a Milano veniva letta come provincia AOSTA
@@ -190,14 +216,18 @@ export function stessoComune(a: string | null, b: string | null): boolean {
 }
 
 const DELIVERY_INCLUDE = {
-  partner: { select: { id: true, insegna: true } },
+  // ⭐ 05/09/2026: la riconsegna si legge nei due versi — da quale consegna
+  // nasce e quale l'ha sostituita.
+  parentDelivery: { select: { id: true, code: true, date: true, status: true, notDeliveredReason: true } },
+  childDeliveries: { select: { id: true, code: true, date: true, status: true }, orderBy: { date: 'asc' } },
+  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   // ⚠️ `scope` SERVE anche qui (04/09/2026): l'assegnazione del valet filtra
   // per listino solo sui servizi di mestiere, e sul dettaglio il campo non
   // c'era. Senza, un servizio «partner» (es. Vendita Deluxy, che nessun valet
   // ha a listino per costruzione) svuotava la lista, e la finestra dava la
   // colpa alla provincia. La lista era in DELIVERY_LIST_SELECT ma non qui.
-  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true, scope: true, hoursApproval: true } },
   // Provincia salvata: l'assegnazione la usa senza ri-dedurla dalla stringa.
   province: { select: { id: true, code: true, name: true } },
   customer: { select: { id: true, firstName: true, lastName: true } },
@@ -208,8 +238,9 @@ const DELIVERY_INCLUDE = {
     include: {
       // imageUrl: al click sul nome la scheda mostra la FOTO (28/08, parita'
       // con l'app attuale chiesta dall'utente).
-      product: { select: { id: true, name: true, price: true, publicPrice: true, imageUrl: true } },
-      productVariant: { select: { id: true, name: true, price: true, publicPrice: true } },
+      // ⭐ 07/09/2026: la NOTA DI SPECIFICA arriva fino al fioraio, che deve sapere quanti fiori mettere.
+      product: { select: { id: true, name: true, price: true, publicPrice: true, note: true, imageUrl: true } },
+      productVariant: { select: { id: true, name: true, price: true, publicPrice: true, note: true } },
     },
   },
   pickups: true,
@@ -227,6 +258,7 @@ export class DeliveriesService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
+    private readonly stock: StockService,
   ) {}
 
   /**
@@ -251,6 +283,114 @@ export class DeliveriesService {
    * interroga anche in SQL raw, che un'estensione non tocca — sarebbe stata la
    * garanzia falsa di «un posto solo».
    */
+  /**
+   * ⭐ 05/09/2026 (regola utente): dopo aver creato una riconsegna, la NON
+   * CONSEGNATA da cui nasce esce dalla lista operativa (ha già la sua
+   * risposta) e le due si citano a vicenda nel registro.
+   */
+  private async legaRiconsegna(nuova: { id: string; code: number }, parentDeliveryId: string, user: JwtUser) {
+    const padre = await this.prisma.delivery.findFirst({
+      where: { id: parentDeliveryId, deletedAt: null },
+      select: { id: true, code: true, status: true },
+    });
+    if (!padre) return;
+    await this.prisma.deliveryLog.createMany({
+      data: [
+        { deliveryId: padre.id, type: 'note', userId: user.sub ?? null,
+          message: `Riconsegnata con la consegna #${nuova.code}` },
+        { deliveryId: nuova.id, type: 'note', userId: user.sub ?? null,
+          message: `Riconsegna della #${padre.code} (non consegnata)` },
+      ],
+    });
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): «per le riconsegne consenti di agganciare a un'altra
+   * consegna senza ricrearne una nuova, cercando id o indirizzo».
+   *
+   * Capita spesso: la riconsegna è già stata inserita (dal partner, dal Customer Service, o
+   * a mano il giorno dopo) e rifarla creerebbe un doppione — due consegne per lo stesso
+   * lavoro, due fatture, due paghe. Qui si dichiara soltanto il legame.
+   *
+   * Cosa si controlla, e perché ognuna:
+   *  · la consegna di partenza dev'essere NON CONSEGNATA (le altre non si riconsegnano);
+   *  · non si aggancia una consegna a se stessa, né una che è già la riconsegna di
+   *    qualcun altro (un lavoro ha una storia sola);
+   *  · non si aggancia il proprio padre: sarebbe un anello, e l'elenco girerebbe a vuoto.
+   * Il legame si può SCIOGLIERE (sciogliRiconsegna): un aggancio sbagliato non deve
+   * costringere a cancellare una consegna vera.
+   */
+  async agganciaRiconsegna(parentId: string, childId: string, user: JwtUser) {
+    if (parentId === childId) throw new BadRequestException('Una consegna non è la riconsegna di se stessa.');
+    const [padre, figlia] = await Promise.all([
+      this.prisma.delivery.findFirst({ where: { id: parentId, deletedAt: null }, select: { id: true, code: true, status: true, parentDeliveryId: true } }),
+      this.prisma.delivery.findFirst({ where: { id: childId, deletedAt: null }, select: { id: true, code: true, status: true, parentDeliveryId: true } }),
+    ]);
+    if (!padre) throw new NotFoundException('Consegna non trovata.');
+    if (!figlia) throw new NotFoundException('La consegna da agganciare non esiste.');
+    if (padre.status !== 'not_delivered') {
+      throw new BadRequestException('Si aggancia una riconsegna solo a una consegna NON CONSEGNATA.');
+    }
+    if (figlia.parentDeliveryId && figlia.parentDeliveryId !== padre.id) {
+      throw new BadRequestException(`La consegna #${figlia.code} è già la riconsegna di un'altra.`);
+    }
+    if (padre.parentDeliveryId === figlia.id) {
+      throw new BadRequestException(`La #${figlia.code} è la consegna da cui nasce questa: non può esserne anche la riconsegna.`);
+    }
+    await this.prisma.delivery.update({ where: { id: figlia.id }, data: { parentDeliveryId: padre.id } });
+    await this.legaRiconsegna({ id: figlia.id, code: figlia.code }, padre.id, user);
+    return { ok: true, padre: { id: padre.id, code: padre.code }, riconsegna: { id: figlia.id, code: figlia.code } };
+  }
+
+  /** Scioglie un aggancio sbagliato: la consegna resta, il legame no. */
+  async sciogliRiconsegna(parentId: string, childId: string, user: JwtUser) {
+    const figlia = await this.prisma.delivery.findFirst({ where: { id: childId, parentDeliveryId: parentId, deletedAt: null }, select: { id: true, code: true } });
+    if (!figlia) throw new NotFoundException('Le due consegne non sono collegate.');
+    await this.prisma.delivery.update({ where: { id: figlia.id }, data: { parentDeliveryId: null } });
+    await this.prisma.deliveryLog.createMany({
+      data: [
+        { deliveryId: parentId, type: 'note', userId: user.sub ?? null, message: `Sciolto il legame con la riconsegna #${figlia.code}` },
+        { deliveryId: figlia.id, type: 'note', userId: user.sub ?? null, message: 'Sciolto il legame con la consegna non consegnata di partenza' },
+      ],
+    });
+    return { ok: true };
+  }
+
+  /**
+   * ⭐ 07/09/2026 (regola utente): «nascondi da consegne» — la non consegnata esce dall'elenco
+   * operativo e resta in Storico. Non cambia stato, non si cancella niente: cambia solo dove
+   * la si trova. Si può rimettere fra le attive (mostraNonConsegnata), perché una decisione
+   * presa per sbaglio dev'essere revocabile.
+   */
+  async nascondiNonConsegnata(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({ where: { id, deletedAt: null }, select: { id: true, code: true, status: true, nonConsegnataChiusaIl: true } });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (d.status !== DeliveryStatus.NOT_DELIVERED) {
+      throw new BadRequestException('Si nasconde solo una consegna NON CONSEGNATA.');
+    }
+    if (d.nonConsegnataChiusaIl) return { ok: true, gia: true };
+    await this.prisma.delivery.update({
+      where: { id },
+      data: { nonConsegnataChiusaIl: new Date(), nonConsegnataChiusaDa: user.sub ?? null },
+    });
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: id, type: 'note', userId: user.sub ?? null, message: "Tolta dall'elenco Consegne senza riconsegna: resta in Storico" },
+    });
+    return { ok: true };
+  }
+
+  /** Rimette fra le attive una non consegnata nascosta. */
+  async mostraNonConsegnata(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({ where: { id, deletedAt: null }, select: { id: true, nonConsegnataChiusaIl: true } });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (!d.nonConsegnataChiusaIl) return { ok: true, gia: true };
+    await this.prisma.delivery.update({ where: { id }, data: { nonConsegnataChiusaIl: null, nonConsegnataChiusaDa: null } });
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: id, type: 'note', userId: user.sub ?? null, message: 'Rimessa fra le consegne da gestire' },
+    });
+    return { ok: true };
+  }
+
   private static readonly VIVE = { deletedAt: null } as const;
 
   /**
@@ -360,6 +500,21 @@ export class DeliveriesService {
         { code: 'asc' as const },
       ] as any;
     }
+    // ⭐ 05/09/2026 (regola utente): «anche nella ricerca la lista resta
+    // ordinata per DATA DI CONSEGNA decrescente».
+    //
+    // ⚠️ L'ordinamento predefinito della pagina è `deliveryTimeFrom` — l'ORA
+    // del giorno — che ha senso finché si guarda un giorno solo: mette in fila
+    // il giro. Appena la lista attraversa più giorni (una ricerca, «Tutte», lo
+    // Storico) quell'ordine diventa illeggibile, perché confronta le 08:00 del
+    // 2024 con le 09:00 del 2026: cercando «scarlatti» uscivano 04/10/2024,
+    // 24/05/2025, 12/05/2024, 03/09/2026 mescolati.
+    //
+    // La data è la chiave PRIMARIA e l'orario ordina DENTRO il giorno. Su una
+    // lista di un giorno solo non cambia niente (la data è la stessa per
+    // tutti); su tutte le altre rimette le righe in un ordine leggibile.
+    const perOrario = base.some((o) => Object.prototype.hasOwnProperty.call(o, 'deliveryTimeFrom'));
+    if (perOrario) return [{ date: 'desc' as const }, ...base, { code: 'asc' as const }] as any;
     return [...base, { code: 'asc' as const }] as any;
   }
 
@@ -387,10 +542,39 @@ export class DeliveriesService {
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
-    else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
-    else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
+    // ⭐ 05/09/2026 (regola utente): «le NON CONSEGNATE devono essere visibili
+    // in Consegne, con il bottone Riconsegna». Restano fra le attive finché
+    // non nasce la riconsegna: da quel momento il lavoro è passato alla nuova
+    // e la vecchia va in storico. Non è uno stato nuovo — lo stato resta
+    // `not_delivered` — è la LISTA che smette di chiedere qualcosa che è
+    // già stato fatto.
+    // ⭐ 07/09/2026 (regola utente): oltre alla riconsegna, una non consegnata esce dalle
+    // attive anche quando qualcuno la NASCONDE — la decisione è stata presa altrove.
+    else if (query.view === 'attive') {
+      scope.OR = [
+        { status: { notIn: DELIVERY_CLOSED_STATUSES } },
+        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
+      ];
+    } else if (query.view === 'storico') {
+      // Speculare: una non consegnata GIÀ riconsegnata — o nascosta — è storia.
+      scope.OR = [
+        { status: { in: DELIVERY_CLOSED_STATUSES.filter((s) => s !== DeliveryStatus.NOT_DELIVERED) } },
+        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { some: {} } },
+        { status: DeliveryStatus.NOT_DELIVERED, NOT: { nonConsegnataChiusaIl: null } },
+      ];
+      delete scope.status;
+    }
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
+    // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
+    // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
+    // sull'archivio che sul lavoro di oggi.
+    const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+    if (servizi.length === 1) scope.serviceTypeId = servizi[0];
+    else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
+    // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
+    // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
+    if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
     // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
     if (query.date) {
       const day = new Date(query.date);
@@ -402,7 +586,9 @@ export class DeliveriesService {
       if (range) Object.assign(scope, range);
     }
 
-    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS);
+    // ⚠️ 07/09/2026: `realOrderNumber` è l'id lungo di Shopify (14 cifre): si confronta
+    // dall'inizio, altrimenti quattro cifre qualsiasi pescano consegne a caso.
+    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS, ['realOrderNumber']);
     // ⭐⭐ IL NUMERO DELLA CONSEGNA (26/08/2026). Fino a ieri cercare «62637»
     // — il numero che l'app stampa dappertutto e manda perfino nelle notifiche
     // — rispondeva 200 con ZERO righe: `code` e' un `Int` e `textSearch` sa
@@ -478,13 +664,40 @@ export class DeliveriesService {
         }
       }
     }
+    // ⭐ 05/09/2026 (regola utente): «nella tabella consegne mostra anche l'id
+    // della vendita in caso di servizio vendita».
+    //
+    // ⚠️ `Sale` NON ha una relazione Prisma verso `Delivery`: `Sale.deliveryId`
+    // è una colonna `@unique` e basta, senza `@relation`. Quindi non si può
+    // `include`, e aggiungere la relazione vorrebbe dire una chiave esterna
+    // nuova sul Postgres condiviso da 14 app — che non si fa in autonomia.
+    // Si chiede in UN GIRO SOLO, per gli id della pagina: trenta righe, una
+    // query su una colonna unica. Niente N+1, niente copia del dato.
+    const idVendita = (rows as any[])
+      .filter((r) => r.serviceType?.pricingModel === 'VENDITA')
+      .map((r) => r.id);
+    if (idVendita.length) {
+      const vendite = await this.prisma.sale.findMany({
+        where: { deliveryId: { in: idVendita } },
+        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true },
+      });
+      const perConsegna = new Map(vendite.map((v) => [v.deliveryId as string, v]));
+      for (const r of rows as any[]) {
+        const v = perConsegna.get(r.id);
+        // ⚠️ Solo se c'è davvero: una consegna di vendita può essere nata a
+        // mano, senza nessuna vendita dietro. Meglio vuoto che inventato.
+        if (v) r.vendita = { id: v.id, ordine: v.externalOrderNumber, brand: v.brand, stato: v.status };
+      }
+    }
     // Le note interne non si nascondono piu' dopo averle lette: l'elenco non
     // le seleziona affatto. E' la stessa protezione, un passo prima — un campo
     // che non esce dal database non puo' finire in un carico per sbaglio.
     // ⚠️ Anche la LISTA: nascondere i numeri solo nel dettaglio lascerebbe la
     // stessa fuga da un'altra rotta. Si toglie dove i dati escono, non dove si
     // mostrano.
-    return { items: rows.map((r) => this.soloIMieiSoldi(r as any, user)), total, page, pageSize };
+    // ⭐ 06/09/2026 (regola utente): ogni consegna porta l'attributo di PUNTUALITÀ,
+    // per tutti i servizi, calcolato con la stessa regola delle Statistiche.
+    return { items: rows.map((r) => ({ ...this.soloIMieiSoldi(r as any, user), puntualita: puntualitaConsegna(r as any), linkConsegnata: (r as any).deliveredByPartner ? DeliveriesService.linkConsegnata((r as any).trackingToken) : null })), total, page, pageSize };
   }
 
   /**
@@ -532,6 +745,15 @@ export class DeliveriesService {
     else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
+    // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
+    // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
+    // sull'archivio che sul lavoro di oggi.
+    const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+    if (servizi.length === 1) scope.serviceTypeId = servizi[0];
+    else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
+    // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
+    // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
+    if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
     if (query.date) {
       const day = new Date(query.date);
       const next = new Date(day);
@@ -557,7 +779,7 @@ export class DeliveriesService {
         recipientAddress: true,
         deliveryTimeFrom: true,
         deliveryTimeTo: true,
-        partner: { select: { id: true, insegna: true } },
+        partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
         valet: { select: { firstName: true, lastName: true } },
         // ⚠️ Servono SOLO alla mascheratura qui sotto (ramo partner su
         // vendita e deroga «consegna da fornitore»): la mappa era l'unica
@@ -674,6 +896,8 @@ export class DeliveriesService {
     // ⚠️ Una regola carnet con «non pagare» (toPay=false, es. Regola 10)
     // azzera la paga: qui non si calcola niente, come fa Stipendi.
     const regolaNonPaga = (delivery as any).deliveryRule?.toPay === false;
+    // ⭐ 06/09: con la regola «non pagare» la paga è ZERO, e si dice — non «—».
+    if (regolaNonPaga) valetSalaryDalListino = 0;
     if (!regolaNonPaga && (['ADMIN', 'OPERATION'].includes(user.role) || eIlSuoValet) && delivery.valetId && !((delivery.valetSalary ?? 0) > 0)) {
       // ⚠️ 03/09: STESSO conto di Stipendi (pagaConsegna), non più la stima
       // semplificata «base × ore» — quella ignorava fuori città, km extra e
@@ -732,7 +956,7 @@ export class DeliveriesService {
     }
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null }, user),
       user,
     );
   }
@@ -778,9 +1002,13 @@ export class DeliveriesService {
     // un prezzo congelato vince solo se > 0 — altrimenti la quota si calcola
     // dal listino, fee% × valore prodotti. Leggere lo 0 diceva «commissione 0».
     const q2 = (n: number) => Math.round(n * 100) / 100;
+    // ⭐ 05/09/2026 (regola utente): le righe SENZA FEE escono dalla base
+    // della quota, non dal venduto. Il partner incassa tutto il valore, Deluxy
+    // trattiene solo sulle righe che hanno la fee.
+    const baseQuota = baseFee(d.products as any, (d as any).productValue);
     const quota = (d.price ?? 0) > 0
       ? d.price!
-      : (feePercent != null ? q2((valore * feePercent) / 100) : null);
+      : (feePercent != null ? q2((baseQuota * feePercent) / 100) : null);
     // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
     // direbbe al partner che non prende niente, ed è peggio di non dire niente.
     if (!valore || quota == null) return null;
@@ -794,6 +1022,167 @@ export class DeliveriesService {
     };
   }
 
+
+  /** «18:30» → 18.5. Formato sbagliato = null, mai un numero inventato. */
+  private static orarioValido(v: string | null | undefined): string | null {
+    const t = (v ?? '').trim();
+    const m = t.match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
+    return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
+  }
+
+  /** Ore fra due orari «HH:MM». Oltre la mezzanotte conta il giorno dopo. */
+  private static oreFraOrari(dalle: string | null | undefined, alle: string | null | undefined): number | null {
+    const a = DeliveriesService.orarioValido(dalle);
+    const b = DeliveriesService.orarioValido(alle);
+    if (!a || !b) return null;
+    const min = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    let d = min(b) - min(a);
+    if (d < 0) d += 24 * 60;
+    return d / 60;
+  }
+
+  /**
+   * Le ore che si FATTURANO: si arrotonda alla mezz'ora PIENA successiva
+   * (regola utente 04/09: «se fine viene impostata alle 22 aggiungerai 30
+   * minuti alla fattura oraria»), e non si scende sotto il minimo del servizio.
+   */
+  private static oreDaFatturare(ore: number, minimo?: number | null): number {
+    const aMezzOra = Math.ceil(ore * 2 - 1e-9) / 2;
+    return Math.max(aMezzOra, minimo ?? 0);
+  }
+
+  /** Chi vede le cose di quel partner: i suoi utenti attivi. */
+  private async utentiDelPartner(partnerId: string | null | undefined): Promise<string[]> {
+    if (!partnerId) return [];
+    const u = await this.prisma.user.findMany({
+      where: { partnerId, status: 'active' },
+      select: { id: true },
+    });
+    return u.map((x) => x.id);
+  }
+
+  /** L'utente del valet, se ne ha uno. */
+  private async utenteDelValet(valetId: string | null | undefined): Promise<string[]> {
+    if (!valetId) return [];
+    const u = await this.prisma.user.findFirst({ where: { valetId, status: 'active' }, select: { id: true } });
+    return u ? [u.id] : [];
+  }
+
+  private async avvisaOreDaApprovare(d: { id: string; code: number; hoursFrom?: string | null; hoursTo?: string | null; partnerId?: string | null; partner?: { insegna?: string } | null }, user: JwtUser) {
+    const destinatari = [
+      ...(await this.utentiDelPartner(d.partnerId)),
+      ...(await this.notifications.adminAndOperationIds(user.sub)),
+    ];
+    await this.notifications.notifyUsers(destinatari, {
+      type: NotificationType.DELIVERY_HOURS_TO_APPROVE,
+      title: 'Ore da approvare',
+      body: `Consegna #${d.code}: il valet dichiara ${d.hoursFrom}–${d.hoursTo}`,
+      entityType: 'delivery',
+      entityId: d.id,
+    });
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): IL PARTNER DECIDE SULLE ORE.
+   *
+   * «Se approva il servizio va in storico con l'orario indicato dal valet; se
+   * rifiuta va in storico con l'orario originale. Quando il partner definisce
+   * approvazione o meno, aggiorna il valore del servizio e aggiorna anche
+   * fatturazione.»
+   *
+   * Il valore si riscrive QUI, sulla consegna (`price`), perché in
+   * fatturazione il prezzo scritto vince sul listino: lasciarlo vecchio
+   * avrebbe fatturato le ore di prima con le ore nuove scritte accanto.
+   * Le ore fatturate si arrotondano alla mezz'ora successiva.
+   */
+  async decidiOre(id: string, approva: boolean, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      include: { serviceType: true, partner: { select: { insegna: true } } },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata');
+    if (d.status !== DeliveryStatus.DELIVERED_TIME_TO_APPROVE) {
+      throw new BadRequestException('Questa consegna non ha ore in attesa di approvazione.');
+    }
+    if (user.role === Role.PARTNER && d.partnerId !== user.partnerId) {
+      throw new ForbiddenException('Questa consegna non è tua.');
+    }
+
+    const oreValet = DeliveriesService.oreFraOrari(d.valetStartTime ?? d.hoursFrom, d.valetEndTime ?? d.hoursTo);
+    const orePreviste = d.hoursOriginal
+      ?? DeliveriesService.oreFraOrari(d.serviceStartTime, d.serviceEndTime)
+      ?? DeliveriesService.oreFraOrari(d.deliveryTimeFrom, d.deliveryTimeTo)
+      ?? d.hours
+      ?? null;
+    const oreScelte = approva ? oreValet : orePreviste;
+    if (oreScelte == null) throw new BadRequestException('Non ci sono ore da scrivere: manca l\'orario.');
+    const oreFatturate = DeliveriesService.oreDaFatturare(oreScelte, d.serviceType?.minHours ?? null);
+
+    // Il valore del servizio: tariffa oraria del listino del partner × ore.
+    // Senza listino non si inventa un prezzo: si azzera lo scritto e sarà la
+    // fatturazione a dire «non prezzabile», che è la verità.
+    const listino = await this.prisma.partnerService.findFirst({
+      where: { partnerId: d.partnerId ?? '-', serviceTypeId: d.serviceTypeId ?? '-' },
+      select: { price: true },
+    });
+    const tariffa = listino?.price ?? d.serviceType?.basePrice ?? null;
+    const valore = tariffa != null ? Math.round(tariffa * oreFatturate * 100) / 100 : null;
+
+    // ⚠️ Anche la PAGA DEL VALET va riscritta: su 9.167 consegne a ora, 7.310
+    // hanno la paga SCRITTA sulla consegna, e in stipendio lo scritto vince sul
+    // listino. Senza questa riga il partner approvava mezz'ora in piu' e al
+    // valet non arrivava un centesimo. Se il valet non ha quel servizio a
+    // listino non si inventa nulla: la paga resta com'era, e il log lo dice.
+    const listinoValet = d.valetId
+      ? await this.prisma.valetService.findFirst({
+          where: { valetId: d.valetId, serviceTypeId: d.serviceTypeId ?? '-' },
+          select: { salary: true },
+        })
+      : null;
+    const pagaValet = listinoValet?.salary != null
+      ? Math.round(listinoValet.salary * oreFatturate * 100) / 100
+      : null;
+
+    const aggiornata = await this.prisma.delivery.update({
+      where: { id },
+      data: {
+        status: DeliveryStatus.APPROVED,
+        hours: oreFatturate,
+        price: valore,
+        ...(pagaValet != null ? { valetSalary: pagaValet } : {}),
+        hoursDecision: approva ? 'approvate' : 'rifiutate',
+        hoursDecidedAt: new Date(),
+        hoursDecidedBy: user.email,
+        ...(approva && (d.valetStartTime ?? d.hoursFrom) && (d.valetEndTime ?? d.hoursTo)
+          ? { deliveryTimeFrom: d.valetStartTime ?? d.hoursFrom, deliveryTimeTo: d.valetEndTime ?? d.hoursTo }
+          : {}),
+        logs: {
+          create: {
+            type: 'note',
+            userId: user.sub,
+            message: approva
+              ? `Ore APPROVATE dal partner: ${d.hoursFrom}–${d.hoursTo} = ${oreFatturate} h fatturate${valore != null ? ` · valore ${valore} €` : ''}${pagaValet != null ? ` · paga valet ${pagaValet} €` : ' · paga valet invariata (nessun listino)'}`
+              : `Ore RIFIUTATE dal partner: valgono le previste (${oreFatturate} h)${valore != null ? ` · valore ${valore} €` : ''}${pagaValet != null ? ` · paga valet ${pagaValet} €` : ' · paga valet invariata (nessun listino)'}`,
+          },
+        },
+      },
+      include: DELIVERY_INCLUDE,
+    });
+
+    // Lo sanno il valet (è la sua paga) e l'ufficio (è la fattura).
+    const destinatari = [
+      ...(await this.utenteDelValet(d.valetId)),
+      ...(await this.notifications.adminAndOperationIds(user.sub)),
+    ];
+    await this.notifications.notifyUsers(destinatari, {
+      type: approva ? NotificationType.DELIVERY_HOURS_APPROVED : NotificationType.DELIVERY_HOURS_REJECTED,
+      title: approva ? 'Ore approvate' : 'Ore rifiutate',
+      body: `Consegna #${d.code}: ${oreFatturate} h${approva ? ` (${d.hoursFrom}–${d.hoursTo})` : ' (orario previsto)'}`,
+      entityType: 'delivery',
+      entityId: d.id,
+    });
+    return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
+  }
 
   /**
    * ACCETTA / RIFIUTA del PARTNER sulle consegne di VENDITA (utente, 02/09).
@@ -917,6 +1306,7 @@ export class DeliveriesService {
         },
       });
       await this.chiudiAttivitaSeStorico(d.id, DeliveryStatus.CANCELLED);
+      await this.stock.rientra(d.id, 'cancelled', user.sub);
       return { ok: true, status: DeliveryStatus.CANCELLED };
     }
     if (d.status === DeliveryStatus.ASSIGNED) {
@@ -943,7 +1333,7 @@ export class DeliveriesService {
    * un prodotto cancellato lascerebbe una riga senza nome.
    */
   private async fotografaProdotti(
-    righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; fieldValues?: string; productVariantId?: string }[],
+    righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; withoutCommission?: boolean; fieldValues?: string; productVariantId?: string }[],
     user?: JwtUser,
   ) {
     // ⚠️ Il perimetro vale anche in SCRITTURA (regola dell'utente 31/08):
@@ -986,6 +1376,8 @@ export class DeliveriesService {
       price: r.price ?? varianti.get(r.productVariantId ?? '')?.price
         ?? prodotti.get(r.productId)?.price ?? null,
       flexiblePrice: r.flexiblePrice ?? false,
+      // ⭐ 05/09/2026 (regola utente): la riga «senza fee» si fotografa qui.
+      withoutCommission: r.withoutCommission ?? false,
       fieldValues: r.fieldValues,
     }));
   }
@@ -1013,7 +1405,12 @@ export class DeliveriesService {
     // si DICHIARA quando era anche esagerata: un valore sopra la soglia e' la
     // firma dell'errore, e chi rilegge la consegna deve poterla riconoscere.
     const kmScartati = distanceKm != null && distanceKm > KM_MASSIMI_IN_CITTA ? distanceKm : null;
-    return { pickupAddress: citta, distanceKm: null, kmScartati };
+    // ⚠️ 06/09/2026 (regola utente): il ritiro e' l'INDIRIZZO di consegna per
+    // intero, con via e provincia, non la sola citta'. «Modena» come ritiro
+    // faceva calcolare la distanza dal centro della citta' e lasciava il valet
+    // senza un posto dove andare; l'indirizzo intero da' distanza zero, che e'
+    // il vero significato di «il fornitore sta dove abita chi riceve».
+    return { pickupAddress: (recipientAddress ?? '').trim(), distanceKm: null, kmScartati };
   }
 
   /**
@@ -1121,6 +1518,23 @@ export class DeliveriesService {
     const partnerId =
       user.role === Role.PARTNER ? user.partnerId : dto.partnerId;
     if (!partnerId) throw new BadRequestException('partnerId obbligatorio');
+    // ⭐ 05/09/2026 (regola utente): il partner con «verifica identita' del
+    // valet» sulla scheda la chiede SEMPRE sulle sue consegne. Quando inserisce
+    // lui, il flag si accende da solo: la sua politica non si aggira dal form.
+    if (user.role === Role.PARTNER) {
+      const politica = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { valetIdentityCheck: true } });
+      if (politica?.valetIdentityCheck) dto.valetIdentityCheck = true;
+    }
+    // ⭐ 06/09/2026 (regola utente): «Consegna Partner Automatico» sulla scheda del
+    // partner → ogni consegna inserita per lui nasce «consegna da fornitore», a meno
+    // che chi inserisce non abbia deciso esplicitamente il contrario. E ogni consegna
+    // «da fornitore» senza valet prende il valet «Partner Consegna».
+    const auto = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { autoDeliveredByPartner: true, consegnaProvince: { select: { provinceId: true } } } });
+    // ⭐ 06/09 sera (nuova architettura vendite): con un'AREA DI CONSEGNA dichiarata, il partner consegna
+    // da solo SOLO nelle province di quell'area; fuori, la consegna la fa un valet.
+    const consegnaQui = !auto?.consegnaProvince?.length || auto.consegnaProvince.some((x) => x.provinceId === (dto as any).provinceId);
+    if (auto?.autoDeliveredByPartner && consegnaQui && dto.deliveredByPartner === undefined) dto.deliveredByPartner = true;
+    if (dto.deliveredByPartner && !dto.valetId) dto.valetId = (await this.valetPartnerConsegna()) ?? dto.valetId;
 
     const serviceType = await this.prisma.serviceType.findUnique({
       where: { id: dto.serviceTypeId },
@@ -1268,7 +1682,13 @@ export class DeliveriesService {
     // `Unknown argument riferimentoEsterno` → 500 su OGNI consegna mandata
     // dal Customer Service (ordine #2873, 06/09 ore 07:18). Il form della
     // piattaforma non lo manda, quindi di qua non si vedeva mai.
-    const { products, pickups, partnerId: _p, riferimentoEsterno: _rif, ...scalar } = dto;
+    const { products, pickups, partnerId: _p, ignoraStock, riferimentoEsterno: _rif, giaConsegnata: _gc, consegnataIl: _ci, ...scalar } = dto;
+    // ⭐ 06/09/2026 (regola utente): STOCK. I prodotti «Controlla stock» devono
+    // esserci in magazzino: se no la consegna non nasce (400 col nome e i pezzi).
+    // L'ufficio puo' forzare; il partner no.
+    if (products?.length) {
+      await this.stock.verifica(products as any, ignoraStock === true && user.role !== Role.PARTNER);
+    }
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
 
@@ -1363,8 +1783,21 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // ⭐ 05/09/2026 (regola utente): se nasce come RICONSEGNA, le due consegne
+    // si citano nel registro e la non consegnata esce dalla lista operativa.
+    if (dto.parentDeliveryId) await this.legaRiconsegna(delivery, dto.parentDeliveryId, user);
+
     // Notifica al PARTNER dell'inserimento, se ha abilitato la mail (31/08).
     // Best-effort: non blocca la creazione.
+    // ⭐ 06/09/2026: la merce e' impegnata da quando la consegna esiste.
+    if (products?.length) await this.stock.scala(delivery.id, products as any, user.sub);
+    // ⭐ 06/09: una consegna «da fornitore» nasce già col token, così il link di conferma
+    // c'è subito (nell'elenco, nel dettaglio, nella risposta al canale app).
+    if ((delivery as any).deliveredByPartner && !(delivery as any).trackingToken) {
+      const token = randomBytes(24).toString('hex');
+      await this.prisma.delivery.update({ where: { id: delivery.id }, data: { trackingToken: token } });
+      (delivery as any).trackingToken = token;
+    }
     void this.notificaInserimentoAlPartner(delivery);
     // Se nasce GIÀ assegnata a un valet, avvisa anche lui.
     if (delivery.valetId) void this.notificaAssegnazioneAlValet(delivery);
@@ -1402,7 +1835,7 @@ export class DeliveriesService {
         select: { deliveryRule: { select: {
           id: true, serviceTypeId: true, periodStart: true, periodEnd: true, days: true, partnerBillingAdjustment: true,
           timeFrom: true, timeTo: true, dailyRule: true, dailyCount: true, totalRule: true, totalCount: true,
-          kmDistance: true,
+          kmDistance: true, toPay: true, toBill: true,
           partners: { select: { partnerId: true } },
         } } },
       });
@@ -1430,7 +1863,14 @@ export class DeliveriesService {
         }
         // ⭐ 04/09 (regola utente): all'aggancio si FOTOGRAFA il valore della regola
         // nel campo «Regole» della consegna — separato dal plus/minus manuale.
-        await this.prisma.delivery.update({ where: { id: deliveryId }, data: { deliveryRuleId: g.id, ruleAdjustment: (g as any).partnerBillingAdjustment ?? 0 } });
+        // ⭐ 06/09/2026 (regola utente, caso 101061 — Regola 8 di Chanel Sant'Andrea con
+        // «Da pagare = No» lasciava la consegna «da pagare»): all'aggancio la regola porta
+        // con sé anche i due interruttori del legacy, «Da fatturare» e «Da pagare».
+        // Con toPay=false il valet è a 0 dappertutto — Stipendi, dettaglio, Finanza.
+        await this.prisma.delivery.update({ where: { id: deliveryId }, data: {
+          deliveryRuleId: g.id, ruleAdjustment: (g as any).partnerBillingAdjustment ?? 0,
+          payable: (g as any).toPay ?? true, billable: (g as any).toBill ?? true,
+        } });
         return g.id;
       }
       return null;
@@ -1496,8 +1936,28 @@ export class DeliveriesService {
     );
   }
 
+  /**
+   * ⭐ 06/09/2026 (regola utente): per ogni consegna «da fornitore» un LINK con cui il
+   * partner la mette in «consegnata» o «non consegnata» dal telefono, senza login:
+   * la pagina pubblica /consegnata/<token> (stesso token del monitoraggio).
+   */
+  static linkConsegnata(token: string | null | undefined): string | null {
+    return token ? `https://app.deluxy.it/consegnata/${token}` : null;
+  }
+
+  /** Il valet fittizio «Partner Consegna» (legacy 168, consegnapartner@deluxy.it): chi «fa» le consegne da fornitore. */
+  private async valetPartnerConsegna(): Promise<string | null> {
+    const v = await this.prisma.valet.findFirst({
+      where: { deleted: false, OR: [{ legacyId: 168 }, { email: 'consegnapartner@deluxy.it' }, { AND: [{ firstName: { equals: 'Partner', mode: 'insensitive' } }, { lastName: { equals: 'Consegna', mode: 'insensitive' } }] }] },
+      select: { id: true }, orderBy: { legacyId: 'asc' },
+    });
+    return v?.id ?? null;
+  }
+
   async update(id: string, dto: UpdateDeliveryDto, user: JwtUser) {
     const delivery = await this.findOne(id, user);
+    // ⭐ 06/09: se la consegna diventa «da fornitore» e non ha un valet, prende «Partner Consegna».
+    if (dto.deliveredByPartner === true && !dto.valetId && !delivery.valetId) { const v = await this.valetPartnerConsegna(); if (v) dto.valetId = v; }
     // Regola di business: il partner puo' modificare la consegna solo finche' e'
     // "da gestire" (created = il rosso della legenda) e solo se il tipo di
     // servizio non e' VENDITA. Admin/Operation non hanno limiti.
@@ -1534,7 +1994,12 @@ export class DeliveriesService {
     // danno, ma non il PREZZO: un partner poteva riportare a zero una consegna
     // ancora da gestire, e sarebbe finita in fattura a zero.
     dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
-    const { products, pickups, partnerId, date, ...scalar } = dto;
+    const { products, pickups, partnerId, date, ignoraStock, ...scalar } = dto;
+    // ⭐ 06/09/2026: righe cambiate = la vecchia merce rientra, la nuova si scala.
+    if (products) {
+      await this.stock.rientra(id, 'modifica', user.sub);
+      await this.stock.verifica(products as any, ignoraStock === true && user.role !== Role.PARTNER);
+    }
     // Stessa regola della creazione: per un partner "locale" il ritiro segue il
     // destinatario, anche quando la modifica arriva a mano dal pannello.
     const partnerDaUsare = partnerId ?? delivery.partnerId;
@@ -1663,10 +2128,22 @@ export class DeliveriesService {
       };
     }
 
+    // ⭐ 05/09/2026 (segnalazione utente, #101015/#101016: «al salvataggio
+    // non cambia partner»). `partnerId` veniva tolto dal dto per calcolare il
+    // listino (`partnerDaUsare`) e poi NON finiva mai in `data`: si poteva
+    // scegliere un altro partner nel form, il ritiro si spostava al suo
+    // indirizzo, e la consegna restava del partner di prima. Ora si scrive —
+    // solo per l'ufficio: il PARTNER non puo' cedere una consegna a un altro.
+    const cambioPartner =
+      partnerId && user.role !== Role.PARTNER && partnerId !== delivery.partnerId
+        ? { partnerId }
+        : {};
+
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
+        ...cambioPartner,
         ...forzatura,
         ...economiaRicalcolata,
         ...(date ? { date: new Date(date) } : {}),
@@ -1695,16 +2172,91 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    if (products?.length) await this.stock.scala(id, products as any, user.sub, 'consegna');
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
     // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
     // Una difesa messa solo sulle letture non è una difesa.
     // Anche il PUT può cambiare lo stato: le attività seguono (03/09).
+    if (Object.keys(cambioPartner).length) {
+      const [prima, dopo] = await Promise.all([
+        delivery.partnerId ? this.prisma.partner.findUnique({ where: { id: delivery.partnerId }, select: { insegna: true } }) : null,
+        this.prisma.partner.findUnique({ where: { id: partnerId! }, select: { insegna: true } }),
+      ]);
+      await this.prisma.deliveryLog.create({
+        data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
+          message: `Partner cambiato: ${prima?.insegna ?? '—'} → ${dopo?.insegna ?? partnerId}` },
+      });
+    }
     if (dto.status && dto.status !== delivery.status) {
       await this.chiudiAttivitaSeStorico(delivery.id, dto.status);
     }
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): «le non consegnate cambiano data aggiornandosi
+   * alla data di oggi alla mezzanotte, per ricordare che devono essere gestite».
+   * Ogni notte (cron Vercel `/cron/non-consegnate`) le NON CONSEGNATE che non
+   * hanno ancora una riconsegna e portano una data passata si riportano a OGGI
+   * (giorno di Roma): così restano in testa all'elenco di chi deve decidere —
+   * riconsegna o chiusura. Lo stato non cambia; la data di prima resta nel
+   * registro della consegna. Idempotente: una seconda corsa lo stesso giorno
+   * non trova niente. Nessuna mail: è un promemoria in app, non un avviso.
+   */
+  async riportaNonConsegnateAOggi(): Promise<{ oggi: string; riportate: number; codici: number[] }> {
+    const parti = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const oggi = new Date(parti + 'T00:00:00.000Z'); // le date delle consegne sono mezzanotte UTC del giorno
+    // ⚠️ Finestra di 30 giorni (misurato 06/09: senza, il primo giro avrebbe riportato a oggi
+    // 1.694 non consegnate, 684 del 2021 — residui del legacy, non lavoro da fare). Una
+    // riportata resta in finestra finché qualcuno decide; le vecchie stanno nello storico.
+    const limite = new Date(oggi.getTime() - 30 * 86400000);
+    const daRiportare = await this.prisma.delivery.findMany({
+      // ⭐ 07/09/2026: le nascoste non tornano a oggi — sono già state decise.
+      where: { deletedAt: null, status: DeliveryStatus.NOT_DELIVERED, date: { lt: oggi, gte: limite }, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
+      select: { id: true, code: true, date: true },
+      orderBy: { code: 'asc' },
+    });
+    if (!daRiportare.length) return { oggi: parti, riportate: 0, codici: [] };
+    const giorno = (d: Date) => d.toISOString().slice(0, 10).split('-').reverse().join('/');
+    await this.prisma.$transaction([
+      this.prisma.delivery.updateMany({ where: { id: { in: daRiportare.map((d) => d.id) } }, data: { date: oggi } }),
+      this.prisma.deliveryLog.createMany({
+        data: daRiportare.map((d) => ({
+          deliveryId: d.id, type: 'note', userId: null,
+          message: `Riportata a oggi (era il ${giorno(d.date)}): non consegnata da gestire — riconsegna o chiusura`,
+        })),
+      }),
+    ]);
+    console.log(`Non consegnate riportate a oggi (${parti}): ${daRiportare.length}`);
+    return { oggi: parti, riportate: daRiportare.length, codici: daRiportare.map((d) => d.code) };
+  }
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): «consenti al valet che ha fatto la consegna di
+   * aggiungere un DDT di allegato anche a consegna chiusa». Il VALET deve essere
+   * quello della consegna (non basta l'ambito da team leader); ufficio e partner
+   * passano dal filtro di ruolo. Nessun vincolo di stato. Il file va su Drive
+   * come alla chiusura e il registro dice chi l'ha messo e quando.
+   */
+  async allegaDdt(id: string, user: JwtUser, dataUrl: string) {
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { id, ...(await this.filtroRuolo(user)) },
+      select: { id: true, code: true, status: true, valetId: true, ddtFile: true },
+    });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    if (user.role === Role.VALET && (!user.valetId || delivery.valetId !== user.valetId)) {
+      throw new ForbiddenException('Il DDT lo allega solo il valet che ha fatto la consegna.');
+    }
+    const ddtFile = await this.allegatoSuDrive(`ddt-consegna-${delivery.code}.jpg`, dataUrl);
+    const aggiornata = await this.prisma.delivery.update({ where: { id: delivery.id }, data: { ddtFile }, select: { id: true, ddtFile: true } });
+    const chiusa = ['delivered', 'delivered_time_to_approve', 'approved', 'not_delivered', 'archived', 'cancelled'].includes(delivery.status);
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: delivery.id, type: 'note', userId: user.sub ?? null,
+        message: `DDT ${delivery.ddtFile ? 'sostituito' : 'allegato'}${chiusa ? ' a consegna chiusa' : ''} (${user.role === Role.VALET ? 'valet' : user.role === Role.PARTNER ? 'partner' : 'ufficio'})` },
+    });
+    return { ok: true, ddtFile: aggiornata.ddtFile };
   }
 
   /**
@@ -1772,6 +2324,64 @@ export class DeliveriesService {
     });
   }
 
+  /** Chi chiede il codice del valet al ritiro: la consegna o il suo partner. */
+  private static ritiroDaVerificare(d: {
+    valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null;
+    partner?: { valetIdentityCheck?: boolean | null; deliveryCodeRequired?: boolean | null } | null;
+  }): boolean {
+    // ⭐ 05/09/2026 (regola utente): decide il flag DELLA CONSEGNA. Quello del
+    // partner e' la politica di default che il form propone (modificabile);
+    // `deliveryCodeRequired` e' un'altra cosa (il codice del CLIENTE) e non
+    // entra qui.
+    return d.valetIdentityCheck === true;
+  }
+
+  /**
+   * ⭐ 05/09/2026 (regola utente): «se e' abilitato, il partner deve inserire il
+   * codice del valet tramite un pop-up che gli compare al momento del ritiro;
+   * se corrisponde all'id del valet che fa il ritiro, la consegna puo' essere
+   * poi messa in consegna dal valet e di conseguenza consegnata».
+   *
+   * Il codice e' l'ID del valet come lo conoscono le persone (`legacyId`,
+   * ce l'hanno tutti e 52 gli attivi). Il confronto e' sul numero, spazi e
+   * zeri iniziali tolti. Tentativo sbagliato: 400 con il motivo, e una riga di
+   * registro — chi ha provato che codice, senza scrivere il codice giusto.
+   */
+  async verificaRitiro(id: string, codice: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({
+      where: { id, deletedAt: null },
+      include: { valet: { select: { id: true, legacyId: true, firstName: true, lastName: true } }, partner: { select: { id: true, valetIdentityCheck: true, deliveryCodeRequired: true } } },
+    });
+    if (!d) throw new NotFoundException('Consegna non trovata');
+    if (user.role === Role.PARTNER && d.partnerId !== user.partnerId) throw new ForbiddenException('Questa consegna non è tua.');
+    if (!d.valetId || !d.valet) throw new BadRequestException('La consegna non ha ancora un valet assegnato: niente da verificare.');
+    if (![DeliveryStatus.ASSIGNED, DeliveryStatus.ACCEPTED, DeliveryStatus.IN_PREPARATION].includes(d.status as DeliveryStatus)) {
+      throw new BadRequestException('Il codice si verifica al ritiro, prima che la consegna parta.');
+    }
+    if (d.pickupVerifiedAt) return { verificato: true, quando: d.pickupVerifiedAt, gia: true };
+    const atteso = String(d.valet.legacyId ?? '').replace(/^0+/, '');
+    const dato = String(codice ?? '').trim().replace(/^0+/, '');
+    if (!atteso) throw new BadRequestException('Questo valet non ha un codice: avvisa l\'ufficio.');
+    if (!dato || dato !== atteso) {
+      await this.prisma.deliveryLog.create({
+        data: { deliveryId: id, type: 'note', userId: user.sub ?? null,
+          message: `Verifica del codice del valet FALLITA al ritiro (inserito «${String(codice ?? '').trim().slice(0, 12)}»)` },
+      });
+      throw new BadRequestException('Il codice non corrisponde al valet assegnato a questa consegna.');
+    }
+    const agg = await this.prisma.delivery.update({
+      where: { id },
+      data: {
+        pickupVerifiedAt: new Date(),
+        pickupVerifiedBy: user.email ?? user.sub ?? null,
+        logs: { create: { type: 'note', userId: user.sub ?? null,
+          message: `Ritiro verificato: il codice del valet ${d.valet.firstName} ${d.valet.lastName} combacia (inserito dal partner)` } },
+      },
+      select: { pickupVerifiedAt: true },
+    });
+    return { verificato: true, quando: agg.pickupVerifiedAt, gia: false };
+  }
+
   async updateStatus(
     id: string,
     status: DeliveryStatus,
@@ -1782,8 +2392,12 @@ export class DeliveriesService {
       receiverSign?: string;
       ddtFile?: string;
       notDeliveredReason?: string;
+      /** ⭐ 04/09 (regola utente): ore dichiarate dal valet sui servizi a ora. */
+      oreDalle?: string;
+      oreAlle?: string;
     },
   ) {
+    let racconto_forzatura: string | null = null;
     const delivery = await this.findOne(id, user);
 
     // CONSEGNE DA FORNITORE (31/08/2026): quando è il partner stesso a fare la
@@ -1812,6 +2426,23 @@ export class DeliveriesService {
     // (in consegna) e chiude (consegnata / non consegnata). La rotta gli era
     // aperta su QUALSIASI stato — avrebbe potuto cancellare o retrocedere una
     // consegna chiusa, e da una chiusa dipende la sua paga.
+    // ⭐ 05/09/2026 (regola utente): CODICE DEL VALET AL RITIRO. Se la consegna
+    // o il partner lo chiedono, il valet non puo' mettere «in consegna» finche'
+    // il partner non ha verificato il suo codice al ritiro. L'ufficio puo'
+    // forzare, e il registro lo dice.
+    if (
+      status === DeliveryStatus.IN_DELIVERY &&
+      DeliveriesService.ritiroDaVerificare(delivery as any) &&
+      !(delivery as any).pickupVerifiedAt
+    ) {
+      if (user.role === Role.VALET) {
+        throw new ForbiddenException(
+          'Questa consegna chiede la verifica del codice del valet al ritiro: il partner deve inserire il tuo codice prima che tu possa metterla in consegna.',
+        );
+      }
+      racconto_forzatura = 'ritiro NON verificato col codice del valet: messa in consegna dall\'ufficio';
+    }
+
     if (user.role === Role.VALET || consegnaDaFornitore) {
       const versoConsentito = [
         DeliveryStatus.IN_DELIVERY,
@@ -1846,8 +2477,11 @@ export class DeliveriesService {
 
     // I dettagli della chiusura si scrivono SOLO con lo stato giusto: un
     // client non deve poter riempire «consegnata a» su una cancellazione.
-    const extra: Record<string, string> = {};
+    // ⚠️ Non solo stringhe: dal 04/09 ci finiscono anche date e null (le ore
+    // in attesa di approvazione), e un Record<string,string> le rifiutava.
+    const extra: Record<string, unknown> = {};
     const racconto: string[] = [];
+    if (racconto_forzatura) racconto.push(racconto_forzatura);
     if (status === DeliveryStatus.DELIVERED && dettagli) {
       const TIPI: Record<string, string> = {
         recipient: 'destinatario', concierge: 'custode/portineria', other: 'altro',
@@ -1866,20 +2500,102 @@ export class DeliveriesService {
         racconto.push('DDT firmato allegato');
       }
     }
+    // ⭐ 04/09/2026 (regola utente): SERVIZI A ORA — chiudendo, il valet dice
+    // quando ha davvero iniziato e finito. La consegna non va in storico: va in
+    // «ore da approvare», e il PARTNER decide. Approvare vale le ore del valet,
+    // rifiutare quelle previste; in entrambi i casi si riscrive il valore.
+    //
+    // ⚠️ Nessuna sorpresa se il client non manda gli orari (app vecchia): la
+    // consegna chiude come prima. Un automatismo che blocca chi non sa di
+    // doverlo sapere è peggio del problema che risolve.
+    let statoFinale: DeliveryStatus = status;
+    // ⭐ 04/09/2026 (regola utente): «per chiudere, il valet DEVE dichiarare le
+    // ore». Su un servizio a ora la chiusura senza orari non passa: sono il
+    // fatto su cui si pagano il valet e il partner, e lasciarli facoltativi
+    // voleva dire fatturare l'orario previsto anche quando non era quello.
+    // ⭐ 05/09/2026 (regola utente): «sono solo per i servizi orari CON
+    // approvazione». Dei dieci servizi a ore uno solo prevede ore dichiarate
+    // e approvate («Servizio Ora con Approvazione», flag `hoursApproval`); gli
+    // altri si chiudono come le altre consegne, con le ore previste.
+    const conApprovazione =
+      (delivery as any).serviceType?.pricingModel === 'A_ORA' &&
+      (delivery as any).serviceType?.hoursApproval === true;
+    if (
+      status === DeliveryStatus.DELIVERED &&
+      conApprovazione &&
+      !(dettagli?.oreDalle && dettagli?.oreAlle)
+    ) {
+      throw new BadRequestException(
+        "Servizio a ore: per chiudere la consegna servono l'ora di inizio e quella di fine (senza dichiarare gli orari non si chiude).",
+      );
+    }
+    if (
+      status === DeliveryStatus.DELIVERED &&
+      conApprovazione &&
+      dettagli?.oreDalle && dettagli?.oreAlle
+    ) {
+      const dalle = DeliveriesService.orarioValido(dettagli.oreDalle);
+      const alle = DeliveriesService.orarioValido(dettagli.oreAlle);
+      if (!dalle || !alle) throw new BadRequestException('Orari non validi: si scrivono come HH:MM.');
+      if ((DeliveriesService.oreFraOrari(dalle, alle) ?? 0) <= 0) {
+        throw new BadRequestException('L\'ora di fine deve venire dopo quella di inizio.');
+      }
+      statoFinale = DeliveryStatus.DELIVERED_TIME_TO_APPROVE;
+      // ⚠️ 04/09/2026: gli orari del valet hanno GIÀ una casa in banca dati —
+      // `valetStartTime`/`valetEndTime` del vecchio sistema, con 7.908 consegne
+      // dentro. Scriverne di nuovi accanto avrebbe fatto due verità della
+      // stessa cosa. Qui si scrivono quelle, e `hoursFrom/hoursTo` restano
+      // solo come specchio per chi legge la riga senza sapere la storia.
+      extra['valetStartTime'] = dalle;
+      extra['valetEndTime'] = alle;
+      extra['hoursFrom'] = dalle;
+      extra['hoursTo'] = alle;
+      extra['hoursProposedAt'] = new Date();
+      extra['hoursDecision'] = null;
+      extra['hoursDecidedAt'] = null;
+      extra['hoursDecidedBy'] = null;
+      // La fotografia di quello che era previsto: senza, un rifiuto non
+      // saprebbe a quali ore tornare.
+      // L'orario PREVISTO: prima quello del servizio (colonna storica), poi la
+      // fascia della consegna, poi le ore già scritte.
+      const previsteOre = DeliveriesService.oreFraOrari((delivery as any).serviceStartTime, (delivery as any).serviceEndTime)
+        ?? DeliveriesService.oreFraOrari((delivery as any).deliveryTimeFrom, (delivery as any).deliveryTimeTo)
+        ?? (delivery as any).hours
+        ?? null;
+      extra['hoursOriginal'] = previsteOre;
+      // Se il servizio non aveva orari scritti, si fotografano ora: il rifiuto
+      // deve poter tornare a qualcosa di preciso.
+      if (!(delivery as any).serviceStartTime && (delivery as any).deliveryTimeFrom) {
+        extra['serviceStartTime'] = (delivery as any).deliveryTimeFrom;
+        extra['serviceEndTime'] = (delivery as any).deliveryTimeTo;
+      }
+      racconto.push(`ore dichiarate dal valet: ${dalle}–${alle}, in attesa del partner`);
+    }
+
     if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.notDeliveredReason) {
       extra['notDeliveredReason'] = dettagli.notDeliveredReason;
       racconto.push(`motivo: ${dettagli.notDeliveredReason}`);
     }
 
+    // ⭐ 06/09/2026 (censimento per le Statistiche): la nuova app non scriveva
+    // MAI `startedAt`/`deliveredAt` — a settembre 230 consegne concluse e zero
+    // orari reali, mentre il legacy li aveva su 678/826 di agosto. Senza, la
+    // puntualità e i tempi di consegna non esistono. Si scrivono al primo
+    // passaggio (mai sovrascritti): partenza = «in consegna», arrivo = consegnata.
+    if (statoFinale === DeliveryStatus.IN_DELIVERY && !(delivery as any).startedAt) extra['startedAt'] = new Date();
+    if ((statoFinale === DeliveryStatus.DELIVERED || statoFinale === DeliveryStatus.DELIVERED_TIME_TO_APPROVE) && !(delivery as any).deliveredAt) {
+      extra['deliveredAt'] = new Date();
+      if (!(delivery as any).startedAt) extra['startedAt'] = (delivery as any).startedAt ?? new Date();
+    }
     const updated = await this.prisma.delivery.update({
       where: { id: delivery.id },
       data: {
-        status,
+        status: statoFinale,
         ...extra,
         logs: {
           create: {
             type: logType,
-            message: `Stato: ${delivery.status} -> ${status}`
+            message: `Stato: ${delivery.status} -> ${statoFinale}`
               + (racconto.length ? ` · ${racconto.join(' · ')}` : ''),
             userId: user.sub,
           },
@@ -1890,7 +2606,17 @@ export class DeliveriesService {
 
     // In Storico → le attività della consegna si chiudono da sole (02/09).
     await this.chiudiAttivitaSeStorico(delivery.id, status);
-    await this.notifyStatusChange(updated, status, user);
+    // ⭐ 06/09/2026: annullata, non accettata, invalidata o NON consegnata = la
+    // merce torna in magazzino (solo se la consegna l'aveva scalata).
+    if ([DeliveryStatus.CANCELLED, DeliveryStatus.INVALIDATED, DeliveryStatus.NOT_ACCEPTED, DeliveryStatus.NOT_DELIVERED].includes(statoFinale as DeliveryStatus)) {
+      await this.stock.rientra(delivery.id, String(statoFinale), user.sub);
+    }
+    await this.notifyStatusChange(updated, statoFinale, user);
+    // Il partner deve SAPERE che ci sono ore da approvare: senza l'avviso,
+    // la consegna resterebbe ferma in attesa di un gesto che nessuno chiede.
+    if (statoFinale === DeliveryStatus.DELIVERED_TIME_TO_APPROVE) {
+      await this.avvisaOreDaApprovare(updated as any, user);
+    }
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
@@ -2066,6 +2792,7 @@ export class DeliveriesService {
       where: { id: delivery.id },
       data: {
         status: 'delivered',
+        deliveredAt: delivery.deliveredAt ?? new Date(),
         receivedBy: receivedBy?.trim() || null,
         logs: {
           create: {
@@ -2080,10 +2807,36 @@ export class DeliveriesService {
     return { esito: 'confermata', code: delivery.code };
   }
 
+  /** ⭐ 06/09/2026 (regola utente): dal link pubblico anche «NON consegnata», col motivo. Stesse guardie del «consegnata». */
+  async notDeliveredByToken(token: string, motivo?: string) {
+    const delivery = await this.prisma.delivery.findFirst({ where: { trackingToken: token, deletedAt: null } });
+    if (!delivery) throw new NotFoundException('Consegna non trovata');
+    if (delivery.status === DeliveryStatus.NOT_DELIVERED) return { esito: 'gia_non_consegnata', code: delivery.code };
+    if (DELIVERY_CLOSED_STATUSES.includes(delivery.status)) {
+      throw new ConflictException('Questa consegna è chiusa e non si cambia dal link: chiedi all’ufficio.');
+    }
+    const testo = (motivo ?? '').trim();
+    await this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { status: DeliveryStatus.NOT_DELIVERED, notDeliveredReason: testo || null, logs: { create: { type: 'not_delivered', message: testo ? `Non consegnata (dal link): ${testo}` : 'Non consegnata (dal link)' } } },
+    });
+    await this.chiudiAttivitaSeStorico(delivery.id, DeliveryStatus.NOT_DELIVERED).catch(() => undefined);
+    return { esito: 'non_consegnata', code: delivery.code };
+  }
+
   async assignValet(id: string, valetId: string, user: JwtUser) {
     const delivery = await this.findOne(id, user);
     const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });
     if (!valet) throw new BadRequestException('Valet inesistente');
+    // ⭐ 06/09/2026 (segnalazione utente, #101058: 19 righe «Assegnata al valet
+    // Leonardo Bergamasco» in 5 secondi). Il server scriveva una riga di
+    // registro per OGNI chiamata, anche se il valet era gia' quello: un tasto
+    // tenuto premuto o toccato piu' volte riempiva lo storico e rifaceva paga e
+    // regola ogni volta. Stesso valet, consegna gia' «in gestione» = niente da
+    // cambiare: si risponde com'e', senza scrivere.
+    if ((delivery as any).valetId === valetId && delivery.status === DeliveryStatus.ASSIGNED) {
+      return this.soloIMieiSoldi(this.hideInternalNotes(delivery, user), user);
+    }
 
     // TEAM LEADER che assegna (31/08/2026, utente): un valet può assegnare
     // SOLO se è team leader e SOLO nel suo perimetro (province di
@@ -2196,6 +2949,7 @@ export class DeliveriesService {
 
   async remove(id: string, user: JwtUser) {
     await this.findOne(id, user);
+    await this.stock.rientra(id, 'eliminata', user.sub);
     await this.prisma.delivery.delete({ where: { id } });
     return { deleted: true };
   }

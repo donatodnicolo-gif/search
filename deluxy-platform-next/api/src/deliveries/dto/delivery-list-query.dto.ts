@@ -33,6 +33,29 @@ export class DeliveryListQueryDto extends ListQueryDto {
   @IsString()
   partnerId?: string;
 
+  /**
+   * TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente: «in consegne, anche
+   * storico, consenti filtri veloci su tipologie di servizi in alto»).
+   *
+   * Due livelli, perche' le tipologie sono due cose diverse:
+   * - `pricingModel` e' la FAMIGLIA (vendite, prezzo fisso, a ora, corporate,
+   *   magazzino): cinque valori, sono le linguette rapide in cima alla pagina;
+   * - `serviceTypeId` e' IL SERVIZIO preciso: 48 nomi, e' il menu a tendina.
+   * Insieme si restringono (famiglia + servizio di quella famiglia).
+   */
+  @ApiPropertyOptional({ description: 'Filtra per tipo di servizio: uno o piu id, separati da virgola' })
+  @IsOptional()
+  @IsString()
+  serviceTypeId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtra per famiglia del servizio',
+    enum: ['PREZZO_FISSO', 'VENDITA', 'A_ORA', 'CORPORATE', 'MAGAZZINO'],
+  })
+  @IsOptional()
+  @IsIn(['PREZZO_FISSO', 'VENDITA', 'A_ORA', 'CORPORATE', 'MAGAZZINO'])
+  pricingModel?: 'PREZZO_FISSO' | 'VENDITA' | 'A_ORA' | 'CORPORATE' | 'MAGAZZINO';
+
   @ApiPropertyOptional({ description: 'Filtra per valet (ignorato per il ruolo VALET)' })
   @IsOptional()
   @IsString()

@@ -26,12 +26,19 @@ export class ActivitiesController {
   @Get()
   @ApiOperation({ summary: 'Lista attivita (team leader vede quelle delle sue province)' })
   @ApiQuery({ name: 'date', required: false })
+  @ApiQuery({ name: 'stato', required: false, description: 'aperte (da fare) | storico (fatte e saltate) | tutte' })
+  @ApiQuery({ name: 'mie', required: false, description: 'valet: 1 = solo le mie (il team leader vede la squadra)' })
+  @ApiQuery({ name: 'conPartner', required: false, description: '1 = mostra anche le consegne portate dal partner (escluse per regola)' })
   findAll(
     @CurrentUser() user: JwtUser,
     @Query('date') date?: string,
     @Query('limit') limit?: string,
+    @Query('stato') stato?: string,
+    @Query('mie') mie?: string,
+    @Query('conPartner') conPartner?: string,
   ) {
-    return this.activitiesService.findAll(user, date, Number(limit) || 300);
+    const sezione = stato === 'aperte' || stato === 'storico' ? stato : 'tutte';
+    return this.activitiesService.findAll(user, date, Number(limit) || 300, sezione, mie === '1' || mie === 'true', conPartner === '1' || conPartner === 'true');
   }
 
   @Post('reorder')

@@ -16,6 +16,7 @@ import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import {
+  AllegaDdtDto,
   AssignValetDto,
   AzioneDiMassaDto,
   AzioneDiMassaImportoDto,
@@ -122,6 +123,17 @@ export class DeliveriesController {
   // PARTNER incluso per due motivi già filtrati nel service: può richiedere la
   // cancellazione, e — se la consegna è «da fornitore» ed è sua — la chiude
   // come un valet (in consegna / consegnata / non consegnata).
+  // ⭐ 06/09/2026 (regola utente): il valet che ha FATTO la consegna allega il DDT
+  // anche a consegna chiusa (ufficio e partner della consegna: idem). Nessun
+  // vincolo di stato: il documento arriva spesso dopo, e prima non c'era modo
+  // di aggiungerlo se non riaprendo la consegna.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET, Role.PARTNER)
+  @Post(':id/ddt')
+  @ApiOperation({ summary: 'Allega (o sostituisce) la foto del DDT, anche a consegna chiusa' })
+  allegaDdt(@Param('id') id: string, @Body() dto: AllegaDdtDto, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.allegaDdt(id, user, dto.ddtFile);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION, Role.VALET, Role.PARTNER)
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cambio stato (con log automatico)' })
@@ -131,6 +143,36 @@ export class DeliveriesController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.deliveriesService.updateStatus(id, dto.status, user, dto);
+  }
+
+  /**
+   * ⭐ 04/09/2026 (regola utente): il PARTNER approva o rifiuta le ore che il
+   * valet ha dichiarato su un servizio a ora. Anche l'ufficio, che sul partner
+   * ha sempre l'ultima parola.
+   */
+  /**
+   * ⭐ 05/09/2026 (regola utente): il PARTNER verifica il codice del valet al
+   * ritiro. Anche l'ufficio. Corpo: { codice }.
+   */
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ritiro/verifica')
+  @ApiOperation({ summary: 'Il partner inserisce il codice del valet al ritiro: se combacia, il valet può partire' })
+  verificaRitiro(@Param('id') id: string, @Body() body: { codice?: string }, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.verificaRitiro(id, String(body?.codice ?? ''), user);
+  }
+
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ore/approva')
+  @ApiOperation({ summary: 'Il partner approva le ore dichiarate dal valet: valgono le sue, e il valore si riscrive' })
+  approvaOre(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.decidiOre(id, true, user);
+  }
+
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/ore/rifiuta')
+  @ApiOperation({ summary: 'Il partner rifiuta: valgono le ore previste, e il valore si riscrive' })
+  rifiutaOre(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.decidiOre(id, false, user);
   }
 
   // Anche il PARTNER: il link di tracciamento serve a condividerlo col CLIENTE.
@@ -155,6 +197,13 @@ export class DeliveriesController {
   @ApiOperation({ summary: 'Conferma pubblica di consegna (link "consegnata"): stato -> delivered' })
   confirmDelivered(@Param('token') token: string, @Body() body: { receivedBy?: string }) {
     return this.deliveriesService.confirmDeliveredByToken(token, body.receivedBy);
+  }
+
+  @Public()
+  @Post('not-delivered/:token')
+  @ApiOperation({ summary: 'Dal link pubblico: NON consegnata, col motivo (06/09/2026)' })
+  notDeliveredByLink(@Param('token') token: string, @Body() body: { motivo?: string }) {
+    return this.deliveriesService.notDeliveredByToken(token, body?.motivo);
   }
 
   // ============================================================
@@ -269,6 +318,36 @@ export class DeliveriesController {
   @ApiOperation({ summary: 'Il partner annulla (da gestire) o chiede la cancellazione (in gestione)' })
   annullaDaPartner(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.deliveriesService.annullaDaPartner(id, user);
+  }
+
+  // ⭐ 07/09/2026 (regola utente): agganciare una consegna GIÀ INSERITA come riconsegna,
+  // invece di crearne una nuova e ritrovarsi due consegne per lo stesso lavoro.
+  @Post(':id/riconsegna/:childId')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Aggancia una consegna esistente come riconsegna di questa (non consegnata)' })
+  agganciaRiconsegna(@Param('id') id: string, @Param('childId') childId: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.agganciaRiconsegna(id, childId, user);
+  }
+
+  @Post(':id/nascondi')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: "Toglie una non consegnata dall'elenco Consegne: resta in Storico" })
+  nascondi(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.nascondiNonConsegnata(id, user);
+  }
+
+  @Delete(':id/nascondi')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Rimette fra le attive una non consegnata nascosta' })
+  mostra(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.mostraNonConsegnata(id, user);
+  }
+
+  @Delete(':id/riconsegna/:childId')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Scioglie il legame fra una non consegnata e la sua riconsegna' })
+  sciogliRiconsegna(@Param('id') id: string, @Param('childId') childId: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.sciogliRiconsegna(id, childId, user);
   }
 
   @Roles(Role.ADMIN, Role.OPERATION)

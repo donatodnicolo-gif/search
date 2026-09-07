@@ -59,7 +59,11 @@
     "serviziDeluxy": "Deluxy services",
     "chiaviApp": "App keys",
     "richieste": "Requests",
-    "segnalazioni": "Reports"
+    "segnalazioni": "Reports",
+    "statistiche": "Statistics",
+    "mestieri": "Trades",
+    "listino": "Price list",
+    "aree": "Areas"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -80,8 +84,21 @@
     "recurringSub": "A delivery that repeats: declare it once, deliveries are created by themselves.",
     "other": "Need something else?",
     "otherSub": "Ask for a quote: we reply with a tailored offer.",
-    "model": { "PREZZO_FISSO": "Fixed price", "A_ORA": "Hourly", "VENDITA": "Sale", "MAGAZZINO": "Warehouse", "CORPORATE": "Corporate" },
-    "price": { "from": "from €{{n}}", "kmIncl": "{{n}} km included", "perHour": "€{{n}}/hour", "minHours": "min {{n}} h", "fee": "Deluxy fee {{n}}%", "perItem": "€{{n}}/item" }
+    "model": {
+      "PREZZO_FISSO": "Fixed price",
+      "A_ORA": "Hourly",
+      "VENDITA": "Sale",
+      "MAGAZZINO": "Warehouse",
+      "CORPORATE": "Corporate"
+    },
+    "price": {
+      "from": "from €{{n}}",
+      "kmIncl": "{{n}} km included",
+      "perHour": "€{{n}}/hour",
+      "minHours": "min {{n}} h",
+      "fee": "Deluxy fee {{n}}%",
+      "perItem": "€{{n}}/item"
+    }
   },
   "quotes": {
     "title": "Quotes",
@@ -769,6 +786,14 @@
     }
   },
   "deliveries": {
+    "nonConsegnate": {
+      "chip": "Not delivered",
+      "alert": "{{n}} not delivered to handle.",
+      "cosa": "Every night they move to today's date until someone decides: redelivery or closure."
+    },
+    "codice": {
+      "inserisci": "Enter valet code"
+    },
     "recipientHidden": "Shown once you start the delivery",
     "proposte": {
       "title": "Orders proposed to you",
@@ -782,6 +807,15 @@
       "rifiutaTitolo": "Refuse this sale?",
       "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
       "motivo": "Reason (optional)"
+    },
+    "svc": {
+      "all": "All types",
+      "allServices": "All services",
+      "PREZZO_FISSO": "Fixed price",
+      "VENDITA": "Sales",
+      "A_ORA": "Hourly",
+      "CORPORATE": "Corporate",
+      "MAGAZZINO": "Warehouse"
     },
     "tl": {
       "tutte": "All",
@@ -892,7 +926,13 @@
       "label": "Partner: {{nome}}",
       "remove": "Remove the partner filter"
     },
-    "ruleApplied": "Carnet rule applied"
+    "ruleApplied": "Carnet rule applied",
+    "saleRef": "Open this sale in Sales",
+    "redeliver": "Redeliver",
+    "legame": {
+      "daTitolo": "Comes from this failed delivery",
+      "aTitolo": "Redelivered with this one"
+    }
   },
   "partners": {
     "title": "Partners",
@@ -947,7 +987,8 @@
       "provinces": "Provinces",
       "vehicle": "Vehicle",
       "teamLeader": "Team leader",
-      "status": "Status"
+      "status": "Status",
+      "codice": "Code"
     }
   },
   "reconciliations": {
@@ -971,6 +1012,7 @@
     "empty": "No rows: search proposals over a range or wait for the nightly run.",
     "loading": "Loading…",
     "col": {
+      "publicPrice": "Public",
       "product": "Product",
       "province": "Province",
       "delivery": "Delivery",
@@ -1026,6 +1068,7 @@
       "type": "Type",
       "partner": "Partner",
       "price": "Price",
+      "stock": "Stock",
       "status": "Status"
     },
     "tabActive": "Products",
@@ -1059,6 +1102,74 @@
       "doneMove": "{{n}} moved.",
       "blocked": "{{n}} could not be deleted because used in deliveries or sales: archived instead.",
       "notYours": "{{n}} skipped because not yours."
+    },
+    "tabListino": "My price list",
+    "unarchive": "Unarchive"
+  },
+  "aree": {
+    "title": "Areas",
+    "caption": "{{n}} areas: named groups of provinces, assigned to partners",
+    "nuova": "New area",
+    "modifica": "Edit area",
+    "nomePh": "e.g. Milan and hinterland",
+    "province": "Provinces of the area ({{n}} selected)",
+    "nProvince": "{{n}} provinces",
+    "vuoto": "No areas.",
+    "confermaElimina": "Delete the area «{{nome}}»?",
+    "col": {
+      "nome": "Area",
+      "note": "Notes",
+      "province": "Provinces",
+      "partner": "Partners"
+    }
+  },
+  "listino": {
+    "title": "Your flower price list",
+    "caption": "The price of a single flower, per stem: it is what you get. It lets us propose orders with the right quantity (say 12 roses) without asking every time.",
+    "primoAccesso": "Fill in your flower price list",
+    "primoAccessoSub": "Write what you get for a single stem. Where a price is already there, we took it from your past deliveries: confirm it or correct it.",
+    "vai": "Fill it in",
+    "compilato": "Price list confirmed on {{quando}}.",
+    "daConfermare": "to confirm",
+    "nonLoFaccio": "I don't do it",
+    "salva": "Save the price list",
+    "nota": "Leave a flower empty if you don't do it. The prices stay yours: change them here whenever you want.",
+    "col": {
+      "fiore": "Flower",
+      "prezzo": "€ per stem",
+      "stato": ""
+    }
+  },
+  "mestieri": {
+    "title": "Trades",
+    "caption": "{{n}} trades gather {{c}} catalogue categories",
+    "col": {
+      "nome": "Trade",
+      "categorie": "Categories",
+      "prodotti": "Products",
+      "partner": "Partners",
+      "liste": "Lists",
+      "automatico": "Automatic routing"
+    },
+    "auto": {
+      "si": "non-unique products route automatically",
+      "no": "non-unique products go to the office"
+    },
+    "nuovo": {
+      "bottone": "New trade",
+      "titolo": "New trade",
+      "nomePh": "Trade name (e.g. Ice cream shop)",
+      "hint": "It starts empty: then place categories below and assign it to partners in their sheet."
+    },
+    "categorie": {
+      "title": "Catalogue categories",
+      "sub": "{{n}} to assign",
+      "col": {
+        "nome": "Category",
+        "mestiere": "Trade"
+      },
+      "daAssegnare": "— to assign —",
+      "archiviata": "archived"
     }
   },
   "categories": {
@@ -1150,6 +1261,11 @@
     "total": "Total",
     "newTitle": "New carnet rule",
     "editTitle": "Edit carnet rule",
+    "registro": {
+      "titolo": "History",
+      "vuoto": "No entries: the rule predates the history (6 Sep 2026) or comes from the old system.",
+      "sistema": "system"
+    },
     "col": {
       "name": "Name",
       "rule": "Rule",
@@ -1190,6 +1306,14 @@
     }
   },
   "partnerDetail": {
+    "vendite": {
+      "areaCommerciale": "Commercial area (where it sells)",
+      "consegna": "Partner delivery",
+      "consegnaSi": "Delivers on its own",
+      "consegnaNo": "Does not deliver on its own: a valet delivers.",
+      "predefiniti": "Defaults: minimum order {{minimo}} €, radius {{raggio}} km",
+      "senzaMestiere": "No trade assigned: routing cannot find it."
+    },
     "carnet": {
       "none": "No active carnet rule for this partner.",
       "remaining": "Remaining",
@@ -1256,7 +1380,9 @@
       "anomalia": "Anomaly",
       "takingsNet": "Profit net of VAT",
       "feeContract": "Recorded fee",
-      "sale": "Sale ID"
+      "sale": "Sale ID",
+      "refunded": "Refunded costs",
+      "economicResult": "Economic result"
     },
     "m": {
       "deliveries": "Deliveries"
@@ -1331,13 +1457,18 @@
     "notificheEmail": "Notify me by email",
     "notificheWhatsapp": "Notify me on WhatsApp",
     "negozio": "Your shop",
+    "vendite": {
+      "titolo": "Your sales"
+    },
     "negozioHint": "Name, price list and terms are changed with the office; contact details are yours.",
     "ritiri": "Other pickup addresses",
     "ritiriHint": "In addition to the shop address. They show up as choices when creating a delivery.",
     "aggiungiRitiro": "Add pickup address",
     "insegna": "Shop name",
     "emailNegozio": "Shop email",
-    "salvato": "Saved."
+    "salvato": "Saved.",
+    "codiceValet": "Your valet code",
+    "codiceValetHint": "It is personal: tell it only to the partner at pickup, when the delivery asks to verify your identity. Do not share it with anyone else."
   },
   "deliveryForm": {
     "backToDeliveries": "Deliveries",
@@ -1427,6 +1558,8 @@
       "internalNotes": "Internal notes",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Delivery code required",
+      "valetIdentityCheck": "Valet identity check",
+      "valetIdentityCheckHint": "At pickup the partner enters the valet code: without it the valet cannot start. Comes pre-checked when the partner has the flag on its profile.",
       "ddtBrand": "DDT brand",
       "pickupAddress": "Pickup address",
       "pickupAddressPh": "If empty, pickup from the partner"
@@ -1444,6 +1577,7 @@
       "selectService": "Select a service…",
       "address": "Street …, ZIP City (PR)",
       "selectPartner": "Select a partner…",
+      "partnerInactive": "inactive",
       "selectSlot": "Select a slot…",
       "selectTime": "Select a time…",
       "selectProduct": "Product…",
@@ -1497,6 +1631,9 @@
       "priceLabel": "Price:",
       "addProduct": "Add product",
       "paymentOnDelivery": "Payment on delivery",
+      "stockHint": "Stock: {{n}}",
+      "stockLow": "Not enough stock: {{n}} available",
+      "noFee": "No fee (Deluxy keeps nothing on this line)",
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",
       "createNew": "Create new product",
@@ -1513,6 +1650,8 @@
       "payableGroup": "To be paid (valet)",
       "payable": "To be paid",
       "valetSalary": "Valet salary (€)",
+      "feeVenditaHint": "Fee {{pct}}% on {{base}} € = {{fee}} € — computed at invoicing on rows without «No fee»; empty = automatic",
+      "valetSalaryFromListino": "Empty: payroll will use the list pay, {{paga}} €",
       "flexiblePrice": "Flexible price",
       "flexiblePriceDetail": "Flexible price details",
       "flexiblePricePlaceholder": "E.g. from 20 to 50 €",
@@ -1528,6 +1667,7 @@
       "requiredFields": "Fill in date, partner, service, address and recipient first/last name.",
       "customerNotSaved": "Customer not saved: ",
       "genericShort": "error",
+      "saleNotClosed": "Delivery #{{code}} was created, but the sale did NOT move to history: close it from the Sales list.",
       "createFailed": "Error while creating the delivery",
       "missing": "Missing: {{campi}}."
     },
@@ -1588,8 +1728,15 @@
       "contactSurname": "Contact last name",
       "contactSurnamePlaceholder": "Last name"
     },
+    "aree": {
+      "title": "Areas served",
+      "subtitle": "The partner receives deliveries in the provinces of its areas. Areas are managed in Settings → Areas.",
+      "empty": "No areas defined: use the provinces below.",
+      "effettive": "{{n}} provinces covered:"
+    },
     "provinces": {
       "title": "Served provinces",
+      "titoloInPiu": "Extra provinces",
       "subtitle": "The partner will only be selectable for deliveries in these provinces.",
       "empty": "No province configured.",
       "cerca": "Search province…",
@@ -1613,6 +1760,28 @@
       "colKmIncluded": "Km included",
       "colExtraKm": "€ per extra km",
       "colOutOfCity": "€ out of town"
+    },
+    "mestieri": {
+      "title": "Trades",
+      "subtitle": "What the partner does: routing looks here first. Categories below are the detail.",
+      "empty": "No trades defined.",
+      "minimo": "Minimum order on sales (€ to the partner)",
+      "minimoHint": "Below this amount (what the partner would earn) the sale goes to the next partner.",
+      "raggio": "Maximum radius for deliveries they make (km)",
+      "raggioHint": "Beyond this distance from the shop the delivery is not proposed to them.",
+      "nessunLimite": "no limit"
+    },
+    "consegna": {
+      "title": "Where it delivers on its own (delivery area)",
+      "sub": "Provinces where the partner delivers by itself, with minimum order and radius per province. Empty = the default values above. Provinces where it SELLS stay in the commercial area.",
+      "aggiungi": "+ Add province…",
+      "copiaVendite": "Start from the provinces where it sells",
+      "copiaTutte": "Copy the first row's values to all",
+      "vuoto": "No delivery province: it delivers on its own in every province where it sells, with the default values.",
+      "colProvincia": "Province",
+      "colMinimo": "Minimum order (€)",
+      "colRaggio": "Radius (km)",
+      "predefinito": "default"
     },
     "categories": {
       "title": "Sold categories",
@@ -1638,7 +1807,8 @@
         "sun": "Sunday"
       },
       "editHint": "Days left empty are not saved: empty means “unknown”, not “open”. Tick “closed” to state the partner does not work that day.",
-      "incomplete": "A day has only one of the two times: set both open and close, or tick “closed”."
+      "incomplete": "A day has only one of the two times: set both open and close, or tick “closed”.",
+      "copyAllHint": "Applies these hours (and “closed”, if ticked) to every other day. Press Save to keep them."
     },
     "payments": {
       "title": "Payments and invoicing",
@@ -1669,6 +1839,10 @@
       "smsEnabled": "Ability to send SMS",
       "whatsappNotifications": "WhatsApp notifications",
       "mailNotifications": "Email notifications",
+      "esclusoDalleProposte": "Excluded from automatic proposals",
+      "esclusoDalleProposteHint": "An in-house fallback partner (Artista Locale, Deluxy Flowers, Cakedesignme): it never enters the lists orders are proposed to and does not make a province «with partner». Office only.",
+      "autoDeliveredByPartner": "Delivered by partner",
+      "autoDeliveredByPartnerHint": "This partner delivers on its own: deliveries are born as «by the partner», assigned to the «Partner Consegna» valet, with the confirmation link. With the flag on you may set a maximum radius; empty = accepts everything in its provinces.",
       "activityReminder": "Activity reminder"
     },
     "sales": {
@@ -1701,7 +1875,8 @@
     "requiredHint": "Fields marked with * are required.",
     "createButton": "Create valet",
     "remove": "Remove",
-    "provincesHint": "Provinces where the valet operates.",
+    "provincesHint": "Single extra provinces on top of the areas: the valet works in the union of both.",
+    "areeHint": "The valet works in the provinces of its areas. Areas are managed in Settings → Areas.",
     "addProvince": "+ Add province…",
     "provincesEmpty": "No province selected.",
     "servicesHint": "Salary per service. Rule: only one hourly service and one fixed-price service.",
@@ -1835,11 +2010,14 @@
       "alternateName": "Alternate product name",
       "stock": "Stock",
       "lineHint": "(values separated by ;)",
-      "alternateNameHint": "(name the partner sees in Deliveries)"
+      "alternateNameHint": "(name the partner sees in Deliveries)",
+      "tipologiaVendita": "Selling type",
+      "tipologiaVenditaHint": "Used by dispatching: it says how the supplier is chosen and how the price is made."
     },
     "placeholder": {
       "name": "E.g. Red Roses Bouquet",
-      "selectCategory": "Select a category…"
+      "selectCategory": "Select a category…",
+      "selectTipologia": "— Choose —"
     },
     "typeOption": {
       "UNICO": "Unique (of one partner)",
@@ -1900,7 +2078,8 @@
     "error": {
       "requiredFields": "Name, category and price are required.",
       "partnerRequired": "A Unique product requires a partner.",
-      "createFailed": "Error creating the product"
+      "createFailed": "Error creating the product",
+      "tipologiaRequired": "Choose the selling type: without it, dispatching cannot handle the product."
     },
     "images": {
       "title": "Images",
@@ -1914,7 +2093,18 @@
       "descFor": "Description ({{platform}})"
     },
     "editTitle": "Edit product",
-    "partnerInactive": "inactive"
+    "partnerInactive": "inactive",
+    "tipologia": {
+      "legenda": "What it means",
+      "unico": "Partner exclusive product",
+      "unicoSpiega": "Only one partner makes it, at their own price: the sale goes to them.",
+      "quantita": "By quantity",
+      "quantitaSpiega": "Sold by number of identical pieces (12 roses, 16 pralines): unit price times quantity.",
+      "mix": "Mix / arrangement",
+      "mixSpiega": "Value arrangement (bouquet, hat box): proposed with the province discount and the priority list.",
+      "preventivo": "By quote",
+      "preventivoSpiega": "The partner quote is needed before accepting the sale (cake design cakes, flower baskets, balloon bouquets)."
+    }
   },
   "serviceForm": {
     "backToServices": "Services",
@@ -2024,8 +2214,20 @@
     "editTitle": "Edit operator"
   },
   "deliveryDetail": {
+    "noFee": "no fee",
+    "codice": {
+      "titolo": "Valet code at pickup",
+      "spiega": "This delivery requires valet verification: enter the code {{valet}} gives you at pickup. If it matches, they can go.",
+      "campo": "Valet code",
+      "verifica": "Verify the code",
+      "verificato": "Pickup verified on {{quando}}: the valet code matches.",
+      "valetAttende": "The partner must verify your code at pickup before you can start the delivery."
+    },
     "valet": {
       "inDelivery": "Start delivery",
+      "cashTitle": "Payment on delivery",
+      "cashMsg": "Collect {{importo}} € in cash from the recipient. The amount will be deducted from your next payout.",
+      "cashOk": "Got it, start delivery",
       "delivered": "Delivered",
       "notDelivered": "Not delivered",
       "deliveredTitle": "Delivery #{{code}} delivered",
@@ -2054,7 +2256,12 @@
       },
       "dettaglioPh": "Add a detail (required if you choose \"Other\")",
       "motivoObbligatorio": "Pick a reason or write what happened.",
-      "confirmNotDelivered": "Confirm: not delivered"
+      "confirmNotDelivered": "Confirm: not delivered",
+      "oreTitolo": "Service hours",
+      "oreDalle": "Started at",
+      "oreAlle": "Finished at",
+      "oreHint": "These are the planned times: correct them if you started or finished at another time. The partner approves or rejects them.",
+      "oreObbligatorie": "Without start and end time the delivery cannot be closed: those hours are paid and invoiced."
     },
     "title": "Delivery #{{code}}",
     "section": {
@@ -2075,6 +2282,7 @@
     "productValue": "Product value",
     "deliveryPrice": "Delivery price",
     "valetSalary": "Valet salary",
+    "valetPayRule": "rule «{{nome}}»: the valet is not paid",
     "valetAdditionalPrice": "Valet plus / minus",
     "intercom": "Intercom",
     "phone": "Phone",
@@ -2159,13 +2367,53 @@
       "manca": "Write a reason.",
       "importoManca": "Enter a valid amount."
     },
-    "download": "Download"
+    "download": "Download",
+    "ore": {
+      "titolo": "Hours to approve",
+      "dichiarate": "The valet declares {{dalle}}–{{alle}}.",
+      "previste": "Planned hours: {{ore}}.",
+      "approva": "Approve the valet hours",
+      "rifiuta": "Reject: planned hours apply",
+      "attesa": "Waiting for the partner to approve or reject.",
+      "esito_approvate": "Hours approved by {{chi}}: {{dalle}}–{{alle}}, billed {{ore}} h.",
+      "esito_rifiutate": "Hours rejected by {{chi}}: planned hours apply, billed {{ore}} h."
+    },
+    "redelivery": {
+      "from": "Redelivery of",
+      "to": "Redelivered with"
+    },
+    "nonConsegnata": {
+      "alert": "Not delivered: to handle.",
+      "cosa": "Every night it moves to today's date until someone decides: redelivery or closure.",
+      "riconsegna": "Create the redelivery"
+    },
+    "prova": {
+      "consegnataAlle": "Delivered on",
+      "ritirataDa": "Received by",
+      "valet": "Valet",
+      "documenti": "Documents",
+      "nessunDocumento": "no document uploaded",
+      "ddtAggiungi": "Add the delivery note photo",
+      "ddtSostituisci": "Replace the delivery note photo",
+      "ddtInvio": "Uploading the delivery note…",
+      "ddtErrore": "Delivery note not uploaded: try again."
+    }
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
     "receivedBy": "Received by",
     "receivedByPlaceholder": "Name of who received it",
-    "confirm": "Confirm delivery",
+    "confirm": "Delivered",
+    "notDelivered": "Not delivered",
+    "doneNon": "Marked as not delivered. The office will handle it.",
+    "popup": {
+      "titoloSi": "Confirm delivery #{{code}}?",
+      "titoloNo": "Delivery #{{code}} not delivered?",
+      "motivo": "Why",
+      "motivoPh": "e.g. recipient absent, wrong address…",
+      "confermaSi": "Yes, delivered",
+      "confermaNo": "Yes, not delivered"
+    },
     "done": "Delivery confirmed ✓ Thank you.",
     "closed": "This delivery is closed (cancelled, not delivered or not accepted): it cannot be confirmed from this link. Please contact the office."
   },
@@ -2307,7 +2555,7 @@
     "here": "On the platform",
     "registry": "In the registry",
     "identical": "No differences: the two records match.",
-    "push": "Send to registry",
+    "push": "Edit registry",
     "pushHint": "Sending overwrites the registry fields with the platform values and saves the link.",
     "mirrorTitle": "Careful: linked to a duplicate.",
     "mirrorBody": "The registry record this partner is linked to was created by the platform itself: it holds our own data, so “no differences” is guaranteed and proves nothing. Another registry record carries the same VAT number, and is almost certainly the real one:",
@@ -2321,15 +2569,23 @@
     "pushCreateHint": "It isn’t in the registry: a new record is created from this page, and stays linked.",
     "pushLink": "Link to the registry",
     "pushLinkHint": "The registry record already exists: it gets linked to this partner and the fields above are overwritten with ours.",
-    "pushUpdate": "Update the registry",
+    "pushUpdate": "Edit registry",
     "pushUpdateHint": "Already linked: the platform fields are written over the registry ones.",
     "pushAmbiguous": "Link to the registry",
     "pushBlocked": "The registry holds several possible records: pick one by hand, so another isn’t created.",
-    "recheck": "Re-check the registry"
+    "recheck": "Re-check the registry",
+    "linkThis": "Link this one",
+    "createNew": "Create a new record in the registry",
+    "toRegistry": "To registry",
+    "toRegistryHint": "Tick the fields to write into the registry. With no ticks everything is sent.",
+    "fromRegistry": "Here",
+    "emptyHere": "Nothing here to send."
   },
   "sales": {
     "title": "Sales",
     "caption": "Orders dispatched to partners.",
+    "cercaFornitore": "Find supplier",
+    "fuoriCatalogo": "not in the catalogue, from the order title",
     "empty": "No sales yet. Use “Pull from Orders” to bring orders in.",
     "noPartner": "— no partner",
     "accept": "Accept",
@@ -2340,7 +2596,9 @@
       "nome": "Recipient first name",
       "cognome": "Recipient last name",
       "indirizzo": "Address",
-      "telefono": "Phone"
+      "telefono": "Phone",
+      "mapsMancante": "Google Maps is not configured: the address stays free text and the province must be picked by hand.",
+      "provinciaDaGoogle": "Province updated from Google: {{provincia}}"
     },
     "refuse": "Decline",
     "col": {
@@ -2348,6 +2606,7 @@
       "order": "Source",
       "orders": "Orders state",
       "partnerPrice": "Partner price",
+      "publicPrice": "Public price",
       "historyAt": "Archived on",
       "product": "Product",
       "province": "Prov.",
@@ -2394,8 +2653,22 @@
       "aperto": "Open",
       "evasione": "fulfilment:",
       "smistamento": "routing:",
-      "stato": { "da_gestire": "To handle", "in_lavorazione": "In progress", "in_app": "In app", "in_consegna": "Out for delivery", "consegnato": "Delivered", "annullato": "Cancelled", "chiuso": "Closed" },
-      "salute": { "conforme": "compliant", "a_rischio": "at risk", "non_pagato": "unpaid", "cancellato": "cancelled", "nullo": "void" }
+      "stato": {
+        "da_gestire": "To handle",
+        "in_lavorazione": "In progress",
+        "in_app": "In app",
+        "in_consegna": "Out for delivery",
+        "consegnato": "Delivered",
+        "annullato": "Cancelled",
+        "chiuso": "Closed"
+      },
+      "salute": {
+        "conforme": "compliant",
+        "a_rischio": "at risk",
+        "non_pagato": "unpaid",
+        "cancellato": "cancelled",
+        "nullo": "void"
+      }
     },
     "notConform": {
       "tag": "order {{salute}}",
@@ -2406,7 +2679,11 @@
     "reconcile": {
       "open": "Reconcile with a delivery",
       "close": "Close the search",
-      "none": "No sale delivery at this address.",
+      "none": "No delivery carries this order number as its DDT, and none at the same address.",
+      "by": {
+        "ddt": "Found by DDT: it carries this same order number.",
+        "indirizzo": "Found by address: same address, sale service, within 10 days."
+      },
       "same": "This is it",
       "done": "Sale reconciled with delivery #{{code}}: archived, and the reference is in the DDT."
     },
@@ -2420,20 +2697,31 @@
       "base_categoria": "“{{prodotto}}” was never sold: here is the same category in the province of {{provincia}}.",
       "base_nessuna": "No precedent to show.",
       "none": "No accepted sale to learn from.",
-      "col": { "partner": "Partner", "times": "Times", "price": "Price", "last": "Last time" },
+      "col": {
+        "partner": "Partner",
+        "times": "Times",
+        "price": "Price",
+        "last": "Last time"
+      },
       "net": "partner gets {{prezzo}} €",
+      "consegnata": "delivered on",
       "old": "more than a year ago",
       "inactive": "inactive",
       "notHere": "does not operate in this province",
       "excluded": "excluded from reconciliations",
       "propose": "Propose to them",
       "proposedOk": "Sale proposed to {{partner}}.",
-      "rule.create": "Create reconciliation",
-      "rule.created": "Reconciliation with {{partner}} created: find it in Products → Reconciliations, to accept."
+      "createRule": "Create reconciliation",
+      "ruleCreated": "Reconciliation with {{partner}} created: find it in Products → Reconciliations, to accept."
     },
     "detail": {
       "title": "Sale",
       "product": "Product",
+      "righeOrdine": "Order ({{n}} lines)",
+      "rigaDellaVendita": "this sale's line",
+      "photos": "See the product photos",
+      "maker": "Made by {{chi}}",
+      "line": "Line {{linea}}",
       "amount": "Amount",
       "discount": "discount",
       "partner": "Partner",
@@ -2449,7 +2737,18 @@
       "partnerPriceHint": "what the partner gets",
       "registro": "Log",
       "noLogs": "No events recorded: the log starts on 4 September 2026.",
-      "system": "system"
+      "system": "system",
+      "loFa": "Made by {{chi}}",
+      "inConsegna": "already in delivery",
+      "venditaSenzaConsegna": "sale open, no delivery yet",
+      "nessunaVendita": "no sale for this row",
+      "ordineIncompleto": "⚠️ Composite order: not all sales reached a delivery. Check before delivering only one.",
+      "salvaPreventivo": "Save quote",
+      "preventivoTitolo": "Partner quote",
+      "preventivoSotto": "A quote product needs the agreed price before it can be inserted: saving it also creates the rule for next time.",
+      "preventivoPrezzo": "Partner price (€)",
+      "chiediPreventivo": "Ask for the quote",
+      "preventivoServe": "Quote product: the partner price comes first, then you can accept or insert."
     }
   },
   "activities": {
@@ -2460,6 +2759,12 @@
     "capped": "Showing {{mostrate}} of {{totale}}: the list is capped so it does not load tens of thousands.",
     "markDone": "Mark done",
     "markPending": "Reopen",
+    "sezione": {
+      "aperte": "To do",
+      "storico": "History",
+      "storicoNota": "Completed activities: done and skipped, most recent first. «Reopen» brings one back to the to-do list.",
+      "storicoVuoto": "No completed activities"
+    },
     "type": {
       "PICKUP": "Pickup",
       "DELIVERY": "Delivery"
@@ -2471,6 +2776,17 @@
       "delivery": "Delivery",
       "valet": "Valet",
       "status": "Status"
+    },
+    "filtri": {
+      "citta": "City",
+      "tutteCitta": "All cities",
+      "valet": "Valet",
+      "tuttiValet": "All valets",
+      "chi": "Who",
+      "soloIo": "Only me",
+      "tutti": "Everyone",
+      "conPartner": "Partner-delivered",
+      "notaPartner": "Deliveries carried by the partner are hidden: there is no round to run. The checkbox brings them back."
     }
   },
   "smsTemplates": {
@@ -2788,5 +3104,193 @@
     "attachmentDownload": "Download",
     "ricevutaLegacy": "Receipt on the old system (switched off): no longer openable",
     "fileTooBig": "File too large (max 5 MB)."
+  },
+  "changePassword": {
+    "title": "Change your password",
+    "forcedTitle": "Choose your password",
+    "forcedHint": "You signed in with a temporary password: choose your own before continuing.",
+    "current": "Current password",
+    "new": "New password (at least 8 characters)",
+    "confirm": "Repeat the new password",
+    "submit": "Save the password",
+    "tooShort": "The new password must be at least 8 characters.",
+    "mismatch": "The two passwords do not match.",
+    "error": "Password change failed.",
+    "ok": "Password updated."
+  },
+  "statistiche": {
+    "title": "Statistics",
+    "sub": "How it is going, by period and service type, with comparison.",
+    "periodo": "Period",
+    "confronto": "Compare with",
+    "giorni": "days",
+    "vs": "vs",
+    "pariGiorni": "same elapsed days",
+    "aggiornato": "updated at",
+    "p": {
+      "oggi": "Today",
+      "settimana": "Week",
+      "mese": "Month",
+      "mese-scorso": "Last month",
+      "trimestre": "Quarter",
+      "anno": "Year"
+    },
+    "c": {
+      "precedente": "Previous period",
+      "anno-prima": "Year before"
+    },
+    "kpi": {
+      "consegne": "Deliveries",
+      "prezzoMedio": "Average service price",
+      "feeMedia": "Average fee (sales)",
+      "margineMedio": "Average margin (sales)",
+      "puntualita": "On time",
+      "guasti": "Not delivered + cancelled",
+      "ritardoMedio": "Average delay",
+      "anticipoMedio": "Average early",
+      "tempoMedio": "Average delivery time",
+      "kmMedi": "Average km",
+      "leadTime": "Order lead time",
+      "venduto": "Sold",
+      "pagatoPartner": "Paid to partners",
+      "feeTotale": "Deluxy fee",
+      "costoValet": "Valet cost",
+      "margineTotale": "Margin",
+      "concluse": "Completed",
+      "annullate": "Cancelled"
+    },
+    "base": "on {{n}} of {{m}}",
+    "su": "on {{n}} of {{m}} completed",
+    "suTutte": "on all {{m}}",
+    "copertura": "on {{n}} of {{m}} · {{senza}} without data",
+    "nessuna": "no deliveries",
+    "baseConsegne": "{{concluse}} completed · before {{vs}}",
+    "baseGuasti": "{{nc}} not delivered · {{an}} cancelled",
+    "suRitardi": "on {{n}} late",
+    "suAnticipi": "on {{n}} early",
+    "suRighe": "on {{n}} sale rows",
+    "delVenduto": "of sold",
+    "fuoriCitta": "{{p}} out of town",
+    "gg": "days",
+    "puntualita": {
+      "titolo": "Punctuality and times",
+      "barra": "On time, early, late shares",
+      "inOrario": "on time",
+      "anticipo": "early",
+      "ritardo": "late",
+      "base": "Assessable {{n}} of {{m}} delivered · {{senza}} without real time or slot · tolerance +{{tol}} min late, −{{ant}} min early",
+      "nd": "No assessable delivery in the period (real delivery time and promised slot are needed).",
+      "confronto": "Comparison {{periodo}}: on {{n}} assessable deliveries"
+    },
+    "tipologia": {
+      "titolo": "By service type",
+      "totale": "Total",
+      "nota": "Price = partner price + plus/minus + rule, on completed with price. Punctuality on assessable ones. n/d = missing data, excluded from the average.",
+      "col": {
+        "nome": "Type",
+        "consegne": "Deliveries",
+        "delta": "Δ",
+        "concluse": "Completed",
+        "nonConsegnate": "Not deliv. %",
+        "annullate": "Cancelled %",
+        "prezzoMedio": "Avg price",
+        "puntualita": "On time",
+        "ritardoMedio": "Avg delay",
+        "tempoMedio": "Deliv. time",
+        "kmMedi": "Avg km"
+      }
+    },
+    "economia": {
+      "titolo": "Sales: fee and margin (from Finance)",
+      "nota": "Finance formula: (sold − paid) ÷ 1.22 + fee − valet − commission. {{righe}} rows, {{stimate}} with estimated sold (product without public price), {{anomalie}} anomalies.",
+      "nd": "Fee and margin not available for this period.",
+      "ndBreve": "period too wide"
+    },
+    "top": {
+      "partner": "Partners",
+      "valet": "Valets",
+      "province": "Provinces",
+      "nome": "Name",
+      "consegne": "Deliveries",
+      "puntuali": "On time",
+      "altri": "others {{n}}",
+      "baseBassa": "n/d ({{n}})"
+    },
+    "stati": {
+      "titolo": "By status",
+      "stato": "Status",
+      "n": "N"
+    },
+    "filtri": {
+      "servizio": "Service type",
+      "provincia": "Province / city",
+      "partner": "Partners",
+      "tutti": "All",
+      "tutte": "All",
+      "partnerScelti": "{{n}} partners selected",
+      "cercaPartner": "Search partner…",
+      "nessunPartner": "No partner",
+      "azzera": "Clear",
+      "valet": "Valets",
+      "valetScelti": "{{n}} valets selected",
+      "cercaValet": "Search valet…",
+      "nessunValet": "No valet"
+    },
+    "ritardi": {
+      "apri": "open the {{n}} late ones",
+      "intro": "{{mostrate}} of {{n}} late deliveries, latest first. Click a row to open it.",
+      "col": {
+        "code": "Delivery",
+        "date": "Date",
+        "partner": "Partner",
+        "valet": "Valet",
+        "servizio": "Service",
+        "fascia": "Promised slot",
+        "consegnata": "Delivered at",
+        "ritardoMin": "Delay"
+      }
+    },
+    "prima": "before {{v}}",
+    "tendina": {
+      "indirizzo": "Address",
+      "ritiro": "Pickup",
+      "partito": "Departed at",
+      "consegnato": "Delivered at",
+      "oltre": "{{v}} past the slot",
+      "km": "Km",
+      "stato": "Status",
+      "concluse": "completed",
+      "suValutabili": "on {{n}} assessable, {{r}} late",
+      "apriConsegna": "Open delivery #{{code}}",
+      "apriConsegne": "Open in Deliveries",
+      "apriPartner": "Partner card",
+      "apriValet": "Valet card"
+    }
+  },
+  "puntualita": {
+    "titolo": "Punctuality",
+    "in_orario": "On time",
+    "in_ritardo": "Late",
+    "in_anticipo": "Early",
+    "consegnataAlle": "delivered at",
+    "breve": {
+      "in_orario": "On time",
+      "in_ritardo": "Late +",
+      "in_anticipo": "Early −"
+    }
+  },
+  "riconsegna": {
+    "titolo": "Redelivery",
+    "sotto": "Delivery #{{numero}} did not arrive. What do you want to do?",
+    "agganciaTitolo": "Link a delivery that already exists",
+    "agganciaSotto": "If the redelivery is already there: find it and link it, instead of creating another.",
+    "nuovaTitolo": "Create a new one",
+    "nuovaSotto": "Opens the form already filled in: only the day is left to choose.",
+    "cercaPh": "Number, recipient or address",
+    "aggancia": "Link",
+    "giaLegata": "already the redelivery of #{{numero}}",
+    "nessuna": "No delivery found for this search.",
+    "nascondiTitolo": "Hide from Deliveries",
+    "nascondiSotto": "Removes it from the list and leaves it in History: it can always be brought back."
   }
 }

@@ -54,21 +54,41 @@ interface PublicTracking {
             @if (d.partner) { <dt>{{ 'deliveries.col.partner' | translate }}</dt><dd>{{ d.partner }}</dd> }
           </dl>
 
-          @if (done() || d.status === 'delivered' || d.status === 'approved') {
+          @if (doneNon()) {
+            <div class="err box">{{ 'confirmDelivery.doneNon' | translate }}</div>
+          } @else if (done() || d.status === 'delivered' || d.status === 'approved') {
             <div class="ok">{{ 'confirmDelivery.done' | translate }}</div>
           } @else if (chiusa(d.status)) {
             <!-- Consegna annullata, non consegnata o invalidata: il link non la riapre.
                  Senza questo ramo la pagina offriva un bottone che il server rifiuta. -->
             <div class="err">{{ 'confirmDelivery.closed' | translate }}</div>
           } @else {
-            <div class="form">
-              <label>{{ 'confirmDelivery.receivedBy' | translate }}</label>
-              <input class="field" [(ngModel)]="receivedBy" [placeholder]="'confirmDelivery.receivedByPlaceholder' | translate" />
+            <!-- ⭐ 06/09/2026 (regola utente): due esiti, ognuno con un pop-up di conferma. -->
+            <div class="form azioni">
+              <button class="btn btn-primary" (click)="apri('consegnata')">{{ 'confirmDelivery.confirm' | translate }}</button>
+              <button class="btn btn-secondary" (click)="apri('non')">{{ 'confirmDelivery.notDelivered' | translate }}</button>
               @if (formError()) { <div class="err small">{{ formError() }}</div> }
-              <button class="btn btn-primary" [disabled]="saving()" (click)="confirm()">
-                {{ saving() ? ('common.saving' | translate) : ('confirmDelivery.confirm' | translate) }}
-              </button>
             </div>
+            @if (scelta(); as s) {
+              <div class="velo" (click)="scelta.set(null)"></div>
+              <div class="dialogo" role="dialog" aria-modal="true">
+                <h2>{{ (s === 'consegnata' ? 'confirmDelivery.popup.titoloSi' : 'confirmDelivery.popup.titoloNo') | translate: { code: d.code } }}</h2>
+                @if (s === 'consegnata') {
+                  <label>{{ 'confirmDelivery.receivedBy' | translate }}</label>
+                  <input class="field" [(ngModel)]="receivedBy" [placeholder]="'confirmDelivery.receivedByPlaceholder' | translate" />
+                } @else {
+                  <label>{{ 'confirmDelivery.popup.motivo' | translate }}</label>
+                  <input class="field" [(ngModel)]="motivo" [placeholder]="'confirmDelivery.popup.motivoPh' | translate" />
+                }
+                @if (formError()) { <div class="err small">{{ formError() }}</div> }
+                <div class="dialogo-piede">
+                  <button class="btn btn-secondary" (click)="scelta.set(null)">{{ 'common.cancel' | translate }}</button>
+                  <button class="btn" [class.btn-primary]="s === 'consegnata'" [class.btn-danger]="s === 'non'" [disabled]="saving()" (click)="s === 'consegnata' ? confirm() : nonConsegnata()">
+                    {{ saving() ? ('common.saving' | translate) : ((s === 'consegnata' ? 'confirmDelivery.popup.confermaSi' : 'confirmDelivery.popup.confermaNo') | translate) }}
+                  </button>
+                </div>
+              </div>
+            }
           }
         </div>
         }
@@ -99,9 +119,19 @@ interface PublicTracking {
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
-      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      /* ⭐ 07/09/2026: non consegnata = nero, non rosso (stessa legenda dell'elenco). */
+      .dot.s-not_delivered { background: var(--text, #1d1d1f); }
+      .dot.s-not_accepted { background: var(--red); }
       .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .form { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+      .form.azioni { flex-direction: row; flex-wrap: wrap; }
+      .btn-danger { background: var(--red); color: #fff; }
+      .err.box { margin-top: 22px; padding: 14px 16px; border-radius: var(--radius-l); background: rgba(215,0,21,0.08); border: 1px solid rgba(215,0,21,0.25); font-weight: 550; }
+      .velo { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 90; }
+      .dialogo { position: fixed; z-index: 91; left: 50%; top: 20vh; transform: translateX(-50%); width: min(92vw, 420px); background: var(--surface, #fff); border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 8px; }
+      .dialogo h2 { margin: 0 0 6px; font-size: 18px; }
+      .dialogo label { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
+      .dialogo-piede { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
       .form label { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .form .btn { margin-top: 8px; align-self: flex-start; }
       .ok { margin-top: 22px; padding: 14px 16px; border-radius: var(--radius-l); background: rgba(36,138,61,0.1); border: 1px solid rgba(36,138,61,0.25); color: var(--green); font-weight: 550; }
@@ -118,8 +148,20 @@ export class ConfirmDeliveryComponent {
   readonly error = signal(false);
   readonly saving = signal(false);
   readonly done = signal(false);
+  readonly doneNon = signal(false);
+  readonly scelta = signal<'consegnata' | 'non' | null>(null);
   readonly formError = signal<string | null>(null);
   receivedBy = '';
+  motivo = '';
+  apri(s: 'consegnata' | 'non'): void { this.formError.set(null); this.scelta.set(s); }
+  nonConsegnata(): void {
+    this.formError.set(null);
+    this.saving.set(true);
+    this.http.post(`${environment.apiUrl}/deliveries/not-delivered/${this.token}`, { motivo: this.motivo.trim() }).subscribe({
+      next: () => { this.saving.set(false); this.scelta.set(null); this.doneNon.set(true); },
+      error: (err) => { this.saving.set(false); this.formError.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
   private token = '';
 
   /**
@@ -145,7 +187,7 @@ export class ConfirmDeliveryComponent {
     this.formError.set(null);
     this.saving.set(true);
     this.http.post(`${environment.apiUrl}/deliveries/delivered/${this.token}`, { receivedBy: this.receivedBy.trim() }).subscribe({
-      next: () => { this.saving.set(false); this.done.set(true); },
+      next: () => { this.saving.set(false); this.scelta.set(null); this.done.set(true); },
       error: (err) => { this.saving.set(false); this.formError.set(err?.error?.message ?? 'Errore'); },
     });
   }

@@ -34,6 +34,14 @@ interface PartnerDetail {
   invoiceEmail?: string;
   provinces?: { province: { id: string; code: string; name: string } }[];
   categories?: { category: { id: string; name: string } }[];
+  /** ⭐ 06/09 sera (richiesta utente): mestieri, area commerciale, consegna da partner e area di consegna. */
+  mestieri?: { mestiere: { id: string; nome: string } }[];
+  aree?: { area: { id: string; nome: string } }[];
+  autoDeliveredByPartner?: boolean;
+  esclusoDalleProposte?: boolean;
+  minimoOrdineVendita?: number | null;
+  raggioMaxConsegnaKm?: number | null;
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null; province?: { id: string; code: string; name: string } }[];
   hasWarehouse?: boolean;
   services?: {
     serviceType?: { id: string; name?: string; pricingModel?: string };
@@ -208,14 +216,26 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                   <thead><tr>
                     <th>{{ 'partnerAnagrafica.field' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.here' | translate }}</th>
+                    <th class="scegli">{{ 'partnerAnagrafica.toRegistry' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.registry' | translate }}</th>
-                    <th class="scegli"></th>
+                    <th class="scegli">{{ 'partnerAnagrafica.fromRegistry' | translate }}</th>
                   </tr></thead>
                   <tbody>
                     @for (d of a.differenze; track d.campo) {
                       <tr [class.rischiosa]="rischioso(d.campo)">
                         <td>{{ d.campo }}</td>
                         <td>{{ d.piattaforma ?? '—' }}</td>
+                        <!-- ⭐ 04/09/2026 (regola utente): si sceglie che cosa
+                             mandare, campo per campo. Dove qui non c'è niente
+                             non si spunta: un vuoto non corregge nessuno. -->
+                        <td class="scegli">
+                          @if (d.piattaforma) {
+                            <input type="checkbox" [checked]="daMandare().has(d.campo)" (change)="scegliDaMandare(d.campo)"
+                                   [title]="'partnerAnagrafica.toRegistryHint' | translate">
+                          } @else {
+                            <span class="vuoto" [title]="'partnerAnagrafica.emptyHere' | translate">—</span>
+                          }
+                        </td>
                         <td class="reg">{{ d.registro ?? '—' }}
                           @if (d.scrittoDa) {
                             <span class="provenienza">{{ 'partnerAnagrafica.writtenBy' | translate:{ sistema: d.scrittoDa, quando: (d.scrittoIl | date: 'dd/MM/yyyy') } }}</span>
@@ -245,31 +265,24 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                             (click)="importa()">
                       {{ (importando() ? 'common.saving' : 'partnerAnagrafica.pull') | translate:{ n: daPrendere().size } }}
                     </button>
+                    <!-- ⭐ 04/09/2026 (regola utente): i tre comandi su UNA riga:
+                         prendere dal registro, scrivere nel registro, ricontrollare.
+                         Sono tre gesti sullo stesso confronto e stavano su tre righe. -->
+                    <button type="button" class="btn btn-primary"
+                            [disabled]="sincronizzando() || a.stato === 'ambiguo'"
+                            [title]="a.stato === 'ambiguo' ? ('partnerAnagrafica.pushBlocked' | translate) : ''"
+                            (click)="sincronizza()">
+                      {{ (sincronizzando() ? 'common.saving' : etichettaInvio(a.stato)) | translate }}{{ daMandare().size ? ' (' + daMandare().size + ')' : '' }}
+                    </button>
+                    <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
+                      {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.recheck') | translate }}
+                    </button>
                     @if (esitoImport(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
+                    @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
                   </div>
                   <p class="hint">{{ 'partnerAnagrafica.pullHint' | translate }}</p>
+                  <p class="hint">{{ spiegazioneInvio(a.stato) | translate }}</p>
                 }
-                <!-- ⚠️ I bottoni DICONO che cosa faranno, e cambiano con lo
-                     stato del confronto: «Invia al registro» valeva sia per
-                     creare una scheda che non c'e', sia per riscrivere su una
-                     che c'e' gia' — due gesti diversi sotto la stessa parola.
-                     Nel caso AMBIGUO il bottone resta visibile ma spento: il
-                     server rifiuterebbe comunque (piu' record possibili, per
-                     non crearne un altro), e un bottone che puo' solo fallire
-                     e' peggio di uno spento che dice perche'. -->
-                <div class="azioni">
-                  <button type="button" class="btn btn-primary"
-                          [disabled]="sincronizzando() || a.stato === 'ambiguo'"
-                          [title]="a.stato === 'ambiguo' ? ('partnerAnagrafica.pushBlocked' | translate) : ''"
-                          (click)="sincronizza()">
-                    {{ (sincronizzando() ? 'common.saving' : etichettaInvio(a.stato)) | translate }}
-                  </button>
-                  <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
-                    {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.recheck') | translate }}
-                  </button>
-                  @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
-                </div>
-                <p class="hint">{{ spiegazioneInvio(a.stato) | translate }}</p>
               }
               }
             }
@@ -290,9 +303,26 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             </dl>
           </section>
 
+          <!-- ⭐ 06/09 sera (richiesta utente): nel dettaglio si vedono MESTIERE, AREA COMMERCIALE,
+               se CONSEGNA DA SOLO e in quali province (area di consegna). Le «Categorie» non si mostrano più. -->
           <section class="card block">
-            <h2>{{ 'partnerForm.provinces.title' | translate }}</h2>
+            <h2>{{ 'partnerForm.mestieri.title' | translate }}</h2>
+            @if (p.mestieri?.length) {
+              <div class="chips">
+                @for (m of p.mestieri; track m.mestiere.id) { <span class="chip on">{{ m.mestiere.nome }}</span> }
+              </div>
+            } @else { <p class="muted">{{ 'partnerDetail.vendite.senzaMestiere' | translate }}</p> }
+          </section>
+
+          <section class="card block">
+            <h2>{{ 'partnerDetail.vendite.areaCommerciale' | translate }}</h2>
+            @if (p.aree?.length) {
+              <div class="chips">
+                @for (a of p.aree; track a.area.id) { <span class="chip on">{{ a.area.nome }}</span> }
+              </div>
+            }
             @if (p.provinces?.length) {
+              <p class="muted mini">{{ 'partnerForm.aree.effettive' | translate: { n: p.provinces?.length ?? 0 } }}</p>
               <div class="chips">
                 @for (pp of p.provinces; track pp.province.id) {
                   <span class="chip">{{ pp.province.code }} · {{ pp.province.name }}</span>
@@ -302,12 +332,24 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           </section>
 
           <section class="card block">
-            <h2>{{ 'partnerForm.categories.title' | translate }}</h2>
-            @if (p.categories?.length) {
-              <div class="chips">
-                @for (c of p.categories; track c.category.id) { <span class="chip">{{ c.category.name }}</span> }
-              </div>
-            } @else { <p class="muted">{{ 'partnerForm.categories.empty' | translate }}</p> }
+            <h2>{{ 'partnerDetail.vendite.consegna' | translate }}</h2>
+            @if (p.esclusoDalleProposte) { <p class="riga-si"><span class="badge-no">{{ 'partnerForm.setup.esclusoDalleProposte' | translate }}</span><span class="muted mini">{{ 'partnerForm.setup.esclusoDalleProposteHint' | translate }}</span></p> }
+            @if (p.autoDeliveredByPartner) {
+              <p class="riga-si"><span class="badge-si">{{ 'partnerDetail.vendite.consegnaSi' | translate }}</span>
+                <span class="muted mini">{{ 'partnerDetail.vendite.predefiniti' | translate: { minimo: p.minimoOrdineVendita ?? '—', raggio: p.raggioMaxConsegnaKm ?? '—' } }}</span></p>
+              @if (p.consegnaProvince?.length) {
+                <table class="tab-consegna">
+                  <thead><tr><th>{{ 'partnerForm.consegna.colProvincia' | translate }}</th><th>{{ 'partnerForm.consegna.colMinimo' | translate }}</th><th>{{ 'partnerForm.consegna.colRaggio' | translate }}</th></tr></thead>
+                  <tbody>
+                    @for (r of p.consegnaProvince; track r.provinceId) {
+                      <tr><td><b>{{ r.province?.code ?? '?' }}</b> <span class="muted">{{ r.province?.name ?? '' }}</span></td><td>{{ r.minimoOrdine ?? (p.minimoOrdineVendita ?? '—') }}</td><td>{{ r.raggioKm ?? (p.raggioMaxConsegnaKm ?? '—') }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } @else { <p class="muted mini">{{ 'partnerForm.consegna.vuoto' | translate }}</p> }
+            } @else {
+              <p class="muted">{{ 'partnerDetail.vendite.consegnaNo' | translate }}</p>
+            }
           </section>
 
           <section class="card block">
@@ -579,6 +621,15 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .candidati li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 0; }
       .btn.mini { padding: 4px 12px; font-size: 12px; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
+      .chip.on { background: var(--text); color: #fff; border-color: var(--text); }
+      .mini { font-size: 12.5px; margin: 8px 0 6px; }
+      .riga-si { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+      .badge-si { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; background: rgba(36,138,61,.12); color: #248A3D; }
+      .badge-no { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; background: rgba(0,0,0,.06); color: var(--text-secondary); }
+      .badge-si::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .tab-consegna { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .tab-consegna th { text-align: left; font-size: 11.5px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+      .tab-consegna td { padding: 4px 8px; border-top: 1px solid var(--hairline); }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline); }
       table.mini th { color: var(--text-tertiary); font-weight: 500; font-size: 12px; }
@@ -657,11 +708,16 @@ export class PartnerDetailComponent {
    * Il confronto NON parte da solo all'apertura della scheda: interroga un
    * servizio esterno e può metterci qualche secondo. Si chiede quando serve.
    */
-  confronta(): void {
+  /**
+   * ⚠️ 04/09/2026: `mantieniEsito` esiste perché il messaggio dell'invio
+   * veniva CANCELLATO dal ricarico che lo segue — il bottone funzionava e
+   * sembrava non fare niente. Chi lo preme deve leggere com'è andata.
+   */
+  confronta(mantieniEsito = false): void {
     const p = this.partner();
     if (!p) return;
     this.cercando.set(true);
-    this.esitoSync.set(null);
+    if (!mantieniEsito) this.esitoSync.set(null);
     this.http.get<any>(`${environment.apiUrl}/partners/${p.id}/anagrafica`).subscribe({
       next: (r) => { this.cercando.set(false); this.anagrafica.set(r); this.anagraficaCaricata.set(true); this.preselezione(r.differenze ?? []); },
       error: (e) => {
@@ -803,6 +859,40 @@ export class PartnerDetailComponent {
   }
 
   /** Collega il partner a UNA scheda scelta a mano fra i candidati. */
+  /** I campi della piattaforma scelti per il registro (nomi come in tabella). */
+  readonly daMandare = signal<Set<string>>(new Set());
+  scegliDaMandare(campo: string): void {
+    this.daMandare.update((s) => {
+      const n = new Set(s);
+      if (n.has(campo)) n.delete(campo); else n.add(campo);
+      return n;
+    });
+  }
+
+  /**
+   * Dai nomi di tabella alle chiavi del registro. È la stessa mappa che usa
+   * il confronto lato server: tenerla qui è l'unico modo per mandare solo i
+   * campi spuntati senza inventare un secondo linguaggio.
+   */
+  private static readonly CHIAVI: Record<string, string> = {
+    'Insegna / nome': 'nome', 'Ragione sociale': 'ragioneSociale', Email: 'email',
+    'P.IVA': 'pIva', 'Codice fiscale': 'codiceFiscale', Indirizzo: 'indirizzo',
+    Telefono: 'telefono', Referente: 'contatti', Attivo: 'attivo',
+    'Codice SDI': 'codiceSdi', PEC: 'pec', IBAN: 'iban',
+    'Intestatario conto': 'intestatarioConto', 'Metodo di pagamento': 'metodoPagamento',
+    'Amministrazione — nome': 'amministrazioneNome',
+    'Amministrazione — email': 'amministrazioneEmail',
+    'Amministrazione — telefono': 'amministrazioneTelefono',
+  };
+
+  /** Le chiavi da mandare, o undefined = tutto (comportamento di prima). */
+  private campiScelti(): string[] | undefined {
+    const scelti = [...this.daMandare()]
+      .map((campo) => PartnerDetailComponent.CHIAVI[campo])
+      .filter(Boolean);
+    return scelti.length ? scelti : undefined;
+  }
+
   collegaA(anagraficaId: string): void {
     this.inviaAlRegistro({ anagraficaId });
   }
@@ -812,18 +902,18 @@ export class PartnerDetailComponent {
     this.inviaAlRegistro({ creaNuova: true });
   }
 
-  private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean }): void {
+  private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean; campi?: string[] }): void {
     const p = this.partner();
     if (!p) return;
     this.sincronizzando.set(true);
     this.esitoSync.set(null);
     this.http.post<{ ok: boolean; messaggio: string }>(
-      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, scelta,
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, { ...scelta, campi: scelta.campi ?? this.campiScelti() },
     ).subscribe({
       next: (r) => {
         this.sincronizzando.set(false);
         this.esitoSync.set(r);
-        if (r.ok) this.confronta();
+        if (r.ok) this.confronta(true);
       },
       error: (e) => {
         this.sincronizzando.set(false);
@@ -838,14 +928,16 @@ export class PartnerDetailComponent {
     this.sincronizzando.set(true);
     this.esitoSync.set(null);
     this.http.post<{ ok: boolean; messaggio: string }>(
-      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, {},
+      // ⭐ 04/09 (regola utente): si mandano SOLO i campi spuntati; nessuna
+      // spunta = tutto, come prima.
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, { campi: this.campiScelti() },
     ).subscribe({
       next: (r) => {
         this.sincronizzando.set(false);
         this.esitoSync.set(r);
         // Si rilegge: dopo l'invio il collegamento dovrebbe risultare fatto, e
         // mostrare ancora lo stato vecchio farebbe credere che non sia andata.
-        if (r.ok) this.confronta();
+        if (r.ok) this.confronta(true);
       },
       error: (e) => {
         this.sincronizzando.set(false);

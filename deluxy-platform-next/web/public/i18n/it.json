@@ -59,7 +59,11 @@
     "serviziDeluxy": "Servizi Deluxy",
     "chiaviApp": "Chiavi delle app",
     "richieste": "Richieste",
-    "segnalazioni": "Segnalazioni"
+    "segnalazioni": "Segnalazioni",
+    "statistiche": "Statistiche",
+    "mestieri": "Mestieri",
+    "listino": "Listino",
+    "aree": "Aree"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -80,8 +84,21 @@
     "recurringSub": "Una consegna che si ripete: la dichiari una volta, le consegne nascono da sole.",
     "other": "Ti serve altro?",
     "otherSub": "Chiedi un preventivo: ti rispondiamo su misura.",
-    "model": { "PREZZO_FISSO": "A prezzo fisso", "A_ORA": "A ore", "VENDITA": "Vendita", "MAGAZZINO": "Magazzino", "CORPORATE": "Aziendale" },
-    "price": { "from": "da {{n}} €", "kmIncl": "{{n}} km inclusi", "perHour": "{{n}} €/ora", "minHours": "min {{n}} h", "fee": "quota Deluxy {{n}}%", "perItem": "{{n}} €/pezzo" }
+    "model": {
+      "PREZZO_FISSO": "A prezzo fisso",
+      "A_ORA": "A ore",
+      "VENDITA": "Vendita",
+      "MAGAZZINO": "Magazzino",
+      "CORPORATE": "Aziendale"
+    },
+    "price": {
+      "from": "da {{n}} €",
+      "kmIncl": "{{n}} km inclusi",
+      "perHour": "{{n}} €/ora",
+      "minHours": "min {{n}} h",
+      "fee": "quota Deluxy {{n}}%",
+      "perItem": "{{n}} €/pezzo"
+    }
   },
   "quotes": {
     "title": "Preventivi",
@@ -723,6 +740,7 @@
       "date": "Data",
       "amount": "Totale consegna",
       "delivery": "Consegna",
+      "publicPrice": "Al pubblico",
       "plusMinus": "Plus/minus",
       "openDelivery": "Apri la consegna"
     },
@@ -769,6 +787,14 @@
     }
   },
   "deliveries": {
+    "nonConsegnate": {
+      "chip": "Non consegnata",
+      "alert": "{{n}} non consegnate da gestire.",
+      "cosa": "Ogni notte tornano alla data di oggi finché non si decide: riconsegna o chiusura."
+    },
+    "codice": {
+      "inserisci": "Inserisci codice valet"
+    },
     "recipientHidden": "Visibile quando la metti in consegna",
     "proposte": {
       "title": "Ordini proposti a te",
@@ -782,6 +808,15 @@
       "rifiutaTitolo": "Rifiutare questa vendita?",
       "rifiutaMessaggio": "la consegna passa nello Storico come «Non accettata» e l'ordine torna all'ufficio, che potrà riassegnarlo.",
       "motivo": "Motivo (facoltativo)"
+    },
+    "svc": {
+      "all": "Tutte le tipologie",
+      "allServices": "Tutti i servizi",
+      "PREZZO_FISSO": "Prezzo fisso",
+      "VENDITA": "Vendite",
+      "A_ORA": "A ore",
+      "CORPORATE": "Corporate",
+      "MAGAZZINO": "Magazzino"
     },
     "tl": {
       "tutte": "Tutte",
@@ -892,7 +927,13 @@
       "label": "Partner: {{nome}}",
       "remove": "Togli il filtro partner"
     },
-    "ruleApplied": "Regola carnet applicata"
+    "ruleApplied": "Regola carnet applicata",
+    "saleRef": "Apri questa vendita in Vendite",
+    "redeliver": "Riconsegna",
+    "legame": {
+      "daTitolo": "Nasce da questa consegna non riuscita",
+      "aTitolo": "Riconsegnata con questa"
+    }
   },
   "partners": {
     "title": "Partner",
@@ -947,7 +988,8 @@
       "provinces": "Province",
       "vehicle": "Mezzo",
       "teamLeader": "Team leader",
-      "status": "Stato"
+      "status": "Stato",
+      "codice": "Codice"
     }
   },
   "reconciliations": {
@@ -971,6 +1013,7 @@
     "empty": "Nessuna riga: cerca le proposte su un intervallo o aspetta la corsa notturna.",
     "loading": "Caricamento…",
     "col": {
+      "publicPrice": "Al pubblico",
       "product": "Prodotto",
       "province": "Provincia",
       "delivery": "Consegna",
@@ -990,6 +1033,7 @@
     },
     "listPrice": "listino {{prezzo}} €",
     "customerPrice": "al cliente {{prezzo}} €",
+    "col2": "",
     "editPartnerPrice": "Prezzo al partner (€)",
     "toPartner": "al partner {{prezzo}} €",
     "partnerInactive": "partner non attivo",
@@ -1026,6 +1070,7 @@
       "type": "Tipo",
       "partner": "Partner",
       "price": "Prezzo",
+      "stock": "Giacenza",
       "status": "Stato"
     },
     "tabActive": "Prodotti",
@@ -1059,6 +1104,74 @@
       "doneMove": "{{n}} spostati.",
       "blocked": "{{n}} non eliminabili perché usati in consegne o vendite: archiviati.",
       "notYours": "{{n}} esclusi perché non tuoi."
+    },
+    "tabListino": "Il mio listino",
+    "unarchive": "Togli dall'archivio"
+  },
+  "aree": {
+    "title": "Aree",
+    "caption": "{{n}} aree: gruppi di province con un nome, da assegnare ai partner",
+    "nuova": "Nuova area",
+    "modifica": "Modifica area",
+    "nomePh": "es. Milano e hinterland",
+    "province": "Province dell'area ({{n}} scelte)",
+    "nProvince": "{{n}} province",
+    "vuoto": "Nessuna area.",
+    "confermaElimina": "Eliminare l'area «{{nome}}»?",
+    "col": {
+      "nome": "Area",
+      "note": "Note",
+      "province": "Province",
+      "partner": "Partner"
+    }
+  },
+  "listino": {
+    "title": "Il tuo listino dei fiori",
+    "caption": "Il prezzo di un fiore singolo, per stelo: è quello che incassi tu. Serve a proporti gli ordini con la quantità giusta (per esempio 12 rose) senza chiedertelo ogni volta.",
+    "primoAccesso": "Compila il tuo listino dei fiori",
+    "primoAccessoSub": "Scrivi quanto prendi per un singolo stelo. Dove c'è già un prezzo l'abbiamo ricavato dalle tue consegne passate: confermalo o correggilo.",
+    "vai": "Compila ora",
+    "compilato": "Listino confermato il {{quando}}.",
+    "daConfermare": "da confermare",
+    "nonLoFaccio": "non lo faccio",
+    "salva": "Salva il listino",
+    "nota": "Lascia vuoto un fiore che non fai. I prezzi restano tuoi: puoi cambiarli quando vuoi da qui.",
+    "col": {
+      "fiore": "Fiore",
+      "prezzo": "€ per stelo",
+      "stato": ""
+    }
+  },
+  "mestieri": {
+    "title": "Mestieri",
+    "caption": "{{n}} mestieri raccolgono {{c}} categorie del catalogo",
+    "col": {
+      "nome": "Mestiere",
+      "categorie": "Categorie",
+      "prodotti": "Prodotti",
+      "partner": "Partner",
+      "liste": "Liste",
+      "automatico": "Smistamento automatico"
+    },
+    "auto": {
+      "si": "i non unici si smistano da soli",
+      "no": "i non unici vanno all'ufficio"
+    },
+    "nuovo": {
+      "bottone": "Nuovo mestiere",
+      "titolo": "Nuovo mestiere",
+      "nomePh": "Nome del mestiere (es. Gelateria)",
+      "hint": "Nasce vuoto: poi collochi le categorie qui sotto e lo assegni ai partner nella loro scheda."
+    },
+    "categorie": {
+      "title": "Categorie del catalogo",
+      "sub": "{{n}} da assegnare",
+      "col": {
+        "nome": "Categoria",
+        "mestiere": "Mestiere"
+      },
+      "daAssegnare": "— da assegnare —",
+      "archiviata": "archiviata"
     }
   },
   "categories": {
@@ -1150,6 +1263,11 @@
     "total": "Totali",
     "newTitle": "Nuova regola carnet",
     "editTitle": "Modifica regola carnet",
+    "registro": {
+      "titolo": "Registro",
+      "vuoto": "Nessuna riga: la regola è nata prima del registro (6/9/2026) o viene dal vecchio gestionale.",
+      "sistema": "sistema"
+    },
     "col": {
       "name": "Nome",
       "rule": "Regola",
@@ -1190,6 +1308,14 @@
     }
   },
   "partnerDetail": {
+    "vendite": {
+      "areaCommerciale": "Area commerciale (dove vende)",
+      "consegna": "Consegna da partner",
+      "consegnaSi": "Consegna da solo",
+      "consegnaNo": "Non consegna da solo: le sue consegne le fa un valet.",
+      "predefiniti": "Predefiniti: minimo d'ordine {{minimo}} €, raggio {{raggio}} km",
+      "senzaMestiere": "Nessun mestiere assegnato: lo smistamento non lo trova."
+    },
     "carnet": {
       "none": "Nessuna regola carnet attiva per questo partner.",
       "remaining": "Rimaste",
@@ -1256,7 +1382,9 @@
       "anomalia": "Anomalia",
       "takingsNet": "Guadagno netto IVA",
       "feeContract": "Fee registrata",
-      "sale": "ID Vendita"
+      "sale": "ID Vendita",
+      "refunded": "Costi rimborsati",
+      "economicResult": "Conto Economico"
     },
     "m": {
       "deliveries": "Consegne"
@@ -1331,13 +1459,18 @@
     "notificheEmail": "Avvisami per email",
     "notificheWhatsapp": "Avvisami su WhatsApp",
     "negozio": "Il tuo negozio",
+    "vendite": {
+      "titolo": "Le tue vendite"
+    },
     "negozioHint": "Insegna, listino e condizioni si cambiano con l'ufficio; i contatti sono tuoi.",
     "ritiri": "Altri indirizzi di ritiro",
     "ritiriHint": "Oltre all'indirizzo del negozio. Compaiono tra le scelte quando si crea una consegna.",
     "aggiungiRitiro": "Aggiungi indirizzo di ritiro",
     "insegna": "Insegna",
     "emailNegozio": "Email del negozio",
-    "salvato": "Salvato."
+    "salvato": "Salvato.",
+    "codiceValet": "Il tuo codice valet",
+    "codiceValetHint": "È personale: lo dici solo al partner al momento del ritiro, quando la consegna chiede la verifica della tua identità. Non comunicarlo ad altri."
   },
   "deliveryForm": {
     "backToDeliveries": "Consegne",
@@ -1427,6 +1560,8 @@
       "internalNotes": "Note interne",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Codice di consegna richiesto",
+      "valetIdentityCheck": "Verifica identità del valet",
+      "valetIdentityCheckHint": "Al ritiro il partner inserisce il codice del valet: senza, il valet non può mettere in consegna. Se il partner ha il flag sulla scheda arriva già accesa.",
       "ddtBrand": "Brand del DDT",
       "pickupAddress": "Indirizzo di ritiro",
       "pickupAddressPh": "Se vuoto, ritiro dal partner"
@@ -1444,6 +1579,7 @@
       "selectService": "Seleziona servizio…",
       "address": "Via …, CAP Città (PR)",
       "selectPartner": "Seleziona partner…",
+      "partnerInactive": "non attivo",
       "selectSlot": "Seleziona fascia…",
       "selectTime": "Seleziona orario…",
       "selectProduct": "Prodotto…",
@@ -1497,6 +1633,9 @@
       "priceLabel": "Prezzo:",
       "addProduct": "Aggiungi prodotto",
       "paymentOnDelivery": "Pagamento alla consegna",
+      "stockHint": "Giacenza: {{n}}",
+      "stockLow": "Giacenza insufficiente: {{n}} disponibili",
+      "noFee": "Senza fee (Deluxy non trattiene niente su questa riga)",
       "tryAndReturn": "Prova e reso del prodotto",
       "cashToCollect": "Contanti da incassare (€)",
       "createNew": "Crea nuovo prodotto",
@@ -1513,6 +1652,8 @@
       "payableGroup": "Da pagare (valet)",
       "payable": "Da pagare",
       "valetSalary": "Valet salario (€)",
+      "feeVenditaHint": "Fee {{pct}} % su {{base}} € = {{fee}} € — si calcola alla fatturazione sulle righe senza «Senza fee»; vuoto = automatico",
+      "valetSalaryFromListino": "Vuoto: gli stipendi useranno la paga da listino, {{paga}} €",
       "flexiblePrice": "Prezzo flessibile",
       "flexiblePriceDetail": "Dettaglio prezzo flessibile",
       "flexiblePricePlaceholder": "Es. da 20 a 50 €",
@@ -1528,6 +1669,7 @@
       "requiredFields": "Compila data, partner, servizio, indirizzo e nome/cognome destinatario.",
       "customerNotSaved": "Cliente non salvato: ",
       "genericShort": "errore",
+      "saleNotClosed": "La consegna #{{code}} è stata creata, ma la vendita NON è passata in storico: va chiusa dalla lista Vendite.",
       "createFailed": "Errore nella creazione della consegna",
       "missing": "Manca: {{campi}}."
     },
@@ -1588,9 +1730,16 @@
       "contactSurname": "Cognome referente",
       "contactSurnamePlaceholder": "Cognome"
     },
+    "aree": {
+      "title": "Aree servite",
+      "subtitle": "Il partner riceve le consegne delle province delle sue aree. Le aree si creano in Configurazione → Aree.",
+      "empty": "Nessuna area definita: usa le province qui sotto.",
+      "effettive": "{{n}} province coperte:"
+    },
     "provinces": {
       "title": "Province servite",
-      "subtitle": "Il partner sarà selezionabile solo nelle consegne di queste province.",
+      "titoloInPiu": "Province in più",
+      "subtitle": "Oltre alle aree, singole province scelte a mano: il partner opera nell'unione delle due.",
       "empty": "Nessuna provincia configurata.",
       "cerca": "Cerca provincia…",
       "scelte": "{{n}} province scelte"
@@ -1613,6 +1762,28 @@
       "colKmIncluded": "Km inclusi",
       "colExtraKm": "€ per km extra",
       "colOutOfCity": "€ fuori città"
+    },
+    "mestieri": {
+      "title": "Mestieri",
+      "subtitle": "Cosa fa il partner: è quello che guarda lo smistamento. Le categorie sotto sono il dettaglio.",
+      "empty": "Nessun mestiere definito.",
+      "minimo": "Minimo d'ordine sulle vendite (€ al partner)",
+      "minimoHint": "Predefinito: sotto questa cifra (quanto incasserebbe il partner) la vendita passa al partner successivo. Vuoto = nessun limite. Per provincia, vedi l'area di consegna.",
+      "raggio": "Raggio massimo per le consegne che fa lui (km)",
+      "raggioHint": "Oltre questa distanza dal negozio la consegna non gli viene proposta. Vuoto = accetta tutto nelle sue province.",
+      "nessunLimite": "nessun limite"
+    },
+    "consegna": {
+      "title": "Dove consegna da solo (area di consegna)",
+      "sub": "Le province in cui il partner consegna in autonomia, con minimo d'ordine e raggio per provincia. Vuoto = i valori predefiniti qui sopra. Le province dove VENDE restano nell'area commerciale.",
+      "aggiungi": "+ Aggiungi provincia…",
+      "copiaVendite": "Parti dalle province dove vende",
+      "copiaTutte": "Copia i valori della prima riga a tutte",
+      "vuoto": "Nessuna provincia di consegna: consegna da solo in tutte le province dove vende, coi valori predefiniti.",
+      "colProvincia": "Provincia",
+      "colMinimo": "Minimo d'ordine (€)",
+      "colRaggio": "Raggio (km)",
+      "predefinito": "predefinito"
     },
     "categories": {
       "title": "Categorie vendute",
@@ -1638,7 +1809,8 @@
         "sun": "Domenica"
       },
       "editHint": "I giorni lasciati vuoti non vengono salvati: vuoto vuol dire «non lo so», non «aperto». Spunta «chiuso» per dire che quel giorno il partner non lavora.",
-      "incomplete": "Un giorno ha solo un orario dei due: metti sia apertura sia chiusura, oppure spunta «chiuso»."
+      "incomplete": "Un giorno ha solo un orario dei due: metti sia apertura sia chiusura, oppure spunta «chiuso».",
+      "copyAllHint": "Mette questi orari (e «chiuso», se spuntato) su tutti gli altri giorni. Si salva con Salva."
     },
     "payments": {
       "title": "Pagamenti e fatturazione",
@@ -1669,6 +1841,10 @@
       "smsEnabled": "Possibilità di inviare SMS",
       "whatsappNotifications": "Notifiche WhatsApp",
       "mailNotifications": "Notifiche mail",
+      "esclusoDalleProposte": "Escluso dalle proposte automatiche",
+      "esclusoDalleProposteHint": "È un partner «nostro» di ripiego (Artista Locale, Deluxy Flowers, Cakedesignme): non entra nelle liste a cui proporre gli ordini e non rende «con partner» una provincia. Si accende solo dall'ufficio.",
+      "autoDeliveredByPartner": "Consegna da Partner",
+      "autoDeliveredByPartnerHint": "Le consegne di questo partner le fa lui: nascono «da fornitore», assegnate al valet «Partner Consegna», con il link di conferma. Con il flag acceso puoi dare un raggio massimo; vuoto = accetta tutto nelle sue province.",
       "activityReminder": "Promemoria attività"
     },
     "sales": {
@@ -1701,7 +1877,8 @@
     "requiredHint": "I campi con * sono obbligatori.",
     "createButton": "Crea valet",
     "remove": "Rimuovi",
-    "provincesHint": "Province in cui il valet opera.",
+    "provincesHint": "Singole province in più, oltre alle aree: il valet opera nell'unione delle due.",
+    "areeHint": "Il valet lavora nelle province delle sue aree. Le aree si creano in Configurazione → Aree.",
     "addProvince": "+ Aggiungi provincia…",
     "provincesEmpty": "Nessuna provincia selezionata.",
     "servicesHint": "Salario per servizio. Regola: un solo servizio a ora e uno a prezzo fisso.",
@@ -1835,11 +2012,14 @@
       "alternateName": "Nome alternativo del prodotto",
       "stock": "Giacenza",
       "lineHint": "(valori separati da ;)",
-      "alternateNameHint": "(nome che il partner vede in Consegne)"
+      "alternateNameHint": "(nome che il partner vede in Consegne)",
+      "tipologiaVendita": "Tipologia di vendita",
+      "tipologiaVenditaHint": "Serve allo smistamento: dice come si sceglie il fornitore e come si fa il prezzo."
     },
     "placeholder": {
       "name": "Es. Bouquet Rose Rosse",
-      "selectCategory": "Seleziona categoria…"
+      "selectCategory": "Seleziona categoria…",
+      "selectTipologia": "— Scegli —"
     },
     "typeOption": {
       "UNICO": "Unico (di un partner)",
@@ -1900,7 +2080,8 @@
     "error": {
       "requiredFields": "Nome, categoria e prezzo sono obbligatori.",
       "partnerRequired": "Un prodotto Unico richiede un partner.",
-      "createFailed": "Errore nella creazione del prodotto"
+      "createFailed": "Errore nella creazione del prodotto",
+      "tipologiaRequired": "Scegli la tipologia di vendita: senza, lo smistamento non sa come trattare il prodotto."
     },
     "images": {
       "title": "Immagini",
@@ -1914,7 +2095,18 @@
       "descFor": "Descrizione ({{platform}})"
     },
     "editTitle": "Modifica prodotto",
-    "partnerInactive": "non attivo"
+    "partnerInactive": "non attivo",
+    "tipologia": {
+      "legenda": "Che cosa vuol dire",
+      "unico": "Prodotto unico del partner",
+      "unicoSpiega": "Lo fa un partner solo, col suo prezzo di listino: la vendita va a lui.",
+      "quantita": "A quantità",
+      "quantitaSpiega": "Si vende a numero di pezzi identici (12 rose, 16 praline): il prezzo è il prezzo unitario del partner per la quantità.",
+      "mix": "Mix / composizione",
+      "mixSpiega": "Composizione a valore (bouquet, cappelliera): si propone con la percentuale di sconto della provincia e la lista di priorità.",
+      "preventivo": "A preventivo",
+      "preventivoSpiega": "Prima di accettare la vendita serve il preventivo del partner (torte cake design, cesti floreali, bouquet di palloncini)."
+    }
   },
   "serviceForm": {
     "backToServices": "Servizi",
@@ -2024,8 +2216,20 @@
     "editTitle": "Modifica operatore"
   },
   "deliveryDetail": {
+    "noFee": "senza fee",
+    "codice": {
+      "titolo": "Codice del valet al ritiro",
+      "spiega": "Questa consegna chiede la verifica del valet: inserisci il codice che ti dà {{valet}} al ritiro. Se combacia, può partire.",
+      "campo": "Codice valet",
+      "verifica": "Verifica il codice",
+      "verificato": "Ritiro verificato il {{quando}}: il codice del valet combacia.",
+      "valetAttende": "Il partner deve verificare il tuo codice al ritiro prima che tu possa mettere in consegna."
+    },
     "valet": {
       "inDelivery": "Metti in consegna",
+      "cashTitle": "Pagamento alla consegna",
+      "cashMsg": "Devi ritirare {{importo}} € in contanti dal destinatario. La cifra ti verrà scalata dal prossimo bonifico.",
+      "cashOk": "Ho capito, metto in consegna",
       "delivered": "Consegnata",
       "notDelivered": "Non consegnata",
       "deliveredTitle": "Consegna #{{code}} consegnata",
@@ -2054,7 +2258,12 @@
       },
       "dettaglioPh": "Aggiungi un dettaglio (obbligatorio se scegli «Altro»)",
       "motivoObbligatorio": "Scegli un motivo o scrivi cosa è successo.",
-      "confirmNotDelivered": "Conferma: non consegnata"
+      "confirmNotDelivered": "Conferma: non consegnata",
+      "oreTitolo": "Orario del servizio",
+      "oreDalle": "Iniziato alle",
+      "oreAlle": "Finito alle",
+      "oreHint": "Sono gli orari previsti: correggili se hai iniziato o finito a un altro orario. Il partner li approva o li rifiuta.",
+      "oreObbligatorie": "Senza l'ora di inizio e di fine non si può chiudere: sono le ore che si pagano e si fatturano."
     },
     "title": "Consegna #{{code}}",
     "section": {
@@ -2075,6 +2284,7 @@
     "productValue": "Valore prodotti",
     "deliveryPrice": "Prezzo consegna",
     "valetSalary": "Salario valet",
+    "valetPayRule": "regola «{{nome}}»: il valet non si paga",
     "valetAdditionalPrice": "Plus / minus valet",
     "intercom": "Citofono",
     "phone": "Telefono",
@@ -2159,14 +2369,54 @@
       "manca": "Scrivi un motivo.",
       "importoManca": "Indica un importo valido."
     },
-    "download": "Scarica"
+    "download": "Scarica",
+    "ore": {
+      "titolo": "Ore da approvare",
+      "dichiarate": "Il valet dichiara {{dalle}}–{{alle}}.",
+      "previste": "Ore previste: {{ore}}.",
+      "approva": "Approva le ore del valet",
+      "rifiuta": "Rifiuta: valgono le previste",
+      "attesa": "In attesa che il partner approvi o rifiuti.",
+      "esito_approvate": "Ore approvate da {{chi}}: {{dalle}}–{{alle}}, fatturate {{ore}} h.",
+      "esito_rifiutate": "Ore rifiutate da {{chi}}: valgono le previste, fatturate {{ore}} h."
+    },
+    "redelivery": {
+      "from": "Riconsegna della",
+      "to": "Riconsegnata con"
+    },
+    "nonConsegnata": {
+      "alert": "Non consegnata: da gestire.",
+      "cosa": "Ogni notte torna alla data di oggi finché non si decide: riconsegna o chiusura.",
+      "riconsegna": "Crea la riconsegna"
+    },
+    "prova": {
+      "consegnataAlle": "Consegnata il",
+      "ritirataDa": "Ritirata da",
+      "valet": "Valet",
+      "documenti": "Documenti",
+      "nessunDocumento": "nessun documento caricato",
+      "ddtAggiungi": "Aggiungi la foto del DDT",
+      "ddtSostituisci": "Sostituisci la foto del DDT",
+      "ddtInvio": "Invio del DDT in corso…",
+      "ddtErrore": "DDT non caricato: riprova."
+    }
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
     "receivedBy": "Chi ha ritirato",
     "receivedByPlaceholder": "Nome e cognome di chi ha ricevuto",
-    "confirm": "Conferma consegna",
+    "confirm": "Consegnata",
+    "notDelivered": "Non consegnata",
     "done": "Consegna confermata ✓ Grazie.",
+    "doneNon": "Segnata come non consegnata. L'ufficio la gestirà.",
+    "popup": {
+      "titoloSi": "Confermi la consegna #{{code}}?",
+      "titoloNo": "Consegna #{{code}} non consegnata?",
+      "motivo": "Perché",
+      "motivoPh": "es. destinatario assente, indirizzo errato…",
+      "confermaSi": "Sì, consegnata",
+      "confermaNo": "Sì, non consegnata"
+    },
     "closed": "Questa consegna è chiusa (annullata, non consegnata o non accettata): dal link non si può confermare. Scrivi all’ufficio."
   },
   "tracking": {
@@ -2307,7 +2557,11 @@
     "here": "In piattaforma",
     "registry": "Nel registro",
     "identical": "Nessuna differenza: i due record coincidono.",
-    "push": "Invia al registro",
+    "push": "Modifica Registro",
+    "toRegistry": "Al registro",
+    "toRegistryHint": "Spunta i campi da scrivere nel registro. Senza spunte si manda tutto.",
+    "fromRegistry": "Qui",
+    "emptyHere": "Qui non c'è niente da mandare.",
     "pushHint": "L’invio sovrascrive nel registro i campi della piattaforma e salva il collegamento.",
     "mirrorTitle": "Attenzione: collegato a un doppione.",
     "mirrorBody": "Il record del registro a cui questo partner è collegato è stato creato dalla piattaforma stessa: contiene i nostri dati, quindi «nessuna differenza» è garantito e non prova nulla. Nel registro esiste un altro record con la stessa P.IVA, ed è quasi certamente l’anagrafica vera:",
@@ -2321,15 +2575,19 @@
     "pushCreateHint": "Nel registro non c’è: si crea una scheda nuova con i dati di questa pagina, e resta collegata.",
     "pushLink": "Collega al registro",
     "pushLinkHint": "La scheda nel registro esiste già: si collega a questo partner e i campi qui sopra vengono riscritti con i nostri.",
-    "pushUpdate": "Aggiorna il registro",
+    "pushUpdate": "Modifica Registro",
     "pushUpdateHint": "Già collegati: si riscrivono nel registro i campi della piattaforma.",
     "pushAmbiguous": "Collega al registro",
     "pushBlocked": "Nel registro ci sono più schede possibili: sceglierne una a mano, per non crearne un’altra.",
-    "recheck": "Ricontrolla il registro"
+    "recheck": "Ricontrolla il registro",
+    "linkThis": "Collega questa",
+    "createNew": "Crea una scheda nuova nel registro"
   },
   "sales": {
     "title": "Vendite",
     "caption": "Gli ordini smistati ai partner.",
+    "cercaFornitore": "Cerca fornitore",
+    "fuoriCatalogo": "fuori catalogo, dal titolo dell'ordine",
     "empty": "Nessuna vendita. Usa «Tira da Orders» per far entrare gli ordini.",
     "noPartner": "— nessun partner",
     "accept": "Accetta",
@@ -2340,7 +2598,9 @@
       "nome": "Nome destinatario",
       "cognome": "Cognome destinatario",
       "indirizzo": "Indirizzo",
-      "telefono": "Telefono"
+      "telefono": "Telefono",
+      "mapsMancante": "Google Maps non è configurato: l'indirizzo resta un testo libero e la provincia va scelta a mano.",
+      "provinciaDaGoogle": "Provincia aggiornata da Google: {{provincia}}"
     },
     "refuse": "Rifiuta",
     "col": {
@@ -2348,6 +2608,7 @@
       "order": "Origine",
       "orders": "Stato in Orders",
       "partnerPrice": "Prezzo partner",
+      "publicPrice": "Prezzo al pubblico",
       "historyAt": "Data storico",
       "product": "Prodotto",
       "province": "Prov.",
@@ -2380,7 +2641,6 @@
       }
     },
     "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
-    "inseritaOk": "Consegna inserita; la vendita è passata in storico.",
     "acceptedOk": "Vendita accettata.",
     "refusedPartner": "Vendita rifiutata: torna all'ufficio per l'inserimento.",
     "refusedOffice": "Vendita rifiutata: in storico come non accettata.",
@@ -2395,8 +2655,22 @@
       "aperto": "Aperto",
       "evasione": "evasione:",
       "smistamento": "smistamento:",
-      "stato": { "da_gestire": "Da gestire", "in_lavorazione": "In lavorazione", "in_app": "In app", "in_consegna": "In consegna", "consegnato": "Consegnato", "annullato": "Annullato", "chiuso": "Chiuso" },
-      "salute": { "conforme": "conforme", "a_rischio": "a rischio", "non_pagato": "non pagato", "cancellato": "cancellato", "nullo": "nullo" }
+      "stato": {
+        "da_gestire": "Da gestire",
+        "in_lavorazione": "In lavorazione",
+        "in_app": "In app",
+        "in_consegna": "In consegna",
+        "consegnato": "Consegnato",
+        "annullato": "Annullato",
+        "chiuso": "Chiuso"
+      },
+      "salute": {
+        "conforme": "conforme",
+        "a_rischio": "a rischio",
+        "non_pagato": "non pagato",
+        "cancellato": "cancellato",
+        "nullo": "nullo"
+      }
     },
     "notConform": {
       "tag": "ordine {{salute}}",
@@ -2407,7 +2681,11 @@
     "reconcile": {
       "open": "Riconcilia con una consegna",
       "close": "Chiudi la ricerca",
-      "none": "Nessuna consegna di vendita a questo indirizzo.",
+      "none": "Nessuna consegna con questo numero d'ordine come DDT, né allo stesso indirizzo.",
+      "by": {
+        "ddt": "Trovata dal DDT: porta questo stesso numero d'ordine.",
+        "indirizzo": "Trovata dall'indirizzo: stesso indirizzo, servizio di vendita, entro 10 giorni."
+      },
       "same": "È questa",
       "done": "Vendita riconciliata con la consegna #{{code}}: è in storico e il riferimento è nel DDT."
     },
@@ -2421,20 +2699,31 @@
       "base_categoria": "«{{prodotto}}» non è mai stato venduto: ecco la stessa categoria in provincia di {{provincia}}.",
       "base_nessuna": "Nessun precedente da mostrare.",
       "none": "Nessuna vendita accettata da cui imparare.",
-      "col": { "partner": "Partner", "times": "Volte", "price": "Prezzo", "last": "Ultima volta" },
+      "col": {
+        "partner": "Partner",
+        "times": "Volte",
+        "price": "Prezzo",
+        "last": "Ultima volta"
+      },
       "net": "al partner {{prezzo}} €",
+      "consegnata": "consegnata il",
       "old": "più di un anno fa",
       "inactive": "non attivo",
       "notHere": "non opera in questa provincia",
       "excluded": "escluso dalle riconciliazioni",
       "propose": "Proponi a lui",
       "proposedOk": "Vendita proposta a {{partner}}.",
-      "rule.create": "Crea riconciliazione",
-      "rule.created": "Riconciliazione con {{partner}} creata: la trovi in Prodotti → Riconciliazioni, da accettare."
+      "createRule": "Crea riconciliazione",
+      "ruleCreated": "Riconciliazione con {{partner}} creata: la trovi in Prodotti → Riconciliazioni, da accettare."
     },
     "detail": {
       "title": "Vendita",
       "product": "Prodotto",
+      "righeOrdine": "Ordine ({{n}} righe)",
+      "rigaDellaVendita": "è la riga di questa vendita",
+      "photos": "Guarda le foto del prodotto",
+      "maker": "Lo fa {{chi}}",
+      "line": "Linea {{linea}}",
       "amount": "Importo",
       "discount": "sconto",
       "partner": "Partner",
@@ -2450,7 +2739,18 @@
       "partnerPriceHint": "quanto incassa il partner",
       "registro": "Registro",
       "noLogs": "Nessun evento registrato: il registro parte dal 4 settembre 2026.",
-      "system": "sistema"
+      "system": "sistema",
+      "loFa": "Lo fa {{chi}}",
+      "inConsegna": "già in consegna",
+      "venditaSenzaConsegna": "vendita aperta, ancora senza consegna",
+      "nessunaVendita": "nessuna vendita per questa riga",
+      "ordineIncompleto": "⚠️ Ordine composto: non tutte le vendite sono andate in consegna. Controlla prima di consegnarne una sola.",
+      "salvaPreventivo": "Salva preventivo",
+      "preventivoTitolo": "Preventivo del partner",
+      "preventivoSotto": "Prima di inserire un prodotto a preventivo serve il prezzo concordato: salvandolo nasce anche la regola per le prossime volte.",
+      "preventivoPrezzo": "Prezzo al partner (€)",
+      "chiediPreventivo": "Chiedi il preventivo",
+      "preventivoServe": "Prodotto a preventivo: prima serve il prezzo del partner, poi si può accettare o inserire."
     }
   },
   "activities": {
@@ -2461,6 +2761,12 @@
     "capped": "Ne vedi {{mostrate}} su {{totale}}: la lista è tagliata per non caricarne decine di migliaia.",
     "markDone": "Segna fatta",
     "markPending": "Riapri",
+    "sezione": {
+      "aperte": "Da fare",
+      "storico": "Storico",
+      "storicoNota": "Le attività concluse: fatte e saltate, dalla più recente. «Riapri» le riporta tra quelle da fare.",
+      "storicoVuoto": "Nessuna attività conclusa"
+    },
     "type": {
       "PICKUP": "Ritiro",
       "DELIVERY": "Consegna"
@@ -2472,6 +2778,17 @@
       "delivery": "Consegna",
       "valet": "Valet",
       "status": "Stato"
+    },
+    "filtri": {
+      "citta": "Città",
+      "tutteCitta": "Tutte le città",
+      "valet": "Valet",
+      "tuttiValet": "Tutti i valet",
+      "chi": "Chi",
+      "soloIo": "Solo io",
+      "tutti": "Tutti",
+      "conPartner": "Consegne da partner",
+      "notaPartner": "Le consegne portate dal partner sono escluse: non c'è un giro da fare. La spunta le rimette."
     }
   },
   "smsTemplates": {
@@ -2789,5 +3106,193 @@
     "attachmentDownload": "Scarica",
     "ricevutaLegacy": "Ricevuta sul vecchio sistema (spento): non è più apribile",
     "fileTooBig": "File troppo grande (max 5 MB)."
+  },
+  "changePassword": {
+    "title": "Cambia la password",
+    "forcedTitle": "Scegli la tua password",
+    "forcedHint": "Sei entrato con una password temporanea: prima di continuare scegline una tua.",
+    "current": "Password attuale",
+    "new": "Nuova password (almeno 8 caratteri)",
+    "confirm": "Ripeti la nuova password",
+    "submit": "Salva la password",
+    "tooShort": "La nuova password deve avere almeno 8 caratteri.",
+    "mismatch": "Le due password non coincidono.",
+    "error": "Cambio password non riuscito.",
+    "ok": "Password aggiornata."
+  },
+  "statistiche": {
+    "title": "Statistiche",
+    "sub": "Come sta andando, per periodo e per tipologia di servizio, con il confronto.",
+    "periodo": "Periodo",
+    "confronto": "Confronto",
+    "giorni": "giorni",
+    "vs": "vs",
+    "pariGiorni": "a pari giorni trascorsi",
+    "aggiornato": "aggiornato alle",
+    "p": {
+      "oggi": "Oggi",
+      "settimana": "Settimana",
+      "mese": "Mese",
+      "mese-scorso": "Mese scorso",
+      "trimestre": "Trimestre",
+      "anno": "Anno"
+    },
+    "c": {
+      "precedente": "Periodo precedente",
+      "anno-prima": "Anno prima"
+    },
+    "kpi": {
+      "consegne": "Consegne",
+      "prezzoMedio": "Prezzo medio servizio",
+      "feeMedia": "Fee media (vendite)",
+      "margineMedio": "Margine medio (vendite)",
+      "puntualita": "Puntualità (in orario)",
+      "guasti": "Non consegnate + annullate",
+      "ritardoMedio": "Ritardo medio",
+      "anticipoMedio": "Anticipo medio",
+      "tempoMedio": "Tempo medio di consegna",
+      "kmMedi": "Km medi",
+      "leadTime": "Anticipo dell’ordine",
+      "venduto": "Venduto",
+      "pagatoPartner": "Pagato ai partner",
+      "feeTotale": "Fee Deluxy",
+      "costoValet": "Costo valet",
+      "margineTotale": "Margine",
+      "concluse": "Concluse",
+      "annullate": "Annullate"
+    },
+    "base": "su {{n}} di {{m}}",
+    "su": "su {{n}} di {{m}} concluse",
+    "suTutte": "su tutte le {{m}}",
+    "copertura": "su {{n}} di {{m}} · {{senza}} senza dato",
+    "nessuna": "nessuna consegna",
+    "baseConsegne": "{{concluse}} concluse · prima {{vs}}",
+    "baseGuasti": "{{nc}} non consegnate · {{an}} annullate",
+    "suRitardi": "sui {{n}} ritardi",
+    "suAnticipi": "sui {{n}} anticipi",
+    "suRighe": "su {{n}} righe di vendita",
+    "delVenduto": "del venduto",
+    "fuoriCitta": "{{p}} fuori città",
+    "gg": "gg",
+    "puntualita": {
+      "titolo": "Puntualità e tempi",
+      "barra": "Quote in orario, in anticipo, in ritardo",
+      "inOrario": "in orario",
+      "anticipo": "in anticipo",
+      "ritardo": "in ritardo",
+      "base": "Valutabili {{n}} su {{m}} consegnate · {{senza}} senza orario reale o fascia · tolleranza +{{tol}} min sul ritardo, −{{ant}} min sull’anticipo",
+      "nd": "Nessuna consegna valutabile nel periodo (serve l’orario reale di consegna e la fascia promessa).",
+      "confronto": "Confronto {{periodo}}: su {{n}} consegne valutabili"
+    },
+    "tipologia": {
+      "titolo": "Per tipologia di servizio",
+      "totale": "Totale",
+      "nota": "Prezzo = prezzo al partner + plus/minus + regola, sulle concluse con prezzo. Puntualità sulle valutabili. n/d = dato mancante, escluso dalla media.",
+      "col": {
+        "nome": "Tipologia",
+        "consegne": "Consegne",
+        "delta": "Δ",
+        "concluse": "Concluse",
+        "nonConsegnate": "Non cons. %",
+        "annullate": "Annullate %",
+        "prezzoMedio": "Prezzo medio",
+        "puntualita": "In orario",
+        "ritardoMedio": "Ritardo medio",
+        "tempoMedio": "Tempo cons.",
+        "kmMedi": "Km medi"
+      }
+    },
+    "economia": {
+      "titolo": "Vendite: fee e margine (dalla Finanza)",
+      "nota": "Formula della Finanza: (venduto − pagato) ÷ 1,22 + fee − valet − commissione. {{righe}} righe, {{stimate}} col venduto stimato (prodotto senza prezzo pubblico), {{anomalie}} anomalie.",
+      "nd": "Fee e margine non disponibili per questo periodo.",
+      "ndBreve": "periodo troppo ampio"
+    },
+    "top": {
+      "partner": "Partner",
+      "valet": "Valet",
+      "province": "Province",
+      "nome": "Nome",
+      "consegne": "Consegne",
+      "puntuali": "In orario",
+      "altri": "altri {{n}}",
+      "baseBassa": "n/d ({{n}})"
+    },
+    "stati": {
+      "titolo": "Per stato",
+      "stato": "Stato",
+      "n": "N"
+    },
+    "filtri": {
+      "servizio": "Tipologia di servizio",
+      "provincia": "Provincia / città",
+      "partner": "Partner",
+      "tutti": "Tutti",
+      "tutte": "Tutte",
+      "partnerScelti": "{{n}} partner scelti",
+      "cercaPartner": "Cerca partner…",
+      "nessunPartner": "Nessun partner",
+      "azzera": "Azzera",
+      "valet": "Valet",
+      "valetScelti": "{{n}} valet scelti",
+      "cercaValet": "Cerca valet…",
+      "nessunValet": "Nessun valet"
+    },
+    "ritardi": {
+      "apri": "apri le {{n}} in ritardo",
+      "intro": "{{mostrate}} di {{n}} consegne in ritardo, dalla più in ritardo. Clicca una riga per aprirla.",
+      "col": {
+        "code": "Consegna",
+        "date": "Data",
+        "partner": "Partner",
+        "valet": "Valet",
+        "servizio": "Servizio",
+        "fascia": "Fascia promessa",
+        "consegnata": "Consegnata alle",
+        "ritardoMin": "Ritardo"
+      }
+    },
+    "prima": "prima {{v}}",
+    "tendina": {
+      "indirizzo": "Indirizzo",
+      "ritiro": "Ritiro",
+      "partito": "Partito alle",
+      "consegnato": "Consegnato alle",
+      "oltre": "{{v}} oltre la fascia",
+      "km": "Km",
+      "stato": "Stato",
+      "concluse": "concluse",
+      "suValutabili": "su {{n}} valutabili, {{r}} in ritardo",
+      "apriConsegna": "Apri la consegna #{{code}}",
+      "apriConsegne": "Apri in Consegne",
+      "apriPartner": "Scheda partner",
+      "apriValet": "Scheda valet"
+    }
+  },
+  "puntualita": {
+    "titolo": "Puntualità",
+    "in_orario": "In orario",
+    "in_ritardo": "In ritardo",
+    "in_anticipo": "In anticipo",
+    "consegnataAlle": "consegnata alle",
+    "breve": {
+      "in_orario": "In orario",
+      "in_ritardo": "Ritardo +",
+      "in_anticipo": "Anticipo −"
+    }
+  },
+  "riconsegna": {
+    "titolo": "Riconsegna",
+    "sotto": "La consegna #{{numero}} non è arrivata. Che cosa vuoi fare?",
+    "agganciaTitolo": "Aggancia una consegna già inserita",
+    "agganciaSotto": "Se la riconsegna esiste già: la cerchi e la colleghi, senza crearne un'altra.",
+    "nuovaTitolo": "Creane una nuova",
+    "nuovaSotto": "Apre il modulo già compilato: resta solo da scegliere il giorno.",
+    "cercaPh": "Numero, destinatario o indirizzo",
+    "aggancia": "Aggancia",
+    "giaLegata": "già riconsegna della #{{numero}}",
+    "nessuna": "Nessuna consegna trovata con questa ricerca.",
+    "nascondiTitolo": "Nascondi da Consegne",
+    "nascondiSotto": "La toglie dall'elenco e la lascia in Storico: si può sempre rimettere."
   }
 }

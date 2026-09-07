@@ -1,4 +1,5 @@
 import { ConfermaComponent } from '../shared/conferma.component';
+import { RiconsegnaDialogComponent } from '../shared/riconsegna-dialog.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
@@ -40,7 +41,7 @@ interface PropostaVendita {
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent],
+  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent, RiconsegnaDialogComponent],
   template: `
     <div class="page-header">
       <div>
@@ -106,6 +107,28 @@ interface PropostaVendita {
             <span class="x" aria-hidden="true">×</span>
           </button>
         }
+        <!-- TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente: «in consegne,
+             anche storico, consenti filtri veloci su tipologie di servizi in
+             alto»). Le linguette sono la FAMIGLIA — cinque valori, coprono
+             tutte le 62.606 consegne — mentre il menu qui accanto sceglie il
+             servizio preciso fra i 48. La domanda vera e' quasi sempre «fammi
+             vedere le vendite», non «fammi vedere il Servizio Ora con
+             Approvazione»: quaranta linguette sarebbero una lista, non una
+             scorciatoia. Valgono in ogni vista, storico compreso. -->
+        <div class="quick-tabs">
+          <button type="button" class="quick-tab" [class.active]="!modello()"
+                  (click)="setModello('')">{{ 'deliveries.svc.all' | translate }}</button>
+          @for (m of MODELLI; track m) {
+            <button type="button" class="quick-tab" [class.active]="modello() === m"
+                    (click)="setModello(m)">{{ 'deliveries.svc.' + m | translate }}</button>
+          }
+        </div>
+        <select class="field" [ngModel]="servizio()" (ngModelChange)="setServizio($event)">
+          <option value="">{{ 'deliveries.svc.allServices' | translate }}</option>
+          @for (s of serviziVisibili(); track s.id) {
+            <option [value]="s.id">{{ s.name }}</option>
+          }
+        </select>
         <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="reload()">
           <option value="">{{ 'deliveries.allStatuses' | translate }}</option>
           @for (key of statusKeys; track key) {
@@ -220,6 +243,13 @@ interface PropostaVendita {
           </div>
         }
         @if (propostaAvviso(); as a) { <div class="warn-card">{{ a }}</div> }
+        <!-- ⭐ 06/09/2026 (regola utente): le NON CONSEGNATE senza riconsegna vanno gestite —
+             riportate a oggi ogni notte, e qui un avviso finché qualcuno decide. -->
+        @if (daGestire().length; as n) {
+          <div class="warn-card gestire" role="alert">
+            <b>{{ 'deliveries.nonConsegnate.alert' | translate: { n } }}</b> {{ 'deliveries.nonConsegnate.cosa' | translate }}
+          </div>
+        }
       </div>
     }
 
@@ -327,6 +357,7 @@ interface PropostaVendita {
             @for (d of deliveries(); track d.id) {
               <tr
                 class="row-link"
+                [class.da-gestire]="eDaGestire(d)"
                 [attr.tabindex]="canDetails() ? 0 : null"
                 (click)="openDetail(d)"
                 (keydown.enter)="openDetail(d)"
@@ -361,10 +392,52 @@ interface PropostaVendita {
                          li' c'e' la legenda, e la tabella e' gia' troppo larga. -->
                     <span class="st-testo">{{ 'status.delivery.' + d.status | translate }}</span>
                   </button>
+                  <!-- ⭐ 06/09/2026 (regola utente): l'attributo di PUNTUALITÀ su ogni
+                       consegna conclusa, per tutti i servizi: verde in orario, rosso
+                       in ritardo (coi minuti oltre la tolleranza), ambra in anticipo. -->
+                  @if (d.puntualita; as pu) {
+                    <span class="punt" [class]="'punt ' + pu.esito" [title]="('puntualita.' + pu.esito | translate) + (pu.minuti ? ' · ' + pu.minuti + ' min' : '')">
+                      {{ 'puntualita.breve.' + pu.esito | translate }}@if (pu.minuti) { {{ pu.minuti }}′ }
+                    </span>
+                  }
+                  <!-- ⭐ 06/09 (segnalazione utente): «da gestire» NON è un colore — la pillola
+                       «Non consegnata» è già rossa e un'altra tinta accanto si confondeva. È un
+                       chip nero con la parola, e la riga resta su fondo neutro. -->
+                  @if (eDaGestire(d)) { <span class="chip-gestire">{{ 'deliveries.nonConsegnate.chip' | translate }}</span> }
                 </td>
                 <td class="mono">{{ d.code }}
+                  <!-- ⭐ 07/09/2026 (regola utente): «tra le consegne collegate mostra il
+                       collegamento». Dall'elenco si risale alla consegna di partenza e si
+                       arriva alla riconsegna, senza aprire il dettaglio. -->
+                  @if (d.parentDelivery; as p) {
+                    <a class="legame" [routerLink]="['/deliveries', p.id]"
+                       [title]="'deliveries.legame.daTitolo' | translate">↩ #{{ p.code }}</a>
+                  }
+                  @for (c of d.childDeliveries ?? []; track c.id) {
+                    @if (c.code) {
+                      <a class="legame" [routerLink]="['/deliveries', c.id]"
+                         [title]="'deliveries.legame.aTitolo' | translate">↪ #{{ c.code }}</a>
+                    }
+                  }
                   @if (d.deliveryRuleId) {
                     <span class="regola-badge" [title]="(d.deliveryRule?.name || '') + ' — ' + ('deliveries.ruleApplied' | translate)">📋</span>
+                  }
+                  <!-- ⭐ 05/09/2026 (regola utente): sotto il numero di consegna
+                       si vede il DDT della vendita — numero e negozio. È
+                       l'altra identità della stessa riga, ed è il riferimento
+                       con cui la consegna si ritrova dall'ordine.
+                       ⚠️ Il brand sta accanto al numero e non è un vezzo: con
+                       quattro negozi lo stesso numero di DDT esiste su più
+                       d'uno, e da solo non identifica la vendita.
+                       Se la vendita è collegata il DDT è un link a lei. -->
+                  @if (d.ddtNumber || d.vendita?.ordine) {
+                    @if (d.vendita?.ordine; as ordine) {
+                      <a class="rif-vendita" [routerLink]="['/sales']" [queryParams]="{ q: ordine }"
+                         (click)="$event.stopPropagation()"
+                         [title]="'deliveries.saleRef' | translate">DDT {{ d.ddtNumber ?? ordine }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</a>
+                    } @else {
+                      <span class="rif-vendita">DDT {{ d.ddtNumber }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</span>
+                    }
                   }
                 </td>
                 <td>
@@ -392,7 +465,12 @@ interface PropostaVendita {
                 <td class="muted">{{ d.recipientAddress }}</td>
                 <td class="muted">{{ d.pickupAddress || '—' }}</td>
                 <td>
-                  @if (d.deliveryTimeFrom) {
+                  <!-- ⭐ 06/09/2026 (regola utente): con le ore DA APPROVARE la
+                       colonna mostra gli orari dichiarati dal valet, senza
+                       etichette: si legge e si decide coi bottoni in riga. -->
+                  @if (d.status === 'delivered_time_to_approve' && d.hoursFrom) {
+                    <strong class="ore-valet">{{ d.hoursFrom }}@if (d.hoursTo) {–{{ d.hoursTo }}}</strong>
+                  } @else if (d.deliveryTimeFrom) {
                     {{ d.deliveryTimeFrom }}@if (d.deliveryTimeTo) {–{{ d.deliveryTimeTo }}}
                     @if (d.deliveryFlexible) {
                       <span class="pill pill-flex">{{ 'common.flexible' | translate }}</span>
@@ -429,6 +507,16 @@ interface PropostaVendita {
                   }
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
+                  <!-- RICONSEGNA (05/09/2026, regola utente): una consegna non
+                       riuscita non e' finita, e' da rifare. Il bottone riapre
+                       il modulo compilato uguale, con la data da scegliere e il
+                       legame con questa: quando la nuova nasce, questa passa
+                       in storico da sola. -->
+                  @if (d.status === 'not_delivered' && canManage()) {
+                    <!-- ⭐ 07/09/2026: prima si chiede — agganciare una consegna già inserita
+                         o crearne una nuova? -->
+                    <button type="button" class="act" (click)="riconsegnaDi.set(d)">{{ 'deliveries.redeliver' | translate }}</button>
+                  }
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
                   }
@@ -437,6 +525,19 @@ interface PropostaVendita {
                        chiusa è storia, il valet non si cambia più da qui. -->
                   @if (canAssign() && !canManage() && !consegnaChiusa(d)) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
+                  }
+                  <!-- ⭐ 05/09/2026: le ORE DA APPROVARE si decidono anche da
+                       qui. Il bottone c'era solo nel dettaglio e in un giorno
+                       nessuna delle sei consegne in attesa era stata decisa:
+                       un comando che vive solo dove non si guarda non esiste. -->
+                  @if (d.status === 'delivered_time_to_approve' && puoDecidereOreRiga(d)) {
+                    <button type="button" class="act primary" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, true)">{{ 'deliveryDetail.ore.approva' | translate }}</button>
+                    <button type="button" class="act" [disabled]="oreDecisioneInCorso() === d.id" (click)="decidiOreRiga(d, false)">{{ 'deliveryDetail.ore.rifiuta' | translate }}</button>
+                  }
+                  <!-- ⭐ 06/09/2026 (regola utente): il PARTNER inserisce il codice
+                       del valet DALLA RIGA, al ritiro, senza aprire il dettaglio. -->
+                  @if (codiceDaInserire(d)) {
+                    <button type="button" class="act primary" (click)="apriCodice(d, $event)">{{ 'deliveries.codice.inserisci' | translate }}</button>
                   }
                   @if (canManage()) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
@@ -449,7 +550,8 @@ interface PropostaVendita {
                   @if (puoLavorare(d)) {
                     <!-- Consegnata/Non consegnata solo dopo «in consegna» (31/08). -->
                     @if (d.status !== 'in_delivery') {
-                      <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id" (click)="valetInConsegna(d)">
+                      <button type="button" class="act primary" [disabled]="valetStatoInCorso() === d.id || (isValetRuolo() && ritiroDaVerificare(d) && !d.pickupVerifiedAt)"
+                              [title]="(isValetRuolo() && ritiroDaVerificare(d) && !d.pickupVerifiedAt) ? ('deliveryDetail.codice.valetAttende' | translate) : ''" (click)="valetInConsegna(d)">
                         {{ 'deliveryDetail.valet.inDelivery' | translate }}
                       </button>
                     } @else {
@@ -556,6 +658,27 @@ interface PropostaVendita {
       </div>
     }
 
+    <!-- ⭐ 06/09/2026: CODICE DEL VALET dalla lista (partner/ufficio): stesso
+         endpoint e stessi testi del dettaglio. -->
+    @if (codiceFor(); as d) {
+      <div class="overlay" (click)="codiceFor.set(null)"></div>
+      <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="codiceFor.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
+        <h2>{{ 'deliveryDetail.codice.titolo' | translate }}</h2>
+        <p class="modal-sub">{{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}</p>
+        <p class="muted">{{ 'deliveryDetail.codice.spiega' | translate: { valet: (d.valet ? d.valet.firstName + ' ' + d.valet.lastName : '—') } }}</p>
+        <div class="ore-lista">
+          <label><span>{{ 'deliveryDetail.codice.campo' | translate }}</span>
+            <input class="field" type="text" inputmode="numeric" autocomplete="off" name="codiceValetLista" [(ngModel)]="codiceValet" (keyup.enter)="verificaCodice(d)" /></label>
+        </div>
+        @if (codiceErrore(); as e) { <div class="modal-err">{{ e }}</div> }
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="codiceFor.set(null)">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="act primary" [disabled]="codiceInCorso() || !codiceValet.trim()" (click)="verificaCodice(d)">{{ 'deliveryDetail.codice.verifica' | translate }}</button>
+        </div>
+      </div>
+    }
+
     <!-- Pop-up CAMBIO STATO: dal pallino della lista, senza aprire la modifica -->
     @if (statoFor(); as d) {
       <div class="overlay" (click)="statoFor.set(null)"></div>
@@ -567,6 +690,22 @@ interface PropostaVendita {
           · <span class="tag">{{ 'status.delivery.' + d.status | translate }}</span>
         </p>
         @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
+        <!-- ⭐ 05/09/2026 (segnalazione utente: «i servizi orari ora non si
+             possono chiudere»). Dal 04/09 il server esige le ORE per chiudere
+             un servizio a ore — regola giusta — ma questo pop-up mandava solo
+             lo stato, e l'ufficio si vedeva rifiutare la chiusura senza poter
+             dire le ore. Ora, sui servizi a ore, i due orari stanno qui,
+             precompilati con quelli previsti: la chiusura passa in «ore da
+             approvare» come quando la fa il valet. -->
+        @if (d.serviceType?.pricingModel === 'A_ORA' && d.serviceType?.hoursApproval) {
+          <div class="ore-lista">
+            <label><span>{{ 'deliveryDetail.valet.oreDalle' | translate }}</span>
+              <input class="field" type="time" step="900" [(ngModel)]="oreDalle" name="oreDalleLista" /></label>
+            <label><span>{{ 'deliveryDetail.valet.oreAlle' | translate }}</span>
+              <input class="field" type="time" step="900" [(ngModel)]="oreAlle" name="oreAlleLista" /></label>
+            <p class="muted piccolo">{{ 'deliveryDetail.valet.oreHint' | translate }}</p>
+          </div>
+        }
         <ul class="valet-list">
           @for (s of statusKeys; track s) {
             <li>
@@ -657,6 +796,12 @@ interface PropostaVendita {
         }
       </div>
     }
+    @if (avvisoContanti(); as a) {
+      <app-conferma [titolo]="'deliveryDetail.valet.cashTitle' | translate"
+                    [messaggio]="'deliveryDetail.valet.cashMsg' | translate: { importo: a.importo.toFixed(2) }"
+                    [verbo]="'deliveryDetail.valet.cashOk' | translate" tono="primary"
+                    (confermato)="valetInConsegna(a.d)" (annullato)="avvisoContanti.set(null)" />
+    }
     @if (confermaPendente(); as c) {
       <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
                     [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
@@ -685,6 +830,12 @@ interface PropostaVendita {
           <button type="button" class="btn btn-primary" [disabled]="segInCorso()" (click)="inviaSegnalazione(sp)">{{ 'deliveryDetail.segnal.invia' | translate }}</button>
         </div>
       </div>
+    }
+  
+    <!-- ⭐ 07/09/2026 (regola utente): riconsegna — agganciare o creare. -->
+    @if (riconsegnaDi(); as r) {
+      <app-riconsegna-dialog [deliveryId]="r.id" [code]="r.code"
+                             (chiudi)="riconsegnaDi.set(null)" (agganciata)="load()" />
     }
   `,
   styles: [
@@ -746,6 +897,10 @@ interface PropostaVendita {
         white-space: nowrap;
       }
       .quick-tab:hover { color: var(--text-primary); }
+      .punt { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+      .punt.in_orario { color: var(--green); background: rgba(36, 138, 61, .10); }
+      .punt.in_ritardo { color: var(--red); background: rgba(215, 0, 21, .10); }
+      .punt.in_anticipo { color: var(--amber, #b8930f); background: rgba(184, 147, 15, .12); }
       .quick-tab.active {
         background: var(--surface, #fff);
         color: var(--text-primary);
@@ -875,6 +1030,12 @@ interface PropostaVendita {
         padding-left: 14px;
         padding-right: 6px;
       }
+      .rif-vendita { display: block; font-size: 11px; color: var(--text-secondary); text-decoration: none; }
+      .rif-vendita:hover { color: var(--text-primary); text-decoration: underline; }
+      .ore-valet { color: var(--amber); font-weight: 600; }
+      .ore-lista { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 4px 0 10px; }
+      .ore-lista label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+      .ore-lista .piccolo { flex-basis: 100%; margin: 0; font-size: 12px; }
       .regola-badge { margin-left: 5px; font-size: 12px; cursor: help; vertical-align: middle; }
       .status-dot {
         display: inline-block;
@@ -906,8 +1067,10 @@ interface PropostaVendita {
          card bianca. Praticamente invisibile. E la legenda, che per quel gruppo
          usa una classe mai definita, lo disegnava GRIGIO: pallino e legenda
          dicevano due cose diverse, ed erano sbagliate tutt.e due. */
-      .status-dot.s-not_delivered,
-      .status-dot.s-not_accepted { background: var(--red); }                /* Fallite: rosso pieno */
+      /* ⭐ 07/09/2026 (regola utente): la NON CONSEGNATA non è più rossa — è nera, come la
+         riga «da gestire». Il rosso resta a «da gestire» (created) e «non accettata». */
+      .status-dot.s-not_delivered { background: var(--text, #1d1d1f); }     /* Non consegnata: nero */
+      .status-dot.s-not_accepted { background: var(--red); }                /* Non accettata: rosso pieno */
       .status-dot.s-cancelled,
       .status-dot.s-invalidated,
       .status-dot.s-archived { background: var(--grey); }                   /* Annullate: grigio (--grey) */
@@ -1094,6 +1257,12 @@ interface PropostaVendita {
       .proposta-info .riga2 { font-size: 13px; }
       .proposta-azioni { display: flex; gap: 8px; }
       .proposta-azioni .rifiuto { color: var(--red); }
+      .warn-card.gestire { border-left: 4px solid var(--ink, #1d1d1f); background: var(--surface-sunken, #f5f5f7); color: var(--text-primary, #1d1d1f); }
+      tr.da-gestire td { background: var(--surface-sunken, #f5f5f7); }
+      tr.da-gestire td:first-child { box-shadow: inset 4px 0 0 var(--ink, #1d1d1f); }
+      .legame { margin-left: 6px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text-secondary); white-space: nowrap; }
+      .legame:hover { color: var(--text); }
+      .chip-gestire { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ink, #1d1d1f); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: middle; white-space: nowrap; }
       .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
                    border-radius: 10px; padding: 10px 12px; font-size: 13px; }
       .tag.warn {
@@ -1260,7 +1429,10 @@ interface PropostaVendita {
         background: rgba(36, 138, 61, 0.12);
         color: var(--green);
       }
-      .s-not_delivered,
+      .s-not_delivered {
+        background: rgba(0, 0, 0, 0.07);
+        color: var(--text, #1d1d1f);
+      }
       .s-cancelled,
       .s-not_accepted {
         background: rgba(215, 0, 21, 0.09);
@@ -1370,19 +1542,36 @@ export class DeliveriesListComponent {
   readonly salvandoStato = signal(false);
 
   /** Apre il pop-up di cambio stato senza far scattare l'apertura del dettaglio. */
+  /** Gli orari per chiudere un servizio A ORE dal pop-up di stato (precompilati con i previsti). */
+  oreDalle = '';
+  oreAlle = '';
+
   apriStato(d: Delivery, ev: Event): void {
     ev.stopPropagation();
     this.actionError.set(null);
+    this.oreDalle = (d as any).serviceStartTime ?? d.deliveryTimeFrom ?? '';
+    this.oreAlle = (d as any).serviceEndTime ?? d.deliveryTimeTo ?? '';
     this.statoFor.set(d);
   }
 
   cambiaStato(status: string): void {
     const d = this.statoFor();
     if (!d) return;
+    const corpo: Record<string, string> = { status };
+    // Servizio a ore chiuso dall'ufficio: le ore viaggiano con lo stato, come
+    // fa il valet. Senza, il server rifiuta — e ha ragione.
+    if (status === 'delivered' && d.serviceType?.pricingModel === 'A_ORA' && d.serviceType?.hoursApproval) {
+      if (!(this.oreDalle && this.oreAlle)) {
+        this.actionError.set(this.translate.instant('deliveryDetail.valet.oreObbligatorie'));
+        return;
+      }
+      corpo['oreDalle'] = this.oreDalle;
+      corpo['oreAlle'] = this.oreAlle;
+    }
     this.salvandoStato.set(true);
     this.actionError.set(null);
     this.http
-      .patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status })
+      .patch(`${environment.apiUrl}/deliveries/${d.id}/status`, corpo)
       .subscribe({
         next: () => {
           this.salvandoStato.set(false);
@@ -1397,6 +1586,27 @@ export class DeliveriesListComponent {
           this.actionError.set(err?.error?.message ?? this.translate.instant('common.saveError'));
         },
       });
+  }
+
+  // ⭐ 05/09/2026: ORE DA APPROVARE dalla riga (ufficio, o il partner della consegna).
+  readonly oreDecisioneInCorso = signal<string | null>(null);
+
+  puoDecidereOreRiga(d: Delivery): boolean {
+    if (this.canManage()) return true;
+    const u = this.auth.user();
+    return u?.role === 'PARTNER' && !!u.partnerId && d.partner?.id === u.partnerId;
+  }
+
+  decidiOreRiga(d: Delivery, approva: boolean): void {
+    this.oreDecisioneInCorso.set(d.id);
+    this.actionError.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ore/${approva ? 'approva' : 'rifiuta'}`, {}).subscribe({
+      next: () => { this.oreDecisioneInCorso.set(null); this.load(); },
+      error: (err) => {
+        this.oreDecisioneInCorso.set(null);
+        this.actionError.set(err?.error?.message ?? this.translate.instant('common.saveError'));
+      },
+    });
   }
 
   /** ⚠️ Misurato: la PATCH di assegnazione impiega ~5s e la ricarica altri ~2,5.
@@ -1495,12 +1705,16 @@ export class DeliveriesListComponent {
 
   assign(valetId: string): void {
     const d = this.assignFor();
-    if (!d) return;
+    // ⭐ 06/09/2026 (#101058): `salvandoAssegna` spegneva il bottone nel
+    // template ma nessuno lo accendeva — ogni tocco (o un Invio tenuto premuto)
+    // era una chiamata in piu'. Ora la prima chiamata chiude la porta.
+    if (!d || this.salvandoAssegna()) return;
+    this.salvandoAssegna.set(true);
     this.http
       .patch(`${environment.apiUrl}/deliveries/${d.id}/assign`, { valetId })
       .subscribe({
-        next: () => { this.assignFor.set(null); this.load(); },
-        error: (err) => this.actionError.set(err?.error?.message ?? 'Errore'),
+        next: () => { this.salvandoAssegna.set(false); this.assignFor.set(null); this.load(); },
+        error: (err) => { this.salvandoAssegna.set(false); this.actionError.set(err?.error?.message ?? 'Errore'); },
       });
   }
 
@@ -1551,7 +1765,13 @@ export class DeliveriesListComponent {
     return cached;
   }
 
+  /** ⭐ 07/09: la non consegnata per cui è aperta la finestra «riconsegna: aggancio o creo?». */
+  readonly riconsegnaDi = signal<Delivery | null>(null);
+
   readonly deliveries = signal<Delivery[]>([]);
+  /** ⭐ 06/09 (regola utente): non consegnata SENZA riconsegna = da gestire (riconsegna o chiusura). */
+  eDaGestire(d: Delivery): boolean { return d.status === 'not_delivered' && !(d.childDeliveries?.length); }
+  readonly daGestire = computed(() => this.deliveries().filter((d) => this.eDaGestire(d)));
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -1586,7 +1806,9 @@ export class DeliveriesListComponent {
     // esiste in nessun foglio: la pastiglia usciva grigia mentre i pallini in
     // tabella erano rossi slavati. Adesso sono due gruppi, ognuno del colore
     // che ha davvero — e un fallimento non si confonde con un annullamento.
-    { cls: 's-not_delivered', statuses: ['not_delivered', 'not_accepted'] },
+    // ⭐ 07/09/2026: separate anche in legenda — la non consegnata è NERA, la non accettata resta rossa.
+    { cls: 's-not_delivered', statuses: ['not_delivered'] },
+    { cls: 's-not_accepted', statuses: ['not_accepted'] },
     { cls: 's-cancelled', statuses: ['cancelled', 'invalidated'] },
   ];
 
@@ -1682,6 +1904,42 @@ export class DeliveriesListComponent {
   readonly partnerFiltro = signal<string | null>(null);
   readonly partnerNome = signal<string | null>(null);
 
+  // ============================================================
+  // TIPOLOGIA DI SERVIZIO (05/09/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // Due livelli: la FAMIGLIA (linguette) e il SERVIZIO preciso (menu).
+  // Scegliendo una famiglia il menu si restringe a quella: offrire «Consegna
+  // Standard» dentro «Vendite» darebbe zero righe, e una lista vuota che
+  // poteva saperlo prima e' un difetto, non un risultato.
+  // ============================================================
+  /** Le cinque famiglie, in ordine di quante consegne pesano davvero. */
+  readonly MODELLI = ['PREZZO_FISSO', 'VENDITA', 'A_ORA', 'CORPORATE', 'MAGAZZINO'] as const;
+  readonly serviziTipi = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
+  readonly modello = signal('');
+  readonly servizio = signal('');
+
+  /** I servizi offerti dal menu: tutti, o solo quelli della famiglia scelta. */
+  serviziVisibili(): { id: string; name: string; pricingModel?: string }[] {
+    const m = this.modello();
+    const tutti = this.serviziTipi();
+    return m ? tutti.filter((s) => s.pricingModel === m) : tutti;
+  }
+
+  setModello(m: string): void {
+    if (this.modello() === m) return;
+    this.modello.set(m);
+    // Il servizio scelto puo' non appartenere alla nuova famiglia: si lascia
+    // cadere invece di incrociare due filtri che insieme non danno nulla.
+    const s = this.servizio();
+    if (s && !this.serviziVisibili().some((x) => x.id === s)) this.servizio.set('');
+    this.reload();
+  }
+
+  setServizio(id: string): void {
+    this.servizio.set(id ?? '');
+    this.reload();
+  }
+
   cambiaVista(v: 'attive' | 'storico' | 'tutte'): void {
     if (this.vista === v) return;
     this.vista = v;
@@ -1735,8 +1993,18 @@ export class DeliveriesListComponent {
     if (v === 'attive' || v === 'storico' || v === 'tutte') this.vista = v;
     // Arrivando dalla scheda di un partner senza vista dichiarata si guarda
     // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
-    else if (qPartner || this.isPartnerRuolo()) this.vista = 'tutte';
+    // ⭐ 06/09/2026 (regola utente): il PARTNER all'apertura vede le sue consegne
+    // IN LAVORAZIONE, senza filtro di data (prima: «tutte», storico compreso).
+    else if (this.isPartnerRuolo()) this.vista = 'attive';
+    else if (qPartner) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
+    // La tipologia di servizio torna col tasto indietro come gli altri filtri.
+    this.modello.set(p.get('pricingModel') ?? '');
+    this.servizio.set(p.get('serviceTypeId') ?? '');
+    // L'elenco dei servizi serve al menu: un giro solo, per tutti i ruoli
+    // (anche il partner filtra fra i propri).
+    this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/service-types`)
+      .subscribe({ next: (d) => this.serviziTipi.set(d ?? []), error: () => undefined });
     // ⚠️ 02/09 (regola utente): il partner apre su TUTTE le consegne, e
     // l'ordine è per DATA di consegna crescente — l'orario da solo (default
     // deliveryTimeFrom) mischierebbe i giorni fra loro.
@@ -1759,7 +2027,7 @@ export class DeliveriesListComponent {
         this.load(true);
         if (this.roleOf() === 'PARTNER') this.caricaProposte();
       },
-      sospeso: () => !!(this.statoFor() || this.assignFor() || this.additionalFor() || this.segnalPer()
+      sospeso: () => !!(this.statoFor() || this.codiceFor() || this.codiceInCorso() || this.assignFor() || this.additionalFor() || this.segnalPer()
         || this.confermaPendente() || this.azioneDiMassa() || this.inCorsoDiMassa() || this.salvandoStato()
         || this.salvandoAssegna() || this.propostaInCorso() || this.venditaRispostaInCorso()
         || this.annullaInCorso() || this.valetStatoInCorso() || this.showMap() || this.loading()),
@@ -2009,7 +2277,50 @@ export class DeliveriesListComponent {
     });
   }
 
+  /** ⭐ 05/09/2026: chi chiede il codice del valet al ritiro (consegna o partner). */
+  ritiroDaVerificare(d: Delivery): boolean {
+    return d.valetIdentityCheck === true;
+  }
+
+  /** ⭐ 05/09/2026: il contrassegno da mostrare al valet prima di partire (dalla riga). */
+  readonly avvisoContanti = signal<{ d: Delivery; importo: number } | null>(null);
+
+  // ⭐ 06/09/2026 (regola utente): il partner inserisce il codice del valet DALLA RIGA.
+  readonly codiceFor = signal<Delivery | null>(null);
+  readonly codiceInCorso = signal(false);
+  readonly codiceErrore = signal<string | null>(null);
+  codiceValet = '';
+
+  /** La riga chiede il codice: verifica richiesta, non ancora fatta, valet assegnato, consegna ancora da ritirare. */
+  codiceDaInserire(d: Delivery): boolean {
+    if (!(this.roleOf() === 'PARTNER' || this.canManage())) return false;
+    return this.ritiroDaVerificare(d) && !d.pickupVerifiedAt && !!d.valet
+      && ['assigned', 'accepted', 'in_preparation'].includes(d.status);
+  }
+
+  apriCodice(d: Delivery, ev: Event): void {
+    ev.stopPropagation();
+    this.codiceValet = '';
+    this.codiceErrore.set(null);
+    this.codiceFor.set(d);
+  }
+
+  verificaCodice(d: Delivery): void {
+    if (!this.codiceValet.trim() || this.codiceInCorso()) return;
+    this.codiceInCorso.set(true);
+    this.codiceErrore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/ritiro/verifica`, { codice: this.codiceValet.trim() }).subscribe({
+      next: () => { this.codiceInCorso.set(false); this.codiceFor.set(null); this.load(); },
+      error: (e) => { this.codiceInCorso.set(false); this.codiceErrore.set(e?.error?.message ?? this.translate.instant('common.saveError')); },
+    });
+  }
+
   valetInConsegna(d: Delivery): void {
+    // ⭐ 05/09/2026 (regola utente): con un pagamento alla consegna il valet
+    // vede PRIMA quanto deve ritirare in contanti. Stesso avviso del dettaglio.
+    const importo = d.paymentOnDelivery ? Number(d.paymentAmount ?? 0) : 0;
+    if (importo > 0 && !this.avvisoContanti()) { this.avvisoContanti.set({ d, importo }); return; }
+    this.avvisoContanti.set(null);
     this.valetStatoInCorso.set(d.id);
     this.http.patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status: 'in_delivery' }).subscribe({
       next: () => { this.valetStatoInCorso.set(null); this.load(); },
@@ -2105,6 +2416,8 @@ export class DeliveriesListComponent {
         q: this.query.trim() || null,
         page: this.page() > 1 ? this.page() : null,
         partnerId: this.partnerFiltro(),
+        pricingModel: this.modello() || null,
+        serviceTypeId: this.servizio() || null,
       },
       replaceUrl: true,
     });
@@ -2297,12 +2610,16 @@ export class DeliveriesListComponent {
     if (this.statusFilter) n++;
     if (this.dateTo || (this.dateFilter && this.dateFilter !== this.oggi())) n++;
     if (this.partnerFiltro()) n++;
+    if (this.modello()) n++;
+    if (this.servizio()) n++;
     return n;
   }
 
   /** Riporta la pagina al suo stato di default (il vuoto-da-filtro ne ha bisogno). */
   azzeraFiltri(): void {
     this.statusFilter = '';
+    this.modello.set('');
+    this.servizio.set('');
     this.dateTo = '';
     this.dateFilter = this.oggi();
     this.page.set(1);
@@ -2324,6 +2641,8 @@ export class DeliveriesListComponent {
       .set('dir', this.dir())
       .set('view', this.vista);
     if (this.statusFilter) params = params.set('status', this.statusFilter);
+    if (this.modello()) params = params.set('pricingModel', this.modello());
+    if (this.servizio()) params = params.set('serviceTypeId', this.servizio());
     // Un giorno solo resta `date`, com'era. Con due estremi si passa a
     // dateFrom/dateTo, che il backend già capisce: `dateTo` include tutta la
     // giornata finale, se no l'ultimo giorno scelto resterebbe fuori.

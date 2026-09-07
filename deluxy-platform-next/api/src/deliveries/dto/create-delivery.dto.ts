@@ -38,6 +38,17 @@ export class DeliveryProductDto {
   @IsBoolean()
   flexiblePrice?: boolean;
 
+  /**
+   * ⭐ 05/09/2026 (regola utente): SENZA FEE. Su questa riga Deluxy non
+   * trattiene niente: il valore della riga esce dalla base su cui si calcola
+   * la quota, in fattura e nel conto della vendita. La riga resta nel venduto
+   * (al partner è dovuta per intero), esce solo dalla fee.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Senza fee: la riga non entra nella base della quota Deluxy' })
+  @IsOptional()
+  @IsBoolean()
+  withoutCommission?: boolean;
+
   @ApiPropertyOptional({ description: 'JSON {nomeCampo: valore} per i campi prodotto' })
   @IsOptional()
   @IsString()
@@ -66,6 +77,18 @@ export class DeliveryPickupDto {
 }
 
 export class CreateDeliveryDto {
+  /**
+   * ⭐ 05/09/2026 (regola utente): LA RICONSEGNA. Quando una consegna non è
+   * andata a buon fine se ne fa un'altra, e le due restano legate: qui l'id
+   * della NON CONSEGNATA da cui questa nasce. Il legame esiste già in banca
+   * dati (`parentDeliveryId`, 72 consegne del vecchio sistema, 57 delle quali
+   * nate da una non consegnata) e ora lo scrive anche l'app.
+   */
+  @ApiProperty({ required: false, description: 'Id della consegna non riuscita da cui nasce questa riconsegna' })
+  @IsOptional()
+  @IsString()
+  parentDeliveryId?: string;
+
   @ApiProperty({ example: '2026-07-20' })
   @IsDateString()
   date: string;
@@ -86,6 +109,19 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsString()
   riferimentoEsterno?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Canale app: la consegna è GIÀ AVVENUTA e si registra a posteriori (vendite gestite dal Customer Service con un pagamento in app, 06/09/2026): nasce direttamente in storico, «consegnata»",
+  })
+  @IsOptional()
+  @IsBoolean()
+  giaConsegnata?: boolean;
+
+  @ApiPropertyOptional({ description: 'Quando è stata consegnata (ISO). Senza: il giorno di consegna a fine fascia.' })
+  @IsOptional()
+  @IsString()
+  consegnataIl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -224,6 +260,28 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsBoolean()
   deliveryCodeRequired?: boolean;
+
+  /**
+   * ⭐ 05/09/2026 (regola utente): VERIFICA IDENTITÀ DEL VALET su questa
+   * consegna — al ritiro il partner inserisce il codice del valet. Se il
+   * partner ha il flag sulla sua scheda, il form lo propone acceso per tutte le
+   * sue consegne (modificabile); se non lo ha, si accende per la singola
+   * consegna dalla casella in alto a destra.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Il partner deve verificare il codice del valet al ritiro' })
+  @IsOptional()
+  @IsBoolean()
+  valetIdentityCheck?: boolean;
+
+  /**
+   * ⭐ 06/09/2026 (regola utente): STOCK. Con giacenza insufficiente la consegna
+   * non nasce; l'UFFICIO puo' forzare (il saldo va sotto zero e si vede). Il
+   * partner no: per lui il flag e' ignorato.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Ufficio: crea la consegna anche con giacenza insufficiente' })
+  @IsOptional()
+  @IsBoolean()
+  ignoraStock?: boolean;
 
   // Note
   @ApiPropertyOptional()

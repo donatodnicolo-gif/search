@@ -7,7 +7,9 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
 import {
+  Area,
   Category,
+  Mestiere,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   Province,
@@ -105,10 +107,29 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </div>
       </section>
 
-      <!-- Province servite -->
+      <!-- ⭐ 06/09/2026 (regola utente): AREE al posto delle 107 province. Le province
+           effettive (quelle che lo smistamento legge) sono l'unione delle aree scelte e si
+           mostrano sotto in sola lettura. Le aree si creano in Configurazione → Aree. -->
       <section class="card block">
         <header class="block-head">
-          <h2>{{ 'partnerForm.provinces.title' | translate }}</h2>
+          <h2>{{ 'partnerForm.aree.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.aree.subtitle' | translate }}</span>
+        </header>
+        @if (aree().length === 0) { <p class="muted">{{ 'partnerForm.aree.empty' | translate }}</p> }
+        @else {
+          <div class="chips">
+            @for (a of aree(); track a.id) {
+              <button type="button" class="chip" [class.on]="selectedAree.has(a.id)" (click)="toggle(selectedAree, a.id)" [attr.aria-pressed]="selectedAree.has(a.id)" [title]="a.province.length + ' province'">{{ a.nome }} <span class="chip-n">{{ a.province.length }}</span></button>
+            }
+          </div>
+          <p class="conto-scelte">{{ 'partnerForm.aree.effettive' | translate: { n: provinceEffettive().length } }} <span class="muted">{{ provinceEffettive().join(', ') || '—' }}</span></p>
+        }
+      </section>
+
+      <!-- Province servite (dettaglio, sola lettura quando ci sono le aree) -->
+      <section class="card block">
+        <header class="block-head">
+          <h2>{{ (selectedAree.size > 0 ? 'partnerForm.provinces.titoloInPiu' : 'partnerForm.provinces.title') | translate }}</h2>
           <span class="block-sub">{{ 'partnerForm.provinces.subtitle' | translate }}</span>
         </header>
         @if (provinces().length === 0) { <p class="muted">{{ 'partnerForm.provinces.empty' | translate }}</p> }
@@ -175,8 +196,80 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </div>
       </section>
 
-      <!-- Categorie -->
+      <!-- ⭐ 06/09/2026 (decisione utente): i MESTIERI del partner — 8 chip al posto di 65 caselle.
+           Le categorie sotto restano il dettaglio del catalogo; lo smistamento guarda prima qui. -->
       <section class="card block">
+        <header class="block-head">
+          <h2>{{ 'partnerForm.mestieri.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.mestieri.subtitle' | translate }}</span>
+        </header>
+        @if (mestieri().length === 0) { <p class="muted">{{ 'partnerForm.mestieri.empty' | translate }}</p> }
+        @else {
+          <div class="chips">
+            @for (m of mestieri(); track m.id) {
+              <button type="button" class="chip" [class.on]="selectedMestieri.has(m.id)" (click)="toggle(selectedMestieri, m.id)" [attr.aria-pressed]="selectedMestieri.has(m.id)">{{ m.nome }}</button>
+            }
+          </div>
+        }
+        <!-- ⭐ 06/09 (regola utente): «Consegna da Partner» sta qui, col raggio che compare solo a flag acceso. -->
+        <div class="consegna-partner">
+          <label class="toggle"><input type="checkbox" name="autoDeliveredByPartner" [(ngModel)]="model.autoDeliveredByPartner" /><span>{{ 'partnerForm.setup.autoDeliveredByPartner' | translate }}</span></label>
+          <p class="hint">{{ 'partnerForm.setup.autoDeliveredByPartnerHint' | translate }}</p>
+          <!-- ⭐ 06/09 sera (regola utente): i partner «nostri» di ripiego non entrano nelle proposte. -->
+          <label class="toggle"><input type="checkbox" name="esclusoDalleProposte" [(ngModel)]="model.esclusoDalleProposte" /><span>{{ 'partnerForm.setup.esclusoDalleProposte' | translate }}</span></label>
+          <p class="hint">{{ 'partnerForm.setup.esclusoDalleProposteHint' | translate }}</p>
+        </div>
+        <div class="mestieri-campi">
+          <label class="campo">{{ 'partnerForm.mestieri.minimo' | translate }}
+            <input class="field num" type="number" min="0" step="1" name="minimoOrdineVendita" [(ngModel)]="model.minimoOrdineVendita" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+            <span class="hint">{{ 'partnerForm.mestieri.minimoHint' | translate }}</span></label>
+          @if (model.autoDeliveredByPartner) {
+          <label class="campo">{{ 'partnerForm.mestieri.raggio' | translate }}
+            <input class="field num" type="number" min="0" step="1" name="raggioMaxConsegnaKm" [(ngModel)]="model.raggioMaxConsegnaKm" [attr.placeholder]="'partnerForm.mestieri.nessunLimite' | translate" />
+            <span class="hint">{{ 'partnerForm.mestieri.raggioHint' | translate }}</span></label>
+          }
+        </div>
+        <!-- ⭐ 06/09 sera (nuova architettura vendite): AREA DI CONSEGNA — dove consegna da solo, con minimo
+             e raggio PER PROVINCIA; i campi sopra sono i predefiniti. Solo con «Consegna da Partner». -->
+        @if (model.autoDeliveredByPartner) {
+        <div class="area-consegna">
+          <h3>{{ 'partnerForm.consegna.title' | translate }}</h3>
+          <p class="hint">{{ 'partnerForm.consegna.sub' | translate }}</p>
+          <div class="consegna-riga-add">
+            <select class="field" (change)="aggiungiConsegna($any($event.target).value); $any($event.target).value=''">
+              <option value="">{{ 'partnerForm.consegna.aggiungi' | translate }}</option>
+              @for (p of provinceNonInConsegna(); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
+            </select>
+            @if (provinceEffettive().length && consegna.length === 0) {
+              <button type="button" class="btn btn-secondary btn-sm" (click)="consegnaDalleVendite()">{{ 'partnerForm.consegna.copiaVendite' | translate }}</button>
+            }
+            @if (consegna.length > 1) {
+              <button type="button" class="btn btn-secondary btn-sm" (click)="copiaATutte()">{{ 'partnerForm.consegna.copiaTutte' | translate }}</button>
+            }
+          </div>
+          @if (consegna.length === 0) { <p class="muted mini">{{ 'partnerForm.consegna.vuoto' | translate }}</p> }
+          @else {
+          <table class="tab-consegna">
+            <thead><tr><th>{{ 'partnerForm.consegna.colProvincia' | translate }}</th><th>{{ 'partnerForm.consegna.colMinimo' | translate }}</th><th>{{ 'partnerForm.consegna.colRaggio' | translate }}</th><th></th></tr></thead>
+            <tbody>
+              @for (r of consegna; track r.provinceId; let i = $index) {
+                <tr>
+                  <td><b>{{ codiceProvincia(r.provinceId) }}</b> <span class="muted">{{ nomeProvincia(r.provinceId) }}</span></td>
+                  <td><input class="field num" type="number" min="0" step="1" [name]="'cmin' + i" [(ngModel)]="r.minimoOrdine" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                  <td><input class="field num" type="number" min="0" step="1" [name]="'ckm' + i" [(ngModel)]="r.raggioKm" [attr.placeholder]="'partnerForm.consegna.predefinito' | translate" /></td>
+                  <td><button type="button" class="x" (click)="rimuoviConsegna(r.provinceId)" [attr.title]="'common.remove' | translate">✕</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          }
+        </div>
+        }
+      </section>
+
+      <!-- ⭐ 06/09 (decisione utente): la sezione «Categorie vendute» non serve più — contano i MESTIERI.
+           I dati restano (PartnerCategory), la scheda non li mostra né li riscrive. -->
+      <section class="card block" hidden>
         <header class="block-head">
           <h2>{{ 'partnerForm.categories.title' | translate }}</h2>
           <span class="block-sub">{{ 'partnerForm.categories.subtitle' | translate }}</span>
@@ -286,6 +379,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <label class="toggle"><input type="checkbox" name="smsTemplatesEnabled" [(ngModel)]="model.smsTemplatesEnabled" /><span>{{ 'partnerForm.setup.smsEnabled' | translate }}</span></label>
             <label class="toggle"><input type="checkbox" name="whatsappNotifications" [(ngModel)]="model.whatsappNotifications" /><span>{{ 'partnerForm.setup.whatsappNotifications' | translate }}</span></label>
             <label class="toggle"><input type="checkbox" name="mailNotifications" [(ngModel)]="model.mailNotifications" /><span>{{ 'partnerForm.setup.mailNotifications' | translate }}</span></label>
+
             <label class="toggle"><input type="checkbox" name="activityReminder" [(ngModel)]="model.activityReminder" /><span>{{ 'partnerForm.setup.activityReminder' | translate }}</span></label>
           </div>
         </div>
@@ -328,6 +422,25 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
     </form>
   `,
   styles: [
+    `.area-consegna { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+     .area-consegna h3 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; }
+     .consegna-riga-add { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+     .consegna-riga-add .field { max-width: 320px; }
+     .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+     .tab-consegna { width: 100%; max-width: 640px; border-collapse: collapse; }
+     .tab-consegna th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+     .tab-consegna td { padding: 4px 8px; vertical-align: middle; }
+     .tab-consegna .num { max-width: 140px; }
+     .tab-consegna .x { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text-tertiary); font-size: 14px; }
+     .mini { font-size: 12.5px; margin: 6px 0 0; }`,
+    `.consegna-partner { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+     .consegna-partner .hint { margin: 4px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+     .chip-n { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(120,120,128,.15); font-size: 11px; }
+     .chip.on .chip-n { background: rgba(255,255,255,.22); }
+     .mestieri-campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 24px; margin-top: 16px; }
+     .mestieri-campi .campo { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 550; }
+     .mestieri-campi .field { max-width: 240px; }
+     .mestieri-campi .hint { font-weight: 400; font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }`,
     `
       .form-head { margin-bottom: 24px; }
       .back { font-size: 13px; color: var(--text-secondary); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
@@ -407,6 +520,28 @@ export class PartnerFormComponent {
 
   readonly provinces = signal<Province[]>([]);
   readonly categories = signal<Category[]>([]);
+  readonly mestieri = signal<Mestiere[]>([]);
+  readonly selectedMestieri = new Set<string>();
+  /** ⭐ 06/09 sera: l'area di consegna — province dove consegna da solo, con minimo e raggio per provincia. */
+  consegna: { provinceId: string; minimoOrdine: number | null; raggioKm: number | null }[] = [];
+  provinceNonInConsegna(): Province[] { const gia = new Set(this.consegna.map((r) => r.provinceId)); return this.provinces().filter((p) => !gia.has(p.id)); }
+  codiceProvincia(id: string): string { return this.provinces().find((p) => p.id === id)?.code ?? '?'; }
+  nomeProvincia(id: string): string { return this.provinces().find((p) => p.id === id)?.name ?? ''; }
+  aggiungiConsegna(id: string): void { if (id && !this.consegna.some((r) => r.provinceId === id)) this.consegna = [...this.consegna, { provinceId: id, minimoOrdine: null, raggioKm: null }]; }
+  rimuoviConsegna(id: string): void { this.consegna = this.consegna.filter((r) => r.provinceId !== id); }
+  /** Copia i valori della prima riga su tutte le altre. */
+  copiaATutte(): void { const [prima] = this.consegna; if (!prima) return; this.consegna = this.consegna.map((r) => ({ ...r, minimoOrdine: prima.minimoOrdine, raggioKm: prima.raggioKm })); }
+  /** Parte dalle province dove VENDE (area commerciale): comodo quando consegna ovunque vende. */
+  consegnaDalleVendite(): void { const codici = new Set(this.provinceEffettive()); this.consegna = this.provinces().filter((p) => codici.has(p.code)).map((p) => ({ provinceId: p.id, minimoOrdine: null, raggioKm: null })); }
+  readonly aree = signal<Area[]>([]);
+  readonly selectedAree = new Set<string>();
+  /** Le sigle delle province coperte dalle aree scelte (unione), per dirlo a chi compila. */
+  provinceEffettive(): string[] {
+    const s = new Set<string>();
+    for (const a of this.aree()) if (this.selectedAree.has(a.id)) for (const p of a.province) s.add(p.code);
+    for (const p of this.provinces()) if (this.selectedProvinces.has(p.id)) s.add(p.code); // ⭐ 06/09: province in più, scelte a mano
+    return [...s].sort();
+  }
   readonly serviceTypes = signal<ServiceType[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -493,6 +628,10 @@ export class PartnerFormComponent {
     smsTemplatesEnabled: false,
     whatsappNotifications: false,
     mailNotifications: false,
+    autoDeliveredByPartner: false,
+    esclusoDalleProposte: false,
+    minimoOrdineVendita: null as number | null,
+    raggioMaxConsegnaKm: null as number | null,
     activityReminder: false,
     storeUrl: '',
     imageUrl: '',
@@ -507,6 +646,8 @@ export class PartnerFormComponent {
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));
+    this.http.get<Mestiere[]>(`${api}/mestieri`).subscribe({ next: (d) => this.mestieri.set(d.filter((m) => m.attivo)), error: () => undefined });
+    this.http.get<Area[]>(`${api}/aree`).subscribe({ next: (d) => this.aree.set(d.filter((a) => a.attiva)), error: () => undefined });
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
 
     // Modalita' modifica: /partners/:id/edit
@@ -536,9 +677,18 @@ export class PartnerFormComponent {
     }
     // Province / categorie / servizi collegati
     this.selectedProvinces.clear();
+    // ⭐ 06/09: con le aree, nelle chip restano solo le province scelte a mano (manuale); senza aree, tutte.
+    const haAree = (((p as any).aree ?? []) as unknown[]).length > 0;
     for (const pp of (p['provinces'] as any[]) ?? []) {
-      if (pp?.province?.id) this.selectedProvinces.add(pp.province.id);
+      if (pp?.province?.id && (!haAree || pp.manuale)) this.selectedProvinces.add(pp.province.id);
     }
+    this.selectedAree.clear();
+    for (const a of ((p as any).aree ?? []) as { area?: { id: string } }[]) if (a?.area?.id) this.selectedAree.add(a.area.id);
+    this.consegna = (((p as any).consegnaProvince ?? []) as { provinceId?: string; province?: { id: string }; minimoOrdine?: number | null; raggioKm?: number | null }[])
+      .map((r) => ({ provinceId: r.provinceId ?? r.province?.id ?? '', minimoOrdine: r.minimoOrdine ?? null, raggioKm: r.raggioKm ?? null }))
+      .filter((r) => !!r.provinceId);
+    this.selectedMestieri.clear();
+    for (const m of ((p as any).mestieri ?? []) as { mestiere?: { id: string } }[]) if (m?.mestiere?.id) this.selectedMestieri.add(m.mestiere.id);
     this.selectedCategories.clear();
     for (const c of (p['categories'] as any[]) ?? []) {
       if (c?.category?.id) this.selectedCategories.add(c.category.id);
@@ -631,6 +781,10 @@ export class PartnerFormComponent {
       smsTemplatesEnabled: m.smsTemplatesEnabled,
       whatsappNotifications: m.whatsappNotifications,
       mailNotifications: m.mailNotifications,
+      autoDeliveredByPartner: m.autoDeliveredByPartner,
+      esclusoDalleProposte: !!m.esclusoDalleProposte,
+      minimoOrdineVendita: m.minimoOrdineVendita === null || m.minimoOrdineVendita === undefined || (m.minimoOrdineVendita as unknown) === '' ? null : Number(m.minimoOrdineVendita),
+      raggioMaxConsegnaKm: m.raggioMaxConsegnaKm === null || m.raggioMaxConsegnaKm === undefined || (m.raggioMaxConsegnaKm as unknown) === '' ? null : Number(m.raggioMaxConsegnaKm),
       isMultiPickup: m.isMultiPickup,
       valetIdentityCheck: m.valetIdentityCheck,
       deliveryCodeRequired: m.deliveryCodeRequired,
@@ -655,7 +809,15 @@ export class PartnerFormComponent {
     // svuotarle non le cancellerebbe (l'API aggiorna solo le chiavi presenti).
     const isEdit = !!this.editId();
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
-    if (this.selectedCategories.size || isEdit) payload['categoryIds'] = [...this.selectedCategories];
+    if (this.selectedMestieri.size || isEdit) payload['mestiereIds'] = [...this.selectedMestieri];
+    // Con le aree scelte, le province le decide il server (unione): non si mandano le singole.
+    // ⭐ 06/09 (regola utente): aree E province a mano viaggiano insieme; le province effettive sono l'unione.
+    if (this.selectedAree.size) payload['areaIds'] = [...this.selectedAree];
+    else if (isEdit) payload['areaIds'] = [];
+    if (isEdit) payload['provinceIds'] = [...this.selectedProvinces];
+    // ⭐ 06/09 sera: l'area di consegna viaggia solo con «Consegna da Partner»; spento = nessuna.
+    if (m.autoDeliveredByPartner) payload['consegnaProvince'] = this.consegna.map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine === null || (r.minimoOrdine as unknown) === '' ? null : Number(r.minimoOrdine), raggioKm: r.raggioKm === null || (r.raggioKm as unknown) === '' ? null : Number(r.raggioKm) }));
+    else if (isEdit) payload['consegnaProvince'] = [];
 
     const addrs = m.isMultiPickup
       ? this.pickupAddresses.map((a) => a.trim()).filter(Boolean)

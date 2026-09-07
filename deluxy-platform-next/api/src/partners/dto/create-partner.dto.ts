@@ -143,6 +143,43 @@ export class CreatePartnerDto {
   @IsBoolean()
   mailNotifications?: boolean;
 
+  @ApiPropertyOptional({ default: false, description: 'Consegna Partner Automatico: ogni consegna inserita nasce «da fornitore» col valet «Partner Consegna»' })
+  @IsOptional()
+  @IsBoolean()
+  autoDeliveredByPartner?: boolean;
+
+  @ApiPropertyOptional({ description: 'Escluso dalle proposte automatiche: non entra nelle liste a cui proporre gli ordini e non conta come «partner in provincia» (solo ufficio)' })
+  @IsOptional()
+  @IsBoolean()
+  esclusoDalleProposte?: boolean;
+
+  @ApiPropertyOptional({ description: 'Minimo d\'ordine (€ al cliente) che il partner vuole ricevere sui servizi di vendita' })
+  @IsOptional()
+  @IsNumber()
+  minimoOrdineVendita?: number | null;
+
+  @ApiPropertyOptional({ description: 'Raggio massimo (km) per le consegne che fa il partner' })
+  @IsOptional()
+  @IsNumber()
+  raggioMaxConsegnaKm?: number | null;
+
+  @ApiPropertyOptional({ type: [String], description: 'Mestieri del partner (id di Mestiere)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mestiereIds?: string[];
+
+  @ApiPropertyOptional({ type: [Object], description: 'Area di CONSEGNA (solo con Consegna da Partner): province dove consegna da solo, con minimo d\'ordine e raggio per provincia (vuoti = predefiniti del partner)' })
+  @IsOptional()
+  @IsArray()
+  consegnaProvince?: { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Aree del partner (id di Area): le province effettive sono la loro unione' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  areaIds?: string[];
+
   @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
   @IsOptional()
   @IsString()

@@ -16,6 +16,7 @@ import {
 } from '../common/list-query';
 import { ProductListQueryDto } from './dto/product-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { StockService } from '../stock/stock.module';
 import { MerchandisingSyncService } from '../merchandising-sync/merchandising-sync.module';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
@@ -33,6 +34,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchandising: MerchandisingSyncService,
+    private readonly stock: StockService,
   ) {}
 
   /** Campi testuali coperti dalla ricerca globale `q`. */
@@ -94,7 +96,10 @@ export class ProductsService {
     if (query.unique !== undefined) {
       perTipo['type'] = query.unique ? ProductType.UNICO : { not: ProductType.UNICO };
     }
-    const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo };
+    // ⭐ 06/09 sera (regola utente): il listino di UN partner — serve alla tendina della consegna,
+    // che mostra prima i prodotti del partner scelto.
+    const perPartner = query.partnerId ? { partnerId: query.partnerId } : {};
+    const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo, ...perPartner };
     const search = textSearch(query.q, ProductsService.SEARCH_FIELDS);
     // scope e ricerca vanno in AND: la ricerca non deve allargare la visibilita'
     const where = search ? { AND: [scope, search] } : scope;
@@ -160,6 +165,7 @@ export class ProductsService {
           price: v.price,
           publicPrice: v.publicPrice,
           sku: `${baseSku}-${String(i + 1).padStart(2, '0')}`,
+          note: v.note,
           imageUrl: v.imageUrl,
           prepDays: v.prepDays,
           controlStock: v.controlStock ?? false,
@@ -221,6 +227,11 @@ export class ProductsService {
       platformDescriptions,
       ...scalar
     } = dto;
+    // ⭐ 06/09/2026 (regola utente): la GIACENZA corretta a mano lascia una riga
+    // di movimento «rettifica»: il saldo si puo' sempre rifare dai movimenti.
+    if (scalar.stock !== undefined && scalar.stock !== (product as any).stock) {
+      await this.stock.rettifica(id, (product as any).stock, scalar.stock, user.sub, `giacenza ${(product as any).stock ?? 0} → ${scalar.stock ?? 0} (form prodotto)`);
+    }
     return this.prisma.product.update({
       where: { id },
       data: {
@@ -241,7 +252,8 @@ export class ProductsService {
                   price: v.price,
                   publicPrice: v.publicPrice,
                   sku: `${product.sku ?? 'DXY'}-${String(i + 1).padStart(2, '0')}`,
-                  imageUrl: v.imageUrl,
+                  note: v.note,
+          imageUrl: v.imageUrl,
                   prepDays: v.prepDays,
                   controlStock: v.controlStock ?? false,
                   stock: v.stock,

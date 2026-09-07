@@ -225,6 +225,7 @@ export class AnagraficheSyncService {
   async sincronizzaOra(
     partner: PartnerPiattaforma,
     anagraficaId?: string | null,
+    campi?: string[],
   ): Promise<{ ok: boolean; stato: number; messaggio: string }> {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { ok: false, stato: 0, messaggio: 'Chiave del registro non configurata.' };
@@ -243,7 +244,7 @@ export class AnagraficheSyncService {
         const res = await fetch(`${base}/api/v1/partners/${anagraficaId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-          body: JSON.stringify({ ...this.corpo(partner), platformId: partner.id }),
+          body: JSON.stringify({ ...this.corpo(partner, campi), platformId: partner.id }),
         });
         const testo = await res.text();
         if (res.status === 403) {
@@ -261,7 +262,7 @@ export class AnagraficheSyncService {
       const res = await fetch(`${base}/api/v1/partners`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify(this.corpo(partner)),
+        body: JSON.stringify(this.corpo(partner, campi)),
       });
       const testo = await res.text();
       if (res.status === 403) {
@@ -324,8 +325,48 @@ export class AnagraficheSyncService {
    * la sync silenziosa sia il collegamento con esito: se divergessero, il
    * bottone manderebbe una cosa e il salvataggio automatico un'altra.
    */
-  private corpo(partner: PartnerPiattaforma): Record<string, unknown> {
+  /**
+   * Il corpo per il registro.
+   *
+   * ⭐ 04/09/2026 (regola utente): ora porta anche i dati FISCALI e BANCARI —
+   * codice SDI, PEC, IBAN, intestatario del conto, metodo di pagamento e i
+   * contatti dell'amministrazione. Prima non partivano: la scheda mostrava
+   * «qui c'è, là manca» e premere «Aggiorna il registro» non cambiava niente.
+   *
+   * ⚠️ `campi` limita l'invio a quelli scelti in pagina: sono dati di
+   * pagamento, e mandarli tutti in blocco non è una decisione da prendere per
+   * conto di chi guarda. Senza `campi` si manda tutto, come prima.
+   * ⚠️ Un valore VUOTO non si manda mai: cancellerebbe quello che il registro
+   * ha già, e un vuoto non è una correzione.
+   */
+  private corpo(partner: PartnerPiattaforma, campi?: string[]): Record<string, unknown> {
     const categoria = partner.categories?.[0]?.category?.name?.toUpperCase();
+    const finanziari: Record<string, unknown> = {};
+    const metti = (chiave: string, valore: unknown) => {
+      const v = typeof valore === 'string' ? valore.trim() : valore;
+      if (v === null || v === undefined || v === '') return;
+      if (campi && !campi.includes(chiave)) return;
+      finanziari[chiave] = v;
+    };
+    metti('codiceSdi', (partner as any).sdiCode);
+    metti('pec', (partner as any).certifiedEmail);
+    metti('iban', (partner as any).bankAccount);
+    metti('intestatarioConto', (partner as any).bankAccountName);
+    metti('metodoPagamento', (partner as any).paymentMethod);
+    metti('amministrazioneNome', (partner as any).adminName);
+    metti('amministrazioneEmail', (partner as any).adminEmail);
+    metti('amministrazioneTelefono', (partner as any).adminPhone);
+    const base = this.corpoBase(partner, categoria);
+    const anagrafici = campi
+      ? Object.fromEntries(Object.entries(base).filter(([k]) => campi.includes(k) || k === 'platformId'))
+      : base;
+    return {
+      ...anagrafici,
+      ...(Object.keys(finanziari).length ? { datiFinanziari: finanziari } : {}),
+    };
+  }
+
+  private corpoBase(partner: PartnerPiattaforma, categoria?: string): Record<string, unknown> {
     return {
       platformId: partner.id,
       nome: partner.insegna,
