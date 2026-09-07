@@ -2070,7 +2070,12 @@ model Sale {
   recipientPhone     String?
   deliveryDate       DateTime?
   serviceTypeId      String?
-  deliveryId         String?   @unique // consegna generata dall'accettazione
+  /// ⭐ 07/09/2026 (regola utente: «se è due prodotti stesso partner unisci in unica
+  /// consegna con più prodotti»): NON è più @unique. Due righe dello stesso ordine per
+  /// lo stesso partner fanno UNA consegna con due righe, e tutt'e due le vendite
+  /// puntano a quella. Il vincolo uno-a-uno le avrebbe fatte litigare (P2002 in fase
+  /// di accettazione, cioè l'unica cosa che non deve fallire).
+  deliveryId         String?   // consegna generata dall'accettazione (più vendite possono condividerla)
   /// ⭐ 04/09/2026 (regola utente): QUANDO la vendita è passata in storico
   /// (accettata, non accettata, annullata). Null finché è aperta.
   historyAt          DateTime?
@@ -2087,6 +2092,8 @@ model Sale {
   /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
   @@index([partnerId])
   @@index([productId])
+
+  @@index([deliveryId])
 }
 
 // Chiavi API per le ALTRE APP Deluxy (app-to-app, standard §4.3): header

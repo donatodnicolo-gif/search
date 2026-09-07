@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
-import { NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
+import { DeliveryStatus, NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
@@ -85,6 +85,29 @@ type StatoOrdineOrders = {
   smistamento: string | null; evasione: string | null;
   fulfillmentStatus: string | null; consegnataIl: string | null; annullato: unknown;
 };
+
+/**
+ * ⭐ 07/09/2026 — IL PREZZO DELLA RIGA DI UNA VENDITA.
+ *
+ * Era scritto dentro il `create` della consegna; da quando una riga può finire anche su
+ * una consegna già esistente (due prodotti dello stesso ordine per lo stesso partner)
+ * serve in due posti, e un calcolo del prezzo copiato in due punti è un modo sicuro di
+ * farli divergere.
+ *
+ * Il prezzo di riga è quello del PARTNER (canone 29/08: la fee si calcola sul SUO
+ * prezzo). Il pubblico è il ripiego; sui generici, che a listino valgono 0, si ricava
+ * da quanto prende il partner diviso i pezzi.
+ */
+function prezzoRigaVendita(
+  vendita: { quantity?: number; amount?: number | null; discountPercent?: number | null; product?: { publicPrice: number | null } | null },
+  variante?: { price: number | null; publicPrice: number | null } | null,
+): number | null {
+  const pezzi = Math.max(1, Number(vendita.quantity) || 1);
+  const listino = variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null;
+  if (listino) return listino;
+  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
+  return alPartner > 0 ? Math.round((alPartner / pezzi) * 100) / 100 : null;
+}
 
 @Injectable()
 export class SalesService {
@@ -875,17 +898,17 @@ export class SalesService {
       ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId } })
       : null;
     const consegna = await this.creaConsegna(vendita, variante);
-    const aggiornata = await this.prisma.sale.update({
-      where: { id },
-      data: {
+    const aggiornata = await this.aggiornaVenditaConConsegna(
+      id,
+      {
         status: SaleStatus.ACCETTATA,
         deliveryId: consegna?.id ?? null,
         // Il servizio con cui è nata la consegna resta scritto anche sulla vendita.
         serviceTypeId: vendita.serviceTypeId ?? consegna?.serviceTypeId ?? undefined,
         historyAt: new Date(),
       },
-      include: { partner: { select: { id: true, insegna: true } } },
-    });
+      { partner: { select: { id: true, insegna: true } } },
+    );
     await this.registra(id, 'stato', `Accettata ${user.role === Role.PARTNER ? 'dal partner ' + (aggiornata.partner?.insegna ?? '') : "dall'ufficio"}${consegna ? ' → nasce la consegna #' + (consegna as any).code : ' — consegna NON creata (dati mancanti)'}`, user);
     return {
       vendita: aggiornata,
@@ -2599,6 +2622,81 @@ export class SalesService {
       notaShopify = String(ordine?.shopify?.note ?? '').trim() || undefined;
     }
 
+    // ⭐ 07/09/2026 (regola utente: «se è due prodotti stesso partner unisci in unica
+    // consegna con più prodotti») — UNA CONSEGNA, NON DUE.
+    //
+    // Da ieri sera ogni vendita accettata genera la SUA consegna. Un ordine con due
+    // righe per lo stesso partner — la torta e i macarons di Rizzi, per dire — ne
+    // faceva nascere due allo stesso indirizzo, alla stessa ora: due giri, due fatture,
+    // due paghe, e il cliente che apre la porta due volte. Se una consegna per questo
+    // ordine e questo partner c'è già, la riga si aggiunge LÌ.
+    //
+    // Solo le consegne ancora vive: una annullata o già consegnata non si tocca —
+    // aggiungere merce a un giro già fatto sarebbe merce che nessuno porta.
+    if (vendita.externalOrderId && vendita.productId) {
+      // ⚠️ `Sale.deliveryId` è un campo sciolto, senza relazione Prisma: la consegna si
+      // legge in un secondo passo, non con un include.
+      const sorelle = await this.prisma.sale.findMany({
+        where: {
+          externalOrderId: vendita.externalOrderId,
+          partnerId: vendita.partnerId,
+          id: { not: vendita.id },
+          deliveryId: { not: null },
+          status: { not: 'annullata' },
+        },
+        select: { deliveryId: true },
+      });
+      const consegnaSorella = sorelle.length
+        ? await this.prisma.delivery.findFirst({
+            where: {
+              id: { in: sorelle.map((x) => x.deliveryId!) },
+              deletedAt: null,
+              // Solo le consegne ancora vive: su una già consegnata o annullata la merce
+              // aggiunta non la porterebbe nessuno.
+              status: { in: [DeliveryStatus.CREATED, DeliveryStatus.ASSIGNED, DeliveryStatus.ACCEPTED, DeliveryStatus.IN_PREPARATION] },
+            },
+            select: { id: true, code: true, date: true, serviceTypeId: true },
+            orderBy: { code: 'asc' },
+          })
+        : null;
+      if (consegnaSorella) {
+        const gia = await this.prisma.deliveryProduct.findFirst({
+          where: {
+            deliveryId: consegnaSorella.id,
+            productId: vendita.productId,
+            productVariantId: vendita.productVariantId ?? null,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (!gia) {
+          await this.prisma.deliveryProduct.create({
+            data: {
+              deliveryId: consegnaSorella.id,
+              productId: vendita.productId,
+              productName: vendita.product?.name ?? null,
+              productSku: vendita.product?.sku ?? null,
+              productVariantId: vendita.productVariantId ?? null,
+              variantName: vendita.variantName ?? variante?.name ?? null,
+              quantity: Math.max(1, Number(vendita.quantity) || 1),
+              price: prezzoRigaVendita(vendita, variante),
+            },
+          });
+          await this.prisma.deliveryLog.create({
+            data: {
+              deliveryId: consegnaSorella.id, type: 'note', userId: null,
+              message: `Aggiunta la riga «${vendita.product?.name ?? 'prodotto'}» dalla vendita dello stesso ordine (#${vendita.externalOrderNumber ?? '?'}), stesso partner: una consegna sola con più prodotti`,
+            },
+          });
+        }
+        // ⚠️ `Sale.deliveryId` è ancora @unique in questo database: la seconda vendita non
+        // può puntare alla stessa consegna finché il vincolo non viene tolto. La riga
+        // però è già sulla consegna — il lavoro da fare è completo — e il collegamento
+        // si prova comunque: quando il vincolo sarà un indice normale, funziona da sé.
+        return consegnaSorella;
+      }
+    }
+
     const ultimo = await this.prisma.delivery.aggregate({ _max: { code: true } });
     return this.prisma.delivery.create({
       data: {
@@ -2653,20 +2751,43 @@ export class SalesService {
                 // si calcola sul SUO prezzo — la prova: la quota registrata e'
                 // il 20% esatto della variante `price`, non del pubblico). Il
                 // pubblico e' il ripiego; se nessuno lo dichiara resta vuoto.
-                price: (() => {
-                  const pezzi = Math.max(1, Number(vendita.quantity) || 1);
-                  const listino = variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null;
-                  if (listino) return listino;
-                  // Generico (listino 0 o assente): quanto prende il partner, diviso i pezzi.
-                  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
-                  return alPartner > 0 ? Math.round((alPartner / pezzi) * 100) / 100 : null;
-                })(),
+                price: prezzoRigaVendita(vendita, variante),
               }],
             }
           : undefined,
       },
       select: { id: true, code: true, date: true, serviceTypeId: true },
     });
+  }
+
+  /**
+   * ⭐ 07/09/2026 — COLLEGARE LA VENDITA ALLA SUA CONSEGNA, anche quando la consegna
+   * è condivisa con una vendita sorella.
+   *
+   * Da oggi due righe dello stesso ordine per lo stesso partner finiscono su UNA
+   * consegna: la seconda vendita vorrebbe puntare alla stessa. Ma `Sale.deliveryId` è
+   * ancora `@unique` in questo database, e l'update fallirebbe con P2002 — facendo
+   * fallire l'ACCETTAZIONE, cioè l'unica cosa che non deve mai fallire: il partner ha
+   * detto sì, la consegna c'è, la riga è sopra.
+   *
+   * Qui si prova a scrivere il collegamento; se il vincolo lo impedisce si riscrive
+   * tutto il resto senza `deliveryId` e lo si annota nel registro. Quando il vincolo
+   * diventerà un indice normale (migrazione concordata) questo ramo non scatterà più.
+   */
+  private async aggiornaVenditaConConsegna<T>(
+    id: string,
+    dati: Record<string, unknown>,
+    include: T,
+  ): Promise<any> {
+    try {
+      return await this.prisma.sale.update({ where: { id }, data: dati, include: include as any });
+    } catch (err) {
+      const p2002 = (err as { code?: string })?.code === 'P2002' && 'deliveryId' in dati;
+      if (!p2002) throw err;
+      const { deliveryId, ...senzaConsegna } = dati;
+      this.logger.warn(`Vendita ${id}: la consegna ${String(deliveryId)} è già di una vendita sorella (Sale.deliveryId è ancora @unique). La riga è sulla consegna; il collegamento no.`);
+      return this.prisma.sale.update({ where: { id }, data: senzaConsegna, include: include as any });
+    }
   }
 
   private servizioVenditaDeluxyId: string | null | undefined;
