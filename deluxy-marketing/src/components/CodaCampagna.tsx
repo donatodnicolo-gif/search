@@ -1,22 +1,6 @@
 import { prisma } from "@/lib/db";
 import { formattaDataOra } from "@/lib/dominio";
-
-const ETICHETTA_TIPO: Record<string, string> = {
-  pausa_campagna: "Metti in pausa la campagna",
-  attiva_campagna: "Riattiva la campagna",
-  nuova_campagna: "Crea la campagna",
-  budget: "Cambia budget",
-  pausa_keyword: "Metti in pausa la keyword",
-  attiva_keyword: "Riattiva la keyword",
-  nuova_keyword: "Aggiungi la keyword",
-  negativa: "Aggiungi negativa",
-  pausa_gruppo: "Metti in pausa il gruppo",
-  attiva_gruppo: "Riattiva il gruppo",
-  nuovo_annuncio: "Crea un annuncio",
-  localita: "Cambia le localita' della campagna",
-  estensione: "Aggiungi un'estensione",
-  completa_campagna: "Completa la campagna",
-};
+import { ETICHETTA_TIPO_OPERAZIONE as ETICHETTA_TIPO } from "@/lib/coda-recente";
 
 // Cosa sta per succedere su Google PER QUESTA CAMPAGNA: le operazioni in
 // coda, in evidenza sulla scheda.

@@ -29,12 +29,25 @@ import { MODIFICHE_CHE_PESANO } from "./guardrail";
 // Gli avvisi viaggiano DUE volte apposta: qui, per chi ha appena premuto, e
 // sulla riga dell'operazione, per chi approverà — che può essere un'altra
 // persona un altro giorno, e quel messaggio nell'URL non lo vedrà mai.
+// Le pagine che montano <EsitoCoda> (il pannello laterale): su queste l'esito
+// di «metti in coda» torna DOVE si era, e il pannello lo mostra. Una pagina
+// aggiunta qui senza il componente sarebbe un click muto.
+const PAGINE_COL_PANNELLO = [/^\/campagne\/[^/?#]+/, /^\/gruppi\/[^/?#]+/, /^\/termini(?=[?#]|$)/, /^\/keywords(?=[?#]|$)/];
+
 function esitoInCoda(cosa: string, avvisi: string[], torna?: string | null) {
   const qs = new URLSearchParams({ esito: `In coda, da approvare: ${cosa}` });
   if (avvisi.length > 0) qs.set("avvisi", avvisi.join(" · "));
-  // ⚠️ DA DOVE si veniva. Senza, dopo aver approvato si restava su
-  // /operazioni e la strada indietro andava rifatta a memoria — campagna,
-  // gruppo, filtro. Il ritorno viaggia con l'esito e diventa un bottone.
+  // ⚠️ Si RESTA dove si era (richiesta dell'utente, 07/09/2026): il salto a
+  // /operazioni atterrava con lo sguardo sullo storico delle cose già fatte,
+  // non sulla riga appena aggiunta, e faceva perdere il filo — campagna,
+  // gruppo, filtro. Sulla pagina di partenza si apre il pannello laterale con
+  // l'esito e le ultime richieste; l'eventuale #ancora resta in coda
+  // all'indirizzo, così la pagina si riapre sulla sezione da cui si agiva.
+  if (torna && PAGINE_COL_PANNELLO.some((r) => r.test(torna))) {
+    const [senzaAncora, ancora] = torna.split("#");
+    return `${senzaAncora}${senzaAncora.includes("?") ? "&" : "?"}${qs.toString()}${ancora ? `#${ancora}` : ""}`;
+  }
+  // Pagine senza pannello: si va in coda, col ritorno che diventa un bottone.
   if (torna) qs.set("torna", torna);
   return `/operazioni?${qs.toString()}`;
 }
@@ -300,8 +313,9 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
       prima.canale === "meta_ads"
         ? "la esegue l'app nel momento in cui la approvi"
         : "la esegue lo script al giro dopo l'approvazione";
+    // Si resta sulla scheda: l'esito lo mostra il pannello laterale (EsitoCoda).
     redirect(
-      `/operazioni?esito=${encodeURIComponent(
+      `/campagne/${id}?esito=${encodeURIComponent(
         (concludere ? `«${prima.nome}» è conclusa nell'app (${piattaforma} non ha uno stato «conclusa»): ` : `«${prima.nome}» `) +
           `sarà ${verbo} su ${piattaforma} dopo l'approvazione — ${dopo}. Fino ad allora su ${piattaforma} resta ${
             prima.statoPiattaforma ?? "com'era"
@@ -5215,4 +5229,120 @@ export async function impostaLinguaGruppo(gruppoId: string, fd: FormData) {
   // ⚠️ Ritorno esplicito: `revalidatePath` da solo lascia il menù sul valore
   // vecchio, ed è la quarta volta che questa trappola si presenta.
   redirect(testo(fd, "ritorno") || `/gruppi/${gruppoId}`);
+}
+
+// ---------- Mettere in pausa UN annuncio, dalla scheda del gruppo ----------
+// Richiesta dell'utente (07/09/2026): «da schermata gruppo annunci metti
+// possibilità di sospendere un annuncio direttamente da qui o da sotto dove
+// sono elencati». Lo script sapeva già eseguire `pausa_annuncio` (dal 21/08,
+// per il doppione della WORLD-ENG): mancava il bottone — finora l'unico modo
+// era l'API. Stessa coda, stessa approvazione di tutto il resto.
+//
+// ⚠️ Lo script RIFIUTA la pausa dell'UNICO annuncio attivo del gruppo (un
+// gruppo senza annunci non eroga): qui lo si dice come AVVISO al momento
+// dell'accodamento, così chi approva lo sa prima, non dall'esito fallito.
+export async function creaOperazionePausaAnnuncio(fd: FormData) {
+  const ritorno = testo(fd, "ritorno");
+  const gruppoId = testo(fd, "gruppoId");
+  // L'id completo `account:gruppo:annuncio` delle righe `destinazione`: è
+  // quello che lo script sa usare (AdsApp.ads().withIds([[gruppo, annuncio]])).
+  const idRicevuto = testo(fd, "idAnnuncio");
+  const etichetta = testo(fd, "etichetta") ?? "annuncio";
+  if (!gruppoId || !idRicevuto) return;
+  const base = ritorno ?? `/gruppi/${gruppoId}`;
+  const sep = base.includes("?") ? "&" : "?";
+
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: gruppoId },
+    include: {
+      campagna: {
+        include: {
+          modifiche: MODIFICHE_CHE_PESANO,
+          incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+        },
+      },
+    },
+  });
+  if (!gruppo) return;
+  const campagna = gruppo.campagna;
+
+  // Dal recap arriva l'id completo; dalla colonna dei testi (in fondo alla
+  // scheda) arriva SOLO l'id dell'annuncio, perché lì le righe titolo e
+  // descrizione conoscono gli annunci per quello. Il pezzo che manca —
+  // account:gruppo — è l'id esterno del gruppo stesso.
+  const idAnnuncio = /^\d+$/.test(idRicevuto) && gruppo.idEsterno ? `${gruppo.idEsterno}:${idRicevuto}` : idRicevuto;
+  if (!/^[\d-]+:\d+:\d+$/.test(idAnnuncio)) {
+    redirect(`${base}${sep}bloccata=${encodeURIComponent("Questo annuncio non ha un id di Google leggibile: la pausa non si può mettere in coda.")}`);
+  }
+
+  // Una sola in volo per annuncio: la seconda sarebbe un doppione che lo
+  // script rifà a vuoto (la trappola del doppio invio, vedi handoff 25/08).
+  const inVolo = await prisma.operazioneAdv.findFirst({
+    where: { tipo: "pausa_annuncio", idEsterno: idAnnuncio, stato: { in: ["in_attesa", "approvata"] } },
+    select: { stato: true },
+  });
+  if (inVolo) {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent(
+        `La pausa di «${etichetta}» è già in coda (${inVolo.stato === "approvata" ? "approvata" : "da approvare"}): approvala in Operazioni invece di rifarla.`
+      )}`
+    );
+  }
+
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello: "L1", // un annuncio in meno nel gruppo: non sposta traffico fra gruppi
+    deltaBudgetPct: null,
+    rollbackPiano: null,
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
+    l2Settimana: 0,
+  });
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO sulla campagna che contiene questo gruppo: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+    );
+  }
+  // Quanti annunci del gruppo sono accesi, letti dalle righe `destinazione`
+  // (una per annuncio, con lo stato in testa: "id:ENABLED"). Se questo è
+  // l'unico, lo script si rifiuterà: meglio saperlo adesso.
+  const destinazioni = await prisma.copyAnnuncio.findMany({
+    where: { tipo: "destinazione", campagna: campagna.nome, gruppo: gruppo.nome },
+    select: { annunci: true },
+  });
+  const accesi = destinazioni.filter((d) => (d.annunci ?? "").split(",")[0]?.split(":")[1] === "ENABLED").length;
+  if (accesi <= 1) {
+    esito.avvisi.push(
+      `È l'UNICO annuncio attivo di «${gruppo.nome}»: lo script rifiuterà la pausa finché non c'è un annuncio sostitutivo attivo (prima si crea il nuovo, poi si ferma questo).`
+    );
+  }
+
+  const pezzi = idAnnuncio.split(":");
+  const op = await accodaOperazione({
+    data: {
+      tipo: "pausa_annuncio",
+      canale: gruppo.canale,
+      account: pezzi[0],
+      bersaglio: `${etichetta} in ${gruppo.nome}`,
+      idEsterno: idAnnuncio,
+      parametri: JSON.stringify({ idAnnuncio, idGruppo: pezzi[1], gruppo: gruppo.nome, campagna: campagna.nome }),
+      motivo: testo(fd, "motivo") ?? `Messo in pausa dalla scheda del gruppo «${gruppo.nome}»`,
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
+      livello: "L1",
+      prima: "attivo",
+      campagnaId: campagna.id,
+      gruppoId: gruppo.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): pausa_annuncio «${etichetta}» in "${gruppo.nome}" (${campagna.nome})`,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
+  });
+  revalidatePath(`/gruppi/${gruppo.id}`);
+  redirect(esitoInCoda(`pausa dell'annuncio «${etichetta}» in ${gruppo.nome}`, esito.avvisi, base));
 }

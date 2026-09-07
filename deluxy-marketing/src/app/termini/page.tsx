@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/Badge";
+import { EsitoCoda } from "@/components/EsitoCoda";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { SelezionaTutte } from "@/components/SelezionaTutte";
@@ -41,7 +42,7 @@ const STATI: { chiave: string; nome: string; colore: string }[] = [
 export default async function PaginaTermini({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string; vista?: string; bloccata?: string }>;
+  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string; vista?: string; bloccata?: string; esito?: string; avvisi?: string; saltate?: string }>;
 }) {
   const p = await searchParams;
   const destinazione = await destinazionePredefinita("termini", "/termini", p);
@@ -182,6 +183,8 @@ export default async function PaginaTermini({
           </form>
         </section>
 
+        {/* L esito di «Escludi»: pannello laterale, si resta sulle parole. */}
+        <EsitoCoda sp={p} ritorno="/termini" />
         {p.bloccata && (
           <div className="avviso-errore">
             <strong>{p.bloccata}</strong>

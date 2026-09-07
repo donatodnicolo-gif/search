@@ -20,6 +20,7 @@ import { BriefDiLancio } from "@/components/BriefDiLancio";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { accodaAnnuncio, creaAnnuncioConAi, sistemaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
+import { EsitoCoda } from "@/components/EsitoCoda";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { SegmentiCampagna } from "@/components/SegmentiCampagna";
@@ -602,18 +603,14 @@ export default async function SchedaCampagna({
         </section>
 
         {/* L esito di «metti in coda» arriva qui: si resta sulla scheda
-            invece di essere portati in coda a ogni parola. */}
-        {sp.esito && (
-          <div className="nota-info">
-            <span className="nota-icona">◈</span>
-            <span>
-              {sp.esito}
-              {sp.saltate && (<> · <b>saltate</b>: {sp.saltate}</>)}
-              {" — "}
-              <a href="/operazioni">vai alla coda per approvare</a>
-            </span>
-          </div>
-        )}
+            invece di essere portati in coda a ogni parola, e lo mostra il
+            pannello laterale con le ultime richieste di questa campagna. */}
+        <EsitoCoda
+          sp={sp}
+          campagnaId={campagna.id}
+          ritorno={`/campagne/${campagna.id}`}
+          ambito="di questa campagna"
+        />
 
         {/* I filtri della pagina viaggiano col periodo: cambiarlo e una lente,
             non un modo per tornare all elenco completo. */}

@@ -52,6 +52,13 @@
 >   `elaborataIl`: 74 dell'import iniziale del 23/07, 15 dal 25/08 in poi
 >   (doppioni .xlsx compresi). **Non corretto**: da decidere se dedurre per
 >   titolo/cartella o saltare gli `.xlsx` quando esiste il gemello `.md`.
+> · 🆕 **Lavoro del pomeriggio, IN LOCALE (non pushato, non deployato)**:
+>   pannello laterale dopo «metti in coda» (scheda campagna e gruppo,
+>   Keyword, Parole cercate) al posto del salto a /operazioni; le annullate
+>   solo in archivio; «Metti in pausa» su ogni annuncio della scheda gruppo;
+>   i bottoni non ereditano più il maiuscolo dai titoli di scheda. Vedi la
+>   prima sezione di FATTO. Da fare: ripubblicare la guida visiva, push,
+>   deploy, primo giro vero.
 > · Aperti invariati: 8.152 nomi + 6.486 email nelle colonne, 5 segreti in
 >   chiaro in `Impostazione`, TikTok senza token, tetto ADV di Gifts, doppione
 >   RSA WORLD-ENG.
@@ -460,6 +467,81 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐ IL PANNELLO LATERALE DOPO «METTI IN CODA», LE ANNULLATE IN ARCHIVIO, LA PAUSA DI UN ANNUNCIO, I BOTTONI SENZA MAIUSCOLO (07/09/2026 pomeriggio — IN LOCALE, NON PUSHATO NÉ DEPLOYATO)
+
+Cinque richieste dell'utente in fila, tutte sulla stessa sessione, tutte
+provate in locale (`npx tsc --noEmit` pulito, dev server sulla 3130, pagine
+lette dal browser). Nessuna scrittura sul database di produzione: il pannello
+è stato collaudato aprendo la scheda con `?esito=…` nell'indirizzo.
+
+**1. «In annuncio questa parte non rispetta UX&UI»** (screenshot del riquadro
+«Gruppi di annunci» sulla scheda campagna): i bottoni «Nuovo gruppo» e
+«Nuovo annuncio ▾» uscivano in MAIUSCOLO spaziato perché `.scheda-titolo` è
+un'etichetta (11px, uppercase, +0.06em) e `.btn` non si difendeva
+dall'eredità. Corretto in `globals.css` sulla classe `.btn`
+(`text-transform: none; letter-spacing: 0`): vale per ogni bottone dentro un
+titolo di scheda, in tutta l'app. Misurato nel browser: `textTransform: none`
+sui due bottoni, il titolo resta uppercase. Il resto del riquadro (th 12px
+sentence case, freccia ↕ di ordinamento, badge con dot) era già a canone.
+
+**2. «In operazioni quelle annullate mettile in un archivio»**: lo «Storico —
+ultimi 7 giorni» di `/operazioni` mostra solo **eseguite e fallite**; le
+annullate escono dalla pagina di lavoro e restano contate nel bottone
+**«Annullate (N) →»** che apre `/operazioni/archivio?stato=annullata` (la
+select dell'archivio le conosceva già). Motivo: dieci negative annullate in
+blocco coprivano l'unica eseguita del giorno, e un'annullata non ha esito né
+conferma né niente da riprovare.
+
+**3. «Quando metti in coda dalla campagna non portare a /operazioni, apri
+una finestra laterale»** + **4. «Escludi da una ricerca mi porta in
+Operazioni con lo sguardo sulle già fatte»**: stesso rimedio.
+`esitoInCoda()` in `lib/azioni.ts` adesso torna **sulla pagina di partenza**
+quando questa è una di `PAGINE_COL_PANNELLO` (scheda campagna, scheda gruppo,
+`/termini`, `/keywords`), con `esito`/`avvisi` nella query e l'eventuale
+`#ancora` conservata; sulle altre va in `/operazioni` come prima. Su quelle
+quattro pagine è montato `<EsitoCoda>` (server) che, se c'è un esito, legge
+le **ultime 8 operazioni richieste** nell'ambito (`lib/coda-recente.ts`,
+qualunque stato, «adesso» sulle righe più giovani di 90 s) e apre
+`<PannelloCoda>` (client): pannello a destra, foglio dal basso sotto 720px,
+✕ / Esc / click sullo scrim, `role="dialog"` + `aria-modal`, fuoco sulla ✕,
+Tab che gira dentro; l'esito in `.avviso-ok` con `role="status"`, gli avvisi
+del guardrail in `.avviso-attenzione`, «Resta qui» e «Vai a Operazioni» (col
+`torna`). Chiudendo, `esito/avvisi/saltate` spariscono dall'indirizzo con
+`history.replaceState`: un F5 non riapre un fatto vecchio. Anche
+`cambiaStatoCampagna` (pausa/riattiva dalla scheda) torna sulla scheda
+invece che in coda. La mappa dei nomi delle operazioni è UNA
+(`ETICHETTA_TIPO_OPERAZIONE` in `coda-recente.ts`, usata anche da
+`CodaCampagna`). Le vecchie righe `nota-info` con l'esito sulla scheda
+campagna e su `/keywords` sono state sostituite dal pannello.
+⚠️ Chi aggiunge una pagina a `PAGINE_COL_PANNELLO` deve montarci
+`<EsitoCoda>`: altrimenti è un click muto.
+
+**5. «Da schermata gruppo annunci metti possibilità di sospendere un annuncio
+da qui o da sotto dove sono elencati»**: lo script sapeva già eseguire
+`pausa_annuncio` (dal 21/08, per il doppione della WORLD-ENG; `pausaAnnuncio`
+in `google-ads-script.js` vuole `parametri.idAnnuncio` completo
+`account:gruppo:annuncio`), mancava il bottone. Ora
+`creaOperazionePausaAnnuncio` in `lib/azioni.ts`: guardrail L1, avviso se c'è
+un incidente aperto, **avviso se è l'UNICO annuncio attivo del gruppo** (lo
+script rifiuterebbe: meglio dirlo prima), **una sola pausa in coda per
+annuncio** (la seconda è `bloccata`), `account` preso dall'id,
+`campagnaId`+`gruppoId` sull'operazione, poi `esitoInCoda` → pannello sulla
+scheda gruppo. Bottone «Metti in pausa» in `RecapAnnunci` (colonna azioni,
+solo sugli ENABLED; «pausa in coda» se già accodata) e in `TestiAnnuncio`
+(testata di colonna di ogni annuncio). ⚠️ Trappola trovata al collaudo: la
+colonna dei testi conosce solo l'id CORTO dell'annuncio — l'azione lo
+completa con `gruppo.idEsterno` (`account:gruppo`), e il confronto «in coda»
+accetta tutte e due le forme. Misurato sul gruppo «Fiori a Domicilio»
+(campagna Fiori a Domicilio + località): 4 bottoni, 2 nel recap con l'id
+completo e 2 nelle colonne con l'id corto. **Non ancora provato con una pausa
+vera**: la prima passa dallo script e va guardata nell'esito.
+
+Registrato nei tre manuali (funzionalità, guida visiva, manuale Deluxy).
+Da fare: ripubblicare la guida visiva (Artifact con url
+`4e6566ec-…`), push e deploy (`npx vercel deploy --prod --yes` da
+PowerShell con Node nel PATH), poi un giro vero: una pausa di annuncio e un
+«Escludi» dalle ricerche per vedere il pannello in produzione.
 
 ### ⭐⭐ «CONCLUSA» = PAUSA SULLA PIATTAFORMA, L'APPROVAZIONE META ESEGUE, IL PIXEL SEMPRE (04/09/2026 pomeriggio)
 

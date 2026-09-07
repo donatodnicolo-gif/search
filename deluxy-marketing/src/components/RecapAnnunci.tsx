@@ -21,7 +21,18 @@ type Riga = {
 // ⚠️ Nessuna query: lavora sulle righe che la scheda ha già caricato. Un
 // riassunto che costasse altre letture al database sarebbe un riassunto che
 // rallenta la pagina che voleva rendere più leggibile.
-export function RecapAnnunci({ righe }: { righe: Riga[] }) {
+// La pausa di un annuncio dalla riga (richiesta dell'utente, 07/09/2026):
+// passa dalla coda come tutto il resto. Chi monta il blocco senza questa prop
+// non vede il bottone.
+export type PausaAnnuncio = {
+  azione: (fd: FormData) => void | Promise<void>;
+  gruppoId: string;
+  ritorno: string;
+  // Gli id completi (account:gruppo:annuncio) con una pausa già in coda
+  inCoda: string[];
+};
+
+export function RecapAnnunci({ righe, pausa }: { righe: Riga[]; pausa?: PausaAnnuncio }) {
   const idDa = (v: string | null | undefined) =>
     /^[\d-]+:\d+:\d+$/.test(v ?? "") ? v!.split(":").pop()! : null;
 
@@ -118,6 +129,7 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
               <th className="num">CTR</th>
               <th className="num">Conv.</th>
               <th className="num">Resa</th>
+              {pausa && <th aria-label="Azioni"></th>}
             </tr>
           </thead>
           <tbody>
@@ -169,6 +181,28 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
                   >
                     {resa != null ? `${resa.toFixed(1).replace(".", ",")}×` : "—"}
                   </td>
+                  {pausa && (
+                    <td className="num" style={{ whiteSpace: "nowrap" }}>
+                      {/* Solo sugli accesi: un annuncio in pausa non ha niente da fermare. */}
+                      {a.stato === "ENABLED" && a.completo ? (
+                        pausa.inCoda.includes(a.completo) ? (
+                          <span className="cella-sub" title="La pausa di questo annuncio è già in coda: approvala in Operazioni">pausa in coda</span>
+                        ) : (
+                          <form action={pausa.azione} style={{ display: "inline-flex" }}>
+                            <input type="hidden" name="gruppoId" value={pausa.gruppoId} />
+                            <input type="hidden" name="idAnnuncio" value={a.completo} />
+                            <input type="hidden" name="etichetta" value={`Annuncio ${i + 1}`} />
+                            <input type="hidden" name="ritorno" value={pausa.ritorno} />
+                            <button className="btn small btn-secondario" type="submit" title="Mette in coda la pausa di questo annuncio su Google, da approvare in Operazioni">
+                              Metti in pausa
+                            </button>
+                          </form>
+                        )
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

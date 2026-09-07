@@ -1,4 +1,5 @@
 import { ETICHETTA_GIUDIZIO_GOOGLE, formattaEuro, GIUDIZI_GOOGLE } from "@/lib/dominio";
+import type { PausaAnnuncio } from "@/components/RecapAnnunci";
 import { dinamico, etichettaFunzione, misuraTesto, oltreIlLimite, REGEX_FUNZIONE, spiegaDinamico } from "@/lib/funzioni-annuncio";
 
 // Titoli e descrizioni come si vedono in Google Ads: una scheda per testo, con
@@ -133,7 +134,10 @@ export function TestiAnnuncio({
   linkTutti,
   linkAttivi,
   metricheAnnunci = [],
+  pausa,
 }: {
+  // La pausa di un annuncio dalla sua colonna: stessa forma del recap in cima.
+  pausa?: PausaAnnuncio;
   testi: TestoAnnuncio[];
   // Le righe `tipo: "destinazione"` del gruppo: portano l'elenco degli
   // annunci che le usano, e da lì si scrive la landing sotto ogni colonna.
@@ -363,6 +367,21 @@ export function TestiAnnuncio({
                 >
                   stato non ancora letto
                 </span>
+              )}
+              {pausa && stato === "ENABLED" && (
+                pausa.inCoda.some((c) => c === id || c.endsWith(`:${id}`)) ? (
+                  <span className="cella-sub" title="La pausa di questo annuncio è già in coda: approvala in Operazioni">pausa in coda</span>
+                ) : (
+                  <form action={pausa.azione} style={{ display: "inline-flex", marginLeft: "auto" }}>
+                    <input type="hidden" name="gruppoId" value={pausa.gruppoId} />
+                    <input type="hidden" name="idAnnuncio" value={id} />
+                    <input type="hidden" name="etichetta" value={`Annuncio ${i + 1}`} />
+                    <input type="hidden" name="ritorno" value={pausa.ritorno} />
+                    <button className="btn small btn-secondario" type="submit" title="Mette in coda la pausa di questo annuncio su Google, da approvare in Operazioni">
+                      Metti in pausa
+                    </button>
+                  </form>
+                )
               )}
             </div>
             {/* I numeri di QUESTO annuncio: quanto spende e cosa torna

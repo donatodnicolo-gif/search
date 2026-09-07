@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { EsitoCoda } from "@/components/EsitoCoda";
 import { STATI_GRUPPO_IGNORATI } from "@/lib/gruppi";
 import { cittaDaTesto } from "@/lib/citta";
 import { Icona } from "@/components/Icona";
@@ -297,21 +298,7 @@ export default async function PaginaKeywords({
         {/* L'esito di «metti in coda» arriva QUI, non su /operazioni: si resta
             dove si stava lavorando. Il link alla coda c'è, ma lo si segue
             quando si vuole — non si viene portati via a ogni parola. */}
-        {p.esito && (
-          <div className="nota-info">
-            <span className="nota-icona">◈</span>
-            <span>
-              {p.esito}
-              {p.saltate && (
-                <>
-                  {" "}· <b>saltate</b>: {p.saltate}
-                </>
-              )}
-              {" — "}
-              <a href="/operazioni">vai alla coda per approvare</a>
-            </span>
-          </div>
-        )}
+        <EsitoCoda sp={p} ritorno="/keywords" />
 
         {p.bloccata && (
           <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.06)" }}>

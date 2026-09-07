@@ -104,25 +104,34 @@ export default async function PaginaOperazioni({
   //
   // Il resto della storia non sparisce: sta in /operazioni/archivio, dove si
   // cerca. Qui davanti resta quello su cui si lavora oggi.
+  //
+  // ⚠️ LE ANNULLATE NON STANNO QUI (richiesta dell'utente, 07/09/2026).
+  // Un'operazione annullata non è successa: non ha esito, non ha conferma da
+  // Google, non ha niente da riprovare. Nello storico di lavoro faceva solo
+  // volume — dieci negative annullate in blocco coprivano l'unica eseguita del
+  // giorno — e la domanda che si fa su un'annullata («perché l'avevamo
+  // tolta?») è una domanda da archivio, dove si cerca. Restano contate, e il
+  // bottone porta all'archivio già filtrato su di loro.
   const SETTE_GIORNI = new Date(Date.now() - 7 * 24 * 3600_000);
-  const [vive, concluseRecenti, piuVecchie, nonConfermate] = await Promise.all([
+  const [vive, concluseRecenti, piuVecchie, annullate, nonConfermate] = await Promise.all([
     prisma.operazioneAdv.findMany({
       where: { stato: { in: ["in_attesa", "approvata"] } },
       orderBy: { creataIl: "desc" },
     }),
     prisma.operazioneAdv.findMany({
       where: {
-        stato: { in: ["eseguita", "fallita", "annullata"] },
+        stato: { in: ["eseguita", "fallita"] },
         creataIl: { gte: SETTE_GIORNI },
       },
       orderBy: { creataIl: "desc" },
     }),
     prisma.operazioneAdv.count({
       where: {
-        stato: { in: ["eseguita", "fallita", "annullata"] },
+        stato: { in: ["eseguita", "fallita"] },
         creataIl: { lt: SETTE_GIORNI },
       },
     }),
+    prisma.operazioneAdv.count({ where: { stato: "annullata" } }),
     // «Eseguita» su una campagna nuova vuol dire INVIATA: il bulk upload non
     // risponde. Qui si incrociano i giri di anagrafica arrivati dopo.
     campagneNonConfermate(),
@@ -130,7 +139,7 @@ export default async function PaginaOperazioni({
   const operazioni = [...vive, ...concluseRecenti];
   const daApprovare = operazioni.filter((o) => o.stato === "in_attesa");
   const approvate = operazioni.filter((o) => o.stato === "approvata");
-  const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
+  const concluse = operazioni.filter((o) => o.stato === "eseguita" || o.stato === "fallita");
 
   // ⚠️ «Eseguita» è la parola dello SCRIPT: dice che ha chiamato Google e
   // Google non ha protestato. Qui si va a prendere la CONFERMA INDIPENDENTE —
@@ -871,7 +880,7 @@ export default async function PaginaOperazioni({
           </section>
         )}
 
-        {(concluse.length > 0 || piuVecchie > 0) && (
+        {(concluse.length > 0 || piuVecchie > 0 || annullate > 0) && (
           <section className="scheda">
             {/* ⚠️ La finestra si DICHIARA. «Storico» senza una data fa credere
                 che ci sia tutto, e chi non trova un'operazione di tre
@@ -881,14 +890,24 @@ export default async function PaginaOperazioni({
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
             >
               <span>Storico — ultimi 7 giorni ({concluse.length})</span>
-              {piuVecchie > 0 && (
-                <a className="btn small btn-secondario" href="/operazioni/archivio">
-                  Archivio ({piuVecchie} più vecchie) →
-                </a>
-              )}
+              <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {piuVecchie > 0 && (
+                  <a className="btn small btn-secondario" href="/operazioni/archivio">
+                    Archivio ({piuVecchie} più vecchie) →
+                  </a>
+                )}
+                {/* Le annullate vivono SOLO in archivio: qui si dice quante
+                    sono e dove stanno, così la loro assenza non si legge
+                    come «sparite». */}
+                {annullate > 0 && (
+                  <a className="btn small btn-secondario" href="/operazioni/archivio?stato=annullata">
+                    Annullate ({annullate}) →
+                  </a>
+                )}
+              </span>
             </div>
             {concluse.length === 0 ? (
-              <div className="vuoto-mini">Niente negli ultimi 7 giorni.</div>
+              <div className="vuoto-mini">Niente di eseguito o fallito negli ultimi 7 giorni.</div>
             ) : (
               <ul className="storia">{concluse.map((o) => riga(o))}</ul>
             )}

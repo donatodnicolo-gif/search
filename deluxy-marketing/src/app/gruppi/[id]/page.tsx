@@ -9,6 +9,7 @@ import { AggiungiNegative } from "@/components/AggiungiNegative";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
 import { accodaAnnuncio, creaAnnuncioConAi, sistemaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
+import { EsitoCoda } from "@/components/EsitoCoda";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
@@ -30,7 +31,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, creaOperazioneGruppo, accodaNegativeScritte, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
+import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, creaOperazioneGruppo, creaOperazionePausaAnnuncio, accodaNegativeScritte, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
   impostaLinguaGruppo, applicaKeywordAdAltreCampagne,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -79,7 +80,20 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string; correggi?: string; annuncio?: string }>;
+  searchParams: Promise<{
+    bloccata?: string;
+    // L esito di «metti in coda»: si atterra qui, nel pannello laterale
+    esito?: string;
+    avvisi?: string;
+    saltate?: string;
+    preset?: string;
+    da?: string;
+    a?: string;
+    kw?: string;
+    ann?: string;
+    correggi?: string;
+    annuncio?: string;
+  }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -214,6 +228,18 @@ export default async function SchedaGruppo({
   // su ogni parola senza traffico. Finché lo script aggiornato non gira,
   // qui non c'è niente e la colonna resta com'era.
   const accountDelGruppo = gruppo.idEsterno?.split(":")[0] ?? null;
+  // Le pause di annuncio già in coda per questo gruppo: il bottone non si
+  // ripropone su un annuncio che ha già la sua pausa da approvare.
+  const pauseAnnunciInCoda = await prisma.operazioneAdv.findMany({
+    where: { gruppoId: gruppo.id, tipo: "pausa_annuncio", stato: { in: ["in_attesa", "approvata"] } },
+    select: { idEsterno: true },
+  });
+  const pausaAnnunci = {
+    azione: creaOperazionePausaAnnuncio,
+    gruppoId: gruppo.id,
+    ritorno: `/gruppi/${gruppo.id}`,
+    inCoda: pauseAnnunciInCoda.map((o) => o.idEsterno).filter((v): v is string => !!v),
+  };
   const censimentoDichiarato = accountDelGruppo
     ? (
         await prisma.ricezioneDati.findFirst({
@@ -817,6 +843,7 @@ export default async function SchedaGruppo({
             non mostrava né la riga né la strada per arrivarci: un esito che non
             si vede dove si è agito è indistinguibile da un bottone rotto. */}
         <CodaCampagna gruppoId={gruppo.id} ritorno={`/gruppi/${gruppo.id}`} />
+        <EsitoCoda sp={sp} gruppoId={gruppo.id} ritorno={`/gruppi/${gruppo.id}`} ambito="di questo gruppo" />
 
         {/* ⚠️ L'avviso stava SOTTO il selettore del periodo. Chi premeva il
             bottone in cima leggeva «non è successo niente»: l'operazione era
@@ -986,7 +1013,7 @@ export default async function SchedaGruppo({
 
         {/* Il riassunto degli annunci in cima: chi e in asta, dove manda,
             come va. I testi completi restano in fondo. */}
-        <RecapAnnunci righe={copy} />
+        <RecapAnnunci righe={copy} pausa={pausaAnnunci} />
 
         <div className="due-colonne">
           <div>
@@ -1726,6 +1753,7 @@ export default async function SchedaGruppo({
                     linkTutti={`/gruppi/${gruppo.id}?kw=${filtroKw}#annunci`}
                     linkAttivi={`/gruppi/${gruppo.id}?kw=${filtroKw}&ann=attivi#annunci`}
                     metricheAnnunci={copy.filter((c) => c.tipo === "annuncio")}
+                    pausa={{ ...pausaAnnunci, ritorno: `/gruppi/${gruppo.id}#annunci` }}
                   />
                 ) : (
                   // ⚠️ Il vuoto DICE la conseguenza, non si limita a essere
