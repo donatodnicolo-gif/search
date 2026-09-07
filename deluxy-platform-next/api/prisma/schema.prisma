@@ -1509,6 +1509,12 @@ model Delivery {
   @@index([invoiced])
   @@index([paymentStatus])
   @@index([realOrderNumber])
+  /// ⭐ 07/09/2026 — senza questo indice l'elenco Consegne fermava la produzione.
+  /// La lista carica `childDeliveries` (le frecce della riconsegna), e Prisma lo fa con
+  /// `WHERE "parentDeliveryId" IN (...)`: senza indice è una scansione di 63.137 righe
+  /// e 89 MB — misurata 21.163 ms contro i 407 ms della lista stessa. Con l'aggiornamento
+  /// automatico ogni 30 s le richieste si accumulavano e affogavano il cluster condiviso.
+  @@index([parentDeliveryId])
 
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -1552,6 +1558,13 @@ model DeliveryProduct {
   fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
   delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
 }
 
 // Ritiri multipli sotto lo stesso DDT
@@ -1574,6 +1587,13 @@ model DeliveryLog {
   userId     String?
   createdAt  DateTime @default(now())
   delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
 }
 
 // ------------------------------------------------------------
@@ -1629,6 +1649,14 @@ model Activity {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([deliveryId])
+  @@index([valetId])
 }
 
 // ------------------------------------------------------------
@@ -2051,6 +2079,14 @@ model Sale {
   /// ⭐ 04/09/2026 (regola utente): il REGISTRO della vendita — cambi di stato,
   /// modifiche, assegnazioni, con chi li ha fatti.
   logs            SaleLog[]
+
+  /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
+  /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
+  /// giorno dell'incidente, log di una sola consegna: 36.547 righe scartate per
+  /// restituirne 2, 4.541 ms — 8 ms con l'indice. Con l'elenco che si aggiorna da
+  /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
+  @@index([partnerId])
+  @@index([productId])
 }
 
 // Chiavi API per le ALTRE APP Deluxy (app-to-app, standard §4.3): header
