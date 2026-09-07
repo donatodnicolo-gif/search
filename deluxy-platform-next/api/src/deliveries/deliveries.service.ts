@@ -1682,7 +1682,7 @@ export class DeliveriesService {
     // `Unknown argument riferimentoEsterno` → 500 su OGNI consegna mandata
     // dal Customer Service (ordine #2873, 06/09 ore 07:18). Il form della
     // piattaforma non lo manda, quindi di qua non si vedeva mai.
-    const { products, pickups, partnerId: _p, ignoraStock, riferimentoEsterno: _rif, ...scalar } = dto;
+    const { products, pickups, partnerId: _p, ignoraStock, riferimentoEsterno: _rif, giaConsegnata: _gc, consegnataIl: _ci, ...scalar } = dto;
     // ⭐ 06/09/2026 (regola utente): STOCK. I prodotti «Controlla stock» devono
     // esserci in magazzino: se no la consegna non nasce (400 col nome e i pezzi).
     // L'ufficio puo' forzare; il partner no.

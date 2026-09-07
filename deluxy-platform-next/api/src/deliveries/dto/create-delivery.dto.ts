@@ -110,6 +110,19 @@ export class CreateDeliveryDto {
   @IsString()
   riferimentoEsterno?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Canale app: la consegna è GIÀ AVVENUTA e si registra a posteriori (vendite gestite dal Customer Service con un pagamento in app, 06/09/2026): nasce direttamente in storico, «consegnata»",
+  })
+  @IsOptional()
+  @IsBoolean()
+  giaConsegnata?: boolean;
+
+  @ApiPropertyOptional({ description: 'Quando è stata consegnata (ISO). Senza: il giorno di consegna a fine fascia.' })
+  @IsOptional()
+  @IsString()
+  consegnataIl?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
