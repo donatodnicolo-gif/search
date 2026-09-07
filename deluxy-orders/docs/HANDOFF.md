@@ -5,9 +5,44 @@ Stato al **04/09/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 07/09/2026 — Fotografia contata: locale = produzione, e un punto rosso che era falso
+
+Ripreso il 07/09 («leggi l'handoff, aggiorna la memoria, elenca i punti aperti»).
+**Nessuna riga di codice toccata**: contato e verificato, e basta.
+
+- ✅ **Locale e produzione coincidono.** `vercel inspect deluxy-orders.vercel.app`
+  → **`deluxy-orders-kdhwdg6ey`** (`dpl_EPXZDZfL8jbNaJMfTNUoEJJgSGNG`), creato
+  il **06/09 alle 18:50:54**; il commit `5d1e6b11` (delega della quota al
+  Customer Service) è delle **18:50**. Non c'è lavoro di Orders fermo da
+  pubblicare, e `docs/` è pulito nel working tree.
+- ✅ **La sync a 5 minuti vive**: ultimo ordine **#12895**, nato su Shopify alle
+  **06:40:53 UTC**, in Orders alle **06:45:09** → **4 min 16 s**.
+- ❌ **Il 🔴 «`PLATFORM_API_KEY` manca in prod» scritto qui sopra il 06/09 era
+  sbagliato.** `vercel env ls production` la elenca (creata 14 giorni fa),
+  insieme a `PLATFORM_URL`, `CUSTOMER_SERVICE_URL` e `CUSTOMER_SERVICE_API_KEY`
+  (queste due di 15 h fa). **Quello che manca è in LOCALE**: `.env.local` non ha
+  nessuna delle quattro. È il vero motivo per cui `npm run costi:consegne` non è
+  mai girato — e ⚠️ **non si risolve con `vercel env pull`**: sono variabili
+  *Secret*, tornano `[SENSITIVE]`. Serve una chiave creata a mano sulla
+  piattaforma (`api/scripts/crea-chiave-app.mjs`).
+
+### Contato sul database il 07/09 alle 08:00
+
+| | 04/09 | **07/09** |
+|---|---|---|
+| ordini | 14.562 | **14.598** |
+| con `costoFornitore` | 845 (5,8%) | **884 (6,1%)** |
+| `TagCliente` confermati a mano | 0 | **0** |
+| ultimi 7 giorni | 113 | **126** |
+
+🔴 **`TagCliente` è a zero da 39 giorni.** I 1.105 «probabili aziende» —
+**317.669 €** contati come privati in Analisi e in Marketing — non si smaltiscono
+un cliente alla volta: serve la **conferma in blocco dalla lista**. È il punto
+aperto più vecchio e l'unico che sporca dei numeri già in uso.
+
 > ⭐⭐ **06/09/2026 sera — ORDERS GESTISCE SOLO L'ORDINE**: `/api/v1/quota-fornitore` delega al Customer Service (env `CUSTOMER_SERVICE_URL`, `CUSTOMER_SERVICE_API_KEY` — chiave creata nel CS per «deluxy-orders»); il motore locale (regola del territorio, QuotaRegola) è solo ripiego e la risposta dichiara `casa`. Chi chiama può passare direttamente al CS.
 
-> ⭐ **06/09/2026 — REGOLA DEL TERRITORIO su `/api/v1/quota-fornitore`** (decisione utente, prodotti non unici): sconto sul prezzo pubblico 40 % senza partner in provincia, 20 % Milano con partner, 30 % altre province con partner; prezzo arrotondato a 5/0 (`arrotondaA5`). Codice: `lib/controllo.ts` (`SCONTO_TERRITORIO`, `scontoTerritorio`, `quotaFornitorePer(prov, cat, conPartner)` → `{quota, sconto, regola, motivo}`), `lib/piattaforma.ts` (`provinciaHaPartner`: dal 06/09 sera legge `GET /app/province-abilitate` della piattaforma = province con una lista di priorità con un partner attivo, cache 10 min, null se non si sa), rotta con `conPartner`, `prezzoPubblico` → `prezzoFornitore`. QuotaRegola scritte a mano vincono; default 60 solo quando non si sa se c'è un partner. La piattaforma passa `conPartner` da sola. 🔴 `PLATFORM_API_KEY` in prod di Orders: se manca, senza `conPartner` dal chiamante si risponde default (CS e Budgets non lo passano ancora).
+> ⭐ **06/09/2026 — REGOLA DEL TERRITORIO su `/api/v1/quota-fornitore`** (decisione utente, prodotti non unici): sconto sul prezzo pubblico 40 % senza partner in provincia, 20 % Milano con partner, 30 % altre province con partner; prezzo arrotondato a 5/0 (`arrotondaA5`). Codice: `lib/controllo.ts` (`SCONTO_TERRITORIO`, `scontoTerritorio`, `quotaFornitorePer(prov, cat, conPartner)` → `{quota, sconto, regola, motivo}`), `lib/piattaforma.ts` (`provinciaHaPartner`: dal 06/09 sera legge `GET /app/province-abilitate` della piattaforma = province con una lista di priorità con un partner attivo, cache 10 min, null se non si sa), rotta con `conPartner`, `prezzoPubblico` → `prezzoFornitore`. QuotaRegola scritte a mano vincono; default 60 solo quando non si sa se c'è un partner. La piattaforma passa `conPartner` da sola. ✅ `PLATFORM_API_KEY` **c'è** in produzione (verificato il 07/09 con `vercel env ls`); manca solo in locale. Senza `conPartner` dal chiamante si risponde comunque default: CS e Budgets non lo passano ancora.
 
 > ✅ **RISOLTO (27/08, confermato dall'utente): `write_draft_orders` c'è.** I
 > vecchi «PUNTI APERTI» qui sotto lo davano come mancante e bloccante per
