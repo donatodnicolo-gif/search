@@ -247,7 +247,7 @@
     },
     "recap": {
       "title": "Recap giornaliero ai partner",
-      "sub": "Ogni mattina alle 7 ogni partner riceve le sue consegne di oggi; alle 18:30, se domani ha consegne, il promemoria di domani. Parte da AI Mail, come il recap mensile.",
+      "sub": "Ogni mattina alle 7 ogni partner riceve le sue consegne di oggi e dei sei giorni seguenti; alle 18:30, se domani ha consegne, il promemoria di domani. Parte da AI Mail, come il recap mensile.",
       "esclusi": "Partner che NON lo ricevono (email, separate da virgola)",
       "esclusiHint": "Vuoto = a tutti i partner attivi con un'email. Utile per i marchi interni (es. Deluxy Flowers) che non hanno bisogno di un promemoria.",
       "prova": "Manda una prova a me",

@@ -247,7 +247,7 @@
     },
     "recap": {
       "title": "Daily recap to partners",
-      "sub": "Every morning at 7 each partner receives today's deliveries; at 18:30, if there are deliveries tomorrow, a reminder for tomorrow. Sent via AI Mail, like the monthly recap.",
+      "sub": "Every morning at 7 each partner receives today's deliveries and the next six days; at 18:30, if there are deliveries tomorrow, a reminder for tomorrow. Sent via AI Mail, like the monthly recap.",
       "esclusi": "Partners who do NOT receive it (emails, comma-separated)",
       "esclusiHint": "Empty = every active partner with an email. Useful for in-house brands (e.g. Deluxy Flowers) that need no reminder.",
       "prova": "Send me a test",

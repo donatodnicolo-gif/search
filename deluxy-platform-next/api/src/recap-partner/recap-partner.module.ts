@@ -16,7 +16,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsOptional, IsString, Matches } from 'class-validator';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { DELIVERY_CLOSED_STATUSES, Role } from '../common/enums';
-import { dataLungaRoma, giornoRoma, oraRoma } from '../common/giorno-roma';
+import { dataBreveRoma, dataLungaRoma, giornoRoma, oraRoma } from '../common/giorno-roma';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 
@@ -24,10 +24,12 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
  * ⭐ 07/09/2026 (regola utente): «Recap giornaliero al partner. Manda ogni
  * mattina alle 7:00. Se ci sono consegne per il giorno dopo anche un
  * reminder alle 18:30 (quindi se domani mattina ci sono consegne un reminder
- * alle 18:30 di oggi)».
+ * alle 18:30 di oggi)». E poi: «non solo di oggi ma dei prossimi giorni».
  *
  * Due giri, entrambi da Vercel (vercel.json) con identità `CRON_SECRET`:
- *  - MATTINA, ore 7 di Roma: a ogni partner le SUE consegne di OGGI;
+ *  - MATTINA, ore 7 di Roma: a ogni partner le SUE consegne di OGGI e dei
+ *    prossimi giorni (una settimana: oggi + 6), raggruppate per giorno, oggi
+ *    in testa;
  *  - SERA, ore 18:30 di Roma: a ogni partner che DOMANI ha consegne, le
  *    consegne di domani. Chi domani non ha niente non riceve niente.
  *
@@ -36,8 +38,9 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
  * questo ogni giro è registrato a DUE ore UTC («0 5,6 * * *»; «30 16,17 * * *»)
  * e la rotta controlla l'ora di Roma: parte solo se è quella giusta, l'altra
  * chiamata esce senza fare niente. Il marcatore nel registro della consegna
- * (`[recap-partner:mattina:AAAA-MM-GG]`) garantisce comunque UN invio solo
- * per partner e per giorno, anche se Vercel richiamasse due volte.
+ * (`[recap-partner:mattina:AAAA-MM-GG]`, UNA riga per partner e invio, sulla
+ * prima consegna dell'elenco) garantisce comunque UN invio solo per partner e
+ * per giorno, anche se Vercel richiamasse due volte.
  *
  * ⚠️ Cosa vede il partner: numero, fascia oraria, ritiro (chi e quando),
  * destinatario con indirizzo, citofono e telefono, prodotti con la NOTA DI
@@ -51,6 +54,9 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
  * `?forza=1`) si riprova, perché senza marcatore il partner risulta da fare.
  */
 export type TipoRecap = 'mattina' | 'sera';
+
+/** Quanti giorni copre il recap del mattino: oggi + i sei seguenti. */
+export const GIORNI_RECAP_MATTINA = 7;
 
 const SELEZIONE = {
   id: true,
@@ -107,19 +113,24 @@ export class RecapPartnerService {
     return oraRoma();
   }
 
-  /** Le consegne VIVE di un giorno (non chiuse, non cancellate), con quanto serve al partner. */
-  async consegneDelGiorno(giorno: Date, partnerId?: string) {
-    const dopo = new Date(giorno.getTime() + 86400000);
+  /** Le consegne VIVE da un giorno per N giorni (non chiuse, non cancellate), con quanto serve al partner, in ordine di giorno e ora. */
+  async consegneDalGiorno(giorno: Date, giorni = 1, partnerId?: string) {
+    const fine = new Date(giorno.getTime() + giorni * 86400000);
     return this.prisma.delivery.findMany({
       where: {
         deletedAt: null,
-        date: { gte: giorno, lt: dopo },
+        date: { gte: giorno, lt: fine },
         status: { notIn: DELIVERY_CLOSED_STATUSES },
         ...(partnerId ? { partnerId } : {}),
       },
       select: SELEZIONE,
-      orderBy: [{ deliveryTimeFrom: 'asc' }, { code: 'asc' }],
+      orderBy: [{ date: 'asc' }, { deliveryTimeFrom: 'asc' }, { code: 'asc' }],
     });
+  }
+
+  /** Quanti giorni copre un recap: la mattina una settimana, la sera solo domani. */
+  static giorniDi(tipo: TipoRecap): number {
+    return tipo === 'mattina' ? GIORNI_RECAP_MATTINA : 1;
   }
 
   /** Le email dei partner che NON vogliono il recap (impostazione `recapPartnerEsclusi`, separate da virgola). */
@@ -143,8 +154,9 @@ export class RecapPartnerService {
         consegne: 0, partner: 0, inviate: [] as string[], saltati: [] as string[], errori: [] as string[],
       };
     }
-    const giorno = RecapPartnerService.giornoRoma(tipo === 'mattina' ? 0 : 1);
-    const consegne = await this.consegneDelGiorno(giorno.data);
+    const oggi = RecapPartnerService.giornoRoma(0);
+    const giorno = tipo === 'mattina' ? oggi : RecapPartnerService.giornoRoma(1);
+    const consegne = await this.consegneDalGiorno(giorno.data, RecapPartnerService.giorniDi(tipo));
     const perPartner = new Map<string, typeof consegne>();
     for (const c of consegne) {
       const lista = perPartner.get(c.partner.id) ?? [];
@@ -152,9 +164,11 @@ export class RecapPartnerService {
       perPartner.set(c.partner.id, lista);
     }
     const esclusi = await this.esclusi();
-    const marcatore = RecapPartnerService.marcatore(tipo, giorno.chiave);
+    // Il marcatore porta il giorno dell'INVIO (oggi), non quello delle consegne:
+    // la stessa consegna di dopodomani sta nel recap di oggi e in quello di domani.
+    const marcatore = RecapPartnerService.marcatore(tipo, oggi.chiave);
     const esito = {
-      tipo, giorno: giorno.chiave, consegne: consegne.length, partner: perPartner.size,
+      tipo, giorno: giorno.chiave, giorni: RecapPartnerService.giorniDi(tipo), consegne: consegne.length, partner: perPartner.size,
       inviate: [] as string[], saltati: [] as string[], errori: [] as string[],
     };
 
@@ -168,8 +182,9 @@ export class RecapPartnerService {
         esito.saltati.push(`${p.insegna}: escluso dalle impostazioni`);
         continue;
       }
-      // Idempotenza: basta UNA sua consegna già marcata. La ricerca usa
-      // l'indice su deliveryId (quello dell'incidente del 07/09), non scorre il registro.
+      // Idempotenza: basta la riga marcata su UNA sua consegna dell'elenco. La
+      // ricerca usa l'indice su deliveryId (quello dell'incidente del 07/09),
+      // non scorre il registro.
       const giaFatto = await this.prisma.deliveryLog.findFirst({
         where: { deliveryId: { in: righe.map((r) => r.id) }, type: 'note', message: { contains: marcatore } },
         select: { id: true },
@@ -180,20 +195,24 @@ export class RecapPartnerService {
       }
       const r = await this.settings.inviaHtmlViaAiMail(
         p.email,
-        RecapPartnerService.oggetto(tipo, giorno.data, p.insegna, righe.length),
+        RecapPartnerService.oggetto(tipo, giorno.data, p.insegna, righe),
         this.html(tipo, giorno.data, p.insegna, righe),
       );
       if (!r.ok) {
         esito.errori.push(`${p.insegna}: ${r.motivo}`);
         continue;
       }
-      await this.prisma.deliveryLog.createMany({
-        data: righe.map((x) => ({
-          deliveryId: x.id,
+      // UNA riga per partner e invio, sulla prima consegna dell'elenco: sette
+      // righe «recap inviato» su una consegna di settimana prossima sarebbero rumore.
+      const prima = righe[0];
+      const ultima = righe[righe.length - 1];
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: prima.id,
           type: 'note',
           userId: null,
-          message: `${tipo === 'mattina' ? 'Recap del mattino' : 'Promemoria della sera'} inviato al partner (${p.email}) ${marcatore}`,
-        })),
+          message: `${tipo === 'mattina' ? 'Recap del mattino' : 'Promemoria della sera'} inviato al partner (${p.email}): ${righe.length === 1 ? '1 consegna' : `${righe.length} consegne`}${righe.length > 1 ? ` dal ${dataBreveRoma(prima.date)} al ${dataBreveRoma(ultima.date)}` : ''} ${marcatore}`,
+        },
       });
       esito.inviate.push(`${p.insegna} (${righe.length})`);
     }
@@ -207,43 +226,37 @@ export class RecapPartnerService {
     const g = RecapPartnerService.giorno(giorno, t);
     const partner = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true, insegna: true, email: true } });
     if (!partner) throw new NotFoundException('Partner non trovato');
-    const righe = await this.consegneDelGiorno(g.data, partner.id);
+    const righe = await this.consegneDalGiorno(g.data, RecapPartnerService.giorniDi(t), partner.id);
     return {
-      partner: partner.insegna, a: partner.email, giorno: g.chiave, tipo: t, consegne: righe.length,
-      oggetto: RecapPartnerService.oggetto(t, g.data, partner.insegna, righe.length),
+      partner: partner.insegna, a: partner.email, giorno: g.chiave, giorni: RecapPartnerService.giorniDi(t), tipo: t, consegne: righe.length,
+      oggetto: RecapPartnerService.oggetto(t, g.data, partner.insegna, righe),
       html: this.html(t, g.data, partner.insegna, righe),
     };
   }
 
   /**
    * Una PROVA vera nella casella di chi la chiede: la mail di un partner
-   * (quello indicato, o il primo che ha consegne oggi, altrimenti domani),
-   * mandata a `a` invece che al partner. Niente marcatore: non conta come invio.
+   * (quello indicato, o il primo che ha consegne nella settimana), mandata a
+   * `a` invece che al partner. Niente marcatore: non conta come invio.
    */
   async prova(user: JwtUser, a?: string, partnerId?: string, giorno?: string, tipo?: string) {
     const dest = (a ?? user.email ?? '').trim();
     if (!dest) throw new BadRequestException('Indica un indirizzo a cui mandare la prova.');
-    let t = RecapPartnerService.tipo(tipo);
-    let g = RecapPartnerService.giorno(giorno, t);
-    let righe = await this.consegneDelGiorno(g.data, partnerId);
-    if (!righe.length && !partnerId && !giorno && !tipo) {
-      // Niente oggi: si prova con domani, così la prova mostra qualcosa.
-      t = 'sera';
-      g = RecapPartnerService.giornoRoma(1);
-      righe = await this.consegneDelGiorno(g.data);
-    }
+    const t = RecapPartnerService.tipo(tipo);
+    const g = RecapPartnerService.giorno(giorno, t);
+    const righe = await this.consegneDalGiorno(g.data, RecapPartnerService.giorniDi(t), partnerId);
     if (!righe.length) {
-      throw new BadRequestException(`Nessuna consegna ${partnerId ? 'di questo partner ' : ''}il ${g.chiave.split('-').reverse().join('/')}: niente da mandare.`);
+      throw new BadRequestException(`Nessuna consegna ${partnerId ? 'di questo partner ' : ''}${t === 'mattina' ? `nei ${RecapPartnerService.giorniDi(t)} giorni dal` : 'il'} ${g.chiave.split('-').reverse().join('/')}: niente da mandare.`);
     }
     const scelto = righe[0].partner;
     const sue = righe.filter((r) => r.partner.id === scelto.id);
     const r = await this.settings.inviaHtmlViaAiMail(
       dest,
-      `[PROVA] ${RecapPartnerService.oggetto(t, g.data, scelto.insegna, sue.length)}`,
+      `[PROVA] ${RecapPartnerService.oggetto(t, g.data, scelto.insegna, sue)}`,
       this.html(t, g.data, scelto.insegna, sue),
     );
     if (!r.ok) throw new BadRequestException(`La prova non è partita: ${r.motivo}`);
-    return { ok: true, a: dest, partner: scelto.insegna, giorno: g.chiave, tipo: t, consegne: sue.length };
+    return { ok: true, a: dest, partner: scelto.insegna, giorno: g.chiave, giorni: RecapPartnerService.giorniDi(t), tipo: t, consegne: sue.length };
   }
 
   static marcatore(tipo: TipoRecap, chiaveGiorno: string): string {
@@ -267,27 +280,39 @@ export class RecapPartnerService {
     return dataLungaRoma(giorno);
   }
 
-  static oggetto(tipo: TipoRecap, giorno: Date, insegna: string, n: number): string {
-    const quante = n === 1 ? '1 consegna' : `${n} consegne`;
-    return tipo === 'mattina'
-      ? `Oggi ${quante} · ${RecapPartnerService.dataLunga(giorno)} · ${insegna}`
-      : `Promemoria: domani ${quante} · ${RecapPartnerService.dataLunga(giorno)} · ${insegna}`;
+  private static quante(n: number): string {
+    return n === 1 ? '1 consegna' : `${n} consegne`;
+  }
+
+  static oggetto(tipo: TipoRecap, giorno: Date, insegna: string, righe: { date: Date }[]): string {
+    if (tipo === 'sera') {
+      return `Promemoria: domani ${RecapPartnerService.quante(righe.length)} · ${RecapPartnerService.dataLunga(giorno)} · ${insegna}`;
+    }
+    const chiave = giorno.toISOString().slice(0, 10);
+    const oggi = righe.filter((r) => r.date.toISOString().slice(0, 10) === chiave).length;
+    const dopo = righe.length - oggi;
+    const parti = [`oggi ${RecapPartnerService.quante(oggi)}`];
+    if (dopo) parti.push(`prossimi giorni ${RecapPartnerService.quante(dopo)}`);
+    return `Le tue consegne: ${parti.join(', ')} · ${RecapPartnerService.dataLunga(giorno)} · ${insegna}`;
   }
 
   /**
-   * La mail: una scheda per consegna, leggibile sul telefono (il partner la
-   * apre in laboratorio). Niente CSS esterno né immagini, come il recap mensile.
+   * La mail: una scheda per consegna, raggruppate per giorno (oggi in testa),
+   * leggibile sul telefono (il partner la apre in laboratorio). Niente CSS
+   * esterno né immagini, come il recap mensile.
    */
-  html(tipo: TipoRecap, giorno: Date, insegna: string, righe: Awaited<ReturnType<RecapPartnerService['consegneDelGiorno']>>): string {
+  html(tipo: TipoRecap, giorno: Date, insegna: string, righe: Awaited<ReturnType<RecapPartnerService['consegneDalGiorno']>>): string {
     const e = (v: unknown) => String(v ?? '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const fascia = (da: string | null, a: string | null, flessibile: boolean) =>
       flessibile ? 'orario flessibile' : da || a ? `${e(da ?? '…')}&ndash;${e(a ?? '…')}` : 'orario da definire';
+    const chiaveOggi = giorno.toISOString().slice(0, 10);
+    const chiaveDomani = new Date(giorno.getTime() + 86400000).toISOString().slice(0, 10);
     const dataLunga = RecapPartnerService.dataLunga(giorno);
     const n = righe.length;
     const quante = n === 1 ? 'una consegna' : `${n} consegne`;
 
-    const schede = righe.map((d) => {
+    const scheda = (d: (typeof righe)[number]) => {
       const prodotti = d.products.map((p) => {
         const nome = p.productName || p.product?.name || 'Prodotto';
         const variante = p.variantName || p.productVariant?.name;
@@ -314,12 +339,31 @@ export class RecapPartnerService {
         </table>
         <a class="link" href="https://app.deluxy.it/deliveries/${e(d.id)}">Apri la consegna in piattaforma &rarr;</a>
       </div>`;
+    };
+
+    // Un blocco per giorno: «Oggi», «Domani», poi il giorno per esteso.
+    const perGiorno = new Map<string, typeof righe>();
+    for (const d of righe) {
+      const k = d.date.toISOString().slice(0, 10);
+      perGiorno.set(k, [...(perGiorno.get(k) ?? []), d]);
+    }
+    const blocchi = [...perGiorno.entries()].map(([k, lista]) => {
+      const etichetta = tipo === 'sera' ? `Domani, ${RecapPartnerService.dataLunga(lista[0].date)}`
+        : k === chiaveOggi ? `Oggi, ${RecapPartnerService.dataLunga(lista[0].date)}`
+        : k === chiaveDomani ? `Domani, ${RecapPartnerService.dataLunga(lista[0].date)}`
+        : RecapPartnerService.dataLunga(lista[0].date);
+      return `<h2 class="${k === chiaveOggi && tipo === 'mattina' ? 'oggi' : ''}">${e(etichetta)} <span class="conta">${RecapPartnerService.quante(lista.length)}</span></h2>${lista.map(scheda).join('')}`;
     }).join('');
 
-    const titolo = tipo === 'mattina' ? `Oggi hai ${quante}` : `Domani hai ${quante}`;
-    const cappello = tipo === 'mattina'
-      ? `Buongiorno ${e(insegna)}, ecco le consegne in programma per oggi, ${dataLunga}.`
-      : `Ciao ${e(insegna)}, promemoria per domani, ${dataLunga}: ecco le consegne da preparare.`;
+    const oggiN = righe.filter((r) => r.date.toISOString().slice(0, 10) === chiaveOggi).length;
+    const titolo = tipo === 'sera'
+      ? `Domani hai ${quante}`
+      : oggiN === n ? `Oggi hai ${quante}`
+      : oggiN === 0 ? `Oggi niente, ${quante} nei prossimi giorni`
+      : `Oggi hai ${RecapPartnerService.quante(oggiN)}, e ${RecapPartnerService.quante(n - oggiN)} nei prossimi giorni`;
+    const cappello = tipo === 'sera'
+      ? `Ciao ${e(insegna)}, promemoria per domani, ${dataLunga}: ecco le consegne da preparare.`
+      : `Buongiorno ${e(insegna)}, ecco le consegne in programma da oggi, ${dataLunga}, ai prossimi ${GIORNI_RECAP_MATTINA - 1} giorni.`;
 
     return `<!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -331,6 +375,9 @@ export class RecapPartnerService {
   .foglio { max-width: 640px; margin: 0 auto; }
   h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
   .cappello { margin: 0 0 18px; color: #6e6e73; }
+  h2 { margin: 22px 0 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #6e6e73; }
+  h2.oggi { color: #1d1d1f; }
+  h2 .conta { font-weight: 400; text-transform: none; letter-spacing: 0; }
   .scheda { background: #fff; border-radius: 14px; padding: 16px 18px; margin: 0 0 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
   .testa { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
   .num { font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -351,8 +398,8 @@ export class RecapPartnerService {
 <body><div class="foglio">
   <h1>${e(titolo)}</h1>
   <p class="cappello">${cappello}</p>
-  ${schede}
-  <p class="coda">Riepilogo automatico della piattaforma consegne Deluxy: ogni mattina alle 7 le consegne del giorno e, quando domani ci sono consegne, un promemoria alle 18:30. Le consegne inserite dopo l'invio le trovi in piattaforma.</p>
+  ${blocchi}
+  <p class="coda">Riepilogo automatico della piattaforma consegne Deluxy: ogni mattina alle 7 le consegne di oggi e dei prossimi giorni e, quando domani ci sono consegne, un promemoria alle 18:30. Le consegne inserite dopo l'invio le trovi in piattaforma.</p>
 </div></body></html>`;
   }
 }
@@ -377,7 +424,7 @@ export class RecapPartnerCronController {
 
   @Get('recap-partner-mattina')
   @Public()
-  @ApiOperation({ summary: 'Ore 7 di Roma: a ogni partner le sue consegne di oggi (?forza=1 salta il controllo dell’ora, non il marcatore)' })
+  @ApiOperation({ summary: 'Ore 7 di Roma: a ogni partner le sue consegne di oggi e dei prossimi giorni (?forza=1 salta il controllo dell’ora, non il marcatore)' })
   mattina(@Headers('authorization') authorization?: string, @Query('forza') forza?: string) {
     this.verifica(authorization);
     return this.service.invia('mattina', forza === '1');
@@ -400,7 +447,7 @@ export class RecapPartnerController {
 
   @Get('anteprima')
   @Roles(Role.ADMIN, Role.OPERATION)
-  @ApiOperation({ summary: 'L’HTML del recap di un partner (giorno = AAAA-MM-GG, tipo = mattina | sera)' })
+  @ApiOperation({ summary: 'L’HTML del recap di un partner (giorno = AAAA-MM-GG di partenza, tipo = mattina | sera)' })
   anteprima(@Query('partnerId') partnerId: string, @Query('giorno') giorno?: string, @Query('tipo') tipo?: string) {
     if (!partnerId) throw new BadRequestException('partnerId obbligatorio');
     return this.service.anteprima(partnerId, giorno, tipo);
