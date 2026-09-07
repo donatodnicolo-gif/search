@@ -27,13 +27,13 @@ import { CampoCerca, EmptyState, PageIntro, RigaChips } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { LeadCard } from '@/components/LeadCard';
 import { QualificaLeadModal } from '@/components/QualificaLeadModal';
-import { creaLead, eliminaLead, fetchLeads, scartaLead } from '@/lib/db';
+import { aggiornaRecapitiLead, creaLead, eliminaLead, fetchLeads, scartaLead } from '@/lib/db';
 import type { EsitoRegistro } from '@/lib/anagrafiche';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import { fetchCorpoMail, importaRichiesteDaMail } from '@/lib/mail';
 import { chiudiLetturaPosta, prenotaLetturaPosta, rilasciaLetturaPosta, statoImportPosta } from '@/lib/db';
 import { avvisa, conferma } from '@/lib/dialoghi';
-import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { analizzaMessaggioLead, recapitiLead, soloCifre } from '@/lib/lead-parse';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { FonteLead, Lead } from '@/types';
 
@@ -177,12 +177,26 @@ export default function LeadWeb() {
 
   // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
   const [cerca, setCerca] = useState('');
+  /**
+   * ⭐ I RECAPITI SI SCRIVONO (07/09/2026, migr. 0119, richiesta dell'utente:
+   * «in lead non e' possibile mettere campi come telefono e mail»). Vale
+   * soprattutto per le richieste ARRIVATE DALLA POSTA, che sono la maggior
+   * parte: la mail ce l'hanno per forza, il telefono quasi mai — e quando il
+   * cliente lo dava a voce non c'era dove scriverlo.
+   */
+  const [recapitiPer, setRecapitiPer] = useState<Lead | null>(null);
   const dati = useMemo(() => {
     const base = leads.filter((l) => l.stato === statoFiltro);
     const q = cerca.trim().toLowerCase();
     if (!q) return base;
     const nrm = (v: unknown) => String(v ?? '').toLowerCase();
-    return base.filter((l) => [l.nome, l.contatto, l.messaggio].some((v) => nrm(v).includes(q)));
+    // Anche sui RECAPITI, presi dal punto unico (migr. 0119): chi cerca un
+    // numero di telefono lo cerca com'e' scritto, e prima il telefono non
+    // esisteva nemmeno come campo.
+    return base.filter((l) => {
+      const r = recapitiLead(l);
+      return [l.nome, l.contatto, r.email, r.telefono, l.messaggio].some((v) => nrm(v).includes(q));
+    });
   }, [leads, statoFiltro, cerca]);
   const nNuovi = leads.filter((l) => l.stato === 'nuovo').length;
 
@@ -351,12 +365,13 @@ export default function LeadWeb() {
       label: 'Contatti',
       flex: 0.9,
       valore: (l) => {
-        const i = analizzaMessaggioLead(l.nome, l.messaggio);
-        return i.email || i.telefono || l.contatto || null;
+        const r = recapitiLead(l);
+        return r.email || r.telefono || null;
       },
+      // Email E telefono, non «il primo che c'e'» (migr. 0119): una richiesta
+      // puo' avere entrambi i recapiti, e la colonna ne mostrava uno solo.
       cella: (l) => {
-        const i = analizzaMessaggioLead(l.nome, l.messaggio);
-        const email = i.email || (l.contatto?.includes('@') ? l.contatto : null);
+        const { email, telefono } = recapitiLead(l);
         return (
           <View style={{ gap: 1 }}>
             {email ? (
@@ -364,12 +379,12 @@ export default function LeadWeb() {
                 <Text style={styles.tabContatto} numberOfLines={1}>{email}</Text>
               </Pressable>
             ) : null}
-            {i.telefono ? (
-              <Pressable onPress={(e: any) => { e?.stopPropagation?.(); Linking.openURL(`tel:${i.telefono!.replace(/\s+/g, '')}`); }}>
-                <Text style={styles.tabContatto} numberOfLines={1}>{i.telefono}</Text>
+            {telefono ? (
+              <Pressable onPress={(e: any) => { e?.stopPropagation?.(); Linking.openURL(`tel:${soloCifre(telefono)}`); }}>
+                <Text style={styles.tabContatto} numberOfLines={1}>{telefono}</Text>
               </Pressable>
             ) : null}
-            {!email && !i.telefono ? <Text style={styles.tabMuto}>—</Text> : null}
+            {!email && !telefono ? <Text style={styles.tabMuto}>—</Text> : null}
           </View>
         );
       },
@@ -430,6 +445,14 @@ export default function LeadWeb() {
               <Text style={styles.tabBtnGhostTxt}>Trattative</Text>
             </Pressable>
           )}
+          <Pressable
+            hitSlop={6}
+            onPress={(e: any) => { e?.stopPropagation?.(); setRecapitiPer(l); }}
+            accessibilityLabel="Scrivi email e telefono"
+            {...({ title: 'Email e telefono' } as any)}
+          >
+            <Ionicons name="call-outline" size={16} color={colors.grigio} />
+          </Pressable>
           {l.mail_ref ? (
             <Pressable
               hitSlop={6}
@@ -528,6 +551,7 @@ export default function LeadWeb() {
               onScarta={() => scarta(lead)}
               onVediTrattativa={() => router.push('/(app)/trattative')}
               onApriAiMail={lead.mail_ref ? () => Linking.openURL(urlMessaggioAiMail(lead.mail_ref!)) : undefined}
+              onRecapiti={() => setRecapitiPer(lead)}
               onElimina={() => elimina(lead)}
             />
           );
@@ -544,7 +568,12 @@ export default function LeadWeb() {
       {daLeggere ? (
         <Foglio
           titolo={infoDaLeggere?.persona || daLeggere.nome}
-          sottotitolo={[infoDaLeggere?.email || daLeggere.contatto, infoDaLeggere?.telefono].filter(Boolean).join(' · ') || undefined}
+          sottotitolo={
+            (() => {
+              const r = recapitiLead(daLeggere, infoDaLeggere ?? undefined);
+              return [r.email, r.telefono].filter(Boolean).join(' · ') || undefined;
+            })()
+          }
           onClose={() => setDaLeggere(null)}
         >
           {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
@@ -593,6 +622,17 @@ export default function LeadWeb() {
               onPress={() => {
                 const l = daLeggere;
                 setDaLeggere(null);
+                setRecapitiPer(l);
+              }}
+            >
+              <Text style={styles.azioneTxt}>Email e telefono</Text>
+            </Pressable>
+            <Text style={styles.sep}>·</Text>
+            <Pressable
+              hitSlop={6}
+              onPress={() => {
+                const l = daLeggere;
+                setDaLeggere(null);
                 elimina(l);
               }}
             >
@@ -600,6 +640,14 @@ export default function LeadWeb() {
             </Pressable>
           </View>
         </Foglio>
+      ) : null}
+
+      {recapitiPer ? (
+        <RecapitiLeadModal
+          lead={recapitiPer}
+          onClose={() => setRecapitiPer(null)}
+          onSalvato={() => { setRecapitiPer(null); carica(); }}
+        />
       ) : null}
 
       {daQualificare ? (
@@ -623,7 +671,10 @@ export default function LeadWeb() {
 // ── Nuovo lead a mano ─────────────────────────────────────────────────────────
 function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato: () => void }) {
   const [nome, setNome] = useState('');
-  const [contatto, setContatto] = useState('');
+  // Email e telefono separati (migr. 0119): un campo solo obbligava a
+  // sceglierne uno, e quello scartato non lo recuperava piu' nessuno.
+  const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
   const [fonte, setFonte] = useState<FonteLead>('sito');
   const [messaggio, setMessaggio] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -634,7 +685,7 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
     setSalvando(true);
     setErrore(null);
     try {
-      await creaLead({ nome, contatto, fonte, messaggio });
+      await creaLead({ nome, email, telefono, fonte, messaggio });
       onSalvato();
     } catch (e: any) {
       setErrore(e?.message ?? 'Errore nel salvataggio');
@@ -651,8 +702,26 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
       <View style={{ gap: 8 }}>
         <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
         <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
-        <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
-        <TextInput style={styles.input} value={contatto} onChangeText={setContatto} placeholder="es. maria@negozio.it" placeholderTextColor={colors.grigio} autoCapitalize="none" />
+        <Text style={styles.campoLabel}>Email</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="es. maria@negozio.it"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <Text style={styles.campoLabel}>Telefono</Text>
+        <TextInput
+          style={styles.input}
+          value={telefono}
+          onChangeText={setTelefono}
+          placeholder="es. 333 1234567"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="phone-pad"
+        />
         <Text style={styles.campoLabel}>Fonte</Text>
         <View style={styles.chips}>
           {FONTI.map((f) => (
@@ -667,6 +736,93 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
       </View>
       <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
         <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
+      </Pressable>
+    </Foglio>
+  );
+}
+
+// ── Email e telefono di una richiesta già in coda ─────────────────────────────
+/**
+ * ⭐ 07/09/2026 (migr. 0119), richiesta dell'utente: «in lead non e' possibile
+ * mettere campi come telefono e mail».
+ *
+ * Si apre da tre porte — l'icona della riga, la scheda sul telefono, il foglio
+ * di lettura — perche' il momento in cui il recapito si sa e' sempre un altro:
+ * mentre si legge la richiesta, o dopo una telefonata.
+ *
+ * ⚠️ I campi partono da QUELLO CHE GIA' SI VEDE (recapitiLead): se la mail e'
+ * stata estratta dal modulo del sito, aprire il foglio e salvare la CONFERMA
+ * in colonna invece di svuotarla — un campo che si apre vuoto su un dato che a
+ * schermo c'e' e' la strada per cancellarlo per sbaglio.
+ */
+function RecapitiLeadModal({
+  lead,
+  onClose,
+  onSalvato,
+}: {
+  lead: Lead;
+  onClose: () => void;
+  onSalvato: () => void;
+}) {
+  const iniziali = recapitiLead(lead);
+  const [email, setEmail] = useState(iniziali.email ?? '');
+  const [telefono, setTelefono] = useState(iniziali.telefono ?? '');
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function salva() {
+    if (salvando) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      await aggiornaRecapitiLead(lead.id, { email, telefono });
+      onSalvato();
+    } catch (e: any) {
+      // Esito visibile anche quando va male (Libro §7): un salvataggio muto
+      // che non ha salvato e' peggio di un errore.
+      setErrore(e?.message ?? 'Errore nel salvataggio');
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Foglio
+      titolo="Email e telefono"
+      sottotitolo={analizzaMessaggioLead(lead.nome, lead.messaggio).persona || lead.nome}
+      onClose={onClose}
+      bloccaSfondo
+    >
+      <View style={{ gap: 8 }}>
+        <Text style={styles.campoLabel}>Email</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="es. maria@negozio.it"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoFocus
+        />
+        <Text style={styles.campoLabel}>Telefono</Text>
+        <TextInput
+          style={styles.input}
+          value={telefono}
+          onChangeText={setTelefono}
+          placeholder="es. 333 1234567"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="phone-pad"
+        />
+        <Text style={styles.campoNota}>
+          Svuotare un campo lo cancella. Quello che si scrive qui vince sul recapito
+          letto dal testo della richiesta, e alla qualifica finisce sul referente in
+          Anagrafiche.
+        </Text>
+        {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+      </View>
+      <Pressable style={[styles.btn, styles.btnLargo, salvando && { opacity: 0.5 }]} disabled={salvando} onPress={salva}>
+        <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva i recapiti'}</Text>
       </Pressable>
     </Foglio>
   );
@@ -711,6 +867,7 @@ const styles = StyleSheet.create({
   },
   fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   campoLabel: { color: colors.testoSoft, fontWeight: '500', fontSize: 12.5, marginTop: 4 },
+  campoNota: { color: colors.grigio, fontSize: 12, lineHeight: 17, marginTop: 2 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.hairlineStrong, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '700' },
   corpoMail: { color: colors.testo, fontSize: 14.5, lineHeight: 23 },

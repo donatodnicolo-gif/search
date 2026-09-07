@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
-import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, annunciaAnnullamentoOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, creaOrdineNuovo, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
@@ -111,6 +111,14 @@ export default function Ordini() {
   // leggere». È l'errore che le sorelle (preventivi, richieste, pagamenti)
   // gestiscono già e questa no.
   const [errore, setErrore] = useState<string | null>(null);
+  /**
+   * ⭐ LA RICERCA (Libro UX&UI v1.9 §8-bis a: «ogni pagina di elenco ha una
+   * ricerca testuale sui campi con cui l'operatore riconosce il record —
+   * nome, numero, controparte»). Qui mancava: gli ordini si scorrevano a
+   * occhio, e quando è quello che si cerca è il RIFERIMENTO (SCOUT001, il
+   * numero che finisce come DDT sulla consegna) nessun filtro sapeva dirlo.
+   */
+  const [cerca, setCerca] = useState('');
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   /**
@@ -291,21 +299,63 @@ export default function Ordini() {
     return null;
   }, [periodo]);
 
+  /**
+   * I campi con cui si riconosce un ordine (Libro §8-bis a). Il RIFERIMENTO
+   * sta per primo: è il numero che si ha in mano quando arriva la domanda
+   * («che fine ha fatto SCOUT042?»), ed è lo stesso che sta come DDT sulla
+   * consegna. Poi il cliente (di Scout o del registro), cosa è stato
+   * ordinato, la linea, il brand, chi lo segue e i due numeri di documento —
+   * chi chiama per una pro-forma cita QUEL numero, non il nostro.
+   */
+  const testoDi = useCallback(
+    (o: OrdineConLuogo) => [
+      o.riferimento,
+      o.cliente,
+      o.place_nome,
+      o.descrizione,
+      o.linea,
+      o.brand,
+      o.owner_nome,
+      o.proforma_numero,
+      o.fattura_numero,
+    ],
+    [],
+  );
+
   const dati = useMemo(
-    () =>
-      ordini.filter((o) => {
+    () => {
+      const q = cerca.trim().toLowerCase();
+      const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+      return ordini.filter((o) => {
         if (statoFiltro && statoPratica(o).label !== statoFiltro) return false;
         if (lineaFiltro && o.linea !== lineaFiltro) return false;
         if (chiusura === 'aperti' && o.chiuso_il) return false;
         if (chiusura === 'chiusi' && !o.chiuso_il) return false;
         if (finestra) {
-          const q = new Date(dataDellOrdine(o));
-          if (isNaN(q.getTime()) || q < finestra.da || q >= finestra.a) return false;
+          const g = new Date(dataDellOrdine(o));
+          if (isNaN(g.getTime()) || g < finestra.da || g >= finestra.a) return false;
         }
+        if (q && !testoDi(o).some((x) => nrm(x).includes(q))) return false;
         return true;
-      }),
-    [ordini, statoFiltro, lineaFiltro, chiusura, finestra],
+      });
+    },
+    [ordini, statoFiltro, lineaFiltro, chiusura, finestra, cerca, testoDi],
   );
+
+  /**
+   * ⚠️ C'È UN FILTRO ADDOSSO? Serve alla schermata vuota: «Ancora nessun
+   * ordine» con «Vai alle Trattative» è vero solo se ordini non ce ne sono.
+   * Detto a chi ha appena cercato un riferimento che non c'è, è un
+   * fallimento vestito da lista vuota (Libro cap.6).
+   */
+  const conFiltri = Boolean(cerca.trim() || statoFiltro || lineaFiltro || chiusura !== 'tutti' || periodo !== 'tutti');
+  const azzeraTutto = useCallback(() => {
+    setCerca('');
+    setStatoFiltro(null);
+    setLineaFiltro(null);
+    setChiusura('tutti');
+    setPeriodo('tutti');
+  }, []);
 
 
   /**
@@ -1809,6 +1859,20 @@ export default function Ordini() {
           </View>
         ) : null}
 
+        {/* ⭐ LA RICERCA IN TESTA ALLA ZONA FILTRI (Libro v1.9 §8-bis a).
+            Sta FUORI dal pannello richiudibile e resta visibile a ogni
+            larghezza: §8 punto 2 la mette accanto a «Filtri (N)» anche sotto
+            la soglia mobile — una ricerca che si apre solo dopo un tocco non
+            è una ricerca. Non conta fra i «filtri attivi»: il pannello
+            direbbe «(1)» senza avere niente dentro. */}
+        <View style={styles.cerca}>
+          <CampoCerca
+            valore={cerca}
+            onCambia={setCerca}
+            placeholder="Cerca per riferimento (SCOUT001), cliente, descrizione, pro-forma o fattura…"
+          />
+        </View>
+
         {/* Zona filtri al Libro v1.2 §8 (28/08, segnalazione utente: 4 gruppi
             sempre aperti ≈ 300px, il 37-40% di un telefono). La dimensione
             PRIMARIA — lo stato dell'incasso, quella che si cambia più volte al
@@ -1895,7 +1959,7 @@ export default function Ordini() {
             <View style={styles.riepilogoMobile}>
               <Text style={styles.riepilogoTxt}>
                 {dati.length} {dati.length === 1 ? 'ordine' : 'ordini'}
-                {statoFiltro || lineaFiltro ? ' nel filtro' : ''} ·{' '}
+                {conFiltri ? ' nel filtro' : ''} ·{' '}
                 {importoBreve(dati.reduce((s, o) => s + (o.valore ?? 0), 0))}
               </Text>
             </View>
@@ -1926,6 +1990,27 @@ export default function Ordini() {
                 <Text style={styles.btnRiprovaTxt}>Riprova</Text>
               </Pressable>
             </View>
+          ) : conFiltri && ordini.length > 0 ? (
+            /**
+             * ⚠️ Ordini ce ne sono, sono i filtri (o la ricerca) a non farne
+             * passare nessuno: dirgli «Ancora nessun ordine» e mandarlo alle
+             * Trattative sarebbe una bugia, e chi ha cercato «SCOUT042»
+             * penserebbe che l'ordine non esiste invece che di averlo
+             * scritto male. Qui si dice cosa sta filtrando e si offre la via
+             * d'uscita.
+             */
+            <EmptyState
+              loading={loading}
+              icona="search-outline"
+              titolo={cerca.trim() ? `Nessun ordine per «${cerca.trim()}»` : 'Nessun ordine con questi filtri'}
+              aiuto={
+                cerca.trim()
+                  ? `Si cerca fra riferimento, cliente, descrizione, linea, brand, chi lo segue e i numeri di pro-forma e fattura. Gli ordini in tutto sono ${ordini.length}.`
+                  : `Nessuno dei ${ordini.length} ordini rientra nei filtri scelti.`
+              }
+              azione="Azzera ricerca e filtri"
+              onAzione={azzeraTutto}
+            />
           ) : (
             <EmptyState
               loading={loading}
@@ -3817,6 +3902,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
+  /**
+   * ⚠️ La ricerca NON prende tutta la riga: qui il contenuto arriva a
+   * 1608px (contenutoExtraLargo) e un campo di testo lungo un metro e
+   * mezzo per scriverci «SCOUT042» è solo rumore. 520 è la misura in cui
+   * ci stanno per intero un nome di cliente lungo e il placeholder.
+   */
+  cerca: { width: '100%', maxWidth: 520 },
   btnIncassi: {
     flexDirection: 'row',
     alignItems: 'center',

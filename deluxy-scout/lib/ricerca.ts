@@ -16,6 +16,7 @@
 // ⚠️ I task sono **privati** (RLS `owner = auth.uid()`): qui escono solo i
 // propri, ed è giusto così — non è un buco, è la regola della tabella.
 import { supabase } from '@/lib/supabase';
+import { recapitiLead } from '@/lib/lead-parse';
 
 export type TipoRisultato =
   | 'negozio'
@@ -148,8 +149,12 @@ export async function cercaOvunque(term: string): Promise<Risultato[]> {
       prova(
         supabase
           .from('leads')
-          .select('id, nome, contatto, fonte, stato')
-          .or(`nome.ilike.${like},contatto.ilike.${like},messaggio.ilike.${like}`)
+          // email/telefono: dalla 0119 i recapiti stanno lì, e una ricerca
+          // globale che non li guarda non trova più il numero che si cerca.
+          .select('id, nome, contatto, email, telefono, fonte, stato')
+          .or(
+            `nome.ilike.${like},contatto.ilike.${like},email.ilike.${like},telefono.ilike.${like},messaggio.ilike.${like}`,
+          )
           .limit(PER_FONTE),
       ),
       prova(
@@ -237,7 +242,10 @@ export async function cercaOvunque(term: string): Promise<Risultato[]> {
       tipo: 'lead',
       id: l.id,
       titolo: l.nome,
-      sottotitolo: [l.contatto, l.fonte, l.stato].filter(Boolean).join(' · ') || null,
+      sottotitolo:
+        [recapitiLead(l).email, recapitiLead(l).telefono, l.fonte, l.stato]
+          .filter(Boolean)
+          .join(' · ') || null,
       rotta: '/(app)/lead',
     });
   }

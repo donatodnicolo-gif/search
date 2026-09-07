@@ -515,7 +515,15 @@ export type FonteLead = 'sito' | 'mail' | 'social' | 'passaparola' | 'altro';
 export interface Lead {
   id: string;
   nome: string;
+  /** STORICO (fino alla 0119): UN recapito solo, email oppure telefono.
+   *  Le richieste nuove scrivono `email` e `telefono`; questo si legge
+   *  ancora per quelle vecchie. ⚠️ Non leggerlo mai da solo: il punto unico
+   *  è `recapitiLead()` in lib/lead-parse.ts. */
   contatto: string | null;
+  /** La mail di chi ci ha scritto (migr. 0119). NULL = non la sappiamo. */
+  email?: string | null;
+  /** Il telefono di chi ci ha scritto (migr. 0119). NULL = non lo sappiamo. */
+  telefono?: string | null;
   fonte: FonteLead;
   messaggio: string | null;
   stato: 'nuovo' | 'qualificato' | 'scartato';

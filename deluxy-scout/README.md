@@ -1,5 +1,42 @@
 # Deluxy Scout
 
+> **07/09/2026 — due segnalazioni dell'utente, chiuse** (migr. `0119`):
+> 1. **Ordini ha la RICERCA** (Libro UX&UI v1.9 §8-bis a: «ogni pagina di
+>    elenco ha una ricerca testuale sui campi con cui l'operatore riconosce il
+>    record»). Mancava: gli ordini si scorrevano a occhio, e quando quello che
+>    si ha in mano è il **riferimento** (`SCOUT042`, lo stesso numero che
+>    finisce come DDT sulla consegna) nessun filtro sapeva dirlo. Cerca su
+>    riferimento, cliente (di Scout o del registro), descrizione, linea, brand,
+>    chi lo segue e i numeri di pro-forma e fattura. Sta in testa alla zona
+>    filtri, FUORI dal pannello richiudibile e visibile a ogni larghezza
+>    (§8 punto 2), e non conta fra i «filtri attivi». In più: la schermata
+>    vuota ora distingue **«non ci sono ordini»** da **«nessun ordine passa i
+>    filtri»**, con «Azzera ricerca e filtri» — prima mandava alle Trattative
+>    anche chi aveva solo scritto male un riferimento.
+> 2. **Le richieste web hanno EMAIL e TELEFONO, due campi** (migr. `0119`).
+>    C'era `contatto`, uno solo («email o telefono»): chi aveva entrambi i
+>    recapiti ne perdeva uno, e alla qualifica il referente creato in
+>    Anagrafiche partiva monco. Ora: due campi nel modulo «Nuova richiesta», e
+>    un foglio **«Email e telefono»** per scriverli su una richiesta GIÀ IN
+>    CODA — che è il caso vero, perché le richieste arrivate dalla posta la
+>    mail ce l'hanno e il telefono quasi mai. Si apre da tre porte: l'icona
+>    ☎ della riga in tabella, la scheda sul telefono, il foglio di lettura.
+>    - ⭐ **La regola dei recapiti sta in UN punto**: `recapitiLead()` in
+>      `lib/lead-parse.ts`, con tre livelli di fiducia — colonne scritte a mano
+>      → parser del modulo del sito → `contatto` spacchettato sull'`@`.
+>      L'euristica dell'`@` era ricopiata in **cinque** posti (LeadCard, la
+>      tabella di `/lead`, il foglio di lettura, `QualificaLeadModal`,
+>      `qualificaLead`); ora la copia è una, coperta da
+>      `__tests__/recapiti-lead.test.ts`.
+>    - ⚠️ **Nessun backfill**, di proposito: l'euristica resta un ripiego
+>      DICHIARATO in lettura, non un dato scritto — un `contatto` come
+>      «chiamare Maria in negozio» sarebbe diventato per sempre un telefono.
+>      `contatto` non si scrive più e non si tocca.
+>    - Anche la **ricerca globale** cerca nei due campi nuovi, e la qualifica
+>      porta ENTRAMBI i recapiti sul referente di Anagrafiche (prima, sulle
+>      richieste dal modulo del sito, `conContatto` guardava `contatto` — che lì
+>      è vuoto: il referente non nasceva proprio dove i dati c'erano).
+
 > **24/08/2026 — audit architettura, cinque correzioni** (migr. `0068`):
 > 1. **Il cron HubSpot torna vivo**: `sync-hubspot-crm` era morto in silenzio dal
 >    23/08 (la correzione d'auth su `hubspot-match` rifiutava la sua vecchia

@@ -5,7 +5,7 @@ import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione
 import { env } from '@/lib/env';
 import { hubspotAttivo, syncVisita } from '@/lib/hubspot';
 import { datiSocietariRegistro, fiscaliMancanti, notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
-import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { analizzaMessaggioLead, recapitiLead } from '@/lib/lead-parse';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
 import { pulisciTermine } from '@/lib/ricerca';
 
@@ -2089,18 +2089,51 @@ export async function fetchLeads(): Promise<Lead[]> {
   return (data ?? []) as Lead[];
 }
 
+/**
+ * ⭐ Email e telefono SEPARATI (07/09/2026, migr. 0119, richiesta
+ * dell'utente: «in lead non è possibile mettere campi come telefono e
+ * mail»). Prima c'era `contatto`, uno solo: chi ne aveva due doveva
+ * sceglierne uno, e quello scartato non lo recuperava più nessuno.
+ *
+ * ⚠️ `contatto` NON si scrive più: lo stesso recapito in due colonne è
+ * un numero scritto in due punti, e prima o poi divergono. Le richieste
+ * vecchie continuano a leggerlo (`recapitiLead`), le nuove no.
+ */
 export async function creaLead(l: {
   nome: string;
-  contatto?: string | null;
+  email?: string | null;
+  telefono?: string | null;
   fonte: FonteLead;
   messaggio?: string | null;
 }): Promise<void> {
   const { error } = await supabase.from('leads').insert({
     nome: l.nome.trim(),
-    contatto: l.contatto?.trim() || null,
+    email: l.email?.trim() || null,
+    telefono: l.telefono?.trim() || null,
     fonte: l.fonte,
     messaggio: l.messaggio?.trim() || null,
   });
+  if (error) throw error;
+}
+
+/**
+ * I recapiti di una richiesta già in coda (migr. 0119). Serve alle richieste
+ * ARRIVATE DALLA POSTA, che sono la maggior parte: la mail ce l'hanno, il
+ * telefono quasi mai — e fino a ieri, quando il cliente lo dava al telefono,
+ * non c'era dove scriverlo.
+ *
+ * ⚠️ Stringa vuota = «cancella questo recapito», e diventa NULL: un campo
+ * svuotato a mano deve poter tornare vuoto, non restare com'era.
+ */
+export async function aggiornaRecapitiLead(
+  id: string,
+  recapiti: { email?: string | null; telefono?: string | null },
+): Promise<void> {
+  const patch: Record<string, string | null> = {};
+  if (recapiti.email !== undefined) patch.email = recapiti.email?.trim() || null;
+  if (recapiti.telefono !== undefined) patch.telefono = recapiti.telefono?.trim() || null;
+  if (!Object.keys(patch).length) return;
+  const { error } = await supabase.from('leads').update(patch).eq('id', id);
   if (error) throw error;
 }
 
@@ -2152,8 +2185,10 @@ export async function qualificaLead(
   // nel mittente — che sulle notifiche del modulo Shopify è un robot.
   const chi = analizzaMessaggioLead(lead.nome, lead.messaggio);
   const nomePersona = chi.persona || (chi.daModuloSito ? '' : lead.nome);
-  const emailPersona = chi.email || (lead.contatto?.includes('@') ? lead.contatto : null);
-  const telPersona = chi.telefono || (lead.contatto && !lead.contatto.includes('@') ? lead.contatto : null);
+  // ⚠️ I recapiti li dà `recapitiLead` (migr. 0119), non una copia locale
+  //    dell'euristica sull'@: qui nasce il REFERENTE in Anagrafiche, e con
+  //    due recapiti in mano se ne perdeva sempre uno.
+  const { email: emailPersona, telefono: telPersona } = recapitiLead(lead, chi);
   if (conContatto && (nomePersona || emailPersona || telPersona)) {
     // Best-effort: se il contatto non si scrive, la trattativa si crea lo
     // stesso — è il pezzo che conta, e un errore qui non deve farla perdere.
@@ -2173,7 +2208,13 @@ export async function qualificaLead(
     fase: 'appointmentscheduled',
     valore_atteso: null,
     scadenza: traGiorni(GIORNI_FOLLOWUP_LEAD), // cadenza web: primo follow-up a 3 giorni
-    next_action: lead.contatto ? `Ricontattare ${lead.nome} (${lead.contatto})` : `Ricontattare ${lead.nome}`,
+    // Il promemoria porta con sé il recapito: chi lo legge fra tre giorni non
+    // deve tornare qui per sapere dove chiamare. Email e telefono insieme
+    // quando ci sono entrambi (prima ne entrava uno per forza).
+    next_action: (() => {
+      const dove = [emailPersona, telPersona].filter(Boolean).join(' · ');
+      return dove ? `Ricontattare ${lead.nome} (${dove})` : `Ricontattare ${lead.nome}`;
+    })(),
     oggetto: lead.messaggio?.slice(0, 120) || `Lead web: ${lead.nome}`,
     canale: 'web',
   });

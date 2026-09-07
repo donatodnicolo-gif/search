@@ -8,7 +8,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { StatusBadge } from '@/components/ui';
-import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { analizzaMessaggioLead, recapitiLead, soloCifre } from '@/lib/lead-parse';
 import type { FonteLead, Lead } from '@/types';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 
@@ -32,6 +32,7 @@ export function LeadCard({
   onVediTrattativa,
   onApriAiMail,
   onElimina,
+  onRecapiti,
 }: {
   lead: Lead;
   /** Apre il messaggio intero; assente = niente da leggere, scheda non premibile. */
@@ -41,13 +42,17 @@ export function LeadCard({
   onVediTrattativa: () => void;
   onApriAiMail?: () => void;
   onElimina: () => void;
+  /** Apre il foglio «Email e telefono» (migr. 0119). */
+  onRecapiti?: () => void;
 }) {
   const eta = etaGiorni(lead.created_at);
   const ritardo = lead.stato === 'nuovo' && eta >= GIORNI_RISPOSTA_LEAD;
   const info = analizzaMessaggioLead(lead.nome, lead.messaggio);
   const titolo = info.persona || lead.nome;
-  const email = info.email || (lead.contatto?.includes('@') ? lead.contatto : null);
-  const telefono = info.telefono;
+  // Punto unico dei recapiti (migr. 0119): l'euristica sull'@ era ricopiata
+  // qui, nella tabella, nel foglio di lettura, in QualificaLeadModal e in
+  // qualificaLead — cinque copie della stessa regola.
+  const { email, telefono } = recapitiLead(lead, info);
 
   // Le azioni dentro la scheda non devono far scattare anche il pop-up:
   // sul web l'evento risale, quindi lo si ferma qui.
@@ -72,7 +77,7 @@ export function LeadCard({
       </View>
 
       {/* Recapiti veri della persona: si toccano. */}
-      {(email || telefono || (lead.contatto && !email)) ? (
+      {email || telefono ? (
         <View style={styles.contatti}>
           {email ? (
             <Pressable hitSlop={4} onPress={solo(() => Linking.openURL(`mailto:${email}`))} style={styles.contatto}>
@@ -81,14 +86,12 @@ export function LeadCard({
             </Pressable>
           ) : null}
           {telefono ? (
-            <Pressable hitSlop={4} onPress={solo(() => Linking.openURL(`tel:${telefono.replace(/\s+/g, '')}`))} style={styles.contatto}>
+            <Pressable hitSlop={4} onPress={solo(() => Linking.openURL(`tel:${soloCifre(telefono)}`))} style={styles.contatto}>
               <Ionicons name="call-outline" size={13} color={colors.testoSoft} />
               <Text style={styles.contattoTxt} numberOfLines={1}>{telefono}</Text>
             </Pressable>
           ) : null}
-          {!email && lead.contatto ? (
-            <Text style={styles.contattoTxt} numberOfLines={1}>{lead.contatto}</Text>
-          ) : null}
+
         </View>
       ) : null}
 
@@ -133,7 +136,15 @@ export function LeadCard({
             </Pressable>
           </>
         ) : null}
-        {onApri || onApriAiMail ? <Text style={styles.sep}>·</Text> : null}
+        {onRecapiti ? (
+          <>
+            {onApri || onApriAiMail ? <Text style={styles.sep}>·</Text> : null}
+            <Pressable hitSlop={6} onPress={solo(onRecapiti)}>
+              <Text style={styles.azioneTxt}>Email e telefono</Text>
+            </Pressable>
+          </>
+        ) : null}
+        {onApri || onApriAiMail || onRecapiti ? <Text style={styles.sep}>·</Text> : null}
         <Pressable hitSlop={6} onPress={solo(onElimina)}>
           <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
         </Pressable>

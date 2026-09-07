@@ -53,7 +53,7 @@ import { SceltaCliente } from '@/components/SceltaCliente';
 import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
 import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { cercaNellaMiaCasella, fetchCorpoMail, importaRichiesteDaMail, type MiaMail } from '@/lib/mail';
-import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { analizzaMessaggioLead, recapitiLead } from '@/lib/lead-parse';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import {
   LABEL_CANALE_RICHIESTA,
@@ -892,7 +892,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     if (!placeId && !cliente.trim()) {
       setCliente(info.persona || l.nome);
     }
-    const chi = [info.persona || l.nome, info.email || l.contatto].filter(Boolean).join(' · ');
+    // I recapiti dal punto unico (migr. 0119): email E telefono, non uno.
+    const r = recapitiLead(l, info);
+    const chi = [info.persona || l.nome, r.email, r.telefono].filter(Boolean).join(' · ');
     if (!nota.trim() && chi) setNota(`Ha scritto ${chi}`);
   }
 

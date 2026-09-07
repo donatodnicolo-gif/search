@@ -11,7 +11,7 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { Foglio } from '@/components/Foglio';
 import { cercaPlaces, creaPlaceDaRichiesta, qualificaLead, type PlaceLite } from '@/lib/db';
 import { estraiAnagrafica, type DatiEstratti, type EsitoRegistro } from '@/lib/anagrafiche';
-import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { analizzaMessaggioLead, recapitiLead } from '@/lib/lead-parse';
 import type { Lead } from '@/types';
 
 export function QualificaLeadModal({
@@ -29,7 +29,12 @@ export function QualificaLeadModal({
   const info = analizzaMessaggioLead(lead.nome, lead.messaggio);
   // Chi ci ha scritto è una persona vera, con nome e recapito: se non lo si
   // salva ora, va ridigitato dopo nella scheda del negozio.
-  const conContatto = Boolean(lead.contatto);
+  // ⚠️ Dal punto unico (migr. 0119) e non da `lead.contatto`: le richieste
+  //    arrivate dal modulo del sito hanno i recapiti DENTRO il messaggio e
+  //    `contatto` vuoto — su quelle il referente non veniva mai creato,
+  //    proprio dove i dati c'erano.
+  const recapiti = recapitiLead(lead, info);
+  const conContatto = Boolean(recapiti.email || recapiti.telefono);
   // Il mittente robot («Business Deluxy (Shopify)») non è un negozio: cercarlo
   // non troverebbe MAI niente. Si parte con la ricerca vuota, che elenca i
   // primi negozi, e chi qualifica scrive il nome giusto.
@@ -65,7 +70,7 @@ export function QualificaLeadModal({
     if (!testo) return;
     let vivo = true;
     setLeggendo(true);
-    estraiAnagrafica(testo, lead.contatto ?? null, null)
+    estraiAnagrafica(testo, recapiti.email || recapiti.telefono || null, null)
       .then((r) => {
         if (!vivo) return;
         setDati(r.dati);
@@ -169,8 +174,8 @@ export function QualificaLeadModal({
       <View style={styles.riepilogo}>
         <Text style={styles.riepilogoChi} numberOfLines={1}>
           {chi}
-          {info.email ? <Text style={styles.riepilogoContatto}>  ·  {info.email}</Text> : null}
-          {!info.email && lead.contatto ? <Text style={styles.riepilogoContatto}>  ·  {lead.contatto}</Text> : null}
+          {recapiti.email ? <Text style={styles.riepilogoContatto}>  ·  {recapiti.email}</Text> : null}
+          {recapiti.telefono ? <Text style={styles.riepilogoContatto}>  ·  {recapiti.telefono}</Text> : null}
         </Text>
         {info.testo ? (
           <Text style={styles.riepilogoTesto} numberOfLines={3}>{info.testo}</Text>
