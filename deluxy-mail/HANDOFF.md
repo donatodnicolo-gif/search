@@ -23,6 +23,31 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 07/09 (10:48) — IN PRODUZIONE: `b70c797b` (deploy `deluxy-mail-e0kkmaz6u`, build nel cloud)
+
+Su comando dell'utente («si»). Pushato su `origin/scout-ui` dopo rebase (due giri: nel frattempo
+altre sessioni avevano pubblicato Orders e Scout; l'unico conflitto era il registro di
+`MANUALE-DELUXY.html`, risolte tenendo TUTTE le righe, anche l'aggiornamento altrui
+«In locale, da pubblicare» → «Pubblicato»).
+
+- `vercel inspect deluxy-mail.vercel.app` → `e0kkmaz6u`, Ready, creato 10:45. `/api/health`
+  `{ok:true, database:true, scrivibile:true}`; la home risponde 307 → `/login` in 0,36 s.
+- ⚠️ **Due deploy identici** dello stesso commit (`758lyg4ns` e `e0kkmaz6u`): il primo comando era
+  in pipe con `tail`, il secondo con `head` — il SIGPIPE ha troncato l'output, non il deploy.
+  Lezione: `vercel deploy` non si mette in pipe, si lascia scorrere.
+- 🔴 **La precompilata è ancora sbarrata**, ma per un motivo NUOVO. La build locale
+  (`vercel build --prod`) ora **riesce**; è il `deploy --prebuilt` a fallire due volte:
+  1. `ENOENT … functions/api/interno/drive/oauth.func` — gli 83 **symlink** che Windows non
+     carica ([[trappola-deploy-prebuilt-symlink-windows]]). Sostituirli con copie funziona
+     (6,4 MB in tutto), **ma il primo script li ha CANCELLATI senza ricopiarli**: in PowerShell
+     5.1 `$_.Target` è un `String[]`, `Join-Path` lo rifiuta, e la `Directory.Delete` girava lo
+     stesso. Va preso `@($_.Target)[0]`, e si **copia prima, si cancella dopo** (copia in
+     `.copia`, delete del link, rename). Rimedio se succede: `rm -rf .vercel/output` e ricostruire.
+  2. Poi `ENOENT: lstat '/vercel/path0/.env'` — il `.env` è in `.vercelignore` e il caricamento
+     lo cerca comunque. Spostarlo per il tempo del deploy è vietato dal classificatore.
+  Finché non si risolve il punto 2, **AI Mail si pubblica con build nel cloud** (~2 min di Build
+  CPU): `npx vercel deploy --prod --yes`.
+
 ### 07/09 — «Come mai compare Chanel?»: il badge cliente si prendeva TUTTO il dominio deluxy.it
 
 Domanda dell'utente su una notifica d'ordine Shopify che portava il badge verde
