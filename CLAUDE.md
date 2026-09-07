@@ -57,6 +57,79 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 6. **Durabilità**: pushare su GitHub (dopo conferma). Il non-pushato è a rischio.
 7. **Riportare il vero esito**: se un test fallisce o un passo è saltato, dirlo con l'output reale.
 
+## Deploy e costi di build (OBBLIGATORIO — 04/09/2026)
+
+> Tutte le app di questo repo vivono su progetti Vercel diversi collegati **allo
+> stesso repository GitHub**. Senza precauzioni, ogni `git push` fa ricostruire
+> *tutte* le app: è così che nel periodo di fatturazione 18/08–18/09 si sono
+> accumulati ~25.500 minuti di Build CPU (89 $ su 98 $ di fattura).
+
+**1. Fine di ogni lavoro: link localhost, poi chiedere il deploy.**
+Nessun lavoro è concluso finché l'utente non ha potuto guardarlo. Alla fine di
+ogni sessione di sviluppo, sempre e in quest'ordine:
+
+1. avvia il server di sviluppo dell'app toccata (`npm run dev` nella sua
+   cartella) e lascialo attivo;
+2. dai all'utente il **link diretto alla pagina modificata**, non la home —
+   es. `http://localhost:3190/clienti/nuovo`, non `http://localhost:3190`.
+   Se le pagine toccate sono più d'una, elencale tutte;
+3. scrivi in due righe **cosa deve guardare** per capire se è giusto (il campo
+   nuovo, il calcolo cambiato, il pulsante spostato);
+4. **poi chiedi se procedere col deploy.** Mai pubblicare di iniziativa —
+   vale la regola 5 sulle azioni esterne. Se l'utente non risponde o dice di no,
+   il lavoro resta in locale: va comunque committato e registrato nell'handoff.
+
+Porte dei server di sviluppo:
+
+| App | Porta | App | Porta |
+|---|---|---|---|
+| `deluxy-partner` | 3040 | `deluxy-mail` | 3070 |
+| `deluxy-hub` | 3050 | `deluxy-tasks` | 3090 |
+| `deluxy-anagrafiche` | 3060 | `deluxy-acquisti` | 3100 |
+| `deluxy-fondo` | 3180 | `deluxy-personale` | 3200 |
+| `deluxy-crm` | 3190 | | |
+
+**2. Mai pushare per provare.** Il push serve a versionare il codice, non a
+vedere se funziona: per quello c'è il punto 1. Se serve un link condivisibile
+con qualcun altro, si fa una preview precompilata (`vercel build` +
+`vercel deploy --prebuilt`, senza `--prod`), non un push.
+
+**3. Ogni app ha un `ignoreCommand`.** In ogni `vercel.json` c'è
+`"ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."`: Vercel salta la build se
+l'ultimo commit non ha toccato quella cartella. **Non rimuoverlo.** Se aggiungi
+una nuova app al repo, il suo `vercel.json` deve nascere con questa riga.
+
+> Limite noto: confronta solo l'ultimo commit. Se pushi più commit insieme e la
+> modifica a quell'app non è nell'ultimo, la build viene saltata — in quel caso
+> si pubblica con `/deploy`.
+
+**4. Il deploy si fa precompilato.** La build gira sulla macchina locale, Vercel
+riceve solo l'output. Zero Build CPU fatturati:
+
+```bash
+cd <cartella-app>
+npx tsc --noEmit
+vercel pull --yes --environment=production
+vercel build --prod
+vercel deploy --prebuilt --prod
+```
+
+Esiste lo slash command `/deploy <cartella-app>` che esegue questa sequenza,
+conferma compresa.
+
+**5. Variabili d'ambiente.** Se cambiano sulla dashboard Vercel, rifare
+`vercel pull --yes --environment=production` nella cartella dell'app, altrimenti
+la build locale usa quelle vecchie.
+
+**6. `deluxy-platform-next` è già fuori dai deploy automatici**
+(`"git": {"deploymentEnabled": false}` nel suo `vercel.json`): si pubblica solo
+in modo esplicito. `deluxy-search-supplier` sta sul progetto `search-deluxy` e
+si sviluppa sul branch `main`.
+
+**7. Prima di aggiungere una dipendenza pesante** (compilazione nativa, bundle
+molto grande) segnalarlo: ogni secondo aggiunto alla build si moltiplica per il
+numero di deploy.
+
 ## Design system (obbligatorio per ogni lavoro di UI)
 
 **Tutte le app — esistenti e nuove — seguono il Deluxy Design System**: [deluxy-design-system/DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md) (token e componenti) **e il Libro UX&UI**: [deluxy-design-system/LIBRO-UX-UI.md](deluxy-design-system/LIBRO-UX-UI.md) (pattern vincolanti: navigazione, form, tabelle, stati, feedback, conferme, mobile — con l'implementazione di riferimento di ciascuno).

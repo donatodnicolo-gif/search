@@ -18,6 +18,7 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
+| 07/09 | piattaforma | Form consegna (`/deliveries/new`) · **menu a tendina che esce dallo schermo**: «la lista prodotti a un certo punto si interrompe e non si può scorrere di più». La tendina dei risultati aveva `max-height: 280px` fissa e si apre sempre VERSO IL BASSO: con la riga prodotto in fondo alla pagina finiva sotto il bordo della finestra, e gli ultimi risultati restavano fuori — la barra interna arrivava in fondo, ma quei prodotti non si vedevano. Il difetto è emerso lo stesso giorno perché la tendina è passata da 20 a fino a 120 voci (listino del partner in cima). **Correzione applicata nello stesso giro**: l'altezza si calcola sullo spazio reale sopra e sotto il campo (`misuraTendina()`, minimo 120px, massimo 280px), se sotto non ci stanno quattro righe la tendina si apre **verso l'alto** (`.prod-risultati.su`), `overscroll-behavior: contain` tiene lo scorrimento dentro la tendina (arrivati in fondo non parte quello della pagina, che faceva sembrare bloccata la lista), e su scroll/resize l'altezza si rimisura. **Da valutare come regola del Libro**: *un menu a tendina non ha mai un'altezza fissa — la prende dallo spazio disponibile e sceglie il lato*. Vale per ogni tendina lunga del parco (ricerca prodotti, partner, valet, indirizzi Google) | utente |
 | 03/09 | AI Mail | Composizione (`/scrivi` e risposta) · «da mobile l'invio di una mail è scomodo: il pulsante Invia si trova in alto». Le due barre azioni (cima+fondo pagina) su telefono lasciano l'Invia sempre fuori schermata mentre si scrive. **Correzione applicata nello stesso giro su richiesta dell'utente**, col pattern già nel Libro (piede sticky delle modali, §9): sotto i 900px la barra del fondo diventa sticky al bordo dello schermo (`globals.css`, selettore `:has` sulle sole card di composizione) e quella in cima si nasconde. **Da valutare come regola**: nelle pagine-form lunghe su mobile, la barra delle azioni primarie è sticky in fondo allo schermo, non duplicata in cima | utente |
 | 28/08 | Scout | Deferiti dalla passata filtri: `storico.tsx` ha ancora il `Gruppo` locale (duplicato di GruppoFiltro, chip `<Text onPress>` sotto i 44px) dentro il pannello; le 10 copie locali di `Chip` si sostituiscono col `Chip` di `ui.tsx` man mano che si toccano le schermate | custode |
 | 28/08 | search-supplier | Col metro del Libro v1.2 §8: i filtri gemelli sopra i risultati (`#resultTools`, 3-4 righe dopo una ricerca) andrebbero misurati a 375px contro il tetto delle 2 righe — non è l'offensore del caso (compaiono solo a risultati presenti e wrappano), ma va verificato | custode |
@@ -774,7 +775,13 @@ padding verticale cambia 165 pillole in tutta l'app — segnalazione separata.
 (c) fascia «Fornitori in provincia»: 4-6 pillole per riga, vale il ≤ 3 — giro
 successivo.
 
-STATO: in locale, in attesa del collaudo dell'utente.
+**Collaudo dell'utente (06/09, sera)**: «lascia pulsanti unisci e riconsegna
+visibili» → le due tornano PILLOLE in testata e il menu «⋯» sparisce (conteneva
+solo quelle). **Deroga a §9-ter** (≤ 2 pillole in testata) decisa dall'utente:
+nel CS la testata della scheda ordine porta 4 pillole [Manda in app] [Apri in
+Shopify ↗] [Unisci ordini] [Riconsegna]. Il resto della voce resta applicato.
+
+STATO: applicata e pubblicata, con la deroga qui sopra.
 
 ## 06/09/2026 (11) — Customer Service: due difetti della chat sul desktop (segnalazioni dell'utente, screenshot)
 
@@ -793,3 +800,122 @@ nei campi mancanti e a schermo compariva LUOGO «vuoto» come dato — scartato 
 server (non è UI, ma è la stessa segnalazione).
 
 STATO: in locale, committato.
+
+## 07/09/2026 (12) — Piattaforma: le non consegnate ancora rosse (segnalazione dell'utente)
+
+**Segnalazione**: «avevamo stabilito un nuovo colore per le non consegnate, lo vedo
+ancora rosso». Il 06/09 si era cambiata la RIGA «da gestire» (fondo neutro, barra e chip
+neri) lasciando però il rosso allo STATO, con una nota esplicita: «niente tinte semantiche
+nuove, il rosso resta dello stato». Da fuori il risultato è indistinguibile dal non aver
+fatto niente: la pastiglia dello stato è la cosa che si guarda.
+
+**Correzione applicata**: `not_delivered` esce dal rosso e prende il NERO (`--text`),
+lo stesso del chip «DA GESTIRE»; pastiglia su fondo nero al 7%. Il rosso resta a
+«Da gestire» (`created`) e «Non accettata» (`not_accepted`), che sono i due stati «da
+lavorare adesso». In legenda i due gruppi si separano.
+
+**Perché è meglio, non solo diverso**: il rosso copriva tre stati con significati diversi —
+da lavorare, tentata e fallita, rifiutata. Il nero dice «serve una persona», che è
+esattamente ciò che una non consegnata chiede, ed è già la lingua della riga «da gestire».
+
+**Deroga storica ridotta**: la nota in `stati-consegna.ts` (legenda storica, verdetto 2-1)
+vale ancora per `created` e `not_accepted`, non più per `not_delivered`.
+
+STATO: applicata e PUBBLICATA il 07/09 (piattaforma `delivery-7rdhyca7k`, `web/src/app/core/stati-consegna.ts`: `not_delivered` = nero `--text`).
+
+## 07/09/2026 (13) — Scout · Ordini: l'elenco senza ricerca (segnalazione dell'utente)
+
+**Segnalazione**: «in ordini ho bisogno sia possibile ricercare un ordine come da
+regola ux&ui».
+
+**Non è un caso nuovo: è una regola già scritta, non applicata.** Libro v1.9 §8-bis
+(a): «ogni pagina di elenco ha una ricerca testuale sui campi con cui l'operatore
+riconosce il record (nome, numero, controparte) — un elenco senza ricerca si scorre a
+occhio, e a 200 righe è un lavoro». Ironia: §8-bis cita proprio `ordini` di Scout come
+riferimento, ma per il **gruppo Periodo**; la ricerca lì non c'era mai stata.
+Quindi correzione locale, nessuna voce nuova del Libro, nessun verdetto da arbitrare.
+
+**Correzione applicata** (`app/(app)/ordini.tsx`):
+- ricerca su **riferimento** (SCOUT042, il numero che va come DDT sulla consegna),
+  cliente di Scout o del registro, descrizione, linea, brand, chi lo segue, numero di
+  pro-forma e di fattura — «nome, numero, controparte» del §8-bis;
+- componente condiviso `CampoCerca`, come gli altri 14 elenchi di Scout: stessa forma,
+  stesso posto. **Fuori** dal pannello richiudibile e visibile a ogni larghezza
+  (§8 punto 2: sotto la soglia mobile restano ricerca + «Filtri (N)» + «Azzera»);
+- **non conta fra i «filtri attivi»**: il pannello direbbe «Filtri (1)» senza avere
+  niente dentro, e chi lo apre non troverebbe cosa azzerare;
+- larghezza a tetto (520px): la pagina arriva a 1608px e un campo di testo lungo un
+  metro e mezzo per scriverci «SCOUT042» è rumore, non respiro.
+
+**Contestuale, stessa schermata (Libro cap. 6, l'esito onesto)**: con un filtro o una
+ricerca che non fanno passare niente, la schermata vuota diceva «Ancora nessun ordine»
+e offriva «Vai alle Trattative», con l'archivio pieno. Chi aveva solo scritto
+male un riferimento leggeva che l'ordine non esiste. Ora i due casi sono distinti:
+«nessun ordine per «X»» col totale reale e «Azzera ricerca e filtri».
+
+STATO: applicata e PUBBLICATA il 07/09 (deploy deluxy-scout-1bzj6v1l6, marcatori verificati
+nel bundle vivo). Nessuna regola nuova proposta al custode.
+
+## 07/09/2026 (14) — Scout · Richieste web: un campo per due recapiti (segnalazione dell'utente)
+
+**Segnalazione**: «in lead non è possibile mettere campi come telefono e mail».
+
+**Difetto di modello prima che di layout.** La richiesta aveva UN campo, `contatto`
+(«email o telefono»): chi aveva entrambi i recapiti doveva sceglierne uno. A valle il
+campo veniva spacchettato a indovinare — «se contiene @ è una mail, altrimenti è un
+telefono» — e quella riga era **ricopiata in cinque punti**. Sulle richieste arrivate
+dal modulo del sito, dove i recapiti stanno dentro il messaggio e `contatto` è vuoto,
+il referente in Anagrafiche non nasceva proprio dove i dati c'erano.
+
+**Correzione applicata** (migr. 0119): due colonne `email`/`telefono`; due campi nel
+modulo «Nuova richiesta»; foglio **«Email e telefono»** per una richiesta già in coda,
+aperto da tre porte (icona ☎ della riga, scheda mobile, foglio di lettura) — perché il
+momento in cui il recapito si sa è sempre un altro. La regola dei recapiti sta ora in
+un punto solo (`recapitiLead()`), con tre livelli di fiducia dichiarati.
+
+**Punti del Libro rispettati**: §7 l'esito visibile anche quando va male (l'errore di
+salvataggio si scrive nel foglio, non muore muto); §9 la ✕ del foglio e lo scroll del
+corpo; §8-bis la ricerca dell'elenco — e quella globale — guardano i campi nuovi,
+altrimenti un numero appena scritto non si ritrovava.
+
+**Nessuna deroga, nessuna voce nuova.** Il campo che si apre PRECOMPILATO con quello
+che è già a schermo (non vuoto) è applicazione del principio di non perdere dati,
+non un pattern nuovo.
+
+STATO: applicata e PUBBLICATA il 07/09 (commit 98d57349 + 8250cccf, pushati; deploy
+deluxy-scout-1bzj6v1l6). Migrazione 0119 applicata e verificata sul database:
+22 richieste, 0 righe riscritte.
+
+## 07/09/2026 (15) — Scout · Trattative: i preventivi ricevuti non si vedevano (richiesta dell'utente)
+
+**Richiesta**: «fai vedere anche in trattative e per trattativa quali sono i
+preventivi che abbiamo ricevuto».
+
+**Cosa c'era**: un solo link, «Preventivi fornitori ricevuti ›», in fondo al foglio
+di modifica della trattativa. Portava a un'altra schermata: per sapere se era
+arrivato un prezzo bisognava uscire, e tornando indietro si perdeva il posto
+(Libro §2 1.5, il ritorno al punto esatto — qui il punto non c'era proprio).
+Nell'elenco, niente.
+
+**Applicato**, senza voci nuove del Libro:
+- **elenco**: il costo e il conteggio SOTTO il valore, non in una colonna nuova.
+  La tabella delle trattative ha già otto colonne più le azioni, e la nona avrebbe
+  alzato la soglia a cui la tabella compare — è la lezione pagata sugli Ordini
+  («la soglia si alza con le colonne», 27-28/08). L'intestazione diventa
+  **«Valore · costo»**: la colonna dice due cose e deve dirlo. `colDx` da 90 a
+  116px, 26px tolti alle colonne a flex (~6px ciascuna).
+- **scheda**: l'elenco vero, uno per riga, col badge di stato del Design System
+  (§5) e gli stessi colori della schermata Preventivi — spostati in
+  `lib/preventivi` perché ora lo stesso badge si disegna da due posti.
+- **niente rumore**: su una trattativa senza preventivi il riassunto non compare.
+  Un «—» in più su un elenco già fitto non è un'informazione.
+
+**La cosa che valeva più del layout**: prima di disegnare ho contato sul database
+quanti preventivi la schermata avrebbe davvero mostrato. **14 lavori su 15 erano
+agganciati a un ordine, uno solo alla trattativa**: la funzione sarebbe nata
+vuota su quasi tutto, e avrebbe scritto «nessun preventivo» dove i preventivi
+c'erano — un vuoto che si legge come un fatto (Libro cap. 6). Aggiunta la
+risalita ordine → trattativa: ora sono 7 le trattative che li mostrano.
+
+STATO: applicata e PUBBLICATA il 07/09 (commit 84580bc8, deploy deluxy-scout-yn46h6g4w).
+Nessuna deroga, nessuna regola nuova.
