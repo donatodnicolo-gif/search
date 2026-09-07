@@ -9508,6 +9508,26 @@ locale, altrimenti nulla si decifra.
 
 ## MANCA
 
+### 🔴 Punto aperto (07/09/2026) — il negozio BUSINESS non è collegato a Shopify da qui
+
+`business.deluxy.it` (dominio Shopify `90bfeb-f5.myshopify.com`, quarto negozio)
+è censito in `NegozioShopify` del Customer Service **senza `clientId` né
+`clientSecret`**: da qui non si può chiamare Shopify per quel marchio. Misurato
+il 07/09: le credenziali ci sono in **Orders** (token `shpat_…` che si rinnova da
+solo) e in **Merchandising**; provata la chiamata con quelle → il negozio
+risponde («Business Deluxy», piano Basic, EUR, ultimi ordini #1057 del 31/08,
+#1056 e #1055 del 28/08).
+
+**Cosa non funziona, nel frattempo, sugli ordini di quel marchio**: «Apri in
+Shopify», la lettura delle righe e dell'indirizzo di spedizione, la creazione
+della bozza da «Nuovo ordine», le tariffe di consegna. Gli ordini si vedono lo
+stesso: li scarica Orders e noi li leggiamo da lì.
+
+**Come si chiude**: identificativo e segreto dell'app Shopify di Business nella
+pagina **Negozi** — li incolla l'utente, non una sessione (Standard §4.4: i
+segreti non passano da qui). Poi «Prova» sulla riga del negozio.
+
+
 > ⚠️⚠️ **RICONTATA IL 04/09/2026 IN CIMA A QUESTO FILE** (tappa 8). Tutto
 > quello che sta qui sotto è **storia**: la riga «richieste di pagamento: ZERO
 > inviate» è falsa da quando il canale Transactions è acceso (35 partite), gli
