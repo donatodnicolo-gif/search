@@ -4,7 +4,19 @@ Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza conte
 
 ## 07/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 
-Tre cose, tutte IN LOCALE (`tsc` 0, NON pushato, NON deployato): la diagnosi del
+✅ **PUSHATO E DEPLOYATO alle 15:54 del 07/09** (utente: «fai push & deploy»). Push:
+worktree temporaneo da `origin/scout-ui` + cherry-pick di `a5bf11b0` → origin a
+`0b430e1d` (i due commit del pomeriggio erano già su origin, pushati da un'altra
+sessione); nessun conflitto. Deploy `deluxy-merchandising-mpnwt016h` (production,
+Ready, alias deluxy-merchandising.vercel.app), `npx vercel deploy --prod --yes
+--scope deluxy`. Verificato in produzione: `/api/health` ok con 4 negozi, `/login`
+200, e con la sessione `/prodotti/nuovo` mostra «Pubblica anche su» e
+«Classificazione interna», la scheda di Cake ha il badge «Cake · attivo»,
+`/collezioni` mostra le durate. La tabella `PubblicazioneNegozio` era già in prod.
+**Stanotte** i cron girano col codice nuovo: varianti + mappa dei negozi; da
+guardare domattina la durata di Gifts (03:10 UTC) in fondo a `/collezioni`.
+
+Tre cose fatte oggi sera: la diagnosi del
 panettone, la **pubblicazione su più negozi**, e l'**architettura del modulo
 descrizione** analizzata sui quattro siti.
 
