@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { registraEvento } from "@/lib/classificazione";
 import { codificaChiave } from "@/lib/clienti";
 import { COOKIE_VISTO } from "@/lib/sessione";
-import { canaleValido, tipologiaValida } from "@/lib/segmenti";
+import { canaleValido, lista, nomeTipologia, tipologiaValida } from "@/lib/segmenti";
 import { importaFeedback } from "@/lib/feedback";
 import { preparaGiro, type VariabileScript } from "@/lib/automazioni";
 import { rilevaEventi } from "@/lib/eventi";
@@ -757,4 +757,58 @@ export async function riconciliaOrdini() {
     `${e.categorieDaTag.toLocaleString("it-IT")} ordini riclassificati per categoria` +
     (e.scartatePerControprova ? ` · ${e.scartatePerControprova} deduzioni scartate dalla controprova` : "");
   redirect(`/impostazioni?esito=${encodeURIComponent(messaggio)}`);
+}
+
+// ---- Tipologia in blocco (dettaglio di una lista per tipologia) ----
+// La stessa scrittura di `impostaTipologiaCliente`, su molte chiavi insieme:
+// nasce dalla coda «Probabili aziende da confermare», ferma per settimane
+// perché si confermava un cliente alla volta. Scrive SOLO le chiavi spuntate
+// nel form (mai «tutta la lista» dal server: la lista è una coda di lavoro,
+// non una verità, e ogni riga va guardata da un occhio). La nota dice da dove
+// arriva la scelta, così nella scheda si capisce che non è stata scritta a mano.
+export async function confermaTipologiaInBlocco(fd: FormData) {
+  const chiavi = [
+    ...new Set(
+      fd
+        .getAll("chiave")
+        .filter((v): v is string => typeof v === "string")
+        .map((v) => v.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const tipo = tipologiaValida(s(fd, "tipo"));
+  const chiaveLista = s(fd, "lista") ?? "";
+  // Si torna alla stessa pagina con gli stessi filtri; solo percorsi interni.
+  const grezzo = s(fd, "ritorno") ?? "";
+  const ritorno = grezzo.startsWith("/") && !grezzo.startsWith("//") ? grezzo : `/liste/${chiaveLista}`;
+  // Annotata esplicitamente: solo così TypeScript capisce che dopo `torna`
+  // non si prosegue (e che `tipo` sotto non è più null).
+  const torna: (campo: "esito" | "errore", messaggio: string) => never = (campo, messaggio) =>
+    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}${campo}=${encodeURIComponent(messaggio)}`);
+
+  if (!chiavi.length) torna("errore", "Nessun cliente selezionato: spunta le righe da confermare.");
+  if (!tipo) torna("errore", "Scegli una tipologia prima di confermare.");
+  // Una pagina è al massimo di 200 righe: di più non arriva da un form onesto.
+  if (chiavi.length > 200) torna("errore", "Troppi clienti in una volta: al massimo 200 per pagina.");
+
+  const nomeLista = lista(chiaveLista)?.nome;
+  const note = nomeLista ? `Confermato in blocco dalla lista «${nomeLista}»` : "Confermato in blocco";
+
+  await prisma.$transaction(
+    chiavi.map((chiave) =>
+      prisma.tagCliente.upsert({
+        where: { chiave },
+        create: { chiave, tipo, note, autore: "operatore" },
+        update: { tipo, note, autore: "operatore" },
+      }),
+    ),
+  );
+
+  revalidatePath("/clienti");
+  revalidatePath("/clienti/[chiave]", "page");
+  revalidatePath("/liste");
+  revalidatePath("/liste/[chiave]", "page");
+
+  const n = chiavi.length;
+  torna("esito", `${n} ${n === 1 ? "cliente confermato" : "clienti confermati"} come «${nomeTipologia(tipo)}»`);
 }

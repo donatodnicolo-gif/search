@@ -1,9 +1,86 @@
 # Handoff — Deluxy Orders
 
-Stato al **04/09/2026** (sezione qui sotto; il corpo del documento
+Stato al **07/09/2026** (sezioni qui sotto; il corpo del documento
 è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## 07/09/2026 (3) — LA CODA «PROBABILI AZIENDE» SI SMALTISCE IN BLOCCO (in locale, NON pubblicato)
+
+Ripreso il 07/09 pomeriggio («leggi handoff, aggiorna memoria, lavora in locale
+prima del push»). Preso il punto aperto **più vecchio**: `TagCliente` a zero da
+39 giorni perché la tipologia si confermava un cliente alla volta. Contato sulla
+pagina prima di scrivere: la coda è a **1.150 clienti · 336.107 €** (era 1.105
+il 30/07: cresce, non si smaltisce).
+
+### Cosa c'è ora
+Nelle **sei liste della famiglia Tipologia** (`/liste/probabili-aziende`,
+`aziende`, `horeca`, `eventi`, `rivenditori`, `privati`) ogni riga ha una
+**casella**; una barra **sticky in basso** dice «N selezionati su M in questa
+pagina», con *Seleziona tutta la pagina / Nessuno*, il menu **«Sono …»** (nella
+coda parte su «Azienda») e **«Conferma N clienti»** — il numero sta nel
+pulsante, è l'ultima cosa che si legge prima di premere. Esito in verde in cima
+(`?esito=`), i confermati escono dalla coda e la pagina si riempie con i
+successivi. Paginazione allargabile a **100 / 200** (`?per=`, valori chiusi).
+La scrittura è la stessa della scheda (`TagCliente` upsert, `autore:
+operatore`), con `note` = «Confermato in blocco dalla lista «…»» così nella
+scheda si distingue da una scelta scritta a mano. Il consiglio della lista in
+`segmenti.ts` ora lo dice.
+
+### Le decisioni
+- **Solo le righe spuntate, mai «tutta la lista» dal server.** Sarebbe stato un
+  pulsante solo per 1.150 righe — e sbagliato: la coda è un *sospetto* (dominio
+  proprio), non una verità. Ogni riga passa da un occhio; il tetto è 200 per
+  invio (una pagina larga), il server rifiuta di più.
+- **Lo stato della selezione vive nel DOM**, non in React: la tabella resta il
+  server component che è (`TabellaClienti` con `selezionabile`), il client
+  component `SelezioneClienti` avvolge col `<form>`, conta le caselle e dà i
+  due comandi. `RigaLink` già ignorava i click su `input`/`label`: la riga resta
+  cliccabile, la cella-casella è tutta `<label>`.
+
+### Le trappole pagate qui
+- ⚠️ **Un client component non può importare `segmenti.ts`**: dentro c'è
+  `Prisma.sql/raw` → «raw is unable to run in this browser environment» a
+  pagina bianca. Il vocabolario `TIPOLOGIE` arriva **come prop** dalla pagina.
+  Vale per qualsiasi `"use client"` di questa app: `lib/` è quasi tutto Prisma.
+- ⚠️ **Il narrowing dopo una funzione `never`** vuole l'annotazione **sulla
+  variabile** (`const torna: (…) => never = …`), non sull'arrow: altrimenti
+  `tipo` resta `string | null` dopo il controllo.
+- 🔴 **Errore mio durante la prova, e rimediato**: volevo confermare UN cliente
+  per provare il giro; un click di troppo sulla casella «tutti» aveva già
+  svuotato la selezione, e il pulsante che ho azionato via script era diventato
+  «Seleziona tutta la pagina»: ho confermato **49 clienti veri** come Azienda
+  sul database condiviso. Cancellati subito con uno script mirato sulla `note`
+  del blocco (49 trovati, 49 cancellati, `TagCliente` di nuovo a **0**, com'era).
+  Nessuna traccia resta. Lezione: le prove di scrittura si fanno leggendo lo
+  stato **subito prima** del submit, non prima dell'ultimo click.
+- ⚠️ Gli screenshot del pannello browser escono **bianchi quando la finestra è
+  scrollata**: si allarga il viewport (1280×2200) e si guarda dall'alto.
+
+### Verificato
+`tsc --noEmit` pulito · pagina 200 · giro completo dal vivo: 49 selezionati →
+redirect con `esito=49 clienti confermati come «Azienda»` → banner verde →
+coda **1.150 → 1.101** e riempita coi successivi → revert → 1.150 · «tutti»
+spunta/toglie 50 e il pulsante segue («Conferma 50 clienti» → «… 49 …» dopo un
+click) · a **375px** `scrollWidth == clientWidth` su `html`, `body` e `.main`,
+la barra si impila (343px di larghezza) · 1280px: tabella e barra nella prima
+schermata. ⚠️ HawkScan non eseguito: sulla macchina non c'è il runtime né la
+chiave (`hawk runtime=false`).
+
+### File
+`src/components/SelezioneClienti.tsx` (nuovo) · `src/components/TabellaClienti.tsx`
+(`selezionabile`) · `src/app/actions.ts` (`confermaTipologiaInBlocco`) ·
+`src/app/liste/[chiave]/page.tsx` (form, esito, `per=`) · `src/lib/segmenti.ts`
+(consiglio) · `src/app/globals.css` (`.cella-scelta`, `.barra-selezione`) ·
+`docs/COME-FUNZIONA.md` · `docs/guida-visiva.html` · `MANUALE-DELUXY.html`
+(⚠️ un'altra sessione lo sta modificando in parallelo: rileggere prima di
+ripubblicare l'artifact).
+
+### Prossimo passo
+Deploy **solo dopo l'ok dell'utente** (`vercel deploy --prod`: il precompilato
+su questa macchina non va, vedi 04/09). Prima del push: `git fetch` + merge, il
+branch riceve commit da altre sessioni. Poi l'utente può smaltire la coda da
+`/liste/probabili-aziende?per=200`: sei pagine.
 
 ## 07/09/2026 (2) — I NEGOZI SHOPIFY HANNO UNA SEZIONE LORO, e il collegamento si prova
 

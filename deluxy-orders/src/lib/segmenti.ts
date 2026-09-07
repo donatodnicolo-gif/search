@@ -419,7 +419,7 @@ export const LISTE: Lista[] = [
     criterio:
       "Ordina con un'email a dominio proprio (non gmail, libero, icloud…) ma il nome non dice che è un'azienda, e nessuno l'ha ancora classificato a mano.",
     consiglio:
-      "Coda di lavoro, non verità: si aprono, si guarda il nome e si conferma la tipologia. È così che il registro impara chi è B2B.",
+      "Coda di lavoro, non verità: si guarda il nome, si spuntano le righe e si conferma la tipologia in blocco (o una alla volta dalla scheda). Chi è confermato esce da qui. È così che il registro impara chi è B2B.",
     dove: Prisma.sql`${SQL_DOMINIO_AZIENDALE} AND tipologia = 'privato' AND tipo_manuale IS NULL`,
   },
 

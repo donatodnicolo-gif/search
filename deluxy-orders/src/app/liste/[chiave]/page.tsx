@@ -3,15 +3,20 @@ import { notFound } from "next/navigation";
 import { euro } from "@/lib/ordini";
 import { brandConColore, mappaColori } from "@/lib/brand";
 import { elencoClienti, ordinamentoValido, versoValido, totaliClienti } from "@/lib/clienti";
-import { FAMIGLIE, LISTE, lista } from "@/lib/segmenti";
+import { FAMIGLIE, LISTE, TIPOLOGIE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 import { FiltriTaglio } from "@/components/FiltriTaglio";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { TornaIndietro } from "@/components/TornaIndietro";
+import { SelezioneClienti } from "@/components/SelezioneClienti";
+import { confermaTipologiaInBlocco } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 50;
+// Sulle liste per tipologia si lavora in blocco: si può allargare la pagina
+// per confermare più clienti in un colpo. Valori chiusi: niente `per=100000`.
+const PAGINE_LARGHE = [50, 100, 200] as const;
 
 // Il dettaglio di una lista: chi c'è dentro, con lo stesso tavolo dei clienti,
 // più l'export CSV — che è il motivo per cui una lista esiste (Customer Match,
@@ -33,6 +38,14 @@ export default async function DettaglioLista({
   const verso = versoValido(ordina, sp.verso);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
 
+  // Le liste per tipologia si CONFERMANO in blocco (caselle + barra in basso):
+  // è la coda «Probabili aziende» che l'ha chiesto, ma vale per tutte le sorelle
+  // — anche una deduzione sbagliata si corregge da qui.
+  const selezionabile = l.famiglia === "tipologia";
+  const perPagina = selezionabile && (PAGINE_LARGHE as readonly number[]).includes(Number(sp.per))
+    ? Number(sp.per)
+    : PER_PAGINA;
+
   // Gli stessi due tagli del catalogo: per brand (taglia gli ordini) e per
   // categoria (sceglie i clienti). Arrivano nella query string e viaggiano con
   // ogni link della pagina, export CSV compreso.
@@ -41,11 +54,11 @@ export default async function DettaglioLista({
   const [brand, totale, clienti] = await Promise.all([
     brandConColore(),
     totaliClienti(q, l.chiave, taglio),
-    elencoClienti(q, ordina, (pagina - 1) * PER_PAGINA, PER_PAGINA, l.chiave, verso, taglio),
+    elencoClienti(q, ordina, (pagina - 1) * perPagina, perPagina, l.chiave, verso, taglio),
   ]);
 
   const colori = mappaColori(brand);
-  const totalePagine = Math.max(1, Math.ceil(totale.clienti / PER_PAGINA));
+  const totalePagine = Math.max(1, Math.ceil(totale.clienti / perPagina));
   const famiglia = FAMIGLIE.find((f) => f.chiave === l.famiglia);
   const sorelle = LISTE.filter((x) => x.famiglia === l.famiglia);
 
@@ -103,6 +116,9 @@ export default async function DettaglioLista({
         {l.consiglio}
       </div>
 
+      {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
+      {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+
       <div className="kpi-riga">
         <div className="kpi">
           <div className="kpi-valore">{totale.clienti.toLocaleString("it-IT")}</div>
@@ -157,6 +173,7 @@ export default async function DettaglioLista({
             <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />
           </svg>
         </span>
+        {sp.per && <input type="hidden" name="per" value={sp.per} />}
         <input type="search" name="q" placeholder="Cerca dentro la lista: nome, email, telefono, città…" defaultValue={sp.q ?? ""} />
         <button className="btn" type="submit">Cerca</button>
         {q && <Link className="btn btn-secondario" href={`/liste/${l.chiave}`}>Annulla</Link>}
@@ -168,10 +185,37 @@ export default async function DettaglioLista({
         </div>
       ) : (
         <>
-          <TabellaClienti clienti={clienti} colori={colori} ordina={ordina} verso={verso} href={ordinaPer} />
+          {selezionabile ? (
+            <SelezioneClienti
+              action={confermaTipologiaInBlocco}
+              lista={l.chiave}
+              tipologie={TIPOLOGIE.map((t) => ({ chiave: t.chiave, nome: t.nome }))}
+              tipoPredefinito={l.chiave === "probabili-aziende" ? "azienda" : undefined}
+              ritorno={conFiltro({ esito: "", errore: "" })}
+            >
+              <TabellaClienti clienti={clienti} colori={colori} ordina={ordina} verso={verso} href={ordinaPer} selezionabile />
+            </SelezioneClienti>
+          ) : (
+            <TabellaClienti clienti={clienti} colori={colori} ordina={ordina} verso={verso} href={ordinaPer} />
+          )}
           <div className="paginazione">
             <span>
               {totale.clienti.toLocaleString("it-IT")} clienti · pagina {pagina} di {totalePagine}
+              {selezionabile && (
+                <>
+                  {" · per pagina "}
+                  {PAGINE_LARGHE.map((n, i) => (
+                    <span key={n}>
+                      {i > 0 && " / "}
+                      {n === perPagina ? (
+                        <strong>{n}</strong>
+                      ) : (
+                        <Link href={conFiltro({ per: n === PER_PAGINA ? "" : String(n), page: "" })}>{n}</Link>
+                      )}
+                    </span>
+                  ))}
+                </>
+              )}
             </span>
             <nav>
               {pagina > 1 && (

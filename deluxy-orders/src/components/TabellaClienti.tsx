@@ -135,6 +135,7 @@ export function TabellaClienti({
   ordina,
   verso,
   href,
+  selezionabile = false,
 }: {
   clienti: Cliente[];
   colori: Map<string, string>;
@@ -142,6 +143,10 @@ export function TabellaClienti({
   verso: VersoOrdinamento;
   // Costruisce il link per ordinare per una colonna (inverte il verso se è già quella).
   href: (colonna: string) => string;
+  // Con le caselle di selezione (prima colonna): la tabella va dentro un form
+  // — `SelezioneClienti` — che le legge come `chiave[]`. La riga resta
+  // cliccabile: `RigaLink` ignora i click su caselle ed etichette.
+  selezionabile?: boolean;
 }) {
   const numeriche = new Set(["ordini", "speso", "medio"]);
   return (
@@ -149,6 +154,13 @@ export function TabellaClienti({
       <table>
         <thead>
           <tr>
+            {selezionabile && (
+              <th className="cella-scelta">
+                <label>
+                  <input type="checkbox" name="tutti" aria-label="Seleziona tutti i clienti di questa pagina" />
+                </label>
+              </th>
+            )}
             {COLONNE_CLIENTI.map((c) => (
               <Intestazione
                 key={c.chiave}
@@ -167,6 +179,18 @@ export function TabellaClienti({
             // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la riga
             // apre la scheda; il link sul nome resta per la tastiera.
             <RigaLink href={`/clienti/${codificaChiave(c.chiave)}`} key={c.chiave} className="riga-link">
+              {selezionabile && (
+                <td className="cella-scelta">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="chiave"
+                      value={c.chiave}
+                      aria-label={`Seleziona ${c.nome ?? c.email ?? c.telefono ?? c.chiave}`}
+                    />
+                  </label>
+                </td>
+              )}
               <td>
                 <Link href={`/clienti/${codificaChiave(c.chiave)}`} className="cella-nome">
                   {c.nome ?? c.email ?? c.telefono ?? "—"}

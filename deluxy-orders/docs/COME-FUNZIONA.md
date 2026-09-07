@@ -808,6 +808,20 @@ Le **soglie** sono tarate sui dati reali del registro (mediana di spesa 110 EUR,
 90° percentile dell'ordine medio 265 EUR, 85% dei clienti con un solo ordine) e
 si cambiano in un punto solo: `src/lib/segmenti.ts`.
 
+**La conferma in blocco (liste per tipologia, 07/09/2026).** Nelle sei liste
+della famiglia *Tipologia* ogni riga ha una **casella**; in basso resta in
+vista una barra che dice quanti sono selezionati, con *Seleziona tutta la
+pagina* / *Nessuno*, il menu **«Sono …»** (nella coda *Probabili aziende* parte
+già su «Azienda») e il pulsante **«Conferma N clienti»**, che dice sempre il
+numero prima di premere. La scrittura è la stessa della scheda del cliente
+(`TagCliente`, la mano vince): i confermati escono dalla coda e la pagina si
+riempie con i successivi; l'esito compare in verde in cima. Si scrivono **solo
+le righe spuntate** — mai «tutta la lista» dal server, perché la coda è un
+sospetto, non una verità, e ogni riga va letta da un occhio. Per lavorare più
+in fretta la pagina si allarga a **100 o 200 righe** (link nella riga di
+paginazione). Nella scheda del cliente la nota dice «Confermato in blocco dalla
+lista «…»», così si distingue da una scelta scritta a mano.
+
 ### La tipologia di cliente (tag)
 Si **deduce dal nome di chi ordina — mai dal destinatario**: nei fiori il
 destinatario è quasi sempre un'altra persona, e un privato che manda un mazzo al
@@ -824,7 +838,9 @@ spunta ✓.
 
 L'indizio che non basta da solo — l'**email a dominio proprio** (non gmail,
 libero, icloud…) — non scrive niente: alimenta la lista «Probabili aziende da
-confermare», che è una coda di lavoro. È così che il registro impara chi è B2B.
+confermare», che è una coda di lavoro e si smaltisce **in blocco** dalla lista
+(caselle + «Conferma N clienti», vedi *Liste*). È così che il registro impara
+chi è B2B.
 
 ### I feedback del Customer Service sull'ordine
 Nella scheda dell'ordine compare la scheda **«Customer Service — reclami e
