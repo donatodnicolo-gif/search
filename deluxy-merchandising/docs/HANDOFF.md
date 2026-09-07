@@ -2,7 +2,96 @@
 
 Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 07/09/2026 pomeriggio — PUNTO DI RIPRESA (leggere prima di tutto)
+## 07/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
+
+Tre cose, tutte IN LOCALE (`tsc` 0, NON pushato, NON deployato): la diagnosi del
+panettone, la **pubblicazione su più negozi**, e l'**architettura del modulo
+descrizione** analizzata sui quattro siti.
+
+🔍 **«Ho pubblicato tramite app Panettone - Cioccolato Bianco e Frutti Rossi:
+come mai non è su Shopify Business?»** Contato sul database: la scheda
+(`1691535`, negozio Business Deluxy) è nata alle **12:45 con fase «Concept»**,
+`shopifyId` nullo, una sola tappa «Prodotto creato.», nessun tentativo verso
+Shopify. **Solo la fase «Pubblico» manda il prodotto sul negozio**; la fase di
+partenza del modulo è Concept e il bottone diceva «Crea prodotto», non «Crea e
+pubblica»: il modulo era coerente, ma non lo diceva abbastanza. Ora sotto il
+bottone, quando la fase non è Pubblico, c'è la riga «Con la fase «Concept» il
+prodotto resta solo qui: per mandarlo su … scegli la fase Pubblico». Il
+panettone si pubblica aprendo «✎ Modifica col modulo» e scegliendo Pubblico (non
+l'ho fatto io: è una scrittura sul negozio, decide l'utente). Esiste anche la
+scheda archiviata dello stesso panettone su Gifts (`PANETTONE-CIOCCOLATO-BIA`).
+
+✅ **PUBBLICARE SU PIÙ NEGOZI, nuovi ed esistenti** (utente: «consentimi di
+scegliere sia per prodotti nuovi che esistenti di selezionare più di un brand in
+cui pubblicare»).
+- **Tabella nuova `PubblicazioneNegozio`** (prodotto × negozio: `shopifyId`,
+  `handle`, `statoShopify`, `origine` modulo | import | tolto, `spintoIl`,
+  `errore`; unica su prodotto+negozio). **Creata in produzione** con
+  `node scripts/crea-tabella-pubblicazioni.mjs --scrivi` (CREATE IF NOT EXISTS,
+  rilanciabile): nessuna riga esistente toccata. `Prodotto.shopifyId` resta l'id
+  sul negozio principale (`negozioNome`) per tutto il codice che lo legge.
+- **Modulo**: sotto «Brand / negozio» c'è **«Pubblica anche su»** con un chip
+  per ogni altro negozio (spento se manca `write_products`); accanto al nome dice
+  «già attivo là / là in bozza / rifiutato l'ultima volta». Le collezioni
+  cercabili sono quelle di tutti i negozi scelti (col nome del negozio accanto);
+  i campi del negozio si scrivono anche sugli altri, sulle chiavi che quei negozi
+  definiscono; il titolo della sezione Pubblicazione e i bottoni elencano i
+  negozi («Crea e pubblica su Gifts, Flowers»).
+- **Salvataggio** (`azioni-prodotto-nuovo.ts`): `pubblicaSuAltroNegozio` crea la
+  copia su ciascun altro negozio con **gli stessi SKU** (regola del 06/09: un
+  prodotto su più negozi condivide lo SKU), stessi prezzi e varianti, metafield
+  filtrati sulle definizioni di quel negozio, le sue collezioni manuali, le
+  **foto copiate per URL** dai Files del principale, le traduzioni fatte **una
+  volta** e scritte su tutti (`CacheTraduzioni`). In modifica: chi è già su un
+  negozio si aggiorna là (titolo, descrizione, stato, tag, campi, varianti per
+  SKU, collezioni aggiunte/tolte di quel negozio); chi manca e la fase è Pubblico
+  si pubblica come nuovo; **un negozio tolto dalla scelta torna bozza là, non si
+  cancella** (`origine = tolto`, e il modulo non lo ripropone spuntato). Le foto
+  nuove non si copiano su un prodotto già pubblicato altrove (avviso: dall'admin).
+  Ogni negozio è un giro a sé: un rifiuto non ferma gli altri, e resta scritto
+  nella riga (`errore`) e nella cronaca.
+- **Scheda prodotto**: un badge per negozio («Cake · attivo», «Flowers · bozza»,
+  «Business Deluxy · rifiutato»). **API `/api/v1/prodotti`** espone
+  `pubblicazioni[]` (negozio, shopifyId, handle, statoShopify).
+- **Import**: `registraPubblicazioni` scrive la riga di OGNI prodotto
+  riconosciuto per il negozio importato (solo differenze: righe nuove in blocco,
+  cambiate aggiornate) e `costruisciIndici` riconosce per id anche gli id degli
+  altri negozi. ⭐ **È la risposta alla trappola «una scheda, due negozi»**:
+  `Prodotto.statoShopify` lo scrive l'ultimo import della notte, la riga dice lo
+  stato negozio per negozio. Riempita oggi dal PC coi quattro import: **5.731 righe** (Gifts 2.932, Business 1.715, Flowers 635, Cake 449), **1.854 schede stanno su più di un negozio**, e **173 sono attive su un negozio mentre la scheda dice il contrario** (la trappola, finalmente contata). Durate dal PC con questo passo in più: Cake 84 s, Flowers 141, Business 225, Gifts **610** (era 569 un'ora prima: le 2.932 righe nuove; le notti seguenti scrive solo le differenze).
+- ⚠️ **Non provata la pubblicazione vera su due negozi**: creare un prodotto sui
+  negozi vivi è una scrittura esterna e non l'ho fatta senza l'utente. Provato:
+  `tsc` 0, le pagine `/prodotti/nuovo`, `/prodotti/<id>/modifica` e
+  `/prodotti/<id>` rispondono 200 col chip «Pubblica anche su», l'import di Cake
+  riempie la mappa (449 righe, 85 s). **Prima prova consigliata**: un prodotto
+  con fase Pubblico e finestra «dal» domani → nasce **DRAFT** su entrambi i
+  negozi, invisibile ai clienti, e si vede la copia.
+- ⚠️ Il campo «Tipologia di vendita» **si chiama «Classificazione interna»**
+  (utente: «non è una tipologia di vendita ma una classificazione app interna»);
+  nel database e nell'API resta `tipologiaVendita` perché la piattaforma lo legge.
+
+📐 **ARCHITETTURA DEL MODULO DESCRIZIONE** (utente: «analizza come Shopify fa la
+descrizione dei prodotti per tutti i siti e crea l'architettura del form»).
+Campione con `scripts/campione-descrizioni.ts` (210 prodotti attivi dei 4
+negozi, definizioni, pagine pubbliche) in `docs/campione-descrizioni/*.json`;
+**due agenti** hanno analizzato Gifts+Business e Flowers+Cake
+(`docs/campione-descrizioni/analisi-*.md`, sezioni A-G con numeri e handle).
+La sintesi e il disegno del modulo: **[docs/ARCHITETTURA-MODULO-DESCRIZIONE.md](ARCHITETTURA-MODULO-DESCRIZIONE.md)**.
+In una riga: i quattro negozi hanno **una grammatica sola** (elenco di 3 righe
+`<b>Famiglia</b>: …` / Inclusi / Consegna, poi sezioni `<h6>` per famiglia, consegna
+e partner nei metafield con **chiavi diverse per negozio**), ricopiata a mano con
+tutte le incoerenze del caso; il modulo giusto **non chiede una descrizione,
+chiede i dati e la genera** (`componiScheda(negozio, famiglia, campi)`), con la
+consegna, le occasioni e i tag da **una sorgente sola**. Niente codice scritto:
+è l'architettura, da approvare prima di costruirla (ordine in §3.6).
+
+**Da fare (in ordine):** l'utente prova il multi-brand su un prodotto (meglio
+con «dal» domani); push & deploy **a comando** (con la tabella già in prod il
+deploy non ha migrazioni); domattina `/collezioni` (durata di Gifts: oggi dal
+PC 569 s → da guardare su Vercel) e «Rotazione Fiori» dell'08/09; correggere
+`canaleVendite` «BUsiness»; decidere se costruire il modulo descrizione secondo
+l'architettura; il resto sotto (pomeriggio e mattina).
+## 07/09/2026 pomeriggio — punto di ripresa del pomeriggio
 
 **Come stavano le cose alle 14:10, contate sul database e sul repo prima di
 toccare niente** (l'handoff della mattina qui sotto era già invecchiato di lato):

@@ -102,6 +102,15 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   const negozio = negozi.find((n) => n.id === testo(fd, "negozioId")) ?? null;
   if (!negozio) indietro("Scegli il brand / negozio.");
   const negozioOk = negozio as NonNullable<typeof negozio>;
+  // ⭐ 07/09/2026 (chiesto dall'utente): il prodotto si pubblica su PIÙ negozi, nuovo o
+  // esistente. Il negozio scelto sopra resta il **principale** (categorie, Files delle
+  // foto, `shopifyId`); gli altri sono «anche su»: ognuno riceve la sua copia e la riga
+  // in `PubblicazioneNegozio` dice dove sta e con quale id. Un negozio che non esiste o
+  // è spento non passa: meglio fermarsi che pubblicare a metà senza dirlo.
+  const altriId = [...new Set(leggiJson<string[]>(fd, "negoziPubblicazioneJson", []).map(String))].filter((x) => x !== negozioOk.id);
+  const altriNegozi = altriId.map((x) => negozi.find((n) => n.id === x && n.attivo)).filter((n): n is NonNullable<typeof n> => !!n);
+  if (altriNegozi.length !== altriId.length) indietro("Uno dei negozi scelti per la pubblicazione non esiste o non è attivo.");
+  const negoziScelti = new Set([negozioOk.nome, ...altriNegozi.map((n) => n.nome)]);
 
   const fase = testo(fd, "fase") || "concept";
   const categoria = testo(fd, "categoria") || "DA_CLASSIFICARE";
@@ -109,15 +118,15 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   // alla piattaforma consegne come si sceglie il fornitore e come si fa il prezzo. Un
   // valore inventato non passa: si accettano solo le quattro voci della legenda.
   const tipologiaVendita = testo(fd, "tipologiaVendita");
-  if (!tipologiaVendita) indietro("Scegli la tipologia di vendita: serve alla piattaforma consegne per assegnare il fornitore.");
-  if (!(TIPOLOGIE_VENDITA as readonly string[]).includes(tipologiaVendita)) indietro("Tipologia di vendita non valida.");
+  if (!tipologiaVendita) indietro("Scegli la classificazione interna: serve alla piattaforma consegne per assegnare il fornitore.");
+  if (!(TIPOLOGIE_VENDITA as readonly string[]).includes(tipologiaVendita)) indietro("Classificazione interna non valida.");
   // Le collezioni: più d'una (chiesto dall'utente), solo manuali del negozio scelto.
   const collezioniId = [...new Set(leggiJson<string[]>(fd, "collezioniJson", []).map(String).filter(Boolean))];
   const collezioni = collezioniId.length
     ? await prisma.collezioneShopify.findMany({ where: { id: { in: collezioniId } }, select: { id: true, shopifyId: true, titolo: true, tipo: true, negozio: true } })
     : [];
   if (collezioni.length !== collezioniId.length) indietro("Una delle collezioni scelte non esiste più: rifai l'import o scegline un'altra.");
-  if (collezioni.some((c) => c.negozio !== negozioOk.nome)) indietro("Una delle collezioni scelte è di un altro negozio.");
+  if (collezioni.some((c) => !negoziScelti.has(c.negozio))) indietro("Una delle collezioni scelte è di un negozio in cui il prodotto non si pubblica.");
 
   const media = leggiJson<MediaDalForm[]>(fd, "mediaJson", []).filter((m) => m && m.shopifyFileId && m.stato !== "fallito" && m.negozio === negozioOk.nome);
   const variantiForm = leggiJson<VarianteDalForm[]>(fd, "variantiJson", []).filter((v) => v && v.nome?.trim());
@@ -147,6 +156,8 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   return {
     nome,
     negozio: negozioOk,
+    altriNegozi,
+    tuttiNegozi: negozi.filter((n) => n.attivo),
     fase,
     categoria,
     tipologiaVendita,
@@ -187,6 +198,13 @@ function prezzoBaseDa(m: Modulo, varianti: { prezzo: number }[]): number {
   return m.prezzoScritto;
 }
 
+/** Le traduzioni si fanno UNA volta e si scrivono su ogni negozio: la cache passa di mano in mano. */
+type CacheTraduzioni = { valore?: Awaited<ReturnType<typeof traduciScheda>> };
+async function traduzioniDi(m: Modulo, cache: CacheTraduzioni) {
+  if (!cache.valore) cache.valore = await traduciScheda({ titolo: m.nome, descrizione: m.descrizione ?? "" });
+  return cache.valore;
+}
+
 /** I passi comuni dopo la creazione sul negozio: foto, collezioni, traduzioni. Torna le collezioni in cui è entrato. */
 async function completaSulNegozio(
   m: Modulo,
@@ -194,7 +212,8 @@ async function completaSulNegozio(
   shopifyId: string,
   media: MediaDalForm[],
   cronaca: string[],
-  avvisi: string[]
+  avvisi: string[],
+  traduzioni: CacheTraduzioni = {}
 ): Promise<{ entrate: string[] }> {
   const entrate: string[] = [];
   if (media.length) {
@@ -214,7 +233,7 @@ async function completaSulNegozio(
     } else avvisi.push(`Non entrato in «${c.titolo}»: ${r.errore}`);
   }
   if (m.traduci) {
-    const t = await traduciScheda({ titolo: m.nome, descrizione: m.descrizione ?? "" });
+    const t = await traduzioniDi(m, traduzioni);
     if (!t.ok) avvisi.push(`Traduzioni non fatte: ${t.errore}`);
     else {
       const r = await registraTraduzioniProdotto(negozioToken, shopifyId, t.traduzioni);
@@ -223,6 +242,102 @@ async function completaSulNegozio(
     }
   }
   return { entrate };
+}
+
+type EsitoAltroNegozio = {
+  negozio: string;
+  shopifyId: string | null;
+  handle: string | null;
+  statoShopify: string | null;
+  errore: string | null;
+  /** Le collezioni (id nostri) in cui è entrato su quel negozio. */
+  entrate: string[];
+};
+
+/**
+ * **Pubblica il prodotto anche su un altro negozio** (07/09/2026). Stessa scheda del
+ * principale — titolo, descrizione, tag, varianti con gli stessi SKU (lo stesso
+ * prodotto su due negozi tiene lo stesso SKU: è la regola del 06/09), finestra —
+ * ma coi campi (metafield) filtrati sulle definizioni di QUEL negozio, le sue
+ * collezioni manuali, e le foto passate per URL (i file stanno nei Files del
+ * principale: Shopify le copia da lì). Ogni negozio è un giro a sé: se uno
+ * rifiuta, gli altri vanno avanti e l'esito lo dice negozio per negozio.
+ */
+async function pubblicaSuAltroNegozio(
+  m: Modulo,
+  negozio: Modulo["altriNegozi"][number],
+  dati: {
+    codice: string;
+    varianti: { nome: string; sku: string; prezzo: number; giacenza: number }[];
+    prezzoBase: number;
+    stato: "ACTIVE" | "DRAFT";
+    immagini: string[];
+  },
+  traduzioni: CacheTraduzioni,
+  cronaca: string[],
+  avvisi: string[]
+): Promise<EsitoAltroNegozio> {
+  const base = { negozio: negozio.nome, shopifyId: null, handle: null, statoShopify: null, entrate: [] as string[] };
+  if (!negozio.permessi.includes("write_products")) {
+    avvisi.push(`${negozio.nome}: manca il permesso write_products, non pubblicato là.`);
+    return { ...base, errore: "manca write_products" };
+  }
+  const token = await tokenDi(negozio.id).catch(() => null);
+  if (!token) {
+    avvisi.push(`${negozio.nome}: il negozio non sa autenticarsi su Shopify, non pubblicato là.`);
+    return { ...base, errore: "credenziali non valide" };
+  }
+  const defs = await definizioniInCache(negozio.nome);
+  const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
+  const metafield = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
+  const esito = await creaProdottoSuShopify(token, {
+    titolo: m.nome,
+    descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+    tipo: "",
+    vendor: "",
+    tags: m.tags,
+    stato: dati.stato,
+    prezzo: String(dati.prezzoBase),
+    prezzoConfronto: "",
+    sku: dati.codice,
+    immagini: dati.immagini,
+    fisico: true,
+    controllaStock: m.controllaStock,
+    giacenza: String(m.giacenza),
+    nomeOpzione: m.nomeOpzione,
+    varianti: dati.varianti.map((v) => ({ nome: v.nome, sku: v.sku, prezzo: String(v.prezzo || dati.prezzoBase), prezzoConfronto: "", giacenza: String(v.giacenza) })),
+    metafield: metafieldPerShopify(metafield, defs).map((x) => ({ chiave: x.key, valore: x.value, namespace: x.namespace, tipo: x.type })),
+  });
+  cronaca.push(...esito.passi.map((p) => `${negozio.nome}: ${p}`));
+  if (!esito.prodottoId) {
+    const motivo = esito.errori.map((e) => (e.campo ? `${e.campo}: ${e.messaggio}` : e.messaggio)).join(" · ") || "esito sconosciuto";
+    avvisi.push(`${negozio.nome} non ha creato il prodotto: ${motivo}`);
+    return { ...base, errore: motivo };
+  }
+  if (esito.errori.length) avvisi.push(...esito.errori.map((e) => `${negozio.nome}: ${e.messaggio}`));
+  const entrate: string[] = [];
+  for (const c of m.collezioni.filter((c) => c.negozio === negozio.nome)) {
+    if (c.tipo !== "manuale") continue;
+    const r = await aggiungiProdottoACollezione(token, c.shopifyId, esito.prodottoId);
+    if (r.ok) {
+      cronaca.push(`${negozio.nome}: messo nella collezione «${c.titolo}».`);
+      entrate.push(c.id);
+    } else avvisi.push(`${negozio.nome}: non entrato in «${c.titolo}»: ${r.errore}`);
+  }
+  if (m.traduci) {
+    const t = await traduzioniDi(m, traduzioni);
+    if (t.ok) {
+      const r = await registraTraduzioniProdotto(token, esito.prodottoId, t.traduzioni);
+      if (r.scritte > 0) cronaca.push(`${negozio.nome}: traduzioni scritte, ${r.scritte} voci.`);
+      if (r.errori.length) avvisi.push(`${negozio.nome}: traduzioni rifiutate: ${r.errori.join(" · ")}`);
+    }
+  }
+  return { negozio: negozio.nome, shopifyId: esito.prodottoId, handle: esito.handle, statoShopify: dati.stato, errore: null, entrate };
+}
+
+/** Il messaggio di esito: su quali negozi è andato. */
+function doveEAndato(principale: string | null, altri: EsitoAltroNegozio[]): string {
+  return [principale, ...altri.filter((p) => p.shopifyId).map((p) => p.negozio)].filter(Boolean).join(", ");
 }
 
 function vaiAllaScheda(id: string, avvisi: string[], okMessaggio: string): never {
@@ -254,6 +369,7 @@ export async function creaProdottoCompleto(fd: FormData) {
   const prezzoBase = prezzoBaseDa(m, varianti);
   const avvisi: string[] = [];
   const cronaca: string[] = [];
+  const traduzioni: CacheTraduzioni = {};
   if (cambiato) avvisi.push(`Lo SKU scelto era già in uso: assegnato ${codice}.`);
 
   let shopifyId: string | null = null;
@@ -300,8 +416,16 @@ export async function creaProdottoCompleto(fd: FormData) {
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
       if (!m.finestraAperta) cronaca.push(`Nasce come bozza: la finestra di pubblicazione si apre il ${m.dalIso}.`);
-      entrate = (await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi)).entrate;
+      entrate = (await completaSulNegozio({ ...m, collezioni: m.collezioni.filter((c) => c.negozio === m.negozio.nome) }, negozioToken, shopifyId, m.media, cronaca, avvisi, traduzioni)).entrate;
     }
+  }
+
+  // ---- Anche sugli altri negozi scelti (07/09/2026) ----
+  const altri: EsitoAltroNegozio[] = [];
+  if (vuolePubblicare && m.altriNegozi.length) {
+    const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+    const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
+    for (const n of m.altriNegozi) altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
   }
 
   const immagini = m.media.filter((x) => x.tipo === "immagine" && x.url);
@@ -340,12 +464,27 @@ export async function creaProdottoCompleto(fd: FormData) {
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
         : undefined,
+      // Dove sta: il principale (se è andato) e ogni altro negozio, riuscito o no —
+      // un rifiuto scritto qui è quello che la scheda mostra e il modulo ripropone.
+      pubblicazioni: {
+        create: [
+          ...(shopifyId ? [{ negozio: m.negozio.nome, shopifyId, handle, statoShopify, spintoIl: new Date() }] : []),
+          ...altri.map((a) => ({ negozio: a.negozio, shopifyId: a.shopifyId, handle: a.handle, statoShopify: a.statoShopify, errore: a.errore, spintoIl: a.shopifyId ? new Date() : null })),
+        ],
+      },
     },
   });
   for (const collezioneId of entrate) {
     await prisma.prodottoInCollezioneShopify
       .create({ data: { collezioneId, prodottoId: p.id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId as string } })
       .catch(() => undefined);
+  }
+  for (const a of altri) {
+    for (const collezioneId of a.entrate) {
+      await prisma.prodottoInCollezioneShopify
+        .create({ data: { collezioneId, prodottoId: p.id, origine: "manuale", posizione: 9999, prodottoShopifyId: a.shopifyId as string } })
+        .catch(() => undefined);
+    }
   }
   await prisma.tappaSviluppo.create({
     data: {
@@ -356,7 +495,8 @@ export async function creaProdottoCompleto(fd: FormData) {
       origine: shopifyId ? "shopify" : "ui",
     },
   });
-  vaiAllaScheda(p.id, avvisi, shopifyId ? `Creato e pubblicato su ${m.negozio.nome}.` : "Prodotto creato.");
+  const dove = doveEAndato(shopifyId ? m.negozio.nome : null, altri);
+  vaiAllaScheda(p.id, avvisi, dove ? `Creato e pubblicato su ${dove}.` : "Prodotto creato.");
 }
 
 // ---------------------------------------------------------------- MODIFICA
@@ -368,7 +508,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     include: {
       varianti: { include: { _count: { select: { vendite: true } } } },
       media: true,
-      collezioniShopify: { select: { id: true, collezioneId: true, collezione: { select: { shopifyId: true, titolo: true, tipo: true } } } },
+      collezioniShopify: { select: { id: true, collezioneId: true, collezione: { select: { shopifyId: true, titolo: true, tipo: true, negozio: true } } } },
+      pubblicazioni: true,
     },
   });
   if (!esistente) indietro("Prodotto non trovato.");
@@ -376,6 +517,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   const m = await leggiModulo(fd, indietro);
   const avvisi: string[] = [];
   const cronaca: string[] = [];
+  const traduzioni: CacheTraduzioni = {};
 
   // SKU: se cambia, deve essere libero (i derivati delle varianti nuove pure).
   const nuoveVarianti = m.variantiForm.filter((v) => !v.sku);
@@ -440,8 +582,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         statoShopify = statoVoluto;
         shopifyStato = statoVoluto === "ACTIVE" ? "pubblicato" : "bozza";
       }
-      entrate = (await completaSulNegozio({ ...m, collezioni: collezioniAggiunte }, token, shopifyId, mediaNuovi, cronaca, avvisi)).entrate;
-      for (const x of collezioniTolte) {
+      entrate = (await completaSulNegozio({ ...m, collezioni: collezioniAggiunte.filter((c) => c.negozio === m.negozio.nome) }, token, shopifyId, mediaNuovi, cronaca, avvisi, traduzioni)).entrate;
+      for (const x of collezioniTolte.filter((x) => x.collezione.negozio === m.negozio.nome)) {
         const r = await rimuoviProdottoDaCollezione(token, x.collezione.shopifyId, shopifyId);
         if (r.ok) {
           cronaca.push(`Tolto dalla collezione «${x.collezione.titolo}».`);
@@ -486,8 +628,92 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       shopifyStato = stato === "ACTIVE" ? "pubblicato" : "bozza";
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
-      entrate = (await completaSulNegozio(m, negozioToken, shopifyId, m.media, cronaca, avvisi)).entrate;
+      entrate = (await completaSulNegozio({ ...m, collezioni: m.collezioni.filter((c) => c.negozio === m.negozio.nome) }, negozioToken, shopifyId, m.media, cronaca, avvisi, traduzioni)).entrate;
     }
+  }
+
+  // ---- Gli altri negozi (07/09/2026): chi c'è già si aggiorna, chi manca si pubblica, chi è stato tolto torna bozza ----
+  const altri: EsitoAltroNegozio[] = [];
+  const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
+  for (const n of m.altriNegozi) {
+    const riga = prima.pubblicazioni.find((r) => r.negozio === n.nome);
+    if (riga?.shopifyId) {
+      const token = await tokenDi(n.id).catch(() => null);
+      if (!token) {
+        avvisi.push(`${n.nome}: il negozio non sa autenticarsi, non aggiornato là.`);
+        continue;
+      }
+      const defs = await definizioniInCache(n.nome);
+      const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
+      const mf = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
+      const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
+        ? m.finestraAperta ? "ACTIVE" : "DRAFT"
+        : riga.statoShopify === "ACTIVE" ? "DRAFT" : undefined;
+      const r = await aggiornaProdottoSuShopify(token, {
+        shopifyId: riga.shopifyId,
+        titolo: m.nome,
+        descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+        stato: statoVoluto,
+        tags: m.tags,
+        metafield: metafieldPerShopify(mf, defs),
+        varianti: varianti.length ? varianti.map((v) => ({ sku: v.sku, nome: v.nome, prezzo: String(v.prezzo || prezzoBase), giacenza: String(v.giacenza) })) : undefined,
+        nomeOpzione: m.nomeOpzione,
+        prezzo: varianti.length ? undefined : String(prezzoBase),
+        sku: varianti.length ? undefined : codice,
+      });
+      cronaca.push(...r.passi.map((p) => `${n.nome}: ${p}`));
+      if (r.errori.length) avvisi.push(...r.errori.map((e) => `${n.nome}: ${e.campo ? `${e.campo}: ` : ""}${e.messaggio}`));
+      const entrateQui: string[] = [];
+      for (const c of collezioniAggiunte.filter((c) => c.negozio === n.nome && c.tipo === "manuale")) {
+        const rc = await aggiungiProdottoACollezione(token, c.shopifyId, riga.shopifyId);
+        if (rc.ok) {
+          cronaca.push(`${n.nome}: messo nella collezione «${c.titolo}».`);
+          entrateQui.push(c.id);
+        } else avvisi.push(`${n.nome}: non entrato in «${c.titolo}»: ${rc.errore}`);
+      }
+      for (const x of collezioniTolte.filter((x) => x.collezione.negozio === n.nome)) {
+        const rc = await rimuoviProdottoDaCollezione(token, x.collezione.shopifyId, riga.shopifyId);
+        if (rc.ok) {
+          cronaca.push(`${n.nome}: tolto dalla collezione «${x.collezione.titolo}».`);
+          uscite.push(x.id);
+        } else avvisi.push(`${n.nome}: non tolto da «${x.collezione.titolo}»: ${rc.errore}`);
+      }
+      if (mediaNuovi.length) avvisi.push(`${n.nome}: le foto nuove non si copiano su un prodotto già pubblicato là; si aggiungono dall'admin di quel negozio.`);
+      const fallito = r.errori.some((e) => e.campo == null);
+      altri.push({
+        negozio: n.nome,
+        shopifyId: riga.shopifyId,
+        handle: riga.handle,
+        statoShopify: statoVoluto && !fallito ? statoVoluto : riga.statoShopify,
+        errore: r.errori.length ? r.errori.map((e) => e.messaggio).join(" · ") : null,
+        entrate: entrateQui,
+      });
+    } else if (vuolePubblico) {
+      const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+      altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
+    }
+  }
+  // Un negozio tolto dalla scelta: là il prodotto torna bozza, non si cancella
+  // (un prodotto cancellato porta via ordini e statistiche del negozio).
+  const tolti: string[] = [];
+  for (const riga of prima.pubblicazioni) {
+    if (riga.negozio === m.negozio.nome || m.altriNegozi.some((n) => n.nome === riga.negozio) || !riga.shopifyId) continue;
+    if (riga.origine === "tolto") continue;
+    const n = m.tuttiNegozi.find((x) => x.nome === riga.negozio);
+    const token = n ? await tokenDi(n.id).catch(() => null) : null;
+    if (!token) {
+      avvisi.push(`${riga.negozio}: tolto dalla scelta ma il negozio non risponde: là resta com'era.`);
+      continue;
+    }
+    if (riga.statoShopify === "ACTIVE") {
+      const r = await aggiornaProdottoSuShopify(token, { shopifyId: riga.shopifyId, stato: "DRAFT" });
+      if (r.errori.length) {
+        avvisi.push(`${riga.negozio}: non sono riuscito a metterlo in bozza: ${r.errori.map((e) => e.messaggio).join(" · ")}`);
+        continue;
+      }
+      cronaca.push(`${riga.negozio}: tolto dalla scelta, là torna bozza.`);
+    }
+    tolti.push(riga.negozio);
   }
 
   // ---- Qui ----
@@ -550,11 +776,34 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       await tx.prodottoInCollezioneShopify.create({ data: { collezioneId, prodottoId: id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId as string } }).catch(() => undefined);
     }
     if (uscite.length) await tx.prodottoInCollezioneShopify.deleteMany({ where: { id: { in: uscite } } });
+    // La mappa «dove sta»: il principale e gli altri, riusciti o no; i tolti restano
+    // segnati come tali, così il modulo non li ripropone spuntati.
+    if (shopifyId) {
+      await tx.pubblicazioneNegozio.upsert({
+        where: { prodottoId_negozio: { prodottoId: id, negozio: m.negozio.nome } },
+        create: { prodottoId: id, negozio: m.negozio.nome, shopifyId, handle, statoShopify, spintoIl: new Date() },
+        update: { shopifyId, handle, statoShopify, origine: "modulo", spintoIl: new Date(), errore: null },
+      });
+    }
+    for (const a of altri) {
+      await tx.pubblicazioneNegozio.upsert({
+        where: { prodottoId_negozio: { prodottoId: id, negozio: a.negozio } },
+        create: { prodottoId: id, negozio: a.negozio, shopifyId: a.shopifyId, handle: a.handle, statoShopify: a.statoShopify, errore: a.errore, spintoIl: a.shopifyId ? new Date() : null },
+        update: { shopifyId: a.shopifyId ?? undefined, handle: a.handle ?? undefined, statoShopify: a.statoShopify, errore: a.errore, origine: "modulo", spintoIl: a.shopifyId ? new Date() : undefined },
+      });
+      for (const collezioneId of a.entrate) {
+        await tx.prodottoInCollezioneShopify.create({ data: { collezioneId, prodottoId: id, origine: "manuale", posizione: 9999, prodottoShopifyId: a.shopifyId as string } }).catch(() => undefined);
+      }
+    }
+    if (tolti.length) {
+      await tx.pubblicazioneNegozio.updateMany({ where: { prodottoId: id, negozio: { in: tolti } }, data: { origine: "tolto", statoShopify: "DRAFT" } });
+    }
     if (fase !== prima.fase || cronaca.length) {
       await tx.tappaSviluppo.create({
         data: { prodottoId: id, da: prima.fase, a: fase, nota: ["Modificato dal modulo.", ...cronaca].join(" "), origine: shopifyId ? "shopify" : "ui" },
       });
     }
   });
-  vaiAllaScheda(id, avvisi, shopifyId ? `Salvato qui e su ${m.negozio.nome}.` : "Modifiche salvate.");
+  const dove = doveEAndato(shopifyId ? m.negozio.nome : null, altri);
+  vaiAllaScheda(id, avvisi, dove ? `Salvato qui e su ${dove}.` : "Modifiche salvate.");
 }

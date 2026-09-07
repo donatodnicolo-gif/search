@@ -38,3 +38,6 @@ tsconfig.tsbuildinfo
 # vecchi dei prodotti toccati, per rimettere a posto se una scelta si rivela
 # sbagliata. Restano in locale — sono dati del negozio, non codice.
 ripristino-*.json
+
+# Campioni di prodotti letti dai negozi (dati interni dei partner): restano su disco
+docs/campione-descrizioni/*.json

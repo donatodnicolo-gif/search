@@ -769,6 +769,43 @@ async function allineaVarianti(
 }
 
 /**
+ * **Dove sta la scheda su QUESTO negozio** (07/09/2026): una riga
+ * `PubblicazioneNegozio` per prodotto riconosciuto, con l'id, l'handle e lo
+ * stato che il prodotto ha qui. È la mappa che il modulo usa per pubblicare
+ * «anche su» un altro negozio e la risposta alla trappola «una scheda, due
+ * negozi»: `Prodotto.statoShopify` lo scrive l'ultimo import della notte,
+ * questa riga dice lo stato negozio per negozio. Solo differenze: le righe
+ * mancanti nascono in blocco, quelle cambiate si aggiornano, le altre non si
+ * toccano — su Gifts sono quasi tremila righe e il cron ha un tetto.
+ */
+async function registraPubblicazioni(negozio: string, prodottiShopify: ProdottoShopifyApi[], risolto: Map<string, string>): Promise<void> {
+  const esistenti = new Map(
+    (
+      await prisma.pubblicazioneNegozio.findMany({
+        where: { negozio },
+        select: { id: true, prodottoId: true, shopifyId: true, handle: true, statoShopify: true, origine: true },
+      })
+    ).map((r) => [r.prodottoId, r]),
+  );
+  const nuove: { prodottoId: string; negozio: string; shopifyId: string; handle: string; statoShopify: string | null; origine: string }[] = [];
+  const cambiate: { id: string; shopifyId: string; handle: string; statoShopify: string | null }[] = [];
+  for (const p of prodottiShopify) {
+    const prodottoId = risolto.get(p.id);
+    if (!prodottoId) continue;
+    const e = esistenti.get(prodottoId);
+    const stato = p.status ?? null;
+    if (!e) nuove.push({ prodottoId, negozio, shopifyId: p.id, handle: p.handle, statoShopify: stato, origine: "import" });
+    else if (e.shopifyId !== p.id || e.handle !== p.handle || e.statoShopify !== stato) cambiate.push({ id: e.id, shopifyId: p.id, handle: p.handle, statoShopify: stato });
+  }
+  for (let i = 0; i < nuove.length; i += 500) await prisma.pubblicazioneNegozio.createMany({ data: nuove.slice(i, i + 500), skipDuplicates: true });
+  for (let i = 0; i < cambiate.length; i += SCRITTURE_INSIEME) {
+    await Promise.all(
+      cambiate.slice(i, i + SCRITTURE_INSIEME).map((c) => prisma.pubblicazioneNegozio.update({ where: { id: c.id }, data: { shopifyId: c.shopifyId, handle: c.handle, statoShopify: c.statoShopify } })),
+    );
+  }
+}
+
+/**
  * **Prova a secco** dell'allineamento delle varianti: legge il negozio e dice
  * quali varianti nascerebbero e quali SKU si riempirebbero, senza scrivere.
  */
@@ -869,8 +906,14 @@ async function costruisciIndici(): Promise<Indici> {
   // negozio, e sulle schede create da qui è l'aggancio di riserva se un domani
   // il gid cambiasse.
   for (const p of nostri) if (p.handleShopify) perCodice.set(p.handleShopify.trim().toLowerCase(), p.id);
+  // ⭐ 07/09/2026: anche gli id che la scheda ha sugli ALTRI negozi (`PubblicazioneNegozio`):
+  // un prodotto pubblicato «anche su» Flowers dal modulo si riconosce là per id, non per SKU.
+  // In coda, non in parallelo: è la regola delle query in volo.
+  const pubblicazioni = await prisma.pubblicazioneNegozio.findMany({ where: { shopifyId: { not: null } }, select: { shopifyId: true, prodottoId: true } });
+  const perShopifyId = new Map(nostri.filter((p) => p.shopifyId).map((p) => [p.shopifyId as string, p.id]));
+  for (const r of pubblicazioni) if (r.shopifyId && !perShopifyId.has(r.shopifyId)) perShopifyId.set(r.shopifyId, r.prodottoId);
   return {
-    perShopifyId: new Map(nostri.filter((p) => p.shopifyId).map((p) => [p.shopifyId as string, p.id])),
+    perShopifyId,
     perSku: new Map(varianti.map((v) => [(v.sku as string).trim().toLowerCase(), v.prodottoId])),
     perCodice,
     perNome: new Map(nostri.map((p) => [normalizza(p.nome), p.id])),
@@ -1409,6 +1452,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         )
       );
     }
+
+    // — Dove sta la scheda su questo negozio — (vedi `registraPubblicazioni`)
+    await registraPubblicazioni(n.nome, prodottiShopify, risolto);
 
     // — Le varianti che il negozio ha e la scheda no — (vedi `allineaVarianti`)
     const varianti = await allineaVarianti(prodottiShopify, risolto, ix, true);

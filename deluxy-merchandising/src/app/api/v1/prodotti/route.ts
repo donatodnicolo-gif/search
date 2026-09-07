@@ -46,6 +46,8 @@ const CAMPI = {
   // se la porta fino al fioraio, che deve sapere quanti fiori mettere nel bouquet.
   note: true,
   varianti: { select: { id: true, nome: true, sku: true, note: true } },
+  // ⭐ 07/09/2026: su quali negozi sta, con l'id e lo stato di ciascuno (dal modulo o dall'import).
+  pubblicazioni: { select: { negozio: true, shopifyId: true, handle: true, statoShopify: true } },
   origine: true,
   idEsterno: true,
   esclusoDaAnalisi: true,

@@ -67,6 +67,7 @@ export default async function ProdottoPage({
         assorbiti: { select: { id: true, nome: true, codice: true, unitoIl: true } },
         tappe: { orderBy: { creataIl: "desc" } },
         vetrine: { include: { vetrina: true }, orderBy: { posizione: "asc" } },
+        pubblicazioni: { orderBy: { negozio: "asc" } },
       },
     }),
     prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -127,6 +128,14 @@ export default async function ProdottoPage({
               <Badge testo={ETICHETTA_FASE[prodotto.fase]} colore={COLORE_FASE[prodotto.fase]} />
               <Badge testo={etichettaCategoria(prodotto.categoria)} colore="var(--text-tertiary)" />
               <Badge testo={ETICHETTA_SHOPIFY[prodotto.shopifyStato]} colore={COLORE_SHOPIFY[prodotto.shopifyStato]} />
+              {/* ⭐ 07/09/2026: su QUALI negozi sta, uno per uno (dal modulo o dall'import). */}
+              {prodotto.pubblicazioni
+                .filter((r) => r.shopifyId || r.errore)
+                .map((r) => {
+                  const stato = r.origine === "tolto" ? "tolto" : r.statoShopify === "ACTIVE" ? "attivo" : r.statoShopify === "DRAFT" ? "bozza" : r.statoShopify === "ARCHIVED" ? "archiviato" : r.errore ? "rifiutato" : "—";
+                  const colore = stato === "attivo" ? "var(--success)" : stato === "rifiutato" ? "var(--danger)" : "var(--text-tertiary)";
+                  return <Badge key={r.negozio} testo={`${r.negozio} · ${stato}`} colore={colore} title={r.errore ?? r.handle ?? r.shopifyId ?? undefined} />;
+                })}
               {(() => {
                 const tr = tipologiaRisposta(prodotto.ggDispMin);
                 return tr ? (

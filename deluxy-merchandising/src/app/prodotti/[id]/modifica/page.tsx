@@ -30,6 +30,7 @@ export default async function ModificaProdottoPage({
         varianti: { orderBy: { creataIl: "asc" } },
         media: { orderBy: { ordine: "asc" } },
         collezioniShopify: { select: { collezione: { select: { id: true, titolo: true, tipo: true, negozio: true } } }, orderBy: { posizione: "asc" } },
+        pubblicazioni: true,
       },
     }),
     datiModuloProdotto(),
@@ -94,10 +95,18 @@ export default async function ModificaProdottoPage({
     tags: (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     // Sul negozio contano le appartenenze vere; se non c'è ancora, il programma scelto nel modulo.
     collezioni: p.collezioniShopify.length
-      ? p.collezioniShopify.map((x) => ({ id: x.collezione.id, titolo: x.collezione.titolo, tipo: x.collezione.tipo }))
-      : dati.collezioni.filter((c) => collezioniPreviste.includes(c.id)).map((c) => ({ id: c.id, titolo: c.titolo, tipo: "manuale" })),
+      ? p.collezioniShopify.map((x) => ({ id: x.collezione.id, titolo: x.collezione.titolo, tipo: x.collezione.tipo, negozio: x.collezione.negozio }))
+      : dati.collezioni.filter((c) => collezioniPreviste.includes(c.id)).map((c) => ({ id: c.id, titolo: c.titolo, tipo: "manuale", negozio: c.negozio })),
     shopifyId: p.shopifyId,
+    // ⭐ 07/09/2026: gli altri negozi in cui sta già (dal modulo o dall'import),
+    // spuntati in partenza; chi è stato tolto a mano non si ripropone.
+    altriNegoziId: p.pubblicazioni
+      .filter((r) => r.negozio !== negozio?.nome && r.shopifyId && r.origine !== "tolto")
+      .map((r) => dati.negozi.find((n) => n.nome === r.negozio)?.id)
+      .filter((x): x is string => !!x),
+    pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, statoShopify: r.statoShopify, errore: r.errore, origine: r.origine })),
   };
+  const altriNomi = p.pubblicazioni.filter((r) => r.negozio !== negozio?.nome && r.shopifyId && r.origine !== "tolto").map((r) => r.negozio);
 
   return (
     <div className="layout">
@@ -111,8 +120,8 @@ export default async function ModificaProdottoPage({
             <h1 className="page-title">Modifica «{p.nome}»</h1>
             <p className="page-sub">
               {p.shopifyId
-                ? `Il prodotto è sul negozio ${nomeNegozio ?? ""}: salvando si aggiorna anche là (titolo, descrizione, stato, campi, prezzi delle varianti, foto nuove).`
-                : "Il prodotto non è sul negozio: scegliendo la fase Pubblico si pubblica come uno nuovo."}
+                ? `Il prodotto è sul negozio ${nomeNegozio ?? ""}${altriNomi.length ? ` e su ${altriNomi.join(", ")}` : ""}: salvando si aggiorna anche là (titolo, descrizione, stato, campi, prezzi delle varianti, foto nuove).`
+                : "Il prodotto non è sul negozio: scegliendo la fase Pubblico si pubblica come uno nuovo, anche sugli altri negozi spuntati."}
             </p>
           </div>
         </div>

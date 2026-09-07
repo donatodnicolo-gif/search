@@ -68,8 +68,12 @@ export type ProdottoIniziale = {
   metafield: Record<string, string>;
   tags: string[];
   /** Le collezioni in cui il prodotto sta già (dall'import), automatiche comprese. */
-  collezioni: { id: string; titolo: string; tipo: string }[];
+  collezioni: { id: string; titolo: string; tipo: string; negozio?: string }[];
   shopifyId: string | null;
+  /** ⭐ 07/09/2026: gli altri negozi (id) in cui il prodotto è o va pubblicato, oltre al principale. */
+  altriNegoziId: string[];
+  /** Dove sta già, negozio per negozio: per dirlo accanto alla scelta. */
+  pubblicazioni: { negozio: string; shopifyId: string | null; statoShopify: string | null; errore: string | null; origine: string }[];
 };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
@@ -103,6 +107,13 @@ export function FormProdottoNuovo({
   const form = useRef<HTMLFormElement>(null);
   const [negozioId, setNegozioId] = useState(iniziale?.negozioId || negozi[0]?.id || "");
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
+  // ⭐ 07/09/2026 (chiesto dall'utente): «pubblica anche su» — più negozi, per i
+  // prodotti nuovi e per quelli esistenti. Il principale resta uno (categorie,
+  // Files delle foto); gli altri ricevono la loro copia alla pubblicazione.
+  const [altriNegozi, setAltriNegozi] = useState<string[]>((iniziale?.altriNegoziId ?? []).filter((x) => x !== (iniziale?.negozioId || negozi[0]?.id)));
+  const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id) && n.id !== negozioId);
+  const nomiNegoziScelti = [negozio?.nome ?? "Shopify", ...negoziAnche.map((n) => n.nome)];
+  const statoSu = (nome: string) => iniziale?.pubblicazioni.find((p) => p.negozio === nome) ?? null;
   const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
   const [categoria, setCategoria] = useState(iniziale?.categoria === "DA_CLASSIFICARE" ? "" : (iniziale?.categoria ?? ""));
@@ -153,13 +164,15 @@ export function FormProdottoNuovo({
   };
 
   const categorieVisibili = categorie.filter((c) => !c.negozio || c.negozio === negozio?.nome);
-  const collezioniVisibili = collezioni.filter((c) => c.negozio === negozio?.nome);
+  const collezioniVisibili = collezioni.filter((c) => c.negozio === negozio?.nome || negoziAnche.some((n) => n.nome === c.negozio));
+  const conNegozio = (titolo: string, nomeNegozio?: string | null) => (negoziAnche.length && nomeNegozio ? `${titolo} · ${nomeNegozio}` : titolo);
   const mediaDiQuestoNegozio = media.filter((m) => m.negozio === negozio?.nome);
   const mediaDiAltri = media.length - mediaDiQuestoNegozio.length;
   const definizioni = negozio ? definizioniPerNegozio[negozio.nome] ?? [] : [];
 
   function cambiaNegozio(id: string) {
     setNegozioId(id);
+    setAltriNegozi((x) => x.filter((y) => y !== id));
     setCollezioniScelte([]);
     const nuovo = negozi.find((n) => n.id === id);
     if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
@@ -255,12 +268,13 @@ export function FormProdottoNuovo({
     setMedia((m) => [...m, ...lista.map((x) => ({ ...x, negozio: negozio.nome }))]);
   }
 
-  const puoPubblicare = !pubblico || (negozio?.puoScrivere ?? false);
+  const puoPubblicare = !pubblico || ((negozio?.puoScrivere ?? false) && negoziAnche.every((n) => n.puoScrivere));
 
   return (
     <form action={azione} ref={form}>
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
       <input type="hidden" name="negozioId" value={negozioId} />
+      <input type="hidden" name="negoziPubblicazioneJson" value={JSON.stringify(negoziAnche.map((n) => n.id))} />
       <input type="hidden" name="nomeOpzione" value={nomeOpzione} />
       <input
         type="hidden"
@@ -320,6 +334,36 @@ export function FormProdottoNuovo({
               {iniziale?.shopifyId ? "Il prodotto è già sul negozio: non si sposta." : "Decide categorie, collezioni, campi e dove vanno le foto."}
             </span>
           </div>
+          {negozi.length > 1 && (
+            <div className="campo-modulo largo">
+              <label>Pubblica anche su{negoziAnche.length ? ` · ${negoziAnche.length} ${negoziAnche.length === 1 ? "altro negozio" : "altri negozi"}` : ""}</label>
+              <div className="pill-scelta">
+                {negozi
+                  .filter((n) => n.id !== negozioId)
+                  .map((n) => {
+                    const acceso = altriNegozi.includes(n.id);
+                    const st = statoSu(n.nome);
+                    const dove =
+                      st?.shopifyId && st.origine !== "tolto"
+                        ? st.statoShopify === "ACTIVE" ? " · già attivo là" : st.statoShopify === "DRAFT" ? " · là in bozza" : st.statoShopify === "ARCHIVED" ? " · là archiviato" : ""
+                        : st?.errore ? " · rifiutato l'ultima volta" : "";
+                    return (
+                      <label key={n.id} className={`pill-opt chip-scelta${acceso ? " selezionato" : ""}`} title={n.puoScrivere ? n.dominio : `${n.nome} non ha il permesso write_products`} style={n.puoScrivere ? undefined : { opacity: 0.5 }}>
+                        <input type="checkbox" checked={acceso} disabled={!n.puoScrivere} onChange={(e) => setAltriNegozi((x) => (e.target.checked ? [...x, n.id] : x.filter((y) => y !== n.id)))} hidden />
+                        {acceso ? "✓ " : "+ "}
+                        {n.nome}
+                        {dove}
+                        {!n.puoScrivere ? " · solo lettura" : ""}
+                      </label>
+                    );
+                  })}
+              </div>
+              <span className="cella-sub">
+                Con la fase <b>Pubblico</b> il prodotto nasce anche su questi negozi, con gli stessi SKU, prezzi e varianti, le loro collezioni e i loro campi; le foto
+                si copiano dal negozio principale. Togliendo un negozio in cui è già pubblicato, là torna bozza (non si cancella).
+              </span>
+            </div>
+          )}
           <div className="campo-modulo">
             <label htmlFor="codice">Codice / SKU</label>
             <div className="riga-ai" style={{ marginBottom: 0 }}>
@@ -360,7 +404,11 @@ export function FormProdottoNuovo({
             </span>
           </div>
           <div className="campo-modulo">
-            <label htmlFor="tipologiaVendita">Tipologia di vendita</label>
+            {/* ⭐ 07/09/2026 (utente): NON è una «tipologia di vendita» del negozio, è una
+                classificazione interna dell'app che la piattaforma consegne legge per
+                scegliere il fornitore e fare il prezzo. Il campo nel database resta
+                `tipologiaVendita` (lo leggono l'API e la piattaforma); cambia come si chiama. */}
+            <label htmlFor="tipologiaVendita">Classificazione interna</label>
             <select id="tipologiaVendita" name="tipologiaVendita" value={tipologiaVendita} onChange={(e) => setTipologiaVendita(e.target.value)} required>
               <option value="">— Scegli —</option>
               {TIPOLOGIE_VENDITA.map((t) => (
@@ -370,7 +418,7 @@ export function FormProdottoNuovo({
               ))}
             </select>
             <span className="cella-sub">
-              Serve alla piattaforma consegne: dice come si sceglie il fornitore e come si fa il prezzo.
+              Classificazione dell&apos;app, non del negozio: la piattaforma consegne la legge per scegliere il fornitore e fare il prezzo. Non va su Shopify.
               {tipologiaVendita ? ` ${SPIEGAZIONE_TIPOLOGIA_VENDITA[tipologiaVendita] ?? ""}` : ""}
             </span>
             <ul className="legenda-tipologia">
@@ -390,7 +438,7 @@ export function FormProdottoNuovo({
                   const c = collezioni.find((x) => x.id === id) ?? iniziale?.collezioni.find((x) => x.id === id);
                   return (
                     <span key={id} className="pill-opt chip-scelta selezionato">
-                      {c?.titolo ?? id}
+                      {conNegozio(c?.titolo ?? id, (c as { negozio?: string } | undefined)?.negozio)}
                       <button type="button" className="icon-btn" style={{ padding: 0, width: 18, height: 18, color: "#fff" }} title="Togli da questa collezione" onClick={() => setCollezioniScelte((x) => x.filter((y) => y !== id))}>
                         ×
                       </button>
@@ -407,7 +455,7 @@ export function FormProdottoNuovo({
             <input
               value={cercaCollezione}
               onChange={(e) => setCercaCollezione(e.target.value)}
-              placeholder={`Cerca fra le ${collezioniVisibili.length} collezioni manuali di ${negozio?.nome ?? "questo negozio"}…`}
+              placeholder={`Cerca fra le ${collezioniVisibili.length} collezioni manuali di ${nomiNegoziScelti.join(" e ")}…`}
               aria-label="Cerca una collezione"
               style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", border: "1px solid transparent", background: "var(--fill)", width: "100%" }}
             />
@@ -418,7 +466,7 @@ export function FormProdottoNuovo({
                   .slice(0, 30)
                   .map((c) => (
                     <button key={c.id} type="button" className="pill-opt chip-scelta" onClick={() => { setCollezioniScelte((x) => [...x, c.id]); setCercaCollezione(""); }}>
-                      + {c.titolo}
+                      + {conNegozio(c.titolo, c.negozio)}
                     </button>
                   ))}
                 {collezioniVisibili.filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase())).length === 0 && (
@@ -514,6 +562,11 @@ export function FormProdottoNuovo({
           I campi che {negozio?.nome ?? "il negozio"} definisce su Shopify (i <i>metafield</i>), coi valori che ammette. Si scrivono sul negozio
           alla pubblicazione e restano qui sulla scheda. Quelli a scelta chiusa (riferimenti a file, metaobject, prodotti correlati) si
           impostano nell&apos;admin del negozio.
+          {negoziAnche.length > 0 && (
+            <>
+              {" "}Gli stessi valori vanno anche su {negoziAnche.map((n) => n.nome).join(", ")}, sui campi che quei negozi definiscono con la stessa chiave.
+            </>
+          )}
         </p>
         {definizioni.length === 0 ? (
           <div className="vuoto-mini">Nessuna definizione letta per questo negozio: arriva col prossimo import delle collezioni.</div>
@@ -721,7 +774,7 @@ export function FormProdottoNuovo({
       {/* ---------- Pubblicazione (solo con la fase Pubblico: deciso dall'utente) ---------- */}
       {pubblico && (
       <div className="scheda">
-        <div className="scheda-titolo">Pubblicazione su {negozio?.nome ?? "Shopify"}</div>
+        <div className="scheda-titolo">Pubblicazione su {nomiNegoziScelti.join(" + ")}</div>
         {!negozio?.puoScrivere && (
           <div className="avviso-errore" style={{ marginBottom: 12 }}>
             Il negozio scelto non ha il permesso <code>write_products</code>: qui si può salvare il prodotto solo come bozza interna. Aggiungi il permesso
@@ -760,15 +813,23 @@ export function FormProdottoNuovo({
         <button type="submit" className="btn" disabled={!puoPubblicare || caricando || negozi.length === 0}>
           {modifica
             ? pubblico && !iniziale?.shopifyId
-              ? `Salva e pubblica su ${negozio?.nome ?? "Shopify"}`
+              ? `Salva e pubblica su ${nomiNegoziScelti.join(", ")}`
               : iniziale?.shopifyId
-                ? "Salva qui e sul negozio"
+                ? negoziAnche.length ? `Salva qui e su ${nomiNegoziScelti.join(", ")}` : "Salva qui e sul negozio"
                 : "Salva le modifiche"
             : pubblico
-              ? `Crea e pubblica su ${negozio?.nome ?? "Shopify"}`
+              ? `Crea e pubblica su ${nomiNegoziScelti.join(", ")}`
               : "Crea prodotto"}
         </button>
       </div>
+      {!pubblico && (
+        // ⭐ 07/09/2026: un prodotto salvato come Concept non va su Shopify e nessuno
+        // se ne accorgeva (il «Panettone - Cioccolato Bianco e Frutti Rossi» è nato
+        // così alle 12:45 e l'utente lo cercava sul negozio). Si dice prima di salvare.
+        <p className="cella-sub" style={{ textAlign: "right", marginTop: 6 }}>
+          Con la fase «{ETICHETTA_FASE[fase] ?? fase}» il prodotto resta solo qui: per mandarlo su {nomiNegoziScelti.join(", ")} scegli la fase <b>Pubblico</b>.
+        </p>
+      )}
     </form>
   );
 }

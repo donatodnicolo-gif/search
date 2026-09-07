@@ -267,6 +267,8 @@ model Prodotto {
   vendite      Vendita[]
   righeRiordino RigaRiordino[]
   collezioniShopify ProdottoInCollezioneShopify[]
+  // ⭐ 07/09/2026: su quali negozi sta (id, handle e stato di CIASCUNO): vedi PubblicazioneNegozio.
+  pubblicazioni PubblicazioneNegozio[]
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
@@ -297,6 +299,36 @@ model Variante {
   righeRiordino RigaRiordino[]
 
   @@index([prodottoId])
+}
+
+// **Dove sta questa scheda sui negozi** (07/09/2026, chiesto dall'utente: «scegliere
+// più di un brand in cui pubblicare», per i prodotti nuovi e per quelli esistenti).
+// Una riga per negozio: l'id Shopify che il prodotto ha LÀ, il suo handle e il
+// suo stato. `Prodotto.shopifyId` resta l'id sul negozio principale
+// (`negozioNome`) per tutto il codice che lo legge; qui sta la mappa completa,
+// compresi i negozi in cui il modulo lo pubblica «anche». L'import la riempie
+// per i prodotti che riconosce (`origine = import`), così una scheda venduta su
+// Flowers e su Gifts dice finalmente su quale dei due è attiva — prima l'ultimo
+// import della notte riscriveva `statoShopify` e vinceva lui.
+// `origine = tolto`: il negozio è stato deselezionato nel modulo, là il prodotto
+// è tornato bozza e il modulo non lo ripropone spuntato.
+// Tabella creata in produzione con scripts/crea-tabella-pubblicazioni.mjs.
+model PubblicazioneNegozio {
+  id           String    @id @default(cuid())
+  prodottoId   String
+  prodotto     Prodotto  @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  negozio      String // nome di NegozioShopify
+  shopifyId    String?
+  handle       String?
+  statoShopify String? // ACTIVE | DRAFT | ARCHIVED
+  origine      String    @default("modulo") // modulo | import | tolto
+  spintoIl     DateTime?
+  errore       String?
+  creatoIl     DateTime  @default(now())
+  aggiornatoIl DateTime  @updatedAt
+
+  @@unique([prodottoId, negozio])
+  @@index([negozio, shopifyId])
 }
 
 // Storico delle fasi del ciclo di vita del prodotto (pipeline di sviluppo).
