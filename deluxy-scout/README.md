@@ -32,6 +32,11 @@
 >      DICHIARATO in lettura, non un dato scritto — un `contatto` come
 >      «chiamare Maria in negozio» sarebbe diventato per sempre un telefono.
 >      `contatto` non si scrive più e non si tocca.
+>    - **0119 applicata e verificata sul database** (07/09): 22 richieste, 22 con
+>      `contatto`, **0** con email/telefono — il «nessun backfill» è un fatto. I
+>      grant di `leads` sono di TABELLA (non per colonne come `profiles` della
+>      0118), quindi le colonne nuove sono già scrivibili da `authenticated`;
+>      provato col ruolo vero in transazione, poi rollback.
 >    - Anche la **ricerca globale** cerca nei due campi nuovi, e la qualifica
 >      porta ENTRAMBI i recapiti sul referente di Anagrafiche (prima, sulle
 >      richieste dal modulo del sito, `conContatto` guardava `contatto` — che lì
