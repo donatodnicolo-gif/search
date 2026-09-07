@@ -18,7 +18,7 @@ export default async function CostiPage() {
   // e campi SEO — colonne di testo larghe — per migliaia di prodotti di cui la
   // pagina usa cinque numeri. È la trappola «omit invece di select» delle liste.
   const prodotti = await prisma.prodotto.findMany({
-    where: { ...filtroProdotti(brand), fase: { not: "archiviato" }, prezzoVendita: { gt: 0 } },
+    where: { ...(await filtroProdotti(brand)), fase: { not: "archiviato" }, prezzoVendita: { gt: 0 } },
     select: {
       id: true,
       nome: true,

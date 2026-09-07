@@ -20,7 +20,7 @@ export default async function LineePage({
   const brand = await brandCorrente();
   const ordina = sp.ordina ?? "venduto";
 
-  const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
+  const where = { ...(await filtroProdotti(brand)) } as Record<string, unknown>;
   const [gruppi, linee] = await Promise.all([
     calcolaGruppi({ where, brand, per: "linea", ordina }),
     elencoLinee(),

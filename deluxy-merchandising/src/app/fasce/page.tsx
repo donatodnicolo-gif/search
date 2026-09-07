@@ -23,7 +23,7 @@ export default async function FascePage({
   // Di norma la scala si legge dal prezzo più basso al più alto: è una scala.
   const ordina = sp.ordina ?? "nome";
 
-  const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
+  const where = { ...(await filtroProdotti(brand)) } as Record<string, unknown>;
   const [gruppi, fasce] = await Promise.all([
     calcolaGruppi({ where, brand, per: "fascia", ordina }),
     elencoFasce(),

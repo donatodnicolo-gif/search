@@ -24,7 +24,7 @@ export default async function FornitoriPage({
   const cerca = (sp.q ?? "").trim();
   const per: ChiaveRaggruppamento = vista === "categoria" ? "fornitore-tipo" : "fornitore";
 
-  const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
+  const where = { ...(await filtroProdotti(brand)) } as Record<string, unknown>;
   const gruppi = await calcolaGruppi({ where, brand, per, ordina });
 
   // La ricerca (Libro UX&UI v1.9 §8-bis): sul nome del fornitore, in memoria —

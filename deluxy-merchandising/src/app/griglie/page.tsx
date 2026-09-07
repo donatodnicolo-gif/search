@@ -61,7 +61,7 @@ export default async function GrigliePage({
   const ordineRighe = ordineOk(sp.ordineRighe, "venduto-desc");
   const ordineColonne = ordineOk(sp.ordineColonne, "naturale");
 
-  const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
+  const where = { ...(await filtroProdotti(brand)) } as Record<string, unknown>;
   const g = await calcolaGriglia({
     where,
     brand,
