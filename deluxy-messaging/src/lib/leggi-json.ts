@@ -42,7 +42,30 @@ export async function leggiJson<T>(res: Response): Promise<EsitoLettura<T>> {
   // pagina di login senza che `redirected` risulti (una risposta servita dalla
   // cache, un rewrite invece di un redirect).
   const tipo = res.headers.get('content-type') ?? ''
-  if (res.redirected || !tipo.includes('json') || res.status === 401) {
+  // ⚠️⚠️ «NON SEI PIÙ TU» E «IO NON STO BENE» SONO DUE COSE DIVERSE (utente,
+  // 07/09/2026: «customer service ogni tanto ci dice di rientrare»). Il 07/09 il
+  // database condiviso è andato in sofferenza per ore: le rotte rispondevano
+  // 500 con la pagina HTML di Vercel, quindi «non è JSON» — e questa riga lo
+  // leggeva come sessione scaduta. Chi lavorava veniva invitato a rientrare
+  // mentre la sua sessione era validissima, rientrava, e trovava lo stesso
+  // guasto. Un errore diagnosticato male manda le persone a curare la cosa
+  // sbagliata.
+  //
+  // Adesso: «rientra» SOLO col segnale vero del login (401, o il redirect del
+  // middleware seguito da fetch). Una risposta 5xx, o non-JSON con uno stato di
+  // errore, è un guasto del server e si dice per quello che è.
+  const sembraLogin = res.redirected || res.status === 401
+  const guastoServer = res.status >= 500 || (!tipo.includes('json') && !res.ok)
+  if (guastoServer && !sembraLogin) {
+    return {
+      stato: 'errore',
+      messaggio:
+        res.status >= 500
+          ? `L'app non è riuscita a rispondere (errore ${res.status}). Non è la tua sessione: riprova fra poco.`
+          : "L'app non è riuscita a rispondere. Non è la tua sessione: riprova fra poco.",
+    }
+  }
+  if (sembraLogin || !tipo.includes('json')) {
     // ⚠️⚠️ SI DICE A TUTTA L'APP, non solo a chi ha chiamato. Chi guarda il
     // diario vede il messaggio del diario, chi sta facendo un ordine vede una
     // tendina vuota: sono la stessa cosa e nessuna delle due lo dice. La fascia
