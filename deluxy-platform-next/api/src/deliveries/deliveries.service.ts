@@ -70,6 +70,8 @@ const DELIVERY_LIST_SELECT = {
   // ⭐ 07/09/2026 (regola utente): «tra le consegne collegate mostra il collegamento» — dalla
   // riconsegna si risale alla consegna di partenza anche dall'ELENCO, non solo dal dettaglio.
   parentDelivery: { select: { id: true, code: true } },
+  // ⭐ 07/09/2026: se è nascosta, l'elenco non la chiede più (e il dettaglio lo dice).
+  nonConsegnataChiusaIl: true,
   // ⭐ 06/09/2026 (regola utente): le ORE DICHIARATE dal valet si leggono in
   // tabella, nella colonna «Consegna», quando sono da approvare.
   hoursFrom: true, hoursTo: true, hoursOriginal: true,
@@ -353,6 +355,41 @@ export class DeliveriesService {
     return { ok: true };
   }
 
+  /**
+   * ⭐ 07/09/2026 (regola utente): «nascondi da consegne» — la non consegnata esce dall'elenco
+   * operativo e resta in Storico. Non cambia stato, non si cancella niente: cambia solo dove
+   * la si trova. Si può rimettere fra le attive (mostraNonConsegnata), perché una decisione
+   * presa per sbaglio dev'essere revocabile.
+   */
+  async nascondiNonConsegnata(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({ where: { id, deletedAt: null }, select: { id: true, code: true, status: true, nonConsegnataChiusaIl: true } });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (d.status !== DeliveryStatus.NOT_DELIVERED) {
+      throw new BadRequestException('Si nasconde solo una consegna NON CONSEGNATA.');
+    }
+    if (d.nonConsegnataChiusaIl) return { ok: true, gia: true };
+    await this.prisma.delivery.update({
+      where: { id },
+      data: { nonConsegnataChiusaIl: new Date(), nonConsegnataChiusaDa: user.sub ?? null },
+    });
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: id, type: 'note', userId: user.sub ?? null, message: "Tolta dall'elenco Consegne senza riconsegna: resta in Storico" },
+    });
+    return { ok: true };
+  }
+
+  /** Rimette fra le attive una non consegnata nascosta. */
+  async mostraNonConsegnata(id: string, user: JwtUser) {
+    const d = await this.prisma.delivery.findFirst({ where: { id, deletedAt: null }, select: { id: true, nonConsegnataChiusaIl: true } });
+    if (!d) throw new NotFoundException('Consegna non trovata.');
+    if (!d.nonConsegnataChiusaIl) return { ok: true, gia: true };
+    await this.prisma.delivery.update({ where: { id }, data: { nonConsegnataChiusaIl: null, nonConsegnataChiusaDa: null } });
+    await this.prisma.deliveryLog.create({
+      data: { deliveryId: id, type: 'note', userId: user.sub ?? null, message: 'Rimessa fra le consegne da gestire' },
+    });
+    return { ok: true };
+  }
+
   private static readonly VIVE = { deletedAt: null } as const;
 
   /**
@@ -510,16 +547,19 @@ export class DeliveriesService {
     // e la vecchia va in storico. Non è uno stato nuovo — lo stato resta
     // `not_delivered` — è la LISTA che smette di chiedere qualcosa che è
     // già stato fatto.
+    // ⭐ 07/09/2026 (regola utente): oltre alla riconsegna, una non consegnata esce dalle
+    // attive anche quando qualcuno la NASCONDE — la decisione è stata presa altrove.
     else if (query.view === 'attive') {
       scope.OR = [
         { status: { notIn: DELIVERY_CLOSED_STATUSES } },
-        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} } },
+        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
       ];
     } else if (query.view === 'storico') {
-      // Speculare: una non consegnata GIÀ riconsegnata è storia.
+      // Speculare: una non consegnata GIÀ riconsegnata — o nascosta — è storia.
       scope.OR = [
         { status: { in: DELIVERY_CLOSED_STATUSES.filter((s) => s !== DeliveryStatus.NOT_DELIVERED) } },
         { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { some: {} } },
+        { status: DeliveryStatus.NOT_DELIVERED, NOT: { nonConsegnataChiusaIl: null } },
       ];
       delete scope.status;
     }
@@ -2170,7 +2210,8 @@ export class DeliveriesService {
     // riportata resta in finestra finché qualcuno decide; le vecchie stanno nello storico.
     const limite = new Date(oggi.getTime() - 30 * 86400000);
     const daRiportare = await this.prisma.delivery.findMany({
-      where: { deletedAt: null, status: DeliveryStatus.NOT_DELIVERED, date: { lt: oggi, gte: limite }, childDeliveries: { none: {} } },
+      // ⭐ 07/09/2026: le nascoste non tornano a oggi — sono già state decise.
+      where: { deletedAt: null, status: DeliveryStatus.NOT_DELIVERED, date: { lt: oggi, gte: limite }, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
       select: { id: true, code: true, date: true },
       orderBy: { code: 'asc' },
     });

@@ -3277,6 +3277,8 @@
     "cercaPh": "Number, recipient or address",
     "aggancia": "Link",
     "giaLegata": "already the redelivery of #{{numero}}",
-    "nessuna": "No delivery found for this search."
+    "nessuna": "No delivery found for this search.",
+    "nascondiTitolo": "Hide from Deliveries",
+    "nascondiSotto": "Removes it from the list and leaves it in History: it can always be brought back."
   }
 }

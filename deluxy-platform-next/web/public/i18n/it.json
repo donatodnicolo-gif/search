@@ -3279,6 +3279,8 @@
     "cercaPh": "Numero, destinatario o indirizzo",
     "aggancia": "Aggancia",
     "giaLegata": "già riconsegna della #{{numero}}",
-    "nessuna": "Nessuna consegna trovata con questa ricerca."
+    "nessuna": "Nessuna consegna trovata con questa ricerca.",
+    "nascondiTitolo": "Nascondi da Consegne",
+    "nascondiSotto": "La toglie dall'elenco e la lascia in Storico: si può sempre rimettere."
   }
 }

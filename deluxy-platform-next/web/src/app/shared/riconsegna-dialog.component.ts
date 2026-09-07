@@ -54,8 +54,16 @@ interface ConsegnaTrovata {
           <b>{{ 'riconsegna.nuovaTitolo' | translate }}</b>
           <span>{{ 'riconsegna.nuovaSotto' | translate }}</span>
         </button>
+        <!-- ⭐ 07/09/2026 (regola utente): la terza via — la decisione è stata presa altrove
+             (rimborso, cliente irreperibile, ordine annullato) e la consegna deve solo
+             smettere di chiedere. Non si cancella: resta in Storico, e si può rimettere. -->
+        <button type="button" class="scelta" [disabled]="nascondendo()" (click)="nascondi()">
+          <b>{{ 'riconsegna.nascondiTitolo' | translate }}</b>
+          <span>{{ 'riconsegna.nascondiSotto' | translate }}</span>
+        </button>
       </div>
 
+      @if (errore(); as e) { <p class="errore">{{ e }}</p> }
       @if (modo() === 'aggancia') {
         <div class="cerca">
           <input class="field" type="search" [(ngModel)]="q" name="q" (keyup.enter)="cerca()"
@@ -106,7 +114,8 @@ interface ConsegnaTrovata {
       h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
       .sub { margin: 3px 0 0; font-size: 13px; color: var(--text-secondary); }
       .chiudi { border: 0; background: none; font-size: 16px; line-height: 1; cursor: pointer; color: var(--text-secondary); padding: 4px; }
-      .scelte { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+      .scelte { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+      @media (max-width: 760px) { .scelte { grid-template-columns: 1fr 1fr; } }
       @media (max-width: 560px) { .scelte { grid-template-columns: 1fr; } }
       .scelta {
         text-align: left; font: inherit; cursor: pointer; padding: 12px 14px; border-radius: 12px;
@@ -153,6 +162,25 @@ export class RiconsegnaDialogComponent {
   creaNuova(): void {
     this.chiudi.emit();
     void this.router.navigate(['/deliveries/new'], { queryParams: { riconsegna: this.deliveryId } });
+  }
+
+  readonly nascondendo = signal(false);
+
+  /** Toglie la non consegnata dall'elenco: resta in Storico, e si può rimettere. */
+  nascondi(): void {
+    this.nascondendo.set(true);
+    this.errore.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${this.deliveryId}/nascondi`, {}).subscribe({
+      next: () => {
+        this.nascondendo.set(false);
+        this.agganciata.emit({ id: this.deliveryId, code: Number(this.code) || 0 });
+        this.chiudi.emit();
+      },
+      error: (e) => {
+        this.nascondendo.set(false);
+        this.errore.set(e?.error?.message ?? 'Non riuscito');
+      },
+    });
   }
 
   cerca(): void {

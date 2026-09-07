@@ -329,6 +329,20 @@ export class DeliveriesController {
     return this.deliveriesService.agganciaRiconsegna(id, childId, user);
   }
 
+  @Post(':id/nascondi')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: "Toglie una non consegnata dall'elenco Consegne: resta in Storico" })
+  nascondi(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.nascondiNonConsegnata(id, user);
+  }
+
+  @Delete(':id/nascondi')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Rimette fra le attive una non consegnata nascosta' })
+  mostra(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.mostraNonConsegnata(id, user);
+  }
+
   @Delete(':id/riconsegna/:childId')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Scioglie il legame fra una non consegnata e la sua riconsegna' })

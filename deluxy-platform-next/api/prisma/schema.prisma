@@ -1456,6 +1456,15 @@ model Delivery {
   parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
   childDeliveries    Delivery[]        @relation("DeliveryPadre")
 
+  /// ⭐ 07/09/2026 (regola utente): una NON CONSEGNATA si toglie dall'elenco Consegne anche
+  /// SENZA riconsegna — «nascondi da consegne, la lascia in storico». Serve per i casi chiusi
+  /// altrove (rimborso, cliente irreperibile, ordine annullato): senza, restavano lì per
+  /// sempre a chiedere una decisione già presa. Non è una cancellazione e non cambia lo
+  /// stato: la consegna resta in Storico, si vede e si fattura come prima, e si può rimettere
+  /// fra le attive.
+  nonConsegnataChiusaIl DateTime?
+  nonConsegnataChiusaDa String?
+
   /// Soft delete del legacy: **431 consegne** (contate in banca il 26/08/2026;
   /// qui c'era scritto 524, numero mai verificato). Sta in un campo suo per non
   /// sovrascrivere lo stato reale della consegna — e infatti sono tutte in
