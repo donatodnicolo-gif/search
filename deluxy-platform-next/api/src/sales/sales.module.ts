@@ -871,7 +871,13 @@ export class SalesService {
     const consegna = await this.creaConsegna(vendita, variante);
     const aggiornata = await this.prisma.sale.update({
       where: { id },
-      data: { status: SaleStatus.ACCETTATA, deliveryId: consegna?.id ?? null, historyAt: new Date() },
+      data: {
+        status: SaleStatus.ACCETTATA,
+        deliveryId: consegna?.id ?? null,
+        // Il servizio con cui è nata la consegna resta scritto anche sulla vendita.
+        serviceTypeId: vendita.serviceTypeId ?? consegna?.serviceTypeId ?? undefined,
+        historyAt: new Date(),
+      },
       include: { partner: { select: { id: true, insegna: true } } },
     });
     await this.registra(id, 'stato', `Accettata ${user.role === Role.PARTNER ? 'dal partner ' + (aggiornata.partner?.insegna ?? '') : "dall'ufficio"}${consegna ? ' → nasce la consegna #' + (consegna as any).code : ' — consegna NON creata (dati mancanti)'}`, user);
@@ -2514,7 +2520,14 @@ export class SalesService {
     },
     variante?: { id: string; name: string; price: number | null; publicPrice: number | null } | null,
   ) {
-    if (!vendita.partnerId || !vendita.serviceTypeId || !vendita.deliveryDate) return null;
+    // ⭐ 07/09/2026 (regola utente: «il tipo di servizio è sempre Vendita Deluxy,
+    // crea anche le consegne»): le vendite che arrivano da Orders non portano un
+    // tipo di servizio, e qui si usciva in silenzio — «Accettata — consegna NON
+    // creata (dati mancanti)» su 15 vendite dal 24/08 (#12901 di Rizzi, 655 €,
+    // accettata in 20 secondi e mai diventata consegna). Il servizio di una
+    // vendita è UNO: «Vendita Deluxy». Se la vendita non lo dice, vale quello.
+    const serviceTypeId = vendita.serviceTypeId ?? (await this.servizioVenditaDeluxy());
+    if (!vendita.partnerId || !serviceTypeId || !vendita.deliveryDate) return null;
     if (!vendita.recipientFirstName || !vendita.recipientLastName || !vendita.recipientAddress) {
       return null;
     }
@@ -2579,7 +2592,7 @@ export class SalesService {
       data: {
         code: (ultimo._max.code ?? 0) + 1,
         date: vendita.deliveryDate,
-        serviceTypeId: vendita.serviceTypeId,
+        serviceTypeId,
         partnerId: vendita.partnerId,
         customerId: vendita.customerId,
         recipientFirstName: vendita.recipientFirstName,
@@ -2636,8 +2649,65 @@ export class SalesService {
             }
           : undefined,
       },
-      select: { id: true, code: true, date: true },
+      select: { id: true, code: true, date: true, serviceTypeId: true },
     });
+  }
+
+  private servizioVenditaDeluxyId: string | null | undefined;
+
+  /**
+   * L'id del tipo di servizio «Vendita Deluxy» (regola utente 07/09/2026: il
+   * servizio di una vendita è sempre quello). Letto una volta e tenuto in
+   * memoria: il catalogo dei servizi non cambia nel corso di una vita
+   * dell'istanza. Null solo se in questo database non esiste: allora la
+   * consegna non nasce, ed è giusto che si veda.
+   */
+  private async servizioVenditaDeluxy(): Promise<string | null> {
+    if (this.servizioVenditaDeluxyId !== undefined) return this.servizioVenditaDeluxyId;
+    const st = await this.prisma.serviceType.findFirst({
+      where: { name: { equals: 'Vendita Deluxy', mode: 'insensitive' } },
+      select: { id: true },
+    });
+    this.servizioVenditaDeluxyId = st?.id ?? null;
+    if (!st) this.logger.error('Tipo di servizio «Vendita Deluxy» NON trovato: le vendite accettate non generano consegne.');
+    return this.servizioVenditaDeluxyId;
+  }
+
+  /**
+   * ⭐ 07/09/2026: crea la consegna che una vendita ACCETTATA non ha avuto
+   * (le 15 ferme dal 24/08, e ogni caso futuro che l'ufficio vuole sanare).
+   * Idempotente: se la consegna c'è già non fa nulla. Se manca davvero
+   * qualcosa (partner, data, destinatario) lo dice invece di inventare.
+   */
+  async creaConsegnaMancante(id: string, user?: Pick<JwtUser, 'sub' | 'email' | 'role'> | null) {
+    const vendita = await this.prisma.sale.findUnique({ where: { id }, include: { product: true } });
+    if (!vendita) throw new NotFoundException('Vendita non trovata');
+    if (vendita.status !== SaleStatus.ACCETTATA) {
+      throw new BadRequestException(`La vendita non è accettata (stato: ${vendita.status}): la consegna nasce solo da una vendita accettata.`);
+    }
+    if (vendita.deliveryId) {
+      const c = await this.prisma.delivery.findUnique({ where: { id: vendita.deliveryId }, select: { id: true, code: true } });
+      if (c) return { creata: false, motivo: `ha già la consegna #${c.code}`, consegna: c };
+    }
+    const manca = [
+      !vendita.partnerId && 'partner',
+      !vendita.deliveryDate && 'data di consegna',
+      (!vendita.recipientFirstName || !vendita.recipientLastName) && 'destinatario',
+      !vendita.recipientAddress && 'indirizzo',
+    ].filter(Boolean) as string[];
+    if (manca.length) return { creata: false, motivo: `manca: ${manca.join(', ')}`, consegna: null };
+
+    const variante = vendita.productVariantId
+      ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId } })
+      : null;
+    const consegna = await this.creaConsegna(vendita, variante);
+    if (!consegna) return { creata: false, motivo: 'tipo di servizio «Vendita Deluxy» non trovato', consegna: null };
+    await this.prisma.sale.update({
+      where: { id },
+      data: { deliveryId: consegna.id, serviceTypeId: vendita.serviceTypeId ?? consegna.serviceTypeId, historyAt: new Date() },
+    });
+    await this.registra(id, 'stato', `Consegna creata a posteriori → #${consegna.code} (tipo di servizio Vendita Deluxy)`, user);
+    return { creata: true, motivo: null, consegna };
   }
 }
 
@@ -2735,6 +2805,13 @@ export class SalesController {
   @ApiOperation({ summary: 'Il partner accetta la vendita: nasce la consegna' })
   accetta(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.salesService.accetta(id, user);
+  }
+
+  @Post(':id/crea-consegna')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Ufficio: crea la consegna che una vendita accettata non ha avuto (idempotente; dice cosa manca)' })
+  creaConsegna(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.salesService.creaConsegnaMancante(id, user);
   }
 
   @Post(':id/rifiuta')

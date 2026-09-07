@@ -775,7 +775,18 @@ export class OrdersSyncService {
           const chiave = `${info.productId}|${info.variantId ?? ''}`;
           if (viste.has(chiave)) continue;
           viste.add(chiave);
-          daCreare.push({ productId: info.productId, variantId: info.variantId ?? undefined, amount: r?.prezzo ?? undefined, smist: info.smist });
+          // ⭐ 07/09/2026 (ordine #12901: «Macarons ×2 a 130 €» e «Praline ×5 a 65 €»
+          // erano nati come vendite da 130 € e 65 € con quantità 1). Il prezzo di riga
+          // di Orders è UNITARIO: la vendita porta i pezzi e l'importo per i pezzi,
+          // come già i generici — il partner deve preparare 2 e 5, non 1 e 1.
+          const pezzi = Math.max(1, Math.round(Number(r?.quantita) || 1));
+          daCreare.push({
+            productId: info.productId,
+            variantId: info.variantId ?? undefined,
+            amount: r?.prezzo != null ? Math.round(r.prezzo * pezzi * 100) / 100 : undefined,
+            quantity: pezzi > 1 ? pezzi : undefined,
+            smist: info.smist,
+          });
         }
         // Nessun candidato per NESSUNA riga: la vendita non si crea, come prima.
         const conCandidato: typeof daCreare = [];
