@@ -1670,6 +1670,21 @@ export interface OrdineConLuogo extends Ordine {
   owner_nome?: string | null;
 }
 
+/**
+ * ⭐ SOLO id e trattativa di ogni ordine (07/09/2026). Serve alle Trattative
+ * per far risalire i preventivi dall'ordine alla vendita che l'ha generato.
+ *
+ * ⚠️ NON si usa `fetchOrdini` per questo: quella legge `*` su ~1.400 righe
+ * (più la join sui negozi) per due colonne — l'elenco trattative si sarebbe
+ * portato dietro il peso della schermata Ordini a ogni apertura. Qui si
+ * chiedono due campi e solo le righe che una trattativa ce l'hanno.
+ */
+export async function ordiniPerTrattativa(): Promise<{ id: string; deal_id: string | null }[]> {
+  const { data, error } = await supabase.from('ordini').select('id, deal_id').not('deal_id', 'is', null);
+  if (error) throw error;
+  return (data ?? []) as { id: string; deal_id: string | null }[];
+}
+
 export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
   // ⚠️ Paginata (giuria performance 28/08): oltre i 1000 ordini PostgREST
   // avrebbe troncato CON UN 200, e la pagina Ordini (margini compresi)

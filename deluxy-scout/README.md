@@ -1,5 +1,48 @@
 # Deluxy Scout
 
+> **07/09/2026 — i preventivi fornitore si vedono DALLA TRATTATIVA**
+> (richiesta dell'utente: «fai vedere anche in trattative e per trattativa
+> quali sono i preventivi che abbiamo ricevuto»). Nessuna migrazione.
+>
+> Prima dalla trattativa c'era solo un link — «Preventivi fornitori ricevuti ›»
+> in fondo al foglio di modifica — che portava altrove: per sapere se era
+> arrivato un prezzo bisognava uscire dalla pagina, e nell'elenco non se ne
+> vedeva traccia. Il preventivo è quanto ci COSTA quella vendita: è metà del
+> conto, e stava dall'altra parte dell'app.
+>
+> - **Nell'elenco**: sotto il valore, «~ € 180 · 2 prev. · 1 in attesa». La
+>   colonna si chiama ora **«Valore · costo»**. ⚠️ NON è una colonna nuova:
+>   qui ce ne sono già otto più le azioni, e la nona avrebbe alzato la soglia
+>   della tabella (la lezione degli Ordini, dove ogni colonna in più toglieva
+>   pixel al nome del cliente). Prezzo e costo sono le due metà dello stesso
+>   conto: uno sotto l'altro si leggono insieme. Sulle schede del telefono è
+>   una riga a sé. Se non ci sono preventivi non compare niente.
+> - **Nella scheda della trattativa**: l'elenco vero, uno per riga — fornitore,
+>   importo, stato, da dove viene il numero, quando è arrivato. Il più basso è
+>   segnato (ma non quando uno è già stato SCELTO: quel confronto è chiuso).
+>   Ci sono anche quelli **senza prezzo**: un fornitore a cui abbiamo chiesto e
+>   che non ha risposto è la ragione per cui si sollecita. Il link resta: è da
+>   lì che se ne aggiunge uno.
+> - ⭐ **La risalita dagli ordini** (`trattativaDelLavoro`). Misurato sul
+>   database prima di scrivere la schermata: **14 lavori su 15 erano agganciati
+>   a un ORDINE**, uno solo alla trattativa. Guardando il solo legame diretto
+>   la funzione sarebbe nata vuota su quasi tutto, e avrebbe detto «nessun
+>   preventivo» dove i preventivi c'erano. È il giro dell'ordine letto al
+>   contrario: `costiPerOrdine` scende dalla trattativa all'ordine per fare il
+>   margine, qui si risale. Dopo: **7 trattative** mostrano i loro preventivi
+>   invece di 1. ⚠️ Il legame diretto vince; le richieste cliente non risalgono
+>   (una richiesta non è una trattativa, dedurlo sarebbe un'invenzione).
+> - ⚠️ **Il costo lo fa una regola sola** (`preventivoDecisivo` →
+>   `costoDeiLavori`): la stessa che alimenta il margine degli Ordini. Rifare
+>   qui la somma avrebbe fatto costare la stessa vendita due cifre diverse in
+>   due schermate. Senza prezzi ricevuti il costo resta **null**, mai zero.
+> - Lettura leggera: `ordiniPerTrattativa()` chiede due colonne (`id`,
+>   `deal_id`), non `fetchOrdini` — che legge `*` su ~1.400 righe più la join
+>   sui negozi, e avrebbe portato il peso della schermata Ordini dentro le
+>   Trattative a ogni apertura.
+> - Verificato: `tsc` 0 errori, **98 test verdi** (9 nuovi sulla risalita e sul
+>   riepilogo), bundle Metro pulito.
+
 > **07/09/2026 — due segnalazioni dell'utente, chiuse e IN PRODUZIONE**
 > (migr. `0119`; deploy `deluxy-scout-1bzj6v1l6`, le 4 verifiche di
 > `deploy-web.sh` verdi e i marcatori controllati nel bundle vivo):

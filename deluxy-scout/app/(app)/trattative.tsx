@@ -30,6 +30,7 @@ import {
   creaOrdineDaTrattativa,
   fetchContatti,
   fetchTutteTrattative,
+  ordiniPerTrattativa,
   inserisciDeal,
   inserisciTask,
   type PlaceLite,
@@ -48,6 +49,14 @@ import { Card, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/component
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
+import {
+  fetchLavori,
+  perTrattativa,
+  type CostoDeiLavori,
+  type LavoroConPreventivi,
+  type RiepilogoPreventivi,
+} from '@/lib/preventivi';
+import { ElencoPreventivi, RiassuntoPreventivi } from '@/components/PreventiviTrattativa';
 
 interface Sezione {
   title: string;
@@ -171,6 +180,19 @@ async function cancelloFiscale(
 export default function Trattative() {
   const router = useRouter();
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
+  /**
+   * ⭐ I PREVENTIVI FORNITORE (07/09/2026, richiesta dell'utente: «fai vedere
+   * anche in trattative e per trattativa quali sono i preventivi che abbiamo
+   * ricevuto»). Prima di qui non passavano: dalla trattativa c'era solo un
+   * link che portava altrove, e nell'elenco non se ne vedeva traccia.
+   *
+   * ⚠️ Col suo `catch`: se i lavori non rispondono le trattative si vedono
+   * lo stesso, senza la colonna del costo. Un pezzo in più non deve poter
+   * far sparire la pagina che c'era prima.
+   */
+  const [lavori, setLavori] = useState<LavoroConPreventivi[]>([]);
+  /** id → trattativa degli ordini: serve a far RISALIRE i preventivi. */
+  const [ordiniDeal, setOrdiniDeal] = useState<{ id: string; deal_id: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   // Il sopra-menù: si parte dalle APERTE, che sono il lavoro. Vinte e perse si
@@ -222,11 +244,37 @@ export default function Trattative() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      setDeals(await fetchTutteTrattative({ includiAnnullate: true }));
+      const [d, l, o] = await Promise.all([
+        fetchTutteTrattative({ includiAnnullate: true }),
+        fetchLavori().catch(() => [] as LavoroConPreventivi[]),
+        ordiniPerTrattativa().catch(() => [] as { id: string; deal_id: string | null }[]),
+      ]);
+      setDeals(d);
+      setLavori(l);
+      setOrdiniDeal(o);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  /**
+   * I preventivi di ogni trattativa, indicizzati con l'id che l'elenco usa
+   * per le sue righe (uuid per Scout, `hs_<id>` per HubSpot).
+   *
+   * ⭐ CON LA RISALITA DAGLI ORDINI. Guardando il solo `deal_id` del lavoro,
+   * il giorno in cui è nata questa schermata si sarebbero visti i preventivi
+   * di UNA trattativa su tutte: 14 lavori su 15 erano agganciati a un ordine
+   * (misurato sul database), e la scheda avrebbe detto «nessun preventivo»
+   * dove i preventivi c'erano. Il perché sta in `trattativaDelLavoro`.
+   *
+   * ⚠️ Il costo lo fa `costoDeiLavori`, la stessa regola per lavoro che
+   * alimenta il margine degli Ordini (`preventivoDecisivo`): rifare qui la
+   * somma avrebbe fatto costare la stessa vendita due cifre diverse in due
+   * schermate.
+   */
+  const perDeal = useMemo(() => perTrattativa(lavori, ordiniDeal), [lavori, ordiniDeal]);
+  const preventiviDi = useCallback((d: { id: string }) => perDeal.get(d.id)?.riepilogo, [perDeal]);
+  const costoDi = useCallback((d: { id: string }) => perDeal.get(d.id)?.costo ?? undefined, [perDeal]);
 
   // Best-effort: allinea gli importi da HubSpot (i deal nati da una visita non
   // hanno `amount`; se impostato su HubSpot lo riportiamo qui). Se aggiorna
@@ -595,6 +643,8 @@ export default function Trattative() {
                 onRipristina={ripristina}
                 onOrdine={trasformaInOrdine}
                 onCancella={chiediCancellaDeal}
+                preventiviDi={preventiviDi}
+                costoDi={costoDi}
               />
             </View>
           )}
@@ -630,6 +680,8 @@ export default function Trattative() {
         renderItem={({ item }) => (
           <RigaDeal
             deal={item}
+            preventivi={preventiviDi(item)}
+            costo={costoDi(item)}
             onEdit={() => setEditDeal(item)}
             onElimina={() => chiediEliminaDeal(item)}
             onRipristina={() => ripristina(item)}
@@ -665,6 +717,8 @@ export default function Trattative() {
       {editDeal ? (
         <TrattativaModal
           deal={editDeal}
+          preventivi={preventiviDi(editDeal)}
+          costo={costoDi(editDeal)}
           onClose={() => setEditDeal(null)}
           onSalvata={() => {
             setEditDeal(null);
@@ -729,6 +783,8 @@ function dataApertura(deal: TrattativaConLuogo): string {
  */
 function RigaDeal({
   deal,
+  preventivi,
+  costo,
   onEdit,
   onElimina,
   onRipristina,
@@ -736,6 +792,9 @@ function RigaDeal({
   onOrdine,
 }: {
   deal: TrattativaConLuogo;
+  /** I preventivi fornitore di questa trattativa, se ce ne sono. */
+  preventivi?: RiepilogoPreventivi;
+  costo?: CostoDeiLavori;
   onEdit: () => void;
   onElimina: () => void;
   onRipristina?: () => void;
@@ -872,6 +931,10 @@ function RigaDeal({
           </>
         ) : null}
       </View>
+      {/* ⭐ I preventivi fornitore: quanto ci COSTA quello che stiamo
+          vendendo. Torna null da solo quando non ce ne sono — su una
+          trattativa senza preventivi una riga vuota è solo rumore. */}
+      <RiassuntoPreventivi riepilogo={preventivi} costo={costo} />
       {deal.owner_nome ? (
         <View style={styles.ownerRow}>
           <Ionicons name="person-circle-outline" size={15} color={colors.testoSoft} />
@@ -897,11 +960,16 @@ function labelMotivo(v: string): string {
 // ── Form crea/modifica trattativa (sincronizzato con negozio + contatti) ───────
 function TrattativaModal({
   deal,
+  preventivi,
+  costo,
   placeIniziale,
   onClose,
   onSalvata,
 }: {
   deal?: TrattativaConLuogo;
+  /** I preventivi fornitore ricevuti per questa trattativa (07/09/2026). */
+  preventivi?: RiepilogoPreventivi;
+  costo?: CostoDeiLavori;
   /** Negozio già scelto: si arriva qui dal bottone «Nuova trattativa» di una
    *  scheda (Clienti), quindi la ricerca del negozio si salta. Resta
    *  cambiabile con l'icona di scambio. */
@@ -1462,18 +1530,24 @@ function TrattativaModal({
                 l'elenco di Preventivi non propone le finite, ma se ci arrivi
                 da una trattativa l'hai scelta tu, e su una persa il preventivo
                 ricevuto è la memoria di quanto ci sarebbe costata. */}
+            {/* ⭐ 07/09/2026 — QUI SI VEDONO, non si va a cercarli altrove
+                (richiesta dell'utente: «per trattativa quali sono i
+                preventivi che abbiamo ricevuto»). Prima c'era solo il link
+                qui sotto: per sapere se era arrivato un prezzo bisognava
+                uscire dalla scheda, e tornando indietro si perdeva il posto.
+                Il link resta — è da lì che se ne aggiunge uno. */}
             {inModifica && deal ? (
-              <Pressable
-                style={styles.collegamento}
-                onPress={() => {
-                  onClose();
-                  router.push(`/(app)/preventivi?perTrattativa=${deal.id}` as never);
-                }}
-              >
-                <Ionicons name="calculator-outline" size={16} color={colors.navy} />
-                <Text style={styles.collegamentoTxt}>Preventivi fornitori ricevuti</Text>
-                <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
-              </Pressable>
+              <View style={styles.bloccoPreventivi}>
+                <Text style={styles.gruppoTitolo}>Preventivi fornitori</Text>
+                <ElencoPreventivi
+                  riepilogo={preventivi}
+                  costo={costo}
+                  onApri={() => {
+                    onClose();
+                    router.push(`/(app)/preventivi?perTrattativa=${deal.id}` as never);
+                  }}
+                />
+              </View>
             ) : null}
 
             {/* Elimina: solo sulle trattative nate in Scout. Quelle da HubSpot o
@@ -1667,6 +1741,9 @@ const styles = StyleSheet.create({
   // Il padding esterno lo dà il Foglio: qui resta solo il ritmo fra i campi.
   sheetBody: { gap: spacing.xs, paddingBottom: spacing.sm },
   campoLabel: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: spacing.sm, marginBottom: 4 },
+  // Il blocco dei preventivi dentro la scheda: stessa aria degli altri campi.
+  bloccoPreventivi: { marginTop: spacing.md, gap: 6 },
+  gruppoTitolo: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginBottom: 2 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

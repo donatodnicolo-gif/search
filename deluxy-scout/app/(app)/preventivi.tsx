@@ -40,6 +40,7 @@ import {
   eliminaPreventivo,
   fetchLavori,
   LABEL_STATO_PREVENTIVO,
+  COLORE_STATO_PREVENTIVO,
   scegliPreventivo,
   type LavoroConPreventivi,
   type Preventivo,
@@ -48,12 +49,8 @@ import {
 const euro = (n: number | null | undefined) =>
   n == null ? '—' : `€ ${Number(n).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-const COLORE_STATO: Record<string, string> = {
-  richiesto: colors.grigio,
-  ricevuto: colors.blue,
-  scelto: colors.successo,
-  scartato: colors.errore,
-};
+// I colori degli stati stanno in lib/preventivi, accanto alle etichette.
+const COLORE_STATO = COLORE_STATO_PREVENTIVO;
 
 export default function Preventivi() {
   // Da una trattativa: `?perTrattativa=<id>` apre il form già su quella vendita.

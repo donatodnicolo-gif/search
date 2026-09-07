@@ -8,6 +8,7 @@
 // **Il lavoro è uno, i preventivi sono tanti**: è la separazione che permette di
 // confrontarli, che è la ragione per cui si chiedono.
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/lib/theme';
 
 export type StatoLavoro = 'aperto' | 'chiuso' | 'annullato';
 export type StatoPreventivo = 'richiesto' | 'ricevuto' | 'scelto' | 'scartato';
@@ -23,6 +24,18 @@ export const LABEL_STATO_PREVENTIVO: Record<StatoPreventivo, string> = {
   ricevuto: 'Ricevuto',
   scelto: 'Scelto',
   scartato: 'Scartato',
+};
+
+/**
+ * Il colore di ogni stato, accanto alla sua etichetta (07/09/2026): stava
+ * scritto dentro `app/(app)/preventivi.tsx`, e da oggi lo stesso badge si
+ * disegna anche dalla trattativa. Due copie dello stesso colore divergono.
+ */
+export const COLORE_STATO_PREVENTIVO: Record<StatoPreventivo, string> = {
+  richiesto: colors.grigio,
+  ricevuto: colors.blue,
+  scelto: colors.successo,
+  scartato: colors.errore,
 };
 
 export interface Lavoro {
@@ -195,6 +208,78 @@ export interface CostoTrattativa {
  * tutte e tre le strade, perché l'ordine è lo stesso da qualunque parte sia
  * nato e il margine dev'essere quello.
  */
+/**
+ * ⭐ LA CHIAVE DELLA VENDITA a cui un lavoro appartiene — `ordine:<id>`,
+ * `richiesta:<id>` o `deal:<id>` — in UN posto solo (07/09/2026).
+ *
+ * ⚠️ L'ordine dei rami è una regola, non un caso: **il legame più vicino
+ * vince**. Un lavoro agganciato direttamente all'ordine racconta il costo di
+ * QUELL'ordine, anche se la trattativa da cui è nato ne ha altri.
+ *
+ * ⚠️ `deal:hs_<id>` è lo stesso id sintetico dell'elenco trattative: quelle
+ * righe si chiamano così, e la chiave deve parlare la loro lingua. Era scritta
+ * dentro `costiPerChiave`; ora che la leggono in due, riscriverla sarebbe una
+ * regola ricopiata — e queste divergono sempre.
+ */
+export function chiaveVendita(l: {
+  ordine_id?: string | null;
+  richiesta_id?: string | null;
+  deal_id?: string | null;
+  hubspot_deal_id?: string | null;
+}): string | null {
+  if (l.ordine_id) return `ordine:${l.ordine_id}`;
+  if (l.richiesta_id) return `richiesta:${l.richiesta_id}`;
+  if (l.deal_id) return `deal:${l.deal_id}`;
+  if (l.hubspot_deal_id) return `deal:hs_${l.hubspot_deal_id}`;
+  return null;
+}
+
+/**
+ * ⭐ I PREVENTIVI DI UNA VENDITA, contati e ordinati (07/09/2026, richiesta
+ * dell'utente: «fai vedere anche in trattative e per trattativa quali sono i
+ * preventivi che abbiamo ricevuto»).
+ *
+ * `costiPerChiave` dice quanto COSTA — un numero solo, e chi non ha nessun
+ * preventivo ricevuto non entra nemmeno nella mappa. Qui serve l'altra metà:
+ * QUALI sono, quanti se ne aspettano ancora, e chi li ha mandati. Un fornitore
+ * a cui abbiamo chiesto e che non ha ancora risposto è un'informazione che
+ * vale quanto un prezzo — è la ragione per cui si sollecita.
+ *
+ * ⚠️ Gli SCARTATI restano nell'elenco ma non contano né come ricevuti né nel
+ * confronto: sono la memoria di una scelta fatta, non un'offerta in gioco.
+ */
+export interface RiepilogoPreventivi {
+  /** Tutti, in ordine di arrivo, scartati compresi. */
+  tutti: Preventivo[];
+  /** Con un importo e non scartati: le offerte vere in gioco. */
+  ricevuti: Preventivo[];
+  /** Chiesti e ancora senza prezzo: quelli da sollecitare. */
+  inAttesa: Preventivo[];
+  /** Il preventivo SCELTO, se qualcuno ha deciso. */
+  scelto: Preventivo | null;
+  /** Lo scelto se c'è, altrimenti il più basso ricevuto (che è una stima). */
+  migliore: Preventivo | null;
+  /** Quanti lavori compongono questa vendita. */
+  lavori: number;
+}
+
+/** I preventivi indicizzati come `costiPerChiave`: `deal:<id>` & co. */
+export function preventiviPerChiave(
+  lavori: LavoroConPreventivi[],
+): Map<string, RiepilogoPreventivi> {
+  const gruppi = new Map<string, LavoroConPreventivi[]>();
+  for (const l of lavori) {
+    const chiave = chiaveVendita(l);
+    if (!chiave) continue;
+    const g = gruppi.get(chiave);
+    if (g) g.push(l);
+    else gruppi.set(chiave, [l]);
+  }
+  const out = new Map<string, RiepilogoPreventivi>();
+  for (const [chiave, suoi] of gruppi) out.set(chiave, riepilogoDeiLavori(suoi));
+  return out;
+}
+
 export function costiPerOrdine(
   lavori: LavoroConPreventivi[],
   ordini: { id: string; deal_id?: string | null; richiesta_id?: string | null }[],
@@ -211,29 +296,150 @@ export function costiPerOrdine(
   return out;
 }
 
+/**
+ * ⭐ IL PREVENTIVO CHE DECIDE IL COSTO DI UN LAVORO, in un posto solo
+ * (estratto il 07/09/2026): lo SCELTO se qualcuno ha deciso — è una decisione
+ * presa, e vince su qualunque numero più basso arrivato dopo — altrimenti il
+ * più basso fra quelli ricevuti, che è una stima.
+ *
+ * ⚠️ Gli SCARTATI non concorrono: sono la memoria di una scelta, non
+ * un'offerta in gioco. E un preventivo senza importo non è zero: è «non ha
+ * ancora risposto», e un lavoro così non fa costo per niente.
+ */
+export function preventivoDecisivo(l: LavoroConPreventivi): {
+  preventivo: Preventivo | null;
+  scelto: boolean;
+} {
+  const scelto = l.preventivi.find((p) => p.stato === 'scelto' && p.importo != null);
+  if (scelto) return { preventivo: scelto, scelto: true };
+  const candidati = l.preventivi.filter((p) => p.importo != null && p.stato !== 'scartato');
+  const min = candidati.reduce<Preventivo | null>(
+    (m, p) => (!m || (p.importo ?? 0) < (m.importo ?? 0) ? p : m),
+    null,
+  );
+  return { preventivo: min, scelto: false };
+}
+
+/**
+ * ⭐ LA TRATTATIVA A CUI UN LAVORO APPARTIENE — anche passando per l'ORDINE
+ * che ne è nato (07/09/2026).
+ *
+ * Misurato sul database il giorno in cui la trattativa ha iniziato a mostrare
+ * i suoi preventivi: **14 lavori su 15 erano agganciati a un ordine**, uno solo
+ * direttamente alla trattativa. Guardando il solo legame diretto la schermata
+ * sarebbe nata vuota su quasi tutto — e avrebbe detto «nessun preventivo»
+ * proprio dove i preventivi c'erano.
+ *
+ * È il giro dell'ordine letto al contrario: `costiPerOrdine` scende dalla
+ * trattativa all'ordine per fare il margine, qui si risale.
+ *
+ * ⚠️ Il legame DIRETTO vince: un lavoro agganciato alla trattativa è di quella
+ * trattativa anche se l'ordine che ne è nato ne ha altri.
+ * ⚠️ Le RICHIESTE CLIENTE non risalgono (oggi non ne hanno nessuno): una
+ * richiesta non è una trattativa, e dedurre il legame sarebbe un'invenzione.
+ */
+export function trattativaDelLavoro(
+  l: { deal_id?: string | null; hubspot_deal_id?: string | null; ordine_id?: string | null },
+  dealDellOrdine: Map<string, string>,
+): string | null {
+  if (l.deal_id) return l.deal_id;
+  if (l.hubspot_deal_id) return `hs_${l.hubspot_deal_id}`;
+  if (l.ordine_id) return dealDellOrdine.get(l.ordine_id) ?? null;
+  return null;
+}
+
+/** Il riepilogo di un gruppo di lavori, comunque li si sia raggruppati. */
+export function riepilogoDeiLavori(lavori: LavoroConPreventivi[]): RiepilogoPreventivi {
+  const r: RiepilogoPreventivi = {
+    tutti: [],
+    ricevuti: [],
+    inAttesa: [],
+    scelto: null,
+    migliore: null,
+    lavori: lavori.length,
+  };
+  for (const l of lavori) {
+    for (const p of l.preventivi) {
+      r.tutti.push(p);
+      if (p.stato === 'scartato') continue;
+      if (p.importo != null) r.ricevuti.push(p);
+      else if (p.stato === 'richiesto') r.inAttesa.push(p);
+      if (p.stato === 'scelto' && p.importo != null && !r.scelto) r.scelto = p;
+    }
+  }
+  // Il migliore si calcola alla fine: con più lavori i candidati arrivano da
+  // giri diversi del ciclo. Lo SCELTO vince su qualunque numero più basso
+  // arrivato dopo, perché è una decisione presa e non un confronto.
+  r.migliore =
+    r.scelto ??
+    r.ricevuti.reduce<Preventivo | null>(
+      (min, p) => (!min || (p.importo ?? 0) < (min.importo ?? 0) ? p : min),
+      null,
+    );
+  return r;
+}
+
+/** Il costo di un gruppo di lavori: la somma dei loro preventivi decisivi. */
+export interface CostoDeiLavori {
+  costo: number;
+  /** true = tutti scelti; false = c'è dentro almeno una stima. */
+  definitivo: boolean;
+  /** Quanti lavori hanno davvero un prezzo. */
+  lavori: number;
+}
+export function costoDeiLavori(lavori: LavoroConPreventivi[]): CostoDeiLavori | null {
+  let costo = 0;
+  let definitivo = true;
+  let quanti = 0;
+  for (const l of lavori) {
+    const { preventivo, scelto } = preventivoDecisivo(l);
+    if (!preventivo || preventivo.importo == null) continue;
+    costo += preventivo.importo;
+    // Basta un lavoro ancora da decidere perché il totale sia una stima.
+    definitivo = definitivo && scelto;
+    quanti += 1;
+  }
+  return quanti ? { costo, definitivo, lavori: quanti } : null;
+}
+
+/**
+ * I preventivi e il costo di ogni TRATTATIVA, con la risalita dagli ordini.
+ * La chiave è l'id con cui l'elenco trattative chiama le sue righe: l'uuid per
+ * quelle di Scout, `hs_<id>` per quelle di HubSpot.
+ */
+export function perTrattativa(
+  lavori: LavoroConPreventivi[],
+  ordini: { id: string; deal_id?: string | null; hubspot_deal_id?: string | null }[],
+): Map<string, { riepilogo: RiepilogoPreventivi; costo: CostoDeiLavori | null }> {
+  const dealDellOrdine = new Map<string, string>();
+  for (const o of ordini) {
+    const d = o.deal_id ? o.deal_id : o.hubspot_deal_id ? `hs_${o.hubspot_deal_id}` : null;
+    if (d) dealDellOrdine.set(o.id, d);
+  }
+  const gruppi = new Map<string, LavoroConPreventivi[]>();
+  for (const l of lavori) {
+    const deal = trattativaDelLavoro(l, dealDellOrdine);
+    if (!deal) continue;
+    const g = gruppi.get(deal);
+    if (g) g.push(l);
+    else gruppi.set(deal, [l]);
+  }
+  const out = new Map<string, { riepilogo: RiepilogoPreventivi; costo: CostoDeiLavori | null }>();
+  for (const [deal, suoi] of gruppi) {
+    out.set(deal, { riepilogo: riepilogoDeiLavori(suoi), costo: costoDeiLavori(suoi) });
+  }
+  return out;
+}
+
 /** Come sopra, ma indicizzato per `deal:<id>` / `richiesta:<id>` / `ordine:<id>`. */
 export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, CostoTrattativa> {
   const perDeal = new Map<string, CostoTrattativa>();
   /** I fornitori DISTINTI di ogni vendita: l'etichetta li conta, non i lavori. */
   const nomi = new Map<string, Set<string>>();
   for (const l of lavori) {
-    const chiave = l.ordine_id
-      ? `ordine:${l.ordine_id}`
-      : l.richiesta_id
-        ? `richiesta:${l.richiesta_id}`
-        : l.deal_id
-          ? `deal:${l.deal_id}`
-          : l.hubspot_deal_id
-            // Lo stesso id sintetico dell'elenco trattative: è la lingua in
-            // cui quelle righe si chiamano, e la chiave deve parlarla.
-            ? `deal:hs_${l.hubspot_deal_id}`
-            : null;
+    const chiave = chiaveVendita(l);
     if (!chiave) continue;
-    const scelto = l.preventivi.find((p) => p.stato === 'scelto' && p.importo != null);
-    const candidati = l.preventivi.filter((p) => p.importo != null && p.stato !== 'scartato');
-    const migliore =
-      scelto ??
-      candidati.reduce<Preventivo | null>((min, p) => (!min || (p.importo ?? 0) < (min.importo ?? 0) ? p : min), null);
+    const { preventivo: migliore, scelto } = preventivoDecisivo(l);
     if (!migliore || migliore.importo == null) continue;
     const gia = perDeal.get(chiave);
     if (!gia) {

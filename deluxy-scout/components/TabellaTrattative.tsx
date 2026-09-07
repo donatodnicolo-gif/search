@@ -9,6 +9,8 @@ import { StatusBadge } from '@/components/ui';
 import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import type { TrattativaConLuogo } from '@/lib/db';
 import type { DealStage, StatoAffiliazione } from '@/types';
+import type { CostoDeiLavori, RiepilogoPreventivi } from '@/lib/preventivi';
+import { RiassuntoPreventivi } from '@/components/PreventiviTrattativa';
 import { useMemo } from 'react';
 
 type Colonna = 'negozio' | 'trattativa' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
@@ -37,6 +39,8 @@ export function TabellaTrattative({
   onRipristina,
   onCancella,
   onOrdine,
+  preventiviDi,
+  costoDi,
 }: {
   righe: TrattativaConLuogo[];
   /** L'ordine della pipeline: la colonna Fase si ordina per posizione, non per alfabeto. */
@@ -52,6 +56,16 @@ export function TabellaTrattative({
   onCancella?: (d: TrattativaConLuogo) => void;
   /** La trasforma in ordine (con la domanda: la fa il chiamante). */
   onOrdine?: (d: TrattativaConLuogo) => void;
+  /**
+   * ⭐ I preventivi fornitore di una trattativa (07/09/2026). Vanno SOTTO il
+   * valore, non in una colonna nuova: qui le colonne sono già otto più le
+   * azioni, e la nona avrebbe alzato la soglia della tabella (la lezione
+   * degli Ordini, dove ogni colonna in più toglieva pixel al nome del
+   * cliente). Prezzo e costo sono poi le due metà dello stesso conto: uno
+   * sotto l'altro si leggono insieme.
+   */
+  preventiviDi?: (d: TrattativaConLuogo) => RiepilogoPreventivi | undefined;
+  costoDi?: (d: TrattativaConLuogo) => CostoDeiLavori | undefined;
 }) {
   // Default: la più RECENTE in cima (richiesta dell'utente, 26/08/2026).
   // Prima ordinava per valore, e con metà delle trattative senza importo la
@@ -81,7 +95,7 @@ export function TabellaTrattative({
           { c: 'trattativa' as const, label: 'Trattativa', stile: styles.colLinea },
           { c: 'linea' as const, label: 'Linea', stile: styles.colTag },
           { c: 'fase' as const, label: 'Fase', stile: styles.colFase },
-          { c: 'valore' as const, label: 'Valore', stile: styles.colDx },
+          { c: 'valore' as const, label: 'Valore · costo', stile: styles.colDx },
           { c: 'aperta' as const, label: 'Aperta', stile: styles.colData },
           { c: 'scadenza' as const, label: 'Scadenza', stile: styles.colData },
           // ⚠️ , non : la cella sotto ha flex 1.2 e
@@ -143,13 +157,17 @@ export function TabellaTrattative({
                 <StatusBadge small label={labelFase[d.fase]} colore={coloreFase[d.fase]} />
               )}
             </View>
-            <Text style={styles.cellaValore}>
-              {/* ⚠️ L'it-IT non raggruppa le 4 cifre senza useGrouping:'always':
-                  «1500» in una colonna di importi si legge male. */}
-              {d.valore_atteso
-                ? `€ ${d.valore_atteso.toLocaleString('it-IT', { useGrouping: 'always' } as unknown as Intl.NumberFormatOptions)}`
-                : '—'}
-            </Text>
+            <View style={styles.colDx}>
+              <Text style={styles.cellaValore}>
+                {/* ⚠️ L'it-IT non raggruppa le 4 cifre senza useGrouping:'always':
+                    «1500» in una colonna di importi si legge male. */}
+                {d.valore_atteso
+                  ? `€ ${d.valore_atteso.toLocaleString('it-IT', { useGrouping: 'always' } as unknown as Intl.NumberFormatOptions)}`
+                  : '—'}
+              </Text>
+              {/* Quanto ci COSTA: torna null da solo se non ci sono preventivi. */}
+              <RiassuntoPreventivi compatto riepilogo={preventiviDi?.(d)} costo={costoDi?.(d)} />
+            </View>
             <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
             <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
             <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
@@ -300,14 +318,20 @@ const styles = StyleSheet.create({
   colLinea: { flex: 1, minWidth: 0 },
   colTag: { flex: 0.9, minWidth: 0 },
   colFase: { width: 140 },
-  colDx: { width: 90, alignItems: 'flex-end' },
+  // ⚠️ 90 → 116 (07/09/2026): sotto il valore ci sta ora la riga dei
+  //    preventivi, e «2 prev. · 1 in attesa» a 90px veniva tagliata a metà.
+  //    26px tolti alle colonne a flex, che li assorbono in sei pixel l'una.
+  colDx: { width: 116, alignItems: 'flex-end' },
   colData: { width: 76, alignItems: 'flex-end' },
   negozio: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   sotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
   cellaLinea: { flex: 1, minWidth: 0, color: colors.testo, fontSize: 13, lineHeight: 17 },
   cellaTag: { flex: 0.9, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
   cellaValore: {
-    width: 90,
+    // ⚠️ Niente `width` qui: la larghezza la dà `colDx`, che ora avvolge
+    //    anche la riga dei preventivi. Scritta in due punti, la colonna si
+    //    sarebbe disallineata dalla sua intestazione al primo cambio.
+    alignSelf: 'stretch',
     textAlign: 'right',
     color: colors.testo,
     fontWeight: '700',
