@@ -43,10 +43,13 @@ altre sessioni avevano pubblicato Orders e Scout; l'unico conflitto era il regis
      5.1 `$_.Target` è un `String[]`, `Join-Path` lo rifiuta, e la `Directory.Delete` girava lo
      stesso. Va preso `@($_.Target)[0]`, e si **copia prima, si cancella dopo** (copia in
      `.copia`, delete del link, rename). Rimedio se succede: `rm -rf .vercel/output` e ricostruire.
-  2. Poi `ENOENT: lstat '/vercel/path0/.env'` — il `.env` è in `.vercelignore` e il caricamento
-     lo cerca comunque. Spostarlo per il tempo del deploy è vietato dal classificatore.
-  Finché non si risolve il punto 2, **AI Mail si pubblica con build nel cloud** (~2 min di Build
-  CPU): `npx vercel deploy --prod --yes`.
+  2. Poi `ENOENT: lstat '/vercel/path0/.env'` — ogni `.vc-config.json` porta `.env`,
+     `.env.local`, `.env.example` nel `filePathMap` (Next traccia i file che `@next/env` legge),
+     ma `.vercelignore` li esclude dal pacchetto e il CLI li cerca a vuoto. **Rimedio già noto
+     e non provato qui**: togliere le voci `.env*` dal `filePathMap` di tutti i
+     `.vc-config.json` dopo ogni build (in produzione le variabili arrivano da Vercel).
+  Oggi si è pubblicato con **build nel cloud** (~2 min di Build CPU): `npx vercel deploy --prod
+  --yes`. Al prossimo giro vale la pena ritentare la precompilata coi due rimedi in fila.
 
 ### 07/09 — «Come mai compare Chanel?»: il badge cliente si prendeva TUTTO il dominio deluxy.it
 
