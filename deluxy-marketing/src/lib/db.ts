@@ -15,7 +15,8 @@ import { PrismaClient } from "@prisma/client";
  * `connection_limit` Prisma ne apre `cpu × 2 + 1` **per istanza**, e su
  * serverless le istanze sono decine: il tetto si raggiunge da solo. Ma
  * un'istanza serve UNA richiesta per volta, quindi più di una connessione non
- * le serve: è la raccomandazione di Prisma dietro pgbouncer/Supavisor.
+ * le serve: è la raccomandazione di Prisma dietro pgbouncer/Supavisor (col numero giusto: vedi
+ * sotto, tre e non una).
  *
  * ⚠️ Si tocca SOLO l'indirizzo del pooler (`:6543`): la connessione diretta
  * (`:5432`, `DIRECT_URL`) serve alle migrazioni e vuole il suo pool.
@@ -25,10 +26,21 @@ import { PrismaClient } from "@prisma/client";
  */
 export function urlPooler(url: string | undefined): string | undefined {
   if (!url || !url.includes(":6543")) return url;
-  if (/[?&]connection_limit=/.test(url)) {
-    return url.replace(/([?&]connection_limit=)\d+/, "$11");
-  }
-  return url + (url.includes("?") ? "&" : "?") + "connection_limit=1";
+  let u = url;
+  // ⚠️⚠️ TRE, non una (corretto il 07/09/2026 dopo averlo sbagliato). Con
+  // `connection_limit=1` la home è andata in `P2024 Timed out fetching a new
+  // connection from the connection pool`: quella pagina lancia molte query
+  // insieme (i conteggi della bacheca) e con una sola connessione si mettono
+  // in fila fino a superare i 10 secondi di attesa. Tre è il compromesso: due
+  // in meno delle cinque di prima per ogni istanza — che è ciò che salva il
+  // pooler condiviso — ma abbastanza per servire una pagina che conta.
+  u = /[?&]connection_limit=/.test(u)
+    ? u.replace(/([?&]connection_limit=)\d+/, "$13")
+    : u + (u.includes("?") ? "&" : "?") + "connection_limit=3";
+  // E l'attesa passa da 10 a 20 secondi: quando il pooler è congestionato,
+  // aspettare è meglio che rispondere «Application error».
+  if (!/[?&]pool_timeout=/.test(u)) u += "&pool_timeout=20";
+  return u;
 }
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
