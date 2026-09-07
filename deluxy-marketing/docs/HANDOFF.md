@@ -28,10 +28,13 @@
 >   giro `tutto` su Gifts: l'anagrafica ha trovato la campagna **creata
 >   davvero** (id `24224109539`, PAUSED) e l'app ha accodato da sola
 >   **«Completa la campagna»** (8 keyword · 1 RSA · 1 località) e **10
->   negative**, tutte `in_attesa`. 🔴 **Restano da approvare in /operazioni**
->   (11 righe) e poi le prende `esegui` (ogni ora ~:09, o giro a mano);
->   checklist 4.1 prima di accenderla. Percorso «bulk upload → anagrafica →
->   completa» collaudato per la prima volta dal 17/08.
+>   negative**; approvate alle 13:41 ed **ESEGUITE dal giro `esegui` a mano
+>   delle 14:09** (gruppo creato, 8 keyword ENABLED, RSA con 15 titoli e 4
+>   descrizioni verso business.deluxy.it/pages/natale-2026, 1 località, 10
+>   negative), tutto riletto dal `tutto` delle 14:13: nel DB c'è ogni pezzo.
+>   Resta in coda una **`attiva_campagna` proposta dall'app** (14:10):
+>   checklist 4.1 prima di approvarla. Percorso «bulk upload → anagrafica →
+>   completa → attiva» collaudato per intero per la prima volta dal 17/08.
 >   Sempre oggi alle 07:02 l'utente ha annullato 4 operazioni Cake
 >   (completa_campagna, attiva_campagna e 2 negative su Torte Matrimonio).
 > · Coda: Google **114 eseguite · 28 annullate · 3 fallite** (le tre note:
