@@ -640,7 +640,14 @@ export class SalesService {
       where: {
         source: body.source,
         externalOrderId: body.externalOrderId,
-        ...(body.productId ? { productId: body.productId, productVariantId: body.productVariantId ?? null } : {}),
+        // Con un prodotto: la riga è quella coppia. Senza (riga fuori catalogo), il doppione
+        // si misura sul TITOLO: due righe diverse dello stesso ordine devono poter nascere
+        // tutte e due, o l'ordine composto torna a essere mezzo.
+        ...(body.productId
+          ? { productId: body.productId, productVariantId: body.productVariantId ?? null }
+          : body.productName
+            ? { productName: body.productName }
+            : {}),
       },
       include: { partner: { select: { id: true, insegna: true } } },
     });

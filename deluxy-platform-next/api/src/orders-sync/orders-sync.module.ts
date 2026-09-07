@@ -521,10 +521,24 @@ export class OrdersSyncService {
     // visibilità): servono a `esisteCandidato` per il filtro «solo unici o
     // province con partner», senza una query per ordine.
     const prodotti = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
+    // ⭐ 07/09/2026: l'indice per NOME quando lo SKU manca (succede: l'ordine 12893 aveva la
+    // riga «Van Gogh - Notte Stellata» senza SKU). Solo prodotti VIVI e non archiviati, e solo
+    // nomi che identificano un prodotto solo: un nome ripetuto non riconosce niente.
+    const perNome = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
+    const nomiDoppi = new Set<string>();
     for (const p of await this.prisma.product.findMany({
       where: { NOT: { sku: null } },
-      select: { id: true, sku: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
+      select: { id: true, sku: true, name: true, archived: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
     })) {
+      const voce = {
+        productId: p.id, variantId: null as string | null,
+        smist: { id: p.id, type: p.type, categoryId: p.categoryId, partnerId: p.partnerId, visibleToOtherPartners: p.visibleToOtherPartners },
+      };
+      const nome = (p as { name?: string }).name?.trim().toLowerCase();
+      if (nome && !(p as { archived?: boolean }).archived) {
+        if (perNome.has(nome)) nomiDoppi.add(nome);
+        else perNome.set(nome, voce);
+      }
       prodotti.set(p.sku!.trim().toUpperCase(), {
         productId: p.id, variantId: null,
         smist: { id: p.id, type: p.type, categoryId: p.categoryId, partnerId: p.partnerId, visibleToOtherPartners: p.visibleToOtherPartners },
@@ -550,6 +564,8 @@ export class OrdersSyncService {
     const daGestire: string[] = [];
     /** Gli ordini che NON sono entrati perche' non si capisce dove vanno: vanno detti. */
     const senzaProvincia: string[] = [];
+
+    for (const n of nomiDoppi) perNome.delete(n);
 
     for (const o of ordini) {
       const etichetta = `${o.brand ?? ''} ${o.numero ?? o.id}`.trim();
@@ -705,10 +721,29 @@ export class OrdersSyncService {
         // una vendita di quantità due, non due vendite.
         const viste = new Set<string>();
         const daCreare: { productId: string; variantId?: string; amount?: number; smist: any }[] = [];
+        // ⭐ 07/09/2026 (segnalazione utente sull'ordine 12893: «vedo ancora un solo record in
+        // vendita anche se ci sono più prodotti»). Il secondo prodotto — «Van Gogh - Notte
+        // Stellata», 85 € — arriva da Shopify con lo SKU VUOTO, e una riga senza SKU non si
+        // riconosceva: la vendita non nasceva e metà ordine spariva.
+        // Quando lo SKU manca si prova il NOME, confrontato con il catalogo (esatto, senza
+        // badare a maiuscole): «Van Gogh - Notte Stellata» è un prodotto vero, e chiamarlo per
+        // nome è meno fragile che perderlo. Se non combacia niente, la riga diventa comunque
+        // una vendita DA GESTIRE col titolo — ma solo se ha un prezzo: le righe a 0 € sono
+        // personalizzazioni (candelina, scritta), non prodotti.
+        const senzaProdotto: { titolo: string; amount?: number }[] = [];
         for (const r of o.righe ?? []) {
           const s2 = String(r?.sku ?? '').trim().toUpperCase();
-          if (!s2 || !prodotti.has(s2)) continue;
-          const info = prodotti.get(s2)!;
+          let info = s2 ? prodotti.get(s2) : undefined;
+          if (!info) {
+            const titolo = String(r?.titolo ?? '').trim();
+            if (titolo) info = perNome.get(titolo.toLowerCase()) ?? undefined;
+            if (!info) {
+              if (titolo && (r?.prezzo ?? 0) > 0 && !senzaProdotto.some((x) => x.titolo.toLowerCase() === titolo.toLowerCase())) {
+                senzaProdotto.push({ titolo, amount: r?.prezzo ?? undefined });
+              }
+              continue;
+            }
+          }
           const chiave = `${info.productId}|${info.variantId ?? ''}`;
           if (viste.has(chiave)) continue;
           viste.add(chiave);
@@ -719,7 +754,7 @@ export class OrdersSyncService {
         for (const riga of daCreare) {
           if (await this.sales.esisteCandidato(riga.smist, province.get(codice)!, riga.variantId ?? null)) conCandidato.push(riga);
         }
-        if (!conCandidato.length) {
+        if (!conCandidato.length && !senzaProdotto.length) {
           esito = 'senza-partner';
         } else if (!opzioni.applica) {
           const gia = await this.prisma.sale.findFirst({
@@ -747,8 +782,25 @@ export class OrdersSyncService {
               if (r.creata) creata++; else gia++;
               if (r.creata && (r as any).vendita?.status === SaleStatus.DA_GESTIRE && !daGestire.includes(etichetta)) daGestire.push(etichetta);
             }
+            // Le righe senza prodotto a catalogo: una vendita DA GESTIRE ciascuna, col titolo.
+            // Servono a vedere che l'ordine è composto e che manca ancora un pezzo.
+            for (const riga of senzaProdotto) {
+              const r2 = await this.sales.ingest({
+                source: 'deluxy-orders',
+                externalOrderId: o.id,
+                externalOrderNumber: o.numero ? String(o.numero).replace(/^#+/, '') : undefined,
+                provinceId: province.get(codice)!,
+                productName: riga.titolo,
+                amount: riga.amount,
+                senzaProposta: true,
+                brand: o.brand ?? undefined,
+                ...this.destinatario(o),
+                deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,
+              });
+              if (r2.creata) { creata++; if (!daGestire.includes(etichetta)) daGestire.push(etichetta); } else gia++;
+            }
             esito = creata ? 'creata' : 'gia-presente';
-            if (conCandidato.length > 1) dettaglio = `ordine composto: ${creata} vendite nuove, ${gia} già presenti`;
+            if (conCandidato.length + senzaProdotto.length > 1) dettaglio = `ordine composto: ${creata} vendite nuove, ${gia} già presenti`;
             if (conCandidato.length < daCreare.length) {
               dettaglio = [dettaglio, `${daCreare.length - conCandidato.length} righe senza partner in provincia`].filter(Boolean).join(' · ');
             }
