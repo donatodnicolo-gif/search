@@ -1,8 +1,57 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **04/09/2026**. Una finestra Claude nuova deve poter
+> Stato al **07/09/2026**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
+>
+> ⏱️ **RI-MISURATO IL 07/09 pomeriggio (sola lettura sul DB di produzione;
+> `npx tsc --noEmit` pulito in locale dopo `prisma generate`; nessuna modifica
+> al codice)**:
+> · **Produzione = HEAD**: ultimo deploy `deluxy-marketing-ex9q5a4t7` (04/09,
+>   Ready), ultimo commit di codice `a2b345ca` (04/09). `/api/health` →
+>   `ok: true, database: true`.
+> · ✅ **Repo riallineato**: `scout-ui` locale è avanti 5 / indietro 0 rispetto
+>   a origin (i 5 sono commit di Manuale, Merchandising, Scout e CS di altre
+>   sessioni, nessuno di Marketing). La cartella `deluxy-marketing/` è pulita;
+>   nel working tree restano modifiche NON committate di deluxy-orders,
+>   deluxy-merchandising e deluxy-mail di altre sessioni: **non toccarle**,
+>   committare solo `deluxy-marketing/` (git add per cartella).
+> · 🔴 **Le due pause Meta approvate sono ANCORA ferme**: «[Palloncini] -
+>   AWARENESS» (04/09 13:07) e «[Opera] ATC - VOLUME» (26/08), `eseguitaIl:
+>   null`. Nessuna approvazione Meta nuova dal 04/09: il percorso
+>   «l'approvazione esegue subito» **non ha ancora girato in produzione**.
+> · 🆕 **Oggi 07/09 l'utente ha lanciato una campagna Google NUOVA**:
+>   «[Deluxy] Regali B2B (natale)» su Gifts (248-656-1148), budget 12 €/g,
+>   Maximize conversions, lingua it, gruppo «Regalistica Natale B2B» con le
+>   keyword; accodata 08:20, approvata 08:21, **bulk upload INVIATO dallo
+>   script alle 09:09 UTC**. Nell'app è `in_pausa` senza `idEsterno`: la
+>   conferma arriva col primo giro di anagrafica di Gifts (~03:47 UTC).
+>   **Da controllare l'08/09**: registro caricamenti di Google Ads (Azioni
+>   collettive → Caricamenti) e che la campagna abbia preso l'id; poi l'app
+>   accoda «Completa la campagna» (gruppo, keyword, annuncio, località).
+>   Sempre oggi alle 07:02 l'utente ha annullato 4 operazioni Cake
+>   (completa_campagna, attiva_campagna e 2 negative su Torte Matrimonio).
+> · Coda: Google **114 eseguite · 28 annullate · 3 fallite** (le tre note:
+>   `pausa_gruppo` Mother's Day senza id, `rimuovi_estensione` White-glove
+>   non trovato, `nuovo_annuncio` DUPLICATE_ASSET); Meta 2 eseguite · 2
+>   approvate ferme · 1 annullata. **0 in attesa.**
+> · Consegne sane: Google su tutti e tre i conti stanotte (Cake 02:38 · Gifts
+>   03:47 · Flowers 05:14, negative comprese), Meta ogni ora (12:07), ordini
+>   12:20 (**8.666**); **0 non-ok** in 10 giorni. Campagne: Google 20 attive ·
+>   4 in pausa · 140 defunte · 1 bozza; Meta 8 attive · 47 in pausa · 16 defunte.
+> · Schede analisi: il cron elabora (05/09 e 06/09: le tre analisi B2B
+>   Cake/Gifts del 04/09, verdetti rosso · rosso · giallo).
+>   ⚠️ **Trovato un DOPPIONE da import**: quando su Drive lo stesso documento
+>   esiste in `.md` e in `.xlsx` (es. «2026-09-02 - Analisi Google Ads Cake»,
+>   «2026-09-03 - VALUTAZIONE CREATIVI Dolci Rientri») l'import crea DUE
+>   `Analisi` con lo stesso titolo: la `.md` viene elaborata, la `.xlsx` resta
+>   per sempre «da elaborare». In totale 89 analisi con `fileDrive` e senza
+>   `elaborataIl`: 74 dell'import iniziale del 23/07, 15 dal 25/08 in poi
+>   (doppioni .xlsx compresi). **Non corretto**: da decidere se dedurre per
+>   titolo/cartella o saltare gli `.xlsx` quando esiste il gemello `.md`.
+> · Aperti invariati: 8.152 nomi + 6.486 email nelle colonne, 5 segreti in
+>   chiaro in `Impostazione`, TikTok senza token, tetto ADV di Gifts, doppione
+>   RSA WORLD-ENG.
 >
 > 🆕 **04/09 pomeriggio — tre cambi di comportamento, LIVE dalle 15:45 (ex9q5a4t7)** (vedi la
 > prima sezione di FATTO): «conclusa» mette in pausa sulla piattaforma ed è
