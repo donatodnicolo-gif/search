@@ -74,7 +74,7 @@ Tabelle: `places`, `contacts`, `visits`, `deals`, `lines`, `category_rules`. Enu
 Proxy sicuro app↔HubSpot; il token vive come secret `HUBSPOT_TOKEN`. Azioni:
 - `sync_visit { visit_id }` → upsert Company (+`hubspot_company_id` sul place), upsert Contact, porta le note della visita sul deal Scout aperto (se c'è) o come Nota sull'azienda (best effort, scope note), marca `visits.hubspot_synced=true`. **Non crea deal.**
 - `sync_deal { deal_id }` → Company + tutti i contatti + Deal (amount, fase). `update_deal` accetta anche `motivo_chiusura` (→ `deluxy_esito_analisi`).
-- Edge Function `notifica-chiusura { deal_key }` → email (SMTP, inerte senza secret) con i motivi di chiusura a admin + venditore.
+- Edge Function `notifica-chiusura { deal_key }` → email con i motivi di chiusura a admin + venditore (stessi secret `SMTP_*` di `notifica-task`, già attivi).
 - `deals_for_place { place_id }` → sync inverso (fasi/valori dei deal per la scheda attività).
 Autentica l'utente via JWT Supabase (`getUser`) e usa la service_role key (iniettata da Supabase) per scrivere sul DB. Gestisce 429 (RateLimit).
 

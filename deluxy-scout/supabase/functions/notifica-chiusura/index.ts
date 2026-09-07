@@ -3,12 +3,12 @@
 // responsabile (admin) e al venditore della trattativa. Serve a capire
 // perché si vince e perché si perde.
 //
-// Inerte senza SMTP: se i secret SMTP_* non sono impostati risponde
-// { sent: false, reason: 'smtp_non_configurato' } senza errore. Il motivo resta
-// comunque salvato sulla trattativa (colonna `motivo_chiusura`).
-//
-// Secret richiesti per attivare l'invio (gli stessi di notifica-task):
-//   supabase secrets set SMTP_HOST=... SMTP_PORT=465 SMTP_USER=... SMTP_PASS=... SMTP_FROM=...
+// Usa gli STESSI secret SMTP_* del progetto già usati da `notifica-task` e
+// `promemoria` (le cui email arrivano — verificato dall'utente, 7 set 2026):
+// i secret Supabase sono condivisi da tutte le Edge Function, quindi non serve
+// configurare nulla di nuovo, basta il deploy. Se per qualche motivo mancassero,
+// risponde { sent: false, reason: 'smtp_non_configurato' } senza errore e il
+// motivo resta comunque salvato sulla trattativa (colonna `motivo_chiusura`).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     const client = new SMTPClient({
       connection: { hostname: host, port, tls: port === 465, auth: { username: user, password: pass } },
     });
-    await client.send({ from, to: [...destinatari].join(', '), subject: oggetto, content: corpo });
+    await client.send({ from, to: [...destinatari], subject: oggetto, content: corpo });
     await client.close();
 
     return json({ sent: true, to: [...destinatari] });

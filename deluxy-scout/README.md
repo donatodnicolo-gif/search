@@ -117,7 +117,8 @@ I "non target" non vengono sincronizzati.
 bottone «Apri una trattativa» nella scheda negozio): Company + tutti i contatti
 + Deal con `amount` e fase. Le fasi sono le 5 dealstage della pipeline. Alla
 chiusura (vinta/persa) il **motivo è obbligatorio** e finisce in
-`deluxy_esito_analisi` (più email a responsabile e venditore via `notifica-chiusura`).
+`deluxy_esito_analisi` (più email a responsabile e venditore via `notifica-chiusura`,
+che usa i secret `SMTP_*` del progetto, gli stessi di `notifica-task` e `promemoria`).
 Priorità (P0–P3), link e allegati della trattativa restano in Scout.
 
 Se `EXPO_PUBLIC_HUBSPOT_SYNC_URL` è vuoto, l'app funziona lo stesso: le visite
