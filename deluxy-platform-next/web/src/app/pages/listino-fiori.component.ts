@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -32,13 +33,20 @@ interface Listino {
 @Component({
   selector: 'app-listino-fiori',
   standalone: true,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
         <h1>{{ 'listino.title' | translate }}</h1>
         <p class="page-caption">{{ 'listino.caption' | translate }}</p>
       </div>
+    </div>
+
+    <!-- ⭐ 07/09/2026 (regola utente): il listino sta dentro Prodotti — stesse linguette,
+         così da qui si torna indietro senza passare dal menu. -->
+    <div class="tabs">
+      <a routerLink="/products" class="tab">{{ 'products.tabActive' | translate }}</a>
+      <span class="tab on">{{ 'products.tabListino' | translate }}</span>
     </div>
 
     @if (caricando()) {
@@ -102,6 +110,10 @@ interface Listino {
   `,
   styles: [
     `
+      .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+      .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+      .tab:hover { background: var(--fill); }
+      .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); cursor: default; }
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 70ch; }

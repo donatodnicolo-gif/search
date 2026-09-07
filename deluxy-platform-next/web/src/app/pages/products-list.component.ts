@@ -40,6 +40,12 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       <button type="button" class="tab" [class.on]="archived()" (click)="setArchived(true)">
         {{ 'products.tabArchive' | translate }}
       </button>
+      <!-- ⭐ 07/09/2026 (regola utente: «metti per i partner la pagina listino in prodotti»):
+           per il partner il suo listino è una linguetta di questa pagina, non un posto a parte.
+           La voce di menu resta: chi la usava non deve rimparare la strada. -->
+      @if (ePartner()) {
+        <a routerLink="/listino" class="tab">{{ 'products.tabListino' | translate }}</a>
+      }
     </div>
 
     <!-- Filtri Sì/No come nella lista prodotti dell'app reale (manuale §3.6):
@@ -205,6 +211,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
       .tab:hover { background: var(--fill); }
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      a.tab { text-decoration: none; display: inline-flex; align-items: center; }
       /* Selezione multipla */
       th.sel, td.sel { width: 34px; text-align: center; }
       tr.scelta { background: color-mix(in srgb, var(--ink) 4%, transparent); }
@@ -241,6 +248,9 @@ import { SavedViewsComponent } from '../core/saved-views.component';
 export class ProductsListComponent {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+
+  /** ⭐ 07/09: solo il partner ha un listino suo da compilare. */
+  ePartner(): boolean { return this.auth.user()?.role === 'PARTNER'; }
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
 

@@ -1100,7 +1100,8 @@
       "doneMove": "{{n}} spostati.",
       "blocked": "{{n}} non eliminabili perché usati in consegne o vendite: archiviati.",
       "notYours": "{{n}} esclusi perché non tuoi."
-    }
+    },
+    "tabListino": "Il mio listino"
   },
   "aree": {
     "title": "Aree",

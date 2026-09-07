@@ -1339,6 +1339,11 @@ export class AppApiService {
           OR: [
             { name: { contains: testo, mode: 'insensitive' } },
             { sku: { contains: testo, mode: 'insensitive' } },
+            // ⭐ 07/09/2026: anche lo SKU di una VARIANTE. Le righe di un ordine portano
+            // quello (DLEIXX-1, non DLEIXX), e chi cercava il prodotto per quel codice non
+            // trovava niente: il Customer Service non riusciva a sapere che tipo di prodotto
+            // fosse — a numero, a preventivo, mix.
+            { variants: { some: { sku: { contains: testo, mode: 'insensitive' } } } },
           ],
         },
       ];
@@ -1355,6 +1360,7 @@ export class AppApiService {
       tipologiaVendita: true,
       partnerId: true,
       partner: { select: { insegna: true } },
+      variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
     } as const;
     const [righe, generico] = await Promise.all([
       this.prisma.product.findMany({ where: dove, orderBy: { name: 'asc' }, take: 30, select: seleziona }),
@@ -1375,6 +1381,10 @@ export class AppApiService {
       prezzo: p.price,
       prezzoPubblico: p.publicPrice ?? null,
       tipo: p.type,
+      // ⭐ 07/09/2026: la TIPOLOGIA usciva dalla query ma non dalla risposta, e il Customer
+      // Service non poteva fare il controllo a monte («questo è un prodotto a numero»).
+      tipologia: p.tipologiaVendita ?? null,
+      varianti: (p.variants ?? []).map((v) => ({ id: v.id, nome: v.name, sku: v.sku ?? '', prezzo: v.price ?? null, prezzoPubblico: v.publicPrice ?? null })),
       partnerId: p.partnerId ?? '',
       partner: p.partner?.insegna ?? '',
     });

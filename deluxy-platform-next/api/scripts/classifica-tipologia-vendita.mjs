@@ -43,6 +43,9 @@ const decide = (pr) => {
   const sku = (pr.sku ?? '').toUpperCase();
   const varianti = (pr.variants ?? []).map((v) => v.name ?? '').join(' ').toLowerCase();
 
+  // ⭐ 07/09/2026 (regola utente): il fiore a stelo si vende A NUMERO, e questo viene prima del tipo.
+  // «Unico» dice CHI lo vende, «a quantità» dice COME: il prezzo di uno stelo si moltiplica.
+  if (/fiori a stelo/i.test(cat) || /^STELO-/.test(sku)) return ['quantita', 'fiore a stelo (prezzo per stelo)'];
   if (pr.type === 'UNICO') return ['unico', 'prodotto UNICO del partner'];
 
   // ── PREVENTIVO ──

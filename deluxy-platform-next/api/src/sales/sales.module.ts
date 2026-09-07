@@ -1586,11 +1586,15 @@ export class SalesService {
    * rifiutato non la rivede piu'. Se non resta nessuno torna «da gestire».
    */
   /**
-   * ⭐ 04/09/2026 (regola utente) — il RIFIUTO ha due esiti diversi:
-   *  - il PARTNER rifiuta → la vendita NON gira più al prossimo partner: torna
-   *    all'UFFICIO da inserire (da gestire) e resta in Vendite;
+   * ⭐ 07/09/2026 (regola utente: «se rifiuta va al secondo partner in lista») — il RIFIUTO:
+   *  - il PARTNER rifiuta → la vendita passa al PROSSIMO della lista di priorità, con gli
+   *    stessi controlli della prima proposta (provincia, apertura, variante, minimo, raggio);
+   *    chi ha rifiutato non la rivede più. Solo quando la lista è finita torna all'UFFICIO
+   *    da inserire (da gestire) — e il motivo lo dice.
    *  - ADMIN/OPERATION rifiutano → la vendita chiude in STORICO (non accettata).
-   * In entrambi i casi una riga nel registro dice chi e perché.
+   * In ogni caso una riga nel registro dice chi e perché.
+   * ⚠️ Sostituisce la regola del 04/09/2026, per cui il rifiuto del partner riportava
+   * SEMPRE la vendita all'ufficio senza provare il secondo della lista.
    */
   async rifiuta(id: string, user: JwtUser) {
     const vendita = await this.prisma.sale.findUnique({
@@ -1609,6 +1613,47 @@ export class SalesService {
 
     if (user.role === Role.PARTNER) {
       const nome = vendita.partner?.insegna ?? 'partner';
+
+      // Il PROSSIMO della lista, cercato con lo stesso codice della prima proposta: chi ha
+      // già rifiutato è escluso, e i controlli (provincia, apertura, variante, minimo,
+      // raggio, non escluso dalle proposte) valgono uguali. Se qualcosa non si può leggere —
+      // il prodotto, la provincia, l'ordine in Orders — non si tira a indovinare: si torna
+      // all'ufficio, che è il comportamento sicuro.
+      let prossimo: Candidato | null = null;
+      const prodotto = vendita.productId
+        ? await this.prisma.product.findUnique({ where: { id: vendita.productId } })
+        : null;
+      if (prodotto && vendita.provinceId) {
+        const ordine = await this.ordineDaOrders(vendita.externalOrderId).catch(() => null);
+        const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+        const finestra: FinestraConsegna = {
+          giorno: vendita.deliveryDate ?? new Date(),
+          dalle: f.dalle,
+          alle: f.alle,
+          variantId: (vendita as any).productVariantId ?? null,
+        };
+        prossimo = await this.scegliPartner(prodotto as unknown as ProdottoDaSmistare, vendita.provinceId, finestra, rifiutati)
+          .catch(() => null);
+      }
+
+      if (prossimo) {
+        const dopo = await this.prisma.partner.findUnique({ where: { id: prossimo.partnerId }, select: { insegna: true } });
+        const agg = await this.prisma.sale.update({
+          where: { id },
+          data: {
+            partnerId: prossimo.partnerId,
+            status: SaleStatus.PROPOSTA,
+            historyAt: null,
+            refusedPartnerIds: JSON.stringify(rifiutati),
+            assignmentReason: `rifiutata da ${nome} · proposta a ${dopo?.insegna ?? 'partner successivo'} (${prossimo.motivo})`,
+          },
+          include: { partner: { select: { id: true, insegna: true } } },
+        });
+        await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: proposta a ${dopo?.insegna ?? prossimo.partnerId} — ${prossimo.motivo}`, user);
+        await this.avvisaProposta(agg);
+        return agg;
+      }
+
       const agg = await this.prisma.sale.update({
         where: { id },
         data: {
@@ -1616,11 +1661,11 @@ export class SalesService {
           status: SaleStatus.DA_GESTIRE,
           historyAt: null,
           refusedPartnerIds: JSON.stringify(rifiutati),
-          assignmentReason: `rifiutata da ${nome}: da inserire dall'ufficio`,
+          assignmentReason: `rifiutata da ${nome}: nessun altro partner disponibile, da inserire dall'ufficio`,
         },
         include: { partner: { select: { id: true, insegna: true } } },
       });
-      await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: torna all'ufficio da inserire (da gestire)`, user);
+      await this.registra(id, 'stato', `Rifiutata dal partner ${nome}: nessun altro partner nella lista, torna all'ufficio (da gestire)`, user);
       return agg;
     }
 

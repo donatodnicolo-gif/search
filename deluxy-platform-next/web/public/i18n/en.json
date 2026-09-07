@@ -1098,7 +1098,8 @@
       "doneMove": "{{n}} moved.",
       "blocked": "{{n}} could not be deleted because used in deliveries or sales: archived instead.",
       "notYours": "{{n}} skipped because not yours."
-    }
+    },
+    "tabListino": "My price list"
   },
   "aree": {
     "title": "Areas",
