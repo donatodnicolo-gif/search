@@ -3,6 +3,11 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✅ **08/09/2026 (30) — LIVE `delivery-1q2yd98wy`** (prebuilt dalla RADICE del worktree, bundle `main-CJNMQR2G` su app.deluxy.it, pushato `05e30ba4`). Dentro, dal deploy precedente: DDT `CPR` per i corporate service col link nei due versi, ritiro del partner nel pop-up delle vendite, colonna «Customer Service», riga di ripiego che non vale più come prova, 5 patti per pezzo corretti.
+> - **Verificato dopo la pubblicazione**: bundle giusto, **8 richieste su 8 corrette**, home 200, le 5 rotte principali rispondono 401. ✅ **Questa volta NESSUN EMAXCONN** (il deploy precedente aveva buttato giù l'app per ~8 minuti). Non vuol dire che sia risolto: il bug del pooler è intermittente e resta in carico al custode.
+> - 🔖 **Da collaudare in produzione** (non si poteva in locale): la **colonna Customer Service** — le sue chiavi stanno solo nelle env di Vercel. Guardare una vendita «da gestire» o «proposta»: la colonna deve mostrare lo stato loro («In pagamento», «Attesa consegna», «In App»…). Se resta vuota su tutte, controllare `CUSTOMER_SERVICE_URL`/`CUSTOMER_SERVICE_API_KEY`.
+> - 🔖 **Da provare a mano**: il giro corporate — aprire una consegna «ORDINE BRIOCHE» di Casati 14 (es. **101150**), premere «Crea l'acquisto», controllare che il DDT nasca `CPR101150` e che dopo il salvataggio le due schede si citino a vicenda.
+
 > 🪗 **08/09/2026 (29) — colonna «Customer Service» in Vendite** (regola utente; `tsc` e `ng build` verdi, **non provata end-to-end**, vedi sotto).
 > - `SalesService.statiDaCustomerService(vendite)` → `GET {customerServiceUrl}/api/v1/ordini?numero=<n>` con `x-api-key`. Cache 120 s, gruppi da 5 in parallelo, **tetto dichiarato a 60 numeri**. Nel payload di `findAll`: `customerService: { gestione, fornitore, statoPagamento, daArchivio }`.
 > - ⚠️ **Solo vendite APERTE (da_gestire, proposta), ed è una scelta misurata**: l'endpoint del CS risponde per UN numero alla volta e interroga a sua volta l'archivio di Orders — l'elenco intero sono **567 numeri distinti** (una N+1 sulla rete), le aperte **33**. 🔖 Se il CS accetterà `?numeri=a,b,c` si può coprire tutta la lista: è l'unico motivo per cui oggi non lo fa. Vale la pena chiederglielo.
