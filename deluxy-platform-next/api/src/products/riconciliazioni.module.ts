@@ -64,6 +64,37 @@ type StatPartner = {
 
 const arrotonda = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * ⭐ 08/09/2026 — LA RIGA DI RIPIEGO PARLA DELLO STESSO PRODOTTO?
+ *
+ * Quando la consegna non ha una riga con lo stesso `productId` della vendita, si
+ * ripiega sull'unica riga presente. Spesso è giusto — «Torta Chantilly - 6» per
+ * «Torta Chantilly» è la stessa cosa — ma non sempre: su un prodotto COMPOSTO la
+ * consegna di un fornitore copre solo la SUA parte, e allora quel prezzo non è il
+ * patto per l'intero prodotto.
+ *
+ * Misurato sulle 109 riconciliazioni con un prezzo: col solo `productId` sarebbero
+ * finite fra i «suggerimenti» 74 su 109 — cioè il flag non avrebbe più detto niente.
+ * Guardando anche il NOME restano 15, e sono i casi veri: «Cofanetto Pregiate Praline»
+ * su «Rose Rosse e Praline d'Autore» (30 € su 175: le praline, non le rose), «Wine» su
+ * un bouquet di lavanda, «Colazione Malià 50€» su «Bouquet Purezza Eterea», e
+ * «Bouquet Beethoven» su una «Red Velvet Rose Cake» — quest'ultimo al 106% del prezzo
+ * pubblico, cioè un patto che ci farebbe pagare più di quanto incassiamo.
+ *
+ * Una riga senza nome non è una conferma: non si può dire di cosa parli.
+ */
+function parlaDelloStessoProdotto(nomeRiga?: string | null, nomeProdotto?: string | null): boolean {
+  const norm = (x?: string | null) =>
+    String(x ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  const a = norm(nomeRiga), b = norm(nomeProdotto);
+  if (!a || !b) return false;
+  if (a.includes(b) || b.includes(a)) return true;
+  // Stessa prima parola significativa: «Bouquet Morricone - Medio» e «Bouquet Morricone».
+  const prima = (t: string) => t.split(' ').filter((w) => w.length >= 4)[0] ?? '';
+  return prima(a) !== '' && prima(a) === prima(b);
+}
+
 function moda(valori: number[]): number {
   const conta = new Map<number, number>();
   for (const v of valori) conta.set(arrotonda(v), (conta.get(arrotonda(v)) ?? 0) + 1);
@@ -194,6 +225,14 @@ export class RiconciliazioniService {
         })
       : [];
     const righeConsegna = new Map(consegne.map((c) => [c.id, c.products]));
+    // I nomi dei prodotti delle vendite lette: servono a capire se la riga di ripiego
+    // parla davvero di quel prodotto. Una lettura sola per tutto il giro.
+    const nomeProdotti = new Map<string, string>(
+      (await this.prisma.product.findMany({
+        where: { id: { in: [...new Set(vendite.map((v) => v.productId).filter(Boolean) as string[])] } },
+        select: { id: true, name: true },
+      })).map((x) => [x.id, x.name ?? '']),
+    );
     /**
      * Quanto ha preso il partner per QUEL prodotto in QUELLA vendita.
      *
@@ -214,10 +253,34 @@ export class RiconciliazioniService {
      */
     const datoAlPartner = (v: { deliveryId: string | null; productId: string | null; amount: number; discountPercent: number }) => {
       const righe = v.deliveryId ? righeConsegna.get(v.deliveryId) : null;
-      const riga = righe?.find((r) => r.productId === v.productId) ?? (righe?.length === 1 ? righe[0] : null);
+      // La riga GIUSTA e' quella dello stesso prodotto. Quando non c'e' e la consegna ne ha
+      // una sola, si ripiega su quella — ed e' un RIPIEGO, non una prova.
+      const suaRiga = righe?.find((r) => r.productId === v.productId) ?? null;
+      const riga = suaRiga ?? (righe?.length === 1 ? righe[0] : null);
       if (riga && (riga.price ?? 0) > 0) {
         const pezzi = Math.max(1, Math.round(Number(riga.quantity) || 1));
-        return { valore: arrotonda((riga.price as number) * pezzi), reale: true, pezzi, unitario: arrotonda(riga.price as number) };
+        return {
+          valore: arrotonda((riga.price as number) * pezzi),
+          /**
+           * ⭐ 08/09/2026 — IL RIPIEGO NON È UNA PROVA.
+           *
+           * Su un prodotto COMPOSTO la consegna di un fornitore copre solo la SUA parte:
+           * la vendita «Rose Rosse e Praline d'Autore» da 175 € aveva una sola riga di
+           * consegna, «Cofanetto Pregiate Praline» a 30 € — le praline, non le rose. Preso
+           * per buono, quel 30 € diventava il patto per l'intero prodotto: avremmo pagato
+           * 30 € una cosa venduta 175 €, mentre l'altra metà va pagata a un altro fornitore.
+           * Stesso caso su «Dolci Abbracci — Orsacchiotto e Cappelliera» (35,12 € su 255 €:
+           * l'orsacchiotto, non le rose).
+           *
+           * Il numero si usa lo stesso — spesso è giusto, come il listino a stelo del
+           * fioraio — ma solo la riga trovata PER PRODOTTO vale come fatto accertato.
+           * Il ripiego vale come suggerimento, e la proposta lo dice (`daSuggerimento`),
+           * così chi accetta sa che quel prezzo va guardato prima di confermarlo.
+           */
+          reale: suaRiga !== null || parlaDelloStessoProdotto(riga.productName, nomeProdotti.get(v.productId ?? '')),
+          pezzi,
+          unitario: arrotonda(riga.price as number),
+        };
       }
       return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false, pezzi: 1, unitario: null as number | null };
     };
