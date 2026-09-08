@@ -44,35 +44,6 @@ export class PartnerServiceDto {
   @IsOptional()
   @IsNumber()
   commissionPercent?: number;
-
-  // ===== Condizioni di pagamento (⭐ 08/09/2026) =====
-  // Economia pura: restano dell'ufficio. Il partner non le tocca — `update()` gli
-  // riassegna il dto ai soli contatti, quindi questi campi non passano nemmeno se
-  // li manda a mano (la whitelist non è una difesa: lezione del 27/08).
-
-  @ApiPropertyOptional({ description: 'Giorni per pagare il partner sui servizi di VENDITA (decorrenza fine mese). null = a vista' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
-  pagamentoVendorGiorni?: number | null;
-
-  @ApiPropertyOptional({ default: false, description: 'Compensa le commissioni dovute dal partner con gli incassi delle vendite' })
-  @IsOptional()
-  @IsBoolean()
-  compensazioneIncassi?: boolean;
-
-  @ApiPropertyOptional({ description: 'Giorni per incassare dal partner sui servizi NON di vendita. null = a vista fattura' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
-  incassoServiziGiorni?: number | null;
-
-  @ApiPropertyOptional({ default: false, description: 'Decorrenza dei giorni di incasso: true = fine mese della fattura, false = data fattura' })
-  @IsOptional()
-  @IsBoolean()
-  incassoServiziFineMese?: boolean;
 }
 
 export class OpeningHourDto {
@@ -208,6 +179,50 @@ export class CreatePartnerDto {
   @IsArray()
   @IsString({ each: true })
   areaIds?: string[];
+
+  // ===== Condizioni di pagamento (⭐ 08/09/2026) =====
+  //
+  // ⚠⚠ 08/09/2026 sera — ERANO NELLA CLASSE SBAGLIATA, e per una giornata intera
+  // non si sono salvate (segnalazione dell'utente, due volte).
+  //
+  // Li avevo scritti dentro `PartnerServiceDto` invece che qui: il ValidationPipe gira
+  // con `whitelist: true`, e una proprietà che non appartiene al DTO della richiesta
+  // **viene scartata in silenzio**. Nessun errore, HTTP 200, «salvato» a schermo, e i
+  // quattro campi restavano vuoti.
+  //
+  // ⚠️ Perché non l'avevo trovato al primo giro: avevo verificato che le colonne
+  // esistessero nel database (sì), che il form li mandasse (sì), che il DTO li
+  // contenesse (sì — ma non ho guardato in QUALE classe) e che il codice fosse
+  // pubblicato (sì). Quattro verifiche verdi su un difetto vivo. L'unica che l'ha
+  // trovato è stata far passare un payload vero dalla validazione e guardare cosa
+  // ne usciva: `plainToInstance` restituiva `undefined` su tutti e quattro.
+  //
+  // Economia pura: restano dell'ufficio. Il partner non li tocca — `update()` gli
+  // riassegna il dto ai soli contatti (la whitelist non è una difesa: lezione del 27/08).
+
+  @ApiPropertyOptional({ description: 'Giorni per pagare il partner sui servizi di VENDITA (decorrenza fine mese). null = a vista' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  pagamentoVendorGiorni?: number | null;
+
+  @ApiPropertyOptional({ default: false, description: 'Compensa le commissioni dovute dal partner con gli incassi delle vendite' })
+  @IsOptional()
+  @IsBoolean()
+  compensazioneIncassi?: boolean;
+
+  @ApiPropertyOptional({ description: 'Giorni per incassare dal partner sui servizi NON di vendita. null = a vista fattura' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  incassoServiziGiorni?: number | null;
+
+  @ApiPropertyOptional({ default: false, description: 'Decorrenza dei giorni di incasso: true = fine mese della fattura, false = data fattura' })
+  @IsOptional()
+  @IsBoolean()
+  incassoServiziFineMese?: boolean;
 
   @ApiPropertyOptional({ description: 'IBAN / conto bancario' })
   @IsOptional()
