@@ -189,8 +189,38 @@
   iframe.className = 'pannello';
 
   var aperto = false;
+
+  /**
+   * Dice alla chat se il suo pannello è aperto o chiuso.
+   *
+   * ⚠️⚠️ Serve alle PRESTAZIONI, non alla grafica. L'iframe è appeso al DOM
+   * appena la pagina si carica, e dentro c'è un sondaggio ogni 3,5 secondi: un
+   * visitatore che ha già scritto una volta (il token gli resta nel browser)
+   * continuava a chiamarci a pannello CHIUSO, su ogni pagina del sito, per
+   * tutto il tempo che teneva la scheda aperta. A pannello chiuso non c'è
+   * niente da aggiornare — non esiste nessun bollino di «messaggio nuovo» sul
+   * bottone — quindi era traffico che non si vedeva da nessuna parte.
+   * ⚠️ `document.hidden` dentro l'iframe NON basta: dice se la SCHEDA è in
+   * secondo piano, non se il pannello è chiuso. Questa è l'altra metà.
+   */
+  function dilloAllaChat(vero) {
+    try {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ tipo: 'deluxy-chat-pannello', aperto: !!vero }, origine);
+      }
+    } catch (e) {
+      // iframe non ancora pronto: glielo si ridice al suo 'load'
+    }
+  }
+  // Lo stato di partenza, appena la chat è caricata: senza, resterebbe sul suo
+  // valore prudente (aperto) fino al primo click.
+  iframe.addEventListener('load', function () {
+    dilloAllaChat(aperto);
+  });
+
   function apri(vero) {
     aperto = vero;
+    dilloAllaChat(vero);
     bottone.setAttribute('aria-expanded', vero ? 'true' : 'false');
     bottone.setAttribute('aria-label', vero ? 'Chiudi la chat' : 'Apri la chat');
     bottone.innerHTML = segnoBottone(!vero);
