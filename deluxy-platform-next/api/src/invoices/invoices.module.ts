@@ -675,20 +675,35 @@ export class InvoicesService {
     const netAmount = Math.round(righe.reduce((s, r) => s + r.amount, 0) * 100) / 100;
     const venduto = Math.round(righe.reduce((s, r) => s + r.venduto, 0) * 100) / 100;
     const dovutoAlPartner = Math.round(righe.reduce((s, r) => s + r.dovuto, 0) * 100) / 100;
-    // La quota Deluxy sul venduto è quello che si trattiene: il venduto meno
-    // quello che gli si gira. Non si ricalcola dalla percentuale — le
-    // percentuali sono per servizio, e sommarle sarebbe una media inventata.
-    const quotaDeluxy = Math.round((venduto - dovutoAlPartner) * 100) / 100;
-    // ⭐ DECISO dall.utente il 29/08/2026, confrontando il recap con la fattura
-    // che il legacy manda da anni: quello che il partner INCASSA davvero è il
-    // venduto meno la nostra quota E meno l.IVA su quella quota (che gli
-    // fatturiamo a parte). Sul giugno di Maryflor sono 5.192,96 € e non
-    // 5.495,20: i 302,24 di differenza sono esattamente l.IVA sulla commissione.
-    // ⚠️ `dovutoAlPartner` resta l.IMPONIBILE, perché è quello che va sui
-    // documenti della Fatturazione: qui si aggiunge il netto, non si riscrive
-    // il numero della fattura.
+    // ⭐ 08/09/2026 (segnalazione utente su Amir: «facendo il recap compare due volte
+    // la detrazione dell'IVA») — L'IVA SULLA QUOTA SI TOGLIE UNA VOLTA SOLA.
+    //
+    // Il difetto nasceva da due correzioni giuste che si sono sovrapposte:
+    //  · il 29/08 `nettoAlPartner` è nato come `dovuto − IVA(quota)`, e allora era
+    //    esatto, perché `dovuto` valeva `venduto − quota` con la quota IMPONIBILE;
+    //  · dopo, `dovuto` è diventato `venduto − conIva(quota)` — cioè già al netto
+    //    dell'IVA — ma la sottrazione a valle è rimasta.
+    // Risultato su Amir: quota 11,00 + IVA 2,42 = 13,42; dovuto 55,00 − 13,42 = 41,58;
+    // e poi ancora −22% di 13,42 = −2,95 → **38,63 invece di 41,58**. Misurato su
+    // agosto e settembre: **815,59 € tolti in più** ai partner sulle prime 20 righe.
+    //
+    // ⚠️ `venduto − dovutoAlPartner` NON è la quota: è la quota **con l'IVA dentro**,
+    // perché `dovuto` toglie già `conIva(quota)`. La quota imponibile è la somma degli
+    // importi delle righe di vendita — un numero scritto, non dedotto.
+    const quotaDeluxy = Math.round(
+      righe.filter((r) => r.venduto > 0).reduce((s, r) => s + r.amount, 0) * 100,
+    ) / 100;
+    // ⭐ DECISO dall'utente il 29/08/2026, confrontando il recap con la fattura che il
+    // legacy manda da anni: quello che il partner INCASSA davvero è il venduto meno la
+    // nostra quota E meno l'IVA su quella quota (che gli fatturiamo a parte). Sul giugno
+    // di Maryflor sono 5.192,96 € e non 5.495,20: i 302,24 di differenza sono esattamente
+    // l'IVA sulla commissione. **La regola resta questa** — quello che è cambiato è DOVE
+    // si applica.
     const ivaSuQuota = soloIva(quotaDeluxy);
-    const nettoAlPartner = Math.round((dovutoAlPartner - ivaSuQuota) * 100) / 100;
+    // ⚠️ `dovutoAlPartner` È GIÀ IL NETTO: `dovuto()` lo calcola come
+    // `venduto − conIva(quota)`, cioè quota e IVA sono già fuori. Sottrarre di nuovo
+    // `ivaSuQuota` toglieva l'IVA due volte (segnalazione utente 08/09 su Amir).
+    const nettoAlPartner = dovutoAlPartner;
 
     // ⭐ 27/08 (chiesto dall'utente): i due conti separati, e la differenza.
     // ⚠️ Vanno in versi OPPOSTI e non si sommano: il primo è denaro che il
@@ -700,9 +715,12 @@ export class InvoicesService {
     const q2 = (n: number) => Math.round(n * 100) / 100;
     const imponibileServizi = q2(daPagamento.reduce((s, r) => s + r.amount, 0));
     const dovutoDaVendite = q2(daVendita.reduce((s, r) => s + r.dovuto, 0));
-    const quotaVendite = q2(daVendita.reduce((s, r) => s + (r.venduto - r.dovuto), 0));
+    // ⚠️ Stessa correzione dei totali (08/09): la quota è la somma degli importi delle
+    // righe — imponibile — non `venduto − dovuto`, che è la quota con l'IVA dentro.
+    const quotaVendite = q2(daVendita.reduce((s, r) => s + r.amount, 0));
     const ivaQuotaVendite = soloIva(quotaVendite);
-    const nettoVendite = q2(dovutoDaVendite - ivaQuotaVendite);
+    // `dovuto` è già `venduto − conIva(quota)`: il netto è lui, senza togliere altro.
+    const nettoVendite = dovutoDaVendite;
     const riepilogo = {
       serviziAPagamento: {
         consegne: daPagamento.length,

@@ -3,6 +3,14 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔴 **08/09/2026 (31) — IVA SULLA QUOTA TOLTA DUE VOLTE NEL RECAP: corretto, in locale** (segnalazione utente su Amir; `tsc` verde).
+> - **Il difetto**: `quotaDeluxy` era `venduto − dovutoAlPartner`, ma `dovuto()` vale `valoreProdotti − conIva(quota)` — quindi quella differenza è la quota **con l'IVA dentro**. Sopra ci si applicava `soloIva()` (che tratta l'argomento come imponibile) e si sottraeva di nuovo dal dovuto: seconda detrazione.
+> - **Perché era nato**: il 29/08 (`f5c0c0cc`) `nettoAlPartner = dovuto − IVA(quota)` era **giusto**, perché allora `dovuto = venduto − trattenuto` (imponibile). Poi `dovuto` è passato a `venduto − conIva(trattenuto)` e nessuno ha tolto la sottrazione a valle. Due correzioni giuste, sovrapposte.
+> - **La correzione**: `quotaDeluxy` = somma degli `amount` delle righe con `venduto > 0` (imponibile, scritto); `ivaSuQuota = soloIva(quellaQuota)`; `nettoAlPartner = dovutoAlPartner` (che è già il netto). Applicata nei **due punti gemelli**: `totali` e `riepilogo.vendite`.
+> - **Verifica sul caso vero** (Amir, screenshot): quota 11,00 + IVA 2,42 = 13,42; dovuto 55,00 − 13,42 = 41,58; prima si toglieva ancora 2,95 → **38,63, esattamente il numero del documento ricevuto**. Dopo: **41,58**.
+> - ⚠️ **Impatto misurato: 815,59 €** sulle prime 20 righe partner×mese di agosto e settembre (Lijoi Roma 222,67 · Cannavo 179,13 · Il Pappagallo 94,35 · Maryflor 45,41…). 🔖 **I recap già mandati portano il numero sbagliato, in difetto**: da decidere se rimandarli.
+> - 🔖 Da rigenerare il recap di Amir dopo il deploy, per confermare 41,58 € a video.
+
 > ✅ **08/09/2026 (30) — LIVE `delivery-1q2yd98wy`** (prebuilt dalla RADICE del worktree, bundle `main-CJNMQR2G` su app.deluxy.it, pushato `05e30ba4`). Dentro, dal deploy precedente: DDT `CPR` per i corporate service col link nei due versi, ritiro del partner nel pop-up delle vendite, colonna «Customer Service», riga di ripiego che non vale più come prova, 5 patti per pezzo corretti.
 > - **Verificato dopo la pubblicazione**: bundle giusto, **8 richieste su 8 corrette**, home 200, le 5 rotte principali rispondono 401. ✅ **Questa volta NESSUN EMAXCONN** (il deploy precedente aveva buttato giù l'app per ~8 minuti). Non vuol dire che sia risolto: il bug del pooler è intermittente e resta in carico al custode.
 > - 🔖 **Da collaudare in produzione** (non si poteva in locale): la **colonna Customer Service** — le sue chiavi stanno solo nelle env di Vercel. Guardare una vendita «da gestire» o «proposta»: la colonna deve mostrare lo stato loro («In pagamento», «Attesa consegna», «In App»…). Se resta vuota su tutte, controllare `CUSTOMER_SERVICE_URL`/`CUSTOMER_SERVICE_API_KEY`.
