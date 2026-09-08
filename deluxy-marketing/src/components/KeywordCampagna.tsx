@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
-import { annullaOperazioneParola, creaOperazioneKeyword } from "@/lib/azioni";
+import { annullaOperazioneParola, creaOperazioneKeyword, escludiParoleSelezionate } from "@/lib/azioni";
+import { PortaSelezionate } from "@/components/PortaSelezionate";
+import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { paroleGiaComprate } from "@/lib/parole-comprate";
 import { spendeAVuoto } from "@/lib/salute";
@@ -347,10 +349,59 @@ export async function KeywordCampagna({
         </div>
       )}
 
+      {/* LE AZIONI IN BLOCCO. Era l'unica delle quattro tabelle senza: il
+          lavoro sulle keyword e' per definizione di massa — si guardano
+          sessanta parole e se ne fermano dieci — e farlo una riga per volta
+          significa non farlo. Stessa barra della gemella nella scheda gruppo,
+          stesso id del form, stessi componenti.
+          Il form avvolge SOLO la barra: le caselle nella tabella lo
+          raggiungono con `form=`, perche' i form non si annidano e dentro
+          ogni riga ce ne sono gia' altri. */}
+      <form id="escludi-kw-campagna" action={escludiParoleSelezionate} className="barra-multipla">
+        <input type="hidden" name="campagnaId" value={campagnaId} />
+        <input type="hidden" name="campagnaNome" value={nomeCampagna} />
+        <input type="hidden" name="ritorno" value={base ?? ""} />
+        <span className="cella-sub">Spunta le parole e agisci su tutte insieme:</span>
+        <SelezionaTutte formId="escludi-kw-campagna" />
+        {/* La corrispondenza decide QUANTO blocca la negativa, ed e' la
+            differenza fra togliere una ricerca e spegnere una campagna.
+            Default esatta: si esclude quella parola, non tutto cio' che le
+            somiglia. */}
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+          come
+          <select
+            name="corrispondenza"
+            defaultValue="exact"
+            style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}
+          >
+            <option value="exact">esatta — solo questa parola</option>
+            <option value="phrase">a frase — questa sequenza di parole</option>
+            <option value="broad">generica — ogni ricerca con queste parole</option>
+          </select>
+        </label>
+        <button
+          className="btn small btn-secondario"
+          type="submit"
+          title="Le parole spuntate vanno in coda come negative di TUTTA la campagna: Google tiene le esclusioni li, non sul singolo gruppo"
+        >
+          Escludi le selezionate
+        </button>
+        <PortaSelezionate formId="escludi-kw-campagna" lingue={[]} />
+        <button
+          type="button"
+          className="btn small btn-secondario"
+          data-estendi-ai
+          data-estendi-form="escludi-kw-campagna"
+        >
+          Estendi con AI
+        </button>
+      </form>
+
       <div style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
+              <th style={{ width: 28 }} aria-label="Scelta" />
               {intestazione("testo")}
               {intestazione("gruppo")}
               {intestazione("spesa", true)}
@@ -382,6 +433,17 @@ export async function KeywordCampagna({
                   : undefined;
               return (
                 <tr key={k.id}>
+                  <td>
+                    {/* `form=` raggiunge la barra qui sopra: i form non si
+                        annidano, e dentro la riga ce ne sono gia' altri. */}
+                    <input
+                      type="checkbox"
+                      form="escludi-kw-campagna"
+                      name="scelte"
+                      value={testoKeywordPulito(k.testo)}
+                      aria-label={`Seleziona ${testoKeywordPulito(k.testo)}`}
+                    />
+                  </td>
                   <td style={{ maxWidth: 280 }}>
                     {/* Scritta come su Google Ads: [esatta] · "a frase" ·
                         generica nuda. Chi lavora in interfaccia riconosce la
