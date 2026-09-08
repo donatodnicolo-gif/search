@@ -209,7 +209,6 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
       {chiudibile && sigilloOk && operatore.ruolo !== "osservatore" && (
         <ModuloChiusura
           id={r.id}
-          richiedeCodice={operatore.totpAttivo}
           importo={euro(r.importoCent)}
           distinta={r.lotto?.riferimento ?? null}
           oggi={oggi}

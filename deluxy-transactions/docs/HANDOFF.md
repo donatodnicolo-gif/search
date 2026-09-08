@@ -11,7 +11,40 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **5 settembre 2026** (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+Aggiornato: **8 settembre 2026** (via il codice a 6 cifre dalla chiusura); 5 settembre (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+
+## 08/09/2026 — Il codice a 6 cifre resta solo dove il denaro esce davvero
+
+**Detto dall'utente**: «per i pagamenti fatti altrove non serve il codice a 6
+cifre, è necessario solo per i pagamenti tramite app verso Qonto». Nel modulo
+«Chiudere senza pagarla da qui» (dettaglio e coda) il campo era obbligatorio e
+bloccava il salvataggio.
+
+- **Tolto** il secondo fattore da `chiudiRichiesta` in
+  [src/app/actions.ts](../src/app/actions.ts) e il campo dai due moduli
+  ([ModuloChiusura.tsx](../src/components/ModuloChiusura.tsx) per il dettaglio,
+  [ChiusuraRapida.tsx](../src/components/ChiusuraRapida.tsx) per la coda),
+  insieme alla prop `richiedeCodice` e ai suoi passaggi da `src/app/page.tsx` e
+  `src/app/richieste/[id]/page.tsx`. `confermaSecondoFattore` resta importata:
+  la usano ancora la firma, il PIN e le due azioni da admin.
+- **Vale per entrambi i tasti della finestrella**, «già pagata altrove» *e*
+  «annulla la richiesta»: sono la stessa chiusura (`chiudiFuoriDallApp`, stesso
+  form, stessa azione) e nessuna delle due fa uscire un euro. Tenere il codice
+  su una sola delle due avrebbe lasciato comunque il campo lì dentro, e la
+  regola detta dall'utente («solo verso Qonto») le copre tutte e due.
+- **Cosa continua a proteggere la chiusura**: sessione valida (dieci minuti di
+  inattività), **ruolo** — l'osservatore non chiude, controllo dentro
+  `chiudiFuoriDallApp` —, motivo obbligatorio, conferma nel browser, evento
+  dedicato `richiesta.pagata_fuori` col nome di chi ha chiuso, `pagatoCon` nel
+  webhook, sigillo. Su ciò che fa **uscire** denaro non è cambiato niente: la
+  firma di una richiesta, lo sblocco del pagatore (codice per email + PIN) e il
+  bonifico Qonto chiedono il secondo fattore esattamente come prima.
+- **Il prezzo, scritto per intero** in [SICUREZZA.md](SICUREZZA.md) §0-ter
+  punto 1: una sessione rubata entro i dieci minuti può far sparire dalla coda
+  una richiesta non pagata senza il telefono di nessuno. Non porta via denaro —
+  lascia un fornitore senza soldi e Finance convinta che il mese sia chiuso — ed
+  è lo stesso abuso che le app di origine hanno via API dal 05/09, dove il
+  secondo fattore non c'è mai stato.
 
 ## 05/09/2026 — «Se ho messo pagata nel Customer Service, aggiorna anche Transactions»
 
@@ -342,8 +375,9 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   **e dalla coda** (due tasti per riga che aprono una finestrella con gli stessi
   campi — `<dialog>` nativo, Esc lo chiude) si può segnarla **già pagata altrove** (bonifico fatto a mano dal portale della
   banca, addebito, carta, contanti, compensazione — con data e nota
-  obbligatorie) oppure **annullarla** con un motivo. Serve il codice a 6 cifre,
-  come per una firma. **Non è una seconda porta per far uscire denaro**: non
+  obbligatorie) oppure **annullarla** con un motivo. **Dall'08/09/2026 non
+  serve più il codice a 6 cifre** (vedi la sezione di quel giorno in cima).
+  **Non è una seconda porta per far uscire denaro**: non
   genera niente e non chiama la banca, quindi non passa dal PIN del pagatore —
   registra denaro già uscito. Tre effetti che contano: la richiesta **esce dalla
   distinta** in cui si trovava (altrimenti la pagherebbe di nuovo il file SEPA),

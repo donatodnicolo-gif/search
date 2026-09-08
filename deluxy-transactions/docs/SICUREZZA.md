@@ -136,7 +136,19 @@ L'abuso possibile non è rubare: è **far sparire dalla coda una richiesta che
 nessuno ha pagato**, lasciando un fornitore senza soldi e Finance convinta che
 il mese sia chiuso. Contro quello:
 
-1. **secondo fattore** a ogni chiusura, come per una firma;
+1. ~~secondo fattore a ogni chiusura~~ — **tolto l'08/09/2026 su decisione
+   dell'utente**: «il codice a 6 cifre serve solo per i pagamenti che escono
+   dall'app verso Qonto». La regola ora è netta e si spiega in una riga: il
+   secondo fattore sta dove il denaro *esce* (la firma di una richiesta, lo
+   sblocco del pagatore, il bonifico Qonto), non dove si *registra* denaro già
+   uscito. Resta il **ruolo**: l'osservatore non chiude
+   (`chiudiFuoriDallApp`). **Cosa si è perso**, e va detto: una sessione rubata
+   entro i dieci minuti di inattività può ora far sparire dalla coda una
+   richiesta non pagata senza avere il telefono di nessuno. Non ruba denaro —
+   lascia un fornitore senza soldi e Finance convinta che il mese sia chiuso —
+   ed è lo stesso abuso già possibile via API alle app di origine (che il
+   secondo fattore non ce l'hanno mai avuto, punto più sotto). Le difese che
+   restano sono i punti 2-5;
 2. **motivo obbligatorio** (dove, quando, numero dell'operazione): fra sei mesi
    è l'unica traccia;
 3. evento dedicato nel registro — `richiesta.pagata_fuori`, non
@@ -164,7 +176,8 @@ Il caso: il Customer Service segna «pagata» un fornitore pagato dal portale
 della banca, e qui la richiesta restava in coda — con Finance era già
 successo su 7 richieste per 4.794 €, pronte a uscire due volte. Non cambia la
 natura della porta: da lì continua a non uscire un euro. Cambia chi dichiara,
-e al posto del secondo fattore dell'operatore ci sono: la **firma HMAC** della
+e al posto del secondo fattore dell'operatore (che dall'08/09/2026 non c'è
+più nemmeno lì, punto 1) ci sono: la **firma HMAC** della
 chiave (punto 1), il vincolo **solo le richieste di quella chiave** (come
 l'annullo via API: un'app non chiude le richieste di un'altra), il **motivo
 obbligatorio**, e nell'evento `richiesta.pagata_fuori` il campo

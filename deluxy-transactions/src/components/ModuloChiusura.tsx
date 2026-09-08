@@ -12,19 +12,18 @@ import { CampiDaCopiare, type CampoCopiabile } from "./CampiDaCopiare";
 // bonifico partito dal portale della banca, un fornitore pagato in contanti,
 // una fattura che non si paga più.
 //
-// Due cose sono volutamente scomode: il motivo è obbligatorio (fra sei mesi è
-// l'unica traccia di cosa è successo) e il codice a 6 cifre si digita ogni
-// volta, come per una firma.
+// Una cosa è volutamente scomoda: il motivo è obbligatorio (fra sei mesi è
+// l'unica traccia di cosa è successo). Il codice a 6 cifre invece NON si chiede
+// (08/09/2026): qui non esce denaro, si registra denaro già uscito — il codice
+// resta sulla firma, sullo sblocco del pagatore e sul bonifico Qonto.
 export function ModuloChiusura({
   id,
-  richiedeCodice,
   importo,
   distinta,
   oggi,
   daCopiare,
 }: {
   id: string;
-  richiedeCodice: boolean;
   importo: string;
   distinta: string | null;
   oggi: string;
@@ -86,21 +85,6 @@ export function ModuloChiusura({
         )}
 
         <div className="firma-riga">
-          {richiedeCodice && (
-            <div className="campo-modulo">
-              <label htmlFor="codice-chiusura">Codice a 6 cifre</label>
-              <input
-                id="codice-chiusura"
-                className="firma-codice"
-                name="codice"
-                inputMode="numeric"
-                maxLength={6}
-                pattern="[0-9]{6}"
-                autoComplete="one-time-code"
-                required
-              />
-            </div>
-          )}
           <div className="campo-modulo" style={{ flex: "1 1 300px" }}>
             <label htmlFor="motivo-chiusura">
               {pagata ? "Dove e da chi (numero dell'operazione, conto…)" : "Perché la annulli"}
