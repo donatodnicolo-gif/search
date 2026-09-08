@@ -23,6 +23,47 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 08/09 (18:25) — Verifica col custode: preso il `db.ts` comune, e l'EXPLAIN che mancava
+
+⚠️ **Il pericolo più grosso della giornata era il mio deploy, non una query.** La sessione
+custode ha portato su `origin/scout-ui` il `db.ts` canonico (`04c82b6f`: `connection_limit=3`,
+`pool_timeout=20`, singleton anche in produzione, tocca solo la `:6543`) e il mio branch non
+ce l'aveva. Il mio deploy **non parte da un branch: `npx vercel deploy --prod --yes` carica la
+CARTELLA così com'è** — quindi la prossima pubblicazione avrebbe **cancellato dalla produzione
+la sua correzione**, riportando il `db.ts` vecchio. Fatto `git merge --ff-only origin/scout-ui`:
+ora 0 avanti / 0 indietro, `prisma generate` + `tsc` → **0 errori**. Regola da tenere: **prima di
+ogni deploy di AI Mail, allineare il worktree** — il branch non protegge, conta il working tree.
+
+**L'EXPLAIN del `_count` sulle Sezioni, che mancava — e il bersaglio era spostato di un colpo:**
+
+- Il chiamante caldo **non è `/sezioni` né `/impostazioni`** (pagine che si aprono di rado) ma
+  **`src/components/Sidebar.tsx:56`**, il pallino delle non lette accanto a ogni sezione: **ogni
+  pagina dell'app**. Ecco perché sono ~4.900 chiamate. (Avevo scritto le due pagine nel report
+  del mattino prendendo per buona l'indicazione dell'ostile senza verificarla: corretto.)
+- ⚠️ **Il difetto: la sottoquery non ha `utenteId`.** Prisma filtra per utente la `Sezione`
+  esterna, ma l'aggregazione interna passa **tutta** la tabella: Index Only Scan su **46.645
+  righe**, **10.193 buffer (~80 MB) per chiamata**, 267 ms a freddo / 32,7 / 28,3 a caldo — per
+  calcolare i conteggi di **19 sezioni**. Sotto contesa diventano gli 860 ms di media e i 62 s
+  di punta. Numeri: **4.878 chiamate, 4.195.851 ms**, +251 chiamate e +289.908 ms in 6 h 40 m
+  (~17 min di CPU al giorno, in crescita).
+- **Rimedio candidato, NON applicato**: `groupBy` su `Messaggio` filtrato per `utenteId`
+  (`Messaggio_posta_idx` copre quelle colonne) e ricucitura in JS. Passa da `performance-ostile`.
+
+**Rimisura della pulizia HTML (18:23): 5.500 chiamate, 15.284.109 ms.** Da stamattina **+2
+chiamate e +6 ms** — sono le due scansioni previste (risveglio delle 11:45:44, pulizia, giro dopo
+a vuoto e ritorno al sonno), e costano 6 ms invece di 5.600 grazie all'indice parziale dell'altra
+sessione. Prima: +288 chiamate e ~800 s di CPU al giorno.
+
+🔴 **Due decisioni che aspettano l'utente** (registrate nel registro del custode, non applicate):
+1. **Le migrazioni a ogni build.** `migrate-prod.mjs` gira dentro `build` — 24 `CREATE INDEX` + 9
+   unique, 22 `CREATE TABLE`, 46 `ADD COLUMN`, **zero `CONCURRENTLY`**, sulla tabella da 774 MB
+   del cluster condiviso, con gli errori ingoiati. Proposta: spostarlo in `npm run migra:prod`, a
+   mano quando c'è una DDL nuova. Vincolo da non dimenticare: `prisma migrate deploy` non è
+   utilizzabile (host diretto Supabase solo IPv6), quindi lo script non si butta, si sposta.
+2. **`map: "Messaggio_posta_idx"`** nello `schema.prisma`: oggi la dichiarazione senza `map`
+   corrisponde all'indice **morto** (`idx_scan = 0`) mentre quello vivo (12.721 scansioni) lo crea
+   solo lo script. Un `db push` droppa il vivo e ricrea il morto. Una riga, nessuna DDL eseguita.
+
 ### 08/09 (11:43) — ✅ LA MISURA A 24 ORE, e la nuova candidata
 
 **La pulizia HTML non è più girata.** `pg_stat_statements`: **5.498 chiamate, 15.284.103 ms —
