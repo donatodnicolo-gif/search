@@ -6,7 +6,7 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza, riprovaCompletamento,
-  riprovaFallita, riprendiAnnuncioAccodato, eseguiUnaSuMeta,
+  riprovaFallita, riprendiAnnuncioAccodato, eseguiUnaSuMeta, chiudiPerchePiattaformaGiaCosi,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { esitoRiletto } from "@/lib/conferme-operazioni";
@@ -147,6 +147,38 @@ export default async function PaginaOperazioni({
   // cosa ha rimandato Google dopo, nei giri di lettura che arrivano comunque.
   // Vale per ogni tipo di operazione, non solo per le campagne nuove.
   const conferme = await confermeOperazioni(operazioni);
+
+  // ── LA COSA È GIÀ COSÌ SULLA PIATTAFORMA? ────────────────────────────────
+  // ⚠️⚠️ Chiesto dall'utente l'08/09/2026 dopo aver messo in pausa a mano su
+  // Meta «[Palloncini] - AWARENESS»: la coda continuava a dire «c'è una
+  // decisione che aspetta» davanti a una campagna già spenta. Una coda che
+  // chiede una cosa già vera non è una coda: è rumore, e col tempo si smette
+  // di guardarla — che è come si perdono quelle vere.
+  // Si confronta lo stato di piattaforma che abbiamo riletto (la sync Meta
+  // gira ogni ora, l'anagrafica Google ogni notte) con lo stato che
+  // l'operazione vuole ottenere. Una query sola per tutta la pagina.
+  const idCampagne = [...new Set(vive.map((o) => o.campagnaId).filter(Boolean))] as string[];
+  const statoPiattaforma = new Map(
+    idCampagne.length > 0
+      ? (
+          await prisma.campagna.findMany({
+            where: { id: { in: idCampagne } },
+            select: { id: true, statoPiattaforma: true, aggiornataIl: true },
+          })
+        ).map((c) => [c.id, c])
+      : []
+  );
+  /** Lo stato che l'operazione vuole ottenere, quando è uno stato. */
+  const VUOLE: Record<string, string> = { pausa_campagna: "PAUSED", attiva_campagna: "ENABLED" };
+  const giaCosi = (o: { tipo: string; campagnaId: string | null }) => {
+    const vuole = VUOLE[o.tipo];
+    if (!vuole || !o.campagnaId) return null;
+    const c = statoPiattaforma.get(o.campagnaId);
+    // ⚠️ Senza uno stato riletto non si dice niente: «non lo so» non è «è già
+    // così», ed è la differenza fra tacere e mentire.
+    if (!c?.statoPiattaforma || c.statoPiattaforma !== vuole) return null;
+    return c.aggiornataIl;
+  };
 
   // ── COSA SANNO ESEGUIRE LE COPIE DELLO SCRIPT ──────────────────────────
   // ⚠️ Le copie vivono dentro Google Ads e le incolla una persona: l'app non
@@ -502,6 +534,39 @@ export default async function PaginaOperazioni({
                 </button>
               </form>
             )}
+
+          {/* ⚠️⚠️ «LA COSA È GIÀ COSÌ»: l'app allineata a quello che la
+              piattaforma dice davvero (08/09/2026). Quando qualcuno mette in
+              pausa una campagna A MANO — su Meta o dentro Google Ads —
+              l'operazione in coda resta lì a chiedere una cosa già fatta, e la
+              coda diventa rumore. La riga adesso lo dice, con la data della
+              rilettura che lo prova, e offre di chiuderla dichiarando cosa è
+              successo davvero: non «annullata» (= ho cambiato idea), ma
+              «era già così» (= la decisione valeva ed è stata eseguita, solo
+              non dall'app). */}
+          {(() => {
+            const quando = giaCosi(o);
+            if (!quando) return null;
+            return (
+              <div className="op-comandi" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span className="cella-sub" style={{ color: "var(--orange)", whiteSpace: "normal" }}>
+                  Sulla piattaforma è <b>già {o.tipo === "pausa_campagna" ? "in pausa" : "attiva"}</b>:
+                  riletto il {formattaDataOra(quando)}. Questa operazione non ha più niente da fare.
+                </span>
+                <form action={chiudiPerchePiattaformaGiaCosi} style={{ display: "inline" }}>
+                  <input type="hidden" name="id" value={o.id} />
+                  {sp.torna && <input type="hidden" name="torna" value={sp.torna} />}
+                  <button
+                    className="btn small btn-secondario"
+                    type="submit"
+                    title="Chiude l'operazione dichiarando che la piattaforma era già in questo stato: la decisione è stata eseguita, solo non dall'app. Diverso da «Annulla», che vuol dire «ho cambiato idea»."
+                  >
+                    Chiudi: era già così
+                  </button>
+                </form>
+              </div>
+            );
+          })()}
 
           {/* ⚠️⚠️ «ESEGUI QUESTA SU META», UNA SOLA (08/09/2026).
               Su Meta esegue l'app, e dal 04/09 l'approvazione esegue subito —
