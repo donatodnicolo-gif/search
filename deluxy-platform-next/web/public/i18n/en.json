@@ -1098,7 +1098,17 @@
       "scelto": "chosen",
       "mancaVendita": "First choose the sale to reconcile.",
       "mancaProdotto": "Search the product already sold in the past.",
-      "mancaPartner": "Choose who makes it, above: the price comes from there."
+      "mancaPartner": "Choose who makes it, above: the price comes from there.",
+      "passo1senza": "What the agreement covers",
+      "daOrdine": "From an order",
+      "senzaOrdine": "Without an order",
+      "ancheChiuse": "Also search closed orders",
+      "senzaHint": "No order to compare: the customer price is the list price, so the margin is an estimate.",
+      "scegliProvincia": "Choose the province…",
+      "tutteVarianti": "All variants",
+      "varianti": "variants",
+      "nessunProdotto": "No product with this name.",
+      "mancaProdottoProvincia": "Choose the product and the province the agreement covers."
     }
   },
   "products": {
@@ -2663,7 +2673,8 @@
       "province": "Prov.",
       "partner": "Partner",
       "delivery": "Delivery",
-      "amount": "Amount"
+      "amount": "Amount",
+      "sent": "Sent"
     },
     "tab": {
       "tutte": "All",
@@ -2801,7 +2812,15 @@
       "chiediPreventivo": "Ask for the quote",
       "preventivoServe": "Quote product: the partner price comes first, then you can accept or insert."
     },
-    "altriProdotti": "Other products in the same order"
+    "altriProdotti": "Other products in the same order",
+    "sent": {
+      "attesa": "Pending",
+      "inviata": "Sent",
+      "parziale": "Partial",
+      "fallita": "Not delivered",
+      "app": "app",
+      "mail": "mail"
+    }
   },
   "activities": {
     "title": "Activities",
@@ -3317,6 +3336,23 @@
       "apriConsegne": "Open in Deliveries",
       "apriPartner": "Partner card",
       "apriValet": "Valet card"
+    },
+    "smistamento": {
+      "titolo": "Routing: automatic or by hand",
+      "auto": "Routed automatically",
+      "mano": "Routed by hand",
+      "fuori": "Outside routing",
+      "prima": "before",
+      "suSmistate": "of {{n}} that went through routing",
+      "manoBase": "automation stopped: the office decides",
+      "fuoriBase": "never went through: backfills and orders fulfilled elsewhere",
+      "motivo": "Why",
+      "famiglia": "How",
+      "quante": "Count",
+      "f_auto": "automatic",
+      "f_mano": "by hand",
+      "f_fuori": "outside",
+      "nota": "The \"by hand\" rows are the list of what can still be automated: each reconciliation agreement moves some of them into the automatic column. \"Outside routing\" is excluded from the percentage, because those never went through it."
     }
   },
   "puntualita": {

@@ -95,6 +95,16 @@ interface Sale {
   product?: ProdottoVendita | null;
   variantName?: string | null;
   partner?: { id: string; insegna: string } | null;
+  /**
+   * La FASE dopo la proposta: il messaggio al partner. Due canali indipendenti
+   * (campanello in app e mail): ognuno puo' fallire per conto suo, e «proposta»
+   * da sola non dice se il partner l'ha saputo.
+   */
+  trasmissione?: {
+    esito: 'attesa' | 'inviata' | 'parziale' | 'fallita';
+    app?: { ok: boolean; testo: string; quando: string } | null;
+    mail?: { ok: boolean; testo: string; quando: string } | null;
+  } | null;
   province?: { id: string; code: string; name: string } | null;
   assignmentReason?: string | null;
   recipientFirstName?: string | null;
@@ -267,6 +277,15 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
+              <!-- ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa
+                   al partner con l'aggiunta di una colonna per questa fase»).
+                   Proporre e trasmettere sono due fasi diverse: lo smistamento sceglie il
+                   partner in un attimo, il messaggio parte dopo e può non arrivare mai
+                   (partner senza utenti, senza indirizzo, con le notifiche spente). Al
+                   partner questa colonna non serve: è la nostra spedizione, non la sua. -->
+              @if (!isPartner()) {
+                <th class="ordinabile" (click)="ordina('trasmessa')">{{ 'sales.col.sent' | translate }}{{ freccia('trasmessa') }}</th>
+              }
               <th class="ordinabile num" (click)="ordina('amount')">{{ (isPartner() ? 'sales.col.partnerPrice' : 'sales.col.publicPrice') | translate }}{{ freccia('amount') }}</th>
               <!-- ⭐ 04/09 (regola utente): all'ufficio servono tutt'e due i numeri. -->
               @if (!isPartner()) {
@@ -327,6 +346,21 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                     <span class="motivo">{{ s.assignmentReason }}</span>
                   }
                 </td>
+                @if (!isPartner()) {
+                  <td class="trasmessa">
+                    @if (s.trasmissione; as t) {
+                      <span class="badge" [style.--c]="coloreInvio(t.esito)" [title]="dettaglioInvio(t)">
+                        <i class="dot"></i>{{ ('sales.sent.' + t.esito) | translate }}
+                      </span>
+                      <!-- I due canali sono indipendenti: si dice quale ha funzionato,
+                           altrimenti «parziale» non si sa cosa voglia dire. -->
+                      <span class="canali">
+                        <span [class.ko]="t.app && !t.app.ok" [class.ok]="t.app?.ok">{{ 'sales.sent.app' | translate }}</span>
+                        <span [class.ko]="t.mail && !t.mail.ok" [class.ok]="t.mail?.ok">{{ 'sales.sent.mail' | translate }}</span>
+                      </span>
+                    } @else { <span class="muted">—</span> }
+                  </td>
+                }
                 <td class="num">{{ (s.prezzoPartner ?? s.amount) | number: '1.2-2' }} €</td>
                 @if (!isPartner()) {
                   <td class="num">{{ nettoPartner(s) | number: '1.2-2' }} €
@@ -898,6 +932,13 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       .esito { margin-top: 10px; color: var(--danger, #d70015); font-size: 13.5px; }
       .esito.ok { color: var(--green); }
       .motivo { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; max-width: 260px; }
+      /* La colonna della trasmissione: il badge dice l'esito, sotto i due canali.
+         Niente a capo sul badge, o «Non arrivata» spezza la riga in due. */
+      .trasmessa { white-space: nowrap; }
+      .trasmessa .canali { display: block; margin-top: 3px; font-size: 10.5px; color: var(--text-tertiary); }
+      .trasmessa .canali span { margin-right: 6px; }
+      .trasmessa .canali span.ok { color: var(--text-secondary); }
+      .trasmessa .canali span.ko { color: #FF3B30; text-decoration: line-through; }
       .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .mono { font-variant-numeric: tabular-nums; }
       .muted { color: var(--text-tertiary); }
@@ -1106,6 +1147,8 @@ export class SalesListComponent {
         case 'prodotto': return s.product?.name ?? s.productName ?? null;
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
+        // Si ordina per gravità: prima quello che non è arrivato.
+        case 'trasmessa': return s.trasmissione ? ({ fallita: 0, parziale: 1, attesa: 2, inviata: 3 } as Record<string, number>)[s.trasmissione.esito] ?? 9 : 9;
         case 'deliveryDate': return s.deliveryDate ?? null;
         case 'amount': return s.prezzoPartner ?? s.amount ?? null;
         default: return (s as any)[campo] ?? null;
@@ -1135,6 +1178,21 @@ export class SalesListComponent {
 
   etichetta(stato: string) { return STATI[stato]?.etichetta ?? stato; }
   colore(stato: string) { return STATI[stato]?.colore ?? '#6e6e73'; }
+
+  /**
+   * ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa al
+   * partner»). Quattro esiti, quattro colori: in attesa (grigio), inviata (verde),
+   * parziale (ambra: un canale sì e uno no), fallita (rosso).
+   */
+  coloreInvio(esito: string) {
+    return { attesa: '#8e8e93', inviata: '#34C759', parziale: '#FF9F0A', fallita: '#FF3B30' }[esito] ?? '#8e8e93';
+  }
+
+  /** Il perché per esteso, sul passaggio del mouse: «parziale» da solo non basta. */
+  dettaglioInvio(t: { app?: { testo: string; quando: string } | null; mail?: { testo: string; quando: string } | null }) {
+    const righe = [t.app?.testo, t.mail?.testo].filter(Boolean) as string[];
+    return righe.length ? righe.join('\n') : 'Nessun tentativo registrato: la proposta è appena nata, oppure risale a prima che questa traccia esistesse.';
+  }
 
   /** Un partner risponde solo alle vendite proposte a lui; admin e operation a tutte. */
   /** Quanto incassa il partner: importo meno la quota Deluxy (lo sconto della vendita). */

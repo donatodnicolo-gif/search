@@ -358,6 +358,60 @@ const VERSO: Record<string, 1 | -1 | 0> = {
         }
       </section>
 
+      <!-- ⭐ 08/09/2026 (regola utente: «in statistiche mostrami anche quanti prodotti vanno
+           in automatico e quanti sono inseriti manualmente»).
+           È la misura di quanto lavora l'automatismo: ogni patto di riconciliazione scritto
+           sposta righe da «a mano» ad «automatica», e qui si vede se sta succedendo. -->
+      @if (d.smistamento; as sm) {
+        <section class="card blocco">
+          <h2>{{ 'statistiche.smistamento.titolo' | translate }}</h2>
+          <div class="numeri">
+            <div class="numero">
+              <span class="k">{{ 'statistiche.smistamento.auto' | translate }}</span>
+              <span class="v">{{ num(sm.corrente.auto) }}</span>
+              <span class="delta" [class.su]="sm.corrente.percentualeAuto > sm.confronto.percentualeAuto"
+                    [class.giu]="sm.corrente.percentualeAuto < sm.confronto.percentualeAuto">
+                {{ sm.corrente.percentualeAuto }}% · {{ 'statistiche.smistamento.prima' | translate }} {{ sm.confronto.percentualeAuto }}%
+              </span>
+              <span class="base">{{ 'statistiche.smistamento.suSmistate' | translate: { n: num(sm.corrente.auto + sm.corrente.mano) } }}</span>
+            </div>
+            <div class="numero">
+              <span class="k">{{ 'statistiche.smistamento.mano' | translate }}</span>
+              <span class="v">{{ num(sm.corrente.mano) }}</span>
+              <span class="delta">{{ num(sm.confronto.mano) }} {{ 'statistiche.smistamento.prima' | translate }}</span>
+              <span class="base">{{ 'statistiche.smistamento.manoBase' | translate }}</span>
+            </div>
+            <div class="numero">
+              <span class="k">{{ 'statistiche.smistamento.fuori' | translate }}</span>
+              <span class="v">{{ num(sm.corrente.fuori) }}</span>
+              <span class="delta">{{ num(sm.confronto.fuori) }} {{ 'statistiche.smistamento.prima' | translate }}</span>
+              <span class="base">{{ 'statistiche.smistamento.fuoriBase' | translate }}</span>
+            </div>
+          </div>
+          <!-- Il numero da solo non dice cosa fare: il motivo sì. Le prime voci di
+               «a mano» sono la lista di quello che si può automatizzare. -->
+          @if (sm.corrente.motivi.length) {
+            <table class="compatta motivi-smist">
+              <thead><tr>
+                <th>{{ 'statistiche.smistamento.motivo' | translate }}</th>
+                <th>{{ 'statistiche.smistamento.famiglia' | translate }}</th>
+                <th class="num">{{ 'statistiche.smistamento.quante' | translate }}</th>
+              </tr></thead>
+              <tbody>
+                @for (m of sm.corrente.motivi; track m.motivo) {
+                  <tr>
+                    <td>{{ m.motivo }}</td>
+                    <td><span class="fam" [class.f-auto]="m.famiglia === 'auto'" [class.f-mano]="m.famiglia === 'mano'">{{ ('statistiche.smistamento.f_' + m.famiglia) | translate }}</span></td>
+                    <td class="num">{{ num(m.n) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+          <p class="muted piccolo">{{ 'statistiche.smistamento.nota' | translate }}</p>
+        </section>
+      }
+
       <!-- Classifiche + stati -->
       <div class="griglia-3">
         @for (k of ['partner', 'valet', 'province']; track k) {
@@ -500,6 +554,13 @@ const VERSO: Record<string, 1 | -1 | 0> = {
     table.compatta { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     table.compatta th, table.compatta td { padding: 6px 8px; border-bottom: 1px solid var(--hairline); text-align: left; }
     table.compatta th.num, table.compatta td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    /* Lo smistamento: la famiglia si legge a colpo d'occhio, il motivo per esteso puo' andare a capo. */
+    table.motivi-smist { margin-top: 12px; }
+    table.motivi-smist td:first-child { max-width: 420px; }
+    .fam { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px;
+           border: 1px solid var(--hairline); color: var(--text-secondary); white-space: nowrap; }
+    .fam.f-auto { border-color: rgba(52,199,89,.45); color: #248A3D; }
+    .fam.f-mano { border-color: rgba(255,159,10,.5); color: #A56100; }
     tfoot td { border-top: 1px solid var(--hairline-strong, var(--hairline)); background: var(--surface); }
     .muted { color: var(--text-secondary); } .piccolo { font-size: 12.5px; } .strong { font-weight: 600; }
     .ko { color: var(--red); }

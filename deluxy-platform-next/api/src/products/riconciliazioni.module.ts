@@ -56,6 +56,8 @@ type StatPartner = {
   nettoModa: number;
   /** true = il numero viene dal conto della vendita, non da una consegna. */
   daSuggerimento?: boolean;
+  /** ⭐ 08/09/2026: il conto, quando il patto nasce da più pezzi: 8 € × 15. */
+  perPezzi?: { unitario: number | null; pezzi: number } | null;
   scontoMedio: number;
   ultimaVendita: string;
 };
@@ -188,16 +190,36 @@ export class RiconciliazioniService {
     const consegne = consegneIds.length
       ? await this.prisma.delivery.findMany({
           where: { id: { in: consegneIds } },
-          select: { id: true, products: { select: { productId: true, price: true } } },
+          select: { id: true, products: { select: { productId: true, price: true, quantity: true, productName: true } } },
         })
       : [];
     const righeConsegna = new Map(consegne.map((c) => [c.id, c.products]));
-    /** Quanto ha preso il partner per QUEL prodotto in QUELLA vendita. */
+    /**
+     * Quanto ha preso il partner per QUEL prodotto in QUELLA vendita.
+     *
+     * ⭐ 08/09/2026 (regola utente: «quando è così applica alla riconciliazione la
+     * quantità: quindi sarà 8×15») — IL PREZZO DELLA RIGA È PER PEZZO.
+     *
+     * Il fioraio scrive sulla consegna il suo listino: «rosa rosa maryflor €8» × 15,
+     * prezzo 8. Quegli 8 € sono UNA rosa, non le quindici: il patto vale 8 × 15 = 120 €.
+     * Letto senza la quantità nasceva una regola da 8 € su una vendita da 180 €, e da lì
+     * in avanti ogni ordine di quel prodotto in quella provincia sarebbe andato a quel
+     * prezzo. È successo tre volte (Maryflor 15, FAG Torino 12, Lijoi Roma 3) e per
+     * fortuna le tre regole erano rimaste «proposta».
+     *
+     * Misurato sul vero: delle 19 righe di consegna con più di un pezzo e un prezzo,
+     * 18 sono unitarie e la diciannovesima è un artefatto del confronto (una consegna
+     * con due righe messa a paragone con una sola vendita). Con un pezzo solo — la
+     * quasi totalità — moltiplicare per 1 non cambia niente.
+     */
     const datoAlPartner = (v: { deliveryId: string | null; productId: string | null; amount: number; discountPercent: number }) => {
       const righe = v.deliveryId ? righeConsegna.get(v.deliveryId) : null;
       const riga = righe?.find((r) => r.productId === v.productId) ?? (righe?.length === 1 ? righe[0] : null);
-      if (riga && (riga.price ?? 0) > 0) return { valore: arrotonda(riga.price as number), reale: true };
-      return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false };
+      if (riga && (riga.price ?? 0) > 0) {
+        const pezzi = Math.max(1, Math.round(Number(riga.quantity) || 1));
+        return { valore: arrotonda((riga.price as number) * pezzi), reale: true, pezzi, unitario: arrotonda(riga.price as number) };
+      }
+      return { valore: arrotonda(v.amount * (1 - v.discountPercent / 100)), reale: false, pezzi: 1, unitario: null as number | null };
     };
 
     // ⭐ 06/09/2026 (regola utente): la coppia diventa TERNA (prodotto, VARIANTE, provincia): la
@@ -258,6 +280,15 @@ export class RiconciliazioniService {
             nettoModa: moda(lista.map((v) => datoAlPartner(v).valore)),
             /** false = nessuna consegna lo conferma: è un suggerimento, non un fatto. */
             daSuggerimento: !lista.some((v) => datoAlPartner(v).reale),
+            /**
+             * ⭐ 08/09/2026: il CONTO, quando il prezzo del partner nasce da più pezzi
+             * («8 € × 15»). Senza, chi guarda la regola vede 120 € e non sa da dove esce
+             * — e il primo dubbio è sempre lo stesso: «è per uno o per tutti?».
+             */
+            perPezzi: (() => {
+              const d = datoAlPartner(lista[lista.length - 1]);
+              return d.reale && d.pezzi > 1 ? { unitario: d.unitario, pezzi: d.pezzi } : null;
+            })(),
             scontoMedio: arrotonda(lista.reduce((n, v) => n + v.discountPercent, 0) / lista.length),
             ultimaVendita: lista[lista.length - 1].createdAt.toISOString(),
           };
@@ -458,11 +489,21 @@ export class RiconciliazioniService {
    */
 
   /** Le vendite che ha senso riconciliare: ferme, con un prodotto a catalogo. */
-  async venditeDaRiconciliare(q?: string) {
+  /**
+   * Le vendite da cui far nascere un patto.
+   *
+   * ⭐ 08/09/2026 (regola utente: «consentimi di cercare ordini in vendita anche già
+   * inseriti»). Di suo l'elenco mostra chi aspetta una decisione — da gestire e
+   * proposte — perché è lì che serve una regola. Ma un patto si scrive spesso
+   * GUARDANDO un ordine già andato a buon fine: «quella volta gliel'abbiamo pagata
+   * così, da adesso vale sempre». Con `tutte` la ricerca comprende ogni stato,
+   * accettate incluse; l'elenco lo dice, così chi sceglie sa cosa sta guardando.
+   */
+  async venditeDaRiconciliare(q?: string, tutte = false) {
     const testo = (q ?? '').trim();
     const vendite = await this.prisma.sale.findMany({
       where: {
-        status: { in: [SaleStatus.DA_GESTIRE, SaleStatus.PROPOSTA] },
+        ...(tutte ? {} : { status: { in: [SaleStatus.DA_GESTIRE, SaleStatus.PROPOSTA] } }),
         productId: { not: null },
         ...(testo
           ? {
@@ -479,6 +520,8 @@ export class RiconciliazioniService {
         id: true, externalOrderNumber: true, amount: true, quantity: true, status: true,
         variantName: true, productVariantId: true, createdAt: true, deliveryDate: true,
         recipientLastName: true, recipientAddress: true,
+        // Con le accettate in mezzo, sapere A CHI è andata è metà della decisione.
+        partner: { select: { id: true, insegna: true } },
         product: { select: { id: true, name: true, sku: true, tipologiaVendita: true } },
         province: { select: { id: true, code: true, name: true } },
       },
@@ -587,28 +630,88 @@ export class RiconciliazioniService {
    * L'ANTEPRIMA: il confronto dei prezzi e il margine, prima di scrivere.
    * Il margine è quello che resta a Deluxy: pagato dal cliente − dato al partner.
    */
-  async anteprimaManuale(saleId: string, partnerId: string, prezzoPartner: number) {
-    const vendita = await this.prisma.sale.findUnique({
-      where: { id: saleId },
-      select: {
-        productId: true, productVariantId: true, provinceId: true, amount: true, quantity: true,
-        discountPercent: true, variantName: true, externalOrderNumber: true,
-        product: { select: { id: true, name: true, sku: true } },
-        province: { select: { id: true, code: true, name: true } },
-      },
+  /**
+   * SU COSA si scrive il patto: prodotto, variante, provincia, e il prezzo al cliente
+   * con cui misurare il margine.
+   *
+   * ⭐ 08/09/2026 (regola utente: «oppure di non inserire nessuna vendita e cercare
+   * direttamente per prodotto, partner e provincia»). Fino a ieri il modulo partiva
+   * per forza da una vendita: senza un ordine già arrivato non si poteva scrivere un
+   * accordo — e un accordo si prende PRIMA che l'ordine arrivi, è il suo mestiere.
+   *
+   * Due strade, stesso patto:
+   *  · da una VENDITA: prodotto, variante, provincia e prezzo pagato vengono da lì;
+   *  · SENZA vendita: si scelgono prodotto, variante e provincia, e il prezzo al
+   *    cliente lo dà il LISTINO (della variante se c'è, altrimenti del prodotto).
+   * Il margine si calcola uguale; cambia da dove arriva il prezzo pubblico, e
+   * l'anteprima lo dichiara (`fonte`) perché un listino non è un incasso.
+   */
+  private async contestoDelPatto(b: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string }) {
+    if (b.saleId) {
+      const v = await this.prisma.sale.findUnique({
+        where: { id: b.saleId },
+        select: {
+          productId: true, productVariantId: true, provinceId: true, amount: true, quantity: true,
+          discountPercent: true, variantName: true, externalOrderNumber: true,
+          product: { select: { id: true, name: true, sku: true } },
+          province: { select: { id: true, code: true, name: true } },
+        },
+      });
+      if (!v?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+      return {
+        productId: v.productId, productVariantId: v.productVariantId ?? null, provinceId: v.provinceId,
+        alCliente: arrotonda(v.amount), sconto: arrotonda(v.discountPercent ?? 0),
+        ordine: v.externalOrderNumber, prodotto: v.product?.name ?? null, sku: v.product?.sku ?? null,
+        variante: v.variantName, pezzi: v.quantity,
+        provincia: v.province?.code ?? null, provinciaNome: v.province?.name ?? null,
+        fonte: 'vendita' as 'vendita' | 'listino', saleId: b.saleId as string | null,
+      };
+    }
+    if (!b.productId || !b.provinceId) {
+      throw new BadRequestException('Senza una vendita servono il prodotto e la provincia.');
+    }
+    const prod = await this.prisma.product.findUnique({
+      where: { id: b.productId },
+      select: { id: true, name: true, sku: true, price: true, publicPrice: true, categoryId: true,
+                variants: { select: { id: true, name: true, price: true, publicPrice: true } } },
     });
-    if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+    if (!prod) throw new NotFoundException('Prodotto non trovato');
+    const prov = await this.prisma.province.findUnique({ where: { id: b.provinceId }, select: { id: true, code: true, name: true } });
+    if (!prov) throw new NotFoundException('Provincia non trovata');
+    const vr = b.productVariantId ? prod.variants.find((x) => x.id === b.productVariantId) ?? null : null;
+    if (b.productVariantId && !vr) throw new NotFoundException('Variante non trovata su questo prodotto');
+    const listino = vr?.publicPrice ?? vr?.price ?? prod.publicPrice ?? prod.price ?? 0;
+    // Lo sconto del territorio, se la categoria ne ha uno qui: serve solo al confronto.
+    const cd = prod.categoryId
+      ? await this.prisma.categoryDiscount.findFirst({
+          where: { categoryId: prod.categoryId, provinceId: prov.id }, select: { discountPercent: true },
+        })
+      : null;
+    return {
+      productId: prod.id, productVariantId: vr?.id ?? null, provinceId: prov.id,
+      alCliente: arrotonda(listino), sconto: arrotonda(cd?.discountPercent ?? 0),
+      ordine: null as string | null, prodotto: prod.name, sku: prod.sku,
+      variante: vr?.name ?? null, pezzi: 1,
+      provincia: prov.code, provinciaNome: prov.name,
+      fonte: 'listino' as 'vendita' | 'listino', saleId: null as string | null,
+    };
+  }
+
+  async anteprimaManuale(b: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string; partnerId: string; prezzoPartner: number }) {
+    const vendita = await this.contestoDelPatto(b);
+    const partnerId = b.partnerId;
+    const prezzoPartner = b.prezzoPartner;
     const partner = await this.prisma.partner.findUnique({
       where: { id: partnerId }, select: { id: true, insegna: true, active: true },
     });
     if (!partner) throw new NotFoundException('Partner non trovato');
 
-    const alCliente = arrotonda(vendita.amount);
+    const alCliente = arrotonda(vendita.alCliente);
     const alPartner = arrotonda(prezzoPartner);
     const margine = arrotonda(alCliente - alPartner);
     const percentuale = alCliente > 0 ? arrotonda((margine / alCliente) * 100) : 0;
     // Il confronto con la regola del territorio, per capire se il patto conviene.
-    const conLaPercentuale = arrotonda(alCliente * (1 - (vendita.discountPercent ?? 0) / 100));
+    const conLaPercentuale = arrotonda(alCliente * (1 - vendita.sconto / 100));
 
     const gia = await this.prisma.productReconciliation.findFirst({
       where: { productId: vendita.productId, provinceId: vendita.provinceId, productVariantId: vendita.productVariantId ?? null },
@@ -617,21 +720,27 @@ export class RiconciliazioniService {
 
     return {
       vendita: {
-        ordine: vendita.externalOrderNumber, prodotto: vendita.product?.name, sku: vendita.product?.sku,
-        variante: vendita.variantName, pezzi: vendita.quantity, provincia: vendita.province?.code, provinciaNome: vendita.province?.name,
+        ordine: vendita.ordine, prodotto: vendita.prodotto, sku: vendita.sku,
+        variante: vendita.variante, pezzi: vendita.pezzi, provincia: vendita.provincia, provinciaNome: vendita.provinciaNome,
+        // «vendita» = un ordine vero; «listino» = il patto scritto prima che l'ordine arrivi.
+        fonte: vendita.fonte,
       },
       partner: { id: partner.id, insegna: partner.insegna, attivo: partner.active },
       prezzi: {
         alCliente, alPartner, margine, percentuale,
         // Quanto prenderebbe il partner con la sola regola del territorio: se il patto
         // costa di più, il margine si stringe — e chi conferma deve vederlo.
-        conLaPercentuale, scontoTerritorio: arrotonda(vendita.discountPercent ?? 0),
+        conLaPercentuale, scontoTerritorio: vendita.sconto,
         differenzaSullaRegola: arrotonda(conLaPercentuale - alPartner),
       },
       avvisi: [
         ...(alPartner >= alCliente ? ['Il prezzo del partner è pari o superiore a quello pagato dal cliente: il margine è zero o negativo.'] : []),
         ...(!partner.active ? ['Il partner non è attivo: la regola non verrebbe usata dallo smistamento.'] : []),
         ...(gia && gia.status === 'accettata' ? ['Per questo prodotto, variante e provincia esiste già una regola attiva: confermando la si sostituisce.'] : []),
+        // Senza un ordine vero il prezzo al cliente è quello di listino: il margine è
+        // una previsione, non un fatto. Chi conferma deve saperlo.
+        ...(vendita.fonte === 'listino' ? ['Nessuna vendita a confronto: il prezzo al cliente è quello di listino, quindi il margine è una previsione.'] : []),
+        ...(vendita.fonte === 'listino' && alCliente <= 0 ? ['Questo prodotto non ha un prezzo di listino: il margine non è calcolabile.'] : []),
       ],
       regolaEsistente: gia,
     };
@@ -639,27 +748,36 @@ export class RiconciliazioniService {
 
   /** Scrive la riconciliazione decisa a mano: nasce già ACCETTATA, perché l'ha decisa una persona. */
   async creaManuale(
-    body: { saleId: string; partnerId: string; prezzoPartner: number; riferimentoProductId?: string; riferimentoVariantId?: string },
+    body: {
+      saleId?: string;
+      /** ⭐ 08/09/2026: la strada SENZA vendita — il patto preso prima dell'ordine. */
+      productId?: string; productVariantId?: string | null; provinceId?: string;
+      partnerId: string; prezzoPartner: number;
+      riferimentoProductId?: string; riferimentoVariantId?: string;
+    },
     user: JwtUser,
   ) {
-    const a = await this.anteprimaManuale(body.saleId, body.partnerId, body.prezzoPartner);
-    const vendita = await this.prisma.sale.findUnique({
-      where: { id: body.saleId },
-      select: { productId: true, productVariantId: true, provinceId: true, amount: true, discountPercent: true, externalOrderNumber: true },
-    });
-    if (!vendita?.productId) throw new BadRequestException('La vendita non ha un prodotto a catalogo.');
+    const a = await this.anteprimaManuale(body);
+    const c = await this.contestoDelPatto(body);
     if ((await this.esclusiIds()).includes(body.partnerId)) {
       throw new BadRequestException('Il partner è escluso dalle riconciliazioni.');
     }
     const dati = {
       partnerId: body.partnerId,
       partnerPrice: arrotonda(body.prezzoPartner),
-      price: arrotonda(vendita.amount),
-      discountPercent: arrotonda(vendita.discountPercent ?? 0),
-      salesCount: 1,
-      stats: JSON.stringify([{ da: 'riconciliazione a mano', riferimento: body.riferimentoProductId ?? null, variante: body.riferimentoVariantId ?? null }]),
-      lastSaleId: body.saleId,
-      lastOrderNumber: vendita.externalOrderNumber,
+      price: arrotonda(c.alCliente),
+      discountPercent: c.sconto,
+      salesCount: c.saleId ? 1 : 0,
+      stats: JSON.stringify([{
+        da: c.saleId ? 'riconciliazione a mano' : 'accordo scritto senza vendita',
+        // Il prezzo al pubblico viene da un incasso vero o da un listino: si scrive
+        // QUALE, perché fra sei mesi nessuno se lo ricorda.
+        prezzoPubblicoDa: c.fonte,
+        riferimento: body.riferimentoProductId ?? null,
+        variante: body.riferimentoVariantId ?? null,
+      }]),
+      lastSaleId: c.saleId,
+      lastOrderNumber: c.ordine,
       trigger: 'manuale',
       // Decisa da una persona: nasce attiva, e lo smistamento la usa dal giro dopo.
       status: 'accettata',
@@ -669,10 +787,46 @@ export class RiconciliazioniService {
     const riga = a.regolaEsistente
       ? await this.prisma.productReconciliation.update({ where: { id: a.regolaEsistente.id }, data: dati, select: { id: true } })
       : await this.prisma.productReconciliation.create({
-          data: { productId: vendita.productId, productVariantId: vendita.productVariantId ?? null, provinceId: vendita.provinceId, ...dati },
+          data: { productId: c.productId, productVariantId: c.productVariantId, provinceId: c.provinceId, ...dati },
           select: { id: true },
         });
     return (await this.lista({ ids: [riga.id] }))[0];
+  }
+
+  /**
+   * I prodotti fra cui scegliere quando il patto nasce SENZA una vendita.
+   *
+   * Si cercano per nome o SKU e tornano con le loro varianti: la regola è sulla terna
+   * prodotto + variante + provincia, quindi la variante va scelta qui.
+   */
+  /** Le province attive, per la scelta del territorio quando non c'è una vendita a dirlo. */
+  async province() {
+    return this.prisma.province.findMany({
+      select: { id: true, code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async cercaProdotti(q?: string) {
+    const testo = (q ?? '').trim();
+    if (testo.length < 2) return [];
+    const prodotti = await this.prisma.product.findMany({
+      where: {
+        active: true, deletedAt: null, archived: false,
+        OR: [
+          { name: { contains: testo, mode: 'insensitive' } },
+          { sku: { contains: testo, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true, name: true, sku: true, type: true, tipologiaVendita: true, price: true, publicPrice: true,
+        partner: { select: { id: true, insegna: true } },
+        variants: { where: { active: true }, select: { id: true, name: true, sku: true, price: true, publicPrice: true }, orderBy: { name: 'asc' } },
+      },
+      orderBy: { name: 'asc' },
+      take: 30,
+    });
+    return prodotti;
   }
 
   /** Accetta = regola attiva (lo smistamento la legge da subito). Rifiuta = mai più proposta. */
@@ -827,8 +981,17 @@ export class RiconciliazioniController {
   @Get('vendite-da-riconciliare')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Le vendite ferme che si possono riconciliare (passo 1)' })
-  venditeDaRiconciliare(@Query('q') q?: string) {
-    return this.service.venditeDaRiconciliare(q);
+  venditeDaRiconciliare(@Query('q') q?: string, @Query('tutte') tutte?: string) {
+    // `tutte=1`: cerca anche fra le vendite già chiuse (accettate comprese), perché un
+    // patto si scrive spesso guardando un ordine già andato bene.
+    return this.service.venditeDaRiconciliare(q, tutte === '1' || tutte === 'true');
+  }
+
+  @Get('cerca-prodotti')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Cerca prodotti e varianti per scrivere un patto senza partire da una vendita' })
+  cercaProdotti(@Query('q') q?: string) {
+    return this.service.cercaProdotti(q);
   }
 
   @Get('riferimento/:productId')
@@ -838,18 +1001,30 @@ export class RiconciliazioniController {
     return this.service.riferimento(productId, variantId || null);
   }
 
+  @Get('province')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Le province fra cui scegliere quando il patto nasce senza una vendita' })
+  province() {
+    return this.service.province();
+  }
+
   @Post('anteprima')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Il confronto dei prezzi e il margine, prima di confermare (passo 5)' })
-  anteprima(@Body() body: { saleId: string; partnerId: string; prezzoPartner: number }) {
-    return this.service.anteprimaManuale(body.saleId, body.partnerId, Number(body.prezzoPartner));
+  anteprima(@Body() body: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string; partnerId: string; prezzoPartner: number }) {
+    return this.service.anteprimaManuale({ ...body, prezzoPartner: Number(body.prezzoPartner) });
   }
 
   @Post('manuale')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Crea la riconciliazione decisa a mano (nasce accettata)' })
   creaManuale(
-    @Body() body: { saleId: string; partnerId: string; prezzoPartner: number; riferimentoProductId?: string; riferimentoVariantId?: string },
+    @Body() body: {
+      saleId?: string;
+      productId?: string; productVariantId?: string | null; provinceId?: string;
+      partnerId: string; prezzoPartner: number;
+      riferimentoProductId?: string; riferimentoVariantId?: string;
+    },
     @CurrentUser() user: JwtUser,
   ) {
     return this.service.creaManuale({ ...body, prezzoPartner: Number(body.prezzoPartner) }, user);

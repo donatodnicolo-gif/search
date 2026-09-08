@@ -256,6 +256,7 @@ export class StatisticheService {
     const totCorrente = riassunto(perBucket(perTipo, 'corrente'));
     const totConfronto = riassunto(perBucket(perTipo, 'confronto'));
     const economia = await this.economia(iv.corrente, iv.confronto, totCorrente.concluse, totConfronto.concluse, filtri);
+    const smistamento = await this.smistamento(iv.corrente, iv.confronto, filtri);
     const etichette = {
       serviceType: filtri.serviceTypeId ? await this.prisma.serviceType.findUnique({ where: { id: filtri.serviceTypeId }, select: { id: true, name: true } }) : null,
       pricingModel: filtri.pricingModel ?? null,
@@ -275,7 +276,76 @@ export class StatisticheService {
       perStato: [...stati.values()].sort((x, y) => y.corrente - x.corrente),
       top: { partner: classifica(topPartner), valet: classifica(topValet), province: classifica(topProvince) },
       economia,
+      smistamento,
     };
+  }
+
+  /**
+   * ⭐ 08/09/2026 (regola utente: «in statistiche mostrami anche quanti prodotti vanno in
+   * automatico e quanti sono inseriti manualmente»).
+   *
+   * Quante VENDITE si sono smistate da sole e quante le ha smistate una persona. È la
+   * misura di quanto lavora l'automatismo — e quindi di quanto rendono le regole di
+   * riconciliazione: ogni patto scritto sposta righe dalla colonna «a mano» a quella
+   * «automatica», e qui lo si vede.
+   *
+   * Tre famiglie, non due, perché due mentirebbero:
+   *  · AUTOMATICA — una regola ha scelto il partner: patto prodotto/provincia, listino
+   *    del prodotto unico, lista di priorità, unico partner della provincia, categoria;
+   *  · A MANO — l'automatismo si è fermato e decide l'ufficio: prodotto fuori catalogo,
+   *    ordine estero, provincia scoperta, presa in mano;
+   *  · FUORI SMISTAMENTO — non è mai passata di lì: ordini già evasi altrove e recuperi
+   *    del registro. Contarli fra i «manuali» gonfierebbe il lavoro dell'ufficio di
+   *    numeri che nessuno ha fatto (in 30 giorni sono 76 righe su 577).
+   *
+   * Il criterio è il MOTIVO dell'assegnazione, che lo smistamento scrive su ogni vendita.
+   * Dove il motivo manca si conta il partner: con un partner e senza spiegazione la
+   * vendita è comunque stata assegnata da qualcosa, e si dichiara «senza motivo».
+   */
+  private async smistamento(corrente: Intervallo, confronto: Intervallo, filtri: Filtri = {}) {
+    const conta = async (iv: Intervallo) => {
+      const b = this.bounds(iv);
+      const righe = await this.prisma.$queryRaw<{ famiglia: string; motivo: string | null; n: number }[]>(Prisma.sql`
+        SELECT
+          CASE
+            WHEN s."assignmentReason" ILIKE '%recupero registro%'
+              OR s."assignmentReason" ILIKE '%già evaso%'
+              OR s."assignmentReason" ILIKE '%ordine già evaso%' THEN 'fuori'
+            WHEN s."assignmentReason" ILIKE '%a mano%'
+              OR s."assignmentReason" ILIKE '%decide una persona%'
+              OR s."assignmentReason" ILIKE '%presa in mano%'
+              OR s."assignmentReason" ILIKE '%si gestisce%' THEN 'mano'
+            WHEN s."partnerId" IS NULL THEN 'mano'
+            ELSE 'auto'
+          END AS famiglia,
+          s."assignmentReason" AS motivo,
+          COUNT(*)::int AS n
+        FROM platform."Sale" s
+        WHERE s."createdAt" >= ${b.da} AND s."createdAt" <= ${b.a}
+          ${filtri.provinceId ? Prisma.sql`AND s."provinceId" = ${filtri.provinceId}` : Prisma.empty}
+          ${(filtri.partnerIds ?? []).filter(Boolean).length ? Prisma.sql`AND s."partnerId" IN (${Prisma.join((filtri.partnerIds ?? []).filter(Boolean))})` : Prisma.empty}
+        GROUP BY 1, 2`);
+      const t = { auto: 0, mano: 0, fuori: 0, totale: 0 };
+      const motivi = new Map<string, { famiglia: string; motivo: string; n: number }>();
+      for (const r of righe) {
+        const n = Number(r.n) || 0;
+        t[r.famiglia as 'auto' | 'mano' | 'fuori'] += n;
+        t.totale += n;
+        // Il motivo per esteso è lunghissimo: si tiene la prima frase, che dice la regola.
+        const testo = (r.motivo ?? '(senza motivo)').split(/[.:·]/)[0].trim().slice(0, 70) || '(senza motivo)';
+        const g = motivi.get(testo) ?? { famiglia: r.famiglia, motivo: testo, n: 0 };
+        g.n += n;
+        motivi.set(testo, g);
+      }
+      return {
+        ...t,
+        // Sul totale che È passato dallo smistamento: i «fuori» non c'entrano.
+        percentualeAuto: t.auto + t.mano > 0 ? Math.round((t.auto / (t.auto + t.mano)) * 1000) / 10 : 0,
+        motivi: [...motivi.values()].sort((x, y) => y.n - x.n).slice(0, 12),
+      };
+    };
+    const [c, p] = await Promise.all([conta(corrente), conta(confronto)]);
+    return { corrente: c, confronto: p };
   }
 
   /**

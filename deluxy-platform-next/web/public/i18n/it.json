@@ -1100,7 +1100,17 @@
       "scelto": "scelto",
       "mancaVendita": "Scegli prima la vendita da riconciliare.",
       "mancaProdotto": "Cerca il prodotto già venduto in passato.",
-      "mancaPartner": "Scegli chi lo fa, qui sopra: il prezzo viene da lì."
+      "mancaPartner": "Scegli chi lo fa, qui sopra: il prezzo viene da lì.",
+      "passo1senza": "Su cosa vale il patto",
+      "daOrdine": "Da un ordine",
+      "senzaOrdine": "Senza ordine",
+      "ancheChiuse": "Cerca anche fra gli ordini già chiusi",
+      "senzaHint": "Nessun ordine a confronto: il prezzo al cliente è quello di listino, quindi il margine è una previsione.",
+      "scegliProvincia": "Scegli la provincia…",
+      "tutteVarianti": "Tutte le varianti",
+      "varianti": "varianti",
+      "nessunProdotto": "Nessun prodotto con questo nome.",
+      "mancaProdottoProvincia": "Scegli il prodotto e la provincia su cui vale il patto."
     }
   },
   "products": {
@@ -2665,7 +2675,8 @@
       "province": "Prov.",
       "partner": "Partner",
       "delivery": "Consegna",
-      "amount": "Importo"
+      "amount": "Importo",
+      "sent": "Trasmessa"
     },
     "tab": {
       "tutte": "Tutte",
@@ -2803,7 +2814,15 @@
       "chiediPreventivo": "Chiedi il preventivo",
       "preventivoServe": "Prodotto a preventivo: prima serve il prezzo del partner, poi si può accettare o inserire."
     },
-    "altriProdotti": "Altri prodotti dello stesso ordine"
+    "altriProdotti": "Altri prodotti dello stesso ordine",
+    "sent": {
+      "attesa": "In attesa",
+      "inviata": "Inviata",
+      "parziale": "Parziale",
+      "fallita": "Non arrivata",
+      "app": "app",
+      "mail": "mail"
+    }
   },
   "activities": {
     "title": "Attività",
@@ -3319,6 +3338,23 @@
       "apriConsegne": "Apri in Consegne",
       "apriPartner": "Scheda partner",
       "apriValet": "Scheda valet"
+    },
+    "smistamento": {
+      "titolo": "Smistamento: automatico o a mano",
+      "auto": "Smistate da sole",
+      "mano": "Smistate a mano",
+      "fuori": "Fuori smistamento",
+      "prima": "prima",
+      "suSmistate": "su {{n}} passate dallo smistamento",
+      "manoBase": "l’automatismo si è fermato: decide l’ufficio",
+      "fuoriBase": "mai passate di lì: recuperi e ordini già evasi altrove",
+      "motivo": "Perché",
+      "famiglia": "Come",
+      "quante": "Quante",
+      "f_auto": "da sola",
+      "f_mano": "a mano",
+      "f_fuori": "fuori",
+      "nota": "Le righe «a mano» sono la lista di quello che si può ancora automatizzare: ogni patto di riconciliazione scritto ne sposta una parte fra le automatiche. I «fuori smistamento» non entrano nella percentuale, perché non sono mai passati di lì."
     }
   },
   "puntualita": {

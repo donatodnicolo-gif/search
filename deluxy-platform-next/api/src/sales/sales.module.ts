@@ -149,7 +149,15 @@ export class SalesService {
     if (!v.partnerId) return;
     try {
       const utenti = await this.prisma.user.findMany({ where: { partnerId: v.partnerId, status: 'active' }, select: { id: true } });
-      if (!utenti.length) return;
+      if (!utenti.length) {
+        // ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa al
+        // partner»). Un partner senza NESSUN utente attivo non riceve il campanello: la
+        // proposta resta lì e sembra partita. Va detto, non taciuto — la mail parte lo
+        // stesso, ed è l'unica strada che resta.
+        await this.registra(v.id, 'trasmissione-app', 'Avviso in app NON recapitato: il partner non ha utenti attivi');
+        void this.mailProposta(v.id, v.partnerId, v.amount != null ? prezzoAlPartner(v.amount, Number(v.discountPercent) || 0) : null, Math.max(1, Number(v.quantity) || 1));
+        return;
+      }
       // ⭐ 07/09/2026 (segnalazione utente: «è sbagliato, è senza sconto applicato»).
       //
       // L'avviso diceva `amount`, cioè quello che paga il CLIENTE: al fioraio di Torino
@@ -180,6 +188,9 @@ export class SalesService {
         entityType: 'sale',
         entityId: v.id,
       });
+      // La prova che il campanello è suonato: senza, in tabella non si può dire
+      // se il partner è stato avvisato o se il messaggio è morto in un catch.
+      await this.registra(v.id, 'trasmissione-app', `Avviso in app inviato a ${utenti.length} utent${utenti.length === 1 ? 'e' : 'i'} del partner`);
       // ⭐ 07/09/2026 (regola utente: «ci sono le mail di questi partner») — ANCHE PER MAIL.
       //
       // Il campanello dentro l'app non basta: FAG Torino Fiori e Omnistore Flowers hanno una
@@ -190,8 +201,10 @@ export class SalesService {
       //
       // In coda e best-effort: una mail che non parte non deve fermare lo smistamento.
       void this.mailProposta(v.id, v.partnerId, alPartner, pezzi);
-    } catch {
-      // la vendita è già scritta: un avviso mancato non la annulla
+    } catch (err) {
+      // La vendita è già scritta: un avviso mancato non la annulla — ma NON deve
+      // sparire in silenzio, o in tabella sembrerà trasmessa quando non lo è.
+      await this.registra(v.id, 'trasmissione-app', `Avviso in app NON inviato: ${(err as Error).message}`).catch(() => undefined);
     }
   }
 
@@ -271,7 +284,19 @@ export class SalesService {
         ? await this.riferimentoDelPatto(vendita.productId, vendita.productVariantId, vendita.provinceId, partnerId)
         : null;
       const a = (partner?.email ?? '').trim();
-      if (!a || !a.includes('@') || a.includes('no-email') || !partner?.mailNotifications || !vendita) return;
+      // ⭐ 08/09/2026: ognuna di queste porte chiuse va detta col suo nome. Prima
+      // uscivano tutte da un `return` muto, e chi guardava la vendita non sapeva se
+      // la mail non fosse partita per un indirizzo mancante o per le notifiche spente.
+      const manca = !vendita ? 'la vendita non esiste più'
+        : !a ? 'il partner non ha un indirizzo email'
+        : !a.includes('@') || a.includes('no-email') ? `l'indirizzo del partner non è valido (${a})`
+        : !partner?.mailNotifications ? 'il partner ha le notifiche per email spente'
+        : null;
+      if (manca) {
+        await this.registra(saleId, 'trasmissione-mail', `Mail NON inviata: ${manca}`);
+        return;
+      }
+      if (!vendita || !partner) return;
 
       const prodotto = vendita.product?.name ?? vendita.productName ?? 'prodotto';
       const giorno = vendita.deliveryDate
@@ -306,8 +331,13 @@ export class SalesService {
       const oggetto = `Nuova proposta di vendita${vendita.externalOrderNumber ? ` · ordine #${vendita.externalOrderNumber}` : ''}${alPartner != null ? ` · ${alPartner.toFixed(2)} €` : ''}`;
       const esito = await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
       if (!esito.ok) this.logger.warn(`Mail della proposta ${saleId} non partita: ${esito.motivo}`);
+      await this.registra(
+        saleId, 'trasmissione-mail',
+        esito.ok ? `Mail inviata a ${a}` : `Mail NON inviata a ${a}: ${esito.motivo ?? 'errore non specificato'}`,
+      );
     } catch (err) {
       this.logger.warn(`Mail della proposta ${saleId}: ${(err as Error).message}`);
+      await this.registra(saleId, 'trasmissione-mail', `Mail NON inviata: ${(err as Error).message}`).catch(() => undefined);
     }
   }
 
@@ -347,6 +377,38 @@ export class SalesService {
     // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
+
+    /**
+     * ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa al
+     * partner con l'aggiunta di una colonna per questa fase»).
+     *
+     * Proporre e trasmettere sono due cose diverse. La vendita diventa «proposta»
+     * appena lo smistamento sceglie il partner; il messaggio parte dopo, per due
+     * strade indipendenti (campanello in app e mail), e ognuna può fallire per conto
+     * suo: un partner senza utenti attivi non vede il campanello, uno senza indirizzo
+     * o con le notifiche spente non riceve la mail. Fino a ieri entrambe finivano in
+     * un catch muto, e in tabella «proposta» sembrava «avvisato».
+     *
+     * Qui si leggono le tracce lasciate dai due canali — UNA query per tutta la
+     * pagina, non una per riga — e si tiene la più recente per canale.
+     */
+    const daTrasmettere = vendite.filter((v) => v.status === SaleStatus.PROPOSTA && v.partnerId).map((v) => v.id);
+    const trasmissioni = new Map<string, { app: { ok: boolean; testo: string; quando: Date } | null; mail: { ok: boolean; testo: string; quando: Date } | null }>();
+    if (daTrasmettere.length) {
+      const log = await this.prisma.saleLog.findMany({
+        where: { saleId: { in: daTrasmettere }, type: { in: ['trasmissione-app', 'trasmissione-mail'] } },
+        select: { saleId: true, type: true, message: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      for (const r of log) {
+        const g = trasmissioni.get(r.saleId) ?? { app: null, mail: null };
+        // «NON» in testa al messaggio è il segno del fallimento: lo scrive chi invia.
+        const voce = { ok: !/NON /.test(r.message), testo: r.message, quando: r.createdAt };
+        if (r.type === 'trasmissione-app') { if (!g.app) g.app = voce; }
+        else if (!g.mail) g.mail = voce;
+        trasmissioni.set(r.saleId, g);
+      }
+    }
     // ⭐ 07/09/2026 (regola utente: «prima dovrebbe richiedere il preventivo e nascondere
     // accetta, rifiuta e inserisci»). Per le vendite di un prodotto A PREVENTIVO si dice se il
     // prezzo concordato esiste già: senza, in pagina resta solo «Salva preventivo».
@@ -398,7 +460,21 @@ export class SalesService {
     const senzaPreventivo = new Set(daPreventivo.filter((v) => !conPrezzo.has(v.id)).map((v) => v.id));
     return vendite.map((v) => {
       const trovato = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
-      const conStato = { ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id) };
+      const t = trasmissioni.get(v.id) ?? null;
+      const conStato = {
+        ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id),
+        // Lo stato della trasmissione al partner, per la colonna della tabella:
+        // «attesa» = proposta appena nata, i canali non hanno ancora scritto niente.
+        trasmissione: v.status === SaleStatus.PROPOSTA && v.partnerId
+          ? {
+              app: t?.app ?? null,
+              mail: t?.mail ?? null,
+              esito: !t || (!t.app && !t.mail) ? 'attesa'
+                : (t.app?.ok || t.mail?.ok) ? (t.app?.ok && (t.mail?.ok ?? true) ? 'inviata' : 'parziale')
+                : 'fallita',
+            }
+          : null,
+      };
       return user.role === Role.PARTNER ? SalesService.perPartner(conStato) : conStato;
     });
   }

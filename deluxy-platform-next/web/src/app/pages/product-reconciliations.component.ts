@@ -293,9 +293,63 @@ interface UltimaCorsa {
           <button type="button" class="icon-btn" (click)="chiudiNuova()" aria-label="Chiudi">✕</button>
         </header>
 
-        <!-- PASSO 1 — la vendita -->
+        <!-- PASSO 1 — la vendita, oppure nessuna -->
         <section class="passo">
-          <h3><span class="n">1</span> {{ 'reconciliations.nuova.passo1' | translate }}</h3>
+          <h3><span class="n">1</span> {{ (senzaVendita() ? 'reconciliations.nuova.passo1senza' : 'reconciliations.nuova.passo1') | translate }}</h3>
+
+          <!-- ⭐ 08/09/2026 (regola utente: «consentimi di cercare ordini in vendita anche
+               già inseriti oppure di non inserire nessuna vendita e cercare direttamente per
+               prodotto, partner e provincia»).
+               Due strade, e si sceglie qui: un accordo nasce guardando un ordine — anche uno
+               già chiuso, che è il caso più frequente — oppure prima che l'ordine esista. -->
+          <div class="strade">
+            <button type="button" class="pill" [class.on]="!senzaVendita()" (click)="modoVendita(false)">{{ 'reconciliations.nuova.daOrdine' | translate }}</button>
+            <button type="button" class="pill" [class.on]="senzaVendita()" (click)="modoVendita(true)">{{ 'reconciliations.nuova.senzaOrdine' | translate }}</button>
+          </div>
+
+          @if (senzaVendita()) {
+            <!-- SENZA ORDINE: prodotto e provincia si scelgono a mano -->
+            @if (prodottoRegola(); as pr) {
+              <div class="scelto">
+                <div>
+                  <b>{{ pr.name }}</b>
+                  <div class="cella-sub muted">{{ pr.sku }}</div>
+                </div>
+                <button type="button" class="btn btn-secondary mini" (click)="cambiaProdottoRegola()">{{ 'reconciliations.nuova.cambia' | translate }}</button>
+              </div>
+              @if (pr.variants?.length) {
+                <label class="fld"><span>{{ 'reconciliations.nuova.variante' | translate }}</span>
+                  <select class="field" [ngModel]="varianteRegola()" (ngModelChange)="scegliVarianteRegola($event)" name="vr">
+                    <option [ngValue]="null">{{ 'reconciliations.nuova.tutteVarianti' | translate }}</option>
+                    @for (x of pr.variants; track x.id) {
+                      <option [ngValue]="x.id">{{ x.name }}@if (x.publicPrice ?? x.price) { &nbsp;— {{ (x.publicPrice ?? x.price) | number: '1.2-2' }} € }</option>
+                    }
+                  </select>
+                </label>
+              }
+              <label class="fld"><span>{{ 'reconciliations.nuova.provincia' | translate }}</span>
+                <select class="field" [ngModel]="provinciaRegola()" (ngModelChange)="scegliProvinciaRegola($event)" name="pvr">
+                  <option [ngValue]="null">{{ 'reconciliations.nuova.scegliProvincia' | translate }}</option>
+                  @for (p of province(); track p.id) { <option [ngValue]="p.id">{{ p.name }} ({{ p.code }})</option> }
+                </select>
+              </label>
+            } @else {
+              <input class="field" [ngModel]="qProdottoRegola()" (ngModelChange)="cercaProdottoRegola($event)" name="qpr"
+                     [placeholder]="'reconciliations.nuova.cercaProdotto' | translate" autocomplete="off" />
+              <div class="elenco">
+                @for (p of prodottiRegola(); track p.id) {
+                  <button type="button" class="voce" (click)="scegliProdottoRegola(p)">
+                    <b>{{ p.name }}</b> <span class="muted">· {{ p.sku }}</span>
+                    @if (p.variants?.length) { <span class="muted"> · {{ p.variants.length }} {{ 'reconciliations.nuova.varianti' | translate }}</span> }
+                  </button>
+                } @empty {
+                  <p class="muted vuoto">{{ 'reconciliations.nuova.nessunProdotto' | translate }}</p>
+                }
+              </div>
+            }
+          } @else {
+          <!-- ⚠️ L'alias «as» vale solo su @if: su @else if Angular non lo riconosce
+               («Property 'v' does not exist»). Si annida, e si legge uguale. -->
           @if (venditaScelta(); as v) {
             <div class="scelto">
               <div>
@@ -317,21 +371,47 @@ interface UltimaCorsa {
           } @else {
             <input class="field" [ngModel]="qVendita()" (ngModelChange)="cercaVendite($event)" name="qv"
                    [placeholder]="'reconciliations.nuova.cercaVendita' | translate" autocomplete="off" />
+            <!-- Di suo l'elenco mostra chi aspetta una decisione. Ma la vendita su cui si
+                 vuole scrivere il patto è spesso già ACCETTATA — «quella volta gliel'abbiamo
+                 pagata così» — e quelle erano invisibili. -->
+            <label class="tutte">
+              <input type="checkbox" [ngModel]="tutteLeVendite()" (ngModelChange)="cambiaAmpiezza($event)" name="tutte" />
+              <span>{{ 'reconciliations.nuova.ancheChiuse' | translate }}</span>
+            </label>
             <div class="elenco">
               @for (v of vendite(); track v.id) {
                 <button type="button" class="voce" (click)="scegliVendita(v)">
                   <b>#{{ v.externalOrderNumber }}</b> · {{ v.product?.name }}
                   @if (v.variantName) { <span class="muted">({{ v.variantName }})</span> }
                   <span class="muted"> — {{ v.province?.code }} · {{ v.amount | number: '1.2-2' }} €</span>
+                  <!-- Con le chiuse in mezzo, stato e partner sono metà dell'informazione. -->
+                  <span class="cella-sub muted">
+                    {{ ('sales.status.' + v.status) | translate }}@if (v.partner) { · {{ v.partner.insegna }} }
+                  </span>
                 </button>
               } @empty {
                 <p class="muted vuoto">{{ 'reconciliations.nuova.nessunaVendita' | translate }}</p>
               }
             </div>
           }
+          }
         </section>
 
-        <!-- PASSI 2-3 — prodotto e provincia, presi dalla vendita -->
+        <!-- PASSI 2-3 — prodotto e provincia: dalla vendita, o scelti a mano -->
+        @if (senzaVendita()) {
+          @if (prodottoRegola() && provinciaRegola()) {
+            <section class="passo dedotti">
+              <h3><span class="n">2</span> {{ 'reconciliations.nuova.passo2' | translate }}</h3>
+              <dl>
+                <div><dt>{{ 'reconciliations.nuova.prodotto' | translate }}</dt>
+                  <dd>{{ prodottoRegola()?.name }}@if (nomeVarianteRegola(); as nv) { <span class="muted"> · {{ nv }}</span> }</dd></div>
+                <div><dt>{{ 'reconciliations.nuova.provincia' | translate }}</dt>
+                  <dd>{{ nomeProvinciaRegola() }}</dd></div>
+              </dl>
+              <p class="hint">{{ 'reconciliations.nuova.senzaHint' | translate }}</p>
+            </section>
+          }
+        } @else {
         @if (venditaScelta(); as v) {
           <section class="passo dedotti">
             <h3><span class="n">2</span> {{ 'reconciliations.nuova.passo2' | translate }}</h3>
@@ -343,8 +423,14 @@ interface UltimaCorsa {
             </dl>
             <p class="hint">{{ 'reconciliations.nuova.dedottiHint' | translate }}</p>
           </section>
+        }
+        }
 
-          <!-- PASSO 4 — il prodotto già venduto in passato -->
+        <!-- PASSO 3 — il prezzo: chi lo fa e a quanto.
+             ⭐ 08/09/2026: questo passo era chiuso dentro il ramo «con la vendita», e
+             scrivendo un accordo senza ordine non compariva. Il prezzo però si sceglie
+             allo stesso modo nelle due strade: qui è uno solo, per tutt'e due. -->
+        @if (prontoPerIlPrezzo()) {
           <section class="passo">
             <h3><span class="n">3</span> {{ 'reconciliations.nuova.passo3' | translate }}</h3>
             @if (riferimento(); as rif) {
@@ -434,6 +520,7 @@ interface UltimaCorsa {
           </section>
         }
 
+
         <!-- PASSO 6 — il confronto e il margine -->
         @if (anteprima(); as a) {
           <section class="passo confronto">
@@ -465,7 +552,7 @@ interface UltimaCorsa {
           @if (erroreNuova()) { <p class="ko">{{ erroreNuova() }}</p> }
           @else if (!anteprima()) {
             <!-- Un pulsante spento senza spiegazione e' un vicolo cieco: si dice cosa manca. -->
-            <p class="muted manca">{{ (venditaScelta() ? (riferimento() ? 'reconciliations.nuova.mancaPartner' : 'reconciliations.nuova.mancaProdotto') : 'reconciliations.nuova.mancaVendita') | translate }}</p>
+            <p class="muted manca">{{ (prontoPerIlPrezzo() ? (riferimento() ? 'reconciliations.nuova.mancaPartner' : 'reconciliations.nuova.mancaProdotto') : (senzaVendita() ? 'reconciliations.nuova.mancaProdottoProvincia' : 'reconciliations.nuova.mancaVendita')) | translate }}</p>
           }
           <button type="button" class="btn btn-secondary" (click)="chiudiNuova()">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn btn-primary" [disabled]="!anteprima() || salvando()" (click)="salvaNuova()">
@@ -515,6 +602,15 @@ interface UltimaCorsa {
       .nuova-riconc .voce:hover { background: var(--fill); }
       .nuova-riconc .voce.attiva { background: var(--fill); box-shadow: inset 3px 0 0 var(--text); }
       .nuova-riconc .voce .prezzo { float: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+      /* Le due strade: pillole, non una tendina. Sono due, e si vedono tutt'e due. */
+      .nuova-riconc .strade { display: flex; gap: 8px; margin: 0 0 10px; }
+      .nuova-riconc .strade .pill {
+        flex: 1 1 0; padding: 7px 12px; border-radius: 999px; font-size: 13px; cursor: pointer;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+      }
+      .nuova-riconc .strade .pill.on { background: var(--text); color: #fff; border-color: var(--text); font-weight: 600; }
+      .nuova-riconc .tutte { display: flex; align-items: center; gap: 7px; margin: 8px 0 2px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+      .nuova-riconc .tutte input { width: 15px; height: 15px; }
       /* La riga della SCELTA: cerchio, chi, prezzo. Niente float, cosi' su telefono il
          prezzo non finisce sopra il nome. */
       .nuova-riconc .voce.scelta { display: flex; align-items: center; gap: 10px; }
@@ -628,6 +724,40 @@ export class ProductReconciliationsComponent {
   // riga dice sempre da quale delle tre.
   // ============================================================
   readonly nuova = signal(false);
+  /**
+   * ⭐ 08/09/2026 (regola utente: «consentimi di cercare ordini in vendita anche già
+   * inseriti oppure di non inserire nessuna vendita e cercare direttamente per prodotto,
+   * partner e provincia»).
+   *
+   * `tutteLeVendite` → la ricerca comprende anche le vendite chiuse (accettate): è su
+   * quelle che si scrive un patto la maggior parte delle volte, e prima erano invisibili.
+   * `senzaVendita` → nessun ordine di partenza: prodotto, variante e provincia si
+   * scelgono a mano. È il caso dell'accordo preso PRIMA che l'ordine arrivi — che è
+   * poi il mestiere di un accordo.
+   */
+  readonly tutteLeVendite = signal(false);
+  readonly senzaVendita = signal(false);
+  readonly qProdottoRegola = signal('');
+  readonly prodottiRegola = signal<any[]>([]);
+  readonly prodottoRegola = signal<any | null>(null);
+  readonly varianteRegola = signal<string | null>(null);
+  readonly provinciaRegola = signal<string | null>(null);
+  readonly province = signal<{ id: string; code: string; name: string }[]>([]);
+  private timerProdottoRegola?: ReturnType<typeof setTimeout>;
+
+  /** Il passo del prezzo si apre quando si sa SU COSA vale il patto, comunque ci si sia arrivati. */
+  readonly prontoPerIlPrezzo = computed(() =>
+    this.senzaVendita() ? !!this.prodottoRegola() && !!this.provinciaRegola() : !!this.venditaScelta(),
+  );
+  readonly nomeVarianteRegola = computed(() => {
+    const id = this.varianteRegola();
+    return id ? (this.prodottoRegola()?.variants ?? []).find((x: any) => x.id === id)?.name ?? null : null;
+  });
+  readonly nomeProvinciaRegola = computed(() => {
+    const p = this.province().find((x) => x.id === this.provinciaRegola());
+    return p ? `${p.name} (${p.code})` : '';
+  });
+
   readonly qVendita = signal('');
   readonly vendite = signal<any[]>([]);
   readonly venditaScelta = signal<any | null>(null);
@@ -646,7 +776,61 @@ export class ProductReconciliationsComponent {
   apriNuova(): void {
     this.nuova.set(true);
     this.azzeraNuova();
+    this.senzaVendita.set(false);
+    this.tutteLeVendite.set(false);
     this.cercaVendite('');
+    if (!this.province().length) {
+      this.http.get<{ id: string; code: string; name: string }[]>(`${environment.apiUrl}/riconciliazioni/province`)
+        .subscribe({ next: (d) => this.province.set(d ?? []), error: () => this.province.set([]) });
+    }
+  }
+
+  /** Si cambia strada: quello scelto sull'altra non deve restare appeso. */
+  modoVendita(senza: boolean): void {
+    if (this.senzaVendita() === senza) return;
+    this.senzaVendita.set(senza);
+    this.azzeraNuova();
+    if (!senza) this.cercaVendite('');
+  }
+
+  cambiaAmpiezza(tutte: boolean): void {
+    this.tutteLeVendite.set(tutte);
+    this.cercaVendite(this.qVendita());
+  }
+
+  cercaProdottoRegola(q: string): void {
+    this.qProdottoRegola.set(q);
+    clearTimeout(this.timerProdottoRegola);
+    if (q.trim().length < 2) { this.prodottiRegola.set([]); return; }
+    this.timerProdottoRegola = setTimeout(() => {
+      this.http.get<any[]>(`${environment.apiUrl}/riconciliazioni/cerca-prodotti`, { params: { q } })
+        .subscribe({ next: (d) => this.prodottiRegola.set(d ?? []), error: () => this.prodottiRegola.set([]) });
+    }, 250);
+  }
+
+  scegliProdottoRegola(p: any): void {
+    this.prodottoRegola.set(p);
+    this.prodottiRegola.set([]);
+    this.varianteRegola.set(null);
+    this.anteprima.set(null);
+  }
+
+  scegliVarianteRegola(id: string | null): void {
+    this.varianteRegola.set(id);
+    this.anteprima.set(null);
+    this.partnerScelto.set(null); this.prezzoScelto.set(null);
+  }
+
+  scegliProvinciaRegola(id: string | null): void {
+    this.provinciaRegola.set(id);
+    this.anteprima.set(null);
+    this.partnerScelto.set(null); this.prezzoScelto.set(null);
+  }
+
+  cambiaProdottoRegola(): void {
+    this.prodottoRegola.set(null); this.varianteRegola.set(null);
+    this.riferimento.set(null); this.partnerScelto.set(null);
+    this.prezzoScelto.set(null); this.anteprima.set(null);
   }
 
   chiudiNuova(): void {
@@ -656,6 +840,8 @@ export class ProductReconciliationsComponent {
 
   private azzeraNuova(): void {
     this.qVendita.set(''); this.vendite.set([]); this.venditaScelta.set(null);
+    this.qProdottoRegola.set(''); this.prodottiRegola.set([]); this.prodottoRegola.set(null);
+    this.varianteRegola.set(null); this.provinciaRegola.set(null);
     this.qProdotto.set(''); this.prodotti.set([]); this.riferimento.set(null);
     this.partnerFiltro.set(null); this.qPartner.set(''); this.partnerTrovati.set([]);
     this.varianteScelta.set(null); this.partnerScelto.set(null); this.prezzoScelto.set(null);
@@ -666,7 +852,9 @@ export class ProductReconciliationsComponent {
     this.qVendita.set(q);
     clearTimeout(this.timerVendite);
     this.timerVendite = setTimeout(() => {
-      this.http.get<any[]>(`${environment.apiUrl}/riconciliazioni/vendite-da-riconciliare`, { params: q ? { q } : {} })
+      this.http.get<any[]>(`${environment.apiUrl}/riconciliazioni/vendite-da-riconciliare`, {
+        params: { ...(q ? { q } : {}), ...(this.tutteLeVendite() ? { tutte: '1' } : {}) },
+      })
         .subscribe({ next: (d) => this.vendite.set(d ?? []), error: () => this.vendite.set([]) });
     }, 250);
   }
@@ -758,14 +946,27 @@ export class ProductReconciliationsComponent {
     this.partnerScelto.set(null); this.prezzoScelto.set(null); this.anteprima.set(null);
   }
 
+  /**
+   * SU COSA vale il patto: dalla vendita, o dal prodotto scelto a mano.
+   * Un punto solo, così l'anteprima e il salvataggio non possono divergere.
+   */
+  private suCosa(): Record<string, string | null> | null {
+    if (this.senzaVendita()) {
+      const p = this.prodottoRegola(); const prov = this.provinciaRegola();
+      return p && prov ? { productId: p.id, productVariantId: this.varianteRegola(), provinceId: prov } : null;
+    }
+    const v = this.venditaScelta();
+    return v ? { saleId: v.id } : null;
+  }
+
   scegliPartner(r: { partnerId: string; prezzoPartner: number }): void {
     this.partnerScelto.set(r.partnerId);
     this.prezzoScelto.set(r.prezzoPartner);
-    const v = this.venditaScelta();
-    if (!v) return;
+    const su = this.suCosa();
+    if (!su) return;
     this.erroreNuova.set(null);
     this.http.post<any>(`${environment.apiUrl}/riconciliazioni/anteprima`,
-      { saleId: v.id, partnerId: r.partnerId, prezzoPartner: r.prezzoPartner })
+      { ...su, partnerId: r.partnerId, prezzoPartner: r.prezzoPartner })
       .subscribe({
         next: (d) => this.anteprima.set(d),
         error: (e) => { this.anteprima.set(null); this.erroreNuova.set(e?.error?.message ?? this.translate.instant('reconciliations.nuova.erroreAnteprima')); },
@@ -773,15 +974,15 @@ export class ProductReconciliationsComponent {
   }
 
   salvaNuova(): void {
-    const v = this.venditaScelta();
+    const su = this.suCosa();
     const partnerId = this.partnerScelto();
     const prezzo = this.prezzoScelto();
     const rif = this.riferimento();
-    if (!v || !partnerId || prezzo == null) return;
+    if (!su || !partnerId || prezzo == null) return;
     this.salvando.set(true);
     this.erroreNuova.set(null);
     this.http.post(`${environment.apiUrl}/riconciliazioni/manuale`, {
-      saleId: v.id, partnerId, prezzoPartner: prezzo,
+      ...su, partnerId, prezzoPartner: prezzo,
       riferimentoProductId: rif?.prodotto?.id, riferimentoVariantId: this.varianteScelta() ?? undefined,
     }).subscribe({
       next: () => { this.chiudiNuova(); this.carica(); },
