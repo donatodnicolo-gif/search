@@ -205,7 +205,15 @@ Scout, Ricerca fornitori, Maison.
 > `errore=sovrapposta` (dettaglio nel messaggio) se il periodo si accavalla a
 > un'assenza in attesa/approvata/registrata della stessa persona: le respinte non
 > contano. Stessi limiti sulle date della richiesta (ordine, un anno). L'etichetta
-> del tipo `permesso` è ora «Permesso / ROL» ovunque. In locale, non pubblicato.
+> del tipo `permesso` è ora «Permesso / ROL» ovunque.
+> ✅ **IN PRODUZIONE dal 08/09/2026 18:02** — deploy `deluxy-a6vvi3mv3`
+> (`dpl_FDPzeGmoCvfTeTGmqx4J6gjLQx8r`, build su Vercel lanciata dall'utente con
+> `npx.cmd vercel deploy --prod` dalla cartella del Hub), dominio verificato con
+> `vercel inspect`, `/api/health` ok. Su origin il commit è `c0b29b5e` (cherry-pick
+> di `d4aa39f3`). ⚠️ Quel deploy porta anche i due commit del custode delle
+> prestazioni ancora NON pushati dalla sua sessione (`e93d0e52` tetto a 3
+> connessioni in `db.ts` + `vercel.json`, `b6d2ac7e` niente prefetch nel menu):
+> in produzione ci sono, su GitHub no, finché non li spinge lui.
 
 Sezione **`/cartellino`**, in alto a destra nella barra (con il pallino verde
 quando si è dentro), per **tutti** i ruoli: timbratura entrata/uscita, ore del
