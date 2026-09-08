@@ -1405,14 +1405,12 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
     // Le foto che le schede hanno **adesso**, per non sostituirle con una più
     // vecchia qui sotto: una lettura sola, non una per prodotto.
-    const fotoAttuale = new Map<string, string | null>(
-      (
-        await prisma.prodotto.findMany({
-          where: { id: { in: daAggiornare.map((d) => d.id) } },
-          select: { id: true, immagine: true },
-        })
-      ).map((p) => [p.id, p.immagine])
-    );
+    const primaDellImport = await prisma.prodotto.findMany({
+      where: { id: { in: daAggiornare.map((d) => d.id) } },
+      select: { id: true, immagine: true, fase: true },
+    });
+    const fotoAttuale = new Map<string, string | null>(primaDellImport.map((p) => [p.id, p.immagine]));
+    const faseAttuale = new Map<string, string>(primaDellImport.map((p) => [p.id, p.fase]));
 
     // Aggiornamento in blocchi: sono migliaia di righe, una per volta ci
     // metterebbe minuti.
@@ -1430,6 +1428,21 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               handleShopify: d.handleShopify,
               ggDispMin: d.ggDispMin,
               statoShopify: d.statoShopify,
+              // **Pubblicato sul negozio = «Pubblico» anche qui** (richiesta
+              // dell'utente, 08/09/2026). Se il prodotto è ACTIVE il cliente lo
+              // vede e lo compra: tenere la scheda in «Concept» o «Archiviato»
+              // non è prudenza, è un'informazione falsa — e misurato erano 73
+              // prodotti, 63 in concept e 10 archiviati.
+              //
+              // ⚠️ Vale **solo in questa direzione**. L'app ha una regola
+              // opposta e giusta (API `POST /api/v1/prodotti`): nessuno riporta
+              // in vendita ciò che qui è stato archiviato di proposito. Qui però
+              // la fonte non è un'app terza, è **il negozio stesso**: se qualcuno
+              // ha riacceso il prodotto su Shopify, quella è la decisione più
+              // recente. Il verso contrario — bozza sul negozio, «Pubblico» qui,
+              // oggi 436 schede — **non si tocca**: dire «non è in vendita» a un
+              // prodotto che sta per uscire cancellerebbe un lavoro in corso.
+              fase: d.statoShopify === "ACTIVE" && faseAttuale.get(d.id) !== "in_vendita" ? "in_vendita" : undefined,
               shopifyId: d.shopifyId,
               nome: d.nome,
               // `undefined` = non toccare il campo (Prisma lo salta), che è
