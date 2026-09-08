@@ -26,3 +26,21 @@ export function linkSito(dominio: string | null | undefined, handle: string | nu
   if (!dominio || !handle) return null;
   return `https://${dominio}/${tipo === "prodotto" ? "products" : "collections"}/${handle}`;
 }
+
+/**
+ * **Dove si modificano le traduzioni** di una scheda, sul negozio.
+ *
+ * Chiesto dall'utente l'08/09/2026: «lascia possibilità poi di modificare la
+ * traduzione su Shopify». Le traduzioni non stanno nella scheda prodotto: le
+ * gestisce l'app **Translate & Adapt** di Shopify, e il suo indirizzo è
+ * `/admin/apps/translate-and-adapt/localize/products?id=<numero>`.
+ *
+ * ⚠️ Se quell'app non è installata su un negozio, l'indirizzo porta alla
+ * pagina delle app invece che all'editor: è un vicolo cieco gentile, non un
+ * errore — e comunque meglio del non avere il link, che è il caso di oggi.
+ */
+export function linkTraduzioni(dominio: string | null | undefined, gid: string | null | undefined): string | null {
+  const num = idNumerico(gid);
+  if (!dominio || !num) return null;
+  return `https://${dominio}/admin/apps/translate-and-adapt/localize/products?id=${num}`;
+}

@@ -2,6 +2,100 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 notte (3) — DESCRIZIONE COLLEGATA, AI SULLE SEZIONI, TRADUZIONI PER NEGOZIO
+
+**1. Import e pubblicazione ora viaggiano insieme** (era il pezzo che mancava).
+· `src/lib/descrizione-prodotto.ts`: un posto solo che dice quali sezioni
+  scrivere per un prodotto su un negozio — prima le previste nel loro ordine,
+  **poi quelle che il prodotto ha ma che non sono più previste**. Senza la coda,
+  un testo scritto sotto una sezione poi tolta sparirebbe dalla scheda online al
+  primo salvataggio, senza che nessuno lo cancelli.
+· I **cinque** punti che mandavano `descrizioneHtml` su Shopify ora compongono
+  (`descrizionePerNegozio(m, <sito>)`).
+· L'import spezza: `descrizioneDa` tiene **solo il testo libero**, e `pezziDa`
+  scrive punti e sezioni nei loro campi. ⚠️ **Solo alla creazione della scheda**:
+  `sezioniScheda` tiene le sezioni **di tutti i negozi**, e scriverlo da un
+  import che ne guarda uno solo cancellerebbe gli altri — e le modifiche a mano
+  — ogni notte.
+· Pregresso: `scripts/spezza-descrizioni.ts --applica --tutti`, che **unisce**
+  invece di sovrascrivere. **222 prodotti aggiornati** su 311 letti.
+
+**2. L'AI riempie le sezioni** (`src/lib/ai-sezioni.ts`, rotta
+`/api/ai/sezioni`, bottone «✦ Compila le sezioni con l'AI» nella scheda di ogni
+sito). Riempie **solo le caselle vuote**, una richiesta per sito perché le
+sezioni cambiano da un negozio all'altro.
+⚠️ **Il guardrail vale più della funzione**: senza materiali né note, le sezioni
+di **ingredienti, allergeni, pesi, misure, conservazione** vengono **scartate
+anche se il modello le ha scritte**. Un elenco di allergeni inventato non è un
+testo sbagliato, è un rischio per chi lo legge. L'esito dice cosa è stato
+lasciato vuoto e perché.
+
+**3. Le traduzioni stanno col negozio.** La spunta unica diceva «le 8 lingue del
+negozio» a tutti e quattro: falso. Misurate e salvate su `NegozioShopify`
+(`lingueAttive`, con `scripts/lingue-dei-negozi.ts`):
+**Flowers inglese+francese · Gifts inglese+russo · Cake inglese · Business
+inglese**. Ora la spunta è nella scheda di ogni sito, con le **sue** lingue
+(`traduci:<negozio>`), e si traduce solo dove è accesa. Aggiunto il link
+**«Modifica le traduzioni su Shopify ↗»** (Translate & Adapt).
+⚠️ Le lingue non si chiedono a Shopify — manca lo scope `read_locales` — si
+deducono da chi ha già traduzioni: un locale spento non può averne.
+
+**4. Gifts non ha una coppia di plus fissa** (l'utente: «per gifts ricontrolla
+c'è già»). Ricontrollato su 200 schede: il 2º punto più usato copre il **26%**
+ed è 1,4× il secondo; il 3º copre il **35%** ed è 1,3× il secondo. Gifts vende
+beauty, food, gioielli ed esperienze, e ogni famiglia ha la sua riga. **Non è
+stato scritto niente**: metterne uno vorrebbe dire stamparlo su tre prodotti su
+quattro che non l'hanno mai avuto.
+
+## 08/09/2026 notte (2) — LE SEZIONI DALLE SCHEDE VERE, I PLUS DAI PRODOTTI, E UNA REGRESSIONE CHE IL CHERRY-PICK AVEVA NASCOSTO
+
+**🔴 Lezione che è costata una correzione persa**: pubblicando a **cherry-pick
+dei singoli commit**, su origin la tendina del negozio mostrava ancora
+«Business Deluxy — 90bfeb-f5.myshopify.com» — corretto in locale la mattina e
+**mai arrivato online**. Il cherry-pick porta il *diff* di un commit, non lo
+stato del file: se una correzione precedente non è stata portata, i commit dopo
+si applicano sopra la versione vecchia e la correzione **sparisce in silenzio**.
+Rimedio: la cartella `deluxy-merchandising/` è stata **allineata per intero** a
+quella locale (`034eaea2`). **Regola: pubblicare la cartella, non i commit.**
+
+**Sezioni per sito, dalle schede pubblicate.** Erano dedotte (63 categorie del
+vecchio gestionale mappate a mano sulle nostre 18, quasi tutte «comuni»).
+Misurato: sulle torte **Cake** usa «Ingredienti e Allergeni» unito, **Business
+Deluxy** li tiene separati e chiude con «Regala con Deluxy» che su Cake non c'è.
+`scripts/rifai-sezioni-dai-siti.ts`: una sezione entra se compare in **almeno
+metà** delle schede di quella categoria su quel sito; grafia più usata, ordine
+medio. **Create 24 sezioni per sito su 8 coppie; attive ora 87, di cui 32 per
+sito.**
+⚠️ La prima stesura **sostituiva**: 63 via, 23 rimaste, e le categorie con pochi
+prodotti online restavano senza nessuna sezione — coi valori importati
+invisibili. **L'assenza di prove non è la prova di un'assenza**: ora si aggiunge,
+le sezioni del sito vincono e le comuni restano come ripiego.
+
+**I due plus di ogni sito, dedotti dai prodotti** (`deduci-plus-sito.ts`):
+Flowers «Inclusi: biglietto…» + «Consegna: dove vuoi tu»; Cake
+«Personalizzabile: da tre giorni» + «Consegna: dove vuoi tu nel mondo»; Business
+«Inclusi: biglietto…». 🔴 **Gifts no**: nessun testo supera la metà delle schede,
+e inventarne uno vorrebbe dire stampare una riga su prodotti che non l'hanno mai
+avuta.
+
+**Modulo**: categorie in **ordine alfabetico**; **nessun negozio preselezionato**
+(partiva sul primo e il negozio decide categorie, collezioni, campi e foto);
+**collezioni nascoste** e **campi del negozio nascosti** su richiesta (`false &&`,
+si riaccendono togliendolo).
+
+### 🔴 IN CODA, chiesto dall'utente e NON fatto
+1. **Il primo punto (plus del prodotto) importato dai prodotti pubblicati**: il
+   parser lo dà (`punti[0]`), manca lo script che lo scrive prodotto per
+   prodotto — sono ~3.600 letture dalle vetrine.
+2. **Traduzioni per negozio**: la spunta sta nella card «Pubblicazione» e parla
+   di «8 lingue» fisse. Ogni negozio ha le sue: va spostata nella scheda del
+   sito con le lingue vere di quel negozio, più un link per **modificare la
+   traduzione su Shopify**.
+3. **L'AI deve saper riempire le sezioni di ogni categoria** (oggi scrive solo
+   la descrizione).
+4. **Collegare import e pubblicazione della descrizione**: vedi la nota del
+   blocco precedente — vanno insieme o si cancellano le tab dal sito.
+
 ## 08/09/2026 notte — L'HTML IMPORTATO SI SPEZZA NELLE SUE PARTI, E QUATTRO RITOCCHI AL MODULO
 
 **1. Il parser, misurato prima di scriverlo.** `scripts/censimento-descrizioni.ts`

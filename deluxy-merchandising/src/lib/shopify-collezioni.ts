@@ -24,6 +24,7 @@
 //    stesso prodotto si uniscono a mano in /prodotti/riconcilia.
 
 import { prisma } from "./db";
+import { spezzaDescrizioneHtml } from "./descrizione-shopify";
 import { fotoDaTenere } from "./foto";
 import { aliasGraphql, chiaveDef, definizioniDelNegozio, valoriDaRisposta, type DefinizioneMetafield } from "./metafield-definizioni";
 import { VERSIONE_API } from "./negozi";
@@ -883,9 +884,45 @@ function prezzoDa(p: ProdottoShopifyApi): number | null {
 }
 
 /** La descrizione del negozio, ripulita dall'HTML. `undefined` se non dice niente. */
+/**
+ * ⚠️⚠️ **NON appiattisce più tutta la scheda in un campo** (08/09/2026).
+ *
+ * Prima toglieva i tag e metteva tutto — tre punti, testo, sezioni — dentro
+ * `descrizione`. Da quando la pubblicazione **ricompone** la descrizione dai
+ * pezzi, tenerla piatta voleva dire stampare ogni cosa due volte. E il
+ * contrario è peggio: se l'import spezza e la pubblicazione no, il primo
+ * salvataggio sovrascrive sul negozio la scheda ricca col solo testo libero —
+ * cioè cancella le tab dal sito. **Le due cose devono viaggiare insieme.**
+ *
+ * Qui resta solo il testo libero; i punti e le sezioni li prende `pezziDa`.
+ */
 function descrizioneDa(html: string | null): string | undefined {
-  const t = html?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const t = spezzaDescrizioneHtml(html).descrizione.trim();
   return t ? t.slice(0, 4000) : undefined;
+}
+
+/**
+ * I pezzi della scheda, per scriverli nei loro campi.
+ *
+ * ⚠️⚠️ **Si usa SOLO quando la scheda nasce**, non negli aggiornamenti. Il
+ * campo `sezioniScheda` tiene le sezioni **di tutti i negozi**
+ * (`{ "Gifts": {...}, "Cake": {...} }`): scriverlo da un import che guarda un
+ * negozio solo vorrebbe dire **cancellare le sezioni degli altri** — e le
+ * modifiche fatte a mano — a ogni giro notturno. Stesso discorso per
+ * `plusProdotto`, che qualcuno può aver riscritto qui.
+ * Per le schede che ci sono già c'è `scripts/spezza-descrizioni.ts`, che legge
+ * il valore attuale e **unisce** invece di sovrascrivere.
+ */
+function pezziDa(html: string | null, negozio: string): { plusProdotto?: string; sezioniScheda?: Record<string, Record<string, string>> } {
+  const pezzi = spezzaDescrizioneHtml(html);
+  const fuori: { plusProdotto?: string; sezioniScheda?: Record<string, Record<string, string>> } = {};
+  if (pezzi.punti[0]) fuori.plusProdotto = pezzi.punti[0].slice(0, 140);
+  if (pezzi.sezioni.length) {
+    const dentro: Record<string, string> = {};
+    for (const x of pezzi.sezioni) if (x.testo.trim()) dentro[x.nome.slice(0, 80)] = x.testo.slice(0, 4000);
+    if (Object.keys(dentro).length) fuori.sezioniScheda = { [negozio]: dentro };
+  }
+  return fuori;
 }
 
 /** Gli indici con cui si riconosce un prodotto del negozio fra i nostri. */
@@ -1003,6 +1040,7 @@ async function creaProdottiMancanti(
           prezzoVendita: prezzo,
           immagine: p.featuredImage?.url ?? null,
           descrizione: descrizioneDa(p.descriptionHtml) ?? null,
+          ...pezziDa(p.descriptionHtml, negozio),
           seoTitoloShopify: p.seo?.title ?? null,
           seoDescrizioneShopify: p.seo?.description ?? null,
           metafieldShopify: p.mf,
