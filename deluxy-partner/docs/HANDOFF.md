@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 08/09/2026 (5) — «Invia sollecito sembra non funzionare»: manca la password SMTP, e il bottone non lo diceva prima del click
+>
+> Segnalato dall'utente. **Verificato: il bottone funziona — apre l'anteprima `/solleciti/[id]`, che risponde 200. Quello che non funziona è l'INVIO.**
+> - **Causa, misurata**: nella tabella `Impostazione` ci sono **solo `smtp.host`, `smtp.port`, `smtp.user`** (`authsmtp.deluxy.it` · 587 · `smtp@deluxy.it`). **Mancano `smtp.pass` e `smtp.from`**, e non ci sono nemmeno le variabili `SMTP_*` su Vercel (elencate: nessuna). Quindi `smtpConfigurato()` è `false` e il bottone d'invio dell'anteprima è `disabled`. Il server risponde: connessione TCP a `authsmtp.deluxy.it:587` **OK** — host e porta sono giusti, mancano solo le credenziali. È lo stesso punto aperto scritto nell'handoff di luglio e mai chiuso.
+> - ⚠️ **La password NON la posso inserire io**: è una credenziale, la scrive l'utente in **Impostazioni → Email solleciti** (il campo c'è; lasciandolo vuoto non sovrascrive quella salvata).
+> - **Corretto intanto il difetto di interfaccia**: la pagina dell'anteprima l'avviso ce l'aveva già, ma la delusione arrivava DOPO il click — sulla scheda partner e nello scadenzario il bottone prometteva «Invia sollecito» per poi portare a un invio spento. Ora, quando SMTP non è attivo, il bottone si chiama **«Prepara sollecito»** (e «Prepara di nuovo» al posto di «Sollecita ancora»), e il riquadro del contatto amministrativo porta una pillola ambra **«L'invio dall'app non è attivo»** col link a Impostazioni e la via d'uscita (prepara → manda dal tuo client → «segna come inviato»). `smtpConfigurato()` è letto una volta per pagina.
+> - **Verificato in locale**: scheda MAZZETTI D'ALTAVILLA e `/scadenzario` mostrano «Prepara sollecito» e l'avviso; `/solleciti/cmro05qcu00txi65clszyvnlk` risponde 200 col riquadro «Invio diretto non configurato». `tsc` verde.
+> - **Resta aperto**: appena la password è in Impostazioni, l'invio si riaccende da solo — le etichette tornano «Invia sollecito» senza toccare codice.
+>
 > ### 08/09/2026 (4) — La compensazione si vede in testata, e le fatture di commissioni si riconoscono da sole
 >
 > Tre segnalazioni dell'utente sulla scheda di 142 RESTAURANT, in fila.
