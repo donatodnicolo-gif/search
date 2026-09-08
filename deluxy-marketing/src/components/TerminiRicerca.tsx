@@ -311,7 +311,7 @@ export async function TerminiRicerca({
               <option value="broad">generica — ogni ricerca con queste parole</option>
             </select>
           </label>
-          <button className="btn small btn-secondario" type="submit">
+          <button className="btn small btn-secondario" type="submit" title="Le parole spuntate vanno in coda come negative di TUTTA la campagna: Google tiene le esclusioni lì, non sul singolo gruppo">
             Escludi le selezionate
           </button>
           <PortaSelezionate lingue={linguaCampagna ? [linguaCampagna] : []} />
@@ -430,7 +430,7 @@ export async function TerminiRicerca({
                             className="btn small btn-secondario"
                             type="submit"
                             formAction={giudicaTermine.bind(null, "escludi")}
-                            title="Mette in coda la negativa: la parola non farà più scattare gli annunci"
+                            title="Mette in coda la negativa: la parola non farà più scattare gli annunci di tutta la campagna (Google tiene le esclusioni lì, non sul singolo gruppo)"
                           >
                             Escludi
                           </button>
@@ -445,6 +445,16 @@ export async function TerminiRicerca({
                             {t.gruppo && <input type="hidden" name="gruppo" value={t.gruppo} />}
                             <input type="hidden" name="ritorno" value={base ?? `/campagne/${campagnaId}`} />
                             <input type="hidden" name="tipo" value="nuova_keyword" />
+                            {/* ⚠️⚠️ `corrispondenza`, NON `corrispondenzaOrigine`:
+                                `creaOperazioneKeyword` legge `corrispondenzaOrigine`
+                                SOLO per le negative, e per `nuova_keyword` ripiegava
+                                su «broad». Quindi questo bottone prometteva ESATTA nel
+                                title e accodava GENERICA. Successo davvero l'11/08/2026
+                                («torte milano»: nata broad alle 05:07, corretta a mano
+                                a phrase alle 05:08). Una generica compra sinonimi e
+                                correlate: è il contrario del motivo per cui si aggiunge
+                                una ricerca che ha reso. */}
+                            <input type="hidden" name="corrispondenza" value="exact" />
                             <input type="hidden" name="corrispondenzaOrigine" value="exact" />
                             <input type="hidden" name="motivo" value={`Ricerca che ha reso: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni`} />
                             <button className="btn small btn-secondario" type="submit" title={`Mette in coda l'aggiunta di «${t.testo}» come keyword ESATTA${t.gruppo ? ` nel gruppo ${t.gruppo}` : ""}, da approvare in Operazioni`}>
@@ -470,7 +480,7 @@ export async function TerminiRicerca({
                               lingueDiOra: linguaCampagna ? [linguaCampagna] : [],
                             })}
                           >
-                            Porta
+                            Copia
                           </button>
                         )}
                         {/* Apre lo stesso dialogo della barra, ma col seme di

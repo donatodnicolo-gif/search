@@ -65,6 +65,8 @@ export async function accodaOperazione(args: ArgomentiCreate) {
     avvisi?: string | null;
   };
 
+  args = await conAvvisoNegativaLarga(args, d);
+
   if (d.account) return prisma.operazioneAdv.create(await conAvvisoScript(args, d.account));
 
   let brand: string | null = null;
@@ -78,6 +80,46 @@ export async function accodaOperazione(args: ArgomentiCreate) {
   return prisma.operazioneAdv.create(
     await conAvvisoScript({ ...args, data: { ...args.data, account } }, account)
   );
+}
+
+/**
+ * L'avviso «questa esclusione vale per TUTTI i gruppi della campagna».
+ *
+ * ⚠️ **Perché esiste (08/09/2026).** Su Google Ads una parola esclusa può stare
+ * a tre livelli — gruppo, campagna, lista condivisa d'account — e la scelta *è*
+ * la decisione. L'app ne legge tre (`NegativaCampagna.livello`: a database ci
+ * sono 59.851 negative di gruppo, tutte scritte da mani umane dentro Google
+ * Ads) ma **ne sa scrivere uno solo**: lo script ha una sola primitiva,
+ * `campagna.createNegativeKeyword()`. Quindi chi esclude una ricerca *stando
+ * dentro la scheda di un gruppo* la spegne anche in tutti gli altri gruppi
+ * della stessa campagna.
+ *
+ * Finché la campagna ha **un solo gruppo attivo** i due livelli coincidono e
+ * non c'è niente da dire: misurato, **tutte e 56 le negative eseguite finora**
+ * sono finite su campagne con esattamente un gruppo acceso, quindi il difetto
+ * non è ancora costato niente. Con più gruppi accesi invece il danno è reale e
+ * silenzioso — escludere «roses» dal gruppo English la spegne anche
+ * nell'italiano, e il traffico che non arriva non lascia traccia.
+ *
+ * Perciò: **si avvisa, non si blocca**, e solo quando i gruppi accesi sono più
+ * di uno. Sta qui, nel collo di bottiglia, e non nei sette punti che accodano
+ * negative: una regola scritta in un posto solo è una regola che non si dimentica
+ * al prossimo punto di accodamento.
+ */
+async function conAvvisoNegativaLarga(
+  args: ArgomentiCreate,
+  d: { tipo?: string; campagnaId?: string | null; avvisi?: string | null }
+): Promise<ArgomentiCreate> {
+  if (d.tipo !== "negativa" || !d.campagnaId) return args;
+  const accesi = await prisma.gruppo.count({
+    where: { campagnaId: d.campagnaId, statoPiattaforma: "ENABLED" },
+  });
+  if (accesi <= 1) return args;
+  const avviso =
+    `Questa campagna ha ${accesi} gruppi accesi e l'esclusione vale per TUTTI: ` +
+    `Google tiene le parole escluse sulla campagna, non sul singolo gruppo. ` +
+    `Se serviva spegnerla in un gruppo solo, va fatta a mano dentro Google Ads.`;
+  return { ...args, data: { ...args.data, avvisi: d.avvisi ? `${d.avvisi} · ${avviso}` : avviso } };
 }
 
 /**

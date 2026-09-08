@@ -2027,16 +2027,25 @@ export async function creaOperazioneKeyword(fd: FormData) {
         // ⚠️ Per le NEGATIVE il default è «esatta», non generica. Una negativa
         // generica blocca ogni ricerca che contenga quelle parole in qualsiasi
         // ordine: escludere «fiori milano» spegnerebbe anche «consegna fiori a
-        // milano centro», cioè il traffico buono. Per le keyword da AGGIUNGERE
-        // resta broad, che lì è il default giusto.
-        // Per le NEGATIVE si eredita la corrispondenza con cui la parola è
-        // stata intercettata: escludere in esatta una ricerca entrata in frase
-        // lascia passare tutte le varianti, ed escludere in generica una entrata
-        // in esatta spegne molto più del voluto. Se non si sa, esatta: è quella
-        // che sbaglia meno. Per le keyword da AGGIUNGERE il default resta broad.
+        // milano centro», cioè il traffico buono. Si eredita la corrispondenza
+        // con cui la parola è stata intercettata: escludere in esatta una
+        // ricerca entrata in frase lascia passare tutte le varianti, ed
+        // escludere in generica una entrata in esatta spegne molto più del
+        // voluto. Se non si sa, esatta: è quella che sbaglia meno.
+        //
+        // ⚠️⚠️ `corrispondenzaOrigine` SI LEGGE ANCHE PER LE KEYWORD NUOVE
+        // (corretto l'08/09/2026). Prima era dentro il ramo `negativa`, e i due
+        // bottoni «Aggiungi» delle parole cercate — che promettono ESATTA nel
+        // title e mandano `corrispondenzaOrigine="exact"` — cadevano sul ripiego
+        // «broad»: accodavano una GENERICA. Successo davvero l'11/08/2026
+        // («torte milano», nata broad alle 05:07 e corretta a mano alle 05:08).
+        // Il default «broad» resta solo per chi non dichiara NIENTE: è la
+        // scelta scritta per le keyword aggiunte a mano, dove la generica serve
+        // a scoprire domanda nuova. Chi sa cosa vuole lo dice, e viene ascoltato.
         corrispondenza:
           testo(fd, "corrispondenza") ??
-          (tipo === "negativa" ? testo(fd, "corrispondenzaOrigine") ?? "exact" : "broad"),
+          testo(fd, "corrispondenzaOrigine") ??
+          (tipo === "negativa" ? "exact" : "broad"),
         gruppo: testo(fd, "gruppo"),
       }),
       motivo: testo(fd, "motivo"),
@@ -3214,18 +3223,24 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
   });
   if (!termine) return;
 
-  if (scelta === "pertinente") {
-    await prisma.termineRicerca.update({ where: { id }, data: { stato: "pertinente" } });
-    revalidatePath(`/campagne/${termine.campagna.id}`);
-    return;
-  }
-
-  if (scelta === "escluso") {
-    await prisma.termineRicerca.update({ where: { id }, data: { stato: "escluso" } });
+  // ⚠️⚠️ LE ETICHETTE SONO ETICHETTE, E SOLO «escludi» SCRIVE (corretto
+  // l'08/09/2026). Prima erano trattate come pura etichetta solo «pertinente»
+  // ed «escluso»: OGNI ALTRO valore cadeva nel ramo qui sotto, che accoda una
+  // negativa vera. Le pillole di `/termini` mandano anche `da_escludere`
+  // (STATI, `termini/page.tsx:37`) — e la stessa pagina scrive a schermo
+  // «Segnare "da escludere" non esclude niente su Google» (riga 343). Chi
+  // attaccava il post-it si ritrovava un divieto in coda che non aveva
+  // chiesto: la forma diceva «promemoria» e il codice faceva «esegui».
+  // Adesso l'elenco è esplicito e si chiude: un valore sconosciuto NON scrive
+  // niente, invece di finire per sbaglio nel ramo che scrive.
+  const SOLO_ETICHETTA = ["pertinente", "escluso", "da_escludere", "nuovo"];
+  if (SOLO_ETICHETTA.includes(scelta)) {
+    await prisma.termineRicerca.update({ where: { id }, data: { stato: scelta } });
     revalidatePath("/termini");
     revalidatePath(`/campagne/${termine.campagna.id}`);
     return;
   }
+  if (scelta !== "escludi") return;
 
   // Escludi: la negativa passa dalla coda approvata come ogni scrittura.
   const avvisiTermine =
