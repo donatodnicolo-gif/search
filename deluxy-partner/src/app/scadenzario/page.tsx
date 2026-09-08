@@ -291,7 +291,7 @@ export default async function Scadenzario({
           <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Da lavorare per primi:</span>
             {aRischio.map(({ partner, scheda }) => (
-              <Link key={partner.id} href={`/partner/${partner.id}`} className={`badge ${scheda.colore}`} title={scheda.azione}>
+              <Link key={partner.id} href={`/partner/${partner.id}`} prefetch={false} className={`badge ${scheda.colore}`} title={scheda.azione}>
                 <span className="dot" />{partner.nome} · {euro(scheda.scaduto)}
               </Link>
             ))}
@@ -389,7 +389,7 @@ export default async function Scadenzario({
                           <span className="dot" />{f.partner.gruppo}
                         </div>
                       )}
-                      <Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link>
+                      <Link href={`/partner/${f.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{f.partner.nome}</Link>
                     </td>
                     <td>{nomeMese(f.mese)}</td>
                     <td>
@@ -466,12 +466,12 @@ export default async function Scadenzario({
               <tbody>
                 {bonificiPendenti.map((x) => (
                   <tr key={x.partner.id + x.mese}>
-                    <td><Link href={`/partner/${x.partner.id}`} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${x.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
                     <td>{nomeMese(x.mese)}</td>
                     <td className="num neg">{euro(x.r.daBonificare)}</td>
                     <td className="muted">{x.partner.iban ?? "IBAN mancante"}</td>
                     <td>
-                      <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
+                      <Link className="btn small secondary" href={`/partner/${x.partner.id}`} prefetch={false}>
                         Registra bonifico
                       </Link>
                     </td>
@@ -510,7 +510,7 @@ export default async function Scadenzario({
               <tbody>
                 {commDaEmettere.map((x) => (
                   <tr key={x.partner.id + x.mese}>
-                    <td><Link href={`/partner/${x.partner.id}`} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${x.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
                     <td>{nomeMese(x.mese)}</td>
                     <td className="num">{euro(x.r.vendite)}</td>
                     <td className="num">{euro(x.r.commissioni)}</td>

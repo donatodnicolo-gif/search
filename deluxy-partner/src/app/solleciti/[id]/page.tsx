@@ -147,12 +147,12 @@ export default async function SollecitoPage({
               {fattura.partner.ammEmail ? (
                 <>
                   Contatto amministrativo{fattura.partner.ammNome ? ` (${fattura.partner.ammNome})` : ""}.{" "}
-                  <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>Cambialo nella scheda partner</Link>.
+                  <Link href={`/partner/${fattura.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>Cambialo nella scheda partner</Link>.
                 </>
               ) : (
                 <>
                   Nessun contatto amministrativo impostato: si usa l&apos;email generale del partner.{" "}
-                  <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>Impostalo qui</Link>.
+                  <Link href={`/partner/${fattura.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>Impostalo qui</Link>.
                 </>
               )}
             </p>

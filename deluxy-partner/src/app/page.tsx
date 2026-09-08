@@ -168,7 +168,7 @@ export default async function Dashboard({
               <tbody>
                 {daPagareAiPartner.slice(0, 12).map((x) => (
                   <tr key={x.partner.id + x.mese}>
-                    <td><Link href={`/partner/${x.partner.id}`}>{x.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${x.partner.id}`} prefetch={false}>{x.partner.nome}</Link></td>
                     <td>{nomeMese(x.mese)}</td>
                     <td className="num">{euro(x.r.dovutoPartner)}</td>
                     <td className="num">{euro(x.r.bonificoInviato)}</td>
@@ -178,7 +178,7 @@ export default async function Dashboard({
                         annota · azione principale (in nero) per ultima. */}
                     <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                       <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
-                        <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
+                        <Link className="btn small secondary" href={`/partner/${x.partner.id}`} prefetch={false}>
                           Gestisci
                         </Link>
                         <form
@@ -280,7 +280,7 @@ export default async function Dashboard({
               <tbody>
                 {scadute.slice(0, 12).map((f) => (
                   <tr key={f.id}>
-                    <td><Link href={`/partner/${f.partnerId}`}>{f.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${f.partnerId}`} prefetch={false}>{f.partner.nome}</Link></td>
                     <td>{f.numero ?? "—"}</td>
                     <td>{f.tipologia.nome}</td>
                     <td><span className="badge red"><span className="dot" />{dataIt(f.scadenza)}</span></td>

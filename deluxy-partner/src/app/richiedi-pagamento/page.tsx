@@ -181,7 +181,7 @@ export default async function RichiediPagamentoPage({
                     <td>
                       <div style={{ fontWeight: 500, fontSize: 13 }}>
                         {r.partnerId ? (
-                          <Link href={`/partner/${r.partnerId}`} style={{ color: "var(--blue)" }}>{r.beneficiario}</Link>
+                          <Link href={`/partner/${r.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>{r.beneficiario}</Link>
                         ) : (
                           r.beneficiario
                         )}

@@ -35,7 +35,7 @@ export default async function VenditaDetail({
           <TornaIndietro fallback={`/partner/${vendita.partnerId}#mese-${vendita.mese}`} label="Scheda partner" />
           <h1 className="page-title">Vendita come vendor</h1>
           <p className="page-caption">
-            <Link href={`/partner/${vendita.partnerId}`} style={{ color: "var(--blue)" }}>{vendita.partner.nome}</Link>
+            <Link href={`/partner/${vendita.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>{vendita.partner.nome}</Link>
             {" "}· {nomeMese(vendita.mese)} {vendita.anno}
           </p>
         </div>

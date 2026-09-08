@@ -258,7 +258,7 @@ export default async function TasksPage({
                       </td>
                       <td style={{ fontSize: 12.5 }}>{t.assegnatario ?? "—"}</td>
                       <td style={{ fontSize: 12.5 }}>
-                        {t.partnerId ? <Link href={`/partner/${t.partnerId}`} style={{ color: "var(--blue)" }}>{t.partnerNome}</Link> : "—"}
+                        {t.partnerId ? <Link href={`/partner/${t.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>{t.partnerNome}</Link> : "—"}
                       </td>
                       <td style={{ fontSize: 12.5 }}>{t.riferimento ?? "—"}</td>
                       <td><span className={`badge ${pri.badge}`}><span className="dot" />{pri.label}</span></td>

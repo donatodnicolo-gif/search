@@ -207,7 +207,7 @@ export default async function DettaglioPeriodo({
                 {entrate.map((v, i) => (
                   <tr key={`e${i}`} style={{ opacity: v.saldata ? 0.72 : 1 }}>
                     <td style={{ fontWeight: 600 }}>
-                      <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>
+                      <Link href={`/partner/${v.partnerId}`} prefetch={false}>{v.chi}</Link>
                     </td>
                     <td>
                       <Link href={v.href}>{v.numero ?? "s.n."}</Link>
@@ -273,7 +273,7 @@ export default async function DettaglioPeriodo({
                 {uscite.map((v, i) => (
                   <tr key={`u${i}`} style={{ opacity: v.saldata ? 0.72 : 1 }}>
                     <td style={{ fontWeight: 600 }}>
-                      <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>
+                      <Link href={`/partner/${v.partnerId}`} prefetch={false}>{v.chi}</Link>
                       {v.compensazione && (
                         <span className="badge neutral" style={{ marginLeft: 8 }}>
                           <span className="dot" />

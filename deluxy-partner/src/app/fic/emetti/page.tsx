@@ -114,7 +114,7 @@ export default async function EmettiPage({
     <>
       <div className="page-head">
         <div>
-          <Link href={`/partner/${partnerId}`} className="btn secondary small" style={{ marginBottom: 10 }}>
+          <Link href={`/partner/${partnerId}`} prefetch={false} className="btn secondary small" style={{ marginBottom: 10 }}>
             ← Torna alla scheda
           </Link>
           <h1 className="page-title">Emetti fattura commissioni</h1>
@@ -223,7 +223,7 @@ export default async function EmettiPage({
             e la invii da lì. Il numero assegnato viene salvato automaticamente nel saldo del mese.
           </p>
           <div className="form-footer">
-            <Link href={`/partner/${partnerId}`} className="btn secondary">Annulla</Link>
+            <Link href={`/partner/${partnerId}`} prefetch={false} className="btn secondary">Annulla</Link>
             <BottoneInvio inCorso="Sto creando la fattura…">Crea fattura su Fatture in Cloud</BottoneInvio>
           </div>
         </form>

@@ -238,7 +238,7 @@ export default async function FattureCloudPage({
                         <td>{dataIt(f.data)}</td>
                         <td>
                           {idCliente ? (
-                            <Link href={`/partner/${idCliente}`} style={{ color: "var(--blue)" }} title="Apri la scheda di questo cliente">{f.cliente}</Link>
+                            <Link href={`/partner/${idCliente}`} prefetch={false} style={{ color: "var(--blue)" }} title="Apri la scheda di questo cliente">{f.cliente}</Link>
                           ) : (
                             f.cliente
                           )}

@@ -225,7 +225,7 @@ export default async function VenditePage({
               <tbody>
                 {vendite.map((v) => (
                   <tr key={v.id}>
-                    <td><Link href={`/partner/${v.partnerId}`} style={{ fontWeight: 500 }}>{v.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${v.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{v.partner.nome}</Link></td>
                     <td>{nomeMese(v.mese)}{v.data ? ` · ${dataIt(v.data)}` : ""}</td>
                     <td>
                       <Link href={`/vendite/${v.id}`} style={{ color: "var(--blue)" }} title="Apri e modifica la vendita">

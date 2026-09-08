@@ -242,7 +242,7 @@ export default async function RegoleStatiPage({
                 <tbody>
                   {discordanti.map(({ p, a }) => (
                     <tr key={p.id}>
-                      <td><Link href={`/partner/${p.id}`} style={{ fontWeight: 500 }}>{p.nome}</Link></td>
+                      <td><Link href={`/partner/${p.id}`} prefetch={false} style={{ fontWeight: 500 }}>{p.nome}</Link></td>
                       <td>{p.clienteAnno ?? "—"}</td>
                       <td><span className="badge neutral"><span className="dot" />{a!.calcolato ?? "—"}</span></td>
                       <td className="muted" style={{ fontSize: 13 }}>{a!.motivo}</td>

@@ -231,7 +231,7 @@ export default async function ProFormaListPage({
                           {rifProForma(p)}
                         </Link>
                       </td>
-                      <td><Link href={`/partner/${p.partnerId}`} style={{ fontWeight: 500 }}>{p.partner.nome}</Link></td>
+                      <td><Link href={`/partner/${p.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{p.partner.nome}</Link></td>
                       <td>{dataIt(p.data)}</td>
                       <td style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {p.oggetto ?? "—"}
