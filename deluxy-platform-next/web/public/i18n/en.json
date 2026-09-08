@@ -1093,7 +1093,12 @@
       "solo": "only:",
       "gia_proposta": "a proposal is pending: confirming replaces it",
       "gia_accettata": "an active rule already exists: confirming replaces it",
-      "gia_rifiutata": "it had been refused: confirming reopens it"
+      "gia_rifiutata": "it had been refused: confirming reopens it",
+      "scegli": "choose",
+      "scelto": "chosen",
+      "mancaVendita": "First choose the sale to reconcile.",
+      "mancaProdotto": "Search the product already sold in the past.",
+      "mancaPartner": "Choose who makes it, above: the price comes from there."
     }
   },
   "products": {

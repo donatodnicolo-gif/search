@@ -371,13 +371,24 @@ interface UltimaCorsa {
               @if (rif.righe.length) {
                 <div class="elenco">
                   @for (r of rif.righe; track r.partnerId) {
-                    <button type="button" class="voce" [class.attiva]="partnerScelto() === r.partnerId" (click)="scegliPartner(r)">
-                      <b>{{ r.insegna }}</b>@if (!r.attivo) { <span class="ko"> · {{ 'reconciliations.nuova.spento' | translate }}</span> }
-                      <span class="prezzo">{{ r.prezzoPartner | number: '1.2-2' }} €</span>
-                      <div class="cella-sub muted">
-                        {{ r.da }}@if (r.volte > 1) { · {{ 'reconciliations.nuova.volte' | translate: { n: r.volte } }} }
-                        @if (r.quando) { · {{ r.quando | date: 'dd/MM/yy' }} }
-                      </div>
+                    <!-- ⭐ 08/09/2026 (segnalazione utente: «non posso chiudere questa
+                         riconciliazione»). Questa riga NON è informativa: è la scelta del
+                         partner e del prezzo, e senza cliccarla il pulsante resta spento.
+                         Sembrava solo un elenco, e su telefono non c'è nemmeno il passaggio
+                         del mouse a suggerire il contrario: ora c'è un cerchio da spuntare
+                         e la parola «Scegli». -->
+                    <button type="button" class="voce scelta" [class.attiva]="partnerScelto() === r.partnerId" (click)="scegliPartner(r)">
+                      <span class="segno" aria-hidden="true">{{ partnerScelto() === r.partnerId ? '◉' : '○' }}</span>
+                      <span class="chi">
+                        <b>{{ r.insegna }}</b>@if (!r.attivo) { <span class="ko"> · {{ 'reconciliations.nuova.spento' | translate }}</span> }
+                        <span class="cella-sub muted">
+                          {{ r.da }}@if (r.volte > 1) { · {{ 'reconciliations.nuova.volte' | translate: { n: r.volte } }} }
+                          @if (r.quando) { · {{ r.quando | date: 'dd/MM/yy' }} }
+                        </span>
+                      </span>
+                      <span class="prezzo">{{ r.prezzoPartner | number: '1.2-2' }} €
+                        <span class="azione">{{ (partnerScelto() === r.partnerId ? 'reconciliations.nuova.scelto' : 'reconciliations.nuova.scegli') | translate }}</span>
+                      </span>
                     </button>
                   }
                 </div>
@@ -452,6 +463,10 @@ interface UltimaCorsa {
 
         <footer class="d-foot">
           @if (erroreNuova()) { <p class="ko">{{ erroreNuova() }}</p> }
+          @else if (!anteprima()) {
+            <!-- Un pulsante spento senza spiegazione e' un vicolo cieco: si dice cosa manca. -->
+            <p class="muted manca">{{ (venditaScelta() ? (riferimento() ? 'reconciliations.nuova.mancaPartner' : 'reconciliations.nuova.mancaProdotto') : 'reconciliations.nuova.mancaVendita') | translate }}</p>
+          }
           <button type="button" class="btn btn-secondary" (click)="chiudiNuova()">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn btn-primary" [disabled]="!anteprima() || salvando()" (click)="salvaNuova()">
             {{ (salvando() ? 'common.saving' : 'reconciliations.nuova.conferma') | translate }}
@@ -500,6 +515,19 @@ interface UltimaCorsa {
       .nuova-riconc .voce:hover { background: var(--fill); }
       .nuova-riconc .voce.attiva { background: var(--fill); box-shadow: inset 3px 0 0 var(--text); }
       .nuova-riconc .voce .prezzo { float: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+      /* La riga della SCELTA: cerchio, chi, prezzo. Niente float, cosi' su telefono il
+         prezzo non finisce sopra il nome. */
+      .nuova-riconc .voce.scelta { display: flex; align-items: center; gap: 10px; }
+      .nuova-riconc .voce.scelta .segno { font-size: 15px; line-height: 1; color: var(--text-secondary); flex: 0 0 auto; }
+      .nuova-riconc .voce.scelta.attiva .segno { color: var(--text); }
+      .nuova-riconc .voce.scelta .chi { flex: 1 1 auto; min-width: 0; }
+      .nuova-riconc .voce.scelta .chi .cella-sub { display: block; }
+      .nuova-riconc .voce.scelta .prezzo { float: none; flex: 0 0 auto; text-align: right; }
+      .nuova-riconc .voce.scelta .azione {
+        display: block; font-size: 11px; font-weight: 400; color: var(--text-secondary);
+      }
+      .nuova-riconc .voce.scelta.attiva .azione { color: var(--text); font-weight: 600; }
+      .nuova-riconc .d-foot .manca { margin: 0 auto 0 0; font-size: 12.5px; }
       .nuova-riconc .scelto { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
       .nuova-riconc .dedotti dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
       .nuova-riconc .dedotti dt { font-size: 12px; color: var(--text-secondary); }
@@ -519,6 +547,11 @@ interface UltimaCorsa {
       .nuova-riconc .d-foot .ko { margin: 0 auto 0 0; font-size: 13px; }
       @media (max-width: 620px) {
         .nuova-riconc .dedotti dl { grid-template-columns: 1fr; }
+        /* Il widget della chat sta in basso a destra e copriva «Crea la regola»: i
+           pulsanti si impilano a tutta larghezza e sotto resta lo spazio per il widget. */
+        .nuova-riconc .d-foot { flex-direction: column-reverse; align-items: stretch; gap: 8px; padding-bottom: 76px; }
+        .nuova-riconc .d-foot .btn { width: 100%; }
+        .nuova-riconc .d-foot .manca, .nuova-riconc .d-foot .ko { margin: 0 0 4px; text-align: center; }
       }
     `,
     `

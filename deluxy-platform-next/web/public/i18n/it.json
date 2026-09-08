@@ -1095,7 +1095,12 @@
       "solo": "solo:",
       "gia_proposta": "c’è una proposta in attesa: confermando prende il posto suo",
       "gia_accettata": "esiste già una regola attiva: confermando la sostituisci",
-      "gia_rifiutata": "era stata rifiutata: confermando la riapri"
+      "gia_rifiutata": "era stata rifiutata: confermando la riapri",
+      "scegli": "scegli",
+      "scelto": "scelto",
+      "mancaVendita": "Scegli prima la vendita da riconciliare.",
+      "mancaProdotto": "Cerca il prodotto già venduto in passato.",
+      "mancaPartner": "Scegli chi lo fa, qui sopra: il prezzo viene da lì."
     }
   },
   "products": {

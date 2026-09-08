@@ -572,6 +572,19 @@ input.field {
   .table-wrap td.azioni {
     justify-content: flex-start !important;
     gap: 8px !important;
+    /* ⚠️ 08/09/2026 (segnalazione utente, schermata di /sales su telefono: i bottoni
+       uscivano dal bordo SINISTRO della scheda). La cella in modalità card è un flex
+       con `nowrap` ereditato: tre bottoni in fila non ci stanno in 360px e, invece di
+       andare a capo, traboccavano fuori dalla card. Vale per tutte le liste. */
+    flex-wrap: wrap !important;
+    row-gap: 8px !important;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  /* Un bottone piu' largo della scheda si adatta invece di spingere fuori gli altri. */
+  .table-wrap td.actions-cell > *,
+  .table-wrap td.azioni > * {
+    max-width: 100%;
   }
   .table-wrap td::before {
     content: attr(data-label);

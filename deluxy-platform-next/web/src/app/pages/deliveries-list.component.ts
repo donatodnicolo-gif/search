@@ -23,6 +23,23 @@ const SERVICE_ICONS: Record<string, string> = {
   CORPORATE: '<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/>',
 };
 
+/**
+ * ⭐ 08/09/2026 (regola utente: «per i servizi furgone trova un'icona chiara»).
+ *
+ * Il furgone non è un modello di prezzo — «Consegna con Furgone» è a prezzo fisso come
+ * la consegna a piedi — quindi prendeva l'icona del pacco, uguale alle altre. Ma per chi
+ * guarda la lista la differenza è grossa: cambia il mezzo, e con lui chi può farla.
+ * L'icona si sceglie dal NOME quando il nome dice il mezzo, e resta il modello altrimenti.
+ */
+const ICONA_FURGONE =
+  '<path d="M2.5 16V7.5a1 1 0 0 1 1-1h9.5V16M13 9.5h3.6a1 1 0 0 1 .82.43l2.3 3.3a1 1 0 0 1 .18.57V16M2.5 16h1.2M9.3 16h4.4M19.6 16h1.4"/>' +
+  '<circle cx="6.5" cy="17.4" r="1.7"/><circle cx="16.5" cy="17.4" r="1.7"/>';
+
+/** Il nome dice il mezzo? Allora comanda lui. */
+function iconaDalNome(nome: string | null | undefined): string | null {
+  return /furgon|van\b|camion|mezzo proprio/i.test(String(nome ?? '')) ? ICONA_FURGONE : null;
+}
+
 /** Un ordine smistato in attesa della risposta del partner (vendita «proposta»). */
 interface PropostaVendita {
   id: string;
@@ -446,12 +463,17 @@ interface PropostaVendita {
                     <span class="data-sospetta" [title]="'deliveries.suspectDate' | translate">⚠</span>
                   }
                 </td>
-                <td>
+                <td class="servizio">
+                  <!-- ⭐ 08/09/2026 (regola utente: «su mobile fai vedere il nome del
+                       servizio»). C'era solo l'icona, col nome solo come suggerimento: su telefono
+                       il passaggio del mouse non esiste, e la riga diceva soltanto un
+                       disegnino. Il nome ora si legge; sul desktop resta discreto. -->
                   <span
                     class="svc-icon"
-                    [innerHTML]="serviceIcon(d.serviceType?.pricingModel)"
+                    [innerHTML]="iconaServizio(d.serviceType)"
                     [title]="d.serviceType?.name ?? ''"
                   ></span>
+                  <span class="svc-nome">{{ d.serviceType?.name ?? '—' }}</span>
                 </td>
                 <td class="strong">{{ d.partner?.insegna }}</td>
                 <!-- Al valet il NOME del destinatario si scopre solo da «in
@@ -1374,6 +1396,14 @@ interface PropostaVendita {
         height: 20px;
         color: var(--text-secondary);
       }
+      /* Il nome del servizio accanto all'icona: discreto sul desktop, dove le colonne
+         sono strette; su telefono e' l'unica cosa che si legge, quindi cresce. */
+      td.servizio { white-space: nowrap; }
+      .svc-nome { display: none; margin-left: 6px; font-size: 12.5px; color: var(--text-secondary); vertical-align: middle; }
+      @media (max-width: 800px) {
+        .svc-nome { display: inline; font-size: 14px; color: var(--text); }
+        td.servizio { white-space: normal; }
+      }
       .svc-icon :where(svg) {
         width: 100%;
         height: 100%;
@@ -1750,6 +1780,25 @@ export class DeliveriesListComponent {
         next: (r) => window.open(`${location.origin}/tracking/${r.token}`, '_blank'),
         error: (err) => this.actionError.set(err?.error?.message ?? 'Errore'),
       });
+  }
+
+  /**
+   * ⭐ 08/09/2026: l'icona del servizio guardando PRIMA il nome (il furgone è un mezzo,
+   * non un modello di prezzo) e poi il modello. La cache è per chiave, quindi il nome
+   * entra nella chiave: due servizi diversi non si scambiano il disegno.
+   */
+  iconaServizio(servizio?: { name?: string | null; pricingModel?: string | null } | null): SafeHtml {
+    const dalNome = iconaDalNome(servizio?.name);
+    if (!dalNome) return this.serviceIcon(servizio?.pricingModel ?? undefined);
+    const chiave = 'nome:furgone';
+    let cached = this.iconCache.get(chiave);
+    if (!cached) {
+      cached = this.sanitizer.bypassSecurityTrustHtml(
+        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${dalNome}</svg>`,
+      );
+      this.iconCache.set(chiave, cached);
+    }
+    return cached;
   }
 
   /** Icona del tipo di servizio (fallback: nessun tratto). */
