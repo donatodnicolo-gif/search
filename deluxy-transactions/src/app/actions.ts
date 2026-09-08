@@ -104,19 +104,16 @@ export async function decidiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
 
 // «Questa l'ho già pagata dal portale della banca» / «annullala, non si paga
 // più». Non è una porta da cui esce denaro — non tocca il cancello del pagatore
-// e non chiede il PIN — ma chiude una partita e lo dice a chi l'aveva aperta,
-// quindi vuole il secondo fattore e un motivo scritto.
+// e non chiede il PIN — e dall'08/09/2026 (decisione dell'utente) non chiede
+// nemmeno il codice a 6 cifre: quello resta dove il denaro esce davvero (la
+// firma di una richiesta, lo sblocco del pagatore, il bonifico Qonto). Qui
+// restano il ruolo (l'osservatore non chiude), il motivo obbligatorio e il
+// registro col nome di chi ha chiuso — vedi SICUREZZA.md §0-ter.
 export async function chiudiRichiesta(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
   const operatore = await esigiOperatore();
   const id = testo(fd, "id");
   const esito = testo(fd, "esito");
   if (esito !== "pagata_fuori" && esito !== "annullata") return { errore: "Azione sconosciuta." };
-
-  if (operatore.totpAttivo) {
-    if (!(await confermaSecondoFattore(operatore.id, testo(fd, "codice")))) {
-      return { errore: "Codice a 6 cifre errato o scaduto: non è stato cambiato niente." };
-    }
-  }
 
   const motivo = testo(fd, "motivo");
   const chiusura = await chiudiFuoriDallApp(

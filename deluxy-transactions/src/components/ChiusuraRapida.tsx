@@ -8,8 +8,9 @@ import { CampiDaCopiare, type CampoCopiabile } from "./CampiDaCopiare";
 // Gli stessi due tasti della pagina di dettaglio, ma dentro la coda: da lì si
 // smaltiscono venti righe senza aprirne venti.
 //
-// I campi restano quelli — motivo obbligatorio, codice a 6 cifre — e per non
-// allargare la tabella stanno in una finestrella. La finestra serve anche a
+// I campi restano quelli — motivo obbligatorio, niente codice a 6 cifre
+// (08/09/2026: qui non esce denaro) — e per non allargare la tabella stanno in
+// una finestrella. La finestra serve anche a
 // un'altra cosa: mostra riferimento, beneficiario e importo mentre si scrive,
 // così non si chiude la riga sbagliata avendo cliccato una riga sopra.
 export function ChiusuraRapida({
@@ -17,7 +18,6 @@ export function ChiusuraRapida({
   riferimento,
   beneficiario,
   importo,
-  richiedeCodice,
   oggi,
   daCopiare,
 }: {
@@ -25,7 +25,6 @@ export function ChiusuraRapida({
   riferimento: string;
   beneficiario: string;
   importo: string;
-  richiedeCodice: boolean;
   oggi: string;
   daCopiare: CampoCopiabile[];
 }) {
@@ -109,21 +108,6 @@ export function ChiusuraRapida({
                 </label>
                 <input id={`motivo-${id}`} name="motivo" required minLength={3} />
               </div>
-              {richiedeCodice && (
-                <div className="campo-modulo">
-                  <label htmlFor={`codice-${id}`}>Codice a 6 cifre</label>
-                  <input
-                    id={`codice-${id}`}
-                    className="firma-codice"
-                    name="codice"
-                    inputMode="numeric"
-                    maxLength={6}
-                    pattern="[0-9]{6}"
-                    autoComplete="one-time-code"
-                    required
-                  />
-                </div>
-              )}
             </div>
 
             <p className="firma-nota">

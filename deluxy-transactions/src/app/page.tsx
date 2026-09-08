@@ -243,7 +243,6 @@ export default async function Coda({
                           riferimento={r.riferimento}
                           beneficiario={r.beneficiario}
                           importo={euro(r.importoCent)}
-                          richiedeCodice={operatore.totpAttivo}
                           oggi={oggi}
                           daCopiare={[
                             ...(r.metodo === "iban"
