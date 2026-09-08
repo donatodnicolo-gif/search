@@ -15,6 +15,7 @@ import {
   ETICHETTA_CANALE,
   ETICHETTA_STATO_CAMPAGNA,
   formattaEuro,
+  formattaNumero,
   roas,
   STATI_CAMPAGNA,
   STATI_CAMPAGNA_IGNORATE,
@@ -452,6 +453,13 @@ export default async function PaginaCampagne({
                     const spesa = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
                     const ricavi = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
                     const r = roas(ricavi, spesa);
+                    // ⚠️ Il CTR si somma PRIMA e si divide DOPO: la media delle
+                    // percentuali giornaliere darebbe a un giorno con 3 viste lo
+                    // stesso peso di uno con 3.000. Qui click e comparse si
+                    // sommano su tutto il periodo e il rapporto si fa una volta.
+                    const click = c.metriche.reduce((s, m) => s + (m.click ?? 0), 0);
+                    const comparse = c.metriche.reduce((s, m) => s + (m.impression ?? 0), 0);
+                    const ctr = comparse > 0 ? (click / comparse) * 100 : null;
                     const uso = usoBudget(c.metriche, c.budgetGiornaliero);
                     const lettura = uso ? letturaBudget(uso) : null;
                     const salute = saluteCampagna(c.stato, r, spesa, c.brand);
@@ -595,6 +603,23 @@ export default async function PaginaCampagne({
                                 {r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}
                               </b>
                               <i>ROAS</i>
+                            </span>
+                            {/* Il CTR accanto al ROAS (richiesta utente 08/09):
+                                dicono due cose diverse e servono insieme. Il
+                                ROAS dice se quello che entra ripaga; il CTR dice
+                                se l'annuncio parla alla gente giusta. Una
+                                campagna che non incassa con un CTR alto ha un
+                                problema DOPO il click (pagina, prezzo, offerta);
+                                con un CTR basso ce l'ha PRIMA (annuncio, query,
+                                pubblico) — ed è la prima forchetta che si apre
+                                guardando una campagna che va male.
+                                «—» quando non ci sono comparse: non è uno zero,
+                                è un dato che non c'è. */}
+                            <span>
+                              <b title={comparse > 0 ? `${formattaNumero(click)} click su ${formattaNumero(comparse)} comparse` : "Nessuna comparsa nel periodo: il CTR non esiste, non è zero"}>
+                                {ctr != null ? `${ctr.toFixed(1).replace(".", ",")}%` : "—"}
+                              </b>
+                              <i>CTR</i>
                             </span>
                             {c._count.azioni > 0 && (
                               <span>
