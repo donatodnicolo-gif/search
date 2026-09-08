@@ -256,10 +256,15 @@ export async function salvaNegozio(dati: {
   clientId?: string | null;
   clientSecret?: string | null;
   canaleVendite?: string | null;
+  /** ⭐ 08/09/2026: i due plus del sito, righe 2 e 3 dei tre punti in cima a ogni scheda. */
+  plusUno?: string | null;
+  plusDue?: string | null;
 }): Promise<EsitoSalvataggio> {
   const nome = dati.nome.trim();
   const dominio = normalizzaDominio(dati.dominio);
   const canaleVendite = dati.canaleVendite?.trim() || null;
+  const plusUno = dati.plusUno?.trim() || null;
+  const plusDue = dati.plusDue?.trim() || null;
   const token = dati.token?.trim() || null;
   const clientId = dati.clientId?.trim() || null;
   const clientSecret = dati.clientSecret?.trim() || null;
@@ -307,6 +312,8 @@ export async function salvaNegozio(dati: {
           nome,
           dominio,
           canaleVendite,
+          plusUno,
+          plusDue,
           ...(clientId
             ? {
                 clientIdCifrato: cifra(clientId),
@@ -337,6 +344,8 @@ export async function salvaNegozio(dati: {
         nome,
         dominio,
         canaleVendite,
+        plusUno,
+        plusDue,
         ...(clientId
           ? { clientIdCifrato: cifra(clientId), clientSecretCifrato: cifra(clientSecret as string) }
           : { tokenCifrato: cifra(token as string), tokenImpronta: impronta(token as string) }),

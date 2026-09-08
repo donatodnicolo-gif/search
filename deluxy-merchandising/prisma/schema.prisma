@@ -46,6 +46,18 @@ model Prodotto {
   id           String   @id @default(cuid())
   codice       String   @unique // SKU / codice interno (es. FN-26-001)
   nome         String
+  /// **Il nome che vede il partner**, quando è diverso da quello del pubblico
+  /// (08/09/2026, richiesta dell'utente). Il fioraio che prepara «Bouquet Ora
+  /// Blu» ha bisogno di leggere «Bouquet rose blu, 12 steli»: il nome
+  /// commerciale racconta, il nome di lavorazione dice cosa mettere nella
+  /// scatola.
+  ///
+  /// ⚠️ Due campi e non uno, con la spunta esplicita: un campo pieno non dice
+  /// se qualcuno **ha deciso** di usarlo o se ci è rimasto dentro un valore
+  /// vecchio. Nel vecchio gestionale la coppia era la stessa
+  /// (`alternateProductName` + `isAlternateProductName`), e da lì si importa.
+  nomePartner       String?
+  nomePartnerAttivo Boolean @default(false)
   collezioneId String?
   collezione   Collezione? @relation(fields: [collezioneId], references: [id], onDelete: SetNull)
   // Chiave della categoria: il catalogo vive in `CategoriaProdotto` (modificabile

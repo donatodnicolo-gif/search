@@ -20,6 +20,8 @@ export async function salvaNegozioAzione(fd: FormData) {
     id,
     nome: testo(fd, "nome"),
     dominio: testo(fd, "dominio"),
+    plusUno: testo(fd, "plusUno").slice(0, 140).trim() || null,
+    plusDue: testo(fd, "plusDue").slice(0, 140).trim() || null,
     token: testo(fd, "token") || null,
     clientId: testo(fd, "clientId") || null,
     clientSecret: testo(fd, "clientSecret") || null,

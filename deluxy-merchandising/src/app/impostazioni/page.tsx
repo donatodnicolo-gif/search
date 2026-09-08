@@ -231,6 +231,33 @@ export default async function ImpostazioniPage({
                           placeholder="come si chiama questo negozio negli ordini"
                         />
                       </div>
+                      {/* ⭐ 08/09/2026 (utente): «in impostazioni per ogni sito
+                          definisci due plus del sito». Sono la seconda e la terza
+                          riga dei tre punti in cima a OGNI scheda prodotto di
+                          questo negozio: si scrivono una volta sola qui, non su
+                          mille prodotti. Il primo punto è del prodotto e si
+                          scrive nel suo modulo. */}
+                      <div className="campo-modulo largo">
+                        <label htmlFor={`plusUno-${n.id}`}>Secondo punto della scheda — plus del sito</label>
+                        <input
+                          id={`plusUno-${n.id}`}
+                          name="plusUno"
+                          defaultValue={n.plusUno ?? ""}
+                          maxLength={140}
+                          placeholder="Es. «Consegna curata a mano, con i guanti bianchi»"
+                        />
+                      </div>
+                      <div className="campo-modulo largo">
+                        <label htmlFor={`plusDue-${n.id}`}>Terzo punto della scheda — plus del sito</label>
+                        <input
+                          id={`plusDue-${n.id}`}
+                          name="plusDue"
+                          defaultValue={n.plusDue ?? ""}
+                          maxLength={140}
+                          placeholder="Es. «Confezione della maison inclusa»"
+                        />
+                        <span className="cella-sub">Valgono per tutti i prodotti di {n.nome}: si vedono in cima a ogni scheda, sotto il plus del prodotto.</span>
+                      </div>
                       <div className="campo-modulo">
                         <label htmlFor={`clientId-${n.id}`}>Nuovo Client ID</label>
                         <input id={`clientId-${n.id}`} name="clientId" autoComplete="off" placeholder="lascia vuoto per non cambiarlo" />

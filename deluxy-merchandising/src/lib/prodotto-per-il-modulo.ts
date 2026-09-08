@@ -92,6 +92,8 @@ export function prodottoPerIlModulo(
     metafield,
     tags: (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     // ⭐ 08/09/2026: il primo dei tre punti e le sezioni già compilate, sito per sito.
+    nomePartner: p.nomePartner ?? "",
+    nomePartnerAttivo: p.nomePartnerAttivo,
     plusProdotto: p.plusProdotto ?? "",
     sezioniScheda:
       p.sezioniScheda && typeof p.sezioniScheda === "object" && !Array.isArray(p.sezioniScheda)
