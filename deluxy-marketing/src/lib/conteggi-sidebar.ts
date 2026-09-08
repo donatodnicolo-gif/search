@@ -46,64 +46,42 @@ const VUOTI: ConteggiSidebar = {
   aperteBrand: {}, aperteCanale: {}, analisiCanale: {}, auditCanale: {}, campagneCanale: {},
 };
 
-// ⚠️⚠️ OGNI TABELLA SI QUALIFICA CON LO SCHEMA (08/09/2026, custode delle prestazioni).
-//
-// Queste due query giravano con i nomi nudi (`FROM "Analisi"`, `FROM "Ordine"`…)
-// e si affidavano al `search_path` della connessione. Su un database CONDIVISO
-// da sedici app è una scommessa che si perde: `Ordine` esiste in tre schemi
-// (`marketing`, `orders`, `messaging`), `Partner` in tre, `ApiKey` in dieci. E
-// col pooler in modalità transazione il `search_path` di sessione **non è
-// garantito**: capita la connessione che non ce l'ha. Il sintomo è già stato
-// pagato in produzione altrove — «relation "Ordine" does not exist» a
-// intermittenza (vedi il commento in `deluxy-orders/src/lib/db.ts`) e l'errore
-// 42703 annotato in `deluxy-anagrafiche/src/components/Sidebar.tsx`.
-//
-// Qui il rischio era il più alto dell'ecosistema, perché questo file è la
-// SIDEBAR: gira su ogni pagina dell'app.
-//
-// Il nome dello schema non arriva da fuori: si legge dalla nostra stessa
-// `DATABASE_URL`, come fa già `tabella()` in deluxy-orders.
-const SCHEMA =
-  /[?&]schema=([^&]+)/.exec(process.env.DATABASE_URL ?? "")?.[1] ?? "public";
-
-const T = (nome: string) => `"${SCHEMA}"."${nome}"`;
-
 // Gli stati "vivi" stanno anche in dominio.ts, ma qui vanno dentro SQL: si
 // scrivono espliciti per non costruire stringhe con valori che vengono da fuori.
 const SQL = `
   SELECT
-    (SELECT count(*) FROM ${T("Analisi")})                                                  AS "nAnalisi",
-    (SELECT count(*) FROM ${T("Analisi")} WHERE tipo IN ('audit_google','audit_meta','revisione_creativi','revisione_landing')) AS "nAudit",
-    (SELECT count(*) FROM ${T("Azione")} WHERE stato IN ('da_fare','in_corso','bloccata','fatta')) AS "nAzioniAperte",
-    (SELECT count(*) FROM ${T("Campagna")} WHERE stato IN ('attiva','in_pausa','bozza','in_lancio','in_test')) AS "nCampagneVive",
-    (SELECT count(*) FROM ${T("LandingPage")})                                              AS "nLanding",
-    (SELECT count(*) FROM ${T("TestMeta")} WHERE stato IN ('idea','pianificato','in_corso')) AS "nTestAperti",
-    (SELECT count(*) FROM ${T("DocumentoDrive")})                                           AS "nDocumenti",
-    (SELECT count(*) FROM ${T("Pubblico")})                                                 AS "nPubblici",
-    (SELECT count(*) FROM ${T("Ordine")})                                                   AS "nOrdini",
-    (SELECT count(*) FROM ${T("Incidente")} WHERE stato = 'aperto')                         AS "nErroriAperti",
-    (SELECT count(*) FROM ${T("Incongruenza")} WHERE stato = 'aperta')                      AS "nIncongruenzeAperte",
-    (SELECT count(*) FROM ${T("OperazioneAdv")} WHERE stato IN ('in_attesa','approvata'))   AS "nOperazioni",
-    (SELECT count(*) FROM ${T("Gruppo")} WHERE stato <> 'defunto')                          AS "nGruppi",
-    (SELECT count(*) FROM ${T("TermineRicerca")} WHERE spesa > 0 AND conversioni = 0)       AS "nTermini",
-    (SELECT count(*) FROM ${T("CopyAnnuncio")}
+    (SELECT count(*) FROM "Analisi")                                                        AS "nAnalisi",
+    (SELECT count(*) FROM "Analisi" WHERE tipo IN ('audit_google','audit_meta','revisione_creativi','revisione_landing')) AS "nAudit",
+    (SELECT count(*) FROM "Azione" WHERE stato IN ('da_fare','in_corso','bloccata','fatta')) AS "nAzioniAperte",
+    (SELECT count(*) FROM "Campagna" WHERE stato IN ('attiva','in_pausa','bozza','in_lancio','in_test')) AS "nCampagneVive",
+    (SELECT count(*) FROM "LandingPage")                                                    AS "nLanding",
+    (SELECT count(*) FROM "TestMeta" WHERE stato IN ('idea','pianificato','in_corso'))      AS "nTestAperti",
+    (SELECT count(*) FROM "DocumentoDrive")                                                 AS "nDocumenti",
+    (SELECT count(*) FROM "Pubblico")                                                       AS "nPubblici",
+    (SELECT count(*) FROM "Ordine")                                                         AS "nOrdini",
+    (SELECT count(*) FROM "Incidente" WHERE stato = 'aperto')                               AS "nErroriAperti",
+    (SELECT count(*) FROM "Incongruenza" WHERE stato = 'aperta')                            AS "nIncongruenzeAperte",
+    (SELECT count(*) FROM "OperazioneAdv" WHERE stato IN ('in_attesa','approvata'))         AS "nOperazioni",
+    (SELECT count(*) FROM "Gruppo" WHERE stato <> 'defunto')                                AS "nGruppi",
+    (SELECT count(*) FROM "TermineRicerca" WHERE spesa > 0 AND conversioni = 0)             AS "nTermini",
+    (SELECT count(*) FROM "CopyAnnuncio"
        WHERE tipo IN ('sitelink','callout','snippet','immagine')
          AND "statoPiattaforma" IS NOT NULL AND "statoPiattaforma" <> 'ENABLED')             AS "nEstensioniFerme"
 `;
 
 const SQL_GRUPPI = `
-  SELECT 'azioniBrand' AS q, brand AS k, count(*)::int AS n FROM ${T("Azione")}
+  SELECT 'azioniBrand' AS q, brand AS k, count(*)::int AS n FROM "Azione"
     WHERE stato IN ('da_fare','in_corso','bloccata','fatta') GROUP BY brand
   UNION ALL
-  SELECT 'azioniCanale', canale, count(*)::int FROM ${T("Azione")}
+  SELECT 'azioniCanale', canale, count(*)::int FROM "Azione"
     WHERE stato IN ('da_fare','in_corso','bloccata','fatta') GROUP BY canale
   UNION ALL
-  SELECT 'analisiCanale', canale, count(*)::int FROM ${T("Analisi")} GROUP BY canale
+  SELECT 'analisiCanale', canale, count(*)::int FROM "Analisi" GROUP BY canale
   UNION ALL
-  SELECT 'auditCanale', canale, count(*)::int FROM ${T("Analisi")}
+  SELECT 'auditCanale', canale, count(*)::int FROM "Analisi"
     WHERE tipo IN ('audit_google','audit_meta','revisione_creativi','revisione_landing') GROUP BY canale
   UNION ALL
-  SELECT 'campagneCanale', canale, count(*)::int FROM ${T("Campagna")}
+  SELECT 'campagneCanale', canale, count(*)::int FROM "Campagna"
     WHERE stato IN ('attiva','in_pausa','bozza','in_lancio','in_test') GROUP BY canale
 `;
 
