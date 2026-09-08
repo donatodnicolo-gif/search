@@ -8,6 +8,7 @@ import { STATI_GRUPPO_IGNORATI } from "@/lib/gruppi";
 import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
+import { paroleGiaComprate } from "@/lib/parole-comprate";
 
 // Quello che la gente ha digitato per davvero. È il posto dove si vede la
 // differenza fra quello che abbiamo comprato e quello che stiamo pagando: una
@@ -99,20 +100,10 @@ export async function TerminiRicerca({
   // il confronto sul testo RIPULITO — «consegna fiori milano (phrase)» e
   // «consegna fiori milano (match esatto)» sono la stessa parola scritta da
   // due import diversi.
-  const tutteLeKeyword = await prisma.copyAnnuncio.findMany({
-    where: { tipo: "keyword" },
-    select: { testo: true, campagna: true },
-  });
-  const campagneDiParola = new Map<string, Set<string>>();
-  for (const k of tutteLeKeyword) {
-    const chiave = testoKeywordPulito(k.testo).toLowerCase();
-    const v = campagneDiParola.get(chiave) ?? new Set<string>();
-    v.add(k.campagna);
-    campagneDiParola.set(chiave, v);
-  }
-  const giaSuDi = (testo: string) => [
-    ...(campagneDiParola.get(testoKeywordPulito(testo).toLowerCase()) ?? new Set<string>()),
-  ];
+  // La lettura sta in `lib/parole-comprate`: era una scansione dell'intera
+  // tabella a ogni apertura di pagina, adesso è cachata. Il perché, e perché
+  // NON un indice, è scritto lì.
+  const giaSuDi = await paroleGiaComprate();
 
   // I gruppi di annunci di QUESTA campagna: servono a «Estendi con AI» per
   // far scegliere dove finiscono le parole nuove — senza, lo script le infila

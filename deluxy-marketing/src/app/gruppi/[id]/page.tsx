@@ -37,6 +37,7 @@ import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, c
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword, spendeAVuoto } from "@/lib/salute";
+import { paroleGiaComprate } from "@/lib/parole-comprate";
 import {
   ETICHETTA_LINGUA,
   LINGUE_CAMPAGNA,
@@ -651,20 +652,11 @@ export default async function SchedaGruppo({
   // campagna: le campagne di destinazione per il dialogo, chi ha GIÀ ogni
   // parola (saputo prima di premere), e le lingue per l'avviso di lingua.
   const campagneDialogo = await campagnePerDialogo();
-  const tutteLeKeyword = await prisma.copyAnnuncio.findMany({
-    where: { tipo: "keyword" },
-    select: { testo: true, campagna: true },
-  });
-  const campagneDiParola = new Map<string, Set<string>>();
-  for (const k of tutteLeKeyword) {
-    const chiave = testoKeywordPulito(k.testo).toLowerCase();
-    const v = campagneDiParola.get(chiave) ?? new Set<string>();
-    v.add(k.campagna);
-    campagneDiParola.set(chiave, v);
-  }
-  const giaSuDi = (testo: string) => [
-    ...(campagneDiParola.get(testoKeywordPulito(testo).toLowerCase()) ?? new Set<string>()),
-  ];
+  // La lettura sta in `lib/parole-comprate`: era una scansione dell'intera
+  // tabella `CopyAnnuncio` a ogni apertura di questa pagina e della scheda
+  // campagna — 629.999 seq scan misurati — e adesso è cachata. Il perché, e
+  // perché NON un indice, è scritto lì.
+  const giaSuDi = await paroleGiaComprate();
   const lingueQui = linguaDedotta ? [linguaDedotta] : lingueDellaCampagna;
 
   return (

@@ -99,8 +99,8 @@
 > · 🟡 `alert-${tipo}` come chiave React: due alert dello stesso tipo si
 >   sovrascrivevano — 400 errori in console e una cosa da fare che spariva.
 >
-> 🔴 **DA FARE, MISURATO OGGI E NON CORRETTO — `CopyAnnuncio` va in scansione
-> sequenziale.** Da `pg_stat_user_tables`: `seq_scan` **629.999** su 38.334
+> ✅ **CORRETTO NEL POMERIGGIO — la lettura dell'intera `CopyAnnuncio` è ora
+> cachata; l'indice NON si fa (misurato: non verrebbe usato).** Da `pg_stat_user_tables`: `seq_scan` **629.999** su 38.334
 > righe, contro 243 della seconda tabella in classifica (`RicezioneDati`) e 196
 > di `NegativaCampagna` che di righe ne ha 92.760. Causa accertata: due pagine
 > leggono la tabella INTERA senza filtro di campagna e senza `take` —
@@ -111,6 +111,29 @@
 > va creato dalla console Supabase: il pooler rifiuta `CREATE INDEX
 > CONCURRENTLY` e la connessione diretta `:5432` non è raggiungibile da queste
 > macchine.
+> ⚠️⚠️ **E infatti l'indice NON è la risposta, misurato prima di proporlo**:
+> `tipo='keyword'` è il **58% della tabella** (22.157 righe su 38.334), quindi
+> il planner sceglie giustamente il seq scan e un btree su `tipo` non verrebbe
+> **mai** usato — resterebbe solo da aggiornare a ogni import. E la query non è
+> lenta: `Execution Time 16.780 ms` con `Buffers: shared hit=1754`, cioè tutto
+> da cache, zero letture da disco. **Non è lenta: è ripetuta.**
+> ✅ **Fatto**: `lib/parole-comprate.ts` — la mappa «quali campagne hanno già
+> questa parola» si legge una volta e sta in `unstable_cache` per 5 minuti
+> (stesso meccanismo dei conteggi della sidebar; le pagine restano
+> `force-dynamic`, si cachea il DATO non la pagina). Il dato cambia solo quando
+> gira l'import, una volta al giorno per conto — e mettere un'operazione in coda
+> NON scrive in `CopyAnnuncio`: lì scrive solo l'import, dopo che lo script ha
+> eseguito. Quindi non esiste il caso in cui la cache mente all'utente su
+> qualcosa che ha appena fatto.
+> Misurato dopo: sulla scheda campagna restano **3 letture** di quella tabella,
+> tutte filtrate e tutte **fra 0,6 e 1,5 ms** (una usa l'indice
+> `brand_campagna`). Quella da 16,8 ms non c'è più. ⚠️ Il contatore `seq_scan`
+> continua a salire di ~3 per apertura: sono quelle piccole, e va bene così —
+> il numero di scansioni non è il problema, il costo lo era.
+> ⚠️ **Il custode delle prestazioni ha accolto l'obiezione e tolto l'indice dal
+> piano d'azione unico.** Nel piano c'è la formulazione: «cache applicativa su
+> `giaSuDi()`; indice parziale e coprente solo se dopo la cache resta un
+> problema misurato».
 >
 > ⚠️ **Il pooler condiviso si è saturato di nuovo l'08/09**: `FATAL: (EMAXCONN)
 > max client connections reached, limit: 200`, misurato due volte, **ancora
