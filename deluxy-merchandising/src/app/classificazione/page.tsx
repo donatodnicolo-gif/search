@@ -13,7 +13,8 @@ import {
 } from "@/lib/azioni-classificazione";
 import { elencoCategorie, elencoLinee } from "@/lib/classificazione";
 import { prisma } from "@/lib/db";
-import { etichettaStagione, STAGIONI } from "@/lib/dominio";
+import { salvaPromptCategorieAzione } from "@/lib/azioni-negozi";
+import { CATEGORIE, etichettaCategoria, etichettaStagione, STAGIONI } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function ClassificazionePage({
   searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
-  const [categorie, linee, collezioni, senzaCategoria, categorieShopify, negozi] = await Promise.all([
+  const [categorie, linee, collezioni, senzaCategoria, categorieShopify, negozi, righePrompt] = await Promise.all([
     elencoCategorie(),
     elencoLinee(),
     prisma.collezione.findMany({
@@ -38,7 +39,13 @@ export default async function ClassificazionePage({
     prisma.categoriaShopify.findMany({ orderBy: [{ prodotti: "desc" }, { nome: "asc" }] }),
     // I brand/negozi per cui una categoria può valere (04/09/2026).
     prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
+    prisma.promptCategoria.findMany(),
   ]);
+  // ⭐ 08/09/2026 (utente): «porta questa parte in sezione prodotti». I prompt
+  // per categoria stavano in Impostazioni, fra domini e chiavi API: si scrivono
+  // pensando a una famiglia di prodotti, ed è qui che quelle famiglie si
+  // guardano.
+  const prompt = new Map(righePrompt.map((r) => [r.categoria, r.prompt]));
 
   return (
     <div className="layout">
@@ -268,7 +275,40 @@ export default async function ClassificazionePage({
           )}
         </div>
 
-        {/* ---------- Linee ---------- */}
+                {/* ---------- Prompt per categoria ---------- */}
+        <div className="scheda">
+          <div className="scheda-titolo">Prompt AI per categoria</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Qui si scrive <b>una volta</b> come si racconta una famiglia di prodotti, e ogni testo generato
+            dall&apos;AI — descrizione e sezioni della scheda — parte già nella lingua giusta: le torte non si
+            descrivono come i bouquet. Lascia vuoto per non dare indicazioni.
+          </p>
+          <form action={salvaPromptCategorieAzione}>
+            <div className="modulo">
+              {CATEGORIE.map((c: string) => (
+                <div className="campo-modulo largo" key={c}>
+                  <label htmlFor={`prompt-${c}`}>{etichettaCategoria(c)}</label>
+                  <textarea
+                    id={`prompt-${c}`}
+                    name={`prompt-${c}`}
+                    rows={2}
+                    defaultValue={prompt.get(c) ?? ""}
+                    placeholder={
+                      c === "BOUQUET"
+                        ? "Es. parla di fiori e colori, mai di numero di steli se non è indicato; chiudi con l'occasione giusta."
+                        : "Indicazioni per chi scrive le descrizioni di questa categoria."
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="azioni-modulo">
+              <button className="btn" type="submit">Salva i prompt</button>
+            </div>
+          </form>
+        </div>
+
+{/* ---------- Linee ---------- */}
         <div className="scheda">
           <div className="scheda-titolo">Linee di prodotto · {linee.length}</div>
           <p className="page-sub" style={{ marginBottom: 12 }}>
