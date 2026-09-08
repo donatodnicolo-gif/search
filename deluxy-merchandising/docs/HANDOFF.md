@@ -116,6 +116,58 @@ l'architettura; il resto sotto (pomeriggio e mattina).
 > controlli di stanotte, verificati sotto. È il guasto già noto di questo file —
 > una riga che resta scritta dopo essere diventata falsa.
 
+## 08/09/2026 — TRADUZIONI: il problema non era l'AI, erano le lingue spente
+
+Utente: «dobbiamo fare anche le traduzioni usando l'AI ed essere sicuri ci
+siano poi per ogni prodotto che carico».
+
+🔍 **Prima il fatto, che ribalta l'idea di partenza.** Un campione di 40
+prodotti diceva «quasi tutti tradotti»: **guardava solo l'inglese**. Censiti
+tutti i 1.829 prodotti pubblicati sulle otto lingue
+(`scripts/censimento-traduzioni.ts`, sola lettura, rapporto in
+`docs/censimento-traduzioni-2026-09-08-07.md`): **nessun prodotto, su nessun
+negozio, ha tutte e otto le lingue.**
+
+| Negozio | Pubblicati | en | fr | ru | de·es·zh·ar·ja |
+|---|---:|---:|---:|---:|---:|
+| Gifts | 893 | 893 | 0 | 787 | 0 |
+| Business Deluxy | 346 | 193 | 0 | 0 | 0 |
+| Cake | 321 | 275 | 0 | 0 | 0 |
+| Flowers | 269 | 268 | 268 | 0 | 0 |
+
+🔴 **Perché: quelle lingue NON esistono sui negozi.** Provato a scrivere:
+Shopify risponde **«Locale is not a valid locale for the shop»** e **rifiuta
+l'intero lotto**, quindi una lingua spenta faceva perdere anche le traduzioni
+buone accanto. Le lingue davvero attive, dedotte dai fatti (un locale spento
+non può avere traduzioni): **`en` su tutti e quattro, più `fr` su Flowers e
+`ru` su Gifts**. L'app invece assumeva **otto lingue fisse uguali per tutti** —
+un'assunzione scritta nel codice dal 04/09 e mai verificata. ⚠️ **Le altre sei
+lingue si attivano solo dall'admin Shopify** (Impostazioni → Lingue), negozio
+per negozio: non è codice, ed è il passo che sblocca tutto il resto.
+
+**Fatto (in locale, `tsc` 0):**
+- `traduciScheda(testi, lingue?)` accetta **le lingue da chiedere**: si paga
+  solo per quelle vere e non si perde il lotto per una spenta.
+- **`src/lib/traduzioni-automatiche.ts`**: `lingueAttiveDi(negozio)` (deduce le
+  lingue attive finché manca `read_locales`) e `completaTraduzioniDelNegozio`,
+  che trova i pubblicati senza una lingua attiva e li traduce, con un tetto per
+  giro.
+- **Cron nuovo `/api/cron/traduzioni` alle 04:40 UTC** (in `vercel.json`), dopo
+  gli import del catalogo e prima delle rotazioni: **è la risposta a «essere
+  sicuri ci siano per ogni prodotto che carico»**, perché l'import non traduce
+  nulla e un prodotto caricato dall'admin resterebbe scoperto per sempre.
+  Tetto di 20 prodotti per negozio a giro (ogni riga costa AI + scrittura).
+- **`scripts/traduci-mancanti.ts`** per il pregresso: prova a secco di default,
+  `--max=`, e `docs/traduzioni-fatte.json` per riprendere senza ripagare.
+- ✅ **Riempito il pregresso sulle lingue attive**: 301 prodotti (Business 153
+  in inglese, Cake 46, Flowers 1, Gifts 106 in russo). Controprova sul negozio,
+  non sullo specchio dell'app: «Sunset» → «Sunset», descrizione «Torta di alta
+  pasticceria…» → «High pastry cake…».
+- ⚠️ **Restano 1.528 prodotti che aspettano lingue non ancora attivate**: per
+  loro non c'è niente da tradurre finché non si accendono su Shopify. Appena
+  attivate, il cron le riempie da solo (o `traduci-mancanti.ts` per andare più
+  in fretta). Costo misurato: **~0,01 $ ogni 5 prodotti** con gpt-4o-mini.
+
 ## 08/09/2026 mattina — le tre verifiche di stanotte: tutte passate
 
 Nessun codice toccato: solo misure sul database, alle 06:47 UTC.
