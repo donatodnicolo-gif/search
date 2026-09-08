@@ -3884,18 +3884,8 @@ td .azioni-ordine {
   color: var(--red);
 }
 
-/* ---- La ricevuta e l'ordine collegato ---- */
+/* ---- L'ordine collegato ---- */
 
-.riquadro-ricevuta {
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-m);
-  background: var(--surface);
-  padding: 10px 14px;
-  margin: 10px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 
 .ordine-collegato {
   display: flex;

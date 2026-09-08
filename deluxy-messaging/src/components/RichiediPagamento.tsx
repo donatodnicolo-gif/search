@@ -1682,56 +1682,15 @@ export function RichiediPagamento() {
 
       <h2 style={{ fontSize: 17, marginTop: 26 }}>Richieste salvate</h2>
 
-      {/* ── LA RICEVUTA DEL PAGAMENTO ──
-          ⚠️ Si sceglie QUI e poi si preme «Pagata» sulla riga giusta. Un campo
-          file dentro ogni riga della tabella vorrebbe dire una tabella che su un
-          telefono non si legge più; e la ricevuta si carica una volta ogni
-          tanto, non su ogni riga.
-          ⚠️ Si accettano immagini E PDF: la prova di un bonifico è quasi sempre
-          un PDF della banca, e accettare solo le foto vorrebbe dire chiedere a
-          qualcuno di fotografare uno schermo. */}
-      <div className="riquadro-ricevuta">
-        <label className="campo" style={{ margin: 0 }}>
-          {/* ⚠️ La scorciatoia si SCRIVE: una funzione che nessuno sa che
-              c'è non esiste, e questa si scoprirebbe solo per caso. */}
-          <span>Ricevuta da allegare — o incollala con Ctrl+V (immagine o PDF)</span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
-            onChange={(e) => scegliRicevuta(e.target.files?.[0] ?? null)}
-          />
-        </label>
-        {/* ── DA DOVE È USCITO IL DENARO ──
-            ⚠️⚠️ Un bonifico non parte per forza da un'app nostra: quasi sempre
-            esce dal portale della banca, a mano; a volte si paga in contanti
-            alla consegna, o si scala da quello che quel fornitore ci deve.
-            Costruire il registro dando per scontato un solo canale vuol dire
-            descrivere un mondo che non esiste — e nessuno lo tiene aggiornato.
-            ⚠️ Si può lasciare vuoto: «non indicato» è una risposta, indovinare
-            il canale di un'uscita di denaro no. */}
-        <label className="campo" style={{ margin: 0 }}>
-          <span>Da dove esce (facoltativo)</span>
-          <select value={pagatoCon} onChange={(e) => setPagatoCon(e.target.value)}>
-            <option value="">non indicato</option>
-            {USCITE.map((u) => (
-              <option key={u.chiave} value={u.chiave}>
-                {u.nome}
-              </option>
-            ))}
-          </select>
-        </label>
-        {ricevuta ? (
-          <p className="cella-sub">
-            Pronta: <strong>{ricevuta.nome}</strong> ({pesoScritto(ricevuta.byte)}). Adesso premi
-            «Pagata» sulla riga giusta e te la allego.
-          </p>
-        ) : (
-          <p className="cella-sub">
-            Facoltativa. Puoi segnare «pagata» anche senza — ma con la ricevuta, fra sei mesi,
-            si sa <em>che cosa</em> è stato pagato e non solo che qualcuno l&apos;ha spuntato.
-          </p>
-        )}
-      </div>
+      {/* ⚠️ QUI NON C'È PIÙ IL RIQUADRO DELLA RICEVUTA (utente, 07/09/2026:
+          «ma è già con il form sopra che facciamo questa cosa»). Chiedeva il
+          file e «da dove esce» PRIMA, fuori contesto, e poi bisognava
+          ricordarsi di premere «Pagata» sulla riga giusta: gli stessi due
+          campi sono già dentro la finestra che si apre premendo «Pagata», che
+          è il posto dove si sta decidendo di quella riga. Un comando vive in
+          un posto solo (Libro UX §9-ter). Il Ctrl+V continua a funzionare: il
+          listener sta su `document` e sa già dove mettere il file — ricevuta
+          col pop-up aperto, immagine della richiesta altrimenti. */}
       {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data della
           richiesta di pagamento. */}
       <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data della richiesta" />
