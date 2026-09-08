@@ -73,6 +73,20 @@ type ProdottoDaSmistare = {
 };
 
 /** Lo stato di un ordine come lo dice Orders (letto dal vivo, 04/09). */
+/**
+ * ⭐ 08/09/2026 — Lo stato di LAVORAZIONE secondo il Customer Service, che ne è il
+ * proprietario. Qui si tiene solo quello che serve a disegnare la colonna: la chiave
+ * dello stato (l'etichetta la traduce il web), chi lo fa e come sta il pagamento.
+ */
+type StatoCustomerService = {
+  /** da_gestire | ricerca_fornitore | in_pagamento | attesa_consegna | in_app | non_consegnata | comunicazione | gestito */
+  gestione: string;
+  fornitore: string | null;
+  statoPagamento: string | null;
+  /** true = viene dall'archivio di Orders, e della lavorazione lì non si sa. */
+  daArchivio: boolean;
+};
+
 type StatoOrdineOrders = {
   /**
    * ⭐ 04/09/2026 (regola utente): la SALUTE dell'ordine in Orders —
@@ -377,6 +391,9 @@ export class SalesService {
     // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
     // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
     const stati = await this.statiDaOrders(vendite);
+    // ⭐ 08/09: lo stato di lavorazione del Customer Service, letto da lui (solo per le
+    // vendite ancora aperte — il perché è in `statiDaCustomerService`).
+    const statiCs = await this.statiDaCustomerService(vendite);
 
     /**
      * ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa al
@@ -461,8 +478,9 @@ export class SalesService {
     return vendite.map((v) => {
       const trovato = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
       const t = trasmissioni.get(v.id) ?? null;
+      const cs = statiCs.get(String(v.externalOrderNumber ?? '').replace(/\D/g, '')) ?? null;
       const conStato = {
-        ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id),
+        ...v, ordine: trovato, preventivoMancante: senzaPreventivo.has(v.id), customerService: cs,
         // Lo stato della trasmissione al partner, per la colonna della tabella:
         // «attesa» = proposta appena nata, i canali non hanno ancora scritto niente.
         trasmissione: v.status === SaleStatus.PROPOSTA && v.partnerId
@@ -629,6 +647,91 @@ export class SalesService {
     const grezzo = (externalOrderId ?? '').trim();
     const numero = SalesService.numeroShopify(externalOrderId);
     return [grezzo, numero ?? ''].filter(Boolean);
+  }
+
+  /**
+   * ⭐ 08/09/2026 (regola utente: «aggiungi una colonna in vendita con lo stato di un
+   * ordine per l'app customer service», e poi: «li leggi dal customer service»).
+   *
+   * LO STATO DI LAVORAZIONE È DEL CUSTOMER SERVICE, e si legge da lì (Standard §7): non
+   * si deduce dai nostri dati e non si ricopia. Il suo vocabolario è di otto voci
+   * (`src/lib/gestione.ts` di deluxy-messaging): da_gestire «Da iniziare»,
+   * ricerca_fornitore, in_pagamento, attesa_consegna, in_app «In App», non_consegnata,
+   * comunicazione, gestito.
+   *
+   * ⚠️ **Perché solo le vendite APERTE.** Il suo endpoint (`GET /api/v1/ordini?numero=`)
+   * risponde per UN numero alla volta e interroga a sua volta l'archivio di Orders.
+   * Misurato: l'elenco intero sono **567 numeri distinti** — 567 chiamate HTTP per
+   * disegnare una colonna, cioè una N+1 sulla rete. Le vendite ancora aperte (da gestire
+   * e proposte) sono **33**: quelle si possono chiedere, e sono anche le uniche dove la
+   * risposta serve. Su una vendita già chiusa sapere che di là è «Gestito» non cambia
+   * niente, e la colonna resta vuota invece di costare 534 chiamate.
+   *
+   * 🔖 Se un giorno il Customer Service accetterà più numeri in una chiamata
+   * (`?numeri=a,b,c`), questo metodo può coprire tutta la lista: è l'unico motivo per cui
+   * oggi non lo fa.
+   */
+  private statiCsCache: { quando: number; mappa: Map<string, StatoCustomerService> } | null = null;
+
+  private async statiDaCustomerService(
+    vendite: { externalOrderNumber: string | null; status: string }[],
+  ): Promise<Map<string, StatoCustomerService>> {
+    const APERTE = [SaleStatus.DA_GESTIRE, SaleStatus.PROPOSTA] as string[];
+    const numeri = [...new Set(
+      vendite.filter((v) => APERTE.includes(v.status))
+        .map((v) => String(v.externalOrderNumber ?? '').replace(/\D/g, ''))
+        .filter((n) => n.length >= 2),
+    )];
+    if (!numeri.length) return new Map();
+
+    const adesso = Date.now();
+    if (this.statiCsCache && adesso - this.statiCsCache.quando < 120_000) return this.statiCsCache.mappa;
+
+    const cfg = await this.prisma.appSetting.findMany({
+      where: { key: { in: ['customerServiceUrl', 'customerServiceApiKey'] } },
+    });
+    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+    const url = (map['customerServiceUrl'] || process.env.CUSTOMER_SERVICE_URL || '').replace(/\/+$/, '');
+    const chiave = map['customerServiceApiKey'] || process.env.CUSTOMER_SERVICE_API_KEY || '';
+    const mappa = new Map<string, StatoCustomerService>();
+    if (!url || !chiave) return mappa;
+
+    // Un tetto dichiarato: se un giorno le vendite aperte diventassero cento, la lista
+    // non deve trasformarsi in cento chiamate di nascosto.
+    const TETTO = 60;
+    const daChiedere = numeri.slice(0, TETTO);
+    // A gruppi di 5: non si apre una raffica di richieste verso un'app che sta servendo
+    // anche le persone che ci lavorano.
+    for (let i = 0; i < daChiedere.length; i += 5) {
+      const gruppo = daChiedere.slice(i, i + 5);
+      await Promise.all(gruppo.map(async (numero) => {
+        try {
+          const res = await fetch(`${url}/api/v1/ordini?numero=${encodeURIComponent(numero)}`, {
+            headers: { 'x-api-key': chiave },
+          });
+          if (!res.ok) return;
+          const body = (await res.json()) as { ordini?: any[] };
+          // ⚠️ Risponde con un ELENCO: lo stesso numero esiste su negozi diversi, e
+          // prendere il primo mostrerebbe lo stato di un altro ordine. Si tiene solo
+          // quando la risposta è UNA: nel dubbio la colonna resta vuota, che è meglio
+          // di un'informazione sbagliata su un ordine che non è il nostro.
+          const righe = (body.ordini ?? []).filter((o) => String(o?.numero ?? '').replace(/\D/g, '') === numero);
+          if (righe.length !== 1) return;
+          const o = righe[0];
+          if (!o?.gestione) return;
+          mappa.set(numero, {
+            gestione: String(o.gestione),
+            fornitore: o.fornitoreNome ?? null,
+            statoPagamento: o.statoPagamento ?? null,
+            daArchivio: !!o.daArchivio,
+          });
+        } catch {
+          // Il Customer Service non risponde: la colonna resta vuota, la lista esce lo stesso.
+        }
+      }));
+    }
+    this.statiCsCache = { quando: adesso, mappa };
+    return mappa;
   }
 
   private async statiDaOrders(vendite: { externalOrderId: string | null; createdAt: Date }[]): Promise<Map<string, StatoOrdineOrders>> {

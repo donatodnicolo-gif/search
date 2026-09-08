@@ -2702,7 +2702,8 @@
       "partner": "Partner",
       "delivery": "Consegna",
       "amount": "Importo",
-      "sent": "Trasmessa"
+      "sent": "Trasmessa",
+      "cs": "Customer Service"
     },
     "tab": {
       "tutte": "Tutte",

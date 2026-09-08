@@ -100,6 +100,18 @@ interface Sale {
    * (campanello in app e mail): ognuno puo' fallire per conto suo, e «proposta»
    * da sola non dice se il partner l'ha saputo.
    */
+  /**
+   * ⭐ 08/09/2026: lo stato di LAVORAZIONE secondo il Customer Service, che ne è il
+   * proprietario — letto da lui, non dedotto qui. Presente solo sulle vendite ancora
+   * aperte: il suo endpoint risponde per un ordine alla volta, e sull'elenco intero
+   * sarebbero 567 chiamate.
+   */
+  customerService?: {
+    gestione: string;
+    fornitore?: string | null;
+    statoPagamento?: string | null;
+    daArchivio?: boolean;
+  } | null;
   trasmissione?: {
     esito: 'attesa' | 'inviata' | 'parziale' | 'fallita';
     app?: { ok: boolean; testo: string; quando: string } | null;
@@ -274,6 +286,14 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
               <th class="ordinabile" (click)="ordina('ordine')">{{ 'sales.col.order' | translate }}{{ freccia('ordine') }}</th>
               <!-- ⭐ 04/09 (regola utente): lo stato dell'ordine in Orders, dal vivo. -->
               <th class="ordinabile" (click)="ordina('orders')">{{ 'sales.col.orders' | translate }}{{ freccia('orders') }}</th>
+              <!-- ⭐ 08/09/2026 (regola utente): a che punto è l'ordine per il CUSTOMER
+                   SERVICE. È una cosa diversa dallo stato in Orders (che dice a che punto
+                   è per l'azienda) e dal nostro (che dice a che punto è lo smistamento):
+                   questo dice cosa stanno facendo LORO, e in particolare se l'ordine è
+                   già passato «In App», cioè a noi. -->
+              @if (!isPartner()) {
+                <th class="ordinabile" (click)="ordina('cs')">{{ 'sales.col.cs' | translate }}{{ freccia('cs') }}</th>
+              }
               <th class="ordinabile" (click)="ordina('prodotto')">{{ 'sales.col.product' | translate }}{{ freccia('prodotto') }}</th>
               <th class="ordinabile" (click)="ordina('provincia')">{{ 'sales.col.province' | translate }}{{ freccia('provincia') }}</th>
               <th class="ordinabile" (click)="ordina('partner')">{{ 'sales.col.partner' | translate }}{{ freccia('partner') }}</th>
@@ -346,6 +366,18 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                     <span class="motivo">{{ s.assignmentReason }}</span>
                   }
                 </td>
+                @if (!isPartner()) {
+                  <td class="cs-stato">
+                    @if (s.customerService; as cs) {
+                      <span class="badge" [style.--c]="coloreCs(cs.gestione)">
+                        <i class="dot"></i>{{ etichettaCs(cs.gestione) }}
+                      </span>
+                      @if (cs.fornitore) { <span class="cella-sub muted">{{ cs.fornitore }}</span> }
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                }
                 @if (!isPartner()) {
                   <td class="trasmessa">
                     @if (s.trasmissione; as t) {
@@ -1148,6 +1180,11 @@ export class SalesListComponent {
         case 'provincia': return s.province?.code ?? null;
         case 'partner': return s.partner?.insegna ?? null;
         // Si ordina per gravità: prima quello che non è arrivato.
+        // L'ordine dei passi del Customer Service, non l'alfabeto.
+        case 'cs': return s.customerService
+          ? ['da_gestire','ricerca_fornitore','in_pagamento','attesa_consegna','in_app','non_consegnata','comunicazione','gestito']
+              .indexOf(s.customerService.gestione) + 1 || 98
+          : 99;
         case 'trasmessa': return s.trasmissione ? ({ fallita: 0, parziale: 1, attesa: 2, inviata: 3 } as Record<string, number>)[s.trasmissione.esito] ?? 9 : 9;
         case 'deliveryDate': return s.deliveryDate ?? null;
         case 'amount': return s.prezzoPartner ?? s.amount ?? null;
@@ -1184,6 +1221,36 @@ export class SalesListComponent {
    * partner»). Quattro esiti, quattro colori: in attesa (grigio), inviata (verde),
    * parziale (ambra: un canale sì e uno no), fallita (rosso).
    */
+  /**
+   * ⭐ 08/09/2026 — il vocabolario del Customer Service (`src/lib/gestione.ts` di
+   * deluxy-messaging), etichette e colori compresi.
+   *
+   * ⚠️ Qui c'è una COPIA di nomi e colori, e va saputo: il dato (quale stato ha
+   * l'ordine) si legge da loro, ma il modo di scriverlo a schermo no, perché il loro
+   * endpoint manda la chiave e basta. Se di là nasce uno stato nuovo, qui non si
+   * inventa niente: si mostra **la chiave così com'è**, che è brutto ma vero — molto
+   * meglio di un'etichetta sbagliata o di una casella vuota che sembra «niente».
+   * Se un giorno l'endpoint manderà anche il nome, questa mappa si butta.
+   */
+  private static readonly GESTIONI_CS: Record<string, { nome: string; colore: string }> = {
+    da_gestire: { nome: 'Da iniziare', colore: '#6e6e73' },
+    ricerca_fornitore: { nome: 'Ricerca fornitore', colore: '#8944ab' },
+    in_pagamento: { nome: 'In pagamento', colore: '#c93400' },
+    attesa_consegna: { nome: 'Attesa consegna', colore: '#b8963e' },
+    in_app: { nome: 'In App', colore: '#5856d6' },
+    non_consegnata: { nome: 'Non consegnata', colore: '#b3261e' },
+    comunicazione: { nome: 'Comunicazione con cliente', colore: '#0071e3' },
+    gestito: { nome: 'Gestito', colore: '#248a3d' },
+  };
+
+  etichettaCs(chiave: string): string {
+    return SalesListComponent.GESTIONI_CS[chiave]?.nome ?? chiave;
+  }
+
+  coloreCs(chiave: string): string {
+    return SalesListComponent.GESTIONI_CS[chiave]?.colore ?? '#6e6e73';
+  }
+
   coloreInvio(esito: string) {
     return { attesa: '#8e8e93', inviata: '#34C759', parziale: '#FF9F0A', fallita: '#FF3B30' }[esito] ?? '#8e8e93';
   }

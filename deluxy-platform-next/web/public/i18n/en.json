@@ -2700,7 +2700,8 @@
       "partner": "Partner",
       "delivery": "Delivery",
       "amount": "Amount",
-      "sent": "Sent"
+      "sent": "Sent",
+      "cs": "Customer Service"
     },
     "tab": {
       "tutte": "All",
