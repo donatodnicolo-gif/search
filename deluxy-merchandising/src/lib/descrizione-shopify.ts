@@ -127,3 +127,106 @@ export function sezioniDelSito<T extends { categoria: string; negozio: string | 
   const sue = dellaCategoria.filter((s) => s.negozio === sito);
   return sue.length ? sue : dellaCategoria.filter((s) => !s.negozio);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **Il verso opposto: spezzare la descrizione che arriva da Shopify.**
+//
+// Richiesta dell'utente (08/09/2026): «spezza l'HTML importato nelle sue parti».
+// Serve perché l'import appiattiva tutta la descrizione — tre punti, testo,
+// sezioni — in un unico campo `descrizione`: ricomponendola si sarebbe
+// stampato ogni pezzo due volte.
+//
+// ⚠️ **Il formato è stato misurato, non supposto**: censite 160 descrizioni
+// vere sui quattro negozi (`scripts/censimento-descrizioni.ts`) — **159 usano
+// `<h6>`**, una `<h5>`, una non ha nessun titolo. I titoli sono i nostri
+// (Dettagli, Significato, Conservazione, Ingredienti e Allergeni, Pesi e
+// Misure, Come Funziona, Perfetto per…), scritti a volte in maiuscolo. Quindi:
+// si accettano h4-h6, e i nomi si confrontano senza maiuscole né accenti.
+
+export type PezziDescrizione = {
+  /** I punti dell'elenco in cima, prima del primo titolo. */
+  punti: string[];
+  /** Il testo libero: il blocco sotto «DESCRIZIONE», o quello che sta in cima senza titolo. */
+  descrizione: string;
+  /** Le sezioni, nell'ordine in cui stanno nella pagina. */
+  sezioni: { nome: string; testo: string }[];
+};
+
+/** Da HTML a testo leggibile: gli elenchi diventano righe, i paragrafi restano. */
+function testoDa(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-6])>/gi, "\n\n")
+    .replace(/<li[^>]*>/gi, "\n")
+    .replace(/<\/li>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&rsquo;/gi, "'")
+    .split("\n")
+    .map((r) => r.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const senzaAccenti = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** È il titolo del testo libero e non di una sezione? */
+function eDescrizione(nome: string): boolean {
+  const n = senzaAccenti(nome);
+  return n === "descrizione" || n === "descrizione e dettagli" || n === "la descrizione";
+}
+
+/**
+ * Spezza la descrizione di Shopify nei suoi pezzi. Non butta niente: quello che
+ * non è un elenco in cima né un titolo finisce nel testo libero, così
+ * ricomponendo si ritrova tutto.
+ */
+export function spezzaDescrizioneHtml(html: string | null | undefined): PezziDescrizione {
+  const sorgente = (html ?? "").trim();
+  if (!sorgente) return { punti: [], descrizione: "", sezioni: [] };
+
+  const titolo = /<(h[4-6])[^>]*>([\s\S]*?)<\/\1>/gi;
+  const tagli: { indice: number, fine: number, nome: string }[] = [];
+  for (const m of sorgente.matchAll(titolo)) {
+    const nome = m[2].replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").trim();
+    if (nome) tagli.push({ indice: m.index ?? 0, fine: (m.index ?? 0) + m[0].length, nome });
+  }
+
+  const testa = sorgente.slice(0, tagli.length ? tagli[0].indice : sorgente.length);
+  const voci = [...testa.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((m) => testoDa(m[1]).replace(/\n+/g, " ").trim())
+    .filter(Boolean);
+  // ⚠️ **L'elenco in cima è «i tre punti» solo se ha al massimo tre voci.**
+  // Misurato su 224 descrizioni vere: 205 ne hanno esattamente tre, ma 19 ne
+  // hanno da quattro a tredici — e lì il primo elenco non è il riassunto, è
+  // contenuto (gli ingredienti, le voci di un menù). Prendendone comunque i
+  // primi tre si perdevano gli altri **senza dirlo**: è successo nella prima
+  // prova, su «luxury-crema-viso-nutriente».
+  const sonoPunti = voci.length > 0 && voci.length <= 3;
+  const punti = sonoPunti ? voci : [];
+  // Quello che in cima non sono i punti resta testo libero: non si butta niente.
+  const restoTesta = sonoPunti ? testoDa(testa.replace(/<ul[\s\S]*?<\/ul>/gi, "")) : testoDa(testa);
+
+  const sezioni: { nome: string; testo: string }[] = [];
+  let descrizione = restoTesta;
+  tagli.forEach((t, i) => {
+    const finePezzo = i + 1 < tagli.length ? tagli[i + 1].indice : sorgente.length;
+    const testo = testoDa(sorgente.slice(t.fine, finePezzo));
+    if (!testo) return;
+    if (eDescrizione(t.nome)) {
+      descrizione = descrizione ? `${descrizione}\n\n${testo}` : testo;
+      return;
+    }
+    const gia = sezioni.find((s) => senzaAccenti(s.nome) === senzaAccenti(t.nome));
+    if (gia) gia.testo = `${gia.testo}\n${testo}`;
+    else sezioni.push({ nome: t.nome, testo });
+  });
+
+  return { punti, descrizione, sezioni };
+}

@@ -1530,3 +1530,18 @@ th a:focus-visible {
   .tab-siti { flex-direction: column; align-items: stretch; }
   .tab-sito { justify-content: space-between; }
 }
+
+/* **La tabella delle varianti**: i campi riempiono la loro cella e non
+   sfondano la colonna (08/09/2026, segnalato dall'utente con la schermata —
+   gli input avevano la larghezza di default del browser, ~180px ciascuno, e
+   sette colonne così obbligavano la tabella a scorrere di lato anche su uno
+   schermo largo). Le larghezze minime dicono a quale colonna dare lo spazio
+   quando ce n'è poco: il nome della variante conta più della giacenza. */
+.tabella-varianti table { table-layout: fixed; min-width: 720px; }
+.tabella-varianti td input { width: 100%; box-sizing: border-box; min-width: 0; }
+.tabella-varianti col.nome { width: 22%; }
+.tabella-varianti col.sku { width: 14%; }
+.tabella-varianti col.soldi { width: 13%; }
+.tabella-varianti col.nota { width: 20%; }
+.tabella-varianti col.togli { width: 44px; }
+.tabella-varianti td code { font-size: 12px; word-break: break-all; }

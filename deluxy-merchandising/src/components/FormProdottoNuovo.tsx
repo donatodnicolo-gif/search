@@ -525,6 +525,28 @@ export function FormProdottoNuovo({
               <span className="cella-sub">Togliendo «Pubblico» il prodotto torna bozza sul negozio: il cliente non lo vede più.</span>
             )}
           </div>
+          {/* ⭐ 08/09/2026 (utente): «mostra solo se il prodotto è in fase di
+              concept e concept è selezionato, e mostra sopra appena dopo fase
+              iniziale». È la scheda del lavoro creativo: brief, materiali,
+              palette servono mentre il prodotto si sta pensando, non quando è
+              già in vendita — e sotto, dopo prezzi e varianti, non le vedeva
+              nessuno proprio nel momento in cui servono. */}
+          {fase === "concept" && (
+            <>
+              <div className="campo-modulo largo">
+                <label htmlFor="brief">Brief</label>
+                <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto" defaultValue={iniziale?.brief ?? ""} />
+              </div>
+              <div className="campo-modulo">
+                <label htmlFor="materiali">Materiali / fiori</label>
+                <input id="materiali" name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" defaultValue={iniziale?.materiali ?? ""} />
+              </div>
+              <div className="campo-modulo">
+                <label htmlFor="palette">Palette</label>
+                <input id="palette" name="palette" placeholder="Indaco · avorio · oro" defaultValue={iniziale?.palette ?? ""} />
+              </div>
+            </>
+          )}
           <div className="campo-modulo">
             {/* ⭐ 07/09/2026 (utente): NON è una «tipologia di vendita» del negozio, è una
                 classificazione interna dell'app che la piattaforma consegne legge per
@@ -591,6 +613,48 @@ export function FormProdottoNuovo({
             <textarea id="descrizione" name="descrizione" rows={descrizione ? 8 : 3} value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)." />
             {erroreAi && <div className="avviso-errore" style={{ marginTop: 8 }}>{erroreAi}</div>}
             {!aiPronta && <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>}
+          <div className="campo-modulo largo">
+            {/* ⭐ 08/09/2026 (utente): «le foto sono nei campi comuni».
+                Una sola serie di foto per il prodotto: alla pubblicazione
+                si copiano sugli altri negozi. Stavano in una card a parte
+                dopo le schede dei siti, e sembravano di un sito solo. */}
+            <label>Foto e video</label>
+      {/* ---------- Foto e video ---------- */}
+        <p className="page-sub" style={{ marginBottom: 12 }}>
+          Vanno nei <b>Files del negozio {negozio?.nome ?? ""}</b> su Shopify, anche se il prodotto non è ancora pubblico; alla pubblicazione si
+          agganciano al prodotto. La prima immagine è quella principale.
+        </p>
+        <label className="btn btn-secondario" style={{ cursor: caricando ? "wait" : "pointer" }}>
+          {caricando ? "Caricamento in corso…" : "Scegli foto o video"}
+          <input type="file" accept="image/*,video/*" multiple hidden disabled={caricando || !negozio} onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }} />
+        </label>
+        {erroreMedia && <div className="avviso-errore" style={{ marginTop: 10 }}>{erroreMedia}</div>}
+        {mediaDiAltri > 0 && <p className="cella-sub" style={{ marginTop: 8 }}>{mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.</p>}
+        {mediaDiQuestoNegozio.length > 0 && (
+          <ul className="galleria-media" aria-label="File caricati">
+            {mediaDiQuestoNegozio.map((m, i) => (
+              <li key={m.shopifyFileId} className={`media-voce${m.stato === "fallito" ? " fallito" : ""}`}>
+                {m.anteprima || (m.tipo === "immagine" && m.url) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.anteprima ?? (m.url as string)} alt={m.nome} />
+                ) : (
+                  <span className="media-segnaposto">{m.tipo === "video" ? "▶" : "❀"}</span>
+                )}
+                <span className="media-nome" title={m.nome}>
+                  {i === 0 && m.tipo === "immagine" ? "principale · " : ""}
+                  {m.tipo === "video" ? "video" : "foto"}
+                  {m.stato === "in-elaborazione" ? " · in elaborazione" : ""}
+                  {m.stato === "fallito" ? ` · ${m.errore ?? "non riuscito"}` : ""}
+                </span>
+                <button type="button" className="icon-btn" title="Togli dal prodotto (il file resta nei Files del negozio)" onClick={() => setMedia((x) => x.filter((y) => y.shopifyFileId !== m.shopifyFileId))}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+          </div>
           </div>
         </div>
       </div>
@@ -793,7 +857,13 @@ export function FormProdottoNuovo({
                 </div>
               )}
 
-              {defSito.length > 0 && (
+              {/* ⚠️ NASCOSTO il 08/09/2026 su richiesta dell'utente («per ora
+                  nascondi»). Il blocco funziona, ma mostra i campi che QUESTO
+                  negozio definisce con valori che invece sono **gli stessi per
+                  tutti i siti**: due cose diverse che sembrano una sola. Prima
+                  di rimetterlo va deciso se i valori dei metafield diventano
+                  per negozio. Per riaccenderlo: togliere `false &&`. */}
+              {false && defSito.length > 0 && (
                 <details className="altri-campi">
                   <summary className="pill-opt">Campi di {nomeSito} · {defSito.length}</summary>
                   <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
@@ -850,63 +920,6 @@ export function FormProdottoNuovo({
         </datalist>
       </div>
 
-      {/* ---------- Foto e video ---------- */}
-      <div className="scheda">
-        <div className="scheda-titolo">Foto e video</div>
-        <p className="page-sub" style={{ marginBottom: 12 }}>
-          Vanno nei <b>Files del negozio {negozio?.nome ?? ""}</b> su Shopify, anche se il prodotto non è ancora pubblico; alla pubblicazione si
-          agganciano al prodotto. La prima immagine è quella principale.
-        </p>
-        <label className="btn btn-secondario" style={{ cursor: caricando ? "wait" : "pointer" }}>
-          {caricando ? "Caricamento in corso…" : "Scegli foto o video"}
-          <input type="file" accept="image/*,video/*" multiple hidden disabled={caricando || !negozio} onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }} />
-        </label>
-        {erroreMedia && <div className="avviso-errore" style={{ marginTop: 10 }}>{erroreMedia}</div>}
-        {mediaDiAltri > 0 && <p className="cella-sub" style={{ marginTop: 8 }}>{mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.</p>}
-        {mediaDiQuestoNegozio.length > 0 && (
-          <ul className="galleria-media" aria-label="File caricati">
-            {mediaDiQuestoNegozio.map((m, i) => (
-              <li key={m.shopifyFileId} className={`media-voce${m.stato === "fallito" ? " fallito" : ""}`}>
-                {m.anteprima || (m.tipo === "immagine" && m.url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.anteprima ?? (m.url as string)} alt={m.nome} />
-                ) : (
-                  <span className="media-segnaposto">{m.tipo === "video" ? "▶" : "❀"}</span>
-                )}
-                <span className="media-nome" title={m.nome}>
-                  {i === 0 && m.tipo === "immagine" ? "principale · " : ""}
-                  {m.tipo === "video" ? "video" : "foto"}
-                  {m.stato === "in-elaborazione" ? " · in elaborazione" : ""}
-                  {m.stato === "fallito" ? ` · ${m.errore ?? "non riuscito"}` : ""}
-                </span>
-                <button type="button" className="icon-btn" title="Togli dal prodotto (il file resta nei Files del negozio)" onClick={() => setMedia((x) => x.filter((y) => y.shopifyFileId !== m.shopifyFileId))}>
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* ---------- Scheda creativa ---------- */}
-      <div className="scheda">
-        <div className="scheda-titolo">Scheda creativa</div>
-        <div className="modulo">
-          <div className="campo-modulo largo">
-            <label htmlFor="brief">Brief</label>
-            <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto" defaultValue={iniziale?.brief ?? ""} />
-          </div>
-          <div className="campo-modulo">
-            <label htmlFor="materiali">Materiali / fiori</label>
-            <input id="materiali" name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" defaultValue={iniziale?.materiali ?? ""} />
-          </div>
-          <div className="campo-modulo">
-            <label htmlFor="palette">Palette</label>
-            <input id="palette" name="palette" placeholder="Indaco · avorio · oro" defaultValue={iniziale?.palette ?? ""} />
-          </div>
-        </div>
-      </div>
-
       {/* ---------- Costi, prezzo, giacenza ---------- */}
       <div className="scheda">
         <div className="scheda-titolo">Costi, prezzo e giacenza</div>
@@ -958,8 +971,18 @@ export function FormProdottoNuovo({
                 <input id="nomeOpzione" value={nomeOpzione} onChange={(e) => setNomeOpzione(e.target.value)} placeholder="Formato" />
               </div>
             </div>
-            <div className="tabella-wrap" style={{ marginTop: 12 }}>
+            <div className="tabella-wrap tabella-varianti" style={{ marginTop: 12 }}>
               <table>
+                <colgroup>
+                  <col className="nome" />
+                  <col className="sku" />
+                  <col className="soldi" />
+                  <col className="soldi" />
+                  <col className="soldi" />
+                  <col className="nota" />
+                  {controllaStock && <col className="soldi" />}
+                  <col className="togli" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Variante *</th>
@@ -967,6 +990,7 @@ export function FormProdottoNuovo({
                     <th className="num">Prezzo (€)</th>
                     <th className="num">Costo (€)</th>
                     <th className="num">Partner (€)</th>
+                    <th>Nota</th>
                     {controllaStock && <th className="num">Giacenza</th>}
                     <th />
                   </tr>
@@ -988,6 +1012,14 @@ export function FormProdottoNuovo({
                       </td>
                       <td>
                         <input value={v.prezzoPartner} onChange={(e) => aggiornaVariante(i, "prezzoPartner", e.target.value)} inputMode="decimal" className="num" placeholder="—" aria-label={`Prezzo partner variante ${i + 1}`} />
+                      </td>
+                      {/* ⭐ 08/09/2026: la nota ha la SUA colonna. Stava dentro
+                          la cella del prezzo partner, sotto di esso e senza
+                          intestazione: due campi in una casella sola, che
+                          sfondavano la colonna e obbligavano la tabella a
+                          scorrere di lato. Segnalato dall'utente con la
+                          schermata. */}
+                      <td>
                         <input value={v.note} onChange={(e) => aggiornaVariante(i, "note", e.target.value)} placeholder="es. 20-25 fiori" aria-label={`Nota variante ${i + 1}`} />
                       </td>
                       {controllaStock && (
