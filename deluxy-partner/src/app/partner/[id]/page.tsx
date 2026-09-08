@@ -1147,16 +1147,31 @@ export default async function PartnerDetail({
                               sembrava che l'app si contraddicesse. Ora la somma
                               si vede pezzo per pezzo. */}
                           Dovuto vendite {euro(r.dovutoVendite)}
-                          {r.aggiunte > 0.005 && <> + extra {euro(r.aggiunte)}</>}
+                          {!r.extraSospetto && r.aggiunte > 0.005 && <> + extra {euro(r.aggiunte)}</>}
                           {r.detrazioni > 0.005 && <> − detrazioni {euro(r.detrazioni)}</>}
-                          {(r.aggiunte > 0.005 || r.detrazioni > 0.005) && <> = {euro(r.dovutoPartner)}</>}
+                          {(( !r.extraSospetto && r.aggiunte > 0.005) || r.detrazioni > 0.005) && <> = {euro(r.dovutoEffettivo)}</>}
                           {r.bonificoInviato > 0 && <> − già bonificato {euro(r.bonificoInviato)}</>}
-                          {/* Lo sforo, che il numero a destra non può dire perché
-                              è troncato a zero: si scrive, col suo verso. */}
+                          {/* Lo sforo, nei due versi. Si CALCOLA dal bonifico:
+                              annullando il bonifico sparisce da sé, senza niente
+                              da cancellare (regola dell'utente, 08/09/2026). */}
                           {r.pagatoInPiu > 0.005 && (
-                            <div style={{ marginTop: 2 }}>
-                              <span className="badge orange">
-                                <span className="dot" />pagato in più {euro(r.pagatoInPiu)}
+                            <div style={{ marginTop: 4 }}>
+                              <span className="badge red" title="Uscito più del dovuto: è un errore, e va scalato dai prossimi bonifici a questo partner.">
+                                <span className="dot" />inviato in più {euro(r.pagatoInPiu)} — da recuperare
+                              </span>
+                              {r.extraSospetto && (
+                                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                                  I {euro(r.aggiunte)} che il vecchio foglio portava come «extra» non erano un
+                                  dovuto: non hanno una causale, e servivano a far quadrare il mese con quanto
+                                  era uscito. Qui il dovuto è quello delle vendite.
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {r.daBonificare > 0.005 && r.bonificoInviato > 0.005 && (
+                            <div style={{ marginTop: 4 }}>
+                              <span className="badge orange" title="Uscito meno del dovuto: il resto va aggiunto ai prossimi bonifici.">
+                                <span className="dot" />inviato in meno {euro(r.daBonificare)} — ancora da versare
                               </span>
                             </div>
                           )}
@@ -1317,11 +1332,32 @@ export default async function PartnerDetail({
                       <>
                         <tr style={{ background: "var(--bg)" }}>
                           <td className="muted">Da bonificare al partner</td>
-                          <td>Già bonificato {euro(rolling.pagatoAlPartner)}</td>
+                          <td>
+                            Già bonificato {euro(rolling.pagatoAlPartner)}
+                            {/* Il credito si RECUPERA trattenendolo dai bonifici
+                                successivi (regola dell'utente, 08/09/2026): il
+                                totale qui accanto è già al netto, e la riga dice
+                                di quanto — altrimenti sembrerebbe che il conto
+                                non torni con la somma dei mesi. */}
+                            {rolling.inviatoInPiu > 0.005 && (
+                              <> · <span className="neg">già scalato {euro(rolling.inviatoInPiu - rolling.surplusDaRecuperare)}</span> di quanto era uscito in più</>
+                            )}
+                          </td>
                           <td className={`num ${daBonificareYtd >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
                             {euro(daBonificareYtd)}
                           </td>
                         </tr>
+                        {rolling.surplusDaRecuperare > 0.005 && (
+                          <tr style={{ background: "var(--bg)" }}>
+                            <td className="muted">Surplus da recuperare</td>
+                            <td>
+                              Uscito più del dovuto e non ancora riassorbito: si trattiene dai prossimi bonifici.
+                            </td>
+                            <td className="num neg" style={{ fontWeight: 600 }}>
+                              {euro(rolling.surplusDaRecuperare)}
+                            </td>
+                          </tr>
+                        )}
                         <tr style={{ background: "var(--bg)" }}>
                           <td className="muted">Da incassare dal partner</td>
                           <td>Già incassato {euro(rolling.incassatoDalPartner)}</td>

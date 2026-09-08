@@ -18,7 +18,7 @@ export type SaldoRecord = NonNullable<Awaited<ReturnType<typeof prisma.saldoMens
 
 // Riepilogo completo di un partner per un anno: 12 mesi calcolati + rolling.
 export async function riepilogoPartner(partnerId: string, anno: number) {
-  const [partner, fattureTutte, vendite, saldi] = await Promise.all([
+  const [partner, fattureTutte, vendite, saldi, extraRighe] = await Promise.all([
     prisma.partner.findUnique({ where: { id: partnerId }, select: { compensazione: true } }),
     prisma.fatturaServizio.findMany({
       where: { partnerId, anno },
@@ -30,6 +30,9 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
       orderBy: [{ mese: "asc" }, { createdAt: "asc" }],
     }),
     prisma.saldoMensile.findMany({ where: { partnerId, anno } }),
+    // I mesi con un extra REGISTRATO a mano: là le `aggiunte` hanno una causale
+    // e restano un dovuto. Dove non ci sono, vengono dall import del foglio.
+    prisma.extraSaldo.findMany({ where: { partnerId, anno }, select: { mese: true } }),
   ]);
 
   // Contano solo le fatture VERE, quelle con un documento su Fatture in Cloud
@@ -41,13 +44,14 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
   const { vere: fatture, nonEmesse } = separaFattureVere(fattureTutte);
 
   const compensazione = partner?.compensazione ?? false;
+  const mesiConExtra = new Set(extraRighe.map((e) => e.mese));
 
   const mesi = Array.from({ length: 12 }, (_, i) => {
     const mese = i + 1;
     const f = fatture.filter((x) => x.mese === mese);
     const v = vendite.filter((x) => x.mese === mese);
     const saldo = saldi.find((x) => x.mese === mese) ?? null;
-    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo, compensazione) };
+    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo, compensazione, mesiConExtra.has(mese)) };
   });
 
   return { fatture, vendite, saldi, mesi, nonEmesse, rolling: rolling(mesi.map((m) => m.riepilogo)) };
