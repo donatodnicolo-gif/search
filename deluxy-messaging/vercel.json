@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/contatti",
-      "schedule": "7 * * * *"
+      "schedule": "52 * * * *"
     },
     {
       "path": "/api/cron/rubrica",

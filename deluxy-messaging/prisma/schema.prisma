@@ -1137,6 +1137,11 @@ model Reclamo {
 
   gravita     Int    @default(2) // 1 lieve, 2 media, 3 grave
   descrizione String @default("") @db.Text
+  /// I PRODOTTI su cui è aperto il reclamo, uno per riga (utente, 07/09/2026:
+  /// «in caso di reclamo di una vendita con più prodotti fai scegliere uno o più
+  /// prodotti su cui è aperto il reclamo»). Vuoto = tutto l'ordine, ed è la
+  /// risposta giusta per un ordine con una riga sola.
+  prodotti    String @default("") @db.Text
   // Azioni da eseguire per questo reclamo (partono dalla casistica, poi si
   // adattano). Una per riga.
   azioni      String @default("") @db.Text

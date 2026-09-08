@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
     colpaNome?: string
     gravita?: number
     descrizione?: string
+    prodotti?: string
     azioni?: string
     stato?: string
     esito?: string
@@ -175,6 +176,7 @@ export async function POST(req: NextRequest) {
     colpaNome: colpaTipo === 'nessuno' ? '' : (c.colpaNome ?? '').trim(),
     gravita,
     descrizione: (c.descrizione ?? '').trim(),
+    prodotti: (c.prodotti ?? '').trim(),
     azioni: (c.azioni ?? '').trim(),
     stato,
     esito: (c.esito ?? '').trim(),
