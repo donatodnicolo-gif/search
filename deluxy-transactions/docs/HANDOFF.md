@@ -65,6 +65,9 @@ bloccava il salvataggio.
   worktree pulito di `origin/scout-ui`** (`f68892e4..07553b10`): in locale c'erano
   16 commit non pushati di altre sessioni, già su origin con SHA diversi —
   spingere il branch li avrebbe duplicati.
+- ✅ **Deploy 08/09 (15:29)** con la correzione dei filtri: `5xuaaijl0`
+  (`dpl_HDMrPp1snnjxp1PBQ1QCiWr6UrXM`), Ready ed è quello servito dal dominio;
+  health ok, `/login` 200.
 
 ## 05/09/2026 — «Se ho messo pagata nel Customer Service, aggiorna anche Transactions»
 
