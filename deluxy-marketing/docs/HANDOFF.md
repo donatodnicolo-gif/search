@@ -34,6 +34,50 @@
 > eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
 > approvate, quindi non sono nemmeno partite.
 
+> ✅ **DEPLOY DELLE 18:1x — `deluxy-marketing-1h9r29zr5`, Ready, alias
+> verificato, `/api/health` ok 3 su 3.** Dentro c'è tutto il lavoro della
+> giornata **più il commit `b6d2ac7e` del custode delle prestazioni**, che era
+> nella cartella condivisa e non su origin: prima di pubblicarlo gliel'ho
+> chiesto, e ha confermato che era finito e verificato (tsc + build puliti).
+> Di suo va live: `db.ts` alla versione canonica comune a tutte e undici le app
+> (limite sempre 3 con `pool_timeout=20`, quindi **nessun cambio di
+> comportamento**, più la valvola `PRISMA_CONNECTION_LIMIT` e il singleton
+> riusato anche in produzione); `conteggi-sidebar.ts` con lo **schema
+> qualificato** su tutte e quindici le tabelle delle query grezze — correzione
+> di CORRETTEZZA, non di velocità: `Ordine` esiste in tre schemi e col pooler in
+> transaction mode il `search_path` non è garantito; `vercel.json` con
+> `ignoreCommand` e **il cron Meta spostato da `:07` a `:47`** (al minuto :07
+> ne partivano tre insieme; la frequenza non cambia, cambia il minuto).
+> Controprova fatta: la sidebar risponde con numeri veri — *Ordini **8689***,
+> Parole cercate 2806, campagne 81 — e non con zeri, che sarebbero il segno che
+> il `search_path` morde (il `catch` di `leggi()` torna `VUOTI` invece di far
+> cadere la pagina: zeri ovunque = guarda i log, non = non ci sono dati).
+>
+> 🔴 **LA PRODUZIONE È AVANTI AL REPO su tre file.** `db.ts`,
+> `conteggi-sidebar.ts` e `vercel.json` sono **live ma NON su `origin/scout-ui`**:
+> i commit del custode (`e93d0e52`, `b6d2ac7e`) stanno solo sul branch
+> **`prestazioni-custode-0809`**. Non sono a rischio di sparire, ma
+> **chiunque deployi Marketing da un checkout pulito di `scout-ui` li riporta
+> indietro senza accorgersene**. Vanno portati su `scout-ui` col cherry-pick
+> mirato dei soli tre file (nessuno dei quali è conteso: gli handoff di
+> Merchandising e `MANUALE-DELUXY.html`, che bloccavano il merge del custode,
+> restano fuori). Vedi [[trappola-vivo-avanti-al-repo]].
+>
+> ⚠️ **COME SI PUBBLICA MARKETING, e perché il push non porta il resto.**
+> Il branch locale `scout-ui` è divergente da settimane e **24 dei commit in
+> avanti sono doppioni** di commit già su origin con hash diverso (le altre
+> sessioni rebasano). Quindi non si pusha il branch: si crea un **worktree
+> staccato su `origin/scout-ui`**, ci si fa `git cherry-pick -x` dei **soli
+> commit che toccano `deluxy-marketing/`**, si verifica che l'albero
+> `HEAD:deluxy-marketing` sia **identico** a quello provato in locale, e si
+> pusha quello. ⚠️ L'08/09 il push è stato **rifiutato due volte** per
+> non-fast-forward prima di passare: origin si muove di minuto in minuto, serve
+> un ciclo con qualche tentativo.
+> ⚠️⚠️ E **prima di ogni deploy** va confrontato l'albero locale con quello di
+> origin: il deploy parte dalla CARTELLA, che è condivisa con le altre sessioni.
+> Due volte oggi non combaciavano — la prima rischiavo di **cancellare** dalla
+> produzione il lavoro altrui, la seconda di **pubblicarlo** prima del tempo.
+>
 > ⏱️ **08/09 sera — LA TABELLA KEYWORD DELLA SCHEDA CAMPAGNA, PARI A QUELLA DEL GRUPPO.**
 > Era l'ultima voce dell'elenco della giornata, e l'unica delle quattro tabelle
 > a cui mancava metà della roba. Adesso ha:
