@@ -49,6 +49,9 @@ export async function registraFatturaFic(fd: FormData) {
     aliquotaIva: Number.isFinite(aliquotaIva) ? aliquotaIva : 22,
     descrizione: descrizione ?? "Registrata da Fatture in Cloud",
   });
+  // L'ultima porta l'ha fermata: è una fattura commissioni, che si aggancia al
+  // mese e non si registra fra i servizi. Si dice, non si finge riuscita.
+  if (id == null) redirect(`/fatture/da-fic?esito=commissioni`);
   const f = await prisma.fatturaServizio.findUniqueOrThrow({
     where: { id },
     include: { partner: { select: { nome: true } }, tipologia: { select: { nome: true } } },

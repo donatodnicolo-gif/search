@@ -166,13 +166,15 @@ const sections: { label: string; items: Item[] }[] = [
     ],
   },
   {
-    // Quello che fatturiamo e incassiamo. «Fatturazione servizi» (il lavoro:
-    // cosa fatturo ai partner) è cosa diversa dal «Registro fatture» (la
-    // contabilizzazione): nomi che dicono la FASE, non lo stesso oggetto, e
+    // Quello che fatturiamo e incassiamo. «Fatturazione Applicativo»
+    // (08/09/2026, regola dell'utente) è il registro di ciò che arriva dalle
+    // NOSTRE APP: si legge, non si emette. Le fatture si emettono in un posto
+    // solo — «Registro fatture» (`/registrazioni/fatture`), che parla con
+    // Fatture in Cloud. Nomi che dicono la FASE, non lo stesso oggetto, e
     // icone diverse — era la coppia ambigua segnalata dalla revisione UX.
     label: "Ciclo attivo",
     items: [
-      { href: "/fatture", label: "Fatturazione servizi", icon: icons.fattura },
+      { href: "/fatture", label: "Fatturazione Applicativo", icon: icons.fattura },
       { href: "/vendite", label: "Vendite vendor", icon: icons.vendite },
       { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
       { href: "/registrazioni/fatture", label: "Registro fatture", icon: icons.registro },

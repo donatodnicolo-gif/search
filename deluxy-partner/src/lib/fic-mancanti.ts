@@ -352,7 +352,17 @@ export async function creaFatturaImportata(m: {
   partnerId: string; tipologiaId: string; anno: number; mese: number; numero: string;
   data: string; scadenza: string | null; pagata: boolean; dataPagamento: string | null;
   imponibile: number; aliquotaIva: number; descrizione: string | null;
-}): Promise<string> {
+}): Promise<string | null> {
+  // ⚠️ L'ULTIMA PORTA (08/09/2026). Il filtro di `trovaFattureFicMancanti`
+  // riconosce le fatture commissioni e non le mette fra le «mancanti» — eppure
+  // il giro notturno ne ha registrate 44 come servizi fra il 05 e l'08/09, 40
+  // delle quali erano ANCHE agganciate al loro mese come «Fatt. comm.»: contate
+  // due volte, 12.061,07 € netti. Non so ancora da quale strada siano passate.
+  // Per questo il controllo sta ANCHE qui, dove la riga nasce davvero: chiunque
+  // chiami questa funzione, una fattura di commissioni non diventa un servizio.
+  // Una guardia che vive solo nel punto che classifica protegge quel punto;
+  // questa protegge il dato.
+  if (eFatturaCommissioni(m.descrizione, m.numero, new Set())) return null;
   const f = await prisma.fatturaServizio.create({
     data: {
       partnerId: m.partnerId,
@@ -386,12 +396,21 @@ export async function importaFattureFicSicure(origine: string, giorni = 90): Pro
   const sicure = esito.mancanti.filter((m) => m.partnerId && m.tipologiaId);
   const dettaglio: string[] = [];
   let importate = 0;
+  let fermateCommissioni = 0;
   for (const m of sicure) {
     // La ricontrollo sul numero DENTRO il giro: due corse vicine non devono
     // scrivere due volte la stessa fattura.
     const gia = await prisma.fatturaServizio.findFirst({ where: { numero: m.numero } });
     if (gia) continue;
-    await creaFatturaImportata({ ...m, partnerId: m.partnerId!, tipologiaId: m.tipologiaId! });
+    const id = await creaFatturaImportata({ ...m, partnerId: m.partnerId!, tipologiaId: m.tipologiaId! });
+    // `null` = l'ultima porta l'ha fermata: è una fattura commissioni. Non è un
+    // errore da nascondere — si SCRIVE nel registro, perché vuol dire che il
+    // filtro a monte l'ha lasciata passare e qualcuno deve poterlo vedere.
+    if (id == null) {
+      fermateCommissioni++;
+      dettaglio.push(`${m.numero} · ${m.partnerNome} · FERMATA: è una fattura commissioni, non un servizio`);
+      continue;
+    }
     importate++;
     dettaglio.push(`${m.numero} · ${m.partnerNome} · ${m.tipologiaNome} · ${Math.round(m.imponibile)} €${m.pagata ? " · pagata" : ""}`);
   }
@@ -405,12 +424,13 @@ export async function importaFattureFicSicure(origine: string, giorni = 90): Pro
     }
   }
 
-  if (importate > 0 || commissioniAgganciate > 0) {
+  if (importate > 0 || commissioniAgganciate > 0 || fermateCommissioni > 0) {
     const { registra } = await import("./registro");
     await registra({
       azione:
         `Importate ${importate} fatture da Fatture in Cloud (${origine})` +
-        (commissioniAgganciate > 0 ? ` · ${commissioniAgganciate} fatture commissioni agganciate ai mesi` : ""),
+        (commissioniAgganciate > 0 ? ` · ${commissioniAgganciate} fatture commissioni agganciate ai mesi` : "") +
+        (fermateCommissioni > 0 ? ` · ⚠️ ${fermateCommissioni} fermate all'ultima porta (commissioni scambiate per servizi)` : ""),
       categoria: "fatture",
       dettaglio:
         `Scheda e tipologia imparate dalle registrazioni precedenti; competenza = mese del servizio (dalla descrizione) o di emissione; pagata su FIC = saldata qui. ` +
