@@ -1447,6 +1447,21 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               handleShopify: d.handleShopify,
               ggDispMin: d.ggDispMin,
               statoShopify: d.statoShopify,
+              // ⚠️ **E anche `shopifyStato`, che è la stessa cosa detta con le
+              // nostre parole** (08/09/2026). Qui l'import aggiornava solo
+              // `statoShopify` e lasciava l'altro campo com'era: la scheda
+              // finiva per mostrare due badge che si contraddicevano — «Bozza
+              // su Shopify» accanto a «Business Deluxy · attivo», segnalato
+              // dall'utente. Misurati: **728 prodotti su 3.665 in disaccordo**,
+              // e i peggiori erano 85 che l'app dava per pubblicati mentre sul
+              // negozio erano in bozza o archiviati.
+              //
+              // Non è un doppione da eliminare: `statoShopify` è la parola di
+              // Shopify (ACTIVE/DRAFT/ARCHIVED) e `shopifyStato` è la nostra
+              // (pubblicato/bozza/non_pubblicato), usata da /shopify, dal
+              // calendario e dai conteggi. Ma **una sola può decidere**, ed è
+              // quella che viene dal negozio.
+              shopifyStato: SYNC_DA_STATO[d.statoShopify ?? ""] ?? undefined,
               // **Pubblicato sul negozio = «Pubblico» anche qui** (richiesta
               // dell'utente, 08/09/2026). Se il prodotto è ACTIVE il cliente lo
               // vede e lo compra: tenere la scheda in «Concept» o «Archiviato»
