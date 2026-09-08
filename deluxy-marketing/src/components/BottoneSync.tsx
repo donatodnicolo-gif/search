@@ -58,6 +58,15 @@ export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: s
   const vecchia = quando ? Date.now() - quando.getTime() > 3 * 86_400_000 : false;
   const colore = fallita ? "var(--red)" : vecchia ? "var(--orange)" : undefined;
 
+  // ⚠️ I conteggi escono come VOCI SEPARATE, non come una frase con i «·»
+  // dentro. Con la frase, la riga andava a capo dove capitava e il 08/09/2026
+  // si leggeva «… rimossi 0 · analisi / importate 3»: spezzata a metà proprio
+  // sulla voce che dice quante analisi sono entrate. Il separatore adesso è la
+  // distanza fra le voci (CSS `.sync-esito`), e ogni voce è indivisibile.
+  // Il `title` resta la frase intera: lì una riga sola ci sta.
+  const prosa = fallita || inCorso || interrotta || nulla;
+  const voci = prosa ? [messaggio] : numeri.split(" · ").filter(Boolean);
+
   return (
     <div className="sync-blocco">
       <form action={avviaSyncDrive}>
@@ -69,12 +78,20 @@ export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: s
           il motivo, il motivo non era recuperabile in nessun modo. */}
       {ultima && quando ? (
         <div className="sync-esito" style={colore ? { color: colore } : undefined} title={messaggio}>
-          {fallita ? "⚠ " : interrotta || inCorso ? "◐ " : "✓ "}
-          <b>{daQuanto(quando).testo}</b>
-          {" · "}
-          {formattaDataOra(quando)}
-          {" · "}
-          <span style={{ color: "var(--text-tertiary)" }}>{messaggio}</span>
+          <span className="sync-voce">
+            {fallita ? "⚠ " : interrotta || inCorso ? "◐ " : "✓ "}
+            <b>{daQuanto(quando).testo}</b>
+          </span>
+          <span className="sync-voce">{formattaDataOra(quando)}</span>
+          {voci.map((v, i) => (
+            <span
+              key={i}
+              className={prosa ? "sync-prosa" : "sync-voce"}
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {v}
+            </span>
+          ))}
         </div>
       ) : (
         <div className="sync-esito" style={{ color: "var(--text-tertiary)" }}>
