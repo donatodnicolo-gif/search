@@ -1,0 +1,779 @@
+[
+ {
+  "id": "cms222wj800r7i6m8tfsmwxq0",
+  "nome": "Peonie Rosa e Praline d'Autore (Champagne Rosé) - Selections",
+  "codice": "PEONIE-ROSA-E-PRALINE-D-",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 80,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4v0081i6m8l7be5i6i",
+   "codice": "SOPNHC",
+   "nome": "Peonie Rosa e Praline d'Autore (Champagne Rosé)"
+  }
+ },
+ {
+  "id": "cms222wsa0105i6m8bt7bgnv9",
+  "nome": "Gruè - Selections",
+  "codice": "GRUE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 8.32,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 14,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222vz1004ii6m8bgnjms04",
+   "codice": "GRUE",
+   "nome": "Gruè"
+  }
+ },
+ {
+  "id": "cms222wxa015oi6m8cf985aud",
+  "nome": "Essenza - Selections",
+  "codice": "ESSENZA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 9.11,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 9,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4v0089i6m81s77opw5",
+   "codice": "ESSENZA",
+   "nome": "Essenza"
+  }
+ },
+ {
+  "id": "cms222x6g01eni6m8g74qjz78",
+  "nome": "Inspiration - Selections",
+  "codice": "INSPIRATION-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 7.52,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 7,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4w009oi6m8d4nvu5wc",
+   "codice": "INSPIRATION",
+   "nome": "Inspiration"
+  }
+ },
+ {
+  "id": "cms222x6g01eoi6m81qkwa5b7",
+  "nome": "Elegant Cake - Selections",
+  "codice": "ELEGANT-CAKE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 6.44,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 8,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222vyz0014i6m8qs2mkmfc",
+   "codice": "ELEGANT-CAKE",
+   "nome": "Elegant Cake"
+  }
+ },
+ {
+  "id": "cms222x6h01ffi6m8h79p34fe",
+  "nome": "Torta Porpora - Selections",
+  "codice": "TORTA-PORPORA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 6.68,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 7,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cmtqwa1wo004ol204j0yex37p",
+   "codice": "9PORE-2",
+   "nome": "Torta Porpora"
+  }
+ },
+ {
+  "id": "cms222x6i01gci6m8rntxsz0v",
+  "nome": "Favolosa - Selections",
+  "codice": "FAVOLOSA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5.04,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 7,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4u0062i6m84i0y5wd0",
+   "codice": "MICFVH",
+   "nome": "Favolosa"
+  }
+ },
+ {
+  "id": "cms222x6j01iei6m8fpijqwwg",
+  "nome": "Futura - Selections",
+  "codice": "FUTURA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 5,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222vz1004hi6m8coon1ky8",
+   "codice": "AHDXTP",
+   "nome": "Futura"
+  }
+ },
+ {
+  "id": "cms222x6j01iii6m8regovevm",
+  "nome": "Cheesecake al Forno ai Lamponi - Selections",
+  "codice": "CHEESECAKE-AL-FORNO-AI-L",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 25,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wxb016fi6m8klp9kysu",
+   "codice": "BKZMBY",
+   "nome": "Cheesecake al Forno ai Lamponi"
+  }
+ },
+ {
+  "id": "cms222xbi01jri6m8y75ctql9",
+  "nome": "3 Cioccolati - Selections",
+  "codice": "3-CIOCCOLATI-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 20,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wj600p1i6m8xjijhw7n",
+   "codice": "IUMEFX",
+   "nome": "3 Cioccolati"
+  }
+ },
+ {
+  "id": "cms222xbi01jxi6m8bk4et0da",
+  "nome": "Tiny Nibble Gray Bunny (20 cm) - Selections",
+  "codice": "TINY-NIBBLE-GRAY-BUNNY-2",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 19,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6i01h8i6m8nyi5fnpi",
+   "codice": "WOBQUV",
+   "nome": "Tiny Nibble Gray Bunny (20 cm)"
+  }
+ },
+ {
+  "id": "cms222xbj01k1i6m8cj2svg1w",
+  "nome": "Yogurt Cake - Selections",
+  "codice": "YOGURT-CAKE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 17,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222web00ioi6m8we0o80hv",
+   "codice": "BRJWCY",
+   "nome": "Yogurt Cake"
+  }
+ },
+ {
+  "id": "cms222xbj01k2i6m8ro771g3j",
+  "nome": "Nusstorte - Selections",
+  "codice": "NUSSTORTE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 17,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wsa010ei6m8mwwo8s3w",
+   "codice": "YKFEGI",
+   "nome": "Nusstorte"
+  }
+ },
+ {
+  "id": "cms222xbj01k8i6m8c3zn7ovd",
+  "nome": "Meringata - Selections",
+  "codice": "MERINGATA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 15,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w9l00fzi6m8yzxq45b6",
+   "codice": "MERINGATA",
+   "nome": "Meringata"
+  }
+ },
+ {
+  "id": "cms222xbj01kfi6m8mgtu62no",
+  "nome": "Otello - Selections",
+  "codice": "OTELLO-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 3,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wj700qsi6m822xytexz",
+   "codice": "WMAIIF",
+   "nome": "Otello"
+  }
+ },
+ {
+  "id": "cms222xbk01l9i6m8xav4dnxo",
+  "nome": "Tiny Nibble Pink Bunny (20 cm) - Selections",
+  "codice": "TINY-NIBBLE-PINK-BUNNY-2",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 15,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6j01ili6m8z2uont3a",
+   "codice": "PYTINK",
+   "nome": "Tiny Nibble Pink Bunny (20 cm)"
+  }
+ },
+ {
+  "id": "cms222xbk01lai6m879btnsgm",
+  "nome": "Torta Cuore - Selections",
+  "codice": "TORTA-CUORE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 15,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4w009ki6m8ix6eakas",
+   "codice": "TORTA-CUORE",
+   "nome": "Torta Cuore"
+  }
+ },
+ {
+  "id": "cms222xbk01m5i6m8l7lrg15g",
+  "nome": "Lemon Tarte - Selections",
+  "codice": "LEMON-TARTE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 3,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wec00j7i6m8vdsq2dhc",
+   "codice": "JSVCTK",
+   "nome": "Lemon Tarte"
+  }
+ },
+ {
+  "id": "cms222xbl01mai6m8f74cktnz",
+  "nome": "Little Nibble Black Bunny (30 cm) - Selections",
+  "codice": "LITTLE-NIBBLE-BLACK-BUNN",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 14,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x1r01ani6m8pkx2y387",
+   "codice": "LOJIHM",
+   "nome": "Little Nibble Black Bunny (30 cm)"
+  }
+ },
+ {
+  "id": "cms222xbl01mbi6m8rw1zz9im",
+  "nome": "Noi-Sette - Selections",
+  "codice": "NOI-SETTE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 6,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w9j00chi6m8eefifi93",
+   "codice": "NOI-SETTE",
+   "nome": "Noi-Sette"
+  }
+ },
+ {
+  "id": "cms222xbl01mdi6m8lizoo3s4",
+  "nome": "4 Cioccolati - Selections",
+  "codice": "4-CIOCCOLATI-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 3,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cmtqwa1wo004ll204aa6hdycn",
+   "codice": "MOT310",
+   "nome": "4 Cioccolati"
+  }
+ },
+ {
+  "id": "cms222xbl01mei6m8evks5cqe",
+  "nome": "Cheesecake - Selections",
+  "codice": "CHEESECAKE-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4u0079i6m83r7pj97j",
+   "codice": "CHEESECAKE",
+   "nome": "Cheesecake"
+  }
+ },
+ {
+  "id": "cms222xbl01mqi6m86yp0qccv",
+  "nome": "Cioccolato e Lampone - Selections",
+  "codice": "CIOCCOLATO-E-LAMPONE-SEL",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wnn00s0i6m8poqiivmn",
+   "codice": "ORONERO1",
+   "nome": "Cioccolato e Lampone"
+  }
+ },
+ {
+  "id": "cms222xbl01mvi6m81zy5qk6e",
+  "nome": "Torta Charlotte al Cioccolato e Frutti di Bosco - Selections",
+  "codice": "TORTA-CHARLOTTE-AL-CIOCC",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4w009gi6m8maxnc302",
+   "codice": "KWPWJB",
+   "nome": "Torta Charlotte al Cioccolato e Frutti di Bosco"
+  }
+ },
+ {
+  "id": "cms222xbl01nbi6m8iulsicvc",
+  "nome": "Torta Primavera - Selections",
+  "codice": "TORTA-PRIMAVERA-SELECTIO",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 2,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x1s01cni6m83c9umik8",
+   "codice": "PDQFSJ-2",
+   "nome": "Torta Primavera"
+  }
+ },
+ {
+  "id": "cms222xbl01ndi6m8n2xzdrc5",
+  "nome": "Citron Meringuee - Selections",
+  "codice": "CITRON-MERINGUEE-SELECTI",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wj800r8i6m84m5q5mv1",
+   "codice": "UXBVSQ",
+   "nome": "Citron Meringuee"
+  }
+ },
+ {
+  "id": "cms222xbl01nei6m8lyu4fm74",
+  "nome": "Meringata Classica - Selections",
+  "codice": "MERINGATA-CLASSICA-SELEC",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6h01fii6m83pflpipj",
+   "codice": "QMERNQ",
+   "nome": "Meringata classica"
+  }
+ },
+ {
+  "id": "cms222xbl01nfi6m84ei68coo",
+  "nome": "Fragolina - Selections",
+  "codice": "FRAGOLINA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wea00i1i6m83u1u3csn",
+   "codice": "RTEBDE",
+   "nome": "Fragolina"
+  }
+ },
+ {
+  "id": "cms222xbl01nhi6m84zlu8svt",
+  "nome": "Pan di Spagna Farcito - Selections",
+  "codice": "PAN-DI-SPAGNA-FARCITO-SE",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x1r01agi6m883wl3sg1",
+   "codice": "AZIUYE",
+   "nome": "Pan di Spagna Farcito"
+  }
+ },
+ {
+  "id": "cms222xbl01nki6m8t9ngdgc1",
+  "nome": "Crostata di Lamponi - Selections",
+  "codice": "CROSTATA-DI-LAMPONI-SELE",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6h01fqi6m8p7hufj30",
+   "codice": "GPDDJG",
+   "nome": "Crostata di Lamponi"
+  }
+ },
+ {
+  "id": "cms222xbl01nmi6m81azyl7qq",
+  "nome": "Primavera - Selections",
+  "codice": "PRIMAVERA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wj700qui6m896e6uliy",
+   "codice": "PDQFSJ",
+   "nome": "Primavera"
+  }
+ },
+ {
+  "id": "cms222xbl01npi6m8f4x6bnnq",
+  "nome": "Torta Tiramisù - Selections",
+  "codice": "TORTA-TIRAMISU-SELECTION",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222w4w00a8i6m8b5i8knca",
+   "codice": "TORTA-TIRAMISU",
+   "nome": "Torta Tiramisù"
+  }
+ },
+ {
+  "id": "cms222xbm01nri6m8y7jq9lhv",
+  "nome": "Chantilly - Selections",
+  "codice": "CHANTILLY-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222vyz0025i6m8f9z963c7",
+   "codice": "CHANTILLY",
+   "nome": "Chantilly"
+  }
+ },
+ {
+  "id": "cms222xbm01nsi6m8r8z7myuq",
+  "nome": "Imperial - Selections",
+  "codice": "IMPERIAL-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6j01iji6m8zz5xhtzj",
+   "codice": "IHBKHF",
+   "nome": "Imperial"
+  }
+ },
+ {
+  "id": "cms222xbm01nti6m8dnbxv8i1",
+  "nome": "Torta di Frutta - Selections",
+  "codice": "TORTA-DI-FRUTTA-SELECTIO",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222wnp00v8i6m8n7f1t0j9",
+   "codice": "OSWIXQ",
+   "nome": "Torta di Frutta"
+  }
+ },
+ {
+  "id": "cms222xbm01nxi6m8zercopjc",
+  "nome": "Torta Vela - Selections",
+  "codice": "TORTA-VELA-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222ws800yji6m825az8y0w",
+   "codice": "POIU",
+   "nome": "Torta Vela"
+  }
+ },
+ {
+  "id": "cms222xbm01nyi6m8d3b59vo3",
+  "nome": "Saturno - Selections",
+  "codice": "SATURNO-SELECTIONS",
+  "categoria": "DA_CLASSIFICARE",
+  "prezzoVendita": 5,
+  "negozioNome": null,
+  "sezioniScheda": null,
+  "pubblicazioni": [],
+  "varianti": [],
+  "_count": {
+   "vendite": 1,
+   "media": 0,
+   "tappe": 0
+  },
+  "padre": {
+   "id": "cms222x6i01gwi6m8fncw43p8",
+   "codice": "JUXOYE",
+   "nome": "Saturno"
+  }
+ }
+]
