@@ -126,6 +126,12 @@ export default async function ProdottoPage({
               <a className="btn btn-secondario small" href={`/prodotti/${id}/modifica`} style={{ verticalAlign: "middle", marginLeft: 10 }} title="Lo stesso modulo del nuovo prodotto: scheda, foto, campi del negozio, varianti, pubblicazione">
                 ✎ Modifica col modulo
               </a>
+              {/* ⭐ 08/09/2026: «duplica» accanto a «modifica», che è il punto in cui
+                  l'utente l'ha chiesta. Porta al modulo precompilato: SKU nuovi e
+                  «(Duplica)» davanti al titolo; l'originale non si tocca. */}
+              <a className="btn btn-secondario small" href={`/prodotti/${id}/duplica`} style={{ verticalAlign: "middle", marginLeft: 6 }} title="Crea un prodotto nuovo con gli stessi dati: SKU rigenerati, «(Duplica)» davanti al titolo. L'originale non cambia">
+                ⧉ Duplica
+              </a>
             </div>
             <div className="prodotto-badges">
               <Badge testo={ETICHETTA_FASE[prodotto.fase]} colore={COLORE_FASE[prodotto.fase]} />

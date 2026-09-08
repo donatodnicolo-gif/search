@@ -374,7 +374,7 @@ export function FormProdottoNuovo({
       {duplica && iniziale && (
         <div className="riepilogo-modifica">
           <div>
-            <div className="riepilogo-titolo">Copia di «{iniziale.nome.replace(/ \(copia\)$/, "")}»</div>
+            <div className="riepilogo-titolo">Copia di «{iniziale.nome.replace(/^\(Duplica\) /, "").replace(/ \(copia\)$/, "")}»</div>
             <div className="cella-sub">
               Stessi dati, prodotto nuovo: SKU <b>{sku}</b> (rigenerato) e varianti rinumerate {sku}-1, {sku}-2…; foto, campi, tag e collezioni
               ricopiati. L&apos;originale non cambia. Nasce come <b>Concept</b>: per mandarlo sul negozio scegli la fase Pubblico.
