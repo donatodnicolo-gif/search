@@ -4,6 +4,7 @@ import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { registraFicComeServizio } from "@/lib/actions";
+import { eFatturaCommissioni } from "@/lib/fic-mancanti";
 
 // Mostra sulla scheda partner le fatture emesse su Fatture in Cloud intestate a
 // questo partner. L'aggancio usa i nomi cliente FIC che sono stati riconciliati
@@ -19,6 +20,12 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
     select: { id: true, nome: true },
   });
   const tipDefault = tipologie.find((t) => /altro/i.test(t.nome))?.id ?? tipologie[0]?.id ?? "";
+  // La compensazione del partner: cambia cosa vuol dire «da incassare» su una
+  // fattura di commissioni (vedi sotto).
+  const partner = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: { compensazione: true },
+  });
   // stessa logica di aggancio usata per collegare la fattura commissioni a un
   // mese: due filtri diversi darebbero due elenchi diversi per la stessa domanda
   const matchNome = await fattureFicDelPartner(partnerId, partnerNome, ANNO_CORRENTE);
@@ -48,6 +55,13 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
             <tbody>
               {mie.map((f) => {
                 const aliquota = f.imponibile > 0 ? Math.round((f.iva / f.imponibile) * 100) : 22;
+                // ⭐ SI RICONOSCE DA SOLA (08/09/2026, regola dell'utente:
+                // «riconosci automaticamente, alcune sono fee commissioni ed è
+                // specificato»). L'oggetto del documento lo dice —
+                // «Commissioni Deluxy Agosto 2026» — e lo stesso giudizio che
+                // usa l'import notturno lo usa anche questa tendina: due
+                // criteri diversi per la stessa domanda darebbero due risposte.
+                const commissioni = eFatturaCommissioni(f.oggetto, f.numero, new Set());
                 return (
                   <tr key={f.id}>
                     <td style={{ fontWeight: 500 }}>
@@ -56,9 +70,26 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
                     <td>{dataIt(f.data)}</td>
                     <td className="num">{euro(f.totale)} <span className="muted">({euro(f.imponibile)} netto)</span></td>
                     <td>
-                      {f.pagata
-                        ? <span className="badge green"><span className="dot" />Saldata</span>
-                        : <span className="badge orange"><span className="dot" />Da incassare{f.scadenza ? ` · scad. ${dataIt(f.scadenza)}` : ""}</span>}
+                      {/* ⭐ COMMISSIONI + PARTNER IN COMPENSAZIONE = SEMPRE
+                          SALDATA (08/09/2026, regola dell'utente). La fattura
+                          delle commissioni a un partner in compensazione non si
+                          incassa in banca: la commissione è già tolta dal
+                          dovuto sulle vendite, cioè è già stata pagata nel
+                          momento in cui è nata. Mostrarla «da incassare»
+                          faceva sollecitare soldi che nessuno deve versare.
+                          ⚠️ Su Fatture in Cloud il documento resta aperto: qui
+                          si dice come stanno i conti, non si tocca FIC — e la
+                          pillola lo dichiara, invece di far credere che di là
+                          risulti incassata. */}
+                      {commissioni && partner?.compensazione ? (
+                        <span className="badge green" title="La commissione è già tolta dal dovuto sulle vendite del mese: non si incassa in banca. ⚠️ Su Fatture in Cloud il documento risulta ancora aperto.">
+                          <span className="dot" />Saldata per compensazione
+                        </span>
+                      ) : f.pagata ? (
+                        <span className="badge green"><span className="dot" />Saldata</span>
+                      ) : (
+                        <span className="badge orange"><span className="dot" />Da incassare{f.scadenza ? ` · scad. ${dataIt(f.scadenza)}` : ""}</span>
+                      )}
                     </td>
                     <td>
                       <form action={registraFicComeServizio.bind(null, partnerId)} style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -67,8 +98,12 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
                         <input type="hidden" name="aliquotaIva" value={aliquota} />
                         <input type="hidden" name="anno" value={f.data ? parseInt(f.data.slice(0, 4)) : ANNO_CORRENTE} />
                         <input type="hidden" name="mese" value={f.data ? parseInt(f.data.slice(5, 7)) : 1} />
-                        <input type="hidden" name="descrizione" value={`FIC ${f.numero}`} />
-                        <select name="tipologiaId" defaultValue={tipDefault} style={{ fontSize: 12, padding: "4px 6px" }}>
+                        {/* L OGGETTO vero del documento, non «FIC 624/2026»: e quello che
+                            fa scattare le regole sulla tipologia (una «Fee
+                            affiliazione» finisce sotto Affiliazioni) e quello
+                            che si legge poi sulla riga. */}
+                        <input type="hidden" name="descrizione" value={f.oggetto ?? `FIC ${f.numero}`} />
+                        <select name="tipologiaId" defaultValue={commissioni ? "__fee__" : tipDefault} style={{ fontSize: 12, padding: "4px 6px" }}>
                           {tipologie.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
                           {/* Le commissioni sulle vendite vendor NON sono un servizio
                               venduto: sono già calcolate sulla vendita e già tolte dal
