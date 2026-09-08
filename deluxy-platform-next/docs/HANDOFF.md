@@ -3,6 +3,19 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✅ **08/09/2026 (42) — LIVE `delivery-jvd3gw9bg`. CONDIZIONI DI PAGAMENTO: ERANO NELLA CLASSE SBAGLIATA DEL DTO** (segnalazione utente, la **seconda volta** sullo stesso difetto).
+> - **Il sintomo**: HTTP 200, «salvato» a schermo, e i quattro campi restavano vuoti. Misurato sul caso segnalato — Bottega Di Pasticceria, `updatedAt` alle 19:26 di oggi, tutti e quattro i campi ancora `null`.
+> - **La causa**: erano scritti dentro `PartnerServiceDto` invece che dentro `CreatePartnerDto`. Il ValidationPipe gira con `whitelist: true`, e una proprietà che non appartiene al DTO della richiesta viene **scartata in silenzio** — nessun errore, nessun 400, niente nei log.
+> - ⚠⚠ **PERCHE' NON L'AVEVO TROVATO AL PRIMO GIRO, e la lezione**: avevo verificato che le colonne esistessero (sì), che il form li mandasse (sì), che il DTO li contenesse (sì — **ma non in quale classe**) e che il codice fosse pubblicato (sì). **Quattro verifiche verdi su un difetto vivo**: ognuna guardava un anello, nessuna la catena.
+> - **La prova che l'ha trovato**: far passare un payload vero attraverso `plainToInstance` + `validateSync` e guardare cosa ne usciva — i quattro campi tornavano `undefined` mentre `insegna` ed `email` passavano. Nel compilato: `PartnerServiceDto.prototype, "pagamentoVendorGiorni"`. **Rifatta dopo la correzione: 0 errori, tutti e quattro passano**, e nel build ora c'è `CreatePartnerDto.prototype`.
+> - 📌 **Da tenere per il futuro**: quando un campo «non si salva» e tutto sembra a posto, la prova non è leggere il DTO ma **farci passare un payload**.
+
+> ✅ **08/09/2026 (41) — LIVE `delivery-dpae1c9as`. LISTINO: verdetto dell'architetto-ux + i colori che non si salvavano.**
+> - **Verdetto**: le cinque colonne globali si tolgono — *una colonna è un attributo della POPOLAZIONE, non di una riga*. Misura: 15 righe × 5 celle = **75 trattini su 80**, il 94% della griglia. Ne è nata la **regola §8 v2.2 del Libro** (sotto il 50% di righe che la valorizzano, la colonna non si fa; forma canonica: riga di espansione con `colspan`).
+> - 🔴 **E il custode ha trovato che i colori NON venivano salvati**: il client non li mandava nel POST. «Listino salvato» su una scrittura mai avvenuta (Libro §7). Corretto, e allargato il tipo del `@Body()` che era più stretto del servizio — era quello a rendere il buco invisibile al typecheck.
+> - Nascoste le note ripetute nella colonna stato (segnalazione utente): erano identiche su ogni riga e andavano a capo su sei.
+> - La card è diventata il `.table-wrap` canonico: da lì arrivano intestazioni sticky, hover e la **trasformazione in schede sotto gli 800px**, che questa tabella non aveva mai avuto.
+
 > 🪗 **08/09/2026 (40) — IL PARTNER SA SE RISULTA APERTO, E I COLORI DELLA ROSA NEL LISTINO** (due regole utente). In locale, `tsc` API e web verdi, `ng build` verde.
 > - **«Oggi risulti APERTO / CHIUSO» nella barra laterale**, solo per il ruolo PARTNER, col PERCHÉ sotto (lo hai dichiarato tu · dal calendario · dal tuo orario settimanale · nessun orario impostato). È un **link**: porta al profilo, sezione orari. Sta nella barra e non in una pagina perché il partner atterra su Consegne, non sulla sua home.
 >   - Tre stati, tre colori: verde aperto, rosso chiuso, **ambra «non hai impostato orari»** — il caso in cui l'app può proporgli una consegna a qualunque ora e lui non lo sa.
