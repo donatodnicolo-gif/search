@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 08/09/2026 (2) — La fattura si apre in una finestra, col documento di FIC dentro
+>
+> Chiesto dall'utente: «al click su fattura non aprire la pagina ma un pop-up con anche la schermata di FIC così da non cambiare pagina». Vale per il numero della fattura nelle righe «Servizi a fatturazione» dei dodici mesi della **scheda partner**.
+> - ⚠️⚠️ **LA SCHERMATA DI FIC NON È INCORPORABILE, e non è un limite nostro**: `secure.fattureincloud.it` risponde **`X-Frame-Options: deny`** (misurato l'08/09: `GET` → 200 con quell'intestazione). Nessuna intestazione nostra la aggira — è la loro difesa contro il clickjacking. **Quello che si incorpora è il DOCUMENTO**: FIC lo pubblica su `compute.fattureincloud.it/doc/<jwt>` come `application/pdf` **senza** `X-Frame-Options` (verificato: 200, `content-type: application/pdf`). È la fattura come la stampa FIC, cioè la cosa che si va a controllare. Per modificare/incassare/SDI resta «Apri su Fatture in Cloud ↗» in una scheda nuova.
+> - **Pezzi nuovi**: `ficDocumentoDaNumero()` in `src/lib/fic.ts` (una chiamata sola: id, cliente, totale, URL del PDF, URL della UI); rotta **interna** `GET /api/fic/documento?numero=&anno=` (dietro la sessione — **non** va nelle esclusioni del middleware e **non** va data alle altre app: restituisce un URL firmato che apre il documento senza password); `src/components/FatturaModale.tsx` (`FatturaLink`), stesse regole §9 di `MovimentoModale`.
+> - **Perché il documento si chiede all'APERTURA e non al render**: la scheda partner ha decine di fatture su dodici mesi — risolverle tutte a monte sarebbe una chiamata di rete a FIC per ognuna, quasi sempre per niente, e metterebbe tutti gli URL firmati nell'HTML.
+> - **Verificato in locale sui dati veri**: `GET /api/fic/documento?numero=141/2026&anno=2026` → 200 con id `508932308`, «BEYOND 142 SRL», 14,64 €. Aperta la finestra dalla scheda di 142 RESTAURANT: 940×828, l'iframe del documento (522px) carica da `compute.fattureincloud.it`, testata «Fattura 141/2026 · Consegne», «intestata a BEYOND 142 SRL · 14,64 €», piede con «Apri la scheda intera →» e «Apri su Fatture in Cloud ↗». `tsc` verde. ⚠️ La prova per SCREENSHOT non è riuscita: il pannello del browser ha smesso di disegnare (le misure sono lette dal DOM, non da un'immagine).
+> - **Deroga UX**: scritta in `README.md`, come estensione di quella del 05/09 sui movimenti — stesso posto, stesso motivo.
+>
 > ### 08/09/2026 — «Fatturazione Applicativo»: si emette in un posto solo. E 44 fatture commissioni tornate a rientrare
 >
 > **1. Regola dell'utente: `/fatture` si chiama «Fatturazione Applicativo» e recepisce solo quello che arriva dalle nostre app; le fatture si emettono SOLO da `/registrazioni/fatture`.**
