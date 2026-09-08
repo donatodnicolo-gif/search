@@ -67,7 +67,33 @@ export async function GET(req: NextRequest) {
 
   const [ordini, token, unioni] = await Promise.all([
     // Ordinati dal più recente: il primo di ogni gruppo è l'ultimo ordine.
-    db.ordine.findMany({ where: dove, orderBy: { data: 'desc' } }),
+    //
+    // ⚠️⚠️ SOLO LE NOVE COLONNE CHE SERVONO, e la tabella ne ha 78. Senza il
+    // `select` questa lettura si portava dietro l'ordine intero — biglietto,
+    // note, indirizzi, campi della piattaforma, riassunti dell'AI — per ogni
+    // riga. Misurato l'08/09/2026 su 1.587 ordini a database tranquillo:
+    // 0,88 MB e 161-266 ms con tutte le colonne, 0,13 MB e 85-90 ms con
+    // queste nove. Sette volte meno dati, metà del tempo.
+    // ⚠️ Il `take` invece NON si può mettere, ed è la ragione per cui il
+    // difetto era rimasto: qui non si mostra un elenco di ordini, si
+    // RAGGRUPPA per persona e si sommano spesa e conteggi. Tagliare a 300
+    // righe darebbe totali sbagliati, non una pagina più corta. Il taglio a
+    // 300 sta in fondo, sui CLIENTI già raggruppati, ed è un'altra cosa.
+    db.ordine.findMany({
+      where: dove,
+      orderBy: { data: 'desc' },
+      select: {
+        clienteNome: true,
+        telefono: true,
+        email: true,
+        citta: true,
+        negozioNome: true,
+        totale: true,
+        numero: true,
+        data: true,
+        contattoSalvato: true,
+      },
+    }),
     googleAccessToken().catch(() => null),
     mappaUnioni(),
   ])

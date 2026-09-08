@@ -40,6 +40,16 @@ function leggiProvenienza(): Record<string, string> {
 
 export default function PaginaWidget() {
   const [token, setToken] = useState<string | null>(null)
+  /**
+   * Il pannello della chat è aperto sul sito ospite?
+   *
+   * ⚠️⚠️ Parte da `true` APPOSTA. Chi ha lo snippet vecchio in cache non manda
+   * questo messaggio: per quei siti si continua a fare esattamente come prima
+   * (più la guardia sulla scheda nascosta). Partendo da `false` una chat viva
+   * su un sito con lo snippet vecchio sarebbe rimasta muta — un'ottimizzazione
+   * che rompe la cosa che deve proteggere.
+   */
+  const [pannelloAperto, setPannelloAperto] = useState(true)
   // Da quale sito ci stanno scrivendo: lo dichiara lo snippet (`data-sito`) e
   // decide il titolo e il saluto — e, in Inbox, la colonna in cui finisce la
   // chat. Vuoto = snippet vecchio: valgono i testi generali.
@@ -189,12 +199,58 @@ export default function PaginaWidget() {
     }
   }, [token, sito])
 
+  // Lo snippet del sito ospite ci dice se il pannello è aperto.
+  // ⚠️ Si accetta solo da chi ci ha incorporati (`window.parent`): un altro
+  // frame della pagina non deve poter spegnere o accendere il nostro sondaggio.
   useEffect(() => {
-    if (!token) return
+    function ascolta(ev: MessageEvent) {
+      if (ev.source !== window.parent) return
+      const d = ev.data as { tipo?: string; aperto?: boolean } | null
+      if (!d || d.tipo !== 'deluxy-chat-pannello') return
+      setPannelloAperto(Boolean(d.aperto))
+    }
+    window.addEventListener('message', ascolta)
+    return () => window.removeEventListener('message', ascolta)
+  }, [])
+
+  /**
+   * IL SONDAGGIO — e le tre condizioni per cui ha senso farlo.
+   *
+   * ⚠️⚠️ È l'unico punto dell'ecosistema che cresce coi CLIENTI e non con noi:
+   * quindici persone in azienda, ma i visitatori dei siti non li contiamo noi.
+   * Misurato l'08/09/2026: 56 conversazioni nate dal widget (45 con messaggi
+   * negli ultimi 30 giorni) su 3 siti. Ognuna di quelle persone, tornando, ha
+   * il token nel browser — e col codice di prima ricominciava a chiamarci ogni
+   * 3,5 secondi su ogni pagina, col pannello chiuso, finché teneva la scheda
+   * aperta: 1.028 chiamate all'ora per scheda, tutte senza niente da mostrare.
+   *
+   * Adesso si sonda solo se: c'è una conversazione (`token`), la scheda è in
+   * primo piano (`document.hidden`), e il pannello è aperto. Il ritmo dentro
+   * la chat aperta resta 3,5 secondi: è lì che qualcuno sta aspettando una
+   * risposta, ed è l'unico momento in cui rallentare si sentirebbe.
+   * ⚠️ Tornando dalla scheda in secondo piano, o riaprendo il pannello, si
+   * aggiorna SUBITO: una pausa che si nota è una pausa fatta male.
+   */
+  useEffect(() => {
+    if (!token || !pannelloAperto) return
+    // ⚠️ La PRIMA lettura si fa sempre, anche a scheda nascosta: è quella che
+    // porta lo storico della chat e fa uscire il widget dallo stato «sto
+    // caricando». Saltarla vuol dire una chat che resta muta finché non torni
+    // sopra — l'ho visto succedere provando questa modifica. Lo spreco non era
+    // la prima chiamata, era la millesima.
     aggiorna()
-    const t = setInterval(aggiorna, 3500)
-    return () => clearInterval(t)
-  }, [token, aggiorna])
+    const t = setInterval(() => {
+      if (!document.hidden) aggiorna()
+    }, 3500)
+    const alRitorno = () => {
+      if (!document.hidden) aggiorna()
+    }
+    document.addEventListener('visibilitychange', alRitorno)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', alRitorno)
+    }
+  }, [token, aggiorna, pannelloAperto])
 
   useEffect(() => {
     fondoRef.current?.scrollIntoView({ block: 'end' })
