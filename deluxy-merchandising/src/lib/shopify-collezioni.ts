@@ -1227,6 +1227,33 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
   // rimasta «in corso» è la prova che la funzione è stata interrotta prima di
   // concludere. `sincronizza-apertura` e le pagine guardano solo gli «ok».
   const inizio = Date.now();
+  // ⚠️⚠️ **Le righe rimaste «in corso» si chiudono, non restano appese.**
+  //
+  // Misurate l'08/09/2026: tre righe ferme su «in corso», **tutte su Business
+  // Deluxy** (08:27, 13:25, 13:57), mentre i giri notturni dello stesso negozio
+  // e tutti gli altri tre negozi chiudevano. Restavano lì per sempre, e
+  // `/api/health` continuava a riportare `esitoUltimoImport: "in corso"` per
+  // ore — un allarme che non si spegne è un allarme che si smette di leggere.
+  //
+  // ⚠️ Questo **non è la cura**: la causa di quelle interruzioni non è ancora
+  // stata trovata (non è il tempo che finisce — lo stesso negozio a volte
+  // chiude e a volte no). Qui si chiude solo la contabilità: una riga più
+  // vecchia della durata massima della funzione non può essere ancora viva.
+  // Si scrive «interrotto», che è un fatto, non «errore», che sarebbe una
+  // diagnosi che nessuno ha fatto.
+  const LIMITE_MS = 800_000 + 60_000; // maxDuration della rotta, più un minuto di grazia
+  try {
+    const appese = await prisma.importCollezioni.updateMany({
+      where: { negozio: n.nome, esito: "in corso", iniziatoIl: { lt: new Date(Date.now() - LIMITE_MS) } },
+      data: {
+        esito: "interrotto",
+        messaggio: "Chiusa d'ufficio: la funzione non ha mai scritto l'esito e il tempo massimo è passato da un pezzo. Il catalogo è fermo all'ultimo import «ok». Causa non ancora accertata.",
+      },
+    });
+    if (appese.count) console.log(`[import ${n.nome}] chiuse ${appese.count} righe rimaste «in corso».`);
+  } catch {
+    // Se non riesce, si prosegue: è pulizia, non il lavoro.
+  }
   let traccia: { id: string } | null = null;
   try {
     traccia = await prisma.importCollezioni.create({
