@@ -161,11 +161,31 @@ export function PagamentoMese({
 
         {registrato && (
           <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="muted" style={{ fontSize: 12.5 }}>
-              {bonificoImporto! > 0 ? "Pagato al partner" : "Incassato dal partner"}{" "}
-              {euro(Math.abs(bonificoImporto!))}
-              {bonificoData ? ` il ${dataIt(bonificoData)}` : ""}
-            </span>
+            {/* ⭐ 08/09/2026 (richiesta dell'utente): da qui si va alla
+                RICHIESTA su Transactions, che è dove quel pagamento è stato
+                autorizzato e dove vive la sua prova. Il link c'è solo se il mese
+                porta un riferimento: senza, non si sa dove mandare la persona, e
+                un link che non porta da nessuna parte è peggio del testo. */}
+            {richiestaRif ? (
+              <a
+                className="muted"
+                style={{ fontSize: 12.5 }}
+                href={`https://deluxy-transactions.vercel.app/richieste/${encodeURIComponent(richiestaRif)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Apri la richiesta ${richiestaRif} su Deluxy Transactions`}
+              >
+                {bonificoImporto! > 0 ? "Pagato al partner" : "Incassato dal partner"}{" "}
+                {euro(Math.abs(bonificoImporto!))}
+                {bonificoData ? ` il ${dataIt(bonificoData)}` : ""} ↗
+              </a>
+            ) : (
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                {bonificoImporto! > 0 ? "Pagato al partner" : "Incassato dal partner"}{" "}
+                {euro(Math.abs(bonificoImporto!))}
+                {bonificoData ? ` il ${dataIt(bonificoData)}` : ""}
+              </span>
+            )}
             <form action={azzera}>
               <BottoneInvio
                 className="btn small danger"
