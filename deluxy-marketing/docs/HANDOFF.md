@@ -34,6 +34,46 @@
 > eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
 > approvate, quindi non sono nemmeno partite.
 
+> ⏱️ **08/09 pomeriggio — META E CTR (deployato, vedi in fondo al blocco).**
+> · 🔴 **«Avevo chiesto all'app di metterla in pausa ma su Meta è rimasta sempre
+>   attiva»** (segnalazione dell'utente). Misurato: la `pausa_campagna` su
+>   «[Palloncini] - AWARENESS» è stata **creata e approvata il 04/09 alle 13:07**
+>   e ha `eseguitaIl: null` — non è mai partita. La campagna è `ENABLED` su Meta
+>   (riletto dalla sync dell'08/09 alle 14:07) e dal giorno dell'approvazione ha
+>   speso **50,88 € con zero ricavi** (8,58 · 7,71 · 13,10 · 12,18 · 9,31).
+>   **Perché**: su Meta esegue l'app, e fino al 04/09 **alle 15:45** la regola era
+>   che qualcuno premesse «Esegui adesso». Quell'approvazione è arrivata **2h38m
+>   prima** che la regola nuova entrasse in vigore, e la regola nuova vale solo
+>   per le approvazioni successive. Poi nessuno ha premuto, perché «Esegui
+>   adesso» le manda **tutte insieme** e avrebbe portato con sé anche la pausa di
+>   «[Opera] ATC - VOLUME» approvata il 26/08.
+>   ✅ **Fatto**: `eseguiUnaSuMeta` + bottone **«Esegui questa su Meta»** su ogni
+>   riga Meta approvata, con accanto **da quanto è ferma** (arancione oltre le
+>   24 ore). Una decisione presa nell'app deve poter arrivare sulla piattaforma
+>   da sola, senza portarsi dietro decisioni che non si sono prese. ⚠️ Non è un
+>   cron: preme sempre una persona — la scelta del 23/08 resta intera.
+>   🔴 **Le due pause sono ancora lì**: l'utente non ha ancora detto quale
+>   mandare. Adesso si possono mandare separatamente.
+> · 🔴 **Su una campagna META comparivano sette riquadri di GOOGLE** (segnalati
+>   dall'utente uno dopo l'altro sulla stessa pagina): parole cercate, keyword,
+>   «Ideali che qui mancano» — che proponeva di portare keyword di una campagna
+>   Google **dentro una campagna Meta**, col bottone —, «Dove finisce la spesa»,
+>   «Cosa vede chi cerca», «Copertura delle ricerche», «Parole escluse» e
+>   «Chiedi i dati Google di oggi». Uscivano vuoti e spiegavano come riempirli
+>   «con AZIONE = "diagnosi"»: istruzioni per una piattaforma che non è quella
+>   che si sta guardando. Ora sono dietro `canale === "google_ads"`. E il
+>   riquadro del guardrail dice **chi esegue davvero**: «Chiedi all'app di
+>   eseguire (scrittura su Meta)» invece di nominare Google Ads.
+>   Verificato a schermo: campagna Meta **18 riquadri e nessuno dei sette**;
+>   campagna Google **tutti e 24** (nessuna regressione).
+>   ⚠️ Resta da decidere: su Meta la scheda mostra «Gruppi di annunci (0)» —
+>   su Meta si chiamano **ad set**, e lo zero è vero ma il nome è di Google.
+> · 🆕 **CTR** sulle card delle campagne (accanto al ROAS) e nella tabella delle
+>   finestre «Come sta andando» (accanto ai click). ⚠️ Click e comparse si
+>   sommano sul periodo e il rapporto si fa **una volta**: la media delle
+>   percentuali giornaliere darebbe a un giorno con 3 viste lo stesso peso di
+>   uno con 3.000. Senza comparse è «—», non zero.
+>
 > ⏱️ **08/09/2026 — GIORNATA DI CORREZIONI, PUSHATA E DEPLOYATA
 > (`deluxy-marketing-eyqtxkvc7`, Ready, alias verificato, `/api/health` ok).**
 > Dodici difetti trovati e chiusi, quasi tutti nati da una schermata dell'utente
