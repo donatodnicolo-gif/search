@@ -740,3 +740,15 @@ tbody tr.riga-link:hover { background: var(--fill); }
   .riga-chips-scorri::-webkit-scrollbar { display: none; }
   .riga-chips-scorri > * { flex: 0 0 auto; }
 }
+
+/* La finestra LARGA: quando dentro c'è un documento da leggere (il PDF della
+   fattura da Fatture in Cloud) e non solo un elenco di campi. Stesso tetto
+   d'altezza e stesse regole del §9: cambia solo la larghezza. */
+.modal-box.larga { width: 940px; }
+/* Il documento incorporato: alto quanto basta per leggere l'intestazione e le
+   righe senza scorrere la finestra, ma mai più della viewport. */
+.doc-fic {
+  width: 100%; height: min(58dvh, 620px); min-height: 320px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-m, 12px);
+  background: var(--fill);
+}

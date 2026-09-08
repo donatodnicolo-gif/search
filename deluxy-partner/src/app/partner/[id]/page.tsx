@@ -13,6 +13,7 @@ import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
 import { nettoDaChiedere } from "@/lib/saldo-netto";
 import { fattureFicDelPartner } from "@/lib/fic-partner";
+import { FatturaLink } from "@/components/FatturaModale";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
 import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
@@ -791,9 +792,34 @@ export default async function PartnerDetail({
                       <td style={{ width: 170 }} className="muted">Servizi a fatturazione</td>
                       <td>
                         {f.tipologia.nome} ·{" "}
-                        <Link href={`/fatture/${f.id}`} style={{ color: "var(--blue)" }} title="Apri il record della fattura">
+                        {/* 08/09/2026: il numero apre una FINESTRA col documento
+                            di Fatture in Cloud, non la pagina — nella scheda le
+                            fatture si guardano una dopo l'altra e cambiare
+                            pagina fa perdere il posto nei dodici mesi. Stessa
+                            deroga al §8 già approvata per i movimenti bancari di
+                            questa scheda. La pagina intera resta, dal piede
+                            della finestra. */}
+                        <FatturaLink
+                          fattura={{
+                            id: f.id,
+                            numero: f.numero,
+                            anno: f.anno,
+                            mese: f.mese,
+                            tipologia: f.tipologia.nome,
+                            imponibile: f.imponibile,
+                            aliquotaIva: f.aliquotaIva,
+                            scadenza: f.scadenza,
+                            emissione: f.emissione,
+                            pagata: f.pagata,
+                            dataPagamento: f.dataPagamento,
+                            compensata: f.compensata,
+                            incassato: f.incassato,
+                            descrizione: f.descrizione,
+                            partnerNome: partner.nome,
+                          }}
+                        >
                           fatt. {f.numero ?? "s.n."}
-                        </Link>
+                        </FatturaLink>
                       </td>
                       <td>scad. {dataIt(f.scadenza)}</td>
                       <td>

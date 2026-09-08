@@ -73,6 +73,33 @@ cambiando pagina», poi «confermo deroga»).
   `ApriDettaglio`), portale su `document.body` perché dentro un `<td>` la
   finestra la taglierebbe l'overflow della tabella.
 
+**Estesa l'08/09/2026 — anche le FATTURE della scheda partner si aprono in una
+finestra, col documento di Fatture in Cloud dentro.** Chiesta dall'utente: «al
+click su fattura non aprire la pagina ma un pop-up con anche la schermata di FIC
+così da non cambiare pagina».
+
+- **Dove vale**: il numero della fattura nelle righe «Servizi a fatturazione»
+  dei dodici mesi della scheda partner. Negli elenchi
+  (`/fatture`, `/scadenzario`) la riga continua a portare alla pagina.
+- **Perché**: stesso motivo dei movimenti — le fatture si guardano mese per mese
+  per controllare che i conti tornino, e cambiare pagina fa perdere il posto nei
+  dodici mesi.
+- ⚠️ **Cosa c'è dentro, e cosa no**: la schermata di Fatture in Cloud **non è
+  incorporabile** — `secure.fattureincloud.it` risponde `X-Frame-Options: deny`
+  (verificato l'08/09/2026), ed è la sua difesa contro il clickjacking: non si
+  aggira. Nella finestra c'è quindi il **documento** come lo stampa FIC (il PDF
+  su `compute.fattureincloud.it`, che quella restrizione non ce l'ha), cioè la
+  cosa che si va davvero a controllare. Per modificare, incassare o mandare allo
+  SDI c'è «Apri su Fatture in Cloud ↗», che apre FIC in una scheda nuova: quelle
+  sono decisioni e si prendono a casa loro.
+- **A che condizioni**: sola lettura, stesse regole del §9 della deroga sopra, e
+  la scheda intera (`/fatture/[id]`) resta raggiungibile dal piede.
+- **Implementazione**: `src/components/FatturaModale.tsx` (`FatturaLink`) e la
+  rotta interna `GET /api/fic/documento`. Il documento si chiede **all'apertura
+  della finestra**, non al caricamento della pagina: una scheda ha decine di
+  fatture su dodici mesi, e l'URL del PDF è firmato — non deve stare nell'HTML
+  di ogni riga.
+
 Se un domani si decide che questo schema vale per **tutti** gli elenchi che si
 scorrono per confronto, allora smette di essere una deroga e va scritto nel
 Libro (`deluxy-design-system/LIBRO-UX-UI.md`), non qui.

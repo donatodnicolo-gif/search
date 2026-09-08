@@ -1086,6 +1086,64 @@ export async function ficUrlFattura(numero: string | null, anno?: number): Promi
   }
 }
 
+// IL DOCUMENTO DI FIC DA GUARDARE SENZA CAMBIARE PAGINA (08/09/2026).
+//
+// ⚠️ La schermata di Fatture in Cloud NON è incorporabile: `secure.fattureincloud.it`
+// risponde con `X-Frame-Options: deny` (verificato l'08/09/2026), e nessuna
+// intestazione nostra può aggirarlo — è la loro difesa contro il clickjacking, ed
+// è giusta. Quello che si può mostrare è il DOCUMENTO: FIC lo pubblica su
+// `compute.fattureincloud.it/doc/<jwt>` come `application/pdf`, senza
+// `X-Frame-Options`. È la fattura come la stampa FIC, cioè quello che si va a
+// controllare; per tutto il resto (modificare, incassare, inviare allo SDI)
+// resta il link che apre FIC in una scheda nuova.
+//
+// ⚠️ L'URL del PDF è firmato: chi ce l'ha apre il documento senza password. Per
+// questo NON si mette nell'HTML di ogni riga di ogni elenco: si chiede quando
+// una persona apre quella finestra, dietro la sessione dell'app.
+export type FicDocumento = {
+  id: number;
+  numero: string;
+  data: string | null;
+  cliente: string | null;
+  totale: number | null;
+  urlPdf: string | null; // il documento incorporabile
+  urlFic: string; // la schermata di FIC, da aprire in una scheda nuova
+};
+
+/** Il documento FIC di una fattura, dal suo numero interno («141/2026»).
+ *  Una sola chiamata di rete. `null` se FIC non è collegato o se il numero non
+ *  trova UN solo documento: meglio dire «non l'ho trovata» che mostrarne un'altra. */
+export async function ficDocumentoDaNumero(
+  numero: string,
+  annoFallback?: number
+): Promise<FicDocumento | null> {
+  const { collegato, companyId } = await ficStato();
+  if (!collegato || !companyId) return null;
+  const m = numero.trim().match(/^(\d+)\s*(?:\/\s*(\d{4}))?/);
+  if (!m) return null;
+  const num = parseInt(m[1]);
+  const anno = m[2] ? parseInt(m[2]) : annoFallback;
+  const filtri = [`number = ${num}`];
+  if (anno) filtri.push(`date >= '${anno}-01-01'`, `date <= '${anno}-12-31'`);
+  const r = await ficFetch<{
+    data: { id: number; number?: number; date?: string; url?: string | null; amount_gross?: number; entity?: { name?: string | null } }[];
+  }>(
+    `/c/${companyId}/issued_documents?type=invoice&fields=id,number,date,url,amount_gross,entity` +
+      `&per_page=5&q=${encodeURIComponent(filtri.join(" and "))}`
+  );
+  if (r.data.length !== 1) return null;
+  const d = r.data[0];
+  return {
+    id: d.id,
+    numero: `${d.number}${d.date ? `/${d.date.slice(0, 4)}` : ""}`,
+    data: d.date ?? null,
+    cliente: d.entity?.name?.trim() || null,
+    totale: d.amount_gross ?? null,
+    urlPdf: d.url ?? null,
+    urlFic: `https://secure.fattureincloud.it/invoices/view/${d.id}`,
+  };
+}
+
 // A CHI era intestata una fattura già emessa, dato il numero interno
 // ("460/2026"). Se l'app ha già fatturato le commissioni a un partner,
 // l'intestatario di quella fattura è un FATTO: non una somiglianza di nomi.
