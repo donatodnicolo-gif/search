@@ -16,9 +16,13 @@
 > partner su 297 avevano `false` **senza che nessuno avesse deciso niente**.
 > Prima di risincronizzare li ho portati a `NULL` («ancora da valorizzare»),
 > altrimenti il registro avrebbe ricevuto 283 «no» spacciati per decisioni.
-> Dopo la conversione: **21 partner con una decisione vera, 8 agganciati al
-> registro** (`platformId`) e quindi scritti; **13 non hanno aggancio**, e per
-> loro le condizioni non arrivano a Finance finché qualcuno non li collega.
+> Dopo la conversione, misurato il 09/09 (criterio: compensazione decisa
+> **oppure** giorni di pagamento vendite impostati): **17 partner con una
+> condizione vera, 8 agganciati al registro** (`platformId`) e quindi scritti;
+> **9 senza aggancio** — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul,
+> Lops Angela, M.G.M. SRL, MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO
+> VIMERCATE, Taste 2.0 — e per loro le condizioni non arrivano a Finance
+> finché qualcuno non li collega.
 > ⚠️ Effetto collaterale voluto: **BOTTEGA LUNGARNO** ora dice «da
 > valorizzare» anche sulla piattaforma — il suo `false` era indistinguibile
 > dal default. I *tempi* invece sono passati (60 gg vendite, incasso a fine
