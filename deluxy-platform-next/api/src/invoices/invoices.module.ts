@@ -362,12 +362,61 @@ export class InvoicesService {
     const righe = await this.prisma.invoiceLine.findMany({
       where: { invoiceId: id },
       orderBy: { date: 'asc' },
-      include: { delivery: { select: { id: true, code: true } } },
+      include: {
+        delivery: {
+          select: {
+            id: true, code: true, productValue: true,
+            serviceType: { select: { pricingModel: true, name: true } },
+            // ⚠️ Le stesse colonne che legge `pending()`: il venduto si calcola con la
+            // STESSA funzione della fattura (`common/valore-prodotti.ts`), non con una
+            // somma rifatta qui. Due formule per lo stesso numero finiscono per
+            // litigare, e allora il dettaglio smentirebbe il documento.
+            products: {
+              select: {
+                quantity: true, price: true, withoutCommission: true,
+                productVariant: { select: { price: true, publicPrice: true } },
+                product: { select: { publicPrice: true, price: true } },
+              },
+            },
+          },
+        },
+      },
     });
-    return righe.map(({ delivery, ...r }) => ({
-      ...r,
-      deliveryCode: delivery?.code ?? null,
-    }));
+
+    /**
+     * ⭐ 08/09/2026 (regola utente: «mettimi anche gli importi del venduto in caso di
+     * servizi vendita»).
+     *
+     * Su un servizio di VENDITA la riga di fattura porta la QUOTA che tratteniamo, non
+     * quello che il cliente ha pagato: leggendo «13,75 €» non si capisce se è una
+     * consegna piccola o la commissione su un ordine da settanta. Qui accanto compare
+     * il VENDUTO, e quello che di conseguenza va girato al partner.
+     *
+     * ⚠️ Il venduto NON si conserva sulla riga di fattura: sta sulla consegna, ed è lì
+     * che si legge (Standard §7 — ogni dato ha una casa sola). Ricopiarlo avrebbe
+     * significato una colonna nuova, una migrazione, e 9.811 righe storiche vuote.
+     *
+     * ⚠️ Il DOVUTO è il netto: `venduto − quota CON IVA`. La commissione al partner
+     * viene fatturata con l'IVA, e mostrarne il lordo farebbe dire alla Fatturazione un
+     * numero che la scheda della consegna smentisce (correzione del 02/09).
+     */
+    return righe.map(({ delivery, ...r }) => {
+      const vendita = (delivery?.serviceType?.pricingModel ?? '') === 'VENDITA';
+      const venduto = delivery
+        ? calcolaValoreProdotti(delivery.products as any, delivery.productValue)
+        : 0;
+      return {
+        ...r,
+        deliveryCode: delivery?.code ?? null,
+        servizio: delivery?.serviceType?.name ?? null,
+        // Fuori dalle vendite questi due numeri non esistono: il denaro va dal partner a
+        // noi, e mostrare uno zero farebbe sembrare che si sia venduto e non incassato.
+        venduto: vendita ? Math.round(venduto * 100) / 100 : null,
+        dovutoAlPartner: vendita
+          ? Math.max(0, Math.round((venduto - conIva(r.amount)) * 100) / 100)
+          : null,
+      };
+    });
   }
 
   /**

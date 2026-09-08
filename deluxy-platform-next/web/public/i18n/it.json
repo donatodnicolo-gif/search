@@ -572,7 +572,10 @@
       "regole": "Regole",
       "openDelivery": "Apri la consegna in una nuova scheda",
       "delivery": "Consegna",
-      "deliveryOpen": "Apri la consegna in una scheda nuova"
+      "deliveryOpen": "Apri la consegna in una scheda nuova",
+      "venduto": "Venduto",
+      "dovuto": "Da girare al partner",
+      "riepilogoVendite": "Totale venduto {{v}} € · da girare {{d}} €"
     },
     "noLines": "Nessuna consegna da fatturare in questa fattura.",
     "action": {

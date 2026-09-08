@@ -17,6 +17,13 @@ interface InvoiceLine {
   deliveryId?: string | null;
   /** Il NUMERO della consegna: è quello che le persone leggono e si scambiano. */
   deliveryCode?: number | null;
+  /** Il servizio della consegna, per capire di che riga si tratta. */
+  servizio?: string | null;
+  /** ⭐ 08/09/2026: solo sui servizi di VENDITA. `null` altrove: fuori dalle vendite
+   *  questi due numeri non esistono, e uno zero farebbe sembrare che si sia venduto
+   *  senza incassare. */
+  venduto?: number | null;
+  dovutoAlPartner?: number | null;
 }
 interface Invoice {
   id: string;
@@ -480,6 +487,16 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           <th class="num">{{ 'invoices.line.delivery' | translate }}</th>
                           <th>{{ 'invoices.line.recipient' | translate }}</th>
                           <th>{{ 'invoices.line.description' | translate }}</th>
+                          <!-- ⭐ 08/09/2026 (regola utente): sui servizi di VENDITA la riga porta
+                               la QUOTA che tratteniamo, non quello che il cliente ha pagato.
+                               Le due colonne compaiono SOLO se la fattura ha almeno una
+                               vendita: su una fattura di sole consegne sarebbero due colonne
+                               di trattini (Libro §8 v2.2: una colonna è un attributo della
+                               popolazione, non di una riga). -->
+                          @if (haVendite()) {
+                            <th class="num">{{ 'invoices.line.venduto' | translate }}</th>
+                            <th class="num">{{ 'invoices.line.dovuto' | translate }}</th>
+                          }
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
                         </tr></thead>
                         <tbody>
@@ -505,11 +522,28 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               </td>
                               <td>{{ l.recipient }}</td>
                               <td class="muted">{{ l.description || '—' }}</td>
+                              @if (haVendite()) {
+                                <td class="num">
+                                  @if (l.venduto != null) { {{ l.venduto | number: '1.2-2' }} € }
+                                  @else { <span class="muted">—</span> }
+                                </td>
+                                <td class="num">
+                                  @if (l.dovutoAlPartner != null) { <b>{{ l.dovutoAlPartner | number: '1.2-2' }} €</b> }
+                                  @else { <span class="muted">—</span> }
+                                </td>
+                              }
                               <td class="num">{{ l.amount | number: '1.2-2' }} €</td>
                             </tr>
                           }
                         </tbody>
                       </table>
+                      @if (haVendite()) {
+                        <p class="muted mini riepilogo-vendite">
+                          {{ 'invoices.line.riepilogoVendite' | translate: {
+                               v: (vendutoTotale() | number: '1.2-2'),
+                               d: (dovutoTotale() | number: '1.2-2') } }}
+                        </p>
+                      }
                     } @else { <span class="muted">{{ 'invoices.noLines' | translate }}</span> }
                   </td>
                 </tr>
@@ -561,6 +595,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       /* ⭐ 08/09/2026 — il numero della consegna: si legge come un numero (cifre a passo
          fisso) e si vede che e' cliccabile (sottolineatura leggera), senza il blu da link
          che nel documento stonerebbe. */
+      .riepilogo-vendite { margin: 8px 2px 0; font-variant-numeric: tabular-nums; }
       .link-consegna {
         color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums;
         border-bottom: 1px solid var(--hairline-strong); padding-bottom: 1px;
@@ -932,6 +967,26 @@ export class InvoicesListComponent {
   private caricaTotaliPending(): void {
     this.http.get<{ totali: any }>(`${environment.apiUrl}/invoices/pending`)
       .subscribe({ next: (d) => this.pendingTotals.set(d.totali ?? null), error: () => {} });
+  }
+
+  /**
+   * ⭐ 08/09/2026 — La fattura aperta ha almeno una riga di VENDITA?
+   *
+   * Decide se mostrare le due colonne del venduto. Su una fattura di sole consegne a
+   * prezzo fisso sarebbero due colonne di trattini per ogni riga.
+   */
+  haVendite(): boolean {
+    return this.righe().some((l) => l.venduto != null);
+  }
+
+  /** Il venduto totale della fattura: la somma di quello che abbiamo incassato per lui. */
+  vendutoTotale(): number {
+    return this.righe().reduce((s, l) => s + (l.venduto ?? 0), 0);
+  }
+
+  /** Quello che di quel venduto gli va girato, al netto della nostra quota con IVA. */
+  dovutoTotale(): number {
+    return this.righe().reduce((s, l) => s + (l.dovutoAlPartner ?? 0), 0);
   }
 
   /** Le righe della fattura aperta: si chiedono al momento, non prima. */

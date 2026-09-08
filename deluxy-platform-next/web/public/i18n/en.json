@@ -572,7 +572,10 @@
       "regole": "Rules",
       "openDelivery": "Open the delivery in a new tab",
       "delivery": "Delivery",
-      "deliveryOpen": "Open the delivery in a new tab"
+      "deliveryOpen": "Open the delivery in a new tab",
+      "venduto": "Sold",
+      "dovuto": "Due to partner",
+      "riepilogoVendite": "Total sold {{v}} € · due {{d}} €"
     },
     "noLines": "No billable deliveries in this invoice.",
     "action": {
