@@ -422,7 +422,13 @@ export function FormProdottoNuovo({
             <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
               {negozi.map((n) => (
                 <option key={n.id} value={n.id}>
-                  {n.nome} — {n.dominio}
+                  {/* ⭐ 08/09/2026 (utente): solo il nome del negozio. Il dominio
+                      myshopify non dice niente a chi compila — «Flowers» e
+                      «fb72b1-2.myshopify.com» sono la stessa cosa, e il secondo
+                      allunga ogni riga della tendina senza distinguere niente:
+                      i quattro nomi sono già diversi fra loro. Resta «(solo
+                      lettura)», che invece cambia cosa si può fare. */}
+                  {n.nome}
                   {n.puoScrivere ? "" : " (solo lettura)"}
                 </option>
               ))}
