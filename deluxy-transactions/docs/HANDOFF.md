@@ -45,6 +45,12 @@ bloccava il salvataggio.
   lascia un fornitore senza soldi e Finance convinta che il mese sia chiuso — ed
   è lo stesso abuso che le app di origine hanno via API dal 05/09, dove il
   secondo fattore non c'è mai stato.
+- ✅ **Deploy 08/09 (10:00)**: `lxj1hheij` (`dpl_GLf4Q8WQGK5xQ8pihAmywnpbUTBQ`),
+  Ready, ed è quello che serve `deluxy-transactions.vercel.app`; health ok,
+  `POST …/pagata-fuori` senza firma risponde 401. Pubblicato **cherry-pick su un
+  worktree pulito di `origin/scout-ui`** (`f68892e4..07553b10`): in locale c'erano
+  16 commit non pushati di altre sessioni, già su origin con SHA diversi —
+  spingere il branch li avrebbe duplicati.
 
 ## 05/09/2026 — «Se ho messo pagata nel Customer Service, aggiorna anche Transactions»
 
