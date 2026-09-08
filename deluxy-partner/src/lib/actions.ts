@@ -62,7 +62,12 @@ function partnerData(fd: FormData) {
     pdrDebito: s(fd, "pdrDebito"),
     crediti2025: n(fd, "crediti2025") ?? 0,
     ggPagamento: Math.round(n(fd, "ggPagamento") ?? 0),
-    compensazione: b(fd, "compensazione"),
+    // I tre stati della compensazione arrivano da un solo campo: "" = mai
+    // deciso, "si"/"no" = qualcuno ha scelto. `compensazione` resta il booleano
+    // che usa il motore di calcolo (mai deciso si comporta come «no»);
+    // `compensazioneDecisa` è quello che distingue le due cose.
+    compensazione: String(fd.get("compensazioneScelta") ?? "") === "si",
+    compensazioneDecisa: ["si", "no"].includes(String(fd.get("compensazioneScelta") ?? "")),
     commissioniADetrazione: b(fd, "commissioniADetrazione"),
     addebitoDiretto: b(fd, "addebitoDiretto"),
     cartaCreditoApp: b(fd, "cartaCreditoApp"),

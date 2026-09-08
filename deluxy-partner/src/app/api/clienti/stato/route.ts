@@ -31,6 +31,7 @@ function risposta(
   p: {
     id: string; nome: string; ragioneSociale: string | null; anagraficaId: string | null;
     clienteAnno: string | null; attivo: boolean; ggPagamento: number; compensazione: boolean;
+    compensazioneDecisa: boolean;
   },
   s: SchedaCredito,
   a?: SchedaAnalisi
@@ -71,7 +72,10 @@ function risposta(
       fattureAperte: s.fattureAperte,
       fattureScadute: s.fattureScadute,
     },
-    condizioni: { giorniPagamento: p.ggPagamento, compensazione: p.compensazione },
+    // `compensazioneDecisa` false = nessuno ha mai scelto: `compensazione`
+    // vale false perché è il valore di partenza, non perché si sia deciso di no
+    // (08/09/2026). Chi legge non deve scambiare le due cose.
+    condizioni: { giorniPagamento: p.ggPagamento, compensazione: p.compensazione, compensazioneDecisa: p.compensazioneDecisa },
     url: `https://deluxy-partner.vercel.app/partner/${p.id}`,
   };
 }
@@ -87,7 +91,7 @@ export async function GET(req: NextRequest) {
 
   const select = {
     id: true, nome: true, ragioneSociale: true, anagraficaId: true,
-    clienteAnno: true, attivo: true, ggPagamento: true, compensazione: true,
+    clienteAnno: true, attivo: true, ggPagamento: true, compensazione: true, compensazioneDecisa: true,
   } as const;
 
   // ---- un cliente solo ----
