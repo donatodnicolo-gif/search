@@ -108,10 +108,47 @@ consegna, le occasioni e i tag da **una sorgente sola**. Niente codice scritto:
 
 **Da fare (in ordine):** l'utente prova il multi-brand su un prodotto (meglio
 con «dal» domani); push & deploy **a comando** (con la tabella già in prod il
-deploy non ha migrazioni); domattina `/collezioni` (durata di Gifts: oggi dal
-PC 569 s → da guardare su Vercel) e «Rotazione Fiori» dell'08/09; correggere
-`canaleVendite` «BUsiness»; decidere se costruire il modulo descrizione secondo
+deploy non ha migrazioni); decidere se costruire il modulo descrizione secondo
 l'architettura; il resto sotto (pomeriggio e mattina).
+> ⚠️ Qui c'era ancora scritto «correggere `canaleVendite` BUsiness» **dopo che
+> la voce ✅ in cima diceva che era stato fatto alle 16:21**: il documento si
+> contraddiceva a quattro righe di distanza. Depennata l'08/09 insieme ai due
+> controlli di stanotte, verificati sotto. È il guasto già noto di questo file —
+> una riga che resta scritta dopo essere diventata falsa.
+
+## 08/09/2026 mattina — le tre verifiche di stanotte: tutte passate
+
+Nessun codice toccato: solo misure sul database, alle 06:47 UTC.
+
+✅ **Il cron del negozio nuovo ha girato da solo**: `Business Deluxy 04:15:07 ·
+ok · durata 196 s`. È la prima notte con la sua riga in `vercel.json` (aggiunta
+il 07/09 mattina, deployata alle 10:47): prima il negozio si sarebbe fermato
+all'unico import a mano del 07/09.
+
+✅ **«Rotazione Fiori» è scattata l'08/09 alle 05:20** («3 collezioni, 3 mandate
+a Shopify»), esattamente il giorno dovuto. **È la prova sul campo della
+correzione dello slittamento**: col vecchio `Math.floor` sui millisecondi la
+regola avrebbe contato 6 giorni e sarebbe slittata al 09/09, come le era già
+successo il 31/08. Prossima attesa: 15/09. «Best Sellers» (mensile, ultima
+11/08) è dovuta il 10/09.
+
+✅ **Gifts in 440 s** (03:10), Flowers 97, Cake 46: tutti sotto gli 800 del
+limite nuovo, e Gifts resta sopra i 300 del vecchio — cioè senza la correzione
+del 06/09 sarebbe morto anche stanotte. ⚠️ Dal PC lo stesso import ne ha messi
+**610** il 07/09 pomeriggio (con le varianti e la mappa dei negozi in più): su
+Vercel resta margine, ma è il numero da guardare quando si aggiunge lavoro
+all'import.
+
+✅ **`canaleVendite` = `business.deluxy.it` funziona davvero**: in `Vendita` ci
+sono ora **4 righe** con quel canale (erano 0 il 07/09 sera). L'ambito del
+negozio nuovo non è più solo «catalogo»: comincia ad avere venduto suo.
+
+**Contato il 08/09 alle 06:47**: 5.057 prodotti (**1.259 ACTIVE**), 419
+collezioni, 7.331 righe di venduto, **15.383 varianti** (erano 11.067 prima che
+l'import leggesse oltre la decima), **148 varianti ACTIVE senza sku** su 1.553
+totali, 1.890 `DA_CLASSIFICARE`, **5.731 righe in `PubblicazioneNegozio`**.
+Venduto vivo: ultimo giro 06:45 `ok`, **0 fallimenti in 48 ore**. Quattro negozi
+tutti con verifica `ok`.
 ## 07/09/2026 pomeriggio — punto di ripresa del pomeriggio
 
 **Come stavano le cose alle 14:10, contate sul database e sul repo prima di
