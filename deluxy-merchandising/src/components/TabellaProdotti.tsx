@@ -27,6 +27,8 @@ export type RigaProdotto = {
   /** Quando il **negozio** dice che il prodotto è nato: vedi `dataNascita`. */
   creatoIlShopify?: Date | string | null;
   aggiornatoIl?: Date | string | null;
+  /** `custom.is_unique` del negozio: il pezzo che esiste una volta sola. */
+  pezzoUnicoShopify?: boolean | null;
   /** Dove sta, negozio per negozio, con lo stato che ha là. */
   pubblicazioni?: { negozio: string; statoShopify: string | null; handle: string | null; origine: string }[];
   collezione: { nome: string; margineTarget: number | null } | null;
@@ -124,7 +126,16 @@ export function TabellaProdotti({
                     <Miniatura url={p.immagine ?? null} />
                     <span>
                       <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">{p.nome}</Link>
-                      <div className="cella-sub">{p.codice}</div>
+                      <div className="cella-sub">
+                        {p.codice}
+                        {/* **Pezzo unico** (08/09/2026, richiesta dell'utente): sta
+                            accanto al codice e non in una colonna nuova, perché
+                            riguarda 425 prodotti attivi su 1.271 e una colonna
+                            vuota per due terzi delle righe allarga la tabella
+                            senza dire niente (Libro UX: la soglia si alza con le
+                            colonne). */}
+                        {p.pezzoUnicoShopify ? <span className="tag-unico" title="Pezzo unico: esiste in un solo esemplare (custom.is_unique sul negozio)">pezzo unico</span> : null}
+                      </div>
                     </span>
                   </div>
                 </td>

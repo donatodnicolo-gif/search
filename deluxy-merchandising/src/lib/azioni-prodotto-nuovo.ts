@@ -353,6 +353,23 @@ function vaiAllaScheda(id: string, avvisi: string[], okMessaggio: string): never
 
 export async function creaProdottoCompleto(fd: FormData) {
   const indietro = (errore: string): never => redirect(`/prodotti/nuovo?errore=${encodeURIComponent(errore)}`);
+  return creaProdotto(fd, indietro, null);
+}
+
+/**
+ * ⭐ 07/09/2026 (utente: «duplicare un prodotto da modifica importando gli stessi
+ * dati e rigenerare le SKU»). È la stessa creazione: il modulo arriva già
+ * compilato dalla pagina `/prodotti/[id]/duplica` col codice vuoto, quindi il
+ * codice nasce nuovo e le varianti prendono «-1», «-2»… da lui. Qui cambia solo
+ * dove si torna in caso di errore e la riga di cronaca, che dice da chi nasce.
+ */
+export async function duplicaProdottoCompleto(origineId: string, fd: FormData) {
+  const indietro = (errore: string): never => redirect(`/prodotti/${origineId}/duplica?errore=${encodeURIComponent(errore)}`);
+  return creaProdotto(fd, indietro, origineId);
+}
+
+async function creaProdotto(fd: FormData, indietro: (e: string) => never, origineId: string | null) {
+  const origine = origineId ? await prisma.prodotto.findUnique({ where: { id: origineId }, select: { nome: true, codice: true } }) : null;
   const m = await leggiModulo(fd, indietro);
   const vuolePubblicare = m.fase === "in_vendita";
 
@@ -491,7 +508,12 @@ export async function creaProdottoCompleto(fd: FormData) {
       prodottoId: p.id,
       da: "—",
       a: fase,
-      nota: [shopifyId ? `Creato su ${m.negozio.nome} (${handle ?? shopifyId}).` : "Prodotto creato.", varianti.length ? `${varianti.length} varianti (${varianti.map((v) => v.sku).join(", ")}).` : "", ...cronaca].filter(Boolean).join(" "),
+      nota: [
+        origine ? `Duplicato da «${origine.nome}» (${origine.codice}) con SKU nuovo ${codice}.` : "",
+        shopifyId ? `Creato su ${m.negozio.nome} (${handle ?? shopifyId}).` : "Prodotto creato.",
+        varianti.length ? `${varianti.length} varianti (${varianti.map((v) => v.sku).join(", ")}).` : "",
+        ...cronaca,
+      ].filter(Boolean).join(" "),
       origine: shopifyId ? "shopify" : "ui",
     },
   });
@@ -807,3 +829,4 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   const dove = doveEAndato(shopifyId ? m.negozio.nome : null, altri);
   vaiAllaScheda(id, avvisi, dove ? `Salvato qui e su ${dove}.` : "Modifiche salvate.");
 }
+

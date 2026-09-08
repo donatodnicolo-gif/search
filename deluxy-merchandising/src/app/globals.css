@@ -156,6 +156,10 @@ body:not(:has(.sidebar)) .velo-menu { display: none; }
 
 /* ---------- Contenuto ---------- */
 .main { flex: 1; min-width: 0; max-width: 1440px; margin: 0 auto; padding: 30px 24px 56px; }
+/* ⚠️ Questa media query stava PRIMA della riga qui sopra e non si applicava mai
+   (stessa specificità, vince l'ultima): misurato, a 375px il padding restava 24px
+   per lato = 12,8% della larghezza. Libro §10.6. */
+@media (max-width: 800px) { .main { padding: 24px 16px 56px; } }
 .page-head { margin-bottom: 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-title { font-size: 25px; font-weight: 650; letter-spacing: -0.022em; }
 .page-sub { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; max-width: 640px; }
@@ -250,7 +254,10 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 10px; border-radius: var(--radius-pill);
-  background: var(--fill); font-size: 12px; font-weight: 500; white-space: nowrap;
+  /* Libro §5: la pillola porta la tinta -soft del proprio stato, non solo il dot.
+     color-mix(currentColor 11%) e la ricetta dei token -soft; le pillole neutre
+     (categorie) restano grigie da sole, perche il loro currentColor e grigio. */
+  background: color-mix(in srgb, currentColor 11%, var(--fill)); font-size: 12px; font-weight: 500; white-space: nowrap;
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
@@ -259,8 +266,11 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .campo-modulo { display: flex; flex-direction: column; gap: 5px; }
 .campo-modulo.largo { grid-column: 1 / -1; }
 .campo-modulo label {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  /* Libro §4: label dei campi in sentence case, 12.5/500, text-secondary.
+     Erano 11px MAIUSCOLE in text-tertiary = 3,62:1, sotto WCAG 1.4.3 (4,5:1).
+     Il MAIUSCOLO 11px e il token «label», che vale per i titoli di sezione. */
+  font-size: 12.5px; font-weight: 500; letter-spacing: 0;
+  text-transform: none; color: var(--text-secondary);
 }
 .campo-modulo .obbligatorio { color: var(--gold-strong); }
 .campo-modulo input, .campo-modulo select, .campo-modulo textarea {
@@ -452,7 +462,9 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 }
 .prodotto-foto img { width: 100%; height: 100%; object-fit: cover; }
 .prodotto-intesta { flex: 1; min-width: 240px; }
-.prodotto-codice { font-size: 12px; letter-spacing: 0.06em; color: var(--text-tertiary); text-transform: uppercase; }
+/* Il codice è ciò che distingue due schede con lo stesso nome (a catalogo ci
+   sono quattro «Fragole Love»): da 3,33:1 a 4,66:1, e cifre tabellari. */
+.prodotto-codice { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-secondary); text-transform: uppercase; font-variant-numeric: tabular-nums; }
 .prodotto-nome { font-size: 26px; font-weight: 600; letter-spacing: -0.022em; margin: 3px 0 8px; }
 .prodotto-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
@@ -1383,4 +1395,56 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
   font-size: 10px;
   color: var(--text-tertiary);
   margin-left: 4px;
+}
+/* «pezzo unico» accanto al codice: una nota, non un badge di stato — deve
+   distinguersi dal codice senza competere col nome del prodotto. */
+.tag-unico {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(184, 150, 62, 0.12);
+  color: var(--oro, #b8963e);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+
+/* ---------- Focus visibile (WCAG 2.4.7 e 1.4.11, Libro §4) ----------
+   L'app aveva `outline: none` su ogni campo e un :focus che cambiava solo il
+   bordo, a 1,38:1 su bianco: chi naviga da tastiera non sapeva dove si trovava.
+   Bordo oro + anello `gold-soft`, come prescrive il Libro, e outline sui
+   comandi che non sono campi. */
+.campo-modulo input:focus-visible,
+.campo-modulo select:focus-visible,
+.campo-modulo textarea:focus-visible,
+.filtri input[type="search"]:focus-visible,
+.filtri select:focus-visible {
+  background: var(--surface);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.btn:focus-visible,
+.tab:focus-visible,
+a.badge:focus-visible,
+.icon-btn:focus-visible,
+.pill-opt:focus-visible,
+th a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------- Bersagli e zoom (Libro legge 4, §10.1 e §10.2) ----------
+   Il ritorno «← Prodotti» era alto 20px e le pillole 24: sotto i 44px del
+   tocco. Padding positivo + margine negativo allargano il bersaglio senza
+   spostare di un pixel il layout. */
+.torna-indietro { padding: 6px 8px; margin: -6px -8px 8px; }
+@media (pointer: coarse) {
+  .btn, .btn.small, .tab, .torna-indietro, .icon-btn, .pill-opt, a.badge { min-height: var(--touch-min); }
+}
+/* Sotto i 16px iOS ingrandisce la pagina appena si tocca un campo, e non torna
+   più indietro: i selettori vanno ribattuti per nome, per specificità. */
+@media (max-width: 800px) {
+  .campo-modulo input, .campo-modulo select, .campo-modulo textarea,
+  .filtri input[type="search"], .filtri select { font-size: 16px; }
 }

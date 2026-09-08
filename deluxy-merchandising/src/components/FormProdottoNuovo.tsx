@@ -402,7 +402,28 @@ export function FormProdottoNuovo({
           <div className="campo-modulo">
             <label htmlFor="codice">Codice / SKU</label>
             <div className="riga-ai" style={{ marginBottom: 0 }}>
-              <input id="codice" name="codice" value={sku} onChange={(e) => setSku(e.target.value)} inputMode="numeric" pattern="[0-9]{7}" title="Sette cifre" style={{ flex: 1 }} />
+              {/* ⚠️ **Il pattern non è più «sette cifre»** (08/09/2026, bloccava
+                  l'utente su un caso vero: «Magnum Rosé», SKU `LFAKLK`, non si
+                  poteva aggiungere a Business perché il browser rifiutava il
+                  campo). Le sette cifre sono la forma degli SKU **nuovi**, che
+                  l'app genera da sé; i 5.059 prodotti importati hanno SKU
+                  storici di ogni forma — lettere, misti, con trattini — e in
+                  modifica il pattern impediva **ogni** salvataggio, anche di
+                  cose che con lo SKU non c'entrano.
+                  E riscriverli d'ufficio sarebbe peggio del blocco: lo SKU lega
+                  il prodotto agli ordini, al magazzino e ai suoi gemelli sugli
+                  altri negozi (regola del 06/09: lo stesso prodotto su più siti
+                  condivide lo SKU). Quindi qui si accetta quello che c'è, e
+                  «Rigenera» resta a disposizione per sceglierlo. */}
+              <input
+                id="codice"
+                name="codice"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,39}"
+                title="Da 3 a 40 caratteri: lettere, cifre, punto, trattino. I nuovi nascono a sette cifre; quelli storici del negozio si tengono come sono."
+                style={{ flex: 1 }}
+              />
               {!modifica && (
                 <button type="button" className="btn btn-secondario small" onClick={() => setSku(skuCasuale())}>
                   Rigenera
