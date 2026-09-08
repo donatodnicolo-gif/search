@@ -440,8 +440,22 @@ model Partner {
 
   /// Invece di due bonifici in direzioni opposte, si fa la differenza: quello che il
   /// partner ci deve per le commissioni si scala da quello che noi gli dobbiamo per
-  /// le vendite. In FINANCE questo flag esiste già come `compensazione`.
-  compensazioneIncassi  Boolean           @default(false)
+  /// le vendite. In FINANCE il flag gemello `compensazione` diventerà una LETTURA
+  /// da qui: il proprietario del dato è questa app (decisione utente 08/09).
+  ///
+  /// ⭐ 08/09/2026 (regola dell'utente) — TRE STATI, non una spunta:
+  ///   null  = ancora da valorizzare (è il valore di partenza)
+  ///   true  = sì, si compensa
+  ///   false = no, due partite separate
+  /// Prima era `Boolean @default(false)`, e «no» era indistinguibile da «nessuno
+  /// l'ha mai scelto»: su 295 partner 283 erano false, cioè stavano sul default.
+  /// Nella migrazione quei 283 sono diventati NULL — che è la verità — e i 12
+  /// `true` sono rimasti: un true su un campo che parte da false è per forza la
+  /// scelta di qualcuno.
+  /// ⚠️ OBBLIGATORIO per i partner con servizi di VENDITA (`pricingModel =
+  /// 'VENDITA'`): lì la domanda non è rimandabile, perché decide se le
+  /// commissioni si scalano dagli incassi o si incassano a parte.
+  compensazioneIncassi  Boolean?
 
   /// Giorni per incassare dal partner sui servizi NON di vendita.
   /// null = non concordato (si incassa a vista fattura).

@@ -116,8 +116,53 @@ export class PartnersService {
     return partner;
   }
 
+  /**
+   * ⭐ 08/09/2026 (regola dell'utente) — LA COMPENSAZIONE È OBBLIGATORIA PER CHI VENDE.
+   *
+   * `compensazioneIncassi` ha tre stati e nasce `null` = «ancora da valorizzare».
+   * Per un partner che fa solo consegne va benissimo lasciarlo così: la domanda
+   * non lo riguarda. Ma se ha un servizio con `pricingModel = 'VENDITA'` allora
+   * quel campo decide come girano i soldi — se le commissioni che il partner ci
+   * deve si scalano dagli incassi che noi gli dobbiamo, o se restano due partite
+   * separate — e rimandarlo vuol dire non sapere quanto pagargli. Lì si ferma.
+   *
+   * ⚠️ Si guarda il RISULTATO del salvataggio, non solo ciò che arriva: chi
+   * aggiunge un servizio di vendita a un partner che ce l'ha `null` va fermato,
+   * e chi manda i soli contatti di un partner già a posto no.
+   */
+  private async esigiCompensazioneSeVende(
+    compensazioneInArrivo: boolean | null | undefined,
+    serviziInArrivo: { serviceTypeId: string }[] | undefined,
+    esistente?: {
+      compensazioneIncassi?: boolean | null;
+      services?: { serviceType?: { pricingModel?: string | null } | null }[];
+    } | null,
+  ) {
+    // Il valore che avrà DOPO il salvataggio: se la chiave non arriva, resta quello di prima.
+    const finale = compensazioneInArrivo !== undefined ? compensazioneInArrivo : esistente?.compensazioneIncassi ?? null;
+    if (finale !== null && finale !== undefined) return; // una scelta c'è: niente da chiedere
+
+    let vende: boolean;
+    if (serviziInArrivo) {
+      // I servizi arrivano col payload: contano quelli, non quelli in archivio.
+      const ids = [...new Set(serviziInArrivo.map((s) => s.serviceTypeId).filter(Boolean))];
+      if (!ids.length) return;
+      const tipi = await this.prisma.serviceType.findMany({ where: { id: { in: ids } }, select: { pricingModel: true } });
+      vende = tipi.some((t) => t.pricingModel === 'VENDITA');
+    } else {
+      vende = (esistente?.services ?? []).some((s) => s?.serviceType?.pricingModel === 'VENDITA');
+    }
+    if (!vende) return;
+
+    throw new BadRequestException(
+      'Questo partner ha servizi di VENDITA: «Compensa commissioni e vendite» non può restare da valorizzare. ' +
+        'Scegli sì o no — decide se le commissioni che ci deve si scalano dagli incassi che gli dobbiamo.',
+    );
+  }
+
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
     const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...scalar } = dto;
+    await this.esigiCompensazioneSeVende(scalar.compensazioneIncassi, services, null);
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
       data: {
@@ -643,6 +688,9 @@ export class PartnersService {
     }
     const prima = await this.findOne(id);
     const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...rest } = dto;
+    // Obbligatoria per chi vende: si controlla PRIMA di scrivere, e sul
+    // risultato — servizi in arrivo se ci sono, altrimenti quelli in archivio.
+    await this.esigiCompensazioneSeVende((rest as any).compensazioneIncassi, services, prima as any);
 
     /**
      * ⚠⚠ 08/09/2026 — SECONDA FALLA TROVATA DALL'AGENTE OSTILE: la porta accanto.

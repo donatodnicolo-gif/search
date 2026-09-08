@@ -570,7 +570,9 @@
       "amount": "Amount",
       "net": "Net",
       "regole": "Rules",
-      "openDelivery": "Open the delivery in a new tab"
+      "openDelivery": "Open the delivery in a new tab",
+      "delivery": "Delivery",
+      "deliveryOpen": "Open the delivery in a new tab"
     },
     "noLines": "No billable deliveries in this invoice.",
     "action": {

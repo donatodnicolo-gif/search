@@ -224,13 +224,22 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                  30 gg su una consegna del 3 settembre vuol dire il 30 ottobre, non il 3.
                  Ventisette giorni di differenza: si scrive, non si lascia dedurre. -->
             <p class="cond-nota">{{ 'partnerForm.condizioni.vendorDecorrenza' | translate }}</p>
-            <label class="check">
-              <input type="checkbox" name="compensazioneIncassi" [(ngModel)]="model.compensazioneIncassi" />
-              <span>
-                <b>{{ 'partnerForm.condizioni.compensazione' | translate }}</b>
-                <span class="cond-nota">{{ 'partnerForm.condizioni.compensazioneNota' | translate }}</span>
-              </span>
-            </label>
+            <!-- ⭐ 08/09/2026 (regola dell'utente): TRE STATI, non una spunta.
+                 Una casella sa dire solo sì e no, e «no» finiva per voler dire
+                 anche «nessuno l'ha mai scelto»: su 295 partner 283 stavano sul
+                 valore di partenza, non su una decisione. «Da valorizzare» ora
+                 esiste ed è il default — ma per chi ha servizi di VENDITA non è
+                 una risposta accettabile, e il salvataggio si ferma. -->
+            <label class="fld"><span>{{ 'partnerForm.condizioni.compensazione' | translate }}</span>
+              <select class="field" name="compensazioneIncassi" [(ngModel)]="model.compensazioneIncassi">
+                <option [ngValue]="null">{{ 'partnerForm.condizioni.compensazioneVuoto' | translate }}</option>
+                <option [ngValue]="true">{{ 'partnerForm.condizioni.compensazioneScegliSi' | translate }}</option>
+                <option [ngValue]="false">{{ 'partnerForm.condizioni.compensazioneScegliNo' | translate }}</option>
+              </select></label>
+            <p class="cond-nota">{{ 'partnerForm.condizioni.compensazioneNota' | translate }}</p>
+            @if (model.compensazioneIncassi == null && haServiziVendita()) {
+              <p class="cond-nota cond-obbligo">{{ 'partnerForm.condizioni.compensazioneObbligo' | translate }}</p>
+            }
           </div>
 
           <!-- LUI PAGA NOI -->
@@ -699,7 +708,9 @@ export class PartnerFormComponent {
     commissionPercent: null as number | null,
     // Condizioni di pagamento (08/09): due versi separati, tempi diversi.
     pagamentoVendorGiorni: null as number | null,
-    compensazioneIncassi: false,
+    // null = ancora da valorizzare (08/09): il partner nuovo nasce senza una
+    // decisione presa per lui, e se ha servizi di vendita il salvataggio la chiede.
+    compensazioneIncassi: null as boolean | null,
     incassoServiziGiorni: null as number | null,
     incassoServiziFineMese: false,
     isWarehouse: false,
@@ -814,6 +825,18 @@ export class PartnerFormComponent {
   }
   removeService(i: number): void { this.serviceRows.splice(i, 1); }
 
+  /**
+   * Il partner ha almeno un servizio di VENDITA fra quelli scelti ADESSO nel
+   * modulo (non quelli in archivio): serve a dire, mentre si compila, che
+   * «Compensa commissioni e vendite» sta per diventare obbligatorio. La stessa
+   * regola la ricontrolla il server prima di scrivere — questa è la cortesia di
+   * dirlo prima, non la difesa (08/09/2026).
+   */
+  haServiziVendita(): boolean {
+    const vendita = new Set(this.serviceTypes().filter((t) => t.pricingModel === 'VENDITA').map((t) => t.id));
+    return this.serviceRows.some((r) => r.serviceTypeId && vendita.has(r.serviceTypeId));
+  }
+
   /** Copia l'orario del primo giorno (lunedì) su tutti gli altri. */
   copyFirstDayToAll(): void {
     this.copiaGiornoSuTutti(this.openingHoursRows[0]);
@@ -892,7 +915,14 @@ export class PartnerFormComponent {
       ? null : Number(m.pagamentoVendorGiorni);
     payload['incassoServiziGiorni'] = m.incassoServiziGiorni === null || String(m.incassoServiziGiorni) === ''
       ? null : Number(m.incassoServiziGiorni);
-    payload['compensazioneIncassi'] = !!m.compensazioneIncassi;
+    // ⚠️ Stessa ragione della riga sopra, e vale doppio qui: `!!` trasformava
+    // «ancora da valorizzare» in un «no» — cioè inventava una decisione a ogni
+    // salvataggio, anche a chi apriva la scheda per cambiare un telefono.
+    // I tre stati si mandano per quello che sono.
+    payload['compensazioneIncassi'] =
+      m.compensazioneIncassi === null || m.compensazioneIncassi === undefined || String(m.compensazioneIncassi) === ''
+        ? null
+        : !!m.compensazioneIncassi;
     payload['incassoServiziFineMese'] = !!m.incassoServiziFineMese;
     // In modifica le collezioni vanno inviate SEMPRE, anche vuote: altrimenti
     // svuotarle non le cancellerebbe (l'API aggiorna solo le chiavi presenti).

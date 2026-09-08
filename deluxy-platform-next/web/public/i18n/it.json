@@ -570,7 +570,9 @@
       "amount": "Importo",
       "net": "Netto",
       "regole": "Regole",
-      "openDelivery": "Apri la consegna in una nuova scheda"
+      "openDelivery": "Apri la consegna in una nuova scheda",
+      "delivery": "Consegna",
+      "deliveryOpen": "Apri la consegna in una scheda nuova"
     },
     "noLines": "Nessuna consegna da fatturare in questa fattura.",
     "action": {

@@ -13,6 +13,10 @@ interface InvoiceLine {
   recipient: string;
   description?: string;
   amount: number;
+  /** ⭐ 08/09/2026: la consegna da cui viene la riga. Può mancare se è stata cancellata. */
+  deliveryId?: string | null;
+  /** Il NUMERO della consegna: è quello che le persone leggono e si scambiano. */
+  deliveryCode?: number | null;
 }
 interface Invoice {
   id: string;
@@ -468,6 +472,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                       <table class="lines">
                         <thead><tr>
                           <th>{{ 'invoices.line.date' | translate }}</th>
+                          <!-- ⭐ 08/09/2026 (regola utente): il NUMERO della consegna, cliccabile.
+                               La riga diceva destinatario, indirizzo e importo, ma non da DOVE
+                               veniva: per risalire alla consegna si cercava per data e nome, e
+                               su una riga come «. .» (destinatario vuoto nel legacy) non si
+                               risaliva affatto. -->
+                          <th class="num">{{ 'invoices.line.delivery' | translate }}</th>
                           <th>{{ 'invoices.line.recipient' | translate }}</th>
                           <th>{{ 'invoices.line.description' | translate }}</th>
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
@@ -476,6 +486,23 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           @for (l of righe(); track l.id) {
                             <tr>
                               <td>{{ l.date | date: 'dd/MM/yy' }}</td>
+                              <td class="num">
+                                @if (l.deliveryId) {
+                                  <!-- ⚠️ In una scheda NUOVA (regola utente: «apri un link in altra
+                                       pagina»): chi legge una fattura la sta controllando riga per
+                                       riga, e portarlo via dal documento gli farebbe perdere il
+                                       punto in cui era. L'attributo rel=noopener perche' una scheda aperta
+                                       con target=_blank puo' altrimenti toccare quella di
+                                       partenza (Libro Sicurezza). -->
+                                  <a class="link-consegna" [href]="'/deliveries/' + l.deliveryId"
+                                     target="_blank" rel="noopener"
+                                     [title]="'invoices.line.deliveryOpen' | translate">
+                                    {{ l.deliveryCode ?? '—' }}
+                                  </a>
+                                } @else {
+                                  <span class="muted">—</span>
+                                }
+                              </td>
                               <td>{{ l.recipient }}</td>
                               <td class="muted">{{ l.description || '—' }}</td>
                               <td class="num">{{ l.amount | number: '1.2-2' }} €</td>
@@ -531,6 +558,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
       .row-actions { display: flex; gap: 12px; align-items: center; }
       .detail-row > td { background: var(--fill); padding: 10px 24px; }
+      /* ⭐ 08/09/2026 — il numero della consegna: si legge come un numero (cifre a passo
+         fisso) e si vede che e' cliccabile (sottolineatura leggera), senza il blu da link
+         che nel documento stonerebbe. */
+      .link-consegna {
+        color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums;
+        border-bottom: 1px solid var(--hairline-strong); padding-bottom: 1px;
+      }
+      .link-consegna:hover { border-bottom-color: var(--text); }
       table.lines { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--surface); border-radius: var(--radius-m); overflow: hidden; }
       table.lines th, table.lines td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); }
       table.lines th { font-size: 11px; }

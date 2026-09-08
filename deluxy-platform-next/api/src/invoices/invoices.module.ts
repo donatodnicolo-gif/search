@@ -343,10 +343,31 @@ export class InvoicesService {
     if (user.role === Role.PARTNER && user.partnerId !== fattura.partnerId) {
       throw new NotFoundException('Fattura non trovata');
     }
-    return this.prisma.invoiceLine.findMany({
+    /**
+     * ⭐ 08/09/2026 (regola utente: «metti anche id della consegna con dettaglio,
+     * cliccando apri un link in altra pagina»).
+     *
+     * La riga di fattura dice destinatario, indirizzo e importo, ma non DA DOVE viene:
+     * per risalire alla consegna bisognava cercarla per data e nome, e su una riga come
+     * «. .» (destinatario vuoto nel legacy) non si risaliva affatto.
+     *
+     * ⚠️ Si porta il NUMERO (`code`) oltre all'id: il numero è quello che le persone
+     * leggono e si scambiano, l'id serve solo a costruire il collegamento.
+     *
+     * ⚠️ La consegna può non esserci più (`deliveryId` è `SetNull`: la fattura emessa
+     * sopravvive alla consegna cancellata), quindi la relazione è opzionale e chi legge
+     * deve reggere il vuoto. Misurato l'08/09: **9.924 righe su 9.924 ce l'hanno**,
+     * legacy comprese — ma è un fatto di oggi, non una garanzia.
+     */
+    const righe = await this.prisma.invoiceLine.findMany({
       where: { invoiceId: id },
       orderBy: { date: 'asc' },
+      include: { delivery: { select: { id: true, code: true } } },
     });
+    return righe.map(({ delivery, ...r }) => ({
+      ...r,
+      deliveryCode: delivery?.code ?? null,
+    }));
   }
 
   /**

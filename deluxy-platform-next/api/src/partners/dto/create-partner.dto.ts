@@ -207,10 +207,21 @@ export class CreatePartnerDto {
   @Max(365)
   pagamentoVendorGiorni?: number | null;
 
-  @ApiPropertyOptional({ default: false, description: 'Compensa le commissioni dovute dal partner con gli incassi delle vendite' })
+  // ⭐ 08/09/2026 (regola dell'utente): TRE STATI, non una spunta.
+  //   null = ancora da valorizzare · true = sì · false = no
+  // `@IsOptional()` salta la validazione su `undefined` E su `null`, quindi il
+  // «da valorizzare» passa; un valore, se c'è, deve essere un booleano vero.
+  // ⚠️ Il campo sta in QUESTA classe e non in una annidata: è la lezione del
+  // commento qui sopra — nella classe sbagliata `plainToInstance` lo scarta in
+  // silenzio, la risposta è 200 e la colonna resta com'era.
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Compensa le commissioni dovute dal partner con gli incassi delle vendite. null = ancora da valorizzare. OBBLIGATORIO se il partner ha servizi di VENDITA.',
+  })
   @IsOptional()
   @IsBoolean()
-  compensazioneIncassi?: boolean;
+  compensazioneIncassi?: boolean | null;
 
   @ApiPropertyOptional({ description: 'Giorni per incassare dal partner sui servizi NON di vendita. null = a vista fattura' })
   @IsOptional()
