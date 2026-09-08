@@ -23,6 +23,41 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 08/09 (19:55) — «Ho mandato questa mail dal telefono ed è successo questo»: tre copie nella conversazione
+
+Segnalazione dell'utente con schermata: la conversazione «DELUXYFLOWERS X MASPES | PROPOSTA
+COLLABORAZIONE» mostra **3 messaggi** per una mail sola — «Amministrazione» due volte e «Tu».
+Letto sul database (`messageId` `<e3aef109-…@deluxy.it>`, 6 righe in tutto):
+
+| utente | casella | direzione | uid |
+|---|---|---|---|
+| nicolo | amministrazione@ | **uscita** | 2173 |
+| nicolo | nicolo.donato@ | entrata | 154490 |
+| nicolo | cs@ | entrata | 26252 |
+| cs | cs@ | entrata | 26252 |
+| eleonora | eleonora.mannini@ | entrata | 4538 |
+| martina | martina.calia@ | entrata | 8160 |
+
+**Non è una duplicazione: sono copie vere.** La mail è partita da `amministrazione@` verso
+`maspespiantefiori@pecpostasicura.it` **con in copia `cs@`, `eleonora`, `martina` e
+`nicolo.donato@`**. Nicolò ha configurate tre di quelle caselle, quindi nella SUA vista la stessa
+mail esiste tre volte: una come inviata (`amministrazione@`) e due come ricevuta (`nicolo@` e
+`cs@`). L'app mostra **una riga per ogni copia in ogni casella**, ed è coerente con com'è fatta —
+ma per chi guarda è la stessa mail scritta tre volte. Il raggruppamento in conversazione funziona
+(stesso `thread`), è la pila dentro la conversazione a ripetersi.
+
+**Quanto è diffuso** (misurato ora, mail non cestinate): la stessa mail compare più volte nella
+vista dello stesso utente per **nicolò 1.327 mail (1.405 righe in più)**, **cs 405**, **renato
+123**, martina 1 — su 44.630 messaggi. **78 mail** compaiono tre o più volte. Non è un caso
+isolato.
+
+**Proposta, NON applicata** (è un cambiamento di interfaccia: va dal custode UX o almeno
+registrato): quando la vista è su «tutte le caselle», mostrare **una riga sola per Message-ID**
+con l'indicazione delle caselle in cui si trova; con una casella selezionata, lasciare tutto
+com'è — lì la copia di quella casella è esattamente ciò che si vuole vedere. Da decidere: quale
+copia fa da capofila (la inviata, immagino) e cosa succede alle azioni (archivia/cestina) — se
+agiscono su una copia o su tutte, ed è la stessa domanda dello svuota-cestino condiviso di ieri.
+
 ### 08/09 (18:25) — Verifica col custode: preso il `db.ts` comune, e l'EXPLAIN che mancava
 
 ⚠️ **Il pericolo più grosso della giornata era il mio deploy, non una query.** La sessione
