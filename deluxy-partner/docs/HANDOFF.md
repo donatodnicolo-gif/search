@@ -52,6 +52,20 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 08/09/2026 — «Fatturazione Applicativo»: si emette in un posto solo. E 44 fatture commissioni tornate a rientrare
+>
+> **1. Regola dell'utente: `/fatture` si chiama «Fatturazione Applicativo» e recepisce solo quello che arriva dalle nostre app; le fatture si emettono SOLO da `/registrazioni/fatture`.**
+> - `Sidebar.tsx` (etichetta), `/fatture` (titolo e sottotitolo, che ora dice dove si emette), `/fatture/nuova` **cancellata**, sostituita da un **308** in `next.config.ts` verso `/registrazioni/fatture/nuova` (un `redirect()` di pagina vale solo per chi apre l'app col browser: segnalibri, mail e altre app vogliono un rimando HTTP vero). `createFattura` resta in `actions.ts` senza chiamanti, con scritto perché non va ricollegata. Ripuntati anche i due ingressi laterali: il bottone della dashboard e quello della scheda partner.
+> - ⚠️ **Decisione dell'utente sull'elenco: «le lascia lì»** — le 673 righe già dentro (storico xlsx, import FIC, poche a mano) restano visibili; non si filtra e non si aggiunge un campo «origine». **Niente API di ingresso per ora** (`POST /api/v1/fatture` proposta e rimandata: si farà quando la prima app sarà pronta a mandarle).
+>
+> **2. 🔴 IL DIFETTO TROVATO DALL'UTENTE GUARDANDO UNA SCHEDA** («sei sicuro che queste due fatture siano di consegne?», 142 RESTAURANT giugno 2026). No: la 460/2026 era la **fattura commissioni**, registrata come servizio *e* già agganciata al mese come «Fatt. comm.» — **contata due volte**.
+> - **Misura del censimento**: **44 righe**, **12.061,07 € netti** (14.714,51 € ivati), **40 delle quali agganciate anche al mese** → doppio conteggio certo. Create dal **cron notturno** il 05/09 (40), 07/09 (1) e **08/09 (3, stamattina alle 06:15)**: stava ancora succedendo.
+> - **Riparate** con `scripts/ripara-commissioni-importate.mjs --esegui --attese 44` (prova a secco prima, backup in `scripts/backup-commissioni-importate-1788851829492.json`, fuori da git perché sono dati di produzione): cancellate 44, agganciate 2 mesi che non avevano il numero, **0 incassi da stornare, 0 riferimenti Pagamenti tolti**. **Sweep di controllo su tutte le 629 righe rimaste (2025+2026, nessuna finestra di data): 0 fatture commissioni ancora fra i servizi.**
+> - **Effetto misurato**: 142 RESTAURANT giugno 2026 da −1,21 € a **−5,79 €** da bonificare; agosto 2026 da −38,04 € a **−49,02 €**. La 459/2026 invece è **vera**: su FIC è «Servizi Deluxy Giugno 2026», 12 € — «Consegne» ci sta.
+> - ⚠️⚠️ **CAUSA NON TROVATA, e va detto.** Il filtro di `trovaFattureFicMancanti` **c'è dal 02/09** (commit `341644fd`, su origin e dentro l'ultimo deploy `cp4unalaj` del 05/09 00:20) e **funziona**: eseguito oggi sui dati veri di FIC riconosce 40 fatture commissioni e ne lascia passare **0**. Su FIC quei documenti hanno `visible_subject` «Commissioni Deluxy Agosto 2026» ecc., e `eFatturaCommissioni` risponde `true` su tutte. Eppure il cron le ha registrate come servizi tre volte in quattro giorni. Non so da quale strada siano passate.
+> - **Rimedio scelto — l'ULTIMA PORTA**: il controllo ora sta **anche dove la riga nasce**, in `creaFatturaImportata` (torna `null` invece di creare). Una guardia nel punto che *classifica* protegge quel punto; questa protegge il **dato**, chiunque chiami. Non è silenziosa: `importaFattureFicSicure` conta le fermate e le **scrive nel registro modifiche** («⚠️ N fermate all'ultima porta»), perché se scatta vuol dire che il filtro a monte ha ceduto e qualcuno deve poterlo vedere. La registrazione a mano da `/fatture/da-fic` risponde `?esito=commissioni`.
+> - **Da fare alla prossima sessione**: guardare il registro modifiche dopo il cron delle 06:15 — se compare «fermate all'ultima porta», la strada che perde è ancora aperta e va trovata.
+
 > ### ✅ 05/09/2026 (00:20) — in produzione IBAN dal registro e fine del 404: `cp4unalaj`
 >
 > Push del commit `c5714bfc` sopra origin col worktree temporaneo (`78f1e1ba`), poi deploy con build su Vercel.

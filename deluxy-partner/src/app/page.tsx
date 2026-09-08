@@ -91,7 +91,7 @@ export default async function Dashboard({
               </Link>
             ))}
           </div>
-          <Link href="/fatture/nuova" className="btn secondary">+ Fattura servizi</Link>
+          <Link href="/registrazioni/fatture/nuova" className="btn secondary">+ Fattura</Link>
           <Link href="/vendite/nuova" className="btn primary">+ Vendita vendor</Link>
         </div>
       </div>

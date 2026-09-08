@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/proforma/[id]/pdf": ["./node_modules/pdfkit/js/data/**/*"],
   },
+  // 08/09/2026 — le fatture si emettono in un posto solo (regola dell'utente):
+  // il vecchio modulo di `/fatture` non c'è più. Il rimando sta QUI e non in
+  // una pagina con `redirect()`: quello arriva solo a chi apre l'app col
+  // browser (è un rimando dentro il payload React), mentre un segnalibro, un
+  // link in una mail o una chiamata di un'altra app vogliono un 308 vero.
+  async redirects() {
+    return [{ source: "/fatture/nuova", destination: "/registrazioni/fatture/nuova", permanent: true }];
+  },
 };
 
 export default nextConfig;

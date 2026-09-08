@@ -178,6 +178,14 @@ export async function importaContattoAmministrativo(partnerId: string) {
 
 // ---------- Fatture servizi ----------
 
+// ⚠️ SENZA CHIAMANTI DALL'08/09/2026 e va tenuta così. Era l'azione del modulo
+// `/fatture/nuova`, tolto quel giorno: le fatture si emettono in un posto solo,
+// `/registrazioni/fatture/nuova`, che crea il documento vero su Fatture in
+// Cloud. Questa crea una riga **senza documento dietro** — cioè un credito che
+// la regola del 04/09 («una fattura è vera solo se sta su FIC») tiene comunque
+// fuori dai conti. Non ricollegarla a un bottone: se serve una porta d'ingresso
+// per le altre app, si progetta come API, non riaprendo il modulo. Resta qui
+// perché la scheda della fattura ne riusa la logica di scadenza e tipologia.
 export async function createFattura(fd: FormData) {
   const partnerId = s(fd, "partnerId");
   const tipologiaId = s(fd, "tipologiaId");

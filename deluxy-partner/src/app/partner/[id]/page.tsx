@@ -260,7 +260,7 @@ export default async function PartnerDetail({
               </button>
             </form>
           )}
-          <Link href={`/fatture/nuova?partnerId=${id}`} className="btn secondary">+ Fattura servizi</Link>
+          <Link href="/registrazioni/fatture/nuova" className="btn secondary">+ Fattura</Link>
           <Link href={`/vendite/nuova?partnerId=${id}`} className="btn secondary">+ Vendita vendor</Link>
           <Link href={`/partner/${id}/modifica`} className="btn primary">Modifica</Link>
         </div>

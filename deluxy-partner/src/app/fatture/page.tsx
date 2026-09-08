@@ -81,9 +81,10 @@ export default async function FatturePage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Fatturazione servizi</h1>
+          <h1 className="page-title">Fatturazione Applicativo</h1>
           <p className="page-caption">
-            Fatture emesse ai partner per i servizi Deluxy (consegne, eventi, magazzino…).
+            Le fatture ai partner <strong>arrivate dalle app Deluxy</strong>: qui si leggono e si
+            incassano, non si emettono. Per emetterne una: <Link href="/registrazioni/fatture/nuova" style={{ color: "var(--blue)" }}>Registro fatture</Link>.
           </p>
         </div>
         <div className="page-actions">
@@ -97,9 +98,15 @@ export default async function FatturePage({
               per 15.216 € sono rimaste invisibili ad agosto. Niente conteggio
               nel bottone: servirebbe una chiamata a FIC (1–3 s) a ogni apertura
               di questa lista, e il numero vive nella pagina stessa. */}
+          {/* 08/09/2026 — regola dell'utente: da questa pagina NON si emette
+              più. Le fatture si emettono in un posto solo, «Registro fatture»
+              (/registrazioni/fatture), che le crea davvero su Fatture in Cloud;
+              qui si RECEPISCE quello che arriva dalle app. Il bottone non
+              sparisce: porta dove ora si fa il lavoro — chi cercava «+ Nuova
+              fattura» deve trovare la strada, non il vuoto. */}
           <Link href="/fatture/da-fic" className="btn">Da Fatture in Cloud</Link>
           <Link href="/fatture/note-credito" className="btn">Note di credito</Link>
-          <Link href="/fatture/nuova" className="btn primary">+ Nuova fattura</Link>
+          <Link href="/registrazioni/fatture/nuova" className="btn primary">Emetti in Registro fatture →</Link>
         </div>
       </div>
 

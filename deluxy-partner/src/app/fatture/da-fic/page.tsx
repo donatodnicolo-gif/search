@@ -46,6 +46,17 @@ export default async function DaFicPage({
       {sp.esito === "import" && <div className="avviso-ok">Importate {sp.n ?? 0} fatture sicure.</div>}
       {sp.esito === "gia" && <div className="avviso-errore">Quel numero era già registrato: niente doppioni.</div>}
       {sp.esito === "incompleta" && <div className="avviso-errore">Servono scheda e tipologia.</div>}
+      {/* 08/09/2026 — l'ultima porta: una fattura commissioni non diventa un
+          servizio, nemmeno se una persona la registra da qui. Il perché sta
+          scritto, sennò sembra un capriccio dell'app. */}
+      {sp.esito === "commissioni" && (
+        <div className="avviso-errore">
+          Non registrata: è la <strong>fattura delle commissioni</strong> sulle vendite vendor, non un
+          servizio. La commissione è già calcolata sulla vendita e già tolta dal dovuto al partner —
+          registrarla qui la conterebbe due volte. Si <em>aggancia</em> al mese come «Fatt. comm.»
+          dalla scheda del partner.
+        </div>
+      )}
       {sp.esito === "errore" && <div className="avviso-errore">L&apos;import non è riuscito: riprova.</div>}
 
       {!esito.ok ? (
