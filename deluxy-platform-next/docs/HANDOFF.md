@@ -3,7 +3,7 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-> 🔴 **08/09/2026 (31) — IVA SULLA QUOTA TOLTA DUE VOLTE NEL RECAP: corretto, in locale** (segnalazione utente su Amir; `tsc` verde).
+> ✅ **08/09/2026 (31) — IVA SULLA QUOTA TOLTA DUE VOLTE NEL RECAP: CORRETTO E LIVE** (`delivery-2wx13dm1l`, pushato `ff4c0c27`; verificato che la funzione compilata contenga la formula nuova e non più la vecchia; dopo il deploy 8 richieste su 8 buone, home 200, `GET /invoices/recap/:partnerId` risponde 401) (segnalazione utente su Amir; `tsc` verde).
 > - **Il difetto**: `quotaDeluxy` era `venduto − dovutoAlPartner`, ma `dovuto()` vale `valoreProdotti − conIva(quota)` — quindi quella differenza è la quota **con l'IVA dentro**. Sopra ci si applicava `soloIva()` (che tratta l'argomento come imponibile) e si sottraeva di nuovo dal dovuto: seconda detrazione.
 > - **Perché era nato**: il 29/08 (`f5c0c0cc`) `nettoAlPartner = dovuto − IVA(quota)` era **giusto**, perché allora `dovuto = venduto − trattenuto` (imponibile). Poi `dovuto` è passato a `venduto − conIva(trattenuto)` e nessuno ha tolto la sottrazione a valle. Due correzioni giuste, sovrapposte.
 > - **La correzione**: `quotaDeluxy` = somma degli `amount` delle righe con `venduto > 0` (imponibile, scritto); `ivaSuQuota = soloIva(quellaQuota)`; `nettoAlPartner = dovutoAlPartner` (che è già il netto). Applicata nei **due punti gemelli**: `totali` e `riepilogo.vendite`.
