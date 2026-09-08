@@ -1881,6 +1881,59 @@ export async function annullaOperazione(fd: FormData) {
   if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
 }
 
+/**
+ * Chiude un'operazione perché **sulla piattaforma è già così**: qualcuno l'ha
+ * fatta a mano.
+ *
+ * ⚠️⚠️ **PERCHÉ NON È «ANNULLA» (08/09/2026).** Annullare vuol dire «ho
+ * cambiato idea»: la decisione non vale più. Qui è il contrario — la decisione
+ * valeva, ed è stata **eseguita**, solo non dall'app. Registrarla come
+ * annullata cancellerebbe dalla storia il fatto che quella campagna È stata
+ * messa in pausa, e la prossima persona che guarda l'archivio leggerebbe
+ * «decisione ritirata» davanti a una campagna spenta.
+ *
+ * Il caso vero: la pausa di «[Palloncini] - AWARENESS», approvata il 04/09 e
+ * mai partita, con l'utente che l'ha messa in pausa **a mano su Meta** l'08/09.
+ * La coda continuava a dire «c'è una decisione che aspetta» davanti a una cosa
+ * già fatta.
+ *
+ * ⚠️ Lo stato resta `annullata` — è quello che l'archivio sa leggere e non si
+ * inventa uno stato nuovo per un caso — ma l'**esito dice cosa è successo
+ * davvero**, ed è l'esito che si legge sulla riga.
+ */
+export async function chiudiPerchePiattaformaGiaCosi(fd: FormData) {
+  const torna = testo(fd, "torna");
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({
+    where: { id },
+    select: { id: true, tipo: true, bersaglio: true, stato: true, campagnaId: true },
+  });
+  if (!op || (op.stato !== "in_attesa" && op.stato !== "approvata")) return;
+
+  const quando = new Date().toLocaleString("it-IT", {
+    timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+  const esito =
+    `Non eseguita dall'app: sulla piattaforma era GIÀ in questo stato. ` +
+    `Chiusa a mano il ${quando} da chi ha visto che la cosa era già fatta.`;
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: { stato: "annullata", esito, eseguitaIl: null },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Chiusa (già così sulla piattaforma): ${op.tipo} su ${op.bersaglio}`,
+    dettaglio: esito,
+  });
+  revalidatePath("/operazioni");
+  if (op.campagnaId) revalidatePath(`/campagne/${op.campagnaId}`);
+  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
+}
+
 export async function creaOperazione(fd: FormData) {
   // Da dove si veniva: torna con l esito e diventa il bottone «torna indietro» su /operazioni.
   const ritorno = testo(fd, "ritorno");

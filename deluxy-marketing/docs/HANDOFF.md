@@ -34,6 +34,26 @@
 > eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
 > approvate, quindi non sono nemmeno partite.
 
+> ⏱️ **08/09 sera — L'APP ALLINEATA A QUELLO CHE META DICE DAVVERO.**
+> · ✅ **Palloncini è in pausa**: l'utente l'ha messa in pausa **a mano su Meta**,
+>   e la sync delle 15:07 ha allineato l'app da sola — `stato: in_pausa`,
+>   `statoPiattaforma: PAUSED`. L'app segue la piattaforma, come deve.
+> · 🔴 **Ma l'operazione restava in coda a chiedere una cosa già fatta.** Una
+>   coda che chiede il già vero non è una coda: è rumore, e col tempo si smette
+>   di guardarla — che è come si perdono quelle vere.
+>   ✅ **Fatto**: la riga confronta lo stato di piattaforma **riletto** con
+>   quello che l'operazione vuole ottenere e, se combaciano, scrive «Sulla
+>   piattaforma è già in pausa: riletto il … Questa operazione non ha più niente
+>   da fare» e offre **«Chiudi: era già così»**.
+>   ⚠️ Non è «Annulla»: annullare vuol dire «ho cambiato idea», e registrarla
+>   così cancellerebbe dalla storia il fatto che la campagna È stata spenta. Lo
+>   stato resta `annullata` (è quello che l'archivio sa leggere, non si inventa
+>   uno stato nuovo per un caso) ma **l'esito dice cosa è successo davvero**.
+>   ⚠️ Senza uno `statoPiattaforma` riletto non si dice niente: «non lo so» non
+>   è «è già così» — è la differenza fra tacere e mentire.
+>   Verificato a schermo: **un solo avviso**, su Palloncini; su «[Opera] ATC -
+>   VOLUME», che su Meta è ancora ENABLED, non compare (nessun falso positivo).
+>
 > ⏱️ **08/09 pomeriggio — META E CTR (deployato, vedi in fondo al blocco).**
 > · 🔴 **«Avevo chiesto all'app di metterla in pausa ma su Meta è rimasta sempre
 >   attiva»** (segnalazione dell'utente). Misurato: la `pausa_campagna` su
