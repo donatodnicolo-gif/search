@@ -27,7 +27,7 @@ import { traduciScheda } from "./ai-traduzioni";
 import { TIPOLOGIE_VENDITA } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
-import { definizioniInCache, metafieldPerShopify } from "./metafield-definizioni";
+import { definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
@@ -334,6 +334,11 @@ async function pubblicaSuAltroNegozio(
   const defs = await definizioniInCache(negozio.nome);
   const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
   const metafield = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
+  // ⚠️ È QUI che si rompeva: la chiave esiste anche su questo negozio, ma le
+  // scelte ammesse sono le sue. Un valore fuori elenco faceva rifiutare
+  // **l'intero prodotto** («Business Deluxy non ha creato il prodotto»), non
+  // solo il campo. Ora il valore si scarta e si dice; la scheda nasce.
+  for (const riga of scartiMetafield(metafield, defs)) avvisi.push(`${negozio.nome}: ${riga}`);
   const esito = await creaProdottoSuShopify(token, {
     titolo: m.nome,
     descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
@@ -716,6 +721,9 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       const defs = await definizioniInCache(n.nome);
       const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
       const mf = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
+      // ⚠️ Le scelte ammesse cambiano da un negozio all'altro: quello che
+      // si scarta va detto, altrimenti è una perdita silenziosa.
+      for (const riga of scartiMetafield(mf, defs)) avvisi.push(`${n.nome}: ${riga}`);
       const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
         ? m.finestraAperta ? "ACTIVE" : "DRAFT"
         : riga.statoShopify === "ACTIVE" ? "DRAFT" : undefined;

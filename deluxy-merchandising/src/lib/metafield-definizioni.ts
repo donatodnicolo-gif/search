@@ -153,7 +153,28 @@ export function valoriDaRisposta(nodo: Record<string, unknown>, defs: Definizion
   return fuori;
 }
 
-/** I valori del modulo pronti per Shopify (`metafields` di productCreate/productUpdate). */
+/**
+ * I valori del modulo pronti per Shopify (`metafields` di
+ * productCreate/productUpdate), **filtrati sulle scelte del negozio che li
+ * riceve**.
+ *
+ * ⚠️⚠️ **Perché il filtro c'è** (08/09/2026, segnalato dall'utente con la
+ * schermata): «Magnum Rosé - Ruinart» risultava *rifiutato* da Business Deluxy
+ * con `metafields.0.value: Value does not exist in provided choices:
+ * ["Anniversari", "Eventi Aziendali", "Pensionamenti", "Natale", "Pasqua",
+ * "Feste Private", "Regalo "]`. La chiave `custom.occasioni` **esiste su tutti
+ * e due i negozi**, ma le scelte ammesse sono diverse: quello che è valido su
+ * Gifts non lo è su Business.
+ *
+ * E il danno non era il campo: **Shopify rifiuta l'intero prodotto**. Un valore
+ * fuori elenco faceva fallire la creazione della scheda, non solo di quel
+ * campo — «Business Deluxy non ha creato il prodotto».
+ *
+ * Quindi qui si scarta il **valore**, non il prodotto: un'occasione in meno su
+ * un negozio è un difetto piccolo e visibile; una scheda che non nasce è il
+ * lavoro buttato. Chi chiama usa `scartiMetafield` per dirlo a schermo, così lo
+ * scarto non è silenzioso.
+ */
 export function metafieldPerShopify(
   valori: Record<string, string>,
   defs: DefinizioneMetafield[]
@@ -162,7 +183,49 @@ export function metafieldPerShopify(
   for (const d of defs) {
     const v = valori[chiaveDef(d)];
     if (v == null || v.trim() === "" || v === "[]") continue;
-    fuori.push({ namespace: d.namespace, key: d.key, type: d.tipo, value: v });
+    const ammesso = ammessoDa(d, v);
+    if (ammesso == null) continue;
+    fuori.push({ namespace: d.namespace, key: d.key, type: d.tipo, value: ammesso });
+  }
+  return fuori;
+}
+
+/**
+ * Il valore come lo accetta QUESTA definizione, o `null` se non ne resta
+ * niente. Per le liste si tengono le voci ammesse e si buttano le altre: una
+ * lista con tre occasioni valide e una no deve arrivare con tre, non fallire.
+ */
+function ammessoDa(d: DefinizioneMetafield, valore: string): string | null {
+  if (!d.scelte || d.scelte.length === 0) return valore;
+  const ammesse = new Set(d.scelte.map((x) => x.trim()));
+  const dentro = (x: string) => ammesse.has(x.trim());
+  if (d.tipo.startsWith("list.")) {
+    const tenute = listaDa(valore).filter(dentro);
+    return tenute.length ? JSON.stringify(tenute) : null;
+  }
+  return dentro(valore) ? valore : null;
+}
+
+/**
+ * Cosa NON verrà scritto su questo negozio e perché: una riga per valore
+ * scartato, da mettere fra gli avvisi. Senza, il filtro sopra sarebbe una
+ * perdita silenziosa — e un dato che sparisce senza dirlo è peggio di un
+ * errore.
+ */
+export function scartiMetafield(
+  valori: Record<string, string>,
+  defs: DefinizioneMetafield[]
+): string[] {
+  const fuori: string[] = [];
+  for (const d of defs) {
+    const v = valori[chiaveDef(d)];
+    if (v == null || v.trim() === "" || v === "[]") continue;
+    if (!d.scelte || d.scelte.length === 0) continue;
+    const ammesse = new Set(d.scelte.map((x) => x.trim()));
+    const buttate = (d.tipo.startsWith("list.") ? listaDa(v) : [v]).filter((x) => !ammesse.has(x.trim()));
+    if (buttate.length) {
+      fuori.push(`«${etichettaDef(d)}»: ${buttate.map((x) => `«${x}»`).join(", ")} non ${buttate.length === 1 ? "è" : "sono"} fra le scelte ammesse qui (${d.scelte.join(", ")}).`);
+    }
   }
   return fuori;
 }

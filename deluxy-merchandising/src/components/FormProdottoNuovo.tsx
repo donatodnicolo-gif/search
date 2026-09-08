@@ -163,6 +163,13 @@ export function FormProdottoNuovo({
   const [altriNegozi, setAltriNegozi] = useState<string[]>((iniziale?.altriNegoziId ?? []).filter((x) => x !== (iniziale?.negozioId || negozi[0]?.id)));
   const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id) && n.id !== negozioId);
   const nomiNegoziScelti = [negozio?.nome ?? "Shopify", ...negoziAnche.map((n) => n.nome)];
+  // ⭐ 08/09/2026 — **la scheda del sito che si sta compilando**.
+  // ⚠️ Non si tiene in uno stato che può restare indietro: se cambio il
+  // negozio principale o tolgo un sito, il nome memorizzato punterebbe a una
+  // tab che non c'è più e il pannello resterebbe vuoto senza dire perché.
+  // Qui lo stato è solo un'intenzione, e la verità è la lista dei siti scelti.
+  const [sitoVoluto, setSitoAttivo] = useState<string | null>(null);
+  const sitoAttivo = sitoVoluto && nomiNegoziScelti.includes(sitoVoluto) ? sitoVoluto : nomiNegoziScelti[0] ?? "";
   const statoSu = (nome: string) => iniziale?.pubblicazioni.find((p) => p.negozio === nome) ?? null;
   const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
@@ -252,11 +259,8 @@ export function FormProdottoNuovo({
   };
 
   const categorieVisibili = categorie.filter((c) => !c.negozio || c.negozio === negozio?.nome);
-  const collezioniVisibili = collezioni.filter((c) => c.negozio === negozio?.nome || negoziAnche.some((n) => n.nome === c.negozio));
-  const conNegozio = (titolo: string, nomeNegozio?: string | null) => (negoziAnche.length && nomeNegozio ? `${titolo} · ${nomeNegozio}` : titolo);
   const mediaDiQuestoNegozio = media.filter((m) => m.negozio === negozio?.nome);
   const mediaDiAltri = media.length - mediaDiQuestoNegozio.length;
-  const definizioni = negozio ? definizioniPerNegozio[negozio.nome] ?? [] : [];
 
   function cambiaNegozio(id: string) {
     setNegozioId(id);
@@ -410,9 +414,22 @@ export function FormProdottoNuovo({
         </div>
       )}
 
-      {/* ---------- Anagrafica ---------- */}
+      {/* ════════ 1. COMUNE A TUTTI I NEGOZI ════════
+          Struttura chiesta dall'utente (08/09/2026): «informazioni comuni a
+          tutti gli store (nome, nome diverso, sku, categoria, fase, plus del
+          prodotto, categoria interna); la scelta del brand poi apre dei tab col
+          nome del sito che contengono tutte le info che possono cambiare per
+          brand».
+          Il criterio non è l'anagrafica del dato, è **dove può cambiare**: se
+          un campo vale uguale ovunque sta qui una volta sola; se può essere
+          diverso da un sito all'altro sta nella scheda del suo sito. Prima
+          erano mescolati in una card da undici campi e non si capiva quale
+          fosse quale. */}
       <div className="scheda">
-        <div className="scheda-titolo">Anagrafica</div>
+        <div className="scheda-titolo">Comune a tutti i negozi</div>
+        <p className="page-sub" style={{ marginBottom: 12 }}>
+          Quello che il prodotto è, ovunque venga venduto. Più sotto, nella scheda di ogni sito, c&apos;è quello che può cambiare da un negozio all&apos;altro.
+        </p>
         <div className="modulo">
           <div className="campo-modulo largo">
             <label htmlFor="nome">
@@ -443,95 +460,6 @@ export function FormProdottoNuovo({
               <span className="cella-sub">Finché resta vuoto, al partner arriva il nome pubblico.</span>
             )}
           </div>
-          <div className="campo-modulo">
-            <label htmlFor="negozio">
-              Brand / negozio <span className="obbligatorio">*</span>
-            </label>
-            <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
-              {negozi.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.nome} — {n.dominio}
-                  {n.puoScrivere ? "" : " (solo lettura)"}
-                </option>
-              ))}
-              {negozi.length === 0 && <option value="">Nessun negozio collegato</option>}
-            </select>
-            <span className="cella-sub">
-              {iniziale?.shopifyId ? "Il prodotto è già sul negozio: non si sposta." : "Decide categorie, collezioni, campi e dove vanno le foto."}
-            </span>
-          </div>
-          {negozi.length > 1 && (
-            <div className="campo-modulo largo">
-              <label>Pubblica anche su{negoziAnche.length ? ` · ${negoziAnche.length} ${negoziAnche.length === 1 ? "altro negozio" : "altri negozi"}` : ""}</label>
-              <div className="pill-scelta">
-                {negozi
-                  .filter((n) => n.id !== negozioId)
-                  .map((n) => {
-                    const acceso = altriNegozi.includes(n.id);
-                    const st = statoSu(n.nome);
-                    const dove =
-                      st?.shopifyId && st.origine !== "tolto"
-                        ? st.statoShopify === "ACTIVE" ? " · già attivo là" : st.statoShopify === "DRAFT" ? " · là in bozza" : st.statoShopify === "ARCHIVED" ? " · là archiviato" : ""
-                        : st?.errore ? " · rifiutato l'ultima volta" : "";
-                    return (
-                      <label key={n.id} className={`pill-opt chip-scelta${acceso ? " selezionato" : ""}`} title={n.puoScrivere ? n.dominio : `${n.nome} non ha il permesso write_products`} style={n.puoScrivere ? undefined : { opacity: 0.5 }}>
-                        <input type="checkbox" checked={acceso} disabled={!n.puoScrivere} onChange={(e) => setAltriNegozi((x) => (e.target.checked ? [...x, n.id] : x.filter((y) => y !== n.id)))} hidden />
-                        {acceso ? "✓ " : "+ "}
-                        {n.nome}
-                        {dove}
-                        {!n.puoScrivere ? " · solo lettura" : ""}
-                      </label>
-                    );
-                  })}
-              </div>
-              <span className="cella-sub">
-                Con la fase <b>Pubblico</b> il prodotto nasce anche su questi negozi, con gli stessi SKU, prezzi e varianti, le loro collezioni e i loro campi; le foto
-                si copiano dal negozio principale. Togliendo un negozio in cui è già pubblicato, là torna bozza (non si cancella).
-              </span>
-            </div>
-          )}
-
-          {/* **Lo stato, negozio per negozio** (08/09/2026, richiesta dell'utente:
-              «in modifica prodotto non è presente la possibilità di impostare lo
-              stato», e «lo stato può essere diverso per ogni negozio»).
-              Comandiamo noi: quello che si sceglie qui viene **imposto al sito**
-              al salvataggio. Accanto si legge com'è adesso là, così si vede
-              subito se la scelta è già realtà o è una cosa da fare. */}
-          {modifica && negoziDelProdotto.length > 0 && (
-            <div className="campo-modulo largo">
-              <label>Stato su ogni negozio</label>
-              <div className="stati-negozio">
-                {negoziDelProdotto.map((nome) => {
-                  const st = statoSu(nome);
-                  const ora = st?.statoShopify ?? null;
-                  const scelto = statiVoluti[nome] ?? "";
-                  return (
-                    <div key={nome} className="stato-negozio-riga">
-                      <b>{nome}</b>
-                      <select
-                        name={`stato:${nome}`}
-                        value={scelto}
-                        onChange={(e) => setStatiVoluti((s) => ({ ...s, [nome]: e.target.value }))}
-                      >
-                        <option value="">Lascia com&apos;è{ora ? ` (${ETICHETTA_STATO_NEGOZIO[ora] ?? ora})` : ""}</option>
-                        <option value="ACTIVE">Attivo — in vendita sul sito</option>
-                        <option value="DRAFT">Bozza — non visibile ai clienti</option>
-                        <option value="ARCHIVED">Archiviato — fuori catalogo</option>
-                      </select>
-                      {scelto && ora && scelto !== ora && (
-                        <span className="cella-sub">da {ETICHETTA_STATO_NEGOZIO[ora] ?? ora} → si scrive sul negozio al salvataggio</span>
-                      )}
-                      {scelto && ora === scelto && <span className="cella-sub">è già così</span>}
-                    </div>
-                  );
-                })}
-              </div>
-              <span className="cella-sub">
-                Un prodotto può essere attivo su un sito e in bozza su un altro. Quello che scegli qui viene scritto sul negozio: la fase del ciclo di vita qui sopra
-                resta la nostra, e riguarda il prodotto nel suo insieme.
-              </span>
-            </div>
-          )}
           <div className="campo-modulo">
             <label htmlFor="codice">Codice / SKU</label>
             <div className="riga-ai" style={{ marginBottom: 0 }}>
@@ -583,14 +511,19 @@ export function FormProdottoNuovo({
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
           </div>
-          <div className="campo-modulo largo">
-            <label htmlFor="note">Note di specifica</label>
-            <textarea id="note" name="note" rows={2} defaultValue={iniziale?.note ?? ""}
-                      placeholder="Che cosa c'è dentro: «20-25 fiori», «18-20 cm, 650 g - 1 kg», «6/8 porzioni»" />
-            <span className="cella-sub">
-              La legge il fioraio quando riceve l&apos;ordine: è quello che gli dice quanti fiori mettere.
-              Se una taglia ha la sua misura, scrivila sulla variante.
-            </span>
+          <div className="campo-modulo">
+            <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
+            <select id="fase" name="fase" value={fase} onChange={(e) => setFase(e.target.value)}>
+              {FASI_SCELTA.map((f) => (
+                <option key={f} value={f}>
+                  {ETICHETTA_FASE[f]}
+                  {f === "in_vendita" ? " — va su Shopify" : ""}
+                </option>
+              ))}
+            </select>
+            {modifica && iniziale?.shopifyId && fase !== "in_vendita" && (
+              <span className="cella-sub">Togliendo «Pubblico» il prodotto torna bozza sul negozio: il cliente non lo vede più.</span>
+            )}
           </div>
           <div className="campo-modulo">
             {/* ⭐ 07/09/2026 (utente): NON è una «tipologia di vendita» del negozio, è una
@@ -619,68 +552,24 @@ export function FormProdottoNuovo({
             </ul>
           </div>
           <div className="campo-modulo largo">
-            <label>Collezioni su Shopify{collezioniScelte.length ? ` · ${collezioniScelte.length} scelte` : ""}</label>
-            <input type="hidden" name="collezioniJson" value={JSON.stringify(collezioniScelte)} />
-            {(collezioniScelte.length > 0 || collezioniAutomatiche.length > 0) && (
-              <div className="pill-scelta" style={{ marginBottom: 8 }}>
-                {collezioniScelte.map((id) => {
-                  const c = collezioni.find((x) => x.id === id) ?? iniziale?.collezioni.find((x) => x.id === id);
-                  return (
-                    <span key={id} className="pill-opt chip-scelta selezionato">
-                      {conNegozio(c?.titolo ?? id, (c as { negozio?: string } | undefined)?.negozio)}
-                      <button type="button" className="icon-btn" style={{ padding: 0, width: 18, height: 18, color: "#fff" }} title="Togli da questa collezione" onClick={() => setCollezioniScelte((x) => x.filter((y) => y !== id))}>
-                        ×
-                      </button>
-                    </span>
-                  );
-                })}
-                {collezioniAutomatiche.map((c) => (
-                  <span key={c.id} className="pill-opt" title="Collezione automatica: chi ci entra lo decide la regola del negozio" style={{ cursor: "default" }}>
-                    {c.titolo} <em style={{ fontStyle: "normal", color: "var(--text-tertiary)" }}>· automatica</em>
-                  </span>
-                ))}
-              </div>
-            )}
+            <label htmlFor="plusProdotto">Plus del prodotto — il primo dei tre punti</label>
             <input
-              value={cercaCollezione}
-              onChange={(e) => setCercaCollezione(e.target.value)}
-              placeholder={`Cerca fra le ${collezioniVisibili.length} collezioni manuali di ${nomiNegoziScelti.join(" e ")}…`}
-              aria-label="Cerca una collezione"
-              style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", border: "1px solid transparent", background: "var(--fill)", width: "100%" }}
+              id="plusProdotto"
+              value={plusProdotto}
+              maxLength={140}
+              onChange={(e) => setPlusProdotto(e.target.value)}
+              placeholder="Es. «Rose Ecuador a stelo lungo, aperte a mano la mattina della consegna»"
             />
-            {cercaCollezione.trim() && (
-              <div className="pill-scelta" style={{ marginTop: 8 }}>
-                {collezioniVisibili
-                  .filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase()))
-                  .slice(0, 30)
-                  .map((c) => (
-                    <button key={c.id} type="button" className="pill-opt chip-scelta" onClick={() => { setCollezioniScelte((x) => [...x, c.id]); setCercaCollezione(""); }}>
-                      + {conNegozio(c.titolo, c.negozio)}
-                    </button>
-                  ))}
-                {collezioniVisibili.filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase())).length === 0 && (
-                  <span className="cella-sub">Nessuna collezione manuale con questo nome.</span>
-                )}
-              </div>
-            )}
-            <span className="cella-sub">
-              Nessuna collezione è ammesso. Le manuali si aggiungono e si tolgono da qui (alla pubblicazione, o subito se il prodotto è già sul negozio);
-              in quelle automatiche decide la regola del negozio.
-            </span>
+            <span className="cella-sub">Una riga sola: è quello che distingue questo prodotto dagli altri dello stesso sito.</span>
           </div>
-          <div className="campo-modulo">
-            <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
-            <select id="fase" name="fase" value={fase} onChange={(e) => setFase(e.target.value)}>
-              {FASI_SCELTA.map((f) => (
-                <option key={f} value={f}>
-                  {ETICHETTA_FASE[f]}
-                  {f === "in_vendita" ? " — va su Shopify" : ""}
-                </option>
-              ))}
-            </select>
-            {modifica && iniziale?.shopifyId && fase !== "in_vendita" && (
-              <span className="cella-sub">Togliendo «Pubblico» il prodotto torna bozza sul negozio: il cliente non lo vede più.</span>
-            )}
+          <div className="campo-modulo largo">
+            <label htmlFor="note">Note di specifica</label>
+            <textarea id="note" name="note" rows={2} defaultValue={iniziale?.note ?? ""}
+                      placeholder="Che cosa c'è dentro: «20-25 fiori», «18-20 cm, 650 g - 1 kg», «6/8 porzioni»" />
+            <span className="cella-sub">
+              La legge il fioraio quando riceve l&apos;ordine: è quello che gli dice quanti fiori mettere.
+              Se una taglia ha la sua misura, scrivila sulla variante.
+            </span>
           </div>
           <div className="campo-modulo largo">
             <label htmlFor="descrizione">Descrizione</label>
@@ -706,118 +595,216 @@ export function FormProdottoNuovo({
         </div>
       </div>
 
-      {/* ---------- La scheda sul sito: i tre punti e le sezioni della categoria ----------
-          Richiesta dell'utente (08/09/2026): «in impostazioni per ogni sito
-          definisci due plus del sito, sono i 3 punti che per ogni prodotto sono
-          mostrati all'inizio; il primo dei 3 è invece un plus del prodotto
-          scritto dall'utente. Ogni categoria poi ha delle sezioni: i fiori hanno
-          significato, dimensioni… I 3 punti e le sezioni sono personalizzabili
-          per sito selezionato».
-          **Perché un blocco per sito e non uno solo** (deciso dall'utente): lo
-          stesso prodotto si racconta diversamente al B2B e al cliente finale —
-          il vecchio gestionale teneva testi separati, e le sezioni stesse
-          cambiano (su Business Deluxy la gastronomia chiude con «Occasioni»
-          dove il D2C chiude con «Regala con Deluxy»). Un campo solo per tutti
-          avrebbe costretto a scegliere quale sito serve peggio. */}
+      {/* ════════ 2. DOVE VA — è la scelta che apre le schede dei siti ════════ */}
       <div className="scheda">
-        <div className="scheda-titolo">Scheda sul sito · i tre punti e le sezioni</div>
-        <p className="page-sub" style={{ marginBottom: 12 }}>
-          In cima alla scheda il cliente legge tre punti: <b>il primo è di questo prodotto</b> e si scrive qui; gli altri due sono del sito e si
-          scrivono una volta sola in Negozi &amp; permessi. Sotto, le sezioni previste per la categoria — cambiano con la categoria e possono
-          cambiare da un sito all&apos;altro.
-        </p>
+        <div className="scheda-titolo">Dove va</div>
         <div className="modulo">
-          <div className="campo-modulo largo">
-            <label htmlFor="plusProdotto">Plus del prodotto — il primo dei tre punti</label>
-            <input
-              id="plusProdotto"
-              value={plusProdotto}
-              maxLength={140}
-              onChange={(e) => setPlusProdotto(e.target.value)}
-              placeholder="Es. «Rose Ecuador a stelo lungo, aperte a mano la mattina della consegna»"
-            />
-            <span className="cella-sub">Una riga sola: è quello che distingue questo prodotto dagli altri dello stesso sito.</span>
+          <div className="campo-modulo">
+            <label htmlFor="negozio">
+              Brand / negozio <span className="obbligatorio">*</span>
+            </label>
+            <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
+              {negozi.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.nome} — {n.dominio}
+                  {n.puoScrivere ? "" : " (solo lettura)"}
+                </option>
+              ))}
+              {negozi.length === 0 && <option value="">Nessun negozio collegato</option>}
+            </select>
+            <span className="cella-sub">
+              {iniziale?.shopifyId ? "Il prodotto è già sul negozio: non si sposta." : "Decide categorie, collezioni, campi e dove vanno le foto."}
+            </span>
           </div>
-        </div>
-
-        {/* ⭐ 08/09/2026 (utente): «mostra anche i 3 punti in scheda nuovo o
-            modifica prodotto — il primo tramite il concetto di plus e gli altri
-            due dalle impostazioni». Non una frase che li riassume: i tre punti
-            **come li vedrà il cliente**, in fila, sito per sito.
-            ⚠️ Stanno FUORI dal blocco delle sezioni apposta: le sezioni
-            dipendono dalla categoria, i tre punti no. Tenendoli dentro, su un
-            prodotto nuovo non comparivano finché non si sceglieva la categoria
-            — cioè proprio quando servono, mentre si scrive il plus. */}
-        <div className="tre-punti-siti">
-          {nomiNegoziScelti.map((nomeSito) => {
-            const plus = plusNegozio[nomeSito];
-            return (
-              <div key={nomeSito} className="tre-punti-sito">
-                <div className="cella-sub" style={{ marginBottom: 4 }}>In cima alla scheda su <b>{nomeSito}</b></div>
-                <ul className="tre-punti">
-                  <li className={plusProdotto.trim() ? undefined : "vuoto"}>
-                    {plusProdotto.trim() || "Il plus di questo prodotto — scrivilo qui sopra"}
-                  </li>
-                  <li className={plus?.uno?.trim() ? undefined : "vuoto"}>
-                    {plus?.uno?.trim() || `Secondo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
-                  </li>
-                  <li className={plus?.due?.trim() ? undefined : "vuoto"}>
-                    {plus?.due?.trim() || `Terzo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
-                  </li>
-                </ul>
+          {negozi.length > 1 && (
+            <div className="campo-modulo largo">
+              <label>Pubblica anche su{negoziAnche.length ? ` · ${negoziAnche.length} ${negoziAnche.length === 1 ? "altro negozio" : "altri negozi"}` : ""}</label>
+              <div className="pill-scelta">
+                {negozi
+                  .filter((n) => n.id !== negozioId)
+                  .map((n) => {
+                    const acceso = altriNegozi.includes(n.id);
+                    const st = statoSu(n.nome);
+                    const dove =
+                      st?.shopifyId && st.origine !== "tolto"
+                        ? st.statoShopify === "ACTIVE" ? " · già attivo là" : st.statoShopify === "DRAFT" ? " · là in bozza" : st.statoShopify === "ARCHIVED" ? " · là archiviato" : ""
+                        : st?.errore ? " · rifiutato l'ultima volta" : "";
+                    return (
+                      <label key={n.id} className={`pill-opt chip-scelta${acceso ? " selezionato" : ""}`} title={n.puoScrivere ? n.dominio : `${n.nome} non ha il permesso write_products`} style={n.puoScrivere ? undefined : { opacity: 0.5 }}>
+                        <input type="checkbox" checked={acceso} disabled={!n.puoScrivere} onChange={(e) => setAltriNegozi((x) => (e.target.checked ? [...x, n.id] : x.filter((y) => y !== n.id)))} hidden />
+                        {acceso ? "✓ " : "+ "}
+                        {n.nome}
+                        {dove}
+                        {!n.puoScrivere ? " · solo lettura" : ""}
+                      </label>
+                    );
+                  })}
               </div>
-            );
-          })}
+              <span className="cella-sub">
+                Con la fase <b>Pubblico</b> il prodotto nasce anche su questi negozi, con gli stessi SKU, prezzi e varianti, le loro collezioni e i loro campi; le foto
+                si copiano dal negozio principale. Togliendo un negozio in cui è già pubblicato, là torna bozza (non si cancella).
+              </span>
+            </div>
+          )}
         </div>
+      </div>
 
-        {!categoria ? (
-          <div className="vuoto-mini">
-            Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella — i fiori hanno «Significato» e «Dimensioni», le torte
-            «Ingredienti e allergeni» e «Conservazione».
+      {/* ════════ 3. UNA SCHEDA PER OGNI SITO ════════
+          Tab a selezione singola, una per negozio scelto. **Non tutte impilate
+          e non un accordion**: sono gli stessi campi ripetuti con contenuto
+          diverso, cioè alternative parallele. Con l'accordion due siti possono
+          restare aperti insieme e le due caselle omonime finiscono adiacenti —
+          è così che il testo del B2B si scrive nel campo del D2C. La tab lo
+          rende impossibile.
+          Sul telefono la fila si dispone **in verticale** (richiesta
+          dell'utente). Con un sito solo le tab non compaiono: sarebbe una
+          scelta fra una cosa sola. */}
+      <div className="scheda">
+        <div className="scheda-titolo">
+          {nomiNegoziScelti.length > 1 ? `Su ogni sito · ${nomiNegoziScelti.length}` : `Su ${nomiNegoziScelti[0] ?? "questo sito"}`}
+        </div>
+        {nomiNegoziScelti.length > 1 && (
+          <div className="tab-siti" role="tablist" aria-label="Il sito di cui stai compilando la scheda">
+            {nomiNegoziScelti.map((nomeSito) => {
+              const mancano = categoria ? sezioniDi(nomeSito).filter((s) => s.richiesta && !valoreSezione(nomeSito, s.nome).trim()).length : 0;
+              return (
+                <button
+                  key={nomeSito}
+                  type="button"
+                  role="tab"
+                  aria-selected={nomeSito === sitoAttivo}
+                  className={`tab-sito${nomeSito === sitoAttivo ? " attiva" : ""}`}
+                  onClick={() => setSitoAttivo(nomeSito)}
+                >
+                  {nomeSito}
+                  {mancano > 0 && <span className="tab-sito-conto" title={`${mancano} sezioni consigliate ancora vuote`}>{mancano}</span>}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          nomiNegoziScelti.map((nomeSito) => {
-            const suoi = sezioniDi(nomeSito);
-            const vuote = suoi.filter((s) => s.richiesta && !valoreSezione(nomeSito, s.nome).trim()).length;
-            return (
-              <div key={nomeSito} className="sezioni-sito">
-                <div className="sezioni-sito-testata">
-                  <b>{nomeSito}</b>
-                  {vuote > 0 && <span className="cella-sub">{vuote === 1 ? "1 sezione consigliata ancora vuota" : `${vuote} sezioni consigliate ancora vuote`}</span>}
+        )}
+
+        {(() => {
+          const nomeSito = sitoAttivo;
+          const plus = plusNegozio[nomeSito];
+          const suoi = categoria ? sezioniDi(nomeSito) : [];
+          const st = statoSu(nomeSito);
+          const ora = st?.statoShopify ?? null;
+          const scelto = statiVoluti[nomeSito] ?? "";
+          const sue = collezioni.filter((c) => c.negozio === nomeSito);
+          const scelteQui = collezioniScelte.filter((id) => sue.some((c) => c.id === id) || (iniziale?.collezioni ?? []).some((c) => c.id === id && c.negozio === nomeSito));
+          const autoQui = collezioniAutomatiche.filter((c) => c.negozio === nomeSito);
+          const defSito = definizioniPerNegozio[nomeSito] ?? [];
+          return (
+            <div className="pannello-sito" role="tabpanel" aria-label={nomeSito}>
+              <div className="cella-sub" style={{ marginBottom: 4 }}>In cima alla scheda su <b>{nomeSito}</b></div>
+              <ul className="tre-punti">
+                <li className={plusProdotto.trim() ? undefined : "vuoto"}>
+                  {plusProdotto.trim() || "Il plus di questo prodotto — si scrive qui sopra, fra le informazioni comuni"}
+                </li>
+                <li className={plus?.uno?.trim() ? undefined : "vuoto"}>
+                  {plus?.uno?.trim() || `Secondo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
+                </li>
+                <li className={plus?.due?.trim() ? undefined : "vuoto"}>
+                  {plus?.due?.trim() || `Terzo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
+                </li>
+              </ul>
+
+              {modifica && st?.shopifyId && (
+                <div className="campo-modulo" style={{ marginBottom: 14 }}>
+                  <label htmlFor={`stato-${nomeSito}`}>Stato su {nomeSito}</label>
+                  <select id={`stato-${nomeSito}`} name={`stato:${nomeSito}`} value={scelto} onChange={(e) => setStatiVoluti((x) => ({ ...x, [nomeSito]: e.target.value }))}>
+                    <option value="">Lascia com&apos;è{ora ? ` (${ETICHETTA_STATO_NEGOZIO[ora] ?? ora})` : ""}</option>
+                    <option value="ACTIVE">Attivo — in vendita sul sito</option>
+                    <option value="DRAFT">Bozza — non visibile ai clienti</option>
+                    <option value="ARCHIVED">Archiviato — fuori catalogo</option>
+                  </select>
+                  {scelto && ora && scelto !== ora && <span className="cella-sub">da {ETICHETTA_STATO_NEGOZIO[ora] ?? ora} → si scrive sul negozio al salvataggio</span>}
+                  {scelto && ora === scelto && <span className="cella-sub">è già così</span>}
                 </div>
-                {suoi.length === 0 ? (
-                  <div className="vuoto-mini">
-                    Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su questo sito non sono previste sezioni.
-                  </div>
-                ) : (
-                  <div className="modulo">
-                    {suoi.map((s) => {
-                      const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
-                      const campoId = `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-");
+              )}
+
+              <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
+                <label>Collezioni su {nomeSito}{scelteQui.length ? ` · ${scelteQui.length}` : ""}</label>
+                {(scelteQui.length > 0 || autoQui.length > 0) && (
+                  <div className="pill-scelta" style={{ marginBottom: 8 }}>
+                    {scelteQui.map((id) => {
+                      const c = collezioni.find((x) => x.id === id) ?? iniziale?.collezioni.find((x) => x.id === id);
                       return (
-                        <div key={s.nome} className="campo-modulo largo">
-                          <label htmlFor={campoId}>
-                            {s.nome}
-                            {s.richiesta && <span className="obbligatorio" title="Consigliata: senza, la scheda sul sito sembra incompleta"> *</span>}
-                          </label>
-                          <textarea
-                            id={campoId}
-                            rows={aiuto.righe}
-                            value={valoreSezione(nomeSito, s.nome)}
-                            onChange={(e) => cambiaSezione(nomeSito, s.nome, e.target.value)}
-                            placeholder={aiuto.placeholder}
-                          />
-                          <span className="cella-sub">{aiuto.nota}</span>
-                        </div>
+                        <span key={id} className="pill-opt chip-scelta selezionato">
+                          {c?.titolo ?? id}
+                          <button type="button" className="icon-btn" style={{ padding: 0, width: 18, height: 18, color: "var(--on-ink)" }} title="Togli da questa collezione" onClick={() => setCollezioniScelte((x) => x.filter((y) => y !== id))}>×</button>
+                        </span>
                       );
                     })}
+                    {autoQui.map((c) => (
+                      <span key={c.id} className="pill-opt" title="Collezione automatica: chi ci entra lo decide la regola del negozio" style={{ cursor: "default" }}>
+                        {c.titolo} <em style={{ fontStyle: "normal", color: "var(--text-tertiary)" }}>· automatica</em>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input
+                  value={cercaCollezione}
+                  onChange={(e) => setCercaCollezione(e.target.value)}
+                  placeholder={`Cerca fra le ${sue.length} collezioni manuali di ${nomeSito}…`}
+                  aria-label={`Cerca una collezione di ${nomeSito}`}
+                  style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", border: "1px solid transparent", background: "var(--fill)", width: "100%" }}
+                />
+                {cercaCollezione.trim() && (
+                  <div className="pill-scelta" style={{ marginTop: 8 }}>
+                    {sue.filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase())).slice(0, 30).map((c) => (
+                      <button key={c.id} type="button" className="pill-opt chip-scelta" onClick={() => { setCollezioniScelte((x) => [...x, c.id]); setCercaCollezione(""); }}>
+                        + {c.titolo}
+                      </button>
+                    ))}
+                    {sue.filter((c) => !collezioniScelte.includes(c.id) && c.titolo.toLowerCase().includes(cercaCollezione.trim().toLowerCase())).length === 0 && (
+                      <span className="cella-sub">Nessuna collezione manuale di {nomeSito} con questo nome.</span>
+                    )}
                   </div>
                 )}
               </div>
-            );
-          })
-        )}
+
+              {!categoria ? (
+                <div className="vuoto-mini">Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella.</div>
+              ) : suoi.length === 0 ? (
+                <div className="vuoto-mini">Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su {nomeSito} non sono previste sezioni.</div>
+              ) : (
+                <div className="modulo">
+                  {suoi.map((s) => {
+                    const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
+                    const campoId = `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-");
+                    return (
+                      <div key={s.nome} className="campo-modulo largo">
+                        <label htmlFor={campoId}>
+                          {s.nome}
+                          {s.richiesta && <span className="obbligatorio" title="Consigliata: senza, la scheda sul sito sembra incompleta"> *</span>}
+                        </label>
+                        <textarea id={campoId} rows={aiuto.righe} value={valoreSezione(nomeSito, s.nome)} onChange={(e) => cambiaSezione(nomeSito, s.nome, e.target.value)} placeholder={aiuto.placeholder} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {defSito.length > 0 && (
+                <details className="altri-campi">
+                  <summary className="pill-opt">Campi di {nomeSito} · {defSito.length}</summary>
+                  <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
+                    I <i>metafield</i> che {nomeSito} definisce su Shopify. ⚠️ I valori sono gli stessi su tutti i siti che hanno un campo con la stessa chiave: qui si vede quali campi ciascun sito espone.
+                  </p>
+                  <div className="modulo">
+                    {defSito.map((d) => (
+                      <CampoMetafield key={chiaveDef(d)} def={d} valore={metafield[chiaveDef(d)] ?? ""} onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))} />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          );
+        })()}
       </div>
+
 
       {/* ---------- Tag ---------- */}
       <div className="scheda">
@@ -855,77 +842,6 @@ export function FormProdottoNuovo({
             <option key={t} value={t} />
           ))}
         </datalist>
-      </div>
-
-      {/* ---------- Campi del negozio (metafield) ---------- */}
-      <div className="scheda">
-        <div className="scheda-titolo">Campi del negozio · {definizioni.length}</div>
-        <p className="page-sub" style={{ marginBottom: 12 }}>
-          I campi che {negozio?.nome ?? "il negozio"} definisce su Shopify (i <i>metafield</i>), coi valori che ammette. Si scrivono sul negozio
-          alla pubblicazione e restano qui sulla scheda. Quelli a scelta chiusa (riferimenti a file, metaobject, prodotti correlati) si
-          impostano nell&apos;admin del negozio.
-          {negoziAnche.length > 0 && (
-            <>
-              {" "}Gli stessi valori vanno anche su {negoziAnche.map((n) => n.nome).join(", ")}, sui campi che quei negozi definiscono con la stessa chiave.
-            </>
-          )}
-        </p>
-        {definizioni.length === 0 ? (
-          <div className="vuoto-mini">Nessuna definizione letta per questo negozio: arriva col prossimo import delle collezioni.</div>
-        ) : (
-          (() => {
-            // Prima i campi che il negozio tiene **in evidenza** nell'admin
-            // (quelli appuntati: occasioni, fiori, orario…), nell'ordine
-            // dell'admin; gli altri — spesso campi di prova o di app — stanno
-            // ripiegati, ma si aprono se ne hanno già un valore.
-            // **Campi che dipendono da un altro campo** (08/09/2026, segnalato
-            // dall'utente): «URL img dimensione» ha senso solo se «Guida misure»
-            // è su «Si». Chiedere l'indirizzo di un'immagine che il negozio non
-            // mostrerà è lavoro buttato, e un URL rimasto lì dopo aver spento la
-            // guida è un dato che non corrisponde più a niente.
-            const acceso = (chiave: string) => {
-              const d = definizioni.find((x) => chiaveDef(x).endsWith("." + chiave) || chiaveDef(x) === chiave);
-              const v = (d ? (metafield[chiaveDef(d)] ?? "") : "").trim();
-              // Lo stesso campo arriva dai negozi in due forme — `SI` e `["SI"]`,
-              // perché su un negozio la definizione è una lista: contate 177
-              // schede con la guida misure, in entrambi i formati. Si accettano
-              // tutte e due invece di far dipendere il modulo da come è stato
-              // definito il campo su quel negozio.
-              const testo = v.startsWith("[") ? v.replace(/[[\]"']/g, "") : v;
-              return /^(s[iì]|true|1)$/i.test(testo.trim());
-            };
-            const dipendenze: Record<string, string> = { url_img_dimensione: "guida_misure" };
-            const visibile = (d: DefinizioneMetafield) => {
-              const chiave = chiaveDef(d).split(".").pop() ?? "";
-              const da = dipendenze[chiave];
-              return !da || acceso(da);
-            };
-            const inEvidenza = definizioni.filter((d) => d.posizione != null && visibile(d));
-            const altri = definizioni.filter((d) => d.posizione == null && visibile(d));
-            const principali = inEvidenza.length ? inEvidenza : altri;
-            const secondari = inEvidenza.length ? altri : [];
-            const compilati = secondari.filter((d) => (metafield[chiaveDef(d)] ?? "") !== "").length;
-            const campo = (d: DefinizioneMetafield) => (
-              <CampoMetafield key={chiaveDef(d)} def={d} valore={metafield[chiaveDef(d)] ?? ""} onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))} />
-            );
-            return (
-              <>
-                <div className="modulo">{principali.map(campo)}</div>
-                {secondari.length > 0 && (
-                  <details className="altri-campi" open={compilati > 0 || undefined}>
-                    <summary className="pill-opt">
-                      Altri {secondari.length} campi non in evidenza{compilati ? ` · ${compilati} compilati` : ""}
-                    </summary>
-                    <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
-                      Campi che il negozio non tiene in evidenza nell&apos;admin: di prova, di app o usati di rado. Si compilano solo se servono.
-                    </p>
-                    <div className="modulo">{secondari.map(campo)}</div>
-                  </details>
-                )}
-              </>
-            );
-          })()
-        )}
       </div>
 
       {/* ---------- Foto e video ---------- */}
