@@ -954,7 +954,8 @@
       "applica": "Apply",
       "svuota": "Clear all",
       "caricamento": "Loading the available fields…",
-      "tetto": "At most {{n}} conditions per search."
+      "tetto": "At most {{n}} conditions per search.",
+      "errore": "Could not load the available fields."
     }
   },
   "partners": {
@@ -1181,7 +1182,8 @@
       "notYours": "{{n}} skipped because not yours."
     },
     "tabListino": "My price list",
-    "unarchive": "Unarchive"
+    "unarchive": "Unarchive",
+    "archived": "Archived"
   },
   "aree": {
     "title": "Areas",

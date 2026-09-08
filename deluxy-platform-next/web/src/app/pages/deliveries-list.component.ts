@@ -708,7 +708,19 @@ interface PropostaVendita {
         </div>
         <p class="modal-sub">{{ 'deliveries.ricerca.sub' | translate }}</p>
 
-        @if (!catalogo()) {
+        <!-- ⚠️ 08/09/2026 (segnalazione utente: «il pop-up si apre vuoto») — UN FALLIMENTO
+             NON DEVE SEMBRARE UNA LISTA VUOTA (trappola nota). Prima c'era un solo ramo
+             «sto leggendo»: se la lettura del catalogo falliva, restava li' per sempre e il
+             pop-up sembrava semplicemente vuoto, senza dire niente a nessuno. Adesso i tre
+             stati sono distinti, e quello di errore ha il bottone per riprovare. -->
+        @if (catalogoErrore()) {
+          <div class="err-msg">
+            {{ 'deliveries.ricerca.errore' | translate }}
+            <button type="button" class="btn btn-secondary mini" (click)="leggiCatalogo()">
+              {{ 'common.retry' | translate }}
+            </button>
+          </div>
+        } @else if (!catalogo()) {
           <p class="muted">{{ 'deliveries.ricerca.caricamento' | translate }}</p>
         } @else {
           @for (c of bozza; track $index) {
@@ -2839,20 +2851,36 @@ export class DeliveriesListComponent {
   /** La copia su cui si lavora dentro il pop-up: si applica solo con «Applica». */
   bozza: Condizione[] = [];
 
+  readonly catalogoErrore = signal(false);
+
   apriRicerca(): void {
     // La bozza parte da quello che e' gia' applicato: aggiungere una condizione a una
     // ricerca in corso non deve cancellare le altre.
     this.bozza = this.condizioni().map((c) => ({ ...c }));
-    if (!this.bozza.length) this.aggiungiCondizione();
     this.ricercaAperta.set(true);
-    if (!this.catalogo()) {
-      this.http.get<CatalogoFiltri>(`${environment.apiUrl}/deliveries/filtri-avanzati`).subscribe({
-        next: (c) => this.catalogo.set(c),
-        // ⚠️ Senza catalogo il pop-up non sa cosa offrire: si dice, invece di mostrare
-        // menu vuoti che sembrano «non si puo' filtrare per niente».
-        error: () => this.catalogo.set(null),
-      });
-    }
+    if (!this.catalogo()) this.leggiCatalogo();
+    else if (!this.bozza.length) this.aggiungiCondizione();
+  }
+
+  /**
+   * Il catalogo dei campi, dal server.
+   *
+   * ⚠️ La prima riga di condizione si aggiunge DOPO che il catalogo è arrivato: prima
+   * `campiCatalogo()` è vuoto, e la riga nascerebbe con un campo inventato e un menu senza
+   * opzioni — che è esattamente il pop-up vuoto che si vedeva.
+   */
+  leggiCatalogo(): void {
+    this.catalogoErrore.set(false);
+    this.http.get<CatalogoFiltri>(`${environment.apiUrl}/deliveries/filtri-avanzati`).subscribe({
+      next: (c) => {
+        this.catalogo.set(c && Array.isArray(c.campi) && c.campi.length ? c : null);
+        this.catalogoErrore.set(!this.catalogo());
+        if (this.catalogo() && !this.bozza.length) this.aggiungiCondizione();
+      },
+      // ⚠️ Senza catalogo il pop-up non sa cosa offrire: lo si DICE, invece di mostrare
+      // menu vuoti che sembrano «non si puo' filtrare per niente».
+      error: () => { this.catalogo.set(null); this.catalogoErrore.set(true); },
+    });
   }
 
   campiCatalogo(): CampoFiltro[] { return this.catalogo()?.campi ?? []; }

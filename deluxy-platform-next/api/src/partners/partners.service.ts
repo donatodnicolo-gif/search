@@ -643,6 +643,37 @@ export class PartnersService {
     }
     const prima = await this.findOne(id);
     const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...rest } = dto;
+
+    /**
+     * ⚠⚠ 08/09/2026 — SECONDA FALLA TROVATA DALL'AGENTE OSTILE: la porta accanto.
+     *
+     * Le coordinate bancarie hanno una rotta loro, con la verifica per email. Ma
+     * `PUT /partners/:id` accetta `bankAccount` e `bankAccountName` dal DTO e il ramo
+     * restrittivo scatta solo per il ruolo PARTNER: **PROJECT_MANAGER, OPERATION e ADMIN
+     * li scrivevano dalla rotta generica**, senza codice, senza checksum, senza avviso al
+     * partner e senza avviso all'ufficio. La porta nuova chiusa a chiave, quella vecchia
+     * accanto socchiusa — e per il project manager era perfino in contraddizione col
+     * commento che dichiara «non tocca il denaro di nessuno».
+     *
+     * Adesso da qui l'IBAN non passa per NESSUNO. Chi lo deve cambiare usa la rotta con la
+     * verifica; l'ufficio può farlo per conto del partner dalla stessa rotta (è fra i ruoli
+     * ammessi), e così il gesto lascia sempre la sua traccia.
+     */
+    const banca = rest as { bankAccount?: string; bankAccountName?: string };
+    if (banca.bankAccount !== undefined || banca.bankAccountName !== undefined) {
+      const iban = normalizzaIban(banca.bankAccount ?? '');
+      const cambiaDavvero = banca.bankAccount !== undefined && iban !== normalizzaIban(prima.bankAccount ?? '');
+      delete banca.bankAccount;
+      delete banca.bankAccountName;
+      if (cambiaDavvero) {
+        this.logger.warn(
+          `Tentativo di cambiare l'IBAN del partner ${id} dalla scheda (${user.role}, ${user.email ?? user.sub}): ignorato, si passa dalla verifica.`,
+        );
+        throw new BadRequestException(
+          "Le coordinate bancarie non si cambiano da qui: si usa il riquadro «Coordinate bancarie», che manda un codice di verifica al partner.",
+        );
+      }
+    }
     const scalar = {
       ...rest,
       ...(rest.insegna != null ? { insegna: titleCaseInsegna(rest.insegna) ?? rest.insegna } : {}),
@@ -660,7 +691,18 @@ export class PartnersService {
       // ⚠️ 02/09: email e indirizzo qui MANCAVANO — la scheda profilo li
       // mandava (il dto riassegnato sopra li ammette) ma questa seconda
       // whitelist li buttava in silenzio: si salvava solo il telefono.
-      if (scalar.email !== undefined) allowed.email = scalar.email;
+      // ⚠⚠ 08/09/2026: il cambio del RECAPITO lascia una traccia, perché è il primo passo
+      // dell'attacco all'IBAN (l'ostile: si riscrive l'email, poi si chiede il codice).
+      // `emailCambiataIl` fa scattare il blocco di sette giorni sul cambio delle coordinate,
+      // `emailPrecedente` fa arrivare il codice anche dove arrivava prima.
+      if (scalar.email !== undefined) {
+        allowed.email = scalar.email;
+        const nuova = String(scalar.email ?? '').trim().toLowerCase();
+        if (nuova && nuova !== (prima.email ?? '').trim().toLowerCase()) {
+          allowed.emailCambiataIl = new Date();
+          allowed.emailPrecedente = prima.email ?? null;
+        }
+      }
       if (scalar.address !== undefined) allowed.address = scalar.address;
       // ⭐ 06/09/2026 (regola utente): con un servizio di VENDITA il partner regola da solo
       // «Consegna da Partner», minimo d'ordine e raggio (la rotta del profilo lo controlla già; qui
@@ -820,6 +862,15 @@ export class PartnersService {
   // Qui c'è solo il giro: chi può, cosa si salva, quando si scrive davvero.
   // ============================================================
 
+  /**
+   * Per quanti giorni, dopo un cambio del recapito email, le coordinate bancarie restano
+   * bloccate. Chiude l'ordine di mosse dell'attacco trovato dall'ostile: prima si riscrive
+   * l'email, poi si chiede il codice. Sette giorni sono il tempo perché un partner vero si
+   * accorga di un cambio che non ha fatto — e per lui il blocco è un'attesa, non una porta
+   * chiusa: l'ufficio può sempre cambiare l'IBAN dalla scheda.
+   */
+  private static readonly GIORNI_DOPO_CAMBIO_EMAIL = 7;
+
   /** Il partner agisce sul PROPRIO profilo; ufficio e amministrazione su chiunque. */
   private assertPuoToccareBanca(partnerId: string, user: JwtUser) {
     if (user.role === Role.PARTNER) {
@@ -876,17 +927,66 @@ export class PartnersService {
     }
     const p = await this.prisma.partner.findUnique({
       where: { id: partnerId },
-      select: { insegna: true, email: true, bankAccount: true, bankCodeSentAt: true },
+      select: { insegna: true, email: true, bankAccount: true, bankCodeSentAt: true,
+                emailCambiataIl: true, emailPrecedente: true },
     });
     if (!p) throw new NotFoundException('Partner non trovato');
-    // ⚠️ La mail va all'indirizzo IN ANAGRAFICA, mai a uno passato dal client: se il
-    // destinatario lo scegliesse chi fa la richiesta, il codice non verificherebbe niente.
-    const a = (p.email ?? '').trim();
-    if (!a || !a.includes('@') || a.includes('no-email')) {
+
+    /**
+     * ⚠⚠ LA FALLA CHE L'AGENTE OSTILE HA TROVATO NELLA PRIMA VERSIONE (08/09/2026).
+     *
+     * Il codice si manda «all'indirizzo in anagrafica» per non farlo scegliere a chi chiede
+     * il cambio. Ma `Partner.email` è **nella whitelist del profilo del partner**: chi ha
+     * una sessione di partner poteva
+     *   1. `POST /auth/profilo` con `{partner:{email:'suo@indirizzo'}}`,
+     *   2. chiedere il codice — che arrivava a lui,
+     *   3. confermare, e dirottare i bonifici.
+     * Due salvataggi sulla stessa schermata. La verifica non verificava niente, e il
+     * titolare vero non riceveva né il codice né l'avviso: anche il recapito in anagrafica
+     * era ormai quello dell'attaccante, e di lì finiva pure nel registro Anagrafiche da cui
+     * FINANCE legge l'IBAN per pagare.
+     *
+     * Tre chiusure, che valgono solo insieme:
+     *   a) un recapito appena cambiato NON apre un cambio IBAN (`GIORNI_DOPO_CAMBIO_EMAIL`)
+     *      — chiude proprio l'ordine delle mosse dell'attacco;
+     *   b) il codice parte verso TUTTI gli indirizzi noti (quello in scheda, quello
+     *      dell'account, e il PRECEDENTE se il cambio è recente): chi ne riscrive uno non
+     *      intercetta gli altri;
+     *   c) l'ufficio riceve l'avviso già sulla RICHIESTA, non solo a cambio avvenuto.
+     */
+    if (p.emailCambiataIl) {
+      const giorni = (Date.now() - p.emailCambiataIl.getTime()) / 86_400_000;
+      if (giorni < PartnersService.GIORNI_DOPO_CAMBIO_EMAIL) {
+        throw new BadRequestException(
+          "L'indirizzo email del profilo è stato cambiato di recente: per sicurezza le coordinate bancarie non si " +
+          `possono modificare per altri ${Math.ceil(PartnersService.GIORNI_DOPO_CAMBIO_EMAIL - giorni)} giorni. ` +
+          "Se è urgente, contatti l'ufficio.",
+        );
+      }
+    }
+    const utente = await this.prisma.user.findFirst({
+      where: { partnerId, role: Role.PARTNER },
+      select: { email: true },
+    });
+    const buona = (x: string | null | undefined) => {
+      const v = (x ?? '').trim().toLowerCase();
+      return v && v.includes('@') && !v.includes('no-email') ? v : null;
+    };
+    // L'indirizzo precedente vale un mese: dopo, tenerlo vorrebbe dire mandare il codice a
+    // una casella che il partner potrebbe non controllare più.
+    const precedenteVale = p.emailCambiataIl
+      && (Date.now() - p.emailCambiataIl.getTime()) < 30 * 86_400_000;
+    const destinatari = [...new Set([
+      buona(p.email),
+      buona(utente?.email),
+      precedenteVale ? buona(p.emailPrecedente) : null,
+    ].filter(Boolean) as string[])];
+    if (!destinatari.length) {
       throw new BadRequestException(
         "Il profilo non ha un indirizzo email valido: il codice non avrebbe dove arrivare. Contatti l'ufficio.",
       );
     }
+    const a = destinatari[0];
     if (normalizzaIban(p.bankAccount ?? '') === iban) {
       throw new BadRequestException('Questo è già l\'IBAN registrato: non c\'è niente da cambiare.');
     }
@@ -910,7 +1010,12 @@ export class PartnersService {
     });
 
     const { oggetto, html } = mailCodice(p.insegna ?? '', codice, iban, p.bankAccount);
-    const esito = await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
+    // ⚠️ A TUTTI gli indirizzi noti, non solo al primo: basta che UNO arrivi al titolare
+    // vero perché un dirottamento si veda mentre l'IBAN è ancora il suo.
+    const esiti = await Promise.all(destinatari.map((x) => this.settings.inviaHtmlViaAiMail(x, oggetto, html)));
+    const esito = esiti.some((e) => e.ok)
+      ? { ok: true, motivo: 'inviata' }
+      : { ok: false, motivo: esiti[0]?.motivo ?? 'errore non specificato' };
     if (!esito.ok) {
       // ⚠️ Se la mail non parte la richiesta si annulla: lasciare un codice valido che
       // nessuno ha ricevuto vorrebbe dire lasciare aperta una porta senza campanello.
@@ -920,10 +1025,18 @@ export class PartnersService {
       });
       throw new BadRequestException(`Non si è riusciti a mandare il codice: ${esito.motivo}`);
     }
-    this.logger.log(`Cambio IBAN richiesto per il partner ${partnerId}: codice mandato a ${emailMascherata(a)}`);
+    this.logger.warn(
+      `Cambio IBAN RICHIESTO per il partner ${partnerId} (${p.insegna}): ` +
+      `${ibanMascherato(p.bankAccount)} → ${ibanMascherato(iban)}, codice a ` +
+      `${destinatari.map(emailMascherata).join(', ')}, da ${user.email ?? user.sub}`,
+    );
+    // (c) L'ufficio lo sa ADESSO, non a cambio avvenuto: se la richiesta non è del partner,
+    // questo è il momento in cui la si può ancora fermare.
+    void this.avvisaUfficioBanca('richiesta', p.insegna ?? '', p.bankAccount, iban, intestatario);
     return {
       inviato: true,
       mailDiVerifica: emailMascherata(a),
+      ancheAd: destinatari.slice(1).map(emailMascherata),
       scadeIl: scade,
       validoMinuti: CODICE_VALIDO_MINUTI,
     };
@@ -959,8 +1072,17 @@ export class PartnersService {
       throw new BadRequestException('Troppi tentativi: la richiesta è stata annullata. Ne faccia una nuova.');
     }
     if (!improntaCombacia(p.bankCodeHash, String(codice ?? ''))) {
-      const dopo = p.bankCodeAttempts + 1;
-      await this.prisma.partner.update({ where: { id: partnerId }, data: { bankCodeAttempts: dopo } });
+      // ⚠️ ATOMICO (falla trovata dall'ostile, 08/09/2026). Prima si leggeva il contatore e
+      // lo si riscriveva col valore assoluto `letto + 1`: N richieste in parallelo leggevano
+      // tutte 0 e scrivevano tutte 1 — il tetto valeva solo provando in fila, e l'app non ha
+      // nessun throttler. `increment` lo fa fare al database, e si decide sul valore che
+      // TORNA, non su quello letto prima.
+      const aggiornato = await this.prisma.partner.update({
+        where: { id: partnerId },
+        data: { bankCodeAttempts: { increment: 1 } },
+        select: { bankCodeAttempts: true },
+      });
+      const dopo = aggiornato.bankCodeAttempts;
       if (dopo >= TENTATIVI_MASSIMI) {
         await this.azzeraRichiestaBanca(partnerId);
         throw new BadRequestException('Codice errato. Troppi tentativi: la richiesta è stata annullata.');
@@ -985,7 +1107,7 @@ export class PartnersService {
     // esattamente lo scenario che questa funzione deve rendere impossibile: la verifica
     // per email ferma chi non ha la casella, l'avviso qui ferma chi ce l'ha.
     // L'avviso non blocca la risposta: il cambio è già valido e confermato.
-    void this.avvisaUfficioCambioBanca(p.insegna ?? '', vecchio, sospeso.bankAccount, sospeso.bankAccountName);
+    void this.avvisaUfficioBanca('fatto', p.insegna ?? '', vecchio, sospeso.bankAccount, sospeso.bankAccountName);
     this.logger.warn(
       `IBAN cambiato per il partner ${partnerId} (${p.insegna}): ${ibanMascherato(vecchio)} → ${ibanMascherato(sospeso.bankAccount)}, da ${user.email ?? user.sub}`,
     );
@@ -1000,21 +1122,36 @@ export class PartnersService {
     return { annullata: true };
   }
 
+  /**
+   * ⚠️ `bankCodeSentAt` NON si azzera più (falla trovata dall'ostile, 08/09/2026).
+   *
+   * Prima sì, e la pausa di 60 secondi fra due invii si annullava da sola: bastava un
+   * `DELETE .../banca/richiedi` — o esaurire i cinque tentativi, che chiama proprio questo
+   * metodo — per poterne chiedere subito un altro. Il tetto «cinque prove» diventava
+   * «cinque prove per codice, e un codice nuovo ogni giro di rete»: un milione di
+   * combinazioni si copre in ore, non in anni.
+   *
+   * L'ora dell'ultimo invio è un FATTO, non parte della richiesta: resta scritta anche
+   * quando la richiesta cade.
+   */
   private async azzeraRichiestaBanca(partnerId: string) {
     await this.prisma.partner.update({
       where: { id: partnerId },
-      data: { bankCodeHash: null, bankCodeExpiresAt: null, bankCodeAttempts: 0, bankCodeSentAt: null, bankPending: null },
+      data: { bankCodeHash: null, bankCodeExpiresAt: null, bankCodeAttempts: 0, bankPending: null },
     });
   }
 
-  private async avvisaUfficioCambioBanca(insegna: string, vecchio: string | null, nuovo: string, intestatario: string) {
+  private async avvisaUfficioBanca(
+    quando: 'richiesta' | 'fatto',
+    insegna: string, vecchio: string | null, nuovo: string, intestatario: string,
+  ) {
     try {
       const a = ((await this.settings.get('mailUtente')) || process.env.MAIL_UTENTE || '').trim();
       if (!a) return;
-      const { oggetto, html } = mailAvvisoUfficio(insegna, vecchio, nuovo, intestatario, new Date());
+      const { oggetto, html } = mailAvvisoUfficio(insegna, vecchio, nuovo, intestatario, new Date(), quando);
       await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
     } catch (err) {
-      this.logger.error(`Avviso all'ufficio del cambio IBAN non partito: ${(err as Error).message}`);
+      this.logger.error(`Avviso all'ufficio sul cambio IBAN non partito: ${(err as Error).message}`);
     }
   }
 }

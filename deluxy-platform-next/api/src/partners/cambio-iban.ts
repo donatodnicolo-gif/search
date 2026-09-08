@@ -11,10 +11,18 @@ import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
  * ⚠️ PERCHÉ DUE PASSI E NON UNO. Cambiare l'IBAN è il gesto che un attacco cerca: chi
  * entrasse in una sessione di partner potrebbe dirottare i bonifici, e nessuno se ne
  * accorgerebbe fino al primo pagamento andato altrove. Perciò la richiesta **non scrive
- * niente**: parcheggia i valori proposti, manda un codice alla mail in ANAGRAFICA, e i
- * campi veri cambiano solo quando quel codice torna indietro. Se il codice non arriva
- * (perché chi ha chiesto il cambio non ha accesso a quella casella), l'IBAN resta quello
- * di prima — ed è arrivata comunque una mail a dire che qualcuno ci ha provato.
+ * niente**: parcheggia i valori proposti, manda un codice agli indirizzi email noti del
+ * partner, e i campi veri cambiano solo quando quel codice torna indietro.
+ *
+ * ⚠⚠ IL CODICE NON BASTA DA SOLO, e la prima versione lo dimostrava: mandarlo «alla mail
+ * in anagrafica» non serviva a niente, perché quella mail il partner se la può riscrivere
+ * dal proprio profilo. L'agente ostile ha montato il percorso in due click sulla stessa
+ * schermata: cambio il recapito, chiedo il codice, me lo trovo in casella. Le difese che
+ * chiudono davvero il giro stanno in `partners.service.ts` e vanno insieme:
+ *   · un recapito appena cambiato blocca il cambio IBAN per sette giorni;
+ *   · il codice parte verso TUTTI gli indirizzi noti, incluso quello precedente;
+ *   · l'ufficio riceve l'avviso già sulla richiesta, non solo a cambio avvenuto;
+ *   · `PUT /partners/:id` non scrive più l'IBAN per nessun ruolo (era la porta accanto).
  *
  * Qui stanno le parti pure — validazione, codice, impronta, confronto — così sono
  * leggibili e provabili senza database.
@@ -163,20 +171,38 @@ export function mailCodice(insegna: string, codice: string, ibanNuovo: string, i
   return { oggetto: 'Codice di verifica per il cambio delle coordinate bancarie', html };
 }
 
-/** L'avviso all'ufficio, a cambio avvenuto. */
-export function mailAvvisoUfficio(insegna: string, vecchio: string | null, nuovo: string, intestatario: string, quando: Date): { oggetto: string; html: string } {
+/**
+ * L'avviso all'ufficio, in DUE momenti (⭐ 08/09/2026, dopo il passaggio dall'ostile).
+ *
+ * ⚠️ Prima partiva solo a cambio avvenuto, e serviva a poco: quando arriva, il conto
+ * è già cambiato. Adesso ne parte uno anche sulla RICHIESTA — mentre l'IBAN è ancora
+ * quello di prima e c'è ancora il tempo di alzare il telefono.
+ */
+export function mailAvvisoUfficio(
+  insegna: string, vecchio: string | null, nuovo: string, intestatario: string, quando: Date,
+  momento: 'richiesta' | 'fatto' = 'fatto',
+): { oggetto: string; html: string } {
   const esc = (x: string) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const html = [
     `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1d1d1f;max-width:560px">`,
-    `<p style="font-size:15px;margin:0 0 14px">Il partner <b>${esc(insegna)}</b> ha cambiato le proprie coordinate bancarie dal profilo, confermando col codice ricevuto per email.</p>`,
+    momento === 'fatto'
+      ? `<p style="font-size:15px;margin:0 0 14px">Il partner <b>${esc(insegna)}</b> ha <b>cambiato</b> le proprie coordinate bancarie dal profilo, confermando col codice ricevuto per email.</p>`
+      : `<p style="font-size:15px;margin:0 0 14px">Il partner <b>${esc(insegna)}</b> ha <b>chiesto</b> di cambiare le proprie coordinate bancarie. Le coordinate <b>non sono ancora cambiate</b>: cambieranno solo se qualcuno inserisce il codice che abbiamo mandato ai suoi indirizzi email.</p>`,
     `<table style="border-collapse:collapse;margin:0 0 18px">`,
     `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px">Quando</td><td style="padding:4px 0;font-size:14px">${esc(quando.toLocaleString('it-IT', { timeZone: 'Europe/Rome' }))}</td></tr>`,
     `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px">IBAN precedente</td><td style="padding:4px 0;font-size:14px">${esc(vecchio ? ibanLeggibile(vecchio) : '(non c\'era)')}</td></tr>`,
-    `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px">IBAN nuovo</td><td style="padding:4px 0;font-size:14px"><b>${esc(ibanLeggibile(nuovo))}</b></td></tr>`,
+    `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px">IBAN ${momento === 'fatto' ? 'nuovo' : 'richiesto'}</td><td style="padding:4px 0;font-size:14px"><b>${esc(ibanLeggibile(nuovo))}</b></td></tr>`,
     `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px">Intestatario</td><td style="padding:4px 0;font-size:14px">${esc(intestatario)}</td></tr>`,
     `</table>`,
-    `<p style="font-size:14px;margin:0">Se questo cambiamento non era atteso, verificarlo col partner <b>prima del prossimo pagamento</b>.</p>`,
+    momento === 'fatto'
+      ? `<p style="font-size:14px;margin:0">Se questo cambiamento non era atteso, verificarlo col partner <b>prima del prossimo pagamento</b>.</p>`
+      : `<p style="font-size:14px;margin:0">Se questa richiesta non era attesa, <b>chiamare il partner adesso</b>: finché il codice non viene inserito, l'IBAN resta quello attuale.</p>`,
     `</div>`,
   ].join('');
-  return { oggetto: `Coordinate bancarie cambiate — ${insegna}`, html };
+  return {
+    oggetto: momento === 'fatto'
+      ? `Coordinate bancarie CAMBIATE — ${insegna}`
+      : `Richiesta di cambio delle coordinate bancarie — ${insegna}`,
+    html,
+  };
 }

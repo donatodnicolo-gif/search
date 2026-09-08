@@ -955,7 +955,8 @@
       "applica": "Applica",
       "svuota": "Svuota tutto",
       "caricamento": "Sto leggendo i campi disponibili…",
-      "tetto": "Massimo {{n}} condizioni per ricerca."
+      "tetto": "Massimo {{n}} condizioni per ricerca.",
+      "errore": "Non si è riusciti a leggere i campi disponibili."
     }
   },
   "partners": {
@@ -1183,7 +1184,8 @@
       "notYours": "{{n}} esclusi perché non tuoi."
     },
     "tabListino": "Il mio listino",
-    "unarchive": "Togli dall'archivio"
+    "unarchive": "Togli dall'archivio",
+    "archived": "Archiviato"
   },
   "aree": {
     "title": "Aree",

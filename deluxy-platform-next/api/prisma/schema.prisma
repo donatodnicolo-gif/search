@@ -377,6 +377,22 @@ model Partner {
   /// I valori PROPOSTI, in attesa di conferma: JSON {bankAccount, bankAccountName}.
   /// Restano qui, staccati dai campi veri, finché il codice non arriva.
   bankPending         String?
+
+  // ⚠️⚠️ 08/09/2026 — LA FALLA CHE L'AGENTE OSTILE HA TROVATO NELLA PRIMA VERSIONE.
+  //
+  // Il codice si manda alla mail «in anagrafica» per non farla scegliere a chi chiede il
+  // cambio. Ma `Partner.email` è **nella whitelist del profilo del partner**: chi ha una
+  // sessione di partner poteva riscriversi il recapito e poi chiedere il codice, che gli
+  // arrivava. Due salvataggi sulla stessa schermata, e la verifica non verificava niente.
+  //
+  // Queste due colonne chiudono quell'ordine di mosse: si sa QUANDO il recapito è cambiato
+  // (e per un po' l'IBAN non si tocca) e DOVE arrivava prima (il codice va anche là, così
+  // il titolare vero se ne accorge).
+
+  /// Quando è cambiato l'indirizzo email del partner. Null = mai cambiato da qui.
+  emailCambiataIl     DateTime?
+  /// L'indirizzo precedente: per un mese il codice di verifica arriva anche là.
+  emailPrecedente     String?
   // --- dati amministrativi che arrivano dal registro Anagrafiche ---
   /// Referente amministrazione del registro (non il referente commerciale).
   adminName           String?

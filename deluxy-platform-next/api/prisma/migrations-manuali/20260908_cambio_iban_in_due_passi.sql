@@ -18,9 +18,16 @@ ALTER TABLE platform."Partner" ADD COLUMN IF NOT EXISTS "bankCodeAttempts"  INTE
 ALTER TABLE platform."Partner" ADD COLUMN IF NOT EXISTS "bankCodeSentAt"    TIMESTAMP(3);
 ALTER TABLE platform."Partner" ADD COLUMN IF NOT EXISTS "bankPending"       TEXT;
 
--- Controllo: devono uscire cinque righe.
+-- ⚠️ Aggiunte dopo il passaggio dall'agente ostile: senza queste, chi ha una sessione di
+-- partner poteva riscriversi `Partner.email` (è nella whitelist del profilo) e poi farsi
+-- mandare il codice al proprio indirizzo. Servono a sapere QUANDO il recapito è cambiato
+-- e DOVE arrivava prima.
+ALTER TABLE platform."Partner" ADD COLUMN IF NOT EXISTS "emailCambiataIl"   TIMESTAMP(3);
+ALTER TABLE platform."Partner" ADD COLUMN IF NOT EXISTS "emailPrecedente"   TEXT;
+
+-- Controllo: devono uscire sette righe.
 SELECT column_name, data_type, is_nullable, column_default
 FROM information_schema.columns
 WHERE table_schema = 'platform' AND table_name = 'Partner'
-  AND column_name IN ('bankCodeHash','bankCodeExpiresAt','bankCodeAttempts','bankCodeSentAt','bankPending')
+  AND column_name IN ('bankCodeHash','bankCodeExpiresAt','bankCodeAttempts','bankCodeSentAt','bankPending','emailCambiataIl','emailPrecedente')
 ORDER BY column_name;

@@ -67,8 +67,22 @@ interface ProductDetail {
           } @else {
             <span class="pill wait">{{ 'products.pending' | translate }}</span>
           }
+          @if (p.archived) {
+            <span class="pill">{{ 'products.archived' | translate }}</span>
+          }
           @if (puoToccare(p)) {
             <a class="btn btn-secondary edit" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+            <!-- ⭐ 08/09/2026 (regola utente: «dovresti avere richiesta di poter avere tasto per
+                 archiviare anche in dettaglio prodotto»). ⚠️ Il METODO c'era già dal 07/09
+                 cambiaArchivio(), scritto per questo, ma il bottone che lo chiama non era mai
+                 stato messo nel template: chi apriva la scheda per decidere doveva tornare
+                 all'elenco e ritrovare la riga. Archiviare non è cancellare — il prodotto esce
+                 dalle liste e resta leggibile — quindi non serve una conferma: si ripristina
+                 con lo stesso tasto. -->
+            <button type="button" class="btn btn-secondary" [disabled]="inCorso()"
+                    (click)="cambiaArchivio(p)">
+              {{ (p.archived ? 'products.restore' : 'products.archive') | translate }}
+            </button>
           }
         </div>
       }
