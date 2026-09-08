@@ -87,6 +87,10 @@ export type RiepilogoMese = {
   saldo: number; // servizi IVATI - dovuto al partner (netto: significativo con compensazione)
   daIncassare: number; // >= 0: quanto il partner deve a Deluxy
   daBonificare: number; // >= 0: quanto Deluxy deve al partner
+  // Lo SFORO, che i due numeri qui sopra non possono dire perché sono troncati
+  // a zero (08/09/2026, regola dell'utente). >= 0, e solo per le partite separate.
+  pagatoInPiu: number; // abbiamo bonificato PIÙ del dovuto: differenza in più
+  incassatoInPiu: number; // il partner ha pagato PIÙ delle sue fatture aperte
   residuo: number; // daIncassare - daBonificare (netto, per colonne e ordinamenti)
   pareggiato: boolean;
 };
@@ -134,6 +138,20 @@ export function riepilogoMese(
     daBonificare = positivo(dovutoPartner - bonificoInviato);
   }
 
+  // ⭐ 08/09/2026 (regola dell'utente): «se abbiamo pagato in più segna quanto
+  // la differenza come un più, idem se abbiamo pagato in meno».
+  //
+  // `positivo()` tronca a zero, quindi lo SFORO spariva: un mese con dovuto
+  // 114,38 € e bonificato 114,39 € si leggeva «da bonificare 0,00 €, mese
+  // pareggiato», e quel centesimo pagato in più non esisteva da nessuna parte.
+  // Il troncamento è giusto per «quanto resta da fare» — non si sollecita un
+  // numero negativo — ma la differenza va detta lo stesso, col suo segno.
+  //
+  // Serve solo alle partite SEPARATE: in compensazione il mese è già un netto
+  // unico, e uno sforo si vede da sé come residuo dall'altra parte.
+  const pagatoInPiu = compensazione ? 0 : positivo(bonificoInviato - dovutoPartner);
+  const incassatoInPiu = compensazione ? 0 : positivo(bonificoRicevuto - serviziNonPagati);
+
   return {
     compensazione,
     serviziNetto,
@@ -152,8 +170,13 @@ export function riepilogoMese(
     saldo,
     daIncassare,
     daBonificare,
+    pagatoInPiu,
+    incassatoInPiu,
     residuo: daIncassare - daBonificare,
-    pareggiato: daIncassare < 0.01 && daBonificare < 0.01,
+    // ⚠️ Un mese con uno SFORO non è «pareggiato»: c'è una differenza da
+    // guardare, anche se non c'è più niente da fare. Dirlo pareggiato è come
+    // dire che i conti tornano quando invece avanza (o manca) del denaro.
+    pareggiato: daIncassare < 0.01 && daBonificare < 0.01 && pagatoInPiu < 0.01 && incassatoInPiu < 0.01,
   };
 }
 

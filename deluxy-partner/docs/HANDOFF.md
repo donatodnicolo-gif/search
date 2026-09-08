@@ -52,6 +52,15 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 08/09/2026 (9) — Lo sforo si vede, e «Dovuto vendite» non mentiva più di tanto: mentiva l'etichetta
+>
+> Segnalato dall'utente su **CAKELAB FIRENZE, febbraio 2026**: la riga delle vendite diceva «dovuto 99,38 €», quella sotto «Dovuto vendite 114,38 € − già bonificato 114,39 €» e il mese risultava «Pareggiato». Due numeri diversi con la stessa etichetta, e un centesimo pagato in più che spariva.
+> - **Difetto 1 — l'etichetta**: `dovutoPartner` è dovuto vendite **+ aggiunte − detrazioni**, ma la riga lo chiamava «Dovuto vendite». Ora la somma si legge pezzo per pezzo: `Dovuto vendite 99,38 € + extra 15,00 € = 114,38 € − già bonificato 114,39 €`.
+> - **Difetto 2 — lo sforo troncato**: `daIncassare`/`daBonificare` passano da `positivo()`, che azzera i negativi. Giusto per «quanto resta da fare», sbagliato per «quanto è successo»: un pagamento in eccesso non esisteva da nessuna parte. Aggiunti a `riepilogoMese` **`pagatoInPiu`** e **`incassatoInPiu`** (≥ 0, solo per le partite separate: in compensazione il netto lo dice già), mostrati come pillola ambra sulla riga. E un mese con uno sforo **non è più «Pareggiato»**.
+> - ⚠️⚠️ **QUELLO CHE NON HO POTUTO CONFERMARE, e il test che si è rivelato vuoto.** L'utente legge quei 15 € come il surplus fra dovuto e bonificato, non come un extra dovuto. Ho provato a misurarlo cercando i mesi dove `aggiunte ≈ bonificato − dovuto vendite`: **23 su 45 verificabili**. Ma quella formula **non distingue niente**: se l'extra è vero e abbiamo pagato il totale giusto, allora `bonificato − dovutoVendite = aggiunte` **per costruzione**. Il test descrive «abbiamo pagato correttamente», non «c'è un tappo per far quadrare». Sono la stessa equazione.
+> - **Il dato vero**: **211 mesi** portano `aggiunte`/`detrazioni` sul saldo **senza nessuna riga in `ExtraSaldo`** (82.681,70 € di aggiunte e 38.934,48 € di detrazioni, importate da PARTNER.xlsx, **senza descrizione**). `ExtraSaldo` ha in tutto **14 righe**. Quindi per quei 211 nessuno può dire cosa fossero — ed è il motivo per cui la domanda non si risolve coi dati.
+> - **RESTA APERTO — decisione dell'utente**: se `aggiunte` per le righe importate NON è un importo dovuto ma la differenza col bonifico, allora non deve entrare in `dovutoPartner`. È una modifica che sposta **82.681,70 €** di «dovuto» su 211 mesi, e ricade su dashboard, saldi, scadenzario, rolling e API: non si fa per inferenza da un caso.
+>
 > ### 08/09/2026 (8) — I movimenti «per nome» della scheda usano la regola del motore, non più la sottostringa
 >
 > Chiesto dall'utente dopo lo screenshot di **ARTE E FIORI**, dove «Ultimi movimenti bancari» mostrava dieci righe di gente che non c'entra: «m**arte**l gianluca», «dolci**arte** sas», «pasticceria m**arte**sana» (che è un ALTRO partner), «**ARTE**MISIA».

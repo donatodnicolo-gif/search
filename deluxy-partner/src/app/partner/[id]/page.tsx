@@ -1138,8 +1138,28 @@ export default async function PartnerDetail({
                       <tr style={{ background: "var(--bg)" }}>
                         <td className="muted">Da bonificare al partner</td>
                         <td colSpan={2}>
-                          Dovuto vendite {euro(r.dovutoPartner)}
+                          {/* ⚠️ 08/09/2026 (segnalazione dell'utente): qui c'era
+                              scritto «Dovuto vendite» davanti a `dovutoPartner`,
+                              che è dovuto vendite **più gli extra, meno le
+                              detrazioni**. Sulla stessa pagina si leggeva 99,38 €
+                              sulla riga delle vendite e 114,38 € qui, senza che
+                              niente dicesse da dove venisse la differenza — e
+                              sembrava che l'app si contraddicesse. Ora la somma
+                              si vede pezzo per pezzo. */}
+                          Dovuto vendite {euro(r.dovutoVendite)}
+                          {r.aggiunte > 0.005 && <> + extra {euro(r.aggiunte)}</>}
+                          {r.detrazioni > 0.005 && <> − detrazioni {euro(r.detrazioni)}</>}
+                          {(r.aggiunte > 0.005 || r.detrazioni > 0.005) && <> = {euro(r.dovutoPartner)}</>}
                           {r.bonificoInviato > 0 && <> − già bonificato {euro(r.bonificoInviato)}</>}
+                          {/* Lo sforo, che il numero a destra non può dire perché
+                              è troncato a zero: si scrive, col suo verso. */}
+                          {r.pagatoInPiu > 0.005 && (
+                            <div style={{ marginTop: 2 }}>
+                              <span className="badge orange">
+                                <span className="dot" />pagato in più {euro(r.pagatoInPiu)}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td>
                           {saldo?.bonificoImporto != null && saldo.bonificoImporto > 0 && (
@@ -1158,6 +1178,16 @@ export default async function PartnerDetail({
                           Fatture non saldate {euro(r.serviziNonPagatiNetto)}{" "}
                           <span className="muted">+IVA → {euro(r.serviziNonPagati)}</span>
                           {r.bonificoRicevuto > 0 && <> − acconti ricevuti {euro(r.bonificoRicevuto)}</>}
+                          {/* Stesso principio nell'altro verso: se il partner ha
+                              versato più di quello che doveva, la differenza si
+                              dichiara invece di sparire nello zero. */}
+                          {r.incassatoInPiu > 0.005 && (
+                            <div style={{ marginTop: 2 }}>
+                              <span className="badge orange">
+                                <span className="dot" />incassato in più {euro(r.incassatoInPiu)}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td>
                           {saldo?.bonificoImporto != null && saldo.bonificoImporto < 0 && (
