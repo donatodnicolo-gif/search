@@ -296,6 +296,13 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                 </td>
                 <td class="mono">
                   @if (s.externalOrderNumber) { <strong>#{{ s.externalOrderNumber }}</strong> · }{{ s.brand }}
+                  <!-- ⭐ 08/09/2026 (regola utente: «anche qui mostra prodotto e quantità»).
+                       La colonna Prodotto sta a destra, oltre lo scorrimento: su schermi
+                       stretti la riga diceva numero e negozio, e COSA fosse la vendita non
+                       si sapeva senza scorrere. Qui sotto, in piccolo, il prodotto e i pezzi. -->
+                  <div class="cella-sub prod-riassunto">
+                    {{ s.product?.name ?? s.productName ?? '—' }}@if (s.variantName) { <span class="muted"> · {{ s.variantName }}</span> }@if (s.quantity && s.quantity > 1) { <b> ×{{ s.quantity }}</b> }
+                  </div>
                 </td>
                 <td class="orders-stato">
                   @if (s.ordine) {
@@ -956,6 +963,12 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       /* I pezzi e gli altri prodotti dello stesso ordine: sotto il nome, piu' piccoli,
          perche' sono contesto e non devono rubare la scena al prodotto della riga. */
       td.prodotto .pezzi { margin-left: 6px; font-variant-numeric: tabular-nums; }
+      /* Il prodotto sotto il numero d'ordine: e' un promemoria, non la colonna vera,
+         quindi resta su una riga e si taglia invece di allargare la colonna. */
+      .prod-riassunto {
+        font-family: inherit; max-width: 220px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
       td.prodotto .altri-prodotti {
         margin-top: 2px; font-size: 11.5px; color: var(--text-secondary);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;
