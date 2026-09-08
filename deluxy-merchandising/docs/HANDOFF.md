@@ -116,6 +116,33 @@ l'architettura; il resto sotto (pomeriggio e mattina).
 > controlli di stanotte, verificati sotto. È il guasto già noto di questo file —
 > una riga che resta scritta dopo essere diventata falsa.
 
+## 08/09/2026 sera — PUSHATO E DEPLOYATO (`qf91518zt`)
+
+Push su `origin/scout-ui` col solito worktree + cherry-pick: **portati solo i
+commit di Merchandising**, lasciato indietro `f95588a1` di un'altra sessione
+(«cron sfalsati su cinque app») — pushare lavoro altrui che tocca cinque app
+avrebbe potuto far ricostruire quelle app senza che nessuno l'avesse deciso.
+Origin a `ee11ed22`. Deploy `deluxy-merchandising-qf91518zt`, production, Ready.
+Verificato in produzione: `/prodotti` 200 con le colonne **Prodotto ·
+Collezione · Categoria · Fase · Prezzo · Margine · Shopify · Creato** e
+**7 intestazioni cliccabili**; `?ordina=prezzo&verso=desc` parte da 29.065,00 €;
+`/prodotti/nuovo` 200 col modulo. **Nove cron** registrati, compreso
+`/api/cron/traduzioni` alle 04:40. Cluster sano dopo il deploy (merchandising,
+personale, orders, budgets tutti `database: true`).
+
+🔴 **Trappola pagata, da ricordare: `git add <file>` prende TUTTO il file,
+anche il lavoro non finito di un'altra sessione.** Il commit `79415b96`
+(ordinamento colonne) ha inglobato il `duplica` a metà lasciato nel working
+tree da un'altra sessione, e **il codice non compilava**: `tsc` si fermava con
+«Cannot find name 'duplica'» e il deploy sarebbe fallito in build. Trovato
+perché **prima di pushare si rifà il typecheck e la build**, non solo dopo
+l'ultima modifica propria. Chiuso con `822edac6`, una riga (`duplica` fra i
+props destrutturati) che completa il loro lavoro senza cambiarne il disegno: il
+prop è opzionale, quindi la funzione resta inattiva finché non nasce la pagina
+`/prodotti/[id]/duplica` che passa il flag. ⭐ **Con due sessioni sulla stessa
+cartella, `git add` di un file «M» va guardato con `git diff --cached` prima di
+committare.**
+
 ## 08/09/2026 — TRADUZIONI: il problema non era l'AI, erano le lingue spente
 
 Utente: «dobbiamo fare anche le traduzioni usando l'AI ed essere sicuri ci
