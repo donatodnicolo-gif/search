@@ -357,4 +357,24 @@ Rischio: nessuno funzionale; qualche decina di ms in più al click. Si somma al 
 `e93d0e52` (custode), non deployato sul Hub al 08/09 sera.
 
 **Per il custode**: segnalata alla sessione «Raccolta feedback prestazioni app», che ha in mano la
-cartella del Hub. Da far passare da `performance-ostile` prima di applicare. Non applicata.
+cartella del Hub. Da far passare da `performance-ostile` prima di applicare.
+
+### ✅ APPLICATA E MISURATA — deploy `deluxy-a6vvi3mv3` del 08/09/2026 18:02
+
+Il custode ha messo `prefetch={false}` sulle voci del menu e sul link al profilo
+(`Sidebar.tsx`, righe 115 e 135) insieme al tetto di 3 connessioni in `db.ts`. Numeri
+letti sui log di Vercel, stessa metrica prima e dopo, **una navigazione = una raffica**:
+
+| | PRIMA (deploy 06/09) | DOPO (deploy 08/09 18:02) |
+|---|---|---|
+| lambda per navigazione | **8 in 90 ms** (7 voci + la pagina) | **max 4 in 270 ms**, spesso 1-2 |
+| raffiche da 7-8 in 20 min di log | 4 (16:43, 17:21, 17:36, 17:42) | **0** |
+| `select 1` sul pooler 6543 | EMAXCONN (17:49) | **ok in 308 ms** (18:22) |
+| `pg_stat_activity` client backend | 22 (15 idle, **6 idle in transaction**, 1 active) | 12 (11 idle, **0 idle in transaction**, 1 active) |
+
+⚠️ **Cosa NON è provato.** Le quattro invocazioni residue non partono più insieme al
+caricamento ma sfalsate su 270 ms: è compatibile con il **prefetch all'hover**, che
+`prefetch={false}` non spegne in App Router, cioè un mouse che scende lungo la sidebar.
+Non è stato provato con una sessione di browser controllata. E il recupero del pooler
+non si attribuisce al solo Hub: nella stessa mezz'ora sono stati pubblicati altri deploy
+col tetto a 3, e il traffico serale cala. È una correlazione, non una causa isolata.
