@@ -1156,13 +1156,30 @@ export default async function PartnerDetail({
                         </span>
                       </td>
                       <td>
-                        {saldo?.bonificoImporto != null && (
-                          <span className="muted">
-                            {saldo.bonificoImporto > 0 ? "Pagato al partner" : "Incassato"}{" "}
-                            {euro(Math.abs(saldo.bonificoImporto))}
-                            {saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""}
-                          </span>
-                        )}
+                        {saldo?.bonificoImporto != null &&
+                          // Stessa cosa del blocco mensile: se c'è il
+                          // riferimento, da qui si apre la richiesta su
+                          // Transactions — dove il pagamento è stato
+                          // autorizzato e dove sta la sua prova (08/09/2026).
+                          (saldo.richiestaRif ? (
+                            <a
+                              className="muted"
+                              href={`https://deluxy-transactions.vercel.app/richieste/${encodeURIComponent(saldo.richiestaRif)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Apri la richiesta ${saldo.richiestaRif} su Deluxy Transactions`}
+                            >
+                              {saldo.bonificoImporto > 0 ? "Pagato al partner" : "Incassato"}{" "}
+                              {euro(Math.abs(saldo.bonificoImporto))}
+                              {saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""} ↗
+                            </a>
+                          ) : (
+                            <span className="muted">
+                              {saldo.bonificoImporto > 0 ? "Pagato al partner" : "Incassato"}{" "}
+                              {euro(Math.abs(saldo.bonificoImporto))}
+                              {saldo.bonificoData ? ` il ${dataIt(saldo.bonificoData)}` : ""}
+                            </span>
+                          ))}
                       </td>
                       <td className={`num ${r.pareggiato ? "" : r.residuo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
                         residuo {euro(r.residuo)}

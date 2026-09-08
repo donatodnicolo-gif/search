@@ -1,5 +1,31 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🔗 **08/09/2026 — «Pagato al partner …» porta alla richiesta su Transactions.**
+> Nel footer del mese (`src/components/PagamentoMese.tsx`) la riga che riepiloga
+> il bonifico registrato diventa un link a
+> `https://deluxy-transactions.vercel.app/richieste/<rif>` **solo se il mese
+> porta un `richiestaRif`**. Senza riferimento resta testo: un link che non
+> porta da nessuna parte è peggio del testo (bonifici registrati a mano).
+> ⚠️ **Il percorso `/richieste/<rif>` non è stato verificato dall'esterno**:
+> Transactions risponde 307 verso il login a chi non ha sessione, quindi la
+> prova che la pagina esista la può dare solo una persona loggata. Se dovesse
+> essere sbagliato, si cambia in un punto solo.
+>
+> 🔁 **Condizioni vendor: risincronizzati i partner già decisi.**
+> Sulla piattaforma `compensazioneIncassi` era `Boolean @default(false)`: 283
+> partner su 297 avevano `false` **senza che nessuno avesse deciso niente**.
+> Prima di risincronizzare li ho portati a `NULL` («ancora da valorizzare»),
+> altrimenti il registro avrebbe ricevuto 283 «no» spacciati per decisioni.
+> Dopo la conversione: **21 partner con una decisione vera, 8 agganciati al
+> registro** (`platformId`) e quindi scritti; **13 non hanno aggancio**, e per
+> loro le condizioni non arrivano a Finance finché qualcuno non li collega.
+> ⚠️ Effetto collaterale voluto: **BOTTEGA LUNGARNO** ora dice «da
+> valorizzare» anche sulla piattaforma — il suo `false` era indistinguibile
+> dal default. I *tempi* invece sono passati (60 gg vendite, incasso a fine
+> mese) e Finance li legge: catena piattaforma → registro → API verificata il
+> 08/09.
+
+
 > 💸 **28/08/2026 — Collettore unico: lettura AI e prove da Transactions.**
 > Transactions è ora il collettore di TUTTE le richieste di pagamento
 > dell'ecosistema (CS, Scout, piattaforma valet, Finance) — Finance era già a
