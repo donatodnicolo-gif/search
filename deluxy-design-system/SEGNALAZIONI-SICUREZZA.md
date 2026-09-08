@@ -16,6 +16,7 @@
 
 | Pr. | App | Segnalazione (minaccia) | Voce Libro |
 |---|---|---|---|
+| NUOVA DIFESA | Piattaforma consegne | **Cambio IBAN dal profilo partner, con codice per email** (regola utente 08/09/2026). Il partner puo' cambiare da se' IBAN e intestatario: prima non poteva (l'`update` gli riassegna il dto ai soli contatti). Due passi: la richiesta NON scrive, parcheggia i valori in `bankPending` e manda un codice a 6 cifre alla mail **in anagrafica**; i campi cambiano solo alla conferma. Impronta SHA-256 (mai il codice), scadenza 15 min, 5 tentativi, confronto a tempo costante, un invio ogni 60 s, avviso all'ufficio a cambio avvenuto, `bankCodeHash`/`bankPending` in `PARTNER_OMIT`. Passata dall'ostile prima del deploy: e' il gesto che un attacco cerca, dirottare i bonifici. | cap. 1, 3, 11 |
 | 🔴 ESTERNO | search-supplier | webhook: settare `SHOPIFY_WEBHOOK_SECRET` su Vercel (main) + togliere il fallback `if(!enforce) return {ok:true}` — anonimo inietta un ordine falso che l'operatore smista al fornitore | cap. 7 |
 | 🔴 ESTERNO | Fondo | nessuna auth: espone il portafoglio reale a chi conosce l'URL — introdurre SSO Hub/password; confermare la protezione Vercel | cap. 15 |
 | 🟠 FAIL-OPEN | Finance, Tasks, Acquisti | se manca l'env la sessione apre tutto come admin — fail-closed 503 + check CI «env presente in prod» | cap. 1 |
