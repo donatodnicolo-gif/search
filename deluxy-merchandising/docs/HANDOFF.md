@@ -45,8 +45,24 @@ duplicazione avrebbe perso dati **in silenzio**.
 Stelle»» senza il prefisso ripetuto; `/modifica`, `/prodotti/nuovo` e
 `/collezioni` tutte 200. `npx tsc --noEmit` pulito.
 
-🔴 **NON PUBBLICATO**: committato in locale, in attesa che l'utente decida se
-pubblicare solo Merchandising o anche le altre quattro app scoperte.
+✅ **PUBBLICATO l'08/09 alle 12:00** — `deluxy-merchandising-uumlut90o`, Ready,
+alias attivo; su origin come `299eaaa5`. **Verificato in produzione**: `database:
+true` su **5 prove su 5** (era `false` 3 su 3), `/collezioni` **200** (era 500) in
+1.138–1.976 ms a funzione calda, `/prodotti` 1.155 ms, scheda 520 ms col bottone
+«⧉ Duplica», `/duplica` 601 ms col titolo «(Duplica) Colazione a 5 Stelle».
+**Nessun errore nei log del deploy.**
+
+⚠️ **Push e deploy fatti da un worktree pulito, e non per abitudine**: al momento
+della pubblicazione il working tree aveva **un merge di un'altra sessione con
+conflitti (`UU`)** su `docs/HANDOFF.md`, `FormProdottoNuovo.tsx` e
+`modifica/page.tsx`. `vercel deploy` carica la cartella **così com'è**: da lì
+sarebbero finiti in produzione i marcatori `<<<<<<<`. **Regola: prima di ogni
+deploy, `git status` sulla cartella dell'app; se compare `UU`, si pubblica da un
+worktree su `origin`, senza toccare il merge altrui.**
+
+🔴 **Restano senza tetto** `deluxy-orders`, `deluxy-messaging`, `deluxy-partner`,
+`deluxy-personale`: scelta dell'utente («sistema solo la tua parte»). La proposta
+di farne una regola è nel registro delle performance.
 
 ## 08/09/2026 mattina — SEZIONI PER CATEGORIA E TRE PUNTI DELLA SCHEDA (nuovo punto di ripresa)
 
