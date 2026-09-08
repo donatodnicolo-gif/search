@@ -1087,7 +1087,11 @@
       "conferma": "Create the rule",
       "erroreRiferimento": "Cannot read the prices of this product.",
       "erroreAnteprima": "Cannot compute the comparison.",
-      "erroreSalva": "The rule was not saved."
+      "erroreSalva": "The rule was not saved.",
+      "tuttiIPartner": "All partners",
+      "cercaNelPartner": "Search this partner’s catalogue…",
+      "cercaPartner": "Search a partner, to see only their products…",
+      "solo": "only:"
     }
   },
   "products": {
@@ -2789,7 +2793,8 @@
       "preventivoPrezzo": "Partner price (€)",
       "chiediPreventivo": "Ask for the quote",
       "preventivoServe": "Quote product: the partner price comes first, then you can accept or insert."
-    }
+    },
+    "altriProdotti": "Other products in the same order"
   },
   "activities": {
     "title": "Activities",

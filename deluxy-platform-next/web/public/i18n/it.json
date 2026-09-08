@@ -1089,7 +1089,11 @@
       "conferma": "Crea la regola",
       "erroreRiferimento": "Non riesco a leggere i prezzi di questo prodotto.",
       "erroreAnteprima": "Non riesco a calcolare il confronto.",
-      "erroreSalva": "La regola non è stata salvata."
+      "erroreSalva": "La regola non è stata salvata.",
+      "tuttiIPartner": "Tutti i partner",
+      "cercaNelPartner": "Cerca nel catalogo di questo partner…",
+      "cercaPartner": "Cerca un partner, per vedere solo i suoi prodotti…",
+      "solo": "solo:"
     }
   },
   "products": {
@@ -2791,7 +2795,8 @@
       "preventivoPrezzo": "Prezzo al partner (€)",
       "chiediPreventivo": "Chiedi il preventivo",
       "preventivoServe": "Prodotto a preventivo: prima serve il prezzo del partner, poi si può accettare o inserire."
-    }
+    },
+    "altriProdotti": "Altri prodotti dello stesso ordine"
   },
   "activities": {
     "title": "Attività",

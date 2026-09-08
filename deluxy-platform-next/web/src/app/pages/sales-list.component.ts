@@ -74,6 +74,8 @@ interface Storico {
 }
 
 interface Sale {
+  /** ⭐ 07/09/2026: i PEZZI («50 rose rosse» è una vendita di 50). */
+  quantity?: number | null;
   id: string;
   status: string;
   /** ⭐ 07/09/2026: prodotto a preventivo senza prezzo concordato — prima si raccoglie quello. */
@@ -301,7 +303,17 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                     @if (sottoOrders(s.ordine); as sub) { <span class="motivo">{{ sub }}</span> }
                   } @else { <span class="muted">—</span> }
                 </td>
-                <td class="prodotto">@if (fotoProdotto(s).length) { <button type="button" class="nome-prodotto" (click)="apriFoto(s); $event.stopPropagation()" [title]="'sales.detail.photos' | translate">{{ s.product?.name }}</button> } @else { {{ s.product?.name ?? s.productName ?? '—' }} }@if (!s.product && s.productName) { <span class="muted"> · {{ 'sales.fuoriCatalogo' | translate }}</span> }@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
+                <td class="prodotto">@if (fotoProdotto(s).length) { <button type="button" class="nome-prodotto" (click)="apriFoto(s); $event.stopPropagation()" [title]="'sales.detail.photos' | translate">{{ s.product?.name }}</button> } @else { {{ s.product?.name ?? s.productName ?? '—' }} }@if (!s.product && s.productName) { <span class="muted"> · {{ 'sales.fuoriCatalogo' | translate }}</span> }@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }@if (s.quantity && s.quantity > 1) { <b class="pezzi">×{{ s.quantity }}</b> }
+                  <!-- ⭐ 08/09/2026 (regola utente: «mostra anche i prodotti»). Un ordine
+                       composto ha una vendita per riga, e in tabella le righe sono lontane
+                       fra loro: qui si dice COSA ALTRO c'è nello stesso ordine, così chi
+                       guarda una vendita sa se sta vedendo tutto o metà. -->
+                  @if (altriProdotti(s); as altri) {
+                    <div class="altri-prodotti" [title]="'sales.altriProdotti' | translate">
+                      + {{ altri }}
+                    </div>
+                  }
+                </td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
                   @if (s.assignmentReason) {
@@ -642,6 +654,10 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
                           <span>
                             <a [href]="'/deliveries/' + c.id" target="_blank" rel="noopener"><b>#{{ c.code }}</b></a>
                             <span class="muted"> · {{ c.date ? (c.date | date: 'dd/MM/yy') : '—' }}@if (c.partner) { · {{ c.partner }} }@if (c.servizio) { · {{ c.servizio }} }@if (c.ddt) { · DDT {{ c.ddt }} }</span>
+                            <!-- ⭐ 08/09/2026 (regola utente): anche lo STATO. Tre consegne
+                                 tutte uguali in elenco, e una già consegnata non è come una
+                                 ancora da fare: chi sceglie deve vederlo senza aprire. -->
+                            @if (c.status) { <span class="stato-consegna">{{ ('deliveries.status.' + c.status) | translate }}</span> }
                             <!-- Una riga proposta deve dire PERCHÉ è lì: il DDT
                                  uguale è una prova, l'indirizzo è un indizio. -->
                             <span class="perche">{{ ('sales.reconcile.by.' + (c.motivo ?? 'indirizzo')) | translate }}</span>
@@ -937,6 +953,19 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       ul.vicine { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
       ul.vicine li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
       .perche { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+      /* I pezzi e gli altri prodotti dello stesso ordine: sotto il nome, piu' piccoli,
+         perche' sono contesto e non devono rubare la scena al prodotto della riga. */
+      td.prodotto .pezzi { margin-left: 6px; font-variant-numeric: tabular-nums; }
+      td.prodotto .altri-prodotti {
+        margin-top: 2px; font-size: 11.5px; color: var(--text-secondary);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;
+      }
+      /* Lo stato della consegna proposta: una pastiglia, per distinguere a colpo
+         d'occhio una gia' consegnata da una ancora da fare. */
+      .stato-consegna {
+        display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px;
+        background: var(--fill); font-size: 11.5px; color: var(--text-secondary); white-space: nowrap;
+      }
       table.storico { width: 100%; font-size: 13px; }
       table.storico td, table.storico th { padding: 6px 8px; }
       table.storico tr.spenta { opacity: 0.6; }
@@ -976,6 +1005,27 @@ export class SalesListComponent {
   readonly storico = signal<Storico | null>(null);
   readonly storicoAperto = signal(false);
   readonly storicoCaricando = signal(false);
+  /**
+   * ⭐ 08/09/2026 — GLI ALTRI PRODOTTI DELLO STESSO ORDINE.
+   *
+   * Dal 07/09 ogni riga d'ordine fa la sua vendita: un ordine con la torta e il bouquet
+   * sono due righe in tabella, che l'ordinamento può allontanare. Guardandone una non si
+   * capiva se fosse tutto l'ordine o metà — ed è proprio il caso che porta a consegnare
+   * mezzo ordine. Le vendite sorelle sono già in pagina: si leggono da lì, senza chiedere
+   * niente al server.
+   */
+  altriProdotti(s: Sale): string | null {
+    const ordine = s.externalOrderNumber;
+    if (!ordine) return null;
+    const nomi = this.vendite()
+      .filter((x) => x.id !== s.id && x.externalOrderNumber === ordine && x.status !== 'annullata')
+      .map((x) => x.product?.name ?? x.productName ?? null)
+      .filter((x): x is string => !!x);
+    if (!nomi.length) return null;
+    // Senza doppioni: due righe uguali dello stesso prodotto si dicono una volta sola.
+    return [...new Set(nomi)].join(' · ');
+  }
+
   /** ⭐ 04/09: le consegne allo stesso indirizzo, per riconciliare la vendita. */
   readonly vicine = signal<ConsegnaVicina[]>([]);
   readonly vicineAperto = signal(false);

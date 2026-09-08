@@ -381,8 +381,30 @@ interface UltimaCorsa {
                 <p class="muted vuoto">{{ 'reconciliations.nuova.nessunPrezzo' | translate }}</p>
               }
             } @else {
-              <input class="field" [ngModel]="qProdotto()" (ngModelChange)="cercaProdotti($event)" name="qp"
-                     [placeholder]="'reconciliations.nuova.cercaProdotto' | translate" autocomplete="off" />
+              <!-- ⭐ 08/09/2026 (regola utente: «vorrei vedere anche la rosa rossa di Maryflor»).
+                   Cercando «rosa rossa» escono i prodotti di tutti; col partner scelto si guarda
+                   il SUO catalogo, che è quello che serve quando si ha già in mente chi lo farà. -->
+              <!-- Il partner si CERCA: 129 partner attivi non stanno in una tendina. -->
+              @if (partnerScelto2(); as ps) {
+                <div class="scelto filtro-partner">
+                  <div><span class="muted">{{ 'reconciliations.nuova.solo' | translate }}</span> <b>{{ ps.insegna }}</b></div>
+                  <button type="button" class="btn btn-secondary mini" (click)="filtraPerPartner(null)">
+                    {{ 'reconciliations.nuova.tuttiIPartner' | translate }}
+                  </button>
+                </div>
+              } @else {
+                <input class="field" [ngModel]="qPartner()" (ngModelChange)="cercaPartner($event)" name="pf"
+                       [placeholder]="'reconciliations.nuova.cercaPartner' | translate" autocomplete="off" />
+                @if (partnerTrovati().length) {
+                  <div class="elenco basso">
+                    @for (p of partnerTrovati(); track p.id) {
+                      <button type="button" class="voce" (click)="filtraPerPartner(p.id)">{{ p.insegna }}</button>
+                    }
+                  </div>
+                }
+              }
+              <input class="field mt" [ngModel]="qProdotto()" (ngModelChange)="cercaProdotti($event)" name="qp"
+                     [placeholder]="(partnerFiltro() ? 'reconciliations.nuova.cercaNelPartner' : 'reconciliations.nuova.cercaProdotto') | translate" autocomplete="off" />
               <div class="elenco">
                 @for (p of prodotti(); track p.id) {
                   <button type="button" class="voce" (click)="scegliRiferimento(p)">
@@ -461,6 +483,9 @@ interface UltimaCorsa {
         font-size: 11.5px; font-weight: 700; flex: 0 0 auto;
       }
       .nuova-riconc h4 { margin: 14px 0 8px; font-size: 13px; color: var(--text-secondary); }
+      .nuova-riconc .field.mt { margin-top: 8px; }
+      .nuova-riconc .filtro-partner { padding: 8px 10px; background: var(--fill); border-radius: 10px; }
+      .nuova-riconc .elenco.basso { max-height: 150px; }
       .nuova-riconc .elenco { max-height: 220px; overflow-y: auto; overscroll-behavior: contain; margin-top: 8px; border: 1px solid var(--hairline); border-radius: 10px; }
       .nuova-riconc .voce {
         display: block; width: 100%; text-align: left; border: none; background: none;
@@ -595,6 +620,7 @@ export class ProductReconciliationsComponent {
   private azzeraNuova(): void {
     this.qVendita.set(''); this.vendite.set([]); this.venditaScelta.set(null);
     this.qProdotto.set(''); this.prodotti.set([]); this.riferimento.set(null);
+    this.partnerFiltro.set(null); this.qPartner.set(''); this.partnerTrovati.set([]);
     this.varianteScelta.set(null); this.partnerScelto.set(null); this.prezzoScelto.set(null);
     this.anteprima.set(null); this.erroreNuova.set(null); this.salvando.set(false);
   }
@@ -620,13 +646,52 @@ export class ProductReconciliationsComponent {
     this.cercaVendite(this.qVendita());
   }
 
+  /** Il partner di cui guardare il catalogo (null = tutti). */
+  readonly partnerFiltro = signal<string | null>(null);
+  readonly qPartner = signal('');
+  readonly partnerTrovati = signal<{ id: string; insegna: string }[]>([]);
+
+  /** Il partner scelto, per mostrarne il nome invece del campo di ricerca. */
+  readonly partnerScelto2 = computed(() => {
+    const id = this.partnerFiltro();
+    return id ? this.partnerAttivi().find((x) => x.id === id) ?? null : null;
+  });
+
+  /**
+   * La ricerca del partner: si filtra l'elenco gia' in memoria (129 partner attivi,
+   * caricati all'apertura della pagina). Nessuna chiamata al server, risposta immediata,
+   * e si vede quello che si sta scrivendo.
+   */
+  cercaPartner(q: string): void {
+    this.qPartner.set(q);
+    const testo = q.trim().toLowerCase();
+    if (testo.length < 2) { this.partnerTrovati.set([]); return; }
+    this.partnerTrovati.set(
+      this.partnerAttivi()
+        .filter((x) => (x.insegna ?? '').toLowerCase().includes(testo))
+        .slice(0, 12),
+    );
+  }
+
+  filtraPerPartner(partnerId: string | null): void {
+    this.partnerFiltro.set(partnerId);
+    this.partnerTrovati.set([]);
+    if (!partnerId) this.qPartner.set('');
+    // Col partner scelto la ricerca riparte anche senza riscrivere: se il campo e' vuoto
+    // si mostra comunque il suo catalogo, che e' il motivo per cui uno sceglie un partner.
+    this.cercaProdotti(this.qProdotto());
+  }
+
   cercaProdotti(q: string): void {
     this.qProdotto.set(q);
     clearTimeout(this.timerProdotti);
-    if (!q.trim()) { this.prodotti.set([]); return; }
+    const partnerId = this.partnerFiltro();
+    // Senza testo e senza partner non si cerca nulla: mezzo catalogo non aiuta nessuno.
+    if (!q.trim() && !partnerId) { this.prodotti.set([]); return; }
     this.timerProdotti = setTimeout(() => {
-      this.http.get<{ items: any[] }>(`${environment.apiUrl}/products`, { params: { q, active: true, pageSize: 20 } as any })
-        .subscribe({ next: (d) => this.prodotti.set(d.items ?? []), error: () => this.prodotti.set([]) });
+      this.http.get<{ items: any[] }>(`${environment.apiUrl}/products`, {
+        params: { ...(q.trim() ? { q } : {}), ...(partnerId ? { partnerId } : {}), active: true, pageSize: 30 } as any,
+      }).subscribe({ next: (d) => this.prodotti.set(d.items ?? []), error: () => this.prodotti.set([]) });
     }, 250);
   }
 

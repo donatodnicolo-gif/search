@@ -15,6 +15,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { DeliveryStatus, NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
+import { prezzoAlPartner } from '../common/prezzo-partner';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
@@ -158,20 +159,155 @@ export class SalesService {
       // Il partner deve leggere QUANTO PRENDE LUI: il pubblico meno lo sconto del
       // territorio. Lo si dice per intero, così non resta il dubbio di che numero sia.
       const pezzi = Math.max(1, Number(v.quantity) || 1);
-      const alPartner = v.amount != null
-        ? Math.round(v.amount * (1 - (Number(v.discountPercent) || 0) / 100) * 100) / 100
-        : null;
+      // Il numero che il partner legge deve essere quello della REGOLA: prezzo al partner
+      // arrotondato al multiplo di 5 (common/prezzo-partner.ts, 01/09). Ricalcolarlo a mano
+      // ai centesimi dava 94,50 € dove la regola dice 95 — e su quel numero uno decide.
+      const alPartner = v.amount != null ? prezzoAlPartner(v.amount, Number(v.discountPercent) || 0) : null;
+      // ⭐ 08/09/2026: il prodotto SUO che corrisponde al patto — anche nel campanello,
+      // così chi guarda dall'app sa cosa preparare senza aprire la mail.
+      const rif = await this.riferimentoDelPatto(
+        (v as { productId?: string | null }).productId ?? null,
+        (v as { productVariantId?: string | null }).productVariantId ?? null,
+        (v as { provinceId?: string | null }).provinceId ?? null,
+        v.partnerId,
+      );
       const importo = alPartner != null ? ` · ${alPartner.toFixed(2)} € a te` : '';
       const quanti = pezzi > 1 ? ` (×${pezzi})` : '';
       await this.notifications.notifyUsers(utenti.map((u) => u.id), {
         type: NotificationType.SALE_PROPOSED,
         title: 'Nuova vendita proposta',
-        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${quanti}${importo} — accetta o rifiuta in Vendite`,
+        body: `${v.externalOrderNumber ? 'Ordine #' + v.externalOrderNumber + ': ' : ''}${v.product?.name ?? 'prodotto'}${quanti}${importo}${rif ? ` · per te: ${rif.nome}` : ''} — accetta o rifiuta in Vendite`,
         entityType: 'sale',
         entityId: v.id,
       });
+      // ⭐ 07/09/2026 (regola utente: «ci sono le mail di questi partner») — ANCHE PER MAIL.
+      //
+      // Il campanello dentro l'app non basta: FAG Torino Fiori e Omnistore Flowers hanno una
+      // proposta in attesa e non hanno MAI fatto accesso, zero iscrizioni push. Lo smistamento
+      // propone in un minuto e poi il messaggio non arriva a destinazione. Gli indirizzi ci sono
+      // (129 partner attivi su 129, 106 con le notifiche accese) e il canale pure: è lo stesso
+      // AI Mail delle consegne. Mancava solo il collegamento fra i due flussi.
+      //
+      // In coda e best-effort: una mail che non parte non deve fermare lo smistamento.
+      void this.mailProposta(v.id, v.partnerId, alPartner, pezzi);
     } catch {
       // la vendita è già scritta: un avviso mancato non la annulla
+    }
+  }
+
+  /**
+   * ⭐ 08/09/2026 (regola utente: «aggiungi il prodotto di riferimento»).
+   *
+   * QUANDO IL PATTO NASCE DA UN ALTRO PRODOTTO, IL PARTNER DEVE SAPERLO.
+   *
+   * Una riconciliazione creata a mano dice «questa Torta Chantilly di Cakedesignme la fa
+   * Martesana a 48 €», e nel patto resta scritto DA QUALE prodotto di Martesana nasce il
+   * prezzo: la sua «Chantilly Classica». Ma nella proposta quel dato non arrivava, e il
+   * partner riceveva la scheda di un dolce di un concorrente — foto e descrizione comprese
+   * — dovendo indovinare che gli stiamo chiedendo il suo.
+   *
+   * Il riferimento sta in `ProductReconciliation.stats` (lo scrive `creaManuale`): qui si
+   * rilegge e si porta al partner. Se non c'è — patto nato dal giro notturno, o vecchio —
+   * non si inventa niente: la proposta resta come prima.
+   */
+  private async riferimentoDelPatto(
+    productId: string | null | undefined,
+    productVariantId: string | null | undefined,
+    provinceId: string | null | undefined,
+    partnerId: string | null | undefined,
+  ): Promise<{ nome: string; sku: string | null } | null> {
+    if (!productId || !provinceId || !partnerId) return null;
+    try {
+      const ric = await this.prisma.productReconciliation.findFirst({
+        where: { productId, provinceId, productVariantId: productVariantId ?? null, partnerId, status: 'accettata' },
+        select: { stats: true },
+      });
+      if (!ric?.stats) return null;
+      const righe = JSON.parse(ric.stats) as { riferimento?: string; variante?: string }[];
+      const voce = Array.isArray(righe) ? righe.find((x) => x && x.riferimento) : null;
+      if (!voce?.riferimento) return null;
+      const prodotto = await this.prisma.product.findUnique({
+        where: { id: voce.riferimento },
+        select: { name: true, sku: true },
+      });
+      if (!prodotto) return null;
+      // La variante del riferimento, se il patto la nomina: «Chantilly Classica · 6».
+      const variante = voce.variante
+        ? await this.prisma.productVariant.findUnique({ where: { id: voce.variante }, select: { name: true, sku: true } })
+        : null;
+      return {
+        nome: variante?.name ? `${prodotto.name} · ${variante.name}` : prodotto.name,
+        sku: variante?.sku ?? prodotto.sku ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * La mail al partner per una vendita proposta (07/09/2026, regola utente).
+   *
+   * Stesse guardie delle consegne: parte solo a chi ha un indirizzo vero e ha ACCESO le
+   * notifiche — i nostri di ripiego (Cakedesignme, Deluxy Flowers) le hanno spente apposta.
+   * Dice il prezzo DEL PARTNER, la data, il destinatario e come rispondere: chi la legge
+   * deve poter decidere senza aprire nient'altro.
+   */
+  private async mailProposta(saleId: string, partnerId: string, alPartner: number | null, pezzi: number): Promise<void> {
+    try {
+      const [partner, vendita] = await Promise.all([
+        this.prisma.partner.findUnique({ where: { id: partnerId }, select: { insegna: true, email: true, mailNotifications: true } }),
+        this.prisma.sale.findUnique({
+          where: { id: saleId },
+          select: {
+            externalOrderNumber: true, productName: true, variantName: true, deliveryDate: true,
+            recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+            productId: true, productVariantId: true, provinceId: true,
+            product: { select: { name: true, note: true } },
+            province: { select: { name: true, code: true } },
+          },
+        }),
+      ]);
+      const riferimento = vendita
+        ? await this.riferimentoDelPatto(vendita.productId, vendita.productVariantId, vendita.provinceId, partnerId)
+        : null;
+      const a = (partner?.email ?? '').trim();
+      if (!a || !a.includes('@') || a.includes('no-email') || !partner?.mailNotifications || !vendita) return;
+
+      const prodotto = vendita.product?.name ?? vendita.productName ?? 'prodotto';
+      const giorno = vendita.deliveryDate
+        ? new Date(vendita.deliveryDate).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Rome' })
+        : null;
+      const destinatario = [vendita.recipientFirstName, vendita.recipientLastName].filter(Boolean).join(' ').trim();
+      const esc = (x: string) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const riga = (etichetta: string, valore: string) =>
+        `<tr><td style="padding:4px 14px 4px 0;color:#6e6e73;font-size:13px;white-space:nowrap">${esc(etichetta)}</td><td style="padding:4px 0;font-size:14px">${valore}</td></tr>`;
+
+      const html = [
+        `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1d1d1f;max-width:560px">`,
+        `<p style="font-size:15px;margin:0 0 14px">Gentile ${esc(partner.insegna ?? '')},</p>`,
+        `<p style="font-size:15px;margin:0 0 18px">le proponiamo una nuova vendita${vendita.externalOrderNumber ? ` per l'ordine <b>#${esc(vendita.externalOrderNumber)}</b>` : ''}.</p>`,
+        `<table style="border-collapse:collapse;margin:0 0 18px">`,
+        riga('Prodotto', `<b>${esc(prodotto)}</b>${vendita.variantName ? ` · ${esc(vendita.variantName)}` : ''}${pezzi > 1 ? ` — <b>${pezzi} pezzi</b>` : ''}`),
+        alPartner != null ? riga('Importo a lei', `<b style="font-size:16px">${alPartner.toFixed(2)} €</b>`) : '',
+        giorno ? riga('Consegna', esc(giorno)) : '',
+        destinatario ? riga('Destinatario', esc(destinatario)) : '',
+        vendita.recipientAddress ? riga('Indirizzo', esc(vendita.recipientAddress)) : '',
+        vendita.province?.name ? riga('Provincia', `${esc(vendita.province.name)} (${esc(vendita.province.code ?? '')})`) : '',
+        // ⭐ 08/09: il prodotto SUO che corrisponde — è quello che deve preparare.
+        riferimento ? riga('Per lei corrisponde a', `<b>${esc(riferimento.nome)}</b>${riferimento.sku ? ` <span style="color:#6e6e73">(${esc(riferimento.sku)})</span>` : ''}`) : '',
+        vendita.product?.note ? riga('Note', esc(vendita.product.note)) : '',
+        `</table>`,
+        `<p style="font-size:15px;margin:0 0 18px">Le chiediamo di <b>accettare o rifiutare</b> dal suo pannello: senza risposta la proposta passa al fornitore successivo.</p>`,
+        `<p style="margin:0 0 22px"><a href="https://app.deluxy.it/sales" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:22px;font-size:14px">Apri le vendite</a></p>`,
+        `<p style="font-size:13px;color:#6e6e73;margin:0">Deluxy</p>`,
+        `</div>`,
+      ].filter(Boolean).join('');
+
+      const oggetto = `Nuova proposta di vendita${vendita.externalOrderNumber ? ` · ordine #${vendita.externalOrderNumber}` : ''}${alPartner != null ? ` · ${alPartner.toFixed(2)} €` : ''}`;
+      const esito = await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
+      if (!esito.ok) this.logger.warn(`Mail della proposta ${saleId} non partita: ${esito.motivo}`);
+    } catch (err) {
+      this.logger.warn(`Mail della proposta ${saleId}: ${(err as Error).message}`);
     }
   }
 
@@ -1580,9 +1716,14 @@ export class SalesService {
     const rifDdt = [vendita.externalOrderNumber, vendita.externalOrderId]
       .map((x) => (x ?? '').trim())
       .filter(Boolean);
+    // ⭐ 08/09/2026 (regola utente: «nascondi le annullate»). Una consegna annullata
+    // non è un candidato: riconciliarci una vendita vorrebbe dire dichiararla evasa da
+    // un lavoro che nessuno ha fatto. Sull'ordine 12883 se ne vedevano tre — due vere e
+    // una annullata — e le tre righe si somigliavano tutte.
+    const NON_ANNULLATE = { status: { notIn: [DeliveryStatus.CANCELLED, DeliveryStatus.NOT_ACCEPTED] } };
     const perDdt = rifDdt.length
       ? await this.prisma.delivery.findMany({
-          where: { deletedAt: null, ddtNumber: { in: rifDdt } },
+          where: { deletedAt: null, ddtNumber: { in: rifDdt }, ...NON_ANNULLATE },
           select: {
             id: true, code: true, date: true, status: true, recipientAddress: true,
             ddtNumber: true, price: true,
@@ -1605,6 +1746,7 @@ export class SalesService {
       where: {
         deletedAt: null,
         provinceId: vendita.provinceId,
+        ...NON_ANNULLATE,
         ...(da && a ? { date: { gte: da, lte: a } } : {}),
         // Solo i servizi di VENDITA, come chiesto.
         serviceType: { name: { contains: 'vendita', mode: 'insensitive' } },
