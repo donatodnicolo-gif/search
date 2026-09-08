@@ -26,37 +26,66 @@ function campiRicerca(parola: string): Prisma.OrdineWhereInput[] {
     { numero: c },
     { numero: { contains: senzaCancelletto, mode: "insensitive" } },
     { clienteNome: c },
-    { clienteEmail: c },
-    { clienteTelefono: c },
-    { spedizioneNome: c },
+    // L'indirizzo, nelle sue parti: via, città, CAP, provincia.
     { indirizzo: c },
     { citta: c },
     { cap: c },
     { provincia: c },
-    { paese: c },
-    { brand: c },
-    { fasciaConsegna: c },
-    { noteShopify: c },
-    { tagShopify: c },
-    { gateway: c },
-    // classificazione Deluxy
-    { fornitore: c },
-    { responsabile: c },
-    { tipoConsegna: c },
-    { tipoProdotto: c },
-    { canale: c },
-    { noteInterne: c },
-    { etichette: { some: { nome: c } } },
-    // prodotti dell'ordine
-    {
-      righe: {
-        some: {
-          OR: [{ titolo: c }, { variante: c }, { sku: c }],
-        },
-      },
-    },
   ];
 }
+/*
+ * ⚠️⚠️ TRE COSE SI CERCANO, NON VENTUNO (08/09/2026 — decisione di Nicolò,
+ * su misura del custode delle prestazioni e della sessione Orders).
+ *
+ * IL FATTO. Questa funzione costruisce un `OR` che finisce in ogni ricerca
+ * dell'elenco ordini e delle API di lettura. Cercava in **ventuno colonne** più
+ * due sottoquery su relazioni. Non esiste un indice che possa servire un
+ * `contains` su ventuno colonne — un `ILIKE '%testo%'` non è servibile da un
+ * B-tree, e per un bitmap OR servirebbe un indice GIN per colonna — quindi ogni
+ * ricerca leggeva tutti i 14.657 ordini e ne controllava ventuno campi.
+ *
+ * IL COSTO, letto da `extensions.pg_stat_statements`: il `COUNT(*)` e la
+ * `findMany` gemella, stesse **2.656 chiamate**, insieme **15,6 milioni di ms —
+ * più di quattro ore di CPU del database**. Era la voce più cara dell'intero
+ * cluster condiviso da sedici app. E il **minimo** era 583 ms: non era contesa,
+ * era la query. (La regola: se anche il minimo è alto, non stai guardando il
+ * carico — stai guardando il costo.)
+ *
+ * LA MISURA, `EXPLAIN (ANALYZE, BUFFERS)` a cluster tranquillo, migliore di tre
+ * giri, tabella intera:
+ *
+ *   tutto com'era (21 scalari + 2 sottoquery)   411 ms
+ *   solo i 21 campi scalari                     330 ms   ← l'80% del costo
+ *   solo le 2 sottoquery                         82 ms
+ *     · di cui `righe` (prodotti)                76 ms
+ *     · di cui `etichette`                        0,1 ms
+ *   cinque campi scalari                        112 ms
+ *
+ * C'è un pavimento intorno ai 110 ms: la scansione della tabella si paga
+ * comunque, e togliere altre colonne sotto quella soglia non rende più niente.
+ *
+ * PERCHÉ NON UN INDICE. È stata la prima idea, ed è stata scartata dopo aver
+ * letto questo codice: cinque o venti indici GIN trigram su una tabella che
+ * riceve scritture ogni cinque minuti, per guadagnare al massimo un centinaio
+ * di millisecondi, non è un baratto che torna. La soluzione non era rendere
+ * veloce una ricerca su ventuno colonne: era smettere di cercare in ventuno
+ * colonne.
+ *
+ * COSA NON SI CERCA PIÙ dalla casella di testo — e come si ritrova:
+ *   · `brand` ed `etichette` hanno già un **filtro proprio** (i parametri
+ *     `brand` e `etichetta` qui sotto): nella casella erano doppioni;
+ *   · email e telefono del cliente, nome del destinatario, paese;
+ *   · **i prodotti dell'ordine** (titolo, variante, SKU) — è la perdita più
+ *     concreta, e costava 76 ms;
+ *   · note Shopify, tag Shopify, gateway di pagamento;
+ *   · la classificazione Deluxy: fornitore, responsabile, tipo consegna, tipo
+ *     prodotto, canale, note interne.
+ *
+ * SI TORNA INDIETRO UNA CASELLA ALLA VOLTA. Ogni campo scalare costa circa
+ * 10 ms (ricavato dai due estremi della misura): se qualcuno rimpiange una di
+ * queste ricerche, si riaggiunge quella riga sapendo quanto si paga — non si
+ * riapre tutto.
+ */
 
 export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   const where: Prisma.OrdineWhereInput = {};
