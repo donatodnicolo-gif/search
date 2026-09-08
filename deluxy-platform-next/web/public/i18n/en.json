@@ -2478,6 +2478,12 @@
       "ddtSostituisci": "Replace the delivery note photo",
       "ddtInvio": "Uploading the delivery note…",
       "ddtErrore": "Delivery note not uploaded: try again."
+    },
+    "corporate": {
+      "perOrdine": "Purchase for corporate order",
+      "acquisto": "Goods purchase:",
+      "creaAcquisto": "Create the purchase",
+      "nonTrovato": "The delivery note refers to order #{{n}}, which does not exist (or was deleted)."
     }
   },
   "confirmDelivery": {

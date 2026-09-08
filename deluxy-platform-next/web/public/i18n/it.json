@@ -2480,6 +2480,12 @@
       "ddtSostituisci": "Sostituisci la foto del DDT",
       "ddtInvio": "Invio del DDT in corso…",
       "ddtErrore": "DDT non caricato: riprova."
+    },
+    "corporate": {
+      "perOrdine": "Acquisto per l’ordine corporate",
+      "acquisto": "Acquisto della merce:",
+      "creaAcquisto": "Crea l’acquisto",
+      "nonTrovato": "Il DDT cita l’ordine #{{n}}, che però non esiste (o è stato cancellato)."
     }
   },
   "confirmDelivery": {

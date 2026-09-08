@@ -28,6 +28,17 @@ interface DeliveryProductRow {
   productVariant?: { id: string; name: string; price?: number; publicPrice?: number } | null;
 }
 
+/** La scheda ridotta di una consegna citata da un'altra (legame corporate). */
+interface LegameConsegna {
+  id: string;
+  code: number;
+  date?: string;
+  status?: string;
+  ddtNumber?: string | null;
+  partner?: { insegna: string } | null;
+  serviceType?: { name: string; pricingModel?: string } | null;
+}
+
 /** Dettaglio consegna (sola lettura), sezioni come l'app reale. */
 interface DeliveryDetail {
   id: string;
@@ -37,6 +48,18 @@ interface DeliveryDetail {
   /** RICONSEGNA (05/09/2026): il legame si legge nei due versi. */
   parentDelivery?: { id: string; code: number; date?: string; notDeliveredReason?: string | null } | null;
   childDeliveries?: { id: string; code: number; date?: string }[];
+  /**
+   * ⭐ 08/09/2026 — CORPORATE ↔ ACQUISTO. Il cliente corporate chiede un servizio
+   * (Casati: «ORDINE BRIOCHE») e per procurare la merce nasce una seconda consegna, di
+   * vendita, da un fornitore. Il legame sta nel DDT dell'acquisto: `CPR<numero dell'ordine>`.
+   * Solo per admin e operation: al partner non serve sapere a chi compriamo.
+   */
+  legameCorporate?: {
+    verso: 'acquisto' | 'ordine';
+    numero: number;
+    consegna?: LegameConsegna | null;
+    acquisti?: LegameConsegna[];
+  } | null;
   /** Colonne STORICHE: gli orari del valet e quelli previsti dal servizio. */
   valetStartTime?: string | null;
   valetEndTime?: string | null;
@@ -171,6 +194,12 @@ interface DeliveryDetail {
                consegna chiusa si ricrea uguale senza ricompilare il form. -->
           @if (canDuplicate()) {
             <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ duplica: d.id }">{{ 'common.duplicate' | translate }}</a>
+          }
+          <!-- ⭐ 08/09/2026: da un ordine CORPORATE si crea l'acquisto della merce, già
+               col DDT CPR+numero e col servizio di vendita. Prima si rifaceva a mano
+               e nessuno collegava le due consegne. -->
+          @if (puoCreareAcquisto()) {
+            <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ acquistoDa: d.id }">{{ 'deliveryDetail.corporate.creaAcquisto' | translate }}</a>
           }
           <!-- Il link di tracciamento si condivide col CLIENTE: lo vede anche
                il partner (proprietario della consegna), non solo l'ufficio. -->
@@ -821,6 +850,38 @@ interface DeliveryDetail {
           }
         </section>
       }
+
+      <!-- ⭐ 08/09/2026 (regola utente): CORPORATE ↔ ACQUISTO, navigabile nei due versi.
+           Le due consegne raccontano lo stesso fatto — l'ordine del cliente corporate e
+           l'acquisto della merce dal fornitore — e finora non si sapeva l'una dell'altra.
+           Il legame e' il DDT dell'acquisto: CPR + il numero dell'ordine. -->
+      @if (d.legameCorporate; as lc) {
+        <section class="card legame-corporate">
+          @if (lc.verso === 'acquisto') {
+            @if (lc.consegna; as o) {
+              <p>{{ 'deliveryDetail.corporate.perOrdine' | translate }}
+                <a [routerLink]="['/deliveries', o.id]">#{{ o.code }}</a>
+                @if (o.partner) { <span class="muted">· {{ o.partner.insegna }}</span> }
+                @if (o.serviceType) { <span class="muted">· {{ o.serviceType.name }}</span> }
+                <span class="muted">· {{ o.date | date: 'dd/MM/yyyy' }}</span>
+              </p>
+            } @else {
+              <!-- Il DDT cita un numero che non esiste: si dice, invece di tacere.
+                   Un legame rotto che non si vede sembra un legame mai esistito. -->
+              <p class="ko">{{ 'deliveryDetail.corporate.nonTrovato' | translate: { n: lc.numero } }}</p>
+            }
+          } @else {
+            @for (a of lc.acquisti ?? []; track a.id) {
+              <p>{{ 'deliveryDetail.corporate.acquisto' | translate }}
+                <a [routerLink]="['/deliveries', a.id]">#{{ a.code }}</a>
+                @if (a.partner) { <span class="muted">· {{ a.partner.insegna }}</span> }
+                <span class="muted">· {{ a.date | date: 'dd/MM/yyyy' }}</span>
+                <span class="muted mono">· {{ a.ddtNumber }}</span>
+              </p>
+            }
+          }
+        </section>
+      }
     }
 
     <!-- ⭐ 04/09/2026 (regola utente): ORE DA APPROVARE. Il partner vede quello
@@ -1008,6 +1069,14 @@ interface DeliveryDetail {
   `,
   styles: [
     `
+      /* Due consegne che si citano: la riconsegna (05/09) e l'ordine corporate col suo
+         acquisto (08/09). Stessa idea, stessa forma — due stili diversi per la stessa
+         cosa sarebbero due cose diverse per chi guarda. */
+      .riconsegna-legame p, .legame-corporate p { margin: 0 0 6px; font-size: 13.5px; }
+      .riconsegna-legame p:last-child, .legame-corporate p:last-child { margin-bottom: 0; }
+      .legame-corporate a, .riconsegna-legame a { font-weight: 600; }
+      .legame-corporate .mono { font-variant-numeric: tabular-nums; }
+
       .ore-riga { display: flex; gap: 12px; flex-wrap: wrap; }
       .ore-riga label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
       .ore-approvazione { border-left: 3px solid var(--orange, #ff9500); }
@@ -1723,6 +1792,17 @@ export class DeliveryDetailComponent {
   /** Duplica (04/09, regola utente): l'ufficio sempre; il partner su ogni
    *  SUA consegna, storico compreso — ma non sulle vendite, che nascono dagli
    *  ordini e non si ricreano a mano. Lo stato della copia riparte da capo. */
+  /**
+   * ⭐ 08/09/2026: «Crea l'acquisto» compare solo sugli ordini CORPORATE, e solo per
+   * l'ufficio. Il partner non compra per conto nostro, e su una consegna che non è un
+   * ordine corporate il bottone non vorrebbe dire niente.
+   */
+  puoCreareAcquisto(): boolean {
+    const r = this.auth.user()?.role;
+    if (r !== 'ADMIN' && r !== 'OPERATION') return false;
+    return this.delivery()?.serviceType?.pricingModel === 'CORPORATE';
+  }
+
   canDuplicate(): boolean {
     const r = this.auth.user()?.role;
     if (r === 'ADMIN' || r === 'OPERATION') return true;

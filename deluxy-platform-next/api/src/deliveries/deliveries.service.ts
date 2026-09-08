@@ -289,6 +289,57 @@ export class DeliveriesService {
    * CONSEGNATA da cui nasce esce dalla lista operativa (ha già la sua
    * risposta) e le due si citano a vicenda nel registro.
    */
+  /**
+   * ⭐ 08/09/2026 (regola utente) — IL LEGAME CORPORATE ↔ ACQUISTO STA NEL DDT.
+   *
+   * Un cliente corporate chiede un servizio (Casati chiede «ORDINE BRIOCHE»): nasce la
+   * consegna del servizio. Per procurare la merce ne nasce una SECONDA, di vendita, da un
+   * fornitore (le brioche da Mali'A). Sono due consegne che raccontano lo stesso fatto, e
+   * finora non si sapeva l'una dell'altra: il vecchio legame `legacyCorrespondDeliveryId`
+   * arriva dall'import MySQL ed è **solo letto** da FINANCE, mai scritto — sulle consegne
+   * nuove (che non hanno `legacyId`) non nasce più.
+   *
+   * Regola dell'utente: la consegna di vendita prende come DDT **`CPR` + il numero della
+   * consegna corporate**. Quel numero È il legame: non serve una colonna nuova sul
+   * Postgres condiviso, e chi legge il DDT in fattura capisce da solo da dove viene.
+   *
+   * Qui il legame si risolve nei due versi, come per le riconsegne:
+   *  · da una consegna col DDT `CPR101150` → l'ordine corporate 101150;
+   *  · da una consegna corporate → gli acquisti che portano il suo numero nel DDT.
+   * Solo per l'ufficio: al partner non serve sapere a chi abbiamo comprato la merce.
+   */
+  private async legameCorporate(d: { id: string; code: number; ddtNumber?: string | null; serviceTypeId?: string | null }, user: JwtUser) {
+    if (user.role !== Role.ADMIN && user.role !== Role.OPERATION) return null;
+    const scheda = {
+      id: true, code: true, date: true, status: true, ddtNumber: true,
+      partner: { select: { insegna: true } },
+      serviceType: { select: { name: true, pricingModel: true } },
+    } as const;
+
+    // Verso 1: questa è l'acquisto, e il DDT dice per quale ordine.
+    const m = /^CPR(\d+)$/i.exec(String(d.ddtNumber ?? '').trim());
+    if (m) {
+      const origine = await this.prisma.delivery.findFirst({
+        where: { code: Number(m[1]), deletedAt: null }, select: scheda,
+      });
+      // Un DDT che cita un numero inesistente non si nasconde: si dice che non si trova,
+      // altrimenti sembra che il legame non ci sia mai stato.
+      return { verso: 'acquisto' as const, numero: Number(m[1]), consegna: origine };
+    }
+
+    // Verso 2: questa è l'ordine corporate; gli acquisti portano il suo numero.
+    const servizio = d.serviceTypeId
+      ? await this.prisma.serviceType.findUnique({ where: { id: d.serviceTypeId }, select: { pricingModel: true } })
+      : null;
+    if (servizio?.pricingModel !== 'CORPORATE') return null;
+    const acquisti = await this.prisma.delivery.findMany({
+      where: { ddtNumber: { equals: `CPR${d.code}`, mode: 'insensitive' }, deletedAt: null },
+      select: scheda,
+      orderBy: { code: 'asc' },
+    });
+    return acquisti.length ? { verso: 'ordine' as const, numero: d.code, acquisti } : null;
+  }
+
   private async legaRiconsegna(nuova: { id: string; code: number }, parentDeliveryId: string, user: JwtUser) {
     const padre = await this.prisma.delivery.findFirst({
       where: { id: parentDeliveryId, deletedAt: null },
@@ -956,8 +1007,12 @@ export class DeliveriesService {
       regolaValet = ass?.valetDeliveryRule ?? null;
     }
 
+    // ⭐ 08/09/2026: il legame corporate ↔ acquisto, letto dal DDT «CPR<numero>».
+    // Null per tutti tranne admin e operation (vedi `legameCorporate`).
+    const legameCorporate = await this.legameCorporate(delivery as any, user);
+
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate }, user),
       user,
     );
   }

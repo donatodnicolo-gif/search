@@ -1533,6 +1533,12 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly codicePadre = signal<number | null>(null);
   /** Servizio arrivato dalla home «Servizi» del partner (`?servizio=`). */
   private servizioDallaHome: string | null = null;
+  /**
+   * ⭐ 08/09/2026: si sta creando l'ACQUISTO di un ordine corporate. Qui si compra merce,
+   * quindi il servizio dev'essere di vendita — ma il partner (il fornitore) non è ancora
+   * scelto, perciò non si può passare dal suo listino come fa `forzaServizioVendita`.
+   */
+  private acquistoCorporate = false;
   /** Fasce orarie di consegna generate dal servizio. */
   readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
   /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
@@ -1818,6 +1824,33 @@ export class DeliveryFormComponent implements AfterViewInit {
       });
     }
 
+    // ⭐ 08/09/2026 (regola utente) — L'ACQUISTO DI UN ORDINE CORPORATE.
+    // `?acquistoDa=<id>` nasce dalla consegna dell'ordine corporate (Casati chiede le
+    // brioche) e prepara la SECONDA consegna, quella con cui la merce si compra dal
+    // fornitore. Due cose si compilano da sole:
+    //  · il **DDT `CPR<numero dell'ordine>`** — è il legame fra le due consegne, e da
+    //    quel numero la scheda ricostruisce il collegamento nei due versi;
+    //  · il **servizio di vendita**, perché qui si compra merce, non si vende un servizio.
+    // Il PARTNER resta vuoto: il fornitore lo sceglie chi compra. La data si eredita
+    // (la merce serve per quel giorno), l'indirizzo di consegna anche.
+    const idAcquisto = this.route.snapshot.queryParamMap.get('acquistoDa');
+    if (idAcquisto && !idModifica) {
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${idAcquisto}`).subscribe({
+        next: (d) => {
+          this.prefill(d);
+          this.editId.set(null);
+          this.model.status = '';
+          const code = (d as any)?.code;
+          if (code) this.model.ddtNumber = `CPR${code}`;
+          // Il fornitore non si eredita dal cliente corporate: sarebbe il partner sbagliato.
+          this.model.partnerId = '';
+          // Il servizio si sceglie quando la lista è arrivata (come `servizioDallaHome`).
+          this.acquistoCorporate = true;
+        },
+        error: () => undefined,
+      });
+    }
+
     // ⭐ 04/09: dalla home «Servizi» del partner si arriva col servizio già
     // scelto (`?servizio=<id>`): si applica appena la lista servizi è qui.
     this.servizioDallaHome = this.route.snapshot.queryParamMap.get('servizio');
@@ -1914,6 +1947,13 @@ export class DeliveryFormComponent implements AfterViewInit {
       if (!this.model.serviceTypeId && this.servizioDallaHome
         && this.serviceTypes().some((s) => s.id === this.servizioDallaHome)) {
         this.model.serviceTypeId = this.servizioDallaHome;
+      }
+      // ⭐ 08/09: l'acquisto di un ordine corporate nasce su un servizio di VENDITA.
+      // Senza partner non c'è un listino da cui scegliere: si prende la vendita
+      // preferita del catalogo, e chi compra può sempre cambiarla.
+      if (this.acquistoCorporate && !this.model.serviceTypeId) {
+        const v = this.venditaPreferita(this.serviceTypes());
+        if (v) { this.model.serviceTypeId = v.id; this.onServiceChange(); }
       }
       if (this.model.serviceTypeId) {
         const fascia = this.model.deliveryTimeFrom;
