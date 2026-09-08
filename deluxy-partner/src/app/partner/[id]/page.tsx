@@ -25,6 +25,7 @@ import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommission
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
+import { smtpConfigurato } from "@/lib/mail";
 import { CreditoCard } from "@/components/CreditoCard";
 import { analisiPartner } from "@/lib/stato-analisi";
 import { MailPartnerCard } from "@/components/MailPartnerCard";
@@ -126,6 +127,11 @@ export default async function PartnerDetail({
   if (!partner) notFound();
   // Il bottone «Richiedi pagamento» compare solo se Transactions e collegata.
   const trxAttiva = transactionsConfigurato();
+
+  // L'app può DAVVERO mandare la mail di sollecito? Se la casella non è
+  // configurata il bottone lo deve dire PRIMA del click, non dopo
+  // (segnalazione dell'utente, 08/09/2026: «sembra non funzionare»).
+  const smtpAttivo = await smtpConfigurato();
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
@@ -475,7 +481,7 @@ export default async function PartnerDetail({
         <CreditoCard partnerId={id} />
       </Suspense>
 
-      <ContattoAmministrativo partner={partner} fattureAperte={fattureAperte} />
+      <ContattoAmministrativo partner={partner} fattureAperte={fattureAperte} smtpAttivo={smtpAttivo} />
 
       <Suspense
         fallback={

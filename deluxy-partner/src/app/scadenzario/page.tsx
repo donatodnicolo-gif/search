@@ -7,6 +7,7 @@ import { segnaFatturaPagata } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
 import { schedeTutti, sommaAging, GRAVITA, type SchedaCredito } from "@/lib/stato-credito";
 import { leggiRegole } from "@/lib/regole-stati";
+import { smtpConfigurato } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -154,6 +155,9 @@ export default async function Scadenzario({
 
   // Aging di tutto il portafoglio + i clienti da lavorare per primi (dal più grave).
   // Le fasce sono quelle configurate in Impostazioni → Regole degli stati.
+  // Se la casella non e configurata l app non puo mandare niente: il bottone
+  // deve dirlo PRIMA del click, non dopo (segnalazione dell utente, 08/09/2026).
+  const smtpAttivo = await smtpConfigurato();
   const { credito: regole } = await leggiRegole();
   const schede = await schedeTutti({ oggi, regole });
   const agingTot = sommaAging([...schede.values()].map((s) => s.aging));
@@ -417,10 +421,10 @@ export default async function Scadenzario({
                         </form>
                         <Link
                           className="btn small primary"
-                          href={`/solleciti/${f.id}`}
-                          title="Prepara e invia una mail di sollecito al partner"
+                          href={`/solleciti/`}
+                          title={smtpAttivo ? "Prepara e invia una mail di sollecito al partner" : "Prepara la mail: l invio dall app non e attivo (manca la password SMTP in Impostazioni)"}
                         >
-                          Invia sollecito
+                          {smtpAttivo ? "Invia sollecito" : "Prepara sollecito"}
                         </Link>
                         {f.sollecitoInviatoIl && (
                           <span className="badge blue" title="Data ultimo sollecito inviato">

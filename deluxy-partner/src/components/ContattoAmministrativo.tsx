@@ -23,9 +23,17 @@ type FatturaAperta = {
 export async function ContattoAmministrativo({
   partner,
   fattureAperte,
+  smtpAttivo,
 }: {
   partner: Partner;
   fattureAperte: FatturaAperta[];
+  // ⚠️ 08/09/2026, segnalato dall'utente: «il tasto Invia sollecito sembra non
+  // funzionare». Funzionava — apriva l'anteprima — ma di là il vero invio è
+  // spento perché manca la password SMTP, e la delusione arrivava DOPO il
+  // click. Un bottone che dice «Invia» deve inviare: se l'app non può, lo dice
+  // prima e si chiama con quello che fa davvero (Libro UX, regola dell'08/09:
+  // un pulsante spento dice sempre che cosa manca).
+  smtpAttivo: boolean;
 }) {
   const anagrafica = await risolviAnagrafica(partner.nome, partner.anagraficaId);
   const dalRegistro = contattoAmministrativo(anagrafica);
@@ -114,6 +122,16 @@ export async function ContattoAmministrativo({
               ) : (
                 <span style={{ color: "var(--orange)" }}> · nessun destinatario: indica l&apos;email amministrativa</span>
               )}
+              {!smtpAttivo && (
+                <div style={{ marginTop: 6 }}>
+                  <span className="badge orange"><span className="dot" />L&apos;invio dall&apos;app non è attivo</span>
+                  <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>
+                    manca la password della casella in{" "}
+                    <Link href="/impostazioni" style={{ color: "var(--blue)" }}>Impostazioni → Email solleciti</Link>.
+                    Il bottone prepara la mail: si invia dal proprio programma di posta e poi si segna come inviata.
+                  </span>
+                </div>
+              )}
             </div>
             <div className="table-wrap">
               <table>
@@ -144,8 +162,14 @@ export async function ContattoAmministrativo({
                       </td>
                       <td className="muted">{f.sollecitoInviatoIl ? dataIt(f.sollecitoInviatoIl) : "mai"}</td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <Link className="btn small primary" href={`/solleciti/${f.id}?da=partner`}>
-                          {f.sollecitoInviatoIl ? "Sollecita ancora" : "Invia sollecito"}
+                        <Link
+                          className="btn small primary"
+                          href={`/solleciti/?da=partner`}
+                          title={smtpAttivo ? "Prepara e invia la mail di sollecito" : "Prepara la mail: l invio dall app non e attivo (manca la password SMTP)"}
+                        >
+                          {smtpAttivo
+                            ? f.sollecitoInviatoIl ? "Sollecita ancora" : "Invia sollecito"
+                            : f.sollecitoInviatoIl ? "Prepara di nuovo" : "Prepara sollecito"}
                         </Link>
                       </td>
                     </tr>
