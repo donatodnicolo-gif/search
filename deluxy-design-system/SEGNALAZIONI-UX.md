@@ -964,3 +964,69 @@ nell'indirizzo (mai solo sulle righe già scaricate, se la tabella è paginata);
 colonne calcolate non si fingono ordinabili e dicono perché.* Da decidere se
 entra nel Libro e con quale numero, e se le quattro implementazioni esistenti
 vanno unificate in un componente solo.
+
+## 08/09/2026 (17) — Merchandising · scheda prodotto: dieci violazioni di regole già scritte (esame dell'architetto UX)
+
+**Richiesta dell'utente**: «migliora css», con uno screenshot della testata della
+scheda prodotto. Interpellato l'`architetto-ux`, che ha misurato la pagina vera
+a 1440×900 e in mobile. Il verdetto: **non è una questione di gusto, sono dieci
+violazioni di regole del Libro e del DS**, alcune con effetti funzionali.
+
+**Applicato su Merchandising** (le correzioni sicure, senza toccare il markup):
+- 🔴 **`var(--success)` e `var(--danger)` non esistono**: nella scheda prodotto
+  il pallino del negozio cadeva sul nero del testo, quindi **un negozio che
+  aveva RIFIUTATO il prodotto era indistinguibile da uno dove è attivo**
+  (misurato `rgb(29,29,31)` su entrambi). Ora `--green`/`--red`/`--grey`.
+- 🔴 **`tokens.css` era fermo alla v1.0 mentre il DS è alla v1.4** (Libro §12
+  vuole il file byte-identico alla fonte): mancavano tutti i `-soft`, `--grey`,
+  `--touch-min`. È la causa a monte di metà dei punti qui sotto. Allineato.
+- **Badge fuori formula** (Libro §5): sfondo sempre neutro, colore solo nel dot.
+  Ora la tinta si deriva dal dot con `color-mix(currentColor 11%)`, così gli
+  stati si tingono e le classificazioni restano grigie **da sole**.
+- **L'oro usato come stato** (Libro §5: «l'oro non è mai uno stato») più quattro
+  hex scritti a mano in `risposta-bisogno.ts`, *quasi* uguali ai token
+  (`#2E7D32` contro `--green #248A3D`): deriva silenziosa della palette. La
+  risposta al bisogno è una **classificazione**, non uno stato: resa neutra.
+- **Focus invisibile su tutta l'app** (WCAG 2.4.7 e 1.4.11): `outline: none`
+  ovunque e un `:focus` che cambiava solo il bordo, a **1,38:1** su bianco.
+  Aggiunto bordo oro + anello `gold-soft` sui campi e outline sui comandi.
+- **Label dei campi** a 11px MAIUSCOLE in `--text-tertiary` = **3,62:1**, sotto
+  WCAG 1.4.3, e col token sbagliato (quello 11px è per i **titoli di sezione**,
+  Libro §4). Ora 12.5/500 sentence case in `--text-secondary` = 5,07:1.
+- **Il codice prodotto a 3,33:1**: è l'identità della scheda, e a catalogo ci
+  sono **quattro prodotti chiamati «Fragole Love»**. Portato a 4,66:1.
+- 🔴 **Il padding mobile non si applicava mai**: la media query stava *prima*
+  della regola generale e perdeva per ordine di sorgente. Misurato a 375px:
+  restavano 24px per lato, il **12,8% della larghezza** (Libro §10.6). Spostata.
+- **Bersagli sotto i 44px** (ritorno «← Prodotti» a 20px, pillole a 24) e campi
+  sotto i 16px che fanno ingrandire la pagina su iOS: corretti con padding
+  positivo e margine negativo, senza spostare il layout.
+
+**Rimandato, perché tocca il markup e va collaudato**: la testata con tre azioni
+in due file diverse (Libro §9-ter vuole due pillole + «⋯»), la fila di badge che
+mescola stati e classificazioni senza separatore, e il riquadro Riconciliazione
+**vuoto** che occupa 162px prima delle tab spingendo il primo dato del prodotto
+fuori dalla prima schermata.
+
+### Per il custode del DS — due proposte
+
+**A. La formula del badge non passa WCAG a 12px.** Misurato su `--bg #F5F5F7`:
+`--green` su `--green-soft` = **3,53:1**, `--red` su `--red-soft` = **4,22:1**,
+sotto i 4,5:1 di WCAG 1.4.3 alla taglia che il Libro prescrive. Servono varianti
+`-strong` dei semantici (oggi esiste solo `--gold-strong`), oppure la formula
+deve dichiarare il testo a `--text`. Finché non è deciso, **ogni app che applica
+la formula alla lettera introduce una violazione di contrasto**: Merchandising
+tiene il testo a `--text` come deroga, da annotare nel suo README.
+
+**B. Voce nuova per il Libro §9-ter — la fila di pillole di una testata.**
+> Ospita al massimo **due tassonomie**, separate da un filo: prima gli **stati**
+> (fase, stato del sistema esterno), che portano la tinta `-soft`; poi le
+> **classificazioni** (categoria, collezione, lente derivata), neutre. Una
+> pillola che unisce due dati con un «·» conta come una sola.
+> **Perché**: pillole identiche per forma e diverse per significato non si
+> contano. Prova sul campo: chi ha scritto la richiesta ne ha contate **sei dove
+> erano cinque**, e ha letto una classificazione («Da domani» = tempo di
+> preparazione) come una finestra di pubblicazione.
+> **Come si misura**: si mostra la testata a chi non l'ha scritta e gli si chiede
+> quante pillole ci sono e cosa dice ciascuna. Se sbaglia il conto o la
+> tassonomia, la fila è fuori canone.
