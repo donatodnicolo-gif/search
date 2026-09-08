@@ -239,7 +239,7 @@ export default async function PaginaTermini({
                   <tr>
                     <th></th>
                     <th>Ha cercato</th>
-                    <th>Presa dalla keyword</th>
+                    <th>Fatta scattare da</th>
                     <th>Campagna</th>
                     <th className="num" title="Quante volte siamo comparsi">Comparse</th>
                     <th className="num">Clic</th>

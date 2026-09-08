@@ -81,8 +81,59 @@ export type GiudizioKeyword = {
   consiglio: "vincente" | "attiva" | "da_valutare" | "in_pausa" | "esclusa";
 };
 
-export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword {
+/**
+ * Sotto quanta spesa non c'è abbastanza statistica per dare un verdetto.
+ * Con due o tre clic non si decide niente: quello è rumore, non un giudizio.
+ */
+export const SOGLIA_GIUDIZIO_EUR = 20;
+
+/**
+ * «Spende a vuoto»: ha speso abbastanza da contare, e non è entrato NIENTE.
+ *
+ * ⚠️⚠️ UNA DEFINIZIONE SOLA (08/09/2026). Prima ce n'erano due, con la stessa
+ * etichetta a schermo: la scheda campagna diceva `spesa > 0 && conversioni === 0
+ * && incasso === 0` (nessuna soglia: bastavano 40 centesimi per finire
+ * nell'elenco delle colpevoli) e la scheda gruppo diceva `spesa >= 20 &&
+ * incasso === 0` (senza guardare le conversioni). Due bilance che pesano la
+ * stessa mela e dicono numeri diversi. Si tengono le due cose giuste di
+ * ciascuna: la SOGLIA della versione gruppo e il fatto che debbano essere
+ * vuote TUTTE E DUE della versione campagna.
+ *
+ * ⚠️ Perché servono tutte e due le condizioni: le righe che arrivano dal
+ * Monitoraggio portano l'incasso ma NON il numero di conversioni. Con la sola
+ * regola «conversioni = 0» una keyword che ha reso 3.817 € finiva fra quelle
+ * che non hanno portato niente. Un dato che manca non è uno zero.
+ */
+export function spendeAVuoto(
+  spesa: number | null | undefined,
+  conversioni: number | null | undefined,
+  incasso: number | null | undefined
+): boolean {
+  if ((spesa ?? 0) < SOGLIA_GIUDIZIO_EUR) return false;
+  if ((incasso ?? 0) !== 0) return false;
+  // ⚠️ `null` vuol dire «il conteggio non ce l'ho», e un dato che manca non è
+  // uno zero: in quel caso decide il solo incasso, come faceva la scheda
+  // gruppo. Se invece il numero c'è, dev'essere zero: una conversione senza
+  // incasso è comunque qualcosa che è successo, e non si chiama «a vuoto».
+  if (conversioni == null) return true;
+  return conversioni === 0;
+}
+
+// ⚠️⚠️ IL METRO È IL BREAK-EVEN DEL BRAND, NON 4× PER TUTTI (08/09/2026).
+// Le soglie erano fisse — 1 / 2 / 4 / 8 — e corrispondono al break-even di
+// Cake (margine 50% → 2,0). Su Gifts (margine 30% → break-even 3,33) una
+// keyword a 2,5× è SOTTO il pareggio e questa scala la chiamava «Nella media»,
+// in blu: un semaforo verde su una parola che perde soldi. Peggio ancora, nella
+// stessa pagina del gruppo la colonna «Resa» dei termini era già colorata col
+// break-even di brand: due metri diversi a due righe di distanza.
+// Le soglie restano le stesse RELATIVE al pareggio (0,5× · 1× · 2× · 4× del
+// break-even), così su Cake non cambia niente e sugli altri brand smette di
+// mentire. `breakEven` ha un default di 2 per i chiamanti che non conoscono il
+// brand: è il valore che la scala aveva prima, quindi nessuno peggiora.
+export function giudizioKeyword(incasso: number, spesa: number, breakEven = 2): GiudizioKeyword {
   const resa = spesa > 0 ? incasso / spesa : null;
+  const be = breakEven > 0 ? breakEven : 2;
+  const x = (n: number) => `${n.toFixed(1).replace(".", ",")}×`;
 
   if (spesa < 20 && incasso === 0) {
     return {
@@ -108,42 +159,42 @@ export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword
       consiglio: "da_valutare",
     };
   }
-  if (resa >= 8) {
+  if (resa >= be * 4) {
     return {
       etichetta: "Da scalare",
       colore: "var(--green)",
-      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×, molto sopra il target di 4×: alzare le offerte e presidiare la quota impressioni, è qui che c'è margine da prendere.`,
+      spiega: `Resa ${x(resa)}, molto sopra il pareggio di ${x(be)}: alzare le offerte e presidiare la quota impressioni, è qui che c'è margine da prendere.`,
       consiglio: "vincente",
     };
   }
-  if (resa >= 4) {
+  if (resa >= be * 2) {
     return {
       etichetta: "Buona",
       colore: "var(--green)",
-      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: sopra il target di 4×. Tenerla attiva e proteggerla dalle variazioni di budget.`,
+      spiega: `Resa ${x(resa)}: sopra il target di ${x(be * 2)}. Tenerla attiva e proteggerla dalle variazioni di budget.`,
       consiglio: "vincente",
     };
   }
-  if (resa >= 2) {
+  if (resa >= be) {
     return {
       etichetta: "Nella media",
       colore: "var(--blue)",
-      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: sopra il break-even ma sotto il target. Migliorare pertinenza dell'annuncio e landing prima di toccare le offerte.`,
+      spiega: `Resa ${x(resa)}: sopra il break-even di ${x(be)} ma sotto il target. Migliorare pertinenza dell'annuncio e landing prima di toccare le offerte.`,
       consiglio: "attiva",
     };
   }
-  if (resa >= 1) {
+  if (resa >= be / 2) {
     return {
       etichetta: "Marginale",
       colore: "var(--orange)",
-      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: intorno al pareggio, non produce margine. Abbassare le offerte, restringere la corrispondenza o mettere in pausa.`,
+      spiega: `Resa ${x(resa)}: sotto il pareggio di ${x(be)}, non produce margine. Abbassare le offerte, restringere la corrispondenza o mettere in pausa.`,
       consiglio: "da_valutare",
     };
   }
   return {
     etichetta: "In perdita",
     colore: "var(--red)",
-    spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: incassa meno di quanto costa. Va fermata, salvo che serva come ricerca di volume dichiarata.`,
+    spiega: `Resa ${x(resa)}, contro un pareggio di ${x(be)}: incassa molto meno di quanto costa. Va fermata, salvo che serva come ricerca di volume dichiarata.`,
     consiglio: spesa >= 100 ? "esclusa" : "in_pausa",
   };
 }

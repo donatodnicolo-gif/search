@@ -23,7 +23,7 @@ const COLORE_STATO: Record<string, string> = {
 // incasso ÷ spesa): si ordina in memoria, e per questo l'elenco resta comunque
 // quello dei termini più costosi — vedi sotto.
 const COLONNE = {
-  testo: { etichetta: "Ha cercato", verso: "asc" as const },
+  testo: { etichetta: "Parola cercata", verso: "asc" as const },
   // ⚠️ Il gruppo c'era già ma come sottoriga grigia sotto la ricerca: non si
   // poteva ordinare né leggere in colonna. Su una campagna con quattro gruppi
   // è la prima cosa che si vuole raggruppare — non quanta spesa, ma DOVE.
@@ -124,11 +124,18 @@ export async function TerminiRicerca({
     ? await prisma.gruppo.findMany({
         where: { campagnaId, stato: { notIn: [...STATI_GRUPPO_IGNORATI] } },
         orderBy: { nome: "asc" },
-        select: { id: true, nome: true },
+        select: { id: true, nome: true, nomeVisibile: true },
       })
     : [];
   const gruppiCampagna = gruppiDellaCampagna.map((g) => g.nome);
-  const idGruppo = new Map(gruppiDellaCampagna.map((g) => [g.nome, g.id]));
+  // ⚠️⚠️ QUI SI SCRIVEVA SOLO IL NOME DI GOOGLE, e l'elenco dei gruppi scrive
+  // il NOSTRO: lo stesso gruppo compariva con due nomi diversi in due tabelle
+  // della stessa pagina. Caso vero (08/09/2026): il gruppo `126536048857` della
+  // campagna «Fiori Milano ENG» si chiama «Fiori a Domicilio + località
+  // d'interesse» su Google e «EX ITALIANA - NON PIÙ VALIDA» da noi — sembravano
+  // due cose ed era una sola. Adesso comanda il nome nostro, con quello di
+  // Google sotto: è quello che si cerca dentro l'interfaccia di Google.
+  const idGruppo = new Map(gruppiDellaCampagna.map((g) => [g.nome, g]));
 
   // ——— Ordinamento (in memoria, sui 40 già scelti) ———
   const colonna: Colonna = (ord && ord in COLONNE ? ord : "spesa") as Colonna;
@@ -380,13 +387,23 @@ export async function TerminiRicerca({
                     {/* Il gruppo si clicca e ci si entra: era il nome scritto
                         e basta, e per aprirlo bisognava risalire alla
                         campagna e ritrovarlo nell'elenco. */}
-                    {t.gruppo && idGruppo.get(t.gruppo) ? (
-                      <a href={`/gruppi/${idGruppo.get(t.gruppo)}`} style={{ color: "var(--blue)" }}>
-                        {t.gruppo}
-                      </a>
-                    ) : (
-                      t.gruppo ?? "—"
-                    )}
+                    {(() => {
+                      const g = t.gruppo ? idGruppo.get(t.gruppo) : undefined;
+                      if (!t.gruppo) return "—";
+                      if (!g) return t.gruppo;
+                      return (
+                        <>
+                          <a href={`/gruppi/${g.id}`} style={{ color: "var(--blue)" }}>
+                            {g.nomeVisibile ?? g.nome}
+                          </a>
+                          {g.nomeVisibile && (
+                            <div className="cella-sub" style={{ whiteSpace: "normal" }} title="Come si chiama dentro Google Ads">
+                              su Google: {g.nome}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 200 }}>
                     {/* La keyword come la scrive Google: [esatta], "a frase",

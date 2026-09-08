@@ -36,7 +36,7 @@ import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, c
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
-import { giudizioKeyword } from "@/lib/salute";
+import { giudizioKeyword, spendeAVuoto } from "@/lib/salute";
 import {
   ETICHETTA_LINGUA,
   LINGUE_CAMPAGNA,
@@ -296,7 +296,7 @@ export default async function SchedaGruppo({
         ...(prefissoGruppo ? { idEsterno: { startsWith: prefissoGruppo } } : {}),
         data: { gte: periodo.corrente.da, lt: periodo.corrente.a },
       },
-      _sum: { spesa: true, ricavi: true, clic: true },
+      _sum: { spesa: true, ricavi: true, clic: true, conversioni: true },
     }),
     prisma.metricaKeyword.aggregate({
       where: {
@@ -327,6 +327,9 @@ export default async function SchedaGruppo({
         delPeriodo: true,
         spesa: st?.spesa ?? 0,
         incasso: st?.ricavi ?? 0,
+        // ⚠️ `null` = non lo sappiamo, e non è uno zero: `spendeAVuoto` deve
+        // poter distinguere «zero conversioni» da «conteggio assente».
+        conversioni: (st?.conversioni ?? null) as number | null,
         ordinabile: (st?.spesa ?? 0) as number | null,
       };
     }
@@ -334,6 +337,7 @@ export default async function SchedaGruppo({
       delPeriodo: false,
       spesa: k.spesa ?? 0,
       incasso: k.incasso ?? 0,
+      conversioni: (k.conversioni ?? null) as number | null,
       ordinabile: (k.spesa ?? null) as number | null,
     };
   };
@@ -574,7 +578,11 @@ export default async function SchedaGruppo({
     // defunte in blocco senza andarle a cercare una per una.
     if (filtroKw === "sparite") return sparita(k);
     if (filtroKw === "spendono") return numeriDi(k).spesa > 0;
-    if (filtroKw === "a_vuoto") return numeriDi(k).spesa >= 20 && numeriDi(k).incasso === 0;
+    // La regola sta in `spendeAVuoto` (lib/salute): una sola, per le due schede.
+    if (filtroKw === "a_vuoto") {
+      const n = numeriDi(k);
+      return spendeAVuoto(n.spesa, n.conversioni, n.incasso);
+    }
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
     return true;
   })
@@ -1261,7 +1269,11 @@ export default async function SchedaGruppo({
                         // Il giudizio e lo stesso della pagina Keywords: una
                         // parola che spende senza rendere si vede in rosso da
                         // qui, senza doverla cercare altrove.
-                        const g = giudizioKeyword(n.incasso, n.spesa);
+                        // ⚠️ Col break-even DEL BRAND, lo stesso metro con cui è
+                        // colorata la Resa dei termini due riquadri più sotto:
+                        // prima qui la scala era fissa (4×/8×) e su Gifts dava
+                        // «Nella media» in blu a keyword sotto il pareggio.
+                        const g = giudizioKeyword(n.incasso, n.spesa, breakEvenRoas(gruppo.campagna.brand));
                         const az = azioneDi(k.testo);
                         return (
                           <tr key={k.id}>
@@ -1535,9 +1547,9 @@ export default async function SchedaGruppo({
                         <th className="num">Spesa</th>
                         <th className="num">Clic</th>
                         <th className="num">Conv.</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">ROS</th>
-                        <th>Intercettata da</th>
+                        <th className="num">Incasso</th>
+                        <th className="num">Resa</th>
+                        <th>Fatta scattare da</th>
                         <th data-no-ordina>Azione</th>
                       </tr>
                     </thead>
