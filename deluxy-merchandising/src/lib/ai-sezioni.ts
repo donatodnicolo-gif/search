@@ -60,13 +60,21 @@ export async function riempiSezioni(d: DatiPerSezioni): Promise<EsitoSezioni> {
   const daFare = d.sezioni.filter((s) => !(d.gia[s.nome] ?? "").trim());
   if (!daFare.length) return { ok: true, sezioni: {}, saltate: [], modello: MODELLO };
 
-  const senzaDati = !d.materiali.trim() && !d.note.trim();
+  // ⚠️ **Corretto dopo la prima prova vera** (08/09/2026). Il filtro guardava
+  // solo materiali e note, e su «Cuore di Cioccolato e Fragole» ha scartato
+  // tutte e cinque le sezioni — mentre la **descrizione** conteneva già
+  // ingredienti, allergeni e conservazione, scritti da una persona. Un
+  // guardrail che butta i dati veri non protegge nessuno: fa solo sembrare
+  // che l'AI non serva. Conta come dato anche una descrizione con del
+  // contenuto; resta il divieto di inventare, che sta nelle istruzioni.
+  const senzaDati = !d.materiali.trim() && !d.note.trim() && d.descrizione.trim().length < 120;
   const promptCategoria = await promptDiCategoria(d.categoria);
 
   const istruzioni = `Compili le sezioni della scheda prodotto di Deluxy, maison italiana di fiori, torte e regali di lusso. La scheda va sul sito ${d.sito}.
 
 Regole non negoziabili:
 - Usa SOLO le informazioni che ti vengono date. Non inventare ingredienti, allergeni, misure, pesi, tempi di conservazione, numero di fiori, provenienze.
+- La descrizione già scritta è una fonte valida: se contiene ingredienti, allergeni, pesi o conservazione, **usali da lì** invece di lasciare la sezione vuota. Riportali, non riscriverli a memoria.
 - Se per una sezione non hai dati sufficienti, **lasciala fuori dalla risposta**: una sezione vuota è corretta, una sezione inventata è un danno. Vale soprattutto per ingredienti e allergeni, che una persona legge per decidere se può mangiare una cosa.
 - Niente superlativi a raffica, niente emoji, niente promesse di consegna o di prezzo.
 - Italiano corretto e asciutto. Nessun titolo dentro il testo: il titolo è il nome della sezione.
@@ -119,7 +127,20 @@ Rispondi SOLO in JSON, con una chiave per ogni sezione che sai compilare davvero
     const saltate: string[] = [];
     for (const s of daFare) {
       const v = g[s.nome];
-      const testo = typeof v === "string" ? v.trim() : "";
+      // ⚠️⚠️ **Il modello risponde anche con delle LISTE, ed è giusto così**:
+      // a una sezione di tipo «elenco» o «coppie» un array è la forma naturale.
+      // La prima versione accettava solo le stringhe e buttava via tutto il
+      // resto — sul primo prodotto provato («Cuore di Cioccolato e Fragole»)
+      // l'AI aveva scritto tutte e cinque le sezioni, ingredienti e allergeni
+      // compresi, e l'app rispondeva «niente dati per scriverle». Un difetto
+      // che si travestiva da prudenza.
+      const testo = typeof v === "string"
+        ? v.trim()
+        : Array.isArray(v)
+          ? v.map((x) => (typeof x === "string" ? x.trim() : x && typeof x === "object" ? Object.entries(x).map(([k, y]) => `${k}: ${y}`).join(", ") : "")).filter(Boolean).join("\n")
+          : v && typeof v === "object"
+            ? Object.entries(v as Record<string, unknown>).map(([k, y]) => `${k}: ${y}`).join("\n")
+            : "";
       if (!testo) { saltate.push(s.nome); continue; }
       // ⚠️ Il guardrail vero: senza materiali né note, una sezione di
       // ingredienti/allergeni/misure sarebbe **inventata**. La si scarta anche

@@ -2,6 +2,35 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 notte (4) — L'AI SULLE SEZIONI, PROVATA SUL SERIO: DUE DIFETTI TROVATI E CHIUSI
+
+Provata su prodotti veri (`scripts/prova-ai-sezioni.ts`), come chiesto
+dall'utente. Funzionava a metà, e i due difetti erano **miei**, non del modello.
+
+**1. Il codice buttava via le risposte.** Su «Cuore di Cioccolato e Fragole»
+l'app diceva «lasciate vuote: niente dati per scriverle» su **tutte e cinque**
+le sezioni. Guardando la risposta grezza, il modello **le aveva scritte tutte** —
+ma come **liste**, non come stringhe, che per una sezione «elenco» o «coppie» è
+la forma naturale. Il mio codice accettava solo `typeof v === "string"` e
+scartava il resto. Un difetto travestito da prudenza: sembrava che l'AI non
+sapesse fare il suo lavoro. Ora accetta stringhe, liste e oggetti.
+
+**2. Il guardrail buttava via i dati veri.** Scartava ingredienti/allergeni/pesi
+quando mancavano `materiali` e `note` — ma la **descrizione** di quel prodotto
+conteneva già ingredienti, allergeni e conservazione, scritti da una persona.
+Ora la descrizione conta come fonte (sopra i 120 caratteri), e le istruzioni
+dicono di **riportare da lì** invece di lasciare vuoto. Resta il divieto di
+inventare.
+
+**Esito della prova**, sullo stesso prodotto senza materiali né note:
+Dettagli, Personalizzazione, **Ingredienti e Allergeni** (Glutine · Latte e
+derivati · Uova · possibile frutta a guscio — quelli veri), Pesi e Misure,
+Conservazione. Su un prodotto con sezioni già piene (Brunch Martesana) ha
+toccato **solo** le due vuote.
+
+⚠️ Da migliorare: su «Pesi e Misure» ha reso i nomi delle varianti come
+«Varianti: 8 / Varianti: 10…» — il dato è giusto, l'etichetta ripetuta no.
+
 ## 08/09/2026 notte (3) — DESCRIZIONE COLLEGATA, AI SULLE SEZIONI, TRADUZIONI PER NEGOZIO
 
 **1. Import e pubblicazione ora viaggiano insieme** (era il pezzo che mancava).
