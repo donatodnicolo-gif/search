@@ -2,6 +2,39 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 sera — SEZIONI MANCANTI AGGIUNTE E I 728 STATI IN DISACCORDO SANATI
+
+**1. «Perché qui dice bozza?»** (segnalazione dell'utente su «Back to Office
+Aperitif»): il badge diceva **«Bozza su Shopify»** accanto a **«Business Deluxy ·
+attivo»**. Due badge che si contraddicevano perché leggono due campi:
+`statoShopify` (la parola di Shopify, riscritta a ogni import) e `shopifyStato`
+(la nostra, che l'import aggiornava **solo alla creazione della scheda**).
+Misurati **728 su 3.665 in disaccordo**, di cui **85 che l'app dava per
+pubblicati mentre sul negozio erano in bozza o archiviati**.
+· **Causa chiusa** in `shopify-collezioni.ts`: l'aggiornamento dei prodotti
+  esistenti ora scrive anche `shopifyStato`, derivandolo da `statoShopify`.
+  Comanda il negozio: non sono due giudizi, sono **lo stesso fatto scritto due
+  volte**, e quando due copie divergono vince quella letta dalla fonte.
+· **Pregresso sanato** con `scripts/allinea-stati-shopify.ts --applica`: 515
+  ACTIVE → «pubblicato», 155 DRAFT → «bozza», 58 ARCHIVED → «non_pubblicato».
+  **Rileggendo: 0 in disaccordo.** Fatto con tre `updateMany`, non 728 giri.
+
+**2. Sezioni mancanti aggiunte — 54 → 63.** Rilanciato l'import dei valori:
+altre **697 caselle su 407 prodotti**; non mappati restano **2 valori in tutto**.
+· Aggiunte dove servivano davvero: FIORI «Ingredienti e Allergeni», «Cura»,
+  «Cosa include»; BOUQUET «Cosa include»; VINI_SPIRITS «Menù» e «Allergeni»;
+  TORTE_DOLCI «Menù» e «Occasioni»; GASTRONOMIA «Dettagli Prodotto».
+· Aggiunti sinonimi dove era **la stessa cosa con un altro nome**: «Ideale per»
+  → «Perfetto per», «Personalizzazione disponibile» → «Personalizzazione»,
+  «Descrizione»/«Dettagli» → «Dettagli Prodotto».
+· ⚠️ **Perché FIORI ha «Ingredienti e Allergeni»** (domanda dell'utente): non
+  sono fiori. Verificato con `scripts/chi-sono.ts`: gli 88 prodotti sono
+  **compositi** — di là stavano in «Originali Deluxy» (87 su 88) — fiori +
+  cioccolatini + champagne, colombe, uova di Pasqua, cream tart. Contengono
+  cibo, quindi hanno ingredienti e allergeni veri e l'informazione è
+  obbligatoria per legge. 🔴 **Resta da decidere se quei prodotti debbano stare
+  in FIORI**: la categoria è la cosa da guardare, non la sezione.
+
 ## 08/09/2026 pomeriggio — IMPORT DAL VECCHIO GESTIONALE, I TRE PUNTI A SCHERMO, NOME PER I PARTNER, DATA DI CREAZIONE UNICA
 
 Cinque richieste dell'utente in fila, tutte fatte e verificate.

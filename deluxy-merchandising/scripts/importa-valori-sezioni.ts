@@ -55,6 +55,10 @@ const SINONIMI: Record<string, string> = {
   "personalizzazioni": "Personalizzazione",
   "caratteristiche": "Dettagli",
   "dettagli prodotti": "Dettagli Prodotto",
+  "ideale per": "Perfetto per",
+  "personalizzazione disponibile": "Personalizzazione",
+  "descrizione": "Dettagli Prodotto",
+  "dettagli": "Dettagli Prodotto",
 };
 
 /** Un valore che non dice niente: nel vecchio gestionale il posto vuoto è «.» */
