@@ -71,6 +71,7 @@ interface Listino {
       }
 
       <div class="card">
+        <div class="tab-wrap">
         <table class="tab-listino">
           <thead>
             <tr>
@@ -105,7 +106,10 @@ interface Listino {
                       <input class="field num" type="number" min="0" step="0.5" [name]="'c' + i + '_' + j"
                              [(ngModel)]="col.prezzo" placeholder="—" />
                     } @else {
-                      <span class="muted">–</span>
+                      <!-- ⚠️ Vuota, non un trattino: quindici righe su sedici non hanno colori,
+                           e cinque colonne di trattini sono rumore che nasconde l'unica riga
+                           che invece li ha. Il vuoto qui vuol dire «non si applica», e si
+                           legge da solo. -->
                     }
                   </td>
                 }
@@ -122,6 +126,7 @@ interface Listino {
             }
           </tbody>
         </table>
+        </div>
         <p class="muted mini">{{ 'listino.nota' | translate }}</p>
         @if (coloriChiesti().length) {
           <p class="muted mini">{{ 'listino.notaColori' | translate }}</p>
@@ -138,12 +143,25 @@ interface Listino {
   `,
   styles: [
     `
-      /* ⭐ 08/09/2026 — le colonne dei colori. ⚠️ Con cinque colonne in piu' la tabella
-         puo' non starci: scorre LEI dentro la card, non la pagina (Libro §tabelle). Su
-         telefono e' l'unica forma possibile. */
-      .col-colore { min-width: 92px; }
-      .tab-listino { min-width: 640px; }
-      .card { overflow-x: auto; }
+      /* ⭐ 08/09/2026 — LA TABELLA ALLARGATA COI COLORI (segnalazione utente: «sistema css»).
+         ⚠️ Il difetto era un conflitto: la tabella aveva gia' un tetto di 680px (era
+         una tabella a tre colonne) e io le avevo messo un min-width di 640px con cinque
+         colonne in più. Le colonne si comprimevano, e l'ultima — lo stato — andava a capo
+         su due righe in OGNI riga. E overflow-x era finito su .card, cioè su tutte le
+         schede della pagina, non sulla tabella. */
+      .tab-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+      .tab-listino { min-width: 760px; }
+      .col-colore { width: 88px; }
+      /* La prima colonna resta ANCORATA mentre si scorre: senza il nome del fiore davanti,
+         una riga di numeri a metà scorrimento non si sa di chi sia (Libro §tabelle larghe). */
+      .tab-listino th:first-child, .tab-listino td:first-child {
+        position: sticky; left: 0; z-index: 1; background: var(--surface);
+      }
+      /* Lo stato non va a capo: «non lo faccio» su due righe raddoppia l'altezza di ogni
+         riga e fa sembrare la tabella piena di errori. */
+      .tab-listino td:last-child, .tab-listino th:last-child { white-space: nowrap; }
+      /* Le caselle dei colori sono strette: il prezzo di un fiore sta in tre cifre. */
+      .tab-listino .col-colore .field.num { max-width: 72px; padding-left: 6px; padding-right: 6px; }
       .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
       .tab:hover { background: var(--fill); }
@@ -153,7 +171,10 @@ interface Listino {
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 70ch; }
       .avviso-primo { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; margin-bottom: 16px; border-radius: var(--radius-m, 10px); background: rgba(184, 150, 62, 0.1); border: 1px solid rgba(184, 150, 62, 0.28); }
       .avviso-primo span { font-size: 13.5px; color: var(--text-secondary); }
-      .tab-listino { width: 100%; max-width: 680px; border-collapse: collapse; }
+      /* ⚠️ Niente max-width fisso: con le colonne dei colori la tabella è più larga di
+         680px, e il tetto la comprimeva invece di farla scorrere. La larghezza la decide
+         il contenuto, lo scorrimento lo fa il contenitore .tab-wrap. */
+      .tab-listino { width: 100%; border-collapse: collapse; }
       .tab-listino th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 10px 8px; }
       .tab-listino th.num, .tab-listino td.num { text-align: right; }
       .tab-listino td { padding: 5px 10px; border-top: 1px solid var(--hairline); vertical-align: middle; }
