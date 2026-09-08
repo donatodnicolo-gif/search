@@ -2,6 +2,54 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 notte — L'HTML IMPORTATO SI SPEZZA NELLE SUE PARTI, E QUATTRO RITOCCHI AL MODULO
+
+**1. Il parser, misurato prima di scriverlo.** `scripts/censimento-descrizioni.ts`
+su 160 descrizioni vere dei quattro negozi: **159 usano `<h6>`**, una `<h5>`,
+una non ha titoli. I titoli sono i nostri (Dettagli, Significato, Conservazione,
+Ingredienti e Allergeni, Pesi e Misure, Come Funziona, Perfetto per…), a volte
+in maiuscolo. Quindi `spezzaDescrizioneHtml()` accetta h4-h6 e confronta i nomi
+senza maiuscole né accenti.
+
+**2. La prova che conta è il giro completo**: spezzare e ricomporre, poi
+confrontare le PAROLE con l'originale (`scripts/prova-giro-descrizione.ts`).
+Su **120 descrizioni vere**: **111 tornano identiche parola per parola, 9 sopra
+il 97%, nessuna sotto**. La prima versione ne perdeva una: prendeva i primi tre
+`<li>` anche quando l'elenco in cima ne aveva tredici. Regola corretta:
+**l'elenco in cima è «i tre punti» solo se ha al massimo tre voci** — misurato,
+205 descrizioni su 224 ne hanno esattamente tre, 19 ne hanno da quattro a
+tredici e lì quell'elenco è contenuto, non riassunto.
+
+**3. I due plus di ogni sito si possono LEGGERE dai prodotti** invece di
+scriverli a mano: il 2º e il 3º punto si ripetono uguali sul negozio. Contati:
+Cake «Personalizzabile: da tre giorni» 38/60 e «Consegna: dove vuoi tu nel
+mondo» 57/60; Business Deluxy «Inclusi: biglietto scritto a mano e confezione
+regalo» 52/60. Script pronto: `scripts/deduci-plus-sito.ts` (soglia: metà delle
+schede lette; sotto soglia non scrive e lo dice). 🔴 **Non ancora lanciato.**
+
+🔴 **L'import NON è ancora collegato al parser, ed è voluto**: spezzare e
+comporre devono partire **insieme**. Se si spezza soltanto, il campo
+`descrizione` si accorcia e il primo salvataggio di un prodotto **sovrascrive
+su Shopify la descrizione ricca con il solo testo libero** — cioè cancella le
+tab dal sito. Da fare in un colpo: import che spezza + pubblicazione che
+compone.
+
+**4. Quattro ritocchi al modulo, tutti su richiesta dell'utente:**
+· **Le foto stanno nei campi comuni** («le foto sono nei campi comuni»): erano
+  una card a parte dopo le schede dei siti e sembravano di un sito solo.
+· **La scheda creativa** (brief, materiali, palette) compare **solo in fase
+  Concept** ed è salita **subito sotto «Fase iniziale»**: serve mentre il
+  prodotto si pensa, e in fondo alla pagina non la vedeva nessuno.
+· **La nota della variante ha la sua colonna**: stava dentro la cella del
+  prezzo partner, sotto di esso e senza intestazione — due campi in una
+  casella, che sfondavano la colonna e obbligavano la tabella a scorrere di
+  lato. Aggiunte le larghezze di colonna (`.tabella-varianti`) e gli input a
+  larghezza piena.
+· **I campi del negozio nella scheda del sito sono nascosti** («per ora
+  nascondi»): mostravano i campi che quel negozio definisce con valori che
+  invece sono gli stessi per tutti i siti. Per riaccenderlo: togliere
+  `false &&`. Prima va deciso se i valori diventano per negozio.
+
 ## 08/09/2026 sera (2) — MODULO RISTRUTTURATO A SCHEDE PER SITO, E IL METAFIELD CHE FACEVA RIFIUTARE IL PRODOTTO
 
 **1. Struttura chiesta dall'utente**: «informazioni comuni a tutti gli store
