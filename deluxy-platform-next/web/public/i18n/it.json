@@ -1929,7 +1929,27 @@
       "requiredFields": "Insegna ed email sono obbligatori.",
       "createFailed": "Errore nella creazione del partner"
     },
-    "editTitle": "Modifica partner"
+    "editTitle": "Modifica partner",
+    "condizioni": {
+      "title": "Condizioni di pagamento",
+      "subtitle": "Col partner corrono due rapporti opposti: sui servizi di vendita paghiamo noi, su tutto il resto incassiamo noi. I tempi sono diversi e si dichiarano qui.",
+      "versoPaghiamo": "Paghiamo noi",
+      "versoIncassiamo": "Incassiamo noi",
+      "vendorTitolo": "Servizi vendor",
+      "vendorQuali": "I servizi legati alla vendita: Vendita, Vendita Deluxy, Multipla, Priority, con Pagamento alla Consegna. Il prodotto lo fa il partner.",
+      "fatturaTitolo": "Servizi a fatturazione",
+      "fatturaQuali": "Tutto ciò che non è vendita: consegne a prezzo fisso, servizi a ora, magazzino, corporate. Il servizio lo facciamo noi.",
+      "giorniPagamento": "Giorni di pagamento",
+      "giorniIncasso": "Giorni di incasso",
+      "aVista": "a vista",
+      "aVistaFattura": "a vista fattura",
+      "vendorDecorrenza": "⚠️ I giorni decorrono dalla FINE DEL MESE della consegna: 30 giorni su una consegna del 3 settembre vogliono dire il 30 ottobre, non il 3 ottobre.",
+      "compensazione": "Compensa commissioni e vendite",
+      "compensazioneNota": "Invece di due bonifici in direzioni opposte si fa la differenza: quello che il partner ci deve di commissioni si scala da quello che gli dobbiamo per le vendite.",
+      "fineMese": "I giorni decorrono da fine mese",
+      "fineMeseSi": "Dall’ultimo giorno del mese della fattura.",
+      "fineMeseNo": "Dalla data della fattura. Spunta per farli partire da fine mese."
+    }
   },
   "valetForm": {
     "backToValets": "Valet",

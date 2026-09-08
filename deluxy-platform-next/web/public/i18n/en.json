@@ -1927,7 +1927,27 @@
       "requiredFields": "Business sign and email are required.",
       "createFailed": "Error creating the partner"
     },
-    "editTitle": "Edit partner"
+    "editTitle": "Edit partner",
+    "condizioni": {
+      "title": "Payment terms",
+      "subtitle": "Two opposite relationships run with a partner: on sales services we pay them, on everything else they pay us. The terms differ and are declared here.",
+      "versoPaghiamo": "We pay",
+      "versoIncassiamo": "We collect",
+      "vendorTitolo": "Vendor services",
+      "vendorQuali": "Sales-related services: Vendita, Vendita Deluxy, Multipla, Priority, Cash on Delivery. The partner makes the product.",
+      "fatturaTitolo": "Invoiced services",
+      "fatturaQuali": "Everything that is not a sale: fixed-price deliveries, hourly services, warehouse, corporate. We perform the service.",
+      "giorniPagamento": "Days to pay",
+      "giorniIncasso": "Days to collect",
+      "aVista": "on sight",
+      "aVistaFattura": "on invoice",
+      "vendorDecorrenza": "⚠️ Days run from the END OF THE MONTH of the delivery: 30 days on a 3 September delivery means 30 October, not 3 October.",
+      "compensazione": "Offset commissions against sales",
+      "compensazioneNota": "Instead of two transfers in opposite directions, the difference is settled: what the partner owes in commissions is deducted from what we owe them for sales.",
+      "fineMese": "Days run from end of month",
+      "fineMeseSi": "From the last day of the invoice month.",
+      "fineMeseNo": "From the invoice date. Tick to run from end of month."
+    }
   },
   "valetForm": {
     "backToValets": "Valets",

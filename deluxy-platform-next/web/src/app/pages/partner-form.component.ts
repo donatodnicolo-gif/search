@@ -196,6 +196,66 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </div>
       </section>
 
+      <!-- ⭐ 08/09/2026 (regola utente) — CONDIZIONI DI PAGAMENTO.
+           Col partner corrono due rapporti opposti e hanno tempi diversi: sui servizi
+           di VENDITA il prodotto lo fa lui e paghiamo noi; su tutto il resto le consegne
+           le facciamo noi e incassiamo da lui. Un solo campo «giorni» non poteva dire
+           tutt'e due le cose — in FINANCE ce n'era uno solo, e infatti non si sapeva
+           mai a quale dei due versi si riferisse. -->
+      <section class="card block">
+        <header class="block-head">
+          <h2>{{ 'partnerForm.condizioni.title' | translate }}</h2>
+          <span class="block-sub">{{ 'partnerForm.condizioni.subtitle' | translate }}</span>
+        </header>
+
+        <div class="cond">
+          <!-- NOI PAGHIAMO LUI -->
+          <div class="cond-box">
+            <div class="cond-head">
+              <span class="verso paga">{{ 'partnerForm.condizioni.versoPaghiamo' | translate }}</span>
+              <b>{{ 'partnerForm.condizioni.vendorTitolo' | translate }}</b>
+            </div>
+            <p class="cond-quali">{{ 'partnerForm.condizioni.vendorQuali' | translate }}</p>
+            <label class="fld"><span>{{ 'partnerForm.condizioni.giorniPagamento' | translate }}</span>
+              <input class="field num" type="number" step="1" min="0" max="365" name="pagamentoVendorGiorni"
+                     [(ngModel)]="model.pagamentoVendorGiorni"
+                     [placeholder]="'partnerForm.condizioni.aVista' | translate" /></label>
+            <!-- ⚠️ La decorrenza NON è la data della consegna: è la fine del mese.
+                 30 gg su una consegna del 3 settembre vuol dire il 30 ottobre, non il 3.
+                 Ventisette giorni di differenza: si scrive, non si lascia dedurre. -->
+            <p class="cond-nota">{{ 'partnerForm.condizioni.vendorDecorrenza' | translate }}</p>
+            <label class="check">
+              <input type="checkbox" name="compensazioneIncassi" [(ngModel)]="model.compensazioneIncassi" />
+              <span>
+                <b>{{ 'partnerForm.condizioni.compensazione' | translate }}</b>
+                <span class="cond-nota">{{ 'partnerForm.condizioni.compensazioneNota' | translate }}</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- LUI PAGA NOI -->
+          <div class="cond-box">
+            <div class="cond-head">
+              <span class="verso incassa">{{ 'partnerForm.condizioni.versoIncassiamo' | translate }}</span>
+              <b>{{ 'partnerForm.condizioni.fatturaTitolo' | translate }}</b>
+            </div>
+            <p class="cond-quali">{{ 'partnerForm.condizioni.fatturaQuali' | translate }}</p>
+            <label class="fld"><span>{{ 'partnerForm.condizioni.giorniIncasso' | translate }}</span>
+              <input class="field num" type="number" step="1" min="0" max="365" name="incassoServiziGiorni"
+                     [(ngModel)]="model.incassoServiziGiorni"
+                     [placeholder]="'partnerForm.condizioni.aVistaFattura' | translate" /></label>
+            <!-- Qui la decorrenza cambia da partner a partner: la si dichiara. -->
+            <label class="check">
+              <input type="checkbox" name="incassoServiziFineMese" [(ngModel)]="model.incassoServiziFineMese" />
+              <span>
+                <b>{{ 'partnerForm.condizioni.fineMese' | translate }}</b>
+                <span class="cond-nota">{{ (model.incassoServiziFineMese ? 'partnerForm.condizioni.fineMeseSi' : 'partnerForm.condizioni.fineMeseNo') | translate }}</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
       <!-- ⭐ 06/09/2026 (decisione utente): i MESTIERI del partner — 8 chip al posto di 65 caselle.
            Le categorie sotto restano il dettaglio del catalogo; lo smistamento guarda prima qui. -->
       <section class="card block">
@@ -465,6 +525,22 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .oh-tutti:hover { color: var(--ink, #1d1d1f); }
       @media (max-width: 640px) { .oh-day { width: 100%; } .field.time { flex: 1; width: auto; } }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+      /* Condizioni di pagamento: due riquadri affiancati, uno per verso del denaro.
+         Affiancarli e' il punto: sono opposti, e visti insieme non ci si sbaglia. */
+      .cond { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .cond-box { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 14px 12px; background: var(--surface); }
+      .cond-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .cond-head b { font-size: 14.5px; }
+      .verso { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+      .verso.paga { background: rgba(255,159,10,.14); color: #A56100; }
+      .verso.incassa { background: rgba(52,199,89,.14); color: #248A3D; }
+      .cond-quali { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+      .cond-nota { display: block; margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); line-height: 1.45; }
+      .cond .check { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; cursor: pointer; }
+      .cond .check input { margin-top: 2px; width: 16px; height: 16px; flex: 0 0 auto; }
+      .cond .check b { display: block; font-size: 13.5px; font-weight: 600; }
+      .cond .fld .field.num { max-width: 120px; }
+      @media (max-width: 720px) { .cond { grid-template-columns: 1fr; } }
       .mt { margin-top: 16px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
@@ -621,6 +697,11 @@ export class PartnerFormComponent {
     kmIncluded: null as number | null,
     extraOutOfCityPrice: null as number | null,
     commissionPercent: null as number | null,
+    // Condizioni di pagamento (08/09): due versi separati, tempi diversi.
+    pagamentoVendorGiorni: null as number | null,
+    compensazioneIncassi: false,
+    incassoServiziGiorni: null as number | null,
+    incassoServiziFineMese: false,
     isWarehouse: false,
     valetIdentityCheck: false,
     deliveryCodeRequired: false,
@@ -805,6 +886,14 @@ export class PartnerFormComponent {
     if (m.kmIncluded != null) payload['kmIncluded'] = Number(m.kmIncluded);
     if (m.extraOutOfCityPrice != null) payload['extraOutOfCityPrice'] = Number(m.extraOutOfCityPrice);
     if (m.commissionPercent != null) payload['commissionPercent'] = Number(m.commissionPercent);
+    // ⚠️ Campo vuoto = «non concordato» (a vista), che è diverso da zero: si manda
+    // null, non 0. Con `0` la scheda direbbe «0 giorni» come se fosse un accordo preso.
+    payload['pagamentoVendorGiorni'] = m.pagamentoVendorGiorni === null || String(m.pagamentoVendorGiorni) === ''
+      ? null : Number(m.pagamentoVendorGiorni);
+    payload['incassoServiziGiorni'] = m.incassoServiziGiorni === null || String(m.incassoServiziGiorni) === ''
+      ? null : Number(m.incassoServiziGiorni);
+    payload['compensazioneIncassi'] = !!m.compensazioneIncassi;
+    payload['incassoServiziFineMese'] = !!m.incassoServiziFineMese;
     // In modifica le collezioni vanno inviate SEMPRE, anche vuote: altrimenti
     // svuotarle non le cancellerebbe (l'API aggiorna solo le chiavi presenti).
     const isEdit = !!this.editId();

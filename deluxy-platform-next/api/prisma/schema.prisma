@@ -370,6 +370,42 @@ model Partner {
   extraOutOfCityPrice Float?
   // Commissione del partner (Fee%): usata dalla Finanza per Fee value = Fee% x prezzo partner.
   commissionPercent   Float             @default(0)
+
+  // ===== CONDIZIONI DI PAGAMENTO (⭐ 08/09/2026, regola utente) =====
+  //
+  // Col partner corrono DUE rapporti opposti, e hanno tempi diversi:
+  //  · SERVIZI VENDOR — i servizi di vendita (`ServiceType.pricingModel = VENDITA`:
+  //    Vendita, Vendita Deluxy, Multipla, Priority, con Pagamento alla Consegna).
+  //    Il partner fa il prodotto e NOI PAGHIAMO LUI.
+  //  · SERVIZI A FATTURAZIONE — tutto il resto (prezzo fisso, a ora, magazzino,
+  //    corporate: 42 servizi attivi). Le consegne le facciamo noi e INCASSIAMO DA LUI.
+  //
+  // ⚠️ I valori nascono importati da FINANCE (deluxy-partner), che aveva un solo
+  // `ggPagamento` per tutt'e due i versi. Da qui in avanti la casa è QUESTA: i
+  // `ggPagamento` rimasti là sono storia, non una seconda verità (decisione utente
+  // 08/09: «importa da finance ma il dato sarà caricato su di te»).
+
+  /// Giorni per pagare il partner sui servizi di VENDITA.
+  /// ⚠️ Decorrenza FINE MESE (regola utente): i giorni partono dall'ultimo giorno
+  /// del mese in cui cade la consegna, non dalla consegna. 30 gg su una consegna del
+  /// 3 settembre vuol dire il 30 ottobre, non il 3. Non è un dettaglio: sono ventisette
+  /// giorni di differenza, ed è il motivo per cui va scritto e non dedotto.
+  /// null = non concordato (si paga a vista).
+  pagamentoVendorGiorni Int?
+
+  /// Invece di due bonifici in direzioni opposte, si fa la differenza: quello che il
+  /// partner ci deve per le commissioni si scala da quello che noi gli dobbiamo per
+  /// le vendite. In FINANCE questo flag esiste già come `compensazione`.
+  compensazioneIncassi  Boolean           @default(false)
+
+  /// Giorni per incassare dal partner sui servizi NON di vendita.
+  /// null = non concordato (si incassa a vista fattura).
+  incassoServiziGiorni  Int?
+
+  /// Da quando decorrono i giorni di incasso — il «flag di specifica» chiesto
+  /// dall'utente: true = fine mese della fattura, false = data della fattura.
+  /// Sul vendor non c'è il flag perché là la decorrenza è sempre fine mese.
+  incassoServiziFineMese Boolean          @default(false)
   /// Il partner tiene merce da noi. Nel legacy e' `partner.partnerHasWarehouse`:
   /// se e' spento, i servizi di magazzino a listino NON si mostrano, anche quando
   /// la riga esiste (3 partner su 267 sono in questo stato, fra cui 142 RESTAURANT).
