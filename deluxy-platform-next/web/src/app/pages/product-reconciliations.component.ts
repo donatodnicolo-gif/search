@@ -304,7 +304,11 @@ interface UltimaCorsa {
                 <div class="cella-sub muted">
                   {{ v.province?.code }} · {{ v.amount | number: '1.2-2' }} €
                   @if (v.regolaEsistente) {
-                    · <span class="ko">{{ 'reconciliations.nuova.giaRegola' | translate: { stato: v.regolaEsistente.stato } }}</span>
+                    <!-- ⭐ 08/09/2026 (segnalazione utente: «non mi fa riconciliare, dice esiste
+                         già una regola»). Non era un divieto: il modulo la sostituisce. Il rosso
+                         faceva credere il contrario, e una scritta che sembra un blocco vale
+                         come un blocco. Ora si dice che cosa succede confermando. -->
+                    · <span [class.ko]="v.regolaEsistente.stato === 'accettata'" class="muted">{{ ('reconciliations.nuova.gia_' + v.regolaEsistente.stato) | translate }}</span>
                   }
                 </div>
               </div>

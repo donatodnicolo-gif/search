@@ -2567,6 +2567,19 @@ export class SalesService {
     return fuori;
   }
 
+  /**
+   * ⭐ 08/09/2026 — IL CANDIDATO VIENE DA UN PATTO?
+   *
+   * `candidati()` con una riconciliazione accettata torna UN solo candidato, col motivo
+   * «riconciliazione prodotto/provincia» e il prezzo del patto. Da qui in poi nessuna
+   * regola può riscriverne il prezzo: la riconciliazione vince su tutte le altre regole
+   * della provincia — quella a pezzi, quella del preventivo, la percentuale del
+   * territorio. È un prezzo concordato con una persona, non una stima.
+   */
+  private static daPatto(c: { motivo?: string; prezzoPartner?: number }): boolean {
+    return c.prezzoPartner !== undefined && String(c.motivo ?? '').startsWith('riconciliazione prodotto/provincia');
+  }
+
   private async scegliPartner(
     product: ProdottoDaSmistare,
     provinceId: string,
@@ -2585,6 +2598,12 @@ export class SalesService {
       const pezzi = Math.round(finestra.pezzi!);
       const unitari = await this.prezzoUnitario(product as ProdottoDaSmistare & { name?: string | null }, finestra.titolo ?? null, lista.map((c) => c.partnerId));
       lista = lista.map((c) => {
+        // ⭐ 08/09/2026 (regola utente: «la riconciliazione vince su tutte le altre regole
+        // nella provincia»). Un patto è un prezzo CONCORDATO con quel partner per quel
+        // prodotto lì: il calcolo a pezzi — che è una stima — non lo può scavalcare.
+        // Prima lo riscriveva, e il partner si vedeva cambiare sotto il naso un prezzo
+        // che era stato pattuito.
+        if (SalesService.daPatto(c)) return { ...c, motivo: `${c.motivo} · il patto vince sul prezzo a pezzi` };
         const u = unitari.get(c.partnerId);
         if (!u) return { ...c, motivo: `${c.motivo} · senza prezzo unitario: vale la percentuale` };
         const totale = Math.round(u.unitario * pezzi * 100) / 100;

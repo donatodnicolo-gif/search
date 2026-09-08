@@ -1068,7 +1068,6 @@
       "cercaVendita": "Search by order number, product or recipient…",
       "nessunaVendita": "No pending sale to reconcile.",
       "cambia": "Change",
-      "giaRegola": "a rule already exists ({{stato}})",
       "prodotto": "Product of the rule",
       "provincia": "Province",
       "dedottiHint": "Product and province come from the sale: the rule will apply to them.",
@@ -1091,7 +1090,10 @@
       "tuttiIPartner": "All partners",
       "cercaNelPartner": "Search this partner’s catalogue…",
       "cercaPartner": "Search a partner, to see only their products…",
-      "solo": "only:"
+      "solo": "only:",
+      "gia_proposta": "a proposal is pending: confirming replaces it",
+      "gia_accettata": "an active rule already exists: confirming replaces it",
+      "gia_rifiutata": "it had been refused: confirming reopens it"
     }
   },
   "products": {

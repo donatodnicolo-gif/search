@@ -1070,7 +1070,6 @@
       "cercaVendita": "Cerca per numero d’ordine, prodotto o destinatario…",
       "nessunaVendita": "Nessuna vendita ferma da riconciliare.",
       "cambia": "Cambia",
-      "giaRegola": "esiste già una regola ({{stato}})",
       "prodotto": "Prodotto della regola",
       "provincia": "Provincia",
       "dedottiHint": "Prodotto e provincia vengono dalla vendita: la regola varrà per loro.",
@@ -1093,7 +1092,10 @@
       "tuttiIPartner": "Tutti i partner",
       "cercaNelPartner": "Cerca nel catalogo di questo partner…",
       "cercaPartner": "Cerca un partner, per vedere solo i suoi prodotti…",
-      "solo": "solo:"
+      "solo": "solo:",
+      "gia_proposta": "c’è una proposta in attesa: confermando prende il posto suo",
+      "gia_accettata": "esiste già una regola attiva: confermando la sostituisci",
+      "gia_rifiutata": "era stata rifiutata: confermando la riapri"
     }
   },
   "products": {
