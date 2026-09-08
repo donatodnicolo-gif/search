@@ -1,6 +1,61 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 07/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+
+## 08/09/2026 mattina — SEZIONI PER CATEGORIA E TRE PUNTI DELLA SCHEDA (nuovo punto di ripresa)
+
+Richiesta dell'utente dell'08/09 («in impostazioni per ogni sito definisci due
+plus del sito… ogni categoria poi ha delle sezioni… i 3 punti e le sezioni sono
+personalizzabili per sito selezionato»). Fatto tutto tranne l'ultima parte, che
+resta scritta qui sotto.
+
+**FATTO**
+- `SezioneCategoria` (categoria · negozio · nome · tipo `testo|elenco|coppie` ·
+  richiesta · ordine · attiva, unica su `[categoria, negozio, nome]`),
+  `Prodotto.plusProdotto`, `Prodotto.sezioniScheda` (Json),
+  `NegozioShopify.plusUno/plusDue`. Schema già applicato al database condiviso.
+- `scripts/importa-sezioni.ts --applica`: **50 sezioni su 11 categorie**, dal
+  vecchio gestionale (`docs/categorie-vecchio-gestionale.md`, estratto dal dump
+  `localhost.sql`: 63 categorie). Due **deroghe B2B** su Business Deluxy —
+  GASTRONOMIA e GIFT_BOX chiudono con «Occasioni» dove il D2C chiude con «Regala
+  con Deluxy». Si può rilanciare: non tocca quelle già presenti.
+- Nel modulo prodotto, blocco **«Scheda sul sito · i tre punti e le sezioni»**:
+  campo «Plus del prodotto» (il primo dei tre punti) e, per **ogni sito scelto**,
+  i due plus del sito in sola lettura più i campi delle sezioni della categoria.
+  Le consigliate hanno l'asterisco e sono contate in testa al blocco, **ma non
+  bloccano il salvataggio**.
+- Salvataggio: `plusProdotto` e `sezioniJson` in `azioni-prodotto-nuovo.ts`
+  (creazione e modifica). In modifica si scrive sempre, anche vuoto: svuotare una
+  sezione è una decisione e deve arrivare al database.
+- Corretti due difetti trovati strada facendo: `.stati-negozio` e
+  `.stato-negozio-riga` (commit `0ddfa50b`) erano classi **senza CSS**, e il
+  modulo non riceveva `statoVoluto` dalle pubblicazioni — il selettore dello
+  stato per negozio ripartiva sempre da «lascia com'è».
+
+**VERIFICATO in locale** (dev server 3120, sessione via cookie, sola lettura):
+`/prodotti/nuovo` 200 col blocco e i campi nascosti; FIORI mostra Significato ·
+Dimensioni · Perfetto per; GASTRONOMIA Menù · Allergeni; TORTE_DOLCI Ingredienti
+e Allergeni · Conservazione. Sul prodotto `cms222w4v008ii6m843efvj4l` (Cofanetto
+Colazione, su due siti) escono **due blocchi**: Gifts con 5 sezioni fino a «Regala
+con Deluxy», Business Deluxy con 4 fino a «Occasioni». `npx tsc --noEmit` pulito.
+
+**MANCA**
+- 🔴 **I due plus di ciascun sito non si impostano ancora da nessuna parte**:
+  le colonne `plusUno`/`plusDue` esistono e sono lette dal modulo, ma in
+  Negozi & permessi non c'è ancora il campo per scriverle. Finché sono vuote il
+  modulo lo dice esplicitamente.
+- 🔴 **Le sezioni non compongono ancora la descrizione HTML** che va su Shopify:
+  oggi si salvano sulla scheda e basta.
+- 🔴 **Le sezioni non si amministrano dall'app**: si aggiungono o si cambiano
+  solo rilanciando `scripts/importa-sezioni.ts` o scrivendo su
+  `SezioneCategoria`.
+- ⚠️ **`/prodotti/[id]/duplica` NON ESISTE**: l'azione `duplicaProdottoCompleto`
+  c'è ed è compilata, il modulo accetta `duplica`, ma la pagina non è mai stata
+  creata — la duplicazione chiesta il 07/09 **non è raggiungibile da nessun
+  bottone**.
+- ⚠️ Il dev server va **riavviato dopo un `prisma db push`**: quello acceso
+  teneva il client vecchio e `/prodotti/nuovo` rispondeva 500 («non compila» =
+  client Prisma vecchio, la trappola di sempre).
 
 ## 07/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 

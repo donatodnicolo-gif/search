@@ -2,7 +2,7 @@
 // al componente: negozi, categorie, collezioni manuali, definizioni dei
 // metafield per negozio, chiave AI. Una funzione sola per le due pagine.
 
-import type { CategoriaPerForm, CollezionePerForm, NegozioPerForm } from "@/components/FormProdottoNuovo";
+import type { CategoriaPerForm, CollezionePerForm, NegozioPerForm, SezionePerForm } from "@/components/FormProdottoNuovo";
 import { elencoCategorie } from "./classificazione";
 import { prisma } from "./db";
 import { definizioniDelNegozio, type DefinizioneMetafield } from "./metafield-definizioni";
@@ -16,8 +16,13 @@ export async function datiModuloProdotto(): Promise<{
   definizioniPerNegozio: Record<string, DefinizioneMetafield[]>;
   tagEsistenti: string[];
   aiPronta: boolean;
+  /** ⭐ 08/09/2026: le sezioni per categoria e negozio, che il modulo mostra
+   *  quando si sceglie la categoria. */
+  sezioni: SezionePerForm[];
+  /** I due plus di ciascun sito: le righe 2 e 3 dell'elenco in cima alla scheda. */
+  plusNegozio: Record<string, { uno: string; due: string }>;
 }> {
-  const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag] = await Promise.all([
+  const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag, sezioni] = await Promise.all([
     elencoNegozi(),
     elencoCategorie(),
     prisma.collezioneShopify.findMany({ where: { tipo: "manuale" }, orderBy: [{ negozio: "asc" }, { titolo: "asc" }], select: { id: true, titolo: true, negozio: true } }),
@@ -26,6 +31,11 @@ export async function datiModuloProdotto(): Promise<{
     negoziAttivi(),
     // I tag già in uso sui prodotti attivi: i suggerimenti del modulo, per frequenza.
     prisma.prodotto.findMany({ where: { tagShopify: { not: null }, statoShopify: "ACTIVE" }, select: { tagShopify: true } }),
+    prisma.sezioneCategoria.findMany({
+      where: { attiva: true },
+      orderBy: [{ categoria: "asc" }, { ordine: "asc" }],
+      select: { categoria: true, negozio: true, nome: true, tipo: true, richiesta: true, ordine: true },
+    }),
   ]);
   const conteggio = new Map<string, number>();
   for (const p of conTag) for (const t of (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean)) conteggio.set(t, (conteggio.get(t) ?? 0) + 1);
@@ -41,5 +51,9 @@ export async function datiModuloProdotto(): Promise<{
     definizioniPerNegozio,
     tagEsistenti,
     aiPronta: chiaveAi.presente,
+    sezioni,
+    // I plus del sito: si leggono da tutti i negozi, anche spenti, perché un
+    // prodotto può essere ancora pubblicato su un negozio sospeso.
+    plusNegozio: Object.fromEntries(negozi.map((n) => [n.nome, { uno: n.plusUno ?? "", due: n.plusDue ?? "" }])),
   };
 }

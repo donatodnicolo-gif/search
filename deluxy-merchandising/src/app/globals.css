@@ -571,6 +571,30 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .altri-campi summary::-webkit-details-marker { display: none; }
 .altri-campi[open] summary { background: var(--fill); border-color: transparent; }
 
+
+/* **Lo stato negozio per negozio** e **le sezioni della scheda, sito per sito**.
+   Due elenchi che si ripetono per ciascun negozio scelto: senza una riga di
+   separazione fra un sito e l'altro si legge come un unico blocco, e si finisce
+   per scrivere il testo del B2B nel campo del D2C. */
+.stati-negozio { display: flex; flex-direction: column; gap: 10px; }
+.stato-negozio-riga {
+  display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); gap: 4px 12px; align-items: center;
+  padding: 10px 12px; background: var(--surface-sunken); border: 1px solid var(--hairline); border-radius: var(--radius-m);
+}
+.stato-negozio-riga .cella-sub { grid-column: 2; margin-top: 0; }
+.sezioni-sito { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.sezioni-sito:first-of-type { margin-top: 14px; }
+.sezioni-sito-testata {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.sezioni-sito-testata b { font-size: 13.5px; letter-spacing: -0.01em; }
+.sezioni-sito-testata .cella-sub { margin-top: 0; color: var(--gold-strong); }
+
+@media (max-width: 720px) {
+  .stato-negozio-riga { grid-template-columns: minmax(0, 1fr); }
+  .stato-negozio-riga .cella-sub { grid-column: 1; }
+}
+
 /* In modifica: chi si sta toccando, e dove finisce il salvataggio. */
 .riepilogo-modifica {
   display: flex; align-items: center; gap: 14px; padding: 12px 16px; margin-bottom: 18px;

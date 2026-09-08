@@ -26,6 +26,8 @@ import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/l
 export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean };
 export type CategoriaPerForm = { chiave: string; nome: string; negozio: string | null; conPrompt: boolean };
 export type CollezionePerForm = { id: string; titolo: string; negozio: string };
+/** ⭐ 08/09/2026: una sezione della scheda, per categoria e negozio. */
+export type SezionePerForm = { categoria: string; negozio: string | null; nome: string; tipo: string; richiesta: boolean; ordine: number };
 
 export type MediaCaricato = {
   shopifyFileId: string;
@@ -67,6 +69,9 @@ export type ProdottoIniziale = {
   media: MediaCaricato[];
   metafield: Record<string, string>;
   tags: string[];
+  /** ⭐ 08/09/2026: il plus del prodotto e le sezioni già compilate, per negozio. */
+  plusProdotto?: string;
+  sezioniScheda?: Record<string, Record<string, string>>;
   /** Le collezioni in cui il prodotto sta già (dall'import), automatiche comprese. */
   collezioni: { id: string; titolo: string; tipo: string; negozio?: string }[];
   shopifyId: string | null;
@@ -74,6 +79,19 @@ export type ProdottoIniziale = {
   altriNegoziId: string[];
   /** Dove sta già, negozio per negozio: per dirlo accanto alla scelta. */
   pubblicazioni: { negozio: string; shopifyId: string | null; statoShopify: string | null; statoVoluto?: string | null; errore: string | null; origine: string }[];
+};
+
+/**
+ * **Come si compila una sezione**, secondo il tipo che aveva nel vecchio
+ * gestionale. Il tipo non è un vezzo: «Dimensioni» è fatta di coppie
+ * (Altezza: 60 cm) e «Perfetto per» di voci; scriverle nel modo sbagliato dà
+ * una scheda che sul sito si legge male, e nessuno se ne accorge finché non
+ * la guarda un cliente.
+ */
+const SEZIONE_AIUTO: Record<string, { placeholder: string; nota: string; righe: number }> = {
+  testo: { placeholder: "Il testo che il cliente legge in questa sezione.", nota: "Testo libero.", righe: 4 },
+  elenco: { placeholder: "Una voce per riga: Consegna in giornata", nota: "Una voce per riga: sul sito diventa un elenco puntato.", righe: 4 },
+  coppie: { placeholder: "Una per riga, nome e valore: Altezza: 60 cm", nota: "Una per riga, «Nome: valore»: sul sito diventa una tabellina.", righe: 4 },
 };
 
 /** Come si chiamano gli stati di Shopify quando li legge una persona. */
@@ -112,6 +130,8 @@ export function FormProdottoNuovo({
   definizioniPerNegozio,
   tagEsistenti,
   aiPronta,
+  sezioni = [],
+  plusNegozio = {},
   azione,
   iniziale,
   duplica,
@@ -122,6 +142,10 @@ export function FormProdottoNuovo({
   definizioniPerNegozio: Record<string, DefinizioneMetafield[]>;
   tagEsistenti: string[];
   aiPronta: boolean;
+  /** ⭐ 08/09/2026: le sezioni previste per ciascuna categoria e negozio. */
+  sezioni?: SezionePerForm[];
+  /** I due plus di ogni sito: righe 2 e 3 dell'elenco in cima alla scheda. */
+  plusNegozio?: Record<string, { uno: string; due: string }>;
   azione: (fd: FormData) => void;
   iniziale?: ProdottoIniziale;
   /** ⭐ 07/09/2026 (utente): «duplica»: gli stessi dati di `iniziale`, ma è un prodotto NUOVO — SKU nuovo, varianti rinumerate. */
@@ -165,6 +189,33 @@ export function FormProdottoNuovo({
   const [nomeOpzione, setNomeOpzione] = useState(iniziale?.nomeOpzione || "Formato");
   const [varianti, setVarianti] = useState<VarianteForm[]>(iniziale?.varianti.length ? iniziale.varianti : [varianteVuota()]);
   const [metafield, setMetafield] = useState<Record<string, string>>(iniziale?.metafield ?? {});
+  // ⭐ 08/09/2026 — **I tre punti in cima alla scheda**: il primo lo scrive chi
+  // compila (è di questo prodotto), gli altri due vengono dai plus del sito.
+  const [plusProdotto, setPlusProdotto] = useState(iniziale?.plusProdotto ?? "");
+  // ⭐ **Le sezioni compilate, per negozio**: { "Gifts": { "Significato": "…" } }.
+  // Separate per sito, come deciso dall'utente: lo stesso prodotto si racconta
+  // diversamente al B2B e al cliente finale.
+  const [sezioniValori, setSezioniValori] = useState<Record<string, Record<string, string>>>(iniziale?.sezioniScheda ?? {});
+  const valoreSezione = (negozioNome: string, nome: string) => sezioniValori[negozioNome]?.[nome] ?? "";
+  const cambiaSezione = (negozioNome: string, nome: string, v: string) =>
+    setSezioniValori((tutte) => ({ ...tutte, [negozioNome]: { ...(tutte[negozioNome] ?? {}), [nome]: v } }));
+  /** Le sezioni previste per la categoria scelta su un certo negozio: quelle
+   *  del negozio se ce ne sono, altrimenti quelle valide per tutti. */
+  const sezioniDi = (negozioNome: string) => {
+    if (!categoria) return [];
+    const perNegozio = sezioni.filter((x) => x.categoria === categoria && x.negozio === negozioNome);
+    return (perNegozio.length ? perNegozio : sezioni.filter((x) => x.categoria === categoria && !x.negozio)).slice().sort((a: SezionePerForm, b: SezionePerForm) => a.ordine - b.ordine);
+  };
+  /** Cosa finisce nel database: le sezioni **con del testo dentro**. Le vuote
+   *  non si salvano, altrimenti la scheda porterebbe per sempre le chiavi di
+   *  una categoria che qualcuno ha cambiato dopo. I valori dei negozi non più
+   *  scelti restano invece dove sono: sono lavoro fatto, e ricompaiono se quel
+   *  sito torna. */
+  const sezioniDaSalvare = Object.fromEntries(
+    Object.entries(sezioniValori)
+      .map(([sito, campi]) => [sito, Object.fromEntries(Object.entries(campi).filter(([, v]) => (v ?? "").trim() !== ""))] as const)
+      .filter(([, campi]) => Object.keys(campi).length > 0)
+  );
   // ⭐ 08/09/2026: lo **stato voluto** negozio per negozio. Parte da quello già
   // deciso in precedenza, non da quello letto sul sito: è una scelta, non una
   // fotografia — e la differenza fra i due è la cosa ancora da fare.
@@ -315,6 +366,8 @@ export function FormProdottoNuovo({
       />
       <input type="hidden" name="metafieldJson" value={JSON.stringify(metafield)} />
       <input type="hidden" name="tagsJson" value={JSON.stringify(tags)} />
+      <input type="hidden" name="plusProdotto" value={plusProdotto} />
+      <input type="hidden" name="sezioniJson" value={JSON.stringify(sezioniDaSalvare)} />
       {controllaStock && <input type="hidden" name="controllaStock" value="1" />}
 
       {/* ---------- In duplica: da dove vengono i dati, e cosa cambia ---------- */}
@@ -623,6 +676,98 @@ export function FormProdottoNuovo({
             {!aiPronta && <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>}
           </div>
         </div>
+      </div>
+
+      {/* ---------- La scheda sul sito: i tre punti e le sezioni della categoria ----------
+          Richiesta dell'utente (08/09/2026): «in impostazioni per ogni sito
+          definisci due plus del sito, sono i 3 punti che per ogni prodotto sono
+          mostrati all'inizio; il primo dei 3 è invece un plus del prodotto
+          scritto dall'utente. Ogni categoria poi ha delle sezioni: i fiori hanno
+          significato, dimensioni… I 3 punti e le sezioni sono personalizzabili
+          per sito selezionato».
+          **Perché un blocco per sito e non uno solo** (deciso dall'utente): lo
+          stesso prodotto si racconta diversamente al B2B e al cliente finale —
+          il vecchio gestionale teneva testi separati, e le sezioni stesse
+          cambiano (su Business Deluxy la gastronomia chiude con «Occasioni»
+          dove il D2C chiude con «Regala con Deluxy»). Un campo solo per tutti
+          avrebbe costretto a scegliere quale sito serve peggio. */}
+      <div className="scheda">
+        <div className="scheda-titolo">Scheda sul sito · i tre punti e le sezioni</div>
+        <p className="page-sub" style={{ marginBottom: 12 }}>
+          In cima alla scheda il cliente legge tre punti: <b>il primo è di questo prodotto</b> e si scrive qui; gli altri due sono del sito e si
+          scrivono una volta sola in Negozi &amp; permessi. Sotto, le sezioni previste per la categoria — cambiano con la categoria e possono
+          cambiare da un sito all&apos;altro.
+        </p>
+        <div className="modulo">
+          <div className="campo-modulo largo">
+            <label htmlFor="plusProdotto">Plus del prodotto — il primo dei tre punti</label>
+            <input
+              id="plusProdotto"
+              value={plusProdotto}
+              maxLength={140}
+              onChange={(e) => setPlusProdotto(e.target.value)}
+              placeholder="Es. «Rose Ecuador a stelo lungo, aperte a mano la mattina della consegna»"
+            />
+            <span className="cella-sub">Una riga sola: è quello che distingue questo prodotto dagli altri dello stesso sito.</span>
+          </div>
+        </div>
+
+        {!categoria ? (
+          <div className="vuoto-mini">
+            Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella — i fiori hanno «Significato» e «Dimensioni», le torte
+            «Ingredienti e allergeni» e «Conservazione».
+          </div>
+        ) : (
+          nomiNegoziScelti.map((nomeSito) => {
+            const suoi = sezioniDi(nomeSito);
+            const plus = plusNegozio[nomeSito];
+            const dueRighe = [plus?.uno, plus?.due].filter((x) => x && x.trim());
+            const vuote = suoi.filter((s) => s.richiesta && !valoreSezione(nomeSito, s.nome).trim()).length;
+            return (
+              <div key={nomeSito} className="sezioni-sito">
+                <div className="sezioni-sito-testata">
+                  <b>{nomeSito}</b>
+                  {vuote > 0 && <span className="cella-sub">{vuote === 1 ? "1 sezione consigliata ancora vuota" : `${vuote} sezioni consigliate ancora vuote`}</span>}
+                </div>
+                <p className="cella-sub" style={{ margin: "0 0 10px" }}>
+                  {dueRighe.length > 0 ? (
+                    <>Gli altri due punti su {nomeSito}: <b>{dueRighe.join(" · ")}</b></>
+                  ) : (
+                    <>Su {nomeSito} i due plus del sito non sono ancora scritti: si impostano in Negozi &amp; permessi, e valgono per tutti i suoi prodotti.</>
+                  )}
+                </p>
+                {suoi.length === 0 ? (
+                  <div className="vuoto-mini">
+                    Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su questo sito non sono previste sezioni.
+                  </div>
+                ) : (
+                  <div className="modulo">
+                    {suoi.map((s) => {
+                      const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
+                      const campoId = `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-");
+                      return (
+                        <div key={s.nome} className="campo-modulo largo">
+                          <label htmlFor={campoId}>
+                            {s.nome}
+                            {s.richiesta && <span className="obbligatorio" title="Consigliata: senza, la scheda sul sito sembra incompleta"> *</span>}
+                          </label>
+                          <textarea
+                            id={campoId}
+                            rows={aiuto.righe}
+                            value={valoreSezione(nomeSito, s.nome)}
+                            onChange={(e) => cambiaSezione(nomeSito, s.nome, e.target.value)}
+                            placeholder={aiuto.placeholder}
+                          />
+                          <span className="cella-sub">{aiuto.nota}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* ---------- Tag ---------- */}

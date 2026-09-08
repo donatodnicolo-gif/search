@@ -93,6 +93,12 @@ export default async function ModificaProdottoPage({
       })),
     metafield,
     tags: (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    // ⭐ 08/09/2026: il primo dei tre punti e le sezioni già compilate, sito per sito.
+    plusProdotto: p.plusProdotto ?? "",
+    sezioniScheda:
+      p.sezioniScheda && typeof p.sezioniScheda === "object" && !Array.isArray(p.sezioniScheda)
+        ? (p.sezioniScheda as Record<string, Record<string, string>>)
+        : {},
     // Sul negozio contano le appartenenze vere; se non c'è ancora, il programma scelto nel modulo.
     collezioni: p.collezioniShopify.length
       ? p.collezioniShopify.map((x) => ({ id: x.collezione.id, titolo: x.collezione.titolo, tipo: x.collezione.tipo, negozio: x.collezione.negozio }))
@@ -104,7 +110,7 @@ export default async function ModificaProdottoPage({
       .filter((r) => r.negozio !== negozio?.nome && r.shopifyId && r.origine !== "tolto")
       .map((r) => dati.negozi.find((n) => n.nome === r.negozio)?.id)
       .filter((x): x is string => !!x),
-    pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, statoShopify: r.statoShopify, errore: r.errore, origine: r.origine })),
+    pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, statoShopify: r.statoShopify, statoVoluto: r.statoVoluto, errore: r.errore, origine: r.origine })),
   };
   const altriNomi = p.pubblicazioni.filter((r) => r.negozio !== negozio?.nome && r.shopifyId && r.origine !== "tolto").map((r) => r.negozio);
 
