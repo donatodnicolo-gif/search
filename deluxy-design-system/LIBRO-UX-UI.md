@@ -182,6 +182,37 @@ Riferimenti: Mail `EliminaSezione`/`SvuotaCestino`, Anagrafiche `Riconcilia`. Pe
 
 ## 8. Tabelle, liste e filtri
 
+### Una colonna e' un attributo della POPOLAZIONE, non di una riga *(v2.2, 08/09/2026)*
+
+*Da una segnalazione dell'utente sul Listino del fiorista (piattaforma consegne): cinque
+colonne di colore valorizzate su 1 riga su 16, con 75 celle di trattino.*
+
+Una colonna esiste per **confrontare lo stesso dato fra le righe**. Prima di aggiungerne
+una si conta quante righe la valorizzano: **sotto il 50% della popolazione visibile, la
+colonna non si fa** — quel dato appartiene alla riga, non alla tabella.
+
+La forma canonica e' la **riga di espansione con `colspan`** sotto la riga proprietaria
+(gia' prevista dal vestito canonico e dalla trasformazione in schede): sempre visibile
+quando il dato e' parte del lavoro da fare, apribile quando e' di consultazione. Un blocco
+di attributi che vale per pochi record si sviluppa **in orizzontale dentro la sua riga**,
+con label sopra ogni campo — cosi' l'espansione orizzontale c'e' dove il dato esiste e non
+attraversa chi non ce l'ha.
+
+**Perche'.** Le celle non applicabili sono rumore che si moltiplica per il numero di
+righe, e la comparazione — la sola ragione d'essere di una colonna — non ha oggetto. In
+piu' un set di colonne globale costringe a un elenco unico di attributi: quando due record
+hanno set diversi, quelli fuori elenco diventano **invisibili e non salvabili**, senza
+nessun errore (accaduto in forma latente sul Listino: le intestazioni si ricavavano dalla
+prima riga coi colori).
+
+**Come si misura**: `celle valorizzate / (righe x colonne del gruppo) >= 50%`, contato
+sulla popolazione che l'operatore vede di norma, non sul caso migliore. Sotto la soglia:
+riga di espansione. Il trattino della tripletta resta per la cella non applicabile
+**occasionale**, non per una colonna che non si applica quasi mai.
+
+**App toccate**: nessun'altra oggi (verificato). Vale in prevenzione per ogni tabella nuova.
+
+
 **La tabella canonica** (riferimento: piattaforma `styles.css:243-291`, «il vestito canonico… UNA volta per tutte» + Mail che la replica):
 - dentro card `tight` con wrapper `overflow: auto` e **`max-height` obbligatoria** (⚠️ senza, le intestazioni sticky non si fermano mai: misurato, th a top −66);
 - `th` **12px / 500 / `text-tertiary` / sentence case / sticky** — il MAIUSCOLO urlato è abolito;
