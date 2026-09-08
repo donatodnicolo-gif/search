@@ -77,7 +77,25 @@ export type ProdottoIniziale = {
 };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
-const varianteVuota = (): VarianteForm => ({ nome: "", sku: null, prezzo: "", costo: "", prezzoPartner: "", giacenza: "0", note: "" });
+
+/**
+ * Una riga variante nuova. **Parte dal prezzo base del prodotto** (chiesto
+ * dall'utente l'08/09/2026): le varianti di una scheda sono quasi sempre lo
+ * stesso prodotto in misure diverse, e chi compila parte da quel numero e lo
+ * ritocca — col campo vuoto lo si riscriveva ogni volta, e una riga dimenticata
+ * finiva sul negozio a un prezzo che nessuno aveva deciso. Resta modificabile
+ * riga per riga.
+ */
+const varianteVuota = (prezzoBase = ""): VarianteForm => ({ nome: "", sku: null, prezzo: prezzoBase, costo: "", prezzoPartner: "", giacenza: "0", note: "" });
+
+/** Il prezzo di vendita scritto **adesso** nel modulo, letto dal form quando serve. */
+function prezzoBaseDelForm(dentro: HTMLElement | null): string {
+  const campo = dentro?.closest("form")?.elements.namedItem("prezzoVendita");
+  const valore = campo instanceof HTMLInputElement ? campo.value.trim() : "";
+  // Lo zero è il valore di partenza del campo, non un prezzo deciso: in quel
+  // caso è più onesto lasciare la riga vuota, che si vede.
+  return valore && Number(valore.replace(",", ".")) > 0 ? valore : "";
+}
 
 /** Sette cifre casuali, mai con lo zero davanti. */
 export function skuCasuale(): string {
@@ -102,8 +120,10 @@ export function FormProdottoNuovo({
   aiPronta: boolean;
   azione: (fd: FormData) => void;
   iniziale?: ProdottoIniziale;
+  /** ⭐ 07/09/2026 (utente): «duplica»: gli stessi dati di `iniziale`, ma è un prodotto NUOVO — SKU nuovo, varianti rinumerate. */
+  duplica?: boolean;
 }) {
-  const modifica = !!iniziale;
+  const modifica = !!iniziale && !duplica;
   const form = useRef<HTMLFormElement>(null);
   const [negozioId, setNegozioId] = useState(iniziale?.negozioId || negozi[0]?.id || "");
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
@@ -127,7 +147,8 @@ export function FormProdottoNuovo({
   );
   const [cercaCollezione, setCercaCollezione] = useState("");
   const collezioniAutomatiche = iniziale?.collezioni.filter((c) => c.tipo !== "manuale") ?? [];
-  const [sku, setSku] = useState(iniziale?.codice ?? skuCasuale);
+  // In duplica il codice arriva vuoto apposta: ne nasce uno nuovo, e con lui gli SKU delle varianti.
+  const [sku, setSku] = useState(iniziale?.codice || skuCasuale);
   const [descrizione, setDescrizione] = useState(iniziale?.descrizione ?? "");
   const [tono, setTono] = useState("maison");
   const [scrivendo, setScrivendo] = useState(false);
@@ -284,6 +305,19 @@ export function FormProdottoNuovo({
       <input type="hidden" name="metafieldJson" value={JSON.stringify(metafield)} />
       <input type="hidden" name="tagsJson" value={JSON.stringify(tags)} />
       {controllaStock && <input type="hidden" name="controllaStock" value="1" />}
+
+      {/* ---------- In duplica: da dove vengono i dati, e cosa cambia ---------- */}
+      {duplica && iniziale && (
+        <div className="riepilogo-modifica">
+          <div>
+            <div className="riepilogo-titolo">Copia di «{iniziale.nome.replace(/ \(copia\)$/, "")}»</div>
+            <div className="cella-sub">
+              Stessi dati, prodotto nuovo: SKU <b>{sku}</b> (rigenerato) e varianti rinumerate {sku}-1, {sku}-2…; foto, campi, tag e collezioni
+              ricopiati. L&apos;originale non cambia. Nasce come <b>Concept</b>: per mandarlo sul negozio scegli la fase Pubblico.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ---------- In modifica: cosa si sta toccando, e dove finisce ---------- */}
       {modifica && iniziale && (
@@ -700,7 +734,7 @@ export function FormProdottoNuovo({
         <div className="scheda-titolo">Varianti</div>
         <div className="pill-scelta" style={{ marginBottom: 12 }}>
           <label className="pill-opt" style={{ cursor: "pointer" }}>
-            <input type="checkbox" checked={haVarianti} onChange={(e) => setHaVarianti(e.target.checked)} />
+            <input type="checkbox" checked={haVarianti} onChange={(e) => { const acceso = e.target.checked; const base = prezzoBaseDelForm(e.currentTarget); setHaVarianti(acceso); if (acceso) setVarianti((v) => (v.length === 1 && !v[0].nome.trim() && !v[0].prezzo.trim() ? [varianteVuota(base)] : v)); }} />
             Il prodotto ha varianti (formati, misure, colori)
           </label>
         </div>
@@ -759,7 +793,7 @@ export function FormProdottoNuovo({
                 </tbody>
               </table>
             </div>
-            <button type="button" className="btn btn-secondario small" style={{ marginTop: 12 }} onClick={() => setVarianti((v) => [...v, varianteVuota()])}>
+            <button type="button" className="btn btn-secondario small" style={{ marginTop: 12 }} onClick={(e) => { const base = prezzoBaseDelForm(e.currentTarget); setVarianti((v) => [...v, varianteVuota(base)]); }}>
               Aggiungi variante
             </button>
             <p className="cella-sub" style={{ marginTop: 8 }}>
@@ -807,7 +841,7 @@ export function FormProdottoNuovo({
       )}
 
       <div className="azioni-modulo">
-        <a className="btn btn-secondario" href={modifica ? `/prodotti/${iniziale?.id}` : "/prodotti"}>
+        <a className="btn btn-secondario" href={iniziale ? `/prodotti/${iniziale.id}` : "/prodotti"}>
           Annulla
         </a>
         <button type="submit" className="btn" disabled={!puoPubblicare || caricando || negozi.length === 0}>
