@@ -155,14 +155,18 @@ export function FormProdottoNuovo({
 }) {
   const modifica = !!iniziale && !duplica;
   const form = useRef<HTMLFormElement>(null);
-  const [negozioId, setNegozioId] = useState(iniziale?.negozioId || negozi[0]?.id || "");
+  // ⭐ 08/09/2026 (utente): «nessun negozio deve essere autoselezionato».
+  // Partiva sul primo dell'elenco: chi non guardava quel campo pubblicava
+  // su un negozio che non aveva scelto, e il negozio decide categorie,
+  // collezioni, campi e dove vanno le foto. Ora è vuoto e obbligatorio.
+  const [negozioId, setNegozioId] = useState(iniziale?.negozioId ?? "");
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
   // ⭐ 07/09/2026 (chiesto dall'utente): «pubblica anche su» — più negozi, per i
   // prodotti nuovi e per quelli esistenti. Il principale resta uno (categorie,
   // Files delle foto); gli altri ricevono la loro copia alla pubblicazione.
-  const [altriNegozi, setAltriNegozi] = useState<string[]>((iniziale?.altriNegoziId ?? []).filter((x) => x !== (iniziale?.negozioId || negozi[0]?.id)));
+  const [altriNegozi, setAltriNegozi] = useState<string[]>((iniziale?.altriNegoziId ?? []).filter((x) => x !== iniziale?.negozioId));
   const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id) && n.id !== negozioId);
-  const nomiNegoziScelti = [negozio?.nome ?? "Shopify", ...negoziAnche.map((n) => n.nome)];
+  const nomiNegoziScelti = [...(negozio ? [negozio.nome] : []), ...negoziAnche.map((n) => n.nome)];
   // ⭐ 08/09/2026 — **la scheda del sito che si sta compilando**.
   // ⚠️ Non si tiene in uno stato che può restare indietro: se cambio il
   // negozio principale o tolgo un sito, il nome memorizzato punterebbe a una
@@ -258,7 +262,15 @@ export function FormProdottoNuovo({
     return `${sku || "…"}-${usati + posizioneNuova + 1}`;
   };
 
-  const categorieVisibili = categorie.filter((c) => !c.negozio || c.negozio === negozio?.nome);
+  // ⭐ 08/09/2026 (utente): «categoria deve ordinata in modo alfabetico».
+  // Arrivavano nell'ordine in cui stanno nel catalogo — cioè quello in cui sono
+  // state create: con diciotto voci, trovarne una voleva dire scorrerle tutte.
+  // `localeCompare` in italiano e non un confronto fra stringhe, altrimenti gli
+  // accentati finiscono in fondo, dopo la Z.
+  const categorieVisibili = categorie
+    .filter((c) => !c.negozio || c.negozio === negozio?.nome)
+    .slice()
+    .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
   const mediaDiQuestoNegozio = media.filter((m) => m.negozio === negozio?.nome);
   const mediaDiAltri = media.length - mediaDiQuestoNegozio.length;
 
@@ -668,6 +680,7 @@ export function FormProdottoNuovo({
               Brand / negozio <span className="obbligatorio">*</span>
             </label>
             <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
+              <option value="">— Scegli il negozio —</option>
               {negozi.map((n) => (
                 <option key={n.id} value={n.id}>
                   {/* ⭐ 08/09/2026 (utente): solo il nome del negozio. Il dominio
@@ -794,6 +807,10 @@ export function FormProdottoNuovo({
                 </div>
               )}
 
+              {/* ⚠️ NASCOSTO il 08/09/2026 su richiesta dell'utente («nascondi
+                  le collezioni»). Il blocco funziona; per riaccenderlo togliere
+                  `false &&`. */}
+              {false && (
               <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
                 <label>Collezioni su {nomeSito}{scelteQui.length ? ` · ${scelteQui.length}` : ""}</label>
                 {(scelteQui.length > 0 || autoQui.length > 0) && (
@@ -834,6 +851,8 @@ export function FormProdottoNuovo({
                   </div>
                 )}
               </div>
+
+              )}
 
               {!categoria ? (
                 <div className="vuoto-mini">Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella.</div>
