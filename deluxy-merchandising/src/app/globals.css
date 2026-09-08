@@ -1347,3 +1347,40 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
 .legenda-tipologia { list-style: none; margin: 8px 0 0; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--fill, #f5f5f7); display: grid; gap: 4px; }
 .legenda-tipologia li { font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .legenda-tipologia b { color: var(--text); font-weight: 600; }
+
+/* **Dove sta un prodotto, negozio per negozio** (08/09/2026, richiesta
+   dell'utente: «su quali siti è pubblicato con relativo stato su ogni sito»).
+   Pillole piccole con il pallino dello stato: stanno in colonna se la cella è
+   stretta, così la tabella non si allarga per il negozio dal nome lungo. */
+.siti-prodotto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sito-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2, #f5f5f7);
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.sito-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+/* «qui» accanto a una data dice che è la data della scheda, non del negozio:
+   deve leggersi come una nota, non come parte della data. */
+.data-app {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}

@@ -55,7 +55,12 @@ export default async function ProdottiPage({
   // righe su migliaia, e ordinare solo quelle mostrate darebbe un primo posto
   // che vale unicamente per la pagina che si sta guardando.
   const CAMPI_ORDINE: Record<string, string> = {
-    creato: "creatoIl",
+    // ⚠️ «Creato» ordina per la data **del negozio** (`creatoIlShopify`), non per
+    // quella della scheda: misurato l''08/09/2026, fino a 844 giorni di scarto,
+    // e il più vecchio su Shopify risale al 2020. I prodotti nati solo qui non
+    // hanno quella data e finiscono in coda, ordinati fra loro per data d''app.
+    creato: "creatoIlShopify",
+    modificato: "aggiornatoIl",
     nome: "nome",
     categoria: "categoria",
     fase: "fase",
@@ -71,13 +76,19 @@ export default async function ProdottiPage({
   const orderBy =
     campo === "collezione"
       ? [{ collezione: { nome: verso } }, { creatoIl: "desc" as const }]
-      : [{ [campo]: verso }, { creatoIl: "desc" as const }];
+      : campo === "creatoIlShopify"
+        ? [{ creatoIlShopify: { sort: verso, nulls: "last" } }, { creatoIl: "desc" as const }]
+        : [{ [campo]: verso }, { creatoIl: "desc" as const }];
 
   const [prodotti, totale, collezioni, quanteUnite] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: orderBy as never,
-      include: { collezione: { select: { nome: true, margineTarget: true } } },
+      include: {
+        collezione: { select: { nome: true, margineTarget: true } },
+        // Dove sta il prodotto, negozio per negozio, con lo stato che ha là.
+        pubblicazioni: { select: { negozio: true, statoShopify: true, handle: true, origine: true }, orderBy: { negozio: "asc" } },
+      },
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
