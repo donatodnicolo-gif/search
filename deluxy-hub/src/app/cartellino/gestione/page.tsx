@@ -2,14 +2,16 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { richiediDesktop } from "@/lib/solo-desktop";
-import { approvaAssenza, mandaPresenze, respingiAssenza } from "@/lib/cartellino-actions";
+import { approvaAssenza, inserisciAssenza, mandaPresenze, respingiAssenza } from "@/lib/cartellino-actions";
 import { rapportoPresenze, riepilogoMese } from "@/lib/presenze";
 import { statoPosta } from "@/lib/posta";
 import { RigaPersona } from "./RigaPersona";
 import {
   STATO_INFO,
+  TIPI_ASSENZA,
   TIPO_INFO,
   dataBreve,
+  giornoDi,
   formattaDurata,
   intervalloEsteso,
   meseDi,
@@ -27,6 +29,12 @@ export const dynamic = "force-dynamic";
 
 const MESSAGGI_ERRORE: Record<string, string> = {
   sparita: "Quella richiesta non esiste più.",
+  tipo: "Tipo di assenza non valido.",
+  date: "Le date non sono valide.",
+  "ordine-date": "La data di fine viene prima di quella di inizio.",
+  "troppo-lunga": "Un'assenza più lunga di un anno non si inserisce da qui.",
+  persona: "Quella persona non esiste o non è attiva.",
+  sovrapposta: "In quel periodo la persona ha già un'assenza.",
   "non-decidibile": "Una malattia registrata non si approva né si respinge.",
   destinatario: "Indirizzo email non valido.",
   mese: "Mese non valido.",
@@ -46,6 +54,7 @@ export default async function GestioneCartellinoPage({
     ok?: string;
     errore?: string;
     dettaglio?: string;
+    chi?: string;
     a?: string;
     mese?: string;
   }>;
@@ -57,7 +66,7 @@ export default async function GestioneCartellinoPage({
   const adesso = new Date();
   const mese = sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseDi(adesso);
 
-  const [riepilogo, richieste, posta] = await Promise.all([
+  const [riepilogo, richieste, posta, persone] = await Promise.all([
     riepilogoMese(mese, adesso),
     prisma.assenza.findMany({
       where: { stato: "in-attesa" },
@@ -68,6 +77,12 @@ export default async function GestioneCartellinoPage({
       },
     }),
     statoPosta(),
+    // Le persone a cui l'admin può inserire un'assenza: solo gli attivi.
+    prisma.utente.findMany({
+      where: { attivo: true },
+      select: { id: true, nome: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   // L'anteprima è lo stesso testo che parte: non una descrizione di ciò che
@@ -79,6 +94,8 @@ export default async function GestioneCartellinoPage({
     approvata: "Richiesta approvata.",
     respinta: "Richiesta respinta.",
     inviata: `Presenze inviate${sp.a ? ` a ${sp.a}` : ""}.`,
+    inserita: `Assenza inserita${sp.chi ? ` per ${sp.chi}` : ""}, già approvata.`,
+    "malattia-inserita": `Malattia registrata${sp.chi ? ` per ${sp.chi}` : ""}. Il certificato lo allega la persona dal suo cartellino.`,
   };
 
   return (
@@ -102,6 +119,70 @@ export default async function GestioneCartellinoPage({
           {sp.dettaglio && <span className="nota-riga">{sp.dettaglio}</span>}
         </div>
       )}
+
+      <div className="section-label">Inserisci un&rsquo;assenza</div>
+      <div className="card">
+        {/* L'admin mette ferie, permessi/ROL, malattia o trasferta a una
+            persona, per oggi o per un altro giorno, senza passare dalla sua
+            richiesta. «Al» vuoto = lo stesso giorno di «Dal». */}
+        <form
+          action={inserisciAssenza}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: 12,
+            alignItems: "end",
+          }}
+        >
+          <label className="campo req" style={{ marginBottom: 0 }}>
+            <span>Persona</span>
+            <select name="utenteId" required defaultValue="">
+              <option value="" disabled>
+                Scegli…
+              </option>
+              {persone.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo req" style={{ marginBottom: 0 }}>
+            <span>Tipo</span>
+            <select name="tipo" defaultValue="ferie">
+              {TIPI_ASSENZA.map((t) => (
+                <option key={t} value={t}>
+                  {TIPO_INFO[t].etichetta}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo req" style={{ marginBottom: 0 }}>
+            <span>Dal</span>
+            <input type="date" name="dal" required defaultValue={giornoDi(adesso)} />
+          </label>
+          <label className="campo" style={{ marginBottom: 0 }}>
+            <span>Al (vuoto = solo quel giorno)</span>
+            <input type="date" name="al" />
+          </label>
+          <label className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
+            <span>Nota (facoltativa)</span>
+            <input name="motivo" placeholder="Es. ferie concordate a voce" maxLength={500} />
+          </label>
+          <button
+            type="submit"
+            className="btn primary"
+            style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}
+          >
+            Inserisci
+          </button>
+        </form>
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "10px 0 0" }}>
+          Ferie, permessi e trasferte inserite da qui nascono già approvate, con il tuo nome come
+          decisore; la malattia viene registrata e il certificato lo allega la persona dal suo
+          cartellino. Un periodo che si accavalla a un&rsquo;assenza già viva viene rifiutato.
+        </p>
+      </div>
 
       <div className="section-label">
         Da decidere {richieste.length > 0 && `· ${richieste.length}`}

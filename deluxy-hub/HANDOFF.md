@@ -192,6 +192,21 @@ Scout, Ricerca fornitori, Maison.
 
 ## 5-ter. Cartellino (5 agosto 2026)
 
+> ⭐ **06/09/2026 — l'amministratore inserisce le assenze delle persone** (regola
+> dell'utente: «consentimi come amministratore di impostare per oggi o un altro
+> giorno le ferie, ROL o malattia di un dipendente»). In `/cartellino/gestione`,
+> sopra «Da decidere», il modulo **«Inserisci un'assenza»**: persona (solo
+> attivi), tipo (Ferie · Permesso / ROL · Malattia · Trasferta), Dal (default
+> oggi), Al (vuoto = un giorno solo), nota. Server action `inserisciAssenza` in
+> `cartellino-actions.ts` (admin + desktop): ferie/permessi/trasferte nascono
+> **approvate** con l'admin come decisore e nota «Inserita dall'amministratore»;
+> la malattia nasce **registrata** (il certificato lo allega la persona dal suo
+> cartellino: `caricaCertificato` accetta solo il proprietario). Rifiuta con
+> `errore=sovrapposta` (dettaglio nel messaggio) se il periodo si accavalla a
+> un'assenza in attesa/approvata/registrata della stessa persona: le respinte non
+> contano. Stessi limiti sulle date della richiesta (ordine, un anno). L'etichetta
+> del tipo `permesso` è ora «Permesso / ROL» ovunque. In locale, non pubblicato.
+
 Sezione **`/cartellino`**, in alto a destra nella barra (con il pallino verde
 quando si è dentro), per **tutti** i ruoli: timbratura entrata/uscita, ore del
 mese, giornate registrate a mano, richieste di ferie/permessi/trasferte,

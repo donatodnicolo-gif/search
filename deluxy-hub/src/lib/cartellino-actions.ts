@@ -9,6 +9,7 @@ import { emailValida, mandaEmail } from "./posta";
 import { rapportoPresenze, riepilogoMese } from "./presenze";
 import {
   MAX_CERTIFICATO_BYTE,
+  dataAGiorno,
   giornoAData,
   giornoDi,
   isTipoAssenza,
@@ -243,6 +244,79 @@ async function decidi(fd: FormData, decisione: "approva" | "respingi") {
   revalidatePath("/cartellino/gestione");
   revalidatePath("/cartellino");
   redirect(`/cartellino/gestione?ok=${decisione === "approva" ? "approvata" : "respinta"}`);
+}
+
+// ---------- Assenza inserita dall'amministratore (06/09/2026) ----------
+
+// Regola dell'utente: «consentimi come amministratore di impostare per oggi o
+// un altro giorno le ferie, ROL o malattia di un dipendente». Non passa dalla
+// richiesta della persona: ferie, permessi e trasferte nascono GIÀ APPROVATE
+// (con l'admin come decisore, così il cartellino della persona dice chi le ha
+// messe), la malattia nasce REGISTRATA come quando la inserisce la persona.
+// Il certificato, se serve, lo allega la persona dal suo cartellino: non è
+// dell'admin. Stessi controlli sulle date della richiesta; in più il periodo
+// non deve accavallarsi a un'assenza viva della stessa persona, altrimenti le
+// ore del mese conterebbero due volte lo stesso giorno.
+export async function inserisciAssenza(fd: FormData) {
+  await richiediDesktop();
+  const sessione = await richiediAdmin();
+
+  const utenteId = testo(fd, "utenteId");
+  const tipo = testo(fd, "tipo");
+  const dalTxt = testo(fd, "dal");
+  const alTxt = testo(fd, "al") || dalTxt;
+  const motivo = testo(fd, "motivo").slice(0, 500);
+
+  if (!isTipoAssenza(tipo)) redirect("/cartellino/gestione?errore=tipo");
+
+  const dal = giornoAData(dalTxt);
+  const al = giornoAData(alTxt);
+  if (!dal || !al) redirect("/cartellino/gestione?errore=date");
+  if (al.getTime() < dal.getTime()) redirect("/cartellino/gestione?errore=ordine-date");
+  if (al.getTime() - dal.getTime() > 366 * 86_400_000) redirect("/cartellino/gestione?errore=troppo-lunga");
+
+  const utente = await prisma.utente.findUnique({
+    where: { id: utenteId },
+    select: { id: true, nome: true, attivo: true },
+  });
+  if (!utente || !utente.attivo) redirect("/cartellino/gestione?errore=persona");
+
+  // Un'assenza respinta non conta: quel periodo è libero.
+  const sovrapposta = await prisma.assenza.findFirst({
+    where: {
+      utenteId: utente.id,
+      stato: { in: ["in-attesa", "approvata", "registrata"] },
+      dal: { lte: al },
+      al: { gte: dal },
+    },
+    select: { tipo: true, dal: true, al: true, stato: true },
+  });
+  if (sovrapposta) {
+    const dettaglio = `${utente.nome} ha già ${sovrapposta.tipo} dal ${dataAGiorno(sovrapposta.dal)} al ${dataAGiorno(sovrapposta.al)} (${sovrapposta.stato}).`;
+    redirect(`/cartellino/gestione?errore=sovrapposta&dettaglio=${encodeURIComponent(dettaglio)}`);
+  }
+
+  const registrata = tipo === "malattia";
+  await prisma.assenza.create({
+    data: {
+      utenteId: utente.id,
+      tipo,
+      dal,
+      al,
+      motivo,
+      stato: registrata ? "registrata" : "approvata",
+      decisaDa: sessione.uid,
+      decisaDaNome: sessione.nome,
+      decisaIl: new Date(),
+      notaDecisione: "Inserita dall'amministratore",
+    },
+  });
+
+  revalidatePath("/cartellino/gestione");
+  revalidatePath("/cartellino");
+  redirect(
+    `/cartellino/gestione?ok=${registrata ? "malattia-inserita" : "inserita"}&chi=${encodeURIComponent(utente.nome)}`,
+  );
 }
 
 // ---------- Il riepilogo presenze via email ----------
