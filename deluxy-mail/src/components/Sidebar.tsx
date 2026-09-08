@@ -43,8 +43,39 @@ async function datiSidebar(utenteId: string, accountAttivo: string | null) {
   // Con una casella attiva, i conteggi della POSTA si riferiscono a quella
   // (non alla somma di tutte): «switch» significa guardare quella casella.
   const perCasella = accountAttivo ? { accountId: accountAttivo } : {}
+
+  // ⚠️⚠️ I PALLINI DELLE SEZIONI SI CONTANO CON UNA groupBy, NON CON _count.
+  // (08/09/2026, custode delle prestazioni — misurato con EXPLAIN in produzione.)
+  //
+  // Qui c'era un `_count` con un `where` dentro il `select` delle sezioni.
+  // Prisma lo traduce in un LEFT JOIN su una sotto-aggregazione, e quella
+  // sotto-aggregazione **non porta il filtro per utente**: il `utenteId` resta
+  // sulla Sezione di fuori, mentre dentro si conta su TUTTA la tabella
+  // `Messaggio`. Misurato: Index Only Scan su **46.645 righe e ~80 MB di
+  // buffer per chiamata**, per calcolare i conteggi di 19 sezioni in tutto.
+  //
+  // Non è una pagina di rado: questa è la SIDEBAR, quindi gira su OGNI pagina
+  // dell'app. In `pg_stat_statements` erano 4.878 chiamate e 4.195.851 ms —
+  // circa **17 minuti di CPU al giorno, in crescita** — con una media di 860 ms
+  // e punte di 62 secondi sotto contesa. Era la voce più cara rimasta di questa
+  // app dopo che la pulizia HTML è stata messa a dormire.
+  //
+  // La groupBy filtra per `utenteId` prima di aggregare, e l'indice
+  // `Messaggio_posta_idx` copre esattamente queste colonne. Da tutta la tabella
+  // ai messaggi di una persona sola.
+  //
+  // ⚠️ La forma del risultato resta identica (`s._count.messaggi`): il resto
+  // del componente non cambia, e non deve.
+  const nonLetteInSezione = {
+    utenteId,
+    archiviato: false,
+    letto: false,
+    cestinato: false,
+    direzione: 'entrata',
+    ...perCasella,
+  }
   try {
-    const [sezioni, daFare, nonLette, cestinati, bozze, riassunti] = await Promise.all([
+    const [sezioniNude, conteggiPerSezione, daFare, nonLette, cestinati, bozze, riassunti] = await Promise.all([
       db.sezione.findMany({
         where: { utenteId },
         orderBy: { ordine: 'asc' },
@@ -53,14 +84,12 @@ async function datiSidebar(utenteId: string, accountAttivo: string | null) {
           nome: true,
           colore: true,
           genitoreId: true,
-          _count: {
-            select: {
-              messaggi: {
-                where: { archiviato: false, letto: false, cestinato: false, direzione: 'entrata', ...perCasella },
-              },
-            },
-          },
         },
+      }),
+      db.messaggio.groupBy({
+        by: ['sezioneId'],
+        where: { ...nonLetteInSezione, sezioneId: { not: null } },
+        _count: { _all: true },
       }),
       db.attivita.count({ where: { utenteId, fatta: false } }),
       db.messaggio.count({
@@ -80,6 +109,12 @@ async function datiSidebar(utenteId: string, accountAttivo: string | null) {
       // La tabella dei riassunti potrebbe non esistere ancora: in caso, 0.
       db.riassuntoThread.count({ where: { utenteId } }).catch(() => 0),
     ])
+    // Si ricuce qui: una Map per id di sezione, e la stessa forma di prima.
+    const perSezione = new Map(conteggiPerSezione.map((r) => [r.sezioneId, r._count._all]))
+    const sezioni = sezioniNude.map((s) => ({
+      ...s,
+      _count: { messaggi: perSezione.get(s.id) ?? 0 },
+    }))
     return { sezioni, daFare, nonLette, cestinati, bozze, riassunti }
   } catch {
     return { sezioni: [], daFare: 0, nonLette: 0, cestinati: 0, bozze: 0, riassunti: 0 }
