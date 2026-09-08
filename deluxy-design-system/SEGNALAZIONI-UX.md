@@ -18,6 +18,9 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
+| 08/09 | **tutte le liste** | 🔴 **I bottoni delle azioni escono dalla scheda su telefono** (schermata dell'utente su `/sales`, 360px: «Chiedi il preventivo» sporgeva oltre il bordo SINISTRO della card). Sotto gli 800px le righe diventano schede e la cella delle azioni è un flex con `nowrap` ereditato: tre bottoni in fila non ci stanno, e invece di andare a capo traboccavano. **Correzione applicata in `styles.css`** (regola globale, vale per tutte le 26 liste): `flex-wrap: wrap`, `row-gap: 8px`, `max-width: 100%` sulla cella e sui figli. **Da valutare come regola del Libro**: *una cella di azioni in modalità scheda manda i bottoni a capo, non fuori dal bordo* | utente |
+| 08/09 | piattaforma | **Un pulsante spento senza dire perché** («non posso chiudere questa riconciliazione»). Nel modulo «Nuova riconciliazione» la riga del partner È la scelta del prezzo, ma sembrava un elenco informativo: senza cliccarla «Crea la regola» resta disabilitato, e su telefono non c'è il passaggio del mouse a suggerire il contrario. In più il pulsante finiva **sotto il widget della chat**, in basso a destra. **Correzione applicata**: la riga ha ora un cerchio da spuntare e la parola «scegli»/«scelto»; il piede dice che cosa manca («Scegli chi lo fa, qui sopra: il prezzo viene da lì»); sotto i 620px i pulsanti si impilano a tutta larghezza con 76px di spazio sotto. **Da valutare come regole**: *(1) un pulsante disabilitato dice sempre che cosa manca; (2) una riga che è una scelta si vede che lo è anche senza hover; (3) il piede di una modale non finisce mai sotto il widget della chat* | utente |
+| 08/09 | piattaforma | **Su telefono la colonna Servizio mostrava solo un'icona** (schermata di una consegna): il nome era nel suggerimento del mouse, che sul telefono non esiste — la riga diceva soltanto un disegnino. E «Consegna con Furgone» prendeva l'icona del pacco come tutte le altre a prezzo fisso, perché l'icona si sceglieva dal modello di prezzo: ma il furgone è un MEZZO, e per chi legge la lista cambia tutto. **Correzione applicata**: il nome del servizio si legge (discreto sul desktop, pieno sotto gli 800px) e l'icona si sceglie prima dal nome (furgone/van/camion) e poi dal modello. **Da valutare come regola**: *un'icona senza testo vale solo dove il testo c'è altrove; sul telefono l'etichetta non è un di più* | utente |
 | 07/09 | piattaforma | Form consegna (`/deliveries/new`) · **menu a tendina che esce dallo schermo**: «la lista prodotti a un certo punto si interrompe e non si può scorrere di più». La tendina dei risultati aveva `max-height: 280px` fissa e si apre sempre VERSO IL BASSO: con la riga prodotto in fondo alla pagina finiva sotto il bordo della finestra, e gli ultimi risultati restavano fuori — la barra interna arrivava in fondo, ma quei prodotti non si vedevano. Il difetto è emerso lo stesso giorno perché la tendina è passata da 20 a fino a 120 voci (listino del partner in cima). **Correzione applicata nello stesso giro**: l'altezza si calcola sullo spazio reale sopra e sotto il campo (`misuraTendina()`, minimo 120px, massimo 280px), se sotto non ci stanno quattro righe la tendina si apre **verso l'alto** (`.prod-risultati.su`), `overscroll-behavior: contain` tiene lo scorrimento dentro la tendina (arrivati in fondo non parte quello della pagina, che faceva sembrare bloccata la lista), e su scroll/resize l'altezza si rimisura. **Da valutare come regola del Libro**: *un menu a tendina non ha mai un'altezza fissa — la prende dallo spazio disponibile e sceglie il lato*. Vale per ogni tendina lunga del parco (ricerca prodotti, partner, valet, indirizzi Google) | utente |
 | 06/09 | Piattaforma consegne | Vendite, pop-up del dettaglio · **la ✕ in fila con le pillole non si riconosce come «chiudi»**: la testata aveva sei pillole grigie di seguito e la ✕ era l'ultima, indistinguibile. **Correzione applicata nello stesso giro** col pattern già a canone (§9: ✕ obbligatoria e sempre visibile; §9-ter: la ✕ sta nella testata, staccata dalle azioni): ✕ nell'angolo in alto a destra della testata sticky, cerchio 32px con bordo, tooltip. **Resta da decidere al custode**: la stessa testata ha 5 pillole di azione, il Libro §9-ter ne ammette 2 + «⋯» | utente |
 | 06/09 | Piattaforma consegne | Vendite, pop-up del dettaglio · **mostrava un prodotto solo** («sono indicate solo le rose») e **non l'orario di consegna richiesto**. La vendita porta il primo SKU riconosciuto dell'ordine: il resto delle righe e la fascia oraria stanno sull'ordine di Orders. **Correzione applicata**: il pop-up legge la rotta dell'ordine (`GET /sales/:id/ordine`) e mostra tutte le righe (quantità, nome, SKU, con il segno sulla riga che ha generato la vendita) e la fascia oraria accanto alla data. **Da valutare come regola**: quando un record è la proiezione parziale di un altro (vendita ↔ ordine), il dettaglio mostra sempre l'insieme completo di origine, non solo la parte proiettata | utente |
@@ -921,3 +924,43 @@ risalita ordine → trattativa: ora sono 7 le trattative che li mostrano.
 
 STATO: applicata e PUBBLICATA il 07/09 (commit 84580bc8, deploy deluxy-scout-yn46h6g4w).
 Nessuna deroga, nessuna regola nuova.
+
+## 08/09/2026 (16) — Merchandising · Prodotti: ordinare per data, e la regola «ogni colonna si ordina» (richiesta dell'utente)
+
+**Richiesta**: «ordina la tabella prodotti per data di creazione ma come regola
+ux&ui consenti di ordinare tutte le colonne della tabella».
+
+**Cosa c'era**: `/prodotti` ordinava per `priorita desc, creatoIl desc` — un
+ordine deciso dal codice, che nessuna intestazione dichiarava e nessuno poteva
+cambiare. La data di creazione **non era nemmeno una colonna**: il prodotto
+appena caricato si cercava a occhio. Nell'app l'ordinamento cliccabile esisteva
+già in `/categorie`, `/fornitori`, `/fasce`, `/linee` (`TabellaGruppi`, `?ordina=`)
+e in `/griglie` (nei due versi): **stesso bisogno, quattro implementazioni e una
+tabella lasciata fuori** — il tipo di divergenza che il Libro esiste per chiudere.
+
+**Applicato su `/prodotti`** (riusando il pattern di `TabellaGruppi`, non uno nuovo):
+- **default = data di creazione, dal più recente**: chi apre la pagina cerca
+  quasi sempre quello che ha appena caricato. Aggiunta la colonna **«Creato»**:
+  un ordinamento su un dato che non si vede è una promessa non verificabile.
+- **ogni colonna che corrisponde a un dato è cliccabile** (Prodotto, Collezione,
+  Categoria, Fase, Prezzo, Shopify, Creato); la freccia dice **quale** colonna
+  ordina e **in che verso** (↑/↓), e ricliccando si gira. `aria-sort` sull'intestazione.
+- **verso naturale al primo clic**: testi dalla A, date e numeri dal più grande.
+  Chi clicca «Prezzo» vuole vedere il più caro, non «0,00 €» per dieci righe.
+- **l'ordine sta nell'indirizzo** (`?ordina=&verso=`) e si applica **nel
+  database**: la tabella mostra 100 righe su 5.058, e ordinare solo quelle
+  scaricate darebbe un primo posto che vale solo per la pagina che si guarda.
+  Cambiando ordine si torna a pagina 1.
+- **«Margine» resta un'intestazione normale**, con un `title` che dice perché:
+  è calcolato riga per riga da prezzo e costo, non è una colonna del database, e
+  ordinarlo vorrebbe dire scaricare tutto il catalogo. Meglio nessuna affordance
+  che una che promette e non mantiene.
+
+**Per il custode — proposta di regola nuova del Libro (§ tabelle)**, che è la
+parte generale della richiesta: *ogni tabella con più di una manciata di righe
+dichiara il proprio ordine e lo lascia cambiare; si ordinano le colonne che
+corrispondono a un dato archiviato, con freccia visibile, verso girabile e ordine
+nell'indirizzo (mai solo sulle righe già scaricate, se la tabella è paginata); le
+colonne calcolate non si fingono ordinabili e dicono perché.* Da decidere se
+entra nel Libro e con quale numero, e se le quattro implementazioni esistenti
+vanno unificate in un componente solo.
