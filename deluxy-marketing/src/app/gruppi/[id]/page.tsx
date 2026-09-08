@@ -1190,7 +1190,7 @@ export default async function SchedaGruppo({
                     <option value="broad">generica — ogni ricerca con queste parole</option>
                   </select>
                 </label>
-                <button className="btn small btn-secondario" type="submit">
+                <button className="btn small btn-secondario" type="submit" title="Le parole spuntate vanno in coda come negative di TUTTA la campagna: Google tiene le esclusioni li, non sul singolo gruppo">
                   Escludi le selezionate
                 </button>
                 {/* Lo STATO in blocco: stesso form, stesse caselle, altra
@@ -1455,7 +1455,7 @@ export default async function SchedaGruppo({
                                     lingueDiOra: lingueQui,
                                   })}
                                 >
-                                  Porta
+                                  Copia
                                 </button>
                                 <button
                                   type="button"
@@ -1513,7 +1513,7 @@ export default async function SchedaGruppo({
                       <option value="broad">generica — ogni ricerca con queste parole</option>
                     </select>
                   </label>
-                  <button className="btn small btn-secondario" type="submit">
+                  <button className="btn small btn-secondario" type="submit" title="Le parole spuntate vanno in coda come negative di TUTTA la campagna: Google tiene le esclusioni li, non sul singolo gruppo">
                     Escludi le selezionate
                   </button>
                   <PortaSelezionate lingue={lingueQui} />
@@ -1632,6 +1632,12 @@ export default async function SchedaGruppo({
                                   <input type="hidden" name="gruppo" value={gruppo.nome} />
                                   <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}#termini`} />
                                   <input type="hidden" name="tipo" value="nuova_keyword" />
+                                  {/* ⚠️⚠️ `corrispondenza`, non solo `corrispondenzaOrigine`:
+                                      quest'ultimo `creaOperazioneKeyword` lo legge SOLO per
+                                      le negative, e per `nuova_keyword` ripiegava su «broad».
+                                      Il title prometteva ESATTA e in coda finiva GENERICA
+                                      (accaduto l'11/08/2026, corretto a mano un minuto dopo). */}
+                                  <input type="hidden" name="corrispondenza" value="exact" />
                                   <input type="hidden" name="corrispondenzaOrigine" value="exact" />
                                   <input type="hidden" name="motivo" value={`Ricerca che ha reso: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni, ${(t.ricavi ?? 0).toFixed(0)} EUR di incasso`} />
                                   <button className="btn small btn-secondario" type="submit" title={`Mette in coda l'aggiunta di «${t.testo}» come keyword ESATTA in ${gruppo.nome}, da approvare in Operazioni`}>
@@ -1650,7 +1656,7 @@ export default async function SchedaGruppo({
                                     lascerebbe passare tutte le varianti. */}
                                 <input type="hidden" name="corrispondenzaOrigine" value={(t.corrispondenza ?? "exact").toLowerCase()} />
                                 <input type="hidden" name="motivo" value={`Parola cercata: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni`} />
-                                <button className="btn small btn-secondario" type="submit" title="Mette in coda la negativa: la parola non fara piu scattare gli annunci">
+                                <button className="btn small btn-secondario" type="submit" title="Mette in coda la negativa: la parola non fara piu scattare gli annunci di TUTTA la campagna, non solo di questo gruppo (Google tiene le esclusioni li)">
                                   Escludi
                                 </button>
                               </form>
@@ -1668,7 +1674,7 @@ export default async function SchedaGruppo({
                                   lingueDiOra: lingueQui,
                                 })}
                               >
-                                Porta
+                                Copia
                               </button>
                               <button
                                 type="button"

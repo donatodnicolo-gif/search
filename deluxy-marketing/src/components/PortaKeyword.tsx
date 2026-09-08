@@ -114,7 +114,12 @@ export function PortaKeyword({
 
         <div className="modale-testa">
           <div>
-            <div className="modale-occhiello">Porta la keyword su altre campagne</div>
+            {/* ⚠️ «COPIA», non «porta» (08/09/2026). Il nome prometteva uno spostamento
+                e l'operazione è una copia: `applicaKeywordAdAltreCampagne` accoda una
+                `nuova_keyword` su ogni campagna scelta e NON toglie niente
+                dall'origine, né ci mette una negativa. Chiamarlo «porta» faceva
+                credere di aver spostato traffico che invece si è solo duplicato. */}
+            <div className="modale-occhiello">Copia la keyword su altre campagne</div>
             <div className="modale-titolo">
               {piuParole ? `${parole.length} parole selezionate` : keyword}
             </div>

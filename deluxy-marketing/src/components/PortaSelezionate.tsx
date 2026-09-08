@@ -57,7 +57,7 @@ export function PortaSelezionate({
         b.click();
       }}
     >
-      Porta altrove le selezionate{quante > 0 ? ` (${quante})` : ""}
+      Copia le selezionate{quante > 0 ? ` (${quante})` : ""}
     </button>
   );
 }
