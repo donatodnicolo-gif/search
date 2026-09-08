@@ -150,9 +150,13 @@
 >   qui la somma avrebbe fatto costare la stessa vendita due cifre diverse in
 >   due schermate. Senza prezzi ricevuti il costo resta **null**, mai zero.
 > - Lettura leggera: `ordiniPerTrattativa()` chiede due colonne (`id`,
->   `deal_id`), non `fetchOrdini` — che legge `*` su ~1.400 righe più la join
->   sui negozi, e avrebbe portato il peso della schermata Ordini dentro le
->   Trattative a ogni apertura.
+>   `deal_id`), non `fetchOrdini` — che legge `*` più la join sui negozi e
+>   porterebbe il peso della schermata Ordini dentro le Trattative.
+>   ⚠️ **Correzione dell'08/09**: avevo scritto «~1.400 righe» ricopiando un
+>   numero dal commento della migrazione 0110 senza verificarlo. Contati sul
+>   database: gli ordini sono **26**. La forma della lettura resta giusta e
+>   regge la crescita, ma **il guadagno di oggi è trascurabile** e non va
+>   raccontato come un'ottimizzazione: nessuno l'ha misurata.
 > - Verificato: `tsc` 0 errori, **98 test verdi** (9 nuovi sulla risalita e sul
 >   riepilogo), bundle Metro pulito.
 
