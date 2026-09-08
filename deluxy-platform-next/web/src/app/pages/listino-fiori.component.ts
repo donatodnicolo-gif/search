@@ -6,6 +6,11 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 
+interface ColoreListino {
+  chiave: string;
+  nome: string;
+  prezzo: number | null;
+}
 interface RigaListino {
   chiave: string;
   nome: string;
@@ -13,6 +18,8 @@ interface RigaListino {
   nota?: string | null;
   aggiornatoIl?: string | null;
   daConfermare?: boolean;
+  /** ⭐ 08/09/2026: i colori, dove il fiore li ha (oggi la rosa). `null` = non si chiedono. */
+  colori?: ColoreListino[] | null;
 }
 interface Listino {
   partner: { id: string; insegna: string };
@@ -69,6 +76,12 @@ interface Listino {
             <tr>
               <th>{{ 'listino.col.fiore' | translate }}</th>
               <th class="num">{{ 'listino.col.prezzo' | translate }}</th>
+              <!-- ⭐ 08/09/2026 (regola utente): la tabella si ESPANDE IN ORIZZONTALE coi
+                   colori. Le colonne compaiono solo se almeno un fiore li chiede, così chi
+                   non vende rose non si trova cinque colonne vuote. -->
+              @for (c of coloriChiesti(); track c.chiave) {
+                <th class="num col-colore">{{ c.nome }}</th>
+              }
               <th>{{ 'listino.col.stato' | translate }}</th>
             </tr>
           </thead>
@@ -84,6 +97,18 @@ interface Listino {
                     {{ r.prezzo !== null ? (r.prezzo + ' €') : '—' }}
                   }
                 </td>
+                <!-- Una casella per colore. Vuota = «questo colore non lo faccio», come per
+                     il fiore intero. Sui fiori senza colore la cella resta muta. -->
+                @for (c of coloriChiesti(); track c.chiave; let j = $index) {
+                  <td class="num col-colore">
+                    @if (coloreDi(r, c.chiave); as col) {
+                      <input class="field num" type="number" min="0" step="0.5" [name]="'c' + i + '_' + j"
+                             [(ngModel)]="col.prezzo" placeholder="—" />
+                    } @else {
+                      <span class="muted">–</span>
+                    }
+                  </td>
+                }
                 <td>
                   @if (r.prezzo === null || r.prezzo === undefined) {
                     <span class="muted">{{ 'listino.nonLoFaccio' | translate }}</span>
@@ -98,6 +123,9 @@ interface Listino {
           </tbody>
         </table>
         <p class="muted mini">{{ 'listino.nota' | translate }}</p>
+        @if (coloriChiesti().length) {
+          <p class="muted mini">{{ 'listino.notaColori' | translate }}</p>
+        }
         @if (esito(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
         <div class="azioni">
           <button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salva()">
@@ -161,6 +189,23 @@ export class ListinoFioriComponent {
         next: (l) => { this.listino.set(l); this.caricando.set(false); },
         error: (e) => { this.caricando.set(false); this.errore.set(e?.error?.message ?? 'Listino non caricato'); },
       });
+  }
+
+  /**
+   * ⭐ 08/09/2026 — I colori da mostrare come colonne: quelli che il SERVER chiede, presi
+   * dalla prima riga che li ha. Se nessuna riga li chiede, nessuna colonna.
+   *
+   * ⚠️ L'elenco viene dal server (è lui che poi valida i nomi): ricopiarlo qui
+   * significherebbe due elenchi che divergono al primo colore aggiunto.
+   */
+  coloriChiesti(): ColoreListino[] {
+    const r = (this.listino()?.righe ?? []).find((x) => x.colori && x.colori.length);
+    return r?.colori ?? [];
+  }
+
+  /** Il colore di QUESTA riga, o null se il fiore non ha colori (tulipano, girasole...). */
+  coloreDi(r: RigaListino, chiave: string): ColoreListino | null {
+    return (r.colori ?? []).find((c) => c.chiave === chiave) ?? null;
   }
 
   dataBreve(d: string | null): string { return (d ?? '').slice(0, 10).split('-').reverse().join('/'); }
