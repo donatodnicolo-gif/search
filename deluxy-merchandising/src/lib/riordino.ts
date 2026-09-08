@@ -152,9 +152,24 @@ export async function calcolaIpotesi(p: Parametri & { canale?: string | null }):
       // Con `include` Prisma porta **tutte** le colonne di `Prodotto`, che sono
       // circa 120 — descrizione, brief, metafield grezzi, campi SEO — mentre
       // qui ne servono dieci. Misurato su 3.017 prodotti a ogni apertura della
-      // home: **1.778 ms e 2.065 byte per riga** con l'`include`, **103 ms e
-      // 198 byte per riga** con questo `select`. Diciassette volte più veloce e
-      // dieci volte più leggero, a parità di risultato.
+      // home, migliore di tre giri a cluster tranquillo:
+      //
+      //   com'era, con `include`      1510 ms   2065 byte/riga
+      //   com'è ora, con questo select 276 ms    303 byte/riga
+      //
+      // Cioè **5,5 volte più veloce e 6,8 volte più leggero**, a parità di
+      // risultato.
+      //
+      // ⚠️ CORREZIONE (08/09, stessa sera): la prima versione di questo commento
+      // diceva «1.778 → 103 ms, diciassette volte». Era un confronto sbagliato —
+      // quei 103 ms erano un `select` di soli campi scalari, **senza le tre
+      // relazioni**, che invece il codice usa. Il guadagno resta grosso, ma è
+      // 5,5×, non 17×. Il numero giusto vale più di quello che fa scena.
+      //
+      // Il costo che resta è quasi tutto su `varianti` (+139 ms per 8.836
+      // righe): senza, questa lettura starebbe a 137 ms. Se un giorno servisse
+      // ancora, la strada è togliere `varianti` da qui e caricarla a parte solo
+      // per i prodotti che finiscono davvero nella proposta di riordino.
       //
       // ⚠️ E il rimedio NON è un `take`: troncare qui vorrebbe dire calcolare
       // il riordino su una parte del catalogo, cioè proporre di ricomprare la
