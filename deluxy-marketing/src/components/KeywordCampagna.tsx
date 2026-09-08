@@ -3,8 +3,11 @@ import { prisma } from "@/lib/db";
 import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
-import { creaOperazioneKeyword } from "@/lib/azioni";
+import { annullaOperazioneParola, creaOperazioneKeyword } from "@/lib/azioni";
+import { attributiPortaKeyword } from "@/lib/porta-keyword";
+import { paroleGiaComprate } from "@/lib/parole-comprate";
 import { spendeAVuoto } from "@/lib/salute";
+import { ETICHETTA_OPERAZIONE } from "@/lib/dominio";
 
 // Le keyword di questa campagna: **quello che abbiamo comprato**.
 //
@@ -25,6 +28,28 @@ const COLONNE = {
   punteggioQualita: { etichetta: "QS", verso: "desc" as const },
   stato: { etichetta: "Stato", verso: "asc" as const },
 };
+
+// ⚠️ La corrispondenza sta scritta nel testo della keyword, fra parentesi —
+// «fiori milano (phrase)» — perché il Monitoraggio e Google la scrivono in
+// modi diversi e il testo le riconcilia. Stessa funzione della scheda gruppo:
+// se un giorno cambia, cambia in tutti e due i posti.
+function matchDi(testo: string): string | null {
+  const m = testo.match(/\((exact|phrase|broad|esatta|frase|generica)\)\s*$/i);
+  if (!m) return null;
+  const v = m[1].toLowerCase();
+  if (v === "esatta") return "exact";
+  if (v === "frase") return "phrase";
+  if (v === "generica") return "broad";
+  return v;
+}
+const ETICHETTA_MATCH_KW: Record<string, string> = {
+  exact: "esatta",
+  phrase: "a frase",
+  broad: "generica",
+};
+/** La chiave con cui si confrontano le parole: senza la corrispondenza in coda. */
+const chiaveParola = (t: string) =>
+  t.toLowerCase().replace(/\s*\((exact|phrase|broad)\)\s*$/i, "").trim();
 // La colonna dei bottoni non si ordina: non c'è un ordine dei bottoni.
 type Colonna = keyof typeof COLONNE;
 
@@ -176,6 +201,38 @@ export async function KeywordCampagna({
     if (!gia || (g.spesa ?? 0) > (gia.spesa ?? 0)) gemelle.set(chiave, g);
   }
 
+  // ⚠️⚠️ COSA È GIÀ STATO DECISO SU OGNI PAROLA (08/09/2026). Questa tabella
+  // era l'unica delle quattro senza la colonna «Azione decisa»: si poteva
+  // accodare due volte la stessa pausa o la stessa negativa senza che niente
+  // lo dicesse. La gemella nella scheda gruppo ce l'aveva dal principio.
+  // Una query sola, indicizzata per parola; la più recente vince, perché è
+  // quella che descrive lo stato attuale della coda.
+  const opCampagna = await prisma.operazioneAdv.findMany({
+    where: { campagnaId, tipo: { in: ["negativa", "pausa_keyword", "attiva_keyword", "nuova_keyword"] } },
+    orderBy: { creataIl: "desc" },
+    take: 300,
+    select: { tipo: true, stato: true, creataIl: true, parametri: true, bersaglio: true },
+  });
+  const azioniPerParola = new Map<string, { tipo: string; stato: string; creataIl: Date }>();
+  for (const o of opCampagna) {
+    let parola = "";
+    try {
+      parola = String(JSON.parse(o.parametri ?? "{}").testo ?? "");
+    } catch {
+      parola = "";
+    }
+    const chiave = chiaveParola(parola || o.bersaglio);
+    if (chiave && !azioniPerParola.has(chiave)) {
+      azioniPerParola.set(chiave, { tipo: o.tipo, stato: o.stato, creataIl: o.creataIl });
+    }
+  }
+  const azioneDi = (t: string) => azioniPerParola.get(chiaveParola(t)) ?? null;
+
+  // Chi ha già questa parola: serve al dialogo «Copia», per non proporre una
+  // campagna che la comprerebbe due volte. Lettura cachata, condivisa con la
+  // tabella delle parole cercate.
+  const giaSuDi = await paroleGiaComprate();
+
   const be = breakEvenRoas(brand);
   const resaDi = (k: (typeof keyword)[number]) =>
     (k.spesa ?? 0) > 0 ? (k.incasso ?? 0) / (k.spesa ?? 1) : null;
@@ -303,6 +360,9 @@ export async function KeywordCampagna({
               {intestazione("resa", true)}
               {intestazione("punteggioQualita", true)}
               {intestazione("stato")}
+              {/* Quello che e' gia' stato deciso su questa parola e non e'
+                  ancora successo. Mancava solo qui, fra le quattro tabelle. */}
+              <th>Azione decisa</th>
               <th>Azioni</th>
             </tr>
           </thead>
@@ -389,6 +449,28 @@ export async function KeywordCampagna({
                     )}
                   </td>
                   <td>
+                    {(() => {
+                      const az = azioneDi(k.testo);
+                      if (!az) return <span className="cella-muta">&mdash;</span>;
+                      const aperta = az.stato === "in_attesa" || az.stato === "approvata";
+                      return (
+                        <span
+                          className="tag-salute"
+                          style={{ color: aperta ? "var(--orange)" : "var(--text-tertiary)" }}
+                          title={`${ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo} · ${az.stato}`}
+                        >
+                          <span className="dot" />
+                          {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
+                          {az.stato === "in_attesa"
+                            ? " · da approvare"
+                            : az.stato === "approvata"
+                              ? " · approvata"
+                              : ` · ${az.stato}`}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td>
                     {/* Due cose diverse, e la differenza conta: la PAUSA ferma
                         questa keyword, la NEGATIVA chiude la porta a tutte le
                         ricerche che le somigliano — anche quelle che oggi
@@ -396,35 +478,100 @@ export async function KeywordCampagna({
                         approvata: lo script le esegue solo dopo l'approvazione.
                         Il name/value di un submit non arriva nelle server
                         action: i valori viaggiano in campi nascosti. */}
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <form action={creaOperazioneKeyword}>
-                        <input type="hidden" name="tipo" value="pausa_keyword" />
-                        <input type="hidden" name="campagnaId" value={campagnaId} />
-                        <input type="hidden" name="testo" value={k.testo} />
-                        <input type="hidden" name="gruppo" value={k.gruppo ?? ""} />
-                        <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
-                        <input type="hidden" name="motivo" value={`Fermata dalla scheda di ${nomeCampagna}`} />
-                        <button
-                          className="btn small btn-secondario"
-                          type="submit"
-                          title="Ferma solo questa keyword. Passa dalla coda approvata."
-                        >
-                          Pausa
-                        </button>
-                      </form>
-                      <form action={creaOperazioneKeyword}>
-                        <input type="hidden" name="tipo" value="negativa" />
-                        <input type="hidden" name="campagnaId" value={campagnaId} />
-                        <input type="hidden" name="testo" value={k.testo} />
-                        <input type="hidden" name="motivo" value={`Esclusa dalla scheda di ${nomeCampagna}`} />
-                        <button
-                          className="btn small"
-                          type="submit"
-                          title="Aggiunge il testo fra le negative della campagna: chiude anche le ricerche simili, comprese quelle che oggi arrivano da altre keyword."
-                        >
-                          Escludi
-                        </button>
-                      </form>
+                    {/* UNA riga, non una pila (stessa scelta della scheda
+                        gruppo): etichette corte piu' il title, cosi' le azioni
+                        restano tutte senza righe alte 200px. */}
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                      {(() => {
+                        const az = azioneDi(k.testo);
+                        // Se su questa parola c'e' gia' un'operazione APERTA,
+                        // l'unica cosa sensata e' annullarla: riproporre gli
+                        // stessi bottoni creava doppioni in coda.
+                        if (az && (az.stato === "in_attesa" || az.stato === "approvata")) {
+                          return (
+                            <form action={annullaOperazioneParola} style={{ display: "inline-flex" }}>
+                              <input type="hidden" name="campagnaId" value={campagnaId} />
+                              <input type="hidden" name="testo" value={k.testo} />
+                              <input type="hidden" name="ritorno" value={base ?? ""} />
+                              <button
+                                className="btn small btn-secondario"
+                                type="submit"
+                                title="Toglie l'operazione dalla coda: su Google non cambia niente, perche' non e' ancora stata eseguita"
+                              >
+                                Annulla
+                              </button>
+                            </form>
+                          );
+                        }
+                        return (
+                          <>
+                            <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
+                              {/* Riattiva o Pausa secondo quello che dice
+                                  GOOGLE: qui si poteva solo mettere in pausa,
+                                  mai riaccendere, e una keyword fermata da qui
+                                  non si poteva piu' riprendere da qui. */}
+                              <input type="hidden" name="tipo" value={fermaSuGoogle ? "attiva_keyword" : "pausa_keyword"} />
+                              <input type="hidden" name="campagnaId" value={campagnaId} />
+                              <input type="hidden" name="testo" value={k.testo} />
+                              <input type="hidden" name="gruppo" value={k.gruppo ?? ""} />
+                              <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
+                              <input type="hidden" name="ritorno" value={base ?? ""} />
+                              <input type="hidden" name="motivo" value={`${fermaSuGoogle ? "Riaccesa" : "Fermata"} dalla scheda di ${nomeCampagna}`} />
+                              <button
+                                className="btn small btn-secondario"
+                                type="submit"
+                                title={fermaSuGoogle ? "Mette in coda la riattivazione su Google, da approvare in Operazioni" : "Ferma solo questa keyword. Passa dalla coda approvata."}
+                              >
+                                {fermaSuGoogle ? "Riattiva" : "Pausa"}
+                              </button>
+                            </form>
+                            <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
+                              <input type="hidden" name="tipo" value="negativa" />
+                              <input type="hidden" name="campagnaId" value={campagnaId} />
+                              <input type="hidden" name="testo" value={k.testo} />
+                              <input type="hidden" name="ritorno" value={base ?? ""} />
+                              {/* La negativa eredita la corrispondenza con cui
+                                  la parola e' comprata: qui non la mandava
+                                  nessuno e l'app ripiegava su «esatta», mentre
+                                  il tooltip prometteva di chiudere «anche le
+                                  ricerche simili». Due cose diverse. */}
+                              <input type="hidden" name="corrispondenzaOrigine" value={matchDi(k.testo) ?? "exact"} />
+                              <button
+                                className="btn small btn-secondario"
+                                type="submit"
+                                title={`Esclude come negativa ${ETICHETTA_MATCH_KW[matchDi(k.testo) ?? "exact"]}: non fara' piu' scattare gli annunci di TUTTA la campagna, non solo di questo gruppo`}
+                              >
+                                Escludi
+                              </button>
+                            </form>
+                          </>
+                        );
+                      })()}
+                      <button
+                        type="button"
+                        className="btn small btn-secondario"
+                        title="Copia la parola su altre campagne, con lo stesso dialogo della pagina Keywords"
+                        {...attributiPortaKeyword({
+                          testo: k.testo,
+                          corrispondenza: matchDi(k.testo) ?? "exact",
+                          giaSu: giaSuDi(k.testo),
+                          classificata: true,
+                          lingueDiOra: [],
+                        })}
+                      >
+                        Copia
+                      </button>
+                      <button
+                        type="button"
+                        className="btn small btn-secondario"
+                        data-estendi-ai
+                        data-estendi-seme={k.testo}
+                        data-estendi-gruppo={k.gruppo ?? ""}
+                        data-estendi-corrispondenza={matchDi(k.testo) ?? "exact"}
+                        title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
+                      >
+                        Estendi AI
+                      </button>
                     </div>
                   </td>
                 </tr>
