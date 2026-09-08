@@ -165,11 +165,35 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     if (v === "ACTIVE" || v === "DRAFT" || v === "ARCHIVED") statiVoluti[chiave.slice(6)] = v;
   }
 
+  // **I tre punti e le sezioni della scheda** (08/09/2026, richiesta
+  // dell'utente). Il plus del prodotto è una riga sola: gli altri due punti
+  // sono del sito e stanno sul negozio, non qui — ricopiarli su ogni prodotto
+  // avrebbe voluto dire cambiarli in mille posti il giorno che cambiano.
+  const plusProdotto = testo(fd, "plusProdotto").slice(0, 140).trim() || null;
+  // Le sezioni arrivano come { "Gifts": { "Significato": "…" } }: si tiene solo
+  // ciò che è testo, si buttano i vuoti e si limita la lunghezza. Non si
+  // valida contro le sezioni previste: la categoria può cambiare dopo, e un
+  // testo scritto da una persona non si cancella perché non lo aspettavamo.
+  const sezioniGrezze = leggiJson<Record<string, Record<string, string>>>(fd, "sezioniJson", {});
+  const sezioniScheda: Record<string, Record<string, string>> = {};
+  for (const [sito, campi] of Object.entries(sezioniGrezze)) {
+    if (typeof sito !== "string" || !campi || typeof campi !== "object") continue;
+    const puliti: Record<string, string> = {};
+    for (const [nomeSezione, valore] of Object.entries(campi)) {
+      if (typeof valore !== "string") continue;
+      const v = valore.trim();
+      if (v) puliti[String(nomeSezione).slice(0, 80)] = v.slice(0, 4000);
+    }
+    if (Object.keys(puliti).length) sezioniScheda[sito.slice(0, 80)] = puliti;
+  }
+
   return {
     nome,
     negozio: negozioOk,
     altriNegozi,
     statiVoluti,
+    plusProdotto,
+    sezioniScheda,
     tuttiNegozi: negozi.filter((n) => n.attivo),
     fase,
     categoria,
@@ -486,6 +510,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       shopifySyncIl: shopifyId ? new Date() : null,
       handleShopify: handle,
       tagShopify: m.tags.length ? m.tags.join(", ").slice(0, 500) : null,
+      plusProdotto: m.plusProdotto,
+      sezioniScheda: Object.keys(m.sezioniScheda).length ? m.sezioniScheda : undefined,
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
       ...(Object.keys(m.metafield).length ? colonneDaMetafield(m.metafield) : {}),
       varianti: varianti.length
@@ -782,6 +808,12 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         shopifySyncIl: shopifyId ? new Date() : null,
         handleShopify: handle,
         tagShopify: m.tags.length ? m.tags.join(", ").slice(0, 500) : null,
+        plusProdotto: m.plusProdotto,
+        // In modifica si scrive sempre, anche l'oggetto vuoto: se qualcuno
+        // svuota una sezione, quel vuoto è la sua decisione e deve arrivare al
+        // database. Scrivere solo quando c'è del testo renderebbe impossibile
+        // togliere una riga sbagliata.
+        sezioniScheda: m.sezioniScheda,
         metafieldShopify: m.metafield,
         ...colonneDaMetafield(m.metafield),
       },

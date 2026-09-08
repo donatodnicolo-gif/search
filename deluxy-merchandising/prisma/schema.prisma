@@ -141,6 +141,28 @@ model Prodotto {
   /// script dalla sezione «Dimensioni» della descrizione; la piattaforma consegne se le porta
   /// dietro fino al fioraio, che deve sapere quanti fiori mettere.
   note             String?
+  /// ⭐ 08/09/2026 — **LE SEZIONI COMPILATE**, per negozio (richiesta dell'utente:
+  /// «ogni categoria ha delle sezioni… i 3 punti e le sezioni sono
+  /// personalizzabili per sito selezionato»). Forma:
+  /// `{ "Gifts": { "Significato": "…", "Dimensioni": "…" }, "Flowers": { … } }`.
+  ///
+  /// **Questa è la fonte**, la descrizione su Shopify è un derivato che si
+  /// rigenera a ogni salvataggio: è la scelta dell'architettura del 07/09 («il
+  /// modulo non chiede una descrizione, chiede i dati e la genera»). Tenuta come
+  /// Json e non in tabella perché è un documento del prodotto, si legge sempre
+  /// tutto insieme e non ci si fanno query sopra.
+  ///
+  /// Testo **separato per ogni sito** (decisione dell'utente dell'08/09, come
+  /// faceva il vecchio gestionale con `cakeDescription`/`flowersDescription`/
+  /// `deluxyDescription`): lo stesso prodotto si racconta diversamente al B2B e
+  /// al cliente finale.
+  sezioniScheda    Json?
+  /// ⭐ 08/09/2026 — **Il plus del prodotto**: la prima delle tre righe che i
+  /// negozi mostrano in cima alla scheda («**Bouquet**: girasoli»). La scrive
+  /// una persona, prodotto per prodotto; le altre due righe vengono dai plus del
+  /// sito (`NegozioShopify.plusUno`/`plusDue`). Nel vecchio gestionale era
+  /// `product.productAdvantageDesc`.
+  plusProdotto     String?
   priorita     Int      @default(0) // priorità di esposizione (più alto = più in vista)
   // — Quello che dice Shopify del prodotto (letto, non dedotto) —
   // `tipoShopify` è il "product type" del negozio: è la categoria vera, scritta
@@ -463,6 +485,22 @@ model NegozioShopify {
   // categoria per le descrizioni: chi conosce il brand scrive una volta, l'AI
   // parte già nella lingua giusta.
   lineeGuidaSeo       String?
+  /// ⭐ 08/09/2026 — **I due plus del sito** (richiesta dell'utente: «in
+  /// impostazioni per ogni sito definisci due plus del sito»). Sono la seconda e
+  /// la terza delle tre righe che aprono ogni scheda prodotto su Shopify:
+  /// «**Inclusi**: biglietto scritto a mano e confezione regalo» e
+  /// «**Consegna**: in guanti bianchi, a casa o dove vuoi tu».
+  ///
+  /// Stanno qui e non sul prodotto perché sono una promessa **del sito**,
+  /// identica su tutte le sue schede: misurata sui negozi veri, la riga
+  /// «Inclusi» è ricopiata a mano identica su 43 prodotti di Flowers su 45, con
+  /// le due mancanti che sono semplicemente una dimenticanza. Scriverla una
+  /// volta qui vuol dire non poterla più sbagliare.
+  ///
+  /// La **prima** delle tre righe invece è del prodotto (`Prodotto.plusProdotto`):
+  /// dice che cos'è quel prodotto in particolare.
+  plusUno             String? // es. «Inclusi: biglietto scritto a mano e confezione regalo»
+  plusDue             String? // es. «Consegna: in guanti bianchi, a casa o dove vuoi tu»
   clientIdCifrato     String?
   clientSecretCifrato String?
   tokenCifrato  String?
@@ -1096,4 +1134,42 @@ model StoricoImmagine {
   cambiataIl DateTime @default(now())
 
   @@index([prodottoId, cambiataIl])
+}
+
+/// **Una sezione della scheda prodotto**, per categoria e per negozio.
+///
+/// Chiesta dall'utente l'08/09/2026: «ogni categoria ha delle sezioni — i fiori
+/// hanno significato, dimensioni, ecc.; quando si seleziona la categoria compare
+/// la possibilità di compilare ogni sezione». Le sezioni sono quelle che i
+/// negozi già usano come titoli `<h6>` nella descrizione: il modulo smette di
+/// far scrivere un testo libero e chiede i pezzi, poi li compone.
+///
+/// **Per negozio** (scelta dell'utente: «testo separato per ogni sito»): la
+/// stessa categoria può avere sezioni diverse su siti diversi — il B2B ha
+/// «Occasioni» dove il D2C ha «Regala con Deluxy» — e con `negozio` nullo la
+/// sezione vale per tutti, come già fa `CategoriaProdotto`.
+///
+/// L'elenco di partenza viene dal gestionale precedente (63 categorie,
+/// `docs/categorie-vecchio-gestionale.md`): sezioni scritte in anni di lavoro,
+/// che sarebbe stato assurdo reinventare.
+model SezioneCategoria {
+  id         String   @id @default(cuid())
+  /// La chiave di `CategoriaProdotto` a cui appartiene.
+  categoria  String
+  /// Il negozio per cui vale, oppure vuoto = per tutti.
+  negozio    String?
+  /// Il titolo che finisce nella scheda: «Significato», «Ingredienti e Allergeni»…
+  nome       String
+  /// Come si compila: testo (un paragrafo), elenco (una voce per riga), coppie
+  /// (chiave/valore, per i «Dettagli Prodotto» dei vini e degli oggetti).
+  tipo       String   @default("testo") // testo | elenco | coppie
+  /// Se va sempre compilata: il modulo lo dice, non lo impone.
+  richiesta  Boolean  @default(false)
+  ordine     Int      @default(0)
+  attiva     Boolean  @default(true)
+  creataIl   DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@unique([categoria, negozio, nome])
+  @@index([categoria, negozio, ordine])
 }
