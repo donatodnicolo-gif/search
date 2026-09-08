@@ -2,6 +2,57 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 sera (2) — MODULO RISTRUTTURATO A SCHEDE PER SITO, E IL METAFIELD CHE FACEVA RIFIUTARE IL PRODOTTO
+
+**1. Struttura chiesta dall'utente**: «informazioni comuni a tutti gli store
+(nome, nome diverso, sku, categoria, fase, plus del prodotto, categoria
+interna); la scelta del brand poi apre dei tab col nome del sito che contengono
+tutte le info che possono cambiare per brand; da mobile si espandono in
+verticale». Fatto:
+· **«Comune a tutti i negozi»** — nome + nome per i partner, SKU, categoria,
+  fase, classificazione interna, plus del prodotto, note, descrizione;
+· **«Dove va»** — brand principale e «pubblica anche su»: è la scelta che apre
+  le schede;
+· **una scheda per sito**, con tab (`.tab-siti/.tab-sito`, attiva nera piena
+  come sul tema) che contengono i tre punti, lo stato su quel negozio, le
+  collezioni di quel negozio, le sezioni della categoria e i campi che quel
+  negozio definisce. Sotto 800px la fila diventa **verticale**. Con un sito solo
+  le tab non compaiono.
+· ⚠️ **Tab e non accordion**: sono gli stessi campi ripetuti con contenuto
+  diverso. Con l'accordion due siti restano aperti insieme e le caselle omonime
+  finiscono adiacenti — è così che il testo del B2B si scrive nel campo del D2C.
+· La card «Campi del negozio» separata è sparita: era la stessa cosa, per il
+  solo negozio principale.
+
+**2. 🔴→✅ IL DIFETTO VERO: un valore fuori elenco faceva rifiutare TUTTO il
+prodotto.** Segnalato dall'utente con la schermata di «Magnum Rosé - Ruinart»:
+«Business Deluxy non ha creato il prodotto: metafields.0.value: Value does not
+exist in provided choices…». La chiave `custom.occasioni` **esiste su tutti e
+due i negozi**, ma le scelte ammesse sono diverse. Filtravamo le *chiavi* per
+negozio, non i *valori*.
+Misurato sul caso vero: su Gifts si mandano 10 campi, su Business Deluxy 4, e
+**5 occasioni su 8** («Sorprese Romantiche», «Proposte di Matrimonio»,
+«Matrimoni», «Festa della Donna», «San Valentino») non sono ammesse là.
+· `metafieldPerShopify` ora **scarta il valore, non il prodotto** (per le liste
+  tiene le voci ammesse e butta le altre); `scartiMetafield` produce la riga di
+  avviso, così la perdita non è silenziosa. Applicato ai due percorsi: creazione
+  su un altro negozio e aggiornamento.
+
+**3. `src/lib/descrizione-shopify.ts` — la descrizione come tab su Shopify.**
+Formato **letto dal prodotto vero** (`deluxy.it/products/colazione-luxury-clivati-milano.js`),
+non dedotto: il tema fa **una tab per ogni `<h6>`**; i tre punti stanno prima
+del primo `<h6>` in un `<ul>` con l'etichetta in `<b>`; poi `<h6>DESCRIZIONE</h6>`
+e una `<h6>` per sezione. `sezioniDelSito()` tiene in un posto solo la regola
+«le sezioni del negozio vincono su quelle comuni» — provandola in due posti
+usciva una scheda con «Menù» e «Allergeni» **doppi**.
+🔴 **NON ancora collegata alla pubblicazione, e per un motivo misurato**: il
+campo `descrizione` dei prodotti importati **contiene già tutta la descrizione
+composta** (i tre punti, «DESCRIZIONE», «Menù», «ALLERGENI»… appiattiti in un
+unico testo). Componendo ora, ogni scheda uscirebbe con il contenuto **due
+volte**. Il passo giusto è **spezzare l'HTML importato nelle sue parti** al
+momento dell'import (tre punti · descrizione libera · sezioni), non incollare
+sopra: da fare.
+
 ## 08/09/2026 sera — SEZIONI MANCANTI AGGIUNTE E I 728 STATI IN DISACCORDO SANATI
 
 **1. «Perché qui dice bozza?»** (segnalazione dell'utente su «Back to Office
