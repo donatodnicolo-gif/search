@@ -133,7 +133,11 @@ export default async function ProdottoPage({
                 .filter((r) => r.shopifyId || r.errore)
                 .map((r) => {
                   const stato = r.origine === "tolto" ? "tolto" : r.statoShopify === "ACTIVE" ? "attivo" : r.statoShopify === "DRAFT" ? "bozza" : r.statoShopify === "ARCHIVED" ? "archiviato" : r.errore ? "rifiutato" : "—";
-                  const colore = stato === "attivo" ? "var(--success)" : stato === "rifiutato" ? "var(--danger)" : "var(--text-tertiary)";
+                  // ⚠️ I token semantici si chiamano --green/--red (DS §2.1). Con --success e
+                  // --danger, che non esistono, il pallino cadeva sul nero del testo: un
+                  // negozio che aveva RIFIUTATO il prodotto si vedeva identico a uno dove
+                  // è attivo (misurato l'08/09/2026: rgb(29,29,31) su entrambi).
+                  const colore = stato === "attivo" ? "var(--green)" : stato === "rifiutato" ? "var(--red)" : "var(--grey)";
                   return <Badge key={r.negozio} testo={`${r.negozio} · ${stato}`} colore={colore} title={r.errore ?? r.handle ?? r.shopifyId ?? undefined} />;
                 })}
               {(() => {
