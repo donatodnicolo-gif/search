@@ -50,6 +50,14 @@ const CAMPI_TESTO = [
   "amministrazioneEmail",
 ] as const;
 
+// ⭐ 08/09/2026 — CONDIZIONI VENDOR: le scrive la PIATTAFORMA CONSEGNE, che ne
+// è la proprietaria; il registro le trasporta e Finance le legge da qui.
+// Non sono stringhe, quindi non possono stare in `CAMPI_TESTO` — che passa
+// tutto da `pulisci()` e trasformerebbe `0` e `false` in `null`, cioè in «non
+// concordato». Zero giorni e «no» sono risposte, non assenze.
+const CAMPI_NUMERO = ["pagamentoVendorGiorni", "incassoServiziGiorni"] as const;
+const CAMPI_BOOLEANI = ["compensazioneIncassi", "incassoServiziFineMese"] as const;
+
 export type ContattoInput = {
   ruolo?: string | null;
   nome?: string | null;
@@ -91,6 +99,30 @@ export function validaPartner(
 
   for (const campo of CAMPI_TESTO) {
     if (campo in body) dati[campo] = pulisci(body[campo]);
+  }
+
+  // Condizioni vendor. `null` passa e vuol dire «ancora da valorizzare»: è uno
+  // stato, non un campo vuoto da ripulire. Un valore che non è un numero (o non
+  // è un booleano) si rifiuta invece di finire in `null` in silenzio — sarebbe
+  // indistinguibile da «non deciso», e su questi campi ci girano dei pagamenti.
+  for (const campo of CAMPI_NUMERO) {
+    if (!(campo in body)) continue;
+    const v = body[campo];
+    if (v === null || v === "") { dati[campo] = null; continue; }
+    const n = typeof v === "number" ? v : Number(String(v).trim());
+    if (!Number.isInteger(n) || n < 0 || n > 365) {
+      return { errore: `Il campo '${campo}' vuole un numero intero di giorni fra 0 e 365 (oppure null)` };
+    }
+    dati[campo] = n;
+  }
+  for (const campo of CAMPI_BOOLEANI) {
+    if (!(campo in body)) continue;
+    const v = body[campo];
+    if (v === null || v === "") { dati[campo] = null; continue; }
+    if (typeof v !== "boolean") {
+      return { errore: `Il campo '${campo}' vuole true, false oppure null (null = ancora da valorizzare)` };
+    }
+    dati[campo] = v;
   }
 
   if (perCreazione && !dati.nome) return { errore: "Il campo 'nome' è obbligatorio" };
@@ -254,6 +286,23 @@ export function serializzaPartner(
       // Chi li ha scritti e quando (asOf), così le app capiscono se il registro
       // ha una versione più fresca della loro.
       aggiornamenti: fat.aggiornamenti,
+    },
+    // ⭐ 08/09/2026 — CONDIZIONI VENDOR. Le decide la PIATTAFORMA CONSEGNE, che
+    // ne è la proprietaria; il registro le trasporta e Finance le legge da qui.
+    //
+    // ⚠️ Blocco a parte, non dentro `datiFinanziari`: quello si eredita dalla
+    // capogruppo (chi fattura per chi), mentre questi sono accordi della
+    // SINGOLA azienda — una sede può compensare e un'altra no. Mescolarli
+    // significherebbe far ereditare a una sede una condizione che non è sua.
+    //
+    // ⚠️ Stesso ambito di lettura dei dati finanziari: dicono come e quando
+    // girano i soldi con quel partner, quindi non escono a ogni chiave.
+    // E `null` non è «no»: è «ancora da valorizzare».
+    condizioniVendor: !vede ? null : {
+      compensazioneIncassi: p.compensazioneIncassi,
+      pagamentoVendorGiorni: p.pagamentoVendorGiorni,
+      incassoServiziGiorni: p.incassoServiziGiorni,
+      incassoServiziFineMese: p.incassoServiziFineMese,
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,

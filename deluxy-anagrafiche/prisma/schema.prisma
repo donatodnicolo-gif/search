@@ -81,6 +81,30 @@ model Partner {
   metodoPagamento         String?
   condizioniPagamento     String?
   gruppoPagamento         String?
+  // ⭐ 08/09/2026 — CONDIZIONI VENDOR, scritte dalla PIATTAFORMA CONSEGNE.
+  //
+  // Il proprietario del dato è la piattaforma (decisione dell utente): là si
+  // decidono, qui arrivano con la sincronizzazione che la piattaforma già fa a
+  // ogni salvataggio di un partner, e da qui le legge Finance — la stessa
+  // strada che fa già l IBAN. Il registro non le decide e non le deduce: le
+  // trasporta.
+  //
+  // ⚠️ Stanno FUORI da `datiFinanziari`: quel blocco è di sole stringhe e si
+  // EREDITA dalla capogruppo (chi fattura per chi). Queste sono accordi del
+  // SINGOLO partner e non si ereditano — una sede può compensare e un altra no.
+  // Escono in un blocco loro, `condizioniVendor`, con lo stesso ambito di
+  // lettura «Dati finanziari».
+  //
+  // ⚠️ `null` non è «no», è «ancora da valorizzare»: su `compensazioneIncassi`
+  // la distinzione è tutto il punto — un booleano con default `false` diceva
+  // «no» anche a chi non era mai stato interrogato.
+  compensazioneIncassi    Boolean?
+  /// Giorni per pagare il partner sulle VENDITE. Decorrenza fine mese.
+  pagamentoVendorGiorni   Int?
+  /// Giorni per incassare dal partner sui servizi NON di vendita.
+  incassoServiziGiorni    Int?
+  /// Decorrenza dei giorni di incasso: true = fine mese della fattura.
+  incassoServiziFineMese  Boolean?
   noteAmministrative      String?
   amministrazioneNome     String?
   amministrazioneTelefono String?

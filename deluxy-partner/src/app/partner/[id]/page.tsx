@@ -26,6 +26,7 @@ import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
 import { smtpConfigurato } from "@/lib/mail";
+import { condizioniVendorPartner } from "@/lib/condizioni-vendor";
 import { CreditoCard } from "@/components/CreditoCard";
 import { analisiPartner } from "@/lib/stato-analisi";
 import { MailPartnerCard } from "@/components/MailPartnerCard";
@@ -132,6 +133,9 @@ export default async function PartnerDetail({
   // configurata il bottone lo deve dire PRIMA del click, non dopo
   // (segnalazione dell'utente, 08/09/2026: «sembra non funzionare»).
   const smtpAttivo = await smtpConfigurato();
+  // Le condizioni vendor le decide la PIATTAFORMA CONSEGNE: qui si leggono dal
+  // registro, che le trasporta. La copia locale resta solo come ripiego.
+  const condVendor = await condizioniVendorPartner(id);
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
@@ -316,8 +320,39 @@ export default async function PartnerDetail({
               tutti i numeri della pagina — con la compensazione il mese è un
               saldo netto unico, senza sono due partite che non si toccano mai —
               quindi va saputo prima di guardarli, non dopo. */}
+          {/* ⭐ 08/09/2026 — LA DECISIONE ARRIVA DALLA PIATTAFORMA CONSEGNE, che
+              ne è la proprietaria. Finance la legge dal registro e la mostra
+              dichiarando da dove viene; la sua colonna locale resta solo come
+              ripiego quando il registro non risponde. Il caso: BOTTEGA
+              LUNGARNO, deciso sulla piattaforma e qui ancora «mai deciso». */}
           <div style={{ marginTop: 6 }}>
-            {partner.compensazioneDecisa ? (
+            {condVendor.disponibile && condVendor.condizioni ? (
+              (() => {
+                const c = condVendor.condizioni!;
+                const pezzi: string[] = [];
+                if (c.pagamentoVendorGiorni != null) pezzi.push(`vendite a ${c.pagamentoVendorGiorni} gg`);
+                if (c.incassoServiziGiorni != null) pezzi.push(`servizi a ${c.incassoServiziGiorni} gg`);
+                if (c.incassoServiziFineMese) pezzi.push("decorrenza fine mese");
+                const coda = pezzi.length ? <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>{pezzi.join(" · ")}</span> : null;
+                return c.compensazioneIncassi == null ? (
+                  <>
+                    <span className="badge orange" title="Sulla piattaforma consegne nessuno ha ancora scelto: la domanda è aperta, e si risponde lì — è lei la proprietaria del dato.">
+                      <span className="dot" />Compensazione da valorizzare
+                      <span style={{ opacity: 0.75, marginLeft: 6 }}>· dalla piattaforma</span>
+                    </span>
+                    {coda}
+                  </>
+                ) : (
+                  <>
+                    <span className={`badge ${c.compensazioneIncassi ? "blue" : "neutral"}`} title="Deciso sulla piattaforma consegne, che è la proprietaria del dato. Qui si legge soltanto.">
+                      <span className="dot" />{c.compensazioneIncassi ? "In compensazione" : "Senza compensazione"}
+                      <span style={{ opacity: 0.75, marginLeft: 6 }}>· dalla piattaforma</span>
+                    </span>
+                    {coda}
+                  </>
+                );
+              })()
+            ) : partner.compensazioneDecisa ? (
               partner.compensazione ? (
                 <span className="badge blue" title="Le fatture non passano dalla banca: si scalano da quello che Deluxy deve al partner. Il mese è un saldo netto unico.">
                   <span className="dot" />In compensazione
