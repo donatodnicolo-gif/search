@@ -158,7 +158,7 @@ export default async function MovimentoSpesa({ params }: { params: Promise<{ id:
         </Riga>
         {t.partner && (
           <Riga etichetta="Partner collegato">
-            <Link href={`/partner/${t.partner.id}`}>{t.partner.nome}</Link>
+            <Link href={`/partner/${t.partner.id}`} prefetch={false}>{t.partner.nome}</Link>
           </Riga>
         )}
         <div style={{ paddingTop: 10 }}>

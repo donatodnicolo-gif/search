@@ -123,7 +123,7 @@ export default async function SaldiPage({
               }}
             >
               <span style={{ fontWeight: 600, fontSize: 14 }}>
-                <Link href={`/partner/${partner.id}`}>{partner.nome}</Link>
+                <Link href={`/partner/${partner.id}`} prefetch={false}>{partner.nome}</Link>
                 {partner.compensazione && (
                   <span className="badge gold" style={{ marginLeft: 8 }}><span className="dot" />Compensazione</span>
                 )}

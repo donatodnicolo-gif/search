@@ -499,7 +499,7 @@ const dati = await res.json();
                     <td>{r.origine ?? <span className="muted">—</span>}</td>
                     <td>
                       {r.partnerId ? (
-                        <Link href={`/partner/${r.partnerId}`} style={{ fontWeight: 500 }}>{r.partnerNome ?? r.queryPartner}</Link>
+                        <Link href={`/partner/${r.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{r.partnerNome ?? r.queryPartner}</Link>
                       ) : (
                         r.queryPartner
                       )}

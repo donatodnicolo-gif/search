@@ -389,7 +389,7 @@ export default async function TransazioniPage({
                       <td style={{ maxWidth: 340 }}>
                         {sugg.tipo === "fattura" && (
                           <>
-                            <Link href={`/partner/${sugg.fattura.partnerId}`} style={{ fontWeight: 500 }}>{sugg.fattura.partner.nome}</Link>
+                            <Link href={`/partner/${sugg.fattura.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{sugg.fattura.partner.nome}</Link>
                             <div className="muted" style={{ fontSize: 12 }}>
                               Fatt. {sugg.fattura.numero ?? "s.n."} ·{" "}
                               {parzialmenteIncassata(sugg.fattura)
@@ -400,13 +400,13 @@ export default async function TransazioniPage({
                         )}
                         {sugg.tipo === "incasso_partner" && (
                           <>
-                            <Link href={`/partner/${sugg.partner.id}`} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
+                            <Link href={`/partner/${sugg.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
                             <div className="muted" style={{ fontSize: 12 }}>{sugg.motivo}</div>
                           </>
                         )}
                         {sugg.tipo === "bonifico_partner" && (
                           <>
-                            <Link href={`/partner/${sugg.partner.id}`} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
+                            <Link href={`/partner/${sugg.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
                             <div className="muted" style={{ fontSize: 12 }}>
                               {sugg.mesePagamento ? `${nomeMese(sugg.mesePagamento)} ${ANNO_CORRENTE} · ` : ""}{sugg.motivo}
                             </div>
@@ -489,7 +489,7 @@ export default async function TransazioniPage({
                       <td style={{ maxWidth: 340 }}>
                         {sugg.tipo === "discrepanza" && (
                           <>
-                            <Link href={`/partner/${sugg.partner.id}`} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
+                            <Link href={`/partner/${sugg.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{sugg.partner.nome}</Link>
                             <div style={{ fontSize: 12, color: "var(--orange)" }}>{sugg.motivo}</div>
                           </>
                         )}
@@ -599,7 +599,7 @@ export default async function TransazioniPage({
                   {fattureMancanti.map((f) => (
                     <tr key={f.id}>
                       <td><span className="badge orange"><span className="dot" />Incasso mancante</span></td>
-                      <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
+                      <td><Link href={`/partner/${f.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
                       <td>Fatt. {f.numero ?? "s.n."} · scaduta {dataIt(f.scadenza)}</td>
                       <td className="num">{euro(ivato(f))}</td>
                     </tr>
@@ -607,7 +607,7 @@ export default async function TransazioniPage({
                   {bonificiMancanti.map((x) => (
                     <tr key={x.partner.id + x.mese}>
                       <td><span className="badge blue"><span className="dot" />Bonifico non eseguito</span></td>
-                      <td><Link href={`/partner/${x.partner.id}`} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
+                      <td><Link href={`/partner/${x.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{x.partner.nome}</Link></td>
                       <td>Dovuto {nomeMese(x.mese)} {ANNO_CORRENTE}</td>
                       <td className="num">{euro(x.importo)}</td>
                     </tr>
@@ -636,7 +636,7 @@ export default async function TransazioniPage({
                       <td className="muted">{a.esempio ?? a.chiave}</td>
                       <td>
                         {partnerPerId.has(a.partnerId) ? (
-                          <Link href={`/partner/${a.partnerId}`} style={{ fontWeight: 500 }}>{a.partnerNome}</Link>
+                          <Link href={`/partner/${a.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{a.partnerNome}</Link>
                         ) : (
                           <span className="muted">{a.partnerNome} (rimosso)</span>
                         )}

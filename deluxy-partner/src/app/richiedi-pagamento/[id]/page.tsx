@@ -112,7 +112,7 @@ export default async function RichiestaDettaglio({ params }: { params: Promise<{
         <Riga etichetta="Riferimento Transactions">{r.riferimento ?? <span className="muted">—</span>}</Riga>
         {r.partnerId && (
           <Riga etichetta="Partner collegato">
-            <Link href={`/partner/${r.partnerId}`}>{r.partnerNome ?? r.beneficiario}</Link>
+            <Link href={`/partner/${r.partnerId}`} prefetch={false}>{r.partnerNome ?? r.beneficiario}</Link>
           </Riga>
         )}
         <div style={{ paddingTop: 12 }}>

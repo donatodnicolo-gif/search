@@ -280,7 +280,7 @@ export default async function PartnerDetail({
               )
             ) : (
               <Link
-                href={`/partner/${id}/modifica`}
+                href={`/partner/${id}/modifica`} prefetch={false}
                 className="badge orange"
                 title="Nessuno ha ancora scelto se questo partner va in compensazione. I conti si comportano come «senza», ma la domanda è aperta: si decide da qui."
               >
@@ -303,7 +303,7 @@ export default async function PartnerDetail({
           )}
           <Link href="/registrazioni/fatture/nuova" className="btn secondary">+ Fattura</Link>
           <Link href={`/vendite/nuova?partnerId=${id}`} className="btn secondary">+ Vendita vendor</Link>
-          <Link href={`/partner/${id}/modifica`} className="btn primary">Modifica</Link>
+          <Link href={`/partner/${id}/modifica`} prefetch={false} className="btn primary">Modifica</Link>
         </div>
       </div>
 

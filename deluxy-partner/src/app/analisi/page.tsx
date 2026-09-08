@@ -177,7 +177,7 @@ export default async function AnalisiPage() {
                           {[...r.entrate].sort((a, b) => Number(a.saldata) - Number(b.saldata) || b.importo - a.importo).map((v, i) => (
                             <div key={"e" + i} style={{ opacity: v.saldata ? 0.6 : 1 }}>
                               <span style={{ color: "var(--green)" }}>{v.saldata ? "✓" : "○"} +{euro(v.importo)}</span>{" "}
-                              <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>{" "}
+                              <Link href={`/partner/${v.partnerId}`} prefetch={false}>{v.chi}</Link>{" "}
                               <Link href={v.href} className="muted" style={{ textDecoration: "underline", textUnderlineOffset: 2 }} title="Apri il record della fattura">
                                 ({v.rif})
                               </Link>
@@ -186,7 +186,7 @@ export default async function AnalisiPage() {
                           {[...r.uscite].sort((a, b) => Number(a.saldata) - Number(b.saldata) || b.importo - a.importo).map((v, i) => (
                             <div key={"u" + i} style={{ opacity: v.saldata ? 0.6 : 1 }}>
                               <span style={{ color: "var(--red)" }}>{v.saldata ? "✓" : "○"} −{euro(v.importo)}</span>{" "}
-                              <Link href={`/partner/${v.partnerId}`}>{v.chi}</Link>{" "}
+                              <Link href={`/partner/${v.partnerId}`} prefetch={false}>{v.chi}</Link>{" "}
                               <Link href={v.href} className="muted" style={{ textDecoration: "underline", textUnderlineOffset: 2 }} title="Apri il mese nella scheda partner">
                                 ({v.rif})
                               </Link>

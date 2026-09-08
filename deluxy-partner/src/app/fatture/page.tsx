@@ -203,7 +203,7 @@ export default async function FatturePage({
                   // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
                   // riga apre il record; i link e i bottoni dentro restano loro.
                   <RigaLink key={f.id} href={`/fatture/${f.id}`} className="riga-link">
-                    <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
+                    <td><Link href={`/partner/${f.partnerId}`} prefetch={false} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
                     <td>{nomeMese(f.mese)}</td>
                     <td>{f.tipologia.nome}</td>
                     <td>

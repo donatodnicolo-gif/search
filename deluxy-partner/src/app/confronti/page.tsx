@@ -197,7 +197,7 @@ export default async function ConfrontiPage({
                   const dp = deltaPctR(r);
                   return (
                     <tr key={r.partner.id}>
-                      <td><Link href={`/partner/${r.partner.id}`} style={{ fontWeight: 500 }}>{r.partner.nome}</Link></td>
+                      <td><Link href={`/partner/${r.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{r.partner.nome}</Link></td>
                       <td className="num muted">{euro(r.vendPrec)}</td>
                       <td className="num">{euro(r.vendCur)}</td>
                       <td className="num muted">{euro(r.servPrec)}</td>

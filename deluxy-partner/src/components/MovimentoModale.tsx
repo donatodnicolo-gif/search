@@ -185,7 +185,7 @@ function Finestra({ m, chiudi }: { m: MovimentoDettaglio; chiudi: () => void }) 
           </Riga>
           <Riga etichetta="Partner collegato">
             {m.partnerId && m.partnerNome ? (
-              <Link href={`/partner/${m.partnerId}`}>{m.partnerNome}</Link>
+              <Link href={`/partner/${m.partnerId}`} prefetch={false}>{m.partnerNome}</Link>
             ) : (
               // ⚠️ La differenza che conta in questa scheda: un movimento senza
               // partner è un CANDIDATO trovato per somiglianza di nome, non una

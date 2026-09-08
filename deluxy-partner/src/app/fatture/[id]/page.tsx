@@ -51,7 +51,7 @@ export default async function FatturaDetail({
           <TornaIndietro fallback="/fatture" label="Fatture" />
           <h1 className="page-title">Fattura {fattura.numero ?? "s.n."}</h1>
           <p className="page-caption">
-            <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>
+            <Link href={`/partner/${fattura.partnerId}`} prefetch={false} style={{ color: "var(--blue)" }}>
               {fattura.partner.nome}
             </Link>{" "}
             · {fattura.tipologia.nome} · competenza {nomeMese(fattura.mese)} {fattura.anno}

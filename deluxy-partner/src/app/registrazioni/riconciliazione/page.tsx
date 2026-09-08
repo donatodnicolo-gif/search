@@ -20,7 +20,7 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
       <td>
         <div style={{ fontWeight: 500 }}>{r.ficNome}</div>
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          ↔ <Link href={`/partner/${r.partner!.id}`} style={{ color: "var(--blue)" }}>{r.partner!.nome}</Link>
+          ↔ <Link href={`/partner/${r.partner!.id}`} prefetch={false} style={{ color: "var(--blue)" }}>{r.partner!.nome}</Link>
         </div>
       </td>
       <td style={{ fontSize: 12.5 }}>
@@ -255,7 +255,7 @@ export default async function RiconciliazionePage({
                   {daCollegare.map((r) => (
                     <tr key={r.ficNome}>
                       <td>{r.ficNome}</td>
-                      <td><Link href={`/partner/${r.partner!.id}`} style={{ color: "var(--blue)" }}>{r.partner!.nome}</Link></td>
+                      <td><Link href={`/partner/${r.partner!.id}`} prefetch={false} style={{ color: "var(--blue)" }}>{r.partner!.nome}</Link></td>
                       <td>{r.dati.piva ?? "—"}</td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         <form action={creaInAnagrafiche.bind(null, r.partner!.id, JSON.stringify(campiProposti(r.dati)))} style={{ display: "inline" }}>

@@ -144,7 +144,7 @@ export default async function LogsPage({
                     </td>
                     <td>
                       {v.entita === "partner" && v.entitaId ? (
-                        <Link href={`/partner/${v.entitaId}`}>{v.azione}</Link>
+                        <Link href={`/partner/${v.entitaId}`} prefetch={false}>{v.azione}</Link>
                       ) : (
                         v.azione
                       )}

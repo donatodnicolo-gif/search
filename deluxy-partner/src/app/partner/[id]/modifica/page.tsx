@@ -29,14 +29,14 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
     <>
       <div className="page-head">
         <div>
-          <Link href={`/partner/${id}`} className="btn secondary small" style={{ marginBottom: 10 }}>
+          <Link href={`/partner/${id}`} prefetch={false} className="btn secondary small" style={{ marginBottom: 10 }}>
             ← Torna alla scheda
           </Link>
           <h1 className="page-title">Modifica partner</h1>
           <p className="page-caption">{partner.nome}</p>
         </div>
         <div className="page-actions">
-          <Link href={`/partner/${id}`} className="btn secondary">Annulla</Link>
+          <Link href={`/partner/${id}`} prefetch={false} className="btn secondary">Annulla</Link>
         </div>
       </div>
       <PartnerForm

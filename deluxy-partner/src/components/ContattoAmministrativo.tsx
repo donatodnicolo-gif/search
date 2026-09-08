@@ -70,7 +70,7 @@ export async function ContattoAmministrativo({
             <p style={{ fontSize: 13.5, color: "var(--text-secondary)", maxWidth: 560 }}>
               Nessun referente amministrativo. Serve per indirizzare solleciti e pro-forma a chi
               paga davvero le fatture: compilalo in{" "}
-              <Link href={`/partner/${partner.id}/modifica`} style={{ color: "var(--blue)" }}>Modifica partner</Link>
+              <Link href={`/partner/${partner.id}/modifica`} prefetch={false} style={{ color: "var(--blue)" }}>Modifica partner</Link>
               {daImportare ? " oppure importalo dal registro." : "."}
               {!destinatario && " Al momento non c'è nessuna email a cui scrivere."}
             </p>
@@ -88,7 +88,7 @@ export async function ContattoAmministrativo({
               </button>
             </form>
           )}
-          <Link href={`/partner/${partner.id}/modifica`} className="btn secondary small">Modifica</Link>
+          <Link href={`/partner/${partner.id}/modifica`} prefetch={false} className="btn secondary small">Modifica</Link>
         </div>
       </div>
 

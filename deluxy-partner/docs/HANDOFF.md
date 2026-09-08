@@ -52,6 +52,29 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 🔴 08/09/2026 (6) — «Qualcosa non ha funzionato» in produzione: il database finiva le connessioni. Colpa del PRECARICAMENTO
+>
+> Segnalato dall'utente con lo screenshot della dashboard rotta (rif. `829300725`). **Non era un errore del codice.** Nei log di produzione, 6 volte su 100 eventi:
+> `Error [PrismaClientInitializationError]: FATAL: (EMAXCONN) max client connections reached, limit: 200`.
+>
+> **LE MISURE** (dai log e dal codice, l'08/09):
+> | Cosa | Quanto |
+> |---|---|
+> | Richieste in **un solo secondo** (due picchi: 11:31:36 e 11:33:40) | **34** |
+> | Link `/partner/<id>` in **una** pagina di `/scadenzario` | **72** |
+> | Voci di sidebar, tutte col prefetch di default, su OGNI pagina | **22** |
+> | Rotte `force-dynamic` (nessuna cache) | **45** |
+> | `connection_limit` per istanza | **5** |
+>
+> **Il meccanismo**: Next precarica da solo ogni `<Link>` che entra nel viewport. Aprire lo scadenzario metteva in coda fino a 72 render della **scheda partner** — la pagina più pesante dell'app (due anni di `riepilogoPartner`, una chiamata a FIC, una ad Anagrafiche, movimenti, credito) — più le 22 del menu. Nessuna è cachata. **34 render in parallelo × fino a 5 connessioni = 170**, più cron e altre app sullo stesso pooler → il tetto di 200 salta e le pagine successive muoiono. Al momento del controllo il DB era tranquillo (32 connessioni, 23 idle): era un **picco**, ed è il motivo per cui «a volte funziona e a volte no».
+> - ⚠️ **Non causato dal deploy di oggi**: prefetch e link ci sono da prima. Per onestà: le modifiche di oggi hanno aggiunto 2 query alla scheda partner e 1 alla card FIC, quindi ogni render precaricato pesa un filo di più — marginale rispetto a 34 insieme.
+>
+> **CORRETTO (scelte dell'utente, tutte e due):**
+> 1. **Precaricamento spento**: `prefetch={false}` sui **52** link — le 22 voci di sidebar (e le sottovoci) e tutti i link `/partner/<id>` dentro gli elenchi (scadenzario, fatture, confronti, analisi, saldi, proforma, richiedi-pagamento, registrazioni…). ⚠️ `RigaLink` **non** va toccato: usa `router.push`, non ha mai precaricato, e il prop `prefetch` lì non esiste nemmeno (errore di tipo, corretto).
+> 2. **`connection_limit` da 5 a 1**, in `src/lib/db.ts`. ⚠️ **NON nella variabile d'ambiente**: `DATABASE_URL` su Vercel è **Sensitive**, `vercel env pull` restituisce `[SENSITIVE]` — non è leggibile e non si potrebbe riscrivere senza incollare a mano l'intera stringa di connessione (che è una credenziale). Si imposta sull'URL a runtime, e **si sovrascrive** quello che c'è: l'URL di produzione porta `connection_limit=5`, cioè proprio il valore da cambiare — «rispettare l'esistente» avrebbe reso la correzione inefficace. Via d'uscita: `PRISMA_CONNECTION_LIMIT` vince su tutto (serve per gli script fuori dal serverless, dove 1 è poco).
+> - **Verificato in locale**: `/`, `/partner`, `/scadenzario`, `/fatture` tutte 200 con limite 1; l'URL riscritto mantiene host, credenziali e `pgbouncer=true` e cambia solo il parametro. Prova di concorrenza (10 richieste insieme, dev, un processo solo): **19,8 s con limite 1 contro 28,5 s con limite 5** — nessuna penalizzazione, ma è una misura rumorosa e NON rappresentativa della produzione, dove ogni invocazione è un processo a sé.
+> - **Da controllare dopo il deploy**: che nei log non ricompaia `EMAXCONN` sotto uso normale. Se ricompare, i candidati successivi sono la cache sulle pagine di sola lettura (oggi 45 rotte sono `force-dynamic`) e le due chiamate di rete dentro la scheda partner.
+>
 > ### 08/09/2026 (5) — «Invia sollecito sembra non funzionare»: manca la password SMTP, e il bottone non lo diceva prima del click
 >
 > Segnalato dall'utente. **Verificato: il bottone funziona — apre l'anteprima `/solleciti/[id]`, che risponde 200. Quello che non funziona è l'INVIO.**

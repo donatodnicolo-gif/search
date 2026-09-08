@@ -305,6 +305,15 @@ export function Sidebar({
             return (
               <div key={it.href}>
                 <Link
+                  /* ⚠️ NIENTE PRECARICAMENTO (08/09/2026, EMAXCONN in produzione).
+                     Next scarica da solo ogni link che entra nello schermo: con 22
+                     voci di menu su OGNI pagina, e 45 rotte force-dynamic senza
+                     cache, ogni apertura faceva partire decine di render completi
+                     insieme. Misurato: 34 richieste in un secondo, e il pooler del
+                     database (tetto 200 connessioni) si esauriva, e le pagine
+                     rispondevano «Qualcosa non ha funzionato». Il menu non si
+                     precarica: si apre quello che si clicca. */
+                  prefetch={false}
                   href={figli[0]?.href ?? it.href}
                   className={`nav-item${(figli.length ? apertoGruppo : isActive(it.href)) ? " active" : ""}`}
                   aria-current={(figli.length ? apertoGruppo : isActive(it.href)) ? "page" : undefined}
@@ -342,6 +351,7 @@ export function Sidebar({
                     {figli.map((f) => (
                       <Link
                         key={f.href}
+                        prefetch={false}
                         href={f.href}
                         className={`nav-item figlio${isActive(f.href) ? " active" : ""}`}
                       >

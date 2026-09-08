@@ -397,7 +397,7 @@ export default async function PartnerList({
                 // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
                 // riga porta alla scheda, non solo il nome in blu.
                 <RigaLink key={t.partner.id} href={`/partner/${t.partner.id}`} className="riga-link">
-                  <td><Link href={`/partner/${t.partner.id}`} style={{ fontWeight: 500 }}>{t.partner.nome}</Link></td>
+                  <td><Link href={`/partner/${t.partner.id}`} prefetch={false} style={{ fontWeight: 500 }}>{t.partner.nome}</Link></td>
                   <td>{t.partner.categoria ?? "—"}</td>
                   <td>{t.partner.citta ?? "—"}</td>
                   <td className="muted">{t.partner.servizi ?? "—"}</td>
