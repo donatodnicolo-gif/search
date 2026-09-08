@@ -94,6 +94,8 @@ export type NegozioInElenco = {
   dominio: string;
   attivo: boolean;
   canaleVendite: string | null;
+  /** ⭐ 08/09/2026: le lingue che questo negozio ha davvero attive. */
+  lingueAttive: string[];
   /** Le indicazioni per la scrittura AI del SEO di questo brand. */
   lineeGuidaSeo: string | null;
   plusUno: string | null;
@@ -121,6 +123,7 @@ export async function elencoNegozi(): Promise<NegozioInElenco[]> {
       dominio: n.dominio,
       attivo: n.attivo,
       canaleVendite: n.canaleVendite,
+      lingueAttive: Array.isArray(n.lingueAttive) ? (n.lingueAttive as string[]) : [],
       lineeGuidaSeo: n.lineeGuidaSeo,
       // ⭐ 08/09/2026: i due plus del sito, righe 2 e 3 dell'elenco in cima a ogni scheda.
       plusUno: n.plusUno,

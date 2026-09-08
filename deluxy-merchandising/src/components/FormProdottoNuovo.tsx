@@ -23,7 +23,7 @@ import { useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
 
-export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean };
+export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean; lingueAttive?: string[] };
 export type CategoriaPerForm = { chiave: string; nome: string; negozio: string | null; conPrompt: boolean };
 export type CollezionePerForm = { id: string; titolo: string; negozio: string };
 /** ⭐ 08/09/2026: una sezione della scheda, per categoria e negozio. */
@@ -95,6 +95,9 @@ const SEZIONE_AIUTO: Record<string, { placeholder: string; nota: string; righe: 
   elenco: { placeholder: "Una voce per riga: Consegna in giornata", nota: "Una voce per riga: sul sito diventa un elenco puntato.", righe: 4 },
   coppie: { placeholder: "Una per riga, nome e valore: Altezza: 60 cm", nota: "Una per riga, «Nome: valore»: sul sito diventa una tabellina.", righe: 4 },
 };
+
+/** I nomi delle lingue, per chi legge. */
+const ETICHETTA_LINGUA: Record<string, string> = { en: "inglese", fr: "francese", de: "tedesco", es: "spagnolo", ru: "russo", "zh-CN": "cinese", ar: "arabo", ja: "giapponese" };
 
 /** Come si chiamano gli stati di Shopify quando li legge una persona. */
 const ETICHETTA_STATO_NEGOZIO: Record<string, string> = { ACTIVE: "attivo", DRAFT: "bozza", ARCHIVED: "archiviato" };
@@ -193,6 +196,12 @@ export function FormProdottoNuovo({
   const [descrizione, setDescrizione] = useState(iniziale?.descrizione ?? "");
   const [tono, setTono] = useState("maison");
   const [scrivendo, setScrivendo] = useState(false);
+  // ⭐ 08/09/2026 (utente): «l'AI deve essere in grado di riempire le varie
+  // sezioni di ogni categoria». Una richiesta per sito, perché le sezioni
+  // cambiano da un negozio all'altro; e **non sovrascrive** quello che una
+  // persona ha già scritto: si compilano solo le caselle vuote.
+  const [sezioniAi, setSezioniAi] = useState<string | null>(null);
+  const [scrivendoSezioni, setScrivendoSezioni] = useState(false);
   const [erroreAi, setErroreAi] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaCaricato[]>(iniziale?.media ?? []);
   const [caricando, setCaricando] = useState(false);
@@ -280,6 +289,47 @@ export function FormProdottoNuovo({
     setCollezioniScelte([]);
     const nuovo = negozi.find((n) => n.id === id);
     if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
+  }
+
+  async function compilaSezioniConAI(sito: string) {
+    if (!categoria) return;
+    const daFare = sezioniDi(sito);
+    if (!daFare.length) return;
+    setScrivendoSezioni(true);
+    setSezioniAi(null);
+    try {
+      const leggi = (nome: string) => (form.current?.elements.namedItem(nome) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? "";
+      const res = await fetch("/api/ai/sezioni", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: leggi("nome"),
+          categoria,
+          sito,
+          materiali: leggi("materiali"),
+          note: leggi("note"),
+          prezzo: leggi("prezzoVendita"),
+          descrizione,
+          varianti: haVarianti ? varianti.map((v) => v.nome).filter(Boolean) : [],
+          sezioni: daFare.map((x) => ({ nome: x.nome, tipo: x.tipo })),
+          gia: Object.fromEntries(daFare.map((x) => [x.nome, valoreSezione(sito, x.nome)])),
+        }),
+      });
+      const dati = await res.json();
+      if (!dati.ok) { setSezioniAi(dati.errore ?? "La compilazione non è riuscita."); return; }
+      const scritte = Object.entries(dati.sezioni as Record<string, string>);
+      for (const [nome, testo] of scritte) cambiaSezione(sito, nome, testo);
+      const saltate = (dati.saltate as string[]) ?? [];
+      setSezioniAi(
+        scritte.length
+          ? `Compilate ${scritte.length} sezioni su ${sito}.${saltate.length ? ` Lasciate vuote: ${saltate.join(", ")} — non c'erano dati per scriverle senza inventare.` : ""}`
+          : `Nessuna sezione compilata: senza materiali o note di specifica, scriverle vorrebbe dire inventarle.`
+      );
+    } catch {
+      setSezioniAi("Non sono riuscito a raggiungere il servizio.");
+    } finally {
+      setScrivendoSezioni(false);
+    }
   }
 
   async function scriviConAI() {
@@ -793,6 +843,38 @@ export function FormProdottoNuovo({
                 </li>
               </ul>
 
+              {/* ⭐ 08/09/2026: le traduzioni di QUESTO negozio, nelle sue lingue.
+                  ⚠️ Le lingue non si chiedono a Shopify (manca lo scope
+                  `read_locales`): si deducono da chi ha già traduzioni e si
+                  tengono sulla scheda del negozio. Un locale spento fa
+                  rifiutare l'intero lotto, comprese le lingue buone. */}
+              {(() => {
+                const sito = negozi.find((x) => x.nome === nomeSito);
+                const lingue = sito?.lingueAttive ?? [];
+                const linkTrad = st?.shopifyId && sito ? `https://${sito.dominio}/admin/apps/translate-and-adapt/localize/products?id=${(st.shopifyId.split("/").pop() ?? "")}` : null;
+                return (
+                  <div className="campo-modulo" style={{ marginBottom: 14 }}>
+                    <label>Traduzioni su {nomeSito}</label>
+                    {lingue.length === 0 ? (
+                      <span className="cella-sub">Questo negozio non ha altre lingue attive: si pubblica solo in italiano.</span>
+                    ) : (
+                      <>
+                        <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
+                          <input type="checkbox" name={`traduci:${nomeSito}`} value="1" defaultChecked={!modifica} />
+                          {modifica ? "Riscrivi le traduzioni" : "Traduci"} titolo e descrizione in {lingue.map((c: string) => ETICHETTA_LINGUA[c] ?? c).join(" e ")} (con l&apos;AI)
+                        </label>
+                        <span className="cella-sub">Sono le lingue che {nomeSito} ha davvero attive: le altre Shopify le rifiuta, e il rifiuto fa cadere l&apos;intero lotto.</span>
+                      </>
+                    )}
+                    {linkTrad && (
+                      <a className="btn btn-secondario small" href={linkTrad} target="_blank" rel="noreferrer" style={{ marginTop: 8, width: "fit-content" }}>
+                        Modifica le traduzioni su Shopify ↗
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
+
               {modifica && st?.shopifyId && (
                 <div className="campo-modulo" style={{ marginBottom: 14 }}>
                   <label htmlFor={`stato-${nomeSito}`}>Stato su {nomeSito}</label>
@@ -859,6 +941,20 @@ export function FormProdottoNuovo({
               ) : suoi.length === 0 ? (
                 <div className="vuoto-mini">Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su {nomeSito} non sono previste sezioni.</div>
               ) : (
+                <>
+                <div className="riga-ai" style={{ marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondario small"
+                    onClick={() => compilaSezioniConAI(nomeSito)}
+                    disabled={scrivendoSezioni || !aiPronta}
+                    title={aiPronta ? `Compila le sezioni vuote di ${nomeSito} partendo dai dati del prodotto` : "Manca la chiave OpenAI"}
+                  >
+                    {scrivendoSezioni ? "Sto compilando…" : "✦ Compila le sezioni con l'AI"}
+                  </button>
+                  <span className="cella-sub">Riempie solo le caselle vuote. Ingredienti, allergeni e misure li scrive solo se glieli hai dati.</span>
+                </div>
+                {sezioniAi && <div className="nota-info" style={{ marginBottom: 10 }}><span className="nota-icona">◆</span><span>{sezioniAi}</span></div>}
                 <div className="modulo">
                   {suoi.map((s) => {
                     const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
@@ -874,6 +970,7 @@ export function FormProdottoNuovo({
                     );
                   })}
                 </div>
+                </>
               )}
 
               {/* ⚠️ NASCOSTO il 08/09/2026 su richiesta dell'utente («per ora
@@ -1090,13 +1187,14 @@ export function FormProdottoNuovo({
             <span className="cella-sub">Vuoto = per sempre. Il giorno dopo torna bozza sul negozio.</span>
           </div>
           <div className="campo-modulo largo">
-            <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
-              <input type="checkbox" name="traduci" defaultChecked={!modifica} />
-              {modifica ? "Riscrivi le traduzioni" : "Traduci"} titolo e descrizione nelle 8 lingue del negozio (con l&apos;AI)
-            </label>
+            {/* ⭐ 08/09/2026 (utente): «la traduzione va inserita con il negozio,
+                ogni negozio ha lingue a parte». Qui c'era una spunta sola che
+                diceva «le 8 lingue del negozio» a tutti e quattro — falso:
+                misurate, sono inglese e francese su Flowers, inglese e russo su
+                Gifts, solo inglese su Cake e Business. La spunta è passata
+                nella scheda di ogni sito, con le SUE lingue. */}
             <span className="cella-sub">
-              Inglese, francese, tedesco, spagnolo, russo, cinese, arabo, giapponese. Le lingue che il negozio non ha configurato vengono rifiutate da
-              Shopify e lo si legge nell&apos;esito.
+              Le traduzioni si scelgono nella scheda di ogni sito, qui sopra: ogni negozio ha le sue lingue.
             </span>
           </div>
         </div>

@@ -530,6 +530,17 @@ model NegozioShopify {
   // valori ammessi), lette con `metafieldDefinitions` e tenute qui per un
   // giorno: sono il vocabolario del modulo prodotto e gli alias dell'import.
   definizioniMetafield   Json?
+  /// **Le lingue che il negozio ha DAVVERO attive** (08/09/2026, richiesta
+  /// dell'utente: «ogni negozio ha lingue a parte»). Prima il modulo diceva
+  /// «le 8 lingue del negozio» a tutti e quattro, che è falso: misurate,
+  /// sono `en` su tutti più `fr` su Flowers e `ru` su Gifts. Shopify rifiuta
+  /// un locale spento e **il rifiuto fa cadere l'intero lotto**, comprese le
+  /// lingue buone.
+  /// Si riempiono col cron delle traduzioni (`lingueAttiveDi`), che le deduce
+  /// da chi ha già traduzioni: senza lo scope `read_locales` non c'è modo di
+  /// chiederle, e dedurle da un fatto è meglio che scriverle a mano.
+  lingueAttive          Json?
+  lingueAttiveIl        DateTime?
   definizioniMetafieldIl DateTime?
   esitoVerifica String? // ok | errore
   messaggio    String?

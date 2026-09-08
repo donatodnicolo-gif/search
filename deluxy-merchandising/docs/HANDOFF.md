@@ -2,6 +2,51 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 notte (3) — DESCRIZIONE COLLEGATA, AI SULLE SEZIONI, TRADUZIONI PER NEGOZIO
+
+**1. Import e pubblicazione ora viaggiano insieme** (era il pezzo che mancava).
+· `src/lib/descrizione-prodotto.ts`: un posto solo che dice quali sezioni
+  scrivere per un prodotto su un negozio — prima le previste nel loro ordine,
+  **poi quelle che il prodotto ha ma che non sono più previste**. Senza la coda,
+  un testo scritto sotto una sezione poi tolta sparirebbe dalla scheda online al
+  primo salvataggio, senza che nessuno lo cancelli.
+· I **cinque** punti che mandavano `descrizioneHtml` su Shopify ora compongono
+  (`descrizionePerNegozio(m, <sito>)`).
+· L'import spezza: `descrizioneDa` tiene **solo il testo libero**, e `pezziDa`
+  scrive punti e sezioni nei loro campi. ⚠️ **Solo alla creazione della scheda**:
+  `sezioniScheda` tiene le sezioni **di tutti i negozi**, e scriverlo da un
+  import che ne guarda uno solo cancellerebbe gli altri — e le modifiche a mano
+  — ogni notte.
+· Pregresso: `scripts/spezza-descrizioni.ts --applica --tutti`, che **unisce**
+  invece di sovrascrivere. **222 prodotti aggiornati** su 311 letti.
+
+**2. L'AI riempie le sezioni** (`src/lib/ai-sezioni.ts`, rotta
+`/api/ai/sezioni`, bottone «✦ Compila le sezioni con l'AI» nella scheda di ogni
+sito). Riempie **solo le caselle vuote**, una richiesta per sito perché le
+sezioni cambiano da un negozio all'altro.
+⚠️ **Il guardrail vale più della funzione**: senza materiali né note, le sezioni
+di **ingredienti, allergeni, pesi, misure, conservazione** vengono **scartate
+anche se il modello le ha scritte**. Un elenco di allergeni inventato non è un
+testo sbagliato, è un rischio per chi lo legge. L'esito dice cosa è stato
+lasciato vuoto e perché.
+
+**3. Le traduzioni stanno col negozio.** La spunta unica diceva «le 8 lingue del
+negozio» a tutti e quattro: falso. Misurate e salvate su `NegozioShopify`
+(`lingueAttive`, con `scripts/lingue-dei-negozi.ts`):
+**Flowers inglese+francese · Gifts inglese+russo · Cake inglese · Business
+inglese**. Ora la spunta è nella scheda di ogni sito, con le **sue** lingue
+(`traduci:<negozio>`), e si traduce solo dove è accesa. Aggiunto il link
+**«Modifica le traduzioni su Shopify ↗»** (Translate & Adapt).
+⚠️ Le lingue non si chiedono a Shopify — manca lo scope `read_locales` — si
+deducono da chi ha già traduzioni: un locale spento non può averne.
+
+**4. Gifts non ha una coppia di plus fissa** (l'utente: «per gifts ricontrolla
+c'è già»). Ricontrollato su 200 schede: il 2º punto più usato copre il **26%**
+ed è 1,4× il secondo; il 3º copre il **35%** ed è 1,3× il secondo. Gifts vende
+beauty, food, gioielli ed esperienze, e ogni famiglia ha la sua riga. **Non è
+stato scritto niente**: metterne uno vorrebbe dire stamparlo su tre prodotti su
+quattro che non l'hanno mai avuto.
+
 ## 08/09/2026 notte (2) — LE SEZIONI DALLE SCHEDE VERE, I PLUS DAI PRODOTTI, E UNA REGRESSIONE CHE IL CHERRY-PICK AVEVA NASCOSTO
 
 **🔴 Lezione che è costata una correzione persa**: pubblicando a **cherry-pick

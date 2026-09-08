@@ -28,6 +28,7 @@ import { TIPOLOGIE_VENDITA } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
+import { descrizionePerNegozio } from "./descrizione-prodotto";
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
@@ -224,7 +225,12 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     prezzoScritto: numero(fd, "prezzoVendita"),
     // Quanto va al partner: dato interno, vuoto = non indicato (non zero).
     prezzoPartner: testo(fd, "prezzoPartner") ? numero(fd, "prezzoPartner") : null,
-    traduci: fd.get("traduci") != null,
+    // ⭐ 08/09/2026: la spunta è **per negozio** (`traduci:<nome>`), perché le
+    // lingue attive cambiano da un sito all'altro. Resta accettata anche la
+    // vecchia chiave senza nome: un modulo aperto prima del cambiamento e
+    // salvato dopo non deve perdere la scelta.
+    traduci: fd.get("traduci") != null || [...fd.keys()].some((k) => k.startsWith("traduci:")),
+    traduciSu: new Set([...fd.keys()].filter((k) => k.startsWith("traduci:")).map((k) => k.slice(8))),
     definizioni,
     metafield,
     tags,
@@ -276,7 +282,9 @@ async function completaSulNegozio(
       entrate.push(c.id);
     } else avvisi.push(`Non entrato in «${c.titolo}»: ${r.errore}`);
   }
-  if (m.traduci) {
+  // ⚠️ Si traduce **su questo negozio** solo se la sua spunta è accesa: le
+  // lingue sono sue, e chi non le ha non deve pagare una chiamata all'AI.
+  if (m.traduci && (m.traduciSu.size === 0 || m.traduciSu.has(m.negozio.nome))) {
     const t = await traduzioniDi(m, traduzioni);
     if (!t.ok) avvisi.push(`Traduzioni non fatte: ${t.errore}`);
     else {
@@ -341,7 +349,7 @@ async function pubblicaSuAltroNegozio(
   for (const riga of scartiMetafield(metafield, defs)) avvisi.push(`${negozio.nome}: ${riga}`);
   const esito = await creaProdottoSuShopify(token, {
     titolo: m.nome,
-    descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+    descrizioneHtml: await descrizionePerNegozio(m, negozio.nome),
     tipo: "",
     vendor: "",
     tags: m.tags,
@@ -373,7 +381,9 @@ async function pubblicaSuAltroNegozio(
       entrate.push(c.id);
     } else avvisi.push(`${negozio.nome}: non entrato in «${c.titolo}»: ${r.errore}`);
   }
-  if (m.traduci) {
+  // ⚠️ Si traduce **su questo negozio** solo se la sua spunta è accesa: le
+  // lingue sono sue, e chi non le ha non deve pagare una chiamata all'AI.
+  if (m.traduci && (m.traduciSu.size === 0 || m.traduciSu.has(negozio.nome))) {
     const t = await traduzioniDi(m, traduzioni);
     if (t.ok) {
       const r = await registraTraduzioniProdotto(token, esito.prodottoId, t.traduzioni);
@@ -453,7 +463,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
     const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
-      descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+      descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
       tipo: "",
       vendor: "",
       tags: m.tags,
@@ -642,7 +652,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId,
         titolo: m.nome,
-        descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+        descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
         stato: statoVoluto,
         tags: m.tags,
         metafield: metafieldPerShopify(m.metafield, m.definizioni),
@@ -676,7 +686,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
-      descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+      descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
       tipo: "",
       vendor: "",
       tags: m.tags,
@@ -730,7 +740,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId: riga.shopifyId,
         titolo: m.nome,
-        descrizioneHtml: (m.descrizione ?? "").replace(/\n/g, "<br>"),
+        descrizioneHtml: await descrizionePerNegozio(m, n.nome),
         stato: statoVoluto,
         tags: m.tags,
         metafield: metafieldPerShopify(mf, defs),
