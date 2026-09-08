@@ -52,6 +52,29 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 🔴 08/09/2026 (7) — «Pagato da Transactions ma il debito è rimasto»: il webhook lo saltava in silenzio. E il limite del modello che resta aperto
+>
+> Segnalato dall'utente su **MASTROFIORAIO (IL CHIOSCO DEI FIORI), giugno 2026**: la scheda chiedeva ancora 171,18 € da bonificare, con la richiesta a Transactions marcata «Pagata».
+>
+> **LA SEQUENZA (dal registro modifiche, 08/09):** 13:12 annullati i pagamenti del mese (erano 1.647 €) · 13:14 registrato **incasso dal partner 549 €** → `bonificoImporto = −549` · 13:20 richiesto a Transactions **171,18 €** (TRX-2026-000072) · 13:24 Transactions risponde **pagata** («pagata fuori dall'app · motivo: Nicolo tramite vivid» — il partner **non ha IBAN**, né in Finance né nel registro, ed è per questo che il pagamento è avvenuto via Vivid e che un «Paga» premuto dopo veniva rifiutato).
+>
+> **LA CAUSA**: la vecchia guardia del webhook era `pagata && s.bonificoImporto == null`. L'intenzione (scritta nel commento) era «se un operatore l'ha annotato a mano, la sua cifra vince». Ma `bonificoImporto` è **una colonna con due significati opposti** (>0 mandato al partner, <0 ricevuto): giugno non era vuota perché conteneva **l'incasso**, e la guardia ha letto «c'è già» e ha saltato. Luglio, stesso partner e stesso giro, ha funzionato solo perché la sua colonna era `null`.
+> - **Aggravante**: la riga `bonifico annotato: 171.18` veniva scritta **sempre** che lo stato fosse «pagata», anche quando la scrittura era saltata. **Il registro modifiche dichiarava un'annotazione che non c'era**: è il motivo per cui è passato inosservato.
+> - **Estensione misurata**: su 10 mesi con richiesta «pagata», **1 solo** rotto (questo). Gli altri 9 avevano la colonna vuota.
+>
+> **⚠️⚠️ IL MIO ERRORE, E LA LEZIONE (vale per chiunque tocchi questa colonna).** Ho «riparato» il dato sommando: −549 + 171,18 = −377,82. **Sbagliato, e l'ho annullato subito.** Il motore (`calc.ts:132-134`), per un partner **senza compensazione**, divide quella colonna **per segno**: `daIncassare = fatture non saldate − parte NEGATIVA`, `daBonificare = dovuto vendite − parte POSITIVA`. Col netto la parte «ricevuta» scendeva da 549 a 377,82 e **«Da incassare» passava da 0 a 171,18 €**: da un numero sbagliato a due. Ripristinato `bonificoImporto = −549` e il riferimento in `Pagamento` a 549 in entrata (registrato nel registro modifiche come annullamento). **Sommare va bene solo nel ramo della compensazione, dove il mese È un netto: nell'altro ramo il netto distrugge l'informazione che serve.**
+>
+> **CORRETTO NEL CODICE** (`src/app/api/pagamenti/notifica/route.ts`), quattro casi espliciti invece di una guardia sola:
+> 1. richiesta già «pagata» → riconsegna del webhook, non si tocca niente;
+> 2. colonna con un'uscita che copre l'importo → annotata a mano, vince lei;
+> 3. colonna **vuota o con un'uscita minore** → si **somma** (qui il segno non è ambiguo): è il caso che copre luglio e il 90% dei mesi;
+> 4. colonna con un **incasso** (negativa) → **non si scrive**, perché qualunque cifra lì verrebbe letta male dal motore — ma il registro lo **dichiara in rosso** con l'importo («BONIFICO DI x € NON ANNOTATO … va sistemato a mano»), invece di tacere.
+> E la riga del registro dice ora quello che è successo davvero, caso per caso.
+>
+> **🔴 RESTA APERTO — il limite è del MODELLO, e serve una decisione.** Per un partner senza compensazione un mese ha bisogno di **due numeri** (mandato / ricevuto) e la colonna è **una**. Finché è così, **il pagamento di giugno non è registrabile**: la scheda continuerà a mostrare «Da bonificare 171,18 €» anche se i soldi sono usciti davvero.
+> - **Proposta**: sdoppiare `SaldoMensile.bonificoImporto` in **`bonificoInviato`** e **`bonificoRicevuto`** (due colonne ≥ 0). È già il modo in cui `calc.ts` ragiona — oggi le ricava dal segno (`bonificoInviato`/`bonificoRicevuto`, righe 120-121). Migrazione: positivo → `inviato`, negativo → `ricevuto`. Effetto su giugno: inviato 171,18 e ricevuto 549 → `daIncassare` 0 **e** `daBonificare` 0, cioè il mese pareggiato, che è la verità.
+> - ⚠️ È una modifica di schema sul **Postgres condiviso** (18 schemi di app, vedi il bollettino del custode): non si fa in autonomia, e **mai con `prisma db push`** (vedi la trappola del punto 3).
+>
 > ### 🔴 08/09/2026 (6) — «Qualcosa non ha funzionato» in produzione: il database finiva le connessioni. Colpa del PRECARICAMENTO
 >
 > Segnalato dall'utente con lo screenshot della dashboard rotta (rif. `829300725`). **Non era un errore del codice.** Nei log di produzione, 6 volte su 100 eventi:
