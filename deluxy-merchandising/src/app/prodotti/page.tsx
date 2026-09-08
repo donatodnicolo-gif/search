@@ -59,7 +59,7 @@ export default async function ProdottiPage({
     // quella della scheda: misurato l''08/09/2026, fino a 844 giorni di scarto,
     // e il più vecchio su Shopify risale al 2020. I prodotti nati solo qui non
     // hanno quella data e finiscono in coda, ordinati fra loro per data d''app.
-    creato: "creatoIlShopify",
+    creato: "creatoIl", // 08/09/2026: una data sola, allineata a quella di Shopify dove c era
     modificato: "aggiornatoIl",
     nome: "nome",
     categoria: "categoria",

@@ -69,6 +69,8 @@ export type ProdottoIniziale = {
   media: MediaCaricato[];
   metafield: Record<string, string>;
   tags: string[];
+  nomePartner?: string;
+  nomePartnerAttivo?: boolean;
   /** ⭐ 08/09/2026: il plus del prodotto e le sezioni già compilate, per negozio. */
   plusProdotto?: string;
   sezioniScheda?: Record<string, Record<string, string>>;
@@ -191,6 +193,9 @@ export function FormProdottoNuovo({
   const [metafield, setMetafield] = useState<Record<string, string>>(iniziale?.metafield ?? {});
   // ⭐ 08/09/2026 — **I tre punti in cima alla scheda**: il primo lo scrive chi
   // compila (è di questo prodotto), gli altri due vengono dai plus del sito.
+  // ⭐ 08/09/2026: il nome per i partner, con la sua spunta.
+  const [nomePartnerAttivo, setNomePartnerAttivo] = useState(iniziale?.nomePartnerAttivo ?? false);
+  const [nomePartner, setNomePartner] = useState(iniziale?.nomePartner ?? "");
   const [plusProdotto, setPlusProdotto] = useState(iniziale?.plusProdotto ?? "");
   // ⭐ **Le sezioni compilate, per negozio**: { "Gifts": { "Significato": "…" } }.
   // Separate per sito, come deciso dall'utente: lo stesso prodotto si racconta
@@ -414,6 +419,29 @@ export function FormProdottoNuovo({
               Nome <span className="obbligatorio">*</span>
             </label>
             <input id="nome" name="nome" required placeholder="Es. Bouquet Ora Blu" defaultValue={iniziale?.nome ?? ""} />
+            {/* ⭐ 08/09/2026 (utente): «un nome visibile ai partner da flaggare
+                nel caso il nome al pubblico sia diverso». Il nome commerciale
+                racconta, quello di lavorazione dice cosa va nella scatola: il
+                fioraio che riceve «Bouquet Ora Blu» deve poter leggere «rose
+                blu, 12 steli». Spunta esplicita e non «campo pieno = attivo»:
+                un valore rimasto lì da prima non è una decisione. */}
+            <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content", marginTop: 6 }}>
+              <input type="checkbox" name="nomePartnerAttivo" value="1" checked={nomePartnerAttivo} onChange={(e) => setNomePartnerAttivo(e.target.checked)} />
+              <span>Per i partner si chiama diversamente</span>
+            </label>
+            {nomePartnerAttivo && (
+              <input
+                name="nomePartner"
+                value={nomePartner}
+                onChange={(e) => setNomePartner(e.target.value)}
+                maxLength={200}
+                placeholder="Il nome che legge chi lo prepara — es. «Bouquet rose blu, 12 steli»"
+                aria-label="Nome visibile ai partner"
+              />
+            )}
+            {nomePartnerAttivo && !nomePartner.trim() && (
+              <span className="cella-sub">Finché resta vuoto, al partner arriva il nome pubblico.</span>
+            )}
           </div>
           <div className="campo-modulo">
             <label htmlFor="negozio">
@@ -712,6 +740,36 @@ export function FormProdottoNuovo({
           </div>
         </div>
 
+        {/* ⭐ 08/09/2026 (utente): «mostra anche i 3 punti in scheda nuovo o
+            modifica prodotto — il primo tramite il concetto di plus e gli altri
+            due dalle impostazioni». Non una frase che li riassume: i tre punti
+            **come li vedrà il cliente**, in fila, sito per sito.
+            ⚠️ Stanno FUORI dal blocco delle sezioni apposta: le sezioni
+            dipendono dalla categoria, i tre punti no. Tenendoli dentro, su un
+            prodotto nuovo non comparivano finché non si sceglieva la categoria
+            — cioè proprio quando servono, mentre si scrive il plus. */}
+        <div className="tre-punti-siti">
+          {nomiNegoziScelti.map((nomeSito) => {
+            const plus = plusNegozio[nomeSito];
+            return (
+              <div key={nomeSito} className="tre-punti-sito">
+                <div className="cella-sub" style={{ marginBottom: 4 }}>In cima alla scheda su <b>{nomeSito}</b></div>
+                <ul className="tre-punti">
+                  <li className={plusProdotto.trim() ? undefined : "vuoto"}>
+                    {plusProdotto.trim() || "Il plus di questo prodotto — scrivilo qui sopra"}
+                  </li>
+                  <li className={plus?.uno?.trim() ? undefined : "vuoto"}>
+                    {plus?.uno?.trim() || `Secondo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
+                  </li>
+                  <li className={plus?.due?.trim() ? undefined : "vuoto"}>
+                    {plus?.due?.trim() || `Terzo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
+                  </li>
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+
         {!categoria ? (
           <div className="vuoto-mini">
             Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella — i fiori hanno «Significato» e «Dimensioni», le torte
@@ -720,8 +778,6 @@ export function FormProdottoNuovo({
         ) : (
           nomiNegoziScelti.map((nomeSito) => {
             const suoi = sezioniDi(nomeSito);
-            const plus = plusNegozio[nomeSito];
-            const dueRighe = [plus?.uno, plus?.due].filter((x) => x && x.trim());
             const vuote = suoi.filter((s) => s.richiesta && !valoreSezione(nomeSito, s.nome).trim()).length;
             return (
               <div key={nomeSito} className="sezioni-sito">
@@ -729,13 +785,6 @@ export function FormProdottoNuovo({
                   <b>{nomeSito}</b>
                   {vuote > 0 && <span className="cella-sub">{vuote === 1 ? "1 sezione consigliata ancora vuota" : `${vuote} sezioni consigliate ancora vuote`}</span>}
                 </div>
-                <p className="cella-sub" style={{ margin: "0 0 10px" }}>
-                  {dueRighe.length > 0 ? (
-                    <>Gli altri due punti su {nomeSito}: <b>{dueRighe.join(" · ")}</b></>
-                  ) : (
-                    <>Su {nomeSito} i due plus del sito non sono ancora scritti: si impostano in Negozi &amp; permessi, e valgono per tutti i suoi prodotti.</>
-                  )}
-                </p>
                 {suoi.length === 0 ? (
                   <div className="vuoto-mini">
                     Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su questo sito non sono previste sezioni.

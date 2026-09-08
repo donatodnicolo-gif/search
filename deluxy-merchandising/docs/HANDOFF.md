@@ -2,6 +2,58 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 pomeriggio — IMPORT DAL VECCHIO GESTIONALE, I TRE PUNTI A SCHERMO, NOME PER I PARTNER, DATA DI CREAZIONE UNICA
+
+Cinque richieste dell'utente in fila, tutte fatte e verificate.
+
+**1. Plus del prodotto importati — 1.856.** Dal dump `localhost.sql`, colonna
+`product.productAdvantageDesc`. Riconoscimento per SKU (1.768) e per nome
+esatto (206); **73 nomi ambigui e 303 non ritrovati non sono stati indovinati**.
+Scartati 118 valori troppo corti o di una parola sola («ciao», «chantilly»): un
+plus finisce in cima alla scheda che legge il cliente.
+
+**2. Valori delle sezioni importati — 1.667 prodotti, 8.686 caselle.** Di là i
+valori stanno in `product.productCategoryMetaFields` come array **posizionale**,
+allineato all'elenco di `product_category.categoryMetaFields`. Senza una mappa
+di sinonimi si perdevano 1.525 valori sulle sole torte (di là «Ingredienti» e
+«Allergeni» separati, da noi «Ingredienti e Allergeni»): la mappa unisce i testi
+con l'etichetta di provenienza, invece di sovrascriverli. Aggiunte 4 sezioni che
+di là esistevano e qui no («Regala con Deluxy» su torte, fiori e bouquet,
+«Consigli per la consumazione» sulle torte): **54 sezioni in tutto**.
+
+**3. I tre punti si vedono nel modulo**, sito per sito, come li leggerà il
+cliente: il primo è il plus del prodotto e cambia mentre si digita, gli altri
+due arrivano dalle impostazioni del negozio. ⚠️ Stanno **fuori** dal blocco
+delle sezioni: le sezioni dipendono dalla categoria, i tre punti no — tenendoli
+dentro non comparivano su un prodotto nuovo finché non si sceglieva la
+categoria, cioè proprio quando servono. **I due plus del sito ora si scrivono**
+in Impostazioni → il negozio (`NegozioShopify.plusUno/plusDue`).
+
+**4. Nome visibile ai partner.** `Prodotto.nomePartner` + `nomePartnerAttivo`,
+con la spunta esplicita nel modulo. ⚠️ **Dal vecchio gestionale non è arrivato
+niente**: le colonne `alternateProductName` e `isAlternateProductName`
+esistevano, e sono **valorizzate su 0 record su 22.026** — la funzione c'era e
+non è mai stata usata. Verificato, non dedotto.
+
+**5. Data di creazione: una sola.** Prima la tabella *sceglieva* fra
+`creatoIlShopify` e `creatoIl`, e i prodotti nati qui (Concept) finivano in
+fondo all'ordinamento perché non hanno la data del negozio. Ora la data è
+`creatoIl`, e sui **3.657** prodotti che venivano da Shopify è stata riportata
+alla data vera del negozio (la più vecchia: **05/05/2020**) con un solo `UPDATE`.
+`creatoIlShopify` resta, ma solo per dire da dove viene il numero.
+
+**Strumenti nuovi** (`scripts/`): `vecchio-gestionale.ts` è il lettore comune del
+dump — dentro ci sono due trappole già pagate: l'INSERT è **spezzato su più
+righe** (cercando le tuple sulla stessa riga dell'intestazione si leggono zero
+prodotti **senza nessun errore**) e il dump **dichiara latin1 ma i byte sono
+UTF-8** («specialità» → «specialitÃ »). Poi `importa-plus-prodotto.ts`,
+`importa-valori-sezioni.ts`, `importa-nome-partner.ts`,
+`allinea-data-creazione.ts`, `guarda-vecchio.ts`. Tutti hanno la prova a vuoto e
+si possono rilanciare.
+
+⚠️ **Le scritture di massa vanno a blocchi o in un `UPDATE` solo**: 1.856 giri
+singoli sul pooler condiviso da quattordici app sono mezz'ora di connessioni.
+
 ## 08/09/2026 mezzogiorno — DUE CORREZIONI: il tetto di connessioni e la duplicazione che non esisteva
 
 **1. `(EMAXCONN) max client connections reached, limit: 200`.** Dopo il deploy

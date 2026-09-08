@@ -169,6 +169,11 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   // dell'utente). Il plus del prodotto è una riga sola: gli altri due punti
   // sono del sito e stanno sul negozio, non qui — ricopiarli su ogni prodotto
   // avrebbe voluto dire cambiarli in mille posti il giorno che cambiano.
+  // ⭐ 08/09/2026 (utente): il nome per i partner. Il testo si tiene anche a
+  // spunta spenta — chi la riaccende ritrova quello che aveva scritto — ma
+  // vale solo se la spunta è accesa: è la spunta a dire «ho deciso».
+  const nomePartnerAttivo = testo(fd, "nomePartnerAttivo") === "1";
+  const nomePartner = testo(fd, "nomePartner").slice(0, 200).trim() || null;
   const plusProdotto = testo(fd, "plusProdotto").slice(0, 140).trim() || null;
   // Le sezioni arrivano come { "Gifts": { "Significato": "…" } }: si tiene solo
   // ciò che è testo, si buttano i vuoti e si limita la lunghezza. Non si
@@ -192,6 +197,8 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     negozio: negozioOk,
     altriNegozi,
     statiVoluti,
+    nomePartner,
+    nomePartnerAttivo,
     plusProdotto,
     sezioniScheda,
     tuttiNegozi: negozi.filter((n) => n.attivo),
@@ -510,6 +517,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       shopifySyncIl: shopifyId ? new Date() : null,
       handleShopify: handle,
       tagShopify: m.tags.length ? m.tags.join(", ").slice(0, 500) : null,
+      nomePartner: m.nomePartner,
+      nomePartnerAttivo: m.nomePartnerAttivo,
       plusProdotto: m.plusProdotto,
       sezioniScheda: Object.keys(m.sezioniScheda).length ? m.sezioniScheda : undefined,
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
@@ -808,6 +817,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         shopifySyncIl: shopifyId ? new Date() : null,
         handleShopify: handle,
         tagShopify: m.tags.length ? m.tags.join(", ").slice(0, 500) : null,
+        nomePartner: m.nomePartner,
+        nomePartnerAttivo: m.nomePartnerAttivo,
         plusProdotto: m.plusProdotto,
         // In modifica si scrive sempre, anche l'oggetto vuoto: se qualcuno
         // svuota una sezione, quel vuoto è la sua decisione e deve arrivare al

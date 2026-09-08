@@ -51,9 +51,19 @@ export type RigaProdotto = {
  * spacciata per la data del negozio.
  */
 export function dataNascita(p: RigaProdotto): { data: Date | null; dalNegozio: boolean } {
-  if (p.creatoIlShopify) return { data: new Date(p.creatoIlShopify), dalNegozio: true };
-  if (p.creatoIl) return { data: new Date(p.creatoIl), dalNegozio: false };
-  return { data: null, dalNegozio: false };
+  // ⭐ 08/09/2026 (utente): «il valore in tabella è quello della nostra app —
+  // quindi valgono anche i prodotti in concept — e per quelli che erano già
+  // esistenti riempi questo dato con quello di Shopify».
+  //
+  // ⚠️ Prima qui c'era una SCELTA fra due date, e il difetto era che un
+  // prodotto nato in quest'app non ha la data del negozio: ordinando per
+  // «creato» finiva in fondo a cinquemila righe, cioè un Concept appena fatto
+  // spariva. Ora la data è una sola — `creatoIl` — e sui 3.657 prodotti che
+  // venivano da Shopify è stata riportata alla data vera del negozio
+  // (`scripts/allinea-data-creazione.ts`, la più vecchia è del 05/05/2020).
+  // `creatoIlShopify` resta, ma solo per DIRE da dove viene il numero.
+  if (!p.creatoIl) return { data: null, dalNegozio: false };
+  return { data: new Date(p.creatoIl), dalNegozio: !!p.creatoIlShopify };
 }
 
 /**
@@ -183,7 +193,7 @@ export function TabellaProdotti({
                     const n = dataNascita(p);
                     if (!n.data) return "—";
                     return (
-                      <span title={n.dalNegozio ? "Data di creazione sul negozio Shopify" : "Il negozio non dà una data: questa è la data della scheda in quest'app, di norma il giorno dell'import"}>
+                      <span title={n.dalNegozio ? "Data di creazione sul negozio Shopify" : "Nato in quest'app: non viene da nessun negozio"}>
                         {dataIt(n.data)}
                         {n.dalNegozio ? "" : <i className="data-app"> qui</i>}
                       </span>
