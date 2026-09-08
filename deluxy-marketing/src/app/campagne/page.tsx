@@ -23,7 +23,7 @@ import {
   formattaData,
 } from "@/lib/dominio";
 import { formattaQuota, letturaBudget, usoBudget } from "@/lib/budget-usato";
-import { COLORE_VERDETTO, mappaAnalisiPerCampagne } from "@/lib/scheda-analisi";
+import { COLORE_VERDETTO, ETICHETTA_VERDETTO, mappaAnalisiPerCampagne } from "@/lib/scheda-analisi";
 import { nomeCampagna } from "@/lib/gruppi";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
@@ -288,6 +288,97 @@ export default async function PaginaCampagne({
             </span>
           </div>
         )}
+
+        {/* ——— CHE COSA DICONO LE ANALISI DI QUESTE CAMPAGNE ———
+            ⚠️ Chiesto dall'utente l'08/09/2026 su
+            /campagne?brand=gifts&canale=google_ads: «anche qui mi dovrebbe
+            riportare le analisi per queste specifiche campagne». C'era già il
+            pallino colorato «analisi» su ogni card, ma è MUTO: non dice quale
+            analisi, non dice cosa ha detto, e non si può aprire (la card è già
+            un <a>, e un <a> dentro un <a> non è HTML). Il giudizio esterno si
+            vedeva senza poterlo leggere.
+            Stessa mappa delle card (`analisiDelle`), rovesciata: da
+            «campagna → analisi» a «analisi → campagne di cui parla», così i
+            due riquadri non possono raccontare due cose diverse. */}
+        {(() => {
+          const perAnalisi = new Map<
+            string,
+            { titolo: string; quando: Date; righe: { nome: string; verdetto: string; nota: string | null; nominata: boolean }[] }
+          >();
+          for (const c of campagne) {
+            const an = analisiDelle.get(c.id);
+            if (!an) continue;
+            const v = perAnalisi.get(an.analisiId) ?? { titolo: an.titolo, quando: an.dataAnalisi, righe: [] };
+            v.righe.push({ nome: nomeCampagna(c), verdetto: an.verdetto, nota: an.nota, nominata: an.nominata });
+            perAnalisi.set(an.analisiId, v);
+          }
+          const elenco = [...perAnalisi.entries()].sort((a, b) => b[1].quando.getTime() - a[1].quando.getTime());
+          if (campagne.length === 0) return null;
+          if (elenco.length === 0) {
+            return (
+              <section className="scheda">
+                <div className="scheda-titolo">Che cosa dicono le analisi</div>
+                <div className="vuoto-mini">
+                  Nessuna analisi elaborata parla di queste campagne. Le analisi arrivano dalla cartella
+                  Drive e diventano schede col giro notturno: si depositano da <a href="/analisi/nuova">Deposita analisi</a>.
+                </div>
+              </section>
+            );
+          }
+          return (
+            <section className="scheda">
+              <div className="scheda-titolo" style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <span>Che cosa dicono le analisi ({elenco.length})</span>
+                <a className="btn small btn-secondario" href="/analisi">Tutte le analisi</a>
+              </div>
+              <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+                Il giudizio ESTERNO sulle campagne che stai guardando. Le campagne <b>nominate</b>
+                {" "}dall&apos;analisi portano la sua nota; le altre ereditano il verdetto d&apos;insieme del
+                suo brand e canale, ed è scritto sulla riga.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {elenco.map(([id, a]) => {
+                  const nominate = a.righe.filter((r) => r.nominata);
+                  const ereditate = a.righe.filter((r) => !r.nominata);
+                  return (
+                    <div
+                      key={id}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        background: "var(--fill)",
+                        borderLeft: `3px solid ${COLORE_VERDETTO[(nominate[0] ?? a.righe[0]).verdetto as keyof typeof COLORE_VERDETTO]}`,
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                        <b style={{ fontSize: 13 }}>{formattaData(a.quando)}</b>
+                        <a href={`/analisi/${id}`} style={{ color: "var(--blue)", fontSize: 13.5 }}>
+                          {a.titolo} →
+                        </a>
+                      </div>
+                      {nominate.map((r, i) => (
+                        <div key={i} style={{ fontSize: 13, lineHeight: 1.45, marginTop: 6 }}>
+                          <span className="tag-salute" style={{ color: COLORE_VERDETTO[r.verdetto as keyof typeof COLORE_VERDETTO], marginRight: 6 }}>
+                            <span className="dot" />
+                            {ETICHETTA_VERDETTO[r.verdetto as keyof typeof ETICHETTA_VERDETTO] ?? r.verdetto}
+                          </span>
+                          <b>{r.nome}</b>
+                          {r.nota && <span className="cella-muta"> — {r.nota}</span>}
+                        </div>
+                      ))}
+                      {ereditate.length > 0 && (
+                        <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 6 }}>
+                          Non le nomina, ma il suo verdetto d&apos;insieme copre anche:{" "}
+                          {ereditate.map((r) => r.nome).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
 
         {campagne.length === 0 ? (
           <div className="vuoto">Nessuna campagna con questi filtri.</div>

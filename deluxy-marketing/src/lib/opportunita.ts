@@ -94,9 +94,14 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
   }
 
   // 2. Gli alert del doc 11: già rilevati, qui diventano cose da fare.
-  for (const a of d.alert) {
+  // ⚠️ La chiave porta anche l'ID dell'alert: due alert dello STESSO tipo sulla
+  // stessa campagna esistono davvero (A3 e A5 si ripetono), e con la sola
+  // `alert-${tipo}` React ne disegnava uno solo — «two children with the same
+  // key», 400 errori in console e una cosa da fare che spariva dall'elenco
+  // senza che nessuno la togliesse.
+  for (const [i, a] of d.alert.entries()) {
     lista.push({
-      chiave: `alert-${a.tipo}`,
+      chiave: `alert-${a.tipo}-${i}`,
       titolo: `Chiudere l'alert ${a.tipo} su "${d.campagna.nome}"`,
       perche: a.messaggio,
       priorita: a.livello === "rosso" ? "alta" : "media",
