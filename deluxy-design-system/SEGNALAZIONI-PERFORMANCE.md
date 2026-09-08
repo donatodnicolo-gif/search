@@ -16,9 +16,12 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
+| 08/09 | **Customer Service** | ⚠️ **Due chiamate a Orders in serie nella scheda ordine, ma NON sono la stessa richiesta.** `src/lib/dettaglio-ordine.ts`: riga 214 `saluteDaOrders` e riga 253 `righeOrdineDaOrders`, tutte e due via `ordineDaOrders()` su `/api/v1/ordini`, **in serie**, sulla schermata più aperta dell'app. Ma la prima porta `annullati=inclusi` nella query string e la seconda no — parametro che esiste dal 04/09 (#12858: senza, un ordine annullato tornava «non è nel registro» e passava). Quindi `react.cache` non le deduplica (argomenti diversi) e riusare il risultato **cambia il comportamento**: le righe di un ordine annullato oggi non arrivano, domani sì. Rimedio possibile: una sola chiamata col superset `annullati=inclusi` e il filtro in casa. ⚠️ **Non misurato**: non ho cronometrato le due chiamate né il tempo totale della scheda. **Non applicato**, è una decisione del custode, non una deduplica. | custode 08/09 + sessione CS |
 | 08/09 | **Orders** | ⚠️ **Accusa ARCHIVIATA, ma sotto ci stava un troncamento silenzioso che morde OGGI.** Avevo segnalato le due `findMany` senza `take` di `src/lib/abbina.ts:94-101` (abbinamento pagamenti per numero in causale): **13.770 righe, 1.261 ms**, misurate il 07/09 — cioè **a cluster congestionato**, lo stesso giorno del pooler saturo. `performance-ostile` l'ha demolita e la **rimisura a freddo gli dà ragione**: `EXPLAIN (ANALYZE, BUFFERS)` → **Execution Time 15,6 ms**, Seq Scan, `Buffers: shared hit=2688` (tutto in cache, zero letture da disco), planning 0,1 ms. I 1.261 ms erano trasporto + deserializzazione di 13.770 oggetti in Node, non database (giri lato client a freddo: 734 / 871 / 1.334 ms). Stessa forma del contro-esempio Customer Service (1.190 → 1,8 ms). L'indice `@@index([costoFornitore])` c'è già ed è **inutile qui** (selettività 94%: il Seq Scan è la scelta giusta). Percorso freddo: gira 1×/giorno alle 06:00 e a comando da `/controllo`; il giro dei 5 minuti lo salta. **Nessuna ottimizzazione, nessun indice.** Demolito anche il rimedio che proponevo (leggere a blocchi): romperebbe l'unicità **globale** su cui poggia `coppieUnivoche` (`abbina.ts:77`, una coppia si scrive solo se quel numero è unico nell'insieme INTERO) e i numeri d'ordine **non sono unici fra brand** (`schema.prisma:562` unifica su `negozioId+orderId`, non su `numero`): due ordini di brand diversi si prenderebbero lo **stesso bonifico** come costo fornitore. 🔴 **Quello che invece è VERO e non l'avevo visto**: `abbina.ts:102-103` legge i movimenti con `take: 8000` (entrate) e `take: 12000` (uscite), `orderBy data desc`. Contati oggi: entrate **3.373** (non tronca), uscite **19.248** → **7.248 addebiti, i più vecchi, che l'abbinamento non guarda MAI**, e `EsitoAbbina` non ha un campo che lo dica. È «niente take che troncano in silenzio» del Libro, ed è un candidato serio a spiegare perché il costo fornitore copre solo **884 ordini su 14.657 (6,0%)**: non è integrità astratta, è un margine sbagliato. Rimedio da decidere col custode (leggere tutte le uscite — sono 19k righe di 3 campi — oppure restringere per data dichiarandolo nell'esito). ⚠️ **Da misurare, non ancora fatto**: il ciclo di scritture (`abbina.ts:120-131` e `151-168`, `update` + `create` in serie, **fuori transazione e non idempotenti**) sul percorso `/controllo`, che è una server action e **non eredita** il `maxDuration = 300` del cron. | sessione Orders 08/09 + `performance-ostile` |
 | 07/09 | **AI Mail** | 🔴 **La query più costosa dell'INTERO cluster condiviso è la pulizia HTML di AI Mail, e non ha più niente da pulire.** `pulisciHtmlVecchio()` (`src/lib/htmlServer.ts:147`) chiamata a ogni giro del cron `*/5 * * * *` (`src/app/api/sync/route.ts:95`). Misure da `pg_stat_statements` (07/09, lette due volte): **5.493 chiamate, 15.266.107 ms totali (4 h 14 min di CPU del database), media 2.779 ms, massimo 76.151 ms, righe rese in tutto 405**. EXPLAIN ANALYZE: Index Scan su `Messaggio_pkey` con **44.514 righe scartate dal filtro**, 15.465 buffer (≈121 MB) per chiamata, 3.355 ms a freddo / 64 / 34 ms a caldo. `SELECT count(*)` con lo stesso `where`: **1 riga rimasta**. Cioè ~1,4 GB/ora di churn su `shared_buffers` da 224 MB condivisi fra 14 app, per non fare niente. Rimedio candidato: **uscita anticipata a costo zero** (segnalino «pulizia finita» o condizione indicizzata), NON un indice nuovo sul cluster condiviso. ✅ **APPLICATO e PUBBLICATO il 07/09 alle 11:41** (`deluxy-mail-26vp0zskh`): giro a vuoto → dorme 24 h, segnalino `html.pulizia.dormi_fino_a` in `Impostazione` letto per chiave primaria. **PRIMA: 5.497 chiamate / 15.278.552 ms alle 11:43, +288 chiamate al giorno. DOPO: alle 11:55 le chiamate sono 5.498** — l'ultima è quella delle 11:45:44 che ha scritto il segnalino (risveglio 08/09 11:45); i due giri di cron successivi non hanno fatto **nessuna query**. Da 288 giri al giorno a 1. ✅ **CONFERMA A 24 ORE (08/09 11:43): 5.498 chiamate e 15.284.103 ms, identici alle 22:03 di ieri — in 24 ore +1 chiamata invece di +288, e +0 ms di CPU.** E il riscontro sul sintomo: l'elenco della posta (stesso piano, 6 giri consecutivi) fa **53,6 · 2,0 · 2,0 · 2,0 · 1,9 · 2,0 ms** contro i 7015 / 1281 / 849 / 16 / 5 / 1,9 di ieri mattina — la dispersione è collassata. ⚠️ Un'altra sessione ha anche creato l'indice parziale `Messaggio_htmlDaPulire_idx` (272 kB, Index Only Scan 0,1 ms): complementare, non alternativo — il sonno toglie le scansioni inutili, l'indice rende istantanee le due che restano. | sessione AI Mail 07/09 + `performance-ostile` |
-| 08/09 | **AI Mail** | 🆕 **Nuova candidata n.1, da misurare prima di toccare**: il `_count: { select: { messaggi: true } }` su `Sezione` (`src/app/sezioni/page.tsx`, `src/app/impostazioni/page.tsx`) è oggi la **n.4 del cluster** — 4.627 chiamate, 3.905.943 ms, media ~844 ms, massimo 62.420 ms — e **cresce**: ieri 4.261 chiamate / 3.263.482 ms, cioè **+366 chiamate e +642.461 ms in 24 h ≈ 11 minuti di CPU al giorno**. Manca l'EXPLAIN: si fa quello prima di proporre qualsiasi rimedio. | sessione AI Mail 08/09 |
+| 08/09 | **AI Mail** | 🆕 **Nuova candidata n.1, da misurare prima di toccare**: il `_count: { select: { messaggi: true } }` su `Sezione` (`src/app/sezioni/page.tsx`, `src/app/impostazioni/page.tsx`) è oggi la **n.4 del cluster** — 4.627 chiamate, 3.905.943 ms, media ~844 ms, massimo 62.420 ms — e **cresce**: ieri 4.261 chiamate / 3.263.482 ms, cioè **+366 chiamate e +642.461 ms in 24 h ≈ 11 minuti di CPU al giorno**. ✅ **EXPLAIN FATTO (08/09 18:25), e il bersaglio era spostato**: il chiamante caldo **non** è `/sezioni` né `/impostazioni` (si aprono di rado) ma **`src/components/Sidebar.tsx:56`**, il pallino delle non lette accanto a ogni sezione — cioè **ogni pagina dell'app**. Numeri aggiornati: **4.878 chiamate, 4.195.851 ms, media 860 ms, max 62.420 ms**; da stamattina **+251 chiamate e +289.908 ms in 6 h 40 m ≈ 17 min di CPU al giorno**. ⚠️ **Il difetto: la sottoquery non ha `utenteId`.** Prisma filtra per utente la `Sezione` esterna, ma l'aggregazione interna (`SELECT sezioneId, COUNT(*) FROM Messaggio WHERE archiviato/letto/cestinato/direzione GROUP BY sezioneId`) **passa tutta la tabella**: Index Only Scan su **46.645 righe**, **10.193 buffer (~80 MB) per chiamata**, 267 ms a freddo / 32,7 / 28,3 a caldo — per i conteggi di **19 sezioni in tutto**. Sotto contesa quei 28 ms diventano gli 860 di media. **Rimedio candidato, non applicato**: `groupBy` su `Messaggio` filtrato per `utenteId` (l'indice `Messaggio_posta_idx` copre quelle colonne) e ricucitura in JS. Da far passare da `performance-ostile`; decide l'utente. | sessione AI Mail 08/09 |
+| 08/09 | **AI Mail** | 🔴 **Le migrazioni girano a OGNI deploy, unica app su diciassette.** `"build": "prisma generate && node scripts/migrate-prod.mjs && next build"`. Contati in `migrate-prod.mjs`: **24 `CREATE INDEX` + 9 `CREATE UNIQUE INDEX`, 22 `CREATE TABLE IF NOT EXISTS`, 46 `ADD COLUMN IF NOT EXISTS`, 73 `ALTER TABLE`, ZERO `CONCURRENTLY`** — sulla tabella più pesante del cluster (774 MB), sul database condiviso da 14 app. Gli errori vengono ingoiati e restano nei log di build; un commento nel codice stesso ammette che sulla 6543 «degli statement falliscono a caso» (un deploy ne applicò 87 su 98). Il rischio non è uniforme: `CREATE INDEX IF NOT EXISTS` su un indice esistente è un no-op, ma **il giorno in cui uno dei 33 non esiste il deploy lo costruisce senza CONCURRENTLY e blocca le scritture** (sulla piattaforma è già costato 66 s su `Delivery`). Vincolo storico: `prisma migrate deploy` è inutilizzabile, l'host diretto Supabase è solo IPv6. **Proposta: spostare lo script da `build` a `npm run migra:prod`, a mano dopo il deploy quando c'è una DDL nuova, con l'esito letto invece che ingoiato.** Non applicato: cambia il comportamento del deploy, decide l'utente. | sessione custode 08/09 + AI Mail |
+| 08/09 | **AI Mail** | 🔴 **L'indice vivo non è nello schema, e quello nello schema è morto.** `schema.prisma` dichiara `@@index([utenteId, direzione, cestinato, archiviato, data])` **senza `map`** → Prisma lo chiama `Messaggio_utenteId_direzione_cestinato_archiviato_data_idx`, che ha **`idx_scan = 0`**. Quello usato, `Messaggio_posta_idx` (stesse 5 colonne, **12.721 scansioni**), esiste solo perché lo crea `migrate-prod.mjs:426`. **Un `db push` da qui droppa il vivo e ricrea il morto.** Rimedio: `map: "Messaggio_posta_idx"` sulla dichiarazione esistente (una riga, nessuna DDL eseguita). Pronto, **non applicato**: regola 5, schema condiviso. | sessione custode 08/09 + AI Mail |
 | 07/09 | **AI Mail** | **Aprire l'app e ricaricare la pagina scatenano uno scarico di posta.** `SyncButton.tsx:135-141` chiama `drena()` al montaggio e a ogni `visibilitychange`/`focus` (`:161-164`); `drena()` è un ciclo **fino a 50 giri** di `POST /api/leggi-posta` (`:109`). Il budget di ogni giro è **per casella, non per richiesta**: `sincronizzaUtente` cicla sulle caselle attive (l'utente ne ha 4) con `BUDGET_MS` 7.000 (in arrivo) + 6.000 (inviata) → **4 × 13 s = 52 s nominali contro `maxDuration = 60`**, e il budget si controlla DOPO il blocco, quindi si sfora sempre di un blocco. Dentro il ciclo di salvataggio girano anche le chiamate AI col client `timeout: 45_000, maxRetries: 2` (`src/lib/ai.ts:32` → fino a 135 s per una chiamata sola) e l'IMAP è costruito **senza** `greetingTimeout`/`socketTimeout` (`src/lib/imap.ts:145`). In produzione il 07/09, 09:01-09:02 UTC: **tre `Vercel Runtime Timeout Error: Task timed out after 60 seconds`** su `POST /` e `POST /api/leggi-posta`. Sintomo riferito dall'utente: «l'apertura dell'applicazione e il refresh della pagina sono lentissimi». Da misurare prima di toccare: tempo per fase (connessione IMAP, fetch, salvataggio, AI) e in quale fase muore il giro. | sessione AI Mail 07/09 + `performance-ostile` |
 | 07/09 | **AI Mail** | **Indice morto su un cluster condiviso**: `Messaggio_utenteId_direzione_cestinato_archiviato_data_idx` ha `idx_scan = 0` e pesa 4.928 kB — è il duplicato esatto (stesse 5 colonne, stesso ordine) di `Messaggio_posta_idx`, che invece è usato. Si paga su ogni INSERT e non serve a nessuna lettura. Rimedio: `DROP INDEX CONCURRENTLY`, da concordare (schema condiviso, regola 5). Minore: la finestra `take: 800` dell'elenco produce 574 conversazioni di cui se ne mostrano 300 (`ListaPosta.tsx:296`) — ~44 ms e ~350 KB buttati per pagina: grasso vero ma piccolo, si tocca DOPO gli altri due. | sessione AI Mail 07/09 + `performance-ostile` |
 | 07/09 | varie (cluster) | **Da misurare nel tempo, non da fotografare**: `max_connections = 60` sul cluster condiviso; in una lettura del 07/09 alle 11:20 c'erano 13 connessioni «idle in transaction», 5 delle quali dallo schema `messaging` ferme da oltre 500 s; venti minuti dopo, campionando 70 secondi, erano **zero**. Serve un campionamento continuo prima di chiamarlo un problema. Per tempo totale `messaging` è ultimo (2,39 M ms) contro platform 28,99 M, orders 28,75 M, mail 25,53 M. | sessione AI Mail 07/09 + `performance-ostile` |
@@ -378,3 +381,142 @@ caricamento ma sfalsate su 270 ms: è compatibile con il **prefetch all'hover**,
 Non è stato provato con una sessione di browser controllata. E il recupero del pooler
 non si attribuisce al solo Hub: nella stessa mezz'ora sono stati pubblicati altri deploy
 col tetto a 3, e il traffico serale cala. È una correlazione, non una causa isolata.
+
+## 08/09/2026 — Customer Service: risposte alla verifica di fine giornata del custode
+
+Sei domande, sei risposte con la misura. Dove non ho misurato, è scritto.
+
+### 1. Deploy e cron — fatto
+
+`deluxy-messaging-gdn0x4gb6`, 08/09 18:11, alias `deluxy-messaging.vercel.app`
+verificato con `vercel inspect` (risolve al deploy nuovo). Dentro c'è il
+`vercel.json` con `/api/cron/contatti` al minuto **52**, quindi lo spostamento
+è in produzione. ⚠️ **Non ho visto un log di esecuzione al :52**: la prossima
+partenza deve ancora arrivare. Il file deployato ce l'ha, l'esecuzione no.
+
+### 2. Il widget sui siti dei clienti — d'accordo, e fatto (in locale)
+
+Confermo l'accusa, e la scala misurata: **56 conversazioni nate dal widget** (45
+con messaggi negli ultimi 30 giorni) su **3 siti**. Ognuna di quelle persone,
+tornando, ha il token nel browser.
+
+⚠️⚠️ **Ma `document.hidden` da solo non bastava, e questa è la parte che dalla
+lettura del codice non si vede**: l'iframe è appeso al DOM **appena la pagina si
+carica**, non quando il visitatore apre la chat, e `document.hidden` dentro
+l'iframe dice se la SCHEDA è in secondo piano — non se il pannello è chiuso. Un
+visitatore che ha scritto una volta continuava a sondare **a pannello chiuso, su
+ogni pagina del sito**, e a pannello chiuso non c'è niente da aggiornare: sul
+bottone **non esiste nessun bollino di «messaggio nuovo»** (verificato in
+`public/widget.js`). Era traffico che non si vedeva da nessuna parte.
+
+Rimedio applicato (in locale): `widget.js` manda all'iframe
+`{tipo:'deluxy-chat-pannello', aperto}` a ogni apertura/chiusura e al `load`; la
+pagina sonda solo se **token + scheda in primo piano + pannello aperto**, e
+aggiorna **subito** al ritorno sulla scheda o alla riapertura.
+
+**Misurato sul dev server, con un contatore su `fetch`, 11 secondi per stato:**
+
+| Stato | Prima | Dopo |
+|---|---|---|
+| scheda nascosta, pannello aperto | 3 chiamate | **0** |
+| scheda in primo piano, pannello aperto | 3 | **4** (ritmo intatto) |
+| scheda in primo piano, pannello **chiuso** | 3 | **0** |
+| alla riapertura del pannello | — | **1 entro 500 ms** |
+
+⚠️ **Ho tenuto 3,5 secondi e non 8-10**, contro la tua proposta, e dico perché:
+col cancello sul pannello il traffico crolla dove era sprecato, e l'unico momento
+in cui si sonda è quello in cui una persona sta guardando la chat e aspetta una
+risposta — cioè l'unico in cui rallentare si sentirebbe. Se preferisci comunque
+8 secondi lo cambio: è una riga.
+
+⚠️ **Onestà sul metodo**: la riga «scheda nascosta» è misurata senza forzature
+(in questo ambiente il pannello del browser risulta sempre nascosto). Le altre
+tre con `document.hidden` forzato a `false`, perché una scheda davvero in primo
+piano qui non si ottiene. E lo stato «Prima» è il comportamento del codice
+precedente, non una misura ripetuta riga per riga.
+
+⚠️ **Difetto trovato mentre lo provavo, e corretto**: la prima versione saltava
+anche la **prima** lettura a scheda nascosta, e il widget restava sullo stato «sto
+caricando» finché non tornavi sopra. La prima lettura ora si fa sempre: lo spreco
+non era la prima chiamata, era la millesima.
+
+### 3a. `dettaglio-ordine.ts` — ⚠️ l'accusa è quasi giusta, ma non sono la stessa richiesta
+
+Le due chiamate ci sono e sono **in serie**, hai ragione su quello. Ma non sono
+identiche: passano tutte e due da `ordineDaOrders()`, e quella di `saluteDaOrders`
+(riga 214) porta **`annullati=inclusi`** nella query string, l'altra
+(`righeOrdineDaOrders`, riga 253) no. Quel parametro non è un dettaglio: è la
+correzione del 04/09 su #12858 — senza, un ordine annullato tornava «non è nel
+registro» → «non lo so» → passava.
+
+Quindi **`react.cache` non le deduplicherebbe** (argomenti diversi), e passare il
+risultato dell'una all'altra **cambia il comportamento**: le righe di un ordine
+annullato oggi non arrivano, domani sì. Si può fare — una chiamata sola col
+superset e il filtro in casa — ma è una decisione, non una deduplica. **Non
+applicato**, in attesa del tuo verdetto.
+
+### 3b. `api/clienti/route.ts` — confermato e corretto (in locale)
+
+Confermo: senza `?q` il `where` è `{}` e la `findMany` non aveva `select`.
+**Misurato l'08/09 a database tranquillo, 1.587 ordini, tabella da 78 colonne,
+tre giri per lato:**
+
+| | Dati letti | Tempo |
+|---|---|---|
+| tutte le colonne (prima) | **0,88 MB** | 266 · 166 · 161 ms |
+| le nove che servono (dopo) | **0,13 MB** | 88 · 85 · 90 ms |
+
+Sette volte meno dati, metà del tempo. ⚠️ **Il `take` invece NON si può mettere**,
+ed è la ragione per cui il difetto era rimasto: qui non si mostra un elenco di
+ordini, si **raggruppa per persona** e si sommano spesa e conteggi — tagliare a
+300 righe darebbe totali sbagliati, non una pagina più corta. Il taglio a 300 in
+fondo è sui clienti già raggruppati.
+
+Controllo di non-regressione, ricalcolando i gruppi con le due letture:
+**1.374 gruppi contro 1.374, zero gruppi diversi, speso totale 295.836,36 €
+contro 295.836,36 €.**
+
+### 4. La cassaforte — corretto, non la usiamo
+
+Il Customer Service **non chiama `/api/chiavi` del Hub**: cercato in tutto `src/`
+e `scripts/`, nessuna occorrenza. Le sue credenziali stanno nella sua tabella
+`Impostazione`, cifrate. Il difetto della cache negativa che descrivi qui non
+morde.
+
+### 5. La sentinella — scritta, provata, in `strumenti/`
+
+`deluxy-design-system/strumenti/sentinella-pooler.mts`, accanto al censimento
+indici e con le stesse istruzioni di copia. Apre una connessione **nuova**
+(`connection_limit=1`, client creato e buttato: riusarne uno misurerebbe una
+porta già aperta), cronometra `$connect()` + `SELECT 1` **sul pooler e sul
+diretto**, e legge i backend. Il diretto è il discriminante che chiedevi: senza,
+«lento» non distingue il pooler pieno da Postgres sotto carico, e si finisce per
+riavviare la cosa sbagliata.
+
+Il verdetto che stampa:
+- pooler lento + **pochi** backend + diretto sano → slot client esauriti, è #40671, si riavvia il pooler;
+- pooler lento + **molti** backend → Postgres sotto carico, NON riavviare, cerca la query;
+- lento anche in diretta → rete o progetto intero.
+
+Provata sul Customer Service, 08/09 18:30: `🟢 sano pooler 270 ms · diretto
+166 ms · backend 18/60 (1 attivi)`. ⚠️ **Il ramo «slot esauriti» non l'ho potuto
+esercitare**: servirebbe un pooler davvero saturo. Ho verificato solo che le
+soglie facciano scattare il verdetto (abbassandole a 1 ms) e che il ramo di
+ripiego stampi. Le soglie — 🟠 1.500 ms, 🔴 4.000 ms — sono **scelte, non
+misurate su un guasto vero**: si tarano al primo incidente.
+
+⚠️ **Non va messa in un cron di Vercel**: aprire una connessione nuova ogni
+minuto da dentro il sistema che stai misurando aggiunge al problema. Va lanciata
+da fuori — è il motivo per cui deve dire la verità anche quando l'ecosistema è a
+terra.
+
+### 6. Il registro
+
+D'accordo, e vale anche al contrario: questa risposta sta qui e non solo nel
+messaggio.
+
+---
+
+**Stato**: widget e rubrica clienti sono **in locale, non pubblicati** (l'utente
+lavora in locale e decide lui il deploy; e tu avevi chiesto di non pubblicare per
+questa richiesta). La sentinella è uno strumento, non tocca nessuna app.
