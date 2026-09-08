@@ -183,6 +183,73 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
         </div>
 
         <!-- ============================================================
+             ORARI E CHIUSURE PER GIORNO (⭐ 08/09/2026, regola utente: «in profilo del
+             partner consenti di impostare l'orario di apertura o la chiusura su specifici
+             giorni»)
+             ------------------------------------------------------------
+             ⚠️ Questo NON è l'orario settimanale (quello lo tiene l'ufficio): è
+             l'eccezione di UN giorno preciso — il ponte, l'inventario, il matrimonio del
+             figlio. Vale piu' dell'orario di sempre, e dal 08/09 vale anche piu' delle
+             fasce generate: prima le fasce vincevano, e per 34 partner l'eccezione
+             sarebbe rimasta lettera morta.
+             ============================================================ -->
+        <div class="card sez orari">
+          <h2>{{ 'profilo.orari.titolo' | translate }}</h2>
+          <p class="muted">{{ 'profilo.orari.intro' | translate }}</p>
+
+          <div class="orari-nuovo">
+            <label class="fld"><span>{{ 'profilo.orari.giorno' | translate }}</span>
+              <input class="field" type="date" name="eccData" [(ngModel)]="nuovaEcc.date" [min]="oggiIso()" /></label>
+            <label class="check chiuso">
+              <input type="checkbox" name="eccChiuso" [(ngModel)]="nuovaEcc.closed" />
+              <span>{{ 'profilo.orari.chiuso' | translate }}</span>
+            </label>
+            @if (!nuovaEcc.closed) {
+              <label class="fld"><span>{{ 'profilo.orari.dalle' | translate }}</span>
+                <input class="field ora" type="time" name="eccDa" [(ngModel)]="nuovaEcc.openTime" /></label>
+              <label class="fld"><span>{{ 'profilo.orari.alle' | translate }}</span>
+                <input class="field ora" type="time" name="eccA" [(ngModel)]="nuovaEcc.closeTime" /></label>
+            }
+            <label class="fld nota"><span>{{ 'profilo.orari.nota' | translate }}</span>
+              <input class="field" name="eccNota" [(ngModel)]="nuovaEcc.note"
+                     [attr.placeholder]="'profilo.orari.notaEsempio' | translate" /></label>
+            <button type="button" class="btn btn-primary" [disabled]="salvando() || !eccValida()"
+                    (click)="salvaEccezione()">{{ 'profilo.orari.salva' | translate }}</button>
+          </div>
+
+          @if (eccezioni().length) {
+            <table class="tab-orari">
+              <thead><tr>
+                <th>{{ 'profilo.orari.colGiorno' | translate }}</th>
+                <th>{{ 'profilo.orari.colOrario' | translate }}</th>
+                <th>{{ 'profilo.orari.colNota' | translate }}</th>
+                <th></th>
+              </tr></thead>
+              <tbody>
+                @for (e of eccezioni(); track e.date) {
+                  <tr>
+                    <td><b>{{ giornoLungo(e.date) }}</b></td>
+                    <td>
+                      @if (e.closed) {
+                        <span class="pill-chiuso">{{ 'profilo.orari.chiusoBadge' | translate }}</span>
+                      } @else {
+                        {{ e.openTime || '—' }} – {{ e.closeTime || '—' }}
+                      }
+                    </td>
+                    <td class="muted">{{ e.note || '' }}</td>
+                    <td><button type="button" class="x" (click)="togliEccezione(e.date)"
+                                [attr.title]="'common.remove' | translate">✕</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="muted mini">{{ 'profilo.orari.vuoto' | translate }}</p>
+          }
+          @if (esitoOrari(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
+        </div>
+
+        <!-- ============================================================
              COORDINATE BANCARIE (⭐ 08/09/2026, regola utente)
              ------------------------------------------------------------
              ⚠️ Stanno in un riquadro LORO, staccato da «Contatti del negozio» e col
@@ -313,6 +380,20 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
     .banca-attesa p { margin: 0 0 8px; font-size: 13.5px; }
     .banca-codice { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
     .banca-codice .codice { max-width: 160px; font-size: 20px; letter-spacing: 6px; text-align: center; }
+    /* ⭐ 08/09/2026 — orari per giorno: la riga di inserimento su una linea sola, che
+       si spezza da sola quando non ci sta. */
+    .orari-nuovo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 12px 0; }
+    .orari-nuovo .field { min-width: 0; }
+    .orari-nuovo .ora { max-width: 130px; }
+    .orari-nuovo .nota { flex: 1 1 200px; }
+    .orari-nuovo .chiuso { display: inline-flex; align-items: center; gap: 6px; padding-bottom: 8px; }
+    .tab-orari { width: 100%; max-width: 640px; border-collapse: collapse; margin-top: 6px; }
+    .tab-orari th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 8px 6px; }
+    .tab-orari td { padding: 6px 8px; vertical-align: middle; font-size: 13.5px; border-top: 1px solid var(--hairline); }
+    .tab-orari .x { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text-tertiary); font-size: 14px; }
+    .tab-orari .x:hover { color: var(--red, #d70015); }
+    .pill-chiuso { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px;
+      background: rgba(215,0,21,0.10); color: var(--red, #d70015); font-weight: 600; }
     .cond-lettura { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 10px 0; font-size: 13.5px; }
     .cond-lettura dt { color: var(--text-secondary); }
     .cond-lettura dd { margin: 0; font-weight: 550; }
@@ -364,7 +445,7 @@ export class ProfiloComponent {
         if (this.partner && !Array.isArray(this.partner.pickupAddresses)) this.partner.pickupAddresses = [];
         this.consegna = ((this.partner?.consegnaProvince ?? []) as { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[]).map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine ?? null, raggioKm: r.raggioKm ?? null }));
         this.caricamento.set(false);
-        if (this.partner?.id) this.caricaBanca();
+        if (this.partner?.id) { this.caricaBanca(); this.caricaEccezioni(); }
       },
       error: () => this.caricamento.set(false),
     });
@@ -410,6 +491,80 @@ export class ProfiloComponent {
         consegnaProvince: this.partner.autoDeliveredByPartner ? this.consegna.map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine === null || (r.minimoOrdine as unknown) === '' ? null : Number(r.minimoOrdine), raggioKm: r.raggioKm === null || (r.raggioKm as unknown) === '' ? null : Number(r.raggioKm) })) : [],
       } : {}),
     } }, this.esitoNegozio);
+  }
+
+  // ============================================================
+  // ORARI E CHIUSURE PER GIORNO (⭐ 08/09/2026, regola utente)
+  // ============================================================
+  readonly eccezioni = signal<{ date: string; closed: boolean; openTime: string | null; closeTime: string | null; note: string | null }[]>([]);
+  readonly esitoOrari = signal<{ ok: boolean; testo: string } | null>(null);
+  nuovaEcc: { date: string; closed: boolean; openTime: string; closeTime: string; note: string } =
+    { date: '', closed: false, openTime: '', closeTime: '', note: '' };
+
+  oggiIso(): string { return new Date().toISOString().slice(0, 10); }
+
+  /** «giovedì 11 settembre»: una data scritta 2026-09-11 non si legge, si decifra. */
+  giornoLungo(iso: string): string {
+    const d = new Date(iso + 'T12:00:00');
+    return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  /**
+   * ⚠️ Un giorno APERTO senza orari non è un'eccezione: è una riga che non dice niente.
+   * Chiuso invece si regge da solo — è proprio l'informazione.
+   */
+  eccValida(): boolean {
+    if (!this.nuovaEcc.date) return false;
+    if (this.nuovaEcc.closed) return true;
+    return !!this.nuovaEcc.openTime && !!this.nuovaEcc.closeTime
+      && this.nuovaEcc.openTime < this.nuovaEcc.closeTime;
+  }
+
+  private caricaEccezioni(): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    // Da oggi in avanti: il passato non si cambia e riempirebbe l'elenco.
+    this.http.get<any[]>(`${environment.apiUrl}/partners/${id}/day-exceptions?from=${this.oggiIso()}`)
+      .subscribe({
+        next: (r) => this.eccezioni.set(r ?? []),
+        error: () => this.eccezioni.set([]),
+      });
+  }
+
+  salvaEccezione(): void {
+    const id = this.partner?.id;
+    if (!id || !this.eccValida()) return;
+    this.salvando.set(true);
+    this.esitoOrari.set(null);
+    const body = this.nuovaEcc.closed
+      ? { date: this.nuovaEcc.date, closed: true, note: this.nuovaEcc.note || undefined }
+      : { date: this.nuovaEcc.date, closed: false, openTime: this.nuovaEcc.openTime,
+          closeTime: this.nuovaEcc.closeTime, note: this.nuovaEcc.note || undefined };
+    this.http.put(`${environment.apiUrl}/partners/${id}/day-exceptions`, body).subscribe({
+      next: () => {
+        this.salvando.set(false);
+        this.esitoOrari.set({ ok: true, testo: this.translate.instant('profilo.orari.salvato') });
+        this.nuovaEcc = { date: '', closed: false, openTime: '', closeTime: '', note: '' };
+        this.caricaEccezioni();
+      },
+      error: (err) => {
+        this.salvando.set(false);
+        this.esitoOrari.set({ ok: false, testo: err?.error?.message ?? 'Errore' });
+      },
+    });
+  }
+
+  togliEccezione(date: string): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    this.salvando.set(true);
+    this.http.delete(`${environment.apiUrl}/partners/${id}/day-exceptions/${date}`).subscribe({
+      next: () => { this.salvando.set(false); this.caricaEccezioni(); },
+      error: (err) => {
+        this.salvando.set(false);
+        this.esitoOrari.set({ ok: false, testo: err?.error?.message ?? 'Errore' });
+      },
+    });
   }
 
   // ============================================================

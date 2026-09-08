@@ -398,6 +398,24 @@ Il presidio che si ripete: «da lunedì a venerdì 7–8 per un partner». Si sc
 - Admin/Operation vedono tutte le attività; Team Leader vede le proprie e quelle dei valet delle sue province; il Valet vede solo le proprie.
 - Ogni consegna genera un ritiro + una consegna; stesso indirizzo con più ritiri = più attività di ritiro e una consegna. Il furgoncino giallo imposta "in consegna" e sblocca la consegna. SEARCH cerca su qualsiasi campo.
 
+#### Profilo del partner: orari e chiusure per giorno **[08/09/2026]**
+
+Il partner imposta da sé, dal proprio Profilo, un **orario diverso** o la **chiusura**
+per un giorno preciso — un ponte, un inventario, una festa. Si sceglie la data, si spunta
+«chiuso tutto il giorno» oppure si scrivono le due ore, e si può aggiungere una nota.
+L'elenco mostra i giorni da oggi in avanti; ogni riga si toglie con la ×.
+
+⚠️ **Questa eccezione vale più di tutto il resto**: più dell'orario settimanale (che tiene
+l'ufficio) e più delle fasce di disponibilità generate. Fino al 08/09 era il contrario, e
+per i **34 partner con fasce future** (102.874 in tutto, generate in massa) l'eccezione
+sarebbe rimasta lettera morta: il partner dichiarava di chiudere e continuava a ricevere
+proposte. La regola è: fra un dato scritto apposta per quel giorno e uno generato in
+blocco, vince quello scritto apposta.
+
+Vale sia per lo **smistamento** (a chi si propone una vendita) sia per il **tabellone
+Disponibilità**: le due letture devono dire la stessa cosa, o il tabellone mostrerebbe
+aperto un partner a cui l'app non propone niente.
+
 #### Profilo del partner: coordinate bancarie col codice, condizioni di pagamento in lettura **[08/09/2026]**
 
 **Coordinate bancarie.** Nel Profilo il partner ha un riquadro suo per IBAN e intestatario

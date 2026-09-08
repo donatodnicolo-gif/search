@@ -125,11 +125,10 @@ export class AvailabilityService {
 
     const righePartner: Riga[] = partners.map((p) => {
       const base = { id: p.id, nome: p.insegna, citta: p.city ?? null };
-      const s = slotPer.get(p.id);
-      if (s?.length) {
-        const { aperto, fasce } = daFasce(s);
-        return { ...base, aperto, fasce, origine: 'giorno' as const };
-      }
+      // ⭐ 08/09/2026: l'ECCEZIONE viene PRIMA della fascia, come nello smistamento
+      // (sales.module.ts). Le due cascate devono dire la stessa cosa, o il tabellone
+      // mostrerebbe «aperto» per un partner a cui lo smistamento non propone niente — e
+      // chi guarda non avrebbe modo di accorgersene.
       const e = eccPer.get(p.id);
       if (e) {
         return {
@@ -138,6 +137,11 @@ export class AvailabilityService {
           fasce: e.closed ? [] : [{ dalle: e.openTime, alle: e.closeTime }],
           origine: 'eccezione' as const,
         };
+      }
+      const s = slotPer.get(p.id);
+      if (s?.length) {
+        const { aperto, fasce } = daFasce(s);
+        return { ...base, aperto, fasce, origine: 'giorno' as const };
       }
       const w = settPPer.get(p.id);
       if (w) {

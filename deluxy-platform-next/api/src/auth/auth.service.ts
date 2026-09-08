@@ -333,7 +333,29 @@ export class AuthService {
     if (body.partner && user.partnerId && partners) {
       const p: Record<string, unknown> = {};
       const tel = s(body.partner.phone, 40); if (tel !== undefined) { p['phone'] = tel; cambiati.push('telefono negozio'); }
-      const em = s(body.partner.email, 160)?.toLowerCase(); if (em) { p['email'] = em; cambiati.push('email negozio'); }
+      /**
+       * ⚠️ 08/09/2026 (segnalato dall'agente ostile, regola utente: «valida
+       * body.partner.email») — IL RECAPITO DEL NEGOZIO VA VALIDATO COME QUELLO DELL'ACCOUNT.
+       *
+       * Il controllo del formato c'era solo per l'email dell'ACCOUNT (qui sopra), e
+       * `@IsEmail()` del DTO non si applica: questa strada chiama `partners.update()` con
+       * un oggetto costruito a mano, quindi fuori dal ValidationPipe. Un partner poteva
+       * puntare il proprio recapito su qualunque stringa — e ciclare le richieste di
+       * cambio IBAN per far partire mail verso terzi dalla nostra casella: contenuto
+       * fisso, quindi non inganno su misura, ma reputazione del mittente bruciata.
+       *
+       * ⚠️ E il recapito del negozio è l'indirizzo a cui arriva il codice del cambio
+       * coordinate bancarie: qui non si valida un campo qualsiasi, si valida la casella
+       * su cui poggia quella verifica.
+       */
+      const em = s(body.partner.email, 160)?.toLowerCase();
+      if (em) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+          throw new BadRequestException("L'email del negozio non è in un formato valido.");
+        }
+        p['email'] = em;
+        cambiati.push('email negozio');
+      }
       const ind = s(body.partner.address, 300); if (ind !== undefined) { p['address'] = ind; cambiati.push('indirizzo negozio'); }
       // Indirizzi di ritiro aggiuntivi (02/09, regola utente): lista di
       // stringhe, ripulita e con un tetto — anche la lista VUOTA è un valore

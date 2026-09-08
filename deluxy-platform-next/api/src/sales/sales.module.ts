@@ -2879,7 +2879,31 @@ export class SalesService {
       Date.UTC(quando.getFullYear(), quando.getMonth(), quando.getDate()),
     );
 
-    // 1) fasce del giorno specifico
+    /**
+     * ⭐ 08/09/2026 — L'ECCEZIONE VINCE SULLA FASCIA (regola utente: il partner imposta
+     * dal profilo l'orario o la chiusura di un giorno preciso).
+     *
+     * ⚠️ Prima l'ordine era invertito, e la cosa NON era teorica: **34 partner hanno
+     * 102.874 fasce future** (`PartnerDaySlot`) — nessuno le ha scritte una per una, sono
+     * generate in massa. Per tutti loro un'eccezione impostata a mano sarebbe stata
+     * semplicemente ignorata: il partner dichiarava «giovedì chiudo», l'app continuava a
+     * proporgli consegne, e nessuno avrebbe capito perché.
+     *
+     * La regola: fra un dato scritto APPOSTA per quel giorno e uno generato in blocco,
+     * vince quello scritto apposta. Un'eccezione esiste solo se qualcuno l'ha creata a
+     * mano per quella data; una fascia c'è perché c'è per tutti i giorni dell'anno.
+     *
+     * ⚠️ Il cambio è sicuro sul campo, non solo in teoria: le eccezioni future oggi in
+     * archivio sono **ZERO**, quindi nessun partner cambia comportamento da adesso.
+     * Misurato prima di invertire.
+     */
+    // 1) eccezione del giorno specifico: è una decisione presa per QUESTO giorno
+    const ecc = await this.prisma.partnerDayException.findUnique({
+      where: { partnerId_date: { partnerId, date: giorno } },
+    });
+    if (ecc) return ecc.closed ? false : this.siSovrappone(finestra, ecc.openTime, ecc.closeTime);
+
+    // 2) fasce del giorno specifico (generate: calendario di disponibilità)
     const fasce = await this.prisma.partnerDaySlot.findMany({
       where: { partnerId, date: giorno },
     });
@@ -2888,12 +2912,6 @@ export class SalesService {
       if (!utili.length) return false; // giorno dichiarato chiuso
       return utili.some((f) => this.siSovrappone(finestra, f.timeFrom, f.timeTo));
     }
-
-    // 2) eccezione del giorno specifico
-    const ecc = await this.prisma.partnerDayException.findUnique({
-      where: { partnerId_date: { partnerId, date: giorno } },
-    });
-    if (ecc) return ecc.closed ? false : this.siSovrappone(finestra, ecc.openTime, ecc.closeTime);
 
     // 3) orari settimanali
     if (!settimanali.length) return true; // nessun orario configurato: sempre aperto

@@ -1581,6 +1581,23 @@
       "aVista": "a vista",
       "aVistaFattura": "a vista fattura",
       "chiLeCambia": "Sono un accordo fra due parti: per cambiarle si rivolga al suo referente Deluxy."
+    },
+    "orari": {
+      "titolo": "Orari e chiusure per giorno",
+      "intro": "Qui imposta un orario diverso o la chiusura per un giorno preciso — un ponte, un inventario, una festa. Vale più del suo orario di sempre, e l'app smette di proporle consegne per quel giorno.",
+      "giorno": "Giorno",
+      "chiuso": "Chiuso tutto il giorno",
+      "chiusoBadge": "Chiuso",
+      "dalle": "Dalle",
+      "alle": "Alle",
+      "nota": "Nota (facoltativa)",
+      "notaEsempio": "es. inventario",
+      "salva": "Aggiungi",
+      "salvato": "Salvato.",
+      "colGiorno": "Giorno",
+      "colOrario": "Orario",
+      "colNota": "Nota",
+      "vuoto": "Nessun giorno speciale impostato: valgono i suoi orari di sempre."
     }
   },
   "deliveryForm": {

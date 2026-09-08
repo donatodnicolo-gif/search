@@ -1579,6 +1579,23 @@
       "aVista": "on sight",
       "aVistaFattura": "on sight of invoice",
       "chiLeCambia": "These are agreed between two parties: to change them, speak to your Deluxy contact."
+    },
+    "orari": {
+      "titolo": "Day-specific hours and closures",
+      "intro": "Set different hours or a closure for a specific day — a bank holiday, stocktaking, an event. It overrides your usual hours, and we stop offering you deliveries that day.",
+      "giorno": "Day",
+      "chiuso": "Closed all day",
+      "chiusoBadge": "Closed",
+      "dalle": "From",
+      "alle": "To",
+      "nota": "Note (optional)",
+      "notaEsempio": "e.g. stocktaking",
+      "salva": "Add",
+      "salvato": "Saved.",
+      "colGiorno": "Day",
+      "colOrario": "Hours",
+      "colNota": "Note",
+      "vuoto": "No special days set: your usual hours apply."
     }
   },
   "deliveryForm": {
