@@ -73,8 +73,11 @@ export type ProdottoIniziale = {
   /** ⭐ 07/09/2026: gli altri negozi (id) in cui il prodotto è o va pubblicato, oltre al principale. */
   altriNegoziId: string[];
   /** Dove sta già, negozio per negozio: per dirlo accanto alla scelta. */
-  pubblicazioni: { negozio: string; shopifyId: string | null; statoShopify: string | null; errore: string | null; origine: string }[];
+  pubblicazioni: { negozio: string; shopifyId: string | null; statoShopify: string | null; statoVoluto?: string | null; errore: string | null; origine: string }[];
 };
+
+/** Come si chiamano gli stati di Shopify quando li legge una persona. */
+const ETICHETTA_STATO_NEGOZIO: Record<string, string> = { ACTIVE: "attivo", DRAFT: "bozza", ARCHIVED: "archiviato" };
 
 const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
 
@@ -162,6 +165,13 @@ export function FormProdottoNuovo({
   const [nomeOpzione, setNomeOpzione] = useState(iniziale?.nomeOpzione || "Formato");
   const [varianti, setVarianti] = useState<VarianteForm[]>(iniziale?.varianti.length ? iniziale.varianti : [varianteVuota()]);
   const [metafield, setMetafield] = useState<Record<string, string>>(iniziale?.metafield ?? {});
+  // ⭐ 08/09/2026: lo **stato voluto** negozio per negozio. Parte da quello già
+  // deciso in precedenza, non da quello letto sul sito: è una scelta, non una
+  // fotografia — e la differenza fra i due è la cosa ancora da fare.
+  const [statiVoluti, setStatiVoluti] = useState<Record<string, string>>(
+    Object.fromEntries((iniziale?.pubblicazioni ?? []).map((p) => [p.negozio, p.statoVoluto ?? ""]))
+  );
+  const negoziDelProdotto = [...new Set((iniziale?.pubblicazioni ?? []).filter((p) => p.shopifyId).map((p) => p.negozio))].sort();
   // Tag (chiesti dall'utente): quelli del prodotto, coi suggerimenti presi
   // dai tag già in uso sui prodotti importati dal negozio.
   const [tags, setTags] = useState<string[]>(iniziale?.tags ?? []);
@@ -396,6 +406,48 @@ export function FormProdottoNuovo({
               <span className="cella-sub">
                 Con la fase <b>Pubblico</b> il prodotto nasce anche su questi negozi, con gli stessi SKU, prezzi e varianti, le loro collezioni e i loro campi; le foto
                 si copiano dal negozio principale. Togliendo un negozio in cui è già pubblicato, là torna bozza (non si cancella).
+              </span>
+            </div>
+          )}
+
+          {/* **Lo stato, negozio per negozio** (08/09/2026, richiesta dell'utente:
+              «in modifica prodotto non è presente la possibilità di impostare lo
+              stato», e «lo stato può essere diverso per ogni negozio»).
+              Comandiamo noi: quello che si sceglie qui viene **imposto al sito**
+              al salvataggio. Accanto si legge com'è adesso là, così si vede
+              subito se la scelta è già realtà o è una cosa da fare. */}
+          {modifica && negoziDelProdotto.length > 0 && (
+            <div className="campo-modulo largo">
+              <label>Stato su ogni negozio</label>
+              <div className="stati-negozio">
+                {negoziDelProdotto.map((nome) => {
+                  const st = statoSu(nome);
+                  const ora = st?.statoShopify ?? null;
+                  const scelto = statiVoluti[nome] ?? "";
+                  return (
+                    <div key={nome} className="stato-negozio-riga">
+                      <b>{nome}</b>
+                      <select
+                        name={`stato:${nome}`}
+                        value={scelto}
+                        onChange={(e) => setStatiVoluti((s) => ({ ...s, [nome]: e.target.value }))}
+                      >
+                        <option value="">Lascia com&apos;è{ora ? ` (${ETICHETTA_STATO_NEGOZIO[ora] ?? ora})` : ""}</option>
+                        <option value="ACTIVE">Attivo — in vendita sul sito</option>
+                        <option value="DRAFT">Bozza — non visibile ai clienti</option>
+                        <option value="ARCHIVED">Archiviato — fuori catalogo</option>
+                      </select>
+                      {scelto && ora && scelto !== ora && (
+                        <span className="cella-sub">da {ETICHETTA_STATO_NEGOZIO[ora] ?? ora} → si scrive sul negozio al salvataggio</span>
+                      )}
+                      {scelto && ora === scelto && <span className="cella-sub">è già così</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="cella-sub">
+                Un prodotto può essere attivo su un sito e in bozza su un altro. Quello che scegli qui viene scritto sul negozio: la fase del ciclo di vita qui sopra
+                resta la nostra, e riguarda il prodotto nel suo insieme.
               </span>
             </div>
           )}
