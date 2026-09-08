@@ -14,6 +14,38 @@ import { DELIVERY_CLOSED_STATUSES, DELIVERY_STATUS_LABELS, Delivery, Province, V
 import { detectProvince } from '../core/province.util';
 import { DeliveryMapComponent } from './delivery-map.component';
 
+/**
+ * ⭐ 08/09/2026 — RICERCA AVANZATA: i tipi del catalogo che arriva dal server.
+ * Il server e' la fonte: campi, tipo e operatori li dichiara `filtri-avanzati.ts` in
+ * API, ed e' lo stesso file che poi li valida. Qui si ricevono, non si riscrivono.
+ */
+export interface CampoFiltro {
+  chiave: string;
+  tipo: 'testo' | 'numero' | 'data' | 'scelta' | 'booleano' | 'prodotto';
+  etichetta: string;
+  operatori: string[];
+  valori: string[] | null;
+}
+export interface CatalogoFiltri {
+  max: number;
+  campi: CampoFiltro[];
+  operatori: Record<string, string[]>;
+}
+export interface Condizione {
+  campo: string;
+  operatore: string;
+  valore?: string;
+  valore2?: string;
+}
+
+/** Gli operatori come si leggono in italiano nel chip di riepilogo. */
+const OPERATORI_IT: Record<string, string> = {
+  contiene: 'contiene', non_contiene: 'non contiene', uguale: 'è', inizia: 'inizia per',
+  diverso: 'non è', uno_di: 'è uno di', maggiore: 'maggiore di', minore: 'minore di',
+  tra: 'tra', dopo: 'dopo il', prima: 'prima del',
+  vuoto: 'è vuoto', non_vuoto: 'è valorizzato', vero: 'sì', falso: 'no',
+};
+
 /** Icona per tipo di servizio (stroke 24x24, stile shell). */
 const SERVICE_ICONS: Record<string, string> = {
   PREZZO_FISSO: '<rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M4 11h16M12 7v13M8 7l1.5-3h5L16 7"/>',
@@ -114,6 +146,13 @@ interface PropostaVendita {
             {{ 'filters.clear' | translate }}
           </button>
         }
+        <!-- ⭐ 08/09/2026 (regola utente): la RICERCA AVANZATA. Sta accanto a «Filtri»
+             perche' e' la stessa famiglia di gesti, ma resta un bottone a se': apre un
+             pop-up, non un pannello, e le sue condizioni si vedono poi come chip. -->
+        <button type="button" class="quick-tab ricerca-btn" [class.active]="condizioniValide().length > 0"
+                (click)="apriRicerca()">
+          {{ 'deliveries.ricerca.apri' | translate }}@if (condizioniValide().length) { ({{ condizioniValide().length }}) }
+        </button>
         <div class="pannello-filtri" [class.aperto]="filtriAperti()">
         @if (partnerFiltro()) {
           <!-- ⚠️ Un elenco ridotto deve dire da COSA (Libro §5): senza questo
@@ -121,6 +160,15 @@ interface PropostaVendita {
           <button type="button" class="chip-filtro" (click)="togliFiltroPartner()"
                   [title]="'deliveries.partnerFilter.remove' | translate">
             {{ 'deliveries.partnerFilter.label' | translate:{ nome: partnerNome() ?? '…' } }}
+            <span class="x" aria-hidden="true">×</span>
+          </button>
+        }
+        <!-- ⚠️ Un elenco ristretto deve dire da COSA (Libro §5): ogni condizione della
+             ricerca avanzata si vede come chip, e la × la toglie senza riaprire il pop-up. -->
+        @for (c of condizioniValide(); track $index) {
+          <button type="button" class="chip-filtro" (click)="togliCondizioneApplicata($index)"
+                  [title]="'deliveries.ricerca.togli' | translate">
+            {{ descriviCondizione(c) }}
             <span class="x" aria-hidden="true">×</span>
           </button>
         }
@@ -642,6 +690,85 @@ interface PropostaVendita {
       </div>
     }
 
+    <!-- ============================================================
+         POP-UP DELLA RICERCA AVANZATA (08/09/2026, regola utente)
+         ------------------------------------------------------------
+         Ogni riga e' una condizione: campo, operatore, valore. Si sommano in AND.
+         ⚠️ Si applica con «Applica», non a ogni tasto premuto: filtrare mentre si
+         scrive vorrebbe dire una richiesta per carattere sul database condiviso, e
+         un elenco che salta sotto gli occhi di chi sta ancora componendo la domanda.
+         ============================================================ -->
+    @if (ricercaAperta()) {
+      <div class="overlay" (click)="ricercaAperta.set(false)"></div>
+      <div class="modal card ricerca-modal" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <h2>{{ 'deliveries.ricerca.titolo' | translate }}</h2>
+          <button type="button" class="modal-close" (click)="ricercaAperta.set(false)"
+                  [attr.aria-label]="'common.close' | translate">×</button>
+        </div>
+        <p class="modal-sub">{{ 'deliveries.ricerca.sub' | translate }}</p>
+
+        @if (!catalogo()) {
+          <p class="muted">{{ 'deliveries.ricerca.caricamento' | translate }}</p>
+        } @else {
+          @for (c of bozza; track $index) {
+            <div class="cond-riga">
+              <select class="field cond-campo" [ngModel]="c.campo" (ngModelChange)="cambiaCampo(c, $event)"
+                      [name]="'campo' + $index">
+                @for (k of campiCatalogo(); track k.chiave) {
+                  <option [value]="k.chiave">{{ k.etichetta }}</option>
+                }
+              </select>
+              <select class="field cond-op" [(ngModel)]="c.operatore" [name]="'op' + $index">
+                @for (o of operatoriDi(c); track o) {
+                  <option [value]="o">{{ traduciOperatore(o) }}</option>
+                }
+              </select>
+              @if (!senzaValore(c.operatore)) {
+                @if (campoDi(c.campo)?.valori; as elenco) {
+                  <select class="field cond-val" [(ngModel)]="c.valore" [name]="'val' + $index">
+                    <option value="">—</option>
+                    @for (v of elenco; track v) { <option [value]="v">{{ v }}</option> }
+                  </select>
+                } @else {
+                  <input class="field cond-val" [type]="tipoInput(c)" [(ngModel)]="c.valore"
+                         [name]="'val' + $index"
+                         [attr.placeholder]="'deliveries.ricerca.valore' | translate" />
+                }
+                @if (dueValori(c.operatore)) {
+                  <input class="field cond-val" [type]="tipoInput(c)" [(ngModel)]="c.valore2"
+                         [name]="'val2' + $index"
+                         [attr.placeholder]="'deliveries.ricerca.valore2' | translate" />
+                }
+              }
+              <button type="button" class="icon-btn" (click)="togliCondizione($index)"
+                      [title]="'deliveries.ricerca.togli' | translate">✕</button>
+            </div>
+          }
+          @if (!bozza.length) {
+            <p class="muted">{{ 'deliveries.ricerca.nessuna' | translate }}</p>
+          }
+          <button type="button" class="btn btn-secondary mini"
+                  [disabled]="bozza.length >= (catalogo()!.max)"
+                  (click)="aggiungiCondizione()">
+            + {{ 'deliveries.ricerca.aggiungi' | translate }}
+          </button>
+          @if (bozza.length >= catalogo()!.max) {
+            <p class="cond-tetto">{{ 'deliveries.ricerca.tetto' | translate: { n: catalogo()!.max } }}</p>
+          }
+        }
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="svuotaRicerca()">
+            {{ 'deliveries.ricerca.svuota' | translate }}
+          </button>
+          <button type="button" class="btn btn-primary" [disabled]="!bozzaValida()" (click)="applicaRicerca()">
+            {{ 'deliveries.ricerca.applica' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- Pop-up ASSEGNA: valet con la provincia della consegna abilitata -->
     @if (assignFor(); as d) {
       <div class="overlay" (click)="assignFor.set(null)"></div>
@@ -1128,6 +1255,20 @@ interface PropostaVendita {
       .legend-text .sep { color: var(--text-tertiary); }
 
       /* Pop-up (Assegna / Additional valet) */
+      /* ⭐ 08/09/2026 — RICERCA AVANZATA. Il pop-up e' piu' largo delle altre modali
+         perche' una condizione e' una FRASE (campo, operatore, valore) e spezzarla su
+         tre righe la renderebbe illeggibile; sotto i 680px va in colonna, dove leggerla
+         a righe e' l'unica forma possibile. */
+      .ricerca-modal { width: min(720px, 94vw); }
+      .cond-riga { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+      .cond-riga .cond-campo { flex: 1 1 34%; min-width: 0; }
+      .cond-riga .cond-op { flex: 0 1 22%; min-width: 0; }
+      .cond-riga .cond-val { flex: 1 1 26%; min-width: 0; }
+      .cond-tetto { margin: 6px 0 0; font-size: 12px; color: var(--text-tertiary); }
+      @media (max-width: 680px) {
+        .cond-riga { flex-wrap: wrap; }
+        .cond-riga .cond-campo, .cond-riga .cond-op, .cond-riga .cond-val { flex: 1 1 100%; }
+      }
       .overlay {
         position: fixed;
         inset: 0;
@@ -2661,6 +2802,7 @@ export class DeliveriesListComponent {
     if (this.partnerFiltro()) n++;
     if (this.modello()) n++;
     if (this.servizio()) n++;
+    n += this.condizioniValide().length;
     return n;
   }
 
@@ -2671,8 +2813,145 @@ export class DeliveriesListComponent {
     this.servizio.set('');
     this.dateTo = '';
     this.dateFilter = this.oggi();
+    this.condizioni.set([]);
     this.page.set(1);
     if (this.partnerFiltro()) { this.togliFiltroPartner(); return; }
+    this.reload();
+  }
+
+  // ============================================================
+  // RICERCA AVANZATA (08/09/2026, regola utente: «consenti di aggiungere filtri di
+  // ricerca anche in consegne, con un pop-up che permette di aggiungere varie
+  // condizioni di ricerca»)
+  // ------------------------------------------------------------
+  // Le linguette in cima rispondono alle domande frequenti. Questo pop-up risponde a
+  // quelle strette — «senza valet, questa settimana, a Roma», «sopra i 100 € col DDT
+  // di quel brand» — che prima si risolvevano scorrendo l'elenco a mano.
+  //
+  // ⚠️ Il catalogo dei campi arriva DAL SERVER (`GET /deliveries/filtri-avanzati`),
+  // che e' anche chi li valida: due elenchi, uno qui e uno di la', divergerebbero al
+  // primo campo aggiunto, e l'interfaccia offrirebbe filtri che il server rifiuta.
+  // ============================================================
+  readonly ricercaAperta = signal(false);
+  readonly catalogo = signal<CatalogoFiltri | null>(null);
+  /** Le condizioni APPLICATE (quelle che filtrano l'elenco). */
+  readonly condizioni = signal<Condizione[]>([]);
+  /** La copia su cui si lavora dentro il pop-up: si applica solo con «Applica». */
+  bozza: Condizione[] = [];
+
+  apriRicerca(): void {
+    // La bozza parte da quello che e' gia' applicato: aggiungere una condizione a una
+    // ricerca in corso non deve cancellare le altre.
+    this.bozza = this.condizioni().map((c) => ({ ...c }));
+    if (!this.bozza.length) this.aggiungiCondizione();
+    this.ricercaAperta.set(true);
+    if (!this.catalogo()) {
+      this.http.get<CatalogoFiltri>(`${environment.apiUrl}/deliveries/filtri-avanzati`).subscribe({
+        next: (c) => this.catalogo.set(c),
+        // ⚠️ Senza catalogo il pop-up non sa cosa offrire: si dice, invece di mostrare
+        // menu vuoti che sembrano «non si puo' filtrare per niente».
+        error: () => this.catalogo.set(null),
+      });
+    }
+  }
+
+  campiCatalogo(): CampoFiltro[] { return this.catalogo()?.campi ?? []; }
+
+  campoDi(chiave: string): CampoFiltro | null {
+    return this.campiCatalogo().find((c) => c.chiave === chiave) ?? null;
+  }
+
+  /** Gli operatori del campo scelto: cambiando campo cambiano, e vanno riallineati. */
+  operatoriDi(c: Condizione): string[] {
+    return this.campoDi(c.campo)?.operatori ?? [];
+  }
+
+  /** Un operatore che non vuole un valore («vuoto», «si/no»): il campo valore sparisce. */
+  senzaValore(op: string): boolean {
+    return op === 'vuoto' || op === 'non_vuoto' || op === 'vero' || op === 'falso';
+  }
+
+  /** «Tra» vuole due estremi: compare il secondo campo. */
+  dueValori(op: string): boolean { return op === 'tra'; }
+
+  tipoInput(c: Condizione): string {
+    const t = this.campoDi(c.campo)?.tipo;
+    return t === 'numero' ? 'number' : t === 'data' ? 'date' : 'text';
+  }
+
+  aggiungiCondizione(): void {
+    if (this.bozza.length >= (this.catalogo()?.max ?? 10)) return;
+    const primo = this.campiCatalogo()[0];
+    this.bozza = [...this.bozza, {
+      campo: primo?.chiave ?? 'ddtNumber',
+      operatore: primo?.operatori?.[0] ?? 'contiene',
+      valore: '', valore2: '',
+    }];
+  }
+
+  togliCondizione(i: number): void {
+    this.bozza = this.bozza.filter((_, k) => k !== i);
+  }
+
+  /** Cambiato il campo, l'operatore di prima puo' non valere piu': si riporta al primo. */
+  cambiaCampo(c: Condizione, chiave: string): void {
+    c.campo = chiave;
+    const ops = this.operatoriDi(c);
+    if (!ops.includes(c.operatore)) c.operatore = ops[0] ?? '';
+    c.valore = ''; c.valore2 = '';
+  }
+
+  /**
+   * Le condizioni COMPLETE. Una riga senza valore non e' «tutti»: e' una riga a meta',
+   * e mandarla al server farebbe rispondere un errore mentre chi guarda sta scrivendo.
+   */
+  condizioniValide(): Condizione[] {
+    return this.condizioni().filter((c) => {
+      if (!c.campo || !c.operatore) return false;
+      if (this.senzaValore(c.operatore)) return true;
+      if (String(c.valore ?? '').trim() === '') return false;
+      if (this.dueValori(c.operatore) && String(c.valore2 ?? '').trim() === '') return false;
+      return true;
+    });
+  }
+
+  bozzaValida(): boolean {
+    const salva = this.condizioni();
+    this.condizioni.set(this.bozza);
+    const ok = this.condizioniValide().length === this.bozza.length && this.bozza.length > 0;
+    this.condizioni.set(salva);
+    return ok;
+  }
+
+  applicaRicerca(): void {
+    this.condizioni.set(this.bozza.map((c) => ({ ...c })));
+    this.ricercaAperta.set(false);
+    this.reload();
+  }
+
+  svuotaRicerca(): void {
+    this.bozza = [];
+    this.condizioni.set([]);
+    this.ricercaAperta.set(false);
+    this.reload();
+  }
+
+  /** Il chip di riepilogo: un elenco ristretto deve dire da COSA (Libro §5). */
+  descriviCondizione(c: Condizione): string {
+    const campo = this.campoDi(c.campo)?.etichetta ?? c.campo;
+    const op = this.traduciOperatore(c.operatore);
+    if (this.senzaValore(c.operatore)) return `${campo} ${op}`;
+    if (this.dueValori(c.operatore)) return `${campo} ${op} ${c.valore}–${c.valore2}`;
+    return `${campo} ${op} «${c.valore}»`;
+  }
+
+  traduciOperatore(op: string): string {
+    return OPERATORI_IT[op] ?? op;
+  }
+
+  /** Toglie una condizione gia' applicata dal suo chip, senza riaprire il pop-up. */
+  togliCondizioneApplicata(i: number): void {
+    this.condizioni.set(this.condizioni().filter((_, k) => k !== i));
     this.reload();
   }
 
@@ -2703,6 +2982,11 @@ export class DeliveriesListComponent {
       params = params.set('dateTo', this.dateTo);
     }
     if (this.query.trim()) params = params.set('q', this.query.trim());
+    // ⭐ 08/09/2026: le condizioni della ricerca avanzata viaggiano come JSON in `cond`.
+    // Solo quelle COMPLETE: una riga a meta' (campo scelto, valore ancora vuoto) non deve
+    // svuotare l'elenco mentre chi guarda sta ancora scrivendo.
+    const cond = this.condizioniValide();
+    if (cond.length) params = params.set('cond', JSON.stringify(cond));
     const partner = this.partnerFiltro();
     if (partner) params = params.set('partnerId', partner);
     // Team leader su «Solo io»: si passa il PROPRIO valetId (il server lo

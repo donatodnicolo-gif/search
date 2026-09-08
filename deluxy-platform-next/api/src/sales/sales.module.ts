@@ -2966,6 +2966,12 @@ export class SalesService {
       productId?: string | null;
       productVariantId?: string | null;
       variantName?: string | null;
+      /**
+       * ⭐ 08/09/2026 — LA PROVINCIA DELLA VENDITA, che diventa quella della consegna.
+       * Vedi il commento sul campo `provinceId` piu' sotto: senza, la consegna nasce
+       * senza territorio e sparisce dall'ambito dei team leader.
+       */
+      provinceId?: string | null;
       product?: { name: string; sku: string | null; publicPrice: number | null } | null;
     },
     variante?: { id: string; name: string; price: number | null; publicPrice: number | null } | null,
@@ -3131,6 +3137,23 @@ export class SalesService {
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
         pickupAddress: indirizzoRitiro,
+        /**
+         * ⭐ 08/09/2026 (segnalazione utente: «possibile il valet di nome Sami team
+         * leader a Roma non veda gli ordini?») — LA CONSEGNA NASCE CON LA SUA PROVINCIA.
+         *
+         * ⚠️ Qui `provinceId` non veniva scritto affatto, e la vendita ce l'ha gia'
+         * (è la provincia con cui si sceglie il partner e si legge il patto). Dal 02/09
+         * l'ambito del team leader è TERRITORIALE — `provinceId in [le sue]` — quindi
+         * una consegna senza provincia non appartiene a nessun territorio e non compare
+         * a nessun capo squadra. Non dà errore: e' una riga che semplicemente non c'e'.
+         *
+         * Misurato l'08/09 sul caso segnalato: le consegne #101169 e #101170, nate alle
+         * 12:15 e 12:17 dalle vendite accettate di Fioravanti, indirizzi «Roma, RM»,
+         * ANCORA DA ASSEGNARE — invisibili al team leader di Roma, cioe' proprio a chi
+         * doveva assegnarle. Le consegne create dal modulo dell'ufficio la provincia ce
+         * l'hanno (geocodifica, 28/08): mancava solo su questa strada.
+         */
+        provinceId: vendita.provinceId ?? undefined,
         // ⭐ 07/09/2026: sul contrassegno il valet deve sapere che incassa, e quanto.
         // Il servizio da solo non basta: il flag e l'importo sono quello che l'app gli
         // mostra prima di mettersi in consegna.

@@ -3,6 +3,26 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🪗 **08/09/2026 (34) — IL TEAM LEADER DI ROMA NON VEDEVA LE CONSEGNE NATE DALLE VENDITE** (segnalazione utente: «possibile il valet di nome Sami team leader a Roma non veda gli ordini?»). In locale, `tsc` verde, **da pubblicare**.
+> - **Misurato**: Sami Nicolas Chakroun, valet attivo, `isTeamLeader = true`, `teamLeaderProvinces = [RM]`, utente `snchakroun01@gmail.com` attivo. Vede **185 consegne attive** (non zero: la segnalazione «non vede gli ordini» è vera solo per una parte).
+> - **Il buco**: dal 02/09 l'ambito del team leader è TERRITORIALE (`provinceId in [le sue]`), ma `sales.module.ts → creaConsegna()` **non scriveva `provinceId`**. Le consegne nate dall'accettazione di una vendita nascono senza territorio e non compaiono a nessun capo squadra — senza errore, semplicemente non ci sono.
+> - **Il caso vero**: #101169 e #101170, create l'08/09 alle 12:15 e 12:17 dalle vendite di Fioravanti, indirizzi «00162 Roma RM» e «00193 Rome RM», **ancora da assegnare** — cioè proprio il lavoro del team leader — invisibili a Sami.
+> - **La correzione**: `provinceId: vendita.provinceId ?? undefined` nella `delivery.create` di `creaConsegna`. La vendita la provincia ce l'ha già (è quella con cui si sceglie il partner e si legge il patto): non si deduce niente, si smette di buttarla via.
+> - ⚠️ **Resta lo storico**: 32.006 consegne su 62.778 (51%) non hanno `provinceId`; fra le ATTIVE sono 3.181, di cui **62 con indirizzo romano** (quasi tutte Chanel 2024). 🔖 Da decidere col custode se ricalcolarle (geocodifica in blocco) o lasciarle: sono passato, e l'ufficio le vede comunque.
+> - ⚠️ Le consegne create dal modulo dell'ufficio la provincia ce l'hanno (geocodifica, 28/08): negli ultimi 30 giorni **99%** valorizzata, e il restante 1% sono indirizzi ESTERI.
+
+> 🪗 **08/09/2026 (33) — RICERCA AVANZATA NELLE CONSEGNE** (regola utente: «consenti di aggiungere filtri di ricerca anche in consegne, con un pop-up che permette di aggiungere varie condizioni di ricerca»). In locale, `tsc` + `ng build` verdi, **da collaudare col login**.
+> - **API**: `api/src/deliveries/filtri-avanzati.ts` — lista bianca di **44 campi** con tipo (testo, numero, data, scelta, booleano, prodotto) e operatori ammessi per tipo. Query `?cond=[{campo,operatore,valore,valore2}]`, **massimo 10 condizioni**, sempre in **AND** con lo scope di ruolo.
+> - ⚠️ Il valore non tocca mai SQL: diventa un oggetto Prisma tipizzato. Fuori dalla lista bianca, di proposito: `internalNotes` (il PARTNER non deve poterle sondare a tentativi) e `trackingToken` (è la chiave del link pubblico: «inizia per» lo indovinerebbe un pezzo alla volta).
+> - **Rotta**: `GET /deliveries/filtri-avanzati` dà il catalogo (campi, tipi, operatori). Il pop-up si costruisce da lì invece di ricopiarsi l'elenco: un elenco solo, quello che poi valida.
+> - **Web**: bottone «Ricerca avanzata (N)» accanto a «Filtri», pop-up con righe campo/operatore/valore, chip di riepilogo con la × per togliere una condizione senza riaprire. Si applica con «Applica», non a ogni tasto.
+> - 🔖 Da provare col login: «Valet è vuoto» + «Giorno della consegna dopo il …», e «Prodotto in consegna contiene rosa».
+
+> 🪗 **08/09/2026 (32) — PREZZO PARTNER E PRODUTTORE NEL MODULO CONSEGNA** (regola utente: «nel form di nuova o modifica consegna del prodotto mostra anche il prezzo partner del prodotto che viene listato e il partner produttore»). In locale, build verde.
+> - Nella tendina di ricerca prodotto ogni riga porta a destra **prezzo partner** e **insegna del produttore**; dopo la scelta i due dati restano scritti sotto il campo (l'input mostra solo il nome).
+> - Il prezzo è quello della **variante** quando la riga ne ha una (Cappelliera base 110 €, M 215 €): mostrare il prezzo base accanto a una variante scelta sarebbe scrivere un numero che nessuno pagherà.
+> - ⚠️ Il produttore **non è sempre il partner della consegna**: chi fa il prodotto e chi lo porta possono essere due. Senza proprietario si legge «generico» (catalogo Deluxy).
+
 > ✅ **08/09/2026 (31) — IVA SULLA QUOTA TOLTA DUE VOLTE NEL RECAP: CORRETTO E LIVE** (`delivery-2wx13dm1l`, pushato `ff4c0c27`; verificato che la funzione compilata contenga la formula nuova e non più la vecchia; dopo il deploy 8 richieste su 8 buone, home 200, `GET /invoices/recap/:partnerId` risponde 401) (segnalazione utente su Amir; `tsc` verde).
 > - **Il difetto**: `quotaDeluxy` era `venduto − dovutoAlPartner`, ma `dovuto()` vale `valoreProdotti − conIva(quota)` — quindi quella differenza è la quota **con l'IVA dentro**. Sopra ci si applicava `soloIva()` (che tratta l'argomento come imponibile) e si sottraeva di nuovo dal dovuto: seconda detrazione.
 > - **Perché era nato**: il 29/08 (`f5c0c0cc`) `nettoAlPartner = dovuto − IVA(quota)` era **giusto**, perché allora `dovuto = venduto − trattenuto` (imponibile). Poi `dovuto` è passato a `venduto − conIva(trattenuto)` e nessuno ha tolto la sottrazione a valle. Due correzioni giuste, sovrapposte.

@@ -31,6 +31,7 @@ import {
 } from '../common/list-query';
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
+import { catalogoFiltriAvanzati, condizioniAvanzate } from './filtri-avanzati';
 import { conIva, soloIva } from '../common/iva';
 import { baseFee, valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
@@ -665,7 +666,15 @@ export class DeliveriesService {
       const n = Number(termine);
       (search['OR'] as unknown[]).push({ code: n }, { legacyOrderId: n });
     }
-    const where = search ? { AND: [scope, search] } : scope;
+    // ⭐ 08/09/2026 (regola utente): le CONDIZIONI del pop-up di ricerca avanzata.
+    // Si sommano in AND allo scope (ruolo compreso) e alla ricerca testuale: non
+    // allargano mai quello che si vede, lo stringono. Il motore e la lista bianca dei
+    // campi stanno in `filtri-avanzati.ts`.
+    const avanzate = condizioniAvanzate(query.cond);
+    const pezzi: unknown[] = [scope];
+    if (search) pezzi.push(search);
+    if (avanzate) pezzi.push(avanzate);
+    const where = pezzi.length > 1 ? { AND: pezzi } : scope;
     const { skip, take, page, pageSize } = paginate(query);
 
     const [rows, total] = await this.prisma.$transaction([

@@ -942,6 +942,20 @@
     "legame": {
       "daTitolo": "Nasce da questa consegna non riuscita",
       "aTitolo": "Riconsegnata con questa"
+    },
+    "ricerca": {
+      "apri": "Ricerca avanzata",
+      "titolo": "Ricerca avanzata",
+      "sub": "Aggiungi una o più condizioni: si sommano fra loro, e restringono l'elenco che stai già guardando.",
+      "aggiungi": "Aggiungi condizione",
+      "nessuna": "Nessuna condizione: aggiungine una per restringere l'elenco.",
+      "valore": "valore",
+      "valore2": "e",
+      "togli": "Togli questa condizione",
+      "applica": "Applica",
+      "svuota": "Svuota tutto",
+      "caricamento": "Sto leggendo i campi disponibili…",
+      "tetto": "Massimo {{n}} condizioni per ricerca."
     }
   },
   "partners": {
@@ -1702,6 +1716,8 @@
       "tryAndReturn": "Prova e reso del prodotto",
       "cashToCollect": "Contanti da incassare (€)",
       "createNew": "Crea nuovo prodotto",
+      "partnerPrice": "Prezzo partner",
+      "maker": "Produttore",
       "chooseVariant": "Scegli la variante",
       "photo": "Guarda la foto del prodotto"
     },

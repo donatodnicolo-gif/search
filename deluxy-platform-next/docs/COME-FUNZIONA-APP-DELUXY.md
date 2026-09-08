@@ -220,6 +220,12 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Colonne della lista: Stato, Vendita, Platform, ID, Original Consegna, Data, Orario, Partner, Valet, Indirizzo, Ora Ritiro, Tipo Servizio, Da Fatturare, Da Pagare, Azioni.
 - Filtri per colonna: stato (`created`/`assigned`/`delivering`/`inPreparation`/`accepted`/`requestCancellation`), piattaforma vendita (Deluxy=`shopifysale`, Cakes=`cakesales`, Flowers=`flowerssales`, Deluxy Experience=`deluxyexperiencesales`, Deluxy Dot Com=`deluxydotcomsales`), ID, date da/a, orari da/a, partner, valet, indirizzo, ora ritiro da/a, tipo servizio (`sales`/`hourlyrate`/`fixedprice`/`corporate`/`warehouseservice`), da fatturare Sì/No, da pagare Sì/No. Paginazione 10–500 elementi.
 - Azioni per riga: DETTAGLI, MODIFICA, ASSEGNA, MONITORARE, **ADDITIONAL VALET +/-**. **[NUOVO]**
+- **Ricerca avanzata (pop-up) [08/09/2026]** — bottone «Ricerca avanzata (N)» accanto a «Filtri». Si aggiungono fino a **10 condizioni** che si sommano fra loro (AND) e restringono l'elenco che si sta già guardando. Ogni condizione è *campo · operatore · valore*:
+  - **campi**: numero consegna, DDT e brand del DDT, indirizzo/nome/cognome/telefono/email del destinatario, nome e cognome del mittente, indirizzo di ritiro, note, ritirato da, numero ordine, negozio di origine, origine esterna; prezzo al partner, variazione prezzo, prezzo consegna al cliente, contanti da incassare, paga del valet, distanza; giorno della consegna, consegnata il, partita il, creata il; stato, stato pagamento, tipo vendita, creata da, partner, valet, servizio, provincia, cliente; Vendita Deluxy, consegna del fornitore, da fatturare, da pagare, pagamento alla consegna, prova e reso; **prodotto in consegna**.
+  - **operatori**: contiene / non contiene / è / inizia per (testo); è / non è / è uno di (scelta); maggiore di / minore di / tra (numeri); dopo il / prima del / tra (date); **è vuoto / è valorizzato** (tutti); sì / no (spunte).
+  - «È vuoto» è la ragione principale della funzione: *«valet è vuoto»* dà il lavoro da assegnare, *«consegnata il è vuoto»* le consegne chiuse senza orario.
+  - Le condizioni applicate si vedono come chip sopra la lista, con la × per toglierne una senza riaprire il pop-up. Si applicano premendo «Applica», non mentre si scrive.
+  - ⚠️ La ricerca **non allarga mai** quello che si vede: si somma sempre ai permessi del ruolo. Un partner che chiedesse le consegne di un altro partner continua a non vedere nulla.
 - **Cosa fa ogni bottone** (chiarito dall'utente): **[NUOVO]**
   - **DETTAGLI**: apre il dettaglio della consegna.
   - **MODIFICA**: apre la consegna **in modifica**.
@@ -391,6 +397,15 @@ Il presidio che si ripete: «da lunedì a venerdì 7–8 per un partner». Si sc
 - Vista VALET ACTIVITIES: attività di ritiro e consegna per ogni valet, ordinate per orario; filtro per valet; bottone STORICO; bottone "Reorder with time".
 - Admin/Operation vedono tutte le attività; Team Leader vede le proprie e quelle dei valet delle sue province; il Valet vede solo le proprie.
 - Ogni consegna genera un ritiro + una consegna; stesso indirizzo con più ritiri = più attività di ritiro e una consegna. Il furgoncino giallo imposta "in consegna" e sblocca la consegna. SEARCH cerca su qualsiasi campo.
+
+#### Modulo consegna: prezzo partner e produttore **[08/09/2026]**
+
+Nella tendina di ricerca del prodotto, ogni risultato mostra a destra il **prezzo al
+partner** e l'**insegna di chi lo produce**. Dopo la scelta i due dati restano scritti
+sotto il campo, perché l'input mostra solo il nome. Il prezzo è quello della **variante**
+quando la riga ne ha una (Cappelliera base 110 €, «M» 215 €). Il produttore non è sempre
+il partner della consegna: chi fa il prodotto e chi lo porta possono essere due; se il
+prodotto non ha un proprietario si legge «generico» (catalogo Deluxy).
 
 ### 3.3 Partner (`/partner`)
 

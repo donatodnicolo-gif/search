@@ -25,6 +25,7 @@ import {
   UpdateDeliveryDto,
   UpdateDeliveryStatusDto,
 } from './dto/update-delivery.dto';
+import { catalogoFiltriAvanzati } from './filtri-avanzati';
 
 @ApiTags('deliveries')
 @ApiBearerAuth()
@@ -43,6 +44,20 @@ export class DeliveriesController {
   }
 
   // NB: dichiarate PRIMA di :id, altrimenti verrebbero catturate dalla route param.
+
+  /**
+   * ⭐ 08/09/2026 (regola utente) — IL CATALOGO DELLA RICERCA AVANZATA: campi
+   * interrogabili, loro tipo e operatori ammessi. Il pop-up si costruisce da qui invece
+   * di ricopiarsi l'elenco: un campo aggiunto al server compare nell'interfaccia senza
+   * toccare il front, e soprattutto non esistono due elenchi che possono divergere.
+   */
+  @Autenticato()
+  @Get('filtri-avanzati')
+  @ApiOperation({ summary: 'Campi e operatori ammessi nella ricerca avanzata delle consegne' })
+  filtriAvanzati() {
+    return catalogoFiltriAvanzati();
+  }
+
   @Autenticato()
   @Get('calendar')
   @ApiOperation({ summary: 'Conteggio consegne per giorno (calendario), filtrato per ruolo' })

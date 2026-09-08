@@ -941,6 +941,20 @@
     "legame": {
       "daTitolo": "Comes from this failed delivery",
       "aTitolo": "Redelivered with this one"
+    },
+    "ricerca": {
+      "apri": "Advanced search",
+      "titolo": "Advanced search",
+      "sub": "Add one or more conditions: they combine, narrowing the list you are already looking at.",
+      "aggiungi": "Add condition",
+      "nessuna": "No conditions yet: add one to narrow the list.",
+      "valore": "value",
+      "valore2": "and",
+      "togli": "Remove this condition",
+      "applica": "Apply",
+      "svuota": "Clear all",
+      "caricamento": "Loading the available fields…",
+      "tetto": "At most {{n}} conditions per search."
     }
   },
   "partners": {
@@ -1700,6 +1714,8 @@
       "tryAndReturn": "Try and return the product",
       "cashToCollect": "Cash to collect (€)",
       "createNew": "Create new product",
+      "partnerPrice": "Partner price",
+      "maker": "Maker",
       "chooseVariant": "Choose the variant",
       "photo": "View the product photo"
     },

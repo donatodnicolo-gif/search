@@ -60,4 +60,29 @@ export class DeliveryListQueryDto extends ListQueryDto {
   @IsOptional()
   @IsString()
   valetId?: string;
+
+  /**
+   * ⭐ 08/09/2026 (regola utente: «consenti di aggiungere filtri di ricerca anche in
+   * consegne, con un pop-up che permette di aggiungere varie condizioni»).
+   *
+   * RICERCA AVANZATA: un elenco JSON di condizioni `[{campo, operatore, valore}]`, che
+   * si sommano in AND ai filtri di sopra. Serve per le domande che le linguette non
+   * sanno fare — «le consegne senza valet di questa settimana su Milano», «quelle sopra
+   * i 100 € con DDT del brand X» — e che oggi si risolvevano scorrendo a mano.
+   *
+   * ⚠️ NON e' una query libera. Campi e operatori passano da una lista bianca dichiarata
+   * nel servizio (`CAMPI_AVANZATI`): un nome fuori elenco fa fallire la richiesta, non
+   * la allarga. Il valore non tocca mai SQL — diventa un oggetto Prisma tipizzato.
+   *
+   * ⚠️ E le condizioni restano SEMPRE in AND con lo scope di ruolo: un partner che
+   * scrive `partnerId = altro` continua a non vedere niente.
+   */
+  @ApiPropertyOptional({
+    description:
+      'Condizioni avanzate in AND, JSON: [{"campo":"ddtNumber","operatore":"contiene","valore":"12905"}]. ' +
+      'Campi e operatori ammessi in GET /deliveries/filtri-avanzati.',
+  })
+  @IsOptional()
+  @IsString()
+  cond?: string;
 }

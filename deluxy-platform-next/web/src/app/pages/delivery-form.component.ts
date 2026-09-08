@@ -418,8 +418,19 @@ interface ProductRow {
                          Escono solo i prodotti ATTIVI: un archiviato non si propone. -->
                     @for (p of risultatiRicerca(); track p.id) {
                       <button type="button" class="ris" [class.suo]="suoDelPartner(p)" (click)="scegliProdotto(row, p)">
-                        @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
-                        {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
+                        <span class="ris-nome">
+                          @if (suShopify(p)) { <span [title]="negoziShopify(p)">🛍️</span> }
+                          {{ p.name }}@if (!p.partner) { <span class="muted"> ({{ 'deliveryForm.order.generic' | translate }})</span> }
+                        </span>
+                        <!-- ⭐ 08/09/2026 (regola utente): «mostra anche il prezzo partner del
+                             prodotto che viene listato e il partner produttore». Scegliere un
+                             prodotto è scegliere un prezzo e un fornitore: senza vederli, due
+                             righe che si chiamano «Rosa a stelo» sembrano la stessa cosa
+                             mentre costano 5 € da uno e 9 € da un altro. -->
+                        <span class="ris-meta">
+                          @if (p.price != null) { <span class="ris-prezzo">{{ p.price }} €</span> }
+                          @if (p.partner?.insegna) { <span class="ris-partner">{{ p.partner?.insegna }}</span> }
+                        </span>
                       </button>
                     }
                     <!-- «Crea Nuovo» SEMPRE visibile in coda (regola utente 31/08). -->
@@ -432,6 +443,20 @@ interface ProductRow {
               <input class="field num qty" type="number" min="1" [placeholder]="'deliveryForm.placeholder.qty' | translate" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
               <button type="button" class="icon-btn" (click)="removeProduct($index)" [title]="'deliveryForm.order.remove' | translate">✕</button>
             </div>
+            <!-- ⭐ 08/09/2026: dopo la scelta l'input mostra solo il NOME. Prezzo partner e
+                 produttore restano scritti qui sotto, perché sono le due cose che chi
+                 compila deve poter ricontrollare senza riaprire la tendina. -->
+            @if (infoProdotto(row); as info) {
+              <div class="prod-info">
+                @if (info.prezzo != null) {
+                  <span class="prod-info-prezzo">{{ 'deliveryForm.order.partnerPrice' | translate }}: <b>{{ info.prezzo }} €</b></span>
+                }
+                <span class="prod-info-partner">
+                  {{ 'deliveryForm.order.maker' | translate }}:
+                  <b>{{ info.produttore || ('deliveryForm.order.generic' | translate) }}</b>
+                </span>
+              </div>
+            }
             <!-- La variante non è un dettaglio: la Cappelliera base fa 110, la M
                  ne fa 215 — senza sceglierla la consegna nasce col prezzo sbagliato. -->
             @if (productVariants(row.productId).length) {
@@ -769,7 +794,25 @@ interface ProductRow {
       /* ⭐ 06-07/09/2026: i prodotti unici del partner scelto, in grassetto e in cima.
          Sta DOPO .ris perché quella regola azzera il peso con font: inherit. */
       .prod-risultati .ris.suo { font-weight: 650; }
+      /* ⭐ 08/09/2026: nome a sinistra, prezzo partner e produttore a destra. Il nome
+         può essere lungo: si accorcia lui, i due numeri di destra non si comprimono
+         (Libro §flex: chi porta l'informazione decisiva non partecipa alla contesa). */
+      .prod-risultati .ris {
+        display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      }
+      .prod-risultati .ris-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .prod-risultati .ris-meta { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+      .prod-risultati .ris-prezzo { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+      .prod-risultati .ris-partner { color: var(--text-tertiary); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .prod-info {
+        display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 0; font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .prod-info b { color: var(--text); font-variant-numeric: tabular-nums; }
       .prod-risultati .ris.crea {
+        /* Il pulsante in coda resta a blocco: e' una riga sola, e con flex+space-between
+           il suo testo scivolerebbe a sinistra staccato dal resto della tendina. */
+        display: block;
         border-top: 1px solid var(--hairline); color: var(--text); font-weight: 600;
         position: sticky; bottom: 0; background: var(--surface);
       }
@@ -1468,6 +1511,26 @@ export class DeliveryFormComponent implements AfterViewInit {
     const p = this.products().find((x) => x.id === row.productId) as (Product & { imageUrl?: string | null }) | undefined;
     const url = (p?.imageUrl ?? '').trim();
     return url || null;
+  }
+
+  /**
+   * ⭐ 08/09/2026 (regola utente) — PREZZO PARTNER E PRODUTTORE del prodotto scelto.
+   *
+   * Il prezzo mostrato è quello della VARIANTE quando la riga ne ha una: la Cappelliera
+   * base fa 110 € e la M 215 €, e mostrare il prezzo del prodotto base accanto a una
+   * variante scelta sarebbe scrivere un numero che nessuno pagherà.
+   *
+   * ⚠️ Il produttore è il partner PROPRIETARIO del prodotto a catalogo, che non è
+   * sempre il partner della consegna: chi fa il prodotto e chi lo porta possono essere
+   * due. Se il prodotto non ha proprietario è del catalogo Deluxy, e si dice.
+   */
+  infoProdotto(row: ProductRow): { prezzo: number | null; produttore: string | null } | null {
+    if (!row?.productId) return null;
+    const p = this.products().find((x) => x.id === row.productId);
+    if (!p) return null;
+    const variante = row.productVariantId ? (p.variants ?? []).find((v) => v.id === row.productVariantId) : null;
+    const prezzo = variante?.price ?? p.price ?? null;
+    return { prezzo: prezzo ?? null, produttore: p.partner?.insegna ?? null };
   }
 
   model = {
