@@ -377,7 +377,8 @@ export function FormProdottoShopify({
             <select id="negozioId" name="negozioId" required disabled={utilizzabili.length === 0}>
               {utilizzabili.map((n) => (
                 <option key={n.id} value={n.id}>
-                  {n.nome} — {n.dominio}
+                  {/* ⭐ 08/09/2026 (utente): solo il nome, come nell'altro modulo. */}
+                  {n.nome}
                 </option>
               ))}
               {utilizzabili.length === 0 && <option value="">Nessun negozio con permesso di scrittura</option>}
