@@ -23,6 +23,30 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 08/09 (11:43) — ✅ LA MISURA A 24 ORE, e la nuova candidata
+
+**La pulizia HTML non è più girata.** `pg_stat_statements`: **5.498 chiamate, 15.284.103 ms —
+identici alle 22:03 di ieri**. In 24 ore **+1 chiamata invece di +288, e +0 ms di CPU**. Il
+segnalino diceva «risveglio 08/09 11:45:44»: si sveglia, pulisce le poche righe invecchiate e
+torna a dormire (costo a regime **2 scansioni al giorno**).
+
+**Il riscontro sul sintomo**, che è quello che conta: l'elenco della posta, stesso piano, 6 giri
+consecutivi → **53,6 · 2,0 · 2,0 · 2,0 · 1,9 · 2,0 ms**. Ieri mattina, stesso identico piano:
+7015 / 1281 / 849 / 16 / 5 / 1,9. La dispersione è collassata: la contesa era in buona parte
+nostra.
+
+🆕 **La prossima candidata, già misurata ma NON ancora spiegata**: il
+`_count: { select: { messaggi: true } }` su `Sezione` (`src/app/sezioni/page.tsx`,
+`src/app/impostazioni/page.tsx`) è oggi la **n.4 del cluster** — 4.627 chiamate, 3.905.943 ms,
+media ~844 ms, massimo 62.420 ms — e **cresce**: ieri 4.261 / 3.263.482, cioè **+642.461 ms in
+24 ore ≈ 11 minuti di CPU al giorno**. Manca l'EXPLAIN: si fa quello **prima** di proporre un
+rimedio. Registrata nel registro del custode.
+
+⚠️ Altro da non perdere: `info@deluxyflowers.com` ha `ultimoErrore: "Command failed"` (non
+indagato). Utenti: 11 registrati e attivi, 15 caselle tutte attive, 45.218 messaggi, 687 salvati
+nelle ultime 24 h. **Utenti attivi al giorno e picco di concorrenti: non misurabili da qui**,
+l'app non ha analytics né traccia dell'ultimo accesso.
+
 ### 07/09 (22:28) — IN PRODUZIONE `b5032a5f` (deploy `deluxy-mail-1ldpyb5kr`, build nel cloud)
 
 La regola del cestino condiviso è live. Alias `deluxy-mail.vercel.app` → questo deployment
