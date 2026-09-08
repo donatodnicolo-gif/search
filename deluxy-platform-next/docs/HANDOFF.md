@@ -3,6 +3,29 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔁 **08/09/2026 — «Compensa commissioni e vendite» ha TRE risposte, e viaggia verso il registro.**
+> Era `Boolean @default(false)`: un partner mai toccato diceva «no» con la
+> stessa faccia di uno deciso davvero. Ora è `Boolean?` — sì / no /
+> **ancora da valorizzare** (il default) — e nella scheda partner è una
+> tendina a tre voci, **obbligatoria se il partner ha servizi di VENDITA**
+> (`esigiCompensazioneSeVende()` in `partners.service.ts`, su create e update).
+> `anagrafiche-sync.service.ts` manda al registro le quattro condizioni
+> (`compensazioneIncassi`, `pagamentoVendorGiorni`, `incassoServiziGiorni`,
+> `incassoServiziFineMese`) **scavalcando `metti()` di proposito**: quello
+> scarta `null` e `false`, che qui sono risposte, non buchi. Finance le legge
+> dal registro e smette di tenere una copia sua.
+> ⚠️ **La migrazione va fatta nell'ordine giusto**: prima si pubblica il
+> codice che sa leggere `null`, POI si tolgono NOT NULL e default. Al
+> contrario — come è successo il 08/09 — l'app risponde «Internal server
+> error» e l'elenco partner mostra zero righe.
+> 🗑️ Nell'elenco partner c'è **Elimina** (`PATCH :id/elimina`, già
+> esistente lato API): toglie la riga da elenchi e fatturazione, è
+> **reversibile** (`ripristina`) e la conferma lo dice. Serviva per le righe
+> sbagliate arrivate da un import.
+> 📏 **Stato al 08/09**: 297 partner — **283 «da valorizzare», 14 «sì», 0
+> «no»**. I 283 erano `false` di default: convertiti a `NULL` perché una
+> risincronizzazione li avrebbe spediti al registro come 283 «no» decisi.
+
 > ✅ **08/09/2026 (42) — LIVE `delivery-jvd3gw9bg`. CONDIZIONI DI PAGAMENTO: ERANO NELLA CLASSE SBAGLIATA DEL DTO** (segnalazione utente, la **seconda volta** sullo stesso difetto).
 > - **Il sintomo**: HTTP 200, «salvato» a schermo, e i quattro campi restavano vuoti. Misurato sul caso segnalato — Bottega Di Pasticceria, `updatedAt` alle 19:26 di oggi, tutti e quattro i campi ancora `null`.
 > - **La causa**: erano scritti dentro `PartnerServiceDto` invece che dentro `CreatePartnerDto`. Il ValidationPipe gira con `whitelist: true`, e una proprietà che non appartiene al DTO della richiesta viene **scartata in silenzio** — nessun errore, nessun 400, niente nei log.

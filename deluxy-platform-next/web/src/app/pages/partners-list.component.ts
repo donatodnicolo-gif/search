@@ -176,6 +176,16 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
                     <a class="act" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                    <!-- ⭐ 08/09/2026 (richiesta dell'utente: «ho bisogno di poterla
+                         eliminare questa riga»). La rotta esisteva già —
+                         PATCH :id/elimina, che toglie il partner da fatturazione ed
+                         elenchi ed è REVERSIBILE (c'è «ripristina») — ma dall'elenco
+                         non c'era modo di chiamarla: una riga sbagliata di un
+                         import si poteva solo disattivare, e restava lì a far
+                         numero. Conferma prima, col nome dentro. -->
+                    <button class="act act-danger" type="button" (click)="elimina(p)">
+                      {{ 'partners.elimina' | translate }}
+                    </button>
                   }
                 </td>
               </tr>
@@ -225,6 +235,11 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
       .actions-cell { white-space: nowrap; }
       .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; }
       .act:hover { background: var(--fill); }
+      /* L'azione che toglie una riga si distingue da quella che la apre: stesso
+         ingombro, colore del testo diverso — non un bottone rosso pieno, che
+         griderebbe più di quanto serve per un'azione reversibile (08/09/2026). */
+      .act-danger { cursor: pointer; color: var(--danger, #b3261e); font-family: inherit; }
+      .act-danger:hover { background: var(--danger-soft, rgba(179, 38, 30, 0.08)); }
       .state-card { padding: 32px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); border-radius: var(--radius-l); color: var(--red); padding: 24px; }
     `,
@@ -430,6 +445,25 @@ export class PartnersListComponent {
   changeActive(p: Partner, value: string): void {
     const active = value === 'true';
     this.patchPartner(p, { active }, () => (p.active = active));
+  }
+
+  /**
+   * Elimina il partner dall'elenco (08/09/2026, richiesta dell'utente).
+   * Chiama `PATCH :id/elimina`, che marca `deleted` e lo toglie da fatturazione
+   * e liste: è REVERSIBILE (esiste `ripristina`), e la conferma lo dice — chi
+   * preme deve sapere che non sta cancellando dei dati.
+   * ⚠️ Niente aggiornamento ottimistico qui: la riga si toglie solo DOPO la
+   * risposta del server. Toglierla prima e rimetterla in caso d'errore fa
+   * credere per un istante che sia andata, ed è proprio su un'azione
+   * distruttiva che quell'istante non va regalato.
+   */
+  elimina(p: Partner): void {
+    const nome = p.insegna || p.email || p.id;
+    if (!confirm(this.translate.instant('partners.eliminaConferma', { nome }))) return;
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/elimina`, {}).subscribe({
+      next: () => this.partners.set(this.partners().filter((x) => x.id !== p.id)),
+      error: (e) => this.error.set(e?.error?.message ?? this.translate.instant('common.saveError')),
+    });
   }
 
   /** Salva il cambio di stato inline (aggiornamento ottimistico + rollback). */

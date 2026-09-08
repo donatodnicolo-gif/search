@@ -360,8 +360,27 @@ export class AnagraficheSyncService {
     const anagrafici = campi
       ? Object.fromEntries(Object.entries(base).filter(([k]) => campi.includes(k) || k === 'platformId'))
       : base;
+    // ⭐ 08/09/2026 — LE CONDIZIONI VENDOR VIAGGIANO VERSO IL REGISTRO.
+    //
+    // La piattaforma è la proprietaria del dato (decisione dell'utente): qui si
+    // decide, il registro trasporta, Finance legge da lì — la stessa strada che
+    // fa già l'IBAN, senza inventare un'integrazione nuova fra le due app.
+    //
+    // ⚠️ NON passano da `metti()`: quella scarta null, undefined e stringa
+    // vuota, perché sui dati fiscali «vuoto» vuol dire «non ce l'ho, non
+    // sovrascrivere». Qui invece **null e false sono risposte**:
+    // `compensazioneIncassi: null` è «ancora da valorizzare», `false` è «no».
+    // Scartarli vorrebbe dire che una decisione presa qui non arriva mai al
+    // registro, e Finance continuerebbe a scrivere «mai deciso».
+    const condizioni: Record<string, unknown> = {};
+    for (const c of ['compensazioneIncassi', 'pagamentoVendorGiorni', 'incassoServiziGiorni', 'incassoServiziFineMese'] as const) {
+      if (campi && !campi.includes(c)) continue;
+      const v = (partner as any)[c];
+      if (v !== undefined) condizioni[c] = v;
+    }
     return {
       ...anagrafici,
+      ...condizioni,
       ...(Object.keys(finanziari).length ? { datiFinanziari: finanziari } : {}),
     };
   }
