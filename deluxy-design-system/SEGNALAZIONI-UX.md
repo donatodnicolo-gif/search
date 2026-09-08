@@ -18,6 +18,7 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
+| 08/09/2026 | Piattaforma · Listino fiorista | Tabella allargata con 5 colonne di colore valorizzate su 1 riga su 16 (le altre 15 mostravano trattini); conflitto di larghezze che comprimeva l'ultima colonna mandandola a capo su ogni riga; overflow-x finito su tutte le card invece che sulla tabella. Corretto su richiesta esplicita dell'utente: contenitore di scorrimento dedicato, prima colonna ancorata, celle non applicabili vuote, ultima colonna che non va a capo. Parere dell'architetto-ux chiesto sul DISEGNO. |
 | 08/09 | **tutte le liste** | 🔴 **I bottoni delle azioni escono dalla scheda su telefono** (schermata dell'utente su `/sales`, 360px: «Chiedi il preventivo» sporgeva oltre il bordo SINISTRO della card). Sotto gli 800px le righe diventano schede e la cella delle azioni è un flex con `nowrap` ereditato: tre bottoni in fila non ci stanno, e invece di andare a capo traboccavano. **Correzione applicata in `styles.css`** (regola globale, vale per tutte le 26 liste): `flex-wrap: wrap`, `row-gap: 8px`, `max-width: 100%` sulla cella e sui figli. **Da valutare come regola del Libro**: *una cella di azioni in modalità scheda manda i bottoni a capo, non fuori dal bordo* | utente |
 | 08/09 | piattaforma | **Un pulsante spento senza dire perché** («non posso chiudere questa riconciliazione»). Nel modulo «Nuova riconciliazione» la riga del partner È la scelta del prezzo, ma sembrava un elenco informativo: senza cliccarla «Crea la regola» resta disabilitato, e su telefono non c'è il passaggio del mouse a suggerire il contrario. In più il pulsante finiva **sotto il widget della chat**, in basso a destra. **Correzione applicata**: la riga ha ora un cerchio da spuntare e la parola «scegli»/«scelto»; il piede dice che cosa manca («Scegli chi lo fa, qui sopra: il prezzo viene da lì»); sotto i 620px i pulsanti si impilano a tutta larghezza con 76px di spazio sotto. **Da valutare come regole**: *(1) un pulsante disabilitato dice sempre che cosa manca; (2) una riga che è una scelta si vede che lo è anche senza hover; (3) il piede di una modale non finisce mai sotto il widget della chat* | utente |
 | 08/09 | piattaforma | **Su telefono la colonna Servizio mostrava solo un'icona** (schermata di una consegna): il nome era nel suggerimento del mouse, che sul telefono non esiste — la riga diceva soltanto un disegnino. E «Consegna con Furgone» prendeva l'icona del pacco come tutte le altre a prezzo fisso, perché l'icona si sceglieva dal modello di prezzo: ma il furgone è un MEZZO, e per chi legge la lista cambia tutto. **Correzione applicata**: il nome del servizio si legge (discreto sul desktop, pieno sotto gli 800px) e l'icona si sceglie prima dal nome (furgone/van/camion) e poi dal modello. **Da valutare come regola**: *un'icona senza testo vale solo dove il testo c'è altrove; sul telefono l'etichetta non è un di più* | utente |
@@ -1030,3 +1031,37 @@ tiene il testo a `--text` come deroga, da annotare nel suo README.
 > **Come si misura**: si mostra la testata a chi non l'ha scritta e gli si chiede
 > quante pillole ci sono e cosa dice ciascuna. Se sbaglia il conto o la
 > tassonomia, la fila è fuori canone.
+
+## 08/09/2026 (19) — Merchandising · modulo prodotto: il dominio tecnico dentro la tendina (segnalazione dell'utente, con schermata)
+
+**Cosa si vedeva**: la tendina «Brand / negozio» mostrava
+`Flowers — fb72b1-2.myshopify.com`, `Cake — cakedesign-5921.myshopify.com`,
+`Business Deluxy — 90bfeb-f5.myshopify.com`. L'utente: «lascia solo nome del
+negozio senza il link myshopify».
+
+**Perché aveva ragione, oltre al gusto**: i quattro nomi sono **già distinti fra
+loro**, quindi il dominio non disambigua nulla — raddoppia la lunghezza di ogni
+riga e sposta l'unica parola che si legge (il nome) all'inizio di una stringa
+lunga il triplo. Peggio: `fb72b1-2` e `90bfeb-f5` sono **identificativi generati
+da Shopify**, illeggibili per definizione; chi compila non li ha mai usati per
+scegliere. È rumore tecnico in un campo di lavoro quotidiano.
+
+**Corretto** in `FormProdottoNuovo.tsx` (modulo prodotto, creazione e modifica) e
+in `FormProdottoShopify.tsx` (importazione), che avevano lo stesso testo.
+**Tenuto** il suffisso «(solo lettura)» sui negozi senza `write_products`: quello
+cambia cosa si può fare, non è decorazione. **Tenuto** il dominio dove serve
+davvero — nel `title` dei chip «pubblica anche su» (si legge al passaggio del
+mouse) e in **Impostazioni**, che è la pagina dove i negozi si configurano e
+dove il dominio è il dato, non un contorno.
+
+### Per il custode — una regola candidata
+
+> **Un identificativo tecnico non entra nell'etichetta di una scelta.** Domini
+> generati, id, UUID, chiavi esterne: se servono a distinguere due voci
+> omonime si mostrano, altrimenti stanno nel `title`, in una riga secondaria, o
+> nella pagina che quel dato lo amministra.
+> **Come si misura**: si tolgono e si guarda se due voci diventano
+> indistinguibili. Se no, non servivano.
+
+Vale oltre a questa app: la stessa forma «Nome — dominio/id» compare in più
+moduli dell'ecosistema.
