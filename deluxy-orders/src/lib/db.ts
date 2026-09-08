@@ -35,9 +35,15 @@ import { Prisma, PrismaClient } from "@prisma/client";
  * marcata Sensitive: non è leggibile nemmeno con `vercel env pull`, che
  * restituisce `[SENSITIVE]`. Riscriverla vorrebbe dire incollare a mano una
  * credenziale intera, che è il modo classico di rompere un'app.
- * ⚠️ IL VALORE NELL'URL VIENE SOVRASCRITTO di proposito: l'URL di produzione
- * porta `connection_limit=5`, che è esattamente il numero da cambiare.
- * Via d'uscita: `PRISMA_CONNECTION_LIMIT` vince su tutto, per alzarlo senza
+ * ⚠️ IL VALORE NELL'URL VIENE SOVRASCRITTO di proposito, qualunque esso sia —
+ * ed è precisamente il punto: quella variabile su Vercel NON si può leggere,
+ * quindi nessuno sa con certezza cosa ci sia scritto. Nei `.env` locali si vede
+ * `5` quasi ovunque e `1` nel CRM. Forzarlo qui rende la domanda irrilevante,
+ * perché il valore diventa deterministico in ogni ambiente.
+ * (Correzione dell'08/09: la prima versione di questo commento affermava che
+ * «l'URL di produzione porta 5». Non è verificato per nessuna app, e per il CRM
+ * questo cambio è probabilmente un aumento da 1 a 3, non una riduzione.)
+ * Via d'uscita: `PRISMA_CONNECTION_LIMIT` vince su tutto, per cambiarlo senza
  * rimettere le mani nel codice (per esempio in uno script fuori dal serverless).
  */
 export function urlPooler(url: string | undefined): string | undefined {
