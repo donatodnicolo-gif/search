@@ -13,8 +13,33 @@ export const dynamic = "force-dynamic";
 
 const BASE_URL = "https://deluxy-partner.vercel.app";
 
+/**
+ * ⚠️⚠️ LE SERVER ACTION NON EREDITANO IL CONTROLLO DELLA PAGINA (08/09/2026,
+ * trovato dal custode delle prestazioni mentre censiva le scritture di massa).
+ *
+ * Più in basso la pagina fa `if (sessione?.ruolo !== "admin") redirect("/")`, e
+ * fin qui è giusto. Ma quel controllo protegge il RENDER, non le azioni: una
+ * server action è un endpoint a sé, raggiungibile con una POST da chiunque
+ * conosca il suo identificativo — che sta nell'HTML servito a qualunque utente
+ * a cui la pagina sia mai arrivata. Le tre azioni di questo file erano scoperte:
+ *
+ *  - `generaChiave` e `generaChiaveScope` RIGENERANO la chiave API di Finance,
+ *    e il commento più sotto lo dice da sé: spegnerla «romperebbe hub, mail,
+ *    scout, orders e la piattaforma insieme»;
+ *  - `svuotaStorico` cancella l'intero registro delle verifiche.
+ *
+ * Il confine va ripetuto dentro ogni azione. È la stessa lezione già scritta
+ * qui sopra per il menu: nascondere non è impedire.
+ */
+async function soloAdmin() {
+  const jar = await cookies();
+  const sessione = await sessioneCorrente(jar.get(SESSION_COOKIE)?.value);
+  if (sessione?.ruolo !== "admin") redirect("/");
+}
+
 async function generaChiave() {
   "use server";
+  await soloAdmin();
   const chiave = "dlxv_" + randomBytes(24).toString("hex");
   await prisma.impostazione.upsert({
     where: { chiave: "api.verificheKey" },
@@ -37,6 +62,7 @@ const SCOPES: { scope: ScopeApi; titolo: string; cosaApre: string }[] = [
 
 async function generaChiaveScope(scope: ScopeApi) {
   "use server";
+  await soloAdmin();
   const valore = `dlxv_${scope}_` + randomBytes(24).toString("hex");
   await prisma.impostazione.upsert({
     where: { chiave: CHIAVE_PER_SCOPE[scope] },
@@ -56,6 +82,12 @@ function mascherata(v: string | null | undefined): string {
 
 async function svuotaStorico() {
   "use server";
+  await soloAdmin();
+  // Il `deleteMany` senza filtro è intenzionale — «svuota storico» è la
+  // funzione — ed è al riparo dalla regola §3.3 dello Standard: Prisma qualifica
+  // sempre il modello con lo schema dell'app, quindi tocca solo
+  // `RichiestaVerifica` di Finance e non può arrivare ai dati di un'altra app.
+  // Il pericolo vero era che chiunque potesse invocarlo: adesso non più.
   await prisma.richiestaVerifica.deleteMany();
   revalidatePath("/verifiche");
   redirect("/verifiche");

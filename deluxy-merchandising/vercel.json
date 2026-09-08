@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "regions": [
     "fra1"
   ],
@@ -18,7 +19,7 @@
     },
     {
       "path": "/api/cron/collezioni?negozio=Flowers",
-      "schedule": "35 3 * * *"
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/collezioni?negozio=Cake",
