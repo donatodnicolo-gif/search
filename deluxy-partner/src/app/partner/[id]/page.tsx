@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
-import { tokenPartner } from "@/lib/riconciliazione";
+import { tokenPartner, matchPartner } from "@/lib/riconciliazione";
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
@@ -180,28 +180,77 @@ export default async function PartnerDetail({
     .$queryRaw<{ movimentoId: string }[]>`SELECT "movimentoId" FROM "public"."EsclusioneMovimentoPartner" WHERE "partnerId" = ${id};`
     .catch(() => [] as { movimentoId: string }[]);
   const esclusiIds = esclusi.map((e) => e.movimentoId);
-  const ultimiMovimenti = await prisma.transazioneBancaria.findMany({
-    where: {
-      AND: [
-        {
-          OR: [
-            { partnerId: id },
-            ...(tokenNome.length
-              ? [{ partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) }]
-              : []),
-          ],
-        },
-        ...(esclusiIds.length ? [{ id: { notIn: esclusiIds } }] : []),
-      ],
-    },
+  // ⭐ 08/09/2026 — LA SCHEDA USA LA STESSA REGOLA DEL MOTORE (richiesta
+  // dell'utente, dopo lo screenshot di ARTE E FIORI).
+  //
+  // Prima qui si cercava per SOTTOSTRINGA (`controparte contains 'ARTE'`),
+  // mentre la riconciliazione confronta per PAROLE INTERE e pretende un token
+  // di almeno 5 lettere o due token. Due regole diverse per la stessa domanda
+  // danno due risposte diverse, e questa era la più debole: su ARTE E FIORI
+  // pescava **103 movimenti, di cui 0 sarebbero stati attribuiti dal motore** —
+  // «mARTEl gianluca», «dolciARTE sas», «pasticceria mARTEsana» (che è un ALTRO
+  // partner). Un elenco di sospetti che non sospetta niente fa perdere tempo e,
+  // peggio, fa credere che quei soldi c'entrino.
+  //
+  // Ora la sottostringa resta solo come PREFILTRO del database (non si può
+  // chiedere a Postgres la regola del motore senza una regex per riga), e il
+  // giudizio vero lo dà `matchPartner` sugli stessi partner e sullo stesso
+  // testo che userebbe la riconciliazione: sopravvivono solo i movimenti che il
+  // motore attribuirebbe DAVVERO a questa scheda.
+  //
+  // ⚠️ Due query invece di una, di proposito: i movimenti GIÀ ATTRIBUITI non
+  // passano dal filtro (sono una certezza scritta da una persona, non un
+  // sospetto) e non devono poter essere spinti fuori dal rumore dei candidati.
+  const attribuiti = await prisma.transazioneBancaria.findMany({
+    where: { partnerId: id, ...(esclusiIds.length ? { id: { notIn: esclusiIds } } : {}) },
     orderBy: [{ data: "desc" }, { id: "desc" }],
     take: 10,
-    // I campi in più (IBAN, divisa, fonte, esito, categoria) servono alla
-    // FINESTRA del dettaglio, che si apre senza cambiare pagina: prenderli qui
-    // costa niente (dieci righe già caricate) ed evita una seconda query al
-    // click. Il record è lo stesso di `/movimenti/[id]`.
     select: MOVIMENTO_SELECT,
   });
+  const tuttiPartner = tokenNome.length
+    ? await prisma.partner.findMany({ select: { id: true, nome: true } })
+    : [];
+  const candidatiGrezzi = tokenNome.length
+    ? await prisma.transazioneBancaria.findMany({
+        where: {
+          AND: [
+            { partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) },
+            ...(esclusiIds.length ? [{ id: { notIn: esclusiIds } }] : []),
+          ],
+        },
+        orderBy: [{ data: "desc" }, { id: "desc" }],
+        // Tetto al prefiltro: si giudicano i 200 più recenti. Chi ne ha di più
+        // ha rumore, non candidati — e i movimenti veri, se ci sono, li ha
+        // attribuiti la riconciliazione e stanno nella query qui sopra.
+        take: 200,
+        select: MOVIMENTO_SELECT,
+      })
+    : [];
+  // ⚠️ «Il motore lo RICONOSCE», non «il motore lo ASSEGNA a lui». La prima
+  // versione pretendeva che il partner VINCESSE il confronto globale, e
+  // svuotava a torto quattro schede: CHANEL ROMA e CHANEL FIRENZE (perdono
+  // contro CHANEL MILANO), Giada Cake Lab, e soprattutto VINCENZO D'ASCANIO —
+  // dove «VINCENZO DASCANIO S.R.L.» è proprio lui, ma il token `VINCENZO` vale
+  // uguale per MARYFLOR DI GERARDI VINCENZO e a parità di punteggio vince chi
+  // sta prima nell'elenco. Perdere i movimenti VERI è peggio che mostrarne
+  // qualcuno in più: questo elenco è fatto di sospetti da confermare, e ha il
+  // bottone per dire di no. Misura: 3.209 candidati per sottostringa → 1.671
+  // con questa regola (di cui 206 che il motore darebbe a un altro partner, e
+  // che infatti la riga dichiara).
+  const contesi = new Map<string, string>();
+  const candidati = candidatiGrezzi.filter((m) => {
+    const testo = `${m.descrizione} ${m.controparte ?? ""}`;
+    if (matchPartner(testo, [partner])?.id !== id) return false;
+    const vincitore = matchPartner(testo, tuttiPartner as Parameters<typeof matchPartner>[1]);
+    if (vincitore && vincitore.id !== id) contesi.set(m.id, vincitore.nome);
+    return true;
+  });
+  const ultimiMovimenti = [...attribuiti, ...candidati]
+    .sort((a, b) => b.data.getTime() - a.data.getTime() || (a.id < b.id ? 1 : -1))
+    .slice(0, 10);
+  // Quanti ne ha scartati il filtro: serve alla frase sotto la tabella, che
+  // altrimenti non spiegherebbe perché un partner «non ha movimenti».
+  const scartatiDalFiltro = candidatiGrezzi.length - candidati.length;
   // I movimenti esclusi a mano da questa scheda (per l'undo): dettagli dei soli
   // id esclusi, così si possono rimettere fra i candidati.
   const movimentiEsclusi = esclusiIds.length
@@ -500,9 +549,28 @@ export default async function PartnerDetail({
       <div className="card tight" style={{ marginBottom: 24 }}>
         {ultimiMovimenti.length === 0 ? (
           <p className="muted" style={{ fontSize: 13.5, padding: "16px 20px", margin: 0 }}>
-            Nessun movimento bancario per questo partner: né attribuito in riconciliazione, né con questo
-            nome nella controparte. Compaiono qui appena arrivano da <Link href="/movimenti">Movimenti</Link> o
-            si riconciliano in <Link href="/transazioni">Import &amp; riconciliazione</Link>.
+            Nessun movimento bancario per questo partner: né attribuito in riconciliazione, né
+            riconoscibile dal nome nella controparte. Compaiono qui appena arrivano da{" "}
+            <Link href="/movimenti">Movimenti</Link> o si riconciliano in{" "}
+            <Link href="/transazioni">Import &amp; riconciliazione</Link>.
+            {/* ⚠️ 08/09/2026 — «vuoto» ha DUE motivi diversi, e vanno detti: non
+                c'è niente, oppure il nome del partner non è riconoscibile. Il
+                secondo capita a chi si chiama solo con parole del mestiere
+                («ARTE E FIORI»: resta il solo token ARTE, di 4 lettere, che il
+                motore non accetta mai) e non si risolve aspettando. */}
+            {scartatiDalFiltro > 0 && (
+              <>
+                <br />
+                <br />
+                <strong>{scartatiDalFiltro} movimenti</strong> contengono «{tokenNome.join("», «")}» nella
+                controparte ma <strong>non bastano a riconoscere questo partner</strong>: sono nomi diversi
+                che condividono un pezzo di parola (per esempio «m<em>arte</em>l», «dolci<em>arte</em>»).
+                Serve un token di almeno 5 lettere, o due token — e il nome di questo partner non ce li ha.
+                Il modo di collegarli è attribuirne uno in{" "}
+                <Link href="/transazioni">Import &amp; riconciliazione</Link>: da lì quella controparte
+                resta imparata e i movimenti successivi arrivano da soli.
+              </>
+            )}
           </p>
         ) : (
           <>
@@ -536,9 +604,18 @@ export default async function PartnerDetail({
                             <span className="badge orange"><span className="dot" />da lavorare</span>
                           )
                         ) : (
-                          <span className="badge neutral" title="Non ancora attribuito a questo partner: abbinato solo per nome della controparte. Conferma in riconciliazione.">
-                            <span className="dot" />per nome — da confermare
-                          </span>
+                          // ⚠️ Se la riconciliazione darebbe questo movimento a
+                          // un ALTRO partner, la riga lo dice: è l'informazione
+                          // che serve per decidere, non rumore da nascondere.
+                          contesi.has(m.id) ? (
+                            <span className="badge orange" title={`Il nome combacia anche con questo partner, ma la riconciliazione lo assegnerebbe a ${contesi.get(m.id)}. Guarda prima di confermarlo qui.`}>
+                              <span className="dot" />per nome — il motore lo darebbe a {contesi.get(m.id)}
+                            </span>
+                          ) : (
+                            <span className="badge neutral" title="Non ancora attribuito a questo partner: abbinato per nome della controparte con la stessa regola della riconciliazione (parole intere). Conferma in riconciliazione.">
+                              <span className="dot" />per nome — da confermare
+                            </span>
+                          )
                         )}
                       </td>
                       <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
@@ -581,9 +658,15 @@ export default async function PartnerDetail({
               </table>
             </div>
             <p className="muted" style={{ fontSize: 12, padding: "10px 20px", margin: 0 }}>
-              I movimenti <strong>attribuiti</strong> a questo partner in riconciliazione, più quelli
-              non ancora attribuiti che ne portano il nome nella controparte (marcati «per nome — da
-              confermare»).{" "}
+              I movimenti <strong>attribuiti</strong> a questo partner in riconciliazione, più quelli che
+              la riconciliazione attribuirebbe qui in base al nome (marcati «per nome — da confermare»):
+              stessa regola del motore — parole intere, non pezzi di parola.{" "}
+              {scartatiDalFiltro > 0 && (
+                <>
+                  Altri <strong>{scartatiDalFiltro}</strong> contengono «{tokenNome.join("», «")}» nella
+                  controparte ma sono nomi diversi, e restano fuori.{" "}
+                </>
+              )}
               <Link href={`/movimenti?q=${encodeURIComponent(partner.nome)}`}>Cerca «{partner.nome}» in tutti i movimenti →</Link>
             </p>
           </>
