@@ -34,6 +34,98 @@
 > eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
 > approvate, quindi non sono nemmeno partite.
 
+> ⏱️ **08/09/2026 — GIORNATA DI CORREZIONI, PUSHATA E DEPLOYATA
+> (`deluxy-marketing-eyqtxkvc7`, Ready, alias verificato, `/api/health` ok).**
+> Dodici difetti trovati e chiusi, quasi tutti nati da una schermata dell'utente
+> o da una sua domanda. In ordine di gravità:
+> · 🔴 **Il menu non si apriva dopo un'azione**: lo scrim del pannello «metti in
+>   coda» era `inset: 0`, z-index 60, e copriva la topbar (z-index 10, alta
+>   65px). `elementFromPoint` sul centro dell'hamburger tornava
+>   `DIV.pannello-scrim`: il bottone c'era, si vedeva, e il clic finiva sullo
+>   scrim. Ora lo scrim parte sotto la topbar (`--topbar-h`), come già faceva il
+>   velo del cassetto sul telefono. ⚠️ Alzare la topbar sopra lo scrim NON va
+>   bene: coprirebbe la testata del pannello, cioè la ✕.
+> · 🔴 **«Aggiungi» prometteva ESATTA e accodava GENERICA**: `corrispondenzaOrigine`
+>   era letto solo per le negative. Verificato da due esaminatori indipendenti,
+>   il secondo col mandato di demolire l'accusa: **REGGE**. È già successo
+>   l'11/08 («torte milano», nata broad alle 05:07, corretta a mano a phrase
+>   alle 05:08; nel registro 10 correzioni che partono da `broad →`). Ora i due
+>   form mandano `corrispondenza="exact"` e la server action legge l'origine
+>   anche per le keyword nuove; `broad` resta solo per chi non dichiara niente.
+> · 🔴 **«Da escludere» su /termini accodava una negativa vera** mentre la pagina
+>   scriveva «non esclude niente su Google»: ogni valore diverso da «pertinente»
+>   ed «escluso» cadeva nel ramo che scrive. Ora le etichette sono un elenco
+>   chiuso e un valore sconosciuto non scrive più niente.
+> · 🔴 **Rilettura differita** (chiesta dall'utente): l'allarme «rileggendo non
+>   risulta ancora» si spegne quando la conferma indipendente dice che Google
+>   l'ha rimandata. Il 07/09 aveva gridato su 15 esiti su 16 **avendo sempre
+>   torto**. Lo script NON si tocca (andrebbe reincollato su tre conti): decide
+>   `conferme-operazioni.ts`. `esitoRiletto()` provata sui **48 esiti veri**
+>   della coda: 0 residui, e le frasi vere che seguono l'allarme restano.
+>   L'esito crudo resta nel `title` della riga: è una prova, non si cancella.
+> · 🟠 **Il livello delle negative**: l'app ne legge tre (a database 59.851
+>   negative di gruppo, tutte scritte da mani umane dentro Google Ads) e ne
+>   scrive uno solo — lo script ha una primitiva sola,
+>   `campagna.createNegativeKeyword()`. Non si è aggiunta la scrittura per
+>   gruppo (lo script non la sa fare): i tre bottoni «Escludi» muti adesso
+>   dicono che vale per tutta la campagna, e `accodaOperazione` avvisa quando la
+>   campagna ha più di un gruppo acceso. ⚠️ Misurato: tutte e 56 le negative
+>   eseguite finora erano su campagne con UN solo gruppo acceso, quindi il
+>   difetto non è ancora costato niente; in coda ce n'erano 5 che non lo erano.
+> · 🟠 **Un nome solo per colonna**: Parola cercata · Fatta scattare da · Incasso
+>   · Resa · QS. Prima lo stesso concetto aveva fino a tre nomi in quattro
+>   tabelle («Resa»/«ROS», «Incasso»/«Ricavi», «Fatta scattare da»/«Intercettata
+>   da»/«Presa dalla keyword»).
+> · 🟠 **Un metro solo per la resa**: `giudizioKeyword` usava soglie fisse
+>   1/2/4/8, che sono il break-even di Cake. Su Gifts (pareggio 3,33×) una
+>   keyword a 2,5× era sotto il pareggio e la scala la dava «Nella media» in blu.
+>   Ora le soglie sono relative al break-even del brand.
+> · 🟠 **Una definizione sola di «spende a vuoto»** (`spendeAVuoto` in
+>   lib/salute): soglia 20 € + incasso zero + conversioni zero *quando il
+>   conteggio c'è*. Un dato che manca non è uno zero.
+> · 🟡 «Porta altrove» → **«Copia»**: non spostava niente, accodava una keyword
+>   nuova altrove senza togliere l'originale e senza negativa a monte.
+> · 🟡 **La riga del gruppo dice cosa sta aspettando** («⏳ messa in pausa chiesta
+>   · da approvare» / «· aspetta lo script»). ⚠️ Oggi non si vede nulla perché
+>   nessuna delle 27 operazioni in coda porta un `gruppoId`: negative e budget
+>   sono di campagna. Si accende alla prima pausa di gruppo.
+> · 🟡 **I gruppi spenti si piegano** in «Gruppi non attivi (N)»: su Fiori Milano
+>   ENG erano 14 righe su 15, undici senza una sola metrica, e coprivano
+>   l'unico gruppo che eroga. Lo stato memorizzato NON si tocca: `Gruppo.stato` è
+>   la nostra parola e l'import non la sovrascrive mai.
+> · 🟡 **Le analisi si leggono da /campagne**: riquadro «Che cosa dicono le
+>   analisi», verdetto e nota per ogni campagna nominata, col link alla scheda.
+>   C'era solo un pallino muto e non apribile.
+> · 🟡 `alert-${tipo}` come chiave React: due alert dello stesso tipo si
+>   sovrascrivevano — 400 errori in console e una cosa da fare che spariva.
+>
+> 🔴 **DA FARE, MISURATO OGGI E NON CORRETTO — `CopyAnnuncio` va in scansione
+> sequenziale.** Da `pg_stat_user_tables`: `seq_scan` **629.999** su 38.334
+> righe, contro 243 della seconda tabella in classifica (`RicezioneDati`) e 196
+> di `NegativaCampagna` che di righe ne ha 92.760. Causa accertata: due pagine
+> leggono la tabella INTERA senza filtro di campagna e senza `take` —
+> `components/TerminiRicerca.tsx:102` (ogni scheda campagna) e
+> `app/gruppi/[id]/page.tsx:654` (ogni scheda gruppo), per `giaSuDi()`. E
+> l'unico indice è `@@index([brand, campagna])`: **non c'è nessun indice su
+> `tipo`**, quindi `where tipo='keyword'` è per forza un seq scan. ⚠️ L'indice
+> va creato dalla console Supabase: il pooler rifiuta `CREATE INDEX
+> CONCURRENTLY` e la connessione diretta `:5432` non è raggiungibile da queste
+> macchine.
+>
+> ⚠️ **Il pooler condiviso si è saturato di nuovo l'08/09**: `FATAL: (EMAXCONN)
+> max client connections reached, limit: 200`, misurato due volte, **ancora
+> pieno dopo aver spento il dev server locale** — non era Marketing. Le due
+> correzioni del 07/09 (`connection_limit=3`, `pool_timeout=20`) **erano rimaste
+> non pubblicate fino a oggi**: sono in produzione da questo deploy. Stessa
+> correzione arrivata oggi anche su Finance e Merchandising da altre sessioni.
+>
+> ⚠️ **Rimasto indietro di proposito**: la tabella keyword della scheda campagna
+> resta più povera della gemella nel gruppo (niente selezione multipla,
+> «Riattiva», «Copia», «Estendi AI», colonna «Azione decisa»). Non è una bugia,
+> è funzionalità mancante, ed è l'unico pezzo che cambia la forma di una
+> schermata: da concordare prima di scriverlo. L'archivio delle operazioni
+> mostra ancora l'esito crudo, ed è giusto: lì è la registrazione storica.
+>
 > ⏱️ **RI-MISURATO IL 07/09 SERA (sola lettura sul DB di produzione;
 > nessuna modifica al codice, nessuna scrittura)**:
 > · ✅ **La campagna Natale B2B È ACCESA**: l'`attiva_campagna` proposta
@@ -169,7 +261,7 @@
 > · 🔴 **La guida visiva NON è più pubblicata**: l'artifact
 >   `24188116-…` risulta cancellato (come quello del manuale Deluxy).
 >   Ripubblicata a un indirizzo nuovo il 04/09 e DI NUOVO il 07/09 (anche quella del 04/09 risultava cancellata):
->   https://claude.ai/code/artifact/29dee26b-9450-4960-b0ae-26a3305b6ba4 (si aggiorna con
+>   https://claude.ai/code/artifact/26c28675-7214-46c4-a5e6-7c3b3612d0ad (si aggiorna con
 >   Artifact + url; il file resta `docs/manuale-funzionalita.html`).
 > · ⚠️ **Repo scoutwt divergente**: `scout-ui` locale è «ahead 4, behind 7»
 >   rispetto a origin con gli STESSI commit Finance/Manuale (hash diversi) e,
