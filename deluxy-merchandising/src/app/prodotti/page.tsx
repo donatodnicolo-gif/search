@@ -17,6 +17,8 @@ export default async function ProdottiPage({
     fase?: string;
     uniti?: string;
     pagina?: string;
+    ordina?: string;
+    verso?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -47,10 +49,34 @@ export default async function ProdottiPage({
   const PER_PAGINA = 100;
   const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);
 
+  // **L'ordinamento delle colonne** (08/09/2026, chiesto dall'utente: «ordina la
+  // tabella per data di creazione, ma consenti di ordinare tutte le colonne»).
+  // Sta nell'indirizzo e si applica **nel database**: la tabella mostra 100
+  // righe su migliaia, e ordinare solo quelle mostrate darebbe un primo posto
+  // che vale unicamente per la pagina che si sta guardando.
+  const CAMPI_ORDINE: Record<string, string> = {
+    creato: "creatoIl",
+    nome: "nome",
+    categoria: "categoria",
+    fase: "fase",
+    prezzo: "prezzoVendita",
+    shopify: "statoShopify",
+    collezione: "collezione",
+  };
+  // Il default è **la data di creazione, dal più recente**: chi apre la pagina
+  // cerca quasi sempre quello che ha appena caricato.
+  const ordina = CAMPI_ORDINE[sp.ordina ?? ""] ? (sp.ordina as string) : "creato";
+  const verso: "asc" | "desc" = sp.verso === "asc" ? "asc" : "desc";
+  const campo = CAMPI_ORDINE[ordina];
+  const orderBy =
+    campo === "collezione"
+      ? [{ collezione: { nome: verso } }, { creatoIl: "desc" as const }]
+      : [{ [campo]: verso }, { creatoIl: "desc" as const }];
+
   const [prodotti, totale, collezioni, quanteUnite] = await Promise.all([
     prisma.prodotto.findMany({
       where,
-      orderBy: [{ priorita: "desc" }, { creatoIl: "desc" }],
+      orderBy: orderBy as never,
       include: { collezione: { select: { nome: true, margineTarget: true } } },
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
@@ -61,6 +87,19 @@ export default async function ProdottiPage({
   ]);
 
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
+  // Cliccando la colonna già attiva si **gira il verso**; cliccandone un'altra
+  // si parte dal verso naturale di quel dato: le date dal più recente, i numeri
+  // dal più alto, i testi dalla A. E si torna a pagina 1, perché l'ordine
+  // nuovo rimescola tutto e restare a pagina 7 non vorrebbe dire niente.
+  const linkOrdine = (chiave: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v && k !== "pagina" && k !== "ordina" && k !== "verso") q.set(k, v);
+    const naturale = chiave === "nome" || chiave === "categoria" || chiave === "fase" || chiave === "collezione" ? "asc" : "desc";
+    const nuovo = ordina === chiave ? (verso === "asc" ? "desc" : "asc") : naturale;
+    if (chiave !== "creato" || nuovo !== "desc") { q.set("ordina", chiave); q.set("verso", nuovo); }
+    const t = q.toString();
+    return t ? `/prodotti?${t}` : "/prodotti";
+  };
   const linkPagina = (n: number) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) if (v && k !== "pagina") q.set(k, v);
@@ -131,7 +170,7 @@ export default async function ProdottiPage({
             </span>
           )}
         </p>
-        <TabellaProdotti prodotti={prodotti} />
+        <TabellaProdotti prodotti={prodotti} ordine={{ ordina, verso, link: linkOrdine }} />
         {pagine > 1 && (
           <div className="paginazione">
             {pagina > 1 && (
