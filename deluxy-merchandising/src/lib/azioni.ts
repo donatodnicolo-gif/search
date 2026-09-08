@@ -219,3 +219,31 @@ export async function segnaShopify(id: string, stato: string) {
   revalidatePath("/shopify");
   revalidatePath(`/prodotti/${id}`);
 }
+
+/**
+ * **Rimette una foto che il prodotto aveva prima.**
+ *
+ * Chiesto dall'utente l'08/09/2026 insieme allo storico: salvare i cambi serve
+ * a poco se poi non si può tornare indietro. Il ripristino è a sua volta un
+ * cambio, quindi lascia la sua riga nello storico (origine «ripristino»): così
+ * la storia resta leggibile e si può anche disfare il disfare.
+ *
+ * ⚠️ **Cambia solo la foto della scheda qui, non tocca il negozio.** Le foto su
+ * Shopify le decide chi le carica là; questa è la vetrina interna. E l'import
+ * notturno non la sovrascriverà con una più vecchia, perché da oggi vince la
+ * più recente (`fotoDaTenere`) — ma se sul negozio la foto è più nuova, alla
+ * prossima notte tornerà quella: il ripristino vale finché il negozio non dice
+ * il contrario, ed è giusto così.
+ */
+export async function ripristinaImmagine(prodottoId: string, url: string) {
+  const p = await prisma.prodotto.findUnique({ where: { id: prodottoId }, select: { immagine: true } });
+  if (!p || p.immagine === url) return;
+  await prisma.$transaction([
+    prisma.storicoImmagine.create({
+      data: { prodottoId, url: p.immagine ?? "", urlNuovo: url, origine: "ripristino" },
+    }),
+    prisma.prodotto.update({ where: { id: prodottoId }, data: { immagine: url } }),
+  ]);
+  revalidatePath(`/prodotti/${prodottoId}`);
+  revalidatePath("/prodotti");
+}

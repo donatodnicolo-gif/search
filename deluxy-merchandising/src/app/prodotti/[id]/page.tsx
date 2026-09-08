@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
-import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
+import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, ripristinaImmagine, segnaShopify } from "@/lib/azioni";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
 import { conti, riga } from "@/lib/composti";
@@ -31,7 +31,7 @@ import {
   prezzoVariante,
   STATI_SHOPIFY,
 } from "@/lib/dominio";
-import { isoRoma } from "@/lib/fuso";
+import { dataOraIt, isoRoma } from "@/lib/fuso";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +68,9 @@ export default async function ProdottoPage({
         tappe: { orderBy: { creataIl: "desc" } },
         vetrine: { include: { vetrina: true }, orderBy: { posizione: "asc" } },
         pubblicazioni: { orderBy: { negozio: "asc" } },
+        // Le foto che il prodotto ha avuto: le ultime dieci bastano a ritrovare
+        // quella giusta e non fanno pesare la pagina quando la storia è lunga.
+        storicoImmagini: { orderBy: { cambiataIl: "desc" }, take: 10 },
       },
     }),
     prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -450,6 +453,36 @@ export default async function ProdottoPage({
             conferma={seoConferma === "1"}
             inModifica={seoModifica === "1"}
           />
+        )}
+
+        {/* **Le foto di prima** (richiesta dell'utente, 08/09/2026: «salva i cambi
+            di immagine così da poterle ripristinare nel tempo»). Compare solo se
+            una storia c'è: un riquadro che dice «nessun cambio» sarebbe l'ennesima
+            card vuota davanti al contenuto vero. */}
+        {tab === "panoramica" && prodotto.storicoImmagini.length > 0 && (
+          <div className="scheda">
+            <div className="scheda-titolo">Foto di prima · {prodotto.storicoImmagini.length}</div>
+            <p className="page-sub" style={{ marginBottom: 12 }}>
+              La foto della scheda si riallinea al negozio a ogni import, e con quattro negozi lo stesso prodotto può averne una
+              diversa su ciascuno. Qui restano quelle che aveva: si rimettono con un clic.
+            </p>
+            <div className="storico-foto">
+              {prodotto.storicoImmagini.map((s) => (
+                <form key={s.id} action={ripristinaImmagine.bind(null, prodotto.id, s.url)} className="storico-foto-voce">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={s.url} alt="" loading="lazy" />
+                  <div className="cella-sub">
+                    {dataOraIt(s.cambiataIl)}
+                    <br />
+                    {s.origine === "import" ? `sostituita dall'import${s.negozio ? ` di ${s.negozio}` : ""}` : s.origine === "ripristino" ? "ripristinata" : `cambiata dal ${s.origine}`}
+                  </div>
+                  <button type="submit" className="btn btn-secondario small" disabled={s.url === prodotto.immagine}>
+                    {s.url === prodotto.immagine ? "È questa" : "Rimetti questa"}
+                  </button>
+                </form>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Tutto quello che il negozio dice di questo prodotto: i metafield. */}

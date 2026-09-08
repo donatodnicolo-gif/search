@@ -1448,3 +1448,17 @@ th a:focus-visible {
   .campo-modulo input, .campo-modulo select, .campo-modulo textarea,
   .filtri input[type="search"], .filtri select { font-size: 16px; }
 }
+
+/* **Le foto di prima** (08/09/2026): miniature affiancate, con la data e chi
+   le ha sostituite. Formato piccolo perché servono a riconoscere, non a
+   giudicare: chi vuole vederle grandi apre l'immagine. */
+.storico-foto { display: flex; flex-wrap: wrap; gap: 14px; }
+.storico-foto-voce {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  width: 132px;
+}
+.storico-foto-voce img {
+  width: 132px; height: 132px; object-fit: cover;
+  border-radius: var(--radius-m); border: 1px solid var(--hairline);
+  background: var(--fill);
+}

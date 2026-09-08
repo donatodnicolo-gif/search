@@ -1412,6 +1412,25 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     const fotoAttuale = new Map<string, string | null>(primaDellImport.map((p) => [p.id, p.immagine]));
     const faseAttuale = new Map<string, string>(primaDellImport.map((p) => [p.id, p.fase]));
 
+    // **Lo storico delle foto** (richiesta dell'utente, 08/09/2026: «salva i
+    // cambi di immagine così da poterle ripristinare nel tempo»). Serve perché
+    // la foto della scheda cambia **da sola**: la riallinea l'import notturno, e
+    // con quattro negozi la stessa scheda può oscillare fra foto diverse.
+    //
+    // Si scrive **solo quando cambia davvero** e solo se ce n'era una prima: un
+    // giro che non cambia niente non lascia righe, altrimenti in un mese ce ne
+    // sarebbero centomila che dicono tutte la stessa cosa. Una riga tiene la
+    // vecchia e la nuova, così la storia si legge senza incrociare i record.
+    const cambiFoto = daAggiornare
+      .map((d) => ({ id: d.id, prima: fotoAttuale.get(d.id) ?? null, dopo: fotoDaTenere(fotoAttuale.get(d.id), d.immagine) }))
+      .filter((x): x is { id: string; prima: string; dopo: string } => !!x.dopo && !!x.prima)
+      .map((x) => ({ prodottoId: x.id, url: x.prima, urlNuovo: x.dopo, origine: "import", negozio: n.nome }));
+    if (cambiFoto.length > 0) {
+      for (let i = 0; i < cambiFoto.length; i += 500) {
+        await prisma.storicoImmagine.createMany({ data: cambiFoto.slice(i, i + 500) });
+      }
+    }
+
     // Aggiornamento in blocchi: sono migliaia di righe, una per volta ci
     // metterebbe minuti.
     for (let i = 0; i < daAggiornare.length; i += SCRITTURE_INSIEME) {
