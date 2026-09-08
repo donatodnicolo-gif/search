@@ -10,6 +10,71 @@
 > 🔧 **06/09/2026 sera — «Escluso dalle proposte»**: la piattaforma marca i partner di ripiego (`esclusoDalleProposte` su `/app/vendita/provincia/:sigla`, tolti dalle liste esposte); `propostaVendita` non li propone mai; la pagina Vendite → Partner li mostra con l'etichetta.
 > ⭐⭐ **06/09/2026 sera — NUOVA ARCHITETTURA VENDITE: il CS è il CUSTODE di sconti e liste** (decisione utente; commit sul branch `cs-vendite-custode` di scoutwt). Orders gestisce solo l'ordine; qui: `src/lib/vendite.ts` (regola del territorio 40/20/30 + `ScontoProvincia` personalizzati; `statoProvincia` dalla piattaforma `GET /api/v1/app/vendita/provincia/:sigla`, cache 10 min; `ListaPrioritaArea` importate da `/app/aree-commerciali` + `/app/liste-priorita`, le modificate a mano non si sovrascrivono; `propostaVendita`: deluxy.it = guanti bianchi → fuori MI/RM/FI serve l'extra pagato (= totale − righe prodotto) altrimenti ANOMALIA; altri marchi → solo chi consegna da solo in provincia; sconto e prezzo al fornitore a 5). Pagina **/vendite** (admin: Sconti · Partner per provincia · Liste per area), rotte `/api/vendite/{sconti,partner,liste}`, `GET /api/v1/quota-fornitore` (chiave app: la CASA della quota, contratto identico a quello che aveva Orders), blocco «Proposta di vendita» in `DettaglioOrdine` (`PropostaVendita.tsx`, `/api/ordini/[id]/proposta-vendita`). `leggiQuotaFornitore` ora calcola qui. Tabelle create con `scripts/applica-migrazione-vendite.mjs`. Chiavi ApiKey create: `deluxy-delivery`, `deluxy-orders`. 🔖 Per ora si smistano da qui solo i FIORI; l'invio ai partner usa le richieste fornitore esistenti (a mano, nell'ordine proposto).
 
+## 07/09/2026 sera — TUTTE LE APP GIÙ per ore: indici mancanti sul database condiviso
+
+Non è un difetto del Customer Service, ma il CS è stato il primo a cadere e da
+qui è partita l'indagine. **Chi riprende: se un'app Deluxy risponde
+«Application error», la prima cosa da guardare NON è il codice** — vedi la
+memoria `incidente-pooler-supabase-emaxconn` e
+`deluxy-design-system/SEGNALAZIONI-PERFORMANCE.md`.
+
+**I sintomi**, tutti letti nei log di Vercel (`npx vercel logs <url>`):
+`FATAL: (EMAXCONN) max client connections reached, limit: 200` (CS, mattina),
+`authentication did not complete within 15000ms` (Marketing, 17:31),
+`P2024 Timed out fetching a new connection` (piattaforma, 16:05 e 18:18),
+`Runtime Timeout after 60 seconds` (AI Mail). Login e widget rispondevano 200:
+falliva solo ciò che tocca il database.
+
+**La causa, misurata**: query senza indice che leggevano tabelle intere e
+tenevano occupata una delle **~16 connessioni** che il pooler condiviso apre
+verso Postgres — sedici per tutte e quattordici le app.
+
+| Dove | PRIMA | DOPO |
+|---|---|---|
+| `platform."Delivery"("updatedAt")` — cursore `?aggiornateDa=` della nostra sync | 39.082 ms (251-589 ms a freddo) | **0,09 ms** |
+| AI Mail, pulizia HTML (tabella da 774 MB) | 5.288 ms · **4h15m di CPU dal 18/08**, era la query n.1 del cluster | **310 ms** |
+
+⚠️⚠️ **La misura si prende a database TRANQUILLO.** I 39 secondi erano gonfiati
+dalla congestione: la stessa query a freddo ne costava 251. Un revisore ostile
+ha demolito metà della prima diagnosi proprio su questo — si guarda il PIANO
+(Seq Scan?), non il cronometro.
+
+**Contro-esempio, e vale come regola**: il censimento accusava anche noi
+(`Ordine`: 98,8 milioni di righe lette in 69.614 scansioni; query da 156 e
+1.190 ms di media). Rimisurate a freddo: **5,1 ms** e **1,8 ms**, 309 blocchi
+tutti in cache. Le nostre tabelle sono da 1.500-5.500 righe: il Seq Scan è la
+scelta giusta del planner. **Nessun indice creato qui**, e non va creato.
+
+**Fatto in questa sessione (CS)**
+- `src/lib/leggi-json.ts`: un 5xx non è più «sessione scaduta». Con le rotte
+  che rispondevano la pagina HTML di Vercel, l'app invitava a rientrare gente
+  con la sessione validissima (segnalato dall'utente: «ogni tanto ci dice di
+  rientrare»). Ora «rientra» solo con 401 o col redirect del middleware.
+- **Cron sfalsati**: posta `1-56/5`, ordini `3-58/5`, ai-fuori-turno `6-56/10`
+  (prima partivano al minuto 0 insieme ad altre sei app).
+- Script nuovi in `scripts/`: `sblocca-transazioni.mts` (chiude le transazioni
+  ferme; il classificatore lo blocca a Claude, lo lancia l'utente),
+  `timeout-transazioni-ferme.mts`, `indice-delivery-updatedat.mts`,
+  `indice-mail-html-da-pulire.mts`, `censimento-indici.mts`.
+- Sul database (col sì dell'utente): `idle_in_transaction_session_timeout` da
+  **0** a **5 min** — prima una transazione dimenticata restava per sempre e
+  toglieva una connessione a tutti.
+
+**Deploy**: CS `6j9ai4jnl` (origin/scout-ui `9eafa04c`), AI Mail `abpggcvv7`,
+Orders `1n78vqtqs`, Calendario `pce9yamkd`, Marketing `eris9az4t`.
+🔴 **NON pubblicati**: Merchandising (non compila: `FormProdottoNuovo.tsx`
+«Cannot find name duplica», modifica a metà di un'altra sessione) e piattaforma
+(vive sul ramo `platform-0409` di un'altra sessione; il cron sfalsato è su
+`piattaforma-ricerca-insensitive` e va portato di là).
+
+**Rimasto da fare**
+- Leggere il `default_pool_size` di Supavisor dal pannello Supabase: è il numero
+  che manca a tutta la diagnosi (non accessibile da questa sessione).
+- Rimisurare a freddo il `connection_limit=3` di Marketing: fu tarato mentre il
+  cluster era in sofferenza.
+- ⚠️ Non applicare a tappeto un `connection_limit` basso: qui `statistiche.ts`
+  lancia **21** query in parallelo, `novita.ts` 19, `dashboard.ts` 14.
+
 ## 07/09/2026 sera — Il nome sul conto non è il fornitore
 
 **Segnalazione dell'utente** (con la schermata del modulo «Paga fornitore» su
