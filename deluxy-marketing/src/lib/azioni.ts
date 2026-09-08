@@ -4292,6 +4292,67 @@ export async function accodaNegativeScritte(input: {
  * ⚠️ Non decide niente da sé: esegue solo le APPROVATE, dieci per volta, e
  * ogni esito finisce sulla riga dell'operazione come per Google.
  */
+/**
+ * Esegue su Meta UNA sola operazione approvata, quella indicata.
+ *
+ * ⚠️⚠️ **PERCHÉ ESISTE (08/09/2026, segnalazione dell'utente: «avevo chiesto
+ * all'app di metterla in pausa ma su Meta è rimasta sempre attiva»).**
+ * Su Meta non c'è nessuno script: esegue l'app. Dal 04/09 l'approvazione
+ * esegue subito — ma solo per chi viene approvato DA ALLORA. Le operazioni
+ * approvate PRIMA sono rimaste ferme, e l'unico modo di mandarle era «Esegui
+ * adesso», che le prende **tutte insieme**: per spegnere una campagna
+ * bisognava spegnerne anche un'altra, o annullarla prima. Con due pause ferme
+ * — «[Palloncini] - AWARENESS» approvata il 04/09 e «[Opera] ATC - VOLUME» il
+ * 26/08 — quel bottone è rimasto non premuto per giorni, e nel frattempo
+ * Palloncini ha speso 50,88 € con zero ricavi.
+ *
+ * Una decisione presa nell'app deve poter arrivare sulla piattaforma **da
+ * sola**, senza portarsi dietro decisioni che non si sono prese. Questo
+ * bottone manda quella riga e basta.
+ *
+ * ⚠️ Non è un cron: preme sempre una persona. La scelta del 23/08 — niente
+ * esecuzioni Meta automatiche nel cuore della notte — resta intera.
+ */
+export async function eseguiUnaSuMeta(fd: FormData) {
+  const id = testo(fd, "id");
+  const torna = testo(fd, "ritorno");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({
+    where: { id },
+    select: { id: true, tipo: true, bersaglio: true, stato: true, canale: true, campagnaId: true },
+  });
+  if (!op) return;
+  // Solo Meta e solo approvate: su Google esegue lo script, e una in attesa
+  // non è stata decisa da nessuno.
+  if (op.canale === "google_ads" || op.stato !== "approvata") return;
+
+  const { eseguiOperazioniMeta } = await import("./meta-scrittura");
+  const e = await eseguiOperazioniMeta({ limite: 1, ids: [op.id] });
+  const riassunto = e.spento
+    ? `Scrittura su Meta spenta: «${op.bersaglio}» resta in coda. ${e.nota ?? ""}`.trim()
+    : e.eseguite > 0
+      ? `Su Meta: ${op.tipo} eseguita su «${op.bersaglio}».`
+      : e.fallite > 0
+        ? `Su Meta non è passata: ${op.tipo} su «${op.bersaglio}» è fallita — il motivo è sulla riga.`
+        : e.saltate > 0
+          ? `Saltata: «${op.bersaglio}» non ha un id di piattaforma, e non si tocca un omonimo.`
+          : `Niente da eseguire su «${op.bersaglio}» (programmata per un altro giorno, o già fatta).`;
+
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: "Eseguita su Meta, una sola",
+    dettaglio: riassunto,
+  });
+  revalidatePath("/operazioni");
+  if (op.campagnaId) revalidatePath(`/campagne/${op.campagnaId}`);
+  const qs = new URLSearchParams({ esito: riassunto });
+  if (torna) qs.set("torna", torna);
+  redirect(`/operazioni?${qs.toString()}`);
+}
+
 export async function eseguiMetaAdesso() {
   const { eseguiOperazioniMeta } = await import("./meta-scrittura");
   const esito = await eseguiOperazioniMeta({ limite: 10 });

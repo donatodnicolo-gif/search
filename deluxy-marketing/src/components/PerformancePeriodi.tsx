@@ -62,12 +62,12 @@ export async function PerformancePeriodi({
     ? await prisma.metricaGruppo.findMany({
         where: { gruppoId, data: { gte: inizioAnno, lte: fine } },
         orderBy: { data: "asc" },
-        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true },
+        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true, impression: true },
       })
     : await prisma.metricaCampagna.findMany({
         where: { campagnaId, data: { gte: inizioAnno, lte: fine } },
         orderBy: { data: "asc" },
-        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true },
+        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true, impression: true },
       });
 
   if (tutte.length === 0) return null;
@@ -93,6 +93,10 @@ export async function PerformancePeriodi({
       ricavi: ri,
       conversioni: righe.reduce((s, m) => s + (m.conversioni ?? 0), 0),
       click: righe.reduce((s, m) => s + (m.click ?? 0), 0),
+      // ⚠️ Le comparse servono al CTR, e il CTR si fa sui TOTALI della finestra:
+      // la media delle percentuali giornaliere darebbe a un giorno con 3 viste
+      // lo stesso peso di uno con 3.000.
+      comparse: righe.reduce((s, m) => s + (m.impression ?? 0), 0),
       resa: roas(ri, sp),
       // ⚠️ La media al giorno è l'unica colonna confrontabile fra finestre di
       // lunghezza diversa: 223 € in 7 giorni e 900 € in 30 non si leggono uno
@@ -121,6 +125,10 @@ export async function PerformancePeriodi({
               <th className="num">Ricavi</th>
               <th className="num">Conv.</th>
               <th className="num">Click</th>
+              {/* Il CTR accanto ai click: i click da soli dicono quanti, non se
+                  sono tanti. Su una finestra lunga «916 click» non si giudica
+                  senza sapere su quante comparse. */}
+              <th className="num" title="Click ÷ comparse: quanta della gente che ha visto l'annuncio ci ha cliccato">CTR</th>
               <th className="num">ROAS</th>
               {conFrequenza && (
                 <th
@@ -146,6 +154,12 @@ export async function PerformancePeriodi({
                 <td className="num">{c.ricavi > 0 ? formattaEuro(c.ricavi) : "—"}</td>
                 <td className="num">{c.conversioni > 0 ? formattaNumero(c.conversioni) : "—"}</td>
                 <td className="num cella-muta">{c.click > 0 ? formattaNumero(c.click) : "—"}</td>
+                <td
+                  className="num cella-muta"
+                  title={c.comparse > 0 ? `${formattaNumero(c.click)} click su ${formattaNumero(c.comparse)} comparse` : "Nessuna comparsa in questa finestra: il CTR non esiste, non è zero"}
+                >
+                  {c.comparse > 0 ? `${((c.click / c.comparse) * 100).toFixed(1).replace(".", ",")}%` : "—"}
+                </td>
                 <td
                   className="num"
                   style={{ fontWeight: 600, color: c.resa == null ? undefined : c.resa >= 3 ? "var(--green)" : c.resa < 1 ? "var(--red)" : undefined }}

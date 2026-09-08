@@ -1043,8 +1043,25 @@ export default async function SchedaCampagna({
           }}
         />
 
-        <CoperturaCampagna campagnaId={campagna.id} />
+        {/* La copertura è la quota sulla rete di RICERCA: su Meta non esiste
+            il concetto, e il riquadro compariva vuoto a spiegare quale script
+            lo riempirebbe. */}
+        {campagna.canale === "google_ads" && <CoperturaCampagna campagnaId={campagna.id} />}
 
+        {/* ⚠️⚠️ DA QUI IN GIÙ È ROBA DI GOOGLE, E SU META NON ESISTE
+            (08/09/2026, segnalato dall'utente su quattro riquadri diversi
+            della stessa pagina Meta). Su Meta non ci sono keyword, non ci sono
+            parole cercate, non ci sono negative di campagna, non ci sono
+            estensioni e non c'è nessuno script: questi riquadri comparivano
+            lo stesso, vuoti, e i loro testi spiegavano come farli riempire
+            «con AZIONE = "diagnosi"» — istruzioni per una piattaforma che non
+            è quella che si sta guardando. E «Ideali che qui mancano» arrivava
+            a proporre di portare keyword di una campagna Google DENTRO una
+            campagna Meta, con tanto di bottone.
+            Un comando che non può funzionare non si mostra spento: non si
+            mostra. */}
+        {campagna.canale === "google_ads" && (
+          <>
         <TerminiRicerca
           campagnaId={campagna.id}
           brand={campagna.brand}
@@ -1108,6 +1125,8 @@ export default async function SchedaCampagna({
           </div>
         )}
         <EstensioniCampagna campagnaId={campagna.id} nomeCampagna={campagna.nome} />
+          </>
+        )}
 
         {!defunta && <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />}
 
@@ -1115,7 +1134,12 @@ export default async function SchedaCampagna({
 
         <RecapModifiche campagnaId={campagna.id} />
 
-        <AggiornaAdesso dove={`/campagne/${campagna.id}`} esito={aggiornamento} compatto />
+        {/* Su Meta i dati li va a prendere l'app da sola: il bottone «Chiedi i
+            dati Google di oggi» su una campagna Meta chiede a Google notizie di
+            una campagna che Google non ha. */}
+        {campagna.canale === "google_ads" && (
+          <AggiornaAdesso dove={`/campagne/${campagna.id}`} esito={aggiornamento} compatto />
+        )}
 
         <div className="due-colonne">
           <div>
@@ -1259,6 +1283,11 @@ export default async function SchedaCampagna({
                 NON arriva — non era da nessuna parte, e le operazioni
                 «Escludi parole» sparivano dentro Google senza lasciare un
                 elenco da rileggere. */}
+            {/* ⚠️ Solo su Google: le parole escluse sono un oggetto di Google
+                Ads, l'app le scrive con lo script di Google, e su una campagna
+                Meta il riquadro diceva soltanto che non ce n'erano — una
+                risposta a una domanda che lì non si pone. */}
+            {campagna.canale === "google_ads" && (
             <section className="scheda">
               <div className="scheda-titolo">
                 Parole escluse{negative.length > 0 ? ` (${negative.length})` : ""}
@@ -1306,6 +1335,7 @@ export default async function SchedaCampagna({
                 </>
               )}
             </section>
+            )}
 
             <section className="scheda">
               <div className="scheda-titolo">Azioni sulla campagna ({campagna.azioni.length})</div>
