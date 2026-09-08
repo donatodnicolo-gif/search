@@ -10,12 +10,31 @@ delle 11:28 l'app rispondeva `database: false` su `/api/health` (3 prove su 3) e
 di runtime. ⚠️ **Non era Postgres pieno**: `pg_stat_activity` contava **32
 connessioni** (24 idle, 1 attiva) — il tetto è quello dei *client del pooler*
 Supavisor, che si conta altrove.
-Causa: `src/lib/db.ts` non metteva nessun `connection_limit`, e Prisma senza
-tetto apre `num_cpu × 2 + 1` **per istanza** — su questa macchina (8 core) sono
-**17 posti per un solo `next dev`**, e altrettanti per ogni istanza calda su
-Vercel, moltiplicate dal deploy che scalda le nuove mentre le vecchie non si
-sono spente. Spegnendo il dev server l'app è tornata su in **meno di 10
-secondi**.
+⚠️⚠️ **CORRETTO IL 08/09 POMERIGGIO — la prima versione di questa nota era
+sbagliata.** Diceva: «`db.ts` non metteva nessun `connection_limit`, quindi
+Prisma ne apre `num_cpu × 2 + 1` per istanza — 17 posti per un solo `next dev`».
+**Non era una misura.** La `DATABASE_URL` porta già `connection_limit=5` nella
+query string e **Prisma legge il parametro dall'URL**, non da `db.ts`; in
+produzione la variabile è *Sensitive* e non si può leggere, quindi il valore
+vero **resta ignoto**. Segnalato dal custode delle prestazioni, verificato sul
+`.env`.
+
+**La causa vera è quasi certamente un difetto del pooler, non nostro**:
+discussione Supabase #40671 e fix `supavisor#783` — i `ClientHandler`
+sopravvivono a errori TLS fatali e **non rilasciano mai lo slot**, così i client
+salgono a 200 in giorni mentre i backend di Postgres restano una dozzina. È
+esattamente la firma vista qui: **32 backend e pooler pieno**.
+
+**Quello che resta provato**, e resta l'unica prova causale in mano nostra:
+spegnendo il `next dev` locale l'app è tornata su in **meno di 10 secondi**.
+Quello che il tetto fa davvero è **imporre 3 dove l'URL diceva 5** — prudente,
+non risolutivo. ⚠️ Vercel raccomanda di non scendere a 1: con Fluid Compute il
+totale dipende da **quante istanze sono vive**, non da questo numero.
+
+⚠️ Da sistemare, non qui perché è uguale in tutte le app: **`DIRECT_URL` non è
+una connessione diretta** — punta a `pooler.supabase.com:5432` (session mode) e
+**consuma dallo stesso budget di 200**. E il tetto da 200 è **hard-coded per
+dimensione di compute**: non si alza dalla dashboard.
 Rimedio applicato: `urlPooler()` come in `deluxy-marketing` —
 `connection_limit=3&pool_timeout=20` **solo** su `:6543`, nel codice e non nelle
 variabili d'ambiente. **Tre e non uno**: con 1 la home di Marketing andava in

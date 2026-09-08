@@ -15,23 +15,47 @@ import { PrismaClient } from "@prisma/client";
  * dei *client del pooler*, che si conta altrove — chi guarda il numero di
  * Postgres conclude che va tutto bene e cerca il guasto dove non c'è.
  *
- * La causa non è una query: è **quante connessioni ogni istanza si tiene**.
- * Senza `connection_limit` Prisma ne apre `num_cpu × 2 + 1` **per istanza**:
- * sulla macchina di sviluppo (8 core) sono **17 posti per un solo `next dev`**,
- * e su Vercel ogni istanza calda ne tiene altrettante, moltiplicate a ogni
- * deploy — il nuovo si scalda mentre il vecchio non si è ancora spento. Ma
- * un'istanza serve una richiesta per volta: più di una manciata non le serve.
- * È la raccomandazione di Prisma dietro pgbouncer/Supavisor, col numero giusto
- * (vedi sotto: tre, non uno).
+ * ⚠️⚠️ **CORREZIONE DEL 08/09 pomeriggio, dal custode delle prestazioni.** La
+ * prima stesura di questo commento diceva che senza `connection_limit` Prisma
+ * apre `num_cpu × 2 + 1` per istanza, «17 posti per un solo `next dev`».
+ * **Non era una misura, ed era sbagliata**: la `DATABASE_URL` porta già
+ * `connection_limit=5` nella query string, e **Prisma legge il parametro
+ * dall'URL**, non da questo file. In produzione la variabile è *Sensitive* e
+ * non si può leggere, quindi il valore vero **resta ignoto**. Quello che questa
+ * funzione fa davvero è **imporre 3** dove l'URL diceva 5, e metterlo dove non
+ * c'era.
  *
- * ⚠️ Si tocca **solo** l'indirizzo del pooler (`:6543`): la connessione diretta
- * (`:5432`, `DIRECT_URL`) serve alle migrazioni e vuole il suo pool.
+ * ⚠️ E soprattutto: **la causa vera è quasi certamente un difetto del pooler,
+ * non nostro.** Discussione Supabase #40671 e fix `supavisor#783` (Felipe
+ * Stival, team pooler): i `ClientHandler` sopravvivono a errori TLS fatali e
+ * **non rilasciano mai lo slot**, così i client salgono a 200 nell'arco di
+ * giorni mentre i backend di Postgres restano una dozzina — che è esattamente
+ * la firma vista qui (32 backend, pooler pieno). Testuale: non è correlato a
+ * `max`, `idleTimeoutMillis` né a Fluid Compute.
+ *
+ * **Quindi cosa resta vero di questo file?** Che un tetto esplicito e basso è
+ * prudente e non fa danno, e che l'unica prova causale che abbiamo è
+ * osservativa: **spegnendo il `next dev` locale l'app è tornata su in meno di
+ * 10 secondi**. Non è la cura del difetto del pooler: è meno benzina sul fuoco
+ * finché il fix arriva nella nostra regione. ⚠️ Vercel raccomanda di **non**
+ * scendere a 1 (non riduce il totale e fa male alla concorrenza): con Fluid
+ * Compute le invocazioni concorrenti condividono l'istanza, e il totale dipende
+ * da **quante istanze sono vive**, non da questo numero.
+ *
+ * ⚠️ Si tocca **solo** l'indirizzo del pooler (`:6543`). ⚠️ Ma attenzione:
+ * `DIRECT_URL` **non** è una connessione diretta — punta a
+ * `pooler.supabase.com:5432` (session mode) e **consuma dallo stesso budget di
+ * 200**. Da sistemare, e non qui: è uguale in tutte le app.
  * ⚠️ E si fa **qui, nel codice**, non nelle variabili d'ambiente: quelle sono
  * segrete, non tornano nemmeno col `vercel env pull`, e una stringa ricopiata a
  * mano è il modo classico di rompere la connessione di un'app intera.
  *
- * Stesso rimedio già applicato a `deluxy-marketing` il 07/09; la proposta di
- * farne una regola per tutte le app è nel registro delle performance.
+ * Stesso rimedio già applicato a `deluxy-marketing` il 07/09. ⚠️ Il tetto da
+ * 200 è **hard-coded per dimensione di compute** (Micro = 60/200): non si alza
+ * dalla dashboard, servono compute Small (400) o un Dedicated Pooler. E le 14
+ * app **condividono un pool solo**: la chiave di Supavisor è utente+database+
+ * modalità, **lo schema non conta**. Il seguito è in mano al custode delle
+ * prestazioni, non a questa app.
  */
 export function urlPooler(url: string | undefined): string | undefined {
   if (!url || !url.includes(":6543")) return url;
