@@ -648,47 +648,30 @@ export class SalariesService {
     const contanti = arrotonda2(dettaglio.deliveries
       .filter((d) => !(d as any).nonPagabile && !(d as any).daApprovare)
       .reduce((s, d) => s + d.cash, 0));
-    // Per i valet SENZA P.IVA il documento e' la ricevuta di prestazione
-    // occasionale, e la % della scheda e' la QUOTA DEL LORDO trattata come
-    // RIMBORSO SPESE (non imponibile).
-    //
-    // ⭐ 08/09/2026 (regola utente: «dovrebbe essere netto per 0,8 […] lordo è il primo
-    // e questo sarebbe il netto», e poi «correggi devono essere tutte così»).
-    //
-    // LA RITENUTA SI TRATTIENE, NON SI AGGIUNGE. Prima si faceva il gross-up
-    // (`compenso ÷ 0,8`): il lordo dichiarato veniva PIÙ GRANDE del compenso e la
-    // ritenuta la versava Deluxy in aggiunta, così il valet incassava il pieno.
-    // Adesso il lordo è quello che la paga vale davvero, e la ritenuta si sottrae:
-    //   rimborso  = perc% × lordo                    (non imponibile)
-    //   compenso  = lordo − rimborso                  (la parte imponibile)
-    //   ritenuta  = compenso × 20%
-    //   netto     = compenso × 0,8  (= compenso − ritenuta)
-    //   bonifico  = rimborso + netto + costi anticipati
-    //
-    // ⚠️ Il vecchio conto rendeva il documento incoerente con sé stesso: diceva
-    // «ricevo la somma lorda di 4,61 €, di cui 5,53 € di rimborso spese» — un di cui
-    // più grande del tutto. Ora la somma lorda è il lordo vero e il rimborso ci sta
-    // dentro.
+    // ⭐ 27/08: per i valet SENZA P.IVA il documento e' la ricevuta di
+    // prestazione occasionale, e la % della scheda e' la QUOTA DEL TOTALE
+    // trattata come RIMBORSO SPESE (non imponibile). Formula verificata sulle
+    // ricevute vere del legacy (Kiyomi Kurihara, % 50: totale 156,70 =
+    // rimborso 78,35 + netto 78,35, con lordo 97,94 e ritenuta 20% 19,59):
+    //   rimborso   = perc% x totale
+    //   nettoComp  = totale − rimborso
+    //   lordo      = nettoComp ÷ 0,8   (gross-up della ritenuta d'acconto 20%)
+    //   ritenuta   = lordo − nettoComp (la versa Deluxy all'erario, in piu')
+    //   bonifico   = nettoComp + rimborso = TOTALE (il valet riceve il pieno)
     const ricevuta = !valet.hasVat
       ? (() => {
           const perc = valet.withholdingPercent ?? 0;
           const rimborso = arrotonda2((lordo * perc) / 100);
-          // La parte imponibile: e' su questa che si calcola la ritenuta.
-          const corrispettivoLordo = arrotonda2(lordo - rimborso);
-          const ritenuta = arrotonda2(corrispettivoLordo * 0.2);
-          const nettoCompenso = arrotonda2(corrispettivoLordo - ritenuta);
+          const nettoCompenso = arrotonda2(lordo - rimborso);
+          const corrispettivoLordo = arrotonda2(nettoCompenso / 0.8);
           return {
             percRimborso: perc,
             rimborso,
             corrispettivoLordo,
-            ritenuta,
+            ritenuta: arrotonda2(corrispettivoLordo - nettoCompenso),
             nettoCompenso,
-            /** Il lordo del periodo: rimborso + compenso, prima della ritenuta. */
-            lordoPeriodo: arrotonda2(lordo),
             // Il bonifico porta anche i costi anticipati dal valet.
-            totaleBonifico: arrotonda2(rimborso + nettoCompenso + costiRimborsati),
-            /** I costi anticipati, per mostrarli come voce a sé nel documento. */
-            costiAnticipati: arrotonda2(costiRimborsati),
+            totaleBonifico: arrotonda2(lordo + costiRimborsati),
             // Marca da bollo da 2 € sopra i 77,47 € di prestazione.
             bollo: corrispettivoLordo > 77.47,
           };
@@ -780,16 +763,14 @@ export class SalariesService {
   ${(r as any).ricevuta ? `
   <h3 class="ricevuta-titolo">Ricevuta di prestazione occasionale (senza P.IVA)</h3>
   <table class="totali">
-    <tr><td>Lordo del periodo</td><td class="num">${eur((r as any).ricevuta.lordoPeriodo)}</td></tr>
-    <tr><td>Rimborso spese (${e((r as any).ricevuta.percRimborso)}% del lordo, non imponibile)</td><td class="num">${eur((r as any).ricevuta.rimborso)}</td></tr>
-    <tr><td>Compenso imponibile</td><td class="num">${eur((r as any).ricevuta.corrispettivoLordo)}</td></tr>
+    <tr><td>Rimborso spese (${e((r as any).ricevuta.percRimborso)}% del totale, non imponibile)</td><td class="num">${eur((r as any).ricevuta.rimborso)}</td></tr>
+    <tr><td>Corrispettivo lordo</td><td class="num">${eur((r as any).ricevuta.corrispettivoLordo)}</td></tr>
     <tr><td>Ritenuta d'acconto (20%)</td><td class="num">&minus;${eur((r as any).ricevuta.ritenuta)}</td></tr>
-    <tr><td>Compenso netto</td><td class="num">${eur((r as any).ricevuta.nettoCompenso)}</td></tr>
-    ${(r as any).ricevuta.costiAnticipati > 0 ? `<tr><td>Costi anticipati</td><td class="num">${eur((r as any).ricevuta.costiAnticipati)}</td></tr>` : ''}
-    <tr class="finale"><td>Totale bonifico</td><td class="num">${eur((r as any).ricevuta.totaleBonifico)}</td></tr>
+    <tr><td>Netto compenso</td><td class="num">${eur((r as any).ricevuta.nettoCompenso)}</td></tr>
+    <tr class="finale"><td>Totale bonifico (netto + rimborso)</td><td class="num">${eur((r as any).ricevuta.totaleBonifico)}</td></tr>
   </table>
   ${(r as any).ricevuta.bollo ? '<p class="nota">Prestazione sopra i 77,47 &euro;: la marca da bollo da 2,00 &euro; <strong>la applica il valet</strong> sulla ricevuta.</p>' : ''}
-  <p class="nota">La ritenuta d'acconto (20% del compenso imponibile) &egrave; <strong>trattenuta dal compenso</strong> e versata da Deluxy all'erario; i contanti gi&agrave; incassati si scalano dal bonifico. In fondo a questa mail c'&egrave; la ricevuta da stampare e firmare.</p>` : ''}
+  <p class="nota">La ritenuta d'acconto la versa Deluxy all'erario; i contanti gi&agrave; incassati si scalano dal bonifico. In fondo a questa mail c'&egrave; la ricevuta da stampare e firmare.</p>` : ''}
   ${r.totali.nonPagabili ? `<p class="nota">${r.totali.nonPagabili} ${r.totali.nonPagabili === 1 ? 'consegna non &egrave; pagabile' : 'consegne non sono pagabili'} (senza tariffa, o esclusa da una regola carnet): restano in elenco, marcate.</p>` : ''}
   ${r.troncato ? '<p class="nota">Elenco troncato alle prime 500 consegne del periodo.</p>' : ''}
   <p class="nota">Documento di riepilogo, non &egrave; un cedolino. I nominativi dei destinatari non compaiono.</p>
@@ -807,7 +788,6 @@ export class SalariesService {
     const ric = (r as any).ricevuta as {
       percRimborso: number; rimborso: number; corrispettivoLordo: number;
       ritenuta: number; nettoCompenso: number; totaleBonifico: number; bollo: boolean;
-      lordoPeriodo: number; costiAnticipati: number;
     } | null;
     if (!ric) return '';
     const e = (v: unknown) => String(v ?? '')
@@ -825,18 +805,16 @@ export class SalariesService {
   <p><strong>${e(nome)}</strong><br>${e(v.fiscalCode ?? '')}<br>${e(v.address ?? '')}<br>${e(v.birthPlace ?? '')}${v.birthDate ? '&nbsp;&nbsp;' + gg(v.birthDate) : ''}</p>
   <p>Spett.le <strong>Deluxy</strong><br>Via Varesina 60<br>20156 Milano (MI)<br>P.IVA: 11453140961</p>
   <p><strong>Nota del ${oggi}</strong>${r.periodo.dal || r.periodo.al ? ` &mdash; periodo ${[r.periodo.dal, r.periodo.al].filter(Boolean).map((x) => gg(x!)).join(' &rarr; ')}` : ''}</p>
-  <p>Il sottoscritto ${e(nome)} dichiara di ricevere la somma lorda di euro ${eur(ric.lordoPeriodo)}.<br>
+  <p>Il sottoscritto ${e(nome)} dichiara di ricevere la somma lorda di euro ${eur(ric.corrispettivoLordo)}.<br>
   Di cui euro ${eur(ric.rimborso)} a titolo di rimborso spese per l&rsquo;attivit&agrave; occasionale di collaborazione.<br>
   Per prestazioni per Deluxy per un totale di ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}.<br>
-  Al compenso di euro ${eur(ric.corrispettivoLordo)} &egrave; detratta la ritenuta d&rsquo;acconto (20%) pari a ${eur(ric.ritenuta)},
-  per un compenso netto di ${eur(ric.nettoCompenso)}${ric.costiAnticipati > 0 ? ` e un bonifico complessivo di ${eur(ric.totaleBonifico)} comprensivo dei costi anticipati` : ''}.</p>
+  Al suddetto importo lordo andr&agrave; detratta la ritenuta d&rsquo;acconto (20%) pari a ${eur(ric.ritenuta)},
+  per un corrispettivo netto pagato pari a ${eur(ric.totaleBonifico)}.</p>
   <table class="conti">
-    <tr><td>Lordo del periodo</td><td class="num">${eur(ric.lordoPeriodo)}</td></tr>
-    <tr><td>Rimborso spese (non imponibile)</td><td class="num">${eur(ric.rimborso)}</td></tr>
-    <tr><td>Compenso imponibile</td><td class="num">${eur(ric.corrispettivoLordo)}</td></tr>
-    <tr><td>Ritenuta d&rsquo;acconto (20%)</td><td class="num">&minus; ${eur(ric.ritenuta)}</td></tr>
-    <tr><td>Compenso netto</td><td class="num">${eur(ric.nettoCompenso)}</td></tr>
-    ${ric.costiAnticipati > 0 ? `<tr><td>Costi anticipati dal collaboratore</td><td class="num">${eur(ric.costiAnticipati)}</td></tr>` : ''}
+    <tr><td>Corrispettivo lordo</td><td class="num">${eur(ric.corrispettivoLordo)}</td></tr>
+    <tr><td>Ritenuta d&rsquo;acconto</td><td class="num">${eur(ric.ritenuta)}</td></tr>
+    <tr><td>Importo Netto</td><td class="num">${eur(ric.nettoCompenso)}</td></tr>
+    <tr><td>Rimborsi</td><td class="num">${eur(ric.rimborso)}</td></tr>
     <tr class="finale"><td>Totale Bonifico</td><td class="num">${eur(ric.totaleBonifico)}</td></tr>
   </table>
   <p><strong>DICHIARA INOLTRE</strong><br>sotto la propria responsabilit&agrave;:</p>
