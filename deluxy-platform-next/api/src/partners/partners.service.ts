@@ -662,16 +662,51 @@ export class PartnersService {
     const banca = rest as { bankAccount?: string; bankAccountName?: string };
     if (banca.bankAccount !== undefined || banca.bankAccountName !== undefined) {
       const iban = normalizzaIban(banca.bankAccount ?? '');
-      const cambiaDavvero = banca.bankAccount !== undefined && iban !== normalizzaIban(prima.bankAccount ?? '');
-      delete banca.bankAccount;
-      delete banca.bankAccountName;
-      if (cambiaDavvero) {
+      const nome = String(banca.bankAccountName ?? '').trim();
+      const ibanCambia = banca.bankAccount !== undefined && iban !== normalizzaIban(prima.bankAccount ?? '');
+      const nomeCambia = banca.bankAccountName !== undefined && nome !== (prima.bankAccountName ?? '').trim();
+      const ufficio = user.role === Role.ADMIN || user.role === Role.OPERATION;
+
+      if (!ufficio) {
+        // PARTNER e PROJECT_MANAGER: da qui non passano. Il partner ha la rotta con la
+        // verifica; il project manager «sul denaro di nessuno», come dice il suo commento.
+        delete banca.bankAccount;
+        delete banca.bankAccountName;
+        if (ibanCambia || nomeCambia) {
+          this.logger.warn(
+            `Tentativo di cambiare le coordinate bancarie del partner ${id} dalla scheda (${user.role}, ${user.email ?? user.sub}): rifiutato.`,
+          );
+          throw new BadRequestException(
+            "Le coordinate bancarie non si cambiano da qui: si usa il riquadro «Coordinate bancarie» del profilo, " +
+            "che manda un codice di verifica all'indirizzo email del partner.",
+          );
+        }
+      } else if (ibanCambia || nomeCambia) {
+        /**
+         * ⚠️ L'UFFICIO CONTINUA A POTERLO FARE — ma non in silenzio (08/09/2026).
+         *
+         * La versione precedente della toppa vietava la scrittura a TUTTI. Chiudeva la
+         * falla del project manager, ma **toglieva all'ufficio l'unica via che aveva**
+         * per correggere un IBAN sbagliato (il riquadro con la verifica sta nel profilo
+         * del PARTNER, e manda il codice a lui: se il partner non risponde, l'ufficio
+         * resta fermo). E il solo intestatario diventava immodificabile in silenzio.
+         * Una difesa che costringe a lavorare da un'altra parte non protegge: sposta.
+         *
+         * Quindi ADMIN e OPERATION scrivono, con tre condizioni: l'IBAN passa dal
+         * CHECKSUM come dalla rotta verificata, il gesto lascia un log, e l'avviso parte
+         * sia al partner sia all'ufficio. È un rischio accettato e dichiarato: chi ha
+         * quelle credenziali può già fare molto altro, ma non lo fa senza lasciare traccia.
+         */
+        if (ibanCambia && !ibanValido(iban)) {
+          throw new BadRequestException("L'IBAN non è valido: controlli di averlo copiato per intero.");
+        }
+        if (ibanCambia) banca.bankAccount = iban;
         this.logger.warn(
-          `Tentativo di cambiare l'IBAN del partner ${id} dalla scheda (${user.role}, ${user.email ?? user.sub}): ignorato, si passa dalla verifica.`,
+          `Coordinate bancarie del partner ${id} cambiate DALL'UFFICIO (${user.role}, ${user.email ?? user.sub}): ` +
+          `${ibanMascherato(prima.bankAccount)} → ${ibanMascherato(ibanCambia ? iban : prima.bankAccount)}`,
         );
-        throw new BadRequestException(
-          "Le coordinate bancarie non si cambiano da qui: si usa il riquadro «Coordinate bancarie», che manda un codice di verifica al partner.",
-        );
+        void this.avvisaUfficioBanca('fatto', prima.insegna ?? '', prima.bankAccount, ibanCambia ? iban : (prima.bankAccount ?? ''), nome || (prima.bankAccountName ?? ''));
+        void this.avvisaPartnerCambioBanca(prima.id, prima.insegna ?? '', prima.email, prima.bankAccount, ibanCambia ? iban : (prima.bankAccount ?? ''));
       }
     }
     const scalar = {
@@ -698,9 +733,16 @@ export class PartnersService {
       if (scalar.email !== undefined) {
         allowed.email = scalar.email;
         const nuova = String(scalar.email ?? '').trim().toLowerCase();
-        if (nuova && nuova !== (prima.email ?? '').trim().toLowerCase()) {
+        const vecchia = (prima.email ?? '').trim().toLowerCase();
+        if (nuova && nuova !== vecchia) {
           allowed.emailCambiataIl = new Date();
           allowed.emailPrecedente = prima.email ?? null;
+          // ⚠️ L'AVVISO AL VECCHIO RECAPITO (secondo giro dell'ostile). Il blocco dei
+          // sette giorni, da solo, per chi ha la password è solo un'ATTESA: cambia il
+          // recapito, aspetta, poi dirotta l'IBAN. Questo avviso rende l'attesa inutile,
+          // perché il titolare vero lo scopre il giorno stesso — all'indirizzo che
+          // l'attaccante ha appena smesso di controllare.
+          void this.avvisaCambioRecapito(prima.insegna ?? '', vecchia, nuova);
         }
       }
       if (scalar.address !== undefined) allowed.address = scalar.address;
@@ -927,8 +969,8 @@ export class PartnersService {
     }
     const p = await this.prisma.partner.findUnique({
       where: { id: partnerId },
-      select: { insegna: true, email: true, bankAccount: true, bankCodeSentAt: true,
-                emailCambiataIl: true, emailPrecedente: true },
+      select: { insegna: true, email: true, bankAccount: true, bankAccountName: true,
+                bankCodeSentAt: true, emailCambiataIl: true, emailPrecedente: true },
     });
     if (!p) throw new NotFoundException('Partner non trovato');
 
@@ -964,21 +1006,34 @@ export class PartnersService {
         );
       }
     }
-    const utente = await this.prisma.user.findFirst({
-      where: { partnerId, role: Role.PARTNER },
-      select: { email: true },
-    });
     const buona = (x: string | null | undefined) => {
       const v = (x ?? '').trim().toLowerCase();
       return v && v.includes('@') && !v.includes('no-email') ? v : null;
     };
-    // L'indirizzo precedente vale un mese: dopo, tenerlo vorrebbe dire mandare il codice a
-    // una casella che il partner potrebbe non controllare più.
+    /**
+     * ⚠⚠⚠ SECONDO GIRO DELL'OSTILE (08/09/2026): LA TOPPA AVEVA CREATO IL CANALE.
+     *
+     * Per non dipendere da un solo indirizzo avevo aggiunto fra i destinatari anche
+     * l'email dell'ACCOUNT (`User.email`). Ma `User.email` si riscrive da
+     * `POST /auth/profilo` **senza codice, senza conferma e senza attesa** — e senza
+     * lasciare la traccia che fa scattare il blocco dei sette giorni, che guarda solo
+     * `Partner.email`. Cioè: tre chiamate con una sessione rubata, nessuna attesa, IBAN
+     * sostituito. Prima della mia «toppa» riscrivere `User.email` non serviva a niente.
+     *
+     * La regola che ne esce, e che vale oltre questo caso: **un secondo fattore non può
+     * essere un dato che il primo fattore riscrive**. Ogni indirizzo raggiungibile dalla
+     * sessione va o congelato o tolto dai destinatari. Qui si toglie: resta
+     * `Partner.email`, che è protetta dal blocco dei sette giorni, più quello precedente.
+     *
+     * ⚠️ E il blocco dei sette giorni da solo sarebbe solo un'ATTESA per chi ha la
+     * password: per questo, cambiando il recapito, ora parte un avviso al VECCHIO
+     * indirizzo (`avvisaCambioRecapito`). Il titolare vero lo scopre il giorno stesso,
+     * non sette giorni dopo a IBAN cambiato.
+     */
     const precedenteVale = p.emailCambiataIl
       && (Date.now() - p.emailCambiataIl.getTime()) < 30 * 86_400_000;
     const destinatari = [...new Set([
       buona(p.email),
-      buona(utente?.email),
       precedenteVale ? buona(p.emailPrecedente) : null,
     ].filter(Boolean) as string[])];
     if (!destinatari.length) {
@@ -987,8 +1042,15 @@ export class PartnersService {
       );
     }
     const a = destinatari[0];
-    if (normalizzaIban(p.bankAccount ?? '') === iban) {
-      throw new BadRequestException('Questo è già l\'IBAN registrato: non c\'è niente da cambiare.');
+    // ⚠️ Il SOLO intestatario deve poter cambiare (segnalato dall'ostile): la ragione
+    // sociale si corregge senza toccare il conto, ed è comunque il campo che la banca
+    // confronta col beneficiario — quindi passa dalla stessa verifica, non da una scorciatoia.
+    // Prima si rifiutava tutto quando l'IBAN era uguale, e quella correzione non aveva
+    // più nessuna strada: dalla scheda veniva scartata in silenzio, da qui rifiutata.
+    const stessoIban = normalizzaIban(p.bankAccount ?? '') === iban;
+    const stessoNome = (p.bankAccountName ?? '').trim() === intestatario;
+    if (stessoIban && stessoNome) {
+      throw new BadRequestException('Coordinate identiche a quelle registrate: non c\'è niente da cambiare.');
     }
     // Il bottone «rimanda» non deve diventare un modo per riempire una casella.
     if (p.bankCodeSentAt && Date.now() - p.bankCodeSentAt.getTime() < RIMANDA_DOPO_SECONDI * 1000) {
@@ -1091,14 +1153,39 @@ export class PartnersService {
     }
 
     const vecchio = p.bankAccount;
-    const aggiornato = await this.prisma.partner.update({
-      where: { id: partnerId },
+    /**
+     * ⚠️ IL CONSUMO DELLA RICHIESTA È ATOMICO (secondo giro dell'ostile, 08/09/2026).
+     *
+     * Rendere atomico il CONTATORE non bastava: la guardia che decide leggeva uno stato
+     * scattato all'inizio della richiesta. N `conferma` in parallelo leggono tutte l'hash
+     * ancora presente e `bankCodeAttempts = 0` prima che una qualsiasi scriva — e con la
+     * latenza verso il database la coda è profonda. Il tetto non era «cinque prove»: era
+     * «quante ne stanno in una raffica».
+     *
+     * Qui la condizione sta nella WHERE: solo una richiesta può trovare l'impronta ancora
+     * al suo posto, e l'update che la azzera è lo stesso che scrive l'IBAN. Le altre
+     * tornano `count: 0` e non scrivono niente.
+     */
+    const consumata = await this.prisma.partner.updateMany({
+      where: {
+        id: partnerId,
+        bankCodeHash: p.bankCodeHash,
+        bankCodeExpiresAt: { gt: new Date() },
+        bankCodeAttempts: { lt: TENTATIVI_MASSIMI },
+      },
       data: {
         bankAccount: sospeso.bankAccount,
         bankAccountName: sospeso.bankAccountName,
         bankCodeHash: null, bankCodeExpiresAt: null, bankCodeAttempts: 0,
-        bankCodeSentAt: null, bankPending: null,
+        bankPending: null,
       },
+    });
+    if (consumata.count === 0) {
+      // Qualcun altro ha già consumato (o esaurito) questa richiesta mentre la si confermava.
+      throw new BadRequestException('La richiesta non è più valida: ne faccia una nuova.');
+    }
+    const aggiornato = await this.prisma.partner.findUniqueOrThrow({
+      where: { id: partnerId },
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
@@ -1141,6 +1228,55 @@ export class PartnersService {
     });
   }
 
+  /**
+   * Avvisa il VECCHIO indirizzo che il recapito del profilo è cambiato.
+   * È la difesa che rende inutile aspettare i sette giorni: chi non ha la casella del
+   * partner non può impedire che l'avviso ci arrivi.
+   */
+  private async avvisaCambioRecapito(insegna: string, vecchia: string, nuova: string) {
+    try {
+      if (!vecchia || !vecchia.includes('@')) return;
+      const esc = (x: string) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const html =
+        `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1d1d1f;max-width:560px">` +
+        `<p style="font-size:15px;margin:0 0 14px">Gentile ${esc(insegna)},</p>` +
+        `<p style="font-size:15px;margin:0 0 14px">l'indirizzo email del suo profilo Deluxy è stato cambiato in <b>${esc(nuova)}</b>. ` +
+        `Da adesso le nostre comunicazioni arriveranno lì.</p>` +
+        `<p style="font-size:14px;margin:0 0 6px"><b>Non è stato lei?</b> Ci contatti subito: con l'indirizzo cambiato ` +
+        `qualcuno potrebbe provare a modificare anche le sue coordinate bancarie.</p>` +
+        `<p style="font-size:13px;color:#6e6e73;margin:18px 0 0">Deluxy</p></div>`;
+      await this.settings.inviaHtmlViaAiMail(vecchia, 'Il recapito del suo profilo Deluxy è cambiato', html);
+    } catch (err) {
+      this.logger.error(`Avviso del cambio recapito non partito: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Avvisa il PARTNER che l'ufficio gli ha cambiato le coordinate. Non chiede permesso —
+   * l'ufficio ha il diritto di correggere — ma il partner deve poterlo sapere subito: è
+   * il suo conto, ed è lui il primo che si accorge se il numero è sbagliato.
+   */
+  private async avvisaPartnerCambioBanca(
+    partnerId: string, insegna: string, email: string | null, vecchio: string | null, nuovo: string,
+  ) {
+    try {
+      const a = (email ?? '').trim();
+      if (!a || !a.includes('@') || a.includes('no-email')) return;
+      const esc = (x: string) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const html =
+        `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1d1d1f;max-width:560px">` +
+        `<p style="font-size:15px;margin:0 0 14px">Gentile ${esc(insegna)},</p>` +
+        `<p style="font-size:15px;margin:0 0 14px">le sue coordinate bancarie sono state aggiornate dal nostro ufficio: ` +
+        `da ${esc(ibanMascherato(vecchio))} a <b>${esc(ibanLeggibile(nuovo))}</b>.</p>` +
+        `<p style="font-size:14px;margin:0 0 6px"><b>Non era quello che aveva comunicato?</b> Ci risponda subito, ` +
+        `prima del prossimo pagamento.</p>` +
+        `<p style="font-size:13px;color:#6e6e73;margin:18px 0 0">Deluxy</p></div>`;
+      await this.settings.inviaHtmlViaAiMail(a, 'Le sue coordinate bancarie sono state aggiornate', html);
+    } catch (err) {
+      this.logger.error(`Avviso al partner ${partnerId} del cambio coordinate non partito: ${(err as Error).message}`);
+    }
+  }
+
   private async avvisaUfficioBanca(
     quando: 'richiesta' | 'fatto',
     insegna: string, vecchio: string | null, nuovo: string, intestatario: string,
@@ -1167,7 +1303,6 @@ export class PartnersService {
 const CAMPI_IMPORTABILI: Record<string, string> = {
   'Insegna / nome': 'insegna',
   'Ragione sociale': 'businessName',
-  'Email': 'email',
   'P.IVA': 'vatNumber',
   'Codice fiscale': 'fiscalCode',
   'Indirizzo': 'address',
@@ -1177,8 +1312,14 @@ const CAMPI_IMPORTABILI: Record<string, string> = {
   // ha qualcosa da prendere dal registro (164 valori su 97 partner abbinati).
   'Codice SDI': 'sdiCode',
   'PEC': 'certifiedEmail',
-  'IBAN': 'bankAccount',
-  'Intestatario conto': 'bankAccountName',
+  // ⚠️ 08/09/2026 (secondo giro dell'ostile): IBAN, intestatario ed email NON si
+  // importano più dal registro. Erano l'ultima via per scrivere le coordinate bancarie
+  // senza codice, senza checksum e senza avvisi — e per cambiare il recapito senza
+  // lasciare la traccia che protegge l'IBAN. Restano nel CONFRONTO (si vede la
+  // differenza col registro), ma applicarla passa dalla rotta con la verifica.
+  // 'IBAN': 'bankAccount',              ← tolto di proposito
+  // 'Intestatario conto': 'bankAccountName',  ← tolto di proposito
+  // 'Email': 'email',                   ← tolto di proposito (vedi sotto)
   'Metodo di pagamento': 'paymentMethod',
   'Stato finanziario': 'financialStatus',
   'Amministrazione — nome': 'adminName',
