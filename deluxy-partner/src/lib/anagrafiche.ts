@@ -18,6 +18,16 @@ export type ContattoAnagrafica = {
 // Blocco finanziario del registro (dati amministrativi/di pagamento). Il registro
 // lo espone come oggetto annidato "datiFinanziari"; qui interessano i campi che
 // la riconciliazione può alimentare.
+/** Gli accordi su quando si paga e quando si incassa con un partner vendor.
+ *  Li decide la PIATTAFORMA CONSEGNE, il registro li trasporta, Finance li
+ *  legge. `null` su un campo = ancora da valorizzare, non «no». */
+export type CondizioniVendor = {
+  compensazioneIncassi: boolean | null;
+  pagamentoVendorGiorni: number | null;
+  incassoServiziGiorni: number | null;
+  incassoServiziFineMese: boolean | null;
+};
+
 export type DatiFinanziari = {
   pec: string | null;
   codiceSdi: string | null;
@@ -48,6 +58,16 @@ export type Anagrafica = {
   pIva: string | null;
   codiceFiscale: string | null;
   datiFinanziari: DatiFinanziari | null;
+  // ⭐ 08/09/2026 — LE CONDIZIONI VENDOR ARRIVANO DALLA PIATTAFORMA CONSEGNE.
+  //
+  // Il proprietario del dato è la piattaforma (decisione dell'utente): là si
+  // decidono, il registro le trasporta, Finance le LEGGE — non le possiede e
+  // non le scrive. È la stessa strada dell'IBAN (vedi `dati-bancari.ts`).
+  //
+  // ⚠️ `null` su un campo non è «no»: è «ancora da valorizzare». E il blocco
+  // intero a `null` è una terza cosa ancora — «la chiave non ha l'ambito, o il
+  // registro non risponde» — che non va confusa con «non l'hanno deciso».
+  condizioniVendor: CondizioniVendor | null;
   account: string | null;
   contatti: ContattoAnagrafica[];
   platformId: string | null;
