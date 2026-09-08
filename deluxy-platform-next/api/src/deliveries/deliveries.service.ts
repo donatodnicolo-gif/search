@@ -2268,11 +2268,47 @@ export class DeliveriesService {
         ? { partnerId }
         : {};
 
+    /**
+     * ⭐ 08/09/2026 (segnalazione utente sulla consegna #101101: «deliveredAt come mai
+     * è vuoto?») — LO STATO CAMBIATO DAL FORM SCRIVE GLI ORARI COME QUELLO DEL VALET.
+     *
+     * `status` è fra i CAMPI_DI_UFFICIO: l'ufficio può portare una consegna a
+     * «consegnata» dal modulo di modifica. Quella strada però non passa da
+     * `cambiaStato()`, che dal 06/09 scrive `deliveredAt`/`startedAt` — e così la
+     * consegna risultava consegnata **senza l'ora**.
+     *
+     * Misurato il 08/09 sugli ultimi 30 giorni: **308 consegne su 1.104 senza orario**,
+     * e di quelle **nessuna** ha una riga di registro che dica «consegnata»: erano tutte
+     * passate di qui. Dopo la correzione del 06/09 la quota è scesa dal 30% al 12%, e il
+     * 12% che resta è esattamente questo buco. Senza l'orario, puntualità e tempi di
+     * consegna non esistono per quelle righe.
+     *
+     * ⚠️ Gli orari si scrivono UNA VOLTA e non si sovrascrivono mai: se la consegna ha
+     * già un orario vero (messo dal valet) quello resta, perché è un fatto e questo è un
+     * ripiego. E si scrivono solo quando lo stato CAMBIA davvero.
+     */
+    const statoCambia = !!dto.status && dto.status !== delivery.status;
+    const orariDaStato: Record<string, Date> = {};
+    if (statoCambia) {
+      const finale = dto.status as string;
+      if (finale === DeliveryStatus.IN_DELIVERY && !(delivery as any).startedAt) {
+        orariDaStato['startedAt'] = new Date();
+      }
+      if ((finale === DeliveryStatus.DELIVERED || finale === DeliveryStatus.DELIVERED_TIME_TO_APPROVE)
+          && !(delivery as any).deliveredAt) {
+        orariDaStato['deliveredAt'] = new Date();
+        // Una consegna arrivata senza essere mai «partita» lascerebbe un tempo di
+        // percorrenza impossibile da leggere: la partenza si segna insieme.
+        if (!(delivery as any).startedAt) orariDaStato['startedAt'] = new Date();
+      }
+    }
+
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
         ...cambioPartner,
+        ...orariDaStato,
         ...forzatura,
         ...economiaRicalcolata,
         ...(date ? { date: new Date(date) } : {}),
@@ -2328,8 +2364,21 @@ export class DeliveriesService {
           message: `Ritiro cambiato a mano: ${delivery.pickupAddress?.trim() || '—'} → ${dto.pickupAddress!.trim()}` },
       });
     }
-    if (dto.status && dto.status !== delivery.status) {
-      await this.chiudiAttivitaSeStorico(delivery.id, dto.status);
+    if (statoCambia) {
+      // ⭐ 08/09/2026: il cambio di stato dal form lascia la sua riga, come quello del
+      // valet. Prima non la lasciava, e sulla #101101 il registro si fermava a «in
+      // consegna» mentre lo stato diceva «consegnata»: chi riapriva la scheda non
+      // poteva sapere né quando né per mano di chi fosse stata chiusa.
+      const quando = Object.entries(orariDaStato)
+        .map(([k, v]) => `${k === 'deliveredAt' ? 'consegnata' : 'partita'} alle ${v.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' })}`)
+        .join(', ');
+      await this.prisma.deliveryLog.create({
+        data: {
+          deliveryId: id, type: 'status_change', userId: user.sub ?? null,
+          message: `Stato cambiato dall'ufficio: ${delivery.status} → ${dto.status}${quando ? ` (${quando})` : ''}`,
+        },
+      }).catch(() => undefined);
+      await this.chiudiAttivitaSeStorico(delivery.id, dto.status!);
     }
     return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
   }
