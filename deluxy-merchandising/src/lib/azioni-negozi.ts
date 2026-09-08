@@ -235,3 +235,27 @@ export async function eliminaNegozio(id: string) {
   revalidatePath("/impostazioni");
   redirect("/impostazioni?esito=eliminato");
 }
+
+/**
+ * **I due plus del sito**, salvati da soli.
+ *
+ * ⭐ 08/09/2026 (utente): «porta nella parte prodotto». Stavano dentro il
+ * modulo delle credenziali, in Impostazioni, che chiede dominio e nome come
+ * campi obbligatori: per cambiare una riga di testo bisognava aprire il form
+ * dove si toccano le chiavi di Shopify. Sono due cose diverse — una è come si
+ * racconta un prodotto, l'altra è come ci si collega a un negozio — e ora hanno
+ * due moduli separati.
+ */
+export async function salvaPlusNegozioAzione(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) redirect("/classificazione?esito=errore&messaggio=" + encodeURIComponent("Negozio non indicato."));
+  await prisma.negozioShopify.update({
+    where: { id },
+    data: {
+      plusUno: testo(fd, "plusUno").slice(0, 140).trim() || null,
+      plusDue: testo(fd, "plusDue").slice(0, 140).trim() || null,
+    },
+  });
+  revalidatePath("/classificazione");
+  redirect("/classificazione?esito=plus&messaggio=" + encodeURIComponent("I punti della scheda sono salvati."));
+}

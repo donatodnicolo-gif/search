@@ -13,7 +13,7 @@ import {
 } from "@/lib/azioni-classificazione";
 import { elencoCategorie, elencoLinee } from "@/lib/classificazione";
 import { prisma } from "@/lib/db";
-import { salvaPromptCategorieAzione } from "@/lib/azioni-negozi";
+import { salvaPlusNegozioAzione, salvaPromptCategorieAzione } from "@/lib/azioni-negozi";
 import { CATEGORIE, etichettaCategoria, etichettaStagione, STAGIONI } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export default async function ClassificazionePage({
     prisma.prodotto.count({ where: { categoria: "DA_CLASSIFICARE" } }),
     prisma.categoriaShopify.findMany({ orderBy: [{ prodotti: "desc" }, { nome: "asc" }] }),
     // I brand/negozi per cui una categoria può valere (04/09/2026).
-    prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { nome: true } }),
+    prisma.negozioShopify.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true, plusUno: true, plusDue: true } }),
     prisma.promptCategoria.findMany(),
   ]);
   // ⭐ 08/09/2026 (utente): «porta questa parte in sezione prodotti». I prompt
@@ -275,7 +275,50 @@ export default async function ClassificazionePage({
           )}
         </div>
 
-                {/* ---------- Prompt per categoria ---------- */}
+                {/* ---------- I tre punti della scheda: i due plus di ogni sito ----------
+            ⭐ 08/09/2026 (utente): «porta nella parte prodotto». Stavano dentro
+            il modulo delle credenziali in Impostazioni, che chiede dominio e
+            nome come campi obbligatori: per cambiare una riga di testo si
+            apriva il form dove si toccano le chiavi di Shopify. Sono due
+            mestieri diversi. */}
+        <div className="scheda">
+          <div className="scheda-titolo">I tre punti in cima alla scheda · plus di ogni sito</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Il cliente legge tre punti in cima a ogni scheda. Il <b>primo è del prodotto</b> e si scrive nel suo
+            modulo; il <b>secondo e il terzo sono del sito</b> e valgono per tutti i suoi prodotti — si scrivono
+            qui, una volta sola. Lascia vuoto per non mostrarli.
+          </p>
+          <div className="modulo">
+            {negozi.map((n) => (
+              <form action={salvaPlusNegozioAzione} className="campo-modulo largo" key={n.id}>
+                <input type="hidden" name="id" value={n.id} />
+                <label htmlFor={`plusUno-${n.id}`}>{n.nome}</label>
+                <input
+                  id={`plusUno-${n.id}`}
+                  name="plusUno"
+                  defaultValue={n.plusUno ?? ""}
+                  maxLength={140}
+                  placeholder="Secondo punto — es. «Inclusi: biglietto scritto a mano e confezione regalo»"
+                />
+                <input
+                  name="plusDue"
+                  defaultValue={n.plusDue ?? ""}
+                  maxLength={140}
+                  placeholder="Terzo punto — es. «Consegna: in guanti bianchi, dove vuoi tu»"
+                  aria-label={`Terzo punto di ${n.nome}`}
+                />
+                <div className="riga-ai" style={{ marginTop: 6 }}>
+                  <button className="btn btn-secondario small" type="submit">Salva i punti di {n.nome}</button>
+                  {!n.plusUno && !n.plusDue && (
+                    <span className="cella-sub">Su questo sito i due punti non sono ancora scritti.</span>
+                  )}
+                </div>
+              </form>
+            ))}
+          </div>
+        </div>
+
+        {/* ---------- Prompt per categoria ---------- */}
         <div className="scheda">
           <div className="scheda-titolo">Prompt AI per categoria</div>
           <p className="page-sub" style={{ marginBottom: 14 }}>
