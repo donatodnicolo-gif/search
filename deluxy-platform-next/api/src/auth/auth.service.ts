@@ -226,19 +226,34 @@ export class AuthService {
           // FINANCE e fatture riconoscono il negozio.
           // ⭐ 06/09/2026 (regola utente): il partner con un servizio di VENDITA regola da qui
           // «Consegna da Partner», minimo d'ordine e raggio.
-          select: { insegna: true, email: true, phone: true, address: true, pickupAddresses: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true, services: { select: { serviceType: { select: { pricingModel: true } } } }, provinces: { select: { province: { select: { id: true, code: true, name: true } } } }, consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },
+          // ⭐ 08/09/2026: `id` serve alle rotte del cambio IBAN (`/partners/:id/banca/…`);
+          // le CONDIZIONI DI PAGAMENTO viaggiano in sola lettura — regola utente: «le
+          // condizioni di pagamento sono visibili ma non modificabili dal partner, solo
+          // admin e operation le possono modificare». Sono un accordo fra due, e servono
+          // al partner per sapere QUANDO arriva il bonifico; riscriverle no.
+          select: { id: true, insegna: true, email: true, phone: true, address: true, pickupAddresses: true, autoDeliveredByPartner: true, minimoOrdineVendita: true, raggioMaxConsegnaKm: true, pagamentoVendorGiorni: true, compensazioneIncassi: true, incassoServiziGiorni: true, incassoServiziFineMese: true, services: { select: { serviceType: { select: { pricingModel: true } } } }, provinces: { select: { province: { select: { id: true, code: true, name: true } } } }, consegnaProvince: { select: { provinceId: true, minimoOrdine: true, raggioKm: true } } },
         })
       : null;
     // Gli indirizzi di ritiro aggiuntivi vivono come JSON: al form arrivano
     // già come lista (02/09, regola utente: il partner li imposta da qui).
     let ritiri: string[] = [];
     try { ritiri = grezzo?.pickupAddresses ? JSON.parse(grezzo.pickupAddresses) : []; } catch { ritiri = []; }
-    const { services: serviziPartner, provinces: provinceVendita, ...grezzoSenzaServizi } = (grezzo ?? {}) as any;
+    const {
+      services: serviziPartner, provinces: provinceVendita,
+      pagamentoVendorGiorni, compensazioneIncassi, incassoServiziGiorni, incassoServiziFineMese,
+      ...grezzoSenzaServizi
+    } = (grezzo ?? {}) as any;
+    // ⚠️ Le condizioni stanno in un oggetto A PARTE, non sciolte accanto agli altri campi:
+    // sciolte finirebbero nel payload che il profilo rimanda al salvataggio, e prima o poi
+    // qualcuno le ammetterebbe nella whitelist per errore. In un oggetto suo si vedono e basta.
+    const condizioni = grezzo
+      ? { pagamentoVendorGiorni, compensazioneIncassi, incassoServiziGiorni, incassoServiziFineMese }
+      : null;
     const haVendita = Array.isArray(serviziPartner) && serviziPartner.some((x: any) => x?.serviceType?.pricingModel === 'VENDITA');
     // ⭐ 06/09 sera (segnalazione utente): dal profilo il partner sceglie anche l'AREA DI CONSEGNA —
     // le province dove vende (area commerciale) e l'elenco di tutte le province gli servono per sceglierla.
     const tutteLeProvince = grezzo && haVendita ? await this.prisma.province.findMany({ select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }) : [];
-    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita, provinceVendita: (provinceVendita ?? []).map((x: any) => x.province), tutteLeProvince } : null;
+    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita, condizioni, provinceVendita: (provinceVendita ?? []).map((x: any) => x.province), tutteLeProvince } : null;
     return { user: { email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }, valet, partner };
   }
 

@@ -10,6 +10,13 @@ import { titleCaseInsegna } from '../common/nome-proprio';
 import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
+import { SettingsService } from '../settings/settings.module';
+import {
+  CODICE_VALIDO_MINUTI, RIMANDA_DOPO_SECONDI, TENTATIVI_MASSIMI,
+  emailMascherata, generaCodice, ibanLeggibile, ibanMascherato, ibanValido,
+  impronta, improntaCombacia, intestatarioValido, leggiSospeso, mailAvvisoUfficio,
+  mailCodice, normalizzaIban, serializzaSospeso,
+} from './cambio-iban';
 
 /**
  * La chiave WooCommerce non esce MAI dall'API.
@@ -23,7 +30,16 @@ import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
  * `omit` la toglie dalla SELECT: non viaggia e non si puo' dimenticare in giro.
  * Chi deve usarla la legge dal database, non dall'API.
  */
-const PARTNER_OMIT = { woocommerceApiKey: true } as const;
+/**
+ * ⚠️ 08/09/2026 — anche l'IMPRONTA DEL CODICE e i valori in attesa escono dalla SELECT.
+ *
+ * `bankCodeHash` è l'impronta del codice di verifica per il cambio IBAN: con quella in
+ * mano si potrebbe provare offline finché non si trova il codice a sei cifre, e poi
+ * completare la verifica al posto del partner. `bankPending` racconta un cambio in corso
+ * a chiunque legga l'elenco dei partner. Nessuno dei due serve a chi guarda una scheda:
+ * lo stato del cambio si chiede alla sua rotta, che dice quello che va detto e basta.
+ */
+const PARTNER_OMIT = { woocommerceApiKey: true, bankCodeHash: true, bankPending: true } as const;
 
 const PARTNER_INCLUDE = {
   provinces: { include: { province: true } },
@@ -44,6 +60,7 @@ export class PartnersService {
     private readonly users: UsersService,
     private readonly anagrafiche: AnagraficheSyncService,
     private readonly aree: AreeService,
+    private readonly settings: SettingsService,
   ) {}
 
   findAll(includiEliminati = false) {
@@ -789,6 +806,216 @@ export class PartnersService {
     const date = new Date(dateStr + 'T00:00:00.000Z');
     await this.prisma.partnerDayException.deleteMany({ where: { partnerId, date } });
     return { deleted: true };
+  }
+
+  // ============================================================
+  // CAMBIO DELLE COORDINATE BANCARIE IN DUE PASSI (⭐ 08/09/2026, regola utente)
+  // ------------------------------------------------------------
+  // «In impostazioni del profilo consenti di modificare anche le proprie informazioni sul
+  // conto corrente e intestatario conto; per modificare queste cose però va inserito un
+  // codice che l'app manda alla mail del partner con il codice di verifica. È solo per la
+  // modifica delle informazioni bancarie.»
+  //
+  // ⚠️ Le parti pure (validazione IBAN, codice, impronta, mail) stanno in `cambio-iban.ts`.
+  // Qui c'è solo il giro: chi può, cosa si salva, quando si scrive davvero.
+  // ============================================================
+
+  /** Il partner agisce sul PROPRIO profilo; ufficio e amministrazione su chiunque. */
+  private assertPuoToccareBanca(partnerId: string, user: JwtUser) {
+    if (user.role === Role.PARTNER) {
+      if (user.partnerId !== partnerId) throw new ForbiddenException('Accesso non consentito');
+      return;
+    }
+    if (user.role === Role.ADMIN || user.role === Role.OPERATION) return;
+    throw new ForbiddenException('Questo ruolo non può cambiare le coordinate bancarie');
+  }
+
+  /**
+   * Lo stato della richiesta in corso, per l'interfaccia: c'è un codice in attesa? dove è
+   * stato mandato? quanto manca alla scadenza? Non torna MAI l'impronta né il codice.
+   */
+  async statoCambioBanca(partnerId: string, user: JwtUser) {
+    this.assertPuoToccareBanca(partnerId, user);
+    const p = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: {
+        email: true, bankAccount: true, bankAccountName: true,
+        bankCodeExpiresAt: true, bankCodeAttempts: true, bankPending: true,
+      },
+    });
+    if (!p) throw new NotFoundException('Partner non trovato');
+    const sospeso = leggiSospeso(p.bankPending);
+    const scaduto = !p.bankCodeExpiresAt || p.bankCodeExpiresAt.getTime() <= Date.now();
+    return {
+      ibanAttuale: p.bankAccount ? ibanLeggibile(p.bankAccount) : null,
+      intestatarioAttuale: p.bankAccountName ?? null,
+      // Dove arriverebbe il codice: chi chiede il cambio deve sapere dove guardare, ma
+      // la casella non si scrive per intero a chi magari non è il proprietario.
+      mailDiVerifica: p.email ? emailMascherata(p.email) : null,
+      inAttesa: !!(sospeso && !scaduto),
+      richiesta: sospeso && !scaduto
+        ? { iban: ibanLeggibile(sospeso.bankAccount), intestatario: sospeso.bankAccountName,
+            scadeIl: p.bankCodeExpiresAt, tentativiRimasti: Math.max(0, TENTATIVI_MASSIMI - p.bankCodeAttempts) }
+        : null,
+    };
+  }
+
+  /**
+   * PRIMO PASSO: si chiede il cambio. **Non si scrive niente** sui campi veri — i valori
+   * proposti restano parcheggiati e parte il codice alla mail in anagrafica.
+   */
+  async richiediCambioBanca(partnerId: string, user: JwtUser, dto: { bankAccount?: string; bankAccountName?: string }) {
+    this.assertPuoToccareBanca(partnerId, user);
+    const iban = normalizzaIban(String(dto?.bankAccount ?? ''));
+    const intestatario = String(dto?.bankAccountName ?? '').trim();
+    if (!ibanValido(iban)) {
+      throw new BadRequestException("L'IBAN non è valido: controlli di averlo copiato per intero.");
+    }
+    if (!intestatarioValido(intestatario)) {
+      throw new BadRequestException("L'intestatario del conto è obbligatorio.");
+    }
+    const p = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { insegna: true, email: true, bankAccount: true, bankCodeSentAt: true },
+    });
+    if (!p) throw new NotFoundException('Partner non trovato');
+    // ⚠️ La mail va all'indirizzo IN ANAGRAFICA, mai a uno passato dal client: se il
+    // destinatario lo scegliesse chi fa la richiesta, il codice non verificherebbe niente.
+    const a = (p.email ?? '').trim();
+    if (!a || !a.includes('@') || a.includes('no-email')) {
+      throw new BadRequestException(
+        "Il profilo non ha un indirizzo email valido: il codice non avrebbe dove arrivare. Contatti l'ufficio.",
+      );
+    }
+    if (normalizzaIban(p.bankAccount ?? '') === iban) {
+      throw new BadRequestException('Questo è già l\'IBAN registrato: non c\'è niente da cambiare.');
+    }
+    // Il bottone «rimanda» non deve diventare un modo per riempire una casella.
+    if (p.bankCodeSentAt && Date.now() - p.bankCodeSentAt.getTime() < RIMANDA_DOPO_SECONDI * 1000) {
+      const mancano = Math.ceil((RIMANDA_DOPO_SECONDI * 1000 - (Date.now() - p.bankCodeSentAt.getTime())) / 1000);
+      throw new BadRequestException(`Un codice è appena partito: attenda ${mancano} secondi prima di chiederne un altro.`);
+    }
+
+    const codice = generaCodice();
+    const scade = new Date(Date.now() + CODICE_VALIDO_MINUTI * 60_000);
+    await this.prisma.partner.update({
+      where: { id: partnerId },
+      data: {
+        bankCodeHash: impronta(codice),
+        bankCodeExpiresAt: scade,
+        bankCodeAttempts: 0,
+        bankCodeSentAt: new Date(),
+        bankPending: serializzaSospeso({ bankAccount: iban, bankAccountName: intestatario }),
+      },
+    });
+
+    const { oggetto, html } = mailCodice(p.insegna ?? '', codice, iban, p.bankAccount);
+    const esito = await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
+    if (!esito.ok) {
+      // ⚠️ Se la mail non parte la richiesta si annulla: lasciare un codice valido che
+      // nessuno ha ricevuto vorrebbe dire lasciare aperta una porta senza campanello.
+      await this.prisma.partner.update({
+        where: { id: partnerId },
+        data: { bankCodeHash: null, bankCodeExpiresAt: null, bankCodeSentAt: null, bankPending: null },
+      });
+      throw new BadRequestException(`Non si è riusciti a mandare il codice: ${esito.motivo}`);
+    }
+    this.logger.log(`Cambio IBAN richiesto per il partner ${partnerId}: codice mandato a ${emailMascherata(a)}`);
+    return {
+      inviato: true,
+      mailDiVerifica: emailMascherata(a),
+      scadeIl: scade,
+      validoMinuti: CODICE_VALIDO_MINUTI,
+    };
+  }
+
+  /**
+   * SECONDO PASSO: arriva il codice, e SOLO adesso i campi veri cambiano.
+   *
+   * ⚠️ Il messaggio d'errore non distingue «codice sbagliato» da «codice scaduto» più del
+   * necessario, e non dice mai quanto ci si è avvicinati: un errore che spiega troppo è
+   * un aiuto a chi prova a indovinare.
+   */
+  async confermaCambioBanca(partnerId: string, user: JwtUser, codice: string) {
+    this.assertPuoToccareBanca(partnerId, user);
+    const p = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: {
+        insegna: true, bankAccount: true, bankAccountName: true,
+        bankCodeHash: true, bankCodeExpiresAt: true, bankCodeAttempts: true, bankPending: true,
+      },
+    });
+    if (!p) throw new NotFoundException('Partner non trovato');
+    const sospeso = leggiSospeso(p.bankPending);
+    if (!sospeso || !p.bankCodeHash || !p.bankCodeExpiresAt) {
+      throw new BadRequestException('Non c\'è nessuna richiesta di cambio in corso.');
+    }
+    if (p.bankCodeExpiresAt.getTime() <= Date.now()) {
+      await this.azzeraRichiestaBanca(partnerId);
+      throw new BadRequestException('Il codice è scaduto: chieda un codice nuovo.');
+    }
+    if (p.bankCodeAttempts >= TENTATIVI_MASSIMI) {
+      await this.azzeraRichiestaBanca(partnerId);
+      throw new BadRequestException('Troppi tentativi: la richiesta è stata annullata. Ne faccia una nuova.');
+    }
+    if (!improntaCombacia(p.bankCodeHash, String(codice ?? ''))) {
+      const dopo = p.bankCodeAttempts + 1;
+      await this.prisma.partner.update({ where: { id: partnerId }, data: { bankCodeAttempts: dopo } });
+      if (dopo >= TENTATIVI_MASSIMI) {
+        await this.azzeraRichiestaBanca(partnerId);
+        throw new BadRequestException('Codice errato. Troppi tentativi: la richiesta è stata annullata.');
+      }
+      throw new BadRequestException(`Codice errato. Le restano ${TENTATIVI_MASSIMI - dopo} tentativi.`);
+    }
+
+    const vecchio = p.bankAccount;
+    const aggiornato = await this.prisma.partner.update({
+      where: { id: partnerId },
+      data: {
+        bankAccount: sospeso.bankAccount,
+        bankAccountName: sospeso.bankAccountName,
+        bankCodeHash: null, bankCodeExpiresAt: null, bankCodeAttempts: 0,
+        bankCodeSentAt: null, bankPending: null,
+      },
+      include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
+    });
+
+    // ⚠️ L'UFFICIO DEVE SAPERLO. Un cambio di IBAN che avviene a insaputa di tutti è
+    // esattamente lo scenario che questa funzione deve rendere impossibile: la verifica
+    // per email ferma chi non ha la casella, l'avviso qui ferma chi ce l'ha.
+    // L'avviso non blocca la risposta: il cambio è già valido e confermato.
+    void this.avvisaUfficioCambioBanca(p.insegna ?? '', vecchio, sospeso.bankAccount, sospeso.bankAccountName);
+    this.logger.warn(
+      `IBAN cambiato per il partner ${partnerId} (${p.insegna}): ${ibanMascherato(vecchio)} → ${ibanMascherato(sospeso.bankAccount)}, da ${user.email ?? user.sub}`,
+    );
+    this.anagrafiche.sincronizza(aggiornato);
+    return { cambiato: true, iban: ibanLeggibile(sospeso.bankAccount), intestatario: sospeso.bankAccountName };
+  }
+
+  /** Si rinuncia: la richiesta sparisce e i campi veri restano quelli di prima. */
+  async annullaCambioBanca(partnerId: string, user: JwtUser) {
+    this.assertPuoToccareBanca(partnerId, user);
+    await this.azzeraRichiestaBanca(partnerId);
+    return { annullata: true };
+  }
+
+  private async azzeraRichiestaBanca(partnerId: string) {
+    await this.prisma.partner.update({
+      where: { id: partnerId },
+      data: { bankCodeHash: null, bankCodeExpiresAt: null, bankCodeAttempts: 0, bankCodeSentAt: null, bankPending: null },
+    });
+  }
+
+  private async avvisaUfficioCambioBanca(insegna: string, vecchio: string | null, nuovo: string, intestatario: string) {
+    try {
+      const a = ((await this.settings.get('mailUtente')) || process.env.MAIL_UTENTE || '').trim();
+      if (!a) return;
+      const { oggetto, html } = mailAvvisoUfficio(insegna, vecchio, nuovo, intestatario, new Date());
+      await this.settings.inviaHtmlViaAiMail(a, oggetto, html);
+    } catch (err) {
+      this.logger.error(`Avviso all'ufficio del cambio IBAN non partito: ${(err as Error).message}`);
+    }
   }
 }
 

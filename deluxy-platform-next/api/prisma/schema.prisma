@@ -348,6 +348,35 @@ model Partner {
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
   sdiCode             String? // codice SDI fatturazione elettronica
+
+  // ===== Cambio delle coordinate bancarie in due passi (⭐ 08/09/2026) =====
+  //
+  // Regola utente: «in impostazioni del profilo consenti di modificare anche le proprie
+  // informazioni sul conto corrente e intestatario conto; per modificare queste cose però
+  // va inserito un codice che l'app manda alla mail del partner con il codice di verifica.
+  // È solo per la modifica delle informazioni bancarie».
+  //
+  // ⚠️ PERCHÉ IL CAMBIO NON È IMMEDIATO. Cambiare l'IBAN è esattamente il gesto che un
+  // attacco cerca: chi entrasse in una sessione di partner potrebbe dirottare i bonifici
+  // e nessuno se ne accorgerebbe fino al primo pagamento. Perciò la richiesta NON scrive:
+  // parcheggia i valori proposti qui, manda un codice alla mail in anagrafica, e i campi
+  // veri cambiano solo quando quel codice torna indietro.
+  //
+  // ⚠️ Il codice NON si conserva in chiaro: si tiene la sua impronta SHA-256. Chi legge
+  // il database non deve poter completare una verifica al posto del partner.
+
+  /// Impronta SHA-256 del codice di verifica in corso. Mai il codice.
+  bankCodeHash        String?
+  /// Quando scade il codice: passata questa, la richiesta non vale più.
+  bankCodeExpiresAt   DateTime?
+  /// Tentativi sbagliati. Oltre il tetto la richiesta decade: un codice a sei cifre
+  /// senza limite si indovina, con abbastanza tentativi.
+  bankCodeAttempts    Int      @default(0)
+  /// Quando è partita la richiesta: serve a non far rimandare il codice a raffica.
+  bankCodeSentAt      DateTime?
+  /// I valori PROPOSTI, in attesa di conferma: JSON {bankAccount, bankAccountName}.
+  /// Restano qui, staccati dai campi veri, finché il codice non arriva.
+  bankPending         String?
   // --- dati amministrativi che arrivano dal registro Anagrafiche ---
   /// Referente amministrazione del registro (non il referente commerciale).
   adminName           String?

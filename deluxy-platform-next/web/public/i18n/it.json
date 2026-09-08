@@ -1547,7 +1547,39 @@
     "emailNegozio": "Email del negozio",
     "salvato": "Salvato.",
     "codiceValet": "Il tuo codice valet",
-    "codiceValetHint": "È personale: lo dici solo al partner al momento del ritiro, quando la consegna chiede la verifica della tua identità. Non comunicarlo ad altri."
+    "codiceValetHint": "È personale: lo dici solo al partner al momento del ritiro, quando la consegna chiede la verifica della tua identità. Non comunicarlo ad altri.",
+    "banca": {
+      "titolo": "Coordinate bancarie",
+      "intro": "Qui si cambiano IBAN e intestatario del conto su cui riceve i pagamenti. Per sicurezza il cambio non è immediato: le mandiamo un codice per email e le coordinate cambiano solo quando lo inserisce.",
+      "attuale": "In uso oggi:",
+      "nessuno": "nessun IBAN registrato",
+      "iban": "IBAN nuovo",
+      "ibanEsempio": "IT00 A000 0000 0000 0000 0000 000",
+      "intestatario": "Intestatario del conto",
+      "doveArriva": "Il codice di verifica arriverà a {{mail}}.",
+      "chiedi": "Chiedi il codice di verifica",
+      "codiceInviato": "Le abbiamo mandato un codice a {{mail}}. Lo inserisca qui sotto per confermare il cambio.",
+      "richiesto": "Coordinate richieste:",
+      "codice": "Codice di verifica",
+      "seiCifre": "000000",
+      "conferma": "Conferma il cambio",
+      "tentativi": "Tentativi rimasti: {{n}}.",
+      "esitoInviato": "Codice mandato a {{mail}}. Fino a quando non lo inserisce, le coordinate restano quelle di prima.",
+      "esitoCambiato": "Coordinate aggiornate: {{iban}}."
+    },
+    "condizioni": {
+      "titolo": "Condizioni di pagamento",
+      "intro": "Gli accordi presi con Deluxy su quando si paga e quando si incassa.",
+      "pagamento": "Deluxy paga lei (vendite)",
+      "incasso": "Lei paga Deluxy (servizi e commissioni)",
+      "compensazione": "Compensazione",
+      "compensazioneSi": "Le commissioni dovute si scalano dagli incassi delle vendite: un bonifico solo, per la differenza.",
+      "giorniFineMese": "{{n}} giorni dalla fine del mese",
+      "giorniFattura": "{{n}} giorni dalla data della fattura",
+      "aVista": "a vista",
+      "aVistaFattura": "a vista fattura",
+      "chiLeCambia": "Sono un accordo fra due parti: per cambiarle si rivolga al suo referente Deluxy."
+    }
   },
   "deliveryForm": {
     "backToDeliveries": "Consegne",

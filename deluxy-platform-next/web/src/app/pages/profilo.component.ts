@@ -181,6 +181,95 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
           @if (esitoNegozio(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
           <div class="azioni"><button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salvaPartner()">{{ 'common.save' | translate }}</button></div>
         </div>
+
+        <!-- ============================================================
+             COORDINATE BANCARIE (⭐ 08/09/2026, regola utente)
+             ------------------------------------------------------------
+             ⚠️ Stanno in un riquadro LORO, staccato da «Contatti del negozio» e col
+             suo bottone: cambiare l'IBAN non e' salvare un recapito, e mescolarlo agli
+             altri campi lo farebbe passare per un dettaglio. Qui il salvataggio non
+             scrive: chiede un codice, e il conto cambia solo quando quel codice arriva.
+             ============================================================ -->
+        <div class="card sez banca">
+          <h2>{{ 'profilo.banca.titolo' | translate }}</h2>
+          <p class="muted">{{ 'profilo.banca.intro' | translate }}</p>
+
+          @if (banca(); as b) {
+            <div class="banca-ora">
+              <span class="banca-lbl">{{ 'profilo.banca.attuale' | translate }}</span>
+              <b class="mono">{{ b.ibanAttuale || ('profilo.banca.nessuno' | translate) }}</b>
+              @if (b.intestatarioAttuale) { <span class="muted"> · {{ b.intestatarioAttuale }}</span> }
+            </div>
+
+            @if (b.inAttesa && b.richiesta) {
+              <!-- SECONDO PASSO: il codice e' partito, si aspetta che torni. -->
+              <div class="banca-attesa">
+                <p>{{ 'profilo.banca.codiceInviato' | translate: { mail: b.mailDiVerifica } }}</p>
+                <div class="banca-proposta">
+                  <span class="banca-lbl">{{ 'profilo.banca.richiesto' | translate }}</span>
+                  <b class="mono">{{ b.richiesta.iban }}</b>
+                  <span class="muted"> · {{ b.richiesta.intestatario }}</span>
+                </div>
+                <div class="banca-codice">
+                  <label class="fld"><span>{{ 'profilo.banca.codice' | translate }}</span>
+                    <input class="field codice mono" name="codiceBanca" inputmode="numeric" maxlength="6"
+                           autocomplete="one-time-code" [(ngModel)]="codiceBanca"
+                           [attr.placeholder]="'profilo.banca.seiCifre' | translate" /></label>
+                  <button type="button" class="btn btn-primary" [disabled]="salvando() || codiceBanca.trim().length < 6"
+                          (click)="confermaBanca()">{{ 'profilo.banca.conferma' | translate }}</button>
+                  <button type="button" class="btn btn-secondary" [disabled]="salvando()"
+                          (click)="annullaBanca()">{{ 'common.cancel' | translate }}</button>
+                </div>
+                <p class="muted mini">{{ 'profilo.banca.tentativi' | translate: { n: b.richiesta.tentativiRimasti } }}</p>
+              </div>
+            } @else {
+              <!-- PRIMO PASSO: si propongono i valori nuovi. -->
+              <div class="grid-2">
+                <label class="fld"><span>{{ 'profilo.banca.iban' | translate }}</span>
+                  <input class="field mono" name="ibanNuovo" [(ngModel)]="ibanNuovo" autocomplete="off"
+                         [attr.placeholder]="'profilo.banca.ibanEsempio' | translate" /></label>
+                <label class="fld"><span>{{ 'profilo.banca.intestatario' | translate }}</span>
+                  <input class="field" name="intestatarioNuovo" [(ngModel)]="intestatarioNuovo" autocomplete="off" /></label>
+              </div>
+              <p class="muted mini">{{ 'profilo.banca.doveArriva' | translate: { mail: b.mailDiVerifica || '—' } }}</p>
+              <div class="azioni">
+                <button type="button" class="btn btn-primary"
+                        [disabled]="salvando() || !ibanNuovo.trim() || !intestatarioNuovo.trim()"
+                        (click)="richiediBanca()">{{ 'profilo.banca.chiedi' | translate }}</button>
+              </div>
+            }
+          }
+          @if (esitoBanca(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
+        </div>
+
+        <!-- CONDIZIONI DI PAGAMENTO — SOLA LETTURA (⭐ 08/09/2026, regola utente:
+             «le condizioni di pagamento sono visibili ma non modificabili dal partner,
+             solo admin e operation le possono modificare»). Sono un accordo fra due,
+             e un accordo non lo riscrive una parte sola: si vedono per sapere quando
+             arriva il bonifico, non per cambiarlo. -->
+        @if (partner.condizioni) {
+          <div class="card sez">
+            <h2>{{ 'profilo.condizioni.titolo' | translate }}</h2>
+            <p class="muted">{{ 'profilo.condizioni.intro' | translate }}</p>
+            <dl class="cond-lettura">
+              <dt>{{ 'profilo.condizioni.pagamento' | translate }}</dt>
+              <dd>{{ partner.condizioni.pagamentoVendorGiorni != null
+                    ? ('profilo.condizioni.giorniFineMese' | translate: { n: partner.condizioni.pagamentoVendorGiorni })
+                    : ('profilo.condizioni.aVista' | translate) }}</dd>
+              <dt>{{ 'profilo.condizioni.incasso' | translate }}</dt>
+              <dd>{{ partner.condizioni.incassoServiziGiorni != null
+                    ? (partner.condizioni.incassoServiziFineMese
+                        ? ('profilo.condizioni.giorniFineMese' | translate: { n: partner.condizioni.incassoServiziGiorni })
+                        : ('profilo.condizioni.giorniFattura' | translate: { n: partner.condizioni.incassoServiziGiorni }))
+                    : ('profilo.condizioni.aVistaFattura' | translate) }}</dd>
+              @if (partner.condizioni.compensazioneIncassi) {
+                <dt>{{ 'profilo.condizioni.compensazione' | translate }}</dt>
+                <dd>{{ 'profilo.condizioni.compensazioneSi' | translate }}</dd>
+              }
+            </dl>
+            <p class="muted mini">{{ 'profilo.condizioni.chiLeCambia' | translate }}</p>
+          </div>
+        }
       }
     }
   `,
@@ -215,6 +304,18 @@ import { IndirizzoGoogleDirective } from '../core/indirizzo-google.directive';
     .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill-hover, #ececef); color: var(--text-secondary, #6e6e73); cursor: pointer; font-size: 13px; flex-shrink: 0; }
     .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red, #d70015); }
     .aggiungi { margin-top: 10px; align-self: flex-start; }
+    /* ⭐ 08/09/2026 — coordinate bancarie: un riquadro suo, e i numeri in tabellare
+       perche' un IBAN si legge a gruppi e si confronta cifra per cifra. */
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+    .banca-ora, .banca-proposta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 10px 0; }
+    .banca-lbl { font-size: 12.5px; color: var(--text-secondary); }
+    .banca-attesa { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--fill, #f5f5f7); }
+    .banca-attesa p { margin: 0 0 8px; font-size: 13.5px; }
+    .banca-codice { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+    .banca-codice .codice { max-width: 160px; font-size: 20px; letter-spacing: 6px; text-align: center; }
+    .cond-lettura { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 10px 0; font-size: 13.5px; }
+    .cond-lettura dt { color: var(--text-secondary); }
+    .cond-lettura dd { margin: 0; font-weight: 550; }
   `],
 })
 export class ProfiloComponent {
@@ -227,6 +328,17 @@ export class ProfiloComponent {
   readonly esitoPassword = signal<{ ok: boolean; testo: string } | null>(null);
   readonly esitoAnagrafica = signal<{ ok: boolean; testo: string } | null>(null);
   readonly esitoNegozio = signal<{ ok: boolean; testo: string } | null>(null);
+
+  // --- Coordinate bancarie in due passi (⭐ 08/09/2026, regola utente) ---
+  readonly esitoBanca = signal<{ ok: boolean; testo: string } | null>(null);
+  readonly banca = signal<{
+    ibanAttuale: string | null; intestatarioAttuale: string | null; mailDiVerifica: string | null;
+    inAttesa: boolean;
+    richiesta: { iban: string; intestatario: string; scadeIl: string; tentativiRimasti: number } | null;
+  } | null>(null);
+  ibanNuovo = '';
+  intestatarioNuovo = '';
+  codiceBanca = '';
 
   account: { firstName: string; lastName: string; email: string } = { firstName: '', lastName: '', email: '' };
   pw = { attuale: '', nuova: '', conferma: '' };
@@ -252,6 +364,7 @@ export class ProfiloComponent {
         if (this.partner && !Array.isArray(this.partner.pickupAddresses)) this.partner.pickupAddresses = [];
         this.consegna = ((this.partner?.consegnaProvince ?? []) as { provinceId: string; minimoOrdine?: number | null; raggioKm?: number | null }[]).map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine ?? null, raggioKm: r.raggioKm ?? null }));
         this.caricamento.set(false);
+        if (this.partner?.id) this.caricaBanca();
       },
       error: () => this.caricamento.set(false),
     });
@@ -297,6 +410,83 @@ export class ProfiloComponent {
         consegnaProvince: this.partner.autoDeliveredByPartner ? this.consegna.map((r) => ({ provinceId: r.provinceId, minimoOrdine: r.minimoOrdine === null || (r.minimoOrdine as unknown) === '' ? null : Number(r.minimoOrdine), raggioKm: r.raggioKm === null || (r.raggioKm as unknown) === '' ? null : Number(r.raggioKm) })) : [],
       } : {}),
     } }, this.esitoNegozio);
+  }
+
+  // ============================================================
+  // COORDINATE BANCARIE IN DUE PASSI (⭐ 08/09/2026, regola utente)
+  // ------------------------------------------------------------
+  // ⚠️ Il primo bottone NON salva: chiede. I campi veri cambiano solo dopo che e'
+  // tornato il codice arrivato per email — cosi' chi non ha accesso alla casella del
+  // partner non puo' dirottare i bonifici nemmeno entrando in una sessione aperta.
+  // ============================================================
+  private caricaBanca(): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    this.http.get<any>(`${environment.apiUrl}/partners/${id}/banca`).subscribe({
+      next: (b) => {
+        this.banca.set(b);
+        // I campi si precompilano con quello che c'e' gia': quasi sempre si corregge
+        // l'intestatario o si cambia banca restando la stessa societa'.
+        if (!b?.inAttesa) {
+          this.ibanNuovo = '';
+          this.intestatarioNuovo = b?.intestatarioAttuale ?? '';
+        }
+      },
+      error: () => this.banca.set(null),
+    });
+  }
+
+  richiediBanca(): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    this.salvando.set(true);
+    this.esitoBanca.set(null);
+    this.http.post<any>(`${environment.apiUrl}/partners/${id}/banca/richiedi`, {
+      bankAccount: this.ibanNuovo.trim(),
+      bankAccountName: this.intestatarioNuovo.trim(),
+    }).subscribe({
+      next: (r) => {
+        this.salvando.set(false);
+        this.codiceBanca = '';
+        this.esitoBanca.set({ ok: true, testo: this.translate.instant('profilo.banca.esitoInviato', { mail: r?.mailDiVerifica ?? '' }) });
+        this.caricaBanca();
+      },
+      error: (err) => {
+        this.salvando.set(false);
+        this.esitoBanca.set({ ok: false, testo: err?.error?.message ?? 'Errore' });
+      },
+    });
+  }
+
+  confermaBanca(): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    this.salvando.set(true);
+    this.esitoBanca.set(null);
+    this.http.post<any>(`${environment.apiUrl}/partners/${id}/banca/conferma`, { codice: this.codiceBanca.trim() }).subscribe({
+      next: (r) => {
+        this.salvando.set(false);
+        this.codiceBanca = '';
+        this.esitoBanca.set({ ok: true, testo: this.translate.instant('profilo.banca.esitoCambiato', { iban: r?.iban ?? '' }) });
+        this.caricaBanca();
+      },
+      error: (err) => {
+        this.salvando.set(false);
+        this.esitoBanca.set({ ok: false, testo: err?.error?.message ?? 'Errore' });
+        // Il tetto dei tentativi va riletto: quando finisce, la richiesta non c'e' piu'.
+        this.caricaBanca();
+      },
+    });
+  }
+
+  annullaBanca(): void {
+    const id = this.partner?.id;
+    if (!id) return;
+    this.salvando.set(true);
+    this.http.delete(`${environment.apiUrl}/partners/${id}/banca/richiedi`).subscribe({
+      next: () => { this.salvando.set(false); this.codiceBanca = ''; this.esitoBanca.set(null); this.caricaBanca(); },
+      error: () => { this.salvando.set(false); this.caricaBanca(); },
+    });
   }
 
   aggiungiRitiro(): void {

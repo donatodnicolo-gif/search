@@ -398,6 +398,36 @@ Il presidio che si ripete: «da lunedì a venerdì 7–8 per un partner». Si sc
 - Admin/Operation vedono tutte le attività; Team Leader vede le proprie e quelle dei valet delle sue province; il Valet vede solo le proprie.
 - Ogni consegna genera un ritiro + una consegna; stesso indirizzo con più ritiri = più attività di ritiro e una consegna. Il furgoncino giallo imposta "in consegna" e sblocca la consegna. SEARCH cerca su qualsiasi campo.
 
+#### Profilo del partner: coordinate bancarie col codice, condizioni di pagamento in lettura **[08/09/2026]**
+
+**Coordinate bancarie.** Nel Profilo il partner ha un riquadro suo per IBAN e intestatario
+del conto. Il cambio avviene in **due passi**, e il primo non scrive niente:
+
+1. si scrivono IBAN e intestatario nuovi e si preme «Chiedi il codice di verifica». L'app
+   controlla l'IBAN (formato **e** checksum: intercetta la cifra sbagliata e le due
+   invertite), parcheggia i valori proposti e manda un codice a sei cifre **all'indirizzo
+   email che il partner ha in anagrafica** — mai a uno scritto nel modulo;
+2. si inserisce il codice e **solo allora** le coordinate cambiano davvero.
+
+Il codice vale 15 minuti, si può sbagliare 5 volte (poi la richiesta decade), e se ne può
+chiedere un altro non prima di 60 secondi. Finché il codice non arriva, l'IBAN resta
+quello di prima. A cambio avvenuto parte un avviso all'ufficio con vecchio e nuovo IBAN.
+
+⚠️ Il motivo dei due passi: cambiare l'IBAN è il gesto che un attacco cerca — chi entrasse
+in una sessione di partner potrebbe dirottare i bonifici, e non lo si scoprirebbe fino al
+primo pagamento andato altrove. La verifica per email ferma chi non ha quella casella;
+l'avviso all'ufficio rende visibile chi ce l'ha. E se il partner riceve un codice che non
+ha chiesto, lo scopre **mentre l'IBAN è ancora il suo**.
+
+Rotte: `GET /partners/:id/banca` (stato), `POST /partners/:id/banca/richiedi`,
+`POST /partners/:id/banca/conferma`, `DELETE /partners/:id/banca/richiedi` (annulla).
+Ammessi ADMIN, OPERATION e il PARTNER **sul proprio id**; il project manager no.
+
+**Condizioni di pagamento.** Il partner le **vede** nel profilo — quando lo paghiamo, quando
+incassiamo da lui, se c'è compensazione — ma **non le modifica**: le cambiano solo admin e
+operation dalla scheda partner. Sono un accordo fra due parti, e un accordo non lo riscrive
+una parte sola; al partner servono per sapere quando arriva il bonifico.
+
 #### Modulo consegna: prezzo partner e produttore **[08/09/2026]**
 
 Nella tendina di ricerca del prodotto, ogni risultato mostra a destra il **prezzo al

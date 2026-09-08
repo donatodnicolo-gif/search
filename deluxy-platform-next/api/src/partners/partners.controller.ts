@@ -148,6 +148,56 @@ export class PartnersController {
     return this.partnersService.upsertDayException(id, user, dto);
   }
 
+  // ============================================================
+  // CAMBIO DELLE COORDINATE BANCARIE IN DUE PASSI (⭐ 08/09/2026, regola utente)
+  // ------------------------------------------------------------
+  // ⚠️ Queste rotte NON passano da `PUT /partners/:id`: là il ramo PARTNER riassegna il
+  // dto ai soli contatti, e `bankAccount` resta — giustamente — fuori. Il cambio delle
+  // coordinate è l'unica eccezione a quella regola, e ha una porta sua proprio per
+  // questo: perché la difesa (il codice per email) sta tutta qui, e non si può
+  // dimenticare aggiungendo un campo alla whitelist di là.
+  //
+  // ⚠️ Il PROJECT_MANAGER non c'è: non tocca il denaro di nessuno.
+  // ============================================================
+
+  @Get(':id/banca')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Coordinate bancarie e stato di un eventuale cambio in corso' })
+  statoBanca(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.partnersService.statoCambioBanca(id, user);
+  }
+
+  @Post(':id/banca/richiedi')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({
+    summary: 'Chiede il cambio di IBAN e intestatario: NON scrive, manda il codice alla mail del partner',
+  })
+  richiediBanca(
+    @Param('id') id: string,
+    @Body() dto: { bankAccount?: string; bankAccountName?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.partnersService.richiediCambioBanca(id, user, dto);
+  }
+
+  @Post(':id/banca/conferma')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Conferma il cambio col codice ricevuto per email: qui i campi cambiano davvero' })
+  confermaBanca(
+    @Param('id') id: string,
+    @Body() dto: { codice?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.partnersService.confermaCambioBanca(id, user, String(dto?.codice ?? ''));
+  }
+
+  @Delete(':id/banca/richiedi')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({ summary: 'Annulla il cambio in corso: le coordinate restano quelle di prima' })
+  annullaBanca(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.partnersService.annullaCambioBanca(id, user);
+  }
+
   @Delete(':id/day-exceptions/:date')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
   @ApiOperation({ summary: 'Rimuove l eccezione di una data (torna all orario settimanale)' })

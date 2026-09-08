@@ -1545,7 +1545,39 @@
     "emailNegozio": "Shop email",
     "salvato": "Saved.",
     "codiceValet": "Your valet code",
-    "codiceValetHint": "It is personal: tell it only to the partner at pickup, when the delivery asks to verify your identity. Do not share it with anyone else."
+    "codiceValetHint": "It is personal: tell it only to the partner at pickup, when the delivery asks to verify your identity. Do not share it with anyone else.",
+    "banca": {
+      "titolo": "Bank details",
+      "intro": "Change the IBAN and account holder for your payments. For safety the change is not immediate: we email you a code, and the details change only once you enter it.",
+      "attuale": "Currently in use:",
+      "nessuno": "no IBAN on file",
+      "iban": "New IBAN",
+      "ibanEsempio": "IT00 A000 0000 0000 0000 0000 000",
+      "intestatario": "Account holder",
+      "doveArriva": "The verification code will be sent to {{mail}}.",
+      "chiedi": "Request the verification code",
+      "codiceInviato": "We sent a code to {{mail}}. Enter it below to confirm the change.",
+      "richiesto": "Requested details:",
+      "codice": "Verification code",
+      "seiCifre": "000000",
+      "conferma": "Confirm the change",
+      "tentativi": "Attempts left: {{n}}.",
+      "esitoInviato": "Code sent to {{mail}}. Until you enter it, your details stay as they were.",
+      "esitoCambiato": "Details updated: {{iban}}."
+    },
+    "condizioni": {
+      "titolo": "Payment terms",
+      "intro": "The terms agreed with Deluxy on when payments go out and come in.",
+      "pagamento": "Deluxy pays you (sales)",
+      "incasso": "You pay Deluxy (services and commission)",
+      "compensazione": "Offsetting",
+      "compensazioneSi": "Commission owed is offset against sales proceeds: one transfer, for the difference.",
+      "giorniFineMese": "{{n}} days from end of month",
+      "giorniFattura": "{{n}} days from invoice date",
+      "aVista": "on sight",
+      "aVistaFattura": "on sight of invoice",
+      "chiLeCambia": "These are agreed between two parties: to change them, speak to your Deluxy contact."
+    }
   },
   "deliveryForm": {
     "backToDeliveries": "Deliveries",
