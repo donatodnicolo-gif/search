@@ -4,6 +4,36 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> ✅✅ **VERIFICA DELL'08/09 mattina — le modifiche di ieri SONO arrivate su
+> Google** (sola lettura; `node scripts/verifica-recepimento.mjs`). Il punto
+> aperto di ieri sera si chiude: i **15 esiti «rileggendo la campagna non
+> risulta ancora»** erano il **ritardo di Google**, non rifiuti muti. Tutte e
+> 16 le negative eseguite risultano oggi nel censimento, con la corrispondenza
+> chiesta:
+> · le 12 delle 14:09–14:10 (10 su Natale B2B + garbagnate milanese e flora
+>   fiori su Fiori Milano ITA) erano già lette dal giro delle **14:33–14:37 di
+>   ieri**: il ritardo di Google è stato di ~25 minuti;
+> · le 3 delle 15:18 (flower delivery italy milan, nome de la rose, didarul
+>   flowers su Fiori Milano ITA) le ha lette il **sync notturno delle 04:11**;
+> · fioreria mussoi (Fiori Milano ENG) era già «confermata rileggendola» nella
+>   stessa esecuzione.
+> Confermati anche il **budget di Fiori Milano ITA a 12 €/g** e la **Natale
+> B2B ENABLED** (id 24224109539, budget 12), con 8 keyword · 15 titoli · 4
+> descrizioni · 1 destinazione tutti ENABLED riletti da Google. Sync notturni
+> regolari su tutti e tre i conti: Cake 02:38 · Gifts 03:47 · Flowers 05:14.
+> ⚠️ **Conseguenza per l'app**: la frase «non risulta ancora» è un falso
+> allarme nella grande maggioranza dei casi, e nessuno la chiude mai (nessuna
+> `divergenzaAccettataIl`). Da valutare: una **ri-lettura differita** (o il
+> declassamento del messaggio) invece di un ATTENZIONE che spaventa e poi
+> risulta infondato.
+> 🔴 **Restano fermi**: la `pausa_annuncio` è stata **approvata stamattina alle
+> 08:40 UTC** ma **non è ancora partita** (l'annuncio 813390261104 è ENABLED nel
+> DB alle 03:56): il giro `esegui` dello script Google non ha ancora girato dopo
+> l'approvazione — il collaudo del bottone è ancora da chiudere. E le **due
+> pause Meta** (Palloncini 04/09, Opera 26/08) sono ancora approvate e mai
+> eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
+> approvate, quindi non sono nemmeno partite.
+
 > ⏱️ **RI-MISURATO IL 07/09 SERA (sola lettura sul DB di produzione;
 > nessuna modifica al codice, nessuna scrittura)**:
 > · ✅ **La campagna Natale B2B È ACCESA**: l'`attiva_campagna` proposta
