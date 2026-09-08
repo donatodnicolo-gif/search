@@ -760,10 +760,26 @@ export class RiconciliazioniService {
     };
   }
 
-  async anteprimaManuale(b: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string; partnerId: string; prezzoPartner: number }) {
+  async anteprimaManuale(b: {
+    saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string;
+    partnerId: string; prezzoPartner: number;
+    /**
+     * ⭐ 08/09/2026 (regola utente: «applica riconciliazione anche da singolo prodotto a cui
+     * poi impostare la quantità»). Quando il prezzo di riferimento è UNITARIO — il listino a
+     * stelo del fioraio, 8 € una rosa — il patto per una variante da 7 rose vale 8 × 7.
+     * Prima il modulo proponeva 8 € su una vendita da 100: lo stesso difetto corretto sulle
+     * proposte automatiche, che però passa da un'altra strada e non era coperto.
+     *
+     * La quantità la dichiara chi scrive il patto: non si indovina dal nome della variante,
+     * che può essere «Medio-Grande» o «4/6» e non voler dire nessun numero.
+     */
+    pezzi?: number;
+  }) {
     const vendita = await this.contestoDelPatto(b);
     const partnerId = b.partnerId;
-    const prezzoPartner = b.prezzoPartner;
+    const pezzi = Math.max(1, Math.round(Number(b.pezzi) || 1));
+    const prezzoUnitario = b.prezzoPartner;
+    const prezzoPartner = Math.round(prezzoUnitario * pezzi * 100) / 100;
     const partner = await this.prisma.partner.findUnique({
       where: { id: partnerId }, select: { id: true, insegna: true, active: true },
     });
@@ -791,6 +807,10 @@ export class RiconciliazioniService {
       partner: { id: partner.id, insegna: partner.insegna, attivo: partner.active },
       prezzi: {
         alCliente, alPartner, margine, percentuale,
+        // Il conto in chiaro quando i pezzi sono più d'uno: chi conferma deve vedere
+        // da dove esce il numero, non solo il totale.
+        pezzi,
+        prezzoUnitario: pezzi > 1 ? Math.round(prezzoUnitario * 100) / 100 : null,
         // Quanto prenderebbe il partner con la sola regola del territorio: se il patto
         // costa di più, il margine si stringe — e chi conferma deve vederlo.
         conLaPercentuale, scontoTerritorio: vendita.sconto,
@@ -816,6 +836,8 @@ export class RiconciliazioniService {
       /** ⭐ 08/09/2026: la strada SENZA vendita — il patto preso prima dell'ordine. */
       productId?: string; productVariantId?: string | null; provinceId?: string;
       partnerId: string; prezzoPartner: number;
+      /** ⭐ 08/09/2026: i pezzi, quando il prezzo di riferimento è unitario (8 € × 7 rose). */
+      pezzi?: number;
       riferimentoProductId?: string; riferimentoVariantId?: string;
     },
     user: JwtUser,
@@ -827,7 +849,8 @@ export class RiconciliazioniService {
     }
     const dati = {
       partnerId: body.partnerId,
-      partnerPrice: arrotonda(body.prezzoPartner),
+      // ⭐ 08/09: stesso conto dell'anteprima — il prezzo scritto è unitario × pezzi.
+      partnerPrice: arrotonda(body.prezzoPartner * Math.max(1, Math.round(Number(body.pezzi) || 1))),
       price: arrotonda(c.alCliente),
       discountPercent: c.sconto,
       salesCount: c.saleId ? 1 : 0,
@@ -836,6 +859,7 @@ export class RiconciliazioniService {
         // Il prezzo al pubblico viene da un incasso vero o da un listino: si scrive
         // QUALE, perché fra sei mesi nessuno se lo ricorda.
         prezzoPubblicoDa: c.fonte,
+        ...(Number(body.pezzi) > 1 ? { perPezzi: { unitario: arrotonda(body.prezzoPartner), pezzi: Math.round(Number(body.pezzi)) } } : {}),
         riferimento: body.riferimentoProductId ?? null,
         variante: body.riferimentoVariantId ?? null,
       }]),
@@ -1074,7 +1098,7 @@ export class RiconciliazioniController {
   @Post('anteprima')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Il confronto dei prezzi e il margine, prima di confermare (passo 5)' })
-  anteprima(@Body() body: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string; partnerId: string; prezzoPartner: number }) {
+  anteprima(@Body() body: { saleId?: string; productId?: string; productVariantId?: string | null; provinceId?: string; partnerId: string; prezzoPartner: number; pezzi?: number }) {
     return this.service.anteprimaManuale({ ...body, prezzoPartner: Number(body.prezzoPartner) });
   }
 
@@ -1085,7 +1109,7 @@ export class RiconciliazioniController {
     @Body() body: {
       saleId?: string;
       productId?: string; productVariantId?: string | null; provinceId?: string;
-      partnerId: string; prezzoPartner: number;
+      partnerId: string; prezzoPartner: number; pezzi?: number;
       riferimentoProductId?: string; riferimentoVariantId?: string;
     },
     @CurrentUser() user: JwtUser,

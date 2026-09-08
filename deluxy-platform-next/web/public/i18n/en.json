@@ -1108,7 +1108,9 @@
       "tutteVarianti": "All variants",
       "varianti": "variants",
       "nessunProdotto": "No product with this name.",
-      "mancaProdottoProvincia": "Choose the product and the province the agreement covers."
+      "mancaProdottoProvincia": "Choose the product and the province the agreement covers.",
+      "pezzi": "Quantity (pieces covered)",
+      "contoPezzi": "{{unitario}} € × {{pezzi}} = {{totale}} € to the partner"
     }
   },
   "products": {

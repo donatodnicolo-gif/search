@@ -22,6 +22,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags, PartialType } from '@nestjs/swagger';
 import {
@@ -312,6 +313,156 @@ export class DeliveryRulesService {
    * (`[{operator: equal|moreThan, pickUps, plusSalary}]`), coi valet a cui
    * ciascuna si applica. Importate dal legacy (tabella-34), finora invisibili.
    */
+  /**
+   * ⭐ 08/09/2026 (regola utente: «mancano visualizzazione, modifica, creazione ed
+   * eliminazione», con due paletti: «elimina solo se richiesto» e «non tocca stipendi di
+   * consegne già passate, stessa cosa per la modifica»).
+   *
+   * ⚠️ COME SI TIENE FEDE AL SECONDO PALETTO. Le consegne portano il riferimento alla
+   * regola con cui sono state pagate (`Delivery.valetDeliveryRuleId`), e l'anteprima di
+   * uno stipendio **ricalcola dalle consegne** ogni volta: se si riscrivessero gli
+   * scaglioni di una regola già usata, un ricalcolo di un periodo chiuso darebbe numeri
+   * diversi da quelli pagati.
+   *
+   * Perciò una regola GIÀ USATA non si riscrive mai: modificarla **crea una versione
+   * nuova**, sposta lì i valet e lascia la vecchia (disattivata) agganciata alle consegne
+   * di prima, che continuano a rispiegarsi con gli scaglioni con cui furono pagate.
+   * Una regola che nessuna consegna usa si modifica sul posto: non c'è niente da salvare.
+   *
+   * Nessuna colonna nuova sul Postgres condiviso: il versionamento si fa per copia.
+   */
+  private static scaglioniValidi(scaglioni: unknown): string {
+    if (!Array.isArray(scaglioni)) throw new BadRequestException('Gli scaglioni devono essere un elenco.');
+    const puliti = scaglioni.map((x: any, i: number) => {
+      const operator = x?.operatore ?? x?.operator;
+      if (operator !== 'equal' && operator !== 'moreThan') {
+        throw new BadRequestException(`Scaglione ${i + 1}: l'operatore vale «equal» o «moreThan».`);
+      }
+      const pickUps = Number(x?.ritiri ?? x?.pickUps);
+      const plusSalary = Number(x?.plus ?? x?.plusSalary);
+      if (!Number.isFinite(pickUps) || pickUps < 0 || pickUps > 50) {
+        throw new BadRequestException(`Scaglione ${i + 1}: i ritiri devono stare fra 0 e 50.`);
+      }
+      if (!Number.isFinite(plusSalary) || plusSalary < 0 || plusSalary > 500) {
+        throw new BadRequestException(`Scaglione ${i + 1}: il plus deve stare fra 0 e 500 €.`);
+      }
+      return { operator, pickUps: String(pickUps), plusSalary: String(plusSalary) };
+    });
+    if (!puliti.length) throw new BadRequestException('Serve almeno uno scaglione.');
+    return JSON.stringify(puliti);
+  }
+
+  /**
+   * I BUCHI di una regola: numeri di ritiri che non prendono nessun plus.
+   * ⚠️ Non è teoria: la «Regola valet 8» ha `=2` e `>3`, quindi chi fa esattamente
+   * **3 ritiri non prende niente** — riguarda 12 valet, e nessuno se n'era accorto
+   * perché il difetto si vede solo guardando un giro alla volta.
+   */
+  private static buchi(tiers: string): number[] {
+    let sc: { operator?: string; pickUps?: string | number; plusSalary?: string | number }[] = [];
+    try { sc = JSON.parse(tiers) ?? []; } catch { return []; }
+    const scoperti: number[] = [];
+    for (let n = 2; n <= 8; n++) {
+      const copre = sc.some((x) => {
+        const k = Number(x.pickUps ?? 0);
+        const p = Number(x.plusSalary ?? 0);
+        if (!Number.isFinite(k) || !(p > 0)) return false;
+        return x.operator === 'moreThan' ? n > k : n === k;
+      });
+      if (!copre) scoperti.push(n);
+    }
+    return scoperti;
+  }
+
+  /** Quante consegne usano una regola: e' il numero che decide se si puo' cancellare. */
+  private async consegneDellaRegola(id: string): Promise<number> {
+    return this.prisma.delivery.count({ where: { valetDeliveryRuleId: id, deletedAt: null } });
+  }
+
+  async creaRegolaValet(body: { name?: string; scaglioni?: unknown; valetIds?: string[]; active?: boolean }) {
+    const name = String(body?.name ?? '').trim();
+    if (!name) throw new BadRequestException('Serve il nome della regola.');
+    const tiers = DeliveryRulesService.scaglioniValidi(body?.scaglioni);
+    const creata = await this.prisma.valetDeliveryRule.create({
+      data: {
+        name, tiers, active: body?.active ?? true,
+        valets: body?.valetIds?.length
+          ? { create: body.valetIds.map((valetId) => ({ valetId })) }
+          : undefined,
+      },
+      select: { id: true },
+    });
+    return (await this.regoleValet()).find((r) => r.id === creata.id) ?? null;
+  }
+
+  async modificaRegolaValet(id: string, body: { name?: string; scaglioni?: unknown; valetIds?: string[]; active?: boolean }) {
+    const regola = await this.prisma.valetDeliveryRule.findUnique({
+      where: { id }, include: { valets: { select: { valetId: true } } },
+    });
+    if (!regola) throw new NotFoundException('Regola non trovata');
+    const usata = await this.consegneDellaRegola(id);
+    const tiers = body?.scaglioni !== undefined ? DeliveryRulesService.scaglioniValidi(body.scaglioni) : regola.tiers;
+    const name = body?.name !== undefined ? String(body.name).trim() : regola.name;
+    if (!name) throw new BadRequestException('Serve il nome della regola.');
+    const valetIds = body?.valetIds ?? regola.valets.map((v) => v.valetId);
+    const scaglioniCambiati = tiers !== regola.tiers;
+
+    // ⚠️ Gli scaglioni di una regola GIÀ USATA non si riscrivono: nasce una versione
+    // nuova. Cambiare solo il nome o i valet assegnati invece non tocca nessun conto.
+    if (scaglioniCambiati && usata > 0) {
+      const nuova = await this.prisma.valetDeliveryRule.create({
+        data: { name, tiers, active: true, valets: { create: valetIds.map((valetId) => ({ valetId })) } },
+        select: { id: true },
+      });
+      await this.prisma.valetDeliveryRule.update({
+        where: { id },
+        data: { active: false, name: `${regola.name} (fino all'${new Date().toLocaleDateString('it-IT')})`, valets: { deleteMany: {} } },
+      });
+      const elenco = await this.regoleValet();
+      return {
+        ...(elenco.find((r) => r.id === nuova.id) ?? {}),
+        versionata: true,
+        vecchiaRegolaId: id,
+        consegneStoriche: usata,
+        messaggio: `La regola era su ${usata} consegne già pagate: per non cambiarne i conti è nata una versione nuova, e la precedente resta disattivata a spiegare quelle paghe.`,
+      };
+    }
+
+    await this.prisma.valetDeliveryRule.update({
+      where: { id },
+      data: {
+        name, tiers,
+        ...(body?.active !== undefined ? { active: body.active } : {}),
+        ...(body?.valetIds ? { valets: { deleteMany: {}, create: valetIds.map((valetId) => ({ valetId })) } } : {}),
+      },
+    });
+    return (await this.regoleValet()).find((r) => r.id === id) ?? null;
+  }
+
+  /**
+   * ELIMINA — e solo su richiesta esplicita di chi guarda (regola utente 08/09).
+   * Una regola usata da almeno una consegna NON si cancella: si disattiva, così le paghe
+   * di quelle consegne restano rispiegabili. Cancellarla lascerebbe righe che dicono
+   * «plus 3 €» senza più nessuno che sappia perché.
+   */
+  async eliminaRegolaValet(id: string, disattivaSeUsata = false) {
+    const regola = await this.prisma.valetDeliveryRule.findUnique({ where: { id }, select: { id: true, name: true, active: true } });
+    if (!regola) throw new NotFoundException('Regola non trovata');
+    const usata = await this.consegneDellaRegola(id);
+    if (usata > 0) {
+      if (!disattivaSeUsata) {
+        return {
+          eliminata: false, disattivata: false, consegne: usata,
+          messaggio: `Questa regola è su ${usata} consegne: eliminandola quelle paghe non si potrebbero più rispiegare. Si può disattivare: non si applica più, ma resta a spiegare lo storico.`,
+        };
+      }
+      await this.prisma.valetDeliveryRule.update({ where: { id }, data: { active: false, valets: { deleteMany: {} } } });
+      return { eliminata: false, disattivata: true, consegne: usata, messaggio: `Regola disattivata: non si applica più, e le ${usata} consegne di prima restano spiegate.` };
+    }
+    await this.prisma.valetDeliveryRule.delete({ where: { id } });
+    return { eliminata: true, disattivata: false, consegne: 0, messaggio: 'Regola eliminata: nessuna consegna la usava.' };
+  }
+
   async regoleValet() {
     const regole = await this.prisma.valetDeliveryRule.findMany({
       include: {
@@ -338,6 +489,13 @@ export class DeliveryRulesService {
           attivo: x.valet.active,
         })),
         consegneCollegate: r._count.deliveries,
+        /**
+         * ⭐ 08/09/2026: i numeri di ritiri che NON prendono nessun plus. La «Regola
+         * valet 8» ha `=2` e `>3`: chi fa esattamente 3 ritiri non prende niente, e
+         * riguarda 12 valet. Un buco così si vede solo guardando un giro alla volta —
+         * qui lo dice l'elenco.
+         */
+        ritiriScoperti: DeliveryRulesService.buchi(r.tiers),
       };
     });
   }
@@ -443,6 +601,30 @@ export class DeliveryRulesController {
   @ApiOperation({ summary: 'Le REGOLE VALET (plus a scaglioni sui ritiri del giro), coi valet assegnati' })
   regoleValet() {
     return this.service.regoleValet();
+  }
+
+  @Post('valet')
+  @ApiOperation({ summary: 'Crea una regola valet (scaglioni sui ritiri del giro)' })
+  creaRegolaValet(@Body() body: { name?: string; scaglioni?: unknown; valetIds?: string[]; active?: boolean }) {
+    return this.service.creaRegolaValet(body);
+  }
+
+  @Put('valet/:id')
+  @ApiOperation({
+    summary: 'Modifica una regola valet. ⚠️ Se gli scaglioni cambiano e la regola è già su delle consegne, '
+      + 'nasce una VERSIONE NUOVA e la vecchia resta disattivata: le paghe già fatte non si toccano.',
+  })
+  modificaRegolaValet(@Param('id') id: string, @Body() body: { name?: string; scaglioni?: unknown; valetIds?: string[]; active?: boolean }) {
+    return this.service.modificaRegolaValet(id, body);
+  }
+
+  @Delete('valet/:id')
+  @ApiOperation({
+    summary: 'Elimina una regola valet SOLO se nessuna consegna la usa. Se è usata non cancella: '
+      + 'risponde quante consegne la portano, e con ?disattiva=1 la disattiva lasciando lo storico spiegabile.',
+  })
+  eliminaRegolaValet(@Param('id') id: string, @Query('disattiva') disattiva?: string) {
+    return this.service.eliminaRegolaValet(id, disattiva === '1' || disattiva === 'true');
   }
 
   @Get(':id/registro')

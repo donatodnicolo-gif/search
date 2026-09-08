@@ -1110,7 +1110,9 @@
       "tutteVarianti": "Tutte le varianti",
       "varianti": "varianti",
       "nessunProdotto": "Nessun prodotto con questo nome.",
-      "mancaProdottoProvincia": "Scegli il prodotto e la provincia su cui vale il patto."
+      "mancaProdottoProvincia": "Scegli il prodotto e la provincia su cui vale il patto.",
+      "pezzi": "Quantità (pezzi del patto)",
+      "contoPezzi": "{{unitario}} € × {{pezzi}} = {{totale}} € al partner"
     }
   },
   "products": {

@@ -481,6 +481,21 @@ interface UltimaCorsa {
               } @else {
                 <p class="muted vuoto">{{ 'reconciliations.nuova.nessunPrezzo' | translate }}</p>
               }
+              <!-- ⭐ 08/09/2026 (regola utente: «applica riconciliazione anche da singolo
+                   prodotto a cui poi impostare la quantità»). Quando il riferimento è un
+                   prezzo UNITARIO — il listino a stelo del fioraio — il patto vale per i
+                   pezzi: 8 € × 7 rose = 56 €. La quantità la dice chi scrive il patto,
+                   perché dal nome della variante non si deduce: «7» è un numero, ma
+                   «Medio-Grande» no. -->
+              @if (partnerScelto()) {
+                <label class="fld pezzi"><span>{{ 'reconciliations.nuova.pezzi' | translate }}</span>
+                  <input class="field num" type="number" min="1" max="500" step="1" name="pezziPatto"
+                         [ngModel]="pezzi()" (ngModelChange)="cambiaPezzi($event)" />
+                </label>
+                @if (pezzi() > 1) {
+                  <p class="hint conto">{{ 'reconciliations.nuova.contoPezzi' | translate: { unitario: (prezzoScelto() ?? 0) | number: '1.2-2', pezzi: pezzi(), totale: ((prezzoScelto() ?? 0) * pezzi()) | number: '1.2-2' } }}</p>
+                }
+              }
             } @else {
               <!-- ⭐ 08/09/2026 (regola utente: «vorrei vedere anche la rosa rossa di Maryflor»).
                    Cercando «rosa rossa» escono i prodotti di tutti; col partner scelto si guarda
@@ -767,6 +782,8 @@ export class ProductReconciliationsComponent {
   readonly varianteScelta = signal<string | null>(null);
   readonly partnerScelto = signal<string | null>(null);
   readonly prezzoScelto = signal<number | null>(null);
+  /** ⭐ 08/09/2026: i pezzi del patto, quando il prezzo di riferimento è unitario. */
+  readonly pezzi = signal(1);
   readonly anteprima = signal<any | null>(null);
   readonly salvando = signal(false);
   readonly erroreNuova = signal<string | null>(null);
@@ -846,6 +863,7 @@ export class ProductReconciliationsComponent {
     this.partnerFiltro.set(null); this.qPartner.set(''); this.partnerTrovati.set([]);
     this.varianteScelta.set(null); this.partnerScelto.set(null); this.prezzoScelto.set(null);
     this.anteprima.set(null); this.erroreNuova.set(null); this.salvando.set(false);
+    this.pezzi.set(1);
   }
 
   cercaVendite(q: string): void {
@@ -966,11 +984,19 @@ export class ProductReconciliationsComponent {
     if (!su) return;
     this.erroreNuova.set(null);
     this.http.post<any>(`${environment.apiUrl}/riconciliazioni/anteprima`,
-      { ...su, partnerId: r.partnerId, prezzoPartner: r.prezzoPartner })
+      { ...su, partnerId: r.partnerId, prezzoPartner: r.prezzoPartner, pezzi: this.pezzi() })
       .subscribe({
         next: (d) => this.anteprima.set(d),
         error: (e) => { this.anteprima.set(null); this.erroreNuova.set(e?.error?.message ?? this.translate.instant('reconciliations.nuova.erroreAnteprima')); },
       });
+  }
+
+  /** Cambiati i pezzi, il conto si rifà: il margine dipende da quanti sono. */
+  cambiaPezzi(n: number): void {
+    this.pezzi.set(Math.max(1, Math.round(Number(n) || 1)));
+    const id = this.partnerScelto();
+    const prezzo = this.prezzoScelto();
+    if (id && prezzo != null) this.scegliPartner({ partnerId: id, prezzoPartner: prezzo });
   }
 
   salvaNuova(): void {
@@ -982,7 +1008,7 @@ export class ProductReconciliationsComponent {
     this.salvando.set(true);
     this.erroreNuova.set(null);
     this.http.post(`${environment.apiUrl}/riconciliazioni/manuale`, {
-      ...su, partnerId, prezzoPartner: prezzo,
+      ...su, partnerId, prezzoPartner: prezzo, pezzi: this.pezzi(),
       riferimentoProductId: rif?.prodotto?.id, riferimentoVariantId: this.varianteScelta() ?? undefined,
     }).subscribe({
       next: () => { this.chiudiNuova(); this.carica(); },
