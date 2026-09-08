@@ -777,3 +777,68 @@ export const COLORE_CONFERMA: Record<StatoConferma, string> = {
   accettata: "var(--text-tertiary)",
   non_verificabile: "var(--text-tertiary)",
 };
+
+// ────────────────────────────────────────────────────────────────────────────
+// LA RILETTURA DIFFERITA: l'allarme dello script si spegne quando Google
+// risponde, invece di restare acceso per sempre.
+//
+// ⚠️⚠️ **Perché esiste (08/09/2026, chiesto dall'utente).** Lo script, appena
+// scritta una modifica, rilegge SUBITO dentro la stessa esecuzione e — se non
+// la vede — attacca all'esito «ATTENZIONE: rileggendo la campagna non risulta
+// ancora … oppure un rifiuto muto». Misurato sul 07/09: **15 esiti su 16
+// portavano quell'allarme, e tutti e 15 avevano torto** — il sync notturno le
+// ha ritrovate tutte, e per le 10 negative della Natale B2B il censimento le
+// aveva già viste 25 minuti dopo l'esecuzione. Era il ritardo di propagazione
+// di Google, non un rifiuto.
+//
+// Il difetto non è la frase: è che **non si spegne mai**. `divergenzaAccettataIl`
+// è `null` su TUTTA la coda: nessuno ha mai chiuso una divergenza a mano, e
+// nessun automatismo la chiudeva. Un allarme falso quasi sempre si smette di
+// leggere, e allora smette di funzionare anche per quelli veri.
+//
+// La strada scelta: **non toccare lo script** — sta dentro Google Ads e
+// andrebbe reincollato su tre conti — ma far decidere la CONFERMA INDIPENDENTE,
+// che questo file già calcola leggendo cosa Google ha rimandato DOPO
+// l'esecuzione. Se la conferma dice «confermata», il dubbio della rilettura
+// immediata è una notizia vecchia e si chiude da sé, dicendo quando.
+// Se dice «smentita», l'allarme resta ed è finalmente credibile.
+//
+// ⚠️ Non si riscrive `esito` sul database: quello è la parola di chi ha
+// eseguito, ed è una prova. Si cambia solo come la si LEGGE.
+
+/** Le frasi di dubbio che lo script attacca in coda a un esito riuscito. */
+// ⚠️ Ancorata a «prossimo giro.», che è come finiscono TUTTE E TRE le frasi di
+// dubbio dello script (negativa, stato, budget). Il primo tentativo si fermava
+// al primo punto — cioè dopo «non risulta ancora.» — e lasciava a schermo il
+// resto dell'allarme: provato sui 15 esiti veri del 07/09 prima di tenerlo.
+// Quello che viene DOPO la frase di dubbio non si tocca: sulla negativa «flora
+// fiori» segue «la stessa parola era gia' esclusa con un'ALTRA corrispondenza»,
+// che è informazione vera e deve restare.
+const DUBBIO_RILETTURA =
+  /\s*[-–—]?\s*ATTENZIONE:\s*rileggendo[\s\S]*?prossimo giro\.|\s*\(non ho potuto (?:confermare rileggendo|rileggere)[^)]*\)/gi;
+
+/** C'è un dubbio di rilettura appeso a questo esito? */
+export function haDubbioDiRilettura(esito: string | null | undefined): boolean {
+  if (!esito) return false;
+  DUBBIO_RILETTURA.lastIndex = 0;
+  return DUBBIO_RILETTURA.test(esito);
+}
+
+/**
+ * L'esito come va LETTO oggi: se il dubbio della rilettura immediata è stato
+ * superato da una conferma indipendente, si toglie e si dice chi l'ha chiuso.
+ */
+export function esitoRiletto(
+  esito: string | null | undefined,
+  conferma: Conferma | undefined
+): { testo: string | null; dubbioChiuso: boolean } {
+  if (!esito) return { testo: esito ?? null, dubbioChiuso: false };
+  if (!haDubbioDiRilettura(esito)) return { testo: esito, dubbioChiuso: false };
+  if (conferma?.stato !== "confermata") return { testo: esito, dubbioChiuso: false };
+  const ripulito = esito.replace(DUBBIO_RILETTURA, "").replace(/[\s·,;-]+$/, "").trim();
+  const quando = conferma.quando ? ` (${dataOra(conferma.quando)})` : "";
+  return {
+    testo: `${ripulito} — il dubbio della rilettura immediata è chiuso: rileggendo la piattaforma${quando} la modifica c'è.`,
+    dubbioChiuso: true,
+  };
+}
