@@ -398,6 +398,31 @@ Il presidio che si ripete: «da lunedì a venerdì 7–8 per un partner». Si sc
 - Admin/Operation vedono tutte le attività; Team Leader vede le proprie e quelle dei valet delle sue province; il Valet vede solo le proprie.
 - Ogni consegna genera un ritiro + una consegna; stesso indirizzo con più ritiri = più attività di ritiro e una consegna. Il furgoncino giallo imposta "in consegna" e sblocca la consegna. SEARCH cerca su qualsiasi campo.
 
+#### Il partner sa se risulta aperto **[08/09/2026]**
+
+Nella barra laterale, per il solo ruolo PARTNER, un riquadro dice **«Oggi risulti APERTO»**
+o **«Oggi risulti CHIUSO»**, e sotto il perché: *lo hai dichiarato tu* · *dal calendario di
+disponibilità* · *dal tuo orario settimanale* · *nessun orario impostato*. Cliccandolo si
+va al profilo, alla sezione degli orari. Verde aperto, rosso chiuso, **ambra «non hai
+impostato orari»** — il caso in cui l'app può proporgli una consegna a qualunque ora.
+
+⚠️ Lo stato lo calcola il server con **la stessa cascata dello smistamento**
+(`api/src/common/disponibilita-partner.ts`, unica dal 08/09): se il badge dicesse
+«aperto» mentre l'app pensa «chiuso», il partner resterebbe convinto di essere in
+servizio mentre non gli arriva niente.
+
+#### Listino del fiorista: i colori della rosa **[08/09/2026]**
+
+La tabella si allarga con cinque colonne di colore — **Rossa, Bianca, Rosa, Gialla, Blu**
+— che compaiono solo per i fiori che li chiedono (oggi la rosa). Un prezzo per colore,
+per stelo; vuoto = «questo colore non lo faccio».
+
+Misurato sullo storico (1.461 steli), **12 partner su 14** con almeno due colori li pagano
+diverso, e lo schema è costante: la rossa costa di più, la rosa 1-2 € meno, la bianca sta
+in mezzo. Il prezzo unico del catalogo era quasi sempre quello della rossa, quindi su ogni
+fiore non-rosso si pagava in eccesso. Il colore senza prezzo si **disattiva**, non si
+cancella: le consegne passate ci puntano.
+
 #### Profilo del partner: orari e chiusure per giorno **[08/09/2026]**
 
 Il partner imposta da sé, dal proprio Profilo, un **orario diverso** o la **chiusura**

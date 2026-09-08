@@ -1,3 +1,4 @@
+import { giornoUtc, statoDelGiorno } from '../common/disponibilita-partner';
 import {
   BadRequestException,
   HttpException,
@@ -253,8 +254,47 @@ export class AuthService {
     // ⭐ 06/09 sera (segnalazione utente): dal profilo il partner sceglie anche l'AREA DI CONSEGNA —
     // le province dove vende (area commerciale) e l'elenco di tutte le province gli servono per sceglierla.
     const tutteLeProvince = grezzo && haVendita ? await this.prisma.province.findMany({ select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }) : [];
-    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita, condizioni, provinceVendita: (provinceVendita ?? []).map((x: any) => x.province), tutteLeProvince } : null;
+    /**
+     * ⭐ 08/09/2026 (regola utente: «all'accesso di un partner in app segnala se lui
+     * risulta per app aperto o chiuso, e se ci clicca portalo a impostare i propri orari»).
+     *
+     * ⚠️ Si usa LA STESSA cascata dello smistamento (`common/disponibilita-partner.ts`),
+     * non una copia: se il badge dicesse «aperto» mentre lo smistamento pensa «chiuso»,
+     * il partner resterebbe convinto di essere in servizio mentre non gli arriva niente —
+     * che è esattamente il malinteso che questa segnalazione deve togliere di mezzo.
+     */
+    const apertoOggi = grezzo ? await this.statoOggiDelPartner(user.partnerId!) : null;
+    const partner = grezzo ? { ...grezzoSenzaServizi, pickupAddresses: Array.isArray(ritiri) ? ritiri : [], haVendita, condizioni, apertoOggi, provinceVendita: (provinceVendita ?? []).map((x: any) => x.province), tutteLeProvince } : null;
     return { user: { email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }, valet, partner };
+  }
+
+  /**
+   * È aperto OGGI, secondo l'app? La risposta che vede il partner entrando.
+   *
+   * Torna anche DA DOVE viene la risposta, perché «chiuso» ha tre cause diverse e la cura
+   * cambia: l'eccezione che ha messo lui, il calendario di disponibilità, o l'orario
+   * settimanale che tiene l'ufficio. E «sempre aperto» non è un dettaglio: è il caso in
+   * cui l'app può proporgli una consegna a qualunque ora, e lui non lo sa.
+   */
+  private async statoOggiDelPartner(partnerId: string) {
+    const oggi = new Date();
+    const giorno = giornoUtc(oggi);
+    const [ecc, fasce, settimanali] = await Promise.all([
+      this.prisma.partnerDayException.findUnique({
+        where: { partnerId_date: { partnerId, date: giorno } },
+        select: { closed: true, openTime: true, closeTime: true, note: true },
+      }),
+      this.prisma.partnerDaySlot.findMany({
+        where: { partnerId, date: giorno },
+        select: { timeFrom: true, timeTo: true, available: true },
+      }),
+      this.prisma.openingHour.findMany({
+        where: { partnerId },
+        select: { dayOfWeek: true, openTime: true, closeTime: true, closed: true },
+      }),
+    ]);
+    const stato = statoDelGiorno(ecc, fasce, settimanali, giorno.getUTCDay());
+    return { ...stato, giorno: giorno.toISOString().slice(0, 10) };
   }
 
   async aggiornaProfilo(

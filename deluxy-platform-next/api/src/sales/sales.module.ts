@@ -13,6 +13,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { apertoNellaFinestra, statoDelGiorno } from '../common/disponibilita-partner';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { DeliveryStatus, NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { prezzoAlPartner } from '../common/prezzo-partner';
@@ -2897,27 +2898,23 @@ export class SalesService {
      * archivio sono **ZERO**, quindi nessun partner cambia comportamento da adesso.
      * Misurato prima di invertire.
      */
-    // 1) eccezione del giorno specifico: è una decisione presa per QUESTO giorno
-    const ecc = await this.prisma.partnerDayException.findUnique({
-      where: { partnerId_date: { partnerId, date: giorno } },
-    });
-    if (ecc) return ecc.closed ? false : this.siSovrappone(finestra, ecc.openTime, ecc.closeTime);
-
-    // 2) fasce del giorno specifico (generate: calendario di disponibilità)
-    const fasce = await this.prisma.partnerDaySlot.findMany({
-      where: { partnerId, date: giorno },
-    });
-    if (fasce.length) {
-      const utili = fasce.filter((f) => f.available);
-      if (!utili.length) return false; // giorno dichiarato chiuso
-      return utili.some((f) => this.siSovrappone(finestra, f.timeFrom, f.timeTo));
-    }
-
-    // 3) orari settimanali
-    if (!settimanali.length) return true; // nessun orario configurato: sempre aperto
-    const oggi = settimanali.filter((h) => h.dayOfWeek === giorno.getUTCDay());
-    if (!oggi.length) return false;
-    return oggi.some((h) => !h.closed && this.siSovrappone(finestra, h.openTime, h.closeTime));
+    /**
+     * ⭐ 08/09/2026 — LA CASCATA STA IN UN POSTO SOLO: `common/disponibilita-partner.ts`.
+     *
+     * Era scritta qui e nel tabellone (`availability.module.ts`), e stava per diventare
+     * tre col badge «oggi risulti aperto» che il partner vede entrando. Tre copie della
+     * stessa regola divergono al primo cambiamento, e quando divergono nessuno se ne
+     * accorge: ognuna sembra giusta da sola — l'ufficio vedrebbe aperto un partner a cui
+     * qui non si propone niente, e il partner leggerebbe «aperto» senza ricevere nulla.
+     */
+    const [ecc, fasce] = await Promise.all([
+      this.prisma.partnerDayException.findUnique({
+        where: { partnerId_date: { partnerId, date: giorno } },
+      }),
+      this.prisma.partnerDaySlot.findMany({ where: { partnerId, date: giorno } }),
+    ]);
+    const stato = statoDelGiorno(ecc, fasce, settimanali, giorno.getUTCDay());
+    return apertoNellaFinestra(stato, (dalle, alle) => this.siSovrappone(finestra, dalle, alle));
   }
 
   /**

@@ -1,3 +1,4 @@
+import { statoDelGiorno } from '../common/disponibilita-partner';
 import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators';
@@ -78,7 +79,9 @@ export class AvailabilityService {
         }),
         this.prisma.openingHour.findMany({
           where: { dayOfWeek },
-          select: { partnerId: true, openTime: true, closeTime: true, closed: true },
+          // `dayOfWeek` si seleziona anche se la query gia' filtra su quello: la cascata
+          // comune lo confronta, e senza il campo l'orario non verrebbe mai riconosciuto.
+          select: { partnerId: true, dayOfWeek: true, openTime: true, closeTime: true, closed: true },
         }),
         this.prisma.valet.findMany({
           where: { active: true, placeholder: false },
@@ -108,7 +111,10 @@ export class AvailabilityService {
     const slotPer = raggruppa(slots, 'partnerId');
     const dispPer = raggruppa(dispValet, 'valetId');
     const eccPer = new Map(eccezioni.map((e) => [e.partnerId, e]));
-    const settPPer = new Map(settimanaliP.map((o) => [o.partnerId, o]));
+    // ⚠️ 08/09/2026: erano raccolti con `new Map(...)`, che tiene solo L'ULTIMO orario di
+    // ogni partner — un partner con due fasce settimanali nello stesso giorno (mattina e
+    // pomeriggio) ne perdeva una. La cascata comune li vuole tutti.
+    const settPer = raggruppa(settimanaliP, 'partnerId');
     const settVPer = new Map(settimanaliV.map((o) => [o.valetId, o]));
 
     const daFasce = (righe: { timeFrom: string | null; timeTo: string | null; available: boolean }[]) => {
@@ -129,33 +135,18 @@ export class AvailabilityService {
       // (sales.module.ts). Le due cascate devono dire la stessa cosa, o il tabellone
       // mostrerebbe «aperto» per un partner a cui lo smistamento non propone niente — e
       // chi guarda non avrebbe modo di accorgersene.
-      const e = eccPer.get(p.id);
-      if (e) {
-        return {
-          ...base,
-          aperto: !e.closed,
-          fasce: e.closed ? [] : [{ dalle: e.openTime, alle: e.closeTime }],
-          origine: 'eccezione' as const,
-        };
+      // ⭐ 08/09/2026: la REGOLA sta in `common/disponibilita-partner.ts`, la stessa che
+      // usa lo smistamento. Due letture che dicono cose diverse mostrerebbero «aperto» un
+      // partner a cui l'app non propone niente, e chi guarda non avrebbe modo di saperlo.
+      const stato = statoDelGiorno(eccPer.get(p.id), slotPer.get(p.id), settPer.get(p.id), dayOfWeek);
+      // ⚠️ Qui la PRESENTAZIONE resta diversa, di proposito. Quando nessuna fonte parla,
+      // lo smistamento tratta il partner come sempre aperto (è la scelta che fa arrivare le
+      // proposte), ma il tabellone NON scrive «aperto»: scrive «non indicata». Non sapere
+      // se lavora e sapere che lavora sono cose diverse, e all'ufficio serve la differenza.
+      if (stato.origine === 'sempre') {
+        return { ...base, aperto: false, fasce: [], origine: 'non-indicata' as const };
       }
-      const s = slotPer.get(p.id);
-      if (s?.length) {
-        const { aperto, fasce } = daFasce(s);
-        return { ...base, aperto, fasce, origine: 'giorno' as const };
-      }
-      const w = settPPer.get(p.id);
-      if (w) {
-        return {
-          ...base,
-          aperto: !w.closed,
-          fasce: w.closed ? [] : [{ dalle: w.openTime, alle: w.closeTime }],
-          origine: 'settimanale' as const,
-        };
-      }
-      // ⚠️ Nessuna fonte parla: NON si scrive «chiuso». Non sapere se lavora e
-      // sapere che non lavora sono cose diverse, e confonderle fa scartare un
-      // partner che magari era libero.
-      return { ...base, aperto: false, fasce: [], origine: 'non-indicata' as const };
+      return { ...base, aperto: stato.aperto, fasce: stato.fasce, origine: stato.origine };
     });
 
     const righeValet: Riga[] = valets.map((v) => {

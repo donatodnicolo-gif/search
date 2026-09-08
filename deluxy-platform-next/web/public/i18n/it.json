@@ -299,7 +299,18 @@
     "logout": "Esci",
     "openMenu": "Apri menu",
     "collapseMenu": "Riduci menu",
-    "expandMenu": "Espandi menu"
+    "expandMenu": "Espandi menu",
+    "statoOggi": {
+      "aperto": "Oggi risulti APERTO",
+      "chiuso": "Oggi risulti CHIUSO",
+      "senzaOrari": "Non hai impostato orari — imposta i tuoi",
+      "perche": {
+        "eccezione": "lo hai dichiarato tu",
+        "giorno": "dal calendario di disponibilità",
+        "settimanale": "dal tuo orario settimanale",
+        "sempre": "nessun orario impostato"
+      }
+    }
   },
   "notifications": {
     "title": "Notifiche",
@@ -1219,7 +1230,8 @@
       "fiore": "Fiore",
       "prezzo": "€ per stelo",
       "stato": ""
-    }
+    },
+    "notaColori": "I colori della rosa: un prezzo per colore, per stelo. Lascia vuoto il colore che non fai — il prezzo della colonna «Prezzo» resta quello base, per chi non sceglie il colore."
   },
   "mestieri": {
     "title": "Mestieri",

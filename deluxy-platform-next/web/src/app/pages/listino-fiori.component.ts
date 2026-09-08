@@ -110,6 +110,12 @@ interface Listino {
   `,
   styles: [
     `
+      /* ⭐ 08/09/2026 — le colonne dei colori. ⚠️ Con cinque colonne in piu' la tabella
+         puo' non starci: scorre LEI dentro la card, non la pagina (Libro §tabelle). Su
+         telefono e' l'unica forma possibile. */
+      .col-colore { min-width: 92px; }
+      .tab-listino { min-width: 640px; }
+      .card { overflow-x: auto; }
       .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
       .tab:hover { background: var(--fill); }

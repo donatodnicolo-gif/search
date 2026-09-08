@@ -18,6 +18,31 @@ import { PrismaService } from '../prisma/prisma.service';
  * consegne passate continuano a puntarci.
  */
 
+/**
+ * ⭐ 08/09/2026 (regola utente: «chiedi anche di impostare le varianti colore per le rose
+ * espandendo la tabella in orizzontale») — I COLORI CHE SI CHIEDONO.
+ *
+ * ⚠️ Non è un vezzo: a catalogo «Rosa a stelo» aveva UN prezzo per partner, ma nelle
+ * consegne vere il colore cambia il prezzo quasi sempre. Misurato l'08/09 su 1.461 steli
+ * ricavati dallo storico: **12 partner su 14** con almeno due colori li pagano diverso, e
+ * lo schema è costante — la rossa costa di più, la rosa 1-2 € meno, la bianca in mezzo.
+ * Il prezzo unico era quasi sempre quello della rossa, quindi su ogni fiore non-rosso si
+ * pagava in eccesso.
+ *
+ * Si chiedono cinque colori, non tutti quelli visti: oltre il quinto la tabella diventa
+ * illeggibile e le occorrenze nello storico si contano sulle dita.
+ */
+export const COLORI_ROSA: { chiave: string; nome: string }[] = [
+  { chiave: 'ROSSA', nome: 'Rossa' },
+  { chiave: 'BIANCA', nome: 'Bianca' },
+  { chiave: 'ROSA', nome: 'Rosa' },
+  { chiave: 'GIALLA', nome: 'Gialla' },
+  { chiave: 'BLU', nome: 'Blu' },
+];
+
+/** Di quali fiori si chiede il colore. Per ora la rosa: è quella con lo storico che lo dimostra. */
+export const FIORI_CON_COLORE = new Set(['ROSA']);
+
 /** I fiori che si chiedono a tutti: l'ordine è quello con cui si mostrano. */
 export const FIORI_PRINCIPALI: { chiave: string; nome: string }[] = [
   { chiave: 'ROSA', nome: 'Rosa' },
@@ -72,12 +97,23 @@ export class ListinoService {
     const suoi = cat
       ? await this.prisma.product.findMany({
           where: { partnerId, categoryId: cat.id, deletedAt: null },
-          select: { id: true, name: true, sku: true, price: true, active: true, description: true, updatedAt: true },
+          // ⭐ 08/09/2026: le VARIANTI DI COLORE viaggiano con la riga del fiore.
+          select: { id: true, name: true, sku: true, price: true, active: true, description: true, updatedAt: true,
+                    variants: { select: { id: true, name: true, price: true, active: true } } },
         })
       : [];
     const perSku = new Map(suoi.map((p) => [p.sku ?? '', p]));
     const righe = FIORI_PRINCIPALI.map((f) => {
       const p = perSku.get(this.sku(f.chiave, partnerId));
+      // ⚠️ Il colore si chiede solo dove ha senso, e solo se il fiore lo fa: una colonna
+      // vuota su otto fiori sarebbe rumore. La variante che non esiste torna con prezzo
+      // `null`, cioè «questo colore non lo faccio» — come per il fiore intero.
+      const colori = FIORI_CON_COLORE.has(f.chiave)
+        ? COLORI_ROSA.map((c) => {
+            const v = (p?.variants ?? []).find((x) => x.name.trim().toLowerCase() === c.nome.toLowerCase());
+            return { chiave: c.chiave, nome: c.nome, prezzo: v && v.active ? v.price : null };
+          })
+        : null;
       return {
         chiave: f.chiave,
         nome: f.nome,
@@ -86,6 +122,7 @@ export class ListinoService {
         aggiornatoIl: p?.updatedAt ?? null,
         // Il prezzo caricato dall'ufficio dallo storico è una PROPOSTA finché il fioraio non conferma.
         daConfermare: !!p && !partner.listinoFioriCompilatoIl,
+        colori,
       };
     });
     const altri = suoi
@@ -104,7 +141,11 @@ export class ListinoService {
    * Salva il listino: un prezzo per fiore. Vuoto o zero = «non lo faccio» (prodotto disattivato).
    * Segna il listino come compilato: da lì in poi l'avviso del primo accesso non compare più.
    */
-  async salva(partnerId: string, righe: { chiave?: string; nome?: string; prezzo?: number | null }[]) {
+  async salva(
+    partnerId: string,
+    righe: { chiave?: string; nome?: string; prezzo?: number | null;
+             colori?: { chiave?: string; nome?: string; prezzo?: number | null }[] | null }[],
+  ) {
     const partner = await this.prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
     if (!partner) throw new NotFoundException('Partner non trovato');
     const cat = await this.categoria(true);
@@ -133,9 +174,47 @@ export class ListinoService {
         deletedAt: null,
         description: `Prezzo per stelo dichiarato dal fioraio nel suo Listino (${new Date().toISOString().slice(0, 10)}).`,
       };
-      if (gia) await this.prisma.product.update({ where: { id: gia.id }, data: dati });
-      else await this.prisma.product.create({ data: { ...dati, sku, createdFrom: 'listino-fiorista' } });
+      const prodotto = gia
+        ? await this.prisma.product.update({ where: { id: gia.id }, data: dati, select: { id: true, sku: true } })
+        : await this.prisma.product.create({ data: { ...dati, sku, createdFrom: 'listino-fiorista' }, select: { id: true, sku: true } });
       scritti++;
+
+      /**
+       * ⭐ 08/09/2026 — I COLORI, come VARIANTI del fiore.
+       *
+       * ⚠️ Un colore senza prezzo si DISATTIVA, non si cancella: le consegne passate
+       * puntano a quella variante, e cancellarla lascerebbe righe che dicono «rossa»
+       * senza più nulla dietro. Stessa regola del fiore intero.
+       */
+      if (FIORI_CON_COLORE.has(f.chiave) && Array.isArray(r.colori)) {
+        for (const c of r.colori) {
+          const col = COLORI_ROSA.find((x) => x.chiave === (c.chiave ?? '').toUpperCase());
+          if (!col) continue;
+          const pc = c.prezzo === null || c.prezzo === undefined || (c.prezzo as unknown) === '' ? null : Number(c.prezzo);
+          const ok = pc !== null && Number.isFinite(pc) && pc > 0;
+          const esiste = await this.prisma.productVariant.findFirst({
+            where: { productId: prodotto.id, name: col.nome },
+            select: { id: true },
+          });
+          if (!ok) {
+            if (esiste) { await this.prisma.productVariant.update({ where: { id: esiste.id }, data: { active: false } }); spenti++; }
+            continue;
+          }
+          const datiV = {
+            name: col.nome,
+            price: pc,
+            active: true,
+            note: `Prezzo per stelo dichiarato dal fioraio nel suo Listino (${new Date().toISOString().slice(0, 10)}).`,
+          };
+          if (esiste) await this.prisma.productVariant.update({ where: { id: esiste.id }, data: datiV });
+          else {
+            const quante = await this.prisma.productVariant.count({ where: { productId: prodotto.id } });
+            await this.prisma.productVariant.create({
+              data: { ...datiV, productId: prodotto.id, sku: `${prodotto.sku}-${String(quante + 1).padStart(2, '0')}` },
+            });
+          }
+        }
+      }
     }
     await this.prisma.partner.update({ where: { id: partnerId }, data: { listinoFioriCompilatoIl: new Date() } });
     return { scritti, spenti, ...(await this.leggi(partnerId)) };

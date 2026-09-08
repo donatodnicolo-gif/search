@@ -299,7 +299,18 @@
     "logout": "Log out",
     "openMenu": "Open menu",
     "collapseMenu": "Collapse menu",
-    "expandMenu": "Expand menu"
+    "expandMenu": "Expand menu",
+    "statoOggi": {
+      "aperto": "You are OPEN today",
+      "chiuso": "You are CLOSED today",
+      "senzaOrari": "No hours set — set yours",
+      "perche": {
+        "eccezione": "you set this",
+        "giorno": "from the availability calendar",
+        "settimanale": "from your weekly hours",
+        "sempre": "no hours set"
+      }
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -1217,7 +1228,8 @@
       "fiore": "Flower",
       "prezzo": "€ per stem",
       "stato": ""
-    }
+    },
+    "notaColori": "Rose colours: one price per colour, per stem. Leave blank the colours you do not stock — the «Price» column stays the base price, for orders with no colour chosen."
   },
   "mestieri": {
     "title": "Trades",

@@ -1,4 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { environment } from '../../environments/environment';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -210,6 +213,27 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
           }
         </nav>
 
+        <!-- ============================================================
+             ⭐ 08/09/2026 (regola utente: «all'accesso di un partner in app segnala se lui
+             risulta per app aperto o chiuso, e se il partner ci clicca portalo a
+             impostare i propri orari»)
+             ------------------------------------------------------------
+             ⚠️ Sta nella barra laterale, non in una pagina: il partner atterra su
+             Consegne, non sulla sua home, e un avviso che si vede solo altrove non lo
+             vede nessuno. È un LINK, non un cartello: portare a rimediare fa parte
+             dell'informazione.
+             ============================================================ -->
+        @if (statoOggi(); as st) {
+          <a class="stato-oggi" [class.chiuso]="!st.aperto" [class.ignoto]="st.origine === 'sempre'"
+             routerLink="/profilo" fragment="orari" (click)="close()">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="stato-testo">
+              <b>{{ (st.aperto ? 'shell.statoOggi.aperto' : 'shell.statoOggi.chiuso') | translate }}</b>
+              <span class="stato-sub">{{ sottotitoloStato(st) }}</span>
+            </span>
+          </a>
+        }
+
         <div class="user-box">
           <!-- 02/09 (utente): il proprio nome apre la SCHEDA PROFILO. -->
           <a class="user-link" routerLink="/profilo" (click)="close()">
@@ -367,6 +391,27 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       }
       .user-link:hover .user-name { text-decoration: underline; }
       .user-link:focus-visible { outline: 2px solid var(--gold, #b8963e); outline-offset: 2px; }
+      /* ⭐ 08/09/2026 — lo stato di oggi: si legge prima del nome, perché è la cosa che
+         cambia il lavoro della giornata. Verde aperto, rosso chiuso, ambra «non lo hai
+         detto» — tre stati, tre colori, e il pallino ripete il colore per chi non
+         distingue bene le tinte. */
+      .stato-oggi {
+        display: flex; align-items: center; gap: 10px; margin: 0 12px 8px;
+        padding: 9px 12px; border-radius: 12px; text-decoration: none;
+        border: 1px solid rgba(52,199,89,0.35); background: rgba(52,199,89,0.10);
+        color: var(--text); transition: background .15s ease;
+      }
+      .stato-oggi:hover { background: rgba(52,199,89,0.18); }
+      .stato-oggi .dot { width: 9px; height: 9px; border-radius: 50%; background: #34c759; flex: 0 0 auto; }
+      .stato-oggi.chiuso { border-color: rgba(215,0,21,0.35); background: rgba(215,0,21,0.09); }
+      .stato-oggi.chiuso:hover { background: rgba(215,0,21,0.15); }
+      .stato-oggi.chiuso .dot { background: var(--red, #d70015); }
+      .stato-oggi.ignoto { border-color: rgba(255,159,10,0.40); background: rgba(255,159,10,0.10); }
+      .stato-oggi.ignoto:hover { background: rgba(255,159,10,0.18); }
+      .stato-oggi.ignoto .dot { background: #ff9f0a; }
+      .stato-oggi .stato-testo { display: flex; flex-direction: column; min-width: 0; }
+      .stato-oggi b { font-size: 13px; font-weight: 600; }
+      .stato-oggi .stato-sub { font-size: 11.5px; color: var(--text-secondary); }
       .user-box {
         display: flex;
         align-items: center;
@@ -607,6 +652,38 @@ export class ShellComponent {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly router = inject(Router);
   private readonly notifications = inject(NotificationsService);
+  private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
+
+  /**
+   * ⭐ 08/09/2026 (regola utente) — LO STATO DI OGGI DEL PARTNER, nella barra.
+   *
+   * ⚠️ Solo per il ruolo PARTNER: agli altri non dice niente e occuperebbe posto.
+   * Lo stato lo calcola il server con la STESSA cascata dello smistamento, così il badge
+   * non può dire «aperto» mentre l'app pensa «chiuso».
+   */
+  readonly statoOggi = signal<{ aperto: boolean; origine: string; fasce: { dalle: string | null; alle: string | null }[]; nota?: string | null } | null>(null);
+
+  /** Sotto il titolo: il PERCHÉ, perché «chiuso» ha tre cause e tre rimedi diversi. */
+  sottotitoloStato(st: { aperto: boolean; origine: string; fasce: { dalle: string | null; alle: string | null }[] }): string {
+    if (st.origine === 'sempre') return this.translate.instant('shell.statoOggi.senzaOrari');
+    const orario = st.fasce
+      .filter((f) => f.dalle || f.alle)
+      .map((f) => `${f.dalle ?? ''}–${f.alle ?? ''}`)
+      .join(', ');
+    if (!st.aperto) return this.translate.instant('shell.statoOggi.perche.' + st.origine);
+    return orario || this.translate.instant('shell.statoOggi.perche.' + st.origine);
+  }
+
+  private caricaStatoOggi(): void {
+    if (this.auth.user()?.role !== 'PARTNER') return;
+    this.http.get<any>(`${environment.apiUrl}/auth/profilo`).subscribe({
+      // ⚠️ Se la lettura fallisce il badge NON compare: meglio nessuna informazione che
+      // una sbagliata su una cosa che decide se il negozio riceve lavoro.
+      next: (p) => this.statoOggi.set(p?.partner?.apertoOggi ?? null),
+      error: () => this.statoOggi.set(null),
+    });
+  }
 
   private readonly iconCache = new Map<string, SafeHtml>();
 
@@ -644,6 +721,15 @@ export class ShellComponent {
     this.notifications.startPolling();
     // E quello delle NOVITÀ per i pallini gialli delle sezioni (03/09).
     this.novita.avvia();
+    // Lo stato di oggi del partner: si legge all'ingresso, ed è la prima cosa che vede.
+    this.caricaStatoOggi();
+    // ⚠️ Si rilegge tornando dal profilo: se ha appena dichiarato una chiusura, il badge
+    // deve dirlo subito — altrimenti sembra che il salvataggio non abbia funzionato.
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        if ((e as NavigationEnd).urlAfterRedirects?.startsWith('/deliveries')) this.caricaStatoOggi();
+      });
   }
 
   readonly novita = inject(NovitaService);
