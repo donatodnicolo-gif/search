@@ -111,6 +111,7 @@ export function FormProdottoNuovo({
   aiPronta,
   azione,
   iniziale,
+  duplica,
 }: {
   negozi: NegozioPerForm[];
   categorie: CategoriaPerForm[];
