@@ -31,6 +31,8 @@ type Reclamo = {
   colpaNome: string
   gravita: number
   descrizione: string
+  /** I prodotti su cui è aperto il reclamo, uno per riga. Vuoto = tutto l'ordine. */
+  prodotti: string
   azioni: string
   stato: string
   esito: string
@@ -44,6 +46,9 @@ type Casistica = {
   gravita: number
   azioni: string
 }
+
+/** Una riga dell'ordine, come la manda Orders. */
+type ProdottoOrdine = { titolo: string; variante: string; sku: string; quantita: number; prezzo: number }
 
 type Valet = { id: string; nome: string; zona: string }
 type Partner = { id: string; nome: string; citta: string }
@@ -72,6 +77,7 @@ const VUOTO = {
   colpaNome: '',
   gravita: 2,
   descrizione: '',
+  prodotti: '',
   azioni: '',
   stato: 'aperto',
   esito: '',
@@ -97,6 +103,17 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
   const [valet, setValet] = useState<Valet[]>([])
   const [partner, setPartner] = useState<Partner[]>([])
   const [partnerErrore, setPartnerErrore] = useState('')
+  /** Quanti ne dichiara il registro: se sono più di quelli scaricati, si dice. */
+  const [partnerTotale, setPartnerTotale] = useState(0)
+  // ── IL CONTESTO DELL'ORDINE (utente, 07/09/2026) ──
+  // Cosa c'era in quell'ordine e chi l'ha preparato: serve a far scegliere i
+  // prodotti quando sono più d'uno, e ad associare da solo il partner quando
+  // l'ordine è passato dalla piattaforma consegne.
+  const [prodottiOrdine, setProdottiOrdine] = useState<ProdottoOrdine[]>([])
+  const [contestoNota, setContestoNota] = useState('')
+  const [contestoCarico, setContestoCarico] = useState(false)
+  /** Il partner proposto dalla piattaforma: si dice a schermo perché è una scelta fatta da noi. */
+  const [partnerDaApp, setPartnerDaApp] = useState<{ id: string; nome: string } | null>(null)
 
   const [bozza, setBozza] = useState<Bozza>(VUOTO)
   const [formAperto, setFormAperto] = useState(false)
@@ -218,15 +235,104 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
     setPartnerErrore('')
     try {
       const res = await fetch('/api/partner')
-      const d = (await res.json().catch(() => ({}))) as { partner?: Partner[]; errore?: string }
+      const d = (await res.json().catch(() => ({}))) as {
+        partner?: Partner[]
+        totale?: number
+        errore?: string
+      }
       if (!res.ok) {
         setPartnerErrore(d.errore || 'Partner non raggiungibili.')
         return
       }
       setPartner(d.partner ?? [])
+      setPartnerTotale(d.totale ?? (d.partner ?? []).length)
     } catch {
       setPartnerErrore('Partner non raggiungibili: problema di rete.')
     }
+  }
+
+  /**
+   * Chiede il contesto di un ordine: prodotti + partner della piattaforma.
+   *
+   * ⚠️ Non azzera mai quello che una persona ha già scelto: i prodotti spuntati
+   * restano, e il partner si propone SOLO se la colpa è ancora «nessuno». Un
+   * automatismo che sovrascrive una scelta fatta a mano si impara a temere.
+   */
+  const caricaContesto = useCallback(async (numero: string, ordineId: string, proponiPartner: boolean) => {
+    if (!numero.trim() && !ordineId.trim()) {
+      setProdottiOrdine([])
+      setPartnerDaApp(null)
+      setContestoNota('')
+      return
+    }
+    setContestoCarico(true)
+    try {
+      const p = new URLSearchParams()
+      if (numero.trim()) p.set('ordine', numero.trim())
+      if (ordineId.trim()) p.set('ordineId', ordineId.trim())
+      const res = await fetch('/api/reclami/contesto?' + p.toString())
+      const d = (await res.json().catch(() => ({}))) as {
+        prodotti?: ProdottoOrdine[]
+        partner?: { id: string; nome: string } | null
+        nota?: string
+      }
+      if (!res.ok) return
+      setProdottiOrdine(d.prodotti ?? [])
+      setContestoNota(d.nota ?? '')
+      setPartnerDaApp(d.partner ?? null)
+      if (d.partner && proponiPartner) {
+        setBozza((b) =>
+          b.colpaTipo === 'nessuno'
+            ? { ...b, colpaTipo: 'partner', colpaId: d.partner!.id, colpaNome: d.partner!.nome }
+            : b
+        )
+        caricaPartner()
+      }
+    } catch {
+      // rete assente: il modulo si compila a mano, e lo dice il campo vuoto
+    } finally {
+      setContestoCarico(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /**
+   * Il contesto si chiede da solo: basta che il form sia aperto e ci sia un
+   * numero d'ordine, da qualunque strada sia arrivato (prefill da una chat,
+   * apertura in modifica, o scritto a mano).
+   *
+   * ⚠️ Mezzo secondo di attesa: il campo si digita a mano, e chiedere a Orders
+   * a ogni tasto vuol dire dieci chiamate per «#1042».
+   * ⚠️ Su un reclamo che ESISTE già (`bozza.id`) i prodotti si caricano lo
+   * stesso — servono a spuntarli — ma il partner NON si tocca: chi ha aperto
+   * quel reclamo può aver deciso apposta che la colpa non è del partner.
+   */
+  useEffect(() => {
+    if (!formAperto) return
+    const numero = bozza.ordineNumero
+    const id = bozza.ordineId
+    const nuovoReclamo = !bozza.id
+    const t = setTimeout(() => void caricaContesto(numero, id, nuovoReclamo), 500)
+    return () => clearTimeout(t)
+  }, [formAperto, bozza.ordineNumero, bozza.ordineId, bozza.id, caricaContesto])
+
+  /** Le righe spuntate, come le tiene la bozza: una etichetta per riga. */
+  const prodottiScelti = bozza.prodotti.split('\n').map((x) => x.trim()).filter(Boolean)
+
+  /** Come si chiama una riga d'ordine a schermo (ed è la stessa cosa che si salva). */
+  function etichettaProdotto(p: ProdottoOrdine): string {
+    const variante =
+      p.variante && p.variante.trim().toLowerCase() !== 'default title' ? ` · ${p.variante.trim()}` : ''
+    const quanti = p.quantita > 1 ? `${p.quantita} × ` : ''
+    return `${quanti}${p.titolo}${variante}`.trim()
+  }
+
+  function scegliProdotto(etichetta: string, dentro: boolean) {
+    setBozza((b) => {
+      const righe = b.prodotti.split('\n').map((x) => x.trim()).filter(Boolean)
+      const senza = righe.filter((x) => x !== etichetta)
+      return { ...b, prodotti: (dentro ? [...senza, etichetta] : senza).join('\n') }
+    })
   }
 
   // Se si arriva da un ordine (prefill), apre subito il form riempito.
@@ -282,6 +388,11 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
 
   function nuovo() {
     setBozza(VUOTO)
+    // ⚠️ Anche il contesto: i prodotti dell'ordine precedente, lasciati lì,
+    // farebbero spuntare a qualcuno la riga sbagliata su un altro reclamo.
+    setProdottiOrdine([])
+    setPartnerDaApp(null)
+    setContestoNota('')
     setFormAperto(true)
     setAvviso('')
     setErrore('')
@@ -303,6 +414,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
       colpaNome: r.colpaNome,
       gravita: r.gravita,
       descrizione: r.descrizione,
+      prodotti: r.prodotti ?? '',
       azioni: r.azioni,
       stato: r.stato,
       esito: r.esito,
@@ -583,6 +695,29 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
               {partnerErrore}
             </p>
           ) : null}
+          {/* ── CHI L'HA PREPARATO, SE È PASSATO DALLA PIATTAFORMA ──
+              ⚠️⚠️ Si DICE che l'abbiamo scelto noi e da dove: attribuire la
+              colpa a un partner senza dirglielo è la cosa che poi nessuno
+              riesce a spiegare al partner stesso. Resta cambiabile: è una
+              proposta, non un verdetto. */}
+          {bozza.colpaTipo === 'partner' && partnerTotale > partner.length ? (
+            <p className="descrizione" style={{ marginTop: -4, color: 'var(--red)' }}>
+              L'elenco mostra {partner.length} partner dei {partnerTotale} del registro: cercalo su{' '}
+              <a href="/partner" style={{ textDecoration: 'underline' }}>
+                Partner
+              </a>{' '}
+              se non lo trovi qui.
+            </p>
+          ) : null}
+          {bozza.colpaTipo === 'partner' && partnerDaApp ? (
+            <p className="descrizione" style={{ marginTop: -4 }}>
+              Dalla piattaforma consegne: l'ordine è stato preparato da{' '}
+              <strong>{partnerDaApp.nome}</strong>
+              {partnerDaApp.id
+                ? '. Se non è colpa sua, cambialo qui sopra.'
+                : " — ma con questo nome non c'è nessun partner attivo nel registro: scegli tu a chi attribuirlo."}
+            </p>
+          ) : null}
 
           <label className="campo">
             <span>Descrizione del problema</span>
@@ -593,6 +728,64 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
               placeholder="Cosa ha segnalato il cliente"
             />
           </label>
+          {/* ── SU QUALI PRODOTTI È IL RECLAMO (utente, 07/09/2026) ──
+              ⚠️⚠️ Compare SOLO se l'ordine ne ha più d'uno: su un ordine da un
+              articolo la domanda ha una risposta sola, e chiederla comunque
+              insegna a spuntare senza leggere.
+              ⚠️ Nessuna spunta = tutto l'ordine, e c'è scritto: un campo vuoto
+              che vuol dire «tutto» va detto, altrimenti sembra dimenticato. */}
+          {prodottiOrdine.length >= 2 ? (
+            <div className="campo">
+              <span>Su quali prodotti</span>
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 6,
+                  padding: '10px 12px',
+                  border: '1px solid var(--hairline)',
+                  borderRadius: 12,
+                }}
+              >
+                {prodottiOrdine.map((p, i) => {
+                  const et = etichettaProdotto(p)
+                  return (
+                    <label
+                      key={`${et}-${i}`}
+                      style={{ display: 'flex', gap: 8, alignItems: 'baseline', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={prodottiScelti.includes(et)}
+                        onChange={(e) => scegliProdotto(et, e.target.checked)}
+                      />
+                      <span>
+                        {et}
+                        {p.sku ? <span className="cella-sub"> · {p.sku}</span> : null}
+                      </span>
+                    </label>
+                  )
+                })}
+                <p className="descrizione" style={{ margin: 0 }}>
+                  {prodottiScelti.length === 0
+                    ? "Nessuno spuntato: il reclamo vale per tutto l'ordine."
+                    : `Il reclamo è su ${prodottiScelti.length} ${
+                        prodottiScelti.length === 1 ? 'prodotto' : 'prodotti'
+                      } di ${prodottiOrdine.length}.`}
+                </p>
+              </div>
+            </div>
+          ) : null}
+          {contestoNota ? (
+            <p className="descrizione" style={{ marginTop: -4 }}>
+              {contestoNota}
+            </p>
+          ) : null}
+          {contestoCarico && prodottiOrdine.length === 0 ? (
+            <p className="descrizione" style={{ marginTop: -4 }}>
+              Sto guardando cosa c'era in quell'ordine…
+            </p>
+          ) : null}
+
           <label className="campo">
             <span>Azioni da eseguire (una per riga)</span>
             <textarea
@@ -769,6 +962,14 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
                         </span>
                       ) : null}
                     </div>
+                    {/* ⚠️ Su QUALI prodotti: un reclamo su un ordine da tre
+                        articoli non è la stessa cosa di un reclamo su tutto
+                        l'ordine, e dall'elenco si deve poter distinguere. */}
+                    {r.prodotti ? (
+                      <div className="cella-sub" style={{ maxWidth: 260 }} title={r.prodotti}>
+                        {r.prodotti.split('\n').filter(Boolean).join(' · ')}
+                      </div>
+                    ) : null}
                     {r.descrizione ? (
                       <div className="cella-sub" style={{ maxWidth: 260 }}>
                         {r.descrizione.length > 90 ? r.descrizione.slice(0, 90) + '…' : r.descrizione}
