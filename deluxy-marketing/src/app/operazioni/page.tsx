@@ -6,13 +6,13 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza, riprovaCompletamento,
-  riprovaFallita, riprendiAnnuncioAccodato,
+  riprovaFallita, riprendiAnnuncioAccodato, eseguiUnaSuMeta,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { esitoRiletto } from "@/lib/conferme-operazioni";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
 import { prisma } from "@/lib/db";
-import { ETICHETTA_CANALE, ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
+import { daQuanto, ETICHETTA_CANALE, ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 import { spiegaErroreGoogle } from "@/lib/errori-google";
 import { EseguiMeta } from "@/components/EseguiMeta";
 import { Icona } from "@/components/Icona";
@@ -502,6 +502,47 @@ export default async function PaginaOperazioni({
                 </button>
               </form>
             )}
+
+          {/* ⚠️⚠️ «ESEGUI QUESTA SU META», UNA SOLA (08/09/2026).
+              Su Meta esegue l'app, e dal 04/09 l'approvazione esegue subito —
+              ma solo per chi viene approvato da allora. Le approvate PRIMA
+              restavano ferme, e l'unico modo di mandarle era «Esegui adesso»,
+              che le prende TUTTE: per spegnere una campagna bisognava
+              spegnerne anche un'altra. Sono rimaste ferme per giorni proprio
+              per questo — e «[Palloncini] - AWARENESS», che l'utente aveva
+              chiesto di mettere in pausa il 04/09, ha continuato a spendere.
+              Una decisione presa qui dentro deve poter arrivare su Meta da
+              sola, senza portarsi dietro decisioni che non si sono prese. */}
+          {o.canale === "meta_ads" && o.stato === "approvata" && (
+            <div className="op-comandi" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <form action={eseguiUnaSuMeta} style={{ display: "inline" }}>
+                <input type="hidden" name="id" value={o.id} />
+                {sp.torna && <input type="hidden" name="ritorno" value={sp.torna} />}
+                <button
+                  className="btn small"
+                  type="submit"
+                  title={`Manda SOLO questa su Meta: ${ETICHETTA_TIPO[o.tipo] ?? o.tipo} su «${o.bersaglio}». Le altre approvate restano dove sono.`}
+                >
+                  Esegui questa su Meta
+                </button>
+              </form>
+              {/* Da quanto è ferma. Un'approvata senza data accanto si legge
+                  come «sta per partire»: qui non parte niente finché non
+                  preme qualcuno, e dirlo è tutta la differenza. */}
+              {o.approvataIl && (
+                <span
+                  className="cella-sub"
+                  style={{
+                    color:
+                      Date.now() - o.approvataIl.getTime() > 86_400_000 ? "var(--orange)" : undefined,
+                  }}
+                  title="Su Meta non c'è nessuno script: finché non preme una persona, sulla piattaforma non cambia niente."
+                >
+                  approvata {daQuanto(o.approvataIl).testo}, non ancora eseguita
+                </span>
+              )}
+            </div>
+          )}
 
           {/* ⚠️ UNA RIGA «FALLITA» SENZA BOTTONI E' UN VICOLO CIECO.
               Lo storico diceva cosa era andato storto e finiva li': per

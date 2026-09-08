@@ -37,6 +37,7 @@ export async function GuardrailCampagna({
   bloccata?: string;
   salvata?: string;
 }) {
+  // Chi esegue davvero, su questa campagna: cambia i testi del riquadro.
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
     include: {
@@ -49,6 +50,7 @@ export async function GuardrailCampagna({
     },
   });
   if (!campagna) return null;
+  const suMeta = campagna.canale !== "google_ads";
   const metriche: MetricaGiorno[] = [...campagna.metriche].reverse();
   const traino = campagna.classe === "traino";
 
@@ -263,13 +265,23 @@ export async function GuardrailCampagna({
       </section>
 
 
+      {/* ⚠️ CHI ESEGUE NON È LO STESSO SULLE DUE PIATTAFORME, e il riquadro
+          deve dirlo giusto (08/09/2026): su Google esegue lo script che gira
+          DENTRO l'account, al suo giro; su Meta esegue l'app, nel momento in
+          cui approvi. Il titolo diceva «scrittura su Google Ads» anche sulle
+          campagne Meta, cioè prometteva un passaggio che lì non avviene e
+          nominava una piattaforma che non è quella che si sta guardando. */}
       <section className="scheda">
-        <div className="scheda-titolo">Chiedi allo script di eseguire (scrittura su Google Ads)</div>
+        <div className="scheda-titolo">
+          {suMeta ? "Chiedi all'app di eseguire (scrittura su Meta)" : "Chiedi allo script di eseguire (scrittura su Google Ads)"}
+        </div>
         <p className="cella-sub" style={{ marginBottom: 12 }}>
           Qui non si esegue nulla: si mette in <b>coda</b>. L&apos;operazione resta in attesa finché
-          non la approvi in <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a>;
-          solo allora lo script di Google Ads la prende, la esegue e riferisce. Il guardrail
-          controlla prima: se una regola è violata, l&apos;operazione non entra nemmeno in coda.
+          non la approvi in <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a>;{" "}
+          {suMeta
+            ? "su Meta esegue l'app, nel momento stesso in cui approvi."
+            : "solo allora lo script di Google Ads la prende, la esegue e riferisce."}{" "}
+          Il guardrail controlla prima: se una regola è violata, l&apos;operazione non entra nemmeno in coda.
         </p>
         <form className="modulo" action={creaOperazione}>
           <input type="hidden" name="campagnaId" value={campagna.id} />
