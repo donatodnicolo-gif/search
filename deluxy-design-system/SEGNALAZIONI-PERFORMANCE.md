@@ -202,3 +202,134 @@ Le medie alte venivano dalle ore in cui il database era in ginocchio: la stessa
 query che oggi costa 5 ms ne costava 300. È la conferma della regola: **la misura
 si prende a database tranquillo, e si guarda il piano, non i millisecondi**. Il
 censimento serve a fare i sospetti, non le condanne.
+
+### ⚠️ 08/09/2026 pomeriggio — RETTIFICA della voce qui sopra (dal custode)
+
+**Due cose che avevo scritto vanno corrette, e una regge.**
+
+**1. La cifra «17 posti per istanza» NON era una misura, ed era sbagliata.**
+Avevo scritto che `src/lib/db.ts` senza `connection_limit` faceva aprire a
+Prisma `num_cpu × 2 + 1` connessioni per istanza. **La `DATABASE_URL` porta già
+`connection_limit=5`**, e Prisma legge il parametro **dall'URL**, non dal file.
+In produzione la variabile è *Sensitive* e non si legge: il valore vero **resta
+ignoto**. Quello che il rimedio fa davvero è **imporre 3 dove l'URL diceva 5**.
+Regola pagata: se un numero non si può leggere si scrive «non misurato», non lo
+si calcola e lo si presenta come misura.
+
+**2. La causa vera è quasi certamente un difetto del pooler, non nostro.**
+Discussione Supabase **#40671**, fix **`supavisor#783`** (Felipe Stival, team
+pooler Supabase): i `ClientHandler` **sopravvivono a errori TLS fatali e non
+rilasciano mai lo slot**. I client salgono a 200 nell'arco di giorni — anche di
+notte, col traffico che cala — mentre `pg_stat_activity` resta a una dozzina di
+backend, e si azzera **solo riavviando il pooler**. Testuale: **non** correlato
+a `max`, `idleTimeoutMillis` né a Fluid Compute. È la firma identica a quella
+misurata qui (32 backend, pooler pieno).
+
+**3. Quello che regge**: l'osservazione che **il numero di Postgres non dice se
+il pooler è pieno** — anzi, il difetto #40671 la rende la firma diagnostica del
+bug — e l'unica prova causale in nostro possesso, che è osservativa:
+**spegnendo il `next dev` locale l'app è tornata su in meno di 10 secondi**. Il
+tetto a 3 resta prudenza (meno benzina sul fuoco finché il fix arriva nella
+nostra regione), non la cura.
+
+**Altre correzioni del custode, verificate sulla documentazione ufficiale**:
+il tetto di **200 è hard-coded per dimensione di compute** (Micro = 60/200), non
+si alza dalla dashboard; le 14 app **condividono un pool solo** (chiave Supavisor
+= utente+database+modalità, **lo schema non conta**); **Vercel raccomanda di non
+mettere il pool a 1** («does not reduce total connections and harms
+concurrency»); e **`DIRECT_URL` punta a `pooler.supabase.com:5432`** — session
+mode, che consuma dallo **stesso** budget di 200. Quest'ultimo l'ho verificato
+sul `.env` di Merchandising: è così.
+
+⚠️ **Stato reale, per il verbale**: il bollettino del custode chiedeva di non
+pubblicare `f124f1fd`, ma **era già in produzione** dalle 12:00
+(`deluxy-merchandising-uumlut90o`), pubblicato su istruzione esplicita
+dell'utente prima che il bollettino arrivasse. Non è stato annullato: dopo il
+deploy `database: true` su 5 prove su 5 e `/collezioni` di nuovo 200. Le altre
+app **non sono state toccate**: l'utente ha detto che ci pensa il custode.
+
+## 07/09/2026 — ⚠️ MINA: un raw SQL senza schema può colpire le tabelle di un'altra app
+
+**Segnalato dalla sessione «Raccolta feedback prestazioni app», verificato da Finance**:
+sul cluster condiviso il `search_path` del ruolo `postgres` — l'unico con cui girano
+tutte e 16 le app — mette davanti lo schema **`mail`**. Quindi in un'app che non
+dichiara il proprio schema, `current_schema()` è `mail`, e **qualunque
+`$queryRaw` / `$executeRaw` non qualificato colpisce le tabelle di AI Mail per
+prime**. Una SELECT sbagliata restituisce dati altrui; un `UPDATE` o un `DELETE`
+non qualificato **non darebbe errore**: andrebbe a segno sui dati di un'altra app.
+Il percorso ORM è salvo — Prisma qualifica sempre.
+
+**Precisazione misurata sul Customer Service (07/09, questa sessione)**: la mina
+**non è universale, dipende dalla stringa di connessione**. Dove la
+`DATABASE_URL` porta `?schema=<nome>`, Prisma imposta il `search_path` della
+sessione su quello schema, e il raw non qualificato resta in casa propria:
+
+```
+current_schema() = messaging · search_path = messaging · utente = postgres
+to_regclass('"Messaggio"') → "Messaggio"   (di messaging, non di mail)
+```
+
+Nel CS, inoltre: **zero scritture raw** (nessun `$executeRaw` con UPDATE/DELETE/
+INSERT nel codice dell'app) e le letture raw sono già qualificate
+(`FROM messaging."Ordine"`). Qui la mina non è armata. **Ma in un'app la cui
+stringa non dichiara lo schema lo è**, e nessuno se ne accorgerebbe.
+
+> **REGOLA (proposta per il Libro): ogni raw SQL nomina lo schema, sempre.**
+> `FROM messaging."Ordine"`, mai `FROM "Ordine"`. Non è pignoleria: su questo
+> cluster il nome nudo non è ambiguo — è *sbagliato in silenzio*, e per una
+> scrittura è perdita di dati di un'altra app. Vale anche negli script.
+> Controllo di casa: `SELECT current_schema()` all'avvio di uno script che fa
+> raw; se non è lo schema dell'app, qualificare è obbligatorio.
+
+**Corollario, sempre da Finance**: `prisma db push` su Finance proponeva
+`DROP TABLE` su due tabelle vive presenti nel database ma non in
+`schema.prisma`. In ogni app, **prima di un `db push` far girare
+`prisma migrate diff` e leggere se propone `DROP` inattesi.** (Nel CS il
+`db push` è già vietato per lo stesso motivo: il diff propone di togliere tutte
+le foreign key dello schema.)
+
+## 07/09/2026 — La causa dell'incidente è un bug del pooler Supabase, non nostro
+
+Portata dalla sessione «Raccolta feedback prestazioni app»: discussione ufficiale
+**supabase #40671**, stesso stack (Next.js + Vercel Fluid Compute + Supavisor in
+transaction mode 6543, piano Pro). Quadro identico al nostro: client del pooler
+da ~50 a **200+ nell'arco di giorni** mentre `pg_stat_activity` resta a **11-13
+backend**, `FATAL: Max client connections reached`, ripristino **solo riavviando
+il pooler**, e crescita **anche di notte a traffico basso**. Causa identificata
+dal team pooler Supabase: regressione sugli alert TLS di Erlang — i
+`ClientHandler` sopravvivono a errori TLS fatali e **non rilasciano mai lo slot**.
+Fix in `supavisor#783`, rollout per regione. ⚠️ Testuale: **non** era colpa di
+`max`, `idleTimeoutMillis`, `attachDatabasePool` né di Fluid Compute.
+
+Combacia con quello che avevamo misurato senza saperlo spiegare: 24-31
+connessioni su 60 mentre l'ecosistema era a terra, e il riavvio del pooler come
+unica cosa che rimetteva tutto in piedi.
+
+**Tre correzioni al piano, con la misura dietro:**
+1. **Il tetto di 200 è hard-coded per dimensione compute** (Micro = 60 Postgres /
+   200 client). Non si alza da dashboard né da API: solo compute Small (→400) o
+   Dedicated Pooler. ❌ **Ritirata** la proposta «leggere `default_pool_size` e
+   valutare 15→20»: quel parametro governa le connessioni **verso Postgres**, non
+   i client del pooler — sono due contatori scollegati.
+2. ❌ **`connection_limit` uniforme è la leva sbagliata.** Vercel documenta che
+   portarlo a 1 «non riduce le connessioni totali e danneggia la concorrenza», e
+   con Fluid Compute le invocazioni concorrenti condividono lo stesso pool. Resta
+   valida l'obiezione già registrata: il CS ha rotte con **21 e 19** query in
+   parallelo. Il `3 + pool_timeout=20` di Marketing resta, ma come tampone.
+3. **`DIRECT_URL` punta al pooler in session mode in tutte le app** (misurato da
+   Marketing: `Can't reach database server at …pooler.supabase.com:5432`).
+   Consuma dallo stesso budget di 200. Precisazione: è dichiarata come
+   `directUrl` in `schema.prisma`, quindi Prisma la usa **solo** per migrazioni
+   e `db push`, non a runtime → va corretta, ma è meno urgente.
+4. **Pista del prefetch chiusa**: in tutto l'ecosistema non esiste un
+   `prefetch={true}`, e un layout senza query non prende slot del pooler.
+   `prefetch={false}` è buona igiene, **non è il rimedio a un EMAXCONN**.
+
+**Restano validi e non ritrattati**: i due indici (`Delivery_updatedAt_idx`
+39.082 → 0,09 ms; `Messaggio_htmlDaPulire_idx` 5.288 → 310 ms) e i cron sfalsati.
+E le due trappole che il piano mette in testa: **il cronometro mente sotto
+contesa**, e **`seq_scan` alto non è un difetto se la selettività è bassa** —
+grazie a quelle sono state ritirate altre tre accuse (Orders `abbina.ts`
+1.261 ms → 15,6 ms a freddo; un indice di AI Mail che esisteva già; un indice su
+`CopyAnnuncio(tipo)` inutile al 58% di selettività: quella query non è lenta, è
+**ripetuta**, e si cura con una cache applicativa).
