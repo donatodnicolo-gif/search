@@ -282,6 +282,16 @@ export default async function SchedaCampagna({
   // oggi perdeva il primo giorno e ignorava la data di fine, e la somma dei
   // gruppi non faceva il totale della campagna qui sopra.
   const gruppi = await gruppiConNumeri({ campagnaId: campagna.id, periodo: periodo.corrente });
+  // ⚠️⚠️ I GRUPPI SPENTI SI PIEGANO, NON SI CANCELLANO (08/09/2026, segnalato
+  // dall'utente su «Fiori a Milano ENG»: 15 righe di cui 14 spente su Google da
+  // mesi, e undici senza una sola metrica, mai). Non sono un errore e non sono
+  // «defunti»: `Gruppo.stato` è la NOSTRA parola e l'import non la sovrascrive
+  // mai (stessa regola delle keyword), quindi un gruppo spento su Google
+  // continua legittimamente a dire «Attivo» qui dentro. Il difetto era solo
+  // che coprivano l'unico che eroga. Si nasconde, non si riscrive lo stato: la
+  // riga resta a un clic, con la sua storia e i suoi numeri.
+  const gruppiVivi = gruppi.filter((g) => g.statoPiattaforma === "ENABLED" || g.spesa > 0);
+  const gruppiFermi = gruppi.filter((g) => !(g.statoPiattaforma === "ENABLED" || g.spesa > 0));
 
   // La destinazione con cui precompilare un annuncio nuovo: quella che gli
   // annunci di questa campagna usano gia, la piu frequente. E un suggerimento
@@ -942,10 +952,10 @@ export default async function SchedaCampagna({
                 numeri, è il modo migliore per scrivere l'annuncio giusto nel
                 posto sbagliato — e su Google si scopre a cose fatte. Con più
                 gruppi si apre il gruppo, dove si vede cosa già eroga. */}
-            {gruppi.length === 1 && (
+            {gruppiVivi.length === 1 && (
               <CreaAnnuncioAi
-                gruppoId={gruppi[0].id}
-                nomeGruppo={gruppi[0].nome}
+                gruppoId={gruppiVivi[0].id}
+                nomeGruppo={gruppiVivi[0].nome}
                 azione={creaAnnuncioConAi}
                 sistema={sistemaAnnuncioConAi}
                 accoda={accodaAnnuncio}
@@ -961,7 +971,7 @@ export default async function SchedaCampagna({
                 nome — non un menù anonimo davanti a numeri: ogni voce porta
                 alla pagina del gruppo col dialogo del brief GIÀ APERTO
                 (?annuncio=nuovo), dove si vede cosa quel gruppo sta erogando. */}
-            {campagna.canale === "google_ads" && gruppi.length > 1 && !defunta && (
+            {campagna.canale === "google_ads" && gruppiVivi.length > 1 && !defunta && (
               <details style={{ position: "relative" }}>
                 <summary
                   className="btn small btn-secondario"
@@ -980,7 +990,7 @@ export default async function SchedaCampagna({
                   <div className="cella-sub" style={{ padding: "4px 10px", whiteSpace: "normal" }}>
                     L&apos;annuncio vive dentro un gruppo: scegli dove scriverlo.
                   </div>
-                  {gruppi.map((g) => (
+                  {gruppiVivi.map((g) => (
                     <a
                       key={g.id}
                       className="sb-item"
@@ -997,7 +1007,22 @@ export default async function SchedaCampagna({
           {/* Prima della tabella, non dopo: il numero basso va spiegato mentre
               lo si legge, non quando si è già conclusa la cosa sbagliata. */}
           <CoperturaGruppi campagnaId={campagna.id} giorni={GIORNI_LETTURA} />
-          <TabellaGruppi righe={gruppi} mostraCampagna={false} mostraQuota />
+          <TabellaGruppi righe={gruppiVivi} mostraCampagna={false} mostraQuota />
+          {gruppiVivi.length === 0 && gruppiFermi.length > 0 && (
+            <div className="vuoto-mini">
+              Nessun gruppo acceso su Google in questa campagna: sono tutti qui sotto.
+            </div>
+          )}
+          {gruppiFermi.length > 0 && (
+            <details style={{ marginTop: 12 }}>
+              <summary className="cella-sub" style={{ cursor: "pointer" }}>
+                Gruppi non attivi ({gruppiFermi.length}) — in pausa su Google e senza spesa nel periodo
+              </summary>
+              <div style={{ marginTop: 10 }}>
+                <TabellaGruppi righe={gruppiFermi} mostraCampagna={false} />
+              </div>
+            </details>
+          )}
           {gruppi.length > 0 && (
             <p className="cella-sub" style={{ marginTop: 10 }}>
               La quota è la fetta di spesa che ogni gruppo si prende dentro questa campagna.

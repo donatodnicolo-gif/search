@@ -1,5 +1,6 @@
 import { Badge } from "@/components/Badge";
 import { RigaLink } from "@/components/RigaLink";
+import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero } from "@/lib/dominio";
 import {
   ETICHETTA_TIPO_GRUPPO,
@@ -9,10 +10,24 @@ import {
   type GruppoConNumeri,
 } from "@/lib/gruppi";
 
+// Come si legge il tipo di operazione nella riga del gruppo. ⚠️ Solo i tipi che
+// possono avere un `gruppoId`: gli altri qui non arrivano mai, e un elenco più
+// lungo del necessario è un elenco che nessuno tiene aggiornato.
+const ETICHETTA_ATTESA: Record<string, string> = {
+  pausa_gruppo: "messa in pausa chiesta",
+  attiva_gruppo: "riattivazione chiesta",
+  pausa_annuncio: "pausa di un annuncio chiesta",
+  nuovo_annuncio: "annuncio nuovo in coda",
+  nuova_keyword: "keyword nuova in coda",
+  pausa_keyword: "pausa di una keyword chiesta",
+  attiva_keyword: "riattivazione di una keyword chiesta",
+  negativa: "parola da escludere in coda",
+};
+
 // La tabella dei gruppi di annunci, uguale ovunque compaia: pagina Gruppi,
 // scheda campagna, Copy & annunci. Ordinata per spesa, perché la prima domanda
 // è sempre "dove stanno finendo i soldi".
-export function TabellaGruppi({
+export async function TabellaGruppi({
   righe,
   mostraCampagna = true,
   mostraQuota = false,
@@ -29,6 +44,27 @@ export function TabellaGruppi({
     );
   }
   const quote = mostraQuota ? quotaSpesa(righe) : null;
+
+  // ⚠️⚠️ CHE COSA STA ASPETTANDO QUESTA RIGA (08/09/2026, chiesto dall'utente:
+  // «se ci sono operazioni in corso — esempio sono state messe in pausa — in
+  // attesa di approvazione e giro dello script, segnala»). Prima la riga
+  // mostrava lo stato di ieri e nient'altro: chi aveva appena chiesto la pausa
+  // di un gruppo tornava qui, leggeva «Attivo», e non aveva modo di sapere se
+  // il comando fosse partito. È lo stesso buco che la colonna «Azione decisa»
+  // chiude già sulle keyword del gruppo — qui mancava.
+  // Una query sola per tutta la tabella, non una per riga.
+  const inCoda = await prisma.operazioneAdv.findMany({
+    where: { gruppoId: { in: righe.map((r) => r.id) }, stato: { in: ["in_attesa", "approvata"] } },
+    select: { gruppoId: true, tipo: true, stato: true },
+    orderBy: { creataIl: "asc" },
+  });
+  const attese = new Map<string, { tipo: string; stato: string }[]>();
+  for (const o of inCoda) {
+    if (!o.gruppoId) continue;
+    const v = attese.get(o.gruppoId) ?? [];
+    v.push({ tipo: o.tipo, stato: o.stato });
+    attese.set(o.gruppoId, v);
+  }
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -89,6 +125,25 @@ export function TabellaGruppi({
                   <div className="cella-sub" title={statoGruppo.codice ?? "nessuno stato ricevuto dalla piattaforma"}>
                     {statoGruppo.sotto}
                   </div>
+                  {/* Quello che è stato DECISO e non è ancora successo.
+                      Arancione anche per l'approvata: approvata non vuol dire
+                      fatta — su Google esegue lo script al suo giro, e finché
+                      non gira la piattaforma riporta ancora com'era prima. */}
+                  {(attese.get(g.id) ?? []).map((a, i) => (
+                    <div
+                      key={i}
+                      className="cella-sub"
+                      style={{ color: "var(--orange)", whiteSpace: "normal" }}
+                      title={
+                        a.stato === "in_attesa"
+                          ? "In coda in Operazioni: nessuno l'ha ancora approvata, quindi su Google non è successo niente."
+                          : "Approvata: parte al prossimo giro dello script. Fino ad allora Google riporta lo stato di prima."
+                      }
+                    >
+                      ⏳ {ETICHETTA_ATTESA[a.tipo] ?? a.tipo}
+                      {a.stato === "in_attesa" ? " · da approvare" : " · aspetta lo script"}
+                    </div>
+                  ))}
                 </td>
                 <td className="num">{formattaEuro(g.spesa)}</td>
                 {mostraQuota && (
