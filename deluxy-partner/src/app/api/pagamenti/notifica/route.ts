@@ -106,14 +106,14 @@ export async function POST(req: NextRequest) {
   let saldi = riferimento
     ? await prisma.saldoMensile.findMany({
         where: { partnerId, anno, richiestaRif: riferimento },
-        select: { id: true, mese: true, bonificoImporto: true },
+        select: { id: true, mese: true, bonificoImporto: true, richiestaStato: true },
         orderBy: { mese: "asc" },
       })
     : [];
   if (saldi.length === 0) {
     const uno = await prisma.saldoMensile.findUnique({
       where: { partnerId_anno_mese: { partnerId, anno, mese } },
-      select: { id: true, mese: true, bonificoImporto: true },
+      select: { id: true, mese: true, bonificoImporto: true, richiestaStato: true },
     });
     if (!uno) return NextResponse.json({ ok: true, nota: "Mese non trovato: ignorata." });
     saldi = [uno];
@@ -157,23 +157,85 @@ export async function POST(req: NextRequest) {
       righeRegistro.push(`bonifico netto ${euro(importo)}`);
     }
   } else {
+    // 🔴 CORRETTO L'08/09/2026 — «pagato da Transactions ma il debito è rimasto».
+    //
+    // Caso vero: MASTROFIORAIO, giugno 2026. Alle 13:14 era stato registrato un
+    // INCASSO dal partner di 549 € (`bonificoImporto = −549`: in questa colonna
+    // il positivo è «mandato al partner», il negativo «ricevuto dal partner»).
+    // Alle 13:24 Transactions conferma il pagamento di 171,18 €, e la vecchia
+    // guardia — `s.bonificoImporto == null` — legge «c'è già un valore» e salta
+    // la scrittura. Ma quel valore non era un bonifico annotato a mano: era un
+    // incasso. Risultato: la scheda continuava a chiedere 171,18 € già pagati.
+    // Luglio, stesso partner e stesso giro, funzionava solo perché la sua
+    // colonna era vuota.
+    //
+    // ⚠️⚠️ E NON SI RIPARA SOMMANDO. Provato l'08/09 sul caso vero, e ANNULLATO
+    // subito: sommare 171,18 a −549 dà −377,82, che è un NETTO. Ma per un
+    // partner SENZA compensazione il motore (`calc.ts`) divide questa colonna
+    // per SEGNO — `daIncassare = fatture − parte negativa`,
+    // `daBonificare = dovuto − parte positiva` — quindi il netto ha fatto
+    // scendere la parte «ricevuta» da 549 a 377,82 e «Da incassare» è passato
+    // da 0 a 171,18 €. Da un numero sbagliato a due.
+    // **Il limite è del modello, non di questa funzione**: per un partner senza
+    // compensazione servono DUE numeri (mandato / ricevuto) e la colonna è una.
+    //
+    // Quindi qui si fa l'unica cosa onesta finché il modello non cambia:
+    //   1. richiesta GIÀ «pagata» → riconsegna del webhook, non si tocca niente;
+    //   2. colonna con un'USCITA che copre l'importo → annotata a mano, vince lei;
+    //   3. colonna VUOTA o già un'uscita minore → si somma: qui il segno non è
+    //      ambiguo e il risultato resta una parte «inviata» corretta;
+    //   4. colonna con un INCASSO (negativa) → **non si scrive**, perché
+    //      qualunque cifra scritta lì sarebbe letta male dal motore. Non si
+    //      resta però in silenzio come prima: il registro lo dichiara con
+    //      l'importo, così il pagamento si può sistemare a mano.
+    const esito = new Map<string, "sommato" | "gia_pagata" | "gia_a_mano" | "collide_incasso" | "niente">();
     await prisma.$transaction(
-      saldi.map((s) =>
-        prisma.saldoMensile.update({
+      saldi.map((s) => {
+        const gia = s.bonificoImporto ?? 0;
+        const daScrivere =
+          pagata && importo != null
+            ? s.richiestaStato === "pagata"
+              ? "gia_pagata"
+              : gia > 0 && gia >= importo - 0.005
+                ? "gia_a_mano"
+                : gia < -0.005
+                  ? "collide_incasso"
+                  : "sommato"
+            : "niente";
+        esito.set(s.id, daScrivere);
+        return prisma.saldoMensile.update({
           where: { id: s.id },
           data: {
             richiestaStato: stato,
-            // Il bonifico si scrive solo a pagamento avvenuto, e solo se non
-            // c'era già: se un operatore l'aveva annotato a mano, la sua cifra
-            // vince — è stata scritta da qualcuno che ha guardato il conto.
-            ...(pagata && s.bonificoImporto == null && importo != null
-              ? { bonificoImporto: importo, bonificoData: quando }
+            ...(daScrivere === "sommato"
+              ? {
+                  bonificoImporto: Math.round((gia + importo!) * 100) / 100,
+                  bonificoData: quando,
+                }
               : {}),
           },
-        })
-      )
+        });
+      })
     );
-    if (pagata) righeRegistro.push(`bonifico annotato: ${importo != null ? importo.toFixed(2) : "importo non comunicato"}`);
+    // ⚠️ IL REGISTRO DICE QUELLO CHE È SUCCESSO DAVVERO. Prima questa riga
+    // scriveva «bonifico annotato: …» ogni volta che lo stato era «pagata»,
+    // anche quando la scrittura era stata saltata: il registro modifiche — cioè
+    // il posto dove si va a controllare — dichiarava un'annotazione che non
+    // c'era. È il motivo per cui il caso di giugno è passato inosservato.
+    if (pagata) {
+      const q = (v: string) => saldi.filter((s) => esito.get(s.id) === v).length;
+      if (importo == null) righeRegistro.push("pagata, ma Transactions non ha comunicato l'importo: bonifico NON annotato");
+      else if (q("sommato")) righeRegistro.push(`bonifico annotato: ${importo.toFixed(2)}`);
+      if (q("gia_pagata")) righeRegistro.push(`${q("gia_pagata")} mesi erano già «pagata»: notifica ripetuta, importo non riscritto`);
+      if (q("gia_a_mano")) righeRegistro.push(`${q("gia_a_mano")} mesi avevano già il bonifico annotato a mano: tenuta la cifra scritta da una persona`);
+      if (q("collide_incasso"))
+        righeRegistro.push(
+          `🔴 BONIFICO DI ${importo!.toFixed(2)} € NON ANNOTATO su ${saldi
+            .filter((s) => esito.get(s.id) === "collide_incasso")
+            .map((s) => nomeMese(s.mese))
+            .join(", ")}: quel mese porta già un incasso dal partner, e la colonna del bonifico non può tenere le due direzioni insieme. Il pagamento è avvenuto: va sistemato a mano.`
+        );
+    }
     if (saldi.length > 1) righeRegistro.push(`mesi: ${saldi.map((s) => nomeMese(s.mese)).join(", ")}`);
   }
 
