@@ -4,6 +4,7 @@ import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNu
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
 import { creaOperazioneKeyword } from "@/lib/azioni";
+import { spendeAVuoto } from "@/lib/salute";
 
 // Le keyword di questa campagna: **quello che abbiamo comprato**.
 //
@@ -21,7 +22,7 @@ const COLONNE = {
   conversioni: { etichetta: "Conv.", verso: "desc" as const },
   incasso: { etichetta: "Incasso", verso: "desc" as const },
   resa: { etichetta: "Resa", verso: "desc" as const },
-  punteggioQualita: { etichetta: "Qualità", verso: "desc" as const },
+  punteggioQualita: { etichetta: "QS", verso: "desc" as const },
   stato: { etichetta: "Stato", verso: "asc" as const },
 };
 // La colonna dei bottoni non si ordina: non c'è un ordine dei bottoni.
@@ -227,9 +228,8 @@ export async function KeywordCampagna({
   // l'incasso ma non il numero di conversioni, e con la regola «conversioni = 0»
   // una keyword che ha reso 3.817 € finiva fra quelle che non hanno portato
   // niente. Un dato che manca non è uno zero.
-  const aVuoto = keyword.filter(
-    (k) => (k.spesa ?? 0) > 0 && (k.conversioni ?? 0) === 0 && (k.incasso ?? 0) === 0
-  );
+  // La regola sta in `spendeAVuoto` (lib/salute): una sola, per le due schede.
+  const aVuoto = keyword.filter((k) => spendeAVuoto(k.spesa, k.conversioni, k.incasso));
   const spesaAVuoto = aVuoto.reduce((s, k) => s + (k.spesa ?? 0), 0);
   const resaTotale = spesaTotale > 0 ? incassoTotale / spesaTotale : null;
 
