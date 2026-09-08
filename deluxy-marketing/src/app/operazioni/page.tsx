@@ -9,6 +9,7 @@ import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   riprovaFallita, riprendiAnnuncioAccodato,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
+import { esitoRiletto } from "@/lib/conferme-operazioni";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_CANALE, ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
@@ -269,13 +270,21 @@ export default async function PaginaOperazioni({
       o.daEseguireDal && o.daEseguireDal.getTime() > Date.now()
         ? o.daEseguireDal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })
         : null;
+    // ⚠️ RILETTURA DIFFERITA (08/09/2026): se lo script aveva scritto «rileggendo
+    // non risulta ancora» ma la conferma indipendente dice che Google l'ha
+    // rimandata, il dubbio è una notizia vecchia e si chiude qui. Il 07/09
+    // quell'allarme ha gridato 15 volte su 16 avendo sempre torto: uno che
+    // sbaglia quasi sempre non lo legge più nessuno, nemmeno quando ha ragione.
+    // Il campo `esito` sul database NON si tocca: è la parola di chi ha
+    // eseguito, e resta intera nel titolo della riga.
+    const letto = esitoRiletto(o.esito, conferma);
     const dettagli = [
       o.prima ? `prima: ${o.prima}` : null,
       o.motivo || null,
       // La traduzione PRIMA del testo grezzo: e' quella che si legge.
       spiegato,
       programmata ? `programmata: parte dal ${programmata}` : null,
-      o.esito ? `esito: ${o.esito}` : null,
+      letto.testo ? `esito: ${letto.testo}` : null,
     ].filter(Boolean);
 
     return (
@@ -351,7 +360,17 @@ export default async function PaginaOperazioni({
             {formattaDataOra(o.creataIl)}
           </div>
 
-          {dettagli.length > 0 && <div className="op-dettagli">{dettagli.join(" · ")}</div>}
+          {dettagli.length > 0 && (
+            <div
+              className="op-dettagli"
+              // Col dubbio chiuso il testo mostrato è ripulito: quello CRUDO,
+              // parola per parola come l'ha scritto lo script, resta qui —
+              // una prova non si cancella, si mette dove non dà fastidio.
+              title={letto.dubbioChiuso && o.esito ? `Esito come l'ha scritto lo script: ${o.esito}` : undefined}
+            >
+              {dettagli.join(" · ")}
+            </div>
+          )}
 
           {/* Quello che il change control avrebbe rifiutato, e che dal
               04/08/2026 dice invece di rifiutare. Sta sulla riga e non in un
@@ -469,7 +488,9 @@ export default async function PaginaOperazioni({
               che avrebbe creato una SECONDA campagna. */}
           {o.tipo === "completa_campagna" &&
             o.stato === "eseguita" &&
-            /ATTENZIONE|RIFIUTAT|non trovate|ambigu/i.test(o.esito ?? "") && (
+            // ⚠️ Sul testo RILETTO, non su quello grezzo: un dubbio di rilettura
+            // già chiuso da Google non è un motivo per riprovare niente.
+            /ATTENZIONE|RIFIUTAT|non trovate|ambigu/i.test(letto.testo ?? "") && (
               <form className="op-comandi" action={riprovaCompletamento}>
                 <input type="hidden" name="id" value={o.id} />
                 <button
