@@ -93,6 +93,26 @@ export function Sidebar({
               <Link
                 key={v.href}
                 href={v.href}
+                // ⚠️ NIENTE PRECARICAMENTO (08/09/2026, misurato sui log di
+                // produzione dalla sessione Hub durante la saturazione del
+                // pooler).
+                //
+                // Next precarica ogni <Link> che entra nel viewport, e qui
+                // sono tutte le voci del menu insieme. Nel log delle 17:42:54
+                // partono NELLO STESSO CENTESIMO DI SECONDO sette lambda —
+                // /profilo, /stato, /scarica, /utenti, /chiavi, /cartellino,
+                // /cartellino/gestione — più la pagina chiesta davvero. Ognuna
+                // esegue il layout, che fa due query (utente + timbrature); e
+                // /stato per giunta interroga /api/health di ~18 app, ognuna
+                // con la sua query. Una sola navigazione di un solo utente
+                // arrivava fino a 35 client sul pooler condiviso, che di posti
+                // ne ha 200 in tutto.
+                //
+                // Il precaricamento qui non porta nulla: queste pagine sono
+                // tutte `force-dynamic`, quindi non c'è niente da mettere in
+                // cache — si paga il render e si butta via. Costo del rimedio:
+                // qualche decina di millisecondi al click.
+                prefetch={false}
                 className={`sb-item${attiva(v) ? " attiva" : ""}`}
                 aria-current={attiva(v) ? "page" : undefined}
               >
@@ -112,7 +132,7 @@ export function Sidebar({
           non è mai uno stato, §5), e «Esci» come icona — non più il bottone nero
           pesante che il Libro citava come difetto del Hub. */}
       <div className="sidebar-footer">
-        <Link href="/profilo" className="sf-utente" title="Il tuo profilo">
+        <Link href="/profilo" prefetch={false} className="sf-utente" title="Il tuo profilo">
           <span className="sf-avatar">{iniziali(sessione.nome)}</span>
           <span className="sf-testo">
             <span className="sf-nome">{sessione.nome}</span>

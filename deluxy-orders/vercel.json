@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "regions": [
     "fra1"
   ],
@@ -10,7 +11,7 @@
     },
     {
       "path": "/api/cron/sync",
-      "schedule": "0 6 * * *"
+      "schedule": "2 6 * * *"
     }
   ]
 }
