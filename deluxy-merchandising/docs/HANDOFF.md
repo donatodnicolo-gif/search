@@ -2,6 +2,52 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 mezzogiorno — DUE CORREZIONI: il tetto di connessioni e la duplicazione che non esisteva
+
+**1. `(EMAXCONN) max client connections reached, limit: 200`.** Dopo il deploy
+delle 11:28 l'app rispondeva `database: false` su `/api/health` (3 prove su 3) e
+**500 su `/collezioni`**; Marketing e CRM stavano bene. L'errore vero è nei log
+di runtime. ⚠️ **Non era Postgres pieno**: `pg_stat_activity` contava **32
+connessioni** (24 idle, 1 attiva) — il tetto è quello dei *client del pooler*
+Supavisor, che si conta altrove.
+Causa: `src/lib/db.ts` non metteva nessun `connection_limit`, e Prisma senza
+tetto apre `num_cpu × 2 + 1` **per istanza** — su questa macchina (8 core) sono
+**17 posti per un solo `next dev`**, e altrettanti per ogni istanza calda su
+Vercel, moltiplicate dal deploy che scalda le nuove mentre le vecchie non si
+sono spente. Spegnendo il dev server l'app è tornata su in **meno di 10
+secondi**.
+Rimedio applicato: `urlPooler()` come in `deluxy-marketing` —
+`connection_limit=3&pool_timeout=20` **solo** su `:6543`, nel codice e non nelle
+variabili d'ambiente. **Tre e non uno**: con 1 la home di Marketing andava in
+`P2024 Timed out fetching a new connection`. Provata la funzione sui cinque casi
+(pooler nudo, con query, già limitato a 17, diretta 5432, assente).
+🔴 **Restano senza tetto**: `deluxy-orders`, `deluxy-messaging`,
+`deluxy-partner`, `deluxy-personale` (contate oggi; le altre del cluster non
+sono state contate). Proposta al custode nel registro delle performance: farne
+una regola del Libro.
+
+**2. `/prodotti/[id]/duplica` non esisteva.** L'azione
+`duplicaProdottoCompleto` era scritta dal 07/09 e compilava, il modulo accettava
+già `duplica`, ma **la pagina non era mai stata creata**: la duplicazione
+chiesta dall'utente non era raggiungibile da nessun bottone. Aggiunte la pagina e
+il bottone «⧉ Duplica» accanto a «✎ Modifica col modulo» sulla scheda prodotto.
+Il titolo nasce con **«(Duplica) »** davanti (una volta sola: duplicando una
+copia non si accumula) e il codice arriva vuoto, che è la condizione su cui
+conta l'azione per rigenerare SKU e varianti.
+Nel farlo, la costruzione di `iniziale` (settanta righe) è uscita dalla pagina di
+modifica ed è finita in `src/lib/prodotto-per-il-modulo.ts`, con l'`include`
+della query accanto: due copie sarebbero divergute al primo campo nuovo, e la
+duplicazione avrebbe perso dati **in silenzio**.
+
+**VERIFICATO in locale**: scheda prodotto 200 col bottone e il link; `/duplica`
+200 col titolo «(Duplica) Colazione a 5 Stelle (2/3 Persone)», SKU nuovo
+(9784268 contro 7148093 dell'originale) e il riquadro «Copia di «Colazione a 5
+Stelle»» senza il prefisso ripetuto; `/modifica`, `/prodotti/nuovo` e
+`/collezioni` tutte 200. `npx tsc --noEmit` pulito.
+
+🔴 **NON PUBBLICATO**: committato in locale, in attesa che l'utente decida se
+pubblicare solo Merchandising o anche le altre quattro app scoperte.
+
 ## 08/09/2026 mattina — SEZIONI PER CATEGORIA E TRE PUNTI DELLA SCHEDA (nuovo punto di ripresa)
 
 Richiesta dell'utente dell'08/09 («in impostazioni per ogni sito definisci due
