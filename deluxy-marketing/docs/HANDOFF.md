@@ -53,7 +53,7 @@
 > il `search_path` morde (il `catch` di `leggi()` torna `VUOTI` invece di far
 > cadere la pagina: zeri ovunque = guarda i log, non = non ci sono dati).
 >
-> 🔴 **LA PRODUZIONE È AVANTI AL REPO su tre file.** `db.ts`,
+> ✅ **RIENTRATO alle 18:13** — era: la produzione avanti al repo su tre file. `db.ts`,
 > `conteggi-sidebar.ts` e `vercel.json` sono **live ma NON su `origin/scout-ui`**:
 > i commit del custode (`e93d0e52`, `b6d2ac7e`) stanno solo sul branch
 > **`prestazioni-custode-0809`**. Non sono a rischio di sparire, ma
@@ -62,6 +62,14 @@
 > mirato dei soli tre file (nessuno dei quali è conteso: gli handoff di
 > Merchandising e `MANUALE-DELUXY.html`, che bloccavano il merge del custode,
 > restano fuori). Vedi [[trappola-vivo-avanti-al-repo]].
+> ✅ **Chiuso dal custode stesso alle 18:13** (`04c82b6f`), col metodo del
+> worktree mirato: `git checkout b6d2ac7e --` dei soli suoi tre file su un
+> worktree staccato da `origin/scout-ui`, commit, push in fast-forward.
+> **Verificato da qui**: `origin/scout-ui:deluxy-marketing` e l'albero locale
+> (che è quello deployato) hanno lo **stesso hash** `1664bf4f`. Chi deploya da
+> un checkout pulito non riporta più indietro niente.
+> Nota sua, utile: `db.ts` è ora canonico in **tutte e undici** le app —
+> Merchandising e Customer Service ci erano arrivati per conto loro.
 >
 > ⚠️ **COME SI PUBBLICA MARKETING, e perché il push non porta il resto.**
 > Il branch locale `scout-ui` è divergente da settimane e **24 dei commit in
