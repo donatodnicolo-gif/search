@@ -25,6 +25,10 @@
 > 📏 **Stato al 08/09**: 297 partner — **283 «da valorizzare», 14 «sì», 0
 > «no»**. I 283 erano `false` di default: convertiti a `NULL` perché una
 > risincronizzazione li avrebbe spediti al registro come 283 «no» decisi.
+> Con una condizione vera (compensazione decisa **o** giorni vendite impostati)
+> ce ne sono **17**: **8 agganciati** al registro e risincronizzati, **9 no**
+> — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
+> MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
 > ✅ **08/09/2026 (42) — LIVE `delivery-jvd3gw9bg`. CONDIZIONI DI PAGAMENTO: ERANO NELLA CLASSE SBAGLIATA DEL DTO** (segnalazione utente, la **seconda volta** sullo stesso difetto).
 > - **Il sintomo**: HTTP 200, «salvato» a schermo, e i quattro campi restavano vuoti. Misurato sul caso segnalato — Bottega Di Pasticceria, `updatedAt` alle 19:26 di oggi, tutti e quattro i campi ancora `null`.
