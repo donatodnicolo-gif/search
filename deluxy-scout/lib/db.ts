@@ -1684,10 +1684,17 @@ export interface OrdineConLuogo extends Ordine {
  * ⭐ SOLO id e trattativa di ogni ordine (07/09/2026). Serve alle Trattative
  * per far risalire i preventivi dall'ordine alla vendita che l'ha generato.
  *
- * ⚠️ NON si usa `fetchOrdini` per questo: quella legge `*` su ~1.400 righe
- * (più la join sui negozi) per due colonne — l'elenco trattative si sarebbe
- * portato dietro il peso della schermata Ordini a ogni apertura. Qui si
+ * ⚠️ NON si usa `fetchOrdini` per questo: quella legge `*` più la join sui
+ * negozi, e pagina, per ricavarne due colonne — l'elenco trattative si
+ * porterebbe dietro il peso della schermata Ordini a ogni apertura. Qui si
  * chiedono due campi e solo le righe che una trattativa ce l'hanno.
+ *
+ * ⚠️ LA MISURA, contro la stima che avevo scritto qui: gli ordini sono **26**
+ * (contati sul database l'08/09/2026), non «~1.400» — quel numero era
+ * ricopiato da un commento della migrazione 0110 senza verificarlo. Il
+ * guadagno oggi è quindi TRASCURABILE: questa funzione resta perché la forma
+ * è giusta e regge la crescita, non perché abbia risolto un problema reale.
+ * Chi legge non deve credere a un'ottimizzazione che nessuno ha misurato.
  */
 export async function ordiniPerTrattativa(): Promise<{ id: string; deal_id: string | null }[]> {
   const { data, error } = await supabase.from('ordini').select('id, deal_id').not('deal_id', 'is', null);
