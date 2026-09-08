@@ -128,7 +128,7 @@ connection string Supabase con `?schema=hub` in fondo.
 | `/chiavi` | solo admin | cassaforte dei segreti dei progetti: valori cifrati sul database, mascherati in lista, rivelabili uno alla volta |
 | `/stato` | solo admin | semaforo server + database di ogni app del catalogo |
 | `/cartellino` | tutti, **solo da computer** | il proprio cartellino: timbra, ore del mese, ferie/permessi/malattia, certificati |
-| `/cartellino/gestione` | solo admin, **solo da computer** | richieste da approvare, chi è in sede adesso, ore e assenze di tutti |
+| `/cartellino/gestione` | solo admin, **solo da computer** | **inserisce ferie / permessi-ROL / malattia / trasferta a una persona** (dal 06/09: nascono approvate, la malattia registrata; rifiuta i periodi accavallati), richieste da approvare, chi è in sede adesso, ore e assenze di tutti |
 
 ### Squadre e persone in `/utenti` (da Personale — dal 06/09/2026)
 

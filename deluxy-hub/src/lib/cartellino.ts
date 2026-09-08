@@ -18,8 +18,8 @@ export type StatoAssenza = (typeof STATI_ASSENZA)[number];
 export const TIPO_INFO: Record<TipoAssenza, { etichetta: string; spiega: string }> = {
   ferie: { etichetta: "Ferie", spiega: "Giorni di ferie: li approva un amministratore." },
   permesso: {
-    etichetta: "Permesso",
-    spiega: "Ore o giorni di permesso: li approva un amministratore.",
+    etichetta: "Permesso / ROL",
+    spiega: "Ore o giorni di permesso (anche ROL): li approva un amministratore.",
   },
   malattia: {
     etichetta: "Malattia",
