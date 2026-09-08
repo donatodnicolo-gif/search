@@ -321,7 +321,19 @@ model PubblicazioneNegozio {
   negozio      String // nome di NegozioShopify
   shopifyId    String?
   handle       String?
+  /// Lo stato **letto** dal negozio all'ultimo import: com'è là adesso.
   statoShopify String? // ACTIVE | DRAFT | ARCHIVED
+  /// Lo stato **voluto**, deciso qui negozio per negozio (08/09/2026, scelta
+  /// dell'utente: «comandiamo noi, Shopify si adegua»). Quando è valorizzato e
+  /// diverso da `statoShopify`, il salvataggio lo impone al negozio.
+  ///
+  /// Perché due campi e non uno: rispondono a due domande diverse — «com'è» e
+  /// «come lo vogliamo». Con un campo solo, l'import che rilegge il negozio
+  /// cancellerebbe la decisione appena presa, e non si saprebbe più se una
+  /// differenza è un ordine ancora da eseguire o un cambiamento fatto da
+  /// qualcuno nell'admin. Tenendoli separati, **la differenza fra i due è la
+  /// cosa da fare**, e si può mostrarla.
+  statoVoluto  String? // ACTIVE | DRAFT | ARCHIVED | null = «va bene com'è»
   origine      String    @default("modulo") // modulo | import | tolto
   spintoIl     DateTime?
   errore       String?

@@ -29,7 +29,7 @@ import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { definizioniInCache, metafieldPerShopify } from "./metafield-definizioni";
 import { elencoNegozi, tokenDi } from "./negozi";
-import { aggiornaProdottoSuShopify, creaProdottoSuShopify } from "./shopify-admin";
+import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
 import { agganciaFileAlProdotto, aggiungiProdottoACollezione, rimuoviProdottoDaCollezione } from "./shopify-media";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
@@ -153,10 +153,23 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   const metafield: Record<string, string> = {};
   for (const [k, v] of Object.entries(metafieldGrezzi)) if (chiaviValide.has(k) && typeof v === "string" && v.trim() !== "") metafield[k] = v;
 
+  // **Lo stato voluto, negozio per negozio** (08/09/2026: «lo stato può essere
+  // diverso per ogni negozio», e la decisione è nostra). I campi arrivano come
+  // `stato:<nome del negozio>`; vuoto vuol dire «lascia com'è», che non è la
+  // stessa cosa di «mettilo attivo» — per questo si tiene la distinzione
+  // invece di far cadere il vuoto su un valore di comodo.
+  const statiVoluti: Record<string, string> = {};
+  for (const [chiave, valore] of fd.entries()) {
+    if (!chiave.startsWith("stato:") || typeof valore !== "string") continue;
+    const v = valore.trim();
+    if (v === "ACTIVE" || v === "DRAFT" || v === "ARCHIVED") statiVoluti[chiave.slice(6)] = v;
+  }
+
   return {
     nome,
     negozio: negozioOk,
     altriNegozi,
+    statiVoluti,
     tuttiNegozi: negozi.filter((n) => n.attivo),
     fase,
     categoria,
@@ -826,6 +839,38 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       });
     }
   });
+  // **Gli stati decisi negozio per negozio si impongono al sito** (08/09/2026:
+  // «comandiamo noi, Shopify si adegua»). Si scrive **solo dove la scelta è
+  // diversa da com'è adesso**: una mutation che rimette lo stato che c'era già
+  // è tempo speso e una riga di cronaca che confonde.
+  //
+  // Ogni negozio è un giro a sé: se uno rifiuta, gli altri vanno avanti e il
+  // motivo resta scritto sulla riga, come per la pubblicazione.
+  const statiDaFare = Object.entries(m.statiVoluti);
+  if (statiDaFare.length > 0) {
+    const righe = await prisma.pubblicazioneNegozio.findMany({ where: { prodottoId: id }, select: { negozio: true, shopifyId: true, statoShopify: true } });
+    for (const [nomeNegozio, voluto] of statiDaFare) {
+      const riga = righe.find((r) => r.negozio === nomeNegozio);
+      await prisma.pubblicazioneNegozio.updateMany({ where: { prodottoId: id, negozio: nomeNegozio }, data: { statoVoluto: voluto } });
+      if (!riga?.shopifyId || riga.statoShopify === voluto) continue;
+      const n = m.tuttiNegozi.find((x) => x.nome === nomeNegozio);
+      if (!n) { avvisi.push(`«${nomeNegozio}» non è fra i negozi attivi: lo stato resta scritto qui ma non è stato mandato.`); continue; }
+      const token = await tokenDi(n.id);
+      if (!token) { avvisi.push(`«${nomeNegozio}» non sa autenticarsi: stato non mandato.`); continue; }
+      const errore = await cambiaStatoSuNegozio(token, riga.shopifyId, voluto as "ACTIVE" | "DRAFT" | "ARCHIVED");
+      if (errore) {
+        avvisi.push(`«${nomeNegozio}» ha rifiutato il cambio di stato: ${errore}`);
+        await prisma.pubblicazioneNegozio.updateMany({ where: { prodottoId: id, negozio: nomeNegozio }, data: { errore } });
+      } else {
+        await prisma.pubblicazioneNegozio.updateMany({
+          where: { prodottoId: id, negozio: nomeNegozio },
+          data: { statoShopify: voluto, spintoIl: new Date(), errore: null },
+        });
+        cronaca.push(`Stato su ${nomeNegozio}: ${voluto}.`);
+      }
+    }
+  }
+
   const dove = doveEAndato(shopifyId ? m.negozio.nome : null, altri);
   vaiAllaScheda(id, avvisi, dove ? `Salvato qui e su ${dove}.` : "Modifiche salvate.");
 }

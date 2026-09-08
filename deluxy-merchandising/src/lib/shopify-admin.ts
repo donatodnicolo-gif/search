@@ -13,6 +13,7 @@
 // perché "prodotto creato ma senza prezzo" è peggio di un errore netto.
 
 import { VERSIONE_API } from "./negozi";
+import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
 
 export type ErroreShopify = { campo: string | null; messaggio: string };
 
@@ -395,4 +396,33 @@ export async function aggiornaProdottoSuShopify(
   }
 
   return { ok: errori.length === 0, errori, passi };
+}
+
+/**
+ * **Cambia lo stato di un prodotto sul negozio** (attivo / bozza / archiviato).
+ *
+ * Serve da quando lo stato si decide qui, negozio per negozio (08/09/2026,
+ * scelta dell'utente: «comandiamo noi, Shopify si adegua»). Torna `null` se è
+ * andata, altrimenti il motivo — che il chiamante scrive sulla riga del
+ * negozio, così un rifiuto non sparisce.
+ *
+ * La stessa mutation la usa già il cron delle pubblicazioni per la finestra
+ * dal/al: qui è una funzione a sé perché la chiama anche il salvataggio del
+ * modulo, e una regola scritta in due posti prima o poi diverge.
+ */
+export async function cambiaStatoSuNegozio(
+  negozio: { dominio: string; token: string },
+  shopifyId: string,
+  stato: "ACTIVE" | "DRAFT" | "ARCHIVED"
+): Promise<string | null> {
+  const r = await graphqlNegozio(
+    negozio.dominio,
+    negozio.token,
+    `mutation cambiaStato($input: ProductInput!) {
+       productUpdate(input: $input) { product { id status } userErrors { field message } }
+     }`,
+    { input: { id: shopifyId, status: stato } }
+  );
+  const errori = erroriDi(r, "productUpdate");
+  return errori.length ? errori.join(" · ") : null;
 }
