@@ -632,8 +632,30 @@ export function FormProdottoNuovo({
             // (quelli appuntati: occasioni, fiori, orario…), nell'ordine
             // dell'admin; gli altri — spesso campi di prova o di app — stanno
             // ripiegati, ma si aprono se ne hanno già un valore.
-            const inEvidenza = definizioni.filter((d) => d.posizione != null);
-            const altri = definizioni.filter((d) => d.posizione == null);
+            // **Campi che dipendono da un altro campo** (08/09/2026, segnalato
+            // dall'utente): «URL img dimensione» ha senso solo se «Guida misure»
+            // è su «Si». Chiedere l'indirizzo di un'immagine che il negozio non
+            // mostrerà è lavoro buttato, e un URL rimasto lì dopo aver spento la
+            // guida è un dato che non corrisponde più a niente.
+            const acceso = (chiave: string) => {
+              const d = definizioni.find((x) => chiaveDef(x).endsWith("." + chiave) || chiaveDef(x) === chiave);
+              const v = (d ? (metafield[chiaveDef(d)] ?? "") : "").trim();
+              // Lo stesso campo arriva dai negozi in due forme — `SI` e `["SI"]`,
+              // perché su un negozio la definizione è una lista: contate 177
+              // schede con la guida misure, in entrambi i formati. Si accettano
+              // tutte e due invece di far dipendere il modulo da come è stato
+              // definito il campo su quel negozio.
+              const testo = v.startsWith("[") ? v.replace(/[[\]"']/g, "") : v;
+              return /^(s[iì]|true|1)$/i.test(testo.trim());
+            };
+            const dipendenze: Record<string, string> = { url_img_dimensione: "guida_misure" };
+            const visibile = (d: DefinizioneMetafield) => {
+              const chiave = chiaveDef(d).split(".").pop() ?? "";
+              const da = dipendenze[chiave];
+              return !da || acceso(da);
+            };
+            const inEvidenza = definizioni.filter((d) => d.posizione != null && visibile(d));
+            const altri = definizioni.filter((d) => d.posizione == null && visibile(d));
             const principali = inEvidenza.length ? inEvidenza : altri;
             const secondari = inEvidenza.length ? altri : [];
             const compilati = secondari.filter((d) => (metafield[chiaveDef(d)] ?? "") !== "").length;
