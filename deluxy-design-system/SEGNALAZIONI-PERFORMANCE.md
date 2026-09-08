@@ -333,3 +333,28 @@ grazie a quelle sono state ritirate altre tre accuse (Orders `abbina.ts`
 1.261 ms → 15,6 ms a freddo; un indice di AI Mail che esisteva già; un indice su
 `CopyAnnuncio(tipo)` inutile al 58% di selettività: quella query non è lenta, è
 **ripetuta**, e si cura con una cache applicativa).
+
+## 08/09/2026 — Hub: il prefetch della sidebar apre 8 lambda (e fino a 35 client del pooler) a ogni navigazione
+
+**Misura** (log Vercel del deploy `deluxy-moso6ozz1`, produzione): alle 17:42:54.61 nello stesso
+centesimo di secondo partono `λ GET /profilo`, `/stato`, `/scarica`, `/utenti`, `/chiavi`,
+`/cartellino`, `/cartellino/gestione` — 7 invocazioni oltre alla pagina chiesta, ripetute a ogni
+navigazione (16:43, 17:05, 17:21, 17:36, 17:42). Quattro secondi dopo, 17:42:58.50:
+`prisma.assenza.findMany(): FATAL: (EMAXCONN) max client connections reached, limit: 200` su
+`/cartellino/gestione` (l'errore visto dall'utente). Riprodotto alle 17:49 dalla macchina locale:
+`select 1` sul pooler 6543 → EMAXCONN; sulla 5432 `pg_stat_activity` = 22 connessioni su 60
+(15 idle, 6 idle in transaction, 1 active). Il database sta bene, finiscono i 200 client del pooler.
+
+**Causa**: i `<Link>` della sidebar (`src/components/Sidebar.tsx`, riga 93) non hanno
+`prefetch={false}`; Next.js prefetcha ogni voce visibile. Ogni prefetch esegue il layout (2 query:
+utente + timbrature del giorno) e la pagina fino al boundary di loading; `/stato` in più chiama
+`/api/health` di ~18 app, ognuna con un `SELECT 1`. Con `connection_limit=5` (deploy del 06/09)
+sono fino a 35 client del pooler per UNA visita di UN utente.
+
+**Proposta**: `prefetch={false}` sulle voci della sidebar (pagine tutte `force-dynamic`: il
+prefetch non porta nulla di cacheable). Impatto atteso: da 8 invocazioni a 1 per navigazione.
+Rischio: nessuno funzionale; qualche decina di ms in più al click. Si somma al tetto a 3 di
+`e93d0e52` (custode), non deployato sul Hub al 08/09 sera.
+
+**Per il custode**: segnalata alla sessione «Raccolta feedback prestazioni app», che ha in mano la
+cartella del Hub. Da far passare da `performance-ostile` prima di applicare. Non applicata.
