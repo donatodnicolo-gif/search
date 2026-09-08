@@ -1150,6 +1150,21 @@ export class DeliveryFormComponent implements AfterViewInit {
         // Se i servizi sono già arrivati, forza il tipo vendita adesso;
         // altrimenti ci pensa il loro callback.
         this.forzaServizioVendita();
+        // ⭐ 08/09/2026 (segnalazione utente: «inserendo una vendita da vendite metti in
+        // automatico anche in questo form l'indirizzo di ritiro del partner»).
+        //
+        // Il ritiro di default è la sede del partner (31/08) e `applicaRitiroPartner` lo
+        // sapeva già fare — ma veniva chiamata SOLO all'arrivo della lista `/partners`, e
+        // lì la condizione è «c'è già un partner scelto». Aprendo il modulo da una vendita
+        // le due chiamate corrono insieme: se `/partners` risponde per prima — quasi
+        // sempre, è in cache — il partner non c'è ancora, la condizione è falsa e
+        // **nessuno ci riprova**: il campo restava vuoto.
+        //
+        // Il servizio aveva già lo stesso problema, risolto così: si chiama in tutt'e due
+        // le strade, chi arriva ultimo vince. `applicaRitiroPartner` è già prudente — se
+        // la lista partner non c'è ancora non fa niente, e non sovrascrive un indirizzo
+        // scritto a mano.
+        this.applicaRitiroPartner();
         this.proponiPrezzoDiListino();
         if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
         if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
