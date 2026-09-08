@@ -159,10 +159,12 @@ per negozio: non è codice, ed è il passo che sblocca tutto il resto.
   Tetto di 20 prodotti per negozio a giro (ogni riga costa AI + scrittura).
 - **`scripts/traduci-mancanti.ts`** per il pregresso: prova a secco di default,
   `--max=`, e `docs/traduzioni-fatte.json` per riprendere senza ripagare.
-- ✅ **Riempito il pregresso sulle lingue attive**: 301 prodotti (Business 153
-  in inglese, Cake 46, Flowers 1, Gifts 106 in russo). Controprova sul negozio,
-  non sullo specchio dell'app: «Sunset» → «Sunset», descrizione «Torta di alta
-  pasticceria…» → «High pastry cake…».
+- ✅ **Pregresso chiuso: 301 prodotti tradotti, 604 voci scritte, 0 errori.**
+  Ricontato dopo: **le lingue attive sono al 100% su tutti e quattro i negozi**
+  — Business 346/346 in inglese (erano 193), Cake 321/321 (erano 275), Flowers
+  269/269 in inglese e francese, Gifts 893/893 in inglese e **893/893 in russo**
+  (erano 787). Controprova sul negozio, non sullo specchio dell'app: «Torta di
+  alta pasticceria…» → «High pastry cake…».
 - ⚠️ **Restano 1.528 prodotti che aspettano lingue non ancora attivate**: per
   loro non c'è niente da tradurre finché non si accendono su Shopify. Appena
   attivate, il cron le riempie da solo (o `traduci-mancanti.ts` per andare più
