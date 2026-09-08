@@ -122,7 +122,7 @@ export async function PerformancePeriodi({
               <th className="num" title="Spesa ÷ giorni con dati: l'unico modo di confrontare finestre di lunghezza diversa">
                 Al giorno
               </th>
-              <th className="num">Ricavi</th>
+              <th className="num">Incasso</th>
               <th className="num">Conv.</th>
               <th className="num">Click</th>
               {/* Il CTR accanto ai click: i click da soli dicono quanti, non se

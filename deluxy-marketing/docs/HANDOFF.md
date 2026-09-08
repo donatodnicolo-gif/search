@@ -34,6 +34,36 @@
 > eseguite. Le **21 negative in attesa** di ieri pomeriggio non sono mai state
 > approvate, quindi non sono nemmeno partite.
 
+> ⏱️ **08/09 sera — LA TABELLA KEYWORD DELLA SCHEDA CAMPAGNA, PARI A QUELLA DEL GRUPPO.**
+> Era l'ultima voce dell'elenco della giornata, e l'unica delle quattro tabelle
+> a cui mancava metà della roba. Adesso ha:
+> · **colonna «Azione decisa»** — l'operazione già in coda su quella parola; se
+>   è aperta, al posto degli altri bottoni compare **«Annulla»**. Prima si
+>   poteva accodare due volte la stessa pausa senza che niente lo dicesse.
+> · **«Riattiva»** quando su Google è ferma (prima c'era solo «Pausa»: una
+>   keyword fermata da lì non si poteva più riaccendere da lì).
+> · **«Escludi» eredita la corrispondenza** con cui la parola è comprata
+>   (`corrispondenzaOrigine`): prima non la mandava nessuno, l'app ripiegava su
+>   «esatta» e il tooltip prometteva di chiudere «anche le ricerche simili».
+> · **«Copia»** ed **«Estendi AI»**, con i dialoghi già montati sulla pagina.
+> · **selezione multipla**: «Escludi le selezionate», «Copia le selezionate»,
+>   «Estendi con AI». Il lavoro sulle keyword è di massa — si guardano sessanta
+>   parole e se ne fermano dieci — e farlo una riga per volta vuol dire non farlo.
+> · nella tabella delle finestre «Ricavi» → **«Incasso»**: era l'ultimo nome
+>   rimasto fuori dall'unificazione del mattino.
+> **Verificato a schermo** sulla campagna «Fiori Milano ITA»: colonne
+> `casella · Keyword · Gruppo · Spesa · Clic · Conv. · Incasso · Resa · QS ·
+> Stato · Azione decisa · Azioni`, 60 caselle collegate alla barra, 4 bottoni in
+> barra, **3 righe mostrano «Riattiva»** (sono le keyword ferme su Google) e
+> **9 righe hanno un'azione decisa**. La gemella nella scheda gruppo è intatta.
+> ⚠️ **Il caso «Annulla» non l'ho potuto vedere**: misurato sul database,
+> **nessuna campagna** ha in coda un'operazione su una parola che è anche una
+> sua keyword, quindi oggi quel ramo non può comparire. Il codice è lo stesso
+> della gemella, ma non l'ho osservato vivo: va guardato al primo caso vero.
+> ⚠️ Il dev server prima non partiva per il pooler saturo (`EMAXCONN`, limite
+> 200 — il bug Supavisor): la verifica è stata fatta dopo, alle 17:54, quando
+> si è liberato.
+>
 > ⏱️ **08/09 sera — L'APP ALLINEATA A QUELLO CHE META DICE DAVVERO.**
 > · ✅ **Palloncini è in pausa**: l'utente l'ha messa in pausa **a mano su Meta**,
 >   e la sync delle 15:07 ha allineato l'app da sola — `stato: in_pausa`,
