@@ -1229,7 +1229,10 @@
       "prezzo": "€ per stem",
       "stato": ""
     },
-    "notaColori": "Rose colours: one price per colour, per stem. Leave blank the colours you do not stock — the «Price» column stays the base price, for orders with no colour chosen."
+    "notaColori": "One price per colour, per stem. Leave blank the colours you do not stock: the price above stays the base one, for orders with no colour chosen.",
+    "colori": {
+      "titolo": "{{fiore}} · price by colour"
+    }
   },
   "mestieri": {
     "title": "Trades",

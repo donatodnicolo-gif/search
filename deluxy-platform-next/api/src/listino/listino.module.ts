@@ -245,7 +245,14 @@ export class ListinoController {
   @ApiOperation({ summary: 'Salva i prezzi dei fiori a stelo (vuoto = non lo faccio) e segna il listino come compilato' })
   salva(
     @CurrentUser() user: JwtUser,
-    @Body() body: { partnerId?: string; righe?: { chiave?: string; prezzo?: number | null }[] },
+    // ⚠️ 08/09/2026: il tipo dichiarava solo `chiave` e `prezzo` mentre il service
+    // accettava gia' i colori. Un DTO piu' stretto del servizio non protegge: nasconde,
+    // e infatti il client che non mandava i colori passava il typecheck senza un fiato.
+    @Body() body: {
+      partnerId?: string;
+      righe?: { chiave?: string; prezzo?: number | null;
+                colori?: { chiave?: string; prezzo?: number | null }[] | null }[];
+    },
   ) {
     return this.service.salva(this.chi(user, body?.partnerId), body?.righe ?? []);
   }

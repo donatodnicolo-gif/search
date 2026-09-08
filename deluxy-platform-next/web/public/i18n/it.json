@@ -1231,7 +1231,10 @@
       "prezzo": "€ per stelo",
       "stato": ""
     },
-    "notaColori": "I colori della rosa: un prezzo per colore, per stelo. Lascia vuoto il colore che non fai — il prezzo della colonna «Prezzo» resta quello base, per chi non sceglie il colore."
+    "notaColori": "Un prezzo per colore, per stelo. Lascia vuoto il colore che non fai: il prezzo qui sopra resta quello base, per chi non sceglie il colore.",
+    "colori": {
+      "titolo": "{{fiore}} · prezzo per colore"
+    }
   },
   "mestieri": {
     "title": "Mestieri",

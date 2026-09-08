@@ -70,27 +70,20 @@ interface Listino {
         <p class="muted mini">{{ 'listino.compilato' | translate: { quando: dataBreve(l.compilatoIl) } }}</p>
       }
 
-      <div class="card">
-        <div class="tab-wrap">
+      <div class="card table-wrap listino-wrap">
         <table class="tab-listino">
           <thead>
             <tr>
-              <th>{{ 'listino.col.fiore' | translate }}</th>
-              <th class="num">{{ 'listino.col.prezzo' | translate }}</th>
-              <!-- ⭐ 08/09/2026 (regola utente): la tabella si ESPANDE IN ORIZZONTALE coi
-                   colori. Le colonne compaiono solo se almeno un fiore li chiede, così chi
-                   non vende rose non si trova cinque colonne vuote. -->
-              @for (c of coloriChiesti(); track c.chiave) {
-                <th class="num col-colore">{{ c.nome }}</th>
-              }
-              <th>{{ 'listino.col.stato' | translate }}</th>
+              <th class="c-fiore">{{ 'listino.col.fiore' | translate }}</th>
+              <th class="num c-prezzo">{{ 'listino.col.prezzo' | translate }}</th>
+              <th class="c-stato">{{ 'listino.col.stato' | translate }}</th>
             </tr>
           </thead>
           <tbody>
             @for (r of l.righe; track r.chiave || r.nome; let i = $index) {
-              <tr>
-                <td><b>{{ r.nome }}</b></td>
-                <td class="num">
+              <tr [class.ha-colori]="!!r.colori?.length">
+                <td class="c-fiore"><b>{{ r.nome }}</b></td>
+                <td class="num c-prezzo">
                   @if (r.chiave) {
                     <input class="field num" type="number" min="0" step="0.5" [name]="'p' + i"
                            [(ngModel)]="r.prezzo" [attr.placeholder]="'listino.nonLoFaccio' | translate" />
@@ -98,70 +91,157 @@ interface Listino {
                     {{ r.prezzo !== null ? (r.prezzo + ' €') : '—' }}
                   }
                 </td>
-                <!-- Una casella per colore. Vuota = «questo colore non lo faccio», come per
-                     il fiore intero. Sui fiori senza colore la cella resta muta. -->
-                @for (c of coloriChiesti(); track c.chiave; let j = $index) {
-                  <td class="num col-colore">
-                    @if (coloreDi(r, c.chiave); as col) {
-                      <input class="field num" type="number" min="0" step="0.5" [name]="'c' + i + '_' + j"
-                             [(ngModel)]="col.prezzo" placeholder="—" />
-                    } @else {
-                      <!-- ⚠️ Vuota, non un trattino: quindici righe su sedici non hanno colori,
-                           e cinque colonne di trattini sono rumore che nasconde l'unica riga
-                           che invece li ha. Il vuoto qui vuol dire «non si applica», e si
-                           legge da solo. -->
-                    }
-                  </td>
-                }
-                <td>
+                <td class="c-stato">
                   @if (r.prezzo === null || r.prezzo === undefined) {
                     <span class="muted">{{ 'listino.nonLoFaccio' | translate }}</span>
                   } @else if (r.daConfermare) {
                     <span class="chip-da-confermare">{{ 'listino.daConfermare' | translate }}</span>
-                  } @else {
-                    <span class="muted mini">{{ r.nota || '' }}</span>
                   }
+                  <!-- ⚠️ 08/09/2026 (segnalazione utente: «nascondi queste note») — la nota
+                       del prodotto NON si mostra piu'. Era identica su ogni riga
+                       («Prezzo per stelo dichiarato dal fioraio nel suo Listino
+                       (2026-09-07)»), diceva a chi l'ha scritta una cosa che sa gia', e
+                       incolonnata andava a capo su sei righe rubando meta' tabella.
+                       Resta scritta sul prodotto, dove serve a chi guarda il catalogo. -->
                 </td>
               </tr>
+              <!-- ⭐ 08/09/2026 (VERDETTO DELL'ARCHITETTO-UX, da segnalazione dell'utente).
+                   I colori stanno SOTTO il fiore che li ha, non in colonne che attraversano
+                   i quindici che non li hanno.
+                   ⚠️ La misura che ha deciso: 15 righe × 5 celle = **75 trattini su 80**,
+                   il 94% della griglia dei colori era rumore — e stava sopra e sotto l'unica
+                   riga che contava. La regola che ne è nata (Libro §8 v2.2): *una colonna è
+                   un attributo della POPOLAZIONE, non di una riga*; sotto il 50% di righe
+                   che la valorizzano, la colonna non si fa.
+                   ⚠️ C'era anche un difetto latente: le intestazioni si ricavavano dalla
+                   PRIMA riga coi colori, quindi il giorno in cui un altro fiore avesse avuto
+                   un set diverso, i suoi colori sarebbero stati invisibili e non salvabili.
+                   L'espansione orizzontale che serviva c'è ancora: i cinque colori sono
+                   affiancati, ma dentro la riga del fiore a cui appartengono.
+                   Il titolo porta il NOME del fiore perché sotto gli 800px questa riga
+                   diventa una scheda a sé. -->
+              @if (r.colori?.length) {
+                <tr class="riga-colori">
+                  <td colspan="3">
+                    <div class="colori">
+                      <span class="colori-tit">{{ 'listino.colori.titolo' | translate: { fiore: r.nome } }}</span>
+                      <div class="colori-griglia">
+                        @for (c of r.colori!; track c.chiave; let j = $index) {
+                          <label class="colore">
+                            <span>{{ c.nome }}</span>
+                            <input class="field num" type="number" inputmode="decimal" min="0" step="0.5"
+                                   [name]="'c' + i + '_' + j" [(ngModel)]="c.prezzo"
+                                   [attr.aria-label]="c.nome + ' — ' + r.nome" />
+                          </label>
+                        }
+                      </div>
+                      <span class="colori-aiuto">{{ 'listino.notaColori' | translate }}</span>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
-        </div>
-        <p class="muted mini">{{ 'listino.nota' | translate }}</p>
-        @if (coloriChiesti().length) {
-          <p class="muted mini">{{ 'listino.notaColori' | translate }}</p>
-        }
-        @if (esito(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
-        <div class="azioni">
-          <button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salva()">
-            {{ 'listino.salva' | translate }}
-          </button>
-        </div>
+      </div>
+
+      <!-- ⚠️ Nota, esito e «Salva» stanno FUORI dal contenitore che scorre: dentro,
+           col tetto d'altezza del .table-wrap, il bottone scorrerebbe via insieme alle
+           righe e chi compila non lo troverebbe piu' (Libro §4: la conferma non cade
+           mai oltre la viewport). -->
+      <p class="muted mini nota-listino">{{ 'listino.nota' | translate }}</p>
+      @if (esito(); as e) { <div [class]="e.ok ? 'ok-msg' : 'err-msg'">{{ e.testo }}</div> }
+      <div class="azioni">
+        <button type="button" class="btn btn-primary" [disabled]="salvando()" (click)="salva()">
+          {{ 'listino.salva' | translate }}
+        </button>
       </div>
     }
     }
   `,
   styles: [
     `
-      /* ⭐ 08/09/2026 — LA TABELLA ALLARGATA COI COLORI (segnalazione utente: «sistema css»).
-         ⚠️ Il difetto era un conflitto: la tabella aveva gia' un tetto di 680px (era
-         una tabella a tre colonne) e io le avevo messo un min-width di 640px con cinque
-         colonne in più. Le colonne si comprimevano, e l'ultima — lo stato — andava a capo
-         su due righe in OGNI riga. E overflow-x era finito su .card, cioè su tutte le
-         schede della pagina, non sulla tabella. */
-      .tab-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
-      .tab-listino { min-width: 760px; }
-      .col-colore { width: 88px; }
-      /* La prima colonna resta ANCORATA mentre si scorre: senza il nome del fiore davanti,
-         una riga di numeri a metà scorrimento non si sa di chi sia (Libro §tabelle larghe). */
-      .tab-listino th:first-child, .tab-listino td:first-child {
-        position: sticky; left: 0; z-index: 1; background: var(--surface);
+      /* ⭐ 08/09/2026 — IL LISTINO COI COLORI (verdetto dell'architetto-ux, da segnalazione
+         dell'utente: cinque colonne di colore valorizzate su UNA riga su sedici).
+
+         LE MISURE DEL DIFETTO CORRETTO QUI:
+         · 15 righe x 5 celle = 75 trattini, il 94% della griglia dei colori;
+         · otto colonne chiedevano ~760px dentro un max-width di 680px (e un min-width di
+           640px sulla stessa classe): non essendoci overflow lo scorrimento non partiva
+           nemmeno, e il browser comprimeva l'ULTIMA colonna, l'unica senza minimo — da li'
+           lo stato che andava a capo in tutte e sedici le righe;
+         · overflow-x stava su .card, quindi su OGNI card del componente, e senza tetto
+           d'altezza: senza altezza il contenitore non e' mai il porto di scorrimento e le
+           intestazioni sticky se ne vanno con la pagina.
+
+         ⚠️ Il vestito della tabella — intestazioni sticky, hover di riga, divisori, .num a
+         destra e la trasformazione in SCHEDE sotto gli 800px — arriva tutto da styles.css
+         via .table-wrap: qui NON si ricopia. Gli stili di componente vincono per
+         specificita' su styles.css, quindi una copia locale non resta «uguale»: diverge.
+         Qui si dichiarano solo le larghezze, e per CLASSE mai con nth-child (la riga con
+         colspan sposterebbe i conti). */
+      .listino-wrap { max-width: 860px; }
+      .tab-listino .c-fiore { width: 42%; }
+      .tab-listino .c-prezzo { width: 26%; }
+      .tab-listino .c-stato { width: 32%; }
+
+      /* I numeri: stessa larghezza per ogni campo, cifre a passo fisso, e via le frecce di
+         incremento — rubavano ~15px sul bordo destro e facevano sembrare i valori spostati
+         rispetto all'intestazione. */
+      .tab-listino .field.num,
+      .colori .field {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        appearance: textfield;
+        -moz-appearance: textfield;
       }
-      /* Lo stato non va a capo: «non lo faccio» su due righe raddoppia l'altezza di ogni
-         riga e fa sembrare la tabella piena di errori. */
-      .tab-listino td:last-child, .tab-listino th:last-child { white-space: nowrap; }
-      /* Le caselle dei colori sono strette: il prezzo di un fiore sta in tre cifre. */
-      .tab-listino .col-colore .field.num { max-width: 72px; padding-left: 6px; padding-right: 6px; }
+      .tab-listino td.c-prezzo .field.num { width: 104px; max-width: none; }
+      .tab-listino .field.num::-webkit-outer-spin-button,
+      .tab-listino .field.num::-webkit-inner-spin-button,
+      .colori .field::-webkit-outer-spin-button,
+      .colori .field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+      /* La riga dei colori APPARTIENE a quella sopra: il divisore fra le due sparisce, il
+         fondo e' il token surface-sunken (non un grigio a mano) e il contenuto rientra. */
+      .tab-listino tr.ha-colori > td { border-bottom-color: transparent; }
+      .tab-listino tr.riga-colori > td {
+        background: var(--surface-sunken);
+        padding: 10px 16px 14px 28px;
+        white-space: normal;
+      }
+      .colori { display: flex; flex-direction: column; gap: 8px; }
+      .colori-tit { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); }
+      /* I cinque campi affiancati: l'espansione in orizzontale sta QUI, dove i colori
+         esistono davvero. auto-fit con tetto a 118px: a schermo largo non si stirano, a
+         schermo stretto vanno a capo da soli invece di sfondare la card. */
+      .colori-griglia {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(96px, 118px));
+        gap: 10px 14px;
+        justify-content: start;
+      }
+      /* Label SOPRA il campo, sempre visibile (prima legge del Libro): niente placeholder
+         al posto del nome del colore. */
+      .colore { display: flex; flex-direction: column; gap: 4px; }
+      .colore > span { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); }
+      .colori .field { width: 100%; }
+      .colori-aiuto { font-size: 12.5px; color: var(--text-tertiary); max-width: 66ch; }
+
+      @media (pointer: coarse) {
+        .tab-listino .field, .colori .field { min-height: var(--touch-min); }
+      }
+      /* Sotto gli 800px la tabella e' gia' schede: la riga dei colori diventa la scheda
+         successiva — per questo il suo titolo porta il nome del fiore — e non deve
+         portarsi dietro fondo e rientro da tabella. */
+      @media (max-width: 800px) {
+        .tab-listino tr.riga-colori > td {
+          background: transparent !important;
+          padding: 8px 0 !important;
+        }
+        .colori-griglia { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+      }
+
+      .nota-listino { margin: 10px 2px 0; max-width: 80ch; }
       .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
       .tab:hover { background: var(--fill); }
@@ -171,14 +251,6 @@ interface Listino {
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 70ch; }
       .avviso-primo { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; margin-bottom: 16px; border-radius: var(--radius-m, 10px); background: rgba(184, 150, 62, 0.1); border: 1px solid rgba(184, 150, 62, 0.28); }
       .avviso-primo span { font-size: 13.5px; color: var(--text-secondary); }
-      /* ⚠️ Niente max-width fisso: con le colonne dei colori la tabella è più larga di
-         680px, e il tetto la comprimeva invece di farla scorrere. La larghezza la decide
-         il contenuto, lo scorrimento lo fa il contenitore .tab-wrap. */
-      .tab-listino { width: 100%; border-collapse: collapse; }
-      .tab-listino th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 550; padding: 4px 10px 8px; }
-      .tab-listino th.num, .tab-listino td.num { text-align: right; }
-      .tab-listino td { padding: 5px 10px; border-top: 1px solid var(--hairline); vertical-align: middle; }
-      .tab-listino .field.num { max-width: 120px; text-align: right; }
       .chip-da-confermare { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 980px; font-size: 12px; font-weight: 550; background: rgba(184, 150, 62, 0.14); color: var(--gold-strong, #B8963E); }
       .azioni { margin-top: 16px; }
       .mini { font-size: 12.5px; }
@@ -212,23 +284,6 @@ export class ListinoFioriComponent {
       });
   }
 
-  /**
-   * ⭐ 08/09/2026 — I colori da mostrare come colonne: quelli che il SERVER chiede, presi
-   * dalla prima riga che li ha. Se nessuna riga li chiede, nessuna colonna.
-   *
-   * ⚠️ L'elenco viene dal server (è lui che poi valida i nomi): ricopiarlo qui
-   * significherebbe due elenchi che divergono al primo colore aggiunto.
-   */
-  coloriChiesti(): ColoreListino[] {
-    const r = (this.listino()?.righe ?? []).find((x) => x.colori && x.colori.length);
-    return r?.colori ?? [];
-  }
-
-  /** Il colore di QUESTA riga, o null se il fiore non ha colori (tulipano, girasole...). */
-  coloreDi(r: RigaListino, chiave: string): ColoreListino | null {
-    return (r.colori ?? []).find((c) => c.chiave === chiave) ?? null;
-  }
-
   dataBreve(d: string | null): string { return (d ?? '').slice(0, 10).split('-').reverse().join('/'); }
 
   salva(): void {
@@ -236,9 +291,20 @@ export class ListinoFioriComponent {
     if (!l) return;
     this.salvando.set(true);
     this.esito.set(null);
+    const num = (v: unknown) => (v === null || v === undefined || (v as unknown) === '' ? null : Number(v));
     const righe = l.righe
       .filter((r) => !!r.chiave)
-      .map((r) => ({ chiave: r.chiave, prezzo: r.prezzo === null || (r.prezzo as unknown) === '' ? null : Number(r.prezzo) }));
+      .map((r) => ({
+        chiave: r.chiave,
+        prezzo: num(r.prezzo),
+        // ⚠⚠ 08/09/2026 — SENZA QUESTA RIGA I COLORI NON PARTIVANO. Il server sapeva
+        // riceverli e scriverli come varianti, ma il client non glieli mandava: il fioraio
+        // compilava i cinque prezzi, premeva Salva, leggeva «Listino salvato», e la
+        // risposta — che è una rilettura del database — glieli ricancellava a schermo.
+        // Un successo verde su una scrittura mai avvenuta (Libro §7: vietato l'esito ambiguo).
+        // Trovato dall'architetto-ux mentre valutava il layout.
+        colori: r.colori ? r.colori.map((c) => ({ chiave: c.chiave, prezzo: num(c.prezzo) })) : null,
+      }));
     this.http.post<Listino & { scritti: number; spenti: number }>(`${environment.apiUrl}/listino-fiori`, { righe }).subscribe({
       next: (r) => {
         this.salvando.set(false);
