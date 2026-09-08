@@ -420,39 +420,6 @@ export default async function ImpostazioniPage({
           )}
         </div>
 
-        {/* ---------- Prompt per categoria ---------- */}
-        <div className="scheda">
-          <div className="scheda-titolo">Prompt AI per categoria</div>
-          <p className="page-sub" style={{ marginBottom: 14 }}>
-            Come nel form Categorie di app.deluxy.it: qui si scrive <b>una volta</b> come si racconta una
-            famiglia di prodotti, e ogni descrizione generata parte già nella lingua giusta — le torte non si
-            descrivono come i bouquet. Lascia vuoto per non dare indicazioni.
-          </p>
-          <form action={salvaPromptCategorieAzione}>
-            <div className="modulo">
-              {CATEGORIE.map((c) => (
-                <div className="campo-modulo largo" key={c}>
-                  <label htmlFor={`prompt-${c}`}>{etichettaCategoria(c)}</label>
-                  <textarea
-                    id={`prompt-${c}`}
-                    name={`prompt-${c}`}
-                    rows={2}
-                    defaultValue={prompt.get(c) ?? ""}
-                    placeholder={
-                      c === "BOUQUET"
-                        ? "Es. parla di fiori e colori, mai di numero di steli se non è indicato; chiudi con l'occasione giusta."
-                        : "Indicazioni per chi scrive le descrizioni di questa categoria."
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="azioni-modulo">
-              <button className="btn" type="submit">Salva i prompt</button>
-            </div>
-          </form>
-        </div>
-
         {/* ---------- Chiavi API per le altre app ---------- */}
         <div className="scheda">
           <div className="scheda-titolo">Chiavi API — far leggere Merchandising alle altre app</div>
