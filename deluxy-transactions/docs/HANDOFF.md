@@ -45,6 +45,20 @@ bloccava il salvataggio.
   lascia un fornitore senza soldi e Finance convinta che il mese sia chiuso — ed
   è lo stesso abuso che le app di origine hanno via API dal 05/09, dove il
   secondo fattore non c'è mai stato.
+- **Chiudendo dalla coda non si perdono più ricerca e periodo** (08/09, subito
+  dopo): segnalato dall'utente — «quando metto pagata altrove da "Da
+  autorizzare" mi perde la ricerca in corso». La chiusura dalla coda torna in
+  `/` con `chiuso` ed `esito` nell'indirizzo (serve: la riga sparisce e un
+  messaggio disegnato lì dentro non si vedrebbe mai), ma buttava via gli unici
+  due filtri della pagina, `q` e `periodo`. Ora viaggiano come campi nascosti
+  del form e `chiudiRichiesta` li rimette nell'indirizzo con `URLSearchParams`,
+  `q` tagliata a 100 caratteri. Non si allarga la superficie: sono gli stessi
+  due parametri che la coda già riceve e valida da sé — `periodo` contro un
+  elenco chiuso, `chiuso` contro la forma di un riferimento — e nel link
+  continua a non viaggiare nessun testo da mostrare. Codice: `chiudiRichiesta`
+  in [src/app/actions.ts](../src/app/actions.ts), prop `filtri` in
+  [ChiusuraRapida.tsx](../src/components/ChiusuraRapida.tsx), passata da
+  [src/app/page.tsx](../src/app/page.tsx).
 - ✅ **Deploy 08/09 (10:00)**: `lxj1hheij` (`dpl_GLf4Q8WQGK5xQ8pihAmywnpbUTBQ`),
   Ready, ed è quello che serve `deluxy-transactions.vercel.app`; health ok,
   `POST …/pagata-fuori` senza firma risponde 401. Pubblicato **cherry-pick su un

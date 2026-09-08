@@ -244,6 +244,7 @@ export default async function Coda({
                           beneficiario={r.beneficiario}
                           importo={euro(r.importoCent)}
                           oggi={oggi}
+                          filtri={{ q, periodo }}
                           daCopiare={[
                             ...(r.metodo === "iban"
                               ? [{ etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true }]
