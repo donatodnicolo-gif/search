@@ -291,7 +291,19 @@ export default async function PartnerDetail({
             </div>
           </div>
           <div className="info-item"><div className="k">GG pagamento fatture</div><div className="v">{partner.ggPagamento}</div></div>
-          <div className="info-item"><div className="k">Compensazione</div><div className="v">{siNo(partner.compensazione)}</div></div>
+          {/* 08/09/2026: «mai deciso» si vede, non si traveste da «No». */}
+          <div className="info-item">
+            <div className="k">Compensazione</div>
+            <div className="v">
+              {partner.compensazioneDecisa ? (
+                siNo(partner.compensazione)
+              ) : (
+                <span className="badge neutral" title="Nessuno ha ancora scelto: i conti si comportano come «no», ma la domanda è aperta. Si decide da «Modifica».">
+                  <span className="dot" />mai deciso
+                </span>
+              )}
+            </div>
+          </div>
           <div className="info-item"><div className="k">Commissioni a detrazione</div><div className="v">{siNo(partner.commissioniADetrazione)}</div></div>
           <div className="info-item"><div className="k">Debiti 2025</div><div className="v">{euro(partner.debiti2025)}</div></div>
           <div className="info-item"><div className="k">Crediti 2025</div><div className="v">{euro(partner.crediti2025)}</div></div>

@@ -219,9 +219,36 @@ export function PartnerForm({
       <section className="form-section">
         <h2 className="section-title">Opzioni e note</h2>
         <div className="form-grid">
-        <div className="checkbox-row">
-          <input type="checkbox" id="compensazione" name="compensazione" defaultChecked={p?.compensazione ?? false} />
-          <label htmlFor="compensazione">Compensazione crediti/incassi</label>
+        {/* ⚠️ TRE STATI, non una spunta (08/09/2026). Una casella sa dire solo
+            sì e no, e «no» finiva per voler dire anche «nessuno l'ha mai
+            chiesto»: 106 schede su 119 stavano lì per il valore di partenza,
+            non per una decisione. Qui la terza voce esiste e si può scegliere,
+            perché «non lo so ancora» è una risposta legittima su un patto
+            commerciale — e va detta, non finta. */}
+        <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+          <label style={{ display: "block", marginBottom: 6 }}>Compensazione crediti/incassi</label>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            {([
+              { v: "", l: "Mai deciso", t: "Nessuno ha ancora scelto: i conti si comportano come «no», ma la domanda resta aperta" },
+              { v: "si", l: "Sì — si compensa", t: "Le fatture non passano dalla banca: si scalano da quello che Deluxy deve al partner" },
+              { v: "no", l: "No — due partite separate", t: "Fatture da incassare e dovuto vendite restano separati e non si compensano mai" },
+            ] as const).map((o) => (
+              <label key={o.v} className="checkbox-row" style={{ margin: 0 }} title={o.t}>
+                <input
+                  type="radio"
+                  name="compensazioneScelta"
+                  value={o.v}
+                  defaultChecked={
+                    !p?.compensazioneDecisa ? o.v === "" : p.compensazione ? o.v === "si" : o.v === "no"
+                  }
+                />
+                <span>{o.l}</span>
+              </label>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            È un patto commerciale: non si deduce dai numeri, lo scrive chi tratta col partner.
+          </div>
         </div>
         <div className="checkbox-row">
           <input type="checkbox" id="commissioniADetrazione" name="commissioniADetrazione" defaultChecked={p?.commissioniADetrazione ?? false} />

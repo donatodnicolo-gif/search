@@ -180,6 +180,10 @@ export default async function PartnerList({
       case "attivi-movimenti": return haFatturaOVendite(t);
       case "attivi": return t.partner.clienteAnno !== "Dismesso";
       case "dismessi": return t.partner.clienteAnno === "Dismesso";
+      // 08/09/2026: chi VENDE ma non ha mai avuto una scelta sulla
+      // compensazione. Non è un difetto dei dati: è una domanda commerciale
+      // rimasta senza risposta, e finché non si vede nessuno la fa.
+      case "comp-mai-decisa": return !t.partner.compensazioneDecisa && t.vendite.length > 0;
       default: return true;
     }
   };
@@ -193,6 +197,7 @@ export default async function PartnerList({
     "attivi-movimenti": `con una fattura o una vendita ${ANNO_CORRENTE}`,
     attivi: "non dismessi",
     dismessi: "dismessi",
+    "comp-mai-decisa": "che vendono e sui quali nessuno ha mai scelto se compensare",
   };
   // stesso link, cambiato solo lo stato: gli altri filtri non si perdono
   const linkStato = (v: string) => {
@@ -317,6 +322,7 @@ export default async function PartnerList({
             <option value="attivi-fatture">Attivi · con fattura o vendita {ANNO_CORRENTE}</option>
             <option value="attivi">Non dismessi</option>
             <option value="dismessi">Dismessi</option>
+            <option value="comp-mai-decisa">Compensazione mai decisa · con vendite</option>
             <option value="tutti">Tutti i partner</option>
           </select>
           <select name="credito" defaultValue={sp.credito ?? ""} aria-label="Stato finanziario">

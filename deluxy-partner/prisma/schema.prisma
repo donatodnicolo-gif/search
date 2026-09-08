@@ -37,6 +37,19 @@ model Partner {
   crediti2025            Float    @default(0) // situazione creditizia al 31.12.2025
   ggPagamento            Int      @default(0) // giorni pagamento fattura (0 = vista fattura)
   compensazione          Boolean  @default(false) // crediti servizi compensati dagli incassi vendite
+  // ⚠️ «NO» e «nessuno l'ha mai scelto» sono due cose diverse (08/09/2026).
+  // `compensazione` è un booleano che parte da false: finora una scheda mai
+  // toccata diceva «Compensazione: No» esattamente come una in cui si era
+  // deciso di no. Misurato: nel foglio PARTNER.xlsx la colonna era valorizzata
+  // per 8 partner su 92 (6 sì, 2 no) — le altre 84 erano bianche, e 29 schede
+  // sono nate dopo l'import, dove la domanda non è mai stata posta. Sette di
+  // quelle hanno vendite vendor, cioè per loro la compensazione è una domanda
+  // vera rimasta senza risposta.
+  //   false = mai deciso (il valore di partenza: `compensazione` non vuol dire
+  //           niente, si comporta come «no» finché qualcuno non sceglie)
+  //   true  = una persona ha scelto, e la scelta è in `compensazione`
+  // Non si deduce dai numeri: è un patto commerciale, si scrive solo a mano.
+  compensazioneDecisa    Boolean  @default(false)
   commissioniADetrazione Boolean  @default(false) // commissioni detratte dal pagamento incassi
   addebitoDiretto        Boolean  @default(false)
   cartaCreditoApp        Boolean  @default(false)
