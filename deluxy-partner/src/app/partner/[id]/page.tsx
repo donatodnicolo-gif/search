@@ -136,9 +136,17 @@ export default async function PartnerDetail({
     // Le fatture aperte che il contatto amministrativo deve sollecitare: solo
     // quelle VERE. Una riga senza documento su FIC non si può sollecitare —
     // non esiste nulla da mandare al cliente.
+    // ⚠️ `compensata: false` (08/09/2026, segnalato dall'utente su 142
+    // RESTAURANT): la 459/2026 era già segnata compensata — la stessa pagina
+    // diceva «Nessuna esposizione» dieci centimetri più su — eppure questo
+    // riquadro la offriva con «Invia sollecito». Una fattura in compensazione
+    // non si sollecita: non passa dalla banca, si scala da quello che Deluxy
+    // deve al partner. Chiedere quei soldi è chiederli a chi non li deve
+    // versare. `stato-credito.ts` questo filtro ce l'aveva già dal 04/09: qui
+    // mancava, e le due metà della stessa scheda si contraddicevano.
     prisma.fatturaServizio
       .findMany({
-        where: { partnerId: id, pagata: false, imponibile: { gt: 0 } },
+        where: { partnerId: id, pagata: false, compensata: false, imponibile: { gt: 0 } },
         orderBy: [{ scadenza: "asc" }],
       })
       .then((ff) => ff.filter(eFatturaVera)),
@@ -248,6 +256,32 @@ export default async function PartnerDetail({
           <p className="page-caption">
             {[partner.categoria, partner.citta, partner.servizi].filter(Boolean).join(" · ") || "Scheda partner"}
           </p>
+          {/* 08/09/2026, chiesto dall'utente: la compensazione si legge SUBITO,
+              non in fondo alla griglia delle condizioni. Cambia come si leggono
+              tutti i numeri della pagina — con la compensazione il mese è un
+              saldo netto unico, senza sono due partite che non si toccano mai —
+              quindi va saputo prima di guardarli, non dopo. */}
+          <div style={{ marginTop: 6 }}>
+            {partner.compensazioneDecisa ? (
+              partner.compensazione ? (
+                <span className="badge blue" title="Le fatture non passano dalla banca: si scalano da quello che Deluxy deve al partner. Il mese è un saldo netto unico.">
+                  <span className="dot" />In compensazione
+                </span>
+              ) : (
+                <span className="badge neutral" title="Due partite separate: le fatture si incassano, il dovuto vendite si bonifica. Non si compensano mai.">
+                  <span className="dot" />Senza compensazione
+                </span>
+              )
+            ) : (
+              <Link
+                href={`/partner/${id}/modifica`}
+                className="badge orange"
+                title="Nessuno ha ancora scelto se questo partner va in compensazione. I conti si comportano come «senza», ma la domanda è aperta: si decide da qui."
+              >
+                <span className="dot" />Compensazione mai decisa
+              </Link>
+            )}
+          </div>
         </div>
         <div className="page-actions">
           {venditeDisallineate > 0 && (

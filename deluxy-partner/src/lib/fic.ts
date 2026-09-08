@@ -270,6 +270,9 @@ export type FicFattura = {
   incassato: number; // quanto già incassato (IVA inclusa) — saldi parziali
   scadenza: string | null; // prossima scadenza non pagata
   urlDettaglio: string | null; // link al documento su Fatture in Cloud
+  // L OGGETTO del documento: e la sola cosa che dice COSA e quella fattura
+  // («Commissioni Deluxy Agosto 2026»). Senza, ogni riga va classificata a mano.
+  oggetto: string | null;
 };
 
 // Elenco delle fatture emesse su Fatture in Cloud (paginato, dalla più recente).
@@ -351,8 +354,11 @@ export async function ficFatture(opts?: {
   const query = filtri.length ? `&q=${encodeURIComponent(filtri.join(" and "))}` : "";
   // NB: nella lista FIC `amount_due` NON viene restituito (torna undefined) → lo
   // stato pagamento va calcolato dai `payments_list`, che invece ci sono.
+  // `subject`/`visible_subject`: servono a RICONOSCERE la fattura delle
+  // commissioni dal suo oggetto («Commissioni Deluxy Agosto 2026»), senza far
+  // scegliere a mano la voce giusta ogni volta (08/09/2026).
   const fields =
-    "id,number,numeration,date,amount_net,amount_vat,amount_gross,payments_list,url,entity";
+    "id,number,numeration,date,amount_net,amount_vat,amount_gross,payments_list,url,entity,subject,visible_subject";
 
   const out: FicFattura[] = [];
   const maxPagine = opts?.maxPagine ?? 20;
@@ -371,6 +377,8 @@ export async function ficFatture(opts?: {
         amount_gross: number;
         payments_list?: { amount: number; due_date: string | null; status: string }[];
         url: string | null;
+        subject?: string | null;
+        visible_subject?: string | null;
         entity?: { name?: string | null; vat_number?: string | null };
       }[];
       last_page?: number;
@@ -410,6 +418,7 @@ export async function ficFatture(opts?: {
         incassato: +(d.amount_gross - residuo).toFixed(2),
         scadenza: prossima?.due_date ?? null,
         urlDettaglio: d.url ?? null,
+        oggetto: d.subject?.trim() || d.visible_subject?.trim() || null,
       });
     }
     if (!r.last_page || page >= r.last_page) break;
@@ -925,7 +934,13 @@ export const ficClientiFatturabiliCached = unstable_cache(async () => ficClienti
 });
 export const ficFattureCached = unstable_cache(
   async (opts?: { anno?: number; q?: string; maxPagine?: number }) => ficFatture(opts),
-  ["fic-fatture"],
+  // ⚠️ LA CHIAVE PORTA UNA VERSIONE. Il 08/09/2026 è stato aggiunto `oggetto`
+  // a `FicFattura`: la voce già in cache non ce l'aveva, e per cinque minuti il
+  // riconoscimento automatico delle fatture commissioni sembrava semplicemente
+  // non funzionare — nessun errore, solo un campo `undefined`. Quando cambia la
+  // FORMA di quello che si mette in cache, cambia anche la chiave: sennò il
+  // codice nuovo legge dati vecchi e il difetto è invisibile.
+  ["fic-fatture-v2-oggetto"],
   { revalidate: 300, tags: ["fic"] }
 );
 

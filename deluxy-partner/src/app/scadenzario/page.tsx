@@ -58,8 +58,12 @@ export default async function Scadenzario({
 
   // Letture indipendenti in parallelo (una sola andata e ritorno verso il DB)
   const [aperteRaw, tutti] = await Promise.all([
+    // `compensata: false` (08/09/2026): stessa regola della scheda partner —
+    // una fattura in compensazione non si incassa in banca e non si sollecita.
+    // Lasciarla qui voleva dire offrire «Invia sollecito» su soldi che nessuno
+    // deve versare, e gonfiare il «da incassare» di questa pagina.
     prisma.fatturaServizio.findMany({
-      where: { anno, pagata: false, imponibile: { gt: 0 } },
+      where: { anno, pagata: false, compensata: false, imponibile: { gt: 0 } },
       include: { partner: true, tipologia: true },
       orderBy: [{ scadenza: "asc" }],
     }),
