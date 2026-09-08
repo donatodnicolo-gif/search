@@ -2,6 +2,55 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 08/09/2026 notte (2) — LE SEZIONI DALLE SCHEDE VERE, I PLUS DAI PRODOTTI, E UNA REGRESSIONE CHE IL CHERRY-PICK AVEVA NASCOSTO
+
+**🔴 Lezione che è costata una correzione persa**: pubblicando a **cherry-pick
+dei singoli commit**, su origin la tendina del negozio mostrava ancora
+«Business Deluxy — 90bfeb-f5.myshopify.com» — corretto in locale la mattina e
+**mai arrivato online**. Il cherry-pick porta il *diff* di un commit, non lo
+stato del file: se una correzione precedente non è stata portata, i commit dopo
+si applicano sopra la versione vecchia e la correzione **sparisce in silenzio**.
+Rimedio: la cartella `deluxy-merchandising/` è stata **allineata per intero** a
+quella locale (`034eaea2`). **Regola: pubblicare la cartella, non i commit.**
+
+**Sezioni per sito, dalle schede pubblicate.** Erano dedotte (63 categorie del
+vecchio gestionale mappate a mano sulle nostre 18, quasi tutte «comuni»).
+Misurato: sulle torte **Cake** usa «Ingredienti e Allergeni» unito, **Business
+Deluxy** li tiene separati e chiude con «Regala con Deluxy» che su Cake non c'è.
+`scripts/rifai-sezioni-dai-siti.ts`: una sezione entra se compare in **almeno
+metà** delle schede di quella categoria su quel sito; grafia più usata, ordine
+medio. **Create 24 sezioni per sito su 8 coppie; attive ora 87, di cui 32 per
+sito.**
+⚠️ La prima stesura **sostituiva**: 63 via, 23 rimaste, e le categorie con pochi
+prodotti online restavano senza nessuna sezione — coi valori importati
+invisibili. **L'assenza di prove non è la prova di un'assenza**: ora si aggiunge,
+le sezioni del sito vincono e le comuni restano come ripiego.
+
+**I due plus di ogni sito, dedotti dai prodotti** (`deduci-plus-sito.ts`):
+Flowers «Inclusi: biglietto…» + «Consegna: dove vuoi tu»; Cake
+«Personalizzabile: da tre giorni» + «Consegna: dove vuoi tu nel mondo»; Business
+«Inclusi: biglietto…». 🔴 **Gifts no**: nessun testo supera la metà delle schede,
+e inventarne uno vorrebbe dire stampare una riga su prodotti che non l'hanno mai
+avuta.
+
+**Modulo**: categorie in **ordine alfabetico**; **nessun negozio preselezionato**
+(partiva sul primo e il negozio decide categorie, collezioni, campi e foto);
+**collezioni nascoste** e **campi del negozio nascosti** su richiesta (`false &&`,
+si riaccendono togliendolo).
+
+### 🔴 IN CODA, chiesto dall'utente e NON fatto
+1. **Il primo punto (plus del prodotto) importato dai prodotti pubblicati**: il
+   parser lo dà (`punti[0]`), manca lo script che lo scrive prodotto per
+   prodotto — sono ~3.600 letture dalle vetrine.
+2. **Traduzioni per negozio**: la spunta sta nella card «Pubblicazione» e parla
+   di «8 lingue» fisse. Ogni negozio ha le sue: va spostata nella scheda del
+   sito con le lingue vere di quel negozio, più un link per **modificare la
+   traduzione su Shopify**.
+3. **L'AI deve saper riempire le sezioni di ogni categoria** (oggi scrive solo
+   la descrizione).
+4. **Collegare import e pubblicazione della descrizione**: vedi la nota del
+   blocco precedente — vanno insieme o si cancellano le tab dal sito.
+
 ## 08/09/2026 notte — L'HTML IMPORTATO SI SPEZZA NELLE SUE PARTI, E QUATTRO RITOCCHI AL MODULO
 
 **1. Il parser, misurato prima di scriverlo.** `scripts/censimento-descrizioni.ts`
