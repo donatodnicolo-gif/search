@@ -99,9 +99,36 @@ export function soloTestoLibero(
   descrizione: string,
   punti: (string | null | undefined)[],
   scheda: Scheda | null,
-): { testo: string; etichetta: string | null } {
+): { testo: string; etichetta: string | null; plusVero: string | null } {
   let t = piatto(descrizione);
   let etichetta: string | null = null;
+  let plusVero: string | null = null;
+
+  // ⭐ **Il primo punto si trova a partire dal SECONDO, non dal nostro campo.**
+  // Su «Magnum Rosé - Ruinart» il campo `plusProdotto` dice «Magnum Rosé di
+  // Ruinart» mentre la pagina dice «Champagne : Ruinart Rosé Magnum»: un
+  // vecchio import aveva riscritto il plus, e cercando quel testo in testa non
+  // si trova niente. I due plus del SITO invece combaciano sempre — sono la
+  // stessa stringa che sta in Impostazioni. Quindi: si cerca il secondo punto,
+  // e tutto quello che gli sta davanti **è** il primo punto, etichetta compresa.
+  for (const p of punti.slice(1)) {
+    if (!p) continue;
+    for (const forma of forme(p).flatMap((x) => [x, x.replace(/\s*:\s*/, " : ")])) {
+      const j = chiave(t).indexOf(chiave(forma));
+      if (j <= 0 || j > 220) continue;
+      const testa = t.slice(0, j).trim();
+      // Si accetta solo se ha la forma di un punto: etichetta corta, due punti,
+      // un valore. Una frase intera davanti vorrebbe dire che quel testo NON è
+      // un elenco appiattito, e allora non si tocca niente.
+      const m = testa.match(/^([^:.!?]{2,28})\s*:\s*(.{2,140})$/);
+      if (!m) continue;
+      etichetta = m[1].trim();
+      plusVero = m[2].trim();
+      t = t.slice(j).trim();
+      break;
+    }
+    if (etichetta) break;
+  }
 
   // --- la testa: i tre punti, nell'ordine in cui stanno sulla pagina ---
   //
@@ -158,39 +185,90 @@ export function soloTestoLibero(
     if (!tagliato) break;
   }
 
-  return { testo: t.replace(/\s+/g, " ").trim(), etichetta };
+  // --- la coda, secondo tentativo: si taglia DA DOVE COMINCIA la prima sezione ---
+  //
+  // Il giro qui sopra pretende che il campo **finisca** esattamente col testo di
+  // una sezione, e su parecchie schede non finisce: su «Magnum Rosé - Ruinart»
+  // la sezione salvata si ferma a «…Ringraziamenti» mentre la pagina prosegue
+  // con «Pensionamenti» — una parola persa in uno split precedente, che manda a
+  // vuoto tutto il confronto.
+  //
+  // Allora si cerca **l'inizio**: il punto in cui compare il nome di una sezione
+  // **seguito dal suo stesso testo**, e si taglia da lì alla fine. Da quel punto
+  // in avanti, per come la pagina è fatta, ci sono solo sezioni.
+  //
+  // ⚠️ La cintura è l'adiacenza «nome + suo testo»: il nome da solo non basta
+  // mai — «Ingredienti» e «Dettagli» sono parole comuni, ed è esattamente così
+  // che una versione precedente si mangiava mezze frasi.
+  {
+    let taglio = -1;
+    for (const perSito of Object.values(scheda ?? {})) {
+      for (const [nome, testo] of Object.entries(perSito ?? {})) {
+        if (typeof testo !== "string" || !testo.trim()) continue;
+        const inizio = piatto(testo).slice(0, 60);
+        if (inizio.length < 12) continue;
+        for (const ago of [`${piatto(nome)} ${inizio}`, inizio]) {
+          const j = chiave(t).indexOf(chiave(ago));
+          if (j > 0 && (taglio < 0 || j < taglio)) taglio = j;
+        }
+      }
+    }
+    if (taglio > 0) t = t.slice(0, taglio).trim();
+  }
+
+  return { testo: t.replace(/\s+/g, " ").trim(), etichetta, plusVero };
 }
 
 async function main() {
   caricaEnv();
   const { prisma } = await import("../src/lib/db");
   const applica = process.argv.includes("--applica");
+  // `--solo RLVCMZ`: una scheda sola. Serve a rimettere in sesto un prodotto
+  // guasto senza aprire il cantiere su tutte le altre — l'utente (09/09/2026)
+  // ha tenuto le 898 come punto aperto e ha chiesto solo il Ruinart.
+  const i = process.argv.indexOf("--solo");
+  const solo = i >= 0 ? process.argv[i + 1] : null;
 
   const prodotti = await prisma.prodotto.findMany({
-    where: { descrizione: { not: null } },
+    where: { descrizione: { not: null }, ...(solo ? { codice: solo } : {}) },
     select: { id: true, codice: true, nome: true, descrizione: true, plusProdotto: true, sezioniScheda: true },
   });
+  if (solo) console.log(`Filtro «--solo ${solo}»: ${prodotti.length} scheda/e.\n`);
   const negozi = await prisma.negozioShopify.findMany({ select: { nome: true, plusUno: true, plusDue: true } });
   const plusDeiSiti = negozi.flatMap((n) => [n.plusUno, n.plusDue]);
 
   const cambi: { id: string; prima: string; dopo: string; plus?: string }[] = [];
   const esempi: string[] = [];
   const etichette = new Map<string, number>();
+  const sospetti: string[] = [];
   let tolti = 0;
 
   for (const p of prodotti) {
     const scheda = (p.sezioniScheda && typeof p.sezioniScheda === "object" && !Array.isArray(p.sezioniScheda)
       ? (p.sezioniScheda as Scheda) : null);
     const prima = p.descrizione as string;
-    const { testo: dopo, etichetta } = soloTestoLibero(prima, [p.plusProdotto, ...plusDeiSiti], scheda);
+    const { testo: dopo, etichetta, plusVero } = soloTestoLibero(prima, [p.plusProdotto, ...plusDeiSiti], scheda);
     // L'etichetta ritrovata si rimette davanti al plus: «Champagne: Ruinart…».
     // È la forma che `punto()` già rende in grassetto, e che 40 schede hanno
     // ancora — non serve un campo nuovo sul database condiviso.
-    const plusNudo = (p.plusProdotto ?? "").trim();
+    // ⚠️ Il valore che vince è quello **letto dalla pagina** (`plusVero`), non
+    // il nostro campo: è il testo che il cliente vede davvero, e dove i due
+    // divergono («Ruinart Rosé Magnum» contro «Magnum Rosé di Ruinart») è il
+    // nostro a essere stato riscritto da un import.
+    const plusNudo = (plusVero ?? p.plusProdotto ?? "").trim();
     const plus = etichetta && plusNudo && !plusNudo.includes(":") ? `${etichetta}: ${plusNudo}` : undefined;
     if (etichetta) etichette.set(etichetta, (etichette.get(etichetta) ?? 0) + 1);
     if (dopo === piatto(prima) && !plus) continue;
-    if (!dopo) continue; // non si svuota mai un campo: se resta niente, si lascia com'era
+    // ⚠️ **Non si svuota mai un campo, e non lo si riduce a un moncone.**
+    // Il taglio «dalla prima sezione in poi» è potente: su
+    // BOUQUET-ORANGE-ELEGANCE portava 1.253 caratteri a 17, perché lì una
+    // sezione comincia subito dopo i tre punti. Può anche essere giusto — quel
+    // prodotto forse non ha testo libero — ma è una cosa da guardare, non da
+    // scrivere al buio. Sotto i 40 caratteri la scheda si mette da parte.
+    if (dopo.length < 40) {
+      sospetti.push(`${(p.codice ?? "").padEnd(14)} ${p.nome.slice(0, 34).padEnd(34)} ${piatto(prima).length} → ${dopo.length}`);
+      continue;
+    }
     cambi.push({ id: p.id, prima, dopo, plus });
     tolti += piatto(prima).length - dopo.length;
     if (esempi.length < 6)
