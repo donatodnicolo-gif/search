@@ -211,6 +211,36 @@ export default async function PartnerDetail({
     take: 10,
     select: MOVIMENTO_SELECT,
   });
+  // ⭐ 09/09/2026 (richiesta dell'utente: «apri in movimenti bancari dell'app
+  // stessa se non è stato saldato tramite app Transactions»).
+  // Il riepilogo «Pagato al partner …» sotto il mese deve portare dove quel
+  // pagamento vive DAVVERO: su Transactions solo se di là risulta *pagata*;
+  // altrimenti al movimento bancario di Finance. Lo stato «in attesa» non è una
+  // prova di pagamento — su BOTTEGA 2E il mese di giugno mostrava 769,32 €
+  // pagati e insieme «Pagamento in attesa»: il link portava a una richiesta che
+  // quei soldi non li ha fatti uscire.
+  //
+  // L'aggancio è la coppia (data del bonifico, verso): `registraMovimento`
+  // scrive `bonificoData = tx.data` sul mese e marca il movimento `registrata`.
+  // ⚠️ Solo se il candidato è UNO: con due bonifici lo stesso giorno non si sa
+  // quale mostrare, e un link che sceglie a caso è peggio di nessun link (vedi
+  // il pagamento spezzato in due bonifici).
+  const movimentiRegistrati = await prisma.transazioneBancaria.findMany({
+    where: { partnerId: id, stato: "registrata" },
+    select: { id: true, data: true, importo: true },
+  });
+  const movimentoPerData = new Map<string, string | null>();
+  for (const m of movimentiRegistrati) {
+    // In banca l'uscita è negativa; sul mese il bonifico inviato è positivo.
+    const chiave = `${m.data.toISOString().slice(0, 10)}|${m.importo < 0 ? "uscita" : "entrata"}`;
+    movimentoPerData.set(chiave, movimentoPerData.has(chiave) ? null : m.id);
+  }
+  const movimentoDelMese = (data: Date | null | undefined, importoMese: number | null | undefined) => {
+    if (!data || importoMese == null || Math.abs(importoMese) < 0.005) return null;
+    const chiave = `${new Date(data).toISOString().slice(0, 10)}|${importoMese > 0 ? "uscita" : "entrata"}`;
+    return movimentoPerData.get(chiave) ?? null;
+  };
+
   const tuttiPartner = tokenNome.length
     ? await prisma.partner.findMany({ select: { id: true, nome: true } })
     : [];
@@ -1199,6 +1229,9 @@ export default async function PartnerDetail({
                               sembrava che l'app si contraddicesse. Ora la somma
                               si vede pezzo per pezzo. */}
                           Dovuto vendite {euro(r.dovutoVendite)}
+                          {r.commissioniAParte && (
+                            <span className="muted"> (venduto pieno: la commissione si fattura a parte)</span>
+                          )}
                           {!r.extraSospetto && r.aggiunte > 0.005 && <> + extra {euro(r.aggiunte)}</>}
                           {r.detrazioni > 0.005 && <> − detrazioni {euro(r.detrazioni)}</>}
                           {(( !r.extraSospetto && r.aggiunte > 0.005) || r.detrazioni > 0.005) && <> = {euro(r.dovutoEffettivo)}</>}
@@ -1244,6 +1277,24 @@ export default async function PartnerDetail({
                         <td colSpan={2}>
                           Fatture non saldate {euro(r.serviziNonPagatiNetto)}{" "}
                           <span className="muted">+IVA → {euro(r.serviziNonPagati)}</span>
+                          {/* ⭐ 09/09/2026 (regola dell'utente): «senza
+                              compensazione il dovuto è pari al venduto e si apre
+                              una nuova riga per mese con il valore della fattura
+                              delle commissioni che il partner dovrà pagare».
+                              Vale SOLO per chi ha deciso di NON compensare: chi
+                              non ha mai risposto resta col dovuto già al netto,
+                              e qui non compare niente. */}
+                          {r.commissioniAParte && r.commissioniDaIncassare > 0.005 && (
+                            <>
+                              {" "}+ commissioni {euro(r.commissioni)}{" "}
+                              <span className="muted">+IVA → {euro(r.commissioniDaIncassare)}</span>
+                              {saldo?.commFattNumero ? (
+                                <span className="muted"> (fattura {saldo.commFattNumero})</span>
+                              ) : (
+                                <span className="muted"> (da fatturare)</span>
+                              )}
+                            </>
+                          )}
                           {r.bonificoRicevuto > 0 && <> − acconti ricevuti {euro(r.bonificoRicevuto)}</>}
                           {/* Stesso principio nell'altro verso: se il partner ha
                               versato più di quello che doveva, la differenza si
@@ -1286,6 +1337,9 @@ export default async function PartnerDetail({
               richiestaRif={saldo?.richiestaRif ?? null}
               richiestaStato={saldo?.richiestaStato ?? null}
               richiestaIl={saldo?.richiestaIl ?? null}
+              pagatoInPiu={r.pagatoInPiu}
+              incassatoInPiu={r.incassatoInPiu}
+              movimentoId={movimentoDelMese(saldo?.bonificoData, saldo?.bonificoImporto)}
               // Stessa formula del server (saldo-netto.ts): il netto dei mesi
               // senza richiesta in corso, visto da questo mese.
               nettoCompensato={

@@ -96,6 +96,10 @@ export type RiepilogoMese = {
   // partite separate: in compensazione il netto del mese lo dice già da sé.
   pagatoInPiu: number; // abbiamo bonificato PIÙ del dovuto: differenza in più
   incassatoInPiu: number; // il partner ha pagato PIÙ delle sue fatture aperte
+  // ⭐ Regime «commissioni a parte» (compensazione decisa NO sulla piattaforma):
+  // il dovuto è il venduto PIENO e la commissione IVATA diventa un credito.
+  commissioniAParte: boolean;
+  commissioniDaIncassare: number; // >= 0: la commissione IVATA che il partner deve
   residuo: number; // daIncassare - daBonificare (netto, per colonne e ordinamenti)
   pareggiato: boolean;
 };
@@ -111,7 +115,21 @@ export function riepilogoMese(
    *  loro descrizione. Se no, le `aggiunte` sul saldo vengono dall'import di
    *  PARTNER.xlsx e non hanno una causale: vedi sotto. Default `true` = non
    *  riclassificare, così un chiamante che non lo sa non cambia i conti. */
-  extraRegistrati: boolean = true
+  extraRegistrati: boolean = true,
+  /**
+   * ⭐ 09/09/2026 — REGIME «COMMISSIONI A PARTE», regola dell'utente:
+   * «senza compensazione il dovuto è pari al venduto e si apre una nuova riga
+   * per mese con il valore della fattura delle commissioni che il partner dovrà
+   * pagare».
+   *
+   * ⚠️ Vale SOLO per chi ha la compensazione **decisa a NO** sulla piattaforma
+   * («è solo per chi ha compensazione valorizzata come no»), non per chi non
+   * l'ha mai valorizzata. Sono tre risposte, non due: `null` = «ancora da
+   * valorizzare» e il mese resta come prima (dovuto già al netto). Confondere
+   * «non deciso» con «no» qui vorrebbe dire spostare 113.561,48 € di
+   * commissioni su 107 partner che nessuno ha mai interrogato.
+   */
+  commissioniAParte: boolean = false
 ): RiepilogoMese {
   const serviziNetto = fatture.reduce((a, f) => a + f.imponibile, 0);
   const serviziIvato = fatture.reduce((a, f) => a + ivato(f), 0);
@@ -126,7 +144,11 @@ export function riepilogoMese(
   );
   const venditeTot = vendite.reduce((a, v) => a + v.incassoLordo, 0);
   const commissioniTot = vendite.reduce((a, v) => a + commissione(v), 0);
-  const dovutoVenditeTot = vendite.reduce((a, v) => a + dovutoVendita(v), 0);
+  // Col regime «commissioni a parte» il dovuto al partner è il venduto PIENO:
+  // la commissione non si scala qui, si fattura e si incassa a parte.
+  const dovutoVenditeTot = commissioniAParte
+    ? venditeTot
+    : vendite.reduce((a, v) => a + dovutoVendita(v), 0);
   const aggiunte = saldoMese?.aggiunte ?? 0;
   const detrazioni = saldoMese?.detrazioni ?? 0;
   const dovutoPartner = dovutoVenditeTot + aggiunte - detrazioni;
@@ -146,6 +168,17 @@ export function riepilogoMese(
   const extraSospetto = !extraRegistrati && aggiunte > 0.005 && bonificoInviato > 0.005;
   const dovutoEffettivo = extraSospetto ? dovutoVenditeTot - detrazioni : dovutoPartner;
 
+  // La commissione IVATA che il partner deve, quando non si compensa per scelta
+  // esplicita. È lo stesso numero che va sulla fattura commissioni emessa su
+  // Fatture in Cloud (`fic-actions.ts` fattura `riepilogo.commissioni`): qui non
+  // si inventa un importo, si dice quello che quella fattura porta.
+  // ⚠️ Se la fattura commissioni fosse ANCHE fra le fatture servizi del mese,
+  // il credito verrebbe contato due volte. È il difetto trovato l'08/09 su
+  // 142 RESTAURANT (la 460/2026 registrata come servizio): chi costruisce la
+  // lista delle fatture deve tenerla fuori.
+  const commissioniDaIncassare = commissioniAParte ? commissioniTot * (1 + IVA_DEFAULT / 100) : 0;
+  const creditiMese = serviziNonPagati + commissioniDaIncassare;
+
   let daIncassare: number;
   let daBonificare: number;
   if (compensazione) {
@@ -154,8 +187,9 @@ export function riepilogoMese(
     daIncassare = positivo(residuoNetto);
     daBonificare = positivo(-residuoNetto);
   } else {
-    // partite separate: le fatture si saldano da sole, il dovuto vendite col bonifico
-    daIncassare = positivo(serviziNonPagati - bonificoRicevuto);
+    // partite separate: le fatture (e le commissioni, dove sono a parte) si
+    // saldano da sole, il dovuto vendite col bonifico
+    daIncassare = positivo(creditiMese - bonificoRicevuto);
     daBonificare = positivo(dovutoEffettivo - bonificoInviato);
   }
 
@@ -180,7 +214,7 @@ export function riepilogoMese(
   // vendite. Dove il bonifico NON c'è non esiste nessuna prova di un errore, e
   // l'extra resta un dovuto com'era: la riclassificazione tocca 31 mesi, non 211.
   const pagatoInPiu = compensazione ? 0 : positivo(bonificoInviato - dovutoEffettivo);
-  const incassatoInPiu = compensazione ? 0 : positivo(bonificoRicevuto - serviziNonPagati);
+  const incassatoInPiu = compensazione ? 0 : positivo(bonificoRicevuto - creditiMese);
 
   return {
     compensazione,
@@ -204,6 +238,8 @@ export function riepilogoMese(
     extraSospetto,
     pagatoInPiu,
     incassatoInPiu,
+    commissioniAParte,
+    commissioniDaIncassare,
     residuo: daIncassare - daBonificare,
     // ⚠️ Un mese con uno SFORO non è «pareggiato»: c'è una differenza da
     // guardare, anche se non c'è più niente da fare. Dirlo pareggiato è come
