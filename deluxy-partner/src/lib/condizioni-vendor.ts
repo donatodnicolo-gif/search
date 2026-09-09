@@ -34,6 +34,25 @@ export type EsitoCondizioni = {
   condizioni: CondizioniVendor | null;
   /** false = registro muto, chiave senza ambito, o partner non agganciato. */
   disponibile: boolean;
+  /**
+   * ⭐ 09/09/2026 — PERCHÉ UN «NON DECISO» PUÒ NON ESSERE UN NON DECISO.
+   *
+   * La scheda del registro porta le condizioni solo se è **collegata** a un
+   * partner della piattaforma (`platformId`). Senza aggancio i quattro campi
+   * sono `null` — identici a «la piattaforma non ha ancora scelto» — e la
+   * scheda diceva «da valorizzare» mentre sulla piattaforma la risposta c'era
+   * eccome (ADOLFO STEFANELLI, 09/09: compensazione sì, 60 gg, fine mese).
+   * Sono due guai con due rimedi opposti: nel primo si va a decidere, nel
+   * secondo si collega la scheda. Confonderli manda a cercare nel posto
+   * sbagliato — è successo a me, due volte in un giorno.
+   */
+  agganciata: boolean;
+  /**
+   * La scheda è ARCHIVIATA: la perdente di un'unione fatta nel registro.
+   * Finance non dovrebbe leggerla — le condizioni le riceve quella viva.
+   * Successo su DIPTYQUE (OLFATTORIO) e, per colpa mia, su STEFANELLI.
+   */
+  archiviata: boolean;
 };
 
 export async function condizioniVendorPartner(partnerId: string): Promise<EsitoCondizioni> {
@@ -41,17 +60,20 @@ export async function condizioniVendorPartner(partnerId: string): Promise<EsitoC
     where: { id: partnerId },
     select: { nome: true, anagraficaId: true },
   });
-  if (!p) return { condizioni: null, disponibile: false };
+  const vuoto = { condizioni: null, disponibile: false, agganciata: false, archiviata: false };
+  if (!p) return vuoto;
   try {
     const a = await risolviAnagrafica(p.nome, p.anagraficaId);
-    if (!a) return { condizioni: null, disponibile: false };
+    if (!a) return vuoto;
+    const agganciata = Boolean(a.platformId);
+    const archiviata = a.attivo === false;
     // Il blocco a `null` vuol dire che la chiave non ha l'ambito «Dati
     // finanziari»: è un problema di permessi, non un dato mancante.
-    if (!a.condizioniVendor) return { condizioni: null, disponibile: false };
-    return { condizioni: a.condizioniVendor, disponibile: true };
+    if (!a.condizioniVendor) return { ...vuoto, agganciata, archiviata };
+    return { condizioni: a.condizioniVendor, disponibile: true, agganciata, archiviata };
   } catch {
     // Il registro che non risponde non deve rompere la scheda: si dice che non
     // si sa, e la pagina mostra il ripiego locale dichiarandolo.
-    return { condizioni: null, disponibile: false };
+    return vuoto;
   }
 }

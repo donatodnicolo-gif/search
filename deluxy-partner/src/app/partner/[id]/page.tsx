@@ -364,14 +364,40 @@ export default async function PartnerDetail({
                 if (c.incassoServiziGiorni != null) pezzi.push(`servizi a ${c.incassoServiziGiorni} gg`);
                 if (c.incassoServiziFineMese) pezzi.push("decorrenza fine mese");
                 const coda = pezzi.length ? <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>{pezzi.join(" · ")}</span> : null;
+                // ⭐ 09/09/2026 — TRE SITUAZIONI, NON UNA. Un campo vuoto qui può
+                // voler dire tre cose diverse, con tre rimedi opposti:
+                //   · la scheda del registro è ARCHIVIATA (perdente di
+                //     un'unione): Finance sta leggendo la scheda morta;
+                //   · la scheda non è COLLEGATA alla piattaforma: la risposta
+                //     esiste, ma non ha una strada per arrivare;
+                //   · nessuno ha ancora deciso: la domanda è davvero aperta.
+                // Dirle tutte «da valorizzare» manda a decidere una cosa già
+                // decisa. È successo su ADOLFO STEFANELLI, e ci ho creduto io
+                // per primo.
                 return c.compensazioneIncassi == null ? (
-                  <>
-                    <span className="badge orange" title="Sulla piattaforma consegne nessuno ha ancora scelto: la domanda è aperta, e si risponde lì — è lei la proprietaria del dato.">
-                      <span className="dot" />Compensazione da valorizzare
-                      <span style={{ opacity: 0.75, marginLeft: 6 }}>· dalla piattaforma</span>
-                    </span>
-                    {coda}
-                  </>
+                  condVendor.archiviata ? (
+                    <>
+                      <span className="badge red" title="Questa scheda del registro è la perdente di un'unione: è archiviata e non riceve più niente. Il partner va riagganciato alla scheda viva.">
+                        <span className="dot" />Scheda del registro archiviata
+                      </span>
+                      {coda}
+                    </>
+                  ) : !condVendor.agganciata ? (
+                    <>
+                      <span className="badge red" title="La scheda del registro non è collegata a nessun partner della piattaforma consegne: le condizioni decise là non hanno una strada per arrivare qui. Si collega dalla piattaforma, sulla scheda del partner.">
+                        <span className="dot" />Scheda non collegata alla piattaforma
+                      </span>
+                      {coda}
+                    </>
+                  ) : (
+                    <>
+                      <span className="badge orange" title="Sulla piattaforma consegne nessuno ha ancora scelto: la domanda è aperta, e si risponde lì — è lei la proprietaria del dato.">
+                        <span className="dot" />Compensazione da valorizzare
+                        <span style={{ opacity: 0.75, marginLeft: 6 }}>· dalla piattaforma</span>
+                      </span>
+                      {coda}
+                    </>
+                  )
                 ) : (
                   <>
                     <span className={`badge ${c.compensazioneIncassi ? "blue" : "neutral"}`} title="Deciso sulla piattaforma consegne, che è la proprietaria del dato. Qui si legge soltanto.">

@@ -1,5 +1,37 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🏷️ **09/09/2026 — «DA VALORIZZARE» DICEVA UNA COSA FALSA A 51 PARTNER.**
+> Il badge mostrava «Compensazione da valorizzare · dalla piattaforma» ogni volta
+> che il registro rispondeva `null`. Ma un `null` lì può voler dire **tre cose
+> diverse, con tre rimedi opposti**:
+> - la scheda del registro è **ARCHIVIATA** (la perdente di un'unione fatta nel
+>   registro): Finance sta leggendo una scheda morta → va riagganciato alla viva;
+> - la scheda **non è COLLEGATA** a nessun partner della piattaforma
+>   (`platformId` vuoto): la risposta esiste, ma non ha una strada per arrivare
+>   → si collega dalla piattaforma;
+> - nessuno ha **davvero** deciso → si va a decidere.
+> 📏 Misurato sui 121 partner: **20 decisi**, **18 davvero da valorizzare**,
+> **51 «scheda non collegata»**, 0 archiviate, 32 senza scheda nel registro.
+> Cioè 51 schede su 121 dicevano «decidi» per un problema che non era quello.
+>
+> ❌ **DUE MIEI ERRORI, corretti.**
+> 1. Avevo contato «98 nomi doppi nel registro» come doppioni da unire. È una
+>    misura ingenua: l'unione in Anagrafiche **archivia** la perdente
+>    (`attivo=false`, `POST /api/v1/partners/unisci`), quindi molti «doppi»
+>    erano già uniti dall'utente. Contando **solo le schede attive** sono 94, e
+>    la maggior parte non sono doppioni ma **boutique dello stesso marchio**
+>    (TOD'S 6, MONCLER 7, PRADA 6, LOUIS VUITTON 6…).
+> 2. Su ADOLFO STEFANELLI ho spostato il `platformId` dalla scheda VIVA a quella
+>    ARCHIVIATA, disfacendo un'unione dell'utente. Rimesso a posto: il
+>    collegamento è tornato sulla scheda viva (`cmruwinwk…`) e **Finance ora
+>    punta a quella**, non più all'archiviata.
+> ✅ Trovato e corretto anche **DIPTYQUE (OLFATTORIO)**, che puntava a una
+> scheda archiviata: ora legge «OLFATTORIO», la viva. Partner di Finance su una
+> scheda archiviata: **0**.
+> ⚠️ Resta una scheda archiviata col `platformId` addosso: «PROVA MILANO» →
+> `test-1`, un record di prova, innocuo.
+
+
 > 🔎 **09/09/2026 — PERCHÉ LE DIFESE NON SERVIVANO: IL CRON GIRA CODICE VECCHIO.**
 > Indagine chiesta dall'utente. La prova sta nel registro modifiche: ogni corsa
 > del cron FIC scrive una frase fissa, e dal **01/09 al 09/09** tutte scrivono

@@ -71,6 +71,10 @@ export type Anagrafica = {
   account: string | null;
   contatti: ContattoAnagrafica[];
   platformId: string | null;
+  /// false = scheda ARCHIVIATA: è la perdente di un'unione fatta nel registro.
+  /// Resta per poter guardare in faccia un'unione sbagliata, ma nessuno ci deve
+  /// più scrivere né leggere (09/09/2026).
+  attivo?: boolean;
   fonte: string;
 };
 
