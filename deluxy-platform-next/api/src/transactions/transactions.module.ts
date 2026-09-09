@@ -162,6 +162,75 @@ export class TransactionsService {
     });
   }
 
+  /** Come si chiama, nella causale che legge chi autorizza in Transactions. */
+  private static readonly NOME_TIPO: Record<string, string> = {
+    [PaymentType.REIMBURSEMENT]: 'Rimborso',
+    [PaymentType.CLAIM]: 'Reclamo',
+    [PaymentType.PAYOUT]: 'Pagamento',
+    [PaymentType.ADVANCE]: 'Anticipo',
+  };
+
+  /** Il tetto di una singola richiesta. Non è una politica: è la rete contro lo
+   *  zero di troppo. Oltre, si passa da chi può decidere davvero. */
+  static readonly TETTO_RICHIESTA = 5000;
+
+  /**
+   * ⭐ 09/09/2026 (regola utente) — RICHIESTA DI PAGAMENTO A FAVORE DI UN VALET,
+   * dalla sua scheda. L'ufficio decide un importo, e la richiesta parte verso
+   * Deluxy Transactions come qualunque altra: **la piattaforma non paga, chiede**
+   * (Standard §7 — Transactions è l'unica uscita del denaro, e lì una persona
+   * autorizza). Nasce già `APPROVED` perché la decisione l'ha presa chi preme il
+   * bottone; l'autorizzazione vera resta di là.
+   *
+   * Ordine dei controlli, e perché: l'**IBAN si verifica PRIMA di creare** la
+   * riga — un pagamento che non si può inoltrare è solo un numero che sporca il
+   * conto del valet. Se invece è l'inoltro a fallire, la riga **resta** con il
+   * motivo scritto in `richiestaEsito`: si ritenta dalla stessa scheda, senza
+   * ricrearla (e senza rischiare di chiedere due volte lo stesso denaro, perché
+   * l'idempotenza di Transactions è su `payment-<id>`).
+   */
+  async richiestaPagamentoValet(
+    valetId: string,
+    body: { amount?: number; description?: string; type?: string },
+  ) {
+    // ANTICIPO o EXTRA: la strada verso Transactions e' la stessa, il seguito no
+    // — l'anticipo si scala dal prossimo stipendio. Si sceglie al momento della
+    // richiesta perche' dopo nessuno saprebbe piu' dirlo.
+    const tipo = String(body?.type ?? PaymentType.PAYOUT).toUpperCase();
+    if (tipo !== PaymentType.PAYOUT && tipo !== PaymentType.ADVANCE) {
+      throw new BadRequestException('Tipo non valido: ammessi PAYOUT (extra) o ADVANCE (anticipo).');
+    }
+    const importo = Math.round(Number(body?.amount) * 100) / 100;
+    if (!Number.isFinite(importo) || importo <= 0) {
+      throw new BadRequestException("L'importo dev'essere un numero maggiore di zero.");
+    }
+    if (importo > TransactionsService.TETTO_RICHIESTA) {
+      throw new BadRequestException(
+        `Importo oltre il tetto di una singola richiesta (${TransactionsService.TETTO_RICHIESTA} €).`,
+      );
+    }
+    const causale = (body?.description ?? '').trim().slice(0, 200);
+    if (!causale) throw new BadRequestException('Serve una causale: chi autorizza deve sapere per cosa.');
+
+    const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });
+    if (!valet) throw new NotFoundException('Valet non trovato');
+    const iban = (valet.iban ?? '').replace(/[\s-]/g, '').toUpperCase();
+    if (!iban || !ibanValido(iban)) {
+      throw new BadRequestException('IBAN del valet mancante o non valido in anagrafica: la richiesta non partirebbe.');
+    }
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        valetId,
+        type: tipo,
+        amount: importo,
+        description: causale,
+        status: PaymentStatus.APPROVED,
+      },
+    });
+    return this.richiediPagamentoRimborso(payment.id);
+  }
+
   /** Un rimborso/reclamo APPROVED diventa una richiesta di pagamento. */
   async richiediPagamentoRimborso(paymentId: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { valet: true } });
@@ -186,7 +255,7 @@ export class TransactionsService {
         importo: (Math.round(payment.amount * 100) / 100).toFixed(2),
         beneficiario: beneficiario.slice(0, 120),
         iban,
-        causale: `${payment.type === PaymentType.REIMBURSEMENT ? 'Rimborso' : 'Reclamo'} valet ${beneficiario}${payment.description ? ` - ${payment.description}` : ''}`.slice(0, 140),
+        causale: `${TransactionsService.NOME_TIPO[payment.type] ?? 'Pagamento'} valet ${beneficiario}${payment.description ? ` - ${payment.description}` : ''}`.slice(0, 140),
         categoria: 'valet',
         riferimentoEsterno,
       },
@@ -317,6 +386,20 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Inoltra un rimborso/reclamo APPROVED a Deluxy Transactions' })
   richiediRimborso(@Param('id') id: string) {
     return this.service.richiediPagamentoRimborso(id);
+  }
+
+  // ⭐ 09/09/2026: la richiesta di pagamento a favore di un valet, dalla sua
+  // scheda. Anche l'ufficio (OPERATION), non solo l'admin: è chi lavora con i
+  // valet tutti i giorni. Il ruolo VALET resta fuori — nessuno si chiede denaro
+  // da solo.
+  @Post('valets/:id/richiesta-pagamento')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Chiede a Deluxy Transactions un pagamento a favore del valet (importo + causale)' })
+  richiestaPagamentoValet(
+    @Param('id') id: string,
+    @Body() body: { amount?: number; description?: string; type?: string },
+  ) {
+    return this.service.richiestaPagamentoValet(id, body);
   }
 }
 

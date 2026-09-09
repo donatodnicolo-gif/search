@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -48,7 +49,7 @@ interface ValetDetail {
 @Component({
   selector: 'app-valet-detail',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
       <button type="button" class="back" (click)="indietro()">← {{ 'valets.title' | translate }}</button>
@@ -64,9 +65,64 @@ interface ValetDetail {
           @if (canEdit()) {
             <a class="btn btn-secondary edit" [routerLink]="['/valets', v.id, 'edit']">{{ 'common.edit' | translate }}</a>
           }
+          <!-- ⭐ 09/09/2026 (regola utente): RICHIESTA PAGAMENTO. La piattaforma non
+               paga, CHIEDE: la richiesta va a Deluxy Transactions, dove una persona
+               autorizza (Standard §7 — unica uscita del denaro). Fuori dallo stipendio,
+               ma nello stesso conto del valet, così se ne tiene conto quando si paga. -->
+          @if (puoChiederePagamento()) {
+            <button type="button" class="btn btn-secondary edit" (click)="apriRichiesta()">
+              {{ 'valetDetail.pagamento.bottone' | translate }}
+            </button>
+          }
         </div>
       }
     </div>
+
+    @if (richiestaAperta()) {
+      <div class="overlay" (click)="chiudiRichiesta()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'valetDetail.pagamento.titolo' | translate }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiRichiesta()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        @if (valet(); as v) {
+          <p class="muted">{{ 'valetDetail.pagamento.a' | translate: { nome: v.firstName + ' ' + v.lastName } }}</p>
+          <!-- L'IBAN si mostra PRIMA di chiedere: e' su quel conto che finiscono i
+               soldi, e chi decide deve poterlo leggere senza aprire un'altra pagina. -->
+          @if (v.iban) {
+            <p class="muted mono">{{ 'valetForm.fields.iban' | translate }}: {{ v.iban }}</p>
+          } @else {
+            <p class="err-line">{{ 'valetDetail.pagamento.senzaIban' | translate }}</p>
+          }
+          <!-- ⭐ 09/09/2026 (decisione dell'utente: «se è anticipo si scala»). La
+               differenza si dichiara ADESSO: dopo, guardando una riga di pagamento,
+               nessuno saprebbe più dire se quei soldi erano un anticipo da recuperare
+               o un extra dovuto. -->
+          <label class="fld"><span>{{ 'valetDetail.pagamento.tipo' | translate }}</span>
+            <select class="field" [(ngModel)]="tipoRichiesta" name="tipoRichiesta">
+              <option value="ADVANCE">{{ 'valetDetail.pagamento.tipoAnticipo' | translate }}</option>
+              <option value="PAYOUT">{{ 'valetDetail.pagamento.tipoExtra' | translate }}</option>
+            </select>
+          </label>
+          <label class="fld"><span>{{ 'valetDetail.pagamento.importo' | translate }}</span>
+            <input class="field" type="number" min="0.01" step="0.01" [(ngModel)]="importo" name="importoRichiesta" />
+          </label>
+          <label class="fld"><span>{{ 'valetDetail.pagamento.causale' | translate }}</span>
+            <input class="field" type="text" maxlength="200" [(ngModel)]="causale" name="causaleRichiesta"
+                   [placeholder]="'valetDetail.pagamento.causalePh' | translate" />
+          </label>
+          <p class="muted piccolo">{{ 'valetDetail.pagamento.nota' | translate }}</p>
+          @if (esitoRichiesta(); as e) { <div class="esito-box" [class.ko]="!e.ok">{{ e.testo }}</div> }
+          <div class="dialog-foot">
+            <button type="button" class="btn btn-secondary" (click)="chiudiRichiesta()">{{ 'common.cancel' | translate }}</button>
+            <button type="button" class="btn btn-primary" [disabled]="!richiestaValida() || inviandoRichiesta()"
+                    (click)="inviaRichiesta(v.id)">
+              {{ (inviandoRichiesta() ? 'valetDetail.pagamento.invio' : 'valetDetail.pagamento.invia') | translate }}
+            </button>
+          </div>
+        }
+      </div>
+    }
 
     @if (loading()) {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
@@ -208,6 +264,29 @@ interface ValetDetail {
       .mt { margin-top: 16px; }
       .mb { margin-bottom: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
+      /* ⭐ 09/09/2026 — la finestra della richiesta di pagamento. Stessa forma
+         delle altre modali dell'app (Libro UX&UI §9): fondo che chiude, ✕ nella
+         testata sticky, piede con le azioni, e un tetto d'altezza perché il
+         bottone di conferma non finisca sotto il bordo dello schermo. */
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51;
+        width: min(440px, 92vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 26px 22px; }
+      .dialog-head { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex;
+        align-items: center; justify-content: space-between; gap: 10px; padding: 20px 0 10px; margin: 0 0 6px;
+        border-bottom: 1px solid var(--hairline); }
+      .dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
+      .modal-close { border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--text-tertiary);
+        cursor: pointer; padding: 2px 8px; border-radius: 999px; }
+      .modal-close:hover { background: var(--fill); color: var(--text); }
+      .dialog-foot { position: sticky; bottom: 0; background: var(--surface); display: flex; justify-content: flex-end;
+        gap: 10px; padding: 14px 0 0; margin-top: 16px; border-top: 1px solid var(--hairline); }
+      .dialog .fld { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 13px; color: var(--text-secondary); }
+      .dialog .piccolo { font-size: 12px; margin-top: 10px; }
+      .dialog .mono { font-variant-numeric: tabular-nums; }
+      .err-line { color: var(--red, #d70015); font-size: 13px; margin: 6px 0 0; }
+      .esito-box { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+        background: rgba(36,138,61,0.10); color: var(--green, #248a3d); }
+      .esito-box.ko { background: rgba(215,0,21,0.08); color: var(--red, #d70015); }
       .notes { margin: 0; font-size: 13.5px; white-space: pre-wrap; }
       .sub-hint { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 8px; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -269,6 +348,73 @@ export class ValetDetailComponent {
   canEdit(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
+  }
+
+  // ── Richiesta di pagamento a favore del valet (09/09/2026) ────────────────
+  /** Chiedere denaro per qualcuno non è modificarne la scheda: solo l'ufficio. */
+  puoChiederePagamento(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  readonly richiestaAperta = signal(false);
+  readonly inviandoRichiesta = signal(false);
+  readonly esitoRichiesta = signal<{ ok: boolean; testo: string } | null>(null);
+  importo: number | null = null;
+  causale = '';
+  /** Anticipo (si scala dal prossimo stipendio) o extra. Default: anticipo,
+   *  che è il caso più frequente e quello con un seguito. */
+  tipoRichiesta: 'ADVANCE' | 'PAYOUT' = 'ADVANCE';
+
+  apriRichiesta(): void {
+    this.importo = null;
+    this.causale = '';
+    this.tipoRichiesta = 'ADVANCE';
+    this.esitoRichiesta.set(null);
+    this.richiestaAperta.set(true);
+  }
+
+  chiudiRichiesta(): void {
+    this.richiestaAperta.set(false);
+  }
+
+  /** Gli stessi due controlli del server, per non far premere un bottone che sa già di fallire. */
+  richiestaValida(): boolean {
+    const i = Number(this.importo);
+    return Number.isFinite(i) && i > 0 && i <= 5000 && !!this.causale.trim() && !!this.valet()?.iban;
+  }
+
+  inviaRichiesta(valetId: string): void {
+    if (!this.richiestaValida() || this.inviandoRichiesta()) return;
+    this.inviandoRichiesta.set(true);
+    this.esitoRichiesta.set(null);
+    this.http
+      .post<{ amount?: number; richiestaStato?: string }>(
+        `${environment.apiUrl}/valets/${valetId}/richiesta-pagamento`,
+        { amount: Number(this.importo), description: this.causale.trim(), type: this.tipoRichiesta },
+      )
+      .subscribe({
+        next: (p) => {
+          this.inviandoRichiesta.set(false);
+          this.esitoRichiesta.set({
+            ok: true,
+            testo: this.translate.instant('valetDetail.pagamento.inviata', {
+              importo: (p?.amount ?? Number(this.importo)).toFixed(2),
+            }),
+          });
+          // La richiesta è partita: i campi si svuotano, così un secondo click
+          // distratto non chiede due volte lo stesso denaro.
+          this.importo = null;
+          this.causale = '';
+        },
+        error: (err) => {
+          this.inviandoRichiesta.set(false);
+          this.esitoRichiesta.set({
+            ok: false,
+            testo: err?.error?.message ?? this.translate.instant('valetDetail.pagamento.errore'),
+          });
+        },
+      });
   }
 
   /** Calendario del valet: admin/operation. */

@@ -500,17 +500,23 @@
       "amount": "Amount",
       "description": "Description",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "richiesta": "Sent to Transactions"
     },
     "type": {
       "REIMBURSEMENT": "Reimbursement",
       "CLAIM": "Claim",
-      "SALARY": "Salary"
+      "SALARY": "Salary",
+      "PAYOUT": "Payment",
+      "ADVANCE": "Advance"
     },
     "action": {
       "approve": "Approve",
       "reject": "Reject",
       "markPaid": "Mark paid"
+    },
+    "richiesta": {
+      "errore": "not sent"
     }
   },
   "chat": {
@@ -772,7 +778,11 @@
     "requestSent": "Request sent to Transactions",
     "trx": "Transactions",
     "legacyTitle": "Payment history (previous system)",
-    "legacyDoc": "Receipt"
+    "legacyDoc": "Receipt",
+    "anticipi": {
+      "titolo": "Advances and payments",
+      "nota": "Requested by the office and paid separately from the salary. Not deducted automatically yet: an advance will be recovered on the next salary."
+    }
   },
   "receipts": {
     "title": "Receipts",
@@ -2699,7 +2709,24 @@
     },
     "teamLeaderProvinces": "Provinces where they can assign deliveries",
     "teamLeaderPartners": "Associated partners",
-    "teamLeaderExcluded": "Excluded partners"
+    "teamLeaderExcluded": "Excluded partners",
+    "pagamento": {
+      "bottone": "Payment request",
+      "titolo": "Payment request",
+      "a": "In favour of {{nome}}",
+      "importo": "Amount (€)",
+      "causale": "Reason",
+      "causalePh": "What for: advance, agreed extra…",
+      "nota": "The request goes to Deluxy Transactions, where a person authorises the transfer. An advance is deducted from the next salary; if the current one is already approved or paid, from the following one.",
+      "senzaIban": "This valet has no IBAN on file: the request cannot be sent.",
+      "invia": "Send the request",
+      "invio": "Sending…",
+      "inviata": "Request sent to Transactions: €{{importo}}. Now it is up to whoever authorises it.",
+      "errore": "Request not sent.",
+      "tipo": "Type",
+      "tipoAnticipo": "Advance — deducted from the next salary",
+      "tipoExtra": "Extra — not deducted"
+    }
   },
   "productDetail": {
     "noPlatforms": "No platform selected.",

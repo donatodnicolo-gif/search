@@ -216,6 +216,28 @@ const NEXT: Record<string, { next: string; key: string }> = {
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
+    <!-- ⭐ 09/09/2026 (decisione dell'utente: il valet li vede nel suo riepilogo
+         paghe). Anticipi ed extra chiesti dall'ufficio a Transactions: stanno
+         accanto agli stipendi, e finché non entrano nel conteggio è ancora più
+         importante che si vedano — un anticipo invisibile è una sorpresa a fine
+         mese. ⚠️ Non sono ancora scalati in automatico. -->
+    @if (isValet() && anticipi().length) {
+      <section class="card anticipi">
+        <h2>{{ 'salaries.anticipi.titolo' | translate }}</h2>
+        <p class="muted">{{ 'salaries.anticipi.nota' | translate }}</p>
+        <ul>
+          @for (a of anticipi(); track a.id) {
+            <li>
+              <span class="quando">{{ a.createdAt ? (a.createdAt | date: 'dd/MM/yyyy') : '—' }}</span>
+              <span class="tipo">{{ ('payments.type.' + a.type) | translate }}</span>
+              <span class="causale">{{ a.description || '—' }}</span>
+              <strong class="importo">{{ a.amount | number: '1.2-2' }} €</strong>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     @if (loading()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
 
     <!-- «Da pagare»: il lavoro che aspetta uno stipendio, non gli stipendi. -->
@@ -527,6 +549,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .chip-serv { appearance: none; font: inherit; font-size: 12px; font-weight: 550; padding: 5px 11px; border-radius: 980px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all .15s var(--ease); }
       .chip-serv:hover { background: var(--fill); }
       .chip-serv.on { background: var(--ink, #1d1d1f); border-color: transparent; color: #fff; }
+      .anticipi h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+      .anticipi ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .anticipi li { display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; font-size: 13.5px;
+        border-bottom: 1px solid var(--hairline); }
+      .anticipi li:last-child { border-bottom: 0; padding-bottom: 0; }
+      .anticipi .quando { font-variant-numeric: tabular-nums; color: var(--text-tertiary); min-width: 84px; }
+      .anticipi .tipo { font-weight: 600; min-width: 78px; }
+      .anticipi .causale { color: var(--text-secondary); flex: 1 1 auto; }
+      .anticipi .importo { font-variant-numeric: tabular-nums; margin-left: auto; }
       .riepilogo { display: flex; gap: 32px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
       .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
@@ -703,10 +734,21 @@ export class SalariesListComponent {
     });
   }
 
+  /** Anticipi ed extra del valet: la rotta risponde con i SUOI e basta. */
+  readonly anticipi = signal<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string }[]>([]);
+
   constructor() {
     // Di default si parte dal MESE CORRENTE (deciso dall'utente 27/08):
     // senza periodo la pagina mostrava tutto l'arretrato di sempre.
     this.periodoRapido(0);
+    if (this.isValet()) {
+      this.http.get<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string }[]>(
+        `${environment.apiUrl}/payments`,
+      ).subscribe({
+        next: (d) => this.anticipi.set((d ?? []).filter((x) => x.type === 'ADVANCE' || x.type === 'PAYOUT')),
+        error: () => undefined,
+      });
+    }
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {
       // Nel filtro solo i valet ATTIVI (deciso dall'utente 27/08): gli inattivi

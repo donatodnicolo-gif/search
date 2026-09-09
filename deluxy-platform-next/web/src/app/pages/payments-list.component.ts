@@ -16,6 +16,10 @@ interface Payment {
   status: string;
   /** Presente sui 679 rimborsi/reclami importati dal legacy: sono lo STORICO. */
   legacyId?: number | null;
+  /** Lo specchio della richiesta mandata a Deluxy Transactions (chi paga davvero). */
+  richiestaStato?: string | null;
+  richiestaRif?: string | null;
+  richiestaEsito?: string | null;
   createdAt?: string;
   valet?: { id: string; firstName: string; lastName: string };
 }
@@ -111,6 +115,10 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
               <th class="num">{{ 'payments.col.amount' | translate }}</th>
               <th>{{ 'payments.col.description' | translate }}</th>
               <th>{{ 'payments.col.status' | translate }}</th>
+              <!-- ⭐ 09/09/2026: lo stato della richiesta a Transactions. Senza, non si
+                   sa se il denaro e' stato CHIESTO a chi lo paga: si vedeva solo la
+                   nostra decisione, e sembrava che bastasse. -->
+              @if (canManage()) { <th>{{ 'payments.col.richiesta' | translate }}</th> }
               <th>{{ 'payments.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -122,6 +130,13 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
                 <td class="num strong">{{ p.amount | number: '1.2-2' }} €</td>
                 <td class="muted desc">{{ p.description || '—' }}</td>
                 <td><span class="badge" [style.--c]="statusColor(p.status)"><span class="dot"></span>{{ statusLabel(p.status) }}</span></td>
+                @if (canManage()) {
+                  <td class="muted">
+                    @if (p.richiestaEsito) { <span class="ko-line" [title]="p.richiestaEsito">{{ 'payments.richiesta.errore' | translate }}</span> }
+                    @else if (p.richiestaStato) { {{ p.richiestaStato }} }
+                    @else { — }
+                  </td>
+                }
                 <td class="row-actions">
                   @if (canManage() && p.status === 'REQUESTED') {
                     <button class="link-btn" [disabled]="busy() === p.id" (click)="advance(p, 'APPROVED')">{{ 'payments.action.approve' | translate }}</button>
@@ -132,7 +147,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
                 </td>
               </tr>
             }
-            @if (!filtered().length) { <tr><td [attr.colspan]="canManage() ? 6 : 5" class="muted empty">{{ 'payments.empty' | translate }}</td></tr> }
+            @if (!filtered().length) { <tr><td [attr.colspan]="canManage() ? 7 : 5" class="muted empty">{{ 'payments.empty' | translate }}</td></tr> }
           </tbody>
         </table>
       </div>

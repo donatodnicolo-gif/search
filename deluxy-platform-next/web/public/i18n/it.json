@@ -500,17 +500,23 @@
       "amount": "Importo",
       "description": "Descrizione",
       "status": "Stato",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "richiesta": "Richiesta a Transactions"
     },
     "type": {
       "REIMBURSEMENT": "Rimborso",
       "CLAIM": "Reclamo",
-      "SALARY": "Stipendio"
+      "SALARY": "Stipendio",
+      "PAYOUT": "Pagamento",
+      "ADVANCE": "Anticipo"
     },
     "action": {
       "approve": "Approva",
       "reject": "Rifiuta",
       "markPaid": "Segna pagato"
+    },
+    "richiesta": {
+      "errore": "non inviata"
     }
   },
   "chat": {
@@ -773,7 +779,11 @@
     "requestSent": "Richiesta inviata a Transactions",
     "trx": "Transactions",
     "legacyTitle": "Storico pagamenti (sistema precedente)",
-    "legacyDoc": "Ricevuta"
+    "legacyDoc": "Ricevuta",
+    "anticipi": {
+      "titolo": "Anticipi e pagamenti",
+      "nota": "Chiesti dall’ufficio e pagati a parte dallo stipendio. Non sono ancora scalati in automatico: l’anticipo verrà recuperato sul prossimo stipendio."
+    }
   },
   "receipts": {
     "title": "Ricevute",
@@ -2701,7 +2711,24 @@
     },
     "teamLeaderProvinces": "Province in cui può assegnare consegne",
     "teamLeaderPartners": "Partner associati",
-    "teamLeaderExcluded": "Partner esclusi"
+    "teamLeaderExcluded": "Partner esclusi",
+    "pagamento": {
+      "bottone": "Richiesta pagamento",
+      "titolo": "Richiesta di pagamento",
+      "a": "A favore di {{nome}}",
+      "importo": "Importo (€)",
+      "causale": "Causale",
+      "causalePh": "Per cosa: anticipo, extra concordato…",
+      "nota": "La richiesta va a Deluxy Transactions: lì una persona autorizza il bonifico. L’anticipo va scalato dal prossimo stipendio; se quello in corso è già approvato o pagato, dal successivo.",
+      "senzaIban": "Questo valet non ha un IBAN in anagrafica: la richiesta non può partire.",
+      "invia": "Invia la richiesta",
+      "invio": "Invio in corso…",
+      "inviata": "Richiesta inviata a Transactions: {{importo}} €. Ora tocca a chi autorizza.",
+      "errore": "Richiesta non inviata.",
+      "tipo": "Tipo",
+      "tipoAnticipo": "Anticipo — si scala dal prossimo stipendio",
+      "tipoExtra": "Extra — non si scala"
+    }
   },
   "productDetail": {
     "noPlatforms": "Nessuna piattaforma selezionata.",

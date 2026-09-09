@@ -161,6 +161,28 @@ export enum PaymentType {
   REIMBURSEMENT = 'REIMBURSEMENT',
   CLAIM = 'CLAIM',
   SALARY = 'SALARY', // storico del pagamento di uno stipendio
+  /**
+   * ⭐ 09/09/2026 (regola utente) — PAGAMENTO A FAVORE DEL VALET, deciso
+   * dall'ufficio e fuori dallo stipendio: un anticipo, un extra concordato, una
+   * somma da riconoscere subito. Non è un rimborso spese (REIMBURSEMENT) né una
+   * contestazione su una paga (CLAIM): è denaro che si decide di dare, e che va
+   * tenuto in conto quando si pagano gli stipendi.
+   * ⚠️ `Payment.type` è una stringa nel database, non un enum Postgres: questo
+   * valore nuovo non richiede migrazione.
+   */
+  PAYOUT = 'PAYOUT',
+  /**
+   * ⭐ 09/09/2026 (decisione dell'utente: «se è anticipo si scala») — ANTICIPO
+   * sullo stipendio. Stessa strada di PAYOUT verso Transactions, ma con un
+   * seguito diverso: **va scalato dal prossimo stipendio** (e se quello in corso
+   * è già approvato o pagato, dal successivo).
+   * ⚠️ Lo scalo automatico NON è ancora attivo: serve una colonna che dica su
+   * quale stipendio l'anticipo è stato recuperato, e lo schema del Postgres
+   * condiviso si tocca solo d'accordo. I due tipi però nascono distinti da
+   * subito, così quando arriverà il conteggio non ci sarà da indovinare quali
+   * pagamenti erano anticipi.
+   */
+  ADVANCE = 'ADVANCE',
 }
 
 export enum PaymentStatus {
