@@ -30,6 +30,28 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
+> 🔖 **09/09/2026 — PUNTO APERTO (decisione dell'utente: «metti come punto aperto»): 89 FATTURE LEGACY CON LA RICOSTRUZIONE CHE NON QUADRA.** ⚠️ **Non toccare i dati**: sono fatture emesse e incassate. Nessuna scrittura fatta, nessuna proposta applicata.
+>
+> **Cosa si vede**: su 563 fatture, **89 hanno `totalAmount` diverso da imponibile + IVA**. Il totale scritto coincide **sempre (89 su 89)** con `legacyTotalAmount`, cioè col documento vero: è la RICOSTRUZIONE delle righe a non tornarci, non il documento.
+>
+> ⚠️ **Quattro ipotesi ESCLUSE con la misura** (la prima era la mia, ed era sbagliata):
+> - «mancano righe» → **falso**: l'imponibile è la somma esatta delle righe su **563 fatture su 563**, e le righe presenti sono tante quante ognuna dichiara;
+> - «è il calcolo delle vendite» → le righe delle fatture che sballano sono soprattutto PREZZO_FISSO (2.980) e A_ORA (510);
+> - «è uno sconto o un carnet» → nessun rapporto ricorrente, e zero regole carnet sul partner del caso peggiore;
+> - «sono ricostruite dal listino di oggi» → il **99%** delle righe ha il prezzo SCRITTO sulla consegna.
+>
+> **I due fenomeni veri, misurati:**
+> 1. 🟠 **Le vendite che il documento non fatturava — 67 fatture, −6.845,73 €.** Sulle vendite il denaro va nel verso opposto (incassiamo dal cliente e giriamo al partner), quindi non stavano nella fattura che LUI paga: la ricostruzione ce le ha messe. Prova: `FAT-LEGACY-186` (Lijoi Roma), 36 righe di cui 35 di vendita, imponibile ricostruito 1.038,42 € — **togliendo le vendite resta 200,00 €, esattamente l'imponibile del documento**. Combacia al centesimo in **25 casi su 67**, entro il 3% in altri 24: **49 su 67 spiegate**. 🔖 **18 casi restano non spiegati**.
+> 2. 🟠 **Le righe rimaste a zero — 22 fatture, +1.130,38 €.** In quel gruppo **222 righe su 620 hanno importo ZERO**: la ricostruzione non ha trovato un prezzo e ha scritto 0. Casi: `FAT-LEGACY-112` (Casa Dei Ciliegi, 1 riga a zero, documento 110 €), `FAT-LEGACY-409` (Gruè, 8 righe a zero su 9, documento 145,39 €).
+>
+> **Scarto netto: −5.715,35 €** su **35 partner**. Metà degli scarti sta sotto i 50 € (51 fatture su 89); **8 fatture sopra i 200 € valgono da sole −4.006 €**. I più toccati: Martesana Milano −1.187 €, Lijoi Roma −1.023 €, Chantillitti −1.013 €, Enrico Rizzi −702 €, Pasticceria Gruè −681 €.
+>
+> ⚠️ **Nessun soldo è stato chiesto o incassato male**: il documento emesso è quello vero, ed è quello che il partner ha pagato. **Il rischio concreto è un altro**: se qualcuno RIGENERA una di queste fatture legacy, ottiene un importo diverso da quello incassato. E dal 08/09 il dettaglio mostra il venduto anche su righe che nel documento originale non c'erano.
+>
+> **Proposta NON applicata, in attesa di decisione**: marcare le 89 come «ricostruzione non quadrata», così chi le apre lo sa. È una scrittura su fatture emesse, quindi la decide l'utente.
+>
+> Gli script di analisi (SOLA LETTURA) stanno nello scratchpad di sessione: `fatture-scarto.mjs` → `fatture-scarto4.mjs`, `f5.mjs`, con l'elenco completo in `fatture-incoerenti.json`.
+
 > ✅ **08/09/2026 (42) — LIVE `delivery-jvd3gw9bg`. CONDIZIONI DI PAGAMENTO: ERANO NELLA CLASSE SBAGLIATA DEL DTO** (segnalazione utente, la **seconda volta** sullo stesso difetto).
 > - **Il sintomo**: HTTP 200, «salvato» a schermo, e i quattro campi restavano vuoti. Misurato sul caso segnalato — Bottega Di Pasticceria, `updatedAt` alle 19:26 di oggi, tutti e quattro i campi ancora `null`.
 > - **La causa**: erano scritti dentro `PartnerServiceDto` invece che dentro `CreatePartnerDto`. Il ValidationPipe gira con `whitelist: true`, e una proprietà che non appartiene al DTO della richiesta viene **scartata in silenzio** — nessun errore, nessun 400, niente nei log.

@@ -1009,7 +1009,9 @@
     "emptyAttivi": "Nessuno dei {{n}} partner in archivio è attivo: passa a «Tutti» per vederli.",
     "delete": "Elimina",
     "deleted": "Eliminato",
-    "restore": "Ripristina"
+    "restore": "Ripristina",
+    "elimina": "Elimina",
+    "eliminaConferma": "Eliminare «{{nome}}»? Sparisce dagli elenchi e dalla fatturazione. Si può ripristinare."
   },
   "valets": {
     "title": "Valet",
@@ -2037,7 +2039,11 @@
       "compensazioneNota": "Invece di due bonifici in direzioni opposte si fa la differenza: quello che il partner ci deve di commissioni si scala da quello che gli dobbiamo per le vendite.",
       "fineMese": "I giorni decorrono da fine mese",
       "fineMeseSi": "Dall’ultimo giorno del mese della fattura.",
-      "fineMeseNo": "Dalla data della fattura. Spunta per farli partire da fine mese."
+      "fineMeseNo": "Dalla data della fattura. Spunta per farli partire da fine mese.",
+      "compensazioneVuoto": "Ancora da valorizzare",
+      "compensazioneScegliSi": "Sì — si compensa",
+      "compensazioneScegliNo": "No — due partite separate",
+      "compensazioneObbligo": "⚠️ Questo partner ha servizi di VENDITA: qui serve una risposta. Decide se le commissioni che ci deve si scalano dagli incassi che gli dobbiamo."
     }
   },
   "valetForm": {

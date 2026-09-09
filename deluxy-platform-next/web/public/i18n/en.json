@@ -1008,7 +1008,9 @@
     "emptyAttivi": "None of the {{n}} partners on file is active: switch to “All” to see them.",
     "delete": "Delete",
     "deleted": "Deleted",
-    "restore": "Restore"
+    "restore": "Restore",
+    "elimina": "Delete",
+    "eliminaConferma": "Delete «{{nome}}»? It disappears from lists and invoicing. It can be restored."
   },
   "valets": {
     "title": "Valets",
@@ -2035,7 +2037,11 @@
       "compensazioneNota": "Instead of two transfers in opposite directions, the difference is settled: what the partner owes in commissions is deducted from what we owe them for sales.",
       "fineMese": "Days run from end of month",
       "fineMeseSi": "From the last day of the invoice month.",
-      "fineMeseNo": "From the invoice date. Tick to run from end of month."
+      "fineMeseNo": "From the invoice date. Tick to run from end of month.",
+      "compensazioneVuoto": "Not set yet",
+      "compensazioneScegliSi": "Yes — offset against payouts",
+      "compensazioneScegliNo": "No — kept as separate items",
+      "compensazioneObbligo": "⚠️ This partner has SALES services: an answer is required. It decides whether the commissions they owe are offset against the payouts we owe them."
     }
   },
   "valetForm": {
