@@ -1074,21 +1074,90 @@ export class SalariesService {
       .filter((d) => d.paymentOnDelivery && lines.some((l) => l.deliveryId === d.id))
       .reduce((sum, d) => sum + (d.paymentAmount ?? 0), 0) * 100) / 100;
 
-    const stipendio = await this.prisma.salary.create({
-      data: {
+    /**
+     * ⭐ 09/09/2026 (decisione dell'utente: «se e' anticipo si scala», «si
+     * scalera' al prossimo») — IL RECUPERO DEGLI ANTICIPI.
+     *
+     * Si prendono gli anticipi (`PaymentType.ADVANCE`) del valet non ancora
+     * chiusi, dal PIU' VECCHIO: un anticipo aspetta il suo turno, non passa
+     * avanti perche' e' piu' comodo. Si trattiene fino a capienza del netto —
+     * PARZIALE se non ci sta tutto, e il resto aspetta lo stipendio dopo. E'
+     * esattamente il caso che un semplice «recuperato si'/no» non saprebbe
+     * gestire: un anticipo piu' grande del netto di un mese non si scalerebbe mai.
+     *
+     * ⚠️ Il netto non va sotto zero: un valet non deve DENARO a fine mese, e uno
+     * stipendio negativo diventerebbe una richiesta di bonifico negativa.
+     * ⚠️ Non si tocca il LORDO: l'anticipo non e' meno lavoro, e' denaro gia'
+     * dato. Lordo e ritenuta restano quelli veri; il recupero e' una trattenuta,
+     * e come tale sta in una riga sua.
+     */
+    const anticipi = await this.prisma.payment.findMany({
+      where: {
         valetId,
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
-        grossAmount,
-        cashDeductions,
-        netAmount: Math.round((grossAmount - cashDeductions) * 100) / 100,
-        documentType: valet.hasVat
-          ? SalaryDocumentType.PROFORMA_INVOICE
-          : SalaryDocumentType.WITHHOLDING_RECEIPT,
-        status: SalaryStatus.DRAFT,
-        lines: { create: lines },
+        type: PaymentType.ADVANCE,
+        status: { not: PaymentStatus.REJECTED },
       },
-      include: { lines: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, amount: true, recuperatoImporto: true, description: true, createdAt: true },
+    });
+    const q2 = (n: number) => Math.round(n * 100) / 100;
+    let capienza = q2(grossAmount - cashDeductions);
+    const recuperi: { id: string; importo: number; descrizione: string }[] = [];
+    for (const a of anticipi) {
+      if (capienza <= 0) break;
+      const residuo = q2(a.amount - (a.recuperatoImporto ?? 0));
+      if (residuo <= 0) continue;
+      const quota = q2(Math.min(residuo, capienza));
+      if (quota <= 0) continue;
+      capienza = q2(capienza - quota);
+      recuperi.push({
+        id: a.id,
+        importo: quota,
+        descrizione: `Recupero anticipo del ${a.createdAt.toLocaleDateString('it-IT')}`
+          + (a.description ? ` — ${a.description}` : '')
+          + (quota < residuo ? ` (parziale, resta ${q2(residuo - quota).toFixed(2)} €)` : ''),
+      });
+    }
+    const totaleRecuperi = q2(recuperi.reduce((sum, r) => sum + r.importo, 0));
+    const righeAnticipo = recuperi.map((r) => ({
+      deliveryId: null as string | null,
+      date: new Date(),
+      description: r.descrizione,
+      origin: 'anticipo',
+      amount: -r.importo,
+    }));
+
+    // Stipendio e anticipi si scrivono INSIEME: se il conto si salvasse senza
+    // marcare gli anticipi, il prossimo stipendio li recupererebbe di nuovo.
+    const stipendio = await this.prisma.$transaction(async (tx) => {
+      const creato = await tx.salary.create({
+        data: {
+          valetId,
+          periodStart: new Date(periodStart),
+          periodEnd: new Date(periodEnd),
+          grossAmount,
+          cashDeductions,
+          netAmount: q2(grossAmount - cashDeductions - totaleRecuperi),
+          documentType: valet.hasVat
+            ? SalaryDocumentType.PROFORMA_INVOICE
+            : SalaryDocumentType.WITHHOLDING_RECEIPT,
+          status: SalaryStatus.DRAFT,
+          lines: { create: [...lines, ...righeAnticipo] },
+        },
+        include: { lines: true },
+      });
+      for (const r of recuperi) {
+        // `increment` + filtro sul residuo: se due conteggi partissero insieme,
+        // il secondo non potrebbe portare il recuperato oltre l'importo.
+        await tx.payment.updateMany({
+          where: { id: r.id, recuperatoImporto: { lt: anticipi.find((a) => a.id === r.id)!.amount } },
+          data: {
+            recuperatoImporto: { increment: r.importo },
+            recuperatoSuSalaryId: creato.id,
+          },
+        });
+      }
+      return creato;
     });
 
     // La consegna impara di essere stata pagata: e' la stessa colonna che

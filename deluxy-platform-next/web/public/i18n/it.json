@@ -782,7 +782,10 @@
     "legacyDoc": "Ricevuta",
     "anticipi": {
       "titolo": "Anticipi e pagamenti",
-      "nota": "Chiesti dall’ufficio e pagati a parte dallo stipendio. Non sono ancora scalati in automatico: l’anticipo verrà recuperato sul prossimo stipendio."
+      "nota": "Chiesti dall’ufficio e pagati a parte dallo stipendio. L’anticipo viene trattenuto dai prossimi stipendi, dal più vecchio, fino a esaurirlo.",
+      "recuperato": "recuperato",
+      "parziale": "resta {{resta}} €",
+      "daRecuperare": "da recuperare"
     }
   },
   "receipts": {

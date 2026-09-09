@@ -231,6 +231,17 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <span class="quando">{{ a.createdAt ? (a.createdAt | date: 'dd/MM/yyyy') : '—' }}</span>
               <span class="tipo">{{ ('payments.type.' + a.type) | translate }}</span>
               <span class="causale">{{ a.description || '—' }}</span>
+              <!-- Sull'anticipo non basta l'importo: quello che conta e' quanto
+                   RESTA da recuperare, perche' e' la cifra che verra' trattenuta
+                   dai prossimi stipendi. -->
+              @if (a.type === 'ADVANCE') {
+                <span class="stato">
+                  @if (residuo(a) <= 0) { {{ 'salaries.anticipi.recuperato' | translate }} }
+                  @else if ((a.recuperatoImporto ?? 0) > 0) {
+                    {{ 'salaries.anticipi.parziale' | translate: { resta: residuo(a).toFixed(2) } }}
+                  } @else { {{ 'salaries.anticipi.daRecuperare' | translate }} }
+                </span>
+              }
               <strong class="importo">{{ a.amount | number: '1.2-2' }} €</strong>
             </li>
           }
@@ -557,6 +568,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .anticipi .quando { font-variant-numeric: tabular-nums; color: var(--text-tertiary); min-width: 84px; }
       .anticipi .tipo { font-weight: 600; min-width: 78px; }
       .anticipi .causale { color: var(--text-secondary); flex: 1 1 auto; }
+      .anticipi .stato { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
       .anticipi .importo { font-variant-numeric: tabular-nums; margin-left: auto; }
       .riepilogo { display: flex; gap: 32px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
@@ -735,14 +747,19 @@ export class SalariesListComponent {
   }
 
   /** Anticipi ed extra del valet: la rotta risponde con i SUOI e basta. */
-  readonly anticipi = signal<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string }[]>([]);
+  readonly anticipi = signal<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string; recuperatoImporto?: number }[]>([]);
+
+  /** Quanto resta da trattenere su un anticipo. */
+  residuo(a: { amount: number; recuperatoImporto?: number }): number {
+    return Math.round((a.amount - (a.recuperatoImporto ?? 0)) * 100) / 100;
+  }
 
   constructor() {
     // Di default si parte dal MESE CORRENTE (deciso dall'utente 27/08):
     // senza periodo la pagina mostrava tutto l'arretrato di sempre.
     this.periodoRapido(0);
     if (this.isValet()) {
-      this.http.get<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string }[]>(
+      this.http.get<{ id: string; type: string; amount: number; description?: string | null; createdAt?: string; recuperatoImporto?: number }[]>(
         `${environment.apiUrl}/payments`,
       ).subscribe({
         next: (d) => this.anticipi.set((d ?? []).filter((x) => x.type === 'ADVANCE' || x.type === 'PAYOUT')),

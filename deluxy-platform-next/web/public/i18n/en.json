@@ -781,7 +781,10 @@
     "legacyDoc": "Receipt",
     "anticipi": {
       "titolo": "Advances and payments",
-      "nota": "Requested by the office and paid separately from the salary. Not deducted automatically yet: an advance will be recovered on the next salary."
+      "nota": "Requested by the office and paid separately from the salary. An advance is withheld from the next salaries, oldest first, until it is cleared.",
+      "recuperato": "recovered",
+      "parziale": "€{{resta}} left",
+      "daRecuperare": "to be recovered"
     }
   },
   "receipts": {

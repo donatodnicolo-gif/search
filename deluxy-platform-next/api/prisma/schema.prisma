@@ -2017,6 +2017,15 @@ model Payment {
   amount      Float
   description String?
   status      String   @default("REQUESTED")
+  /// ⭐ 09/09/2026 — IL RECUPERO DI UN ANTICIPO (type = ADVANCE) sugli stipendi.
+  /// `recuperatoImporto` dice quanto ne è già stato trattenuto: l'anticipo è
+  /// chiuso quando arriva a `amount`. Serve il PARZIALE, non un semplice
+  /// «recuperato sì/no»: un anticipo più grande del netto di un mese altrimenti
+  /// non si scalerebbe mai. `recuperatoSuSalaryId` è l'ULTIMO stipendio che ha
+  /// trattenuto qualcosa — la storia riga per riga sta nelle `SalaryLine` con
+  /// `origin = 'anticipo'`.
+  recuperatoImporto    Float   @default(0)
+  recuperatoSuSalaryId String?
   /// Richiesta a Deluxy Transactions per rimborsi/reclami approvati (specchio
   /// dell'esito notificato, come su Salary).
   richiestaRif   String?
