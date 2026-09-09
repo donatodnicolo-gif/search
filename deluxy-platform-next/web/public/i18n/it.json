@@ -2604,6 +2604,10 @@
       "riferimento": "Riferimento da scrivere sul DDT dell’acquisto:",
       "copiaRif": "Copia il riferimento",
       "copiato": "Riferimento copiato ✓"
+    },
+    "stessoDdt": {
+      "titolo": "Stesso ordine — DDT {{numero}} · {{brand}}:",
+      "altre": "…e altre {{n}} consegne con lo stesso DDT."
     }
   },
   "confirmDelivery": {

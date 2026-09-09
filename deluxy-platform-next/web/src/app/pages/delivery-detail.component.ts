@@ -60,6 +60,21 @@ interface DeliveryDetail {
     consegna?: LegameConsegna | null;
     acquisti?: LegameConsegna[];
   } | null;
+  /**
+   * Le altre parti dello stesso ordine: stesso numero di DDT E stesso sito.
+   * Solo per admin e operation, come il legame corporate.
+   */
+  stessoDdt?: {
+    numero: string;
+    brand: string;
+    quante: number;
+    altre: {
+      id: string; code: number; date: string; status: string;
+      partner?: { insegna: string } | null;
+      serviceType?: { name: string } | null;
+      products?: { productName?: string | null; quantity?: number | null }[];
+    }[];
+  } | null;
   /** Colonne STORICHE: gli orari del valet e quelli previsti dal servizio. */
   valetStartTime?: string | null;
   valetEndTime?: string | null;
@@ -875,6 +890,35 @@ interface DeliveryDetail {
           </span>
           <a class="act primary" [routerLink]="['/deliveries/new']" [queryParams]="{ acquistoDa: d.id }">{{ 'deliveryDetail.corporate.creaAcquisto' | translate }}</a>
         </div>
+      }
+
+      <!-- ⭐ 09/09/2026 (regola utente: «se ci sono due consegne collegate da un
+           DDT consenti di navigare da una all'altra … solo se sono dello stesso
+           sito», e «legame solo a ufficio»). Un ordine multiplo si spezza fra più
+           fornitori: da qui si arriva alle altre parti. Il numero da solo non
+           basta — 783 numeri di DDT sono ripetuti fra siti diversi — quindi il
+           legame vale solo a parità di numero E di sito. -->
+      @if (d.stessoDdt; as g) {
+        <section class="card legame-corporate">
+          <p>{{ 'deliveryDetail.stessoDdt.titolo' | translate: { numero: g.numero, brand: g.brand } }}</p>
+          @for (a of g.altre; track a.id) {
+            <p>
+              <a [routerLink]="['/deliveries', a.id]">#{{ a.code }}</a>
+              @if (a.partner) { <span class="muted">· {{ a.partner.insegna }}</span> }
+              @if (a.serviceType) { <span class="muted">· {{ a.serviceType.name }}</span> }
+              <span class="muted">· {{ a.date | date: 'dd/MM/yyyy' }}</span>
+              <span class="muted">· {{ 'status.delivery.' + a.status | translate }}</span>
+              @if (a.products; as pr) {
+                @if (pr.length) {
+                  <span class="muted">· {{ pr[0].productName }}@if (pr.length > 1) { <span> +{{ pr.length - 1 }}</span> }</span>
+                }
+              }
+            </p>
+          }
+          @if (g.quante > g.altre.length) {
+            <p class="muted">{{ 'deliveryDetail.stessoDdt.altre' | translate: { n: g.quante - g.altre.length } }}</p>
+          }
+        </section>
       }
 
       @if (d.legameCorporate; as lc) {

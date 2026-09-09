@@ -2602,6 +2602,10 @@
       "riferimento": "Reference to write on the purchase delivery note:",
       "copiaRif": "Copy the reference",
       "copiato": "Reference copied ✓"
+    },
+    "stessoDdt": {
+      "titolo": "Same order — delivery note {{numero}} · {{brand}}:",
+      "altre": "…and {{n}} more deliveries with the same note."
     }
   },
   "confirmDelivery": {

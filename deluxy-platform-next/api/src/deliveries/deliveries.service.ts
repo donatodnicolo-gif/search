@@ -341,6 +341,63 @@ export class DeliveriesService {
     return acquisti.length ? { verso: 'ordine' as const, numero: d.code, acquisti } : null;
   }
 
+  /**
+   * ⭐ 09/09/2026 (regola utente: «se ci sono due consegne collegate da un DDT
+   * consenti di navigare da una all'altra», e poi: «solo se sono dello stesso
+   * sito») — LE ALTRE PARTI DELLO STESSO ORDINE.
+   *
+   * Un ordine multiplo si spezza fra più fornitori: la #101199 a Fiorista Tonino
+   * e la #101200 a Enrico Rizzi sono lo stesso ordine 12912, e finora dall'una
+   * non si arrivava all'altra.
+   *
+   * ⚠️ IL NUMERO DA SOLO NON BASTA, ed è la ragione del vincolo sul sito: in
+   * banca dati **783 numeri di DDT sono ripetuti con brand diversi** — ordini di
+   * negozi diversi che per caso hanno lo stesso numero. Collegarli sarebbe un
+   * legame inventato. Si richiede quindi che numero **e brand** coincidano, e
+   * senza brand non si collega niente.
+   *
+   * ⚠️ Fuori i DDT corporate (`CPR…`): quel legame ha già il suo riquadro, e
+   * qui comparirebbe due volte.
+   *
+   * Solo per l'ufficio, come il legame corporate: al partner non serve sapere a
+   * chi altro è andata la sua metà dell'ordine.
+   *
+   * Il tetto a 20 non è prudenza generica: alcuni «DDT» sono etichette scritte a
+   * mano — `GIFT` sta su 31 consegne, `CONSEGNA GERALDINE` su 19 — e lì l'elenco
+   * non racconta un ordine ma un'abitudine. Si mostra quanto serve, dicendo il
+   * totale.
+   */
+  private async consegneStessoDdt(
+    d: { id: string; ddtNumber?: string | null; ddtBrand?: string | null },
+    user: JwtUser,
+  ) {
+    if (user.role !== Role.ADMIN && user.role !== Role.OPERATION) return null;
+    const numero = (d.ddtNumber ?? '').trim();
+    const brand = (d.ddtBrand ?? '').trim();
+    if (!numero || !brand || /^CPR\d+$/i.test(numero)) return null;
+    const where = {
+      id: { not: d.id },
+      deletedAt: null,
+      ddtNumber: numero,
+      ddtBrand: brand,
+    };
+    const [quante, altre] = await Promise.all([
+      this.prisma.delivery.count({ where }),
+      this.prisma.delivery.findMany({
+        where,
+        orderBy: { date: 'asc' },
+        take: 20,
+        select: {
+          id: true, code: true, date: true, status: true,
+          partner: { select: { insegna: true } },
+          serviceType: { select: { name: true } },
+          products: { where: { deletedAt: null }, select: { productName: true, quantity: true } },
+        },
+      }),
+    ]);
+    return altre.length ? { numero, brand, quante, altre } : null;
+  }
+
   private async legaRiconsegna(nuova: { id: string; code: number }, parentDeliveryId: string, user: JwtUser) {
     const padre = await this.prisma.delivery.findFirst({
       where: { id: parentDeliveryId, deletedAt: null },
@@ -1019,9 +1076,12 @@ export class DeliveriesService {
     // ⭐ 08/09/2026: il legame corporate ↔ acquisto, letto dal DDT «CPR<numero>».
     // Null per tutti tranne admin e operation (vedi `legameCorporate`).
     const legameCorporate = await this.legameCorporate(delivery as any, user);
+    // ⭐ 09/09/2026: le altre parti dello stesso ordine, riconosciute da numero
+    // DDT **e** sito (vedi `consegneStessoDdt`). Anche questo solo per l'ufficio.
+    const stessoDdt = await this.consegneStessoDdt(delivery as any, user);
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate, stessoDdt }, user),
       user,
     );
   }

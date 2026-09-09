@@ -1636,6 +1636,13 @@ export class DeliveryFormComponent implements AfterViewInit {
    * serve per quell'ora, e riscriverla a mano è un invito a sbagliarla.
    */
   private fasciaCorporate = '';
+  /**
+   * L'ultima distanza stradale calcolata dal preventivo (km, un decimale).
+   * Si salva insieme alla consegna: è la stessa che il server userebbe, ma
+   * chiederla di nuovo al salvataggio sarebbe una seconda chiamata a Google
+   * per un numero che abbiamo già.
+   */
+  private distanzaCalcolata: number | null = null;
   /** Fasce orarie di consegna generate dal servizio. */
   readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
   /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
@@ -1796,6 +1803,13 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (pv.distanceKm != null) {
           pezzi.push(`🛣️ ${pv.distanceKm.toLocaleString('it-IT')} km${pv.extraOutOfCity ? ' · fuori città' : ''}`);
         }
+        // ⭐ 09/09/2026 (segnalazione utente sulla #101169: «perché non ha
+        // calcolato la distanza?»). La distanza si CALCOLAVA e si MOSTRAVA, ma
+        // moriva qui: non finiva nel salvataggio, e alla creazione il server la
+        // scrive solo se gliela passi. Risultato misurato: 816 consegne su
+        // 1.224 di settembre senza distanza — un dato pagato a Google, mostrato
+        // per un attimo e buttato. Ora si tiene, e parte col resto.
+        this.distanzaCalcolata = pv.distanceKm;
         if (pv.price != null) {
           pezzi.push(`listino ${eur(pv.price)}${pv.extraEur > 0 ? ` (extra km ${eur(pv.extraEur)})` : ''}`);
         }
@@ -3052,6 +3066,11 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
 
     const payload: Record<string, unknown> = {
+      // ⭐ 09/09: la distanza misurata dal preventivo viaggia col salvataggio.
+      // Solo se c'è: `undefined` lascia decidere il server (che in modifica la
+      // rimisura quando cambiano gli indirizzi), mentre un `null` esplicito
+      // cancellerebbe una distanza già scritta.
+      ...(this.distanzaCalcolata != null ? { distanceKm: this.distanzaCalcolata } : {}),
       date: m.date,
       partnerId: m.partnerId,
       serviceTypeId: m.serviceTypeId,
