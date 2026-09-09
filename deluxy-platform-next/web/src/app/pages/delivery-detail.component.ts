@@ -855,6 +855,19 @@ interface DeliveryDetail {
            Le due consegne raccontano lo stesso fatto — l'ordine del cliente corporate e
            l'acquisto della merce dal fornitore — e finora non si sapeva l'una dell'altra.
            Il legame e' il DDT dell'acquisto: CPR + il numero dell'ordine. -->
+      <!-- ⭐ 09/09/2026 (segnalazione utente: «il tasto deve essere più evidente»).
+           Un ordine corporate senza il suo acquisto è un lavoro che nessuno sta
+           preparando: finché manca lo si dice qui, in cima e per esteso, invece di
+           lasciare un link fra gli altri nella fila delle azioni. Appena l'acquisto
+           esiste questo avviso sparisce e resta il riquadro del legame, qui sotto. -->
+      @if (puoCreareAcquisto() && !d.legameCorporate) {
+        <div class="warn-card gestire" role="alert">
+          <b>{{ 'deliveryDetail.corporate.mancaTitolo' | translate }}</b>
+          {{ 'deliveryDetail.corporate.mancaCosa' | translate }}
+          <a class="act primary" [routerLink]="['/deliveries/new']" [queryParams]="{ acquistoDa: d.id }">{{ 'deliveryDetail.corporate.creaAcquisto' | translate }}</a>
+        </div>
+      }
+
       @if (d.legameCorporate; as lc) {
         <section class="card legame-corporate">
           @if (lc.verso === 'acquisto') {

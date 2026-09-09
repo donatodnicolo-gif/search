@@ -613,8 +613,8 @@ interface ProductRow {
             <!-- 02/09 (regola utente): il BRAND del DDT è obbligatorio sui
                  servizi VENDITA (la merce viaggia sempre col documento);
                  altrove serve solo se c'è un numero DDT. -->
-            <label class="fld"><span class="req">{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
-              <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="!!model.ddtNumber.trim() || servizioVendita()">
+            <label class="fld"><span [class.req]="!ddtCorporate()">{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
+              <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="(!!model.ddtNumber.trim() || servizioVendita()) && !ddtCorporate()">
                 <option value="">{{ 'deliveryForm.ddtBrandScegli' | translate }}</option>
                 @for (b of marchiDdt; track b) { <option [value]="b">{{ b }}</option> }
               </select></label>
@@ -1442,9 +1442,22 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (!s || s.pricingModel === 'A_ORA') return true;
     return this.productRows.some((r) => r.productId);
   }
+  /**
+   * ⭐ 09/09/2026 (segnalazione utente: «il campo ddt lo hai già riempito tu»).
+   * Il DDT di un ACQUISTO CORPORATE non è il riferimento dell'ordine di un
+   * negozio: è `CPR` + il numero della nostra consegna corporate, scritto dal
+   * sistema. Il brand serviva a disambiguare un numero d'ordine fra più negozi —
+   * qui il numero identifica già da solo, e chiederlo è chiedere il marchio di un
+   * documento che non esiste. Si riconosce dalla FORMA del dato, non da uno stato
+   * del modulo: vale anche per chi lo scrive a mano.
+   */
+  ddtCorporate(): boolean {
+    return /^CPR\d+$/i.test((this.model.ddtNumber ?? '').trim());
+  }
+
   /** Brand DDT: sulla vendita non si salva senza (02/09). */
   brandDdtOk(): boolean {
-    if (!this.servizioVendita()) return true;
+    if (!this.servizioVendita() || this.ddtCorporate()) return true;
     return Boolean((this.model.ddtBrand ?? '').trim());
   }
   isPartner(): boolean {
@@ -1617,6 +1630,12 @@ export class DeliveryFormComponent implements AfterViewInit {
    * scelto, perciò non si può passare dal suo listino come fa `forzaServizioVendita`.
    */
   private acquistoCorporate = false;
+  /**
+   * L'orario di consegna ereditato dall'ordine corporate. Sta qui perché il giro
+   * di azzeramenti (servizio via, fasce via) lo cancellerebbe: la merce però
+   * serve per quell'ora, e riscriverla a mano è un invito a sbagliarla.
+   */
+  private fasciaCorporate = '';
   /** Fasce orarie di consegna generate dal servizio. */
   readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
   /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
@@ -1922,7 +1941,23 @@ export class DeliveryFormComponent implements AfterViewInit {
           if (code) this.model.ddtNumber = `CPR${code}`;
           // Il fornitore non si eredita dal cliente corporate: sarebbe il partner sbagliato.
           this.model.partnerId = '';
-          // Il servizio si sceglie quando la lista è arrivata (come `servizioDallaHome`).
+          // ⭐ 09/09/2026 (segnalazione utente: «mi chiede di confermare la tipologia di
+          // servizio, perde l'orario, e il ritiro non si aggiorna col fornitore»). Tre
+          // cose che il prefill si portava dietro dalla consegna corporate e che qui
+          // NON valgono:
+          //  · il SERVIZIO era quello corporate («Acquisto Torta»), che il fornitore non
+          //    ha in listino: restando compilato impediva al default «vendita» di
+          //    scattare, e appena si sceglieva il partner veniva azzerato lasciando la
+          //    scelta all'utente. Si azzera subito, così il default lo riempie;
+          //  · l'INDIRIZZO DI RITIRO era quello del cliente corporate. Un ritiro
+          //    ereditato sembra scritto a mano, e `applicaRitiroPartner` non tocca ciò
+          //    che è scritto a mano: si svuota, e lo riempie il fornitore scelto;
+          //  · l'ORARIO DI CONSEGNA si perdeva nel giro di azzeramenti del servizio
+          //    (senza servizio non ci sono fasce, e la fascia scelta veniva scartata).
+          //    Si tiene da parte e si rimette appena le fasce esistono di nuovo.
+          this.fasciaCorporate = (this.model.deliveryTimeFrom ?? '').trim();
+          this.model.serviceTypeId = '';
+          this.model.pickupAddress = '';
           this.acquistoCorporate = true;
         },
         error: () => undefined,
@@ -2029,10 +2064,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       // ⭐ 08/09: l'acquisto di un ordine corporate nasce su un servizio di VENDITA.
       // Senza partner non c'è un listino da cui scegliere: si prende la vendita
       // preferita del catalogo, e chi compra può sempre cambiarla.
-      if (this.acquistoCorporate && !this.model.serviceTypeId) {
-        const v = this.venditaPreferita(this.serviceTypes());
-        if (v) { this.model.serviceTypeId = v.id; this.onServiceChange(); }
-      }
+      this.applicaAcquistoCorporate();
       if (this.model.serviceTypeId) {
         const fascia = this.model.deliveryTimeFrom;
         const data = this.model.date;
@@ -2225,9 +2257,14 @@ export class DeliveryFormComponent implements AfterViewInit {
       && !suoi.some((s) => s.id === this.model.serviceTypeId)) {
       this.model.serviceTypeId = '';
       this.onServiceChange();
+      // ⭐ 09/09: sull'acquisto corporate il servizio non si lascia vuoto — si
+      // rimette la vendita del fornitore appena scelto, e con lei l'orario.
+      this.applicaAcquistoCorporate();
+      if (this.model.serviceTypeId) { this.proponiPrezzoDiListino(); this.aggiornaPreventivo(); }
       return;
     }
     // Stesso servizio ma altro partner = altro listino: si ricalcola anche qui.
+    this.applicaAcquistoCorporate();
     this.proponiPrezzoDiListino();
     this.aggiornaPreventivo();
   }
@@ -2293,6 +2330,28 @@ export class DeliveryFormComponent implements AfterViewInit {
       m.push(t('deliveryForm.mancanti.ore'));
     }
     return m;
+  }
+
+  /**
+   * ⭐ 09/09/2026 — L'ACQUISTO DI UN ORDINE CORPORATE, quando la lista dei servizi
+   * (o il partner) è arrivata. Due passaggi, in quest'ordine:
+   *  1. il servizio: si compra merce, quindi è una VENDITA. Si prende quella del
+   *     LISTINO DEL FORNITORE se il partner è già scelto — altrimenti sceglierne
+   *     una del catalogo che lui non ha significa farla azzerare un attimo dopo;
+   *  2. l'orario: rimesso appena esiste una fascia che lo contiene, e con lui
+   *     l'orario di ritiro (un'ora prima), che dall'orario di consegna discende.
+   */
+  private applicaAcquistoCorporate(): void {
+    if (!this.acquistoCorporate) return;
+    if (!this.model.serviceTypeId) {
+      const v = this.venditaPreferita(this.servizioDelPartner()) ?? this.venditaPreferita(this.serviceTypes());
+      if (v) { this.model.serviceTypeId = v.id; this.onServiceChange(); }
+    }
+    const f = this.fasciaCorporate;
+    if (f && this.model.deliveryTimeFrom !== f && this.deliverySlots().some((s) => s.from === f)) {
+      this.model.deliveryTimeFrom = f;
+      this.applicaRitiroOrario();
+    }
   }
 
   /** Traccia l'indirizzo di ritiro messo in automatico dal partner. */
@@ -2979,7 +3038,9 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     // Su una VENDITA il DDT e' il riferimento dell'ordine e con piu' negozi il
     // numero da solo non identifica: senza brand non si salva.
-    if (this.isVendita() && m.ddtNumber.trim() && !m.ddtBrand.trim()) {
+    // ⭐ 09/09: fuori l'acquisto corporate — il suo DDT (`CPR<numero>`) lo scrive
+    // il sistema e identifica da solo, quindi non ha un brand da chiedere.
+    if (this.isVendita() && m.ddtNumber.trim() && !m.ddtBrand.trim() && !this.ddtCorporate()) {
       mancanti.push(this.translate.instant('deliveryForm.field.ddtBrand'));
     }
     if (mancanti.length) {

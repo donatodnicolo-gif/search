@@ -1010,7 +1010,10 @@
     "deleted": "Deleted",
     "restore": "Restore",
     "elimina": "Delete",
-    "eliminaConferma": "Delete «{{nome}}»? It disappears from lists and invoicing. It can be restored."
+    "eliminaConferma": "Delete «{{nome}}»? It disappears from lists and invoicing. It can be restored.",
+    "deactivate": "Deactivate",
+    "activate": "Reactivate",
+    "suspended": "Suspended"
   },
   "valets": {
     "title": "Valets",
@@ -2578,7 +2581,9 @@
       "perOrdine": "Purchase for corporate order",
       "acquisto": "Goods purchase:",
       "creaAcquisto": "Create the purchase",
-      "nonTrovato": "The delivery note refers to order #{{n}}, which does not exist (or was deleted)."
+      "nonTrovato": "The delivery note refers to order #{{n}}, which does not exist (or was deleted).",
+      "mancaTitolo": "The goods have not been bought yet.",
+      "mancaCosa": "This is a corporate order: the goods must be bought from a supplier with a second delivery, otherwise nobody prepares them."
     }
   },
   "confirmDelivery": {

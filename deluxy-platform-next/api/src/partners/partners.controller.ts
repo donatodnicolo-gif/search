@@ -107,6 +107,26 @@ export class PartnersController {
     return this.partnersService.remove(id);
   }
 
+  // ⭐ 09/09/2026 (regola utente): SOSPENDERE non è ELIMINARE. Un partner
+  // disattivato resta in fatturazione — il lavoro già fatto si paga — ma esce
+  // dagli attivi: non gli si assegnano consegne nuove e i suoi prodotti vanno in
+  // archivio (e tornano se lo si riattiva). Chi può modificare un partner può
+  // anche sospenderlo: `PUT /partners/:id` con `active` lo permetteva già, qui
+  // c'è solo un comando esplicito che non tocca il resto della scheda.
+  @Patch(':id/disattiva')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Sospende il partner: fuori dagli attivi, resta in fatturazione (reversibile)' })
+  disattiva(@Param('id') id: string) {
+    return this.partnersService.disattiva(id);
+  }
+
+  @Patch(':id/attiva')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Riattiva un partner sospeso (ripesca i prodotti archiviati per la sospensione)' })
+  attiva(@Param('id') id: string) {
+    return this.partnersService.attiva(id);
+  }
+
   @Patch(':id/elimina')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Elimina il partner: sparisce da fatturazione e liste (reversibile)' })

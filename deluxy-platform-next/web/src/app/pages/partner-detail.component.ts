@@ -115,6 +115,23 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             @if (canEdit()) {
               <a class="btn btn-secondary" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
             }
+            <!-- ⭐ 09/09/2026 (regola utente): DISATTIVA — «lo lascia tra quelli
+                 fatturati ma lo sospende tra quelli attivi». È il gradino prima
+                 dell'eliminazione: resta in fatturazione e negli elenchi, ma esce
+                 dagli attivi e i suoi prodotti vanno in archivio. Non compare su un
+                 partner eliminato: lì il gradino è già stato saltato. -->
+            @if (puoSospendere() && !p.deleted) {
+              @if (p.active) {
+                <button type="button" class="btn btn-secondary" [disabled]="inCorso()" (click)="disattiva(p)">
+                  {{ 'partners.deactivate' | translate }}
+                </button>
+              } @else {
+                <span class="pill-sospeso">{{ 'partners.suspended' | translate }}</span>
+                <button type="button" class="btn btn-secondary" [disabled]="inCorso()" (click)="attiva(p)">
+                  {{ 'partners.activate' | translate }}
+                </button>
+              }
+            }
             <!-- Elimina (31/08): sparisce da fatturazione e liste, reversibile. -->
             @if (isAdmin()) {
               @if (!p.deleted) {
@@ -574,6 +591,10 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .azioni .danger { color: var(--red); }
       .pill-eliminato { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red);
         border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
+      /* Sospeso non è eliminato: ambra, non rosso — il partner c'è ancora e si
+         fattura, semplicemente non lavora. */
+      .pill-sospeso { background: rgba(184,150,62,0.12); color: var(--gold, #B8963E);
+        border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
       .esito { font-size: 13px; color: var(--red, #d70015); }
       .provenienza { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
       .orari-edit { display: flex; flex-direction: column; gap: 8px; }
@@ -1013,6 +1034,28 @@ export class PartnerDetailComponent {
 
   isAdmin(): boolean { return this.auth.user()?.role === 'ADMIN'; }
   readonly inCorso = signal(false);
+
+  /** Sospendere è dell'ufficio, non solo dell'admin: eliminare resta all'admin. */
+  puoSospendere(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  disattiva(p: PartnerDetail): void {
+    this.inCorso.set(true);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/disattiva`, {}).subscribe({
+      next: () => { this.inCorso.set(false); this.ricarica(); },
+      error: () => this.inCorso.set(false),
+    });
+  }
+
+  attiva(p: PartnerDetail): void {
+    this.inCorso.set(true);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/attiva`, {}).subscribe({
+      next: () => { this.inCorso.set(false); this.ricarica(); },
+      error: () => this.inCorso.set(false),
+    });
+  }
 
   elimina(p: PartnerDetail): void {
     this.inCorso.set(true);

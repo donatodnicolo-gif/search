@@ -47,6 +47,51 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
+> ✅ **09/09/2026 — SCHEDA PARTNER: il pulsante «DISATTIVA»** (regola utente: «lo lascia tra quelli fatturati ma lo sospende tra quelli attivi»). In locale, build fatta, **non ancora pubblicato**.
+> - `PATCH /partners/:id/disattiva` e `/attiva` (ADMIN + OPERATION) → `cambiaAttivazione()`: scrive solo `active`, passa da `seguiLoStatoDelPartner` (prodotti archiviati alla sospensione con motivo `partner-disattivato`, ripescati alla riattivazione — solo quelli) e sincronizza il registro Anagrafiche.
+> - **Perché una rotta sua e non `PUT /partners/:id` con `{active:false}`**: l'aggiornamento generale fa validazioni che con la sospensione non c'entrano (`esigiCompensazioneSeVende` può rifiutare per un campo mancante da mesi) e un comando di un campo solo non deve poter portarsi dietro il resto della scheda.
+> - Nel web: bottone **«Disattiva»**, e quando è sospeso la pillola ambra **«Sospeso»** + **«Riattiva»**; non compare su un partner eliminato. Chiavi `partners.deactivate/activate/suspended` (it+en).
+> - 📌 **Da sapere**: né «Disattiva» né «Elimina» tolgono l'**accesso** — quello dipende da `User.status`, che va sospeso a parte. E «Elimina» **non chiede conferma**: la chiave `deleteConfirm` esiste nelle traduzioni ma non è collegata a quel bottone.
+
+> ✅ **09/09/2026 — «CREA L'ACQUISTO» DI UN ORDINE CORPORATE: QUATTRO DIFETTI CORRETTI E IL COMANDO PORTATO DOVE SI GUARDA.** In locale, build fatta, **non ancora pubblicato**.
+>
+> **Quarto difetto (segnalazione successiva: «il campo ddt lo hai già riempito tu»)**: il modulo esigeva il **brand del DDT** — «Per salvare mancano: il brand del DDT (obbligatorio sulle vendite)» — su un DDT che aveva scritto lui. La regola del 02/09 serviva a disambiguare il numero d'ordine di un negozio fra più negozi; `CPR<numero>` identifica già da solo. Ora `ddtCorporate()` riconosce la forma `^CPR\d+$` e toglie l'obbligo (asterisco, `required` e messaggio di salvataggio) — si legge dal **dato**, non da uno stato del modulo, quindi vale anche per chi lo scrive a mano. Il server non lo esigeva già (`ddtBrand` è `@IsOptional`).
+>
+> Segnalazione dell'utente provando il flusso sulla consegna **#100901** (Casa Dei Ciliegi, «Acquisto Torta» del 10/09, un matrimonio da 45 persone senza fornitore né valet):
+> 1. **il servizio non si metteva da solo** — `prefill` ereditava il `serviceTypeId` CORPORATE del cliente, quindi `if (acquistoCorporate && !serviceTypeId)` non scattava mai; poi `onPartnerChange` lo azzerava (non è nel listino del fornitore) e lasciava la scelta all'utente;
+> 2. **si perdeva l'orario di consegna** — con il servizio azzerato `buildSlots(null)` non dà fasce e `onServiceChange` scarta la fascia scelta;
+> 3. **il ritiro restava quello del cliente** — `applicaRitiroPartner` non tocca un indirizzo che non sia il suo automatico precedente, e un indirizzo *ereditato* è indistinguibile da uno *scritto a mano*.
+>
+> **Correzioni** (`web/src/app/pages/delivery-form.component.ts`): nel ramo `?acquistoDa` si azzerano subito `serviceTypeId` e `pickupAddress` e si mette da parte la fascia in `fasciaCorporate`; il nuovo `applicaAcquistoCorporate()` sceglie la vendita **dal listino del fornitore** (ripiego sul catalogo) e rimette la fascia appena esiste, con l'orario di ritiro che ne discende; è richiamato quando arriva la lista servizi **e** in `onPartnerChange`, nei due rami.
+>
+> **Su richiesta dell'utente**, stesso giro: il comando è ora **anche nella riga dell'elenco consegne** (`deliveries-list`, solo ADMIN/OPERATION, solo righe CORPORATE) e nel dettaglio è **un avviso in cima** — «Manca l'acquisto della merce» — finché l'acquisto non esiste (chiavi `deliveryDetail.corporate.mancaTitolo`/`mancaCosa`, it+en). Registrato in `deluxy-design-system/SEGNALAZIONI-UX.md` con due regole candidate per il Libro.
+>
+> ⚠️ **Il numero che spiega perché serviva**: in tutta la piattaforma **0 consegne su 205 corporate** hanno mai avuto l'acquisto collegato — né col DDT `CPR…` (nato l'08/09) né col vecchio legame ereditato dal MySQL.
+>
+> Verificato: `tsc` pulito, `ng build --configuration production` ok, e i pezzi nuovi sono nel bundle (`fasciaCorporate` e `applicaAcquistoCorporate` nel chunk del form, `mancaTitolo` nel dettaglio, `corporate.creaAcquisto` anche nel chunk dell'elenco).
+
+> ✅ **09/09/2026 — LE CONSEGNE «IN LIMBO»: 5.787 RIAPERTE, 85.018,91 € RIENTRATI IN FATTURAZIONE.** Trovato partendo da Chantillitti; **applicato dall'utente alle 06:28** (lo script lo lancia lui: il classificatore dei permessi blocca la scrittura da qui).
+>
+> **Verifica dopo la scrittura**: delle 5.787 riaperte, **0** sono ancora segnate fatturate e **0** risultano dentro una fattura. Limbo residuo con data dal 01/11/2025: **19**, cioè esattamente le Chanel che nel vecchio gestionale stavano dentro un documento. Il «Da fatturare» è passato da **5.228 a 11.017 consegne**, da ~94.000 a **179.178,44 €**. Le 35.649 con data anteriore restano segnate fatturate: quelle lo erano davvero, col metodo di prima.
+>
+> **Il sintomo**: una consegna con `invoiced = true` e nessuna `InvoiceLine` non compare né in una fattura né nel «Da fatturare» — il filtro di `api/src/invoices/invoices.module.ts:445` esclude tutte e due le condizioni. Non la vede più nessuno, e non verrà mai fatturata.
+>
+> **La causa, con la prova**: le ha marcate `scripts/marca-fatturate-fino-a.mjs --al=2026-08-01 --scrivi`, lanciato il **24/08/2026 su 19.496 consegne** per chiudere l'arretrato («o è già stato fatturato altrove o non lo sarà mai»). La traccia è in `scripts/marcate-fatturate-2026-08-01.json`, e **tutte e 5.806 le orfane recenti sono in quella traccia**: 5.806 su 5.806.
+> - Per le consegne **fino a ottobre 2025** il presupposto è vero: la fatturazione si faceva fuori dal gestionale.
+> - **Dal 01/11/2025 no.** Da lì il vecchio gestionale emetteva i documenti (`delivery_invoice`: 562 documenti, dal 21/11/2025 al 24/08/2026). Nel dump, per le consegne con data ≥ 01/11/2025, quelle con `invoiced = 1` e nessun documento sono **ZERO**. Incrociando una per una le 5.806: **5.787 nel vecchio gestionale hanno `invoiced = 0` e non stanno in nessun documento** — non sono mai state fatturate; 19 stanno in un documento e la riga si è persa nella ricostruzione (sono tutte Chanel).
+> - `api/scripts/riapri-orfani-agosto.mjs` aveva già fatto la stessa correzione per il **solo agosto 2026**: il problema è lo stesso, il mese era diverso.
+>
+> **Quanto vale**: 5.806 consegne, **85.356,61 €** di imponibile. Tolte quelle di **CHANEL** (2.220 consegne, **57.041,76 €** — regola dell'utente: non si toccano) e le 19 con documento, restano **3.567 consegne e 27.977,15 €**, su 55 partner: Martesana Ecommerce 1.052 (7.876 €), Casati 14 (4.079 €), Clivati-Consegne (3.534 €), Martesana Corporate (3.072 €), Zegna (1.583 €)… Solo **1.308 delle 3.567 hanno un prezzo > 0**: le altre rientrerebbero come «da prezzare».
+>
+> **Il rimedio, pronto ma non applicato**: `api/scripts/riapri-orfani-post-migrazione.mjs`, con l'elenco in `api/scripts/orfani-da-riaprire-2026-09-09.json`. Anteprima di default; ricontrolla ogni consegna sul database prima di scriverla (se nel frattempo è stata fatturata non la tocca); esclude Chanel due volte (nell'elenco e nella query); salva la traccia PRIMA di scrivere e si disfa con `--disfa=<traccia>`.
+> ⭐ **CHANEL: l'utente ha derogato («includi», 09/09/2026)** dopo aver visto che lasciarli fuori significava rinunciare a 2.220 consegne e 57.041,76 €. La regola «i Chanel non si toccano» resta il default dello script: si deroga solo dicendolo, con `--con-chanel`. Restano fuori comunque le 19 consegne Chanel che nel vecchio gestionale stavano dentro un documento.
+> Elenco con Chanel: `api/scripts/orfani-da-riaprire-con-chanel-2026-09-09.json` — **5.787 consegne, 85.018,91 €**, di cui 2.896 con un prezzo. Anteprima verde: 5.787 su 5.787 ancora riapribili.
+> ```
+> node api/scripts/riapri-orfani-post-migrazione.mjs --elenco=api/scripts/orfani-da-riaprire-con-chanel-2026-09-09.json --con-chanel --applica
+> ```
+>
+> 📌 **Il difetto strutturale che resta**: `invoiced` e le righe di fattura sono due verità sullo stesso fatto, e quando divergono la consegna sparisce **in silenzio**. Nessuna schermata mostra le orfane. Proposta (non fatta): un contatore «segnate fatturate senza fattura» in fatturazione, così una divergenza si vede il giorno stesso invece che dopo un anno.
+
 > 🔖 **09/09/2026 — GIUGNO E LUGLIO: LA FATTURAZIONE TORNA, SONO LE CONSEGNE AD AVERE UN PREZZO DIVERSO OGGI.** Richiesta dell'utente: «ricontrolla se i totali di fatturazione tornano di giugno e luglio con i prezzi che danno le consegne». Nessun dato toccato.
 >
 > **128 fatture** (67 giugno, 61 luglio), **1.411 righe**, imponibile 31.166,36 €:

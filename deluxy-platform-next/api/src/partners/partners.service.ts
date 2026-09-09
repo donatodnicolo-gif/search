@@ -92,6 +92,47 @@ export class PartnersService {
     return eliminato;
   }
 
+  /**
+   * DISATTIVA / RIATTIVA un partner (09/09/2026, regola utente: «un pulsante
+   * Disattiva che lo lascia tra quelli fatturati ma lo sospende tra quelli
+   * attivi»).
+   *
+   * Sono due stati diversi, e la differenza conta:
+   *  · `active = false` (qui) — SOSPESO: non gli si danno lavori nuovi, i suoi
+   *    prodotti finiscono in archivio, ma resta in fatturazione e negli elenchi.
+   *    Il lavoro già fatto si paga e si fattura come prima;
+   *  · `deleted = true` (`elimina`) — FUORI: sparisce anche da fatturazione e
+   *    dalle liste.
+   *
+   * Ha una rotta sua invece di passare da `PUT /partners/:id` per due motivi:
+   * l'aggiornamento generale fa validazioni che con la sospensione non c'entrano
+   * (e potrebbero rifiutarla per un campo che manca da mesi), e un comando di un
+   * campo solo non deve poter portarsi dietro il resto della scheda.
+   * `seguiLoStatoDelPartner` fa il lavoro sui prodotti nei due versi: archiviati
+   * alla sospensione, ripescati alla riattivazione — solo quelli archiviati per
+   * questo motivo, così un archivio deciso a mano non si riapre da solo.
+   */
+  async disattiva(id: string) {
+    return this.cambiaAttivazione(id, false);
+  }
+
+  async attiva(id: string) {
+    return this.cambiaAttivazione(id, true);
+  }
+
+  private async cambiaAttivazione(id: string, attivo: boolean) {
+    const prima = await this.findOne(id);
+    const dopo = await this.prisma.partner.update({
+      where: { id },
+      data: { active: attivo },
+      include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
+    });
+    await this.seguiLoStatoDelPartner(id, Boolean((prima as any).active), attivo);
+    this.anagrafiche.sincronizza(dopo);
+    return dopo;
+  }
+
   /** Ripristina un partner eliminato (torna disattivato, non attivo). */
   async ripristina(id: string) {
     return this.prisma.partner.update({

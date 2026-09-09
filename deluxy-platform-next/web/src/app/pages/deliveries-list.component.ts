@@ -587,6 +587,16 @@ interface PropostaVendita {
                          o crearne una nuova? -->
                     <button type="button" class="act" (click)="riconsegnaDi.set(d)">{{ 'deliveries.redeliver' | translate }}</button>
                   }
+                  <!-- ⭐ 09/09/2026 (regola utente: «il pulsante crea acquisto deve essere
+                       anche in tabella consegne»). Un ordine corporate è due consegne: se
+                       il comando per fare la seconda vive solo nel dettaglio, chi lavora
+                       sull'elenco non lo incontra mai — ed è così che un ordine resta
+                       senza nessuno che prepari la merce. Stessa condizione del dettaglio:
+                       solo ufficio, solo sui servizi corporate. -->
+                  @if (canManage() && d.serviceType?.pricingModel === 'CORPORATE') {
+                    <a class="act primary" [routerLink]="['/deliveries/new']" [queryParams]="{ acquistoDa: d.id }"
+                       target="_blank" rel="noopener">{{ 'deliveryDetail.corporate.creaAcquisto' | translate }}</a>
+                  }
                   @if (canEdit(d)) {
                     <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
                   }
