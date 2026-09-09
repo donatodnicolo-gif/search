@@ -63,7 +63,16 @@ export default async function PaginaChatPubblica({ params }: Props) {
   // ⚠️ Solo con la spunta accesa, e non basta che il dominio sia compilato:
   // se su quel sito `widget.js` non c'è, il cliente atterra su una vetrina
   // senza nessuna chat e il link diventa un vicolo cieco. Verificato il
-  // 17/08/2026: deluxyflowers.com sì, cakedesign.me sì, **deluxy.it no**.
+  // ⚠️⚠️ 09/09/2026: la riga che stava qui («17/08/2026: deluxyflowers.com sì,
+  // cakedesign.me sì, deluxy.it no») era SBAGLIATA su Flowers, e una riga sbagliata
+  // in un commento è peggio di nessuna riga: chi la legge accende `apreSulSito`.
+  // Misurato oggi sull'HTML servito dai tre domini: `widget.js` c'è **solo su
+  // cakedesign.me** (con la bolla spenta, agganciato al link «Live Chat»). E non è
+  // una regressione: il `layout/theme.liquid` del tema pubblicato di Flowers ha lo
+  // stesso checksum di giugno, quindi lo snippet non c'è mai stato. Su deluxy.it e
+  // deluxyflowers.com la chat si raggiunge dal LINK nel menu contatti — cioè da
+  // QUESTA pagina, che infatti funziona. Perciò `apreSulSito` resta FALSO su tutti
+  // e tre, ed è la ragione per cui nessuno oggi atterra in un vicolo cieco.
   if (sito.apreSulSito && sito.dominio) {
     redirect(`https://${sito.dominio}/#chat`)
   }

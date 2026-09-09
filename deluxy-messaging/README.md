@@ -2844,7 +2844,16 @@ Solo sulla posta: sugli altri canali quell'elenco non viene nemmeno letto.
 `/chat/<codice>` rimanda a `https://<dominio>/#chat` e il widget si apre da solo: il
 cliente vede il negozio e la **×** *nasconde* la chat lasciando il bottone per riaprirla.
 ⚠️ Accenderla **solo dove `widget.js` è davvero installato** — altrimenti si atterra su una
-vetrina senza chat. Al 17/08/2026: deluxyflowers.com sì, cakedesign.me sì, deluxy.it no.
+vetrina senza chat. ⚠️⚠️ **CORRETTO il 09/09/2026**: qui c'era scritto «al 17/08/2026:
+deluxyflowers.com sì, cakedesign.me sì, deluxy.it no», ed era SBAGLIATO su Flowers.
+Misurato oggi sull'HTML servito: `widget.js` c'è **solo su cakedesign.me**. E non è
+una regressione — dal connettore Shopify, il `layout/theme.liquid` del tema pubblicato
+di Flowers ha lo stesso checksum di giugno: quello snippet non c'è **mai** stato.
+Probabilmente la riga fu scritta guardando le schede in «Widget dei siti» invece dei
+siti veri. Su deluxy.it e deluxyflowers.com la chat si raggiunge dal LINK nel menu
+contatti (`/chat/<codice>`), che funziona. ⚠️ Quindi **non accendere `apreSulSito`**
+per quei due finché lo snippet non è davvero nel tema: il link manderebbe i clienti
+su una vetrina senza chat, che è esattamente ciò che questo blocco vuole evitare.
 
 **Widget.** Snippet da incollare nel sito (mostrato in Impostazioni):
 `<script src="https://TUA-APP/widget.js" defer></script>`. Lo script crea il bottone
