@@ -21,6 +21,8 @@ export function AzioniRiconciliazione({
   esitoUltimoInvio,
   scrittura,
   nCampi,
+  nDaAggiungere,
+  diversi = [],
 }: {
   ficNome: string;
   partnerId: string;
@@ -30,6 +32,10 @@ export function AzioniRiconciliazione({
   esitoUltimoInvio: string | null;
   scrittura: boolean;
   nCampi: number;
+  /** Quanti campi il registro NON ha: sono gli unici che verranno inviati. */
+  nDaAggiungere: number;
+  /** Campi che il registro ha già, ma diversi: si dichiarano, non si toccano. */
+  diversi?: { campo: string; nostro: string; proposto: string }[];
 }) {
   const [esito, azione] = useActionState<EsitoAzione, FormData>(
     azioneRiconciliazione.bind(null, ficNome, partnerId, anagraficaId, campiJson),
@@ -65,6 +71,15 @@ export function AzioniRiconciliazione({
         )}
       </td>
       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+        {diversi.length > 0 && stato !== "ignorata" && (
+          <div
+            style={{ fontSize: 11.5, color: "var(--gold-strong, #8a6d2f)", marginBottom: 4, whiteSpace: "normal", maxWidth: 260 }}
+            title={diversi.map((d) => `${d.campo}: registro «${d.nostro}» · FIC «${d.proposto}»`).join(" · ")}
+          >
+            {diversi.length} camp{diversi.length === 1 ? "o" : "i"} divers{diversi.length === 1 ? "o" : "i"} dal registro:
+            non {diversi.length === 1 ? "lo tocco" : "li tocco"} ({diversi.map((d) => d.campo).join(", ")})
+          </div>
+        )}
         <form action={azione} style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end" }}>
           {stato === "confermata" || stato === "ignorata" ? (
             <Bottone cosa="riapri" classe="btn small secondary" inCorso="Riapro…">
@@ -76,16 +91,24 @@ export function AzioniRiconciliazione({
                 cosa="conferma"
                 classe="btn small primary"
                 inCorso="Invio…"
-                disabilitato={!scrittura || nCampi === 0}
+                disabilitato={!scrittura || nDaAggiungere === 0}
                 titolo={
                   !scrittura
                     ? "Configura la chiave di scrittura per aggiornare il registro"
                     : nCampi === 0
                       ? "Nessun dato fiscale da inviare"
-                      : "Invia al registro i dati fiscali di Fatture in Cloud"
+                      : nDaAggiungere === 0
+                        ? "Il registro ha già tutti questi dati: non c'è niente da aggiungere"
+                        : `Aggiunge al registro i ${nDaAggiungere} campi che gli mancano. Quelli che ha già non vengono toccati.`
                 }
               >
-                Conferma e aggiorna
+                {/* ⭐ 09/09/2026: il bottone dice QUANTI campi aggiunge, e si
+                    spegne se non ne aggiunge nessuno. Prima diceva «Conferma e
+                    aggiorna» anche quando il registro aveva già tutto identico,
+                    e non c'era modo di saperlo se non premendolo. */}
+                {nDaAggiungere === 0
+                  ? "Niente da aggiungere"
+                  : `Aggiungi ${nDaAggiungere} camp${nDaAggiungere === 1 ? "o" : "i"}`}
               </Bottone>
               <Bottone cosa="ignora" classe="btn small secondary" inCorso="…">
                 Ignora

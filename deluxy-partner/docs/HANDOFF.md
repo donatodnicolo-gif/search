@@ -1,5 +1,28 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 📌 **09/09/2026 — «Conferma e aggiorna» manda SOLO i campi mancanti.**
+> (Regola dell'utente: «inserisci solo i campi mancanti o che migliora».)
+> - Il bottone dice **quanti** campi aggiunge («Aggiungi 3 campi») e **si spegne**
+>   quando il registro ha già tutto. Prima diceva «Conferma e aggiorna» anche
+>   quando non avrebbe cambiato niente, e non c'era modo di saperlo se non
+>   premendolo.
+> - I campi che il registro ha già **DIVERSI non si toccano**: si dichiarano
+>   sotto il bottone, col confronto nel titolo. Quale sia quello buono non lo
+>   sappiamo — potrebbe averlo corretto una persona. (Caso vero: **BEYOND 142
+>   SRL ha una P.IVA diversa** fra FIC e registro; prima veniva sovrascritta.)
+> - ⚠️ Il filtro sta nella **server action**, non solo nell'interfaccia: una
+>   server action è un endpoint, e non può fidarsi del conteggio di una pagina
+>   aperta ieri. `campiDaInviarePerNome()` rifà il confronto lato server.
+> - 🔧 **Corretto l'indirizzo che peggiorava**: `componiIndirizzo()` non
+>   riattacca CAP e città quando la VIA li contiene già. Su Vivo Concerti
+>   «Piazza Fernanda Pivano 9, 20143 Milano» diventava «…, 20100 MILANO, (MI)»
+>   — Milano due volte e il CAP **generico** accanto a quello vero. Su 87
+>   clienti FIC con un indirizzo erano 2 (Vivo Concerti, OLFATTORIO).
+> 📏 Misura indicativa su 46 righe conciliate: **20 avrebbero il bottone
+> spento** (registro già completo), 26 hanno **66 campi** veri da aggiungere, e
+> 27 hanno almeno un campo diverso ora dichiarato invece che sovrascritto.
+
+
 > 🏦 **09/09/2026 — RICONCILIAZIONE IBAN: non chiede più quello che il
 > registro ha già, e la proposta si può mettere da parte.** (Richiesta
 > dell'utente.)

@@ -42,29 +42,99 @@ const beneficiariQontoCache = unstable_cache(
 // invece di una chiamata per partner. In cache 10 minuti come gli altri due
 // dati esterni della pagina.
 export type ContoRegistro = { iban: string; intestatario: string | null };
-const bancaRegistroCache = unstable_cache(
-  async (): Promise<Record<string, ContoRegistro>> => {
-    const out: Record<string, ContoRegistro> = {};
+/** Quello che il registro ha GIÀ per una scheda: serve sia a nascondere la
+ *  riconciliazione IBAN, sia a non riproporre campi che ci sono già. */
+export type SchedaRegistro = ContoRegistro & { valori: Record<string, string> };
+
+const schedeRegistroCache = unstable_cache(
+  async (): Promise<Record<string, SchedaRegistro>> => {
+    const out: Record<string, SchedaRegistro> = {};
     try {
       for (let page = 1; page <= 15; page++) {
         const r = await elencoAnagrafiche(page, 200);
         for (const a of r.dati) {
-          const iban = (a.datiFinanziari?.iban ?? "").replace(/\s+/g, "").toUpperCase();
-          if (iban) out[a.id] = { iban, intestatario: a.datiFinanziari?.intestatarioConto?.trim() || null };
+          const f = a.datiFinanziari ?? null;
+          const valori: Record<string, string> = {};
+          const metti = (k: string, v: unknown) => {
+            const t = typeof v === "string" ? v.trim() : "";
+            if (t) valori[k] = t;
+          };
+          // gli stessi nomi che `campiProposti` usa, così il confronto è diretto
+          metti("ragioneSociale", a.ragioneSociale);
+          metti("pIva", a.pIva);
+          metti("codiceFiscale", a.codiceFiscale);
+          metti("indirizzo", a.indirizzo);
+          metti("citta", a.citta);
+          metti("provincia", a.provincia);
+          metti("email", a.email);
+          metti("pec", f?.pec);
+          metti("codiceSdi", f?.codiceSdi);
+          metti("amministrazioneNome", f?.amministrazioneNome);
+          metti("amministrazioneTelefono", f?.amministrazioneTelefono);
+          metti("amministrazioneEmail", f?.amministrazioneEmail);
+          out[a.id] = {
+            iban: (f?.iban ?? "").replace(/\s+/g, "").toUpperCase(),
+            intestatario: f?.intestatarioConto?.trim() || null,
+            valori,
+          };
         }
         if (r.dati.length < 200) break;
       }
     } catch {
       // Il registro che non risponde non deve svuotare la pagina: senza questa
-      // mappa si ricade nel comportamento di prima (si mostra la proposta), che
-      // è prudente — non si nasconde qualcosa perché «forse» c'è già.
+      // mappa si ricade nel comportamento di prima (si propone tutto), che è
+      // prudente — non si nasconde qualcosa perché «forse» c'è già.
       return out;
     }
     return out;
   },
-  ["ric-registro-banca"],
+  ["ric-registro-schede"],
   { revalidate: 600, tags: ["ric-registro"] }
 );
+
+/**
+ * ⭐ 09/09/2026 (regola dell'utente: «inserisci solo i campi mancanti o che
+ * migliora»).
+ *
+ * «Conferma e aggiorna» mandava TUTTO quello che FIC sa, anche i campi che il
+ * registro aveva già identici — e su Vivo Concerti dei cinque campi proposti due
+ * erano uguali (P.IVA, SDI), due mancavano davvero (ragione sociale, codice
+ * fiscale) e uno **peggiorava** l'indirizzo. Un bottone che dice «da
+ * confermare» anche quando non cambierebbe niente non è un invito, è rumore.
+ *
+ * ⚠️ Un campo che il registro ha GIÀ, diverso, NON si tocca: qual è quello buono
+ * non lo sappiamo — potrebbe averlo corretto una persona. Si dichiara la
+ * differenza e la decide chi guarda.
+ */
+export type Confronto = {
+  /** Quello che si manderà davvero: solo i campi che il registro non ha. */
+  daInviare: Record<string, string>;
+  /** Ha già un valore, diverso dal nostro: si mostra, non si sovrascrive. */
+  diversi: { campo: string; nostro: string; proposto: string }[];
+  /** Identici: non si mandano, e non si contano come «da confermare». */
+  uguali: number;
+};
+
+export function confrontaColRegistro(
+  proposti: Record<string, string>,
+  scheda: SchedaRegistro | undefined
+): Confronto {
+  const daInviare: Record<string, string> = {};
+  const diversi: Confronto["diversi"] = [];
+  let uguali = 0;
+  const norm = (v: string) => v.trim().replace(/\s+/g, " ").toLowerCase();
+  for (const [k, v] of Object.entries(proposti)) {
+    const nostro = scheda?.valori[k];
+    // Senza la scheda (registro muto) si torna al comportamento di prima:
+    // si propone tutto. Meglio proporre due volte che tacere per un'assenza
+    // che non è una risposta.
+    if (!scheda) { daInviare[k] = v; continue; }
+    if (!nostro) { daInviare[k] = v; continue; }
+    if (norm(nostro) === norm(v)) { uguali++; continue; }
+    diversi.push({ campo: k, nostro, proposto: v });
+  }
+  return { daInviare, diversi, uguali };
+}
 
 // Riconciliazione dei clienti Fatture in Cloud con i partner Deluxy (e, tramite
 // il loro anagraficaId, col registro Anagrafiche). FIC è la fonte ricca di dati
@@ -92,6 +162,8 @@ export type EsitoRiga = {
   intestatarioRegistro: string | null;
   /** «Il conto proposto dalla banca non è il suo»: proposta messa a tacere. */
   ibanIgnorato: boolean;
+  /** Cosa cambierebbe davvero premendo «Conferma e aggiorna». */
+  confronto: Confronto;
 };
 
 export type Riconciliazione = {
@@ -103,11 +175,35 @@ export type Riconciliazione = {
 // Campi che FIC può proporre al registro per un cliente conciliato: i dati
 // fiscali (livelli alti) e quelli finanziari che FIC possiede (PEC, codice SDI,
 // contatto amministrativo). IBAN/banca/metodo pagamento NON stanno in FIC.
-export function campiProposti(d: FicClienteFiscale) {
-  const indirizzo = [d.indirizzo, [d.cap, d.citta].filter(Boolean).join(" "), d.provincia ? `(${d.provincia})` : ""]
+/**
+ * L'indirizzo composto da quello che FIC tiene in pezzi separati.
+ *
+ * ⚠️ 09/09/2026 — su alcuni clienti la VIA contiene già CAP e città, perché chi
+ * ha creato la scheda su FIC ha scritto tutto in un campo solo. Attaccarci
+ * dietro CAP e città li raddoppiava, e peggiorava un dato che era giusto:
+ * «Piazza Fernanda Pivano 9, 20143 Milano» diventava
+ * «Piazza Fernanda Pivano 9, 20143 Milano, 20100 MILANO, (MI)» — con Milano due
+ * volte e il CAP **generico 20100** accanto a quello vero della via.
+ * Su 87 clienti FIC con un indirizzo sono 2 (Vivo Concerti, OLFATTORIO), ma
+ * bastano a trasformare una «conferma» in un peggioramento.
+ */
+export function componiIndirizzo(d: Pick<FicClienteFiscale, "indirizzo" | "cap" | "citta" | "provincia">): string {
+  const via = (d.indirizzo ?? "").trim();
+  if (!via) return "";
+  const giaDentro = (v?: string | null) => Boolean(v && via.toLowerCase().includes(v.trim().toLowerCase()));
+  const capGiaNellaVia = /\b\d{5}\b/.test(via);
+  const coda = [
+    capGiaNellaVia ? "" : (d.cap ?? "").trim(),
+    giaDentro(d.citta) ? "" : (d.citta ?? "").trim(),
+  ]
     .filter(Boolean)
-    .join(", ")
-    .trim();
+    .join(" ");
+  const prov = d.provincia && !giaDentro(d.provincia) ? `(${d.provincia})` : "";
+  return [via, coda, prov].filter(Boolean).join(", ").trim();
+}
+
+export function campiProposti(d: FicClienteFiscale) {
+  const indirizzo = componiIndirizzo(d);
   return {
     // il nome fiscale del cliente FIC (intestazione della fattura) è la ragione
     // sociale: nel registro il "nome" è l'insegna, la "ragioneSociale" è la
@@ -141,7 +237,7 @@ export async function campiPropostiPerNome(ficNome: string) {
 export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   // Tutto in parallelo: i due dati esterni pesanti sono in cache (10 min), i tre
   // dati DB sono freschi. Prima erano in serie → decine di round-trip a ogni render.
-  const [clienti, partners, stati, beneficiariQonto, movConIban, bancaRegistro] = await Promise.all([
+  const [clienti, partners, stati, beneficiariQonto, movConIban, schedeRegistro] = await Promise.all([
     clientiFicCache(),
     prisma.partner.findMany(),
     prisma.riconciliazioneAnagrafica.findMany(),
@@ -151,7 +247,7 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
       select: { controparte: true, descrizione: true, ibanControparte: true },
       take: 5000,
     }),
-    bancaRegistroCache(),
+    schedeRegistroCache(),
   ]);
   const statoPerNome = new Map(stati.map((s) => [s.ficNome, s]));
 
@@ -205,11 +301,15 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
       esitoUltimoInvio: st?.esito ?? null,
       ibanSuggerito: conto?.iban ?? null,
       intestatarioSuggerito: conto?.nome ?? null,
-      ibanRegistro: partner?.anagraficaId ? bancaRegistro[partner.anagraficaId]?.iban ?? null : null,
+      ibanRegistro: partner?.anagraficaId ? schedeRegistro[partner.anagraficaId]?.iban || null : null,
       intestatarioRegistro: partner?.anagraficaId
-        ? bancaRegistro[partner.anagraficaId]?.intestatario ?? null
+        ? schedeRegistro[partner.anagraficaId]?.intestatario ?? null
         : null,
       ibanIgnorato: st?.ibanIgnorato ?? false,
+      confronto: confrontaColRegistro(
+        campiProposti(dati),
+        partner?.anagraficaId ? schedeRegistro[partner.anagraficaId] : undefined
+      ),
     };
     if (!partner) senzaMatch.push(riga);
     else if (partner.anagraficaId) conciliati.push(riga);
@@ -249,4 +349,23 @@ export async function datiFiscaliDaFic(partner: Partner): Promise<FicClienteFisc
   // fatture vecchie hanno solo il nome.
   const punti = (c: FicClienteFiscale) => Object.values(c).filter(Boolean).length;
   return candidati.sort((a, b) => punti(b) - punti(a))[0];
+}
+
+
+/**
+ * I campi da mandare al registro per un cliente FIC: **solo quelli mancanti**.
+ *
+ * Le server action ricalcolano i campi da qui invece di fidarsi del payload del
+ * browser (che può essere una pagina vecchia). Il filtro deve stare QUI e non
+ * solo nell'interfaccia: una server action è un endpoint, e il conto di «cosa
+ * cambia» non può dipendere da cosa aveva in mano la scheda aperta ieri.
+ */
+export async function campiDaInviarePerNome(
+  ficNome: string,
+  anagraficaId: string | null
+): Promise<Confronto> {
+  const [clienti, schede] = await Promise.all([clientiFicCache(), schedeRegistroCache()]);
+  const d = clienti.find((c) => c.nome === ficNome);
+  if (!d) return { daInviare: {}, diversi: [], uguali: 0 };
+  return confrontaColRegistro(campiProposti(d), anagraficaId ? schede[anagraficaId] : undefined);
 }

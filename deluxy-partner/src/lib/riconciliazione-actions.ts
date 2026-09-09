@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { aggiornaAnagrafica, creaAnagrafica, anagraficaPerId, type CampiAnagrafica } from "./anagrafiche";
-import { campiPropostiPerNome } from "./riconciliazione-fic";
+import { campiPropostiPerNome, campiDaInviarePerNome } from "./riconciliazione-fic";
 import { ibanValido, diagnosiIban } from "./impostazioni";
 import { allineaPartnerDaRegistro } from "./allinea-registro";
 import { registra } from "./registro";
@@ -116,14 +116,37 @@ export async function azioneRiconciliazione(
     };
   }
 
-  // conferma: stessa logica di `confermaRiconciliazione`, senza il redirect
-  let campi: CampiAnagrafica = await campiPropostiPerNome(ficNome);
+  // conferma: stessa logica di `confermaRiconciliazione`, senza il redirect.
+  //
+  // ⭐ 09/09/2026 (regola dell'utente: «inserisci solo i campi mancanti o che
+  // migliora»). Si manda SOLO quello che al registro manca: i campi identici
+  // sono traffico inutile, e quelli diversi non si sovrascrivono — quale sia
+  // quello buono non lo sappiamo, potrebbe averlo corretto una persona.
+  // ⚠️ Il filtro sta qui, non solo nell'interfaccia: una server action è un
+  // endpoint, e non può fidarsi del conteggio fatto da una pagina aperta ieri.
+  const confronto = await campiDaInviarePerNome(ficNome, anagraficaId);
+  let campi: CampiAnagrafica = confronto.daInviare as CampiAnagrafica;
+  if (Object.keys(campi).length === 0 && confronto.diversi.length === 0 && confronto.uguali === 0) {
+    // Il cliente FIC non è più in cache (nome cambiato, cache scaduta): si
+    // ripiega sul payload della pagina, com'era prima.
+    const proposti = await campiPropostiPerNome(ficNome);
+    campi = Object.keys(proposti).length ? proposti : (() => {
+      try {
+        return JSON.parse(campiJson) as CampiAnagrafica;
+      } catch {
+        return {} as CampiAnagrafica;
+      }
+    })();
+  }
   if (Object.keys(campi).length === 0) {
-    try {
-      campi = JSON.parse(campiJson);
-    } catch {
-      campi = {};
-    }
+    return {
+      stato: null,
+      ok: true,
+      testo:
+        confronto.diversi.length > 0
+          ? `Niente da aggiungere: il registro ha già tutto. ${confronto.diversi.length} campo/i risultano diversi e non li tocco — ${confronto.diversi.map((d) => d.campo).join(", ")}.`
+          : "Niente da aggiungere: il registro ha già questi dati.",
+    };
   }
   // ⭐ Multi-entità: scrivo sull'anagrafica GIUSTA per P.IVA, non sempre sul
   // primario — così due società dello stesso partner (es. Tiffany IT/NL,
