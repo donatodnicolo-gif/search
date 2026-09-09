@@ -735,3 +735,40 @@ model Forecast {
 
   @@unique([partnerNome, servizio, anno, mese])
 }
+
+/// CHIAVI API PER SINGOLA APPLICAZIONE (09/09/2026, richiesta dell'utente:
+/// «ho bisogno di creare nuove chiavi senza annullare quelle delle app
+/// precedenti»).
+///
+/// Prima esisteva UNA chiave per scope, tenuta in `Impostazione`: rigenerarla
+/// per dare accesso a una nuova app **staccava tutte le altre insieme**. Una
+/// chiave condivisa non si può nemmeno revocare: togliendola a chi non deve più
+/// entrare, la togli anche a chi deve.
+///
+/// Qui ogni app ha la SUA chiave, con il suo scope, revocabile da sola.
+///
+/// ⚠️ Del valore si tiene solo l'IMPRONTA (sha256): la chiave si vede intera
+/// una volta sola, nell'istante in cui nasce. Un elenco che sa rileggere le
+/// chiavi è un elenco che, se qualcuno lo apre, le regala tutte.
+model ChiaveApi {
+  id          String    @id @default(cuid())
+  /// A chi è stata data: «deluxy-orders», «deluxy-hub», «piattaforma»…
+  app         String
+  /// lettura | banca | scrittura — lo stesso vocabolario di `ScopeApi`.
+  scope       String
+  /// sha256 del valore, esadecimale. È l'unica cosa che si conserva.
+  impronta    String    @unique
+  /// I primi caratteri, per riconoscerla in elenco senza poterla usare.
+  prefisso    String
+  note        String?
+  creataIl    DateTime  @default(now())
+  /// Aggiornato al massimo ogni 10 minuti: serve a vedere chi usa cosa, non a
+  /// contare le chiamate — una scrittura per richiesta sarebbe un costo inutile.
+  ultimoUsoIl DateTime?
+  /// Valorizzata = revocata. Non si cancella: una chiave sparita non racconta
+  /// più a chi era stata data né quando ha smesso di funzionare.
+  revocataIl  DateTime?
+
+  @@index([scope, revocataIl])
+  @@index([app])
+}

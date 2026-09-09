@@ -1,5 +1,43 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🔑 **09/09/2026 — UNA CHIAVE API PER OGNI APPLICAZIONE.**
+> Richiesta dell'utente: «ho bisogno di creare nuove chiavi, non di annullare
+> quelle delle app precedenti». Prima esisteva **una chiave per scope** in
+> `Impostazione`: rigenerarla per dare accesso a una nuova app **staccava tutte
+> le altre**, e una chiave condivisa non si può nemmeno revocare (togliendola a
+> chi non deve più entrare la togli anche a chi deve).
+> - Nuova tabella **`ChiaveApi`** (app, scope, impronta, prefisso, creata,
+>   ultimo uso, revocata). Del valore si tiene solo l'**impronta sha256**: la
+>   chiave si vede intera una volta sola, quando nasce.
+> - `chiaveApiValida()` cerca **per impronta** (una query indicizzata), poi
+>   ripiega sulle chiavi storiche, che **restano valide**: spegnerle di colpo
+>   sarebbe esattamente il guaio da cui si esce.
+> - `ultimoUsoIl` si aggiorna al massimo ogni 10 minuti: serve a vedere chi è
+>   vivo, non a contare le chiamate.
+> - In `/verifiche`: creare una chiave per app, elenco con ultimo uso, revoca
+>   singola. La revoca non cancella la riga — una chiave sparita non dice più a
+>   chi era stata data.
+> - Tabella creata in SQL additivo (`CREATE TABLE IF NOT EXISTS`) **e** dichiarata
+>   in `schema.prisma`.
+>
+> 🔎 **CHI RIESCE A CHIAMARE, provato davvero** (non dedotto) il 09/09:
+> - **deluxy-budgets** e **deluxy-orders** hanno in `.env` la **STESSA chiave**,
+>   quella storica condivisa `api.verificheKey`. Provata su tre scope: lettura
+>   200, banca 200, scrittura 200. **Entrano, e aprono tutto.**
+> - Una chiave inventata riceve 401: il controllo funziona.
+> - ✅ Quindi **rigenerare la chiave «scrittura» non ha staccato nessuno**:
+>   nessuno usava ancora le chiavi per scope.
+> - 🔴 Ma il rischio è lì: **una sola stringa, in mano ad almeno due app, apre
+>   estratto conto e scritture**. Rigenerando QUELLA si ferma tutto insieme.
+> - ⚠️ Non ho potuto provare **deluxy-scout** (chiave nei segreti delle Edge
+>   Function di Supabase) né **deluxy-mail**: i loro segreti di produzione non
+>   sono leggibili da qui. Dal registro risulta che Scout ha chiamato con
+>   successo il 09/09 alle 05:30 e Budgets alle 10:40.
+> 📌 **Migrazione**: dare a ogni app la sua chiave dalla pagina, sostituirla
+> nel loro `.env`, verificare l'«ultimo uso» nell'elenco, e solo quando tutte
+> hanno la loro revocare quella condivisa.
+
+
 > 🔗 **09/09/2026 — SINCRONIZZAZIONE DI MASSA PIATTAFORMA → REGISTRO, e il
 > motore che finalmente obbedisce alla piattaforma.**
 > Caso di partenza: **FABBRICA DELLE FESTE**. C'era sulla piattaforma (con le

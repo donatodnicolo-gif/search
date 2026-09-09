@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 import { prisma } from "./db";
 import { segretoCombacia } from "./confronto";
 
@@ -38,11 +39,46 @@ export function chiavePresentata(req: NextRequest): string | null {
   return v.length > 0 ? v : null;
 }
 
-// `scope` è il permesso che la rotta richiede. Vale la chiave di QUELLO scope
-// oppure la vecchia chiave unica finché esiste.
+/** L'impronta con cui una chiave si riconosce senza conservarla. */
+export function improntaChiave(v: string): string {
+  return createHash("sha256").update(v.trim()).digest("hex");
+}
+
+// ⭐ 09/09/2026 — UNA CHIAVE PER APPLICAZIONE.
+//
+// Prima c'era una chiave sola per scope: darne una nuova a un'app significava
+// **rigenerare quella di tutti**, e le altre smettevano di entrare senza che
+// niente lo dicesse. Una chiave condivisa non si può nemmeno revocare —
+// togliendola a chi non deve più entrare la togli anche a chi deve.
+//
+// Ora ogni app ha la sua riga in `ChiaveApi`, con il suo scope e la sua revoca.
+// Il confronto è per IMPRONTA: la chiave in chiaro non è da nessuna parte.
+//
+// ⚠️ Le chiavi vecchie continuano a valere. Spegnerle di colpo staccherebbe
+// hub, mail, scout, orders e la piattaforma insieme — che è esattamente il
+// guaio da cui si sta uscendo. Si migra un'app alla volta e si revocano alla
+// fine, quando l'elenco dice che nessuno le usa più.
 export async function chiaveApiValida(req: NextRequest, scope: ScopeApi = "lettura"): Promise<boolean> {
   const presentata = chiavePresentata(req);
   if (!presentata) return false;
+
+  // 1) le chiavi per applicazione: ricerca per impronta, quindi una sola query
+  //    indicizzata e nessun confronto stringa per stringa.
+  const perApp = await prisma.chiaveApi.findUnique({ where: { impronta: improntaChiave(presentata) } });
+  if (perApp && !perApp.revocataIl && perApp.scope === scope) {
+    // Si annota l'ultimo uso, ma non a ogni richiesta: dieci minuti bastano a
+    // sapere chi è vivo, e una scrittura per chiamata sarebbe un costo che non
+    // serve a nessuno.
+    const vecchio = !perApp.ultimoUsoIl || Date.now() - perApp.ultimoUsoIl.getTime() > 10 * 60 * 1000;
+    if (vecchio) {
+      await prisma.chiaveApi
+        .update({ where: { id: perApp.id }, data: { ultimoUsoIl: new Date() } })
+        .catch(() => null);
+    }
+    return true;
+  }
+
+  // 2) ripiego sulle chiavi storiche (unica + una per scope), finché ci sono.
   const ammesse = [CHIAVE_LEGACY, CHIAVE_PER_SCOPE[scope]];
   const righe = await prisma.impostazione.findMany({ where: { chiave: { in: ammesse } } });
   // Nessun return anticipato al primo confronto: si valutano tutte, così il

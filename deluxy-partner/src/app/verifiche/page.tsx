@@ -6,7 +6,7 @@ import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 import { randomBytes } from "crypto";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { CHIAVE_LEGACY, CHIAVE_PER_SCOPE, type ScopeApi } from "@/lib/apiauth";
+import { CHIAVE_LEGACY, CHIAVE_PER_SCOPE, improntaChiave, type ScopeApi } from "@/lib/apiauth";
 import { dataIt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +80,40 @@ function mascherata(v: string | null | undefined): string {
   return v.length <= 10 ? "•".repeat(v.length) : `${v.slice(0, 5)}…${v.slice(-4)}`;
 }
 
+// ⭐ 09/09/2026 (richiesta dell'utente: «ho bisogno di creare nuove chiavi in
+// caso, non di annullare quelle delle app precedenti»).
+//
+// Una chiave per APPLICAZIONE: nasce, si mostra una volta sola, e si revoca da
+// sola. Rigenerare quella di Orders non tocca quella del Hub.
+async function creaChiaveApp(fd: FormData) {
+  "use server";
+  await soloAdmin();
+  const app = String(fd.get("app") ?? "").trim();
+  const scope = String(fd.get("scope") ?? "") as ScopeApi;
+  const note = String(fd.get("note") ?? "").trim() || null;
+  if (!app || !["lettura", "banca", "scrittura"].includes(scope)) {
+    redirect("/verifiche?erroreChiave=" + encodeURIComponent("Servono il nome dell'app e uno scope valido."));
+  }
+  const valore = `dlx_${scope}_${randomBytes(24).toString("hex")}`;
+  await prisma.chiaveApi.create({
+    data: { app, scope, impronta: improntaChiave(valore), prefisso: valore.slice(0, 12), note },
+  });
+  revalidatePath("/verifiche");
+  // La chiave viaggia UNA volta, nell'URL del ritorno, e non è più rileggibile
+  // da nessuna parte: di lei resta solo l'impronta.
+  redirect(`/verifiche?nuovaChiave=${encodeURIComponent(valore)}&perApp=${encodeURIComponent(app)}`);
+}
+
+async function revocaChiaveApp(id: string) {
+  "use server";
+  await soloAdmin();
+  // Non si cancella: una chiave sparita non racconta più a chi era stata data
+  // né da quando ha smesso di funzionare.
+  await prisma.chiaveApi.update({ where: { id }, data: { revocataIl: new Date() } });
+  revalidatePath("/verifiche");
+  redirect("/verifiche?revocata=1");
+}
+
 async function svuotaStorico() {
   "use server";
   await soloAdmin();
@@ -100,9 +134,18 @@ function ora(d: Date): string {
 export default async function VerifichePage({
   searchParams,
 }: {
-  searchParams: Promise<{ generata?: string }>;
+  searchParams: Promise<{
+    generata?: string;
+    nuovaChiave?: string;
+    perApp?: string;
+    revocata?: string;
+    erroreChiave?: string;
+  }>;
 }) {
   const sp = await searchParams;
+  // Le chiavi per applicazione: si elencano SEMPRE, revocate comprese, perché
+  // «questa app non entra più» è un'informazione, non rumore.
+  const chiaviApp = await prisma.chiaveApi.findMany({ orderBy: [{ revocataIl: "asc" }, { creataIl: "desc" }] });
 
   /**
    * ⚠️ SOLO L'AMMINISTRATORE (27/08/2026, revisione di sicurezza).
@@ -198,7 +241,101 @@ const dati = await res.json();
         </p>
       </div>
 
-      <h2 className="section-title">Chiavi per permesso</h2>
+      {/* ⭐ 09/09/2026 — UNA CHIAVE PER APPLICAZIONE. */}
+      <h2 className="section-title">Chiavi per applicazione</h2>
+      <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
+          Ogni app ha la <strong>sua</strong> chiave: crearne una nuova <strong>non tocca le altre</strong>, e si può
+          revocare una sola app senza staccare le altre. Le chiavi qui sotto non si possono rileggere —
+          si vedono intere una volta sola, quando nascono.
+        </p>
+
+        {sp.erroreChiave && (
+          <div className="card" style={{ padding: 12, marginBottom: 12, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+            <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.erroreChiave}</span>
+          </div>
+        )}
+        {sp.revocata && (
+          <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+            <span className="badge neutral"><span className="dot" />Chiave revocata — le altre continuano a funzionare</span>
+          </div>
+        )}
+        {sp.nuovaChiave && (
+          <div className="card" style={{ padding: 14, marginBottom: 14, borderLeft: "3px solid var(--gold)" }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>
+              Chiave per «{sp.perApp}» — copiala adesso, non si rivede più
+            </div>
+            <code style={{ display: "block", padding: "8px 10px", background: "var(--bg)", borderRadius: 8, fontSize: 12.5, wordBreak: "break-all" }}>
+              {sp.nuovaChiave}
+            </code>
+          </div>
+        )}
+
+        <form action={creaChiaveApp} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 200px" }}>
+            <span className="field-label">Applicazione</span>
+            <input type="text" name="app" required placeholder="deluxy-orders" maxLength={60} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className="field-label">Permesso</span>
+            <select name="scope" defaultValue="lettura">
+              {SCOPES.map((x) => <option key={x.scope} value={x.scope}>{x.titolo}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 220px" }}>
+            <span className="field-label">Nota (facoltativa)</span>
+            <input type="text" name="note" placeholder="a cosa serve" maxLength={200} />
+          </label>
+          <button className="btn primary" type="submit">Crea chiave</button>
+        </form>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Applicazione</th><th>Permesso</th><th>Chiave</th>
+                <th>Creata</th><th>Ultimo uso</th><th>Stato</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {chiaviApp.length === 0 && (
+                <tr><td colSpan={7} className="muted" style={{ padding: 14 }}>
+                  Nessuna chiave per applicazione: per ora entrano tutti con le chiavi condivise qui sotto.
+                </td></tr>
+              )}
+              {chiaviApp.map((k) => (
+                <tr key={k.id} style={k.revocataIl ? { opacity: 0.55 } : undefined}>
+                  <td style={{ fontWeight: 500 }}>{k.app}{k.note && <div className="muted" style={{ fontSize: 12 }}>{k.note}</div>}</td>
+                  <td>{SCOPES.find((x) => x.scope === k.scope)?.titolo ?? k.scope}</td>
+                  <td><code style={{ fontSize: 12 }}>{k.prefisso}…</code></td>
+                  <td className="muted">{dataIt(k.creataIl)}</td>
+                  <td className="muted">
+                    {k.ultimoUsoIl ? dataIt(k.ultimoUsoIl) : <span style={{ color: "var(--orange)" }}>mai usata</span>}
+                  </td>
+                  <td>
+                    {k.revocataIl
+                      ? <span className="badge neutral"><span className="dot" />revocata il {dataIt(k.revocataIl)}</span>
+                      : <span className="badge green"><span className="dot" />attiva</span>}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {!k.revocataIl && (
+                      <form action={revocaChiaveApp.bind(null, k.id)}>
+                        <ConfermaElimina
+                          oggetto={`la chiave di «${k.app}»`}
+                          conseguenza="Quell'app smette di chiamare Finance. Le altre non vengono toccate."
+                          title="Revoca questa chiave"
+                        />
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 className="section-title">Chiavi condivise (storiche)</h2>
       <div className="card">
         <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
           Ogni rotta dichiara il permesso che richiede. Dai a ogni app <strong>solo</strong> la chiave che le
