@@ -621,7 +621,9 @@
       "sendConfirm": "Send {{partner}} the {{mese}} recap? A real email goes out.",
       "sent": "Recap sent to {{a}} — {{n}} deliveries.",
       "carnetTip": "Carnet: position in the block (used/total)",
-      "ruleTip": "Pricing rule applied to this delivery"
+      "ruleTip": "Pricing rule applied to this delivery",
+      "inviaFinanceTitolo": "Send {{a}}'s month to Finance?",
+      "inviaFinanceConferma": "Generates {{partner}}'s invoice for {{mese}} ({{n}} deliveries) and sends Finance the pro-forma and the month's account. A document is created: it cannot be undone with a click."
     },
     "filter": {
       "search": "Search",

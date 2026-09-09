@@ -954,13 +954,62 @@ export class InvoicesListComponent {
     });
   }
 
+  /**
+   * ⭐ 09/09/2026 (segnalazione utente: «ho fatto invio a Finance ma mi ha
+   * portato alla sezione bozza e poi non è successo nulla»). Il bottone si
+   * chiamava «Fattura» e faceva quello che il nome diceva: PREPARAVA il modulo
+   * di generazione, lasciando all'utente il secondo click. Rinominato «Invia a
+   * Finance», quel comportamento è diventato una bugia — si preme e non parte
+   * niente.
+   *
+   * Ora il bottone FA: chiede conferma (nasce un documento e parte una
+   * chiamata a un'altra app: un click di troppo non si disfa), genera la
+   * fattura del mese e con lei partono la pro-forma e il conto del mese verso
+   * FINANCE. L'esito di tutti e tre lo dice il banner, uno per uno: se qualcosa
+   * non è partito si deve poter sapere QUALE.
+   */
   fatturaTutto(r: Pending): void {
-    this.genPartner = r.partnerId;
-    this.genFrom = this.primoDelMese(r.mese);
-    this.genTo = this.ultimoDelMese(r.mese);
-    this.view.set('active');
-    this.showGen.set(true);
-    this.load();
+    this.confermaPendente.set({
+      titolo: this.translate.instant('invoices.pending.inviaFinanceTitolo', { a: r.partner.insegna }),
+      messaggio: this.translate.instant('invoices.pending.inviaFinanceConferma', {
+        partner: r.partner.insegna, mese: this.mese(r.mese), n: r.deliveriesCount,
+      }),
+      verbo: this.translate.instant('invoices.pending.invoiceAll'),
+      tono: 'primary',
+      azione: () => this.inviaFinanceDavvero(r),
+    });
+  }
+
+  private inviaFinanceDavvero(r: Pending): void {
+    this.error.set(null);
+    this.recapInCorso.set(r.chiave);
+    this.http.post<{
+      number?: string;
+      finance?: { ok: boolean; motivo: string; riferimento?: string };
+      meseFinance?: { ok: boolean; motivo: string; dovuto?: number };
+    }>(`${environment.apiUrl}/invoices/generate`, {
+      partnerId: r.partnerId,
+      periodStart: this.primoDelMese(r.mese),
+      periodEnd: this.ultimoDelMese(r.mese),
+    }).subscribe({
+      next: (res) => {
+        this.recapInCorso.set(null);
+        const f = res?.finance;
+        const m = res?.meseFinance;
+        this.banner.set([
+          `${this.translate.instant('invoices.gen.done')}${res?.number ? ' ' + res.number : ''}`,
+          f?.ok ? `pro-forma in FINANCE (${f.riferimento})` : `⚠️ pro-forma non mandata: ${f?.motivo ?? '—'}`,
+          m?.ok
+            ? `mese in FINANCE${m.dovuto != null ? ` · da girare al partner ${m.dovuto.toFixed(2)} €` : ''}`
+            : `⚠️ mese non mandato: ${m?.motivo ?? '—'}`,
+        ].join(' · '));
+        this.load();
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Errore');
+      },
+    });
   }
 
   /** Il conto sulla linguetta e' il totale, senza filtri: e' un'insegna, non un risultato. */
