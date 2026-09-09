@@ -11,7 +11,7 @@ import { metafieldDaColonne } from "@/lib/shopify-collezioni";
  * solo, e le due pagine che usano il modulo la ricevono tutte e due.
  */
 export const PRODOTTO_PER_IL_MODULO = {
-  varianti: { orderBy: { creataIl: "asc" } },
+  varianti: { orderBy: [{ ordine: "asc" }, { creataIl: "asc" }] },
   media: { orderBy: { ordine: "asc" } },
   collezioniShopify: { select: { collezione: { select: { id: true, titolo: true, tipo: true, negozio: true } } }, orderBy: { posizione: "asc" } },
   pubblicazioni: true,

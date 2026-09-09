@@ -296,6 +296,17 @@ export function FormProdottoNuovo({
   const aggiornaVariante = (i: number, campo: keyof VarianteForm, valore: string) =>
     setVarianti((v) => v.map((x, j) => (j === i ? { ...x, [campo]: valore } : x)));
 
+  /** Sposta una variante di un posto. L'ordine si salva insieme al prodotto. */
+  function spostaVariante(i: number, verso: -1 | 1) {
+    setVarianti((v) => {
+      const j = i + verso;
+      if (j < 0 || j >= v.length) return v;
+      const nuovo = v.slice();
+      [nuovo[i], nuovo[j]] = [nuovo[j], nuovo[i]];
+      return nuovo;
+    });
+  }
+
   // Lo SKU di una variante: quello già salvato, altrimenti principale + numero
   // progressivo dopo l'ultimo già assegnato.
   const skuVariante = (v: VarianteForm, i: number) => {
@@ -1487,9 +1498,17 @@ export function FormProdottoNuovo({
                         </td>
                       )}
                       <td>
-                        <button type="button" className="icon-btn" onClick={() => setVarianti((x) => x.filter((_, j) => j !== i))} disabled={varianti.length === 1} title="Togli questa variante">
-                          ×
-                        </button>
+                        {/* ⭐ 09/09/2026 (utente): «permetti di poterle ordinare
+                            a piacimento». La posizione qui è quella che il
+                            cliente vede sul negozio, e dal 09/09 si salva nella
+                            colonna `ordine`. */}
+                        <span className="varianti-frecce">
+                          <button type="button" className="icon-btn" onClick={() => spostaVariante(i, -1)} disabled={i === 0} title="Sposta in su" aria-label={`Sposta la variante ${i + 1} in su`}>↑</button>
+                          <button type="button" className="icon-btn" onClick={() => spostaVariante(i, 1)} disabled={i === varianti.length - 1} title="Sposta in giù" aria-label={`Sposta la variante ${i + 1} in giù`}>↓</button>
+                          <button type="button" className="icon-btn" onClick={() => setVarianti((x) => x.filter((_, j) => j !== i))} disabled={varianti.length === 1} title="Togli questa variante">
+                            ×
+                          </button>
+                        </span>
                       </td>
                     </tr>
                   ))}

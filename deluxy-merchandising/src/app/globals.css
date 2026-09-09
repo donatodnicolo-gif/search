@@ -1718,3 +1718,5 @@ a.anteprima-matita {
   resize: vertical;
 }
 .anteprima-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+/* Le frecce per spostare una variante: bersagli affiancati, non a capo. */
+.varianti-frecce { display: inline-flex; gap: 2px; white-space: nowrap; }

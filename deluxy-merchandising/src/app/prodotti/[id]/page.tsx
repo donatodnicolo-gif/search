@@ -63,7 +63,7 @@ export default async function ProdottoPage({
       include: {
         collezione: true,
         fornitore: true,
-        varianti: { orderBy: { creataIl: "asc" } },
+        varianti: { orderBy: [{ ordine: "asc" }, { creataIl: "asc" }] },
         unitoA: { select: { id: true, nome: true } },
         componenti: { orderBy: { creatoIl: "asc" }, include: { componente: true } },
         usatoIn: { include: { composto: { select: { id: true, nome: true, codice: true } } } },

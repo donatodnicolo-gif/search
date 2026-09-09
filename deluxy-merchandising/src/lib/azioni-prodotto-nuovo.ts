@@ -606,7 +606,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       metafieldShopify: Object.keys(m.metafield).length ? m.metafield : undefined,
       ...(Object.keys(m.metafield).length ? colonneDaMetafield(m.metafield) : {}),
       varianti: varianti.length
-        ? { create: varianti.map((v) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null })) }
+        ? { create: varianti.map((v, posizione) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null, ordine: posizione })) }
         : undefined,
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
@@ -933,8 +933,12 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     });
     // Varianti: per SKU. Le nuove nascono, le presenti si aggiornano, quelle
     // sparite dal modulo si tolgono solo se non hanno venduto niente.
-    for (const v of varianti) {
-      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null };
+    // ⭐ 09/09/2026 (utente): «non conserva l'ordine delle varianti, e in ogni
+    // caso permetti di poterle ordinare a piacimento». La posizione nel modulo
+    // È l'ordine: si scrive a ogni salvataggio, anche sulle varianti che
+    // esistono già, altrimenti spostarne una non avrebbe effetto.
+    for (const [posizione, v] of varianti.entries()) {
+      const dati = { nome: v.nome, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null, ordine: posizione };
       const gia = prima.varianti.find((x) => x.sku === v.sku);
       if (gia) await tx.variante.update({ where: { id: gia.id }, data: dati });
       else await tx.variante.create({ data: { prodottoId: id, sku: v.sku, ...dati } });

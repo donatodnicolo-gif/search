@@ -329,11 +329,21 @@ model Variante {
   /// ⭐ 07/09/2026: la nota di QUESTA taglia («Medio: 10-15 fiori»). Vince su quella del prodotto.
   note         String?
   giacenza     Int   @default(0) // stock disponibile
+  /// ⭐ 09/09/2026: la POSIZIONE nell'elenco, decisa da chi compila.
+  ///
+  /// Prima le varianti si ordinavano per `creataIl`, e bastava aggiungerne una
+  /// perché finisse in fondo comunque la si fosse messa nel modulo: l'ordine
+  /// non si conservava e non si poteva cambiare. È la sequenza che il cliente
+  /// vede sul negozio, quindi non è un dettaglio di comodo.
+  /// Colonna aggiunta sul Postgres condiviso **con l'accordo dell'utente**
+  /// (09/09/2026), come vuole la regola sullo schema condiviso.
+  ordine       Int   @default(0)
   creataIl   DateTime @default(now())
   vendite    Vendita[]
   righeRiordino RigaRiordino[]
 
   @@index([prodottoId])
+  @@index([prodottoId, ordine])
 }
 
 // **Dove sta questa scheda sui negozi** (07/09/2026, chiesto dall'utente: «scegliere
