@@ -173,9 +173,12 @@ export async function POST(req: NextRequest) {
   //      confermata, o intestatario delle fatture commissioni già emesse a
   //      questo partner. Se il nome è stato indovinato per somiglianza, no:
   //      decide una persona. È la stessa regola di `emettiCommissioniRapido`;
-  //   3. l'INVIO ALLO SDI è dietro un interruttore spento di suo. Creare si
-  //      disfa, inviare no: serve una nota di credito. La prima volta lo accende
-  //      una persona, non un deploy.
+  //   3. l'INVIO ALLO SDI parte (decisione dell'utente, confermata il 09/09:
+  //      «manda comunque allo SDI se lo ricevi da app delivery»). È
+  //      irreversibile — per disfarlo serve una nota di credito — quindi resta
+  //      un FRENO: `fic.inviaSdiAutomatico = "0"` lo ferma senza toccare il
+  //      codice. Le due porte qui sopra restano chiuse a chiave proprio perché
+  //      questa è aperta.
   // Se qualcosa non riesce, il mese resta scritto e l'esito lo dice: una
   // fattura non emessa è un lavoro da fare, non un errore da nascondere.
   const emissione: Record<string, unknown> = { tentata: false };
@@ -222,7 +225,7 @@ export async function POST(req: NextRequest) {
           const inv = await ficInviaAlloSdi(res.id);
           emissione.sdi = inv.ok ? "inviata" : `NON inviata: ${inv.errore}`;
         } else {
-          emissione.sdi = "invio automatico spento: la fattura è creata, va inviata da Fatture in Cloud";
+          emissione.sdi = "invio FERMATO dal freno (fic.inviaSdiAutomatico=0): la fattura è creata, va inviata da Fatture in Cloud";
         }
       }
     } catch (e) {

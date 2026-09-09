@@ -992,9 +992,12 @@ export const ficFattureCached = unstable_cache(
  *
  * ⚠️⚠️ È IRREVERSIBILE. Una fattura creata su Fatture in Cloud si cancella;
  * una fattura ANDATA allo SDI no: è un atto fiscale verso il cliente, e per
- * disfarlo serve una nota di credito. Per questo l'invio automatico è dietro un
- * interruttore spento di suo (`fic.inviaSdiAutomatico`): la prima volta la
- * accende una persona, non un deploy.
+ * disfarlo serve una nota di credito.
+ * Decisione dell'utente del 09/09/2026, confermata: le fatture che nascono dal
+ * mese mandato dalla piattaforma consegne **si inviano**. Resta un FRENO
+ * d'emergenza — `fic.inviaSdiAutomatico = "0"` ferma l'invio senza toccare il
+ * codice — perché una cosa che parte da sola deve avere un modo di fermarsi
+ * alle tre di notte.
  *
  * Torna l'esito così com'è: chi chiama deve poter dire «creata ma non inviata»
  * invece di far credere che sia tutto a posto.
@@ -1013,10 +1016,16 @@ export async function ficInviaAlloSdi(id: number): Promise<{ ok: true } | { ok: 
   }
 }
 
-/** L'invio automatico allo SDI è acceso? Spento finché qualcuno non lo accende. */
+/**
+ * L'invio automatico allo SDI è attivo?
+ *
+ * ⚠️ Acceso di suo: è la decisione dell'utente. Si spegne scrivendo `"0"` in
+ * `fic.inviaSdiAutomatico` — un freno, non un cancello: chi deve fermare una
+ * cosa che parte da sola non deve prima aggiungere una riga di codice.
+ */
 export async function invioSdiAutomatico(): Promise<boolean> {
   const m = await leggi(["fic.inviaSdiAutomatico"]);
-  return m["fic.inviaSdiAutomatico"] === "1";
+  return m["fic.inviaSdiAutomatico"] !== "0";
 }
 
 // Cambia lo stato di incasso di una fattura su Fatture in Cloud: segna i suoi
