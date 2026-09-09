@@ -47,6 +47,14 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
+> 🚀 **09/09/2026 — LIVE `delivery-iwf2idfic` (bundle `main-AHK2YOWE`): DISTANZA SALVATA, LEGAME DDT, «INVIA A FINANCE» CHE INVIA.**
+> - **La distanza si salva** (segnalazione utente sulla #101169). Il modulo la calcolava per il preventivo e la buttava: **816 consegne su 1.224 di settembre senza distanza**, sui servizi a ora 3 su 607. ⚠️ Non era un dato perso solo per le statistiche: **i km oltre gli inclusi entrano nella paga del valet**. Resta assente per costruzione sulle consegne inserite dal PARTNER (`distanceKm` è campo d'ufficio, e su prezzo fisso fa il prezzo).
+> - **Legame fra le consegne dello stesso ordine** (`consegneStessoDdt`): riquadro «Stesso ordine — DDT ‹numero› · ‹sito›», navigabile. Vale **solo a parità di numero E sito** (regola dell'utente, e la misura la conferma: **783 numeri di DDT ripetuti fra siti diversi**), fuori i `CPR…`, tetto 20 col totale (alcuni «DDT» sono etichette: `GIFT` su 31 consegne), **solo ADMIN e OPERATION**.
+> - **«Invia a Finance» ora invia**: prima precompilava il modulo e aspettava un secondo click — col nome nuovo era una bugia. Chiede conferma, genera la fattura, e il banner dà l'esito dei **tre passi uno per uno** (fattura, pro-forma, mese).
+> - Verificato dal sito vero: `stessoDdt` in `chunk-GH7EJNZA`, `distanzaCalcolata` in `chunk-I4USMRWI`, `inviaFinanceConferma` in `chunk-VX2XBM6I`, e le chiavi i18n servite.
+> 
+> 🔴 **SAMI CHAKROUN NON HA STIPENDI.** Verifica su richiesta dell'utente: **149 consegne** fra agosto e settembre, **0 collegate a uno stipendio** — e non perché il legame sia rotto: **nessuno stipendio è mai stato generato per lui** (nessuno dal 15/07). **109 sono da pagare** con **1.452,78 €** di paga già scritta; 39 sono segnate «non da pagare» e **33 di quelle sono Chanel Roma** (28 Piazza di Spagna + 5 Babuino, tutte consegnate) — da confermare se è una scelta; 1 annullata. Delle 109, **25 non hanno la distanza**: generando ora, su quelle gli extra km non verrebbero conteggiati (la correzione vale da qui in avanti, non retroattivamente). Tabella riga per riga: `scratchpad/sami-consegne-stipendi.csv`.
+
 > 🔖 **09/09/2026 — IL MESE DELLE CONSEGNE VA IN FINANCE. Scritto, NON pubblicato, e bloccato da una chiave sbagliata.**
 >
 > **La domanda**: premendo il bottone, la scheda del partner in FINANCE si aggiorna col mese di agosto? **No.** E non arriva nemmeno la pro-forma: il codice che la manda esiste dal 31/08 ma cerca la chiave in `FINANCE_API_KEY` (env) o `financeApiKey` (Impostazioni), e in produzione **non c'era nessuna delle due** — tutte e 6 le fatture di Fabbrica Delle Feste hanno `financeRef = MAI MANDATA`.
