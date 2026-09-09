@@ -47,7 +47,7 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
-> ✅ **09/09/2026 — VALET: «RICHIESTA PAGAMENTO» VERSO TRANSACTIONS** (regola utente). In locale, build fatta, **non ancora pubblicato**.
+> 🚀 **09/09/2026 — LIVE `delivery-8nk1mgd9x` (bundle `main-SALAFVH4`) — VALET: «RICHIESTA PAGAMENTO» VERSO TRANSACTIONS** (regola utente). Verificato sul sito vero: `POST /api/v1/valets/:id/richiesta-pagamento` risponde **401** (esiste), l'`it.json` pubblicato porta i tipi **Anticipo/Pagamento**, il bottone, il riquadro del valet e la colonna nuova; nei 77 chunk scaricati ci sono `tipoRichiesta` + `richiesta-pagamento` (scheda valet), `anticipi` (stipendi) e `payments.col.richiesta` (elenco pagamenti).
 >
 > - **API**: `POST /valets/:id/richiesta-pagamento` (ADMIN + OPERATION) → `TransactionsService.richiestaPagamentoValet()`. Crea un `Payment` di tipo **`PAYOUT`** (valore nuovo dell'enum TypeScript; `Payment.type` è una **stringa** nel DB, **nessuna migrazione**) già `APPROVED`, poi riusa `richiediPagamentoRimborso()` — stessa firma HMAC, stessa idempotenza `payment-<id>`.
 > - **Ordine dei controlli**: importo > 0 e ≤ `TETTO_RICHIESTA` (5.000 €), causale obbligatoria, e **IBAN verificato col mod-97 PRIMA di creare la riga**. Se fallisce l'invio, la riga resta con `richiestaEsito` e si ritenta.
