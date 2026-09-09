@@ -29,7 +29,18 @@ async function main() {
   const applica = process.argv.includes("--applica");
   const tutti = process.argv.includes("--tutti");
 
-  const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true }, select: { nome: true, dominio: true } });
+  // ⭐ `--negozio Flowers`: un negozio per volta. Il giro completo legge
+  // migliaia di schede dalle vetrine con la pausa fra una e l'altra, e supera
+  // il tempo massimo di una sessione: spezzarlo è l'unico modo per portarlo a
+  // termine davvero, invece di fermarsi a metà e non saperlo.
+  const i = process.argv.indexOf("--negozio");
+  const soloNegozio = i >= 0 ? process.argv.slice(i + 1).join(" ").replace(/--.*$/, "").trim() : null;
+
+  const negozi = await prisma.negozioShopify.findMany({
+    where: { attivo: true, ...(soloNegozio ? { nome: soloNegozio } : {}) },
+    select: { nome: true, dominio: true },
+  });
+  if (soloNegozio && !negozi.length) { console.log(`Nessun negozio attivo di nome «${soloNegozio}».`); await prisma.$disconnect(); return; }
   let letti = 0, scritti = 0, senzaSezioni = 0, saltati = 0, strozzati = 0;
   const esempi: string[] = [];
 
