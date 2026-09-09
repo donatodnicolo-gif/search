@@ -396,6 +396,13 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                 <th>{{ 'statistiche.smistamento.motivo' | translate }}</th>
                 <th>{{ 'statistiche.smistamento.famiglia' | translate }}</th>
                 <th class="num">{{ 'statistiche.smistamento.quante' | translate }}</th>
+                <!-- ⭐ 09/09/2026 (regola utente: «dammi per questo anche la %»).
+                     Il conteggio da solo non dice il peso: 5 su 16 è un terzo del
+                     lavoro a mano, 5 su 500 è rumore. La base è la stessa della
+                     percentuale in testata — le consegne PASSATE dallo smistamento
+                     (auto + mano) — così i due numeri non raccontano storie diverse.
+                     I «fuori smistamento» non entrano, di là come di qua. -->
+                <th class="num">{{ 'statistiche.smistamento.peso' | translate }}</th>
               </tr></thead>
               <tbody>
                 @for (m of sm.corrente.motivi; track m.motivo) {
@@ -403,6 +410,7 @@ const VERSO: Record<string, 1 | -1 | 0> = {
                     <td>{{ m.motivo }}</td>
                     <td><span class="fam" [class.f-auto]="m.famiglia === 'auto'" [class.f-mano]="m.famiglia === 'mano'">{{ ('statistiche.smistamento.f_' + m.famiglia) | translate }}</span></td>
                     <td class="num">{{ num(m.n) }}</td>
+                    <td class="num muted">{{ pesoMotivo(m.n, sm.corrente.auto + sm.corrente.mano) }}</td>
                   </tr>
                 }
               </tbody>
@@ -577,6 +585,16 @@ export class StatisticheComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  /**
+   * Il peso di un motivo sul totale passato dallo smistamento. Se la base è
+   * zero non si scrive «0%» — che sarebbe una misura — ma un trattino: non
+   * c'è nulla su cui calcolare.
+   */
+  pesoMotivo(n: number, base: number): string {
+    if (!base) return '—';
+    return (Math.round((n / base) * 1000) / 10).toLocaleString('it-IT') + '%';
+  }
+
   private readonly translate = inject(TranslateService);
 
   readonly PERIODI: Periodo[] = ['oggi', 'settimana', 'mese', 'mese-scorso', 'trimestre', 'anno'];

@@ -3520,7 +3520,8 @@
       "f_auto": "da sola",
       "f_mano": "a mano",
       "f_fuori": "fuori",
-      "nota": "Le righe «a mano» sono la lista di quello che si può ancora automatizzare: ogni patto di riconciliazione scritto ne sposta una parte fra le automatiche. I «fuori smistamento» non entrano nella percentuale, perché non sono mai passati di lì."
+      "nota": "Le righe «a mano» sono la lista di quello che si può ancora automatizzare: ogni patto di riconciliazione scritto ne sposta una parte fra le automatiche. I «fuori smistamento» non entrano nella percentuale, perché non sono mai passati di lì.",
+      "peso": "Peso"
     }
   },
   "puntualita": {

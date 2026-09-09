@@ -3518,7 +3518,8 @@
       "f_auto": "automatic",
       "f_mano": "by hand",
       "f_fuori": "outside",
-      "nota": "The \"by hand\" rows are the list of what can still be automated: each reconciliation agreement moves some of them into the automatic column. \"Outside routing\" is excluded from the percentage, because those never went through it."
+      "nota": "The \"by hand\" rows are the list of what can still be automated: each reconciliation agreement moves some of them into the automatic column. \"Outside routing\" is excluded from the percentage, because those never went through it.",
+      "peso": "Share"
     }
   },
   "puntualita": {
