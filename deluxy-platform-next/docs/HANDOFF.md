@@ -47,6 +47,24 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
+> 🔖 **09/09/2026 — IL MESE DELLE CONSEGNE VA IN FINANCE. Scritto, NON pubblicato, e bloccato da una chiave sbagliata.**
+>
+> **La domanda**: premendo il bottone, la scheda del partner in FINANCE si aggiorna col mese di agosto? **No.** E non arriva nemmeno la pro-forma: il codice che la manda esiste dal 31/08 ma cerca la chiave in `FINANCE_API_KEY` (env) o `financeApiKey` (Impostazioni), e in produzione **non c'era nessuna delle due** — tutte e 6 le fatture di Fabbrica Delle Feste hanno `financeRef = MAI MANDATA`.
+> 
+> 🔴 **La chiave incollata poi dall'utente NON è quella di FINANCE.** Diagnosi chiusa: FINANCE genera chiavi **`dlxv_` + 48 esadecimali (53 caratteri)** e le tiene nel SUO database (`Impostazione` con chiave `api.verificheKey`, confronto per stringa esatta); quella salvata è **`dlx_…`, 62 caratteri**. Escluse le cause banali: niente spazi ai bordi, niente a-capo, niente BOM, niente virgolette. FINANCE risponde **401 su tutte le rotte**, `/api/verifiche` compresa. Si legge o si genera da `https://deluxy-partner.vercel.app/verifiche`. ⚠️ Rigenerarla invalida quella vecchia **per tutte le app** che la usano.
+> 
+> **Decisione dell'utente**: il bottone si chiama ora **«Invia a Finance»** (era «Fattura»), e «sarà poi Finance a fare tutto».
+> 
+> **Cosa è stato scritto** (typecheck pulito e build ok su tutte e due le app):
+> - **FINANCE** — nuovo `POST /api/consegne-mese` (`deluxy-partner/src/app/api/consegne-mese/route.ts`): riceve partner, anno, mese, **venduto** e **commissioni**, e scrive *(1)* una `VenditaVendor` del mese con la fee dedotta dai due importi, *(2)* una `FatturaServizio` delle commissioni **già `pagata`** — sulle vendite la commissione non si incassa dal partner, si trattiene: lasciarla «da pagare» la farebbe comparire nei solleciti e in un credito che nessuno deve versare — *(3)* la riga di `SaldoMensile`, creata se manca e **mai sovrascritta** (bonifico, data e chiusura sono decisioni di chi paga).
+> - **PIATTAFORMA** — `inviaMeseAFinance()` in `invoices.module.ts`, chiamato dopo `inviaBozzaAFinance()` alla generazione. Manda **solo le righe di VENDITA**: sugli altri modelli il denaro va nel verso opposto, e mandarle gonfierebbe il credito del partner. Il **venduto si ricalcola dai prodotti** con `valoreProdotti` — `InvoiceLine` porta solo la quota, e `productValue` diverge dalla somma delle righe su 1.417 vendite.
+> - **Idempotenza senza toccare lo schema altrui**: le righe scritte in FINANCE portano in descrizione il marcatore `[consegne <numero fattura>]`, e un reinvio le **aggiorna** invece di duplicarle. È il compromesso per non aggiungere una colonna a un database che non è nostro; la chiave naturale (partner, anno, mese) non bastava, perché un partner può avere vendite e fatture di altra origine.
+> - ✅ **Le due formule già coincidono**: `dovutoVendita = incassoLordo − commissione × 1,22` (`deluxy-partner/src/lib/calc.ts`) è identica al nostro `venduto − conIva(quota)`. Fabbrica Delle Feste, agosto: 243,40 − 48,68 × 1,22 = **184,01 €**, lo stesso numero del «Da fatturare».
+> 
+> 🔖 **In sospeso per decisione dell'utente: TRANSACTIONS.** FINANCE oggi **non esegue pagamenti**: per i partner genera una **distinta SEPA** (`/api/sepa`, pain.001.001.03) da caricare in home banking. Il ponte verso Transactions non esiste né di qua né di là.
+> 
+> ⚠️ **Nulla è stato collaudato end-to-end**: senza la chiave giusta la chiamata non parte. Il deploy di FINANCE è un progetto Vercel diverso e non è stato fatto.
+
 > 🚀 **09/09/2026 — LIVE `delivery-8nk1mgd9x` (bundle `main-SALAFVH4`) — VALET: «RICHIESTA PAGAMENTO» VERSO TRANSACTIONS** (regola utente). Verificato sul sito vero: `POST /api/v1/valets/:id/richiesta-pagamento` risponde **401** (esiste), l'`it.json` pubblicato porta i tipi **Anticipo/Pagamento**, il bottone, il riquadro del valet e la colonna nuova; nei 77 chunk scaricati ci sono `tipoRichiesta` + `richiesta-pagamento` (scheda valet), `anticipi` (stipendi) e `payments.col.richiesta` (elenco pagamenti).
 >
 > - **API**: `POST /valets/:id/richiesta-pagamento` (ADMIN + OPERATION) → `TransactionsService.richiestaPagamentoValet()`. Crea un `Payment` di tipo **`PAYOUT`** (valore nuovo dell'enum TypeScript; `Payment.type` è una **stringa** nel DB, **nessuna migrazione**) già `APPROVED`, poi riusa `richiediPagamentoRimborso()` — stessa firma HMAC, stessa idempotenza `payment-<id>`.

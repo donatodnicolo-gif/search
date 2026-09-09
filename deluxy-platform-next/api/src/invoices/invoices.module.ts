@@ -1282,7 +1282,18 @@ export class InvoicesService {
       (e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }),
     );
 
-    return { ...fattura, financeRef: (finance as any).riferimento ?? null, nonPrezzabili, finance };
+    // ⭐ 09/09/2026 (regola utente: «sarà poi Finance a fare tutto») — IL MESE
+    // VA IN FINANCE. La pro-forma qui sopra è il documento; questo è il CONTO
+    // del mese: quanto abbiamo incassato per conto del partner, quanto abbiamo
+    // trattenuto (e che lì risulta già saldato, perché la commissione non gliela
+    // chiediamo: la tratteniamo), e quindi quanto gli dobbiamo. Best-effort come
+    // la pro-forma: se FINANCE non risponde la fattura interna resta e si
+    // ritenta col bottone, non si perde niente.
+    const meseFinance = await this.inviaMeseAFinance(fattura.id).catch(
+      (e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }),
+    );
+
+    return { ...fattura, financeRef: (finance as any).riferimento ?? null, nonPrezzabili, finance, meseFinance };
   }
 
   /** Data breve gg/mm/aaaa per le righe e l'oggetto mandati a FINANCE. */
@@ -1364,6 +1375,106 @@ export class InvoicesService {
         data: { financeRef: String(rif), financeSentAt: new Date() },
       });
       return { ok: true, motivo: 'Bozza creata in FINANCE', riferimento: String(rif) };
+    } catch (e) {
+      return { ok: false, motivo: `FINANCE non raggiungibile: ${(e as Error).message}` };
+    }
+  }
+
+  /**
+   * ⭐ 09/09/2026 — MANDA IL MESE A FINANCE (`POST /api/consegne-mese`).
+   *
+   * Non è il documento (quello è la pro-forma): è il CONTO del mese. Di là,
+   * dalla coppia venduto/commissioni, FINANCE ricava la fee e calcola il dovuto
+   * al partner con la formula che ha già — ed è **la stessa nostra**:
+   *   venduto − commissioni × (1 + IVA)
+   * (`dovutoVendita` in `lib/calc.ts` di deluxy-partner). Due formule per lo
+   * stesso numero finirebbero per litigare, e a litigare sarebbero due app.
+   *
+   * ⚠️ Si manda SOLO la parte di VENDITA. Sugli altri modelli il denaro va nel
+   * verso opposto (è il partner a dovere a noi) e non c'è niente da girargli:
+   * mandarli come «venduto» gonfierebbe il suo credito.
+   *
+   * Idempotente per costruzione: il `riferimento` è il numero della fattura
+   * interna, e FINANCE riconosce da quello le righe già scritte e le aggiorna
+   * invece di duplicarle. Rigenerare la stessa fattura non raddoppia il dovuto.
+   */
+  async inviaMeseAFinance(invoiceId: string): Promise<{ ok: boolean; motivo: string; dovuto?: number }> {
+    const fattura = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        partner: { select: { insegna: true } },
+        lines: {
+          include: {
+            delivery: {
+              select: {
+                productValue: true,
+                serviceType: { select: { pricingModel: true } },
+                products: {
+                  where: { deletedAt: null },
+                  select: {
+                    quantity: true, price: true, withoutCommission: true,
+                    productVariant: { select: { price: true, publicPrice: true } },
+                    product: { select: { price: true, publicPrice: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!fattura) return { ok: false, motivo: 'Fattura non trovata' };
+    const partnerNome = fattura.partner?.insegna?.trim();
+    if (!partnerNome) return { ok: false, motivo: 'Il partner non ha insegna: FINANCE lo cerca per nome.' };
+
+    const righeVendita = fattura.lines.filter(
+      (l) => (l as any).delivery?.serviceType?.pricingModel === 'VENDITA',
+    );
+    if (!righeVendita.length) {
+      return { ok: false, motivo: 'Nessuna riga di vendita in questa fattura: al partner non spetta niente da girare.' };
+    }
+    const q2 = (n: number) => Math.round(n * 100) / 100;
+    // ⚠️ Il venduto NON sta sulla riga di fattura (`InvoiceLine` porta solo la
+    // quota): si ricava dai prodotti della consegna, con la STESSA funzione che
+    // usano la fattura e la scheda consegna. Prenderlo da `productValue` e basta
+    // sarebbe sbagliato: quel campo diverge dalla somma delle righe su 1.417
+    // vendite (90.265 € di scarto, misurato il 28/08).
+    const venduto = q2(
+      righeVendita.reduce(
+        (s, l) => s + calcolaValoreProdotti((l as any).delivery?.products ?? [], (l as any).delivery?.productValue),
+        0,
+      ),
+    );
+    const commissioni = q2(righeVendita.reduce((s, l) => s + l.amount, 0));
+    if (!(venduto > 0)) {
+      return { ok: false, motivo: 'Venduto a zero sulle righe di vendita: non c’è un mese da mandare.' };
+    }
+
+    const { url, key } = await this.financeConfig();
+    if (!key) return { ok: false, motivo: 'Chiave FINANCE assente (env FINANCE_API_KEY o Impostazioni financeApiKey).' };
+
+    // Il mese di competenza è quello dell'INIZIO periodo: è il criterio con cui
+    // la fattura è stata generata, e con cui l'ufficio la cerca.
+    const inizio = new Date(fattura.periodStart);
+    try {
+      const res = await fetch(`${url}/api/consegne-mese`, {
+        method: 'POST',
+        headers: { 'X-API-Key': key, 'X-App': 'piattaforma-consegne', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partner: partnerNome,
+          anno: inizio.getUTCFullYear(),
+          mese: inizio.getUTCMonth() + 1,
+          venduto,
+          commissioni,
+          aliquotaIva: fattura.vatRate ?? IVA,
+          riferimento: fattura.number,
+          descrizione: `Consegne Deluxy · ${this.gg(fattura.periodStart)} – ${this.gg(fattura.periodEnd)}`,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const b = (await res.json().catch(() => ({}))) as { errore?: string; dovutoAlPartner?: number };
+      if (!res.ok) return { ok: false, motivo: b.errore ?? `FINANCE risponde HTTP ${res.status}` };
+      return { ok: true, motivo: 'Mese aggiornato in FINANCE', dovuto: b.dovutoAlPartner };
     } catch (e) {
       return { ok: false, motivo: `FINANCE non raggiungibile: ${(e as Error).message}` };
     }

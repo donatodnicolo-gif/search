@@ -597,7 +597,7 @@
       "partners": "Partners",
       "deliveries": "Deliveries",
       "period": "Period",
-      "invoiceAll": "Invoice",
+      "invoiceAll": "Send to Finance",
       "empty": "Nothing to invoice: every delivery is already on an invoice.",
       "capped": "Showing the partner's first 500 deliveries.",
       "unpriced": "No price",

@@ -597,7 +597,7 @@
       "partners": "Partner",
       "deliveries": "Consegne",
       "period": "Periodo",
-      "invoiceAll": "Fattura",
+      "invoiceAll": "Invia a Finance",
       "empty": "Niente da fatturare: ogni consegna ha già la sua fattura.",
       "capped": "Mostrate le prime 500 consegne del partner.",
       "unpriced": "Senza prezzo",
