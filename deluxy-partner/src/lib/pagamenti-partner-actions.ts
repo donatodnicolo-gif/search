@@ -42,28 +42,43 @@ import { partiteAperte, partiteDaChiedere, nettoDaChiedere, descriviPartite } fr
 // scritto; se l'invio fallisce, lo stato diventa «invio_fallito», il motivo
 // finisce nel registro modifiche e il bottone torna disponibile.
 
+const no = (messaggio: string): EsitoRichiesta => ({ ok: false, messaggio });
+
 function torna(destinazione: string, chiave: string, valore: string): never {
   revalidatePath("/", "layout");
   redirect(`${destinazione}${destinazione.includes("?") ? "&" : "?"}${chiave}=${encodeURIComponent(valore)}`);
 }
 
-export async function richiediPagamento(
+/**
+ * L'esito della richiesta, invece di un redirect.
+ *
+ * ⭐ 09/09/2026 — un solo NUCLEO, due chiamanti. Il bottone della scheda e la
+ * rotta che riceve il mese dalla piattaforma devono chiedere **la stessa cosa
+ * nello stesso modo**: la regola su quanto si chiede (il mese, o il netto
+ * dell'anno in compensazione) è già costata una richiesta da annullare a mano
+ * il 04/09, e ricopiarla in un secondo punto è il modo sicuro di farla
+ * divergere. Vedi la trappola «regola ricopiata in cinque posti».
+ */
+export type EsitoRichiesta =
+  | { ok: true; periodo: string; mesi: number[] }
+  | { ok: false; messaggio: string };
+
+export async function chiediPagamento(
   partnerId: string,
   anno: number,
   mese: number,
-  importo: number,
-  destinazione = "/"
-) {
+  importo: number
+): Promise<EsitoRichiesta> {
   const periodo = `${nomeMese(mese)} ${anno}`;
   if (!transactionsConfigurato()) {
-    torna(destinazione, "errorePag", `${periodo} — Transactions non è collegata: mancano TRANSACTIONS_API_KEY e TRANSACTIONS_HMAC_SECRET.`);
+    return no(`${periodo} — Transactions non è collegata: mancano TRANSACTIONS_API_KEY e TRANSACTIONS_HMAC_SECRET.`);
   }
 
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
     select: { nome: true, ragioneSociale: true, intestatarioConto: true, iban: true, compensazione: true },
   });
-  if (!partner) torna(destinazione, "errorePag", "Partner non trovato.");
+  if (!partner) return no("Partner non trovato.");
 
   // Cosa si chiede davvero: il mese, oppure il netto dell'anno.
   let causale = `Saldo ${periodo} - ${partner.nome}`;
@@ -88,10 +103,7 @@ export async function richiediPagamento(
     const partite = partiteDaChiedere(tutte.partite, mese);
     const netto = nettoDaChiedere(tutte.partite, mese);
     if (netto < 0.01) {
-      torna(
-        destinazione,
-        "errorePag",
-        `${periodo} — in compensazione il partner deve ancora ${euro(-netto)} a Deluxy (${descriviPartite(partite)}): non c'è niente da bonificare.`
+      return no(`${periodo} — in compensazione il partner deve ancora ${euro(-netto)} a Deluxy (${descriviPartite(partite)}): non c'è niente da bonificare.`
       );
     }
     importo = netto;
@@ -101,7 +113,7 @@ export async function richiediPagamento(
     note = `Netto in compensazione ${anno}: ${spiegazione} = ${euro(netto)}. Richiesto da Deluxy Finance (dal mese di ${periodo}).`;
     dettaglioRegistro = `netto ${anno} (${spiegazione})`;
   }
-  if (!(importo >= 0.01)) torna(destinazione, "errorePag", `${periodo} — importo non valido: non c'è niente da pagare.`);
+  if (!(importo >= 0.01)) return no(`${periodo} — importo non valido: non c'è niente da pagare.`);
 
   // L'IBAN lo possiede il REGISTRO Anagrafiche; qui c'è al più una copia, e
   // quasi sempre non c'è (18 partner su 119 ce l'hanno). Prima si guardava solo
@@ -112,7 +124,7 @@ export async function richiediPagamento(
     // Meglio fermarsi qui che far arrivare a Transactions una richiesta che non
     // può essere pagata: là dentro diventerebbe una pratica ferma che qualcuno
     // deve rincorrere.
-    torna(destinazione, "errorePag", `${periodo} — ${perchePagamentoSenzaIban(banca, partner.nome)}`);
+    return no(`${periodo} — ${perchePagamentoSenzaIban(banca, partner.nome)}`);
   }
 
   const precedente = await prisma.saldoMensile.findUnique({
@@ -204,5 +216,21 @@ export async function richiediPagamento(
     }
   });
 
-  torna(destinazione, "richiesta", `invio|${periodo}`);
+  return { ok: true, periodo, mesi: mesiCoinvolti };
+}
+
+/**
+ * Il bottone «Paga» della scheda partner: stesso nucleo, ma finisce con un
+ * redirect perché sta dentro un form.
+ */
+export async function richiediPagamento(
+  partnerId: string,
+  anno: number,
+  mese: number,
+  importo: number,
+  destinazione = "/"
+) {
+  const esito = await chiediPagamento(partnerId, anno, mese, importo);
+  if (!esito.ok) torna(destinazione, "errorePag", esito.messaggio);
+  torna(destinazione, "richiesta", `invio|${esito.periodo}`);
 }

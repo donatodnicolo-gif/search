@@ -15,6 +15,9 @@ import {
 } from "@/lib/fic";
 import { suggerisciClienteFic } from "@/lib/fic-cliente";
 import { nomeMese } from "@/lib/calc";
+import { riepilogoPartner } from "@/lib/queries";
+import { condizioniVendorPartner } from "@/lib/condizioni-vendor";
+import { chiediPagamento } from "@/lib/pagamenti-partner-actions";
 
 // IL MESE DELLE CONSEGNE, MANDATO DALLA PIATTAFORMA (09/09/2026).
 //
@@ -236,6 +239,55 @@ export async function POST(req: NextRequest) {
     emissione.esito = `il mese ha già la fattura ${saldo?.commFattNumero}`;
   }
 
+  // ⭐ 09/09/2026 (richiesta dell'utente: «puoi inviare poi in automatico la
+  // richiesta di pagamento a transactions?»).
+  //
+  // Sì, e non esce denaro: a Transactions arriva una RICHIESTA, che una persona
+  // deve autorizzare con secondo fattore e, sopra soglia, doppia firma. È il
+  // motivo per cui questo passo si può automatizzare mentre l'invio allo SDI ha
+  // avuto bisogno di una conferma esplicita: là il gesto è definitivo, qui no.
+  //
+  // ⚠️ NON si ricopia la regola su QUANTO chiedere: si chiama lo stesso nucleo
+  // del bottone «Paga» (`chiediPagamento`). In compensazione l'importo è il
+  // netto dell'anno, non il residuo del mese — averlo scritto in due posti è
+  // già costato la richiesta TRX-2026-000049, annullata a mano il 04/09.
+  //
+  // Tre porte:
+  //   · si chiede solo se c'è qualcosa da bonificare per quel mese;
+  //   · non si chiede se quel mese ha già una richiesta viva (il nucleo lo
+  //     ricontrolla, ma chiedere due volte non deve nemmeno partire);
+  //   · un fallimento non annulla il resto: il mese resta scritto e l'esito lo
+  //     dice.
+  const pagamento: Record<string, unknown> = { tentato: false };
+  try {
+    const saldoOra = await prisma.saldoMensile.findUnique({
+      where: { partnerId_anno_mese: { partnerId: partner.id, anno, mese } },
+      select: { richiestaRif: true, richiestaStato: true, bonificoImporto: true },
+    });
+    const inCorso =
+      Boolean(saldoOra?.richiestaRif) &&
+      !["rifiutata", "annullata", "invio_fallito"].includes(saldoOra?.richiestaStato ?? "");
+    if (inCorso) {
+      pagamento.esito = `già richiesto (${saldoOra?.richiestaRif} · ${saldoOra?.richiestaStato})`;
+    } else {
+      const cond = await condizioniVendorPartner(partner.id);
+      const riep = await riepilogoPartner(partner.id, anno, cond.condizioni?.compensazioneIncassi ?? null);
+      const daBonificare = riep.mesi[mese - 1]?.riepilogo.daBonificare ?? 0;
+      if (daBonificare < 0.01) {
+        pagamento.esito = "niente da bonificare per questo mese";
+      } else {
+        pagamento.tentato = true;
+        const esito = await chiediPagamento(partner.id, anno, mese, +daBonificare.toFixed(2));
+        pagamento.esito = esito.ok
+          ? `richiesta partita per ${esito.periodo} (mesi ${esito.mesi.join(", ")}) — va autorizzata su Transactions`
+          : `non richiesto: ${esito.messaggio}`;
+        pagamento.importo = +daBonificare.toFixed(2);
+      }
+    }
+  } catch (e) {
+    pagamento.esito = `non richiesto: ${(e as Error).message}`;
+  }
+
   await registra({
     azione: `Mese consegne ricevuto dalla piattaforma: ${mese}/${anno}`,
     categoria: "vendite",
@@ -248,7 +300,8 @@ export async function POST(req: NextRequest) {
       `${esistente ? "riga aggiornata (reinvio)" : "riga creata"}` +
       `${haGiaNumero ? ` · il mese aveva già la fattura commissioni «${saldo?.commFattNumero}», non l'ho toccata` : ""}` +
       ` · da ${appOrigine(req) ?? "piattaforma"}` +
-      (emissione.tentata ? ` · fattura FIC: ${emissione.esito ?? "?"}${emissione.numero ? ` (${emissione.numero})` : ""}${emissione.sdi ? ` · SDI: ${emissione.sdi}` : ""}` : ""),
+      (emissione.tentata ? ` · fattura FIC: ${emissione.esito ?? "?"}${emissione.numero ? ` (${emissione.numero})` : ""}${emissione.sdi ? ` · SDI: ${emissione.sdi}` : ""}` : "") +
+      (pagamento.esito ? ` · pagamento: ${pagamento.esito}` : ""),
   });
 
   return NextResponse.json({
@@ -262,6 +315,7 @@ export async function POST(req: NextRequest) {
     dovutoAlPartner: dovuto,
     fatturaCommissioni: emissione.numero ?? (haGiaNumero ? (saldo?.commFattNumero ?? riferimento) : riferimento),
     emissioneFic: emissione,
+    richiestaPagamento: pagamento,
     aggiornata: Boolean(esistente),
     // Detto esplicitamente perché la specifica chiedeva il contrario: chi
     // integra deve sapere che la commissione non diventa un credito.
