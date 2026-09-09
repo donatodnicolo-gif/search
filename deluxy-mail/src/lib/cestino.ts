@@ -23,6 +23,9 @@ export type EsitoSvuota = {
   rimossi: number
   /** Quante sono state cancellate anche dalla casella (definitivo). */
   suServer: number
+  /** Quante NON sono state cancellate dalla casella perché un altro utente di
+   *  AI Mail ha ancora quella stessa mail nella STESSA casella condivisa. */
+  lasciatePerAltri: number
 }
 
 // ---------- Lo stato del lavoro, scritto sul server ----------
@@ -175,7 +178,7 @@ export async function eseguiSvuotaCestino(utenteId: string): Promise<EsitoSvuota
       ok: false,
       messaggio,
     })
-    return { ok: false, rimossi: 0, suServer: 0, messaggio }
+    return { ok: false, rimossi: 0, suServer: 0, lasciatePerAltri: 0, messaggio }
   }
 }
 
@@ -197,6 +200,82 @@ async function databaseScrivibile(): Promise<boolean> {
 export type Avanzamento = (fase: string, fatte: number, totali: number) => Promise<void>
 const OGNI_MS = 2000
 
+/** La chiave con cui si riconosce «la stessa mail» fra due utenti: la CASELLA
+ *  (stessa scatola sul server) più il Message-ID. Senza Message-ID si ripiega
+ *  sull'UID, che dentro una casella identifica il messaggio.
+ *
+ *  ⚠️ La casella nella chiave non è un dettaglio: lo stesso Message-ID esiste
+ *  anche in un'altra casella quando una mail arriva per conoscenza (la stessa
+ *  mail sta in `cs@` e in `nicolo@`). Sono due scatole diverse: la copia in
+ *  `nicolo@` non deve impedire di cancellare quella in `cs@`. */
+function chiaveMail(casella: string, messageId: string | null, uid: number): string {
+  return messageId ? `${casella}|mid:${messageId}` : `${casella}|uid:${uid}`
+}
+
+/**
+ * Le mail che un ALTRO utente di AI Mail ha ancora nella stessa casella.
+ *
+ * «Ancora» comprende il suo cestino: finché la riga esiste può ripristinarla,
+ * quindi la mail sul server serve ancora. Torna l'insieme delle chiavi da NON
+ * cancellare dal server.
+ *
+ * Costa una lettura degli account (poche righe) più una query a lotti sui
+ * Message-ID: niente, accanto ai giri IMAP che lo svuotamento fa comunque.
+ */
+async function tenuteDaAltriUtenti(
+  utenteId: string,
+  cestinati: { uid: number; messageId: string | null; casella: string }[]
+): Promise<Set<string>> {
+  const tenute = new Set<string>()
+  if (cestinati.length === 0) return tenute
+
+  // Gli account degli ALTRI utenti, raggruppati per casella. Sono una quindicina
+  // in tutto: si filtra in memoria perché il confronto va fatto senza badare a
+  // maiuscole e spazi, e Prisma non lo sa fare dentro un `in`.
+  const altri = await db.account.findMany({
+    where: { utenteId: { not: utenteId } },
+    select: { id: true, email: true },
+  })
+  const accountAltriPerCasella = new Map<string, string[]>()
+  for (const a of altri) {
+    const casella = a.email.trim().toLowerCase()
+    accountAltriPerCasella.set(casella, [...(accountAltriPerCasella.get(casella) ?? []), a.id])
+  }
+  if (accountAltriPerCasella.size === 0) return tenute
+
+  // Solo le caselle davvero condivise: sulle altre non c'è niente da chiedere.
+  const perCasella = new Map<string, { messageId: string[]; uid: number[] }>()
+  for (const m of cestinati) {
+    if (!accountAltriPerCasella.has(m.casella)) continue
+    const g = perCasella.get(m.casella) ?? { messageId: [], uid: [] }
+    if (m.messageId) g.messageId.push(m.messageId)
+    else if (m.uid > 0) g.uid.push(m.uid)
+    perCasella.set(m.casella, g)
+  }
+
+  const LOTTO = 500
+  for (const [casella, g] of perCasella) {
+    const idAltri = accountAltriPerCasella.get(casella)!
+    for (let i = 0; i < g.messageId.length; i += LOTTO) {
+      const fetta = g.messageId.slice(i, i + LOTTO)
+      const vive = await db.messaggio.findMany({
+        where: { accountId: { in: idAltri }, messageId: { in: fetta } },
+        select: { messageId: true },
+      })
+      for (const v of vive) if (v.messageId) tenute.add(chiaveMail(casella, v.messageId, 0))
+    }
+    for (let i = 0; i < g.uid.length; i += LOTTO) {
+      const fetta = g.uid.slice(i, i + LOTTO)
+      const vive = await db.messaggio.findMany({
+        where: { accountId: { in: idAltri }, uid: { in: fetta } },
+        select: { uid: true },
+      })
+      for (const v of vive) tenute.add(chiaveMail(casella, null, v.uid))
+    }
+  }
+  return tenute
+}
+
 export async function svuotaCestinoDi(
   utenteId: string,
   avanzamento?: Avanzamento
@@ -216,6 +295,7 @@ export async function svuotaCestinoDi(
       ok: false,
       rimossi: 0,
       suServer: 0,
+      lasciatePerAltri: 0,
       messaggio:
         'Non svuoto il cestino: il database non accetta scritture (sola lettura — su Supabase succede a disco pieno). ' +
         'Procedere cancellerebbe le mail dalla casella SENZA riuscire a toglierle da qui: irreversibile e inutile. ' +
@@ -223,10 +303,34 @@ export async function svuotaCestinoDi(
     }
   }
 
-  const cestinati = await db.messaggio.findMany({
+  const righeCestinate = await db.messaggio.findMany({
     where: { cestinato: true, utenteId },
-    select: { uid: true, messageId: true, direzione: true, accountId: true },
+    // `account.email` è la CASELLA: è lei, non l'id dell'account, a dire quale
+    // scatola c'è sul server — la stessa casella ha un `Account` per utente.
+    select: { uid: true, messageId: true, direzione: true, accountId: true, account: { select: { email: true } } },
   })
+  const cestinati = righeCestinate.map((m) => ({
+    uid: m.uid,
+    messageId: m.messageId,
+    direzione: m.direzione,
+    accountId: m.accountId,
+    casella: m.account.email.trim().toLowerCase(),
+  }))
+
+  // ⚠️ UNA CASELLA PUÒ ESSERE DI PIÙ UTENTI. `cs@deluxy.it` è configurata sia
+  // dall'utente «Customer Service» sia da Nicolò, `amministrazione@` da Nicolò e
+  // da Renato: due righe `Account` e due copie locali, ma **una sola scatola sul
+  // server**. Cancellare di là è irreversibile e vale per tutti — e chi preme
+  // «Svuota cestino» non ha modo di saperlo. Misurato il 07/09/2026: in quel
+  // momento c'erano **417 mail** nel cestino di uno e ancora vive per l'altro su
+  // `cs@`, 34 su `amministrazione@`.
+  //
+  // Regola decisa dall'utente: **dal server si cancella solo quando non le ha
+  // più nessuno**. Finché un altro utente ha ancora quella mail — anche solo nel
+  // suo cestino, da dove può ripristinarla — qui si tolgono le copie locali e
+  // basta. Non serve tenere traccia di chi ha già svuotato: quando l'ultimo
+  // svuota non trova più nessuno e la cancella davvero.
+  const trattenute = await tenuteDaAltriUtenti(utenteId, cestinati)
 
   // Cancellazione DAL SERVER (irreversibile). La posta in entrata sta nella
   // INBOX, gli inviati nella cartella "Inviata". Le copie locali senza riscontro
@@ -234,8 +338,13 @@ export async function svuotaCestinoDi(
   // si saltano.
   type Rif = { uid: number; messageId: string | null }
   const perAccount = new Map<string, { inbox: Rif[]; inviata: Rif[] }>()
+  let lasciatePerAltri = 0
   for (const m of cestinati) {
     if (m.uid <= 0 && !m.messageId) continue
+    if (trattenute.has(chiaveMail(m.casella, m.messageId, m.uid))) {
+      lasciatePerAltri++
+      continue
+    }
     const g = perAccount.get(m.accountId) ?? { inbox: [], inviata: [] }
     const rif = { uid: m.uid, messageId: m.messageId }
     if (m.direzione === 'uscita') g.inviata.push(rif)
@@ -303,10 +412,21 @@ export async function svuotaCestinoDi(
   const nota = errori.length
     ? ` Attenzione: sul server di ${errori.join(', ')} la cancellazione non è riuscita (riprova).`
     : ''
+  // ⚠️ Le due cifre vanno tenute distinte, altrimenti sembra che l'app non abbia
+  // funzionato: uno svuota il cestino, ritrova la posta sul telefono e pensa a un
+  // guasto. Qui gli si dice il perché.
+  const spiegazione = lasciatePerAltri
+    ? ` ${lasciatePerAltri} ${lasciatePerAltri === 1 ? 'è rimasta' : 'sono rimaste'} nella casella: ${
+        lasciatePerAltri === 1 ? 'ce l\'ha' : 'ce le ha'
+      } ancora un altro utente di AI Mail, e dal server si cancella solo quando non ${
+        lasciatePerAltri === 1 ? 'la' : 'le'
+      } tiene più nessuno.`
+    : ''
   return {
     ok: errori.length === 0,
     rimossi: r.count,
     suServer,
-    messaggio: `Cestino svuotato: ${r.count} rimossi da AI Mail, ${suServer} cancellati anche dal server (definitivo).${nota}`,
+    lasciatePerAltri,
+    messaggio: `Cestino svuotato: ${r.count} rimossi da AI Mail, ${suServer} cancellati anche dal server (definitivo).${spiegazione}${nota}`,
   }
 }

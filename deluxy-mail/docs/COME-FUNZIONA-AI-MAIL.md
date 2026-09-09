@@ -23,7 +23,9 @@ Tre principi che decidono ogni dubbio di progettazione:
 2. **L'AI propone, tu disponi.** Nessuna mail parte da sola. Niente si cancella
    automaticamente: al massimo l'AI archivia. L'unico caso di cancellazione vera
    è **manuale ed esplicito** — quando **svuoti il Cestino**, i messaggi vengono
-   rimossi anche dal server della casella (irreversibile).
+   rimossi anche dal server della casella (irreversibile). **Ma non se quella
+   casella è di qualcun altro oltre che tua**: vedi «Il cestino su una casella
+   condivisa» più sotto.
 3. **Le tue regole battono l'AI.** Se hai scritto una condizione esatta, il modello non
    può contraddirla.
 
@@ -1013,6 +1015,34 @@ erano **1.073** mail arrivate lì da sole, contro **15** buttate da una persona 
 schermo sono identiche. Siccome **«Svuota cestino» cancella dal server e non si torna
 indietro**, prima di premerlo su un cestino molto pieno vale la pena guardare cosa
 c'è dentro.
+
+### Il cestino su una casella condivisa (07/09/2026)
+
+Una casella può essere collegata da **più utenti** di AI Mail: oggi `cs@deluxy.it` è di
+*Customer Service* e di *Nicolò*, `amministrazione@deluxy.it` di *Nicolò* e *Renato*. Ognuno
+ha la sua copia locale, ma **la scatola sul server è una sola** — e cancellare di là vale
+per tutti.
+
+- **«Cestina» resta tua.** Sposta la mail nel tuo cestino: l'altro non vede niente cambiare.
+- **«Svuota cestino» cancella dal server solo quando quella mail non ce l'ha più nessuno.**
+  Finché un altro utente la tiene — anche solo nel suo cestino, da dove può ripristinarla —
+  qui sparisce la tua copia e sul server resta. Quando anche l'ultimo svuota, non trova più
+  nessuno e la cancella davvero.
+
+Il riepilogo lo dice: «*N rimossi da AI Mail, M cancellati anche dal server. K sono rimaste
+nella casella: ce le ha ancora un altro utente di AI Mail…*». Senza quella riga sembrerebbe
+un guasto — svuoti il cestino e ritrovi la posta sul telefono.
+
+**Due conseguenze da sapere.** Se l'altro non svuota mai il suo cestino, quelle mail restano
+sul server per sempre: su una casella condivisa lo svuotamento non è più un modo per liberare
+spazio. E se due utenti svuotano nello stesso istante, ognuno può vedere l'altro ancora
+presente e saltare: nessun dato perso, ma sul server resta una mail che non ha più nessun
+proprietario.
+
+Misura del giorno in cui è stata introdotta, a regola simulata sui dati veri: Nicolò aveva
+755 mail nel cestino → 505 sarebbero state cancellate dal server e **250 risparmiate**;
+l'utente *Customer Service* ne aveva 201 → **tutte e 201 risparmiate**. Prima sarebbero
+sparite dalla casella di tutti.
 
 ### Annotare un'attività
 

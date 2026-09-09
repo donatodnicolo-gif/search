@@ -23,6 +23,226 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 09/09 — «Message blocked» a Emma: **non è AI Mail, è l'SPF di `deluxy.it`**
+
+Rimbalzo mostrato dall'utente: un messaggio di Emma Gariboldi a `nicolo.donato@deluxy.it`
+respinto da `mail.register.it` con `552 5.2.0 … Received-SPF: fail`. Letto oggi sul DNS
+pubblico:
+
+```
+deluxy.it TXT  v=spf1 include:spf.webapps.net include:147623810.spf10.hubspotemail.net -all
+deluxy.it MX   mail.register.it
+_dmarc         v=DMARC1; p=none; …
+```
+
+`spf.webapps.net` sono i server di **register.it**, il secondo è **HubSpot**: **Google non
+c'è**, e `-all` è un rifiuto secco. L'`X-Original-Message-ID` del rimbalzo era
+`<calendar-…@google.com>`: era una mail di **Google Calendar** partita per conto di
+`@deluxy.it`. Siccome l'MX di `deluxy.it` è register.it, è lui a far rispettare la regola.
+Il DMARC è `p=none`, quindi **non è il DMARC**: è l'SPF `-all` applicato dal destinatario.
+
+⚠️ **AI Mail non c'entra**: manda via SMTP di register.it, che l'SPF autorizza. Però i
+rimbalzi finiscono nelle caselle e quindi si vedono qui: **315 messaggi di rifiuto** in
+archivio (10 nominano SPF); solo oggi due a `emma.gariboldi@` (11:04 e 12:22) e sei a
+`amministrazione@` alle 07:00.
+
+**Rimedio, da fare nel pannello DNS di register.it — non da qui e non da me**: aggiungere
+`include:_spf.google.com` **al record esistente** (mai un secondo record). Conteggio delle
+interrogazioni DNS, che è la cosa che si rompe se si esagera (tetto 10 → oltre è
+`permerror` e l'SPF salta del tutto): oggi **6**, con Google **7**. C'è margine.
+
+🔴 **Trovato nello stesso giro: `deluxyflowers.com` ha DUE record SPF**
+(`include:mailgun.org ~all` e `include:spf.webapps.net ~all`). L'RFC 7208 ne vuole uno solo:
+con due il risultato è `permerror`. Vanno fusi:
+`v=spf1 include:spf.webapps.net include:mailgun.org ~all`.
+
+### 08/09 (19:55) — «Ho mandato questa mail dal telefono ed è successo questo»: tre copie nella conversazione
+
+Segnalazione dell'utente con schermata: la conversazione «DELUXYFLOWERS X MASPES | PROPOSTA
+COLLABORAZIONE» mostra **3 messaggi** per una mail sola — «Amministrazione» due volte e «Tu».
+Letto sul database (`messageId` `<e3aef109-…@deluxy.it>`, 6 righe in tutto):
+
+| utente | casella | direzione | uid |
+|---|---|---|---|
+| nicolo | amministrazione@ | **uscita** | 2173 |
+| nicolo | nicolo.donato@ | entrata | 154490 |
+| nicolo | cs@ | entrata | 26252 |
+| cs | cs@ | entrata | 26252 |
+| eleonora | eleonora.mannini@ | entrata | 4538 |
+| martina | martina.calia@ | entrata | 8160 |
+
+**Non è una duplicazione: sono copie vere.** La mail è partita da `amministrazione@` verso
+`maspespiantefiori@pecpostasicura.it` **con in copia `cs@`, `eleonora`, `martina` e
+`nicolo.donato@`**. Nicolò ha configurate tre di quelle caselle, quindi nella SUA vista la stessa
+mail esiste tre volte: una come inviata (`amministrazione@`) e due come ricevuta (`nicolo@` e
+`cs@`). L'app mostra **una riga per ogni copia in ogni casella**, ed è coerente con com'è fatta —
+ma per chi guarda è la stessa mail scritta tre volte. Il raggruppamento in conversazione funziona
+(stesso `thread`), è la pila dentro la conversazione a ripetersi.
+
+**Quanto è diffuso** (misurato ora, mail non cestinate): la stessa mail compare più volte nella
+vista dello stesso utente per **nicolò 1.327 mail (1.405 righe in più)**, **cs 405**, **renato
+123**, martina 1 — su 44.630 messaggi. **78 mail** compaiono tre o più volte. Non è un caso
+isolato.
+
+**Proposta, NON applicata** (è un cambiamento di interfaccia: va dal custode UX o almeno
+registrato): quando la vista è su «tutte le caselle», mostrare **una riga sola per Message-ID**
+con l'indicazione delle caselle in cui si trova; con una casella selezionata, lasciare tutto
+com'è — lì la copia di quella casella è esattamente ciò che si vuole vedere. Da decidere: quale
+copia fa da capofila (la inviata, immagino) e cosa succede alle azioni (archivia/cestina) — se
+agiscono su una copia o su tutte, ed è la stessa domanda dello svuota-cestino condiviso di ieri.
+
+### 08/09 (18:25) — Verifica col custode: preso il `db.ts` comune, e l'EXPLAIN che mancava
+
+⚠️ **Il pericolo più grosso della giornata era il mio deploy, non una query.** La sessione
+custode ha portato su `origin/scout-ui` il `db.ts` canonico (`04c82b6f`: `connection_limit=3`,
+`pool_timeout=20`, singleton anche in produzione, tocca solo la `:6543`) e il mio branch non
+ce l'aveva. Il mio deploy **non parte da un branch: `npx vercel deploy --prod --yes` carica la
+CARTELLA così com'è** — quindi la prossima pubblicazione avrebbe **cancellato dalla produzione
+la sua correzione**, riportando il `db.ts` vecchio. Fatto `git merge --ff-only origin/scout-ui`:
+ora 0 avanti / 0 indietro, `prisma generate` + `tsc` → **0 errori**. Regola da tenere: **prima di
+ogni deploy di AI Mail, allineare il worktree** — il branch non protegge, conta il working tree.
+
+**L'EXPLAIN del `_count` sulle Sezioni, che mancava — e il bersaglio era spostato di un colpo:**
+
+- Il chiamante caldo **non è `/sezioni` né `/impostazioni`** (pagine che si aprono di rado) ma
+  **`src/components/Sidebar.tsx:56`**, il pallino delle non lette accanto a ogni sezione: **ogni
+  pagina dell'app**. Ecco perché sono ~4.900 chiamate. (Avevo scritto le due pagine nel report
+  del mattino prendendo per buona l'indicazione dell'ostile senza verificarla: corretto.)
+- ⚠️ **Il difetto: la sottoquery non ha `utenteId`.** Prisma filtra per utente la `Sezione`
+  esterna, ma l'aggregazione interna passa **tutta** la tabella: Index Only Scan su **46.645
+  righe**, **10.193 buffer (~80 MB) per chiamata**, 267 ms a freddo / 32,7 / 28,3 a caldo — per
+  calcolare i conteggi di **19 sezioni**. Sotto contesa diventano gli 860 ms di media e i 62 s
+  di punta. Numeri: **4.878 chiamate, 4.195.851 ms**, +251 chiamate e +289.908 ms in 6 h 40 m
+  (~17 min di CPU al giorno, in crescita).
+- **Rimedio candidato, NON applicato**: `groupBy` su `Messaggio` filtrato per `utenteId`
+  (`Messaggio_posta_idx` copre quelle colonne) e ricucitura in JS. Passa da `performance-ostile`.
+
+**Rimisura della pulizia HTML (18:23): 5.500 chiamate, 15.284.109 ms.** Da stamattina **+2
+chiamate e +6 ms** — sono le due scansioni previste (risveglio delle 11:45:44, pulizia, giro dopo
+a vuoto e ritorno al sonno), e costano 6 ms invece di 5.600 grazie all'indice parziale dell'altra
+sessione. Prima: +288 chiamate e ~800 s di CPU al giorno.
+
+🔴 **Due decisioni che aspettano l'utente** (registrate nel registro del custode, non applicate):
+1. **Le migrazioni a ogni build.** `migrate-prod.mjs` gira dentro `build` — 24 `CREATE INDEX` + 9
+   unique, 22 `CREATE TABLE`, 46 `ADD COLUMN`, **zero `CONCURRENTLY`**, sulla tabella da 774 MB
+   del cluster condiviso, con gli errori ingoiati. Proposta: spostarlo in `npm run migra:prod`, a
+   mano quando c'è una DDL nuova. Vincolo da non dimenticare: `prisma migrate deploy` non è
+   utilizzabile (host diretto Supabase solo IPv6), quindi lo script non si butta, si sposta.
+2. **`map: "Messaggio_posta_idx"`** nello `schema.prisma`: oggi la dichiarazione senza `map`
+   corrisponde all'indice **morto** (`idx_scan = 0`) mentre quello vivo (12.721 scansioni) lo crea
+   solo lo script. Un `db push` droppa il vivo e ricrea il morto. Una riga, nessuna DDL eseguita.
+
+### 08/09 (11:43) — ✅ LA MISURA A 24 ORE, e la nuova candidata
+
+**La pulizia HTML non è più girata.** `pg_stat_statements`: **5.498 chiamate, 15.284.103 ms —
+identici alle 22:03 di ieri**. In 24 ore **+1 chiamata invece di +288, e +0 ms di CPU**. Il
+segnalino diceva «risveglio 08/09 11:45:44»: si sveglia, pulisce le poche righe invecchiate e
+torna a dormire (costo a regime **2 scansioni al giorno**).
+
+**Il riscontro sul sintomo**, che è quello che conta: l'elenco della posta, stesso piano, 6 giri
+consecutivi → **53,6 · 2,0 · 2,0 · 2,0 · 1,9 · 2,0 ms**. Ieri mattina, stesso identico piano:
+7015 / 1281 / 849 / 16 / 5 / 1,9. La dispersione è collassata: la contesa era in buona parte
+nostra.
+
+🆕 **La prossima candidata, già misurata ma NON ancora spiegata**: il
+`_count: { select: { messaggi: true } }` su `Sezione` (`src/app/sezioni/page.tsx`,
+`src/app/impostazioni/page.tsx`) è oggi la **n.4 del cluster** — 4.627 chiamate, 3.905.943 ms,
+media ~844 ms, massimo 62.420 ms — e **cresce**: ieri 4.261 / 3.263.482, cioè **+642.461 ms in
+24 ore ≈ 11 minuti di CPU al giorno**. Manca l'EXPLAIN: si fa quello **prima** di proporre un
+rimedio. Registrata nel registro del custode.
+
+⚠️ Altro da non perdere: `info@deluxyflowers.com` ha `ultimoErrore: "Command failed"` (non
+indagato). Utenti: 11 registrati e attivi, 15 caselle tutte attive, 45.218 messaggi, 687 salvati
+nelle ultime 24 h. **Utenti attivi al giorno e picco di concorrenti: non misurabili da qui**,
+l'app non ha analytics né traccia dell'ultimo accesso.
+
+### 07/09 (22:28) — IN PRODUZIONE `b5032a5f` (deploy `deluxy-mail-1ldpyb5kr`, build nel cloud)
+
+La regola del cestino condiviso è live. Alias `deluxy-mail.vercel.app` → questo deployment
+(`vercel inspect`), Ready, `/api/health` `{ok:true, database:true, scrivibile:true}`, home 307
+in 0,10-0,30 s. Terzo deploy della giornata, sempre con build nel cloud (la precompilata resta
+ferma sulle rotte col backslash, vedi la tappa delle 11:41).
+
+⚠️ **Da collaudare a mano, e il collaudo è distruttivo**: l'unico modo di esercitare
+`svuotaCestinoDi` è cancellare davvero. Per provarla in sicurezza: cestinare **una** mail che
+esiste anche per l'altro utente della casella e svuotare — deve comparire nel riepilogo la riga
+«è rimasta nella casella: ce l'ha ancora un altro utente», la copia locale sparisce e sul server
+la mail resta.
+
+### 07/09 (sera) — Cancellare una mail da una casella CONDIVISA fra due utenti
+
+Domanda dell'utente: «se cancello una mail dal mio account e la mail è di cs@deluxy.it, si
+cancella anche per l'altro account collegato a cs@deluxy.it?». Letto sul codice e sul database.
+
+**Sul database**: due caselle sono configurate da **due utenti diversi** —
+`cs@deluxy.it` (Customer Service + Nicolò) e `amministrazione@deluxy.it` (Nicolò + Renato).
+Ogni utente ha una `Account` sua e **righe `Messaggio` sue** (`utenteId`): sono due copie
+locali della stessa casella.
+
+- **«Cestina» → NO.** `actions.ts` scrive solo `cestinato: true` sulla riga di *quell'*utente.
+  Il server non viene toccato, l'altro utente non vede niente cambiare.
+- **«Svuota cestino» → SÌ, e in modo IRREVERSIBILE per tutti.** `svuotaCestinoDi(utenteId)`
+  (`src/lib/cestino.ts:200+`) chiama `eliminaDalServer()`, che cerca ogni mail **per Message-ID**
+  nella cartella e la marca `\Deleted` **espungendola** (`imap.ts:326+`). La casella è la stessa
+  scatola fisica: la mail sparisce da `cs@deluxy.it` per l'altro utente di AI Mail, per la
+  webmail e per qualunque altro programma. La copia locale dell'altro utente **resta visibile**
+  (la sua riga non viene cancellata), ma l'originale non c'è più: l'HTML non si riprende più dal
+  server e una risincronizzazione non la ritroverà mai.
+
+✅ **CORRETTO in serata, su decisione dell'utente** («cancella definitivamente solo se quella mail
+è stata svuotata dal cestino da tutti gli utenti»). In `src/lib/cestino.ts`:
+
+- nuova `tenuteDaAltriUtenti()`: prima di toccare il server chiede quali di quelle mail un
+  **altro utente** ha ancora **nella stessa casella**. «Ancora» comprende il suo cestino: finché
+  la riga esiste può ripristinarla. Non serve tenere traccia di chi ha già svuotato — quando
+  l'ultimo svuota non trova più nessuno e cancella davvero.
+- ⚠️ **La chiave è (casella, Message-ID)**, non il solo Message-ID: la stessa mail arrivata per
+  conoscenza sta anche in `nicolo@`, che è un'altra scatola, e non deve impedire di cancellare
+  quella di `cs@`. Ripiego sull'UID quando il Message-ID manca (dentro una casella identifica il
+  messaggio). Costo: una lettura degli account + una query a lotti da 500 sui Message-ID.
+- `EsitoSvuota` porta `lasciatePerAltri`, e il riepilogo distingue le tre cifre: senza quella
+  riga uno svuota il cestino, ritrova la posta sul telefono e pensa a un guasto.
+
+**Simulazione sui dati veri** (sola lettura, nessuna cancellazione): Nicolò 755 in cestino →
+505 cancellate dal server, **250 risparmiate**; utente *Customer Service* 201 → **tutte e 201
+risparmiate**; Eleonora, Martina e Renato non cambiano (nessuna casella condivisa fra i loro
+cestini). `tsc` 0 errori.
+
+Due conseguenze accettate a occhi aperti: se l'altro non svuota mai, quelle mail restano sul
+server per sempre (su una casella condivisa lo svuotamento non libera più spazio); e se due
+utenti svuotano nello stesso istante ognuno può vedere l'altro ancora presente e saltare —
+nessun dato perso, ma sul server resta una mail senza più proprietari.
+
+### 07/09 (sera) — Cosa ha fatto **un'altra finestra** su AI Mail, e la verifica a 10 ore
+
+Un'altra sessione ha lavorato sullo stesso problema. Recuperato con
+`git log HEAD..origin/scout-ui -- deluxy-mail`: **un solo commit tocca AI Mail**, `0e06d9c6`
+(18:55), e cambia **un solo file**, `deluxy-mail/vercel.json`:
+
+- **cron `*/5` → `2-57/5`**. Al minuto 0 partivano insieme otto lambda a freddo sullo stesso
+  pool condiviso (messaging × 3, mail, orders, merchandising, piattaforma, calendario): ora
+  ognuna ha il suo minuto, la frequenza non cambia. Niente da rifare da parte nostra.
+- Nessun'altra riga di `deluxy-mail/` è stata toccata: il codice delle tre correzioni di stamattina
+  è intatto.
+
+Quella sessione ha però anche **creato un indice sul cluster condiviso** (verificato sul
+database): `Messaggio_htmlDaPulire_idx` — `btree(data, id) WHERE corpoHtml IS NOT NULL AND
+uid > 0`, **272 kB**, parziale su 4.419 righe di 44.838. Con lui la query della pulizia passa da
+Index Scan sulla pkey a **Index Only Scan: 0,1 ms** invece di 2.780 (misurato tre giri). Lo
+script sta in `deluxy-messaging/scripts/indice-mail-html-da-pulire.mts`.
+
+⚠️ **La sua motivazione conteneva una previsione sbagliata**, e la misura la smentisce: diceva
+che la mia difesa «non dorme mai, perché ogni giorno qualche messaggio invecchia e trova sempre
+una manciata di righe». Il sonno però è **a tempo (24 h)**, non «finché trova zero»: il giro che
+trova righe le pulisce e azzera il segnalino, quello dopo trova zero e torna a dormire. Costo a
+regime: **2 scansioni al giorno**, non 288. Riscontro sul database alle 22:03 —
+`pg_stat_statements` **ferma a 5.498 chiamate e 15.284.103 ms dalle 11:55**: in **10 ore e 18
+minuti la query non è girata nemmeno una volta** (prima sarebbero state ~124 chiamate e ~345 s di
+CPU). Il segnalino dice ancora «risveglio 08/09 11:45:44», e le righe in attesa sono 3.
+
+I due rimedi non si pestano i piedi: il sonno toglie le 286 scansioni inutili, l'indice rende
+istantanee le due che restano. **Nessuno dei due va disfatto.**
+
 ### 07/09 (11:41) — IN PRODUZIONE `a02fdfc8` (deploy `deluxy-mail-26vp0zskh`, build nel cloud)
 
 Alias `deluxy-mail.vercel.app` → questo deployment (verificato con `vercel inspect`), Ready,

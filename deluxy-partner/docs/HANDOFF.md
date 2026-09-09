@@ -1,5 +1,37 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🔎 **09/09/2026 — PERCHÉ LE DIFESE NON SERVIVANO: IL CRON GIRA CODICE VECCHIO.**
+> Indagine chiesta dall'utente. La prova sta nel registro modifiche: ogni corsa
+> del cron FIC scrive una frase fissa, e dal **01/09 al 09/09** tutte scrivono
+> «competenza = **mese di emissione**» — una stringa **sostituita il 31/08 alle
+> 07:08** (commit 49245439). Il codice di oggi scrive «competenza = mese del
+> servizio (dalla descrizione) o di emissione».
+> ⇒ **Il cron esegue un build anteriore al 31/08**, cioè anteriore a TUTTE le
+> difese contro le fatture commissioni (introdotte il 02/09 e l'08/09). Ecco
+> perché la correzione dell'08 non ha avuto effetto sulla corsa del 09.
+> **Le pagine invece sono aggiornate**: `/fatture/nuova` risponde 308, redirect
+> introdotto l'08/09.
+> ⚠️ **Cosa ho escluso**, con prove: non è un secondo progetto Vercel (ce n'è
+> uno solo); non è l'alias fermo (`deluxy-partner-deluxy.vercel.app` risolve al
+> deploy più recente); a 06:15 la produzione era `lys6ksght` delle 04:50, e
+> quella cartella conteneva le difese; non è una seconda strada di scrittura
+> (le altre due hanno la loro deviazione per le commissioni); non è la regola
+> che legge il campo sbagliato (`subject` è vuoto e legge `visible_subject`).
+> 🔴 **Il PERCHÉ resta aperto.** Sospetto principale: `"ignoreCommand": "git
+> diff --quiet HEAD^ HEAD -- ."` in `vercel.json` — quando esce 0 Vercel
+> **salta il build e riusa l'output precedente**, e i nostri deploy durano ~54s,
+> troppo poco per un build vero di questa app. Non l'ho dimostrato, quindi non
+> lo dichiaro come causa.
+> ✅ **Cosa ho fatto perché la prossima volta sia una risposta e non un'ipotesi**:
+> - ogni corsa del cron scrive nel registro il **build che l'ha eseguita**
+>   (`VERCEL_GIT_COMMIT_SHA`, 7 caratteri);
+> - **controllo dopo il fatto**: finita l'importazione si rilegge cosa è nato, e
+>   se una fattura commissioni è comunque finita fra i servizi si scrive un
+>   allarme rosso nel registro con numeri e importo.
+> La rete vera resta il **vincolo UNIQUE** sul numero: una seconda registrazione
+> non può più riuscire, qualunque codice giri.
+
+
 > 🧾 **09/09/2026 — IL NUMERO DI FATTURA È UN'IDENTITÀ, E ORA IL DATABASE LO SA.**
 > Domanda dell'utente: «è impossibile che una fattura esca due volte, un numero
 > è univoco». Vero: su FIC il documento è uno. Era **Finance a registrarlo due

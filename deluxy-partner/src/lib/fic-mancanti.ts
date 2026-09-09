@@ -443,6 +443,16 @@ export async function importaFattureFicSicure(origine: string, giorni = 90): Pro
     await registra({
       azione:
         `Importate ${importate} fatture da Fatture in Cloud (${origine})` +
+        // ⭐ 09/09/2026 — QUALE VERSIONE HA GIRATO.
+        // Il 09/09 il cron ha registrato 37 fatture commissioni come servizi
+        // benché il codice avesse DUE difese, messe l'08/09. Rileggendo il
+        // registro è saltato fuori che TUTTE le corse dal 01/09 scrivono una
+        // frase sostituita il 31/08: il cron eseguiva codice vecchio mentre le
+        // pagine erano aggiornate. Non sono riuscito a dimostrare PERCHÉ, e una
+        // spiegazione dedotta non è una prova — quindi da oggi ogni corsa
+        // scrive la sua versione, e la prossima volta la domanda ha una
+        // risposta invece di un'ipotesi.
+        ` · build ${(process.env.VERCEL_GIT_COMMIT_SHA ?? "locale").slice(0, 7)}` +
         (commissioniAgganciate > 0 ? ` · ${commissioniAgganciate} fatture commissioni agganciate ai mesi` : "") +
         (fermateCommissioni > 0 ? ` · ⚠️ ${fermateCommissioni} fermate all'ultima porta (commissioni scambiate per servizi)` : ""),
       categoria: "fatture",
@@ -454,5 +464,32 @@ export async function importaFattureFicSicure(origine: string, giorni = 90): Pro
           : ""),
     });
   }
+  // ⭐ CONTROLLO DOPO IL FATTO (09/09/2026). Le difese stanno prima della
+  // scrittura; questa guarda il RISULTATO. Se una fattura commissioni è
+  // comunque finita fra i servizi, lo si scopre subito e non fra un mese
+  // contando due volte i soldi. Il vincolo UNIQUE sul numero rende la cosa
+  // quasi impossibile: «quasi» non è «mai», e un allarme costa una query.
+  const numeriDopo = new Set(
+    (await prisma.saldoMensile.findMany({ where: { commFattNumero: { not: null } }, select: { commFattNumero: true } }))
+      .map((x) => (x.commFattNumero ?? "").trim())
+      .filter((x) => /\d/.test(x))
+  );
+  const intrusi = await prisma.fatturaServizio.findMany({
+    where: { createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }, numero: { not: null } },
+    select: { numero: true, imponibile: true },
+  });
+  const doppioni = intrusi.filter((f) => numeriDopo.has((f.numero ?? "").trim()));
+  if (doppioni.length > 0) {
+    const { registra } = await import("./registro");
+    await registra({
+      azione: `🔴 ${doppioni.length} fatture COMMISSIONI registrate come servizi dall'import (${origine})`,
+      categoria: "fatture",
+      dettaglio:
+        `Sono contate due volte: ${doppioni.map((d) => d.numero).join(", ")} — ` +
+        `${doppioni.reduce((a, d) => a + d.imponibile, 0).toFixed(2)} € netti. ` +
+        `Ripararle con scripts/ripara-commissioni-importate.mjs.`,
+    });
+  }
+
   return { ok: true, importate, daRivedere: esito.mancanti.length - sicure.length, commissioniAgganciate, dettaglio };
 }
