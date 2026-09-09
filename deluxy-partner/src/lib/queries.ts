@@ -19,7 +19,10 @@ export type SaldoRecord = NonNullable<Awaited<ReturnType<typeof prisma.saldoMens
 // Riepilogo completo di un partner per un anno: 12 mesi calcolati + rolling.
 export async function riepilogoPartner(partnerId: string, anno: number) {
   const [partner, fattureTutte, vendite, saldi, extraRighe] = await Promise.all([
-    prisma.partner.findUnique({ where: { id: partnerId }, select: { compensazione: true } }),
+    prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { compensazione: true, compensazioneDecisa: true },
+    }),
     prisma.fatturaServizio.findMany({
       where: { partnerId, anno },
       include: { tipologia: true },
@@ -44,6 +47,14 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
   const { vere: fatture, nonEmesse } = separaFattureVere(fattureTutte);
 
   const compensazione = partner?.compensazione ?? false;
+  // ⭐ 09/09/2026 — REGIME «COMMISSIONI A PARTE» (regola dell'utente): dovuto
+  // pari al venduto e la fattura commissioni come credito del mese.
+  // ⚠️ SOLO dove la compensazione è stata **decisa a NO**, non dove non è mai
+  // stata valorizzata: «è solo per chi ha compensazione valorizzata come no».
+  // Il campo che distingue le due cose esiste già ed è `compensazioneDecisa`
+  // (un booleano che parte a false non sa dire «non lo so»): oggi il regime
+  // tocca **un partner**, CLIVATI, non i 107 che risultano «senza».
+  const commissioniAParte = !!partner?.compensazioneDecisa && !compensazione;
   const mesiConExtra = new Set(extraRighe.map((e) => e.mese));
 
   const mesi = Array.from({ length: 12 }, (_, i) => {
@@ -51,7 +62,7 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
     const f = fatture.filter((x) => x.mese === mese);
     const v = vendite.filter((x) => x.mese === mese);
     const saldo = saldi.find((x) => x.mese === mese) ?? null;
-    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo, compensazione, mesiConExtra.has(mese)) };
+    return { mese, fatture: f, vendite: v, saldo, riepilogo: riepilogoMese(f, v, saldo, compensazione, mesiConExtra.has(mese), commissioniAParte) };
   });
 
   return { fatture, vendite, saldi, mesi, nonEmesse, rolling: rolling(mesi.map((m) => m.riepilogo)) };
@@ -107,7 +118,17 @@ export async function riepilogoTutti(anno: number) {
       return {
         mese,
         saldo,
-        riepilogo: riepilogoMese(fMese[mese], vMese[mese], saldo, p.compensazione),
+        // Stessa regola della scheda: il regime «commissioni a parte» vale solo
+        // per chi ha DECISO di non compensare. Se qui contasse diversamente,
+        // dashboard e scheda darebbero due dovuti diversi sullo stesso mese.
+        riepilogo: riepilogoMese(
+          fMese[mese],
+          vMese[mese],
+          saldo,
+          p.compensazione,
+          true,
+          p.compensazioneDecisa && !p.compensazione
+        ),
       };
     });
     return { partner: p, fatture: pf, vendite: pv, saldiRecords: ps, mesi, rolling: rolling(mesi.map((m) => m.riepilogo)) };

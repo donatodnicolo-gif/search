@@ -1,5 +1,44 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🧮 **09/09/2026 — REGIME «COMMISSIONI A PARTE» (regola dell'utente).**
+> «Senza compensazione il dovuto è pari al venduto e si apre una nuova riga per
+> mese con il valore della fattura delle commissioni che il partner dovrà
+> pagare.» In `calc.ts` il parametro `commissioniAParte`: il dovuto vendite
+> diventa il **venduto pieno** e la commissione IVATA entra in `daIncassare`
+> (credito pieno — scelta dell'utente), quindi il tasto «Paga» chiede il venduto
+> pieno.
+> ⚠️ **Vale SOLO per chi ha la compensazione DECISA a «no»**, non per chi non
+> l'ha mai valorizzata: «è solo per chi ha compensazione valorizzata come no».
+> Il campo che distingue le due cose esiste già in Finance ed è
+> `Partner.compensazioneDecisa`. Misura del 09/09: **deciso sì 12, deciso no 1
+> (CLIVATI), mai deciso 106** — quindi il regime tocca **un partner solo**.
+> Se avessi guardato `compensazione = false` avrei spostato **113.561,48 €** di
+> commissioni su 107 partner che nessuno ha mai interrogato.
+> 📏 CLIVATI: venduto 14.568,05 (2025) e 7.584,56 (2026); il dovuto sale da
+> 11.043,87 → 14.568,05 e da 6.011,52 → 7.584,56, con **3.524,19 + 1.573,04 €**
+> di commissioni che diventano credito. Le fatture commissioni ci sono quasi
+> tutte (17 mesi con numero), e **nessuna è doppia** fra i servizi.
+> 🔴 **Limite dichiarato**: scadenzario e solleciti leggono le righe
+> `FatturaServizio`, e le fatture commissioni non ci sono (429 su 437 emesse non
+> esistono come riga in Finance). Il credito è pieno nei saldi, ma **non
+> compare nello scadenzario né nei solleciti**, e l'app non sa se quelle
+> fatture siano già state pagate.
+>
+> 🔗 **«Pagato al partner …»: due destinazioni, non una.**
+> Su **Transactions** solo se la richiesta risulta `pagata`; altrimenti sul
+> **movimento bancario** di Finance (`/movimenti/<id>`), agganciato per data e
+> verso quando il candidato è uno solo; se non c'è aggancio, ai movimenti già
+> filtrati per importo, verso e giorno. Il difetto: su CAKELAB FIRENZE giugno
+> mostrava «Pagato 769,32 €» e insieme «Pagamento in attesa», e il link portava
+> a `TRX-2026-000011`, che quei soldi non li ha fatti uscire.
+>
+> ❗ **«Mese pareggiato» mentiva.** `PagamentoMese` calcolava il pareggio da sé
+> con due voci su quattro, e stampava il badge verde sotto un mese con 683,84 €
+> usciti in più. Ora usa la stessa condizione del motore, e al posto del badge
+> compare **quanto è uscito in più e cosa succede adesso** (si scala dai
+> prossimi bonifici; annullando il bonifico sparisce da sé).
+
+
 > 🔗 **08/09/2026 — «Pagato al partner …» porta alla richiesta su Transactions.**
 > Nel footer del mese (`src/components/PagamentoMese.tsx`) la riga che riepiloga
 > il bonifico registrato diventa un link a
