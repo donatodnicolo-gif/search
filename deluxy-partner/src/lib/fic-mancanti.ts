@@ -362,7 +362,21 @@ export async function creaFatturaImportata(m: {
   // chiami questa funzione, una fattura di commissioni non diventa un servizio.
   // Una guardia che vive solo nel punto che classifica protegge quel punto;
   // questa protegge il dato.
-  if (eFatturaCommissioni(m.descrizione, m.numero, new Set())) return null;
+  // ⚠️ 09/09/2026 — L'INSIEME ERA VUOTO. `eFatturaCommissioni` sa riconoscere
+  // una fattura commissioni in DUE modi: dal testo, oppure perché quel numero è
+  // già agganciato a un mese come «Fatt. comm.». Passandogli `new Set()` il
+  // secondo modo era spento, e restava solo il testo. Ora la guardia chiede al
+  // database quali numeri sono già commissioni: una fattura che un mese ha già
+  // rivendicato non può diventare un servizio, qualunque cosa dica il suo
+  // oggetto (o se l'oggetto è vuoto).
+  const saldiComm = await prisma.saldoMensile.findMany({
+    where: { commFattNumero: { not: null } },
+    select: { commFattNumero: true },
+  });
+  const numeriComm = new Set(
+    saldiComm.map((x) => (x.commFattNumero ?? "").trim()).filter((x) => /\d/.test(x))
+  );
+  if (eFatturaCommissioni(m.descrizione, m.numero, numeriComm)) return null;
   const f = await prisma.fatturaServizio.create({
     data: {
       partnerId: m.partnerId,

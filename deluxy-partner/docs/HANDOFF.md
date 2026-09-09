@@ -1,5 +1,50 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🧾 **09/09/2026 — IL NUMERO DI FATTURA È UN'IDENTITÀ, E ORA IL DATABASE LO SA.**
+> Domanda dell'utente: «è impossibile che una fattura esca due volte, un numero
+> è univoco». Vero: su FIC il documento è uno. Era **Finance a registrarlo due
+> volte** — come `FatturaServizio` e come `SaldoMensile.commFattNumero` — e
+> niente lo impediva: sul campo `numero` **non c'era nessun vincolo**, in
+> Postgres l'unico indice UNIQUE era la chiave primaria.
+> - 🔒 **Indice UNIQUE PARZIALE** creato (`FatturaServizio_numero_unico`, su
+>   `numero` dove non è nullo né vuoto). **Provato in modo ostile**: il database
+>   ha rifiutato un doppione di 225/2026. Prisma non sa esprimere un indice
+>   parziale: è documentato nello schema, e `db push` potrebbe cancellarlo.
+> - 🧹 **Il campo `numero` non conteneva numeri.** Su 673 righe, **179** avevano
+>   dentro altro: «Si» (57), «No» (24), «Pagamento 60gg», IBAN, piani di
+>   rientro, decimali negativi, «0» (32). Svuotate (righe e importi **intatti**),
+>   e le **28 note vere** — «NON COMPENSARE», piani di rientro, cambi di IBAN —
+>   **recuperate nella nota del mese**, dove si leggono.
+> - 🚫 **Doppioni tolti**: 39 fatture commissioni registrate come servizi
+>   (11.200,62 € imponibile) con lo script `ripara-commissioni-importate.mjs`
+>   (backup JSON), più 2 trovate dal confronto con FIC (399/2026, 114/2025).
+> - ↩️ **Quattro erano il caso OPPOSTO**: 468/2026, 502/2026, 265/2026 e
+>   50/2025 su FIC sono **fatture di SERVIZI** («Servizi Deluxy Maggio 2026»…).
+>   Lì sbagliava l'aggancio al mese: tolto `commFattNumero`, i mesi tornano
+>   «commissioni da emettere», che è la verità.
+> - 🔧 **La guardia era chiamata con un insieme VUOTO**: `eFatturaCommissioni`
+>   riconosce dal testo **o** dal numero già agganciato a un mese, e il secondo
+>   modo era spento. Ora legge i numeri dal database.
+> - 🔴 **NON SO ancora come le 37 di stamattina siano passate.** Il cron delle
+>   06:15 girava su `lys6ksght` (04:40), che le difese le aveva; la regola
+>   riconosce **tutte e 39** le descrizioni; `subject` è vuoto e la regola legge
+>   `visible_subject`, quindi l'ipotesi «guarda il campo sbagliato» è falsa.
+>   Finché non si capisce, **il vincolo del database è la rete**: adesso una
+>   seconda registrazione non può riuscire.
+>
+> 🔎 **Confronto di TUTTE le fatture con Fatture in Cloud** (474 con un numero,
+> 1.949 documenti letti):
+> - 2 erano commissioni → tolte; 4 avevano la tipologia diversa dal documento
+>   → corrette (497/2026 e 280/2026 e 389/2025 → **Affiliazioni**, 138/2026 →
+>   **Eventi**);
+> - **116 non si trovano su FIC**, ma **59** hanno un numero che raggruppa più
+>   documenti («447-448-449-450/2026»): non è un errore, è una convenzione;
+> - **30 hanno un importo diverso da FIC**: **348 fatture** hanno l'importo che
+>   viene dal foglio («Import PARTNER.xlsx — totale mese»), non dal documento,
+>   quindi lo scarto è atteso;
+> - 290 documenti non dicono niente sulla tipologia (o dicono solo «Servizi»).
+
+
 > 📌 **09/09/2026 — «Conferma e aggiorna» manda SOLO i campi mancanti.**
 > (Regola dell'utente: «inserisci solo i campi mancanti o che migliora».)
 > - Il bottone dice **quanti** campi aggiunge («Aggiungi 3 campi») e **si spegne**

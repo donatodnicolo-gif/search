@@ -299,7 +299,18 @@ model FatturaServizio {
   tipologia     TipologiaServizio  @relation(fields: [tipologiaId], references: [id])
   anno          Int
   mese          Int // 1-12, mese di competenza
-  numero        String? // n° fattura FattureInCloud (es. 68/2026)
+  /// N° fattura di Fatture in Cloud (es. «68/2026»; a volte raggruppa più
+  /// documenti: «447-448-449-450/2026»).
+  /// ⚠️ 09/09/2026 — in Postgres c'è un INDICE UNIQUE PARZIALE che Prisma non
+  /// sa esprimere (l'unicità vale solo quando il numero non è nullo né vuoto):
+  ///   CREATE UNIQUE INDEX "FatturaServizio_numero_unico"
+  ///     ON "FatturaServizio" ("numero") WHERE "numero" IS NOT NULL AND "numero" <> '';
+  /// Serve perché un numero di fattura è un'IDENTITÀ: la stessa fattura non può
+  /// essere registrata due volte. Senza, la 460/2026 di 142 RESTAURANT stava
+  /// insieme come servizio e come fattura commissioni del mese, e valeva doppio.
+  /// 🔴 `prisma db push` NON lo conosce e potrebbe cancellarlo: se sparisce,
+  /// ricrearlo con quella riga.
+  numero        String?
   emissione     DateTime?
   scadenza      DateTime?
   imponibile    Float // netto IVA
