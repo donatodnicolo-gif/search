@@ -37,6 +37,17 @@ export type Partner = {
   ultimaVisita: string
   note: string
   contatti: { ruolo: string; nome: string; telefono: string; email: string }[]
+  /**
+   * L'IBAN scritto in anagrafica, e il nome sul conto.
+   *
+   * ⚠️⚠️ Arrivano SOLO a chi ha passato `conDatiFinanziari` E con una chiave che
+   * ha l'ambito «Dati finanziari» sul registro. Vuoti in ogni altro caso — e
+   * vuoto qui vuol dire «non l'ho chiesto, o non mi è permesso», NON «non c'è».
+   * Chi sta decidendo un bonifico deve poter distinguere le due cose, e infatti
+   * il modulo pagamenti lo scrive a schermo.
+   */
+  iban: string
+  intestatarioConto: string
 }
 
 export type EsitoPartner =
@@ -72,10 +83,25 @@ type PartnerRegistro = {
   ultimaVisita?: string
   note?: string
   contatti?: { ruolo?: string; nome?: string; telefono?: string; email?: string }[]
+  /**
+   * ⚠️ Il registro tiene IBAN, PEC, SDI e amministrazione in un blocco a parte e
+   * lo manda `null` quando la chiave non ha l'ambito «Dati finanziari»
+   * (Anagrafiche, `serializzaPartner`: «non ti è permesso vederlo» e «non c'è»
+   * sono due risposte diverse). ⚠️⚠️ Non esiste nessun parametro di richiesta:
+   * decide SOLO l'ambito della chiave — quindi qui non se ne manda nessuno.
+   */
+  datiFinanziari?: { iban?: string | null; intestatarioConto?: string | null } | null
 }
 
-function normalizza(p: PartnerRegistro): Partner {
+/**
+ * @param conDatiFinanziari se falso, IBAN e nome sul conto si BUTTANO qui,
+ *   anche se il registro li avesse mandati. È la seconda serratura dopo quella
+ *   del registro: una rotta che non li ha chiesti non li fa uscire per sbaglio.
+ */
+function normalizza(p: PartnerRegistro, conDatiFinanziari = false): Partner {
   return {
+    iban: conDatiFinanziari ? (p.datiFinanziari?.iban ?? '').trim() : '',
+    intestatarioConto: conDatiFinanziari ? (p.datiFinanziari?.intestatarioConto ?? '').trim() : '',
     id: String(p.id ?? ''),
     nome: p.nome ?? '',
     ragioneSociale: p.ragioneSociale ?? '',
@@ -121,6 +147,19 @@ export async function partnerAttivi(opzioni: {
    * in tabella.
    */
   stato?: string
+  /**
+   * Tieni anche IBAN e nome sul conto, se il registro li manda.
+   *
+   * ⚠️⚠️ PREDEFINITO A FALSO, come sul registro: se una rotta nuova se ne
+   * dimentica, il difetto è che l'IBAN non si vede — non che finisce nel JSON
+   * di una pagina che non c'entra. Oggi lo chiede SOLO la ricerca fornitori del
+   * modulo pagamenti (`/api/fornitori/cerca`), che gira sul server e serve a
+   * chi sta decidendo un bonifico.
+   * ⚠️ La tendina dei partner dei reclami (`/api/partner`) NON lo chiede, e non
+   * deve: quella risposta arriva nel browser di chiunque apra la pagina, e
+   * sarebbero ottanta coordinate bancarie per un dato che lì non serve.
+   */
+  conDatiFinanziari?: boolean
 }): Promise<EsitoPartner> {
   // Prima le env (`ANAGRAFICHE_URL`/`ANAGRAFICHE_API_KEY`, standard §4.4),
   // poi le Impostazioni come ripiego per chi le aveva già lì.
@@ -165,7 +204,7 @@ export async function partnerAttivi(opzioni: {
     totale?: number
     dati?: PartnerRegistro[]
   }
-  const partner = (dati.dati ?? []).map(normalizza)
+  const partner = (dati.dati ?? []).map((x) => normalizza(x, opzioni.conDatiFinanziari === true))
 
   // Le tendine dei filtri si costruiscono da quello che è tornato: il registro
   // non ha un endpoint per l'elenco delle categorie.

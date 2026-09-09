@@ -26,10 +26,26 @@ export const dynamic = 'force-dynamic'
 //  2. **gli ordini che gli abbiamo già dato** — nome, città, telefono, e quanto
 //     gli abbiamo pattuito l'ultima volta;
 //  3. **il registro Anagrafiche** — ragione sociale (che è quella che va
-//     sull'IBAN), città, recapiti.
+//     sull'IBAN), città, recapiti, e — dal 09/09/2026 — anche l'IBAN.
 //
-// ⚠️ Il registro NON ha gli IBAN: li conosciamo solo perché li abbiamo usati.
-// Per questo la prima fonte è la nostra tabella e non l'anagrafica.
+// ⚠️⚠️ Fino al 09/09/2026 qui c'era scritto «il registro NON ha gli IBAN».
+// Era vero quando è stato scritto e ha smesso di esserlo da quando siamo NOI a
+// scriverceli (`registro-fornitori.ts` manda `iban` e `intestatarioConto` a
+// ogni pagamento verificato). Nel frattempo li scrivevano anche Finance e la
+// piattaforma consegne. Contati il 09/09: il registro aveva **80 IBAN
+// distinti**, i nostri pagamenti ne conoscevano **70**, e **24 stavano solo
+// nel registro** — fra cui Enrico Rizzi Milano, Il Fiore Di Fabula, FAG Torino
+// Fiori, MARYFLOR, Angolo Fiorito, Mastrofioraio. Per tutti e ventiquattro
+// questo modulo diceva «l'IBAN va scritto a mano» pur avendolo in casa, e
+// qualcuno lo ribatteva: il problema esatto da cui questa funzione era nata.
+//
+// ⚠️ Restano PRIMI i nostri pagamenti, e non è una preferenza: un IBAN su cui
+// un bonifico è andato a segno è provato, uno scritto in anagrafica è
+// dichiarato. Il modulo dice a schermo quale dei due sta proponendo.
+//
+// ⚠️ L'IBAN esce dal registro solo alle chiavi con l'ambito «Dati finanziari».
+// Se la nostra non ce l'ha, il blocco torna `null`, i campi restano vuoti e
+// qui non cambia niente: nessun errore, si torna a scriverlo a mano.
 //
 // ⚠️ Una fonte che non risponde NON fa fallire la ricerca: se Anagrafiche è
 // giù, quello che sappiamo in casa vale lo stesso. Una ricerca che si rifiuta
@@ -112,7 +128,7 @@ export async function GET(req: NextRequest) {
       .catch(() => []),
     // Una chiamata al registro per ogni parola, in parallelo.
     ...parole.map((p) =>
-      partnerAttivi({ q: p, perPagina: 15, stato: 'tutti' }).catch(() => ({
+      partnerAttivi({ q: p, perPagina: 15, stato: 'tutti', conDatiFinanziari: true }).catch(() => ({
         stato: 'errore' as const,
         messaggio: 'registro non raggiungibile',
       }))
@@ -161,6 +177,7 @@ export async function GET(req: NextRequest) {
       // dire che è cambiato qualcosa — un conto nuovo, un'altra società, un
       // omonimo — e indovinare vuol dire mandare i soldi a qualcun altro.
       iban: p.iban.size === 1 ? p.primo : '',
+      ibanDa: p.iban.size === 1 ? ('pagamento' as const) : ('' as const),
       // Il nome sul conto solo insieme all'IBAN che propone: senza IBAN non c'è
       // un conto di cui dire l'intestatario.
       intestatarioConto: p.iban.size === 1 ? p.intestatarioConto : '',
@@ -231,7 +248,12 @@ export async function GET(req: NextRequest) {
         citta: p.citta,
         telefono: p.telefono,
         email: p.email,
-        iban: '',
+        // ⚠️ Vuoto se la chiave non ha l'ambito «Dati finanziari»: allora è
+        // «non me l'hanno fatto vedere», non «non ce l'ha». Per chi compila il
+        // modulo il risultato è lo stesso di prima — lo scrive a mano.
+        iban: p.iban,
+        intestatarioConto: p.intestatarioConto,
+        ibanDa: p.iban ? ('registro' as const) : ('' as const),
         ibanDiversi: 0,
         ordini: 0,
         ultimoCosto: null,

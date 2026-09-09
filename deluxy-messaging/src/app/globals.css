@@ -4091,6 +4091,15 @@ td .azioni-ordine {
   border-radius: var(--radius-s);
 }
 
+/* ⚠️ L'IBAN che viene dall'anagrafica e non da un bonifico nostro: si segnala,
+   ma non in rosso. Il rosso qui accanto vuol dire «questo IBAN non va»; questo
+   vuol dire «va, ma non l'abbiamo ancora provato», e sono due cose che chi
+   paga deve poter distinguere con un colpo d'occhio. */
+.avviso-iban-registro {
+  color: #7a6220;
+  background: rgba(184, 150, 62, 0.12);
+}
+
 /* ---- Chi prepara un ordine ---- */
 
 /* ⚠️ Il riquadro sta in cima al dettaglio e si vede anche VUOTO: è la domanda

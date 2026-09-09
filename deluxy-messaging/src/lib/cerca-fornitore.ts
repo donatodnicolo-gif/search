@@ -85,6 +85,16 @@ export type FornitoreTrovato = {
    * società, un omonimo), e indovinare vuol dire mandare i soldi altrove.
    */
   ibanDiversi: number
+  /**
+   * DA DOVE viene l'IBAN qui sopra. Vuoto se non ce n'è uno.
+   *
+   * ⚠️⚠️ Non è un dettaglio da sviluppatori: è quello che il modulo scrive a
+   * schermo prima di far partire un bonifico. «L'abbiamo già pagato così» è una
+   * prova — quel conto ha incassato davvero; «sta scritto in anagrafica» è una
+   * dichiarazione, che nessuno ha ancora verificato con un bonifico andato a
+   * segno. Chi decide deve sapere quale delle due sta guardando.
+   */
+  ibanDa: '' | 'pagamento' | 'registro'
   /** Quanti ordini gli abbiamo già dato, e quanto gli abbiamo dato l'ultima volta. */
   ordini: number
   ultimoCosto: number | null
@@ -144,6 +154,7 @@ export function fornitoreVuoto(): FornitoreTrovato {
     iban: '',
     intestatarioConto: '',
     ibanDiversi: 0,
+    ibanDa: '',
     ordini: 0,
     ultimoCosto: null,
     pagamenti: 0,
@@ -380,6 +391,27 @@ export function punteggio(f: FornitoreTrovato, dove = ''): number {
   return p
 }
 
+/**
+ * Quale dei due IBAN si tiene, con il nome sul conto e la provenienza che gli
+ * appartengono. Vedi il commento nella fusione: prima il provato, poi il
+ * dichiarato, e mai al posto di un rifiuto deliberato.
+ */
+function scegliIban(
+  a: FornitoreTrovato,
+  b: FornitoreTrovato
+): Pick<FornitoreTrovato, 'iban' | 'intestatarioConto' | 'ibanDa'> {
+  const discordi = Math.max(a.ibanDiversi, b.ibanDiversi) > 1
+  const ordinati = [a, b].sort((x, y) => voto(y) - voto(x))
+  const vince = discordi ? ordinati.find((x) => x.ibanDa === 'pagamento') : ordinati.find((x) => x.iban)
+  if (!vince?.iban) {
+    return { iban: '', intestatarioConto: '', ibanDa: '' }
+  }
+  return { iban: vince.iban, intestatarioConto: vince.intestatarioConto, ibanDa: vince.ibanDa }
+  function voto(x: FornitoreTrovato) {
+    return x.ibanDa === 'pagamento' ? 2 : x.ibanDa === 'registro' ? 1 : 0
+  }
+}
+
 /** Unisce quello che sappiamo dello stesso fornitore da fonti diverse. */
 export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[] {
   const per = new Map<string, FornitoreTrovato>()
@@ -401,9 +433,14 @@ export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[]
       citta: prec.citta || p.citta,
       telefono: prec.telefono || p.telefono,
       email: prec.email || p.email,
-      iban: prec.iban || p.iban,
-      // Il nome sul conto segue l'IBAN: viene dalla stessa fonte (i pagamenti).
-      intestatarioConto: prec.iban ? prec.intestatarioConto : p.intestatarioConto,
+      // ⚠️⚠️ ORDINE DI FIDUCIA, non ordine di arrivo. Un IBAN su cui un
+      // bonifico è andato a segno vale più di uno dichiarato in anagrafica:
+      // il primo l'abbiamo provato, il secondo l'ha scritto qualcuno.
+      // ⚠️ E il vuoto lasciato APPOSTA non si riempie: se dei pagamenti
+      // risultano IBAN discordi (`ibanDiversi > 1`) non se ne propone nessuno,
+      // e l'IBAN del registro non deve infilarsi lì a fare da arbitro — la
+      // discordanza è proprio la cosa che una persona deve guardare.
+      ...scegliIban(prec, p),
       ibanDiversi: Math.max(prec.ibanDiversi, p.ibanDiversi),
       ordini: prec.ordini + p.ordini,
       ultimoCosto: prec.ultimoCosto ?? p.ultimoCosto,
@@ -429,7 +466,9 @@ export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[]
 /** In una riga: che cosa sappiamo già di lui. */
 export function cosaSappiamo(f: FornitoreTrovato): string {
   const pezzi: string[] = []
-  if (f.iban) pezzi.push(`IBAN ${ibanAccorciato(f.iban)}`)
+  // ⚠️ «dal registro» si scrive: senza, un IBAN mai usato per un bonifico si
+  // legge come uno che ha già incassato, e sono due cose diverse.
+  if (f.iban) pezzi.push(`IBAN ${ibanAccorciato(f.iban)}${f.ibanDa === 'registro' ? ' (dal registro)' : ''}`)
   else if (f.ibanDiversi > 1) pezzi.push(`${f.ibanDiversi} IBAN diversi: scegli tu`)
   if (f.pagamenti) pezzi.push(`pagato ${f.pagamenti} volt${f.pagamenti === 1 ? 'a' : 'e'}`)
   // ⚠️ Quando sappiamo la storia intera si dice quella, non il conteggio dei

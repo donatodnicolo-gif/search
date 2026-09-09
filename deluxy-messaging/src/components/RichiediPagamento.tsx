@@ -128,6 +128,8 @@ export function RichiediPagamento() {
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
   const [ibanNota, setIbanNota] = useState('')
+  /** La nota sotto l'IBAN è un avvertimento (oro), non un errore (rosso). */
+  const [ibanDaRegistro, setIbanDaRegistro] = useState(false)
   const [copiato, setCopiato] = useState('')
   // Il nome del fornitore che arriva dal bottone «Paga» di un ordine: fa
   // partire la ricerca da sola, perché chi arriva qui vuole pagare LUI.
@@ -506,15 +508,36 @@ export function RichiediPagamento() {
     setLuogoMaps(daMaps ?? null)
     if (f.iban) {
       setIban(f.iban)
-      setIbanNota('')
+      // ⚠️⚠️ DA DOVE VIENE, detto sotto il campo. Un IBAN preso dai nostri
+      // pagamenti ha già incassato: è provato. Uno preso dall'anagrafica l'ha
+      // scritto qualcuno — magari un'altra app, magari mesi fa — e da noi non
+      // è mai passato un bonifico. Sono due gradi di fiducia diversi davanti
+      // alla stessa casella piena, e chi preme «salva» deve sapere quale ha
+      // davanti (09/09/2026).
+      setIbanDaRegistro(f.ibanDa === 'registro')
+      setIbanNota(
+        f.ibanDa === 'registro'
+          ? "Questo IBAN viene dal registro Anagrafiche: da qui non gli abbiamo mai fatto un bonifico. Controllalo prima di salvare."
+          : ''
+      )
+      const sulConto =
+        f.intestatarioConto && chiaveNome(f.intestatarioConto) !== chiaveNome(f.ragioneSociale || f.nome)
+          ? `, sul conto di ${f.intestatarioConto}`
+          : ''
       setAvviso(
-        `Compilato con i dati che avevamo: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}${
-          f.intestatarioConto && chiaveNome(f.intestatarioConto) !== chiaveNome(f.ragioneSociale || f.nome)
-            ? `, sul conto di ${f.intestatarioConto}`
-            : ''
-        }. Controlla prima di salvare.`
+        f.ibanDa === 'registro'
+          ? `Compilato dal registro Anagrafiche: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}${sulConto}. Non l'abbiamo mai pagato su questo conto: controlla.`
+          : `Compilato con i dati che avevamo: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}${sulConto}. Controlla prima di salvare.`
       )
     } else {
+      // ⚠️⚠️ L'IBAN DI PRIMA SI CANCELLA. Scegliendo il fornitore A (IBAN
+      // compilato) e poi il fornitore B (che l'IBAN non ce l'ha), il campo
+      // restava pieno con le coordinate di A mentre l'avviso diceva «va
+      // scritto a mano»: due cose che si contraddicono su una schermata da cui
+      // parte un bonifico. Chi non rilegge il campo paga la persona sbagliata.
+      setIban('')
+      setIbanDaRegistro(false)
+      setIbanNota('')
       setAvviso(
         f.ibanDiversi > 1
           ? `Di ${f.nome} risultano ${f.ibanDiversi} IBAN diversi: scrivi tu quello giusto.`
@@ -1276,7 +1299,15 @@ export function RichiediPagamento() {
                   placeholder="IT60X0542811101000000123456"
                 />
               </label>
-              {ibanNota ? <div className="avviso-errore">{ibanNota}</div> : null}
+              {/* ⚠️ Due toni: rosso per un IBAN che NON va (errore vero), oro
+                  per uno che va ma non è ancora stato provato da un bonifico.
+                  Con lo stesso rosso, la seconda si legge come un guasto e in
+                  due giorni si impara a ignorarla. */}
+              {ibanNota ? (
+                <div className={ibanDaRegistro ? 'avviso-iban avviso-iban-registro' : 'avviso-errore'}>
+                  {ibanNota}
+                </div>
+              ) : null}
             </>
           ) : (
             <label className="campo">
