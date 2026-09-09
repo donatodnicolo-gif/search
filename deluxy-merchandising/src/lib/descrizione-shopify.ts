@@ -56,7 +56,10 @@ function punto(testo: string, etichettaDiRipiego?: string | null): string {
   if (!t) return "";
   const i = t.indexOf(":");
   if (i > 0 && i <= 28) {
-    return `<li><b>${html(conMaiuscola(t.slice(0, i).trim()))}</b>: ${html(conMaiuscola(t.slice(i + 1).trim()))}</li>`;
+    // ⚠️ La maiuscola va sulla PRIMA lettera del punto, cioè sull'etichetta.
+    // Mettendola anche dopo i due punti usciva «Consegna: In guanti bianchi»,
+    // che in italiano è sbagliato: quello è il seguito della frase, non l'inizio.
+    return `<li><b>${html(conMaiuscola(t.slice(0, i).trim()))}</b>: ${html(t.slice(i + 1).trim())}</li>`;
   }
   // ⭐ 09/09/2026 (utente): «per i 3 punti prima lettera maiuscola, manca
   // categoria in grassetto per la categoria». Quando il punto non porta già la
@@ -64,7 +67,7 @@ function punto(testo: string, etichettaDiRipiego?: string | null): string {
   // in grassetto ci va la categoria del prodotto, che è quello che il sito fa
   // già («<b>Champagne</b>: Ruinart Rosé Magnum»).
   if (etichettaDiRipiego?.trim()) {
-    return `<li><b>${html(conMaiuscola(etichettaDiRipiego.trim()))}</b>: ${html(conMaiuscola(t))}</li>`;
+    return `<li><b>${html(conMaiuscola(etichettaDiRipiego.trim()))}</b>: ${html(t)}</li>`;
   }
   return `<li>${html(conMaiuscola(t))}</li>`;
 }

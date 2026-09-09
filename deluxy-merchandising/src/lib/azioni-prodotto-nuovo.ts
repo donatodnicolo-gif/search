@@ -24,11 +24,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { traduciScheda } from "./ai-traduzioni";
-import { TIPOLOGIE_VENDITA } from "./dominio";
+import { TIPOLOGIE_VENDITA, etichettaCategoria } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
 import { descrizionePerNegozio } from "./descrizione-prodotto";
+import { spezzaDescrizioneHtml } from "./descrizione-shopify";
 import { seoDaRegole } from "./seo-regole";
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
@@ -224,17 +225,70 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     if (Object.keys(puliti).length) sezioniScheda[sito.slice(0, 80)] = puliti;
   }
 
+  // ⭐⭐ 09/09/2026 — **la scheda scritta a mano torna nei suoi pezzi.**
+  //
+  // L'editor per sito manda l'HTML composto (`schedaHtml:<sito>`), e qui si
+  // rispezza con lo stesso parser che usa l'import: i titoli `<h6>` tornano
+  // sezioni, l'elenco in cima torna i tre punti, il resto torna testo. Il giro
+  // è misurato su 120 schede vere: 111 identiche parola per parola, 0 sotto il
+  // 97%.
+  //
+  // ⚠️ **Arriva solo se qualcuno ha scritto davvero**: il campo nascosto non
+  // esiste finché l'editor non viene toccato. Le 9 schede su 120 che non
+  // tornano identiche perderebbero una parola a ogni salvataggio — anche solo
+  // aprendo e chiudendo il modulo.
+  //
+  // ⚠️ **Il secondo e il terzo punto NON si toccano.** Sono del sito, scritti
+  // una volta sola in Impostazioni: riportarli qui li copierebbe su ogni
+  // prodotto, e cambiarli in un posto smetterebbe di cambiarli ovunque.
+  let plusDaScheda: string | null = null;
+  let descrizioneDaScheda: string | null = null;
+  for (const [chiave, valore] of fd.entries()) {
+    if (!chiave.startsWith("schedaHtml:") || typeof valore !== "string" || !valore.trim()) continue;
+    const sito = chiave.slice("schedaHtml:".length).slice(0, 80);
+    const pezzi = spezzaDescrizioneHtml(valore);
+    const dentro: Record<string, string> = {};
+    for (const sez of pezzi.sezioni) if (sez.testo.trim()) dentro[sez.nome.slice(0, 80)] = sez.testo.slice(0, 4000);
+    if (Object.keys(dentro).length) sezioniScheda[sito] = dentro;
+    // Il testo libero e il primo punto sono del PRODOTTO, non del sito: si
+    // prendono da quello principale, altrimenti quattro schede scriverebbero
+    // quattro valori diversi nello stesso campo e vincerebbe l'ultima letta.
+    if (sito === negozioOk.nome) {
+      if (pezzi.descrizione.trim()) descrizioneDaScheda = pezzi.descrizione.trim().slice(0, 4000);
+      if (pezzi.punti[0]?.trim()) {
+        // ⚠️ **L'etichetta della categoria non si salva dentro il plus.**
+        // L'editor la mostra in grassetto davanti al primo punto perché la
+        // aggiunge il compositore, ma è un dato DERIVATO dalla categoria:
+        // scrivendola nel campo, cambiando categoria resterebbe quella vecchia
+        // stampata sulla scheda del cliente. Si toglie tornando indietro.
+        // Confronto per prefisso, senza espressioni regolari: il nome di una
+        // categoria può contenere caratteri che in una regex significano altro.
+        const etichetta = etichettaCategoria(categoria).trim();
+        const primo = pezzi.punti[0].trim();
+        const senza = primo.toLowerCase().startsWith(`${etichetta.toLowerCase()}:`)
+          ? primo.slice(etichetta.length + 1).trim()
+          : primo;
+        plusDaScheda = senza.slice(0, 140) || null;
+      }
+    }
+  }
+
   // ⭐ 09/09/2026 (utente): «porta la SEO ad essere autocompilata con delle
   // regole anche in sede di creazione del prodotto». Se chi compila l'ha
   // scritta, vince la sua; se l'ha lasciata vuota, la scrive la regola.
   // ⚠️ Solo la nostra **bozza** (`seoTitolo`/`seoDescrizione`): i campi
   // `…Shopify` sono quello che sta sul negozio, e da qui non si tocca. Il testo
   // che i clienti leggono su Google cambia solo quando qualcuno lo manda.
+  // Quello scritto nell'editor della scheda vince sui campi qui sotto: è
+  // l'ultima cosa che la persona ha toccato, ed è quella che ha davanti.
+  const descrizioneFinale = descrizioneDaScheda ?? (testo(fd, "descrizione") || null);
+  const plusFinale = plusDaScheda ?? plusProdotto;
+
   const seoScritta = { titolo: testo(fd, "seoTitolo").trim(), descrizione: testo(fd, "seoDescrizione").trim() };
   const seoRegola = seoDaRegole({
     nome,
-    descrizione: testo(fd, "descrizione") || null,
-    plusProdotto: testo(fd, "plusProdotto") || null,
+    descrizione: descrizioneFinale,
+    plusProdotto: plusFinale,
     sezioni: [...new Set(Object.values(sezioniScheda ?? {}).flatMap((v) => Object.keys((v ?? {}) as Record<string, string>)))],
   });
   const seo = {
@@ -249,7 +303,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     statiVoluti,
     nomePartner,
     nomePartnerAttivo,
-    plusProdotto,
+    plusProdotto: plusFinale,
     sezioniScheda,
     tuttiNegozi: negozi.filter((n) => n.attivo),
     fase,
@@ -268,7 +322,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     pubblicatoFinoAl,
     finestraAperta,
     dalIso,
-    descrizione: testo(fd, "descrizione") || null,
+    descrizione: descrizioneFinale,
     brief: testo(fd, "brief") || null,
     materiali: testo(fd, "materiali") || null,
     palette: testo(fd, "palette") || null,
@@ -470,6 +524,21 @@ function vaiAllaScheda(id: string, avvisi: string[], okMessaggio: string): never
 // ---------------------------------------------------------------- CREAZIONE
 
 export async function creaProdottoCompleto(fd: FormData) {
+  // ⭐⭐ 09/09/2026 — **la bozza si completa, non si duplica.**
+  //
+  // Col salvataggio automatico il prodotto ESISTE già quando si preme Salva:
+  // creando qui una seconda scheda si finirebbe con due prodotti uguali, uno
+  // completo e una bozza orfana con lo stesso nome. Quindi si passa la mano
+  // all'aggiornamento, che ha tutti i controlli (SKU, negozi, stati).
+  //
+  // ⚠️ Solo se quella scheda è ancora una bozza vera: un id qualsiasi nel
+  // modulo non deve poter dirottare il salvataggio su un prodotto vivo.
+  const bozzaId = (() => { const v = fd.get("bozzaId"); return typeof v === "string" ? v.trim() : ""; })();
+  if (bozzaId) {
+    const bozza = await prisma.prodotto.findUnique({ where: { id: bozzaId }, select: { id: true, fase: true, shopifyId: true } });
+    if (bozza && bozza.fase === "concept" && !bozza.shopifyId) return aggiornaProdottoCompleto(bozza.id, fd);
+  }
+
   const indietro = (errore: string): never => redirect(`/prodotti/nuovo?errore=${encodeURIComponent(errore)}`);
   return creaProdotto(fd, indietro, null);
 }

@@ -19,7 +19,8 @@
 // - i **campi del negozio** (i metafield definiti su Shopify: occasioni,
 //   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
-import { AnteprimaSito } from "./AnteprimaSito";
+import { EditorScheda } from "./EditorScheda";
+import { componiDescrizioneHtml } from "@/lib/descrizione-shopify";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
@@ -340,6 +341,20 @@ export function FormProdottoNuovo({
   const [seoToccata, setSeoToccata] = useState(!!(iniziale?.seoTitolo || iniziale?.seoDescrizione));
 
   /**
+   * ⭐ 09/09/2026 (utente): «metti salvataggio automatico del prodotto in fase
+   * di creazione e indica che è una bozza». Chiudere la pagina a metà voleva
+   * dire ricominciare da capo.
+   *
+   * ⚠️ **Solo alla creazione.** In modifica il prodotto esiste già e ha il suo
+   * salvataggio, con i controlli su SKU, negozi e stati: un salvataggio
+   * automatico che gli scrive sopra ogni due secondi sarebbe un modo per
+   * cambiare un prodotto vivo senza premere niente.
+   */
+  const [bozzaId, setBozzaId] = useState<string | null>(null);
+  const [bozzaSalvata, setBozzaSalvata] = useState<Date | null>(null);
+  const inCreazione = !iniziale || !!duplica;
+
+  /**
    * ⭐ 09/09/2026 (utente): «le regole Google per la SEO si generano in
    * automatico». Prima bisognava premere un pulsante: chi non lo notava
    * salvava un prodotto senza SEO, ed è il motivo per cui oggi **solo 561
@@ -364,6 +379,41 @@ export function FormProdottoNuovo({
   // invece è un campo non controllato, e si aggancia all'uscita dal campo
   // (`onBlur` sul modulo, che risale dagli input dentro).
   useEffect(() => { rigeneraSeo(); }, [rigeneraSeo]);
+
+  /**
+   * Salva la bozza, al massimo una volta ogni due secondi di quiete.
+   *
+   * ⚠️ La pausa non è cortesia: senza, si scriverebbe sul database a ogni
+   * tasto premuto — e il Postgres è condiviso con altre tredici app.
+   */
+  useEffect(() => {
+    if (!inCreazione) return;
+    const attesa = setTimeout(async () => {
+      const nome = (form.current?.elements.namedItem("nome") as HTMLInputElement | null)?.value ?? "";
+      if (nome.trim().length < 3) return;
+      try {
+        const r = await fetch("/api/prodotti/bozza", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: bozzaId,
+            nome,
+            categoria,
+            descrizione,
+            plusProdotto,
+            brief: (form.current?.elements.namedItem("brief") as HTMLTextAreaElement | null)?.value ?? "",
+            sezioniScheda: sezioniValori,
+          }),
+        });
+        const d = await r.json();
+        if (d?.ok && d.id) { setBozzaId(d.id); setBozzaSalvata(new Date()); }
+      } catch {
+        // Una bozza non salvata non è un errore da mostrare: si riprova al
+        // prossimo cambiamento, e il salvataggio vero resta quello col pulsante.
+      }
+    }, 2000);
+    return () => clearTimeout(attesa);
+  }, [inCreazione, bozzaId, categoria, descrizione, plusProdotto, sezioniValori]);
   const perNome = (a: string, b: string) => a.localeCompare(b, "it");
   const tipiDellaCategoria = [
     ...new Set([
@@ -607,6 +657,9 @@ export function FormProdottoNuovo({
 
   return (
     <form action={azione} ref={form} onBlur={() => rigeneraSeo()}>
+      {/* L'id della bozza: il salvataggio la COMPLETA invece di creare un
+          secondo prodotto con lo stesso nome. */}
+      {bozzaId && <input type="hidden" name="bozzaId" value={bozzaId} />}
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
       <input type="hidden" name="negozioId" value={negozioId} />
       <input type="hidden" name="negoziPubblicazioneJson" value={JSON.stringify(negoziAnche.map((n) => n.id))} />
@@ -1188,26 +1241,27 @@ export function FormProdottoNuovo({
                 </li>
               </ul>
 
-              {/* ⭐ 09/09/2026 (utente): «sarebbe ideale nelle tab che crei per
-                  sito avere la vista online del prodotto anche in fase
-                  "approvato" con possibilità di modifica con una matitina».
-                  È l'unico posto dove si vede l'ORDINE vero delle tab: sul
-                  negozio il tema ne costruisce una per ogni sezione, nella
-                  sequenza decisa in «Sezioni della scheda». Compilando i campi
-                  uno sotto l'altro quell'ordine non si vede. */}
-              <AnteprimaSito
+              {/* ⭐ 09/09/2026 (utente): «per sito crea una scheda come questo
+                  invece dell'anteprima con tab di ora». Al posto della sola
+                  anteprima, la scheda si scrive **come si vede**: l'HTML che
+                  andrà sul negozio, con grassetto, elenchi e titoli di sezione.
+                  ⚠️ I pezzi restano: al salvataggio la scheda si rispezza in
+                  punti, testo e sezioni — e solo se qualcuno l'ha toccata. */}
+              <EditorScheda
                 sito={nomeSito}
-                punti={[plusProdotto, plus?.uno ?? "", plus?.due ?? ""]}
-                descrizione={descrizione}
-                sezioni={suoi.map((s) => ({
-                  nome: s.nome,
-                  valore: valoreSezione(nomeSito, s.nome),
-                  campoId: `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-"),
-                }))}
+                nome={(iniziale?.nome ?? "") || ""}
                 urlOnline={(() => {
                   const sito = negozi.find((x) => x.nome === nomeSito);
                   return st?.handle && sito ? `https://${sito.dominio}/products/${st.handle}` : null;
                 })()}
+                htmlIniziale={componiDescrizioneHtml({
+                  etichettaCategoria: categorie.find((c) => c.chiave === categoria)?.nome ?? null,
+                  plusProdotto,
+                  plusUno: plus?.uno,
+                  plusDue: plus?.due,
+                  descrizione,
+                  sezioni: suoi.map((x, i) => ({ nome: x.nome, tipo: x.tipo, ordine: i, valore: valoreSezione(nomeSito, x.nome) })),
+                })}
               />
 
               {/* ⭐ 08/09/2026: le traduzioni di QUESTO negozio, nelle sue lingue.
@@ -1564,6 +1618,15 @@ export function FormProdottoNuovo({
       )}
 
       <div className="azioni-modulo">
+        {/* ⭐ 09/09/2026: si dice CHE è una bozza e DOVE sta, altrimenti un
+            salvataggio invisibile è indistinguibile da nessun salvataggio. */}
+        {bozzaSalvata && (
+          <span className="bozza-salvata">
+            Salvata come <b>bozza</b> alle{" "}
+            {bozzaSalvata.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+            <a href={`/prodotti/${bozzaId}`}>vedila nell&apos;elenco</a>
+          </span>
+        )}
         <a className="btn btn-secondario" href={iniziale ? `/prodotti/${iniziale.id}` : "/prodotti"}>
           Annulla
         </a>
