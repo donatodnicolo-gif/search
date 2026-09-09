@@ -47,13 +47,16 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
-> ✅ **09/09/2026 — SCHEDA PARTNER: il pulsante «DISATTIVA»** (regola utente: «lo lascia tra quelli fatturati ma lo sospende tra quelli attivi»). In locale, build fatta, **non ancora pubblicato**.
+> 🚀 **09/09/2026 — PUBBLICATO: `delivery-c8jl10jzp`, alias `app.deluxy.it`** (prebuilt dalla radice del worktree; commit `3b51a06d` + `f3920683` su `platform-0409`). Controlli prima del deploy: `builds.json` con `@vercel/node` + `@vercel/static-build`, **85** statici, funzione `api`, **0** symlink. Verificato DOPO, sul sito vero: le rotte `PATCH /partners/:id/disattiva` e `/attiva` rispondono **401** (esistono), l'`it.json` pubblicato porta «Disattiva/Riattiva/Sospeso» e «Manca l'acquisto della merce», e scaricando i 77 chunk da `app.deluxy.it` ci sono `applicaAcquistoCorporate` e `ddtCorporate` (modulo), `mancaTitolo` (dettaglio), `corporate.creaAcquisto` (dettaglio **e** elenco), `partners.deactivate` (scheda partner).
+> ⚠️ Il `vercel build` è fallito la prima volta con **EPERM** su `query_engine-windows.dll.node`: era l'API locale su 3010 a tenere aperto il file. Si ferma il server, poi si ricostruisce. (Due deployment di produzione a distanza di un minuto: il comando è stato ripetuto per leggere l'URL, vale l'ultimo.)
+
+> ✅ **09/09/2026 — SCHEDA PARTNER: il pulsante «DISATTIVA»** (regola utente: «lo lascia tra quelli fatturati ma lo sospende tra quelli attivi»).
 > - `PATCH /partners/:id/disattiva` e `/attiva` (ADMIN + OPERATION) → `cambiaAttivazione()`: scrive solo `active`, passa da `seguiLoStatoDelPartner` (prodotti archiviati alla sospensione con motivo `partner-disattivato`, ripescati alla riattivazione — solo quelli) e sincronizza il registro Anagrafiche.
 > - **Perché una rotta sua e non `PUT /partners/:id` con `{active:false}`**: l'aggiornamento generale fa validazioni che con la sospensione non c'entrano (`esigiCompensazioneSeVende` può rifiutare per un campo mancante da mesi) e un comando di un campo solo non deve poter portarsi dietro il resto della scheda.
 > - Nel web: bottone **«Disattiva»**, e quando è sospeso la pillola ambra **«Sospeso»** + **«Riattiva»**; non compare su un partner eliminato. Chiavi `partners.deactivate/activate/suspended` (it+en).
 > - 📌 **Da sapere**: né «Disattiva» né «Elimina» tolgono l'**accesso** — quello dipende da `User.status`, che va sospeso a parte. E «Elimina» **non chiede conferma**: la chiave `deleteConfirm` esiste nelle traduzioni ma non è collegata a quel bottone.
 
-> ✅ **09/09/2026 — «CREA L'ACQUISTO» DI UN ORDINE CORPORATE: QUATTRO DIFETTI CORRETTI E IL COMANDO PORTATO DOVE SI GUARDA.** In locale, build fatta, **non ancora pubblicato**.
+> ✅ **09/09/2026 — «CREA L'ACQUISTO» DI UN ORDINE CORPORATE: QUATTRO DIFETTI CORRETTI E IL COMANDO PORTATO DOVE SI GUARDA.** LIVE.
 >
 > **Quarto difetto (segnalazione successiva: «il campo ddt lo hai già riempito tu»)**: il modulo esigeva il **brand del DDT** — «Per salvare mancano: il brand del DDT (obbligatorio sulle vendite)» — su un DDT che aveva scritto lui. La regola del 02/09 serviva a disambiguare il numero d'ordine di un negozio fra più negozi; `CPR<numero>` identifica già da solo. Ora `ddtCorporate()` riconosce la forma `^CPR\d+$` e toglie l'obbligo (asterisco, `required` e messaggio di salvataggio) — si legge dal **dato**, non da uno stato del modulo, quindi vale anche per chi lo scrive a mano. Il server non lo esigeva già (`ddtBrand` è `@IsOptional`).
 >
