@@ -2585,7 +2585,10 @@
       "creaAcquisto": "Crea l’acquisto",
       "nonTrovato": "Il DDT cita l’ordine #{{n}}, che però non esiste (o è stato cancellato).",
       "mancaTitolo": "Manca l’acquisto della merce.",
-      "mancaCosa": "Questo è un ordine corporate: la merce va comprata da un fornitore con una seconda consegna, altrimenti nessuno la prepara."
+      "mancaCosa": "Questo è un ordine corporate: la merce va comprata da un fornitore con una seconda consegna, altrimenti nessuno la prepara.",
+      "riferimento": "Riferimento da scrivere sul DDT dell’acquisto:",
+      "copiaRif": "Copia il riferimento",
+      "copiato": "Riferimento copiato ✓"
     }
   },
   "confirmDelivery": {

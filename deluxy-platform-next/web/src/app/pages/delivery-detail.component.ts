@@ -864,6 +864,15 @@ interface DeliveryDetail {
         <div class="warn-card gestire" role="alert">
           <b>{{ 'deliveryDetail.corporate.mancaTitolo' | translate }}</b>
           {{ 'deliveryDetail.corporate.mancaCosa' | translate }}
+          <!-- ⭐ 09/09/2026 (regola utente: «il valore ddt si vede aggiungere anche nella
+               richiesta originaria»). Il legame fra le due consegne È questo numero: qui si
+               vede e si copia, così chi crea l'acquisto da un'altra strada — a mano, o da un
+               giorno diverso — sa esattamente cosa scrivere nel campo DDT. Dal bottone qui
+               accanto viene già compilato da solo. -->
+          <span class="rif-ddt">{{ 'deliveryDetail.corporate.riferimento' | translate }}
+            <button type="button" class="mono cod-ddt" [title]="'deliveryDetail.corporate.copiaRif' | translate"
+                    (click)="copiaRiferimento(d.code)">CPR{{ d.code }}</button>
+          </span>
           <a class="act primary" [routerLink]="['/deliveries/new']" [queryParams]="{ acquistoDa: d.id }">{{ 'deliveryDetail.corporate.creaAcquisto' | translate }}</a>
         </div>
       }
@@ -1085,6 +1094,14 @@ interface DeliveryDetail {
       /* Due consegne che si citano: la riconsegna (05/09) e l'ordine corporate col suo
          acquisto (08/09). Stessa idea, stessa forma — due stili diversi per la stessa
          cosa sarebbero due cose diverse per chi guarda. */
+      /* Il riferimento del DDT dentro l'avviso: si legge come un dato, e si copia
+         con un click. Bottone e non testo, perché fa qualcosa. */
+      .rif-ddt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+      .cod-ddt { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px;
+        background: var(--surface, #fff); color: var(--text-primary, #1d1d1f);
+        border: 1px solid var(--hairline, rgba(0,0,0,.12)); border-radius: 8px; padding: 3px 10px; cursor: pointer; }
+      .cod-ddt:hover { border-color: var(--gold, #B8963E); }
+      .cod-ddt:focus-visible { outline: 2px solid var(--gold, #B8963E); outline-offset: 2px; }
       .riconsegna-legame p, .legame-corporate p { margin: 0 0 6px; font-size: 13.5px; }
       .riconsegna-legame p:last-child, .legame-corporate p:last-child { margin-bottom: 0; }
       .legame-corporate a, .riconsegna-legame a { font-weight: 600; }
@@ -2021,6 +2038,16 @@ export class DeliveryDetailComponent {
       next: () => { this.busy.set(false); this.assignOpen.set(false); this.load(); },
       error: (err) => { this.busy.set(false); this.actionError.set(err?.error?.message ?? 'Errore'); },
     });
+  }
+
+  /**
+   * Copia il riferimento che lega l'acquisto a questo ordine corporate. È lo
+   * stesso numero che il bottone «Crea l'acquisto» scrive da solo nel DDT: serve
+   * a chi arriva da un'altra strada — l'acquisto inserito a mano, o un giorno
+   * diverso — perché senza quel numero le due consegne restano estranee.
+   */
+  copiaRiferimento(code: number): void {
+    this.copy(`CPR${code}`, this.translate.instant('deliveryDetail.corporate.copiato'));
   }
 
   private copy(text: string, msg: string): void {

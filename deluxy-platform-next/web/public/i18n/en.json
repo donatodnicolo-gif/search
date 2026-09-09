@@ -2583,7 +2583,10 @@
       "creaAcquisto": "Create the purchase",
       "nonTrovato": "The delivery note refers to order #{{n}}, which does not exist (or was deleted).",
       "mancaTitolo": "The goods have not been bought yet.",
-      "mancaCosa": "This is a corporate order: the goods must be bought from a supplier with a second delivery, otherwise nobody prepares them."
+      "mancaCosa": "This is a corporate order: the goods must be bought from a supplier with a second delivery, otherwise nobody prepares them.",
+      "riferimento": "Reference to write on the purchase delivery note:",
+      "copiaRif": "Copy the reference",
+      "copiato": "Reference copied ✓"
     }
   },
   "confirmDelivery": {

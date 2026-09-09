@@ -47,6 +47,10 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
+> ✅ **09/09/2026 (dopo il deploy) — IL RIFERIMENTO DEL DDT ANCHE SULL'ORDINE CORPORATE** (regola utente: «il valore ddt si vede aggiungere anche nella richiesta originaria»). Nell'avviso «Manca l'acquisto della merce» ora c'è `CPR<numero>` in un bottone che lo copia negli appunti (riusa il `copy()` già in pagina, con la deroga al divieto dei popup già documentata lì). Chiavi `deliveryDetail.corporate.riferimento/copiaRif/copiato` (it+en). Serve a chi crea l'acquisto **fuori** dal bottone: senza quel numero le due consegne restano estranee. `tsc` pulito e build ok; **in locale, non ancora pubblicato**.
+>
+> ℹ️ Verificato che `deluxy-delivery.vercel.app` e `app.deluxy.it` servono **lo stesso** bundle (`main-ZL5767FJ.js`): sono due alias dello stesso progetto, tutti e due aggiornati.
+
 > 🚀 **09/09/2026 — PUBBLICATO: `delivery-c8jl10jzp`, alias `app.deluxy.it`** (prebuilt dalla radice del worktree; commit `3b51a06d` + `f3920683` su `platform-0409`). Controlli prima del deploy: `builds.json` con `@vercel/node` + `@vercel/static-build`, **85** statici, funzione `api`, **0** symlink. Verificato DOPO, sul sito vero: le rotte `PATCH /partners/:id/disattiva` e `/attiva` rispondono **401** (esistono), l'`it.json` pubblicato porta «Disattiva/Riattiva/Sospeso» e «Manca l'acquisto della merce», e scaricando i 77 chunk da `app.deluxy.it` ci sono `applicaAcquistoCorporate` e `ddtCorporate` (modulo), `mancaTitolo` (dettaglio), `corporate.creaAcquisto` (dettaglio **e** elenco), `partners.deactivate` (scheda partner).
 > ⚠️ Il `vercel build` è fallito la prima volta con **EPERM** su `query_engine-windows.dll.node`: era l'API locale su 3010 a tenere aperto il file. Si ferma il server, poi si ricostruisce. (Due deployment di produzione a distanza di un minuto: il comando è stato ripetuto per leggere l'URL, vale l'ultimo.)
 
