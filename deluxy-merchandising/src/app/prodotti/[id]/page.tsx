@@ -464,12 +464,19 @@ export default async function ProdottoPage({
           const scheda = (prodotto.sezioniScheda && typeof prodotto.sezioniScheda === "object" && !Array.isArray(prodotto.sezioniScheda)
             ? (prodotto.sezioniScheda as Record<string, Record<string, string>>)
             : {});
-          // I siti da mostrare: dove il prodotto è pubblicato, più quelli per
-          // cui qualcuno ha già scritto delle sezioni (un prodotto in
-          // «approvato» non è ancora su nessun negozio, ma la scheda c'è già).
+          // I siti da mostrare: dove il prodotto è pubblicato, quelli per cui
+          // qualcuno ha già scritto delle sezioni, **e il negozio a cui il
+          // prodotto appartiene**.
+          //
+          // ⚠️ Senza l'ultimo, l'anteprima spariva proprio sui prodotti che ne
+          // hanno più bisogno: un «concept» non è pubblicato da nessuna parte e
+          // non ha ancora sezioni compilate, quindi i primi due elenchi sono
+          // vuoti — ed è lì che serve vedere come verrà. Trovato dall'utente su
+          // «Macarons Luxury - Fiocchi di Neve» (concept, Business Deluxy).
           const siti = [...new Set([
             ...prodotto.pubblicazioni.filter((r) => r.shopifyId).map((r) => r.negozio),
             ...Object.keys(scheda),
+            ...(prodotto.negozioNome ? [prodotto.negozioNome] : []),
           ])];
           if (!siti.length) return null;
           return (

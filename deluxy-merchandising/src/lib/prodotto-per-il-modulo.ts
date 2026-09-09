@@ -55,6 +55,8 @@ export function prodottoPerIlModulo(
     fase: p.fase === "archiviato" ? "approvato" : p.fase,
     categoria: p.categoria,
     tipoShopify: p.tipoShopify ?? "",
+    seoTitolo: p.seoTitolo ?? "",
+    seoDescrizione: p.seoDescrizione ?? "",
     tipologiaVendita: p.tipologiaVendita ?? null,
     note: p.note ?? "",
     collezioneShopifyId: p.collezioneShopifyId ?? "",

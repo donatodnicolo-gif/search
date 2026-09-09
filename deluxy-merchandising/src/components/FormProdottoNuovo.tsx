@@ -20,6 +20,7 @@
 //   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
 import { AnteprimaSito } from "./AnteprimaSito";
+import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
@@ -52,6 +53,9 @@ export type ProdottoIniziale = {
   categoria: string;
   /** ⭐ 09/09/2026: il «Tipo di prodotto» di Shopify, più fine della categoria. */
   tipoShopify?: string;
+  /** ⭐ 09/09/2026: la nostra bozza SEO (non quella già sul negozio). */
+  seoTitolo?: string;
+  seoDescrizione?: string;
   tipologiaVendita: string | null;
   note: string;
   collezioneShopifyId: string;
@@ -315,6 +319,14 @@ export function FormProdottoNuovo({
   // tipo **senza che nessuno l'abbia chiesto** — un campo che si azzera da solo
   // perché il filtro non lo contempla è peggio del campo assente.
   const [tipoShopify, setTipoShopify] = useState(iniziale?.tipoShopify ?? "");
+  // ⭐ 09/09/2026 (utente): «porta la SEO ad essere autocompilata con delle
+  // regole anche in sede di creazione», «fai vedere la SEO anche nel form di
+  // creazione e modifica». Prima stava solo nella scheda di dettaglio, cioè
+  // dopo — quando il prodotto era già nato e nessuno tornava indietro a
+  // scriverla: **561 prodotti su 5.069 hanno un titolo SEO**, gli altri no.
+  const [seoTitolo, setSeoTitolo] = useState(iniziale?.seoTitolo ?? "");
+  const [seoDescrizione, setSeoDescrizione] = useState(iniziale?.seoDescrizione ?? "");
+  const [seoToccata, setSeoToccata] = useState(!!(iniziale?.seoTitolo || iniziale?.seoDescrizione));
   const perNome = (a: string, b: string) => a.localeCompare(b, "it");
   const tipiDellaCategoria = [
     ...new Set([
@@ -835,6 +847,67 @@ export function FormProdottoNuovo({
             <textarea id="descrizione" name="descrizione" rows={descrizione ? 8 : 3} value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)." />
             {erroreAi && <div className="avviso-errore" style={{ marginTop: 8 }}>{erroreAi}</div>}
             {!aiPronta && <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>}
+          {/* ⭐ 09/09/2026 (utente): «fai vedere la SEO anche nel form di
+              creazione e modifica prodotto», e «autocompilata con delle
+              regole». Sta qui, subito sotto la descrizione, perché è di lì che
+              nasce: è la stessa cosa detta a Google in 60 e 160 caratteri.
+              ⚠️ È una BOZZA: si scrive nei campi nostri, non su Shopify. Il
+              testo che i clienti leggono nei risultati cambia solo quando
+              qualcuno lo manda al negozio, dalla scheda del prodotto. */}
+          <div className="campo-modulo largo">
+            <label htmlFor="seoTitolo">Come si vede su Google</label>
+            <div className="riga-ai" style={{ marginBottom: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondario small"
+                onClick={() => {
+                  const nome = (form.current?.elements.namedItem("nome") as HTMLInputElement | null)?.value ?? "";
+                  // I nomi delle sezioni che il prodotto ha davvero: servono
+                  // a non farsi scappare un titolo di sezione dentro la
+                  // descrizione che finisce su Google.
+                  const nomiSezioni = [...new Set(Object.values(sezioniValori).flatMap((v) => Object.keys(v ?? {})))];
+                  const r = seoDaRegole({ nome, descrizione, plusProdotto, sezioni: nomiSezioni });
+                  setSeoTitolo(r.titolo);
+                  setSeoDescrizione(r.descrizione);
+                  setSeoToccata(true);
+                }}
+              >
+                ✎ Scrivila dalle regole
+              </button>
+              <span className="cella-sub">
+                Titolo «nome | DELUXY» e le prime frasi della descrizione con la consegna in guanti bianchi, dentro i limiti
+                che Google mostra. Poi si corregge a mano.
+              </span>
+            </div>
+            <input
+              id="seoTitolo"
+              name="seoTitolo"
+              value={seoTitolo}
+              onChange={(e) => { setSeoTitolo(e.target.value); setSeoToccata(true); }}
+              placeholder="Il titolo nei risultati di ricerca"
+            />
+            <span className={`cella-sub${seoTitolo.length > MAX_TITOLO ? " fuori-limite" : ""}`}>
+              {seoTitolo.length}/{MAX_TITOLO} caratteri{seoTitolo.length > MAX_TITOLO ? " — oltre questo Google taglia" : ""}
+            </span>
+            <textarea
+              id="seoDescrizione"
+              name="seoDescrizione"
+              rows={2}
+              value={seoDescrizione}
+              onChange={(e) => { setSeoDescrizione(e.target.value); setSeoToccata(true); }}
+              placeholder="Le due righe sotto il titolo, nei risultati"
+              style={{ marginTop: 8 }}
+            />
+            <span className={`cella-sub${seoDescrizione.length > MAX_DESCRIZIONE ? " fuori-limite" : ""}`}>
+              {seoDescrizione.length}/{MAX_DESCRIZIONE} caratteri{seoDescrizione.length > MAX_DESCRIZIONE ? " — oltre questo Google taglia" : ""}
+            </span>
+            {!seoToccata && (
+              <span className="cella-sub">
+                Lasciandola vuota, al salvataggio si scrive da sola con le regole qui sopra.
+              </span>
+            )}
+          </div>
+
           <div className="campo-modulo largo">
             {/* ⭐ 08/09/2026 (utente): «le foto sono nei campi comuni».
                 Una sola serie di foto per il prodotto: alla pubblicazione

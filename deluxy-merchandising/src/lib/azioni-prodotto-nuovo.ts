@@ -29,6 +29,7 @@ import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
 import { descrizionePerNegozio } from "./descrizione-prodotto";
+import { seoDaRegole } from "./seo-regole";
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
@@ -205,6 +206,24 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     if (Object.keys(puliti).length) sezioniScheda[sito.slice(0, 80)] = puliti;
   }
 
+  // ⭐ 09/09/2026 (utente): «porta la SEO ad essere autocompilata con delle
+  // regole anche in sede di creazione del prodotto». Se chi compila l'ha
+  // scritta, vince la sua; se l'ha lasciata vuota, la scrive la regola.
+  // ⚠️ Solo la nostra **bozza** (`seoTitolo`/`seoDescrizione`): i campi
+  // `…Shopify` sono quello che sta sul negozio, e da qui non si tocca. Il testo
+  // che i clienti leggono su Google cambia solo quando qualcuno lo manda.
+  const seoScritta = { titolo: testo(fd, "seoTitolo").trim(), descrizione: testo(fd, "seoDescrizione").trim() };
+  const seoRegola = seoDaRegole({
+    nome,
+    descrizione: testo(fd, "descrizione") || null,
+    plusProdotto: testo(fd, "plusProdotto") || null,
+    sezioni: [...new Set(Object.values(sezioniScheda ?? {}).flatMap((v) => Object.keys((v ?? {}) as Record<string, string>)))],
+  });
+  const seo = {
+    titolo: (seoScritta.titolo || seoRegola.titolo).slice(0, 300) || null,
+    descrizione: (seoScritta.descrizione || seoRegola.descrizione).slice(0, 600) || null,
+  };
+
   return {
     nome,
     negozio: negozioOk,
@@ -218,6 +237,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     fase,
     categoria,
     tipoShopify,
+    seo,
     tipologiaVendita,
     note: testo(fd, "note") || null,
     collezioni,
@@ -535,7 +555,10 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       codice,
       nome: m.nome,
       categoria: m.categoria,
-        tipoShopify: m.tipoShopify || null,
+      tipoShopify: m.tipoShopify || null,
+      seoTitolo: m.seo.titolo,
+      seoDescrizione: m.seo.descrizione,
+      seoModificatoIl: new Date(),
       tipologiaVendita: m.tipologiaVendita,
       note: m.note,
       fase,
@@ -853,6 +876,9 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         nome: m.nome,
         categoria: m.categoria,
         tipoShopify: m.tipoShopify || null,
+        seoTitolo: m.seo.titolo,
+        seoDescrizione: m.seo.descrizione,
+        seoModificatoIl: new Date(),
         tipologiaVendita: m.tipologiaVendita,
         note: m.note,
         fase,

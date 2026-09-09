@@ -1706,3 +1706,5 @@ a.anteprima-matita {
   text-decoration: none;
   color: inherit;
 }
+/* Il contatore dei caratteri SEO quando si sfora il limite che Google mostra. */
+.cella-sub.fuori-limite { color: var(--pericolo, #b3261e); }
