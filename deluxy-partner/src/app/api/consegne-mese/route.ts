@@ -3,6 +3,18 @@ import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine } from "@/lib/apiauth";
 import { matchPartner } from "@/lib/riconciliazione";
 import { registra } from "@/lib/registro";
+import {
+  ficStato,
+  ficClientiFatturabili,
+  ficCreaFattura,
+  ficEntityUltimaFattura,
+  ficSegnaFatturaPagata,
+  ficInviaAlloSdi,
+  invioSdiAutomatico,
+  type FicEntity,
+} from "@/lib/fic";
+import { suggerisciClienteFic } from "@/lib/fic-cliente";
+import { nomeMese } from "@/lib/calc";
 
 // IL MESE DELLE CONSEGNE, MANDATO DALLA PIATTAFORMA (09/09/2026).
 //
@@ -149,6 +161,78 @@ export async function POST(req: NextRequest) {
 
   const dovuto = +(venduto - commissioni * (1 + aliquotaIva / 100)).toFixed(2);
 
+  // ⭐ 09/09/2026 (richiesta dell'utente: «quando ti arrivano da app delivery
+  // crea subito la fattura su FIC e invia»).
+  //
+  // Il documento fiscale della commissione lo emette Finance, appena il mese
+  // arriva. Con tre porte chiuse a chiave, perché qui uno sbaglio non è un bug
+  // ma una fattura vera intestata a qualcuno:
+  //   1. si emette SOLO se il mese non ha già un numero di Fatture in Cloud
+  //      (il riferimento interno della piattaforma non conta come documento);
+  //   2. si emette SOLO se il cliente su FIC è un FATTO — riconciliazione
+  //      confermata, o intestatario delle fatture commissioni già emesse a
+  //      questo partner. Se il nome è stato indovinato per somiglianza, no:
+  //      decide una persona. È la stessa regola di `emettiCommissioniRapido`;
+  //   3. l'INVIO ALLO SDI è dietro un interruttore spento di suo. Creare si
+  //      disfa, inviare no: serve una nota di credito. La prima volta lo accende
+  //      una persona, non un deploy.
+  // Se qualcosa non riesce, il mese resta scritto e l'esito lo dice: una
+  // fattura non emessa è un lavoro da fare, non un errore da nascondere.
+  const emissione: Record<string, unknown> = { tentata: false };
+  const numeroVero = /^\s*\d+([-/]\d+)*\s*\/?\s*\d{0,4}\s*$/.test((saldo?.commFattNumero ?? "").trim());
+  if (commissioni > 0.005 && !numeroVero) {
+    emissione.tentata = true;
+    try {
+      const stato = await ficStato();
+      if (!stato.collegato) throw new Error("Fatture in Cloud non è collegato.");
+      const clienti = await ficClientiFatturabili();
+      const scelta = await suggerisciClienteFic(partner, clienti);
+      if ((scelta.da !== "riconciliazione" && scelta.da !== "storico") || !scelta.cliente) {
+        emissione.esito = "cliente non certo";
+        emissione.perche =
+          "Su Fatture in Cloud non risulta a chi intestarla con certezza: la emette una persona da «Emetti su Fatture in Cloud».";
+      } else {
+        let clienteId: number | undefined;
+        let entity: FicEntity | undefined;
+        if (scelta.cliente.valore.startsWith("id:")) {
+          clienteId = parseInt(scelta.cliente.valore.slice(3)) || undefined;
+        } else {
+          const nome = scelta.cliente.valore.slice(5);
+          entity = (await ficEntityUltimaFattura(nome)) ?? ({ name: nome } as FicEntity);
+        }
+        const res = await ficCreaFattura({
+          clienteId,
+          entity,
+          descrizione: `Commissioni su vendite ${nomeMese(mese)} ${anno}`,
+          imponibile: +commissioni.toFixed(2),
+          visibleSubject: `Commissioni ${nomeMese(mese)} ${anno}`,
+        });
+        emissione.numero = res.numero;
+        // Sulle vendite la commissione non si incassa dal partner: si trattiene
+        // dall'incasso. Lasciarla «da incassare» la farebbe comparire nei
+        // solleciti e in un credito che nessuno deve versare.
+        await ficSegnaFatturaPagata(res.id, true).catch(() => null);
+        // Il numero VERO prende il posto del riferimento interno.
+        await prisma.saldoMensile.updateMany({
+          where: { partnerId: partner.id, anno, mese },
+          data: { commFattEmessa: true, commFattNumero: res.numero },
+        });
+        emissione.esito = "creata e segnata saldata";
+        if (await invioSdiAutomatico()) {
+          const inv = await ficInviaAlloSdi(res.id);
+          emissione.sdi = inv.ok ? "inviata" : `NON inviata: ${inv.errore}`;
+        } else {
+          emissione.sdi = "invio automatico spento: la fattura è creata, va inviata da Fatture in Cloud";
+        }
+      }
+    } catch (e) {
+      emissione.esito = "non creata";
+      emissione.errore = (e as Error).message;
+    }
+  } else if (numeroVero) {
+    emissione.esito = `il mese ha già la fattura ${saldo?.commFattNumero}`;
+  }
+
   await registra({
     azione: `Mese consegne ricevuto dalla piattaforma: ${mese}/${anno}`,
     categoria: "vendite",
@@ -160,7 +244,8 @@ export async function POST(req: NextRequest) {
       `(fee ${feePercent}%) · dovuto al partner ${dovuto.toFixed(2)} € · ` +
       `${esistente ? "riga aggiornata (reinvio)" : "riga creata"}` +
       `${haGiaNumero ? ` · il mese aveva già la fattura commissioni «${saldo?.commFattNumero}», non l'ho toccata` : ""}` +
-      ` · da ${appOrigine(req) ?? "piattaforma"}`,
+      ` · da ${appOrigine(req) ?? "piattaforma"}` +
+      (emissione.tentata ? ` · fattura FIC: ${emissione.esito ?? "?"}${emissione.numero ? ` (${emissione.numero})` : ""}${emissione.sdi ? ` · SDI: ${emissione.sdi}` : ""}` : ""),
   });
 
   return NextResponse.json({
@@ -172,7 +257,8 @@ export async function POST(req: NextRequest) {
     commissioni,
     feePercent,
     dovutoAlPartner: dovuto,
-    fatturaCommissioni: haGiaNumero ? (saldo?.commFattNumero ?? riferimento) : riferimento,
+    fatturaCommissioni: emissione.numero ?? (haGiaNumero ? (saldo?.commFattNumero ?? riferimento) : riferimento),
+    emissioneFic: emissione,
     aggiornata: Boolean(esistente),
     // Detto esplicitamente perché la specifica chiedeva il contrario: chi
     // integra deve sapere che la commissione non diventa un credito.
