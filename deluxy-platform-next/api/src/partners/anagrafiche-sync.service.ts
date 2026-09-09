@@ -372,9 +372,21 @@ export class AnagraficheSyncService {
     // `compensazioneIncassi: null` è «ancora da valorizzare», `false` è «no».
     // Scartarli vorrebbe dire che una decisione presa qui non arriva mai al
     // registro, e Finance continuerebbe a scrivere «mai deciso».
+    //
+    // ⚠️⚠️ 09/09/2026 — LE CONDIZIONI VIAGGIANO SEMPRE, ANCHE CON `campi`.
+    // Prima venivano saltate quando la sincronizzazione era mirata a un
+    // sottoinsieme di campi, e questo è successo: su MEIMEIJ (Angelica Fashion)
+    // il registro aveva DUE schede; il 09/09 la piattaforma ha riconosciuto
+    // quella vecchia e le ha spostato il `platformId` sopra — ma con un invio
+    // mirato, quindi la scheda appena collegata è rimasta con le condizioni a
+    // «da valorizzare», e Finance ha smesso di vederle.
+    // `campi` esiste per non decidere al posto di chi guarda su dati che hanno
+    // due possibili proprietari (IBAN, PEC, contatti). Le condizioni vendor NON
+    // sono di quella specie: la piattaforma ne è l'unica casa, quindi non
+    // esiste un motivo per lasciarle indietro — lasciarle indietro significa
+    // solo che il registro racconta una cosa vecchia.
     const condizioni: Record<string, unknown> = {};
     for (const c of ['compensazioneIncassi', 'pagamentoVendorGiorni', 'incassoServiziGiorni', 'incassoServiziFineMese'] as const) {
-      if (campi && !campi.includes(c)) continue;
       const v = (partner as any)[c];
       if (v !== undefined) condizioni[c] = v;
     }

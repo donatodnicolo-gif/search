@@ -3,6 +3,23 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🔗 **09/09/2026 — le condizioni vendor viaggiano SEMPRE, anche con `campi`.**
+> `corpo()` le saltava quando la sincronizzazione era mirata a un sottoinsieme
+> di campi. È costato un caso vero: su **MEIMEIJ (Angelica Fashion srl)** il
+> registro aveva **due schede** — il 26/08 la piattaforma non aveva riconosciuto
+> quella esistente e ne aveva creata una nuova. Il 09/09 ha riconosciuto la
+> vecchia e le ha **spostato sopra il `platformId`**, ma con un invio mirato: la
+> scheda appena collegata è rimasta con le condizioni a «da valorizzare», e
+> Finance ha smesso di vederle.
+> `campi` esiste per non decidere al posto dell'operatore su dati che hanno due
+> possibili proprietari (IBAN, PEC, contatti). Le condizioni vendor no: la
+> piattaforma ne è l'unica casa, quindi lasciarle indietro vuol dire solo che il
+> registro racconta una cosa vecchia.
+> 📏 Contorno misurato il 09/09: **98 nomi doppi nel registro** (280 schede),
+> e **19 partner di Finance** erano agganciati alla gemella scollegata mentre
+> l'altra portava il `platformId`. Spostati (nessuno perdeva IBAN o codice SDI):
+> i partner Finance che leggono le condizioni passano da **17 a 36 su 121**.
+
 > 🔁 **08/09/2026 — «Compensa commissioni e vendite» ha TRE risposte, e viaggia verso il registro.**
 > Era `Boolean @default(false)`: un partner mai toccato diceva «no» con la
 > stessa faccia di uno deciso davvero. Ora è `Boolean?` — sì / no /
@@ -29,6 +46,39 @@
 > ce ne sono **17**: **8 agganciati** al registro e risincronizzati, **9 no**
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
+
+> 🔖 **09/09/2026 — GIUGNO E LUGLIO: LA FATTURAZIONE TORNA, SONO LE CONSEGNE AD AVERE UN PREZZO DIVERSO OGGI.** Richiesta dell'utente: «ricontrolla se i totali di fatturazione tornano di giugno e luglio con i prezzi che danno le consegne». Nessun dato toccato.
+>
+> **128 fatture** (67 giugno, 61 luglio), **1.411 righe**, imponibile 31.166,36 €:
+> - imponibile = somma degli importi delle righe → **128 su 128** al centesimo;
+> - imponibile = somma dei prezzi che le consegne hanno **oggi** (`price + additionalPrice + ruleAdjustment`) → **118 su 128**; differenza complessiva **+687,31 €** (396,00 a giugno, 291,31 a luglio);
+> - totale = imponibile + IVA 22% → 118 su 128, e le 10 fuori sono le legacy già note (documento originale diverso dalla ricostruzione).
+>
+> **La causa delle 10 differenze — 35 righe in tutto, misurata sul vecchio gestionale:**
+> 1. 🟠 **Lo sconto da regola che il vecchio gestionale non aveva — 27 righe, 8 fatture, +697 €.** Le consegne portano oggi un `ruleAdjustment` negativo (−28 Gruè, −25 Chanel Firenze, −18 Taveggia e Brioni, −15 DR Vranjes, −8 Basara Tortona) scritto **il 04/09/2026** dall'importazione delle regole legacy (regole 16, 31, 11, 32, 37, 28, con `partnerBillingAdjustment` negativo). Nel dump del vecchio gestionale **quelle stesse consegne hanno `deliveryRuleId` nullo e `withDailyDeliveryRule` nullo**: la regola non era collegata, e la fattura le addebitava a prezzo pieno. Il documento originale dà ragione alla fattura in 7 casi su 8 (l'ottavo è `FAT-LEGACY-494`, Chanel Firenze, che non torna neanche col legacy).
+> 2. 🟠 **Un prezzo riscritto — Luca Faloni, consegna #60962, −9,60 €.** Nel vecchio gestionale `price = 5,40` e la fattura ha addebitato 5,40; in piattaforma la consegna ha oggi `price = 15,00` (aggiornata il 04/09/2026 alle 14:42), senza regola collegata.
+> 3. 🟢 **Mali'A `FAT-LEGACY-542`, −0,09 €**: arrotondamento su 27 righe di vendita, non è un errore.
+>
+> **Dimensione del fenomeno**: in giugno-luglio **653 consegne su 3.242 hanno un `ruleAdjustment` diverso da zero, per −13.454 €** complessivi. Il rischio è lo stesso delle 89: **chi rigenera la fatturazione di quei mesi riottiene importi più bassi di quelli emessi e incassati.**
+>
+> ⚠️ Le fatture di Chanel (`FAT-LEGACY-494`, `-495`) sono state solo lette, come da regola.
+>
+> Script di sola lettura nello scratchpad: `quadra-giu-lug.mjs` (con l'esito in `quadra-giu-lug.json`) e `regola-scarto.mjs`.
+
+> ✅ **09/09/2026 — LA CAUSA DELLE 89 FATTURE È TROVATA, sul VECCHIO DATABASE (segnalazione dell'utente su Chantillitti: «dovrebbero esserci dei servizi di consegna»).** Nessun dato toccato.
+>
+> **Dove si è guardato**: il dump MySQL del vecchio gestionale (`C:\Users\nicol\Downloads\localhost.sql`), tabelle `delivery_invoice` (562 documenti, con `invoiceAmount`) e `delivery_invoice_delivery` (9.852 righe: quali consegne stavano dentro ogni documento). È la fonte che mancava: fino a ieri si confrontava la ricostruzione con sé stessa.
+>
+> **La regola del vecchio sistema, misurata**: nell'importo della fattura al partner **le consegne `serviceType='sales'` NON entravano**. Su 562 documenti:
+> - contando TUTTE le righe × 1,22 → tornano **201**;
+> - contando **escluse le vendite** → tornano **453 al centesimo**, 502 (89,3%) entro 50 centesimi.
+>
+> **Il caso che l'ha dimostrato — Chantillitti, giugno 2026.** Nel vecchio DB ci sono DUE documenti creati a tre minuti di distanza il 07/07/2026: il `452` con `invoiceAmount` **0,00** e 5 vendite; il `453` con **30,20 €** e le stesse 5 vendite **più la consegna #59617 dell'11/06, «Servizio Consegna Standard» a prezzo fisso 24,75 €**. E **24,75 × 1,22 = 30,20**: il documento vero fatturava **solo il servizio di consegna**, le vendite valevano zero. Il 452 è il doppione annullato, rifatto tre minuti dopo come 453.
+> - In piattaforma: `FAT-LEGACY-453` porta imponibile 108,79 € (84,04 di quote sulle vendite + 24,75 del servizio) col totale legacy 30,20 € → **l'IVA a schermo diventa −78,59 €**. `FAT-LEGACY-452` è stata ricostruita a 102,53 € mentre il documento diceva 0,00.
+>
+> **Restano fuori 60 documenti**: 4 fra 0,50 e 5 €, 35 fra 5 e 50 €, **21 sopra i 50 €** — e in nessuno dei 21 c'è una riga di vendita, quindi sono un'altra cosa (documenti a 0,00 come il `209` e il `337`, importi messi a mano come il `112` = 110 € su una riga senza prezzo). Non sono spiegati dalla regola qui sopra.
+>
+> 📌 **Che farsene (da decidere, NON applicato)**: chi rigenera una fattura legacy deve escludere le righe di vendita, altrimenti riottiene un importo diverso da quello incassato. Script di sola lettura nello scratchpad: `chant-piattaforma.mjs`; l'estrazione si rifà con `legacy-estrai.mjs delivery_invoice delivery_invoice_delivery`.
 
 > 🔖 **09/09/2026 — PUNTO APERTO (decisione dell'utente: «metti come punto aperto»): 89 FATTURE LEGACY CON LA RICOSTRUZIONE CHE NON QUADRA.** ⚠️ **Non toccare i dati**: sono fatture emesse e incassate. Nessuna scrittura fatta, nessuna proposta applicata.
 >
