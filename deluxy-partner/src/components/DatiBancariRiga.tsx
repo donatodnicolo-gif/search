@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { salvaDatiBancariInline, type EsitoSalvataggio } from "@/lib/riconciliazione-actions";
+import { salvaDatiBancariInline, ignoraIbanSuggerito, type EsitoSalvataggio } from "@/lib/riconciliazione-actions";
 
 // IBAN e intestatario del conto di una riga di riconciliazione, salvati **senza
 // ricaricare la pagina**.
@@ -18,6 +18,10 @@ export function DatiBancariRiga({
   ibanSuggerito,
   intestatarioIniziale,
   intestatarioSuggerito,
+  ibanRegistro,
+  intestatarioRegistro,
+  ibanIgnorato,
+  ficNome,
   scrittura,
 }: {
   partnerId: string;
@@ -26,12 +30,65 @@ export function DatiBancariRiga({
   ibanSuggerito: string | null;
   intestatarioIniziale: string;
   intestatarioSuggerito: string | null;
+  /** L'IBAN che il registro ha già: se c'è, qui non si chiede niente. */
+  ibanRegistro?: string | null;
+  intestatarioRegistro?: string | null;
+  ibanIgnorato?: boolean;
+  ficNome: string;
   scrittura: boolean;
 }) {
   const [esito, azione] = useActionState<EsitoSalvataggio, FormData>(
     salvaDatiBancariInline.bind(null, partnerId, anagraficaId),
     null
   );
+  const [esitoIgnora, azioneIgnora] = useActionState<EsitoSalvataggio, FormData>(
+    async (_p: EsitoSalvataggio, fd: FormData) =>
+      ignoraIbanSuggerito(ficNome, partnerId, fd.get("ignora") === "1"),
+    null
+  );
+
+  // ⭐ 09/09/2026 (richiesta dell'utente). Il partner l'IBAN se lo scrive da
+  // solo sull'app delivery, con un codice via mail, e finisce nel registro.
+  // Se là c'è, qui non si chiede niente: mostrarlo come «da riconciliare»
+  // farebbe sembrare che manchi, e inviterebbe a incollarci sopra un conto
+  // DEDOTTO dai bonifici — cioè a sostituire un dato dichiarato dal partner con
+  // uno indovinato da noi.
+  if (ibanRegistro) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 12 }}>
+        <span style={{ fontFamily: "ui-monospace, monospace" }}>{ibanRegistro}</span>
+        <span style={{ color: "var(--text-secondary)" }}>
+          {intestatarioRegistro || <em>intestatario non indicato</em>}
+        </span>
+        <span className="badge green" style={{ alignSelf: "flex-start", fontSize: 11 }}>
+          <span className="dot" />già nel registro
+        </span>
+        {!intestatarioRegistro && (
+          <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>
+            manca l&apos;intestatario: la banca lo confronta con l&apos;IBAN
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Proposta messa da parte: resta la via per ripensarci.
+  if (ibanIgnorato) {
+    return (
+      <form action={azioneIgnora} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+        <span className="muted">Proposta dai bonifici messa da parte</span>
+        <input type="hidden" name="ignora" value="0" />
+        <button className="btn small secondary" type="submit" disabled={!scrittura} style={{ alignSelf: "flex-start" }}>
+          Rimettila in vista
+        </button>
+        {esitoIgnora && (
+          <span style={{ fontSize: 11.5, color: esitoIgnora.ok ? "var(--green)" : "var(--red)" }}>
+            {esitoIgnora.ok ? "✓ " : "✕ "}{esitoIgnora.testo}
+          </span>
+        )}
+      </form>
+    );
+  }
 
   return (
     <form action={azione} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -67,6 +124,30 @@ export function DatiBancariRiga({
         />
         <Salva scrittura={scrittura} />
       </div>
+      {/* «Ignora» esiste perché l'IBAN proposto nasce da una somiglianza di
+          NOMI sui bonifici già fatti: a volte è un omonimo o un pagamento
+          girato a un terzo. Senza, l'unica uscita era salvare un conto forse
+          sbagliato oppure ritrovarselo proposto a ogni apertura. Mette a tacere
+          la PROPOSTA, non tocca l'IBAN del partner. */}
+      {ibanSuggerito && !ibanIniziale && (
+        <button
+          className="btn small secondary"
+          type="submit"
+          name="ignora"
+          value="1"
+          formAction={azioneIgnora}
+          disabled={!scrittura}
+          title="Il conto proposto dai bonifici non è il suo: non riproporlo. L'IBAN del partner non viene toccato."
+          style={{ alignSelf: "flex-start", fontSize: 12 }}
+        >
+          Ignora la proposta
+        </button>
+      )}
+      {esitoIgnora && (
+        <span style={{ fontSize: 11.5, color: esitoIgnora.ok ? "var(--green)" : "var(--red)" }}>
+          {esitoIgnora.ok ? "✓ " : "✕ "}{esitoIgnora.testo}
+        </span>
+      )}
       {esito && (
         <span
           style={{

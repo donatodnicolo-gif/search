@@ -1,5 +1,35 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🏦 **09/09/2026 — RICONCILIAZIONE IBAN: non chiede più quello che il
+> registro ha già, e la proposta si può mettere da parte.** (Richiesta
+> dell'utente.)
+> - **Se il registro ha già l'IBAN, la riga non chiede niente**: lo mostra con
+>   l'intestatario e un «già nel registro». Il partner se lo scrive da solo
+>   sull'app delivery (due passi, codice via mail); riproporlo qui come «da
+>   riconciliare» invitava a incollarci sopra un conto **dedotto dai bonifici**,
+>   cioè a sostituire un dato dichiarato dal partner con uno indovinato.
+>   ⚠️ Se l'intestatario manca, lo dice: la banca lo confronta con l'IBAN.
+> - **«Ignora la proposta»** accanto a «Salva»: l'IBAN suggerito nasce da una
+>   somiglianza di NOMI sui bonifici già fatti, e a volte è un omonimo o un
+>   pagamento girato a un terzo. Mette a tacere il SUGGERIMENTO, non tocca
+>   l'IBAN; e «Rimettila in vista» annulla la scelta.
+> - Nuova colonna `RiconciliazioneAnagrafica.ibanIgnorato` (SQL additivo +
+>   `schema.prisma`).
+> - ⚠️ **Trappola evitata**: creando la riga di stato per tenere quel flag,
+>   mettere `stato: "ignorata"` avrebbe **scollegato il partner** — è lo stesso
+>   campo che dice «questo abbinamento non è suo». Si usa uno stato **neutro**
+>   (`aperta`), e il costruttore ora considera decisioni solo «confermata» e
+>   «ignorata».
+> - L'elenco del registro porta già `datiFinanziari`: bastano poche pagine
+>   (`elencoAnagrafiche`, cache 10 min come FIC e Qonto) invece di una chiamata
+>   per partner. Se il registro non risponde si ricade nel comportamento di
+>   prima — si mostra la proposta — che è il ripiego prudente.
+> 📏 Misura del 09/09: **80 schede di registro hanno un IBAN**; **22 partner
+> Finance** smettono di chiedere la riconciliazione (5 dei quali **senza
+> intestatario**, e ora lo si vede); 2 hanno l'IBAN solo nella copia locale, 97
+> non ce l'hanno da nessuna parte.
+
+
 > 🧾 **09/09/2026 — due cose sulle FATTURE COMMISSIONI.**
 > - 🔴 **FIC rifiutava «ragione sociale del cliente» su un cliente che ce
 >   l'aveva.** `ficCreaFattura` mandava `entity: { id }` quando il cliente veniva

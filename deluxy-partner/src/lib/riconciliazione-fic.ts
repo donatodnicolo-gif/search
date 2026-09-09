@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { ficClientiFiscali, type FicClienteFiscale } from "./fic";
 import { matchPartner } from "./riconciliazione";
 import { qontoBeneficiari, qontoConfigurato, type QontoBeneficiario } from "./qonto";
+import { elencoAnagrafiche } from "./anagrafiche";
 
 // I due dati esterni pesanti della pagina di riconciliazione — clienti FIC
 // (rubrica + fatture) e beneficiari Qonto (IBAN dei bonifici fatti) — cambiano di
@@ -27,6 +28,44 @@ const beneficiariQontoCache = unstable_cache(
   { revalidate: 600, tags: ["ric-qonto"] }
 );
 
+// ⭐ 09/09/2026 — QUELLO CHE IL REGISTRO HA GIÀ.
+//
+// L'IBAN dei partner lo scrivono ORMAI DA SOLI dall'app delivery (cambio in due
+// passi, col codice via mail), e finisce nel registro Anagrafiche. Riproporre
+// qui una «riconciliazione IBAN» per un partner che l'IBAN ce l'ha già è
+// rumore: fa sembrare che manchi qualcosa, e invita a incollarci sopra un conto
+// dedotto dai bonifici — cioè a sostituire un dato dichiarato dal partner con
+// uno indovinato da noi (richiesta dell'utente: «se l'IBAN è già salvato da app
+// delivery e tu lo hai in anagrafica, evita di mostrare riconciliazione IBAN»).
+//
+// L'elenco del registro porta già `datiFinanziari`, quindi bastano poche pagine
+// invece di una chiamata per partner. In cache 10 minuti come gli altri due
+// dati esterni della pagina.
+export type ContoRegistro = { iban: string; intestatario: string | null };
+const bancaRegistroCache = unstable_cache(
+  async (): Promise<Record<string, ContoRegistro>> => {
+    const out: Record<string, ContoRegistro> = {};
+    try {
+      for (let page = 1; page <= 15; page++) {
+        const r = await elencoAnagrafiche(page, 200);
+        for (const a of r.dati) {
+          const iban = (a.datiFinanziari?.iban ?? "").replace(/\s+/g, "").toUpperCase();
+          if (iban) out[a.id] = { iban, intestatario: a.datiFinanziari?.intestatarioConto?.trim() || null };
+        }
+        if (r.dati.length < 200) break;
+      }
+    } catch {
+      // Il registro che non risponde non deve svuotare la pagina: senza questa
+      // mappa si ricade nel comportamento di prima (si mostra la proposta), che
+      // è prudente — non si nasconde qualcosa perché «forse» c'è già.
+      return out;
+    }
+    return out;
+  },
+  ["ric-registro-banca"],
+  { revalidate: 600, tags: ["ric-registro"] }
+);
+
 // Riconciliazione dei clienti Fatture in Cloud con i partner Deluxy (e, tramite
 // il loro anagraficaId, col registro Anagrafiche). FIC è la fonte ricca di dati
 // fiscali (P.IVA, CF, indirizzo); il registro spesso non li ha. Qui si abbina
@@ -47,6 +86,12 @@ export type EsitoRiga = {
   // per il negozio). Va nel registro perché la banca rifiuta il pagamento se
   // intestatario e IBAN non combaciano.
   intestatarioSuggerito: string | null;
+  /** L'IBAN che il REGISTRO ha già (scritto dal partner sull'app delivery).
+   *  Se c'è, la riga non chiede niente: mostra quello e basta. */
+  ibanRegistro: string | null;
+  intestatarioRegistro: string | null;
+  /** «Il conto proposto dalla banca non è il suo»: proposta messa a tacere. */
+  ibanIgnorato: boolean;
 };
 
 export type Riconciliazione = {
@@ -96,7 +141,7 @@ export async function campiPropostiPerNome(ficNome: string) {
 export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
   // Tutto in parallelo: i due dati esterni pesanti sono in cache (10 min), i tre
   // dati DB sono freschi. Prima erano in serie → decine di round-trip a ogni render.
-  const [clienti, partners, stati, beneficiariQonto, movConIban] = await Promise.all([
+  const [clienti, partners, stati, beneficiariQonto, movConIban, bancaRegistro] = await Promise.all([
     clientiFicCache(),
     prisma.partner.findMany(),
     prisma.riconciliazioneAnagrafica.findMany(),
@@ -106,6 +151,7 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
       select: { controparte: true, descrizione: true, ibanControparte: true },
       take: 5000,
     }),
+    bancaRegistroCache(),
   ]);
   const statoPerNome = new Map(stati.map((s) => [s.ficNome, s]));
 
@@ -142,18 +188,28 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
     // a ogni ricarica lo rimetterebbe esattamente dove non lo voleva. Senza
     // questo, «CIOCCOLATO S.A.S. DI SIMONA SOLBIATI» tornava agganciato ad AMIR
     // subito dopo essere stato scollegato.
+    // Solo «confermata» e «ignorata» sono decisioni. Dal 09/09 una riga può
+    // esistere anche solo per tenere «l'IBAN proposto non mi interessa»
+    // (`stato: "aperta"`): quella non deve valere come giudizio sull'abbinamento.
+    const statoDeciso =
+      st?.stato === "confermata" || st?.stato === "ignorata" ? st.stato : null;
     const scelto = st?.partnerId ? partners.find((p) => p.id === st.partnerId) ?? null : null;
-    const partner = scelto ?? (st?.stato === "ignorata" ? null : matchPartner(dati.nome, partners));
+    const partner = scelto ?? (statoDeciso === "ignorata" ? null : matchPartner(dati.nome, partners));
     const conto = contoPerPartner(partner);
     const riga: EsitoRiga = {
       ficNome: dati.nome,
       dati,
       partner,
       collegatoRegistro: Boolean(partner?.anagraficaId),
-      stato: (st?.stato as "confermata" | "ignorata" | undefined) ?? null,
+      stato: statoDeciso,
       esitoUltimoInvio: st?.esito ?? null,
       ibanSuggerito: conto?.iban ?? null,
       intestatarioSuggerito: conto?.nome ?? null,
+      ibanRegistro: partner?.anagraficaId ? bancaRegistro[partner.anagraficaId]?.iban ?? null : null,
+      intestatarioRegistro: partner?.anagraficaId
+        ? bancaRegistro[partner.anagraficaId]?.intestatario ?? null
+        : null,
+      ibanIgnorato: st?.ibanIgnorato ?? false,
     };
     if (!partner) senzaMatch.push(riga);
     else if (partner.anagraficaId) conciliati.push(riga);

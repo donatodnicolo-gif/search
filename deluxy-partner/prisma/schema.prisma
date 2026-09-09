@@ -518,6 +518,11 @@ model RiconciliazioneAnagrafica {
   stato        String // confermata | ignorata
   campiInviati String? // riepilogo dei campi proposti al registro
   esito        String? // ok | messaggio d'errore dell'ultimo invio
+  /// «Su questo partner l'IBAN proposto dalla banca non mi interessa» (09/09/2026).
+  /// Serve quando il conto suggerito dai bonifici NON è quello del partner — un
+  /// omonimo, un pagamento a un terzo — e riproporlo a ogni apertura è rumore.
+  /// ⚠️ Ignora il SUGGERIMENTO, non l'IBAN: quello vero resta dov'è.
+  ibanIgnorato Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
