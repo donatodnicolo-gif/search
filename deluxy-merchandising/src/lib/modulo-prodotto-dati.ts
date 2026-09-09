@@ -21,8 +21,12 @@ export async function datiModuloProdotto(): Promise<{
   sezioni: SezionePerForm[];
   /** I due plus di ciascun sito: le righe 2 e 3 dell'elenco in cima alla scheda. */
   plusNegozio: Record<string, { uno: string; due: string }>;
-  /** ⭐ 09/09/2026: i «Tipo di prodotto» già in uso sui negozi, per suggerirli. */
-  tipiShopify: string[];
+  /**
+   * ⭐ 09/09/2026: i «Tipo di prodotto» in uso, **con le categorie che li usano**.
+   * Servono le categorie perché il modulo filtra l'elenco su quella scelta
+   * (richiesta dell'utente): senza il legame, il filtro non si può fare.
+   */
+  tipiShopify: { tipo: string; categorie: string[] }[];
 }> {
   const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag, sezioni, tipi] = await Promise.all([
     elencoNegozi(),
@@ -38,10 +42,13 @@ export async function datiModuloProdotto(): Promise<{
       orderBy: [{ categoria: "asc" }, { ordine: "asc" }],
       select: { categoria: true, negozio: true, nome: true, tipo: true, richiesta: true, ordine: true },
     }),
-    // ⭐ 09/09/2026: i «Tipo di prodotto» veri, come stanno sui negozi. Si
-    // contano invece di elencarli e basta, così il suggeritore propone per
-    // primi quelli davvero usati e non un elenco alfabetico di rarità.
-    prisma.prodotto.groupBy({ by: ["tipoShopify"], _count: true, where: { tipoShopify: { not: null } }, orderBy: { _count: { tipoShopify: "desc" } }, take: 200 }),
+    // ⭐ 09/09/2026: i «Tipo di prodotto» veri, **presi dai nostri prodotti**
+    // e non da un elenco scritto a mano. Raggruppati per categoria+tipo perché
+    // il modulo deve poter filtrare: misurate 183 coppie su 120 tipi diversi.
+    // ⚠️ Il tipo NON si deduce dalla categoria — la stessa REGALI usa
+    // «Peluche», «Accessori», «Giochi», «Cosmetici», «Borse», «Palloncini» —
+    // quindi il legame va letto, non calcolato.
+    prisma.prodotto.groupBy({ by: ["categoria", "tipoShopify"], _count: true, where: { tipoShopify: { not: null } } }),
   ]);
   const conteggio = new Map<string, number>();
   for (const p of conTag) for (const t of (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean)) conteggio.set(t, (conteggio.get(t) ?? 0) + 1);
@@ -61,6 +68,19 @@ export async function datiModuloProdotto(): Promise<{
     // I plus del sito: si leggono da tutti i negozi, anche spenti, perché un
     // prodotto può essere ancora pubblicato su un negozio sospeso.
     plusNegozio: Object.fromEntries(negozi.map((n) => [n.nome, { uno: n.plusUno ?? "", due: n.plusDue ?? "" }])),
-    tipiShopify: tipi.map((t) => t.tipoShopify).filter((t): t is string => !!t),
+    // Un tipo può stare sotto più categorie («Palloncini» è di ORIGINALI_DELUXY
+    // e di REGALI): si tiene l'elenco delle sue, non una sola.
+    tipiShopify: (() => {
+      const per = new Map<string, Set<string>>();
+      for (const t of tipi) {
+        if (!t.tipoShopify) continue;
+        const gia = per.get(t.tipoShopify) ?? new Set<string>();
+        gia.add(t.categoria);
+        per.set(t.tipoShopify, gia);
+      }
+      return [...per.entries()]
+        .map(([tipo, cats]) => ({ tipo, categorie: [...cats] }))
+        .sort((a, b) => a.tipo.localeCompare(b.tipo, "it"));
+    })(),
   };
 }

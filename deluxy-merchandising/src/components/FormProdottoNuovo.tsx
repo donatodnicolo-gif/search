@@ -151,8 +151,8 @@ export function FormProdottoNuovo({
   definizioniPerNegozio: Record<string, DefinizioneMetafield[]>;
   tagEsistenti: string[];
   aiPronta: boolean;
-  /** ⭐ 09/09/2026: i «Tipo di prodotto» già in uso sui negozi, per il suggeritore. */
-  tipiShopify?: string[];
+  /** ⭐ 09/09/2026: i «Tipo di prodotto» in uso, con le categorie che li usano. */
+  tipiShopify?: { tipo: string; categorie: string[] }[];
   /** ⭐ 08/09/2026: le sezioni previste per ciascuna categoria e negozio. */
   sezioni?: SezionePerForm[];
   /** I due plus di ogni sito: righe 2 e 3 dell'elenco in cima alla scheda. */
@@ -306,6 +306,27 @@ export function FormProdottoNuovo({
   // state create: con diciotto voci, trovarne una voleva dire scorrerle tutte.
   // `localeCompare` in italiano e non un confronto fra stringhe, altrimenti gli
   // accentati finiscono in fondo, dopo la Z.
+  // ⭐ 09/09/2026 (utente): «tipo di prodotto va fatto listato e ordinato per
+  // nome, la scelta della categoria poi filtra la lista».
+  //
+  // ⚠️ **Il valore che il prodotto ha già sta SEMPRE nell'elenco**, anche se la
+  // sua categoria non lo prevede. Senza questa riga, aprire un prodotto il cui
+  // tipo non è fra quelli della categoria e premere Salva ne cambierebbe il
+  // tipo **senza che nessuno l'abbia chiesto** — un campo che si azzera da solo
+  // perché il filtro non lo contempla è peggio del campo assente.
+  const [tipoShopify, setTipoShopify] = useState(iniziale?.tipoShopify ?? "");
+  const perNome = (a: string, b: string) => a.localeCompare(b, "it");
+  const tipiDellaCategoria = [
+    ...new Set([
+      ...tipiShopify.filter((t) => !categoria || t.categorie.includes(categoria)).map((t) => t.tipo),
+      ...(tipoShopify ? [tipoShopify] : []),
+    ]),
+  ].sort(perNome);
+  const tipiAltri = tipiShopify
+    .map((t) => t.tipo)
+    .filter((t) => !tipiDellaCategoria.includes(t))
+    .sort(perNome);
+
   const categorieVisibili = categorie
     .filter((c) => !c.negozio || c.negozio === negozio?.nome)
     .slice()
@@ -674,20 +695,33 @@ export function FormProdottoNuovo({
               negozi, ma il campo resta libero. */}
           <div className="campo-modulo">
             <label htmlFor="tipoShopify">Tipo di prodotto (Shopify)</label>
-            <input
-              id="tipoShopify"
-              name="tipoShopify"
-              list="tipi-shopify"
-              placeholder="Vini, Torte, Fiori, Cosmetici…"
-              defaultValue={iniziale?.tipoShopify ?? ""}
-            />
-            <datalist id="tipi-shopify">
-              {tipiShopify.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
+            <select id="tipoShopify" name="tipoShopify" value={tipoShopify} onChange={(e) => setTipoShopify(e.target.value)}>
+              <option value="">— Nessuno —</option>
+              {tipiDellaCategoria.length > 0 && (
+                <optgroup label={categoria ? `Usati in ${categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}` : "In uso sui negozi"}>
+                  {tipiDellaCategoria.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
+              )}
+              {/* ⚠️ Gli altri restano raggiungibili, in fondo. Il filtro serve a
+                  mettere davanti i tipi giusti, non a rendere impossibile una
+                  combinazione nuova: «Palloncini» sta sotto due categorie, e un
+                  prodotto che ne inaugura una terza non deve trovare la strada
+                  chiusa. */}
+              {tipiAltri.length > 0 && (
+                <optgroup label={categoria ? "Altri tipi in uso" : "Tutti"}>
+                  {tipiAltri.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
             <span className="cella-sub">
               È il «Tipo di prodotto» dell&apos;admin del negozio: più fine della categoria — qui ci va «Cake Design», non «Torte e Dolci».
+              {categoria
+                ? ` L'elenco mostra per primi i ${tipiDellaCategoria.length} già usati in questa categoria.`
+                : " Scegliendo la categoria, l'elenco si accorcia a quelli che le appartengono."}
             </span>
           </div>
           <div className="campo-modulo">
