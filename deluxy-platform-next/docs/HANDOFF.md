@@ -47,7 +47,7 @@
 > — Dosa Srls, ENRICO RIZZI MILANO, Ilaria Chiarakul, Lops Angela, M.G.M. SRL,
 > MAZZETTI d’ALTAVILLA, Montenero in fiore, SVILUPPO VIMERCATE, Taste 2.0.
 
-> ✅ **09/09/2026 (dopo il deploy) — IL RIFERIMENTO DEL DDT ANCHE SULL'ORDINE CORPORATE** (regola utente: «il valore ddt si vede aggiungere anche nella richiesta originaria»). Nell'avviso «Manca l'acquisto della merce» ora c'è `CPR<numero>` in un bottone che lo copia negli appunti (riusa il `copy()` già in pagina, con la deroga al divieto dei popup già documentata lì). Chiavi `deliveryDetail.corporate.riferimento/copiaRif/copiato` (it+en). Serve a chi crea l'acquisto **fuori** dal bottone: senza quel numero le due consegne restano estranee. `tsc` pulito e build ok; **in locale, non ancora pubblicato**.
+> 🚀 **09/09/2026 — LIVE `delivery-lrpbtickj` (bundle `main-PYB55C63`) — IL RIFERIMENTO DEL DDT ANCHE SULL'ORDINE CORPORATE** (regola utente: «il valore ddt si vede aggiungere anche nella richiesta originaria»). Nell'avviso «Manca l'acquisto della merce» ora c'è `CPR<numero>` in un bottone che lo copia negli appunti (riusa il `copy()` già in pagina, con la deroga al divieto dei popup già documentata lì). Chiavi `deliveryDetail.corporate.riferimento/copiaRif/copiato` (it+en). Serve a chi crea l'acquisto **fuori** dal bottone: senza quel numero le due consegne restano estranee. `tsc` pulito, build ok, pubblicato e verificato sul sito vero: `copiaRiferimento` e `cod-ddt` nel chunk del dettaglio, e le tre chiavi nell'`it.json` servito da entrambi gli alias.
 >
 > ℹ️ Verificato che `deluxy-delivery.vercel.app` e `app.deluxy.it` servono **lo stesso** bundle (`main-ZL5767FJ.js`): sono due alias dello stesso progetto, tutti e due aggiornati.
 
