@@ -1,5 +1,26 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🧾 **09/09/2026 — due cose sulle FATTURE COMMISSIONI.**
+> - 🔴 **FIC rifiutava «ragione sociale del cliente» su un cliente che ce
+>   l'aveva.** `ficCreaFattura` mandava `entity: { id }` quando il cliente veniva
+>   scelto dalla rubrica: **Fatture in Cloud non espande l'id**, i dati del
+>   cliente vanno scritti dentro il documento. Ora c'è `ficClienteRubrica(id)`
+>   che rilegge nome, P.IVA e codice SDI e li manda con la fattura; se la
+>   lettura fallisce si manda comunque l'id, così l'errore di FIC resta
+>   visibile. Provato in lettura su CANTINA FRANCO — FRAPA SRL, id 86386058:
+>   torna «FRAPA SRL», P.IVA 12644430154, SDI M5UXCR1.
+> - **Colonna «Comm. da fatturare» in `/partner`** (richiesta dell'utente): per
+>   ogni partner i mesi con commissioni maturate e **senza** fattura emessa,
+>   su anno corrente **e precedente** (una dimenticanza di dicembre non deve
+>   sparire il 1° gennaio). Ordinabile, con l'elenco dei mesi nel titolo e il
+>   totale in fondo.
+>   📏 Misura del 09/09: **41 partner, 27.515,22 € di commissioni mai
+>   fatturate**. I più grossi: FIORAVANTI 14 mesi / 7.802,83 €, NEGOZIO FIORI
+>   CANNAVO' 6.505,00 € (agosto 2025), MARYFLOR 2.347,00 € (agosto 2025).
+>   CANTINA FRANCO ne ha due: agosto 2025 e **luglio 2026** (giugno 2026 era
+>   già emesso, 472/2026).
+
+
 > ✏️ **09/09/2026 — GLI EXTRA SI VEDONO, SI CANCELLANO, E DEVONO DIRE PERCHÉ.**
 > Regola dell'utente: «devo poter eliminare gli extra o aggiungerne altri ogni
 > mese» e «per tutti gli extra d'ora in poi la descrizione è obbligatoria».

@@ -232,6 +232,32 @@ export default async function PartnerList({
     { l: "Trimestre", d: Math.max(1, mOggi - 2), a: mOggi },
   ];
 
+  // ⭐ 09/09/2026 (richiesta dell'utente): «mostra in tabella se ci sono fatture
+  // da emettere». Un mese con vendite come vendor produce una commissione, e
+  // quella commissione va fatturata al partner: finché non la si emette resta
+  // un ricavo non documentato, e dall'elenco non si vedeva — bisognava aprire
+  // le schede una per una. Esempio portato dall'utente: CANTINA FRANCO, giugno
+  // 2026.
+  // Si guardano DUE anni (corrente e precedente): una fattura commissioni
+  // dimenticata a dicembre non deve sparire il primo gennaio.
+  const precPerId = new Map(prec.map((t) => [t.partner.id, t]));
+  const daEmettere = new Map<string, { anno: number; mese: number; importo: number }[]>();
+  for (const t of tutti) {
+    const righe: { anno: number; mese: number; importo: number }[] = [];
+    for (const [anno, riep] of [
+      [ANNO_CORRENTE - 1, precPerId.get(t.partner.id)] as const,
+      [ANNO_CORRENTE, t] as const,
+    ]) {
+      for (const m of riep?.mesi ?? []) {
+        if (m.riepilogo.commissioni > 0.005 && !m.saldo?.commFattEmessa) {
+          righe.push({ anno, mese: m.mese, importo: m.riepilogo.commissioni });
+        }
+      }
+    }
+    if (righe.length) daEmettere.set(t.partner.id, righe);
+  }
+  const fattureDaEmettere = (id: string) => daEmettere.get(id) ?? [];
+
   type T = (typeof tutti)[number];
   const campi: Record<string, (t: T) => string | number | null> = {
     nome: (t) => t.partner.nome,
@@ -242,6 +268,7 @@ export default async function PartnerList({
     credito: (t) => GRAVITA[credito(t.partner.id).stato],
     scaduto: (t) => credito(t.partner.id).scaduto,
     fee: (t) => t.partner.feePercent,
+    daEmettere: (t) => fattureDaEmettere(t.partner.id).length,
     vendite: (t) => vista(t.partner.id).vendite,
     servizio: (t) => vista(t.partner.id).servizi,
     residuo: (t) => vista(t.partner.id).residuo,
@@ -387,6 +414,7 @@ export default async function PartnerList({
                 <ThSort label="Credito" campo="credito" sp={sp} path="/partner" />
                 <ThSort label="Scaduto" campo="scaduto" sp={sp} path="/partner" num />
                 <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
+                <ThSort label="Comm. da fatturare" campo="daEmettere" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Vendite periodo" : "Vendite YTD"} campo="vendite" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Servizi periodo" : "Servizi YTD"} campo="servizio" sp={sp} path="/partner" num />
                 <ThSort label="Residuo" campo="residuo" sp={sp} path="/partner" num />
@@ -407,6 +435,20 @@ export default async function PartnerList({
                     {credito(t.partner.id).scaduto >= 0.01 ? euro(credito(t.partner.id).scaduto) : "—"}
                   </td>
                   <td className="num">{pctIt(t.partner.feePercent)}</td>
+                  <td className="num">
+                    {(() => {
+                      const r = fattureDaEmettere(t.partner.id);
+                      if (!r.length) return <span className="muted">—</span>;
+                      const tot = r.reduce((a, x) => a + x.importo, 0);
+                      const elenco = r.map((x) => `${nomeMese(x.mese)} ${x.anno} (${euro(x.importo)})`).join(" · ");
+                      return (
+                        <span className="badge orange" title={`Commissioni ancora da fatturare: ${elenco}`}>
+                          <span className="dot" />
+                          {r.length === 1 ? `${nomeMese(r[0].mese)} ${r[0].anno}` : `${r.length} mesi`} · {euro(tot)}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="num">
                     {euro(vista(t.partner.id).vendite)}
                     <DeltaAnno cur={vista(t.partner.id).vendite} prev={precPeriodo.get(t.partner.id)?.vendite ?? 0} />
@@ -435,6 +477,16 @@ export default async function PartnerList({
                       {euro(somma((t) => credito(t.partner.id).scaduto))}
                     </td>
                     <td></td>
+                    <td className="num">
+                      {(() => {
+                        const mesi = filtered.reduce((a, t) => a + fattureDaEmettere(t.partner.id).length, 0);
+                        const tot = filtered.reduce(
+                          (a, t) => a + fattureDaEmettere(t.partner.id).reduce((b, x) => b + x.importo, 0),
+                          0
+                        );
+                        return mesi ? `${mesi} mesi · ${euro(tot)}` : "—";
+                      })()}
+                    </td>
                     <td className="num">
                       {euro(totVendite)}
                       <DeltaAnno cur={totVendite} prev={totVenditePrec} />

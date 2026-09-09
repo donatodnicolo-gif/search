@@ -630,6 +630,41 @@ export async function ficClientiFatturabili(): Promise<FicClienteFatturabile[]> 
 // compare (per rifatturarlo senza salvarlo in rubrica). Il filtro `q` su
 // entity.name è inaffidabile via API, quindi si scorrono le fatture recenti
 // (dalla più recente) e si cerca il nome in memoria.
+/**
+ * Il cliente della RUBRICA di Fatture in Cloud, con i suoi dati fiscali.
+ *
+ * ⚠️ Serve perché su `issued_documents` **non basta mandare `{ id }`**: FIC
+ * risponde «Manca o non è valido: ragione sociale del cliente» anche quando quel
+ * cliente in rubrica esiste eccome, con nome e P.IVA (visto il 09/09/2026 su
+ * CANTINA FRANCO — FRAPA SRL, id 86386058, luglio 2026). L'id NON viene
+ * espanso da FIC: i dati vanno dentro il documento.
+ */
+export async function ficClienteRubrica(id: number): Promise<FicEntity | null> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+  try {
+    const r = await ficFetch<{ data: FicEntity & { id?: number } }>(`/c/${companyId}/entities/clients/${id}`);
+    const e = r.data;
+    if (!e?.name) return null;
+    return {
+      id,
+      name: e.name,
+      vat_number: e.vat_number ?? null,
+      tax_code: e.tax_code ?? null,
+      address_street: e.address_street ?? null,
+      address_postal_code: e.address_postal_code ?? null,
+      address_city: e.address_city ?? null,
+      address_province: e.address_province ?? null,
+      country: e.country ?? null,
+      ei_code: e.ei_code ?? null,
+      certified_email: e.certified_email ?? null,
+      email: e.email ?? null,
+    } as FicEntity;
+  } catch {
+    return null;
+  }
+}
+
 export async function ficEntityUltimaFattura(nome: string): Promise<FicEntity | null> {
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
@@ -867,6 +902,14 @@ export async function ficCreaFattura(opts: {
     return [{ amount: tot, due_date: scadSaldo, status: "not_paid" as const }];
   };
 
+  // L'ENTITÀ CHE VA DENTRO IL DOCUMENTO. Con un cliente scelto dalla rubrica si
+  // mandava solo `{ id }`, e FIC rifiutava: «Manca o non è valido: ragione
+  // sociale del cliente». Non espande l'id — i dati del cliente vanno scritti
+  // nel documento. Se la lettura della rubrica non riesce si manda comunque
+  // l'id: peggio di così non può andare, e l'errore di FIC resta visibile.
+  const entityDaMandare =
+    opts.entity ?? (opts.clienteId ? (await ficClienteRubrica(opts.clienteId)) ?? { id: opts.clienteId } : undefined);
+
   const r = await ficFetch<{ data: { id: number; number: number; numeration: string | null; date: string } }>(
     `/c/${companyId}/issued_documents`,
     {
@@ -878,7 +921,7 @@ export async function ficCreaFattura(opts: {
           // predisposta per lo SDI). Resta comunque NON inviata: l'invio allo SDI
           // si fa da Fatture in Cloud dopo il controllo.
           e_invoice: true,
-          entity: opts.entity ?? { id: opts.clienteId },
+          entity: entityDaMandare,
           date: dataDoc,
           visible_subject: opts.visibleSubject ?? "",
           payment_method: { id: metodoId },
