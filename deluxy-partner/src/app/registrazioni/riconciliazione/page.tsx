@@ -48,10 +48,14 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
         <DatiBancariRiga
           partnerId={r.partner!.id}
           anagraficaId={anagraficaId}
+          ficNome={r.ficNome}
           ibanIniziale={r.partner!.iban ?? ""}
           ibanSuggerito={r.ibanSuggerito}
           intestatarioIniziale={r.partner!.intestatarioConto ?? ""}
           intestatarioSuggerito={r.intestatarioSuggerito}
+          ibanRegistro={r.ibanRegistro}
+          intestatarioRegistro={r.intestatarioRegistro}
+          ibanIgnorato={r.ibanIgnorato}
           scrittura={scrittura}
         />
       </td>

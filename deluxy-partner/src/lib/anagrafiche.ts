@@ -108,6 +108,26 @@ export async function anagraficaPerId(id: string, timeoutMs = 3000): Promise<Ana
   return (await chiamata(`/api/v1/partners/${encodeURIComponent(id)}`, timeoutMs)) as Anagrafica | null;
 }
 
+/**
+ * Una PAGINA dell'elenco del registro, con dentro `datiFinanziari`.
+ *
+ * Serve alla riconciliazione, che deve sapere per centinaia di partner se
+ * l'IBAN nel registro c'è già: chiedere una scheda alla volta vorrebbe dire
+ * centinaia di chiamate, mentre l'elenco porta il blocco finanziario da sé.
+ * Timeout largo: è una lettura di servizio, non interattiva.
+ */
+export async function elencoAnagrafiche(
+  pagina = 1,
+  perPagina = 200,
+  timeoutMs = 15000
+): Promise<{ dati: Anagrafica[] }> {
+  const r = (await chiamata(
+    `/api/v1/partners?attivo=tutti&perPage=${perPagina}&page=${pagina}`,
+    timeoutMs
+  )) as { dati?: Anagrafica[] } | null;
+  return { dati: r?.dati ?? [] };
+}
+
 // Cerca l'anagrafica per nome: match esatto (case-insensitive) se c'è,
 // altrimenti l'unico risultato della ricerca, altrimenti null. Fallback quando
 // il partner non è ancora collegato per id.

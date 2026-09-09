@@ -467,3 +467,44 @@ export async function allineaAnagraficheTutti() {
     `/registrazioni/riconciliazione?allineati=${cambiati.length}&controllati=${esiti.length}&mancanti=${scollegati.length}`
   );
 }
+
+// ⭐ 09/09/2026 (richiesta dell'utente: «per il bonifico consenti di mettere
+// ignora oltre a salva»).
+//
+// L'IBAN proposto nasce dai bonifici già fatti: si prende il beneficiario il cui
+// NOME somiglia al partner. È un indizio, e a volte è sbagliato — un omonimo, un
+// pagamento girato a un terzo, una ditta individuale che incassa per due negozi.
+// Finora l'unica via d'uscita era salvare (scrivere un conto forse sbagliato) o
+// lasciar perdere e ritrovarselo proposto a ogni apertura.
+//
+// ⚠️ Si mette a tacere il SUGGERIMENTO, non l'IBAN: quello che il partner ha
+// dichiarato resta dov'è. E si può ripensarci — `ibanIgnorato: false` lo
+// rimette in mostra: una porta che si chiude e basta è una porta che prima o poi
+// serve riaprire.
+export async function ignoraIbanSuggerito(
+  ficNome: string,
+  partnerId: string | null,
+  ignora: boolean
+): Promise<EsitoSalvataggio> {
+  try {
+    await prisma.riconciliazioneAnagrafica.upsert({
+      where: { ficNome },
+      // ⚠️ `stato` NON va messo a «ignorata»: è il campo che dice «questo
+      // partner non è il suo», e metterlo qui scollegherebbe la riga dal
+      // partner alla prossima apertura. Mettere da parte un IBAN proposto non
+      // dice niente sull'abbinamento. Si usa uno stato NEUTRO, che il
+      // costruttore legge come «nessuna decisione presa».
+      create: { ficNome, partnerId, stato: "aperta", ibanIgnorato: ignora },
+      update: { ibanIgnorato: ignora },
+    });
+  } catch (e) {
+    return { ok: false, testo: `Non riesco a salvare la scelta: ${(e as Error).message}` };
+  }
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  return {
+    ok: true,
+    testo: ignora
+      ? "Proposta messa da parte — l'IBAN del partner non è stato toccato."
+      : "Proposta di nuovo in vista.",
+  };
+}
