@@ -17,7 +17,20 @@ export type MeseParziale = { mese: number; riepilogo: RiepilogoMese; saldo: Sald
 export type SaldoRecord = NonNullable<Awaited<ReturnType<typeof prisma.saldoMensile.findFirst>>>;
 
 // Riepilogo completo di un partner per un anno: 12 mesi calcolati + rolling.
-export async function riepilogoPartner(partnerId: string, anno: number) {
+export async function riepilogoPartner(
+  partnerId: string,
+  anno: number,
+  /**
+   * La decisione sulla compensazione presa sulla PIATTAFORMA CONSEGNE, che è la
+   * casa del dato: `false` = ha deciso di NON compensare (regime «commissioni a
+   * parte»), `true` = compensa, `null`/omesso = la piattaforma non risponde o
+   * non ha deciso, e allora vale il campo locale di Finance.
+   * ⚠️ `undefined` e `null` NON sono `false`: chi non ha deciso resta col mese
+   * come prima. È la stessa distinzione che il 09/09 ha evitato di spostare
+   * 113.561,48 € su 107 partner mai interrogati.
+   */
+  decisionePiattaforma?: boolean | null
+) {
   const [partner, fattureTutte, vendite, saldi, extraRighe] = await Promise.all([
     prisma.partner.findUnique({
       where: { id: partnerId },
@@ -54,7 +67,12 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
   // Il campo che distingue le due cose esiste già ed è `compensazioneDecisa`
   // (un booleano che parte a false non sa dire «non lo so»): oggi il regime
   // tocca **un partner**, CLIVATI, non i 107 che risultano «senza».
-  const commissioniAParte = !!partner?.compensazioneDecisa && !compensazione;
+  const commissioniAParte =
+    decisionePiattaforma === false
+      ? true
+      : decisionePiattaforma === true
+        ? false
+        : !!partner?.compensazioneDecisa && !compensazione;
   const mesiConExtra = new Set(extraRighe.map((e) => e.mese));
 
   const mesi = Array.from({ length: 12 }, (_, i) => {

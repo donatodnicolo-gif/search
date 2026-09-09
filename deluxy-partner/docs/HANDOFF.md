@@ -1,5 +1,36 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 💶 **09/09/2026 (sera) — il regime lo decide la PIATTAFORMA, e il totale
+> smette di contraddirsi.**
+> - `riepilogoPartner(id, anno, decisionePiattaforma)`: il regime «commissioni a
+>   parte» si accende quando **il registro dice `compensazioneIncassi = false`**
+>   (la piattaforma è la casa del dato). `null`/irraggiungibile → vale il campo
+>   locale `compensazioneDecisa`. `undefined` e `null` NON sono `false`.
+>   Provato su BOTTEGA DI PASTICCERIA: il registro risponde `false`, marzo passa
+>   da «70,00 → dovuto 59,50» a **dovuto 70,00** con **8,61 € +IVA → 10,50 €**
+>   di commissioni a credito.
+> - ❗ **Il totale YTD sommava i mesi senza togliere lo sforo**: sulla stessa
+>   scheda si leggeva «Da bonificare 149,43 €» e sotto «Surplus da recuperare
+>   549,42 €». Ora il periodo YTD rifà il conto del motore
+>   (`daBonificare = lordo − inviatoInPiu`), e il surplus è dichiarato per
+>   quello che è: **soldi che dobbiamo ricevere** (badge rosso «Da recuperare»),
+>   non una riga in più fra i debiti.
+>
+> 🔄 **Condizioni scritte in massa sulla piattaforma** (comando dell'utente):
+> 131 partner vivi → **128 «sì», 3 «no»** (i due CLIVATI e BOTTEGA LUNGARNO, già
+> salvata dall'utente), **0 da valorizzare**; vendite **60 gg a tutti**; servizi
+> **0 gg + fine mese** dove il campo era vuoto, **60 gg fine mese** per Chanel,
+> Armani e Zegna; chi aveva già 30 gg sui servizi scritti apposta (MODERN FOOD,
+> BONPOINT, MAZZETTI, SVILUPPO VIMERCATE) se li è tenuti. I 166 record eliminati
+> non sono stati toccati.
+> ⚠️ **Propagati al registro solo 16 partner su 131**: gli altri 115 non hanno
+> `platformId`. Finché non sono agganciati, Finance non vede le loro condizioni.
+> ⚠️ La scrittura sul registro è stata fatta in SQL diretto perché la chiave di
+> scrittura di Anagrafiche non è in locale (la piattaforma la prende dal Hub a
+> runtime): `anagrafiche."Partner"` **non ha la colonna `updatedAt`**, e il
+> primo tentativo è fallito lì dopo aver già scritto la piattaforma.
+
+
 > 🧮 **09/09/2026 — REGIME «COMMISSIONI A PARTE» (regola dell'utente).**
 > «Senza compensazione il dovuto è pari al venduto e si apre una nuova riga per
 > mese con il valore della fattura delle commissioni che il partner dovrà
