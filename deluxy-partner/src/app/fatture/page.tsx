@@ -37,6 +37,52 @@ export default async function FatturePage({
     : null;
 
   const tipologie = await prisma.tipologiaServizio.findMany({ orderBy: { ordine: "asc" } });
+
+  // ⭐ 09/09/2026 (richiesta dell'utente: «queste fatture devono andare in
+  // Fatturazione Applicativo anche», «manca la fattura in FIC, dove la vedo?»).
+  //
+  // Le fatture COMMISSIONI non sono `FatturaServizio` — e non devono diventarlo:
+  // la commissione è già dedotta dal dovuto al partner, contarla anche come
+  // credito la sottrarrebbe due volte (il 09/09 sono state tolte 41 righe così,
+  // 17.146,15 € contati doppio). Vivono sul MESE, come `commFattNumero`.
+  // Qui si MOSTRANO senza contarle, perché «non compare da nessuna parte» è il
+  // motivo per cui una fattura si perde.
+  //
+  // ⚠️ Due nature diverse nello stesso campo, e vanno distinte:
+  //   · «472/2026» → è un documento su Fatture in Cloud, si apre;
+  //   · «FAT-2026-564» → è il numero INTERNO della piattaforma: su Fatture in
+  //     Cloud quel documento **non esiste**, e va ancora emesso.
+  const mesiPeriodo = coppiePeriodo ?? [{ anno, ...(mese ? { mese } : {}) }];
+  const saldiComm = await prisma.saldoMensile.findMany({
+    where: {
+      commFattNumero: { not: null },
+      ...(coppiePeriodo
+        ? { OR: coppiePeriodo.map((c) => ({ anno: c.anno, mese: c.mese })) }
+        : { anno, ...(mese ? { mese } : {}) }),
+    },
+    include: { partner: { select: { id: true, nome: true } } },
+    orderBy: [{ anno: "desc" }, { mese: "desc" }],
+  });
+  const venditePeriodo = saldiComm.length
+    ? await prisma.venditaVendor.findMany({
+        where: { partnerId: { in: [...new Set(saldiComm.map((x) => x.partnerId))] } },
+        select: { partnerId: true, anno: true, mese: true, incassoLordo: true, feePercent: true },
+      })
+    : [];
+  const commissioniDi = (partnerId: string, a: number, m: number) =>
+    venditePeriodo
+      .filter((v) => v.partnerId === partnerId && v.anno === a && v.mese === m)
+      .reduce((t, v) => t + (v.incassoLordo * v.feePercent) / 100, 0);
+  // Un numero «vero» di Fatture in Cloud ha la forma 472/2026 (o solo cifre).
+  const suFic = (n: string) => /^\s*\d+([-/]\d+)*\s*\/?\s*\d{0,4}\s*$/.test(n.trim()) && /\d/.test(n);
+  const righeComm = saldiComm
+    .map((s) => ({
+      s,
+      numero: (s.commFattNumero ?? "").trim(),
+      importo: commissioniDi(s.partnerId, s.anno, s.mese),
+    }))
+    .filter((r) => r.numero.length > 0 && (!q || r.numero.toLowerCase().includes(q.toLowerCase()) || r.s.partner.nome.toLowerCase().includes(q.toLowerCase())));
+  void mesiPeriodo;
   let fatture = await prisma.fatturaServizio.findMany({
     where: {
       ...(coppiePeriodo
@@ -174,6 +220,58 @@ export default async function FatturePage({
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>
+
+      {righeComm.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <h2 className="section-title" style={{ marginTop: 0 }}>
+            Fatture commissioni del periodo <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({righeComm.length})</span>
+          </h2>
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            Non sono crediti da incassare: la commissione è <strong>già trattenuta</strong> dall&apos;incasso del
+            partner ed è dentro il dovuto del mese. Qui si vedono, non si contano.
+          </p>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Partner</th><th>Mese</th><th className="num">Commissioni</th><th>Documento</th><th></th></tr>
+              </thead>
+              <tbody>
+                {righeComm.map((r) => (
+                  <tr key={r.s.id}>
+                    <td>
+                      <Link href={`/partner/${r.s.partnerId}#mese-${r.s.mese}`} prefetch={false} style={{ fontWeight: 500 }}>
+                        {r.s.partner.nome}
+                      </Link>
+                    </td>
+                    <td className="muted">{nomeMese(r.s.mese)} {r.s.anno}</td>
+                    <td className="num">{r.importo > 0.005 ? euro(r.importo) : "—"}</td>
+                    <td>
+                      {suFic(r.numero) ? (
+                        <span className="badge green"><span className="dot" />{r.numero}</span>
+                      ) : (
+                        <span className="badge orange" title="È il numero interno di chi l'ha mandata (la piattaforma consegne): su Fatture in Cloud questo documento non esiste ancora.">
+                          <span className="dot" />{r.numero} · solo riferimento interno
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {!suFic(r.numero) && (
+                        <Link
+                          className="btn small secondary"
+                          prefetch={false}
+                          href={`/fic/emetti?partnerId=${r.s.partnerId}&anno=${r.s.anno}&mese=${r.s.mese}`}
+                        >
+                          Emetti su Fatture in Cloud
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card tight">
         {fatture.length === 0 ? (
