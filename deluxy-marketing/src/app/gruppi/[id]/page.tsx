@@ -231,15 +231,29 @@ export default async function SchedaGruppo({
   const accountDelGruppo = gruppo.idEsterno?.split(":")[0] ?? null;
   // Le pause di annuncio già in coda per questo gruppo: il bottone non si
   // ripropone su un annuncio che ha già la sua pausa da approvare.
+  // ⚠️ L'id dell'annuncio si legge dai PARAMETRI, non da `idEsterno`: da
+  // settembre 2026 `idEsterno` porta l'id della campagna (serve allo script
+  // per trovare il bersaglio — vedi `creaOperazionePausaAnnuncio`), ed è lo
+  // stesso per tutti gli annunci della campagna. Leggendolo da lì, il bottone
+  // sparirebbe da OGNI annuncio appena uno solo ha la sua pausa in coda.
   const pauseAnnunciInCoda = await prisma.operazioneAdv.findMany({
     where: { gruppoId: gruppo.id, tipo: "pausa_annuncio", stato: { in: ["in_attesa", "approvata"] } },
-    select: { idEsterno: true },
+    select: { parametri: true },
   });
   const pausaAnnunci = {
     azione: creaOperazionePausaAnnuncio,
     gruppoId: gruppo.id,
     ritorno: `/gruppi/${gruppo.id}`,
-    inCoda: pauseAnnunciInCoda.map((o) => o.idEsterno).filter((v): v is string => !!v),
+    inCoda: pauseAnnunciInCoda
+      .map((o) => {
+        try {
+          const v = JSON.parse(o.parametri ?? "{}").idAnnuncio;
+          return typeof v === "string" ? v : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter((v): v is string => !!v),
   };
   const censimentoDichiarato = accountDelGruppo
     ? (

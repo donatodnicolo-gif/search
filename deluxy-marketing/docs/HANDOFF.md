@@ -4,6 +4,54 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> 🔴→✅ **09/09/2026 — LA PAUSA DI UN ANNUNCIO NON FUNZIONAVA. Trovato il
+> perché e corretto senza toccare lo script.**
+> Il 07/09 avevo scritto: «non ancora provata una pausa vera: la prima passa
+> dallo script e va guardata nell'esito». È passata l'08/09 alle 09:09 ed è
+> **FALLITA**: op `cmtre0ls80001ju04rro7m3sx`, «**Bersaglio non trovato in
+> questo account: Annuncio 1 in Fiori a Domicilio + località d'interesse**».
+>
+> **La causa, letta nello script.** Prima di eseguire qualunque cosa,
+> `trovaBersaglio()` (riga 1732) deve trovare l'oggetto su cui lavorare. Ha un
+> ramo per le keyword, uno per i gruppi e uno per gli annunci NUOVI — **non
+> ne ha uno per `pausa_annuncio`**, che quindi cade nel caso generale
+> `trovaCampagna(op)`. E quella, se `op.idEsterno` c'è, cerca una CAMPAGNA con
+> `withIds([Number(op.idEsterno)])`: dentro c'era
+> `248-656-1148:195404652177:813390261104`, `Number()` fa **NaN**, nessuna
+> campagna combacia → `non-trovato` → fallita alla riga 1698.
+> ⚠️ **`pausaAnnuncio()` (riga 3021) è sempre stata giusta**: dal 21/08 sa fare
+> il suo mestiere, add-before-pause compreso. **Non veniva mai raggiunta.**
+> Il difetto non era in chi esegue, era in chi trova.
+>
+> **La correzione, tutta lato app** (`creaOperazionePausaAnnuncio`): in
+> `idEsterno` va l'id della **CAMPAGNA**, non quello dell'annuncio. Così
+> `trovaCampagna` la trova, lo smistamento arriva a `pausaAnnuncio(op, mira)`
+> — che `mira` non lo usa nemmeno: legge `parametri.idAnnuncio` e
+> `parametri.idGruppo`, che ci sono già e non cambiano. **Così non serve
+> reincollare lo script sui tre conti**, ed è l'unica ragione per cui non si è
+> corretto lo script.
+> ⚠️ Conseguenza da ricordare: **`idEsterno` non distingue più un annuncio
+> dall'altro**. I due punti che lo usavano per dire «la pausa di QUESTO
+> annuncio è già in coda» leggono ora `parametri.idAnnuncio`: il controllo
+> anti-doppione in `creaOperazionePausaAnnuncio` e l'elenco `inCoda` della
+> scheda gruppo. Senza quel cambio il bottone sarebbe sparito da **tutti** gli
+> annunci appena uno solo avesse avuto la sua pausa in coda.
+> ⚠️ **`riprovaFallita` ripara la riga mentre la rimette in coda**: le
+> `pausa_annuncio` create prima di oggi hanno ancora l'id sbagliato, e
+> «riprova» le avrebbe fatte rifallire. Chi preme riprova si aspetta che
+> riprovi, non che rifallisca. (Nessuna scrittura a mano sul database.)
+> **Provato**: `tsc` pulito; scheda gruppo aperta, 5 bottoni «Metti in pausa»,
+> nessun falso «pausa in coda», nessun errore di pagina.
+> 🔴 **Da fare, e non l'ho fatto**: la pausa vera non è ancora riuscita.
+> L'operazione fallita si rimette in coda da `/operazioni` e va **guardata
+> nell'esito al prossimo giro dello script** — è il collaudo che manca da due
+> giorni.
+> 💡 **Proposta separata, che richiede di reincollare lo script**: aggiungere
+> `if (t === "pausa_annuncio") return trovaGruppo(op, conto);` in
+> `trovaBersaglio`. Non serve più a far funzionare la pausa, ma toglie la
+> trappola per chiunque in futuro accodi un tipo nuovo senza dare a
+> `trovaBersaglio` il modo di trovarlo.
+>
 > ✅✅ **VERIFICA DELL'08/09 mattina — le modifiche di ieri SONO arrivate su
 > Google** (sola lettura; `node scripts/verifica-recepimento.mjs`). Il punto
 > aperto di ieri sera si chiude: i **15 esiti «rileggendo la campagna non

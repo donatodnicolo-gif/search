@@ -4125,10 +4125,28 @@ export async function riprovaFallita(fd: FormData) {
   if (!op || op.stato !== "fallita") return;
   if (op.tipo === "nuova_campagna") return; // ha la sua strada, con le prove
 
+  // ⚠️⚠️ RIMETTERE IN CODA UNA RIGA SBAGLIATA LA FA FALLIRE UNA SECONDA VOLTA.
+  // Le `pausa_annuncio` create prima del 09/09/2026 hanno in `idEsterno` l'id
+  // dell'ANNUNCIO (`account:gruppo:annuncio`): con quello lo script non trova
+  // il bersaglio e l'operazione muore prima di essere eseguita — è il difetto
+  // che ha bruciato la prima pausa vera. Qui si ripara la riga mentre la si
+  // rimette in coda, invece di chiedere a qualcuno di correggerla a mano sul
+  // database: chi preme «riprova» si aspetta che riprovi, non che rifallisca.
+  // L'id dell'annuncio resta dov'è sempre stato, in `parametri.idAnnuncio`.
+  let idEsternoRiparato: string | null | undefined;
+  if (op.tipo === "pausa_annuncio" && op.campagnaId) {
+    const c = await prisma.campagna.findUnique({
+      where: { id: op.campagnaId },
+      select: { idEsterno: true },
+    });
+    if (c?.idEsterno && c.idEsterno !== op.idEsterno) idEsternoRiparato = c.idEsterno;
+  }
+
   await prisma.operazioneAdv.update({
     where: { id },
     data: {
       stato: "in_attesa",
+      ...(idEsternoRiparato ? { idEsterno: idEsternoRiparato } : {}),
       approvataDa: null,
       approvataIl: null,
       eseguitaIl: null,
@@ -5406,9 +5424,21 @@ export async function creaOperazionePausaAnnuncio(fd: FormData) {
 
   // Una sola in volo per annuncio: la seconda sarebbe un doppione che lo
   // script rifà a vuoto (la trappola del doppio invio, vedi handoff 25/08).
-  const inVolo = await prisma.operazioneAdv.findFirst({
-    where: { tipo: "pausa_annuncio", idEsterno: idAnnuncio, stato: { in: ["in_attesa", "approvata"] } },
-    select: { stato: true },
+  //
+  // ⚠️ Il confronto è su `parametri.idAnnuncio`, NON su `idEsterno`: da oggi
+  // `idEsterno` porta l'id della CAMPAGNA (vedi il commento lungo sotto), che
+  // è lo stesso per tutti gli annunci di quella campagna — cercare lì
+  // vorrebbe dire «una pausa sola per campagna», che è un'altra regola.
+  const apertePerCampagna = await prisma.operazioneAdv.findMany({
+    where: { tipo: "pausa_annuncio", campagnaId: campagna.id, stato: { in: ["in_attesa", "approvata"] } },
+    select: { stato: true, parametri: true },
+  });
+  const inVolo = apertePerCampagna.find((o) => {
+    try {
+      return String(JSON.parse(o.parametri ?? "{}").idAnnuncio ?? "") === idAnnuncio;
+    } catch {
+      return false;
+    }
   });
   if (inVolo) {
     redirect(
@@ -5454,7 +5484,30 @@ export async function creaOperazionePausaAnnuncio(fd: FormData) {
       canale: gruppo.canale,
       account: pezzi[0],
       bersaglio: `${etichetta} in ${gruppo.nome}`,
-      idEsterno: idAnnuncio,
+      // ⚠️⚠️ QUI CI VA L'ID DELLA CAMPAGNA, NON QUELLO DELL'ANNUNCIO — ed è il
+      // difetto che ha fatto fallire la prima pausa vera (op
+      // `cmtre0ls80001ju04rro7m3sx`, 08/09/2026 09:09: «Bersaglio non trovato
+      // in questo account»).
+      //
+      // Nello script, PRIMA di eseguire qualunque cosa, `trovaBersaglio()`
+      // deve trovare l'oggetto su cui lavorare. Ha un ramo apposta per
+      // keyword, gruppi e annunci NUOVI — ma **non per `pausa_annuncio`**, che
+      // quindi cade nel caso generale `trovaCampagna(op)`. E quella funzione,
+      // se `op.idEsterno` c'è, cerca una CAMPAGNA con
+      // `withIds([Number(op.idEsterno)])`: con dentro
+      // `248-656-1148:195404652177:813390261104`, `Number()` fa **NaN**,
+      // nessuna campagna combacia, e l'operazione muore lì — senza che
+      // `pausaAnnuncio()` venga mai chiamata. La funzione che esegue era
+      // giusta dal 21/08: non veniva raggiunta.
+      //
+      // Mettendo qui l'id della campagna, `trovaCampagna` la trova, lo
+      // smistamento arriva a `pausaAnnuncio(op, mira)` — che `mira` non lo
+      // usa nemmeno: legge `parametri.idAnnuncio` e `parametri.idGruppo`, che
+      // continuano a esserci. **Così non serve reincollare lo script sui tre
+      // conti**, che è l'unica ragione per cui non si corregge lo script.
+      // ⚠️ Chi cerca «la pausa di QUESTO annuncio» deve guardare
+      // `parametri.idAnnuncio`: `idEsterno` adesso non lo distingue.
+      idEsterno: campagna.idEsterno,
       parametri: JSON.stringify({ idAnnuncio, idGruppo: pezzi[1], gruppo: gruppo.nome, campagna: campagna.nome }),
       motivo: testo(fd, "motivo") ?? `Messo in pausa dalla scheda del gruppo «${gruppo.nome}»`,
       avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
