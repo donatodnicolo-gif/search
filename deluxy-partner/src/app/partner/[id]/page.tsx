@@ -140,8 +140,8 @@ export default async function PartnerDetail({
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
   const [{ mesi, rolling, nonEmesse }, prec, tariffe, fattureAperte, extra, analisi, , banca] = await Promise.all([
-    riepilogoPartner(id, anno),
-    riepilogoPartner(id, annoPrec),
+    riepilogoPartner(id, anno, condVendor.condizioni?.compensazioneIncassi ?? null),
+    riepilogoPartner(id, annoPrec, condVendor.condizioni?.compensazioneIncassi ?? null),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
     // Le fatture aperte che il contatto amministrativo deve sollecitare: solo
     // quelle VERE. Una riga senza documento su FIC non si può sollecitare —
@@ -1365,8 +1365,23 @@ export default async function PartnerDetail({
         const totCur = sum((r) => r.vendite + r.serviziNetto);
         const totPrec = sumPrec((r) => r.vendite + r.serviziNetto);
         const dp = totPrec ? ((totCur - totPrec) / totPrec) * 100 : null;
-        const daBonificareYtd = sum((r) => r.daBonificare);
+        // ⚠️ 09/09/2026 — IL TOTALE SOMMAVA I MESI SENZA TOGLIERE LO SFORO.
+        // Sulla stessa scheda si leggeva «Da bonificare 149,43 €» e, due righe
+        // sotto, «Surplus da recuperare 549,42 €»: due numeri che si
+        // contraddicono. Il motore la regola ce l'ha già (`rolling`): quello che
+        // è uscito in più si TRATTIENE dai bonifici successivi, quindi va tolto
+        // dal totale prima di dirlo. Qui si rifà lo stesso conto sul periodo
+        // YTD (gennaio–ultimo mese), che è più corto dell'anno intero.
+        const daBonificareLordoYtd = sum((r) => r.daBonificare);
+        const inviatoInPiuYtd = sum((r) => r.pagatoInPiu);
+        const daBonificareYtd = Math.max(0, daBonificareLordoYtd - inviatoInPiuYtd);
+        const surplusYtd = Math.max(0, inviatoInPiuYtd - daBonificareLordoYtd);
+        // Il surplus è denaro NOSTRO che sta dal partner: nel totale conta come
+        // qualcosa da ricevere, non come qualcosa da pagare (richiesta
+        // dell'utente: «su totale dovrebbe uscire che noi dobbiamo ricevere dei
+        // soldi»).
         const daIncassareYtd = sum((r) => r.daIncassare);
+        const daRicevereYtd = daIncassareYtd + surplusYtd;
         return (
           <div className="month-block" style={{ background: "var(--surface)" }}>
             <div className="month-head">
@@ -1396,7 +1411,7 @@ export default async function PartnerDetail({
                   )
                 ) : (
                   <>
-                    {daBonificareYtd < 0.01 && daIncassareYtd < 0.01 && (
+                    {daBonificareYtd < 0.01 && daRicevereYtd < 0.01 && (
                       <span className="badge green"><span className="dot" />Tutto pareggiato</span>
                     )}
                     {daBonificareYtd >= 0.01 && (
@@ -1404,6 +1419,11 @@ export default async function PartnerDetail({
                     )}
                     {daIncassareYtd >= 0.01 && (
                       <span className="badge orange"><span className="dot" />Da incassare {euro(daIncassareYtd)}</span>
+                    )}
+                    {surplusYtd >= 0.01 && (
+                      <span className="badge red" title="Gli abbiamo mandato più del dovuto: quei soldi tornano indietro trattenendoli dai prossimi bonifici.">
+                        <span className="dot" />Da recuperare {euro(surplusYtd)}
+                      </span>
                     )}
                   </>
                 )}
@@ -1445,22 +1465,23 @@ export default async function PartnerDetail({
                                 totale qui accanto è già al netto, e la riga dice
                                 di quanto — altrimenti sembrerebbe che il conto
                                 non torni con la somma dei mesi. */}
-                            {rolling.inviatoInPiu > 0.005 && (
-                              <> · <span className="neg">già scalato {euro(rolling.inviatoInPiu - rolling.surplusDaRecuperare)}</span> di quanto era uscito in più</>
+                            {inviatoInPiuYtd > 0.005 && (
+                              <> · <span className="neg">già scalato {euro(inviatoInPiuYtd - surplusYtd)}</span> di quanto era uscito in più</>
                             )}
                           </td>
                           <td className={`num ${daBonificareYtd >= 0.01 ? "neg" : ""}`} style={{ fontWeight: 600 }}>
                             {euro(daBonificareYtd)}
                           </td>
                         </tr>
-                        {rolling.surplusDaRecuperare > 0.005 && (
+                        {surplusYtd > 0.005 && (
                           <tr style={{ background: "var(--bg)" }}>
-                            <td className="muted">Surplus da recuperare</td>
+                            <td className="muted">Da recuperare dal partner</td>
                             <td>
-                              Uscito più del dovuto e non ancora riassorbito: si trattiene dai prossimi bonifici.
+                              Gli è uscito più del dovuto e non è ancora rientrato: <b>sono soldi che dobbiamo
+                              ricevere</b>, e tornano trattenendoli dai prossimi bonifici a questo partner.
                             </td>
-                            <td className="num neg" style={{ fontWeight: 600 }}>
-                              {euro(rolling.surplusDaRecuperare)}
+                            <td className="num pos" style={{ fontWeight: 600 }}>
+                              {euro(surplusYtd)}
                             </td>
                           </tr>
                         )}
