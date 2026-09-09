@@ -23,6 +23,39 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 09/09 — «Message blocked» a Emma: **non è AI Mail, è l'SPF di `deluxy.it`**
+
+Rimbalzo mostrato dall'utente: un messaggio di Emma Gariboldi a `nicolo.donato@deluxy.it`
+respinto da `mail.register.it` con `552 5.2.0 … Received-SPF: fail`. Letto oggi sul DNS
+pubblico:
+
+```
+deluxy.it TXT  v=spf1 include:spf.webapps.net include:147623810.spf10.hubspotemail.net -all
+deluxy.it MX   mail.register.it
+_dmarc         v=DMARC1; p=none; …
+```
+
+`spf.webapps.net` sono i server di **register.it**, il secondo è **HubSpot**: **Google non
+c'è**, e `-all` è un rifiuto secco. L'`X-Original-Message-ID` del rimbalzo era
+`<calendar-…@google.com>`: era una mail di **Google Calendar** partita per conto di
+`@deluxy.it`. Siccome l'MX di `deluxy.it` è register.it, è lui a far rispettare la regola.
+Il DMARC è `p=none`, quindi **non è il DMARC**: è l'SPF `-all` applicato dal destinatario.
+
+⚠️ **AI Mail non c'entra**: manda via SMTP di register.it, che l'SPF autorizza. Però i
+rimbalzi finiscono nelle caselle e quindi si vedono qui: **315 messaggi di rifiuto** in
+archivio (10 nominano SPF); solo oggi due a `emma.gariboldi@` (11:04 e 12:22) e sei a
+`amministrazione@` alle 07:00.
+
+**Rimedio, da fare nel pannello DNS di register.it — non da qui e non da me**: aggiungere
+`include:_spf.google.com` **al record esistente** (mai un secondo record). Conteggio delle
+interrogazioni DNS, che è la cosa che si rompe se si esagera (tetto 10 → oltre è
+`permerror` e l'SPF salta del tutto): oggi **6**, con Google **7**. C'è margine.
+
+🔴 **Trovato nello stesso giro: `deluxyflowers.com` ha DUE record SPF**
+(`include:mailgun.org ~all` e `include:spf.webapps.net ~all`). L'RFC 7208 ne vuole uno solo:
+con due il risultato è `permerror`. Vanno fusi:
+`v=spf1 include:spf.webapps.net include:mailgun.org ~all`.
+
 ### 08/09 (19:55) — «Ho mandato questa mail dal telefono ed è successo questo»: tre copie nella conversazione
 
 Segnalazione dell'utente con schermata: la conversazione «DELUXYFLOWERS X MASPES | PROPOSTA
