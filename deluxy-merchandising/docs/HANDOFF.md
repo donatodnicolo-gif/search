@@ -4,6 +4,29 @@ Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza cont
 
 ## 09/09/2026 — LA SCHEDA APPIATTITA, E SEI CORREZIONI AL MODULO
 
+### ✅ Le 547 descrizioni sporche sono rientrate · 🔴 resta il secondo passaggio
+
+`ripulisci-descrizioni.ts --applica`: **547 schede**, 192.864 caratteri
+ripetuti tolti, **1.108 etichette del primo punto ritrovate** su 67 nomi e
+rimesse davanti al plus. Copia su file prima di toccare. Ricontrollato: 0
+schede ancora da ripulire.
+
+🔴 **Resta il secondo passaggio**: dentro parecchie descrizioni ci sono ancora i
+titoli di sezione («Caratteristiche», «Ingredienti Generici», «Allergeni») col
+loro testo. Il taglio conservativo non poteva provarli — quelle sezioni sono
+state rinominate dall'unione dell'08/09 e non combaciano più coi nomi salvati.
+Li porta fuori `spezza-descrizioni.ts`, che rilegge la vetrina:
+
+    npx tsx scripts/spezza-descrizioni.ts --tutti --negozio Flowers
+    …poi Gifts, Cake, Business Deluxy — e infine con --applica
+
+⚠️ **Un negozio per volta**: il giro completo supera il tempo di una sessione
+(Flowers da solo sono ~270 schede in 9 minuti, con la pausa obbligatoria fra le
+richieste). ⚠️ **In sottofondo non funziona**: due tentativi morti su «Can't
+reach database server … :6543» mentre in primo piano, negli stessi minuti, il
+pooler rispondeva 5 su 5.
+
+
 ### ✅ PUBBLICATO — ma NON col precompilato
 
 **LIVE `deluxy-merchandising-4fro4pgzr`** (09/09/2026 13:33), alias di produzione
