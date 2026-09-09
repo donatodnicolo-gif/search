@@ -1,6 +1,13 @@
 import { db } from './db'
 import { leggiImpostazioni, salvaImpostazione } from './impostazioni'
-import { eInApp, nomeStatoVendita, venditeAggiornate, type VoceInApp } from './piattaforma'
+import {
+  eConsegnata,
+  eInApp,
+  nomeStatoVendita,
+  venditaPerOrdineOrders,
+  venditeAggiornate,
+  type VoceInApp,
+} from './piattaforma'
 import { CHIUSURA } from './gestione'
 import { chiudiNoteDellOrdine } from './diario-chiusura'
 import { chiudiChiamateDellOrdine } from './chiamate'
@@ -32,6 +39,12 @@ import { consegnePerPagamentiInApp } from './consegne-da-pagamenti'
 const CHIAVE_ULTIMO = 'piattaformaSyncUltimo'
 const CHIAVE_ESITO = 'piattaformaSyncEsito'
 
+/**
+ * Quanti ordini fermi «In App» si ricontrollano uno per uno a ogni giro.
+ * ⚠️ Non è una preferenza: è il tetto di chiamate che facciamo a un'altra app.
+ */
+const TETTO_RECUPERO = 40
+
 export type EsitoSync = {
   lette: number
   passateInApp: number
@@ -44,6 +57,8 @@ export type EsitoSync = {
   consegneAgganciate: number
   aggiornate: number
   saltate: number
+  /** Ordini fermi «In App» ricontrollati uno per uno alla fine del giro. */
+  recuperati: number
   righe: string[]
   errore: string
 }
@@ -63,6 +78,7 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     consegneAgganciate: 0,
     aggiornate: 0,
     saltate: 0,
+    recuperati: 0,
     righe: [],
     errore: '',
   }
@@ -146,6 +162,64 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     )
   }
 
+  // ── IL RECUPERO: I NOSTRI ORDINI FERMI «IN APP», CHIESTI UNO PER UNO ──
+  //
+  // ⚠️⚠️ PERCHÉ ESISTE (09/09/2026, segnalazione dell'utente: «quando un ordine
+  // è in app accettato da un partner e poi viene consegnato dal valet o dal
+  // partner in automatico deve andare in gestito»).
+  //
+  // Il giro qui sopra è INCREMENTALE sull'orologio della VENDITA
+  // (`aggiornateDa` su `Sale.updatedAt`). Ma quando il valet chiude la
+  // consegna, di là si muove la CONSEGNA — non la vendita. Misurato
+  // sull'ordine #12905: vendita ferma allo stato «accettata» dalle 07:54
+  // dell'08/09, consegna passata a `delivered` alle 10:04 dello stesso giorno.
+  // Due ore dopo, quindi già dietro al segnaposto: quella vendita non è più
+  // stata letta e l'ordine è rimasto «In App» per un giorno intero, con la
+  // scritta «consegna scaduta». Nessuno dei due giri di cron poteva più
+  // rimediare, perché tutti e due guardano avanti e mai indietro.
+  //
+  // ⚠️ Il rimedio non è allargare il cursore (che non sa niente delle
+  // consegne): è partire da CASA NOSTRA. Gli ordini fermi in «In App» sono
+  // pochi per definizione — sono quelli che stiamo aspettando — e per ognuno si
+  // chiede alla piattaforma com'è messo, con la stessa lettura per riferimento
+  // che usa la scheda dell'ordine. Oggi sono 5.
+  //
+  // ⚠️ Con un tetto, e detto: se un giorno gli ordini fermi diventassero cento,
+  // questo giro NON deve trasformarsi in cento chiamate a ogni cron. Si fermano
+  // ai primi `TETTO_RECUPERO` (i più vecchi, che sono i più in pena) e lo si
+  // scrive nell'esito.
+  try {
+    const fermi = await db.ordine.findMany({
+      where: { gestione: 'in_app', ordersId: { not: '' } },
+      orderBy: { appAggiornatoIl: 'asc' },
+      take: TETTO_RECUPERO + 1,
+      select: { id: true, numero: true, ordersId: true },
+    })
+    const troppi = fermi.length > TETTO_RECUPERO
+    for (const o of fermi.slice(0, TETTO_RECUPERO)) {
+      const r = await venditaPerOrdineOrders(o.ordersId)
+      if (r.stato !== 'ok') continue
+      const riga = await allineaUno(r.dati, opz.prova === true)
+      // ⚠️ Si contano solo i recuperi VERI: un ordine che era già a posto non è
+      // un recupero, e gonfiare il numero renderebbe inutile guardarlo.
+      if (riga.esito === 'gestito' || riga.esito === 'tornato') {
+        esito.recuperati++
+        esito.righe.push(`recupero · ${riga.testo}`)
+        if (riga.esito === 'gestito') esito.gestite++
+        else esito.tornateANoi++
+      }
+    }
+    if (troppi) {
+      esito.righe.push(
+        `⚠️ Ordini fermi «In App» oltre ${TETTO_RECUPERO}: ricontrollati i più vecchi, gli altri al giro dopo.`
+      )
+    }
+  } catch (e) {
+    // ⚠️ In un try come il blocco qui sotto: un guasto nel recupero non deve
+    // far perdere il segnaposto delle vendite, che è il giro principale.
+    esito.righe.push(`⚠️ recupero degli ordini in app: ${(e as Error).message}`)
+  }
+
   // ── LE VENDITE GESTITE CON PAGAMENTO IN APP HANNO LA LORO CONSEGNA DI LÀ ──
   // Regola dell'utente (06/09/2026). Un ordine «Gestito» con un fornitore
   // pagato dall'app e nessuna consegna agganciata: si chiede alla piattaforma
@@ -170,7 +244,7 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
     // non è misurato, è ricordato: qui resta una riga leggibile da Impostazioni.
     await salvaImpostazione(
       CHIAVE_ESITO,
-      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi} · gestite ${esito.gestite} · consegne da pagamenti ${esito.consegneCreate}+${esito.consegneAgganciate}${esito.errore ? ' · ' + esito.errore : ''}`
+      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi} · gestite ${esito.gestite} · recuperate ${esito.recuperati} · consegne da pagamenti ${esito.consegneCreate}+${esito.consegneAgganciate}${esito.errore ? ' · ' + esito.errore : ''}`
     )
   }
   return esito
@@ -251,7 +325,10 @@ async function allineaUno(v: VoceInApp, prova: boolean): Promise<RigaEsito> {
   // persona, e lo si dice a Orders (best-effort: un fallimento di là non
   // annulla il fatto qui). Il nome di chi ha chiuso è la piattaforma, non un
   // operatore: fra un mese si deve poter distinguere.
-  if ((v.consegna?.stato ?? '') === 'delivered' && ordine.gestione !== CHIUSURA) {
+  // ⚠️ 09/09/2026: `eConsegnata` e non `=== 'delivered'`. Vedi STATI_CONSEGNATA:
+  // gli stati che vogliono dire «arrivata al cliente» sono tre, e uno di quelli
+  // che mancavano è proprio il caso del valet che dichiara le ore.
+  if (eConsegnata(v.consegna?.stato) && ordine.gestione !== CHIUSURA) {
     const adesso = new Date()
     dati.gestione = CHIUSURA
     dati.gestioneIl = adesso

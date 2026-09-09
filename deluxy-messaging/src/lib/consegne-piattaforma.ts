@@ -21,7 +21,7 @@
 
 import { db } from './db'
 import { leggiImpostazioni, salvaImpostazione } from './impostazioni'
-import { consegneAggiornate, type ConsegnaDdt } from './piattaforma'
+import { consegneAggiornate, STATI_CONSEGNATA, type ConsegnaDdt } from './piattaforma'
 import { CHIUSURA } from './gestione'
 
 const CHIAVE_ULTIMO = 'piattaformaConsegneUltimo'
@@ -36,7 +36,10 @@ const CHIAVE_ESITO = 'piattaformaConsegneEsito'
  * ⚠️ `not_delivered`, `cancelled`, `not_accepted` nemmeno — anzi: quelle
  * TORNANO a noi, ed è il momento in cui bisogna accorgersene.
  */
-export const STATI_CHE_CHIUDONO = ['in_delivery', 'delivered']
+// ⚠️ 09/09/2026: le tre forme di «consegnata» (vedi `STATI_CONSEGNATA` in
+// piattaforma.ts) più `in_delivery`, che qui chiude perché il lavoro è già
+// nelle mani di chi consegna.
+export const STATI_CHE_CHIUDONO = ['in_delivery', ...STATI_CONSEGNATA]
 
 export type EsitoConsegne = {
   lette: number

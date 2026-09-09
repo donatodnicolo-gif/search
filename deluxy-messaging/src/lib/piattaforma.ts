@@ -120,6 +120,30 @@ export async function leggiDallaPiattaforma<T>(percorso: string): Promise<EsitoP
  * ⚠️ `non-trovato` vuol dire «non è in app», ed è un'informazione buona: la
  * schermata deve poter dire «lo stiamo lavorando noi» invece di non dire niente.
  */
+/**
+ * GLI STATI DELLA PIATTAFORMA CHE VOGLIONO DIRE «È STATA CONSEGNATA».
+ *
+ * ⚠️⚠️ Sono TRE, non uno, ed è costato un ordine fermo. `delivered` è la
+ * consegna chiusa e basta; `delivered_time_to_approve` è **consegnata con le
+ * ore del valet ancora da approvare** (di là: «Consegnata, ore ancora DA
+ * approvare») e `approved` è quella con le ore già approvate. Per il cliente
+ * sono la stessa cosa — il fiore è arrivato — e la piattaforma stessa le tratta
+ * insieme (`deliveries.service.ts`: `['delivered','approved','delivered_time_to_approve']`
+ * chiude tutte le attività, e `puntualita.ts` le conta fra le CONCLUSE).
+ * Guardando solo la prima, un ordine consegnato da un valet che ha dichiarato
+ * le ore restava «In App» finché qualcuno non gliele approvava.
+ *
+ * ⚠️ NON si usa la lista «chiusa» della piattaforma: quella comprende anche
+ * `not_delivered`, `cancelled` e `archived` — chiuse sì, ma consegnate no, e
+ * due di quelle devono TORNARE a noi.
+ */
+export const STATI_CONSEGNATA = ['delivered', 'approved', 'delivered_time_to_approve'] as const
+
+/** È una consegna arrivata al cliente? */
+export function eConsegnata(stato: string | null | undefined): boolean {
+  return (STATI_CONSEGNATA as readonly string[]).includes((stato ?? '').trim())
+}
+
 export async function venditaPerOrdineOrders(
   idInOrders: string
 ): Promise<EsitoPiattaforma<VoceInApp>> {
