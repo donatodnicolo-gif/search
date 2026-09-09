@@ -19,6 +19,7 @@
 // - i **campi del negozio** (i metafield definiti su Shopify: occasioni,
 //   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
+import { AnteprimaSito } from "./AnteprimaSito";
 import { useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
@@ -49,6 +50,8 @@ export type ProdottoIniziale = {
   negozioId: string;
   fase: string;
   categoria: string;
+  /** ⭐ 09/09/2026: il «Tipo di prodotto» di Shopify, più fine della categoria. */
+  tipoShopify?: string;
   tipologiaVendita: string | null;
   note: string;
   collezioneShopifyId: string;
@@ -80,7 +83,7 @@ export type ProdottoIniziale = {
   /** ⭐ 07/09/2026: gli altri negozi (id) in cui il prodotto è o va pubblicato, oltre al principale. */
   altriNegoziId: string[];
   /** Dove sta già, negozio per negozio: per dirlo accanto alla scelta. */
-  pubblicazioni: { negozio: string; shopifyId: string | null; statoShopify: string | null; statoVoluto?: string | null; errore: string | null; origine: string }[];
+  pubblicazioni: { negozio: string; shopifyId: string | null; handle?: string | null; statoShopify: string | null; statoVoluto?: string | null; errore: string | null; origine: string }[];
 };
 
 /**
@@ -140,6 +143,7 @@ export function FormProdottoNuovo({
   azione,
   iniziale,
   duplica,
+  tipiShopify = [],
 }: {
   negozi: NegozioPerForm[];
   categorie: CategoriaPerForm[];
@@ -147,6 +151,8 @@ export function FormProdottoNuovo({
   definizioniPerNegozio: Record<string, DefinizioneMetafield[]>;
   tagEsistenti: string[];
   aiPronta: boolean;
+  /** ⭐ 09/09/2026: i «Tipo di prodotto» già in uso sui negozi, per il suggeritore. */
+  tipiShopify?: string[];
   /** ⭐ 08/09/2026: le sezioni previste per ciascuna categoria e negozio. */
   sezioni?: SezionePerForm[];
   /** I due plus di ogni sito: righe 2 e 3 dell'elenco in cima alla scheda. */
@@ -573,6 +579,29 @@ export function FormProdottoNuovo({
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
           </div>
+          {/* ⭐ 09/09/2026 (utente): «per i nuovi prodotti non appare su Shopify
+              "Tipo di prodotto"». Non si deduce dalla categoria: misurato sulle
+              schede vive, la nostra REGALI là diventa «Cosmetici», «Gioielli»,
+              «Gift Card», «Box Regalo». L'elenco propone i tipi già in uso sui
+              negozi, ma il campo resta libero. */}
+          <div className="campo-modulo">
+            <label htmlFor="tipoShopify">Tipo di prodotto (Shopify)</label>
+            <input
+              id="tipoShopify"
+              name="tipoShopify"
+              list="tipi-shopify"
+              placeholder="Vini, Torte, Fiori, Cosmetici…"
+              defaultValue={iniziale?.tipoShopify ?? ""}
+            />
+            <datalist id="tipi-shopify">
+              {tipiShopify.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+            <span className="cella-sub">
+              È il «Tipo di prodotto» dell&apos;admin del negozio: più fine della categoria — qui ci va «Cake Design», non «Torte e Dolci».
+            </span>
+          </div>
           <div className="campo-modulo">
             <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
             <select id="fase" name="fase" value={fase} onChange={(e) => setFase(e.target.value)}>
@@ -593,12 +622,21 @@ export function FormProdottoNuovo({
               palette servono mentre il prodotto si sta pensando, non quando è
               già in vendita — e sotto, dopo prezzi e varianti, non le vedeva
               nessuno proprio nel momento in cui servono. */}
+          {/* ⭐ 09/09/2026 (utente): «non appare piu sul modulo la parte di brief
+              per dare indicazioni generali all'AI». Non era sparito: stava
+              dentro la condizione «concept» qui sopra, e su un prodotto gia in
+              vendita non si vedeva. Ma il brief non serve solo mentre il
+              prodotto si pensa — e' anche **quello che l'AI legge** per
+              scrivere descrizione e sezioni, e serve proprio quando il prodotto
+              e' vivo. Quindi esce dalla condizione; materiali e palette, che
+              sono lavoro creativo puro, restano dentro. */}
+          <div className="campo-modulo largo">
+            <label htmlFor="brief">Brief · indicazioni per l&apos;AI</label>
+            <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto, e cosa deve sapere l'AI quando scrive" defaultValue={iniziale?.brief ?? ""} />
+            <span className="cella-sub">Lo legge l&apos;AI quando compila descrizione e sezioni.</span>
+          </div>
           {fase === "concept" && (
             <>
-              <div className="campo-modulo largo">
-                <label htmlFor="brief">Brief</label>
-                <textarea id="brief" name="brief" rows={2} placeholder="Il concept del prodotto" defaultValue={iniziale?.brief ?? ""} />
-              </div>
               <div className="campo-modulo">
                 <label htmlFor="materiali">Materiali / fiori</label>
                 <input id="materiali" name="materiali" placeholder="Anemoni, ranuncoli, foglia oro" defaultValue={iniziale?.materiali ?? ""} />
@@ -688,7 +726,24 @@ export function FormProdottoNuovo({
         </p>
         <label className="btn btn-secondario" style={{ cursor: caricando ? "wait" : "pointer" }}>
           {caricando ? "Caricamento in corso…" : "Scegli foto o video"}
-          <input type="file" accept="image/*,video/*" multiple hidden disabled={caricando || !negozio} onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }} />
+          {/* ⭐ 09/09/2026 (utente): «il click su seleziona immagine o video è
+              molto lento». La causa più probabile è qui: `accept="image/*,video/*"`
+              chiede a Windows di espandere DUE famiglie MIME intere, e la
+              finestra di scelta file le risolve interrogando i codec
+              registrati sulla macchina prima di aprirsi. Un elenco esplicito
+              di estensioni non ha niente da espandere.
+              ⚠️ Detto onesto: questa non è una misura. La lentezza sta nella
+              finestra del sistema operativo, fuori dalla pagina, e da qui non
+              la posso cronometrare — chi usa l'app deve dire se è cambiato.
+              Le estensioni coprono quelle che Shopify accetta per i Files. */}
+          <input
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.avif,.mp4,.mov,.m4v,.webm"
+            multiple
+            hidden
+            disabled={caricando || !negozio}
+            onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }}
+          />
         </label>
         {erroreMedia && <div className="avviso-errore" style={{ marginTop: 10 }}>{erroreMedia}</div>}
         {mediaDiAltri > 0 && <p className="cella-sub" style={{ marginTop: 8 }}>{mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.</p>}
@@ -842,6 +897,28 @@ export function FormProdottoNuovo({
                   {plus?.due?.trim() || `Terzo punto di ${nomeSito} — da scrivere in Negozi e permessi`}
                 </li>
               </ul>
+
+              {/* ⭐ 09/09/2026 (utente): «sarebbe ideale nelle tab che crei per
+                  sito avere la vista online del prodotto anche in fase
+                  "approvato" con possibilità di modifica con una matitina».
+                  È l'unico posto dove si vede l'ORDINE vero delle tab: sul
+                  negozio il tema ne costruisce una per ogni sezione, nella
+                  sequenza decisa in «Sezioni della scheda». Compilando i campi
+                  uno sotto l'altro quell'ordine non si vede. */}
+              <AnteprimaSito
+                sito={nomeSito}
+                punti={[plusProdotto, plus?.uno ?? "", plus?.due ?? ""]}
+                descrizione={descrizione}
+                sezioni={suoi.map((s) => ({
+                  nome: s.nome,
+                  valore: valoreSezione(nomeSito, s.nome),
+                  campoId: `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-"),
+                }))}
+                urlOnline={(() => {
+                  const sito = negozi.find((x) => x.nome === nomeSito);
+                  return st?.handle && sito ? `https://${sito.dominio}/products/${st.handle}` : null;
+                })()}
+              />
 
               {/* ⭐ 08/09/2026: le traduzioni di QUESTO negozio, nelle sue lingue.
                   ⚠️ Le lingue non si chiedono a Shopify (manca lo scope

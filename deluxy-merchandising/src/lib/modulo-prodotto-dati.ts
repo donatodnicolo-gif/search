@@ -21,8 +21,10 @@ export async function datiModuloProdotto(): Promise<{
   sezioni: SezionePerForm[];
   /** I due plus di ciascun sito: le righe 2 e 3 dell'elenco in cima alla scheda. */
   plusNegozio: Record<string, { uno: string; due: string }>;
+  /** ⭐ 09/09/2026: i «Tipo di prodotto» già in uso sui negozi, per suggerirli. */
+  tipiShopify: string[];
 }> {
-  const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag, sezioni] = await Promise.all([
+  const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag, sezioni, tipi] = await Promise.all([
     elencoNegozi(),
     elencoCategorie(),
     prisma.collezioneShopify.findMany({ where: { tipo: "manuale" }, orderBy: [{ negozio: "asc" }, { titolo: "asc" }], select: { id: true, titolo: true, negozio: true } }),
@@ -36,6 +38,10 @@ export async function datiModuloProdotto(): Promise<{
       orderBy: [{ categoria: "asc" }, { ordine: "asc" }],
       select: { categoria: true, negozio: true, nome: true, tipo: true, richiesta: true, ordine: true },
     }),
+    // ⭐ 09/09/2026: i «Tipo di prodotto» veri, come stanno sui negozi. Si
+    // contano invece di elencarli e basta, così il suggeritore propone per
+    // primi quelli davvero usati e non un elenco alfabetico di rarità.
+    prisma.prodotto.groupBy({ by: ["tipoShopify"], _count: true, where: { tipoShopify: { not: null } }, orderBy: { _count: { tipoShopify: "desc" } }, take: 200 }),
   ]);
   const conteggio = new Map<string, number>();
   for (const p of conTag) for (const t of (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean)) conteggio.set(t, (conteggio.get(t) ?? 0) + 1);
@@ -55,5 +61,6 @@ export async function datiModuloProdotto(): Promise<{
     // I plus del sito: si leggono da tutti i negozi, anche spenti, perché un
     // prodotto può essere ancora pubblicato su un negozio sospeso.
     plusNegozio: Object.fromEntries(negozi.map((n) => [n.nome, { uno: n.plusUno ?? "", due: n.plusDue ?? "" }])),
+    tipiShopify: tipi.map((t) => t.tipoShopify).filter((t): t is string => !!t),
   };
 }

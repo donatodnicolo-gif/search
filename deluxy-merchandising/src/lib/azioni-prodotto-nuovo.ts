@@ -115,6 +115,18 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
 
   const fase = testo(fd, "fase") || "concept";
   const categoria = testo(fd, "categoria") || "DA_CLASSIFICARE";
+  // ⭐ 09/09/2026 (utente): «per i nuovi prodotti non appare su Shopify "Tipo di
+  // prodotto"». Era vero alla lettera: i tre punti che creano la scheda
+  // passavano `tipo: ""` e `vendor: ""`.
+  //
+  // ⚠️ **Non si deduce dalla categoria.** Misurato sulle schede vive di Gifts:
+  // la nostra REGALI là diventa «Cosmetici», «Gioielli», «Gift Card», «Box
+  // Regalo», «Palloncini»; TORTE_DOLCI diventa «Torte», «Cake Design»,
+  // «Dolci», «Cioccolateria». Il tipo di Shopify è più fine della nostra
+  // categoria: dedurlo vorrebbe dire appiattire sette valori in uno. Lo scrive
+  // chi compila, e per i prodotti importati è già in `tipoShopify` (3.542 su
+  // 5.069), che il modulo ripropone.
+  const tipoShopify = testo(fd, "tipoShopify").trim().slice(0, 120);
   // ⭐ 06/09/2026 (regola utente): la tipologia di vendita è OBBLIGATORIA — è lei a dire
   // alla piattaforma consegne come si sceglie il fornitore e come si fa il prezzo. Un
   // valore inventato non passa: si accettano solo le quattro voci della legenda.
@@ -205,6 +217,7 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     tuttiNegozi: negozi.filter((n) => n.attivo),
     fase,
     categoria,
+    tipoShopify,
     tipologiaVendita,
     note: testo(fd, "note") || null,
     collezioni,
@@ -350,8 +363,8 @@ async function pubblicaSuAltroNegozio(
   const esito = await creaProdottoSuShopify(token, {
     titolo: m.nome,
     descrizioneHtml: await descrizionePerNegozio(m, negozio.nome),
-    tipo: "",
-    vendor: "",
+    tipo: m.tipoShopify,
+    vendor: "Deluxy",
     tags: m.tags,
     stato: dati.stato,
     prezzo: String(dati.prezzoBase),
@@ -464,8 +477,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
       descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
-      tipo: "",
-      vendor: "",
+      tipo: m.tipoShopify,
+      vendor: "Deluxy",
       tags: m.tags,
       stato,
       prezzo: String(prezzoBase),
@@ -500,6 +513,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
   const altri: EsitoAltroNegozio[] = [];
   if (vuolePubblicare && m.altriNegozi.length) {
     const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+    // Prodotto appena nato: le uniche foto sono quelle appena caricate nel
+    // modulo, non c'e' ancora una scheda da cui ripescarne una.
     const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
     for (const n of m.altriNegozi) altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
   }
@@ -510,6 +525,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       codice,
       nome: m.nome,
       categoria: m.categoria,
+        tipoShopify: m.tipoShopify || null,
       tipologiaVendita: m.tipologiaVendita,
       note: m.note,
       fase,
@@ -687,8 +703,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
       descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
-      tipo: "",
-      vendor: "",
+      tipo: m.tipoShopify,
+      vendor: "Deluxy",
       tags: m.tags,
       stato,
       prezzo: String(prezzoBase),
@@ -719,7 +735,18 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
 
   // ---- Gli altri negozi (07/09/2026): chi c'è già si aggiorna, chi manca si pubblica, chi è stato tolto torna bozza ----
   const altri: EsitoAltroNegozio[] = [];
-  const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
+  const immagineDelProdotto = prima.immagine;
+  const immaginiUrl = (() => {
+    const daiMedia = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
+    // ⭐ 09/09/2026 (utente): «se aggiungo un prodotto esistente a un altro shop
+    // appare senza immagine». Misurato: **3.576 prodotti su 5.069 hanno la foto
+    // SOLO nel campo `immagine`** e appena 9 hanno righe in `media` — perché
+    // `media` si riempie quando la foto passa dai Files del negozio, e i
+    // prodotti arrivati dall'import non ci sono mai passati. Partendo dai soli
+    // `media`, l'elenco delle foto era vuoto per quasi tutti, e la scheda
+    // nasceva nuda sull'altro negozio.
+    return daiMedia.length ? daiMedia : [immagineDelProdotto].filter((x): x is string => !!x);
+  })();
   for (const n of m.altriNegozi) {
     const riga = prima.pubblicazioni.find((r) => r.negozio === n.nome);
     if (riga?.shopifyId) {
@@ -813,6 +840,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         codice,
         nome: m.nome,
         categoria: m.categoria,
+        tipoShopify: m.tipoShopify || null,
         tipologiaVendita: m.tipologiaVendita,
         note: m.note,
         fase,

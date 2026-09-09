@@ -54,6 +54,7 @@ export function prodottoPerIlModulo(
     negozioId: negozio?.id ?? "",
     fase: p.fase === "archiviato" ? "approvato" : p.fase,
     categoria: p.categoria,
+    tipoShopify: p.tipoShopify ?? "",
     tipologiaVendita: p.tipologiaVendita ?? null,
     note: p.note ?? "",
     collezioneShopifyId: p.collezioneShopifyId ?? "",
@@ -110,7 +111,7 @@ export function prodottoPerIlModulo(
       .filter((r) => r.negozio !== negozio?.nome && r.shopifyId && r.origine !== "tolto")
       .map((r) => dati.negozi.find((n) => n.nome === r.negozio)?.id)
       .filter((x): x is string => !!x),
-    pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, statoShopify: r.statoShopify, statoVoluto: r.statoVoluto, errore: r.errore, origine: r.origine })),
+    pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, handle: r.handle, statoShopify: r.statoShopify, statoVoluto: r.statoVoluto, errore: r.errore, origine: r.origine })),
   };
 
   // `negozio` esce insieme agli altri due: è quello **risolto** (col ripiego sul

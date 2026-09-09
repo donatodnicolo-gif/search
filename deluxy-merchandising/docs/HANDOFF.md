@@ -2,6 +2,82 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 09/09/2026 — LA SCHEDA APPIATTITA, E SEI CORREZIONI AL MODULO
+
+**Il guasto e la sua causa.** «Magnum Rosé - Ruinart» su deluxy.it si vedeva
+senza tab e tutto in un paragrafo: la descrizione su Shopify **non aveva più
+nessun tag**. Il tema costruisce una tab per ogni `<h6>` e i tre punti da un
+`<ul>`: senza tag, niente di tutto questo.
+
+**Come si è provato di chi era la colpa** — vale per il prossimo guasto:
+dei tre Magnum gemelli, l'unico con `PubblicazioneNegozio.origine = "modulo"` e
+`spintoIl` valorizzato (08/09 13:49) era **l'unico rotto**; gli altri due,
+`origine = "import"` e `spintoIl` nullo, avevano ancora l'HTML giusto. E il
+testo online era, parola per parola, il nostro campo `descrizione`.
+→ **quando una scheda viva si guasta, si confronta con i gemelli mai toccati.**
+
+**La causa a monte** è il campo, non la scrittura: `descrizione` contiene tutta
+la pagina appiattita, titoli delle sezioni compresi, residuo degli import
+precedenti a `spezzaDescrizioneHtml`. Ricomponendo, ogni sezione uscirebbe
+**due volte**. Misurato: **579 schede su 3.659** (era 898 prima della cintura).
+
+🔴 **PUNTO APERTO deciso dall'utente**: `scripts/ripulisci-descrizioni.ts`
+esiste e censisce, ma **non è stato applicato in massa**. Solo `--solo RLVCMZ`.
+
+### Le sei correzioni al modulo
+
+1. **Immagine su tutti gli shop.** Misurato: **3.576 prodotti su 5.069 hanno la
+   foto SOLO nel campo `immagine`** e appena 9 hanno righe in `media` — e
+   l'elenco delle foto da pubblicare partiva dai soli `media`. Ora, in modifica,
+   se `media` è vuoto si usa `prima.immagine`.
+2. **«Tipo di prodotto» sui nuovi.** I tre punti che creano la scheda passavano
+   `tipo: ""` e `vendor: ""`. Ora passano `m.tipoShopify` e `"Deluxy"`, e il
+   modulo ha il campo (con l'elenco dei tipi già in uso). ⚠️ **Non si deduce
+   dalla categoria**: la nostra REGALI là diventa «Cosmetici», «Gioielli»,
+   «Gift Card», «Box Regalo»; TORTE_DOLCI diventa «Torte», «Cake Design»,
+   «Dolci», «Cioccolateria». Il campo `tipoShopify` esisteva già (3.542 pieni).
+3. **Brief sempre visibile.** Stava dentro `fase === "concept"` (richiesta
+   dell'08/09) e su un prodotto in vendita non si vedeva — ma è **quello che
+   l'AI legge**. Ora è fuori; materiali e palette restano dentro.
+4. **Ordine delle sezioni: pagina nuova `/sezioni`.** La composizione già
+   ordinava per `ordine`; quello che mancava era **il posto per deciderlo** —
+   `SezioneCategoria` si leggeva e basta. Ora si riordina con le frecce, si
+   cambia il tipo, si spegne, si aggiunge (in fondo, per non scavalcare le tab
+   che il cliente già vede).
+5. **Selettore file.** `accept="image/*,video/*"` sostituito con l'elenco
+   esplicito delle estensioni. ⚠️ **Non è una misura**: la lentezza sta nella
+   finestra del sistema operativo, fuori dalla pagina.
+6. **Anteprima nella tab di ogni sito, con la matitina** (`AnteprimaSito`):
+   i tre punti e le tab come usciranno, in ordine, anche in fase «approvato».
+   La matitina porta al campo che scrive quella tab — non apre un secondo posto
+   dove modificare la stessa cosa.
+
+### Altre due cose
+
+- ⭐ **Le etichette in grassetto del primo punto erano recuperabili**: sul sito
+  sono `<b>Champagne</b>: Ruinart Rosé Magnum`, nel nostro `plusProdotto` era
+  rimasto solo il valore. **713 etichette su 51 nomi** ritrovate dentro il testo
+  appiattito. Si scrivono come `«Etichetta: valore»` dentro `plusProdotto`, che
+  `punto()` rende già in grassetto: nessun campo nuovo sul Postgres condiviso.
+- ✅ **Tabella prodotti: l'ordine è già dall'ultimo aggiunto** (`creatoIl desc`),
+  verificato sui dati veri.
+
+### Provato e SCARTATO
+
+Intitolare la tab del testo libero con l'etichetta del punto («Vino Bianco»)
+invece di «DESCRIZIONE». Sembrava giusto perché i due Magnum sani fanno così —
+ma su **182 schede vive di Gifts lo fa zero volte**: 58 dicono «DESCRIZIONE» e
+la maggioranza «DESCRIZIONE E DETTAGLI». Generalizzare da due bottiglie avrebbe
+rinominato una tab che il cliente già vede. Il giro spezza→ricomponi lo diceva:
+da 111/120 identiche era sceso a 97.
+
+### 🔴 Trovato e NON risolto
+
+**Metà degli handle non risponde**: su 120 schede date per ACTIVE su Gifts nel
+nostro database, **60 danno 404** su deluxy.it. `PubblicazioneNegozio.handle` è
+fuori sincrono col vivo — e da lì passano i link «vedi sul sito».
+
+
 ## 08/09/2026 notte (4) — L'AI SULLE SEZIONI, PROVATA SUL SERIO: DUE DIFETTI TROVATI E CHIUSI
 
 Provata su prodotti veri (`scripts/prova-ai-sezioni.ts`), come chiesto

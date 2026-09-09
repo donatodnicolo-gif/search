@@ -30,6 +30,7 @@ export async function Sidebar({
     | "griglie"
     | "multi-prodotto"
     | "classificazione"
+    | "sezioni"
     | "sviluppo"
     | "costi"
     | "vendite"
@@ -108,6 +109,7 @@ export async function Sidebar({
           {voce("fasce", "/fasce", "costi", "Per fascia di prezzo")}
           {voce("griglie", "/griglie", "classifiche", "Griglie")}
           {voce("classificazione", "/classificazione", "impostazioni", "Imposta categorie e linee")}
+          {voce("sezioni", "/sezioni", "impostazioni", "Sezioni della scheda")}
         </SbSezione>
 
         <SbSezione titolo="Vetrina">

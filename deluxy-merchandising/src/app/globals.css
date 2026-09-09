@@ -1545,3 +1545,148 @@ th a:focus-visible {
 .tabella-varianti col.nota { width: 20%; }
 .tabella-varianti col.togli { width: 44px; }
 .tabella-varianti td code { font-size: 12px; word-break: break-all; }
+
+/* ─── Sezioni della scheda prodotto (09/09/2026) ─────────────────────────────
+   L'ordine di questa lista è l'ordine delle tab che il cliente vede sul sito:
+   si legge come una classifica, con il numero davanti. */
+.sezioni-aggiungi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sezioni-aggiungi input[name="nome"] { flex: 1 1 260px; min-width: 200px; }
+
+.ordine-lista {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ordine-riga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 10px;
+  background: var(--superficie, #fff);
+}
+.ordine-riga.spenta { opacity: 0.55; }
+.ordine-numero {
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--sfondo, #f5f5f7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.ordine-nome { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ordine-tipo,
+.ordine-spenta {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--sfondo, #f5f5f7);
+  color: var(--testo-tenue, #6e6e73);
+}
+.ordine-frecce { display: inline-flex; gap: 4px; }
+/* Bersagli da 32px: sotto, sul telefono si sbaglia freccia. */
+.ordine-frecce button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 8px;
+  background: var(--superficie, #fff);
+  cursor: pointer;
+  line-height: 1;
+}
+.ordine-frecce button:disabled { opacity: 0.35; cursor: default; }
+.ordine-salva { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+
+.sezioni-azioni { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.sezioni-riga-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sezioni-riga-azioni form { display: inline-flex; gap: 6px; align-items: center; }
+.sezioni-nome { flex: 1 1 200px; font-size: 13px; }
+
+@media (max-width: 640px) {
+  .sezioni-aggiungi > * { flex: 1 1 100%; }
+  .sezioni-nome { flex: 1 1 100%; }
+}
+
+/* ─── Anteprima della scheda sul sito (09/09/2026) ───────────────────────────
+   Deve leggersi come la pagina del negozio, non come un altro modulo: sfondo
+   diverso dai campi, tab in fila, testo in tondo. */
+.anteprima-sito {
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 12px;
+  background: var(--sfondo, #f5f5f7);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+.anteprima-testa {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.anteprima-etichetta {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--testo-tenue, #6e6e73);
+}
+.anteprima-link { font-size: 12px; }
+.anteprima-punti { margin: 0 0 10px; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.anteprima-punti li { margin: 2px 0; }
+
+.anteprima-tab { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.anteprima-tab-voce {
+  border: 1px solid var(--hairline, #e5e5e7);
+  background: var(--superficie, #fff);
+  color: var(--testo-tenue, #6e6e73);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.anteprima-tab-voce.attiva {
+  background: var(--testo, #1d1d1f);
+  border-color: var(--testo, #1d1d1f);
+  color: #fff;
+}
+.anteprima-corpo {
+  position: relative;
+  background: var(--superficie, #fff);
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 10px;
+  padding: 10px 40px 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.anteprima-corpo p { margin: 0 0 4px; }
+.anteprima-corpo p:last-child { margin-bottom: 0; }
+/* La matitina: 32px di bersaglio, in alto a destra come nelle schede. */
+.anteprima-matita {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 8px;
+  background: var(--superficie, #fff);
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+.anteprima-matita:hover { background: var(--sfondo, #f5f5f7); }
