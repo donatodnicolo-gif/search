@@ -4,7 +4,22 @@ Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza cont
 
 ## 09/09/2026 — LA SCHEDA APPIATTITA, E SEI CORREZIONI AL MODULO
 
-### 🔴 IL DEPLOY NON PASSA — due cause trovate, una no
+### ✅ PUBBLICATO — ma NON col precompilato
+
+**LIVE `deluxy-merchandising-4fro4pgzr`** (09/09/2026 13:33), alias di produzione
+agganciato, `/api/health` ok: database sì, 4 negozi su 4, 5.069 prodotti.
+
+⚠️⚠️ **Il deploy PRECOMPILATO su quest'app è rotto: si pubblica col cloud.**
+
+    npx vercel deploy --prod --scope deluxy        # ← questo funziona
+    npx vercel deploy --prebuilt --prod --scope deluxy   # ← 8 tentativi, 8 errori
+
+Costa minuti di build (contro la regola 4 del CLAUDE.md, che li vuole azzerati):
+è la stessa deroga che AI Mail usa già, per lo stesso motivo. **Non provare a
+rifare il precompilato senza una causa nuova**: sotto c'è il registro di cosa è
+già stato escluso.
+
+### 🔴 IL PRECOMPILATO: due cause trovate, una no
 
 `vercel deploy --prebuilt --prod --scope deluxy` fallisce. Due ostacoli veri,
 trovati e superati, e un terzo che resta:
@@ -26,9 +41,11 @@ trovati e superati, e un terzo che resta:
    anche con `--debug`. Non so cosa sia. Da provare: la via del cloud (push +
    build su Vercel), che però qui richiede il push.
 
-🔴 **Il push non è stato fatto**: bloccato dal classificatore della modalità
-automatica. `origin/scout-ui` è indietro di 108 commit (i miei quattro più
-quelli delle altre sessioni). Serve che lo lanci una persona.
+✅ **Push fatto**: `origin/scout-ui` allineato. Il merge con i 94 commit di
+origin è stato risolto misurando file per file cosa si sarebbe perso — nei file
+di codice del merchandising origin era indietro (quello che «aggiungeva» era la
+versione vecchia delle righe cambiate), nei documenti si sono tenute entrambe le
+parti, e due voci di registro di origin sono state reinserite a mano.
 
 ⚠️ Nella cartella c'è un **`.env.backup-sessione`** lasciato da qualcuno: non
 va su git né su Vercel, ma è un file di credenziali sciolto sul disco.
