@@ -42,12 +42,20 @@ export function AnteprimaSito({
   descrizione,
   sezioni,
   urlOnline,
+  hrefModifica,
 }: {
   sito: string;
   punti: string[];
   descrizione: string;
   sezioni: SezioneAnteprima[];
   urlOnline?: string | null;
+  /**
+   * Dove porta la matitina quando i campi **non sono in questa pagina** — la
+   * scheda di dettaglio del prodotto. Nel modulo invece la matitina resta un
+   * pulsante che porta al campo qui sotto: aprire un'altra pagina per scrivere
+   * una riga che si ha già davanti sarebbe un giro inutile.
+   */
+  hrefModifica?: string | null;
 }) {
   // Solo le sezioni **con qualcosa dentro** diventano una tab: è la stessa
   // regola della composizione, che salta i valori vuoti invece di stampare un
@@ -117,15 +125,26 @@ export function AnteprimaSito({
           </div>
           {contenuto && (
             <div className="anteprima-corpo" role="tabpanel">
-              <button
-                type="button"
-                className="anteprima-matita"
-                title={`Modifica «${contenuto.nome}»`}
-                aria-label={`Modifica «${contenuto.nome}»`}
-                onClick={() => vaiAlCampo(contenuto.campoId)}
-              >
-                ✎
-              </button>
+              {hrefModifica ? (
+                <a
+                  className="anteprima-matita"
+                  href={hrefModifica}
+                  title={`Modifica «${contenuto.nome}»`}
+                  aria-label={`Modifica «${contenuto.nome}»`}
+                >
+                  ✎
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="anteprima-matita"
+                  title={`Modifica «${contenuto.nome}»`}
+                  aria-label={`Modifica «${contenuto.nome}»`}
+                  onClick={() => vaiAlCampo(contenuto.campoId)}
+                >
+                  ✎
+                </button>
+              )}
               {contenuto.valore
                 .split("\n")
                 .map((r) => r.trim())

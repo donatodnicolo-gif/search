@@ -7,6 +7,8 @@ import { Badge } from "@/components/Badge";
 import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
+import { AnteprimaSito } from "@/components/AnteprimaSito";
+import { sezioniDelSito } from "@/lib/descrizione-shopify";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
@@ -54,7 +56,7 @@ export default async function ProdottoPage({
   const { tab: tabRaw, esito, messaggio, seoConferma, modifica, seoModifica } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
-  const [prodotto, collezioni] = await Promise.all([
+  const [prodotto, collezioni, sezioniDefinite, negoziTutti] = await Promise.all([
     prisma.prodotto.findUnique({
       where: { id },
       include: {
@@ -74,6 +76,15 @@ export default async function ProdottoPage({
       },
     }),
     prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    // ⭐ 09/09/2026 (utente): «fai vedere le anteprime di prodotto anche su
+    // scheda dettaglio». Servono le sezioni previste (danno nomi e ORDINE delle
+    // tab) e i due plus di ogni sito (le righe 2 e 3 dei punti in cima).
+    prisma.sezioneCategoria.findMany({
+      where: { attiva: true },
+      orderBy: [{ ordine: "asc" }],
+      select: { categoria: true, negozio: true, nome: true, tipo: true, ordine: true },
+    }),
+    prisma.negozioShopify.findMany({ select: { nome: true, dominio: true, plusUno: true, plusDue: true } }),
   ]);
   if (!prodotto) notFound();
 
@@ -443,6 +454,62 @@ export default async function ProdottoPage({
             </div>
           </form>
         )}
+
+        {/* ---------- Come si vede sui siti (09/09/2026) ----------
+            L'anteprima che c'è nel modulo, anche qui: chi apre la scheda per
+            capire com'è messo un prodotto non deve entrare in modifica per
+            vederlo. La matitina porta al modulo, perché i campi stanno là —
+            due posti dove scrivere la stessa cosa sarebbero due verità. */}
+        {tab === "panoramica" && (() => {
+          const scheda = (prodotto.sezioniScheda && typeof prodotto.sezioniScheda === "object" && !Array.isArray(prodotto.sezioniScheda)
+            ? (prodotto.sezioniScheda as Record<string, Record<string, string>>)
+            : {});
+          // I siti da mostrare: dove il prodotto è pubblicato, più quelli per
+          // cui qualcuno ha già scritto delle sezioni (un prodotto in
+          // «approvato» non è ancora su nessun negozio, ma la scheda c'è già).
+          const siti = [...new Set([
+            ...prodotto.pubblicazioni.filter((r) => r.shopifyId).map((r) => r.negozio),
+            ...Object.keys(scheda),
+          ])];
+          if (!siti.length) return null;
+          return (
+            <div className="scheda">
+              <div className="scheda-titolo">Come si vede sui siti</div>
+              <p className="cella-sub" style={{ marginBottom: 10 }}>
+                I tre punti in cima e le tab, nell&apos;ordine in cui escono sul negozio — l&apos;ordine si decide in{" "}
+                <a href="/sezioni">Sezioni della scheda</a>.
+              </p>
+              {siti.map((sito) => {
+                const previste = sezioniDelSito(sezioniDefinite, prodotto.categoria, sito);
+                const valori = scheda[sito] ?? {};
+                const n = negoziTutti.find((x) => x.nome === sito);
+                const riga = prodotto.pubblicazioni.find((r) => r.negozio === sito);
+                // Prima le previste nel loro ordine, poi quelle che il prodotto
+                // ha ma che non sono più previste: è la stessa regola della
+                // composizione, e senza la coda un testo scritto sotto una
+                // sezione poi tolta sparirebbe dall'anteprima pur essendo online.
+                const nomiPrevisti = new Set(previste.map((x) => x.nome));
+                const elenco = [
+                  ...previste.map((x) => ({ nome: x.nome, valore: valori[x.nome] ?? "", campoId: "" })),
+                  ...Object.entries(valori)
+                    .filter(([nome]) => !nomiPrevisti.has(nome))
+                    .map(([nome, valore]) => ({ nome, valore, campoId: "" })),
+                ];
+                return (
+                  <AnteprimaSito
+                    key={sito}
+                    sito={sito}
+                    punti={[prodotto.plusProdotto ?? "", n?.plusUno ?? "", n?.plusDue ?? ""]}
+                    descrizione={prodotto.descrizione ?? ""}
+                    sezioni={elenco}
+                    urlOnline={riga?.handle && n ? `https://${n.dominio}/products/${riga.handle}` : null}
+                    hrefModifica={`/prodotti/${id}/modifica`}
+                  />
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* **Il SEO sta fra le informazioni del prodotto** (chiesto dall'utente):
             è come il prodotto si presenta su Google, non un dettaglio tecnico da

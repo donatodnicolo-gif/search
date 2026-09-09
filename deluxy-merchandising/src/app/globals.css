@@ -1690,3 +1690,19 @@ th a:focus-visible {
   font-size: 14px;
 }
 .anteprima-matita:hover { background: var(--sfondo, #f5f5f7); }
+
+/* Un comando spento deve VEDERSI spento: il pulsante «Scegli foto o video»
+   resta inerte finché non si sceglie il negozio, e prima sembrava premibile. */
+.btn.disabilitato {
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* La matitina è un link sulla scheda di dettaglio e un bottone nel modulo:
+   deve vedersi uguale in tutti e due i casi. */
+a.anteprima-matita {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+}

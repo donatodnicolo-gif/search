@@ -276,12 +276,20 @@ async function completaSulNegozio(
   media: MediaDalForm[],
   cronaca: string[],
   avvisi: string[],
-  traduzioni: CacheTraduzioni = {}
+  traduzioni: CacheTraduzioni = {},
+  nomeNegozio: string = m.negozio.nome,
 ): Promise<{ entrate: string[] }> {
   const entrate: string[] = [];
-  if (media.length) {
-    const r = await agganciaFileAlProdotto(negozioToken, media.map((x) => x.shopifyFileId), shopifyId);
-    if (r.ok) cronaca.push(`${media.length} file agganciati al prodotto.`);
+  // ⚠️⚠️ **Un id di file vale solo nel negozio che lo ospita.** Dal 09/09 le
+  // foto si caricano prima di scegliere dove va il prodotto (richiesta
+  // dell'utente: «la foto è un elemento comune, falle già inserire prima»),
+  // quindi possono stare nei Files di un negozio diverso da questo. Quelle si
+  // agganciano per **indirizzo** alla creazione, non per id: passarle qui
+  // farebbe fallire l'aggancio di tutto il lotto, comprese le foto giuste.
+  const suoi = media.filter((x) => x.negozio === nomeNegozio);
+  if (suoi.length) {
+    const r = await agganciaFileAlProdotto(negozioToken, suoi.map((x) => x.shopifyFileId), shopifyId);
+    if (r.ok) cronaca.push(`${suoi.length} file agganciati al prodotto.`);
     else avvisi.push(`Foto/video non agganciati: ${r.errore}`);
   }
   for (const c of m.collezioni) {
@@ -484,7 +492,9 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       prezzo: String(prezzoBase),
       prezzoConfronto: "",
       sku: codice,
-      immagini: [],
+      // Le foto ospitate in un ALTRO negozio non hanno un id valido qui: si
+      // passano per indirizzo. Quelle di casa si agganciano dopo, per id.
+      immagini: m.media.filter((x) => x.tipo === "immagine" && x.url && x.negozio !== m.negozio.nome).map((x) => x.url as string),
       fisico: true,
       controllaStock: m.controllaStock,
       giacenza: String(m.giacenza),
@@ -710,7 +720,9 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       prezzo: String(prezzoBase),
       prezzoConfronto: "",
       sku: codice,
-      immagini: [],
+      // Le foto ospitate in un ALTRO negozio non hanno un id valido qui: si
+      // passano per indirizzo. Quelle di casa si agganciano dopo, per id.
+      immagini: m.media.filter((x) => x.tipo === "immagine" && x.url && x.negozio !== m.negozio.nome).map((x) => x.url as string),
       fisico: true,
       controllaStock: m.controllaStock,
       giacenza: String(m.giacenza),

@@ -168,13 +168,37 @@ export function FormProdottoNuovo({
   // Partiva sul primo dell'elenco: chi non guardava quel campo pubblicava
   // su un negozio che non aveva scelto, e il negozio decide categorie,
   // collezioni, campi e dove vanno le foto. Ora è vuoto e obbligatorio.
-  const [negozioId, setNegozioId] = useState(iniziale?.negozioId ?? "");
+  // ⭐ 09/09/2026 (utente): «questo non serve, si sceglie direttamente da
+  // sotto». La tendina «Brand / negozio» chiedeva due volte la stessa cosa: il
+  // negozio principale sopra e gli altri sotto, con la tendina che spariva
+  // dall'elenco di sotto — due comandi per una decisione sola.
+  //
+  // Ora la scelta è UNA: l'elenco dei siti. **Il primo scelto è il principale**
+  // — decide categorie, collezioni, campi e in quali Files vanno le foto — e
+  // sta scritto sulla sua pastiglia, perché è una conseguenza, non un secondo
+  // comando. L'ordine è quello in cui si clicca: si tiene una lista, non un
+  // insieme, altrimenti «il primo» non vorrebbe dire niente.
+  const [sitiScelti, setSitiScelti] = useState<string[]>(() => {
+    const primo = iniziale?.negozioId ? [iniziale.negozioId] : [];
+    return [...primo, ...(iniziale?.altriNegoziId ?? []).filter((x) => x !== iniziale?.negozioId)];
+  });
+  const negozioId = sitiScelti[0] ?? "";
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
+  // ⭐⭐ 09/09/2026 (utente): «la foto è un elemento comune, quindi falle già
+  // inserire prima». Prima il caricamento era spento finché non si sceglieva il
+  // negozio, perché i file vivono nei **Files di un negozio** su Shopify. Ma le
+  // foto sono comuni a tutti i siti (decisione dell'08/09) e chi compila le ha
+  // in mano subito: farlo aspettare metteva una regola tecnica davanti al
+  // lavoro. Quindi si sceglie da soli **dove ospitarle** — il sito principale
+  // se c'è, altrimenti il primo negozio che sa scrivere — e si dice quale.
+  // ⚠️ Ospitare non è pubblicare: alla pubblicazione le foto del negozio
+  // principale si agganciano per id, quelle ospitate altrove per indirizzo.
+  const negozioOspite = negozio ?? negozi.find((n) => n.puoScrivere) ?? null;
   // ⭐ 07/09/2026 (chiesto dall'utente): «pubblica anche su» — più negozi, per i
   // prodotti nuovi e per quelli esistenti. Il principale resta uno (categorie,
   // Files delle foto); gli altri ricevono la loro copia alla pubblicazione.
-  const [altriNegozi, setAltriNegozi] = useState<string[]>((iniziale?.altriNegoziId ?? []).filter((x) => x !== iniziale?.negozioId));
-  const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id) && n.id !== negozioId);
+  const altriNegozi = sitiScelti.slice(1);
+  const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id));
   const nomiNegoziScelti = [...(negozio ? [negozio.nome] : []), ...negoziAnche.map((n) => n.nome)];
   // ⭐ 08/09/2026 — **la scheda del sito che si sta compilando**.
   // ⚠️ Non si tiene in uno stato che può restare indietro: se cambio il
@@ -286,23 +310,83 @@ export function FormProdottoNuovo({
     .filter((c) => !c.negozio || c.negozio === negozio?.nome)
     .slice()
     .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
-  const mediaDiQuestoNegozio = media.filter((m) => m.negozio === negozio?.nome);
-  const mediaDiAltri = media.length - mediaDiQuestoNegozio.length;
+  // Le foto sono del PRODOTTO, non del negozio che le ospita: si mostrano e si
+  // salvano tutte. Prima si filtravano per negozio e cambiando sito sparivano
+  // dalla galleria — sembravano perse, ed erano solo nascoste.
+  const mediaDiQuestoNegozio = media;
 
-  function cambiaNegozio(id: string) {
-    setNegozioId(id);
-    setAltriNegozi((x) => x.filter((y) => y !== id));
-    setCollezioniScelte([]);
-    const nuovo = negozi.find((n) => n.id === id);
-    if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
+  /**
+   * Accende o spegne un sito. **Se cambia il primo**, cambia il negozio
+   * principale: e allora le collezioni scelte non valgono più (sono di un altro
+   * negozio) e la categoria può non esistere là. Si azzerano qui, come faceva
+   * la vecchia tendina: lasciarle vorrebbe dire salvare riferimenti a roba di
+   * un negozio diverso.
+   */
+  function scegliSito(id: string) {
+    setSitiScelti((prima) => {
+      const dopo = prima.includes(id) ? prima.filter((x) => x !== id) : [...prima, id];
+      if ((dopo[0] ?? "") !== (prima[0] ?? "")) {
+        setCollezioniScelte([]);
+        const nuovo = negozi.find((n) => n.id === dopo[0]);
+        if (categoria && !categorie.some((c) => c.chiave === categoria && (!c.negozio || c.negozio === nuovo?.nome))) setCategoria("");
+      }
+      return dopo;
+    });
   }
 
-  async function compilaSezioniConAI(sito: string) {
+  /**
+   * **Una richiesta per sito, ma quello che è già stato scritto non si richiede.**
+   *
+   * L'utente (09/09/2026): «compila già per tutti i siti, alcune cose saranno
+   * comuni: esempio ingredienti e allergeni». Gli ingredienti di un prodotto
+   * sono gli stessi ovunque lo si venda: richiederli sito per sito non è solo
+   * uno spreco, è un **rischio** — due risposte diverse sugli allergeni dello
+   * stesso prodotto sono due verità, e a leggerle è chi è allergico. Quindi una
+   * sezione già scritta per un sito si **ricopia** sugli altri che hanno una
+   * sezione con lo stesso nome, e all'AI si chiede solo il resto.
+   *
+   * Resta una richiesta per sito perché le sezioni cambiano da un negozio
+   * all'altro (Cake unisce «Ingredienti e Allergeni», Business li separa) e il
+   * tono di un sito B2B non è quello di un sito al pubblico.
+   */
+  async function compilaSezioniTuttiISiti() {
     if (!categoria) return;
-    const daFare = sezioniDi(sito);
-    if (!daFare.length) return;
+    const siti = nomiNegoziScelti;
+    if (!siti.length) return;
     setScrivendoSezioni(true);
     setSezioniAi(null);
+    const scritteAltrove = new Map<string, string>();
+    const resoconto: string[] = [];
+    try {
+      for (const sito of siti) {
+        const esito = await compilaUnSito(sito, scritteAltrove);
+        if (esito) resoconto.push(esito);
+      }
+      setSezioniAi(resoconto.length ? resoconto.join(" · ") : "Nessuna sezione da compilare: scegli prima la categoria e i siti.");
+    } finally {
+      setScrivendoSezioni(false);
+    }
+  }
+
+  /** Un sito solo. `scritteAltrove` porta avanti quello che si è già scritto. */
+  async function compilaUnSito(sito: string, scritteAltrove: Map<string, string>): Promise<string | null> {
+    const daFare = sezioniDi(sito);
+    if (!daFare.length) return null;
+    const chiave = (n: string) => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    // Prima si ricopia: quello che vale per un sito vale per l'altro.
+    let copiate = 0;
+    for (const x of daFare) {
+      const gia = scritteAltrove.get(chiave(x.nome));
+      if (gia && !valoreSezione(sito, x.nome).trim()) {
+        cambiaSezione(sito, x.nome, gia);
+        copiate++;
+      }
+    }
+    const daChiedere = daFare.filter((x) => !scritteAltrove.has(chiave(x.nome)) && !valoreSezione(sito, x.nome).trim());
+    if (!daChiedere.length) {
+      return copiate ? `${sito}: ${copiate} sezioni riprese da quelle già scritte.` : null;
+    }
     try {
       const leggi = (nome: string) => (form.current?.elements.namedItem(nome) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? "";
       const res = await fetch("/api/ai/sezioni", {
@@ -317,24 +401,28 @@ export function FormProdottoNuovo({
           prezzo: leggi("prezzoVendita"),
           descrizione,
           varianti: haVarianti ? varianti.map((v) => v.nome).filter(Boolean) : [],
-          sezioni: daFare.map((x) => ({ nome: x.nome, tipo: x.tipo })),
+          sezioni: daChiedere.map((x) => ({ nome: x.nome, tipo: x.tipo })),
           gia: Object.fromEntries(daFare.map((x) => [x.nome, valoreSezione(sito, x.nome)])),
         }),
       });
       const dati = await res.json();
-      if (!dati.ok) { setSezioniAi(dati.errore ?? "La compilazione non è riuscita."); return; }
+      if (!dati.ok) return `${sito}: ${dati.errore ?? "la compilazione non è riuscita"}.`;
       const scritte = Object.entries(dati.sezioni as Record<string, string>);
-      for (const [nome, testo] of scritte) cambiaSezione(sito, nome, testo);
+      for (const [nome, testo] of scritte) {
+        cambiaSezione(sito, nome, testo);
+        // Da qui in poi vale anche per gli altri siti che hanno la stessa sezione.
+        scritteAltrove.set(chiave(nome), testo);
+      }
       const saltate = (dati.saltate as string[]) ?? [];
-      setSezioniAi(
-        scritte.length
-          ? `Compilate ${scritte.length} sezioni su ${sito}.${saltate.length ? ` Lasciate vuote: ${saltate.join(", ")} — non c'erano dati per scriverle senza inventare.` : ""}`
-          : `Nessuna sezione compilata: senza materiali o note di specifica, scriverle vorrebbe dire inventarle.`
-      );
+      const pezzi = [
+        scritte.length ? `${scritte.length} scritte` : null,
+        copiate ? `${copiate} riprese dagli altri siti` : null,
+      ].filter(Boolean);
+      return pezzi.length
+        ? `${sito}: ${pezzi.join(", ")}.${saltate.length ? ` Vuote: ${saltate.join(", ")} — non c'erano dati per scriverle senza inventare.` : ""}`
+        : `${sito}: niente da scrivere senza inventare (mancano materiali o note di specifica).`;
     } catch {
-      setSezioniAi("Non sono riuscito a raggiungere il servizio.");
-    } finally {
-      setScrivendoSezioni(false);
+      return `${sito}: non sono riuscito a raggiungere il servizio.`;
     }
   }
 
@@ -364,8 +452,8 @@ export function FormProdottoNuovo({
 
   async function caricaFile(lista: FileList | null) {
     if (!lista || lista.length === 0) return;
-    if (!negozio) {
-      setErroreMedia("Scegli prima il negozio: le foto vanno nei suoi Files su Shopify.");
+    if (!negozioOspite) {
+      setErroreMedia("Nessun negozio sa scrivere su Shopify: senza, le foto non hanno dove stare.");
       return;
     }
     setErroreMedia(null);
@@ -376,7 +464,7 @@ export function FormProdottoNuovo({
       const prep = await fetch("/api/media/prepara", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ negozioId, file: file.map((f) => ({ nome: f.name, mime: f.type, byte: f.size })) }),
+        body: JSON.stringify({ negozioId: negozioOspite.id, file: file.map((f) => ({ nome: f.name, mime: f.type, byte: f.size })) }),
       }).then((r) => r.json());
       if (!prep.ok) {
         setErroreMedia(prep.errore ?? "Shopify non ha accettato il caricamento.");
@@ -399,7 +487,7 @@ export function FormProdottoNuovo({
             continue;
           }
           const fd = new FormData();
-          fd.append("negozioId", negozioId);
+          fd.append("negozioId", negozioOspite.id);
           fd.append("file", f);
           const r = await fetch("/api/media/registra", { method: "POST", body: fd }).then((x) => x.json());
           if (r.ok) aggiungiMedia(r.file);
@@ -410,7 +498,7 @@ export function FormProdottoNuovo({
         const r = await fetch("/api/media/registra", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ negozioId, file: daRegistrare }),
+          body: JSON.stringify({ negozioId: negozioOspite.id, file: daRegistrare }),
         }).then((x) => x.json());
         if (r.ok) aggiungiMedia(r.file);
         else problemi.push(r.errore ?? "Shopify non ha registrato i file.");
@@ -721,32 +809,40 @@ export function FormProdottoNuovo({
             <label>Foto e video</label>
       {/* ---------- Foto e video ---------- */}
         <p className="page-sub" style={{ marginBottom: 12 }}>
-          Vanno nei <b>Files del negozio {negozio?.nome ?? ""}</b> su Shopify, anche se il prodotto non è ancora pubblico; alla pubblicazione si
-          agganciano al prodotto. La prima immagine è quella principale.
+          Le foto sono <b>del prodotto</b> e valgono su tutti i siti. Si possono caricare subito, anche prima di
+          decidere dove va: vengono ospitate nei Files di{" "}
+          <b>{negozioOspite?.nome ?? "un negozio"}</b> su Shopify e alla pubblicazione arrivano su ogni sito scelto.
+          La prima immagine è quella principale.
         </p>
-        <label className="btn btn-secondario" style={{ cursor: caricando ? "wait" : "pointer" }}>
+        <label
+          className={`btn btn-secondario${caricando || !negozioOspite ? " disabilitato" : ""}`}
+          aria-disabled={caricando || !negozioOspite}
+          style={{ cursor: caricando ? "wait" : "pointer" }}
+        >
           {caricando ? "Caricamento in corso…" : "Scegli foto o video"}
           {/* ⭐ 09/09/2026 (utente): «il click su seleziona immagine o video è
-              molto lento». La causa più probabile è qui: `accept="image/*,video/*"`
-              chiede a Windows di espandere DUE famiglie MIME intere, e la
-              finestra di scelta file le risolve interrogando i codec
-              registrati sulla macchina prima di aprirsi. Un elenco esplicito
-              di estensioni non ha niente da espandere.
+              molto lento». `accept="image/*,video/*"` chiede a Windows di
+              espandere DUE famiglie MIME intere, e la finestra di scelta file
+              le risolve interrogando i codec registrati prima di aprirsi. Un
+              elenco esplicito non ha niente da espandere.
               ⚠️ Detto onesto: questa non è una misura. La lentezza sta nella
               finestra del sistema operativo, fuori dalla pagina, e da qui non
-              la posso cronometrare — chi usa l'app deve dire se è cambiato.
-              Le estensioni coprono quelle che Shopify accetta per i Files. */}
+              la posso cronometrare. */}
           <input
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.avif,.mp4,.mov,.m4v,.webm"
             multiple
             hidden
-            disabled={caricando || !negozio}
+            disabled={caricando || !negozioOspite}
             onChange={(e) => { void caricaFile(e.target.files); e.target.value = ""; }}
           />
         </label>
+        {!negozioOspite && (
+          <span className="cella-sub" style={{ display: "block", marginTop: 8 }}>
+            Nessuno dei negozi collegati ha il permesso di scrivere: senza, le foto non hanno dove stare.
+          </span>
+        )}
         {erroreMedia && <div className="avviso-errore" style={{ marginTop: 10 }}>{erroreMedia}</div>}
-        {mediaDiAltri > 0 && <p className="cella-sub" style={{ marginTop: 8 }}>{mediaDiAltri} file caricati per un altro negozio non si useranno: restano nei suoi Files.</p>}
         {mediaDiQuestoNegozio.length > 0 && (
           <ul className="galleria-media" aria-label="File caricati">
             {mediaDiQuestoNegozio.map((m, i) => (
@@ -780,48 +876,41 @@ export function FormProdottoNuovo({
       <div className="scheda">
         <div className="scheda-titolo">Dove va</div>
         <div className="modulo">
-          <div className="campo-modulo">
-            <label htmlFor="negozio">
-              Brand / negozio <span className="obbligatorio">*</span>
-            </label>
-            <select id="negozio" value={negozioId} onChange={(e) => cambiaNegozio(e.target.value)} required disabled={!!iniziale?.shopifyId}>
-              <option value="">— Scegli il negozio —</option>
-              {negozi.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {/* ⭐ 08/09/2026 (utente): solo il nome del negozio. Il dominio
-                      myshopify non dice niente a chi compila — «Flowers» e
-                      «fb72b1-2.myshopify.com» sono la stessa cosa, e il secondo
-                      allunga ogni riga della tendina senza distinguere niente:
-                      i quattro nomi sono già diversi fra loro. Resta «(solo
-                      lettura)», che invece cambia cosa si può fare. */}
-                  {n.nome}
-                  {n.puoScrivere ? "" : " (solo lettura)"}
-                </option>
-              ))}
-              {negozi.length === 0 && <option value="">Nessun negozio collegato</option>}
-            </select>
-            <span className="cella-sub">
-              {iniziale?.shopifyId ? "Il prodotto è già sul negozio: non si sposta." : "Decide categorie, collezioni, campi e dove vanno le foto."}
-            </span>
-          </div>
-          {negozi.length > 1 && (
+          {negozi.length > 0 && (
             <div className="campo-modulo largo">
-              <label>Pubblica anche su{negoziAnche.length ? ` · ${negoziAnche.length} ${negoziAnche.length === 1 ? "altro negozio" : "altri negozi"}` : ""}</label>
+              <label>
+                Su quali siti <span className="obbligatorio">*</span>
+                {sitiScelti.length > 1 ? ` · ${sitiScelti.length} siti` : ""}
+              </label>
               <div className="pill-scelta">
                 {negozi
-                  .filter((n) => n.id !== negozioId)
                   .map((n) => {
-                    const acceso = altriNegozi.includes(n.id);
+                    const acceso = sitiScelti.includes(n.id);
+                    const principale = n.id === negozioId;
                     const st = statoSu(n.nome);
                     const dove =
                       st?.shopifyId && st.origine !== "tolto"
                         ? st.statoShopify === "ACTIVE" ? " · già attivo là" : st.statoShopify === "DRAFT" ? " · là in bozza" : st.statoShopify === "ARCHIVED" ? " · là archiviato" : ""
                         : st?.errore ? " · rifiutato l'ultima volta" : "";
                     return (
-                      <label key={n.id} className={`pill-opt chip-scelta${acceso ? " selezionato" : ""}`} title={n.puoScrivere ? n.dominio : `${n.nome} non ha il permesso write_products`} style={n.puoScrivere ? undefined : { opacity: 0.5 }}>
-                        <input type="checkbox" checked={acceso} disabled={!n.puoScrivere} onChange={(e) => setAltriNegozi((x) => (e.target.checked ? [...x, n.id] : x.filter((y) => y !== n.id)))} hidden />
+                      <label
+                        key={n.id}
+                        className={`pill-opt chip-scelta${acceso ? " selezionato" : ""}`}
+                        title={!n.puoScrivere ? `${n.nome} non ha il permesso write_products` : principale ? "Sito principale: decide categorie, collezioni, campi e dove vanno le foto" : n.dominio}
+                        style={n.puoScrivere ? undefined : { opacity: 0.5 }}
+                      >
+                        {/* ⚠️ Il primo sito scelto non si toglie se il prodotto è
+                            già su quel negozio: là non si sposta. */}
+                        <input
+                          type="checkbox"
+                          checked={acceso}
+                          disabled={!n.puoScrivere || (principale && !!iniziale?.shopifyId)}
+                          onChange={() => scegliSito(n.id)}
+                          hidden
+                        />
                         {acceso ? "✓ " : "+ "}
                         {n.nome}
+                        {principale ? " · principale" : ""}
                         {dove}
                         {!n.puoScrivere ? " · solo lettura" : ""}
                       </label>
@@ -829,13 +918,50 @@ export function FormProdottoNuovo({
                   })}
               </div>
               <span className="cella-sub">
-                Con la fase <b>Pubblico</b> il prodotto nasce anche su questi negozi, con gli stessi SKU, prezzi e varianti, le loro collezioni e i loro campi; le foto
-                si copiano dal negozio principale. Togliendo un negozio in cui è già pubblicato, là torna bozza (non si cancella).
+                Il <b>primo</b> che scegli è il principale: decide categorie, collezioni, campi e in quali Files vanno le foto. Con la fase{" "}
+                <b>Pubblico</b> il prodotto nasce su tutti, con gli stessi SKU, prezzi e varianti, e le foto si copiano. Togliendo un sito dove è già
+                pubblicato, là torna bozza (non si cancella).
               </span>
             </div>
           )}
         </div>
       </div>
+
+      {/* ⭐ 09/09/2026 (utente): «compila con l'AI portalo più su, e compila già
+          per tutti i siti — alcune cose saranno comuni, esempio ingredienti e
+          allergeni». Prima il pulsante stava DENTRO la scheda di un sito: per
+          quattro siti si premeva quattro volte, e non c'era modo di accorgersi
+          che gli allergeni erano usciti diversi da una scheda all'altra. Ora è
+          uno solo, sopra le tab — nel punto in cui si è appena deciso dove va
+          il prodotto — e quello che scrive per un sito lo ricopia sugli altri
+          che hanno una sezione con lo stesso nome. */}
+      {nomiNegoziScelti.length > 0 && categoria && (
+        <div className="scheda">
+          <div className="scheda-titolo">Le sezioni della scheda</div>
+          <div className="riga-ai">
+            <button
+              type="button"
+              className="btn btn-secondario"
+              onClick={() => void compilaSezioniTuttiISiti()}
+              disabled={scrivendoSezioni || !aiPronta}
+              title={aiPronta ? "Compila le sezioni vuote di tutti i siti scelti" : "Manca la chiave OpenAI"}
+            >
+              {scrivendoSezioni ? "Sto compilando…" : `✦ Compila le sezioni con l'AI · ${nomiNegoziScelti.length} ${nomiNegoziScelti.length === 1 ? "sito" : "siti"}`}
+            </button>
+            <span className="cella-sub">
+              Riempie solo le caselle vuote, sito per sito. Quello che vale per tutti — ingredienti, allergeni, misure —
+              si scrive una volta e si ricopia: due risposte diverse sugli allergeni dello stesso prodotto sarebbero due verità.
+              Li scrive solo se glieli hai dati.
+            </span>
+          </div>
+          {sezioniAi && (
+            <div className="nota-info" style={{ marginTop: 10 }}>
+              <span className="nota-icona">◆</span>
+              <span>{sezioniAi}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ════════ 3. UNA SCHEDA PER OGNI SITO ════════
           Tab a selezione singola, una per negozio scelto. **Non tutte impilate
@@ -1019,19 +1145,6 @@ export function FormProdottoNuovo({
                 <div className="vuoto-mini">Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su {nomeSito} non sono previste sezioni.</div>
               ) : (
                 <>
-                <div className="riga-ai" style={{ marginBottom: 10 }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondario small"
-                    onClick={() => compilaSezioniConAI(nomeSito)}
-                    disabled={scrivendoSezioni || !aiPronta}
-                    title={aiPronta ? `Compila le sezioni vuote di ${nomeSito} partendo dai dati del prodotto` : "Manca la chiave OpenAI"}
-                  >
-                    {scrivendoSezioni ? "Sto compilando…" : "✦ Compila le sezioni con l'AI"}
-                  </button>
-                  <span className="cella-sub">Riempie solo le caselle vuote. Ingredienti, allergeni e misure li scrive solo se glieli hai dati.</span>
-                </div>
-                {sezioniAi && <div className="nota-info" style={{ marginBottom: 10 }}><span className="nota-icona">◆</span><span>{sezioniAi}</span></div>}
                 <div className="modulo">
                   {suoi.map((s) => {
                     const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
