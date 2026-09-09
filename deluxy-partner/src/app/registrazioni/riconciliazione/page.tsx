@@ -71,6 +71,8 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
         esitoUltimoInvio={r.esitoUltimoInvio}
         scrittura={scrittura}
         nCampi={nCampi}
+        nDaAggiungere={Object.keys(r.confronto.daInviare).length}
+        diversi={r.confronto.diversi}
       />
     </tr>
   );
