@@ -8,6 +8,7 @@ import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
 import { AnteprimaSito } from "@/components/AnteprimaSito";
+import { salvaSezioneProdottoAzione } from "@/lib/azioni-sezione-prodotto";
 import { sezioniDelSito } from "@/lib/descrizione-shopify";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
@@ -510,7 +511,8 @@ export default async function ProdottoPage({
                     descrizione={prodotto.descrizione ?? ""}
                     sezioni={elenco}
                     urlOnline={riga?.handle && n ? `https://${n.dominio}/products/${riga.handle}` : null}
-                    hrefModifica={`/prodotti/${id}/modifica`}
+                    azioneModifica={salvaSezioneProdottoAzione}
+                    prodottoId={id}
                   />
                 );
               })}

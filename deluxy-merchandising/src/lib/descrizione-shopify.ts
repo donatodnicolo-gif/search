@@ -46,14 +46,27 @@ function righe(valore: string): string[] {
  * corta: «Consegna: in guanti bianchi» sì, «Un'attenzione: piccola ma vera,
  * pensata per: chi ami» no — grassettare mezza frase è peggio che non farlo.
  */
-function punto(testo: string): string {
+/** Maiuscola iniziale, senza toccare il resto (le sigle restano sigle). */
+function conMaiuscola(t: string): string {
+  return t ? t.charAt(0).toLocaleUpperCase("it") + t.slice(1) : t;
+}
+
+function punto(testo: string, etichettaDiRipiego?: string | null): string {
   const t = testo.trim();
   if (!t) return "";
   const i = t.indexOf(":");
   if (i > 0 && i <= 28) {
-    return `<li><b>${html(t.slice(0, i).trim())}</b>: ${html(t.slice(i + 1).trim())}</li>`;
+    return `<li><b>${html(conMaiuscola(t.slice(0, i).trim()))}</b>: ${html(conMaiuscola(t.slice(i + 1).trim()))}</li>`;
   }
-  return `<li>${html(t)}</li>`;
+  // ⭐ 09/09/2026 (utente): «per i 3 punti prima lettera maiuscola, manca
+  // categoria in grassetto per la categoria». Quando il punto non porta già la
+  // sua etichetta — e sono la maggioranza: su 1.905 plus solo 40 ce l'hanno —
+  // in grassetto ci va la categoria del prodotto, che è quello che il sito fa
+  // già («<b>Champagne</b>: Ruinart Rosé Magnum»).
+  if (etichettaDiRipiego?.trim()) {
+    return `<li><b>${html(conMaiuscola(etichettaDiRipiego.trim()))}</b>: ${html(conMaiuscola(t))}</li>`;
+  }
+  return `<li>${html(conMaiuscola(t))}</li>`;
 }
 
 export type SezioneDaScrivere = { nome: string; tipo: string; ordine: number; valore: string };
@@ -68,6 +81,13 @@ export type DescrizionePerShopify = {
   descrizione?: string | null;
   /** Le sezioni della categoria **su questo sito**, già coi valori compilati. */
   sezioni?: SezioneDaScrivere[];
+  /**
+   * L'etichetta da mettere in grassetto davanti al PRIMO punto quando il plus
+   * non ne porta una sua: il nome leggibile della categoria («Torte e dolci»,
+   * «Fiori»). Non tocca il secondo e il terzo, che sono del sito e la loro
+   * etichetta ce l'hanno già («Inclusi», «Consegna»).
+   */
+  etichettaCategoria?: string | null;
 };
 
 /**
@@ -78,7 +98,12 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
   const pezzi: string[] = [];
 
   const punti = [d.plusProdotto, d.plusUno, d.plusDue].map((x) => (x ?? "").trim()).filter(Boolean);
-  if (punti.length) pezzi.push(`<ul>${punti.map(punto).join("")}</ul>`);
+  if (punti.length) {
+    const primoEilPlus = !!(d.plusProdotto ?? "").trim();
+    pezzi.push(
+      `<ul>${punti.map((p, i) => punto(p, i === 0 && primoEilPlus ? d.etichettaCategoria : null)).join("")}</ul>`,
+    );
+  }
 
   const testo = (d.descrizione ?? "").trim();
   if (testo) {

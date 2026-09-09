@@ -21,7 +21,7 @@
 
 import { AnteprimaSito } from "./AnteprimaSito";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
 
@@ -327,6 +327,32 @@ export function FormProdottoNuovo({
   const [seoTitolo, setSeoTitolo] = useState(iniziale?.seoTitolo ?? "");
   const [seoDescrizione, setSeoDescrizione] = useState(iniziale?.seoDescrizione ?? "");
   const [seoToccata, setSeoToccata] = useState(!!(iniziale?.seoTitolo || iniziale?.seoDescrizione));
+
+  /**
+   * ⭐ 09/09/2026 (utente): «le regole Google per la SEO si generano in
+   * automatico». Prima bisognava premere un pulsante: chi non lo notava
+   * salvava un prodotto senza SEO, ed è il motivo per cui oggi **solo 561
+   * prodotti su 5.069** ne hanno una.
+   *
+   * ⚠️ Si riscrive **solo finché nessuno l'ha toccata a mano**: al primo
+   * carattere scritto da una persona la regola smette di intervenire. Un campo
+   * che si riscrive sotto le dita mentre lo stai correggendo è peggio di un
+   * campo vuoto.
+   */
+  const rigeneraSeo = useCallback(() => {
+    if (seoToccata) return;
+    const nome = (form.current?.elements.namedItem("nome") as HTMLInputElement | null)?.value ?? "";
+    if (!nome.trim()) return;
+    const nomiSezioni = [...new Set(Object.values(sezioniValori).flatMap((v) => Object.keys(v ?? {})))];
+    const r = seoDaRegole({ nome, descrizione, plusProdotto, sezioni: nomiSezioni });
+    setSeoTitolo(r.titolo);
+    setSeoDescrizione(r.descrizione);
+  }, [seoToccata, descrizione, plusProdotto, sezioniValori]);
+
+  // Il testo e il plus sono stati: qui la rigenerazione parte da sola. Il nome
+  // invece è un campo non controllato, e si aggancia all'uscita dal campo
+  // (`onBlur` sul modulo, che risale dagli input dentro).
+  useEffect(() => { rigeneraSeo(); }, [rigeneraSeo]);
   const perNome = (a: string, b: string) => a.localeCompare(b, "it");
   const tipiDellaCategoria = [
     ...new Set([
@@ -474,8 +500,12 @@ export function FormProdottoNuovo({
         setErroreAi(dati.errore ?? "La generazione non è riuscita.");
         return;
       }
-      const punti = (dati.punti as string[]).map((p) => `• ${p}`).join("\n");
-      setDescrizione([dati.claim, "", dati.descrizione, punti ? `\n${punti}` : ""].filter(Boolean).join("\n").trim());
+      // ⭐ 09/09/2026 (utente): «nel descrivi con AI non fare i 3 punti».
+      // I tre punti hanno già il loro posto — il plus del prodotto più i due
+      // del sito — e finivano anche qui come righe col puntino: sulla scheda
+      // online uscivano due volte, una come elenco in cima e una dentro il
+      // testo. Il modello continua a proporli, noi non li usiamo più.
+      setDescrizione([dati.claim, "", dati.descrizione].filter(Boolean).join("\n").trim());
     } catch {
       setErroreAi("Non sono riuscito a contattare il servizio di scrittura.");
     } finally {
@@ -544,15 +574,28 @@ export function FormProdottoNuovo({
     }
   }
 
+  /**
+   * ⚠️⚠️ 09/09/2026 — **qui il file caricato veniva buttato via in silenzio.**
+   * L'utente: «la foto la fa vedere solo dopo aver selezionato il sito».
+   * Il caricamento era già stato staccato dalla scelta del sito (si usa il
+   * negozio che OSPITA), ma questa funzione no: apriva con `if (!negozio)
+   * return`, quindi il file arrivava su Shopify e poi spariva dall'elenco.
+   * Nessun errore, nessun avviso: sembrava che non fosse successo niente.
+   * Mezza correzione è peggio di nessuna, perché sposta il sintomo.
+   */
   function aggiungiMedia(lista: Omit<MediaCaricato, "negozio">[]) {
-    if (!negozio) return;
-    setMedia((m) => [...m, ...lista.map((x) => ({ ...x, negozio: negozio.nome }))]);
+    const dove = negozioOspite?.nome;
+    if (!dove) {
+      setErroreMedia("Il file è stato caricato ma non so in quali Files sta: ricarica la pagina e riprova.");
+      return;
+    }
+    setMedia((m) => [...m, ...lista.map((x) => ({ ...x, negozio: dove }))]);
   }
 
   const puoPubblicare = !pubblico || ((negozio?.puoScrivere ?? false) && negoziAnche.every((n) => n.puoScrivere));
 
   return (
-    <form action={azione} ref={form}>
+    <form action={azione} ref={form} onBlur={() => rigeneraSeo()}>
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
       <input type="hidden" name="negozioId" value={negozioId} />
       <input type="hidden" name="negoziPubblicazioneJson" value={JSON.stringify(negoziAnche.map((n) => n.id))} />
@@ -742,7 +785,9 @@ export function FormProdottoNuovo({
               {FASI_SCELTA.map((f) => (
                 <option key={f} value={f}>
                   {ETICHETTA_FASE[f]}
-                  {f === "in_vendita" ? " — va su Shopify" : ""}
+                  {/* ⭐ 09/09/2026: anche «approvato» crea la scheda sul
+                      negozio, ma in bozza — il cliente non la vede. */}
+                  {f === "in_vendita" ? " — va su Shopify, visibile" : f === "approvato" ? " — va su Shopify, in bozza" : ""}
                 </option>
               ))}
             </select>
@@ -872,11 +917,12 @@ export function FormProdottoNuovo({
                   setSeoToccata(true);
                 }}
               >
-                ✎ Scrivila dalle regole
+                ✎ Riscrivila dalle regole
               </button>
               <span className="cella-sub">
-                Titolo «nome | DELUXY» e le prime frasi della descrizione con la consegna in guanti bianchi, dentro i limiti
-                che Google mostra. Poi si corregge a mano.
+                {seoToccata
+                  ? "L'hai scritta tu: da qui in poi la regola non la tocca più. Il pulsante la riscrive da capo."
+                  : "Si scrive da sola mentre compili: titolo «nome | DELUXY» e le prime frasi della descrizione, dentro i limiti che Google mostra. Appena la correggi a mano, smette."}
               </span>
             </div>
             <input

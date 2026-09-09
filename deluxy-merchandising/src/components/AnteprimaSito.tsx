@@ -43,6 +43,8 @@ export function AnteprimaSito({
   sezioni,
   urlOnline,
   hrefModifica,
+  azioneModifica,
+  prodottoId,
 }: {
   sito: string;
   punti: string[];
@@ -56,6 +58,14 @@ export function AnteprimaSito({
    * una riga che si ha già davanti sarebbe un giro inutile.
    */
   hrefModifica?: string | null;
+  /**
+   * ⭐ 09/09/2026 (utente): «nei tab la matita apre solo l'input per modificare
+   * il tab». Dato questo, la matitina non porta più da nessuna parte: apre la
+   * casella qui dentro e salva quella sola sezione. Ha la precedenza su
+   * `hrefModifica`, che resta per i casi in cui non c'è niente da salvare.
+   */
+  azioneModifica?: ((fd: FormData) => void) | null;
+  prodottoId?: string;
 }) {
   // Solo le sezioni **con qualcosa dentro** diventano una tab: è la stessa
   // regola della composizione, che salta i valori vuoti invece di stampare un
@@ -66,6 +76,8 @@ export function AnteprimaSito({
     ...piene,
   ];
   const [apertaVoluta, setAperta] = useState<string | null>(null);
+  /** Quale sezione si sta modificando qui dentro. `null` = nessuna. */
+  const [inModifica, setInModifica] = useState<string | null>(null);
   // ⚠️ Lo stato è solo un'intenzione: se la tab scelta sparisce perché si è
   // svuotato il campo, si ricade sulla prima invece di restare su una tab che
   // non c'è più (e mostrare il vuoto senza dire perché).
@@ -123,9 +135,39 @@ export function AnteprimaSito({
               </button>
             ))}
           </div>
-          {contenuto && (
+          {contenuto && azioneModifica && inModifica === contenuto.nome ? (
+            // ⚠️ La casella nasce col valore che c'è ADESSO nella tab, non con
+            // uno stato tenuto da parte: aprendola due volte di seguito, uno
+            // stato vecchio rimetterebbe il testo di prima.
+            <form action={azioneModifica} className="anteprima-corpo" onSubmit={() => setInModifica(null)}>
+              <input type="hidden" name="prodottoId" value={prodottoId ?? ""} />
+              <input type="hidden" name="sito" value={sito} />
+              <input type="hidden" name="sezione" value={contenuto.nome} />
+              <textarea
+                name="valore"
+                rows={Math.min(10, Math.max(3, contenuto.valore.split(/\r?\n/).length + 1))}
+                defaultValue={contenuto.valore}
+                autoFocus
+              />
+              <div className="anteprima-azioni">
+                <button type="submit" className="btn btn-secondario small">Salva «{contenuto.nome}»</button>
+                <button type="button" className="btn btn-secondario small" onClick={() => setInModifica(null)}>Annulla</button>
+                <span className="cella-sub">Va nella nostra scheda. Sul sito arriva al prossimo salvataggio del prodotto.</span>
+              </div>
+            </form>
+          ) : contenuto && (
             <div className="anteprima-corpo" role="tabpanel">
-              {hrefModifica ? (
+              {azioneModifica ? (
+                <button
+                  type="button"
+                  className="anteprima-matita"
+                  title={`Modifica «${contenuto.nome}»`}
+                  aria-label={`Modifica «${contenuto.nome}»`}
+                  onClick={() => setInModifica(contenuto.nome)}
+                >
+                  ✎
+                </button>
+              ) : hrefModifica ? (
                 <a
                   className="anteprima-matita"
                   href={hrefModifica}

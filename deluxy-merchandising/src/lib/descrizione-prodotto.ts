@@ -11,6 +11,7 @@
 
 import { prisma } from "./db";
 import { componiDescrizioneHtml, sezioniDelSito, type SezioneDaScrivere } from "./descrizione-shopify";
+import { etichettaCategoria } from "./dominio";
 
 export type SchedaProdotto = {
   plusProdotto?: string | null;
@@ -82,6 +83,8 @@ export async function descrizionePerNegozio(p: SchedaProdotto, sito: string): Pr
     }),
   ]);
   return componiDescrizioneHtml({
+    // L'etichetta in grassetto del primo punto, quando il plus non ne ha una sua.
+    etichettaCategoria: etichettaCategoria(p.categoria),
     plusProdotto: p.plusProdotto,
     plusUno: negozio?.plusUno,
     plusDue: negozio?.plusDue,

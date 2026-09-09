@@ -1708,3 +1708,13 @@ a.anteprima-matita {
 }
 /* Il contatore dei caratteri SEO quando si sfora il limite che Google mostra. */
 .cella-sub.fuori-limite { color: var(--pericolo, #b3261e); }
+/* La casella che la matitina apre dentro la tab dell'anteprima. */
+.anteprima-corpo textarea {
+  width: 100%;
+  font: inherit;
+  border: 1px solid var(--hairline, #e5e5e7);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.anteprima-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

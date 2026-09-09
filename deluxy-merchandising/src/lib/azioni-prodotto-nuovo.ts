@@ -96,6 +96,24 @@ function leggiJson<T>(fd: FormData, chiave: string, vuoto: T): T {
   }
 }
 
+/**
+ * **Le fasi che arrivano su Shopify, e con quale stato.**
+ *
+ * ⭐ 09/09/2026 (utente): «lo stato approvato fa finire il prodotto in Shopify
+ * in bozza». Prima ci arrivava solo «in vendita»: un prodotto approvato restava
+ * soltanto qui, e per vederlo sul negozio bisognava dichiararlo in vendita —
+ * cioè accenderlo davanti ai clienti per poterlo guardare.
+ *
+ * ⚠️ **ACTIVE solo con «in vendita» E la finestra aperta.** «Approvato» crea la
+ * scheda ma la lascia DRAFT: il cliente non la vede. Se questa regola si
+ * allentasse, un prodotto approvato finirebbe in vendita senza che nessuno
+ * l'abbia deciso.
+ */
+const FASI_SU_SHOPIFY = ["in_vendita", "approvato"] as const;
+const vaSuShopify = (fase: string) => (FASI_SU_SHOPIFY as readonly string[]).includes(fase);
+const statoPerShopify = (fase: string, finestraAperta: boolean): "ACTIVE" | "DRAFT" =>
+  fase === "in_vendita" && finestraAperta ? "ACTIVE" : "DRAFT";
+
 /** Quello che il modulo manda, letto una volta per entrambe le azioni. */
 async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   const nome = testo(fd, "nome");
@@ -471,7 +489,7 @@ export async function duplicaProdottoCompleto(origineId: string, fd: FormData) {
 async function creaProdotto(fd: FormData, indietro: (e: string) => never, origineId: string | null) {
   const origine = origineId ? await prisma.prodotto.findUnique({ where: { id: origineId }, select: { nome: true, codice: true } }) : null;
   const m = await leggiModulo(fd, indietro);
-  const vuolePubblicare = m.fase === "in_vendita";
+  const vuolePubblicare = vaSuShopify(m.fase);
 
   const { codice, cambiato } = await codiceLibero(m.codiceChiesto, m.variantiForm.length);
   const varianti = m.variantiForm.map((v, i) => ({
@@ -501,7 +519,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
     const token = await tokenDi(m.negozio.id).catch(() => null);
     if (!token) indietro(`Il negozio ${m.negozio.nome} non sa autenticarsi su Shopify: controlla le credenziali.`);
     const negozioToken = token as NonNullable<typeof token>;
-    const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+    const stato = statoPerShopify(m.fase, m.finestraAperta);
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
       descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
@@ -542,7 +560,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
   // ---- Anche sugli altri negozi scelti (07/09/2026) ----
   const altri: EsitoAltroNegozio[] = [];
   if (vuolePubblicare && m.altriNegozi.length) {
-    const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+    const stato = statoPerShopify(m.fase, m.finestraAperta);
     // Prodotto appena nato: le uniche foto sono quelle appena caricate nel
     // modulo, non c'e' ancora una scheda da cui ripescarne una.
     const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
@@ -688,7 +706,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   let handle = prima.handleShopify;
   let shopifyStato = prima.shopifyStato;
   let statoShopify = prima.statoShopify;
-  const vuolePubblico = m.fase === "in_vendita";
+  const vuolePubblico = vaSuShopify(m.fase);
 
   if (shopifyId) {
     // ---- Già sul negozio: si aggiorna là ----
@@ -696,7 +714,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     if (!token) avvisi.push(`Il negozio ${m.negozio.nome} non sa autenticarsi: salvato solo qui.`);
     else {
       const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
-        ? m.finestraAperta ? "ACTIVE" : "DRAFT"
+        ? statoPerShopify(m.fase, m.finestraAperta)
         : prima.statoShopify === "ACTIVE" ? "DRAFT" : undefined;
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId,
@@ -732,7 +750,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     const token = await tokenDi(m.negozio.id).catch(() => null);
     if (!token) indietro(`Il negozio ${m.negozio.nome} non sa autenticarsi su Shopify.`);
     const negozioToken = token as NonNullable<typeof token>;
-    const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+    const stato = statoPerShopify(m.fase, m.finestraAperta);
     const esito = await creaProdottoSuShopify(negozioToken, {
       titolo: m.nome,
       descrizioneHtml: await descrizionePerNegozio(m, m.negozio.nome),
@@ -797,7 +815,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       // si scarta va detto, altrimenti è una perdita silenziosa.
       for (const riga of scartiMetafield(mf, defs)) avvisi.push(`${n.nome}: ${riga}`);
       const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
-        ? m.finestraAperta ? "ACTIVE" : "DRAFT"
+        ? statoPerShopify(m.fase, m.finestraAperta)
         : riga.statoShopify === "ACTIVE" ? "DRAFT" : undefined;
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId: riga.shopifyId,
@@ -839,7 +857,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         entrate: entrateQui,
       });
     } else if (vuolePubblico) {
-      const stato: "ACTIVE" | "DRAFT" = m.finestraAperta ? "ACTIVE" : "DRAFT";
+      const stato = statoPerShopify(m.fase, m.finestraAperta);
       altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
     }
   }
