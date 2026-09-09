@@ -11,6 +11,7 @@ import {
   ficClientiFatturabiliCached,
   ficEntityUltimaFattura,
   ficCreaFattura,
+  ficSegnaFatturaPagata,
   ficMetodiPagamento,
   type FicEntity,
 } from "@/lib/fic";
@@ -47,7 +48,17 @@ async function emetti(partnerId: string, anno: number, mese: number, fd: FormDat
     redirect(back + "&errore=" + encodeURIComponent("Scegli il cliente dall'elenco."));
   }
 
+  // ⭐ 09/09/2026 (richiesta dell'utente: «posso già mettere da qui se è stata
+  // saldata?»). Capita spesso: la commissione è già rientrata — trattenuta da
+  // un bonifico, o incassata prima di emettere il documento — e la fattura
+  // nasce già pagata. Senza questo si emetteva, si andava su Fatture in Cloud,
+  // si cercava il numero e la si segnava lì: tre passaggi per un dato che chi
+  // preme conosce già adesso.
+  const saldata = fd.get("saldata") === "1";
+  const dataSaldo = String(fd.get("dataSaldo") ?? "").trim();
+
   let numero: string;
+  let idFic: number;
   try {
     const res = await ficCreaFattura({
       clienteId,
@@ -58,8 +69,24 @@ async function emetti(partnerId: string, anno: number, mese: number, fd: FormDat
       metodoPagamentoId: Number(fd.get("metodoPagamento")) || undefined,
     });
     numero = res.numero;
+    idFic = res.id;
   } catch (e) {
     redirect(back + "&errore=" + encodeURIComponent((e as Error).message));
+  }
+
+  // ⚠️ Se marcarla pagata fallisce, la fattura è GIÀ stata creata: non si torna
+  // indietro come se niente fosse. Si aggancia comunque al mese e si dice che
+  // il documento c'è ma è rimasto da incassare — altrimenti chi riprova ne
+  // emette una seconda.
+  let avvisoSaldo = "";
+  if (saldata) {
+    try {
+      await ficSegnaFatturaPagata(idFic, true, dataSaldo ? new Date(dataSaldo) : undefined);
+    } catch (e) {
+      avvisoSaldo = `&errore=${encodeURIComponent(
+        `Fattura ${numero} creata, ma non sono riuscito a segnarla saldata: ${(e as Error).message}. Falla su Fatture in Cloud.`
+      )}`;
+    }
   }
 
   await prisma.saldoMensile.upsert({
@@ -68,7 +95,11 @@ async function emetti(partnerId: string, anno: number, mese: number, fd: FormDat
     update: { commFattEmessa: true, commFattNumero: numero },
   });
   for (const p of ["/", "/saldi", "/scadenzario", `/partner/${partnerId}`]) revalidatePath(p, "layout");
-  redirect(`/partner/${partnerId}?fic=${encodeURIComponent(numero)}`);
+  redirect(
+    avvisoSaldo
+      ? `/fic/emetti?partnerId=${partnerId}&anno=${anno}&mese=${mese}${avvisoSaldo}`
+      : `/partner/${partnerId}?fic=${encodeURIComponent(numero)}${saldata ? "&saldata=1" : ""}`
+  );
 }
 
 export default async function EmettiPage({
@@ -218,6 +249,29 @@ export default async function EmettiPage({
               </select>
             </div>
           </div>
+
+          {/* ⭐ 09/09/2026 (richiesta dell'utente). Lo stato dell'incasso si
+              imposta QUI, mentre lo si conosce. Prima bisognava emettere,
+              andare su Fatture in Cloud, ritrovare il numero e segnarla lì.
+              ⚠️ Riguarda l'INCASSO, non l'invio allo SDI: la fattura resta da
+              controllare e da inviare, come prima. */}
+          <div
+            style={{ marginTop: 14, padding: "12px 14px", background: "var(--bg)", borderRadius: 10, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}
+          >
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, fontWeight: 500 }}>
+              <input type="checkbox" name="saldata" value="1" />
+              La commissione è già stata saldata
+            </label>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: "var(--text-secondary)" }}>
+              il giorno
+              <input type="date" name="dataSaldo" defaultValue={new Date().toISOString().slice(0, 10)} style={{ fontSize: 12.5, padding: "4px 8px" }} />
+            </label>
+            <span className="muted" style={{ fontSize: 12, flex: "1 1 220px" }}>
+              Segna il pagamento su Fatture in Cloud: nasce «saldata» invece che da incassare.
+              Senza la spunta resta aperta, come sempre.
+            </span>
+          </div>
+
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
             La fattura viene creata su Fatture in Cloud <strong>senza invio allo SDI</strong>: la controlli
             e la invii da lì. Il numero assegnato viene salvato automaticamente nel saldo del mese.

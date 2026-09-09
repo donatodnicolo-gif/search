@@ -1,5 +1,43 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🔗 **09/09/2026 — SINCRONIZZAZIONE DI MASSA PIATTAFORMA → REGISTRO, e il
+> motore che finalmente obbedisce alla piattaforma.**
+> Caso di partenza: **FABBRICA DELLE FESTE**. C'era sulla piattaforma (con le
+> condizioni) e c'era in Finance, ma **nel registro non esisteva nessuna
+> scheda**: due schede vere e la strada in mezzo mai costruita. Peggiorato dal
+> mio errore: la scrittura di massa delle condizioni l'ho fatta **in SQL
+> diretto**, quindi non ha fatto scattare la sincronizzazione dell'app e per chi
+> non aveva già una scheda non ne è nata una.
+> 📏 Erano **109 partner vivi su 131** senza scheda. Ripassati con la cascata
+> dell'app (P.IVA → CF → email → ragione sociale → insegna → nome semplificato),
+> collegando solo col candidato UNICO: **37 collegati, 14 creati**, 20 ambigui,
+> 22 con doppioni sulla piattaforma, 3 agganci scartati a mano
+> («Contatti senza azienda (HubSpot)», «FIDEURAM», «Deluxy Srl»), 13 creazioni
+> saltate per **P.IVA segnaposto** (`11111111111`, `IT01234567890`).
+> ⚠️ Restano **22 partner con schede DOPPIE sulla piattaforma** (OLFATTORIO 6,
+> BASARA 4, Martesana 4…): il `platformId` è uno solo, quindi finché ci sono
+> quei doppioni non si possono collegare tutti. Si tolgono **sulla piattaforma**.
+>
+> ❗ **Il badge diceva una cosa e i conti ne facevano un'altra.** In testata si
+> leggeva «In compensazione · dalla piattaforma» e sotto i mesi erano calcolati
+> a **partite separate**, perché `riepilogoPartner` usava ancora la colonna
+> locale. Ora la colonna locale è il **ripiego**: vale solo dove la piattaforma
+> non risponde o non ha deciso. Allineati anche la scheda e — fondamentale —
+> **`richiediPagamento`**: se l'interfaccia leggesse la piattaforma e il server
+> la colonna locale, il bottone direbbe un importo e ne partirebbe un altro
+> (è la trappola del «mese lordo» del 04/09, costata la TRX-49).
+> 📏 Effetto misurato su **42 partner in disaccordo** (piattaforma «sì»,
+> Finance «no»): da bonificare **27.402,47 → 32.288,24 €**, da incassare
+> **18.441,20 → 26.465,18 €**.
+>
+> ✅ **Emissione fattura commissioni: si può dire subito se è già saldata**
+> (richiesta dell'utente). Spunta + data nella pagina `/fic/emetti`: usa
+> `ficSegnaFatturaPagata`. Se la marcatura fallisce la fattura è già creata, e
+> **non si torna indietro in silenzio**: si aggancia comunque al mese e si dice
+> che il documento c'è ma è rimasto da incassare, altrimenti chi riprova ne
+> emette una seconda.
+
+
 > 🏷️ **09/09/2026 — «DA VALORIZZARE» DICEVA UNA COSA FALSA A 51 PARTNER.**
 > Il badge mostrava «Compensazione da valorizzare · dalla piattaforma» ogni volta
 > che il registro rispondeva `null`. Ma un `null` lì può voler dire **tre cose

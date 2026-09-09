@@ -306,6 +306,13 @@ export default async function PartnerDetail({
   const candidateFic = daCollegare ? await fattureFicDelPartner(id, partner.nome, anno) : [];
   // dove tornano le azioni della scheda
   const tornaA = `/partner/${id}`;
+  // ⭐ 09/09/2026 — UNA SOLA RISPOSTA SULLA COMPENSAZIONE.
+  // La decide la piattaforma; la colonna locale è il ripiego quando il registro
+  // non risponde o nessuno ha deciso. Prima il badge leggeva la piattaforma e i
+  // conti leggevano la colonna locale: la stessa pagina diceva «In
+  // compensazione» e sotto calcolava a partite separate (FABBRICA DELLE FESTE).
+  const compensazioneEffettiva =
+    condVendor.condizioni?.compensazioneIncassi ?? (partner.compensazione ?? false);
   // voci extra raggruppate per mese, per la gestione nel blocco mensile
   const extraPerMese = new Map<number, typeof extra>();
   for (const e of extra) {
@@ -919,8 +926,8 @@ export default async function PartnerDetail({
           <div className="kpi-sub">Bonificato {euro(rolling.pagatoAlPartner)} · incassato {euro(rolling.incassatoDalPartner)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">{partner.compensazione ? "Residuo (in compensazione)" : "Partite aperte"}</div>
-          {partner.compensazione ? (
+          <div className="kpi-label">{compensazioneEffettiva ? "Residuo (in compensazione)" : "Partite aperte"}</div>
+          {compensazioneEffettiva ? (
             <>
               <div className={`kpi-value ${Math.abs(rolling.residuo) < 0.01 ? "" : rolling.residuo > 0 ? "pos" : "neg"}`}>
                 {euro(rolling.residuo)}
@@ -1405,7 +1412,7 @@ export default async function PartnerDetail({
               // Stessa formula del server (saldo-netto.ts): il netto dei mesi
               // senza richiesta in corso, visto da questo mese.
               nettoCompensato={
-                partner.compensazione
+                compensazioneEffettiva
                   ? nettoDaChiedere(
                       mesi.map((m) => ({ mese: m.mese, delta: m.riepilogo.daBonificare - m.riepilogo.daIncassare, saldo: m.saldo })),
                       mese
@@ -1462,7 +1469,7 @@ export default async function PartnerDetail({
                 </span>
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {partner.compensazione ? (
+                {compensazioneEffettiva ? (
                   // in compensazione crediti e debiti si annullano: un solo netto
                   Math.abs(daIncassareYtd - daBonificareYtd) < 0.01 ? (
                     <span className="badge green"><span className="dot" />Compensato — pari</span>
@@ -1505,7 +1512,7 @@ export default async function PartnerDetail({
                       <td>IVA inclusa {euro(sum((r) => r.serviziIvato))}</td>
                       <td className="num">{euro(sum((r) => r.serviziNetto))} <span className="muted">netto IVA</span></td>
                     </tr>
-                    {partner.compensazione ? (
+                    {compensazioneEffettiva ? (
                       <tr style={{ background: "var(--bg)" }}>
                         <td className="muted">Saldo compensato (netto)</td>
                         <td>Già incassato {euro(rolling.incassatoDalPartner)} · già bonificato {euro(rolling.pagatoAlPartner)}</td>

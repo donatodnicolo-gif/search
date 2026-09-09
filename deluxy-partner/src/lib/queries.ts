@@ -68,7 +68,23 @@ export async function riepilogoPartner(
   // invece di farle sparire in silenzio.
   const { vere: fatture, nonEmesse } = separaFattureVere(fattureTutte);
 
-  const compensazione = partner?.compensazione ?? false;
+  // ⭐ 09/09/2026 — ANCHE LA COMPENSAZIONE VIENE DALLA PIATTAFORMA.
+  //
+  // Il badge in testata leggeva già la decisione della piattaforma, ma i CONTI
+  // del mese usavano ancora la colonna locale: sulla stessa scheda si leggeva
+  // «In compensazione · dalla piattaforma» e sotto i mesi calcolati a partite
+  // separate (FABBRICA DELLE FESTE, 09/09). Due risposte diverse alla stessa
+  // domanda, sulla stessa pagina.
+  // Ora la colonna locale è il RIPIEGO: vale solo dove la piattaforma non
+  // risponde o non ha deciso.
+  // 📏 L'effetto misurato il 09/09 su 42 partner in disaccordo: da bonificare
+  // 27.402,47 → 32.288,24 €, da incassare 18.441,20 → 26.465,18 €.
+  const compensazione =
+    decisionePiattaforma === true
+      ? true
+      : decisionePiattaforma === false
+        ? false
+        : (partner?.compensazione ?? false);
   // ⭐ 09/09/2026 — REGIME «COMMISSIONI A PARTE» (regola dell'utente): dovuto
   // pari al venduto e la fattura commissioni come credito del mese.
   // ⚠️ SOLO dove la compensazione è stata **decisa a NO**, non dove non è mai

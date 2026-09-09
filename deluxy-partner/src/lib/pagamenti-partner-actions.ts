@@ -9,6 +9,7 @@ import { euro } from "./format";
 import { nomeMese } from "./calc";
 import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } from "./transactions";
 import { datiBancariPartner, perchePagamentoSenzaIban } from "./dati-bancari";
+import { condizioniVendorPartner } from "./condizioni-vendor";
 import { partiteAperte, partiteDaChiedere, nettoDaChiedere, descriviPartite } from "./saldo-netto";
 
 // «Richiedi pagamento»: manda a **deluxy-transactions** la richiesta di pagare
@@ -69,7 +70,15 @@ export async function richiediPagamento(
   let note = `Dovuto al partner per ${periodo}, richiesto da Deluxy Finance.`;
   let mesiCoinvolti = [mese];
   let dettaglioRegistro = periodo;
-  if (partner.compensazione) {
+  // ⭐ 09/09/2026 — ANCHE QUI COMANDA LA PIATTAFORMA.
+  // Il regime decide QUANTO si chiede: in compensazione il netto dell'anno,
+  // altrimenti il residuo del mese. Se l'interfaccia leggesse la piattaforma e
+  // il server la colonna locale, il bottone direbbe un importo e ne partirebbe
+  // un altro — è la trappola del «mese lordo invece del netto» del 04/09, che
+  // costò la richiesta TRX-2026-000049 da annullare a mano.
+  const cond = await condizioniVendorPartner(partnerId);
+  const inCompensazione = cond.condizioni?.compensazioneIncassi ?? partner.compensazione;
+  if (inCompensazione) {
     // I mesi che hanno GIÀ una richiesta in corso non entrano nel netto: la
     // loro cifra è già in coda su Transactions, contarla di nuovo la
     // chiederebbe due volte (verificato il 04/09 su 7 partner con luglio già
