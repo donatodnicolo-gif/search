@@ -678,12 +678,22 @@ async function ricalcolaExtra(partnerId: string, anno: number, mese: number) {
 }
 
 export async function aggiungiExtra(partnerId: string, anno: number, mese: number, fd: FormData) {
-  const descrizione = String(fd.get("descrizione") ?? "").trim() || null;
+  const descrizione = String(fd.get("descrizione") ?? "").trim();
   const importo = n(fd, "importo");
   if (importo == null || importo === 0) {
     redirect(`/partner/${partnerId}?extra=importo#mese-${mese}`);
   }
-  await prisma.extraSaldo.create({ data: { partnerId, anno, mese, descrizione, importo } });
+  // ⭐ 09/09/2026 (regola dell'utente): «per tutti gli extra d'ora in poi la
+  // descrizione è obbligatoria». Il `required` sul campo aiuta chi usa il
+  // browser, ma una server action è un endpoint: la regola si fa rispettare
+  // QUI, altrimenti basta una POST per rimetterci dentro un numero senza
+  // causale — che è esattamente il guaio dei 211 mesi importati dal foglio.
+  if (!descrizione) {
+    redirect(`/partner/${partnerId}?extra=descrizione#mese-${mese}`);
+  }
+  await prisma.extraSaldo.create({
+    data: { partnerId, anno, mese, descrizione, importo, origine: "manuale" },
+  });
   await ricalcolaExtra(partnerId, anno, mese);
   revalidateAll();
   redirect(`/partner/${partnerId}#mese-${mese}`);

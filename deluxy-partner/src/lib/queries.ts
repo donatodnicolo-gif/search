@@ -48,7 +48,16 @@ export async function riepilogoPartner(
     prisma.saldoMensile.findMany({ where: { partnerId, anno } }),
     // I mesi con un extra REGISTRATO a mano: là le `aggiunte` hanno una causale
     // e restano un dovuto. Dove non ci sono, vengono dall import del foglio.
-    prisma.extraSaldo.findMany({ where: { partnerId, anno }, select: { mese: true } }),
+    // ⚠️ 09/09/2026 — SOLO le voci `manuale`. Il 09/09 i 211 mesi di extra
+    // importati da PARTNER.xlsx hanno finalmente una riga (prima stavano solo
+    // nei totali del saldo, invisibili e non cancellabili). Se qui si contassero
+    // anche quelle, ogni mese risulterebbe «extra registrato a mano» e
+    // `extraSospetto` si spegnerebbe ovunque: i 31 mesi in cui l'extra è lo
+    // sforo di un bonifico tornerebbero a essere un dovuto.
+    prisma.extraSaldo.findMany({
+      where: { partnerId, anno, origine: "manuale" },
+      select: { mese: true },
+    }),
   ]);
 
   // Contano solo le fatture VERE, quelle con un documento su Fatture in Cloud

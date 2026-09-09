@@ -1,5 +1,38 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> ✏️ **09/09/2026 — GLI EXTRA SI VEDONO, SI CANCELLANO, E DEVONO DIRE PERCHÉ.**
+> Regola dell'utente: «devo poter eliminare gli extra o aggiungerne altri ogni
+> mese» e «per tutti gli extra d'ora in poi la descrizione è obbligatoria».
+> - 🔴 **La mina che c'era sotto**: `ricalcolaExtra` ricostruisce i totali del
+>   mese **dalle sole righe `ExtraSaldo`** — e per gli extra importati da
+>   PARTNER.xlsx righe non ce n'erano: stavano solo in `SaldoMensile.aggiunte`.
+>   Aggiungere un extra a marzo su BOTTEGA 2E avrebbe **azzerato i 59,50 €
+>   importati, in silenzio**. Erano **211 mesi, 82.681,70 € di aggiunte e
+>   38.934,48 € di detrazioni**.
+> - **Materializzati**: 279 righe create con `origine = "import"` e una causale
+>   che dice da dove vengono. Controprova eseguita: le righe ricostruiscono
+>   **esattamente** i totali di prima, mese per mese.
+> - Nuova colonna `ExtraSaldo.origine` (`manuale` | `import`), aggiunta in SQL
+>   additivo (`ADD COLUMN IF NOT EXISTS`, default `manuale`) **e dichiarata in
+>   `schema.prisma`**, per non allargare la mina del `db push`.
+> - ⚠️ `extraSospetto` continua a guardare **solo le voci `manuale`**: se
+>   contasse anche le importate si spegnerebbe ovunque, e i 31 mesi in cui
+>   l'extra è lo sforo di un bonifico tornerebbero a essere un dovuto.
+> - La descrizione è obbligatoria **nella server action**, non solo nel campo:
+>   una server action è un endpoint. E il rifiuto adesso si vede — prima
+>   `aggiungiExtra` redirigeva con `?extra=…` che nessuno leggeva, quindi il
+>   modulo tornava vuoto e sembrava salvato.
+>
+> 🏦 **Chi è il beneficiario mandato a Transactions** (verificato il 09/09):
+> `intestatarioConto` del REGISTRO → copia di Finance → ragione sociale →
+> insegna. Sui 18 partner agganciati con IBAN nel registro: **12 mandano
+> l'intestatario giusto, 4 ripiegano sulla ragione sociale, 2 sull'INSEGNA**
+> (MASTROFIORAIO — «MASTROFIORAIO (IL CHIOSCO DEI FIORI)», parentesi comprese —
+> e «Fiori la primavera»). Il controllo nome-IBAN della banca respinge quei due.
+> MARYFLOR ha un refuso nel dato: «Gerardi **Vicenzo**». Si correggono nel
+> registro, che è la casa del dato. CAKELAB è a posto: «MANNELLI STEFANIA».
+
+
 > 💶 **09/09/2026 (sera) — il regime lo decide la PIATTAFORMA, e il totale
 > smette di contraddirsi.**
 > - `riepilogoPartner(id, anno, decisionePiattaforma)`: il regime «commissioni a

@@ -399,6 +399,18 @@ model ExtraSaldo {
   mese        Int // 1-12
   descrizione String?
   importo     Float // >0 aggiunta, <0 detrazione
+  /// DA DOVE VIENE QUESTA VOCE (09/09/2026).
+  ///   `manuale` — l'ha scritta una persona nell'app, con la sua causale
+  ///              (dal 09/09 la descrizione è OBBLIGATORIA).
+  ///   `import`  — arriva da PARTNER.xlsx: 211 mesi, 82.681,70 € di aggiunte e
+  ///              38.934,48 € di detrazioni che stavano SOLO nei totali del
+  ///              saldo, senza una riga. Erano invisibili e non cancellabili, e
+  ///              peggio: aggiungendo un extra a quel mese il ricalcolo li
+  ///              avrebbe azzerati in silenzio.
+  /// ⚠️ La distinzione NON è cosmetica: `calc.ts` riclassifica come «sforo» le
+  /// aggiunte che non hanno una causale (`extraRegistrati`), e quel giudizio
+  /// deve continuare a guardare solo le voci `manuale`.
+  origine     String   @default("manuale")
   createdAt   DateTime @default(now())
 
   @@index([partnerId, anno, mese])

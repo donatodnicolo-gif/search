@@ -119,7 +119,7 @@ export default async function PartnerDetail({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
-    ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string; fattEliminata?: string;
+    ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string; fattEliminata?: string; extra?: string;
   }>;
 }) {
   const { id } = await params;
@@ -487,6 +487,23 @@ export default async function PartnerDetail({
           senza questi due blocchi il rifiuto finiva nell'URL e la pagina si
           ricaricava identica — il bottone sembrava rotto (visto su ARTE E
           FIORI senza IBAN, 24/08/2026). */}
+      {/* ⭐ 09/09/2026 — l'extra rifiutato lo diceva solo l'URL. `aggiungiExtra`
+          redirige con `?extra=…` da sempre, ma qui nessuno lo leggeva: il modulo
+          tornava vuoto e sembrava che il salvataggio fosse andato. Stesso
+          difetto già pagato su «Chiedi a Transactions» il 24/08. */}
+      {sp.extra && (
+        <div
+          className="card"
+          style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}
+        >
+          <span style={{ color: "var(--red)", fontSize: 14 }}>
+            Extra non aggiunto —{" "}
+            {sp.extra === "descrizione"
+              ? "manca il perché. Da oggi la descrizione è obbligatoria: un importo senza causale, fra un anno, non se lo spiega più nessuno."
+              : "l'importo manca o è zero. Positivo = aggiunta a favore del partner, negativo = detrazione."}
+          </span>
+        </div>
+      )}
       {sp.errorePag && (
         <div
           className="card"
@@ -1158,6 +1175,14 @@ export default async function PartnerDetail({
                             {e.importo >= 0 ? "+" : ""}{euro(e.importo)}
                           </span>
                           <span style={{ color: "var(--text-secondary)" }}>{e.descrizione ?? (e.importo >= 0 ? "aggiunta" : "detrazione")}</span>
+                          {/* ⭐ 09/09/2026: da dove viene la voce. Un extra
+                              importato dal foglio non l'ha deciso nessuno qui,
+                              e chi lo cancella deve saperlo prima di premere. */}
+                          {e.origine === "import" && (
+                            <span className="badge neutral" style={{ fontSize: 11 }} title="Arriva da PARTNER.xlsx: nel foglio non aveva una causale.">
+                              <span className="dot" />dal foglio
+                            </span>
+                          )}
                           <form action={eliminaExtra.bind(null, e.id, id)} style={{ display: "inline", marginLeft: "auto" }}>
                             <ConfermaElimina
                               oggetto="questa voce extra"
@@ -1168,7 +1193,18 @@ export default async function PartnerDetail({
                         </div>
                       ))}
                       <form action={aggiungiExtra.bind(null, id, anno, mese)} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
-                        <input type="text" name="descrizione" placeholder="descrizione (facoltativa)" style={{ fontSize: 12.5, padding: "5px 8px", flex: "1 1 160px" }} />
+                        {/* ⭐ 09/09/2026 (regola dell'utente): «per tutti gli
+                            extra d'ora in poi la descrizione è obbligatoria».
+                            Un numero senza causale è il motivo per cui 211 mesi
+                            importati non si sanno più spiegare. */}
+                        <input
+                          type="text"
+                          name="descrizione"
+                          placeholder="perché (obbligatorio)"
+                          required
+                          maxLength={200}
+                          style={{ fontSize: 12.5, padding: "5px 8px", flex: "1 1 160px" }}
+                        />
                         <input type="number" name="importo" step="0.01" placeholder="+ o − €" title="Positivo = aggiunta a favore del partner · Negativo = detrazione" style={{ fontSize: 12.5, padding: "5px 8px", width: 110 }} required />
                         <button className="btn small secondary" type="submit">Aggiungi extra</button>
                       </form>
