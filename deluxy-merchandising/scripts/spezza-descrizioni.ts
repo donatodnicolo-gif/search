@@ -30,7 +30,7 @@ async function main() {
   const tutti = process.argv.includes("--tutti");
 
   const negozi = await prisma.negozioShopify.findMany({ where: { attivo: true }, select: { nome: true, dominio: true } });
-  let letti = 0, scritti = 0, senzaSezioni = 0, saltati = 0;
+  let letti = 0, scritti = 0, senzaSezioni = 0, saltati = 0, strozzati = 0;
   const esempi: string[] = [];
 
   for (const n of negozi) {
@@ -45,12 +45,29 @@ async function main() {
     for (const r of righe) {
       const p = r.prodotto;
       if (!p) continue;
+      // ⚠️⚠️ **Un 429 non è una scheda senza descrizione.**
+      // Prima qui c'era `if (!res.ok) continue`: leggendo la vetrina a raffica
+      // Shopify limita e risponde **429**, e il prodotto veniva saltato in
+      // silenzio. Il conto «222 su 311 letti» del 08/09 era gonfiato al
+      // ribasso proprio da questo — e lo stesso errore mi ha fatto scrivere
+      // che «60 handle su 120 danno 404», quando erano tutti 429 (misurato il
+      // 09/09: 83 volte 200, 37 volte 429, zero 404).
+      // Ora si aspetta e si riprova, e chi non risponde comunque si conta a
+      // parte invece di sparire dal totale.
       let html = "";
-      try {
-        const res = await fetch(`https://${n.dominio}/products/${r.handle}.js`);
-        if (!res.ok) continue;
-        html = ((await res.json()) as { description?: string }).description ?? "";
-      } catch { continue; }
+      let risposto = false;
+      for (let giro = 0; giro < 4 && !risposto; giro++) {
+        try {
+          const res = await fetch(`https://${n.dominio}/products/${r.handle}.js`, { signal: AbortSignal.timeout(15000) });
+          if (res.status === 429) { await new Promise((ok) => setTimeout(ok, 2000 * (giro + 1))); continue; }
+          if (!res.ok) { risposto = true; break; }
+          html = ((await res.json()) as { description?: string }).description ?? "";
+          risposto = true;
+        } catch { await new Promise((ok) => setTimeout(ok, 1500)); }
+      }
+      if (!risposto) { strozzati++; continue; }
+      // Una pausa breve fra una scheda e l'altra: costa meno del riprovare.
+      await new Promise((ok) => setTimeout(ok, 200));
       if (!html.trim()) continue;
       letti++;
       const pezzi = spezzaDescrizioneHtml(html);
@@ -90,6 +107,7 @@ async function main() {
   console.log([
     "",
     `  schede lette              ${String(letti).padStart(6)}`,
+    `  non hanno risposto (429)  ${String(strozzati).padStart(6)}   ← NON sono schede vuote: solo non lette`,
     `  senza nessuna sezione     ${String(senzaSezioni).padStart(6)}`,
     `  niente da cambiare        ${String(saltati).padStart(6)}`,
     "  --------------------------------",

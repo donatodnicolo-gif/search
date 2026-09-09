@@ -118,11 +118,23 @@ la maggioranza «DESCRIZIONE E DETTAGLI». Generalizzare da due bottiglie avrebb
 rinominato una tab che il cliente già vede. Il giro spezza→ricomponi lo diceva:
 da 111/120 identiche era sceso a 97.
 
-### 🔴 Trovato e NON risolto
+### ✅ RIENTRATO — «metà degli handle non risponde» era un abbaglio MIO
 
-**Metà degli handle non risponde**: su 120 schede date per ACTIVE su Gifts nel
-nostro database, **60 danno 404** su deluxy.it. `PubblicazioneNegozio.handle` è
-fuori sincrono col vivo — e da lì passano i link «vedi sul sito».
+Avevo scritto che 60 schede su 120 davano 404 su deluxy.it e che
+`PubblicazioneNegozio.handle` era fuori sincrono. **Falso.** Rimisurato con una
+pausa fra le richieste e guardando i codici veri: su 120 schede **83 rispondono
+200 e 37 danno 429 — zero 404**. Il 429 è il limite di richieste di Shopify:
+avevo interrogato il sito a raffica e ho letto la mia stessa strozzatura come un
+difetto dei dati.
+
+⚠️ **La lezione**: `if (!r.ok)` mette nello stesso mucchio «non esiste» e «non
+adesso». Un controllo di esistenza fatto a raffica su un sito vero accusa i dati
+di un problema che sta nel controllo. Se serve rifarlo: pausa fra le richieste,
+qualche tentativo, e i codici contati per valore invece di un booleano.
+
+Verificato anche dal lato admin su una scheda sospetta: `status ACTIVE`,
+`onlineStoreUrl` valido, `publishedAt` del 2021. L'import, del resto, l'handle
+lo riallinea già a ogni giro (`shopify-collezioni.ts`).
 
 
 ## 08/09/2026 notte (4) — L'AI SULLE SEZIONI, PROVATA SUL SERIO: DUE DIFETTI TROVATI E CHIUSI
