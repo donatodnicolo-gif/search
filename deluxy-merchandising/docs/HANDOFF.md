@@ -4,6 +4,36 @@ Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza cont
 
 ## 09/09/2026 — LA SCHEDA APPIATTITA, E SEI CORREZIONI AL MODULO
 
+### 🔴 IL DEPLOY NON PASSA — due cause trovate, una no
+
+`vercel deploy --prebuilt --prod --scope deluxy` fallisce. Due ostacoli veri,
+trovati e superati, e un terzo che resta:
+
+1. ✅ **200 collegamenti di Windows dentro `.vercel/output`.** La build locale
+   crea symlink/giunzioni (`sezioni.func → _not-found.func`, i file statici
+   verso `.next/`) e il caricamento va in `ENOENT` sul primo `.func`. Si
+   sostituiscono con copie vere. ⚠️ Il genitore si chiede in modo diverso a una
+   cartella (`.Parent`) e a un file (`.Directory`): usandone uno solo, metà dei
+   collegamenti resta senza base e lo script li cancella senza ricopiarli —
+   sbagliato una volta, output da rifare.
+2. ✅ **`.env` dichiarato dentro ogni funzione ma escluso dal caricamento.**
+   Ogni `.vc-config.json` elencava `.env`, `.env.local`, `.env.example` e un
+   `.env.backup-sessione` nel `filePathMap`, mentre `.vercelignore` — **giustamente** —
+   non li carica: in produzione le variabili arrivano da Vercel, e spedire quei
+   file vorrebbe dire mandare in cloud le credenziali di sviluppo. Il server
+   rispondeva `ENOENT lstat '/vercel/path0/.env'`. Tolte 500 voci da 125 bundle.
+3. 🔴 **Resta un terzo errore, muto**: `deploy_failed` con messaggio vuoto,
+   anche con `--debug`. Non so cosa sia. Da provare: la via del cloud (push +
+   build su Vercel), che però qui richiede il push.
+
+🔴 **Il push non è stato fatto**: bloccato dal classificatore della modalità
+automatica. `origin/scout-ui` è indietro di 108 commit (i miei quattro più
+quelli delle altre sessioni). Serve che lo lanci una persona.
+
+⚠️ Nella cartella c'è un **`.env.backup-sessione`** lasciato da qualcuno: non
+va su git né su Vercel, ma è un file di credenziali sciolto sul disco.
+
+
 **Il guasto e la sua causa.** «Magnum Rosé - Ruinart» su deluxy.it si vedeva
 senza tab e tutto in un paragrafo: la descrizione su Shopify **non aveva più
 nessun tag**. Il tema costruisce una tab per ogni `<h6>` e i tre punti da un
