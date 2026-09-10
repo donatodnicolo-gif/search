@@ -121,8 +121,17 @@ export function SvuotaCestino({ quanti }: { quanti: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 380 }}>
-        Rimuovo {quanti} messaggi da AI Mail. Le mail restano sulla casella, ma qui si perdono
-        riassunti, attività, bozze e priorità.
+        {/* ⚠️ QUESTO TESTO DICEVA IL FALSO, e su un'azione che non si disfa.
+            Diceva «le mail restano sulla casella»: non è vero dal giorno in cui
+            `svuotaCestinoDi()` ha cominciato a cercarle sul server per
+            Message-ID e a cancellarle davvero (`eliminaDalServer`). Il
+            riepilogo FINALE lo diceva già («cancellati anche dal server»); a
+            mentire era solo la conferma, cioè l'unico momento in cui uno può
+            ancora tornare indietro. */}
+        Cancello <strong>{quanti}</strong> {quanti === 1 ? 'messaggio' : 'messaggi'}: qui e{' '}
+        <strong>anche dalla casella</strong>, per sempre — tranne quelli che un altro utente di
+        AI Mail ha ancora nella stessa casella, che restano sul server. Si perdono riassunti,
+        attività, bozze e priorità.
       </span>
       <button className="btn secondary small" onClick={() => setConferma(false)} disabled={inAvvio}>
         Annulla

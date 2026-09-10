@@ -23,6 +23,60 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 10/09 (12:07) — IN PRODUZIONE `51e1202e` (deploy `deluxy-mail-akd6nj5bn`, build nel cloud)
+
+Su via libera dell'utente. Alias `deluxy-mail.vercel.app` → questo deployment (`vercel inspect`),
+Ready, `/api/health` ok, home 307 in 0,12-0,26 s. Nello stesso deploy vanno finalmente live anche
+le **due cose ferme su `origin` da due giorni**: i **pallini della Sidebar** con la `groupBy`
+filtrata per utente (`29362449`) e il **`db.ts` canonico** col tetto di connessioni (`04c82b6f`).
+
+📏 **Misura PRIMA congelata (12:09)**: la voce vecchia del `_count` sta a **5.304 chiamate,
+media 915,2 ms** — da qui in poi non deve più crescere. La voce NUOVA nasce a sé e **non era
+ancora comparsa** (deploy di due minuti, nessuno aveva ancora aperto una pagina). Il confronto si
+fa **sulle medie per chiamata**, non sui totali, e va ripreso a giornata piena.
+
+⚠️⚠️ **Due volte nello stesso giorno lo stesso errore, e la seconda dopo averlo già scritto
+nell'handoff**: un `LIKE` su `pg_stat_statements` per trovare la query nuova ha pescato una query
+DIVERSA (l'elenco messaggi col `_count` su `Attivita`, che contiene comunque `sezioneId` più
+avanti nel testo) e mi ha fatto leggere «3.835 chiamate, media 116 ms» come se fosse la Sidebar.
+**Non basta sapere che un filtro largo inganna: bisogna stampare il testo che ha matchato, ogni
+volta.** Fatto: nessuno dei due era la Sidebar.
+
+🆕 Segnalata dalla stessa lettura una **candidata nuova, non misurata a fondo**: l'elenco dei
+messaggi porta un `_count` su `Attivita` con la stessa forma difettosa (LEFT JOIN su
+un'aggregazione **non filtrata per utente**) — **3.835 chiamate, 446.070 ms, media 116 ms**.
+Prima di toccarla serve l'EXPLAIN, come per quella delle sezioni.
+
+### 10/09 — «Svuota cestino sembra sparire»: era vero, e sotto c'erano due cose peggiori
+
+Segnalazione dell'utente. Letto il codice e misurato sul database di produzione.
+
+- **Il sintomo**: in `src/app/cestino/page.tsx` i due pulsanti stavano dietro a
+  `{messaggi.length > 0 && …}`, e `messaggi` è la lista **filtrata** dai chip di periodo e dalla
+  ricerca, **tagliata a `take: 800`**. Con un filtro che non pesca nulla il pulsante spariva col
+  cestino pieno — mentre la stessa schermata scriveva «Niente nel cestino **per questa
+  ricerca**», cioè sapeva benissimo che vuoto non era. Misurato: Eleonora 2 mail in cestino e 0
+  cestinate oggi, Martina 4 e 0 → col chip «oggi» il pulsante spariva per entrambe.
+- 🔴 **Peggio (1)**: quel numero finiva nella **conferma** — `<SvuotaCestino quanti={messaggi.length} />`
+  → «Rimuovo N messaggi» — mentre `svuotaCestinoDi()` svuota **tutto**. **Renato ha 1.076 mail in
+  cestino e la pagina ne mostra 800: la conferma avrebbe detto 800 cancellandone 1.076**, dal
+  server e per sempre.
+- 🔴 **Peggio (2), trovato correggendo**: la conferma **diceva il falso** — «le mail restano
+  sulla casella». Non è vero da quando lo svuotamento le cerca sul server per Message-ID e le
+  cancella (`eliminaDalServer`). Il riepilogo FINALE lo diceva già («cancellati anche dal
+  server»): a mentire era **la conferma**, cioè l'unico momento in cui si può ancora tornare
+  indietro. Stesso difetto nel sottotitolo della pagina.
+
+**Correzione** (`cestino/page.tsx`, `SvuotaCestino.tsx`): una `count()` sul cestino intero
+(senza filtri e senza `take`), dentro lo stesso `Promise.all` della lista — nessuna ondata in
+più — usata sia per mostrare il pulsante sia per il numero della conferma; testo della conferma
+e sottotitolo riscritti su quello che l'azione fa davvero, con la riserva delle mail che restano
+perché le ha ancora un altro utente. Il **ripristino** resta sulle righe mostrate (è quello che
+dice la sua etichetta) e si nasconde da sé. `tsc` 0 errori.
+
+Registrato in `deluxy-design-system/SEGNALAZIONI-UX.md` con la regola proposta: **un comando che
+agisce su TUTTA una popolazione non si mostra, né si conta, sulla sua sottopopolazione filtrata.**
+
 ### 10/09 (11:20) — Ripartenza: stato misurato, e cosa resta aperto
 
 Verificato, non dedotto:
