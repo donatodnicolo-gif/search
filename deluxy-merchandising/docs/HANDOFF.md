@@ -2,6 +2,42 @@
 
 Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 10/09/2026 — LINGUE: RIVERIFICATO, E IL PASSO CHE MANCA DA QUESTA PARTE
+
+Richiesto `shopLocales` a tutti e quattro i negozi: **«Access denied … required
+`read_locales`»** su tutti e quattro. Quindi le lingue **non si possono
+chiedere**, e la deduzione resta l'unica strada — ma è fondata su un fatto, non
+su una stima: una lingua spenta non può avere traduzioni, e provando a
+scriverci Shopify risponde «Locale is not a valid locale for the shop».
+
+Il conto vero (l'app ne conosce 8: en fr de es ru zh-CN ar ja):
+
+| Negozio | attive | spente |
+|---|---|---|
+| Flowers | en, fr | 6 |
+| Gifts | en, ru | 6 |
+| Cake | en | 7 |
+| Business Deluxy | en | 7 |
+
+**Spente su TUTTI e quattro: 5** — de, es, zh-CN, ar, ja. (La riga «6 lingue
+spente» che girava era imprecisa: 6 è quante ne mancano a Flowers e Gifts.)
+
+⚠️⚠️ **Accenderle su Shopify NON basta.** `lingueAttiveDi()` in
+`traduzioni-automatiche.ts` deduce le lingue **da chi ha già traduzioni**: una
+lingua appena accesa ne ha zero, quindi per l'app resta spenta **per sempre**.
+È un cane che si morde la coda. Le vie d'uscita, in ordine di pulizia:
+  1. **chiedere lo scope `read_locales`** sull'app Shopify (poi `shopLocales`
+     risponde e la deduzione si butta);
+  2. un campo in Impostazioni per **dichiarare a mano** le lingue di ogni
+     negozio, che vince sulla deduzione.
+Oggi non esiste né l'uno né l'altro.
+
+## 10/09/2026 — LE COLLEZIONI SI VEDONO
+
+Nella scheda del prodotto (Panoramica), raggruppate per negozio, con manuale/
+automatica e il link al sito; nel modulo il blocco è tornato visibile. L'import
+le scriveva già (56.820 righe) e nessuno le rileggeva.
+
 ## 09/09/2026 — LA SCHEDA APPIATTITA, E SEI CORREZIONI AL MODULO
 
 ### ✅ Le 547 descrizioni sporche sono rientrate · 🔴 resta il secondo passaggio
