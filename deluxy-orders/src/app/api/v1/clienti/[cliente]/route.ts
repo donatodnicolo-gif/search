@@ -17,14 +17,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ cliente: st
   // Se contiene una @ è già una chiave leggibile: decodificarla la romperebbe.
   const chiave = codice.includes("@") ? decodeURIComponent(codice).trim().toLowerCase() : decodificaChiave(codice);
 
-  const [c, r] = await Promise.all([
+  const [c, r, privacy] = await Promise.all([
     clienteSingolo(chiave),
     prisma.riepilogoCliente.findUnique({ where: { chiave } }),
+    prisma.privacyCliente.findUnique({ where: { chiave } }),
   ]);
   if (!c) return erroreApi(404, `Nessun cliente con ordini validi per: ${chiave}`);
 
   return NextResponse.json({
     cliente: codificaChiave(c.chiave),
+    // I consensi (privacy): "si" | "no" | null = mai detto. Si scrivono con
+    // POST .../privacy (chiave di scrittura): il CRM li mostra e li spegne.
+    privacy: privacy
+      ? { email: privacy.email, sms: privacy.sms, telefono: privacy.telefono, bloccato: privacy.bloccato, note: privacy.note }
+      : { email: null, sms: null, telefono: null, bloccato: false, note: null },
     nome: c.nome,
     email: c.email,
     telefono: c.telefono,
