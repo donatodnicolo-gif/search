@@ -1,18 +1,21 @@
 # Deluxy Scout
 
 > **📍 STATO A FINE SESSIONE (10/09/2026, sera) — tutto IN PRODUZIONE, niente in
-> sospeso.** Quattro deploy web in giornata, l'ultimo con commit `ae459abf`
-> (bundle vivo `entry-3c965468…`); `scout-ui` pushato fino a `31747ef5`, albero
-> pulito; `tsc` 0 errori, **131 test verdi**; migrazioni a **0122** (nessuna
-> nuova oggi). In ordine, le cose fatte oggi: (1) Fornitori / Segnalazioni CS /
-> Selezionati con «Da · dal» e gli ordini del Customer Service a 30 e 180 gg
-> (nuova API del CS + Edge `customer-service` + chiave collegata e provata);
-> (2) Selezionati e Segnalazioni CS in UNA tabella con «Segnalazioni CS» come
-> filtro, ordine «Dal» decrescente; (3) «Assegna a me» in riga, Selezionati
-> prima di Potenziali nel menu, tabella che non sfora più (cap
-> `contenutoExtraLargo`); (4) il click su una riga del registro apre un
-> **foglio dentro Scout** con i dati dell'anagrafica, e i link nelle note si
-> cliccano. Il dettaglio di ognuna è nel blocco qui sotto.
+> sospeso.** Cinque deploy web in giornata (più due del Customer Service),
+> l'ultimo con commit `08c6cbf4` (bundle vivo `entry-5f3dd128…`); `scout-ui`
+> pushato fino a `a7b364a6`, albero pulito; `tsc` 0 errori, **142 test
+> verdi**; migrazioni a **0122** (nessuna nuova oggi). In ordine, le cose
+> fatte oggi: (1) Fornitori / Segnalazioni CS / Selezionati con «Da · dal» e
+> gli ordini del Customer Service a 30 e 180 gg (nuova API del CS + Edge
+> `customer-service` + chiave collegata e provata); (2) Selezionati e
+> Segnalazioni CS in UNA tabella con «Segnalazioni CS» come filtro; (3)
+> «Assegna a me» in riga, Selezionati prima di Potenziali nel menu, tabella che
+> non sfora più (cap `contenutoExtraLargo`); (4) il click su una riga del
+> registro apre un **foglio dentro Scout** con i dati dell'anagrafica, e i link
+> nelle note si cliccano; (5) colonna **«Ultimo agg.»** (da «Dal», avanza
+> quando il CS paga il fornitore: il CS manda `ultimoPagamentoIl`) che è
+> l'ordine iniziale, **Città e Prov.** in colonna, **nomi leggibili**. Il
+> dettaglio di ognuna è nel blocco qui sotto.
 >
 > **Come riprendere**: `cd C:\Users\nicol\scoutwt\deluxy-scout` (branch
 > `scout-ui`; `C:\Users\nicol\app\deluxy-scout` è una copia morta), Node a
