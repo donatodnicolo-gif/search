@@ -404,7 +404,15 @@
       "default": "To be defined",
       "paid": "Paid",
       "toBePaid": "To be paid"
-    },
+    },      "capogruppo": "Who pays (parent entity)",
+      "capogruppoNessuno": "None: pays by itself",
+      "capogruppoNuovo": "New parent entity…",
+      "capogruppoNome": "Parent entity company name",
+      "capogruppoPIva": "Parent entity VAT",
+      "pagaDaSe": "This location pays by itself (otherwise the parent entity is invoiced)",
+      "pagaDaSeBreve": "pays by itself",
+      "fatturaIlCapogruppo": "parent entity is invoiced",
+
     "paymentMethod": {
       "bankTransfer": "Bank transfer",
       "creditCard": "Credit card",
@@ -1002,6 +1010,7 @@
     "emptyTitle": "No partner found.",
     "emptyHint": "Add one with “Add partner”.",
     "col": {
+      "capogruppo": "Invoiced to",
       "insegna": "Name",
       "email": "Email",
       "phone": "Phone",

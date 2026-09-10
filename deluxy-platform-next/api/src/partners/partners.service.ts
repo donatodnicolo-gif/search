@@ -12,6 +12,7 @@ import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagr
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 import { SettingsService } from '../settings/settings.module';
 import { CalendarioUniciService } from '../merchandising-sync/calendario-unici.module';
+import { CapogruppiService } from '../capogruppi/capogruppi.module';
 import {
   CODICE_VALIDO_MINUTI, RIMANDA_DOPO_SECONDI, TENTATIVI_MASSIMI,
   emailMascherata, generaCodice, ibanLeggibile, ibanMascherato, ibanValido,
@@ -50,6 +51,7 @@ const PARTNER_INCLUDE = {
   aree: { include: { area: { select: { id: true, nome: true } } } },
   consegnaProvince: { include: { province: { select: { id: true, code: true, name: true } } } },
   openingHours: true,
+  capogruppo: { select: { id: true, nome: true, pIva: true, registroId: true } },
 } as const;
 
 @Injectable()
@@ -63,6 +65,7 @@ export class PartnersService {
     private readonly aree: AreeService,
     private readonly settings: SettingsService,
     private readonly calendarioUnici: CalendarioUniciService,
+    private readonly capogruppi: CapogruppiService,
   ) {}
 
   /**
@@ -214,7 +217,10 @@ export class PartnersService {
   }
 
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
-    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...scalar } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, capogruppoNuovo, ...scalar } = dto;
+    // ⭐ 10/09/2026: un capogruppo nuovo scritto nel modulo si crea qui e si assegna.
+    if (capogruppoNuovo?.nome) (scalar as any).capogruppoId = (await this.capogruppi.trovaOCrea(capogruppoNuovo)).id;
+    if ((scalar as any).capogruppoId && scalar.pagaDaSe === undefined) (scalar as any).pagaDaSe = false;
     await this.esigiCompensazioneSeVende(scalar.compensazioneIncassi, services, null);
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
@@ -372,6 +378,8 @@ export class PartnersService {
       // ⭐ 10/09/2026: chi fattura per questa sede, se è dentro un capogruppo del registro.
       capogruppo: (trovato as any).capogruppo ? { id: (trovato as any).capogruppo.id, nome: (trovato as any).capogruppo.nome } : null,
       pagaDaSe: (trovato as any).pagaDaSe ?? null,
+      // ⭐ 10/09/2026: la copia in piattaforma (se il registro lo sa e qui manca, si rispecchia qui sotto)
+      capogruppoPiattaforma: await this.rispecchiaCapogruppoDalRegistro(p as any, (trovato as any)),
       differenze,
       candidati: [],
     };
@@ -544,11 +552,38 @@ export class PartnersService {
    */
   cercaAnagrafiche(q: string) { return this.anagrafiche.cercaPerNome(q); }
 
+  /**
+   * ⭐ 10/09/2026: il registro ha un capogruppo per questa sede e qui non c'è → si crea (o si
+   * riconosce per registroId/nome) e si assegna, col «paga da sé» del registro. Il registro resta
+   * la fonte per ciò che l'ufficio ha deciso di là; qui non si sovrascrive un capogruppo già scelto.
+   */
+  private async rispecchiaCapogruppoDalRegistro(p: { id: string; capogruppoId?: string | null; pagaDaSe?: boolean }, trovato: any) {
+    const cg = trovato?.capogruppo;
+    if (!cg?.id || !cg?.nome) return p.capogruppoId ? { id: p.capogruppoId } : null;
+    if (p.capogruppoId) return { id: p.capogruppoId };
+    try {
+      const locale = (await this.prisma.capogruppo.findFirst({ where: { OR: [{ registroId: cg.id }, { nome: { equals: cg.nome, mode: 'insensitive' } }] } }))
+        ?? (await this.prisma.capogruppo.create({ data: { nome: cg.nome, pIva: cg.pIva ?? null, codiceSdi: cg.codiceSdi ?? null, pec: cg.pec ?? null, registroId: cg.id } }));
+      if (!locale.registroId) await this.prisma.capogruppo.update({ where: { id: locale.id }, data: { registroId: cg.id } }).catch(() => undefined);
+      await this.prisma.partner.update({ where: { id: p.id }, data: { capogruppoId: locale.id, pagaDaSe: trovato.pagaDaSe ?? false } });
+      return { id: locale.id, nome: locale.nome, rispecchiato: true };
+    } catch (e) {
+      this.logger.warn(`Capogruppo dal registro non rispecchiato: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   /** ⭐ 10/09/2026 (regola utente): questo partner fattura sotto l'entità di un ALTRO partner della piattaforma. */
   async mettiSottoEntita(id: string, capofilaId: string, actor?: JwtUser) {
     if (!capofilaId || capofilaId === id) throw new BadRequestException('Scegli un altro partner come entità di fatturazione.');
     const [sede, capofila] = await Promise.all([this.findOne(id, actor), this.findOne(capofilaId, actor)]);
-    return this.anagrafiche.mettiSottoCapogruppo(sede as any, capofila as any);
+    // ⭐ 10/09/2026: anche in piattaforma — il capogruppo è quello della capofila, o nasce dalla sua ragione sociale.
+    const cgId = (capofila as any).capogruppoId ?? (await this.capogruppi.trovaOCrea({ nome: (capofila as any).businessName ?? capofila.insegna, pIva: (capofila as any).vatNumber ?? null, codiceFiscale: (capofila as any).fiscalCode ?? null, codiceSdi: (capofila as any).sdiCode ?? null, pec: (capofila as any).certifiedEmail ?? null })).id;
+    if (!(capofila as any).capogruppoId) await this.prisma.partner.update({ where: { id: capofila.id }, data: { capogruppoId: cgId, pagaDaSe: true } });
+    await this.prisma.partner.update({ where: { id: sede.id }, data: { capogruppoId: cgId, pagaDaSe: false } });
+    const esito = await this.anagrafiche.mettiSottoCapogruppo(sede as any, capofila as any);
+    if (esito.ok && esito.capogruppo?.id) await this.prisma.capogruppo.update({ where: { id: cgId }, data: { registroId: esito.capogruppo.id } }).catch(() => undefined);
+    return esito;
   }
 
   async importaDaAnagrafica(id: string, campi: string[], actor?: JwtUser) {
@@ -752,7 +787,12 @@ export class PartnersService {
       } as UpdatePartnerDto;
     }
     const prima = await this.findOne(id);
-    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, ...rest } = dto;
+    const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, capogruppoNuovo, ...rest } = dto;
+    // ⭐ 10/09/2026: capogruppo nuovo dal modulo → si crea e si assegna; un capogruppo scelto senza
+    // dire «paga da sé» vuol dire che fattura il capogruppo.
+    if (capogruppoNuovo?.nome) (rest as any).capogruppoId = (await this.capogruppi.trovaOCrea(capogruppoNuovo)).id;
+    if ((rest as any).capogruppoId && rest.pagaDaSe === undefined) (rest as any).pagaDaSe = false;
+    if ((rest as any).capogruppoId === null) (rest as any).pagaDaSe = true;
     // Obbligatoria per chi vende: si controlla PRIMA di scrivere, e sul
     // risultato — servizi in arrivo se ci sono, altrimenti quelli in archivio.
     await this.esigiCompensazioneSeVende((rest as any).compensazioneIncassi, services, prima as any);
@@ -934,6 +974,9 @@ export class PartnersService {
     }
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     if (openingHours || prima.active !== aggiornato.active) this.aggiornaCalendarioSito(id);
+    if ((prima as any).capogruppoId !== (aggiornato as any).capogruppoId || (prima as any).pagaDaSe !== (aggiornato as any).pagaDaSe) {
+      void this.anagrafiche.comunicaCapogruppo(aggiornato as any).catch((e) => this.logger.warn(`Capogruppo non comunicato al registro: ${(e as Error).message}`));
+    }
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;
   }

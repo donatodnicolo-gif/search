@@ -203,6 +203,9 @@ export const SERVICE_SCOPE_LABELS: Record<string, string> = {
 export interface Partner {
   id: string;
   insegna: string;
+  capogruppoId?: string | null;
+  pagaDaSe?: boolean;
+  capogruppo?: { id: string; nome: string; pIva?: string | null } | null;
   email: string;
   businessName?: string;
   vatNumber?: string;

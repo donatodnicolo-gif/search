@@ -404,7 +404,15 @@
       "default": "Da definire",
       "paid": "Pagato",
       "toBePaid": "Da pagare"
-    },
+    },      "capogruppo": "Chi paga (capogruppo)",
+      "capogruppoNessuno": "Nessuno: paga da sé",
+      "capogruppoNuovo": "Nuovo capogruppo…",
+      "capogruppoNome": "Ragione sociale del capogruppo",
+      "capogruppoPIva": "P.IVA del capogruppo",
+      "pagaDaSe": "Questa sede paga da sé (altrimenti fattura il capogruppo)",
+      "pagaDaSeBreve": "paga da sé",
+      "fatturaIlCapogruppo": "fattura il capogruppo",
+
     "paymentMethod": {
       "bankTransfer": "Bonifico bancario",
       "creditCard": "Carta di credito",
@@ -1003,6 +1011,7 @@
     "emptyTitle": "Nessun partner trovato.",
     "emptyHint": "Aggiungine uno con “Aggiungi partner”.",
     "col": {
+      "capogruppo": "Fattura a",
       "insegna": "Insegna",
       "email": "Email",
       "phone": "Telefono",

@@ -390,6 +390,23 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       <!-- Pagamenti e fatturazione -->
       <section class="card block">
         <header class="block-head"><h2>{{ 'partnerForm.payments.title' | translate }}</h2></header>
+        <!-- ⭐ 10/09/2026 (regola utente): CHI PAGA per questo punto vendita — il capogruppo. -->
+        <div class="grid-2">
+          <label class="fld"><span>{{ 'partnerForm.payments.capogruppo' | translate }}</span>
+            <select class="field" name="capogruppoId" [(ngModel)]="model.capogruppoId">
+              <option value="">{{ 'partnerForm.payments.capogruppoNessuno' | translate }}</option>
+              @for (c of capogruppi(); track c.id) { <option [value]="c.id">{{ c.nome }}@if (c.pIva) { · {{ c.pIva }} }</option> }
+              <option value="__nuovo__">{{ 'partnerForm.payments.capogruppoNuovo' | translate }}</option>
+            </select>
+          </label>
+          @if (model.capogruppoId === '__nuovo__') {
+            <label class="fld"><span>{{ 'partnerForm.payments.capogruppoNome' | translate }}</span><input class="field" name="capogruppoNuovoNome" [(ngModel)]="model.capogruppoNuovoNome" /></label>
+            <label class="fld"><span>{{ 'partnerForm.payments.capogruppoPIva' | translate }}</span><input class="field" name="capogruppoNuovoPIva" [(ngModel)]="model.capogruppoNuovoPIva" /></label>
+          }
+          @if (model.capogruppoId) {
+            <label class="toggle"><input type="checkbox" name="pagaDaSe" [(ngModel)]="model.pagaDaSe" /><span>{{ 'partnerForm.payments.pagaDaSe' | translate }}</span></label>
+          }
+        </div>
         <div class="grid-2">
           <label class="fld"><span>{{ 'partnerForm.payments.paymentMethod' | translate }}</span>
             <select class="field" name="paymentMethod" [(ngModel)]="model.paymentMethod">
@@ -669,6 +686,8 @@ export class PartnerFormComponent {
     return this.categories().filter((c) => this.selectedCategories.has(c.id) || c.name.toLowerCase().includes(q));
   }
   readonly paymentMethods = Object.entries(PAYMENT_METHOD_LABELS);
+  /** ⭐ 10/09/2026: i capogruppi fra cui scegliere chi paga. */
+  readonly capogruppi = signal<{ id: string; nome: string; pIva?: string | null }[]>([]);
   readonly paymentStatuses = Object.entries(PAYMENT_STATUS_LABELS);
 
   serviceRows: ServiceRow[] = [];
@@ -721,6 +740,10 @@ export class PartnerFormComponent {
     whatsappNotifications: false,
     mailNotifications: false,
     autoDeliveredByPartner: false,
+    capogruppoId: '' as string,
+    capogruppoNuovoNome: '',
+    capogruppoNuovoPIva: '',
+    pagaDaSe: true,
     esclusoDalleProposte: false,
     minimoOrdineVendita: null as number | null,
     raggioMaxConsegnaKm: null as number | null,
@@ -735,6 +758,8 @@ export class PartnerFormComponent {
   readonly editId = signal<string | null>(null);
 
   constructor() {
+
+    this.http.get<{ id: string; nome: string; pIva?: string | null }[]>(`${environment.apiUrl}/capogruppi`).subscribe({ next: (c) => this.capogruppi.set(c ?? []), error: () => undefined });
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));
@@ -886,6 +911,10 @@ export class PartnerFormComponent {
       whatsappNotifications: m.whatsappNotifications,
       mailNotifications: m.mailNotifications,
       autoDeliveredByPartner: m.autoDeliveredByPartner,
+      // ⭐ 10/09/2026: chi paga (capogruppo). «nuovo» = si crea dal nome scritto.
+      capogruppoId: m.capogruppoId === '__nuovo__' ? undefined : (m.capogruppoId || null),
+      capogruppoNuovo: m.capogruppoId === '__nuovo__' && m.capogruppoNuovoNome.trim() ? { nome: m.capogruppoNuovoNome.trim(), pIva: m.capogruppoNuovoPIva.trim() || null } : undefined,
+      pagaDaSe: m.capogruppoId ? m.pagaDaSe : true,
       esclusoDalleProposte: !!m.esclusoDalleProposte,
       minimoOrdineVendita: m.minimoOrdineVendita === null || m.minimoOrdineVendita === undefined || (m.minimoOrdineVendita as unknown) === '' ? null : Number(m.minimoOrdineVendita),
       raggioMaxConsegnaKm: m.raggioMaxConsegnaKm === null || m.raggioMaxConsegnaKm === undefined || (m.raggioMaxConsegnaKm as unknown) === '' ? null : Number(m.raggioMaxConsegnaKm),

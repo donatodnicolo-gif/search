@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsObject,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -147,6 +148,23 @@ export class CreatePartnerDto {
   @IsOptional()
   @IsBoolean()
   autoDeliveredByPartner?: boolean;
+
+  // ⭐ 10/09/2026 (regola utente): CHI PAGA per questo punto vendita.
+  @ApiPropertyOptional({ description: 'Il capogruppo (società che fattura) a cui appartiene; null = nessuno' })
+  @IsOptional()
+  @IsString()
+  capogruppoId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Nome (e dati) di un capogruppo NUOVO da creare e assegnare: vince su capogruppoId' })
+  @IsOptional()
+  @IsObject()
+  capogruppoNuovo?: { nome: string; pIva?: string | null; codiceFiscale?: string | null; codiceSdi?: string | null; pec?: string | null; email?: string | null } | null;
+
+  @ApiPropertyOptional({ default: true, description: 'true = si fattura da solo; false = fattura il capogruppo' })
+  @IsOptional()
+  @IsBoolean()
+  pagaDaSe?: boolean;
+
 
   @ApiPropertyOptional({ description: 'Escluso dalle proposte automatiche: non entra nelle liste a cui proporre gli ordini e non conta come «partner in provincia» (solo ufficio)' })
   @IsOptional()

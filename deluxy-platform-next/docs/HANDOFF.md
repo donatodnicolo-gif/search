@@ -3,6 +3,12 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🏢 **10/09/2026 (notte, 11) — CAPOGRUPPO IN PIATTAFORMA, cablato** (manuale 113). In locale, `tsc` verdi API/web/Anagrafiche, da pubblicare (piattaforma precompilata + Anagrafiche in cloud).
+> - API: `capogruppi/capogruppi.module.ts` (elenco, crea-o-trova per nome, aggiorna) registrato in `app.module`; DTO partner `capogruppoId | capogruppoNuovo {nome,pIva…} | pagaDaSe`; `create/update` risolvono il nuovo e, se c'è un capogruppo senza «paga da sé» detto, mettono `pagaDaSe=false`; `PARTNER_INCLUDE` porta `capogruppo`; `update` → `AnagraficheSyncService.comunicaCapogruppo()` (best-effort; salva `registroId`); `confrontaAnagrafica` → `rispecchiaCapogruppoDalRegistro()`; `mettiSottoEntita` scrive anche qui.
+> - Registro: `POST /api/v1/partners/:id/capogruppo` accetta anche `{ capogruppo: {nome,pIva?,registroId?}, pagaDaSe }` e `{ capogruppo: null }`, oltre a `{ capofila }`.
+> - Web: modulo partner (tendina + nuovo + paga da sé), dettaglio («Chi paga»), elenco (colonna «Fattura a»), i18n `partnerForm.payments.capogruppo*`, `partners.col.capogruppo`.
+> - 🔖 Da fare a mano dopo il deploy: i capogruppi degli esempi (Chanel: le 7 schede Chanel sotto la società Chanel; Diptyque/Olfattorio: 5 sedi sotto OLFATTORIO SRL) — dal modulo partner o col bottone «Sotto un'altra entità». Non li ho creati: le ragioni sociali le decide l'ufficio.
+
 > 🧾 **10/09/2026 (notte, 10) — DUE FATTURE (servizi + commissioni) per partner e periodo; categorie da Merchandising (268 scritte).** In locale, `tsc` verdi, da pubblicare.
 > - `generate()` divide le righe per `pricingModel` (VENDITA = commissioni, il resto = servizi), crea fino a due Invoice (numerazione progressiva), segna `invoiced`, e per ognuna chiama pro-forma + mese (la pro-forma su sole vendite torna «Solo vendite: niente pro-forma»). Risposta: la prima fattura in testa (compatibilità) + `fatture[]`. Web: banner per fattura, periodo della lista sul mese generato.
 > - Categorie: `api/scripts/categorie-da-merchandising.mjs` (mappa concordata; abbinamento codice / nome esatto / nome base con taglia). Applicato in due giri: 88 + 180 = **268**; 631 restano (417 DA_CLASSIFICARE di là). 12927 nel frattempo preso in mano dall'ufficio → Angolo Fiorito. 🔖 Da mettere nella sincronizzazione Merchandising (`allineaNote`) anche la categoria, con la stessa mappa, così i prossimi non restano senza.

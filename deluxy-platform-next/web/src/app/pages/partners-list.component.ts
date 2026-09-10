@@ -122,6 +122,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
               <th class="sortable" (click)="table.sortBy('paymentStatus')">{{ 'partners.col.payment' | translate }}<span class="sort-ind">{{ table.indicator('paymentStatus') }}</span></th>
               <th class="sortable" (click)="table.sortBy('active')">{{ 'partners.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
               <th>{{ 'partners.col.registry' | translate }}</th>
+              <th>{{ 'partners.col.capogruppo' | translate }}</th>
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -173,6 +174,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                     @default { <span class="muted small">—</span> }
                   }
                 </td>
+                <td>@if ($any(p).capogruppo) { <span class="small">{{ $any(p).capogruppo.nome }}</span>@if ($any(p).pagaDaSe === false) { <span class="muted small"> ↑</span> } } @else { <span class="muted small">—</span> }</td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
                     <a class="act" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>

@@ -323,6 +323,35 @@ export class AnagraficheSyncService {
     }
   }
 
+  /**
+   * ⭐ 10/09/2026 (regola utente): il capogruppo deciso in piattaforma si COMUNICA al registro.
+   * Con capogruppo: `POST /api/v1/partners/:platformId/capogruppo { capogruppo: {…}, pagaDaSe }`;
+   * senza (tolto): `{ capogruppo: null }`. Best-effort; la scheda della sede deve esistere di là
+   * (se manca, si crea prima con sincronizzaOra — mai un PATCH su una scheda trovata per P.IVA).
+   */
+  async comunicaCapogruppo(partner: PartnerPiattaforma & { capogruppoId?: string | null; pagaDaSe?: boolean; capogruppo?: { id: string; nome: string; pIva?: string | null; registroId?: string | null } | null }): Promise<{ ok: boolean; messaggio: string; registroId?: string | null }> {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) return { ok: false, messaggio: 'Chiave del registro non configurata.' };
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+    const { trovato } = await this.cerca({ id: partner.id, insegna: partner.insegna, businessName: partner.businessName, vatNumber: partner.vatNumber, fiscalCode: partner.fiscalCode, email: partner.email });
+    if (!(trovato && (trovato as any).platformId === partner.id)) {
+      const esito = await this.sincronizzaOra(partner, null);
+      if (!esito.ok) return { ok: false, messaggio: `Scheda non pronta nel registro: ${esito.messaggio}` };
+    }
+    const corpo = partner.capogruppoId && partner.capogruppo
+      ? { capogruppo: { nome: partner.capogruppo.nome, pIva: partner.capogruppo.pIva ?? undefined, registroId: partner.capogruppo.registroId ?? undefined }, pagaDaSe: partner.pagaDaSe !== false ? true : false, sistema: 'deluxy-platform' }
+      : { capogruppo: null, sistema: 'deluxy-platform' };
+    try {
+      const res = await fetch(`${base}/api/v1/partners/${encodeURIComponent(partner.id)}/capogruppo`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey }, body: JSON.stringify(corpo) });
+      const testo = await res.text();
+      if (!res.ok) return { ok: false, messaggio: `Il registro risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
+      const j = JSON.parse(testo) as { capogruppo?: { id: string } | null };
+      return { ok: true, messaggio: 'Capogruppo comunicato al registro.', registroId: j.capogruppo?.id ?? null };
+    } catch (err) {
+      return { ok: false, messaggio: `Registro non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
   /** ⭐ 10/09/2026: ricerca libera per nome nel registro (bottone «Aggancia ad anagrafica esistente»). */
   async cercaPerNome(q: string): Promise<AnagraficaPartner[]> {
     const apiKey = await this.getApiKey();

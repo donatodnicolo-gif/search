@@ -41,6 +41,7 @@ import { ListinoModule } from './listino/listino.module';
 import { StatisticheModule } from './statistiche/statistiche.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { CalendarioUniciModule } from './merchandising-sync/calendario-unici.module';
+import { CapogruppiModule } from './capogruppi/capogruppi.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
 import { AiModule } from './ai/ai.module';
 import { RecapPartnerModule } from './recap-partner/recap-partner.module';
@@ -81,6 +82,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     AiModule,
     MerchandisingSyncModule,
     CalendarioUniciModule,
+    CapogruppiModule,
     SalariesModule,
     ReceiptsModule,
     InvoicesModule,

@@ -162,6 +162,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <dl>
               <dt>{{ 'partners.col.email' | translate }}</dt><dd>{{ p.email }}</dd>
               <dt>{{ 'partnerForm.general.businessName' | translate }}</dt><dd>{{ p.businessName || '—' }}</dd>
+              <dt>{{ 'partnerForm.payments.capogruppo' | translate }}</dt><dd>@if ($any(p).capogruppo) { {{ $any(p).capogruppo.nome }} <span class="muted">· {{ ($any(p).pagaDaSe === false ? 'partnerForm.payments.fatturaIlCapogruppo' : 'partnerForm.payments.pagaDaSeBreve') | translate }}</span> } @else { — }</dd>
               <dt>{{ 'partners.col.phone' | translate }}</dt><dd>{{ p.phone || '—' }}</dd>
               <dt>{{ 'partnerForm.general.vatNumber' | translate }}</dt><dd>{{ p.vatNumber || '—' }}</dd>
               <dt>{{ 'partnerForm.general.fiscalCode' | translate }}</dt><dd>{{ p.fiscalCode || '—' }}</dd>
