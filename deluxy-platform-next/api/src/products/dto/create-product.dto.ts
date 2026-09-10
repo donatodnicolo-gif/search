@@ -223,6 +223,11 @@ export class CreateProductDto {
   @IsBoolean()
   notPhysical?: boolean;
 
+  @ApiPropertyOptional({ default: false, description: 'Prodotto APP: vive solo nella piattaforma consegne, non si espone a Merchandising' })
+  @IsOptional()
+  @IsBoolean()
+  prodottoApp?: boolean;
+
   @ApiPropertyOptional({ default: false, description: 'Super provincia' })
   @IsOptional()
   @IsBoolean()

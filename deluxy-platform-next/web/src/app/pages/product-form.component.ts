@@ -114,6 +114,7 @@ interface ImageRow { url: string; }
           <label class="toggle"><input type="checkbox" name="approved" [(ngModel)]="model.approved" /><span>{{ 'productForm.toggle.approved' | translate }}</span></label>
           <label class="toggle"><input type="checkbox" name="active" [(ngModel)]="model.active" /><span>{{ 'common.active' | translate }}</span></label>
           <label class="toggle"><input type="checkbox" name="notPhysical" [(ngModel)]="model.notPhysical" /><span>{{ 'productForm.toggle.notPhysical' | translate }}</span></label>
+          <label class="toggle"><input type="checkbox" name="prodottoApp" [(ngModel)]="model.prodottoApp" /><span>{{ 'productForm.toggle.prodottoApp' | translate }}</span></label>
         </div>
 
         <div class="sub-head mt2">{{ 'productForm.section.platforms.title' | translate }}</div>
@@ -390,6 +391,7 @@ export class ProductFormComponent {
     controlStock: false,
     stock: null as number | null,
     notPhysical: false,
+    prodottoApp: false,
     isSuperProvince: false,
     approved: false,
     active: true,
@@ -532,6 +534,7 @@ export class ProductFormComponent {
       notEditable: m.notEditable,
       controlStock: m.controlStock,
       notPhysical: m.notPhysical,
+      prodottoApp: m.prodottoApp,
       isSuperProvince: m.isSuperProvince,
       approved: m.approved,
       active: m.active,

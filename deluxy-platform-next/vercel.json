@@ -48,6 +48,10 @@
     {
       "path": "/api/v1/cron/recap-partner-sera",
       "schedule": "30 16,17 * * *"
+    },
+    {
+      "path": "/api/v1/cron/calendario-unici",
+      "schedule": "14,44 * * * *"
     }
   ],
   "routes": [

@@ -1061,6 +1061,9 @@ model Product {
   controlStock            Boolean            @default(false) // controlla stock
   stock                   Int? // giacenza (se controlStock)
   notPhysical             Boolean            @default(false) // prodotto non fisico
+  /// ⭐ 10/09/2026 (regola utente): «PRODOTTO APP» — vive solo nella piattaforma consegne e NON si
+  /// espone a Merchandising: fuori dal calendario dei prodotti unici e da ogni allineamento per SKU.
+  prodottoApp             Boolean            @default(false)
   isSuperProvince         Boolean            @default(false) // super provincia
   useAlternateName        Boolean            @default(false)
   alternateName           String? // nome alternativo del prodotto

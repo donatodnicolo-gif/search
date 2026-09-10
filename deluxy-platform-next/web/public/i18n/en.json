@@ -2226,6 +2226,7 @@
       "visibleToOtherPartners": "Visible to other partners",
       "notEditable": "Not editable",
       "notPhysical": "Non-physical",
+      "prodottoApp": "App product (delivery platform only, not exposed to Merchandising)",
       "isSuperProvince": "Super province",
       "controlStock": "Track stock",
       "approved": "Approved",

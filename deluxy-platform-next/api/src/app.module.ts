@@ -40,6 +40,7 @@ import { AreeModule } from './aree/aree.module';
 import { ListinoModule } from './listino/listino.module';
 import { StatisticheModule } from './statistiche/statistiche.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
+import { CalendarioUniciModule } from './merchandising-sync/calendario-unici.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
 import { AiModule } from './ai/ai.module';
 import { RecapPartnerModule } from './recap-partner/recap-partner.module';
@@ -79,6 +80,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     RecapPartnerModule,
     AiModule,
     MerchandisingSyncModule,
+    CalendarioUniciModule,
     SalariesModule,
     ReceiptsModule,
     InvoicesModule,

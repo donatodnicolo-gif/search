@@ -197,7 +197,7 @@ export class MerchandisingSyncService {
     }
 
     const nostri = await this.prisma.product.findMany({
-      where: { deletedAt: null, NOT: { sku: null } },
+      where: { deletedAt: null, NOT: { sku: null }, prodottoApp: false },
       select: { id: true, sku: true, tipologiaVendita: true },
     });
     const daCambiare = nostri.filter((p) => {
@@ -264,7 +264,7 @@ export class MerchandisingSyncService {
     }
 
     const prodotti = await this.prisma.product.findMany({
-      where: { deletedAt: null, NOT: { sku: null } },
+      where: { deletedAt: null, NOT: { sku: null }, prodottoApp: false },
       select: { id: true, sku: true, note: true, alternateName: true, useAlternateName: true },
     });
     const varianti = await this.prisma.productVariant.findMany({
