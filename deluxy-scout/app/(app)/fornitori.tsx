@@ -30,6 +30,7 @@ import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { CellaVendite, FornitoriFuoriRegistro, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
+import { SchedaRegistroModal } from '@/components/SchedaRegistroModal';
 import { CampoCerca, Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA } from '@/lib/statoVisita';
 
@@ -57,6 +58,8 @@ export default function Fornitori() {
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
+  // Il click sulla riga apre i dati del registro in un foglio (10/09/2026).
+  const [registroAperto, setRegistroAperto] = useState<PartnerRegistro | null>(null);
   const [parziale, setParziale] = useState(false);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [filtroOrdini, setFiltroOrdini] = useState<FiltroOrdini>(null);
@@ -372,6 +375,9 @@ export default function Fornitori() {
           chiaveRiga={(p) => p.id}
           // Chi lavora di più in cima, quando i numeri ci sono; se no per nome.
           ordineIniziale={indice ? { campo: 'ordiniLunga', verso: 'desc' } : { campo: 'nome', verso: 'asc' }}
+          // Il click apre i dati del registro in un foglio, dentro Scout.
+          onRiga={(p) => setRegistroAperto(p)}
+          labelRiga={(p) => `Vedi i dati di ${p.nome} dal registro`}
           azioni={azioniDi}
           larghezzaAzioni={186}
           totali={(righe) => ({
@@ -388,6 +394,7 @@ export default function Fornitori() {
             <CardElenco
               key={p.id}
               icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
+              onPress={() => setRegistroAperto(p)}
               nome={p.nome}
               meta={[dove, p.categoria].filter(Boolean).join(' — ') || null}
               tag={p.interessi ?? []}
@@ -421,6 +428,20 @@ export default function Fornitori() {
           );
         })
       )}
+      {registroAperto ? (
+        <SchedaRegistroModal
+          partner={registroAperto}
+          vendite={venditeDiP(registroAperto)}
+          giorniLunga={giorniLunga}
+          preso={presi.has(registroAperto.id)}
+          inCorso={inCorso === registroAperto.id}
+          onClose={() => setRegistroAperto(null)}
+          onPrendiInCarico={(p) => {
+            setRegistroAperto(null);
+            prendiInCarico(p);
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 }

@@ -96,6 +96,20 @@
 >      38 + 8 × 10). Misurato: a 1440 il nome ha 242 px e l'ultima icona finisce
 >      a 34 px dal bordo; a 1280 il nome ha 155 px e tutto sta dentro.
 >      **In produzione** (commit `60cc3307`, bundle vivo `entry-560bad7f…`).
+>   4. **Il click su una riga del registro apre un FOGLIO dentro Scout**
+>      (`components/SchedaRegistroModal.tsx`; richiesta dell'utente: «al click
+>      apri un pop-up dove fai vedere i dati di anagrafica senza andare in
+>      anagrafiche»). Prima si saltava alla scheda in Anagrafiche in un'altra
+>      scheda del browser. Il foglio mostra quello che il registro ha già
+>      mandato — nessuna lettura in più —: badge (stato nel registro,
+>      fornitore, preso o da prendere), Dove, Recapiti (toccabili), Nel
+>      registro (da dove, dal, account, ultima visita, interessi), Ordini dal
+>      Customer Service (30/180 gg, ultimo ordine), Referenti, Note; in fondo
+>      «Prendi in carico» (primario), Chiama/WhatsApp/Email, e il link «Apri nel
+>      registro Anagrafiche ↗ (per modificare)». Sola lettura: i dati sono del
+>      registro. Vale nelle tre tabelle (Selezionati, Segnalazioni CS,
+>      Fornitori) e sulle schede del telefono. `daDoveRegistro()` ora sta in
+>      `lib/anagrafiche.ts`. Provato a schermo con dati finti a 1280 px.
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.

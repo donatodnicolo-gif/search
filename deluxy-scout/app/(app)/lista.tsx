@@ -28,7 +28,8 @@ import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/custome
 import { venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
 import { dataBreve } from '@/components/Tabella';
-import { etichettaFonte, fetchFornitori, fetchSegnalatiDaApp, urlSchedaRegistro, type PartnerRegistro } from '@/lib/anagrafiche';
+import { daDoveRegistro, fetchFornitori, fetchSegnalatiDaApp, type PartnerRegistro } from '@/lib/anagrafiche';
+import { SchedaRegistroModal } from '@/components/SchedaRegistroModal';
 import { assegnaAMe, fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { AzioniRiga } from '@/components/AzioniRiga';
@@ -50,13 +51,6 @@ type FiltroSel = 'tutti' | 'miei' | 'segnalati';
 const LABEL_FILTRO_SEL: Record<FiltroSel, string> = { tutti: 'Tutti', miei: 'I miei selezionati', segnalati: 'Segnalazioni CS' };
 const FONTI_SEGNALAZIONI = ['deluxy-suppliers', 'customer-service'] as const;
 
-/** Il perché di una riga del registro, detto in breve. */
-function daDoveRegistro(p: PartnerRegistro): string {
-  if (p.statoFornitore) return `Fornitore del Customer Service (${p.statoFornitore.replace('_', ' ')})`;
-  if (p.fonte === 'customer-service') return 'Pagato dal Customer Service';
-  if (p.fonte === 'deluxy-suppliers') return 'Segnalato dall’app fornitori';
-  return `Segnalato da ${etichettaFonte(p.fonte)}`;
-}
 const nomeDi = (r: RigaSel) => (r.place ? r.place.nome : r.registro.nome);
 const dalDi = (r: RigaSel) => (r.place ? r.place.created_at ?? null : r.registro.creatoIl ?? null);
 const chiaveDi = (r: RigaSel) => (r.place ? r.place.id : `reg:${r.registro.id}`);
@@ -140,6 +134,9 @@ export default function Lista() {
   const [segnalatiParziale, setSegnalatiParziale] = useState(false);
   const [segnalatiErrore, setSegnalatiErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
+  // La scheda del registro aperta dal click sulla riga (10/09/2026: un foglio
+  // dentro Scout, non un salto ad Anagrafiche).
+  const [registroAperto, setRegistroAperto] = useState<PartnerRegistro | null>(null);
   const caricaSegnalati = useCallback(async () => {
     try {
       const [r, f, ids] = await Promise.all([
@@ -712,14 +709,11 @@ export default function Lista() {
               ordineIniziale={inSelezionati ? { campo: 'dal', verso: 'desc' } : { campo: 'stato', verso: 'asc' }}
               onRiga={(r) => {
                 if (r.place) router.push(`/(app)/attivita/${r.place.id}`);
-                else {
-                  // Un partner del registro non ha una scheda in Scout finché
-                  // non lo si prende in carico: si apre la sua scheda là.
-                  const u = urlSchedaRegistro(r.registro.id);
-                  if (u) Linking.openURL(u);
-                }
+                // Un partner del registro non ha una scheda in Scout finché non
+                // lo si prende in carico: i suoi dati si leggono in un foglio.
+                else setRegistroAperto(r.registro);
               }}
-              labelRiga={(r) => (r.place ? `Apri la scheda di ${r.place.nome}` : `Apri ${r.registro.nome} nel registro Anagrafiche`)}
+              labelRiga={(r) => (r.place ? `Apri la scheda di ${r.place.nome}` : `Vedi i dati di ${r.registro.nome} dal registro`)}
               azioni={azioniDiRiga}
               larghezzaAzioni={422}
               totali={(righe) => ({
@@ -736,6 +730,7 @@ export default function Lista() {
               return (
                 <CardElenco
                   icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
+                  onPress={() => setRegistroAperto(p)}
                   coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
                   titoloIcona={preso ? undefined : LABEL_VISITA.da_fare}
                   nome={p.nome}
@@ -797,6 +792,20 @@ export default function Lista() {
       >
         <Ionicons name="add" size={30} color={colors.bianco} />
       </Pressable>
+      {registroAperto ? (
+        <SchedaRegistroModal
+          partner={registroAperto}
+          vendite={venditeDi({ id: registroAperto.id, nome: registroAperto.nome }, indiceVenditeCS)}
+          giorniLunga={giorniLunga}
+          preso={presi.has(registroAperto.id)}
+          inCorso={inCorso === registroAperto.id}
+          onClose={() => setRegistroAperto(null)}
+          onPrendiInCarico={(p) => {
+            setRegistroAperto(null);
+            prendiInCarico(p);
+          }}
+        />
+      ) : null}
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
       <VisitaModal place={visitaPlace} onClose={() => setVisitaPlace(null)} onDone={() => { setVisitaPlace(null); ricarica(); }} />
       {sequenzaPlace ? (

@@ -72,6 +72,14 @@ export function etichettaFonte(fonte: string | null | undefined): string {
   return ETICHETTA_FONTE[f] ?? f;
 }
 
+/** Il perché di un partner del registro fra le segnalazioni, in una riga. */
+export function daDoveRegistro(p: Pick<PartnerRegistro, 'fonte' | 'statoFornitore'>): string {
+  if (p.statoFornitore) return `Fornitore del Customer Service (${p.statoFornitore.replace('_', ' ')})`;
+  if (p.fonte === 'customer-service') return 'Pagato dal Customer Service';
+  if (p.fonte === 'deluxy-suppliers') return 'Segnalato dall’app fornitori';
+  return `Segnalato da ${etichettaFonte(p.fonte)}`;
+}
+
 async function chiama<T>(body: unknown): Promise<T> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/anagrafiche`;
   const { data } = await supabase.auth.getSession();

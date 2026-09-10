@@ -40,6 +40,7 @@ import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
+import { SchedaRegistroModal } from '@/components/SchedaRegistroModal';
 import { CampoCerca, Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
 
@@ -97,6 +98,8 @@ export function SegnalazioniCS() {
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
+  // Il click sulla riga apre i dati del registro in un foglio (10/09/2026).
+  const [registroAperto, setRegistroAperto] = useState<PartnerRegistro | null>(null);
   // true = il registro non ha potuto filtrare per fonte e l'elenco può essere
   // monco. Va detto: una lista incompleta che sembra completa fa credere che
   // il lavoro sia finito.
@@ -391,6 +394,9 @@ export function SegnalazioniCS() {
           chiaveRiga={(p) => p.id}
           // Le segnalazioni più fresche in cima: è una coda, non una rubrica.
           ordineIniziale={{ campo: 'segnalato', verso: 'desc' }}
+          // Il click apre i dati del registro in un foglio, dentro Scout.
+          onRiga={(p) => setRegistroAperto(p)}
+          labelRiga={(p) => `Vedi i dati di ${p.nome} dal registro`}
           azioni={azioniDi}
           larghezzaAzioni={186}
           totali={(righe) => ({
@@ -407,6 +413,7 @@ export function SegnalazioniCS() {
             <CardElenco
               key={p.id}
               icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
+              onPress={() => setRegistroAperto(p)}
               // Rosso: nessuno c'è ancora andato. È lo stesso semaforo delle
               // altre liste (lib/statoVisita.ts).
               coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
@@ -446,6 +453,20 @@ export function SegnalazioniCS() {
         <Text style={styles.conteggio}>
           {daPrendere.length} da prendere in carico su {dati.length} {lista ? LABEL_LISTA[lista].toLowerCase() : 'segnalati'}
         </Text>
+      ) : null}
+      {registroAperto ? (
+        <SchedaRegistroModal
+          partner={registroAperto}
+          vendite={venditeDiP(registroAperto)}
+          giorniLunga={giorniLunga}
+          preso={presi.has(registroAperto.id)}
+          inCorso={inCorso === registroAperto.id}
+          onClose={() => setRegistroAperto(null)}
+          onPrendiInCarico={(p) => {
+            setRegistroAperto(null);
+            prendiInCarico(p);
+          }}
+        />
       ) : null}
     </ScrollView>
   );
