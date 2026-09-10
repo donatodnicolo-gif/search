@@ -7,7 +7,7 @@
 > - Fatturazione: `prezzoConsegna` → `venduto = vendita ? valoreProdotti : 0` (prima il valore prodotti finiva nel «Venduto» anche a prezzo fisso; Velo #62638).
 > - Stipendi: `GET /salaries/servizi-valet` (distinct ValetService → ServiceType), `GET /salaries/dettaglio/:id` (righe + consegna); web: chips dai servizi dei valet (ricaricate al cambio valet), storico con «Dettagli ▾», dopo «Genera» i filtri si mettono su valet+periodo generato.
 > - Valet: colonna «Aree di consegna» (`v.aree[].area.nome`, ripiego province).
-> - Tipologie: `TipologieCronController` (`/cron/tipologie`, vercel.json `20 * * * *`) chiama `allineaTipologie(true)`; script `tipologie-da-merchandising.mjs` applicato (110).
+> - Tipologie: `TipologieCronController` (`/cron/tipologie`, vercel.json `20 * * * *`) chiama `allineaTipologie(true)`; script `tipologie-da-merchandising.mjs` pronto (anteprima: 110 da cambiare; NON applicato, scrittura bloccata dal classificatore — lo fa il cron al minuto 20 dopo il deploy, o `node api/scripts/tipologie-da-merchandising.mjs --applica`).
 > - 🔖 Capogruppo (notte 11) e questi punti pubblicati insieme; Anagrafiche pubblicata col capogruppo diretto.
 
 > 🏢 **10/09/2026 (notte, 11) — CAPOGRUPPO IN PIATTAFORMA, cablato** (manuale 113). In locale, `tsc` verdi API/web/Anagrafiche, da pubblicare (piattaforma precompilata + Anagrafiche in cloud).
