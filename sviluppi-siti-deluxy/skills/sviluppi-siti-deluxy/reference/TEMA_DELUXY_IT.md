@@ -72,10 +72,10 @@ date da te». La fonte delle regole è il Customer Service (vedi REGOLE_BRAND.md
   recenti del calendario Semantic UI: se questa non lo conosce lo ignora, e il cancello resta il
   carrello.
 - **`snippets/product-delivery-date.liquid`**: in `__dlxMin` la prima data è la maggiore fra quella
-  del tema e `primoGiornoDate()`; `disabledDates`; refresh dopo `pronto`. ⚠️ **NON caricato via
-  API** (59 KB: il classificatore del connettore lo ha bloccato, come già successo): il file
-  patchato è in `sviluppi-siti-deluxy/deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`
-  e va incollato nell'editor del tema (md5 atteso in `md5-attesi.json`).
+  del tema e `primoGiornoDate()`; `disabledDates`; refresh dopo `pronto`. Non passa dall'API
+  (59 KB: il classificatore del connettore lo blocca, come già successo): incollato a mano
+  dall'utente nell'editor del tema la notte del 10/09, md5 verificato `6f405ef2…` (atteso in
+  `md5-attesi.json`). Il patchato resta in `sviluppi-siti-deluxy/deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`.
 - Metodo: `patch-tema.mjs` (sostituzioni ancorate + controllo di sintassi dei blocchi `<script>`
   con simulazione del Liquid, 0 errori nuovi su 6 file), `prova-carrello.mjs` (sandbox: modulo con
   API finta + `fnCheckDate` con mini-jQuery, 19 prove passate), `payload.mjs` (JSON con i non-ASCII

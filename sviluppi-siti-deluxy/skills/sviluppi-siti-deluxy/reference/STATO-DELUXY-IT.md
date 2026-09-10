@@ -4,9 +4,9 @@
 > `207333458250` «Version to work on» (live `207188394314`, «ex live 10.09 - no orari»
 > `207187575114`). Caricati con md5 verificato: `snippets/all_tags_and_script.liquid` (modulo
 > `DeluxyConsegna`), `snippets/delivery_date_hour_c.liquid`, `sections/header.liquid`,
-> `snippets/home-delivery.liquid`, `sections/home-delivery-section-new.liquid`. **NON caricato**
-> (bloccato dal classificatore, 59 KB): `snippets/product-delivery-date.liquid` → incollare dal
-> repo (`deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`). Dettagli in
+> `snippets/home-delivery.liquid`, `sections/home-delivery-section-new.liquid`, e — incollato a mano
+> dall'utente la notte del 10/09 (il connettore rifiuta i 59 KB), md5 verificato `6f405ef2…` —
+> `snippets/product-delivery-date.liquid`: **tutti e sei i file sono sul tema di lavoro**. Dettagli in
 > TEMA_DELUXY_IT.md §10/09/2026 e regole in REGOLE_BRAND.md §deluxy.it. Per vedere le date del
 > Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione**.Per vedere le date del
 > Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione** (lo è dalle 17:00).
