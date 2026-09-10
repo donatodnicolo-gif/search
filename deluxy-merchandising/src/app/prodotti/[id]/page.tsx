@@ -7,6 +7,7 @@ import { Badge } from "@/components/Badge";
 import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
+import { elencoCategorie } from "@/lib/classificazione";
 import { AnteprimaSito } from "@/components/AnteprimaSito";
 import { salvaSezioneProdottoAzione } from "@/lib/azioni-sezione-prodotto";
 import { sezioniDelSito } from "@/lib/descrizione-shopify";
@@ -57,7 +58,7 @@ export default async function ProdottoPage({
   const { tab: tabRaw, esito, messaggio, seoConferma, modifica, seoModifica } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
-  const [prodotto, collezioni, sezioniDefinite, negoziTutti] = await Promise.all([
+  const [prodotto, collezioni, sezioniDefinite, negoziTutti, categorieVere] = await Promise.all([
     prisma.prodotto.findUnique({
       where: { id },
       include: {
@@ -93,6 +94,7 @@ export default async function ProdottoPage({
       select: { categoria: true, negozio: true, nome: true, tipo: true, ordine: true },
     }),
     prisma.negozioShopify.findMany({ select: { nome: true, dominio: true, plusUno: true, plusDue: true } }),
+    elencoCategorie(),
   ]);
   if (!prodotto) notFound();
 
@@ -446,8 +448,16 @@ export default async function ProdottoPage({
                 <div className="campo-modulo">
                   <label>Categoria</label>
                   <select name="categoria" defaultValue={prodotto.categoria}>
-                    {CATEGORIE.map((c) => (
-                      <option key={c} value={c}>{ETICHETTA_CATEGORIA[c]}</option>
+                    {/* ⚠️⚠️ 10/09/2026 — qui c'era `CATEGORIE` di `dominio.ts`:
+                        una tassonomia VECCHIA (Bouquet, Pianta, Home fragrance)
+                        che non contiene le categorie di oggi. Il prodotto aveva
+                        TORTE_DOLCI, quel valore non era fra le opzioni, e la
+                        tendina mostrava la prima della lista: «Bouquet».
+                        Salvando, la categoria vera sarebbe stata sostituita da
+                        una sbagliata senza che nessuno l'avesse scelta.
+                        Le categorie vere stanno nella tabella. */}
+                    {categorieVere.map((c) => (
+                      <option key={c.chiave} value={c.chiave}>{c.nome}</option>
                     ))}
                   </select>
                 </div>

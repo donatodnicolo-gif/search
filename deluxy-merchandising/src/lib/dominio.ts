@@ -133,8 +133,8 @@ export const ETICHETTA_TIPOLOGIA_VENDITA: Record<string, string> = {
 export const SPIEGAZIONE_TIPOLOGIA_VENDITA: Record<string, string> = {
   unico: "Lo fa un partner solo, col suo prezzo di listino: la vendita va a lui.",
   quantita: "Si vende a numero di pezzi identici (12 rose, 16 praline): il prezzo è il prezzo unitario del partner per la quantità.",
-  mix: "Composizione a valore (bouquet, cappelliera): si propone con la percentuale di sconto della provincia e la lista di priorità.",
-  preventivo: "Prima di accettare la vendita serve il preventivo del partner (torte cake design, cesti floreali, bouquet di palloncini).",
+  mix: "Composizione a valore (bouquet, cappelliera, cesto floreale): si propone con la percentuale di sconto della provincia e la lista di priorità.",
+  preventivo: "Prima di accettare la vendita serve il preventivo del partner (torte cake design, bouquet di palloncini).",
 };
 
 export function etichettaTipologiaVendita(t: string | null | undefined): string {

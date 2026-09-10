@@ -1,0 +1,170 @@
+[
+ {
+  "id": "cms222w4v007oi6m84sbagvwc",
+  "codice": "EYKYEP",
+  "nome": "Cesto Fiori Capri",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmseppusn02qwi6rgmvfzohti",
+  "codice": "EYKYEP-2",
+  "nome": "Cesto Fiori Capri",
+  "categoria": "FIORI",
+  "fase": "concept",
+  "tipologiaVendita": null
+ },
+ {
+  "id": "cmsd9m4tp0513i6kgyzyz5nmu",
+  "codice": "CABWND",
+  "nome": "Cesto Fiori Portofino",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cms222wec00j8i6m870bqoecu",
+  "codice": "ZXCLIR",
+  "nome": "Cesto Fiori Sorrento",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tp0515i6kgft80pkk6",
+  "codice": "MVNOWT",
+  "nome": "Cesto Fiori Taormina",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tp0514i6kgjsu48nzk",
+  "codice": "WPZQUQ",
+  "nome": "Cesto Fiori Venezia",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tp0518i6kg3rvqkhmf",
+  "codice": "CVUUGX",
+  "nome": "MAXI Cesto Fiori Mix",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0526i6kgmr9hfdqj",
+  "codice": "WNAQRM",
+  "nome": "MAXI Cesto Ortensie Azzurre",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0529i6kg62ngemyr",
+  "codice": "SEGUPS",
+  "nome": "MAXI Cesto Ortensie Azzurre e Rose",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0527i6kgj9ej1cg5",
+  "codice": "WOCGWJ",
+  "nome": "MAXI Cesto Ortensie Bianche",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr052ai6kgib7vjxtx",
+  "codice": "RQXUFG",
+  "nome": "MAXI Cesto Ortensie Bianche e Rose",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0528i6kg1nohscer",
+  "codice": "PPJNMZ",
+  "nome": "MAXI Cesto Ortensie Rosa",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr052bi6kgvkd8pp6o",
+  "codice": "CEDSSV",
+  "nome": "MAXI Cesto Ortensie Rosa e Rose",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tp0517i6kg096ixvxh",
+  "codice": "JSUIDV",
+  "nome": "MAXI Cesto Peonie Rosa",
+  "categoria": "FIORI",
+  "fase": "concept",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4ts052wi6kgh9bky4pn",
+  "codice": "DCHTUW",
+  "nome": "MAXI Cesto Purezza Eterea e Polaroid",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0525i6kg19zrzmw3",
+  "codice": "HSGUWI",
+  "nome": "MAXI Cesto Rose Bianche",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4ts0531i6kg79e59e78",
+  "codice": "JHPNKO",
+  "nome": "MAXI Cesto Rose Bianche e Polaroid",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tp0516i6kgj9ccad8t",
+  "codice": "BBVNDM",
+  "nome": "MAXI Cesto Rose Rosa",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4ts0533i6kgn0siepke",
+  "codice": "TDBNGD",
+  "nome": "MAXI Cesto Rose Rosa e Polaroid",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4tr0524i6kgxzctduwl",
+  "codice": "IFUYXF",
+  "nome": "MAXI Cesto Rose Rosse",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ },
+ {
+  "id": "cmsd9m4ts0532i6kg1t4uj0do",
+  "codice": "UIRTXP",
+  "nome": "MAXI Cesto Rose Rosse e Polaroid",
+  "categoria": "FIORI",
+  "fase": "in_vendita",
+  "tipologiaVendita": "preventivo"
+ }
+]

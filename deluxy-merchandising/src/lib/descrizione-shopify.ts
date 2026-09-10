@@ -123,14 +123,18 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
     if (!valore) continue;
     pezzi.push(`<h6>${html(s.nome)}</h6>`);
     const r = righe(valore);
-    if (s.tipo === "elenco" || s.tipo === "coppie" || r.length > 1) {
-      // ⚠️ Anche un campo «testo» diventa un elenco quando chi compila ha
-      // scritto più righe: sul sito quelle righe **devono** restare separate.
-      // Le coppie «Nome: valore» tengono il grassetto sull'etichetta, come i
-      // tre punti in cima: è la stessa forma, e il tema la mostra uguale.
+    // ⚠️⚠️ **La forma la decide il TIPO della sezione, non quante righe ha.**
+    // Prima bastava un a capo perché un campo «testo» diventasse un elenco
+    // puntato: chi scriveva due frasi si ritrovava due pallini sulla scheda del
+    // cliente (segnalato il 10/09/2026). Le righe restano separate lo stesso —
+    // ma come paragrafi, che è quello che sono.
+    // Il tipo si cambia in «Sezioni della scheda», dove è anche scritto cosa
+    // vuol dire: testo = un paragrafo, elenco = una voce per riga, coppie =
+    // «Nome: valore» col nome in grassetto.
+    if (s.tipo === "elenco" || s.tipo === "coppie") {
       pezzi.push(`<ul>${r.map((x) => (s.tipo === "coppie" ? punto(x) : `<li>${html(x)}</li>`)).join("")}</ul>`);
     } else {
-      pezzi.push(`<p>${html(r[0] ?? valore)}</p>`);
+      for (const riga of r.length ? r : [valore]) pezzi.push(`<p>${html(riga)}</p>`);
     }
   }
 

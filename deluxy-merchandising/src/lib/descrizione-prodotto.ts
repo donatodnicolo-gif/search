@@ -11,7 +11,7 @@
 
 import { prisma } from "./db";
 import { componiDescrizioneHtml, sezioniDelSito, type SezioneDaScrivere } from "./descrizione-shopify";
-import { etichettaCategoria } from "./dominio";
+
 
 export type SchedaProdotto = {
   plusProdotto?: string | null;
@@ -75,16 +75,24 @@ export function sezioniDaScrivere(p: SchedaProdotto, sito: string, definite: Sez
  * descrizione sul negozio invece di scriverci il vuoto.
  */
 export async function descrizionePerNegozio(p: SchedaProdotto, sito: string): Promise<string> {
-  const [negozio, definite] = await Promise.all([
+  const [negozio, definite, categoria] = await Promise.all([
     prisma.negozioShopify.findFirst({ where: { nome: sito }, select: { plusUno: true, plusDue: true } }),
     prisma.sezioneCategoria.findMany({
       where: { attiva: true, categoria: p.categoria },
       select: { categoria: true, negozio: true, nome: true, tipo: true, ordine: true },
     }),
+    // ⚠️⚠️ Il nome leggibile della categoria si legge dalla TABELLA, non dalla
+    // mappa `ETICHETTA_CATEGORIA` di `dominio.ts`: quella è una tassonomia
+    // vecchia (BOUQUET, PIANTA, HOME_FRAGRANCE) che non conosce le categorie di
+    // oggi e restituisce la CHIAVE GREZZA. Il 10/09/2026 su un panettone vero è
+    // finito «<b>TORTE_DOLCI</b>» in cima alla scheda del cliente.
+    prisma.categoriaProdotto.findFirst({ where: { chiave: p.categoria }, select: { nome: true } }),
   ]);
   return componiDescrizioneHtml({
-    // L'etichetta in grassetto del primo punto, quando il plus non ne ha una sua.
-    etichettaCategoria: etichettaCategoria(p.categoria),
+    // L'etichetta in grassetto del primo punto, quando il plus non ne ha una
+    // sua. Senza un nome leggibile non si scrive niente: meglio un punto senza
+    // etichetta che una chiave di database stampata al cliente.
+    etichettaCategoria: categoria?.nome ?? null,
     plusProdotto: p.plusProdotto,
     plusUno: negozio?.plusUno,
     plusDue: negozio?.plusDue,
