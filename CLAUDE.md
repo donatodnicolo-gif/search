@@ -10,7 +10,7 @@ Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-hub/` (portale unico
 La guida visiva di tutto l'ecosistema per chi arriva è
 `C:Users
 icolscoutwtMANUALE-DELUXY.html`, pubblicata su
-https://claude.ai/code/artifact/6f2b9d92-ff98-4d22-bdd1-e08d66c57f44 .
+https://claude.ai/code/artifact/f0e0e84e-e21f-4d4c-995c-3c1551ee63bf .
 **Ogni funzionalità nuova o modificata — anche nelle app di questa cartella — va
 registrata lì**: una riga nel «Registro delle novità» (quando · dove · cosa cambia
 per chi usa l'app), nello stesso giro di lavoro; se il cambiamento tocca la mappa,

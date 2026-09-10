@@ -344,7 +344,9 @@ async function spingiProgrammazione(p: {
     descrizione: p.dettaglio,
     inizio: p.quando,
     fine: p.conOra ? new Date(p.quando.getTime() + 30 * 60_000) : null,
-    tipo: "attivita",
+    // I tipi che il Calendario conosce: scadenza, consegna, appuntamento,
+    // promemoria, evento (verificato il 10/09: «attivita» → 400).
+    tipo: p.conOra ? "appuntamento" : "promemoria",
     stato: statoAgenda,
   });
 }

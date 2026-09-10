@@ -8,6 +8,100 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
+## Stato al 10/09/2026 (giornata di richieste dell'utente — TUTTO IN LOCALE, non deployato)
+
+Diciassette richieste arrivate in sessione, tutte implementate in locale,
+tsc 0, provate sul dev server (porta 3190) contro la produzione di Orders.
+**Commit `8ee4c0c5` nel repo `app/`** (+ correzione tipo Calendario dopo) e
+**commit `e178d633` nel repo `scoutwt/` per Orders**. Nessun deploy: da
+chiedere all'utente (CRM e Orders separatamente).
+
+**Schema `crm` — 5 tabelle nuove + 2 colonne, `prisma db push` FATTO sul DB
+condiviso** (solo schema crm): `ProfiloCliente` (nome «come lo chiamiamo»,
+professione, punteggio 0-100, foto Bytes ≤ 600 KB + fotoTipo), `NotaCliente`
+(n note modificabili), `Programmazione` (cosa fare con un cliente in un giorno:
+da_fare/fatta/annullata, spinta al Calendario come `prog:<id>`, tipo
+appuntamento/promemoria), `UnioneClienti` (alias → principale), `ImpostazioniCrm`
+(riga «crm», Json soglie+cluster); `archiviatoIl` su TemplateMail e
+TemplateWhatsApp.
+
+**Cosa c'è di nuovo, pagina per pagina** (tutto a norma Libro UX: form con
+label, stati «in corso», modale §9, filtri §8, ordinamento ThSort):
+- **Scheda cliente**: foto tonda + iniziali, professione, «Modifica il
+  profilo» (form con `FotoInput` che riduce a 512 px nel browser), punteggio
+  manuale, **cluster** (badge), **Note** multiple (aggiungi/modifica/elimina),
+  **Programmazione** (giorno + ora facoltativa + cosa fare; «Fatta», ✕; le
+  chiuse in `<details>`), **ordini in finestra modale** («Vedi gli ordini
+  (N)», `Modale.tsx`), **ricorrenze multiple** in un colpo
+  (`RicorrenzeMultiple.tsx`, action `aggiungiRicorrenze`, una POST a Orders per
+  riga), **Schede unite** («Unisci» per email/codice, «Separa»): la scheda del
+  principale somma KPI, ordini, ricorrenze e diario degli alias; aprire un alias
+  rimanda al principale. Orders NON cambia.
+- **Ricorrenze**: chip **Oggi** (prossimi=0) + 7/14/30/60/90; data
+  prospettica vera («ven 11 set 2026») accanto a giorno/mese; ricerca `q`;
+  filtri dietro «Filtri (N)» (occasione, stato, per chi, sito); **colonne
+  ordinabili**; colonna **Sito** (brand del cliente). ⚠️ Il sito arriva da
+  Orders SOLO dopo il deploy di `e178d633` (API `eventi-clienti` → `brand[]`);
+  fino ad allora «—». Si leggono TUTTE le ricorrenze della finestra a pagine di
+  500 (`tutteLeRicorrenze`, tetto 3000 dichiarato in pagina) e si filtra/ordina
+  in casa.
+- **Calendario** (`/calendario?mese=YYYY-MM`, voce di menù): griglia mensile
+  con programmazioni (blu / verde se fatte), ricorrenze prospettiche
+  (colore del tipo, solo da oggi in poi) ed eventi (oro); elenco «giorno per
+  giorno» sotto con «Fatta». Pallino/numero nel menù (`novita.ts`: da fare
+  entro 7 giorni, rosso se in ritardo).
+- **Oggi**: card «Programmato per oggi» (con le arretrate) e «Fatta».
+- **Performance** (voce di menù): valore, cluster, segmenti, siti, città,
+  classifiche (migliori, assidui, in allontanamento); legge fino a 3000
+  clienti per spesa su 10.795 e LO DICE. Filtro per sito.
+- **Liste**: pillole «Con l'AI» / «A condizioni»; **lista manuale**
+  (`creaListaManuale`: stessa `CriteriLista` e stesso esecutore); bottone con
+  stato «in corso» (`BottoneInvio.tsx`). **Diagnosi del «non fa nulla»**: il
+  bottone AI FUNZIONAVA (due liste da 8 membri nate alle 15:41 con due click),
+  ma senza nessun segnale per 30-60 s. Correzione vera in `liste-ai.ts`: con
+  un filtro sui giorni dall'ultimo ordine la base si legge per **recenza**
+  (prima i primi 3000 per spesa: i clienti recenti ma piccoli restavano fuori).
+- **Template mail**: tabella (nome, oggetto, aggiornato) con Modifica /
+  **Archivia** / Elimina; pillola «Archivio (N)» con Ripristina; gli archiviati
+  spariscono da Componi (mail, WhatsApp, liste). Delete con esito vero.
+- **Nuovo ordine** (voce di menù `/nuovo-ordine`): cerca il cliente → apre il
+  modulo esistente `/clienti/<codice>/nuovo-ordine` (via Customer Service).
+- **Componi mail / WhatsApp**: `<details>` «Proponi un prodotto o una
+  collezione (da Merchandising)» → `InserisciDaCatalogo.tsx` cerca via
+  `/api/interno/catalogo` (`lib/merchandising.ts`, chiave `MERCH_API_KEY` +
+  `MERCH_URL`) e inserisce «• Nome — prezzo — nota» nel textarea. ⚠️ **Manca la
+  chiave**: va emessa da Merchandising → Impostazioni → chiavi API (nome
+  «deluxy-crm») e messa nelle env; Impostazioni del CRM mostra lo stato.
+  Niente link al prodotto: Merchandising non conosce l'URL pubblico.
+- **Impostazioni → «Clienti del CRM: soglie e cluster»**: spesa totale minima,
+  spesa annua minima, frequenza minima (ordini/anno) = «in soglia» (evidenzia,
+  NON esclude: decisione dell'utente «in ogni caso fai entrare tutti i
+  clienti»); fino a 8 cluster ordinati per priorità con condizioni (spesa
+  totale/annua, ordini/anno, ordini, punteggio). `lib/cluster.ts`: spesa annua
+  e frequenza sono STIME (speso/anni di vita, minimo 1 anno). Cluster nel
+  libro Clienti (colonna + «fuori soglia»), nella scheda e in Performance.
+- Card **Merchandising** in Impostazioni (stato misurato).
+
+**Collaudato dal vivo (10/09)**: scheda di Angelina (Kzk3MTUwNzIyNzEyNA):
+programmazione creata (11/09 10:30 Roma → 08:30Z corretto), modale ordini
+centrata; Calendario e Performance renderizzati con dati veri. **Prima push
+al Calendario fallita (400 «tipo non valido»)**: corretto in
+`spingiProgrammazione` (appuntamento/promemoria) — da riprovare col bottone
+«Fatta» sulla programmazione di collaudo, poi eliminarla (✕) dalla scheda.
+
+**NON fatto / da decidere**:
+- **Rubrica di deluxy.delivery@gmail.com** («come sono salvati in rubrica»):
+  nessuna app espone i contatti Google; servirebbe People API (OAuth) — non
+  c'è. AI Mail ha solo `/api/v1/contatto?email=` (quadro delle conversazioni),
+  non la rubrica. Da discutere con l'utente.
+- **Deploy**: CRM (`/deploy deluxy-crm`) e Orders (`e178d633`, cartella
+  `scoutwt/deluxy-orders`, branch scout-ui). `npm run build` NON eseguito
+  (dev server acceso sulla stessa `.next`): farlo prima del deploy.
+- Registrazioni: SEGNALAZIONI-UX (riga 10/09) e Manuale Deluxy (riga
+  10/09) — vedi sotto se fatte.
+- Aperti dal 03/09: dedup mail personalizzata (P1), `error.tsx`, input perso
+  su `?errore=`, `WaAssistito` «Aperta ✓». `MAIL_API_KEY` ancora assente.
+
 ## Stato al 04/09/2026 (ripresa breve)
 
 - **FATTO 04/09 (mattina, commit da fare a tsc verde): la password del team si

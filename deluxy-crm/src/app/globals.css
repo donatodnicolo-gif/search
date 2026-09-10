@@ -597,9 +597,11 @@ select[multiple] { min-height: 80px; }
 @media (max-width: 900px) { .riga-cluster { grid-template-columns: 1fr 1fr; } }
 
 /* ------------------------------------------------------------ modale (Libro §9) */
-.modale { border: 0; padding: 0; background: transparent; max-width: min(96vw, 1040px); width: 96vw; max-height: 92dvh; margin: auto; position: fixed; inset: 0; overflow: visible; }
+.modale { border: 0; padding: 16px; background: transparent; max-width: none; max-height: none; width: 100vw; height: 100dvh; margin: 0; position: fixed; inset: 0; box-sizing: border-box; }
+.modale[open] { display: flex; align-items: center; justify-content: center; }
 .modale::backdrop { background: rgba(17, 19, 24, 0.45); backdrop-filter: blur(2px); }
 .modale-pannello {
+  width: min(96vw, 1040px);
   background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-l);
   box-shadow: var(--shadow-card); max-height: min(92dvh, 900px); display: flex; flex-direction: column; overflow: hidden;
 }

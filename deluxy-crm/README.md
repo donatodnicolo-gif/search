@@ -25,19 +25,42 @@ Postgres **`crm`** sul cluster condiviso.
 - **Clienti** — il libro: ricerca, filtri per lista (VIP, fedeli, nuovi, da
   riattivare…), ordinamenti, paginazione.
 - **Scheda cliente** (`/clienti/<codice|email>`) — KPI, riassunto e gusti
-  scritti dall'AI di Orders, tutti gli ordini con dediche e destinatari,
-  ricorrenze (+ aggiunta manuale → scrive in Orders), diario attività, mail,
-  inviti.
-- **Ricorrenze** — chi festeggia nei prossimi 7/14/30/60/90 giorni; i tipi
-  delicati (condoglianze) sono segnalati e NON hanno il bottone degli auguri.
+  scritti dall'AI di Orders, gli ordini in una finestra («Vedi gli ordini»),
+  ricorrenze (+ aggiunta di una o più → scrive in Orders), diario attività,
+  mail, inviti. **Dal 10/09**: profilo di relazione (foto ridotta nel browser,
+  professione, «come lo chiamiamo», punteggio 0-100), **note** multiple
+  modificabili, **Programmazione** (cosa fare e quando, spinta al Calendario),
+  cluster, **Schede unite** («Unisci» due chiavi di Orders: la scheda somma,
+  Orders non cambia).
+- **Ricorrenze** — chi festeggia oggi o nei prossimi 7/14/30/60/90 giorni
+  (date prospettiche dagli ordini degli anni passati); ricerca, filtri
+  (occasione, stato, per chi, sito), colonne ordinabili; i tipi delicati
+  (condoglianze) sono segnalati e NON hanno il bottone degli auguri.
+- **Calendario** — il mese con programmazioni, ricorrenze (da oggi in poi) ed
+  eventi; elenco giorno per giorno con «Fatta».
+- **Performance** — valore, cluster, segmenti, siti, città, classifiche
+  (legge fino a 3000 clienti per spesa e lo dice).
+- **Nuovo ordine** — cerca il cliente e apre il modulo dell'ordine (passa dal
+  Customer Service).
 - **Eventi** — occasioni speciali con lista invitati
   (da invitare → invitato → confermato → partecipato), invito via mail
   personalizzata, capienza, propagazione al Calendario.
 - **Mail** — registro invii; **Componi** con template e variabili `{{nome}}`,
   `{{evento}}`… risolte coi dati veri PRIMA dell'invio; **Template** CRUD con
   tre modelli di partenza.
+- **Liste** — pubblici costruiti dall'AI da un brief, o **a condizioni**
+  scelte a mano (stessa ricetta); mail e WhatsApp a lista.
+- **Template** — tabella con Modifica, Archivia (sparisce da Componi,
+  si ripristina), Elimina.
 - **Impostazioni** — stato MISURATO dei collegamenti (Orders, AI Mail,
-  Calendario, database), coi nomi delle variabili da impostare.
+  Customer Service, Calendario, Merchandising, database), coi nomi delle
+  variabili da impostare; **soglie e cluster** dei clienti (spesa totale,
+  spesa annua e frequenza stimate, punteggio): tutti i clienti restano
+  dentro, le soglie evidenziano.
+
+Nei messaggi (Componi mail e WhatsApp) si può proporre un prodotto o una
+collezione da **Merchandising** (`MERCH_URL`/`MERCH_API_KEY`, chiave di sola
+lettura emessa da Merchandising → Impostazioni → chiavi API).
 
 ## Accesso
 
