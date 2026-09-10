@@ -159,14 +159,16 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'invoices.filter.thisYear' | translate }}</button>
         </div>
       </div>
-      <label class="f">
-        <span>{{ 'invoices.filter.from' | translate }}</span>
-        <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" />
-      </label>
-      <label class="f">
-        <span>{{ 'invoices.filter.to' | translate }}</span>
-        <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="filtroCambiato()" />
-      </label>
+      <!-- ⭐ 10/09/2026 (segnalazione utente): «Dal» e «Al» stanno INSIEME, in un blocco solo — prima
+           le tipologie di servizio, andando a capo, li separavano di una riga intera. -->
+      <div class="f periodo">
+        <span>{{ 'invoices.filter.from' | translate }} / {{ 'invoices.filter.to' | translate }}</span>
+        <div class="coppia">
+          <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'invoices.filter.from' | translate" />
+          <span class="sep">–</span>
+          <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'invoices.filter.to' | translate" />
+        </div>
+      </div>
       @if (view() !== 'pending') {
         <label class="f">
           <span>{{ 'invoices.col.status' | translate }}</span>
@@ -620,7 +622,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
       .filtri .interruttore > span { font-size: 13px; color: var(--text); }
       .filtri .azzera { padding-bottom: 8px; }
-      .filtri .f.servizi { min-width: 240px; flex: 1 1 320px; }
+      /* Le tipologie occupano una riga TUTTA LORO: non si infilano più fra un campo e l'altro. */
+      .filtri .f.servizi { min-width: 240px; flex: 1 1 100%; }
+      .filtri .f.periodo .coppia { display: flex; align-items: center; gap: 8px; }
+      .filtri .f.periodo .coppia .field { min-width: 150px; }
+      .filtri .f.periodo .sep { color: var(--text-secondary); }
       .chips-servizi { display: flex; flex-wrap: wrap; gap: 6px; }
       .chip-serv { appearance: none; font: inherit; font-size: 12px; font-weight: 550; padding: 5px 11px; border-radius: 980px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all .15s var(--ease); }
       .chip-serv:hover { background: var(--fill); }
