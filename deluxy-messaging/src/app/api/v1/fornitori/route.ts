@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { autentica, erroreApi } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { chiaveNome } from '@/lib/cerca-fornitore'
+import { chiPrepara } from '@/lib/chi-prepara'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,12 @@ type VenditeFornitore = {
   /** L'ultimo ordine affidato: quando e quale. */
   ultimoIl: string | null
   ultimoNumero: string
+  /**
+   * L'ultimo PAGAMENTO fatto a questo fornitore (`RichiestaPagamento.pagataIl`,
+   * senza finestra: è una data, non un conteggio). Serve a Scout per
+   * «ultimo aggiornamento» (10/09/2026): pagare un fornitore lo rimette in cima.
+   */
+  ultimoPagamentoIl: string | null
 }
 
 const FINESTRA_BREVE = 30
@@ -85,8 +92,36 @@ export async function GET(req: NextRequest) {
     },
   })
 
+  // I pagamenti FATTI (`pagataIl` valorizzato: è tutta la differenza fra
+  // «gli abbiamo chiesto di pagarlo» e «l'abbiamo pagato»), per chi prepara.
+  // Nessuna finestra: l'ultimo pagamento è una data, e un fornitore pagato
+  // sette mesi fa è comunque «aggiornato» a quella data.
+  const pagate = await db.richiestaPagamento.findMany({
+    where: { pagataIl: { not: null }, intestatario: { not: '' } },
+    select: { intestatario: true, fornitore: true, pagataIl: true },
+  })
+  const ultimoPagamento = new Map<string, Date>()
+  for (const r of pagate) {
+    const k = chiaveNome(chiPrepara(r))
+    if (!k || !r.pagataIl) continue
+    const prec = ultimoPagamento.get(k)
+    if (!prec || r.pagataIl > prec) ultimoPagamento.set(k, r.pagataIl)
+  }
+
   const per = new Map<string, VenditeFornitore>()
   const valute = new Set<string>()
+  const vuoto = (id: string, nome: string, chiave: string): VenditeFornitore => ({
+    id,
+    nome,
+    chiave,
+    ordini30: 0,
+    ordiniLunga: 0,
+    venduto30: 0,
+    vendutoLunga: 0,
+    ultimoIl: null,
+    ultimoNumero: '',
+    ultimoPagamentoIl: ultimoPagamento.get(chiave)?.toISOString() ?? null,
+  })
   for (const o of righe) {
     const nome = o.fornitoreNome.trim()
     const chiave = chiaveNome(nome)
@@ -94,19 +129,7 @@ export async function GET(req: NextRequest) {
     const id = (o.fornitoreId ?? '').trim()
     const k = id ? `id:${id}` : `nome:${chiave}`
     const quando = o.fornitoreIl ?? o.data
-    const f =
-      per.get(k) ??
-      ({
-        id,
-        nome,
-        chiave,
-        ordini30: 0,
-        ordiniLunga: 0,
-        venduto30: 0,
-        vendutoLunga: 0,
-        ultimoIl: null,
-        ultimoNumero: '',
-      } satisfies VenditeFornitore)
+    const f = per.get(k) ?? vuoto(id, nome, chiave)
     f.ordiniLunga++
     f.vendutoLunga += o.totale ?? 0
     if (quando >= daBreve) {
@@ -122,6 +145,14 @@ export async function GET(req: NextRequest) {
     }
     valute.add(o.valuta || 'EUR')
     per.set(k, f)
+  }
+  // Chi è stato pagato ma non ha ordini nella finestra entra lo stesso, a
+  // zero ordini: la data del pagamento è l'informazione, e va data.
+  for (const [chiave, quando] of ultimoPagamento) {
+    const giaConOrdini = [...per.values()].some((f) => f.chiave === chiave)
+    if (giaConOrdini) continue
+    const nome = pagate.find((r) => chiaveNome(chiPrepara(r)) === chiave)
+    per.set(`nome:${chiave}`, { ...vuoto('', nome ? chiPrepara(nome) : chiave, chiave), ultimoPagamentoIl: quando.toISOString() })
   }
 
   const fornitori = [...per.values()].sort(
