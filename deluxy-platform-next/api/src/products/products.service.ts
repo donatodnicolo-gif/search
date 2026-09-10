@@ -127,15 +127,15 @@ export class ProductsService {
    * ⭐ 10/09/2026 (regola utente: «il catalogo prodotti dei partner mostra il nome partner»).
    * Al PARTNER il prodotto si presenta col SUO nome — quello scritto in Merchandising come
    * «nome per il partner» (copiato qui in alternateName/useAlternateName) — in catalogo, nel
-   * modulo consegna e in ogni lista che passa da qui. Il nome commerciale resta in
-   * nomeCommerciale, così chi legge la risposta sa che cosa è stato sostituito. Per
+   * modulo consegna e in ogni lista che passa da qui. Il nome commerciale NON gli arriva
+   * (regola utente: «il partner non lo vede»): il server lo sostituisce, non lo affianca. Per
    * l'ufficio non cambia niente. Vale in LETTURA: in scrittura il partner non tocca il nome.
    */
-  private static colNomeDelPartner<T extends { name: string; alternateName?: string | null; useAlternateName?: boolean | null }>(p: T, user?: JwtUser): T & { nomeCommerciale?: string } {
+  private static colNomeDelPartner<T extends { name: string; alternateName?: string | null; useAlternateName?: boolean | null }>(p: T, user?: JwtUser): T {
     if (user?.role !== Role.PARTNER) return p;
     const suo = (p.alternateName ?? '').trim();
     if (!p.useAlternateName || !suo || suo === p.name) return p;
-    return { ...p, name: suo, nomeCommerciale: p.name };
+    return { ...p, name: suo };
   }
 
   async findOne(id: string, user?: JwtUser) {
