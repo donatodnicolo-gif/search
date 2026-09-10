@@ -73,12 +73,16 @@ export async function GET(req: NextRequest) {
   // Il nome del cliente vive negli ordini: una sola query per l'intera pagina,
   // sulle chiavi che sono email (le altre restano leggibili così come sono).
   const emails = [...new Set(pagina.map((x) => x.e.chiave).filter((c) => c.includes("@")))];
-  // ⚠️ Niente `distinct`: dagli stessi ordini si raccolgono anche i BRAND
-  // (i siti da cui il cliente compra), che il CRM mostra accanto al nome.
+  // Dagli stessi ordini si raccolgono anche i BRAND (i siti da cui il cliente
+  // compra), che il CRM mostra accanto al nome: `distinct` su email+brand.
+  // ⚠️ MAI `orderBy: { data: "desc" }` qui: con l'`IN` insensibile alle
+  // maiuscole il planner sceglieva l'indice sulla data e filtrava TUTTA la
+  // tabella — da 0,5 s a 17-20 s per pagina (misurato in produzione il 10/09
+  // sera, un'ora dopo il deploy; Ricorrenze e Calendario del CRM in timeout).
   const ordiniPagina = await prisma.ordine.findMany({
     where: { clienteEmail: { in: emails, mode: "insensitive" } },
     select: { clienteEmail: true, clienteNome: true, brand: true },
-    orderBy: { data: "desc" },
+    distinct: ["clienteEmail", "brand"],
   });
   const nomi = new Map<string, string>();
   const brand = new Map<string, string[]>();
