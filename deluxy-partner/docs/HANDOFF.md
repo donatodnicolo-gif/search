@@ -104,6 +104,10 @@
 >    se registrata nei conti del partner e perché no).
 > ⚠️ Non ho potuto provare l'interfaccia in locale (serve la sessione di
 > team): verificato con `tsc` pulito e `next build` completo.
+> ✅ **In produzione**: `jh5ohof6v` (commit `fbb78f85`), `PROMOTED` **da solo** —
+> il `promote` ha risposto 409 «already the current production deployment»:
+> l'automatismo è tornato, e `targets.production` = `crons.deploymentId` =
+> questo deploy. Da ora `promote` serve solo dopo un rollback (README).
 
 
 > 🔑 **09/09/2026 — UNA CHIAVE API PER OGNI APPLICAZIONE.**
