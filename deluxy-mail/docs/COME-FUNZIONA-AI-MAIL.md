@@ -1016,6 +1016,28 @@ schermo sono identiche. Siccome **«Svuota cestino» cancella dal server e non s
 indietro**, prima di premerlo su un cestino molto pieno vale la pena guardare cosa
 c'è dentro.
 
+### «Svuota cestino»: cosa dice e cosa fa (corretto il 10/09/2026)
+
+Tre cose erano fuori posto, e la terza era la più pericolosa.
+
+1. **Il pulsante spariva col filtro.** Compariva solo se la lista *mostrata* aveva righe, e la
+   lista è filtrata dai chip di periodo e dalla ricerca: bastava chiedere «oggi» in un giorno
+   in cui non hai buttato niente e il pulsante non c'era più, col cestino pieno. Ora si mostra
+   in base al **cestino intero**.
+2. **La conferma contava la popolazione sbagliata.** Diceva «Rimuovo N messaggi» usando il
+   numero *filtrato* e tagliato a 800, mentre l'azione svuota **tutto**. Misurato il giorno
+   della correzione: un utente aveva **1.076** mail nel cestino e la pagina ne mostrava 800 —
+   la conferma avrebbe detto 800 cancellandone 1.076.
+3. **La conferma diceva il falso**: «le mail restano sulla casella». Non è vero da quando lo
+   svuotamento le cerca sul server per Message-ID e le cancella davvero. Ora dice quello che
+   succede: **si cancellano anche dalla casella, per sempre**, tranne quelle che un altro
+   utente di AI Mail ha ancora nella stessa casella.
+
+La regola che ne esce, buona per tutte le app: **un comando che agisce su tutta una
+popolazione non si mostra, né si conta, sulla sua sottopopolazione filtrata.** Il
+**ripristino** invece è giusto che segua le righe mostrate — è quello che dice la sua etichetta
+(«Ripristina tutti (N)») — e sparisce da sé quando non ce ne sono.
+
 ### Il cestino su una casella condivisa (07/09/2026)
 
 Una casella può essere collegata da **più utenti** di AI Mail: oggi `cs@deluxy.it` è di
