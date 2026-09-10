@@ -1,28 +1,83 @@
 // ⭐ ORARI NEGOZI — LE REGOLE, senza server (10/09/2026, richiesta dell'utente:
 // «una sezione ORARI NEGOZI dove impostiamo per i negozi Shopify l'apertura del
 // negozio — quindi se la data è selezionabile —, le fasce orarie di consegna
-// con orario minimo e massimo, e i giorni di chiusura»).
+// con orario minimo e massimo, e i giorni di chiusura»; e poi: «prepara le
+// version to work di Shopify in modo tale che tutte le tabelle recepiscano le
+// date da te»).
 //
 // Questo file NON importa niente dal server: lo leggono la pagina Orari negozi,
-// il modulo «Nuovo ordine» (client) e la lib che crea l'ordine (server). La
-// regola che decide se una data si può scegliere è UNA, e sta qui — scritta in
-// due posti sarebbe diversa in due posti (vedi la trappola «regola ricopiata»).
+// il modulo «Nuovo ordine» (client), la lib che crea l'ordine (server) e l'API
+// PUBBLICA che i siti Shopify chiamano per sapere quali date e quali fasce
+// proporre. La regola è UNA e sta qui — scritta in due posti sarebbe diversa
+// in due posti (vedi la trappola «regola ricopiata»). Fino al 10/09/2026 i tre
+// temi Shopify avevano ognuno la sua copia cablata in JavaScript
+// (REGOLE_BRAND.md in sviluppi-siti-deluxy): da oggi la CASA è questa.
 //
-// Tre cose per negozio:
+// Per negozio:
 //  · i GIORNI APERTI della settimana (0 = domenica … 6 = sabato, come getDay());
-//  · le FASCE orarie di consegna, ognuna con orario minimo («da») e massimo («a»);
+//  · le REGOLE DELLE FASCE: la finestra della giornata (dalle 08 alle 22), la
+//    durata delle fasce per OGGI, DOMANI e OLTRE, quante fasce saltare dopo
+//    quella in corso, l'ora limite dopo la quale per oggi non si ordina più;
 //  · i GIORNI DI CHIUSURA: una data, il motivo, e «ogni anno» per le feste fisse.
 //
 // ⚠️ La chiusura vince sull'apertura: un martedì di Natale è chiuso.
 // ⚠️ Le date si confrontano come stringhe `AAAA-MM-GG`, mai come Date: il
-// server gira in UTC e alle 23:30 italiane «oggi» sarebbe già domani.
+// server gira in UTC e alle 23:30 italiane «oggi» sarebbe già domani. L'ora
+// «adesso» è SEMPRE quella italiana (`adessoRoma`), anche per un cliente che
+// ordina da Londra.
 
 export type Fascia = { da: string; a: string }
 export type GiornoChiusura = { data: string; motivo: string; ogniAnno: boolean }
+
+/**
+ * LE REGOLE DELLE FASCE di un negozio.
+ *
+ * Il modello è uno solo e copre sia le «fasce granulari» di deluxy.it (2 ore
+ * oggi, 1 ora dopo) sia le tre fasce ampie di Flowers e Cake (durata 4 ore,
+ * finestra 08-20): cambiano i numeri, non il codice.
+ */
+export type RegoleConsegna = {
+  /** La finestra della giornata in cui si consegna, es. 08:00 → 22:00. */
+  finestraDa: string
+  finestraA: string
+  oggi: {
+    /** Si consegna in giornata? */
+    attivo: boolean
+    /** Durata delle fasce di oggi, in ore (deluxy.it: 2). */
+    durataOre: number
+    /**
+     * Quante fasce saltare dopo quella IN CORSO. Con 2: alle 10:30 la fascia in
+     * corso è 10-12, si saltano 12-14 e la prima proponibile è 14-16 («a partire
+     * dal secondo paio d'ore successivo a quello in corso», regola dell'utente).
+     */
+    saltaFasce: number
+    /** Dopo quest'ora, per oggi non si ordina più (deluxy.it: 20:00). */
+    limiteOra: string
+    /**
+     * L'ULTIMA fascia della giornata resta ordinabile fino al limite anche se il
+     * salto la escluderebbe (deluxy.it oggi: 20-22 ordinabile fino alle 20:00).
+     */
+    ultimaFasciaFinoAlLimite: boolean
+  }
+  domani: {
+    durataOre: number
+    /**
+     * Se si ordina DOPO il limite di oggi, quante prime fasce di domani saltare
+     * (Flowers: dalle 22 si ordina per domani «dalle 12», cioè salta 08-12 → 1).
+     */
+    dopoLimiteSaltaFasce: number
+  }
+  oltre: {
+    durataOre: number
+  }
+  /** Quanti giorni mostrare nel calendario dei siti. */
+  giorniMostrati: number
+}
+
 export type OrarioNegozioDati = {
   /** I giorni aperti, 0..6 (0 = domenica). */
   giorniApertura: number[]
-  fasce: Fascia[]
+  regole: RegoleConsegna
   giorniChiusura: GiornoChiusura[]
   nota: string
 }
@@ -33,23 +88,54 @@ export const NOMI_GIORNI_CORTI = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab
 export const GIORNI_IN_ORDINE = [1, 2, 3, 4, 5, 6, 0]
 
 /**
+ * LE REGOLE DI DELUXY.IT (dettate dall'utente il 10/09/2026, valide anche per
+ * business.deluxy.it): oggi in fasce di 2 ore dalla seconda dopo quella in
+ * corso, dalle 20:00 si ordina per domani (2 ore), dopodomani e oltre a fasce
+ * di un'ora dall'orario di disponibilità minima dei prodotti. Finestra 08-22.
+ */
+export const REGOLE_DELUXY: RegoleConsegna = {
+  finestraDa: '08:00',
+  finestraA: '22:00',
+  // Dalle 18:00 alle 19:59 la sola 20-22 (eccezione esplicita, confermata
+  // dall'architetto UX il 10/09: l'anticipo scende a 2 ore sulla FINE della
+  // fascia; costo operativo: evadere in ~2 ore un ordine delle 19:59).
+  oggi: { attivo: true, durataOre: 2, saltaFasce: 2, limiteOra: '20:00', ultimaFasciaFinoAlLimite: true },
+  // Ordinando dopo le 20 per domani si parte da 10-12, come di notte per oggi:
+  // stesso stato operativo (un foglio sul banco alle 08:00) → stessa prima
+  // fascia (architetto UX, punto C; il tema oggi dà 08-10 — da decidere l'utente).
+  domani: { durataOre: 2, dopoLimiteSaltaFasce: 1 },
+  oltre: { durataOre: 1 },
+  giorniMostrati: 60,
+}
+
+/**
+ * Le tre fasce ampie (08-12, 12-16, 16-20) che Flowers e Cake usano oggi:
+ * finestra 08-20, durata 4 ore ovunque. È il punto di partenza per quei negozi;
+ * i loro limiti orari (16:00 Flowers, 14:00 Cake) si scriveranno quando si
+ * passerà a loro — vedi REGOLE_BRAND.md in sviluppi-siti-deluxy.
+ */
+export const REGOLE_FASCE_AMPIE: RegoleConsegna = {
+  finestraDa: '08:00',
+  finestraA: '20:00',
+  oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '16:00', ultimaFasciaFinoAlLimite: false },
+  domani: { durataOre: 4, dopoLimiteSaltaFasce: 0 },
+  oltre: { durataOre: 4 },
+  giorniMostrati: 60,
+}
+
+/**
  * Il PUNTO DI PARTENZA per un negozio che non ha ancora una riga: aperto tutti
- * i giorni, le tre fasce ampie che i siti mandano davvero (misurate il
- * 02/09/2026 sugli ordini: 08-12, 12-16, 16-20), nessuna chiusura.
+ * i giorni, regole delle fasce ampie, nessuna chiusura.
  *
  * ⚠️⚠️ NON è una regola: finché nessuno salva, il negozio NON ha orari e le
- * date non si bloccano (né in Nuovo ordine né in creaOrdine). Un default
- * «lun–sab» avrebbe chiuso la domenica a tutti i negozi senza che nessuno lo
- * avesse deciso — la trappola del default che si spaccia per decisione. Questo
- * oggetto serve solo a riempire la scheda la prima volta che la si apre.
+ * date non si bloccano (né in Nuovo ordine né in creaOrdine, né sui siti). Un
+ * default «lun–sab» avrebbe chiuso la domenica a tutti i negozi senza che
+ * nessuno lo avesse deciso — la trappola del default che si spaccia per
+ * decisione. Questo oggetto serve solo a riempire la scheda la prima volta.
  */
 export const ORARIO_PREDEFINITO: OrarioNegozioDati = {
   giorniApertura: [0, 1, 2, 3, 4, 5, 6],
-  fasce: [
-    { da: '08:00', a: '12:00' },
-    { da: '12:00', a: '16:00' },
-    { da: '16:00', a: '20:00' },
-  ],
+  regole: REGOLE_FASCE_AMPIE,
   giorniChiusura: [],
   nota: '',
 }
@@ -63,19 +149,58 @@ export function oraValida(s: string): boolean {
 export function dataValida(s: string): boolean {
   return DATA.test(s)
 }
-function minuti(hhmm: string): number {
+export function minuti(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number)
   return h * 60 + m
+}
+function hhmm(min: number): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(Math.floor(min / 60))}:${p(min % 60)}`
+}
+
+function copiaRegole(r: RegoleConsegna): RegoleConsegna {
+  return { ...r, oggi: { ...r.oggi }, domani: { ...r.domani }, oltre: { ...r.oltre } }
 }
 
 /** Una copia del predefinito, per non farsi modificare l'originale da chi la riceve. */
 export function orarioPredefinito(): OrarioNegozioDati {
   return {
     giorniApertura: [...ORARIO_PREDEFINITO.giorniApertura],
-    fasce: ORARIO_PREDEFINITO.fasce.map((f) => ({ ...f })),
+    regole: copiaRegole(ORARIO_PREDEFINITO.regole),
     giorniChiusura: [],
     nota: '',
   }
+}
+
+/**
+ * Legge le regole scritte in tabella (JSON) completandole col predefinito: una
+ * riga scritta prima che esistesse un campo nuovo non fa cadere niente.
+ */
+export function leggiRegole(json: string | null | undefined, base: RegoleConsegna = REGOLE_FASCE_AMPIE): RegoleConsegna {
+  const r = copiaRegole(base)
+  let g: Partial<RegoleConsegna> = {}
+  try {
+    const grezzo: unknown = JSON.parse(json || '{}')
+    if (grezzo && typeof grezzo === 'object') g = grezzo as Partial<RegoleConsegna>
+  } catch {
+    g = {}
+  }
+  if (typeof g.finestraDa === 'string' && oraValida(g.finestraDa)) r.finestraDa = g.finestraDa
+  if (typeof g.finestraA === 'string' && oraValida(g.finestraA)) r.finestraA = g.finestraA
+  if (g.oggi && typeof g.oggi === 'object') {
+    if (typeof g.oggi.attivo === 'boolean') r.oggi.attivo = g.oggi.attivo
+    if (Number.isFinite(g.oggi.durataOre)) r.oggi.durataOre = Number(g.oggi.durataOre)
+    if (Number.isFinite(g.oggi.saltaFasce)) r.oggi.saltaFasce = Number(g.oggi.saltaFasce)
+    if (typeof g.oggi.limiteOra === 'string' && oraValida(g.oggi.limiteOra)) r.oggi.limiteOra = g.oggi.limiteOra
+    if (typeof g.oggi.ultimaFasciaFinoAlLimite === 'boolean') r.oggi.ultimaFasciaFinoAlLimite = g.oggi.ultimaFasciaFinoAlLimite
+  }
+  if (g.domani && typeof g.domani === 'object') {
+    if (Number.isFinite(g.domani.durataOre)) r.domani.durataOre = Number(g.domani.durataOre)
+    if (Number.isFinite(g.domani.dopoLimiteSaltaFasce)) r.domani.dopoLimiteSaltaFasce = Number(g.domani.dopoLimiteSaltaFasce)
+  }
+  if (g.oltre && typeof g.oltre === 'object' && Number.isFinite(g.oltre.durataOre)) r.oltre.durataOre = Number(g.oltre.durataOre)
+  if (Number.isFinite(g.giorniMostrati)) r.giorniMostrati = Number(g.giorniMostrati)
+  return r
 }
 
 /**
@@ -83,24 +208,13 @@ export function orarioPredefinito(): OrarioNegozioDati {
  * Un JSON rotto non fa cadere la pagina: quella parte torna vuota, e si dice.
  */
 export function leggiOrario(
-  riga: { giorniApertura: string; fasce: string; giorniChiusura: string; nota: string } | null | undefined
+  riga: { giorniApertura: string; regole?: string | null; giorniChiusura: string; nota: string } | null | undefined
 ): OrarioNegozioDati {
   if (!riga) return orarioPredefinito()
   const giorni = riga.giorniApertura
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
-  let fasce: Fascia[] = []
-  try {
-    const grezzo: unknown = JSON.parse(riga.fasce || '[]')
-    if (Array.isArray(grezzo)) {
-      fasce = grezzo
-        .filter((f) => f && oraValida(String(f.da)) && oraValida(String(f.a)))
-        .map((f) => ({ da: String(f.da), a: String(f.a) }))
-    }
-  } catch {
-    fasce = []
-  }
   let chiusure: GiornoChiusura[] = []
   try {
     const grezzo: unknown = JSON.parse(riga.giorniChiusura || '[]')
@@ -112,7 +226,54 @@ export function leggiOrario(
   } catch {
     chiusure = []
   }
-  return { giorniApertura: [...new Set(giorni)].sort(), fasce, giorniChiusura: chiusure, nota: riga.nota ?? '' }
+  return { giorniApertura: [...new Set(giorni)].sort(), regole: leggiRegole(riga.regole), giorniChiusura: chiusure, nota: riga.nota ?? '' }
+}
+
+/** Controlla le regole delle fasce e torna gli errori a parole. */
+export function validaRegole(input: unknown): { ok: true; regole: RegoleConsegna } | { ok: false; errori: string[] } {
+  const errori: string[] = []
+  const g = (input ?? {}) as Partial<RegoleConsegna>
+  const ora = (v: unknown, nome: string) => {
+    const s = String(v ?? '').trim()
+    if (!oraValida(s)) errori.push(`${nome}: scrivi l'orario come HH:MM (es. 08:00).`)
+    return s
+  }
+  const intero = (v: unknown, nome: string, min: number, max: number) => {
+    const n = Number(v)
+    if (!Number.isInteger(n) || n < min || n > max) errori.push(`${nome}: un numero intero fra ${min} e ${max}.`)
+    return n
+  }
+  const finestraDa = ora(g.finestraDa, 'Finestra, dalle')
+  const finestraA = ora(g.finestraA, 'Finestra, alle')
+  if (oraValida(finestraDa) && oraValida(finestraA) && minuti(finestraA) <= minuti(finestraDa)) errori.push('La finestra deve finire dopo che comincia.')
+  const o = (g.oggi ?? {}) as Partial<RegoleConsegna['oggi']>
+  const d = (g.domani ?? {}) as Partial<RegoleConsegna['domani']>
+  const l = (g.oltre ?? {}) as Partial<RegoleConsegna['oltre']>
+  const regole: RegoleConsegna = {
+    finestraDa,
+    finestraA,
+    oggi: {
+      attivo: Boolean(o.attivo),
+      durataOre: intero(o.durataOre, 'Oggi, durata delle fasce', 1, 12),
+      saltaFasce: intero(o.saltaFasce, 'Oggi, fasce da saltare', 0, 6),
+      limiteOra: ora(o.limiteOra, 'Oggi, ora limite'),
+      ultimaFasciaFinoAlLimite: Boolean(o.ultimaFasciaFinoAlLimite),
+    },
+    domani: {
+      durataOre: intero(d.durataOre, 'Domani, durata delle fasce', 1, 12),
+      dopoLimiteSaltaFasce: intero(d.dopoLimiteSaltaFasce, 'Domani, fasce da saltare dopo il limite', 0, 6),
+    },
+    oltre: { durataOre: intero(l.durataOre, 'Oltre, durata delle fasce', 1, 12) },
+    giorniMostrati: intero(g.giorniMostrati ?? 60, 'Giorni mostrati', 7, 365),
+  }
+  if (oraValida(finestraDa) && oraValida(finestraA)) {
+    const ampiezza = minuti(finestraA) - minuti(finestraDa)
+    for (const [nome, ore] of [['Oggi', regole.oggi.durataOre], ['Domani', regole.domani.durataOre], ['Oltre', regole.oltre.durataOre]] as const) {
+      if (Number.isInteger(ore) && ore * 60 > ampiezza) errori.push(`${nome}: una fascia di ${ore} ore non sta in una finestra di ${hhmm(ampiezza)}.`)
+    }
+  }
+  if (errori.length) return { ok: false, errori }
+  return { ok: true, regole }
 }
 
 /**
@@ -121,8 +282,6 @@ export function leggiOrario(
  *
  * ⚠️ Zero giorni aperti si RIFIUTA: un negozio sempre chiuso non è una
  * configurazione, è un errore di click — e bloccherebbe ogni ordine.
- * ⚠️ Zero fasce invece si accetta: vuol dire «nessuna fascia da proporre», e il
- * modulo Nuovo ordine torna alle sue voci storiche.
  */
 export function validaOrario(
   input: unknown
@@ -134,27 +293,8 @@ export function validaOrario(
     : []
   if (!giorni.length) errori.push('Scegli almeno un giorno di apertura: un negozio sempre chiuso non può ricevere ordini.')
 
-  const fasce: Fascia[] = []
-  if (o.fasce !== undefined && !Array.isArray(o.fasce)) errori.push('Le fasce orarie non sono leggibili.')
-  for (const [i, f] of (Array.isArray(o.fasce) ? o.fasce : []).entries()) {
-    const da = String((f as Fascia)?.da ?? '').trim()
-    const a = String((f as Fascia)?.a ?? '').trim()
-    if (!oraValida(da) || !oraValida(a)) {
-      errori.push(`Fascia ${i + 1}: scrivi orario minimo e massimo come HH:MM (es. 08:00).`)
-      continue
-    }
-    if (minuti(a) <= minuti(da)) {
-      errori.push(`Fascia ${i + 1}: l'orario massimo (${a}) deve venire dopo il minimo (${da}).`)
-      continue
-    }
-    fasce.push({ da, a })
-  }
-  fasce.sort((x, y) => minuti(x.da) - minuti(y.da) || minuti(x.a) - minuti(y.a))
-  for (let i = 1; i < fasce.length; i++) {
-    if (fasce[i].da === fasce[i - 1].da && fasce[i].a === fasce[i - 1].a) {
-      errori.push(`La fascia ${etichettaFascia(fasce[i])} è scritta due volte.`)
-    }
-  }
+  const r = validaRegole(o.regole)
+  if (!r.ok) errori.push(...r.errori)
 
   const chiusure: GiornoChiusura[] = []
   if (o.giorniChiusura !== undefined && !Array.isArray(o.giorniChiusura)) errori.push('I giorni di chiusura non sono leggibili.')
@@ -179,21 +319,18 @@ export function validaOrario(
   }
 
   const nota = String(o.nota ?? '').trim().slice(0, 500)
-  if (errori.length) return { ok: false, errori }
-  return { ok: true, dati: { giorniApertura: giorni, fasce, giorniChiusura: chiusure, nota } }
+  if (errori.length || !r.ok) return { ok: false, errori }
+  return { ok: true, dati: { giorniApertura: giorni, regole: r.regole, giorniChiusura: chiusure, nota } }
 }
 
 /**
- * La fascia come la scrivono i siti negli ordini («08-12», «16-20»): sulle ore
- * piene si tolgono i minuti, così coincide con quello che c'è già negli attributi
- * `Fascia_Oraria_Consegna` e con le voci storiche di fasce-consegna.ts.
+ * La fascia come la scrivono i siti negli ordini («08-12», «16-20», «14-15»):
+ * sulle ore piene si tolgono i minuti, così coincide con quello che c'è già
+ * negli attributi `Fascia_Oraria_Consegna` e con le voci storiche.
  */
 export function etichettaFascia(f: Fascia): string {
   const corta = (s: string) => (s.endsWith(':00') ? s.slice(0, 2) : s)
   return `${corta(f.da)}-${corta(f.a)}`
-}
-export function etichetteFasce(dati: OrarioNegozioDati): string[] {
-  return dati.fasce.map(etichettaFascia)
 }
 
 /** «gio 25/12/2026» da «2026-12-25»; il giorno della settimana si calcola a mezzogiorno per non scivolare col fuso. */
@@ -210,14 +347,37 @@ export function giornoSettimana(iso: string): number {
   return new Date(a, m - 1, g, 12).getDay()
 }
 
-/** «Oggi» come `AAAA-MM-GG` nel fuso di chi chiama (sul server: UTC — vedi la trappola dei periodi). */
+/** `AAAA-MM-GG` da anno/mese/giorno locali di una Date (usare solo con Date costruite a mezzogiorno). */
 export function oggiIso(oggi: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${oggi.getFullYear()}-${p(oggi.getMonth() + 1)}-${p(oggi.getDate())}`
 }
 
+/** La data `iso` spostata di `n` giorni (anche negativi). */
+export function piuGiorniIso(iso: string, n: number): string {
+  const [a, m, g] = iso.split('-').map(Number)
+  return oggiIso(new Date(a, m - 1, g + n, 12))
+}
+
+/** «Adesso» come lo vede chi ordina: data e minuti dell'ORA ITALIANA, qualunque sia il fuso del server o del cliente. */
+export type Adesso = { data: string; minuti: number }
+export function adessoRoma(istante: Date = new Date()): Adesso {
+  const parti = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(istante)
+  const v = (t: string) => parti.find((p) => p.type === t)?.value ?? '00'
+  const ora = Number(v('hour')) % 24 // «24» a mezzanotte su alcuni motori
+  return { data: `${v('year')}-${v('month')}-${v('day')}`, minuti: ora * 60 + Number(v('minute')) }
+}
+
 /**
- * LA REGOLA: questa data si può scegliere per questo negozio?
+ * LA REGOLA SUL GIORNO: questa data si può scegliere per questo negozio?
  *
  * Tre esiti, sempre a parole: passata · chiuso (data, con il motivo) · chiuso
  * (giorno della settimana). Chi la chiama mostra il motivo, non un «no».
@@ -225,7 +385,7 @@ export function oggiIso(oggi: Date = new Date()): string {
 export function giornoSelezionabile(
   dati: OrarioNegozioDati,
   iso: string,
-  oggi: string = oggiIso()
+  oggi: string = adessoRoma().data
 ): { ok: boolean; motivo: string } {
   if (!dataValida(iso)) return { ok: false, motivo: 'La data non è leggibile.' }
   if (iso < oggi) return { ok: false, motivo: `${scriviDataBreve(iso)} è già passato.` }
@@ -238,22 +398,112 @@ export function giornoSelezionabile(
   return { ok: true, motivo: '' }
 }
 
-/** I prossimi N giorni con l'esito, per l'anteprima nella pagina Orari negozi. */
-export function prossimiGiorni(
-  dati: OrarioNegozioDati,
-  n: number,
-  da: string = oggiIso()
-): { data: string; ok: boolean; motivo: string }[] {
-  const [a, m, g] = da.split('-').map(Number)
+/** I vincoli che arrivano dal CARRELLO: li conosce il sito, non noi. */
+export type VincoliCarrello = {
+  /** L'orario di disponibilità minima di TUTTI i prodotti (il massimo dei `custom.minimo_orario`), in ore: 10 = dalle 10:00. */
+  oraMinima?: number
+  /** Il preavviso in giorni (il massimo dei `prodotto.consegna`): 0 = anche oggi. */
+  leadGiorni?: number
+}
+
+export type EsitoGiorno = { data: string; ok: boolean; motivo: string; fasce: Fascia[]; etichette: string[]; quando: 'oggi' | 'domani' | 'oltre' }
+
+/** Le fasce di una giornata, tutte, da `finestraDa` a passi di `durataOre` finché stanno dentro `finestraA`. */
+export function fasceIntere(regole: RegoleConsegna, durataOre: number): Fascia[] {
+  const da = minuti(regole.finestraDa)
+  const a = minuti(regole.finestraA)
+  const passo = durataOre * 60
+  const fasce: Fascia[] = []
+  for (let t = da; t + passo <= a; t += passo) fasce.push({ da: hhmm(t), a: hhmm(t + passo) })
+  return fasce
+}
+
+/**
+ * LA REGOLA SULLE FASCE: per QUESTA data, in QUESTO momento, con QUESTO
+ * carrello, quali fasce si possono scegliere — e se nessuna, perché.
+ *
+ * · OGGI: fasce di `oggi.durataOre`, dalla `saltaFasce`-esima dopo quella in
+ *   corso; niente dopo `limiteOra`; l'ultima fascia resta fino al limite se
+ *   `ultimaFasciaFinoAlLimite`. Prima della finestra le fasce «in corso» si
+ *   contano lo stesso all'indietro (alle 07:00 la fascia in corso è 06-08:
+ *   con salto 2 la prima è 10-12; alle 03:00 la prima è 08-10).
+ * · DOMANI: fasce di `domani.durataOre`; se si ordina dopo il limite di oggi,
+ *   si saltano le prime `dopoLimiteSaltaFasce`.
+ * · OLTRE: fasce di `oltre.durataOre`, tutte.
+ * · Sempre: via le fasce che cominciano prima di `oraMinima` del carrello, e
+ *   niente prima di oggi + `leadGiorni`.
+ */
+export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Adesso = adessoRoma(), vincoli: VincoliCarrello = {}): EsitoGiorno {
+  const r = dati.regole
+  const quando: EsitoGiorno['quando'] = iso === adesso.data ? 'oggi' : iso === piuGiorniIso(adesso.data, 1) ? 'domani' : 'oltre'
+  const vuoto = (motivo: string): EsitoGiorno => ({ data: iso, ok: false, motivo, fasce: [], etichette: [], quando })
+  const giorno = giornoSelezionabile(dati, iso, adesso.data)
+  if (!giorno.ok) return vuoto(giorno.motivo)
+  const lead = Math.max(0, Math.floor(vincoli.leadGiorni ?? 0))
+  if (lead > 0 && iso < piuGiorniIso(adesso.data, lead)) {
+    return vuoto(`I prodotti nel carrello si consegnano da ${scriviDataBreve(piuGiorniIso(adesso.data, lead))}: servono ${lead} ${lead === 1 ? 'giorno' : 'giorni'} di preavviso.`)
+  }
+  const oraMinima = Number.isFinite(vincoli.oraMinima) ? Math.max(0, Number(vincoli.oraMinima)) * 60 : 0
+  const dopoLimite = adesso.minuti >= minuti(r.oggi.limiteOra)
+
+  let fasce: Fascia[]
+  if (quando === 'oggi') {
+    if (!r.oggi.attivo) return vuoto('Questo negozio non consegna in giornata.')
+    if (dopoLimite) return vuoto(`Per oggi non si ordina più dopo le ${r.oggi.limiteOra.replace(/^0/, '')}: si consegna da domani.`)
+    const tutte = fasceIntere(r, r.oggi.durataOre)
+    const passo = r.oggi.durataOre * 60
+    // ⚠️ Di NOTTE (prima della finestra) l'anticipo si misura da quando qualcuno
+    // lavora, non da quando il cliente clicca: alle 03:00 e alle 07:00 il
+    // negozio vede l'ordine alle 08:00 all'apertura, e la prima fascia deve
+    // essere la stessa (10-12 con salto 2). Si conta come se fosse la fascia
+    // subito prima dell'apertura (architetto UX, 10/09/2026, punto B).
+    const riferimento = Math.max(adesso.minuti, minuti(r.finestraDa) - passo)
+    const inCorso = Math.floor((riferimento - minuti(r.finestraDa)) / passo)
+    const prima = inCorso + r.oggi.saltaFasce
+    fasce = tutte.filter((_, i) => i >= prima)
+    if (!fasce.length && r.oggi.ultimaFasciaFinoAlLimite && tutte.length) fasce = [tutte[tutte.length - 1]]
+  } else if (quando === 'domani') {
+    const tutte = fasceIntere(r, r.domani.durataOre)
+    fasce = dopoLimite ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
+  } else {
+    fasce = fasceIntere(r, r.oltre.durataOre)
+  }
+  if (oraMinima) fasce = fasce.filter((f) => minuti(f.da) >= oraMinima)
+  if (!fasce.length) {
+    return vuoto(
+      quando === 'oggi'
+        ? 'Per oggi non resta nessuna fascia: si consegna da domani.'
+        : oraMinima
+          ? `Nessuna fascia dopo le ${hhmm(oraMinima).replace(/^0/, '')} in questa giornata.`
+          : 'Nessuna fascia in questa giornata.'
+    )
+  }
+  return { data: iso, ok: true, motivo: '', fasce, etichette: fasce.map(etichettaFascia), quando }
+}
+
+/**
+ * IL CALENDARIO per i siti e per l'anteprima: i prossimi N giorni, ognuno con
+ * l'esito e le sue fasce. È quello che il tema Shopify riceve e da cui
+ * costruisce data (giorni spenti) e tendina delle fasce.
+ */
+export function calendarioConsegna(dati: OrarioNegozioDati, adesso: Adesso = adessoRoma(), vincoli: VincoliCarrello = {}, giorni: number = dati.regole.giorniMostrati): EsitoGiorno[] {
+  const n = Math.max(1, Math.min(366, Math.floor(giorni)))
+  const esiti: EsitoGiorno[] = []
+  for (let i = 0; i < n; i++) esiti.push(fasceDelGiorno(dati, piuGiorniIso(adesso.data, i), adesso, vincoli))
+  return esiti
+}
+
+/** I prossimi N giorni con il solo esito sul GIORNO (senza fasce), per l'anteprima in pagina. */
+export function prossimiGiorni(dati: OrarioNegozioDati, n: number, da: string = adessoRoma().data): { data: string; ok: boolean; motivo: string }[] {
   const esiti: { data: string; ok: boolean; motivo: string }[] = []
   for (let i = 0; i < n; i++) {
-    const iso = oggiIso(new Date(a, m - 1, g + i, 12))
+    const iso = piuGiorniIso(da, i)
     esiti.push({ data: iso, ...giornoSelezionabile(dati, iso, da) })
   }
   return esiti
 }
 
 /** Il primo giorno in cui si può consegnare, da oggi in avanti (entro un anno; null se non c'è). */
-export function primoGiornoAperto(dati: OrarioNegozioDati, da: string = oggiIso()): string | null {
+export function primoGiornoAperto(dati: OrarioNegozioDati, da: string = adessoRoma().data): string | null {
   return prossimiGiorni(dati, 366, da).find((e) => e.ok)?.data ?? null
 }

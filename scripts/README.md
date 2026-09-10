@@ -69,6 +69,16 @@ cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
 
+### imposta-orari-deluxy.mts — deluxy-messaging
+Scrive (o riscrive) le regole di consegna di **deluxy.it** e **business.deluxy.it** nella tabella `OrarioNegozio` del Customer Service: `REGOLE_DELUXY` (oggi a 2 ore dalla seconda fascia dopo quella in corso, limite 20:00, domani a 2 ore, oltre a 1 ora, finestra 08–22), aperti tutti i giorni, nessuna chiusura. Salta i negozi che hanno già orari scritti da un amministratore, salvo `--anche-se-scritta`. Eseguito il 10/09/2026 (Deluxy e Business).
+
+```bash
+cd deluxy-messaging && npx tsx scripts/imposta-orari-deluxy.mts
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: le regole si cambiano poi dalla pagina Orari negozi; il sito le legge da `/api/pubblico/consegna`.
+
 ### applica-migrazione-orari-negozi.mjs — deluxy-messaging
 Crea la tabella `OrarioNegozio` (schema `messaging`): per ogni negozio Shopify i giorni di apertura, le fasce orarie di consegna (orario minimo e massimo) e i giorni di chiusura — la sezione «Orari negozi» del Customer Service (10/09/2026). Solo additiva (`CREATE TABLE IF NOT EXISTS` + indice unico su `negozioId`), come le altre `applica-*.mjs` di questa app: qui non si usa mai `prisma db push`.
 

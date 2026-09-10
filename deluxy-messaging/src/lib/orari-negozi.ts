@@ -53,7 +53,7 @@ export async function orarioConfigurato(negozioId: string): Promise<OrarioNegozi
 export async function salvaOrario(negozioId: string, dati: OrarioNegozioDati, chi: string | null) {
   const campi = {
     giorniApertura: dati.giorniApertura.join(','),
-    fasce: JSON.stringify(dati.fasce),
+    regole: JSON.stringify(dati.regole),
     giorniChiusura: JSON.stringify(dati.giorniChiusura),
     nota: dati.nota,
     modificatoDa: chi,

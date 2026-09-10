@@ -1,0 +1,144 @@
+<div class="page-width">
+  <div class="home-delivery-date-container">
+    <div class="home-delivery-inner">
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle1 delivery_date">
+          {% render 'calendar-icon' %}Consegna 
+          <span>seleziona una data</span>
+          <input type="hidden" class="date_input" value="">
+          <!-- <span></span> -->  
+        </div>
+      </div>
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle occasion_name">
+           <img src="{{ 'Flower Icon.png' | asset_url }}" width="60" height="60"/>Per 
+          <span>Compleanni</span>
+            <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon--wide icon-chevron-down" viewBox="0 0 28 16"><path d="M1.57 1.59l12.76 12.77L27.1 1.59" stroke-width="2" stroke="currentColor" fill="none" fill-rule="evenodd"></path></svg>
+          <input type="hidden" class="occasion_input" value="">
+        </div>
+      </div>
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn">
+          <button class="btn btn--full btn--secondary" id="submit_btn"><span>What Is deluxe</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+          {% assign today_date = 'now' | date: '%A %B %e, %Y' %}
+
+             
+
+            
+  <div class="modal-popup" id="occasion">
+    <div class="modal-popup-overlay modal-toggle"></div>
+    <div class="modal-popup-wrapper modal-popup-transition">
+      <div class="modal-popup-header">
+        <button class="modal-popup-close modal-popup-toggle"><svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path></svg></button>
+        <h2 class="modal-popup-heading">Qual è l'occasione del tuo regalo?</h2>
+      </div>
+      
+      <div class="modal-popup-body">
+        <div class="modal-popup-content">
+          <ul class="select-occasion">
+          	<li>Auguri</li>
+            
+<!--           	<li>Amore</li>
+          	<li>Congratulazioni</li>
+		    <li>Ringraziamenti</li>
+		    <li>Arredare la casa</li> -->
+		</ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="dateselect" class="modal-popup">
+    <div class="modal-popup-overlay modal-popup-toggle1"></div>
+    <div class="modal-popup-wrapper modal-popup-transition">
+      <div class="modal-popup-header">
+        <button class="modal-popup-close modal-popup-toggle1"><svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path></svg></button>
+        <h2 class="modal-popup-heading">Indica il giorno di consegna desiderato</h2>
+      </div>
+      
+      <div class="modal-popup-body">
+        <div class="modal-popup-content">
+          <div id="deliverydate"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<style>
+  table.ui.celled.center.aligned.unstackable.table.seven.column.day {
+    cursor: pointer;
+}
+</style>
+
+  
+<link rel="stylesheet" href="{{ 'semantic.min.css' | asset_url }}">
+<script src="{{ 'jquery-2.1.4.js' | asset_url }}"></script>
+<script src="{{ 'semantic.min.js' | asset_url }}"></script>
+
+<script type="text/javascript">
+	$('.modal-popup-toggle').on('click', function(e) {
+		  e.preventDefault();
+		  $('#occasion').toggleClass('is-visible');
+	});
+	$('.modal-popup-toggle1').on('click', function(e) {
+		  e.preventDefault();
+		  $('#dateselect').toggleClass('is-visible');
+	});
+</script>
+<script>
+  // Regole deluxy.it: dalle 20:00 (ora italiana) la prima data selezionabile e' domani
+  var __dlxP = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+  var today = new Date(Number(__dlxP.year), Number(__dlxP.month) - 1, Number(__dlxP.day));
+  if (Number(__dlxP.hour) >= 20) { today.setDate(today.getDate() + 1); }
+  $('#deliverydate').calendar({
+    type: 'date',
+    minDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+    maxDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 365),
+    header: false,    
+    onChange: function(date, text, mode) {
+      var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      var d = new Date(text);
+      var dayName = days[d.getDay()];
+     // alert(dayName + ' ' + text);
+      $('.delivery_date > span').html(dayName + ' ' + text);
+      $('.date_input').val(dayName + ' ' + text);      
+      $('#dateselect').toggleClass('is-visible');
+    }
+  });
+
+ jQuery(".select-occasion li").click(function() {
+    //alert($(this).text()); 
+   var occasionValue = $(this).text();
+   $('.occasion_name > span').html(occasionValue);   
+   $('.occasion_input').val(occasionValue);     
+   $('#occasion').toggleClass('is-visible');
+});
+
+jQuery('#submit_btn').click(function(){
+  var dateVal = $('.date_input').val();
+  var occasionVal = $('.occasion_input').val();
+  sessionStorage.setItem("delivery_date_val", dateVal);
+  //localStorage.setItem("delivery_date_val", dateVal);
+  window.location.href = "/collections/" + occasionVal;
+})
+
+jQuery(document).ready(function(){
+  //var localDate = localStorage.getItem("delivery_date_val");
+  var localDate = sessionStorage.getItem("delivery_date_val");
+  var todayDate = '{{- today_date | date: '%s' -}}';
+  //alert(todayDate);
+  if(localDate){
+    $('.delivery_date > span').html(localDate);
+      $('.date_input').val(localDate); 
+      //$('#date_capt').text(localDate);
+  }
+})
+  
+</script>

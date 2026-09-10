@@ -33,38 +33,51 @@ Note:
 - Implementate nel tema il 9/7/2026 (tema "Version to work on"). Dettagli tecnici in
   `TEMA_DELUXYFLOWERS.md`.
 
-## deluxy.it
+## deluxy.it (e business.deluxy.it)
 
-A differenza degli altri due, deluxy.it usa **fasce granulari** (non 3 fasce standard):
-- consegne **in giornata (oggi) = fasce di 2 ore**: 08-10, 10-12, 12-14, 14-16, 16-18, 18-20, 20-22
-- consegne **dal giorno dopo = fasce di 1 ora**: 08-09, 09-10, … 21-22 (consegne fino alle 22:00)
+> ⭐ **Dal 10/09/2026 la FONTE di queste regole è il Customer Service** (deluxy-messaging,
+> pagina «Orari negozi», tabella `OrarioNegozio`, motore in `src/lib/orari-regole.ts`).
+> Il tema le LEGGE da `GET https://deluxy-messaging.vercel.app/api/pubblico/consegna?dominio=deluxygifts.myshopify.com`
+> e costruisce calendari e tendina delle fasce da lì. Le regole cablate nel tema restano solo
+> come ripiego se l'API non risponde. Per cambiare una regola: si cambia nel Customer Service,
+> non nel tema. Le stesse regole valgono per **business.deluxy.it** (`90bfeb-f5.myshopify.com`).
 
-**Prima data selezionabile sul calendario (carrello, header, prodotto, home):**
+Regole dettate dall'utente il 10/09/2026 e confermate dall'architetto UX (punti A–F):
 
-| Ora dell'ordine | Prima data di consegna |
-|---|---|
-| fino alle 19:59 | **oggi** |
-| dalle 20:00 | **domani** |
+- consegne **in giornata (oggi) = fasce di 2 ore** (08-10 … 20-22), **a partire dalla seconda
+  fascia dopo quella in corso**: alle 10:30 la fascia in corso è 10-12, si salta 12-14, la prima
+  proponibile è **14-16**;
+- **dalle 20:00** per oggi non si ordina più: si ordina per domani. Eccezione esplicita
+  (confermata): **dalle 18:00 alle 19:59 resta ordinabile la sola 20-22**;
+- **di notte (00:00–07:59)** l'anticipo si conta dall'apertura (08:00): prima fascia **10-12**;
+- **domani = fasce di 2 ore, sempre** (anche ordinando alle 15:00): la granularità dipende dal
+  giorno, non dall'ora dell'ordine. Ordinando **dopo le 20:00**, domani parte da **10-12**
+  (stesso stato operativo della notte: un foglio sul banco alle 08:00);
+- **dopodomani e oltre = fasce di 1 ora** (08-09 … 21-22);
+- finestra della giornata **08:00–22:00**;
+- l'**orario di disponibilità minima** dei prodotti in carrello (massimo dei `custom.minimo_orario`)
+  toglie le fasce che cominciano prima, su ogni giorno; il **preavviso** (massimo dei
+  `prodotto.consegna`, variante prima del prodotto) toglie i giorni troppo vicini;
+- i **giorni di apertura** e i **giorni di chiusura** del negozio (Customer Service → Orari negozi)
+  spengono le date, col motivo a video; un giorno senza fasce si spegne, mai tendina vuota.
 
-**Fasce disponibili per il giorno selezionato:**
+| Ora dell'ordine (Rome) | OGGI (2h) | DOMANI (2h, sempre) | DOPODOMANI+ (1h) |
+|---|---|---|---|
+| 00:00–07:59 | da 10-12 a 20-22 | 08-10 … 20-22 | 08-09 … 21-22 |
+| 08:00–17:59 | dalla 2ª fascia dopo quella in corso (10:30 → 14-16) fino a 20-22 | tutte | tutte |
+| 18:00–19:59 | solo 20-22 (eccezione) | tutte | tutte |
+| 20:00–23:59 | nessuna | da 10-12 | tutte |
 
-| Ora dell'ordine | Consegna OGGI (fasce 2h) | Consegna DOMANI (fasce 1h) |
-|---|---|---|
-| 00:00–07:59 | dalle 10:00 (10-12, 12-14, … 20-22) | tutte (08-09 … 21-22) |
-| 08:00–17:59 | fasce con inizio ≥ ora+2 (anticipo 2h), fino a 20-22 | tutte |
-| 18:00–19:59 | solo ultima fascia 20-22 | tutte |
-| 20:00–23:59 | ✕ non disponibile | prima fascia **08-10** poi orarie (10-11 … 21-22) |
+Parametri nel Customer Service (`REGOLE_DELUXY`): finestra 08:00–22:00; oggi durata 2, salta 2,
+limite 20:00, ultima fascia fino al limite; domani durata 2, dopo il limite salta 1; oltre durata 1.
 
 Note:
-- **Anticipo minimo 2h** per le consegne in giornata: una fascia 2h `[a, a+2]` è offerta se
-  `a ≥ ora_attuale + 2`. Eccezione: l'ultima fascia **20-22** resta ordinabile fino alle 20:00.
-- Notte (00:00–08:00): consegne in giornata solo **dalle 10:00** in poi (prima fascia 10-12).
-- Ordine serale (20:00–24:00): consegna solo il giorno dopo, con prima fascia **08:00-10:00**
-  (2h) e poi fasce orarie — regola esplicita del brand.
-- Il metafield `custom.minimo_orario` del prodotto filtra le fasce con inizio < quel valore.
-- `prodotto.consegna` (lead time) sposta in avanti la prima data; il cutoff 20:00 vale solo
-  per consegna in giornata (consegna=0).
-- Implementate il 10/7/2026 sul tema "Version to work on". Dettagli in `TEMA_DELUXY_IT.md`.
+- I `value` delle option restano `HH-HH` (`08-10`, `14-15`: lo consuma il resto del tema e
+  l'attributo `Fascia_Oraria_Consegna`); l'etichetta per il cliente è `08:00–10:00`.
+- Il tema scrive sul carrello l'attributo `Fasce_Fonte` («customer-service (api|cache)») quando le
+  fasce vengono dal Customer Service: così a valle si sa da dove viene la scelta.
+- Storia: le regole precedenti (implementate il 10/7/2026 nel tema, con «domani orario» e «dopo le
+  20 domani da 08-10») restano nel codice come ripiego e in `TEMA_DELUXY_IT.md`.
 
 ## cakedesign.me
 

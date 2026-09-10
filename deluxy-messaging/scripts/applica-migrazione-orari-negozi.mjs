@@ -29,6 +29,8 @@ await q(`CREATE TABLE IF NOT EXISTS messaging."OrarioNegozio" (
   CONSTRAINT "OrarioNegozio_negozioId_fkey" FOREIGN KEY ("negozioId")
     REFERENCES messaging."NegozioShopify"("id") ON DELETE CASCADE ON UPDATE CASCADE)`);
 await q(`CREATE UNIQUE INDEX IF NOT EXISTS "OrarioNegozio_negozioId_key" ON messaging."OrarioNegozio" ("negozioId")`);
+// 10/09 sera: le REGOLE delle fasce (finestra, durate, salto, ora limite) — JSON, vuoto = predefinito.
+await q(`ALTER TABLE messaging."OrarioNegozio" ADD COLUMN IF NOT EXISTS "regole" TEXT NOT NULL DEFAULT '{}'`);
 const n = await p.$queryRawUnsafe(`SELECT COUNT(*)::int AS n FROM messaging."OrarioNegozio"`);
 console.log('tabella pronta · righe:', n[0].n);
 await p.$disconnect();

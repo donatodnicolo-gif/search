@@ -85,6 +85,9 @@ export const config = {
   // chiama, autenticata dalla firma HMAC dentro la rotta; senza l'esclusione
   // riceverebbe l'HTML del login con 200. Ancorata: solo quel percorso esatto.
   matcher: [
-    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|api/pagamenti/notifica|api/pagamenti/avvisa|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
+    // ⚠️ `api/pubblico` (10/09/2026): le date e le fasce di consegna che i siti
+    // Shopify leggono dal browser del CLIENTE, senza chiave — dati che il sito
+    // mostra comunque a tutti. La rotta mette da sé le intestazioni CORS.
+    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/pubblico|api/webhooks|api/cron|api/health|api/pagamenti/notifica|api/pagamenti/avvisa|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
   ],
 }

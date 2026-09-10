@@ -2400,8 +2400,13 @@ model OrarioNegozio {
   negozio        NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
   /// I giorni aperti: "1,2,3,4,5,6" con 0 = domenica … 6 = sabato (come getDay()).
   giorniApertura String         @default("1,2,3,4,5,6")
-  /// Le fasce orarie di consegna: [{ "da": "08:00", "a": "12:00" }, …]
+  /// ⚠️ NON PIÙ USATA dal 10/09/2026 sera: le fasce non si scrivono a mano, si
+  /// CALCOLANO dalle regole qui sotto. Resta per compatibilità (vuota).
   fasce          String         @default("[]") @db.Text
+  /// Le REGOLE DELLE FASCE (JSON, vedi RegoleConsegna in orari-regole.ts): finestra
+  /// della giornata, durata delle fasce per oggi/domani/oltre, fasce da saltare
+  /// dopo quella in corso, ora limite per oggi. Vuoto = predefinito.
+  regole         String         @default("{}") @db.Text
   /// I giorni di chiusura: [{ "data": "2026-12-25", "motivo": "Natale", "ogniAnno": true }, …]
   giorniChiusura String         @default("[]") @db.Text
   nota           String         @default("")

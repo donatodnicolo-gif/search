@@ -4,7 +4,7 @@ import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
 import { fascePerNegozio } from '@/lib/fasce-consegna'
-import { etichetteFasce, giornoSelezionabile, oggiIso, type OrarioNegozioDati } from '@/lib/orari-regole'
+import { adessoRoma, fasceDelGiorno, fasceIntere, etichettaFascia, giornoSelezionabile, type OrarioNegozioDati } from '@/lib/orari-regole'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -633,15 +633,25 @@ export function NuovoOrdine({
   // ⭐ Le fasce vengono da «Orari negozi» quando ce ne sono; altrimenti le voci
   // storiche del marchio (fasce-consegna.ts), misurate sugli ordini veri.
   const orarioNegozio = negozioId ? orari[negozioId] : undefined
-  const fasceDelNegozio = orarioNegozio?.fasce.length ? etichetteFasce(orarioNegozio) : fascePerNegozio(nomeNegozio)
+  // ⭐ 10/09 sera: le fasce si CALCOLANO dalle regole del negozio per la data
+  // scelta e l'ora italiana di adesso (le stesse che vede il cliente sul sito).
+  // Senza data ancora scelta: la griglia dei giorni «oltre». Senza regole
+  // salvate: le voci storiche del marchio.
+  const fasceDelNegozio = orarioNegozio
+    ? data
+      ? fasceDelGiorno(orarioNegozio, data, adessoRoma()).etichette
+      : fasceIntere(orarioNegozio.regole, orarioNegozio.regole.oltre.durataOre).map(etichettaFascia)
+    : fascePerNegozio(nomeNegozio)
   const chiaveFasce = fasceDelNegozio.join('|')
   useEffect(() => {
     if (fascia.trim() && !chiaveFasce.split('|').includes(fascia.trim())) setFasciaLibera(true)
   }, [fascia, chiaveFasce])
   // ⭐ La data si può scegliere? (giorno chiuso, festa, già passata). A parole.
   const giornoEsito = data && orarioNegozio ? giornoSelezionabile(orarioNegozio, data) : null
+  /** Se il giorno è buono ma per quell'ora non resta nessuna fascia, lo si dice (l'operatore può scrivere una fascia flessibile). */
+  const fasceEsito = data && orarioNegozio && giornoEsito?.ok ? fasceDelGiorno(orarioNegozio, data, adessoRoma()) : null
   /** Una data passata non si concorda: l'eccezione non si offre nemmeno. */
-  const dataPassata = Boolean(data) && data < oggiIso()
+  const dataPassata = Boolean(data) && data < adessoRoma().data
   const giornoChiusoMaConcordabile = Boolean(giornoEsito && !giornoEsito.ok && !dataPassata)
   useEffect(() => {
     if (!giornoChiusoMaConcordabile) {
@@ -1344,6 +1354,8 @@ export function NuovoOrdine({
                 (chiuso di domenica, Natale, già passata), non al momento di creare. */}
             {giornoEsito && !giornoEsito.ok ? (
               <span style={{ color: 'var(--red)', marginTop: 4 }}>{giornoEsito.motivo}</span>
+            ) : fasceEsito && !fasceEsito.ok ? (
+              <span style={{ color: 'var(--gold, #B8963E)', marginTop: 4 }}>{fasceEsito.motivo} Se è concordato, scrivi la fascia a mano («Flessibile»).</span>
             ) : null}
           </label>
           {/* ⭐ ECCEZIONE CONCORDATA (utente, 10/09/2026): il giorno è chiuso ma si

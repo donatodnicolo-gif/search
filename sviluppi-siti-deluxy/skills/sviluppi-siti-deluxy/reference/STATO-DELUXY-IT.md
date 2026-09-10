@@ -1,5 +1,16 @@
 # deluxy.it — stato del lavoro e problemi aperti (26/07/2026)
 
+> ⭐ **10/09/2026 — le date e le fasce arrivano dal Customer Service.** Tema di lavoro
+> `207333458250` «Version to work on» (live `207188394314`, «ex live 10.09 - no orari»
+> `207187575114`). Caricati con md5 verificato: `snippets/all_tags_and_script.liquid` (modulo
+> `DeluxyConsegna`), `snippets/delivery_date_hour_c.liquid`, `sections/header.liquid`,
+> `snippets/home-delivery.liquid`, `sections/home-delivery-section-new.liquid`. **NON caricato**
+> (bloccato dal classificatore, 59 KB): `snippets/product-delivery-date.liquid` → incollare dal
+> repo (`deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`). Dettagli in
+> TEMA_DELUXY_IT.md §10/09/2026 e regole in REGOLE_BRAND.md §deluxy.it. Per vedere le date del
+> Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione**.
+
+
 > Punto di ripresa per una sessione nuova. Prima di toccare qualsiasi cosa leggi anche
 > [TEMA_DELUXY_IT.md](TEMA_DELUXY_IT.md) (mappa tecnica) e [REGOLE_BRAND.md](REGOLE_BRAND.md)
 > (regole di consegna, fonte di verità del business).

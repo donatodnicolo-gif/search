@@ -1,0 +1,730 @@
+{%- liquid
+  assign main_menu = linklists[section.settings.main_menu_link_list]
+  assign toolbar_menu = linklists[section.settings.toolbar_menu]
+
+  assign logo_alignment = 'left'
+  if section.settings.main_menu_alignment == 'center-left' or section.settings.main_menu_alignment == 'center-split' or section.settings.main_menu_alignment == 'center' or section.settings.main_menu_alignment == 'center-drawer'
+    assign logo_alignment = 'center'
+  endif
+
+  assign dropdown_alignment = 'left'
+  if section.settings.main_menu_alignment == 'left-center' or section.settings.main_menu_alignment == 'center-split' or section.settings.main_menu_alignment == 'center'
+    assign dropdown_alignment = 'center'
+  endif
+
+  assign template_name = template | replace: '.', ' ' | truncatewords: 2, '' | handle
+
+  assign sticky_header = false
+  if section.settings.header_style == 'sticky'
+    assign sticky_header = true
+  endif
+  assign overlay_header = false
+  if template_name == 'index' and section.settings.sticky_index
+    assign overlay_header = true
+  endif
+  if template_name contains 'collection' and collection.image and section.settings.sticky_collection
+    assign overlay_header = true
+  endif
+-%}
+
+{%- render 'drawer-menu',
+  section: section,
+  main_menu: main_menu,
+  toolbar_menu: toolbar_menu,
+  logo_alignment: logo_alignment
+-%}
+{%- render 'cart-drawer' -%}
+
+<style>
+  .site-nav__link,
+  .site-nav__dropdown-link:not(.site-nav__dropdown-link--top-level) {
+    font-size: {{ settings.type_navigation_size }}px;
+  }
+  {% if settings.type_navigation_capitalize %}
+    .site-nav__link, .mobile-nav__link--top-level {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .mobile-nav__link--top-level {
+      font-size: 1.1em;
+    }
+  {% endif %}
+
+  {% if mainmenu.length > 6 %}
+    .site-nav__link {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  {% endif %}
+
+  {% unless section.settings.mega_menu_images %}
+    .megamenu__collection-image {
+      display: none;
+    }
+  {% endunless %}
+
+  {%- if settings.color_header == settings.color_body_bg or settings.color_body_bg contains settings.color_header -%}
+    .site-header {
+      box-shadow: 0 0 1px rgba(0,0,0,0.2);
+    }
+
+    .toolbar + .header-sticky-wrapper .site-header {
+      border-top: 0;
+    }
+  {%- endif -%}
+  span.delivery_date_show {
+    background: #1c1d1d !important;
+    color: #fff !important;
+    padding: 10px 20px !important;
+    border-radius: 30px !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+  }
+
+  @media (min-width: 200px) and (max-width: 768px) {
+      .site-nav.only-mobileview {
+          text-align: center;
+          display: block;
+      }
+      span.delivery_date_show {
+          margin-bottom: 0px !important;
+          margin-top: 6px !important;
+          width: 100% !important;
+      }
+  }
+</style>
+
+<div data-section-id="{{ section.id }}" data-section-type="header">
+  {%- unless overlay_header -%}
+    {%- if section.settings.show_locale_selector
+      or section.settings.show_currency_selector
+      or section.settings.toolbar_social
+      or section.settings.toolbar_menu != blank
+    -%}
+      {%- render 'toolbar', section: section, toolbar_menu: toolbar_menu, overlay_header: overlay_header -%}
+    {%- endif -%}
+  {%- endunless -%}
+
+  <div class="header-sticky-wrapper">
+    <div id="HeaderWrapper" class="header-wrapper{% if overlay_header %} header-wrapper--sticky is-light{% endif %}">
+      {%- if overlay_header -%}
+        {%- if section.settings.show_locale_selector
+          or section.settings.show_currency_selector
+          or section.settings.toolbar_social
+          or section.settings.toolbar_menu != blank
+        -%}
+          {%- render 'toolbar', section: section, toolbar_menu: toolbar_menu, overlay_header: overlay_header -%}
+        {%- endif -%}
+      {%- endif -%}
+      <header
+        id="SiteHeader"
+        class="site-header{% if settings.type_navigation_style == 'heading' %} site-header--heading-style{% endif %}"
+        data-sticky="{{ sticky_header }}"
+        data-overlay="{{ overlay_header }}"
+      >
+        <div class="page-width">
+          <div
+            class="header-layout header-layout--{{ section.settings.main_menu_alignment }}"
+            data-logo-align="{{ logo_alignment }}"
+          >
+  
+            {%- if logo_alignment == 'left' -%}
+              <div class="header-item header-item--logo">
+                {%- render 'header-logo-block', section: section -%}
+              </div>
+            {%- endif -%}
+
+            {%- if logo_alignment == 'left' and section.settings.main_menu_alignment != 'left-drawer' -%}
+              <div class="header-item header-item--navigation{% if section.settings.main_menu_alignment == 'left-center' %} text-center{% endif %}">
+                {%- render 'header-desktop-nav', main_menu: main_menu, dropdown_alignment: dropdown_alignment -%}
+              </div>
+            {%- endif -%}
+
+            {%- if logo_alignment == 'center' -%}
+              <div class="header-item header-item--left header-item--navigation">
+                {%- if section.settings.main_menu_alignment == 'center'
+                  or section.settings.main_menu_alignment == 'center-split'
+                -%}
+                {%- endif -%}
+
+                {%- if section.settings.main_menu_alignment == 'center-left' -%}
+                  {%- render 'header-desktop-nav', main_menu: main_menu, dropdown_alignment: dropdown_alignment -%}
+                {%- endif -%}
+
+               
+                <div class="multi-lang">
+        
+                  {%- liquid
+                    assign show_selectors = false
+                    assign currency_selector = false
+                    assign locale_selector = false
+                  
+                    if section.settings.show_currency_selector and shop.enabled_currencies.size > 1
+                      assign currency_selector = true
+                    endif
+                  
+                    if section.settings.show_locale_selector and shop.enabled_locales.size > 1
+                      assign locale_selector = true
+                    endif
+                  
+                    if currency_selector or locale_selector
+                      assign show_selectors = true
+                    endif
+                  -%}
+                    
+                  <div class="toolbar{% if overlay_header%} toolbar--transparent{% endif %}">
+                    <div class="toolbar__content">
+                      {%- if show_selectors -%}
+                        <div class="toolbar__item">
+                          {%- render 'multi-selectors',
+                            locale_selector: locale_selector,
+                            show_currency_flags: section.settings.show_currency_flags,
+                            location: 'toolbar'
+                          -%}
+                        </div>
+                      {%- endif -%}               
+                    </div>
+                  </div>
+                
+            </div>
+
+
+                <div class="site-nav{% unless section.settings.main_menu_alignment == 'center-drawer' %} medium-up--hide{% endunless %}">
+                  <button
+                    type="button"
+                    class="site-nav__link site-nav__link--icon js-drawer-open-nav"
+                    aria-controls="NavDrawer"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
+                      role="presentation"
+                      class="icon icon-hamburger"
+                      viewBox="0 0 64 64"
+                    >
+                      <path d="M7 15h51M7 32h43M7 49h51"/>
+                    </svg>
+                    <span class="icon__fallback-text">{{ 'general.drawers.navigation' | t }}</span>
+                  </button>
+                </div>
+                {%- if settings.search_enable -%}
+                  <div class="site-nav header-search-left">
+                    <a href="{{ routes.search_url }}" class="site-nav__link site-nav__link--icon js-search-header">
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        role="presentation"
+                        class="icon icon-search"
+                        viewBox="0 0 64 64"
+                      >
+                        <path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/>
+                      </svg>
+                      <span class="icon__searchfallback-text">{{ 'general.search.title' | t }}</span>
+                    </a>
+                  </div>
+                {%- endif -%}
+
+                {%- if template  != 'cart' -%}
+                <div class="site-nav only-dektopview header_del_date" style="margin-left:6px">
+                  <span class="delivery_date_show2222222"></span>
+                </div>
+                {% endif %}
+              
+              </div>
+
+              {%- if section.settings.main_menu_alignment == 'center-split' -%}
+                {%- render 'header-split-nav',
+                  main_menu: main_menu,
+                  section: section,
+                  dropdown_alignment: dropdown_alignment
+                -%}
+              {%- endif -%}
+
+              {%- if section.settings.main_menu_alignment != 'center-split' -%}
+                <div class="header-item header-item--logo">
+                  {%- render 'header-logo-block', section: section -%}
+                </div>
+              {%- endif -%}
+            {%- endif -%}
+
+            <div class="header-item header-item--icons">
+              {%- render 'header-icons', section: section -%}
+            </div>
+          </div>
+
+          {%- if section.settings.main_menu_alignment == 'center' -%}
+            <div class="text-center">
+              {%- render 'header-desktop-nav', main_menu: main_menu, dropdown_alignment: dropdown_alignment -%}
+            </div>
+          {%- endif -%}
+
+          <!--
+          <div class="site-nav only-mobileview mobile_del_date" style="margin:0px auto">
+            <span class="delivery_date_show"></span>
+          </div>
+          -->
+        </div>
+        <div class="site-header__search-container">
+          <div class="site-header__search">
+            <div class="page-width">
+              <form
+                action="{{ routes.search_url }}"
+                method="get"
+                role="search"
+                id="HeaderSearchForm"
+                class="site-header__search-form"
+              >
+                <input type="hidden" name="type" value="{{ settings.search_type }}">
+                <input type="hidden" name="options[prefix]" value="last">
+                <label for="search-icon" class="hidden-label">{{ 'general.search.submit' | t }}</label>
+                <label for="SearchClose" class="hidden-label">
+                  {{- 'general.accessibility.close_modal' | t | json -}}
+                </label>
+                <button
+                  type="submit"
+                  id="search-icon"
+                  class="text-link site-header__search-btn site-header__search-btn--submit"
+                >
+                  <svg
+                    aria-hidden="true"
+                    focusable="false"
+                    role="presentation"
+                    class="icon icon-search"
+                    viewBox="0 0 64 64"
+                  >
+                    <path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/>
+                  </svg>
+                  <span class="icon__fallback-text">{{ 'general.search.submit' | t }}</span>
+                </button>
+                <input
+                  type="search"
+                  name="q"
+                  value="{{ search.terms | escape | replace: '*', '' }}"
+                  placeholder="{{ 'general.search.placeholder' | t }}"
+                  class="site-header__search-input"
+                  aria-label="{{ 'general.search.placeholder' | t }}"
+                >
+              </form>
+              <button type="button" id="SearchClose" class="js-search-header-close text-link site-header__search-btn">
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  role="presentation"
+                  class="icon icon-close"
+                  viewBox="0 0 64 64"
+                >
+                  <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"/>
+                </svg>
+                <span class="icon__fallback-text">{{ 'general.accessibility.close_modal' | t | json }}</span>
+              </button>
+            </div>
+          </div>
+          {%- if settings.predictive_search_enabled -%}
+            <div
+              id="PredictiveWrapper"
+              class="predictive-results hide"
+              data-image-size="{{ settings.predictive_image_size }}"
+            >
+              <div class="page-width">
+                <div id="PredictiveResults" class="predictive-result__layout"></div>
+                <div class="text-center predictive-results__footer">
+                  <button type="button" class="btn btn--small" data-predictive-search-button>
+                    <small>
+                      {{ 'general.search.view_more' | t }}
+                    </small>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {%- endif -%}
+        </div>
+      </header>
+    </div>
+  </div>
+</div>
+
+<div id="header_dateselect" class="modal-popup">
+  <div class="modal-popup-overlay modal-popup-toggle1"></div>
+  <div class="modal-popup-wrapper modal-popup-transition">
+    <div class="modal-popup-header">
+      <button class="modal-popup-close header_del_date">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64">
+          <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path>
+        </svg>
+      </button>
+      <!-- <h2 class="modal-popup-heading">Indica il giorno di consegna desiderato header</h2> -->
+    </div>
+
+    <div class="modal-popup-body">
+      <div class="modal-popup-content">
+        <div id="header_deliverydate"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="{{ 'semantic.min.css' | asset_url }}">
+
+<script src="{{ 'jquery-2.1.4.js' | asset_url }}"></script>
+<script src="{{ 'semantic.min.js' | asset_url }}"></script>
+<script>
+  jQuery(document).ready(function(){
+    // var localDate = sessionStorage.getItem("delivery_date_val");
+    var localDate = localStorage.getItem("delivery_date_val");
+    if (localDate) {
+      jQuery('.delivery_date_show').text(localDate);
+      jQuery('.est_delivery_date').text(localDate);
+      jQuery('.header_del_date').show(); 
+    } else {
+      jQuery('.header_del_date').hide();
+    }
+
+    $('.header_del_date').click(function(e){
+        //alert(1);
+        e.preventDefault();
+        $('#header_dateselect').toggleClass('is-visible');
+    });
+
+    $('.mobile_del_date').click(function(){
+      //alert(1);
+       // e.preventDefault();
+         $('#header_dateselect').toggleClass('is-visible');
+    })
+
+    // Regole deluxy.it: dalle 20:00 (ora italiana) la prima data selezionabile e' domani
+    var __dlxP = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+    var today = new Date(Number(__dlxP.year), Number(__dlxP.month) - 1, Number(__dlxP.day));
+    if (Number(__dlxP.hour) >= 20) { today.setDate(today.getDate() + 1); }
+    // ⭐ 10/09/2026: la prima data e i giorni chiusi li dice il Customer Service (subito se già in cache, poi appena risponde).
+    if (window.DeluxyConsegna && DeluxyConsegna.primoGiornoDate()) { today = DeluxyConsegna.primoGiornoDate(); }
+    if (window.DeluxyConsegna) { DeluxyConsegna.pronto.then(function () {
+      var __p = DeluxyConsegna.primoGiornoDate(); if (!__p) { return; }
+      try { $('#header_deliverydate').calendar('setting', 'minDate', __p); $('#header_deliverydate').calendar('setting', 'disabledDates', DeluxyConsegna.giorniSpenti()); $('#header_deliverydate').calendar('refresh'); } catch (e) {}
+    }); }
+    $('#header_deliverydate').calendar({
+      type: 'date',
+      firstDayOfWeek: 1,
+      text: {
+        days: [ 'Dom','Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab' ],
+        months: ['Gennaio', 'Febbraio', 'Marzo', 'aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+      },
+      minDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      disabledDates: (window.DeluxyConsegna ? DeluxyConsegna.giorniSpenti() : []),
+      maxDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 365),
+      onChange: function(date, text, mode) {
+        var days = ['Dom','Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+        var dmonth = ['Gennaio', 'Febbraio', 'Marzo', 'aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        //console.log(date);
+        var d = new Date(text);
+        var dayName = days[date.getDay()];
+       // var monthName = dmonth[date.getMonth()];
+          var dateVal = dayName + ' ' + text;
+        // sessionStorage.setItem("delivery_date_val", dateVal);
+        localStorage.setItem("delivery_date_val", dateVal);
+        window.location.reload();
+      }
+    });
+
+
+    var localstorageDate = localStorage.getItem("delivery_date_val");
+            
+    if (localstorageDate) {
+        var normalizedDate;
+        
+        if (localstorageDate.includes("Lun") || localstorageDate.includes("Mar") || localstorageDate.includes("Mer") || localstorageDate.includes("Gio") || localstorageDate.includes("Ven") || localstorageDate.includes("Sab") || localstorageDate.includes("Dom")) {
+            // Normalize Italian date format to English
+            var italianDays = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+            var englishDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            
+            italianDays.forEach(function(day, index) {
+                localstorageDate = localstorageDate.replace(day, englishDays[index]);
+            });
+
+            var italianMonths = {
+                "Gennaio": "January",
+                "Febbraio": "February",
+                "Marzo": "March",
+                "Aprile": "April",
+                "Maggio": "May",
+                "Giugno": "June",
+                "Luglio": "July",
+                "Agosto": "August",
+                "Settembre": "September",
+                "Ottobre": "October",
+                "Novembre": "November",
+                "Dicembre": "December"
+            };
+
+            for (var italianMonth in italianMonths) {
+                if (localstorageDate.includes(italianMonth)) {
+                    localstorageDate = localstorageDate.replace(italianMonth, italianMonths[italianMonth]);
+                }
+            }
+        }
+
+        normalizedDate = new Date(localstorageDate);
+
+        if (isNaN(normalizedDate)) {
+            //alert("Invalid date format.");
+        } else {
+            var currentDate = new Date();
+            normalizedDate.setHours(0, 0, 0, 0);
+            currentDate.setHours(0, 0, 0, 0);
+            if (normalizedDate < currentDate) {
+            localStorage.removeItem("delivery_date_val");
+            }
+        }
+    }
+    
+  });
+
+  function parseItalianDateToISO(italianDateStr) {
+      const monthMap = {
+        'Gennaio': '01', 'Febbraio': '02', 'Marzo': '03',
+        'Aprile': '04', 'Maggio': '05', 'Giugno': '06',
+        'Luglio': '07', 'Agosto': '08', 'Settembre': '09',
+        'Ottobre': '10', 'Novembre': '11', 'Dicembre': '12'
+      };
+      try {
+        const parts = italianDateStr.trim().split(' ');
+        const day = parts[2]?.replace(',', '');
+        const month = monthMap[parts[1]];
+        const year = parts[3];
+        if (!day || !month || !year) return '';
+        return `${year}-${month}-${day.padStart(2, '0')}`;
+      } catch (e) {
+        return '';
+      }
+  }
+  
+  const selectedDateItalianStr = localStorage.getItem('delivery_date_val');
+  
+  try {
+      if (selectedDateItalianStr) {
+          const selectedDate = new Date(parseItalianDateToISO(selectedDateItalianStr));
+  
+          const currentDate = new Date();
+          currentDate.setHours(0, 0, 0, 0); 
+  
+          console.log("LOCAL_STORAGE_DATE_FROM_header.liquid", selectedDate);
+          console.log("TODAYS_DATE_FROM_header.liquid", currentDate);
+  
+          if (selectedDate < currentDate) {
+              localStorage.removeItem("delivery_date_val");
+              localStorage.removeItem("administrativeAreaLevel2");
+              localStorage.removeItem("administrativeAreaLevel3");
+              localStorage.removeItem("formatted_address");
+              localStorage.removeItem("auto_delivery_date");
+              localStorage.removeItem("delivery_date_val_eng");
+              console.log('LocalStorage cleared!');
+          } else {
+              console.log('Delivery date is still valid.');
+          }
+      } else {
+          console.log('No delivery date found in local storage.');
+      }
+  } catch (error) {
+      console.error('Error:', error.message);
+  }
+
+</script>
+
+{% schema %}
+{
+  "name": "t:sections.header.name",
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "main_menu_link_list",
+      "label": "t:sections.header.settings.main_menu_link_list.label",
+      "default": "main-menu"
+    },
+    {
+      "type": "checkbox",
+      "id": "mega_menu_images",
+      "label": "t:sections.header.settings.mega_menu_images.label",
+      "default": true,
+      "info": "t:sections.header.settings.mega_menu_images.info"
+    },
+    {
+      "type": "select",
+      "id": "main_menu_alignment",
+      "label": "t:sections.header.settings.main_menu_alignment.label",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:sections.header.settings.main_menu_alignment.options.left.label"
+        },
+        {
+          "value": "left-center",
+          "label": "t:sections.header.settings.main_menu_alignment.options.left-center.label"
+        },
+        {
+          "value": "left-drawer",
+          "label": "t:sections.header.settings.main_menu_alignment.options.left-drawer.label"
+        },
+        {
+          "value": "center-left",
+          "label": "t:sections.header.settings.main_menu_alignment.options.center-left.label"
+        },
+        {
+          "value": "center-split",
+          "label": "t:sections.header.settings.main_menu_alignment.options.center-split.label"
+        },
+        {
+          "value": "center",
+          "label": "t:sections.header.settings.main_menu_alignment.options.center.label"
+        },
+        {
+          "value": "center-drawer",
+          "label": "t:sections.header.settings.main_menu_alignment.options.center-drawer.label"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "header_style",
+      "label": "t:sections.header.settings.header_style.label",
+      "default": "normal",
+      "options": [
+        {
+          "value": "normal",
+          "label": "t:sections.header.settings.header_style.options.normal.label"
+        },
+        {
+          "value": "sticky",
+          "label": "t:sections.header.settings.header_style.options.sticky.label"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_index",
+      "label": "t:sections.header.settings.sticky_index.label",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_collection",
+      "label": "t:sections.header.settings.sticky_collection.label",
+      "info": "t:sections.header.settings.sticky_collection.info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:sections.header.settings.header_toolbar"
+    },
+    {
+      "type": "link_list",
+      "id": "toolbar_menu",
+      "label": "t:sections.header.settings.toolbar_menu.label",
+      "info": "t:sections.header.settings.toolbar_menu.info"
+    },
+    {
+      "type": "checkbox",
+      "id": "toolbar_social",
+      "label": "t:sections.header.settings.toolbar_social.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.header.settings.header_language_selector",
+      "info": "t:sections.header.settings.header_language_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_locale_selector",
+      "label": "t:sections.header.settings.show_locale_selector.label",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:sections.header.settings.header_currency_selector",
+      "info": "t:sections.header.settings.header_currency_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_currency_selector",
+      "label": "t:sections.header.settings.show_currency_selector.label",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_currency_flags",
+      "label": "t:sections.header.settings.show_currency_flags.label",
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "logo",
+      "name": "t:sections.header.blocks.logo.name",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "logo",
+          "label": "t:sections.header.blocks.logo.settings.logo.label"
+        },
+        {
+          "type": "image_picker",
+          "id": "logo-inverted",
+          "label": "t:sections.header.blocks.logo.settings.logo-inverted.label",
+          "info": "t:sections.header.blocks.logo.settings.logo-inverted.info"
+        },
+        {
+          "type": "range",
+          "id": "desktop_logo_width",
+          "label": "t:sections.header.blocks.logo.settings.desktop_logo_width.label",
+          "default": 200,
+          "min": 100,
+          "max": 400,
+          "step": 10,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "mobile_logo_width",
+          "label": "t:sections.header.blocks.logo.settings.mobile_logo_width.label",
+          "default": 140,
+          "min": 60,
+          "max": 200,
+          "step": 10,
+          "unit": "px",
+          "info": "t:sections.header.blocks.logo.settings.mobile_logo_width.info"
+        }
+      ]
+    },
+    {
+      "type": "announcement",
+      "name": "t:sections.header.blocks.announcement.name",
+      "limit": 3,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "t:sections.header.blocks.announcement.settings.text.label",
+          "default": "Hassle-free returns"
+        },
+        {
+          "type": "text",
+          "id": "link_text",
+          "label": "t:sections.header.blocks.announcement.settings.link_text.label",
+          "default": "30-day postage paid returns"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "t:sections.header.blocks.announcement.settings.link.label"
+        }
+      ]
+    }
+  ],
+  "default": {
+    "settings": {}
+  },
+  "disabled_on": {
+    "groups": ["footer", "custom.popups"]
+  }
+}
+{% endschema %}

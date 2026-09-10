@@ -40,6 +40,49 @@ ma molto codice morto/commentato e nessun uso del fuso orario italiano prima del
 - I `value` delle option sono stringhe `HH-HH` con zero-padding su entrambe le ore
   (es. `08-09`, `10-12`). Mantenere questo formato: lo consuma il resto del tema/ordine.
 
+## Modifiche del 10/09/2026 — LE DATE E LE FASCE ARRIVANO DAL CUSTOMER SERVICE
+
+Tema di lavoro `207333458250` («Version to work on», UNPUBLISHED; live `207188394314`). Richiesta
+dell'utente: «prepara le version to work di Shopify in modo tale che tutte le tabelle recepiscano le
+date da te». La fonte delle regole è il Customer Service (vedi REGOLE_BRAND.md §deluxy.it).
+
+- **`snippets/all_tags_and_script.liquid`** (head di ogni pagina, prima di jQuery): in coda il modulo
+  **`window.DeluxyConsegna`**. Legge dal Liquid i vincoli del carrello (`lead` = max
+  `prodotto.consegna`, variante prima del prodotto; `oraMin` = max `custom.minimo_orario`; sulla
+  scheda prodotto anche il prodotto stesso), chiama
+  `https://deluxy-messaging.vercel.app/api/pubblico/consegna?dominio=…&oraMinima=…&leadGiorni=…`
+  con timeout 3 s, tiene in `localStorage` (`dlx_consegna_v1`) l'ultima risposta buona del giorno
+  (stessi vincoli) e la usa subito come cache. Espone `pronto` (Promise), `attivo()`,
+  `giorno(iso)`, `primoGiorno()`, `primoGiornoDate()`, `giorniSpenti()`, `segnaFonte()`.
+  Se l'API risponde `configurato:false` o non risponde → `attivo()` falso e **il tema tiene le sue
+  regole** (nessun ripiego «vuoto»).
+- **`snippets/delivery_date_hour_c.liquid`** (carrello): l'avvio (`$(window).ready`) e l'init del
+  datepicker aspettano `DeluxyConsegna.pronto` (testo «Calcolo le consegne disponibili…» in
+  `#date_disp2` nel frattempo); la prima data e il `min` sono `primoGiorno()`; una data ricordata
+  in `localStorage` che non si può più scegliere lascia il posto alla prima buona; il datepicker ha
+  `beforeShowDay` (giorni chiusi non cliccabili, classe `dlx-giorno-chiuso`, motivo nel title);
+  **`fnCheckDate`** chiede al modulo il giorno scelto: se chiuso → `blockCheckout(motivo)`, se
+  aperto → tendina con le fasce dell'API (text = etichetta cliente `08:00–10:00`, value = `08-10`),
+  `segnaFonte()` scrive l'attributo carrello `Fasce_Fonte`; la coda che salva la data è ora
+  `__dlxSalvaData()`; le regole cablate sotto restano per il ripiego o per date oltre l'orizzonte.
+- **`sections/header.liquid`, `snippets/home-delivery.liquid`,
+  `sections/home-delivery-section-new.liquid`**: `today` = `primoGiornoDate()` quando c'è (cache),
+  `disabledDates` = `giorniSpenti()`, e dopo `pronto` il calendario Semantic UI riceve
+  `setting minDate/disabledDates` + `refresh`. ⚠️ `disabledDates` è supportato dalle versioni
+  recenti del calendario Semantic UI: se questa non lo conosce lo ignora, e il cancello resta il
+  carrello.
+- **`snippets/product-delivery-date.liquid`**: in `__dlxMin` la prima data è la maggiore fra quella
+  del tema e `primoGiornoDate()`; `disabledDates`; refresh dopo `pronto`. ⚠️ **NON caricato via
+  API** (59 KB: il classificatore del connettore lo ha bloccato, come già successo): il file
+  patchato è in `sviluppi-siti-deluxy/deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`
+  e va incollato nell'editor del tema (md5 atteso in `md5-attesi.json`).
+- Metodo: `patch-tema.mjs` (sostituzioni ancorate + controllo di sintassi dei blocchi `<script>`
+  con simulazione del Liquid, 0 errori nuovi su 6 file), `prova-carrello.mjs` (sandbox: modulo con
+  API finta + `fnCheckDate` con mini-jQuery, 19 prove passate), `payload.mjs` (JSON con i non-ASCII
+  in `\uXXXX`), md5 verificato su tutti e 5 i file caricati.
+- ⚠️ La rotta pubblica del Customer Service deve essere **in produzione** perché il tema riceva le
+  date: finché non lo è, il modulo non è attivo e il tema usa le regole cablate.
+
 ## Modifiche del 10/7/2026 (regole — vedi REGOLE_BRAND.md §deluxy.it)
 
 `snippets/delivery_date_hour_c.liquid`:

@@ -1,0 +1,386 @@
+<!-- Consent Mode v2: default negato PRIMA di qualsiasi tag Google (aggiornato poi da iubenda) -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    functionality_storage: 'denied',
+    personalization_storage: 'denied',
+    security_storage: 'denied',
+    wait_for_update: 2000
+  });
+</script>
+<!-- Global site tag (gtag.js) - Google Analytics + Google Ads -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7W2LXWVC2M"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-7W2LXWVC2M');
+  gtag('config', 'AW-701260469');
+</script>
+
+<meta name="facebook-domain-verification" content="fgtfp9cujooe426fctyolbc52sy0xa">
+<meta name="facebook-domain-verification" content="un74gcplc7ocyaipk2581rm182p36f">
+
+<style>
+  #fv-loading-icon {
+    visibility: visible;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: system-ui, sans-serif;
+    font-size: 190vw;
+    line-height: 1;
+    word-wrap: break-word;
+    top: 0;
+    left: 0;
+    margin: 0;
+    text-decoration: none;
+    filter: none;
+    transition: all 0s;
+    transform: none;
+    width: 99vw;
+    height: 99vh;
+    max-width: 99vw;
+    max-height: 99vh;
+    pointer-events: none;
+    z-index: -99;
+    overflow: hidden;
+    opacity: 0.0001;
+  }
+</style>
+<div id="fv-loading-icon">🔄</div>
+
+<link rel="preload" href="https://cdn.shopify.com/s/files/1/0693/0287/8457/files/preload_asset.js" as="script">
+{{ "https://cdn.shopify.com/s/files/1/0693/0287/8457/files/preload_asset.js" | script_tag}}
+
+<link rel="preload" href="//cdn.shopify.com/s/files/1/0693/0287/8457/files/global-script.js" as="script"> {{"//cdn.shopify.com/s/files/1/0693/0287/8457/files/global-script.js"|script_tag}}
+
+<link rel="stylesheet" href="https://obscure-escarpment-2240.herokuapp.com/stylesheets/bcpo-front.css">
+
+<script>
+  var bcpo_product={{ product | json }}; {% if product.metafields.bcpo.bcpo_data %}
+    var bcpo_data={{ product.metafields.bcpo.bcpo_data }};{% endif %}
+  {% if shop.metafields.bcpo.bcpo_settings %}var bcpo_settings={{ shop.metafields.bcpo.bcpo_settings }};{% endif %}
+  var inventory_quantity = [];{% for v in product.variants %}inventory_quantity.push({{v.inventory_quantity}});{% endfor %}if(bcpo_product)
+  { for (var i = 0; i < bcpo_product.variants.length; i += 1) { bcpo_product.variants[i].inventory_quantity = inventory_quantity[i]; }}window.bcpo = window.bcpo || {}; bcpo.cart = {{cart | json}}; bcpo.ogFormData = FormData;
+</script>
+
+<script>
+  var bcpoStrings = {
+  choose_one: 'Scegli tra',
+  quantity: 'Quantità',
+  please_select: 'Seleziona',
+  and: 'e',
+  or: 'o',
+  sold_out: 'sold out',
+  unavailable: 'Non disponibile',
+  {% comment %} add_to_cart: 'Aggiungi al carrello', {% endcomment %}
+  add_to_cart: 'ACQUISTA',
+  multiselect_message: 'Scegli uno tra i valori',
+  at_most: 'at most',
+  at_least: 'at least',
+  items: 'items',
+  selection: 'La selezione aggiungerà',
+  selection2: 'al prezzo',
+  you_save: 'You Save',
+  item_added: 'Aggiungo al carrello',
+  keep_shopping: 'Keep shopping',
+  view_cart: 'View cart',
+  theme2_message: 'Finisci la tua personalizzazione',
+  };
+</script>
+
+<script>
+  window.bcpoSelections = 'Selections';
+  window.bcpoVariant = 'Variant';
+</script>
+
+<script type="text/javascript">
+  window.__lo_site_id = 279103;
+
+  	(function() {
+  		var wa = document.createElement('script'); wa.type = 'text/javascript'; wa.async = true;
+  		wa.src = 'https://d10lpsik1i8c69.cloudfront.net/w.js';
+  		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(wa, s);
+  	  })();
+</script>
+
+<meta
+  property="og:image"
+  content="https://cdn.shopify.com/s/files/1/0276/7582/0093/files/deluxy_nuovo_logo_1_120x.png?v=1618771238"
+>
+<!-- Google Maps (autocomplete indirizzo) è necessario al checkout: escluso dal blocco cookie iubenda -->
+<script>
+  (function () {
+    var extra = ['maps.googleapis.com', 'maps.gstatic.com'];
+    function merged(list) {
+      list = Array.isArray(list) ? list.slice() : [];
+      for (var i = 0; i < extra.length; i++) {
+        if (list.indexOf(extra[i]) === -1) list.push(extra[i]);
+      }
+      return list;
+    }
+    var current = merged(window.cmp_block_ignoredomains);
+    try {
+      Object.defineProperty(window, 'cmp_block_ignoredomains', {
+        configurable: true,
+        get: function () { return current; },
+        set: function (v) { current = merged(v); }
+      });
+    } catch (e) {
+      window.cmp_block_ignoredomains = current;
+    }
+  })();
+</script>
+<!-- Fix UX modale consegna (18/7/2026): feedback quando manca l'indirizzo validato + placeholder localizzato -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('selectDeliveryOptionsModal');
+    if (!modal) return;
+
+    {% if request.locale.iso_code != 'it' %}
+    var addrInput = document.getElementById('deliveryAddressNewPopUp');
+    if (addrInput) addrInput.setAttribute('placeholder', 'Enter address');
+    {% endif %}
+
+    // Fix 25/7/2026: se il cliente riscrive l'indirizzo a mano senza sceglierlo dai
+    // suggerimenti Google, l'indirizzo salvato in precedenza non vale piu'. Va scartato,
+    // altrimenti la consegna partirebbe verso il vecchio indirizzo senza alcun avviso.
+    // Cancelliamo solo sui tasti di scrittura: la selezione di un suggerimento (click o
+    // Invio) non passa di qui e riscrive subito dopo i valori corretti.
+    ['deliveryAddressNewPopUp', 'deliveryAddressModal', 'deliveryAddress'].forEach(function (id) {
+      var field = document.getElementById(id);
+      if (!field) return;
+      field.addEventListener('keydown', function (ev) {
+        if (!ev.isTrusted) return;
+        var k = ev.key || '';
+        if (k.length !== 1 && k !== 'Backspace' && k !== 'Delete') return;
+        localStorage.removeItem('formatted_address');
+        localStorage.removeItem('administrativeAreaLevel2');
+      }, true);
+    });
+
+    modal.addEventListener('click', function (ev) {
+      var t = ev.target;
+      var isConfirm = t && (t.id === 'deliveryOptionBtn' || (t.closest && t.closest('#deliveryOptionBtn')));
+      if (!isConfirm) return;
+      if (modal.getAttribute('open-from-top-bar') === 'true') return;
+      if (modal.getAttribute('open-from-date-select') === 'true') return;
+      if (!localStorage.getItem('formatted_address') || !localStorage.getItem('administrativeAreaLevel2')) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        var p = modal.querySelector('.available-from-date');
+        if (p) {
+          p.textContent = {% if request.locale.iso_code == 'it' %}'Seleziona un indirizzo dalla lista dei suggerimenti.'{% else %}'Please select an address from the suggestions list.'{% endif %};
+          p.style.display = 'block';
+        }
+        var b = document.getElementById('deliveryOptionBtn');
+        if (b) b.disabled = false;
+      }
+    }, true);
+  });
+</script>
+<!-- Correzioni 25-26/7/2026 (una sola voce per non moltiplicare i file di patch):
+     - quantita': la scheda prodotto aggiungeva sempre 1 pezzo, il carrello non ricalcolava il totale;
+     - fascia oraria e bigliettino: restavano nel form fino al submit, quindi si perdevano in ogni
+       flusso che non completa il checkout dalla pagina carrello (bozze, carrelli abbandonati);
+     - fascia oraria: la tendina ripartiva vuota e il form cancellava l'attributo gia' salvato;
+     - numero civico: il tema lo perdeva componendo l'indirizzo Google;
+     - bigliettino: cresceva di 20 spazi a ogni salvataggio (indentazione del template);
+     - barra in alto: mostrava "null" a chi non ha ancora un indirizzo. -->
+<script>
+  (function () {
+    var origFetch = window.fetch;
+
+    // Quantita' scelta nella scheda prodotto: il campo e' duplicato (desktop/mobile) e
+    // solo quello usato dal cliente cambia valore, quindi vale il massimo fra i campi.
+    function selectedQty() {
+      var max = 1;
+      var inputs = document.querySelectorAll('input[name="quantity"]');
+      for (var i = 0; i < inputs.length; i++) {
+        var v = parseInt(inputs[i].value, 10);
+        if (!isNaN(v) && v > max) max = v;
+      }
+      return max;
+    }
+
+    // addToCartProductOnDeliveryDate() del tema invia sempre quantity: 1 e non riceve la
+    // quantita': correggiamo il corpo della chiamata a /cart/add.js solo sulla scheda
+    // prodotto e solo quando il cliente ha davvero alzato la quantita'.
+    window.fetch = function (input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('/cart/add.js') !== -1 && init && typeof init.body === 'string' &&
+            document.body && document.body.classList.contains('template-product')) {
+          var qty = selectedQty();
+          if (qty > 1) {
+            var payload = JSON.parse(init.body);
+            var items = payload && payload.items;
+            if (items && items.length === 1 && (!items[0].quantity || items[0].quantity === 1)) {
+              items[0].quantity = qty;
+              init = Object.assign({}, init, { body: JSON.stringify(payload) });
+            }
+          }
+        }
+      } catch (e) { /* in caso di dubbio si lascia passare la chiamata originale */ }
+      return origFetch.call(this, input, init);
+    };
+
+    function updateCart(body) {
+      return origFetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(function () { /* il campo resta nel form: al checkout parte comunque */ });
+    }
+
+    // Numero civico. Il tema compone l'indirizzo scorrendo i componenti restituiti da
+    // Google e concatenando il civico man mano; siccome Google restituisce street_number
+    // PRIMA di route, il civico finiva appeso a una stringa vuota e la riga successiva lo
+    // sovrascriveva. Avvolgiamo la funzione del tema e ricomponiamo l'indirizzo dopo.
+    function ricomponiIndirizzo(place, input) {
+      if (!place || !place.address_components) return;
+      var via = '', civico = '', citta = '';
+      place.address_components.forEach(function (c) {
+        var t = c.types || [];
+        if (t.indexOf('route') !== -1) via = c.long_name;
+        if (t.indexOf('street_number') !== -1) civico = c.long_name;
+        if (t.indexOf('locality') !== -1) citta = c.long_name;
+      });
+      if (!via || !civico || !citta) return;
+      var completo = via + ', ' + civico + ', ' + citta;
+      if (input) input.value = completo;
+      localStorage.setItem('formatted_address', completo);
+      var campi = document.querySelectorAll('.googleSuggestion');
+      for (var i = 0; i < campi.length; i++) { campi[i].value = completo; }
+    }
+
+    // Barra in alto: senza indirizzo il tema stampa la stringa "null".
+    function correggiBarraIndirizzo() {
+      var nodi = document.querySelectorAll('.date-show');
+      for (var i = 0; i < nodi.length; i++) {
+        var testo = nodi[i].textContent || '';
+        if (testo.indexOf('null') !== 0) continue;
+        nodi[i].textContent = {% if request.locale.iso_code == 'it' %}'Scegli il tuo indirizzo'{% else %}'Choose your address'{% endif %} + testo.slice(4);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof window.handleSelectedPlace === 'function' && !window.__dlxFixCivico) {
+        var originale = window.handleSelectedPlace;
+        window.handleSelectedPlace = function (place, input) {
+          var esito = originale.apply(this, arguments);
+          try { ricomponiIndirizzo(place, input); } catch (e) {}
+          return esito;
+        };
+        window.__dlxFixCivico = true;
+      }
+
+      correggiBarraIndirizzo();
+      setTimeout(correggiBarraIndirizzo, 1200);
+
+      // Bigliettino scritto nel drawer del carrello: salvato come quello della pagina.
+      var notaDrawer = document.getElementById('CartNoteDrawer');
+      if (notaDrawer) {
+        var ultimaDrawer = notaDrawer.value;
+        notaDrawer.addEventListener('blur', function () {
+          var v = notaDrawer.value.replace(/^\s+/, '').replace(/\s+$/, '');
+          if (v === ultimaDrawer) return;
+          ultimaDrawer = v;
+          notaDrawer.value = v;
+          updateCart({ note: v });
+        });
+      }
+
+      if (!document.body.classList.contains('template-cart')) return;
+
+      // Carrello: il campo quantita' veniva letto solo al submit del checkout, quindi il
+      // totale mostrato restava quello vecchio. Aggiorniamo la riga (chiave in data-id).
+      var fields = document.querySelectorAll('input[name="updates[]"]');
+      for (var i = 0; i < fields.length; i++) {
+        (function (field) {
+          field.addEventListener('change', function () {
+            var key = field.getAttribute('data-id');
+            var q = parseInt(field.value, 10);
+            if (!key || isNaN(q) || q < 0) return;
+            field.disabled = true;
+            origFetch('/cart/change.js', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: key, quantity: q })
+            }).then(function (r) {
+              if (r.ok) { window.location.reload(); } else { field.disabled = false; }
+            }).catch(function () { field.disabled = false; });
+          });
+        })(fields[i]);
+      }
+
+      var slot = document.getElementById('ddlFasciaOraria');
+      if (slot) {
+        slot.addEventListener('change', function () {
+          updateCart({ attributes: { 'Fascia_Oraria_Consegna': slot.value || '' } });
+        });
+      }
+
+      // Cambio data: il datepicker jQuery UI emette un evento jQuery, non un evento DOM,
+      // quindi il solo addEventListener non basta e serve anche il bind con jQuery.
+      var dateField = document.getElementById('DeliveryDate_def');
+      function azzeraFascia() {
+        updateCart({ attributes: { 'Fascia_Oraria_Consegna': '' } });
+      }
+      if (dateField) {
+        dateField.addEventListener('change', azzeraFascia);
+        if (window.jQuery) { window.jQuery(dateField).on('change', azzeraFascia); }
+      }
+
+      // La textarea del tema stampa la nota indentata: ripuliamo il campo cosi' il
+      // messaggio non si allunga di 20 spazi a ogni salvataggio.
+      var note = document.getElementById('CartSpecialInstructions');
+      if (note) {
+        note.value = note.value.replace(/^\s+/, '').replace(/\s+$/, '');
+        var ultimaNota = note.value;
+        note.addEventListener('blur', function () {
+          var v = note.value.replace(/^\s+/, '').replace(/\s+$/, '');
+          if (v === ultimaNota) return;
+          ultimaNota = v;
+          note.value = v;
+          updateCart({ note: v });
+        });
+      }
+
+      // Una sola lettura del carrello per: ripristinare la fascia salvata nella tendina
+      // (il tema la ricostruisce vuota, e il form vuoto cancellava l'attributo) e ripulire
+      // una volta sola una nota gia' salvata con l'indentazione.
+      setTimeout(function () {
+        origFetch('/cart.js').then(function (r) { return r.json(); }).then(function (carrello) {
+          if (!carrello) return;
+          var attributi = carrello.attributes || {};
+          var salvata = attributi['Fascia_Oraria_Consegna'];
+          if (slot && salvata) {
+            var trovata = false;
+            for (var j = 0; j < slot.options.length; j++) {
+              if (slot.options[j].value === salvata) { trovata = true; break; }
+            }
+            if (trovata) {
+              slot.value = salvata;
+            } else {
+              updateCart({ attributes: { 'Fascia_Oraria_Consegna': '' } });
+            }
+          }
+          var notaSalvata = carrello.note || '';
+          var notaPulita = notaSalvata.replace(/^\s+/, '').replace(/\s+$/, '');
+          if (notaSalvata && notaPulita !== notaSalvata) {
+            updateCart({ note: notaPulita });
+          }
+        }).catch(function () {});
+      }, 900);
+    });
+  })();
+</script>

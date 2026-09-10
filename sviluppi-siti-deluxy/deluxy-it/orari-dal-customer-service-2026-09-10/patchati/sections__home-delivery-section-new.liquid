@@ -1,0 +1,397 @@
+<div class="page-width">
+  <div class="home-delivery-date-container hello">
+    <div class="home-delivery-inner">
+      
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content">
+          {{- 'layout.header.dove' | t }}
+          <input type="text" autocomplete="off" class="googleSuggestion" value="" placeholder="inserisci indirizzo" style="border: 2px solid; border-radius: 15px;">
+        </div>
+      </div>
+      
+      <div class="d-flex">
+         <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle1 delivery_date">
+          {{- 'layout.header.quando' | t }}
+          <span>{{ 'layout.header.seleziona_una_data' | t }}</span>
+          <input type="hidden" class="date_input" value="">
+          <!-- <span></span> -->
+        </div>
+      </div>
+      {% assign default_collection = section.settings.default_collection %}
+    {% if selected_collection %}
+    {% assign collection = collections[selected_collection] %}
+  {% else %}
+    {% assign collection = collections[default_collection] %}
+  {% endif %}
+
+
+
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn-content modal-popup-toggle occasion_name">
+          {{ "general.new.to" | t }}
+          <span> {{ collection.title }} 
+           <svg
+            aria-hidden="true"
+            focusable="false"
+            role="presentation"
+            class="icon icon--wide icon-chevron-down"
+            viewBox="0 0 28 16"
+          >
+            <path d="M1.57 1.59l12.76 12.77L27.1 1.59" stroke-width="2" stroke="currentColor" fill="none" fill-rule="evenodd"></path>
+          </svg></span>
+          <input type="hidden" class="occasion_input" value="{{ collection.handle }}">
+        </div>
+      </div>
+      </div>
+      
+      <div class="home-delivery-col">
+        <div class="home-delivery-btn">
+          <button class="btn btn--full btn--secondary" id="submit_btn">
+            <span>{{ 'general.new.find_the_gift' | t }}</span>
+          </button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+{% assign today_date = 'now' | date: '%A %B %e, %Y' %}
+
+<div class="modal-popup" id="occasion">
+  <div class="modal-popup-overlay modal-toggle"></div>
+  <div class="modal-popup-wrapper modal-popup-transition">
+    <div class="modal-popup-header">
+      <button class="modal-popup-close modal-popup-toggle">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64">
+          <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path>
+        </svg>
+      </button>
+      <h2 class="modal-popup-heading">Qual è l'occasione del tuo regalo?</h2>
+    </div>
+
+    <div class="modal-popup-body">
+      <div class="modal-popup-content">
+        <ul class="select-occasion">
+          {% for block in section.blocks %}
+            <li id="{{ block.settings.collections_list.handle }}">{{ block.settings.collections_list.title }}</li>
+          {% endfor %}
+
+          <!--
+            <li>Amore</li>
+                <li>Congratulazioni</li>
+            <li>Ringraziamenti</li>
+            <li>Arredare la casa</li>
+          -->
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dateselect" class="modal-popup">
+  <div class="modal-popup-overlay modal-popup-toggle1"></div>
+  <div class="modal-popup-wrapper modal-popup-transition">
+    <div class="modal-popup-header">
+      <button class="modal-popup-close modal-popup-toggle1">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64">
+          <path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"></path>
+        </svg>
+      </button>
+      <h2 class="modal-popup-heading"></h2>
+    </div>
+
+    <div class="modal-popup-body">
+      <div class="modal-popup-content">
+        <div id="deliverydate"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+    table.ui.celled.center.aligned.unstackable.table.seven.column.day {
+        cursor: pointer;
+    }
+
+  .home-delivery-col {
+    padding: 0px 2px;
+}
+.home-delivery-btn {
+    margin-top: 25px;
+}
+  
+.home-delivery-date-container {
+    padding: 30px 30px;
+    max-width: 947px;
+}
+  .home-delivery-btn-content {
+    padding-left: 0px !important;
+    
+}
+    .home-delivery-date-container  .d-flex{
+      display: flex;
+      align-items:center;
+      justify-content: space-between;
+    }
+.home-delivery-date-container .home-delivery-btn-content {
+    padding-left: 20px;
+    padding-right: 20px;
+    font-weight: 500;
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    flex-direction: column;
+    font-size: 18px;
+}
+    .home-delivery-inner{
+      justify-content: center;
+      gap: 0px
+    }
+  .home-delivery-date-container .home-delivery-btn-content input, .home-delivery-date-container .home-delivery-btn-content span, .home-delivery-date-container .home-delivery-btn-content select {
+    font-size: 16px;
+    border: 1px solid #000000 !important;
+    padding: 10px 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 7px !important;
+    max-width: 100%;
+    width: 100% !important;
+    font-family: Tiemann, serif;
+    min-width: 191px;
+}
+   .home-delivery-date-container .home-delivery-btn-content span svg{
+     position: static !important;
+         transform: translateY(5%);
+   }
+   .home-delivery-btn .btn--secondary{
+     border-radius: 8px !important;
+         white-space: nowrap;
+   }
+   .home-delivery-btn-content span {
+      color: black !important;
+      text-decoration: none !important;
+   }
+  @media screen and (max-width: 767px){
+    .home-delivery-btn-content{
+         padding-left: 0px !important;
+        padding-right: 0px !important;
+        gap: 10px !important;
+        /* font-size: 13px !important; */
+      font-weight: 600;
+        justify-content: flex-start !important;
+          border: none !important; 
+          padding-bottom: 6px;
+    }
+    .calendar table tr td, .calendar table tr th {
+    padding: 3px !important;
+    font-size: 11px;
+}
+  .home-delivery-date-container .home-delivery-btn-content input,
+   .home-delivery-date-container .home-delivery-btn-content span,
+   .home-delivery-date-container .home-delivery-btn-content select{
+          max-width: 100% !important;
+        width: 100% !important;
+        font-size: 16px !important;
+        /* display: block; */
+        /* white-space: nowrap; */
+        margin-left: auto;
+   }
+    .home-delivery-date-container {
+    padding: 13px 40px !important;
+}
+    .page-full, .page-width {
+    padding: 0 6px !important;
+} 
+    .home-delivery-inner{
+      gap: 0px !important
+    }
+    .home-delivery-btn,
+    .home-delivery-btn .btn--secondary{
+             min-width: 100%;
+      white-space: nowrap;
+    }
+    .home-delivery-date-container .d-flex{
+      flex-direction: column;
+          width: 100%;
+    }
+        .home-delivery-btn{
+          padding: 16px 0px !important;
+        }
+.home-delivery-btn {
+    margin-top: 0px;
+}
+    
+  }
+</style>
+
+<link rel="stylesheet" href="{{ 'semantic.min.css' | asset_url }}">
+<script src="{{ 'jquery-2.1.4.js' | asset_url }}"></script>
+<script src="{{ 'semantic.min.js' | asset_url }}"></script>
+
+<script type="text/javascript">
+  $('.modal-popup-toggle').on('click', function(e) {
+      e.preventDefault();
+      $('#occasion').toggleClass('is-visible');
+  });
+  $('.modal-popup-toggle1').on('click', function(e) {
+      e.preventDefault();
+      $('#dateselect').toggleClass('is-visible');
+  });
+</script>
+<script>
+      // Regole deluxy.it: dalle 20:00 (ora italiana) la prima data selezionabile e' domani
+      var __dlxP = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+      var today = new Date(Number(__dlxP.year), Number(__dlxP.month) - 1, Number(__dlxP.day));
+      if (Number(__dlxP.hour) >= 20) { today.setDate(today.getDate() + 1); }
+      // ⭐ 10/09/2026: la prima data e i giorni chiusi li dice il Customer Service (subito se già in cache, poi appena risponde).
+      if (window.DeluxyConsegna && DeluxyConsegna.primoGiornoDate()) { today = DeluxyConsegna.primoGiornoDate(); }
+      if (window.DeluxyConsegna) { DeluxyConsegna.pronto.then(function () {
+        var __p = DeluxyConsegna.primoGiornoDate(); if (!__p) { return; }
+        try { $('#deliverydate').calendar('setting', 'minDate', __p); $('#deliverydate').calendar('setting', 'disabledDates', DeluxyConsegna.giorniSpenti()); $('#deliverydate').calendar('refresh'); } catch (e) {}
+      }); }
+      $('#deliverydate').calendar({
+        type: 'date',
+        firstDayOfWeek: 1,
+        text: {
+          days: ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'],
+          months: ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+        },
+        minDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+        disabledDates: (window.DeluxyConsegna ? DeluxyConsegna.giorniSpenti() : []),
+        maxDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 365),
+        onChange: function(date, text, mode) {
+          var days = [ 'Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+          var dmonth = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+          var d = new Date(text);
+          var dayName = days[date.getDay()];
+         // alert(dayName + ' ' + text);
+          $('.delivery_date > span').html(dayName + ' ' + text);
+          $('.date_input').val(dayName + ' ' + text);
+          $('#dateselect').toggleClass('is-visible');
+        }
+      });
+
+     jQuery(".select-occasion li").click(function() {
+       var occasionValueText = $(this).text();
+       var occasionValueId = $(this).attr('id');
+       $('.occasion_name > span').html(occasionValueText);
+       $('.occasion_input').val(occasionValueId);
+       $('#occasion').toggleClass('is-visible');
+    });
+
+    jQuery('#submit_btn').click(function(){
+      var dateVal = $('.date_input').val();
+      var occasionVal = $('.occasion_input').val();
+
+      // Save the date value to localStorage
+      localStorage.setItem("delivery_date_val", dateVal);
+
+      var italianDate = localStorage.getItem("delivery_date_val");
+      // Parse and format the Italian date
+      var englishFormattedDate = parseAndFormatItalianDate(italianDate);
+      // Output the result
+      console.log('Selected Date:', englishFormattedDate);
+      localStorage.setItem("delivery_date_val_eng", englishFormattedDate);
+
+      function parseAndFormatItalianDate(italianDate) {
+        var months = {
+      'Gennaio': 'January', 'Febbraio': 'February', 'Marzo': 'March', 'Aprile': 'April',
+      'Maggio': 'May', 'Giugno': 'June', 'Luglio': 'July', 'Agosto': 'August',
+      'Settembre': 'September', 'Ottobre': 'October', 'Novembre': 'November', 'Dicembre': 'December'
+        };
+
+    var dateParts = italianDate.match(/(\w+)\s+(\w+)\s+(\d+),\s+(\d+)/);
+
+    if (dateParts && dateParts.length === 5) {
+      var monthItalian = dateParts[2];
+      var month = months[monthItalian];
+      var day = parseInt(dateParts[3], 10);
+      var year = parseInt(dateParts[4], 10);
+
+      if (!isNaN(day) && month && !isNaN(year)) {
+        // Corrected the month index to be zero-based
+        var convertedDate = new Date(year, Object.values(months).indexOf(month), day);
+        if (!isNaN(convertedDate.getTime())) {
+          // Updated the locale to 'en-US' and the date format
+          var englishFormattedDate = convertedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          return englishFormattedDate;
+        }
+      }
+    }
+
+    return "Invalid Date";
+  }
+
+
+
+
+
+       // Build the URL with the occasion and encoded date, and append the random string
+      var finalUrl = "/collections/" + occasionVal;
+
+      // Redirect to the final URL
+      window.location.href = finalUrl;
+  });
+
+
+  jQuery(document).ready(function(){
+    var localDate = localStorage.getItem("delivery_date_val");
+    // var localDate = sessionStorage.getItem("delivery_date_val");
+    var todayDate = '{{- today_date | date: '%s' -}}';
+    if(localDate){
+      $('.delivery_date > span').html(localDate);
+        $('.date_input').val(localDate);
+        //$('#date_capt').text(localDate);
+    }
+  });
+
+</script>
+
+<style>
+
+</style>
+
+{% schema %}
+{
+  "name": "New Home Delivery Section",
+  "settings": [
+     {
+      "type": "collection",
+      "id": "default_collection",  
+      "label": "Default Collection"
+    }
+
+
+  ],
+  "blocks": [
+   {
+    "type": "collectionlist",
+    "name": "Collection Name",
+    "settings": [
+      {
+        "type": "collection",
+        "id": "collections_list",
+        "label": "Collection"
+        
+      }
+
+    ]
+  }
+  ],
+  "presets": [
+    {
+      "name": "New Home Delivery Section"
+    }
+  ]
+}
+{% endschema %}
+
+{% stylesheet %}
+{% endstylesheet %}
+
+{% javascript %}
+{% endjavascript %}

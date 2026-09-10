@@ -49,7 +49,30 @@ nessuno lo avesse deciso. «Cancella gli orari» riporta il negozio a «senza or
 continua con le sue regole. Agganciarlo all'API è un lavoro sui temi (`sviluppi-siti-deluxy`),
 e va deciso se esporre una lettura senza chiave per il browser del cliente.
 
-Tabella `OrarioNegozio` (una riga per negozio, creata con
+**Le regole delle fasce (10/09 sera).** Le fasce non si scrivono a mano: si calcolano da regole
+per negozio — finestra della giornata (08–22), durata delle fasce per **oggi**, **domani** e
+**oltre**, quante fasce saltare dopo quella in corso, l'ora limite dopo la quale per oggi non si
+ordina più, se l'ultima fascia resta ordinabile fino al limite, quante prime fasce di domani saltare
+se si ordina dopo il limite. Due preset: **Regole deluxy.it** (oggi 2 ore dalla seconda fascia dopo
+quella in corso, limite 20:00 con la sola 20-22 fra le 18 e le 20, domani 2 ore — dalle 10-12 se si
+ordina dopo le 20 —, oltre 1 ora; di notte si conta dall'apertura: prima fascia 10-12) e **Tre fasce
+ampie** (08-12 · 12-16 · 16-20, limite 16:00). L'anteprima mostra le fasce dei prossimi 14 giorni
+**calcolate adesso** (ora italiana), con un'ora di prova per vedere cosa vede un cliente alle 19:30.
+Regole confermate dall'architetto UX il 10/09 (limite 20:00 con eccezione 18–20 → 20-22; notte e
+«domani dopo le 20» dalle 10-12; granularità per giorno, mai per ora dell'ordine).
+
+**I siti Shopify leggono da qui.** `GET /api/pubblico/consegna?dominio=deluxygifts.myshopify.com&oraMinima=10&leadGiorni=0`
+— pubblica, senza chiave, CORS aperto, cache 60 s sull'edge: per ogni giorno `ok/motivo` e le fasce
+(`valore` «08-10» per il tema, `etichetta` «08:00–10:00» per il cliente), `primoGiorno`, `adesso`
+(ora italiana del server). Il sito passa i vincoli del carrello: l'orario di disponibilità minima dei
+prodotti (`custom.minimo_orario`, il massimo) e il preavviso (`prodotto.consegna`, il massimo). Con
+`configurato:false` il sito tiene le sue regole. Il tema di deluxy.it («Version to work on») ha il
+modulo `DeluxyConsegna` che la chiama: vedi `sviluppi-siti-deluxy/deluxy-it/orari-dal-customer-service-2026-09-10/`.
+⚠️ Le regole di deluxy.it e business.deluxy.it sono state scritte in tabella il 10/09 con
+`scripts/imposta-orari-deluxy.mts` (aperti tutti i giorni, nessuna chiusura): Flowers e Cake restano
+«senza orari» finché non si passa a loro.
+
+Tabella `OrarioNegozio` (una riga per negozio, colonna `regole` JSON, creata con
 `scripts/applica-migrazione-orari-negozi.mjs`); regole in `src/lib/orari-regole.ts`, provate
 con `npx tsx scripts/prova-orari-negozi.mts`.
 
