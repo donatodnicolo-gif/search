@@ -44,6 +44,7 @@ anagrafici nelle vostre app — leggeteli da qui.
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
+- `POST /api/v1/partners/:id/capogruppo` (chiave di **scrittura**, dal 10/09/2026) — «questa sede fattura sotto l'entità di un'altra»: body `{ capofila }` (id o platformId della scheda che rappresenta la società). Usa il capogruppo della capofila o lo crea (nome = sua ragione sociale, dati fiscali copiati); la sede entra con `pagaDaSe = false`. Lo chiama la piattaforma consegne dal bottone «Sotto un'altra entità di fatturazione».
 - `tipoLuogo` dice **che cosa è** quel luogo: `sede` (legale/amministrativa) ·
   `negozio` · `showroom` · `magazzino` · `altro`. Vuoto = non indicato. È la
   risposta a «di queste tre anagrafiche uguali, quale è la sede e quali sono i
