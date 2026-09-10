@@ -115,7 +115,7 @@ export class ProductsService {
       }),
       this.prisma.product.count({ where }),
     ]);
-    return { items, total, page, pageSize };
+    return { items: items.map((p) => ProductsService.colNomeDelPartner(p, user)), total, page, pageSize };
   }
 
   /**
@@ -123,6 +123,21 @@ export class ProductsService {
    * STESSO perimetro della lista (perimetroPartner): un prodotto che compare
    * in lista deve aprirsi, uno che non compare non deve aprirsi per id.
    */
+  /**
+   * ⭐ 10/09/2026 (regola utente: «il catalogo prodotti dei partner mostra il nome partner»).
+   * Al PARTNER il prodotto si presenta col SUO nome — quello scritto in Merchandising come
+   * «nome per il partner» (copiato qui in alternateName/useAlternateName) — in catalogo, nel
+   * modulo consegna e in ogni lista che passa da qui. Il nome commerciale resta in
+   * nomeCommerciale, così chi legge la risposta sa che cosa è stato sostituito. Per
+   * l'ufficio non cambia niente. Vale in LETTURA: in scrittura il partner non tocca il nome.
+   */
+  private static colNomeDelPartner<T extends { name: string; alternateName?: string | null; useAlternateName?: boolean | null }>(p: T, user?: JwtUser): T & { nomeCommerciale?: string } {
+    if (user?.role !== Role.PARTNER) return p;
+    const suo = (p.alternateName ?? '').trim();
+    if (!p.useAlternateName || !suo || suo === p.name) return p;
+    return { ...p, name: suo, nomeCommerciale: p.name };
+  }
+
   async findOne(id: string, user?: JwtUser) {
     const dove: any = { id };
     if (user?.role === Role.PARTNER) {
@@ -133,7 +148,7 @@ export class ProductsService {
       include: PRODUCT_INCLUDE,
     });
     if (!product) throw new NotFoundException('Prodotto non trovato');
-    return product;
+    return ProductsService.colNomeDelPartner(product, user);
   }
 
   async create(dto: CreateProductDto, user: JwtUser) {
