@@ -8,7 +8,14 @@
 > (bloccato dal classificatore, 59 KB): `snippets/product-delivery-date.liquid` → incollare dal
 > repo (`deluxy-it/orari-dal-customer-service-2026-09-10/patchati/`). Dettagli in
 > TEMA_DELUXY_IT.md §10/09/2026 e regole in REGOLE_BRAND.md §deluxy.it. Per vedere le date del
-> Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione**.
+> Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione**.Per vedere le date del
+> Customer Service in anteprima serve la rotta `/api/pubblico/consegna` **in produzione** (lo è dalle 17:00).
+> **Sera**: all_tags (`668a2b60…`) e delivery_date_hour_c (`a107cd32…`) ricaricati con: SKU del carrello
+> passati all'API (`codici=`, per il calendario del partner), `Fasce_Fonte` = «tema (regole cablate)»
+> sul ripiego, «prima data disponibile» distinta dalla «data scelta». Test di acquisto con agenti
+> (desktop + HTTP): flusso fino al checkout OK; trovato e corretto nel CS il difetto «senza giorni=
+> un giorno solo». Problemi già noti confermati: `fnCheckDelivery` legge `#DeliveryDate` inesistente;
+> `OK is not defined` in console da script esterni.
 
 
 > Punto di ripresa per una sessione nuova. Prima di toccare qualsiasi cosa leggi anche
