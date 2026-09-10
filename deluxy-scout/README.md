@@ -95,6 +95,7 @@
 >      Stato 132 / Visita 74 / Dal 74 / 30-180 gg 86, azioni **422** (9 icone ×
 >      38 + 8 × 10). Misurato: a 1440 il nome ha 242 px e l'ultima icona finisce
 >      a 34 px dal bordo; a 1280 il nome ha 155 px e tutto sta dentro.
+>      **In produzione** (commit `60cc3307`, bundle vivo `entry-560bad7f…`).
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.
