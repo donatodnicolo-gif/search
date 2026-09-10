@@ -88,8 +88,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // fetta cercare parte da qui. Unisce i negozi di Scout e le aziende che
       // stanno solo nel registro (i fornitori), con la tipologia in colonna.
       { name: 'tutti', label: 'Tutti', icon: 'list-outline' },
-      { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
+      // ⭐ 10/09/2026 (richiesta dell'utente): Selezionati PRIMA di Potenziali.
+      // È il primo passo del funnel — scelto, non ancora contattato — e da
+      // oggi contiene anche le Segnalazioni CS: è da lì che si parte.
       { name: 'lista-selezionati', route: 'lista', params: { vista: 'selezionato' }, label: 'Selezionati', icon: 'star-outline' },
+      { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },

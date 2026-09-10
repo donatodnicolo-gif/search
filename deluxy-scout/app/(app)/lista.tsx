@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { canonizzaLinee, LABEL_MOMENTO } from '@/types';
-import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
@@ -29,7 +29,7 @@ import { venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
 import { dataBreve } from '@/components/Tabella';
 import { etichettaFonte, fetchFornitori, fetchSegnalatiDaApp, urlSchedaRegistro, type PartnerRegistro } from '@/lib/anagrafiche';
-import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
+import { assegnaAMe, fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { AzioniRiga } from '@/components/AzioniRiga';
 import { Chip } from '@/components/ui';
@@ -253,6 +253,25 @@ export default function Lista() {
     }
   }
 
+  // «Assegna a me» (10/09/2026): il negozio diventa mio — chi lo lavora e
+  // account del cliente — senza aprire la scheda. Se seguiva un altro
+  // venditore lo si dice: un passaggio di mano non deve essere silenzioso.
+  const [assegnando, setAssegnando] = useState<string | null>(null);
+  const mio = (place: Place) => Boolean(place.creato_da && place.creato_da === session?.user?.id);
+  async function assegna(place: Place) {
+    if (assegnando) return;
+    setAssegnando(place.id);
+    try {
+      const { nome, precedente } = await assegnaAMe(place);
+      ricarica();
+      if (precedente) avvisa('Assegnato a te', `«${place.nome}» seguiva ${precedente}: ora l'account è ${nome}.`);
+    } catch (e: any) {
+      avvisa('Non assegnato', e?.message ?? 'Riprova fra poco.');
+    } finally {
+      setAssegnando(null);
+    }
+  }
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     const f = applicaFiltri(places, filtri)
@@ -361,6 +380,13 @@ export default function Lista() {
           label={quandoPrevista ? `Visita prevista ${quandoPrevista} — cambia` : 'Pianifica la visita'}
           onPress={() => setPianificaPlace(place)}
         />
+        <IconaAzione
+          nome="person-add-outline"
+          attiva={!mio(place) && assegnando !== place.id}
+          evidenza={mio(place)}
+          label={mio(place) ? 'È tuo: lo lavori tu' : `Assegna a me${place.creato_da_nome ? ` (ora: ${place.creato_da_nome})` : ''}`}
+          onPress={() => assegna(place)}
+        />
         <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={() => nascondi(place)} />
       </AzioniContatto>
     );
@@ -412,30 +438,45 @@ export default function Lista() {
         if (r.registro) {
           // Una riga del registro: nessun semaforo (nessuna visita possibile
           // finché non è in Scout), sotto il nome da dove viene.
+          const sotto = [daDoveRegistro(r.registro), [r.registro.categoria, ...(r.registro.interessi ?? [])].filter(Boolean).join(', ')]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <View>
               <Text style={styles.tabNome} numberOfLines={2}>
                 {r.registro.nome}
               </Text>
               <Text style={styles.tabSotto} numberOfLines={1}>
-                {daDoveRegistro(r.registro)}
+                {sotto}
               </Text>
             </View>
           );
         }
         const p = r.place;
         const v = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
+        const linee = canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])).join(', ');
         return (
-          <View style={styles.tabNomeRiga}>
-            {/* Il semaforo della visita, che nelle schede è il riquadro
-                dell'icona: qui è un pallino prima del nome. */}
-            <View
-              style={[styles.tabSemaforo, { backgroundColor: COLORE_VISITA[v] }]}
-              {...({ title: LABEL_VISITA[v] } as any)}
-            />
-            <Text style={styles.tabNome} numberOfLines={2}>
-              {p.nome}
-            </Text>
+          <View>
+            <View style={styles.tabNomeRiga}>
+              {/* Il semaforo della visita, che nelle schede è il riquadro
+                  dell'icona: qui è un pallino prima del nome. */}
+              <View
+                style={[styles.tabSemaforo, { backgroundColor: COLORE_VISITA[v] }]}
+                {...({ title: LABEL_VISITA[v] } as any)}
+              />
+              <Text style={styles.tabNome} numberOfLines={2}>
+                {p.nome}
+              </Text>
+            </View>
+            {/* ⚠️ Le LINEE stanno SOTTO il nome, non in colonna (10/09/2026):
+                con Dal, 30 gg, 180 gg e nove icone la tabella sforava a destra
+                e l'ultima azione restava tagliata. Lezione degli Ordini: ogni
+                colonna in più toglie pixel al nome. */}
+            {linee ? (
+              <Text style={styles.tabSotto} numberOfLines={1}>
+                {linee}
+              </Text>
+            ) : null}
           </View>
         );
       },
@@ -449,19 +490,9 @@ export default function Lista() {
         r.place ? r.place.indirizzo ?? null : [r.registro.indirizzo, [r.registro.citta, r.registro.provincia].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
     },
     {
-      chiave: 'linee',
-      label: 'Linee',
-      flex: 0.8,
-      righe: 2,
-      valore: (r) =>
-        r.place
-          ? canonizzaLinee(r.place.linee_ipotizzate ?? (r.place.linea_ipotizzata ? [r.place.linea_ipotizzata] : [])).join(', ') || null
-          : [r.registro.categoria, ...(r.registro.interessi ?? [])].filter(Boolean).join(', ') || null,
-    },
-    {
       chiave: 'stato',
       label: 'Stato',
-      width: 150,
+      width: 132,
       // Le segnalazioni stanno dopo i P3: sono ancora da scegliere.
       valore: (r) => (r.place ? RANK[r.place.priorita] ?? 9 : 10),
       cella: (r) => {
@@ -495,7 +526,7 @@ export default function Lista() {
     {
       chiave: 'prevista',
       label: 'Visita',
-      width: 86,
+      width: 74,
       destra: true,
       numerica: true,
       valore: (r) => r.place?.visita_pianificata ?? null,
@@ -521,7 +552,7 @@ export default function Lista() {
           {
             chiave: 'dal',
             label: 'Dal',
-            width: 78,
+            width: 74,
             destra: true,
             numerica: true,
             valore: (r) => dalDi(r),
@@ -530,7 +561,7 @@ export default function Lista() {
           {
             chiave: 'ordini30',
             label: '30 gg',
-            width: 96,
+            width: 86,
             destra: true,
             numerica: true,
             valore: (r) => venditeDiRiga(r)?.ordini30 ?? null,
@@ -542,7 +573,7 @@ export default function Lista() {
           {
             chiave: 'ordiniLunga',
             label: `${giorniLunga} gg`,
-            width: 96,
+            width: 86,
             destra: true,
             numerica: true,
             valore: (r) => venditeDiRiga(r)?.ordiniLunga ?? null,
@@ -585,7 +616,7 @@ export default function Lista() {
         // testata, refresh e stato vuoto restano suoi, la griglia la fa Tabella.
         data={aTabella ? (dati.length ? [dati] : []) : dati}
         keyExtractor={(r: any) => (aTabella ? 'tabella' : chiaveDi(r as RigaSel))}
-        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
+        contentContainerStyle={[styles.list, aTabella ? contenutoExtraLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
         // Intro, chip e filtri scorrono INSIEME alla lista: da fissi occupavano
         // mezzo schermo e ai negozi restava una finestrella alta pochi pixel.
@@ -690,7 +721,7 @@ export default function Lista() {
               }}
               labelRiga={(r) => (r.place ? `Apri la scheda di ${r.place.nome}` : `Apri ${r.registro.nome} nel registro Anagrafiche`)}
               azioni={azioniDiRiga}
-              larghezzaAzioni={374}
+              larghezzaAzioni={422}
               totali={(righe) => ({
                 nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
                 ordini30: indiceVenditeCS ? String(righe.reduce((s, r) => s + (venditeDiRiga(r)?.ordini30 ?? 0), 0)) : null,
@@ -743,6 +774,8 @@ export default function Lista() {
               recapito={recapiti.get((item as RigaSel).place!.id)}
               onPress={() => router.push(`/(app)/attivita/${(item as RigaSel).place!.id}`)}
               onNascondi={() => nascondi((item as RigaSel).place!)}
+              mio={mio((item as RigaSel).place!)}
+              onAssegna={() => assegna((item as RigaSel).place!)}
               onVisita={() => setVisitaPlace((item as RigaSel).place!)}
               onPianifica={() => setPianificaPlace((item as RigaSel).place!)}
               onMail={() => setMailPlace((item as RigaSel).place!)}
@@ -815,6 +848,8 @@ function Riga({
   recapito,
   onPress,
   onNascondi,
+  mio,
+  onAssegna,
   onVisita,
   onPianifica,
   onMail,
@@ -832,6 +867,9 @@ function Riga({
   recapito: RecapitoPlace | undefined;
   onPress: () => void;
   onNascondi: () => void;
+  /** «Assegna a me»; `mio` = lo lavoro già io (icona piena, spenta). */
+  mio: boolean;
+  onAssegna: () => void;
   onVisita: () => void;
   onPianifica: () => void;
   onMail: () => void;
@@ -910,6 +948,13 @@ function Riga({
             evidenza={Boolean(place.visita_pianificata)}
             label={quando ? `Visita prevista ${quando} — cambia` : 'Pianifica la visita'}
             onPress={onPianifica}
+          />
+          <IconaAzione
+            nome="person-add-outline"
+            attiva={!mio}
+            evidenza={mio}
+            label={mio ? 'È tuo: lo lavori tu' : `Assegna a me${place.creato_da_nome ? ` (ora: ${place.creato_da_nome})` : ''}`}
+            onPress={onAssegna}
           />
           <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={onNascondi} />
         </AzioniContatto>

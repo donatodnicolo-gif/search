@@ -79,6 +79,22 @@
 >   totali in fondo; riga «Ordini dal CS» nelle schede. Le vendite e le
 >   segnalazioni si leggono SOLO in questa vista. **In produzione** dal
 >   pomeriggio del 10/09 (commit `5a874d9a`, bundle vivo `entry-f65457f5…`).
+> - **Tre ritocchi del pomeriggio (10/09, richieste dell'utente)**:
+>   1. **«Assegna a me»** in riga (tabella e scheda), icona `person-add`:
+>      `assegnaAMe()` in `lib/db.ts` scrive `creato_da` (chi lo lavora: è il
+>      criterio di `inLavorazione`) E `anagrafiche_account` (il venditore che
+>      segue il cliente, per nome, portato al registro best-effort come fa
+>      Modifica). Se seguiva un altro venditore lo dice con un avviso; se è già
+>      tuo l'icona è piena e spenta.
+>   2. **Selezionati PRIMA di Potenziali** nel menu Contatti (`SEZIONI`).
+>   3. **«sistema il css»**: la tabella dei Selezionati sforava a destra e
+>      l'ultima icona restava tagliata. Misurato con una pagina di prova a dati
+>      finti (poi cancellata): col cap `contenutoLargo` (1180) le due colonne
+>      elastiche restavano a **94 px** e il nome si spezzava. Ora /lista usa
+>      `contenutoExtraLargo` (1608, come Ordini), le Linee stanno SOTTO il nome,
+>      Stato 132 / Visita 74 / Dal 74 / 30-180 gg 86, azioni **422** (9 icone ×
+>      38 + 8 × 10). Misurato: a 1440 il nome ha 242 px e l'ultima icona finisce
+>      a 34 px dal bordo; a 1280 il nome ha 155 px e tutto sta dentro.
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.

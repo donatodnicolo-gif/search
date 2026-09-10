@@ -635,6 +635,49 @@ export async function aggiornaPlace(
   if (error) throw error;
 }
 
+/**
+ * «ASSEGNA A ME» (10/09/2026, richiesta dell'utente: «dai possibilità da
+ * tabella di assegnarmi il selezionato»). Due scritture, perché «mio» in Scout
+ * vuol dire due cose diverse che stavano in due posti:
+ *   1. `creato_da` = chi lo lavora (è il criterio di `inLavorazione` e della
+ *      cancellazione: senza, un negozio scoperto da Google non è di nessuno);
+ *   2. `anagrafiche_account` = il venditore che segue il cliente, per NOME,
+ *      lo stesso campo che il registro chiama «account» — e che va portato
+ *      di là, best-effort (come fa la schermata Modifica).
+ * Non sovrascrive un account già di un ALTRO venditore senza dirlo: torna
+ * `precedente`, così la riga può avvisare.
+ */
+export async function assegnaAMe(place: Place): Promise<{ nome: string; precedente: string | null }> {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) throw new Error('Sessione scaduta: rientra.');
+  const profilo = await fetchProfilo(uid);
+  const nome = (profilo?.nome ?? '').trim() || (u.user?.email ?? '').trim();
+  if (!nome) throw new Error('Il tuo profilo non ha un nome: impostalo in Profilo.');
+  const precedente = place.anagrafiche_account && place.anagrafiche_account !== nome ? place.anagrafiche_account : null;
+  const { error } = await supabase
+    .from('places')
+    .update({ creato_da: uid, anagrafiche_account: nome })
+    .eq('id', place.id);
+  if (error) throw error;
+  // Il registro: l'account vive anche là. Best-effort — se non risponde il
+  // negozio è comunque tuo in Scout, e la sincronizzazione lo riporta dopo.
+  if (place.anagrafiche_id) {
+    sincronizzaNegozioRegistro({
+      placeId: place.id,
+      nome: place.nome,
+      citta: place.zona ?? null,
+      indirizzo: place.indirizzo ?? null,
+      categoria: place.categoria ?? null,
+      stato: place.stato ?? null,
+      statoRegistro: place.stato_affiliazione ?? null,
+      account: nome,
+      linee: canonizzaLinee(place.linee_ipotizzate ?? (place.linea_ipotizzata ? [place.linea_ipotizzata] : [])),
+    }).catch(() => {});
+  }
+  return { nome, precedente };
+}
+
 /** Aggiunge un contatto a un'attività. */
 export async function inserisciContatto(
   c: Omit<Contact, 'id' | 'hubspot_contact_id'>,
