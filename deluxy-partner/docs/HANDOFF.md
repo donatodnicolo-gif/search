@@ -1,5 +1,55 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🚨 **10/09/2026 — TROVATO IL PERCHÉ: IL CRON GIRAVA UN DEPLOY DEL 31/08 PERCHÉ
+> DAL 02/09 NESSUN DEPLOY È MAI STATO PROMOSSO.** (Chiude il 🔴 «il PERCHÉ
+> resta aperto» del 09/09.) Letto dall'API di Vercel, non dedotto:
+> - `targets.production` del progetto = `dpl_AtxJXcejAA3ZX46rNCFnQ68ayrHc`
+>   (`gz724b8ep`, commit `8387aba7` del **31/08 05:18 UTC**), `readySubstate:
+>   PROMOTED`. I **cron** del progetto (`crons.deploymentId`) puntavano allo
+>   STESSO deploy, con la pianificazione vecchia (qonto `0 5`, non `24 5`).
+> - **Tutti i 27 deploy dal 03/09 al 09/09 sono `readySubstate: STAGED`**: creati
+>   con `--prod`, buildati davvero (il log di `v32jywfru` mostra «Compiled
+>   successfully», 55 s), ma **mai promossi**. Ricevevano solo l'alias
+>   automatico `deluxy-partner-deluxy.vercel.app`; il dominio
+>   `deluxy-partner.vercel.app` veniva spostato **a mano** con `alias set`
+>   (ecco perché «l'alias non segue il deploy», annotato 4 volte, e perché le
+>   pagine erano nuove mentre il cron era vecchio).
+> - La causa: `crons.updatedAt` = **02/09 12:36 UTC**, 12 minuti dopo la
+>   promozione di `c6k3bs8mr` (12:24), e riporta il target a `gz724b8ep`: un
+>   **rollback**. La documentazione Vercel (Instant Rollback) dice: «After a
+>   rollback, Vercel turns off auto-assignment of production domains … new
+>   pushes won't replace the rolled-back deployment. To restore, promote a
+>   deployment (`vercel promote`)». Il rollback ha spento la promozione
+>   automatica e nessuno l'ha riaccesa.
+> - ❌ Il sospetto del 09/09 sull'`ignoreCommand` in `vercel.json` è **falso**:
+>   il build gira per intero (Prisma generate, `next build`, 24 pagine).
+> - ⚠️ `VERCEL_GIT_COMMIT_SHA` esiste anche nei deploy da CLI (`meta.gitCommitSha`
+>   è valorizzato), quindi il marcatore «build …» del 09/09 scriverà lo SHA vero.
+>
+> 🔴 **Effetto del 10/09 (cron 06:15 UTC, ancora sul deploy vecchio)**: registro
+> «Importate 39 fatture … competenza = mese di emissione», senza marcatore di
+> build. **Le 39 fatture commissioni sono di nuovo fra i servizi** (11.200,62 €
+> netti, `FatturaServizio` create alle 06:15:47–48): il vincolo UNIQUE non le ha
+> fermate perché la riparazione del 09/09 09:50 aveva **liberato i numeri**. Lo
+> stesso è successo il 09/09 (riparato) e succederà ogni notte finché il cron
+> gira lì. Prova a secco dello script: 39 righe, tutte con `commFatt` già sul
+> mese (resta). ⛔ **L'esecuzione con `--esegui` è stata bloccata dal
+> classificatore dei permessi della sessione**: da lanciare a mano
+> `node --env-file=.env scripts/ripara-commissioni-importate.mjs --esegui --attese 39`
+> (prima senza flag per ricontrollare il conteggio; il backup JSON finisce
+> nella cartella corrente — spostarlo in `scripts/`, che è ignorato da git).
+> Con il deploy promosso, dal cron dell'11/09 le difese dell'08/09 girano
+> davvero e il marcatore «build» lo dimostra nel registro.
+>
+> ✅ **Cosa cambia nella procedura di deploy (README aggiornato)**: dopo
+> `npx vercel deploy --prod --yes` serve **`npx vercel promote <url> --yes`**, che
+> promuove il deploy, riaccende l'auto-assegnazione e riallinea i cron; poi si
+> verifica `readySubstate: PROMOTED` e `crons.deploymentId` dall'API
+> (`GET /v9/projects/prj_GHPnElvYTaHUUmqhMaFKaD5yWn24?teamId=team_vt9JRBhnxbY4spm5LzhNyxoY`)
+> e `vercel inspect https://deluxy-partner.vercel.app`. `alias set` non serve
+> più. Il primo `promote` è stato fatto in questa sessione (vedi sotto l'esito).
+
+
 > 🔑 **09/09/2026 — UNA CHIAVE API PER OGNI APPLICAZIONE.**
 > Richiesta dell'utente: «ho bisogno di creare nuove chiavi, non di annullare
 > quelle delle app precedenti». Prima esisteva **una chiave per scope** in
