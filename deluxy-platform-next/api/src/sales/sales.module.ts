@@ -119,9 +119,15 @@ function prezzoRigaVendita(
   variante?: { price: number | null; publicPrice: number | null } | null,
 ): number | null {
   const pezzi = Math.max(1, Number(vendita.quantity) || 1);
+  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
+  // ⭐ 10/09/2026 (regola utente su #101251: «60 € è il valore da cui incassare la nostra
+  // commissione + IVA»). Se la vendita porta una QUOTA (dal Customer Service, dal patto o dal
+  // listino del proprietario), la riga vale QUANTO VA AL PARTNER — non il pubblico. Prima
+  // vinceva il listino della variante, che sui non unici È il pubblico: la mail diceva 60 e la
+  // scheda 85. Senza quota (0 %) resta il listino, che sugli unici è già il prezzo del partner.
+  if ((vendita.discountPercent ?? 0) > 0 && alPartner > 0) return Math.round((alPartner / pezzi) * 100) / 100;
   const listino = variante?.price ?? variante?.publicPrice ?? vendita.product?.publicPrice ?? null;
   if (listino) return listino;
-  const alPartner = (vendita.amount ?? 0) * (1 - (vendita.discountPercent ?? 0) / 100);
   return alPartner > 0 ? Math.round((alPartner / pezzi) * 100) / 100 : null;
 }
 
