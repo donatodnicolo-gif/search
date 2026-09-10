@@ -1364,26 +1364,44 @@ export async function ficAllineaIncassoParziale(
 // resto («attempt», «sent», «pending», «accepted», «rejected», «discarded»…) =
 // il documento è uscito, o sta uscendo, e qui non si cancella niente.
 //
+// ⚠️ UN NUMERO NON È UN'IDENTITÀ FINCHÉ IL DOCUMENTO È UNA BOZZA (10/09/2026,
+// caso vero): cancellata su FIC la bozza 648/2026 da 36,36 €, FIC ha
+// RIASSEGNATO il 648 alla fattura successiva (CONLESTELLE, 1.068,61 €, poi
+// inviata allo SDI). La riga di Finance diceva ancora «648/2026 · 36,36 €»:
+// cercare per numero avrebbe trovato un ALTRO documento. Per questo si
+// confronta anche l'imponibile: se non torna, quel documento non è questa
+// riga e non si tocca (esito «diversa», con chi è e quanto vale).
+//
 // Non lancia MAI: chi chiama ha già cancellato la riga in Finance e deve solo
 // dire com'è andata di là. Torna un esito parlante, non un booleano.
 export type EsitoEliminazioneFic =
   | { stato: "eliminata"; id: number }
   | { stato: "non_trovata" }
   | { stato: "inviata"; eiStatus: string }
+  | { stato: "diversa"; intestatario: string; netto: number }
   | { stato: "scollegato" }
   | { stato: "errore"; messaggio: string };
 
 const EI_MAI_INVIATA = new Set(["", "not_sent", "missing"]);
 
-export async function ficEliminaDocumento(numero: string, annoFallback?: number): Promise<EsitoEliminazioneFic> {
+export async function ficEliminaDocumento(
+  numero: string,
+  annoFallback?: number,
+  // imponibile della riga di Finance: se il documento su FIC vale altro, non è lui
+  imponibileAtteso?: number
+): Promise<EsitoEliminazioneFic> {
   try {
     const stato = await ficStato();
     if (!stato.collegato || !stato.companyId) return { stato: "scollegato" };
     const id = await ficIdDaNumero(numero, annoFallback);
     if (!id) return { stato: "non_trovata" };
-    const doc = await ficFetch<{ data: { ei_status?: string | null } }>(
-      `/c/${stato.companyId}/issued_documents/${id}?fields=id,ei_status`
+    const doc = await ficFetch<{ data: { ei_status?: string | null; amount_net?: number; entity?: { name?: string } } }>(
+      `/c/${stato.companyId}/issued_documents/${id}?fields=id,ei_status,amount_net,entity`
     );
+    const netto = doc.data.amount_net ?? 0;
+    if (imponibileAtteso != null && Math.abs(netto - imponibileAtteso) > 0.011) {
+      return { stato: "diversa", intestatario: doc.data.entity?.name ?? "?", netto };
+    }
     const ei = (doc.data.ei_status ?? "").trim();
     if (!EI_MAI_INVIATA.has(ei)) return { stato: "inviata", eiStatus: ei };
     await ficFetch(`/c/${stato.companyId}/issued_documents/${id}`, { method: "DELETE" });

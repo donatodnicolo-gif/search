@@ -600,6 +600,8 @@ export default async function PartnerDetail({
               ? "Cancellata anche su Fatture in Cloud: non era ancora stata inviata allo SDI."
               : sp.ficEsito === "inviata"
                 ? `Su Fatture in Cloud NON è stata toccata: era già andata allo SDI (stato «${sp.ficMsg ?? "?"}»). Per annullarla serve una nota di credito.`
+                : sp.ficEsito === "diversa"
+                  ? `Su Fatture in Cloud quel numero è ora un ALTRO documento (${sp.ficMsg ?? "?"}): non l'ho toccato. Succede quando si cancella una bozza su FIC e il numero viene riassegnato alla fattura successiva.`
                 : sp.ficEsito === "non_trovata"
                   ? "Su Fatture in Cloud non c'era (già cancellata, o mai emessa lì)."
                   : sp.ficEsito === "scollegato"

@@ -79,8 +79,20 @@
 >    - Bottone **«Elimina»** (ConfermaElimina) sulla riga della fattura nella
 >      scheda partner, in tutti gli stati; testi aggiornati anche su
 >      `/fatture/[id]`.
->    - Per la 648: su FIC l'utente l'ha già annullata → «Elimina» sulla riga
->      di DIPTYQUE toglie la riga e dice «su Fatture in Cloud non c'era».
+>    - Per la 648: su FIC l'utente l'aveva annullata, e **FIC ha riassegnato il
+>      648/2026 alla fattura successiva** (CONLESTELLE S.R.L., 1.068,61 €,
+>      «Servizi Deluxy», `ei_status = sent`). La riga di Finance diceva ancora
+>      «648/2026 · 36,36 € · DIPTYQUE»: **va tolta con «Elimina» sulla riga di
+>      DIPTYQUE** (lo script è stato bloccato dal classificatore); FIC non
+>      viene toccato (documento `sent` e importo diverso). **Lezione scritta
+>      nel codice**:
+>      `ficEliminaDocumento` confronta anche l'**imponibile** (`amount_net`)
+>      e, se non torna, risponde `diversa` (intestatario e importo) senza
+>      cancellare — un numero non è un'identità finché il documento è una bozza.
+>      La 648 vera (CONLESTELLE) si registra dalla card «Fatture su Fatture in
+>      Cloud» della sua scheda, oppure la porta il cron dell'11/09 (client già
+>      imparato: 569/2026 di luglio), che però la metterebbe a settembre perché
+>      l'oggetto «Servizi Deluxy» non nomina il mese → poi «Modifica record».
 > 2. **«L'app delivery ha trasmesso queste fatture come fatture di agosto ma
 >    qui le dà a settembre»** (643, 644, 648 di DIPTYQUE). Causa: la pagina
 >    registrava `mese = data.getUTCMonth()+1` (data del documento). Ora c'è il

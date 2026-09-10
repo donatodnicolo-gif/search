@@ -524,11 +524,12 @@ export async function deleteFattura(id: string, tornaA?: string) {
 
   const numeroSingolo = !!f.numero && /^\s*\d+\s*(?:\/\s*\d{4})?\s*$/.test(f.numero);
   const fic: EsitoEliminazioneFic | { stato: "senza_numero" } = numeroSingolo
-    ? await ficEliminaDocumento(f.numero!, f.anno)
+    ? await ficEliminaDocumento(f.numero!, f.anno, f.imponibile)
     : { stato: "senza_numero" };
   const ficTesto =
     fic.stato === "eliminata" ? "cancellata anche su Fatture in Cloud (mai inviata allo SDI)"
     : fic.stato === "inviata" ? `su Fatture in Cloud NON toccata: già allo SDI (stato «${fic.eiStatus}»), serve una nota di credito`
+    : fic.stato === "diversa" ? `su Fatture in Cloud il ${f.numero} è ORA un altro documento (${fic.intestatario}, ${euro(fic.netto)}): non toccato`
     : fic.stato === "non_trovata" ? "su Fatture in Cloud non c'era"
     : fic.stato === "scollegato" ? "Fatture in Cloud non collegato: là non è cambiato niente"
     : fic.stato === "errore" ? `su Fatture in Cloud NON cancellata: ${fic.messaggio}`
@@ -549,6 +550,7 @@ export async function deleteFattura(id: string, tornaA?: string) {
     const extra =
       `${sep}ficEsito=${fic.stato}` +
       (fic.stato === "inviata" ? `&ficMsg=${encodeURIComponent(fic.eiStatus)}` : "") +
+      (fic.stato === "diversa" ? `&ficMsg=${encodeURIComponent(`${fic.intestatario}, ${euro(fic.netto)}`)}` : "") +
       (fic.stato === "errore" ? `&ficMsg=${encodeURIComponent(fic.messaggio)}` : "");
     redirect(`${base}${extra}${ancora ? `#${ancora}` : ""}`);
   }
