@@ -132,6 +132,32 @@ build ciascuno): CRM `deluxy-exiab7ay6` ✅ Ready (health ok, login ok,
 Push fatto: `app/` su `piattaforma-ricerca-insensitive`, `scoutwt/` era già
 su `scout-ui` (pushato dall'altra sessione).
 
+**Notte 10/09 — secondo giro dopo il deploy (segnalazioni dell'utente).**
+- **Regressione MIA in Orders**: i brand nelle ricorrenze (`e178d633`) con
+  `orderBy data desc` + `IN` insensibile facevano filtrare tutta la tabella
+  Ordine: `eventi-clienti` da 0,5 s a **17-20 s** per pagina → Ricorrenze e
+  Calendario in timeout, scheda senza il bottone degli ordini. Corretto
+  (`distinct` su email+brand, niente orderBy; commit `988aaf60` in scoutwt) e
+  rideployato: 30 giorni in 0,9 s.
+- **Consensi**: Orders espone `privacy` nella scheda e `POST
+  /api/v1/clienti/{c}/privacy` (chiave di scrittura). CRM: card «Consensi»
+  in scheda (email/sms/telefono/bloccato con Attiva/Disattiva → Orders) +
+  **consenso CRM** («ha voglia di sentire Eva», `ProfiloCliente.consensoCrm`,
+  default sì) con pallino nel libro clienti (colonna «CRM»).
+- **«Chi è» modificabile in visualizzazione** (matitina, `TestoModificabile`,
+  `ProfiloCliente.chiE`; se vuoto vale il riassunto AI). Matitina «Modifica»
+  in testata al posto del link piccolo.
+- **«Unisci i selezionati»** nel libro clienti: spunte nelle righe (attributo
+  `form=`), principale = chi ha più ordini; rifiuta chi è già in un'altra
+  unione.
+- **Ordine per un cliente nuovo** (come nel CS): da `/nuovo-ordine` si scrive
+  l'email → `/clienti/<email>/nuovo-ordine` apre il modulo vuoto anche se
+  Orders non conosce il cliente.
+- «Crea utenti legati alla piattaforma»: nel CRM gli utenti NON si creano —
+  vivono nel Hub (SSO): si crea l'utente là e si abilita l'app «crm» nella sua
+  scheda (`appAbilitate`); il CRM mostra nome e ruolo dal Hub. Da spiegare
+  all'utente, nessun codice.
+
 **NON fatto / da decidere**:
 - **Rubrica di deluxy.delivery@gmail.com** («come sono salvati in rubrica»):
   nessuna app espone i contatti Google; servirebbe People API (OAuth) — non
