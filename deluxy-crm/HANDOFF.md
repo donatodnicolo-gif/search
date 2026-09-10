@@ -8,7 +8,7 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
-## Stato al 10/09/2026 (giornata di richieste dell'utente — TUTTO IN LOCALE, non deployato)
+## Stato al 10/09/2026 (giornata di richieste dell'utente — deployato in serata, vedi in fondo alla sezione)
 
 Diciassette richieste arrivate in sessione, tutte implementate in locale,
 tsc 0, provate sul dev server (porta 3190) contro la produzione di Orders.
@@ -118,6 +118,19 @@ server mentono 3,7×), README (deroga Ricorrenze 3000 con soglia di rientro).
   `htmlFor/id` sui campi; `useActionState` sui compositori; tabella Clienti
   (Medio/Brand, `ThSort`); avviso oro + rami del troncamento in Ricorrenze;
   esito «non in agenda»; `error.tsx`; 3 delete muti.
+
+**Trappola del deploy precompilato da Windows (10/09 sera)**: `vercel build`
+lascia in `.vercel/output/functions` dei link simbolici (`api/health.func →
+../logout.func`, una ventina) e `vercel deploy --prebuilt` fallisce lato Vercel
+con `ENOENT … api/health.func`. Rimedio: prima del deploy sostituire i link con
+copie (`find … -type l` → `cp -r` del bersaglio). Vale per CRM e Orders; da
+mettere nel comando `/deploy` o nel CLAUDE.md di radice. Anche con le copie il
+deploy è fallito (link annidati: `.next\server\pagesĄ.html`, poi `.env`):
+**pubblicati con la build su Vercel** (`vercel deploy --prod --yes`, ~41 s di
+build ciascuno): CRM `deluxy-exiab7ay6` ✅ Ready (health ok, login ok,
+`/api/novita/sezioni` 401 come atteso), Orders `deluxy-orders-bxjpq6wgy` ✅ Ready.
+Push fatto: `app/` su `piattaforma-ricerca-insensitive`, `scoutwt/` era già
+su `scout-ui` (pushato dall'altra sessione).
 
 **NON fatto / da decidere**:
 - **Rubrica di deluxy.delivery@gmail.com** («come sono salvati in rubrica»):
