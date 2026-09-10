@@ -217,7 +217,12 @@ export async function ficFetch<T = unknown>(path: string, init?: RequestInit): P
       },
       signal: init?.signal ?? AbortSignal.timeout(12000),
     });
-    if (res.ok) return (await res.json()) as T;
+    if (res.ok) {
+      // Una DELETE risponde senza corpo: `json()` su una stringa vuota lancia,
+      // e una cancellazione riuscita sembrerebbe fallita.
+      const corpo = await res.text();
+      return (corpo.trim() ? JSON.parse(corpo) : undefined) as T;
+    }
 
     const testo = (await res.text()).slice(0, 300);
     const riprovabile = res.status === 429 || res.status === 503;
@@ -1344,5 +1349,47 @@ export async function ficAllineaIncassoParziale(
   } catch (e) {
     console.warn(`[fic] incasso parziale non allineato per la fattura ${numero}:`, (e as Error).message);
     return false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ELIMINARE UN DOCUMENTO SU FATTURE IN CLOUD (10/09/2026, richiesta dell'utente:
+// «la cancellazione cancella anche su FIC, naturalmente se non è stata già
+// inviata»).
+//
+// Un documento creato su FIC e MAI mandato allo SDI è un foglio di lavoro: si
+// cancella. Uno che è partito è un atto fiscale verso il cliente: non si tocca,
+// per disfarlo serve una nota di credito. La differenza la dice `ei_status`
+// (documentazione FIC): vuoto, «not_sent» o «missing» = mai partita; tutto il
+// resto («attempt», «sent», «pending», «accepted», «rejected», «discarded»…) =
+// il documento è uscito, o sta uscendo, e qui non si cancella niente.
+//
+// Non lancia MAI: chi chiama ha già cancellato la riga in Finance e deve solo
+// dire com'è andata di là. Torna un esito parlante, non un booleano.
+export type EsitoEliminazioneFic =
+  | { stato: "eliminata"; id: number }
+  | { stato: "non_trovata" }
+  | { stato: "inviata"; eiStatus: string }
+  | { stato: "scollegato" }
+  | { stato: "errore"; messaggio: string };
+
+const EI_MAI_INVIATA = new Set(["", "not_sent", "missing"]);
+
+export async function ficEliminaDocumento(numero: string, annoFallback?: number): Promise<EsitoEliminazioneFic> {
+  try {
+    const stato = await ficStato();
+    if (!stato.collegato || !stato.companyId) return { stato: "scollegato" };
+    const id = await ficIdDaNumero(numero, annoFallback);
+    if (!id) return { stato: "non_trovata" };
+    const doc = await ficFetch<{ data: { ei_status?: string | null } }>(
+      `/c/${stato.companyId}/issued_documents/${id}?fields=id,ei_status`
+    );
+    const ei = (doc.data.ei_status ?? "").trim();
+    if (!EI_MAI_INVIATA.has(ei)) return { stato: "inviata", eiStatus: ei };
+    await ficFetch(`/c/${stato.companyId}/issued_documents/${id}`, { method: "DELETE" });
+    revalidateTag("fic");
+    return { stato: "eliminata", id };
+  } catch (e) {
+    return { stato: "errore", messaggio: (e as Error).message };
   }
 }

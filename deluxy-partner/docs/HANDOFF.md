@@ -47,7 +47,63 @@
 > verifica `readySubstate: PROMOTED` e `crons.deploymentId` dall'API
 > (`GET /v9/projects/prj_GHPnElvYTaHUUmqhMaFKaD5yWn24?teamId=team_vt9JRBhnxbY4spm5LzhNyxoY`)
 > e `vercel inspect https://deluxy-partner.vercel.app`. `alias set` non serve
-> più. Il primo `promote` è stato fatto in questa sessione (vedi sotto l'esito).
+> più. Il primo `promote` è stato fatto in questa sessione: `efpfyu1sf`
+> (commit `4bc7a438`) è `PROMOTED`, `targets.production` e `crons.deploymentId`
+> puntano lì, il cron qonto è passato a `24 5`. Dall'11/09 il cron gira il
+> codice vero.
+
+
+> 🧾 **10/09/2026 (pomeriggio) — TRE SEGNALAZIONI DELL'UTENTE SULLA STESSA
+> PAGINA: «Nuova fattura» (`/registrazioni/fatture/nuova`, il «+ Fattura»
+> della scheda partner).**
+> 1. **«Per DIPTYQUE mi dà la 648 che non ho finalizzato su FIC: ho dovuto
+>    annullare su FIC perché in app non so da dove cancellare. La
+>    cancellazione cancella anche su FIC (se non è già inviata)».**
+>    - `deleteFattura` ora: storna l'incasso automatico sul saldo
+>      (`stornaIncassoAuto`) e toglie il riferimento Pagamenti — **prima non lo
+>      faceva**: cancellando una fattura «saldata» di un partner in
+>      compensazione il bonifico restava sul mese senza la fattura che lo
+>      spiegava; poi cancella la riga; poi, se il numero è SINGOLO
+>      (`648/2026`, non `447-448-449-450/2026`), chiama
+>      **`ficEliminaDocumento`** (nuova, in `fic.ts`): legge `ei_status` del
+>      documento e cancella (`DELETE /issued_documents/{id}`) **solo** se è
+>      vuoto, `not_sent` o `missing` (valori dalla documentazione FIC); ogni
+>      altro stato (`attempt`, `sent`, `pending`, `accepted`, `rejected`,
+>      `discarded`…) = partita → non si tocca, serve una nota di credito.
+>      Non lancia mai: torna un esito, che finisce nel registro e nel redirect
+>      (`ficEsito`, `ficMsg`) e nel riquadro «Fattura eliminata» della scheda.
+>    - `ficFetch` accetta risposte **senza corpo** (la DELETE): prima `json()`
+>      su stringa vuota lanciava e una cancellazione riuscita sembrava fallita.
+>    - Bottone **«Elimina»** (ConfermaElimina) sulla riga della fattura nella
+>      scheda partner, in tutti gli stati; testi aggiornati anche su
+>      `/fatture/[id]`.
+>    - Per la 648: su FIC l'utente l'ha già annullata → «Elimina» sulla riga
+>      di DIPTYQUE toglie la riga e dice «su Fatture in Cloud non c'era».
+> 2. **«L'app delivery ha trasmesso queste fatture come fatture di agosto ma
+>    qui le dà a settembre»** (643, 644, 648 di DIPTYQUE). Causa: la pagina
+>    registrava `mese = data.getUTCMonth()+1` (data del documento). Ora c'è il
+>    campo **«Mese di competenza»** (default: mese corrente) e vale la regola
+>    dell'import da FIC: `meseNellaDescrizione(oggetto ?? prima riga)` vince,
+>    con l'anno prima se il mese nominato è dopo quello del documento; se la
+>    descrizione ha corretto la scelta, lo scrive il registro.
+>    📏 Dati: la **643** l'aveva già spostata Renato ad agosto alle 13:20; la
+>    **644 è ancora a settembre** — lo spostamento via script è stato bloccato
+>    dal classificatore dei permessi: si fa dalla sua scheda (`/fatture/<id>`
+>    → «Modifica record» → mese Agosto); la 648 è da eliminare (punto 1).
+> 3. **«Se creo una fattura da scheda partner con "+ Fattura" non mi aggiorna
+>    le tabelle dei vari mesi, esempio la 648 di CONLESTELLE».** Il bottone
+>    apriva `/registrazioni/fatture/nuova` **senza il partner** e a fattura
+>    fatta rimandava all'elenco FIC: da CASATI 14 (CONLESTELLE) è nata la
+>    648/2026 **sotto DIPTYQUE** (nessuna riga nel registro: la pagina non
+>    scriveva niente), e i mesi di CONLESTELLE restavano vuoti. Ora il link
+>    porta `?partnerId=`, `SceltaCliente` ha `valoreIniziale` (partner già
+>    scelto, «Cambia» per un altro), il form porta `tornaA` e a fattura fatta
+>    si torna su `/partner/<id>?emessa=<n>&mese=<m>#mese-<m>` con un riquadro
+>    verde; gli errori tornano sulla pagina **con il partner ancora
+>    preselezionato**. Ogni emissione scrive nel registro (oggetto, competenza,
+>    se registrata nei conti del partner e perché no).
+> ⚠️ Non ho potuto provare l'interfaccia in locale (serve la sessione di
+> team): verificato con `tsc` pulito e `next build` completo.
 
 
 > 🔑 **09/09/2026 — UNA CHIAVE API PER OGNI APPLICAZIONE.**

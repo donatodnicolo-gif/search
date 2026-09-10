@@ -8,7 +8,7 @@ import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
 import { tokenPartner, matchPartner } from "@/lib/riconciliazione";
-import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
+import { segnaFatturaPagata, segnaFatturaCompensata, deleteFattura, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
 import { nettoDaChiedere } from "@/lib/saldo-netto";
@@ -120,6 +120,7 @@ export default async function PartnerDetail({
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
     ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string; fattEliminata?: string; extra?: string;
+    ficEsito?: string; ficMsg?: string; emessa?: string;
   }>;
 }) {
   const { id } = await params;
@@ -448,7 +449,10 @@ export default async function PartnerDetail({
               </button>
             </form>
           )}
-          <Link href="/registrazioni/fatture/nuova" className="btn secondary">+ Fattura</Link>
+          {/* il partner viaggia nell'URL: la pagina lo preseleziona e, a fattura
+              fatta, torna QUI sul mese giusto (10/09/2026: da questo bottone la
+              648/2026 di CONLESTELLE è finita sotto un altro partner) */}
+          <Link href={`/registrazioni/fatture/nuova?partnerId=${id}`} className="btn secondary">+ Fattura</Link>
           <Link href={`/vendite/nuova?partnerId=${id}`} className="btn secondary">+ Vendita vendor</Link>
           <Link href={`/partner/${id}/modifica`} prefetch={false} className="btn primary">Modifica</Link>
         </div>
@@ -591,7 +595,28 @@ export default async function PartnerDetail({
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Fattura eliminata</span>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
-            Non è più nei conti di questo partner. Su Fatture in Cloud non è cambiato niente.
+            Non è più nei conti di questo partner.{" "}
+            {sp.ficEsito === "eliminata"
+              ? "Cancellata anche su Fatture in Cloud: non era ancora stata inviata allo SDI."
+              : sp.ficEsito === "inviata"
+                ? `Su Fatture in Cloud NON è stata toccata: era già andata allo SDI (stato «${sp.ficMsg ?? "?"}»). Per annullarla serve una nota di credito.`
+                : sp.ficEsito === "non_trovata"
+                  ? "Su Fatture in Cloud non c'era (già cancellata, o mai emessa lì)."
+                  : sp.ficEsito === "scollegato"
+                    ? "Fatture in Cloud non è collegato: là non è cambiato niente."
+                    : sp.ficEsito === "errore"
+                      ? `Su Fatture in Cloud NON sono riuscito a cancellarla: ${sp.ficMsg ?? "errore sconosciuto"}. Va tolta da lì a mano.`
+                      : "Non aveva un numero singolo di Fatture in Cloud: là non c'era niente da cancellare."}
+          </p>
+        </div>
+      )}
+
+      {sp.emessa && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Fattura {decodeURIComponent(sp.emessa)} emessa su Fatture in Cloud</span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            Registrata qui sotto{sp.mese ? ` nel mese di ${nomeMese(Number(sp.mese))}` : ""}. Non è stata inviata allo SDI: si
+            controlla e si invia da Fatture in Cloud. Se è sbagliata, «Elimina» sulla sua riga la cancella anche di là.
           </p>
         </div>
       )}
@@ -1128,6 +1153,19 @@ export default async function PartnerDetail({
                               </form>
                             </>
                           )}
+                          {/* Elimina: dalla riga, senza passare dalla scheda (10/09/2026).
+                              Cancella anche su Fatture in Cloud se non è mai andata
+                              allo SDI; l'esito lo dice il riquadro in cima. */}
+                          <form action={deleteFattura.bind(null, f.id, `/partner/${id}?fattEliminata=1#mese-${f.mese}`)} style={{ display: "inline" }}>
+                            <ConfermaElimina
+                              className="btn small secondary"
+                              trigger="Elimina"
+                              inCorso="Elimino…"
+                              oggetto={`la fattura ${f.numero ?? "senza numero"} (${euro(f.imponibile)})`}
+                              conseguenza="Sparisce dai conti del partner. Su Fatture in Cloud viene cancellata solo se non è mai stata inviata allo SDI; se è partita resta lì e serve una nota di credito."
+                              title="Elimina la fattura dall'app e, se non è ancora allo SDI, anche da Fatture in Cloud"
+                            />
+                          </form>
                         </span>
                       </td>
                       <td className="num">

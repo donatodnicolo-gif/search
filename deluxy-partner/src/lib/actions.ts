@@ -9,7 +9,7 @@ import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, creaAnag
 import { allineaPartnerDaRegistro } from "./allinea-registro";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
-import { ficAllineaStatoFattura, ficAllineaIncassoParziale } from "./fic";
+import { ficAllineaStatoFattura, ficAllineaIncassoParziale, ficEliminaDocumento, type EsitoEliminazioneFic } from "./fic";
 import { registra } from "./registro";
 import { tipologiaDaUsare } from "./tipologie";
 import { euro } from "./format";
@@ -496,15 +496,62 @@ export async function incassaFatturaParziale(id: string, fd: FormData) {
 // cancellazione era riuscita, ma sembrava fallita (segnalato dall'utente il
 // 04/09/2026, fattura da 450 € di GIADA CAKE). Dall'ELENCO invece non serve:
 // la riga sparisce e l'elenco resta dov'era.
+// ELIMINA una fattura servizi — dall'app E da Fatture in Cloud (10/09/2026,
+// richiesta dell'utente: la 648/2026 di DIPTYQUE, mai finalizzata, ha dovuto
+// essere annullata a mano su FIC perché qui non c'era da dove).
+//
+// Tre cose, nell'ordine:
+//   1. si disfa quello che la fattura aveva scritto altrove: l'incasso
+//      automatico sul saldo del mese (partner in compensazione) e il
+//      riferimento nel registro Pagamenti — prima la cancellazione li lasciava
+//      lì, e un bonifico «ricevuto» sopravviveva alla fattura che lo spiegava;
+//   2. si cancella la riga;
+//   3. se ha un numero SINGOLO («648/2026», non «447-448-449-450/2026»), si prova
+//      a cancellare il documento anche su FIC — SOLO se non è mai andato allo
+//      SDI (`ficEliminaDocumento` lo verifica su `ei_status`). Un documento
+//      partito resta dov'è, e lo si dice: serve una nota di credito.
+// L'esito di FIC viaggia nel redirect (`ficEsito`, `ficMsg`) e nel registro:
+// «eliminata» senza dire cos'è successo di là è come non dirlo.
 export async function deleteFattura(id: string, tornaA?: string) {
   const f = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: { select: { nome: true } } } });
+  if (!f) {
+    if (tornaA) redirect(tornaA);
+    return;
+  }
+  await stornaIncassoAuto(f);
+  await rimuoviPagamento("fattura_servizi", f.id);
   await prisma.fatturaServizio.delete({ where: { id } });
+
+  const numeroSingolo = !!f.numero && /^\s*\d+\s*(?:\/\s*\d{4})?\s*$/.test(f.numero);
+  const fic: EsitoEliminazioneFic | { stato: "senza_numero" } = numeroSingolo
+    ? await ficEliminaDocumento(f.numero!, f.anno)
+    : { stato: "senza_numero" };
+  const ficTesto =
+    fic.stato === "eliminata" ? "cancellata anche su Fatture in Cloud (mai inviata allo SDI)"
+    : fic.stato === "inviata" ? `su Fatture in Cloud NON toccata: già allo SDI (stato «${fic.eiStatus}»), serve una nota di credito`
+    : fic.stato === "non_trovata" ? "su Fatture in Cloud non c'era"
+    : fic.stato === "scollegato" ? "Fatture in Cloud non collegato: là non è cambiato niente"
+    : fic.stato === "errore" ? `su Fatture in Cloud NON cancellata: ${fic.messaggio}`
+    : "senza numero singolo: su Fatture in Cloud niente da cancellare";
+
   await registra({
-    azione: `Eliminata fattura servizi ${f?.numero ?? "s.n."}`,
-    categoria: "fatture", entita: "fattura", entitaId: id, partner: f?.partner.nome ?? null,
+    azione: `Eliminata fattura servizi ${f.numero ?? "s.n."} (${euro(f.imponibile)})`,
+    categoria: "fatture", entita: "fattura", entitaId: id, partner: f.partner.nome,
+    dettaglio:
+      `${nomeMese(f.mese)} ${f.anno} · ${f.descrizione ?? "senza descrizione"} · ${ficTesto}` +
+      (f.incassoRegistrato ? " · stornato l'incasso automatico dal saldo del mese" : ""),
   });
   revalidateAll();
-  if (tornaA) redirect(tornaA);
+  if (tornaA) {
+    // l'esito di FIC va nella query, PRIMA dell'eventuale #ancora
+    const [base, ancora] = tornaA.split("#");
+    const sep = base.includes("?") ? "&" : "?";
+    const extra =
+      `${sep}ficEsito=${fic.stato}` +
+      (fic.stato === "inviata" ? `&ficMsg=${encodeURIComponent(fic.eiStatus)}` : "") +
+      (fic.stato === "errore" ? `&ficMsg=${encodeURIComponent(fic.messaggio)}` : "");
+    redirect(`${base}${extra}${ancora ? `#${ancora}` : ""}`);
+  }
 }
 
 // Registra una fattura ESISTENTE su Fatture in Cloud come "Servizio a fatturazione"

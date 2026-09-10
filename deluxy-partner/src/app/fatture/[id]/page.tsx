@@ -194,9 +194,9 @@ export default async function FatturaDetail({
         <form action={deleteFattura.bind(null, id, `/partner/${fattura.partnerId}?fattEliminata=1`)}>
           <ConfermaElimina
             oggetto={`la fattura ${fattura.numero ?? "senza numero"} di ${fattura.partner.nome} (${euro(fattura.imponibile)})`}
-            conseguenza="Sparisce dall'app e dai conti del partner. Su Fatture in Cloud non cambia niente: se il documento esiste, resta lì."
+            conseguenza="Sparisce dall'app e dai conti del partner. Su Fatture in Cloud viene cancellata solo se non è mai stata inviata allo SDI; se è partita resta lì e serve una nota di credito."
             inCorso="Elimino…"
-            title="Elimina definitivamente questa fattura dall'app (non tocca Fatture in Cloud)"
+            title="Elimina questa fattura dall'app e, se non è ancora allo SDI, anche da Fatture in Cloud"
           />
         </form>
       </div>

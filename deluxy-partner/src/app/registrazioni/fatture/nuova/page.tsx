@@ -10,6 +10,10 @@ import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
 import { SceltaCliente, type OpzioneCliente } from "@/components/SceltaCliente";
 import { BottoneInvio } from "@/components/BottoneInvio";
+import { meseNellaDescrizione } from "@/lib/fic-mancanti";
+import { registra } from "@/lib/registro";
+import { nomeMese, MESI } from "@/lib/calc";
+import { euro } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +31,10 @@ async function emettiFattura(fd: FormData) {
   const scadenza = scadenzaTxt ? new Date(scadenzaTxt + "T00:00:00.000Z") : null;
   const dataTxt = String(fd.get("data") ?? "").trim();
   const data = dataTxt ? new Date(dataTxt + "T00:00:00.000Z") : new Date();
+  // dove tornare a fattura fatta (la scheda del partner, se si è partiti da lì)
+  const tornaA = String(fd.get("tornaA") ?? "").trim();
+  const paginaErrore = (msg: string) =>
+    `/registrazioni/fatture/nuova?${tornaA ? `partnerId=${encodeURIComponent(tornaA.replace(/^\/partner\//, ""))}&` : ""}errore=${encodeURIComponent(msg)}`;
 
   // righe dal form (stesso formato dell'editor pro-forma)
   const descrizioni = fd.getAll("rigaDescrizione").map((v) => String(v).trim());
@@ -48,7 +56,7 @@ async function emettiFattura(fd: FormData) {
     .filter((r) => r.descrizione !== "");
 
   if (righe.length === 0 || righe.some((r) => isNaN(r.prezzoUnitario))) {
-    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Inserisci almeno una riga con descrizione e prezzo."));
+    redirect(paginaErrore("Inserisci almeno una riga con descrizione e prezzo."));
   }
 
   // risolve il cliente: id rubrica, dati da una fattura passata, o cliente nuovo
@@ -116,7 +124,7 @@ async function emettiFattura(fd: FormData) {
     }
   }
   if (!clienteId && !entity) {
-    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent("Scegli un cliente dall'elenco oppure compila almeno la ragione sociale in «Cliente nuovo»."));
+    redirect(paginaErrore("Scegli un cliente dall'elenco oppure compila almeno la ragione sociale in «Cliente nuovo»."));
   }
 
   let numero: string;
@@ -125,7 +133,7 @@ async function emettiFattura(fd: FormData) {
     const res = await ficCreaFattura({ clienteId, entity: entity ?? undefined, righe, visibleSubject: oggetto, data, scadenza, metodoPagamentoId });
     numero = res.numero;
   } catch (e) {
-    redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent((e as Error).message));
+    redirect(paginaErrore((e as Error).message));
   }
   revalidatePath("/registrazioni/fatture", "layout");
 
@@ -146,16 +154,38 @@ async function emettiFattura(fd: FormData) {
       (await prisma.partner.findFirst({ where: { nome: { equals: entity.name, mode: "insensitive" } }, select: { id: true } }))?.id ??
       null;
   }
+  // LA COMPETENZA (10/09/2026, segnalato dall'utente: «l'app delivery ha
+  // trasmesso queste fatture come fatture di agosto ma qui le dà a settembre»).
+  // Prima il mese era quello della DATA del documento; ma una fattura
+  // «Servizi di consegna Agosto 2026» emessa a settembre è un ricavo di agosto.
+  // Vale la stessa regola dell'import notturno da FIC: se l'oggetto (o la
+  // prima riga) NOMINA un mese, è quello — e «dicembre» su un documento di
+  // gennaio è l'anno prima; sennò vale il mese scelto nel modulo, che parte
+  // dalla data del documento. Se la descrizione ha corretto la scelta, lo si
+  // scrive nel registro: non si cambiano le carte in silenzio.
+  const meseDoc = data.getUTCMonth() + 1;
+  const annoDoc = data.getUTCFullYear();
+  const meseScelto = Number(fd.get("competenzaMese")) || meseDoc;
+  const annoScelto = Number(fd.get("competenzaAnno")) || annoDoc;
+  const meseNominato = meseNellaDescrizione(oggetto) ?? meseNellaDescrizione(righe[0]?.descrizione);
+  const mese = meseNominato ?? meseScelto;
+  const anno = meseNominato ? (meseNominato > meseDoc ? annoDoc - 1 : annoDoc) : annoScelto;
+  const competenzaCorretta = meseNominato && (meseNominato !== meseScelto || anno !== annoScelto);
+
+  const imponibile = righe.reduce((a, r) => a + (r.quantita ?? 1) * r.prezzoUnitario, 0);
+  const partnerNome = partnerId
+    ? (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null
+    : null;
   let registrata = false;
+  let perche: string | null = null;
   if (partnerId && tipologiaId) {
     try {
-      const imponibile = righe.reduce((a, r) => a + (r.quantita ?? 1) * r.prezzoUnitario, 0);
       await prisma.fatturaServizio.create({
         data: {
           partnerId,
           tipologiaId,
-          anno: data.getUTCFullYear(),
-          mese: data.getUTCMonth() + 1,
+          anno,
+          mese,
           numero,
           imponibile: +imponibile.toFixed(2),
           aliquotaIva: righe[0]?.aliquotaIva ?? 22,
@@ -165,9 +195,31 @@ async function emettiFattura(fd: FormData) {
       });
       registrata = true;
       for (const pth of ["/", "/partner", "/fatture", "/saldi", "/scadenzario", "/report"]) revalidatePath(pth, "layout");
-    } catch {
-      // la fattura FIC è comunque creata; la registrazione locale si può rifare a mano
+    } catch (e) {
+      // la fattura FIC è comunque creata; la registrazione locale si può rifare
+      // a mano — ma il PERCHÉ va scritto, non inghiottito
+      perche = (e as Error).message;
     }
+  }
+  // Nel registro: prima questa pagina non scriveva niente, e una fattura nata
+  // da qui (la 648/2026) non aveva nessuna traccia di chi l'avesse fatta.
+  await registra({
+    azione: `Emessa fattura ${numero} su Fatture in Cloud (${euro(imponibile)})`,
+    categoria: "fatture",
+    entita: "fattura",
+    partner: partnerNome,
+    dettaglio:
+      `${oggetto || righe[0]?.descrizione || "senza oggetto"} · competenza ${nomeMese(mese)} ${anno}` +
+      (competenzaCorretta ? ` (la descrizione nomina ${nomeMese(mese)}: vince sul mese scelto, ${nomeMese(meseScelto)} ${annoScelto})` : "") +
+      (partnerId
+        ? registrata
+          ? " · registrata come servizio a fatturazione del partner"
+          : ` · NON registrata nei conti del partner: ${perche ?? "tipologia mancante"}`
+        : " · cliente non partner: solo su FIC") +
+      " · non inviata allo SDI",
+  });
+  if (tornaA && registrata) {
+    redirect(`${tornaA}?emessa=${encodeURIComponent(numero)}&mese=${mese}#mese-${mese}`);
   }
   redirect(`/registrazioni/fatture?emessa=${encodeURIComponent(numero)}${registrata ? "&servizio=1" : ""}`);
 }
@@ -175,9 +227,14 @@ async function emettiFattura(fd: FormData) {
 export default async function NuovaFatturaCloud({
   searchParams,
 }: {
-  searchParams: Promise<{ errore?: string }>;
+  searchParams: Promise<{ errore?: string; partnerId?: string }>;
 }) {
   const sp = await searchParams;
+  // si arriva da «+ Fattura» sulla scheda di un partner: lui è già scelto e a
+  // fattura fatta si torna sulla sua scheda, sul mese di competenza
+  const partnerIniziale = sp.partnerId
+    ? await prisma.partner.findUnique({ where: { id: sp.partnerId }, select: { id: true, nome: true } })
+    : null;
   const [stato, partners, tipologie] = await Promise.all([
     ficStato(),
     prisma.partner.findMany({ where: { attivo: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -256,14 +313,22 @@ export default async function NuovaFatturaCloud({
       })),
   ];
   const oggi = new Date().toISOString().slice(0, 10);
+  const meseOggi = new Date().getMonth() + 1;
+  const annoOggi = new Date().getFullYear();
 
   return (
     <>
       <div className="page-head">
         <div>
-          <Link href="/registrazioni/fatture" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna alle fatture
-          </Link>
+          {partnerIniziale ? (
+            <Link href={`/partner/${partnerIniziale.id}`} className="btn secondary small" style={{ marginBottom: 10 }}>
+              ← Torna a {partnerIniziale.nome}
+            </Link>
+          ) : (
+            <Link href="/registrazioni/fatture" className="btn secondary small" style={{ marginBottom: 10 }}>
+              ← Torna alle fatture
+            </Link>
+          )}
           <h1 className="page-title">Nuova fattura</h1>
           <p className="page-caption">
             Crea una fattura direttamente su <strong>Fatture in Cloud</strong>. Viene creata
@@ -289,10 +354,15 @@ export default async function NuovaFatturaCloud({
         </div>
       ) : (
         <form action={emettiFattura} className="card">
+          {partnerIniziale && <input type="hidden" name="tornaA" value={`/partner/${partnerIniziale.id}`} />}
           <div className="form-grid">
             <div>
               <label className="field-label">Cliente su Fatture in Cloud</label>
-              <SceltaCliente name="clienteId" opzioni={opzioniCliente} />
+              <SceltaCliente
+                name="clienteId"
+                opzioni={opzioniCliente}
+                valoreIniziale={partnerIniziale ? `partner:${partnerIniziale.id}` : undefined}
+              />
               <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
                 Scrivi le prime lettere: cerca fra i <strong>partner Deluxy</strong> (dati fiscali dal registro
                 Anagrafiche) e i clienti di <strong>Fatture in Cloud</strong>. Sotto ogni risultato c'è scritto da
@@ -382,6 +452,22 @@ export default async function NuovaFatturaCloud({
             <div className="full">
               <label className="field-label">Oggetto visibile in fattura</label>
               <input type="text" name="oggetto" placeholder="es. Servizi di consegna giugno 2026" />
+            </div>
+
+            <div>
+              <label className="field-label">Mese di competenza</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select name="competenzaMese" defaultValue={String(meseOggi)}>
+                  {MESI.map((m, i) => (
+                    <option key={m} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+                <input type="number" name="competenzaAnno" defaultValue={annoOggi} min={2020} max={2100} style={{ width: 90 }} />
+              </div>
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                Il mese in cui il servizio è stato reso, non quello del documento: è dove la fattura entra nei conti
+                del partner. <strong>Se l'oggetto nomina un mese («Agosto 2026»), vince quello.</strong>
+              </p>
             </div>
 
             <div className="full">

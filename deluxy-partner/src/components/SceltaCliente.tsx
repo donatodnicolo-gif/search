@@ -37,13 +37,19 @@ export function SceltaCliente({
   name,
   opzioni,
   placeholder = "Scrivi il nome del cliente…",
+  valoreIniziale,
 }: {
   name: string;
   opzioni: OpzioneCliente[];
   placeholder?: string;
+  // Cliente già scelto all'apertura (es. si arriva da «+ Fattura» sulla scheda
+  // di un partner): si parte da lui, con «Cambia» per sceglierne un altro.
+  valoreIniziale?: string;
 }) {
   const [testo, setTesto] = useState("");
-  const [scelto, setScelto] = useState<OpzioneCliente | null>(null);
+  const [scelto, setScelto] = useState<OpzioneCliente | null>(
+    () => (valoreIniziale ? opzioni.find((o) => o.valore === valoreIniziale) ?? null : null)
+  );
   const [aperto, setAperto] = useState(false);
   const contenitore = useRef<HTMLDivElement>(null);
 
