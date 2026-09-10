@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
 import { datiFiscaliDaFic } from "@/lib/riconciliazione-fic";
 import { matchPartner } from "@/lib/riconciliazione";
-import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, type RigaFattura, type FicEntity } from "@/lib/fic";
+import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, ficSegnaFatturaPagata, type RigaFattura, type FicEntity } from "@/lib/fic";
+import { segnaFatturaPagataConEsito } from "@/lib/actions";
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
 import { SceltaCliente, type OpzioneCliente } from "@/components/SceltaCliente";
@@ -33,6 +34,14 @@ async function emettiFattura(fd: FormData) {
   const data = dataTxt ? new Date(dataTxt + "T00:00:00.000Z") : new Date();
   // dove tornare a fattura fatta (la scheda del partner, se si è partiti da lì)
   const tornaA = String(fd.get("tornaA") ?? "").trim();
+  // ⭐ 10/09/2026 (richiesta dell'utente: «in nuova fattura consenti di mettere
+  // se è già saldata oppure no»). Capita spesso: il partner ha già pagato e la
+  // fattura nasce per regolarizzare. Senza la spunta si emetteva, si andava su
+  // FIC a segnarla pagata, e qui si premeva «Salda tutto»: tre posti per un
+  // fatto solo. Riguarda l'INCASSO, non l'invio allo SDI.
+  const saldata = fd.get("saldata") === "1";
+  const dataSaldoTxt = String(fd.get("dataSaldo") ?? "").trim();
+  const dataSaldo = saldata ? (dataSaldoTxt ? new Date(dataSaldoTxt + "T00:00:00.000Z") : new Date()) : null;
   const paginaErrore = (msg: string) =>
     `/registrazioni/fatture/nuova?${tornaA ? `partnerId=${encodeURIComponent(tornaA.replace(/^\/partner\//, ""))}&` : ""}errore=${encodeURIComponent(msg)}`;
 
@@ -128,10 +137,12 @@ async function emettiFattura(fd: FormData) {
   }
 
   let numero: string;
+  let idFic: number | null = null;
   try {
     const metodoPagamentoId = Number(fd.get("metodoPagamento")) || undefined;
     const res = await ficCreaFattura({ clienteId, entity: entity ?? undefined, righe, visibleSubject: oggetto, data, scadenza, metodoPagamentoId });
     numero = res.numero;
+    idFic = res.id;
   } catch (e) {
     redirect(paginaErrore((e as Error).message));
   }
@@ -176,11 +187,23 @@ async function emettiFattura(fd: FormData) {
   const partnerNome = partnerId
     ? (await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true } }))?.nome ?? null
     : null;
+  // Il pagamento su Fatture in Cloud: si tenta SEMPRE se richiesto, anche per
+  // un cliente che non è un partner. Se fallisce la fattura è già creata e non
+  // si torna indietro in silenzio: lo si scrive e si va avanti.
+  let saldoFic: string | null = null;
+  if (saldata && idFic) {
+    try {
+      await ficSegnaFatturaPagata(idFic, true, dataSaldo ?? undefined);
+      saldoFic = "segnata pagata su FIC";
+    } catch (e) {
+      saldoFic = `NON segnata pagata su FIC: ${(e as Error).message}`;
+    }
+  }
   let registrata = false;
   let perche: string | null = null;
   if (partnerId && tipologiaId) {
     try {
-      await prisma.fatturaServizio.create({
+      const nuova = await prisma.fatturaServizio.create({
         data: {
           partnerId,
           tipologiaId,
@@ -194,6 +217,13 @@ async function emettiFattura(fd: FormData) {
         },
       });
       registrata = true;
+      // L'incasso in Finance passa dall'UNICO punto che sa cosa vuol dire
+      // «saldata» (partner in compensazione → incasso sul saldo del mese,
+      // registro Pagamenti, riga nel registro modifiche). FIC è già allineato
+      // sopra: allineaFic=false evita di rifare le stesse chiamate.
+      if (saldata) {
+        await segnaFatturaPagataConEsito(nuova.id, true, dataSaldo ?? undefined, { allineaFic: false });
+      }
       for (const pth of ["/", "/partner", "/fatture", "/saldi", "/scadenzario", "/report"]) revalidatePath(pth, "layout");
     } catch (e) {
       // la fattura FIC è comunque creata; la registrazione locale si può rifare
@@ -216,6 +246,7 @@ async function emettiFattura(fd: FormData) {
           ? " · registrata come servizio a fatturazione del partner"
           : ` · NON registrata nei conti del partner: ${perche ?? "tipologia mancante"}`
         : " · cliente non partner: solo su FIC") +
+      (saldata ? ` · già saldata il ${(dataSaldo ?? new Date()).toISOString().slice(0, 10)} (${saldoFic ?? "FIC: id documento mancante"})` : " · da incassare") +
       " · non inviata allo SDI",
   });
   if (tornaA && registrata) {
@@ -487,6 +518,28 @@ export default async function NuovaFatturaCloud({
             </div>
 
             <RigheProForma />
+
+            {/* Già saldata: un fatto solo, scritto in un posto solo (vedi la
+                stessa spunta in /fic/emetti). Riguarda l'INCASSO: l'invio allo
+                SDI resta da fare su Fatture in Cloud, come sempre. */}
+            <div className="full">
+              <div
+                style={{ padding: "12px 14px", background: "var(--bg)", borderRadius: 10, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}
+              >
+                <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, fontWeight: 500 }}>
+                  <input type="checkbox" name="saldata" value="1" />
+                  La fattura è già stata saldata
+                </label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: "var(--text-secondary)" }}>
+                  il giorno
+                  <input type="date" name="dataSaldo" defaultValue={oggi} style={{ fontSize: 12.5, padding: "4px 8px" }} />
+                </label>
+                <span className="muted" style={{ fontSize: 12, flex: "1 1 220px" }}>
+                  Segna il pagamento su Fatture in Cloud e registra l&apos;incasso nei conti del partner, come «Salda tutto».
+                  Senza la spunta nasce da incassare. Non c&apos;entra con l&apos;invio allo SDI.
+                </span>
+              </div>
+            </div>
           </div>
           <div className="form-footer">
             <BottoneInvio inCorso="Sto emettendo su Fatture in Cloud…">Emetti su Fatture in Cloud</BottoneInvio>

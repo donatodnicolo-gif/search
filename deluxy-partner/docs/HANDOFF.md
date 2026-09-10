@@ -116,6 +116,15 @@
 >    verde; gli errori tornano sulla pagina **con il partner ancora
 >    preselezionato**. Ogni emissione scrive nel registro (oggetto, competenza,
 >    se registrata nei conti del partner e perché no).
+> 4. **«In nuova fattura consenti di mettere se è già saldata oppure no».**
+>    Spunta «La fattura è già stata saldata» + data (stesso blocco di
+>    `/fic/emetti`). Su FIC: `ficSegnaFatturaPagata(idFic, true, data)` — si
+>    tenta sempre, anche per un cliente non partner; se fallisce la fattura è
+>    già creata e lo si scrive nel registro, non si torna indietro. In Finance:
+>    la riga nasce e poi passa da `segnaFatturaPagataConEsito(id, true, data,
+>    { allineaFic: false })`, l'UNICO punto che sa cosa vuol dire «saldata»
+>    (incasso sul saldo del mese per chi è in compensazione, registro
+>    Pagamenti, riga nel registro modifiche). Riguarda l'incasso, non lo SDI.
 > ⚠️ Non ho potuto provare l'interfaccia in locale (serve la sessione di
 > team): verificato con `tsc` pulito e `next build` completo.
 > ✅ **In produzione**: `jh5ohof6v` (commit `fbb78f85`), `PROMOTED` **da solo** —
