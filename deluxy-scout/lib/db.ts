@@ -3424,6 +3424,10 @@ export const APP_DELUXY: AppDeluxy[] = [
   { id: 'scripts', nome: 'Scripts', urlDefault: 'https://deluxy-scripts.vercel.app', aCosaServe: 'I testi pronti da mandare al cliente, già composti.' },
   { id: 'marketing', nome: 'Marketing', urlDefault: 'https://deluxy-marketing.vercel.app', aCosaServe: 'La spesa pubblicitaria reale per brand.' },
   { id: 'partner', nome: 'Partner', urlDefault: 'https://deluxy-partner.vercel.app', aCosaServe: 'La parte finanziaria dei partner: fatture e saldi.' },
+  // La chiave si crea DI LÀ: `npm run chiave -- deluxy-scout` nella cartella del
+  // Customer Service (sola lettura). La Edge `customer-service` la usa per
+  // `GET /api/v1/fornitori`: gli ordini affidati a ogni fornitore (10/09/2026).
+  { id: 'customer-service', nome: 'Customer Service', urlDefault: 'https://deluxy-messaging.vercel.app', aCosaServe: 'Gli ordini affidati ai fornitori: quanti e per quanto negli ultimi 30 e 180 giorni.' },
   // ⚠️ L'indirizzo è quello del CANALE APP (`/api/v1`), non della pagina: la
   // piattaforma serve web e API sullo stesso dominio, e puntare alla home
   // farebbe rispondere l'HTML dell'app al posto dei dati.

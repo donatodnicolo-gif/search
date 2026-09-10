@@ -45,6 +45,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // dalla prima si arrivava alla seconda con un parametro che nessuno
       // leggeva. La rotta /province resta viva per i link già in giro.
       { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
+      // ⚠️ «Segnalazioni CS» NON ha una voce qui (10/09/2026, decisione
+      // dell'utente): sta dentro **Selezionati** (Contatti), come seconda
+      // scheda — sono negozi da prendere in carico, cioè selezionati che non
+      // abbiamo ancora scelto noi. Resta anche come quarta scheda di
+      // Affiliazioni, e la rotta /segnalati vive per i link già in giro.
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
     ],
   },

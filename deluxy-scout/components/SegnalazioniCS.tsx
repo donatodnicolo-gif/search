@@ -6,6 +6,13 @@
 // CS» — e sono i piu' caldi: non un negozio trovato su una mappa, ma uno che
 // ha gia' preparato un ordine per noi.
 //
+// ⭐ Dal 10/09/2026 (richiesta dell'utente) c'è una TERZA lista: i partner che
+// il Customer Service USA come fornitori di ordini (`statoFornitore` nel
+// registro: abituale / da provare / da evitare) — gli stessi della schermata
+// Fornitori — qualunque sia la `fonte` con cui sono entrati nel registro. E
+// ogni riga mostra gli ORDINI che il CS gli ha affidato negli ultimi 30 e 180
+// giorni, col venduto (letti dal CS via la Edge `customer-service`).
+//
 // ⚠️ Il nome della voce di menu è cambiato (era «Segnalati · Fornitori»), la
 // rotta no: resta `/segnalati`, così i link già in giro continuano a valere.
 //
@@ -18,19 +25,22 @@
 // ⚠️ Si legge **live** dal registro, non si copia: la regola d'oro è che la
 // fonte di verità delle anagrafiche è una sola. La copia in Scout nasce solo
 // quando qualcuno preme «Prendi in carico», e resta collegata (anagrafiche_id).
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
-import { fetchSegnalatiDaApp, type PartnerRegistro } from '@/lib/anagrafiche';
+import { etichettaFonte, fetchFornitori, fetchSegnalatiDaApp, type PartnerRegistro } from '@/lib/anagrafiche';
 import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
+import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
+import { venditeDi, type IndiceVendite } from '@/lib/vendite-fornitori';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
+import { CampoCerca, Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
 
 /** Le app che segnalano, e come si chiamano a schermo.
@@ -42,10 +52,39 @@ import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
  * sapesse. */
 const FONTI = ['deluxy-suppliers', 'customer-service'] as const;
 
-const DA_DOVE: Record<string, string> = {
-  'deluxy-suppliers': 'Segnalato dall’app fornitori',
-  'customer-service': 'Ha già preparato un ordine, ed è stato pagato',
+/** Le tre liste di questa schermata, per il filtro. `fornitore` = chi il CS
+ *  usa come fornitore di ordini (statoFornitore), da qualunque fonte. */
+type Lista = 'deluxy-suppliers' | 'customer-service' | 'fornitore';
+
+const LABEL_LISTA: Record<Lista, string> = {
+  'deluxy-suppliers': 'Dall’app fornitori',
+  'customer-service': 'Pagati dal CS',
+  fornitore: 'Fornitori del CS',
 };
+
+const LABEL_FORNITORE: Record<string, string> = {
+  abituale: 'abituale',
+  da_provare: 'da provare',
+  da_evitare: 'da evitare',
+};
+
+/** Il perché di ogni riga, detto per esteso. */
+function daDove(p: PartnerRegistro): string {
+  if (p.statoFornitore) {
+    return `Fornitore ${LABEL_FORNITORE[p.statoFornitore] ?? p.statoFornitore} del Customer Service`;
+  }
+  if (p.fonte === 'customer-service') return 'Ha già preparato un ordine, ed è stato pagato';
+  if (p.fonte === 'deluxy-suppliers') return 'Segnalato dall’app fornitori';
+  return `Segnalato da ${etichettaFonte(p.fonte)}`;
+}
+
+function listeDi(p: PartnerRegistro): Lista[] {
+  const l: Lista[] = [];
+  if (p.fonte === 'deluxy-suppliers') l.push('deluxy-suppliers');
+  if (p.fonte === 'customer-service') l.push('customer-service');
+  if (p.statoFornitore) l.push('fornitore');
+  return l;
+}
 
 export function SegnalazioniCS() {
   const router = useRouter();
@@ -62,18 +101,34 @@ export function SegnalazioniCS() {
   // monco. Va detto: una lista incompleta che sembra completa fa credere che
   // il lavoro sia finito.
   const [parziale, setParziale] = useState(false);
+  const [vendite, setVendite] = useState<EsitoVenditeFornitori | null>(null);
+  const [lista, setLista] = useState<Lista | null>(null);
+  const [cerca, setCerca] = useState('');
 
   const carica = useCallback(async () => {
     setLoading(true);
     setErrore(null);
     try {
-      const [r, ids] = await Promise.all([
+      const [r, f, ids, v] = await Promise.all([
         fetchSegnalatiDaApp([...FONTI]),
+        // I fornitori del CS (statoFornitore): una lettura a parte, perché il
+        // registro filtra per fonte O per stato, non per tutti e due.
+        fetchFornitori().catch(() => ({ partner: [] as PartnerRegistro[], parziale: true })),
         fetchAnagraficheIdPresi().catch(() => new Set<string>()),
+        fetchVenditeFornitori(180),
       ]);
-      setPartner(r.partner);
-      setParziale(r.parziale);
+      // ⚠️ Deduplica per id: lo stesso partner può essere «pagato dal CS»
+      // (fonte) E fornitore abituale (stato). È una riga sola; le liste a cui
+      // appartiene si leggono dai suoi campi (`listeDi`).
+      const visti = new Map<string, PartnerRegistro>();
+      for (const p of [...r.partner, ...f.partner]) {
+        const gia = visti.get(p.id);
+        visti.set(p.id, gia ? { ...gia, ...p, statoFornitore: gia.statoFornitore ?? p.statoFornitore } : p);
+      }
+      setPartner([...visti.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it')));
+      setParziale(r.parziale || f.parziale);
       setPresi(ids);
+      setVendite(v);
     } catch (e: any) {
       setErrore(e?.message ?? 'Registro non raggiungibile.');
     } finally {
@@ -86,6 +141,10 @@ export function SegnalazioniCS() {
       carica();
     }, [carica]),
   );
+
+  const indice: IndiceVendite | null = vendite?.ok ? vendite.indice : null;
+  const giorniLunga = indice?.giorniLunga ?? 180;
+  const venditeDiP = useCallback((p: PartnerRegistro) => venditeDi(p, indice), [indice]);
 
   async function prendiInCarico(p: PartnerRegistro) {
     setInCorso(p.id);
@@ -123,7 +182,22 @@ export function SegnalazioniCS() {
     }
   }
 
-  const daPrendere = partner.filter((p) => !presi.has(p.id));
+  const conteggi = useMemo(() => {
+    const c: Record<Lista, number> = { 'deluxy-suppliers': 0, 'customer-service': 0, fornitore: 0 };
+    for (const p of partner) for (const l of listeDi(p)) c[l]++;
+    return c;
+  }, [partner]);
+
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis) + il filtro per lista.
+  const dati = useMemo(() => {
+    const base = lista ? partner.filter((p) => listeDi(p).includes(lista)) : partner;
+    const q = cerca.trim().toLowerCase();
+    if (!q) return base;
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    return base.filter((p) => [p.nome, p.citta, p.provincia, p.categoria, daDove(p)].some((v) => nrm(v).includes(q)));
+  }, [partner, lista, cerca]);
+
+  const daPrendere = dati.filter((p) => !presi.has(p.id));
 
   // Le stesse quattro azioni in tutti e due i vestiti (scheda e tabella):
   // scritte una volta, o divergono al primo ritocco.
@@ -160,16 +234,26 @@ export function SegnalazioniCS() {
     );
   };
 
+  // ⚠️ Categoria e linee stanno SOTTO il nome: con «30 gg» e «180 gg» le
+  // colonne sarebbero nove (lezione degli Ordini: ogni colonna in più toglie
+  // pixel al nome).
   const colonne: ColonnaTabella<PartnerRegistro>[] = [
     {
       chiave: 'nome',
       label: 'Nome',
-      flex: 1.4,
+      flex: 1.5,
       valore: (p) => p.nome,
       cella: (p) => (
-        <Text style={styles.tabNome} numberOfLines={2}>
-          {p.nome}
-        </Text>
+        <View>
+          <Text style={styles.tabNome} numberOfLines={2}>
+            {p.nome}
+          </Text>
+          {p.categoria || p.interessi?.length ? (
+            <Text style={styles.tabSotto} numberOfLines={1}>
+              {[p.categoria, p.interessi?.length ? p.interessi.join(', ') : null].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+        </View>
       ),
     },
     {
@@ -178,19 +262,12 @@ export function SegnalazioniCS() {
       flex: 0.8,
       valore: (p) => [p.citta, p.provincia].filter(Boolean).join(' · ') || null,
     },
-    { chiave: 'categoria', label: 'Categoria', width: 110, valore: (p) => p.categoria ?? null },
-    {
-      chiave: 'linee',
-      label: 'Linee',
-      flex: 0.7,
-      valore: (p) => (p.interessi?.length ? p.interessi.join(', ') : null),
-    },
     {
       chiave: 'fonte',
       label: 'Da dove',
       flex: 1.1,
       righe: 2,
-      valore: (p) => DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app',
+      valore: (p) => daDove(p),
     },
     {
       // QUANDO è stato segnalato = quando è entrato nel registro (`creatoIl`).
@@ -206,9 +283,33 @@ export function SegnalazioniCS() {
       cella: (p) => <Text style={styles.tabData}>{dataBreve(p.creatoIl)}</Text>,
     },
     {
+      chiave: 'ordini30',
+      label: '30 gg',
+      width: 96,
+      destra: true,
+      numerica: true,
+      valore: (p) => venditeDiP(p)?.ordini30 ?? null,
+      cella: (p) => {
+        const v = venditeDiP(p);
+        return <CellaVendite ordini={v?.ordini30 ?? 0} venduto={v?.venduto30 ?? 0} />;
+      },
+    },
+    {
+      chiave: 'ordiniLunga',
+      label: `${giorniLunga} gg`,
+      width: 96,
+      destra: true,
+      numerica: true,
+      valore: (p) => venditeDiP(p)?.ordiniLunga ?? null,
+      cella: (p) => {
+        const v = venditeDiP(p);
+        return <CellaVendite ordini={v?.ordiniLunga ?? 0} venduto={v?.vendutoLunga ?? 0} />;
+      },
+    },
+    {
       chiave: 'stato',
       label: 'Stato',
-      width: 110,
+      width: 104,
       valore: (p) => (presi.has(p.id) ? 1 : 0),
       cella: (p) =>
         presi.has(p.id) ? (
@@ -225,6 +326,33 @@ export function SegnalazioniCS() {
       contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
+      <View style={styles.headerScroll}>
+        <PageIntro testo="Chi un'altra app ha già trovato o fatto lavorare: i negozi segnalati dall'app fornitori, quelli pagati dal Customer Service e i fornitori a cui il CS affida gli ordini — con quanti ordini hanno avuto negli ultimi 30 e 180 giorni. Si leggono live dal registro Anagrafiche; «Prendi in carico» li porta in Scout." />
+      </View>
+
+      <View style={styles.zonaFiltri}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, città, categoria, provenienza…" />
+        <RigaChips>
+          <Chip label={`Tutti (${partner.length})`} on={!lista} onPress={() => setLista(null)} title="Tutte le segnalazioni" />
+          {(Object.keys(LABEL_LISTA) as Lista[]).map((l) => (
+            <Chip
+              key={l}
+              label={`${LABEL_LISTA[l]} (${conteggi[l]})`}
+              on={lista === l}
+              onPress={() => setLista((c) => (c === l ? null : l))}
+              title={
+                l === 'fornitore'
+                  ? 'I partner che il Customer Service usa come fornitori di ordini (abituali, da provare, da evitare)'
+                  : l === 'customer-service'
+                    ? 'Chi ha già preparato un ordine per noi ed è stato pagato'
+                    : 'Fioristi e pasticcerie trovati dall’app fornitori'
+              }
+            />
+          ))}
+        </RigaChips>
+        <StatoVendite esito={vendite} />
+      </View>
+
       {errore ? (
         <Text style={styles.errore}>
           <Ionicons name="warning-outline" size={13} color={colors.errore} /> {errore}
@@ -237,9 +365,9 @@ export function SegnalazioniCS() {
       {parziale ? (
         <Text style={styles.avviso}>
           <Ionicons name="information-circle-outline" size={13} color={colors.testo} /> Elenco possibilmente
-          incompleto: il registro sta rispondendo senza il filtro per fonte, quindi si vedono solo i primi
-          fioristi e pasticcerie in ordine alfabetico — e i fornitori pagati dal Customer Service non si
-          vedono affatto. Si risolve rilanciando il deploy della funzione `anagrafiche`.
+          incompleto: il registro sta rispondendo senza il filtro per fonte o per stato fornitore, quindi si vedono
+          solo i primi fioristi e pasticcerie in ordine alfabetico — e i fornitori del Customer Service possono
+          mancare. Si risolve rilanciando il deploy della funzione `anagrafiche`.
         </Text>
       ) : null}
 
@@ -248,22 +376,31 @@ export function SegnalazioniCS() {
           loading={false}
           icona="cube-outline"
           titolo="Nessuna segnalazione"
-          aiuto="Compare qui chi trova l'app fornitori e chi il Customer Service ha già fatto lavorare e pagato. Se sei sicuro che ce ne siano, controlla che la funzione `anagrafiche` sia aggiornata: il filtro per fonte è arrivato dopo."
+          aiuto="Compare qui chi trova l'app fornitori, chi il Customer Service ha già fatto lavorare e pagato, e i fornitori a cui affida gli ordini. Se sei sicuro che ce ne siano, controlla che la funzione `anagrafiche` sia aggiornata: il filtro per fonte è arrivato dopo."
         />
       ) : null}
 
-      {aTabella && partner.length ? (
+      {!loading && !errore && partner.length && !dati.length ? (
+        <EmptyState loading={false} icona="funnel-outline" titolo="Nessuna segnalazione passa i filtri" aiuto="Prova ad allargare la ricerca o a togliere un filtro." />
+      ) : null}
+
+      {aTabella && dati.length ? (
         <Tabella
-          righe={partner}
+          righe={dati}
           colonne={colonne}
           chiaveRiga={(p) => p.id}
           // Le segnalazioni più fresche in cima: è una coda, non una rubrica.
           ordineIniziale={{ campo: 'segnalato', verso: 'desc' }}
           azioni={azioniDi}
           larghezzaAzioni={186}
+          totali={(righe) => ({
+            nome: `Totale · ${righe.length} ${righe.length === 1 ? 'segnalato' : 'segnalati'}`,
+            ordini30: indice ? String(righe.reduce((s, p) => s + (venditeDiP(p)?.ordini30 ?? 0), 0)) : null,
+            ordiniLunga: indice ? String(righe.reduce((s, p) => s + (venditeDiP(p)?.ordiniLunga ?? 0), 0)) : null,
+          })}
         />
       ) : (
-        partner.map((p) => {
+        dati.map((p) => {
           const preso = presi.has(p.id);
           const dove = [p.citta, p.provincia].filter(Boolean).join(' · ');
           return (
@@ -285,16 +422,19 @@ export function SegnalazioniCS() {
                 )
               }
               extra={
-                <Text style={styles.fonte} numberOfLines={1}>
-                  <Ionicons
-                    name={p.fonte === 'customer-service' ? 'cash-outline' : 'cube-outline'}
-                    size={11}
-                    color={colors.grigio}
-                  />{' '}
-                  {DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app'}
-                  {p.creatoIl ? ` · il ${dataBreve(p.creatoIl)}` : ''}
-                  {p.stato ? ` · nel registro è «${p.stato}»` : ''}
-                </Text>
+                <View style={styles.extra}>
+                  <Text style={styles.fonte} numberOfLines={2}>
+                    <Ionicons
+                      name={p.statoFornitore || p.fonte === 'customer-service' ? 'cash-outline' : 'cube-outline'}
+                      size={11}
+                      color={colors.grigio}
+                    />{' '}
+                    {daDove(p)}
+                    {p.creatoIl ? ` · il ${dataBreve(p.creatoIl)}` : ''}
+                    {p.stato ? ` · nel registro è «${p.stato}»` : ''}
+                  </Text>
+                  <RigaVendite v={venditeDiP(p)} giorniLunga={giorniLunga} />
+                </View>
               }
               azioni={azioniDi(p)}
             />
@@ -304,7 +444,7 @@ export function SegnalazioniCS() {
 
       {daPrendere.length ? (
         <Text style={styles.conteggio}>
-          {daPrendere.length} da prendere in carico su {partner.length} segnalati
+          {daPrendere.length} da prendere in carico su {dati.length} {lista ? LABEL_LISTA[lista].toLowerCase() : 'segnalati'}
         </Text>
       ) : null}
     </ScrollView>
@@ -314,7 +454,8 @@ export function SegnalazioniCS() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
-  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
+  zonaFiltri: { gap: spacing.sm, marginBottom: spacing.xs },
   errore: {
     color: colors.errore,
     fontWeight: '600',
@@ -333,8 +474,10 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
   },
-  fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
+  extra: { gap: 2 },
+  fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600', lineHeight: 17 },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabSotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   conteggio: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'center', marginTop: spacing.sm },
 });

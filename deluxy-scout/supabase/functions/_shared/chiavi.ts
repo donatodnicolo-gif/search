@@ -38,6 +38,7 @@ const DA_APP: Record<string, string> = {
   SCRIPTS_API_KEY: 'scripts',
   MARKETING_API_KEY: 'marketing',
   MAIL_API_TOKEN: 'mail',
+  MESSAGING_API_KEY: 'customer-service',
 };
 
 /** La chiave salvata dall'admin nella schermata App collegate, se c'è. */

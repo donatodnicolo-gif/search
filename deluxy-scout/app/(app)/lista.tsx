@@ -24,6 +24,20 @@ import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
 import { IscriviSequenzaModal } from '@/components/IscriviSequenzaModal';
 import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
 import type { RecapitoPlace } from '@/lib/db';
+import { SegnalazioniCS } from '@/components/SegnalazioniCS';
+import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
+import { venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
+import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
+import { dataBreve } from '@/components/Tabella';
+
+/**
+ * Le due schede della vista Selezionati (10/09/2026, decisione dell'utente:
+ * «va messo in selezionati»): i MIEI selezionati (scelti con la ⭐) e le
+ * Segnalazioni CS — negozi che un'altra app ha già trovato o fatto lavorare,
+ * cioè selezionati che non abbiamo ancora scelto noi. Stessa scheda che vive
+ * dentro Affiliazioni; la rotta /segnalati resta per i link già in giro.
+ */
+type SchedaSelezionati = 'lista' | 'segnalati';
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -84,11 +98,35 @@ export default function Lista() {
   const livelloPlace = (p: Place) =>
     livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id), nonFatturano.has(p.id));
   const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
-  const { vista } = useLocalSearchParams<{ vista?: string }>();
+  const { vista, tab: tabParam } = useLocalSearchParams<{ vista?: string; tab?: string }>();
   const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'a-rischio', 'inattivi'] as Vista[]).includes(vista as Vista)
     ? (vista as Vista)
     : null;
   const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
+
+  // Le due schede dei Selezionati. `?tab=segnalati` apre la seconda diretta.
+  const [scheda, setScheda] = useState<SchedaSelezionati>(tabParam === 'segnalati' ? 'segnalati' : 'lista');
+  useEffect(() => setScheda(tabParam === 'segnalati' ? 'segnalati' : 'lista'), [vista, tabParam]);
+  const conSchede = vistaCorr === 'selezionato';
+
+  // ⭐ Gli IMPORTI del Customer Service (10/09/2026, richiesta dell'utente:
+  // «in selezionati la tabella va fatta anche con importi»): quanti ordini il
+  // CS ha affidato a quel negozio negli ultimi 30 e 180 giorni, e per quanto.
+  // Si leggono SOLO nei Selezionati (le altre viste non li hanno chiesti) e
+  // si agganciano per id del registro o per nome (lib/vendite-fornitori.ts).
+  const [vendite, setVendite] = useState<EsitoVenditeFornitori | null>(null);
+  useEffect(() => {
+    if (!conSchede) return;
+    let vivo = true;
+    fetchVenditeFornitori(180).then((v) => vivo && setVendite(v));
+    return () => {
+      vivo = false;
+    };
+  }, [conSchede]);
+  const indiceVenditeCS = vendite?.ok ? vendite.indice : null;
+  const giorniLunga = indiceVenditeCS?.giorniLunga ?? 180;
+  const venditeDiPlace = (p: Place): VenditeFornitore | null =>
+    venditeDi({ id: p.anagrafiche_id ?? '', nome: p.nome }, indiceVenditeCS);
 
   // Il titolo in cima segue la voce di menu da cui si arriva: la rotta è una
   // sola, ma "Prospect e Lead" fisso smentiva la voce appena premuta.
@@ -282,7 +320,78 @@ export default function Lista() {
         );
       },
     },
+    // Solo nei Selezionati (10/09/2026): DA QUANDO è in lista, e gli importi
+    // del Customer Service a 30 e 180 giorni. ⚠️ «Dal» è `created_at` del
+    // negozio, la stessa data che la scheda chiama «Inserito il»: per un
+    // negozio scoperto da Google e stellato dopo è la data della scoperta, non
+    // della stella — la stella non ha una data sua. Si dichiara, non si finge.
+    ...(conSchede
+      ? ([
+          {
+            chiave: 'dal',
+            label: 'Dal',
+            width: 78,
+            destra: true,
+            numerica: true,
+            valore: (p) => p.created_at ?? null,
+            cella: (p) => <Text style={styles.tabData}>{dataBreve(p.created_at)}</Text>,
+          },
+          {
+            chiave: 'ordini30',
+            label: '30 gg',
+            width: 96,
+            destra: true,
+            numerica: true,
+            valore: (p) => venditeDiPlace(p)?.ordini30 ?? null,
+            cella: (p) => {
+              const v = venditeDiPlace(p);
+              return <CellaVendite ordini={v?.ordini30 ?? 0} venduto={v?.venduto30 ?? 0} />;
+            },
+          },
+          {
+            chiave: 'ordiniLunga',
+            label: `${giorniLunga} gg`,
+            width: 96,
+            destra: true,
+            numerica: true,
+            valore: (p) => venditeDiPlace(p)?.ordiniLunga ?? null,
+            cella: (p) => {
+              const v = venditeDiPlace(p);
+              return <CellaVendite ordini={v?.ordiniLunga ?? 0} venduto={v?.vendutoLunga ?? 0} />;
+            },
+          },
+        ] satisfies ColonnaTabella<Place>[])
+      : []),
   ];
+
+  // Le schede dei Selezionati: sopra la lista, come in Affiliazioni.
+  const schede = conSchede ? (
+    <View style={styles.schede}>
+      {([
+        { v: 'lista' as const, label: 'I miei selezionati', icona: 'star-outline' as const },
+        { v: 'segnalati' as const, label: 'Segnalazioni CS', icona: 'megaphone-outline' as const },
+      ]).map((t) => (
+        <Pressable
+          key={t.v}
+          onPress={() => setScheda(t.v)}
+          style={[styles.scheda, scheda === t.v && styles.schedaOn]}
+          accessibilityState={{ selected: scheda === t.v }}
+        >
+          <Ionicons name={t.icona} size={15} color={scheda === t.v ? colors.bianco : colors.testo} />
+          <Text style={[styles.schedaTxt, scheda === t.v && styles.schedaTxtOn]}>{t.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
+
+  if (conSchede && scheda === 'segnalati') {
+    return (
+      <View style={styles.container}>
+        {schede}
+        <SegnalazioniCS />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -299,6 +408,7 @@ export default function Lista() {
         // lettera digitata l'header si rimonta e la ricerca perde il fuoco.
         ListHeaderComponent={
           <View style={styles.headerScroll}>
+            {schede}
             <PageIntro
               testo={
                 vistaCorr
@@ -307,6 +417,11 @@ export default function Lista() {
               }
             />
             <ContoRighe mostrati={dati.length} totale={totaleVista} nome="negozi" />
+            {conSchede ? (
+              <View style={styles.statoVendite}>
+                <StatoVendite esito={vendite} />
+              </View>
+            ) : null}
             {mostraChip ? (
               <RigaChips style={styles.livelli}>
                 <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
@@ -371,14 +486,17 @@ export default function Lista() {
               labelRiga={(p) => `Apri la scheda di ${p.nome}`}
               azioni={azioniDi}
               larghezzaAzioni={374}
-            
-            totali={(righe) => ({
-              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
-            })}
-          />
+              totali={(righe) => ({
+                nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
+                ordini30: indiceVenditeCS ? String(righe.reduce((s, p) => s + (venditeDiPlace(p)?.ordini30 ?? 0), 0)) : null,
+                ordiniLunga: indiceVenditeCS ? String(righe.reduce((s, p) => s + (venditeDiPlace(p)?.ordiniLunga ?? 0), 0)) : null,
+              })}
+            />
           ) : (
             <Riga
               place={item as Place}
+              vendite={conSchede ? venditeDiPlace(item) : null}
+              giorniLunga={giorniLunga}
               livello={livelloPlace(item)}
               visita={statoVisita(item, conBozza.has(item.id), visitati.has(item.id))}
               recapito={recapiti.get(item.id)}
@@ -449,6 +567,8 @@ function origineInserimento(place: Place): string {
 
 function Riga({
   place,
+  vendite,
+  giorniLunga,
   livello,
   visita,
   recapito,
@@ -461,6 +581,9 @@ function Riga({
   onTrattativa,
 }: {
   place: Place;
+  /** Gli ordini del Customer Service (solo nei Selezionati); null = niente o non collegato. */
+  vendite: VenditeFornitore | null;
+  giorniLunga: number;
   /** Già calcolato dalla lista: la riga non deve rifare il conto (e sbagliarlo). */
   livello: Livello;
   /** Il semaforo: rosso da fare, giallo da finire, verde fatta. */
@@ -523,6 +646,7 @@ function Riga({
             <Ionicons name="person-outline" size={11} color={colors.grigio} /> Inserito{' '}
             {dataInserimento(place.created_at)} · {origineInserimento(place)}
           </Text>
+          <RigaVendite v={vendite} giorniLunga={giorniLunga} />
         </>
       }
       azioni={
@@ -581,6 +705,13 @@ const styles = StyleSheet.create({
   // qui lo si annulla perche' intro, chip e filtri hanno gia' i propri margini
   // (e la barra dei filtri deve restare larga da bordo a bordo).
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
+  // Le due schede dei Selezionati: stesse pillole di Affiliazioni.
+  schede: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  scheda: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  schedaOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  schedaTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
+  schedaTxtOn: { color: colors.bianco },
+  statoVendite: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   riga: {
     backgroundColor: colors.bianco,
     borderRadius: radius.m,

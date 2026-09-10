@@ -28,6 +28,7 @@ import {
   type StatoChiaveApp,
 } from '@/lib/db';
 import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
+import { fetchVenditeFornitori } from '@/lib/customer-service';
 import { invalidaHubspotAttivo } from '@/lib/hubspot';
 import { avvisa } from '@/lib/dialoghi';
 
@@ -767,7 +768,24 @@ function SezioneChiaveIngresso() {
  */
 /** Le app con una rotta di sola lettura da chiamare per la prova. ⚠️ Aggiungere
  *  qui quando un'altra app ne espone una: è l'unico posto da toccare. */
-const PROVABILI = new Set(['piattaforma']);
+const PROVABILI = new Set(['piattaforma', 'customer-service']);
+
+/**
+ * La chiamata di prova, per app: una rotta di sola lettura che risponde in
+ * fretta e dice qualcosa di vero su quello che c'è dall'altra parte.
+ */
+async function chiamaProva(idApp: string): Promise<{ ok: boolean; testo: string }> {
+  if (idApp === 'customer-service') {
+    const esito = await fetchVenditeFornitori(180);
+    if (esito.ok) {
+      return { ok: true, testo: `Risponde: ${esito.ordini} ordini affidati a ${esito.indice.perChiave.size} fornitori negli ultimi ${esito.indice.giorniLunga} giorni.` };
+    }
+    return { ok: false, testo: esito.motivo === 'non_configurato' ? 'Nessuna chiave salvata.' : esito.dettaglio };
+  }
+  const esito = await fetchServiziPiattaforma();
+  if (esito.ok) return { ok: true, testo: `Risponde: ${esito.servizi.length} servizi nel catalogo.` };
+  return { ok: false, testo: esito.motivo === 'non_configurato' ? 'Nessuna chiave salvata.' : esito.dettaglio };
+}
 
 function pillolaDi(s: StatoChiaveApp | undefined): { label: string; tono: 'ok' | 'neutro' | 'ko' } {
   if (!s?.configurata) return { label: 'da collegare', tono: 'neutro' };
@@ -798,13 +816,7 @@ function SezioneAppCollegate() {
     setProvaApp(idApp);
     setEsitoProva(null);
     try {
-      const esito = await fetchServiziPiattaforma();
-      const ok = esito.ok;
-      const testo = esito.ok
-        ? `Risponde: ${esito.servizi.length} servizi nel catalogo.`
-        : esito.motivo === 'non_configurato'
-          ? 'Nessuna chiave salvata.'
-          : esito.dettaglio;
+      const { ok, testo } = await chiamaProva(idApp);
       setEsitoProva({ app: idApp, ok, testo });
       // ⭐ L'esito diventa un FATTO SCRITTO (migr. 0116): finché viveva solo
       // qui, chiudere la schermata lo cancellava — e la pillola tornava a dire

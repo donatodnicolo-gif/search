@@ -51,6 +51,27 @@ export interface PartnerRegistro {
   statoFornitore?: string | null;
 }
 
+/**
+ * Da dove viene un partner del registro, detto a chi legge (10/09/2026,
+ * richiesta dell'utente: «segna da chi proviene»). `fonte` è chi l'ha scritto
+ * nel registro; per i valori non in mappa si mostra il nome com'è.
+ */
+export const ETICHETTA_FONTE: Record<string, string> = {
+  'customer-service': 'Customer Service',
+  'deluxy-suppliers': 'App fornitori',
+  'deluxy-scout': 'Scout',
+  platform: 'Piattaforma consegne',
+  hubspot: 'HubSpot',
+  excel: 'Foglio Excel',
+  manuale: 'A mano',
+  ui: 'Anagrafiche',
+};
+export function etichettaFonte(fonte: string | null | undefined): string {
+  const f = (fonte ?? '').trim();
+  if (!f) return 'Registro';
+  return ETICHETTA_FONTE[f] ?? f;
+}
+
 async function chiama<T>(body: unknown): Promise<T> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/anagrafiche`;
   const { data } = await supabase.auth.getSession();

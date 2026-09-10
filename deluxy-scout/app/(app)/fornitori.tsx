@@ -7,19 +7,30 @@
 // ⚠️ Si legge LIVE dal registro Anagrafiche (regola d'oro: nessuna copia).
 // La copia in Scout nasce solo con «Prendi in carico», collegata per
 // anagrafiche_id — lo stesso giro di Segnalazioni CS.
+//
+// ⭐ Dal 10/09/2026 (richiesta dell'utente) ogni riga dice DA CHI PROVIENE
+// (`fonte` del registro) e QUANTI ORDINI gli ha affidato il Customer Service
+// negli ultimi 30 e 180 giorni, con il venduto. I numeri li conta il CS
+// (`GET /api/v1/fornitori`, via la Edge `customer-service`): qui si agganciano
+// per id del registro, in ripiego per nome (`lib/vendite-fornitori.ts`).
+// Senza chiave collegata le due colonne restano vuote e la riga di stato
+// dice dove incollarla — l'elenco dei fornitori si vede comunque.
 import { useCallback, useMemo, useState } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
-import { fetchFornitori, STATI_FORNITORE, type PartnerRegistro } from '@/lib/anagrafiche';
+import { etichettaFonte, fetchFornitori, STATI_FORNITORE, type PartnerRegistro } from '@/lib/anagrafiche';
 import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
+import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
+import { fornitoriNonNelRegistro, venditeDi, type IndiceVendite } from '@/lib/vendite-fornitori';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
-import { CampoCerca, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
+import { CellaVendite, FornitoriFuoriRegistro, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
+import { CampoCerca, Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA } from '@/lib/statoVisita';
 
 const LABEL_FORNITORE: Record<string, string> = {
@@ -33,6 +44,9 @@ const COLORE_FORNITORE: Record<string, string> = {
   da_evitare: colors.errore,
 };
 
+/** Il filtro «con ordini»: 30 o 180 giorni, oltre allo stato di fornitura. */
+type FiltroOrdini = null | '30' | 'lunga';
+
 export default function Fornitori() {
   const router = useRouter();
   // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
@@ -45,18 +59,25 @@ export default function Fornitori() {
   const [inCorso, setInCorso] = useState<string | null>(null);
   const [parziale, setParziale] = useState(false);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
+  const [filtroOrdini, setFiltroOrdini] = useState<FiltroOrdini>(null);
+  const [vendite, setVendite] = useState<EsitoVenditeFornitori | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
     setErrore(null);
     try {
-      const [r, ids] = await Promise.all([
+      // Le tre letture sono indipendenti: il registro (i fornitori), Scout
+      // (chi è già in lista) e il Customer Service (gli ordini). Il CS non
+      // lancia mai: se non risponde, l'elenco si vede lo stesso.
+      const [r, ids, v] = await Promise.all([
         fetchFornitori(),
         fetchAnagraficheIdPresi().catch(() => new Set<string>()),
+        fetchVenditeFornitori(180),
       ]);
       setPartner(r.partner);
       setParziale(r.parziale);
       setPresi(ids);
+      setVendite(v);
     } catch (e: any) {
       setErrore(e?.message ?? 'Registro non raggiungibile.');
     } finally {
@@ -69,6 +90,11 @@ export default function Fornitori() {
       carica();
     }, [carica]),
   );
+
+  const indice: IndiceVendite | null = vendite?.ok ? vendite.indice : null;
+  const giorniLunga = indice?.giorniLunga ?? 180;
+  const venditeDiP = useCallback((p: PartnerRegistro) => venditeDi(p, indice), [indice]);
+  const fuoriRegistro = useMemo(() => fornitoriNonNelRegistro(indice, partner), [indice, partner]);
 
   // Come in Segnalazioni CS: senza coordinate un negozio non può stare sulla
   // mappa, quindi si geocodifica l'indirizzo (ripiego: la città; ripiego del
@@ -110,15 +136,20 @@ export default function Fornitori() {
     () => STATI_FORNITORE.filter((s) => partner.some((p) => p.statoFornitore === s)),
     [partner],
   );
+  const conOrdini30 = useMemo(() => partner.filter((p) => (venditeDiP(p)?.ordini30 ?? 0) > 0).length, [partner, venditeDiP]);
+  const conOrdiniLunga = useMemo(() => partner.filter((p) => (venditeDiP(p)?.ordiniLunga ?? 0) > 0).length, [partner, venditeDiP]);
+
   // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
   const [cerca, setCerca] = useState('');
   const dati = useMemo(() => {
-    const base = statoFiltro ? partner.filter((p) => p.statoFornitore === statoFiltro) : partner;
+    let base = statoFiltro ? partner.filter((p) => p.statoFornitore === statoFiltro) : partner;
+    if (filtroOrdini === '30') base = base.filter((p) => (venditeDiP(p)?.ordini30 ?? 0) > 0);
+    if (filtroOrdini === 'lunga') base = base.filter((p) => (venditeDiP(p)?.ordiniLunga ?? 0) > 0);
     const q = cerca.trim().toLowerCase();
     if (!q) return base;
     const nrm = (v: unknown) => String(v ?? '').toLowerCase();
-    return base.filter((p) => [p.nome, p.citta, p.categoria].some((v) => nrm(v).includes(q)));
-  }, [partner, statoFiltro, cerca]);
+    return base.filter((p) => [p.nome, p.citta, p.categoria, etichettaFonte(p.fonte)].some((v) => nrm(v).includes(q)));
+  }, [partner, statoFiltro, filtroOrdini, cerca, venditeDiP]);
 
   // Le stesse azioni nei due vestiti (scheda e tabella), scritte una volta.
   const azioniDi = (p: PartnerRegistro) => {
@@ -154,16 +185,26 @@ export default function Fornitori() {
     );
   };
 
+  // ⚠️ La categoria sta SOTTO il nome, non in una colonna: con «Da», «30 gg» e
+  // «180 gg» le colonne sarebbero nove, e la lezione degli Ordini è che ogni
+  // colonna in più toglie pixel al nome.
   const colonne: ColonnaTabella<PartnerRegistro>[] = [
     {
       chiave: 'nome',
       label: 'Nome',
-      flex: 1.4,
+      flex: 1.5,
       valore: (p) => p.nome,
       cella: (p) => (
-        <Text style={styles.tabNome} numberOfLines={2}>
-          {p.nome}
-        </Text>
+        <View>
+          <Text style={styles.tabNome} numberOfLines={2}>
+            {p.nome}
+          </Text>
+          {p.categoria ? (
+            <Text style={styles.tabSotto} numberOfLines={1}>
+              {p.categoria}
+            </Text>
+          ) : null}
+        </View>
       ),
     },
     {
@@ -172,11 +213,10 @@ export default function Fornitori() {
       flex: 0.8,
       valore: (p) => [p.citta, p.provincia].filter(Boolean).join(' · ') || null,
     },
-    { chiave: 'categoria', label: 'Categoria', width: 100, valore: (p) => p.categoria ?? null },
     {
       chiave: 'fornitore',
       label: 'Fornitore',
-      width: 100,
+      width: 104,
       valore: (p) => p.statoFornitore ?? null,
       cella: (p) =>
         p.statoFornitore ? (
@@ -190,15 +230,47 @@ export default function Fornitori() {
         ),
     },
     {
-      // Da quando è nostro fornitore = quando è entrato nel registro. ⚠️ Per i
-      // riversati in blocco (25/08/2026) è la data del riversamento.
-      chiave: 'dal',
-      label: 'Dal',
-      width: 78,
+      // Da chi proviene (`fonte` del registro) e da quando è nostro fornitore
+      // (quando è entrato nel registro). ⚠️ Per i riversati in blocco
+      // (25/08/2026) è la data del riversamento.
+      chiave: 'da',
+      label: 'Da · dal',
+      width: 150,
+      valore: (p) => etichettaFonte(p.fonte),
+      cella: (p) => (
+        <View>
+          <Text style={styles.tabFonte} numberOfLines={1}>
+            {etichettaFonte(p.fonte)}
+          </Text>
+          <Text style={styles.tabSotto} numberOfLines={1}>
+            dal {dataBreve(p.creatoIl)}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      chiave: 'ordini30',
+      label: '30 gg',
+      width: 96,
       destra: true,
       numerica: true,
-      valore: (p) => p.creatoIl ?? null,
-      cella: (p) => <Text style={styles.tabData}>{dataBreve(p.creatoIl)}</Text>,
+      valore: (p) => venditeDiP(p)?.ordini30 ?? null,
+      cella: (p) => {
+        const v = venditeDiP(p);
+        return <CellaVendite ordini={v?.ordini30 ?? 0} venduto={v?.venduto30 ?? 0} />;
+      },
+    },
+    {
+      chiave: 'ordiniLunga',
+      label: `${giorniLunga} gg`,
+      width: 96,
+      destra: true,
+      numerica: true,
+      valore: (p) => venditeDiP(p)?.ordiniLunga ?? null,
+      cella: (p) => {
+        const v = venditeDiP(p);
+        return <CellaVendite ordini={v?.ordiniLunga ?? 0} venduto={v?.vendutoLunga ?? 0} />;
+      },
     },
     {
       chiave: 'stato',
@@ -214,6 +286,8 @@ export default function Fornitori() {
     },
   ];
 
+  const filtriAttivi = Boolean(statoFiltro || filtroOrdini || cerca.trim());
+
   return (
     <ScrollView
       style={styles.container}
@@ -222,24 +296,40 @@ export default function Fornitori() {
     >
       <View style={styles.headerScroll}>
         <PageIntro testo="I nostri fornitori, letti live dal registro Anagrafiche: chi ha già preparato ordini per noi ed è stato pagato dal Customer Service, più quelli segnati a mano. Sono i contatti più caldi da affiliare: hanno già lavorato con Deluxy." />
-        <View style={{ marginBottom: 10 }}>
-          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, città, categoria…" />
-        </View>
       </View>
 
-      {statiPresenti.length > 1 ? (
-        <RigaChips style={styles.chips}>
-          <Chip label={`Tutti (${partner.length})`} on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
+      <View style={styles.zonaFiltri}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, città, categoria, provenienza…" />
+        <RigaChips>
+          <Chip label={`Tutti (${partner.length})`} on={!statoFiltro} onPress={() => setStatoFiltro(null)} title="Tutti i fornitori del registro" />
           {statiPresenti.map((s) => (
             <Chip
               key={s}
               label={`${LABEL_FORNITORE[s]} (${partner.filter((p) => p.statoFornitore === s).length})`}
               on={statoFiltro === s}
               onPress={() => setStatoFiltro((c) => (c === s ? null : s))}
+              title={`Solo i fornitori «${LABEL_FORNITORE[s]}»`}
             />
           ))}
+          {indice ? (
+            <>
+              <Chip
+                label={`Con ordini 30 gg (${conOrdini30})`}
+                on={filtroOrdini === '30'}
+                onPress={() => setFiltroOrdini((c) => (c === '30' ? null : '30'))}
+                title="Solo chi ha ricevuto almeno un ordine dal Customer Service negli ultimi 30 giorni"
+              />
+              <Chip
+                label={`Con ordini ${giorniLunga} gg (${conOrdiniLunga})`}
+                on={filtroOrdini === 'lunga'}
+                onPress={() => setFiltroOrdini((c) => (c === 'lunga' ? null : 'lunga'))}
+                title={`Solo chi ha ricevuto almeno un ordine dal Customer Service negli ultimi ${giorniLunga} giorni`}
+              />
+            </>
+          ) : null}
         </RigaChips>
-      ) : null}
+        <StatoVendite esito={vendite} />
+      </View>
 
       {errore ? (
         <Text style={styles.errore}>
@@ -255,6 +345,8 @@ export default function Fornitori() {
         </Text>
       ) : null}
 
+      <FornitoriFuoriRegistro fuori={fuoriRegistro} giorniLunga={giorniLunga} />
+
       {!loading && !errore && !partner.length ? (
         <EmptyState
           loading={false}
@@ -264,19 +356,30 @@ export default function Fornitori() {
         />
       ) : null}
 
+      {!loading && !errore && partner.length && !dati.length ? (
+        <EmptyState
+          loading={false}
+          icona="funnel-outline"
+          titolo="Nessun fornitore passa i filtri"
+          aiuto={filtriAttivi ? 'Prova ad allargare la ricerca o a togliere un filtro.' : undefined}
+        />
+      ) : null}
+
       {aTabella && dati.length ? (
         <Tabella
           righe={dati}
           colonne={colonne}
           chiaveRiga={(p) => p.id}
-          ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+          // Chi lavora di più in cima, quando i numeri ci sono; se no per nome.
+          ordineIniziale={indice ? { campo: 'ordiniLunga', verso: 'desc' } : { campo: 'nome', verso: 'asc' }}
           azioni={azioniDi}
           larghezzaAzioni={186}
-        
-            totali={(righe) => ({
-              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'fornitore' : 'fornitori'}`,
-            })}
-          />
+          totali={(righe) => ({
+            nome: `Totale · ${righe.length} ${righe.length === 1 ? 'fornitore' : 'fornitori'}`,
+            ordini30: indice ? String(righe.reduce((s, p) => s + (venditeDiP(p)?.ordini30 ?? 0), 0)) : null,
+            ordiniLunga: indice ? String(righe.reduce((s, p) => s + (venditeDiP(p)?.ordiniLunga ?? 0), 0)) : null,
+          })}
+        />
       ) : (
         dati.map((p) => {
           const preso = presi.has(p.id);
@@ -305,12 +408,13 @@ export default function Fornitori() {
                 </>
               }
               extra={
-                p.creatoIl ? (
+                <View style={styles.extra}>
                   <Text style={styles.fonte} numberOfLines={1}>
-                    <Ionicons name="cash-outline" size={11} color={colors.grigio} /> Fornitore dal{' '}
-                    {dataBreve(p.creatoIl)}
+                    <Ionicons name="cash-outline" size={11} color={colors.grigio} /> Da {etichettaFonte(p.fonte)}
+                    {p.creatoIl ? ` · fornitore dal ${dataBreve(p.creatoIl)}` : ''}
                   </Text>
-                ) : null
+                  <RigaVendite v={venditeDiP(p)} giorniLunga={giorniLunga} />
+                </View>
               }
               azioni={azioniDi(p)}
             />
@@ -321,23 +425,13 @@ export default function Fornitori() {
   );
 }
 
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
-      <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
-  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
-  chipTxtOn: { color: colors.bianco },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
+  // La zona filtri (Libro §8): ricerca, chip su una riga che scorre, e la riga
+  // di stato che dice da dove vengono i numeri. Tetto: due righe più lo stato.
+  zonaFiltri: { gap: spacing.sm, marginBottom: spacing.xs },
   errore: {
     color: colors.errore,
     fontWeight: '600',
@@ -356,8 +450,10 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
   },
+  extra: { gap: 2 },
   fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
-  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabSotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
+  tabFonte: { color: colors.testo, fontSize: 12.5, fontWeight: '600' },
   tabMuto: { color: colors.grigio, fontSize: 12.5 },
 });

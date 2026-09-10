@@ -1,5 +1,79 @@
 # Deluxy Scout
 
+> **10/09/2026 — Fornitori e Segnalazioni CS: da chi proviene, e gli ordini
+> del Customer Service a 30 e 180 giorni · IN LOCALE, NON PUBBLICATO**
+> (richieste dell'utente: «segna da chi proviene… raggruppa da app CS gli
+> ordini dati negli ultimi 30 giorni e negli ultimi 180 giorni (in altra
+> colonna), migliora css» e, su `/segnalati`, «importa anche quelli che il CS
+> usa come fornitori di ordini… mostra le vendite degli ultimi 30 e 180 giorni»).
+> `tsc` 0 errori, **127 test verdi** (11 nuovi), bundle Metro pulito; **non
+> provato a schermo** (login). Nessuna migrazione.
+>
+> - ⭐ **Il conteggio lo fa il Customer Service, non Scout** (regola «ogni dato
+>   ha una casa sola»: l'assegnazione ordine → fornitore è `Ordine.fornitoreNome
+>   / fornitoreId / fornitoreIl` del CS). Nuova rotta di sola lettura
+>   **`GET /api/v1/fornitori?giorni=180`** in `deluxy-messaging`
+>   (`src/app/api/v1/fornitori/route.ts`, chiave `ApiKey`): per ogni fornitore
+>   `ordini30 / ordiniLunga / venduto30 / vendutoLunga / ultimoIl`, fuori gli
+>   annullati e gli uniti (`unitoA`); la data è `fornitoreIl` (ripiego `data`).
+>   **Non esce `fornitoreCosto`.** Scout la legge con la nuova Edge
+>   **`customer-service`** (proxy come `ordini`: chiave `MESSAGING_API_KEY`
+>   dalla riga `customer-service` di `chiavi_app`, `url_base` cambiabile;
+>   inerte → `non_configurato`). Client: `lib/customer-service.ts`; parte pura
+>   in `lib/vendite-fornitori.ts` (test `__tests__/vendite-fornitori.test.ts`).
+> - ⚠️⚠️ **Misurato sul CS prima di scrivere la schermata**: 118 ordini con
+>   fornitore negli ultimi 180 giorni, **98 fornitori distinti, solo 6 ordini
+>   con `fornitoreId`** (l'aggancio al registro è arrivato tardi). Quindi
+>   l'aggancio principale è **per nome normalizzato** (`chiaveNome`, copia
+>   IDENTICA di quella del CS — se divergono smette di trovare in silenzio);
+>   l'id, quando c'è, punta alla riga SOMMATA del suo nome: «FLEURS ET PLUS»
+>   stava in due righe (3 con id + 3 senza) e per id ne avrebbe mostrati 3.
+> - **Fornitori** (`app/(app)/fornitori.tsx`): colonna **«Da · dal»** (la
+>   `fonte` del registro tradotta da `etichettaFonte()` in `lib/anagrafiche.ts`
+>   + quando è entrato), colonne **«30 gg»** e **«180 gg»** (conteggio sopra,
+>   venduto sotto; «—» se niente), categoria SOTTO il nome (nove colonne
+>   sarebbero state troppe: lezione degli Ordini), totali in fondo, ordinamento
+>   iniziale per ordini a 180 gg quando i numeri ci sono. Chip **«Con ordini 30
+>   gg / 180 gg»** (solo se collegato), `Chip` di `ui.tsx` al posto della copia
+>   locale, zona filtri riordinata, riga di stato che dice da dove vengono i
+>   numeri e a che ora — o **dove incollare la chiave** se il CS non è
+>   collegato. Blocco «N fornitori usati dal CS non risultano fra i fornitori
+>   del registro, o lì hanno un altro nome» coi primi 6: si dice, non si
+>   nasconde.
+> - **Segnalazioni CS** (`components/SegnalazioniCS.tsx`): **terza lista** = i
+>   partner con `statoFornitore` (gli stessi di Fornitori, da qualunque fonte),
+>   letti con `fetchFornitori()` e uniti per id; chip **Tutti / Dall'app
+>   fornitori / Pagati dal CS / Fornitori del CS**; **ricerca** (mancava, §8-bis);
+>   colonne 30/180 gg; «Da dove» spiega la riga («Fornitore abituale del
+>   Customer Service», «Ha già preparato un ordine…»); categoria e linee sotto
+>   il nome.
+> - **«Segnalazioni CS» sta dentro SELEZIONATI** (Contatti → Selezionati,
+>   `app/(app)/lista.tsx`, vista `selezionato`): due schede in cima, «I miei
+>   selezionati» e «Segnalazioni CS» (`?tab=segnalati` la apre diretta). Prima
+>   stava solo come quarta scheda dentro Affiliazioni e l'utente non la
+>   trovava; avevo messo una voce nel menu, l'utente ha deciso «no, va messo in
+>   selezionati». La scheda dentro Affiliazioni e la rotta `/segnalati` restano.
+>   **E la tabella dei Selezionati ha tre colonne in più**: «Dal» (`created_at`,
+>   la stessa data della scheda «Inserito il» — ⚠️ per un negozio scoperto da
+>   Google e stellato dopo è la data della scoperta: la stella non ha una data
+>   sua) e «30 gg» / «180 gg» con gli ordini del Customer Service, agganciati
+>   per `anagrafiche_id` o per nome; totali in fondo; riga «Ordini dal CS»
+>   nelle schede sul telefono. Le vendite si leggono SOLO in questa vista.
+> - **Impostazioni → App collegate**: nuova app **Customer Service** in
+>   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
+>   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.
+>
+> **Per attivarlo in produzione (a comando, in quest'ordine)**:
+> 1. deploy del CS (`deluxy-messaging`, rotta nuova) — è un'altra app: si
+>    pubblica dalla sua cartella;
+> 2. `npm run chiave -- deluxy-scout` nella cartella del CS (sola lettura) →
+>    la chiave stampata si incolla in Scout, Profilo → Impostazioni → App
+>    collegate → Customer Service (salvare = provare);
+> 3. `… functions deploy customer-service --project-ref fdsziebgkljfsugqqbqd`
+>    (con JWT: la chiama un utente loggato; NON è in `SENZA_JWT`);
+> 4. push di `scout-ui` e `bash scripts/deploy-web.sh` (Metro spento).
+> Finché manca il passo 2 le colonne restano vuote e la schermata lo dice.
+
 > **07/09/2026 sera — sei richieste rifatte su `scout-ui` · IN PRODUZIONE**
 > (push `33660898` su `origin/scout-ui`; Edge **`hubspot-sync`** e **`notifica-chiusura`**
 > deployate; web **`deluxy-scout-e5q2qlhep`** con le 4 verifiche di `deploy-web.sh`
