@@ -1009,6 +1009,11 @@ export class InvoicesListComponent {
             ? `mese in FINANCE${m.dovuto != null ? ` · da girare al partner ${m.dovuto.toFixed(2)} €` : ''}`
             : `⚠️ mese non mandato: ${m?.motivo ?? '—'}`,
         ].join(' · '));
+        // ⭐ 10/09/2026 (segnalazione utente «è scomparso tutto»): la fattura appena creata è del
+        // mese generato, ma la lista era sul mese in corso e non la mostrava. Il periodo si
+        // allinea al mese della fattura, così si vede dov'è finita.
+        this.dal = this.primoDelMese(r.mese);
+        this.al = this.ultimoDelMese(r.mese);
         this.load();
       },
       error: (e) => {
