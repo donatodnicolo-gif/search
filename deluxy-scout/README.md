@@ -1,13 +1,22 @@
 # Deluxy Scout
 
-> **10/09/2026 — Fornitori e Segnalazioni CS: da chi proviene, e gli ordini
-> del Customer Service a 30 e 180 giorni · IN LOCALE, NON PUBBLICATO**
+> **10/09/2026 — Fornitori, Segnalazioni CS e Selezionati: da chi proviene, e
+> gli ordini del Customer Service a 30 e 180 giorni · IN PRODUZIONE**
+> (commit `9b81aa1c` CS + `56c671eb` Scout, pushati su `origin/scout-ui`; CS
+> deployato con `vercel deploy --prod` e la rotta risponde dal codice; Edge
+> `customer-service` deployata; web Scout con `deploy-web.sh`, 4 verifiche
+> verdi, bundle vivo `entry-446ed01b…` con i 5 marcatori; **chiave
+> `deluxy-scout` creata nel CS e messa in `chiavi_app` senza mai passare da
+> uno schermo** — prova dal terminale: **HTTP 200, 118 ordini, 98 fornitori,
+> finestre 30/180**, esito scritto in `prova_ok`).
 > (richieste dell'utente: «segna da chi proviene… raggruppa da app CS gli
 > ordini dati negli ultimi 30 giorni e negli ultimi 180 giorni (in altra
 > colonna), migliora css» e, su `/segnalati`, «importa anche quelli che il CS
-> usa come fornitori di ordini… mostra le vendite degli ultimi 30 e 180 giorni»).
-> `tsc` 0 errori, **127 test verdi** (11 nuovi), bundle Metro pulito; **non
-> provato a schermo** (login). Nessuna migrazione.
+> usa come fornitori di ordini… mostra le vendite degli ultimi 30 e 180 giorni»;
+> poi «va messo in selezionati e in selezionati la tabella va fatta anche con
+> importi e la data da cui sono nella tabella»).
+> `tsc` 0 errori, **127 test verdi** (11 nuovi); **non provato a schermo**
+> (login). Nessuna migrazione.
 >
 > - ⭐ **Il conteggio lo fa il Customer Service, non Scout** (regola «ogni dato
 >   ha una casa sola»: l'assegnazione ordine → fornitore è `Ordine.fornitoreNome
@@ -63,16 +72,19 @@
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.
 >
-> **Per attivarlo in produzione (a comando, in quest'ordine)**:
-> 1. deploy del CS (`deluxy-messaging`, rotta nuova) — è un'altra app: si
->    pubblica dalla sua cartella;
-> 2. `npm run chiave -- deluxy-scout` nella cartella del CS (sola lettura) →
->    la chiave stampata si incolla in Scout, Profilo → Impostazioni → App
->    collegate → Customer Service (salvare = provare);
-> 3. `… functions deploy customer-service --project-ref fdsziebgkljfsugqqbqd`
+> **Com'è stato pubblicato (10/09, a comando «fai commit e deploy»)**:
+> 1. `vercel deploy --prod --yes` dalla cartella del CS;
+> 2. chiave `deluxy-scout` (sola lettura) creata nel CS e scritta in
+>    `chiavi_app` (`app = customer-service`, `url_base`) da UNO script che
+>    non la stampa (upsert Prisma + Management API); prova sulla rotta di
+>    produzione con la stessa chiave → 200; `provata_il/prova_ok` scritti;
+> 3. `… functions deploy customer-service --project-ref fdsziebgkljfsugqqbqd --use-api`
 >    (con JWT: la chiama un utente loggato; NON è in `SENZA_JWT`);
-> 4. push di `scout-ui` e `bash scripts/deploy-web.sh` (Metro spento).
-> Finché manca il passo 2 le colonne restano vuote e la schermata lo dice.
+> 4. `git push origin 56c671eb:refs/heads/scout-ui`, Metro spento,
+>    `bash scripts/deploy-web.sh`.
+> Se un giorno la chiave va rigenerata: `npm run chiave -- deluxy-scout` nel
+> CS e incollarla in Profilo → Impostazioni → App collegate → Customer Service
+> (salvare = provare).
 
 > **07/09/2026 sera — sei richieste rifatte su `scout-ui` · IN PRODUZIONE**
 > (push `33660898` su `origin/scout-ui`; Edge **`hubspot-sync`** e **`notifica-chiusura`**
