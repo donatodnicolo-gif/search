@@ -8,8 +8,9 @@ import {
   GIORNI_IN_ORDINE,
   NOMI_GIORNI,
   NOMI_GIORNI_CORTI,
+  REGOLE_CAKE,
   REGOLE_DELUXY,
-  REGOLE_FASCE_AMPIE,
+  REGOLE_FLOWERS,
   scriviDataBreve,
   validaOrario,
   type OrarioNegozioDati,
@@ -104,8 +105,8 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
   const cambiaRegole = (f: (r: RegoleConsegna) => RegoleConsegna) => cambia((d) => ({ ...d, regole: f(d.regole) }))
   const soloLettura = !amministratore
 
-  async function salva() {
-    const controllo = validaOrario(dati)
+  async function salva(daSalvare: OrarioNegozioDati = dati) {
+    const controllo = validaOrario(daSalvare)
     if (!controllo.ok) return setErrori(controllo.errori)
     setErrori([])
     setSalvando(true)
@@ -117,6 +118,7 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
       })
       const d = (await r.json().catch(() => ({}))) as { errore?: string; errori?: string[] }
       if (!r.ok) return setErrori(d.errori?.length ? d.errori : [d.errore ?? 'Non salvato.'])
+      setDati(controllo.dati)
       setSporco(false)
       setEsito('Salvato: il sito e Nuovo ordine leggono già queste regole.')
       onSalvata()
@@ -167,6 +169,22 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
     </label>
   )
   const stesseRegole = (a: RegoleConsegna, b: RegoleConsegna) => JSON.stringify(a) === JSON.stringify(b)
+  const copia = (x: RegoleConsegna): RegoleConsegna => ({ ...x, oggi: { ...x.oggi }, domani: { ...x.domani }, oltre: { ...x.oltre } })
+  // ⭐ «CHIUDI IL NEGOZIO OGGI» (utente, 10/09/2026: «consenti sempre in app di
+  // chiudere il negozio oggi e così dire ai clienti che possono ordinare da
+  // giorno dopo»): oggi entra fra le chiusure e si salva SUBITO — il sito e
+  // Nuovo ordine spengono oggi col motivo, la prima data diventa domani.
+  const oggiIso = adesso.data
+  const chiusuraOggi = dati.giorniChiusura.find((c) => (c.ogniAnno ? c.data.slice(5) === oggiIso.slice(5) : c.data === oggiIso))
+  const [chiediChiudiOggi, setChiediChiudiOggi] = useState(false)
+  const MOTIVO_CHIUSURA_OGGI = 'chiusura di oggi: si ordina per domani'
+  async function chiudiOggi() {
+    setChiediChiudiOggi(false)
+    await salva({ ...dati, giorniChiusura: [...dati.giorniChiusura, { data: oggiIso, motivo: MOTIVO_CHIUSURA_OGGI, ogniAnno: false }] })
+  }
+  async function riapriOggi() {
+    await salva({ ...dati, giorniChiusura: dati.giorniChiusura.filter((c) => !(c.data === oggiIso && !c.ogniAnno)) })
+  }
 
   return (
     <div className="card">
@@ -174,6 +192,18 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
         <h2 style={{ margin: 0, flex: 1, minWidth: 160 }}>{riga.negozio.nome || riga.negozio.dominio}</h2>
         <span className={`badge ${riga.configurato ? 'verde' : ''}`}>{riga.configurato ? 'impostato' : 'senza orari'}</span>
         {!riga.negozio.attivo ? <span className="badge">negozio sospeso</span> : null}
+        {chiusuraOggi ? <span className="badge rosso">oggi chiuso</span> : null}
+        {amministratore ? (
+          chiusuraOggi && !chiusuraOggi.ogniAnno && chiusuraOggi.motivo === MOTIVO_CHIUSURA_OGGI ? (
+            <button type="button" className="bottone secondario mini" disabled={salvando} onClick={riapriOggi}>
+              Riapri oggi
+            </button>
+          ) : !chiusuraOggi ? (
+            <button type="button" className="bottone mini" disabled={salvando} onClick={() => setChiediChiudiOggi(true)} title="Oggi si spegne sul sito e in Nuovo ordine: i clienti ordinano da domani">
+              Chiudi il negozio oggi
+            </button>
+          ) : null
+        ) : null}
       </div>
       <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-secondary)' }}>
         {riga.negozio.dominio}
@@ -273,11 +303,14 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
           </p>
           {!soloLettura ? (
             <div className="filtri" style={{ marginBottom: 10 }}>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => ({ ...REGOLE_DELUXY, oggi: { ...REGOLE_DELUXY.oggi }, domani: { ...REGOLE_DELUXY.domani }, oltre: { ...REGOLE_DELUXY.oltre } }))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, limite 20:00; domani a 2 ore; oltre a 1 ora; finestra 08-22">
-                Regole deluxy.it
+              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 2 ore (dalle 10-12 dopo le 20); oltre a 1 ora; finestra 08-22">
+                deluxy.it / business
               </button>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_FASCE_AMPIE) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => ({ ...REGOLE_FASCE_AMPIE, oggi: { ...REGOLE_FASCE_AMPIE.oggi }, domani: { ...REGOLE_FASCE_AMPIE.domani }, oltre: { ...REGOLE_FASCE_AMPIE.oltre } }))} title="Tre fasce ampie 08-12 · 12-16 · 16-20, limite 16:00">
-                Tre fasce ampie
+              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_FLOWERS) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_FLOWERS))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 16:00, di notte tutte, dalle 22 domani dalle 12">
+                Flowers
+              </button>
+              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_CAKE) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_CAKE))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 14:00, di notte dalle 12, dalle 20 domani dalle 12">
+                Cake
               </button>
             </div>
           ) : null}
@@ -295,22 +328,24 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
               <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
                 {campoNum('Fasce di (ore)', r.oggi.durataOre, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, durataOre: n } })), 1, 12)}
                 {campoNum('Fasce da saltare dopo quella in corso', r.oggi.saltaFasce, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, saltaFasce: n } })), 0, 6)}
-                {campoOra('Non si ordina più dalle', r.oggi.limiteOra, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, limiteOra: s } })))}
+                {campoOra('Orario di drop-off (da quest\'ora si ordina solo per il giorno dopo)', r.oggi.limiteOra, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, limiteOra: s } })))}
+                {campoOra('Di notte (prima dell\'apertura) la prima fascia parte dalle', r.oggi.notteDalle, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, notteDalle: s } })))}
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 8 }}>
                 <input type="checkbox" checked={r.oggi.ultimaFasciaFinoAlLimite} disabled={soloLettura} onChange={(e) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, ultimaFasciaFinoAlLimite: e.target.checked } }))} />
                 l&apos;ultima fascia della giornata resta ordinabile fino all&apos;ora limite
               </label>
               <p className="descrizione" style={{ margin: '6px 0 0' }}>
-                Con «2 fasce da saltare»: alle 10:30 la fascia in corso è 10-12, si salta 12-14, la prima è 14-16. Di notte si
-                conta dall&apos;apertura.
+                Con «2 fasce da saltare»: alle 10:30 la fascia in corso è 10-12, si salta 12-14, la prima è 14-16. Dall&apos;orario
+                di drop-off in poi gli ordini arrivano solo dal giorno dopo.
               </p>
             </>
           ) : null}
           <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Domani</h4>
           <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
             {campoNum('Fasce di (ore)', r.domani.durataOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, durataOre: n } })), 1, 12)}
-            {campoNum('Prime fasce da saltare se si ordina dopo il limite', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
+            {campoNum('Prime fasce di domani da saltare', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
+            {campoOra('…se si ordina dopo le', r.domani.saltaDopoOra, (s) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, saltaDopoOra: s } })))}
           </div>
           <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Dopodomani e oltre</h4>
           <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
@@ -372,7 +407,7 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
 
       {amministratore ? (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
-          <button type="button" className="bottone" disabled={salvando || !sporco} onClick={salva}>
+          <button type="button" className="bottone" disabled={salvando || !sporco} onClick={() => salva()}>
             {salvando ? 'Salvo…' : 'Salva'}
           </button>
           {sporco ? (
@@ -397,6 +432,14 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
         </div>
       ) : null}
 
+      {chiediChiudiOggi ? (
+        <Conferma titolo={`Chiudere ${riga.negozio.nome || riga.negozio.dominio} per oggi (${scriviDataBreve(oggiIso)})?`} verbo="Chiudi per oggi" pericoloso onConferma={chiudiOggi} onAnnulla={() => setChiediChiudiOggi(false)}>
+          Da subito il sito e Nuovo ordine spengono la data di oggi e dicono ai clienti che si ordina da domani. Gli
+          ordini già presi non cambiano. Domani il negozio riapre da solo.
+          {!riga.configurato ? ' Salverà anche le regole mostrate in questa scheda (finora il negozio era senza orari).' : ''}
+          {sporco ? ' Le modifiche non ancora salvate in questa scheda verranno salvate insieme.' : ''}
+        </Conferma>
+      ) : null}
       {chiediAzzera ? (
         <Conferma titolo={`Cancellare gli orari di ${riga.negozio.nome || riga.negozio.dominio}?`} verbo="Cancella gli orari" pericoloso onConferma={azzera} onAnnulla={() => setChiediAzzera(false)}>
           Si cancellano i giorni di apertura, le regole delle fasce e le chiusure scritte per questo negozio. Il negozio

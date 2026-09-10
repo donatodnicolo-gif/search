@@ -72,6 +72,18 @@ modulo `DeluxyConsegna` che la chiama: vedi `sviluppi-siti-deluxy/deluxy-it/orar
 `scripts/imposta-orari-deluxy.mts` (aperti tutti i giorni, nessuna chiusura): Flowers e Cake restano
 «senza orari» finché non si passa a loro.
 
+**L'orario di drop-off e «Chiudi il negozio oggi» (10/09 sera, richieste dell'utente).** Il campo
+«Non si ordina più dalle» si chiama **Orario di drop-off**: da quest'ora gli ordini arrivano solo dal
+giorno dopo. Di partenza vale quello che ogni sito faceva già: **deluxy.it e business 20:00, Flowers
+16:00, Cake 14:00** — scritti in tabella per tutti e quattro i negozi con
+`scripts/imposta-orari-deluxy.mts` (preset `REGOLE_PER_DOMINIO`: deluxy.it/business, Flowers, Cake,
+richiamabili con un bottone nella scheda). Accanto: «di notte la prima fascia parte dalle» (deluxy
+10, Flowers 8, Cake 12) e «le prime fasce di domani si saltano se si ordina dopo le» (deluxy 20,
+Flowers 22, Cake 20). In testata di ogni scheda c'è **«Chiudi il negozio oggi»** (amministratore,
+sempre disponibile): con una conferma, oggi entra fra le chiusure e si salva subito — il sito e Nuovo
+ordine spengono la data di oggi e dicono al cliente che si ordina da domani; «Riapri oggi» la toglie.
+Domani il negozio riapre da solo (la chiusura vale per la sola data).
+
 Tabella `OrarioNegozio` (una riga per negozio, colonna `regole` JSON, creata con
 `scripts/applica-migrazione-orari-negozi.mjs`); regole in `src/lib/orari-regole.ts`, provate
 con `npx tsx scripts/prova-orari-negozi.mts`.

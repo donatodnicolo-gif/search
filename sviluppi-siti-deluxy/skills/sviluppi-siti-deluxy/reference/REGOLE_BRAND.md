@@ -7,6 +7,11 @@ Tutti gli orari sono in **ora italiana (Europe/Rome)**.
 
 ## deluxyflowers.com
 
+> 10/09/2026: queste regole sono scritte anche nel Customer Service (Orari negozi, preset «Flowers»:
+> **drop-off 16:00**, di notte dalle 08, dalle 22 domani dalle 12). Il tema di Flowers NON legge ancora
+> l'API del Customer Service: quando lo farà (stesso modulo `DeluxyConsegna` di deluxy.it), la fonte
+> sarà quella. Da lì si può anche **chiudere il negozio per oggi** con un bottone.
+
 Fasce orarie standard: `08:00-12:00`, `12:00-16:00`, `16:00-20:00`.
 
 **Prima data selezionabile sul calendario (carrello, header, pagina prodotto, home):**
@@ -80,6 +85,9 @@ Note:
   20 domani da 08-10») restano nel codice come ripiego e in `TEMA_DELUXY_IT.md`.
 
 ## cakedesign.me
+
+> 10/09/2026: regole scritte anche nel Customer Service (preset «Cake»: **drop-off 14:00**, di notte
+> dalle 12, dalle 20 domani dalle 12). Il tema di Cake NON legge ancora l'API: vale quanto detto per Flowers.
 
 Fasce orarie standard: `08:00-12:00`, `12:00-16:00`, `16:00-20:00`.
 

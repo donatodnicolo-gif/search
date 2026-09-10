@@ -13,6 +13,7 @@ import {
   giornoSelezionabile,
   leggiOrario,
   primoGiornoAperto,
+  REGOLE_CAKE,
   REGOLE_DELUXY,
   REGOLE_FASCE_AMPIE,
   validaOrario,
@@ -98,8 +99,23 @@ const amp: OrarioNegozioDati = { giorniApertura: [0, 1, 2, 3, 4, 5, 6], regole: 
 const fa = (data: string, ora: string) => fasceDelGiorno(amp, data, alle(D0, ora)).etichette.join(' ')
 prova('alle 09:00 oggi → 12-16 16-20', fa(D0, '09:00') === '12-16 16-20', fa(D0, '09:00'))
 prova('alle 13:00 oggi → 16-20', fa(D0, '13:00') === '16-20', fa(D0, '13:00'))
-prova('alle 16:00 oggi → nessuna (limite 16:00)', fa(D0, '16:00') === '')
-prova('domani → 08-12 12-16 16-20', fa(D1, '16:00') === '08-12 12-16 16-20', fa(D1, '16:00'))
+prova('alle 16:00 oggi → nessuna (drop-off 16:00)', fa(D0, '16:00') === '')
+prova('Flowers alle 07:00 oggi → tutte (di notte dalle 08)', fa(D0, '07:00') === '08-12 12-16 16-20', fa(D0, '07:00'))
+prova('Flowers domani alle 16:00 → tutte (la soglia del salto è alle 22)', fa(D1, '16:00') === '08-12 12-16 16-20', fa(D1, '16:00'))
+prova('Flowers domani alle 22:30 → dalle 12 (salta 08-12)', fa(D1, '22:30') === '12-16 16-20', fa(D1, '22:30'))
+
+console.log('\n=== Cake (drop-off 14:00, di notte dalle 12) ===\n')
+const cake: OrarioNegozioDati = { giorniApertura: [0, 1, 2, 3, 4, 5, 6], regole: REGOLE_CAKE, giorniChiusura: [], nota: '' }
+const fc = (data: string, ora: string) => fasceDelGiorno(cake, data, alle(D0, ora)).etichette.join(' ')
+prova('Cake alle 07:00 oggi → dalle 12-16', fc(D0, '07:00') === '12-16 16-20', fc(D0, '07:00'))
+prova('Cake alle 09:00 oggi → 12-16 16-20', fc(D0, '09:00') === '12-16 16-20', fc(D0, '09:00'))
+prova('Cake alle 13:00 oggi → 16-20', fc(D0, '13:00') === '16-20', fc(D0, '13:00'))
+prova('Cake alle 14:00 oggi → nessuna (drop-off 14:00)', fc(D0, '14:00') === '')
+prova('Cake domani alle 15:00 → tutte', fc(D1, '15:00') === '08-12 12-16 16-20', fc(D1, '15:00'))
+prova('Cake domani alle 20:30 → dalle 12', fc(D1, '20:30') === '12-16 16-20', fc(D1, '20:30'))
+const chiusoOggi: OrarioNegozioDati = { ...dlx, giorniChiusura: [{ data: D0, motivo: 'chiusura di oggi: si ordina per domani', ogniAnno: false }] }
+const cc = calendarioConsegna(chiusoOggi, alle(D0, '10:00'), {}, 2)
+prova('«Chiudi il negozio oggi»: oggi spento col motivo, domani aperto', !cc[0].ok && cc[0].motivo.includes('si ordina per domani') && cc[1].ok, cc[0].motivo)
 
 console.log('\n=== Lettura di una riga dal database ===\n')
 const rotta = leggiOrario({ giorniApertura: '1,2,x,9,3', regole: '{non è json', giorniChiusura: '[{"data":"2026-12-25","motivo":"Natale","ogniAnno":true},{"data":"boh"}]', nota: 'n' })

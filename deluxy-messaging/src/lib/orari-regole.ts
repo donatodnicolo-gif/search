@@ -51,8 +51,18 @@ export type RegoleConsegna = {
      * dal secondo paio d'ore successivo a quello in corso», regola dell'utente).
      */
     saltaFasce: number
-    /** Dopo quest'ora, per oggi non si ordina più (deluxy.it: 20:00). */
+    /**
+     * L'ORARIO DI DROP-OFF (parola dell'utente, 10/09/2026): da quest'ora gli
+     * ordini arrivano solo dal giorno dopo. deluxy.it e business 20:00,
+     * Flowers 16:00, Cake 14:00 — i valori che i siti avevano già.
+     */
     limiteOra: string
+    /**
+     * Di NOTTE (prima dell'apertura) la prima fascia proponibile parte da qui:
+     * l'anticipo si conta da quando qualcuno lavora, non da quando il cliente
+     * clicca (architetto UX, punto B). deluxy.it 10:00, Flowers 08:00, Cake 12:00.
+     */
+    notteDalle: string
     /**
      * L'ULTIMA fascia della giornata resta ordinabile fino al limite anche se il
      * salto la escluderebbe (deluxy.it oggi: 20-22 ordinabile fino alle 20:00).
@@ -62,10 +72,16 @@ export type RegoleConsegna = {
   domani: {
     durataOre: number
     /**
-     * Se si ordina DOPO il limite di oggi, quante prime fasce di domani saltare
+     * Se si ordina dopo `saltaDopoOra`, quante prime fasce di domani saltare
      * (Flowers: dalle 22 si ordina per domani «dalle 12», cioè salta 08-12 → 1).
      */
     dopoLimiteSaltaFasce: number
+    /**
+     * L'ora di oggi da cui scatta il salto qui sopra. Non coincide per forza
+     * col drop-off: Flowers chiude oggi alle 16 ma domani perde la mattina solo
+     * ordinando dalle 22. Vuoto = il drop-off.
+     */
+    saltaDopoOra: string
   }
   oltre: {
     durataOre: number
@@ -99,28 +115,50 @@ export const REGOLE_DELUXY: RegoleConsegna = {
   // Dalle 18:00 alle 19:59 la sola 20-22 (eccezione esplicita, confermata
   // dall'architetto UX il 10/09: l'anticipo scende a 2 ore sulla FINE della
   // fascia; costo operativo: evadere in ~2 ore un ordine delle 19:59).
-  oggi: { attivo: true, durataOre: 2, saltaFasce: 2, limiteOra: '20:00', ultimaFasciaFinoAlLimite: true },
+  oggi: { attivo: true, durataOre: 2, saltaFasce: 2, limiteOra: '20:00', ultimaFasciaFinoAlLimite: true, notteDalle: '10:00' },
   // Ordinando dopo le 20 per domani si parte da 10-12, come di notte per oggi:
   // stesso stato operativo (un foglio sul banco alle 08:00) → stessa prima
   // fascia (architetto UX, punto C; il tema oggi dà 08-10 — da decidere l'utente).
-  domani: { durataOre: 2, dopoLimiteSaltaFasce: 1 },
+  domani: { durataOre: 2, dopoLimiteSaltaFasce: 1, saltaDopoOra: '20:00' },
   oltre: { durataOre: 1 },
   giorniMostrati: 60,
 }
 
 /**
- * Le tre fasce ampie (08-12, 12-16, 16-20) che Flowers e Cake usano oggi:
- * finestra 08-20, durata 4 ore ovunque. È il punto di partenza per quei negozi;
- * i loro limiti orari (16:00 Flowers, 14:00 Cake) si scriveranno quando si
- * passerà a loro — vedi REGOLE_BRAND.md in sviluppi-siti-deluxy.
+ * DELUXYFLOWERS.COM (REGOLE_BRAND.md): tre fasce ampie 08-12 · 12-16 · 16-20,
+ * drop-off 16:00 (8–11:59 → dalle 12; 12–15:59 → solo 16-20), di notte tutte
+ * (dalle 08), dalle 22:00 si ordina per domani dalle 12 (salta 08-12).
  */
 export const REGOLE_FASCE_AMPIE: RegoleConsegna = {
   finestraDa: '08:00',
   finestraA: '20:00',
-  oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '16:00', ultimaFasciaFinoAlLimite: false },
-  domani: { durataOre: 4, dopoLimiteSaltaFasce: 0 },
+  oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '16:00', ultimaFasciaFinoAlLimite: false, notteDalle: '08:00' },
+  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '22:00' },
   oltre: { durataOre: 4 },
   giorniMostrati: 60,
+}
+export const REGOLE_FLOWERS = REGOLE_FASCE_AMPIE
+
+/**
+ * CAKEDESIGN.ME (REGOLE_BRAND.md): tre fasce ampie, drop-off 14:00 (8–13:59 →
+ * solo 16-20), di notte dalle 12 (salta 08-12), dalle 20:00 si ordina per
+ * domani dalle 12.
+ */
+export const REGOLE_CAKE: RegoleConsegna = {
+  finestraDa: '08:00',
+  finestraA: '20:00',
+  oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '14:00', ultimaFasciaFinoAlLimite: false, notteDalle: '12:00' },
+  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '20:00' },
+  oltre: { durataOre: 4 },
+  giorniMostrati: 60,
+}
+
+/** I preset di partenza per dominio Shopify: quello che ogni sito faceva già il 10/09/2026. */
+export const REGOLE_PER_DOMINIO: Record<string, { nome: string; regole: RegoleConsegna }> = {
+  'deluxygifts.myshopify.com': { nome: 'deluxy.it', regole: REGOLE_DELUXY },
+  '90bfeb-f5.myshopify.com': { nome: 'business.deluxy.it', regole: REGOLE_DELUXY },
+  'fb72b1-2.myshopify.com': { nome: 'deluxyflowers.com', regole: REGOLE_FLOWERS },
+  'cakedesign-5921.myshopify.com': { nome: 'cakedesign.me', regole: REGOLE_CAKE },
 }
 
 /**
@@ -193,10 +231,12 @@ export function leggiRegole(json: string | null | undefined, base: RegoleConsegn
     if (Number.isFinite(g.oggi.saltaFasce)) r.oggi.saltaFasce = Number(g.oggi.saltaFasce)
     if (typeof g.oggi.limiteOra === 'string' && oraValida(g.oggi.limiteOra)) r.oggi.limiteOra = g.oggi.limiteOra
     if (typeof g.oggi.ultimaFasciaFinoAlLimite === 'boolean') r.oggi.ultimaFasciaFinoAlLimite = g.oggi.ultimaFasciaFinoAlLimite
+    if (typeof g.oggi.notteDalle === 'string' && oraValida(g.oggi.notteDalle)) r.oggi.notteDalle = g.oggi.notteDalle
   }
   if (g.domani && typeof g.domani === 'object') {
     if (Number.isFinite(g.domani.durataOre)) r.domani.durataOre = Number(g.domani.durataOre)
     if (Number.isFinite(g.domani.dopoLimiteSaltaFasce)) r.domani.dopoLimiteSaltaFasce = Number(g.domani.dopoLimiteSaltaFasce)
+    if (typeof g.domani.saltaDopoOra === 'string' && oraValida(g.domani.saltaDopoOra)) r.domani.saltaDopoOra = g.domani.saltaDopoOra
   }
   if (g.oltre && typeof g.oltre === 'object' && Number.isFinite(g.oltre.durataOre)) r.oltre.durataOre = Number(g.oltre.durataOre)
   if (Number.isFinite(g.giorniMostrati)) r.giorniMostrati = Number(g.giorniMostrati)
@@ -256,12 +296,14 @@ export function validaRegole(input: unknown): { ok: true; regole: RegoleConsegna
       attivo: Boolean(o.attivo),
       durataOre: intero(o.durataOre, 'Oggi, durata delle fasce', 1, 12),
       saltaFasce: intero(o.saltaFasce, 'Oggi, fasce da saltare', 0, 6),
-      limiteOra: ora(o.limiteOra, 'Oggi, ora limite'),
+      limiteOra: ora(o.limiteOra, 'Orario di drop-off'),
       ultimaFasciaFinoAlLimite: Boolean(o.ultimaFasciaFinoAlLimite),
+      notteDalle: ora(o.notteDalle, 'Di notte, prima fascia dalle'),
     },
     domani: {
       durataOre: intero(d.durataOre, 'Domani, durata delle fasce', 1, 12),
-      dopoLimiteSaltaFasce: intero(d.dopoLimiteSaltaFasce, 'Domani, fasce da saltare dopo il limite', 0, 6),
+      dopoLimiteSaltaFasce: intero(d.dopoLimiteSaltaFasce, 'Domani, fasce da saltare dopo la soglia', 0, 6),
+      saltaDopoOra: ora(d.saltaDopoOra || o.limiteOra, 'Domani, soglia del salto'),
     },
     oltre: { durataOre: intero(l.durataOre, 'Oltre, durata delle fasce', 1, 12) },
     giorniMostrati: intero(g.giorniMostrati ?? 60, 'Giorni mostrati', 7, 365),
@@ -444,27 +486,32 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
     return vuoto(`I prodotti nel carrello si consegnano da ${scriviDataBreve(piuGiorniIso(adesso.data, lead))}: servono ${lead} ${lead === 1 ? 'giorno' : 'giorni'} di preavviso.`)
   }
   const oraMinima = Number.isFinite(vincoli.oraMinima) ? Math.max(0, Number(vincoli.oraMinima)) * 60 : 0
+  // Il drop-off: da quest'ora gli ordini arrivano solo dal giorno dopo.
   const dopoLimite = adesso.minuti >= minuti(r.oggi.limiteOra)
+  // La soglia da cui domani perde le prime fasce (Flowers: 22:00, non il drop-off delle 16).
+  const dopoSoglia = adesso.minuti >= minuti(r.domani.saltaDopoOra || r.oggi.limiteOra)
 
   let fasce: Fascia[]
   if (quando === 'oggi') {
     if (!r.oggi.attivo) return vuoto('Questo negozio non consegna in giornata.')
-    if (dopoLimite) return vuoto(`Per oggi non si ordina più dopo le ${r.oggi.limiteOra.replace(/^0/, '')}: si consegna da domani.`)
+    if (dopoLimite) return vuoto(`Per oggi non si ordina più dopo le ${r.oggi.limiteOra.replace(/^0/, '')} (orario di drop-off): si consegna da domani.`)
     const tutte = fasceIntere(r, r.oggi.durataOre)
     const passo = r.oggi.durataOre * 60
-    // ⚠️ Di NOTTE (prima della finestra) l'anticipo si misura da quando qualcuno
-    // lavora, non da quando il cliente clicca: alle 03:00 e alle 07:00 il
-    // negozio vede l'ordine alle 08:00 all'apertura, e la prima fascia deve
-    // essere la stessa (10-12 con salto 2). Si conta come se fosse la fascia
-    // subito prima dell'apertura (architetto UX, 10/09/2026, punto B).
-    const riferimento = Math.max(adesso.minuti, minuti(r.finestraDa) - passo)
-    const inCorso = Math.floor((riferimento - minuti(r.finestraDa)) / passo)
-    const prima = inCorso + r.oggi.saltaFasce
-    fasce = tutte.filter((_, i) => i >= prima)
-    if (!fasce.length && r.oggi.ultimaFasciaFinoAlLimite && tutte.length) fasce = [tutte[tutte.length - 1]]
+    if (adesso.minuti < minuti(r.finestraDa)) {
+      // ⚠️ Di NOTTE (prima dell'apertura) l'anticipo si misura da quando qualcuno
+      // lavora, non da quando il cliente clicca: alle 03:00 e alle 07:00 il
+      // negozio vede l'ordine alle 08:00 all'apertura, e la prima fascia deve
+      // essere la stessa — `notteDalle` (architetto UX, 10/09/2026, punto B).
+      fasce = tutte.filter((f) => minuti(f.da) >= minuti(r.oggi.notteDalle))
+    } else {
+      const inCorso = Math.floor((adesso.minuti - minuti(r.finestraDa)) / passo)
+      const prima = inCorso + r.oggi.saltaFasce
+      fasce = tutte.filter((_, i) => i >= prima)
+      if (!fasce.length && r.oggi.ultimaFasciaFinoAlLimite && tutte.length) fasce = [tutte[tutte.length - 1]]
+    }
   } else if (quando === 'domani') {
     const tutte = fasceIntere(r, r.domani.durataOre)
-    fasce = dopoLimite ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
+    fasce = dopoSoglia ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
   } else {
     fasce = fasceIntere(r, r.oltre.durataOre)
   }
