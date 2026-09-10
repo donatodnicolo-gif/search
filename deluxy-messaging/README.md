@@ -24,6 +24,15 @@ chiuso **non passa**: sotto il campo Giorno si legge il motivo («Il negozio è 
 ⚠️ Il divieto sta nel server (`creaOrdine`), non solo nel modulo: vale anche per riconsegne,
 preventivi e per gli ordini che le altre app creano da `/api/v1/nuovo-ordine`.
 
+**L'eccezione concordata.** Se il giorno è chiuso ma si consegna lo stesso (concordato col
+fioraio, il partner lavora anche la domenica), sotto il campo Giorno compare la spunta
+**«Eccezione concordata»** con un **motivo obbligatorio**. Il motivo finisce nella nota
+dell'ordine — `ECCEZIONE ORARI: consegna dom 13/09/2026 — Il negozio è chiuso di domenica.
+Concordato: …` — e nell'attributo `Eccezione_Orari`, così lo leggono sia chi prepara sia le
+macchine (Orders, piattaforma). ⚠️ Una data **già passata** non si concorda: la spunta non
+compare e il server rifiuta comunque. L'eccezione esiste solo nel modulo: dalla `/api/v1` una
+data chiusa resta rifiutata col motivo.
+
 **Per le altre app.** `GET /api/v1/orari-negozi` (chiave API, sola lettura): per ogni negozio
 giorni aperti, fasce con etichetta, chiusure, `primoGiornoAperto` e `configurato` (falso =
 vale il predefinito). Con `?dominio=fb72b1-2.myshopify.com` un negozio solo, con

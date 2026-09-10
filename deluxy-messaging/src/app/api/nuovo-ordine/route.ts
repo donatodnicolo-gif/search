@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
     biglietto: d.biglietto ?? '',
     spedizione: { titolo: d.spedizione?.titolo ?? '', prezzo: d.spedizione?.prezzo ?? 0 },
     anonima: Boolean(d.anonima),
+    // ⭐ Eccezione agli orari del negozio: il motivo, se l'operatore l'ha scritto.
+    eccezioneOrari: String(d.eccezioneOrari ?? ''),
     pagamento: d.pagamento === 'pagato' ? 'pagato' : 'link',
     mezzoPagamento: d.mezzoPagamento ?? '',
     // ⚠️ Di suo l'IVA NON si aggiunge: solo se il modulo la chiede esplicitamente.

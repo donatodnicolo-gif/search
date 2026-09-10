@@ -17,7 +17,7 @@
 
 import { db } from './db'
 import { orarioConfigurato } from './orari-negozi'
-import { giornoSelezionabile } from './orari-regole'
+import { giornoSelezionabile, oggiIso, scriviDataBreve } from './orari-regole'
 import { decifra } from './crypto'
 
 const VERSIONE = '2025-01'
@@ -414,6 +414,16 @@ export type DatiNuovoOrdine = {
   // passare da questa spunta, e obbligarli a dichiararla non aggiungerebbe
   // niente — l assenza vuol dire «no».
   anonima?: boolean
+  /**
+   * ⭐ ECCEZIONE agli orari del negozio (utente, 10/09/2026: «aggiungi anche
+   * l'eccezione per data chiusa in nuovo ordine»): il MOTIVO per cui si
+   * consegna in un giorno in cui il negozio è chiuso («concordato col fioraio»,
+   * «il partner consegna anche la domenica»). Vuoto = nessuna eccezione, e una
+   * data chiusa si rifiuta. Il motivo finisce nella nota dell'ordine e in un
+   * attributo: chi prepara e chi consegna devono sapere che è un'eccezione.
+   * ⚠️ Non copre una data già passata: quella non è un'eccezione, è un errore.
+   */
+  eccezioneOrari?: string
   /** Con quale mezzo ha pagato: finisce nelle note dell'ordine. */
   mezzoPagamento: string
   /**
@@ -485,11 +495,21 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   // ⚠️ Senza data non si controlla niente: «non indicata» è un caso ammesso.
   // ⚠️ Senza orari SCRITTI per il negozio non si controlla niente: una regola
   // che nessuno ha impostato non rifiuta ordini.
+  // ⭐ ECCEZIONE CONCORDATA (10/09/2026): con un motivo scritto la data chiusa
+  // passa, e il motivo viaggia nella nota e in un attributo. Una data già
+  // passata NON si concorda.
+  let eccezione: { perche: string; motivo: string } | null = null
   if (d.consegna.data.trim()) {
     const orario = await orarioConfigurato(d.negozioId)
     if (orario) {
-      const esito = giornoSelezionabile(orario, d.consegna.data.trim())
-      if (!esito.ok) return { ok: false, errore: `${esito.motivo} Scegli un altro giorno di consegna.` }
+      const data = d.consegna.data.trim()
+      const esito = giornoSelezionabile(orario, data)
+      if (!esito.ok) {
+        const motivo = (d.eccezioneOrari ?? '').trim().slice(0, 200)
+        if (data < oggiIso()) return { ok: false, errore: `${esito.motivo} Una data passata non si può concordare.` }
+        if (!motivo) return { ok: false, errore: `${esito.motivo} Scegli un altro giorno, oppure spunta «Eccezione concordata» e scrivi il motivo.` }
+        eccezione = { perche: esito.motivo, motivo }
+      }
     }
   }
 
@@ -511,6 +531,9 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     // il valet dice «da parte di …» e la sorpresa è finita. In fondo alla nota,
     // sotto il biglietto e le note di consegna, si legge dopo.
     d.anonima ? 'CONSEGNA ANONIMA: non dire da parte di chi.' : '',
+    // ⭐ Subito dopo, e in maiuscolo: chi prepara deve sapere che quel giorno
+    // il negozio sarebbe chiuso e che qualcuno ha detto di sì lo stesso.
+    eccezione ? `ECCEZIONE ORARI: consegna ${scriviDataBreve(d.consegna.data.trim())} — ${eccezione.perche} Concordato: ${eccezione.motivo}` : '',
     // Chi ha ordinato, quando riceve un altro: sull'ordine Shopify il cliente
     // è il mittente, ma chi legge la nota (fornitore, valet, noi fra un mese)
     // deve vederlo scritto accanto al destinatario.
@@ -542,6 +565,9 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       // legge una persona. Per una cosa che deve arrivare fino al valet
       // servono tutte e due le strade.
       ...(d.anonima ? [{ key: 'Consegna_Anonima', value: 'Si' }] : []),
+      // ⭐ L'eccezione agli orari anche come attributo: lo legge una macchina
+      // (Orders, piattaforma), la nota la legge una persona.
+      ...(eccezione ? [{ key: 'Eccezione_Orari', value: eccezione.motivo }] : []),
     ],
     // ⚠️⚠️ L'IVA È UNA SCELTA. Su Deluxy e Flowers i prezzi sono IVA esclusa,
     // quindi senza questo Shopify aggiunge l'imposta sopra al totale del link.

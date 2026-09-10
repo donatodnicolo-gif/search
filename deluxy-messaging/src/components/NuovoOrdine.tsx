@@ -4,7 +4,7 @@ import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
 import { fascePerNegozio } from '@/lib/fasce-consegna'
-import { etichetteFasce, giornoSelezionabile, type OrarioNegozioDati } from '@/lib/orari-regole'
+import { etichetteFasce, giornoSelezionabile, oggiIso, type OrarioNegozioDati } from '@/lib/orari-regole'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -186,6 +186,14 @@ export function NuovoOrdine({
    * arriverebbe a metà strada.
    */
   const [anonima, setAnonima] = useState(false)
+  /**
+   * ⭐ ECCEZIONE agli orari del negozio (utente, 10/09/2026): la data scelta è un
+   * giorno chiuso ma si consegna lo stesso, perché è stato concordato. Spunta +
+   * motivo obbligatorio: il motivo va nella nota dell'ordine, dove lo legge chi
+   * prepara e chi consegna. Si azzera da sola quando la data torna buona.
+   */
+  const [eccezioneOrari, setEccezioneOrari] = useState(false)
+  const [eccezioneMotivo, setEccezioneMotivo] = useState('')
   const [indirizzo, setIndirizzo] = useState('')
   const [note, setNote] = useState('')
   const [cap, setCap] = useState('')
@@ -632,6 +640,15 @@ export function NuovoOrdine({
   }, [fascia, chiaveFasce])
   // ⭐ La data si può scegliere? (giorno chiuso, festa, già passata). A parole.
   const giornoEsito = data && orarioNegozio ? giornoSelezionabile(orarioNegozio, data) : null
+  /** Una data passata non si concorda: l'eccezione non si offre nemmeno. */
+  const dataPassata = Boolean(data) && data < oggiIso()
+  const giornoChiusoMaConcordabile = Boolean(giornoEsito && !giornoEsito.ok && !dataPassata)
+  useEffect(() => {
+    if (!giornoChiusoMaConcordabile) {
+      setEccezioneOrari(false)
+      setEccezioneMotivo('')
+    }
+  }, [giornoChiusoMaConcordabile])
 
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
@@ -891,11 +908,18 @@ export function NuovoOrdine({
       setErrore('Aggiungi almeno un prodotto.')
       return
     }
-    // ⭐ Orari negozi: una data in cui il negozio è chiuso non passa. Lo stesso
-    // controllo lo rifà il server (creaOrdine), che è dove sta il divieto.
+    // ⭐ Orari negozi: una data in cui il negozio è chiuso non passa, salvo
+    // ECCEZIONE CONCORDATA con motivo. Lo stesso controllo lo rifà il server
+    // (creaOrdine), che è dove sta il divieto.
     if (giornoEsito && !giornoEsito.ok) {
-      setErrore(giornoEsito.motivo + ' Scegli un altro giorno di consegna.')
-      return
+      if (dataPassata) {
+        setErrore(giornoEsito.motivo + ' Una data passata non si può concordare.')
+        return
+      }
+      if (!eccezioneOrari || !eccezioneMotivo.trim()) {
+        setErrore(giornoEsito.motivo + ' Scegli un altro giorno, oppure spunta «Eccezione concordata» e scrivi il motivo.')
+        return
+      }
     }
     if (pagamento === 'link' && !email.trim()) {
       setErrore('Per mandare il link di pagamento serve l’email del cliente.')
@@ -955,6 +979,9 @@ export function NuovoOrdine({
           mezzoPagamento: mezzo,
           aggiungiIva,
           anonima,
+          // ⭐ Il motivo dell'eccezione agli orari, solo se la data è chiusa e
+          // l'operatore l'ha spuntata: altrimenti vuoto.
+          eccezioneOrari: giornoChiusoMaConcordabile && eccezioneOrari ? eccezioneMotivo.trim() : '',
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
@@ -1319,6 +1346,35 @@ export function NuovoOrdine({
               <span style={{ color: 'var(--red)', marginTop: 4 }}>{giornoEsito.motivo}</span>
             ) : null}
           </label>
+          {/* ⭐ ECCEZIONE CONCORDATA (utente, 10/09/2026): il giorno è chiuso ma si
+              consegna lo stesso. Spunta + motivo obbligatorio; il motivo va nella
+              nota dell'ordine e nell'attributo Eccezione_Orari. Fuori dalla label
+              del Giorno: una label dentro un'altra non è HTML valido. Una data
+              passata non si concorda: qui non compare. */}
+          {giornoChiusoMaConcordabile ? (
+            <div className="campo" style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={eccezioneOrari} onChange={(e) => setEccezioneOrari(e.target.checked)} />
+                <span style={{ margin: 0, color: 'var(--text)', fontSize: 14 }}>
+                  <strong>Eccezione concordata</strong> — si consegna lo stesso quel giorno
+                </span>
+              </label>
+              {eccezioneOrari ? (
+                <>
+                  <input
+                    value={eccezioneMotivo}
+                    onChange={(e) => setEccezioneMotivo(e.target.value)}
+                    maxLength={200}
+                    placeholder="con chi e perché (es. concordato col fioraio, consegna anche la domenica)"
+                    aria-label="Motivo dell'eccezione"
+                  />
+                  <span style={{ margin: 0 }}>
+                    Il motivo finisce nella nota dell&apos;ordine: lo legge chi prepara e chi consegna.
+                  </span>
+                </>
+              ) : null}
+            </div>
+          ) : null}
           {/* ── LA FASCIA, COME LA OFFRE IL SITO ──
               ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Era testo libero, e nei
               dati veri si vede: `116-20`, `8-16`, `9-17`, «16-20 ultimo orario
