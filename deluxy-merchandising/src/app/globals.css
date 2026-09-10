@@ -1791,3 +1791,21 @@ a.anteprima-matita {
 .editor-scheda > .cella-sub { display: block; padding: 0 14px 12px; }
 /* L'avviso della bozza salvata da sola, accanto ai pulsanti del modulo. */
 .bozza-salvata { margin-right: auto; font-size: 12px; color: var(--testo-tenue, #6e6e73); }
+/* Le collezioni a cui un prodotto appartiene, raggruppate per negozio. */
+.collezioni-negozio { margin-bottom: 10px; }
+.collezioni-sito {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--testo-tenue, #6e6e73);
+  margin-bottom: 4px;
+}
+.collezioni-tipo {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.collezioni-negozio .pill-opt a { margin-left: 6px; text-decoration: none; }

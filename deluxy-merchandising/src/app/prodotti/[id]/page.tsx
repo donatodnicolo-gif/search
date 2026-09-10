@@ -70,6 +70,13 @@ export default async function ProdottoPage({
         assorbiti: { select: { id: true, nome: true, codice: true, unitoIl: true } },
         tappe: { orderBy: { creataIl: "desc" } },
         vetrine: { include: { vetrina: true }, orderBy: { posizione: "asc" } },
+        // ⭐ 10/09/2026 (utente): «fai vedere di quale collezione fa parte».
+        // L'appartenenza si importa già da Shopify (56.820 righe, un cron per
+        // negozio) ma non si vedeva da nessuna parte: un dato che si scrive e
+        // non si rilegge tanto vale non averlo.
+        collezioniShopify: {
+          select: { id: true, collezione: { select: { titolo: true, negozio: true, tipo: true, handle: true } } },
+        },
         pubblicazioni: { orderBy: { negozio: "asc" } },
         // Le foto che il prodotto ha avuto: le ultime dieci bastano a ritrovare
         // quella giusta e non fanno pesare la pagina quando la storia è lunga.
@@ -455,6 +462,46 @@ export default async function ProdottoPage({
             </div>
           </form>
         )}
+
+        {/* ---------- Di quali collezioni fa parte (10/09/2026) ---------- */}
+        {tab === "panoramica" && prodotto.collezioniShopify.length > 0 && (() => {
+          const perNegozio = new Map<string, { titolo: string; tipo: string; handle: string | null }[]>();
+          for (const x of prodotto.collezioniShopify) {
+            const c = x.collezione;
+            perNegozio.set(c.negozio, [...(perNegozio.get(c.negozio) ?? []), { titolo: c.titolo, tipo: c.tipo, handle: c.handle }]);
+          }
+          return (
+            <div className="scheda">
+              <div className="scheda-titolo">Collezioni · {prodotto.collezioniShopify.length}</div>
+              <p className="cella-sub" style={{ marginBottom: 10 }}>
+                Dove il negozio tiene questo prodotto. Si legge da Shopify a ogni import: qui non si cambia —
+                le <b>automatiche</b> le decide la regola del negozio, le <b>manuali</b> si scelgono nel modulo del prodotto.
+              </p>
+              {[...perNegozio.entries()].sort().map(([negozio, righe]) => {
+                const n = negoziTutti.find((x) => x.nome === negozio);
+                return (
+                  <div key={negozio} className="collezioni-negozio">
+                    <span className="collezioni-sito">{negozio}</span>
+                    <div className="pill-scelta">
+                      {righe
+                        .slice()
+                        .sort((a, b) => a.titolo.localeCompare(b.titolo, "it"))
+                        .map((c) => (
+                          <span key={c.titolo} className="pill-opt" title={c.tipo === "manuale" ? "Collezione manuale" : "Collezione automatica: chi ci entra lo decide la regola del negozio"}>
+                            {c.titolo}
+                            <span className="collezioni-tipo">{c.tipo === "manuale" ? "manuale" : "auto"}</span>
+                            {c.handle && n && (
+                              <a href={`https://${n.dominio}/collections/${c.handle}`} target="_blank" rel="noreferrer" title="Apri la collezione sul sito">↗</a>
+                            )}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* ---------- Come si vede sui siti (09/09/2026) ----------
             L'anteprima che c'è nel modulo, anche qui: chi apre la scheda per

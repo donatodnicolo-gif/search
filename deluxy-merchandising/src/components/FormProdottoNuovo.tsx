@@ -1310,10 +1310,13 @@ export function FormProdottoNuovo({
                 </div>
               )}
 
-              {/* ⚠️ NASCOSTO il 08/09/2026 su richiesta dell'utente («nascondi
-                  le collezioni»). Il blocco funziona; per riaccenderlo togliere
-                  `false &&`. */}
-              {false && (
+              {/* ⭐ 10/09/2026: RIACCESO su richiesta dell'utente («fai vedere
+                  di quale collezione fa parte»). Era stato nascosto l'08/09
+                  perché ingombrava; ma l'appartenenza si importa da Shopify a
+                  ogni giro e non si vedeva da nessuna parte — un dato che si
+                  scrive e non si rilegge tanto vale non averlo. In sola
+                  lettura sta anche nella scheda del prodotto; qui si sceglie. */}
+              {(
               <div className="campo-modulo largo" style={{ marginBottom: 14 }}>
                 <label>Collezioni su {nomeSito}{scelteQui.length ? ` · ${scelteQui.length}` : ""}</label>
                 {(scelteQui.length > 0 || autoQui.length > 0) && (
