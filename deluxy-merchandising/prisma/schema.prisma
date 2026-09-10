@@ -268,6 +268,15 @@ model Prodotto {
   // bisogno** (0 = urgenze, 1 = da domani, 2-3 = pianificato, 4-10 = su misura),
   // in src/lib/risposta-bisogno.ts. Null = non dichiarato: non si deduce.
   ggDispMin      Int?
+  // ⭐ 10/09/2026 (regola utente): i prodotti UNICI seguono il calendario del partner.
+  // `ggDispMin` e `minimoOrario` restano la BASE (dichiarata); questi sono i valori
+  // EFFETTIVI calcolati dal calendario di apertura del partner (mandato dalla piattaforma
+  // consegne) e scritti sui metafield del negozio: base 1 → 2 se domani il partner è chiuso,
+  // torna 1 quando riapre; l'ora minima è la prima ora piena dopo l'apertura di quel giorno.
+  ggDispEffettivo        Int?
+  minimoOrarioEffettivo  Int?
+  disponibilitaCalcolataIl DateTime?
+  disponibilitaMotivo    String?
   // — SEO del prodotto —
   // Come per le collezioni: col suffisso `Shopify` c'è quello che il negozio
   // dice oggi (riletto e sovrascritto a ogni import), senza suffisso **il
