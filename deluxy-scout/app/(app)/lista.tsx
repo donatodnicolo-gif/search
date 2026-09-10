@@ -25,7 +25,9 @@ import { IscriviSequenzaModal } from '@/components/IscriviSequenzaModal';
 import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
 import type { RecapitoPlace } from '@/lib/db';
 import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
-import { venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
+import { piuRecente, venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
+import { cittaEProvincia } from '@/lib/citta-provincia';
+import { nomeLeggibile } from '@/lib/nomi';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
 import { dataBreve } from '@/components/Tabella';
 import { daDoveRegistro, fetchFornitori, fetchSegnalatiDaApp, type PartnerRegistro } from '@/lib/anagrafiche';
@@ -54,6 +56,15 @@ const FONTI_SEGNALAZIONI = ['deluxy-suppliers', 'customer-service'] as const;
 const nomeDi = (r: RigaSel) => (r.place ? r.place.nome : r.registro.nome);
 const dalDi = (r: RigaSel) => (r.place ? r.place.created_at ?? null : r.registro.creatoIl ?? null);
 const chiaveDi = (r: RigaSel) => (r.place ? r.place.id : `reg:${r.registro.id}`);
+/** Città e provincia: dal registro come sono, da Scout ricavate (lib/citta-provincia). */
+const doveDi = (r: RigaSel): { citta: string | null; provincia: string | null } =>
+  r.place ? cittaEProvincia(r.place) : { citta: r.registro.citta ?? null, provincia: r.registro.provincia ?? null };
+/**
+ * «ULTIMO AGGIORNAMENTO» (10/09/2026, richiesta dell'utente): parte da «Dal»
+ * e va avanti quando il Customer Service PAGA quel fornitore (l'ultimo
+ * `pagataIl` che il CS ci manda). Senza pagamenti resta uguale a «Dal».
+ */
+const aggiornatoDi = (r: RigaSel, v: VenditeFornitore | null) => piuRecente(dalDi(r), v?.ultimoPagamentoIl);
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -307,10 +318,13 @@ export default function Lista() {
       .map((registro) => ({ registro }));
     const righe: RigaSel[] =
       filtroSel === 'miei' ? ordinati.map((place) => ({ place })) : filtroSel === 'segnalati' ? dalRegistro : [...ordinati.map((place): RigaSel => ({ place })), ...dalRegistro];
-    // Dal più recente (richiesta dell'utente: «ordina per dal decrescenti di
-    // default»); chi non ha la data va in fondo, e a pari data per nome.
-    return righe.sort((a, b) => (dalDi(b) ?? '').localeCompare(dalDi(a) ?? '') || nomeDi(a).localeCompare(nomeDi(b), 'it'));
-  }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr, inSelezionati, segnalati, presi, filtroSel]);
+    // Dall'ultimo aggiornamento più recente (richiesta dell'utente 10/09:
+    // «ordine default ultimo aggiornamento»); chi non ha la data va in fondo,
+    // e a pari data per nome.
+    const agg = (r: RigaSel) => aggiornatoDi(r, venditeDiRiga(r)) ?? '';
+    return righe.sort((a, b) => agg(b).localeCompare(agg(a)) || nomeDi(a).localeCompare(nomeDi(b), 'it'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr, inSelezionati, segnalati, presi, filtroSel, indiceVenditeCS]);
 
   // Quante Segnalazioni CS ancora da prendere in carico (per il chip).
   const segnalatiDaPrendere = useMemo(() => {
@@ -440,11 +454,13 @@ export default function Lista() {
             .join(' · ');
           return (
             <View>
-              <Text style={styles.tabNome} numberOfLines={2}>
-                {r.registro.nome}
+              {/* Il nome come si legge (lib/nomi.ts): «MICAELA FLORAL DESIGN»
+                  → «Micaela Floral Design». Solo a schermo: il dato resta. */}
+              <Text style={styles.tabNome} numberOfLines={2} {...({ title: r.registro.nome } as any)}>
+                {nomeLeggibile(r.registro.nome)}
               </Text>
               <Text style={styles.tabSotto} numberOfLines={1}>
-                {sotto}
+                {[r.registro.indirizzo, sotto].filter(Boolean).join(' · ')}
               </Text>
             </View>
           );
@@ -452,6 +468,11 @@ export default function Lista() {
         const p = r.place;
         const v = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
         const linee = canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])).join(', ');
+        // ⚠️ INDIRIZZO e LINEE stanno SOTTO il nome, non in colonna
+        // (10/09/2026): con Città, Prov., Dal, Ultimo agg., 30 gg, 180 gg e
+        // nove icone la tabella sforerebbe a destra. Lezione degli Ordini:
+        // ogni colonna in più toglie pixel al nome.
+        const sotto = [p.indirizzo, linee].filter(Boolean).join(' · ');
         return (
           <View>
             <View style={styles.tabNomeRiga}>
@@ -461,17 +482,13 @@ export default function Lista() {
                 style={[styles.tabSemaforo, { backgroundColor: COLORE_VISITA[v] }]}
                 {...({ title: LABEL_VISITA[v] } as any)}
               />
-              <Text style={styles.tabNome} numberOfLines={2}>
-                {p.nome}
+              <Text style={styles.tabNome} numberOfLines={2} {...({ title: p.nome } as any)}>
+                {nomeLeggibile(p.nome)}
               </Text>
             </View>
-            {/* ⚠️ Le LINEE stanno SOTTO il nome, non in colonna (10/09/2026):
-                con Dal, 30 gg, 180 gg e nove icone la tabella sforava a destra
-                e l'ultima azione restava tagliata. Lezione degli Ordini: ogni
-                colonna in più toglie pixel al nome. */}
-            {linee ? (
+            {sotto ? (
               <Text style={styles.tabSotto} numberOfLines={1}>
-                {linee}
+                {sotto}
               </Text>
             ) : null}
           </View>
@@ -479,17 +496,23 @@ export default function Lista() {
       },
     },
     {
-      chiave: 'indirizzo',
-      label: 'Indirizzo',
-      flex: 1,
-      righe: 2,
-      valore: (r) =>
-        r.place ? r.place.indirizzo ?? null : [r.registro.indirizzo, [r.registro.citta, r.registro.provincia].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
+      // Città e provincia in colonna (richiesta dell'utente 10/09): per i
+      // negozi di Scout si ricavano da `zona` e dall'indirizzo.
+      chiave: 'citta',
+      label: 'Città',
+      flex: 0.6,
+      valore: (r) => doveDi(r).citta,
+    },
+    {
+      chiave: 'provincia',
+      label: 'Prov.',
+      width: 50,
+      valore: (r) => doveDi(r).provincia,
     },
     {
       chiave: 'stato',
       label: 'Stato',
-      width: 132,
+      width: 118,
       // Le segnalazioni stanno dopo i P3: sono ancora da scegliere.
       valore: (r) => (r.place ? RANK[r.place.priorita] ?? 9 : 10),
       cella: (r) => {
@@ -523,7 +546,7 @@ export default function Lista() {
     {
       chiave: 'prevista',
       label: 'Visita',
-      width: 74,
+      width: 66,
       destra: true,
       numerica: true,
       valore: (r) => r.place?.visita_pianificata ?? null,
@@ -549,16 +572,38 @@ export default function Lista() {
           {
             chiave: 'dal',
             label: 'Dal',
-            width: 74,
+            width: 70,
             destra: true,
             numerica: true,
             valore: (r) => dalDi(r),
             cella: (r) => <Text style={styles.tabData}>{dataBreve(dalDi(r))}</Text>,
           },
           {
+            // «Ultimo aggiornamento»: parte da «Dal», e avanza quando il CS
+            // paga quel fornitore. In evidenza quando è diverso da «Dal».
+            chiave: 'aggiornato',
+            label: 'Ultimo agg.',
+            width: 78,
+            destra: true,
+            numerica: true,
+            valore: (r) => aggiornatoDi(r, venditeDiRiga(r)),
+            cella: (r) => {
+              const a = aggiornatoDi(r, venditeDiRiga(r));
+              const mosso = Boolean(a && a !== dalDi(r));
+              return (
+                <Text
+                  style={[styles.tabData, mosso && styles.tabDataMossa]}
+                  {...({ title: mosso ? 'Il Customer Service ha pagato questo fornitore dopo il suo ingresso in lista' : 'Nessun pagamento dopo l’ingresso in lista' } as any)}
+                >
+                  {dataBreve(a)}
+                </Text>
+              );
+            },
+          },
+          {
             chiave: 'ordini30',
             label: '30 gg',
-            width: 86,
+            width: 80,
             destra: true,
             numerica: true,
             valore: (r) => venditeDiRiga(r)?.ordini30 ?? null,
@@ -570,7 +615,7 @@ export default function Lista() {
           {
             chiave: 'ordiniLunga',
             label: `${giorniLunga} gg`,
-            width: 86,
+            width: 80,
             destra: true,
             numerica: true,
             valore: (r) => venditeDiRiga(r)?.ordiniLunga ?? null,
@@ -706,7 +751,7 @@ export default function Lista() {
               chiaveRiga={chiaveDi}
               // Selezionati: dal più recente (richiesta dell'utente). Altrove
               // per stato/priorità, come prima.
-              ordineIniziale={inSelezionati ? { campo: 'dal', verso: 'desc' } : { campo: 'stato', verso: 'asc' }}
+              ordineIniziale={inSelezionati ? { campo: 'aggiornato', verso: 'desc' } : { campo: 'stato', verso: 'asc' }}
               onRiga={(r) => {
                 if (r.place) router.push(`/(app)/attivita/${r.place.id}`);
                 // Un partner del registro non ha una scheda in Scout finché non
@@ -733,7 +778,7 @@ export default function Lista() {
                   onPress={() => setRegistroAperto(p)}
                   coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
                   titoloIcona={preso ? undefined : LABEL_VISITA.da_fare}
-                  nome={p.nome}
+                  nome={nomeLeggibile(p.nome)}
                   meta={[dove, p.categoria].filter(Boolean).join(' — ') || null}
                   tag={p.interessi ?? []}
                   badge={
@@ -895,7 +940,7 @@ function Riga({
       // testo, ed è la cosa che dice se quel negozio è lavoro da fare.
       coloreIcona={COLORE_VISITA[visita]}
       titoloIcona={LABEL_VISITA[visita]}
-      nome={place.nome}
+      nome={nomeLeggibile(place.nome)}
       meta={place.indirizzo}
       account={place.anagrafiche_account ?? null}
       // TUTTI gli interessi, non solo il primo: la riga mostrava la sola
@@ -1044,6 +1089,7 @@ const styles = StyleSheet.create({
   tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabDataMossa: { color: colors.testo, fontWeight: '600' },
   fab: {
     position: 'absolute',
     right: spacing.xxl,

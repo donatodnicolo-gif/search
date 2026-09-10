@@ -162,6 +162,25 @@
 >      `components/TestoConLink.tsx` rende premibile ogni `http(s)://…` (regola
 >      in `lib/link-nel-testo.ts`, con la punteggiatura in coda che resta
 >      testo; test `__tests__/testo-con-link.test.ts`).
+>   5. **Quattro richieste sulla tabella dei Selezionati (10/09 sera)**:
+>      **«Ultimo agg.»** — parte da «Dal» e avanza quando il Customer Service
+>      PAGA quel fornitore: il CS manda ora `ultimoPagamentoIl` per fornitore
+>      (l'ultimo `RichiestaPagamento.pagataIl`, senza finestra, raggruppato per
+>      chi prepara con `chiaveNome`; chi è pagato ma senza ordini entra a zero
+>      ordini) e Scout fa `piuRecente(dal, ultimoPagamentoIl)` (`aggiornatoDi`
+>      in `lista.tsx`); in evidenza quando è diverso da «Dal». **È l'ordine
+>      iniziale** (desc), anche nelle schede. **Città e Prov.** in colonna: dal
+>      registro come sono, per i negozi di Scout ricavate da `zona` e dalla
+>      sigla in coda all'indirizzo (`lib/citta-provincia.ts`, test). La colonna
+>      Indirizzo non c'è più: l'indirizzo sta sotto il nome con le linee.
+>      **Nomi leggibili**: «MICAELA FLORAL DESIGN» → «Micaela Floral Design»
+>      (`lib/nomi.ts`: ogni parola maiuscola, articoli e preposizioni minuscoli,
+>      sigle societarie maiuscole, apostrofi; solo a schermo, il dato e la
+>      ricerca restano sul nome vero; il nome vero è nel tooltip). Larghezze
+>      strette per stare a 1280: Prov. 50, Stato 118, Visita 66, Dal 70,
+>      Ultimo agg. 78, 30/180 gg 80 (conto: fisse 554 + azioni 422 + 16 + gap
+>      60 + 24 = 1076; a 1280 restano 172 px alle due elastiche, sopra il minimo
+>      di 90 ciascuna solo di poco: sotto i 1300 px il nome è stretto).
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.

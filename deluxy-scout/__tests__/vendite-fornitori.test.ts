@@ -3,6 +3,7 @@
 import {
   chiaveNome,
   euroTondo,
+  piuRecente,
   fornitoriNonNelRegistro,
   indiceVendite,
   riassuntoVendite,
@@ -103,5 +104,19 @@ describe('fornitoriNonNelRegistro', () => {
   it('un partner del registro con lo stesso nome (ma altro id) non è «fuori»', () => {
     const indice = indiceVendite([riga({ nome: 'Angolo Fiorito', ordiniLunga: 2 })]);
     expect(fornitoriNonNelRegistro(indice, [{ id: 'reg-5', nome: 'ANGOLO FIORITO' }])).toEqual([]);
+  });
+});
+
+describe('ultimo pagamento (10/09/2026, «ultimo aggiornamento»)', () => {
+  it('sommando due righe dello stesso nome vince il pagamento più recente', () => {
+    const i = indiceVendite([
+      riga({ id: 'reg-1', nome: 'Enrico Rizzi', ordiniLunga: 1, ultimoPagamentoIl: '2026-08-01T00:00:00.000Z' }),
+      riga({ nome: 'Enrico Rizzi', ordiniLunga: 1, ultimoPagamentoIl: '2026-09-09T00:00:00.000Z' }),
+    ]);
+    expect(venditeDi({ id: 'reg-1', nome: 'x' }, i)?.ultimoPagamentoIl).toBe('2026-09-09T00:00:00.000Z');
+  });
+  it('piuRecente ignora i vuoti', () => {
+    expect(piuRecente(null, '2026-08-23', undefined, '2026-09-09')).toBe('2026-09-09');
+    expect(piuRecente(null, undefined)).toBeNull();
   });
 });

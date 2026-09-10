@@ -21,6 +21,8 @@ export interface VenditeFornitore {
   vendutoLunga: number;
   ultimoIl: string | null;
   ultimoNumero: string;
+  /** L'ultimo pagamento fatto dal CS a questo fornitore (nessuna finestra). */
+  ultimoPagamentoIl?: string | null;
 }
 
 export interface IndiceVendite {
@@ -84,7 +86,15 @@ function somma(a: VenditeFornitore, b: VenditeFornitore): VenditeFornitore {
     vendutoLunga: a.vendutoLunga + b.vendutoLunga,
     ultimoIl,
     ultimoNumero: ultimoIl === a.ultimoIl ? a.ultimoNumero : b.ultimoNumero,
+    ultimoPagamentoIl: piuRecente(a.ultimoPagamentoIl, b.ultimoPagamentoIl),
   };
+}
+
+/** La più recente fra due date ISO (null se mancano tutte e due). */
+export function piuRecente(...date: (string | null | undefined)[]): string | null {
+  let m: string | null = null;
+  for (const d of date) if (d && (!m || d > m)) m = d;
+  return m;
 }
 
 /**
