@@ -16,6 +16,14 @@
 > (desktop + HTTP): flusso fino al checkout OK; trovato e corretto nel CS il difetto «senza giorni=
 > un giorno solo». Problemi già noti confermati: `fnCheckDelivery` legge `#DeliveryDate` inesistente;
 > `OK is not defined` in console da script esterni.
+> **Test mobile (agente a 375 px, ~18:00)**: flusso home → scheda → carrello → checkout OK; `Fasce_Fonte`
+> «customer-service (api)» / «tema (regole cablate)» e «prima data · data scelta» verificati. Tre ritocchi
+> caricati in `delivery_date_hour_c` (md5 `158b7812…`): datepicker del carrello in italiano dal lunedì
+> (era «September 2026, Su Mo…»), bersagli da 44 px sul touch (`@media (pointer: coarse)`: bottone
+> checkout 37→44 px, celle 35→44, frecce 28→44) e trattino «–» anche nelle fasce di ripiego. Restano
+> (preesistenti, non toccati): celle del calendario in home 43×22 px con testo 11 px, CONFERMA senza data
+> muto, × e celle della modale 31 px, «Rimuovi» 10 px, messaggio di blocco lontano dal campo, suggerimenti
+> Google 11 px — vedi §6.
 
 
 > Punto di ripresa per una sessione nuova. Prima di toccare qualsiasi cosa leggi anche
@@ -108,6 +116,10 @@ tema UNPUBLISHED; pubblica l'utente dall'admin.
 | `id="DeliveryDate_def"` duplicato: le logiche toccano solo il primo | Medio | carrello |
 | `PredictiveWrapper`/`PredictiveResults` duplicati: la ricerca mobile non mostra risultati | Medio | `theme.liquid` |
 | Tendina dei suggerimenti Google copre il bottone CONFERMA | Medio | modale consegna |
+| Calendario della home: celle 43×22 px con testo 11 px (bersaglio minimo 44 px) | Alto | `home-delivery` |
+| CONFERMA nella modale consegna senza data scelta: nessun messaggio, resta tutto fermo | Medio | modale consegna |
+| Modale consegna su mobile: × 14×31 px, celle del calendario 36×31 px | Medio | modale consegna |
+| «Rimuovi» nel carrello a 10 px; messaggio di blocco (`#divCheckDelivery`) lontano dal campo data; suggerimenti Google a 11 px | Basso | carrello, modale |
 | Calendario non accessibile da tastiera/screen reader (42 `<td>` senza `role`/`tabindex`/`aria-label`) | Medio | modale consegna |
 | Immagine da 1,39 MB senza `srcset`, con `width="x" height="x"` | Medio | home + prodotto |
 | `/cart/clear.js` non azzera nota, data e fascia: restano sul carrello successivo | Medio | carrello |

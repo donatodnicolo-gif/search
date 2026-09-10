@@ -197,6 +197,18 @@ function formatDate(dateString) {`, nome);
             dateFormat: 'yy-mm-dd',
             minDate: $('.pickup_date').attr('min'),
             startDate: '+1d',
+            // ⭐ 10/09/2026 (test mobile): il calendario parlava inglese con la domenica per prima, mentre
+            // home e modale partono dal lunedì in italiano — stessa griglia ovunque.
+            firstDay: 1,
+            {% if request.locale.iso_code == 'it' %}
+            monthNames: ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'],
+            monthNamesShort: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+            dayNames: ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'],
+            dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'],
+            dayNamesMin: ['Do', 'Lu', 'Ma', 'Me', 'Gi', 'Ve', 'Sa'],
+            prevText: 'Mese precedente',
+            nextText: 'Mese successivo',
+            {% endif %}
             // ⭐ 10/09/2026: i giorni che il Customer Service dice chiusi non si cliccano, e il motivo si legge passandoci sopra.
             beforeShowDay: function (d) {
                 if (!window.DeluxyConsegna || !DeluxyConsegna.attivo()) { return [true, '', '']; }
@@ -232,6 +244,11 @@ function formatDate(dateString) {`, nome);
 
     if (tmpDate == today) {
         // OGGI: fasce di 2 ore`, nome);
+  // e2) le fasce di ripiego usano lo stesso trattino «–» delle fasce dell'API (test mobile: «08:00-10:00» vs «08:00–10:00»)
+  t = sost(t, `        $('#ddlFasciaOraria').append(new Option(pad(a) + ':00-' + pad(b) + ':00', pad(a) + '-' + pad(b)));`,
+`        $('#ddlFasciaOraria').append(new Option(pad(a) + ':00\u2013' + pad(b) + ':00', pad(a) + '-' + pad(b)));`, nome);
+  t = sost(t, `            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00-10:00', '08-10')); }`,
+`            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00\u201310:00', '08-10')); }`, nome);
   // f) la coda che salva la data diventa una funzione, usata da tutte e due le strade
   t = sost(t, `    // Salva la data scelta (localStorage + campo hidden formato YYYY-MM-DD)\n    if (!tmpDate.includes('/')) { return; }`,
 `    __dlxSalvaData(tmpDate);
@@ -247,7 +264,17 @@ function __dlxSalvaData(tmpDate) {
   border: 2px solid transparent;
 }
 /* 10/09/2026: giorni chiusi secondo il Customer Service */
-.ui-datepicker td.dlx-giorno-chiuso .ui-state-default { text-decoration: line-through; opacity: 0.45; }`, nome);
+.ui-datepicker td.dlx-giorno-chiuso .ui-state-default { text-decoration: line-through; opacity: 0.45; }
+/* 10/09/2026 (test mobile): bersagli del tocco almeno 44 px — il bottone del checkout era 37 px a 12 px,
+   le celle del calendario 35 px, le frecce 28 px (design system §2.7). */
+@media (pointer: coarse) {
+  #bntCheckout { min-height: 44px; font-size: 14px; }
+  .ui-datepicker { width: auto; }
+  .ui-datepicker .ui-state-default, .ui-widget-content .ui-state-default { width: 44px !important; height: 44px !important; line-height: 44px !important; }
+  /* le frecce: la scatola era 1.8em (28 px) del tema base di jQuery UI; la freccia disegnata col :after resta alla stessa altezza */
+  .ui-datepicker .ui-datepicker-prev, .ui-datepicker .ui-datepicker-next { width: 44px; height: 44px; top: 3px; margin-top: 0; }
+  .ui-datepicker .ui-datepicker-prev:after, .ui-datepicker .ui-datepicker-next:after { margin: -37px 0 0 18px; }
+}`, nome);
   scrivi(nome, t);
 }
 
