@@ -181,6 +181,10 @@
 >      Ultimo agg. 78, 30/180 gg 80 (conto: fisse 554 + azioni 422 + 16 + gap
 >      60 + 24 = 1076; a 1280 restano 172 px alle due elastiche, sopra il minimo
 >      di 90 ciascuna solo di poco: sotto i 1300 px il nome è stretto).
+>      **In produzione**: CS `38ca29fa` deployato da un worktree pulito (nella
+>      cartella c'erano 10 file non committati di un'altra sessione), rotta
+>      provata (101 fornitori, 94 con `ultimoPagamentoIl`); web `08c6cbf4`,
+>      bundle vivo `entry-5f3dd128…`.
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.
