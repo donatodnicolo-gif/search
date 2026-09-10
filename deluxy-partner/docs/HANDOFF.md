@@ -127,6 +127,15 @@
 >    Pagamenti, riga nel registro modifiche). Riguarda l'incasso, non lo SDI.
 > ⚠️ Non ho potuto provare l'interfaccia in locale (serve la sessione di
 > team): verificato con `tsc` pulito e `next build` completo.
+> ✅ **Test chiesto dall'utente («le schede si aggiornano da sole con una
+> fattura nuova?»)**, fatto sulla funzione vera della scheda: partner di prova
+> + `riepilogoPartner` PRIMA (agosto: 0 fatture, da incassare 0) → inserita
+> una fattura di agosto da 100 € → DOPO (agosto: 1 fattura, da incassare
+> **122,00** = ivata; settembre 0) → partner e fattura cancellati, residui 0.
+> La pagina `/partner/[id]` è `force-dynamic` (build: «ƒ on demand»), quindi
+> ogni apertura rilegge il database; in più le azioni fanno `revalidatePath`.
+> Come si lancia: `npx -y tsx --env-file=.env <script.mts>` importando
+> `./src/lib/queries` (Node da solo non risolve gli import senza estensione).
 > ✅ **In produzione**: `jh5ohof6v` (commit `fbb78f85`), `PROMOTED` **da solo** —
 > il `promote` ha risposto 409 «already the current production deployment»:
 > l'automatismo è tornato, e `targets.production` = `crons.deploymentId` =
