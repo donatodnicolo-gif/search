@@ -30,6 +30,10 @@ type ProdottoMerch = {
   tipologiaVendita?: string | null;
   /** ⭐ 07/09/2026: la NOTA DI SPECIFICA, del prodotto e delle sue taglie. */
   note?: string | null;
+  /** ⭐ 10/09/2026: il NOME PER IL PARTNER e la spunta che dice se usarlo. La casa è
+   *  Merchandising; qui si copia su Product.alternateName / useAlternateName. */
+  nomePartner?: string | null;
+  nomePartnerAttivo?: boolean | null;
   varianti?: { id: string; nome: string; sku: string | null; note: string | null }[];
 };
 
@@ -238,6 +242,8 @@ export class MerchandisingSyncService {
 
     const noteProdotto = new Map<string, string>();
     const noteVariante = new Map<string, string>();
+    // ⭐ 10/09/2026 (regola utente): anche il NOME PER IL PARTNER viaggia con le note.
+    const nomePartner = new Map<string, { nome: string | null; attivo: boolean }>();
     let pagina = 1;
     for (;;) {
       const q = new URLSearchParams({ page: String(pagina), limit: '200' });
@@ -247,6 +253,7 @@ export class MerchandisingSyncService {
       for (const p of body.prodotti ?? []) {
         const codice = String(p.codice ?? '').trim().toUpperCase();
         if (codice && p.note) noteProdotto.set(codice, p.note);
+        if (codice && (p.nomePartner != null || p.nomePartnerAttivo != null)) nomePartner.set(codice, { nome: (p.nomePartner ?? '').trim() || null, attivo: Boolean(p.nomePartnerAttivo) && !!(p.nomePartner ?? '').trim() });
         for (const v of p.varianti ?? []) {
           const sku = String(v.sku ?? '').trim().toUpperCase();
           if (sku && v.note) noteVariante.set(sku, v.note);
@@ -258,7 +265,7 @@ export class MerchandisingSyncService {
 
     const prodotti = await this.prisma.product.findMany({
       where: { deletedAt: null, NOT: { sku: null } },
-      select: { id: true, sku: true, note: true },
+      select: { id: true, sku: true, note: true, alternateName: true, useAlternateName: true },
     });
     const varianti = await this.prisma.productVariant.findMany({
       where: { NOT: { sku: null } },
@@ -272,8 +279,17 @@ export class MerchandisingSyncService {
       const n = noteVariante.get(x.sku!.trim().toUpperCase());
       return n && n !== x.note;
     });
+    const nomiDaCambiare = prodotti.filter((x) => {
+      const n = nomePartner.get(x.sku!.trim().toUpperCase());
+      return n && ((n.nome ?? null) !== (x.alternateName ?? null) || n.attivo !== x.useAlternateName);
+    });
     let scritti = 0;
     if (applica) {
+      for (const x of nomiDaCambiare) {
+        const n = nomePartner.get(x.sku!.trim().toUpperCase())!;
+        await this.prisma.product.update({ where: { id: x.id }, data: { alternateName: n.nome, useAlternateName: n.attivo } });
+        scritti++;
+      }
       for (const x of prodottiDaCambiare) {
         await this.prisma.product.update({ where: { id: x.id }, data: { note: noteProdotto.get(x.sku!.trim().toUpperCase()) } });
         scritti++;
@@ -288,6 +304,8 @@ export class MerchandisingSyncService {
       ok: true,
       applicato: applica,
       noteInMerchandising: { prodotti: noteProdotto.size, varianti: noteVariante.size },
+      nomiPartnerInMerchandising: nomePartner.size,
+      nomiPartnerDaCambiare: nomiDaCambiare.length,
       daCambiare: { prodotti: prodottiDaCambiare.length, varianti: variantiDaCambiare.length },
       scritti,
     };

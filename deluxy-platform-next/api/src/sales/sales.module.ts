@@ -188,6 +188,9 @@ export class SalesService {
       const alPartner = v.amount != null ? prezzoAlPartner(v.amount, Number(v.discountPercent) || 0) : null;
       // ⭐ 08/09/2026: il prodotto SUO che corrisponde al patto — anche nel campanello,
       // così chi guarda dall'app sa cosa preparare senza aprire la mail.
+      // ⭐ 10/09/2026: il nome che il fornitore riconosce (Merchandising → alternateName), se attivo.
+      const idProdotto = (v as { productId?: string | null }).productId ?? null;
+      const nomeSuo = idProdotto ? SalesService.nomePerIlPartner(await this.prisma.product.findUnique({ where: { id: idProdotto }, select: { name: true, alternateName: true, useAlternateName: true } })) : null;
       const rif = await this.riferimentoDelPatto(
         (v as { productId?: string | null }).productId ?? null,
         (v as { productVariantId?: string | null }).productVariantId ?? null,
@@ -238,6 +241,13 @@ export class SalesService {
    * rilegge e si porta al partner. Se non c'è — patto nato dal giro notturno, o vecchio —
    * non si inventa niente: la proposta resta come prima.
    */
+  /** Il nome con cui il PARTNER conosce il prodotto: quello di Merchandising, se attivo; altrimenti il commerciale. */
+  private static nomePerIlPartner(p: { name?: string | null; alternateName?: string | null; useAlternateName?: boolean | null } | null | undefined): string | null {
+    if (!p) return null;
+    const suo = (p.alternateName ?? '').trim();
+    return p.useAlternateName && suo ? suo : (p.name ?? null);
+  }
+
   private async riferimentoDelPatto(
     productId: string | null | undefined,
     productVariantId: string | null | undefined,
@@ -290,7 +300,7 @@ export class SalesService {
             externalOrderNumber: true, productName: true, variantName: true, deliveryDate: true,
             recipientFirstName: true, recipientLastName: true, recipientAddress: true,
             productId: true, productVariantId: true, provinceId: true,
-            product: { select: { name: true, note: true } },
+            product: { select: { name: true, note: true, alternateName: true, useAlternateName: true } },
             province: { select: { name: true, code: true } },
           },
         }),
@@ -313,7 +323,9 @@ export class SalesService {
       }
       if (!vendita || !partner) return;
 
-      const prodotto = vendita.product?.name ?? vendita.productName ?? 'prodotto';
+      // ⭐ 10/09/2026 (regola utente): se in Merchandising c'è il NOME PER IL PARTNER attivo
+      // («2 Colazioni in Famiglia»), il fornitore legge quello: è il nome con cui prepara.
+      const prodotto = SalesService.nomePerIlPartner(vendita.product) ?? vendita.productName ?? 'prodotto';
       const giorno = vendita.deliveryDate
         ? new Date(vendita.deliveryDate).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Rome' })
         : null;
