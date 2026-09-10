@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { totaliProForma, rifProForma } from "@/lib/proforma";
+import { matchPartner } from "@/lib/riconciliazione";
 import { leggiIntestazione } from "@/lib/intestazione";
 
 // API pubblica: i documenti che precedono la fattura, per gli altri progetti
@@ -119,6 +120,14 @@ async function trovaPartner(rif: string) {
     take: 5,
   });
   if (simili.length === 1) return { partner: simili[0], candidati: [] as string[] };
+  // ⭐ 10/09/2026 — la REGOLA DEL MOTORE, la stessa di /api/consegne-mese e della riconciliazione
+  // dei movimenti: parole del mestiere ignorate, città in coda tollerata. Caso vero: la
+  // piattaforma manda «Enrico Rizzi Milano», qui il partner si chiama «ENRICO RIZZI» — il
+  // «contiene» non lo trovava, il mese sì, e per agosto era nata la fattura delle commissioni
+  // ma NON la pro-forma delle 18 consegne. Stesso partner, due risposte diverse.
+  const tutti = await prisma.partner.findMany();
+  const perMotore = matchPartner(rif, tutti);
+  if (perMotore) return { partner: perMotore, candidati: [] as string[] };
   return { partner: null, candidati: simili.map((p) => p.nome) };
 }
 
