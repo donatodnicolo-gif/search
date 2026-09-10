@@ -939,6 +939,11 @@ export class RecurringService_ {
         // al 31/12 ne fa novanta allo stesso indirizzo, e sarebbero novanta
         // chiamate a Google per la stessa risposta.
         const luogo = await this.deliveries.luogoDaIndirizzo(r.recipientAddress);
+        const ritiro = r.pickupAddress?.trim() || r.partner?.address?.trim() || null;
+        // 10/09: qui si misura anche la DISTANZA, con la stessa memoria della
+        // geocodifica — un tragitto ripetuto novanta giorni costa una chiamata
+        // sola. Senza distanza la paga del valet perde gli extra km.
+        const kmMisurati = await this.deliveries.distanzaMisurata(ritiro, r.recipientAddress);
         const consegna = await this.prisma.delivery.create({
           data: {
             code: prossimoCode++,
@@ -958,7 +963,8 @@ export class RecurringService_ {
             status: f.valetId ? 'assigned' : 'created',
             deliveryTimeFrom: f.timeFrom,
             deliveryTimeTo: f.timeTo,
-            pickupAddress: r.pickupAddress?.trim() || r.partner?.address?.trim() || null,
+            pickupAddress: ritiro,
+            ...(kmMisurati != null ? { distanceKm: kmMisurati } : {}),
             recipientFirstName: r.recipientFirstName ?? r.nome,
             recipientLastName: r.recipientLastName ?? '',
             recipientAddress: r.recipientAddress,

@@ -3322,6 +3322,29 @@ export class DeliveriesService {
   // ============================================================
   private readonly luoghiVisti = new Map<string, { lat: number | null; lng: number | null; provinceId: string | null }>();
 
+  /**
+   * DISTANZA MISURATA fra ritiro e consegna, con la stessa memoria della
+   * geocodifica: una coppia di indirizzi si chiede a Google UNA volta sola.
+   * Serve ai punti che creano consegne fuori da create() — i ricorrenti (che
+   * ripetono lo stesso tragitto per novanta giorni) e gli ordini WooCommerce.
+   * Restituisce null quando non è misurabile: chi chiama NON inventa e non fallisce.
+   */
+  private readonly distanzeViste = new Map<string, number | null>();
+
+  async distanzaMisurata(
+    ritiro: string | null | undefined,
+    consegna: string | null | undefined,
+  ): Promise<number | null> {
+    const da = (ritiro ?? '').trim();
+    const a = (consegna ?? '').trim();
+    if (!da || !a) return null;
+    const chiave = da.toLowerCase() + ' -> ' + a.toLowerCase();
+    if (this.distanzeViste.has(chiave)) return this.distanzeViste.get(chiave)!;
+    const km = await this.settings.distanzaStradaleKm(da, a).catch(() => null);
+    this.distanzeViste.set(chiave, km);
+    return km;
+  }
+
   async luogoDaIndirizzo(
     indirizzo: string | null | undefined,
   ): Promise<{ lat: number | null; lng: number | null; provinceId: string | null }> {

@@ -66,7 +66,13 @@ interface WooOrderPayload {
 
 @Injectable()
 export class WoocommerceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Serve solo a misurare la distanza ritiro -> consegna (10/09): senza,
+    // gli ordini dal sito del partner nascevano senza km e la paga del valet
+    // perdeva gli extra km.
+    private readonly deliveries: DeliveriesService,
+  ) {}
 
   /**
    * Riceve un ordine dal plugin WooCommerce "deluxy-send-order".
@@ -97,6 +103,10 @@ export class WoocommerceService {
       .map((i) => ({ productId: i.productId!, quantity: i.quantity ?? 1 }));
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
+    const kmMisurati = await this.deliveries.distanzaMisurata(
+      partner.address,
+      payload.recipient.address,
+    );
 
     const delivery = await this.prisma.delivery.create({
       data: {
@@ -114,6 +124,7 @@ export class WoocommerceService {
           ? `[WooCommerce #${payload.orderId}] ${payload.notes}`
           : `[WooCommerce #${payload.orderId}]`,
         pickupAddress: partner.address,
+        ...(kmMisurati != null ? { distanceKm: kmMisurati } : {}),
         products: productIds.length ? { create: productIds } : undefined,
         logs: {
           create: {

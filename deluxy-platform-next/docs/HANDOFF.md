@@ -3,6 +3,33 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🛣️ **10/09/2026 — la distanza si misura da OGNI porta che crea una consegna.**
+> Il censimento dei punti che scrivono una `Delivery` (grep su `api/src`):
+> `app-api` → `deliveries.create` ✓ · `deliveries.service.ts:1864` ✓ (corretto
+> il 09/09) · `sales.module.ts:3156` ✓ (vendite accettate) ·
+> `woocommerce.module.ts:232` → `deliveries.create` ✓ · **`recurring.module.ts:942`**
+> e **`woocommerce.module.ts:101`** erano scoperti: creavano con
+> `prisma.delivery.create` diretto, senza km. Ora usano
+> `DeliveriesService.distanzaMisurata(ritiro, consegna)` — stesso schema della
+> geocodifica, con **memoria per coppia di indirizzi**: un ricorrente che ripete
+> lo stesso tragitto per novanta giorni paga UNA chiamata, non novanta. Un
+> valore dichiarato a mano vince sempre; se Google non risponde il campo resta
+> vuoto e la consegna nasce lo stesso.
+> ⚠️ **Non** si misura (di proposito): partner con ritiro forzato in città
+> (Artista Locale, distanza zero per definizione) e import dal legacy.
+>
+> 📏 **Le distanze del vecchio gestionale sono già dentro** (misurato il 10/09,
+> non dedotto). `legacy/tabelle/delivery.csv` ha **29.926** righe con
+> `distance > 0`; l'aggancio è `Delivery.legacyId` (**non** `legacyOrderId`:
+> quello aggancia 3 righe in tutto). Delle nostre **31.705 senza distanza**:
+> **1.216** ce l'hanno nel vecchio e si travasano senza chiamare Google (di cui
+> **1.101** ancora da pagare), **29.638** sono vuote anche nel vecchio, **851**
+> sono nate qui. Controprova su **28.540** consegne che hanno entrambe:
+> **28.433 identiche**, 107 diverse — e le diverse sono la sporcizia già nota
+> del vecchio (590-630 km su ordini urbani, vedi più sotto), dove il valore
+> nostro è quello sano. Quindi un eventuale travaso va fatto **con tetto di
+> sanità**, non alla cieca.
+
 > 🔗 **09/09/2026 — le condizioni vendor viaggiano SEMPRE, anche con `campi`.**
 > `corpo()` le saltava quando la sincronizzazione era mirata a un sottoinsieme
 > di campi. È costato un caso vero: su **MEIMEIJ (Angelica Fashion srl)** il
