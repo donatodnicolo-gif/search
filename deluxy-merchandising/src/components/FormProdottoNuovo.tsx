@@ -352,7 +352,20 @@ export function FormProdottoNuovo({
    */
   const [bozzaId, setBozzaId] = useState<string | null>(null);
   const [bozzaSalvata, setBozzaSalvata] = useState<Date | null>(null);
-  const inCreazione = !iniziale || !!duplica;
+  // ⚠️⚠️ 10/09/2026 — **la duplicazione è esclusa, e non è una dimenticanza.**
+  //
+  // L'utente ha segnalato «duplicando, le varianti sono al contrario» e «finisce
+  // tutto il testo delle sezioni nella descrizione». Guardando il prodotto vero
+  // «(Duplica) I'm Back Cake»: 0 varianti, nessun prezzo, nessuna foto — ma
+  // descrizione, categoria e sezioni sì. È esattamente l'insieme di campi che
+  // scrive il salvataggio automatico: **non era un duplicato, era una bozza**.
+  //
+  // Perché non basta farle completare la bozza come fa «Nuovo prodotto»: la
+  // duplicazione deve generare SKU NUOVI a partire dal codice nuovo, mentre il
+  // percorso di aggiornamento riuserebbe quelli dell'originale — e andrebbero
+  // in collisione, perché l'originale ce li ha ancora. Due percorsi diversi per
+  // un motivo vero: qui l'autosalvataggio si spegne.
+  const inCreazione = !iniziale;
 
   /**
    * ⭐ 09/09/2026 (utente): «le regole Google per la SEO si generano in
