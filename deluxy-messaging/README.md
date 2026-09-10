@@ -11,6 +11,8 @@ Sulla scheda ordine, **«Proposta di vendita»**: consegna deluxy.it in guanti b
 
 API per le altre app (chiave `ApiKey`): `GET /api/v1/quota-fornitore?provincia=MI&conPartner=1|0&prezzoPubblico=85` → `quota`, `sconto`, `regola`, `prezzoFornitore`. È la **casa** della quota: Orders vi delega.
 
+`GET /api/v1/fornitori?giorni=180` (10/09/2026, sola lettura) → per ogni fornitore a cui abbiamo **affidato ordini**: `ordini30`, `ordiniLunga`, `venduto30`, `vendutoLunga`, `ultimoIl`, `id` (registro) e `chiave` (nome normalizzato). È la casa dell'assegnazione ordine → fornitore: Scout la legge nelle schermate Fornitori e Segnalazioni CS. Non esce il costo pattuito col fornitore.
+
 Il **servizio clienti** dell'ecosistema Deluxy. Si aprono e si lavorano i **reclami**
 sugli ordini — ognuno con una casistica, le azioni da eseguire e la colpa attribuita a un
 **valet** o a un **partner**, da cui nascono i **giudizi** — e attorno restano gli
