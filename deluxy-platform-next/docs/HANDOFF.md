@@ -55,7 +55,26 @@
 > 
 > 🔴 **SAMI CHAKROUN NON HA STIPENDI.** Verifica su richiesta dell'utente: **149 consegne** fra agosto e settembre, **0 collegate a uno stipendio** — e non perché il legame sia rotto: **nessuno stipendio è mai stato generato per lui** (nessuno dal 15/07). **109 sono da pagare** con **1.452,78 €** di paga già scritta; 39 sono segnate «non da pagare» e **33 di quelle sono Chanel Roma** (28 Piazza di Spagna + 5 Babuino, tutte consegnate) — da confermare se è una scelta; 1 annullata. Delle 109, **25 non hanno la distanza**: generando ora, su quelle gli extra km non verrebbero conteggiati (la correzione vale da qui in avanti, non retroattivamente). Tabella riga per riga: `scratchpad/sami-consegne-stipendi.csv`.
 
-> 🔖 **09/09/2026 — IL MESE DELLE CONSEGNE VA IN FINANCE. Scritto, NON pubblicato, e bloccato da una chiave sbagliata.**
+> 🔴 **09/09/2026 (sera) — SAMI: IL LISTINO VALET NON COMBACIA COI SERVIZI CHE FA. Script pronto, NON applicato.**
+>
+> Cercando perché 28 consegne sarebbero rimaste fuori dallo stipendio, la causa è venuta fuori intera: il suo listino ha **«Consegna Standard»** (PREZZO_FISSO, 12,50 € + 0,70 €/km) e **«Servizio a Ora»** (12,50 €), mentre i servizi che gli assegnano sono **altri tre**: «Vendita Deluxy» (80 consegne da agosto), «Servizio Consegna Standard» (55) e «Chanel Roma a ora» (17). Nomi simili, `ServiceType` diversi. Senza una voce di listino per il servizio della consegna, `pagaConsegna()` torna **null** e la riga **esce dal conto** — non a zero: proprio fuori.
+> - **Decisione dell'utente**: stessa tariffa delle voci che ha già — 12,50 € + 0,70 €/km oltre i suoi 5 km inclusi; a ora 12,50 € l'ora senza km. Il **fuori città** non si tocca: viene dalla scheda valet (`extraOutOfCityPrice` = 1 €/km, tutti i km, col minimo della base urbana) e vale già per tutti i servizi.
+> - **Simulato con le funzioni vere** (`DA_PAGARE` + `pagaConsegna` dal build): agosto 82 consegne prese → 70 righe, **1.432,13 €**; settembre a oggi 23 → 7 righe, 109,94 €. Le **28 che restano fuori** varrebbero **292,21 €** con le voci aggiunte.
+> - ⚠️ **Da lanciare** (la scrittura la fa l'utente): `node api/scripts/listino-valet-sami.mjs --applica` — anteprima di default, non tocca le voci esistenti, ripetibile. Poi si genera lo stipendio.
+> - 🔖 **Da verificare dopo**: se il disallineamento fra listino valet e servizi assegnati riguarda **anche altri valet**. Su Sami è costato tre voci mancanti su tre servizi usati.
+> - 📌 **Nota di lettura**: dove la consegna porta già una `valetSalary` > 0 quella vince e il listino non si consulta — è il caso della #62478 (15,57 €), valore **importato dal vecchio gestionale** (`expertSalary`), non scritto da nessuno qui.
+
+> ✅ **09/09/2026 — IL MESE DELLE CONSEGNE VA IN FINANCE. ⚠️ CORREZIONE DEL 09/09 SERA: la chiave ERA buona, e la rotta l'ha fatta la sessione di FINANCE.**
+>
+> 🔴 **La mia diagnosi «chiave sbagliata» qui sotto È SBAGLIATA e resta solo come lezione.** Era letta sulla copia VECCHIA di FINANCE nel worktree (198 file di differenza dalla cartella viva `scoutwt/deluxy-partner`). Nella versione vera le chiavi stanno nella tabella **`ChiaveApi`** con uno **SCOPE** ('lettura' | 'scrittura') e il confronto è `perApp.scope === scope`, **uguaglianza esatta**. La chiave della piattaforma è di **scrittura** e **funziona**: `POST /api/proforma` risponde **400 sul body** (autentica), mentre i miei tentativi erano tutti **GET** — e i GET chiedono 'lettura', da cui il 401. 📌 Se un domani la piattaforma dovrà anche LEGGERE da Finance, servirà una seconda chiave.
+>
+> ✅ **La rotta `POST /api/consegne-mese` è LIVE su Finance** (fatta dalla loro sessione, commit `7ff83bd2` + `763a43fb`): risponde 401 senza chiave, 400 sul corpo vuoto, 404 su partner inesistente. Contratto verificato campo per campo contro il nostro invio: combacia, e vuole scope **scrittura**.
+>
+> ⚠️ **Hanno RESPINTO una parte della mia specifica, e avevano ragione**: la `FatturaServizio` «già saldata» **conta il denaro due volte** — la commissione è già dentro `dovutoVendita`. Fabbrica Delle Feste, agosto: col doppio conteggio da bonificare 124,62 € invece di 184,01 € (59,39 € tolti due volte). In Finance il documento si registra sul **MESE** (`commFattEmessa` + `commFattNumero`). La mia bozza è stata **rimossa** dal branch (commit `ad6caf26`): stava dentro la copia vecchia, e chi avesse pubblicato Finance da lì avrebbe riportato l'app indietro E introdotto il doppio conteggio.
+>
+> 🔖 **Resta da collaudare end-to-end**: premere «Invia a Finance» su agosto di Fabbrica Delle Feste e verificare che sulla sua scheda compaiano il mese e i **184,01 €** da bonificare.
+>
+> —— quel che segue è il racconto di allora, con la diagnosi sbagliata ——
 >
 > **La domanda**: premendo il bottone, la scheda del partner in FINANCE si aggiorna col mese di agosto? **No.** E non arriva nemmeno la pro-forma: il codice che la manda esiste dal 31/08 ma cerca la chiave in `FINANCE_API_KEY` (env) o `financeApiKey` (Impostazioni), e in produzione **non c'era nessuna delle due** — tutte e 6 le fatture di Fabbrica Delle Feste hanno `financeRef = MAI MANDATA`.
 > 
