@@ -12,6 +12,8 @@ import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
  * domani il partner è chiuso, «da domani» è una promessa falsa. La regola: base 1 → 2 se domani
  * è chiuso → torna 1 quando riapre; chiuso tre giorni → 4, e si aggiorna ogni giorno. L'ora
  * minima è la prima ora piena dopo l'apertura di QUEL giorno; partner senza orari → ore 9.
+ * E oggi conta come chiuso se il partner ha già chiuso (lo dice la piattaforma: `origine =
+ * 'chiuso-per-oggi'`): «se Clivati oggi chiude alle 15 e sono le 16, acquistabili da domani».
  *
  * Chi sa cosa: la piattaforma consegne conosce il proprietario del prodotto unico e il suo
  * calendario (orari settimanali, fasce del giorno, eccezioni) e ce lo MANDA
@@ -22,7 +24,7 @@ import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
  * utente: «meglio vuoto che inventato»): il prodotto resta com'è e il motivo lo dice.
  */
 
-export type GiornoCalendario = { data: string; aperto: boolean; dalle: string | null };
+export type GiornoCalendario = { data: string; aperto: boolean; dalle: string | null; alle?: string | null; origine?: string };
 export type ProdottoCalendario = { codice: string; partner?: string | null; senzaOrari?: boolean; calendario: GiornoCalendario[] };
 
 export const ORA_SENZA_ORARI = 9;
