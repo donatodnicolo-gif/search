@@ -56,8 +56,11 @@ Regole dettate dall'utente il 10/09/2026 e confermate dall'architetto UX (punti 
   (confermata): **dalle 18:00 alle 19:59 resta ordinabile la sola 20-22**;
 - **di notte (00:00–07:59)** l'anticipo si conta dall'apertura (08:00): prima fascia **10-12**;
 - **domani = fasce di 2 ore, sempre** (anche ordinando alle 15:00): la granularità dipende dal
-  giorno, non dall'ora dell'ordine. Ordinando **dopo le 20:00**, domani parte da **10-12**
-  (stesso stato operativo della notte: un foglio sul banco alle 08:00);
+  giorno, non dall'ora dell'ordine. Le fasce di domani partono dalle **prime due ore da quando
+  l'orario minimo del carrello è attivo** (decisione utente 10/09 sera): carrello senza vincoli →
+  **08-10**, prodotto dalle 9 → **09-11, 11-13…**, dalle 10 → **10-12**. Anche ordinando **dopo le
+  20:00** non si salta nessuna fascia fissa (scartate la 10-12 fissa dell'architetto e la 08-10 fissa
+  del vecchio tema);
 - **dopodomani e oltre = fasce di 1 ora** (08-09 … 21-22);
 - finestra della giornata **08:00–22:00**;
 - l'**orario di disponibilità minima** dei prodotti in carrello (massimo dei `custom.minimo_orario`)
@@ -71,7 +74,7 @@ Regole dettate dall'utente il 10/09/2026 e confermate dall'architetto UX (punti 
 | 00:00–07:59 | da 10-12 a 20-22 | 08-10 … 20-22 | 08-09 … 21-22 |
 | 08:00–17:59 | dalla 2ª fascia dopo quella in corso (10:30 → 14-16) fino a 20-22 | tutte | tutte |
 | 18:00–19:59 | solo 20-22 (eccezione) | tutte | tutte |
-| 20:00–23:59 | nessuna | da 10-12 | tutte |
+| 20:00–23:59 | nessuna | tutte, dall'orario minimo del carrello (08-10 senza vincoli) | tutte |
 
 Parametri nel Customer Service (`REGOLE_DELUXY`): finestra 08:00–22:00; oggi durata 2, salta 2,
 limite 20:00, ultima fascia fino al limite; domani durata 2, dopo il limite salta 1; oltre durata 1.

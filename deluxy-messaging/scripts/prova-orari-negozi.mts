@@ -2,7 +2,7 @@
 // data si può scegliere?», e — dalla sera del 10/09 — IL MOTORE DELLE FASCE con
 // le regole di deluxy.it dettate dall'utente e confermate dall'architetto UX:
 // oggi a 2 ore dalla seconda fascia dopo quella in corso, di notte dalle 10-12,
-// dalle 18 alle 19:59 la sola 20-22, dalle 20 per domani dalle 10-12 (2 ore),
+// dalle 18 alle 19:59 la sola 20-22, dalle 20 per domani a 2 ore dall'orario minimo del carrello (08-10 senza vincoli),
 // oltre a 1 ora; la disponibilità minima dei prodotti toglie le fasce che
 // cominciano prima; il preavviso toglie i giorni troppo vicini.
 // Non tocca il database. Uso: npx tsx scripts/prova-orari-negozi.mts
@@ -85,14 +85,17 @@ prova('20:00 oggi → nessuna, con motivo', !f(D0, '20:00').ok && f(D0, '20:00')
 prova('03:00 di notte oggi → dalle 10-12 (si conta dall’apertura)', s(D0, '03:00') === '10-12 12-14 14-16 16-18 18-20 20-22', s(D0, '03:00'))
 prova('07:00 oggi → dalle 10-12', s(D0, '07:00') === '10-12 12-14 14-16 16-18 18-20 20-22', s(D0, '07:00'))
 prova('domani alle 15:00 → tutte le 7 fasce di 2 ore', s(D1, '15:00') === '08-10 10-12 12-14 14-16 16-18 18-20 20-22', s(D1, '15:00'))
-prova('domani alle 21:00 (dopo il limite) → dalle 10-12', s(D1, '21:00') === '10-12 12-14 14-16 16-18 18-20 20-22', s(D1, '21:00'))
+prova('domani alle 21:00 (dopo il limite, carrello senza vincoli) → dalle 08-10, nessun salto fisso', s(D1, '21:00') === '08-10 10-12 12-14 14-16 16-18 18-20 20-22', s(D1, '21:00'))
+prova('domani alle 21:00 con orario minimo 9 → 09-11 11-13 … (la griglia si aggancia all’orario minimo)', s(D1, '21:00', { oraMinima: 9 }) === '09-11 11-13 13-15 15-17 17-19 19-21', s(D1, '21:00', { oraMinima: 9 }))
+prova('domani alle 21:00 con orario minimo 10 → dalle 10-12', s(D1, '21:00', { oraMinima: 10 }) === '10-12 12-14 14-16 16-18 18-20 20-22', s(D1, '21:00', { oraMinima: 10 }))
+prova('domani alle 15:00 con orario minimo 9 → 09-11 … (stessa griglia anche prima delle 20)', s(D1, '15:00', { oraMinima: 9 }) === '09-11 11-13 13-15 15-17 17-19 19-21', s(D1, '15:00', { oraMinima: 9 }))
 prova('dopodomani → 14 fasce di un’ora 08-09 … 21-22', f(D2, '15:00').etichette.length === 14 && s(D2, '15:00').startsWith('08-09 09-10') && s(D2, '15:00').endsWith('21-22'), s(D2, '15:00'))
 prova('dopodomani con disponibilità minima alle 10 → dalle 10-11', s(D2, '15:00', { oraMinima: 10 }).startsWith('10-11') && f(D2, '15:00', { oraMinima: 10 }).etichette.length === 12, s(D2, '15:00', { oraMinima: 10 }))
 prova('oggi alle 10:30 con minimo alle 16 → 16-18 18-20 20-22', s(D0, '10:30', { oraMinima: 16 }) === '16-18 18-20 20-22', s(D0, '10:30', { oraMinima: 16 }))
 prova('preavviso 2 giorni: oggi e domani spenti col motivo, dopodomani sì', !f(D0, '10:00', { leadGiorni: 2 }).ok && !f(D1, '10:00', { leadGiorni: 2 }).ok && f(D2, '10:00', { leadGiorni: 2 }).ok, f(D0, '10:00', { leadGiorni: 2 }).motivo)
 prova('quando: oggi / domani / oltre', f(D0, '10:00').quando === 'oggi' && f(D1, '10:00').quando === 'domani' && f(D2, '10:00').quando === 'oltre')
 const cal = calendarioConsegna(dlx, alle(D0, '20:30'), {}, 3)
-prova('calendario alle 20:30: oggi spento, domani da 10-12, dopodomani orario', !cal[0].ok && cal[1].etichette[0] === '10-12' && cal[2].etichette.length === 14, cal.map((x) => `${x.data.slice(5)}:${x.ok ? x.etichette.length : 'no'}`).join(' '))
+prova('calendario alle 20:30: oggi spento, domani da 08-10, dopodomani orario', !cal[0].ok && cal[1].etichette[0] === '08-10' && cal[2].etichette.length === 14, cal.map((x) => `${x.data.slice(5)}:${x.ok ? x.etichette.length : 'no'}`).join(' '))
 
 console.log('\n=== Fasce ampie (Flowers/Cake, punto di partenza) ===\n')
 const amp: OrarioNegozioDati = { giorniApertura: [0, 1, 2, 3, 4, 5, 6], regole: REGOLE_FASCE_AMPIE, giorniChiusura: [], nota: '' }

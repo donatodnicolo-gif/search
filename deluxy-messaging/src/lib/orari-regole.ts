@@ -116,10 +116,12 @@ export const REGOLE_DELUXY: RegoleConsegna = {
   // dall'architetto UX il 10/09: l'anticipo scende a 2 ore sulla FINE della
   // fascia; costo operativo: evadere in ~2 ore un ordine delle 19:59).
   oggi: { attivo: true, durataOre: 2, saltaFasce: 2, limiteOra: '20:00', ultimaFasciaFinoAlLimite: true, notteDalle: '10:00' },
-  // Ordinando dopo le 20 per domani si parte da 10-12, come di notte per oggi:
-  // stesso stato operativo (un foglio sul banco alle 08:00) → stessa prima
-  // fascia (architetto UX, punto C; il tema oggi dà 08-10 — da decidere l'utente).
-  domani: { durataOre: 2, dopoLimiteSaltaFasce: 1, saltaDopoOra: '20:00' },
+  // Ordinando dopo le 20 per domani NON si salta nessuna fascia fissa: si parte
+  // dalle «prime due ore da quando l'orario minimo del carrello è attivo»
+  // (decisione dell'utente, 10/09/2026 sera — scartate sia la 10-12 fissa
+  // proposta dall'architetto UX sia la 08-10 fissa del vecchio tema): carrello
+  // senza vincoli → 08-10; prodotto disponibile dalle 9 → 09-11; dalle 10 → 10-12.
+  domani: { durataOre: 2, dopoLimiteSaltaFasce: 0, saltaDopoOra: '20:00' },
   oltre: { durataOre: 1 },
   giorniMostrati: 60,
 }
@@ -467,9 +469,14 @@ export type VincoliCarrello = {
 
 export type EsitoGiorno = { data: string; ok: boolean; motivo: string; fasce: Fascia[]; etichette: string[]; quando: 'oggi' | 'domani' | 'oltre' }
 
-/** Le fasce di una giornata, tutte, da `finestraDa` a passi di `durataOre` finché stanno dentro `finestraA`. */
-export function fasceIntere(regole: RegoleConsegna, durataOre: number): Fascia[] {
-  const da = minuti(regole.finestraDa)
+/**
+ * Le fasce di una giornata, tutte, a passi di `durataOre` finché stanno dentro
+ * `finestraA`. Partono da `finestraDa`, o da `daMinuti` se è più tardi: così la
+ * griglia si AGGANCIA all'orario minimo del carrello (dalle 9 → 09-11, 11-13…)
+ * invece di tagliare una griglia fissa (che darebbe 10-12 e perderebbe un'ora).
+ */
+export function fasceIntere(regole: RegoleConsegna, durataOre: number, daMinuti = 0): Fascia[] {
+  const da = Math.max(minuti(regole.finestraDa), daMinuti)
   const a = minuti(regole.finestraA)
   const passo = durataOre * 60
   const fasce: Fascia[] = []
@@ -486,9 +493,11 @@ export function fasceIntere(regole: RegoleConsegna, durataOre: number): Fascia[]
  *   `ultimaFasciaFinoAlLimite`. Prima della finestra le fasce «in corso» si
  *   contano lo stesso all'indietro (alle 07:00 la fascia in corso è 06-08:
  *   con salto 2 la prima è 10-12; alle 03:00 la prima è 08-10).
- * · DOMANI: fasce di `domani.durataOre`; se si ordina dopo il limite di oggi,
- *   si saltano le prime `dopoLimiteSaltaFasce`.
- * · OLTRE: fasce di `oltre.durataOre`, tutte.
+ * · DOMANI: fasce di `domani.durataOre` dall'orario minimo del carrello in su
+ *   («le prime due ore da quando l'orario minimo è attivo»: dalle 9 → 09-11);
+ *   se si ordina dopo `saltaDopoOra`, si saltano le prime `dopoLimiteSaltaFasce`
+ *   (0 per deluxy.it: si parte dall'orario minimo; 1 per Flowers e Cake).
+ * · OLTRE: fasce di `oltre.durataOre`, tutte, dall'orario minimo del carrello.
  * · Sempre: via le fasce che cominciano prima di `oraMinima` del carrello, e
  *   niente prima di oggi + `leadGiorni`.
  */
@@ -546,10 +555,12 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
       if (!fasce.length && r.oggi.ultimaFasciaFinoAlLimite && tutte.length) fasce = [tutte[tutte.length - 1]]
     }
   } else if (quando === 'domani') {
-    const tutte = fasceIntere(r, r.domani.durataOre)
+    // La griglia parte dall'orario minimo del carrello (utente, 10/09 sera):
+    // prodotto disponibile dalle 9 → 09-11, 11-13…, non 10-12 da una griglia fissa.
+    const tutte = fasceIntere(r, r.domani.durataOre, oraMinima)
     fasce = dopoSoglia ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
   } else {
-    fasce = fasceIntere(r, r.oltre.durataOre)
+    fasce = fasceIntere(r, r.oltre.durataOre, oraMinima)
   }
   if (oraMinima) fasce = fasce.filter((f) => minuti(f.da) >= oraMinima)
   if (!fasce.length) {

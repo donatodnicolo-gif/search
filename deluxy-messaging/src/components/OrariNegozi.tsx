@@ -303,7 +303,7 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
           </p>
           {!soloLettura ? (
             <div className="filtri" style={{ marginBottom: 10 }}>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 2 ore (dalle 10-12 dopo le 20); oltre a 1 ora; finestra 08-22">
+              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 2 ore dall'orario minimo del carrello (08-10 senza vincoli, anche dopo le 20); oltre a 1 ora; finestra 08-22">
                 deluxy.it / business
               </button>
               <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_FLOWERS) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_FLOWERS))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 16:00, di notte tutte, dalle 22 domani dalle 12">
@@ -347,6 +347,10 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
             {campoNum('Prime fasce di domani da saltare', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
             {campoOra('…se si ordina dopo le', r.domani.saltaDopoOra, (s) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, saltaDopoOra: s } })))}
           </div>
+          <p className="descrizione" style={{ margin: '6px 0 0' }}>
+            Le fasce di domani partono dall&apos;orario minimo dei prodotti in carrello (dalle 9 → 09-11, 11-13…). Con «0 fasce da
+            saltare» (deluxy.it) dopo il drop-off si parte da lì; con «1» (Flowers, Cake) si perde la prima.
+          </p>
           <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Dopodomani e oltre</h4>
           <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
             {campoNum('Fasce di (ore)', r.oltre.durataOre, (n) => cambiaRegole((x) => ({ ...x, oltre: { durataOre: n } })), 1, 12)}
