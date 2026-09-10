@@ -153,6 +153,10 @@ su `scout-ui` (pushato dall'altra sessione).
 - **Ordine per un cliente nuovo** (come nel CS): da `/nuovo-ordine` si scrive
   l'email → `/clienti/<email>/nuovo-ordine` apre il modulo vuoto anche se
   Orders non conosce il cliente.
+- **Deploy del secondo giro**: Orders `deluxy-orders-2qelmlx1n` ✅ (ricorrenze
+  7 gg 1,2 s, 90 gg 2,0 s, scheda con `privacy`); CRM `deluxy-eiu1v0hy8` ✅
+  (il primo tentativo della notte era finito senza deployment: la CLI risponde
+  «Unexpected error» a volte — rilanciare e controllare `vercel ls --prod`).
 - «Crea utenti legati alla piattaforma»: nel CRM gli utenti NON si creano —
   vivono nel Hub (SSO): si crea l'utente là e si abilita l'app «crm» nella sua
   scheda (`appAbilitate`); il CRM mostra nome e ruolo dal Hub. Da spiegare
