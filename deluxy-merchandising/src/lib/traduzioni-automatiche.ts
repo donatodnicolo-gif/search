@@ -17,6 +17,7 @@
 
 import { LINGUE_NEGOZIO, traduciScheda } from "./ai-traduzioni";
 import { graphqlNegozio } from "./shopify-scrittura";
+import { erroriGraphql } from "./shopify-errori";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
 
 type Negozio = { nome: string; dominio: string; token: string };
@@ -74,7 +75,7 @@ export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promis
          pageInfo { hasNextPage endCursor }
          nodes { id title descriptionHtml ${campi} }
        } }`, { c: cursore });
-    const errori = r.corpo.errors?.map((e) => e.message) ?? [];
+    const errori = erroriGraphql(r.corpo.errors).map((e) => e.message);
     if (errori.length) { esito.messaggi.push(`Lettura interrotta: ${errori.join("; ")}`); break; }
     const d = r.corpo.data?.products as unknown as { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: Record<string, unknown>[] };
     for (const p of d.nodes) {

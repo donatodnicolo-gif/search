@@ -14,6 +14,7 @@
 
 import { VERSIONE_API } from "./negozi";
 import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
+import { erroriGraphql } from "./shopify-errori";
 
 export type ErroreShopify = { campo: string | null; messaggio: string };
 
@@ -39,8 +40,9 @@ async function graphql<T>(
     data?: Record<string, unknown>;
     errors?: { message: string }[];
   };
-  if (corpo.errors?.length) {
-    return { dati: null, errori: corpo.errors.map((e) => ({ campo: null, messaggio: e.message })) };
+  const erroriGql = erroriGraphql(corpo.errors);
+  if (erroriGql.length) {
+    return { dati: null, errori: erroriGql.map((e) => ({ campo: null, messaggio: e.message })) };
   }
   // Un 429/500/502 con corpo non-JSON arrivava qui come `{}`: dati null, errori
   // vuoti — indistinguibile da un successo. Nei passi 2 e 3 della creazione

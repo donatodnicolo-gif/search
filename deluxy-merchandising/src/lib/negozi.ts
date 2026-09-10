@@ -10,8 +10,16 @@
 
 import { cifra, cifraturaConfigurata, decifra, impronta } from "./crypto";
 import { prisma } from "./db";
+import { erroriGraphql } from "./shopify-errori";
 
-export const VERSIONE_API = "2024-10";
+// **2025-10 dal 10/09/2026.** Era `2024-10`, fuori supporto da un anno: Shopify
+// non la serviva più e rispondeva in silenzio con la più vecchia ancora
+// supportata — misurato con l'header `x-shopify-api-version: 2025-10` su tutti
+// e quattro i negozi. Scriverla qui non cambia niente di quello che succede
+// oggi; cambia che fra qualche mese, quando Shopify sposterà il ripiego alla
+// versione dopo, la scelta sarà nostra e non sua. Se si alza ancora: validare le
+// mutation (productCreate, productVariantsBulkCreate, translationsRegister…).
+export const VERSIONE_API = "2025-10";
 
 export type Permesso = {
   scope: string;
@@ -422,9 +430,10 @@ export async function verificaNegozio(id: string): Promise<void> {
       };
       errors?: { message: string }[];
     };
-    if (corpoProva.errors?.length) {
+    const erroriProva = erroriGraphql(corpoProva.errors);
+    if (erroriProva.length) {
       esito = "errore";
-      messaggio = corpoProva.errors.map((e) => e.message).join(" · ");
+      messaggio = erroriProva.map((e) => e.message).join(" · ");
     } else {
       const quanti = corpoProva.data?.productsCount?.count;
       const metafield = corpoProva.data?.products?.nodes?.[0]?.metafields?.nodes;

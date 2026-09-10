@@ -24,6 +24,7 @@
 //    stesso prodotto si uniscono a mano in /prodotti/riconcilia.
 
 import { prisma } from "./db";
+import { erroriGraphql } from "./shopify-errori";
 import { spezzaDescrizioneHtml } from "./descrizione-shopify";
 import { fotoDaTenere } from "./foto";
 import { aliasGraphql, chiaveDef, definizioniDelNegozio, valoriDaRisposta, type DefinizioneMetafield } from "./metafield-definizioni";
@@ -101,6 +102,12 @@ const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * «aspetta». Qui si aspetta e si riprova, allungando l'attesa a ogni tentativo;
  * quando Shopify dice quanto credito resta e a che ritmo lo ricarica (campo
  * `throttleStatus`), si usa quello invece di un tempo a caso.
+ *
+ * Dal 10/09/2026 si riprova anche su un **5xx**, su un **timeout** della singola
+ * richiesta e su un errore di rete: l'import di Gifts delle 03:10 era morto per
+ * «The operation was aborted due to timeout» dopo 369 s — una sola risposta
+ * lenta di Shopify buttava via tutto il lavoro fatto prima. E gli `errors`
+ * passano da `erroriGraphql`, perché non sono sempre una lista.
  */
 async function graphql<T>(
   n: Negozio,
@@ -109,14 +116,30 @@ async function graphql<T>(
 ): Promise<T> {
   let attesa = 2000;
   for (let tentativo = 1; tentativo <= 6; tentativo++) {
-    const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE_API}/graphql.json`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": n.token },
-      body: JSON.stringify({ query, variables }),
-      signal: AbortSignal.timeout(30000),
-      cache: "no-store",
-    });
+    let res: Response;
+    try {
+      res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE_API}/graphql.json`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": n.token },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(30000),
+        cache: "no-store",
+      });
+    } catch (e) {
+      const nome = e instanceof Error ? e.name : "";
+      const motivo = nome === "TimeoutError" || nome === "AbortError" ? "non ha risposto entro 30 s" : `non è raggiungibile (${e instanceof Error ? e.message : String(e)})`;
+      if (tentativo === 6) throw new Error(`Il negozio ${motivo} dopo più tentativi.`);
+      await attendi(attesa);
+      attesa *= 2;
+      continue;
+    }
     if (res.status === 401 || res.status === 403) throw new Error("Token rifiutato dal negozio (401/403).");
+    if (res.status >= 500) {
+      if (tentativo === 6) throw new Error(`Il negozio risponde HTTP ${res.status} da più tentativi.`);
+      await attendi(attesa);
+      attesa *= 2;
+      continue;
+    }
 
     if (res.status === 429) {
       if (tentativo === 6) throw new Error("Shopify continua a rifiutare per limite di richieste (429).");
@@ -131,7 +154,8 @@ async function graphql<T>(
       extensions?: { cost?: { throttleStatus?: { currentlyAvailable: number; restoreRate: number }; requestedQueryCost?: number } };
     };
 
-    const limitato = corpo.errors?.some(
+    const errori = erroriGraphql(corpo.errors);
+    const limitato = errori.some(
       (e) => e.extensions?.code === "THROTTLED" || /throttl/i.test(e.message)
     );
     if (limitato) {
@@ -147,7 +171,7 @@ async function graphql<T>(
       continue;
     }
 
-    if (corpo.errors?.length) throw new Error(corpo.errors.map((e) => e.message).join(" · "));
+    if (errori.length) throw new Error(errori.map((e) => e.message).join(" · "));
     if (!corpo.data) throw new Error(`Risposta vuota dal negozio (HTTP ${res.status}).`);
     return corpo.data;
   }

@@ -6,6 +6,7 @@
 // chiamabile dall'esterno. Qui è una funzione interna, usata dalle azioni.
 
 import { VERSIONE_API } from "./negozi";
+import { erroriGraphql } from "./shopify-errori";
 
 export type RispostaShopify = {
   status: number;
@@ -47,7 +48,7 @@ export async function graphqlNegozio(
 export function erroriDi(r: RispostaShopify, campo: string): string[] {
   const dati = r.corpo.data?.[campo];
   const errori = [
-    ...(r.corpo.errors ?? []).map((e) => e.message),
+    ...erroriGraphql(r.corpo.errors).map((e) => e.message),
     ...((dati?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
   ];
   if (errori.length === 0 && (r.status < 200 || r.status >= 300)) {

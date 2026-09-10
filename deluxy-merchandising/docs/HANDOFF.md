@@ -1,6 +1,105 @@
 # Handoff — Deluxy Merchandising
 
-Stato all'08/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+
+## 10/09/2026 pomeriggio — L'IMPORT MORTO ALLE 10:17, LA VERSIONE API, E LA LISTA DEI PUNTI APERTI RICONTATA
+
+### 🔴→✅ Import delle collezioni: «g.errors?.some is not a function» (in locale, NON pubblicato)
+
+`ImportCollezioni` alle 10:17–10:20 UTC: **Business Deluxy errore dopo 139 s,
+Flowers e Cake errore in 0–1 s**, tutti con `g.errors?.some is not a function`
+(`g` è `corpo` minificato). `/api/health` diceva `esitoUltimoImport: errore`.
+Sondati i quattro negozi alle 10:35 con la stessa query: **200 e dati su 4 su
+4** — il guasto era transitorio, di Shopify. Ma il nostro codice lo ha coperto:
+in certi guasti Shopify mette in `errors` **una stringa** o un oggetto, non la
+lista, e quattro punti della lib facevano `.some`/`.map`/`.length` sopra.
+Il TypeError nostro sostituiva il messaggio vero.
+
+Fatto (`tsc` 0):
+- **`src/lib/shopify-errori.ts` · `erroriGraphql(errors)`**: qualunque forma →
+  lista di `{message}`. Provata su 8 forme (undefined, null, [], lista, stringa,
+  oggetto, lista mista, numero). Usata in `shopify-collezioni.ts`,
+  `shopify-admin.ts`, `shopify-scrittura.ts` (`erroriDi`), `negozi.ts`
+  (verifica) e `traduzioni-automatiche.ts`.
+- **`graphql()` dell'import riprova anche su 5xx, timeout della singola
+  richiesta ed errore di rete** (stessi 6 tentativi con attesa raddoppiata).
+  Motivo: **Gifts alle 03:10 di stanotte è morto per «The operation was aborted
+  due to timeout» dopo 369 s** — un solo fetch oltre i 30 s buttava via tutto;
+  rilanciato alle 07:01 è andato (238 collezioni, 2.932 prodotti). Da guardare
+  domattina in fondo a `/collezioni` se la notte regge da sola.
+- **`VERSIONE_API` da `2024-10` a `2025-10`** (punto 12 della lista del 10/08).
+  Misurato: Shopify rispondeva già con l'header `x-shopify-api-version:
+  2025-10` su 4 negozi su 4, cioè serviva in silenzio la più vecchia supportata.
+  Scriverla non cambia il comportamento di oggi; toglie a Shopify la scelta di
+  quando spostarlo. Se si alza ancora, validare le mutation.
+- **Verificato in locale**: `/api/cron/collezioni?negozio=Cake` dal dev server
+  → `ok`, 47 collezioni, 451 prodotti, 3.054 appartenenze, 81 s; `/api/health`
+  locale torna `esitoUltimoImport: ok`.
+
+⚠️ **Non pubblicato**: l'utente ha chiesto di lavorare prima in locale. Il
+deploy (`npx vercel deploy --prod --scope deluxy`, via cloud) resta a comando.
+⚠️ Non toccato `MANUALE-DELUXY.html`: è modificato (`M`) da un'altra sessione.
+
+### Commit del 10/09 mattina che il handoff non elencava
+
+Fra le 11:42 e le 12:15 (altra sessione), tutti già su origin e in produzione
+(`cwmb5coua`, Ready): sulla scheda del cliente usciva «TORTE_DOLCI» in
+grassetto per una mappa vecchia (tre schede) · quando Shopify rifiuta ora
+resta scritto, e il panettone aveva l'id di un altro negozio · via il titolo
+«DESCRIZIONE», che teneva «Dettagli» fuori dalla prima tab · «(Duplica) I'm
+Back Cake» era una bozza dell'autosalvataggio, non un duplicato · **le bozze
+fantasma si archiviano, non si cancellano** (4 chiuse) · i percorsi di
+`bozze-fantasma.ts` avevano fatto fallire **due deploy** (`rn2bg2uqj`,
+`gs4g6s656`), corretti.
+
+### Punti aperti al 10/09/2026 — ricontati sul database, non ricopiati
+
+**Freschi**
+1. ✅ (locale) l'import sopra — da pubblicare.
+2. **Gifts di notte è fragile**: vedi sopra; il retry sul timeout è la risposta,
+   da verificare domattina (03:10 UTC).
+3. **Lingue**: de, es, zh-CN, ar, ja spente su **4 negozi su 4**; `read_locales`
+   negato su tutti; `lingueAttiveDi()` deduce dalle traduzioni esistenti, quindi
+   una lingua accesa su Shopify resterebbe spenta per l'app. Serve lo scope o un
+   campo manuale in Impostazioni. **1.528 prodotti** aspettano.
+4. **Secondo passaggio delle descrizioni**: `spezza-descrizioni.ts --tutti
+   --negozio <X>` per i quattro negozi, uno per volta, poi `--applica`.
+5. **`.env.backup-sessione`** è un file di credenziali sciolto sul disco: da
+   cancellare, decisione dell'utente.
+6. Modulo: **campi del negozio nascosti** (`false &&`) finché non si decide se i
+   valori diventano per negozio.
+7. AI sulle sezioni: in «Pesi e Misure» l'etichetta «Varianti:» esce ripetuta.
+8. **Primo punto (plus) dai prodotti pubblicati**: il parser lo dà, manca lo
+   script (~3.600 letture dalle vetrine).
+9. **FIORI contiene 88 prodotti compositi** («Originali Deluxy»): decidere se
+   restano lì.
+10. Deploy **precompilato rotto** (terzo errore muto): si pubblica col cloud,
+    deroga accettata. Non riprovarlo senza una causa nuova.
+
+**Storici, numeri di oggi**
+11. **Costi di produzione: 1.198 su 1.199 attivi senza costo.** Manca il
+    reimport del CSV compilato.
+12. **Linee: 0. `Collezione` (PLM di maison): 0 righe.** Scelte commerciali,
+    non codice.
+13. **`DA_CLASSIFICARE`: 1.890.**
+14. **SEO nostro: 11 prodotti con `seoTitolo`, 0 spinti** (dal modulo del 09/09).
+15. **Scope mancanti su 4/4: `read_publications` e `read_locales`** →
+    `pubblicataShopify` è tutto vero per ripiego; le due collezioni tecniche di
+    Gifts («Globo basis collection», «Smart Products Filter Index») sono ancora
+    `attiva`; **0 sospese** in tutto il database.
+16. **127 varianti ACTIVE senza SKU** (schede doppie: si chiudono riconciliando);
+    doppioni 236 gruppi per 525 schede (26/08), riconciliazione mai eseguita,
+    `doppioniEvidenti()` taglia a 100.
+17. **Giacenze: 3 varianti sopra zero**, nessuna fonte di magazzino.
+18. Dalla revisione del 15/08, mai applicati: cookie di sessione **sha256 non
+    HMAC**; «Elimina» negozio e «Revoca» chiave **senza conferma**; collezioni
+    cancellate dal negozio **non spariscono** dall'app; niente ESLint.
+19. **SSO Hub** non agganciato; fornitori locali; immagini solo via URL.
+20. Fuori da quest'app: tetto connessioni assente su orders, messaging, partner,
+    personale (scelta dell'utente: «sistema solo la tua parte»).
+
+Fasi oggi: in_vendita 3.050 · archiviato 1.882 · concept 141 · approvato 6 ·
+prototipo 2. Prodotti 5.081, collezioni Shopify 420.
 
 ## 10/09/2026 — LINGUE: RIVERIFICATO, E IL PASSO CHE MANCA DA QUESTA PARTE
 
