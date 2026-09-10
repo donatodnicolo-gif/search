@@ -23,7 +23,8 @@
 > checkout 37→44 px, celle 35→44, frecce 28→44) e trattino «–» anche nelle fasce di ripiego. Restano
 > (preesistenti, non toccati): celle del calendario in home 43×22 px con testo 11 px, CONFERMA senza data
 > muto, × e celle della modale 31 px, «Rimuovi» 10 px, messaggio di blocco lontano dal campo, suggerimenti
-> Google 11 px — vedi §6.
+> Google 11 px — vedi §6. **Notte**: `delivery_date_hour_c` ricaricato (md5 `0033e4d7…`) col ripiego di domani
+> dopo le 20 allineato alla regola dell'utente (prima fascia di 2 ore dall'orario minimo, poi orarie).
 
 
 > Punto di ripresa per una sessione nuova. Prima di toccare qualsiasi cosa leggi anche

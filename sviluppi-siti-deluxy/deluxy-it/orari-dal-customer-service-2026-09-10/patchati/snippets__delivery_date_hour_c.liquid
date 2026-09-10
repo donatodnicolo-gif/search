@@ -364,8 +364,11 @@ function fnCheckDate(tmpDate) {
         // DOMANI: fasce di 1 ora da ora_inizio (8, o 7 se i prodotti lo consentono).
         // Se l'ordine e' fra le 20:00 e le 24:00 -> prima fascia 08-10 poi orarie (niente 07-08).
         if (h >= 20) {
-            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00–10:00', '08-10')); }
-            for (var b = 10; b <= 21; b++) { if (b >= ora_min_def) addRange(b, b + 1); }
+            // ⭐ 10/09/2026 (regola dell'utente): la PRIMA fascia di domani dura 2 ore e parte dall'orario minimo
+            // del carrello (08-10 senza vincoli, 09-11 se un prodotto è disponibile dalle 9), poi orarie.
+            var __p = Math.max(ora_inizio, ora_min_def);
+            if (__p + 2 <= 22) { addRange(__p, __p + 2); }
+            for (var b = __p + 2; b <= 21; b++) { addRange(b, b + 1); }
         } else {
             for (var c = ora_inizio; c <= 21; c++) { if (c >= ora_min_def) addRange(c, c + 1); }
         }

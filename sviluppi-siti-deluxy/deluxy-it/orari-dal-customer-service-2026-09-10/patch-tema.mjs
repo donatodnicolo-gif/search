@@ -249,6 +249,18 @@ function formatDate(dateString) {`, nome);
 `        $('#ddlFasciaOraria').append(new Option(pad(a) + ':00\u2013' + pad(b) + ':00', pad(a) + '-' + pad(b)));`, nome);
   t = sost(t, `            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00-10:00', '08-10')); }`,
 `            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00\u201310:00', '08-10')); }`, nome);
+  // e3) ripiego di DOMANI dopo le 20: la prima fascia dura 2 ore e parte dall'orario minimo del carrello, poi orarie
+  t = sost(t, `        if (h >= 20) {
+            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00–10:00', '08-10')); }
+            for (var b = 10; b <= 21; b++) { if (b >= ora_min_def) addRange(b, b + 1); }
+        } else {`,
+`        if (h >= 20) {
+            // ⭐ 10/09/2026 (regola dell'utente): la PRIMA fascia di domani dura 2 ore e parte dall'orario minimo
+            // del carrello (08-10 senza vincoli, 09-11 se un prodotto è disponibile dalle 9), poi orarie.
+            var __p = Math.max(ora_inizio, ora_min_def);
+            if (__p + 2 <= 22) { addRange(__p, __p + 2); }
+            for (var b = __p + 2; b <= 21; b++) { addRange(b, b + 1); }
+        } else {`, nome);
   // f) la coda che salva la data diventa una funzione, usata da tutte e due le strade
   t = sost(t, `    // Salva la data scelta (localStorage + campo hidden formato YYYY-MM-DD)\n    if (!tmpDate.includes('/')) { return; }`,
 `    __dlxSalvaData(tmpDate);
