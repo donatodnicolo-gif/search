@@ -20,6 +20,7 @@
 //   fiori, colore, orario…) si compilano qui, coi valori ammessi dal negozio.
 
 import { EditorScheda } from "./EditorScheda";
+import { Multiprodotto, type ComponenteForm } from "./Multiprodotto";
 import { componiDescrizioneHtml } from "@/lib/descrizione-shopify";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -88,6 +89,8 @@ export type ProdottoIniziale = {
   shopifyId: string | null;
   /** ⭐ 07/09/2026: gli altri negozi (id) in cui il prodotto è o va pubblicato, oltre al principale. */
   altriNegoziId: string[];
+  /** ⭐ 10/09/2026: i componenti del multiprodotto (vuoto = prodotto semplice). */
+  componenti?: ComponenteForm[];
   /** Dove sta già, negozio per negozio: per dirlo accanto alla scelta. */
   pubblicazioni: { negozio: string; shopifyId: string | null; handle?: string | null; statoShopify: string | null; statoVoluto?: string | null; errore: string | null; origine: string }[];
 };
@@ -262,6 +265,9 @@ export function FormProdottoNuovo({
   const collezioniAutomatiche = iniziale?.collezioni.filter((c) => c.tipo !== "manuale") ?? [];
   // In duplica il codice arriva vuoto apposta: ne nasce uno nuovo, e con lui gli SKU delle varianti.
   const [sku, setSku] = useState(iniziale?.codice || skuCasuale);
+  // ⭐ 10/09/2026 (utente): la sezione «Multiprodotto» — i prodotti del catalogo
+  // di cui questo è fatto. Il legame lo scrive il salvataggio; qui solo la scelta.
+  const [componenti, setComponenti] = useState<ComponenteForm[]>(iniziale?.componenti ?? []);
   const [descrizione, setDescrizione] = useState(iniziale?.descrizione ?? "");
   const [tono, setTono] = useState("maison");
   const [scrivendo, setScrivendo] = useState(false);
@@ -709,6 +715,7 @@ export function FormProdottoNuovo({
       {bozzaId && <input type="hidden" name="bozzaId" value={bozzaId} />}
       <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
       <input type="hidden" name="negozioId" value={negozioId} />
+      <input type="hidden" name="componentiJson" value={JSON.stringify(componenti.map((c) => ({ id: c.id, quantita: c.quantita })))} />
       <input type="hidden" name="negoziPubblicazioneJson" value={JSON.stringify(negoziAnche.map((n) => n.id))} />
       <input type="hidden" name="nomeOpzione" value={nomeOpzione} />
       <input
@@ -1542,6 +1549,22 @@ export function FormProdottoNuovo({
           ))}
         </datalist>
       </div>
+
+      {/* ---------- Multiprodotto (facoltativo) ---------- */}
+      <Multiprodotto
+        componenti={componenti}
+        onChange={setComponenti}
+        categorie={categorie.map((c) => ({ chiave: c.chiave, nome: c.nome }))}
+        escludiId={iniziale?.id}
+        nomeProdotto={(form.current?.elements.namedItem("nome") as HTMLInputElement | null)?.value ?? iniziale?.nome ?? ""}
+        onProponi={(campo, valore) => {
+          const el = form.current?.elements.namedItem(campo);
+          if (el instanceof HTMLInputElement) {
+            el.value = String(Math.round(valore * 100) / 100);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        }}
+      />
 
       {/* ---------- Costi, prezzo, giacenza ---------- */}
       <div className="scheda">

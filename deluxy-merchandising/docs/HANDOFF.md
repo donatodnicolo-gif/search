@@ -2,9 +2,54 @@
 
 Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 10/09/2026 sera (2) — LA SEZIONE «MULTIPRODOTTO» NEL MODULO (in locale, NON pubblicato)
+
+Utente: «inizia a creare in nuovo prodotto una sezione opzionale "Multiprodotto"
+che lo aggancia ad altri prodotti esistenti o che si possono creare velocemente».
+
+**Casa del dato**: la stessa dei composti — `ComponenteProdotto` (composto ×
+componente × quantità), quella di `/multi-prodotto` e della tab «Composizione»
+della scheda prodotto. Niente tabella nuova. Valgono le regole di
+`src/lib/composti.ts`: costo e prezzo si leggono dai componenti, un costo che
+manca non vale zero (somma «parziale»), **almeno due componenti**.
+
+**Fatto (`tsc` 0):**
+- `src/components/Multiprodotto.tsx`: card facoltativa nel modulo (fra Tag e
+  Costi), spunta «È un multiprodotto»; ricerca per nome/SKU con tendina (attivi
+  prima, il prodotto stesso escluso in modifica); tabella componenti con
+  listino, costo, quantità 1–999, ×; riepilogo pezzi · somma listini · costo dai
+  componenti (parziale se manca); bottoni **«Usa … come prezzo»** e **«Usa …
+  come costo»** (solo se il costo è completo) che scrivono nei campi del
+  modulo, non li impongono; **«+ Crea un componente al volo»**: nome, categoria,
+  prezzo, costo → nasce un prodotto vero in Concept con la tappa «Creato al volo
+  come componente di «…»» e si aggiunge alla tabella.
+- API di sessione: `GET /api/prodotti/cerca?q=&escludi=` (20 righe) e
+  `POST /api/prodotti/rapido`.
+- Server (`azioni-prodotto-nuovo.ts`): `componentiDalModulo()` legge
+  `componentiJson`, pulisce, rifiuta un solo componente e i componenti che non
+  esistono; in creazione il legame nasce col prodotto (tappa «Multiprodotto: N
+  componenti»); in modifica si allinea (tolti, quantità, nuovi) e un prodotto
+  non può essere componente di sé stesso. `prodotto-per-il-modulo.ts` ripropone
+  i componenti in modifica e duplica.
+
+**Verificato in locale**: pagina `/prodotti/nuovo` 200 con la card; browser:
+spunta → «cristal» → 4 risultati → aggiunti «Cristal - Louis Roederer» ×3 e
+«Biscotti al Burro» ×1 → hidden `componentiJson` giusto → riepilogo «4 pezzi ·
+comprati separati 1.200,00 € · costo 30,00 € — parziale: 1 componente non ha un
+costo» → «Usa 1.200,00 € come prezzo» scrive 1200 nel campo. Dallo stesso
+ingresso del modulo (`creaProdottoCompleto`): creato un multiprodotto di prova in
+Concept con 2 componenti (tappa scritta), rifiutato con 1 componente; API
+`rapido` provata (prodotto 5545331, tappa giusta). Prodotti di prova cancellati:
+0 rimasti.
+
+⚠️ Non provato il salvataggio dal browser né la modifica di un composto
+esistente col modulo (0 composti a catalogo prima di oggi). Non pubblicato.
+
 ## 10/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 
-**Tutto pubblicato.** Produzione = `origin/scout-ui` (`2da191af` + handoff), ultimo deploy
+⚠️ Dopo questo punto c'è la sezione «Multiprodotto» (sera 2), **in locale e non pubblicata**.
+
+**Tutto il resto pubblicato.** Produzione = `origin/scout-ui` (`2da191af` + handoff), ultimo deploy
 **`deluxy-merchandising-i2e2kbh3i`** (cloud, Ready, alias). `/api/health` ok: 4 negozi,
 5.081 prodotti, 420 collezioni, import collezioni `ok`. Manuale ripubblicato
 (registro: tre righe del 10/09 per Merchandising).

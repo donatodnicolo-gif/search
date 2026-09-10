@@ -15,6 +15,8 @@ export const PRODOTTO_PER_IL_MODULO = {
   media: { orderBy: { ordine: "asc" } },
   collezioniShopify: { select: { collezione: { select: { id: true, titolo: true, tipo: true, negozio: true } } }, orderBy: { posizione: "asc" } },
   pubblicazioni: true,
+  // ⭐ 10/09/2026: i componenti del multiprodotto, per riproporli nel modulo.
+  componenti: { orderBy: { creatoIl: "asc" }, select: { quantita: true, componente: { select: { id: true, nome: true, codice: true, prezzoVendita: true, costoProduzione: true } } } },
 } satisfies Prisma.ProdottoInclude;
 
 export type ProdottoConTutto = Prisma.ProdottoGetPayload<{ include: typeof PRODOTTO_PER_IL_MODULO }>;
@@ -114,6 +116,7 @@ export function prodottoPerIlModulo(
       .map((r) => dati.negozi.find((n) => n.nome === r.negozio)?.id)
       .filter((x): x is string => !!x),
     pubblicazioni: p.pubblicazioni.map((r) => ({ negozio: r.negozio, shopifyId: r.shopifyId, handle: r.handle, statoShopify: r.statoShopify, statoVoluto: r.statoVoluto, errore: r.errore, origine: r.origine })),
+    componenti: p.componenti.map((c) => ({ id: c.componente.id, nome: c.componente.nome, codice: c.componente.codice, prezzoVendita: c.componente.prezzoVendita, costoProduzione: c.componente.costoProduzione, quantita: c.quantita })),
   };
 
   // `negozio` esce insieme agli altri due: è quello **risolto** (col ripiego sul

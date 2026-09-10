@@ -105,6 +105,28 @@ async function codiceLibero(chiesto: string, quanteVarianti = 0, esclusoProdotto
   throw new Error("Non ho trovato un codice libero dopo 25 tentativi.");
 }
 
+/**
+ * I componenti del multiprodotto come arrivano dal modulo: senza doppioni,
+ * quantità fra 1 e 999, solo prodotti che esistono. La regola di casa dei
+ * composti vale anche qui: **almeno due**, altrimenti è il prodotto stesso.
+ */
+async function componentiDalModulo(fd: FormData, indietro: (e: string) => never): Promise<{ id: string; quantita: number }[]> {
+  const grezzi = leggiJson<{ id?: unknown; quantita?: unknown }[]>(fd, "componentiJson", []);
+  const visti = new Set<string>();
+  const fuori: { id: string; quantita: number }[] = [];
+  for (const c of Array.isArray(grezzi) ? grezzi : []) {
+    if (!c || typeof c.id !== "string" || !c.id.trim() || visti.has(c.id)) continue;
+    visti.add(c.id);
+    fuori.push({ id: c.id, quantita: Math.max(1, Math.min(999, Math.round(Number(c.quantita)) || 1)) });
+  }
+  if (fuori.length === 1) indietro("Un multiprodotto ha almeno due componenti: con uno solo è il prodotto stesso.");
+  if (fuori.length) {
+    const esistenti = await prisma.prodotto.count({ where: { id: { in: fuori.map((c) => c.id) } } });
+    if (esistenti !== fuori.length) indietro("Uno dei componenti scelti non esiste più.");
+  }
+  return fuori;
+}
+
 function leggiJson<T>(fd: FormData, chiave: string, vuoto: T): T {
   try {
     return (JSON.parse(testo(fd, chiave) || "null") as T) ?? vuoto;
@@ -356,6 +378,9 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     definizioni,
     metafield,
     tags,
+    // ⭐ 10/09/2026 (utente): la sezione «Multiprodotto». Id e quantità, puliti;
+    // il legame va in `ComponenteProdotto`, la stessa tabella di /multi-prodotto.
+    componenti: await componentiDalModulo(fd, indietro),
     codiceChiesto: codiceAmmesso(testo(fd, "codice")),
     /** Lo SKU scritto nel modulo ma fuori forma: si tiene per dirlo, non per usarlo. */
     codiceRifiutato: codiceAmmesso(testo(fd, "codice")) ? "" : testo(fd, "codice"),
@@ -702,6 +727,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       media: m.media.length
         ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
         : undefined,
+      // ⭐ 10/09/2026: i componenti del multiprodotto.
+      componenti: m.componenti.length ? { create: m.componenti.map((c) => ({ componenteId: c.id, quantita: c.quantita })) } : undefined,
       // Dove sta: il principale (se è andato) e ogni altro negozio, riuscito o no —
       // un rifiuto scritto qui è quello che la scheda mostra e il modulo ripropone.
       pubblicazioni: {
@@ -733,6 +760,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
         origine ? `Duplicato da «${origine.nome}» (${origine.codice}) con SKU nuovo ${codice}.` : "",
         shopifyId ? `Creato su ${m.negozio.nome} (${handle ?? shopifyId}).` : "Prodotto creato.",
         varianti.length ? `${varianti.length} varianti (${varianti.map((v) => v.sku).join(", ")}).` : "",
+        m.componenti.length ? `Multiprodotto: ${m.componenti.length} componenti.` : "",
         ...cronaca,
       ].filter(Boolean).join(" "),
       origine: shopifyId ? "shopify" : "ui",
@@ -753,11 +781,13 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       media: true,
       collezioniShopify: { select: { id: true, collezioneId: true, collezione: { select: { shopifyId: true, titolo: true, tipo: true, negozio: true } } } },
       pubblicazioni: true,
+      componenti: { select: { componenteId: true, quantita: true } },
     },
   });
   if (!esistente) indietro("Prodotto non trovato.");
   const prima = esistente as NonNullable<typeof esistente>;
   const m = await leggiModulo(fd, indietro);
+  if (m.componenti.some((c) => c.id === id)) indietro("Un prodotto non può essere componente di sé stesso.");
   const avvisi: string[] = [];
   const cronaca: string[] = [];
   /** L'errore del negozio principale, per scriverlo sulla sua riga. */
@@ -1059,6 +1089,20 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       });
     }
     if (mediaTolti.length) await tx.mediaProdotto.deleteMany({ where: { id: { in: mediaTolti.map((y) => y.id) } } });
+    // ⭐ 10/09/2026: i componenti del multiprodotto seguono il modulo — chi
+    // sparisce si toglie (il prodotto componente resta a catalogo), chi c'è
+    // si allinea sulla quantità, chi è nuovo nasce.
+    const voluti = new Map(m.componenti.map((c) => [c.id, c.quantita]));
+    for (const c of prima.componenti) {
+      if (!voluti.has(c.componenteId)) await tx.componenteProdotto.delete({ where: { compostoId_componenteId: { compostoId: id, componenteId: c.componenteId } } });
+    }
+    for (const [componenteId, quantita] of voluti) {
+      await tx.componenteProdotto.upsert({
+        where: { compostoId_componenteId: { compostoId: id, componenteId } },
+        create: { compostoId: id, componenteId, quantita },
+        update: { quantita },
+      });
+    }
     // Le appartenenze locali seguono quello che il negozio ha accettato.
     for (const collezioneId of entrate) {
       await tx.prodottoInCollezioneShopify.create({ data: { collezioneId, prodottoId: id, origine: "manuale", posizione: 9999, prodottoShopifyId: shopifyId as string } }).catch(() => undefined);

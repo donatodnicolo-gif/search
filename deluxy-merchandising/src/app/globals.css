@@ -1809,3 +1809,21 @@ a.anteprima-matita {
   letter-spacing: 0.04em;
 }
 .collezioni-negozio .pill-opt a { margin-left: 6px; text-decoration: none; }
+
+/* ---------- Multiprodotto: la tendina dei risultati (10/09/2026) ---------- */
+.mp-ricerca { position: relative; max-width: 520px; }
+.mp-lista {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-m); box-shadow: var(--shadow-card);
+  max-height: 300px; overflow: auto;
+}
+.mp-lista button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 8px 12px; background: none; border: 0;
+  border-bottom: 1px solid var(--hairline); cursor: pointer; font: inherit; color: var(--text);
+}
+.mp-lista button:last-child { border-bottom: none; }
+.mp-lista button:hover:not(:disabled) { background: var(--fill); }
+.mp-lista button:disabled { opacity: .45; cursor: default; }
+.mp-lista .mp-nome { font-weight: 600; }
