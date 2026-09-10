@@ -174,15 +174,28 @@ export async function POST(req: NextRequest) {
   // anagrafiche, quindi l'aggancio vale solo se la sede è UNA — se no non si
   // sa a quale delle tre stia scrivendo chi chiama, e si passa al nome.
   // La P.IVA (e il CF) identificano l'azienda che paga da sé: sono campi suoi.
+  // ⭐ 10/09/2026 — LA REGOLA SCRITTA QUI SOPRA ORA È CODICE. Caso vero: OLFATTORIO SRL ha
+  // sei sedi con la stessa P.IVA; la piattaforma ha mandato «Olfattorio Roma» e poi «Diptyque
+  // Brera», e tutt'e due sono finiti SULLA STESSA scheda (quella di Firenze), riscrivendola.
+  // Con più sedi la P.IVA non dice a chi si sta scrivendo: si passa al nome. E una scheda che
+  // porta il platformId di un ALTRO punto vendita non si aggancia mai: è sua.
+  const unaSolaSede = async (where: Record<string, unknown>) => {
+    const sedi = await prisma.partner.findMany({ where: { ...where, attivo: true }, take: 2 });
+    if (sedi.length !== 1) return null;
+    if (sedi[0].platformId && platformId && sedi[0].platformId !== platformId) return null;
+    return sedi[0];
+  };
   if (!esistente && typeof dati.pIva === "string" && dati.pIva) {
-    esistente = await prisma.partner.findFirst({ where: { pIva: dati.pIva, attivo: true } });
+    esistente = await unaSolaSede({ pIva: dati.pIva });
   }
   if (!esistente && typeof dati.codiceFiscale === "string" && dati.codiceFiscale) {
-    esistente = await prisma.partner.findFirst({ where: { codiceFiscale: dati.codiceFiscale, attivo: true } });
+    esistente = await unaSolaSede({ codiceFiscale: dati.codiceFiscale });
   }
   if (!esistente && typeof dati.nome === "string") {
     esistente = await prisma.partner.findFirst({
       where: {
+        // (10/09) mai una scheda che è già di un altro punto vendita
+        ...(platformId ? { OR: [{ platformId: null }, { platformId }] } : {}),
         nome: { equals: dati.nome, mode: "insensitive" },
         ...(typeof dati.citta === "string" && dati.citta
           ? { citta: { equals: dati.citta, mode: "insensitive" } }

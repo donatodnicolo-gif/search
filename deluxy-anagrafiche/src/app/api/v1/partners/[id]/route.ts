@@ -60,6 +60,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const esistente = await prisma.partner.findUnique({ where: { id } });
   if (!esistente) return erroreApi(404, "Anagrafica non trovata");
+  // ⭐ 10/09/2026 — una scheda già collegata a un punto vendita della piattaforma NON si
+  // riassegna a un altro con una scrittura: sarebbe sovrascrivere l'anagrafica di qualcun altro
+  // (successo con Olfattorio: la sede di Firenze riscritta con Diptyque Brera e poi Olfattorio).
+  // Si può solo chiedere al registro, con «unisci», che è un atto di una persona.
+  if (typeof dati.platformId === "string" && dati.platformId && esistente.platformId && esistente.platformId !== dati.platformId) {
+    return erroreApi(409, `Questa anagrafica («${esistente.nome}») è già collegata a un altro punto vendita della piattaforma: non si riassegna. Crea una scheda nuova per la tua sede.`);
+  }
 
   let contattiWrite: import("@prisma/client").Prisma.ContattoUpdateManyWithoutPartnerNestedInput | undefined;
   if (contatti) {
