@@ -1,6 +1,7 @@
 import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -88,7 +89,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
 @Component({
   selector: 'app-salaries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, ConfermaComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, ConfermaComponent, RouterLink],
   template: `
     <div class="page-header">
       <div>
@@ -521,12 +522,58 @@ const NEXT: Record<string, { next: string; key: string }> = {
             <tbody>
               @for (r of storico(); track r.id) {
                 <tr>
-                  @if (canManage()) { <td>{{ r.valet?.lastName }} {{ r.valet?.firstName }}</td> }
+                  @if (canManage()) { <td>{{ (r.valet ?? r.salary?.valet)?.lastName }} {{ (r.valet ?? r.salary?.valet)?.firstName }}</td> }
                   <td>{{ r.createdAt | date: 'dd/MM/yyyy' }}</td>
                   <td class="num">{{ r.amount != null ? (r.amount | number: '1.2-2') + ' €' : '—' }}</td>
                   <td>{{ r.status || '—' }}</td>
-                  <td>@if (r.fileUrl) { <a class="act" [href]="r.fileUrl" target="_blank" rel="noopener">{{ 'salaries.legacyDoc' | translate }}</a> }</td>
+                  <td class="azioni-storico">
+                    @if (r.fileUrl) { <a class="act" [href]="r.fileUrl" target="_blank" rel="noopener">{{ 'salaries.legacyDoc' | translate }}</a> }
+                    <!-- ⭐ 10/09/2026 (regola utente): «in storico stipendi consenti di avere tendina per
+                         vedere dettagli dello stipendio che è stato inviato». Solo dove uno stipendio c'è:
+                         le ricevute importate dal sistema precedente non ne hanno. -->
+                    @if (idStipendio(r); as sid) {
+                      <button type="button" class="act link-btn" (click)="apriStorico(sid)">
+                        {{ (storicoAperto() === sid ? 'salaries.legacyHide' : 'salaries.legacyDetail') | translate }} {{ storicoAperto() === sid ? '▴' : '▾' }}
+                      </button>
+                    }
+                  </td>
                 </tr>
+                @if (idStipendio(r) && storicoAperto() === idStipendio(r)) {
+                  <tr class="dettaglio-storico">
+                    <td [attr.colspan]="canManage() ? 5 : 4">
+                      @if (storicoDettaglio(); as d) {
+                        <p class="muted riga-periodo">
+                          {{ d.periodStart | date: 'dd/MM/yy' }} – {{ d.periodEnd | date: 'dd/MM/yy' }} · {{ statusLabel(d.status) }}
+                          · {{ 'salaries.legacyNet' | translate }} {{ d.netAmount | number: '1.2-2' }} €
+                        </p>
+                        <table class="table sotto">
+                          <thead>
+                            <tr>
+                              <th>{{ 'salaries.col.date' | translate }}</th>
+                              <th>{{ 'salaries.legacyDelivery' | translate }}</th>
+                              <th>{{ 'salaries.legacyDescription' | translate }}</th>
+                              <th class="num">{{ 'salaries.col.amount' | translate }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (l of d.lines; track l.id) {
+                              <tr>
+                                <td>{{ l.date | date: 'dd/MM/yy' }}</td>
+                                <td>
+                                  @if (l.delivery?.code) { <a class="act" [routerLink]="['/deliveries', l.deliveryId]">#{{ l.delivery.code }}</a>
+                                    <span class="muted"> {{ l.delivery.recipientLastName }} {{ l.delivery.recipientFirstName }}</span> }
+                                  @else { <span class="muted">—</span> }
+                                </td>
+                                <td class="muted">{{ l.description || l.delivery?.serviceType?.name || '—' }}</td>
+                                <td class="num">{{ l.amount | number: '1.2-2' }} €</td>
+                              </tr>
+                            } @empty { <tr><td colspan="4" class="muted">{{ 'salaries.legacyNoLines' | translate }}</td></tr> }
+                          </tbody>
+                        </table>
+                      } @else { <span class="muted">…</span> }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -598,6 +645,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .hint { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .actions { display: flex; justify-content: flex-end; margin-top: 14px; }
       .table-wrap { overflow-x: auto; }
+      .azioni-storico { display: flex; gap: 12px; align-items: center; white-space: nowrap; }
+      .dettaglio-storico > td { background: var(--bg-secondary, #f6f6f7); padding: 10px 14px 14px; }
+      .dettaglio-storico .riga-periodo { margin: 0 0 8px; font-size: 13px; }
+      .dettaglio-storico .table.sotto { font-size: 13px; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
@@ -647,8 +698,26 @@ export class SalariesListComponent {
   readonly salaries = signal<Salary[]>([]);
   /** Storico pagamenti dal sistema precedente (ricevute legacy). */
   readonly storico = signal<{ id: string; amount?: number | null; status?: string | null;
-    fileUrl?: string | null; createdAt: string;
+    fileUrl?: string | null; createdAt: string; salaryId?: string | null;
+    salary?: { id: string; valet?: { firstName: string; lastName: string } | null } | null;
     valet?: { firstName: string; lastName: string } | null }[]>([]);
+  /** ⭐ 10/09: lo stipendio aperto nello storico e le sue righe. */
+  readonly storicoAperto = signal<string | null>(null);
+  readonly storicoDettaglio = signal<any | null>(null);
+
+  idStipendio(r: { salaryId?: string | null; salary?: { id: string } | null }): string | null {
+    return r.salaryId ?? r.salary?.id ?? null;
+  }
+
+  apriStorico(id: string): void {
+    if (this.storicoAperto() === id) { this.storicoAperto.set(null); return; }
+    this.storicoAperto.set(id);
+    this.storicoDettaglio.set(null);
+    this.http.get<any>(`${environment.apiUrl}/salaries/dettaglio/${id}`).subscribe({
+      next: (d) => { if (this.storicoAperto() === id) this.storicoDettaglio.set(d); },
+      error: () => { if (this.storicoAperto() === id) this.storicoDettaglio.set({ lines: [] }); },
+    });
+  }
   readonly valets = signal<ValetRef[]>([]);
   /** Il catalogo dei tipi di servizio, per il filtro per tipologia. */
   readonly serviceTypes = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
@@ -772,9 +841,8 @@ export class SalariesListComponent {
       // affollano la tendina senza avere lavoro da pagare.
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) =>
         this.valets.set((d ?? []).filter((v) => v.active !== false)));
-      // Il catalogo dei tipi di servizio, per il filtro per tipologia.
-      this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/service-types`)
-        .subscribe({ next: (d) => this.serviceTypes.set(d ?? []), error: () => this.serviceTypes.set([]) });
+      // ⭐ 10/09/2026 (regola utente): nel filtro le tipologie che i VALET fanno, non tutto il catalogo.
+      this.caricaServiziValet();
     }
   }
 
@@ -1001,7 +1069,33 @@ export class SalariesListComponent {
     });
   }
 
+  /** Il valet per cui sono state caricate le tipologie (per non ricaricarle a ogni tasto). */
+  private serviziPerValet: string | null = null;
+
+  /**
+   * ⭐ 10/09/2026 (regola utente: «in filtri stipendi metti i servizi dei valet come filtro»)
+   * — le caselle sono le tipologie che i valet fanno (le loro tariffe); con un valet scelto,
+   * solo le sue. Una scelta che non c'è più nell'elenco si lascia cadere.
+   */
+  private caricaServiziValet(): void {
+    if (this.serviziPerValet === this.valetFilter) return;
+    this.serviziPerValet = this.valetFilter;
+    const params: Record<string, string> = this.valetFilter ? { valetId: this.valetFilter } : {};
+    this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/salaries/servizi-valet`, { params })
+      .subscribe({
+        next: (d) => {
+          const lista = d ?? [];
+          this.serviceTypes.set(lista);
+          const validi = new Set(lista.map((s) => s.id));
+          const scelti = new Set([...this.serviziScelti()].filter((id) => validi.has(id)));
+          if (scelti.size !== this.serviziScelti().size) this.serviziScelti.set(scelti);
+        },
+        error: () => this.serviceTypes.set([]),
+      });
+  }
+
   filtroCambiato(): void {
+    if (this.canManage()) this.caricaServiziValet();
     const t = this.cerca.trim();
     // ⭐ 01/09 (utente: «per Pianigiani non si trova l'id 62076»): la ricerca
     // filtrava solo per NOME del valet, e un numero non trovava niente. Un
@@ -1152,6 +1246,11 @@ export class SalariesListComponent {
       next: () => {
         this.generating.set(false);
         this.showGen.set(false);
+        // ⭐ 10/09/2026 (segnalazione utente: «al click di genera stipendio sembra non succedere
+        // nulla», De Rosa agosto): lo stipendio nasceva, ma il filtro «Dal» del mese corrente
+        // lo nascondeva. Ora i filtri si mettono sul valet e sul periodo appena generato, così
+        // la riga nuova è la prima cosa che si vede.
+        this.valetFilter = this.genValet; this.dal = this.genFrom; this.al = this.genTo; this.stato = '';
         this.genValet = ''; this.genFrom = ''; this.genTo = ''; this.freqHint.set(null);
         this.banner.set(this.translate.instant('salaries.gen.done'));
         this.load();

@@ -157,6 +157,11 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // avrebbero fatto litigare la scheda con la fattura.
   const valoreProdotti = calcolaValoreProdotti(d.products as any, d.productValue);
   const vendita = (d.serviceType?.pricingModel ?? '') === 'VENDITA';
+  // ⭐ 10/09/2026 (segnalazione utente su Velo #62638: «esce in fatturazione con un venduto
+  // di 55 € se è un servizio a prezzo fisso di consegna») — il VENDUTO esiste SOLO nelle
+  // vendite. Su una consegna a prezzo fisso il valore dei prodotti è roba del partner, non
+  // un nostro incasso per suo conto: prima finiva nella colonna e nel totale «Venduto».
+  const venduto = vendita ? valoreProdotti : 0;
   /**
    * Cio' che incassiamo per conto del partner e gli dobbiamo girare.
    * Solo nelle vendite: altrove il denaro va dal partner a noi.
@@ -172,7 +177,7 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // Il prezzo deciso sulla consegna vince: è un fatto, non una stima.
   if ((d.price ?? 0) > 0) {
     const a = mai_negativo(d.price! + extra);
-    return { amount: a, origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—', venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
+    return { amount: a, origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—', venduto, dovutoAlPartner: dovuto(a) };
   }
 
 
@@ -215,7 +220,7 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
       const a = d.extraOutOfCity
         ? mai_negativo(supplementoKm() + extra)
         : mai_negativo(tariffa + supplementoKm() + extra);
-      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
+      return { amount: a, origine: 'listino', modello, venduto, dovutoAlPartner: dovuto(a) };
     }
     case 'A_ORA': {
       // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
@@ -223,14 +228,14 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
       // niente supplemento km, né in città né fuori.
       const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
       const a = mai_negativo((listino?.price ?? 0) * ore + extra);
-      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
+      return { amount: a, origine: 'listino', modello, venduto, dovutoAlPartner: dovuto(a) };
     }
     case 'MAGAZZINO': {
       const base = listino?.price ?? d.serviceType?.basePrice ?? 0;
       const aPezzo = listino?.pricePerItem ?? d.serviceType?.perPiecePrice ?? 0;
       const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
       const a = mai_negativo(base + aPezzo * pezzi + extra);
-      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
+      return { amount: a, origine: 'listino', modello, venduto, dovutoAlPartner: dovuto(a) };
     }
     case 'VENDITA': {
       // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro. Una fee dello 0%
@@ -239,14 +244,14 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
       // ⭐ 05/09/2026 (regola utente): «senza fee» → in fattura la quota di
       // quelle righe è 0. Si moltiplica la BASE FEE, non il venduto intero.
       const a = mai_negativo((baseFee(d.products as any, d.productValue) * feePercento) / 100 + extra);
-      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
+      return { amount: a, origine: 'listino', modello, venduto, dovutoAlPartner: dovuto(a) };
     }
     case 'CORPORATE': {
       // Il corporate non passa dal listino ma dai prodotti: senza prodotti non
       // c'e' proprio niente su cui calcolare.
       if (!(d.products ?? []).length) return null;
       const a = mai_negativo(valoreProdotti + extra);
-      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: 0 };
+      return { amount: a, origine: 'listino', modello, venduto, dovutoAlPartner: 0 };
     }
     default:
       return null;

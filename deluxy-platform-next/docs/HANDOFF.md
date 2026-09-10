@@ -3,6 +3,13 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🧮 **10/09/2026 (notte, 12) — SEI PUNTI DALL'UFFICIO** (manuale 114). Piattaforma pubblicata.
+> - Fatturazione: `prezzoConsegna` → `venduto = vendita ? valoreProdotti : 0` (prima il valore prodotti finiva nel «Venduto» anche a prezzo fisso; Velo #62638).
+> - Stipendi: `GET /salaries/servizi-valet` (distinct ValetService → ServiceType), `GET /salaries/dettaglio/:id` (righe + consegna); web: chips dai servizi dei valet (ricaricate al cambio valet), storico con «Dettagli ▾», dopo «Genera» i filtri si mettono su valet+periodo generato.
+> - Valet: colonna «Aree di consegna» (`v.aree[].area.nome`, ripiego province).
+> - Tipologie: `TipologieCronController` (`/cron/tipologie`, vercel.json `20 * * * *`) chiama `allineaTipologie(true)`; script `tipologie-da-merchandising.mjs` applicato (110).
+> - 🔖 Capogruppo (notte 11) e questi punti pubblicati insieme; Anagrafiche pubblicata col capogruppo diretto.
+
 > 🏢 **10/09/2026 (notte, 11) — CAPOGRUPPO IN PIATTAFORMA, cablato** (manuale 113). In locale, `tsc` verdi API/web/Anagrafiche, da pubblicare (piattaforma precompilata + Anagrafiche in cloud).
 > - API: `capogruppi/capogruppi.module.ts` (elenco, crea-o-trova per nome, aggiorna) registrato in `app.module`; DTO partner `capogruppoId | capogruppoNuovo {nome,pIva…} | pagaDaSe`; `create/update` risolvono il nuovo e, se c'è un capogruppo senza «paga da sé» detto, mettono `pagaDaSe=false`; `PARTNER_INCLUDE` porta `capogruppo`; `update` → `AnagraficheSyncService.comunicaCapogruppo()` (best-effort; salva `registroId`); `confrontaAnagrafica` → `rispecchiaCapogruppoDalRegistro()`; `mettiSottoEntita` scrive anche qui.
 > - Registro: `POST /api/v1/partners/:id/capogruppo` accetta anche `{ capogruppo: {nome,pIva?,registroId?}, pagaDaSe }` e `{ capogruppo: null }`, oltre a `{ capofila }`.

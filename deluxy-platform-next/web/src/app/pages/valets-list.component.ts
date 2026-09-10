@@ -51,7 +51,9 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
               <th class="sortable" (click)="table.sortBy('phone')">{{ 'valets.col.phone' | translate }}<span class="sort-ind">{{ table.indicator('phone') }}</span></th>
               <!-- ⭐ 06/09/2026 (regola utente): il CODICE del valet, con cui il partner sblocca il ritiro. -->
               <th class="sortable num" (click)="table.sortBy('legacyId')">{{ 'valets.col.codice' | translate }}<span class="sort-ind">{{ table.indicator('legacyId') }}</span></th>
-              <th>{{ 'valets.col.provinces' | translate }}</th>
+              <!-- ⭐ 10/09/2026 (regola utente): «in tabella valet non mostrare le province ma le aree di consegna».
+                   Le province restano solo come ripiego per chi non ha ancora un'area. -->
+              <th>{{ 'valets.col.aree' | translate }}</th>
               <th class="sortable" (click)="table.sortBy('vehicle')">{{ 'valets.col.vehicle' | translate }}<span class="sort-ind">{{ table.indicator('vehicle') }}</span></th>
               <th class="sortable" (click)="table.sortBy('isTeamLeader')">{{ 'valets.col.teamLeader' | translate }}<span class="sort-ind">{{ table.indicator('isTeamLeader') }}</span></th>
               <th class="sortable" (click)="table.sortBy('active')">{{ 'valets.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
@@ -67,9 +69,13 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td>{{ v.phone || '—' }}</td>
                 <td class="num mono">{{ v.legacyId ?? '—' }}</td>
                 <td>
-                  @for (vp of (v.provinces || []); track vp.province.id) {
-                    <span class="pill pill-neutral">{{ vp.province.code }}</span>
-                  } @empty { <span class="muted">—</span> }
+                  @for (va of (v.aree || []); track va.area.id) {
+                    <span class="pill pill-neutral">{{ va.area.nome }}</span>
+                  } @empty {
+                    @for (vp of (v.provinces || []); track vp.province.id) {
+                      <span class="pill pill-neutral" [title]="'valets.col.provinces' | translate">{{ vp.province.code }}</span>
+                    } @empty { <span class="muted">—</span> }
+                  }
                 </td>
                 <td>{{ vehicleLabel(v.vehicle) }}</td>
                 <td>
@@ -165,6 +171,7 @@ export class ValetsListComponent {
       'email',
       'phone',
       'vehicle',
+      'aree.area.nome',
       'provinces.province.code',
       'provinces.province.name',
     ],

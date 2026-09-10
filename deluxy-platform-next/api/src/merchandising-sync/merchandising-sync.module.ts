@@ -2,13 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Injectable,
   Logger,
   Module,
   Post,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../common/decorators';
+import { Public, Roles } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
@@ -415,9 +417,31 @@ export class MerchandisingSyncController {
   }
 }
 
+/**
+ * ⭐ 10/09/2026 (segnalazione utente sull'ordine 2902: «abbiamo cambiato la tipologia di
+ * prodotto, aggiorna i bottoni legati alla vendita») — la tipologia di vendita si cambia in
+ * Merchandising, ma i bottoni della vendita (preventivo / inserisci / rifiuta) leggono lo
+ * specchio in piattaforma, che finora si riallineava solo a mano da Impostazioni. Ogni ora
+ * lo fa l'orologio (vercel.json). Identità = `CRON_SECRET`, come gli altri cron.
+ */
+@ApiTags('cron')
+@Controller('cron')
+export class TipologieCronController {
+  constructor(private readonly service: MerchandisingSyncService) {}
+
+  @Get('tipologie')
+  @Public()
+  @ApiOperation({ summary: 'Ogni ora: rispecchia in piattaforma la tipologia di vendita dei prodotti letta da Merchandising' })
+  giro(@Headers('authorization') authorization?: string) {
+    const segreto = process.env.CRON_SECRET ?? '';
+    if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
+    return this.service.allineaTipologie(true);
+  }
+}
+
 @Module({
   imports: [SettingsModule],
-  controllers: [MerchandisingSyncController],
+  controllers: [MerchandisingSyncController, TipologieCronController],
   providers: [MerchandisingSyncService],
   exports: [MerchandisingSyncService],
 })

@@ -361,6 +361,43 @@ export class SalariesService {
   }
 
   /**
+   * ⭐ 10/09/2026 (regola utente: «in filtri stipendi metti i servizi dei valet come filtro»)
+   * — le tipologie fra cui filtrare sono quelle che i valet FANNO (le tariffe ValetService),
+   * non tutto il catalogo dei servizi, dove metà sono servizi ai partner (vendite, corporate)
+   * che uno stipendio non lo toccano. Con un valet scelto, solo le sue.
+   */
+  async serviziDeiValet(valetId?: string) {
+    const righe = await this.prisma.valetService.findMany({
+      where: valetId ? { valetId } : {},
+      distinct: ['serviceTypeId'],
+      select: { serviceType: { select: { id: true, name: true, pricingModel: true } } },
+    });
+    return righe.map((r) => r.serviceType).filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' }));
+  }
+
+  /**
+   * ⭐ 10/09/2026 (regola utente: «in storico stipendi consenti di avere tendina per vedere
+   * dettagli dello stipendio che è stato inviato») — le righe di uno stipendio, con la consegna
+   * a cui rimandano. Il valet vede solo i propri.
+   */
+  async dettaglio(user: JwtUser, id: string) {
+    const s = await this.prisma.salary.findUnique({
+      where: { id },
+      include: {
+        valet: { select: { id: true, firstName: true, lastName: true } },
+        lines: {
+          orderBy: { date: 'asc' },
+          include: { delivery: { select: { code: true, recipientFirstName: true, recipientLastName: true, serviceType: { select: { name: true } } } } },
+        },
+      },
+    });
+    if (!s || (user.role === Role.VALET && s.valetId !== user.valetId)) throw new NotFoundException('Stipendio non trovato');
+    return s;
+  }
+
+
+  /**
    * Il lavoro ancora da pagare, raggruppato per valet.
    *
    * È la domanda che la pagina Stipendi non sapeva rispondere: mostrava gli
@@ -1368,6 +1405,19 @@ export class SalariesController {
     @Query('cerca') cerca?: string,
   ) {
     return this.salariesService.findAll(user, archived === 'true', { valetId, stato, dal, al, cerca });
+  }
+
+  @Get('servizi-valet')
+  @ApiOperation({ summary: 'Le tipologie di servizio che i valet fanno (tariffe ValetService), per il filtro della pagina Stipendi; valetId per uno solo' })
+  @ApiQuery({ name: 'valetId', required: false })
+  serviziDeiValet(@Query('valetId') valetId?: string) {
+    return this.salariesService.serviziDeiValet(valetId || undefined);
+  }
+
+  @Get('dettaglio/:id')
+  @ApiOperation({ summary: 'Le righe di uno stipendio (storico): consegne, descrizione, importi. Il valet vede solo i propri' })
+  dettaglio(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.salariesService.dettaglio(user, id);
   }
 
   @Get('pending')
