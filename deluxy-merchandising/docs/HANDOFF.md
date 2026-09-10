@@ -2,6 +2,43 @@
 
 Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 10/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Tutto pubblicato.** Produzione = `origin/scout-ui` (`2da191af` + handoff), ultimo deploy
+**`deluxy-merchandising-i2e2kbh3i`** (cloud, Ready, alias). `/api/health` ok: 4 negozi,
+5.081 prodotti, 420 collezioni, import collezioni `ok`. Manuale ripubblicato
+(registro: tre righe del 10/09 per Merchandising).
+
+**Fatto oggi, in ordine** (dettagli nelle sezioni sotto):
+1. Import collezioni: `erroriGraphql()` per gli `errors` non-lista di Shopify, retry
+   su 5xx/timeout/rete, `VERSIONE_API` 2025-10 (quella che Shopify serviva già).
+2. SKU: il server teneva solo le cifre (`replace(/\D/g,"")`) — 5.061 su 5.081 hanno
+   lettere. Ora si accetta la forma del campo e si rifiuta dicendolo. «Cristal -
+   Louis Roederer» riportato a `cntfrnc21` (era rimasto «21»).
+3. Metafield sui prodotti nuovi: blocco «Campi del negozio» riacceso per sito, sette
+   storiche senza definizione (`partner_id`, `partner_address`, `is_unique`,
+   `not_physical`, `prodotto.consegna`, `minimo_orario`, `nations_availability`)
+   dichiarate coi tipi, `attesiDaiProdotti()` (quota e valore tipico per sito),
+   prefill dei `CAMPI_OPERATIVI` sui nuovi, tendina del partner. Provato con 10
+   prodotti (uno per categoria): 100% dei metafield arrivati; i 10 poi cancellati
+   da Shopify e dal catalogo. Rapporto: `docs/mappatura-metafield-2026-09-10.md`.
+4. Strumento nuovo: `scripts/prova-metafield-nuovi.ts` (`--prova` non scrive), a
+   catalogo in `scripts/README.md`.
+
+**Decisioni prese oggi** (non riaprire senza motivo nuovo):
+- I valori dei metafield restano **condivisi per chiave** fra i siti; le chiavi che
+  cambiano nome fra i siti si compilano una per sito.
+- «Rigenera» SKU resta solo sui prodotti nuovi.
+- I prodotti di prova si cancellano (non sono dati reali).
+
+**Da guardare domattina**: in fondo a `/collezioni`, Gifts delle 03:10 UTC — è la
+prima notte col retry sul timeout; ieri era morto dopo 369 s.
+
+**Punti aperti**: la lista ricontata è nella sezione «10/09/2026 pomeriggio» più
+sotto (lingue spente su 4/4, secondo passaggio descrizioni, costi 1.198/1.199,
+linee 0, `read_publications`, 127 varianti senza SKU, cookie sha256…). Tolto da
+quella lista il punto 6 (campi del negozio): chiuso oggi.
+
 ## 10/09/2026 sera — I PRODOTTI NUOVI NASCEVANO SENZA METAFIELD: RIACCESO IL BLOCCO, MAPPATI I CAMPI, PROVATI 10 PRODOTTI
 
 ✅ **PUSHATO E DEPLOYATO** (utente: «cancella i prodotti di test e fai push & deploy»): origin/scout-ui a `29797ab3`, deploy **`deluxy-merchandising-i2e2kbh3i`** (cloud), Ready, alias di produzione; `/api/health` ok, `/prodotti/nuovo` 200, la modifica del Cofanetto Colazione mostra la tendina del partner di Gifts.
