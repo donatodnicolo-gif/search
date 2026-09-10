@@ -3342,6 +3342,8 @@
     "rifiutaRichiesta": "Reject this request?"
   },
   "comune": {
+    "record": "{{n}} records",
+    "recordFiltrati": "{{n}} of {{m}} records (filtered)",
     "cercaPh": "Search…",
     "contoRighe": "{{n}} of {{m}}"
   },

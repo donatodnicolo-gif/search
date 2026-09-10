@@ -243,7 +243,6 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
       @if (cerca.trim() || filtriAttivi()) {
-        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: vendite().length } }}</span>
       }
     </div>
     <!-- ⭐ 10/09/2026 (regola utente): i FILTRI. Le tendine offrono solo i valori presenti. -->
@@ -290,6 +289,7 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
            tabella diventa così», con numero d'ordine e data spariti).
            L'identità resta a sinistra, le azioni a destra: chi deve solo
            accettare o rifiutare non scorre più. -->
+      <p class="conto-record">{{ (visibili().length === vendite().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: visibili().length, m: vendite().length } }}</p>
       <div class="table-wrap card col-fisse">
         <table class="table">
           <!-- ⭐ 03/09 (regola utente): colonne ordinabili al click; il default

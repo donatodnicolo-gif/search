@@ -122,12 +122,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
       @if (cerca.trim()) {
-        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: attivitaVisibili().length, m: attivita().length } }}</span>
       }
       @if (!cerca.trim() && (citta || valetScelto)) {
-        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: attivitaVisibili().length, m: attivita().length } }}</span>
       }
     </div>
+      <p class="conto-record">{{ (attivitaVisibili().length === attivita().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: attivitaVisibili().length, m: attivita().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

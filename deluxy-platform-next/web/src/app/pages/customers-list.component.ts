@@ -39,6 +39,7 @@ import { Customer } from '../core/models';
         <span class="muted">{{ 'customers.emptyHint' | translate }}</span>
       </div>
     } @else {
+      <p class="conto-record">{{ 'comune.record' | translate: { n: total() } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

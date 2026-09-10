@@ -50,6 +50,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
+    <p class="conto-record">{{ (filtered().length === users().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: users().length } }}</p>
     <div class="card table-wrap">
       <table>
         <thead>

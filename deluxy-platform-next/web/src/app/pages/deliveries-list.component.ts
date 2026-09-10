@@ -407,6 +407,7 @@ interface PropostaVendita {
       }
       @if (esitoDiMassa()) { <div class="card ok-card">{{ esitoDiMassa() }}</div> }
 
+      <p class="conto-record">{{ 'comune.record' | translate: { n: total() } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

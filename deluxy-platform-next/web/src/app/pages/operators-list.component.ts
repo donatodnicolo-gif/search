@@ -34,6 +34,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
         <span class="muted">{{ 'operators.emptyHint' | translate }}</span>
       </div>
     } @else {
+      <p class="conto-record">{{ (filtered().length === operators().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: operators().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

@@ -61,7 +61,6 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
       @if (cerca.trim()) {
-        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: filtered().length, m: payments().length } }}</span>
       }
     </div>
 
@@ -106,6 +105,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 
     @if (loading()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
     @else {
+      <p class="conto-record">{{ (filtered().length === payments().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: payments().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

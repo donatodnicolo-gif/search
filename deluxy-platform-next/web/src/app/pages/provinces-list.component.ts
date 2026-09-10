@@ -41,6 +41,7 @@ interface Province { id: string; code: string; name: string; cities: City[]; }
     } @else if (!visibili().length) {
       <div class="card state-card">{{ 'provinces.empty' | translate }}</div>
     } @else {
+      <p class="conto-record">{{ (visibili().length === province().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: visibili().length, m: province().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

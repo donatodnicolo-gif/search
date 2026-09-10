@@ -33,6 +33,7 @@ import { ServiceType } from '../core/models';
     @else if (filtered().length === 0) {
       <div class="card state-card"><strong>{{ 'services.emptyTitle' | translate }}</strong><span class="muted">{{ 'services.emptyHint' | translate }}</span></div>
     } @else {
+      <p class="conto-record">{{ (filtered().length === services().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: services().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

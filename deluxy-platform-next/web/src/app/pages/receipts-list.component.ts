@@ -58,7 +58,6 @@ interface Receipt {
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
       @if (cerca.trim()) {
-        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: receipts().length } }}</span>
       }
     </div>
 
@@ -67,6 +66,7 @@ interface Receipt {
 
     @if (loading()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
     @else {
+      <p class="conto-record">{{ (visibili().length === receipts().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: visibili().length, m: receipts().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

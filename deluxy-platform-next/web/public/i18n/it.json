@@ -3344,6 +3344,8 @@
     "rifiutaRichiesta": "Rifiuto questa richiesta?"
   },
   "comune": {
+    "record": "{{n}} record",
+    "recordFiltrati": "{{n}} di {{m}} record (filtrati)",
     "cercaPh": "Cerca…",
     "contoRighe": "{{n}} di {{m}}"
   },

@@ -43,6 +43,7 @@ import { Category } from '../core/models';
     @else if (filtered().length === 0) {
       <div class="card state-card"><strong>{{ 'categories.emptyTitle' | translate }}</strong><span class="muted">{{ 'categories.emptyHint' | translate }}</span></div>
     } @else {
+      <p class="conto-record">{{ (filtered().length === categories().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: categories().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

@@ -108,6 +108,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
         }
         @if (esitoAzione(); as e) { <div class="card esito-azione">{{ e }}</div> }
       }
+      <p class="conto-record">{{ 'comune.record' | translate: { n: total() } }}</p>
       <div class="card table-wrap">
         <table>
           <thead><tr>

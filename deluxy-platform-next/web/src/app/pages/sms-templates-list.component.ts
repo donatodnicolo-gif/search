@@ -55,6 +55,7 @@ interface SmsTemplate {
     } @else if (!visibili().length) {
       <div class="card state-card">{{ 'smsTemplates.empty' | translate }}</div>
     } @else {
+      <p class="conto-record">{{ (visibili().length === templates().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: visibili().length, m: templates().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>

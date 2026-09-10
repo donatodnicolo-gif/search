@@ -294,6 +294,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
           }
         </div>
       }
+      <p class="conto-record">{{ (pendingFiltered().length === pending().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: pendingFiltered().length, m: pending().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -423,6 +424,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       </div>
     }
     @else {
+      <p class="conto-record">{{ (filtered().length === salaries().length ? 'comune.record' : 'comune.recordFiltrati') | translate: { n: filtered().length, m: salaries().length } }}</p>
       <div class="card table-wrap">
         <table>
           <thead>
