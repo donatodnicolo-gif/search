@@ -73,15 +73,22 @@ export async function GET(req: NextRequest) {
   // Il nome del cliente vive negli ordini: una sola query per l'intera pagina,
   // sulle chiavi che sono email (le altre restano leggibili così come sono).
   const emails = [...new Set(pagina.map((x) => x.e.chiave).filter((c) => c.includes("@")))];
-  const nomi = new Map(
-    (
-      await prisma.ordine.findMany({
-        where: { clienteEmail: { in: emails, mode: "insensitive" } },
-        select: { clienteEmail: true, clienteNome: true },
-        distinct: ["clienteEmail"],
-      })
-    ).map((o) => [o.clienteEmail?.trim().toLowerCase() ?? "", o.clienteNome ?? ""]),
-  );
+  // ⚠️ Niente `distinct`: dagli stessi ordini si raccolgono anche i BRAND
+  // (i siti da cui il cliente compra), che il CRM mostra accanto al nome.
+  const ordiniPagina = await prisma.ordine.findMany({
+    where: { clienteEmail: { in: emails, mode: "insensitive" } },
+    select: { clienteEmail: true, clienteNome: true, brand: true },
+    orderBy: { data: "desc" },
+  });
+  const nomi = new Map<string, string>();
+  const brand = new Map<string, string[]>();
+  for (const o of ordiniPagina) {
+    const k = o.clienteEmail?.trim().toLowerCase() ?? "";
+    if (!nomi.has(k) && o.clienteNome) nomi.set(k, o.clienteNome);
+    const lista = brand.get(k) ?? [];
+    if (o.brand && !lista.includes(o.brand)) lista.push(o.brand);
+    brand.set(k, lista);
+  }
 
   return NextResponse.json({
     totale: conGiorni.length,
@@ -93,6 +100,7 @@ export async function GET(req: NextRequest) {
       cliente: codificaChiave(e.chiave),
       clienteNome: nomi.get(e.chiave) || e.chiave,
       clienteEmail: e.chiave.includes("@") ? e.chiave : null,
+      brand: brand.get(e.chiave) ?? [], // i siti da cui compra (dal più recente)
       giorno: e.giorno,
       mese: e.mese,
       fraGiorni: fra,
