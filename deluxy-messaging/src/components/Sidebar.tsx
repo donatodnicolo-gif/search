@@ -154,6 +154,8 @@ export function Sidebar({
           ? [
               { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
               { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
+              // ⭐ 10/09/2026: giorni di apertura, fasce orarie e chiusure di ogni negozio (richiesta utente).
+              { href: '/orari-negozi', nome: 'Orari negozi', icona: iconaCalendario },
               { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
               { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
               { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },

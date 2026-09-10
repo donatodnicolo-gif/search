@@ -69,6 +69,16 @@ cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
 
+### applica-migrazione-orari-negozi.mjs — deluxy-messaging
+Crea la tabella `OrarioNegozio` (schema `messaging`): per ogni negozio Shopify i giorni di apertura, le fasce orarie di consegna (orario minimo e massimo) e i giorni di chiusura — la sezione «Orari negozi» del Customer Service (10/09/2026). Solo additiva (`CREATE TABLE IF NOT EXISTS` + indice unico su `negozioId`), come le altre `applica-*.mjs` di questa app: qui non si usa mai `prisma db push`.
+
+```bash
+cd deluxy-messaging && node scripts/applica-migrazione-orari-negozi.mjs
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: idempotente; stampa quante righe ha la tabella. Eseguito il 10/09/2026: 0 righe (un negozio senza riga non ha regole: nessuna data si blocca). Le regole si provano con `npx tsx scripts/prova-orari-negozi.mts` (27 casi, senza database) e la lettura dal database con `npx tsx scripts/prova-orari-negozi-db.mts`.
+
 ### APPLICA-MIGRAZIONI.cmd — deluxy-scout
 Lo stesso di `allinea-supabase.mjs`, ma **con un doppio clic**: chiede il token in una finestra, esegue, e resta aperto a mostrare l'esito. Il token non viene salvato da nessuna parte — vive solo in quella finestra.
 

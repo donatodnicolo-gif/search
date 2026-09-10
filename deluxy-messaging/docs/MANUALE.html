@@ -478,6 +478,7 @@
             <div class="row"><div class="pg">Casistiche<span class="path">/reclami/casistiche</span></div><div class="desc">Il catalogo dei tipi di reclamo con le azioni da fare. Si tocca quando se ne aggiunge uno.</div></div>
             <div class="row"><div class="pg">Utenti <span class="badge-admin">Admin</span><span class="path">/utenti</span></div><div class="desc">Gli accessi all'app: chi entra e con che ruolo (amministratore od operatore).</div></div>
             <div class="row"><div class="pg">Negozi <span class="badge-admin">Admin</span><span class="path">/negozi</span></div><div class="desc">I tre negozi Shopify collegati (Deluxy, Flowers, Cake).</div></div>
+            <div class="row"><div class="pg">Orari negozi <span class="badge-admin">Admin</span><span class="path">/orari-negozi</span></div><div class="desc">Per ogni negozio: i giorni in cui è aperto (cioè quali date si possono scegliere), le fasce orarie di consegna con orario minimo e massimo, i giorni di chiusura. Le stesse regole valgono in «Nuovo ordine».</div></div>
             <div class="row"><div class="pg">Numeri WhatsApp <span class="badge-admin">Admin</span><span class="path">/numeri-whatsapp</span></div><div class="desc">Le linee WhatsApp Business in entrata.</div></div>
             <div class="row"><div class="pg">Facebook e Instagram <span class="badge-admin">Admin</span><span class="path">/account-meta</span></div><div class="desc">Le pagine Meta collegate e i loro token.</div></div>
             <div class="row"><div class="pg">Widget dei siti <span class="badge-admin">Admin</span><span class="path">/aspetto-widget</span></div><div class="desc">L'aspetto della chat che sta sui siti dei clienti.</div></div>
@@ -610,6 +611,21 @@
           spiegazione è in questa lista.
         </p>
         <div class="log">
+          <div class="log-item">
+            <span class="when">10/09/2026</span>
+            <span class="what"><b>Nuova pagina «Orari negozi»: quando si può consegnare, negozio per negozio.</b>
+              Nel menu Configurazione (amministratore). Per ognuno dei negozi Shopify si impostano i
+              <b>giorni di apertura</b> della settimana — nei giorni spenti la data non si può
+              scegliere —, le <b>fasce orarie di consegna</b>, ognuna con orario minimo e massimo
+              (sull'ordine si scrive «08-12», come fanno i siti), e i <b>giorni di chiusura</b> con il
+              motivo e la spunta «ogni anno» per le feste fisse. Sotto, l'anteprima dei prossimi 14
+              giorni: verde si consegna, rosso no, e passandoci sopra si legge perché. In
+              <b>Nuovo ordine</b> la tendina delle fasce mostra quelle impostate qui, e una data in cui
+              il negozio è chiuso non passa: sotto il campo Giorno c'è scritto il motivo. Un negozio
+              senza orari salvati («senza orari») non ha regole: nessuna data si blocca.
+              ⚠️ I siti non leggono ancora questi orari: per ora valgono dentro l'app e per le altre
+              app che li chiedono via API.</span>
+          </div>
           <div class="log-item">
             <span class="when">09/09/2026</span>
             <span class="what"><b>L'IBAN si compila da solo anche quando l'abbiamo solo in anagrafica,

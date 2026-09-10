@@ -3,7 +3,8 @@
 import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
-import { fasciaDelSito, fascePerNegozio } from '@/lib/fasce-consegna'
+import { fascePerNegozio } from '@/lib/fasce-consegna'
+import { etichetteFasce, giornoSelezionabile, type OrarioNegozioDati } from '@/lib/orari-regole'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -110,6 +111,26 @@ export function NuovoOrdine({
   compatto?: boolean
 }) {
   const [negozi, setNegozi] = useState<Negozio[]>([])
+  // ⭐ 10/09/2026 — ORARI NEGOZI: per negozio, i giorni aperti, le fasce e le
+  // chiusure scritte in «Orari negozi». Decidono se la data si può scegliere e
+  // quali fasce proporre. Se la rotta non risponde si resta come prima (fasce
+  // storiche, nessun controllo sulla data): il modulo non si blocca per questo,
+  // e il controllo vero lo rifà comunque il server alla creazione.
+  // ⚠️ Si tengono SOLO i negozi con orari scritti (`configurato`): per gli
+  // altri non c'è nessuna regola — né sulla data né sulle fasce.
+  const [orari, setOrari] = useState<Record<string, OrarioNegozioDati>>({})
+  useEffect(() => {
+    let vivo = true
+    chiediJson<{ negozi?: { negozio: { id: string }; orario: OrarioNegozioDati; configurato: boolean }[] }>('/api/orari-negozi').then((e) => {
+      if (!vivo || e.stato !== 'ok') return
+      const mappa: Record<string, OrarioNegozioDati> = {}
+      for (const n of e.dati.negozi ?? []) if (n.configurato) mappa[n.negozio.id] = n.orario
+      setOrari(mappa)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [])
   // ── COMPILATO DALL'AI, DALLA CHAT ──
   /** I campi riempiti dall'AI, con la frase: si mostrano per farli controllare. */
   const [daAi, setDaAi] = useState<{ etichetta: string; valore: string; citazione: string }[]>([])
@@ -601,10 +622,16 @@ export function NuovoOrdine({
   // o una eccezione concordata), si apre da sola in modalità libera: altrimenti
   // la tendina la cancellerebbe scegliendo la prima voce al posto sua.
   const nomeNegozio = negozi.find((n) => n.id === negozioId)?.nome ?? ''
-  const fasceDelNegozio = fascePerNegozio(nomeNegozio)
+  // ⭐ Le fasce vengono da «Orari negozi» quando ce ne sono; altrimenti le voci
+  // storiche del marchio (fasce-consegna.ts), misurate sugli ordini veri.
+  const orarioNegozio = negozioId ? orari[negozioId] : undefined
+  const fasceDelNegozio = orarioNegozio?.fasce.length ? etichetteFasce(orarioNegozio) : fascePerNegozio(nomeNegozio)
+  const chiaveFasce = fasceDelNegozio.join('|')
   useEffect(() => {
-    if (fascia.trim() && !fasciaDelSito(nomeNegozio, fascia)) setFasciaLibera(true)
-  }, [fascia, nomeNegozio])
+    if (fascia.trim() && !chiaveFasce.split('|').includes(fascia.trim())) setFasciaLibera(true)
+  }, [fascia, chiaveFasce])
+  // ⭐ La data si può scegliere? (giorno chiuso, festa, già passata). A parole.
+  const giornoEsito = data && orarioNegozio ? giornoSelezionabile(orarioNegozio, data) : null
 
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
@@ -862,6 +889,12 @@ export function NuovoOrdine({
     if (creando) return
     if (!righe.length) {
       setErrore('Aggiungi almeno un prodotto.')
+      return
+    }
+    // ⭐ Orari negozi: una data in cui il negozio è chiuso non passa. Lo stesso
+    // controllo lo rifà il server (creaOrdine), che è dove sta il divieto.
+    if (giornoEsito && !giornoEsito.ok) {
+      setErrore(giornoEsito.motivo + ' Scegli un altro giorno di consegna.')
       return
     }
     if (pagamento === 'link' && !email.trim()) {
@@ -1279,7 +1312,12 @@ export function NuovoOrdine({
           ) : null}
           <label className="campo">
             <span>Giorno</span>
-            <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            <input type="date" value={data} onChange={(e) => setData(e.target.value)} aria-invalid={giornoEsito ? !giornoEsito.ok : undefined} />
+            {/* ⭐ 10/09/2026 — Orari negozi: si dice subito PERCHÉ una data non va
+                (chiuso di domenica, Natale, già passata), non al momento di creare. */}
+            {giornoEsito && !giornoEsito.ok ? (
+              <span style={{ color: 'var(--red)', marginTop: 4 }}>{giornoEsito.motivo}</span>
+            ) : null}
           </label>
           {/* ── LA FASCIA, COME LA OFFRE IL SITO ──
               ⚠️⚠️ Chiesto dall'utente il 02/09/2026. Era testo libero, e nei

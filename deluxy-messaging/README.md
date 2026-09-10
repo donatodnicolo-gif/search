@@ -1,5 +1,49 @@
 # Deluxy Customer Service
 
+## Orari negozi: quando si può consegnare (10/09/2026)
+
+**Menu → Orari negozi** (la modifica è dell'amministratore; gli operatori leggono). Per ogni
+negozio Shopify si impostano tre cose, in una scheda sola:
+
+- **Giorni di apertura** — i giorni della settimana in cui il negozio è aperto. Nei giorni
+  spenti **la data non si può scegliere**.
+- **Fasce orarie di consegna** — ognuna con **orario minimo e massimo** (dalle 08:00 alle
+  12:00…). Sull'ordine si scrive come la scrivono i siti («08-12»), così coincide con
+  l'attributo `Fascia_Oraria_Consegna` che il registro legge.
+- **Giorni di chiusura** — una data e il motivo; con **«ogni anno»** la festa vale anche negli
+  anni a venire (Natale, Ferragosto). La chiusura vince sull'apertura.
+
+Sotto ogni scheda c'è l'**anteprima dei prossimi 14 giorni**: verde si può consegnare, rosso no,
+e passando col mouse si legge perché. «Cancella gli orari» toglie quello che è stato scritto per
+quel negozio (chiede conferma).
+
+**Dove valgono.** Nel modulo **Nuovo ordine** la tendina delle fasce mostra quelle impostate qui
+(se un negozio non ne ha, restano le voci storiche del marchio), e una data in cui il negozio è
+chiuso **non passa**: sotto il campo Giorno si legge il motivo («Il negozio è chiuso di domenica»,
+«…chiuso ven 25/12/2026 (Natale)», «…è già passato») e alla creazione l'ordine viene rifiutato.
+⚠️ Il divieto sta nel server (`creaOrdine`), non solo nel modulo: vale anche per riconsegne,
+preventivi e per gli ordini che le altre app creano da `/api/v1/nuovo-ordine`.
+
+**Per le altre app.** `GET /api/v1/orari-negozi` (chiave API, sola lettura): per ogni negozio
+giorni aperti, fasce con etichetta, chiusure, `primoGiornoAperto` e `configurato` (falso =
+vale il predefinito). Con `?dominio=fb72b1-2.myshopify.com` un negozio solo, con
+`&data=2026-12-25` anche la risposta secca «si può scegliere?» col motivo. La casa di questo
+dato è il Customer Service: nessuna app se ne tiene una copia.
+
+⚠️ **Un negozio senza orari salvati non ha regole**: nessuna data si blocca e Nuovo ordine usa le
+fasce storiche del marchio. La scheda lo dice con l'etichetta «senza orari», e propone un punto di
+partenza da correggere (tutti i giorni, fasce 08-12 · 12-16 · 16-20 — quelle che i siti mandano
+davvero, misurate il 02/09). Un default «lun–sab» avrebbe chiuso la domenica a tutti senza che
+nessuno lo avesse deciso. «Cancella gli orari» riporta il negozio a «senza orari».
+
+⚠️ **I siti Shopify non leggono ancora questi orari**: il selettore di data e fascia dei temi
+continua con le sue regole. Agganciarlo all'API è un lavoro sui temi (`sviluppi-siti-deluxy`),
+e va deciso se esporre una lettura senza chiave per il browser del cliente.
+
+Tabella `OrarioNegozio` (una riga per negozio, creata con
+`scripts/applica-migrazione-orari-negozi.mjs`); regole in `src/lib/orari-regole.ts`, provate
+con `npx tsx scripts/prova-orari-negozi.mts`.
+
 ## Vendite: sconti per provincia, partner per provincia, liste per area (06/09/2026)
 
 Dal 06/09/2026 **questa app decide a chi proporre un ordine e con che sconto** (Orders tiene solo l'ordine; la piattaforma consegne dice chi c'è ed esegue). Pagina **Vendite** (amministratore):

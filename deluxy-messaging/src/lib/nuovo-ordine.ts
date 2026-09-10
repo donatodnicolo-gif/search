@@ -16,6 +16,8 @@
 // indietro «consegna non indicata» e finisce in fondo alla bacheca.
 
 import { db } from './db'
+import { orarioConfigurato } from './orari-negozi'
+import { giornoSelezionabile } from './orari-regole'
 import { decifra } from './crypto'
 
 const VERSIONE = '2025-01'
@@ -475,6 +477,21 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   const t = await token(n)
   if (!t) return { ok: false, errore: 'Shopify non ha dato un token per questo negozio.' }
   if (!d.righe.length) return { ok: false, errore: 'Aggiungi almeno un prodotto.' }
+
+  // ⭐ ORARI NEGOZI (10/09/2026): la data di consegna deve essere un giorno in
+  // cui il negozio è aperto e non una chiusura (né un giorno già passato). Il
+  // divieto sta QUI e non solo nel modulo: da questa funzione passano anche le
+  // riconsegne, i preventivi e la rotta /api/v1 delle altre app.
+  // ⚠️ Senza data non si controlla niente: «non indicata» è un caso ammesso.
+  // ⚠️ Senza orari SCRITTI per il negozio non si controlla niente: una regola
+  // che nessuno ha impostato non rifiuta ordini.
+  if (d.consegna.data.trim()) {
+    const orario = await orarioConfigurato(d.negozioId)
+    if (orario) {
+      const esito = giornoSelezionabile(orario, d.consegna.data.trim())
+      if (!esito.ok) return { ok: false, errore: `${esito.motivo} Scegli un altro giorno di consegna.` }
+    }
+  }
 
   // ⚠️ I campi dell'indirizzo su Shopify hanno un tetto di 255 caratteri, e
   // superarlo fa fallire TUTTA la creazione — non tronca, rifiuta. Si taglia
