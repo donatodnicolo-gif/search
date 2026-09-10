@@ -3,6 +3,7 @@ import { dentroOppureFuori } from "@/lib/sessione-server";
 import { archiviaTemplate, creaTemplateDiPartenza, eliminaTemplate, salvaTemplate } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
 import { VARIABILI_DISPONIBILI } from "@/lib/variabili";
+import ConfermaElimina from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export default async function Template({ searchParams }: { searchParams: Promise
         </a>
       </div>
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div className="griglia lavoro" style={{ alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {templates.length === 0 ? (
             <div className="card vuoto">
@@ -99,7 +100,7 @@ export default async function Template({ searchParams }: { searchParams: Promise
                           {t.archiviatoIl ? <div className="cella-sotto">archiviato {dataIt(t.archiviatoIl)}</div> : null}
                         </td>
                         <td>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
                             <a className="btn ghost mini" href={`/mail/template?modifica=${t.id}${mostraArchivio ? "&archivio=1" : ""}`}>
                               Modifica
                             </a>
@@ -108,10 +109,16 @@ export default async function Template({ searchParams }: { searchParams: Promise
                               {t.archiviatoIl ? <input type="hidden" name="ripristina" value="1" /> : null}
                               <button className="btn ghost mini" type="submit">{t.archiviatoIl ? "Ripristina" : "Archivia"}</button>
                             </form>
-                            <form action={eliminaTemplate}>
-                              <input type="hidden" name="id" value={t.id} />
-                              <button className="btn rosso mini" type="submit">Elimina</button>
-                            </form>
+                            <ConfermaElimina
+                              mini
+                              titolo={`Elimino il template «${t.nome}»?`}
+                              conseguenza="Il testo va perso per sempre; le mail già inviate con questo template restano nel registro. Se può servire ancora, meglio archiviarlo."
+                            >
+                              <form action={eliminaTemplate}>
+                                <input type="hidden" name="id" value={t.id} />
+                                <button className="btn rosso" type="submit">Elimina il template</button>
+                              </form>
+                            </ConfermaElimina>
                           </div>
                         </td>
                       </tr>
@@ -161,7 +168,7 @@ export default async function Template({ searchParams }: { searchParams: Promise
               <tbody>
                 {VARIABILI_DISPONIBILI.map((v) => (
                   <tr key={v.chiave}>
-                    <td style={{ padding: "6px 0", width: 130 }}>
+                    <td style={{ padding: "6px 0 6px", paddingRight: 10 }}>
                       <code className="chip">{"{{" + v.chiave + "}}"}</code>
                     </td>
                     <td className="secondario piccolo" style={{ padding: "6px 0" }}>{v.descrizione}</td>

@@ -94,7 +94,7 @@ export default async function DettaglioEvento({
         </div>
       </div>
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)" }}>
+      <div className="griglia scheda">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card tabella-card">
             <div style={{ padding: "20px 20px 8px" }}>
@@ -261,7 +261,7 @@ export default async function DettaglioEvento({
             <div className="card-titolo">Aggiungi invitati</div>
             <div className="card-sub">Cerca nel libro clienti (fonte: Deluxy Orders) e metti in lista.</div>
             <form method="get" action={qui} style={{ display: "flex", gap: 8 }}>
-              <input type="search" name="cerca" placeholder="Nome, email, città…" defaultValue={cerca ?? ""} />
+              <input type="search" name="cerca" aria-label="Cerca un cliente da invitare" placeholder="Nome, email, città…" defaultValue={cerca ?? ""} />
               <button className="btn ghost" type="submit">Cerca</button>
             </form>
             {risultati ? (

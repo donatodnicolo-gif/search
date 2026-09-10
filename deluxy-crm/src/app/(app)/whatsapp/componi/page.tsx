@@ -1,4 +1,5 @@
 import InserisciDaCatalogo from "@/components/InserisciDaCatalogo";
+import BottoneInvio from "@/components/BottoneInvio";
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
@@ -64,7 +65,7 @@ export default async function ComponiWhatsApp({ searchParams }: { searchParams: 
         </div>
       ) : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div className="griglia lavoro" style={{ alignItems: "start" }}>
         <div className="card">
           <form action={inviaWhatsAppSingolo}>
             <input type="hidden" name="chiaveCliente" value={codice ?? ""} />
@@ -100,9 +101,9 @@ export default async function ComponiWhatsApp({ searchParams }: { searchParams: 
               </select>
             </div>
             <div className="form-piede" style={{ justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
-              <button className="btn" type="submit" disabled={!numeri.ok}>
+              <BottoneInvio inCorso="Sto inviando…" disabled={!numeri.ok}>
                 Invia dall&apos;API (numero del marchio)
-              </button>
+              </BottoneInvio>
               {numero && cliente ? (
                 <WaAssistito
                   chiaveCliente={codice ?? ""}

@@ -105,6 +105,7 @@ export default async function Eventi({
           <input
             type="search"
             name="q"
+            aria-label="Cerca fra gli eventi"
             placeholder="Cerca titolo o luogo…"
             defaultValue={q ?? ""}
             style={{ width: 280 }}

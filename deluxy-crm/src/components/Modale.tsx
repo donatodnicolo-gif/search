@@ -11,12 +11,15 @@ export default function Modale({
   titolo,
   sotto,
   className = "btn ghost",
+  stretta = false,
   children,
 }: {
   bottone: React.ReactNode;
   titolo: string;
   sotto?: string;
   className?: string;
+  /** Finestra stretta (conferme): 420 px invece della larghezza da tabella. */
+  stretta?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -43,7 +46,7 @@ export default function Modale({
           if (e.target === ref.current) setAperta(false);
         }}
       >
-        <div className="modale-pannello">
+        <div className={`modale-pannello${stretta ? " stretta" : ""}`}>
           <div className="modale-testata">
             <div>
               <div className="card-titolo" style={{ marginBottom: 2 }}>{titolo}</div>

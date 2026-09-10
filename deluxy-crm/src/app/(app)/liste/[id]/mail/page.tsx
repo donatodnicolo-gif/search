@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import BottoneInvio from "@/components/BottoneInvio";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { prisma } from "@/lib/db";
 import { configurazioneMail } from "@/lib/mail";
@@ -88,7 +89,7 @@ export default async function MailAllaLista({
           </p>
         </div>
       ) : (
-        <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", alignItems: "start" }}>
+        <div className="griglia lavoro" style={{ alignItems: "start" }}>
           <div className="card">
             <div className="card-titolo" style={{ fontSize: 16 }}>Template</div>
             <div className="card-sub">Cambiare template ricompone l&apos;anteprima.</div>
@@ -107,9 +108,9 @@ export default async function MailAllaLista({
             <form action={inviaMailALista}>
               <input type="hidden" name="listaId" value={id} />
               <input type="hidden" name="templateId" value={template?.id ?? ""} />
-              <button className="btn" type="submit" disabled={!config.pronta || !template || conEmail.length === 0}>
+              <BottoneInvio inCorso="Sto inviando alla lista… (fino a 150 mail)" disabled={!config.pronta || !template || conEmail.length === 0}>
                 Invia a {Math.max(0, conEmail.length - giaFatte)} clienti
-              </button>
+              </BottoneInvio>
               <p className="terziario piccolo" style={{ marginTop: 8 }}>
                 Massimo 150 per giro: se sono di più, si rilancia e riprende da chi manca. Chi ha già ricevuto non
                 riceve doppioni.

@@ -48,7 +48,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
 
       {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div className="griglia lavoro" style={{ alignItems: "start" }}>
         <div>
           {liste.length === 0 ? (
             <div className="card vuoto">
@@ -114,6 +114,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                     name="brief"
                     rows={6}
                     required
+                    aria-label="Il brief per l'AI"
                     placeholder={
                       "es. I clienti migliori di Milano che hanno comprato per San Valentino, per invitarli alla cena del 14 febbraio.\n\nes. Chi ama le peonie e non ordina da più di sei mesi: voglio mandargli un pensiero via WhatsApp."
                     }
@@ -141,6 +142,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   <input type="text" name="nome" required maxLength={60} placeholder="es. Clienti Cake dell'ultima settimana" />
                 </div>
 
+                <div className="card-titolo sezione-form">Chi</div>
                 <div className="campo">
                   <label>Parti da queste liste di Orders <span className="aiuto">(unione; vuoto = tutti i clienti)</span></label>
                   <div className="scelte">
@@ -163,6 +165,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   <span className="aiuto">«Non contattare» è escluso sempre, anche se non lo scegli.</span>
                 </div>
 
+                <div className="card-titolo sezione-form">Dove e cosa</div>
                 <div className="campo">
                   <label>Sito da cui comprano</label>
                   <div className="scelte">
@@ -207,6 +210,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   </div>
                 </div>
 
+                <div className="card-titolo sezione-form">Quanto</div>
                 <div className="form-riga">
                   <div className="campo">
                     <label>Spesa minima (€)</label>
@@ -238,6 +242,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   </div>
                 </div>
 
+                <div className="card-titolo sezione-form">Uscita</div>
                 <div className="campo">
                   <label>Contatti</label>
                   <div className="scelte">

@@ -117,6 +117,17 @@ L'interfaccia di questa app ha un **custode**: l'agente `architetto-ux` (definit
 - Il custode valuta ogni segnalazione e decide: correzione locale, regola nuova del Libro (che vale **anche per le altre app**), o deroga motivata.
 - Le deroghe concesse a questa app vanno annotate qui sotto, con motivo e data.
 
+**Deroga 10/09/2026 — Ricorrenze: fino a 3000 righe lette da Orders e ordinate/filtrate in casa.**
+Il Libro §8 vieta il `take` senza conteggio: qui conteggio e troncamento sono
+dichiarati in pagina (`tutteLeRicorrenze`, tetto 6 × 500), ma ordinare dopo il
+troncamento resta una scorciatoia. Motivo: l'API `eventi-clienti` di Orders non
+ordina né filtra per sito/parola/per-chi, e a 30 giorni le ricorrenze sono 786.
+**Soglia di rientro**: quando `troncato` compare in produzione, o quando le
+ricorrenze a 30 giorni superano 1500, ordinamento e filtri si portano nell'API
+di Orders. Condizioni del custode: banner del troncamento prima del ramo vuoto
+(da fare), `PER_PAGINA` 100 resta, il Calendario non ripete l'elenco del mese
+due volte (da fare: elenco «giorno per giorno» a richiesta).
+
 ## Custode della sicurezza (obbligatorio — 27/08/2026)
 
 La sicurezza di questa app ha un **custode**: l'agente `architetto-sicurezza` (definito in `.claude/agents/architetto-sicurezza.md`), che applica il [Libro della Sicurezza](../deluxy-design-system/LIBRO-SICUREZZA.md).

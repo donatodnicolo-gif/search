@@ -75,7 +75,7 @@ export default async function WhatsAppAllaLista({
         </div>
       ) : (
         <>
-          <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", alignItems: "start", marginBottom: 16 }}>
+          <div className="griglia lavoro" style={{ alignItems: "start", marginBottom: 16 }}>
             <div className="card">
               <div className="card-titolo" style={{ fontSize: 16 }}>Template</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>

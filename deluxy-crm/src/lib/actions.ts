@@ -738,7 +738,7 @@ function numero(fd: FormData, campo: string): number | undefined {
 export async function creaListaManuale(fd: FormData): Promise<void> {
   await richiediSessione();
   const nome = testo(fd, "nome").slice(0, 60);
-  if (!nome) redirect(conEsito("/liste", "Dai un nome alla lista."));
+  if (!nome) redirect(conEsito("/liste?modo=manuale", "Dai un nome alla lista."));
 
   const ordina = testo(fd, "ordina");
   const criteri: CriteriLista = {
@@ -766,7 +766,7 @@ export async function creaListaManuale(fd: FormData): Promise<void> {
 
   const descrizione = descriviCriteri(criteri);
   const eseguita = await eseguiCriteri(criteri);
-  if (!eseguita.ok) redirect(conEsito("/liste", eseguita.errore));
+  if (!eseguita.ok) redirect(conEsito("/liste?modo=manuale", eseguita.errore));
 
   const listaDb = await prisma.listaClienti.create({
     data: {

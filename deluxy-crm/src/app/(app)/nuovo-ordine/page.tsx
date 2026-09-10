@@ -40,8 +40,8 @@ export default async function NuovoOrdine({ searchParams }: { searchParams: Prom
 
       <div className="filtri">
         <form method="get" action="/nuovo-ordine">
-          <input type="search" name="q" placeholder="Cerca il cliente: nome, email, telefono…" defaultValue={q} style={{ width: 320 }} autoFocus />
-          <button className="btn" type="submit">Cerca</button>
+          <input type="search" name="q" aria-label="Cerca il cliente" placeholder="Cerca il cliente: nome, email, telefono…" defaultValue={q} style={{ width: 320 }} autoFocus />
+          <button className="btn ghost" type="submit">Cerca</button>
         </form>
       </div>
 
@@ -107,7 +107,7 @@ export default async function NuovoOrdine({ searchParams }: { searchParams: Prom
                       </td>
                       <td>{dataIt(c.ultimoOrdine)}</td>
                       <td>
-                        <a className="btn mini" href={href}>Crea ordine</a>
+                        <a className="btn ghost mini" href={href}>Crea ordine</a>
                       </td>
                     </RigaLink>
                   );

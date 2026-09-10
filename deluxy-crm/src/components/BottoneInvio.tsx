@@ -11,14 +11,17 @@ export default function BottoneInvio({
   children,
   inCorso,
   className = "btn",
+  disabled = false,
 }: {
   children: React.ReactNode;
   inCorso: string;
   className?: string;
+  /** Spento a prescindere (es. posta non configurata). */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
-    <button className={className} type="submit" disabled={pending} aria-busy={pending}>
+    <button className={className} type="submit" disabled={pending || disabled} aria-busy={pending}>
       {pending ? inCorso : children}
     </button>
   );

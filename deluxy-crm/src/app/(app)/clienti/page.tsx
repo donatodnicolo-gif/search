@@ -78,6 +78,7 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
           <input
             type="search"
             name="q"
+            aria-label="Cerca nel libro clienti"
             placeholder="Cerca nome, email, telefono…"
             defaultValue={q ?? ""}
             style={{ width: 280 }}
@@ -114,7 +115,12 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
             </svg>
           </div>
           <h3>Nessun cliente trovato</h3>
-          <p>Prova con un&apos;altra ricerca, o togli il filtro della lista.</p>
+          <p>
+            Prova con un&apos;altra ricerca, o togli il filtro della lista.{" "}
+            {q || lista ? (
+              <a className="link-quieto" href="/clienti">Azzera ricerca e filtri</a>
+            ) : null}
+          </p>
         </div>
       ) : (
         <>

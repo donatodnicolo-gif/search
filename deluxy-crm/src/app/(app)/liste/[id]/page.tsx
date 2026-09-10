@@ -5,6 +5,7 @@ import { eliminaLista, rigeneraLista, rimuoviMembro } from "@/lib/actions";
 import { dataIt, euro, segmento } from "@/lib/etichette";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { RigaLink } from "@/components/RigaLink";
+import ConfermaElimina from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 // La rigenerazione riscarica i clienti da Orders: stesso respiro della creazione.
@@ -73,6 +74,7 @@ export default async function DettaglioLista({
           <input
             type="search"
             name="q"
+            aria-label="Cerca fra i membri"
             placeholder="Cerca nome, email, telefono o città…"
             defaultValue={sp.q ?? ""}
             style={{ width: 280 }}
@@ -82,7 +84,7 @@ export default async function DettaglioLista({
         </form>
       </div>
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div className="griglia scheda" style={{ alignItems: "start" }}>
         <div className="card tabella-card">
           <div className="tabella-scroll">
             <table>
@@ -164,10 +166,16 @@ export default async function DettaglioLista({
                 <input type="hidden" name="id" value={id} />
                 <button className="btn ghost" type="submit">Rigenera dai dati di oggi</button>
               </form>
-              <form action={eliminaLista}>
-                <input type="hidden" name="id" value={id} />
-                <button className="btn rosso" type="submit">Elimina la lista</button>
-              </form>
+              <ConfermaElimina
+                etichetta="Elimina la lista"
+                titolo="Elimino questa lista?"
+                conseguenza="Spariscono brief, criteri e membri: i clienti restano in Orders, ma la selezione si perde per sempre. Le mail già mandate restano nel registro."
+              >
+                <form action={eliminaLista}>
+                  <input type="hidden" name="id" value={id} />
+                  <button className="btn rosso" type="submit">Elimina la lista</button>
+                </form>
+              </ConfermaElimina>
             </div>
           </div>
         </div>

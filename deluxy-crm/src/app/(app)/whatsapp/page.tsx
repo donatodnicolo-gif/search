@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
-import { eliminaTemplateWA, salvaTemplateWA } from "@/lib/actions";
+import { archiviaTemplateWA, eliminaTemplateWA, salvaTemplateWA } from "@/lib/actions";
+import ConfermaElimina from "@/components/ConfermaElimina";
 import { dataIt } from "@/lib/etichette";
 import { VARIABILI_DISPONIBILI } from "@/lib/variabili";
 
@@ -16,7 +17,7 @@ export default async function WhatsApp({ searchParams }: { searchParams: Promise
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
   const [templates, messaggi] = await Promise.all([
-    prisma.templateWhatsApp.findMany({ orderBy: { nome: "asc" } }),
+    prisma.templateWhatsApp.findMany({ where: { archiviatoIl: null }, orderBy: { nome: "asc" } }),
     prisma.messaggioWhatsApp.findMany({ orderBy: { inviatoIl: "desc" }, take: 100 }),
   ]);
   const inModifica = sp.modifica ? templates.find((t) => t.id === sp.modifica) : undefined;
@@ -37,7 +38,7 @@ export default async function WhatsApp({ searchParams }: { searchParams: Promise
       {sp.esito === "ok" ? <div className="ok-card">Fatto.</div> : null}
       {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", alignItems: "start", marginBottom: 16 }}>
+      <div className="griglia lavoro" style={{ alignItems: "start", marginBottom: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {templates.length === 0 ? (
             <div className="card vuoto">
@@ -57,12 +58,24 @@ export default async function WhatsApp({ searchParams }: { searchParams: Promise
                     <div className="card-titolo" style={{ fontSize: 16 }}>{t.nome}</div>
                     <div className="card-sub" style={{ marginBottom: 8 }}>aggiornato {dataIt(t.aggiornatoIl)}</div>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 10, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <a className="btn ghost mini" href={`/whatsapp?modifica=${t.id}`}>Modifica</a>
-                    <form action={eliminaTemplateWA}>
+                    <form action={archiviaTemplateWA}>
                       <input type="hidden" name="id" value={t.id} />
-                      <button className="btn rosso mini" type="submit">Elimina</button>
+                      <button className="btn ghost mini" type="submit" title="Non lo propone più in Componi; si ripristina dall'archivio">
+                        Archivia
+                      </button>
                     </form>
+                    <ConfermaElimina
+                      mini
+                      titolo={`Elimino il template «${t.nome}»?`}
+                      conseguenza="Il testo va perso per sempre. Se può servire ancora, meglio archiviarlo."
+                    >
+                      <form action={eliminaTemplateWA}>
+                        <input type="hidden" name="id" value={t.id} />
+                        <button className="btn rosso" type="submit">Elimina il template</button>
+                      </form>
+                    </ConfermaElimina>
                   </div>
                 </div>
                 <p className="secondario" style={{ fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>

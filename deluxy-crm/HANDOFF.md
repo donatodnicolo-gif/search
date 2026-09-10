@@ -89,6 +89,36 @@ al Calendario fallita (400 «tipo non valido»)**: corretto in
 `spingiProgrammazione` (appuntamento/promemoria) — da riprovare col bottone
 «Fatta» sulla programmazione di collaudo, poi eliminarla (✕) dalla scheda.
 
+**Sera 10/09 — revisione coi custodi (UX desktop, UX mobile, Performance) e
+gli ostili, poi push e deploy su richiesta dell'utente.** Tutto registrato:
+SEGNALAZIONI-UX (riga «10/09 sera») e SEGNALAZIONI-PERFORMANCE (3 righe in
+attesa per Orders, 4 decise per il CRM), Libro PERFORMANCE §1 (i byte del dev
+server mentono 3,7×), README (deroga Ricorrenze 3000 con soglia di rientro).
+- **Performance applicate**: pallini senza la CTE dei clienti (`dataUltimoOrdine`
+  da `/api/v1/ordini?limit=1`) e TTL 300 s (`TTL_PALLINI_MS`): endpoint a
+  freddo 1,93 → 0,77 s; `statoOrders` fuori dalla cache (il badge diceva
+  «Collegato» dalla cache e rovinava la voce di `catalogoListe`);
+  `generazionePassword` in React `cache()` (revoca letta 1 volta a richiesta
+  invece di 2-4; l'ostile ha verificato che non buca la revoca). **Per Orders**
+  (registrate, non fatte): endpoint aggregato per `/performance` (oggi 6 CTE in
+  serie = 5,6 s su 3000/10.795 clienti), `eventi-clienti` che carica tutta la
+  tabella a ogni pagina.
+- **UX applicate** (10 + seconda fascia): `ConfermaElimina` sulle 4 eliminazioni
+  irreversibili, griglie a classi `.griglia.scheda/.lavoro` con ramo mobile
+  (11 stili inline tolti), chip di /clienti scorrevoli su mobile, MQ 900/700
+  (form-riga a capo, input 16 px, overflow di Impostazioni/Performance),
+  `aria-current`, `input[type=time]` a norma, ricorrenze tutte viola nel
+  Calendario, `BottoneInvio` sui 3 invii, gap 10 fra le azioni di riga, meno
+  neri, 6 `aria-label`, hex → token, «Archivia» sui template WhatsApp,
+  `WaAssistito` che guarda `window.open`, titoli di sezione nel form a
+  condizioni, «Azzera» nel vuoto di /clienti.
+- **Da fare in giri dedicati** (elenco completo nel registro UX): drawer mobile
+  (la sidebar a 375 px occupa il 56% dello schermo) e da lì bersagli 44,
+  tabelle a schede, calendario mobile; inversione dell'API `.btn` col CS;
+  `htmlFor/id` sui campi; `useActionState` sui compositori; tabella Clienti
+  (Medio/Brand, `ThSort`); avviso oro + rami del troncamento in Ricorrenze;
+  esito «non in agenda»; `error.tsx`; 3 delete muti.
+
 **NON fatto / da decidere**:
 - **Rubrica di deluxy.delivery@gmail.com** («come sono salvati in rubrica»):
   nessuna app espone i contatti Google; servirebbe People API (OAuth) — non

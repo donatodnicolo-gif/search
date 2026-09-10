@@ -1,4 +1,5 @@
 import InserisciDaCatalogo from "@/components/InserisciDaCatalogo";
+import BottoneInvio from "@/components/BottoneInvio";
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
@@ -103,7 +104,7 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
       ) : null}
       {codice && scheda && !scheda.ok ? <div className="errore-card">{scheda.errore}</div> : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)" }}>
+      <div className="griglia lavoro">
         <div className="card">
           <form action={inviaMailPersonalizzata}>
             <input type="hidden" name="chiaveCliente" value={codice ?? ""} />
@@ -144,9 +145,9 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
               <InserisciDaCatalogo campo="corpo" />
             </details>
             <div className="form-piede">
-              <button className="btn" type="submit" disabled={!config.pronta}>
+              <BottoneInvio inCorso="Sto inviando…" disabled={!config.pronta}>
                 Invia la mail
-              </button>
+              </BottoneInvio>
             </div>
           </form>
         </div>

@@ -151,7 +151,10 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           chiave,
           ordine: -1, // le ricorrenze in cima al giorno: sono l'occasione
           tipo: "ricorrenza",
-          colore: t.colore,
+          // ⚠️ Una mappa sola (Libro §5): il viola della legenda vale per TUTTE
+          // le ricorrenze; il tipo si legge nel testo e nel title. Col colore
+          // del tipo un anniversario (oro) si confondeva con un evento.
+          colore: "var(--purple)",
           ora: null,
           titolo: `${r.clienteNome}${r.destinatario ? ` → ${r.destinatario}` : ""}`,
           sotto: r.titolo || t.nome,

@@ -219,7 +219,7 @@ export default function FormNuovoOrdine({ codice, cliente, indirizzo, negozi, ne
     <form ref={formRef} onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 980 }}>
       {esito && !esito.ok ? <div className="errore-card">{esito.errore}</div> : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div className="griglia lavoro" style={{ alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card">
             <div className="card-titolo" style={{ fontSize: 16 }}>Cosa ordina</div>

@@ -20,6 +20,7 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import FotoInput from "@/components/FotoInput";
 import RicorrenzeMultiple from "@/components/RicorrenzeMultiple";
 import Modale from "@/components/Modale";
+import ConfermaElimina from "@/components/ConfermaElimina";
 import {
   chiaveGiorno,
   dataBreve,
@@ -287,7 +288,7 @@ export default async function Scheda({
         </div>
       </div>
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)" }}>
+      <div className="griglia scheda">
         {/* -------- colonna principale -------- */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {modificaProfilo ? (
@@ -363,7 +364,7 @@ export default async function Scheda({
                           {p.autore ? ` · ${p.autore}` : ""}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 6, alignSelf: "center" }}>
+                      <div style={{ display: "flex", gap: 10, alignSelf: "center" }}>
                         <form action={cambiaStatoProgrammazione}>
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="stato" value="fatta" />
@@ -373,7 +374,7 @@ export default async function Scheda({
                         <form action={eliminaProgrammazione}>
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="torna" value={qui} />
-                          <button className="btn ghost mini" type="submit" title="Toglie la programmazione">✕</button>
+                          <button className="btn ghost mini" type="submit" title="Toglie la programmazione (nel Calendario resta come annullata)">Togli</button>
                         </form>
                       </div>
                     </div>
@@ -565,7 +566,7 @@ export default async function Scheda({
                 <label>Punteggio</label>
                 <input type="number" name="punteggio" min={0} max={100} step="1" defaultValue={profilo?.punteggio ?? ""} placeholder="—" />
               </div>
-              <button className="btn mini" type="submit" style={{ flex: "0 0 auto" }}>Salva</button>
+              <button className="btn ghost mini" type="submit" style={{ flex: "0 0 auto" }}>Salva</button>
             </form>
           </div>
 
@@ -603,14 +604,16 @@ export default async function Scheda({
                           {n.autore ? ` · ${n.autore}` : ""}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 6, alignSelf: "flex-start" }}>
+                      <div style={{ display: "flex", gap: 10, alignSelf: "flex-start" }}>
                         <a className="btn ghost mini" href={`${qui}?nota=${n.id}#note`}>Modifica</a>
-                        <form action={eliminaNota}>
-                          <input type="hidden" name="id" value={n.id} />
-                          <input type="hidden" name="chiaveCliente" value={codice} />
-                          <input type="hidden" name="torna" value={`${qui}#note`} />
-                          <button className="btn ghost mini" type="submit" title="Elimina la nota">✕</button>
-                        </form>
+                        <ConfermaElimina mini titolo="Elimino questa nota?" conseguenza="La nota sparisce dalla scheda, per sempre.">
+                          <form action={eliminaNota}>
+                            <input type="hidden" name="id" value={n.id} />
+                            <input type="hidden" name="chiaveCliente" value={codice} />
+                            <input type="hidden" name="torna" value={`${qui}#note`} />
+                            <button className="btn rosso" type="submit">Elimina la nota</button>
+                          </form>
+                        </ConfermaElimina>
                       </div>
                     </div>
                   ),
@@ -624,7 +627,7 @@ export default async function Scheda({
                 <textarea name="testo" rows={2} placeholder="Una nota nuova…" required style={{ minHeight: 56 }} />
               </div>
               <div className="form-piede">
-                <button className="btn mini" type="submit">Aggiungi la nota</button>
+                <button className="btn ghost mini" type="submit">Aggiungi la nota</button>
               </div>
             </form>
           </div>
@@ -708,7 +711,7 @@ export default async function Scheda({
                 <textarea name="dettaglio" rows={3} placeholder="Cosa ci siamo detti, cosa promesso…" />
               </div>
               <div className="form-piede">
-                <button className="btn" type="submit">Registra</button>
+                <button className="btn ghost" type="submit">Registra</button>
               </div>
             </form>
           </div>
@@ -755,7 +758,7 @@ export default async function Scheda({
                   <span className="aiuto">Deve esistere in Orders. Questa resta la scheda principale.</span>
                 </div>
                 <div className="form-piede">
-                  <button className="btn mini" type="submit">Unisci</button>
+                  <button className="btn ghost mini" type="submit">Unisci</button>
                 </div>
               </form>
             </details>

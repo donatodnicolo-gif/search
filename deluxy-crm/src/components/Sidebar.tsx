@@ -161,7 +161,7 @@ export default function Sidebar({ utente, ruolo }: { utente: string | null; ruol
         <div key={s.etichetta}>
           <div className="nav-sezione">{s.etichetta}</div>
           {s.voci.map((v) => (
-            <a key={v.href} className={`nav-voce${attiva(v.href) ? " attiva" : ""}`} href={v.href}>
+            <a key={v.href} className={`nav-voce${attiva(v.href) ? " attiva" : ""}`} href={v.href} aria-current={attiva(v.href) ? "page" : undefined}>
               <Icona nome={v.icona} />
               {v.nome}
               {/* ⚠️ Il pallino sta in FONDO alla riga, non davanti al nome: le
