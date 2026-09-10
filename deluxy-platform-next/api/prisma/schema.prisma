@@ -504,6 +504,11 @@ model Partner {
   sales               Sale[]
   deliveryRules       DeliveryRulePartner[]
   invoices            Invoice[]
+  /// ⭐ 10/09/2026 (regola utente): CHI PAGA per questo punto vendita. Null = paga da sé.
+  capogruppoId        String?
+  capogruppo          Capogruppo?       @relation(fields: [capogruppoId], references: [id], onDelete: SetNull)
+  /// true = si fattura da solo; false = fattura il capogruppo (Finance legge da lì).
+  pagaDaSe            Boolean           @default(true)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   priorityEntries     PriorityEntry[]
@@ -518,6 +523,25 @@ model Partner {
 // L'ufficio risponde qui (reply) e/o su WhatsApp (numero nelle impostazioni).
 // stato: aperta | in_lavorazione | risposta
 // ------------------------------------------------------------
+/// ⭐ 10/09/2026 (regola utente): la SOCIETÀ che paga per uno o più punti vendita (OLFATTORIO SRL per
+/// Diptyque Brera, Diptyque Manzoni, Olfattorio…; Chanel per i suoi negozi). Lo stesso concetto del
+/// registro Anagrafiche: `registroId` è l'id del capogruppo di là, e ogni scrittura qui gli viene
+/// comunicata. Tabella creata a mano (scripts/applica-migrazione-capogruppo.mjs).
+model Capogruppo {
+  id            String    @id @default(cuid())
+  nome          String    @unique
+  pIva          String?
+  codiceFiscale String?
+  codiceSdi     String?
+  pec           String?
+  email         String?
+  note          String?
+  registroId    String?   @unique
+  partners      Partner[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+}
+
 model QuoteRequest {
   id           String    @id @default(cuid())
   partnerId    String

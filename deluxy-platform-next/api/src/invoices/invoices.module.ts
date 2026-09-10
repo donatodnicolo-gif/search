@@ -1331,7 +1331,7 @@ export class InvoicesService {
   ): Promise<{ ok: boolean; motivo: string; riferimento?: string; candidati?: string[] }> {
     const fattura = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { partner: { select: { insegna: true } }, lines: true },
+      include: { partner: { select: { insegna: true } }, lines: { include: { delivery: { select: { serviceType: { select: { pricingModel: true } } } } } } },
     });
     if (!fattura) return { ok: false, motivo: 'Fattura non trovata' };
     if (fattura.financeRef && !forza) {
@@ -1345,7 +1345,12 @@ export class InvoicesService {
     if (!key) {
       return { ok: false, motivo: 'Chiave FINANCE assente (env FINANCE_API_KEY o Impostazioni financeApiKey).' };
     }
-    const righe = fattura.lines
+    // ⭐ 10/09/2026 — la pro-forma è il documento che il PARTNER ci paga: solo le consegne
+    // (prezzo fisso, a ora, magazzino). Le righe di VENDITA vanno nel MESE (commissione già
+    // trattenuta): messe anche qui si contavano due volte (PF 36/2026 di Rizzi: 20 righe, 2 erano vendite).
+    const righeServizi = fattura.lines.filter((l) => (l as any).delivery?.serviceType?.pricingModel !== 'VENDITA');
+    if (!righeServizi.length) return { ok: true, motivo: 'Solo vendite in questa fattura: niente pro-forma, le vendite viaggiano col mese.' };
+    const righe = righeServizi
       .map((l) => ({
         descrizione: ['Consegna', l.recipient, l.description, this.gg(l.date)]
           .filter((s) => s && String(s).trim())
@@ -1372,7 +1377,9 @@ export class InvoicesService {
       const rif = b.riferimento ?? b.id ?? 'creata';
       await this.prisma.invoice.update({
         where: { id: invoiceId },
-        data: { financeRef: String(rif), financeSentAt: new Date() },
+        // ⭐ 10/09/2026 (regola utente «ho fatto invio ma non è andata in storico»): da quando FINANCE
+        // ha il documento, la copia interna è storia.
+        data: { financeRef: String(rif), financeSentAt: new Date(), archived: true },
       });
       return { ok: true, motivo: 'Bozza creata in FINANCE', riferimento: String(rif) };
     } catch (e) {
@@ -1430,10 +1437,13 @@ export class InvoicesService {
     const righeVendita = fattura.lines.filter(
       (l) => (l as any).delivery?.serviceType?.pricingModel === 'VENDITA',
     );
-    if (!righeVendita.length) {
-      return { ok: false, motivo: 'Nessuna riga di vendita in questa fattura: al partner non spetta niente da girare.' };
-    }
     const q2 = (n: number) => Math.round(n * 100) / 100;
+    // ⭐ 10/09/2026 (segnalazione utente): il mese porta anche i SERVIZI DI CONSEGNA fatturati al
+    // partner, così FINANCE crea la fattura servizi «Consegne» del mese (prima la faceva a mano).
+    const consegneImponibile = q2(fattura.lines.filter((l) => (l as any).delivery?.serviceType?.pricingModel !== 'VENDITA').reduce((s, l) => s + l.amount, 0));
+    if (!righeVendita.length && !(consegneImponibile > 0)) {
+      return { ok: false, motivo: 'Nessuna riga di vendita né di servizio con importo: niente mese da mandare.' };
+    }
     // ⚠️ Il venduto NON sta sulla riga di fattura (`InvoiceLine` porta solo la
     // quota): si ricava dai prodotti della consegna, con la STESSA funzione che
     // usano la fattura e la scheda consegna. Prenderlo da `productValue` e basta
@@ -1446,8 +1456,8 @@ export class InvoicesService {
       ),
     );
     const commissioni = q2(righeVendita.reduce((s, l) => s + l.amount, 0));
-    if (!(venduto > 0)) {
-      return { ok: false, motivo: 'Venduto a zero sulle righe di vendita: non c’è un mese da mandare.' };
+    if (!(venduto > 0) && !(consegneImponibile > 0)) {
+      return { ok: false, motivo: 'Venduto a zero e nessun servizio: non c’è un mese da mandare.' };
     }
 
     const { url, key } = await this.financeConfig();
@@ -1469,12 +1479,14 @@ export class InvoicesService {
           aliquotaIva: fattura.vatRate ?? IVA,
           riferimento: fattura.number,
           descrizione: `Consegne Deluxy · ${this.gg(fattura.periodStart)} – ${this.gg(fattura.periodEnd)}`,
+          ...(consegneImponibile > 0 ? { consegne: { imponibile: consegneImponibile, descrizione: `Servizi di consegna ${this.gg(fattura.periodStart)} – ${this.gg(fattura.periodEnd)}` } } : {}),
         }),
         signal: AbortSignal.timeout(20000),
       });
       const b = (await res.json().catch(() => ({}))) as { errore?: string; dovutoAlPartner?: number };
       if (!res.ok) return { ok: false, motivo: b.errore ?? `FINANCE risponde HTTP ${res.status}` };
-      return { ok: true, motivo: 'Mese aggiornato in FINANCE', dovuto: b.dovutoAlPartner };
+      await this.prisma.invoice.update({ where: { id: invoiceId }, data: { archived: true } }).catch(() => undefined);
+      return { ok: true, motivo: `Mese aggiornato in FINANCE${consegneImponibile > 0 ? ` · fattura servizi consegne ${consegneImponibile.toFixed(2)} €` : ''}`, dovuto: b.dovutoAlPartner };
     } catch (e) {
       return { ok: false, motivo: `FINANCE non raggiungibile: ${(e as Error).message}` };
     }

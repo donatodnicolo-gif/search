@@ -152,11 +152,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
       <div class="f">
         <span>{{ 'invoices.filter.quick' | translate }}</span>
         <div class="quick-tabs">
-          <button type="button" class="quick-tab" (click)="periodoRapido(0)">{{ 'invoices.filter.thisMonth' | translate }}</button>
-          <button type="button" class="quick-tab" (click)="periodoRapido(-1)">{{ 'invoices.filter.lastMonth' | translate }}</button>
+          <button type="button" class="quick-tab" [class.active]="periodoScelto() === 0" (click)="periodoRapido(0)">{{ 'invoices.filter.thisMonth' | translate }}</button>
+          <button type="button" class="quick-tab" [class.active]="periodoScelto() === -1" (click)="periodoRapido(-1)">{{ 'invoices.filter.lastMonth' | translate }}</button>
           <!-- Il Trimestre completa le 4 scorciatoie canoniche (Libro v1.9 §8-bis). -->
-          <button type="button" class="quick-tab" (click)="periodoRapido(-3)">{{ 'invoices.filter.quarter' | translate }}</button>
-          <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'invoices.filter.thisYear' | translate }}</button>
+          <button type="button" class="quick-tab" [class.active]="periodoScelto() === -3" (click)="periodoRapido(-3)">{{ 'invoices.filter.quarter' | translate }}</button>
+          <button type="button" class="quick-tab" [class.active]="periodoScelto() === -12" (click)="periodoRapido(-12)">{{ 'invoices.filter.thisYear' | translate }}</button>
         </div>
       </div>
       <!-- ⭐ 10/09/2026 (segnalazione utente): «Dal» e «Al» stanno INSIEME, in un blocco solo — prima
@@ -164,9 +164,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
       <div class="f periodo">
         <span>{{ 'invoices.filter.from' | translate }} / {{ 'invoices.filter.to' | translate }}</span>
         <div class="coppia">
-          <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'invoices.filter.from' | translate" />
+          <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="periodoScelto.set(null); filtroCambiato()" [attr.aria-label]="'invoices.filter.from' | translate" />
           <span class="sep">–</span>
-          <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'invoices.filter.to' | translate" />
+          <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="periodoScelto.set(null); filtroCambiato()" [attr.aria-label]="'invoices.filter.to' | translate" />
         </div>
       </div>
       @if (view() !== 'pending') {
@@ -806,7 +806,10 @@ export class InvoicesListComponent {
   }
 
   /** Il periodo a un click: `0` = mese in corso (fino a oggi), `-1` = scorso, `-12` = anno in corso. */
+  /** ⭐ 10/09/2026 (segnalazione utente «non si capisce se i bottoni sono stati cliccati»): il periodo rapido scelto resta acceso finché non si toccano le date a mano. */
+  readonly periodoScelto = signal<number | null>(null);
   periodoRapido(scarto: number): void {
+    this.periodoScelto.set(scarto);
     const oggi = new Date();
     const g = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
