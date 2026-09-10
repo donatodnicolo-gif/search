@@ -4,6 +4,8 @@ Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza conte
 
 ## 10/09/2026 sera — I PRODOTTI NUOVI NASCEVANO SENZA METAFIELD: RIACCESO IL BLOCCO, MAPPATI I CAMPI, PROVATI 10 PRODOTTI
 
+✅ **PUSHATO E DEPLOYATO** (utente: «cancella i prodotti di test e fai push & deploy»): origin/scout-ui a `29797ab3`, deploy **`deluxy-merchandising-i2e2kbh3i`** (cloud), Ready, alias di produzione; `/api/health` ok, `/prodotti/nuovo` 200, la modifica del Cofanetto Colazione mostra la tendina del partner di Gifts.
+
 Utente: «assicurati che per tutti i prodotti nuovi carichiamo tutti i metafield,
 fai una mappatura con 10 prodotti nuovi di test, 1 per categoria».
 
