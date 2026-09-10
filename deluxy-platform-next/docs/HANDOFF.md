@@ -3,6 +3,43 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 🗃️ **10/09/2026 — l'elenco Consegne ripulito, e il conto delle distanze CHIUSO.**
+> **Archiviazione** (`api/scripts/archivia-non-consegnate-vecchie.mjs`, applicato
+> dall'utente): 1.450 non consegnate oltre 60 giorni + 3 Chanel di agosto →
+> Storico. Fa esattamente quello che fa `nascondiNonConsegnata` (scrive
+> `nonConsegnataChiusaIl` + riga nel registro), è reversibile una per una, non
+> cambia stato. Elenco attive **3.829 → 2.157**; non consegnate aperte
+> **1.683 → 10** (tutte di settembre); Chanel nell'elenco **627 (26,3%) → 404
+> (18,7%)**; Clivati 1969 **28 → 2** righe. Opzioni: `--giorni N`,
+> `--includi-chanel`, `--solo-chanel`.
+>
+> **Distanze** (`api/scripts/sistema-distanze.mjs`, applicato dall'utente):
+> 310 misurate con **55 chiamate** a Google (745 coppie ripetute risparmiate —
+> la memoria per coppia di indirizzi vale più di dieci a uno).
+> ✅ **PUNTO CHIUSO — le 490 «non misurabili» non sono un buco**: hanno tutte
+> ritiro e destinazione allo **stesso indirizzo**, e Google risponde `OK` con
+> zero metri. Sono presìdi sul posto: 482 servizi **A_ORA** (Basara Washington
+> 156, Chanel Firenze a ora 122, Chanel Roma a ora 122, Nikky Sushi 52,
+> Clivati-Consegne 30) + 8 CORPORATE (Casati 14, Casa Dei Ciliegi). Il valet
+> lavora a tempo dentro il negozio: la distanza è **zero per definizione**, e per
+> A_ORA non entra comunque nella paga (`pagaConsegna` paga solo le ore).
+> ⚠️ Dal **vecchio gestionale non c'era niente da travasare**: le 1.216
+> candidate erano **1.216 di «Artista Locale»**, azzerate da noi il 25/08 perché
+> il ritiro diceva «Milano» invece della città del destinatario (il registro lo
+> scrive riga per riga, paga 0). L'aggancio giusto resta `legacyId`, NON
+> `legacyOrderId` (quello aggancia 3 righe in tutto).
+>
+> **Paghe: niente da riscrivere** (`ricalcola-paghe-da-distanza.mjs`, solo
+> diagnosi). Se `valetSalary > 0` la distanza non entra; se è vuota il numero si
+> prende dal listino quando si genera lo stipendio, e lì i km ci sono già.
+> Effetto misurato dei km: **198 righe, +926,97 €** (Salazar +255,25 ·
+> De Rosa +133,24 · Sami +129,51), che arriveranno da soli alla generazione.
+> ⚠️ La prima versione dello script azzerava `valetSalary` per «forzare il
+> listino» e confrontava con un numero che NON è la paga: dava «#39018: 6 € →
+> 800 €» su 4,86 km (quella riga ha `valetAdditionalPrice = 794`, l'app paga
+> 800 € da sempre). Su 5.470 righe avrebbe riscritto paghe vere con numeri
+> inventati.
+
 > 🛣️ **10/09/2026 — la distanza si misura da OGNI porta che crea una consegna.**
 > Il censimento dei punti che scrivono una `Delivery` (grep su `api/src`):
 > `app-api` → `deliveries.create` ✓ · `deliveries.service.ts:1864` ✓ (corretto

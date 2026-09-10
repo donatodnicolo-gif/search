@@ -64,9 +64,13 @@ console.log('  per anno: ' + Object.entries(perAnno).map(([k, v]) => `${k}=${v}`
 // dev'essere una scelta detta a voce, non un default.
 const CHANEL = (d) => (d.partner?.insegna ?? '').toLowerCase().includes('chanel');
 const INCLUDI_CHANEL = process.argv.includes('--includi-chanel');
+// --solo-chanel: tocca SOLTANTO le insegne Chanel e lascia stare tutte le altre.
+// Serve dopo un giro generale, per chiudere la coda Chanel senza rimettere le
+// mani sulle consegne recenti degli altri partner.
+const SOLO_CHANEL = process.argv.includes('--solo-chanel');
 const vecchie = aperte.filter((d) => d.date < soglia);
 const chanel = vecchie.filter(CHANEL);
-const daChiudere = INCLUDI_CHANEL ? vecchie : vecchie.filter((d) => !CHANEL(d));
+const daChiudere = SOLO_CHANEL ? vecchie.filter(CHANEL) : (INCLUDI_CHANEL ? vecchie : vecchie.filter((d) => !CHANEL(d)));
 const restano = aperte.length - vecchie.length;
 console.log(`\n  ⚠️ Chanel, ${INCLUDI_CHANEL ? 'INCLUSE su richiesta' : 'escluse per regola'}: ${chanel.length}`);
 console.log(`  ⇒ DA MANDARE IN STORICO: ${daChiudere.length}`);

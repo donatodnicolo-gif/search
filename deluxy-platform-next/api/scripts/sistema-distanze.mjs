@@ -154,7 +154,8 @@ if (!GOOGLE) {
   process.exit(0);
 }
 
-const chiave = (await db.setting.findFirst({
+// ⚠️ Il modello e' AppSetting (chiave = 'key'), come lo legge SettingsService.get().
+const chiave = (await db.appSetting.findUnique({
   where: { key: 'googleMapsApiKey' }, select: { value: true },
 }))?.value?.trim();
 if (!chiave) {
