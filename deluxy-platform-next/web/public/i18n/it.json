@@ -845,6 +845,9 @@
     },
     "recipientHidden": "Visibile quando la metti in consegna",
     "proposte": {
+      "appenaTitolo": "Appena accettate: {{n}}",
+      "appenaHint": "Le consegne nate dalle tue accettazioni di oggi. Restano qui finché non chiudi la pagina; in tabella stanno al loro posto per data.",
+      "appenaChiudi": "Ho visto",
       "title": "Ordini proposti a te",
       "hint": "Ordini smistati automaticamente in attesa della tua risposta: accettando nasce la consegna, rifiutando l'ordine passa a un altro negozio.",
       "accetta": "Accetta",

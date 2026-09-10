@@ -331,6 +331,29 @@ interface PropostaVendita {
       </div>
     }
 
+    <!-- ⭐ 10/09/2026 (regola utente: «mostra sempre subito consegne accettate»). Il caso Clivati:
+         accettate due proposte, le consegne nate finivano pagine più in là (lista per data crescente
+         con lo storico vecchio davanti) e sembravano sparite. Ora ogni consegna nata da un'accettazione
+         in questa sessione sta QUI, sopra la tabella, con il link, finché la pagina non si chiude. -->
+    @if (appenaAccettate().length) {
+      <section class="card appena-accettate" role="status">
+        <h2>{{ 'deliveries.proposte.appenaTitolo' | translate: { n: appenaAccettate().length } }}</h2>
+        <p class="hint">{{ 'deliveries.proposte.appenaHint' | translate }}</p>
+        <ul>
+          @for (d of appenaAccettate(); track d.id) {
+            <li>
+              <a class="act primary" [routerLink]="['/deliveries', d.id]">#{{ d.code }}</a>
+              <span>{{ d.date | date: 'dd/MM/yyyy' }}@if (d.deliveryTimeFrom) { · {{ d.deliveryTimeFrom }}@if (d.deliveryTimeTo) {–{{ d.deliveryTimeTo }}} }</span>
+              <span class="strong">{{ d.recipientFirstName }} {{ d.recipientLastName }}</span>
+              <span class="muted">{{ d.recipientAddress }}</span>
+              <span class="pill">{{ 'status.delivery.' + d.status | translate }}</span>
+            </li>
+          }
+        </ul>
+        <button type="button" class="btn btn-secondary" (click)="appenaAccettate.set([])">{{ 'deliveries.proposte.appenaChiudi' | translate }}</button>
+      </section>
+    }
+
     <!-- Errore di un'azione di riga (es. cambio stato del valet rifiutato):
          senza un posto suo finirebbe solo dentro i pop-up, cioè nel nulla. -->
     @if (actionError() && !assignFor() && !additionalFor()) {
@@ -1469,6 +1492,12 @@ interface PropostaVendita {
       .legame { margin-left: 6px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text-secondary); white-space: nowrap; }
       .legame:hover { color: var(--text); }
       .chip-gestire { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ink, #1d1d1f); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: middle; white-space: nowrap; }
+      /* ⭐ 10/09: consegne appena accettate, in evidenza. */
+      .appena-accettate { margin-top: 10px; border-left: 4px solid var(--green, #1f8a4c); }
+      .appena-accettate h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+      .appena-accettate .hint { margin: 0 0 10px; font-size: 13px; color: var(--text-tertiary); }
+      .appena-accettate ul { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .appena-accettate li { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; }
       .warn-card { margin-top: 10px; background: rgba(255, 149, 0, 0.08); color: #8a5a00;
                    border-radius: 10px; padding: 10px 12px; font-size: 13px; }
       .tag.warn {
@@ -2578,6 +2607,15 @@ export class DeliveriesListComponent {
     this.router.navigate(['/deliveries', d.id], { queryParams: { chiudi: esito } });
   }
 
+  /** ⭐ 10/09: le consegne nate dalle accettazioni di questa sessione, in evidenza sopra la tabella. */
+  readonly appenaAccettate = signal<Delivery[]>([]);
+  private mostraAppenaAccettata(id: string): void {
+    this.http.get<Delivery>(`${environment.apiUrl}/deliveries/${id}`).subscribe({
+      next: (d) => { if (d?.id) this.appenaAccettate.update((l) => [d, ...l.filter((x) => x.id !== d.id)]); },
+      error: () => undefined, // la lista la mostra comunque al suo posto
+    });
+  }
+
   accettaProposta(p: PropostaVendita): void {
     this.propostaInCorso.set(true);
     this.propostaAvviso.set(null);
@@ -2588,7 +2626,10 @@ export class DeliveriesListComponent {
         this.propostaInCorso.set(false);
         this.proposte.set(this.proposte().filter((x) => x.id !== p.id));
         if (r?.avviso) this.propostaAvviso.set(r.avviso);
-        this.load(); // la consegna appena nata deve comparire nella lista
+        // ⭐ 10/09/2026 (regola utente): la consegna appena nata si mostra SUBITO, sopra la
+        // tabella, qualunque sia l'ordine o la pagina della lista.
+        if (r?.consegna?.id) this.mostraAppenaAccettata(r.consegna.id);
+        this.load(); // e compare anche nella lista, al suo posto
       },
       error: (err) => {
         this.propostaInCorso.set(false);

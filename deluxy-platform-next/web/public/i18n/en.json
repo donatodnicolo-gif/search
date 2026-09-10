@@ -844,6 +844,9 @@
     },
     "recipientHidden": "Shown once you start the delivery",
     "proposte": {
+      "appenaTitolo": "Just accepted: {{n}}",
+      "appenaHint": "Deliveries born from your acceptances today. They stay here until you close the page; in the table they sit in date order.",
+      "appenaChiudi": "Got it",
       "title": "Orders proposed to you",
       "hint": "Automatically routed orders awaiting your reply: accepting creates the delivery, refusing passes the order to another shop.",
       "accetta": "Accept",
