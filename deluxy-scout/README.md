@@ -77,7 +77,8 @@
 >   della scoperta: la stella non ha una data sua) e «30 gg» / «180 gg» con gli
 >   ordini del Customer Service, agganciati per id del registro o per nome;
 >   totali in fondo; riga «Ordini dal CS» nelle schede. Le vendite e le
->   segnalazioni si leggono SOLO in questa vista.
+>   segnalazioni si leggono SOLO in questa vista. **In produzione** dal
+>   pomeriggio del 10/09 (commit `5a874d9a`, bundle vivo `entry-f65457f5…`).
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.
