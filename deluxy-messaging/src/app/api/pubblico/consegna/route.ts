@@ -58,8 +58,13 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
   const dominio = (p.get('dominio') ?? '').trim().toLowerCase()
   if (!dominio) return rispondi({ errore: 'Manca il dominio del negozio (?dominio=xxx.myshopify.com).' }, 400, 'no-store')
+  // ⚠️ Trovato dal test del 10/09 sera: `Number(null)` vale 0, quindi un parametro
+  // ASSENTE non prendeva mai il predefinito — senza `giorni` l API rispondeva un
+  // giorno solo e il tema (che non lo passa) conosceva solo «oggi».
   const num = (k: string, min: number, max: number, se: number) => {
-    const v = Number(p.get(k))
+    const grezzo = p.get(k)
+    if (grezzo === null || grezzo.trim() === "") return se
+    const v = Number(grezzo)
     return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : se
   }
   const oraMinima = num('oraMinima', 0, 23, 0)
