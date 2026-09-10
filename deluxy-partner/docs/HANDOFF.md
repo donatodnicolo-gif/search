@@ -33,8 +33,10 @@
 > fermate perché la riparazione del 09/09 09:50 aveva **liberato i numeri**. Lo
 > stesso è successo il 09/09 (riparato) e succederà ogni notte finché il cron
 > gira lì. Prova a secco dello script: 39 righe, tutte con `commFatt` già sul
-> mese (resta). ⛔ **L'esecuzione con `--esegui` è stata bloccata dal
-> classificatore dei permessi della sessione**: da lanciare a mano
+> mese (resta). ✅ **Eseguita nel pomeriggio (autorizzata dall'utente): 39
+> cancellate, 0 stornate, backup in `scripts/`; ricontrollo a secco: 0 righe.**
+> Il comando, se mai servisse di nuovo, va lanciato DALLA CARTELLA
+> `deluxy-partner` (altrove `.env` non c'è — provato dall'utente da `C:\Users\nicol`):
 > `node --env-file=.env scripts/ripara-commissioni-importate.mjs --esegui --attese 39`
 > (prima senza flag per ricontrollare il conteggio; il backup JSON finisce
 > nella cartella corrente — spostarlo in `scripts/`, che è ignorato da git).
