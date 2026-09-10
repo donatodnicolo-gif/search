@@ -114,7 +114,14 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
     // resta un a capo. Buttare tutto in un `<p>` solo appiattirebbe testi
     // scritti a mano che vanno a capo di proposito.
     const paragrafi = testo.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
-    pezzi.push("<h6>DESCRIZIONE</h6>");
+    // ⚠️⚠️ 10/09/2026 (utente): «sulle sezioni della descrizione appare
+    // "descrizione" che non si dovrebbe vedere» e «i dettagli non risultano
+    // come prima categoria». Sono la stessa cosa: qui si scriveva un
+    // `<h6>DESCRIZIONE</h6>`, e **ogni `<h6>` per il tema è una tab** — quindi
+    // il testo libero diventava la PRIMA tab e spingeva «Dettagli» in seconda.
+    // Ora il testo sta prima del primo titolo, insieme ai tre punti: lì il tema
+    // non costruisce nessuna tab e si legge subito. Che è quello che è —
+    // l'introduzione della scheda, non una sezione fra le altre.
     for (const par of paragrafi) pezzi.push(`<p>${html(par).replace(/\n/g, "<br>")}</p>`);
   }
 
