@@ -4,7 +4,10 @@ Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza conte
 
 ## 10/09/2026 pomeriggio — L'IMPORT MORTO ALLE 10:17, LA VERSIONE API, E LA LISTA DEI PUNTI APERTI RICONTATA
 
-### 🔴→✅ Import delle collezioni: «g.errors?.some is not a function» (in locale, NON pubblicato)
+### 🔴→✅ Import delle collezioni: «g.errors?.some is not a function» — PUBBLICATO
+
+✅ **PUSHATO E DEPLOYATO alle 12:43 del 10/09** (utente: «fai push & deploy»): `origin/scout-ui` a `1d80b342` (i due commit `e4c7687c` + `71bb90a1`, più il commit del manuale di un'altra sessione che stava sopra); deploy **`deluxy-merchandising-khd3oxtn6`** col cloud, Ready, alias di produzione agganciato; `/api/health` ok con 4 negozi, `esitoUltimoImport: ok`.
+
 
 `ImportCollezioni` alle 10:17–10:20 UTC: **Business Deluxy errore dopo 139 s,
 Flowers e Cake errore in 0–1 s**, tutti con `g.errors?.some is not a function`
@@ -36,11 +39,9 @@ Fatto (`tsc` 0):
   → `ok`, 47 collezioni, 451 prodotti, 3.054 appartenenze, 81 s; `/api/health`
   locale torna `esitoUltimoImport: ok`.
 
-⚠️ **Non pubblicato**: l'utente ha chiesto di lavorare prima in locale. Il
-deploy (`npx vercel deploy --prod --scope deluxy`, via cloud) resta a comando.
 ⚠️ Non toccato `MANUALE-DELUXY.html`: è modificato (`M`) da un'altra sessione.
 
-### 🔴→✅ «Su modifica prodotto non c'è più l'opzione di aggiornare la SKU» (utente, 10/09) — in locale, NON pubblicato
+### 🔴→✅ «Su modifica prodotto non c'è più l'opzione di aggiornare la SKU» (utente, 10/09) — PUBBLICATO in `khd3oxtn6`
 
 Il campo «Codice / SKU» c'è ed è scrivibile (verificato sulla pagina di
 modifica del Cofanetto Colazione, `input#codice` con `COEC408`); solo
@@ -85,7 +86,7 @@ fantasma si archiviano, non si cancellano** (4 chiuse) · i percorsi di
 ### Punti aperti al 10/09/2026 — ricontati sul database, non ricopiati
 
 **Freschi**
-1. ✅ (locale) l'import sopra e **lo SKU che il server scartava** — da pubblicare.
+1. ✅ Pubblicati l'import sopra e lo SKU che il server scartava (`khd3oxtn6`). Resta da provare un cambio di SKU su un prodotto in Concept.
 2. **Gifts di notte è fragile**: vedi sopra; il retry sul timeout è la risposta,
    da verificare domattina (03:10 UTC).
 3. **Lingue**: de, es, zh-CN, ar, ja spente su **4 negozi su 4**; `read_locales`
