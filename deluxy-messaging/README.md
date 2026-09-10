@@ -84,6 +84,20 @@ sempre disponibile): con una conferma, oggi entra fra le chiusure e si salva sub
 ordine spengono la data di oggi e dicono al cliente che si ordina da domani; «Riapri oggi» la toglie.
 Domani il negozio riapre da solo (la chiusura vale per la sola data).
 
+**Il partner che prepara il prodotto (10/09 sera, «unisci anche questi sviluppi»).** Merchandising e la
+piattaforma consegne hanno da oggi l'orario di chiusura e i giorni di chiusura dei partner: la
+piattaforma costruisce per ogni prodotto unico il calendario del suo partner (giorno per giorno
+aperto/chiuso, ora di apertura e di chiusura, «chiuso-per-oggi» quando l'ora di chiusura è passata) e
+lo manda a Merchandising, che aggiorna i metafield `prodotto.consegna` e `custom.minimo_orario` sul
+negozio. Il tema passa a questa app anche gli **SKU** del carrello (`codici=`), e questa app chiede alla
+piattaforma lo stesso calendario per quegli SKU (`GET /api/v1/app/prodotti-unici/calendario`, cache 5
+minuti): un giorno in cui il partner è chiuso si **spegne col suo nome** («“Clivati”, che prepara questo
+prodotto, è chiuso sab 12/09»), la sua ora di apertura alza l'orario minimo delle fasce di quel giorno,
+e passata la sua ora di chiusura oggi non si ordina più («ha già chiuso per oggi: si ordina da
+domani»). Se la piattaforma non risponde, il calendario esce senza quel vincolo e lo dice in
+`partner.errore`: meglio una data in più che un carrello bloccato. ⚠️ La rotta della piattaforma è
+stata scritta nel suo worktree (`platform-0409`) e va pubblicata col prossimo deploy della piattaforma.
+
 Tabella `OrarioNegozio` (una riga per negozio, colonna `regole` JSON, creata con
 `scripts/applica-migrazione-orari-negozi.mjs`); regole in `src/lib/orari-regole.ts`, provate
 con `npx tsx scripts/prova-orari-negozi.mts`.

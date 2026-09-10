@@ -1,4 +1,5 @@
 import { leggiImpostazioni } from './impostazioni'
+import type { CalendarioProdotto } from './orari-regole'
 
 // PARLARE CON LA PIATTAFORMA CONSEGNE (app.deluxy.it / deluxy-delivery).
 //
@@ -107,6 +108,33 @@ async function chiama<T>(percorso: string): Promise<EsitoPiattaforma<T>> {
       messaggio: `Piattaforma non raggiungibile: ${e instanceof Error ? e.message : 'errore'}`,
     }
   }
+}
+
+/**
+ * ⭐ 10/09/2026 sera — IL CALENDARIO DEL PARTNER DEI PRODOTTI UNICI, per SKU
+ * (`GET /api/v1/app/prodotti-unici/calendario?codici=&giorni=`): per ogni codice i
+ * prossimi giorni con aperto/chiuso, ora di apertura e chiusura, «chiuso-per-oggi».
+ * Lo chiede la rotta pubblica dei siti per i prodotti nel carrello.
+ *
+ * ⚠️ Cache in memoria di 5 minuti per insieme di codici: la rotta pubblica gira a
+ * ogni apertura del carrello sui siti dei CLIENTI, e la piattaforma non deve
+ * pagare una query per ciascuna. Dietro c'è già la cache di 60 s dell'edge.
+ */
+export type CalendarioUniciPiattaforma = { giorni: number; generatoIl: string; prodotti: CalendarioProdotto[] }
+const cacheCalendari = new Map<string, { quando: number; dati: CalendarioUniciPiattaforma }>()
+export async function calendarioUniciPiattaforma(codici: string[], giorni = 14): Promise<EsitoPiattaforma<CalendarioUniciPiattaforma>> {
+  const puliti = [...new Set(codici.map((c) => c.trim()).filter(Boolean))].sort()
+  if (!puliti.length) return { stato: 'ok', dati: { giorni, generatoIl: new Date().toISOString(), prodotti: [] } }
+  const chiave = puliti.join(',') + '|' + giorni
+  const inCache = cacheCalendari.get(chiave)
+  if (inCache && Date.now() - inCache.quando < 5 * 60_000) return { stato: 'ok', dati: inCache.dati }
+  const p = new URLSearchParams({ codici: puliti.join(','), giorni: String(giorni) })
+  const esito = await chiama<CalendarioUniciPiattaforma>(`/api/v1/app/prodotti-unici/calendario?${p.toString()}`)
+  if (esito.stato === 'ok') {
+    if (cacheCalendari.size > 500) cacheCalendari.clear()
+    cacheCalendari.set(chiave, { quando: Date.now(), dati: esito.dati })
+  }
+  return esito
 }
 
 /** ⭐ 06/09/2026: una lettura qualsiasi dalla piattaforma (le Vendite chiedono chi c'è in provincia, aree, liste). */

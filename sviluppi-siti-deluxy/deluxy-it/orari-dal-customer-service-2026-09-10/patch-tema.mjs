@@ -33,17 +33,23 @@ const MODULO = `
 window.DeluxyConsegna = (function () {
   var API = 'https://deluxy-messaging.vercel.app/api/pubblico/consegna';
   var DOMINIO = {{ shop.permanent_domain | json }};
-  var lead = 0, oraMin = 0;
+  var lead = 0, oraMin = 0, codici = [];
   {%- for item in cart.items -%}
     {%- assign dlx_lead = item.product.metafields.prodotto.consegna -%}
     {%- if item.product.variants.size > 1 and item.variant.metafields.prodotto.consegna != blank -%}{%- assign dlx_lead = item.variant.metafields.prodotto.consegna -%}{%- endif -%}
   lead = Math.max(lead, Number({{ dlx_lead | default: 0 | json }}) || 0);
   oraMin = Math.max(oraMin, Number({{ item.product.metafields.custom.minimo_orario | default: 0 | json }}) || 0);
+  {%- if item.sku != blank -%}codici.push({{ item.sku | json }});{%- endif -%}
   {%- endfor -%}
   {%- if product -%}
   lead = Math.max(lead, Number({{ product.metafields.prodotto.consegna | default: 0 | json }}) || 0);
   oraMin = Math.max(oraMin, Number({{ product.metafields.custom.minimo_orario | default: 0 | json }}) || 0);
+  {%- if product.selected_or_first_available_variant.sku != blank -%}codici.push({{ product.selected_or_first_available_variant.sku | json }});{%- endif -%}
   {%- endif -%}
+  // Gli SKU dei prodotti in carrello (e della scheda): con quelli il Customer Service chiede alla
+  // piattaforma consegne il calendario del PARTNER che li prepara — giorni chiusi, ora di apertura,
+  // «chiuso per oggi» — e lo mette nel calendario che ci manda.
+  codici = codici.filter(function (c, i) { return c && codici.indexOf(c) === i; }).slice(0, 30).sort();
   var CHIAVE = 'dlx_consegna_v1';
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function adesso() {
@@ -62,17 +68,17 @@ window.DeluxyConsegna = (function () {
   function leggiCache() {
     try {
       var c = JSON.parse(localStorage.getItem(CHIAVE) || 'null');
-      if (c && c.data === adesso().data && c.lead === lead && c.oraMin === oraMin && c.dati) { return c.dati; }
+      if (c && c.data === adesso().data && c.lead === lead && c.oraMin === oraMin && c.codici === codici.join(',') && c.dati) { return c.dati; }
     } catch (e) {}
     return null;
   }
   function scriviCache(dati) {
-    try { localStorage.setItem(CHIAVE, JSON.stringify({ data: adesso().data, lead: lead, oraMin: oraMin, dati: dati })); } catch (e) {}
+    try { localStorage.setItem(CHIAVE, JSON.stringify({ data: adesso().data, lead: lead, oraMin: oraMin, codici: codici.join(','), dati: dati })); } catch (e) {}
   }
   var inCache = leggiCache();
   if (inCache) { applica(inCache, 'cache'); }
   var pronto = new Promise(function (risolvi) {
-    var url = API + '?dominio=' + encodeURIComponent(DOMINIO) + '&oraMinima=' + oraMin + '&leadGiorni=' + lead;
+    var url = API + '?dominio=' + encodeURIComponent(DOMINIO) + '&oraMinima=' + oraMin + '&leadGiorni=' + lead + (codici.length ? '&codici=' + encodeURIComponent(codici.join(',')) : '');
     var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctrl) { ctrl.abort(); } }, 3000);
     var f = (typeof fetch === 'function') ? fetch(url, { signal: ctrl ? ctrl.signal : undefined, credentials: 'omit' }) : Promise.reject(new Error('no fetch'));
@@ -95,15 +101,20 @@ window.DeluxyConsegna = (function () {
     for (var i = 0; i < g.length; i++) { if (!g[i].ok) { spenti.push(daIso(g[i].data)); } }
     return spenti;
   }
-  var fonteSegnata = false;
-  function segnaFonte() {
-    if (fonteSegnata || !attivo()) { return; }
-    fonteSegnata = true;
+  // La FONTE delle fasce scelte, scritta sul carrello (attributo Fasce_Fonte) e riscritta ogni
+  // volta che cambia: «customer-service (api|cache)» quando le fasce vengono da qui, «tema
+  // (regole cablate)» quando il carrello è ricaduto sulle sue regole (API muta o data oltre
+  // l'orizzonte). Trovato dal test del 10/09: prima restava «customer-service» anche sul ripiego.
+  var fonteSegnata = '';
+  function segnaFonte(fonte) {
+    var valore = fonte === 'tema' ? 'tema (regole cablate)' : (attivo() ? 'customer-service (' + stato.fonte + ')' : 'tema (regole cablate)');
+    if (fonteSegnata === valore) { return; }
+    fonteSegnata = valore;
     try {
-      fetch('/cart/update.js', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attributes: { 'Fasce_Fonte': 'customer-service (' + stato.fonte + ')' } }) }).catch(function () {});
+      fetch('/cart/update.js', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attributes: { 'Fasce_Fonte': valore } }) }).catch(function () {});
     } catch (e) {}
   }
-  return { pronto: pronto, attivo: attivo, giorno: giorno, primoGiorno: primoGiorno, primoGiornoDate: primoGiornoDate, giorniSpenti: giorniSpenti, iso: iso, daIso: daIso, adesso: adesso, segnaFonte: segnaFonte, stato: stato, vincoli: { lead: lead, oraMin: oraMin } };
+  return { pronto: pronto, attivo: attivo, giorno: giorno, primoGiorno: primoGiorno, primoGiornoDate: primoGiornoDate, giorniSpenti: giorniSpenti, iso: iso, daIso: daIso, adesso: adesso, segnaFonte: segnaFonte, stato: stato, vincoli: { lead: lead, oraMin: oraMin, codici: codici } };
 })();
 </script>`;
 
@@ -160,6 +171,17 @@ function formatDate(dateString) {`, nome);
           }
 
           //alert(localDay);`, nome);
+  // c2) «prima data disponibile»: se la data ricordata non è la prima, si dicono tutte e due
+  t = sost(t, `          var primadata='{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + localDate + ' ' ;
+          div.innerHTML += primadata ;`,
+`          var primadata='{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + localDate + ' ' ;
+          // ⭐ 10/09/2026 (test di acquisto): se la data ricordata NON è la prima disponibile, si dicono tutte e due —
+          // «la prima disponibile è oggi» e «data scelta: domani» — invece di chiamare «prima data» quella scelta.
+          if (window.DeluxyConsegna && DeluxyConsegna.attivo() && DeluxyConsegna.primoGiorno() && DeluxyConsegna.primoGiorno() !== localDeliveryDate) {
+              var __pg = DeluxyConsegna.primoGiorno();
+              primadata = '{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + __pg.substr(8, 2) + '-' + __pg.substr(5, 2) + '-' + __pg.substr(0, 4) + ' · ' + {% if request.locale.iso_code == 'it' %}'data scelta: '{% else %}'chosen date: '{% endif %} + localDate + ' ';
+          }
+          div.innerHTML += primadata ;`, nome);
   // d) il datepicker: giorni chiusi non cliccabili, col motivo; parte dopo le regole
   t = sost(t, `    jQuery(document).ready(function () {
         jQuery('.datepicker').datepicker({
@@ -205,6 +227,8 @@ function formatDate(dateString) {`, nome);
             return;
         }
     }
+
+    if (window.DeluxyConsegna) { DeluxyConsegna.segnaFonte('tema'); }
 
     if (tmpDate == today) {
         // OGGI: fasce di 2 ore`, nome);

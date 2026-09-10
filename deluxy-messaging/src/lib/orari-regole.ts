@@ -440,12 +440,29 @@ export function giornoSelezionabile(
   return { ok: true, motivo: '' }
 }
 
+/**
+ * IL CALENDARIO DEL PARTNER che prepara un prodotto unico (10/09/2026 sera): lo
+ * costruisce la piattaforma consegne dagli orari settimanali, dalle fasce del
+ * giorno e dalle eccezioni del partner (`GET /api/v1/app/prodotti-unici/calendario`),
+ * indice 0 = oggi. `aperto: false` con `origine: 'chiuso-per-oggi'` = l'ora di
+ * chiusura è già passata («se Clivati oggi chiude alle 15 e sono le 16,
+ * acquistabili da domani»). Stessa forma che la piattaforma manda a Merchandising.
+ */
+export type GiornoPartner = { data: string; aperto: boolean; dalle: string | null; alle?: string | null; origine?: string }
+export type CalendarioProdotto = { codice: string; nome?: string; partner?: string | null; senzaOrari?: boolean; calendario: GiornoPartner[] }
+
 /** I vincoli che arrivano dal CARRELLO: li conosce il sito, non noi. */
 export type VincoliCarrello = {
   /** L'orario di disponibilità minima di TUTTI i prodotti (il massimo dei `custom.minimo_orario`), in ore: 10 = dalle 10:00. */
   oraMinima?: number
   /** Il preavviso in giorni (il massimo dei `prodotto.consegna`): 0 = anche oggi. */
   leadGiorni?: number
+  /**
+   * I calendari dei partner dei prodotti unici nel carrello: un giorno in cui uno
+   * di loro è chiuso si spegne (col nome del partner nel motivo), e l'ora di
+   * apertura di quel giorno alza l'orario minimo delle fasce.
+   */
+  prodotti?: CalendarioProdotto[]
 }
 
 export type EsitoGiorno = { data: string; ok: boolean; motivo: string; fasce: Fascia[]; etichette: string[]; quando: 'oggi' | 'domani' | 'oltre' }
@@ -485,7 +502,26 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
   if (lead > 0 && iso < piuGiorniIso(adesso.data, lead)) {
     return vuoto(`I prodotti nel carrello si consegnano da ${scriviDataBreve(piuGiorniIso(adesso.data, lead))}: servono ${lead} ${lead === 1 ? 'giorno' : 'giorni'} di preavviso.`)
   }
-  const oraMinima = Number.isFinite(vincoli.oraMinima) ? Math.max(0, Number(vincoli.oraMinima)) * 60 : 0
+  let oraMinima = Number.isFinite(vincoli.oraMinima) ? Math.max(0, Number(vincoli.oraMinima)) * 60 : 0
+  // ⭐ Il partner che prepara un prodotto unico: chiuso quel giorno (o già chiuso
+  // per oggi) → il giorno si spegne e si dice chi; aperto → la sua ora di
+  // apertura (arrotondata all'ora piena, come fa Merchandising) alza l'orario
+  // minimo delle fasce di quel giorno.
+  for (const pr of vincoli.prodotti ?? []) {
+    const g = (pr.calendario ?? []).find((x) => x.data === iso)
+    if (!g) continue
+    const chi = pr.partner ? `«${pr.partner}»` : 'Il partner'
+    const cosa = pr.nome ? ` («${pr.nome}»)` : pr.codice ? ` (${pr.codice})` : ''
+    const giaChiuso = quando === 'oggi' && !!g.alle && oraValida(g.alle) && adesso.minuti >= minuti(g.alle)
+    if (!g.aperto || giaChiuso) {
+      return vuoto(
+        g.origine === 'chiuso-per-oggi' || giaChiuso
+          ? `${chi}, che prepara questo prodotto${cosa}, ha già chiuso per oggi: si ordina da domani.`
+          : `${chi}, che prepara questo prodotto${cosa}, è chiuso ${scriviDataBreve(iso)}.`
+      )
+    }
+    if (g.dalle && oraValida(g.dalle)) oraMinima = Math.max(oraMinima, Math.ceil(minuti(g.dalle) / 60) * 60)
+  }
   // Il drop-off: da quest'ora gli ordini arrivano solo dal giorno dopo.
   const dopoLimite = adesso.minuti >= minuti(r.oggi.limiteOra)
   // La soglia da cui domani perde le prime fasce (Flowers: 22:00, non il drop-off delle 16).

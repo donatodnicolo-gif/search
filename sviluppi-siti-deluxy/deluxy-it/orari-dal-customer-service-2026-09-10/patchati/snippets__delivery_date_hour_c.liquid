@@ -206,6 +206,12 @@
           //alert(localDay);
           
           var primadata='{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + localDate + ' ' ;
+          // ⭐ 10/09/2026 (test di acquisto): se la data ricordata NON è la prima disponibile, si dicono tutte e due —
+          // «la prima disponibile è oggi» e «data scelta: domani» — invece di chiamare «prima data» quella scelta.
+          if (window.DeluxyConsegna && DeluxyConsegna.attivo() && DeluxyConsegna.primoGiorno() && DeluxyConsegna.primoGiorno() !== localDeliveryDate) {
+              var __pg = DeluxyConsegna.primoGiorno();
+              primadata = '{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + __pg.substr(8, 2) + '-' + __pg.substr(5, 2) + '-' + __pg.substr(0, 4) + ' · ' + {% if request.locale.iso_code == 'it' %}'data scelta: '{% else %}'chosen date: '{% endif %} + localDate + ' ';
+          }
           div.innerHTML += primadata ;
           document.getElementById("DeliveryDate_def").value =  localDeliveryDate ;
           document.getElementById("max_del_date").value =  localDeliveryDate ;
@@ -336,6 +342,8 @@ function fnCheckDate(tmpDate) {
             return;
         }
     }
+
+    if (window.DeluxyConsegna) { DeluxyConsegna.segnaFonte('tema'); }
 
     if (tmpDate == today) {
         // OGGI: fasce di 2 ore, anticipo minimo 2h; ultima fascia 20-22 ordinabile fino alle 20:00.

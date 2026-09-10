@@ -81,7 +81,14 @@ date da te». La fonte delle regole è il Customer Service (vedi REGOLE_BRAND.md
   API finta + `fnCheckDate` con mini-jQuery, 19 prove passate), `payload.mjs` (JSON con i non-ASCII
   in `\uXXXX`), md5 verificato su tutti e 5 i file caricati.
 - ⚠️ La rotta pubblica del Customer Service deve essere **in produzione** perché il tema riceva le
-  date: finché non lo è, il modulo non è attivo e il tema usa le regole cablate.
+  date: finché non lo è, il modulo non è attivo e il tema usa le regole cablate.- ⚠️ La rotta pubblica del Customer Service deve essere **in produzione** perché il tema riceva le
+  date: finché non lo è, il modulo non è attivo e il tema usa le regole cablate. (In produzione dalle
+  17:00 del 10/09; alle 17:15 corretto il difetto «senza `giorni=` un giorno solo».)
+- **Sera**: il modulo passa all'API anche `codici=` (gli SKU dei prodotti in carrello e della scheda,
+  max 30, nella chiave della cache): con quelli il Customer Service chiede alla piattaforma consegne
+  il **calendario del partner** dei prodotti unici (giorni chiusi col nome del partner, ora di
+  apertura che alza l'orario minimo, «ha già chiuso per oggi»). Serve la rotta
+  `GET /api/v1/app/prodotti-unici/calendario` della piattaforma, pubblicata col suo prossimo deploy.
 
 ## Modifiche del 10/7/2026 (regole — vedi REGOLE_BRAND.md §deluxy.it)
 

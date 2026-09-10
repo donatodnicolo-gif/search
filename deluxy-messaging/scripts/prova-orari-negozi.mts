@@ -117,6 +117,26 @@ const chiusoOggi: OrarioNegozioDati = { ...dlx, giorniChiusura: [{ data: D0, mot
 const cc = calendarioConsegna(chiusoOggi, alle(D0, '10:00'), {}, 2)
 prova('«Chiudi il negozio oggi»: oggi spento col motivo, domani aperto', !cc[0].ok && cc[0].motivo.includes('si ordina per domani') && cc[1].ok, cc[0].motivo)
 
+console.log('\n=== Il calendario del partner (prodotti unici) ===\n')
+const calPartner = (giorni: { data: string; aperto: boolean; dalle: string | null; alle?: string | null; origine?: string }[]) => ({ codice: 'PP-TORTA', nome: 'Torta della casa', partner: 'Clivati', calendario: giorni })
+const chiusoDomani = calPartner([
+  { data: D0, aperto: true, dalle: '07:30', alle: '19:30' },
+  { data: D1, aperto: false, dalle: null, alle: null, origine: 'eccezione' },
+  { data: D2, aperto: true, dalle: '09:00', alle: '19:30' },
+])
+const fp = (data: string, ora: string, prodotti: ReturnType<typeof calPartner>[]) => fasceDelGiorno(dlx, data, alle(D0, ora), { prodotti })
+prova('partner chiuso domani → domani spento col suo nome', !fp(D1, '10:00', [chiusoDomani]).ok && fp(D1, '10:00', [chiusoDomani]).motivo.includes('Clivati'), fp(D1, '10:00', [chiusoDomani]).motivo)
+prova('partner apre alle 07:30 → oggi alle 03:00 le fasce partono comunque dalle 10 (notte) e da 08 in su', fp(D0, '03:00', [chiusoDomani]).etichette[0] === '10-12')
+prova('dopodomani il partner apre alle 09 → fasce orarie dalle 09-10', fp(D2, '10:00', [chiusoDomani]).etichette[0] === '09-10', fp(D2, '10:00', [chiusoDomani]).etichette.slice(0, 3).join(' '))
+const chiudeAlle15 = calPartner([{ data: D0, aperto: true, dalle: '09:00', alle: '15:00' }])
+prova('sono le 16, il partner ha chiuso alle 15 → oggi «ha già chiuso», si ordina da domani', !fp(D0, '16:00', [chiudeAlle15]).ok && fp(D0, '16:00', [chiudeAlle15]).motivo.includes('già chiuso'), fp(D0, '16:00', [chiudeAlle15]).motivo)
+prova('sono le 10, il partner chiude alle 15 → oggi le fasce restano (14-16 …)', fp(D0, '10:30', [chiudeAlle15]).etichette.join(' ') === '14-16 16-18 18-20 20-22', fp(D0, '10:30', [chiudeAlle15]).etichette.join(' '))
+const giaChiusoPiattaforma = calPartner([{ data: D0, aperto: false, dalle: '09:00', alle: '15:00', origine: 'chiuso-per-oggi' }])
+prova('la piattaforma dice «chiuso-per-oggi» → stesso motivo', fp(D0, '16:00', [giaChiusoPiattaforma]).motivo.includes('già chiuso'))
+const dueProdotti = [chiusoDomani, calPartner([{ data: D2, aperto: false, dalle: null, origine: 'settimanale' }])]
+prova('due prodotti unici: basta che uno sia chiuso', !fp(D1, '10:00', dueProdotti).ok && !fp(D2, '10:00', dueProdotti).ok)
+prova('giorno oltre il calendario del partner → nessun vincolo', fp('2026-10-10', '10:00', [chiusoDomani]).ok)
+
 console.log('\n=== Lettura di una riga dal database ===\n')
 const rotta = leggiOrario({ giorniApertura: '1,2,x,9,3', regole: '{non è json', giorniChiusura: '[{"data":"2026-12-25","motivo":"Natale","ogniAnno":true},{"data":"boh"}]', nota: 'n' })
 prova('giorni: solo 1,2,3 (via x e 9)', rotta.giorniApertura.join(',') === '1,2,3', rotta.giorniApertura.join(','))

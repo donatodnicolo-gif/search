@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiOrario } from '@/lib/orari-regole'
-import { adessoRoma, calendarioConsegna, scriviDataBreve } from '@/lib/orari-regole'
+import { adessoRoma, calendarioConsegna, scriviDataBreve, type CalendarioProdotto } from '@/lib/orari-regole'
+import { calendarioUniciPiattaforma } from '@/lib/piattaforma'
 
 export const dynamic = 'force-dynamic'
 
-// ⭐ GET /api/pubblico/consegna?dominio=deluxygifts.myshopify.com[&oraMinima=10][&leadGiorni=0][&giorni=60]
+// ⭐ GET /api/pubblico/consegna?dominio=deluxygifts.myshopify.com[&oraMinima=10][&leadGiorni=0][&giorni=60][&codici=SKU1,SKU2]
 //
 // LE DATE E LE FASCE DI CONSEGNA PER I SITI SHOPIFY (10/09/2026, richiesta
 // dell'utente: «prepara le version to work di Shopify in modo tale che tutte le
@@ -29,8 +30,14 @@ export const dynamic = 'force-dynamic'
 // che stanno nella query string e quindi nella chiave di cache.
 //
 // Vincoli che conosce solo il sito e ci passa: `oraMinima` (il massimo dei
-// `custom.minimo_orario` dei prodotti in carrello, in ore) e `leadGiorni` (il
-// massimo dei `prodotto.consegna`, giorni di preavviso).
+// `custom.minimo_orario` dei prodotti in carrello, in ore), `leadGiorni` (il
+// massimo dei `prodotto.consegna`, giorni di preavviso) e `codici` (gli SKU dei
+// prodotti in carrello, max 30): con gli SKU si chiede alla piattaforma consegne
+// il CALENDARIO DEL PARTNER dei prodotti unici (10/09 sera) — un giorno in cui il
+// partner è chiuso si spegne col suo nome, la sua ora di apertura alza l'orario
+// minimo, e passata la sua ora di chiusura oggi non si ordina più. Se la
+// piattaforma non risponde, il calendario esce senza quel vincolo e lo dice
+// (`partner.errore`): meglio una data in più che un carrello bloccato.
 //
 // Risposta: { negozio, configurato, adesso:{data,ora}, primoGiorno, giorni:[{data, etichetta, quando, ok, motivo, fasce:[{da,a,valore,etichetta}]}] }
 //   · `configurato: false` = nessuno ha impostato orari per questo negozio: il
@@ -69,6 +76,11 @@ export async function GET(req: NextRequest) {
   }
   const oraMinima = num('oraMinima', 0, 23, 0)
   const leadGiorni = num('leadGiorni', 0, 365, 0)
+  const codici = (p.get('codici') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 30)
 
   const negozio = await db.negozioShopify.findFirst({
     where: { dominio: { equals: dominio, mode: 'insensitive' } },
@@ -90,13 +102,27 @@ export async function GET(req: NextRequest) {
   }
   const dati = leggiOrario(negozio.orario)
   const giorni = num('giorni', 1, 366, dati.regole.giorniMostrati)
-  const calendario = calendarioConsegna(dati, adesso, { oraMinima, leadGiorni }, giorni)
+  let prodotti: CalendarioProdotto[] = []
+  let partnerErrore = ''
+  if (codici.length) {
+    const cal = await calendarioUniciPiattaforma(codici, Math.min(60, giorni))
+    if (cal.stato === 'ok') prodotti = cal.dati.prodotti
+    else if (cal.stato === 'errore') partnerErrore = cal.messaggio
+    else if (cal.stato === 'non-configurato') partnerErrore = 'piattaforma non configurata'
+    else partnerErrore = `piattaforma: ${cal.stato}` // es. «non-trovato» finché la rotta di là non è pubblicata
+  }
+  const calendario = calendarioConsegna(dati, adesso, { oraMinima, leadGiorni, prodotti }, giorni)
   const perCliente = (hhmm: string) => hhmm // «08:00»
   return rispondi({
     negozio: { nome: negozio.nome, dominio: negozio.dominio },
     configurato: true,
     adesso: { data: adesso.data, ora: oraTesto },
-    vincoli: { oraMinima, leadGiorni },
+    vincoli: { oraMinima, leadGiorni, codici },
+    // Chi prepara i prodotti unici in carrello (dalla piattaforma), o perché non lo sappiamo.
+    partner: {
+      prodotti: prodotti.map((pr) => ({ codice: pr.codice, partner: pr.partner ?? null, nome: pr.nome ?? null })),
+      ...(partnerErrore ? { errore: partnerErrore } : {}),
+    },
     primoGiorno: calendario.find((g) => g.ok)?.data ?? null,
     giorni: calendario.map((g) => ({
       data: g.data,
