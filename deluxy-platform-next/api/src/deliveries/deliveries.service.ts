@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
@@ -256,6 +257,7 @@ const DELIVERY_INCLUDE = {
 
 @Injectable()
 export class DeliveriesService {
+  private readonly logger = new Logger(DeliveriesService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
@@ -1971,6 +1973,9 @@ export class DeliveriesService {
     // Aggancia la regola carnet del partner, se applicabile (31/08): senza,
     // lo sconto/«non fatturare» non arriva alla consegna nuova.
     await this.agganciaRegolaCarnet(delivery.id);
+    // ⭐ 10/09/2026 (regola utente): su un ordine CORPORATE, la merce che è il
+    // prodotto UNICO di un altro partner si compra da sola (vedi il metodo).
+    await this.acquistiCorporateAutomatici(delivery as any, user);
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
@@ -2612,6 +2617,139 @@ export class DeliveriesService {
     await this.prisma.activity.updateMany({
       where: { deliveryId, status: 'pending' }, data: { status: 'skipped' },
     });
+  }
+
+  /**
+   * ⭐ 10/09/2026 (regola utente): «se il prodotto che sceglie il partner è già un
+   * prodotto UNICO di un altro, l'acquisto si genera automaticamente».
+   *
+   * Il giro corporate (08/09) era in due mosse: Casati chiede «ORDINE BRIOCHE» con le
+   * brioche di Mali'A nelle righe, e poi qualcuno dell'ufficio apre la scheda e preme
+   * «Crea l'acquisto». Misurato il 10/09: 7 ordini brioche di Casati 14 dal 08/09,
+   * tutti con 9 righe di prodotti UNICI di Mali'A, **zero** con l'acquisto creato.
+   * Il bottone resta per i casi dove il fornitore non si sa (prodotto non a catalogo,
+   * generico); qui invece il fornitore lo dice il prodotto stesso — `Product.partnerId`
+   * di un UNICO è il suo padrone — e non c'è niente da scegliere.
+   *
+   * Regole:
+   *  · solo servizi CORPORATE; solo righe con prodotto UNICO di un partner DIVERSO dal
+   *    cliente corporate (le righe sue, o generiche, restano al bottone);
+   *  · UN acquisto per fornitore, con tutte le sue righe (una consegna, non nove);
+   *  · DDT `CPR<numero dell'ordine>` — è il legame, lo stesso del bottone: la scheda lo
+   *    legge nei due versi (`legameCorporate`) e l'avviso «Manca l'acquisto» sparisce;
+   *  · servizio di VENDITA del fornitore (il suo listino, «Vendita Deluxy» se ce l'ha),
+   *    ritiro alla sua sede (default di `create`), consegna, giorno e fascia dell'ordine;
+   *  · prezzi di riga dal catalogo (il listino del fornitore, come nel modulo);
+   *  · idempotente: se per quel DDT e quel fornitore l'acquisto c'è già, non ne nasce
+   *    un secondo — vale anche per il bottone premuto dopo;
+   *  · best-effort: un acquisto che non nasce (fornitore senza servizio di vendita) si
+   *    scrive nel registro dell'ordine, non blocca l'inserimento.
+   *
+   * ⚠️ Vale alla NASCITA dell'ordine. Se le righe cambiano in modifica l'acquisto non
+   * si riallinea da solo: resta il bottone.
+   */
+  private async acquistiCorporateAutomatici(
+    delivery: {
+      id: string; code: number; partnerId: string; serviceTypeId: string; date: Date;
+      recipientFirstName: string; recipientLastName: string; recipientAddress: string;
+      recipientPhone?: string | null; recipientIntercom?: string | null; recipientEmail?: string | null;
+      deliveryTimeFrom?: string | null; deliveryTimeTo?: string | null; deliveryFlexible?: boolean | null;
+    },
+    user: JwtUser,
+  ): Promise<void> {
+    try {
+      const servizio = await this.prisma.serviceType.findUnique({ where: { id: delivery.serviceTypeId }, select: { pricingModel: true } });
+      if (servizio?.pricingModel !== 'CORPORATE') return;
+      const righe = await this.prisma.deliveryProduct.findMany({
+        where: { deliveryId: delivery.id, deletedAt: null, productId: { not: null } },
+        select: {
+          productId: true, productVariantId: true, quantity: true,
+          product: { select: { type: true, partnerId: true, partner: { select: { id: true, insegna: true, active: true, deleted: true } } } },
+        },
+      });
+      const daComprare = righe.filter((r) => r.product?.type === 'UNICO' && r.product.partnerId && r.product.partnerId !== delivery.partnerId);
+      if (!daComprare.length) return;
+      const perFornitore = new Map<string, typeof daComprare>();
+      for (const r of daComprare) {
+        const k = r.product!.partnerId!;
+        if (!perFornitore.has(k)) perFornitore.set(k, []);
+        perFornitore.get(k)!.push(r);
+      }
+      const cliente = await this.prisma.partner.findUnique({ where: { id: delivery.partnerId }, select: { insegna: true } });
+      const ddt = `CPR${delivery.code}`;
+      // L'acquisto è un atto dell'UFFICIO anche quando l'ordine lo inserisce il partner:
+      // nasce come lo creerebbe chi preme il bottone, con le regole dell'ufficio
+      // (prezzi di riga dal catalogo, nessun perimetro di partner sui prodotti altrui).
+      const ufficio = {
+        sub: `acquisto-corporate:${user.sub}`,
+        email: user.email,
+        role: Role.OPERATION,
+        isSupport: false,
+        partnerId: null,
+        valetId: null,
+      } as unknown as JwtUser;
+      for (const [fornitoreId, rr] of perFornitore) {
+        const fornitore = rr[0].product!.partner!;
+        const esiste = await this.prisma.delivery.findFirst({
+          where: { ddtNumber: { equals: ddt, mode: 'insensitive' }, partnerId: fornitoreId, deletedAt: null },
+          select: { code: true },
+        });
+        if (esiste) {
+          await this.prisma.deliveryLog.create({ data: { deliveryId: delivery.id, type: 'note', userId: user.sub,
+            message: `Acquisto da ${fornitore.insegna} già presente: consegna #${esiste.code} (DDT ${ddt}); non ne nasce un secondo.` } });
+          continue;
+        }
+        const servizioVendita = await this.servizioVenditaDelPartner(fornitoreId);
+        if (!servizioVendita || !fornitore.active || fornitore.deleted) {
+          await this.prisma.deliveryLog.create({ data: { deliveryId: delivery.id, type: 'note', userId: user.sub,
+            message: `Acquisto automatico NON creato da ${fornitore.insegna}: ${!servizioVendita ? 'il fornitore non ha un servizio di VENDITA a listino' : 'il fornitore non è attivo'}. Resta il bottone «Crea l'acquisto».` } });
+          continue;
+        }
+        const dto = {
+          date: delivery.date.toISOString().slice(0, 10),
+          serviceTypeId: servizioVendita.id,
+          partnerId: fornitoreId,
+          recipientFirstName: delivery.recipientFirstName,
+          recipientLastName: delivery.recipientLastName,
+          recipientAddress: delivery.recipientAddress,
+          recipientPhone: delivery.recipientPhone ?? undefined,
+          recipientIntercom: delivery.recipientIntercom ?? undefined,
+          recipientEmail: delivery.recipientEmail ?? undefined,
+          deliveryTimeFrom: delivery.deliveryTimeFrom ?? undefined,
+          deliveryTimeTo: delivery.deliveryTimeTo ?? undefined,
+          deliveryFlexible: delivery.deliveryFlexible ?? undefined,
+          ddtNumber: ddt,
+          notes: `Acquisto per l'ordine corporate #${delivery.code} di ${cliente?.insegna ?? 'cliente corporate'} (nato in automatico: i prodotti sono unici di ${fornitore.insegna}).`,
+          products: rr.map((r) => ({
+            productId: r.productId!,
+            productVariantId: r.productVariantId ?? undefined,
+            quantity: r.quantity,
+          })),
+        } as unknown as CreateDeliveryDto;
+        const acquisto: any = await this.create(dto, ufficio);
+        await this.prisma.deliveryLog.create({ data: { deliveryId: delivery.id, type: 'acquisto-automatico', userId: user.sub,
+          message: `Acquisto della merce creato in automatico: consegna #${acquisto.code} da ${fornitore.insegna} (${rr.length} rig${rr.length === 1 ? 'a' : 'he'} di prodotti unici, DDT ${ddt}).` } });
+        await this.prisma.deliveryLog.create({ data: { deliveryId: acquisto.id, type: 'acquisto-automatico', userId: user.sub,
+          message: `Nata in automatico dall'ordine corporate #${delivery.code} di ${cliente?.insegna ?? 'cliente corporate'}: i prodotti in riga sono unici di ${fornitore.insegna}.` } });
+        this.logger.log(`Ordine corporate #${delivery.code}: acquisto automatico #${acquisto.code} da ${fornitore.insegna}`);
+      }
+    } catch (err) {
+      // Un acquisto che non nasce non deve far perdere l'ordine: si scrive e si va avanti.
+      this.logger.warn(`Acquisto corporate automatico fallito su #${delivery.code}: ${(err as Error).message}`);
+      await this.prisma.deliveryLog.create({ data: { deliveryId: delivery.id, type: 'note', userId: user.sub,
+        message: `Acquisto automatico NON creato: ${(err as Error).message}. Resta il bottone «Crea l'acquisto».` } }).catch(() => undefined);
+    }
+  }
+
+  /** Il servizio di VENDITA con cui un partner ci vende la merce: dal suo listino («Vendita Deluxy» se ce l'ha), altrimenti il catalogo. */
+  private async servizioVenditaDelPartner(partnerId: string): Promise<{ id: string } | null> {
+    const aListino = await this.prisma.partnerService.findMany({
+      where: { partnerId, serviceType: { pricingModel: 'VENDITA' } },
+      select: { serviceType: { select: { id: true, code: true } } },
+    });
+    const preferito = aListino.find((s) => s.serviceType.code === 'VENDITA_DELUXY') ?? aListino[0];
+    if (preferito) return { id: preferito.serviceType.id };
+    return this.prisma.serviceType.findFirst({ where: { code: 'VENDITA_DELUXY' }, select: { id: true } });
   }
 
   /** Chi chiede il codice del valet al ritiro: la consegna o il suo partner. */
