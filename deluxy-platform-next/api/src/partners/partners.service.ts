@@ -369,6 +369,9 @@ export class PartnersService {
       })),
       criterio,
       anagrafica: { id: trovato.id, nome: trovato.nome, platformId: (trovato as any).platformId ?? null },
+      // ⭐ 10/09/2026: chi fattura per questa sede, se è dentro un capogruppo del registro.
+      capogruppo: (trovato as any).capogruppo ? { id: (trovato as any).capogruppo.id, nome: (trovato as any).capogruppo.nome } : null,
+      pagaDaSe: (trovato as any).pagaDaSe ?? null,
       differenze,
       candidati: [],
     };
@@ -539,6 +542,15 @@ export class PartnersService {
    *     CHIARI» diventerebbe «DR. VRANJES», e il suo indirizzo quello della
    *     sede legale, uguale per tutti i negozi della catena.
    */
+  cercaAnagrafiche(q: string) { return this.anagrafiche.cercaPerNome(q); }
+
+  /** ⭐ 10/09/2026 (regola utente): questo partner fattura sotto l'entità di un ALTRO partner della piattaforma. */
+  async mettiSottoEntita(id: string, capofilaId: string, actor?: JwtUser) {
+    if (!capofilaId || capofilaId === id) throw new BadRequestException('Scegli un altro partner come entità di fatturazione.');
+    const [sede, capofila] = await Promise.all([this.findOne(id, actor), this.findOne(capofilaId, actor)]);
+    return this.anagrafiche.mettiSottoCapogruppo(sede as any, capofila as any);
+  }
+
   async importaDaAnagrafica(id: string, campi: string[], actor?: JwtUser) {
     const confronto = await this.confrontaAnagrafica(id, actor);
     if (!confronto.anagrafica) {

@@ -60,6 +60,14 @@ export class PartnersController {
     return this.partnersService.statoSyncTutti();
   }
 
+  @Get('anagrafiche/cerca')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
+  @ApiOperation({ summary: 'Ricerca libera per nome nel registro Anagrafiche (per agganciare a mano)' })
+  @ApiQuery({ name: 'q', required: true })
+  async cercaAnagrafiche(@Query('q') q: string) {
+    return { dati: await this.partnersService.cercaAnagrafiche(q ?? '') };
+  }
+
   @Get(':id/anagrafica')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Confronta il partner col suo record nel registro Anagrafiche' })
@@ -76,6 +84,13 @@ export class PartnersController {
     @Body() body?: { anagraficaId?: string; creaNuova?: boolean },
   ) {
     return this.partnersService.sincronizzaAnagrafica(id, actor, body ?? {});
+  }
+
+  @Post(':id/anagrafica/capogruppo')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: "Inserisce questo partner sotto l'entità di fatturazione di un altro partner (capogruppo nel registro Anagrafiche)" })
+  mettiSottoEntita(@Param('id') id: string, @Body() body: { partnerId: string }, @CurrentUser() actor: JwtUser) {
+    return this.partnersService.mettiSottoEntita(id, body?.partnerId, actor);
   }
 
   @Post(':id/anagrafica/importa')

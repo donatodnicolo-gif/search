@@ -281,6 +281,59 @@ export class AnagraficheSyncService {
    * non risponde (best-effort, non solleva).
    */
   /** Come fetchAttivi ma SENZA filtro di stato: serve a sapere chi è collegato. */
+  /**
+   * ⭐ 10/09/2026 (regola utente): «inserisci questo partner sotto un'altra entità di
+   * fatturazione», scelta fra i PARTNER DELLA PIATTAFORMA. Nel registro è il CAPOGRUPPO:
+   * la scheda di questa sede entra nel capogruppo della capofila (creato se manca) con
+   * «paga da sé = no», e Finance legge i dati di fatturazione dal capogruppo.
+   * Prima si assicura che tutt'e due le schede esistano nel registro (cerca → collega o crea).
+   */
+  async mettiSottoCapogruppo(sede: PartnerPiattaforma, capofila: PartnerPiattaforma): Promise<{ ok: boolean; stato: number; messaggio: string; capogruppo?: { id: string; nome: string; creato: boolean } }> {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) return { ok: false, stato: 0, messaggio: 'Chiave del registro non configurata.' };
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+    // Le due schede nel registro: se una manca, si collega o si crea (stessa strada del bottone).
+    for (const p of [sede, capofila]) {
+      const { trovato } = await this.cerca({ id: p.id, insegna: p.insegna, businessName: p.businessName, vatNumber: p.vatNumber, fiscalCode: p.fiscalCode, email: p.email });
+      if (trovato && (trovato as any).platformId === p.id) continue;
+      const esito = await this.sincronizzaOra(p, trovato?.id ?? null);
+      if (!esito.ok) return { ...esito, messaggio: `Scheda di «${p.insegna}» non pronta nel registro: ${esito.messaggio}` };
+    }
+    try {
+      const res = await fetch(`${base}/api/v1/partners/${encodeURIComponent(sede.id)}/capogruppo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          capofila: capofila.id, sistema: 'deluxy-platform',
+          nome: capofila.businessName ?? capofila.insegna,
+          pIva: capofila.vatNumber ?? undefined, codiceFiscale: capofila.fiscalCode ?? undefined,
+          codiceSdi: (capofila as any).sdiCode ?? undefined, pec: (capofila as any).certifiedEmail ?? undefined,
+        }),
+      });
+      const testo = await res.text();
+      if (res.status === 403) return { ok: false, stato: 403, messaggio: 'Il registro rifiuta la scrittura: la chiave è di sola lettura.' };
+      if (!res.ok) return { ok: false, stato: res.status, messaggio: `Il registro risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
+      const j = JSON.parse(testo) as { capogruppo?: { id: string; nome: string; creato: boolean } };
+      return { ok: true, stato: res.status, messaggio: `«${sede.insegna}» fattura sotto ${j.capogruppo?.nome ?? capofila.insegna}${j.capogruppo?.creato ? ' (capogruppo creato ora nel registro)' : ''}.`, capogruppo: j.capogruppo };
+    } catch (err) {
+      return { ok: false, stato: 0, messaggio: `Registro non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
+  /** ⭐ 10/09/2026: ricerca libera per nome nel registro (bottone «Aggancia ad anagrafica esistente»). */
+  async cercaPerNome(q: string): Promise<AnagraficaPartner[]> {
+    const apiKey = await this.getApiKey();
+    const testo = (q ?? '').trim();
+    if (!apiKey || testo.length < 3) return [];
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+    try {
+      const res = await fetch(`${base}/api/v1/partners?q=${encodeURIComponent(testo)}&attivo=tutti&perPage=20`, { headers: { 'x-api-key': apiKey } });
+      if (!res.ok) return [];
+      const body = (await res.json()) as { dati?: AnagraficaPartner[] };
+      return body.dati ?? [];
+    } catch { return []; }
+  }
+
   async fetchTutti(): Promise<AnagraficaPartner[]> {
     return this.leggiTutte('attivo=tutti');
   }

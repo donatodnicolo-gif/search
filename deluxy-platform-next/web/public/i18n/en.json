@@ -2777,6 +2777,17 @@
     "sharedHint": "View shared by the team"
   },
   "partnerAnagrafica": {
+    "entita": {
+      "fatturaSotto": "Invoices under:",
+      "nonPagaDaSe": "this location does not pay by itself, the parent entity does",
+      "aggancia": "Link to an existing record",
+      "sottoAltra": "Under another billing entity",
+      "cercaRegistro": "Search the registry by name, company or VAT…",
+      "nessunaScheda": "No registry record with this name.",
+      "spiega": "Pick the platform partner that represents the invoicing company: this location will join its parent entity in the registry and Finance will read VAT, SDI, IBAN and terms from there.",
+      "cercaPartner": "Search the partner (name, company, VAT)…",
+      "scegli": "Invoice under this one"
+    },
     "title": "Partner registry",
     "check": "Compare with registry",
     "hint": "The comparison queries the external registry: it runs only on request.",

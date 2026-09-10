@@ -2779,6 +2779,17 @@
     "sharedHint": "Vista condivisa dal team"
   },
   "partnerAnagrafica": {
+    "entita": {
+      "fatturaSotto": "Fattura sotto:",
+      "nonPagaDaSe": "questa sede non paga da sé, paga il capogruppo",
+      "aggancia": "Aggancia ad anagrafica esistente",
+      "sottoAltra": "Sotto un'altra entità di fatturazione",
+      "cercaRegistro": "Cerca nel registro per nome, ragione sociale o P.IVA…",
+      "nessunaScheda": "Nessuna scheda con questo nome nel registro.",
+      "spiega": "Scegli il partner della piattaforma che rappresenta la società che fattura: questa sede entrerà nel suo capogruppo nel registro e Finance leggerà da lì P.IVA, SDI, IBAN e condizioni.",
+      "cercaPartner": "Cerca il partner (insegna, ragione sociale, P.IVA)…",
+      "scegli": "Fattura sotto questo"
+    },
     "title": "Registro Anagrafiche",
     "check": "Confronta col registro",
     "hint": "Il confronto interroga il registro esterno: parte solo quando lo chiedi.",

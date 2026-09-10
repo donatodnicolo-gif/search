@@ -190,6 +190,44 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                 }
                 @if (a.criterio) { <span class="criterio">{{ 'partnerAnagrafica.matchedBy' | translate:{ criterio: a.criterio } }}</span> }
               </p>
+              @if (a.capogruppo) {
+                <p class="entita"><b>{{ 'partnerAnagrafica.entita.fatturaSotto' | translate }}</b> {{ a.capogruppo.nome }}@if (a.pagaDaSe === false) { <span class="muted"> · {{ 'partnerAnagrafica.entita.nonPagaDaSe' | translate }}</span> }</p>
+              }
+              <!-- ⭐ 10/09/2026 (regola utente): dopo il confronto, TRE strade sempre visibili all'ufficio:
+                   scheda nuova · aggancio a una esistente (con la modifica dei dati, come ora) ·
+                   sotto un'altra entità di fatturazione (capogruppo nel registro, scelto fra i partner). -->
+              @if (canManage()) {
+                <div class="tre-strade">
+                  <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="creaNelRegistro()">{{ 'partnerAnagrafica.createNew' | translate }}</button>
+                  <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="apriAggancio()">{{ 'partnerAnagrafica.entita.aggancia' | translate }}</button>
+                  <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="apriEntita()">{{ 'partnerAnagrafica.entita.sottoAltra' | translate }}</button>
+                </div>
+                @if (aggancioAperto()) {
+                  <div class="scelta">
+                    <input class="field" type="search" [placeholder]="'partnerAnagrafica.entita.cercaRegistro' | translate" [(ngModel)]="cercaRegistro" (ngModelChange)="cercaNelRegistro($event)" name="cercaRegistro" />
+                    @if (risultatiRegistro().length) {
+                      <ul class="candidati">
+                        @for (c of risultatiRegistro(); track c.id) {
+                          <li><span>{{ c.nome }}@if (c.ragioneSociale) { <span class="muted"> · {{ c.ragioneSociale }}</span> }@if (c.pIva) { <span class="mono"> · {{ c.pIva }}</span> }@if (c.citta) { <span class="muted"> · {{ c.citta }}</span> }</span>
+                            <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="collegaA(c.id); aggancioAperto.set(false)">{{ 'partnerAnagrafica.linkThis' | translate }}</button></li>
+                        }
+                      </ul>
+                    } @else if (cercaRegistro.length >= 3 && !cercandoRegistro()) { <p class="hint">{{ 'partnerAnagrafica.entita.nessunaScheda' | translate }}</p> }
+                  </div>
+                }
+                @if (entitaAperta()) {
+                  <div class="scelta">
+                    <p class="hint">{{ 'partnerAnagrafica.entita.spiega' | translate }}</p>
+                    <input class="field" type="search" [placeholder]="'partnerAnagrafica.entita.cercaPartner' | translate" [(ngModel)]="cercaEntita" name="cercaEntita" />
+                    <ul class="candidati">
+                      @for (c of partnerCandidati(); track c.id) {
+                        <li><span>{{ c.insegna }}@if (c.businessName) { <span class="muted"> · {{ c.businessName }}</span> }@if (c.vatNumber) { <span class="mono"> · {{ c.vatNumber }}</span> }</span>
+                          <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="mettiSotto(c)">{{ 'partnerAnagrafica.entita.scegli' | translate }}</button></li>
+                      }
+                    </ul>
+                  </div>
+                }
+              }
 
               @if (a.specchio) {
                 <p class="avviso-doppione">
@@ -587,6 +625,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .mini tr.rischiosa td { background: color-mix(in srgb, var(--warning, #B8963E) 8%, transparent); }
       .mini td.scegli .vuoto { color: var(--text-tertiary); }
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
+    .tre-strade { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .scelta { margin: 8px 0 12px; display: grid; gap: 8px; }
+    .entita { margin: 4px 0 8px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
       .azioni .danger { color: var(--red); }
       .pill-eliminato { background: var(--red-soft, rgba(215,0,21,0.09)); color: var(--red);
@@ -705,6 +746,8 @@ export class PartnerDetailComponent {
     specchio?: boolean;
     gemelli?: { id: string; nome: string; ragioneSociale: string | null; citta: string | null; fonte: string | null; contatti: number }[];
     anagrafica: { id: string; nome: string; platformId: string | null } | null;
+    capogruppo?: { id: string; nome: string } | null;
+    pagaDaSe?: boolean | null;
     // `scrittoDa`/`scrittoIl`: chi ha scritto quel dato nel registro e quando.
     // Ci sono solo dove il registro lo sa — non si inventa una provenienza.
     differenze: { campo: string; piattaforma: string | null; registro: string | null; scrittoDa?: string | null; scrittoIl?: string | null }[];
@@ -921,6 +964,56 @@ export class PartnerDetailComponent {
   /** Nessun candidato va bene: si chiede al registro di crearne una nuova. */
   creaNelRegistro(): void {
     this.inviaAlRegistro({ creaNuova: true });
+  }
+
+  // ⭐ 10/09/2026 — le tre strade dopo il confronto (regola utente).
+  readonly aggancioAperto = signal(false);
+  readonly entitaAperta = signal(false);
+  cercaRegistro = '';
+  cercaEntita = '';
+  readonly cercandoRegistro = signal(false);
+  readonly risultatiRegistro = signal<{ id: string; nome: string; ragioneSociale?: string | null; pIva?: string | null; citta?: string | null }[]>([]);
+  readonly tuttiIPartner = signal<{ id: string; insegna: string; businessName?: string | null; vatNumber?: string | null; active?: boolean }[]>([]);
+  private cercaTimer: ReturnType<typeof setTimeout> | null = null;
+  apriAggancio(): void { this.entitaAperta.set(false); this.aggancioAperto.set(!this.aggancioAperto()); }
+  apriEntita(): void {
+    this.aggancioAperto.set(false);
+    this.entitaAperta.set(!this.entitaAperta());
+    if (this.entitaAperta() && !this.tuttiIPartner().length) {
+      this.http.get<any>(`${environment.apiUrl}/partners`).subscribe({ next: (r) => this.tuttiIPartner.set(Array.isArray(r) ? r : (r?.items ?? [])), error: () => undefined });
+    }
+  }
+  /** I partner della piattaforma fra cui scegliere l'entità: attivi, non questo, filtrati dal testo, cognome/insegna in ordine. */
+  partnerCandidati() {
+    const me = this.partner()?.id;
+    const q = this.cercaEntita.trim().toLowerCase();
+    return this.tuttiIPartner()
+      .filter((p) => p.id !== me && p.active !== false)
+      .filter((p) => !q || [p.insegna, p.businessName, p.vatNumber].some((x) => (x ?? '').toLowerCase().includes(q)))
+      .sort((a, b) => (a.insegna ?? '').localeCompare(b.insegna ?? '', 'it', { sensitivity: 'base' }))
+      .slice(0, 30);
+  }
+  cercaNelRegistro(q: string): void {
+    if (this.cercaTimer) clearTimeout(this.cercaTimer);
+    const testo = (q ?? '').trim();
+    if (testo.length < 3) { this.risultatiRegistro.set([]); return; }
+    this.cercaTimer = setTimeout(() => {
+      this.cercandoRegistro.set(true);
+      this.http.get<{ dati?: any[] }>(`${environment.apiUrl}/partners/anagrafiche/cerca`, { params: { q: testo } }).subscribe({
+        next: (r) => { this.cercandoRegistro.set(false); this.risultatiRegistro.set((r?.dati ?? []).map((x: any) => ({ id: x.id, nome: x.nome, ragioneSociale: x.ragioneSociale ?? null, pIva: x.pIva ?? null, citta: x.citta ?? null }))); },
+        error: () => { this.cercandoRegistro.set(false); this.risultatiRegistro.set([]); },
+      });
+    }, 300);
+  }
+  mettiSotto(c: { id: string; insegna: string }): void {
+    const p = this.partner();
+    if (!p) return;
+    this.sincronizzando.set(true);
+    this.esitoSync.set(null);
+    this.http.post<{ ok: boolean; messaggio: string }>(`${environment.apiUrl}/partners/${p.id}/anagrafica/capogruppo`, { partnerId: c.id }).subscribe({
+      next: (r) => { this.sincronizzando.set(false); this.esitoSync.set(r); if (r.ok) { this.entitaAperta.set(false); this.confronta(true); } },
+      error: (e) => { this.sincronizzando.set(false); this.esitoSync.set({ ok: false, messaggio: e?.error?.message ?? 'Operazione non riuscita' }); },
+    });
   }
 
   private inviaAlRegistro(scelta: { anagraficaId?: string; creaNuova?: boolean; campi?: string[] }): void {
