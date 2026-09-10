@@ -11,6 +11,7 @@ import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 import { SettingsService } from '../settings/settings.module';
+import { CalendarioUniciService } from '../merchandising-sync/calendario-unici.module';
 import {
   CODICE_VALIDO_MINUTI, RIMANDA_DOPO_SECONDI, TENTATIVI_MASSIMI,
   emailMascherata, generaCodice, ibanLeggibile, ibanMascherato, ibanValido,
@@ -61,7 +62,17 @@ export class PartnersService {
     private readonly anagrafiche: AnagraficheSyncService,
     private readonly aree: AreeService,
     private readonly settings: SettingsService,
+    private readonly calendarioUnici: CalendarioUniciService,
   ) {}
+
+  /**
+   * ⭐ 10/09/2026 (regola utente): appena un partner salva orari, chiusure del giorno o cambia
+   * attivazione, il calendario dei suoi prodotti unici parte verso Merchandising — solo il suo,
+   * senza aspettare il giro notturno. Best-effort: non blocca il salvataggio.
+   */
+  private aggiornaCalendarioSito(partnerId: string): void {
+    void this.calendarioUnici.manda(14, false, partnerId).catch((err) => this.logger.warn(`Calendario sito non aggiornato per : ${(err as Error).message}`));
+  }
 
   findAll(includiEliminati = false) {
     return this.prisma.partner.findMany({
@@ -131,6 +142,7 @@ export class PartnersService {
     await this.seguiLoStatoDelPartner(id, Boolean((prima as any).active), attivo);
     this.anagrafiche.sincronizza(dopo);
     return dopo;
+    this.aggiornaCalendarioSito(id);
   }
 
   /** Ripristina un partner eliminato (torna disattivato, non attivo). */
@@ -858,6 +870,7 @@ export class PartnersService {
         include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
       });
+      if (openingHours) this.aggiornaCalendarioSito(id);
       // ⭐ 06/09 sera (segnalazione utente): area di consegna dal profilo: il ramo PARTNER esce qui,
       // quindi va scritta QUI (gated dal servizio di VENDITA come gli altri campi di vendita).
       if (consegnaProvince && (await this.prisma.partnerService.count({ where: { partnerId: id, serviceType: { pricingModel: 'VENDITA' } } })) > 0) {
@@ -908,6 +921,7 @@ export class PartnersService {
       await this.scriviAreaDiConsegna(id, consegnaProvince);
     }
     await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
+    if (openingHours || prima.active !== aggiornato.active) this.aggiornaCalendarioSito(id);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;
   }
@@ -971,6 +985,7 @@ export class PartnersService {
       update: data,
       create: { partnerId, date, ...data },
     });
+    this.aggiornaCalendarioSito(partnerId);
     return { date: row.date.toISOString().slice(0, 10), ...data };
   }
 
@@ -978,6 +993,7 @@ export class PartnersService {
     this.assertCanManage(partnerId, user);
     const date = new Date(dateStr + 'T00:00:00.000Z');
     await this.prisma.partnerDayException.deleteMany({ where: { partnerId, date } });
+    this.aggiornaCalendarioSito(partnerId);
     return { deleted: true };
   }
 

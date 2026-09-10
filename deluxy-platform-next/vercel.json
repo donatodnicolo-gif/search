@@ -51,7 +51,7 @@
     },
     {
       "path": "/api/v1/cron/calendario-unici",
-      "schedule": "14,44 * * * *"
+      "schedule": "10,40 * * * *"
     }
   ],
   "routes": [

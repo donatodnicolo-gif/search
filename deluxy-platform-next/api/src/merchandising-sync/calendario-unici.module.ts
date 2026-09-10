@@ -18,9 +18,15 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
  * MANDA il calendario, e di là si calcola e si scrive sul negozio (`POST
  * /api/v1/prodotti/disponibilita`). Stessa strada e stessa chiave dello stato dei prodotti.
  *
- * Il giro è ogni mezz'ora (vercel.json): una chiusura messa oggi per domani deve arrivare sul
- * sito oggi, non a mezzanotte. Costa una lettura di 62 partner e una POST: niente Google,
- * niente Shopify da qui.
+ * QUANDO (regola utente 10/09: «meglio ogni volta che viene aggiornato o creato un orario»):
+ *  · al SALVATAGGIO di orari, chiusure del giorno o attivazione del partner, solo per quel
+ *    partner (`PartnersService.aggiornaCalendarioSito`) — una chiusura messa oggi per domani
+ *    arriva sul sito subito;
+ *  · e a orologio ogni mezz'ora (vercel.json), perché il numero cambia anche senza toccare gli
+ *    orari: chiuso sabato, giovedì il sito dice «da domani», venerdì «fra 2 giorni»; e dal 10/09
+ *    (regola utente) OGGI conta come chiuso appena passa l'ora di chiusura del partner — e quella
+ *    è diversa per ognuno (15, 19:30, 21:30). Costa una lettura e una POST: niente Google, niente
+ *    Shopify da qui.
  *
  * Partner senza orari: il calendario dice `senzaOrari: true` e di là vale l'ora 9 (regola
  * utente). Prodotti unici senza SKU (1 al 10/09) non si mandano: Merchandising li riconosce
@@ -38,10 +44,10 @@ export class CalendarioUniciService {
   }
 
   /** Il calendario di ogni proprietario di prodotti unici, per i prossimi `giorni` giorni (indice 0 = oggi, ora di Roma). */
-  async calendario(giorni = 14) {
+  async calendario(giorni = 14, partnerId?: string) {
     const n = Math.min(60, Math.max(1, Math.round(giorni)));
     const unici = await this.prisma.product.findMany({
-      where: { type: 'UNICO', active: true, archived: false, deletedAt: null, partnerId: { not: null }, NOT: { sku: null }, prodottoApp: false },
+      where: { type: 'UNICO', active: true, archived: false, deletedAt: null, partnerId: { not: null }, NOT: { sku: null }, prodottoApp: false, ...(partnerId ? { partnerId } : {}) },
       select: { sku: true, name: true, partnerId: true },
     });
     const partnerIds = [...new Set(unici.map((p) => p.partnerId!))];
@@ -58,16 +64,21 @@ export class CalendarioUniciService {
     const ecc = new Map(eccezioni.map((e) => [chiave(e.partnerId, e.date), e]));
     const fas = new Map<string, typeof fasce>();
     for (const f of fasce) { const k = chiave(f.partnerId, f.date); if (!fas.has(k)) fas.set(k, []); fas.get(k)!.push(f); }
-    const perPartner = new Map<string, { insegna: string; senzaOrari: boolean; calendario: { data: string; aperto: boolean; dalle: string | null; origine: string }[] }>();
+    // ⭐ 10/09 (regola utente): «se Clivati oggi chiude alle 15 e sono le 16, i suoi prodotti sono
+    // acquistabili da domani». Oggi conta come chiuso quando l'ora di Roma ha passato l'ultima chiusura.
+    const oraRoma = `${String(oggiRoma.getHours()).padStart(2, '0')}:${String(oggiRoma.getMinutes()).padStart(2, '0')}`;
+    const perPartner = new Map<string, { insegna: string; senzaOrari: boolean; calendario: { data: string; aperto: boolean; dalle: string | null; alle: string | null; origine: string }[] }>();
     for (const p of partner) {
-      const cal: { data: string; aperto: boolean; dalle: string | null; origine: string }[] = [];
+      const cal: { data: string; aperto: boolean; dalle: string | null; alle: string | null; origine: string }[] = [];
       let senzaOrari = !p.openingHours.length;
       for (let i = 0; i < n; i++) {
         const g = new Date(da.getTime() + i * 24 * 3600 * 1000);
         const k = chiave(p.id, g);
         const stato = statoDelGiorno(ecc.get(k) ?? null, fas.get(k) ?? null, p.openingHours, g.getUTCDay());
         if (stato.origine !== 'sempre') senzaOrari = false;
-        cal.push({ data: g.toISOString().slice(0, 10), aperto: p.active && stato.aperto, dalle: stato.fasce[0]?.dalle ?? null, origine: stato.origine });
+        const alle = stato.fasce.map((x) => x.alle).filter((x): x is string => !!x).sort().pop() ?? null;
+        const giaChiusoOggi = i === 0 && stato.aperto && !!alle && oraRoma >= alle;
+        cal.push({ data: g.toISOString().slice(0, 10), aperto: p.active && stato.aperto && !giaChiusoOggi, dalle: stato.fasce[0]?.dalle ?? null, alle, origine: giaChiusoOggi ? 'chiuso-per-oggi' : stato.origine });
       }
       perPartner.set(p.id, { insegna: p.insegna, senzaOrari, calendario: cal });
     }
@@ -78,11 +89,11 @@ export class CalendarioUniciService {
   }
 
   /** Manda il calendario a Merchandising. `anteprima`: di là si calcola senza scrivere sul negozio. */
-  async manda(giorni = 14, anteprima = false) {
+  async manda(giorni = 14, anteprima = false, partnerId?: string) {
     const { url, chiave } = await this.config();
     if (!url || !chiave) return { ok: false, messaggio: 'Merchandising non configurato (merchandisingUrl / merchandisingApiKey).' };
-    const cal = await this.calendario(giorni);
-    if (!cal.prodotti.length) return { ok: true, mandati: 0, messaggio: 'Nessun prodotto unico con SKU e proprietario.' };
+    const cal = await this.calendario(giorni, partnerId);
+    if (!cal.prodotti.length) return { ok: true, mandati: 0, messaggio: partnerId ? 'Questo partner non ha prodotti unici con SKU: niente da mandare.' : 'Nessun prodotto unico con SKU e proprietario.' };
     const res = await fetch(`${url}/api/v1/prodotti/disponibilita${anteprima ? '?anteprima=1' : ''}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': chiave },
@@ -135,7 +146,7 @@ export class CalendarioUniciCronController {
 
   @Get('calendario-unici')
   @Public()
-  @ApiOperation({ summary: 'Ogni mezz’ora: il calendario dei partner dei prodotti unici va a Merchandising, che aggiorna giorni minimi e ora minima sul negozio' })
+  @ApiOperation({ summary: 'Ogni mezz’ora (lo scatto immediato è al salvataggio degli orari; l’orologio serve per lo scorrere dei giorni e per l’ora di chiusura): il calendario dei partner dei prodotti unici va a Merchandising, che aggiorna giorni minimi e ora minima sul negozio' })
   giro(@Headers('authorization') authorization?: string, @Query('giorni') giorni?: string) {
     const segreto = process.env.CRON_SECRET ?? '';
     if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
