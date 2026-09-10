@@ -23,6 +23,33 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 10/09 (11:20) — Ripartenza: stato misurato, e cosa resta aperto
+
+Verificato, non dedotto:
+
+- **Nessuna altra sessione ha toccato `deluxy-mail`** da `7b2ebbd4`. Worktree allineato a
+  `origin/scout-ui` (0/0) e pulito.
+- **Produzione ferma a `1ldpyb5kr` del 07/09 22:28** (`vercel ls`: nessun deploy dopo). Quindi
+  la correzione dei pallini della Sidebar (`29362449`) **NON è live**, e nemmeno il `db.ts`
+  canonico del custode. `/api/health` ok.
+  ⚠️ Un mio primo controllo aveva detto «la groupBy nuova è già in produzione»: era un **falso
+  positivo** del `LIKE` con cui la cercavo (matchava le query di `idsThread`). Riletto il testo
+  vero delle query e l'elenco dei deploy: non c'è. *Un `LIKE` largo su `pg_stat_statements` è
+  un'accusa, non una prova: si legge sempre il testo che ha matchato.*
+- ✅ **La pulizia HTML tiene, a 3 giorni**: `5.502 chiamate / 15.284.119 ms` contro le
+  `5.500 / 15.284.109` dell'08/09 sera → **+2 chiamate e +10 ms in 41 ore**. Prima erano +288
+  chiamate e ~800 s di CPU al giorno.
+- 🟠 **Il `_count` delle Sezioni continua a crescere perché non è pubblicato**: `5.290 chiamate,
+  4.839.780 ms, media 915 ms` contro `4.878 / 4.195.851` → **+412 chiamate e +643.929 ms in 41
+  ore ≈ 6,3 minuti di CPU al giorno**. ⚠️ Rettifica onesta della mia stima dell'08/09: allora
+  avevo scritto «~17 min/giorno» misurando su una finestra di 6 ore diurne; su 41 ore, notti
+  comprese, il ritmo vero è **~6 minuti al giorno**. Resta la voce più cara rimasta dell'app,
+  ma il numero giusto è questo.
+- Indici gemelli, riletti: `Messaggio_posta_idx` **15.899 scansioni**, il duplicato dichiarato
+  nello schema **0**. Il rimedio (`map:`) resta da applicare.
+- `info@deluxyflowers.com` ha ancora `ultimoErrore: "Command failed"`; in archivio ci sono **218**
+  messaggi di rifiuto consegna.
+
 ### 09/09 — «Message blocked» a Emma: **non è AI Mail, è l'SPF di `deluxy.it`**
 
 Rimbalzo mostrato dall'utente: un messaggio di Emma Gariboldi a `nicolo.donato@deluxy.it`
