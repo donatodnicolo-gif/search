@@ -303,7 +303,7 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
           </p>
           {!soloLettura ? (
             <div className="filtri" style={{ marginBottom: 10 }}>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 2 ore dall'orario minimo del carrello (08-10 senza vincoli, anche dopo le 20); oltre a 1 ora; finestra 08-22">
+              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 1 ora dall'orario minimo del carrello, e dopo le 20 la prima fascia di domani dura 2 ore (08-10 poi 10-11, 11-12…); oltre a 1 ora; finestra 08-22">
                 deluxy.it / business
               </button>
               <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_FLOWERS) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_FLOWERS))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 16:00, di notte tutte, dalle 22 domani dalle 12">
@@ -346,10 +346,12 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
             {campoNum('Fasce di (ore)', r.domani.durataOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, durataOre: n } })), 1, 12)}
             {campoNum('Prime fasce di domani da saltare', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
             {campoOra('…se si ordina dopo le', r.domani.saltaDopoOra, (s) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, saltaDopoOra: s } })))}
+            {campoNum('Dopo quell’ora la prima fascia dura (ore, 0 = come le altre)', r.domani.primaFasciaOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, primaFasciaOre: n } })), 0, 12)}
           </div>
           <p className="descrizione" style={{ margin: '6px 0 0' }}>
-            Le fasce di domani partono dall&apos;orario minimo dei prodotti in carrello (dalle 9 → 09-11, 11-13…). Con «0 fasce da
-            saltare» (deluxy.it) dopo il drop-off si parte da lì; con «1» (Flowers, Cake) si perde la prima.
+            Le fasce di domani partono dall&apos;orario minimo dei prodotti in carrello (dalle 9 → 09-10, 10-11…). deluxy.it: fasce
+            di un&apos;ora; ordinando dopo le 20 la prima fascia di domani dura 2 ore (08-10) e le altre restano orarie (10-11, 11-12…).
+            Flowers e Cake: dopo la soglia si salta la prima fascia («dalle 12»).
           </p>
           <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Dopodomani e oltre</h4>
           <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>

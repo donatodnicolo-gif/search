@@ -82,6 +82,13 @@ export type RegoleConsegna = {
      * ordinando dalle 22. Vuoto = il drop-off.
      */
     saltaDopoOra: string
+    /**
+     * Ordinando dopo `saltaDopoOra`, quanto dura la PRIMA fascia di domani
+     * (deluxy.it: 2 ore dall'orario minimo del carrello — 08-10 — poi le altre
+     * tornano di `durataOre`: 10-11, 11-12…). 0 = come le altre.
+     * Decisione dell'utente, 10/09/2026 notte.
+     */
+    primaFasciaOre: number
   }
   oltre: {
     durataOre: number
@@ -116,12 +123,13 @@ export const REGOLE_DELUXY: RegoleConsegna = {
   // dall'architetto UX il 10/09: l'anticipo scende a 2 ore sulla FINE della
   // fascia; costo operativo: evadere in ~2 ore un ordine delle 19:59).
   oggi: { attivo: true, durataOre: 2, saltaFasce: 2, limiteOra: '20:00', ultimaFasciaFinoAlLimite: true, notteDalle: '10:00' },
-  // Ordinando dopo le 20 per domani NON si salta nessuna fascia fissa: si parte
-  // dalle «prime due ore da quando l'orario minimo del carrello è attivo»
-  // (decisione dell'utente, 10/09/2026 sera — scartate sia la 10-12 fissa
-  // proposta dall'architetto UX sia la 08-10 fissa del vecchio tema): carrello
-  // senza vincoli → 08-10; prodotto disponibile dalle 9 → 09-11; dalle 10 → 10-12.
-  domani: { durataOre: 2, dopoLimiteSaltaFasce: 0, saltaDopoOra: '20:00' },
+  // DOMANI a fasce di UN'ORA dall'orario minimo del carrello (08-09, 09-10…).
+  // Ordinando dopo le 20 la PRIMA fascia di domani dura due ore e parte
+  // dall'orario minimo del carrello (08-10 senza vincoli; dalle 9 → 09-11), le
+  // ore restanti tornano orarie (10-11, 11-12… / 11-12, 12-13…). Nessuna fascia
+  // fissa da saltare (decisione dell'utente, 10/09/2026 notte — scartate la
+  // 10-12 fissa dell'architetto UX e la griglia a 2 ore per tutto il giorno).
+  domani: { durataOre: 1, dopoLimiteSaltaFasce: 0, saltaDopoOra: '20:00', primaFasciaOre: 2 },
   oltre: { durataOre: 1 },
   giorniMostrati: 60,
 }
@@ -135,7 +143,7 @@ export const REGOLE_FASCE_AMPIE: RegoleConsegna = {
   finestraDa: '08:00',
   finestraA: '20:00',
   oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '16:00', ultimaFasciaFinoAlLimite: false, notteDalle: '08:00' },
-  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '22:00' },
+  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '22:00', primaFasciaOre: 0 },
   oltre: { durataOre: 4 },
   giorniMostrati: 60,
 }
@@ -150,7 +158,7 @@ export const REGOLE_CAKE: RegoleConsegna = {
   finestraDa: '08:00',
   finestraA: '20:00',
   oggi: { attivo: true, durataOre: 4, saltaFasce: 1, limiteOra: '14:00', ultimaFasciaFinoAlLimite: false, notteDalle: '12:00' },
-  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '20:00' },
+  domani: { durataOre: 4, dopoLimiteSaltaFasce: 1, saltaDopoOra: '20:00', primaFasciaOre: 0 },
   oltre: { durataOre: 4 },
   giorniMostrati: 60,
 }
@@ -239,6 +247,7 @@ export function leggiRegole(json: string | null | undefined, base: RegoleConsegn
     if (Number.isFinite(g.domani.durataOre)) r.domani.durataOre = Number(g.domani.durataOre)
     if (Number.isFinite(g.domani.dopoLimiteSaltaFasce)) r.domani.dopoLimiteSaltaFasce = Number(g.domani.dopoLimiteSaltaFasce)
     if (typeof g.domani.saltaDopoOra === 'string' && oraValida(g.domani.saltaDopoOra)) r.domani.saltaDopoOra = g.domani.saltaDopoOra
+    if (Number.isFinite(g.domani.primaFasciaOre)) r.domani.primaFasciaOre = Number(g.domani.primaFasciaOre)
   }
   if (g.oltre && typeof g.oltre === 'object' && Number.isFinite(g.oltre.durataOre)) r.oltre.durataOre = Number(g.oltre.durataOre)
   if (Number.isFinite(g.giorniMostrati)) r.giorniMostrati = Number(g.giorniMostrati)
@@ -306,6 +315,7 @@ export function validaRegole(input: unknown): { ok: true; regole: RegoleConsegna
       durataOre: intero(d.durataOre, 'Domani, durata delle fasce', 1, 12),
       dopoLimiteSaltaFasce: intero(d.dopoLimiteSaltaFasce, 'Domani, fasce da saltare dopo la soglia', 0, 6),
       saltaDopoOra: ora(d.saltaDopoOra || o.limiteOra, 'Domani, soglia del salto'),
+      primaFasciaOre: intero(d.primaFasciaOre ?? 0, 'Domani, durata della prima fascia dopo la soglia', 0, 12),
     },
     oltre: { durataOre: intero(l.durataOre, 'Oltre, durata delle fasce', 1, 12) },
     giorniMostrati: intero(g.giorniMostrati ?? 60, 'Giorni mostrati', 7, 365),
@@ -494,9 +504,10 @@ export function fasceIntere(regole: RegoleConsegna, durataOre: number, daMinuti 
  *   contano lo stesso all'indietro (alle 07:00 la fascia in corso è 06-08:
  *   con salto 2 la prima è 10-12; alle 03:00 la prima è 08-10).
  * · DOMANI: fasce di `domani.durataOre` dall'orario minimo del carrello in su
- *   («le prime due ore da quando l'orario minimo è attivo»: dalle 9 → 09-11);
- *   se si ordina dopo `saltaDopoOra`, si saltano le prime `dopoLimiteSaltaFasce`
- *   (0 per deluxy.it: si parte dall'orario minimo; 1 per Flowers e Cake).
+ *   (deluxy.it: orarie, 08-09 09-10…; dalle 9 → 09-10 10-11…). Se si ordina dopo
+ *   `saltaDopoOra`: con `primaFasciaOre` la PRIMA fascia dura tanto (deluxy.it:
+ *   2 ore dall'orario minimo, 08-10, poi 10-11 11-12…), altrimenti si saltano le
+ *   prime `dopoLimiteSaltaFasce` (Flowers e Cake: 1, «dalle 12»).
  * · OLTRE: fasce di `oltre.durataOre`, tutte, dall'orario minimo del carrello.
  * · Sempre: via le fasce che cominciano prima di `oraMinima` del carrello, e
  *   niente prima di oggi + `leadGiorni`.
@@ -556,9 +567,17 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
     }
   } else if (quando === 'domani') {
     // La griglia parte dall'orario minimo del carrello (utente, 10/09 sera):
-    // prodotto disponibile dalle 9 → 09-11, 11-13…, non 10-12 da una griglia fissa.
-    const tutte = fasceIntere(r, r.domani.durataOre, oraMinima)
-    fasce = dopoSoglia ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
+    // prodotto disponibile dalle 9 → dalle 9, non da una griglia fissa.
+    const da = Math.max(minuti(r.finestraDa), oraMinima)
+    const primaOre = r.domani.primaFasciaOre * 60
+    if (dopoSoglia && primaOre > 0 && da + primaOre <= minuti(r.finestraA)) {
+      // Dopo la soglia (deluxy.it: le 20) la PRIMA fascia di domani è lunga
+      // (2 ore: 08-10), le restanti tornano della durata normale (10-11, 11-12…).
+      fasce = [{ da: hhmm(da), a: hhmm(da + primaOre) }, ...fasceIntere(r, r.domani.durataOre, da + primaOre)]
+    } else {
+      const tutte = fasceIntere(r, r.domani.durataOre, da)
+      fasce = dopoSoglia ? tutte.slice(r.domani.dopoLimiteSaltaFasce) : tutte
+    }
   } else {
     fasce = fasceIntere(r, r.oltre.durataOre, oraMinima)
   }

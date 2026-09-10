@@ -55,12 +55,12 @@ Regole dettate dall'utente il 10/09/2026 e confermate dall'architetto UX (punti 
 - **dalle 20:00** per oggi non si ordina più: si ordina per domani. Eccezione esplicita
   (confermata): **dalle 18:00 alle 19:59 resta ordinabile la sola 20-22**;
 - **di notte (00:00–07:59)** l'anticipo si conta dall'apertura (08:00): prima fascia **10-12**;
-- **domani = fasce di 2 ore, sempre** (anche ordinando alle 15:00): la granularità dipende dal
-  giorno, non dall'ora dell'ordine. Le fasce di domani partono dalle **prime due ore da quando
-  l'orario minimo del carrello è attivo** (decisione utente 10/09 sera): carrello senza vincoli →
-  **08-10**, prodotto dalle 9 → **09-11, 11-13…**, dalle 10 → **10-12**. Anche ordinando **dopo le
-  20:00** non si salta nessuna fascia fissa (scartate la 10-12 fissa dell'architetto e la 08-10 fissa
-  del vecchio tema);
+- **domani = fasce di UN'ORA** dall'orario minimo del carrello (08-09, 09-10 … 21-22; un prodotto
+  dalle 9 → dalle 09-10). Ordinando **dopo le 20:00** la **prima fascia di domani dura due ore** e
+  parte dall'orario minimo del carrello (senza vincoli **08-10**, dalle 9 → **09-11**), le ore
+  restanti tornano orarie (10-11, 11-12 … / 11-12, 12-13 …). Nessuna fascia fissa da saltare
+  (decisione dell'utente, 10/09 notte; scartate la 10-12 fissa dell'architetto e la griglia a 2 ore
+  su tutto il giorno);
 - **dopodomani e oltre = fasce di 1 ora** (08-09 … 21-22);
 - finestra della giornata **08:00–22:00**;
 - l'**orario di disponibilità minima** dei prodotti in carrello (massimo dei `custom.minimo_orario`)
@@ -69,15 +69,15 @@ Regole dettate dall'utente il 10/09/2026 e confermate dall'architetto UX (punti 
 - i **giorni di apertura** e i **giorni di chiusura** del negozio (Customer Service → Orari negozi)
   spengono le date, col motivo a video; un giorno senza fasce si spegne, mai tendina vuota.
 
-| Ora dell'ordine (Rome) | OGGI (2h) | DOMANI (2h, sempre) | DOPODOMANI+ (1h) |
+| Ora dell'ordine (Rome) | OGGI (2h) | DOMANI (1h; dopo le 20 la prima di 2h) | DOPODOMANI+ (1h) |
 |---|---|---|---|
-| 00:00–07:59 | da 10-12 a 20-22 | 08-10 … 20-22 | 08-09 … 21-22 |
+| 00:00–07:59 | da 10-12 a 20-22 | 08-09 … 21-22 | 08-09 … 21-22 |
 | 08:00–17:59 | dalla 2ª fascia dopo quella in corso (10:30 → 14-16) fino a 20-22 | tutte | tutte |
 | 18:00–19:59 | solo 20-22 (eccezione) | tutte | tutte |
-| 20:00–23:59 | nessuna | tutte, dall'orario minimo del carrello (08-10 senza vincoli) | tutte |
+| 20:00–23:59 | nessuna | 08-10 poi 10-11 … 21-22 (prima fascia di 2 ore dall'orario minimo, poi orarie) | tutte |
 
 Parametri nel Customer Service (`REGOLE_DELUXY`): finestra 08:00–22:00; oggi durata 2, salta 2,
-limite 20:00, ultima fascia fino al limite; domani durata 2, dopo il limite salta 1; oltre durata 1.
+limite 20:00, ultima fascia fino al limite, notte dalle 10; domani durata 1, salta 0, dopo le 20 la prima fascia dura 2 (`primaFasciaOre`); oltre durata 1.
 
 Note:
 - I `value` delle option restano `HH-HH` (`08-10`, `14-15`: lo consuma il resto del tema e

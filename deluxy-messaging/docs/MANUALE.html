@@ -638,10 +638,11 @@
               si ordina da domani; «Riapri oggi» la toglie. <b>Sera:</b> per i prodotti unici il calendario tiene conto anche del
               <b>partner che li prepara</b> (dalla piattaforma consegne): un giorno in cui è chiuso si spegne
               col suo nome, la sua ora di apertura sposta le prime fasce, e passata la sua ora di chiusura oggi
-              non si ordina più. <b>Notte:</b> per deluxy.it e business le fasce di <b>domani</b> partono dalle
-              <b>prime due ore da quando l'orario minimo del carrello è attivo</b> (senza vincoli 08-10, un
-              prodotto dalle 9 → 09-11, 11-13…), anche ordinando dopo le 20: nessuna fascia fissa da saltare
-              (il campo «Prime fasce di domani da saltare» è a 0; Flowers e Cake restano a 1).</span>
+              non si ordina più. <b>Notte:</b> per deluxy.it e business le fasce di <b>domani</b> sono <b>di un'ora</b> dall'orario
+              minimo del carrello (08-09, 09-10…; un prodotto dalle 9 → dalle 09-10); ordinando <b>dopo le 20</b>
+              la prima fascia di domani dura <b>due ore</b> da quell'ora (08-10, o 09-11) e le altre restano orarie
+              (10-11, 11-12…). Nuovo campo «Dopo quell'ora la prima fascia dura (ore)» nelle regole; Flowers e
+              Cake restano col salto della prima fascia.</span>
           </div>
           <div class="log-item">
             <span class="when">09/09/2026</span>

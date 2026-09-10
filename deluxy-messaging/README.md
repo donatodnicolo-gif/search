@@ -54,15 +54,16 @@ per negozio — finestra della giornata (08–22), durata delle fasce per **oggi
 **oltre**, quante fasce saltare dopo quella in corso, l'ora limite dopo la quale per oggi non si
 ordina più, se l'ultima fascia resta ordinabile fino al limite, quante prime fasce di domani saltare
 se si ordina dopo il limite. Due preset: **Regole deluxy.it** (oggi 2 ore dalla seconda fascia dopo
-quella in corso, limite 20:00 con la sola 20-22 fra le 18 e le 20, domani 2 ore dall'orario minimo
-del carrello — 08-10 senza vincoli, 09-11 se un prodotto è disponibile dalle 9, anche dopo le 20 —,
+quella in corso, limite 20:00 con la sola 20-22 fra le 18 e le 20, domani 1 ora dall'orario
+minimo del carrello — e dopo le 20 la prima fascia di domani dura 2 ore: 08-10 poi 10-11, 11-12… —,
 oltre 1 ora; di notte si conta dall'apertura: prima fascia 10-12) e **Tre fasce
 ampie** (08-12 · 12-16 · 16-20, limite 16:00). L'anteprima mostra le fasce dei prossimi 14 giorni
 **calcolate adesso** (ora italiana), con un'ora di prova per vedere cosa vede un cliente alle 19:30.
 Regole confermate dall'architetto UX il 10/09 (limite 20:00 con eccezione 18–20 → 20-22; notte dalle
-10-12; granularità per giorno, mai per ora dell'ordine). Su «domani dopo le 20» l'utente ha deciso
-diversamente dall'architetto: nessuna fascia fissa, si parte dalle prime due ore da quando l'orario
-minimo del carrello è attivo — la griglia di domani e oltre si aggancia a quell'ora (`fasceIntere(…, daMinuti)`).
+10-12; granularità per giorno, mai per ora dell'ordine). Su «domani» l'utente ha deciso
+diversamente dall'architetto: fasce orarie dall'orario minimo del carrello e, ordinando dopo le 20,
+la sola prima fascia di due ore da quell'ora (`domani.primaFasciaOre`), poi orarie — la griglia di
+domani e oltre si aggancia all'orario minimo (`fasceIntere(…, daMinuti)`).
 
 **I siti Shopify leggono da qui.** `GET /api/pubblico/consegna?dominio=deluxygifts.myshopify.com&oraMinima=10&leadGiorni=0`
 — pubblica, senza chiave, CORS aperto, cache 60 s sull'edge: per ogni giorno `ok/motivo` e le fasce
