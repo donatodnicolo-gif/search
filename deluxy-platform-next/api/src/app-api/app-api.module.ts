@@ -28,6 +28,7 @@ import { DeliveryStatus, Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
 import { SalesModule, SalesService } from '../sales/sales.module';
+import { CalendarioUniciModule, CalendarioUniciService } from '../merchandising-sync/calendario-unici.module';
 import { valoreProdotti } from '../common/valore-prodotti';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1476,6 +1477,7 @@ export class AppApiController {
   constructor(
     private readonly service: AppApiService,
     private readonly richieste: RichiesteService,
+    private readonly calendarioUnici: CalendarioUniciService,
   ) {}
 
   @Get('vendite')
@@ -1658,6 +1660,36 @@ export class AppApiController {
     return this.service.prodotti(q, partnerId);
   }
 
+  // ⭐ 10/09/2026 — IL CALENDARIO DEL PARTNER DEI PRODOTTI UNICI, PER SKU.
+  //
+  // Lo legge il Customer Service (e da lì i siti Shopify): per ogni codice, i
+  // prossimi N giorni con aperto/chiuso, ora di apertura e di chiusura del
+  // partner e «chiuso-per-oggi» quando l'ora di chiusura è passata. È lo STESSO
+  // calendario che ogni mezz'ora va a Merchandising (CalendarioUniciService):
+  // qui non si ricalcola niente, si filtra per codice. La casa di questo dato è
+  // la piattaforma (orari settimanali, fasce del giorno, eccezioni del partner).
+  @Get('prodotti-unici/calendario')
+  @ApiOperation({
+    summary:
+      'Il calendario del partner dei prodotti unici (per SKU): giorni aperti/chiusi, ora di apertura e chiusura, «chiuso-per-oggi» — per il Customer Service e i siti',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  @ApiQuery({ name: 'codici', required: false, description: 'SKU separati da virgola; vuoto = tutti i prodotti unici' })
+  @ApiQuery({ name: 'giorni', required: false, description: '1..60, predefinito 14' })
+  async calendarioProdottiUnici(@Query('codici') codici?: string, @Query('giorni') giorni?: string) {
+    const cal = await this.calendarioUnici.calendario(Number(giorni) || 14);
+    const voluti = new Set(
+      (codici ?? '')
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    const prodotti = voluti.size
+      ? cal.prodotti.filter((p) => p && voluti.has(p.codice.toUpperCase()))
+      : cal.prodotti;
+    return { giorni: cal.giorni, generatoIl: cal.generatoIl, prodotti };
+  }
+
   @Get('consegne/:numero')
   @ApiOperation({ summary: 'Una consegna sola, per il numero che si legge a schermo (es. 62637)' })
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
@@ -1710,7 +1742,7 @@ export class AppApiController {
 @Module({
   // ⚠️ Serve DeliveriesModule: la creazione dal canale app passa dalla stessa
   // strada del form, non da una scorciatoia.
-  imports: [DeliveriesModule, RichiesteModule, SalesModule],
+  imports: [DeliveriesModule, RichiesteModule, SalesModule, CalendarioUniciModule],
   controllers: [AppApiController],
   providers: [AppApiKeyGuard, AppApiService],
 })
