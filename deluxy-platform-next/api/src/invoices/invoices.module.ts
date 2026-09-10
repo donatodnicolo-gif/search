@@ -1214,7 +1214,7 @@ export class InvoicesService {
         .map((l) => [l.serviceTypeId, l]),
     );
 
-    const lines: { deliveryId: string; date: Date; recipient: string; description: string | null; amount: number }[] = [];
+    const lines: { pricingModel?: string | null; deliveryId: string; date: Date; recipient: string; description: string | null; amount: number }[] = [];
     const nonPrezzabili: { code: number; date: Date; servizio: string }[] = [];
     for (const d of deliveries) {
       const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
@@ -1225,6 +1225,7 @@ export class InvoicesService {
         continue;
       }
       lines.push({
+        pricingModel: d.serviceType?.pricingModel ?? null,
         deliveryId: d.id,
         date: d.date,
         recipient: `${d.recipientLastName} ${d.recipientFirstName}`.trim(),
@@ -1242,58 +1243,47 @@ export class InvoicesService {
     // L'imponibile è la somma delle righe; il totale del documento è con IVA.
     // ⚠️ Prima qui il totale ERA l'imponibile: le fatture nuove sarebbero
     // uscite senza IVA, incoerenti con le 559 storiche (che l'IVA la hanno).
-    const netAmount = Math.round(lines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
+    // ⭐ 10/09/2026 (regola utente): «organizza sempre DUE fatture separate: una per le commissioni
+    // sulle vendite e una per i servizi che facciamo pagare — attenzione che un partner potrebbe
+    // avere solo una delle due». Sono due rapporti opposti (sulle vendite dobbiamo noi al partner,
+    // sui servizi paga lui): un documento solo li confondeva, e in FINANCE la pro-forma finiva con
+    // dentro anche le righe di vendita. Ogni gruppo nasce solo se ha righe.
     const vatRate = IVA;
-    const totalAmount = conIva(netAmount);
     const year = new Date(periodStart).getFullYear();
-    const count = await this.prisma.invoice.count();
-
-    const fattura = await this.prisma.invoice.create({
-      data: {
-        partnerId,
-        number: `FAT-${year}-${count + 1}`,
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
-        netAmount,
-        vatRate,
-        totalAmount,
-        deliveriesCount: lines.length,
-        status: InvoiceStatus.DRAFT,
-        lines: { create: lines },
-      },
-      include: { lines: true },
-    });
-
-    // La consegna impara di essere stata fatturata. È la stessa colonna che
-    // usava il legacy (`delivery.invoiced`): tenerla indietro vorrebbe dire
-    // avere due verità sullo stesso fatto, e prima o poi crederle alla peggiore.
-    await this.prisma.delivery.updateMany({
-      where: { id: { in: lines.map((l) => l.deliveryId) } },
-      data: { invoiced: true },
-    });
-
-    // ⭐ 31/08/2026 — LA BOZZA VA IN FINANCE. «Genera fattura» non tiene il
-    // documento in casa: consegna le righe a FINANCE (deluxy-partner) come
-    // PRO-FORMA, che compare in /fatture e una persona emette su FattureInCloud
-    // (Standard §7: l'emissione ha casa in FINANCE, non qui). Best-effort: se
-    // FINANCE non risponde la fattura interna resta e si può ritentare col
-    // bottone; l'esito torna al chiamante così la UI lo mostra.
-    const finance = await this.inviaBozzaAFinance(fattura.id).catch(
-      (e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }),
-    );
-
-    // ⭐ 09/09/2026 (regola utente: «sarà poi Finance a fare tutto») — IL MESE
-    // VA IN FINANCE. La pro-forma qui sopra è il documento; questo è il CONTO
-    // del mese: quanto abbiamo incassato per conto del partner, quanto abbiamo
-    // trattenuto (e che lì risulta già saldato, perché la commissione non gliela
-    // chiediamo: la tratteniamo), e quindi quanto gli dobbiamo. Best-effort come
-    // la pro-forma: se FINANCE non risponde la fattura interna resta e si
-    // ritenta col bottone, non si perde niente.
-    const meseFinance = await this.inviaMeseAFinance(fattura.id).catch(
-      (e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }),
-    );
-
-    return { ...fattura, financeRef: (finance as any).riferimento ?? null, nonPrezzabili, finance, meseFinance };
+    const gruppi: { tipo: 'servizi' | 'commissioni'; righe: typeof lines }[] = [
+      { tipo: 'servizi', righe: lines.filter((l) => l.pricingModel !== 'VENDITA') },
+      { tipo: 'commissioni', righe: lines.filter((l) => l.pricingModel === 'VENDITA') },
+    ].filter((g) => g.righe.length > 0) as { tipo: 'servizi' | 'commissioni'; righe: typeof lines }[];
+    const fatture: any[] = [];
+    for (const g of gruppi) {
+      const netAmount = Math.round(g.righe.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
+      const count = await this.prisma.invoice.count();
+      const fattura = await this.prisma.invoice.create({
+        data: {
+          partnerId,
+          number: `FAT-${year}-${count + 1}`,
+          periodStart: new Date(periodStart),
+          periodEnd: new Date(periodEnd),
+          netAmount,
+          vatRate,
+          totalAmount: conIva(netAmount),
+          deliveriesCount: g.righe.length,
+          status: InvoiceStatus.DRAFT,
+          lines: { create: g.righe.map(({ pricingModel: _pm, ...r }) => r) },
+        },
+        include: { lines: true },
+      });
+      await this.prisma.delivery.updateMany({ where: { id: { in: g.righe.map((l) => l.deliveryId) } }, data: { invoiced: true } });
+      // SERVIZI → pro-forma in FINANCE (il partner ci paga) + mese con l'imponibile dei servizi
+      // (FINANCE crea la fattura servizi «Consegne»). COMMISSIONI → solo il mese (venduto e
+      // commissione trattenuta): la pro-forma su sole vendite non nasce per costruzione.
+      const finance = await this.inviaBozzaAFinance(fattura.id).catch((e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }));
+      const meseFinance = await this.inviaMeseAFinance(fattura.id).catch((e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }));
+      fatture.push({ ...fattura, tipo: g.tipo, financeRef: (finance as any).riferimento ?? null, finance, meseFinance });
+    }
+    // Compatibilità con chi legge una fattura sola: la prima (servizi se c'è) in testa, tutte in `fatture`.
+    const prima = fatture[0];
+    return { ...prima, nonPrezzabili, fatture: fatture.map((x) => ({ id: x.id, number: x.number, tipo: x.tipo, netAmount: x.netAmount, deliveriesCount: x.deliveriesCount, finance: x.finance, meseFinance: x.meseFinance })) };
   }
 
   /** Data breve gg/mm/aaaa per le righe e l'oggetto mandati a FINANCE. */

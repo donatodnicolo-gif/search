@@ -996,6 +996,7 @@ export class InvoicesListComponent {
       number?: string;
       finance?: { ok: boolean; motivo: string; riferimento?: string };
       meseFinance?: { ok: boolean; motivo: string; dovuto?: number };
+      fatture?: { number: string; tipo: string; netAmount: number; deliveriesCount: number; finance?: { ok: boolean; motivo: string; riferimento?: string }; meseFinance?: { ok: boolean; motivo: string; dovuto?: number } }[];
     }>(`${environment.apiUrl}/invoices/generate`, {
       partnerId: r.partnerId,
       periodStart: this.primoDelMese(r.mese),
@@ -1003,6 +1004,17 @@ export class InvoicesListComponent {
     }).subscribe({
       next: (res) => {
         this.recapInCorso.set(null);
+        // ⭐ 10/09/2026 (regola utente): DUE fatture, servizi e commissioni — il banner le racconta una per una.
+        if (res?.fatture?.length) {
+          this.banner.set(res.fatture.map((x) => {
+            const etichetta = x.tipo === 'commissioni' ? 'commissioni sulle vendite' : 'servizi';
+            const pf = x.finance?.ok ? (x.finance.riferimento ? `pro-forma ${x.finance.riferimento}` : x.finance.motivo) : `⚠️ pro-forma: ${x.finance?.motivo ?? '—'}`;
+            const ms = x.meseFinance?.ok ? `mese ok${x.meseFinance.dovuto != null ? ` · da girare ${x.meseFinance.dovuto.toFixed(2)} €` : ''}` : `⚠️ mese: ${x.meseFinance?.motivo ?? '—'}`;
+            return `${x.number} (${etichetta}, ${x.deliveriesCount} righe, ${x.netAmount.toFixed(2)} €): ${pf} · ${ms}`;
+          }).join(' — '));
+          this.dal = this.primoDelMese(r.mese); this.al = this.ultimoDelMese(r.mese); this.load();
+          return;
+        }
         const f = res?.finance;
         const m = res?.meseFinance;
         this.banner.set([
