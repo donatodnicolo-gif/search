@@ -2,11 +2,12 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeliveriesService } from '../deliveries/deliveries.service';
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 
 @Injectable()
 export class ActivitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly deliveries: DeliveriesService) {}
 
   /**
    * Lista attivita' ordinabili per orario ("reorder with time").
@@ -120,7 +121,9 @@ export class ActivitiesService {
       where,
       include: {
         delivery: {
-          select: { id: true, code: true, status: true, recipientAddress: true },
+          // ⭐ 10/09/2026 (regola utente): in Attività si legge il PARTNER di ogni riga, e per
+          // assegnare serve sapere provincia e servizio della consegna (filtro dei valet).
+          select: { id: true, code: true, status: true, recipientAddress: true, provinceId: true, serviceTypeId: true, partner: { select: { id: true, insegna: true } }, province: { select: { code: true } } },
         },
         valet: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -130,6 +133,24 @@ export class ActivitiesService {
       }),
     ]);
     return { items, totale, mostrate: items.length, tetto, conteggi: { aperte: conteggi[0], storico: conteggi[1] } };
+  }
+
+  /**
+   * ⭐ 10/09/2026 (regola utente): «in Attività possibilità di assegnare per ufficio e team leader;
+   * l'assegnazione implica il cambio di assegnazione sulla consegna in generale e quindi anche
+   * sull'attività di consegna». Non esiste un valet «dell'attività» diverso da quello della
+   * consegna: si passa da `DeliveriesService.assignValet`, che scrive il valet sulla consegna,
+   * su TUTTE le sue attività (ritiro e consegna), sul registro, e fa valere le stesse regole del
+   * dettaglio (team leader solo nel suo ambito, listino del valet, storico intoccabile).
+   */
+  async assegna(id: string, valetId: string, user: JwtUser) {
+    const a = await this.prisma.activity.findUnique({ where: { id }, select: { id: true, deliveryId: true } });
+    if (!a) throw new NotFoundException('Attività non trovata');
+    await this.deliveries.assignValet(a.deliveryId, valetId, user);
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: { delivery: { select: { id: true, code: true, status: true } }, valet: { select: { id: true, firstName: true, lastName: true } } },
+    });
   }
 
   /** Riordino manuale delle attivita' (drag & drop nel frontend). */

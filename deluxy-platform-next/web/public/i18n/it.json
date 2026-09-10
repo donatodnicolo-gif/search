@@ -2533,6 +2533,14 @@
     "daPagare": "Da pagare (valet)",
     "quotaDeluxy": "Quota Deluxy",
     "costoPartner": "Costo del servizio",
+    "saleAccountOffice": {
+      "title": "Il conto di questa vendita: quello che guadagna il partner",
+      "income": "Incasso del partner (valore al partner)",
+      "commission": "Commissione Deluxy trattenuta",
+      "vat": "IVA",
+      "due": "Totale dovuto al partner: il suo guadagno",
+      "note": "Prima dell’IVA sulla commissione il dovuto al partner è {{lordo}} €: è il numero che compare in Fatturazione."
+    },
     "saleAccount": {
       "title": "Il conto di questa vendita",
       "income": "Il tuo incasso",
@@ -3009,11 +3017,13 @@
       "PICKUP": "Ritiro",
       "DELIVERY": "Consegna"
     },
+    "assegna": { "a": "Assegna a…" },
     "col": {
       "type": "Tipo",
       "time": "Quando",
       "address": "Indirizzo",
       "delivery": "Consegna",
+      "partner": "Partner",
       "valet": "Valet",
       "status": "Stato"
     },

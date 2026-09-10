@@ -16,7 +16,7 @@ interface Activity {
   timeFrom?: string | null;
   timeTo?: string | null;
   address?: string | null;
-  delivery?: { id: string; code: number; status: string; recipientAddress?: string | null } | null;
+  delivery?: { id: string; code: number; status: string; recipientAddress?: string | null; provinceId?: string | null; serviceTypeId?: string | null; partner?: { id: string; insegna: string } | null; province?: { code: string } | null } | null;
   valet?: { id: string; firstName: string; lastName: string } | null;
 }
 
@@ -136,6 +136,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
               <th>{{ 'activities.col.time' | translate }}</th>
               <th>{{ 'activities.col.address' | translate }}</th>
               <th>{{ 'activities.col.delivery' | translate }}</th>
+              <th>{{ 'activities.col.partner' | translate }}</th>
               <th>{{ 'activities.col.valet' | translate }}</th>
               <th>{{ 'activities.col.status' | translate }}</th>
               <th></th>
@@ -159,7 +160,20 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     <a [routerLink]="['/deliveries', a.delivery.id]" class="mono">#{{ a.delivery.code }}</a>
                   } @else { — }
                 </td>
-                <td>{{ a.valet ? (a.valet.lastName + ' ' + a.valet.firstName) : '—' }}</td>
+                <td>{{ a.delivery?.partner?.insegna || '—' }}</td>
+                <td>
+                  {{ a.valet ? (a.valet.lastName + ' ' + a.valet.firstName) : '—' }}
+                  <!-- ⭐ 10/09/2026 (regola utente): ufficio e team leader assegnano da qui. Cambia il
+                       valet della CONSEGNA, quindi anche l'altra attività (ritiro/consegna). -->
+                  @if (puoAssegnare() && a.status !== 'done' && a.delivery) {
+                    <select class="field assegna" [disabled]="inCorso() === a.id" (change)="assegna(a, $any($event.target).value); $any($event.target).value = ''">
+                      <option value="">{{ 'activities.assegna.a' | translate }}</option>
+                      @for (v of valetPer(a); track v.id) {
+                        <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option>
+                      }
+                    </select>
+                  }
+                </td>
                 <td>
                   <span class="badge" [style.--c]="colore(a.status)">
                     <i class="dot"></i>{{ etichetta(a.status) }}
@@ -312,6 +326,39 @@ export class ActivitiesListComponent {
     ['ADMIN', 'OPERATION', 'VALET'].includes(this.auth.user()?.role ?? ''),
   );
 
+  /** ⭐ 10/09/2026: assegna l'ufficio, e il team leader (l'API rifiuta comunque fuori dal suo ambito). */
+  readonly puoAssegnare = computed(() => {
+    const u = this.auth.user();
+    return u?.role === 'ADMIN' || u?.role === 'OPERATION' || (u?.role === 'VALET' && (u as any)?.isTeamLeader === true);
+  });
+  readonly valets = signal<{ id: string; firstName: string; lastName: string; active?: boolean; placeholder?: boolean; provinces?: { province?: { code?: string } }[]; services?: { serviceTypeId?: string; serviceType?: { id?: string } }[] }[]>([]);
+  private valetsCaricati = false;
+  private caricaValets(): void {
+    if (this.valetsCaricati || !this.puoAssegnare()) return;
+    this.valetsCaricati = true;
+    this.http.get<typeof this.valets extends { (): infer T } ? T : never>(`${environment.apiUrl}/valets`).subscribe({ next: (v) => this.valets.set(v as any), error: () => undefined });
+  }
+  /** I valet proponibili per QUESTA riga: attivi, della provincia della consegna, col suo servizio a listino se lo hanno (come nel dettaglio). Cognome, nome. */
+  valetPer(a: Activity) {
+    const prov = a.delivery?.province?.code;
+    const svc = a.delivery?.serviceTypeId;
+    let lista = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    if (prov) lista = lista.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov));
+    if (svc) {
+      const conServizio = lista.filter((v) => (v.services ?? []).some((s) => (s.serviceTypeId ?? s.serviceType?.id) === svc));
+      if (conServizio.length) lista = conServizio;
+    }
+    return [...lista].sort((x, y) => (x.lastName ?? '').localeCompare(y.lastName ?? '', 'it', { sensitivity: 'base' }) || (x.firstName ?? '').localeCompare(y.firstName ?? '', 'it', { sensitivity: 'base' }));
+  }
+  assegna(a: Activity, valetId: string): void {
+    if (!valetId) return;
+    this.inCorso.set(a.id);
+    this.http.patch(`${environment.apiUrl}/activities/${a.id}/assegna`, { valetId }).subscribe({
+      next: () => { this.inCorso.set(null); this.carica(); },
+      error: (e) => { this.inCorso.set(null); this.errore.set(e?.error?.message ?? 'Assegnazione non riuscita'); },
+    });
+  }
+
   etichetta(s: string) { return STATI[s]?.etichetta ?? s; }
   colore(s: string) { return STATI[s]?.colore ?? '#6e6e73'; }
 
@@ -347,6 +394,7 @@ export class ActivitiesListComponent {
   }
 
   carica(silenzioso = false): void {
+    this.caricaValets();
     if (!silenzioso) {
       this.caricando.set(true);
       this.errore.set(null);

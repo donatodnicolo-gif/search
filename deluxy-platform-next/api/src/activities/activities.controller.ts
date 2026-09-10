@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { ActivitiesService } from './activities.service';
-import { RiordinaAttivitaDto, StatoAttivitaDto } from './dto/attivita.dto';
+import { AssegnaAttivitaDto, RiordinaAttivitaDto, StatoAttivitaDto } from './dto/attivita.dto';
 
 // ============================================================
 // ⚠️ CHI ENTRA NELLE ATTIVITÀ (27/08/2026)
@@ -46,6 +46,12 @@ export class ActivitiesController {
   @ApiOperation({ summary: 'Riordina le attivita per orario/priorita (ufficio)' })
   reorder(@Body() dto: RiordinaAttivitaDto) {
     return this.activitiesService.reorder(dto.items);
+  }
+
+  @Patch(':id/assegna')
+  @ApiOperation({ summary: "Assegna la CONSEGNA di questa attività a un valet (ufficio e team leader): cambia il valet sulla consegna e su tutte le sue attività" })
+  assegna(@Param('id') id: string, @Body() dto: AssegnaAttivitaDto, @CurrentUser() user: JwtUser) {
+    return this.activitiesService.assegna(id, dto.valetId, user);
   }
 
   @Patch(':id/status')

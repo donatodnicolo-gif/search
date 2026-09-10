@@ -2531,6 +2531,14 @@
     "daPagare": "To pay (valet)",
     "quotaDeluxy": "Deluxy’s cut",
     "costoPartner": "Service cost",
+    "saleAccountOffice": {
+      "title": "This sale, in figures: what the partner earns",
+      "income": "Partner income (value to the partner)",
+      "commission": "Deluxy commission withheld",
+      "vat": "VAT",
+      "due": "Total owed to the partner: their earnings",
+      "note": "Before VAT on the commission the amount owed to the partner is {{lordo}} € — that is the figure shown in Billing."
+    },
     "saleAccount": {
       "title": "This sale, in figures",
       "income": "Your income",
@@ -3007,11 +3015,13 @@
       "PICKUP": "Pickup",
       "DELIVERY": "Delivery"
     },
+    "assegna": { "a": "Assign to…" },
     "col": {
       "type": "Type",
       "time": "When",
       "address": "Address",
       "delivery": "Delivery",
+      "partner": "Partner",
       "valet": "Valet",
       "status": "Status"
     },

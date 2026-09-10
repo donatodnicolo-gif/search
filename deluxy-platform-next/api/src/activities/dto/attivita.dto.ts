@@ -54,3 +54,10 @@ export class RiordinaAttivitaDto {
   @Type(() => RigaRiordino)
   items!: RigaRiordino[];
 }
+
+/** ⭐ 10/09/2026: l'assegnazione dall'elenco Attività (ufficio e team leader). */
+export class AssegnaAttivitaDto {
+  @ApiProperty({ description: 'Il valet a cui assegnare la CONSEGNA dell\'attività (e con lei tutte le sue attività)' })
+  @IsString()
+  valetId!: string;
+}

@@ -536,9 +536,9 @@ interface DeliveryDetail {
              qui vorrebbe dire scriverla in due punti. -->
         @if (d.economiaVendita; as v) {
           <section class="card block conto-vendita">
-            <h2>{{ 'deliveryDetail.saleAccount.title' | translate }}</h2>
+            <h2>{{ contoKey('title') | translate }}</h2>
             <dl>
-              <dt>{{ 'deliveryDetail.saleAccount.income' | translate }}</dt>
+              <dt>{{ contoKey('income') | translate }}</dt>
               <dd>{{ v.incasso.toFixed(2) }} €
                 <!-- Scomposizione prezzo × quantità: rende visibile come nasce
                      l'incasso (e salta all'occhio un «24 × 144» sbagliato). -->
@@ -551,15 +551,15 @@ interface DeliveryDetail {
                 }
               </dd>
 
-              <dt>{{ 'deliveryDetail.saleAccount.commission' | translate }}</dt>
+              <dt>{{ contoKey('commission') | translate }}</dt>
               <dd>
                 −{{ v.commissioneConIva.toFixed(2) }} €
                 <span class="scomposto">
-                  {{ v.commissione.toFixed(2) }} € + {{ 'deliveryDetail.saleAccount.vat' | translate }} {{ v.ivaCommissione.toFixed(2) }} €
+                  {{ v.commissione.toFixed(2) }} € + {{ contoKey('vat') | translate }} {{ v.ivaCommissione.toFixed(2) }} €
                 </span>
               </dd>
 
-              <dt class="forte">{{ 'deliveryDetail.saleAccount.due' | translate }}</dt>
+              <dt class="forte">{{ contoKey('due') | translate }}</dt>
               <dd class="forte">{{ v.dovutoNetto.toFixed(2) }} €</dd>
             </dl>
             <!-- ⚠️ La Fatturazione mostra il DOVUTO LORDO (valore − quota), che
@@ -567,7 +567,7 @@ interface DeliveryDetail {
                  commissione. Se non si dicesse, le due schermate sembrerebbero
                  in disaccordo sullo stesso importo. -->
             <p class="nota-conto">
-              {{ 'deliveryDetail.saleAccount.note' | translate: { lordo: v.dovutoLordo.toFixed(2) } }}
+              {{ contoKey('note') | translate: { lordo: v.dovutoLordo.toFixed(2) } }}
             </p>
           </section>
         }
@@ -1561,6 +1561,8 @@ export class DeliveryDetailComponent {
   isPartner(): boolean {
     return this.auth.user()?.role === 'PARTNER';
   }
+  /** ⭐ 10/09/2026 (regola utente): all'ufficio va detto che il conto è QUELLO CHE GUADAGNA IL PARTNER; al partner resta «il tuo». */
+  contoKey(k: string): string { return (this.isPartner() ? 'deliveryDetail.saleAccount.' : 'deliveryDetail.saleAccountOffice.') + k; }
 
   // ==========================================================================
   // AZIONI DEL VALET (31/08/2026): ritira e chiude, come nella vecchia app.
