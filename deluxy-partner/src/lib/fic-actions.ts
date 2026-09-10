@@ -190,6 +190,19 @@ export async function collegaFatturaCommissioni(
 // Torna indietro: il mese ridiventa «da emettere». Serve perché collegare è
 // un'azione a un clic, e un numero sbagliato dev'essere correggibile senza
 // passare dal database.
+// «Invia allo SDI» dalla scheda intera della fattura (10/09/2026). Il nucleo è
+// in fic-sdi.ts, lo stesso del pop-up: rilegge lo stato prima di partire e
+// scrive nel registro. Qui si torna sulla scheda con l'esito nella query.
+export async function inviaFatturaAlloSdiDaScheda(fatturaId: string) {
+  const f = await prisma.fatturaServizio.findUnique({ where: { id: fatturaId }, include: { partner: { select: { nome: true } } } });
+  if (!f?.numero) redirect(`/fatture/${fatturaId}?sdi=errore&sdiMsg=${encodeURIComponent("La fattura non ha un numero di Fatture in Cloud.")}`);
+  const { inviaFatturaAlloSdi } = await import("./fic-sdi");
+  const esito = await inviaFatturaAlloSdi(f.numero, f.anno, { fatturaId, partner: f.partner.nome, da: "scheda della fattura" });
+  for (const pth of ["/fatture", "/partner", "/registrazioni/fatture"]) revalidatePath(pth, "layout");
+  if (esito.ok) redirect(`/fatture/${fatturaId}?sdi=ok&sdiMsg=${encodeURIComponent(esito.dopo.etichetta)}`);
+  redirect(`/fatture/${fatturaId}?sdi=errore&sdiMsg=${encodeURIComponent(esito.errore)}`);
+}
+
 export async function scollegaFatturaCommissioni(
   partnerId: string,
   anno: number,

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { ficStato, ficFattureCached, ficSegnaFatturaPagata, ficIncassaParzialePerId, FicError, type FicFattura } from "@/lib/fic";
+import { descriviStatoSdi } from "@/lib/fic-sdi";
 
 export const dynamic = "force-dynamic";
 
@@ -264,6 +265,17 @@ export default async function FattureCloudPage({
                             {!f.pagata && f.scadenza && (
                               <span className="muted" style={{ fontSize: 12 }}>scad. {dataIt(f.scadenza)}</span>
                             )}
+                            {/* 10/09/2026: lo stato dell'invio allo SDI, letto da FIC.
+                                Per inviare: la scheda della fattura in Finance o il
+                                pop-up dalla scheda partner. */}
+                            {(() => {
+                              const sdi = descriviStatoSdi(f.eiStatus);
+                              return (
+                                <span className={`badge ${sdi.colore}`} title={sdi.spiegazione}>
+                                  <span className="dot" />{sdi.etichetta}
+                                </span>
+                              );
+                            })()}
                             <form action={cambiaStatoFattura.bind(null, f.id, !f.pagata)} style={{ display: "inline" }}>
                               <button
                                 className="btn small secondary"

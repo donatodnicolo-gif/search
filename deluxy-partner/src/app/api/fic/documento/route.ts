@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ficDocumentoDaNumero } from "@/lib/fic";
+import { descriviStatoSdi } from "@/lib/fic-sdi";
 
 // IL DOCUMENTO DI FIC PER LA FINESTRA DELLA FATTURA (08/09/2026).
 //
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
         { status: 404 }
       );
     }
-    return NextResponse.json({ ok: true, ...doc });
+    // 10/09/2026: con il documento arriva anche lo stato dell'invio allo SDI,
+    // già tradotto — è la cosa che la finestra deve dire per prima.
+    return NextResponse.json({ ok: true, ...doc, sdi: descriviStatoSdi(doc.eiStatus) });
   } catch (e) {
     return NextResponse.json(
       { errore: e instanceof Error ? e.message : "Fatture in Cloud non risponde." },

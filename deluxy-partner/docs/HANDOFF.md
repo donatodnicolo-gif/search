@@ -125,6 +125,23 @@
 >    { allineaFic: false })`, l'UNICO punto che sa cosa vuol dire «saldata»
 >    (incasso sul saldo del mese per chi è in compensazione, registro
 >    Pagamenti, riga nel registro modifiche). Riguarda l'incasso, non lo SDI.
+> 5. **«Le fatture che crei su FIC non vengono poi mandate: dicci lo stato e
+>    crea un pulsante, anche nel pop-up, che le faccia mandare davvero al
+>    cassetto fiscale».** Nuovo `src/lib/fic-sdi.ts`: `descriviStatoSdi(ei_status)`
+>    traduce i codici FIC (vuoto/`not_sent`/`missing` = mai partita →
+>    inviabile; `attempt`/`pending`/`processing` = in viaggio; `sent`/
+>    `accepted`/`no_response` = arrivata; `rejected`/`discarded` = da correggere
+>    su FIC; `error` = riprovabile) e `inviaFatturaAlloSdi(numero, anno, ctx)`
+>    rilegge lo stato PRIMA di chiamare `ficInviaAlloSdi`, rilegge DOPO e scrive
+>    nel registro. `ei_status` è entrato in `ficDocumentoDaNumero` e
+>    nell'elenco `ficFatture`. Dove si vede: **pop-up** della fattura (riga
+>    «Invio allo SDI» + bottone con conferma in linea, via
+>    `POST /api/fic/invia-sdi`, rotta interna dietro sessione), **scheda**
+>    `/fatture/[id]` (badge in testata + `ConfermaElimina` con verbo «Invia
+>    allo SDI» → `inviaFatturaAlloSdiDaScheda`), **Registro fatture** (badge
+>    per riga, dall'elenco FIC già in cache). ⚠️ Provato con `tsc`/build; il
+>    primo invio vero lo fa l'utente — è irreversibile, e non avevo una fattura
+>    da mandare.
 > ⚠️ Non ho potuto provare l'interfaccia in locale (serve la sessione di
 > team): verificato con `tsc` pulito e `next build` completo.
 > ✅ **Test chiesto dall'utente («le schede si aggiornano da sole con una

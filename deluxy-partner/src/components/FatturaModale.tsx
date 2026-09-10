@@ -52,10 +52,21 @@ export type FatturaInFinestra = {
   partnerNome: string;
 };
 
+type Sdi = { codice: string; etichetta: string; colore: "green" | "blue" | "orange" | "red" | "neutral"; inviabile: boolean; spiegazione: string };
+
 type Doc =
   | { stato: "carico" }
-  | { stato: "ok"; urlPdf: string | null; urlFic: string; cliente: string | null; totale: number | null; data: string | null }
+  | { stato: "ok"; urlPdf: string | null; urlFic: string; cliente: string | null; totale: number | null; data: string | null; sdi: Sdi | null }
   | { stato: "no"; motivo: string };
+
+// L'INVIO ALLO SDI dalla finestra (10/09/2026, richiesta dell'utente: «le
+// fatture che crei su FIC non vengono poi mandate: dicci lo stato e crea un
+// pulsante, anche nel pop-up, che le faccia mandare davvero al cassetto
+// fiscale»). Due click, non uno: il primo apre la conferma col numero e la
+// conseguenza (è irreversibile), il secondo manda. Il server rilegge lo stato
+// prima di partire; qui si mostra quello che FIC risponde dopo, non un
+// «inviata» dedotto.
+type Invio = { fase: "fermo" } | { fase: "conferma" } | { fase: "invio" } | { fase: "fatto"; dopo: Sdi } | { fase: "errore"; testo: string };
 
 /** Il numero della fattura, che apre la finestra. Resta un <button>: una riga
  *  cliccabile da sola col Tab non si raggiunge (Libro UX&UI §8/§9). */
@@ -89,8 +100,31 @@ function Finestra({ f, chiudi }: { f: FatturaInFinestra; chiudi: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [montata, setMontata] = useState(false);
   const [doc, setDoc] = useState<Doc>({ stato: "carico" });
+  const [invio, setInvio] = useState<Invio>({ fase: "fermo" });
 
   useEffect(() => setMontata(true), []);
+
+  async function inviaAlloSdi() {
+    if (!f.numero) return;
+    setInvio({ fase: "invio" });
+    try {
+      const r = await fetch("/api/fic/invia-sdi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero: f.numero, anno: f.anno, fatturaId: f.id }),
+      });
+      const j = await r.json();
+      if (r.ok && j.ok) {
+        setInvio({ fase: "fatto", dopo: j.dopo });
+        setDoc((d) => (d.stato === "ok" ? { ...d, sdi: j.dopo } : d));
+      } else {
+        setInvio({ fase: "errore", testo: j.errore ?? "Fatture in Cloud non ha risposto." });
+        if (j.stato) setDoc((d) => (d.stato === "ok" ? { ...d, sdi: j.stato } : d));
+      }
+    } catch {
+      setInvio({ fase: "errore", testo: "Non sono riuscito a contattare Fatture in Cloud." });
+    }
+  }
 
   // Il documento: una chiamata sola, all'apertura. Se la finestra si chiude
   // prima che risponda, la risposta si butta senza toccare lo stato.
@@ -106,7 +140,7 @@ function Finestra({ f, chiudi }: { f: FatturaInFinestra; chiudi: () => void }) {
         const j = await r.json();
         if (!vivo) return;
         if (r.ok && j.ok) {
-          setDoc({ stato: "ok", urlPdf: j.urlPdf ?? null, urlFic: j.urlFic, cliente: j.cliente ?? null, totale: j.totale ?? null, data: j.data ?? null });
+          setDoc({ stato: "ok", urlPdf: j.urlPdf ?? null, urlFic: j.urlFic, cliente: j.cliente ?? null, totale: j.totale ?? null, data: j.data ?? null, sdi: j.sdi ?? null });
         } else {
           setDoc({ stato: "no", motivo: j.errore ?? "Fatture in Cloud non ha risposto." });
         }
@@ -188,6 +222,46 @@ function Finestra({ f, chiudi }: { f: FatturaInFinestra; chiudi: () => void }) {
             {!f.pagata && f.incassato > 0.005 && (
               <span className="muted" style={{ marginLeft: 8 }}>
                 incassati {euro(f.incassato)} · restano {euro(residuo)}
+              </span>
+            )}
+          </Riga>
+          <Riga etichetta="Invio allo SDI">
+            {doc.stato === "carico" ? (
+              <span className="muted">chiedo a Fatture in Cloud…</span>
+            ) : doc.stato === "no" ? (
+              <span className="muted">non so dirlo: {doc.motivo}</span>
+            ) : !doc.sdi ? (
+              <span className="muted">Fatture in Cloud non lo dice</span>
+            ) : (
+              <span style={{ display: "inline-flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <span className={`badge ${doc.sdi.colore}`} title={doc.sdi.spiegazione}>
+                  <span className="dot" />
+                  {doc.sdi.etichetta}
+                </span>
+                {doc.sdi.inviabile && invio.fase === "fermo" && (
+                  <button type="button" className="btn small" onClick={() => setInvio({ fase: "conferma" })} title="Manda questa fattura allo SDI da Fatture in Cloud (cassetto fiscale del cliente)">
+                    Invia allo SDI
+                  </button>
+                )}
+                {invio.fase === "conferma" && (
+                  <span className="conferma-elimina" role="group" aria-label="Conferma invio allo SDI">
+                    <span className="conferma-elimina-testo">
+                      Mando la fattura {f.numero} allo SDI? <strong>Non si torna indietro</strong>: per annullarla poi serve una nota di credito.
+                    </span>
+                    <button type="button" className="btn small danger-solid" onClick={inviaAlloSdi}>Sì, invia</button>
+                    <button type="button" className="btn small secondary" onClick={() => setInvio({ fase: "fermo" })}>No</button>
+                  </span>
+                )}
+                {invio.fase === "invio" && <span className="muted">Sto inviando…</span>}
+                {invio.fase === "fatto" && (
+                  <span className="muted">Partita. Fatture in Cloud ora dice: {invio.dopo.etichetta.toLowerCase()} — {invio.dopo.spiegazione}</span>
+                )}
+                {invio.fase === "errore" && (
+                  <span style={{ color: "var(--red)", fontSize: 12.5 }}>{invio.testo}</span>
+                )}
+                {!doc.sdi.inviabile && invio.fase === "fermo" && (
+                  <span className="muted" style={{ fontSize: 12 }}>{doc.sdi.spiegazione}</span>
+                )}
               </span>
             )}
           </Riga>

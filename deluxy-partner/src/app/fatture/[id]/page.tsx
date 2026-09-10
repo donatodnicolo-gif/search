@@ -5,7 +5,9 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, nomeMese, MESI } from "@/lib/calc";
 import { updateFattura, segnaFatturaPagata, deleteFattura, incassaFatturaParziale } from "@/lib/actions";
-import { ficUrlFattura } from "@/lib/fic";
+import { ficDocumentoDaNumero } from "@/lib/fic";
+import { descriviStatoSdi } from "@/lib/fic-sdi";
+import { inviaFatturaAlloSdiDaScheda } from "@/lib/fic-actions";
 import { ScadenzaRapida } from "@/components/ScadenzaRapida";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
 
@@ -17,7 +19,7 @@ export default async function FatturaDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvato?: string; fic?: string; incasso?: string; erroreIncasso?: string }>;
+  searchParams: Promise<{ salvato?: string; fic?: string; incasso?: string; erroreIncasso?: string; sdi?: string; sdiMsg?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -32,7 +34,11 @@ export default async function FatturaDetail({
 
   // Link «apri in Fatture in Cloud»: solo se la fattura ha un numero (quindi è
   // stata emessa lì). Non fatale: se FIC è giù o non risolve, il link non c'è.
-  const urlFic = fattura.numero ? await ficUrlFattura(fattura.numero, fattura.anno) : null;
+  // Una chiamata sola a FIC: dà il link E lo stato dell'invio allo SDI
+  // (10/09/2026). Non fatale: se FIC non risponde, niente link e stato ignoto.
+  const docFic = fattura.numero ? await ficDocumentoDaNumero(fattura.numero, fattura.anno).catch(() => null) : null;
+  const urlFic = docFic?.urlFic ?? null;
+  const sdi = docFic ? descriviStatoSdi(docFic.eiStatus) : null;
 
   const oggi = new Date();
   const scaduta = !fattura.pagata && fattura.scadenza && fattura.scadenza < oggi;
@@ -72,6 +78,24 @@ export default async function FatturaDetail({
           {fattura.sollecitoInviatoIl && (
             <span className="badge blue"><span className="dot" />Sollecitata {dataIt(fattura.sollecitoInviatoIl)}</span>
           )}
+          {sdi && (
+            <span className={`badge ${sdi.colore}`} title={sdi.spiegazione}><span className="dot" />{sdi.etichetta}</span>
+          )}
+          {sdi?.inviabile && (
+            // Irreversibile: due click, col nome della fattura e la conseguenza.
+            <form action={inviaFatturaAlloSdiDaScheda.bind(null, fattura.id)} style={{ display: "inline" }}>
+              <ConfermaElimina
+                verbo="Invia allo SDI"
+                trigger="Invia allo SDI"
+                className="btn small"
+                classeConferma="btn small danger-solid"
+                inCorso="Invio…"
+                oggetto={`la fattura ${fattura.numero} a ${fattura.partner.nome}`}
+                conseguenza="Parte verso il cassetto fiscale del cliente da Fatture in Cloud. Non si torna indietro: per annullarla poi serve una nota di credito."
+                title="Manda questa fattura allo SDI da Fatture in Cloud"
+              />
+            </form>
+          )}
           {!fattura.numero && (
             <Link
               href={`/fic/fattura?fattura=${fattura.id}`}
@@ -98,6 +122,20 @@ export default async function FatturaDetail({
       {sp.salvato && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Fattura aggiornata</span>
+        </div>
+      )}
+      {sp.sdi === "ok" && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Inviata allo SDI da Fatture in Cloud</span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            Stato riletto su Fatture in Cloud: {sp.sdiMsg ? decodeURIComponent(sp.sdiMsg) : "in corso"}. Lo SDI risponde entro qualche ora; lo stato in testata si aggiorna a ogni apertura.
+          </p>
+        </div>
+      )}
+      {sp.sdi === "errore" && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span className="badge red"><span className="dot" />Non inviata allo SDI</span>
+          <p style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, color: "var(--red)" }}>{sp.sdiMsg ? decodeURIComponent(sp.sdiMsg) : "Fatture in Cloud non ha risposto."}</p>
         </div>
       )}
       {sp.fic && (

@@ -278,6 +278,9 @@ export type FicFattura = {
   // L OGGETTO del documento: e la sola cosa che dice COSA e quella fattura
   // («Commissioni Deluxy Agosto 2026»). Senza, ogni riga va classificata a mano.
   oggetto: string | null;
+  // Stato dell'invio allo SDI com'è su FIC (`ei_status`): «not_sent», «sent»…
+  // (10/09/2026 — le fatture create dall'app restavano lì senza partire).
+  eiStatus: string | null;
 };
 
 // Elenco delle fatture emesse su Fatture in Cloud (paginato, dalla più recente).
@@ -363,7 +366,7 @@ export async function ficFatture(opts?: {
   // commissioni dal suo oggetto («Commissioni Deluxy Agosto 2026»), senza far
   // scegliere a mano la voce giusta ogni volta (08/09/2026).
   const fields =
-    "id,number,numeration,date,amount_net,amount_vat,amount_gross,payments_list,url,entity,subject,visible_subject";
+    "id,number,numeration,date,amount_net,amount_vat,amount_gross,payments_list,url,entity,subject,visible_subject,ei_status";
 
   const out: FicFattura[] = [];
   const maxPagine = opts?.maxPagine ?? 20;
@@ -384,6 +387,7 @@ export async function ficFatture(opts?: {
         url: string | null;
         subject?: string | null;
         visible_subject?: string | null;
+        ei_status?: string | null;
         entity?: { name?: string | null; vat_number?: string | null };
       }[];
       last_page?: number;
@@ -424,6 +428,7 @@ export async function ficFatture(opts?: {
         scadenza: prossima?.due_date ?? null,
         urlDettaglio: d.url ?? null,
         oggetto: d.subject?.trim() || d.visible_subject?.trim() || null,
+        eiStatus: d.ei_status ?? null,
       });
     }
     if (!r.last_page || page >= r.last_page) break;
@@ -1212,6 +1217,7 @@ export type FicDocumento = {
   totale: number | null;
   urlPdf: string | null; // il documento incorporabile
   urlFic: string; // la schermata di FIC, da aprire in una scheda nuova
+  eiStatus: string | null; // stato dell'invio allo SDI, com'è su FIC (10/09/2026)
 };
 
 /** Il documento FIC di una fattura, dal suo numero interno («141/2026»).
@@ -1230,9 +1236,9 @@ export async function ficDocumentoDaNumero(
   const filtri = [`number = ${num}`];
   if (anno) filtri.push(`date >= '${anno}-01-01'`, `date <= '${anno}-12-31'`);
   const r = await ficFetch<{
-    data: { id: number; number?: number; date?: string; url?: string | null; amount_gross?: number; entity?: { name?: string | null } }[];
+    data: { id: number; number?: number; date?: string; url?: string | null; amount_gross?: number; entity?: { name?: string | null }; ei_status?: string | null }[];
   }>(
-    `/c/${companyId}/issued_documents?type=invoice&fields=id,number,date,url,amount_gross,entity` +
+    `/c/${companyId}/issued_documents?type=invoice&fields=id,number,date,url,amount_gross,entity,ei_status` +
       `&per_page=5&q=${encodeURIComponent(filtri.join(" and "))}`
   );
   if (r.data.length !== 1) return null;
@@ -1245,6 +1251,7 @@ export async function ficDocumentoDaNumero(
     totale: d.amount_gross ?? null,
     urlPdf: d.url ?? null,
     urlFic: `https://secure.fattureincloud.it/invoices/view/${d.id}`,
+    eiStatus: d.ei_status ?? null,
   };
 }
 
