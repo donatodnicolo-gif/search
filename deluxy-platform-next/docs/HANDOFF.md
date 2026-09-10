@@ -3,7 +3,9 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-> 🧮 **10/09/2026 (notte, 12) — SEI PUNTI DALL'UFFICIO** (manuale 114). Piattaforma pubblicata.
+> 🚀 **10/09/2026 — LIVE `delivery-h5cqxlksm` (alias deluxy-delivery.vercel.app + app.deluxy.it)** con capogruppo (notte 11) e sei punti (notte 12). ⚠️ **Ricaduto nella trappola del link annidato**: i due deploy precedenti di oggi (`deluxy-platform-next-fpeuzn3mu`, `-i21uon5w9`) sono finiti sul progetto **deluxy-platform-next** (senza alias) perché `vercel pull` era stato lanciato dentro `deluxy-platform-next/`; le rotte nuove rispondevano 404 sul sito vero. Il `.vercel` annidato è in `scratchpad/vercel-annidato-tolto-1009`; ripubblicato dalla RADICE del worktree. Verificato dopo: `/capogruppi`, `/salaries/servizi-valet`, `/cron/tipologie` rispondono 401 (esistono) su deluxy-delivery.vercel.app.
+>
+> 🧮 **10/09/2026 (notte, 12) — SEI PUNTI DALL'UFFICIO** (manuale 114).
 > - Fatturazione: `prezzoConsegna` → `venduto = vendita ? valoreProdotti : 0` (prima il valore prodotti finiva nel «Venduto» anche a prezzo fisso; Velo #62638).
 > - Stipendi: `GET /salaries/servizi-valet` (distinct ValetService → ServiceType), `GET /salaries/dettaglio/:id` (righe + consegna); web: chips dai servizi dei valet (ricaricate al cambio valet), storico con «Dettagli ▾», dopo «Genera» i filtri si mettono su valet+periodo generato.
 > - Valet: colonna «Aree di consegna» (`v.aree[].area.nome`, ripiego province).
