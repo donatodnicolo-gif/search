@@ -1,0 +1,544 @@
+{{ '//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css' | stylesheet_tag }}
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js" defer="defer"></script>
+
+<script>
+  
+  var check_cambio=0;
+  
+  $( window ).ready(function() {
+
+      var currentDate = new Date();
+      var giorno = 0;
+      var maxgiorno=0;
+      var ora_min=0;
+      var ora_min_def=0;
+      var delDate = 0;
+      var startDate = 5;
+    
+
+      var localDate = localStorage.getItem("delivery_date_val");
+      {% comment %} var localDate = sessionStorage.getItem("delivery_date_val"); {% endcomment %}
+
+      var newlocalDateValue = sessionStorage.getItem("new_delivery_date_val");
+     
+      {% for item in cart.items %}
+
+        {% comment %}         
+            {% if item.product.variants.size > 1 %}
+              {% if item.variant.metafields.prodotto.consegna == blank %}
+                {% assign var_meta = 0 %}
+                {% else %}
+                {% assign var_meta = item.variant.metafields.prodotto.consegna %}
+                {% endif %}
+            {% else %}
+              {% assign var_meta = item.product.metafields.prodotto.consegna %}
+            {% endif %}
+        {% endcomment %}
+
+        {% if item.product.variants.size > 1 %}
+          {% if item.variant.metafields.prodotto.consegna == blank %}
+            {% if item.product.metafields.prodotto.consegna != blank %}
+              {% assign var_meta = item.product.metafields.prodotto.consegna %}
+            {% else %}
+              {% assign var_meta = 0 %}
+            {% endif %}
+          {% else %}
+                {% assign var_meta = item.variant.metafields.prodotto.consegna %}
+          {% endif %}
+        {% else %} 
+          {% assign var_meta = item.product.metafields.prodotto.consegna %}
+        {% endif %}
+
+        
+          giorno = {{ var_meta | json}};
+          ora_min = {{ item.product.metafields.custom.minimo_orario | json}};
+          console.log("NUMBER OF DAYS AVAILABLE ON PRODUCT =====>", giorno);
+          console.log("MINIMUM PRODUCT AVAILABLE HOUR ==========>", ora_min);
+
+          //console.log(item.product.id);
+
+          if (giorno>maxgiorno){
+              maxgiorno=giorno;
+          }
+
+          if (giorno<startDate){
+              startDate=giorno;
+          }
+
+          if (ora_min>ora_min_def){
+              ora_min_def=ora_min;
+          }
+    
+       {% endfor %}
+
+       //console.log(maxgiorno);
+
+    //console.log('below start date');
+
+   // console.log(startDate);
+
+
+        // === Regole deluxy.it (orario Italia) ===
+        function romeNowParts() {
+            var parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date());
+            var p = {};
+            parts.forEach(function (x) { p[x.type] = x.value; });
+            return { y: Number(p.year), m: Number(p.month), d: Number(p.day), h: Number(p.hour) };
+        }
+        var ROME_NOW = romeNowParts();
+        var romeToday = new Date(ROME_NOW.y, ROME_NOW.m - 1, ROME_NOW.d);
+
+        var start_date =  new Date(romeToday);
+        start_date.setDate(start_date.getDate() + startDate);
+        var start_month = start_date.getMonth() + 1;
+        var start_days = start_date.getDate();
+
+        if (start_days < 10) {
+              start_days = '0' + start_days;
+         }
+         if (start_month < 10) {
+            start_month = '0' + start_month;
+         }
+
+        //console.log(start_date);
+
+        var date =  new Date(romeToday);
+        date.setDate(date.getDate() + maxgiorno);
+        if (maxgiorno == 0 && ROME_NOW.h >= 20) { date.setDate(date.getDate() + 1); }
+
+           
+        var prdt_end_date =  new Date(romeToday);
+        prdt_end_date.setDate(prdt_end_date.getDate() + maxgiorno);
+        var prdt_end_month = prdt_end_date.getMonth() + 1;
+        var prdt_end_days = prdt_end_date.getDate();
+
+        if (prdt_end_days < 10) {
+              prdt_end_days = '0' + prdt_end_days;
+         }
+         if (prdt_end_month < 10) {
+            prdt_end_month = '0' + prdt_end_month;
+         }
+
+
+        var month = date.getMonth() + 1;
+        var days = date.getDate();
+        var endMonth = date.getMonth() + 2;
+        var year = date.getFullYear();
+
+         if (days < 10) {
+              days = '0' + days;
+         }
+         if (month < 10) {
+            month = '0' + month;
+            endMonth = '0' + endMonth;
+         }
+
+        var start_today =  year +  "-" + start_month + "-" + start_days;
+
+        var prdt_end_date_td =  year +  "-" + prdt_end_month + "-" + prdt_end_days;
+
+        //console.log('last date');
+        //console.log(prdt_end_date_td);
+
+     // console.log(start_today);
+
+        var today2 =  year +  "-" + month + "-" + days;
+                   console.log("START DATE------->", today2);
+        var today =  days + "-" + month + "-" +  year;
+        var div = document.getElementById('date_disp2');
+       // var primadata='La prima data di consegna disponibile è il giorno  <br>' + today + ' ' ;
+
+      //alert(today2);
+      {% comment %} alert(localDate) {% endcomment %}
+
+        if(localDate){
+
+          const months = {
+              'Gennaio' : '01',
+              'Febbraio': '02',
+              'Marzo': '03',
+              'Aprile': '04',
+              'Maggio': '05',
+              'Giugno': '06',
+              'Luglio': '07',
+              'Agosto': '08',
+              'Settembre': '09',
+              'Ottobre': '10',
+              'Novembre': '11',
+              'Dicembre': '12'
+          }
+
+
+          var localDateSplit = localDate.split(' ');
+          var localDay   = localDateSplit[2];   
+          var localDay   = localDay.replace(/,(\s+)?$/, '');
+          var localMonth = localDateSplit[1];
+          var localMonth = months[localMonth];
+          var localYear  = localDateSplit[3];
+
+          if (localDay < 10) {
+              localDay = '0' + localDay;
+         }
+          
+    
+          var localDeliveryDate = localYear +  "-" + localMonth + "-" + localDay;
+          var localDeliveryDateInit = localDeliveryDate;
+          var localDeliveryDate = localDeliveryDate.replace(/,(\s+)?$/, '');
+
+          //alert(localDay);
+          
+          var primadata='{{ 'cart.general.earliest_avilabletime' | t }}  <br>' + localDate + ' ' ;
+          div.innerHTML += primadata ;
+          document.getElementById("DeliveryDate_def").value =  localDeliveryDate ;
+          document.getElementById("max_del_date").value =  localDeliveryDate ;
+          document.getElementById("last_prod_date").value =  prdt_end_date_td ;          
+        }else{
+          var primadata='{{ 'cart.general.earliest_avilabletime1' | t }}  <br>' + today + ' ' ;
+          //var primadata='La prima data di consegna disponibile è il giorno  <br>' + newlocalDateValue + ' ' ;
+          div.innerHTML += primadata ;
+          document.getElementById("DeliveryDate_def").value =  year +  "-" + month + "-" + days ;
+          //document.getElementById("DeliveryDate_def").value =  newlocalDateValue ;
+          document.getElementById("max_del_date").value =  year +  "-" + month + "-" + days ;
+          document.getElementById("last_prod_date").value =  prdt_end_date_td ;   
+        }        
+
+        var endOrder = (year + 1) + "-" + (endMonth - 1) + "-" + days;
+
+
+
+       //document.getElementById("DeliveryDate_def").setAttribute("min", localDeliveryDate);
+       document.getElementById("DeliveryDate_def").setAttribute("min", today2);
+        //document.getElementById("DeliveryDate").setAttribute("min", '2023-07-10');
+        document.getElementById("DeliveryDate_def").setAttribute("max", endOrder);
+
+         if (ora_min_def==0){
+           ora_min_def=8;
+         }
+         if(localDate) {
+            fnCheckDate(localDeliveryDateInit);
+         } else {
+          fnCheckDate(today2);
+        }
+  });
+
+function formatDate(dateString) {
+  var parts = dateString.split('/');
+  var day = parts[0];
+  var month = parts[1];
+  var year = parts[2];
+  return year + '-' + month + '-' + day;
+}
+
+function fnCheckDate(tmpDate) {
+    var div = document.getElementById('date_disp2');
+    $('#divCheckDelivery').html('&nbsp;');
+
+    // tmpDate arriva come YYYY-MM-DD dal datepicker -> DD/MM/YYYY
+    tmpDate = tmpDate.substr(8, 2) + '/' + tmpDate.substr(5, 2) + '/' + tmpDate.substr(0, 4);
+
+    // === Ora e date in fuso Italia (Europe/Rome) ===
+    function romeParts() {
+        var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date()).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+        return { y: Number(p.year), m: Number(p.month), d: Number(p.day), h: Number(p.hour) };
+    }
+    var R = romeParts();
+    var h = R.h;
+    function fmt(dt) {
+        return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + dt.getFullYear();
+    }
+    var today = fmt(new Date(R.y, R.m - 1, R.d));
+    var tomorrow = fmt(new Date(R.y, R.m - 1, R.d + 1));
+
+    // minimo orario di consegna richiesto dai prodotti nel carrello
+    var ora_min = 0;
+    var ora_min_def = 0;
+    {% for item in cart.items %}
+    ora_min = Number({{ item.product.metafields.custom.minimo_orario | json }}) || 8; // senza metafield: dalle 8
+    if (ora_min > ora_min_def) { ora_min_def = ora_min; }
+    {% endfor %}
+    if (!ora_min_def) { ora_min_def = 8; }
+    // Prima ora offerta nelle fasce orarie (10/9/2026): 8 di default, prima se TUTTI i prodotti
+    // nel carrello lo consentono (es. colazioni Clivati con custom.minimo_orario = 7 -> 07:00-08:00).
+    // Prima il ciclo partiva fisso da 8 e il metafield 7 non aveva effetto.
+    var ora_inizio = Math.min(8, ora_min_def);
+
+    function resetSlots() {
+        $('#ddlFasciaOraria').children().remove();
+        $('#ddlFasciaOraria').append(new Option("{{ 'cart.general.choosetime_slot' | t }}", ""));
+    }
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function addRange(a, b) {
+        $('#ddlFasciaOraria').append(new Option(pad(a) + ':00-' + pad(b) + ':00', pad(a) + '-' + pad(b)));
+    }
+    function enableCheckout() {
+        $('#ddlFasciaOraria').css('visibility', 'visible');
+        $('#bntCheckout').removeAttr('disabled');
+    }
+    function blockCheckout(msg) {
+        resetSlots();
+        $('#divCheckDelivery').text(msg);
+        $('#ddlFasciaOraria').css('visibility', 'hidden');
+        $('#bntCheckout').attr('disabled', 'true');
+    }
+
+    resetSlots();
+
+    // Tempi di preparazione: #last_prod_date contiene oggi + il lead time piu' lungo fra i
+    // prodotti nel carrello. Prima non veniva mai confrontato con la data scelta, quindi
+    // passavano date impossibili (data vecchia in localStorage, oppure calendario della
+    // scheda prodotto piu' permissivo perche' legge il metafield del prodotto invece di
+    // quello della variante). Blocca anche le date nel passato.
+    var minConsegna = (document.getElementById('last_prod_date') || {}).value || '';
+    if (minConsegna) {
+        var sceltaISO = tmpDate.substr(6, 4) + '-' + tmpDate.substr(3, 2) + '-' + tmpDate.substr(0, 2);
+        if (sceltaISO < minConsegna) {
+            var pz = minConsegna.split('-');
+            var leggibile = pz[2] + '/' + pz[1] + '/' + pz[0];
+            blockCheckout({% if request.locale.iso_code == 'it' %}'Per gli articoli nel carrello la prima consegna possibile è il ' + leggibile + '. Scegli quella data o una successiva.'{% else %}'The earliest possible delivery for the items in your cart is ' + leggibile + '. Please choose that date or a later one.'{% endif %});
+            return;
+        }
+    }
+
+    if (tmpDate == today) {
+        // OGGI: fasce di 2 ore, anticipo minimo 2h; ultima fascia 20-22 ordinabile fino alle 20:00.
+        // Notte (00:00-08:00): consegne solo dalle 10:00 in poi.
+        var starts = [8, 10, 12, 14, 16, 18, 20];
+        var added = 0;
+        for (var i = 0; i < starts.length; i++) {
+            var a = starts[i];
+            if (h < 8 && a < 10) continue;      // notte: prima fascia 10-12
+            if (a < ora_min_def) continue;      // rispetta minimo orario prodotto
+            var ok = (a === 20) ? (h < 20) : (a >= h + 2);
+            if (ok) { addRange(a, a + 2); added++; }
+        }
+        if (added === 0) { blockCheckout({% if request.locale.iso_code == 'it' %}"Per oggi non ci sono più fasce orarie disponibili: scegli la data di domani per completare l'ordine."{% else %}"No delivery slots left for today: please choose tomorrow's date to complete your order."{% endif %}); return; }
+        enableCheckout();
+
+    } else if (tmpDate == tomorrow) {
+        // DOMANI: fasce di 1 ora da ora_inizio (8, o 7 se i prodotti lo consentono).
+        // Se l'ordine e' fra le 20:00 e le 24:00 -> prima fascia 08-10 poi orarie (niente 07-08).
+        if (h >= 20) {
+            if (ora_min_def <= 8) { $('#ddlFasciaOraria').append(new Option('08:00-10:00', '08-10')); }
+            for (var b = 10; b <= 21; b++) { if (b >= ora_min_def) addRange(b, b + 1); }
+        } else {
+            for (var c = ora_inizio; c <= 21; c++) { if (c >= ora_min_def) addRange(c, c + 1); }
+        }
+        enableCheckout();
+
+    } else {
+        // DOPODOMANI e oltre: fasce di 1 ora da ora_inizio (8, o 7 se i prodotti lo consentono).
+        for (var d = ora_inizio; d <= 21; d++) { if (d >= ora_min_def) addRange(d, d + 1); }
+        enableCheckout();
+    }
+
+    // Salva la data scelta (localStorage + campo hidden formato YYYY-MM-DD)
+    if (!tmpDate.includes('/')) { return; }
+    var pp = tmpDate.split('/');
+    var dd_val = pp[0], mm_val = pp[1], yyyy_val = pp[2];
+    var jsDate = new Date(yyyy_val, mm_val - 1, dd_val);
+    var formatted_input_date = yyyy_val + '-' + String(mm_val).padStart(2, '0') + '-' + String(dd_val).padStart(2, '0');
+    var parts = jsDate.toLocaleDateString('it-IT', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }).split(' ');
+    var wd = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    var mo = parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
+    localStorage.setItem('delivery_date_val', wd + ' ' + mo + ' ' + parts[1] + ', ' + parts[3]);
+    document.getElementById('DeliveryDate_def').value = formatted_input_date;
+}
+
+                  /**********************************/
+</script>
+
+
+
+<small id="date_disp2"></small>
+<div class="cart-form-section">
+<div class="cart-form-col"> 
+<label for="DeliveryDate">{{ "general.new.select_delivery_date_time" | t }}</label>
+<!-- <input
+  id="DeliveryDate_def"
+  type="date"
+  name="attributes[Data_Consegna]"
+  onload="fnCheckDate(this.value);"
+  onchange="fnCheckDate(this.value);"
+/>  -->
+
+
+  <input 
+    type="text"
+    name="checkIn" 
+    id="DeliveryDate_def"  
+    class="cart-calendar datepicker pickup_date"
+    onload="fnCheckDate(this.value);"
+    onchange="fnCheckDate(this.value);"
+  >
+
+<script>
+    jQuery(document).ready(function () {
+        jQuery('.datepicker').datepicker({
+            dateFormat: 'yy-mm-dd',
+            minDate: $('.pickup_date').attr('min'),
+            startDate: '+1d'
+        });
+      
+    });
+  
+  </script>
+  
+<style>
+
+/* Style for body and footer codepen 
+Designed by RuLiweb - ruliweb.it */
+
+
+h2{
+  margin-top:30px;
+  margin-bottom:50px;
+}
+
+.class-link{
+  color:#333333;
+  text-decoration:none;
+}
+
+.class-link:hover{
+ color:#ffbb00; 
+}
+
+/* From here you can start to copy */
+
+.cart-calendar {
+  padding:8px;
+  background: #ffffff;
+  border-radius: 0px;height:40px;
+  font-size:18px;
+  border: 1px solid #dcdcdc;
+}
+
+.ui-datepicker {
+  background: #ffffff;
+  border-radius: 15px;
+}
+.ui-datepicker-header {
+  height: 50px;
+  line-height: 50px;
+  color: #ffffff;border: 0px;
+  background: #000;
+  margin-bottom: 10px;
+}
+.ui-datepicker-prev,
+.ui-datepicker-next {
+  width: 20px;
+  height: 20px;
+  text-indent: 9999px;
+  border-radius: 100%;
+  cursor: pointer;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.ui-datepicker-prev {
+  float: left;
+  margin-left: 12px;
+}
+.ui-datepicker-prev:after {
+  transform: rotate(45deg);
+  margin: -43px 0px 0px 8px;
+}
+.ui-datepicker-next {
+  float: right;
+  margin-right: 12px;
+}
+.ui-datepicker-next:after {
+  transform: rotate(-135deg);
+  margin: -43px 0px 0px 6px;
+}
+.ui-datepicker-prev:after,
+.ui-datepicker-next:after {
+  content: '';
+  position: absolute;
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+}
+.ui-datepicker-prev:hover,
+.ui-datepicker-next:hover,
+.ui-datepicker-prev:hover:after,
+.ui-datepicker-next:hover:after {
+  border-color: #333333;
+}
+.ui-datepicker-title {
+  text-align: center;
+  font-size:20px;
+}
+.ui-datepicker-calendar {
+  width: 100%;
+  text-align: center;
+}
+.ui-datepicker-calendar thead tr th span {
+  display: block;
+  width: auto;
+  color: #31639c;
+  margin-bottom: 5px;
+  font-size: 16px;
+}
+.ui-state-default {
+  display: block;
+  text-decoration: none;
+  color: #333333;
+  line-height: 40px;
+  font-size: 16px;
+}
+.ui-state-default:hover {
+  color: #ffffff;
+  background:#31639c;
+  border-radius:50px;
+  transition: all 0.25s cubic-bezier(0.7, -0.12, 0.2, 1.12);
+}
+.ui-state-highlight {
+  color: #ffffff;
+  background-color:#31639c;
+  border-radius:50px;
+}
+}
+.ui-state-active {
+  color: #ffffff;
+  background-color:#31639c;
+  border-radius:50px;
+}
+.ui-datepicker-unselectable .ui-state-default {
+  color: #eee;
+  border: 2px solid transparent;
+}
+
+
+
+.ui-widget.ui-widget-content{border:0px;border-radius:2px;} 
+
+.ui-state-default, .ui-widget-content .ui-state-default, .ui-widget-header .ui-state-default, .ui-button, html .ui-button.ui-state-disabled:hover, html .ui-button.ui-state-disabled:active {
+    border: 0px solid #c5c5c5;
+    background: #f5f5f5;
+    font-weight: normal;
+    color: #454545;
+    text-align: center;
+    width: 35px;
+    height: 35px;border-radius: 0px;
+    line-height: 35px;
+    padding: 0px;
+}
+
+.ui-state-active, .ui-widget-content .ui-state-active, .ui-widget-header .ui-state-active, a.ui-button:active, .ui-button:active, .ui-button.ui-state-active:hover{
+    border: 0px solid #dad55e;
+    background: #000 !important;
+    color: #fff !important;
+}  
+.ui-datepicker .ui-datepicker-prev, .ui-datepicker .ui-datepicker-next{background:#f5f5f5;}
+
+.ui-datepicker-prev, .ui-datepicker-next{margin-top:7px;}
+.ui-datepicker .ui-datepicker-title{line-height:2.1em;}  
+
+{% comment %} .delivery-option-calendar {
+  border: none !important;
+  height: auto !important;
+} {% endcomment %}
+  
+</style>

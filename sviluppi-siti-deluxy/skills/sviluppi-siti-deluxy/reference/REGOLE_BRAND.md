@@ -61,7 +61,10 @@ Note:
 - Notte (00:00–08:00): consegne in giornata solo **dalle 10:00** in poi (prima fascia 10-12).
 - Ordine serale (20:00–24:00): consegna solo il giorno dopo, con prima fascia **08:00-10:00**
   (2h) e poi fasce orarie — regola esplicita del brand.
-- Il metafield `custom.minimo_orario` del prodotto filtra le fasce con inizio < quel valore.
+- Il metafield `custom.minimo_orario` del prodotto è la **prima ora di consegna** di quel prodotto
+  (senza metafield = 8). Nel carrello vale il massimo fra i prodotti: filtra le fasce con inizio
+  < quel valore e, se è **7** (colazioni Clivati), aggiunge la fascia **07-08** per DOMANI e oltre
+  (mai per OGGI, mai per DOMANI se l'ordine arriva dopo le 20:00) — dal 10/9/2026, tema dev.
 - `prodotto.consegna` (lead time) sposta in avanti la prima data; il cutoff 20:00 vale solo
   per consegna in giornata (consegna=0).
 - Implementate il 10/7/2026 sul tema "Version to work on". Dettagli in `TEMA_DELUXY_IT.md`.

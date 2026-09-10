@@ -180,6 +180,31 @@ la verifica è l'MD5 riportato da Shopify. Provato in anteprima (`?preview_theme
 clic vero su ACQUISTA → carrello con «Foto» (URL uploads) e «Crema». **Entra in produzione quando l'utente pubblica
 «Version to work on»** (il connettore non pubblica).
 
+## Fascia 07:00-08:00 per le colazioni (10/9/2026, sul tema «Version to work on», DA PUBBLICARE)
+
+Segnalazione: «Colazione 5 Stelle - Clivati Milano» (`colazione-5-stelle-clivati-milano`) doveva
+essere ordinabile dalle 7, ma nel carrello la tendina partiva da 08:00-09:00. Il prodotto (come tutti
+i Clivati: 5 Stelle, Luxury, Brunch Luxury, Girasoli, Natale Martesana, Rose & Champagne, Colazione
+di compleanno) ha già `custom.minimo_orario = 7`; il difetto era nel codice: in `fnCheckDate` i cicli
+DOMANI e DOPODOMANI partivano fissi da 8 (`for (var c = 8; …)`), quindi il filtro `c >= ora_min_def`
+poteva solo TOGLIERE fasce, mai aggiungerne prima delle 8.
+
+Correzione in `snippets/delivery_date_hour_c.liquid` (solo `fnCheckDate`, 4 replace ancorati):
+- per ogni prodotto `ora_min = Number(metafield) || 8` (senza metafield = 8, il default del sito);
+  `ora_min_def` = massimo fra i prodotti → **la fascia 07-08 compare solo se TUTTI i prodotti nel
+  carrello lo consentono** (colazione 7 + rose senza metafield → si parte dalle 8, come prima);
+- `var ora_inizio = Math.min(8, ora_min_def)`: i cicli DOMANI (ordine prima delle 20) e DOPODOMANI+
+  partono da `ora_inizio` invece che da 8;
+- invariati: OGGI (fasce 2h da 8/10 con anticipo 2h), DOMANI con ordine dopo le 20 (prima fascia
+  08-10: la 07-08 NON viene offerta la sera prima, scelta prudente), tutto ciò che riguarda date/cutoff.
+
+Verifica: harness simulato (baseline sul file live: nessun 07-08 con metafield 7; patch: 07-08 su
+DOMANI e DOPODOMANI, tutti gli altri scenari identici alla baseline) + anteprima reale del tema dev.
+Il file corretto è nel repo (`sviluppi-siti-deluxy/deluxy-it/snippets/delivery_date_hour_c.liquid`,
+md5 ce021ef4; originale Live md5 2c37b7e8, identico al dev prima della modifica). Temi al 10/9:
+Live `207187575114`, «Version to work on» `207188394314`. Entra in produzione quando l'utente pubblica
+il tema dev (o copia il solo file sul Live).
+
 ## Insidie specifiche
 
 - La `fnCheckDate` originale era un groviglio di `if (tmpHour > X && tmpHour < Y) $(...).remove()`
