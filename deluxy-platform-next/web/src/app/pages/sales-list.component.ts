@@ -242,17 +242,41 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
     <div class="cerca-riga">
       <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
              [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
-      @if (cerca.trim()) {
+      @if (cerca.trim() || filtriAttivi()) {
         <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: vendite().length } }}</span>
+      }
+    </div>
+    <!-- ⭐ 10/09/2026 (regola utente): i FILTRI. Le tendine offrono solo i valori presenti. -->
+    <div class="filtri-vendite">
+      <select class="field" name="fProvincia" [(ngModel)]="fProvincia" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'sales.filtri.provincia' | translate">
+        <option value="">{{ 'sales.filtri.provincia' | translate }}: {{ 'sales.filtri.tutte' | translate }}</option>
+        @for (o of opzProvince(); track o) { <option [value]="o">{{ o }}</option> }
+      </select>
+      <select class="field" name="fPartner" [(ngModel)]="fPartner" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'sales.filtri.partner' | translate">
+        <option value="">{{ 'sales.filtri.partner' | translate }}: {{ 'sales.filtri.tutti' | translate }}</option>
+        @for (o of opzPartner(); track o) { <option [value]="o">{{ o }}</option> }
+      </select>
+      <select class="field" name="fBrand" [(ngModel)]="fBrand" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'sales.filtri.brand' | translate">
+        <option value="">{{ 'sales.filtri.brand' | translate }}: {{ 'sales.filtri.tutti' | translate }}</option>
+        @for (o of opzBrand(); track o) { <option [value]="o">{{ o }}</option> }
+      </select>
+      <select class="field" name="fTipologia" [(ngModel)]="fTipologia" (ngModelChange)="filtroCambiato()" [attr.aria-label]="'sales.filtri.tipologia' | translate">
+        <option value="">{{ 'sales.filtri.tipologia' | translate }}: {{ 'sales.filtri.tutte' | translate }}</option>
+        @for (o of opzTipologie(); track o) { <option [value]="o">{{ o }}</option> }
+      </select>
+      <label class="fld-data"><span>{{ 'sales.filtri.dal' | translate }}</span><input class="field" type="date" name="fDal" [(ngModel)]="fDal" (ngModelChange)="filtroCambiato()" /></label>
+      <label class="fld-data"><span>{{ 'sales.filtri.al' | translate }}</span><input class="field" type="date" name="fAl" [(ngModel)]="fAl" (ngModelChange)="filtroCambiato()" /></label>
+      @if (filtriAttivi()) {
+        <button type="button" class="btn btn-secondary" (click)="azzeraFiltri()">{{ 'filters.clear' | translate }}</button>
       }
     </div>
 
     @if (!visibili().length) {
       <section class="card vuoto">
-        @if (cerca.trim() || filtro() !== 'tutte') {
+        @if (cerca.trim() || filtro() !== 'tutte' || filtriAttivi()) {
           <!-- Vuoto DA FILTRO (§6.2): si dice il perché e si offre la via. -->
           <p>{{ 'comune.contoRighe' | translate: { n: 0, m: vendite().length } }}</p>
-          <button type="button" class="btn btn-secondary" (click)="cerca = ''; filtro.set('da_gestire')">
+          <button type="button" class="btn btn-secondary" (click)="cerca = ''; azzeraFiltri(); filtro.set('da_gestire')">
             {{ 'filters.clear' | translate }}
           </button>
         } @else {
@@ -984,6 +1008,9 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .mono { font-variant-numeric: tabular-nums; }
       .muted { color: var(--text-tertiary); }
+      .filtri-vendite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+      .filtri-vendite .field { width: auto; min-width: 150px; }
+      .filtri-vendite .fld-data { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
       .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
       .cerca-riga .field { max-width: 340px; }
       .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
@@ -1172,8 +1199,10 @@ export class SalesListComponent {
       : f === 'da_gestire' ? this.vendite().filter((s) => this.inAperti(s))
       : f === 'storico' ? this.vendite().filter((s) => this.inStorico(s))
       : this.vendite().filter((s) => s.status === f);
+    this.filtriVersione(); // dipendenza: i filtri (campi semplici) ricalcolano la lista
     const q = this.cercaTesto().trim().toLowerCase();
-    const filtrate = !q ? base : base.filter((s) =>
+    const conFiltri = this.filtriAttivi() ? base.filter((s) => this.passaFiltri(s)) : base;
+    const filtrate = !q ? conFiltri : conFiltri.filter((s) =>
       (s.externalOrderId ?? '').toLowerCase().includes(q) ||
       (s.externalOrderNumber ?? '').toLowerCase().includes(q) ||
       (s.product?.name ?? s.productName ?? '').toLowerCase().includes(q) ||
@@ -1478,13 +1507,58 @@ export class SalesListComponent {
 
   ricarica(): void { this.carica(); }
 
+  /**
+   * ⭐ 10/09/2026 («il caricamento di vendite è lento»): gli stati di Orders e del Customer
+   * Service arrivano DOPO la lista, con una rotta a parte, e si fondono nelle righe. La
+   * tabella compare subito; le due colonne esterne si riempiono un attimo dopo.
+   */
+  private caricaStatiEsterni(): void {
+    this.http.get<Record<string, { ordine: Sale['ordine']; customerService: Sale['customerService'] }>>(`${environment.apiUrl}/sales/stati-esterni`).subscribe({
+      next: (m) => {
+        if (!m || !Object.keys(m).length) return;
+        this.vendite.update((lista) => lista.map((v) => (m[v.id] ? { ...v, ordine: m[v.id].ordine ?? v.ordine, customerService: m[v.id].customerService ?? v.customerService } : v)));
+      },
+      error: () => undefined, // best-effort: senza Orders/CS le colonne restano vuote, come prima
+    });
+  }
+
+  // ⭐ 10/09/2026 (regola utente: «mettere dei filtri in vendite»). Quelli che rispondono alle
+  // domande dell'ufficio: DOVE (provincia), CHI (partner), DA QUALE NEGOZIO (brand), CHE TIPO di
+  // prodotto (unico / preventivo / mix…), QUANDO si consegna (dal/al). Le tendine si riempiono
+  // coi valori presenti in lista: non si offre un filtro che darebbe zero righe.
+  fProvincia = ''; fPartner = ''; fBrand = ''; fTipologia = ''; fDal = ''; fAl = '';
+  readonly filtriVersione = signal(0);
+  filtroCambiato(): void { this.filtriVersione.update((x) => x + 1); }
+  filtriAttivi(): number { return [this.fProvincia, this.fPartner, this.fBrand, this.fTipologia, this.fDal, this.fAl].filter(Boolean).length; }
+  azzeraFiltri(): void { this.fProvincia = this.fPartner = this.fBrand = this.fTipologia = this.fDal = this.fAl = ''; this.filtroCambiato(); }
+  private valori(pick: (s: Sale) => string | null | undefined): string[] {
+    return [...new Set(this.vendite().map(pick).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
+  }
+  readonly opzProvince = computed(() => this.valori((s) => s.province?.code));
+  readonly opzPartner = computed(() => this.valori((s) => s.partner?.insegna));
+  readonly opzBrand = computed(() => this.valori((s) => s.brand));
+  readonly opzTipologie = computed(() => this.valori((s) => s.product?.tipologiaVendita));
+  private passaFiltri(s: Sale): boolean {
+    if (this.fProvincia && s.province?.code !== this.fProvincia) return false;
+    if (this.fPartner && s.partner?.insegna !== this.fPartner) return false;
+    if (this.fBrand && s.brand !== this.fBrand) return false;
+    if (this.fTipologia && (s.product?.tipologiaVendita ?? '') !== this.fTipologia) return false;
+    if (this.fDal || this.fAl) {
+      const g = (s.deliveryDate ?? '').slice(0, 10);
+      if (!g) return false;
+      if (this.fDal && g < this.fDal) return false;
+      if (this.fAl && g > this.fAl) return false;
+    }
+    return true;
+  }
+
   private carica(silenzioso = false): void {
     if (!silenzioso) {
       this.caricando.set(true);
       this.erroreCarico.set(null);
     }
     this.http.get<Sale[]>(`${environment.apiUrl}/sales`).subscribe({
-      next: (r) => { this.vendite.set(r ?? []); this.caricando.set(false); },
+      next: (r) => { this.vendite.set(r ?? []); this.caricando.set(false); this.caricaStatiEsterni(); },
       // ⚠️ Legge 9 del Libro: un fallimento NON e' mai una lista vuota.
       // Prima qui c'era vendite.set([]) — il guasto sembrava «zero vendite».
       error: (e) => {

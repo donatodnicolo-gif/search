@@ -154,6 +154,19 @@ interface PropostaVendita {
           {{ 'deliveries.ricerca.apri' | translate }}@if (condizioniValide().length) { ({{ condizioniValide().length }}) }
         </button>
         <div class="pannello-filtri" [class.aperto]="filtriAperti()">
+        <!-- ⭐ 10/09/2026 (regola utente): «da mobile serve come poter decidere ordinamento consegne».
+             Sul telefono la tabella diventa schede e le intestazioni cliccabili spariscono: qui una
+             tendina «Ordina per» e il verso. Dal desktop resta nascosta (si clicca l'intestazione). -->
+        <div class="ordina-mobile">
+          <select class="field" [ngModel]="sort()" (ngModelChange)="sortBy($event)" [attr.aria-label]="'deliveries.ordina.label' | translate">
+            @for (o of ORDINAMENTI; track o.campo) {
+              <option [value]="o.campo">{{ 'deliveries.ordina.label' | translate }}: {{ o.chiave | translate }}</option>
+            }
+          </select>
+          <button type="button" class="quick-tab" (click)="invertiVerso()">
+            {{ (dir() === 'asc' ? 'deliveries.ordina.asc' : 'deliveries.ordina.desc') | translate }}
+          </button>
+        </div>
         @if (partnerFiltro()) {
           <!-- ⚠️ Un elenco ridotto deve dire da COSA (Libro §5): senza questo
                chip la pagina sembrerebbe avere pochissime consegne. -->
@@ -423,6 +436,8 @@ interface PropostaVendita {
               <tr
                 class="row-link"
                 [class.da-gestire]="eDaGestire(d)"
+                [class.margine-basso]="margineBasso(d)"
+                [attr.title]="d.margine ? ('deliveries.margine.titolo' | translate: { pct: d.margine.percent, euro: d.margine.euro.toFixed(2) }) : null"
                 [attr.tabindex]="canDetails() ? 0 : null"
                 (click)="openDetail(d)"
                 (keydown.enter)="openDetail(d)"
@@ -1095,7 +1110,13 @@ interface PropostaVendita {
          ============================================================ */
       .pannello-filtri { display: contents; }
       .filtri-toggle, .filtri-azzera { display: none; }
+      /* ⭐ 10/09: «Ordina per» solo sul telefono; sul desktop si clicca l'intestazione. */
+      .ordina-mobile { display: none; }
+      /* ⭐ 10/09: vendita con margine sotto il 5% (o negativo): la riga si legge in rosso. */
+      tr.margine-basso td, tr.margine-basso td .muted, tr.margine-basso td a { color: var(--red, #d70015); }
       @media (max-width: 800px) {
+        .ordina-mobile { display: flex; gap: 8px; width: 100%; align-items: center; }
+        .ordina-mobile .field { flex: 1 1 auto; min-width: 0; }
         .page-header { align-items: stretch; }
         .filters { width: 100%; }
         .filters > * { min-width: 0; }
@@ -2378,6 +2399,16 @@ export class DeliveriesListComponent {
    * consegna non è in lavorazione. Accetta non cambia il giro; Rifiuta chiude
    * la consegna come «Non accettata» (Storico) e l'ordine torna all'ufficio.
    */
+  /**
+   * ⭐ 10/09/2026 (regola utente): «per ufficio le vendite con margine inferiore al 5% o negativo
+   * hanno testo in rosso». Il margine lo calcola il server (solo per l'ufficio): sotto il 5% del
+   * prezzo pagato dal cliente — o sotto zero — la riga si legge in rosso, anche nello Storico.
+   */
+  margineBasso(d: Delivery): boolean {
+    const m = (d as any).margine as { percent: number } | undefined;
+    return !!m && m.percent < 5;
+  }
+
   /** L'utente loggato è un partner? (default «tutte», 02/09) */
   isPartnerRuolo(): boolean {
     return this.auth.user()?.role === 'PARTNER';
@@ -2758,6 +2789,23 @@ export class DeliveriesListComponent {
   }
 
   /** Click sull'intestazione: stesso campo inverte il verso, altrimenti asc. */
+  /** ⭐ 10/09: le colonne fra cui ordinare dal telefono (le stesse delle intestazioni). */
+  readonly ORDINAMENTI = [
+    { campo: 'date', chiave: 'deliveries.col.date' },
+    { campo: 'deliveryTimeFrom', chiave: 'deliveries.col.delivery' },
+    { campo: 'pickupTimeFrom', chiave: 'deliveries.col.pickup' },
+    { campo: 'code', chiave: 'deliveries.col.code' },
+    { campo: 'status', chiave: 'deliveries.col.status' },
+    { campo: 'partner.insegna', chiave: 'deliveries.col.partner' },
+    { campo: 'recipientLastName', chiave: 'deliveries.col.recipient' },
+    { campo: 'serviceType.name', chiave: 'deliveries.col.service' },
+    { campo: 'price', chiave: 'deliveries.col.price' },
+  ];
+  invertiVerso(): void {
+    this.dir.set(this.dir() === 'asc' ? 'desc' : 'asc');
+    this.reload();
+  }
+
   sortBy(field: string): void {
     if (this.sort() === field) {
       this.dir.set(this.dir() === 'asc' ? 'desc' : 'asc');

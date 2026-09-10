@@ -833,6 +833,8 @@
     }
   },
   "deliveries": {
+    "ordina": { "label": "Ordina per", "asc": "Crescente ↑", "desc": "Decrescente ↓" },
+    "margine": { "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %" },
     "nonConsegnate": {
       "chip": "Non consegnata",
       "alert": "{{n}} non consegnate da gestire.",
@@ -850,6 +852,7 @@
     },
     "vendita": {
       "accetta": "Accetta",
+      "accettata": "Vendita accettata ✓",
       "rifiuta": "Rifiuta",
       "rifiutaTitolo": "Rifiutare questa vendita?",
       "rifiutaMessaggio": "la consegna passa nello Storico come «Non accettata» e l'ordine torna all'ufficio, che potrà riassegnarlo.",
@@ -2862,6 +2865,7 @@
     "createNew": "Crea una scheda nuova nel registro"
   },
   "sales": {
+    "filtri": { "provincia": "Provincia", "partner": "Partner", "brand": "Negozio", "tipologia": "Tipologia", "dal": "Consegna dal", "al": "al", "tutte": "tutte", "tutti": "tutti" },
     "title": "Vendite",
     "caption": "Gli ordini smistati ai partner.",
     "cercaFornitore": "Cerca fornitore",

@@ -49,6 +49,8 @@ export interface Delivery {
   deliveredByPartner?: boolean;
   /** VENDITA (02/09): il partner ha premuto «Accetta» — i bottoni si spengono. */
   acceptSale?: boolean;
+  /** ⭐ 10/09/2026: margine Deluxy sulla vendita (solo ufficio; sotto il 5 % la riga è rossa). */
+  margine?: { euro: number; percent: number; conValet: boolean } | null;
   /** Regola carnet applicata (id + nome), se la consegna ne segue una. */
   deliveryRuleId?: string | null;
   deliveryRule?: { name: string } | null;

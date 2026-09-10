@@ -60,6 +60,8 @@ const DELIVERY_LIST_SELECT = {
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
+  // ⭐ 10/09/2026: il valore della merce, per il margine delle vendite in tabella (ufficio).
+  productValue: true,
   // ⭐ 05/09/2026: il ritiro verificato col codice del valet (bottone «in consegna»).
   valetIdentityCheck: true, deliveryCodeRequired: true, pickupVerifiedAt: true,
   // ⭐ 06/09/2026 (regola utente): la PUNTUALITÀ (in orario / in ritardo / in anticipo)
@@ -799,7 +801,7 @@ export class DeliveriesService {
     if (idVendita.length) {
       const vendite = await this.prisma.sale.findMany({
         where: { deliveryId: { in: idVendita } },
-        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true },
+        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true, amount: true },
       });
       const perConsegna = new Map(vendite.map((v) => [v.deliveryId as string, v]));
       for (const r of rows as any[]) {
@@ -807,6 +809,62 @@ export class DeliveriesService {
         // ⚠️ Solo se c'è davvero: una consegna di vendita può essere nata a
         // mano, senza nessuna vendita dietro. Meglio vuoto che inventato.
         if (v) r.vendita = { id: v.id, ordine: v.externalOrderNumber, brand: v.brand, stato: v.status };
+      }
+      // ⭐ 10/09/2026 (regola utente): «in tabella consegne (anche storico) per ufficio le vendite
+      // con margine inferiore al 5% o negativo hanno testo in rosso». Il MARGINE è lo stesso del
+      // dettaglio (`margineVendita`): prezzo pagato dal cliente − dovuto netto al partner − paga
+      // del valet (scritta o dal suo listino, come Stipendi). Solo per l'ufficio; quattro letture
+      // per tutta la pagina, non una per riga. Dove manca un numero (valore, quota) non si inventa:
+      // la riga resta senza margine e senza colore.
+      if (user.role === Role.ADMIN || user.role === Role.OPERATION) {
+        const righeVendita = (rows as any[]).filter((r) => ((perConsegna.get(r.id)?.amount ?? 0) as number) > 0);
+        if (righeVendita.length) {
+          const ids = righeVendita.map((r) => r.id as string);
+          const coppie = [...new Set(righeVendita
+            .filter((r) => !((r.price ?? 0) > 0) && r.partner?.id && r.serviceType?.id)
+            .map((r) => `${r.partner.id}|${r.serviceType.id}`))]
+            .map((k) => { const [partnerId, serviceTypeId] = k.split('|'); return { partnerId, serviceTypeId }; });
+          const valetIds = [...new Set(righeVendita.map((r) => r.valetId).filter(Boolean))] as string[];
+          const [prodotti, listini, listiniValet, valets] = await Promise.all([
+            this.prisma.deliveryProduct.findMany({
+              where: { deliveryId: { in: ids } },
+              select: { deliveryId: true, price: true, quantity: true, withoutCommission: true, productVariant: { select: { price: true } }, product: { select: { price: true } } },
+            }),
+            coppie.length ? this.prisma.partnerService.findMany({ where: { OR: coppie }, select: { partnerId: true, serviceTypeId: true, price: true } }) : Promise.resolve([] as { partnerId: string; serviceTypeId: string; price: number | null }[]),
+            valetIds.length ? this.prisma.valetService.findMany({ where: { valetId: { in: valetIds } }, include: { serviceType: { select: { pricingModel: true, minHours: true } } }, orderBy: [{ validFrom: 'desc' }] }) : Promise.resolve([] as any[]),
+            valetIds.length ? this.prisma.valet.findMany({ where: { id: { in: valetIds } }, select: { id: true, minimumKmIncluded: true, extraOutOfCityPrice: true } }) : Promise.resolve([] as any[]),
+          ]);
+          const perRiga = new Map<string, any[]>();
+          for (const p of prodotti) { const a = perRiga.get(p.deliveryId) ?? []; a.push(p); perRiga.set(p.deliveryId, a); }
+          const fee = new Map(listini.map((l) => [`${l.partnerId}|${l.serviceTypeId}`, l.price]));
+          const perIdL = new Map<string, any>(listiniValet.map((l: any) => [l.id, l]));
+          const perValetL = new Map<string, any[]>();
+          for (const l of listiniValet as any[]) { const a = perValetL.get(l.valetId) ?? []; a.push(l); perValetL.set(l.valetId, a); }
+          const perValet = new Map<string, any>((valets as any[]).map((v) => [v.id, v]));
+          const q2 = (x: number) => Math.round(x * 100) / 100;
+          for (const r of righeVendita) {
+            const righe = perRiga.get(r.id) ?? [];
+            const valore = valoreProdotti(righe as any, r.productValue);
+            if (!valore) continue;
+            let quota: number | null = (r.price ?? 0) > 0 ? (r.price as number) : null;
+            if (quota == null) {
+              const f = fee.get(`${r.partner?.id}|${r.serviceType?.id}`);
+              if (f != null) quota = q2((baseFee(righe as any, r.productValue) * f) / 100);
+            }
+            if (quota == null) continue;
+            const prezzoCliente = perConsegna.get(r.id)!.amount as number;
+            const resta = q2(prezzoCliente - q2(valore - conIva(quota)));
+            let costoValet: number | null = null;
+            if ((r.valetSalary ?? 0) > 0) costoValet = q2(r.valetSalary + (r.valetAdditionalPrice ?? 0));
+            else if (r.valetId) {
+              const l = scegliListinoValet(r, perIdL, perValetL);
+              const c = l ? pagaConsegna({ ...r, valet: perValet.get(r.valetId) } as any, l as any, r.deliveryRule ?? null) : null;
+              if (c) costoValet = c.amount;
+            }
+            const margine = costoValet != null ? q2(resta - costoValet) : resta;
+            r.margine = { euro: margine, percent: q2((margine / prezzoCliente) * 100), conValet: costoValet != null };
+          }
+        }
       }
     }
     // Le note interne non si nascondono piu' dopo averle lette: l'elenco non

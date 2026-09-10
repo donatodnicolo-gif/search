@@ -404,15 +404,14 @@ export class SalesService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    // ⭐ 04/09 (regola utente): in tabella si vede anche lo STATO DELL'ORDINE
-    // IN ORDERS (classificazione, evasione, smistamento, consegnato). Letto
-    // dal vivo da Orders — nessuna copia (Standard §7) — con una cache di 2′
-    // in memoria: la lista si aggiorna da sola ogni 30″ e Orders non va
-    // interrogato a ogni giro. Best-effort: senza Orders la colonna resta vuota.
-    const stati = await this.statiDaOrders(vendite);
-    // ⭐ 08/09: lo stato di lavorazione del Customer Service, letto da lui (solo per le
-    // vendite ancora aperte — il perché è in `statiDaCustomerService`).
-    const statiCs = await this.statiDaCustomerService(vendite);
+    // ⭐ 10/09/2026 (segnalazione utente: «il caricamento di vendite è lento») — MISURATO:
+    // la lettura dal database è 637 righe in ~450 ms; quello che faceva aspettare erano le
+    // chiamate a Orders (fino a 25 pagine) e al Customer Service (fino a 60 numeri) fatte
+    // PRIMA di rispondere, a ogni avvio della funzione. Ora la lista risponde subito e gli
+    // stati esterni arrivano con la seconda rotta `GET /sales/stati-esterni`, che la pagina
+    // chiama dopo e fonde in tabella. Stessi dati, stessa cache di 2′: solo non si aspetta.
+    const stati = new Map<string, StatoOrdineOrders>();
+    const statiCs = new Map<string, StatoCustomerService>();
 
     /**
      * ⭐ 08/09/2026 (regola utente: «fammi capire chiaramente se è stata trasmessa al
@@ -691,6 +690,25 @@ export class SalesService {
    * oggi non lo fa.
    */
   private statiCsCache: { quando: number; mappa: Map<string, StatoCustomerService> } | null = null;
+
+  /**
+   * ⭐ 10/09/2026: gli stati letti da Orders e dal Customer Service, per id di vendita — la
+   * seconda metà della lista, chiesta a parte perché non tenga ferma la prima.
+   */
+  async statiEsterni(user: JwtUser): Promise<Record<string, { ordine: StatoOrdineOrders | null; customerService: StatoCustomerService | null }>> {
+    const where = user.role === Role.PARTNER ? { partnerId: user.partnerId ?? '-' } : {};
+    const vendite = await this.prisma.sale.findMany({
+      where, select: { id: true, externalOrderId: true, externalOrderNumber: true, status: true, createdAt: true },
+    });
+    const [stati, statiCs] = await Promise.all([this.statiDaOrders(vendite), this.statiDaCustomerService(vendite)]);
+    const esito: Record<string, { ordine: StatoOrdineOrders | null; customerService: StatoCustomerService | null }> = {};
+    for (const v of vendite) {
+      const ordine = SalesService.chiaviOrdine(v.externalOrderId).map((k) => stati.get(k)).find(Boolean) ?? null;
+      const cs = statiCs.get(String(v.externalOrderNumber ?? '').replace(/\D/g, '')) ?? null;
+      if (ordine || cs) esito[v.id] = { ordine, customerService: cs };
+    }
+    return esito;
+  }
 
   private async statiDaCustomerService(
     vendite: { externalOrderNumber: string | null; status: string }[],
@@ -3408,6 +3426,12 @@ export class SalesController {
   @ApiOperation({ summary: 'Lista vendite (il partner vede le proprie)' })
   findAll(@CurrentUser() user: JwtUser) {
     return this.salesService.findAll(user);
+  }
+
+  @Get('stati-esterni')
+  @ApiOperation({ summary: 'Stati letti da Orders e dal Customer Service, per id di vendita (la pagina li chiede dopo la lista)' })
+  statiEsterni(@CurrentUser() user: JwtUser) {
+    return this.salesService.statiEsterni(user);
   }
 
   @Get(':id')

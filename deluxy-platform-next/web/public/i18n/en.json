@@ -832,6 +832,8 @@
     }
   },
   "deliveries": {
+    "ordina": { "label": "Sort by", "asc": "Ascending ↑", "desc": "Descending ↓" },
+    "margine": { "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %" },
     "nonConsegnate": {
       "chip": "Not delivered",
       "alert": "{{n}} not delivered to handle.",
@@ -849,6 +851,7 @@
     },
     "vendita": {
       "accetta": "Accept",
+      "accettata": "Sale accepted ✓",
       "rifiuta": "Refuse",
       "rifiutaTitolo": "Refuse this sale?",
       "rifiutaMessaggio": "the delivery moves to History as \"Not accepted\" and the order goes back to the office for reassignment.",
@@ -2860,6 +2863,7 @@
     "emptyHere": "Nothing here to send."
   },
   "sales": {
+    "filtri": { "provincia": "Province", "partner": "Partner", "brand": "Store", "tipologia": "Type", "dal": "Delivery from", "al": "to", "tutte": "all", "tutti": "all" },
     "title": "Sales",
     "caption": "Orders dispatched to partners.",
     "cercaFornitore": "Find supplier",

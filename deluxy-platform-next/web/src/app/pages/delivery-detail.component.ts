@@ -88,6 +88,8 @@ interface DeliveryDetail {
   partnerId?: string | null;
   date: string;
   status: string;
+  /** VENDITA: il partner ha già accettato (il bottone si spegne). */
+  acceptSale?: boolean;
   paymentStatus: string;
   /** Consegne da Fornitore: la fa il partner, non un valet. */
   deliveredByPartner?: boolean;
@@ -250,7 +252,25 @@ interface DeliveryDetail {
           @if (puoAnnullare()) {
             <button type="button" class="act ko" (click)="confermaAnnulla.set(true)">{{ 'deliveries.annulla.bottone' | translate }}</button>
           }
+          <!-- ⭐ 10/09/2026 (regola utente): «in dettagli consegna per il partner manca la possibilità
+               di accettare». Le stesse due azioni della tabella (02/09): Accetta non cambia il giro
+               (si spegne solo il bottone); Rifiuta chiude «Non accettata» e l'ordine torna all'ufficio. -->
+          @if (puoRispondereVendita()) {
+            <button type="button" class="act primary" [disabled]="venditaInCorso()" (click)="accettaVendita()">{{ 'deliveries.vendita.accetta' | translate }}</button>
+            <button type="button" class="act ko" [disabled]="venditaInCorso()" (click)="confermaRifiutoVendita.set(true)">{{ 'deliveries.vendita.rifiuta' | translate }}</button>
+          }
+          @if (isPartner() && d.acceptSale && d.serviceType?.pricingModel === 'VENDITA') {
+            <span class="pill s-accepted-pill">{{ 'deliveries.vendita.accettata' | translate }}</span>
+          }
         </div>
+        @if (confermaRifiutoVendita()) {
+          <app-conferma [titolo]="'deliveries.vendita.rifiutaTitolo' | translate"
+                        [messaggio]="'#' + d.code + ' — ' + ('deliveries.vendita.rifiutaMessaggio' | translate)"
+                        [verbo]="'deliveries.vendita.rifiuta' | translate" tono="danger" [conMotivo]="true"
+                        [motivoLabel]="'deliveries.vendita.motivo' | translate"
+                        (confermato)="confermaRifiutoVendita.set(false); rifiutaVendita($event)"
+                        (annullato)="confermaRifiutoVendita.set(false)" />
+        }
         @if (confermaAnnulla()) {
           <div class="card conferma-annulla">
             <p><strong>{{ 'deliveries.annulla.titolo' | translate }}</strong></p>
@@ -1301,6 +1321,7 @@ interface DeliveryDetail {
       .conferma-annulla { margin: 0 0 16px; padding: 14px 16px; }
       .conferma-annulla .hint { margin: 4px 0 10px; color: var(--text-secondary); font-size: 13px; }
       .azioni-conferma { display: flex; gap: 8px; }
+      .s-accepted-pill { background: var(--blue-soft, #e8f0fe); color: var(--blue, #1a5fd0); align-self: center; }
       .azione-errore { color: var(--red); font-size: 13px; flex-basis: 100%; }
       .chiusura-corpo { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
       .campo-eti { font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-top: 6px; }
@@ -1974,6 +1995,39 @@ export class DeliveryDetailComponent {
   }
   readonly confermaAnnulla = signal(false);
   readonly annullando = signal(false);
+
+  /** ⭐ 10/09: VENDITA — il partner risponde anche dal dettaglio (stessa regola della lista, 02/09). */
+  puoRispondereVendita(): boolean {
+    const u = this.auth.user();
+    const d = this.delivery();
+    return u?.role === 'PARTNER' && !!d
+      && d.partner?.id === u.partnerId
+      && d.serviceType?.pricingModel === 'VENDITA'
+      && !d.acceptSale
+      && ['created', 'assigned'].includes(d.status ?? '');
+  }
+  readonly confermaRifiutoVendita = signal(false);
+  readonly venditaInCorso = signal(false);
+  accettaVendita(): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.venditaInCorso.set(true);
+    this.actionError.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/accetta-vendita`, {}).subscribe({
+      next: () => { this.venditaInCorso.set(false); this.load(true); },
+      error: (err) => { this.venditaInCorso.set(false); this.actionError.set(err?.error?.message ?? 'Errore nell\'accettazione'); },
+    });
+  }
+  rifiutaVendita(motivo: string): void {
+    const d = this.delivery();
+    if (!d) return;
+    this.venditaInCorso.set(true);
+    this.actionError.set(null);
+    this.http.post(`${environment.apiUrl}/deliveries/${d.id}/rifiuta-vendita`, { motivo }).subscribe({
+      next: () => { this.venditaInCorso.set(false); this.load(true); },
+      error: (err) => { this.venditaInCorso.set(false); this.actionError.set(err?.error?.message ?? 'Errore nel rifiuto'); },
+    });
+  }
   annulla(): void {
     const d = this.delivery();
     if (!d) return;
