@@ -36,6 +36,9 @@ export default async function PaginaNuovoOrdine({
           telefono: uno('telefono'),
           negozioId: uno('negozio'),
         }}
+        // ⭐ ?bozza=<id riga OrdineCreato>: il modulo riapre quella bozza per
+        // modificarla (bottone «Modifica» nelle bozze mandate).
+        bozzaId={uno('bozza')}
       />
     </>
   )

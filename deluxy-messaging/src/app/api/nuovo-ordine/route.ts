@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { creaOrdine, type DatiNuovoOrdine } from '@/lib/nuovo-ordine'
+import { datiDaCorpo } from '@/lib/nuovo-ordine-corpo'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -14,49 +15,9 @@ export async function POST(req: NextRequest) {
   if (!d.negozioId) return NextResponse.json({ errore: 'Scegli il negozio.' }, { status: 400 })
   if (!d.righe?.length) return NextResponse.json({ errore: 'Aggiungi almeno un prodotto.' }, { status: 400 })
 
-  const esito = await creaOrdine({
-    negozioId: d.negozioId,
-    cliente: {
-      nome: d.cliente?.nome ?? '',
-      cognome: d.cliente?.cognome ?? '',
-      email: d.cliente?.email ?? '',
-      telefono: d.cliente?.telefono ?? '',
-    },
-    // Chi riceve, se non è il mittente: si passa com'è, la lib decide se vale.
-    destinatario: d.destinatario
-      ? {
-          nome: d.destinatario.nome ?? '',
-          cognome: d.destinatario.cognome ?? '',
-          telefono: d.destinatario.telefono ?? '',
-        }
-      : undefined,
-    // ⚠️ Di suo NO: solo se il modulo lo dichiara a vero.
-    consensoMarketing: d.consensoMarketing === true,
-    consegna: {
-      data: d.consegna?.data ?? '',
-      fascia: d.consegna?.fascia ?? '',
-      indirizzo: d.consegna?.indirizzo ?? '',
-      civicoNote: d.consegna?.civicoNote ?? '',
-      cap: d.consegna?.cap ?? '',
-      citta: d.consegna?.citta ?? '',
-      provincia: d.consegna?.provincia ?? '',
-      paese: d.consegna?.paese ?? 'IT',
-    },
-    righe: d.righe,
-    biglietto: d.biglietto ?? '',
-    spedizione: { titolo: d.spedizione?.titolo ?? '', prezzo: d.spedizione?.prezzo ?? 0 },
-    anonima: Boolean(d.anonima),
-    // ⭐ Eccezione agli orari del negozio: il motivo, se l'operatore l'ha scritto.
-    eccezioneOrari: String(d.eccezioneOrari ?? ''),
-    pagamento: d.pagamento === 'pagato' ? 'pagato' : 'link',
-    mezzoPagamento: d.mezzoPagamento ?? '',
-    // ⚠️ Di suo l'IVA NON si aggiunge: solo se il modulo la chiede esplicitamente.
-    aggiungiIva: d.aggiungiIva === true,
-    // Chi sta creando l'ordine: la sessione lo sa, Shopify no. Senza questo
-    // la pagina «Operatori» non può dire quanti link di pagamento manda
-    // ciascuno — e quel dato non si recupera dopo.
-    operatore: { id: io.id, nome: io.nome },
-  })
+  // La traduzione corpo → dati è condivisa con PUT /api/bozze/[id] (modifica
+  // di una bozza): `src/lib/nuovo-ordine-corpo.ts`.
+  const esito = await creaOrdine(datiDaCorpo(d, { id: io.id, nome: io.nome }))
   if (!esito.ok) return NextResponse.json({ errore: esito.errore }, { status: 502 })
   return NextResponse.json(esito)
 }

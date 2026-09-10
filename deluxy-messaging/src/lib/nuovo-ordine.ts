@@ -481,7 +481,20 @@ export type EsitoNuovoOrdine =
  *   che mezzo, resta scritto nelle note dell'ordine — su Shopify si vedrà come
  *   pagamento manuale, e senza quella riga non si saprebbe più.
  */
-export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> {
+type BozzaPreparata =
+  | { ok: true; n: Negozio; t: string; input: Record<string, unknown> }
+  | { ok: false; errore: string }
+
+/**
+ * Dai dati del modulo all'`input` che Shopify capisce (`DraftOrderInput`), con
+ * tutti i controlli che valgono sia per creare sia per modificare una bozza.
+ *
+ * ⭐ Estratto da `creaOrdine` il 10/09/2026 per la MODIFICA delle bozze:
+ * `draftOrderCreate` e `draftOrderUpdate` prendono lo stesso input, e tenerne
+ * due copie vorrebbe dire che una correzione (un tetto di 255 caratteri, un
+ * attributo nuovo) arriva a una strada e non all'altra.
+ */
+async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
   const n = await negozio(d.negozioId)
   if (!n) return { ok: false, errore: 'Negozio non trovato.' }
   const t = await token(n)
@@ -630,6 +643,14 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
         }
       : {}),
   }
+
+  return { ok: true, n, t, input }
+}
+
+export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> {
+  const preparata = await preparaBozza(d)
+  if (!preparata.ok) return preparata
+  const { n, t, input } = preparata
 
   const creata = await graphql<{
     data?: {
@@ -801,6 +822,145 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     ordineNumero: numeroVero,
     inviato: false,
     consensoEsito,
+  }
+}
+
+/**
+ * ⭐ MODIFICA UNA BOZZA NON ANCORA PAGATA (utente, 10/09/2026: «consenti di
+ * modificare una bozza non ancora pagata»).
+ *
+ * Il caso di tutti i giorni: il link è partito, il cliente richiama — «metti
+ * due rose in più», «l'indirizzo è un altro», «consegnalo sabato». Finora si
+ * annullava la bozza e se ne rifaceva una: il cliente riceveva un secondo link
+ * e il primo restava pagabile in giro. Qui la STESSA bozza si riscrive con
+ * `draftOrderUpdate`: stesso numero (#D…), stesso link di pagamento.
+ *
+ * ⚠️⚠️ Solo finché non è pagata. Lo stato si chiede a Shopify PRIMA di scrivere:
+ * una bozza già chiusa è un ordine, e un ordine si tocca su Shopify (o si
+ * rimborsa), non da qui. Se nel frattempo il cliente ha pagato, si scrive il
+ * numero dell'ordine sulla riga e si dice di no.
+ * ⚠️ Il negozio non si cambia: la bozza vive in QUEL negozio. E non si chiude
+ * da qui come «pagata»: per quello c'è «Segna pagata» nell'elenco.
+ * ⚠️ `lineItems`, `customAttributes` e `tags` su Shopify si SOSTITUISCONO,
+ * non si sommano: per questo si rimanda l'input intero, non la differenza.
+ */
+export async function aggiornaBozza(
+  rigaId: string,
+  d: DatiNuovoOrdine,
+  opzioni: { reinviaLink?: boolean } = {}
+): Promise<EsitoNuovoOrdine> {
+  const riga = await db.ordineCreato.findUnique({ where: { id: rigaId } })
+  if (!riga) return { ok: false, errore: 'Bozza non trovata.' }
+  if (riga.ordineNumero) {
+    return { ok: false, errore: `Questa bozza è già diventata l'ordine ${riga.ordineNumero}: non si modifica più.` }
+  }
+  if (riga.annullataIl) return { ok: false, errore: 'Questa bozza è stata annullata: fanne una nuova.' }
+  if (!riga.bozzaId) return { ok: false, errore: 'Di questa riga non sappiamo la bozza su Shopify.' }
+  if (d.negozioId !== riga.negozioId) {
+    return { ok: false, errore: 'Il negozio di una bozza non si cambia: fanne una nuova.' }
+  }
+  if (d.pagamento === 'pagato') {
+    return { ok: false, errore: 'Per chiuderla come pagata usa «Segna pagata» nell’elenco delle bozze.' }
+  }
+
+  const preparata = await preparaBozza(d)
+  if (!preparata.ok) return preparata
+  const { n, t, input } = preparata
+
+  // 1) Com'è messa ADESSO, secondo Shopify: si scrive solo su una bozza aperta.
+  const stato = await graphql<{
+    data?: { node?: { status?: string; order?: { name?: string } | null } | null }
+  }>(n, t, `query Stato($id: ID!) { node(id: $id) { ... on DraftOrder { status order { name } } } }`, {
+    id: riga.bozzaId,
+  })
+  const nodo = stato.data?.node
+  if (!nodo) {
+    return { ok: false, errore: 'Shopify non trova più questa bozza: potrebbe essere stata cancellata di là. Fanne una nuova.' }
+  }
+  if (nodo.order?.name || nodo.status === 'COMPLETED') {
+    if (nodo.order?.name) {
+      await db.ordineCreato
+        .update({ where: { id: riga.id }, data: { ordineNumero: nodo.order.name } })
+        .catch(() => {})
+    }
+    return {
+      ok: false,
+      errore: `Questa bozza è già stata pagata${nodo.order?.name ? ` (ordine ${nodo.order.name})` : ''}: non si modifica più.`,
+    }
+  }
+
+  // 2) Si riscrive.
+  const agg = await graphql<{
+    data?: {
+      draftOrderUpdate?: {
+        draftOrder?: {
+          id: string
+          invoiceUrl: string
+          name: string
+          totalPriceSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
+        } | null
+        userErrors?: { field: string[]; message: string }[]
+      }
+    }
+    errors?: { message: string }[]
+  }>(
+    n,
+    t,
+    `mutation Aggiorna($id: ID!, $input: DraftOrderInput!) {
+      draftOrderUpdate(id: $id, input: $input) {
+        draftOrder {
+          id
+          invoiceUrl
+          name
+          totalPriceSet { shopMoney { amount currencyCode } }
+        }
+        userErrors { field message }
+      }
+    }`,
+    { id: riga.bozzaId, input }
+  )
+  const erroreAgg = agg.errors?.[0]?.message || agg.data?.draftOrderUpdate?.userErrors?.[0]?.message
+  if (erroreAgg) return { ok: false, errore: erroreAgg }
+  const bozza = agg.data?.draftOrderUpdate?.draftOrder
+  if (!bozza) return { ok: false, errore: 'Shopify non ha aggiornato la bozza.' }
+
+  // 3) Il link al cliente si rimanda solo se chiesto: il link è lo STESSO di
+  //    prima, e una seconda mail per una virgola cambiata confonde.
+  let inviato = false
+  if (opzioni.reinviaLink && d.cliente.email.trim()) {
+    const inv = await graphql<{
+      data?: { draftOrderInvoiceSend?: { userErrors?: { message: string }[] } }
+      errors?: { message: string }[]
+    }>(n, t, `mutation Invia($id: ID!) { draftOrderInvoiceSend(id: $id) { userErrors { message } } }`, {
+      id: bozza.id,
+    })
+    inviato = !(inv.errors?.length || inv.data?.draftOrderInvoiceSend?.userErrors?.length)
+  }
+
+  // 4) La riga di lavoro segue: importo e cliente come sono ADESSO. Chi l'ha
+  //    creata resta chi l'ha creata. ⚠️ Non può far fallire niente: la bozza
+  //    su Shopify è già aggiornata.
+  const soldi = bozza.totalPriceSet?.shopMoney
+  await db.ordineCreato
+    .update({
+      where: { id: riga.id },
+      data: {
+        importo: Number(soldi?.amount ?? 0) || 0,
+        valuta: soldi?.currencyCode || riga.valuta || 'EUR',
+        clienteNome: [d.cliente.nome, d.cliente.cognome].filter(Boolean).join(' ').trim(),
+        clienteEmail: d.cliente.email.trim(),
+        invitoInviato: riga.invitoInviato || inviato,
+      },
+    })
+    .catch((e) => console.error('[aggiornaBozza] riga non aggiornata', e))
+
+  return {
+    ok: true,
+    bozzaId: bozza.id,
+    linkPagamento: bozza.invoiceUrl ?? '',
+    ordineNumero: '',
+    inviato,
+    consensoEsito: '',
   }
 }
 

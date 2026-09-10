@@ -213,6 +213,24 @@ negozio, quelle bozze escono come *stato non disponibile* e la pagina lo dice in
 cima; se una bozza è stata cancellata su Shopify si legge *non c'è più*. Dedurre
 lo stato dal silenzio è il modo di richiamare un cliente che ha già pagato.
 
+### Modificare una bozza non ancora pagata
+
+Su ogni bozza **aperta** (link mandato, non pagato) c'è **Modifica**: riapre il
+modulo del nuovo ordine con la bozza dentro — prodotti, mittente e destinatario,
+indirizzo, giorno e fascia, biglietto, consegna, IVA — **riletta da Shopify**
+com'è adesso, non da quello che avevamo scritto noi. Si corregge e si preme
+**Salva le modifiche**: la STESSA bozza si riscrive su Shopify (`draftOrderUpdate`),
+stesso numero (#D…) e **stesso link di pagamento**. Una spunta rimanda la mail
+col link al cliente, se serve (di suo no: il link non è cambiato).
+
+⚠️ Solo finché non è pagata: prima di scrivere si richiede lo stato a Shopify e,
+se nel frattempo il cliente ha pagato, la modifica viene rifiutata col numero
+dell'ordine (un ordine si tocca su Shopify, o si rimborsa). Il negozio non si
+cambia e da qui non si chiude come «pagata»: per quello c'è «Segna pagata».
+La nota dell'ordine (mittente, anonima, eccezione orari, biglietto, note di
+consegna) viene ricomposta dal modulo. Prova dal vivo: `scripts/prova-modifica-bozza.mts`
+(crea una bozza di prova, la modifica, la cancella).
+
 Da ogni riga si può **ricopiare il link** e rimandarlo: è il caso vero di chi lo
 ha perso fra i messaggi.
 

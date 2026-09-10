@@ -427,6 +427,256 @@ export async function annullaBozzeScadute(giorniLimite?: number): Promise<EsitoA
 // `draftOrderComplete`. La differenza è solo il momento — allora si sapeva
 // prima, qui si scopre dopo.
 
+/** La bozza com'è su Shopify, nella forma del modulo «Nuovo ordine». */
+export type BozzaPerModifica = {
+  id: string
+  bozzaId: string
+  bozzaNome: string
+  negozioId: string
+  negozioNome: string
+  link: string
+  cliente: { nome: string; cognome: string; email: string; telefono: string }
+  destinatario: { nome: string; cognome: string; telefono: string } | null
+  consegna: {
+    data: string
+    fascia: string
+    indirizzo: string
+    civicoNote: string
+    cap: string
+    citta: string
+    provincia: string
+    paese: string
+  }
+  righe: { variantId?: string; titolo: string; variante?: string; prezzo: number; quantita: number; immagine?: string }[]
+  biglietto: string
+  anonima: boolean
+  eccezioneOrari: string
+  spedizione: { titolo: string; prezzo: number }
+  aggiungiIva: boolean
+}
+
+type NodoBozzaIntera = {
+  id: string
+  name: string
+  status: string
+  invoiceUrl: string | null
+  email: string | null
+  phone: string | null
+  note2: string | null
+  taxExempt: boolean
+  customAttributes: { key: string; value: string | null }[]
+  customer: { firstName: string | null; lastName: string | null; email: string | null; phone: string | null } | null
+  shippingAddress: {
+    firstName: string | null
+    lastName: string | null
+    address1: string | null
+    address2: string | null
+    city: string | null
+    zip: string | null
+    provinceCode: string | null
+    countryCodeV2: string | null
+    phone: string | null
+  } | null
+  shippingLine: { title: string | null; originalPriceSet?: { shopMoney?: { amount?: string } } } | null
+  lineItems: {
+    nodes: {
+      title: string
+      quantity: number
+      custom: boolean
+      variant: { id: string; title: string | null; image: { url: string } | null } | null
+      product: { featuredImage: { url: string } | null } | null
+      originalUnitPriceSet?: { shopMoney?: { amount?: string } }
+    }[]
+  }
+  order: { name: string } | null
+} | null
+
+const QUERY_INTERA = `query bozza($id: ID!) {
+  node(id: $id) {
+    ... on DraftOrder {
+      id name status invoiceUrl email phone note2 taxExempt
+      customAttributes { key value }
+      customer { firstName lastName email phone }
+      shippingAddress { firstName lastName address1 address2 city zip provinceCode countryCodeV2 phone }
+      shippingLine { title originalPriceSet { shopMoney { amount } } }
+      lineItems(first: 50) {
+        nodes {
+          title quantity custom
+          variant { id title image { url } }
+          product { featuredImage { url } }
+          originalUnitPriceSet { shopMoney { amount } }
+        }
+      }
+      order { name }
+    }
+  }
+}`
+
+/**
+ * ⭐ LA BOZZA DA MODIFICARE, riletta da Shopify (utente, 10/09/2026: «consenti
+ * di modificare una bozza non ancora pagata»).
+ *
+ * ⚠️⚠️ Si rilegge da Shopify, non da quello che avevamo scritto noi: fra la
+ * creazione e adesso qualcuno può averla toccata dall'admin (uno sconto, una
+ * riga in più), e il modulo deve partire da com'è DAVVERO, altrimenti al
+ * salvataggio si cancella quella modifica senza che nessuno se ne accorga.
+ *
+ * ⚠️ La nota dell'ordine si RIPARTE nei campi da cui era nata (biglietto, note
+ * di consegna): le righe che il modulo scrive da sé (mittente, «CONSEGNA
+ * ANONIMA», «ECCEZIONE ORARI», «Pagato con») si riconoscono dal prefisso e non
+ * si rimettono nel biglietto — le riscriverà il salvataggio.
+ */
+export async function leggiBozzaPerModifica(
+  id: string
+): Promise<{ ok: true; bozza: BozzaPerModifica } | { ok: false; messaggio: string }> {
+  const riga = await db.ordineCreato.findUnique({ where: { id } })
+  if (!riga) return { ok: false, messaggio: 'Bozza non trovata.' }
+  if (riga.ordineNumero) {
+    return { ok: false, messaggio: `Questa bozza è già diventata l'ordine ${riga.ordineNumero}: non si modifica più.` }
+  }
+  if (riga.annullataIl) return { ok: false, messaggio: 'Questa bozza è stata annullata: fanne una nuova.' }
+  if (!riga.bozzaId) return { ok: false, messaggio: 'Di questa riga non sappiamo la bozza su Shopify.' }
+
+  const n = await db.negozioShopify.findUnique({
+    where: { id: riga.negozioId },
+    select: { id: true, nome: true, dominio: true, clientId: true, clientSecret: true },
+  })
+  if (!n) return { ok: false, messaggio: 'Negozio non trovato.' }
+  const t = await token(n)
+  if (!t) return { ok: false, messaggio: `${n.nome}: mancano le credenziali dell'app Shopify.` }
+
+  let j: { data?: { node?: NodoBozzaIntera }; errors?: { message: string }[] } = {}
+  try {
+    const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE}/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': t },
+      body: JSON.stringify({ query: QUERY_INTERA, variables: { id: riga.bozzaId } }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20000),
+    })
+    j = (await res.json().catch(() => ({}))) as typeof j
+  } catch {
+    return { ok: false, messaggio: 'Shopify non ha risposto: riprova.' }
+  }
+  if (j.errors?.length) return { ok: false, messaggio: `Shopify: ${j.errors[0].message}` }
+  const b = j.data?.node
+  if (!b) return { ok: false, messaggio: 'Shopify non trova più questa bozza: potrebbe essere stata cancellata di là.' }
+  if (b.order?.name || b.status === 'COMPLETED') {
+    if (b.order?.name) {
+      await db.ordineCreato.update({ where: { id: riga.id }, data: { ordineNumero: b.order.name } }).catch(() => {})
+    }
+    return {
+      ok: false,
+      messaggio: `Questa bozza è già stata pagata${b.order?.name ? ` (ordine ${b.order.name})` : ''}: non si modifica più.`,
+    }
+  }
+
+  const attr = (k: string) => (b.customAttributes ?? []).find((a) => a.key === k)?.value ?? ''
+  const pulisci = (v: string | null | undefined) => (v ?? '').trim()
+
+  // Il mittente è il cliente Shopify; chi riceve sta sull'indirizzo. Se i nomi
+  // coincidono, riceve il mittente.
+  // ⚠️ SENZA EMAIL Shopify non crea nessun cliente sulla bozza: il nome del
+  // mittente vive allora solo nella riga «Mittente (chi ordina): …» della nota,
+  // che il modulo scrive quando c'è un destinatario diverso. Si legge da lì;
+  // se non c'è nemmeno quella, chi riceve è anche chi ordina.
+  const sa = b.shippingAddress
+  const destNome0 = pulisci(sa?.firstName)
+  const destCognome0 = pulisci(sa?.lastName) === '.' ? '' : pulisci(sa?.lastName)
+  const mittenteNota = (b.note2 ?? '').split('\n').find((r) => r.startsWith('Mittente (chi ordina): '))
+  const mittente = mittenteNota
+    ? mittenteNota.slice('Mittente (chi ordina): '.length).split(' · ')
+    : []
+  const [mitNome0 = '', ...mitResto] = (mittente[0] === '—' ? '' : mittente[0] ?? '').trim().split(' ')
+  // ⚠️ La riga «Mittente» della nota VINCE sul cliente Shopify: quando il
+  // cliente non ha email, Shopify se ne inventa uno col nome dell'indirizzo di
+  // consegna (misurato il 10/09/2026: il destinatario diventava il mittente).
+  // La nota la scrive il modulo apposta per dire chi ordina.
+  let cliNome = mitNome0
+  let cliCognome = mitNome0 ? mitResto.join(' ') : ''
+  if (!cliNome) {
+    cliNome = pulisci(b.customer?.firstName)
+    cliCognome = pulisci(b.customer?.lastName)
+  }
+  if (!cliNome && !cliCognome) {
+    cliNome = destNome0
+    cliCognome = destCognome0
+  }
+  const destNome = destNome0
+  const destCognome = destCognome0
+  const stessaPersona =
+    (destNome + ' ' + destCognome).trim().toLowerCase() === (cliNome + ' ' + cliCognome).trim().toLowerCase()
+  const telCliente = pulisci(b.phone) || pulisci(b.customer?.phone) || pulisci(mittente[1])
+  const destinatario =
+    stessaPersona || (!destNome && !destCognome)
+      ? null
+      : {
+          nome: destNome === 'Cliente' && !destCognome ? '' : destNome,
+          cognome: destCognome,
+          telefono: pulisci(sa?.phone) === telCliente ? '' : pulisci(sa?.phone),
+        }
+
+  // La nota: biglietto e note di consegna tornano nei loro campi; le righe di
+  // servizio (mittente, anonima, eccezione, pagato con) le riscrive il modulo.
+  let biglietto = ''
+  let noteConsegna = ''
+  let corrente: 'biglietto' | 'note' | '' = ''
+  for (const rigaNota of (b.note2 ?? '').split('\n')) {
+    if (rigaNota.startsWith('Biglietto: ')) { corrente = 'biglietto'; biglietto = rigaNota.slice('Biglietto: '.length); continue }
+    if (rigaNota.startsWith('Note consegna: ')) { corrente = 'note'; noteConsegna = rigaNota.slice('Note consegna: '.length); continue }
+    if (/^(CONSEGNA ANONIMA:|ECCEZIONE ORARI:|Mittente \(chi ordina\):|Pagato con:)/.test(rigaNota)) { corrente = ''; continue }
+    if (corrente === 'biglietto') biglietto += '\n' + rigaNota
+    else if (corrente === 'note') noteConsegna += '\n' + rigaNota
+  }
+
+  const righe = (b.lineItems?.nodes ?? []).map((li) => ({
+    variantId: !li.custom && li.variant?.id ? li.variant.id : undefined,
+    titolo: li.title,
+    variante: li.variant?.title && li.variant.title !== 'Default Title' ? li.variant.title : undefined,
+    prezzo: Number(li.originalUnitPriceSet?.shopMoney?.amount ?? 0) || 0,
+    quantita: Math.max(1, li.quantity || 1),
+    immagine: li.variant?.image?.url || li.product?.featuredImage?.url || undefined,
+  }))
+
+  return {
+    ok: true,
+    bozza: {
+      id: riga.id,
+      bozzaId: b.id,
+      bozzaNome: b.name,
+      negozioId: n.id,
+      negozioNome: n.nome,
+      link: b.invoiceUrl ?? '',
+      cliente: {
+        nome: cliNome === 'Cliente' && !cliCognome ? '' : cliNome,
+        cognome: cliCognome === '.' ? '' : cliCognome,
+        email: pulisci(b.email) || pulisci(b.customer?.email),
+        telefono: telCliente,
+      },
+      destinatario,
+      consegna: {
+        data: attr('Data_Consegna'),
+        fascia: attr('Fascia_Oraria_Consegna'),
+        indirizzo: pulisci(sa?.address1),
+        civicoNote: noteConsegna.trim() || pulisci(sa?.address2),
+        cap: pulisci(sa?.zip),
+        citta: pulisci(sa?.city),
+        provincia: pulisci(sa?.provinceCode),
+        paese: pulisci(sa?.countryCodeV2) || 'IT',
+      },
+      righe,
+      biglietto: biglietto.trim(),
+      anonima: attr('Consegna_Anonima') === 'Si',
+      eccezioneOrari: attr('Eccezione_Orari'),
+      spedizione: {
+        titolo: pulisci(b.shippingLine?.title),
+        prezzo: Number(b.shippingLine?.originalPriceSet?.shopMoney?.amount ?? 0) || 0,
+      },
+      aggiungiIva: !b.taxExempt,
+    },
+  }
+}
+
 export type EsitoBozzaPagata = {
   ok: boolean
   /** Il numero dell'ordine nato dalla bozza, quando è andata. */

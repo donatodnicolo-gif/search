@@ -89,6 +89,20 @@ cd deluxy-messaging && node scripts/applica-migrazione-orari-negozi.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante righe ha la tabella. Eseguito il 10/09/2026: 0 righe (un negozio senza riga non ha regole: nessuna data si blocca). Le regole si provano con `npx tsx scripts/prova-orari-negozi.mts` (27 casi, senza database) e la lettura dal database con `npx tsx scripts/prova-orari-negozi-db.mts`.
 
+### prova-modifica-bozza.mts — deluxy-messaging
+
+Prova dal vivo della **modifica di una bozza** (10/09/2026): crea una bozza di prova sul negozio
+indicato (cliente fittizio, senza email: nessun invito), la rilegge come farebbe il modulo, la
+modifica (righe, indirizzo, data, biglietto, consegna), la rilegge, prova i rifiuti (cambio negozio,
+«pagato»), poi la **cancella su Shopify** e toglie la riga di lavoro.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-modifica-bozza.mts deluxygifts.myshopify.com
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app; le credenziali Shopify del negozio sono nel database
+- **Nota**: scrive davvero su Shopify (una bozza, poi cancellata); non crea ordini. Eseguito il 10/09/2026 su deluxy.it: 22 prove passate.
+
 ### APPLICA-MIGRAZIONI.cmd — deluxy-scout
 Lo stesso di `allinea-supabase.mjs`, ma **con un doppio clic**: chiede il token in una finestra, esegue, e resta aperto a mostrare l'esito. Il token non viene salvato da nessuna parte — vive solo in quella finestra.
 

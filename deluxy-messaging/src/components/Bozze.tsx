@@ -309,13 +309,28 @@ export function Bozze() {
                     già pagata o sparita da Shopify il bottone non c'è, invece
                     di esserci e rispondere di no. */}
                 {b.stato === 'aperta' || b.stato === 'invito_inviato' ? (
-                  <button
-                    className="btn btn-secondario small"
-                    disabled={inCorso === b.id}
-                    onClick={() => void segnaPagata(b)}
-                  >
-                    {inCorso === b.id ? 'Chiudo…' : 'Segna pagata'}
-                  </button>
+                  <>
+                    {/* ⭐ MODIFICA (utente, 10/09/2026: «consenti di modificare
+                        una bozza non ancora pagata»): il modulo del nuovo ordine
+                        si riapre con la bozza dentro, riletta da Shopify, e al
+                        salvataggio riscrive la STESSA bozza — stesso numero,
+                        stesso link. Solo finché non è pagata: una bozza chiusa è
+                        un ordine, e si tocca su Shopify. */}
+                    <a
+                      className="btn btn-secondario small"
+                      href={`/nuovo-ordine?bozza=${encodeURIComponent(b.id)}`}
+                      title="Riapre la bozza nel modulo: prodotti, indirizzo, data, biglietto. Il link resta lo stesso."
+                    >
+                      Modifica
+                    </a>
+                    <button
+                      className="btn btn-secondario small"
+                      disabled={inCorso === b.id}
+                      onClick={() => void segnaPagata(b)}
+                    >
+                      {inCorso === b.id ? 'Chiudo…' : 'Segna pagata'}
+                    </button>
+                  </>
                 ) : null}
               </div>
             </div>

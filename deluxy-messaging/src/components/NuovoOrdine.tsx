@@ -90,7 +90,15 @@ export function NuovoOrdine({
   prefill,
   compatto = false,
   conversazioneId = '',
+  bozzaId = '',
 }: {
+  /**
+   * ⭐ La bozza da MODIFICARE (id della riga OrdineCreato), quando si arriva da
+   * «Modifica» nelle bozze mandate (utente, 10/09/2026). Il modulo si riempie
+   * con la bozza riletta da Shopify e al salvataggio la riscrive: stesso
+   * numero, stesso link. Vuoto = un ordine nuovo.
+   */
+  bozzaId?: string
   /** Chi è il cliente, quando si arriva da una conversazione. */
   prefill?: { nome?: string; email?: string; telefono?: string; negozioId?: string }
   /**
@@ -330,6 +338,12 @@ export function NuovoOrdine({
   // segue, `r.ok` è **vero**, e si finisce nel ramo della lista vuota.
   // Adesso i tre casi si distinguono e si dicono (`src/lib/leggi-json.ts`).
   const [negoziNota, setNegoziNota] = useState('')
+  // ⭐ MODIFICA DI UNA BOZZA: quale, e com'è andato il caricamento da Shopify.
+  const [modifica, setModifica] = useState<{ id: string; bozzaNome: string; negozioNome: string; link: string } | null>(null)
+  const [modificaStato, setModificaStato] = useState<'' | 'carico' | 'errore'>('')
+  const [modificaErrore, setModificaErrore] = useState('')
+  // Rimandare la mail col link dopo la modifica: di suo NO, il link è lo stesso.
+  const [reinviaLink, setReinviaLink] = useState(false)
   useEffect(() => {
     let vivo = true
     chiediJson<{ negozi?: Negozio[] }>('/api/ordini?gestione=gestito').then((e) => {
@@ -353,6 +367,83 @@ export function NuovoOrdine({
       vivo = false
     }
   }, [])
+
+  // ⭐ MODIFICA: la bozza si rilegge da Shopify e riempie il modulo.
+  // ⚠️ Da Shopify, non dalla nostra riga: fra la creazione e adesso qualcuno
+  // può averla toccata dall'admin, e si parte da com'è DAVVERO.
+  useEffect(() => {
+    if (!bozzaId) return
+    let vivo = true
+    setModificaStato('carico')
+    ;(async () => {
+      const e = await chiediJson<{
+        id: string
+        bozzaNome: string
+        negozioId: string
+        negozioNome: string
+        link: string
+        cliente: { nome: string; cognome: string; email: string; telefono: string }
+        destinatario: { nome: string; cognome: string; telefono: string } | null
+        consegna: { data: string; fascia: string; indirizzo: string; civicoNote: string; cap: string; citta: string; provincia: string; paese: string }
+        righe: Riga[]
+        biglietto: string
+        anonima: boolean
+        eccezioneOrari: string
+        spedizione: { titolo: string; prezzo: number }
+        aggiungiIva: boolean
+        errore?: string
+      }>(`/api/bozze/${encodeURIComponent(bozzaId)}`, { cache: 'no-store' })
+      if (!vivo) return
+      if (e.stato !== 'ok') {
+        setModificaStato('errore')
+        setModificaErrore((e.stato === 'errore' ? e.messaggio : frasePerEsito(e)) || 'Bozza non caricata.')
+        return
+      }
+      const b = e.dati
+      setModifica({ id: b.id, bozzaNome: b.bozzaNome, negozioNome: b.negozioNome, link: b.link })
+      setNegozioId(b.negozioId)
+      setNome(b.cliente.nome)
+      setCognome(b.cliente.cognome)
+      setEmail(b.cliente.email)
+      setTelefono(b.cliente.telefono)
+      setAltroDestinatario(Boolean(b.destinatario))
+      setDestNome(b.destinatario?.nome ?? '')
+      setDestCognome(b.destinatario?.cognome ?? '')
+      setDestTelefono(b.destinatario?.telefono ?? '')
+      // Il consenso non si richiede su una modifica: era stato deciso alla creazione.
+      setConsensoMarketing(false)
+      setData(b.consegna.data)
+      setFascia(b.consegna.fascia)
+      setIndirizzo(b.consegna.indirizzo)
+      setNote(b.consegna.civicoNote)
+      setCap(b.consegna.cap)
+      setCitta(b.consegna.citta)
+      setProvincia(b.consegna.provincia)
+      setPaese(b.consegna.paese || 'IT')
+      setRighe(b.righe ?? [])
+      setBiglietto(b.biglietto)
+      setAnonima(Boolean(b.anonima))
+      if (b.eccezioneOrari) {
+        setEccezioneOrari(true)
+        setEccezioneMotivo(b.eccezioneOrari)
+      }
+      const gratis = b.spedizione.titolo === 'Consegna offerta' && !b.spedizione.prezzo
+      setSenzaConsegna(gratis)
+      setSpedizioneTitolo(gratis ? '' : b.spedizione.titolo)
+      setSpedizionePrezzo(String(b.spedizione.prezzo || 0))
+      // La tariffa scritta sulla bozza è quella che il cliente ha visto: si tiene,
+      // non si fa ricalcolare al volo dal sito.
+      setSpedizioneAMano(!gratis && Boolean(b.spedizione.titolo))
+      setAggiungiIva(Boolean(b.aggiungiIva))
+      // Una bozza si modifica solo come bozza: «già pagato» qui non esiste.
+      setPagamento('link')
+      setModificaStato('')
+    })()
+    return () => {
+      vivo = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bozzaId])
 
   // ⚠️ I metodi di pagamento si rileggono a ogni cambio di negozio: sono del
   // negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
@@ -841,7 +932,10 @@ export function NuovoOrdine({
   }, [conversazioneId])
 
   // All'apertura: se c'è una bozza recente, si PROPONE.
+  // ⚠️ Non mentre si MODIFICA una bozza di Shopify: quella è già piena, e
+  // proporre sopra i dati di un altro cliente è il modo di mischiarli.
   useEffect(() => {
+    if (bozzaId) return
     try {
       const grezzo = window.localStorage.getItem(CHIAVE_BOZZA)
       if (!grezzo) return
@@ -860,7 +954,10 @@ export function NuovoOrdine({
   }, [])
 
   // Ogni 15 secondi, e solo se c'è qualcosa scritto.
+  // ⚠️ Non in modifica: la bozza vive su Shopify, e salvarla nel browser come
+  // «ordine cominciato» la riproporrebbe domani come se fosse un ordine nuovo.
   useEffect(() => {
+    if (bozzaId) return
     const t = window.setInterval(() => {
       const m = modulo()
       if (!qualcosaScritto(m)) return
@@ -947,10 +1044,12 @@ export function NuovoOrdine({
     setCreando(true)
     setErrore('')
     try {
-      const res = await fetch('/api/nuovo-ordine', {
-        method: 'POST',
+      // ⭐ In modifica si riscrive la STESSA bozza (PUT), non se ne crea un'altra.
+      const res = await fetch(modifica ? `/api/bozze/${encodeURIComponent(modifica.id)}` : '/api/nuovo-ordine', {
+        method: modifica ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          reinviaLink: modifica ? reinviaLink : undefined,
           negozioId,
           cliente: { nome, cognome, email, telefono },
           destinatario: altroDestinatario
@@ -1002,7 +1101,7 @@ export function NuovoOrdine({
         consensoEsito?: string
       }
       if (!res.ok) {
-        setErrore(d.errore || 'Ordine non creato.')
+        setErrore(d.errore || (modifica ? 'Bozza non aggiornata.' : 'Ordine non creato.'))
         return
       }
       // ⚠️ La bozza si butta SOLO adesso, a ordine creato: fino a un attimo fa
@@ -1029,7 +1128,7 @@ export function NuovoOrdine({
     return (
       <>
         <div className="testa-pagina">
-          <h1>Ordine creato</h1>
+          <h1>{modifica ? `Bozza ${modifica.bozzaNome} aggiornata` : 'Ordine creato'}</h1>
         </div>
         <div className="card">
           {/* L'esito del consenso marketing, quando l'operatore l'ha spuntato:
@@ -1053,10 +1152,12 @@ export function NuovoOrdine({
           ) : (
             <>
               <p>
-                Bozza creata.{' '}
+                {modifica ? 'Bozza aggiornata su Shopify: il link di pagamento è lo stesso di prima.' : 'Bozza creata.'}{' '}
                 {esito.inviato
                   ? `Il link di pagamento è partito per email a ${email}.`
-                  : 'Il link di pagamento è qui sotto: mandalo tu al cliente.'}
+                  : modifica
+                    ? 'Se il cliente deve rivedere il totale, rimandaglielo da qui sotto.'
+                    : 'Il link di pagamento è qui sotto: mandalo tu al cliente.'}
               </p>
               {esito.linkPagamento ? (
                 <>
@@ -1093,9 +1194,15 @@ export function NuovoOrdine({
               </p>
             </>
           )}
-          <button className="bottone secondario" onClick={() => setEsito(null)}>
-            Fai un altro ordine
-          </button>
+          {modifica ? (
+            <a className="bottone secondario" href="/nuovo-ordine">
+              Torna alle bozze
+            </a>
+          ) : (
+            <button className="bottone secondario" onClick={() => setEsito(null)}>
+              Fai un altro ordine
+            </button>
+          )}
         </div>
       </>
     )
@@ -1104,18 +1211,33 @@ export function NuovoOrdine({
   return (
     <>
       <div className="testa-pagina">
-        {compatto ? null : <h1>Nuovo ordine</h1>}
+        {compatto ? null : <h1>{modifica ? `Modifica bozza ${modifica.bozzaNome}` : 'Nuovo ordine'}</h1>}
         <span className="cella-sub">
           {compatto
             ? null
-            : 'Per il cliente al telefono. L’ordine nasce su Shopify e torna qui dal registro.'}
+            : modifica
+              ? `${modifica.negozioNome}: la bozza si riscrive su Shopify con lo stesso numero e lo stesso link.`
+              : 'Per il cliente al telefono. L’ordine nasce su Shopify e torna qui dal registro.'}
           {/* ⚠️ Si dice CHE si salva e QUANDO è stato salvato l'ultima volta:
               un salvataggio automatico di cui nessuno sa non protegge nessuno —
               chi ha perso un modulo una volta, la seconda ricopia a mano per
               sicurezza. */}
-          {salvataAlle ? ` · bozza salvata alle ${salvataAlle}` : ' · si salva da solo ogni 15 secondi'}
+          {bozzaId ? '' : salvataAlle ? ` · bozza salvata alle ${salvataAlle}` : ' · si salva da solo ogni 15 secondi'}
         </span>
       </div>
+
+      {/* ⭐ Modifica di una bozza: si dice cosa sta succedendo, e se la bozza non
+          si può più toccare (pagata, annullata, sparita) lo si dice SUBITO, prima
+          che qualcuno compili un modulo che non si salverà. */}
+      {modificaStato === 'carico' ? (
+        <p className="cella-sub" style={{ margin: '0 0 10px' }}>Rileggo la bozza da Shopify…</p>
+      ) : null}
+      {modificaStato === 'errore' ? (
+        <div className="avviso-errore">
+          {modificaErrore}{' '}
+          <a href="/nuovo-ordine">Torna alle bozze</a>
+        </div>
+      ) : null}
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
@@ -1189,7 +1311,7 @@ export function NuovoOrdine({
         <div className="griglia-campi">
           <label className="campo">
             <span>Negozio</span>
-            <select value={negozioId} onChange={(e) => setNegozioId(e.target.value)}>
+            <select value={negozioId} onChange={(e) => setNegozioId(e.target.value)} disabled={Boolean(modifica)}>
               <option value="">Scegli…</option>
               {negozi.map((n) => (
                 <option key={n.id} value={n.id}>
@@ -1993,6 +2115,17 @@ export function NuovoOrdine({
               <strong>Link di pagamento</strong> — paga lui, resta bozza finché non paga
             </span>
           </label>
+          {/* ⭐ In modifica «già pagato» non c'è: una bozza si modifica solo come
+              bozza. Per chiuderla c'è «Segna pagata» nell'elenco. */}
+          {modifica ? (
+            <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" checked={reinviaLink} onChange={(e) => setReinviaLink(e.target.checked)} disabled={!email.trim()} />
+              <span>
+                <strong>Rimanda il link per email</strong> — è lo stesso link, col totale nuovo
+                {email.trim() ? '' : ' (serve l’email del cliente)'}
+              </span>
+            </label>
+          ) : (
           <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
             <input
               type="radio"
@@ -2003,6 +2136,7 @@ export function NuovoOrdine({
               <strong>Ha già pagato</strong> — l&apos;ordine nasce pagato
             </span>
           </label>
+          )}
           {pagamento === 'pagato' ? (
             <label className="campo" style={{ width: 180 }}>
               <span>Con che mezzo</span>
@@ -2048,8 +2182,10 @@ export function NuovoOrdine({
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <strong>Totale {soldi(totale)}</strong>
-          <button className="bottone" onClick={crea} disabled={creando || !negozioId}>
-            {creando ? 'Creo…' : pagamento === 'link' ? 'Crea e manda il link' : 'Crea come pagato'}
+          <button className="bottone" onClick={crea} disabled={creando || !negozioId || modificaStato !== ''}>
+            {modifica
+              ? creando ? 'Salvo…' : 'Salva le modifiche'
+              : creando ? 'Creo…' : pagamento === 'link' ? 'Crea e manda il link' : 'Crea come pagato'}
           </button>
         </div>
         <p className="descrizione" style={{ marginBottom: 0 }}>
