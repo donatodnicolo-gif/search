@@ -110,6 +110,11 @@
 >      registro. Vale nelle tre tabelle (Selezionati, Segnalazioni CS,
 >      Fornitori) e sulle schede del telefono. `daDoveRegistro()` ora sta in
 >      `lib/anagrafiche.ts`. Provato a schermo con dati finti a 1280 px.
+>      Segnalazione subito dopo («non si riesce a cliccare sui link»): le note
+>      del registro portano il sito e la scheda Google Maps come testo. Ora
+>      `components/TestoConLink.tsx` rende premibile ogni `http(s)://…` (regola
+>      in `lib/link-nel-testo.ts`, con la punteggiatura in coda che resta
+>      testo; test `__tests__/testo-con-link.test.ts`).
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.

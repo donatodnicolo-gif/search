@@ -20,6 +20,7 @@ import { daDoveRegistro, urlSchedaRegistro, type PartnerRegistro } from '@/lib/a
 import { dataBreve } from '@/components/Tabella';
 import { riassuntoVendite, type VenditeFornitore } from '@/lib/vendite-fornitori';
 import { COLORE_VISITA } from '@/lib/statoVisita';
+import { TestoConLink } from '@/components/TestoConLink';
 
 const LABEL_FORNITORE: Record<string, string> = {
   abituale: 'Fornitore abituale',
@@ -151,9 +152,8 @@ export function SchedaRegistroModal({
       {p.note ? (
         <>
           <SectionLabel testo="Note" />
-          <Text style={styles.note} selectable>
-            {p.note}
-          </Text>
+          {/* I link dentro le note (sito, scheda Google Maps) si aprono. */}
+          <TestoConLink testo={p.note} style={styles.note} />
         </>
       ) : null}
 
