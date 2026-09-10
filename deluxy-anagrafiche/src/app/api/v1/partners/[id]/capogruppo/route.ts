@@ -36,7 +36,38 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
   const s = (k: string) => (typeof body[k] === "string" && (body[k] as string).trim() ? (body[k] as string).trim() : null);
   const capofilaRif = s("capofila");
-  if (!capofilaRif) return erroreApi(400, "Serve «capofila»: l'id (o il platformId) del partner che rappresenta l'entità di fatturazione.");
+  // ⭐ 10/09/2026 (regola utente: «crea anche in app una entità capogruppo … e comunica questa cosa
+  // anche con Anagrafiche»): la piattaforma può mandare direttamente IL CAPOGRUPPO —
+  // { capogruppo: { nome, pIva?, registroId? }, pagaDaSe } — o toglierlo ({ capogruppo: null }).
+  const capogruppoDiretto = body.capogruppo && typeof body.capogruppo === "object" ? (body.capogruppo as Record<string, unknown>) : null;
+  const togli = "capogruppo" in body && body.capogruppo === null;
+  const pagaDaSeRichiesto = typeof body.pagaDaSe === "boolean" ? (body.pagaDaSe as boolean) : null;
+  if (!capofilaRif && !capogruppoDiretto && !togli) return erroreApi(400, "Serve «capofila» (id o platformId del partner che rappresenta l'entità), oppure «capogruppo» { nome, pIva? } (o null per toglierlo).");
+  if (!capofilaRif) {
+    const sede0 = (await prisma.partner.findUnique({ where: { id }, include: { capogruppo: true } })) ?? (await prisma.partner.findUnique({ where: { platformId: id }, include: { capogruppo: true } }));
+    if (!sede0) return erroreApi(404, "Anagrafica della sede non trovata: collegala (o creala) prima nel registro.");
+    const origine0 = client.nome.replace(/^deluxy-/, "");
+    if (togli) {
+      await prisma.partner.update({ where: { id: sede0.id }, data: { capogruppoId: null, pagaDaSe: true } });
+      if (sede0.capogruppo) await registraModifica(sede0.id, { origine: origine0 }, { campo: "capogruppo", da: sede0.capogruppo.nome, a: undefined });
+      return NextResponse.json({ ok: true, capogruppo: null, sede: { id: sede0.id, nome: sede0.nome, pagaDaSe: true } });
+    }
+    const nome0 = typeof capogruppoDiretto!.nome === "string" ? (capogruppoDiretto!.nome as string).trim() : "";
+    const regId = typeof capogruppoDiretto!.registroId === "string" ? (capogruppoDiretto!.registroId as string).trim() : "";
+    if (!nome0 && !regId) return erroreApi(400, "«capogruppo» ha bisogno di nome (o registroId).");
+    let cg = regId ? await prisma.capogruppo.findUnique({ where: { id: regId } }) : null;
+    if (!cg && nome0) cg = await prisma.capogruppo.findUnique({ where: { nome: nome0 } });
+    let creato0 = false;
+    if (!cg) {
+      cg = await prisma.capogruppo.create({ data: { nome: nome0, pIva: typeof capogruppoDiretto!.pIva === "string" ? (capogruppoDiretto!.pIva as string).trim() || null : null, codiceSdi: typeof capogruppoDiretto!.codiceSdi === "string" ? (capogruppoDiretto!.codiceSdi as string).trim() || null : null, pec: typeof capogruppoDiretto!.pec === "string" ? (capogruppoDiretto!.pec as string).trim() || null : null, provenienza: { creatoDa: client.nome, asOf: new Date().toISOString() } } });
+      creato0 = true;
+    }
+    const pagaDaSe0 = pagaDaSeRichiesto ?? false;
+    await prisma.partner.update({ where: { id: sede0.id }, data: { capogruppoId: cg.id, pagaDaSe: pagaDaSe0 } });
+    if (sede0.capogruppo?.nome !== cg.nome) await registraModifica(sede0.id, { origine: origine0 }, { campo: "capogruppo", da: sede0.capogruppo?.nome, a: cg.nome });
+    if (sede0.pagaDaSe !== pagaDaSe0) await registraModifica(sede0.id, { origine: origine0 }, { campo: "pagaDaSe", da: sede0.pagaDaSe ? "sì" : "no", a: pagaDaSe0 ? "sì" : "no (fattura il capogruppo)" });
+    return NextResponse.json({ ok: true, capogruppo: { id: cg.id, nome: cg.nome, creato: creato0 }, sede: { id: sede0.id, nome: sede0.nome, pagaDaSe: pagaDaSe0 } });
+  }
 
   const perRif = async (rif: string) =>
     (await prisma.partner.findUnique({ where: { id: rif }, include: { capogruppo: true } })) ??
