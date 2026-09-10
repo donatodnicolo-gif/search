@@ -42,7 +42,8 @@ const GIORNI_RICORRENZE = 7;
  * `limit` minimo e cache 60 s) e 2 sul database (data e conteggio eventi).
  */
 export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
-  const [imminenti, clienti, ultimoEvento, eventiInArrivo] = await Promise.all([
+  const fra7 = new Date(Date.now() + 7 * 86_400_000);
+  const [imminenti, clienti, ultimoEvento, eventiInArrivo, ultimaProgrammazione, programmateVicine, inRitardo] = await Promise.all([
     // Le ricorrenze dei prossimi 7 giorni: basta il totale, quindi limit: 1.
     ricorrenze({ prossimi: GIORNI_RICORRENZE, page: 1, limit: 1 }),
     // ⚠️ Il pallino dei clienti guarda l'`ultimoOrdine` più recente di tutta la
@@ -66,6 +67,14 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
         where: { stato: { not: "annullato" }, dataInizio: { gte: new Date(Date.now() - 86_400_000) } },
       })
       .catch(() => 0),
+    // Calendario: una programmazione «arriva» quando qualcuno la scrive (il
+    // pallino), e «pesa» finché è da fare entro 7 giorni (il numero); in
+    // rosso se una è già scaduta senza essere chiusa.
+    prisma.programmazione
+      .findFirst({ where: { stato: "da_fare" }, orderBy: { creatoIl: "desc" }, select: { creatoIl: true } })
+      .catch(() => null),
+    prisma.programmazione.count({ where: { stato: "da_fare", quando: { lte: fra7 } } }).catch(() => 0),
+    prisma.programmazione.count({ where: { stato: "da_fare", quando: { lt: new Date() } } }).catch(() => 0),
   ]);
 
   const quanteRicorrenze = imminenti.ok ? imminenti.dati.totale : 0;
@@ -91,6 +100,11 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
       ultimo: ultimoEvento ? ultimoEvento.creatoIl.toISOString() : "",
       quanti: eventiInArrivo,
       urgente: false,
+    },
+    "/calendario": {
+      ultimo: ultimaProgrammazione ? ultimaProgrammazione.creatoIl.toISOString() : "",
+      quanti: programmateVicine,
+      urgente: inRitardo > 0,
     },
   };
 }

@@ -157,14 +157,23 @@ export async function eseguiCriteri(
   } else {
     const MAX_PAGINE_TUTTI = 6;
     for (let page = 1; page <= MAX_PAGINE_TUTTI; page++) {
-      const r = await elencoClienti({ ordina: "speso", page, limit: 500 });
+      // ⚠️ Con un filtro sui GIORNI dall’ultimo ordine la base si legge per
+      // recenza, non per spesa: altrimenti i clienti recenti ma piccoli restano
+      // fuori dai primi 3000 e la lista esce vuota (caso «cakedesign.me
+      // nell’ultima settimana», 10/09).
+      const r = await elencoClienti({
+        ordina: criteri.giorniUltimoMax != null || criteri.ordina === "recenti" ? "ultimo" : "speso",
+        verso: "desc",
+        page,
+        limit: 500,
+      });
       if (!r.ok) return { ok: false, errore: r.errore };
       for (const c of r.dati.clienti) if (!base.has(c.cliente)) base.set(c.cliente, c);
       if (page >= r.dati.pagine) break;
       if (page === MAX_PAGINE_TUTTI)
         note.push(`Senza una lista di partenza si considerano i primi ${MAX_PAGINE_TUTTI * 500} clienti per spesa.`);
     }
-    note.push(`Base: ${base.size} clienti dal registro, ordinati per spesa.`);
+    note.push(`Base: ${base.size} clienti dal registro, ordinati per ${criteri.giorniUltimoMax != null || criteri.ordina === "recenti" ? "recenza" : "spesa"}.`);
   }
 
   // 2. Le esclusioni: quelle chieste, più «non-contattare» SEMPRE.

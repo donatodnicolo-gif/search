@@ -68,7 +68,18 @@ export const TIPI_ATTIVITA: Record<string, string> = {
   altro: "Altro",
 };
 
-const MESI = [
+// La programmazione: cosa faremo CON un cliente, e com'è finita.
+export const STATI_PROGRAMMAZIONE: Record<string, { nome: string; colore: string }> = {
+  da_fare: { nome: "Da fare", colore: "var(--blue)" },
+  fatta: { nome: "Fatta", colore: "var(--green)" },
+  annullata: { nome: "Annullata", colore: "var(--text-tertiary)" },
+};
+
+export function statoProgrammazione(chiave: string): { nome: string; colore: string } {
+  return STATI_PROGRAMMAZIONE[chiave] ?? { nome: chiave, colore: "var(--text-secondary)" };
+}
+
+export const MESI = [
   "",
   "gennaio",
   "febbraio",
@@ -86,6 +97,40 @@ const MESI = [
 
 export function giornoMese(giorno: number, mese: number): string {
   return `${giorno} ${MESI[mese] ?? ""}`.trim();
+}
+
+// Le ricorrenze sono PROSPETTICHE: «15 settembre, fra 5 giorni» vuol dire la
+// data di quest'anno (o del prossimo, se è già passata) — sulla base di ciò
+// che il cliente ha ordinato negli anni scorsi. Qui si calcola quella data
+// vera, in ora di Roma, per mostrarla accanto al giorno/mese.
+export function dataProspettica(fraGiorni: number, da: Date = new Date()): Date {
+  return new Date(da.getTime() + fraGiorni * 86_400_000);
+}
+
+// «mar 15 set 2026»: la data corta con il giorno della settimana.
+export function dataBreve(d: Date): string {
+  return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}
+
+// "2026-09-15" in ora di Roma: la chiave di un giorno (per raggruppare).
+export function chiaveGiorno(d: Date): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+// "14:30" in ora di Roma.
+export function oraIt(d: Date): string {
+  return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" }).format(d);
 }
 
 export function quandoLeggibile(giorni: number): string {

@@ -82,6 +82,7 @@ model TemplateMail {
   nome         String   @unique
   oggetto      String
   corpo        String   @db.Text
+  archiviatoIl DateTime? // archiviato = non si propone più in Componi, ma resta
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 }
@@ -151,6 +152,7 @@ model TemplateWhatsApp {
   id           String   @id @default(cuid())
   nome         String   @unique
   testo        String   @db.Text
+  archiviatoIl DateTime?
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 }
@@ -200,4 +202,82 @@ model TokenResetPassword {
 
   @@index([creatoIl])
   @@index([ipHash, creatoIl])
+}
+
+// Il profilo di RELAZIONE di un cliente: quello che sappiamo di lui oltre agli
+// ordini. Nome, email, telefono, città e ordini restano in Orders (standard
+// §7: casa unica); qui vivono solo i dati che nascono dal rapporto —
+// come lo chiamiamo, cosa fa nella vita, la sua foto, le note del client
+// advisor. Una riga per cliente, agganciata alla chiaveCliente di Orders.
+model ProfiloCliente {
+  chiaveCliente String   @id
+  nome          String   @default("") // come lo chiamiamo (vuoto = il nome degli ordini)
+  professione   String   @default("")
+  punteggio     Int? // il voto del client advisor (0-100): entra nei cluster (cluster.ts)
+  foto          Bytes? // ridotta nel browser (≤ 512 px), tetto 600 KB
+  fotoTipo      String   @default("")
+  autore        String   @default("")
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+}
+
+// Le impostazioni del CRM che cambiano dall'app (riga unica, id "crm"). Oggi:
+// le soglie e i cluster dei clienti (src/lib/cluster.ts) — CHI conta come
+// cliente da coltivare e in quale gruppo sta. Tutti i clienti restano
+// visibili: le soglie evidenziano, non escludono (decisione dell'utente 10/09).
+model ImpostazioniCrm {
+  id           String   @id @default("crm")
+  clienti      Json // { soglie: {...}, cluster: [...] } — vedi cluster.ts
+  aggiornatoDa String   @default("")
+  aggiornatoIl DateTime @updatedAt
+}
+
+// Due chiavi di Orders che sono la STESSA persona (l'email del lavoro e quella
+// personale, il telefono senza email…): «Unisci» dalla scheda. Orders resta
+// com'è (ogni chiave ha i suoi ordini); il CRM mostra la scheda del principale
+// con dentro anche gli ordini, le ricorrenze e il diario degli alias, e
+// rimanda là chi apre un alias. Si può sempre separare.
+model UnioneClienti {
+  chiaveAlias      String   @id
+  chiavePrincipale String
+  autore           String   @default("")
+  creatoIl         DateTime @default(now())
+
+  @@index([chiavePrincipale])
+}
+
+// Le NOTE di un cliente: quante se ne vogliono, ognuna con la sua data e il
+// suo autore, ognuna modificabile. Diverse dalle attività del diario (che
+// raccontano cosa è successo): queste sono ciò che vale la pena ricordare.
+model NotaCliente {
+  id            String   @id @default(cuid())
+  chiaveCliente String
+  testo         String   @db.Text
+  autore        String   @default("")
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@index([chiaveCliente, creatoIl])
+}
+
+// Una cosa da fare CON un cliente in un giorno preciso: chiamarlo, passare a
+// trovarlo, mandare un pensiero. È la programmazione del client advisor, e
+// finisce nel Calendario del CRM insieme a ricorrenze ed eventi.
+model Programmazione {
+  id            String    @id @default(cuid())
+  chiaveCliente String
+  nomeCliente   String    @default("")
+  quando        DateTime // il giorno (e l'ora, se c'è)
+  conOra        Boolean   @default(false)
+  titolo        String
+  dettaglio     String?   @db.Text
+  stato         String    @default("da_fare") // da_fare | fatta | annullata
+  fattaIl       DateTime?
+  autore        String    @default("")
+  creatoIl      DateTime  @default(now())
+  aggiornatoIl  DateTime  @updatedAt
+
+  @@index([quando])
+  @@index([chiaveCliente, quando])
+  @@index([stato, quando])
 }

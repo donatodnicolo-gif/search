@@ -2,6 +2,8 @@ import { catalogoListe, elencoClienti } from "@/lib/orders";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { dataIt, euro, segmento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
+import { prisma } from "@/lib/db";
+import { clusterDi, impostazioniClienti, inSoglia } from "@/lib/cluster";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +27,21 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
   const ordina = sp.ordina?.trim() || "speso";
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
 
-  const [cat, elenco] = await Promise.all([
+  const [cat, elenco, imp] = await Promise.all([
     catalogoListe(),
     elencoClienti({ q, lista, ordina, page, limit: 50 }),
+    impostazioniClienti(),
   ]);
+  // Il punteggio dato a mano (profilo di relazione) per i clienti di QUESTA pagina.
+  const chiaviPagina = elenco.ok ? elenco.dati.clienti.map((c) => c.cliente) : [];
+  const profili = chiaviPagina.length
+    ? await prisma.profiloCliente.findMany({
+        where: { chiaveCliente: { in: chiaviPagina } },
+        select: { chiaveCliente: true, punteggio: true, nome: true },
+      })
+    : [];
+  const profilo = new Map(profili.map((p) => [p.chiaveCliente, p]));
+  const conSoglie = Boolean(imp.soglie.spesaTotaleMin || imp.soglie.spesaAnnuaMin || imp.soglie.ordiniAnnoMin);
 
   const linkCon = (mod: Partial<Params>) => {
     const p = new URLSearchParams();
@@ -115,6 +128,7 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                     </th>
                     <th>Città</th>
                     <th>Segmento</th>
+                    <th title="I tuoi gruppi, da Impostazioni">Cluster</th>
                     <th className="num">
                       <a className="link-quieto" href={linkCon({ ordina: "ordini", page: "1" })}>Ordini</a>
                     </th>
@@ -131,12 +145,18 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                 <tbody>
                   {elenco.dati.clienti.map((c) => {
                     const seg = segmento(c.segmento);
+                    const pr = profilo.get(c.cliente);
+                    const k = clusterDi(c, imp, pr?.punteggio ?? null);
+                    const fuori = conSoglie && !inSoglia(c, imp);
                     return (
                       // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).
                       <RigaLink key={c.cliente} href={`/clienti/${c.cliente}`}>
                         <td>
                           <a href={`/clienti/${c.cliente}`}>
-                            <div className="cella-principale">{c.nome ?? c.email ?? c.telefono ?? "—"}</div>
+                            <div className="cella-principale">
+                              {pr?.nome || c.nome || c.email || c.telefono || "—"}
+                              {pr?.punteggio != null ? <span className="chip oro" style={{ marginLeft: 6 }} title="Punteggio">{pr.punteggio}</span> : null}
+                            </div>
                             <div className="cella-sotto">{c.email ?? c.telefono ?? ""}</div>
                           </a>
                         </td>
@@ -146,6 +166,17 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                             <span className="dot" />
                             {seg.nome}
                           </span>
+                        </td>
+                        <td>
+                          {k ? (
+                            <span className="badge colorato" style={{ ["--badge-colore" as string]: k.colore }}>
+                              <span className="dot" />
+                              {k.nome}
+                            </span>
+                          ) : (
+                            <span className="terziario">—</span>
+                          )}
+                          {fuori ? <div className="cella-sotto" title="Sotto le soglie di Impostazioni">fuori soglia</div> : null}
                         </td>
                         <td className="num">{c.ordini}</td>
                         <td className="num">{euro(c.speso)}</td>

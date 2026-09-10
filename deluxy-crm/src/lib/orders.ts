@@ -125,6 +125,9 @@ export type RicorrenzaCliente = {
   cliente: string;
   clienteNome: string;
   clienteEmail: string | null;
+  // I siti da cui il cliente compra (dal più recente). Arriva da Orders dal
+  // 10/09/2026: finché quella versione non è in produzione il campo manca.
+  brand?: string[];
   giorno: number;
   mese: number;
   fraGiorni: number;
@@ -253,6 +256,28 @@ export async function ricorrenze(p: {
   qs.set("page", String(p.page ?? 1));
   qs.set("limit", String(p.limit ?? 100));
   return leggi<ElencoRicorrenze>(`/api/v1/eventi-clienti?${qs}`);
+}
+
+// TUTTE le ricorrenze entro N giorni, a pagine di 500 (il massimo di Orders):
+// servono alla pagina Ricorrenze (che ordina e filtra in casa) e al
+// Calendario (che le distribuisce sui giorni del mese). `troncato` dice se
+// c'era altro oltre il tetto: mai un elenco parziale che sembra completo.
+const MAX_PAGINE_RICORRENZE = 6; // 6 × 500 = 3000 ricorrenze al massimo
+
+export async function tutteLeRicorrenze(p: {
+  prossimi: number;
+  stato?: string;
+}): Promise<Esito<{ eventi: RicorrenzaCliente[]; totale: number; troncato: boolean }>> {
+  const eventi: RicorrenzaCliente[] = [];
+  let totale = 0;
+  for (let page = 1; page <= MAX_PAGINE_RICORRENZE; page++) {
+    const r = await ricorrenze({ prossimi: p.prossimi, stato: p.stato, page, limit: 500 });
+    if (!r.ok) return r;
+    totale = r.dati.totale;
+    eventi.push(...r.dati.eventi);
+    if (page >= r.dati.pagine) return { ok: true, dati: { eventi, totale, troncato: false } };
+  }
+  return { ok: true, dati: { eventi, totale, troncato: true } };
 }
 
 // Una ricorrenza scritta a mano si PROPONE a Orders, che ne è il proprietario

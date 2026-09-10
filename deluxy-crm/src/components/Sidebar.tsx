@@ -18,11 +18,14 @@ const SEZIONI: Sezione[] = [
       { href: "/", nome: "Oggi", icona: "oggi" },
       { href: "/clienti", nome: "Clienti", icona: "clienti" },
       { href: "/ricorrenze", nome: "Ricorrenze", icona: "ricorrenze" },
+      { href: "/calendario", nome: "Calendario", icona: "calendario" },
+      { href: "/performance", nome: "Performance", icona: "performance" },
     ],
   },
   {
     etichetta: "Relazioni",
     voci: [
+      { href: "/nuovo-ordine", nome: "Nuovo ordine", icona: "ordine" },
       { href: "/liste", nome: "Liste", icona: "liste" },
       { href: "/eventi", nome: "Eventi", icona: "eventi" },
       { href: "/mail", nome: "Mail", icona: "mail" },
@@ -55,6 +58,24 @@ const ICONE = {
     <>
       <rect x="3.5" y="9" width="17" height="11.5" rx="2.5" />
       <path d="M3.5 13.5h17M12 9v11.5M12 9C10 5.5 6.5 5 5.8 7.2 5.2 9 8.5 9 12 9zm0 0c2-3.5 5.5-4 6.2-1.8.6 1.8-2.7 1.8-6.2 1.8z" />
+    </>
+  ),
+  ordine: (
+    <>
+      <path d="M3.5 5.5h2.2l2 10.5h10.3l1.7-7H7" />
+      <circle cx="9.5" cy="19.5" r="1.2" />
+      <circle cx="16.5" cy="19.5" r="1.2" />
+    </>
+  ),
+  performance: (
+    <>
+      <path d="M4 19.5h16M6 16V11M10.5 16V7M15 16v-4M19.5 16V5" />
+    </>
+  ),
+  calendario: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M3.5 10h17M8 3v4M16 3v4M8 14h2.5M13.5 14H16M8 17.5h2.5" />
     </>
   ),
   eventi: (
@@ -155,7 +176,9 @@ export default function Sidebar({ utente, ruolo }: { utente: string | null; ruol
                   title={
                     v.href === "/ricorrenze"
                       ? `${carichi[v.href]?.quanti} ricorrenze nei prossimi 7 giorni`
-                      : `${carichi[v.href]?.quanti} in arrivo`
+                      : v.href === "/calendario"
+                        ? `${carichi[v.href]?.quanti} programmate entro 7 giorni`
+                        : `${carichi[v.href]?.quanti} in arrivo`
                   }
                 >
                   {carichi[v.href]!.quanti}

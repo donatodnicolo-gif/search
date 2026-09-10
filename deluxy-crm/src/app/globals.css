@@ -487,3 +487,136 @@ tbody tr.riga-link:hover { background: var(--fill); }
   text-align: center;
 }
 .fascia-sessione a { color: #fff; font-weight: 600; text-decoration: underline; }
+
+/* ------------------------------------------------------------ foto cliente */
+/* La foto del cliente (profilo di relazione): tonda, mai deformata. */
+.foto-cliente {
+  width: 56px; height: 56px; border-radius: 50%; flex: 0 0 auto; overflow: hidden;
+  background: var(--fill); border: 1px solid var(--hairline);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 600; color: var(--text-secondary); font-size: 18px;
+}
+.foto-cliente.grande { width: 72px; height: 72px; }
+.foto-cliente img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.intestazione-cliente { display: flex; gap: 14px; align-items: flex-start; }
+.professione { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Il form con più ricorrenze: ogni riga è un fieldset leggero. */
+.riga-ricorrenza {
+  border: 1px solid var(--hairline); border-radius: var(--radius-m);
+  padding: 10px 12px 0; margin: 0 0 12px;
+}
+.riga-ricorrenza legend { font-size: 12px; font-weight: 600; color: var(--text-tertiary); padding: 0 6px; }
+
+/* ------------------------------------------------------------ zona filtri */
+/* Libro §8: riga sempre visibile (ricerca + Filtra), il resto dietro «Filtri (N)». */
+.filtri-form { margin-bottom: 14px; }
+.filtri-riga { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.filtri-riga input[type="search"] { flex: 1 1 260px; width: auto; }
+.filtri-altri { position: relative; }
+.filtri-altri summary { list-style: none; cursor: pointer; }
+.filtri-altri summary::-webkit-details-marker { display: none; }
+.filtri-altri[open] summary { background: var(--fill); }
+.filtri-pannello {
+  flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 12px;
+  margin-top: 12px; padding: 14px 14px 0; background: var(--surface);
+  border: 1px solid var(--hairline); border-radius: var(--radius-m);
+}
+.filtri-altri[open] { flex-basis: 100%; order: 10; }
+.filtri-altri[open] summary { display: inline-flex; }
+th .th-sort { color: inherit; text-decoration: none; }
+th .th-sort:hover { color: var(--text); text-decoration: underline; }
+
+/* ------------------------------------------------------------ calendario */
+.cal-testata { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.cal-mese { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; margin: 0; }
+.cal-legenda { display: flex; gap: 14px; font-size: 12.5px; color: var(--text-secondary); flex-wrap: wrap; }
+.cal-legenda .dot, .dot-inline { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.mese-griglia {
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card); overflow: hidden;
+}
+.mese-intestazioni { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--hairline); }
+.mese-intestazioni span { padding: 10px 8px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.mese-settimana { display: grid; grid-template-columns: repeat(7, 1fr); }
+.mese-settimana:not(:last-child) { border-bottom: 1px solid var(--hairline); }
+.giorno {
+  min-height: 108px; padding: 6px 7px 8px; border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.giorno:last-child { border-right: 0; }
+.giorno.fuori { background: var(--fill); }
+.giorno.fuori .giorno-num { color: var(--text-tertiary); }
+.giorno-num {
+  font-size: 13px; font-weight: 550; color: var(--text-secondary);
+  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; flex: 0 0 auto;
+}
+.giorno.oggi .giorno-num { background: var(--ink, #1d1d1f); color: #fff; }
+.ev {
+  display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.3; color: var(--text);
+  background: var(--fill); border-radius: var(--radius-s); padding: 3px 7px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-decoration: none;
+}
+.ev:hover { background: var(--fill-hover, var(--hairline)); }
+.ev.chiuso { opacity: 0.55; }
+.ev.chiuso .ev-testo { text-decoration: line-through; }
+.ev .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.ev-ora { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.ev-testo { overflow: hidden; text-overflow: ellipsis; }
+.ev-altri { font-size: 11px; color: var(--text-tertiary); padding: 1px 7px; text-decoration: none; }
+.cal-giorno-elenco { padding: 12px 0; border-top: 1px solid var(--hairline); }
+.cal-giorno-elenco:first-of-type { border-top: 0; }
+.cal-giorno-titolo { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: capitalize; }
+.cal-giorno-titolo.oggi { color: var(--text); }
+@media (max-width: 760px) {
+  .giorno { min-height: 64px; padding: 4px; }
+  .ev-testo, .ev-ora { display: none; }
+  .ev { padding: 3px; justify-content: center; }
+  .intestazione-cliente { flex-direction: column; }
+}
+
+/* Gruppi di caselle di scelta (checkbox) in un form: una riga che va a capo. */
+.scelte { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.scelta { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
+.scelta input { width: auto; margin: 0; }
+select[multiple] { min-height: 80px; }
+
+/* ------------------------------------------------------------ performance */
+.barra-fette { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--fill); margin: 10px 0 12px; }
+.barra-fette span { display: block; height: 100%; min-width: 0; }
+.tabella-fette { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tabella-fette th { font-size: 12px; color: var(--text-tertiary); font-weight: 600; text-align: left; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+.tabella-fette td { padding: 8px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.tabella-fette tr:last-child td { border-bottom: 0; }
+.tabella-fette .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* La riga dei cluster in Impostazioni: nome, colore e condizioni su una riga. */
+.riga-cluster { display: grid; grid-template-columns: 1.4fr 0.9fr repeat(5, 0.8fr); gap: 8px; align-items: end; margin-bottom: 8px; }
+.riga-cluster .campo { margin-bottom: 0; }
+.riga-cluster label { font-size: 11px; color: var(--text-tertiary); }
+@media (max-width: 900px) { .riga-cluster { grid-template-columns: 1fr 1fr; } }
+
+/* ------------------------------------------------------------ modale (Libro §9) */
+.modale { border: 0; padding: 0; background: transparent; max-width: min(96vw, 1040px); width: 96vw; max-height: 92dvh; margin: auto; position: fixed; inset: 0; overflow: visible; }
+.modale::backdrop { background: rgba(17, 19, 24, 0.45); backdrop-filter: blur(2px); }
+.modale-pannello {
+  background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card); max-height: min(92dvh, 900px); display: flex; flex-direction: column; overflow: hidden;
+}
+.modale-testata {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 18px 20px 12px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--surface);
+}
+.modale-chiudi {
+  border: 0; background: var(--fill); width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  font-size: 14px; color: var(--text-secondary); flex: 0 0 auto;
+}
+.modale-chiudi:hover { background: var(--fill-hover); color: var(--text); }
+.modale-corpo { overflow: auto; padding: 0; }
+.modale-corpo .tabella-scroll { border: 0; }
+
+/* Inserimento dal catalogo di Merchandising nei messaggi. */
+.catalogo-inserisci { margin: 8px 0 14px; padding: 12px; border: 1px dashed var(--hairline-strong); border-radius: var(--radius-m); }
+.catalogo-voci { list-style: none; margin: 8px 0 0; padding: 0; max-height: 240px; overflow: auto; }
+.catalogo-voci li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--hairline); }
+.catalogo-voci li:first-child { border-top: 0; }

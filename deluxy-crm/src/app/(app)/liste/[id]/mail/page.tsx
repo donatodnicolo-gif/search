@@ -28,7 +28,7 @@ export default async function MailAllaLista({
 
   const [lista, templates, config] = await Promise.all([
     prisma.listaClienti.findUnique({ where: { id }, include: { membri: { orderBy: { speso: "desc" } } } }),
-    prisma.templateMail.findMany({ orderBy: { nome: "asc" } }),
+    prisma.templateMail.findMany({ where: { archiviatoIl: null }, orderBy: { nome: "asc" } }),
     configurazioneMail(),
   ]);
   if (!lista) notFound();

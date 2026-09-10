@@ -1,21 +1,32 @@
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
-import { creaTemplateDiPartenza, eliminaTemplate, salvaTemplate } from "@/lib/actions";
+import { archiviaTemplate, creaTemplateDiPartenza, eliminaTemplate, salvaTemplate } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
 import { VARIABILI_DISPONIBILI } from "@/lib/variabili";
 
 export const dynamic = "force-dynamic";
 
-type Query = { modifica?: string; esito?: string; errore?: string };
+type Query = { modifica?: string; esito?: string; errore?: string; archivio?: string };
 
 // TEMPLATE — i modelli delle mail personalizzate. Le {{variabili}} si
 // riempiono da sole coi dati del cliente (e dell'evento) al momento della
 // composizione: si scrive una volta, si personalizza sempre.
+//
+// Gli esistenti stanno in TABELLA (richiesta dell'utente 10/09): una riga per
+// template, «Modifica» apre il form a destra, «Archivia» lo toglie da Componi
+// senza perderlo, «Elimina» lo cancella davvero.
 export default async function Template({ searchParams }: { searchParams: Promise<Query> }) {
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
-  const templates = await prisma.templateMail.findMany({ orderBy: { nome: "asc" } });
-  const inModifica = sp.modifica ? templates.find((t) => t.id === sp.modifica) : undefined;
+  const mostraArchivio = sp.archivio === "1";
+  const [templates, quantiArchiviati] = await Promise.all([
+    prisma.templateMail.findMany({
+      where: mostraArchivio ? { archiviatoIl: { not: null } } : { archiviatoIl: null },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.templateMail.count({ where: { archiviatoIl: { not: null } } }),
+  ]);
+  const inModifica = sp.modifica ? await prisma.templateMail.findUnique({ where: { id: sp.modifica } }) : null;
 
   return (
     <>
@@ -30,10 +41,17 @@ export default async function Template({ searchParams }: { searchParams: Promise
         <a className="btn ghost" href="/mail">← Registro mail</a>
       </div>
 
-      {sp.esito === "ok" ? <div className="ok-card">Template salvato.</div> : null}
+      {sp.esito === "ok" ? <div className="ok-card">Fatto.</div> : null}
       {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
-      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
+      <div className="filtri riga-chips-scorri">
+        <a className={`filtro-pillola${!mostraArchivio ? " attivo" : ""}`} href="/mail/template">In uso</a>
+        <a className={`filtro-pillola${mostraArchivio ? " attivo" : ""}`} href="/mail/template?archivio=1">
+          Archivio{quantiArchiviati ? ` (${quantiArchiviati})` : ""}
+        </a>
+      </div>
+
+      <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {templates.length === 0 ? (
             <div className="card vuoto">
@@ -42,35 +60,66 @@ export default async function Template({ searchParams }: { searchParams: Promise
                   <path d="M6 3.5h7.5L18 8v12.5H6zM12.5 3.5V8H17M8 12h6M8 15.5h6" />
                 </svg>
               </div>
-              <h3>Nessun template</h3>
-              <p>Parti dai tre modelli Deluxy — auguri, invito, ben ritrovare — e falli tuoi.</p>
-              <form action={creaTemplateDiPartenza} style={{ marginTop: 12 }}>
-                <button className="btn" type="submit">Crea i template di partenza</button>
-              </form>
+              <h3>{mostraArchivio ? "Nessun template in archivio" : "Nessun template"}</h3>
+              {mostraArchivio ? (
+                <p>Quelli archiviati compaiono qui, e si possono ripristinare.</p>
+              ) : (
+                <>
+                  <p>Parti dai tre modelli Deluxy — auguri, invito, ben ritrovare — e falli tuoi.</p>
+                  <form action={creaTemplateDiPartenza} style={{ marginTop: 12 }}>
+                    <button className="btn" type="submit">Crea i template di partenza</button>
+                  </form>
+                </>
+              )}
             </div>
           ) : (
-            templates.map((t) => (
-              <div className="card" key={t.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                  <div>
-                    <div className="card-titolo" style={{ fontSize: 16 }}>{t.nome}</div>
-                    <div className="card-sub" style={{ marginBottom: 8 }}>
-                      Oggetto: {t.oggetto} · aggiornato {dataIt(t.aggiornatoIl)}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <a className="btn ghost mini" href={`/mail/template?modifica=${t.id}`}>Modifica</a>
-                    <form action={eliminaTemplate}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <button className="btn rosso mini" type="submit">Elimina</button>
-                    </form>
-                  </div>
-                </div>
-                <p className="secondario" style={{ fontSize: 13, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                  {t.corpo.length > 350 ? `${t.corpo.slice(0, 350)}…` : t.corpo}
-                </p>
+            <div className="card tabella-card">
+              <div className="tabella-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Template</th>
+                      <th>Oggetto</th>
+                      <th>Aggiornato</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {templates.map((t) => (
+                      <tr key={t.id} style={inModifica?.id === t.id ? { background: "var(--gold-soft)" } : undefined}>
+                        <td>
+                          <a href={`/mail/template?modifica=${t.id}${mostraArchivio ? "&archivio=1" : ""}`}>
+                            <div className="cella-principale">{t.nome}</div>
+                            <div className="cella-sotto">{t.corpo.length > 90 ? `${t.corpo.slice(0, 90)}…` : t.corpo}</div>
+                          </a>
+                        </td>
+                        <td className="piccolo">{t.oggetto}</td>
+                        <td className="secondario piccolo">
+                          {dataIt(t.aggiornatoIl)}
+                          {t.archiviatoIl ? <div className="cella-sotto">archiviato {dataIt(t.archiviatoIl)}</div> : null}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                            <a className="btn ghost mini" href={`/mail/template?modifica=${t.id}${mostraArchivio ? "&archivio=1" : ""}`}>
+                              Modifica
+                            </a>
+                            <form action={archiviaTemplate}>
+                              <input type="hidden" name="id" value={t.id} />
+                              {t.archiviatoIl ? <input type="hidden" name="ripristina" value="1" /> : null}
+                              <button className="btn ghost mini" type="submit">{t.archiviatoIl ? "Ripristina" : "Archivia"}</button>
+                            </form>
+                            <form action={eliminaTemplate}>
+                              <input type="hidden" name="id" value={t.id} />
+                              <button className="btn rosso mini" type="submit">Elimina</button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))
+            </div>
           )}
         </div>
 

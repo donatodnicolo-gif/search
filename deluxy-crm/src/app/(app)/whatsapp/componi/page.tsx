@@ -1,3 +1,4 @@
+import InserisciDaCatalogo from "@/components/InserisciDaCatalogo";
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
@@ -21,7 +22,7 @@ export default async function ComponiWhatsApp({ searchParams }: { searchParams: 
 
   const [scheda, templates, numeri] = await Promise.all([
     codice ? schedaCliente(codice) : Promise.resolve(null),
-    prisma.templateWhatsApp.findMany({ orderBy: { nome: "asc" } }),
+    prisma.templateWhatsApp.findMany({ where: { archiviatoIl: null }, orderBy: { nome: "asc" } }),
     numeriWA(),
   ]);
 
@@ -77,6 +78,12 @@ export default async function ComponiWhatsApp({ searchParams }: { searchParams: 
               <label>Testo <span className="ob">*</span></label>
               <textarea name="testo" rows={7} defaultValue={testo} required placeholder="Breve e caldo: due frasi, come a un amico che si rispetta." />
             </div>
+            <details>
+              <summary className="link-quieto" style={{ cursor: "pointer", fontSize: 13 }}>
+                Proponi un prodotto o una collezione (da Merchandising)
+              </summary>
+              <InserisciDaCatalogo campo="testo" />
+            </details>
             <div className="campo">
               <label>Se parte dall&apos;API: da quale numero</label>
               <select name="numeroId" defaultValue="">

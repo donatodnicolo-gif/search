@@ -1,15 +1,36 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
-import { ordiniCliente, ricorrenze, schedaCliente } from "@/lib/orders";
-import { aggiungiRicorrenza, registraAttivita } from "@/lib/actions";
-import { TornaIndietro } from "@/components/TornaIndietro";
+import { ordiniCliente, ricorrenze, schedaCliente, type OrdineCliente, type RicorrenzaCliente } from "@/lib/orders";
 import {
+  aggiungiRicorrenze,
+  cambiaStatoProgrammazione,
+  eliminaNota,
+  eliminaProgrammazione,
+  programmaConCliente,
+  registraAttivita,
+  salvaNota,
+  salvaProfilo,
+  salvaPunteggio,
+  separaCliente,
+  unisciClienti,
+} from "@/lib/actions";
+import { clusterDi, descriviCluster, impostazioniClienti } from "@/lib/cluster";
+import { TornaIndietro } from "@/components/TornaIndietro";
+import FotoInput from "@/components/FotoInput";
+import RicorrenzeMultiple from "@/components/RicorrenzeMultiple";
+import Modale from "@/components/Modale";
+import {
+  chiaveGiorno,
+  dataBreve,
   dataIt,
   euro,
   giornoMese,
+  oraIt,
   quandoLeggibile,
   segmento,
   statoInvito,
+  statoProgrammazione,
   tipoRicorrenza,
   TIPI_ATTIVITA,
   TIPI_RICORRENZA,
@@ -18,12 +39,13 @@ import {
 export const dynamic = "force-dynamic";
 
 type Params = { codice: string };
-type Query = { esito?: string; errore?: string };
+type Query = { esito?: string; errore?: string; modifica?: string; nota?: string };
 
 // LA SCHEDA A 360 GRADI — quello che un client advisor deve sapere prima di
 // alzare il telefono: chi è, cosa compra, cosa le piace, quando festeggia,
 // cosa ci siamo detti. Ordini, segmento, gusti e ricorrenze arrivano da
-// Deluxy Orders; il diario, le mail e gli inviti vivono qui.
+// Deluxy Orders; il diario, le note, il profilo di relazione (foto,
+// professione), la programmazione, le mail e gli inviti vivono qui.
 export default async function Scheda({
   params,
   searchParams,
@@ -39,17 +61,45 @@ export default async function Scheda({
   const sp = await searchParams;
   const qui = `/clienti/${encodeURIComponent(codice)}`;
 
-  const [scheda, ordini, ricorr, attivita, mail, inviti] = await Promise.all([
+  // Unioni: se questa chiave è l'alias di un'altra, la scheda è quella del
+  // principale; se è un principale, dentro ci sono anche i suoi alias.
+  const unione = await prisma.unioneClienti.findUnique({ where: { chiaveAlias: codice } });
+  if (unione) redirect(`/clienti/${encodeURIComponent(unione.chiavePrincipale)}`);
+  const alias = (await prisma.unioneClienti.findMany({ where: { chiavePrincipale: codice } })).map((u) => u.chiaveAlias);
+  const tutteLeChiavi = [codice, ...alias];
+
+  const [scheda, ordini, ricorr, attivita, mail, inviti, profilo, note, programmate, imp, datiAlias] = await Promise.all([
     schedaCliente(codice),
     ordiniCliente(codice, 1, 30),
     ricorrenze({ cliente: codice, stato: "tutti", limit: 50 }),
-    prisma.attivita.findMany({ where: { chiaveCliente: codice }, orderBy: { quando: "desc" }, take: 50 }),
-    prisma.mailInviata.findMany({ where: { chiaveCliente: codice }, orderBy: { inviataIl: "desc" }, take: 50 }),
+    prisma.attivita.findMany({ where: { chiaveCliente: { in: tutteLeChiavi } }, orderBy: { quando: "desc" }, take: 50 }),
+    prisma.mailInviata.findMany({ where: { chiaveCliente: { in: tutteLeChiavi } }, orderBy: { inviataIl: "desc" }, take: 50 }),
     prisma.invito.findMany({
-      where: { chiaveCliente: codice },
+      where: { chiaveCliente: { in: tutteLeChiavi } },
       include: { evento: { select: { id: true, titolo: true, dataInizio: true } } },
       orderBy: { creatoIl: "desc" },
     }),
+    prisma.profiloCliente.findUnique({
+      where: { chiaveCliente: codice },
+      select: { nome: true, professione: true, fotoTipo: true, aggiornatoIl: true, autore: true, punteggio: true },
+    }),
+    prisma.notaCliente.findMany({ where: { chiaveCliente: { in: tutteLeChiavi } }, orderBy: { creatoIl: "desc" } }),
+    prisma.programmazione.findMany({
+      where: { chiaveCliente: { in: tutteLeChiavi } },
+      orderBy: { quando: "asc" },
+      take: 60,
+    }),
+    impostazioniClienti(),
+    Promise.all(
+      alias.map(async (a) => {
+        const [s, o, r] = await Promise.all([
+          schedaCliente(a),
+          ordiniCliente(a, 1, 30),
+          ricorrenze({ cliente: a, stato: "tutti", limit: 50 }),
+        ]);
+        return { chiave: a, scheda: s, ordini: o, ricorr: r };
+      }),
+    ),
   ]);
 
   if (!scheda.ok) {
@@ -69,7 +119,52 @@ export default async function Scheda({
 
   const c = scheda.dati;
   const seg = segmento(c.segmento);
-  const nomeMostrato = c.nome ?? c.email ?? c.telefono ?? "Senza nome";
+
+  // La vista UNITA: i numeri del principale più quelli degli alias (ordini,
+  // spesa, date), gli ordini e le ricorrenze di tutti, dal più recente.
+  const schedeAlias = datiAlias.map((d) => d.scheda).filter((s) => s.ok).map((s) => s.dati);
+  const kpi = {
+    speso: c.speso + schedeAlias.reduce((t, a) => t + a.speso, 0),
+    ordini: c.ordini + schedeAlias.reduce((t, a) => t + a.ordini, 0),
+    annullati: c.annullati + schedeAlias.reduce((t, a) => t + a.annullati, 0),
+    primoOrdine: [c.primoOrdine, ...schedeAlias.map((a) => a.primoOrdine)].filter(Boolean).sort()[0] ?? c.primoOrdine,
+    ultimoOrdine: [c.ultimoOrdine, ...schedeAlias.map((a) => a.ultimoOrdine)].filter(Boolean).sort().reverse()[0] ?? c.ultimoOrdine,
+    giorniDallUltimo: Math.min(...[c.giorniDallUltimo, ...schedeAlias.map((a) => a.giorniDallUltimo)].filter((g): g is number => g != null), Infinity),
+    brand: [...new Set([...c.brand, ...schedeAlias.flatMap((a) => a.brand)])],
+    contattiAlias: schedeAlias.map((a) => a.email ?? a.telefono ?? a.nome ?? "").filter(Boolean),
+  };
+  kpi.giorniDallUltimo = Number.isFinite(kpi.giorniDallUltimo) ? kpi.giorniDallUltimo : (c.giorniDallUltimo ?? 0);
+  const ordineMedio = kpi.ordini ? kpi.speso / kpi.ordini : 0;
+  const ordiniVista: { ok: true; dati: { totale: number; ordini: OrdineCliente[] } } | { ok: false; errore: string } = ordini.ok
+    ? {
+        ok: true,
+        dati: {
+          totale: ordini.dati.totale + datiAlias.reduce((t, d) => t + (d.ordini.ok ? d.ordini.dati.totale : 0), 0),
+          ordini: [...ordini.dati.ordini, ...datiAlias.flatMap((d) => (d.ordini.ok ? d.ordini.dati.ordini : []))].sort((a, b) =>
+            String(b.data).localeCompare(String(a.data)),
+          ),
+        },
+      }
+    : ordini;
+  const ricorrVista: { ok: true; dati: { eventi: RicorrenzaCliente[] } } | { ok: false; errore: string } = ricorr.ok
+    ? { ok: true, dati: { eventi: [...ricorr.dati.eventi, ...datiAlias.flatMap((d) => (d.ricorr.ok ? d.ricorr.dati.eventi : []))] } }
+    : ricorr;
+  const cluster = clusterDi({ ...c, speso: kpi.speso, ordini: kpi.ordini, ultimoOrdine: kpi.ultimoOrdine }, imp, profilo?.punteggio ?? null);
+  const nomeOrdini = c.nome ?? c.email ?? c.telefono ?? "Senza nome";
+  // Come lo chiamiamo noi vince sul nome degli ordini (ma quello resta visibile).
+  const nomeMostrato = profilo?.nome || nomeOrdini;
+  const fotoUrl = profilo?.fotoTipo ? `/api/interno/foto/${encodeURIComponent(codice)}?v=${profilo.aggiornatoIl.getTime()}` : null;
+  const iniziali = nomeMostrato
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+  const modificaProfilo = sp.modifica === "profilo";
+  const notaInModifica = sp.nota ? note.find((n) => n.id === sp.nota) : undefined;
+
+  const oggiChiave = chiaveGiorno(new Date());
+  const daFare = programmate.filter((p) => p.stato === "da_fare");
+  const chiuse = programmate.filter((p) => p.stato !== "da_fare").slice(-10).reverse();
 
   // La timeline della relazione: diario + mail + inviti, fusi per data.
   type Voce = { quando: Date; tipo: string; titolo: string; dettaglio: string | null; extra?: string };
@@ -96,25 +191,62 @@ export default async function Scheda({
         titolo: `Invito a «${i.evento.titolo}»`,
         dettaglio: null,
       })),
+    ...programmate
+      .filter((p) => p.stato === "fatta" && p.fattaIl)
+      .map((p) => ({
+        quando: p.fattaIl!,
+        tipo: "Programmata, fatta",
+        titolo: p.titolo,
+        dettaglio: p.dettaglio,
+        extra: p.autore || undefined,
+      })),
   ].sort((a, b) => b.quando.getTime() - a.quando.getTime());
 
   return (
     <>
       <TornaIndietro fallback="/clienti" label="Libro clienti" />
       <div className="intestazione">
-        <div>
-          <h1 className="page-title">{nomeMostrato}</h1>
-          <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span className="badge colorato" style={{ ["--badge-colore" as string]: seg.colore }}>
-              <span className="dot" />
-              {seg.nome}
-            </span>
-            {c.tipologia ? <span className="chip">{c.tipologia}</span> : null}
-            {c.citta ? <span>{c.citta}</span> : null}
-            {c.email ? <span>{c.email}</span> : null}
-            {c.telefono ? <span>{c.telefono}</span> : null}
-            {c.brand.length ? <span className="terziario">{c.brand.join(" · ")}</span> : null}
-          </p>
+        <div className="intestazione-cliente">
+          <div className="foto-cliente grande" aria-hidden>
+            {fotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={fotoUrl} alt="" />
+            ) : (
+              iniziali || "D"
+            )}
+          </div>
+          <div>
+            <h1 className="page-title">{nomeMostrato}</h1>
+            {profilo?.professione || (profilo?.nome && profilo.nome !== nomeOrdini) ? (
+              <p className="professione">
+                {profilo?.professione}
+                {profilo?.professione && profilo?.nome && profilo.nome !== nomeOrdini ? " · " : ""}
+                {profilo?.nome && profilo.nome !== nomeOrdini ? `negli ordini: ${nomeOrdini}` : ""}
+              </p>
+            ) : null}
+            <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span className="badge colorato" style={{ ["--badge-colore" as string]: seg.colore }}>
+                <span className="dot" />
+                {seg.nome}
+              </span>
+              {cluster ? (
+                <span className="badge colorato" style={{ ["--badge-colore" as string]: cluster.colore }} title={`Cluster: ${descriviCluster(cluster)}`}>
+                  <span className="dot" />
+                  {cluster.nome}
+                </span>
+              ) : null}
+              {profilo?.punteggio != null ? <span className="chip oro" title="Punteggio dato da noi">{profilo.punteggio}/100</span> : null}
+              {c.tipologia ? <span className="chip">{c.tipologia}</span> : null}
+              {c.citta ? <span>{c.citta}</span> : null}
+              {c.email ? <span>{c.email}</span> : null}
+              {c.telefono ? <span>{c.telefono}</span> : null}
+              {kpi.brand.length ? <span className="terziario">{kpi.brand.join(" · ")}</span> : null}
+              {kpi.contattiAlias.map((a) => (
+                <span key={a} className="chip" title="Scheda unita a questa">+ {a}</span>
+              ))}
+              <a className="link-quieto" href={`${qui}?modifica=profilo#profilo`}>Modifica il profilo</a>
+            </p>
+          </div>
         </div>
         <div className="azioni">
           <a className="btn ghost" href={`/clienti/${encodeURIComponent(codice)}/nuovo-ordine`}>Crea ordine</a>
@@ -134,30 +266,59 @@ export default async function Scheda({
 
       <div className="griglia quattro" style={{ marginBottom: 16 }}>
         <div className="card stretta stat">
-          <span className="valore">{euro(c.speso)}</span>
+          <span className="valore">{euro(kpi.speso)}</span>
           <span className="etichetta">Valore del cliente</span>
-          <span className="nota">medio {euro(c.ordineMedio)} a ordine</span>
+          <span className="nota">medio {euro(ordineMedio)} a ordine{alias.length ? ` · con ${alias.length} ${alias.length === 1 ? "scheda unita" : "schede unite"}` : ""}</span>
         </div>
         <div className="card stretta stat">
-          <span className="valore">{c.ordini}</span>
+          <span className="valore">{kpi.ordini}</span>
           <span className="etichetta">Ordini</span>
-          <span className="nota">{c.annullati ? `più ${c.annullati} annullati` : "nessun annullato"}</span>
+          <span className="nota">{kpi.annullati ? `più ${kpi.annullati} annullati` : "nessun annullato"}</span>
         </div>
         <div className="card stretta stat">
-          <span className="valore">{dataIt(c.primoOrdine)}</span>
+          <span className="valore">{dataIt(kpi.primoOrdine)}</span>
           <span className="etichetta">Cliente da</span>
           <span className="nota">{c.acquisizione?.canale ? `arrivato da ${c.acquisizione.canale}` : "provenienza non indicata"}</span>
         </div>
         <div className="card stretta stat">
-          <span className="valore">{dataIt(c.ultimoOrdine)}</span>
+          <span className="valore">{dataIt(kpi.ultimoOrdine)}</span>
           <span className="etichetta">Ultimo ordine</span>
-          <span className="nota">{c.giorniDallUltimo != null ? `${c.giorniDallUltimo} giorni fa` : ""}</span>
+          <span className="nota">{kpi.giorniDallUltimo != null ? `${kpi.giorniDallUltimo} giorni fa` : ""}</span>
         </div>
       </div>
 
       <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)" }}>
         {/* -------- colonna principale -------- */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {modificaProfilo ? (
+            <div className="card" id="profilo">
+              <div className="card-titolo">Profilo di relazione</div>
+              <div className="card-sub">
+                Come lo chiamiamo, cosa fa, la sua foto. Nome degli ordini, email, telefono e città restano in Orders: qui
+                si aggiunge, non si sovrascrive.{" "}
+                <a className="link-quieto" href={qui}>Annulla</a>
+              </div>
+              <form action={salvaProfilo}>
+                <input type="hidden" name="chiaveCliente" value={codice} />
+                <input type="hidden" name="torna" value={qui} />
+                <div className="form-riga">
+                  <div className="campo">
+                    <label>Come lo chiamiamo <span className="aiuto">(vuoto = {nomeOrdini})</span></label>
+                    <input type="text" name="nome" defaultValue={profilo?.nome ?? ""} placeholder={nomeOrdini} maxLength={120} />
+                  </div>
+                  <div className="campo">
+                    <label>Professione</label>
+                    <input type="text" name="professione" defaultValue={profilo?.professione ?? ""} placeholder="es. Notaio, imprenditrice, medico" maxLength={120} />
+                  </div>
+                </div>
+                <FotoInput fotoAttuale={fotoUrl} />
+                <div className="form-piede">
+                  <button className="btn" type="submit">Salva il profilo</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+
           {c.riepilogo ? (
             <div className="card">
               <div className="card-titolo">Chi è, in una riga</div>
@@ -174,21 +335,129 @@ export default async function Scheda({
             </div>
           ) : null}
 
-          <div className="card tabella-card">
-            <div style={{ padding: "20px 20px 8px" }}>
-              <div className="card-titolo">Ordini</div>
-              <div className="card-sub">
-                {ordini.ok
-                  ? `${ordini.dati.totale} ordini validi (gli annullati non compaiono). Fonte: Deluxy Orders.`
-                  : "Fonte: Deluxy Orders."}
-              </div>
+          {/* -------- Programmazione -------- */}
+          <div className="card" id="programmazione">
+            <div className="card-titolo">Programmazione</div>
+            <div className="card-sub">
+              Cosa faremo con {nomeMostrato.split(" ")[0]} e quando: una chiamata, una visita, un pensiero da mandare.
+              Finisce nel <a className="link-quieto" href="/calendario">Calendario</a>.
             </div>
-            {!ordini.ok ? (
-              <p className="secondario piccolo" style={{ padding: "0 20px 20px" }}>{ordini.errore}</p>
-            ) : ordini.dati.ordini.length === 0 ? (
-              <p className="secondario piccolo" style={{ padding: "0 20px 20px" }}>Nessun ordine valido.</p>
+            {daFare.length === 0 ? (
+              <p className="secondario piccolo">Niente in programma.</p>
             ) : (
-              <div className="tabella-scroll">
+              <div className="timeline">
+                {daFare.map((p) => {
+                  const k = chiaveGiorno(p.quando);
+                  const inRitardo = k < oggiChiave;
+                  return (
+                    <div className="timeline-voce" key={p.id}>
+                      <div className="timeline-corpo">
+                        <div className="timeline-titolo">
+                          {p.titolo}{" "}
+                          {inRitardo ? <span className="chip" style={{ color: "var(--red)" }}>in ritardo</span> : k === oggiChiave ? <span className="chip oro">oggi</span> : null}
+                        </div>
+                        {p.dettaglio ? <div className="timeline-dettaglio">{p.dettaglio}</div> : null}
+                        <div className="timeline-quando">
+                          {dataBreve(p.quando)}
+                          {p.conOra ? ` alle ${oraIt(p.quando)}` : ""}
+                          {p.autore ? ` · ${p.autore}` : ""}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignSelf: "center" }}>
+                        <form action={cambiaStatoProgrammazione}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="stato" value="fatta" />
+                          <input type="hidden" name="torna" value={qui} />
+                          <button className="btn ghost mini" type="submit">Fatta</button>
+                        </form>
+                        <form action={eliminaProgrammazione}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="torna" value={qui} />
+                          <button className="btn ghost mini" type="submit" title="Toglie la programmazione">✕</button>
+                        </form>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <form action={programmaConCliente} style={{ marginTop: 12 }}>
+              <input type="hidden" name="chiaveCliente" value={codice} />
+              <input type="hidden" name="nomeCliente" value={nomeMostrato} />
+              <input type="hidden" name="torna" value={qui} />
+              <div className="form-riga">
+                <div className="campo">
+                  <label>Giorno <span className="ob">*</span></label>
+                  <input type="date" name="giorno" required min={oggiChiave} />
+                </div>
+                <div className="campo">
+                  <label>Ora <span className="aiuto">(facoltativa)</span></label>
+                  <input type="time" name="ora" />
+                </div>
+              </div>
+              <div className="campo">
+                <label>Cosa fare <span className="ob">*</span></label>
+                <input type="text" name="titolo" placeholder="es. Chiamare per proporre la cena in boutique" required maxLength={200} />
+              </div>
+              <div className="campo">
+                <label>Dettaglio</label>
+                <textarea name="dettaglio" rows={2} placeholder="Cosa proporre, cosa ricordare…" style={{ minHeight: 60 }} />
+              </div>
+              <div className="form-piede">
+                <button className="btn" type="submit">Programma</button>
+              </div>
+            </form>
+            {chiuse.length ? (
+              <details style={{ marginTop: 8 }}>
+                <summary className="link-quieto" style={{ cursor: "pointer" }}>Le ultime chiuse ({chiuse.length})</summary>
+                <div className="timeline" style={{ marginTop: 8 }}>
+                  {chiuse.map((p) => {
+                    const st = statoProgrammazione(p.stato);
+                    return (
+                      <div className="timeline-voce" key={p.id}>
+                        <div className="timeline-corpo">
+                          <div className="timeline-titolo">{p.titolo}</div>
+                          <div className="timeline-quando">{dataBreve(p.quando)}</div>
+                        </div>
+                        <span className="badge colorato" style={{ ["--badge-colore" as string]: st.colore, alignSelf: "center" }}>
+                          <span className="dot" />
+                          {st.nome}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            ) : null}
+          </div>
+
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div>
+                <div className="card-titolo">Ordini</div>
+                <div className="card-sub" style={{ marginBottom: 0 }}>
+                  {ordiniVista.ok
+                    ? `${ordiniVista.dati.totale} ordini validi (gli annullati non compaiono). Fonte: Deluxy Orders.`
+                    : "Fonte: Deluxy Orders."}
+                  {ordiniVista.ok && ordiniVista.dati.ordini.length > 0 ? (
+                    <>
+                      {" "}Ultimo: {ordiniVista.dati.ordini[0].numero} del {dataIt(ordiniVista.dati.ordini[0].data)},{" "}
+                      {ordiniVista.dati.ordini[0].righe
+                        .slice(0, 2)
+                        .map((r) => r.titolo)
+                        .join(", ")}
+                      {ordiniVista.dati.ordini[0].righe.length > 2 ? "…" : ""} ({euro(ordiniVista.dati.ordini[0].totale)}).
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              {ordiniVista.ok && ordiniVista.dati.ordini.length > 0 ? (
+                <Modale
+                  bottone={`Vedi gli ordini (${ordiniVista.dati.totale})`}
+                  titolo={`Ordini di ${nomeMostrato}`}
+                  sotto={`${ordiniVista.dati.totale} ordini validi, dal più recente. Fonte: Deluxy Orders.`}
+                >
+                  <div className="tabella-scroll">
                 <table>
                   <thead>
                     <tr>
@@ -200,7 +469,7 @@ export default async function Scheda({
                     </tr>
                   </thead>
                   <tbody>
-                    {ordini.dati.ordini.map((o) => (
+                    {ordiniVista.dati.ordini.map((o) => (
                       <tr key={o.id}>
                         <td>
                           <div className="cella-principale">{o.numero}</div>
@@ -247,8 +516,15 @@ export default async function Scheda({
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
+                  </div>
+                </Modale>
+              ) : null}
+            </div>
+            {!ordiniVista.ok ? (
+              <p className="secondario piccolo" style={{ marginTop: 8 }}>{ordiniVista.errore}</p>
+            ) : ordiniVista.dati.ordini.length === 0 ? (
+              <p className="secondario piccolo" style={{ marginTop: 8 }}>Nessun ordine valido.</p>
+            ) : null}
           </div>
 
           <div className="card">
@@ -280,18 +556,92 @@ export default async function Scheda({
         {/* -------- colonna laterale -------- */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card">
+            <div className="card-titolo">Punteggio</div>
+            <div className="card-sub">Il voto del client advisor, da 0 a 100: entra nei cluster decisi in Impostazioni.</div>
+            <form action={salvaPunteggio} className="form-riga" style={{ alignItems: "flex-end" }}>
+              <input type="hidden" name="chiaveCliente" value={codice} />
+              <input type="hidden" name="torna" value={qui} />
+              <div className="campo" style={{ marginBottom: 0 }}>
+                <label>Punteggio</label>
+                <input type="number" name="punteggio" min={0} max={100} step="1" defaultValue={profilo?.punteggio ?? ""} placeholder="—" />
+              </div>
+              <button className="btn mini" type="submit" style={{ flex: "0 0 auto" }}>Salva</button>
+            </form>
+          </div>
+
+          {/* -------- Note -------- */}
+          <div className="card" id="note">
+            <div className="card-titolo">Note</div>
+            <div className="card-sub">Quello che vale la pena ricordare: quante si vuole, ognuna si modifica.</div>
+            {note.length === 0 ? (
+              <p className="secondario piccolo">Nessuna nota.</p>
+            ) : (
+              <div className="timeline">
+                {note.map((n) =>
+                  notaInModifica?.id === n.id ? (
+                    <div className="timeline-voce" key={n.id}>
+                      <form action={salvaNota} style={{ width: "100%" }}>
+                        <input type="hidden" name="id" value={n.id} />
+                        <input type="hidden" name="chiaveCliente" value={codice} />
+                        <input type="hidden" name="torna" value={`${qui}#note`} />
+                        <div className="campo" style={{ marginBottom: 8 }}>
+                          <textarea name="testo" rows={3} defaultValue={n.testo} required style={{ minHeight: 70 }} autoFocus />
+                        </div>
+                        <div className="form-piede" style={{ justifyContent: "space-between" }}>
+                          <a className="link-quieto" href={`${qui}#note`}>Annulla</a>
+                          <button className="btn mini" type="submit">Salva la nota</button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="timeline-voce" key={n.id}>
+                      <div className="timeline-corpo">
+                        <div className="timeline-dettaglio" style={{ whiteSpace: "pre-wrap", color: "var(--text)" }}>{n.testo}</div>
+                        <div className="timeline-quando">
+                          {dataIt(n.creatoIl, true)}
+                          {n.aggiornatoIl.getTime() - n.creatoIl.getTime() > 60_000 ? ` · modificata ${dataIt(n.aggiornatoIl)}` : ""}
+                          {n.autore ? ` · ${n.autore}` : ""}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignSelf: "flex-start" }}>
+                        <a className="btn ghost mini" href={`${qui}?nota=${n.id}#note`}>Modifica</a>
+                        <form action={eliminaNota}>
+                          <input type="hidden" name="id" value={n.id} />
+                          <input type="hidden" name="chiaveCliente" value={codice} />
+                          <input type="hidden" name="torna" value={`${qui}#note`} />
+                          <button className="btn ghost mini" type="submit" title="Elimina la nota">✕</button>
+                        </form>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+            <form action={salvaNota} style={{ marginTop: 12 }}>
+              <input type="hidden" name="chiaveCliente" value={codice} />
+              <input type="hidden" name="torna" value={`${qui}#note`} />
+              <div className="campo" style={{ marginBottom: 8 }}>
+                <textarea name="testo" rows={2} placeholder="Una nota nuova…" required style={{ minHeight: 56 }} />
+              </div>
+              <div className="form-piede">
+                <button className="btn mini" type="submit">Aggiungi la nota</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="card">
             <div className="card-titolo">Ricorrenze</div>
             <div className="card-sub">
               Compleanni e occasioni di questa persona: lette dagli ordini, confermate da noi. Vivono nel registro di
-              Orders — aggiungerne una qui la scrive lì.
+              Orders — aggiungerne qui le scrive lì.
             </div>
-            {!ricorr.ok ? (
-              <p className="secondario piccolo">{ricorr.errore}</p>
-            ) : ricorr.dati.eventi.length === 0 ? (
+            {!ricorrVista.ok ? (
+              <p className="secondario piccolo">{ricorrVista.errore}</p>
+            ) : ricorrVista.dati.eventi.length === 0 ? (
               <p className="secondario piccolo">Nessuna ricorrenza conosciuta.</p>
             ) : (
               <div className="timeline">
-                {ricorr.dati.eventi.map((r) => {
+                {ricorrVista.dati.eventi.map((r) => {
                   const tipo = tipoRicorrenza(r.tipo);
                   return (
                     <div className="timeline-voce" key={r.id}>
@@ -319,48 +669,11 @@ export default async function Scheda({
             )}
 
             <details style={{ marginTop: 12 }}>
-              <summary className="link-quieto" style={{ cursor: "pointer" }}>Aggiungi una ricorrenza</summary>
-              <form action={aggiungiRicorrenza} style={{ marginTop: 12 }}>
+              <summary className="link-quieto" style={{ cursor: "pointer" }}>Aggiungi una o più ricorrenze</summary>
+              <form action={aggiungiRicorrenze} style={{ marginTop: 12 }}>
                 <input type="hidden" name="cliente" value={codice} />
                 <input type="hidden" name="torna" value={qui} />
-                <div className="form-riga">
-                  <div className="campo">
-                    <label>Giorno <span className="ob">*</span></label>
-                    <input type="number" name="giorno" min={1} max={31} required />
-                  </div>
-                  <div className="campo">
-                    <label>Mese <span className="ob">*</span></label>
-                    <select name="mese" required defaultValue="">
-                      <option value="" disabled>—</option>
-                      {["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"].map((m, i) => (
-                        <option key={m} value={i + 1}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="campo">
-                  <label>Tipo</label>
-                  <select name="tipo" defaultValue="compleanno">
-                    {Object.entries(TIPI_RICORRENZA).map(([chiave, t]) => (
-                      <option key={chiave} value={chiave}>{t.nome}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="campo">
-                  <label>Per chi <span className="aiuto">(vuoto = il cliente stesso)</span></label>
-                  <input type="text" name="destinatario" placeholder="es. la moglie, Anna" />
-                </div>
-                <div className="campo">
-                  <label>Come la chiamiamo</label>
-                  <input type="text" name="titolo" placeholder="es. Compleanno di Anna" />
-                </div>
-                <div className="campo">
-                  <label>Note</label>
-                  <input type="text" name="note" placeholder="es. preferisce le peonie" />
-                </div>
-                <div className="form-piede">
-                  <button className="btn" type="submit">Salva nel registro</button>
-                </div>
+                <RicorrenzeMultiple tipi={Object.entries(TIPI_RICORRENZA).map(([chiave, t]) => ({ chiave, nome: t.nome }))} />
               </form>
             </details>
           </div>
@@ -398,6 +711,54 @@ export default async function Scheda({
                 <button className="btn" type="submit">Registra</button>
               </div>
             </form>
+          </div>
+
+          <div className="card">
+            <div className="card-titolo">Schede unite</div>
+            <div className="card-sub">
+              La stessa persona con due chiavi in Orders (l&apos;email del lavoro e quella personale, o solo il telefono):
+              unendole, questa scheda mostra anche i suoi ordini, ricorrenze e diario. Orders non cambia.
+            </div>
+            {alias.length ? (
+              <div className="timeline">
+                {datiAlias.map((d) => (
+                  <div className="timeline-voce" key={d.chiave}>
+                    <div className="timeline-corpo">
+                      <div className="timeline-titolo">
+                        {d.scheda.ok ? d.scheda.dati.nome ?? d.scheda.dati.email ?? d.chiave : d.chiave}
+                      </div>
+                      <div className="timeline-quando">
+                        {d.scheda.ok
+                          ? `${d.scheda.dati.email ?? d.scheda.dati.telefono ?? ""} · ${d.scheda.dati.ordini} ordini · ${euro(d.scheda.dati.speso)}`
+                          : d.scheda.errore}
+                      </div>
+                    </div>
+                    <form action={separaCliente} style={{ alignSelf: "center" }}>
+                      <input type="hidden" name="alias" value={d.chiave} />
+                      <input type="hidden" name="torna" value={qui} />
+                      <button className="btn ghost mini" type="submit">Separa</button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="secondario piccolo">Nessuna scheda unita.</p>
+            )}
+            <details style={{ marginTop: 10 }}>
+              <summary className="link-quieto" style={{ cursor: "pointer" }}>Unisci un&apos;altra scheda</summary>
+              <form action={unisciClienti} style={{ marginTop: 10 }}>
+                <input type="hidden" name="chiaveCliente" value={codice} />
+                <input type="hidden" name="torna" value={qui} />
+                <div className="campo">
+                  <label>Email (o codice) dell&apos;altra scheda <span className="ob">*</span></label>
+                  <input type="text" name="altro" placeholder="es. nome@lavoro.it" required />
+                  <span className="aiuto">Deve esistere in Orders. Questa resta la scheda principale.</span>
+                </div>
+                <div className="form-piede">
+                  <button className="btn mini" type="submit">Unisci</button>
+                </div>
+              </form>
+            </details>
           </div>
 
           <div className="card">

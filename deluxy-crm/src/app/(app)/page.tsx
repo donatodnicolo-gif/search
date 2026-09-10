@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { catalogoListe, elencoClienti, ricorrenze } from "@/lib/orders";
-import { dataIt, euro, giornoMese, quandoLeggibile, segmento, tipoRicorrenza, TIPI_ATTIVITA } from "@/lib/etichette";
+import { cambiaStatoProgrammazione } from "@/lib/actions";
+import { chiaveGiorno, dataIt, euro, giornoMese, oraIt, quandoLeggibile, segmento, tipoRicorrenza, TIPI_ATTIVITA } from "@/lib/etichette";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,11 @@ export default async function Oggi() {
     year: "numeric",
   }).format(new Date());
 
-  const [liste, prossime, daRiattivare, eventi, attivita, mailRecenti] = await Promise.all([
+  // Le programmazioni di oggi, più quelle rimaste indietro: fino a fine
+  // giornata di Roma (approssimata: mezzanotte UTC+2).
+  const fineGiornata = new Date(`${chiaveGiorno(new Date())}T23:59:59+02:00`);
+  const oggiChiave = chiaveGiorno(new Date());
+  const [liste, prossime, daRiattivare, eventi, attivita, mailRecenti, programmate] = await Promise.all([
     catalogoListe(),
     ricorrenze({ prossimi: 14, limit: 8 }),
     elencoClienti({ lista: "da-riattivare", ordina: "speso", limit: 5 }),
@@ -30,6 +35,11 @@ export default async function Oggi() {
     }),
     prisma.attivita.findMany({ orderBy: { quando: "desc" }, take: 6 }),
     prisma.mailInviata.count({ where: { inviataIl: { gte: new Date(Date.now() - 7 * 86_400_000) }, esito: "inviata" } }),
+    prisma.programmazione.findMany({
+      where: { stato: "da_fare", quando: { lte: fineGiornata } },
+      orderBy: { quando: "asc" },
+      take: 20,
+    }),
   ]);
 
   const contatore = (chiave: string) => liste.ok ? liste.dati.liste.find((l) => l.chiave === chiave) : undefined;
@@ -81,6 +91,44 @@ export default async function Oggi() {
       ) : null}
 
       <div className="griglia due">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="card">
+          <div className="card-titolo">Programmato per oggi</div>
+          <div className="card-sub">
+            Le cose da fare coi clienti, decise dalle loro schede. Tutto il mese è nel{" "}
+            <a className="link-quieto" href="/calendario">Calendario</a>.
+          </div>
+          {programmate.length === 0 ? (
+            <p className="secondario piccolo">Niente in programma per oggi.</p>
+          ) : (
+            <div className="timeline">
+              {programmate.map((p) => {
+                const inRitardo = chiaveGiorno(p.quando) < oggiChiave;
+                return (
+                  <div className="timeline-voce" key={p.id}>
+                    <div className="timeline-corpo">
+                      <div className="timeline-titolo">
+                        {p.conOra ? <span className="mono secondario">{oraIt(p.quando)} · </span> : null}
+                        {p.titolo}{" "}
+                        {inRitardo ? <span className="chip" style={{ color: "var(--red)" }}>da {dataIt(p.quando)}</span> : null}
+                      </div>
+                      <div className="timeline-quando">
+                        <a className="link-quieto" href={`/clienti/${encodeURIComponent(p.chiaveCliente)}`}>{p.nomeCliente || "cliente"}</a>
+                        {p.dettaglio ? ` · ${p.dettaglio.length > 80 ? `${p.dettaglio.slice(0, 80)}…` : p.dettaglio}` : ""}
+                      </div>
+                    </div>
+                    <form action={cambiaStatoProgrammazione} style={{ alignSelf: "center" }}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <input type="hidden" name="stato" value="fatta" />
+                      <input type="hidden" name="torna" value="/" />
+                      <button className="btn ghost mini" type="submit">Fatta</button>
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div className="card">
           <div className="card-titolo">Ricorrenze nei prossimi 14 giorni</div>
           <div className="card-sub">Compleanni e occasioni lette dagli ordini (fonte: Deluxy Orders). Un gesto puntuale vale una campagna.</div>
@@ -136,6 +184,7 @@ export default async function Oggi() {
           <div style={{ marginTop: 12 }}>
             <a className="link-quieto" href="/ricorrenze">Tutte le ricorrenze →</a>
           </div>
+        </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

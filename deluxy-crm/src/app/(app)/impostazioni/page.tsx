@@ -7,6 +7,9 @@ import { chiaveApp } from "@/lib/chiavi-app";
 import { statoPasswordTeam } from "@/lib/password-team";
 import { sessioneCorrente } from "@/lib/sessione-server";
 import CardPasswordTeam from "@/components/CardPasswordTeam";
+import { salvaImpostazioniClienti } from "@/lib/actions";
+import { statoMerch } from "@/lib/merchandising";
+import { COLORI_CLUSTER, descriviCluster, impostazioniClienti, MAX_CLUSTER } from "@/lib/cluster";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +17,14 @@ export const dynamic = "force-dynamic";
 // presenza delle chiavi): una chiamata vera a ciascuna app dice se il filo
 // regge. Le chiavi vivono nella cassaforte del Hub o nelle env di Vercel: qui
 // non si mostrano mai i valori.
-export default async function Impostazioni({ searchParams }: { searchParams: Promise<{ password?: string }> }) {
+export default async function Impostazioni({
+  searchParams,
+}: {
+  searchParams: Promise<{ password?: string; esito?: string; errore?: string }>;
+}) {
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
-  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db, password, sessione] = await Promise.all([
+  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db, password, sessione, imp, merch] = await Promise.all([
     statoOrders(),
     statoMail(),
     configurazioneMail(),
@@ -32,7 +39,11 @@ export default async function Impostazioni({ searchParams }: { searchParams: Pro
     ),
     statoPasswordTeam().catch(() => null),
     sessioneCorrente(),
+    impostazioniClienti(),
+    statoMerch(),
   ]);
+  // Le righe del form dei cluster: quelle esistenti più due vuote, fino al tetto.
+  const righeCluster = [...imp.cluster.map((k) => k as Partial<typeof k>), {}, {}].slice(0, MAX_CLUSTER);
   // Dal Hub solo gli admin cambiano la password del team; con la password
   // di squadra chiunque è dentro la può cambiare (conosce quella attuale).
   const passwordSoloLettura = Boolean(sessione && sessione.via === "sso" && sessione.ruolo !== "admin");
@@ -146,6 +157,98 @@ export default async function Impostazioni({ searchParams }: { searchParams: Pro
             <code className="chip">CRM_SESSION_SECRET</code> (firma sessione) · <code className="chip">HUB_SSO_SECRET</code>{" "}
             (ingresso dal Hub senza password).
           </p>
+        </div>
+
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div className="card-titolo">Merchandising (prodotti e collezioni)</div>
+            <Stato
+              ok={merch.raggiungibile && merch.autenticato}
+              testoOk="Collegato"
+              testoNo={merch.raggiungibile ? "Chiave assente o non valida" : "Non raggiungibile"}
+            />
+          </div>
+          <div className="card-sub">Da proporre nei messaggi ai clienti (Componi mail e WhatsApp).</div>
+          <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
+            Chiave a sola lettura, emessa da Merchandising → Impostazioni → chiavi API (nome «deluxy-crm»), in{" "}
+            <code className="chip">MERCH_API_KEY</code> (+ <code className="chip">MERCH_URL</code> se non è quello
+            standard). Senza, il compositore lo dice e il resto funziona.
+          </p>
+        </div>
+
+        <div className="card" id="clienti" style={{ gridColumn: "1 / -1" }}>
+          <div className="card-titolo">Clienti del CRM: soglie e cluster</div>
+          <div className="card-sub">
+            Tutti i clienti di Orders entrano nel CRM, sempre. Qui si decide chi è <strong>in soglia</strong> (da
+            coltivare) e i <strong>cluster</strong>: gruppi tuoi, in ordine di priorità — il primo che combacia vince;
+            un cluster senza condizioni raccoglie tutti gli altri. Spesa annua e frequenza sono stime sugli anni di vita
+            del cliente; il punteggio è quello dato a mano nella scheda (0-100).
+          </div>
+          {sp.esito === "ok" ? <div className="ok-card">Impostazioni salvate.</div> : null}
+          {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
+          <form action={salvaImpostazioniClienti}>
+            <div className="form-riga" style={{ maxWidth: 640 }}>
+              <div className="campo">
+                <label>Spesa totale minima (€)</label>
+                <input type="number" name="spesaTotaleMin" min={0} step="1" defaultValue={imp.soglie.spesaTotaleMin || ""} placeholder="0 = nessuna" />
+              </div>
+              <div className="campo">
+                <label>Spesa annua minima (€)</label>
+                <input type="number" name="spesaAnnuaMin" min={0} step="1" defaultValue={imp.soglie.spesaAnnuaMin || ""} placeholder="0 = nessuna" />
+              </div>
+              <div className="campo">
+                <label>Frequenza minima (ordini/anno)</label>
+                <input type="number" name="ordiniAnnoMin" min={0} step="0.5" defaultValue={imp.soglie.ordiniAnnoMin || ""} placeholder="0 = nessuna" />
+              </div>
+            </div>
+
+            <div className="card-titolo" style={{ fontSize: 14, marginTop: 6 }}>Cluster (in ordine di priorità)</div>
+            <p className="terziario piccolo" style={{ marginBottom: 10 }}>
+              Lascia vuota una condizione per non usarla. Le righe senza nome non contano.
+            </p>
+            {righeCluster.map((k, i) => (
+              <div className="riga-cluster" key={i}>
+                <div className="campo">
+                  <label>Nome</label>
+                  <input type="text" name={`k${i}_nome`} defaultValue={k.nome ?? ""} maxLength={40} placeholder={i === 0 ? "es. Top" : ""} />
+                </div>
+                <div className="campo">
+                  <label>Colore</label>
+                  <select name={`k${i}_colore`} defaultValue={k.colore ?? COLORI_CLUSTER[i % COLORI_CLUSTER.length].chiave}>
+                    {COLORI_CLUSTER.map((c) => (
+                      <option key={c.chiave} value={c.chiave}>{c.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="campo">
+                  <label>Spesa tot. ≥ €</label>
+                  <input type="number" name={`k${i}_spesaTotaleMin`} min={0} step="1" defaultValue={k.spesaTotaleMin ?? ""} />
+                </div>
+                <div className="campo">
+                  <label>Spesa annua ≥ €</label>
+                  <input type="number" name={`k${i}_spesaAnnuaMin`} min={0} step="1" defaultValue={k.spesaAnnuaMin ?? ""} />
+                </div>
+                <div className="campo">
+                  <label>Ordini/anno ≥</label>
+                  <input type="number" name={`k${i}_ordiniAnnoMin`} min={0} step="0.5" defaultValue={k.ordiniAnnoMin ?? ""} />
+                </div>
+                <div className="campo">
+                  <label>Ordini ≥</label>
+                  <input type="number" name={`k${i}_ordiniMin`} min={0} step="1" defaultValue={k.ordiniMin ?? ""} />
+                </div>
+                <div className="campo">
+                  <label>Punteggio ≥</label>
+                  <input type="number" name={`k${i}_punteggioMin`} min={0} max={100} step="1" defaultValue={k.punteggioMin ?? ""} />
+                </div>
+              </div>
+            ))}
+            <div className="form-piede" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <span className="terziario piccolo">
+                Oggi: {imp.cluster.map((k) => `${k.nome} (${descriviCluster(k)})`).join(" · ")}
+              </span>
+              <button className="btn" type="submit">Salva soglie e cluster</button>
+            </div>
+          </form>
         </div>
 
         {password ? (

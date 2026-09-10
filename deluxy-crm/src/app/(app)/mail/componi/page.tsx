@@ -1,3 +1,4 @@
+import InserisciDaCatalogo from "@/components/InserisciDaCatalogo";
 import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { schedaCliente } from "@/lib/orders";
@@ -28,7 +29,7 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
 
   const [scheda, templates, evento, config] = await Promise.all([
     codice ? schedaCliente(codice) : Promise.resolve(null),
-    prisma.templateMail.findMany({ orderBy: { nome: "asc" } }),
+    prisma.templateMail.findMany({ where: { archiviatoIl: null }, orderBy: { nome: "asc" } }),
     sp.evento ? prisma.evento.findUnique({ where: { id: sp.evento } }) : Promise.resolve(null),
     configurazioneMail(),
   ]);
@@ -136,6 +137,12 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
                 Se restano {"{{variabili}}"} nel testo, si riempiono coi dati del cliente al momento dell&apos;invio.
               </span>
             </div>
+            <details>
+              <summary className="link-quieto" style={{ cursor: "pointer", fontSize: 13 }}>
+                Proponi un prodotto o una collezione (da Merchandising)
+              </summary>
+              <InserisciDaCatalogo campo="corpo" />
+            </details>
             <div className="form-piede">
               <button className="btn" type="submit" disabled={!config.pronta}>
                 Invia la mail
