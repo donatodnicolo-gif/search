@@ -1830,6 +1830,37 @@ export class DeliveriesService {
     // la provincia si buttava via (vedi `luogoDaIndirizzo`).
     const luogo = await this.luogoDaIndirizzo(dto.recipientAddress);
 
+    /**
+     * ⭐ 10/09/2026 (regola utente: «correggi anche per consegne inserite dai
+     * partner, vendite accettate dai partner, modifiche di indirizzo») — LA
+     * DISTANZA LA MISURA IL SERVER, alla nascita.
+     *
+     * Fin qui `distanceKm` arrivava solo da chi chiamava: il modulo dell'ufficio
+     * (da ieri) lo manda, ma il PARTNER no — `distanceKm` è campo d'ufficio e
+     * gliene viene tolto, giustamente: su prezzo fisso la distanza fa il prezzo,
+     * e non la dichiara chi viene pagato. Il risultato era che tutte le vie
+     * automatiche — partner, vendite accettate, Customer Service, Scout — non
+     * l'avevano mai. Misura al 10/09: **31.705 consegne su 62.868 senza
+     * distanza**.
+     *
+     * Misurarla QUI risolve tutte le strade in una volta, e toglie di mezzo la
+     * domanda «chi me la dichiara»: la risposta è nessuno, la misura il server.
+     * Non è un dato estetico — i km oltre quelli inclusi entrano nella PAGA DEL
+     * VALET e, sul prezzo fisso, nel prezzo al partner.
+     *
+     * ⚠️ Un valore già passato da chi chiama (l'ufficio dal modulo) VINCE: è
+     * stato visto e confermato da una persona, e rimisurarlo sarebbe una
+     * chiamata pagata per riscrivere lo stesso numero.
+     * ⚠️ Se Google non risponde resta `null`, come prima: una consegna non deve
+     * fallire perché non si è potuta misurare una strada.
+     */
+    let kmMisurati: number | null = null;
+    if (dto.distanceKm == null && (dto.pickupAddress ?? '').trim() && (dto.recipientAddress ?? '').trim()) {
+      kmMisurati = await this.settings
+        .distanzaStradaleKm(dto.pickupAddress!.trim(), dto.recipientAddress.trim())
+        .catch(() => null);
+    }
+
     const delivery = await this.prisma.delivery.create({
       data: {
         ...scalar,
@@ -1838,6 +1869,8 @@ export class DeliveriesService {
         partnerId,
         latitude: luogo.lat,
         longitude: luogo.lng,
+        // La distanza misurata sopra entra solo se nessuno l'ha dichiarata.
+        ...(kmMisurati != null ? { distanceKm: kmMisurati } : {}),
         // ⚠️ Non si sovrascrive una provincia già dichiarata da chi chiama: la
         // geocodifica è un ripiego, non un'autorità.
         // Il DTO non dichiara `provinceId`: la provincia la deduce sempre la

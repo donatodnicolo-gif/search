@@ -3140,6 +3140,19 @@ export class SalesService {
     }
 
     const ultimo = await this.prisma.delivery.aggregate({ _max: { code: true } });
+    /**
+     * ⭐ 10/09/2026 (regola utente: «vendite accettate dai partner … vanno
+     * calcolate le distanze»). La consegna che nasce da una vendita non passa
+     * da `DeliveriesService.create`, quindi la misura fatta lì non la copriva:
+     * si fa anche qui, con la stessa funzione. Senza, i km oltre quelli inclusi
+     * non entrano nella paga del valet e la consegna resta senza distanza per
+     * sempre (nessuno riapre una vendita accettata per rimisurarla).
+     * Se Google non risponde resta `null`: una vendita non si blocca per una
+     * strada non misurata.
+     */
+    const kmVendita = indirizzoRitiro?.trim() && vendita.recipientAddress?.trim()
+      ? await this.settings.distanzaStradaleKm(indirizzoRitiro.trim(), vendita.recipientAddress.trim()).catch(() => null)
+      : null;
     return this.prisma.delivery.create({
       data: {
         code: (ultimo._max.code ?? 0) + 1,
@@ -3152,6 +3165,7 @@ export class SalesService {
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
         pickupAddress: indirizzoRitiro,
+        ...(kmVendita != null ? { distanceKm: kmVendita } : {}),
         /**
          * ⭐ 08/09/2026 (segnalazione utente: «possibile il valet di nome Sami team
          * leader a Roma non veda gli ordini?») — LA CONSEGNA NASCE CON LA SUA PROVINCIA.

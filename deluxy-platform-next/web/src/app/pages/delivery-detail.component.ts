@@ -350,6 +350,40 @@ interface DeliveryDetail {
       <div class="card state-card error">{{ error() }}</div>
     } @else {
       @if (delivery(); as d) {
+      <!-- ⭐ 10/09/2026 (regola utente: «indicare legame in alto e non in fondo»).
+           Le altre parti dello stesso ordine si leggono PRIMA dei dati della
+           consegna: sapere che questo lavoro è metà di un ordine cambia come si
+           legge tutto il resto, e in fondo alla pagina nessuno ci arrivava.
+           Il legame vale solo a parità di numero DDT E di sito, e lo vede solo
+           l'ufficio: la selezione la fa il server, in consegneStessoDdt. -->
+      @if (d.stessoDdt; as g) {
+        <section class="card legame-ddt">
+          <h2>{{ 'deliveryDetail.stessoDdt.titolo' | translate: { numero: g.numero, brand: g.brand } }}</h2>
+          <ul>
+            @for (a of g.altre; track a.id) {
+              <li>
+                <!-- ⭐ Si apre in una PAGINA NUOVA (regola utente): si sta
+                     confrontando due consegne, e perdere quella da cui si parte
+                     obbligherebbe a tornare indietro per riprendere il filo. -->
+                <a class="num" [routerLink]="['/deliveries', a.id]" target="_blank" rel="noopener">#{{ a.code }}</a>
+                <span class="chi">{{ a.partner?.insegna ?? '—' }}</span>
+                <span class="che">{{ a.serviceType?.name ?? '—' }}</span>
+                @if (a.products; as pr) {
+                  @if (pr.length) {
+                    <span class="cosa">{{ pr[0].productName }}@if (pr.length > 1) { <span> +{{ pr.length - 1 }}</span> }</span>
+                  }
+                }
+                <span class="quando">{{ a.date | date: 'dd/MM/yyyy' }}</span>
+                <span class="stato">{{ 'status.delivery.' + a.status | translate }}</span>
+              </li>
+            }
+          </ul>
+          @if (g.quante > g.altre.length) {
+            <p class="muted piccolo">{{ 'deliveryDetail.stessoDdt.altre' | translate: { n: g.quante - g.altre.length } }}</p>
+          }
+        </section>
+      }
+
       <div class="grid">
         <!-- Dati di consegna e ritiro -->
         <section class="card block">
@@ -892,35 +926,6 @@ interface DeliveryDetail {
         </div>
       }
 
-      <!-- ⭐ 09/09/2026 (regola utente: «se ci sono due consegne collegate da un
-           DDT consenti di navigare da una all'altra … solo se sono dello stesso
-           sito», e «legame solo a ufficio»). Un ordine multiplo si spezza fra più
-           fornitori: da qui si arriva alle altre parti. Il numero da solo non
-           basta — 783 numeri di DDT sono ripetuti fra siti diversi — quindi il
-           legame vale solo a parità di numero E di sito. -->
-      @if (d.stessoDdt; as g) {
-        <section class="card legame-corporate">
-          <p>{{ 'deliveryDetail.stessoDdt.titolo' | translate: { numero: g.numero, brand: g.brand } }}</p>
-          @for (a of g.altre; track a.id) {
-            <p>
-              <a [routerLink]="['/deliveries', a.id]">#{{ a.code }}</a>
-              @if (a.partner) { <span class="muted">· {{ a.partner.insegna }}</span> }
-              @if (a.serviceType) { <span class="muted">· {{ a.serviceType.name }}</span> }
-              <span class="muted">· {{ a.date | date: 'dd/MM/yyyy' }}</span>
-              <span class="muted">· {{ 'status.delivery.' + a.status | translate }}</span>
-              @if (a.products; as pr) {
-                @if (pr.length) {
-                  <span class="muted">· {{ pr[0].productName }}@if (pr.length > 1) { <span> +{{ pr.length - 1 }}</span> }</span>
-                }
-              }
-            </p>
-          }
-          @if (g.quante > g.altre.length) {
-            <p class="muted">{{ 'deliveryDetail.stessoDdt.altre' | translate: { n: g.quante - g.altre.length } }}</p>
-          }
-        </section>
-      }
-
       @if (d.legameCorporate; as lc) {
         <section class="card legame-corporate">
           @if (lc.verso === 'acquisto') {
@@ -1146,6 +1151,27 @@ interface DeliveryDetail {
         border: 1px solid var(--hairline, rgba(0,0,0,.12)); border-radius: 8px; padding: 3px 10px; cursor: pointer; }
       .cod-ddt:hover { border-color: var(--gold, #B8963E); }
       .cod-ddt:focus-visible { outline: 2px solid var(--gold, #B8963E); outline-offset: 2px; }
+      /* ⭐ 10/09/2026 (regola utente: «sistemare css»). Il riquadro prendeva in
+         prestito lo stile del legame corporate, pensato per due righe di testo:
+         con più consegne diventava un muro di parole tutte uguali. Qui ogni riga
+         è una consegna, e le colonne stanno incolonnate — numero, partner,
+         servizio, prodotto, data, stato — così l'occhio scorre in verticale
+         invece di rileggere ogni riga da capo. Sotto i 720px si impila. */
+      .legame-ddt { grid-column: 1 / -1; margin-bottom: 14px; }
+      .legame-ddt h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+      .legame-ddt ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+      .legame-ddt li { display: grid; grid-template-columns: 84px minmax(120px, 1fr) minmax(110px, 1fr) minmax(0, 1.2fr) 92px 112px;
+        gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: 13.5px; }
+      .legame-ddt li:last-child { border-bottom: 0; }
+      .legame-ddt .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+      .legame-ddt .chi { font-weight: 550; }
+      .legame-ddt .che, .legame-ddt .cosa, .legame-ddt .quando, .legame-ddt .stato { color: var(--text-secondary); }
+      .legame-ddt .cosa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .legame-ddt .quando { font-variant-numeric: tabular-nums; }
+      @media (max-width: 720px) {
+        .legame-ddt li { grid-template-columns: 1fr; gap: 2px; padding: 10px 0; }
+        .legame-ddt .che, .legame-ddt .cosa, .legame-ddt .quando, .legame-ddt .stato { font-size: 12.5px; }
+      }
       .riconsegna-legame p, .legame-corporate p { margin: 0 0 6px; font-size: 13.5px; }
       .riconsegna-legame p:last-child, .legame-corporate p:last-child { margin-bottom: 0; }
       .legame-corporate a, .riconsegna-legame a { font-weight: 600; }

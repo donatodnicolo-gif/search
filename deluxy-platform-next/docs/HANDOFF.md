@@ -62,6 +62,17 @@
 > 2. **Le 33 consegne Chanel «non da pagare» sono una SCELTA, confermata**: le fa la **regola legacy 10** (`toPay = false`, attiva, 1.280 consegne collegate in tutta la piattaforma) sul servizio «Servizio Consegna Standard» di Chanel Roma Piazza di Spagna e Babuino. Non sono lavoro non retribuito. ⚠️ **Restano però 7 vendite** (L'Accessorio, Il Pappagallo, Gruè, Velo, Lijoi Roma, Amir Roma) segnate «non da pagare» **senza nessuna regola collegata**: quelle non le spiega la regola Chanel.
 > 3. **Il corporate #100901 è risolto** («fatto e risolto tutto ok»): l'acquisto è stato creato. Fuori dai punti aperti.
 
+> ⚠️ **10/09/2026 — CORREZIONE: IL LISTINO DI SAMI VA BENE COSÌ. La diagnosi qui sotto era MIA e SBAGLIATA.**
+>
+> L'aggancio automatico che l'utente ha descritto («prezzo fisso del partner → consegna standard del valet; a ora → servizio orario») **esiste già**: è `scegliListinoValet()` in `salaries.module.ts`. Se la consegna non dice il listino, si sceglie **per MODELLO** — A_ORA sul listino a ore, **tutto il resto (vendite comprese) sul listino a prezzo fisso**. Le due voci di Sami bastano.
+> 🔴 **Perché mi ero sbagliato**: nella mia simulazione avevo scritto un fallback diverso da quello vero — cercavo un listino con lo stesso `pricingModel` del servizio del PARTNER, e per le vendite non lo trovavo mai. Rifatta con la funzione del prodotto, il quadro cambia:
+> - **agosto: 82 consegne → 81 righe, 1.647,09 €** (non 1.432,13);
+> - **settembre a oggi: 23 → 19 righe, 302,05 €**;
+> - **restano fuori 5 consegne in tutto**, tutte Chanel Roma: le esclude la **regola legacy 10** (`toPay = false`), che l'utente ha confermato essere una scelta — e vale **solo per Chanel**.
+> ✅ **Quindi non manca niente**: lo script `listino-valet-sami.mjs` NON serve, e non va lanciato. Basta **generare lo stipendio**.
+> 📌 **La lezione**: una simulazione che riscrive la formula invece di importarla non prova niente — prova la formula che hai riscritto. Le funzioni vere si caricano dal build (`pagaConsegna`, `scegliListinoValet`, `nonConsegnataPagabile`, `giriPerDdt` sono esportate).
+> 🟠 **Resta un punto vero**: **7 vendite di agosto** (#62414, #62415, #62748, #62822, #62974, #62975, #63028 — L'Accessorio, Il Pappagallo ×2, Gruè, Velo, Lijoi Roma, Amir Roma) sono `payable = false` **senza nessuna regola collegata**, tutte assegnate a Sami e non consegnate dal partner; quattro hanno già una paga scritta (15,50 · 16,47 · 14,88 · 14,69 = **61,54 €**). Nessuno le paga e nessuna regola lo giustifica.
+
 > 🔴 **09/09/2026 (sera) — SAMI: IL LISTINO VALET NON COMBACIA COI SERVIZI CHE FA. Script pronto, NON applicato.**
 >
 > Cercando perché 28 consegne sarebbero rimaste fuori dallo stipendio, la causa è venuta fuori intera: il suo listino ha **«Consegna Standard»** (PREZZO_FISSO, 12,50 € + 0,70 €/km) e **«Servizio a Ora»** (12,50 €), mentre i servizi che gli assegnano sono **altri tre**: «Vendita Deluxy» (80 consegne da agosto), «Servizio Consegna Standard» (55) e «Chanel Roma a ora» (17). Nomi simili, `ServiceType` diversi. Senza una voce di listino per il servizio della consegna, `pagaConsegna()` torna **null** e la riga **esce dal conto** — non a zero: proprio fuori.
