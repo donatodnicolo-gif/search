@@ -2,7 +2,12 @@
 
 Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 10/09/2026 sera (2) — LA SEZIONE «MULTIPRODOTTO» NEL MODULO (in locale, NON pubblicato)
+## 10/09/2026 sera (2) — LA SEZIONE «MULTIPRODOTTO» NEL MODULO — PUBBLICATA
+
+✅ **PUSHATO E DEPLOYATO** (utente: «fai push & deploy»): il commit `e293a53a` era già su `origin/scout-ui` (pushato da un'altra sessione col suo lavoro); deploy **`deluxy-merchandising-7flk5k0pa`** (cloud), Ready, alias di produzione. Verificato in produzione: `/api/health` ok, `/prodotti/nuovo` 200 con la card e l'input `componentiJson`, `/api/prodotti/cerca?q=cristal` risponde.
+
+⚠️ Nello stesso `/api/health`: `esitoUltimoImport: errore` — l'import di **Flowers delle 15:10 UTC** (lanciato a mano da qualcuno) è caduto in 9 s con **«Internal error. Looks like something went wrong on our end.»**: è il messaggio di Shopify, finalmente leggibile grazie a `erroriGraphql()` di stamattina. Il retry copre 5xx, timeout e rete, **non** questo errore che arriva dentro `errors` con HTTP 200. Da valutare: trattarlo come transitorio (una riga in `graphql()`: se il messaggio dice «internal error / something went wrong», riprova). Business Deluxy e Cake, negli stessi minuti, sono andati.
+
 
 Utente: «inizia a creare in nuovo prodotto una sezione opzionale "Multiprodotto"
 che lo aggancia ad altri prodotti esistenti o che si possono creare velocemente».
@@ -43,13 +48,11 @@ Concept con 2 componenti (tappa scritta), rifiutato con 1 componente; API
 0 rimasti.
 
 ⚠️ Non provato il salvataggio dal browser né la modifica di un composto
-esistente col modulo (0 composti a catalogo prima di oggi). Non pubblicato.
+esistente col modulo (0 composti a catalogo prima di oggi).
 
 ## 10/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 
-⚠️ Dopo questo punto c'è la sezione «Multiprodotto» (sera 2), **in locale e non pubblicata**.
-
-**Tutto il resto pubblicato.** Produzione = `origin/scout-ui` (`2da191af` + handoff), ultimo deploy
+**Tutto pubblicato**, Multiprodotto compreso (deploy `7flk5k0pa`). Produzione = `origin/scout-ui` (`2da191af` + handoff), ultimo deploy
 **`deluxy-merchandising-i2e2kbh3i`** (cloud, Ready, alias). `/api/health` ok: 4 negozi,
 5.081 prodotti, 420 collezioni, import collezioni `ok`. Manuale ripubblicato
 (registro: tre righe del 10/09 per Merchandising).
