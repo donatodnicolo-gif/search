@@ -248,6 +248,8 @@ export async function ricorrenze(p: {
   stato?: string;
   page?: number;
   limit?: number;
+  /** TTL della cache per questa lettura (default 60 s); i pallini usano TTL_PALLINI_MS. */
+  ttlMs?: number;
 }): Promise<Esito<ElencoRicorrenze>> {
   const qs = new URLSearchParams();
   if (p.cliente) qs.set("cliente", p.cliente);
@@ -255,7 +257,7 @@ export async function ricorrenze(p: {
   if (p.stato) qs.set("stato", p.stato);
   qs.set("page", String(p.page ?? 1));
   qs.set("limit", String(p.limit ?? 100));
-  return leggi<ElencoRicorrenze>(`/api/v1/eventi-clienti?${qs}`);
+  return leggi<ElencoRicorrenze>(`/api/v1/eventi-clienti?${qs}`, p.ttlMs);
 }
 
 // TUTTE le ricorrenze entro N giorni, a pagine di 500 (il massimo di Orders):
@@ -318,6 +320,37 @@ export async function statoOrders(): Promise<{ raggiungibile: boolean; autentica
   } catch {
     return { raggiungibile: false, autenticato: false };
   }
-  const prova = await leggi<CatalogoListe>(`/api/v1/liste`, 0);
-  return { raggiungibile: true, autenticato: prova.ok };
+  // ⚠️ La prova della chiave è una chiamata VERA, fuori dalla cache: prima
+  // passava da `leggi()` con ttl 0 sulla stessa chiave di `catalogoListe`, e
+  // (1) con la cache calda diceva «Collegato» senza chiamare nessuno, (2) a
+  // cache fredda sovrascriveva la voce buona con una già scaduta, facendo
+  // ripagare 1,1-1,4 s alla prossima Oggi/Clienti (revisione performance 10/09).
+  const chiave = await chiaveApp("ORDERS_API_KEY");
+  if (!chiave) return { raggiungibile: true, autenticato: false };
+  try {
+    const res = await fetch(`${base()}/api/v1/liste`, {
+      headers: { "x-api-key": chiave, "X-App": "deluxy-crm" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: "no-store",
+    });
+    return { raggiungibile: true, autenticato: res.ok };
+  } catch {
+    return { raggiungibile: true, autenticato: false };
+  }
+}
+
+// La data dell'ULTIMO ORDINE valido del registro, per il pallino «Clienti»
+// del menù. Prima si chiedeva a `/api/v1/clienti?ordina=ultimo&limit=1`, che
+// in Orders esegue comunque la CTE intera dei clienti (868-1248 ms misurati
+// il 10/09, `limit=1` non la sconta); `/api/v1/ordini?limit=1` dà lo stesso
+// valore — `ultimoOrdine` di un cliente È `max(data)` dei suoi ordini non
+// annullati, e la rotta esclude gli annullati — in 280-460 ms, senza la CTE.
+// TTL 300 s dichiarato: Orders sincronizza da Shopify ogni 5 minuti, un
+// pallino non può essere più fresco della fonte (Libro PERFORMANCE §6).
+export const TTL_PALLINI_MS = 5 * 60 * 1000;
+
+export async function dataUltimoOrdine(): Promise<Esito<string | null>> {
+  const r = await leggi<{ ordini?: { data?: string }[] }>(`/api/v1/ordini?page=1&limit=1`, TTL_PALLINI_MS);
+  if (!r.ok) return r;
+  return { ok: true, dati: r.dati.ordini?.[0]?.data ?? null };
 }

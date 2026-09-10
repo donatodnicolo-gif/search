@@ -1,5 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { cache } from "react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { verificaPasswordTeam as verificaPasswordDiNascita } from "./auth";
@@ -77,10 +78,16 @@ export async function statoPasswordTeam(): Promise<StatoPasswordTeam> {
 
 // La versione corrente della password: la portano le sessioni nuove, e la
 // ricontrolla chi legge la sessione lato Node (sessione-server.ts).
-export async function generazionePassword(): Promise<number> {
+//
+// ⚠️ `cache()` di React: la stessa RICHIESTA la legge una volta sola (layout +
+// pagina + Impostazioni la chiedevano 2-4 volte: revisione performance del
+// 10/09). È request-scoped: una richiesta nuova rilegge sempre, quindi la
+// revoca non cambia; l'unico valore «stantio» possibile sarebbe quello VECCHIO
+// dentro la richiesta che cambia la password — che porta subito fuori (fail-safe).
+export const generazionePassword = cache(async (): Promise<number> => {
   const riga = await prisma.passwordTeam.findUnique({ where: { id: ID_TEAM }, select: { versione: true } });
   return riga?.versione ?? 0;
-}
+});
 
 // Password digitata al login: quella nel database se c'è, altrimenti quella
 // di nascita. Mai tutte e due: quando la riga esiste, l'env è morta.

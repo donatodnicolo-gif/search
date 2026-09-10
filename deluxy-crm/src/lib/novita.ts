@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { elencoClienti, ricorrenze } from "./orders";
+import { dataUltimoOrdine, ricorrenze, TTL_PALLINI_MS } from "./orders";
 
 // ── COSA C'È DI NUOVO NELLE SEZIONI DEL MENU ──
 //
@@ -38,19 +38,26 @@ const GIORNI_RICORRENZE = 7;
  * quando hai guardato», il numero è «quanto lavoro c'è». Con un segnale solo,
  * uno dei due casi sparisce.
  *
- * Il giro fa 4 letture: 2 verso Orders (ricorrenze, clienti — entrambe con
- * `limit` minimo e cache 60 s) e 2 sul database (data e conteggio eventi).
+ * Il giro fa 7 letture: 2 verso Orders (ricorrenze a 7 giorni con `limit` 1,
+ * data dell'ultimo ordine) e 5 sul database (eventi e programmazioni).
+ *
+ * ⚠️ Le due letture verso Orders hanno TTL 300 s (TTL_PALLINI_MS): il giro
+ * della sidebar è ogni 90 s e con la cache a 60 s ogni giro la mancava,
+ * rifacendo a Orders la CTE dei clienti (~1 s) per un badge (revisione
+ * performance 10/09). Orders sincronizza ogni 5 minuti: più fresco di così
+ * il pallino non può essere.
  */
 export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
   const fra7 = new Date(Date.now() + 7 * 86_400_000);
-  const [imminenti, clienti, ultimoEvento, eventiInArrivo, ultimaProgrammazione, programmateVicine, inRitardo] = await Promise.all([
+  const [imminenti, ultimoOrdine, ultimoEvento, eventiInArrivo, ultimaProgrammazione, programmateVicine, inRitardo] = await Promise.all([
     // Le ricorrenze dei prossimi 7 giorni: basta il totale, quindi limit: 1.
-    ricorrenze({ prossimi: GIORNI_RICORRENZE, page: 1, limit: 1 }),
-    // ⚠️ Il pallino dei clienti guarda l'`ultimoOrdine` più recente di tutta la
-    // clientela: un ordine nuovo (cliente nuovo o cliente che torna) lo sposta
+    ricorrenze({ prossimi: GIORNI_RICORRENZE, page: 1, limit: 1, ttlMs: TTL_PALLINI_MS }),
+    // ⚠️ Il pallino dei clienti guarda la data dell'ULTIMO ORDINE valido del
+    // registro: un ordine nuovo (cliente nuovo o cliente che torna) la sposta
     // avanti. Non c'è una `creatoIl` del cliente da guardare — il cliente vive
-    // in Orders e nasce dal suo primo ordine.
-    elencoClienti({ ordina: "ultimo", verso: "desc", page: 1, limit: 1 }),
+    // in Orders e nasce dal suo primo ordine. Si legge dalla rotta degli
+    // ordini, non dalla CTE dei clienti (stesso valore, un quarto del costo).
+    dataUltimoOrdine(),
     // ⚠️ Gli eventi annullati restano fuori: annullando l'ultimo creato, la
     // data deve poter tornare indietro senza che il pallino segnali roba
     // sparita.
@@ -91,7 +98,7 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
       urgente: quanteRicorrenze > 0,
     },
     "/clienti": {
-      ultimo: clienti.ok ? (clienti.dati.clienti[0]?.ultimoOrdine ?? "") : "",
+      ultimo: ultimoOrdine.ok ? (ultimoOrdine.dati ?? "") : "",
       // Nessun numero: «quanti clienti» non è lavoro che aspetta, è l'archivio.
       quanti: 0,
       urgente: false,

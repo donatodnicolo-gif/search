@@ -32,6 +32,7 @@ Il canone della **velocità e dell'integrità** di tutte le app Deluxy: query, l
 - **Cosa si misura**: LCP/INP/CLS al p75 sul campo (libreria `web-vitals`, build *attribution*); tempi di pagina su **build di produzione** (`next build && start` — mai su `next dev`, dove i P2024 sono falsi e i tempi pure); query contate per vista; `EXPLAIN (ANALYZE, BUFFERS)` per le query; re-render col React DevTools Profiler; bundle con l'output di `next build` e con Expo Atlas.
 - **La regola del prima/dopo**: ogni ottimizzazione registra in `SEGNALAZIONI-PERFORMANCE.md` la misura prima e dopo, sullo stesso percorso e gli stessi volumi.
 - Mai misurare su una scheda in background (i browser strozzano i timer) né dentro un `<details>` chiuso (i rect mentono): trappole già pagate.
+- **Anche i byte si misurano solo su `next build && start`** (10/09/2026): il dev server gonfia l'HTML di ~3,7× con gli *owner stack* di React 19 (`/calendario` del CRM: 2 390 KB in dev, 653 KB in produzione, 119 KB gzip). Una «pagina da 2 MB» accusata sul dev server è falsa.
 
 ## 2. Query e database
 
