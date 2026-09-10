@@ -866,6 +866,16 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
         <div class="prev-corpo">
           <p class="muted">{{ 'sales.detail.preventivoSotto' | translate }}</p>
           <p><b>{{ pv.product?.name || pv.productName }}</b> @if (pv.partner) { <span class="muted">· {{ pv.partner.insegna }}</span> }</p>
+          <!-- ⭐ 10/09/2026 (regola utente): A CHI è stato chiesto — a scelta fra i partner attivi
+               nella provincia della vendita — e il prezzo che fa lui. -->
+          <label class="fld">
+            <span>{{ 'sales.detail.preventivoPartner' | translate }}</span>
+            <select class="field" [(ngModel)]="partnerPreventivo" name="partnerPreventivo">
+              <option value="">—</option>
+              @for (p of partnerPerPreventivo(pv); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+            </select>
+            @if (pv.province?.code && !partnerPerPreventivo(pv).length) { <span class="muted">{{ 'sales.detail.preventivoNessunPartner' | translate: { provincia: pv.province?.name } }}</span> }
+          </label>
           <label class="fld">
             <span>{{ 'sales.detail.preventivoPrezzo' | translate }}</span>
             <input class="field" type="number" step="0.01" min="0" [(ngModel)]="prezzoPreventivo" name="prezzoPreventivo" />
@@ -1711,7 +1721,21 @@ export class SalesListComponent {
    */
   serveIlPreventivo(s: Sale): boolean { return this.aPreventivo(s) && s.preventivoMancante === true; }
 
+  partnerPreventivo = '';
+  readonly partnerPerPreventivoTutti = signal<{ id: string; insegna: string; active?: boolean; deleted?: boolean; esclusoDalleProposte?: boolean; provinces?: { province?: { code?: string } }[] }[]>([]);
+  /** I partner fra cui scegliere: attivi, non esclusi dalle proposte, che lavorano nella provincia della vendita. */
+  partnerPerPreventivo(s: Sale) {
+    const code = s.province?.code;
+    return this.partnerPerPreventivoTutti()
+      .filter((p) => p.active !== false && !p.deleted && !p.esclusoDalleProposte)
+      .filter((p) => !code || (p.provinces ?? []).some((x) => x.province?.code === code))
+      .sort((a, b) => (a.insegna ?? '').localeCompare(b.insegna ?? '', 'it', { sensitivity: 'base' }));
+  }
   apriPreventivo(s: Sale): void {
+    this.partnerPreventivo = s.partner?.id ?? '';
+    if (!this.partnerPerPreventivoTutti().length) {
+      this.http.get<any>(`${environment.apiUrl}/partners`).subscribe({ next: (r) => this.partnerPerPreventivoTutti.set(Array.isArray(r) ? r : (r?.items ?? [])), error: () => undefined });
+    }
     this.prezzoPreventivo = s.prezzoPartner ?? null;
     this.messaggio.set(null);
     this.preventivoDi.set(s);
@@ -1723,8 +1747,12 @@ export class SalesListComponent {
       this.messaggio.set({ ok: false, testo: 'Il preventivo è un prezzo maggiore di zero.' });
       return;
     }
+    if (!this.partnerPreventivo) {
+      this.messaggio.set({ ok: false, testo: 'Scegli il partner a cui è stato chiesto il preventivo.' });
+      return;
+    }
     this.inCorso.set(s.id);
-    this.http.post(`${environment.apiUrl}/sales/${s.id}/preventivo`, { prezzo }).subscribe({
+    this.http.post(`${environment.apiUrl}/sales/${s.id}/preventivo`, { prezzo, partnerId: this.partnerPreventivo }).subscribe({
       next: (r: any) => {
         this.inCorso.set(null);
         this.preventivoDi.set(null);

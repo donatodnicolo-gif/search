@@ -2994,6 +2994,8 @@
       "salvaPreventivo": "Save quote",
       "preventivoTitolo": "Partner quote",
       "preventivoSotto": "A quote product needs the agreed price before it can be inserted: saving it also creates the rule for next time.",
+      "preventivoPartner": "Partner asked for the quote",
+      "preventivoNessunPartner": "No active partner works in the province of {{provincia}}.",
       "preventivoPrezzo": "Partner price (€)",
       "chiediPreventivo": "Ask for the quote",
       "preventivoServe": "Quote product: the partner price comes first, then you can accept or insert."

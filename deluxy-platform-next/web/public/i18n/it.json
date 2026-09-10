@@ -2996,6 +2996,8 @@
       "salvaPreventivo": "Salva preventivo",
       "preventivoTitolo": "Preventivo del partner",
       "preventivoSotto": "Prima di inserire un prodotto a preventivo serve il prezzo concordato: salvandolo nasce anche la regola per le prossime volte.",
+      "preventivoPartner": "Partner a cui è stato chiesto",
+      "preventivoNessunPartner": "Nessun partner attivo lavora in provincia di {{provincia}}.",
       "preventivoPrezzo": "Prezzo al partner (€)",
       "chiediPreventivo": "Chiedi il preventivo",
       "preventivoServe": "Prodotto a preventivo: prima serve il prezzo del partner, poi si può accettare o inserire."
