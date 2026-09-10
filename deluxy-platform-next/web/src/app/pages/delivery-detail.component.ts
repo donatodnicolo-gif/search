@@ -146,6 +146,22 @@ interface DeliveryDetail {
     dovutoLordo: number;
     dovutoNetto: number;
   } | null;
+  /** ⭐ 10/09: i margini di Deluxy sulla vendita — arriva SOLO all'ufficio. */
+  margineVendita?: {
+    ordine: string | null;
+    prezzoCliente: number;
+    valoreAlPartner: number;
+    scontoPercent: number | null;
+    scontoProdotto: number;
+    commissione: number;
+    ivaCommissione: number;
+    dovutoNetto: number;
+    restaADeluxy: number;
+    restaPercent: number;
+    costoValet: number | null;
+    margineDopoValet: number | null;
+    margineDopoValetPercent: number | null;
+  } | null;
   deliveryPrice?: number;
   valetSalary?: number;
   /** Costo valet calcolato dal listino quando valetSalary non è congelato (admin/op). */
@@ -569,6 +585,41 @@ interface DeliveryDetail {
             <p class="nota-conto">
               {{ contoKey('note') | translate: { lordo: v.dovutoLordo.toFixed(2) } }}
             </p>
+          </section>
+        }
+
+        <!-- ⭐ 10/09/2026 (regola utente: «mostra a ufficio anche i margini dal dettaglio
+             consegna con i margini della vendita»). Il riquadro sopra dice quanto guadagna
+             il partner; questo quanto resta a Deluxy. Il server lo manda SOLO all'ufficio:
+             partner e valet non ricevono il campo, quindi qui non compare. -->
+        @if (d.margineVendita; as m) {
+          <section class="card block conto-vendita margini-vendita">
+            <h2>{{ 'deliveryDetail.margini.title' | translate }}</h2>
+            <dl>
+              <dt>{{ 'deliveryDetail.margini.prezzoCliente' | translate }}</dt>
+              <dd>{{ m.prezzoCliente.toFixed(2) }} €
+                @if (m.ordine) { <span class="scomposto">{{ 'deliveryDetail.margini.ordine' | translate: { n: m.ordine } }}</span> }
+              </dd>
+              <dt>{{ 'deliveryDetail.margini.valoreAlPartner' | translate }}</dt>
+              <dd>{{ m.valoreAlPartner.toFixed(2) }} €
+                @if (m.scontoPercent != null) { <span class="scomposto">{{ 'deliveryDetail.margini.sconto' | translate: { pct: m.scontoPercent } }}</span> }
+              </dd>
+              <dt>{{ 'deliveryDetail.margini.scontoProdotto' | translate }}</dt>
+              <dd>{{ m.scontoProdotto.toFixed(2) }} €</dd>
+              <dt>{{ 'deliveryDetail.margini.commissione' | translate }}</dt>
+              <dd>{{ m.commissione.toFixed(2) }} € <span class="scomposto">+ {{ 'deliveryDetail.saleAccountOffice.vat' | translate }} {{ m.ivaCommissione.toFixed(2) }} €</span></dd>
+              <dt>{{ 'deliveryDetail.margini.dovutoNetto' | translate }}</dt>
+              <dd>−{{ m.dovutoNetto.toFixed(2) }} €</dd>
+              <dt class="forte">{{ 'deliveryDetail.margini.resta' | translate }}</dt>
+              <dd class="forte">{{ m.restaADeluxy.toFixed(2) }} € <span class="scomposto">{{ m.restaPercent }} % {{ 'deliveryDetail.margini.delPrezzo' | translate }}</span></dd>
+              <dt>{{ 'deliveryDetail.margini.costoValet' | translate }}</dt>
+              <dd>@if (m.costoValet != null) { −{{ m.costoValet.toFixed(2) }} € } @else { <span class="muted">{{ 'deliveryDetail.margini.valetMancante' | translate }}</span> }</dd>
+              @if (m.margineDopoValet != null) {
+                <dt class="forte">{{ 'deliveryDetail.margini.dopoValet' | translate }}</dt>
+                <dd class="forte" [class.negativo]="m.margineDopoValet < 0">{{ m.margineDopoValet.toFixed(2) }} € <span class="scomposto">{{ m.margineDopoValetPercent }} % {{ 'deliveryDetail.margini.delPrezzo' | translate }}</span></dd>
+              }
+            </dl>
+            <p class="nota-conto">{{ 'deliveryDetail.margini.note' | translate }}</p>
           </section>
         }
 
@@ -1331,6 +1382,7 @@ interface DeliveryDetail {
       /* La riga senza fee si dichiara accanto al suo importo: la quota su di lei e zero. */
       .badge.nofee { margin-left: 8px; font-size: 11px; background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
+      .margini-vendita dd.negativo { color: var(--danger, #d70015); }
       .mt { margin-top: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
       .tag { margin-left: 6px; font-size: 11px; background: rgba(0,113,227,0.1); color: var(--blue); border-radius: 980px; padding: 2px 8px; }

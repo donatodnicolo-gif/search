@@ -1062,6 +1062,49 @@ export class DeliveriesService {
       feeVendita = ps?.price ?? null;
     }
 
+    // ⭐ 10/09/2026 (regola utente su #101251: «mostra a ufficio anche i margini dal dettaglio
+    // consegna con i margini della vendita») — I MARGINI DELLA VENDITA, SOLO PER L'UFFICIO.
+    // Il conto `economiaVendita` dice quanto guadagna il partner; questo dice quanto resta a
+    // Deluxy: prezzo pagato dal cliente (la vendita), valore al partner (lo sconto), la nostra
+    // commissione, il dovuto netto, quel che resta, la paga del valet e il margine dopo.
+    // ⚠️ Al partner e al valet NON arriva: sta fra i campi tolti per ruolo (sotto). Il conto lo
+    // fa il server con gli stessi numeri della Fatturazione e di Stipendi: nessuna regola
+    // economica nuova, solo la differenza fra numeri che esistono già.
+    const economia = this.economiaVendita(delivery, feeVendita);
+    let margineVendita: Record<string, unknown> | null = null;
+    if (economia && user.role !== Role.PARTNER && user.role !== Role.VALET) {
+      const vendita = await this.prisma.sale.findFirst({
+        where: { deliveryId: delivery.id },
+        select: { id: true, amount: true, discountPercent: true, quantity: true, externalOrderNumber: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (vendita && vendita.amount > 0) {
+        const q2 = (x: number) => Math.round(x * 100) / 100;
+        // `Sale.amount` è il TOTALE pagato dal cliente per la vendita (non l'unitario).
+        const prezzoCliente = q2(vendita.amount);
+        const scontoProdotto = q2(prezzoCliente - economia.incasso);
+        const restaADeluxy = q2(prezzoCliente - economia.dovutoNetto);
+        const costoValet = (delivery as any).valetSalary ?? valetSalaryDalListino ?? null;
+        const extraValet = (delivery as any).valetAdditionalPrice ?? 0;
+        const costoValetTotale = costoValet != null ? q2(costoValet + extraValet) : null;
+        margineVendita = {
+          ordine: vendita.externalOrderNumber ?? null,
+          prezzoCliente,
+          valoreAlPartner: economia.incasso,
+          scontoPercent: vendita.discountPercent ?? null,
+          scontoProdotto,
+          commissione: economia.commissione,
+          ivaCommissione: economia.ivaCommissione,
+          dovutoNetto: economia.dovutoNetto,
+          restaADeluxy,
+          restaPercent: q2((restaADeluxy / prezzoCliente) * 100),
+          costoValet: costoValetTotale,
+          margineDopoValet: costoValetTotale != null ? q2(restaADeluxy - costoValetTotale) : null,
+          margineDopoValetPercent: costoValetTotale != null ? q2(((restaADeluxy - costoValetTotale) / prezzoCliente) * 100) : null,
+        };
+      }
+    }
+
     // REGOLA PAGA VALET come la applica Stipendi (02/09, utente: «verifica la
     // regola anche applicata al valet»): quella agganciata alla consegna, o —
     // in ripiego — quella ASSEGNATA al valet (attiva). Senza il ripiego la
@@ -1083,7 +1126,7 @@ export class DeliveriesService {
     const stessoDdt = await this.consegneStessoDdt(delivery as any, user);
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: this.economiaVendita(delivery, feeVendita), puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate, stessoDdt }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: economia, margineVendita, puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate, stessoDdt }, user),
       user,
     );
   }
@@ -3545,6 +3588,8 @@ export class DeliveriesService {
     'invoiced',
     // Il conto della vendita e' fra noi e il partner: al valet non riguarda.
     'economiaVendita',
+    // ⭐ 10/09: e i margini di Deluxy sulla vendita ancora meno.
+    'margineVendita',
   ] as const;
 
   /**
@@ -3571,7 +3616,9 @@ export class DeliveriesService {
       // SUO prezzo e la SUA fatturazione — la regola PAGA VALET no, e
       // nemmeno il flag «da pagare» (è il conto fra noi e il valet).
       for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId',
-        'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId', 'payable']) delete pulita[c];
+        'valetSalaryDalListino', 'valetDeliveryRule', 'valetDeliveryRuleId', 'payable',
+        // ⭐ 10/09: i margini di Deluxy sulla vendita sono nostri, non suoi.
+        'margineVendita']) delete pulita[c];
       // Della regola carnet il partner vede il lato FATTURA, non quello paga.
       if (pulita['deliveryRule']) {
         const { toPay, valetPayAdjustment, ...regola } = pulita['deliveryRule'];
