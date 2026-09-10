@@ -30,6 +30,8 @@ import { createRequire } from 'node:module';
 
 const APPLICA = process.argv.includes('--applica');
 const SOLO_LEGACY = process.argv.includes('--solo-legacy');
+// ⭐ 10/09 (decisione utente «metti già fatturate»): con --fatturate le consegne chiuse escono anche dal «Da fatturare».
+const FATTURATE = process.argv.includes('--fatturate');
 const argVal = (k, def) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : def; };
 const GIORNI = Number(argVal('--giorni', 30));
 const STATO = argVal('--stato', 'approved');
@@ -59,7 +61,7 @@ const rows = await db.delivery.findMany({
   orderBy: [{ partnerId: 'asc' }, { date: 'asc' }],
   select: { id: true, code: true, date: true, status: true, legacyId: true, partner: { select: { insegna: true } }, serviceType: { select: { name: true } } },
 });
-console.log(`soglia: data ≤ ${soglia.toISOString().slice(0, 10)} (${GIORNI} giorni) · stato di chiusura: ${STATO} · partner: ${PARTNER.length ? PARTNER.join(', ') : 'TUTTI'}${SOLO_LEGACY ? ' · solo legacy' : ''}`);
+console.log(`fatturate: ${FATTURATE ? 'sì' : 'no'} · soglia: data ≤ ${soglia.toISOString().slice(0, 10)} (${GIORNI} giorni) · stato di chiusura: ${STATO} · partner: ${PARTNER.length ? PARTNER.join(', ') : 'TUTTI'}${SOLO_LEGACY ? ' · solo legacy' : ''}`);
 console.log(`consegne trovate: ${rows.length}`);
 const perPartner = {};
 for (const r of rows) {
@@ -78,8 +80,8 @@ let fatte = 0;
 const oggi = new Date().toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' });
 for (const r of rows) {
   await db.$transaction([
-    db.delivery.update({ where: { id: r.id }, data: { status: STATO } }),
-    db.deliveryLog.create({ data: { deliveryId: r.id, type: 'status_change', message: `Chiusa d'ufficio il ${oggi} (script chiudi-consegne-ferme-vecchie): era «${r.status}» dal ${r.date.toISOString().slice(0, 10)}, mai lavorata${r.legacyId ? ', importata dal vecchio gestionale' : ''} → «${STATO}»` } }),
+    db.delivery.update({ where: { id: r.id }, data: { status: STATO, ...(FATTURATE ? { invoiced: true } : {}) } }),
+    db.deliveryLog.create({ data: { deliveryId: r.id, type: 'status_change', message: `Chiusa d'ufficio il ${oggi} (script chiudi-consegne-ferme-vecchie): era «${r.status}» dal ${r.date.toISOString().slice(0, 10)}, mai lavorata${r.legacyId ? ', importata dal vecchio gestionale' : ''} → «${STATO}»${FATTURATE ? ' e segnata già fatturata (non entra nel Da fatturare)' : ''}` } }),
   ]);
   fatte++;
   if (fatte % 100 === 0) console.log(`  … ${fatte}/${rows.length}`);
