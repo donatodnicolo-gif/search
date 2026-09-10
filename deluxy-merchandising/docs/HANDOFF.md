@@ -66,12 +66,10 @@ su `/prodotti/nuovo`: scelto Business Deluxy, il blocco si apre con 21 campi,
 8 precompilati, 10 asterischi, 20 partner in tendina, «2 attesi vuoti» (il
 partner, che sceglie chi compila).
 
-⚠️⚠️ **I 10 prodotti di prova ESISTONO sui negozi** (DRAFT, nome «TEST
-METAFIELD — <categoria> (da cancellare)», SKU a sette cifre, tag
-`test-metafield`) e nel nostro catalogo (fase Pubblico, `pubblicatoDal` spostato
-al **2099-01-01** così il cron delle pubblicazioni non li accende). **Vanno
-cancellati dall'admin di Shopify e archiviati qui**: decisione dell'utente,
-non fatta.
+✅ **I 10 prodotti di prova sono stati CANCELLATI** (utente: «cancella i
+prodotti di test»): `productDelete` su ciascun negozio, 10 su 10 riusciti, e
+tolti dal catalogo (pubblicazioni, tappe, varianti, prodotto). Ricontato: 0
+rimasti. Il rapporto della mappatura resta in `docs/`.
 
 🔴 Restano fuori dal modulo (per scelta, tipi non compilabili): i metaobject
 di Shopify (`shopify.*`), i `file_reference`, il json di BCPO, `judgeme.*`
