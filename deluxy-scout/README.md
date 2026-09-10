@@ -1,5 +1,52 @@
 # Deluxy Scout
 
+> **📍 STATO A FINE SESSIONE (10/09/2026, sera) — tutto IN PRODUZIONE, niente in
+> sospeso.** Quattro deploy web in giornata, l'ultimo con commit `ae459abf`
+> (bundle vivo `entry-3c965468…`); `scout-ui` pushato fino a `31747ef5`, albero
+> pulito; `tsc` 0 errori, **131 test verdi**; migrazioni a **0122** (nessuna
+> nuova oggi). In ordine, le cose fatte oggi: (1) Fornitori / Segnalazioni CS /
+> Selezionati con «Da · dal» e gli ordini del Customer Service a 30 e 180 gg
+> (nuova API del CS + Edge `customer-service` + chiave collegata e provata);
+> (2) Selezionati e Segnalazioni CS in UNA tabella con «Segnalazioni CS» come
+> filtro, ordine «Dal» decrescente; (3) «Assegna a me» in riga, Selezionati
+> prima di Potenziali nel menu, tabella che non sfora più (cap
+> `contenutoExtraLargo`); (4) il click su una riga del registro apre un
+> **foglio dentro Scout** con i dati dell'anagrafica, e i link nelle note si
+> cliccano. Il dettaglio di ognuna è nel blocco qui sotto.
+>
+> **Come riprendere**: `cd C:\Users\nicol\scoutwt\deluxy-scout` (branch
+> `scout-ui`; `C:\Users\nicol\app\deluxy-scout` è una copia morta), Node a
+> percorso pieno (`C:\Program Files\nodejs`), `npx tsc --noEmit && npx jest`,
+> `npx expo start --web --port 8081` (senza `CI=1`). Per guardare una schermata
+> senza login: una pagina temporanea `app/zz-prova-*.tsx` fuori da `(app)` con
+> dati finti, misurata dal browser, **poi cancellata** (è così che oggi si è
+> misurata la tabella dei Selezionati: col cap 1180 le colonne elastiche
+> stavano a 94 px).
+>
+> **Da sapere per chi riprende**:
+> - **Non provato a schermo con login** nessuna delle quattro tappe: l'utente
+>   guarda e segnala (oggi ha segnalato «segnalati non è nel menù», «sistema il
+>   css», «non si riesce a cliccare sui link» — tutte chiuse in giornata).
+> - **`Dal` nei Selezionati è `created_at`**: per un negozio scoperto da Google
+>   e stellato dopo è la data della scoperta, non della stella (la stella non
+>   ha una data sua). Se serve quella vera: colonna nuova + migrazione.
+> - **Il CS aggancia i fornitori per NOME**: su 118 ordini/180 gg solo 6 hanno
+>   `fornitoreId`. Un fornitore scritto in due modi nel CS conta come due.
+> - **Il manuale `scoutwt/MANUALE-DELUXY.html` è toccato da più sessioni
+>   insieme**: altre sessioni inserivano righe dopo il PRIMO `<tbody>` (la
+>   tabella delle app): 23 righe rimesse nel registro oggi. Per committare solo
+>   il proprio: `git show HEAD:MANUALE-DELUXY.html` + le proprie righe →
+>   `git update-index --cacheinfo`. L'artifact lo ripubblica chi ha l'ultima
+>   versione letta.
+> - **Punti aperti** (invariati, ri-misurati stamattina): `pagamenti.tsx`
+>   `cambiaStato`/`salvaIncassato` senza try/catch (P0 sicurezza); bucket
+>   `vetrine` pubblico; campo Sito dell'ordine che si perde chiudendo il
+>   foglio; auto-qualifica senza filtro robot (2 trattative «mailer@shopify.com»
+>   da cancellare); UX deferite del custode; recupero password; chiavi AI
+>   assenti sulle Edge; nessun profilo `responsabile`; cron import Anagrafiche
+>   mai partito (`main` senza workflow); PAT del repo scaduto il 10/08; APK
+>   Android fermo al 13/07.
+
 > **10/09/2026 — Fornitori, Segnalazioni CS e Selezionati: da chi proviene, e
 > gli ordini del Customer Service a 30 e 180 giorni · IN PRODUZIONE**
 > (commit `9b81aa1c` CS + `56c671eb` Scout, pushati su `origin/scout-ui`; CS
