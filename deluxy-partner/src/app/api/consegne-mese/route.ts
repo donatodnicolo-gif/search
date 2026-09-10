@@ -91,12 +91,21 @@ export async function POST(req: NextRequest) {
   const aliquotaIva = body.aliquotaIva == null ? 22 : Number(body.aliquotaIva);
   const riferimento = String(body.riferimento ?? "").trim();
   const descrizione = String(body.descrizione ?? "").trim();
+  // ⭐ 10/09/2026 (segnalazione utente: «Finance non ha creato la fattura delle consegne ma solo
+  // quella delle commissioni»). Il mese porta anche i SERVIZI DI CONSEGNA fatturati al partner
+  // (consegne a prezzo fisso, a ora, magazzino): qui diventano una FatturaServizio di tipologia
+  // «Consegne», non pagata, riconosciuta dal marcatore — la stessa che l'ufficio creava a mano
+  // (648/2026 di Diptyque, stamattina). Le vendite, quando non ci sono, non bloccano più il mese.
+  const consegneGrezze = body.consegne && typeof body.consegne === "object" ? (body.consegne as Record<string, unknown>) : null;
+  const consegneImponibile = consegneGrezze ? Number(consegneGrezze.imponibile) : 0;
+  const consegneDescrizione = consegneGrezze ? String(consegneGrezze.descrizione ?? "").trim() : "";
+  const haConsegne = Number.isFinite(consegneImponibile) && consegneImponibile > 0;
 
   const mancano: string[] = [];
   if (!partnerRif) mancano.push("partner");
   if (!Number.isInteger(anno) || anno < 2000) mancano.push("anno");
   if (!Number.isInteger(mese) || mese < 1 || mese > 12) mancano.push("mese");
-  if (!Number.isFinite(venduto) || venduto <= 0) mancano.push("venduto");
+  if (!Number.isFinite(venduto) || venduto < 0 || (venduto === 0 && !haConsegne)) mancano.push("venduto (o consegne.imponibile)");
   if (!Number.isFinite(commissioni) || commissioni < 0) mancano.push("commissioni");
   if (!riferimento) mancano.push("riferimento");
   if (mancano.length) {
@@ -128,7 +137,7 @@ export async function POST(req: NextRequest) {
 
   // La fee si DEDUCE: è quello che il rapporto dice, non un dato a parte che
   // potrebbe contraddirlo.
-  const feePercent = +((commissioni / venduto) * 100).toFixed(4);
+  const feePercent = venduto > 0 ? +((commissioni / venduto) * 100).toFixed(4) : 0;
   const testo = `${descrizione || "Consegne dalla piattaforma"} ${MARCATORE(riferimento)}`;
 
   // La riga di questo invio, riconosciuta dal marcatore.
@@ -136,7 +145,7 @@ export async function POST(req: NextRequest) {
     where: { partnerId: partner.id, anno, mese, descrizione: { contains: MARCATORE(riferimento) } },
   });
 
-  const vendita = esistente
+  const vendita = venduto <= 0 ? null : esistente
     ? await prisma.venditaVendor.update({
         where: { id: esistente.id },
         data: { incassoLordo: venduto, feePercent, descrizione: testo },
@@ -162,6 +171,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // ⭐ 10/09/2026 — LA FATTURA DEI SERVIZI DI CONSEGNA DEL MESE (idempotente sul marcatore).
+  let fatturaConsegne: { id: string; imponibile: number; creata: boolean; tipologia: string } | null = null;
+  if (haConsegne) {
+    const tip = (await prisma.tipologiaServizio.findFirst({ where: { nome: "Consegne" }, select: { id: true, nome: true } }))
+      ?? (await prisma.tipologiaServizio.findFirst({ where: { nome: "Altro" }, select: { id: true, nome: true } }))
+      ?? (await prisma.tipologiaServizio.findFirst({ select: { id: true, nome: true }, orderBy: { ordine: "asc" } }));
+    if (tip) {
+      const testoConsegne = `${consegneDescrizione || `Servizi di consegna ${nomeMese(mese)} ${anno}`} ${MARCATORE(riferimento)}`;
+      const giaFattura = await prisma.fatturaServizio.findFirst({ where: { partnerId: partner.id, anno, mese, descrizione: { contains: MARCATORE(riferimento) } } });
+      const imp = +consegneImponibile.toFixed(2);
+      const riga = giaFattura
+        ? await prisma.fatturaServizio.update({ where: { id: giaFattura.id }, data: { imponibile: imp, aliquotaIva, descrizione: testoConsegne } })
+        : await prisma.fatturaServizio.create({ data: { partnerId: partner.id, tipologiaId: tip.id, anno, mese, imponibile: imp, aliquotaIva, pagata: false, descrizione: testoConsegne } });
+      fatturaConsegne = { id: riga.id, imponibile: imp, creata: !giaFattura, tipologia: tip.nome };
+    }
+  }
   const dovuto = +(venduto - commissioni * (1 + aliquotaIva / 100)).toFixed(2);
 
   // ⭐ 09/09/2026 (richiesta dell'utente: «quando ti arrivano da app delivery
@@ -292,7 +317,7 @@ export async function POST(req: NextRequest) {
     azione: `Mese consegne ricevuto dalla piattaforma: ${mese}/${anno}`,
     categoria: "vendite",
     entita: "vendita",
-    entitaId: vendita.id,
+    entitaId: vendita?.id ?? fatturaConsegne?.id ?? riferimento,
     partner: partner.nome,
     dettaglio:
       `${riferimento} · venduto ${venduto.toFixed(2)} € · commissioni ${commissioni.toFixed(2)} € ` +
@@ -313,6 +338,8 @@ export async function POST(req: NextRequest) {
     commissioni,
     feePercent,
     dovutoAlPartner: dovuto,
+    // ⭐ 10/09/2026: la fattura dei servizi di consegna del mese, se la piattaforma li ha mandati.
+    fatturaConsegne,
     fatturaCommissioni: emissione.numero ?? (haGiaNumero ? (saldo?.commFattNumero ?? riferimento) : riferimento),
     emissioneFic: emissione,
     richiestaPagamento: pagamento,
