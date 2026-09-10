@@ -56,18 +56,28 @@
 >   colonne 30/180 gg; «Da dove» spiega la riga («Fornitore abituale del
 >   Customer Service», «Ha già preparato un ordine…»); categoria e linee sotto
 >   il nome.
-> - **«Segnalazioni CS» sta dentro SELEZIONATI** (Contatti → Selezionati,
->   `app/(app)/lista.tsx`, vista `selezionato`): due schede in cima, «I miei
->   selezionati» e «Segnalazioni CS» (`?tab=segnalati` la apre diretta). Prima
->   stava solo come quarta scheda dentro Affiliazioni e l'utente non la
->   trovava; avevo messo una voce nel menu, l'utente ha deciso «no, va messo in
->   selezionati». La scheda dentro Affiliazioni e la rotta `/segnalati` restano.
->   **E la tabella dei Selezionati ha tre colonne in più**: «Dal» (`created_at`,
->   la stessa data della scheda «Inserito il» — ⚠️ per un negozio scoperto da
->   Google e stellato dopo è la data della scoperta: la stella non ha una data
->   sua) e «30 gg» / «180 gg» con gli ordini del Customer Service, agganciati
->   per `anagrafiche_id` o per nome; totali in fondo; riga «Ordini dal CS»
->   nelle schede sul telefono. Le vendite si leggono SOLO in questa vista.
+> - **SELEZIONATI E SEGNALAZIONI CS SONO UNA TABELLA SOLA** (Contatti →
+>   Selezionati, `app/(app)/lista.tsx`, vista `selezionato`; decisione
+>   dell'utente in due passi: «va messo in selezionati», poi «unisci con
+>   segnalazioni cs in unica tabella, segnalazioni cs rimane un filtro»). Una
+>   riga è `RigaSel`: o un negozio di Scout (`place`) o un partner del registro
+>   (`registro`) segnalato dall'app fornitori, pagato dal CS o usato dal CS come
+>   fornitore (`fetchSegnalatiDaApp` + `fetchFornitori`, dedup per id) che
+>   nessuno ha ancora preso in carico — chi è già in Scout compare UNA volta,
+>   come `place`. Chip **Tutti / I miei selezionati / Segnalazioni CS** (un
+>   filtro, non una scheda; `?tab=segnalati` apre già filtrato); la ricerca
+>   copre entrambe le sorgenti. **Ordine iniziale «Dal» decrescente** (anche
+>   nelle schede sul telefono). Le righe del registro: badge «Segnalazione
+>   CS», «Da dove» sotto il nome, categoria+interessi in Linee, il click apre
+>   la scheda in Anagrafiche, azioni Chiama/WhatsApp/Email/**Prendi in carico**
+>   (geocodifica + `importaDalRegistro`, poi la scheda in Scout). Prima stava
+>   come quarta scheda dentro Affiliazioni (resta, come resta `/segnalati`).
+>   **Tre colonne in più**: «Dal» (`created_at` del negozio o `creatoIl` del
+>   registro — ⚠️ per un negozio scoperto da Google e stellato dopo è la data
+>   della scoperta: la stella non ha una data sua) e «30 gg» / «180 gg» con gli
+>   ordini del Customer Service, agganciati per id del registro o per nome;
+>   totali in fondo; riga «Ordini dal CS» nelle schede. Le vendite e le
+>   segnalazioni si leggono SOLO in questa vista.
 > - **Impostazioni → App collegate**: nuova app **Customer Service** in
 >   `APP_DELUXY` (`lib/db.ts`), **provabile** («Risponde: N ordini affidati a M
 >   fornitori»), `MESSAGING_API_KEY → customer-service` in `_shared/chiavi.ts`.

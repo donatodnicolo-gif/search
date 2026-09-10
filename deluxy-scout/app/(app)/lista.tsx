@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
@@ -24,20 +24,42 @@ import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
 import { IscriviSequenzaModal } from '@/components/IscriviSequenzaModal';
 import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
 import type { RecapitoPlace } from '@/lib/db';
-import { SegnalazioniCS } from '@/components/SegnalazioniCS';
 import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
 import { venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
 import { dataBreve } from '@/components/Tabella';
+import { etichettaFonte, fetchFornitori, fetchSegnalatiDaApp, urlSchedaRegistro, type PartnerRegistro } from '@/lib/anagrafiche';
+import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
+import { geocodeIndirizzo } from '@/lib/geocode';
+import { AzioniRiga } from '@/components/AzioniRiga';
+import { Chip } from '@/components/ui';
 
 /**
- * Le due schede della vista Selezionati (10/09/2026, decisione dell'utente:
- * «va messo in selezionati»): i MIEI selezionati (scelti con la ⭐) e le
- * Segnalazioni CS — negozi che un'altra app ha già trovato o fatto lavorare,
- * cioè selezionati che non abbiamo ancora scelto noi. Stessa scheda che vive
- * dentro Affiliazioni; la rotta /segnalati resta per i link già in giro.
+ * ⭐ SELEZIONATI E SEGNALAZIONI CS IN UNA TABELLA SOLA (10/09/2026, decisione
+ * dell'utente: «unisci con segnalazioni cs in unica tabella, segnalazioni cs
+ * rimane un filtro»). Una riga è o un negozio di Scout (`place`, scelto con la
+ * ⭐) o un partner del registro segnalato da un'altra app (`registro`: l'app
+ * fornitori, il Customer Service che l'ha pagato, o i fornitori a cui il CS
+ * affida gli ordini) che nessuno ha ancora preso in carico — cioè un
+ * selezionato che non abbiamo ancora scelto noi. Chi è già stato preso in
+ * carico è un `place` con `anagrafiche_id`, e compare UNA volta.
+ * La stessa lista vive ancora dentro Affiliazioni e su /segnalati.
  */
-type SchedaSelezionati = 'lista' | 'segnalati';
+type RigaSel = { place: Place; registro?: undefined } | { place?: undefined; registro: PartnerRegistro };
+type FiltroSel = 'tutti' | 'miei' | 'segnalati';
+const LABEL_FILTRO_SEL: Record<FiltroSel, string> = { tutti: 'Tutti', miei: 'I miei selezionati', segnalati: 'Segnalazioni CS' };
+const FONTI_SEGNALAZIONI = ['deluxy-suppliers', 'customer-service'] as const;
+
+/** Il perché di una riga del registro, detto in breve. */
+function daDoveRegistro(p: PartnerRegistro): string {
+  if (p.statoFornitore) return `Fornitore del Customer Service (${p.statoFornitore.replace('_', ' ')})`;
+  if (p.fonte === 'customer-service') return 'Pagato dal Customer Service';
+  if (p.fonte === 'deluxy-suppliers') return 'Segnalato dall’app fornitori';
+  return `Segnalato da ${etichettaFonte(p.fonte)}`;
+}
+const nomeDi = (r: RigaSel) => (r.place ? r.place.nome : r.registro.nome);
+const dalDi = (r: RigaSel) => (r.place ? r.place.created_at ?? null : r.registro.creatoIl ?? null);
+const chiaveDi = (r: RigaSel) => (r.place ? r.place.id : `reg:${r.registro.id}`);
 
 // Le "viste" del menu: ogni voce di Contatti apre /lista già filtrata.
 // "inattivi" = dormienti + persi, la scheda dei rapporti da riattivare.
@@ -104,10 +126,81 @@ export default function Lista() {
     : null;
   const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
 
-  // Le due schede dei Selezionati. `?tab=segnalati` apre la seconda diretta.
-  const [scheda, setScheda] = useState<SchedaSelezionati>(tabParam === 'segnalati' ? 'segnalati' : 'lista');
-  useEffect(() => setScheda(tabParam === 'segnalati' ? 'segnalati' : 'lista'), [vista, tabParam]);
-  const conSchede = vistaCorr === 'selezionato';
+  // Il filtro dei Selezionati: tutti, solo i miei, solo le Segnalazioni CS.
+  // `?tab=segnalati` (i link già in giro) apre già filtrato sulle segnalazioni.
+  const [filtroSel, setFiltroSel] = useState<FiltroSel>(tabParam === 'segnalati' ? 'segnalati' : 'tutti');
+  useEffect(() => setFiltroSel(tabParam === 'segnalati' ? 'segnalati' : 'tutti'), [vista, tabParam]);
+  const inSelezionati = vistaCorr === 'selezionato';
+
+  // Le Segnalazioni CS: partner del registro (live, nessuna copia) segnalati
+  // dall'app fornitori, pagati dal CS, o usati dal CS come fornitori. Si
+  // leggono SOLO nei Selezionati. `presi` = chi è già un negozio di Scout.
+  const [segnalati, setSegnalati] = useState<PartnerRegistro[]>([]);
+  const [presi, setPresi] = useState<Set<string>>(new Set());
+  const [segnalatiParziale, setSegnalatiParziale] = useState(false);
+  const [segnalatiErrore, setSegnalatiErrore] = useState<string | null>(null);
+  const [inCorso, setInCorso] = useState<string | null>(null);
+  const caricaSegnalati = useCallback(async () => {
+    try {
+      const [r, f, ids] = await Promise.all([
+        fetchSegnalatiDaApp([...FONTI_SEGNALAZIONI]),
+        fetchFornitori().catch(() => ({ partner: [] as PartnerRegistro[], parziale: true })),
+        fetchAnagraficheIdPresi().catch(() => new Set<string>()),
+      ]);
+      // Deduplica per id: lo stesso partner può essere «pagato dal CS» E
+      // fornitore abituale. È una riga sola.
+      const visti = new Map<string, PartnerRegistro>();
+      for (const p of [...r.partner, ...f.partner]) {
+        const gia = visti.get(p.id);
+        visti.set(p.id, gia ? { ...gia, ...p, statoFornitore: gia.statoFornitore ?? p.statoFornitore } : p);
+      }
+      setSegnalati([...visti.values()]);
+      setPresi(ids);
+      setSegnalatiParziale(r.parziale || f.parziale);
+      setSegnalatiErrore(null);
+    } catch (e: any) {
+      setSegnalatiErrore(e?.message ?? 'Registro non raggiungibile.');
+    }
+  }, []);
+  useEffect(() => {
+    if (inSelezionati) caricaSegnalati();
+  }, [inSelezionati, caricaSegnalati]);
+
+  // «Prendi in carico»: lo stesso giro di Segnalazioni CS — senza coordinate
+  // un negozio non può stare sulla mappa, quindi si geocodifica l'indirizzo
+  // (ripiego: la città; ripiego del ripiego: 0,0 e si sistema dopo).
+  async function prendiInCarico(p: PartnerRegistro) {
+    setInCorso(p.id);
+    try {
+      const indirizzo = [p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
+      let lat = 0;
+      let lng = 0;
+      try {
+        const g = await geocodeIndirizzo(indirizzo || p.citta || p.nome);
+        lat = g.lat;
+        lng = g.lng;
+      } catch {
+        // Meglio un negozio senza posizione che un negozio perso.
+      }
+      const place = await importaDalRegistro({
+        anagraficheId: p.id,
+        nome: p.nome,
+        indirizzo: p.indirizzo,
+        citta: p.citta,
+        categoria: p.categoria,
+        lat,
+        lng,
+        linee: p.interessi ?? [],
+      });
+      setPresi((s) => new Set(s).add(p.id));
+      ricarica();
+      router.push(`/(app)/attivita/${place.id}`);
+    } catch (e: any) {
+      avvisa('Non è stato possibile prenderlo in carico', e?.message ?? 'Riprova fra poco.');
+    } finally {
+      setInCorso(null);
+    }
+  }
 
   // ⭐ Gli IMPORTI del Customer Service (10/09/2026, richiesta dell'utente:
   // «in selezionati la tabella va fatta anche con importi»): quanti ordini il
@@ -116,17 +209,19 @@ export default function Lista() {
   // si agganciano per id del registro o per nome (lib/vendite-fornitori.ts).
   const [vendite, setVendite] = useState<EsitoVenditeFornitori | null>(null);
   useEffect(() => {
-    if (!conSchede) return;
+    if (!inSelezionati) return;
     let vivo = true;
     fetchVenditeFornitori(180).then((v) => vivo && setVendite(v));
     return () => {
       vivo = false;
     };
-  }, [conSchede]);
+  }, [inSelezionati]);
   const indiceVenditeCS = vendite?.ok ? vendite.indice : null;
   const giorniLunga = indiceVenditeCS?.giorniLunga ?? 180;
   const venditeDiPlace = (p: Place): VenditeFornitore | null =>
     venditeDi({ id: p.anagrafiche_id ?? '', nome: p.nome }, indiceVenditeCS);
+  const venditeDiRiga = (r: RigaSel): VenditeFornitore | null =>
+    r.place ? venditeDiPlace(r.place) : venditeDi({ id: r.registro.id, nome: r.registro.nome }, indiceVenditeCS);
 
   // Il titolo in cima segue la voce di menu da cui si arriva: la rotta è una
   // sola, ma "Prospect e Lead" fisso smentiva la voce appena premuta.
@@ -182,8 +277,30 @@ export default function Lista() {
         (p.linea_ipotizzata ?? '').toLowerCase().includes(q)
       );
     });
-    return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr]);
+    const ordinati = [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
+    if (!inSelezionati) return ordinati.map((place): RigaSel => ({ place }));
+
+    // ── Selezionati: negozi di Scout + Segnalazioni CS in una lista sola ──
+    // Un partner già preso in carico è un negozio di Scout con il suo
+    // `anagrafiche_id`: si mostra quello, non due righe.
+    const giaInScout = new Set([...presi, ...places.map((p) => p.anagrafiche_id).filter(Boolean)]);
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    const dalRegistro: RigaSel[] = segnalati
+      .filter((p) => !giaInScout.has(p.id))
+      .filter((p) => !q || [p.nome, p.indirizzo, p.citta, p.provincia, p.categoria, ...(p.interessi ?? []), daDoveRegistro(p)].some((v) => nrm(v).includes(q)))
+      .map((registro) => ({ registro }));
+    const righe: RigaSel[] =
+      filtroSel === 'miei' ? ordinati.map((place) => ({ place })) : filtroSel === 'segnalati' ? dalRegistro : [...ordinati.map((place): RigaSel => ({ place })), ...dalRegistro];
+    // Dal più recente (richiesta dell'utente: «ordina per dal decrescenti di
+    // default»); chi non ha la data va in fondo, e a pari data per nome.
+    return righe.sort((a, b) => (dalDi(b) ?? '').localeCompare(dalDi(a) ?? '') || nomeDi(a).localeCompare(nomeDi(b), 'it'));
+  }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr, inSelezionati, segnalati, presi, filtroSel]);
+
+  // Quante Segnalazioni CS ancora da prendere in carico (per il chip).
+  const segnalatiDaPrendere = useMemo(() => {
+    const giaInScout = new Set([...presi, ...places.map((p) => p.anagrafiche_id).filter(Boolean)]);
+    return segnalati.filter((p) => !giaInScout.has(p.id)).length;
+  }, [segnalati, presi, places]);
 
   /**
    * Quante righe ha questa vista **prima** di ricerca e filtri: è il numero
@@ -195,9 +312,9 @@ export default function Lista() {
       places
         .filter((p) => inLavorazione(p, conContatto.has(p.id), contattati.has(p.id)))
         .filter((p) => (livelliVista ? livelliVista.includes(livelloPlace(p)) : true))
-        .filter((p) => (vistaCorr === 'a-rischio' ? aRischio(p) : true)).length,
+        .filter((p) => (vistaCorr === 'a-rischio' ? aRischio(p) : true)).length + (inSelezionati ? segnalatiDaPrendere : 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [places, conContatto, contattati, livelliVista, vistaCorr],
+    [places, conContatto, contattati, livelliVista, vistaCorr, inSelezionati, segnalatiDaPrendere],
   );
 
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
@@ -249,13 +366,64 @@ export default function Lista() {
     );
   };
 
-  const colonne: ColonnaTabella<Place>[] = [
+  // Le azioni di una riga del registro (Segnalazioni CS): chiama, WhatsApp,
+  // email, prendi in carico — le stesse di /segnalati.
+  const azioniDiRegistro = (p: PartnerRegistro) => {
+    const preso = presi.has(p.id);
+    return (
+      <AzioniRiga>
+        <IconaAzione
+          nome="call-outline"
+          attiva={Boolean(p.telefono)}
+          label={p.telefono ? 'Chiama' : 'Nessun telefono nel registro'}
+          onPress={() => p.telefono && Linking.openURL(`tel:${p.telefono}`)}
+        />
+        <IconaAzione
+          nome="logo-whatsapp"
+          attiva={Boolean(p.telefono)}
+          label={p.telefono ? 'WhatsApp' : 'Nessun telefono nel registro'}
+          onPress={() => p.telefono && Linking.openURL(`https://wa.me/${p.telefono!.replace(/[^0-9]/g, '')}`)}
+        />
+        <IconaAzione
+          nome="mail-outline"
+          attiva={Boolean(p.email)}
+          label={p.email ? 'Email' : 'Nessuna mail nel registro'}
+          onPress={() => p.email && Linking.openURL(`mailto:${p.email}`)}
+        />
+        <IconaAzione
+          nome={preso ? 'checkmark-done-outline' : 'download-outline'}
+          attiva={!preso && inCorso !== p.id}
+          evidenza={preso}
+          label={preso ? 'Già fra i tuoi Selezionati' : 'Prendi in carico'}
+          onPress={() => prendiInCarico(p)}
+        />
+      </AzioniRiga>
+    );
+  };
+  const azioniDiRiga = (r: RigaSel) => (r.place ? azioniDi(r.place) : azioniDiRegistro(r.registro));
+
+  const colonne: ColonnaTabella<RigaSel>[] = [
     {
       chiave: 'nome',
       label: 'Negozio',
       flex: 1.2,
-      valore: (p) => p.nome,
-      cella: (p) => {
+      valore: (r) => nomeDi(r),
+      cella: (r) => {
+        if (r.registro) {
+          // Una riga del registro: nessun semaforo (nessuna visita possibile
+          // finché non è in Scout), sotto il nome da dove viene.
+          return (
+            <View>
+              <Text style={styles.tabNome} numberOfLines={2}>
+                {r.registro.nome}
+              </Text>
+              <Text style={styles.tabSotto} numberOfLines={1}>
+                {daDoveRegistro(r.registro)}
+              </Text>
+            </View>
+          );
+        }
+        const p = r.place;
         const v = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
         return (
           <View style={styles.tabNomeRiga}>
@@ -272,21 +440,44 @@ export default function Lista() {
         );
       },
     },
-    { chiave: 'indirizzo', label: 'Indirizzo', flex: 1, righe: 2, valore: (p) => p.indirizzo ?? null },
+    {
+      chiave: 'indirizzo',
+      label: 'Indirizzo',
+      flex: 1,
+      righe: 2,
+      valore: (r) =>
+        r.place ? r.place.indirizzo ?? null : [r.registro.indirizzo, [r.registro.citta, r.registro.provincia].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
+    },
     {
       chiave: 'linee',
       label: 'Linee',
       flex: 0.8,
       righe: 2,
-      valore: (p) =>
-        canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])).join(', ') || null,
+      valore: (r) =>
+        r.place
+          ? canonizzaLinee(r.place.linee_ipotizzate ?? (r.place.linea_ipotizzata ? [r.place.linea_ipotizzata] : [])).join(', ') || null
+          : [r.registro.categoria, ...(r.registro.interessi ?? [])].filter(Boolean).join(', ') || null,
     },
     {
       chiave: 'stato',
       label: 'Stato',
       width: 150,
-      valore: (p) => RANK[p.priorita] ?? 9,
-      cella: (p) => {
+      // Le segnalazioni stanno dopo i P3: sono ancora da scegliere.
+      valore: (r) => (r.place ? RANK[r.place.priorita] ?? 9 : 10),
+      cella: (r) => {
+        if (r.registro) {
+          return (
+            <View style={styles.tabBadges}>
+              <StatusBadge small label="Segnalazione CS" colore={colors.attenzione} />
+              {presi.has(r.registro.id) ? (
+                <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
+              ) : (
+                <StatusBadge small label="Da prendere" colore={colors.grigio} />
+              )}
+            </View>
+          );
+        }
+        const p = r.place;
         const liv = livelloPlace(p);
         return (
           <View style={styles.tabBadges}>
@@ -307,10 +498,10 @@ export default function Lista() {
       width: 86,
       destra: true,
       numerica: true,
-      valore: (p) => p.visita_pianificata ?? null,
-      cella: (p) => {
-        const q = giornoBreve(p.visita_pianificata);
-        const fra = giorniDaOggi(p.visita_pianificata);
+      valore: (r) => r.place?.visita_pianificata ?? null,
+      cella: (r) => {
+        const q = giornoBreve(r.place?.visita_pianificata);
+        const fra = giorniDaOggi(r.place?.visita_pianificata);
         if (!q) return <Text style={styles.tabData}>—</Text>;
         return (
           <Text style={[styles.tabData, fra !== null && fra < 0 && styles.pianificataTardi]} numberOfLines={2}>
@@ -325,7 +516,7 @@ export default function Lista() {
     // negozio, la stessa data che la scheda chiama «Inserito il»: per un
     // negozio scoperto da Google e stellato dopo è la data della scoperta, non
     // della stella — la stella non ha una data sua. Si dichiara, non si finge.
-    ...(conSchede
+    ...(inSelezionati
       ? ([
           {
             chiave: 'dal',
@@ -333,8 +524,8 @@ export default function Lista() {
             width: 78,
             destra: true,
             numerica: true,
-            valore: (p) => p.created_at ?? null,
-            cella: (p) => <Text style={styles.tabData}>{dataBreve(p.created_at)}</Text>,
+            valore: (r) => dalDi(r),
+            cella: (r) => <Text style={styles.tabData}>{dataBreve(dalDi(r))}</Text>,
           },
           {
             chiave: 'ordini30',
@@ -342,9 +533,9 @@ export default function Lista() {
             width: 96,
             destra: true,
             numerica: true,
-            valore: (p) => venditeDiPlace(p)?.ordini30 ?? null,
-            cella: (p) => {
-              const v = venditeDiPlace(p);
+            valore: (r) => venditeDiRiga(r)?.ordini30 ?? null,
+            cella: (r) => {
+              const v = venditeDiRiga(r);
               return <CellaVendite ordini={v?.ordini30 ?? 0} venduto={v?.venduto30 ?? 0} />;
             },
           },
@@ -354,44 +545,38 @@ export default function Lista() {
             width: 96,
             destra: true,
             numerica: true,
-            valore: (p) => venditeDiPlace(p)?.ordiniLunga ?? null,
-            cella: (p) => {
-              const v = venditeDiPlace(p);
+            valore: (r) => venditeDiRiga(r)?.ordiniLunga ?? null,
+            cella: (r) => {
+              const v = venditeDiRiga(r);
               return <CellaVendite ordini={v?.ordiniLunga ?? 0} venduto={v?.vendutoLunga ?? 0} />;
             },
           },
-        ] satisfies ColonnaTabella<Place>[])
+        ] satisfies ColonnaTabella<RigaSel>[])
       : []),
   ];
 
-  // Le schede dei Selezionati: sopra la lista, come in Affiliazioni.
-  const schede = conSchede ? (
-    <View style={styles.schede}>
-      {([
-        { v: 'lista' as const, label: 'I miei selezionati', icona: 'star-outline' as const },
-        { v: 'segnalati' as const, label: 'Segnalazioni CS', icona: 'megaphone-outline' as const },
-      ]).map((t) => (
-        <Pressable
-          key={t.v}
-          onPress={() => setScheda(t.v)}
-          style={[styles.scheda, scheda === t.v && styles.schedaOn]}
-          accessibilityState={{ selected: scheda === t.v }}
-        >
-          <Ionicons name={t.icona} size={15} color={scheda === t.v ? colors.bianco : colors.testo} />
-          <Text style={[styles.schedaTxt, scheda === t.v && styles.schedaTxtOn]}>{t.label}</Text>
-        </Pressable>
+  // I chip dei Selezionati: tutti / i miei / le Segnalazioni CS. Un filtro,
+  // non una scheda: la tabella è una sola (decisione dell'utente, 10/09).
+  const nMiei = inSelezionati ? totaleVista - segnalatiDaPrendere : 0;
+  const chipSelezionati = inSelezionati ? (
+    <RigaChips style={styles.livelli}>
+      {(['tutti', 'miei', 'segnalati'] as FiltroSel[]).map((f) => (
+        <Chip
+          key={f}
+          label={`${LABEL_FILTRO_SEL[f]} (${f === 'tutti' ? totaleVista : f === 'miei' ? nMiei : segnalatiDaPrendere})`}
+          on={filtroSel === f}
+          onPress={() => setFiltroSel(f)}
+          title={
+            f === 'segnalati'
+              ? 'I negozi che un’altra app ha già trovato o fatto lavorare (app fornitori, Customer Service), ancora da prendere in carico'
+              : f === 'miei'
+                ? 'I negozi scelti con la ⭐ da Mappa o Affiliazioni'
+                : 'Tutti insieme'
+          }
+        />
       ))}
-    </View>
+    </RigaChips>
   ) : null;
-
-  if (conSchede && scheda === 'segnalati') {
-    return (
-      <View style={styles.container}>
-        {schede}
-        <SegnalazioniCS />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -399,7 +584,7 @@ export default function Lista() {
         // In tabella la FlatList riceve UNA riga che contiene l'intero elenco:
         // testata, refresh e stato vuoto restano suoi, la griglia la fa Tabella.
         data={aTabella ? (dati.length ? [dati] : []) : dati}
-        keyExtractor={(p: any) => (aTabella ? 'tabella' : (p as Place).id)}
+        keyExtractor={(r: any) => (aTabella ? 'tabella' : chiaveDi(r as RigaSel))}
         contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
         // Intro, chip e filtri scorrono INSIEME alla lista: da fissi occupavano
@@ -408,7 +593,6 @@ export default function Lista() {
         // lettera digitata l'header si rimonta e la ricerca perde il fuoco.
         ListHeaderComponent={
           <View style={styles.headerScroll}>
-            {schede}
             <PageIntro
               testo={
                 vistaCorr
@@ -417,11 +601,22 @@ export default function Lista() {
               }
             />
             <ContoRighe mostrati={dati.length} totale={totaleVista} nome="negozi" />
-            {conSchede ? (
+            {inSelezionati ? (
               <View style={styles.statoVendite}>
                 <StatoVendite esito={vendite} />
+                {segnalatiErrore ? (
+                  <Text style={styles.avvisoRegistro}>
+                    <Ionicons name="warning-outline" size={12} color={colors.errore} /> Segnalazioni CS non lette: {segnalatiErrore}
+                  </Text>
+                ) : segnalatiParziale ? (
+                  <Text style={styles.avvisoRegistro}>
+                    <Ionicons name="information-circle-outline" size={12} color={colors.testoSoft} /> Segnalazioni CS possibilmente
+                    incomplete: il registro risponde senza il filtro per fonte o per stato fornitore (rideployare la funzione `anagrafiche`).
+                  </Text>
+                ) : null}
               </View>
             ) : null}
+            {chipSelezionati}
             {mostraChip ? (
               <RigaChips style={styles.livelli}>
                 <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
@@ -478,34 +673,80 @@ export default function Lista() {
         renderItem={({ item }) =>
           aTabella ? (
             <Tabella
-              righe={item as Place[]}
+              righe={item as RigaSel[]}
               colonne={colonne}
-              chiaveRiga={(p) => p.id}
-              ordineIniziale={{ campo: 'stato', verso: 'asc' }}
-              onRiga={(p) => router.push(`/(app)/attivita/${p.id}`)}
-              labelRiga={(p) => `Apri la scheda di ${p.nome}`}
-              azioni={azioniDi}
+              chiaveRiga={chiaveDi}
+              // Selezionati: dal più recente (richiesta dell'utente). Altrove
+              // per stato/priorità, come prima.
+              ordineIniziale={inSelezionati ? { campo: 'dal', verso: 'desc' } : { campo: 'stato', verso: 'asc' }}
+              onRiga={(r) => {
+                if (r.place) router.push(`/(app)/attivita/${r.place.id}`);
+                else {
+                  // Un partner del registro non ha una scheda in Scout finché
+                  // non lo si prende in carico: si apre la sua scheda là.
+                  const u = urlSchedaRegistro(r.registro.id);
+                  if (u) Linking.openURL(u);
+                }
+              }}
+              labelRiga={(r) => (r.place ? `Apri la scheda di ${r.place.nome}` : `Apri ${r.registro.nome} nel registro Anagrafiche`)}
+              azioni={azioniDiRiga}
               larghezzaAzioni={374}
               totali={(righe) => ({
                 nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
-                ordini30: indiceVenditeCS ? String(righe.reduce((s, p) => s + (venditeDiPlace(p)?.ordini30 ?? 0), 0)) : null,
-                ordiniLunga: indiceVenditeCS ? String(righe.reduce((s, p) => s + (venditeDiPlace(p)?.ordiniLunga ?? 0), 0)) : null,
+                ordini30: indiceVenditeCS ? String(righe.reduce((s, r) => s + (venditeDiRiga(r)?.ordini30 ?? 0), 0)) : null,
+                ordiniLunga: indiceVenditeCS ? String(righe.reduce((s, r) => s + (venditeDiRiga(r)?.ordiniLunga ?? 0), 0)) : null,
               })}
             />
+          ) : (item as RigaSel).registro ? (
+            (() => {
+              const p = (item as RigaSel).registro!;
+              const preso = presi.has(p.id);
+              const dove = [p.citta, p.provincia].filter(Boolean).join(' · ');
+              return (
+                <CardElenco
+                  icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
+                  coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
+                  titoloIcona={preso ? undefined : LABEL_VISITA.da_fare}
+                  nome={p.nome}
+                  meta={[dove, p.categoria].filter(Boolean).join(' — ') || null}
+                  tag={p.interessi ?? []}
+                  badge={
+                    <>
+                      <StatusBadge small label="Segnalazione CS" colore={colors.attenzione} />
+                      {preso ? (
+                        <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
+                      ) : (
+                        <StatusBadge small label="Da prendere" colore={colors.grigio} />
+                      )}
+                    </>
+                  }
+                  extra={
+                    <>
+                      <Text style={styles.inserito} numberOfLines={2}>
+                        <Ionicons name="megaphone-outline" size={11} color={colors.grigio} /> {daDoveRegistro(p)}
+                        {p.creatoIl ? ` · dal ${dataBreve(p.creatoIl)}` : ''}
+                      </Text>
+                      <RigaVendite v={venditeDiRiga(item as RigaSel)} giorniLunga={giorniLunga} />
+                    </>
+                  }
+                  azioni={azioniDiRegistro(p)}
+                />
+              );
+            })()
           ) : (
             <Riga
-              place={item as Place}
-              vendite={conSchede ? venditeDiPlace(item) : null}
+              place={(item as RigaSel).place!}
+              vendite={inSelezionati ? venditeDiPlace((item as RigaSel).place!) : null}
               giorniLunga={giorniLunga}
-              livello={livelloPlace(item)}
-              visita={statoVisita(item, conBozza.has(item.id), visitati.has(item.id))}
-              recapito={recapiti.get(item.id)}
-              onPress={() => router.push(`/(app)/attivita/${item.id}`)}
-              onNascondi={() => nascondi(item)}
-              onVisita={() => setVisitaPlace(item)}
-              onPianifica={() => setPianificaPlace(item)}
-              onMail={() => setMailPlace(item)}
-              onSequenza={() => setSequenzaPlace(item)}
+              livello={livelloPlace((item as RigaSel).place!)}
+              visita={statoVisita((item as RigaSel).place!, conBozza.has((item as RigaSel).place!.id), visitati.has((item as RigaSel).place!.id))}
+              recapito={recapiti.get((item as RigaSel).place!.id)}
+              onPress={() => router.push(`/(app)/attivita/${(item as RigaSel).place!.id}`)}
+              onNascondi={() => nascondi((item as RigaSel).place!)}
+              onVisita={() => setVisitaPlace((item as RigaSel).place!)}
+              onPianifica={() => setPianificaPlace((item as RigaSel).place!)}
+              onMail={() => setMailPlace((item as RigaSel).place!)}
+              onSequenza={() => setSequenzaPlace((item as RigaSel).place!)}
               onTrattativa={(p) =>
                 router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
               }
@@ -705,13 +946,9 @@ const styles = StyleSheet.create({
   // qui lo si annulla perche' intro, chip e filtri hanno gia' i propri margini
   // (e la barra dei filtri deve restare larga da bordo a bordo).
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
-  // Le due schede dei Selezionati: stesse pillole di Affiliazioni.
-  schede: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
-  scheda: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  schedaOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  schedaTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
-  schedaTxtOn: { color: colors.bianco },
-  statoVendite: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  statoVendite: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: 4 },
+  avvisoRegistro: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  tabSotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
   riga: {
     backgroundColor: colors.bianco,
     borderRadius: radius.m,
