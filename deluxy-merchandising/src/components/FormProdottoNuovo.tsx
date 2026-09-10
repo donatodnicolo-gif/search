@@ -24,7 +24,8 @@ import { componiDescrizioneHtml } from "@/lib/descrizione-shopify";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
-import { chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
+import { CAMPI_OPERATIVI, chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
+
 
 export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean; lingueAttive?: string[] };
 export type CategoriaPerForm = { chiave: string; nome: string; negozio: string | null; conPrompt: boolean };
@@ -149,6 +150,8 @@ export function FormProdottoNuovo({
   iniziale,
   duplica,
   tipiShopify = [],
+  attesiPerNegozio = {},
+  partnerNoti = {},
 }: {
   negozi: NegozioPerForm[];
   categorie: CategoriaPerForm[];
@@ -158,6 +161,10 @@ export function FormProdottoNuovo({
   aiPronta: boolean;
   /** ⭐ 09/09/2026: i «Tipo di prodotto» in uso, con le categorie che li usano. */
   tipiShopify?: { tipo: string; categorie: string[] }[];
+  /** ⭐ 10/09/2026: per sito e per chiave, su quale quota delle schede attive sta il metafield e il valore più usato. */
+  attesiPerNegozio?: Record<string, Record<string, { quota: number; tipico: string | null }>>;
+  /** ⭐ 10/09/2026: i partner già scritti sui prodotti attivi di ogni sito. */
+  partnerNoti?: Record<string, { id: string; indirizzo: string; prodotti: number }[]>;
   /** ⭐ 08/09/2026: le sezioni previste per ciascuna categoria e negozio. */
   sezioni?: SezionePerForm[];
   /** I due plus di ogni sito: righe 2 e 3 dell'elenco in cima alla scheda. */
@@ -205,6 +212,33 @@ export function FormProdottoNuovo({
   const altriNegozi = sitiScelti.slice(1);
   const negoziAnche = negozi.filter((n) => altriNegozi.includes(n.id));
   const nomiNegoziScelti = [...(negozio ? [negozio.nome] : []), ...negoziAnche.map((n) => n.nome)];
+
+  // ⭐ 10/09/2026 (utente: «assicurati che per tutti i prodotti nuovi carichiamo
+  // tutti i metafield»). Su un prodotto NUOVO, appena si sceglie un sito, i
+  // campi **operativi** partono dal valore più usato su quel sito (consegna,
+  // orario minimo, date, province, pezzo unico, non fisico, tipologia…); i
+  // campi di contenuto (fiori, gusti, occasioni) restano vuoti, perché un
+  // bouquet nuovo non è «Rose» solo perché lo sono i più. Ogni sito si
+  // precompila una volta sola: quello che l'utente svuota resta vuoto.
+  const sitiPrecompilati = useRef(new Set<string>());
+  const chiaveSiti = nomiNegoziScelti.join("|");
+  useEffect(() => {
+    if (iniziale) return;
+    for (const nomeSito of chiaveSiti.split("|").filter(Boolean)) {
+      if (sitiPrecompilati.current.has(nomeSito)) continue;
+      sitiPrecompilati.current.add(nomeSito);
+      const attesi = attesiPerNegozio[nomeSito];
+      if (!attesi) continue;
+      setMetafield((m) => {
+        const n = { ...m };
+        for (const chiave of CAMPI_OPERATIVI) {
+          const a = attesi[chiave];
+          if (a?.tipico && a.quota >= 0.5 && !(n[chiave] ?? "")) n[chiave] = a.tipico;
+        }
+        return n;
+      });
+    }
+  }, [iniziale, chiaveSiti, attesiPerNegozio]);
   // ⭐ 08/09/2026 — **la scheda del sito che si sta compilando**.
   // ⚠️ Non si tiene in uno stato che può restare indietro: se cambio il
   // negozio principale o tolgo un sito, il nome memorizzato punterebbe a una
@@ -1397,25 +1431,74 @@ export function FormProdottoNuovo({
                 </>
               )}
 
-              {/* ⚠️ NASCOSTO il 08/09/2026 su richiesta dell'utente («per ora
-                  nascondi»). Il blocco funziona, ma mostra i campi che QUESTO
-                  negozio definisce con valori che invece sono **gli stessi per
-                  tutti i siti**: due cose diverse che sembrano una sola. Prima
-                  di rimetterlo va deciso se i valori dei metafield diventano
-                  per negozio. Per riaccenderlo: togliere `false &&`. */}
-              {false && defSito.length > 0 && (
-                <details className="altri-campi">
-                  <summary className="pill-opt">Campi di {nomeSito} · {defSito.length}</summary>
-                  <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
-                    I <i>metafield</i> che {nomeSito} definisce su Shopify. ⚠️ I valori sono gli stessi su tutti i siti che hanno un campo con la stessa chiave: qui si vede quali campi ciascun sito espone.
-                  </p>
-                  <div className="modulo">
-                    {defSito.map((d) => (
-                      <CampoMetafield key={chiaveDef(d)} def={d} valore={metafield[chiaveDef(d)] ?? ""} onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))} />
-                    ))}
-                  </div>
-                </details>
-              )}
+              {/* ⭐ 10/09/2026 — RIACCESO (era nascosto dall'08/09: «per ora nascondi»).
+                  L'utente ha chiesto che ogni prodotto nuovo carichi TUTTI i
+                  metafield: un prodotto nasceva senza partner, province,
+                  orario minimo… perché questo blocco era spento e il modulo
+                  mandava zero campi. Ora: i campi di QUESTO sito, ordinati per
+                  quanto il sito li usa (asterisco sopra la metà delle schede
+                  attive), i quattro storici senza definizione, e la tendina del
+                  partner. ⚠️ Un valore con la stessa chiave resta condiviso fra
+                  i siti (una scheda, un `metafieldShopify`): le chiavi che
+                  cambiano nome fra i siti — occasioni/occasione,
+                  nations_availability/_nations_availability — si compilano una
+                  per sito. */}
+              {defSito.length > 0 && (() => {
+                const attesi = attesiPerNegozio[nomeSito] ?? {};
+                const quotaDi = (d: DefinizioneMetafield) => attesi[chiaveDef(d)]?.quota ?? 0;
+                const ordinate = [...defSito].sort((a, b) => quotaDi(b) - quotaDi(a) || (a.posizione ?? 999) - (b.posizione ?? 999) || etichettaDef(a).localeCompare(etichettaDef(b)));
+                const compilati = ordinate.filter((d) => (metafield[chiaveDef(d)] ?? "") !== "").length;
+                const attesiVuoti = ordinate.filter((d) => quotaDi(d) >= 0.5 && (metafield[chiaveDef(d)] ?? "") === "").length;
+                const partner = partnerNoti[nomeSito] ?? [];
+                const partnerScelto = metafield["custom.partner_id"] ?? "";
+                return (
+                  <details className="altri-campi" open={!modifica || attesiVuoti > 0}>
+                    <summary className="pill-opt">
+                      Campi di {nomeSito} · {compilati} su {ordinate.length} compilati
+                      {attesiVuoti > 0 && <span className="tab-sito-conto" title="Campi presenti su almeno metà delle schede attive di questo sito, ancora vuoti"> {attesiVuoti} attesi vuoti</span>}
+                    </summary>
+                    <p className="cella-sub" style={{ margin: "8px 0 10px" }}>
+                      I <i>metafield</i> che {nomeSito} definisce su Shopify, più i quattro che il sito usa senza definirli (partner, indirizzo, pezzo unico, non fisico). L&apos;asterisco segna quelli presenti su almeno metà delle schede attive di {nomeSito}; su un prodotto nuovo quelli operativi partono dal valore più usato lì. ⚠️ Un valore con la stessa chiave è lo stesso su tutti i siti.
+                    </p>
+                    {partner.length > 0 && (
+                      <div className="campo-modulo largo" style={{ marginBottom: 10 }}>
+                        <label htmlFor={`partner-${nomeSito}`}>
+                          Partner che lo prepara<span className="mf-chiave">custom.partner_id + partner_address</span>
+                        </label>
+                        <select
+                          id={`partner-${nomeSito}`}
+                          value={partnerScelto}
+                          onChange={(e) => {
+                            const scelto = partner.find((x) => x.id === e.target.value);
+                            setMetafield((m) => ({ ...m, "custom.partner_id": e.target.value, "custom.partner_address": scelto ? scelto.indirizzo : e.target.value ? (m["custom.partner_address"] ?? "") : "" }));
+                          }}
+                        >
+                          <option value="">— nessun partner —</option>
+                          {partner.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.id} · {x.indirizzo || "(senza indirizzo)"} · {x.prodotti} prodotti
+                            </option>
+                          ))}
+                          {partnerScelto && !partner.some((x) => x.id === partnerScelto) && <option value={partnerScelto}>{partnerScelto} · (non fra i partner di {nomeSito})</option>}
+                        </select>
+                        <span className="cella-sub">Sono i partner già scritti sui prodotti attivi di {nomeSito}: scegliendone uno si riempiono id e indirizzo qui sotto.</span>
+                      </div>
+                    )}
+                    <div className="modulo">
+                      {ordinate.map((d) => (
+                        <CampoMetafield
+                          key={chiaveDef(d)}
+                          def={d}
+                          valore={metafield[chiaveDef(d)] ?? ""}
+                          onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))}
+                          atteso={quotaDi(d) >= 0.5 ? Math.round(quotaDi(d) * 100) : null}
+                          tipico={attesi[chiaveDef(d)]?.tipico ?? null}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                );
+              })()}
             </div>
           );
         })()}
@@ -1671,7 +1754,7 @@ export function FormProdottoNuovo({
 }
 
 /** Un metafield reso secondo il suo tipo e i valori ammessi. */
-function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void }) {
+function CampoMetafield({ def, valore, onChange, atteso = null, tipico = null }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void; atteso?: number | null; tipico?: string | null }) {
   const id = `mf-${def.namespace}-${def.key}`;
   const compilato = valore !== "";
   // L'etichetta: il nome dato nell'admin, con la chiave tecnica accanto in
@@ -1680,10 +1763,17 @@ function CampoMetafield({ def, valore, onChange }: { def: DefinizioneMetafield; 
     <>
       {etichettaDef(def)}
       <span className="mf-chiave">{chiaveDef(def)}</span>
+      {atteso != null && <span className="obbligatorio" title={`Presente sul ${atteso}% delle schede attive di questo sito`}> *</span>}
       {compilato && <span className="mf-punto" title="Compilato" />}
     </>
   );
-  const aiuto = def.descrizione ? <span className="cella-sub">{def.descrizione}</span> : null;
+  const aiuto =
+    def.descrizione || (!compilato && tipico) ? (
+      <span className="cella-sub">
+        {def.descrizione}
+        {!compilato && tipico ? `${def.descrizione ? " · " : ""}Di solito qui: ${tipico.length > 80 ? tipico.slice(0, 80) + "…" : tipico}` : ""}
+      </span>
+    ) : null;
 
   if (def.tipo === "list.single_line_text_field" && def.scelte?.length) {
     const scelti = new Set(listaDa(valore));

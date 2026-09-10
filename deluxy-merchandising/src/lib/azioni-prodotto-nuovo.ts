@@ -27,7 +27,7 @@ import { traduciScheda } from "./ai-traduzioni";
 import { TIPOLOGIE_VENDITA, etichettaCategoria } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
-import { definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
+import { conCampiStorici, definizioniInCache, metafieldPerShopify, scartiMetafield } from "./metafield-definizioni";
 import { descrizionePerNegozio } from "./descrizione-prodotto";
 import { spezzaDescrizioneHtml } from "./descrizione-shopify";
 import { seoDaRegole } from "./seo-regole";
@@ -196,7 +196,8 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   const finestraAperta = (!pubblicatoDal || pubblicatoDal <= oggi) && (!pubblicatoFinoAl || pubblicatoFinoAl >= oggi);
 
   // I campi del negozio: si tengono solo le chiavi definite dal negozio.
-  const definizioni = await definizioniInCache(negozioOk.nome);
+  // ⭐ 10/09/2026: più le quattro storiche senza definizione (partner, pezzo unico, non fisico).
+  const definizioni = conCampiStorici(await definizioniInCache(negozioOk.nome));
   const metafieldGrezzi = leggiJson<Record<string, string>>(fd, "metafieldJson", {});
   const chiaviValide = new Set(definizioni.map((d) => `${d.namespace}.${d.key}`));
   const metafield: Record<string, string> = {};
@@ -470,7 +471,7 @@ async function pubblicaSuAltroNegozio(
     avvisi.push(`${negozio.nome}: il negozio non sa autenticarsi su Shopify, non pubblicato là.`);
     return { ...base, errore: "credenziali non valide" };
   }
-  const defs = await definizioniInCache(negozio.nome);
+  const defs = conCampiStorici(await definizioniInCache(negozio.nome));
   const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
   const metafield = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
   // ⚠️ È QUI che si rompeva: la chiave esiste anche su questo negozio, ma le
@@ -911,7 +912,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         avvisi.push(`${n.nome}: il negozio non sa autenticarsi, non aggiornato là.`);
         continue;
       }
-      const defs = await definizioniInCache(n.nome);
+      const defs = conCampiStorici(await definizioniInCache(n.nome));
       const valide = new Set(defs.map((d) => `${d.namespace}.${d.key}`));
       const mf = Object.fromEntries(Object.entries(m.metafield).filter(([k]) => valide.has(k)));
       // ⚠️ Le scelte ammesse cambiano da un negozio all'altro: quello che

@@ -2,6 +2,81 @@
 
 Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 10/09/2026 sera — I PRODOTTI NUOVI NASCEVANO SENZA METAFIELD: RIACCESO IL BLOCCO, MAPPATI I CAMPI, PROVATI 10 PRODOTTI
+
+Utente: «assicurati che per tutti i prodotti nuovi carichiamo tutti i metafield,
+fai una mappatura con 10 prodotti nuovi di test, 1 per categoria».
+
+### Il fatto, misurato
+- Il blocco «Campi del negozio» del modulo era **spento** dall'08/09 (`false &&`):
+  un prodotto nuovo partiva con `metafield = {}` e nasceva su Shopify **con
+  zero metafield** — niente partner, province, orario minimo, date.
+- I quattro campi più usati dai siti **non hanno definizione su Shopify** e
+  quindi il modulo non poteva nemmeno vederli: `custom.partner_id`,
+  `custom.partner_address`, `custom.is_unique`, `custom.not_physical` (Cake
+  313/315 schede attive, Business 303/342, Flowers 241/269, Gifts 772/800).
+  Idem `minimo_orario`, `nations_availability` e `prodotto.consegna` su **Cake e
+  Business Deluxy**, che li usano sul 90% delle schede senza definirli.
+- Il `partner_id` è l'id del partner **nel vecchio gestionale** (33 valori
+  distinti sugli attivi: 223 = Via Varesina/Cake, 128 = Milano/Business e
+  Gifts, 242 = Monte Napoleone/Flowers…). **Nessun prodotto attivo ha un
+  `fornitoreId` nostro**: l'unica mappa esistente è quella scritta sui prodotti.
+
+### Fatto (`tsc` 0)
+- **`CAMPI_SENZA_DEFINIZIONE` + `conCampiStorici()`** (`metafield-definizioni.ts`):
+  le sette storiche coi tipi veri (number_integer, multi_line_text_field,
+  boolean), aggiunte alle definizioni di ogni negozio che non le ha. Usate in
+  `leggiModulo`, `pubblicaSuAltroNegozio`, la modifica e i dati del modulo.
+- **`attesiDaiProdotti()`** (`modulo-prodotto-dati.ts`): per sito e per chiave,
+  **su quale quota delle schede attive sta** e **il valore più usato**; e i
+  **partner noti** per sito (id, indirizzo più usato, quanti prodotti). Letto
+  dai prodotti veri a ogni apertura del modulo, non scritto a mano.
+- **Modulo, blocco riacceso** nella scheda di ogni sito: campi ordinati per
+  quanto il sito li usa, **asterisco sopra la metà**, «Di solito qui: …» sui
+  vuoti, riassunto «N su M compilati · K attesi vuoti», **tendina del partner**
+  che riempie id e indirizzo. Su un **prodotto nuovo** i campi **operativi**
+  (`CAMPI_OPERATIVI` in `metafield-puro.ts`: consegna, orario minimo, date,
+  orario, province, pezzo unico, non fisico, tipologia, da chi fatto, guida
+  misure) **partono dal valore più usato** sul sito scelto, una volta sola per
+  sito; fiori, gusti, occasioni restano vuoti perché sono contenuto.
+  ⚠️ **Decisione**: i valori restano **condivisi per chiave** fra i siti (un
+  solo `metafieldShopify`); le chiavi che cambiano nome fra i siti
+  (`occasioni`/`occasione`, `nations_availability`/`_nations_availability`) si
+  compilano una per sito. Era il dubbio che aveva fatto spegnere il blocco.
+- `metafieldDaColonne` ora rimette anche le quattro storiche dalle colonne
+  (`pezzoUnicoShopify`, `nonFisicoShopify`, `partnerIdShopify`,
+  `partnerIndirizzoShopify`): in modifica si vedono i valori veri.
+
+### La prova: 10 prodotti, uno per categoria — `scripts/prova-metafield-nuovi.ts`
+Passa dallo **stesso ingresso del modulo** (`creaProdottoCompleto`) coi
+metafield che il modulo dà a un prodotto nuovo, e rilegge da Shopify.
+Rapporto: **[docs/mappatura-metafield-2026-09-10.md](mappatura-metafield-2026-09-10.md)**.
+
+| Categoria | Negozio | Mandati | Arrivati |
+|---|---|--:|--:|
+| TORTE_DOLCI | Cake | 9 | 9 |
+| FIORI · BOUQUET | Flowers | 11 · 10 | 11 · 10 |
+| VINI_SPIRITS · ORIGINALI_DELUXY · REGALI · ARTE | Gifts | 12 · 12 · 12 · 11 | tutti |
+| GASTRONOMIA · SERVIZI · GIFT_BOX | Business Deluxy | 12 · 11 · 12 | tutti |
+
+**100% dei metafield mandati è arrivato**, con i tipi giusti, su tutti e
+quattro i negozi. La prova a secco aveva trovato le tre storiche mancanti su
+Cake/Business (aggiunte prima della creazione). Verificato anche nel browser
+su `/prodotti/nuovo`: scelto Business Deluxy, il blocco si apre con 21 campi,
+8 precompilati, 10 asterischi, 20 partner in tendina, «2 attesi vuoti» (il
+partner, che sceglie chi compila).
+
+⚠️⚠️ **I 10 prodotti di prova ESISTONO sui negozi** (DRAFT, nome «TEST
+METAFIELD — <categoria> (da cancellare)», SKU a sette cifre, tag
+`test-metafield`) e nel nostro catalogo (fase Pubblico, `pubblicatoDal` spostato
+al **2099-01-01** così il cron delle pubblicazioni non li accende). **Vanno
+cancellati dall'admin di Shopify e archiviati qui**: decisione dell'utente,
+non fatta.
+
+🔴 Restano fuori dal modulo (per scelta, tipi non compilabili): i metaobject
+di Shopify (`shopify.*`), i `file_reference`, il json di BCPO, `judgeme.*`
+(li scrive l'app delle recensioni da sola).
+
 ## 10/09/2026 pomeriggio — L'IMPORT MORTO ALLE 10:17, LA VERSIONE API, E LA LISTA DEI PUNTI APERTI RICONTATA
 
 ### 🔴→✅ Import delle collezioni: «g.errors?.some is not a function» — PUBBLICATO
@@ -97,8 +172,7 @@ fantasma si archiviano, non si cancellano** (4 chiuse) · i percorsi di
    --negozio <X>` per i quattro negozi, uno per volta, poi `--applica`.
 5. **`.env.backup-sessione`** è un file di credenziali sciolto sul disco: da
    cancellare, decisione dell'utente.
-6. Modulo: **campi del negozio nascosti** (`false &&`) finché non si decide se i
-   valori diventano per negozio.
+6. ✅ Modulo: campi del negozio **riaccesi** (10/09 sera), valori condivisi per chiave.
 7. AI sulle sezioni: in «Pesi e Misure» l'etichetta «Varianti:» esce ripetuta.
 8. **Primo punto (plus) dai prodotti pubblicati**: il parser lo dà, manca lo
    script (~3.600 letture dalle vetrine).

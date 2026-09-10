@@ -397,6 +397,11 @@ export function metafieldDaColonne(p: {
   daChiFattoShopify: string | null;
   claimShopify: string | null;
   tipoShopify?: string | null;
+  // ⭐ 10/09/2026: le quattro storiche senza definizione, che il modulo ora mostra.
+  pezzoUnicoShopify?: boolean | null;
+  nonFisicoShopify?: boolean | null;
+  partnerIdShopify?: string | null;
+  partnerIndirizzoShopify?: string | null;
 }): Record<string, string> {
   const mf: Record<string, string> = {};
   const lista = (chiave: string, v: string | null) => {
@@ -424,6 +429,10 @@ export function metafieldDaColonne(p: {
   lista("custom.dolci", p.dolciShopify);
   lista("custom.da_chi_fatto", p.daChiFattoShopify);
   if (p.claimShopify) mf["custom.descrizione_cattura_vendite"] = p.claimShopify;
+  if (p.pezzoUnicoShopify != null) mf["custom.is_unique"] = p.pezzoUnicoShopify ? "true" : "false";
+  if (p.nonFisicoShopify != null) mf["custom.not_physical"] = p.nonFisicoShopify ? "true" : "false";
+  if (p.partnerIdShopify) mf["custom.partner_id"] = p.partnerIdShopify;
+  if (p.partnerIndirizzoShopify) mf["custom.partner_address"] = p.partnerIndirizzoShopify;
   return mf;
 }
 

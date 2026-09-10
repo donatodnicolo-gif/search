@@ -229,3 +229,34 @@ export function scartiMetafield(
   }
   return fuori;
 }
+
+/**
+ * ⭐ 10/09/2026 — **I quattro metafield che i siti usano su quasi ogni scheda ma
+ * che NESSUN negozio definisce.** Misurato sui prodotti attivi: `partner_id` e
+ * `partner_address` stanno su 303/342 schede di Business Deluxy, 313/315 di
+ * Cake, 241/269 di Flowers, 772/800 di Gifts; `is_unique` e `not_physical`
+ * altrettanto. Senza definizione non compaiono in `metafieldDefinitions`,
+ * quindi il modulo non li mostrava e un prodotto nuovo nasceva **senza
+ * partner** — cioè il sito non sapeva chi lo prepara né da dove parte. Qui si
+ * dichiarano a mano, col tipo letto dal negozio (number_integer,
+ * multi_line_text_field, boolean, boolean).
+ */
+export const CAMPI_SENZA_DEFINIZIONE: DefinizioneMetafield[] = [
+  { namespace: "custom", key: "partner_id", nome: "Partner (id)", descrizione: "L'id del partner che prepara il prodotto, come lo conosce il sito.", tipo: "number_integer", scelte: null, min: null, max: null, posizione: null },
+  { namespace: "custom", key: "partner_address", nome: "Indirizzo del partner", descrizione: "Da dove parte la consegna.", tipo: "multi_line_text_field", scelte: null, min: null, max: null, posizione: null },
+  { namespace: "custom", key: "is_unique", nome: "Pezzo unico", descrizione: null, tipo: "boolean", scelte: null, min: null, max: null, posizione: null },
+  { namespace: "custom", key: "not_physical", nome: "Non fisico", descrizione: "Servizi ed esperienze: niente spedizione.", tipo: "boolean", scelte: null, min: null, max: null, posizione: null },
+  // Tre campi di consegna che Gifts e Flowers definiscono e **Cake e Business
+  // Deluxy no**, pur usandoli (Cake: minimo_orario 296/315, nations_availability
+  // 293/315; Business: 251 e 269 su 342). Senza queste righe la prova a secco
+  // del 10/09 li scartava proprio sui due negozi che ne hanno più bisogno.
+  { namespace: "prodotto", key: "consegna", nome: "gg_disp_min", descrizione: "Giorni minimi di preavviso per la consegna.", tipo: "number_integer", scelte: null, min: null, max: null, posizione: null },
+  { namespace: "custom", key: "minimo_orario", nome: "Minimo_Orario", descrizione: "L'ora da cui si può consegnare.", tipo: "number_integer", scelte: null, min: null, max: null, posizione: null },
+  { namespace: "custom", key: "nations_availability", nome: "Nations_Availability", descrizione: "Le province in cui si può acquistare, nella forma ITALY-MILAN(MI).", tipo: "multi_line_text_field", scelte: null, min: null, max: null, posizione: null },
+];
+
+/** Le definizioni del negozio più le storiche che mancano: è l'elenco che il modulo mostra e che la pubblicazione scrive. */
+export function conCampiStorici(defs: DefinizioneMetafield[]): DefinizioneMetafield[] {
+  const presenti = new Set(defs.map(chiaveDef));
+  return [...defs, ...CAMPI_SENZA_DEFINIZIONE.filter((d) => !presenti.has(chiaveDef(d)))];
+}

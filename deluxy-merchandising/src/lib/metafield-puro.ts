@@ -34,3 +34,24 @@ export function listaDa(valore: string | undefined | null): string[] {
   }
   return [valore];
 }
+
+/**
+ * ⭐ 10/09/2026: i metafield **operativi** — quelli che dicono come si consegna e
+ * cos'è il prodotto per il sito, non cosa contiene. Su un prodotto nuovo il
+ * modulo li fa partire dal valore più usato sul sito scelto. Non ci stanno
+ * fiori, gusti, occasioni, colori: sono contenuto, e il contenuto lo decide
+ * chi scrive.
+ */
+export const CAMPI_OPERATIVI = [
+  "prodotto.consegna",
+  "custom.minimo_orario",
+  "custom.data",
+  "custom.orario_consegna",
+  "custom.nations_availability",
+  "custom._nations_availability",
+  "custom.is_unique",
+  "custom.not_physical",
+  "custom.tipologia",
+  "custom.da_chi_fatto",
+  "custom.guida_misure",
+] as const;

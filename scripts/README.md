@@ -554,6 +554,20 @@ cd deluxy-merchandising && npx tsx scripts/unisci-tipi-prodotto.ts
 - **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) e negozi collegati con token **`write_products`**
 - **Nota**: prima di scrivere salva i valori vecchi in `ripristino-<campo>-<valore>.json` (in `.gitignore`) — senza, l'unione sarebbe irreversibile. Scrive **prima su Shopify**: se il negozio rifiuta, in locale non cambia niente
 
+### prova-metafield-nuovi.ts — deluxy-merchandising
+Crea un prodotto di **prova per categoria** (10 nel piano, in DRAFT, nome «TEST METAFIELD — …») passando dallo **stesso codice del modulo** (`creaProdottoCompleto`), coi metafield che il modulo dà a un prodotto nuovo; poi rilegge da Shopify cosa è arrivato e scrive la mappatura in `docs/mappatura-metafield-<data>.md`. È la verifica che «tutti i prodotti nuovi carichino tutti i metafield» (10/09/2026).
+
+```bash
+# solo cosa manderebbe, senza creare niente
+cd deluxy-merchandising && npx tsx scripts/prova-metafield-nuovi.ts --prova
+# crea i prodotti di prova e scrive il rapporto
+cd deluxy-merchandising && npx tsx scripts/prova-metafield-nuovi.ts
+cd deluxy-merchandising && npx tsx scripts/prova-metafield-nuovi.ts --solo=TORTE_DOLCI,FIORI
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`), `APP_SECRET`, negozi collegati con token **`write_products`**
+- **Nota**: i prodotti di prova restano sui negozi in DRAFT finché qualcuno non li cancella dall'admin; lo script non cancella niente
+
 ### google-ads-script.js — deluxy-marketing (v2)
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `gruppi` (gruppi di annunci, una riga per giorno, e gruppi di asset per le PMax) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 
