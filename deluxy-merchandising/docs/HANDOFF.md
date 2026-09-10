@@ -40,6 +40,36 @@ Fatto (`tsc` 0):
 deploy (`npx vercel deploy --prod --scope deluxy`, via cloud) resta a comando.
 ⚠️ Non toccato `MANUALE-DELUXY.html`: è modificato (`M`) da un'altra sessione.
 
+### 🔴→✅ «Su modifica prodotto non c'è più l'opzione di aggiornare la SKU» (utente, 10/09) — in locale, NON pubblicato
+
+Il campo «Codice / SKU» c'è ed è scrivibile (verificato sulla pagina di
+modifica del Cofanetto Colazione, `input#codice` con `COEC408`); solo
+«Rigenera» è nascosto in modifica dal 04/09, di proposito. **Il difetto era
+nel server**: `leggiModulo` faceva `codice.replace(/\D/g, "")` — teneva solo le
+cifre, eredità degli SKU «sette cifre», mentre dall'08/09 il modulo accetta gli
+SKU storici e **5.061 prodotti su 5.081 hanno lettere**. Due effetti, tutti e
+due muti:
+- SKU di sole lettere («MUUNXW») → «» → il cambio **veniva ignorato**: è il
+  sintomo segnalato;
+- SKU misto → solo le cifre, che se libere diventano **lo SKU nuovo**.
+  **È successo**: «Cristal - Louis Roederer» (Gifts + Business, 2 varianti)
+  salvato alle 10:14 UTC è rimasto con `codice = "21"`. L'originale era
+  **`cntfrnc21`**: lo dicono le varianti (`cntfrnc21-1/-2`, nostre e su
+  Shopify, riletto in sola lettura su entrambi i negozi) e il venduto.
+  ✅ **Riportato a `cntfrnc21` sul database alle 10:33 UTC** (verificato
+  libero prima di scrivere). Shopify non era stato toccato: con le varianti lo
+  SKU del prodotto non si manda. Nessun altro caso: gli unici `codice` solo
+  numerici non a 7 cifre erano questo e «1654» (una scheda vuota del 06/09
+  che si chiama «1654»).
+
+Fatto (`tsc` 0): `FORMA_SKU` = lo stesso `pattern` del campo (3–40 caratteri:
+lettere, cifre, punto, trattino basso, trattino); `codiceChiesto` si accetta se
+è in forma, altrimenti `codiceRifiutato` finisce negli **avvisi** («non è
+ammesso… il prodotto tiene X» / «…assegnato Y»), sia in creazione sia in
+modifica. Provate 12 forme. ⚠️ **Non provato il salvataggio su un prodotto
+vero**: è una scrittura sul negozio; da fare con l'utente dopo il deploy
+(cambiare lo SKU di un prodotto in Concept, senza Shopify, e vedere che resta).
+
 ### Commit del 10/09 mattina che il handoff non elencava
 
 Fra le 11:42 e le 12:15 (altra sessione), tutti già su origin e in produzione
@@ -55,7 +85,7 @@ fantasma si archiviano, non si cancellano** (4 chiuse) · i percorsi di
 ### Punti aperti al 10/09/2026 — ricontati sul database, non ricopiati
 
 **Freschi**
-1. ✅ (locale) l'import sopra — da pubblicare.
+1. ✅ (locale) l'import sopra e **lo SKU che il server scartava** — da pubblicare.
 2. **Gifts di notte è fragile**: vedi sopra; il retry sul timeout è la risposta,
    da verificare domattina (03:10 UTC).
 3. **Lingue**: de, es, zh-CN, ar, ja spente su **4 negozi su 4**; `read_locales`

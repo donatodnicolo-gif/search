@@ -37,6 +37,22 @@ import { colonneDaMetafield } from "./shopify-collezioni";
 import { agganciaFileAlProdotto, aggiungiProdottoACollezione, rimuoviProdottoDaCollezione } from "./shopify-media";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
 
+/**
+ * La forma ammessa dello SKU: la STESSA del `pattern` del campo nel modulo
+ * (da 3 a 40 caratteri: lettere, cifre, punto, trattino basso, trattino).
+ *
+ * ⚠️ 10/09/2026 — qui si tenevano SOLO LE CIFRE (replace di ogni non-cifra).
+ * Andava bene quando lo SKU era «sette cifre», ma dall'08/09 il modulo accetta
+ * gli SKU storici (5.061 prodotti su 5.081 hanno lettere) e il server li
+ * buttava via in silenzio: «MUUNXW» diventava «» (SKU ignorato: l'utente non
+ * riusciva più a cambiarlo), e «cntfrnc21» diventava «21» — cioè uno SKU NUOVO
+ * e sbagliato. È successo davvero: «Cristal - Louis Roederer» (Gifts) alle
+ * 10:14 UTC del 10/09 è rimasto con lo SKU «21». Ora si accetta quello che è
+ * nella forma ammessa, e quello che non lo è si rifiuta DICENDOLO.
+ */
+const FORMA_SKU = /^[A-Za-z0-9][A-Za-z0-9._-]{2,39}$/;
+const codiceAmmesso = (v: string): string => (FORMA_SKU.test(v) ? v : "");
+
 function testo(fd: FormData, k: string): string {
   const v = fd.get(k);
   return typeof v === "string" ? v.trim() : "";
@@ -339,7 +355,9 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
     definizioni,
     metafield,
     tags,
-    codiceChiesto: testo(fd, "codice").replace(/\D/g, ""),
+    codiceChiesto: codiceAmmesso(testo(fd, "codice")),
+    /** Lo SKU scritto nel modulo ma fuori forma: si tiene per dirlo, non per usarlo. */
+    codiceRifiutato: codiceAmmesso(testo(fd, "codice")) ? "" : testo(fd, "codice"),
   };
 }
 
@@ -577,6 +595,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
   let errorePrincipale: string | null = null;
   const traduzioni: CacheTraduzioni = {};
   if (cambiato) avvisi.push(`Lo SKU scelto era già in uso: assegnato ${codice}.`);
+  if (m.codiceRifiutato) avvisi.push(`Lo SKU «${m.codiceRifiutato}» non è ammesso (da 3 a 40 caratteri: lettere, cifre, punto, trattino): assegnato ${codice}.`);
 
   let shopifyId: string | null = null;
   let handle: string | null = null;
@@ -752,6 +771,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     if (r.cambiato) avvisi.push(`Lo SKU ${m.codiceChiesto} era già in uso: il prodotto tiene ${prima.codice}.`);
     else codice = r.codice;
   }
+  if (m.codiceRifiutato) avvisi.push(`Lo SKU «${m.codiceRifiutato}» non è ammesso (da 3 a 40 caratteri: lettere, cifre, punto, trattino): il prodotto tiene ${prima.codice}.`);
   // Numerazione delle varianti nuove: dopo l'ultimo «-N» già usato.
   const usati = prima.varianti.map((v) => v.sku ?? "").map((s) => Number(s.split("-").pop())).filter((n) => Number.isFinite(n));
   let prossimo = usati.length ? Math.max(...usati) + 1 : 1;
