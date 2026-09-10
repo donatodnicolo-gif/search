@@ -660,3 +660,11 @@ input[type="file"] { font: inherit; font-size: 13px; }
   .tabella-fette th { white-space: normal; }
   code.chip { white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* ------------------------------------------------------------ consensi (scheda) */
+.consensi { display: flex; flex-direction: column; gap: 8px; }
+.consenso-riga { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.consenso-nome { flex: 1 1 160px; font-size: 14px; }
+/* Il pallino del consenso CRM nel libro clienti. */
+.dot-consenso { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
+.barra-unisci { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 12px 0 4px; }

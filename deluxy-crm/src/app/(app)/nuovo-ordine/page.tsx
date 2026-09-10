@@ -54,6 +54,14 @@ export default async function NuovoOrdine({ searchParams }: { searchParams: Prom
           </div>
           <h3>Per chi è l&apos;ordine?</h3>
           <p>Cerca il cliente qui sopra: dalla sua riga si apre il modulo dell&apos;ordine.</p>
+          <form
+            method="get"
+            action="/nuovo-ordine/nuovo"
+            style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}
+          >
+            <input type="email" name="email" placeholder="Cliente nuovo: la sua email" aria-label="Email del cliente nuovo" required style={{ width: 260 }} />
+            <button className="btn ghost" type="submit">Ordine per un cliente nuovo</button>
+          </form>
         </div>
       ) : elenco && !elenco.ok ? (
         <div className="errore-card">{elenco.errore}</div>

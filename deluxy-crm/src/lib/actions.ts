@@ -7,7 +7,7 @@ import { authAttiva, type Sessione } from "./auth";
 import { sessioneCorrente } from "./sessione-server";
 import { spingiEventoInAgenda } from "./calendario";
 import { inviaMail } from "./mail";
-import { proponiRicorrenza, schedaCliente } from "./orders";
+import { proponiRicorrenza, schedaCliente, scriviPrivacy } from "./orders";
 import { daOraItaliana } from "./ore";
 import { sostituisciVariabili } from "./variabili";
 import { TIPI_ATTIVITA } from "./etichette";
@@ -228,6 +228,104 @@ export async function separaCliente(fd: FormData): Promise<void> {
   const r = alias ? await prisma.unioneClienti.deleteMany({ where: { chiaveAlias: alias } }) : { count: 0 };
   revalidatePath(back);
   redirect(r.count ? conEsito(back, "ok") : conEsito(back, "Questa unione non c'era già più."));
+}
+
+// «Chi è», scritto da noi (matitina in scheda): vince sul riassunto AI di Orders.
+export async function salvaChiE(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const back = ritorno(fd, "/");
+  const chiaveCliente = testo(fd, "chiaveCliente");
+  if (!chiaveCliente) redirect(conEsito(back, "Manca il cliente."));
+  const chiE = testo(fd, "testo").slice(0, 2000) || null;
+  await prisma.profiloCliente.upsert({
+    where: { chiaveCliente },
+    create: { chiaveCliente, chiE, autore: sessione?.nome ?? "" },
+    update: { chiE, autore: sessione?.nome ?? "" },
+  });
+  revalidatePath(back);
+  redirect(conEsito(back, "ok"));
+}
+
+// Consenso CRM («ha voglia di sentire Eva»): flag nostro, di default sì.
+export async function salvaConsensoCrm(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const back = ritorno(fd, "/");
+  const chiaveCliente = testo(fd, "chiaveCliente");
+  if (!chiaveCliente) redirect(conEsito(back, "Manca il cliente."));
+  const consensoCrm = testo(fd, "consensoCrm") === "si";
+  await prisma.profiloCliente.upsert({
+    where: { chiaveCliente },
+    create: { chiaveCliente, consensoCrm, autore: sessione?.nome ?? "" },
+    update: { consensoCrm, autore: sessione?.nome ?? "" },
+  });
+  revalidatePath(back);
+  revalidatePath("/clienti");
+  redirect(conEsito(back, "ok"));
+}
+
+// Consenso marketing: vive in Orders (PrivacyCliente), si scrive là con la
+// chiave di scrittura. Qui si può solo dire sì/no per email, sms, telefono e
+// «non contattare più»: la nota resta a Orders.
+export async function salvaConsensoMarketing(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const back = ritorno(fd, "/");
+  const chiaveCliente = testo(fd, "chiaveCliente");
+  if (!chiaveCliente) redirect(conEsito(back, "Manca il cliente."));
+  const canale = testo(fd, "canale");
+  const valore = testo(fd, "valore");
+  const dati: { email?: "si" | "no"; sms?: "si" | "no"; telefono?: "si" | "no"; bloccato?: boolean; autore: string } = {
+    autore: sessione?.nome ?? "CRM",
+  };
+  if (canale === "bloccato") dati.bloccato = valore === "si";
+  else if (["email", "sms", "telefono"].includes(canale) && (valore === "si" || valore === "no")) {
+    dati[canale as "email" | "sms" | "telefono"] = valore;
+  } else redirect(conEsito(back, "Consenso non riconosciuto."));
+  const esito = await scriviPrivacy(chiaveCliente, dati);
+  revalidatePath(back);
+  redirect(conEsito(back, esito.ok ? "ok" : esito.errore));
+}
+
+// «Unisci» dal libro clienti: le righe spuntate diventano una scheda sola.
+// Il principale è chi ha più ordini (a parità, la prima spuntata): è la
+// scheda più ricca, e lo si dice sotto il bottone.
+export async function unisciDaTabella(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const back = ritorno(fd, "/clienti");
+  const scelti = [...new Set(fd.getAll("scelti").map((x) => String(x).trim()).filter(Boolean))];
+  if (scelti.length < 2) redirect(conEsito(back, "Spunta almeno due clienti da unire."));
+  if (scelti.length > 6) redirect(conEsito(back, "Al massimo sei clienti per volta."));
+
+  // Nessuno dei scelti può essere già alias o principale di un'altra unione
+  // che non sia fra gli scelti: si separa prima, a mano.
+  const unioni = await prisma.unioneClienti.findMany({
+    where: { OR: [{ chiaveAlias: { in: scelti } }, { chiavePrincipale: { in: scelti } }] },
+  });
+  if (unioni.some((u) => !scelti.includes(u.chiaveAlias) || !scelti.includes(u.chiavePrincipale))) {
+    redirect(conEsito(back, "Uno dei clienti scelti è già unito ad altri: separalo dalla sua scheda prima."));
+  }
+
+  const schede = await Promise.all(scelti.map((k) => schedaCliente(k)));
+  const validi = scelti.filter((_, i) => schede[i].ok);
+  if (validi.length < 2) redirect(conEsito(back, "Orders non riconosce abbastanza clienti fra quelli scelti."));
+  let principale = validi[0];
+  let max = -1;
+  validi.forEach((k, i) => {
+    const s = schede[scelti.indexOf(k)];
+    const n = s.ok ? s.dati.ordini : 0;
+    if (n > max) {
+      max = n;
+      principale = k;
+    }
+  });
+  const alias = validi.filter((k) => k !== principale);
+  await prisma.$transaction([
+    prisma.unioneClienti.deleteMany({ where: { chiaveAlias: { in: validi } } }),
+    ...alias.map((a) =>
+      prisma.unioneClienti.create({ data: { chiaveAlias: a, chiavePrincipale: principale, autore: sessione?.nome ?? "" } }),
+    ),
+  ]);
+  revalidatePath("/clienti");
+  redirect(`/clienti/${encodeURIComponent(principale)}?esito=ok`);
 }
 
 // Il punteggio del cliente (0-100), dato a mano: entra nei cluster.

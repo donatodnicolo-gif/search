@@ -45,10 +45,21 @@ export type ClienteRiga = {
   riepilogo: RiepilogoAI;
 };
 
+// I consensi del cliente, come li tiene Orders (PrivacyCliente): "si" | "no"
+// | null = mai detto. Arrivano nella scheda dal 10/09/2026.
+export type PrivacyCliente = {
+  email: string | null;
+  sms: string | null;
+  telefono: string | null;
+  bloccato: boolean;
+  note: string | null;
+};
+
 export type SchedaCliente = ClienteRiga & {
   annullati: number;
   primoOrdine: string | null;
   tipologiaManuale: boolean;
+  privacy?: PrivacyCliente;
 };
 
 export type ElencoClienti = {
@@ -309,6 +320,31 @@ export async function proponiRicorrenza(dati: {
     return { ok: true, dati: { ok: true, id: corpo?.id ?? "" } };
   } catch {
     return { ok: false, errore: "Orders non risponde: la ricorrenza non è stata salvata." };
+  }
+}
+
+// I consensi si SCRIVONO in Orders (casa unica, §7): POST .../privacy con la
+// chiave di scrittura. Manca un campo = non si tocca.
+export async function scriviPrivacy(
+  codice: string,
+  dati: { email?: "si" | "no"; sms?: "si" | "no"; telefono?: "si" | "no"; bloccato?: boolean; note?: string; autore?: string },
+): Promise<Esito<PrivacyCliente>> {
+  const chiave = await chiaveApp("ORDERS_API_KEY");
+  if (!chiave) return { ok: false, errore: "Manca ORDERS_API_KEY (serve una chiave di Orders con scrittura)." };
+  try {
+    const res = await fetch(`${base()}/api/v1/clienti/${encodeURIComponent(codice)}/privacy`, {
+      method: "POST",
+      headers: { "x-api-key": chiave, "Content-Type": "application/json", "X-App": "deluxy-crm" },
+      body: JSON.stringify(dati),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const corpo = (await res.json().catch(() => null)) as { errore?: string; privacy?: PrivacyCliente } | null;
+    if (!res.ok || !corpo?.privacy) return { ok: false, errore: corpo?.errore ?? `Orders risponde ${res.status}.` };
+    // La scheda in cache non vale più.
+    for (const k of cache.keys()) if (k.startsWith(`/api/v1/clienti/${encodeURIComponent(codice)}`)) cache.delete(k);
+    return { ok: true, dati: corpo.privacy };
+  } catch {
+    return { ok: false, errore: "Orders non risponde: il consenso non è stato salvato." };
   }
 }
 

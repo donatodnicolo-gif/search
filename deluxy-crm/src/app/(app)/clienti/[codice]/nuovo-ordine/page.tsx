@@ -11,6 +11,10 @@ export const dynamic = "force-dynamic";
 // crea la bozza su Shopify (via Customer Service) e si manda il link di
 // pagamento. Tutto precompilato dalla scheda: contatti dal registro Orders,
 // indirizzo dall'ultimo ordine consegnato.
+//
+// Cliente NUOVO (10/09): se Orders non lo conosce e il codice è un'email, il
+// modulo si apre lo stesso, vuoto, con l'email già scritta — come nel Customer
+// Service. Il cliente nascerà in Orders col primo ordine.
 export default async function NuovoOrdinePerCliente({ params }: { params: Promise<{ codice: string }> }) {
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const { codice: codiceRaw } = await params;
@@ -22,7 +26,8 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
     negoziCS(),
   ]);
 
-  if (!scheda.ok) {
+  const nuovo = !scheda.ok && codice.includes("@");
+  if (!scheda.ok && !nuovo) {
     return (
       <>
         <div className="intestazione">
@@ -35,12 +40,12 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
       </>
     );
   }
-  const c = scheda.dati;
-  const seg = segmento(c.segmento);
+  const c = scheda.ok ? scheda.dati : null;
+  const seg = c ? segmento(c.segmento) : null;
 
   // Nome e cognome: l'ultimo pezzo fa da cognome, il resto da nome. Il form
   // resta modificabile: è un default, non un'anagrafe.
-  const pezzi = (c.nome ?? "").trim().split(/\s+/);
+  const pezzi = (c?.nome ?? "").trim().split(/\s+/);
   const cognome = pezzi.length > 1 ? pezzi[pezzi.length - 1] : "";
   const nome = pezzi.length > 1 ? pezzi.slice(0, -1).join(" ") : (pezzi[0] ?? "");
 
@@ -58,7 +63,7 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
 
   // Il negozio suggerito dal brand degli ordini: Flowers prima (il suo nome
   // sta dentro anche a «deluxy»), poi Cake, poi Deluxy. Solo un default.
-  const brand = c.brand.join(" ").toLowerCase();
+  const brand = (c?.brand ?? []).join(" ").toLowerCase();
   const trova = (lista: NegozioCS[], pezzo: string) => lista.find((n) => n.nome.toLowerCase().includes(pezzo))?.id;
   const listaNegozi = negozi.ok ? negozi.dati.negozi : [];
   const suggerito =
@@ -73,21 +78,28 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
       <div className="intestazione">
         <div>
           <h1 className="page-title">Nuovo ordine</h1>
-          <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span>per</span>
-            <a href={`/clienti/${encodeURIComponent(codice)}`} style={{ fontWeight: 550 }}>
-              {c.nome ?? c.email}
-            </a>
-            <span className="badge colorato" style={{ ["--badge-colore" as string]: seg.colore }}>
-              <span className="dot" />
-              {seg.nome}
-            </span>
-            <span className="terziario">
-              {euro(c.speso)} in {c.ordini} ordini
-            </span>
-          </p>
+          {c && seg ? (
+            <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span>per</span>
+              <a href={`/clienti/${encodeURIComponent(codice)}`} style={{ fontWeight: 550 }}>
+                {c.nome ?? c.email}
+              </a>
+              <span className="badge colorato" style={{ ["--badge-colore" as string]: seg.colore }}>
+                <span className="dot" />
+                {seg.nome}
+              </span>
+              <span className="terziario">
+                {euro(c.speso)} in {c.ordini} ordini
+              </span>
+            </p>
+          ) : (
+            <p className="page-sub">
+              Cliente nuovo: <strong>{codice}</strong> non ha ancora ordini nel registro. Compila nome, cognome e
+              telefono qui sotto; con il primo ordine pagato nascerà anche la sua scheda.
+            </p>
+          )}
         </div>
-        <TornaIndietro fallback={`/clienti/${encodeURIComponent(codice)}`} label="Scheda cliente" />
+        <TornaIndietro fallback={c ? `/clienti/${encodeURIComponent(codice)}` : "/nuovo-ordine"} label={c ? "Scheda cliente" : "Nuovo ordine"} />
       </div>
 
       {!negozi.ok ? (
@@ -97,7 +109,7 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
       ) : (
         <FormNuovoOrdine
           codice={codice}
-          cliente={{ nome, cognome, email: c.email ?? "", telefono: c.telefono ?? "" }}
+          cliente={{ nome, cognome, email: c?.email ?? (nuovo ? codice.toLowerCase() : ""), telefono: c?.telefono ?? "" }}
           indirizzo={indirizzo}
           negozi={listaNegozi}
           negozioSuggerito={suggerito}

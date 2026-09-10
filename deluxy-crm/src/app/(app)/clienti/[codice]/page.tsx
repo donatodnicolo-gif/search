@@ -12,9 +12,13 @@ import {
   salvaNota,
   salvaProfilo,
   salvaPunteggio,
+  salvaChiE,
+  salvaConsensoCrm,
+  salvaConsensoMarketing,
   separaCliente,
   unisciClienti,
 } from "@/lib/actions";
+import TestoModificabile from "@/components/TestoModificabile";
 import { clusterDi, descriviCluster, impostazioniClienti } from "@/lib/cluster";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import FotoInput from "@/components/FotoInput";
@@ -82,7 +86,7 @@ export default async function Scheda({
     }),
     prisma.profiloCliente.findUnique({
       where: { chiaveCliente: codice },
-      select: { nome: true, professione: true, fotoTipo: true, aggiornatoIl: true, autore: true, punteggio: true },
+      select: { nome: true, professione: true, fotoTipo: true, aggiornatoIl: true, autore: true, punteggio: true, chiE: true, consensoCrm: true },
     }),
     prisma.notaCliente.findMany({ where: { chiaveCliente: { in: tutteLeChiavi } }, orderBy: { creatoIl: "desc" } }),
     prisma.programmazione.findMany({
@@ -245,7 +249,13 @@ export default async function Scheda({
               {kpi.contattiAlias.map((a) => (
                 <span key={a} className="chip" title="Scheda unita a questa">+ {a}</span>
               ))}
-              <a className="link-quieto" href={`${qui}?modifica=profilo#profilo`}>Modifica il profilo</a>
+              <a className="btn ghost mini" href={`${qui}?modifica=profilo#profilo`} title="Modifica nome, professione e foto">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z" />
+                  <path d="M13.5 6.5l3 3" />
+                </svg>
+                <span style={{ marginLeft: 6 }}>Modifica</span>
+              </a>
             </p>
           </div>
         </div>
@@ -320,21 +330,90 @@ export default async function Scheda({
             </div>
           ) : null}
 
-          {c.riepilogo ? (
-            <div className="card">
-              <div className="card-titolo">Chi è, in una riga</div>
-              <div className="card-sub">
-                Riassunto scritto dall&apos;AI di Orders su {c.riepilogo.ordiniConsiderati} ordini
-                {c.riepilogo.aggiornato ? "" : ` (${c.riepilogo.ordiniNuoviDaAllora} ordini nuovi da allora)`}.
-              </div>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55 }}>{c.riepilogo.riassunto}</p>
-              {c.riepilogo.gusti ? (
-                <p style={{ fontSize: 14, lineHeight: 1.55, marginTop: 10 }}>
-                  <span className="chip oro">Gusti</span> {c.riepilogo.gusti}
-                </p>
-              ) : null}
+          <div className="card">
+            <div className="card-titolo">Chi è, in una riga</div>
+            <div className="card-sub">
+              Lo scriviamo noi con la matitina; finché non c&apos;è, vale il riassunto dell&apos;AI di Orders
+              {c.riepilogo ? ` (su ${c.riepilogo.ordiniConsiderati} ordini)` : ""}.
             </div>
-          ) : null}
+            <TestoModificabile
+              testo={profilo?.chiE ?? null}
+              vuoto={c.riepilogo?.riassunto ?? "Nessun riassunto ancora: scrivi tu chi è."}
+              action={salvaChiE}
+              campi={{ chiaveCliente: codice, torna: qui }}
+              etichettaSalva="Salva chi è"
+              segnaposto={c.riepilogo?.riassunto ?? "es. Imprenditrice milanese, ordina peonie per la madre a ogni ricorrenza…"}
+            />
+            {profilo?.chiE && c.riepilogo ? (
+              <p className="terziario piccolo" style={{ marginTop: 10 }}>AI di Orders: {c.riepilogo.riassunto}</p>
+            ) : null}
+            {c.riepilogo?.gusti ? (
+              <p style={{ fontSize: 14, lineHeight: 1.55, marginTop: 10 }}>
+                <span className="chip oro">Gusti</span> {c.riepilogo.gusti}
+              </p>
+            ) : null}
+          </div>
+
+          {/* -------- Consensi -------- */}
+          <div className="card" id="consensi">
+            <div className="card-titolo">Consensi</div>
+            <div className="card-sub">
+              Il consenso <strong>marketing</strong> vive in Orders (e sui siti): da qui si spegne o si accende per canale.
+              Il consenso <strong>CRM</strong> è nostro: vuol dire «ha voglia di sentire Eva», e tutti partono a sì.
+            </div>
+            <div className="consensi">
+              {(
+                [
+                  ["email", "Email marketing", c.privacy?.email],
+                  ["sms", "SMS e WhatsApp", c.privacy?.sms],
+                  ["telefono", "Chiamate", c.privacy?.telefono],
+                ] as const
+              ).map(([canale, nome, valore]) => (
+                <div className="consenso-riga" key={canale}>
+                  <span className="consenso-nome">{nome}</span>
+                  <span className={`badge colorato`} style={{ ["--badge-colore" as string]: valore === "si" ? "var(--green)" : valore === "no" ? "var(--red)" : "var(--text-tertiary)" }}>
+                    <span className="dot" />
+                    {valore === "si" ? "sì" : valore === "no" ? "no" : "mai detto"}
+                  </span>
+                  <form action={salvaConsensoMarketing} style={{ display: "inline" }}>
+                    <input type="hidden" name="chiaveCliente" value={codice} />
+                    <input type="hidden" name="torna" value={`${qui}#consensi`} />
+                    <input type="hidden" name="canale" value={canale} />
+                    <input type="hidden" name="valore" value={valore === "si" ? "no" : "si"} />
+                    <button className="btn ghost mini" type="submit">{valore === "si" ? "Disattiva" : "Attiva"}</button>
+                  </form>
+                </div>
+              ))}
+              <div className="consenso-riga">
+                <span className="consenso-nome">Non contattare più</span>
+                <span className="badge colorato" style={{ ["--badge-colore" as string]: c.privacy?.bloccato ? "var(--red)" : "var(--green)" }}>
+                  <span className="dot" />
+                  {c.privacy?.bloccato ? "bloccato" : "contattabile"}
+                </span>
+                <form action={salvaConsensoMarketing} style={{ display: "inline" }}>
+                  <input type="hidden" name="chiaveCliente" value={codice} />
+                  <input type="hidden" name="torna" value={`${qui}#consensi`} />
+                  <input type="hidden" name="canale" value="bloccato" />
+                  <input type="hidden" name="valore" value={c.privacy?.bloccato ? "no" : "si"} />
+                  <button className="btn ghost mini" type="submit">{c.privacy?.bloccato ? "Sblocca" : "Blocca"}</button>
+                </form>
+              </div>
+              <div className="consenso-riga" style={{ borderTop: "1px solid var(--hairline)", paddingTop: 10, marginTop: 4 }}>
+                <span className="consenso-nome">Consenso CRM (vuole sentire Eva)</span>
+                <span className="badge colorato" style={{ ["--badge-colore" as string]: profilo?.consensoCrm === false ? "var(--red)" : "var(--gold-strong)" }}>
+                  <span className="dot" />
+                  {profilo?.consensoCrm === false ? "no" : "sì"}
+                </span>
+                <form action={salvaConsensoCrm} style={{ display: "inline" }}>
+                  <input type="hidden" name="chiaveCliente" value={codice} />
+                  <input type="hidden" name="torna" value={`${qui}#consensi`} />
+                  <input type="hidden" name="consensoCrm" value={profilo?.consensoCrm === false ? "si" : "no"} />
+                  <button className="btn ghost mini" type="submit">{profilo?.consensoCrm === false ? "Riattiva" : "Disattiva"}</button>
+                </form>
+              </div>
+              {c.privacy?.note ? <p className="terziario piccolo" style={{ marginTop: 8 }}>Nota in Orders: {c.privacy.note}</p> : null}
+            </div>
+          </div>
 
           {/* -------- Programmazione -------- */}
           <div className="card" id="programmazione">

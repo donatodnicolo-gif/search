@@ -214,6 +214,10 @@ model ProfiloCliente {
   nome          String   @default("") // come lo chiamiamo (vuoto = il nome degli ordini)
   professione   String   @default("")
   punteggio     Int? // il voto del client advisor (0-100): entra nei cluster (cluster.ts)
+  chiE          String?  @db.Text // «chi è», scritto da noi: vince sul riassunto AI di Orders
+  // Consenso CRM = «ha voglia di sentire Eva»: la relazione personale, distinta
+  // dal consenso marketing (che vive in Orders/Shopify). Tutti partono a sì.
+  consensoCrm   Boolean  @default(true)
   foto          Bytes? // ridotta nel browser (≤ 512 px), tetto 600 KB
   fotoTipo      String   @default("")
   autore        String   @default("")

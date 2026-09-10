@@ -4,10 +4,11 @@ import { dataIt, euro, segmento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
 import { prisma } from "@/lib/db";
 import { clusterDi, impostazioniClienti, inSoglia } from "@/lib/cluster";
+import { unisciDaTabella } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
-type Params = { q?: string; lista?: string; ordina?: string; verso?: string; page?: string };
+type Params = { q?: string; lista?: string; ordina?: string; verso?: string; page?: string; errore?: string; esito?: string };
 
 // IL LIBRO CLIENTI — ogni riga è una persona, non un ordine. Tutto arriva
 // dal registro di Deluxy Orders (chiave email → telefono → nome): il CRM non
@@ -37,7 +38,7 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
   const profili = chiaviPagina.length
     ? await prisma.profiloCliente.findMany({
         where: { chiaveCliente: { in: chiaviPagina } },
-        select: { chiaveCliente: true, punteggio: true, nome: true },
+        select: { chiaveCliente: true, punteggio: true, nome: true, consensoCrm: true },
       })
     : [];
   const profilo = new Map(profili.map((p) => [p.chiaveCliente, p]));
@@ -71,6 +72,9 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
           </p>
         </div>
       </div>
+
+      {sp.esito === "ok" ? <div className="ok-card">Fatto.</div> : null}
+      {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
       <div className="filtri">
         <form method="get" action="/clienti">
@@ -132,6 +136,7 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                     <th>
                       <a className="link-quieto" href={linkCon({ ordina: "nome", page: "1" })}>Cliente</a>
                     </th>
+                    <th title="Consenso CRM: ha voglia di sentire Eva (di default sì)">CRM</th>
                     <th>Città</th>
                     <th>Segmento</th>
                     <th title="I tuoi gruppi, da Impostazioni">Cluster</th>
@@ -158,13 +163,31 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                       // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).
                       <RigaLink key={c.cliente} href={`/clienti/${c.cliente}`}>
                         <td>
-                          <a href={`/clienti/${c.cliente}`}>
+                          {/* Spunta per «Unisci»: il form sta sotto la tabella (attributo form=). */}
+                          <input
+                            type="checkbox"
+                            name="scelti"
+                            value={c.cliente}
+                            form="unisci-form"
+                            aria-label={`Seleziona ${c.nome ?? c.email ?? "cliente"} per unirlo`}
+                            style={{ width: "auto", marginRight: 8, verticalAlign: "middle" }}
+                          />
+                          <a href={`/clienti/${c.cliente}`} style={{ display: "inline-block", verticalAlign: "middle" }}>
                             <div className="cella-principale">
                               {pr?.nome || c.nome || c.email || c.telefono || "—"}
                               {pr?.punteggio != null ? <span className="chip oro" style={{ marginLeft: 6 }} title="Punteggio">{pr.punteggio}</span> : null}
                             </div>
                             <div className="cella-sotto">{c.email ?? c.telefono ?? ""}</div>
                           </a>
+                        </td>
+                        <td>
+                          {/* Il pallino: oro = vuole sentirci (default), rosso = ha detto di no. */}
+                          <span
+                            className="dot-consenso"
+                            style={{ background: pr?.consensoCrm === false ? "var(--red)" : "var(--gold-strong)" }}
+                            title={pr?.consensoCrm === false ? "Consenso CRM: no" : "Consenso CRM: sì"}
+                            aria-label={pr?.consensoCrm === false ? "Consenso CRM no" : "Consenso CRM sì"}
+                          />
                         </td>
                         <td>{c.citta ?? "—"}</td>
                         <td>
@@ -201,6 +224,16 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
               </table>
             </div>
           </div>
+          {/* «Unisci»: le righe spuntate diventano una scheda sola (richiesta
+              dell'utente 10/09). Le spunte stanno nelle righe, il form qui. */}
+          <form id="unisci-form" action={unisciDaTabella} className="barra-unisci">
+            <input type="hidden" name="torna" value={linkCon({})} />
+            <span className="secondario piccolo">
+              Stessa persona con due chiavi (email del lavoro e personale, o solo il telefono)? Spunta le righe e
+              uniscile: la scheda principale sarà quella con più ordini; si separa quando vuoi dalla scheda.
+            </span>
+            <button className="btn ghost" type="submit">Unisci i selezionati</button>
+          </form>
           <div className="paginazione">
             <span>
               {elenco.dati.totale} clienti · pagina {elenco.dati.page} di {elenco.dati.pagine}
