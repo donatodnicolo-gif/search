@@ -573,6 +573,8 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
   const prezzoBase = prezzoBaseDa(m, varianti);
   const avvisi: string[] = [];
   const cronaca: string[] = [];
+  /** L'errore del negozio principale, per scriverlo sulla sua riga. */
+  let errorePrincipale: string | null = null;
   const traduzioni: CacheTraduzioni = {};
   if (cambiato) avvisi.push(`Lo SKU scelto era già in uso: assegnato ${codice}.`);
 
@@ -738,6 +740,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   const m = await leggiModulo(fd, indietro);
   const avvisi: string[] = [];
   const cronaca: string[] = [];
+  /** L'errore del negozio principale, per scriverlo sulla sua riga. */
+  let errorePrincipale: string | null = null;
   const traduzioni: CacheTraduzioni = {};
 
   // SKU: se cambia, deve essere libero (i derivati delle varianti nuove pure).
@@ -798,7 +802,17 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
         sku: varianti.length ? undefined : codice,
       });
       cronaca.push(...r.passi);
-      if (r.errori.length) avvisi.push(...r.errori.map((e) => (e.campo ? `${e.campo}: ${e.messaggio}` : e.messaggio)));
+      if (r.errori.length) {
+        avvisi.push(...r.errori.map((e) => (e.campo ? `${e.campo}: ${e.messaggio}` : e.messaggio)));
+        // ⚠️⚠️ 10/09/2026 — **l'errore va SCRITTO sulla riga, non solo mostrato.**
+        // Il banner lo legge chi sta guardando in quel momento; la riga la legge
+        // l'app per sempre. Sul «Panettone Cioccolato Bianco» Shopify rispondeva
+        // «Product does not exist» e la scheda risultava pubblicata su due
+        // negozi: l'errore stava in un avviso di passaggio e la riga diceva
+        // «spinto, tutto a posto». Un errore che non sopravvive al banner non
+        // è stato riportato.
+        errorePrincipale = r.errori.map((e) => (e.campo ? `${e.campo}: ${e.messaggio}` : e.messaggio)).join(" · ").slice(0, 400);
+      }
       if (statoVoluto && !r.errori.some((e) => e.campo == null)) {
         statoShopify = statoVoluto;
         shopifyStato = statoVoluto === "ACTIVE" ? "pubblicato" : "bozza";
@@ -1035,7 +1049,16 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       await tx.pubblicazioneNegozio.upsert({
         where: { prodottoId_negozio: { prodottoId: id, negozio: m.negozio.nome } },
         create: { prodottoId: id, negozio: m.negozio.nome, shopifyId, handle, statoShopify, spintoIl: new Date() },
-        update: { shopifyId, handle, statoShopify, origine: "modulo", spintoIl: new Date(), errore: null },
+        // ⚠️ `spintoIl` si aggiorna solo se la scrittura è ANDATA: segnare
+        // «spinto adesso» dopo un rifiuto racconta una cosa che non è successa.
+        update: {
+          shopifyId,
+          handle,
+          statoShopify,
+          origine: "modulo",
+          ...(errorePrincipale ? {} : { spintoIl: new Date() }),
+          errore: errorePrincipale,
+        },
       });
     }
     for (const a of altri) {
