@@ -292,11 +292,14 @@ export class AnagraficheSyncService {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { ok: false, stato: 0, messaggio: 'Chiave del registro non configurata.' };
     const base = (await this.getBaseUrl()).replace(/\/+$/, '');
-    // Le due schede nel registro: se una manca, si collega o si crea (stessa strada del bottone).
+    // Le due schede nel registro: vale SOLO quella col platformId del punto vendita. Se non c'è,
+    // se ne CREA una nuova (POST con platformId) — mai un PATCH su una scheda «trovata per
+    // P.IVA»: con una società a più sedi la P.IVA non dice quale sede è, e il 10/09 questo
+    // ha riscritto la scheda di Firenze di Olfattorio con Diptyque Brera e poi con Olfattorio.
     for (const p of [sede, capofila]) {
       const { trovato } = await this.cerca({ id: p.id, insegna: p.insegna, businessName: p.businessName, vatNumber: p.vatNumber, fiscalCode: p.fiscalCode, email: p.email });
       if (trovato && (trovato as any).platformId === p.id) continue;
-      const esito = await this.sincronizzaOra(p, trovato?.id ?? null);
+      const esito = await this.sincronizzaOra(p, null);
       if (!esito.ok) return { ...esito, messaggio: `Scheda di «${p.insegna}» non pronta nel registro: ${esito.messaggio}` };
     }
     try {

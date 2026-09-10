@@ -197,6 +197,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                    scheda nuova · aggancio a una esistente (con la modifica dei dati, come ora) ·
                    sotto un'altra entità di fatturazione (capogruppo nel registro, scelto fra i partner). -->
               @if (canManage()) {
+                @if (esitoSync(); as e) { <p class="esito-strade" [class.ok]="e.ok">{{ e.messaggio }}</p> }
                 <div class="tre-strade">
                   <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="creaNelRegistro()">{{ 'partnerAnagrafica.createNew' | translate }}</button>
                   <button type="button" class="btn btn-secondary mini" [disabled]="sincronizzando()" (click)="apriAggancio()">{{ 'partnerAnagrafica.entita.aggancia' | translate }}</button>
@@ -626,6 +627,8 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .mini td.scegli .vuoto { color: var(--text-tertiary); }
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
     .tre-strade { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .esito-strade { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: rgba(201, 52, 0, 0.08); color: var(--orange); font-size: 13px; }
+    .esito-strade.ok { background: rgba(36, 138, 61, 0.1); color: var(--green); }
     .scelta { margin: 8px 0 12px; display: grid; gap: 8px; }
     .entita { margin: 4px 0 8px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
