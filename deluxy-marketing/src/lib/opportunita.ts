@@ -35,6 +35,18 @@ export type DatiOpportunita = {
     budgetGiornaliero: number | null;
     strategiaOfferta: string | null;
     tipoConversione: string | null;
+    /**
+     * ⚠️ SERVE, e la ragione l'ha trovata la verifica in produzione dell'11/09/2026:
+     * su «Dolci Rientri - ATC», una campagna META, questa funzione proponeva
+     * «Aggiungere snippet». Gli snippet sono un'estensione di GOOGLE: su Meta
+     * non esistono. La regola scattava perché il conteggio era zero — e su Meta
+     * è zero per costruzione, non per dimenticanza.
+     *
+     * È la trappola del «filtro con un valore che non può esistere»: un'assenza
+     * strutturale letta come un'occasione persa. Una lista di cose da fare che
+     * contiene una cosa impossibile si smette di leggere tutta.
+     */
+    canale: string;
   };
   // Metriche in ordine cronologico (la più vecchia per prima)
   metriche: { data: Date; spesa: number | null; conversioni: number | null; ricavi: number | null }[];
@@ -79,9 +91,16 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
   const roas30 = spesa30 > 0 ? ricavi30 / spesa30 : null;
   const vendite = d.campagna.tipoConversione !== "lead";
 
+  // Su Meta l'app non ha keyword, estensioni né quota impressioni: le regole
+  // che nascono da LORO non si applicano, e il loro zero non è un'occasione.
+  const google = d.campagna.canale === "google_ads";
+
   // 1. I dati che mancano vengono prima di ogni giudizio: senza gruppi non si
   //    sa quale pezzo della campagna sta bruciando.
-  if (d.gruppi.length === 0 && spesa30 > 0) {
+  //    ⚠️ Su Meta il rimedio è un altro (la sync degli ad set, non una copia
+  //    dello script), quindi il testo cambierebbe: per ora la regola resta a
+  //    Google, dove la si è scritta e dove è vera.
+  if (google && d.gruppi.length === 0 && spesa30 > 0) {
     lista.push({
       chiave: "gruppi-assenti",
       titolo: `Far arrivare i gruppi di annunci di "${d.campagna.nome}"`,
@@ -293,9 +312,11 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
 
   // 8-quinquies. Spazio gratuito nella pagina dei risultati lasciato vuoto.
   const mancanti: string[] = [];
-  if (d.estensioni.sitelink === 0) mancanti.push("sitelink");
-  if (d.estensioni.callout === 0) mancanti.push("callout");
-  if (d.estensioni.snippet === 0) mancanti.push("snippet");
+  if (!google) {
+    // niente: sitelink, callout e snippet sono roba di Google
+  } else if (d.estensioni.sitelink === 0) mancanti.push("sitelink");
+  if (google && d.estensioni.callout === 0) mancanti.push("callout");
+  if (google && d.estensioni.snippet === 0) mancanti.push("snippet");
   if (mancanti.length > 0 && spesa30 > 0) {
     lista.push({
       chiave: "estensioni-mancanti",

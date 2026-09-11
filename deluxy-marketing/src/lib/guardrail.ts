@@ -391,7 +391,15 @@ const STRATEGIE_NUMERO = ["TARGET_CPA", "MAXIMIZE_CONVERSIONS"];
 export function valoreONumero(
   strategia: string | null,
   conv30: number,
-  ricavi30: number
+  ricavi30: number,
+  /**
+   * ⚠️ Serve solo a dire COME si rimedia quando la strategia non c'è, e non è
+   * un dettaglio: su Google la porta lo script, su Meta la legge l'app dalla
+   * Graph API. Dire «lancia lo script di Google Ads» su una campagna Meta —
+   * come faceva fino all'11/09/2026 — manda a cercare un rimedio che lì non
+   * esiste, e chi ci prova conclude che l'app sia rotta.
+   */
+  canale = "google_ads"
 ): ValoreNumero {
   const idoneaAlValore = conv30 >= 15 && ricavi30 > 0;
   if (!strategia) {
@@ -399,7 +407,10 @@ export function valoreONumero(
       tipo: "sconosciuto",
       etichetta: "Strategia non letta",
       raccomandazione:
-        "La strategia di offerta non è ancora arrivata dalla piattaforma: il check VALORE vs NUMERO non è compilabile. Lancia lo script di Google Ads.",
+        "La strategia di offerta non è ancora arrivata dalla piattaforma: il check VALORE vs NUMERO non è compilabile. " +
+        (canale === "meta_ads"
+          ? "Su Meta la legge l'app dalla Graph API: arriva col prossimo giro di sincronizzazione."
+          : "Lancia lo script di Google Ads."),
       daCambiare: false,
     };
   }

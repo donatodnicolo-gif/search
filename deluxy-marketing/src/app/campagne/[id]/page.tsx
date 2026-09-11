@@ -802,7 +802,11 @@ export default async function SchedaCampagna({
                   </div>
                 )}
                 <div className="kpi-etichetta">
-                  Budget al giorno su Google
+                  {/* ⚠️ Diceva «su Google» anche sulle campagne Meta (visto in
+                      produzione l'11/09/2026 su «Dolci Rientri - ATC»). Il
+                      nome della piattaforma sbagliato su un numero di denaro
+                      fa dubitare del numero, non dell'etichetta. */}
+                  Budget al giorno su {campagna.canale === "meta_ads" ? "Meta" : "Google"}
                   {quota != null && (
                     <>
                       {" — "}

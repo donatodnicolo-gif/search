@@ -85,6 +85,7 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
       budgetGiornaliero: campagna.budgetGiornaliero,
       strategiaOfferta: campagna.strategiaOfferta,
       tipoConversione: campagna.tipoConversione,
+      canale: campagna.canale,
     },
     metriche: [...campagna.metriche].reverse(),
     gruppi,

@@ -144,7 +144,7 @@ export async function GuardrailCampagna({
   const cpa30 = conv30 > 0 ? spesa30 / conv30 : null;
   const app = apprendimento(campagna.budgetGiornaliero, cpa30);
   const gate = gateBidding(conv30, ricavi30 > 0);
-  const vn = valoreONumero(campagna.strategiaOfferta, conv30, ricavi30);
+  const vn = valoreONumero(campagna.strategiaOfferta, conv30, ricavi30, campagna.canale);
   const roas30 = spesa30 > 0 ? ricavi30 / spesa30 : null;
   const reale = roas30 != null ? roasRealeStimato(roas30) : null;
 
