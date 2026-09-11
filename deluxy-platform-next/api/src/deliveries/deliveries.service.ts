@@ -828,15 +828,24 @@ export class DeliveriesService {
             .map((r) => `${r.partner.id}|${r.serviceType.id}`))]
             .map((k) => { const [partnerId, serviceTypeId] = k.split('|'); return { partnerId, serviceTypeId }; });
           const valetIds = [...new Set(righeVendita.map((r) => r.valetId).filter(Boolean))] as string[];
-          const [prodotti, listini, listiniValet, valets] = await Promise.all([
-            this.prisma.deliveryProduct.findMany({
-              where: { deliveryId: { in: ids } },
-              select: { deliveryId: true, price: true, quantity: true, withoutCommission: true, productVariant: { select: { price: true } }, product: { select: { price: true } } },
-            }),
-            coppie.length ? this.prisma.partnerService.findMany({ where: { OR: coppie }, select: { partnerId: true, serviceTypeId: true, price: true } }) : Promise.resolve([] as { partnerId: string; serviceTypeId: string; price: number | null }[]),
-            valetIds.length ? this.prisma.valetService.findMany({ where: { valetId: { in: valetIds } }, include: { serviceType: { select: { pricingModel: true, minHours: true } } }, orderBy: [{ validFrom: 'desc' }] }) : Promise.resolve([] as any[]),
-            valetIds.length ? this.prisma.valet.findMany({ where: { id: { in: valetIds } }, select: { id: true, minimumKmIncluded: true, extraOutOfCityPrice: true } }) : Promise.resolve([] as any[]),
-          ]);
+          // 🔴 11/09/2026 — QUESTE LETTURE VANNO IN FILA, NON IN PARALLELO. Il pool della funzione ha
+          // TRE connessioni (lo dice l'errore: «connection limit: 3»): quattro query insieme se le
+          // prendono tutte e il resto della richiesta aspetta fino al timeout di 10 s — è così che la
+          // pagina Consegne ha risposto «Internal server error». In fila costano una connessione per
+          // volta e qualche decina di millisecondi in più.
+          const prodotti = await this.prisma.deliveryProduct.findMany({
+            where: { deliveryId: { in: ids } },
+            select: { deliveryId: true, price: true, quantity: true, withoutCommission: true, productVariant: { select: { price: true } }, product: { select: { price: true } } },
+          });
+          const listini = coppie.length
+            ? await this.prisma.partnerService.findMany({ where: { OR: coppie }, select: { partnerId: true, serviceTypeId: true, price: true } })
+            : ([] as { partnerId: string; serviceTypeId: string; price: number | null }[]);
+          const listiniValet = valetIds.length
+            ? await this.prisma.valetService.findMany({ where: { valetId: { in: valetIds } }, include: { serviceType: { select: { pricingModel: true, minHours: true } } }, orderBy: [{ validFrom: 'desc' }] })
+            : ([] as any[]);
+          const valets = valetIds.length
+            ? await this.prisma.valet.findMany({ where: { id: { in: valetIds } }, select: { id: true, minimumKmIncluded: true, extraOutOfCityPrice: true } })
+            : ([] as any[]);
           const perRiga = new Map<string, any[]>();
           for (const p of prodotti) { const a = perRiga.get(p.deliveryId) ?? []; a.push(p); perRiga.set(p.deliveryId, a); }
           const fee = new Map(listini.map((l) => [`${l.partnerId}|${l.serviceTypeId}`, l.price]));
