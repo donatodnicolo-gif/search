@@ -45,26 +45,50 @@ export type EsitoGiaResi = {
   righe: string[]
 }
 
+// ⚠️⚠️ Anche qui ogni cifra si chiede DUE volte, come nel rimborso vero: su un
+// ordine estero il conto in euro non torna mai esattamente (vedi il blocco
+// «IL CAMBIO NON TORNA» più sotto).
 const QUERY = `query Reso($id: ID!) {
   order(id: $id) {
     name
-    totalRefundedSet { shopMoney { amount currencyCode } }
-    netPaymentSet { shopMoney { amount } }
+    currencyCode
+    presentmentCurrencyCode
+    totalPriceSet {
+      shopMoney { amount }
+      presentmentMoney { amount }
+    }
+    totalRefundedSet {
+      shopMoney { amount currencyCode }
+      presentmentMoney { amount currencyCode }
+    }
+    netPaymentSet {
+      shopMoney { amount }
+      presentmentMoney { amount }
+    }
     refunds(first: 20) { id createdAt totalRefundedSet { shopMoney { amount } } }
   }
 }`
+
+type Soldi = { amount?: string; currencyCode?: string } | null
+type Coppia = { shopMoney?: Soldi; presentmentMoney?: Soldi } | null
 
 type Risposta = {
   errors?: { message: string }[]
   data?: {
     order?: {
       name?: string
-      totalRefundedSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
-      netPaymentSet?: { shopMoney?: { amount?: string } | null } | null
-      refunds?: { id: string; createdAt?: string; totalRefundedSet?: { shopMoney?: { amount?: string } | null } | null }[]
+      currencyCode?: string
+      presentmentCurrencyCode?: string
+      totalPriceSet?: Coppia
+      totalRefundedSet?: Coppia
+      netPaymentSet?: Coppia
+      refunds?: { id: string; createdAt?: string; totalRefundedSet?: { shopMoney?: Soldi } | null }[]
     } | null
   }
 }
+
+/** Il numero dentro un `...Money`, o zero. */
+const n = (s: Soldi | undefined) => Number(s?.amount ?? '0') || 0
 
 const cent = (v: number) => Math.round(v * 100)
 
@@ -122,7 +146,7 @@ export async function chiudiRimborsiGiaResi(opz: { prova?: boolean } = {}): Prom
       continue
     }
 
-    const reso = Number(o.totalRefundedSet?.shopMoney?.amount ?? '0') || 0
+    const reso = n(o.totalRefundedSet?.shopMoney)
     if (cent(reso) <= 0) continue
 
     // ⚠️⚠️ Quanto di quel reso è GIÀ stato attribuito ad altre richieste dello
@@ -133,13 +157,45 @@ export async function chiudiRimborsiGiaResi(opz: { prova?: boolean } = {}): Prom
       _sum: { importo: true },
     })
     const gliAltri = altre._sum.importo ?? 0
-    const libero = cent(reso) - cent(gliAltri)
 
-    if (libero < cent(r.importo)) {
+    // ── IL CAMBIO NON TORNA ──
+    //
+    // ⚠️⚠️ Segnalato dall'utente l'11/09/2026: «perché il 2789 è ancora
+    // visibile?». Era un difetto di questo controllo, scritto poche ore prima.
+    // Su #2789 il cliente ha pagato **82,00 CHF** (87,65 € per il negozio) e
+    // Shopify gli ha restituito **82,00 CHF**: in franchi non gli si deve più
+    // niente, e `netPayment` in franchi è zero. Ma nella conversione in euro il
+    // reso vale 87,55 € contro 87,65 € incassati — **dieci centesimi di
+    // differenza di cambio**, non un rimborso a metà — e il confronto in euro
+    // lasciava la richiesta aperta per sempre.
+    //
+    // Il conto si fa quindi NELLA VALUTA DEL CLIENTE, che è quella in cui il
+    // rimborso è davvero avvenuto, col cambio DI QUESTO ORDINE (il rapporto fra
+    // i due totali che Shopify ha scritto quel giorno). Sugli ordini in euro
+    // non cambia niente: il rapporto è 1 e il confronto resta esatto.
+    const valutaCliente = o.presentmentCurrencyCode || o.currencyCode || 'EUR'
+    const inValutaDelCliente = valutaCliente !== (o.currencyCode || 'EUR')
+    const totShop = n(o.totalPriceSet?.shopMoney)
+    const totCliente = n(o.totalPriceSet?.presentmentMoney)
+    // ⚠️ Senza i due totali il cambio non si ricava: si resta sull'euro. Meglio
+    // una richiesta che resta aperta di una chiusa su un numero inventato.
+    const cambio = inValutaDelCliente && cent(totShop) > 0 ? totCliente / totShop : 1
+    const conv = (v: number) => Math.round(cent(v) * cambio)
+
+    const resoCliente = inValutaDelCliente ? cent(n(o.totalRefundedSet?.presentmentMoney)) : cent(reso)
+    const libero = resoCliente - conv(gliAltri)
+    // ⚠️ Un centesimo di tolleranza: il cambio arrotonda, e nient'altro. Non è
+    // una soglia di comodo — a due centesimi si chiuderebbe una richiesta che
+    // non è stata pagata per intero.
+    const chiesto = conv(r.importo) - (inValutaDelCliente ? 1 : 0)
+
+    if (libero < chiesto) {
       // C'è un rimborso, ma non copre questa richiesta: decide una persona.
       esito.parziali++
       esito.righe.push(
-        `${o.name ?? r.ordineNumero}: resi ${soldi(reso, r.valuta)} di ${soldi(r.importo, r.valuta)} chiesti — lasciato aperto`
+        `${o.name ?? r.ordineNumero}: resi ${soldi(reso, r.valuta)} di ${soldi(r.importo, r.valuta)} chiesti` +
+          (inValutaDelCliente ? ` (in ${valutaCliente}: ${libero / 100} di ${chiesto / 100})` : '') +
+          ' — lasciato aperto'
       )
       continue
     }
@@ -148,8 +204,13 @@ export async function chiudiRimborsiGiaResi(opz: { prova?: boolean } = {}): Prom
     const data = quando(ultimo?.createdAt)
     const nota =
       `Risultava già rimborsato su Shopify${data ? ` (${data})` : ''}: ` +
-      `${soldi(reso, r.valuta)} resi su ${o.name ?? r.ordineNumero}. ` +
-      `Chiuso in automatico il ${new Date().toLocaleString('it-IT')}.`
+      `${soldi(reso, r.valuta)} resi su ${o.name ?? r.ordineNumero}` +
+      // ⚠️ Su un ordine estero si scrive la cifra del CLIENTE: è quella che lui
+      // ha visto sull'estratto conto, e in euro i conti non tornano al centesimo.
+      (inValutaDelCliente
+        ? `, cioè ${n(o.totalRefundedSet?.presentmentMoney).toFixed(2)} ${valutaCliente} — che è quanto aveva pagato`
+        : '') +
+      `. Chiuso in automatico il ${new Date().toLocaleString('it-IT')}.`
 
     if (opz.prova) {
       esito.chiusi++

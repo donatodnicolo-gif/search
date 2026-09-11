@@ -93,7 +93,7 @@ cd deluxy-messaging && npx tsx scripts/chiudi-rimborsi-gia-resi.mts --esegui
 ```
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app (le credenziali Shopify si leggono dal DB)
-- **Nota**: di suo NON scrive — qui si chiudono d'ufficio pratiche di denaro, e si guarda prima. Eseguito l'11/09/2026: chiusi #2585, #1735, #1758, #12868; #2789 lasciata aperta (resi 87,55 € dei 87,65 € chiesti).
+- **Nota**: di suo NON scrive — qui si chiudono d'ufficio pratiche di denaro, e si guarda prima. Il confronto si fa NELLA VALUTA DEL CLIENTE: su un ordine estero il conto in euro non torna al centesimo (su #2789 il cliente ha pagato e riavuto 82,00 CHF, che in euro sono 87,55 contro 87,65 incassati: differenza di cambio, non rimborso a metà). Eseguito l'11/09/2026: chiusi #2585, #1735, #1758, #12868 e #2789.
 
 ### ispeziona-valuta-ordine.mts — deluxy-messaging
 **Sola lettura.** Di un ordine dice che cosa ha pagato il cliente (valuta di presentazione) e che cosa vede il negozio (valuta del negozio), incasso per incasso. Serve quando un rimborso non torna: su #2846 il cliente ha pagato **160,00 USD** e il negozio incassa **138,20 EUR**, ed è da lì che nasce la conversione in `rimborso-shopify.ts`.
