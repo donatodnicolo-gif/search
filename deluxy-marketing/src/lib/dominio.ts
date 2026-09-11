@@ -630,6 +630,11 @@ export const ETICHETTA_OPERAZIONE: Record<string, string> = {
   nuova_campagna: "Campagna nuova",
   pausa_gruppo: "Pausa gruppo",
   attiva_gruppo: "Riattiva gruppo",
+  pausa_annuncio: "Pausa annuncio",
+  // ⚠️ Solo Meta: su Google lo script non sa riattivare un annuncio
+  // (TIPI_ESEGUIBILI_OGGI non la contiene), e l'azione che la accoda
+  // rifiuta il canale google_ads invece di lasciarla in coda per sempre.
+  attiva_annuncio: "Riattiva annuncio",
 };
 
 /**

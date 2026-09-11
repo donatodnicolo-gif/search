@@ -20,6 +20,7 @@ export const ETICHETTA_TIPO_OPERAZIONE: Record<string, string> = {
   nuovo_gruppo: "Crea un gruppo",
   nuovo_annuncio: "Crea un annuncio",
   pausa_annuncio: "Metti in pausa l'annuncio",
+  attiva_annuncio: "Riattiva l'annuncio",
   localita: "Cambia le località della campagna",
   estensione: "Aggiungi un'estensione",
   rimuovi_estensione: "Togli un'estensione",

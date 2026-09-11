@@ -12,6 +12,33 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — LA PAUSA DI UN SINGOLO ANNUNCIO META (in locale, non pubblicata).**
+> Terzo pezzo del giro Meta: nel riquadro «Annunci su Meta (dal vivo)» ogni annuncio
+> ha «Metti in pausa» / «Riattiva». Operazione `pausa_annuncio` (o
+> `attiva_annuncio`, nuova) con `canale: "meta_ads"`, L1, `idEsterno` = **l'id
+> nudo dell'annuncio** — perché `cambiaStatoMeta` fa `POST /{idEsterno}`.
+>
+> ⚠️ **Due difetti trovati e chiusi mentre la scrivevo, entrambi silenziosi:**
+> 1. **Lo smistamento di `eseguiOperazioniMeta` finiva con un «tutto il
+>    resto» che chiamava `budgetMeta`.** Con quattro tipi funzionava per caso;
+>    il quinto (questo) sarebbe finito in una scrittura di budget con
+>    `Number(undefined)` = NaN. Adesso `budget` è un ramo suo e un tipo
+>    ignoto **dichiara** di non essere eseguibile.
+> 2. **Il verso del bottone lo decideva `effective_status`.** Un annuncio
+>    `ACTIVE` dentro un ad set fermo ha effettivo `ADSET_PAUSED`: avrebbe
+>    mostrato «Riattiva» e scritto ACTIVE su ACTIVE — Meta accetta, la
+>    rilettura conferma, l'operazione risulta **eseguita** senza aver cambiato
+>    niente. Adesso comanda `status`, e quando i due non coincidono la riga lo
+>    dice.
+>
+> 🔴 **NON È VERIFICATA DAL VIVO.** In locale gli annunci Meta non si
+> leggono (`META_ACCESS_TOKEN` sta solo su Vercel), quindi il riquadro mostra
+> l'errore onesto e **nessun bottone**: l'unica prova che ho è che la pagina non
+> si rompe e che `tsc` è pulito. Il collaudo vero, dopo il deploy: aprire una
+> campagna Meta → «Metti in pausa» su un annuncio → approvare in `/operazioni`
+> → leggere l'esito (deve dire «annuncio → PAUSED su Meta (confermato
+> rileggendo)»).
+>
 > ✅ **11/09/2026 — LA DASHBOARD DI BRAND SI LEGGE PER CATEGORIA E PER AREA.**
 > Due tabelle nuove su `/brand/[brand]`, sotto quella per canale: quanto incassa
 > e quanto costa ogni famiglia di prodotto, e quanto ogni città. Misurato su

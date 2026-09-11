@@ -865,7 +865,11 @@ export default async function SchedaCampagna({
         {/* Gli annunci veri su Meta, con le creatività: lente viva, nessuna
             copia. Solo per campagne Meta confermate. */}
         {campagna.canale === "meta_ads" && campagna.idEsterno && !defunta && (
-          <AnnunciMeta idCampagnaEsterno={campagna.idEsterno} />
+          <AnnunciMeta
+            idCampagnaEsterno={campagna.idEsterno}
+            campagnaId={campagna.id}
+            ritorno={`/campagne/${campagna.id}`}
+          />
         )}
 
         {/* ——— Che cosa dicono le ANALISI di questa campagna, nel tempo ———

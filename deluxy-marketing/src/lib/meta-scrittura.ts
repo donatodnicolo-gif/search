@@ -166,11 +166,19 @@ async function rileggi(id: string, campi: string): Promise<Record<string, unknow
   }
 }
 
-/** Mette in pausa o riattiva una campagna o un ad set: stessa chiamata. */
+/**
+ * Mette in pausa o riattiva una campagna, un ad set o un ANNUNCIO: su Meta e'
+ * la stessa chiamata (`POST /{id}` con `status`), cambia solo il nodo.
+ *
+ * ⚠️ Per questo `idEsterno` deve essere l'id NUDO dell'oggetto e nient'altro:
+ * niente `account:oggetto`, niente id composti. E' la stessa trappola che ha
+ * fatto fallire la `pausa_annuncio` su Google il 07/09 — la' il bersaglio non
+ * si trovava, qui la POST andrebbe su un nodo che non esiste.
+ */
 export async function cambiaStatoMeta(
   idEsterno: string,
   acceso: boolean,
-  cosa: "campagna" | "gruppo"
+  cosa: "campagna" | "gruppo" | "annuncio"
 ): Promise<EsitoScrittura> {
   const stato = acceso ? "ACTIVE" : "PAUSED";
   const esito = await scrivi(idEsterno, { status: stato });
@@ -206,9 +214,10 @@ export async function cambiaStatoMeta(
         ? ` (confermato rileggendo, ma Meta lo dà come ${davvero}: c'è qualcosa sopra che lo tiene fermo)`
         : " (confermato rileggendo)";
 
+  const NOME = { campagna: "campagna", gruppo: "ad set", annuncio: "annuncio" } as const;
   return {
     riuscita: true,
-    dettaglio: `${cosa === "campagna" ? "campagna" : "ad set"} → ${stato} su Meta${nota}`,
+    dettaglio: `${NOME[cosa]} → ${stato} su Meta${nota}`,
     dopo: acceso ? "attiva" : "in pausa",
   };
 }
@@ -1017,8 +1026,23 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number; ids?: str
     else if (op.tipo === "attiva_campagna") esito = await cambiaStatoMeta(op.idEsterno!, true, "campagna");
     else if (op.tipo === "pausa_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, false, "gruppo");
     else if (op.tipo === "attiva_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, true, "gruppo");
-    else {
+    else if (op.tipo === "pausa_annuncio") esito = await cambiaStatoMeta(op.idEsterno!, false, "annuncio");
+    else if (op.tipo === "attiva_annuncio") esito = await cambiaStatoMeta(op.idEsterno!, true, "annuncio");
+    else if (op.tipo === "budget") {
       esito = await budgetMeta(op.idEsterno!, Number((parametri as { budget?: number }).budget));
+    } else {
+      // ⚠️⚠️ QUESTO RAMO ERA UN «TUTTO IL RESTO» CHE CHIAMAVA IL BUDGET.
+      // Finche' i tipi Meta erano quattro funzionava per caso; dal momento in
+      // cui se ne aggiunge uno (la pausa di un annuncio, 11/09/2026) un tipo
+      // nuovo sarebbe finito in `budgetMeta` con `Number(undefined)` = NaN —
+      // cioe' una scrittura di budget senza budget su un oggetto scelto a
+      // caso, riferita come esito di un'altra operazione. Un tipo che non si
+      // sa eseguire si DICHIARA: e' il modo in cui ci si accorge di doverlo
+      // scrivere, invece di scoprirlo dal denaro.
+      esito = {
+        riuscita: false,
+        dettaglio: `tipo «${op.tipo}» non eseguibile su Meta da questa app: nessun ramo lo gestisce (va aggiunto in eseguiOperazioniMeta)`,
+      };
     }
 
     if (esito.riuscita) eseguite++;
@@ -1086,6 +1110,10 @@ async function riferisci(id: string, riuscita: boolean, dettaglio: string, dopo?
         });
       }
     }
+    // ⚠️ Per `pausa_annuncio`/`attiva_annuncio` NON si scrive niente nell'app:
+    // gli annunci Meta non hanno una riga in database (si leggono vivi a ogni
+    // apertura della scheda, vedi components/AnnunciMeta). Lo stato nuovo si
+    // vede alla prima riapertura, perche' arriva da Meta.
     if (riuscita && op.gruppoId && (op.tipo === "pausa_gruppo" || op.tipo === "attiva_gruppo")) {
       const fermo = op.tipo === "pausa_gruppo";
       await prisma.gruppo.update({

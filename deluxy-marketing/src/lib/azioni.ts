@@ -5671,3 +5671,142 @@ export async function creaOperazionePausaAnnuncio(fd: FormData) {
   revalidatePath(`/gruppi/${gruppo.id}`);
   redirect(esitoInCoda(`pausa dell'annuncio «${etichetta}» in ${gruppo.nome}`, esito.avvisi, base));
 }
+
+/**
+ * La pausa (o la riattivazione) di UN SOLO ANNUNCIO su META.
+ *
+ * PERCHE' NON RIUSA `creaOperazionePausaAnnuncio`. Quella e' la gemella
+ * Google, e di Google ha tutto: l'id composto `conto:gruppo:annuncio` che lo
+ * script sa masticare, il conteggio degli annunci accesi letto dalle righe
+ * `destinazione` di `CopyAnnuncio`, e l'`idEsterno` che porta la CAMPAGNA per
+ * farsi trovare da `trovaBersaglio()`. Su Meta niente di tutto questo esiste:
+ * l'esecutore e' l'app, il nodo e' l'id nudo dell'annuncio, e gli annunci non
+ * hanno una riga in database — si leggono vivi. Due mondi diversi con lo
+ * stesso nome di operazione: unirli in una funzione con dei «se e' Meta»
+ * avrebbe fatto sbagliare il ramo alla prima distrazione.
+ *
+ * ⚠️⚠️ `idEsterno` = L'ID NUDO DELL'ANNUNCIO. Su Meta `eseguiOperazioniMeta`
+ * chiama `cambiaStatoMeta(op.idEsterno, …)`, che fa `POST /{idEsterno}`: un id
+ * composto finirebbe su un nodo che non esiste. E' la stessa trappola che ha
+ * tenuto ferma la pausa annuncio di Google per un mese, al contrario.
+ */
+export async function creaOperazioneAnnuncioMeta(fd: FormData) {
+  const ritorno = testo(fd, "ritorno");
+  const campagnaId = testo(fd, "campagnaId");
+  const idAnnuncio = (testo(fd, "idAnnuncio") ?? "").trim();
+  const etichetta = testo(fd, "etichetta") ?? "annuncio";
+  const verso = testo(fd, "verso") === "attiva" ? "attiva" : "pausa";
+  const tipo = verso === "attiva" ? "attiva_annuncio" : "pausa_annuncio";
+  if (!campagnaId || !idAnnuncio) return;
+  const base = ritorno ?? `/campagne/${campagnaId}`;
+  const sep = base.includes("?") ? "&" : "?";
+  const fermati = (messaggio: string) => redirect(`${base}${sep}bloccata=${encodeURIComponent(messaggio)}`);
+
+  // ⚠️ Un id non numerico non si accoda: su Meta gli id sono numerici, e
+  // mandare altro vorrebbe dire una POST su un nodo qualunque.
+  if (!/^\d+$/.test(idAnnuncio)) {
+    fermati("Questo annuncio non ha un id di Meta leggibile: la modifica non si puo' mettere in coda.");
+  }
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    include: {
+      modifiche: MODIFICHE_CHE_PESANO,
+      incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+    },
+  });
+  if (!campagna) return;
+  // ⚠️ Su Google questa strada non esiste: la' l'esecutore e' lo script, che
+  // vuole l'id composto e il suo giro. Accodarla qui sarebbe un'operazione che
+  // nessuno sa eseguire, e resterebbe in coda per sempre.
+  if (campagna.canale !== "meta_ads") {
+    fermati("Questa e' la pausa annuncio di Meta: su Google si usa il bottone della scheda del gruppo, che parla con lo script.");
+  }
+
+  // Una sola in volo per annuncio. Il confronto e' su `parametri.idAnnuncio`
+  // **e** su `idEsterno` perche' qui coincidono, ma il primo resta quello che
+  // vale: e' il campo che i due mondi (Google e Meta) hanno in comune.
+  const aperte = await prisma.operazioneAdv.findMany({
+    where: {
+      tipo: { in: ["pausa_annuncio", "attiva_annuncio"] },
+      campagnaId: campagna.id,
+      stato: { in: ["in_attesa", "approvata"] },
+    },
+    select: { tipo: true, stato: true, parametri: true },
+  });
+  const inVolo = aperte.find((o) => {
+    try {
+      return String(JSON.parse(o.parametri ?? "{}").idAnnuncio ?? "") === idAnnuncio;
+    } catch {
+      return false;
+    }
+  });
+  if (inVolo) {
+    fermati(
+      `Su «${etichetta}» c'e' gia' ${inVolo.tipo === "pausa_annuncio" ? "una pausa" : "una riattivazione"} in coda ` +
+        `(${inVolo.stato === "approvata" ? "approvata, la esegue il prossimo giro" : "da approvare"}): approvala in Operazioni invece di rifarla.`
+    );
+  }
+
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello: "L1", // un annuncio in meno dentro un ad set: non sposta traffico fra ad set
+    deltaBudgetPct: null,
+    rollbackPiano: null,
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
+    l2Settimana: 0,
+  });
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO su questa campagna: finche' non e' chiuso, quello che si misura e' sporcato dal guasto.`
+    );
+  }
+
+  // ⚠️ Quanti annunci attivi ha il suo ad set: lo conta la PAGINA, che ha
+  // appena letto gli annunci vivi da Meta, e lo manda in un campo nascosto.
+  // Ricontarlo qui vorrebbe dire una seconda chiamata alla Graph API a ogni
+  // click; e siccome serve solo a un AVVISO per chi approva, un valore
+  // sbagliato non fa danni — al massimo manca l'avviso. Se fosse un DIVIETO
+  // non lo si prenderebbe da un campo nascosto.
+  const attivi = Number(testo(fd, "attiviNelSuoAdSet") ?? "");
+  const adSet = testo(fd, "adSet");
+  if (verso === "pausa" && Number.isFinite(attivi) && attivi <= 1) {
+    esito.avvisi.push(
+      `E' l'UNICO annuncio attivo${adSet ? ` dell'ad set «${adSet}»` : " del suo ad set"}: fermandolo quell'ad set non eroga piu' niente. ` +
+        "Su Meta nessuno lo impedisce — a differenza dello script di Google, che rifiuta: qui la scelta e' di chi approva."
+    );
+  }
+
+  const op = await accodaOperazione({
+    data: {
+      tipo,
+      canale: "meta_ads",
+      bersaglio: `${etichetta}${adSet ? ` in ${adSet}` : ""}`,
+      idEsterno: idAnnuncio,
+      parametri: JSON.stringify({ idAnnuncio, annuncio: etichetta, adSet, campagna: campagna.nome }),
+      motivo: testo(fd, "motivo") ?? `${verso === "pausa" ? "Messo in pausa" : "Riattivato"} dalla scheda della campagna «${campagna.nome}»`,
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
+      livello: "L1",
+      prima: verso === "pausa" ? "attivo su Meta" : "in pausa su Meta",
+      campagnaId: campagna.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): ${tipo} «${etichetta}» su Meta (${campagna.nome})`,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
+  });
+  revalidatePath(`/campagne/${campagna.id}`);
+  redirect(
+    esitoInCoda(
+      `${verso === "pausa" ? "pausa" : "riattivazione"} dell'annuncio «${etichetta}» su Meta`,
+      esito.avvisi,
+      base
+    )
+  );
+}
