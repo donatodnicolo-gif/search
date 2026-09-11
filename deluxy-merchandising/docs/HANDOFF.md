@@ -10,7 +10,11 @@ Regola dell'utente: «quando un partner crea il proprio prodotto il nome che met
 - Pubblicati anche (10/09): `nomePartner` nell'API prodotti; `POST /api/v1/prodotti/disponibilita` (giorni minimi e ora minima dal calendario dei partner dei prodotti unici, chiamata dal cron della piattaforma ogni mezz'ora); 5.080 nomi partner riempiti.
 - ⚠️ Il deploy in cloud prende SOLO ciò che è pushato su `scout-ui`: il lavoro locale «NON pubblicato» qui sotto non è entrato.
 
-## 11/09/2026 (3) — I PRODOTTI DEI PARTNER: «ATTESA APPROVAZIONE», IMPORT COMPLETO, APPROVAZIONE CHE TORNA INDIETRO (in locale, NON pubblicato)
+## 11/09/2026 (3) — I PRODOTTI DEI PARTNER: «ATTESA APPROVAZIONE», IMPORT COMPLETO, APPROVAZIONE CHE TORNA INDIETRO — PUBBLICATA
+
+✅ **PUSHATO E DEPLOYATO** (utente: «fai deploy»): origin/scout-ui a `67c6d5ad`, deploy **`deluxy-merchandising-boeugure5`** (cloud), Ready, alias di produzione. Verificato in produzione sulla scheda di **Torta Damiano**: badge «Attesa approvazione», categoria **«Torte e dolci»** (non più la chiave grezza), «L'ha caricato **Chanel Test**», e il blocco «Prima di approvare manca: il prezzo pubblico (oggi è 0: senza, il prodotto non si può vendere)». Impostazioni 200.
+
+⚠️ **Il prezzo pubblico di Torta Damiano lo decide una persona**: è l'ultimo campo che le manca, e non si inventa. Appena c'è, il bottone «Approva questo prodotto» compare da solo.
 
 Sette richieste dell'utente in una: stato nuovo per i prodotti che i partner
 caricano dall'app delivery, import di **tutti** i campi (categoria, varianti,
