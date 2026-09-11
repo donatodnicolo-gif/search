@@ -3360,7 +3360,7 @@
     "motivo": "The reason (the sender will read it)",
     "rigeneraChiave": "Regenerate the key for “{{nome}}”?",
     "eliminaChiave": "Delete the key for “{{nome}}”?",
-    "eliminaConsegne": "Delete {{n}} deliveries?",
+    "eliminaConsegne": "Delete {{n}} deliveries? They are not erased: they move to History as cancelled by the office.",
     "eliminaRegola": "Delete rule “{{nome}}”?",
     "eliminaRegolaCorpo": "Linked deliveries are untouched; the rule will no longer apply.",
     "eliminaRicorrente": "Delete the recurring service “{{nome}}”?",
@@ -3654,5 +3654,32 @@
     "nessuna": "No delivery found for this search.",
     "nascondiTitolo": "Hide from Deliveries",
     "nascondiSotto": "Removes it from the list and leaves it in History: it can always be brought back."
+  },
+  "statPartner": {
+    "dal": "From",
+    "al": "To",
+    "titolo": "Statistics",
+    "sottotitolo": "How your deliveries are going: when, where and for whom.",
+    "totale": "{{n}} deliveries in the selected period",
+    "tutte": "All types",
+    "tipologia": "Type",
+    "servizi": "Types of service requested",
+    "fasce": "Busiest time slots",
+    "giorni": "Busiest days",
+    "vendite": "Sales trend",
+    "prodotti": "Best-selling products",
+    "indirizzi": "Most served addresses",
+    "luoghi": "Most served places",
+    "luoghiNota": "Hotels, offices and hospitals recognised at the address.",
+    "clienti": "Most served customers",
+    "nessunDato": "No deliveries in this period.",
+    "errore": "Statistics unavailable: please try again.",
+    "periodo": {
+      "mese": "Last month",
+      "trimestre": "Last quarter",
+      "anno": "Last year",
+      "sempre": "All time",
+      "scelto": "Chosen period"
+    }
   }
 }

@@ -3530,11 +3530,44 @@ export class DeliveriesService {
     return this.soloIMieiSoldi(this.hideInternalNotes(assegnata, user), user);
   }
 
+  /**
+   * ⭐⭐ 11/09/2026 (regola utente: «devono andare in storico come annullate, non essere cancellate
+   * veramente») — «ELIMINA» NON CANCELLA PIÙ NIENTE.
+   *
+   * COM'ERA. `prisma.delivery.delete`: la riga spariva dalla tabella, e con lei — per cascata — tutte le
+   * righe del suo registro. Niente cestino, nessuna traccia di chi l'avesse tolta, nessun modo di
+   * rispondere alla domanda «e la consegna di stamattina?». È successo davvero oggi: la #101331, creata
+   * alle 11:47 per Chanel Test, non esiste più; si sa che è esistita solo perché la numerazione salta
+   * da 101330 a 101332.
+   *
+   * COM'È ORA. La consegna passa ad «annullata d'ufficio» (`invalidated`), che è già fra gli stati
+   * CHIUSI: esce dalle attive, entra nello Storico, resta leggibile, resta contabile. Il registro della
+   * consegna scrive CHI l'ha annullata e quando.
+   *
+   * ⚠️ La merce rientra a magazzino come prima (`stock.rientra`): annullare una consegna libera i pezzi
+   * che teneva impegnati, e questo vale sia che la riga sparisca sia che resti.
+   * ⚠️ Una consegna già annullata non si riannulla: si risponde di sì e basta, così il bottone premuto
+   * due volte non genera due righe di registro.
+   */
   async remove(id: string, user: JwtUser) {
-    await this.findOne(id, user);
+    const delivery = await this.findOne(id, user);
+    if ((delivery as { status?: string }).status === DeliveryStatus.INVALIDATED) {
+      return { deleted: true, annullata: true, giaAnnullata: true };
+    }
     await this.stock.rientra(id, 'eliminata', user.sub);
-    await this.prisma.delivery.delete({ where: { id } });
-    return { deleted: true };
+    await this.prisma.delivery.update({
+      where: { id },
+      data: { status: DeliveryStatus.INVALIDATED },
+    });
+    await this.prisma.deliveryLog.create({
+      data: {
+        deliveryId: id,
+        type: 'status_change',
+        userId: user.sub ?? null,
+        message: `Consegna annullata d'ufficio (era «${(delivery as { status?: string }).status ?? '—'}»). Non viene cancellata: resta nello Storico.`,
+      },
+    });
+    return { deleted: true, annullata: true };
   }
 
   /**

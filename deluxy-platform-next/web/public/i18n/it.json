@@ -3362,7 +3362,7 @@
     "motivo": "Il motivo (lo legge chi ha mandato la richiesta)",
     "rigeneraChiave": "Rigenero la chiave di «{{nome}}»?",
     "eliminaChiave": "Elimino la chiave di «{{nome}}»?",
-    "eliminaConsegne": "Elimino {{n}} consegne?",
+    "eliminaConsegne": "Elimino {{n}} consegne? Non vengono cancellate: passano nello Storico come annullate d'ufficio.",
     "eliminaRegola": "Elimino la regola «{{nome}}»?",
     "eliminaRegolaCorpo": "Le consegne già collegate non si toccano; la regola non si applicherà più.",
     "eliminaRicorrente": "Elimino il servizio ricorrente «{{nome}}»?",
@@ -3656,5 +3656,32 @@
     "nessuna": "Nessuna consegna trovata con questa ricerca.",
     "nascondiTitolo": "Nascondi da Consegne",
     "nascondiSotto": "La toglie dall'elenco e la lascia in Storico: si può sempre rimettere."
+  },
+  "statPartner": {
+    "dal": "Dal",
+    "al": "Al",
+    "titolo": "Statistiche",
+    "sottotitolo": "Come vanno le tue consegne: quando, dove e per chi.",
+    "totale": "{{n}} consegne nel periodo scelto",
+    "tutte": "Tutte le tipologie",
+    "tipologia": "Tipologia",
+    "servizi": "Tipologia di servizi richiesti",
+    "fasce": "Fasce orarie con più consegne",
+    "giorni": "Giorni con più consegne",
+    "vendite": "Andamento vendite",
+    "prodotti": "Prodotti più venduti",
+    "indirizzi": "Indirizzi più serviti",
+    "luoghi": "Luoghi più serviti",
+    "luoghiNota": "Hotel, uffici, ospedali riconosciuti all’indirizzo.",
+    "clienti": "Clienti più serviti",
+    "nessunDato": "Nessuna consegna in questo periodo.",
+    "errore": "Statistiche non disponibili: riprova.",
+    "periodo": {
+      "mese": "Ultimo mese",
+      "trimestre": "Ultimo trimestre",
+      "anno": "Ultimo anno",
+      "sempre": "Sempre",
+      "scelto": "Periodo scelto"
+    }
   }
 }

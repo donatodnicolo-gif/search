@@ -119,6 +119,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // ⭐ 06/09/2026: Statistiche prima di Finanza (verdetto UX): operatività
       // condivisa (ADMIN, OPERATION) ≠ economia riservata (Finanza, solo ADMIN).
       { label: 'nav.statistiche', path: '/statistiche', icon: 'chart', roles: ['ADMIN', 'OPERATION'] },
+      // ⭐ 11/09/2026 (richiesta utente): il PARTNER ha le sue statistiche — quali servizi chiede, a che
+      // ora, in che giorni, cosa vende, in quali hotel va. Voce sua, non quella dell'ufficio.
+      { label: 'nav.statistiche', path: '/statistiche-partner', icon: 'chart', roles: ['PARTNER'] },
       { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },

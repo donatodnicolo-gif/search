@@ -1,0 +1,3369 @@
+{
+ "piazza augusto imperatore 10 00186 roma rm": {
+  "luogo": "Bulgari Hotel Roma",
+  "fonte": "google",
+  "indirizzo": "Piazza Augusto Imperatore, 10, 00186 Roma RM, Italia",
+  "volte": 62,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 29 20121 milano mi": {
+  "luogo": "Grand Hotel et de Milan - Member of The Leading Hotels of the World",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 29, 20121 Milano MI, Italia",
+  "volte": 47,
+  "ricontrollato": null
+ },
+ "borgo san iacopo 14 50125 firenze fi": {
+  "luogo": "Hotel Lungarno",
+  "fonte": "google",
+  "indirizzo": "Borgo San Iacopo, 14, 50125 Firenze FI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "corso 10 20122 milano mi": {
+  "luogo": "Touring Club Italiano",
+  "fonte": "google",
+  "indirizzo": "Corso Italia, 10, 20122 Milano MI, Italia",
+  "volte": 16,
+  "ricontrollato": null
+ },
+ "v tommaso grossi 1 20121 milano mi": {
+  "luogo": "Park Hyatt Milan",
+  "fonte": "google",
+  "indirizzo": "V. Tommaso Grossi, 1, 20121 Milano MI, Italia",
+  "volte": 86,
+  "ricontrollato": null
+ },
+ "via privata fratelli gabba 7b 20121 milano mi": {
+  "luogo": "Bvlgari Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Privata Fratelli Gabba, 7B, 20121 Milano MI, Italia",
+  "volte": 64,
+  "ricontrollato": null
+ },
+ "via gesu 6 8 20121 milano mi": {
+  "luogo": "Four Seasons Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Gesù, 6-8, 20121 Milano MI, Italia",
+  "volte": 123,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 13 20124 milano mi": {
+  "luogo": "ME Milan Il Duca",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 13, 20124 Milano MI, Italy",
+  "volte": 20,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 31 20121 milano mi": {
+  "luogo": "Emporio Armani",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 31, 20121 Milano MI, Italia",
+  "volte": 83,
+  "ricontrollato": null
+ },
+ "via fatebenefratelli 20121 milano mi": {
+  "luogo": "Hotel Cavour",
+  "fonte": "foglio",
+  "indirizzo": "Via Fatebenefratelli, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via dell arancio 69 00186 roma rm": {
+  "luogo": "Hotel Vilòn",
+  "fonte": "google",
+  "indirizzo": "Via dell'Arancio, 69, 00186 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via della vite 71 72 00187 roma rm": {
+  "luogo": "HOTEL HOMS",
+  "fonte": "foglio",
+  "indirizzo": "Via della Vite, 71/72, 00187 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via de martelli 10 50122 firenze fi": {
+  "luogo": "Hotel Spadai",
+  "fonte": "google",
+  "indirizzo": "Via de' Martelli, 10, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazzetta m bossi 2 20121 milano mi": {
+  "luogo": "Casa Brera",
+  "fonte": "google",
+  "indirizzo": "Piazzetta M. Bossi, 2, 20121 Milano MI, Italia",
+  "volte": 19,
+  "ricontrollato": null
+ },
+ "via vittorio emanuele orlando 3 00185 roma rm": {
+  "luogo": "The St. Regis Rome",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Emanuele Orlando, 3, 00185 Roma RM, Italia",
+  "volte": 15,
+  "ricontrollato": null
+ },
+ "via di s maria de calderari 47 00186 roma rm": {
+  "luogo": "Chapter Roma",
+  "fonte": "google",
+  "indirizzo": "Via di S. Maria de' Calderari, 47, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della trinita dei monti 6 00187 roma rm": {
+  "luogo": "Hotel Hassler",
+  "fonte": "google",
+  "indirizzo": "Piazza della Trinità dei Monti, 6, 00187 Roma RM, Italia",
+  "volte": 14,
+  "ricontrollato": null
+ },
+ "via sistina 69 00187 roma rm": {
+  "luogo": "Hotel de la Ville",
+  "fonte": "google",
+  "indirizzo": "Via Sistina, 69, 00187 Roma RM, Italia",
+  "volte": 19,
+  "ricontrollato": null
+ },
+ "vle andrea doria 4 20124 milano mi": {
+  "luogo": "Starhotels E.c.ho.",
+  "fonte": "google",
+  "indirizzo": "Vle Andrea Doria, 4, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via dei gracchi 324 00192 roma rm": {
+  "luogo": "Hotel NH Collection Roma Centro",
+  "fonte": "google",
+  "indirizzo": "Via dei Gracchi, 324, 00192 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del babuino 9 00187 roma rm": {
+  "luogo": "Hotel de Russie",
+  "fonte": "google",
+  "indirizzo": "Via del Babuino, 9, 00187 Roma RM, Italia",
+  "volte": 50,
+  "ricontrollato": null
+ },
+ "via di ripetta 231 00186 roma rm": {
+  "luogo": "Palazzo Ripetta - Relais & Châteaux",
+  "fonte": "google",
+  "indirizzo": "Via di Ripetta, 231, 00186 Roma RM, Italia",
+  "volte": 11,
+  "ricontrollato": null
+ },
+ "via silvio pellico 4 20121 milano mi": {
+  "luogo": "Room Mate Giulia",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 4, 20121 Milano MI, Italia",
+  "volte": 23,
+  "ricontrollato": null
+ },
+ "via dei maroniti 12 00187 roma rm": {
+  "luogo": "U-Visionary Roma Hotel",
+  "fonte": "google",
+  "indirizzo": "Via dei Maroniti, 12, 00187 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "v tommaso grossi 20121 milano mi": {
+  "luogo": "Park Hyatt",
+  "fonte": "foglio",
+  "indirizzo": "V. Tommaso Grossi, 20121 Milano MI, Italia",
+  "volte": 8,
+  "ricontrollato": "scartato"
+ },
+ "via andegari 9 20121 milano mi": {
+  "luogo": "Mandarin Oriental",
+  "fonte": "google",
+  "indirizzo": "Via Andegari, 9, 20121 Milano MI, Italia",
+  "volte": 103,
+  "ricontrollato": null
+ },
+ "via del corso 6 50122 firenze fi": {
+  "luogo": "Palazzo Portinari Salviati",
+  "fonte": "google",
+  "indirizzo": "Via del Corso, 6, 50122 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "largo augusto 10 20122 milano mi": {
+  "luogo": "Tivoli President Milano Hotel",
+  "fonte": "google",
+  "indirizzo": "Largo Augusto, 10, 20122 Milano MI, Italia",
+  "volte": 22,
+  "ricontrollato": null
+ },
+ "via vittorio veneto 72 00187 roma rm": {
+  "luogo": "Baglioni Hotel Regina",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Veneto, 72, 00187 Roma RM, Italia",
+  "volte": 9,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via daniele manin 20121 milano mi": {
+  "luogo": "The Plain Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Via Daniele Manin, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "corso venezia 11 20121 milano mi": {
+  "luogo": "Portrait Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Venezia, 11, 20121 Milano MI, Italia",
+  "volte": 103,
+  "ricontrollato": null
+ },
+ "piazza ognissanti 1 50123 firenze fi": {
+  "luogo": "The St. Regis Florence",
+  "fonte": "google",
+  "indirizzo": "Piazza Ognissanti, 1, 50123 Firenze FI, Italia",
+  "volte": 17,
+  "ricontrollato": null
+ },
+ "via gesu 6 20121 milano mi": {
+  "luogo": "Four Seasons Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Gesù, 6, 20121 Milano MI, Italia",
+  "volte": 25,
+  "ricontrollato": null
+ },
+ "via daniele manin 7 20121 milano mi": {
+  "luogo": "Hotel Manin",
+  "fonte": "google",
+  "indirizzo": "Via Daniele Manin, 7, 20121 Milano MI, Italia",
+  "volte": 14,
+  "ricontrollato": null
+ },
+ "c so di porta nuova 1 20121 milano mi": {
+  "luogo": "Palazzo Parigi Hotel & Grand Spa Milano",
+  "fonte": "google",
+  "indirizzo": "C.so di Porta Nuova, 1, 20121 Milano MI, Italia",
+  "volte": 58,
+  "ricontrollato": null
+ },
+ "piazza augusto imperatore 00186 roma rm": {
+  "luogo": "Bulgari",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Augusto Imperatore, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via privata fratelli gabba 7 20121 milano mi": {
+  "luogo": "The Bulgari Bar",
+  "fonte": "google",
+  "indirizzo": "Via Privata Fratelli Gabba, 7, 20121 Milano MI, Italia",
+  "volte": 18,
+  "ricontrollato": null
+ },
+ "borgo pinti 99 50121 firenze fi": {
+  "luogo": "Four Seasons Hotel Firenze",
+  "fonte": "google",
+  "indirizzo": "Borgo Pinti, 99, 50121 Firenze FI, Italia",
+  "volte": 30,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 14 20124 milano mi": {
+  "luogo": "Principe di Savoia",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Repubblica, 14, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza fontana 3 20122 milano mi": {
+  "luogo": "Rosa Grand Milano - Starhotels Collezione",
+  "fonte": "google",
+  "indirizzo": "Piazza Fontana, 3, 20122 Milano MI, Italia",
+  "volte": 103,
+  "ricontrollato": null
+ },
+ "via andegari 20121 milano mi": {
+  "luogo": "Mandarin",
+  "fonte": "foglio",
+  "indirizzo": "Via Andegari, 20121 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via alberico albricci 2 20122 milano mi": {
+  "luogo": "Hotel The Square Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Alberico Albricci, 2, 20122 Milano MI, Italia",
+  "volte": 16,
+  "ricontrollato": null
+ },
+ "via dei due macelli 106 00187 roma rm": {
+  "luogo": "The Style Hotel",
+  "fonte": "google",
+  "indirizzo": "Via dei Due Macelli, 106, 00187 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via masaccio 19 20149 milano mi": {
+  "luogo": "Meliá Milano",
+  "fonte": "google",
+  "indirizzo": "Via Masaccio, 19, 20149 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via lucio giunio columella 36 20128 milano mi": {
+  "luogo": "Hilton Garden Inn Milan North",
+  "fonte": "google",
+  "indirizzo": "Via Lucio Giunio Columella, 36, 20128 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via ludovisi 49 00187 roma rm": {
+  "luogo": "Hotel Eden",
+  "fonte": "google",
+  "indirizzo": "Via Ludovisi, 49, 00187 Roma RM, Italia",
+  "volte": 20,
+  "ricontrollato": null
+ },
+ "via del tritone 68 00187 roma rm": {
+  "luogo": "Circle 6 Rome",
+  "fonte": "google",
+  "indirizzo": "Via del Tritone, 68, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via carlo de cristoforis 6 20124 milano mi": {
+  "luogo": "Milano Verticale | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Carlo de Cristoforis, 6, 20124 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "viale delle medaglie d oro 51 00136 roma rm": {
+  "luogo": "Hotel Pacific Roma",
+  "fonte": "google",
+  "indirizzo": "Viale delle Medaglie d'Oro, 51, 00136 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 9 20124 milano mi": {
+  "luogo": "Excelsior Hotel Gallia",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 9, 20124 Milano MI, Italia",
+  "volte": 21,
+  "ricontrollato": null
+ },
+ "via alberto cadlolo 101 00136 roma rm": {
+  "luogo": "Rome Cavalieri, A Waldorf Astoria Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Alberto Cadlolo, 101, 00136 Roma RM, Italia",
+  "volte": 11,
+  "ricontrollato": null
+ },
+ "via vittorio veneto 191 00187 roma rm": {
+  "luogo": "Rome Marriott Grand Hotel Flora",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Veneto, 191, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via palestro 24 20121 milano mi": {
+  "luogo": "Casa Cipriani Milano",
+  "fonte": "google",
+  "indirizzo": "Via Palestro, 24, 20121 Milano MI, Italia",
+  "volte": 19,
+  "ricontrollato": null
+ },
+ "viale monza 132 20127 milano mi": {
+  "luogo": "c-hotels Concorde Milano",
+  "fonte": "google",
+  "indirizzo": "Viale Monza, 132, 20127 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza di s paolino 1 50123 firenze fi": {
+  "luogo": "25hours Hotel Florence Piazza San Paolino",
+  "fonte": "google",
+  "indirizzo": "Piazza di S. Paolino, 1, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za della repubblica 47 00185 roma rm": {
+  "luogo": "Hotel Anantara",
+  "fonte": "foglio",
+  "indirizzo": "P.za della Repubblica, 47, 00185 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "piazzetta m bossi 20121 milano mi": {
+  "luogo": "Casa Brera",
+  "fonte": "foglio",
+  "indirizzo": "Piazzetta M. Bossi, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via arturo ferrarin 7 21019 case nuove va": {
+  "luogo": "Crowne Plaza Milan - Malpensa Airport",
+  "fonte": "google",
+  "indirizzo": "Via Arturo Ferrarin, 7, 21019 Case Nuove VA, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "lungarno degli acciaiuoli 4 50123 firenze fi": {
+  "luogo": "Portrait Firenze",
+  "fonte": "google",
+  "indirizzo": "Lungarno degli Acciaiuoli, 4, 50123 Firenze FI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 20 20124 milano mi": {
+  "luogo": "The Westin Palace Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 20, 20124 Milano MI, Italia",
+  "volte": 36,
+  "ricontrollato": null
+ },
+ "corso monforte 27 20122 milano mi": {
+  "luogo": "Hotel Indigo Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Monforte, 27, 20122 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via vittorio veneto 62 00187 roma rm": {
+  "luogo": "InterContinental Rome Ambasciatori Palace",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Veneto, 62, 00187 Roma RM, Italia",
+  "volte": 17,
+  "ricontrollato": null
+ },
+ "p za della repubblica 48 00185 roma rm": {
+  "luogo": "Anantara Palazzo Naiadi Rome Hotel",
+  "fonte": "google",
+  "indirizzo": "P.za della Repubblica, 48, 00185 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via domenico scarlatti 22 20124 milano mi": {
+  "luogo": "Scarlatti Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Scarlatti, 22, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 17 20124 milano mi": {
+  "luogo": "Principe di Savoia",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 17, 20124 Milano MI, Italia",
+  "volte": 73,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via luigi galvani 12 20124 milano mi": {
+  "luogo": "Hilton Milan",
+  "fonte": "google",
+  "indirizzo": "Via Luigi Galvani, 12, 20124 Milano MI, Italy",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via di s eufemia 19 00187 roma rm": {
+  "luogo": "Hotel NH Collection Roma Fori Imperiali",
+  "fonte": "google",
+  "indirizzo": "Via di S. Eufemia, 19, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via iginio ugo tarchetti 2 20121 milano mi": {
+  "luogo": "Hotel NH Collection Milano Touring",
+  "fonte": "google",
+  "indirizzo": "Via Iginio Ugo Tarchetti, 2, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via giovanni battista pirelli 20 20124 milano mi italie": {
+  "luogo": "Hyatt Centric Milan Centrale",
+  "fonte": "google",
+  "indirizzo": "Via Giovanni Battista Pirelli, 20, 20124 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via domenico scarlatti 20124 milano mi": {
+  "luogo": "Hotel Scarlatti",
+  "fonte": "foglio",
+  "indirizzo": "Via Domenico Scarlatti, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via silvio pellico 4 20121 milano mi italie": {
+  "luogo": "Room Mate Giulia",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 4, 20121 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "p za s marcello 00187 roma rm": {
+  "luogo": "Six Sense",
+  "fonte": "foglio",
+  "indirizzo": "P.za S. Marcello, 00187 Roma RM, Italia",
+  "volte": 17,
+  "ricontrollato": "scartato"
+ },
+ "via giuseppe mazzini 4 20123 milano mi": {
+  "luogo": "Maison Milano | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Giuseppe Mazzini, 4, 20123 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "corso concordia 1 20129 milano mi": {
+  "luogo": "Château Monfort",
+  "fonte": "google",
+  "indirizzo": "Corso Concordia, 1, 20129 Milano MI, Italia",
+  "volte": 11,
+  "ricontrollato": null
+ },
+ "via silvio pellico 8 20121 milano mi": {
+  "luogo": "Galleria Vik Milano, an SLH Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 8, 20121 Milano MI, Italia",
+  "volte": 16,
+  "ricontrollato": null
+ },
+ "via gesu 6 20121 milano mi italie": {
+  "luogo": "Four Seasons Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Gesù, 6, 20121 Milano MI, Italie",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "via andegari 8 20121 milano mi italie": {
+  "luogo": "Mandarin",
+  "fonte": "foglio",
+  "indirizzo": "Via Andegari, 8, 20121 Milano MI, Italie",
+  "volte": 9,
+  "ricontrollato": "scartato"
+ },
+ "via di porta pinciana 14 00187 roma rm": {
+  "luogo": "Hotel Splendide Royal",
+  "fonte": "google",
+  "indirizzo": "Via di Porta Pinciana, 14, 00187 Roma RM, Italia",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "c so di porta nuova 1 20121 milano mi italie": {
+  "luogo": "Palazzo Parigi Hotel & Grand Spa Milano",
+  "fonte": "google",
+  "indirizzo": "C.so di Porta Nuova, 1, 20121 Milano MI, Italie",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via fatebenefratelli 21 20121 milano mi": {
+  "luogo": "Hotel Cavour Milano",
+  "fonte": "google",
+  "indirizzo": "Via Fatebenefratelli, 21, 20121 Milano MI, Italia",
+  "volte": 17,
+  "ricontrollato": null
+ },
+ "piazza ognissanti 3 50123 firenze fi": {
+  "luogo": "The Excelsior, a Luxury Collection Hotel, Florence",
+  "fonte": "google",
+  "indirizzo": "Piazza Ognissanti, 3, 50123 Firenze FI, Italia",
+  "volte": 3,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via giuseppe sirtori 24 20129 milano mi": {
+  "luogo": "Eurohotel",
+  "fonte": "google",
+  "indirizzo": "Via Giuseppe Sirtori, 24, 20129 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via aristotile fioravanti 6 20154 milano mi": {
+  "luogo": "Hotel VIU Milan",
+  "fonte": "google",
+  "indirizzo": "Via Aristotile Fioravanti, 6, 20154 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 20124 milano mi": {
+  "luogo": "Glam",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Duca d'Aosta, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via liguria 26 36 00187 roma rm": {
+  "luogo": "W Rome",
+  "fonte": "google",
+  "indirizzo": "Via Liguria, 26/36, 00187 Roma RM, Italia",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "c so di porta vittoria 51 20122 milano mi": {
+  "luogo": "Palazzo Viridis",
+  "fonte": "google",
+  "indirizzo": "C.so di Porta Vittoria, 51, 20122 Milano MI, Italia",
+  "volte": 6,
+  "ricontrollato": null
+ },
+ "piazza di s firenze 29 50122 firenze fi": {
+  "luogo": "Hotel Bernini Palace",
+  "fonte": "google",
+  "indirizzo": "Piazza di S. Firenze, 29, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via santa cecilia 4 20122 milano mi": {
+  "luogo": "Montenapoleone Suites Milano",
+  "fonte": "google",
+  "indirizzo": "Via Santa Cecilia, 4, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "p za cesare beccaria 3 20122 milano mi": {
+  "luogo": "IH Hotel Milano Ambasciatori",
+  "fonte": "foglio",
+  "indirizzo": "P.za Cesare Beccaria, 3, 20122 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "piazza fontana 20122 milano mi italie": {
+  "luogo": "ROSA GRAND HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Fontana, 20122 Milano MI, Italie",
+  "volte": 5,
+  "ricontrollato": "scartato"
+ },
+ "via aristotile fioravanti 6 20154 milano mi italie": {
+  "luogo": "Hotel VIU Milan",
+  "fonte": "google",
+  "indirizzo": "Via Aristotile Fioravanti, 6, 20154 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "corso buenos aires 3 20124 milano mi": {
+  "luogo": "Hotel Cristoforo Colombo",
+  "fonte": "google",
+  "indirizzo": "Corso Buenos Aires, 3, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via cavour 213 m 00184 roma rm": {
+  "luogo": "FH55 Grand Hotel Palatino",
+  "fonte": "google",
+  "indirizzo": "Via Cavour, 213/M, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza giuseppe missori 1 20122 milano mi italie": {
+  "luogo": "Hotel Dei Cavalieri Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Piazza Giuseppe Missori, 1, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via enrico tazzoli 2 20154 milano mi": {
+  "luogo": "AC Hotel Milano by Marriott",
+  "fonte": "google",
+  "indirizzo": "Via Enrico Tazzoli, 2, 20154 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via del corso 63 00187 roma rm": {
+  "luogo": "The First Roma Dolce",
+  "fonte": "google",
+  "indirizzo": "Via del Corso, 63, 00187 Roma RM, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via magenta 6 50123 firenze fi": {
+  "luogo": "Teatro Luxury Apartments Firenze - Starhotels Collezione",
+  "fonte": "google",
+  "indirizzo": "Via Magenta, 6, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via delle colonnette 35 00186 roma rm": {
+  "luogo": "Elizabeth Unique Hotel - a Member of Design Hotels",
+  "fonte": "google",
+  "indirizzo": "Via delle Colonnette, 35, 00186 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via moneta 1 20123 milano mi": {
+  "luogo": "Hotel Gran Duca di York | True Stay",
+  "fonte": "google",
+  "indirizzo": "Via Moneta, 1, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gesu 20121 milano mi": {
+  "luogo": "FOUR SEASON",
+  "fonte": "foglio",
+  "indirizzo": "Via Gesù, 20121 Milano MI, Italia",
+  "volte": 14,
+  "ricontrollato": "scartato"
+ },
+ "via flavia 39 00187 roma rm": {
+  "luogo": "BB Hotels Smarthotel Bailey's",
+  "fonte": "google",
+  "indirizzo": "Via Flavia, 39, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v le bligny 23 20136 milano mi": {
+  "luogo": "QC room Milano Porta Romana",
+  "fonte": "google",
+  "indirizzo": "V.le Bligny, 23, 20136 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via margutta 19 00187 roma rm": {
+  "luogo": "Margutta 19 Luxury Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Margutta, 19, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via bartolomeo colleoni 14 20149 milano mi": {
+  "luogo": "Hotel NH Collection Milano CityLife",
+  "fonte": "google",
+  "indirizzo": "Via Bartolomeo Colleoni, 14, 20149 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via napo torriani 24 20124 milano mi": {
+  "luogo": "c-hotels Atlantic Milano",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 24, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via francesco crispi 55 00187 roma rm": {
+  "luogo": "Hotel Cecil Rome",
+  "fonte": "google",
+  "indirizzo": "Via Francesco Crispi, 55, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 41 20121 milano mi": {
+  "luogo": "Armani",
+  "fonte": "foglio",
+  "indirizzo": "Via Alessandro Manzoni, 41, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza duca d aosta 9 20124 milano mi italie": {
+  "luogo": "Excelsior Hotel Gallia",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 9, 20124 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via napo torriani 24 20124 milano mi italie": {
+  "luogo": "c-hotels Atlantic Milano",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 24, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via s paolo 13 20121 milano mi": {
+  "luogo": "Duomo Hotel & Apartments",
+  "fonte": "google",
+  "indirizzo": "Via S. Paolo, 13, 20121 Milano MI, Italia",
+  "volte": 16,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 124 20125 milano mi": {
+  "luogo": "Joy 124 Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Melchiorre Gioia, 124, 20125 Milano MI, Italia",
+  "volte": 6,
+  "ricontrollato": null
+ },
+ "piazza sant elisabetta 3 50122 firenze fi": {
+  "luogo": "Brunelleschi Hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza Sant'Elisabetta, 3, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della rotonda 63 00186 roma rm": {
+  "luogo": "Antico Albergo del Sole al Pantheon",
+  "fonte": "google",
+  "indirizzo": "Piazza della Rotonda, 63, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza giuseppe missori milano mi italie": {
+  "luogo": "Hotel Dei Cavalieri Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Piazza Giuseppe Missori, Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via s paolo 13 20121 milano mi italie": {
+  "luogo": "Duomo Hotel & Apartments",
+  "fonte": "google",
+  "indirizzo": "Via S. Paolo, 13, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dei giardini 21 20121 milano mi": {
+  "luogo": "Casa Baglioni - Milan",
+  "fonte": "google",
+  "indirizzo": "Via dei Giardini, 21, 20121 Milano MI, Italy",
+  "volte": 12,
+  "ricontrollato": null
+ },
+ "via antonio da recanate 2 4 20124 milano mi": {
+  "luogo": "IH Hotel Milano Centrale",
+  "fonte": "foglio",
+  "indirizzo": "Via Antonio da Recanate, 2/4, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via della fontanella di borghese 23 00186 roma rm": {
+  "luogo": "Fendi Suites",
+  "fonte": "foglio",
+  "indirizzo": "Via della Fontanella di Borghese, 23, 00186 Roma RM, Italia",
+  "volte": 6,
+  "ricontrollato": "scartato"
+ },
+ "piazza giuseppe missori 1 20123 milano mi": {
+  "luogo": "Hotel Dei Cavalieri Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Piazza Giuseppe Missori, 1, 20123 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via giorgio washington 66 20146 milano mi": {
+  "luogo": "Milan Marriott Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Giorgio Washington, 66, 20146 Milano MI, Italy",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via alberico albricci milano mi": {
+  "luogo": "Hotel The Square Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Alberico Albricci, Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "c so di porta nuova 20121 milano mi italie": {
+  "luogo": "Palazzo Parigi",
+  "fonte": "foglio",
+  "indirizzo": "C.so di Porta Nuova, 20121 Milano MI, Italie",
+  "volte": 4,
+  "ricontrollato": "scartato"
+ },
+ "via santo spirito 20121 milano mi": {
+  "luogo": "Hotel Manzoni",
+  "fonte": "foglio",
+  "indirizzo": "Via Santo Spirito, 20121 Milano MI, Italia",
+  "volte": 11,
+  "ricontrollato": "scartato"
+ },
+ "via senato 5 20121 milano mi": {
+  "luogo": "The Carlton, a Rocco Forte hotel",
+  "fonte": "google",
+  "indirizzo": "Via Senato, 5, 20121 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via villapizzone 24 20156 milano mi": {
+  "luogo": "Radisson Blu Hotel, Milan",
+  "fonte": "google",
+  "indirizzo": "Via Villapizzone, 24, 20156 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via della fontanella 15 00187 roma rm": {
+  "luogo": "Hotel Valadier",
+  "fonte": "google",
+  "indirizzo": "Via della Fontanella, 15, 00187 Roma RM, Italia",
+  "volte": 10,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 46 20121 milano mi italie": {
+  "luogo": "Rocco Forte House, Via Manzoni, Milan",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 46, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via napo torriani 23 20124 milano mi": {
+  "luogo": "Hotel Flora",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 23, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "piazza fontana 20122 milano mi": {
+  "luogo": "ROSA GRAND HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Fontana, 20122 Milano MI, Italia",
+  "volte": 12,
+  "ricontrollato": "scartato"
+ },
+ "via palestro 20121 milano mi": {
+  "luogo": "Casa Cipriani",
+  "fonte": "foglio",
+  "indirizzo": "Via Palestro, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via privata fratelli gabba 9 20121 milano mi": {
+  "luogo": "Bulgari",
+  "fonte": "foglio",
+  "indirizzo": "Via Privata Fratelli Gabba, 9, 20121 Milano MI, Italia",
+  "volte": 6,
+  "ricontrollato": "scartato"
+ },
+ "via d azeglio 24 00184 roma rm": {
+  "luogo": "Augusta Lucilla Palazzo",
+  "fonte": "google",
+  "indirizzo": "Via D'Azeglio, 24, 00184 Roma RM, Italia",
+  "volte": 11,
+  "ricontrollato": null
+ },
+ "salita di s nicola da tolentino 14 00187 roma rm": {
+  "luogo": "The Rome EDITION",
+  "fonte": "google",
+  "indirizzo": "Salita di S. Nicola da Tolentino, 14, 00187 Roma RM, Italia",
+  "volte": 12,
+  "ricontrollato": null
+ },
+ "via flavio baracchini 12 20123 milano mi": {
+  "luogo": "Hotel Brunelleschi",
+  "fonte": "google",
+  "indirizzo": "Via Flavio Baracchini, 12, 20123 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via privata fratelli gabba 7b 20121 milano mi italie": {
+  "luogo": "Bvlgari Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Privata Fratelli Gabba, 7B, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della indipendenza 23 50129 firenze fi": {
+  "luogo": "Hotel Donatello",
+  "fonte": "google",
+  "indirizzo": "Piazza della Indipendenza, 23, 50129 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via napo torriani 28 20124 milano mi": {
+  "luogo": "Smart Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 28, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "p za della repubblica 48 49 00184 roma rm": {
+  "luogo": "Anantara Palazzo Naiadi Rome Hotel",
+  "fonte": "google",
+  "indirizzo": "P.za della Repubblica, 48/49, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via alberico albricci 2 4 20122 milano mi": {
+  "luogo": "Hotel The Square Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Alberico Albricci, 2/4, 20122 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "corso buenos aires 7 20124 milano mi": {
+  "luogo": "7BA Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Buenos Aires, 7, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via giuseppe garibaldi 50123 firenze fi": {
+  "luogo": "HOTEL PALAZZO MONTEBELLO",
+  "fonte": "foglio",
+  "indirizzo": "Via Giuseppe Garibaldi, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "v bocca di leone 14 00187 roma rm": {
+  "luogo": "Hotel d'Inghilterra Roma - Starhotels Collezione",
+  "fonte": "google",
+  "indirizzo": "V. Bocca di Leone, 14, 00187 Roma RM, Italia",
+  "volte": 10,
+  "ricontrollato": null
+ },
+ "viale europa 287 00144 roma rm": {
+  "luogo": "Hilton Rome Eur La Lama",
+  "fonte": "google",
+  "indirizzo": "Viale Europa, 287, 00144 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via santa sofia 37 20122 milano mi": {
+  "luogo": "Radisson Collection Hotel, Santa Sofia Milan",
+  "fonte": "google",
+  "indirizzo": "Via Santa Sofia, 37, 20122 Milano MI, Italia",
+  "volte": 29,
+  "ricontrollato": null
+ },
+ "piazza iv novembre 3 20124 milano mi": {
+  "luogo": "NYX Hotel Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza IV Novembre, 3, 20124 Milano MI, Italia",
+  "volte": 10,
+  "ricontrollato": null
+ },
+ "via privata fratelli gabba 7 20121 milano mi italie": {
+  "luogo": "The Bulgari Bar",
+  "fonte": "google",
+  "indirizzo": "Via Privata Fratelli Gabba, 7, 20121 Milano MI, Italie",
+  "volte": 13,
+  "ricontrollato": null
+ },
+ "viale machiavelli 18 50125 firenze fi": {
+  "luogo": "Villa Cora",
+  "fonte": "google",
+  "indirizzo": "Viale Machiavelli, 18, 50125 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via broletto 39 20121 milano mi": {
+  "luogo": "BnButler - Luxury Apartment - Broletto 39",
+  "fonte": "google",
+  "indirizzo": "Via Broletto, 39, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "costa s giorgio 73 50125 firenze fi": {
+  "luogo": "Villa Morril",
+  "fonte": "foglio",
+  "indirizzo": "Costa S. Giorgio, 73, 50125 Firenze FI, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via muzio clementi 81 00193 roma rm": {
+  "luogo": "Hotel dei Mellini",
+  "fonte": "google",
+  "indirizzo": "Via Muzio Clementi, 81, 00193 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "borgo dei greci 29 50122 firenze fi": {
+  "luogo": "Hotel Bernini",
+  "fonte": "foglio",
+  "indirizzo": "Borgo dei Greci, 29, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 46 20121 milano mi": {
+  "luogo": "Rocco Forte House, Via Manzoni, Milan",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 46, 20121 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": "per-indirizzo"
+ },
+ "v bocca di leone 23 00187 roma rm": {
+  "luogo": "Portrait Roma",
+  "fonte": "google",
+  "indirizzo": "V. Bocca di Leone, 23, 00187 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via gerolamo cardano 1 20124 milano mi": {
+  "luogo": "Duo Milan Porta Nuova",
+  "fonte": "google",
+  "indirizzo": "Via Gerolamo Cardano, 1, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via gesu 6 8 20121 milano mi italie": {
+  "luogo": "Four Seasons Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Gesù, 6-8, 20121 Milano MI, Italie",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via ponte seveso 38 20125 milano mi": {
+  "luogo": "Terminal Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Ponte Seveso, 38, 20125 Milano MI, Italia",
+  "volte": 14,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 4 6 20124 milano mi": {
+  "luogo": "Glam Hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 4-6, 20124 Milano MI, Italia",
+  "volte": 8,
+  "ricontrollato": null
+ },
+ "via delle muratte 90 92 00187 roma rm": {
+  "luogo": "Boutique Hotel Trevi",
+  "fonte": "google",
+  "indirizzo": "Via delle Muratte, 90/92, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 20121 milano mi italie": {
+  "luogo": "Westing Palace",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Repubblica, 20121 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via tommaso grossi 1 20121 milano mi": {
+  "luogo": "Park Hyatt Milan",
+  "fonte": "google",
+  "indirizzo": "Via Tommaso Grossi, 1, 20121 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 31 20121 milano mi italie": {
+  "luogo": "Emporio Armani",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 31, 20121 Milano MI, Italie",
+  "volte": 11,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 20121 milano mi": {
+  "luogo": "Westing Palace",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Repubblica, 20121 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": "scartato"
+ },
+ "via principe amedeo 5 b 00185 roma rm": {
+  "luogo": "Best Western Plus Hotel Universo",
+  "fonte": "google",
+  "indirizzo": "Via Principe Amedeo, 5/B, 00185 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giovanni battista pirelli 7 20124 milano mi": {
+  "luogo": "Hotel Auriga",
+  "fonte": "google",
+  "indirizzo": "Via Giovanni Battista Pirelli, 7, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "piazza fontana 2 20122 milano mi italie": {
+  "luogo": "ROSA GRAND HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Fontana, 2, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via del babuino 56 00187 roma rm": {
+  "luogo": "Piazza di Spagna Luxury Guesthouse",
+  "fonte": "google",
+  "indirizzo": "Via del Babuino, 56, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via silvio pellico 2 20121 milano mi italie": {
+  "luogo": "The Glamore Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 2, 20121 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 9 20125 milano mi": {
+  "luogo": "Excelsior Hotel Gallia",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 9, 20125 Milano MI, Italia",
+  "volte": 21,
+  "ricontrollato": null
+ },
+ "via tommaso grossi 1": {
+  "luogo": "Park Hyatt Milan",
+  "fonte": "google",
+  "indirizzo": "Via Tommaso Grossi 1",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via tommaso grossi 20121 milano mi": {
+  "luogo": "HAYATT",
+  "fonte": "foglio",
+  "indirizzo": "Via Tommaso Grossi, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via dei pescioni 2 50123 firenze fi": {
+  "luogo": "Helvetia & Bristol Firenze",
+  "fonte": "google",
+  "indirizzo": "Via dei Pescioni, 2, 50123 Firenze FI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "viale andrea doria 4 20124 milano mi": {
+  "luogo": "Starhotels E.c.ho.",
+  "fonte": "google",
+  "indirizzo": "Viale Andrea Doria, 4, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso europa 9 20122 milano mi": {
+  "luogo": "Hotel Galileo",
+  "fonte": "google",
+  "indirizzo": "Corso Europa, 9, 20122 Milano MI, Italia",
+  "volte": 8,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 9 20125 milano mi italie": {
+  "luogo": "Excelsior Hotel Gallia",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 9, 20125 Milano MI, Italie",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via del babuino 51 00187 roma rm": {
+  "luogo": "The Babuino - Luxury serviced apartment",
+  "fonte": "google",
+  "indirizzo": "Via del Babuino, 51, 00187 Roma RM, Italia",
+  "volte": 6,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via vittorio veneto 125 00187 roma rm": {
+  "luogo": "The Westin Excelsior Roma",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Veneto, 125, 00187 Roma RM, Italia",
+  "volte": 8,
+  "ricontrollato": null
+ },
+ "via aurelia antica 415 00165 roma rm": {
+  "luogo": "Crowne Plaza Roma - San Pietro",
+  "fonte": "google",
+  "indirizzo": "Via Aurelia Antica, 415, 00165 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza degli strozzi 11r 50123 firenze fi": {
+  "luogo": "Golden Tower Hotel & Spa",
+  "fonte": "google",
+  "indirizzo": "Piazza degli Strozzi, 11r, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "largo augusto 10 20122 milano mi italie": {
+  "luogo": "Tivoli President Milano Hotel",
+  "fonte": "google",
+  "indirizzo": "Largo Augusto, 10, 20122 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "piazza fontana 20122 milano mi rosa gran milano": {
+  "luogo": "ROSA GRAND HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Fontana, 20122 Milano MI, Italia Rosa Gran Milan",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via dei cavalieri 2c 50123 firenze fi": {
+  "luogo": "Hotel La Gemma",
+  "fonte": "google",
+  "indirizzo": "Via dei Cavalieri, 2c, 50123 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via giovanni battista pirelli 20 20124 milano mi": {
+  "luogo": "Hyatt Centric Milan Centrale",
+  "fonte": "google",
+  "indirizzo": "Via Giovanni Battista Pirelli, 20, 20124 Milano MI, Italia",
+  "volte": 13,
+  "ricontrollato": null
+ },
+ "via adalberto catena 2 20121 milano mi": {
+  "luogo": "The Corner Duomo Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Adalberto Catena, 2, 20121 Milano MI, Italia",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "via silvio pellico 4 20900 monza mb": {
+  "luogo": "Room Mate Giulia",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 4, 20900 Monza MB, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via nicola antonio porpora 18 20131 milano mi": {
+  "luogo": "Hotel Nizza Milano",
+  "fonte": "google",
+  "indirizzo": "Via Nicola Antonio Porpora, 18, 20131 Milano MI, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via adalberto catena 20121 milano mi": {
+  "luogo": "The Corner Duomo",
+  "fonte": "foglio",
+  "indirizzo": "Via Adalberto Catena, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via senato 22 20121 milano mi": {
+  "luogo": "Senato Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Senato, 22, 20121 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via alessio di tocqueville 20154 milano mi": {
+  "luogo": "HOTEL TOCQ MILANO",
+  "fonte": "foglio",
+  "indirizzo": "Via Alessio di Tocqueville, 20154 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via ugo foscolo 8 20121 milano mi italie": {
+  "luogo": "Galleria Ospitami-Boutique Aparthotel",
+  "fonte": "google",
+  "indirizzo": "Via Ugo Foscolo, 8, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giuseppe giacosa 3 20127 milano mi": {
+  "luogo": "Hotel Giacosa",
+  "fonte": "google",
+  "indirizzo": "Via Giuseppe Giacosa, 3, 20127 Milano MI, Italia",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "via dei conti 9 50123 firenze fi": {
+  "luogo": "Hotel Number Nine",
+  "fonte": "google",
+  "indirizzo": "Via dei Conti, 9, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dell umilta 36 00187 roma rm": {
+  "luogo": "Umiltà 36",
+  "fonte": "google",
+  "indirizzo": "Via dell'Umiltà, 36, 00187 Roma RM, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "p za barberini 23 00187 roma rm": {
+  "luogo": "Sina Bernini Bristol, Autograph Collection",
+  "fonte": "google",
+  "indirizzo": "P.za Barberini, 23, 00187 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "piazza della trinita dei monti 00187 roma rm": {
+  "luogo": "Hassler",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Trinità dei Monti, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via privata leopoldo gasparotto 8 20124 milano mi": {
+  "luogo": "Best Western Hotel Madison",
+  "fonte": "google",
+  "indirizzo": "Via Privata Leopoldo Gasparotto, 8, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via dei cavalieri 2 50123 firenze fi": {
+  "luogo": "Hotel La Gemma",
+  "fonte": "google",
+  "indirizzo": "Via dei Cavalieri, 2, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del babuino 100 00187 roma rm": {
+  "luogo": "De Russie",
+  "fonte": "foglio",
+  "indirizzo": "Via del Babuino, 100, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "vicolo dell oro 5 50123 firenze fi": {
+  "luogo": "Gallery Hotel Art",
+  "fonte": "google",
+  "indirizzo": "Vicolo dell'Oro, 5, 50123 Firenze FI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via giulia 62 00186 roma rm": {
+  "luogo": "Hotel Indigo Rome - St. George by IHG",
+  "fonte": "google",
+  "indirizzo": "Via Giulia, 62, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza santa maria beltrade 4 20123 milano mi": {
+  "luogo": "BB Hotels Smarthotel Duomo",
+  "fonte": "google",
+  "indirizzo": "Piazza Santa Maria Beltrade, 4, 20123 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via del babuino 196 00187 roma rm": {
+  "luogo": "Palazzo Nainer",
+  "fonte": "google",
+  "indirizzo": "Via del Babuino, 196, 00187 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via silvio pellico 2 20121 milano mi": {
+  "luogo": "The Glamore Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 2, 20121 Milano MI, Italia",
+  "volte": 8,
+  "ricontrollato": null
+ },
+ "via spadari 11 20123 milano mi": {
+  "luogo": "Hotel Spadari al Duomo True Stay",
+  "fonte": "google",
+  "indirizzo": "Via Spadari, 11, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "lungotevere dei mellini 26 00193 roma rm": {
+  "luogo": "The First Musica",
+  "fonte": "google",
+  "indirizzo": "Lungotevere dei Mellini, 26, 00193 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via di monte d oro 30 00186 roma rm": {
+  "luogo": "J.K. Place Roma",
+  "fonte": "google",
+  "indirizzo": "Via di Monte d'Oro, 30, 00186 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "p za cordusio 2 20123 milano mi": {
+  "luogo": "Palazzo Cordusio, a Gran Meliá Hotel",
+  "fonte": "google",
+  "indirizzo": "P.za Cordusio, 2, 20123 Milano MI, Italia",
+  "volte": 18,
+  "ricontrollato": null
+ },
+ "via guglielmo silva 12 20149 milano mi": {
+  "luogo": "B&B HOTEL Milano Portello",
+  "fonte": "google",
+  "indirizzo": "Via Guglielmo Silva, 12, 20149 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dei condotti 85 00187 roma rm": {
+  "luogo": "The Inn At The Spanish Steps",
+  "fonte": "google",
+  "indirizzo": "Via dei Condotti, 85, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza fontana 3 20122 milano mi italie": {
+  "luogo": "Rosa Grand Milano - Starhotels Collezione",
+  "fonte": "google",
+  "indirizzo": "Piazza Fontana, 3, 20122 Milano MI, Italie",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via domenico chelini 41 00197 roma rm": {
+  "luogo": "Radisson Blu GHR hotel, Rome",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Chelini, 41, 00197 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za s marcello 4 00187 roma rm": {
+  "luogo": "Six Senses Rome",
+  "fonte": "google",
+  "indirizzo": "P.za S. Marcello, 4, 00187 Roma RM, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "piazza sallustio 18 00187 roma rm": {
+  "luogo": "art'otel Rome Via Veneto",
+  "fonte": "google",
+  "indirizzo": "Piazza Sallustio, 18, 00187 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "vle andrea doria 22 20124 milano mi": {
+  "luogo": "Doria Grand Hotel",
+  "fonte": "google",
+  "indirizzo": "Vle Andrea Doria, 22, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 4 20124 milano mi italie": {
+  "luogo": "Glam Hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 4, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via luigi galvani 12 20124 milano mi italie": {
+  "luogo": "Hilton Milan",
+  "fonte": "google",
+  "indirizzo": "Via Luigi Galvani, 12, 20124 Milano MI, Italie",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "corso venezia 11 20121 milano mi italie": {
+  "luogo": "Portrait Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Venezia, 11, 20121 Milano MI, Italie",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 8 20125 milano mi": {
+  "luogo": "Excelsior Galia",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Duca d'Aosta, 8, 20125 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via ulrico hoepli 6 20121 milano mi italie": {
+  "luogo": "Sina De La Ville",
+  "fonte": "google",
+  "indirizzo": "Via Ulrico Hoepli, 6, 20121 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 20 20124 milano mi italie": {
+  "luogo": "The Westin Palace Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 20, 20124 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via antonio da recanate 20124 milano mi": {
+  "luogo": "IH Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Via Antonio da Recanate, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via de cerretani 68 50123 firenze fi": {
+  "luogo": "Hotel Cerretani Firenze - MGallery",
+  "fonte": "google",
+  "indirizzo": "Via de' Cerretani, 68, 50123 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "p za della repubblica 48 00184 roma rm": {
+  "luogo": "Anantara Palazzo Naiadi Rome Hotel",
+  "fonte": "google",
+  "indirizzo": "P.za della Repubblica, 48, 00184 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via mario de fiori 93 00187 roma rm": {
+  "luogo": "TB Place Roma",
+  "fonte": "google",
+  "indirizzo": "Via Mario de' Fiori, 93, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via edmondo de amicis 32 20123 milano mi": {
+  "luogo": "Hotel Pierre Milano",
+  "fonte": "google",
+  "indirizzo": "Via Edmondo de Amicis, 32, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 24 20124 milano mi italie": {
+  "luogo": "JOY 124 HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Via Melchiorre Gioia, 24, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via senato 24 20121 milano mi": {
+  "luogo": "Hotel Cavour",
+  "fonte": "foglio",
+  "indirizzo": "Via Senato, 24, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazzetta m bossi 2 20121 milano mi italie": {
+  "luogo": "Casa Brera",
+  "fonte": "google",
+  "indirizzo": "Piazzetta M. Bossi, 2, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via panzani 17 50123 firenze fi": {
+  "luogo": "Floren Luxury Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Panzani, 17, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via senato 20 20121 milano mi": {
+  "luogo": "Via Senato, 20",
+  "fonte": "google",
+  "indirizzo": "Via Senato, 20, 20121 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via lucio giunio columella 36 20128 milano mi italie": {
+  "luogo": "Hilton Garden Inn Milan North",
+  "fonte": "google",
+  "indirizzo": "Via Lucio Giunio Columella, 36, 20128 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via de tornabuoni 3 50123 firenze fi": {
+  "luogo": "IL Tornabuoni Hotel - The Unbound Collection by Hyatt",
+  "fonte": "google",
+  "indirizzo": "Via de' Tornabuoni, 3, 50123 Firenze FI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "largo augusto 20122 milano mi italie": {
+  "luogo": "Tivoli President Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Largo Augusto, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza della repubblica milano mi": {
+  "luogo": "The Westin Palace Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "piazza lima 2 20129 milano mi italie": {
+  "luogo": "UNA Hotels Galles Milano",
+  "fonte": "google",
+  "indirizzo": "Piazza Lima, 2, 20129 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via privata venezia giulia 8 20157 milano mi": {
+  "luogo": "Klima Hotel Milano Fiere",
+  "fonte": "google",
+  "indirizzo": "Via Privata Venezia Giulia, 8, 20157 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via napo torriani 27 20124 milano mi": {
+  "luogo": "Hotel Bernina Milano",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 27, 20124 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via dei lamberti 5 50123 firenze fi": {
+  "luogo": "Hotel Calimala Florence",
+  "fonte": "google",
+  "indirizzo": "Via dei Lamberti, 5, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dell umilta 00187 roma rm": {
+  "luogo": "Luxury hotel roma",
+  "fonte": "foglio",
+  "indirizzo": "Via dell'Umiltà, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "viale edoardo jenner 24 20158 milano mi": {
+  "luogo": "J24 Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Viale Edoardo Jenner, 24, 20158 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "piazza fontana 2 20122 milano mi": {
+  "luogo": "ROSA GRAND HOTEL",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Fontana, 2, 20122 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via luigi alamanni 3 50123 firenze fi": {
+  "luogo": "c-hotels Ambasciatori Firenze",
+  "fonte": "google",
+  "indirizzo": "Via Luigi Alamanni, 3, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via campania 45 00187 roma rm": {
+  "luogo": "The Tribune - JDV by Hyatt",
+  "fonte": "google",
+  "indirizzo": "Via Campania, 45, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 7 50123 firenze fi": {
+  "luogo": "Hotel Savoy, a Rocco Forte hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 7, 50123 Firenze FI, Italia",
+  "volte": 10,
+  "ricontrollato": null
+ },
+ "via alessio di tocqueville 7 20154 milano mi italie": {
+  "luogo": "Tocq Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Alessio di Tocqueville, 7, 20154 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "milano mi": {
+  "luogo": "Park Hyatt",
+  "fonte": "foglio",
+  "indirizzo": "Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via del corso 337 00187 roma rm": {
+  "luogo": "Palazzo Roma",
+  "fonte": "google",
+  "indirizzo": "Via del Corso, 337, 00187 Roma RM, Italy",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via masaccio 19 20149 milano mi italie": {
+  "luogo": "Meliá Milano",
+  "fonte": "google",
+  "indirizzo": "Via Masaccio, 19, 20149 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso magenta 82 20123 milano mi": {
+  "luogo": "King Mokinba Hotels",
+  "fonte": "foglio",
+  "indirizzo": "Corso Magenta, 82, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "corso europa 9 20122 milano mi italie": {
+  "luogo": "Hotel Galileo",
+  "fonte": "google",
+  "indirizzo": "Corso Europa, 9, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v roberto lepetit 15 20124 milano mi italie": {
+  "luogo": "Hotel Colombia",
+  "fonte": "google",
+  "indirizzo": "V. Roberto Lepetit, 15, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via tucidide 14 20134 milano mi italie": {
+  "luogo": "Courtyard by Marriott Milano Linate",
+  "fonte": "google",
+  "indirizzo": "Via Tucidide, 14, 20134 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v roberto lepetit 15 20124 milano mi": {
+  "luogo": "Hotel Colombia",
+  "fonte": "google",
+  "indirizzo": "V. Roberto Lepetit, 15, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via dei giardini 2 20121 milano mi": {
+  "luogo": "Casa baglioni",
+  "fonte": "foglio",
+  "indirizzo": "Via dei Giardini, 2, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza massimo d azeglio 3 50121 firenze fi": {
+  "luogo": "Hotel Regency, an SLH Hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza Massimo D'Azeglio, 3, 50121 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via s tomaso 2 20121 milano mi": {
+  "luogo": "Hotel Milano Castello",
+  "fonte": "google",
+  "indirizzo": "Via S. Tomaso, 2, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "per-indirizzo"
+ },
+ "largo angelicum 4 00184 roma rm": {
+  "luogo": "Roma Luxus Hotel",
+  "fonte": "google",
+  "indirizzo": "Largo Angelicum, 4, 00184 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via santo spirito 20 20121 milano mi": {
+  "luogo": "Hotel Manzoni",
+  "fonte": "google",
+  "indirizzo": "Via Santo Spirito, 20, 20121 Milano MI, Italia",
+  "volte": 28,
+  "ricontrollato": null
+ },
+ "via santa sofia 32 20122 milano mi": {
+  "luogo": "Radison",
+  "fonte": "foglio",
+  "indirizzo": "Via Santa Sofia, 32, 20122 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via lazzaro spallanzani 40 20129 milano mi": {
+  "luogo": "Starhotels Ritz",
+  "fonte": "google",
+  "indirizzo": "Via Lazzaro Spallanzani, 40, 20129 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "p za di santa maria novella 1 50123 firenze fi": {
+  "luogo": "Hotel Santa Maria Novella",
+  "fonte": "google",
+  "indirizzo": "P.za di Santa Maria Novella, 1, 50123 Firenze FI, Italy",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 20121 milano mi": {
+  "luogo": "Armani",
+  "fonte": "foglio",
+  "indirizzo": "Via Alessandro Manzoni, 20121 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": "scartato"
+ },
+ "via giuseppe mazzini 2 20123 milano mi": {
+  "luogo": "OddSweet",
+  "fonte": "foglio",
+  "indirizzo": "Via Giuseppe Mazzini, 2, 20123 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via dei bossi 2 20121 milano mi": {
+  "luogo": "Casa Brera",
+  "fonte": "foglio",
+  "indirizzo": "Via dei Bossi, 2, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via boncompagni 19 00187 roma rm": {
+  "luogo": "Rose Garden Palace Roma",
+  "fonte": "google",
+  "indirizzo": "Via Boncompagni, 19, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza guglielmo oberdan milano mi": {
+  "luogo": "Hotel Milu Milano",
+  "fonte": "google",
+  "indirizzo": "Piazza Guglielmo Oberdan, Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via carlo de cristoforis 6 20124 milano mi italie": {
+  "luogo": "Milano Verticale | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Carlo de Cristoforis, 6, 20124 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via della fontanella di borghese 48 00186 roma rm": {
+  "luogo": "Fendi Private Suites",
+  "fonte": "google",
+  "indirizzo": "Via della Fontanella di Borghese, 48, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via della fontanella di borghese 48 00 00186 roma rm": {
+  "luogo": "Fendi Private Suites",
+  "fonte": "google",
+  "indirizzo": "Via della Fontanella di Borghese, 48/00, 00186 Roma RM, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via spadari 1 20123 milano mi": {
+  "luogo": "Matilde Boutique Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Spadari, 1, 20123 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 73 20124 milano mi": {
+  "luogo": "Crowne Plaza Milan City",
+  "fonte": "google",
+  "indirizzo": "Via Melchiorre Gioia, 73, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "hotel locarno via della penna 22 00186 roma rm": {
+  "luogo": "Hotel Locarno",
+  "fonte": "foglio",
+  "indirizzo": "Hotel Locarno, Via della Penna, 22, 00186 Roma RM, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via lampedusa 11 20141 milano mi": {
+  "luogo": "Quark Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Lampedusa, 11, 20141 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via cusani 13 20121 milano mi italie": {
+  "luogo": "UNAHOTELS Cusani Milano",
+  "fonte": "google",
+  "indirizzo": "Via Cusani, 13, 20121 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via s raffaele 3 20121 milano mi": {
+  "luogo": "STRAFhotel",
+  "fonte": "google",
+  "indirizzo": "Via S. Raffaele, 3, 20121 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via di s maria maggiore 143 00185 roma rm": {
+  "luogo": "The Major Hotel",
+  "fonte": "google",
+  "indirizzo": "Via di S. Maria Maggiore, 143, 00185 Roma RM, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "viale tunisia 6 20124 milano mi": {
+  "luogo": "HOTEL KENNEDY",
+  "fonte": "google",
+  "indirizzo": "Viale Tunisia, 6, 20124 Milano MI, Italy",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via del vantaggio 14 00186 roma rm": {
+  "luogo": "The First Roma Arte",
+  "fonte": "google",
+  "indirizzo": "Via del Vantaggio, 14, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "v bocca di leone 00187 roma rm": {
+  "luogo": "Hotel D'Inghilterra",
+  "fonte": "foglio",
+  "indirizzo": "V. Bocca di Leone, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via ulrico hoepli 6 20121 milano mi": {
+  "luogo": "Sina De La Ville",
+  "fonte": "google",
+  "indirizzo": "Via Ulrico Hoepli, 6, 20121 Milano MI, Italia",
+  "volte": 8,
+  "ricontrollato": null
+ },
+ "via de belfredelli 9 50125 firenze fi": {
+  "luogo": "Hotel Ponte Vecchio Suites & Spa",
+  "fonte": "google",
+  "indirizzo": "Via Dè Belfredelli, 9, 50125 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giuseppe garibaldi 14 50123 firenze fi": {
+  "luogo": "Palazzo Montebello Firenze",
+  "fonte": "google",
+  "indirizzo": "Via Giuseppe Garibaldi, 14, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "viale belfiore 55 50144 firenze fi": {
+  "luogo": "The Social Hub Florence Belfiore",
+  "fonte": "google",
+  "indirizzo": "Viale Belfiore, 55, 50144 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via maso finiguerra 9 50123 firenze fi": {
+  "luogo": "Grand Hotel Adriatico",
+  "fonte": "google",
+  "indirizzo": "Via Maso Finiguerra, 9, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via delle muratte 78 00187 roma rm": {
+  "luogo": "Hotel Maalot",
+  "fonte": "foglio",
+  "indirizzo": "Via delle Muratte, 78, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via del gianicolo 3 00165 roma rm": {
+  "luogo": "Villa Agrippina Gran Meliá - The Leading Hotels of the World",
+  "fonte": "google",
+  "indirizzo": "Via del Gianicolo, 3, 00165 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via de martelli 10 50129 firenze fi": {
+  "luogo": "Hotel Spadai",
+  "fonte": "google",
+  "indirizzo": "Via de' Martelli, 10, 50129 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "lungarno degli archibusieri 4 50121 firenze fi": {
+  "luogo": "Hotel degli Orafi",
+  "fonte": "google",
+  "indirizzo": "Lungarno degli Archibusieri, 4, 50121 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 6 20124 milano mi italie": {
+  "luogo": "Hotel NH Collection Milano Porta Nuova",
+  "fonte": "google",
+  "indirizzo": "Via Melchiorre Gioia, 6, 20124 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via alfredo cappellini 18 20124 milano mi": {
+  "luogo": "Hotel delle Nazioni",
+  "fonte": "google",
+  "indirizzo": "Via Alfredo Cappellini, 18, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 6 20124 milano mi": {
+  "luogo": "Hotel NH Collection Milano Porta Nuova",
+  "fonte": "google",
+  "indirizzo": "Via Melchiorre Gioia, 6, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via andegari 8 20121 milano mi": {
+  "luogo": "Mandarin",
+  "fonte": "foglio",
+  "indirizzo": "Via Andegari, 8, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "piazza giuseppe missori milano mi": {
+  "luogo": "Hotel Dei Cavalieri Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Piazza Giuseppe Missori, Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via privata fratelli gabba 20121 milano mi": {
+  "luogo": "Bulgari",
+  "fonte": "foglio",
+  "indirizzo": "Via Privata Fratelli Gabba, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "vle andrea doria 22 20124 milano mi italie": {
+  "luogo": "Doria Grand Hotel",
+  "fonte": "google",
+  "indirizzo": "Vle Andrea Doria, 22, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via lombardia 47 00187 roma rm": {
+  "luogo": "Sofitel Roma Villa Borghese",
+  "fonte": "google",
+  "indirizzo": "Via Lombardia, 47, 00187 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via andegari 9 20121 milano mi italie": {
+  "luogo": "Mandarin Oriental",
+  "fonte": "google",
+  "indirizzo": "Via Andegari, 9, 20121 Milano MI, Italie",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via di torre argentina 18 00186 roma rm": {
+  "luogo": "Terrace Pantheon Relais",
+  "fonte": "google",
+  "indirizzo": "Via di Torre Argentina, 18, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "largo febo 2 00186 roma rm": {
+  "luogo": "Bio Hotel Raphaël – Relais & Châteaux",
+  "fonte": "google",
+  "indirizzo": "Largo Febo, 2, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via lentasio 3 20122 milano mi": {
+  "luogo": "Max Brown Hotel Missori, part of Sircle Collection",
+  "fonte": "google",
+  "indirizzo": "Via Lentasio, 3, 20122 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via silvio pellico 8 20121 milano mi italie": {
+  "luogo": "Galleria Vik Milano, an SLH Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Silvio Pellico, 8, 20121 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via del babuino 00187 roma rm": {
+  "luogo": "De Russie",
+  "fonte": "foglio",
+  "indirizzo": "Via del Babuino, 00187 Roma RM, Italia",
+  "volte": 11,
+  "ricontrollato": "scartato"
+ },
+ "via alberico albricci 2 20122 milano mi italie": {
+  "luogo": "Hotel The Square Milano Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Alberico Albricci, 2, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via vitruvio 48 20124 milano mi": {
+  "luogo": "Spice Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Vitruvio, 48, 20124 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via federico cesi 37 00193 roma rm": {
+  "luogo": "Le Méridien Visconti Rome",
+  "fonte": "google",
+  "indirizzo": "Via Federico Cesi, 37, 00193 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via liguria 26 00187 roma rm": {
+  "luogo": "W Rome",
+  "fonte": "google",
+  "indirizzo": "Via Liguria, 26, 00187 Roma RM, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via andegari 20121 milano mi italie": {
+  "luogo": "Mandarin",
+  "fonte": "foglio",
+  "indirizzo": "Via Andegari, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via del corso 126 00187 roma rm": {
+  "luogo": "Grand Hotel Plaza Rome – 5-Star Luxury Heritage Hotel",
+  "fonte": "google",
+  "indirizzo": "Via del Corso, 126, 00187 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via victor hugo 4 20123 milano mi italie": {
+  "luogo": "Victor Boutique Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Victor Hugo, 4, 20123 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via s raffaele 3 20121 milano mi italie": {
+  "luogo": "STRAFhotel",
+  "fonte": "google",
+  "indirizzo": "Via S. Raffaele, 3, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via daniele manin 19 20121 milano mi": {
+  "luogo": "The Plein Hotel, Small Luxury Hotels of the World",
+  "fonte": "google",
+  "indirizzo": "Via Daniele Manin, 19, 20121 Milano MI, Italia",
+  "volte": 7,
+  "ricontrollato": null
+ },
+ "via masaccio 19 milano 20149": {
+  "luogo": "Meliá Milano",
+  "fonte": "google",
+  "indirizzo": "via masaccio 19, milano, 20149",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via agnello 2 20121 milano mi": {
+  "luogo": "Aparthotel Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Agnello, 2, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via pirelli 7": {
+  "luogo": "Hotel Auriga",
+  "fonte": "foglio",
+  "indirizzo": "via pirelli 7",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "galleria del corso 3 20122 milano mi italie": {
+  "luogo": "iH Hotels Milano Ambasciatori",
+  "fonte": "google",
+  "indirizzo": "Galleria del Corso, 3, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 17 20124 milano mi italie": {
+  "luogo": "Principe di Savoia",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, 17, 20124 Milano MI, Italie",
+  "volte": 5,
+  "ricontrollato": "per-indirizzo"
+ },
+ "via santa cecilia 4 20122 milano mi italie": {
+  "luogo": "Montenapoleone Suites Milano",
+  "fonte": "google",
+  "indirizzo": "Via Santa Cecilia, 4, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via fabio filzi 3 20124 milano mi": {
+  "luogo": "Hotel Marconi",
+  "fonte": "google",
+  "indirizzo": "Via Fabio Filzi, 3, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "borgo pinti 99 50121 firenze fi four seasons": {
+  "luogo": "Four Seasons Hotel Firenze",
+  "fonte": "google",
+  "indirizzo": "Borgo Pinti, 99, 50121 Firenze FI, Italia - FOUR SEASONS",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via k adenauer 3 20097 san donato milanese mi": {
+  "luogo": "Crowne Plaza Milano - Linate by IHG",
+  "fonte": "google",
+  "indirizzo": "Via K.Adenauer, 3, 20097 San Donato Milanese MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso monforte 27 20122 milano mi italie": {
+  "luogo": "Hotel Indigo Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Monforte, 27, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za della repubblica 47 00184 roma rm": {
+  "luogo": "Hotel Anantara",
+  "fonte": "foglio",
+  "indirizzo": "P.za della Repubblica, 47, 00184 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via della penna 22 00186 roma rm": {
+  "luogo": "Hotel Locarno",
+  "fonte": "google",
+  "indirizzo": "Via della Penna, 22, 00186 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via lampedusa 11 a 20141 milano mi": {
+  "luogo": "Quark Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Lampedusa, 11/A, 20141 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "lungotevere arnaldo da brescia 2 00196 roma rm": {
+  "luogo": "Palazzo Dama",
+  "fonte": "google",
+  "indirizzo": "Lungotevere Arnaldo da Brescia, 2, 00196 Roma RM, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "corso 10 20122 milano mi italie": {
+  "luogo": "Touring Club Italiano",
+  "fonte": "google",
+  "indirizzo": "Corso Italia, 10, 20122 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via napo torriani 21 20124 milano mi": {
+  "luogo": "Hotel Garda",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 21, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "per-indirizzo"
+ },
+ "corso garibaldi 84 20121 milano mi": {
+  "luogo": "Urban Hive Milano",
+  "fonte": "google",
+  "indirizzo": "Corso Garibaldi, 84, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza luigi di savoia 20 20124 milano mi": {
+  "luogo": "Starhotels Anderson",
+  "fonte": "google",
+  "indirizzo": "Piazza Luigi di Savoia, 20, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "lungarno del tempio 44 50121 firenze fi": {
+  "luogo": "FH55 Grand Hotel Mediterraneo",
+  "fonte": "google",
+  "indirizzo": "Lungarno del Tempio, 44, 50121 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "viale machiavelli 18 50125 firenze fi villa cora": {
+  "luogo": "Villa Cora",
+  "fonte": "google",
+  "indirizzo": "Viale Machiavelli, 18, 50125 Firenze FI, Italia - VILLA CORA",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via leonida bissolati 40 00187 roma rm": {
+  "luogo": "Hotel Royal Bissolati",
+  "fonte": "google",
+  "indirizzo": "Via Leonida Bissolati, 40, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del tritone 87 00187 roma rm": {
+  "luogo": "HOTEL THE FIRST ROMA ARTE",
+  "fonte": "foglio",
+  "indirizzo": "Via del Tritone, 87, 00187 Roma RM, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via santo spirito 20 20121 milano mi italie": {
+  "luogo": "Hotel Manzoni",
+  "fonte": "google",
+  "indirizzo": "Via Santo Spirito, 20, 20121 Milano MI, Italie",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "viale piave 42 20129 milano mi": {
+  "luogo": "Sheraton Diana Majestic Milano",
+  "fonte": "google",
+  "indirizzo": "Viale Piave, 42, 20129 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via palestro 24 20121 milano mi italie": {
+  "luogo": "Casa Cipriani Milano",
+  "fonte": "google",
+  "indirizzo": "Via Palestro, 24, 20121 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via del tritone 87 89 00187 roma rm": {
+  "luogo": "HOTEL THE FIRST ROMA ARTE",
+  "fonte": "foglio",
+  "indirizzo": "Via del Tritone, 87-89, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via margutta 56 00187 roma rm": {
+  "luogo": "Maison Roma Piazza di Spagna | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Margutta, 56, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 4 6 20125 milano mi": {
+  "luogo": "Glam Hotel",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 4/6, 20125 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v tommaso grossi 1 20121 milano mi italie": {
+  "luogo": "Park Hyatt Milan",
+  "fonte": "google",
+  "indirizzo": "V. Tommaso Grossi, 1, 20121 Milano MI, Italie",
+  "volte": 9,
+  "ricontrollato": null
+ },
+ "via e caronti 69 22020 blevio co": {
+  "luogo": "Mandarin Oriental, Lago Di Como",
+  "fonte": "google",
+  "indirizzo": "Via E. Caronti, 69, 22020 Blevio CO, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "26cr 8r 22017 menaggio co": {
+  "luogo": "Grand Hotel Victoria",
+  "fonte": "foglio",
+  "indirizzo": "26CR+8R, 22017 Menaggio CO, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via statale tremezzo co": {
+  "luogo": "Grand Hotel Tremezzo",
+  "fonte": "google",
+  "indirizzo": "Via Statale, Tremezzo CO, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via torrazza 10 22020 torno co": {
+  "luogo": "Il Sereno",
+  "fonte": "google",
+  "indirizzo": "Via Torrazza, 10, 22020 Torno CO, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via nazionale 67 00184 roma rm": {
+  "luogo": "Hotel Jolly",
+  "fonte": "foglio",
+  "indirizzo": "Via Nazionale, 67, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via vittorio emanuele 23 25030 erbusco bs": {
+  "luogo": "L’Albereta Relais & Châteaux",
+  "fonte": "google",
+  "indirizzo": "Via Vittorio Emanuele, 23, 25030 Erbusco BS, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via statale regina 22016 lenno co": {
+  "luogo": "Grand Hotel Tremezzo",
+  "fonte": "foglio",
+  "indirizzo": "Via Statale Regina, 22016 Lenno CO, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "viale bianca maria 4 20129 milano mi": {
+  "luogo": "Hotel Bianca Maria Palace",
+  "fonte": "google",
+  "indirizzo": "Viale Bianca Maria, 4, 20129 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "lungarno degli acciaiuoli 4 50123 firenze fi hotel portrait": {
+  "luogo": "Portrait Firenze",
+  "fonte": "google",
+  "indirizzo": "Lungarno degli Acciaiuoli, 4, 50123 Firenze FI, Italia - HOTEL PORTRAIT",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via domenico scarlatti 4 20124 milano mi": {
+  "luogo": "Hotel NH Milano Corso Buenos Aires",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Scarlatti, 4, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via dei greci 23b 00187 roma rm": {
+  "luogo": "Hotel Mozart Roma",
+  "fonte": "google",
+  "indirizzo": "Via dei Greci, 23b, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via cusani 13 20121 milano mi": {
+  "luogo": "UNAHOTELS Cusani Milano",
+  "fonte": "google",
+  "indirizzo": "Via Cusani, 13, 20121 Milano MI, Italia",
+  "volte": 4,
+  "ricontrollato": null
+ },
+ "via giovanni battista pirelli 5 20124 milano mi": {
+  "luogo": "iQ Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Giovanni Battista Pirelli, 5, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "our hotel via gerolamo cardano 1 20124 milano mi": {
+  "luogo": "Tribute Portfolio Hotel",
+  "fonte": "foglio",
+  "indirizzo": "OUR HOTEL, Via Gerolamo Cardano, 1, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via felice casati 18 20124 milano mi": {
+  "luogo": "Casati 18, member of WorldHotels Elite",
+  "fonte": "google",
+  "indirizzo": "Via Felice Casati, 18, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via de tornabuoni 3 50123 firenze fi il tornabuoni hotel": {
+  "luogo": "IL Tornabuoni Hotel - The Unbound Collection by Hyatt",
+  "fonte": "google",
+  "indirizzo": "Via de' Tornabuoni, 3, 50123 Firenze FI, Italia - IL TORNABUONI HOTEL",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso 11 20122 milano mi": {
+  "luogo": "Missori Hotel Piazza Missori, Sonder",
+  "fonte": "google",
+  "indirizzo": "Corso Italia, 11, 20122 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giuseppe mazzini 20 20123 milano mi": {
+  "luogo": "M20 Boutique Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Giuseppe Mazzini, 20, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via mauro macchi 49 20124 milano mi": {
+  "luogo": "Residence De La Gare",
+  "fonte": "google",
+  "indirizzo": "Via Mauro Macchi, 49, 20124 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via porta rossa 19 50123 firenze fi hotel nh portarossa": {
+  "luogo": "Porta Rossa Hotel Firenze, Colbert Collection",
+  "fonte": "google",
+  "indirizzo": "Via Porta Rossa, 19, 50123 Firenze FI, Italia - HOTEL NH PORTAROSSA",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso 11 a 20122 milano mi": {
+  "luogo": "Missori Hotel Piazza Missori, Sonder",
+  "fonte": "google",
+  "indirizzo": "Corso Italia, 11/A, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via dei pescioni 2 50123 firenze fi helvetia bristol firenze": {
+  "luogo": "Helvetia & Bristol Firenze",
+  "fonte": "google",
+  "indirizzo": "Via dei Pescioni, 2, 50123 Firenze FI, Italia - HELVETIA & BRISTOL FIRENZE",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via de tornabuoni 3 50123 firenze fi hotel il tornabuoni": {
+  "luogo": "IL Tornabuoni Hotel - The Unbound Collection by Hyatt",
+  "fonte": "google",
+  "indirizzo": "Via de' Tornabuoni, 3, 50123 Firenze FI, Italia - HOTEL IL TORNABUONI",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za cordusio 20121 milano mi": {
+  "luogo": "Palazzo Cordusio Gran Melis",
+  "fonte": "foglio",
+  "indirizzo": "P.za Cordusio, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via antonio da recanate 4 20124 milano mi": {
+  "luogo": "iH Hotels Milano Centrale",
+  "fonte": "google",
+  "indirizzo": "Via Antonio da Recanate, 4, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via di porta pinciana 30 00187 roma rm": {
+  "luogo": "Hotel Eliseo",
+  "fonte": "google",
+  "indirizzo": "Via di Porta Pinciana, 30, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "p za cesare beccaria 20122 milano mi": {
+  "luogo": "Hotel ambasciatori",
+  "fonte": "foglio",
+  "indirizzo": "P.za Cesare Beccaria, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via speronari 4 20123 milano mi": {
+  "luogo": "Speronari Suites",
+  "fonte": "google",
+  "indirizzo": "Via Speronari, 4, 20123 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via santa sofia 37 20122 milano mi italie": {
+  "luogo": "Radisson Collection Hotel, Santa Sofia Milan",
+  "fonte": "google",
+  "indirizzo": "Via Santa Sofia, 37, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via emilio morosini 27 00153 roma rm": {
+  "luogo": "Trastevere Roma | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Emilio Morosini, 27, 00153 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via ponte seveso 38 20125 milano mi italie": {
+  "luogo": "Terminal Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Ponte Seveso, 38, 20125 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via filippo turati 163 00185 roma rm": {
+  "luogo": "Hotel Filippo Roma",
+  "fonte": "google",
+  "indirizzo": "Via Filippo Turati, 163, 00185 Roma RM, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "via galileo galilei 2 20124 milano mi italie": {
+  "luogo": "Hotel Windsor Milano",
+  "fonte": "google",
+  "indirizzo": "Via Galileo Galilei, 2, 20124 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "corso di porta vigentina 46 20122 milano mi": {
+  "luogo": "Crivi's Hotel",
+  "fonte": "google",
+  "indirizzo": "Corso di Porta Vigentina, 46, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 19 20125 milano mi": {
+  "luogo": "Gallia Excelsior Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Piazza Duca d'Aosta, 19, 20125 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "corso venezia 10 20122 milano mi": {
+  "luogo": "Portrait",
+  "fonte": "foglio",
+  "indirizzo": "Corso Venezia, 10, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via di gesu e maria 20 00187 roma rm": {
+  "luogo": "Poēsis Experience Hotel",
+  "fonte": "google",
+  "indirizzo": "Via di Gesù e Maria, 20, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "piazza dei cinquecento 90 00185 roma rm": {
+  "luogo": "Hotel NH Collection Roma Palazzo Cinquecento",
+  "fonte": "google",
+  "indirizzo": "Piazza dei Cinquecento, 90, 00185 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via agnello 3 20121 milano mi": {
+  "luogo": "Ahd Room Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Via Agnello, 3, 20121 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via domenico cimarosa 6 20144 milano mi": {
+  "luogo": "Hotel Capitol",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Cimarosa, 6, 20144 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via laurina 34 00187 roma rm": {
+  "luogo": "Palazzo Venere",
+  "fonte": "google",
+  "indirizzo": "Via Laurina, 34, 00187 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via solferino 6 50123 firenze fi": {
+  "luogo": "Hotel Degli Orafi",
+  "fonte": "foglio",
+  "indirizzo": "Via Solferino, 6, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dei giardini 21 20121 milano mi italie": {
+  "luogo": "Casa Baglioni - Milan",
+  "fonte": "google",
+  "indirizzo": "Via dei Giardini, 21, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via domenico cimarosa 6 20144 milano mi italie": {
+  "luogo": "Hotel Capitol",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Cimarosa, 6, 20144 Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via dogana 3 20123 milano mi": {
+  "luogo": "Sweett Duomo",
+  "fonte": "google",
+  "indirizzo": "Via Dogana, 3, 20123 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": null
+ },
+ "p za cordusio 2 20123 milano mi italie": {
+  "luogo": "Palazzo Cordusio, a Gran Meliá Hotel",
+  "fonte": "google",
+  "indirizzo": "P.za Cordusio, 2, 20123 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gustavo fara 41 20124 milano mi": {
+  "luogo": "Innside Melia",
+  "fonte": "foglio",
+  "indirizzo": "Via Gustavo Fara, 41, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del bufalo 126 00187 roma rm": {
+  "luogo": "Hotel Dei Borgognoni Roma",
+  "fonte": "google",
+  "indirizzo": "Via del Bufalo, 126, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "viale sarca 336 20126 milano mi": {
+  "luogo": "Hotel degli Arcimboldi",
+  "fonte": "google",
+  "indirizzo": "Viale Sarca, 336, 20126 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via il prato 42 50123 firenze fi": {
+  "luogo": "Sina Villa Medici, Autograph Collection",
+  "fonte": "google",
+  "indirizzo": "Via Il Prato, 42, 50123 Firenze FI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "c so di porta nuova 20121 milano mi": {
+  "luogo": "Palazzo Parigi",
+  "fonte": "foglio",
+  "indirizzo": "C.so di Porta Nuova, 20121 Milano MI, Italia",
+  "volte": 3,
+  "ricontrollato": "scartato"
+ },
+ "via napo torriani 20124 milano mi": {
+  "luogo": "Hotel Bernina",
+  "fonte": "foglio",
+  "indirizzo": "Via Napo Torriani, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via delle quattro fontane 37 00184 roma rm": {
+  "luogo": "CC Palace Hotel Roma",
+  "fonte": "google",
+  "indirizzo": "Via delle Quattro Fontane, 37, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via pirelli 4 20045 lainate mi": {
+  "luogo": "ibis Milano Fiera",
+  "fonte": "google",
+  "indirizzo": "Via Pirelli, 4, 20045 Lainate MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "lungarno della zecca vecchia 18 50122 firenze fi": {
+  "luogo": "LHP Hotel River & SPA",
+  "fonte": "google",
+  "indirizzo": "Lungarno della Zecca Vecchia, 18, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via sant andrea 10 20121 milano mi": {
+  "luogo": "Portrait",
+  "fonte": "foglio",
+  "indirizzo": "Via Sant'Andrea, 10, 20121 Milano MI, Italia",
+  "volte": 5,
+  "ricontrollato": null
+ },
+ "via della scala 7 50123 firenze fi": {
+  "luogo": "Albergo Croce di Malta",
+  "fonte": "google",
+  "indirizzo": "Via della Scala, 7, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via domenico scarlatti 32 20124 milano mi": {
+  "luogo": "Hotel Bristol",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Scarlatti, 32, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via mario de fiori 3 00187 roma rm": {
+  "luogo": "Hotel La Reve de Naim",
+  "fonte": "foglio",
+  "indirizzo": "Via Mario de' Fiori, 3, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via enrico tazzoli 2 20154 milano mi italie": {
+  "luogo": "AC Hotel Milano by Marriott",
+  "fonte": "google",
+  "indirizzo": "Via Enrico Tazzoli, 2, 20154 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza piave 1 50122 firenze fi": {
+  "luogo": "LE RÊVE DE NAIM Firenze",
+  "fonte": "google",
+  "indirizzo": "Piazza Piave, 1, 50122 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za di santa maria novella 7 50123 firenze fi": {
+  "luogo": "The Place Firenze",
+  "fonte": "google",
+  "indirizzo": "P.za di Santa Maria Novella, 7, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": "per-indirizzo"
+ },
+ "malpensa terminal 1 malpensa terminal 1 mxp t1 21010 ferno va": {
+  "luogo": "Sheraton Hotel Malpensa",
+  "fonte": "foglio",
+  "indirizzo": "Malpensa Terminal 1, Malpensa - Terminal 1 - MXP T1, 21010 Ferno VA, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via di s paolo alla regola 3 00186 roma rm": {
+  "luogo": "Nomos Hotel",
+  "fonte": "google",
+  "indirizzo": "Via di S. Paolo alla Regola, 3, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del giglio 9 50123 firenze fi": {
+  "luogo": "Tivoli Palazzo Gaddi Firenze Hotel",
+  "fonte": "google",
+  "indirizzo": "Via del Giglio, 9, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via fiume 12 50123 firenze fi": {
+  "luogo": "Hotel Albani Firenze",
+  "fonte": "google",
+  "indirizzo": "Via Fiume, 12, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso venezia 1 20121 milano mi": {
+  "luogo": "Palazzo Parigi",
+  "fonte": "foglio",
+  "indirizzo": "Corso Venezia, 1, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via fontana 3 20122 milano mi": {
+  "luogo": "Rosa Grand Milano - Starhotels Collezione",
+  "fonte": "google",
+  "indirizzo": "Via Fontana, 3, 20122 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via bartolomeo colleoni 14 20149 milano mi italie": {
+  "luogo": "Hotel NH Collection Milano CityLife",
+  "fonte": "google",
+  "indirizzo": "Via Bartolomeo Colleoni, 14, 20149 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via benvenuto cellini 20129 milano mi": {
+  "luogo": "Nemi Hotel",
+  "fonte": "foglio",
+  "indirizzo": "Via Benvenuto Cellini, 20129 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "scartato"
+ },
+ "via capo d africa 47 00184 roma rm": {
+  "luogo": "Hotel Lancelot",
+  "fonte": "google",
+  "indirizzo": "Via Capo d'Africa, 47, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dei barbieri 3a 00186 roma rm": {
+  "luogo": "Hotel dei Barbieri",
+  "fonte": "google",
+  "indirizzo": "Via dei Barbieri, 3a, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via attilio regolo 19 00192 roma rm": {
+  "luogo": "Hotel Roma Vaticano",
+  "fonte": "google",
+  "indirizzo": "Via Attilio Regolo, 19, 00192 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via melchiorre gioia 124 20125 milano mi italie": {
+  "luogo": "Joy 124 Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Melchiorre Gioia, 124, 20125 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "salita di s nicola da tolentino roma rm": {
+  "luogo": "The Rome EDITION",
+  "fonte": "google",
+  "indirizzo": "Salita di S. Nicola da Tolentino, Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dell arancio 68 00186 roma rm": {
+  "luogo": "Vilon",
+  "fonte": "foglio",
+  "indirizzo": "Via dell'Arancio, 68, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via alessio di tocqueville 7d 20154 milano mi": {
+  "luogo": "Tocq Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Alessio di Tocqueville, 7D, 20154 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via porta rossa 19 50123 firenze fi": {
+  "luogo": "Porta Rossa Hotel Firenze, Colbert Collection",
+  "fonte": "google",
+  "indirizzo": "Via Porta Rossa, 19, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via cusani 20121 milano mi": {
+  "luogo": "Una Hotel Cusani",
+  "fonte": "foglio",
+  "indirizzo": "Via Cusani, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via torino 6 00184 roma rm": {
+  "luogo": "The Hive Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Torino, 6, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della repubblica milano mi italie": {
+  "luogo": "The Westin Palace Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza della Repubblica, Milano MI, Italie",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "viale corsica 99 20133 milano mi": {
+  "luogo": "CO99 Art Building",
+  "fonte": "google",
+  "indirizzo": "Viale Corsica, 99, 20133 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via santa sofia 10 20122 milano mi": {
+  "luogo": "Uptown Palace",
+  "fonte": "google",
+  "indirizzo": "Via Santa Sofia, 10, 20122 Milano MI, Italy",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via soperga 24 20124 milano mi": {
+  "luogo": "Hotel Soperga Milano",
+  "fonte": "google",
+  "indirizzo": "Via Soperga, 24, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via camillo finocchiaro aprile 2 20124 milano mi": {
+  "luogo": "Hotel Ibis Centro",
+  "fonte": "foglio",
+  "indirizzo": "Via Camillo Finocchiaro Aprile, 2, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via della vite 71 00187 roma rm": {
+  "luogo": "HOTEL HOMS",
+  "fonte": "foglio",
+  "indirizzo": "Via della Vite, 71, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza della repubblica 20124 milano mi": {
+  "luogo": "Westing Palace",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Repubblica, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via vincenzo forcella 6 20144 milano mi italie": {
+  "luogo": "Magna Pars L' Hotel à Parfum, Small Luxury Hotels of the World",
+  "fonte": "google",
+  "indirizzo": "Via Vincenzo Forcella, 6, 20144 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za cesare beccaria 3 20122 milano mi italie": {
+  "luogo": "IH Hotel Milano Ambasciatori",
+  "fonte": "foglio",
+  "indirizzo": "P.za Cesare Beccaria, 3, 20122 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giovanni battista pirelli 20124 milano mi": {
+  "luogo": "Park Hyatt",
+  "fonte": "foglio",
+  "indirizzo": "Via Giovanni Battista Pirelli, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "largo del nazareno 25 00187 roma rm": {
+  "luogo": "Palazzo Talìa",
+  "fonte": "google",
+  "indirizzo": "Largo del Nazareno, 25, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via privata fratelli gabba 3 20121 milano mi italie": {
+  "luogo": "Bulgari",
+  "fonte": "foglio",
+  "indirizzo": "Via Privata Fratelli Gabba, 3, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via cesare de lollis 14 00185 roma rm": {
+  "luogo": "Soho House Rome",
+  "fonte": "google",
+  "indirizzo": "Via Cesare de Lollis, 14, 00185 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via napo torriani 29 20124 milano mi": {
+  "luogo": "Just Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 29, 20124 Milano MI, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via benvenuto cellini 14 20129 milano mi": {
+  "luogo": "NEMI, Milan, a Tribute Portfolio Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Benvenuto Cellini, 14, 20129 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza iv novembre 3 20124 milano mi italie": {
+  "luogo": "NYX Hotel Milan",
+  "fonte": "google",
+  "indirizzo": "Piazza IV Novembre, 3, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via colonnello tommaso masala 54 00148 roma rm": {
+  "luogo": "Rome Marriott Park Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Colonnello Tommaso Masala, 54, 00148 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gesu 8 20121 milano mi": {
+  "luogo": "FOUR SEASON",
+  "fonte": "foglio",
+  "indirizzo": "Via Gesù, 8, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "via pietro calvi 32 20129 milano mi": {
+  "luogo": "Hotel Vittoria",
+  "fonte": "google",
+  "indirizzo": "Via Pietro Calvi, 32, 20129 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza di san marcello 00187 roma rm": {
+  "luogo": "Hotel Six Senses",
+  "fonte": "foglio",
+  "indirizzo": "Piazza di San Marcello, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v delle botteghe oscure 46 00186 roma rm": {
+  "luogo": "Radisson Collection Hotel, Roma Antica",
+  "fonte": "google",
+  "indirizzo": "V. delle Botteghe Oscure, 46, 00186 Roma RM, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via stamira d ancona 27 20127 milano mi": {
+  "luogo": "Ramada Plaza by Wyndham Milano",
+  "fonte": "google",
+  "indirizzo": "Via Stamira d'Ancona, 27, 20127 Milano MI, Italy",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gabriele d annunzio 141a 50135 firenze fi": {
+  "luogo": "Villa Neroli",
+  "fonte": "google",
+  "indirizzo": "Via Gabriele D'Annunzio, 141a, 50135 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via antonio da recanate 2 20124 milano mi": {
+  "luogo": "AV Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Via Antonio da Recanate, 2, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via luciano bausi 5 50144 firenze fi": {
+  "luogo": "AC Hotel Firenze by Marriott",
+  "fonte": "google",
+  "indirizzo": "Via Luciano Bausi, 5, 50144 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via fatebenefratelli 21 20121 milano mi italie": {
+  "luogo": "Hotel Cavour Milano",
+  "fonte": "google",
+  "indirizzo": "Via Fatebenefratelli, 21, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via napo torriani 15 20124 milano mi": {
+  "luogo": "HOTEL CANOVA",
+  "fonte": "google",
+  "indirizzo": "Via Napo Torriani, 15, 20124 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": "per-indirizzo"
+ },
+ "c so di porta nuova 20121 milano mi 1": {
+  "luogo": "NH COLLECTION",
+  "fonte": "foglio",
+  "indirizzo": "C.so di Porta Nuova, 20121 Milano MI, Italia 1",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via dei lamberti 5 50123 firenze fi hotel calimala florence": {
+  "luogo": "Hotel Calimala Florence",
+  "fonte": "google",
+  "indirizzo": "Via dei Lamberti, 5, 50123 Firenze FI, Italia - HOTEL CALIMALA FLORENCE",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via cavour 213 00184 roma rm": {
+  "luogo": "FH55 Grand Hotel Palatino",
+  "fonte": "google",
+  "indirizzo": "Via Cavour, 213, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via del velabro 16 00186 roma rm": {
+  "luogo": "Palazzo Velabro",
+  "fonte": "foglio",
+  "indirizzo": "Via del Velabro, 16, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza vittorio veneto 4 50123 firenze fi": {
+  "luogo": "Hotel NH Firenze",
+  "fonte": "google",
+  "indirizzo": "Piazza Vittorio Veneto, 4, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gianfranco zuretti 20125 milano mi 46": {
+  "luogo": "Hilton",
+  "fonte": "foglio",
+  "indirizzo": "Via Gianfranco Zuretti, 20125 Milano MI, Italia 46",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della indipendenza 7 50129 firenze fi": {
+  "luogo": "Palazzo Castri 1874",
+  "fonte": "google",
+  "indirizzo": "Piazza della Indipendenza, 7, 50129 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza ognissanti 1 50123 firenze fi st regis hotel": {
+  "luogo": "The St. Regis Florence",
+  "fonte": "google",
+  "indirizzo": "Piazza Ognissanti, 1, 50123 Firenze FI, Italia - ST. REGIS HOTEL",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via carlo de cristoforis milano mi": {
+  "luogo": "Milano Verticale | UNA Esperienze",
+  "fonte": "google",
+  "indirizzo": "Via Carlo de Cristoforis, Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "v roberto lepetit 20124 milano mi": {
+  "luogo": "Westing Palace",
+  "fonte": "foglio",
+  "indirizzo": "V. Roberto Lepetit, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "c so di porta vittoria milano mi": {
+  "luogo": "NH COLLECTION",
+  "fonte": "foglio",
+  "indirizzo": "C.so di Porta Vittoria, Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "viale isonzo 14 20135 milano mi": {
+  "luogo": "Grand Visconti Palace Hotel",
+  "fonte": "google",
+  "indirizzo": "Viale Isonzo, 14, 20135 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via marsala 22 00185 roma rm": {
+  "luogo": "Best Western Premier Hotel Royal Santina",
+  "fonte": "google",
+  "indirizzo": "Via Marsala, 22, 00185 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via gerolamo frescobaldi 5 00198 roma rm": {
+  "luogo": "Parco dei Principi Grand Hotel & SPA - Roma",
+  "fonte": "google",
+  "indirizzo": "Via Gerolamo Frescobaldi, 5, 00198 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso di porta ticinese 51 20123 milano mi": {
+  "luogo": "Palazzo Virdis",
+  "fonte": "foglio",
+  "indirizzo": "Corso di Porta Ticinese, 51, 20123 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso sempione 69 20149 milano mi": {
+  "luogo": "Hotel Nasco",
+  "fonte": "google",
+  "indirizzo": "Corso Sempione, 69, 20149 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della repubblica 1 20121 milano mi": {
+  "luogo": "Hotel Milan II Duca",
+  "fonte": "foglio",
+  "indirizzo": "Piazza della Repubblica, 1, 20121 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "piazza duca d aosta 16 20125 milano mi": {
+  "luogo": "B&B HOTEL Milano Aosta",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 16, 20125 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via comelico 3 20135 milano mi": {
+  "luogo": "SAINT BARTH",
+  "fonte": "foglio",
+  "indirizzo": "Via Comelico, 3, 20135 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "corso vittorio emanuele ii 22 20122 milano mi": {
+  "luogo": "INTOMILAN Galleria Duomo I Boutique & Design Aparthotel",
+  "fonte": "google",
+  "indirizzo": "Corso Vittorio Emanuele II, 22, 20122 Milano MI, Italia",
+  "volte": 2,
+  "ricontrollato": null
+ },
+ "via nazionale 7 00184 roma rm": {
+  "luogo": "Hotel Quirinale",
+  "fonte": "google",
+  "indirizzo": "Via Nazionale, 7, 00184 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za cesare beccaria 6 20122 milano mi": {
+  "luogo": "Hotel Nuovo Milano",
+  "fonte": "google",
+  "indirizzo": "P.za Cesare Beccaria, 6, 20122 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza duca d aosta 8 20124 milano mi": {
+  "luogo": "HD8 Hotel Milano",
+  "fonte": "google",
+  "indirizzo": "Piazza Duca d'Aosta, 8, 20124 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via ponte seveso 20125 milano mi": {
+  "luogo": "Terminal",
+  "fonte": "foglio",
+  "indirizzo": "Via Ponte Seveso, 20125 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": "scartato"
+ },
+ "p za di santa maria novella 24 50123 firenze fi": {
+  "luogo": "Hotel L'Orologio",
+  "fonte": "google",
+  "indirizzo": "P.za di Santa Maria Novella, 24, 50123 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via aurora 29 00187 roma rm": {
+  "luogo": "Divina Luxury Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Aurora, 29, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via alessandro manzoni 29 20121 milano mi italie": {
+  "luogo": "Grand Hotel et de Milan - Member of The Leading Hotels of the World",
+  "fonte": "google",
+  "indirizzo": "Via Alessandro Manzoni, 29, 20121 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "borgo s jacopo 14 50125 firenze fi": {
+  "luogo": "LUGARNO",
+  "fonte": "foglio",
+  "indirizzo": "Borgo S. Jacopo, 14, 50125 Firenze FI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via domenico scarlatti 32 20124 milano mi italie": {
+  "luogo": "Hotel Bristol",
+  "fonte": "google",
+  "indirizzo": "Via Domenico Scarlatti, 32, 20124 Milano MI, Italie",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via luigi petroselli 47 00186 roma rm": {
+  "luogo": "47 Boutique Hotel - Comfort, stile ed eleganza situati nel cuore di Roma",
+  "fonte": "google",
+  "indirizzo": "Via Luigi Petroselli, 47, 00186 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via giovanni battista vare 32 20158 milano mi": {
+  "luogo": "Hotel Valganna",
+  "fonte": "google",
+  "indirizzo": "Via Giovanni Battista Varè, 32, 20158 Milano MI, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "p za dell esquilino 1 00185 roma rm": {
+  "luogo": "DoubleTree by Hilton Rome Monti",
+  "fonte": "google",
+  "indirizzo": "P.za dell'Esquilino, 1, 00185 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza ognissanti 1 50123 firenze fi hotel st regis": {
+  "luogo": "The St. Regis Florence",
+  "fonte": "google",
+  "indirizzo": "Piazza Ognissanti, 1, 50123 Firenze FI, Italia - HOTEL ST. REGIS",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "piazza della indipendenza 5 50129 firenze fi hotel caravaggio": {
+  "luogo": "Hotel Caravaggio Firenze",
+  "fonte": "google",
+  "indirizzo": "Piazza della Indipendenza, 5, 50129 Firenze FI, Italia - HOTEL CARAVAGGIO",
+  "volte": 1,
+  "ricontrollato": null
+ },
+ "via romagna 42 00187 roma rm": {
+  "luogo": "The Regency a Tribute Portfolio Hotel",
+  "fonte": "google",
+  "indirizzo": "Via Romagna, 42, 00187 Roma RM, Italia",
+  "volte": 1,
+  "ricontrollato": null
+ }
+}

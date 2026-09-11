@@ -39,6 +39,7 @@ import { MestieriModule } from './mestieri/mestieri.module';
 import { AreeModule } from './aree/aree.module';
 import { ListinoModule } from './listino/listino.module';
 import { StatisticheModule } from './statistiche/statistiche.module';
+import { StatistichePartnerModule } from './statistiche/statistiche-partner.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { CalendarioUniciModule } from './merchandising-sync/calendario-unici.module';
 import { CapogruppiModule } from './capogruppi/capogruppi.module';
@@ -76,6 +77,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     AreeModule,
     ListinoModule,
     StatisticheModule,
+    StatistichePartnerModule,
     OrdersSyncModule,
     RecurringModule,
     RecapPartnerModule,

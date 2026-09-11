@@ -126,6 +126,15 @@ export const routes: Routes = [
           ),
       },
       {
+        // ⭐ 11/09/2026 (richiesta utente): LE STATISTICHE DEL PARTNER — servizi, fasce, giorni,
+        // vendite, prodotti, indirizzi, luoghi e clienti. L'ufficio può aprirla con ?partnerId=…
+        path: 'statistiche-partner',
+        canActivate: [roleGuard],
+        data: { roles: ['PARTNER', 'ADMIN', 'OPERATION'], title: 'Statistiche' },
+        loadComponent: () =>
+          import('./pages/statistiche-partner.component').then((m) => m.StatistichePartnerComponent),
+      },
+      {
         // ⭐ 06/09/2026: STATISTICHE (KPI per periodo con confronto), ufficio.
         path: 'statistiche',
         canActivate: [roleGuard],
