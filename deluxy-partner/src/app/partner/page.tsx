@@ -57,7 +57,14 @@ export default async function PartnerList({
   // servizi a fatturazione · "tip:<id>" una singola tipologia (es. Consegne).
   // Stato: senza parametro l'elenco parte dai partner ATTIVI, cioè con almeno
   // una fattura di competenza dell'anno in corso. "tutti" toglie il filtro.
-  const stato = sp.stato ?? "attivi-fatture";
+  // ⭐ 11/09/2026 (decisione dell'utente: «default metti tutti i partner»).
+  // L'elenco parte da TUTTI. Prima partiva da «con una fattura o una vendita
+  // dell'anno»: un cliente appena arrivato dal registro non ne ha nessuna delle
+  // due e restava invisibile — è il caso di Edenia Fiori, che sembrava non
+  // essere mai arrivata da Anagrafiche mentre in Finance c'era dal 03/09.
+  // Un elenco che di suo nasconde 36 schede su 115 fa dubitare dei dati; chi
+  // vuole vedere solo chi lavora sceglie il filtro, che è rimasto lì.
+  const stato = sp.stato ?? "tutti";
   const attivita = sp.attivita ?? "";
   const tipologiaId = attivita.startsWith("tip:") ? attivita.slice(4) : null;
   const soloVendor = attivita === "vendor";
@@ -341,7 +348,7 @@ export default async function PartnerList({
           <ZonaFiltri
             attivi={
               [sp.citta, sp.categoria, sp.credito].filter(Boolean).length +
-              (stato !== "attivi-fatture" ? 1 : 0) +
+              (stato !== "tutti" ? 1 : 0) +
               (attivita ? 1 : 0) +
               (periodoRidotto ? 1 : 0)
             }

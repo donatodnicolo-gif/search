@@ -21,6 +21,14 @@
 > ✅ Ora `sp.q` **scavalca il filtro di stato** (`cercandoPerNome`), e sotto i
 > filtri compare quanti risultati erano nascosti e da quale filtro. Senza
 > ricerca l'avviso resta quello di prima.
+> ✅ **E il filtro predefinito è diventato «tutti»** (decisione dell'utente,
+> stessa mattina: «default metti tutti i partner»). `stato = sp.stato ?? "tutti"`:
+> l'elenco non nasconde più niente di suo, e il conteggio dei filtri attivi
+> considera «tutti» come lo stato neutro. La voce «Attivi · con fattura o
+> vendita» resta nella tendina. ⚠️ Ricaduta da tenere d'occhio: la pagina ora
+> costruisce le righe per **121 partner invece di ~79** — le misure di credito e
+> i riepiloghi si calcolano già per tutti, quindi il costo è nel rendering, non
+> in query nuove.
 
 > 🏷️ **11/09/2026 — I PARTNER IL CUI NOME È SOLO PAROLE DEL MESTIERE NON
 > TROVAVANO I PROPRI MOVIMENTI.**
