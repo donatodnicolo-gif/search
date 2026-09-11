@@ -254,7 +254,9 @@ const DELIVERY_INCLUDE = {
   // nasce e quale l'ha sostituita.
   parentDelivery: { select: { id: true, code: true, date: true, status: true, notDeliveredReason: true } },
   childDeliveries: { select: { id: true, code: true, date: true, status: true }, orderBy: { date: 'asc' } },
-  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true } },
+  // ⭐ 11/09/2026: `hasWarehouse` decide se al valet si offre «porto in magazzino»: è un servizio a
+  // pagamento, e non lo si propone a un partner che non ce l'ha a contratto.
+  partner: { select: { id: true, insegna: true, valetIdentityCheck: true, deliveryCodeRequired: true, hasWarehouse: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   // ⚠️ `scope` SERVE anche qui (04/09/2026): l'assegnazione del valet filtra
   // per listino solo sui servizi di mestiere, e sul dettaglio il campo non
@@ -1301,9 +1303,16 @@ export class DeliveriesService {
     // ⭐ 09/09/2026: le altre parti dello stesso ordine, riconosciute da numero
     // DDT **e** sito (vedi `consegneStessoDdt`). Anche questo solo per l'ufficio.
     const stessoDdt = await this.consegneStessoDdt(delivery as any, user);
+    /**
+     * ⭐ 11/09/2026: il reso è già stato accettato? Non c'è una colonna: il fatto sta in `StockMovement`,
+     * dove stanno tutti i fatti sulla merce. Serve al dettaglio per far sparire il bottone una volta usato.
+     */
+    const resoAccettato = (delivery as { productManagement?: string | null }).productManagement === 'returnToBoutique'
+      ? !!(await this.prisma.stockMovement.findFirst({ where: { deliveryId: id, reason: 'custodia:reso-accettato' }, select: { id: true } }))
+      : false;
 
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: economia, margineVendita, puntualita: puntualitaConsegna(delivery as any), linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate, stessoDdt }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, valetDeliveryRule: regolaValet, economiaVendita: economia, margineVendita, puntualita: puntualitaConsegna(delivery as any), resoAccettato, linkConsegnata: (delivery as any).deliveredByPartner ? DeliveriesService.linkConsegnata((delivery as any).trackingToken) : null, legameCorporate, stessoDdt }, user),
       user,
     );
   }

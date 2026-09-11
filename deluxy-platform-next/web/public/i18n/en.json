@@ -28,6 +28,7 @@
       "amministrazione": "Administration",
       "configurazione": "Configuration"
     },
+    "merceInSede": "Goods on site",
     "consegne": "Deliveries",
     "calendario": "Calendar",
     "attivita": "Activities",
@@ -2506,7 +2507,19 @@
       "oreDalle": "Started at",
       "oreAlle": "Finished at",
       "oreHint": "These are the planned times: correct them if you started or finished at another time. The partner approves or rejects them.",
-      "oreObbligatorie": "Without start and end time the delivery cannot be closed: those hours are paid and invoiced."
+      "oreObbligatorie": "Without start and end time the delivery cannot be closed: those hours are paid and invoiced.",
+      "destinazione": "Where the goods go",
+      "destinazioneObbligatoria": "Tell us where the goods end up: it is the only way not to lose track of them.",
+      "destinazioni": {
+        "returnToBoutique": "Back to the boutique",
+        "keptInCar": "I keep them",
+        "deluxyWareHouse": "To the warehouse"
+      },
+      "destinazioniNota": {
+        "returnToBoutique": "The partner will have to accept the return",
+        "keptInCar": "They stay with you until you bring them back",
+        "deluxyWareHouse": "Stored in the Deluxy warehouse"
+      }
     },
     "title": "Delivery #{{code}}",
     "section": {
@@ -2684,6 +2697,10 @@
     "stessoDdt": {
       "titolo": "Same order — delivery note {{numero}} · {{brand}}:",
       "altre": "…and {{n}} more deliveries with the same note."
+    },
+    "reso": {
+      "accetta": "Accept return",
+      "errore": "Return not accepted: please try again."
     }
   },
   "confirmDelivery": {
@@ -3702,6 +3719,45 @@
       "anno": "Last year",
       "sempre": "All time",
       "scelto": "Chosen period"
+    }
+  },
+  "merce": {
+    "titolo": "Goods on site",
+    "caption": "What each partner and each valet is holding right now. “To collect” is a commitment, not goods already on the counter.",
+    "cerca": "Search a product…",
+    "merceDi": "Goods of",
+    "tuttiIDetentori": "← All",
+    "aMagazzino": "In the Deluxy warehouse",
+    "daStabilire": "Destination to be decided",
+    "suConsegne": "across {{n}} deliveries",
+    "nessuno": "Nobody is holding goods right now.",
+    "nessunProdotto": "No goods to show.",
+    "nessunaConsegna": "No delivery in this phase.",
+    "errore": "Goods unavailable: please try again.",
+    "col": {
+      "detentore": "Who holds it",
+      "prodotto": "Product",
+      "daRitirare": "To collect",
+      "inConsegna": "Out for delivery",
+      "inSospeso": "Pending",
+      "consegnati": "Delivered",
+      "giacenza": "In stock"
+    },
+    "tipo": {
+      "partner": "partner",
+      "valet": "valet"
+    },
+    "periodo": {
+      "oggi": "today",
+      "settimana": "7 days",
+      "mese": "month",
+      "sempre": "all time"
+    },
+    "destinazione": {
+      "returnToBoutique": "returned to the boutique",
+      "keptInCar": "kept by the valet",
+      "deluxyWareHouse": "in the Deluxy warehouse",
+      "daStabilire": "to be decided"
     }
   }
 }

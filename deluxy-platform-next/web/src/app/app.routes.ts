@@ -126,6 +126,15 @@ export const routes: Routes = [
           ),
       },
       {
+        // ⭐ 11/09/2026 (richiesta utente): MERCE IN SEDE — che cosa ha in mano ogni partner e ogni valet.
+        // Il nome NON è «Stock»: in questa app «stock» è già la giacenza a scaffale del prodotto, e due
+        // significati per la stessa parola sono un bug che si paga in fraintendimenti (custode UX&UI).
+        path: 'merce-in-sede',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET'], title: 'Merce in sede' },
+        loadComponent: () => import('./pages/merce-in-sede.component').then((m) => m.MerceInSedeComponent),
+      },
+      {
         // ⭐ 11/09/2026 (richiesta utente): LE STATISTICHE DEL PARTNER — servizi, fasce, giorni,
         // vendite, prodotti, indirizzi, luoghi e clienti. L'ufficio può aprirla con ?partnerId=…
         path: 'statistiche-partner',

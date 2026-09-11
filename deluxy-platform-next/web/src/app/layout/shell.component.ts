@@ -68,6 +68,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // Configurazione → Impostazioni → «Home Servizi» (homeVetrina nel login).
       { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['PARTNER'], soloVetrina: true },
       { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
+      // ⭐ 11/09/2026 (richiesta utente): la merce che partner e valet hanno in mano adesso.
+      { label: 'nav.merceInSede', path: '/merce-in-sede', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET'] },
       { label: 'nav.serviziRicorrenti', path: '/recurring-services', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
       { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },

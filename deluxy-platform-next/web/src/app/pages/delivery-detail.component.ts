@@ -258,6 +258,14 @@ interface DeliveryDetail {
           }
           <!-- ANNULLA del partner (02/09): rosso = subito in Storico;
                giallo = «cancellazione richiesta», decide l'ufficio. -->
+          <!-- ⭐ 11/09/2026 (regola utente): la boutique ACCETTA IL RESO della merce che le è tornata
+               indietro. Compare solo dove ha senso: non consegnata, merce riportata in boutique,
+               reso non ancora accettato. -->
+          @if (puoAccettareReso()) {
+            <button type="button" class="act primary" [disabled]="resoInCorso()" (click)="accettaReso()">
+              {{ 'deliveryDetail.reso.accetta' | translate }}
+            </button>
+          }
           @if (puoAnnullare()) {
             <button type="button" class="act ko" (click)="confermaAnnulla.set(true)">{{ 'deliveries.annulla.bottone' | translate }}</button>
           }
@@ -1171,6 +1179,27 @@ interface DeliveryDetail {
           </div>
           <textarea class="field" rows="2" name="motivoDettaglio" [(ngModel)]="motivoDettaglio"
                     [placeholder]="'deliveryDetail.valet.dettaglioPh' | translate"></textarea>
+
+          <!--
+            ⭐ 11/09/2026 (regola utente): DOVE FINISCE LA MERCE. Terzo blocco di QUESTA finestra, non un
+            secondo pop-up: due modali in fila sullo stesso gesto sono un'interruzione doppia a un valet
+            che è per strada.
+            ⚠️ Compare solo se c'è merce da smistare: su un servizio a ora la domanda è rumore.
+            ⚠️ Ogni scelta porta scritta la sua CONSEGUENZA, perché si legga prima del tocco e non dopo.
+          -->
+          @if (chiedeDestinazione()) {
+            <label class="campo-eti">{{ 'deliveryDetail.valet.destinazione' | translate }}</label>
+            <div class="scelte">
+              @for (d of DESTINAZIONI; track d) {
+                @if (d !== 'deluxyWareHouse' || haMagazzino()) {
+                  <button type="button" class="scelta" [class.on]="destinazione === d" (click)="destinazione = d">
+                    <strong>{{ 'deliveryDetail.valet.destinazioni.' + d | translate }}</strong>
+                    <small>{{ 'deliveryDetail.valet.destinazioniNota.' + d | translate }}</small>
+                  </button>
+                }
+              }
+            </div>
+          }
           @if (azioneErrore(); as e) { <div class="error-card">{{ e }}</div> }
         </div>
         <div class="dialog-foot">
@@ -1356,6 +1385,12 @@ interface DeliveryDetail {
       .chiusura-corpo { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
       .campo-eti { font-size: 13px; font-weight: 550; color: var(--text-secondary); margin-top: 6px; }
       .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+      .scelte { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+      .scelta { display: block; width: 100%; text-align: left; border: 1px solid var(--hairline-strong);
+        background: #fff; border-radius: 12px; padding: 12px 14px; cursor: pointer; min-height: 64px; }
+      .scelta strong { display: block; font-size: 14.5px; }
+      .scelta small { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 12.5px; }
+      .scelta.on { border-color: #111; box-shadow: inset 0 0 0 1px #111; }
       .chips.colonna { flex-direction: column; align-items: stretch; }
       .chip { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px;
               padding: 10px 14px; font: inherit; font-size: 14px; cursor: pointer; text-align: left; }
@@ -1923,7 +1958,23 @@ export class DeliveryDetailComponent {
       return;
     }
     const motivo = [this.motivo ? eti[this.motivo] : '', dett].filter(Boolean).join(' — ');
-    this.cambiaStato('not_delivered', { status: 'not_delivered', notDeliveredReason: motivo });
+    /**
+     * ⚠️ Se c'è merce, la destinazione è OBBLIGATORIA — e non blocca nessuno, perché una delle tre è
+     * sempre vera in quell'istante: se il valet non sa ancora cosa farne, la merce è nel suo bagagliaio,
+     * cioè «la tengo io». Un «decido dopo» ricreerebbe esattamente la merce fantasma che questa
+     * funzione serve a eliminare.
+     * ⚠️ Stato, motivo e destinazione in UNA chiamata sola: separarle vorrebbe dire che una linea caduta
+     * lascia una consegna non consegnata senza sapere dove sia finita la roba.
+     */
+    if (this.chiedeDestinazione() && !this.destinazione) {
+      this.azioneErrore.set(this.translate.instant('deliveryDetail.valet.destinazioneObbligatoria'));
+      return;
+    }
+    this.cambiaStato('not_delivered', {
+      status: 'not_delivered',
+      notDeliveredReason: motivo,
+      ...(this.destinazione ? { destinazioneMerce: this.destinazione } : {}),
+    });
   }
 
   /** L'importo del contrassegno da mostrare al valet prima di partire. */
@@ -1959,6 +2010,52 @@ export class DeliveryDetailComponent {
     const importo = d.paymentOnDelivery ? Number(d.paymentAmount ?? 0) : 0;
     if (importo > 0) { this.avvisoContanti.set(importo); return; }
     this.cambiaStato('in_delivery');
+  }
+
+  /** Le tre destinazioni possibili della merce di una consegna non riuscita. */
+  readonly DESTINAZIONI = ['returnToBoutique', 'keptInCar', 'deluxyWareHouse'] as const;
+  destinazione = '';
+
+  /** La domanda ha senso solo se su quella consegna c'è davvero della merce. */
+  chiedeDestinazione(): boolean {
+    const d = this.delivery() as { products?: unknown[] } | null;
+    return !!d?.products?.length;
+  }
+
+  /**
+   * «Porto in magazzino» compare solo se il partner ha il magazzino a contratto: è un servizio A
+   * PAGAMENTO, e un valet non può impegnare il partner a un deposito fatturabile con un tocco sotto la
+   * pioggia. Se non c'è, l'opzione è assente — non disabilitata e muta.
+   */
+  haMagazzino(): boolean {
+    const d = this.delivery() as { partner?: { hasWarehouse?: boolean } } | null;
+    return !!d?.partner?.hasWarehouse;
+  }
+
+  readonly resoInCorso = signal(false);
+
+  /**
+   * Il reso si accetta solo dove esiste: consegna non consegnata, merce dichiarata «riportata in
+   * boutique», e nessuno che l'abbia già accettata. Lo può fare il partner di quella consegna e
+   * l'ufficio — succede al telefono, e un flusso che aspetta per sempre è un difetto di disegno.
+   */
+  puoAccettareReso(): boolean {
+    const d = this.delivery() as { status?: string; productManagement?: string; resoAccettato?: boolean } | null;
+    if (!d || d.status !== 'not_delivered' || d.productManagement !== 'returnToBoutique') return false;
+    if (d.resoAccettato) return false;
+    const r = this.auth.user()?.role;
+    return r === 'PARTNER' || r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  accettaReso(): void {
+    this.resoInCorso.set(true);
+    this.http.post(`${environment.apiUrl}/deliveries/${this.id}/reso/accetta`, {}).subscribe({
+      next: () => { this.resoInCorso.set(false); this.load(); },
+      error: (e) => {
+        this.resoInCorso.set(false);
+        this.azioneErrore.set(e?.error?.message ?? this.translate.instant('deliveryDetail.reso.errore'));
+      },
+    });
   }
 
   cambiaStato(stato: string, corpo?: Record<string, string>): void {

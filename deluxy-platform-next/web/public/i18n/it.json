@@ -28,6 +28,7 @@
       "amministrazione": "Amministrazione",
       "configurazione": "Configurazione"
     },
+    "merceInSede": "Merce in sede",
     "consegne": "Consegne",
     "calendario": "Calendario",
     "attivita": "Attività",
@@ -2508,7 +2509,19 @@
       "oreDalle": "Iniziato alle",
       "oreAlle": "Finito alle",
       "oreHint": "Sono gli orari previsti: correggili se hai iniziato o finito a un altro orario. Il partner li approva o li rifiuta.",
-      "oreObbligatorie": "Senza l'ora di inizio e di fine non si può chiudere: sono le ore che si pagano e si fatturano."
+      "oreObbligatorie": "Senza l'ora di inizio e di fine non si può chiudere: sono le ore che si pagano e si fatturano.",
+      "destinazione": "Dove va la merce",
+      "destinazioneObbligatoria": "Dimmi dove finisce la merce: è l’unico modo per non perderla di vista.",
+      "destinazioni": {
+        "returnToBoutique": "Riporto in boutique",
+        "keptInCar": "La tengo io",
+        "deluxyWareHouse": "Porto in magazzino"
+      },
+      "destinazioniNota": {
+        "returnToBoutique": "Il partner dovrà accettare il reso",
+        "keptInCar": "Resta in carico a te finché non la riporti",
+        "deluxyWareHouse": "Deposito a magazzino Deluxy"
+      }
     },
     "title": "Consegna #{{code}}",
     "section": {
@@ -2686,6 +2699,10 @@
     "stessoDdt": {
       "titolo": "Stesso ordine — DDT {{numero}} · {{brand}}:",
       "altre": "…e altre {{n}} consegne con lo stesso DDT."
+    },
+    "reso": {
+      "accetta": "Accetta reso",
+      "errore": "Reso non accettato: riprova."
     }
   },
   "confirmDelivery": {
@@ -3704,6 +3721,45 @@
       "anno": "Ultimo anno",
       "sempre": "Sempre",
       "scelto": "Periodo scelto"
+    }
+  },
+  "merce": {
+    "titolo": "Merce in sede",
+    "caption": "Che cosa ha in mano ogni partner e ogni valet, adesso. «Da ritirare» è un impegno preso, non merce già sul bancone.",
+    "cerca": "Cerca un prodotto…",
+    "merceDi": "Merce di",
+    "tuttiIDetentori": "← Tutti",
+    "aMagazzino": "A magazzino Deluxy",
+    "daStabilire": "Destinazione da stabilire",
+    "suConsegne": "su {{n}} consegne",
+    "nessuno": "Nessuno ha merce in questo momento.",
+    "nessunProdotto": "Nessuna merce da mostrare.",
+    "nessunaConsegna": "Nessuna consegna in questa fase.",
+    "errore": "Merce non leggibile: riprova.",
+    "col": {
+      "detentore": "Chi ce l’ha",
+      "prodotto": "Prodotto",
+      "daRitirare": "Da ritirare",
+      "inConsegna": "In consegna",
+      "inSospeso": "In sospeso",
+      "consegnati": "Consegnati",
+      "giacenza": "Giacenza"
+    },
+    "tipo": {
+      "partner": "partner",
+      "valet": "valet"
+    },
+    "periodo": {
+      "oggi": "oggi",
+      "settimana": "7 giorni",
+      "mese": "mese",
+      "sempre": "sempre"
+    },
+    "destinazione": {
+      "returnToBoutique": "riportata in boutique",
+      "keptInCar": "tenuta dal valet",
+      "deluxyWareHouse": "a magazzino Deluxy",
+      "daStabilire": "da stabilire"
     }
   }
 }
