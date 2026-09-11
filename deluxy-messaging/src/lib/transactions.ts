@@ -256,6 +256,35 @@ export async function segnaPagataFuoriTransactions(d: {
   }
 }
 
+/**
+ * ⭐ 11/09/2026 — LA PROVA DEL COLLEGAMENTO, per la pagina «App collegate».
+ *
+ * ⚠️ Non basta guardare se le variabili ci sono: una chiave scaduta o di
+ * un'altra app sta nell'ambiente esattamente come una buona. Qui si CHIAMA
+ * Transactions con la firma vera e si guarda la risposta — è l'unica prova che
+ * vale. Si chiede l'elenco delle richieste con un riferimento che non esiste:
+ * non tocca niente, e se le credenziali valgono risponde lo stesso.
+ */
+export async function provaCollegamentoTransactions(): Promise<{ ok: boolean; messaggio: string }> {
+  if (!transactionsConfigurata()) {
+    return { ok: false, messaggio: 'Mancano TRANSACTIONS_API_KEY / TRANSACTIONS_HMAC_SECRET nell’ambiente.' }
+  }
+  try {
+    const { stato, dati } = await chiamataFirmata(
+      'GET',
+      '/api/v1/richieste?riferimentoEsterno=cs-prova-collegamento'
+    )
+    if (stato === 200) return { ok: true, messaggio: 'Risponde e accetta la firma (200).' }
+    if (stato === 401 || stato === 403) {
+      return { ok: false, messaggio: `Credenziali rifiutate (${stato}): chiave o segreto della firma non validi.` }
+    }
+    const msg = dati?.errore ?? dati?.error ?? dati?.messaggio
+    return { ok: false, messaggio: `Ha risposto ${stato}${msg ? `: ${String(msg)}` : ''}` }
+  } catch (e) {
+    return { ok: false, messaggio: `Non raggiungibile: ${(e as Error).message}` }
+  }
+}
+
 /** A che punto è una richiesta già inviata (per la spunta sulla scheda). */
 export async function statoRichiestaTransactions(
   riferimento: string

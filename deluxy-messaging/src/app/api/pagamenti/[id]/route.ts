@@ -233,7 +233,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // ⚠️ Se l'IBAN ancora non torna non si chiama Transactions per sentirsi dire
   // di no: lo si scrive qui, con il motivo, e la riga resta «non inviata».
   let invio: { ok: boolean; messaggio: string } | null = null
-  if (metodo === 'iban' && esito && !esito.valido) {
+  // ⚠️⚠️ UNA RICHIESTA GIÀ PAGATA QUI NON SI MANDA DI LÀ (11/09/2026).
+  //
+  // Misurato con Transactions: nella loro coda stavano 41 richieste del
+  // Customer Service (3.638,00 €) ancora aperte, e **tutte e 41 erano già
+  // pagate qui**. Le tre più recenti raccontano come ci si arriva: pagate
+  // prima e mandate dopo — «Missure Rosamaria» pagata alle 09:52:46 e spedita
+  // alle 09:52:58, dodici secondi più tardi.
+  //
+  // La regola del 05/09 copre il verso opposto (si preme «Pagata» su una già
+  // mandata, e allora si chiude anche di là). Questo è il verso che mancava, e
+  // fa lo stesso danno al contrario: una richiesta in coda per soldi che sono
+  // già usciti è un invito a pagarli una seconda volta.
+  if (corretta.pagataIl) {
+    const messaggio =
+      'Non inviata: questa richiesta risulta già PAGATA qui. Mandarla a Transactions vorrebbe dire metterla in coda per dei soldi già usciti.'
+    await db.richiestaPagamento.update({ where: { id }, data: { esitoInvio: messaggio } })
+    invio = { ok: false, messaggio }
+  } else if (metodo === 'iban' && esito && !esito.valido) {
     const messaggio = `Non inviata: ${esito.motivo}`
     await db.richiestaPagamento.update({ where: { id }, data: { esitoInvio: messaggio } })
     invio = { ok: false, messaggio }

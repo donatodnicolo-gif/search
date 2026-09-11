@@ -6875,3 +6875,29 @@ tr.riga-apribile:focus-visible { outline: 2px solid var(--gold); outline-offset:
 /* ⚠️ E il contenuto della testata si ferma prima: senza questo, un titolo lungo
    o l'avviso rosso a tutta larghezza scorrerebbero SOTTO la ✕. */
 .pannello-testa:has(> .pannello-chiudi-angolo) > *:first-child { padding-right: 40px; }
+
+/* ── APP COLLEGATE (11/09/2026) ──────────────────────────────────────────────
+   Il riquadro delle app le cui credenziali NON stanno nel database: si
+   distingue dagli altri perché lì non c'è niente da riempire, c'è da sapere.
+   ⚠️ Il comando si può copiare a mano: niente bottone «copia» che chiederebbe
+   il permesso degli appunti per due righe che si leggono in un secondo. */
+.nota-ambiente {
+  border-left: 3px solid var(--gold);
+  background: var(--fill);
+  border-radius: 0 var(--radius-m) var(--radius-m) 0;
+  padding: 12px 16px;
+  margin: 8px 0 2px;
+  display: grid;
+  gap: 8px;
+}
+.blocco-comando {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-s);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}

@@ -194,6 +194,21 @@ export default async function PaginaImpostazioni({
               (richiesta utente: «consentimi su impostazioni di stabilire per
               ogni metodo che viene elencato le specifiche»). La pagina è a
               parte perché è un elenco che cresce; da qui ci si arriva. */}
+          {/* ⭐ 11/09/2026 — le chiavi verso le app sorelle in un posto solo, con
+              la prova del collegamento (richiesta utente). Le schede che seguono
+              scrivono NELLE STESSE righe: non sono due dati, sono due finestre. */}
+          <div className="card">
+            <h2>App collegate</h2>
+            <p className="descrizione">
+              Le app sorelle a cui questa parla — Orders, Piattaforma consegne, Anagrafiche,
+              Merchandising, Transactions — con indirizzo, chiave e un bottone che <strong>prova
+              davvero</strong> il collegamento. «C’è una chiave» e «risponde» non sono la stessa cosa.
+            </p>
+            <a className="bottone secondario" href="/app-collegate">
+              Vai a App collegate
+            </a>
+          </div>
+
           <div className="card">
             <h2>Metodi di pagamento</h2>
             <p className="descrizione">
@@ -337,6 +352,13 @@ export default async function PaginaImpostazioni({
                 invia.
               </p>
             )}
+            {/* ⭐ 11/09/2026: da qui si arriva alla pagina che le prova tutte
+                (richiesta utente: «dammi possibilità di aggiungere tue chiavi ad
+                altre app»). Lo stato qui sopra dice se le credenziali CI SONO;
+                là c'è il bottone che dice se FUNZIONANO. */}
+            <a className="bottone secondario" href="/app-collegate">
+              Vai a App collegate
+            </a>
           </div>
 
           <div className="card">

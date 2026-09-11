@@ -1,5 +1,26 @@
 # Handoff — Deluxy Customer Service
 
+> ⭐ **11/09/2026 notte — «APP COLLEGATE» + LA VERIFICA DELLE 41 RICHIESTE.** In locale, **non deployato**.
+>
+> Arriva un messaggio da una sessione di **Transactions**: «le 42 del Customer Service sono ancora tutte aperte: quel comando non è partito perché deluxy-messaging/.env non ha la chiave — vive solo sul suo Vercel». **Verificato sul database, e la fotografia è più precisa di così:**
+> · sono **41**, per **3.638,00 €** (`canale='transactions'`, inviate, `partnerStato='in_attesa'`);
+> · **tutte e 41 risultano GIÀ PAGATE qui**: nella coda di Transactions sono doppioni di soldi già usciti;
+> · **nessuna porta un errore scritto** (`esitoInvio` vuoto): la chiusura di là **non è mai stata tentata**, non è che è stata tentata e fallita;
+> · dalla parte del CS la coda è **vuota**: 126 richieste, tutte pagate, 0 aperte. La differenza è tutta di là.
+>
+> ⚠️⚠️ **PERCHÉ non è stata tentata, e qui c'è un difetto nostro.** Per 38 la regola non c'era ancora (la chiusura «pagata fuori» è del 05/09, commit `ae21ac05`). Per le **tre più recenti** invece la regola c'era, e i tempi dicono che cosa è successo: **sono state pagate qui e mandate a Transactions DOPO** — «Missure Rosamaria» pagata alle 09:52:46 e spedita alle 09:52:58, dodici secondi più tardi; «Enoteca Nibbi» pagata il 9 e spedita il 10. La regola del 05/09 copre il verso opposto (si preme «Pagata» su una già mandata). **Messa la guardia che mancava**: una richiesta con `pagataIl` non si manda più, e lo dice — mandarla vuol dire metterla in coda per dei soldi già usciti.
+> ⚠️ **Le 41 restano da chiudere di là.** Si chiudono chiamando `pagata-fuori` una per una, e va fatto **dalla produzione**, dove le credenziali ci sono. Non l'ho fatto: è una scrittura in casa d'altri su 3.638 € di coda, e la decisione è dell'utente. Il ferro c'è già (`segnaPagataFuoriTransactions`).
+>
+> ⭐ **E la richiesta dell'utente: «dammi possibilità di aggiungere tue chiavi ad altre app».** Nuova pagina **App collegate** (`/app-collegate`, voce in Configurazione, **solo amministratore, anche in lettura**: è la mappa di dove arrivano le nostre chiamate). Una scheda per app sorella — Orders, Piattaforma consegne, Anagrafiche, Merchandising, Transactions — con: a che cosa serve qui dentro, l'indirizzo, se la chiave c'è e **dove abita** (ambiente o database), e **«Prova il collegamento»** che chiama davvero.
+> · **Quattro stati, non due** (la lezione di Scout, 03/09): `da collegare` · `da provare` · `non risponde` · `collegata`, e **il verde lo accende solo una prova riuscita** — una chiave scaduta o di un'altra app sta lì uguale. L'esito resta scritto con la data.
+> · La prova guarda **anche il corpo**: 200 con una pagina HTML non è «collegata» (trappola già pagata in Orders).
+> · La chiave **non torna mai a schermo**: si vede solo se c'è; campo vuoto = non la tocco; c'è «Togli la chiave».
+> · ⚠️⚠️ **Transactions non si scrive da qui, di proposito**: le sue credenziali fanno uscire denaro e stanno **solo nell'ambiente** (è una decisione scritta nel suo client — il database è condiviso con altre tredici app). La scheda lo dice e **dà i due comandi** `npx vercel env add …` più la riga per il `.env` locale, così «non si può» non diventa «nessuno sa dove».
+> · Le schede di Impostazioni scrivono **nelle stesse righe**: non sono due dati, sono due finestre — e da Impostazioni ci sono due rimandi alla pagina nuova.
+>
+> **Misurato adesso** (`scripts/prova-app-collegate.mts --prova`): Orders, Piattaforma, Anagrafiche, Merchandising **rispondono 200**, chiave nel database; **Transactions dal locale non ha chiave**. In produzione il CS ha `TRANSACTIONS_API_KEY` e `TRANSACTIONS_HMAC_SECRET` e nient'altro (`npx vercel env ls production`): le altre quattro vengono dal database, ed è per questo che funzionano.
+> ✅ `tsc` pulito, `next build` completato. ⚠️ Non visto nel browser (login sul dev locale) e non deployato.
+
 > ✅ **11/09/2026 22:36 — IN PRODUZIONE `deluxy-messaging-b4ly4k8k6`** (col «fai deploy» dell'utente). Va live tutto il lavoro della sera: i **metodi di pagamento impostabili** (coi 10 metodi letti dai checkout veri), il **rimborso che distingue «registrato» da «uscito»** e la pulizia dello schema. Verificato dopo il deploy: build Ready in 1m, alias `deluxy-messaging.vercel.app` sul deploy nuovo, `/metodi-pagamento`, `/nuovo-ordine`, `/impostazioni` e `/api/metodi-pagamento` rispondono 307 al login (come da middleware), l'API pubblica risponde.
 >
 > ⚠️⚠️ **IL PRIMO DEPLOY ERA FALLITO**, e vale la pena saperlo: `npm run build` moriva su Vercel con

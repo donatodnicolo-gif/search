@@ -632,6 +632,34 @@
           </div>
           <div class="log-item">
             <span class="when">11/09/2026</span>
+            <span class="what"><b>Nuova pagina «App collegate»: le chiavi verso le altre app in un posto solo, e un bottone che prova davvero.</b>
+              Richiesta dell'utente, nata da un guaio vero: una sessione di <b>Transactions</b> non era
+              riuscita a chiudere 41 richieste perché «il Customer Service non ha la chiave, vive solo sul
+              suo Vercel». Le schermate per metterle esistevano, ma erano <b>sparse in cinque riquadri</b>
+              di Impostazioni, ognuno con parole sue — e per Transactions non c'erano affatto.
+              Ora in <i>Configurazione → App collegate</i> c'è una scheda per ogni app sorella (Orders,
+              Piattaforma consegne, Anagrafiche, Merchandising, Transactions): <b>a che cosa serve qui
+              dentro</b>, l'indirizzo, se la chiave c'è e <b>dove abita</b>, e <b>«Prova il
+              collegamento»</b>, che la chiama per davvero.
+              ⚠️ Gli stati sono <b>quattro</b> e non due — da collegare, da provare, non risponde,
+              collegata — e <b>il verde lo accende solo una prova riuscita</b>: una chiave scaduta o di
+              un'altra app sta lì uguale, e una pillola verde su una chiave che non funziona è peggio di
+              nessuna pillola. L'esito resta scritto, con la data.
+              ⚠️ La chiave <b>non si rilegge</b>: si vede solo se c'è. Un campo che ripropone un segreto è
+              un segreto che finisce negli screenshot.
+              ⚠️⚠️ Le credenziali di <b>Transactions</b> non si scrivono da qui, di proposito: fanno uscire
+              denaro e vivono solo nell'ambiente del server, non nel database che è condiviso con le altre
+              app. La scheda lo dice e <b>dà i comandi</b> per metterle, così «non si può» non diventa
+              «nessuno sa dove». Misurato aprendo la pagina: le altre quattro rispondono, Transactions
+              dal computer di casa non ha chiave.
+              È anche la sede di una <b>guardia nuova</b>: una richiesta di pagamento <b>già pagata qui</b>
+              non si manda più a Transactions. Nella loro coda ce n'erano 41 (3.638 €) e <b>tutte erano
+              già pagate</b>: le tre più recenti erano state pagate e spedite dopo, una a dodici secondi
+              di distanza. Una richiesta in coda per soldi già usciti è un invito a pagarli due volte.
+              In locale, da pubblicare.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
             <span class="what"><b>I metodi di pagamento si impostano, e ognuno fa quello che dice.</b>
               Richiesta dell'utente: «in nuovo ordine la terza opzione è altri metodi di pagamento:
               consentimi su impostazioni di stabilire per ogni metodo che viene elencato le specifiche».

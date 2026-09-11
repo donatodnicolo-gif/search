@@ -160,6 +160,9 @@ export function Sidebar({
               // loro specifiche — come nasce l'ordine, quando è dovuto, cosa resta
               // scritto (richiesta utente).
               { href: '/metodi-pagamento', nome: 'Metodi di pagamento', icona: iconaImpostazioni },
+              // ⭐ 11/09/2026: le chiavi verso le app sorelle, in un posto solo,
+              // con la prova del collegamento (richiesta utente).
+              { href: '/app-collegate', nome: 'App collegate', icona: iconaImpostazioni },
               { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
               { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
               { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },

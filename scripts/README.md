@@ -127,6 +127,16 @@ cd deluxy-messaging && node scripts/applica-metodi-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: applicato in produzione l'11/09/2026 (6 righe). ⚠️ Le **coordinate del bonifico non le scrive lo script**: le mette l'amministratore in Impostazioni → Metodi di pagamento. Un IBAN in un file del repo è un segreto in chiaro.
 
+### prova-app-collegate.mts — deluxy-messaging
+**Sola lettura** (di suo). Dice, app sorella per app sorella, se il Customer Service ha una chiave, **dove abita** (ambiente o database) e con quale indirizzo; con `--prova` chiama davvero le API e riporta la risposta. ⚠️ Non stampa mai una chiave: solo se c'è.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-app-collegate.mts --prova
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` (le chiavi delle app sorelle stanno nel database, tranne quelle di Transactions)
+- **Nota**: l'11/09/2026 Orders, Piattaforma, Anagrafiche e Merchandising rispondono 200; **Transactions dal locale non ha chiave** (le sue vivono solo nell'ambiente di Vercel, di proposito: muovono denaro). Con `--prova` l'esito resta scritto nelle impostazioni, ed è quello che la pagina «App collegate» mostra.
+
 ### metodi-dai-negozi.mts — deluxy-messaging
 Riempie i **metodi di pagamento** con quello che i siti dicono **davvero** al cliente. ⚠️ I nomi e i testi non sono inventati: sono stati letti dal **checkout vero** dei tre negozi l'11/09/2026 (una bozza di prova per negozio, poi cancellata, selezionando uno per uno i metodi manuali). Non c'è modo di chiederli all'API: sull'Admin API 2025-01 **non esiste nessun tipo per i gateway manuali** (introspezione: solo `PaymentSettings`, che porta i portafogli digitali). Idempotente — ogni riga si riconosce da nome + negozio — e di suo è una **prova a secco**.
 
