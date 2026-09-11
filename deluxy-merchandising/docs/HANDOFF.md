@@ -2,10 +2,15 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
-## 🔴 11/09/2026 notte — TERZO GIRO: le tre cose chieste, fatte
+## 🔴 11/09/2026 notte — TERZO GIRO: le tre cose chieste, fatte e pubblicate
 
 Le tre che l'utente aveva chiesto e che non erano cominciate («**Fai tutto**»).
-Committate; **non ancora pubblicate** (il deploy si fa quando lo chiede).
+
+**Pubblicato.** Deploy **`imnxs9t03`** (production, Ready, alias
+`deluxy-merchandising.vercel.app`); origin/`scout-ui` a **`38f26086`**.
+Controllato sul sito vero: la griglia di `/visual/<id>?vista=griglia` serve 249
+schede `draggable`, e il tasto «Traduci ora sui negozi» compare sulla scheda di
+un prodotto pubblicato.
 
 ### 1. Ordinamenti: elenco, griglia e **trascinamento**
 
@@ -94,11 +99,28 @@ Fatto intanto sui prodotti veri delle due segnalazioni: «Bouquet Cherry» (en+f
 titolo intatto), «007», «Cheesecake». **Restano ~305 schede piatte** da riparare
 col comando o col cron.
 
-### Da fare
+### 🔴 PUNTO APERTO: ~305 schede da ritradurre
 
-- `npx tsx scripts/ripara-traduzioni-piatte.ts --applica` a lotti sui quattro
-  negozi (spende in AI: decidere il ritmo).
-- **Push e deploy**: non fatti, in attesa di richiesta.
+Delle **307** contate, ne sono state riparate **3** durante la prova
+(«Cheesecake» su Cake, «007» e «Bouquet Cherry» su Flowers). **Restano ~305**,
+quasi tutte su Business Deluxy (150) e Gifts (109).
+
+Due strade, e non si escludono:
+
+1. **A mano, subito.** ⚠️ Spende in AI (una chiamata per scheda) e scrive sui
+   negozi veri; `--max` vale **per negozio**; senza `--applica` fa solo il conto.
+
+   ```bash
+   cd deluxy-merchandising && npx tsx scripts/ripara-traduzioni-piatte.ts --max=40
+   cd deluxy-merchandising && npx tsx scripts/ripara-traduzioni-piatte.ts "Business Deluxy" --max=40 --applica
+   ```
+
+2. **Da sole, col cron.** `/api/cron/traduzioni` alle 04:40 UTC adesso ripassa
+   anche sulle piatte, 20 per negozio a notte: l'arretrato si smaltisce in
+   ≈ 8 notti. Nell'esito il campo `riparati` dice quante erano riparazioni.
+
+Per ricontare in qualsiasi momento:
+`npx tsx scripts/conta-traduzioni-mancanti.ts [Negozio]`.
 
 ## 🔴 11/09/2026 tarda sera — SECONDO GIRO (tutto pubblicato)
 
