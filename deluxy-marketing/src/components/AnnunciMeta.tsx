@@ -1,5 +1,9 @@
+import { unstable_cache } from "next/cache";
+
 import { creaOperazioneAnnuncioMeta } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { formattaEuro, formattaNumero } from "@/lib/dominio";
+import { leggiDiagnosticaAnnunciMeta } from "@/lib/meta";
 import { annunciMeta } from "@/lib/meta-annunci";
 
 // Gli ANNUNCI della campagna Meta, con le creatività: letti VIVI dalla Graph
@@ -27,17 +31,37 @@ const ETICHETTA_ATTESA: Record<string, string> = {
   attiva_annuncio: "riattivazione chiesta",
 };
 
+// La diagnostica sotto cache di mezz'ora: è una chiamata alle insights, e i
+// voti di pertinenza Meta li ricalcola una volta al giorno.
+const diagnostica = (idCampagna: string, dal: string, al: string) =>
+  unstable_cache(
+    () => leggiDiagnosticaAnnunciMeta(idCampagna, dal, al),
+    ["meta-diagnostica", idCampagna, dal, al],
+    { revalidate: 1800, tags: ["meta-diagnostica"] }
+  )();
+
 export async function AnnunciMeta({
   idCampagnaEsterno,
   campagnaId,
   ritorno,
+  periodo,
 }: {
   idCampagnaEsterno: string;
   /** Serve ai comandi: senza, il riquadro resta di sola lettura. */
   campagnaId?: string;
   ritorno?: string;
+  /** Il periodo scelto in cima alla pagina: la diagnostica lo segue. */
+  periodo?: { da: Date; a: Date; etichetta: string };
 }) {
   const esito = await annunciMeta(idCampagnaEsterno);
+
+  // ⚠️ `periodo.a` è esclusiva, il time_range di Meta è inclusivo: senza il
+  // giorno indietro si chiederebbe un giorno in più di quello mostrato in cima.
+  const giorno = (x: Date) => x.toISOString().slice(0, 10);
+  const diag = periodo
+    ? await diagnostica(idCampagnaEsterno, giorno(periodo.da), giorno(new Date(periodo.a.getTime() - 86_400_000)))
+    : { righe: [], errore: "periodo non passato al riquadro" };
+  const perAnnuncio = new Map(diag.righe.map((r) => [r.idAnnuncio, r]));
 
   // Le operazioni già in coda su questi annunci: senza, chi ha appena chiesto
   // una pausa vede l'annuncio ancora «Attivo» (è vero: su Meta lo è finché
@@ -204,6 +228,67 @@ export async function AnnunciMeta({
                       </div>
                     )}
 
+                    {/* ——— La diagnostica: è qui che si vede se una creatività
+                        è stanca. I tre voti e la curva del video sono l'unico
+                        segnale nativo di Meta, e sono per PERIODO (quello
+                        scelto in cima), non «di sempre». ——— */}
+                    {(() => {
+                      const dg = perAnnuncio.get(a.id);
+                      if (!dg) return null;
+                      const voti = [
+                        ["qualità", dg.qualita],
+                        ["coinvolgimento", dg.coinvolgimento],
+                        ["conversione", dg.conversione],
+                      ].filter(([, v]) => v) as Array<[string, string]>;
+                      const perso = dg.video && dg.video.p25 > 0
+                        ? Math.round((1 - dg.video.p100 / dg.video.p25) * 100)
+                        : null;
+                      return (
+                        <div style={{ marginTop: 6, display: "grid", gap: 2 }}>
+                          {dg.spesa > 0 && (
+                            <div className="cella-sub">
+                              {formattaEuro(dg.spesa)} spesi · {formattaNumero(dg.impression)} impression
+                              {dg.ctrLink != null && ` · CTR link ${dg.ctrLink.toFixed(2).replace(".", ",")}%`}
+                            </div>
+                          )}
+                          {voti.length > 0 && (
+                            <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+                              {voti.map(([nome, v]) => (
+                                <span
+                                  key={nome}
+                                  style={{
+                                    marginRight: 8,
+                                    // ⚠️ «non giudicabile» NON si colora di
+                                    // rosso: vorrebbe dire bocciare una
+                                    // creatività che nessuno ha ancora visto,
+                                    // e far spegnere quella sbagliata.
+                                    color: v.startsWith("sotto")
+                                      ? "var(--red)"
+                                      : v.startsWith("sopra")
+                                        ? "var(--green)"
+                                        : undefined,
+                                  }}
+                                >
+                                  {nome}: {v}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {dg.video && (
+                            <div
+                              className="cella-sub"
+                              title="Quanti arrivano a ciascuna frazione del video. La caduta fra 25% e 100% è il punto in cui la gente smette di guardare."
+                            >
+                              video: {formattaNumero(dg.video.p25)} al 25% →{" "}
+                              {formattaNumero(dg.video.p50)} al 50% → {formattaNumero(dg.video.p75)} al
+                              75% → {formattaNumero(dg.video.p100)} alla fine
+                              {perso != null && ` (se ne perde il ${perso}%)`}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {campagnaId && !attesa && (a.stato === "ACTIVE" || a.stato === "PAUSED") && (
                       <form action={creaOperazioneAnnuncioMeta} style={{ marginTop: 8 }}>
                         <input type="hidden" name="campagnaId" value={campagnaId} />
@@ -256,6 +341,13 @@ export async function AnnunciMeta({
               nelle tabelle per categoria e per area risulta più basso del vero — in tutto il 2026
               gli ordini che Orders attribuisce a Meta sono 16 su Gifts, 19 su Flowers, 8 su Cake.
               Gli utm si mettono in Ads Manager, sull&apos;inserzione, nel campo «Parametri URL».
+            </p>
+          )}
+          {diag.errore && periodo && (
+            <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal", color: "var(--orange)" }}>
+              La diagnostica delle creatività (voti di pertinenza e ritenzione del video) non è
+              arrivata ({diag.errore}): quelle righe mancano perché non le sappiamo, non perché le
+              inserzioni non abbiano numeri.
             </p>
           )}
           <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>

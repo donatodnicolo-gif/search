@@ -869,6 +869,7 @@ export default async function SchedaCampagna({
             idCampagnaEsterno={campagna.idEsterno}
             campagnaId={campagna.id}
             ritorno={`/campagne/${campagna.id}`}
+            periodo={{ da: periodo.corrente.da, a: periodo.corrente.a, etichetta: periodo.corrente.etichetta }}
           />
         )}
 

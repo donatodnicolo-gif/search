@@ -943,3 +943,127 @@ export async function leggiContiMeta(): Promise<{
     return { conti: [], errore: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ======================= DIAGNOSTICA DELLE CREATIVITÀ =======================
+
+/**
+ * Le tre «valutazioni» che Meta dà a un'inserzione, dette in italiano.
+ *
+ * ⚠️⚠️ `UNKNOWN` NON È UN VOTO BASSO. Meta lo manda quando l'inserzione non ha
+ * abbastanza impression (sotto le 500 circa) per giudicarla: mostrarlo come
+ * «sotto la media» vorrebbe dire bocciare una creatività che nessuno ha ancora
+ * visto — e far spegnere quella sbagliata.
+ */
+const VOTO_META: Record<string, string> = {
+  ABOVE_AVERAGE: "sopra la media",
+  AVERAGE: "nella media",
+  BELOW_AVERAGE_35: "sotto la media (ultimo 35%)",
+  BELOW_AVERAGE_20: "sotto la media (ultimo 20%)",
+  BELOW_AVERAGE_10: "sotto la media (ultimo 10%)",
+  UNKNOWN: "non giudicabile: troppe poche impression",
+};
+
+export type DiagnosticaAnnuncio = {
+  idAnnuncio: string;
+  spesa: number;
+  impression: number;
+  /** I tre voti di pertinenza, già tradotti. `null` quando Meta non li manda. */
+  qualita: string | null;
+  coinvolgimento: string | null;
+  conversione: string | null;
+  /** Quanti hanno visto il video fino a quella frazione. `null` se non è un video. */
+  video: { p25: number; p50: number; p75: number; p95: number; p100: number; thruplay: number } | null;
+  /** CTR sul link, in percentuale: il segnale che l'annuncio parla alla gente giusta. */
+  ctrLink: number | null;
+};
+
+/**
+ * La diagnostica per singola inserzione, letta viva dalle insights.
+ *
+ * PERCHÉ ESISTE. Era la lacuna che la mappa di Ads Manager (11/09/2026) ha
+ * messo al quinto posto, ma è la più economica da colmare: **la curva di
+ * ritenzione del video e i tre voti di pertinenza sono l'unico segnale nativo
+ * di «creatività stanca»**. Senza, per sapere se un annuncio ha smesso di
+ * funzionare si guarda la spesa e si indovina.
+ *
+ * ⚠️ NON SI SALVA IN DATABASE, e non è pigrizia: salvarla vorrebbe dire sei
+ * colonne nuove in `MetricaAnnuncio` — cioè una migrazione sul cluster
+ * condiviso con tredici app — per numeri che Meta ricalcola ogni giorno. Si
+ * legge quando si guarda, sotto cache; il giorno che servisse lo storico, la
+ * migrazione si chiede a chi decide.
+ */
+export async function leggiDiagnosticaAnnunciMeta(
+  idCampagna: string,
+  dal: string,
+  al: string
+): Promise<{ righe: DiagnosticaAnnuncio[]; errore: string | null }> {
+  const t = token();
+  if (!t) return { righe: [], errore: "META_ACCESS_TOKEN non impostato" };
+
+  const campi = [
+    "ad_id",
+    "spend",
+    "impressions",
+    "quality_ranking",
+    "engagement_rate_ranking",
+    "conversion_rate_ranking",
+    "inline_link_click_ctr",
+    "video_p25_watched_actions",
+    "video_p50_watched_actions",
+    "video_p75_watched_actions",
+    "video_p95_watched_actions",
+    "video_p100_watched_actions",
+    "video_thruplay_watched_actions",
+  ].join(",");
+
+  const q = new URLSearchParams({
+    level: "ad",
+    fields: campi,
+    time_range: JSON.stringify({ since: dal, until: al }),
+    limit: "100",
+    access_token: t,
+  });
+
+  // Le metriche video arrivano come elenchi di azioni: il numero sta in
+  // `value`, e la voce che interessa è quella del video (`video_view`).
+  const daAzioni = (v: unknown): number => {
+    if (!Array.isArray(v)) return 0;
+    return (v as Array<Record<string, unknown>>).reduce((s, a) => s + Number(a.value ?? 0), 0);
+  };
+
+  try {
+    const r = await fetch(`${BASE}/${idCampagna}/insights?${q.toString()}`, { cache: "no-store" });
+    const corpo = await r.json();
+    if (!r.ok || corpo.error) {
+      return { righe: [], errore: String(corpo?.error?.message ?? `HTTP ${r.status}`) };
+    }
+    const righe: DiagnosticaAnnuncio[] = (corpo.data ?? []).map((d: Record<string, unknown>) => {
+      const p25 = daAzioni(d.video_p25_watched_actions);
+      const p50 = daAzioni(d.video_p50_watched_actions);
+      const p75 = daAzioni(d.video_p75_watched_actions);
+      const p95 = daAzioni(d.video_p95_watched_actions);
+      const p100 = daAzioni(d.video_p100_watched_actions);
+      const thruplay = daAzioni(d.video_thruplay_watched_actions);
+      const voto = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return s ? (VOTO_META[s] ?? s.toLowerCase().replace(/_/g, " ")) : null;
+      };
+      return {
+        idAnnuncio: String(d.ad_id ?? ""),
+        spesa: Number(d.spend ?? 0),
+        impression: Number(d.impressions ?? 0),
+        qualita: voto(d.quality_ranking),
+        coinvolgimento: voto(d.engagement_rate_ranking),
+        conversione: voto(d.conversion_rate_ranking),
+        // ⚠️ Zero visualizzazioni al 25% vuol dire «non è un video», non «un
+        // video che nessuno guarda»: le due cose si vedono uguali in una
+        // tabella, e una è una notizia.
+        video: p25 > 0 ? { p25, p50, p75, p95, p100, thruplay } : null,
+        ctrLink: d.inline_link_click_ctr == null ? null : Number(d.inline_link_click_ctr),
+      };
+    });
+    return { righe, errore: null };
+  } catch (e) {
+    return { righe: [], errore: e instanceof Error ? e.message : String(e) };
+  }
+}

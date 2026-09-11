@@ -82,7 +82,18 @@ export function ModuloLancioMeta({
         </div>
         <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
           Su Meta l&apos;obiettivo NON è un&apos;etichetta: decide che cosa compra l&apos;asta
-          (conversioni, clic o copertura) e se serve il pixel.
+          (conversioni, clic o copertura) e se serve il pixel.{" "}
+          {/* ⚠️⚠️ È IRREVERSIBILE, e va detto QUI. Verificato in Ads Manager
+              l'11/09/2026: su una campagna già pubblicata l'obiettivo compare
+              come testo statico, senza controlli; in bozza ha la matita
+              accanto. Si cambia solo finché non è pubblicata. Scoprirlo dopo
+              vuol dire spegnere la campagna e rifarne un'altra, perdendo lo
+              storico di apprendimento dell'algoritmo. */}
+          <b>
+            ⚠️ Dopo la pubblicazione l&apos;obiettivo NON si cambia più: su Meta diventa un dato di
+            sola lettura. Per cambiarlo si spegne questa campagna e se ne fa un&apos;altra, perdendo
+            l&apos;apprendimento accumulato.
+          </b>
         </p>
         <div className="scelte-icona">
           {OBIETTIVI_META.map((o) => (
@@ -191,6 +202,17 @@ export function ModuloLancioMeta({
                 <label className="chip-etichetta" htmlFor="lb-adset">Ad set (ABO)</label>
               </div>
             </div>
+            {/* ⚠️ Anche questa è una scelta che dopo pesa: verificato in Ads
+                Manager, su una campagna pubblicata l'IMPORTO del budget si
+                cambia ma il TIPO (giornaliero vs totale) no — la tendina è
+                grigia. Il livello (campagna vs ad set) si sposta, ma spostarlo
+                rimette in apprendimento la distribuzione. */}
+            <span className="campo-aiuto">
+              L&apos;<b>importo</b> si cambia quando si vuole, anche dalla scheda della campagna. Il
+              <b> tipo</b> di budget (giornaliero o totale) su Meta <b>non si cambia più</b> dopo la
+              pubblicazione; spostare il livello campagna↔ad set si può, ma rimette in apprendimento
+              la distribuzione.
+            </span>
           </div>
           <div className="campo-modulo">
             <label>Budget al giorno <span className="obbligatorio">*</span></label>
