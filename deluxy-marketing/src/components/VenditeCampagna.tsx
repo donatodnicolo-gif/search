@@ -50,6 +50,24 @@ export async function VenditeCampagna({
         Vendite su Shopify · ultimi {v.giorni} giorni ({formattaData(v.da)} → {formattaData(v.a)})
       </div>
 
+      {/* ⚠️ La categoria si legge SENZA aprire niente. Era dentro un blocco
+          richiuso, in fondo, ed e' l'impostazione che decide in quale riga
+          finisce la spesa di questa campagna nella dashboard del brand: un
+          campo che comanda un numero altrove non puo' stare dietro a un
+          triangolino. */}
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+        <b>Che cosa vende:</b>{" "}
+        {v.legame.categoria
+          ? (ETICHETTA_CATEGORIA_ORDINE[v.legame.categoria] ?? v.legame.categoria)
+          : "generico (non una famiglia sola)"}{" "}
+        ·{" "}
+        {v.origineLegame === "manuale"
+          ? "scelto a mano"
+          : "dedotto dal nome della campagna — si corregge qui sotto"}
+        . È la riga in cui finisce la spesa di questa campagna nella tabella «per categoria di
+        prodotto» della dashboard del brand.
+      </p>
+
       {/* ——— 1. Attribuzione vera: l'ordine porta scritto l'UTM ——— */}
       <details className="vend-riga">
         <summary>
@@ -320,9 +338,15 @@ export async function VenditeCampagna({
         {/* Correzione a mano: da qui in poi la deduzione non tocca più niente. */}
         <form className="modulo" action={salvaLegameShopify.bind(null, campagna.id)} style={{ marginTop: 14, gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
           <div className="campo-modulo">
-            <label>Prodotto</label>
+            <label>Prodotto (categoria)</label>
             <select name="categoria" defaultValue={v.legame.categoria ?? ""}>
-              <option value="">— nessuno —</option>
+              {/* ⚠️ «Nessuno» qui vuol dire GENERICO, e va detto: da quando
+                  esiste la tabella «per categoria di prodotto» sulla dashboard
+                  del brand, questa tendina non filtra soltanto il venduto di
+                  contesto — decide anche in quale riga finisce la spesa di
+                  questa campagna. «Nessuno» la manda nella riga dichiarata
+                  delle generiche, che e' diverso dal non aver scelto. */}
+              <option value="">— generico: non una famiglia sola —</option>
               {CATEGORIE_ORDINE.map((c) => (
                 <option key={c} value={c}>
                   {ETICHETTA_CATEGORIA_ORDINE[c] ?? c}
@@ -377,7 +401,8 @@ export async function VenditeCampagna({
             )}
             <span className="cella-sub" style={{ whiteSpace: "normal" }}>
               La scelta a mano vince: nessun giro successivo la sovrascrive, nemmeno se la campagna
-              cambia nome.
+              cambia nome. Il <b>prodotto</b> decide anche in quale riga finisce la spesa di questa
+              campagna nella tabella «per categoria di prodotto» della dashboard del brand.
             </span>
           </div>
         </form>

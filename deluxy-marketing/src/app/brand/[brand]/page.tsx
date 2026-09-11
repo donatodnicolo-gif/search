@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { BudgetCampagneBrand } from "@/components/BudgetCampagneBrand";
 import { BudgetQuestoMese } from "@/components/BudgetQuestoMese";
 import { Badge } from "@/components/Badge";
+import { BrandPerArea } from "@/components/BrandPerArea";
+import { BrandPerCategoria } from "@/components/BrandPerCategoria";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { destinazionePredefinita } from "@/lib/viste";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
@@ -356,6 +358,13 @@ export default async function PaginaBrand({
             </>
           )}
         </section>
+
+        {/* Le altre due lenti: che cosa si vende e dove. Stanno accanto alla
+            tabella per canale perché rispondono alla stessa domanda su un
+            altro asse — la media di brand nasconde la categoria che perde
+            esattamente come nasconde il canale che perde. */}
+        <BrandPerCategoria brand={brand} periodo={periodo.corrente} />
+        <BrandPerArea brand={brand} periodo={periodo.corrente} />
 
         {/* I numeri che contano */}
         <div className="kpi-riga">

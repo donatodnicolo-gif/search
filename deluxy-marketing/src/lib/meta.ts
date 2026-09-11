@@ -612,3 +612,71 @@ export async function leggiAdSetDiCampagnaMeta(
     return { adset: [], errore: e instanceof Error ? e.message : String(e) };
   }
 }
+
+/**
+ * La spesa Meta **per regione**, nel periodo.
+ *
+ * PERCHÉ ESISTE. Su Google il «dove» di una campagna si legge dal suo
+ * targeting, che l'app censisce (`LocalitaCampagna`): su Meta quel censimento
+ * non c'è, e le campagne Meta di Deluxy non portano la città nel nome. Senza
+ * questa lettura, la tabella per area avrebbe avuto una colonna Meta sempre
+ * vuota — e una colonna vuota, accanto a una piena, si legge come «Meta non
+ * vende lì», che è un'altra cosa da «non lo sappiamo».
+ *
+ * ⚠️⚠️ META DÀ LA REGIONE, NON LA CITTÀ. `breakdowns=region` è il taglio
+ * geografico più fine che le insights offrono: torna «Lombardy», «Lazio»,
+ * «Tuscany». Leggere la Lombardia come «area di Milano» è una nostra lettura
+ * (in Lombardia consegniamo solo in città), non un dato di Meta, e la pagina
+ * che la mostra lo dichiara. Vedi `areaDaRegioneMeta` in categorie-aree.ts.
+ *
+ * ⚠️ Non si salva in database: è una lettura di sola visualizzazione, e una
+ * tabella nuova sul cluster condiviso per un numero che Meta sa già sarebbe
+ * copia di dati altrui (Standard §7). Chi la chiama la mette sotto cache.
+ */
+export async function leggiSpesaPerRegioneMeta(
+  idAccount: string,
+  dal: string,
+  al: string
+): Promise<{ righe: Array<{ regione: string; spesa: number; conversioni: number; ricavi: number }>; errore: string | null }> {
+  const t = token();
+  if (!t) return { righe: [], errore: "META_ACCESS_TOKEN non impostato" };
+
+  const params = new URLSearchParams({
+    level: "account",
+    fields: "spend,actions,action_values",
+    breakdowns: "region",
+    time_range: JSON.stringify({ since: dal, until: al }),
+    limit: "500",
+    access_token: t,
+  });
+
+  const righe: Array<{ regione: string; spesa: number; conversioni: number; ricavi: number }> = [];
+  let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/insights?${params.toString()}`;
+  let pagine = 0;
+  try {
+    while (url && pagine < 20) {
+      const risposta = await fetch(url, { cache: "no-store" });
+      const corpo = await risposta.json();
+      if (!risposta.ok || corpo.error) {
+        const e = corpo.error ?? {};
+        return {
+          righe,
+          errore: `Meta ha risposto ${risposta.status}: ${e.message ?? "errore sconosciuto"}${e.code ? ` (codice ${e.code})` : ""}`,
+        };
+      }
+      for (const d of corpo.data ?? []) {
+        righe.push({
+          regione: String(d.region ?? "sconosciuta"),
+          spesa: Number(d.spend ?? 0),
+          conversioni: valoreAzione(d.actions, TIPI_ACQUISTO),
+          ricavi: valoreAzione(d.action_values, TIPI_ACQUISTO),
+        });
+      }
+      url = corpo.paging?.next ?? "";
+      pagine++;
+    }
+    return { righe, errore: null };
+  } catch (e) {
+    return { righe: [], errore: e instanceof Error ? e.message : String(e) };
+  }
+}

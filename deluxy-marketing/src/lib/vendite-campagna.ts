@@ -275,6 +275,52 @@ export async function legameDiCampagna(campagna: {
   return { legame: dedotto, origine: "dedotto", aggiornatoIl: salvato?.aggiornatoIl ?? null };
 }
 
+/**
+ * La categoria di prodotto scelta A MANO, da un modulo.
+ *
+ * ⚠️ PARTE DALLA DEDUZIONE E CAMBIA SOLO LA CATEGORIA. Scrivere qui il solo
+ * prodotto azzererebbe lingua, citta' e negozio del legame — e con loro il
+ * filtro con cui il blocco «venduto vero» sceglie gli ordini di contesto: la
+ * tabella si spegnerebbe senza che nessuno abbia chiesto niente. E' la
+ * trappola del modulo parziale che azzera i campi, gia' pagata altrove.
+ *
+ * `scelta` vale:
+ *   · una categoria del catalogo -> quella, e da qui in poi comanda la mano;
+ *   · "generico" -> `categoria: null` come SCELTA, non come assenza: la spesa
+ *     va nella riga dichiarata delle generiche e non si rideduce dal nome;
+ *   · null o vuoto -> non si scrive niente, e la deduzione resta al suo posto.
+ */
+export async function scegliCategoriaAMano(
+  campagna: { id: string; nome: string; brand: string },
+  scelta: string | null | undefined
+): Promise<{ scritta: boolean; categoria: string | null }> {
+  const v = (scelta ?? "").trim();
+  if (!v) return { scritta: false, categoria: null };
+  const categoria =
+    v === "generico" ? null : (CATEGORIE_ORDINE as readonly string[]).includes(v) ? v : undefined;
+  // Un valore fuori catalogo non si scrive: finirebbe in una colonna di testo
+  // libero che nessuna riga della tabella per categoria saprebbe mostrare.
+  if (categoria === undefined) return { scritta: false, categoria: null };
+
+  const dedotto = deduciLegame(campagna);
+  const dati = {
+    categoria,
+    lingua: dedotto.lingua,
+    negozio: dedotto.negozio,
+    citta: dedotto.citta,
+    origine: "manuale",
+    motivo: categoria
+      ? `prodotto «${categoria}» scelto a mano alla creazione`
+      : "dichiarata generica a mano alla creazione",
+  };
+  await prisma.legameCampagnaShopify.upsert({
+    where: { campagnaId: campagna.id },
+    create: { campagnaId: campagna.id, ...dati },
+    update: dati,
+  });
+  return { scritta: true, categoria };
+}
+
 export type RigaCategoria = {
   categoria: string;
   valore: number;

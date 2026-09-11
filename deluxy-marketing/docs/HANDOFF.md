@@ -12,6 +12,48 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — LA DASHBOARD DI BRAND SI LEGGE PER CATEGORIA E PER AREA.**
+> Due tabelle nuove su `/brand/[brand]`, sotto quella per canale: quanto incassa
+> e quanto costa ogni famiglia di prodotto, e quanto ogni città. Misurato su
+> Gifts, ultimi 30 giorni (11/09):
+>
+> · **Categorie** — Fiori 18.395 € di incasso contro 2.146 € di spesa Google
+>   (resa del canale **2,72×**, sotto il break-even di Gifts che è 3,33×; resa
+>   su tutto 8,57×); Torte 3.280 € contro 606 € ma **0,85×** di resa Google —
+>   si paga e non torna. Dolci e Palloncini hanno 313 € e 267 € di spesa **Meta**
+>   con **0 €** attribuiti da Shopify. Le 6 campagne generiche hanno una riga
+>   loro con 1.008 €: la loro spesa **non si spalma** sulle categorie.
+> · **Aree** — Milano 12.505 € / 1.792 € (2,81×), Roma 8.358 € / 1.118 €
+>   (2,31×), Firenze 1.025 € / 313 € con **0 €** attribuiti. «Non ripartibile»
+>   298 € (3 campagne Google che tirano su più città, «Brand Protection» fra
+>   loro); «Destinazione non nota» 3.547 € su 9 ordini.
+>
+> Da sapere per fidarsi dei numeri:
+>
+> 1. **La categoria di una campagna NON è un campo nuovo.** Sta in
+>    `LegameCampagnaShopify`, che già esisteva: dedotta dal nome da
+>    `deduciLegame()`, correggibile a mano dalla scheda campagna, e la scelta a
+>    mano non viene mai sovrascritta. ⚠️ Ci sono ancora **128 campagne senza
+>    riga di legame**: per loro la tabella deduce a memoria, senza scrivere
+>    (una dashboard che apre e scrive 128 righe è un effetto che nessuno si
+>    aspetta), e la riga nasce da sola quando si apre la loro scheda.
+> 2. **Le due colonne di spesa per area non sono misurate allo stesso modo, e
+>    la pagina lo dichiara**: Google dalle località del targeting (un fatto che
+>    l'app censisce), Meta da `breakdowns=region` (Lombardia letta come «area
+>    di Milano» — è una nostra lettura, non un dato di Meta).
+> 3. **La provincia manca sul 62% degli ordini** (148 su 238 su Gifts da
+>    agosto), ma la città scritta al checkout quasi sempre c'è: l'area si legge
+>    dalla provincia quando c'è e altrimenti dalla città ricondotta alle forme
+>    conosciute (Milan/Rome/Florence). Con la sola provincia la tabella avrebbe
+>    descritto un terzo del fatturato dichiarando di descriverlo tutto.
+> 4. **In locale la colonna Meta per area dice «?»**: `META_ACCESS_TOKEN` sta
+>    solo su Vercel. È il comportamento voluto — «non letto», non zero.
+> 5. 🔴 **DETRITO MIO DA RIMUOVERE**: ho aggiunto la colonna
+>    `marketing."Campagna"."categoriaProdotto"` prima di accorgermi che il
+>    legame esisteva già. È **vuota**, non è in `schema.prisma` e nessun codice
+>    la legge. Va tolta quando si vuole:
+>    `ALTER TABLE marketing."Campagna" DROP COLUMN IF EXISTS "categoriaProdotto";`
+>
 > ✅ **11/09/2026 — DENTRO UNA CAMPAGNA META ADESSO CI SI ENTRA DAVVERO.**
 > Fino a stamattina la scheda di una campagna Meta mostrava la campagna e i suoi
 > annunci, ma **non i suoi ad set**: chi la apriva non poteva sapere quale dei

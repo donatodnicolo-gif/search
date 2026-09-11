@@ -52,7 +52,7 @@ function esitoInCoda(cosa: string, avvisi: string[], torna?: string | null) {
   return `/operazioni?${qs.toString()}`;
 }
 import { registra } from "./registro";
-import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, linguaDaNome, NEGOZI_ORDINE } from "./vendite-campagna";
+import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, linguaDaNome, NEGOZI_ORDINE, scegliCategoriaAMano } from "./vendite-campagna";
 import { PAGINE_VISTA } from "./viste";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
@@ -2584,6 +2584,12 @@ export async function lanciaCampagna(fd: FormData) {
     },
   });
 
+  // La categoria di prodotto scelta nel modulo: si scrive subito come legame
+  // manuale, cosi' la campagna entra nella tabella per categoria della
+  // dashboard di brand dal primo giorno invece di aspettare che qualcuno se ne
+  // accorga. Vuoto = si lascia dedurre dal nome.
+  await scegliCategoriaAMano(campagna, testo(fd, "categoriaProdotto"));
+
   const op = await accodaOperazione({
     data: {
       tipo: "nuova_campagna",
@@ -2850,6 +2856,12 @@ export async function lanciaCampagnaMeta(fd: FormData) {
         "La checklist 4.1 va fatta prima di accenderla.",
     },
   });
+
+  // La categoria di prodotto scelta nel modulo: si scrive subito come legame
+  // manuale, cosi' la campagna entra nella tabella per categoria della
+  // dashboard di brand dal primo giorno invece di aspettare che qualcuno se ne
+  // accorga. Vuoto = si lascia dedurre dal nome.
+  await scegliCategoriaAMano(campagna, testo(fd, "categoriaProdotto"));
 
   const op = await accodaOperazione({
     data: {

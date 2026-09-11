@@ -4,6 +4,7 @@ import { Icona } from "@/components/Icona";
 import { lanciaCampagnaMeta } from "@/lib/azioni";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
 import type { InsiemeProdotti, PixelMeta } from "@/lib/meta-annunci";
+import { CATEGORIE_ORDINE, ETICHETTA_CATEGORIA_ORDINE } from "@/lib/vendite-campagna";
 
 // Il modulo di lancio per META — un modulo SUO, non il modulo Google con i
 // nomi cambiati. La struttura segue quella della piattaforma:
@@ -126,6 +127,28 @@ export function ModuloLancioMeta({
                 <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
               ))}
             </select>
+          </div>
+          {/* ⚠️ Questa NON e' la «categoria speciale» di Meta che sta sotto:
+              quella dichiara se l'annuncio parla di credito, lavoro o politica
+              ed e' un obbligo di legge. Questa dice che cosa vendiamo, e serve
+              alla tabella per categoria della dashboard di brand. Due campi
+              che si chiamano quasi uguale vanno spiegati entrambi, o si
+              compilano a caso. */}
+          <div className="campo-modulo">
+            <label>Che cosa vende</label>
+            <select name="categoriaProdotto" defaultValue="">
+              <option value="">— lascia dedurre dal nome —</option>
+              <option value="generico">Generico (non una famiglia sola)</option>
+              {CATEGORIE_ORDINE.filter((c) => c !== "altro").map((c) => (
+                <option key={c} value={c}>
+                  {ETICHETTA_CATEGORIA_ORDINE[c] ?? c}
+                </option>
+              ))}
+            </select>
+            <span className="campo-aiuto">
+              Il prodotto, non la categoria speciale di Meta: mette l&apos;incasso di quella
+              famiglia accanto a quanto si spende per promuoverla.
+            </span>
           </div>
           <div className="campo-modulo">
             <label>Categoria speciale</label>

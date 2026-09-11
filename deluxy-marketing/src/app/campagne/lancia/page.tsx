@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
 import { insiemiProdottoMeta, pixelDelContoMeta, type InsiemeProdotti, type PixelMeta } from "@/lib/meta-annunci";
 import { accountDiBrand } from "@/lib/operazioni";
+import { CATEGORIE_ORDINE, ETICHETTA_CATEGORIA_ORDINE } from "@/lib/vendite-campagna";
 import { ModuloLancioMeta } from "./modulo-meta";
 
 export const dynamic = "force-dynamic";
@@ -258,6 +259,23 @@ export default async function CreaCampagna({
                 </select>
                 <span className="campo-aiuto">
                   È la lingua in cui sono scritti gli annunci, non quella di chi cerca.
+                </span>
+              </div>
+              <div className="campo-modulo">
+                <label>Che cosa vende</label>
+                <select name="categoriaProdotto" defaultValue="">
+                  <option value="">— lascia dedurre dal nome —</option>
+                  <option value="generico">Generico (non una famiglia sola)</option>
+                  {CATEGORIE_ORDINE.filter((c) => c !== "altro").map((c) => (
+                    <option key={c} value={c}>
+                      {ETICHETTA_CATEGORIA_ORDINE[c] ?? c}
+                    </option>
+                  ))}
+                </select>
+                <span className="campo-aiuto">
+                  Serve alla tabella <b>per categoria di prodotto</b> della dashboard del brand, che
+                  mette l&apos;incasso di una famiglia accanto a quanto si spende per promuoverla.
+                  Scegliendo qui, la scelta vince e nessun giro successivo la sovrascrive.
                 </span>
               </div>
             </div>
