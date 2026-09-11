@@ -4,6 +4,37 @@
 >
 > Come le tre app trattano il capogruppo all'11/09: **piattaforma** = entità Capogruppo (nome, P.IVA, CF, SDI, PEC, email) + «chi paga»/«paga da sé» sul partner, dati di fatturazione del partner copiati dal capogruppo e bloccati, pagina Capogruppi, ogni cambio comunicato al registro; **Anagrafiche** = fonte di verità (Capogruppo con anche IBAN, banca, condizioni, amministrazione; `leggiFatturazione` sostituisce i dati fiscali nella risposta API quando `pagaDaSe=false`); **Finance** = legge dal registro e ora intesta al capogruppo; il «fatturato per gruppo» somma le aziende agganciate.
 
+> 🏷️ **11/09/2026 — I PARTNER IL CUI NOME È SOLO PAROLE DEL MESTIERE NON
+> TROVAVANO I PROPRI MOVIMENTI.**
+> Segnalato su **FLOR (FLOWER MARKET)** (`cmro0406o00koi65cznpev8yb`): «non
+> trova i movimenti bancari eppure a quell'IBAN sono stati inviati diversi
+> bonifici».
+> 🔎 **Causa, misurata**: `FLOWER` e `MARKET` sono in `PAROLE_GENERICHE`
+> (dall'08/09, per non pescare gli omonimi) e `FLOR` ha 4 lettere →
+> `tokenPartner("FLOR (FLOWER MARKET)")` = **["FLOR"]**, nessun token forte →
+> `matchPartner` non lo riconosce su nessuna delle scritture vere
+> («FLOWER MARKET SOCIETA' A RESPONSABILITA' LIM» da Qonto, «FlowerMarket srls»
+> nell'estratto). La scheda faceva la cosa giusta con la regola sbagliata.
+> ❌ **Strada scartata: l'IBAN.** Sembrava la via maestra — `TransazioneBancaria`
+> ha `ibanControparte` e il registro dà l'IBAN del partner
+> (`IT80F0200820405000103569673`, intestatario «FlowerMarket srls») — ma la
+> colonna è **NULL su tutti i 22.631 movimenti**: né la sync Qonto né il parser
+> dell'estratto la riempiono (il parser saprebbe, `estratto.ts:192`, ma nei file
+> l'IBAN non c'è). Prima di poterci contare bisogna popolarla.
+> ✅ **Fatto: il riconoscimento per FRASE** (`frasiPartner`/`frasePresente` in
+> `riconciliazione.ts`). Le parole del nome unite senza spazi
+> («FLOWERMARKET») valgono come identità quando sono **almeno due parole e
+> almeno 10 caratteri**; il confronto è senza spazi perché la stessa azienda in
+> banca si scrive in due modi. Entra anche l'**intestatario del conto** dal
+> registro. Usato SOLO nella scheda partner (dove i movimenti sono proposte da
+> confermare): `matchPartner` e la riconciliazione automatica non cambiano.
+> 📏 Misure: FLOR passa da 0 a **17 movimenti** (su 133 che contengono «flower»);
+> gli omonimi restano fuori (`martel gianluca`, `pasticceria martesana`,
+> `ART FLOWERS GALLERY` → falso). **79 partner su 121** guadagnano una frase;
+> **0 frasi condivise** fra partner diversi; una sola contenuta in un'altra
+> (`PASTICCERIATAVEGGIA` dentro `PASTICCERIATAVEGGIAGENNAIO`) — due schede
+> della stessa pasticceria, non due aziende.
+
 > 💶 **11/09/2026 — OGNI MESE SI PAGA A SÉ, ANCHE IN COMPENSAZIONE (regola
 > dell'utente, sostituisce quella del 04/09).**
 > «È sbagliato che in compensazione si paga solo il netto dell'anno, ogni mese

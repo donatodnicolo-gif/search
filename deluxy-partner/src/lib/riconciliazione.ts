@@ -64,6 +64,64 @@ export function tokenPartner(nome: string): string[] {
   );
 }
 
+// ⭐ 11/09/2026 — I PARTNER IL CUI NOME È FATTO SOLO DI PAROLE DEL MESTIERE.
+// Segnalato dall'utente su **FLOR (FLOWER MARKET)**: «non trova i movimenti
+// bancari eppure a quell'IBAN sono stati inviati diversi bonifici». Vero:
+// `FLOWER` e `MARKET` sono in PAROLE_GENERICHE (giustamente: da sole non
+// identificano nessuno) e `FLOR` ha 4 lettere, quindi non è un token forte.
+// Risultato: zero token, zero movimenti, su un partner che in banca c'è eccome.
+//
+// La via d'uscita non è togliere quelle parole dall'elenco — tornerebbero gli
+// omonimi di ARTE E FIORI — ma guardare la FRASE: «flower market» tutto
+// attaccato e nell'ordine è un nome, non una parola del mestiere. Si confronta
+// senza spazi perché la stessa azienda in banca si scrive in due modi
+// («FLOWER MARKET SOCIETA' A RESPONSABILITA'» da Qonto, «FlowerMarket srls»
+// nell'estratto caricato), e si pretendono **almeno 10 caratteri**: sotto quella
+// soglia una frase può capitare dentro un'altra parola, che è esattamente il
+// difetto per sottostringa corretto l'08/09.
+//
+// ⚠️ Non tocca `matchPartner`: la riconciliazione automatica dei movimenti
+// continua a decidere come prima. Questa è una rete in più per chi GUARDA una
+// scheda, dove i movimenti sono proposte da confermare.
+const FORME_SOCIETARIE = new Set(["SRL", "SRLS", "SNC", "SAS", "SPA", "SS", "DITTA", "SOCIETA", "RESPONSABILITA", "LIMITATA", "LIM"]);
+
+/** Le frasi che identificano un partner: il nome fuori dalle parentesi e ogni
+ *  gruppo dentro, senza forme societarie, tenute solo se restano almeno due
+ *  parole e almeno 10 caratteri una volta unite. */
+export function frasiPartner(nome: string): string[] {
+  const pezzi: string[] = [];
+  const fuori = nome.replace(/\([^)]*\)/g, " ");
+  pezzi.push(fuori);
+  for (const m of nome.matchAll(/\(([^)]*)\)/g)) pezzi.push(m[1]);
+  const out = new Set<string>();
+  for (const p of pezzi) {
+    const parole = normalizza(p).split(" ").filter((w) => w && !FORME_SOCIETARIE.has(w));
+    if (parole.length < 2) continue;
+    const unita = parole.join("");
+    if (unita.length >= 10) out.add(unita);
+  }
+  return [...out];
+}
+
+/** La parola più lunga di una frase: serve come prefiltro al database, che non
+ *  sa confrontare senza spazi. */
+export function parolaPerCercare(nome: string): string[] {
+  const out = new Set<string>();
+  for (const p of [nome.replace(/\([^)]*\)/g, " "), ...[...nome.matchAll(/\(([^)]*)\)/g)].map((m) => m[1])]) {
+    const parole = normalizza(p).split(" ").filter((w) => w.length >= 4 && !FORME_SOCIETARIE.has(w));
+    if (parole.length < 2) continue;
+    out.add(parole.sort((a, b) => b.length - a.length)[0]);
+  }
+  return [...out];
+}
+
+/** Il testo contiene, tutta attaccata e nell'ordine, una di quelle frasi? */
+export function frasePresente(testo: string, frasi: string[]): boolean {
+  if (!frasi.length) return false;
+  const compatto = normalizza(testo).replace(/ /g, "");
+  return frasi.some((f) => compatto.includes(f));
+}
+
 export function matchPartner(testo: string, partners: Partner[]): Partner | null {
   // confronto per PAROLE INTERE, non per sottostringa ("FIORE" non deve
   // combaciare con "FIORERIA")

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
-import { tokenPartner, matchPartner } from "@/lib/riconciliazione";
+import { tokenPartner, matchPartner, frasiPartner, parolaPerCercare, frasePresente } from "@/lib/riconciliazione";
 import { segnaFatturaPagata, segnaFatturaCompensata, deleteFattura, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
@@ -177,6 +177,13 @@ export default async function PartnerDetail({
   // questo i candidati sono marcati «per nome — da confermare», non spacciati
   // per certi. I movimenti già attribuiti a un ALTRO partner non entrano.
   const tokenNome = tokenPartner(partner.nome);
+  // 11/09/2026 — le frasi che identificano il partner anche quando ogni sua
+  // parola, da sola, è una parola del mestiere (FLOR (FLOWER MARKET)). Entra
+  // anche l'intestatario del conto del registro, che in banca è il nome che
+  // compare davvero («FlowerMarket srls»).
+  const frasi = [...new Set([...frasiPartner(partner.nome), ...(banca.intestatario ? frasiPartner(banca.intestatario) : [])])];
+  const paroleFrase = [...new Set([...parolaPerCercare(partner.nome), ...(banca.intestatario ? parolaPerCercare(banca.intestatario) : [])])];
+  const daCercare = [...new Set([...tokenNome, ...paroleFrase])];
   // Movimenti esclusi a mano da QUESTA scheda (omonimi «non è questo partner»):
   // si tolgono dai candidati per nome. Lettura non fatale (tabella dedicata,
   // via SQL raw): se fallisce si mostra tutto invece di rompere la scheda.
@@ -241,14 +248,14 @@ export default async function PartnerDetail({
     return movimentoPerData.get(chiave) ?? null;
   };
 
-  const tuttiPartner = tokenNome.length
+  const tuttiPartner = daCercare.length
     ? await prisma.partner.findMany({ select: { id: true, nome: true } })
     : [];
-  const candidatiGrezzi = tokenNome.length
+  const candidatiGrezzi = daCercare.length
     ? await prisma.transazioneBancaria.findMany({
         where: {
           AND: [
-            { partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) },
+            { partnerId: null, OR: daCercare.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) },
             ...(esclusiIds.length ? [{ id: { notIn: esclusiIds } }] : []),
           ],
         },
@@ -274,7 +281,8 @@ export default async function PartnerDetail({
   const contesi = new Map<string, string>();
   const candidati = candidatiGrezzi.filter((m) => {
     const testo = `${m.descrizione} ${m.controparte ?? ""}`;
-    if (matchPartner(testo, [partner])?.id !== id) return false;
+    // o lo riconosce il motore (token), o c'è la frase intera del nome
+    if (matchPartner(testo, [partner])?.id !== id && !frasePresente(testo, frasi)) return false;
     const vincitore = matchPartner(testo, tuttiPartner as Parameters<typeof matchPartner>[1]);
     if (vincitore && vincitore.id !== id) contesi.set(m.id, vincitore.nome);
     return true;
