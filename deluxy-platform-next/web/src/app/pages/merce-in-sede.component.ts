@@ -548,21 +548,25 @@ export class MerceInSedeComponent {
       error: () => this.dotazione.set([]),
     });
     if (!this.eUfficio() || this.prodottiServizio().length) return;
-    // ⚠️ Le due tendine si caricano una volta sola: sono elenchi corti e non cambiano mentre si guarda.
-    this.http.get<{ prodotti?: { id: string; name: string }[] } | { id: string; name: string }[]>(
-      `${environment.apiUrl}/products`, { params: new HttpParams().set('servizio', 'true').set('limit', '200') },
+    /**
+     * ⚠️ L'elenco prodotti risponde `{ items, total, page, pageSize }` e la pagina si chiede con
+     * `pageSize`, non con `limit`. La prima versione leggeva `prodotti` e chiedeva `limit`: la tendina
+     * restava vuota e il pannello diceva «nessun prodotto ha il flag servizio» — cioè dava la colpa al
+     * dato invece che a sé stesso, che è il modo più efficace di mandare qualcuno a cercare nel posto
+     * sbagliato. L'elenco partner invece è un array nudo: si accettano tutte e due le forme.
+     */
+    this.http.get<{ items?: { id: string; name: string }[] }>(
+      `${environment.apiUrl}/products`,
+      { params: new HttpParams().set('servizio', 'true').set('pageSize', '200').set('sort', 'name') },
     ).subscribe({
-      next: (r) => {
-        const lista = Array.isArray(r) ? r : (r?.prodotti ?? []);
-        this.prodottiServizio.set(lista.map((x) => ({ id: x.id, nome: x.name })));
-      },
+      next: (r) => this.prodottiServizio.set((r?.items ?? []).map((x) => ({ id: x.id, nome: x.name }))),
       error: () => this.prodottiServizio.set([]),
     });
-    this.http.get<{ partners?: { id: string; insegna: string }[] } | { id: string; insegna: string }[]>(
-      `${environment.apiUrl}/partners`, { params: new HttpParams().set('limit', '500') },
+    this.http.get<{ items?: { id: string; insegna: string }[] } | { id: string; insegna: string }[]>(
+      `${environment.apiUrl}/partners`, { params: new HttpParams().set('pageSize', '500') },
     ).subscribe({
       next: (r) => {
-        const lista = Array.isArray(r) ? r : (r?.partners ?? []);
+        const lista = Array.isArray(r) ? r : (r?.items ?? []);
         this.partnerDisponibili.set(lista.map((x) => ({ id: x.id, insegna: x.insegna })));
       },
       error: () => this.partnerDisponibili.set([]),
