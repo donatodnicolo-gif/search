@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { creaEvento } from '@/lib/actions'
+import { fineConDurata } from '@/lib/orari'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
 import { Ricorrenza } from './Ricorrenza'
 
@@ -34,23 +35,12 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
   const [oraInizio, setOraInizio] = useState('09:00')
   const [oraFine, setOraFine] = useState('10:00')
 
-  const inMinuti = (o: string) => {
-    const [h, m] = o.split(':').map(Number)
-    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
-  }
-  const daMinuti = (n: number) => {
-    const g = ((n % 1440) + 1440) % 1440 // resta dentro la giornata
-    return `${String(Math.floor(g / 60)).padStart(2, '0')}:${String(g % 60).padStart(2, '0')}`
-  }
+  // La regola sta in `lib/orari.ts`: la stessa la usa anche la MODIFICA
+  // dell'appuntamento, che prima non ce l'aveva (vedi il commento là).
   const cambiaInizio = (nuovo: string) => {
-    const prima = inMinuti(oraInizio)
-    const dopo = inMinuti(nuovo)
-    const fine = inMinuti(oraFine)
     setOraInizio(nuovo)
-    if (dopo === null) return
-    // Durata attuale (se sensata), altrimenti un'ora.
-    const durata = prima !== null && fine !== null && fine > prima ? fine - prima : 60
-    setOraFine(daMinuti(dopo + durata))
+    const nuovaFine = fineConDurata(oraInizio, oraFine, nuovo)
+    if (nuovaFine) setOraFine(nuovaFine)
   }
   // Gli invitati: campo controllato con l'autocompletamento dalla rubrica.
   const [invitati, setInvitati] = useState('')
@@ -126,9 +116,19 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
             <>
               <div>
                 <label className="field-label">Dalle</label>
+                {/* ⏱️ SLOT DI 15 MINUTI: `step={900}` + `min` come ancora (lo
+                    step si conta da lì). La tendina dell'orologio propone i
+                    quarti d'ora; **digitare 16:07 resta possibile**, e va bene
+                    così — un appuntamento alle 16:07 non è un errore da
+                    impedire. Verdetto del custode UX dell'11/09/2026: si usa
+                    sempre il controllo nativo, mai una tendina di 96 voci (su
+                    telefono sarebbe una lista da scorrere al posto della rotella,
+                    e toglierebbe la digitazione rapida). */}
                 <input
                   type="time"
                   name="oraInizio"
+                  step={900}
+                  min="00:00"
                   value={oraInizio}
                   onChange={(e) => cambiaInizio(e.target.value)}
                 />
@@ -138,6 +138,8 @@ export function NuovoEvento({ contatti = [] }: { contatti?: ContattoRubrica[] })
                 <input
                   type="time"
                   name="oraFine"
+                  step={900}
+                  min="00:00"
                   value={oraFine}
                   onChange={(e) => setOraFine(e.target.value)}
                 />

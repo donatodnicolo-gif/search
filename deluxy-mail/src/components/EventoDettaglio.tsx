@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { eliminaEvento, modificaEvento } from '@/lib/actions'
+import { fineConDurata } from '@/lib/orari'
 import { Ricorrenza } from './Ricorrenza'
 import { mostraFlash } from './Flash'
 import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
@@ -77,10 +78,19 @@ export function EventoDettaglio() {
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
+  // L'ora di inizio PRECEDENTE: serve a calcolare la durata da conservare
+  // quando si sposta «Dalle». Sta in un ref perché i campi sono non
+  // controllati e non si vuole un render a ogni cifra digitata.
+  const precedenteInizio = useRef('09:00')
 
   useEffect(() => {
     const su = (e: Event) => {
-      setDati((e as CustomEvent).detail as DatiEvento)
+      const aperto = (e as CustomEvent).detail as DatiEvento
+      setDati(aperto)
+      // ⚠️ Il riferimento per la durata è l'ora di QUESTO appuntamento, non il
+      // 09:00 di partenza: senza questa riga, il primo spostamento di «Dalle»
+      // calcolerebbe la durata da un orario che non c'entra niente.
+      precedenteInizio.current = aperto.oraInizio || '09:00'
       setModifica(false)
       setAmbito('questo')
       setConfermaElimina(false)
@@ -266,11 +276,33 @@ export function EventoDettaglio() {
 
               <div>
                 <label className="field-label">Dalle</label>
-                <input type="time" name="oraInizio" defaultValue={dati.oraInizio || '09:00'} />
+                {/* ⚠️ Qui «Alle» NON seguiva «Dalle»: spostando l'inizio di un
+                    appuntamento già creato, la fine restava dov'era e si poteva
+                    salvare un evento che finisce prima di cominciare. Nel modulo
+                    di creazione il legame c'era, qui no — stesso campo, due
+                    comportamenti (segnalato dal custode UX l'11/09/2026).
+                    La regola sta in `lib/orari.ts`, scritta una volta sola.
+                    I campi restano NON controllati: si scrive nel gemello
+                    passando dal form, senza portarsi dietro uno stato. */}
+                <input
+                  type="time"
+                  name="oraInizio"
+                  step={900}
+                  min="00:00"
+                  defaultValue={dati.oraInizio || '09:00'}
+                  onChange={(e) => {
+                    const modulo = e.currentTarget.form
+                    const fine = modulo?.elements.namedItem('oraFine') as HTMLInputElement | null
+                    if (!fine) return
+                    const nuova = fineConDurata(precedenteInizio.current, fine.value, e.currentTarget.value)
+                    if (nuova) fine.value = nuova
+                    precedenteInizio.current = e.currentTarget.value
+                  }}
+                />
               </div>
               <div>
                 <label className="field-label">Alle</label>
-                <input type="time" name="oraFine" defaultValue={dati.oraFine} />
+                <input type="time" name="oraFine" step={900} min="00:00" defaultValue={dati.oraFine} />
               </div>
 
               <div className="full">

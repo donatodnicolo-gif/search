@@ -23,6 +23,116 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 11/09 (12:43) — IN PRODUZIONE `f5ece73a` (deploy `deluxy-mail-767l9pdgj`, build nel cloud)
+
+Su comando dell'utente («fai push & deploy»). Alias `deluxy-mail.vercel.app` → questo
+deployment (`vercel inspect`), Ready, `/api/health` ok, home 307 in 0,12-0,28 s. Vanno live
+insieme le **due** cose di oggi: i campi ora del Calendario (CSS + slot di 15 minuti) e
+l'invito di calendario già risposto.
+
+⚠️ **Il rebase ha avuto due conflitti, tutti e due sul registro di `MANUALE-DELUXY.html`**, e
+la risoluzione ingenua stava per duplicare tre righe altrui. Come l'ho evitato — vale per la
+prossima volta, perché quel file è il punto di attrito fisso fra le sessioni:
+1. si tengono **tutte** le righe dei due lati (mai scegliere un lato);
+2. poi si **conta**: `grep -c '^      <tr><td>'` sul mio file contro quello di
+   `origin/scout-ui`. La differenza deve essere esattamente il numero di righe che aggiungo io
+   (qui: +1 per commit). Era +4 → tre doppioni;
+3. si trovano i doppioni **veri** confrontando il TESTO INTERO della riga, non la coppia
+   data+app: nel registro esistono legittimamente più righe per la stessa app nello stesso
+   giorno (origin ne ha 6 identiche di suo). Solo le righe **identiche carattere per carattere**
+   nate dalla mia risoluzione vanno tolte.
+Risultato verificato: 294 righe = 292 di origin + 2 mie, e i doppioni identici sono rimasti 6,
+esattamente come in origin.
+
+`tsc` 0 errori dopo il rebase, prima del deploy.
+
+### 11/09 — «Ho accettato ma continua a darmi così»: l'invito di calendario
+
+Segnalazione dell'utente con schermata. **Prima cosa verificata sul database: aveva funzionato
+tutto** — `invitoRisposta = ACCEPTED` sulla mail delle 12:13, evento «deluxy <> chanel» in agenda
+l'11/09 alle 15:30, risposta partita alle 12:26 a `giulia.martino@chanel.com`. Controllato anche
+il sospetto che il secondo messaggio del thread riproponesse i tasti: è la **nostra risposta in
+uscita**, e su quella il riquadro non compare. Quindi il difetto era solo in ciò che lo schermo
+comunicava.
+
+**Il difetto**: il tasto della risposta data restava `primary` — **nero** — con un commento che
+lo motivava «come in Outlook». Ma nel nostro canone il nero è *l'azione da fare adesso*, e il
+Libro §3 ne ammette **una sola per vista**: nella mail il nero è già «Rispondi», quindi a riposo
+ce n'erano **due**. §9-ter dice inoltre che l'unica pillola piena che esprime stato è il passo
+corrente, **che non è cliccabile** — qui lo stesso pixel nero era stato *e* bottone che manda
+una mail a Chanel. (Outlook, per inciso, dopo la risposta **sostituisce** i tre tasti con una riga
+di stato: il commento citava un comportamento che non esiste.) In più la stessa cosa era detta
+**quattro volte** più il riquadro «In agenda» sotto che ripeteva l'appuntamento.
+
+**Applicato** (verdetto del custode `architetto-ux`): zero nero nel riquadro in tutti gli stati.
+Non risposto → badge `orange` «Da rispondere» + tre `secondary`. Risposto → **un** badge, **una**
+riga con le conseguenze, e `[Apri nel calendario] [Cambia risposta] [Togli dal calendario]`.
+«Cambia risposta» apre in loco **solo le altre due** opzioni, con l'avviso *prima* del click
+(§7). Da 4 affermazioni + 1 riquadro a **1 badge + 1 riga**.
+
+🔴 **Due difetti VERI trovati dal custode e corretti**:
+1. **L'evento dell'invito si cercava per `(inizio, titolo)`** — ma rispondendo «Forse» l'evento
+   si crea come «<titolo> (forse)», quindi il confronto falliva: l'app diceva che l'appuntamento
+   non era in calendario mentre c'era, e cambiando risposta ne creava un **secondo gemello**.
+   Ora si cerca per **`messaggioId + inizio`** (in `leggiInvito` e dentro `rispondiInvito`), e il
+   tipo porta `eventoId` invece del booleano `giaInAgenda`.
+2. **La riga di esito era grigia in entrambi i casi**: sul successo ripeteva parola per parola il
+   toast (doppione), sul fallimento «risposta non inviata all'organizzatore» restava smorta sotto
+   un badge verde — la cornice non seguiva l'esito (§7). Ora l'errore è rosso con **«Riprova»**, e
+   il nuovo `organizzatoreEmail` permette di dire la verità quando l'invito non porta
+   l'organizzatore e **nessuna risposta può partire** (prima `rispondiInvito` tornava `ok: true`
+   e il riquadro mostrava un tranquillo verde).
+
+Il riquadro «In agenda» non si disegna più per l'appuntamento dell'invito. ⚠️ Filtro volutamente
+**stretto** — solo a risposta registrata e solo per eventi **non** creati dall'AI: nel dubbio si
+mostra, perché un appuntamento che sparisce da entrambi i riquadri sarebbe molto peggio di uno
+mostrato due volte. E resta comunque raggiungibile dall'invito: **mai invisibile**.
+
+Non toccata la riletura di `leggiInvito` dopo la risposta (è la toppa della segnalazione del
+7/08): rifattorizzando gli stati è la prima cosa che si perde. `tsc` 0 errori.
+
+⚠️ **Non verificato a schermo nell'app vera**: il riquadro sta dietro il login. Ho controllato le
+classi e la resa disegnando i tre stati nel browser col CSS dell'app — è una prova dello stile,
+non del comportamento React.
+
+### 11/09 — Campi ora del Calendario: CSS e slot di 15 minuti (regola nuova del Libro)
+
+Richiesta dell'utente. Passata dal custode `architetto-ux`, come vogliono le regole.
+
+- **La causa non era estetica**: in `globals.css:325` l'elenco dei tipi era `text, number, date,
+  email, select, textarea` — **`time` non c'era**, e nemmeno `tel`, `search`, `password`, `url`,
+  `datetime-local`. Il campo non era «stilizzato male»: non era **selezionato**. Il focus
+  sembrava a posto perché `input:focus` non è qualificato per tipo, quindi il difetto si vedeva
+  solo a riposo. ⚠️ L'app sorella **`deluxy-crm` aveva già l'elenco completo**: eravamo fuori
+  canone — ma il Libro e il DS non nominavano `date`/`time` da nessuna parte, quindi la regola
+  mancava davvero.
+- **Slot**: `step={900}` + `min="00:00"` su **tutti e cinque** i campi ora (`NuovoEvento` ×2,
+  `EventoDettaglio` ×2, `AzioneRapida` ×1). Verificato in Chrome: `16:07` → `stepMismatch`,
+  `16:00/15/30/45` validi. **Si guida senza impedire**: 16:07 resta digitabile, e va bene così.
+  Niente `<select>` di 96 voci (su telefono sostituirebbe la rotella nativa con una lista).
+- 📏 **Misurato dopo, in Chrome**: bordo, raggio, padding e larghezza identici a un campo di
+  testo. **Restano 41px contro 39px**, e i 2px non sono nostri: l'editor `::-webkit-datetime-edit`
+  ha un'altezza minima propria — togliere `min-height` non cambia niente, `line-height` nemmeno,
+  e perfino `height: 39px` viene disattesa (resta 40). Si scende a 40 solo col padding a 8px,
+  cioè fuori canone per un pixel. Il campo **data aveva già** quei 2px: data e ora sono coerenti
+  fra loro, che è quello che si vede in un form. Annotato nel CSS perché nessuno lo rincorra.
+- 🔴 **Difetto trovato dal custode e corretto**: lo stesso campo aveva **tre comportamenti** —
+  in `NuovoEvento` spostare «Dalle» spostava «Alle» conservando la durata, in `EventoDettaglio`
+  **no** (si poteva salvare un appuntamento che finisce prima di cominciare), in `AzioneRapida`
+  «Alle» non esiste. Regola estratta in **`src/lib/orari.ts`** e usata da entrambi i moduli:
+  scritta una volta, non ricopiata. In `EventoDettaglio` i campi restano NON controllati (si
+  scrive nel gemello passando dal form) e l'ora di partenza si risincronizza all'apertura della
+  scheda — senza quella riga il primo spostamento calcolerebbe la durata da un 09:00 che non
+  c'entra niente.
+- **Voce nuova nel Libro UX&UI cap. 4 «Campi data e ora»**, valida per tutte le app, e
+  segnalazione DECISA nel registro UX. Il CSS resta nel `globals.css` dell'app: il DS **non ha
+  un layer CSS di componenti** (i `tokens/` sono solo variabili), quindi la regola è nel Libro e
+  il CSS si duplica finché quel layer non esiste.
+- ⚠️ **Non provato**: su iPhone vero non è verificato che la rotella nativa onori `step=900` sui
+  minuti. Se i 15 minuti dovessero diventare vincolanti, serve l'arrotondamento in `onBlur`.
+
+`tsc` 0 errori.
+
 ### 11/09 — «L'app manda da TUTTE le caselle configurate?» — censimento
 
 Domanda dell'utente. Due risposte diverse, e vanno tenute separate.

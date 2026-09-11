@@ -3813,9 +3813,29 @@ export type InvitoInMail = {
   quando: string
   luogo: string
   organizzatore: string
+  /**
+   * L'email dell'organizzatore, `null` se l'invito non la porta. Serve a dire
+   * la verità sulla risposta: senza un organizzatore la risposta iCal **non
+   * parte**, e `rispondiInvito` torna comunque `ok: true` (l'appuntamento in
+   * agenda ci va lo stesso). Prima il riquadro non aveva modo di distinguere i
+   * due casi e mostrava un tranquillo badge verde anche quando all'altra parte
+   * non era arrivato niente (custode UX, 11/09/2026).
+   */
+  organizzatoreEmail: string | null
   metodo: string
-  /** True se quell'appuntamento è già nel calendario. */
-  giaInAgenda: boolean
+  /**
+   * L'id dell'appuntamento in agenda nato da QUESTO invito, `null` se non c'è.
+   *
+   * ⚠️ Prima qui c'era un booleano calcolato confrontando `(utenteId, inizio,
+   * titolo)`, e il titolo è la cosa sbagliata su cui confrontare: rispondendo
+   * «Forse» l'evento si crea come «<titolo> (forse)», quindi il confronto
+   * falliva e l'app diceva che l'appuntamento NON era in calendario mentre
+   * c'era. Ora si cerca per `messaggioId` + `inizio`, che sono i due dati che
+   * non cambiano. Serve anche a non disegnare due volte lo stesso
+   * appuntamento: la pagina della mail esclude questo id dal riquadro
+   * «In agenda» (custode UX, 11/09/2026).
+   */
+  eventoId: string | null
   /**
    * COSA HAI RISPOSTO, se hai risposto: resta scritto sulla mail.
    * ⚠️ Prima la risposta viveva solo nello stato del componente: accettavi,
@@ -3934,10 +3954,12 @@ export async function leggiInvito(messaggioId: string): Promise<EsitoInvito> {
     return { stato: 'errore', motivo: 'Questa mail contiene un invito, ma è scritto in un formato che non riesco a leggere (manca la data di inizio). Aprilo dall’allegato .ics.' }
   }
 
-  const giaInAgenda =
-    (await db.evento.count({
-      where: { utenteId, inizio: invito.inizio, titolo: invito.titolo },
-    })) > 0
+  // L'appuntamento nato da QUESTA mail (vedi il commento su `eventoId`): si
+  // cerca per messaggio e ora d'inizio, mai per titolo.
+  const eventoDellInvito = await db.evento.findFirst({
+    where: { utenteId, messaggioId: m.id, inizio: invito.inizio },
+    select: { id: true },
+  })
 
   const quando = invito.giornataIntera
     ? invito.inizio.toLocaleDateString('it-IT', { timeZone: FUSO, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -3952,8 +3974,9 @@ export async function leggiInvito(messaggioId: string): Promise<EsitoInvito> {
       quando,
       luogo: invito.luogo,
       organizzatore: invito.organizzatoreNome || invito.organizzatoreEmail,
+      organizzatoreEmail: invito.organizzatoreEmail || null,
       metodo: invito.metodo,
-      giaInAgenda,
+      eventoId: eventoDellInvito?.id ?? null,
       risposta: (m.invitoRisposta as InvitoInMail['risposta']) ?? null,
       rispostoIl: m.invitoRispostoIl
         ? m.invitoRispostoIl.toLocaleString('it-IT', {
@@ -4066,8 +4089,11 @@ export async function rispondiInvito(
   //    dimenticarlo, e il titolo lo dice.
   let notaAgenda = ''
   if (stato !== 'DECLINED') {
+    // ⚠️ Per MESSAGGIO e ora, non per titolo: cambiando risposta da «Forse» ad
+    // «Accetta» il titolo salvato è «… (forse)» e il confronto sul titolo non
+    // lo riconosceva — si creava un secondo appuntamento gemello.
     const gia = await db.evento.count({
-      where: { utenteId, inizio: invito.inizio, titolo: invito.titolo },
+      where: { utenteId, messaggioId: m.id, inizio: invito.inizio },
     })
     if (gia === 0) {
       const creato = await db.evento.create({
