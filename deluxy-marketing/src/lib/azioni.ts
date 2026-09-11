@@ -3124,6 +3124,137 @@ export async function cambiaStatoGruppo(fd: FormData) {
   redirect(`/gruppi/${id}`);
 }
 
+/**
+ * Cambia il BUDGET GIORNALIERO di un ad set di Meta, passando dalla coda.
+ *
+ * ⚠️⚠️ **PERCHÉ SOLO META, e perché il budget non si salva da noi
+ * (11/09/2026).** Su Google il budget sta sulla campagna e l'ad group non ne
+ * ha uno; su Meta invece ogni ad set può avere il suo (e con la CBO ce l'ha
+ * solo la campagna). L'app **non tiene** il budget degli ad set: `Gruppo` non
+ * ha quel campo, e aggiungerlo vorrebbe dire una modifica di schema sul
+ * cluster condiviso con un `db push` — per un numero che Meta sa già e che si
+ * legge vivo in mezzo secondo. Quindi: **si legge dal vivo, si scrive dalla
+ * coda**, come si fa già per gli annunci Meta.
+ *
+ * ⚠️ Il budget di PRIMA arriva dalla pagina (`budgetOra`), che l'ha letto vivo:
+ * serve a due cose, calcolare la variazione percentuale per il guardrail e
+ * scrivere `prima` sull'operazione. Se non arriva, la variazione è «non lo so»
+ * e il guardrail non la valuta — meglio che inventarsi una base.
+ *
+ * ⚠️ `idEsterno` è l'id NUDO dell'ad set: `eseguiOperazioniMeta` lo passa a
+ * `budgetMeta()`, che lo usa come nodo della Graph API. Vedi la nota lunga in
+ * `censisciAdSetMeta`.
+ */
+export async function creaOperazioneBudgetGruppo(fd: FormData) {
+  const ritorno = testo(fd, "ritorno");
+  const gruppoId = testo(fd, "gruppoId");
+  const budget = numeroDa(fd, "budget");
+  if (!gruppoId || budget == null) return;
+
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: gruppoId },
+    include: {
+      campagna: {
+        include: {
+          modifiche: MODIFICHE_CHE_PESANO,
+          incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+        },
+      },
+    },
+  });
+  if (!gruppo) return;
+  const campagna = gruppo.campagna;
+  const base = ritorno ?? `/campagne/${campagna.id}`;
+  const sep = base.includes("?") ? "&" : "?";
+
+  if (gruppo.canale === "google_ads") {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent(
+        "Su Google il budget sta sulla campagna, non sul gruppo di annunci: si cambia dalla scheda della campagna."
+      )}`
+    );
+  }
+  if (!gruppo.idEsterno) {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent(
+        `«${gruppo.nome}» non ha un id di piattaforma: senza quello non si può scrivere su Meta.`
+      )}`
+    );
+  }
+  if (budget <= 0) {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent(
+        "Un budget a zero non mette in pausa: per fermare un ad set si usa «Metti in pausa», che è una decisione leggibile."
+      )}`
+    );
+  }
+
+  // Una sola in volo per ad set: la seconda sarebbe un doppione, e due budget
+  // diversi in coda sullo stesso oggetto non si sa quale vinca.
+  const inVolo = await prisma.operazioneAdv.findFirst({
+    where: { tipo: "budget", gruppoId: gruppo.id, stato: { in: ["in_attesa", "approvata"] } },
+    select: { stato: true },
+  });
+  if (inVolo) {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent(
+        `Un cambio di budget su «${gruppo.nome}» è già in coda (${inVolo.stato === "approvata" ? "approvato" : "da approvare"}): approva quello invece di rifarlo.`
+      )}`
+    );
+  }
+
+  const budgetOra = numeroDa(fd, "budgetOra");
+  const deltaPct = budgetOra && budgetOra > 0 ? ((budget - budgetOra) / budgetOra) * 100 : null;
+
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello: "L2", // un budget è un L2 come sulla campagna: sposta soldi
+    deltaBudgetPct: deltaPct,
+    rollbackPiano: testo(fd, "rollbackPiano"),
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
+    l2Settimana: numeroDa(fd, "l2Settimana") ?? 0,
+  });
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO sulla campagna che contiene questo ad set: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+    );
+  }
+  if (budgetOra == null) {
+    esito.avvisi.push(
+      "Il budget attuale dell'ad set non è stato letto: la variazione percentuale non è stata valutata dal guardrail."
+    );
+  }
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "budget",
+      canale: gruppo.canale,
+      account: campagna.account,
+      bersaglio: gruppo.nome,
+      idEsterno: gruppo.idEsterno,
+      parametri: JSON.stringify({ budget, adset: gruppo.idEsterno, campagna: campagna.nome }),
+      motivo: testo(fd, "motivo") ?? `Budget dell'ad set cambiato dalla scheda di «${campagna.nome}»`,
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
+      livello: "L2",
+      prima: budgetOra != null ? `budget ${budgetOra} €/g` : "budget sconosciuto",
+      campagnaId: campagna.id,
+      gruppoId: gruppo.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): budget dell'ad set «${gruppo.nome}» → ${budget} €/g (${campagna.nome})`,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
+  });
+  revalidatePath(`/campagne/${campagna.id}`);
+  redirect(esitoInCoda(`budget di «${gruppo.nome}» a ${budget} €/g`, esito.avvisi, base));
+}
+
 // Pausa/riattivazione di un gruppo SULLA PIATTAFORMA: come per le campagne
 // passa dalla coda approvata a mano, con gli stessi guardrail della campagna
 // che lo contiene (freeze incidenti, blackout 72h, max 1 L2/L3 a settimana).

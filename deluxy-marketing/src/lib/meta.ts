@@ -486,3 +486,81 @@ export async function leggiAdSetMeta(
     return { adset, errore: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// LE METRICHE PER AD SET
+//
+// ⚠️⚠️ **PERCHÉ SERVONO (11/09/2026).** Censire gli ad set senza i loro numeri
+// dà una tabella di righe a zero: si vede che una campagna ha due ad set e non
+// si vede quale dei due si mangia il budget — che è l'unica domanda per cui si
+// guarda dentro una campagna. Le insights di Meta si chiedono per LIVELLO: le
+// stesse chiamate con `level=adset` portano la stessa riga giornaliera, con
+// `adset_id` invece di `campaign_id`.
+//
+// ⚠️ Valore e conversioni restano gli ACQUISTI (`omni_purchase`), come per le
+// campagne: è la regola scritta in cima a questo file, e vale a ogni livello.
+export type RigaAdSetMeta = {
+  idAdSet: string;
+  idCampagna: string;
+  nome: string;
+  data: string;
+  spesa: number;
+  impression: number;
+  click: number;
+  conversioni: number;
+  ricavi: number;
+};
+
+export async function leggiMetricheAdSetMeta(
+  idAccount: string,
+  dal: string,
+  al: string
+): Promise<{ righe: RigaAdSetMeta[]; errore: string | null }> {
+  const t = token();
+  if (!t) return { righe: [], errore: "META_ACCESS_TOKEN non impostato" };
+
+  const params = new URLSearchParams({
+    level: "adset",
+    fields: "adset_id,adset_name,campaign_id,spend,impressions,clicks,actions,action_values,date_start",
+    time_range: JSON.stringify({ since: dal, until: al }),
+    time_increment: "1",
+    limit: "500",
+    access_token: t,
+  });
+
+  const righe: RigaAdSetMeta[] = [];
+  let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/insights?${params.toString()}`;
+  let pagine = 0;
+  try {
+    while (url && pagine < 40) {
+      const risposta = await fetch(url, { cache: "no-store" });
+      const corpo = await risposta.json();
+      if (!risposta.ok || corpo.error) {
+        const e = corpo.error ?? {};
+        return {
+          righe,
+          errore: `Meta ha risposto ${risposta.status}: ${e.message ?? "errore sconosciuto"}${e.code ? ` (codice ${e.code})` : ""}`,
+        };
+      }
+      for (const d of corpo.data ?? []) {
+        if (!d.adset_id) continue;
+        righe.push({
+          idAdSet: String(d.adset_id),
+          idCampagna: String(d.campaign_id ?? ""),
+          nome: String(d.adset_name ?? "senza nome"),
+          data: String(d.date_start),
+          spesa: Number(d.spend ?? 0) || 0,
+          impression: Number(d.impressions ?? 0) || 0,
+          click: Number(d.clicks ?? 0) || 0,
+          conversioni: valoreAzione(d.actions, TIPI_ACQUISTO),
+          ricavi: valoreAzione(d.action_values, TIPI_ACQUISTO),
+        });
+      }
+      url = corpo.paging?.next ?? "";
+      pagine++;
+    }
+  } catch (e) {
+    return { righe, errore: `Chiamata a Meta fallita: ${String(e).slice(0, 160)}` };
+  }
+  return { righe, errore: null };
+}

@@ -1,7 +1,13 @@
 import { prisma } from "./db";
 import { STATI_CAMPAGNA_NOSTRI } from "./dominio";
 import { deduciTipoConversione, salvaMetriche, type RigaMetrica } from "./ingest-metriche";
-import { leggiAdSetMeta, leggiMetricheMeta, leggiStatoCampagneMeta, metaConfigurato } from "./meta";
+import {
+  leggiAdSetMeta,
+  leggiMetricheAdSetMeta,
+  leggiMetricheMeta,
+  leggiStatoCampagneMeta,
+  metaConfigurato,
+} from "./meta";
 import { registra } from "./registro";
 
 // La sync Meta in un posto solo.
@@ -162,6 +168,10 @@ export async function eseguiSyncMeta(
     // la scheda di una campagna Meta diceva «Gruppi di annunci (0)», e ogni
     // decisione era «tutta la campagna o niente».
     const adset = await censisciAdSetMeta(a.idEsterno);
+    // I numeri di ciascun ad set: senza, la tabella degli ad set sarebbe un
+    // elenco di righe a zero — e la domanda per cui si guarda dentro una
+    // campagna è proprio «quale dei due si mangia il budget».
+    const metricheAdSet = await salvaMetricheAdSetMeta(a.idEsterno, dal, al);
 
     await prisma.ricezioneDati.create({
       data: {
@@ -189,9 +199,11 @@ export async function eseguiSyncMeta(
           chiave: autore,
           righe: adset.visti,
           nuove: adset.creati,
-          aggiornate: adset.aggiornati,
-          scartate: adset.senzaCampagna,
-          esito: adset.errore ? "parziale" : "ok",
+          aggiornate: metricheAdSet.salvate,
+          scartate: adset.senzaCampagna + metricheAdSet.scartate,
+          dal,
+          al,
+          esito: adset.errore || metricheAdSet.errore ? "parziale" : "ok",
         },
       });
     }
@@ -239,6 +251,70 @@ export async function eseguiSyncMeta(
       ? "Alcune righe non hanno acquisti (omni_purchase): quelle campagne ottimizzano un evento a monte, il ROAS non le descrive."
       : undefined,
   };
+}
+
+/**
+ * Salva le metriche giornaliere PER AD SET in `MetricaGruppo`, la stessa
+ * tabella dei gruppi di Google.
+ *
+ * ⚠️ Un ad set che l'app non ha censito si SALTA e si conta: succede quando la
+ * sua campagna non è fra quelle conosciute (Meta riporta anche le archiviate
+ * di anni fa). Creare la riga al volo vorrebbe dire inventare un gruppo senza
+ * sapere di quale campagna è, cioè sporcare l'anagrafica per far entrare un
+ * numero.
+ *
+ * ⚠️ `upsert` su (gruppo, giorno) come per Google: rimandare gli stessi giorni
+ * non duplica, e una sync di tre giorni riscrive gli stessi tre.
+ */
+async function salvaMetricheAdSetMeta(
+  idAccount: string,
+  dal: string,
+  al: string
+): Promise<{ salvate: number; scartate: number; errore: string | null }> {
+  const { righe, errore } = await leggiMetricheAdSetMeta(idAccount, dal, al);
+  if (righe.length === 0) return { salvate: 0, scartate: 0, errore };
+
+  // Gli ad set che l'app conosce, per id di piattaforma: una lettura sola.
+  const gruppi = new Map(
+    (
+      await prisma.gruppo.findMany({
+        where: { canale: "meta_ads", idEsterno: { in: [...new Set(righe.map((r) => r.idAdSet))] } },
+        select: { id: true, idEsterno: true },
+      })
+    ).map((g) => [g.idEsterno as string, g.id])
+  );
+
+  let salvate = 0;
+  let scartate = 0;
+  for (const r of righe) {
+    const gruppoId = gruppi.get(r.idAdSet);
+    if (!gruppoId) {
+      scartate++;
+      continue;
+    }
+    const data = new Date(`${r.data}T00:00:00.000Z`);
+    await prisma.metricaGruppo.upsert({
+      where: { gruppoId_data: { gruppoId, data } },
+      create: {
+        gruppoId,
+        data,
+        spesa: r.spesa,
+        impression: r.impression,
+        click: r.click,
+        conversioni: r.conversioni,
+        ricavi: r.ricavi,
+      },
+      update: {
+        spesa: r.spesa,
+        impression: r.impression,
+        click: r.click,
+        conversioni: r.conversioni,
+        ricavi: r.ricavi,
+      },
+    });
+    salvate++;
+  }
+  return { salvate, scartate, errore };
 }
 
 /**
