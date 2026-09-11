@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import { STATI_CAMPAGNA_NOSTRI } from "./dominio";
 import { deduciTipoConversione, salvaMetriche, type RigaMetrica } from "./ingest-metriche";
-import { leggiMetricheMeta, leggiStatoCampagneMeta, metaConfigurato } from "./meta";
+import { leggiAdSetMeta, leggiMetricheMeta, leggiStatoCampagneMeta, metaConfigurato } from "./meta";
 import { registra } from "./registro";
 
 // La sync Meta in un posto solo.
@@ -29,6 +29,9 @@ export type EsitoAccountMeta = {
   senzaAcquisti: number;
   /** Quante campagne hanno cambiato stato/budget FUORI dalla finestra delle insights. */
   statiAllineati: number;
+  /** Ad set letti da Meta e quanti erano nuovi per l'app. */
+  adsetVisti?: number;
+  adsetNuovi?: number;
   errore: string | null;
 };
 
@@ -155,6 +158,11 @@ export async function eseguiSyncMeta(
     // una credenziale.
     const allineate = await allineaStatiMeta(stati);
 
+    // ⚠️⚠️ GLI AD SET: il censimento che non c'era (11/09/2026). Senza questo
+    // la scheda di una campagna Meta diceva «Gruppi di annunci (0)», e ogni
+    // decisione era «tutta la campagna o niente».
+    const adset = await censisciAdSetMeta(a.idEsterno);
+
     await prisma.ricezioneDati.create({
       data: {
         fonte: "meta_ads",
@@ -172,6 +180,22 @@ export async function eseguiSyncMeta(
       },
     });
 
+    if (adset.visti > 0 || adset.errore) {
+      await prisma.ricezioneDati.create({
+        data: {
+          fonte: "meta_ads",
+          account: a.idEsterno,
+          tipo: "adset",
+          chiave: autore,
+          righe: adset.visti,
+          nuove: adset.creati,
+          aggiornate: adset.aggiornati,
+          scartate: adset.senzaCampagna,
+          esito: adset.errore ? "parziale" : "ok",
+        },
+      });
+    }
+
     risultati.push({
       account: a.idEsterno,
       nome: a.nome,
@@ -180,7 +204,9 @@ export async function eseguiSyncMeta(
       campagneNuove: esito.campagneCreate,
       senzaAcquisti: lettura.senzaAcquisti,
       statiAllineati: allineate,
-      errore: lettura.errore,
+      adsetVisti: adset.visti,
+      adsetNuovi: adset.creati,
+      errore: lettura.errore ?? adset.errore,
     });
   }
 
@@ -213,6 +239,100 @@ export async function eseguiSyncMeta(
       ? "Alcune righe non hanno acquisti (omni_purchase): quelle campagne ottimizzano un evento a monte, il ROAS non le descrive."
       : undefined,
   };
+}
+
+/**
+ * Censisce gli AD SET di un account Meta dentro la tabella `Gruppo`, la stessa
+ * che tiene i gruppi di annunci di Google.
+ *
+ * ⚠️⚠️ **`idEsterno` QUI È L'ID NUDO DELL'AD SET, non `account:adset`.**
+ * Sui gruppi di Google ci sta `account:gruppo`, perché lo script lavora così e
+ * gli id dei gruppi non sono unici fra conti. Su Meta è l'opposto: gli id sono
+ * unici su tutta la piattaforma, e soprattutto `cambiaStatoMeta()` usa
+ * `Gruppo.idEsterno` **come nodo della Graph API** — `creaOperazioneGruppo`
+ * glielo passa così com'è. Scriverci `account:adset` farebbe una POST su un
+ * nodo che non esiste, e la pausa fallirebbe: è **esattamente** il difetto che
+ * l'11/09 ha bruciato la prima pausa di annuncio su Google (in `idEsterno`
+ * c'erano tre pezzi dove ne serviva uno). La regola, scritta una volta per non
+ * ripagarla: in `idEsterno` ci va **quello che l'esecutore userà per trovare
+ * l'oggetto**, e l'esecutore di Meta è l'app, non uno script.
+ *
+ * ⚠️ `stato` — il giudizio NOSTRO — si scrive solo alla creazione: dopo è roba
+ * dell'utente e l'import non lo sovrascrive, come per le campagne e le keyword.
+ * `statoPiattaforma` invece è il fatto, e si riscrive sempre.
+ *
+ * ⚠️ Un ad set la cui campagna l'app non conosce si SALTA e si conta
+ * (`senzaCampagna`): `Gruppo.campagnaId` è obbligatorio, e inventare una
+ * campagna per far entrare una riga vorrebbe dire sporcare l'anagrafica.
+ */
+async function censisciAdSetMeta(idAccount: string): Promise<{
+  visti: number;
+  creati: number;
+  aggiornati: number;
+  senzaCampagna: number;
+  errore: string | null;
+}> {
+  const { adset, errore } = await leggiAdSetMeta(idAccount);
+  if (adset.length === 0) return { visti: 0, creati: 0, aggiornati: 0, senzaCampagna: 0, errore };
+
+  // Le campagne Meta che l'app conosce, per id di piattaforma: una lettura
+  // sola invece di una per ad set.
+  const campagne = new Map(
+    (
+      await prisma.campagna.findMany({
+        where: {
+          canale: "meta_ads",
+          idEsterno: { in: [...new Set(adset.map((a) => a.idCampagna))] },
+        },
+        select: { id: true, idEsterno: true, brand: true },
+      })
+    ).map((c) => [c.idEsterno as string, c])
+  );
+
+  let creati = 0;
+  let aggiornati = 0;
+  let senzaCampagna = 0;
+  for (const a of adset) {
+    const c = campagne.get(a.idCampagna);
+    if (!c) {
+      senzaCampagna++;
+      continue;
+    }
+    // Si preferisce `effective_status`: è quello che decide se eroga davvero
+    // (un ad set ACTIVE dentro una campagna in pausa non eroga).
+    const attivo = (a.effettivo ?? a.stato) === "ACTIVE";
+    const esistente = await prisma.gruppo.findFirst({
+      where: { canale: "meta_ads", idEsterno: a.id },
+      select: { id: true },
+    });
+    if (esistente) {
+      await prisma.gruppo.update({
+        where: { id: esistente.id },
+        data: {
+          nome: a.nome,
+          campagnaId: c.id,
+          brand: c.brand,
+          statoPiattaforma: attivo ? "ENABLED" : "PAUSED",
+          tipo: a.obiettivoOttimizzazione,
+        },
+      });
+      aggiornati++;
+    } else {
+      await prisma.gruppo.create({
+        data: {
+          nome: a.nome,
+          campagnaId: c.id,
+          canale: "meta_ads",
+          brand: c.brand,
+          idEsterno: a.id,
+          tipo: a.obiettivoOttimizzazione,
+          statoPiattaforma: attivo ? "ENABLED" : "PAUSED",
+        },
+      });
+      creati++;
+    }
+  }
+  return { visti: adset.length, creati, aggiornati, senzaCampagna, errore };
 }
 
 /**
