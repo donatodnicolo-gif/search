@@ -348,6 +348,30 @@ export async function scriviPrivacy(
   }
 }
 
+// Una ricorrenza si CORREGGE in Orders (PATCH con chiave di scrittura): tipo,
+// «per chi», titolo, note, stato. Quello che scrive una persona vince sull'AI.
+export async function aggiornaRicorrenza(
+  id: string,
+  dati: { tipo?: string; destinatario?: string; titolo?: string; note?: string | null; stato?: string },
+): Promise<Esito<{ id: string; fusa: boolean }>> {
+  const chiave = await chiaveApp("ORDERS_API_KEY");
+  if (!chiave) return { ok: false, errore: "Manca ORDERS_API_KEY (serve una chiave di Orders con scrittura)." };
+  try {
+    const res = await fetch(`${base()}/api/v1/eventi-clienti/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "x-api-key": chiave, "Content-Type": "application/json", "X-App": "deluxy-crm" },
+      body: JSON.stringify(dati),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const corpo = (await res.json().catch(() => null)) as { errore?: string; id?: string; fusa?: boolean } | null;
+    if (!res.ok) return { ok: false, errore: corpo?.errore ?? `Orders risponde ${res.status}.` };
+    for (const k of cache.keys()) if (k.startsWith("/api/v1/eventi-clienti")) cache.delete(k);
+    return { ok: true, dati: { id: corpo?.id ?? id, fusa: Boolean(corpo?.fusa) } };
+  } catch {
+    return { ok: false, errore: "Orders non risponde: la ricorrenza non è stata corretta." };
+  }
+}
+
 // Orders raggiungibile e con la chiave giusta? Per la pagina Impostazioni.
 export async function statoOrders(): Promise<{ raggiungibile: boolean; autenticato: boolean }> {
   try {

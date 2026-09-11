@@ -7,6 +7,7 @@ import {
   cambiaStatoProgrammazione,
   eliminaNota,
   eliminaProgrammazione,
+  modificaRicorrenza,
   programmaConCliente,
   registraAttivita,
   salvaNota,
@@ -741,8 +742,40 @@ export default async function Scheda({
                             {giornoMese(r.giorno, r.mese)} · {quandoLeggibile(r.fraGiorni)}
                             {r.origine === "dedotto" ? ` · vista ${r.ricorrenze} ${r.ricorrenze === 1 ? "volta" : "volte"}` : ""}
                             {r.stato === "da-confermare" ? " · da confermare" : ""}
+                            {r.ordini.length ? ` · ordini ${r.ordini.slice(0, 3).join(" ")}${r.ordini.length > 3 ? "…" : ""}` : ""}
                           </span>
                         </div>
+                        {/* Correzione in loco: tipo e «per chi» si scrivono in Orders. */}
+                        <details style={{ marginTop: 6 }}>
+                          <summary className="link-quieto piccolo" style={{ cursor: "pointer" }}>
+                            Precisa (occasione, per chi)
+                          </summary>
+                          <form action={modificaRicorrenza} style={{ marginTop: 8 }}>
+                            <input type="hidden" name="id" value={r.id} />
+                            <input type="hidden" name="torna" value={qui} />
+                            <div className="form-riga">
+                              <div className="campo" style={{ marginBottom: 8 }}>
+                                <label>Occasione</label>
+                                <select name="tipo" defaultValue={r.tipo}>
+                                  {Object.entries(TIPI_RICORRENZA).map(([chiave, t]) => (
+                                    <option key={chiave} value={chiave}>{t.nome}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="campo" style={{ marginBottom: 8 }}>
+                                <label>Per chi <span className="aiuto">(vuoto = il cliente)</span></label>
+                                <input type="text" name="destinatario" defaultValue={r.destinatario} placeholder="es. la moglie, Anna" />
+                              </div>
+                            </div>
+                            <div className="campo" style={{ marginBottom: 8 }}>
+                              <label>Come la chiamiamo</label>
+                              <input type="text" name="titolo" defaultValue={r.titolo} placeholder="es. Compleanno di Anna" />
+                            </div>
+                            <div className="form-piede">
+                              <button className="btn ghost mini" type="submit">Salva in Orders</button>
+                            </div>
+                          </form>
+                        </details>
                       </div>
                     </div>
                   );

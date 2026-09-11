@@ -238,7 +238,10 @@ export default async function Ricorrenze({ searchParams }: { searchParams: Promi
                     return (
                       <tr key={r.id}>
                         <td>
-                          <div className="cella-principale">{dataBreve(quando)}</div>
+                          <div className="cella-principale">
+                            {dataBreve(quando)}
+                            <span className="secondario" style={{ fontWeight: 400 }}> · per {r.destinatario || "il cliente"}</span>
+                          </div>
                           <div className="cella-sotto">
                             {giornoMese(r.giorno, r.mese)} · {quandoLeggibile(r.fraGiorni)}
                           </div>

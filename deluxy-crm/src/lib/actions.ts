@@ -7,10 +7,10 @@ import { authAttiva, type Sessione } from "./auth";
 import { sessioneCorrente } from "./sessione-server";
 import { spingiEventoInAgenda } from "./calendario";
 import { inviaMail } from "./mail";
-import { proponiRicorrenza, schedaCliente, scriviPrivacy } from "./orders";
+import { aggiornaRicorrenza, proponiRicorrenza, schedaCliente, scriviPrivacy } from "./orders";
 import { daOraItaliana } from "./ore";
 import { sostituisciVariabili } from "./variabili";
-import { TIPI_ATTIVITA } from "./etichette";
+import { TIPI_ATTIVITA, TIPI_RICORRENZA } from "./etichette";
 import { MAX_CLUSTER, normalizza, slug } from "./cluster";
 
 // Ogni action ricontrolla la sessione (il middleware non basta: una server
@@ -326,6 +326,25 @@ export async function unisciDaTabella(fd: FormData): Promise<void> {
   ]);
   revalidatePath("/clienti");
   redirect(`/clienti/${encodeURIComponent(principale)}?esito=ok`);
+}
+
+// Correggere una ricorrenza dalla scheda: tipo e «per chi» (Orders, PATCH).
+export async function modificaRicorrenza(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const back = ritorno(fd, "/");
+  const id = testo(fd, "id");
+  if (!id) redirect(conEsito(back, "Manca la ricorrenza."));
+  const tipo = testo(fd, "tipo");
+  const dati: { tipo?: string; destinatario?: string; titolo?: string } = {
+    destinatario: testo(fd, "destinatario").slice(0, 120),
+  };
+  if (tipo && tipo in TIPI_RICORRENZA) dati.tipo = tipo;
+  const titolo = testo(fd, "titolo").slice(0, 120);
+  if (titolo) dati.titolo = titolo;
+  const esito = await aggiornaRicorrenza(id, dati);
+  revalidatePath(back);
+  revalidatePath("/ricorrenze");
+  redirect(conEsito(back, esito.ok ? "ok" : esito.errore));
 }
 
 // Il punteggio del cliente (0-100), dato a mano: entra nei cluster.
