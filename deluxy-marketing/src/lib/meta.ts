@@ -381,3 +381,108 @@ export async function censimentoStoricoMeta(
 
   return { righe: [...per.values()], errore: null, mesiLetti };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// GLI AD SET (i «gruppi» di Meta)
+//
+// ⚠️⚠️ **PERCHÉ NON C'ERANO, ed è la base di tutto il resto (11/09/2026).**
+// L'app censiva i gruppi di annunci di Google e NIENTE per Meta: sulla scheda
+// di una campagna Meta si leggeva «Gruppi di annunci (0)», e non era un dato
+// mancante — era un oggetto che non esisteva. Senza gli ad set non si può
+// mostrare dove va la spesa dentro la campagna, e non si può agire su un
+// pezzo: né fermarlo, né cambiargli budget. Ogni decisione restava «tutta la
+// campagna o niente», che su una campagna da 35 €/g con quattro ad set vuol
+// dire non poter decidere.
+//
+// ⚠️ Come per le campagne, **le archiviate vanno chieste**: il nodo /adsets
+// senza filtro riporta solo ACTIVE e PAUSED, e un ad set archiviato non
+// comparirebbe — indistinguibile da «non esiste». Stesso ripiego: se Meta
+// rifiuta il filtro (i valori ammessi cambiano fra versioni della Graph API)
+// si riparte senza, perché un elenco parziale è meglio di nessun elenco.
+export type AdSetMeta = {
+  id: string;
+  nome: string;
+  idCampagna: string;
+  stato: string;
+  effettivo: string | null;
+  /** Budget giornaliero in euro, se l'ad set ne ha uno suo (con la CBO sta sulla campagna). */
+  budgetGiorno: number | null;
+  /** Budget totale in euro, per gli ad set a durata. */
+  budgetTotale: number | null;
+  obiettivoOttimizzazione: string | null;
+  inizio: string | null;
+  fine: string | null;
+};
+
+export async function leggiAdSetMeta(
+  idAccount: string
+): Promise<{ adset: AdSetMeta[]; errore: string | null }> {
+  const t = token();
+  if (!t) return { adset: [], errore: "META_ACCESS_TOKEN non impostato" };
+
+  const CON_ARCHIVIATI = JSON.stringify([
+    {
+      field: "effective_status",
+      operator: "IN",
+      value: ["ACTIVE", "PAUSED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DELETED"],
+    },
+  ]);
+  const parametri = (conFiltro: boolean) => {
+    const q = new URLSearchParams({
+      fields:
+        "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,optimization_goal,start_time,end_time",
+      limit: "500",
+      access_token: t,
+    });
+    if (conFiltro) q.set("filtering", CON_ARCHIVIATI);
+    return q;
+  };
+
+  const adset: AdSetMeta[] = [];
+  try {
+    let conFiltro = true;
+    let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/adsets?${parametri(true).toString()}`;
+    let pagine = 0;
+    while (url && pagine < 20) {
+      const risposta = await fetch(url, { cache: "no-store" });
+      const corpo = await risposta.json();
+      if (!risposta.ok || corpo.error) {
+        if (conFiltro) {
+          // Il filtro non è passato: si riprova senza, una volta sola.
+          conFiltro = false;
+          pagine = 0;
+          adset.length = 0;
+          url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/adsets?${parametri(false).toString()}`;
+          continue;
+        }
+        return {
+          adset,
+          errore: String(corpo?.error?.message ?? `HTTP ${risposta.status}`),
+        };
+      }
+      for (const r of (corpo.data ?? []) as Record<string, unknown>[]) {
+        // ⚠️ Meta manda i budget in CENTESIMI, come stringa. Dimenticarlo
+        // significa scrivere 3.500 €/g dove ce ne sono 35 — è già successo
+        // nella scrittura (vedi `budgetMeta`), qui si divide leggendo.
+        const cent = (v: unknown) => (v == null || v === "" ? null : Number(v) / 100);
+        adset.push({
+          id: String(r.id),
+          nome: String(r.name ?? "(senza nome)"),
+          idCampagna: String(r.campaign_id ?? ""),
+          stato: String(r.status ?? ""),
+          effettivo: r.effective_status ? String(r.effective_status) : null,
+          budgetGiorno: cent(r.daily_budget),
+          budgetTotale: cent(r.lifetime_budget),
+          obiettivoOttimizzazione: r.optimization_goal ? String(r.optimization_goal) : null,
+          inizio: r.start_time ? String(r.start_time) : null,
+          fine: r.end_time ? String(r.end_time) : null,
+        });
+      }
+      url = String((corpo.paging?.next as string) ?? "");
+      pagine++;
+    }
+    return { adset, errore: null };
+  } catch (e) {
+    return { adset, errore: e instanceof Error ? e.message : String(e) };
+  }
+}
