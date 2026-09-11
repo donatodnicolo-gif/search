@@ -330,6 +330,13 @@ export class MerchandisingSyncService {
     id: string; sku?: string | null; name: string; description?: string | null;
     price?: number | null; publicPrice?: number | null; imageUrl?: string | null;
     createdFrom?: string | null; category?: { name?: string | null } | null;
+    // ⭐ 11/09/2026: la firma si allarga con i campi del contratto §3.1, tutti facoltativi — chi chiama
+    // con un prodotto «magro» continua a funzionare, e chi passa l'intero record li manda tutti.
+    shortDesc?: string | null; note?: string | null; prepDays?: number | null;
+    notPhysical?: boolean | null; alternateName?: string | null; useAlternateName?: boolean | null;
+    images?: string | null; tipologiaVendita?: string | null; type?: string | null;
+    partnerId?: string | null;
+    variants?: { name: string; sku?: string | null; price?: number | null; publicPrice?: number | null; note?: string | null; stock?: number | null }[] | null;
   }, extra?: { partner?: string | null }): void {
     if (product.createdFrom === DA_MERCHANDISING) return;
     void this.inviaOra(product, extra).catch((err) =>
@@ -347,10 +354,40 @@ export class MerchandisingSyncService {
     id: string; sku?: string | null; name: string; description?: string | null;
     price?: number | null; publicPrice?: number | null; imageUrl?: string | null;
     category?: { name?: string | null } | null;
+    // ⭐ 11/09/2026: i campi che Merchandising accetta già e che non partivano (contratto §3.1).
+    shortDesc?: string | null; note?: string | null; prepDays?: number | null;
+    notPhysical?: boolean | null; alternateName?: string | null; useAlternateName?: boolean | null;
+    images?: string | null; tipologiaVendita?: string | null; type?: string | null;
+    partnerId?: string | null;
+    variants?: { name: string; sku?: string | null; price?: number | null; publicPrice?: number | null; note?: string | null; stock?: number | null }[] | null;
   }, extra?: { partner?: string | null }) {
     const { url, chiave } = await this.config();
     if (!url || !chiave) return { ok: false, messaggio: 'Merchandising non configurato.' };
     if (!product.sku) return { ok: false, messaggio: 'Il prodotto non ha SKU: Merchandising lo riconosce da quello.' };
+
+    /**
+     * ⭐ 11/09/2026 (contratto §2-ter, chiesto da Merchandising) — I DATI DEL PARTNER VIAGGIANO COL
+     * PRODOTTO: insegna, id numerico, città e province.
+     *
+     * Di là quei quattro riempiono i campi del negozio che solo noi conosciamo: `custom.partner_id`,
+     * `custom.partner_address` (da dove parte la consegna) e `custom.nations_availability` (dove si può
+     * comprare). Senza, restano vuoti finché non passa il cron — e il cron scrive su Shopify, quindi su
+     * un prodotto ancora da approvare non scrive affatto.
+     *
+     * ⚠️ `legacyId` va mandato SOLO se numerico: di là è il metafield `custom.partner_id`, dichiarato
+     * `number_integer` su Shopify, e un cuid lì dentro fa rifiutare l'intero prodotto.
+     * ⚠️ Si rilegge il partner da qui invece di fidarsi di quello che arriva: `spingi()` viene chiamata
+     * da più punti, e non tutti includono le province. Una query in più su una creazione non si sente.
+     */
+    const partner = product.partnerId
+      ? await this.prisma.partner.findUnique({
+          where: { id: product.partnerId },
+          select: {
+            insegna: true, legacyId: true, city: true,
+            provinces: { select: { province: { select: { code: true } } } },
+          },
+        })
+      : null;
 
     const res = await fetch(`${url}/api/v1/prodotti`, {
       method: 'POST',
@@ -365,6 +402,29 @@ export class MerchandisingSyncService {
         immagine: product.imageUrl ?? null,
         origine: extra?.partner ? 'partner' : 'platform',
         idEsterno: product.id,
+        shortDesc: product.shortDesc ?? null,
+        note: product.note ?? null,
+        prepDays: product.prepDays ?? null,
+        notPhysical: product.notPhysical ?? null,
+        alternateName: product.alternateName ?? null,
+        useAlternateName: product.useAlternateName ?? null,
+        images: product.images ?? null,
+        tipologiaVendita: product.tipologiaVendita ?? null,
+        type: product.type ?? null,
+        partnerId: product.partnerId ?? null,
+        partner: partner
+          ? {
+              insegna: partner.insegna,
+              // Numerico o niente: vedi l'avvertenza qui sopra.
+              legacyId: typeof partner.legacyId === 'number' ? partner.legacyId : null,
+              city: partner.city ?? null,
+              provinces: partner.provinces.map((p) => p.province?.code).filter(Boolean),
+            }
+          : null,
+        variants: (product.variants ?? []).map((v) => ({
+          name: v.name, sku: v.sku ?? null, price: v.price ?? null,
+          publicPrice: v.publicPrice ?? null, note: v.note ?? null, stock: v.stock ?? null,
+        })),
         ...(extra?.partner ? {
           nomePartner: product.name,
           nomePartnerAttivo: true,

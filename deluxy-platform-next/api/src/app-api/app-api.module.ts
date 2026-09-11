@@ -1348,6 +1348,47 @@ export class AppApiService {
    * `generico` = il prodotto del catalogo comune «Servizio Consegna»: serve
    * quando la merce non sta a catalogo e si descrive nelle note.
    */
+  /**
+   * ⭐ 11/09/2026 (contratto §3.2, chiesto da Merchandising) — L'APPROVAZIONE TORNA INDIETRO.
+   *
+   * Un prodotto creato da un partner parte da qui, va in Merchandising «da approvare», e lì qualcuno
+   * decide. Fin qui la decisione restava di là: la piattaforma non lo sapeva, e sulla scheda del
+   * prodotto si leggeva ancora «da approvare» per sempre. Questa rotta chiude il giro.
+   *
+   * ⚠️ SI SCRIVE SOLO `approved`. Nel corpo arrivano anche prezzo pubblico, sku e nome, e restano dove
+   * sono: l'offerta del partner (nome, prezzo, varianti) ha casa QUI (Standard Deluxy §7, e §4 del
+   * contratto), la decisione di approvare ha casa LÀ. Sovrascrivere il prezzo del partner con quello di
+   * un'altra app sarebbe una copia che diverge al primo ritocco.
+   * ⚠️ L'id è il `Product.id` che abbiamo mandato noi come `idEsterno`: chi risponde cita il nostro
+   * riferimento, non il suo.
+   */
+  async approvazioneProdotto(
+    id: string,
+    corpo: { approvato?: boolean; prezzoPubblico?: number | null; sku?: string | null; nome?: string | null; da?: string },
+    chiamante: string,
+  ) {
+    const prodotto = await this.prisma.product.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, name: true, sku: true, approved: true, partnerId: true },
+    });
+    if (!prodotto) throw new NotFoundException('Prodotto non trovato');
+    const approvato = corpo?.approvato !== false;
+    if (prodotto.approved === approvato) {
+      return { ok: true, id: prodotto.id, approvato, giaCosi: true };
+    }
+    await this.prisma.product.update({ where: { id }, data: { approved: approvato } });
+    return {
+      ok: true,
+      id: prodotto.id,
+      nome: prodotto.name,
+      sku: prodotto.sku,
+      approvato,
+      da: corpo?.da ?? chiamante,
+      // Si dice a chi chiama cosa NON abbiamo toccato, così non resta il dubbio che sia andato perso.
+      ignorati: ['prezzoPubblico', 'sku', 'nome'].filter((c) => (corpo as Record<string, unknown>)?.[c] != null),
+    };
+  }
+
   async prodotti(q?: string, partnerId?: string) {
     const testo = (q ?? '').trim();
     const dove: Record<string, unknown> = { deletedAt: null, archived: false, active: true };
@@ -1658,6 +1699,26 @@ export class AppApiController {
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (sola lettura basta)' })
   prodotti(@Query('q') q?: string, @Query('partnerId') partnerId?: string) {
     return this.service.prodotti(q, partnerId);
+  }
+
+  /**
+   * ⭐ 11/09/2026 (contratto §3.2) — MERCHANDISING CI DICE CHE HA APPROVATO.
+   *
+   * L'id nell'indirizzo è il nostro `Product.id`, quello che gli mandiamo come `idEsterno`.
+   * Scriviamo solo `approved`: il resto del corpo si legge e si dichiara ignorato (vedi il servizio).
+   */
+  @Post('prodotti/:id/approvato')
+  @ApiOperation({
+    summary: "Merchandising comunica l'esito dell'approvazione di un prodotto: scrive solo Product.approved",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  @UseGuards(ScritturaRichiestaGuard)
+  approvazioneProdotto(
+    @Param('id') id: string,
+    @Body() corpo: { approvato?: boolean; prezzoPubblico?: number | null; sku?: string | null; nome?: string | null; da?: string },
+    @Req() req: any,
+  ) {
+    return this.service.approvazioneProdotto(id, corpo ?? {}, req.appChiave?.nome ?? 'app sconosciuta');
   }
 
   // ⭐ 10/09/2026 — IL CALENDARIO DEL PARTNER DEI PRODOTTI UNICI, PER SKU.
