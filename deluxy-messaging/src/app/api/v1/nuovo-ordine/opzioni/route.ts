@@ -95,8 +95,18 @@ export async function GET(req: NextRequest) {
         { nome: 'biglietto', tipo: 'string', spiegazione: 'La dedica che accompagna il regalo.' },
         { nome: 'spedizione', tipo: '{ titolo, prezzo }', spiegazione: 'Una voce usata, una tariffa del sito, una scritta a mano, o vuota (senza consegna).' },
         { nome: 'aggiungiIva', tipo: 'boolean', spiegazione: "Aggiungere l'IVA sopra ai prezzi (vedi iva)." },
-        { nome: 'pagamento', tipo: '"link" | "pagato"', spiegazione: 'Link di pagamento, oppure ordine che nasce pagato.' },
-        { nome: 'mezzoPagamento', tipo: 'string', spiegazione: 'Con che mezzo ha pagato (solo con pagamento = pagato).' },
+        {
+          nome: 'pagamento',
+          tipo: '"link" | "pagato" | "alla-consegna"',
+          spiegazione:
+            'Link di pagamento (resta bozza finché non paga), ordine che nasce pagato, oppure ⭐ «alla-consegna»: l’ordine nasce subito e resta DA INCASSARE (su Shopify «in attesa di pagamento», con l’importo dovuto). I soldi li prende chi consegna.',
+        },
+        {
+          nome: 'mezzoPagamento',
+          tipo: 'string',
+          spiegazione:
+            'Con che mezzo ha pagato o pagherà: vale con pagamento = pagato e con alla-consegna. Le voci vere del negozio stanno in metodiPagamento qui sopra; per il contrassegno si usa «Contanti alla consegna» o «POS alla consegna», che su Shopify non esistono come gateway perché quei soldi non passano di lì.',
+        },
       ],
     },
     { headers: { 'Cache-Control': 'no-store' } }

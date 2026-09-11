@@ -613,6 +613,25 @@
         <div class="log">
           <div class="log-item">
             <span class="when">11/09/2026</span>
+            <span class="what"><b>Nuovo ordine: si può far pagare alla consegna.</b> Richiesta dell'utente («metti come
+              possibilità di scelta del pagamento … esempio pagamento alla consegna»). Le due strade di prima non
+              sapevano dirlo: col <b>link</b> la merce non parte finché il cliente non paga, con <b>«ha già
+              pagato»</b> si dichiarano incassati dei soldi che nessuno ha preso — e per far partire un
+              contrassegno si finiva per mentire alla contabilità. Ora c'è la terza scelta, <b>«Paga alla
+              consegna»</b>: l'ordine nasce <b>subito e da incassare</b>, su Shopify resta «in attesa di pagamento»
+              con l'importo dovuto, e i soldi li prende chi consegna. Il mezzo si sceglie dalla stessa tendina —
+              che porta <b>i metodi veri di quel negozio</b>, letti dai suoi ordini — con in più «Contanti alla
+              consegna» e «POS alla consegna», che fra i gateway di Shopify non compaiono mai perché quei soldi non
+              passano di lì. Il contrassegno viaggia in due modi: <b>scritto nella nota</b> per chi consegna («DA
+              INCASSARE ALLA CONSEGNA») e come <b>attributo</b> per le macchine, che è quello che fa nascere nella
+              piattaforma consegne una «Vendita con Pagamento alla Consegna» con l'importo da ritirare.
+              ⚠️ Come funziona sotto: Shopify non lascia scegliere il gateway chiudendo una bozza (i gateway
+              manuali non si possono nemmeno elencare, riprovato sull'API 2025-01), ma lascia dire <i>quando</i> il
+              pagamento è dovuto — e «alla consegna» è un suo termine di pagamento. Provato su un ordine vero, poi
+              annullato: nasce in attesa di pagamento con l'importo giusto da incassare.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
             <span class="what"><b>Un rimborso già reso su Shopify si chiude da solo.</b> Segnalato dall'utente
               sull'ordine <b>#12868</b>: «risulta già rimborsato su Shopify, in questi casi chiudi in automatico».
               Misurato su quel caso: il rimborso di 135,00 € era stato fatto su Shopify alle 15:15:07 e la richiesta

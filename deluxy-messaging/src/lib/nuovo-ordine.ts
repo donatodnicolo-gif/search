@@ -401,9 +401,17 @@ export type DatiNuovoOrdine = {
    * · `link` — gli si manda il link di pagamento e paga lui (resta bozza finché
    *   non paga);
    * · `pagato` — ha già pagato (bonifico, contanti, POS): l'ordine nasce
-   *   **pagato**.
+   *   **pagato**;
+   * · `alla-consegna` — ⭐ 11/09/2026 (utente: «metti come possibilità di
+   *   scelta del pagamento … esempio pagamento alla consegna»): l'ordine nasce
+   *   **subito e da incassare**. La merce parte, i soldi li prende chi consegna.
+   *
+   * ⚠️ `alla-consegna` non è «una bozza che aspetta»: è un ordine vero con il
+   * pagamento in sospeso. Senza, l'unico modo di far partire un contrassegno
+   * era segnarlo pagato quando pagato non era — e da lì in avanti nessuno
+   * sapeva più che c'erano dei soldi da prendere.
    */
-  pagamento: 'link' | 'pagato'
+  pagamento: 'link' | 'pagato' | 'alla-consegna'
   /**
    * La consegna e ANONIMA: chi riceve non deve sapere da parte di chi.
    * ⚠️ Viaggia in tre posti — nota dell ordine, attributo Consegna_Anonima e
@@ -494,6 +502,46 @@ type BozzaPreparata =
  * due copie vorrebbe dire che una correzione (un tetto di 255 caratteri, un
  * attributo nuovo) arriva a una strada e non all'altra.
  */
+/**
+ * ⭐ 11/09/2026 — «PAGA ALLA CONSEGNA», DETTO A SHOPIFY.
+ *
+ * ⚠️⚠️ Shopify non lascia scegliere un gateway quando si chiude una bozza (vedi
+ * `metodiPagamentoDelNegozio`: i gateway manuali non si possono nemmeno
+ * elencare, riprovato sull'API 2025-01). Quello che si può dire è QUANDO è
+ * dovuto il pagamento: sono i **termini di pagamento**, e il modello
+ * `FULFILLMENT` — «Due on fulfillment» — vuol dire esattamente «si paga quando
+ * la merce arriva».
+ *
+ * Con quei termini sulla bozza, `draftOrderComplete` non crea un ordine pagato:
+ * ne crea uno **PENDING**, con l'importo ancora da incassare. Misurato l'11/09
+ * su un ordine di prova poi annullato: bozza #D5714 → ordine #12937,
+ * `displayFinancialStatus: PENDING`, `totalOutstanding` 1,22 €.
+ *
+ * ⚠️ L'id del modello si CHIEDE al negozio e non si scrive nel codice: è un
+ * `gid` e, anche se oggi è lo stesso ovunque, un id indovinato che sbaglia non
+ * dà errore — fa nascere l'ordine con i termini di un altro.
+ * ⚠️ Se il negozio non ha il modello, si ripiega su `RECEIPT` («alla ricezione»)
+ * e, in mancanza di tutto, si torna `null`: senza termini l'ordine nascerebbe
+ * PAGATO, e chi chiama deve poterlo fermare invece di dichiarare incassati dei
+ * soldi che nessuno ha preso.
+ */
+const terminiPerNegozio = new Map<string, string | null>()
+
+async function terminiAllaConsegna(n: Negozio, t: string): Promise<string | null> {
+  const gia = terminiPerNegozio.get(n.id)
+  if (gia !== undefined) return gia
+  const r = await graphql<{
+    data?: { paymentTermsTemplates?: { id: string; paymentTermsType?: string }[] }
+  }>(n, t, `{ paymentTermsTemplates { id paymentTermsType } }`).catch(() => ({}) as never)
+  const tutti = r.data?.paymentTermsTemplates ?? []
+  const scelto =
+    tutti.find((x) => x.paymentTermsType === 'FULFILLMENT')?.id ??
+    tutti.find((x) => x.paymentTermsType === 'RECEIPT')?.id ??
+    null
+  terminiPerNegozio.set(n.id, scelto)
+  return scelto
+}
+
 async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
   const n = await negozio(d.negozioId)
   if (!n) return { ok: false, errore: 'Negozio non trovato.' }
@@ -558,6 +606,15 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
     d.pagamento === 'pagato' && d.mezzoPagamento.trim()
       ? `Pagato con: ${d.mezzoPagamento.trim()} (registrato dal servizio clienti)`
       : '',
+    // ⚠️⚠️ Il contrassegno si scrive a lettere nella nota: chi consegna legge
+    // QUESTA, non lo stato finanziario di Shopify, e deve sapere che deve
+    // tornare con dei soldi. L'importo non si ricopia qui — lo sa Shopify, e un
+    // numero scritto due volte prima o poi diverge.
+    d.pagamento === 'alla-consegna'
+      ? `DA INCASSARE ALLA CONSEGNA${
+          d.mezzoPagamento.trim() ? ` — ${d.mezzoPagamento.trim()}` : ''
+        }: l'ordine non è pagato.`
+      : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -581,6 +638,13 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
       // ⭐ L'eccezione agli orari anche come attributo: lo legge una macchina
       // (Orders, piattaforma), la nota la legge una persona.
       ...(eccezione ? [{ key: 'Eccezione_Orari', value: eccezione.motivo }] : []),
+      // ⭐ Il contrassegno come ATTRIBUTO: lo legge Orders, e da Orders la
+      // piattaforma consegne — che su un ordine in contrassegno fa nascere
+      // «Vendita con Pagamento alla Consegna» e dice al valet quanto incassare.
+      // Nella nota c'è per le persone, qui per le macchine.
+      ...(d.pagamento === 'alla-consegna'
+        ? [{ key: 'Pagamento_Alla_Consegna', value: d.mezzoPagamento.trim() || 'Si' }]
+        : []),
     ],
     // ⚠️⚠️ L'IVA È UNA SCELTA. Su Deluxy e Flowers i prezzi sono IVA esclusa,
     // quindi senza questo Shopify aggiunge l'imposta sopra al totale del link.
@@ -642,6 +706,20 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
           },
         }
       : {}),
+  }
+
+  // ⭐ I termini di pagamento, solo per il contrassegno: sono ciò che fa nascere
+  // un ordine DA INCASSARE invece di uno pagato.
+  if (d.pagamento === 'alla-consegna') {
+    const termini = await terminiAllaConsegna(n, t)
+    if (!termini) {
+      return {
+        ok: false,
+        errore:
+          'Questo negozio non ha i termini di pagamento di Shopify: senza, l’ordine nascerebbe come già pagato. Usa il link di pagamento, oppure fallo nascere pagato solo se ha pagato davvero.',
+      }
+    }
+    input.paymentTerms = { paymentTermsTemplateId: termini }
   }
 
   return { ok: true, n, t, input }
@@ -775,11 +853,20 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     }
   }
 
-  // Già pagato: la bozza si chiude e diventa un ordine pagato.
+  // ── LA BOZZA DIVENTA UN ORDINE ──
+  //
+  // Due casi, e la mutazione è la stessa: «già pagato» fa nascere un ordine
+  // PAGATO, «alla consegna» uno DA INCASSARE. La differenza l'ha già fatta
+  // `preparaBozza` mettendo i termini di pagamento sulla bozza — qui non si
+  // decide più niente.
+  //
+  // ⚠️ Si rilegge `displayFinancialStatus`: è l'unica prova che i termini hanno
+  // fatto effetto. Se un contrassegno tornasse PAID vorrebbe dire che Shopify
+  // ha incassato dei soldi che nessuno ha preso, e va detto subito.
   const chiusa = await graphql<{
     data?: {
       draftOrderComplete?: {
-        draftOrder?: { order?: { name: string } | null } | null
+        draftOrder?: { order?: { name: string; displayFinancialStatus?: string } | null } | null
         userErrors?: { message: string }[]
       }
     }
@@ -789,7 +876,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     t,
     `mutation Chiudi($id: ID!) {
       draftOrderComplete(id: $id) {
-        draftOrder { order { name } }
+        draftOrder { order { name displayFinancialStatus } }
         userErrors { message }
       }
     }`,
@@ -805,7 +892,17 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       errore: `Bozza creata (${bozza.name}) ma non chiusa: ${erroreChiudi}. Finiscila da Shopify, non rifarla da qui.`,
     }
   }
-  const numeroVero = chiusa.data?.draftOrderComplete?.draftOrder?.order?.name ?? ''
+  const ordineNato = chiusa.data?.draftOrderComplete?.draftOrder?.order
+  const numeroVero = ordineNato?.name ?? ''
+  // ⚠️ Il controllo che vale: un contrassegno DEVE nascere non pagato. Non si
+  // ferma niente (l'ordine ormai c'è), ma chi guarda lo deve sapere subito,
+  // perché un ordine «pagato» per sbaglio non lo incassa più nessuno.
+  const soldiNonPresi =
+    d.pagamento === 'alla-consegna' &&
+    ordineNato?.displayFinancialStatus &&
+    ordineNato.displayFinancialStatus !== 'PENDING'
+      ? ` ⚠️ Attenzione: Shopify lo dà come «${ordineNato.displayFinancialStatus}» invece che da incassare — controllalo prima di farlo partire.`
+      : ''
   await segnaOrdineCreato(d, {
     bozzaId: bozza.id,
     bozzaNome: bozza.name,
@@ -821,7 +918,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     linkPagamento: '',
     ordineNumero: numeroVero,
     inviato: false,
-    consensoEsito,
+    consensoEsito: `${consensoEsito}${soldiNonPresi}`.trim(),
   }
 }
 
@@ -861,6 +958,15 @@ export async function aggiornaBozza(
   }
   if (d.pagamento === 'pagato') {
     return { ok: false, errore: 'Per chiuderla come pagata usa «Segna pagata» nell’elenco delle bozze.' }
+  }
+  // ⚠️ «Alla consegna» non è uno stato che una bozza possa prendere: è un
+  // ordine già nato, e un ordine non si modifica da qui.
+  if (d.pagamento === 'alla-consegna') {
+    return {
+      ok: false,
+      errore:
+        'Una bozza non diventa «da incassare alla consegna»: quello è un ordine che nasce già così. Modifica la bozza e mandale il link, oppure annullala e rifai l’ordine come contrassegno.',
+    }
   }
 
   const preparata = await preparaBozza(d)

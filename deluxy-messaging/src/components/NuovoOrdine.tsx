@@ -305,7 +305,7 @@ export function NuovoOrdine({
   const [clienteCercato, setClienteCercato] = useState(false)
   const [biglietto, setBiglietto] = useState('')
 
-  const [pagamento, setPagamento] = useState<'link' | 'pagato'>('link')
+  const [pagamento, setPagamento] = useState<'link' | 'pagato' | 'alla-consegna'>('link')
   const [mezzo, setMezzo] = useState('')
   /**
    * I metodi che QUESTO negozio usa davvero, chiesti ai suoi ordini.
@@ -1038,6 +1038,14 @@ export function NuovoOrdine({
       const ok = window.confirm(
         `L'ordine nascerà già PAGATO (${mezzo}) per ${soldi(totale)}.\n\n` +
           'Usalo solo se i soldi sono già arrivati. Procedo?'
+      )
+      if (!ok) return
+    }
+    // ⭐ E il contrassegno dice l'altra metà: l'ordine parte, i soldi no.
+    if (pagamento === 'alla-consegna') {
+      const ok = window.confirm(
+        `L'ordine nascerà SUBITO e DA INCASSARE: ${soldi(totale)} (${mezzo}).\n\n` +
+          'La merce parte e i soldi li prende chi consegna. Procedo?'
       )
       if (!ok) return
     }
@@ -2126,6 +2134,7 @@ export function NuovoOrdine({
               </span>
             </label>
           ) : (
+          <>
           <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
             <input
               type="radio"
@@ -2136,10 +2145,40 @@ export function NuovoOrdine({
               <strong>Ha già pagato</strong> — l&apos;ordine nasce pagato
             </span>
           </label>
+          {/* ── ⭐ PAGA ALLA CONSEGNA ──
+              Utente, 11/09/2026: «metti come possibilità di scelta del pagamento
+              … esempio pagamento alla consegna».
+              ⚠️⚠️ È la terza cosa, e le altre due non sapevano dirla: col link
+              la merce non parte finché non paga, con «ha già pagato» si
+              dichiarano incassati dei soldi che nessuno ha preso. Qui l'ordine
+              nasce SUBITO e resta DA INCASSARE — Shopify lo scrive «in attesa di
+              pagamento» e ne tiene l'importo dovuto. */}
+          <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="radio"
+              checked={pagamento === 'alla-consegna'}
+              onChange={() => {
+                setPagamento('alla-consegna')
+                // ⚠️ Il mezzo si PROPONE, non si impone: chi paga alla consegna
+                // quasi sempre paga in contanti, e lasciare «Bonifico» scritto
+                // da prima manderebbe al valet un'istruzione sbagliata.
+                if (!mezzo || !mezzo.toLowerCase().includes('consegna')) {
+                  setMezzo('Contanti alla consegna')
+                }
+              }}
+            />
+            <span>
+              <strong>Paga alla consegna</strong> — l&apos;ordine parte, i soldi li prende chi consegna
+            </span>
+          </label>
+          </>
           )}
-          {pagamento === 'pagato' ? (
-            <label className="campo" style={{ width: 180 }}>
-              <span>Con che mezzo</span>
+          {pagamento === 'pagato' || pagamento === 'alla-consegna' ? (
+            <label className="campo" style={{ width: 200 }}>
+              {/* ⚠️ La domanda cambia col caso: «con che mezzo ha pagato» e «con
+                  che mezzo pagherà» non sono la stessa frase, e la tendina è la
+                  stessa solo perché i mezzi del negozio sono quelli. */}
+              <span>{pagamento === 'alla-consegna' ? 'Come pagherà' : 'Con che mezzo'}</span>
               <select value={mezzo} onChange={(e) => setMezzo(e.target.value)}>
                 {/* ⚠️ I metodi VERI di questo negozio davanti, col nome che si
                     rileggerà su Shopify. La riserva sotto serve quando Shopify
@@ -2157,6 +2196,11 @@ export function NuovoOrdine({
                   </optgroup>
                 ) : null}
                 <optgroup label={metodi.length ? 'Altri' : 'Generici'}>
+                  {/* ⭐ Il contrassegno: sono i mezzi con cui si paga SUL POSTO,
+                      e su Shopify non compaiono mai fra i gateway perché quei
+                      soldi non passano da lì. */}
+                  <option value="Contanti alla consegna">Contanti alla consegna</option>
+                  <option value="POS alla consegna">POS alla consegna</option>
                   <option value="Bonifico">Bonifico</option>
                   <option value="Contanti">Contanti</option>
                   <option value="POS">POS</option>
@@ -2173,8 +2217,9 @@ export function NuovoOrdine({
                   nelle NOTE dell'ordine, e su Shopify la transazione risulta
                   «Manual». Meglio dirlo che lasciar credere il contrario. */}
               <span className="cella-sub">
-                Il mezzo resta scritto nelle note dell&apos;ordine: su Shopify la transazione
-                risulta comunque «Manual».
+                {pagamento === 'alla-consegna'
+                  ? 'Su Shopify l’ordine resta «in attesa di pagamento», con l’importo da incassare; il mezzo è scritto nelle note e negli attributi, per chi consegna.'
+                  : 'Il mezzo resta scritto nelle note dell’ordine: su Shopify la transazione risulta comunque «Manual».'}
               </span>
             </label>
           ) : null}
@@ -2185,7 +2230,13 @@ export function NuovoOrdine({
           <button className="bottone" onClick={crea} disabled={creando || !negozioId || modificaStato !== ''}>
             {modifica
               ? creando ? 'Salvo…' : 'Salva le modifiche'
-              : creando ? 'Creo…' : pagamento === 'link' ? 'Crea e manda il link' : 'Crea come pagato'}
+              : creando
+                ? 'Creo…'
+                : pagamento === 'link'
+                  ? 'Crea e manda il link'
+                  : pagamento === 'alla-consegna'
+                    ? 'Crea da incassare alla consegna'
+                    : 'Crea come pagato'}
           </button>
         </div>
         <p className="descrizione" style={{ marginBottom: 0 }}>

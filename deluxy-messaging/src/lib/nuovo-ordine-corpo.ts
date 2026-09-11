@@ -49,7 +49,10 @@ export function datiDaCorpo(
     anonima: Boolean(d.anonima),
     // ⭐ Eccezione agli orari del negozio: il motivo, se l'operatore l'ha scritto.
     eccezioneOrari: String(d.eccezioneOrari ?? ''),
-    pagamento: d.pagamento === 'pagato' ? 'pagato' : 'link',
+    // ⭐ 11/09/2026: tre scelte, non più due. Quello che non si riconosce
+    // resta `link`, che è l'unica che non muove soldi né fa nascere un ordine.
+    pagamento:
+      d.pagamento === 'pagato' ? 'pagato' : d.pagamento === 'alla-consegna' ? 'alla-consegna' : 'link',
     mezzoPagamento: d.mezzoPagamento ?? '',
     // ⚠️ Di suo l'IVA NON si aggiunge: solo se il modulo la chiede esplicitamente.
     aggiungiIva: d.aggiungiIva === true,

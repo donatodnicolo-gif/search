@@ -79,6 +79,18 @@ cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
 
+### prova-pagamento-alla-consegna.mts — deluxy-messaging
+Prova la terza scelta di pagamento del Nuovo ordine, il **contrassegno**: crea un ordine dalla stessa funzione che usa il modulo e controlla che Shopify lo faccia nascere **da incassare** (in attesa di pagamento, con l'importo dovuto) e non pagato, che nota e attributo lo dicano, poi lo **annulla**.
+
+⚠️ Crea un ordine VERO su un negozio VERO: è proprio la nascita dell'ordine che si sta verificando, e non c'è modo di provarla senza crearlo. Il cliente si chiama «Test», che per la regola di casa lo rende un ordine di prova (escluso dalle altre app), e alla fine viene annullato.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-pagamento-alla-consegna.mts
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app (le credenziali Shopify si leggono dal DB)
+- **Nota**: 8/8 l'11/09/2026 (ordine #12938, annullato).
+
 ### chiudi-rimborsi-gia-resi.mts — deluxy-messaging
 Chiude le richieste di rimborso che su Shopify risultano **già rese**. Nasce da #12868 (utente: «risulta già rimborsato su shopify, in questi casi chiudi in automatico»): il rimborso era partito su Shopify un minuto e mezzo prima che la richiesta fosse scritta qui, ed è rimasta «da approvare» per otto giorni. Chiude solo se il reso copre l'importo chiesto, **scalando le altre richieste dello stesso ordine già eseguite**; una coperta solo in parte non si tocca. Stessa logica del cron `/api/cron/rimborsi` (minuti 18 e 48).
 
