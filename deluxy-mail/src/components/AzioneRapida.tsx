@@ -89,7 +89,8 @@ export function AzioneRapida() {
               </div>
               <div>
                 <label className="field-label">Dalle</label>
-                <input type="time" name="oraInizio" defaultValue="09:00" />
+                {/* Slot di 15 minuti, come negli altri moduli (custode UX, 11/09/2026). */}
+                <input type="time" name="oraInizio" step={900} min="00:00" defaultValue="09:00" />
               </div>
               <div className="full">
                 <label className="field-label">Luogo</label>

@@ -23,6 +23,44 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 11/09 — Campi ora del Calendario: CSS e slot di 15 minuti (regola nuova del Libro)
+
+Richiesta dell'utente. Passata dal custode `architetto-ux`, come vogliono le regole.
+
+- **La causa non era estetica**: in `globals.css:325` l'elenco dei tipi era `text, number, date,
+  email, select, textarea` — **`time` non c'era**, e nemmeno `tel`, `search`, `password`, `url`,
+  `datetime-local`. Il campo non era «stilizzato male»: non era **selezionato**. Il focus
+  sembrava a posto perché `input:focus` non è qualificato per tipo, quindi il difetto si vedeva
+  solo a riposo. ⚠️ L'app sorella **`deluxy-crm` aveva già l'elenco completo**: eravamo fuori
+  canone — ma il Libro e il DS non nominavano `date`/`time` da nessuna parte, quindi la regola
+  mancava davvero.
+- **Slot**: `step={900}` + `min="00:00"` su **tutti e cinque** i campi ora (`NuovoEvento` ×2,
+  `EventoDettaglio` ×2, `AzioneRapida` ×1). Verificato in Chrome: `16:07` → `stepMismatch`,
+  `16:00/15/30/45` validi. **Si guida senza impedire**: 16:07 resta digitabile, e va bene così.
+  Niente `<select>` di 96 voci (su telefono sostituirebbe la rotella nativa con una lista).
+- 📏 **Misurato dopo, in Chrome**: bordo, raggio, padding e larghezza identici a un campo di
+  testo. **Restano 41px contro 39px**, e i 2px non sono nostri: l'editor `::-webkit-datetime-edit`
+  ha un'altezza minima propria — togliere `min-height` non cambia niente, `line-height` nemmeno,
+  e perfino `height: 39px` viene disattesa (resta 40). Si scende a 40 solo col padding a 8px,
+  cioè fuori canone per un pixel. Il campo **data aveva già** quei 2px: data e ora sono coerenti
+  fra loro, che è quello che si vede in un form. Annotato nel CSS perché nessuno lo rincorra.
+- 🔴 **Difetto trovato dal custode e corretto**: lo stesso campo aveva **tre comportamenti** —
+  in `NuovoEvento` spostare «Dalle» spostava «Alle» conservando la durata, in `EventoDettaglio`
+  **no** (si poteva salvare un appuntamento che finisce prima di cominciare), in `AzioneRapida`
+  «Alle» non esiste. Regola estratta in **`src/lib/orari.ts`** e usata da entrambi i moduli:
+  scritta una volta, non ricopiata. In `EventoDettaglio` i campi restano NON controllati (si
+  scrive nel gemello passando dal form) e l'ora di partenza si risincronizza all'apertura della
+  scheda — senza quella riga il primo spostamento calcolerebbe la durata da un 09:00 che non
+  c'entra niente.
+- **Voce nuova nel Libro UX&UI cap. 4 «Campi data e ora»**, valida per tutte le app, e
+  segnalazione DECISA nel registro UX. Il CSS resta nel `globals.css` dell'app: il DS **non ha
+  un layer CSS di componenti** (i `tokens/` sono solo variabili), quindi la regola è nel Libro e
+  il CSS si duplica finché quel layer non esiste.
+- ⚠️ **Non provato**: su iPhone vero non è verificato che la rotella nativa onori `step=900` sui
+  minuti. Se i 15 minuti dovessero diventare vincolanti, serve l'arrotondamento in `onBlur`.
+
+`tsc` 0 errori.
+
 ### 11/09 — «L'app manda da TUTTE le caselle configurate?» — censimento
 
 Domanda dell'utente. Due risposte diverse, e vanno tenute separate.

@@ -322,7 +322,18 @@ td.neg { color: var(--red); }
 .form-grid .full { grid-column: 1 / -1; }
 label.field-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
 label.field-label .req { color: var(--red); }
-input[type="text"], input[type="number"], input[type="date"], input[type="email"], select, textarea {
+/* ⚠️ L'ELENCO DEI TIPI È LA REGOLA: quello che non è scritto qui resta vestito
+   dal sistema operativo. Segnalato dall'utente l'11/09/2026 sul Calendario —
+   «migliora il css della scelta dell'orario»: i due campi «Dalle/Alle» erano
+   stretti, col bordo di sistema e l'orologino attaccato al testo, mentre il
+   campo data accanto era a posto. Non erano stilizzati male: `time` non era
+   nell'elenco, e basta. (Il focus invece funzionava già, perché `input:focus`
+   qui sotto non è qualificato per tipo: per questo il difetto si vedeva solo a
+   riposo.) Verdetto del custode UX: caso nuovo, il Libro non copriva data e ora.
+   L'app sorella `deluxy-crm` aveva già l'elenco giusto: eravamo fuori canone. */
+input[type="text"], input[type="number"], input[type="date"], input[type="email"],
+input[type="time"], input[type="datetime-local"], input[type="tel"],
+input[type="search"], input[type="password"], input[type="url"], select, textarea {
   width: 100%;
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-m);
@@ -337,6 +348,47 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 4px var(--gold-soft);
+}
+
+/* Data e ora: il controllo è NATIVO (la rotella su telefono, la digitazione
+   rapida su desktop), ma va vestito come ogni altro campo. Regole concordate
+   col custode UX l'11/09/2026. */
+input[type="time"], input[type="date"], input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 40px; /* pavimento, se un giorno il font rimpicciolisse */
+  font-variant-numeric: tabular-nums; /* le cifre non ballano cambiando ora */
+  /* ⚠️ MISURATO in Chrome l'11/09/2026, perché non ci ricaschi: questi campi
+     restano **41px contro i 39px** di un campo di testo, e i 2px NON vengono da
+     qui. L'editor interno (`::-webkit-datetime-edit`) ha un'altezza minima sua:
+     togliere il `min-height` non cambia niente, `line-height` sull'editor
+     nemmeno, e perfino `height: 39px` esplicita viene disattesa (resta 40).
+     L'unico modo di scendere a 40 è portare il padding a 8px, cioè uscire dal
+     canone del DS per un pixel. Si tiene il padding e si accettano i 2px: il
+     campo DATA li aveva già prima di questo giro, quindi data e ora sono
+     coerenti fra loro, che è quello che si vede davvero in un form. */
+}
+input[type="time"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+/* L'orologio a filo del bordo destro, non appiccicato al testo. */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+  opacity: 0.45;
+  filter: grayscale(1);
+  cursor: pointer;
+  transition: opacity 180ms var(--ease);
+}
+input[type="time"]:hover::-webkit-calendar-picker-indicator,
+input[type="time"]:focus::-webkit-calendar-picker-indicator,
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="date"]:focus::-webkit-calendar-picker-indicator { opacity: 0.85; }
+@media (pointer: coarse) {
+  /* Bersaglio pieno e 16px, che è la misura sotto la quale iOS zooma da solo. */
+  input[type="time"], input[type="date"], input[type="datetime-local"] {
+    min-height: var(--touch-min);
+    font-size: 16px;
+  }
 }
 
 /* ---------- Login (la schermata-firma, Libro §11) ----------
