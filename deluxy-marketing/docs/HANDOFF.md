@@ -12,6 +12,38 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — DENTRO UNA CAMPAGNA META ADESSO CI SI ENTRA DAVVERO.**
+> Fino a stamattina la scheda di una campagna Meta mostrava la campagna e i suoi
+> annunci, ma **non i suoi ad set**: chi la apriva non poteva sapere quale dei
+> due si stesse mangiando il budget, né fermarne uno solo. Fatto in tre pezzi,
+> tutti verificati:
+>
+> 1. **Censimento** (`censisciAdSetMeta`): gli ad set entrano in `Gruppo` a ogni
+>    giro di sync. Provato in produzione: **437 / 29 / 6** ad set letti su
+>    Gifts / Flowers / Cake, **171 righe** nel database (7 `ENABLED`, 164
+>    `PAUSED`). ⚠️ `Gruppo.idEsterno` porta l'**id nudo** dell'ad set, non
+>    `account:adset`: è il nodo che `cambiaStatoMeta()` chiama sulla Graph API, e
+>    un id composto avrebbe fallito esattamente come la `pausa_annuncio` del 07/09.
+> 2. **Numeri** (`leggiMetricheAdSetMeta` + `salvaMetricheAdSetMeta`): le stesse
+>    insights con `level=adset`, giorno per giorno, in `MetricaGruppo`.
+>    🔴 **Da rifare un giro di sync**: quello lanciato in produzione stamattina
+>    è **precedente** a questa parte, quindi spesa e resa per ad set sono ancora
+>    vuote a schermo.
+> 3. **Comandi** (`AdSetMeta` + `creaOperazioneBudgetGruppo`): pausa/riattiva del
+>    singolo ad set e cambio di budget, entrambi dalla coda con guardrail (L2,
+>    come il budget di campagna). Il budget **non si salva da noi** — `Gruppo`
+>    non ha quel campo e aggiungerlo vorrebbe dire un `db push` sul cluster
+>    condiviso — si legge vivo a ogni apertura e si scrive dalla coda.
+>
+> ⚠️ **In locale il riquadro dice «non letto»**: `META_ACCESS_TOKEN` non sta nel
+> `.env` di sviluppo (è solo su Vercel), quindi la lettura viva non parte. È il
+> comportamento voluto — la cella dichiara di non sapere invece di scrivere
+> «sulla campagna», che sarebbe una notizia falsa. Verifica vera solo in
+> produzione.
+>
+> **Manca ancora** (l'ordine concordato con l'utente): la **pausa del singolo
+> annuncio Meta** e le **modifiche di targeting** (età, luoghi, pubblici).
+>
 > 🔴 **NUOVO E COSTOSO SE NON SI GUARDA — «[Deluxy] Gifts - eng» È ACCESA E
 > VUOTA.** Su Google è `ENABLED` con **12 €/g** di budget, ha un gruppo
 > («Gruppo 1», anch'esso ENABLED) e **0 keyword, 0 titoli, 0 annunci**.

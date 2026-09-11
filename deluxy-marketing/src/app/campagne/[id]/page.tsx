@@ -11,6 +11,7 @@ import { AggiungiEstensione } from "@/components/AggiungiEstensione";
 import { ProposteAi } from "@/components/ProposteAi";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { AdSetMeta } from "@/components/AdSetMeta";
 import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { CoperturaCampagna } from "@/components/CoperturaCampagna";
 import { CoperturaGruppi } from "@/components/CoperturaGruppi";
@@ -1030,6 +1031,25 @@ export default async function SchedaCampagna({
             </p>
           )}
         </section>
+
+        {/* ⚠️ SU META I «GRUPPI» SONO GLI AD SET, e fino all'11/09/2026 la
+            tabella qui sopra diceva «Gruppi di annunci (0)» perché non erano
+            censiti. Adesso ci sono, e hanno un riquadro loro: budget e stato
+            letti vivi da Meta, spesa e resa dalle insights per ad set, e le
+            azioni (pausa, riattiva, budget) che passano dalla coda.
+            Resta un riquadro separato invece di riusare `TabellaGruppi`: quella
+            mostra colonne di Google (CTR, CPC, CPA sui gruppi di ricerca) e non
+            ha il budget, che su Meta è la colonna che conta. */}
+        {campagna.canale === "meta_ads" && (
+          <AdSetMeta
+            campagnaId={campagna.id}
+            idEsternoCampagna={campagna.idEsterno}
+            brand={campagna.brand}
+            periodo={{ da: periodo.corrente.da, a: periodo.corrente.a, etichetta: periodo.corrente.etichetta }}
+            ritorno={`/campagne/${campagna.id}`}
+            defunta={defunta}
+          />
+        )}
 
         {/* Il venduto vero, subito dopo i gruppi: le conversioni che dichiara
             la piattaforma e gli euro entrati in cassa sono due numeri diversi,

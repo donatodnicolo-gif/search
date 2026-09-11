@@ -564,3 +564,51 @@ export async function leggiMetricheAdSetMeta(
   }
   return { righe, errore: null };
 }
+
+/**
+ * Gli ad set di UNA campagna, letti vivi.
+ *
+ * ⚠️ Perché non si riusa `leggiAdSetMeta(account)`: su Gifts quel giro riporta
+ * **437 ad set** (archiviati compresi) e serve alla sync, non a una pagina.
+ * Per la scheda di una campagna si chiede il nodo della campagna, che ne
+ * riporta i suoi — di solito due o tre — e la pagina resta veloce.
+ *
+ * ⚠️ Qui NON si filtra sulle archiviate: dentro una campagna viva un ad set
+ * archiviato è storia, e mostrarlo confonderebbe. Restano ACTIVE e PAUSED,
+ * che è il default del nodo.
+ */
+export async function leggiAdSetDiCampagnaMeta(
+  idCampagna: string
+): Promise<{ adset: AdSetMeta[]; errore: string | null }> {
+  const t = token();
+  if (!t) return { adset: [], errore: "META_ACCESS_TOKEN non impostato" };
+  const q = new URLSearchParams({
+    fields:
+      "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,optimization_goal,start_time,end_time",
+    limit: "100",
+    access_token: t,
+  });
+  try {
+    const risposta = await fetch(`${BASE}/${idCampagna}/adsets?${q.toString()}`, { cache: "no-store" });
+    const corpo = await risposta.json();
+    if (!risposta.ok || corpo.error) {
+      return { adset: [], errore: String(corpo?.error?.message ?? `HTTP ${risposta.status}`) };
+    }
+    const cent = (v: unknown) => (v == null || v === "" ? null : Number(v) / 100);
+    const adset: AdSetMeta[] = (corpo.data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      nome: String(r.name ?? "(senza nome)"),
+      idCampagna: String(r.campaign_id ?? idCampagna),
+      stato: String(r.status ?? ""),
+      effettivo: r.effective_status ? String(r.effective_status) : null,
+      budgetGiorno: cent(r.daily_budget),
+      budgetTotale: cent(r.lifetime_budget),
+      obiettivoOttimizzazione: r.optimization_goal ? String(r.optimization_goal) : null,
+      inizio: r.start_time ? String(r.start_time) : null,
+      fine: r.end_time ? String(r.end_time) : null,
+    }));
+    return { adset, errore: null };
+  } catch (e) {
+    return { adset: [], errore: e instanceof Error ? e.message : String(e) };
+  }
+}
