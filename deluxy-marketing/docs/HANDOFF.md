@@ -4,6 +4,59 @@
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> ⏱️ **RI-MISURATO L'11/09/2026 mattina (sola lettura sul DB di produzione;
+> nessuna modifica al codice).** In due giorni nessuno ha toccato Marketing:
+> **zero commit** su `deluxy-marketing/` dal 09/09, albero locale e
+> `origin/scout-ui` **identici** (`907ff798`), produzione
+> `deluxy-marketing-egvno68zw`, `/api/health` ok. Consegne sane: Meta ogni ora
+> (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
+> 04/09**. Cosa è cambiato:
+>
+> 🔴 **NUOVO E COSTOSO SE NON SI GUARDA — «[Deluxy] Gifts - eng» È ACCESA E
+> VUOTA.** Su Google è `ENABLED` con **12 €/g** di budget, ha un gruppo
+> («Gruppo 1», anch'esso ENABLED) e **0 keyword, 0 titoli, 0 annunci**.
+> Come è successo: il `completa_campagna` eseguito il **09/09 alle 13:09** ha
+> riferito soltanto «1 localita aggiunte, gruppo "Gruppo 1" creato» — niente
+> keyword, nessun RSA (si confronti con la Natale B2B del 07/09, che diceva
+> «8 keyword · 1 RSA · 1 località») — e alle **17:09** un `attiva_campagna`
+> l'ha **riattivata comunque**: «campagna riattivata, confermato rileggendo».
+> ⚠️ **Non è un buco del censimento**: quel conto (248-656-1148) ha ricevuto
+> dopo la creazione **148 giri `stati-keyword`, 4 `copy`, 116 `asset`** (l'ultimo
+> stanotte alle 04:12), e **13 delle 14 campagne ENABLED del conto hanno le
+> keyword censite**. L'unica che non le ha è questa. Lo zero è vero.
+> Conseguenza: una campagna Search accesa senza annunci **non eroga** — quindi
+> non sta bruciando budget — ma è «accesa» in ogni elenco e nessuno lo vede.
+> **Da decidere**: completarla (keyword + RSA) o rimetterla in pausa finché non
+> è pronta. ⚠️ E da capire **perché il completa_campagna ha fatto solo metà del
+> lavoro**: se può succedere di nuovo, il prossimo lancio nasce vuoto uguale.
+>
+> ✅→⚠️ **Le due pause Meta: le campagne sono SPENTE, la coda no.**
+> «[Opera] ATC - VOLUME» è passata a **`PAUSED`** su Meta (il 09/09 era ancora
+> ENABLED): come per Palloncini, l'ha spenta l'utente a mano. Quindi **tutte e
+> due** le `pausa_campagna` approvate hanno ottenuto il loro effetto, e
+> `/api/health?meta=1` dice ancora `approvate: 2` soltanto perché le due righe
+> non sono state chiuse. Si chiudono col bottone **«Chiudi: era già così»**
+> (pubblicato l'08/09), che dichiara che la decisione è stata eseguita a mano
+> e non la registra come «annullata». Il punto rosso dei quattordici giorni
+> è **rientrato**: non c'è più nessuna campagna Meta accesa contro la nostra
+> volontà.
+>
+> 🔴 **LA PAUSA DI UN ANNUNCIO NON È ANCORA STATA PROVATA.** L'operazione è
+> **ancora `fallita`** e non è stata rimessa in coda: `idEsterno` porta ancora
+> l'id vecchio (`248-656-1148:195404652177:813390261104`), come deve, perché la
+> riparazione scatta quando si preme «Riprova». Quindi **la correzione
+> deployata il 09/09 (`egvno68zw`) è in produzione ma non verificata**: il giro
+> è `/operazioni` → «Riprova» sulla fallita → approvare → guardare l'esito al
+> giro dello script. È il collaudo che manca da quattro giorni.
+>
+> ⚠️ **Analisi da elaborare: 94** (92 il 09/09, 89 il 07/09): il doppione
+> dell'import da Drive continua a produrne **~1 al giorno**, e non è mai stato
+> corretto.
+>
+> Coda: Google **166 eseguite · 30 annullate · 4 fallite · 0 in attesa**; Meta
+> 2 eseguite · 2 approvate da chiudere · 1 annullata. Le 4 fallite sono le tre
+> note di sempre più la `pausa_annuncio`.
+>
 > 🔴→✅ **09/09/2026 — LA PAUSA DI UN ANNUNCIO NON FUNZIONAVA. Trovato il
 > perché e corretto senza toccare lo script.**
 > Il 07/09 avevo scritto: «non ancora provata una pausa vera: la prima passa
