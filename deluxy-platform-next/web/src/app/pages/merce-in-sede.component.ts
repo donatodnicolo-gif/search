@@ -59,37 +59,60 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       </div>
     }
 
+    <!--
+      I CONTATORI stanno fuori dalle colonne, e ognuno per una ragione sua: le arretrate sono lavoro
+      da chiudere, le cancellazioni richieste sono merce di cui non si sa più dove fosse, la
+      destinazione da stabilire è merce non consegnata che nessuno ha smistato. Si vedono a tutti,
+      perché anche un partner deve sapere che ha tre consegne appese.
+    -->
+    @if (riepilogo(); as r) {
+      <div class="pillole">
+        @if (eUfficio() && !detentore()) {
+          <span class="pillola">{{ 'merce.aMagazzino' | translate }} <strong>{{ r.magazzino }}</strong></span>
+        }
+        @if (r.cancellazioniRichieste.pezzi) {
+          <span class="pillola attenzione">
+            {{ 'merce.cancellazioni' | translate }} <strong>{{ r.cancellazioniRichieste.pezzi }}</strong>
+            <small>{{ 'merce.suConsegneSemplice' | translate: { n: r.cancellazioniRichieste.consegne } }}</small>
+          </span>
+        }
+        @if (r.arretrate.pezzi) {
+          <span class="pillola attenzione">
+            {{ 'merce.arretrate' | translate }} <strong>{{ r.arretrate.pezzi }}</strong>
+            <small>{{ 'merce.suConsegneSemplice' | translate: { n: r.arretrate.consegne } }}</small>
+          </span>
+        }
+        @if (r.daStabilire.pezzi) {
+          <span class="pillola attenzione">
+            {{ 'merce.daStabilire' | translate }} <strong>{{ r.daStabilire.pezzi }}</strong>
+            <small>{{ 'merce.suConsegne' | translate: { n: r.daStabilire.consegne, g: r.giorni } }}</small>
+          </span>
+        }
+      </div>
+    }
+
     <!-- LIVELLO 1 — chi ha la merce. Solo per l'ufficio: partner e valet atterrano sulla propria. -->
     @if (eUfficio() && !detentore()) {
-      @if (riepilogo(); as r) {
-        <div class="pillole">
-          <span class="pillola">{{ 'merce.aMagazzino' | translate }} <strong>{{ r.magazzino }}</strong></span>
-          @if (r.arretrate.pezzi) {
-            <!-- Le consegne mai chiuse con una data già passata: non sono merce da ritirare, sono
-                 lavoro rimasto indietro. Contarle nella colonna avrebbe raccontato una boutique piena
-                 di roba che non ha. -->
-            <span class="pillola attenzione">
-              {{ 'merce.arretrate' | translate }} <strong>{{ r.arretrate.pezzi }}</strong>
-              <small>{{ 'merce.suConsegneSemplice' | translate: { n: r.arretrate.consegne } }}</small>
-            </span>
-          }
-          @if (r.daStabilire.pezzi) {
-            <!-- ⚠️ NON è un link: l'elenco consegne non sa filtrare per destinazione, e portare là
-                 significherebbe promettere 872 consegne e mostrarne 1.750, archivio compreso. E il
-                 numero dichiara la sua copertura, perché un contatore che comprende il 2019 non
-                 scenderebbe mai. -->
-            <span class="pillola attenzione">
-              {{ 'merce.daStabilire' | translate }} <strong>{{ r.daStabilire.pezzi }}</strong>
-              <small>{{ 'merce.suConsegne' | translate: { n: r.daStabilire.consegne, g: r.giorni } }}</small>
-            </span>
-          }
-        </div>
-      }
+      <!--
+        ⭐ 11/09/2026 (regola utente): «separa con due tab di visualizzazione partner dai valet».
+        Qui le schede ci stanno, e non contraddicono la regola per cui le FASI non si separano: partner
+        e valet sono due popolazioni diverse, non due fasi della stessa cosa. Nessuno confronta una
+        boutique con un fattorino, mentre confrontare «da ritirare» e «in consegna» dello stesso
+        prodotto è esattamente la domanda della pagina.
+      -->
+      <div class="quick-tabs viste">
+        @for (v of VISTE; track v) {
+          <button type="button" class="quick-tab" [class.active]="vista() === v" (click)="vista.set(v)">
+            {{ 'merce.vista.' + v | translate }}
+            <small>{{ quanti(v) }}</small>
+          </button>
+        }
+      </div>
       <div class="card table-wrap" appAltezzaViewport>
         <table>
           <thead>
             <tr>
-              <th>{{ 'merce.col.detentore' | translate }}</th>
+              <th>{{ 'merce.col.' + (vista() === 'valet' ? 'valet' : 'partner') | translate }}</th>
               <th class="num">{{ 'merce.col.daRitirare' | translate }}</th>
               <th class="num">{{ 'merce.col.inConsegna' | translate }}</th>
               <th class="num">{{ 'merce.col.inSospeso' | translate }}</th>
@@ -97,10 +120,10 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
             </tr>
           </thead>
           <tbody>
-            @for (r of detentori(); track r.tipo + r.id) {
+            @for (r of detentoriVisti(); track r.tipo + r.id) {
               <tr class="cliccabile" tabindex="0" (click)="apriDetentore(r)"
                   (keydown.enter)="apriDetentore(r)" (keydown.space)="$event.preventDefault(); apriDetentore(r)">
-                <td class="strong">{{ r.nome }}<small class="tipo">{{ 'merce.tipo.' + r.tipo | translate }}</small></td>
+                <td class="strong">{{ r.nome }}</td>
                 <td class="num">{{ r.daRitirare || '—' }}</td>
                 <td class="num">{{ r.inConsegna || '—' }}</td>
                 <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
@@ -208,6 +231,8 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       .quick-tab { border: 1px solid var(--hairline-strong); background: #fff; border-radius: 999px;
         padding: 6px 13px; cursor: pointer; font-size: 13.5px; }
       .quick-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .quick-tab small { margin-left: 6px; opacity: 0.7; }
+      .viste { margin-bottom: 12px; }
       .pillole { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
       .pillola { background: #fff; border: 1px solid var(--hairline); border-radius: 999px; padding: 7px 14px;
         font-size: 13.5px; color: var(--text-secondary); text-decoration: none; }
@@ -243,6 +268,8 @@ export class MerceInSedeComponent {
   readonly auth = inject(AuthService);
 
   readonly PERIODI = ['oggi', 'settimana', 'mese', 'sempre'] as const;
+  readonly VISTE = ['partner', 'valet'] as const;
+  readonly vista = signal<'partner' | 'valet'>('partner');
   readonly FASI = ['daRitirare', 'inConsegna', 'inSospeso', 'consegnati'] as const;
 
   q = '';
@@ -251,13 +278,16 @@ export class MerceInSedeComponent {
   readonly caricandoConsegne = signal(false);
   readonly errore = signal<string | null>(null);
   readonly detentori = signal<Detentore[]>([]);
-  readonly riepilogo = signal<{ magazzino: number; daStabilire: { pezzi: number; consegne: number }; giorni: number; arretrate: { pezzi: number; consegne: number } } | null>(null);
+  readonly riepilogo = signal<Contatori | null>(null);
   readonly prodotti = signal<RigaProdotto[]>([]);
   readonly detentore = signal<Detentore | null>(null);
   readonly rigaAperta = signal<string | null>(null);
   readonly faseAperta = signal<string>('inSospeso');
   readonly consegne = signal<ConsegnaMerce[]>([]);
   readonly erroreConsegne = signal<string | null>(null);
+  /** Le due popolazioni arrivano insieme dal server: la scheda le separa senza una chiamata in più. */
+  readonly detentoriVisti = computed(() => this.detentori().filter((r) => r.tipo === this.vista()));
+  quanti(v: string): number { return this.detentori().filter((r) => r.tipo === v).length; }
   readonly etichettaPeriodo = computed(() => this.translate.instant('merce.periodo.' + this.periodo()));
   /** La giacenza è governata su 7 prodotti in tutto: una colonna vuota al 99% è spazio tolto ai dati. */
   readonly mostraGiacenza = computed(() => this.prodotti().some((r) => r.giacenza != null));
@@ -315,23 +345,40 @@ export class MerceInSedeComponent {
     const finito = () => this.caricando.set(false);
     const errore = () => { finito(); this.errore.set(this.translate.instant('merce.errore')); };
     if (this.eUfficio() && !this.detentore()) {
-      this.http.get<{ righe: Detentore[]; magazzino: number; daStabilire: { pezzi: number; consegne: number }; daStabilireGiorni?: number; arretrate?: { pezzi: number; consegne: number } }>(
+      this.http.get<Record<string, unknown> & { righe: Detentore[] }>(
         `${environment.apiUrl}/merce-in-sede/detentori`, { params: this.parametri() },
       ).subscribe({
         next: (d) => {
           if (mio !== this.giro) return;
           this.detentori.set(d.righe ?? []);
-          this.riepilogo.set({ magazzino: d.magazzino, daStabilire: d.daStabilire, giorni: d.daStabilireGiorni ?? 90, arretrate: d.arretrate ?? { pezzi: 0, consegne: 0 } });
+          this.riepilogo.set(this.contatori(d));
           finito();
         },
         error: errore,
       });
       return;
     }
-    this.http.get<{ righe: RigaProdotto[] }>(`${environment.apiUrl}/merce-in-sede`, { params: this.parametri() }).subscribe({
-      next: (d) => { if (mio !== this.giro) return; this.prodotti.set(d.righe ?? []); finito(); },
+    this.http.get<Record<string, unknown> & { righe: RigaProdotto[] }>(`${environment.apiUrl}/merce-in-sede`, { params: this.parametri() }).subscribe({
+      next: (d) => {
+        if (mio !== this.giro) return;
+        this.prodotti.set(d.righe ?? []);
+        // Anche il livello 2 porta i contatori: partner e valet il livello 1 non lo vedono mai.
+        this.riepilogo.set(this.contatori(d));
+        finito();
+      },
       error: errore,
     });
+  }
+
+  private contatori(d: Record<string, unknown>): Contatori {
+    const vuoto = { pezzi: 0, consegne: 0 };
+    return {
+      magazzino: (d['magazzino'] as number) ?? 0,
+      giorni: (d['daStabilireGiorni'] as number) ?? 90,
+      arretrate: (d['arretrate'] as Contatori['arretrate']) ?? vuoto,
+      daStabilire: (d['daStabilire'] as Contatori['daStabilire']) ?? vuoto,
+      cancellazioniRichieste: (d['cancellazioniRichieste'] as Contatori['cancellazioniRichieste']) ?? vuoto,
+    };
   }
 
   apriDetentore(d: Detentore): void { this.detentore.set(d); this.carica(); }
@@ -361,6 +408,14 @@ export class MerceInSedeComponent {
       error: () => { this.caricandoConsegne.set(false); this.erroreConsegne.set(this.translate.instant('merce.errore')); },
     });
   }
+}
+
+interface Contatori {
+  magazzino: number;
+  giorni: number;
+  arretrate: { pezzi: number; consegne: number };
+  daStabilire: { pezzi: number; consegne: number };
+  cancellazioniRichieste: { pezzi: number; consegne: number };
 }
 
 interface Detentore { tipo: 'partner' | 'valet'; id: string; nome: string; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number }

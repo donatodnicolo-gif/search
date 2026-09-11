@@ -3741,7 +3741,9 @@
       "inConsegna": "Out for delivery",
       "inSospeso": "Pending",
       "consegnati": "Delivered",
-      "giacenza": "In stock"
+      "giacenza": "In stock",
+      "partner": "Partner",
+      "valet": "Valet"
     },
     "tipo": {
       "partner": "partner",
@@ -3761,6 +3763,11 @@
     },
     "nessunoConRicerca": "No result for “{{q}}”.",
     "arretrate": "Open deliveries with a past date",
-    "suConsegneSemplice": "across {{n}} deliveries"
+    "suConsegneSemplice": "across {{n}} deliveries",
+    "cancellazioni": "Cancellation requested",
+    "vista": {
+      "partner": "Partners",
+      "valet": "Valets"
+    }
   }
 }

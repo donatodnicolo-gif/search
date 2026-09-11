@@ -149,6 +149,46 @@ export class MerceInSedeService {
   }
 
   /**
+   * ⭐ 11/09/2026 (regola utente: «cancellazione richiesta si indicano a parte») — I CONTATORI.
+   *
+   * Tre cose che NON stanno nelle colonne, e ognuna per una ragione sua:
+   *  · **cancellazione richiesta** — la merce sta ancora da qualche parte, ma lo stato precedente non è
+   *    più leggibile: non si sa se è in negozio o già sul mezzo. Metterla in una colonna vorrebbe dire
+   *    scegliere al posto dei fatti; qui si dichiara e basta, in attesa che l'ufficio decida.
+   *  · **arretrate** — consegne mai chiuse con data passata: lavoro da fare, non merce da ritirare.
+   *  · **destinazione da stabilire** — merce non consegnata di cui nessuno ha detto dove sia finita.
+   *
+   * ⚠️ Rispettano il perimetro di chi guarda e la ricerca: se no le pillole e la tabella parlerebbero
+   * di due popolazioni diverse.
+   */
+  private async contatori(user: JwtUser, f: Filtri) {
+    const inLista = (stati: readonly string[]) => Prisma.join(stati.map((x) => Prisma.sql`${x}`), ', ');
+    const conta = (dove: Prisma.Sql) => this.prisma.$queryRaw<{ pezzi: number; consegne: number }[]>(Prisma.sql`
+      SELECT COALESCE(SUM(dp."quantity"), 0)::int AS pezzi, COUNT(DISTINCT d."id")::int AS consegne
+      FROM platform."DeliveryProduct" dp
+      JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
+      WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
+        AND ${dove}
+        AND ${this.perimetro(user, f)}
+        ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
+    `);
+    const num = (r: { pezzi: number; consegne: number }[]) => ({ pezzi: Number(r[0]?.pezzi ?? 0), consegne: Number(r[0]?.consegne ?? 0) });
+    const [arretrate, daStabilire, cancellazioni] = await Promise.all([
+      conta(Prisma.sql`d."status" IN (${inLista([...FASI.daRitirare, ...FASI.inConsegna])}) AND d."date" < CURRENT_DATE`),
+      conta(Prisma.sql`d."status" IN (${inLista(FASI.inSospeso)})
+        AND COALESCE(NULLIF(d."productManagement", ''), 'none') = 'none'
+        AND d."date" >= ${new Date(Date.now() - 90 * 86400000)}`),
+      conta(Prisma.sql`d."status" = 'cancellation_requested'`),
+    ]);
+    return {
+      arretrate: num(arretrate),
+      daStabilire: num(daStabilire),
+      daStabilireGiorni: 90,
+      cancellazioniRichieste: num(cancellazioni),
+    };
+  }
+
+  /**
    * LIVELLO 1 (solo ufficio): chi ha la merce. Una riga per partner e una per valet.
    *
    * ⚠️ Non si somma tutto insieme: merce in venti negozi diversi non è un mucchio, e un totale unico non
@@ -220,42 +260,11 @@ export class MerceInSedeService {
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
     `);
 
-    // La merce non consegnata di cui NESSUNO ha detto che fine ha fatto: è lavoro, non un buco.
-    const daStabilire = await this.prisma.$queryRaw<{ pezzi: number; consegne: number }[]>(Prisma.sql`
-      SELECT COALESCE(SUM(dp."quantity"), 0)::int AS pezzi, COUNT(DISTINCT d."id")::int AS consegne
-      FROM platform."DeliveryProduct" dp
-      JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
-      WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
-        AND d."status" IN (${inLista(FASI.inSospeso)})
-        AND COALESCE(NULLIF(d."productManagement", ''), 'none') = 'none'
-        AND ${this.perimetro(user, f)}
-        ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
-        -- ⚠️ IL CONTATORE NON CONTA L'ARCHIVIO. Delle 1.750 non consegnate solo 14 sono degli ultimi
-        -- trenta giorni: un numero che comprende il 2019 non scenderà mai, e un allarme che non scende
-        -- si impara a ignorare. Qui si contano le ultime novanta giornate, e la pagina lo scrive.
-        AND d."date" >= ${new Date(Date.now() - 90 * 86400000)}
-    `);
-
-    /**
-     * LE ARRETRATE. Consegne mai chiuse con una data già passata: la merce non è «da ritirare», è un
-     * lavoro rimasto indietro. Si contano qui perché nasconderle sarebbe come cancellare il problema.
-     */
-    const arretrate = await this.prisma.$queryRaw<{ pezzi: number; consegne: number }[]>(Prisma.sql`
-      SELECT COALESCE(SUM(dp."quantity"), 0)::int AS pezzi, COUNT(DISTINCT d."id")::int AS consegne
-      FROM platform."DeliveryProduct" dp
-      JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
-      WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
-        AND d."status" IN (${inLista([...FASI.daRitirare, ...FASI.inConsegna])})
-        AND d."date" < CURRENT_DATE
-        AND ${this.perimetro(user, f)}
-        ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
-    `);
+    const contatori = await this.contatori(user, f);
 
     const num = (v: unknown) => Number(v ?? 0);
     return {
       periodo: p.etichetta,
-      // La copertura del contatore, scritta: chi legge deve sapere di cosa sta guardando il totale.
-      daStabilireGiorni: 90,
       righe: [
         ...partner.map((r) => ({ tipo: 'partner' as const, id: r.id, nome: r.nome ?? '—',
           daRitirare: num(r.daritirare), inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
@@ -263,8 +272,7 @@ export class MerceInSedeService {
           daRitirare: 0, inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
       ].sort((a, b) => (b.inSospeso + b.inConsegna + b.daRitirare) - (a.inSospeso + a.inConsegna + a.daRitirare)),
       magazzino: num(magazzino[0]?.pezzi),
-      arretrate: { pezzi: num(arretrate[0]?.pezzi), consegne: num(arretrate[0]?.consegne) },
-      daStabilire: { pezzi: num(daStabilire[0]?.pezzi), consegne: num(daStabilire[0]?.consegne) },
+      ...contatori,
     };
   }
 
@@ -306,8 +314,10 @@ export class MerceInSedeService {
       ORDER BY 5 DESC, 3 DESC, 1 ASC
       LIMIT 300
     `);
+    const contatori = await this.contatori(user, f);
     return {
       periodo: p.etichetta,
+      ...contatori,
       righe: righe.map((r) => ({
         nome: r.nome,
         variante: r.variante,
