@@ -1,5 +1,42 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> ⏱️ **PUNTO DI RIPRESA — 11/09/2026, mattina presto (fine della sessione del 10/09).**
+> **In produzione**: `d7vhkmvge` (commit `c12bb1ba`), `PROMOTED`, dominio e cron
+> sul deploy corrente. Sei commit di Finance il 10/09, in ordine: causa del
+> cron su build vecchio + `promote` (`4bc7a438`) · «Elimina» anche su FIC,
+> competenza scelta, «+ Fattura» dal partner (`fbb78f85`) · guardia
+> sull'importo per i numeri riassegnati (`62fb0bc1`) · «Già saldata» in Nuova
+> fattura (`dbb33eb0`) · stato SDI + «Invia allo SDI» (`c12bb1ba`). Ogni
+> deploy verificato dall'API (`readySubstate`, `crons.deploymentId`).
+> Manuale aggiornato e artifact ripubblicato a ogni passo.
+>
+> **Da controllare per primo, oggi dopo le 08:15 (06:15 UTC)**: nel registro
+> modifiche la riga del cron FIC deve dire «Importate … · build c12bb1b» (o
+> più recente) e «competenza = mese del servizio (dalla descrizione) o di
+> emissione». Alle 04:27 UTC non era ancora girato. Se dice ancora «mese di
+> emissione» senza build, il problema NON è quello del 02/09 e va riaperto.
+> Zero fatture commissioni fra i servizi alle 04:27 (ricontrollo a secco del
+> 10/09 sera: 0 righe).
+>
+> **Tocca all'utente (in app)**:
+> - DIPTYQUE: «Elimina» sulla riga «648/2026 · 36,36 €» (su FIC quel numero
+>   è ora la fattura di CONLESTELLE, 1.303,70 € lordi, `sent`: la guardia
+>   sull'importo la lascia stare); la 644/2026 da settembre ad agosto
+>   («Modifica record»).
+> - CONLESTELLE: registrare la 648/2026 vera dalla card «Fatture su Fatture in
+>   Cloud» (agosto) — oppure la porta il cron, a settembre, da spostare.
+> - Primo «Invia allo SDI» dal bottone su una fattura vera: mai provato
+>   (irreversibile); la lettura dello stato sì (643/644/648 → `sent`).
+> - Il resto dei punti aperti (chiavi API per app, repo pubblico, 7 richieste
+>   Transactions doppie, modello a due colonne, SMTP) è invariato: vedi sotto.
+>
+> **Come si lavora qui** (imparato il 10/09): gli script di riparazione si
+> lanciano DALLA CARTELLA `deluxy-partner` (`--env-file=.env`); per provare
+> le funzioni dell'app fuori da Next: `npx -y tsx --env-file=.env x.mts`
+> importando `./src/lib/...` (Node da solo non risolve gli import senza
+> estensione). Le scritture di massa sul database possono essere bloccate dal
+> classificatore dei permessi: si lascia il comando pronto all'utente.
+
 > 🚨 **10/09/2026 — TROVATO IL PERCHÉ: IL CRON GIRAVA UN DEPLOY DEL 31/08 PERCHÉ
 > DAL 02/09 NESSUN DEPLOY È MAI STATO PROMOSSO.** (Chiude il 🔴 «il PERCHÉ
 > resta aperto» del 09/09.) Letto dall'API di Vercel, non dedotto:
