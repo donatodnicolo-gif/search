@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/Badge";
 import { prisma } from "@/lib/db";
 import { segnaShopify } from "@/lib/azioni";
-import { shopifyConfigurato } from "@/lib/shopify";
+
 import { COLORE_SHOPIFY, ETICHETTA_SHOPIFY, euro, iso } from "@/lib/dominio";
 import Link from "next/link";
 
@@ -22,7 +22,7 @@ export default async function ShopifyPage({
   const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);
   const where = { fase: { not: "archiviato" } };
 
-  const [prodotti, totale, perStato] = await Promise.all([
+  const [prodotti, totale, perStato, negozi] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: [{ shopifyStato: "asc" }, { priorita: "desc" }],
@@ -32,11 +32,14 @@ export default async function ShopifyPage({
     }),
     prisma.prodotto.count({ where }),
     prisma.prodotto.groupBy({ by: ["shopifyStato"], where, _count: { _all: true } }),
+    // ⭐ I negozi VERI, quelli di Impostazioni: gli stessi da cui passa il
+    // modulo del prodotto (utente, 11/09/2026).
+    prisma.negozioShopify.findMany({ select: { nome: true, attivo: true }, orderBy: { nome: "asc" } }),
   ]);
 
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const conta = (s: string) => perStato.find((r) => r.shopifyStato === s)?._count._all ?? 0;
-  const configurato = shopifyConfigurato();
+  const collegati = negozi.filter((n) => n.attivo);
 
   // Azioni disponibili per stato corrente
   const azioni: Record<string, [string, string][]> = {
@@ -56,12 +59,30 @@ export default async function ShopifyPage({
           </div>
         </div>
 
+{/* ── I NEGOZI SONO QUELLI DI IMPOSTAZIONI ──
+            ⚠️⚠️ Qui c'era `shopifyConfigurato()`, che guarda due variabili
+            d'ambiente (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN) che questa
+            app non usa più dal 24 luglio e che nessuno imposta: la pagina
+            dichiarava «nessun negozio collegato» mentre l'app pubblicava su
+            quattro negozi (utente, 11/09/2026).
+            ⚠️ E la seconda metà dell'avviso era sbagliata comunque: i bottoni
+            di questa tabella scrivono un campo NOSTRO e non toccano Shopify —
+            non «si attiverebbero» collegando delle credenziali. Si dice com'è. */}
         <div className="nota-info">
           <span className="nota-icona">◆</span>
           <span>
-            {configurato
-              ? "Negozio Shopify collegato: le azioni sotto sincronizzano davvero i prodotti."
-              : "Nessun negozio Shopify collegato (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN non impostati). Le azioni segnano lo stato e preparano la pipeline; la scrittura reale sul negozio si attiva collegando le credenziali. Apri un prodotto → tab Shopify per vedere il payload."}
+            {collegati.length ? (
+              <>
+                Negozi collegati: <b>{collegati.map((n) => n.nome).join(" · ")}</b>. ⚠️ I bottoni di questa
+                tabella <b>non toccano Shopify</b>: segnano una nota nostra. Il prodotto va sul negozio dal suo
+                <b> modulo</b>, con la fase «Pubblico».
+              </>
+            ) : (
+              <>
+                Nessun negozio in <a href="/impostazioni">Impostazioni</a>: finché non se ne collega uno, nessun
+                prodotto può andare su Shopify. I bottoni qui sotto segnano solo una nota nostra.
+              </>
+            )}
           </span>
         </div>
 

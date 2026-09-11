@@ -1,9 +1,15 @@
 // Ponte verso Shopify — il canale di vendita a valle.
-// L'app di merchandising è la fonte di verità: qui si costruisce il payload del
-// prodotto e si tiene traccia dello stato di pubblicazione. La scrittura reale
-// su Shopify richiede le credenziali del negozio (SHOPIFY_STORE_DOMAIN +
-// SHOPIFY_ADMIN_TOKEN) e va confermata: finché mancano, l'app prepara tutto ma
-// non pubblica, così non si tocca il negozio per errore.
+//
+// ⚠️ Qui dentro è rimasta SOLO la costruzione del payload, cioè l'anteprima di
+// «che cosa manderemmo». La scrittura vera non passa di qui: sta in
+// `shopify-admin.ts`, che prende dominio e token dai negozi di Impostazioni
+// (`negozi.ts`) e non legge nessuna variabile d'ambiente.
+//
+// ⚠️⚠️ Il commento che stava qui parlava di SHOPIFY_STORE_DOMAIN e
+// SHOPIFY_ADMIN_TOKEN come se fossero il modo di collegare il negozio: non lo
+// sono più dal 24/07/2026, ed è per questo che due schermate hanno passato
+// settimane a dire «nessun negozio collegato» mentre i prodotti andavano su
+// Shopify regolarmente.
 
 import { etichettaCategoria, prezzoVariante } from "./dominio";
 
@@ -51,6 +57,17 @@ export function costruisciPayloadShopify(p: ProdottoConVarianti) {
   };
 }
 
-export function shopifyConfigurato(): boolean {
-  return Boolean(process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_ADMIN_TOKEN);
-}
+// ⚠️⚠️ QUI C'ERA `shopifyConfigurato()`, tolta l'11/09/2026 (utente: «devi usare
+// lo stesso modo che usiamo per pubblicare gli altri prodotti che finiscono su
+// shopify»).
+//
+// Guardava `process.env.SHOPIFY_STORE_DOMAIN` e `SHOPIFY_ADMIN_TOKEN`, due
+// variabili che questa app NON usa più dal 24 luglio e che nessuno imposta: da
+// allora rispondeva sempre «nessun negozio», e le due schermate che la
+// chiamavano lo scrivevano in faccia a chi pubblicava su quattro negozi tutti i
+// giorni. Un avviso che dice il falso è peggio di nessun avviso.
+//
+// I negozi veri sono le righe di `NegozioShopify` (Impostazioni), ognuna col
+// suo dominio e il suo token: si leggono da `negozi.ts` e sono gli stessi che
+// usa il modulo del prodotto. **Non rimetterla**: se serve sapere se c'è un
+// negozio, si contano quelli attivi.

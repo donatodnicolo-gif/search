@@ -21,7 +21,7 @@ import { mancanzePerApprovare } from "@/lib/prodotti-dal-partner";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
 import { conti, riga } from "@/lib/composti";
-import { costruisciPayloadShopify, shopifyConfigurato } from "@/lib/shopify";
+import { costruisciPayloadShopify } from "@/lib/shopify";
 import {
   calcolaMargine,
   CATEGORIE,
@@ -869,13 +869,98 @@ export default async function ProdottoPage({
         {/* ---------- Shopify ---------- */}
         {tab === "shopify" && (
           <>
+{/* ── I NEGOZI SONO QUELLI DI IMPOSTAZIONI, COME OVUNQUE ──
+
+                ⚠️⚠️ Utente, 11/09/2026: «devi usare lo stesso modo che usiamo
+                per pubblicare gli altri prodotti che finiscono su shopify».
+                Qui c'era `shopifyConfigurato()`, che guarda due VARIABILI
+                D'AMBIENTE — SHOPIFY_STORE_DOMAIN e SHOPIFY_ADMIN_TOKEN — che
+                questa app non usa più dal 24 luglio e che nessuno imposta.
+                Risultato: su un'app che pubblica su quattro negozi tutti i
+                giorni, questa scheda scriveva «nessun negozio collegato».
+                Un avviso che dice il falso è peggio di nessun avviso: chi lo
+                legge smette di fidarsi anche degli altri.
+
+                I negozi veri stanno in `NegozioShopify` (Impostazioni), uno per
+                riga col suo token, e sono quelli che usa il modulo del prodotto.
+                La pagina li ha già in `negoziTutti`: si leggono da lì. */}
             <div className="nota-info">
               <span className="nota-icona">◆</span>
               <span>
-                {shopifyConfigurato()
-                  ? "Negozio Shopify collegato. La pubblicazione invierà il payload qui sotto all'Admin API."
-                  : "Nessun negozio Shopify collegato (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN non impostati). Puoi comunque preparare e segnare lo stato: il payload è pronto, la scrittura reale sul negozio si attiva collegando le credenziali."}
+                {negoziTutti.length ? (
+                  <>
+                    Negozi collegati: <b>{negoziTutti.map((n) => n.nome).join(" · ")}</b>. Sono gli stessi da cui
+                    passa il modulo del prodotto. Questa scheda <b>non pubblica</b>: mostra dove sta il prodotto
+                    adesso e che cosa si manderebbe.{" "}
+                    <a href={`/prodotti/${id}/modifica`}>Pubblica dal modulo</a>.
+                  </>
+                ) : (
+                  <>
+                    Nessun negozio in <a href="/impostazioni">Impostazioni</a>: finché non se ne collega uno, il
+                    prodotto non può andare su Shopify da nessuna strada.
+                  </>
+                )}
               </span>
+            </div>
+
+            {/* ⭐ DOVE STA DAVVERO, negozio per negozio. Prima questa scheda
+                parlava solo di `shopifyStato`, che è una nota nostra: un
+                prodotto attivo su deluxy.it e archiviato su Cake aveva una
+                riga sola, e non diceva quale delle due. */}
+            <div className="scheda">
+              <div className="scheda-titolo">Dov&apos;è su Shopify</div>
+              {prodotto.pubblicazioni.length ? (
+                <div>
+                  {prodotto.pubblicazioni.map((r) => {
+                    const n = negoziTutti.find((x) => x.nome === r.negozio);
+                    const admin = linkAdmin(n?.dominio, r.shopifyId, "prodotto");
+                    const sito = linkSito(n?.dominio, r.handle, "prodotto");
+                    const stato =
+                      r.origine === "tolto"
+                        ? "tolto"
+                        : r.statoShopify === "ACTIVE"
+                          ? "attivo"
+                          : r.statoShopify === "DRAFT"
+                            ? "bozza"
+                            : r.statoShopify === "ARCHIVED"
+                              ? "archiviato"
+                              : r.errore
+                                ? "rifiutato"
+                                : "—";
+                    const colore = stato === "attivo" ? "var(--green)" : stato === "rifiutato" ? "var(--red)" : "var(--grey)";
+                    return (
+                      <div key={r.negozio} className="collezioni-negozio">
+                        <span className="collezioni-sito">{r.negozio}</span>
+                        <div className="pill-scelta">
+                          <Badge testo={stato} colore={colore} />
+                          {/* ⚠️ Lo stato VOLUTO si mostra solo quando è diverso da
+                              com'è adesso: la differenza fra i due è la cosa da fare. */}
+                          {r.statoVoluto && r.statoVoluto !== r.statoShopify ? (
+                            <span className="pill-opt" title="Deciso qui, non ancora imposto al negozio">
+                              da portare a {r.statoVoluto}
+                            </span>
+                          ) : null}
+                          {admin ? (
+                            <a className="pill-opt" href={admin} target="_blank" rel="noreferrer">
+                              Admin ↗
+                            </a>
+                          ) : null}
+                          {sito ? (
+                            <a className="pill-opt" href={sito} target="_blank" rel="noreferrer">
+                              Scheda online ↗
+                            </a>
+                          ) : null}
+                        </div>
+                        {r.errore ? <p className="cella-sub" style={{ color: "var(--red)" }}>{r.errore}</p> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="page-sub" style={{ margin: 0 }}>
+                  Questo prodotto non è su nessun negozio. Ci va dal modulo, con la fase <b>Pubblico</b>.
+                </p>
+              )}
             </div>
             {/* Il SEO **è passato in Panoramica** (17/08/2026, chiesto
                 dall'utente): è un'informazione del prodotto, non un dettaglio
@@ -886,7 +971,14 @@ export default async function ProdottoPage({
               <a href={`/prodotti/${id}?tab=panoramica`}>aprilo in Panoramica</a>.
             </p>
             <div className="scheda">
-              <div className="scheda-titolo">Stato di pubblicazione</div>
+              <div className="scheda-titolo">Stato di pubblicazione (nota nostra)</div>
+              {/* ⚠️ Questi bottoni scrivono un campo DI QUESTA APP e non toccano
+                  Shopify — né prima né dopo aver collegato un negozio. Lo stato
+                  vero, negozio per negozio, è nel riquadro qui sopra. Scritto,
+                  perché due stati vicini che si somigliano si confondono. */}
+              <p className="cella-sub" style={{ marginBottom: 10 }}>
+                Si scrive qui e resta qui: non arriva al negozio. Quello che dice Shopify è sopra.
+              </p>
               <div className="pill-scelta">
                 {STATI_SHOPIFY.map((s) => {
                   const attuale = prodotto.shopifyStato === s;
