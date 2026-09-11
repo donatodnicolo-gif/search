@@ -263,8 +263,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.riga-link { cursor: pointer; }
 tbody tr.riga-link:hover { background: var(--fill); }
 
-.cella-principale { font-weight: 550; }
-.cella-sotto { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+/* Le due righe di una cella. `display:block` esplicito: dentro un <button> o
+   un <a> (riga che apre una finestra, ricerca viva) sono <span>, e senza
+   questo finivano sulla STESSA riga — titolo e sottotitolo appiccicati. */
+.cella-principale { font-weight: 550; display: block; }
+.cella-sotto { font-size: 12px; color: var(--text-secondary); margin-top: 2px; display: block; }
 
 /* ------------------------------------------------------------------ badge */
 

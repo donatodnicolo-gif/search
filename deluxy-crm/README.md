@@ -38,6 +38,13 @@ Postgres **`crm`** sul cluster condiviso.
   (condoglianze) sono segnalati e NON hanno il bottone degli auguri.
 - **Calendario** — il mese con programmazioni, ricorrenze (da oggi in poi) ed
   eventi; elenco giorno per giorno con «Fatta».
+- **Reclami** — quello che è andato storto, **letto dal Customer Service**
+  (`/api/v1/reclami`): da lavorare/aperti/in lavorazione/risolti/chiusi,
+  filtri per colpa, gravità e periodo, dettaglio in finestra col filo di chi ci
+  ha lavorato. Sola lettura: il reclamo si apre e si chiude là, e da ogni riga
+  si salta alla sua scheda. Nella scheda cliente c'è la card «Reclami» con
+  quelli di quella persona (cercati per email e telefono, anche delle schede
+  unite).
 - **Performance** — valore, cluster, segmenti, siti, città, classifiche
   (legge fino a 3000 clienti per spesa e lo dice).
 - **Nuovo ordine** — cerca il cliente e apre il modulo dell'ordine (passa dal

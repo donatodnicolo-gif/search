@@ -50,6 +50,36 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
 
+**Sezione RECLAMI** (utente, 11/09: «aggiungi sezioni reclami all'app e fatti
+passare i reclami dall'app customer service»). Nel CS due rotte nuove:
+**`GET /api/v1/reclami`** (filtri `cliente` — email o telefono, il telefono
+sulle ultime 9 cifre —, `ordine`, `stato` con la vista `aperti`, `colpa`,
+`gravita`, `q`, `periodo`, `page`; risponde con le righe, `perStato`,
+`domandeAperte` per riga, il `link` alla scheda vera e le **etichette**
+— stati, colpe, gravità — così il CRM non si riscrive i vocabolari) e
+**`GET /api/v1/reclami/<id>`** (il reclamo col filo dei messaggi, e quali
+domande aspettano ancora risposta). Le due funzioni condivise stanno in
+`src/lib/reclami-api.ts` — un `route.ts` di Next può esportare solo i verbi
+HTTP, e la prima versione che le esportava dalla rotta non sarebbe compilata.
+Nel CRM: `src/lib/reclami.ts` (client, etichette di riserva, cache a TTL solo
+per il pallino), pagina **`/reclami`** (KPI: da lavorare · in elenco · gravi ·
+aspettano una risposta; pillole di stato con «Da lavorare» come vista di
+partenza; filtri colpa/gravità/periodo; riga che apre il dettaglio in
+finestra), `components/DettaglioReclamo.tsx` (che cosa è successo, di chi è la
+colpa, che cosa si fa, com'è andata, il filo di chi ci ha lavorato, e «Apri
+nel Customer Service»), proxy `api/interno/reclamo`, voce nel menu con
+pallino (rosso se c'è un grave o una domanda senza risposta, TTL 5 minuti) e
+**card «Reclami» nella scheda cliente**, sotto gli Ordini, che cerca per email
+e telefono — anche delle schede unite.
+⚠️ **Sola lettura, di proposito**: il reclamo si apre e si chiude nel Customer
+Service. Due posti che cambiano lo stesso stato darebbero due verità (§7).
+⚠️ Se il CS collegato non ha ancora l'API, la pagina lo dice con quelle parole
+(404 senza corpo = rotta assente, non guasto) e il resto dell'app non cambia.
+Misure in locale: elenco 0,88 s a pagina calda, dashboard con pallino 0,31 s.
+Corretto anche `.cella-principale`/`.cella-sotto`: dentro un `<button>` o un
+`<a>` sono `<span>` e finivano sulla STESSA riga (si vedeva nella ricerca viva
+del cliente e nella nuova tabella) — ora `display: block`.
+
 **Nuovo ordine con TUTTE le opzioni del Customer Service** (utente, 11/09, dal
 modulo live: «le fasce orarie devono essere dei negozi o a inserimento
 manuale; copia tutte le opzioni da app customer service (costi di consegna,

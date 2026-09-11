@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { dataUltimoOrdine, ricorrenze, TTL_PALLINI_MS } from "./orders";
+import { reclami, TTL_PALLINO_RECLAMI_MS } from "./reclami";
 
 // ── COSA C'È DI NUOVO NELLE SEZIONI DEL MENU ──
 //
@@ -49,7 +50,7 @@ const GIORNI_RICORRENZE = 7;
  */
 export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
   const fra7 = new Date(Date.now() + 7 * 86_400_000);
-  const [imminenti, ultimoOrdine, ultimoEvento, eventiInArrivo, ultimaProgrammazione, programmateVicine, inRitardo] = await Promise.all([
+  const [imminenti, ultimoOrdine, ultimoEvento, eventiInArrivo, ultimaProgrammazione, programmateVicine, inRitardo, reclamiEsito] = await Promise.all([
     // Le ricorrenze dei prossimi 7 giorni: basta il totale, quindi limit: 1.
     ricorrenze({ prossimi: GIORNI_RICORRENZE, page: 1, limit: 1, ttlMs: TTL_PALLINI_MS }),
     // ⚠️ Il pallino dei clienti guarda la data dell'ULTIMO ORDINE valido del
@@ -82,9 +83,17 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
       .catch(() => null),
     prisma.programmazione.count({ where: { stato: "da_fare", quando: { lte: fra7 } } }).catch(() => 0),
     prisma.programmazione.count({ where: { stato: "da_fare", quando: { lt: new Date() } } }).catch(() => 0),
+    // I reclami da lavorare, letti dal Customer Service. ⚠️ Come per tutti i
+    // pallini: se il CS non risponde, la sezione tace — mai un errore nel menu.
+    reclami({ stato: "aperti", limit: 50, ttlMs: TTL_PALLINO_RECLAMI_MS }),
   ]);
 
   const quanteRicorrenze = imminenti.ok ? imminenti.dati.totale : 0;
+  // ⚠️ `ultimo` è la data del reclamo aperto più di recente: è la cosa che
+  // «arriva» in quella sezione, e il pallino si spegne guardandola.
+  const reclamiAperti = reclamiEsito.ok ? reclamiEsito.dati.totale : 0;
+  const reclamiRosso = reclamiEsito.ok && reclamiEsito.dati.reclami.some((r) => r.gravita === 3 || r.domandeAperte > 0);
+  const ultimoReclamo = reclamiEsito.ok ? (reclamiEsito.dati.reclami[0]?.creatoIl ?? "") : "";
 
   return {
     "/ricorrenze": {
@@ -107,6 +116,13 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
       ultimo: ultimoEvento ? ultimoEvento.creatoIl.toISOString() : "",
       quanti: eventiInArrivo,
       urgente: false,
+    },
+    "/reclami": {
+      ultimo: ultimoReclamo,
+      quanti: reclamiAperti,
+      // Rosso quando c'è un reclamo grave, o una domanda che aspetta qualcuno:
+      // sono le due cose che non possono restare lì un altro giorno.
+      urgente: reclamiRosso,
     },
     "/calendario": {
       ultimo: ultimaProgrammazione ? ultimaProgrammazione.creatoIl.toISOString() : "",

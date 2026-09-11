@@ -25,6 +25,8 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import FotoInput from "@/components/FotoInput";
 import RicorrenzeMultiple from "@/components/RicorrenzeMultiple";
 import Modale from "@/components/Modale";
+import DettaglioReclamo from "@/components/DettaglioReclamo";
+import { baseCS, gravitaReclamo, reclamiDelCliente, reclamoAperto, statoReclamo } from "@/lib/reclami";
 import ConfermaElimina from "@/components/ConfermaElimina";
 import {
   chiaveGiorno,
@@ -125,6 +127,17 @@ export default async function Scheda({
 
   const c = scheda.dati;
   const seg = segmento(c.segmento);
+
+  // I RECLAMI di questa persona, dal Customer Service (casa del reclamo).
+  // ⚠️ Si cercano per email e telefono — che si sanno solo dopo aver letto la
+  // scheda: è un secondo giro, non evitabile senza indovinare i contatti. Si
+  // cercano anche quelli delle schede unite: è la stessa persona.
+  const contatti = [
+    { email: c.email, telefono: c.telefono },
+    ...datiAlias.filter((a) => a.scheda.ok).map((a) => ({ email: a.scheda.ok ? a.scheda.dati.email : null, telefono: a.scheda.ok ? a.scheda.dati.telefono : null })),
+  ];
+  const [reclamiCliente, csBase] = await Promise.all([reclamiDelCliente(contatti), baseCS()]);
+  const reclamiAperti = reclamiCliente.ok ? reclamiCliente.dati.filter((r) => reclamoAperto(r.stato)) : [];
 
   // La vista UNITA: i numeri del principale più quelli degli alias (ordini,
   // spesa, date), gli ordini e le ricorrenze di tutti, dal più recente.
@@ -605,6 +618,71 @@ export default async function Scheda({
               <p className="secondario piccolo" style={{ marginTop: 8 }}>{ordiniVista.errore}</p>
             ) : ordiniVista.dati.ordini.length === 0 ? (
               <p className="secondario piccolo" style={{ marginTop: 8 }}>Nessun ordine valido.</p>
+            ) : null}
+          </div>
+
+          {/* RECLAMI — quello che è andato storto con questa persona. Sta
+              sotto gli ordini perché è degli ordini che parla, e prima del
+              diario perché chi sta per telefonare deve vederlo per primo.
+              Si legge dal Customer Service: lì si lavora. */}
+          <div className="card" id="reclami">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div>
+                <div className="card-titolo">Reclami</div>
+                <div className="card-sub" style={{ marginBottom: 0 }}>
+                  {reclamiCliente.ok
+                    ? reclamiCliente.dati.length === 0
+                      ? "Nessun reclamo: con questa persona non è mai andato storto niente."
+                      : `${reclamiCliente.dati.length} in tutto${reclamiAperti.length ? `, ${reclamiAperti.length} ancora da lavorare` : ", tutti chiusi"}. Fonte: Customer Service.`
+                    : "Fonte: Customer Service."}
+                </div>
+              </div>
+              {reclamiAperti.length > 0 ? (
+                <span className="badge colorato" style={{ ["--badge-colore" as string]: "var(--orange)" }}>
+                  <span className="dot" />
+                  {reclamiAperti.length} da lavorare
+                </span>
+              ) : null}
+            </div>
+            {!reclamiCliente.ok ? (
+              <p className="secondario piccolo" style={{ marginTop: 8 }}>{reclamiCliente.errore}</p>
+            ) : reclamiCliente.dati.length > 0 ? (
+              <div className="timeline" style={{ marginTop: 10 }}>
+                {reclamiCliente.dati.map((r) => {
+                  const st = statoReclamo(r.stato);
+                  const gr = gravitaReclamo(r.gravita);
+                  return (
+                    <div className="timeline-voce" key={r.id}>
+                      <div className="timeline-corpo">
+                        <DettaglioReclamo
+                          id={r.id}
+                          titolo={`${r.casistica || "Reclamo"}${r.ordineNumero ? ` · ordine ${r.ordineNumero}` : ""}`}
+                          sotto={r.clienteNome || undefined}
+                          baseCS={csBase}
+                          className="riga-apri inline"
+                          bottone={<span className="timeline-titolo">{r.casistica || "Reclamo"}</span>}
+                        />
+                        <div className="timeline-quando" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <span className="badge colorato" style={{ ["--badge-colore" as string]: st.colore }}>
+                            <span className="dot" />
+                            {st.nome}
+                          </span>
+                          <span className="badge colorato" style={{ ["--badge-colore" as string]: gr.colore }}>
+                            <span className="dot" />
+                            {gr.nome}
+                          </span>
+                          <span>
+                            {dataIt(r.creatoIl)}
+                            {r.ordineNumero ? ` · ordine ${r.ordineNumero}` : ""}
+                            {r.colpaNome ? ` · colpa: ${r.colpaNome}` : ""}
+                            {r.domandeAperte > 0 ? ` · ${r.domandeAperte} ${r.domandeAperte === 1 ? "domanda aperta" : "domande aperte"}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : null}
           </div>
 

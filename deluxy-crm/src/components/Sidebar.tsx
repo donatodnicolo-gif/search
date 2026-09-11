@@ -18,6 +18,7 @@ const SEZIONI: Sezione[] = [
       { href: "/", nome: "Oggi", icona: "oggi" },
       { href: "/clienti", nome: "Clienti", icona: "clienti" },
       { href: "/ricorrenze", nome: "Ricorrenze", icona: "ricorrenze" },
+      { href: "/reclami", nome: "Reclami", icona: "reclami" },
       { href: "/calendario", nome: "Calendario", icona: "calendario" },
       { href: "/performance", nome: "Performance", icona: "performance" },
     ],
@@ -109,6 +110,12 @@ const ICONE = {
     <>
       <path d="M7 3.5h7.5L19 8v12.5H7z" transform="translate(-1 0)" />
       <path d="M13.5 3.5V8H18M9 12h6M9 15.5h6" transform="translate(-1 0)" />
+    </>
+  ),
+  reclami: (
+    <>
+      <path d="M12 9v4.2M12 16.6v.01" />
+      <path d="M10.3 3.9 2.6 17.4A1.6 1.6 0 0 0 4 19.8h16a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a1.6 1.6 0 0 0-2.8 0z" />
     </>
   ),
   impostazioni: (
