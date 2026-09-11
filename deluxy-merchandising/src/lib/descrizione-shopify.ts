@@ -97,7 +97,14 @@ export type DescrizionePerShopify = {
  * Compone l'HTML. Torna stringa vuota se non c'è niente da dire: meglio una
  * descrizione assente che una pagina con dei titoli vuoti sotto.
  */
-export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
+/**
+ * `conVuote`: tiene anche le sezioni senza testo (un titolo e un paragrafo
+ * vuoto). Serve SOLO all'editor del modulo: chi aggiunge un «Titolo di
+ * sezione» e non ha ancora scritto sotto deve rivederselo al prossimo giro,
+ * altrimenti sparisce (segnalato l'11/09/2026 sui prodotti vecchi a cui il
+ * titolo «era andato via»). Sul negozio una tab vuota non si manda mai.
+ */
+export function componiDescrizioneHtml(d: DescrizionePerShopify, opzioni?: { conVuote?: boolean }): string {
   const pezzi: string[] = [];
 
   const punti = [d.plusProdotto, d.plusUno, d.plusDue].map((x) => (x ?? "").trim()).filter(Boolean);
@@ -146,7 +153,10 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
 
   for (const s of sezioniOrdinate) {
     const valore = (s.valore ?? "").trim();
-    if (!valore) continue;
+    if (!valore) {
+      if (opzioni?.conVuote) pezzi.push(`<h6>${html(s.nome)}</h6>`, "<p></p>");
+      continue;
+    }
     pezzi.push(`<h6>${html(s.nome)}</h6>`);
     const r = righe(valore);
     // ⚠️⚠️ **La forma la decide il TIPO della sezione, non quante righe ha.**
@@ -252,7 +262,7 @@ function eDescrizione(nome: string): boolean {
  * non è un elenco in cima né un titolo finisce nel testo libero, così
  * ricomponendo si ritrova tutto.
  */
-export function spezzaDescrizioneHtml(html: string | null | undefined): PezziDescrizione {
+export function spezzaDescrizioneHtml(html: string | null | undefined, opzioni?: { conVuote?: boolean }): PezziDescrizione {
   const sorgente = (html ?? "").trim();
   if (!sorgente) return { punti: [], descrizione: "", sezioni: [] };
 
@@ -283,7 +293,9 @@ export function spezzaDescrizioneHtml(html: string | null | undefined): PezziDes
   tagli.forEach((t, i) => {
     const finePezzo = i + 1 < tagli.length ? tagli[i + 1].indice : sorgente.length;
     const testo = testoDa(sorgente.slice(t.fine, finePezzo));
-    if (!testo) return;
+    // Una sezione senza testo si butta — tranne nell'editor (`conVuote`), dove
+    // il titolo appena scritto deve restare finché si scrive sotto.
+    if (!testo && !opzioni?.conVuote) return;
     if (eDescrizione(t.nome)) {
       descrizione = descrizione ? `${descrizione}\n\n${testo}` : testo;
       return;
@@ -369,7 +381,7 @@ export function valoriSezioni(sezioniScheda: unknown, sito: string): Record<stri
  * altro sito): «Dettagli», ordine 0 ovunque, torna prima; solo chi non ha
  * nessuna definizione resta in coda.
  */
-export function sezioniDaScrivere(p: SchedaComponibile, sito: string, definite: SezioneDefinita[]): SezioneDaScrivere[] {
+export function sezioniDaScrivere(p: SchedaComponibile, sito: string, definite: SezioneDefinita[], opzioni?: { conVuote?: boolean }): SezioneDaScrivere[] {
   const valori = valoriSezioni(p.sezioniScheda, sito);
   const previste = sezioniDelSito(definite, p.categoria, sito).slice().sort((a, b) => a.ordine - b.ordine);
   const chiavi = Object.keys(valori);
@@ -382,13 +394,15 @@ export function sezioniDaScrivere(p: SchedaComponibile, sito: string, definite: 
   const usate = new Set<string>();
   previste.forEach((s, i) => {
     const v = trova(s.nome);
-    for (const k of chiavi) if (famigliaSezione(k) === famigliaSezione(s.nome)) usate.add(k);
-    if (v.trim() || i === 0) fuori.push({ nome: s.nome, tipo: s.tipo, ordine: s.ordine, valore: v });
+    let esplicita = false;
+    for (const k of chiavi) if (famigliaSezione(k) === famigliaSezione(s.nome)) { usate.add(k); esplicita = true; }
+    if (v.trim() || i === 0 || (opzioni?.conVuote && esplicita)) fuori.push({ nome: s.nome, tipo: s.tipo, ordine: s.ordine, valore: v });
   });
   const dellaCategoria = definite.filter((d) => d.categoria === p.categoria);
   let coda = 1000;
   for (const [nome, valore] of Object.entries(valori)) {
-    if (usate.has(nome) || !valore.trim()) continue;
+    if (usate.has(nome)) continue;
+    if (!valore.trim() && !opzioni?.conVuote) continue;
     const def = dellaCategoria.find((d) => famigliaSezione(d.nome) === famigliaSezione(nome));
     fuori.push({ nome, tipo: def?.tipo ?? "testo", ordine: def ? def.ordine - 0.5 : coda++, valore });
   }

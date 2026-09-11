@@ -250,6 +250,24 @@ export function FormProdottoNuovo({
   const [sitoVoluto, setSitoAttivo] = useState<string | null>(null);
   const sitoAttivo = sitoVoluto && nomiNegoziScelti.includes(sitoVoluto) ? sitoVoluto : nomiNegoziScelti[0] ?? "";
   const statoSu = (nome: string) => iniziale?.pubblicazioni.find((p) => p.negozio === nome) ?? null;
+  /**
+   * ⭐ 11/09/2026 (utente: «Apri la scheda online non funziona»): dove si guarda
+   * la scheda di un sito. La vetrina mostra solo i prodotti ATTIVI — su una
+   * bozza rispondeva 404, e il link sembrava rotto. In bozza si apre la scheda
+   * nell'admin di Shopify, che la mostra sempre. Il dominio myshopify va bene:
+   * reindirizza (301) al dominio pubblico del negozio.
+   */
+  const linkScheda = (nomeSito: string): { href: string; etichetta: string } | null => {
+    const st = statoSu(nomeSito);
+    const sito = negozi.find((x) => x.nome === nomeSito);
+    if (!st || !sito || !st.shopifyId) return null;
+    if (st.statoShopify === "ACTIVE" && st.handle) return { href: `https://${sito.dominio}/products/${st.handle}`, etichetta: "Apri la scheda online ↗" };
+    const idNumerico = st.shopifyId.split("/").pop() ?? "";
+    return {
+      href: `https://${sito.dominio}/admin/products/${idNumerico}`,
+      etichetta: st.statoShopify === "DRAFT" ? "Apri nell'admin di Shopify ↗ (in bozza: la vetrina non la mostra)" : "Apri nell'admin di Shopify ↗",
+    };
+  };
   const [fase, setFase] = useState<string>(iniziale?.fase ?? "concept");
   const pubblico = fase === "in_vendita";
   const [categoria, setCategoria] = useState(iniziale?.categoria === "DA_CLASSIFICARE" ? "" : (iniziale?.categoria ?? ""));
@@ -348,7 +366,7 @@ export function FormProdottoNuovo({
   const applicaSchedaScritta = (nomeSito: string, htmlScritto: string) => {
     if (attesaScheda.current) clearTimeout(attesaScheda.current);
     attesaScheda.current = setTimeout(() => {
-      const pezzi = spezzaDescrizioneHtml(htmlScritto);
+      const pezzi = spezzaDescrizioneHtml(htmlScritto, { conVuote: true });
       const sezioniLette = Object.fromEntries(pezzi.sezioni.map((s) => [s.nome, s.testo]));
       setSezioniValori((tutte) => ({ ...tutte, [nomeSito]: sezioniLette }));
       if (nomeSito !== negozio?.nome) return;
@@ -1348,13 +1366,13 @@ export function FormProdottoNuovo({
               <div className="cella-sub" style={{ marginBottom: 4 }}>
                 In cima alla scheda su <b>{nomeSito}</b>
                 {(() => {
-                  const sito = negozi.find((x) => x.nome === nomeSito);
-                  return st?.handle && sito ? (
-                    <a className="anteprima-link" href={`https://${sito.dominio}/products/${st.handle}`} target="_blank" rel="noreferrer" style={{ marginLeft: 10 }}>
-                      Apri la scheda online ↗
+                  const link = linkScheda(nomeSito);
+                  return link ? (
+                    <a className="anteprima-link" href={link.href} target="_blank" rel="noreferrer" style={{ marginLeft: 10 }}>
+                      {link.etichetta}
                     </a>
                   ) : (
-                    <span style={{ marginLeft: 10 }}>· non ancora online</span>
+                    <span style={{ marginLeft: 10 }}>· non ancora su questo negozio</span>
                   );
                 })()}
               </div>
@@ -1379,10 +1397,8 @@ export function FormProdottoNuovo({
               <EditorScheda
                 sito={nomeSito}
                 nome={(iniziale?.nome ?? "") || ""}
-                urlOnline={(() => {
-                  const sito = negozi.find((x) => x.nome === nomeSito);
-                  return st?.handle && sito ? `https://${sito.dominio}/products/${st.handle}` : null;
-                })()}
+                urlOnline={linkScheda(nomeSito)?.href ?? null}
+                etichettaOnline={linkScheda(nomeSito)?.etichetta}
                 htmlIniziale={componiDescrizioneHtml({
                   etichettaCategoria: categorie.find((c) => c.chiave === categoria)?.nome ?? null,
                   plusProdotto,
@@ -1391,8 +1407,8 @@ export function FormProdottoNuovo({
                   descrizione,
                   // ⭐ 11/09/2026: la STESSA regola del server (previste + quelle
                   // che il prodotto ha), così l'anteprima è la scheda che parte.
-                  sezioni: sezioniDaScrivere({ plusProdotto, descrizione, categoria, sezioniScheda: sezioniValori }, nomeSito, sezioni),
-                })}
+                  sezioni: sezioniDaScrivere({ plusProdotto, descrizione, categoria, sezioniScheda: sezioniValori }, nomeSito, sezioni, { conVuote: true }),
+                }, { conVuote: true })}
                 onChange={(htmlScritto) => applicaSchedaScritta(nomeSito, htmlScritto)}
               />
 
@@ -1496,8 +1512,10 @@ export function FormProdottoNuovo({
                 // ⭐ 11/09/2026: le sezioni che il prodotto ha per questo sito ma che
                 // la categoria qui non prevede. Prima non si vedevano da nessuna
                 // parte e al salvataggio dall'editor sparivano («Dettagli» compreso).
+                // Anche quelle ancora vuote: un titolo appena aggiunto nell'editor ha
+                // bisogno della sua casella per riempirsi.
                 const fuoriPrevisione = Object.entries(sezioniValori[nomeSito] ?? {})
-                  .filter(([nome, v]) => (v ?? "").trim() && !suoi.some((s) => famigliaSezione(s.nome) === famigliaSezione(nome)))
+                  .filter(([nome]) => !suoi.some((s) => famigliaSezione(s.nome) === famigliaSezione(nome)))
                   .map(([nome]) => nome);
                 return !categoria ? (
                 <div className="vuoto-mini">Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella.</div>

@@ -10,6 +10,26 @@ Regola dell'utente: «quando un partner crea il proprio prodotto il nome che met
 - Pubblicati anche (10/09): `nomePartner` nell'API prodotti; `POST /api/v1/prodotti/disponibilita` (giorni minimi e ora minima dal calendario dei partner dei prodotti unici, chiamata dal cron della piattaforma ogni mezz'ora); 5.080 nomi partner riempiti.
 - ⚠️ Il deploy in cloud prende SOLO ciò che è pushato su `scout-ui`: il lavoro locale «NON pubblicato» qui sotto non è entrato.
 
+### 11/09 (2) — «Apri la scheda online non funziona» e «il titolo di sezione aggiunto non resta» (in locale, NON pubblicato)
+
+- **Il link**: i domini `myshopify.com` reindirizzano bene (301 → deluxy.it,
+  business.deluxy.it). Il Centrotavola su Gifts è **in bozza** e la vetrina
+  non mostra le bozze: 404, e il link sembrava rotto. Ora `linkScheda()`:
+  prodotto ATTIVO → vetrina; in bozza/archiviato → **admin di Shopify**
+  (`/admin/products/<id>`) con l'etichetta che lo dice. Vale in testa alla tab
+  e nell'editor.
+- **Il titolo**: una sezione appena aggiunta nell'editor, ancora senza testo,
+  veniva scartata dal parser (`if (!testo) return`) e al primo clic fuori
+  l'editor si ricomponeva senza di lei. Ora, **solo nell'editor**
+  (`conVuote`), spezza, compositore e `sezioniDaScrivere` tengono le sezioni
+  vuote — titolo e paragrafo vuoto — e la casella compare subito («già sulla
+  scheda» se il sito non la prevede). Sul negozio una tab vuota non si manda
+  mai; al salvataggio le vuote non si scrivono (regola del 08/09).
+- Verificato nel browser (Centrotavola, tab Gifts, bozza): link
+  «Apri nell'admin di Shopify ↗ (in bozza…)» → `/admin/products/…`; aggiunto
+  `<h6>Prova Titolo</h6>` nell'editor → resta dopo il blur, compare la casella,
+  scrivendo nella casella l'editor la segue.
+
 ## 11/09/2026 — LA SCHEDA CHE SI SCRIVE E QUELLA CHE ARRIVA SU SHOPIFY SONO LA STESSA — PUBBLICATA
 
 ✅ **PUSHATO E DEPLOYATO** (utente: «fai deploy»): `origin/scout-ui` a `7f082d60`, deploy **`deluxy-merchandising-h6r9m4gfs`** (cloud), Ready, alias di produzione. Verificato in produzione: `/api/health` ok con 4 negozi; la modifica del Centrotavola Rosa Nera risponde 200 col nuovo aiuto sotto la descrizione, due link «Apri la scheda online» e nessun `schedaHtml` nascosto. Manuale ripubblicato con la riga (versione che porta anche le 5 righe dell'11/09 delle altre sessioni).

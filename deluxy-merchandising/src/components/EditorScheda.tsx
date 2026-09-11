@@ -38,6 +38,7 @@ export function EditorScheda({
   htmlIniziale,
   nome,
   urlOnline,
+  etichettaOnline,
   onChange,
 }: {
   sito: string;
@@ -45,6 +46,8 @@ export function EditorScheda({
   htmlIniziale: string;
   nome: string;
   urlOnline?: string | null;
+  /** Cosa dice il link: «Apri la scheda online» se è in vetrina, «Apri nell'admin» se è in bozza. */
+  etichettaOnline?: string;
   /** Chiamato mentre si scrive: il genitore rispezza l'HTML nei campi. */
   onChange?: (html: string) => void;
 }) {
@@ -79,7 +82,7 @@ export function EditorScheda({
         <span className="editor-sito">{sito}</span>
         {urlOnline ? (
           <a className="anteprima-link" href={urlOnline} target="_blank" rel="noreferrer">
-            Apri la scheda online ↗
+            {etichettaOnline ?? "Apri la scheda online ↗"}
           </a>
         ) : (
           <span className="cella-sub" title="Il link compare quando il prodotto è sul negozio">non ancora online su {sito}</span>
