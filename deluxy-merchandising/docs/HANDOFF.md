@@ -4,10 +4,32 @@ Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza cont
 
 ## 🔴 11/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 
-**Non pubblicato.** Tutto quello di questa sezione è committato su `scout-ui` in
-locale e **non** è stato pushato né deployato: l'utente non l'ha chiesto. Build
-di produzione pulita, `tsc --noEmit` pulito, provato in locale sul dev server
-(porta **3120**, non 3000) e sui prodotti veri.
+✅ **PUBBLICATO** (utente: «fai push & deploy di tutte le app coinvolte»).
+origin/`scout-ui` a **`3d045e79`**, deploy **`deluxy-merchandising-g051il9c5`**
+(cloud), stato Ready, alias di produzione. Manuale ripubblicato allo stesso
+indirizzo. Commit: `14e405a5` · `a31be281` · `b841d10b` · quello del manuale.
+
+⚠️ **Il push ha portato su anche i commit di altre due sessioni** (Marketing e
+Customer Service): il branch `scout-ui` è condiviso da tutte le app del repo e
+non si può pushare il proprio senza il loro. Le loro app **non** sono state
+deployate: è una decisione delle sessioni che le seguono.
+
+**Verificato in produzione**, non dedotto:
+
+| Che cosa | Esito |
+|---|---|
+| `POST /api/v1/prodotti` con fase «prototipo» | arriva `attesa_approvazione` |
+| `POST` con fase «approvato» | resta `approvato` |
+| Scheda di Torta Damianino | riquadro «Attesa approvazione» e tasto «Recupera dalla piattaforma» |
+| Modulo dello stesso prodotto | «Pezzo unico» e «Non fisico» a «Sì», bloccati, e `metafieldJson` li porta |
+| `/prodotti/nuovo` | sito preselezionato **Gifts**, cioè deluxy.it |
+
+I due prodotti di prova creati per la verifica (`PROD-FASE-A`, `PROD-FASE-B`) e
+la chiave API temporanea sono stati cancellati: nel catalogo restano **tre**
+prodotti del partner, tutti in `attesa_approvazione`.
+
+Build di produzione pulita, `tsc --noEmit` pulito, provato anche in locale sul
+dev server (porta **3120**, non 3000).
 
 ### ⚠️⚠️ La contraddizione fra le due sessioni, e come è stata sciolta
 
@@ -179,10 +201,10 @@ vuoto e visibile.
 
 1. **Configurare la piattaforma** in Impostazioni (vedi sopra): sblocca il tasto
    «Recupera» e la comunicazione dell'approvazione.
-2. **Push e deploy** di questa sezione, quando l'utente lo chiede.
+2. ~~Push e deploy~~ — **fatti** (vedi il cappello).
 3. **Provare l'immagine su due negozi** con una foto vera, e provare a
    **salvare dal browser** un prodotto del partner (i campi bloccati sono stati
-   visti a schermo, il salvataggio no).
+   visti a schermo, in locale e in produzione; il salvataggio no).
 4. Lato piattaforma, invariato: allargare `inviaOra` e aprire la rotta
    dell'approvazione (§3.1 e §3.2 del contratto).
 5. Il **prezzo pubblico** di Torta Damiano e degli altri due in coda: lo decide
