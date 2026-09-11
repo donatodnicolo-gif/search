@@ -23,6 +23,55 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 11/09 — «Ho accettato ma continua a darmi così»: l'invito di calendario
+
+Segnalazione dell'utente con schermata. **Prima cosa verificata sul database: aveva funzionato
+tutto** — `invitoRisposta = ACCEPTED` sulla mail delle 12:13, evento «deluxy <> chanel» in agenda
+l'11/09 alle 15:30, risposta partita alle 12:26 a `giulia.martino@chanel.com`. Controllato anche
+il sospetto che il secondo messaggio del thread riproponesse i tasti: è la **nostra risposta in
+uscita**, e su quella il riquadro non compare. Quindi il difetto era solo in ciò che lo schermo
+comunicava.
+
+**Il difetto**: il tasto della risposta data restava `primary` — **nero** — con un commento che
+lo motivava «come in Outlook». Ma nel nostro canone il nero è *l'azione da fare adesso*, e il
+Libro §3 ne ammette **una sola per vista**: nella mail il nero è già «Rispondi», quindi a riposo
+ce n'erano **due**. §9-ter dice inoltre che l'unica pillola piena che esprime stato è il passo
+corrente, **che non è cliccabile** — qui lo stesso pixel nero era stato *e* bottone che manda
+una mail a Chanel. (Outlook, per inciso, dopo la risposta **sostituisce** i tre tasti con una riga
+di stato: il commento citava un comportamento che non esiste.) In più la stessa cosa era detta
+**quattro volte** più il riquadro «In agenda» sotto che ripeteva l'appuntamento.
+
+**Applicato** (verdetto del custode `architetto-ux`): zero nero nel riquadro in tutti gli stati.
+Non risposto → badge `orange` «Da rispondere» + tre `secondary`. Risposto → **un** badge, **una**
+riga con le conseguenze, e `[Apri nel calendario] [Cambia risposta] [Togli dal calendario]`.
+«Cambia risposta» apre in loco **solo le altre due** opzioni, con l'avviso *prima* del click
+(§7). Da 4 affermazioni + 1 riquadro a **1 badge + 1 riga**.
+
+🔴 **Due difetti VERI trovati dal custode e corretti**:
+1. **L'evento dell'invito si cercava per `(inizio, titolo)`** — ma rispondendo «Forse» l'evento
+   si crea come «<titolo> (forse)», quindi il confronto falliva: l'app diceva che l'appuntamento
+   non era in calendario mentre c'era, e cambiando risposta ne creava un **secondo gemello**.
+   Ora si cerca per **`messaggioId + inizio`** (in `leggiInvito` e dentro `rispondiInvito`), e il
+   tipo porta `eventoId` invece del booleano `giaInAgenda`.
+2. **La riga di esito era grigia in entrambi i casi**: sul successo ripeteva parola per parola il
+   toast (doppione), sul fallimento «risposta non inviata all'organizzatore» restava smorta sotto
+   un badge verde — la cornice non seguiva l'esito (§7). Ora l'errore è rosso con **«Riprova»**, e
+   il nuovo `organizzatoreEmail` permette di dire la verità quando l'invito non porta
+   l'organizzatore e **nessuna risposta può partire** (prima `rispondiInvito` tornava `ok: true`
+   e il riquadro mostrava un tranquillo verde).
+
+Il riquadro «In agenda» non si disegna più per l'appuntamento dell'invito. ⚠️ Filtro volutamente
+**stretto** — solo a risposta registrata e solo per eventi **non** creati dall'AI: nel dubbio si
+mostra, perché un appuntamento che sparisce da entrambi i riquadri sarebbe molto peggio di uno
+mostrato due volte. E resta comunque raggiungibile dall'invito: **mai invisibile**.
+
+Non toccata la riletura di `leggiInvito` dopo la risposta (è la toppa della segnalazione del
+7/08): rifattorizzando gli stati è la prima cosa che si perde. `tsc` 0 errori.
+
+⚠️ **Non verificato a schermo nell'app vera**: il riquadro sta dietro il login. Ho controllato le
+classi e la resa disegnando i tre stati nel browser col CSS dell'app — è una prova dello stile,
+non del comportamento React.
+
 ### 11/09 — Campi ora del Calendario: CSS e slot di 15 minuti (regola nuova del Libro)
 
 Richiesta dell'utente. Passata dal custode `architetto-ux`, come vogliono le regole.

@@ -238,9 +238,25 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   // Gli appuntamenti nati da questa mail: da quando l AI li mette in agenda
   // da sola, la mail DEVE dirlo. Una scrittura che non si vede e una
   // scrittura di cui non ci si fida.
-  const eventiInAgenda = await db.evento
+  const eventiTuttiInAgenda = await db.evento
     .findMany({ where: { messaggioId: messaggio.id, utenteId: u.id }, orderBy: { inizio: 'asc' } })
     .catch(() => [])
+
+  // ⚠️ SE L'APPUNTAMENTO È NATO DALL'INVITO DI QUESTA MAIL, non si disegna due
+  // volte. Prima il riquadro «In agenda» ripeteva titolo, data e luogo a 40px
+  // dal riquadro dell'invito, che li aveva già: due schede per lo stesso fatto
+  // (custode UX, 11/09/2026). Ora le sue due azioni («Apri nel calendario»,
+  // «Togli dal calendario») stanno nel riquadro dell'invito.
+  //
+  // Il filtro è volutamente STRETTO: si nasconde solo ciò che l'invito mostra
+  // di sicuro — la mail ha una risposta registrata e l'evento non è di quelli
+  // messi in agenda dall'AI (quelli hanno `creatoDaAI` e restano qui, col loro
+  // «messo in agenda dall'AI»). Nel dubbio si mostra: un appuntamento che
+  // sparisce da entrambi i riquadri sarebbe molto peggio di uno mostrato due
+  // volte — ed è comunque raggiungibile dall'invito, mai invisibile.
+  const eventiInAgenda = messaggio.invitoRisposta
+    ? eventiTuttiInAgenda.filter((ev) => ev.creatoDaAI)
+    : eventiTuttiInAgenda
 
   // «Questa sembra falsa»: il controllo è segnato all'arrivo (`spamCaso`), ma
   // si rifà anche QUI, al volo, per le mail arrivate PRIMA che la regola
