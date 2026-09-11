@@ -335,6 +335,24 @@ tr.riga-cliccabile { cursor: pointer; }
 .cella-num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 th.num { text-align: right; }
 
+/* ---------- Intestazioni che ordinano (11/09/2026) ----------
+   Sono link GET, non bottoni: l'ordine vive nell'indirizzo, quindi si copia,
+   si manda e sopravvive a un ricaricamento. Il link riempie la cella, così si
+   clicca dove capita, e la freccia c'è SEMPRE (spenta finché la colonna non è
+   quella attiva): una freccia che appare solo al passaggio del mouse non si
+   trova col dito su un telefono. */
+th a.ordina {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: inherit; text-decoration: none;
+  letter-spacing: inherit; text-transform: inherit;
+}
+th a.ordina:hover { color: var(--text); }
+th a.ordina:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+th a.ordina.attiva { color: var(--text); }
+th.num a.ordina { flex-direction: row-reverse; }
+.ordina-freccia { font-size: 10px; opacity: 0.35; }
+th a.ordina.attiva .ordina-freccia { opacity: 1; }
+
 /* ---------- Badge di stato (pillola con dot) ---------- */
 .badge {
   display: inline-flex; align-items: center; gap: 6px;

@@ -143,18 +143,23 @@ export async function chiudiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
   // link non ci va mai il testo da mostrare, altrimenti basterebbe mandare a
   // qualcuno un indirizzo per fargli leggere «pagamento eseguito».
   //
-  // Si riportano anche ricerca e periodo (08/09/2026): chi smaltisce la coda
-  // filtrata perdeva i filtri a ogni riga chiusa e ricominciava da capo. Sono
-  // gli stessi due parametri che la coda già usa e valida da sé — `periodo`
-  // contro un elenco chiuso, `q` come solo testo di ricerca — quindi qui si
-  // rimandano indietro e basta, con un tetto di lunghezza perché un indirizzo
-  // lungo non serve a nessuno.
+  // Si riportano anche ricerca, periodo e ordinamento (08/09 e 11/09/2026):
+  // chi smaltisce la coda filtrata perdeva i filtri a ogni riga chiusa e
+  // ricominciava da capo, e dall'11/09 perderebbe anche l'ordine scelto. Sono
+  // gli stessi parametri che la coda già riceve e valida da sé — `periodo` e
+  // `ord` contro elenchi chiusi, `dir` fra due valori, `q` come solo testo di
+  // ricerca — quindi qui si rimandano indietro e basta, con un tetto di
+  // lunghezza perché un indirizzo lungo non serve a nessuno.
   if (testo(fd, "torna") === "/") {
     const indirizzo = new URLSearchParams();
     const q = testo(fd, "q").slice(0, 100);
     const periodo = testo(fd, "periodo");
+    const ord = testo(fd, "ord");
+    const dir = testo(fd, "dir");
     if (q) indirizzo.set("q", q);
     if (periodo) indirizzo.set("periodo", periodo);
+    if (ord) indirizzo.set("ord", ord);
+    if (dir) indirizzo.set("dir", dir);
     indirizzo.set("chiuso", chiusura.riferimento);
     indirizzo.set("esito", esito);
     redirect(`/?${indirizzo.toString()}`);

@@ -11,7 +11,100 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **8 settembre 2026** (via il codice a 6 cifre dalla chiusura); 5 settembre (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+Aggiornato: **11 settembre 2026** (coda ordinabile, arretrato del Customer Service); 8 settembre (via il codice a 6 cifre dalla chiusura); 5 settembre (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+
+## 11/09/2026 — La coda si ordina, e 46 richieste su 49 non erano da pagare
+
+Giornata in due parti: una verifica della coda chiesta dall'utente («verifica
+che il valore sia corretto sulla base dell'ultimo aggiornamento») e due
+correzioni di interfaccia.
+
+### La verifica: della coda da 12.080,73 €, una sola riga era davvero da pagare
+
+Confronto riga per riga con le due app di origine (letture in sola lettura, mai
+scritture su schemi altrui). Delle **49 richieste aperte**:
+
+- **41 dal Customer Service, già pagate là** (3.638,00 €). Nel CS hanno tutte
+  `pagataIl` valorizzata, `canale = transactions`, `inviataIl`, e
+  `esitoInvio` **vuoto**: la chiamata di chiusura non è fallita, non è mai
+  partita. Due cause distinte, e la seconda è ancora aperta:
+  - **38** sono state pagate nel CS **prima del deploy del 05/09 18:10**, cioè
+    prima che il collegamento esistesse. Arretrato mai recuperato.
+  - **3** (`-000083`, `-000084`, `-000085` Enoteca Nibbi) sono state pagate nel
+    CS **prima che la richiesta arrivasse qui**: Nibbi pagata il 09/09 alle
+    15:53, richiesta creata qui il 10/09 alle 09:54. ⚠️ **Buco tuttora
+    aperto**: il CS chiama `pagata-fuori` nell'istante in cui si preme
+    «Pagata» (`src/app/api/pagamenti/[id]/route.ts`), e in quell'istante qui
+    non c'è ancora niente da chiudere. Nessuno ci ripassa quando la richiesta
+    parte. Finché non si tappa, l'arretrato si riforma.
+- **1 orfana**: `TRX-2026-000078` (Petit Jardin, 135 €, ordine #2898). La sua
+  riga nel CS è stata cancellata e rifatta a **80 €** → `TRX-2026-000079`, già
+  pagata e chiusa correttamente. Pagare la 078 sarebbe il secondo pagamento
+  dello stesso ordine, per giunta all'importo sbagliato.
+- **7 da Finance** (8.307,73 €), di cui:
+  - **3 costruite col criterio sbagliato** (`-000094`, `-000095`, `-000096`,
+    4.236,98 €, create il 10/09): portavano il **netto di più mesi** insieme,
+    regola del 04/09 che l'utente ha **rovesciato l'11/09** («ogni mese si paga
+    a sé, anche in compensazione», vedi il commento datato in
+    `deluxy-partner/src/lib/pagamenti-partner-actions.ts`). In Finance erano
+    agganciate a più mesi: la 094 ai mesi 5-6-7 di FAG, le altre due ai mesi
+    7-8. ✅ **Annullate l'11/09** dall'utente con lo script qui sotto; i mesi
+    tornano richiedibili uno per uno.
+  - **3 con il mese già bonificato** (`-000008/9/10`, Muciaccia, 3.576,47 €):
+    maggio ha un bonifico di 942,42 € **identico alla richiesta**, giugno ne ha
+    uno di 880,24 € contro 1.947,74 € richiesti, e aprile ha **−813,69 €**,
+    cioè denaro *ricevuto* dal partner mentre la richiesta vuole pagarglielo.
+    ⚠️ **Non chiuse d'ufficio**: non è una riconciliazione, è da guardare.
+  - **1 sana**: `TRX-2026-000012` (FAG, aprile, 494,28 €), nessun bonifico sul
+    mese, nessuna sovrapposizione con la 094.
+
+**Nuovo script**: [scripts/chiudi-arretrato.mjs](../scripts/chiudi-arretrato.mjs)
+chiude in blocco un arretrato passando dalle **API firmate**, con la chiave
+dell'app che ha chiesto il pagamento — mai una UPDATE sul database, che
+romperebbe la catena di hash e farebbe scattare l'allarme del sigillo. Prova a
+secco di default, rilegge lo stato di ogni riga prima di agire, salta quelle già
+chiuse: si può rilanciare senza danno. I due piani (`arretrato-cs.json`,
+`arretrato-finance.json`) restano **fuori dal repo**, che è pubblico: sono dati
+operativi di pagamenti, e si rigenerano dal confronto fra le due code. ⚠️ **Da aggiungere al catalogo
+`scripts/README.md` alla radice del repo.**
+
+⚠️ **Le 41 del CS non sono ancora chiuse**: `deluxy-messaging/.env` **non ha**
+`TRANSACTIONS_API_KEY` / `TRANSACTIONS_HMAC_SECRET` — la chiave del CS vive solo
+sul suo Vercel. E **non si risolve creando una chiave nuova**: una richiesta la
+può chiudere solo la chiave che l'ha creata, con una nuova risponderebbero 404.
+
+**Verificato prima di preparare i piani**, perché 41 chiusure fanno partire 41
+webhook: il gestore del CS esegue gli effetti (avviso al fornitore,
+riconciliazione) **solo** `if (stato === 'pagata' && !giaPagata)`. Tutte e 41
+hanno già `pagataIl`, quindi nessun fornitore verrà riavvisato; il webhook
+rimetterà a posto il `partnerStato`, oggi fermo su «in attesa» su tutte.
+
+### La coda si ordina per colonna (chiesto dall'utente: «la tabella non è ordinabile»)
+
+Intestazioni cliccabili su riferimento, beneficiario, importo, origine, stato e
+data d'arrivo, in [src/app/page.tsx](../src/app/page.tsx). Sono **link GET**,
+come le scorciatoie di periodo: l'ordine vive nell'indirizzo, quindi si copia,
+si manda e regge un ricaricamento — niente stato nel browser. Il verso si
+rovescia cliccando la colonna attiva; su una colonna nuova si parte dal verso
+che serve più spesso (importi e date dal più alto, i testi dalla A). Senza una
+scelta esplicita resta l'ordine di lavoro di sempre: **prima il rischio, poi le
+più vecchie**.
+
+- **«Firme» non si ordina**, ed è voluto: il conteggio nasce dalle righe già
+  lette, quindi l'ordine varrebbe solo dentro la pagina — un ordine giusto a
+  vedersi e falso.
+- **Ricerca, periodo e ordinamento non si perdono più a vicenda**: c'è una sola
+  funzione `indirizzo()` che costruisce i link conservando quello che c'è, e i
+  tre parametri viaggiano anche nel form di ricerca e nella chiusura rapida
+  (prop `filtri` di [ChiusuraRapida.tsx](../src/components/ChiusuraRapida.tsx),
+  rimessi nell'indirizzo da `chiudiRichiesta`). Ogni parametro resta validato
+  dalla pagina contro un elenco chiuso: nel link non viaggia mai testo da
+  mostrare.
+- La freccia c'è **sempre**, spenta finché la colonna non è quella attiva: una
+  freccia che compare solo al passaggio del mouse non si trova col dito.
+- ⚠️ **Non verificato a video**: la coda sta dietro il login e questa sessione
+  non ha le credenziali dell'operatore. Typecheck pulito, build verde, il dev
+  server parte senza errori in console né sul server.
 
 ## 08/09/2026 — Il codice a 6 cifre resta solo dove il denaro esce davvero
 

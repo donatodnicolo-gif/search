@@ -28,10 +28,10 @@ export function ChiusuraRapida({
   importo: string;
   oggi: string;
   daCopiare: CampoCopiabile[];
-  /* Ricerca e periodo in corso nella coda: viaggiano nel form e tornano
-     nell'indirizzo dopo la chiusura, altrimenti chi lavora una coda filtrata
-     la ritrova intera a ogni riga chiusa. */
-  filtri: { q: string; periodo: string };
+  /* Ricerca, periodo e ordinamento in corso nella coda: viaggiano nel form e
+     tornano nell'indirizzo dopo la chiusura, altrimenti chi lavora una coda
+     filtrata e ordinata la ritrova intera e rimescolata a ogni riga chiusa. */
+  filtri: { q: string; periodo: string; ord: string; dir: string };
 }) {
   const [stato, azione, inCorso] = useActionState(chiudiRichiesta, {} as { errore?: string; ok?: string });
   const [esito, setEsito] = useState<"pagata_fuori" | "annullata">("pagata_fuori");
@@ -88,6 +88,8 @@ export function ChiusuraRapida({
             <input type="hidden" name="torna" value="/" />
             {filtri.q && <input type="hidden" name="q" value={filtri.q} />}
             {filtri.periodo && <input type="hidden" name="periodo" value={filtri.periodo} />}
+            {filtri.ord && <input type="hidden" name="ord" value={filtri.ord} />}
+            {filtri.dir && <input type="hidden" name="dir" value={filtri.dir} />}
 
             {pagata && (
               <div className="firma-riga" style={{ marginBottom: 12 }}>

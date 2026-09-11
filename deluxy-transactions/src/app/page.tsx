@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function Coda({
   searchParams,
 }: {
-  searchParams: Promise<{ chiuso?: string; esito?: string; q?: string; periodo?: string }>;
+  searchParams: Promise<{ chiuso?: string; esito?: string; q?: string; periodo?: string; ord?: string; dir?: string }>;
 }) {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
@@ -51,6 +51,30 @@ export default async function Coda({
     : periodo === "anno" ? { gte: new Date(adesso.getFullYear(), 0, 1) }
     : null;
 
+  // ORDINAMENTO (11/09/2026, chiesto dall'utente: «la tabella non è
+  // ordinabile»). Le intestazioni sono link GET come le scorciatoie di periodo:
+  // niente stato nel browser, l'ordine sta nell'indirizzo — quindi si può
+  // mandare a qualcuno, e sopravvive alla chiusura di una riga (che torna qui
+  // con i parametri). Le colonne ordinabili sono solo quelle che il DATABASE sa
+  // ordinare: «Firme» si conta dopo, sulle righe già lette, e ordinarci sopra
+  // darebbe un ordine giusto solo dentro la pagina.
+  const COLONNE = {
+    riferimento: "riferimento",
+    beneficiario: "beneficiario",
+    importo: "importoCent",
+    origine: "origine",
+    stato: "stato",
+    arrivata: "creataIl",
+  } as const;
+  type Colonna = keyof typeof COLONNE;
+  const ord = (Object.keys(COLONNE) as string[]).includes(sp.ord ?? "") ? (sp.ord as Colonna) : "";
+  const dir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : "asc";
+  // Senza una scelta esplicita resta l'ordine di lavoro: prima il rischio, poi
+  // le più vecchie. È una coda da smaltire, non un archivio da sfogliare.
+  const ordinamento = ord
+    ? [{ [COLONNE[ord]]: dir }, { creataIl: "asc" as const }]
+    : [{ rischio: "desc" as const }, { creataIl: "asc" as const }];
+
   const [richieste, approvate, pagateOggi, regole] = await Promise.all([
     prisma.richiesta.findMany({
       where: {
@@ -68,7 +92,7 @@ export default async function Coda({
           : {}),
         ...(intervallo ? { creataIl: intervallo } : {}),
       },
-      orderBy: [{ rischio: "desc" }, { creataIl: "asc" }],
+      orderBy: ordinamento,
       include: { approvazioni: { select: { esito: true, operatoreId: true } } },
       take: 200,
     }),
@@ -83,6 +107,48 @@ export default async function Coda({
 
   const totaleInAttesa = richieste.reduce((s, r) => s + r.importoCent, 0);
   const oggi = new Date().toLocaleDateString("sv-SE"); // 2026-08-03, ora locale
+
+  /** Un indirizzo per questa stessa pagina che CONSERVA i filtri in corso e
+   *  cambia solo quello che gli si passa. Senza, ogni clic su un'intestazione
+   *  butterebbe via ricerca e periodo — lo stesso difetto appena corretto sulla
+   *  chiusura di una riga. */
+  const indirizzo = (cambi: Record<string, string>) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (periodo) p.set("periodo", periodo);
+    if (ord) p.set("ord", ord);
+    if (ord) p.set("dir", dir);
+    for (const [chiave, valore] of Object.entries(cambi)) {
+      if (valore) p.set(chiave, valore);
+      else p.delete(chiave);
+    }
+    const stringa = p.toString();
+    return stringa ? `/?${stringa}` : "/";
+  };
+
+  /** Intestazione che ordina. Un clic sulla colonna già attiva rovescia il
+   *  verso; su una colonna nuova si parte dal verso che serve più spesso —
+   *  importi e date dal più alto, i testi dalla A. */
+  const intestazione = (colonna: Colonna, etichetta: string, classe?: string) => {
+    const attiva = ord === colonna;
+    const prossimo = attiva
+      ? dir === "asc"
+        ? "desc"
+        : "asc"
+      : colonna === "importo" || colonna === "arrivata"
+        ? "desc"
+        : "asc";
+    return (
+      <th className={classe} aria-sort={attiva ? (dir === "desc" ? "descending" : "ascending") : "none"}>
+        <a className={`ordina${attiva ? " attiva" : ""}`} href={indirizzo({ ord: colonna, dir: prossimo })}>
+          {etichetta}
+          <span className="ordina-freccia" aria-hidden="true">
+            {attiva ? (dir === "desc" ? "↓" : "↑") : "↕"}
+          </span>
+        </a>
+      </th>
+    );
+  };
 
   return (
     <main className="main">
@@ -139,28 +205,30 @@ export default async function Coda({
         ] as const).map((p) => (
           <a
             key={p.v}
-            href={`/?periodo=${p.v}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            href={indirizzo({ periodo: p.v })}
             className={`chip-link${periodo === p.v ? " attiva" : ""}`}
           >
             {p.l}
           </a>
         ))}
         {periodo && (
-          <a href={`/${q ? `?q=${encodeURIComponent(q)}` : ""}`} className="chip-link azzera">
+          <a href={indirizzo({ periodo: "" })} className="chip-link azzera">
             Tutte le date
           </a>
         )}
       </div>
 
       <form className="filtri" method="get" style={{ marginBottom: 14 }}>
-        {/* Il periodo scelto sopravvive al submit della ricerca. */}
+        {/* Periodo e ordinamento sopravvivono al submit della ricerca. */}
         {periodo && <input type="hidden" name="periodo" value={periodo} />}
+        {ord && <input type="hidden" name="ord" value={ord} />}
+        {ord && <input type="hidden" name="dir" value={dir} />}
         <input type="search" name="q" defaultValue={q} placeholder="Riferimento, beneficiario, causale, IBAN, app…" />
         <button className="btn" type="submit">
           Cerca
         </button>
         {q && (
-          <a className="btn btn-secondario" href={periodo ? `/?periodo=${periodo}` : "/"}>
+          <a className="btn btn-secondario" href={indirizzo({ q: "" })}>
             Azzera
           </a>
         )}
@@ -196,13 +264,15 @@ export default async function Coda({
           <table>
             <thead>
               <tr>
-                <th>Riferimento</th>
-                <th>Beneficiario</th>
-                <th className="num">Importo</th>
-                <th>Origine</th>
-                <th>Stato</th>
+                {intestazione("riferimento", "Riferimento")}
+                {intestazione("beneficiario", "Beneficiario")}
+                {intestazione("importo", "Importo", "num")}
+                {intestazione("origine", "Origine")}
+                {intestazione("stato", "Stato")}
+                {/* «Firme» non si ordina: il conteggio nasce dalle righe già
+                    lette, quindi l'ordine varrebbe solo dentro questa pagina. */}
                 <th>Firme</th>
-                <th>Arrivata</th>
+                {intestazione("arrivata", "Arrivata")}
                 {operatore.ruolo !== "osservatore" && <th>Chiudi</th>}
               </tr>
             </thead>
@@ -244,7 +314,7 @@ export default async function Coda({
                           beneficiario={r.beneficiario}
                           importo={euro(r.importoCent)}
                           oggi={oggi}
-                          filtri={{ q, periodo }}
+                          filtri={{ q, periodo, ord, dir: ord ? dir : "" }}
                           daCopiare={[
                             ...(r.metodo === "iban"
                               ? [{ etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true }]
