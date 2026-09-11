@@ -184,7 +184,12 @@ export function MandaInApp({
   // taglie e la riga di consegna fotografa quello che si sceglie.
   useEffect(() => {
     if (!aperto || !righe.length) return
-    const r = righe[0]
+    // ⭐ 11/09/2026 (regola utente: «quantità è da inserire solo quella del prodotto principale, non extra»).
+    // Il negozio modella i supplementi come righe a un euro: l'ordine #1820 ha «Extra» 35 × 1,00 € e la torta
+    // 1 × 90,00 €. Prendendo la PRIMA riga si proponeva 35, e con un prezzo concordato di 80 € la consegna
+    // nasceva con 2.800 € di merce. La riga principale è quella che pesa di più sull'ordine (prezzo × quantità):
+    // da lì si prendono prodotto, descrizione e quantità.
+    const r = [...righe].sort((a, b) => b.prezzo * b.quantita - a.prezzo * a.quantita)[0] ?? righe[0]
     // ⚠️ Prima lo SKU, poi il titolo: nel catalogo lo stesso bouquet esiste in
     // una variante per provincia (YBJIPK-1MI, YBJIPK-1MB, …) e il titolo ne
     // trova trenta; lo SKU dell'ordine («YBJIPK-1») trova la famiglia giusta.
