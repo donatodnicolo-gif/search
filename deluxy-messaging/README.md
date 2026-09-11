@@ -192,6 +192,33 @@ un impegno eterno, e il cliente ripesca il link di marzo a novembre.
 ancora da preparare non hanno un prezzo, e sommarli vorrebbe dire contare zero
 come se fosse un dato.
 
+### Giorni con fasce speciali (11/09/2026)
+
+Sotto le chiusure c'è **Giorni con fasce speciali**: una data (anche «ogni anno») e le sue
+fasce, scritte come «08-12, 14-18» (sotto compaiono le pillole di quello che è stato capito).
+Quel giorno **valgono solo quelle fasce**, non le regole — la vigilia solo la mattina, San
+Valentino a fasce strette, una domenica aperta per eccezione: il giorno è **aperto anche se il
+giorno della settimana è chiuso**. Per oggi restano il drop-off e si tolgono le fasce già
+cominciate; l'orario minimo del carrello e il calendario del partner si applicano come sempre.
+Un giorno non può essere insieme chiuso e speciale (il salvataggio lo rifiuta). I giorni
+speciali stanno nella colonna `fasce` di `OrarioNegozio` (era libera): niente migrazione. Il
+sito e Nuovo ordine li leggono dal motore come ogni altro giorno; nell'anteprima il badge dice
+«speciale».
+
+### Il layout della scheda (11/09/2026, verdetto dell'architetto UX&UI)
+
+Una colonna sola con sezioni titolate (Libro UX&UI §4, form lunghi): giorni di apertura,
+chiusure, fasce speciali, regole (preset · finestra · oggi · domani · oltre), nota. L'**anteprima
+dei 14 giorni** è il feedback del form: sopra i 1100 px sta in una colonna laterale fissa
+(360 px, `position: sticky`), come **tabella** Giorno · Stato · Fasce con le fasce a **pillole**;
+sotto si impila. I campi sono **larghi quanto il valore** (ora 112 px, numero 88 px), etichetta su
+una riga (≤ 22 caratteri), input allineati in basso (`.riga-campi`), una sola spiegazione per
+blocco (`.testo-guida`). I preset sono un **selettore a segmenti** (deluxy.it / business · Flowers
+· Cake · Personalizzato, quest'ultimo si accende da solo quando i numeri non coincidono con
+nessun preset). In testata «Chiudi il negozio oggi» è **secondario** (l'unica primaria è Salva; è
+reversibile, quindi non rosso); in fondo «Cancella gli orari» è l'azione pericolosa a sinistra,
+Annulla e Salva a destra. La regola dei campi a valore corto è entrata nel Libro UX&UI v1.11 §4.
+
 ## Le bozze mandate: pagate o no?
 
 **In cima** alla pagina **Nuovo ordine** c'è **Bozze mandate**: tutti i link di

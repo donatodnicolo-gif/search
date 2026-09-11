@@ -25,7 +25,7 @@ export async function GET() {
   return NextResponse.json({ negozi: await orariDeiNegozi() })
 }
 
-// PUT { negozioId, giorniApertura: number[], fasce: [{da,a}], giorniChiusura: [{data,motivo,ogniAnno}], nota }
+// PUT { negozioId, giorniApertura: number[], regole, giorniChiusura: [{data,motivo,ogniAnno}], giorniSpeciali: [{data,ogniAnno,fasce:[{da,a}]}], nota }
 // Gli errori tornano a parole, tutti insieme: l'operatore li corregge in un giro solo.
 export async function PUT(req: NextRequest) {
   const g = await admin()

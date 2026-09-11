@@ -55,6 +55,9 @@ export async function salvaOrario(negozioId: string, dati: OrarioNegozioDati, ch
     giorniApertura: dati.giorniApertura.join(','),
     regole: JSON.stringify(dati.regole),
     giorniChiusura: JSON.stringify(dati.giorniChiusura),
+    // ⭐ I giorni con fasce speciali (11/09/2026) vivono nella colonna `fasce`,
+    // libera dal 10/09 sera: senza `testo`, che è solo del modulo.
+    fasce: JSON.stringify((dati.giorniSpeciali ?? []).map((g) => ({ data: g.data, ogniAnno: g.ogniAnno, fasce: g.fasce }))),
     nota: dati.nota,
     modificatoDa: chi,
   }

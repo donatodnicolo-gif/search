@@ -5,6 +5,9 @@ import { Conferma } from '@/components/Conferma'
 import {
   adessoRoma,
   calendarioConsegna,
+  etichettaFascia,
+  leggiFasceTesto,
+  scriviFasceTesto,
   GIORNI_IN_ORDINE,
   NOMI_GIORNI,
   NOMI_GIORNI_CORTI,
@@ -157,14 +160,14 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
   const aperti = anteprima.filter((g) => g.ok).length
   const r = dati.regole
   const campoNum = (etichetta: string, valore: number, onChange: (n: number) => void, min: number, max: number) => (
-    <label className="campo" style={{ marginBottom: 0 }}>
-      <span>{etichetta}</span>
-      <input type="number" min={min} max={max} value={Number.isFinite(valore) ? valore : ''} disabled={soloLettura} onChange={(e) => onChange(Number(e.target.value))} style={{ width: 90 }} />
+    <label className="campo">
+      <span title={etichetta}>{etichetta}</span>
+      <input type="number" min={min} max={max} value={Number.isFinite(valore) ? valore : ''} disabled={soloLettura} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   )
   const campoOra = (etichetta: string, valore: string, onChange: (s: string) => void) => (
-    <label className="campo" style={{ marginBottom: 0 }}>
-      <span>{etichetta}</span>
+    <label className="campo">
+      <span title={etichetta}>{etichetta}</span>
       <input type="time" value={valore} disabled={soloLettura} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
@@ -186,220 +189,339 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
     await salva({ ...dati, giorniChiusura: dati.giorniChiusura.filter((c) => !(c.data === oggiIso && !c.ogniAnno)) })
   }
 
+  // ⭐ 11/09/2026 — LAYOUT SECONDO IL VERDETTO DELL'ARCHITETTO UX&UI (Libro §4
+  // «form lunghi»: una colonna, sezioni con titolo, CTA in fondo a destra):
+  // · niente due colonne (8 controlli a sinistra e 16 a destra lasciavano 500 px
+  //   di vuoto); l'ANTEPRIMA è il feedback del form e sta in una colonna laterale
+  //   fissa (sticky) da 360 px sopra i 1100 px, sotto si impila;
+  // · i campi sono larghi quanto il valore (ora 112 px, numero 88 px), etichetta
+  //   su UNA riga (≤ 22 caratteri), input allineati in basso; la spiegazione è un
+  //   solo testo-guida per blocco;
+  // · i preset sono un segmented control (valori mutuamente esclusivi), con
+  //   «Personalizzato» che si accende da solo quando nessun preset coincide;
+  // · «Chiudi il negozio oggi» è secondario (l'unica primaria è Salva) e non
+  //   rosso (è reversibile); «Cancella gli orari» è l'azione pericolosa a sinistra.
+  const preset = stesseRegole(r, REGOLE_DELUXY) ? 'deluxy' : stesseRegole(r, REGOLE_FLOWERS) ? 'flowers' : stesseRegole(r, REGOLE_CAKE) ? 'cake' : 'personalizzato'
+  const oraDiProva = `${String(Math.floor(adessoProva.minuti / 60)).padStart(2, '0')}:${String(adessoProva.minuti % 60).padStart(2, '0')}`
+
   return (
-    <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h2 style={{ margin: 0, flex: 1, minWidth: 160 }}>{riga.negozio.nome || riga.negozio.dominio}</h2>
-        <span className={`badge ${riga.configurato ? 'verde' : ''}`}>{riga.configurato ? 'impostato' : 'senza orari'}</span>
-        {!riga.negozio.attivo ? <span className="badge">negozio sospeso</span> : null}
-        {chiusuraOggi ? <span className="badge rosso">oggi chiuso</span> : null}
+    <div className="card orari-scheda">
+      <div className="orari-testata">
+        <div className="orari-titolo">
+          <h2>{riga.negozio.nome || riga.negozio.dominio}</h2>
+          <span className={`badge ${riga.configurato ? 'verde' : ''}`}>{riga.configurato ? 'impostato' : 'senza orari'}</span>
+          {!riga.negozio.attivo ? <span className="badge">negozio sospeso</span> : null}
+          {chiusuraOggi ? <span className="badge rosso">oggi chiuso</span> : null}
+        </div>
         {amministratore ? (
           chiusuraOggi && !chiusuraOggi.ogniAnno && chiusuraOggi.motivo === MOTIVO_CHIUSURA_OGGI ? (
-            <button type="button" className="bottone secondario mini" disabled={salvando} onClick={riapriOggi}>
+            <button type="button" className="bottone secondario" disabled={salvando} onClick={riapriOggi}>
               Riapri oggi
             </button>
           ) : !chiusuraOggi ? (
-            <button type="button" className="bottone mini" disabled={salvando} onClick={() => setChiediChiudiOggi(true)} title="Oggi si spegne sul sito e in Nuovo ordine: i clienti ordinano da domani">
+            <button type="button" className="bottone secondario" disabled={salvando} onClick={() => setChiediChiudiOggi(true)} title="Oggi si spegne sul sito e in Nuovo ordine: i clienti ordinano da domani">
               Chiudi il negozio oggi
             </button>
           ) : null
         ) : null}
       </div>
-      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-secondary)' }}>
+      <p className="orari-sub">
         {riga.negozio.dominio}
         {riga.configurato && riga.aggiornatoIl
           ? ` · ultima modifica ${new Date(riga.aggiornatoIl).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}${riga.modificatoDa ? ` di ${riga.modificatoDa}` : ''}`
           : ' · nessuno ha ancora impostato niente: finché non salvi, il sito tiene le sue regole e Nuovo ordine usa le fasce storiche del marchio. Qui sotto un punto di partenza da correggere.'}
       </p>
 
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-        {/* ── 1. GIORNI DI APERTURA ── */}
-        <section>
-          <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Giorni di apertura</h3>
-          <p className="descrizione" style={{ margin: '0 0 10px' }}>
-            Nei giorni spenti la data non si può scegliere.
-          </p>
-          <div className="filtri" role="group" aria-label="Giorni della settimana">
-            {GIORNI_IN_ORDINE.map((g) => {
-              const acceso = dati.giorniApertura.includes(g)
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  aria-pressed={acceso}
-                  disabled={soloLettura}
-                  className={`bottone mini ${acceso ? '' : 'secondario'}`}
-                  title={NOMI_GIORNI[g]}
-                  onClick={() =>
-                    cambia((d) => ({
-                      ...d,
-                      giorniApertura: acceso ? d.giorniApertura.filter((x) => x !== g) : [...d.giorniApertura, g].sort(),
-                    }))
-                  }
-                >
-                  {NOMI_GIORNI_CORTI[g]}
-                </button>
-              )
-            })}
-          </div>
-
-          <h3 style={{ margin: '18px 0 4px', fontSize: 15 }}>Giorni di chiusura</h3>
-          <p className="descrizione" style={{ margin: '0 0 10px' }}>
-            Una data e il motivo. «Ogni anno» per le feste fisse (Natale, Ferragosto).
-          </p>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {dati.giorniChiusura.map((c, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <input
-                  type="date"
-                  value={c.data}
-                  disabled={soloLettura}
-                  aria-label={`Chiusura ${i + 1}: data`}
-                  onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, data: e.target.value } : x)) }))}
-                />
-                <input
-                  value={c.motivo}
-                  disabled={soloLettura}
-                  placeholder="motivo (es. Natale)"
-                  aria-label={`Chiusura ${i + 1}: motivo`}
-                  style={{ flex: 1, minWidth: 120 }}
-                  onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, motivo: e.target.value } : x)) }))}
-                />
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, whiteSpace: 'nowrap' }}>
-                  <input
-                    type="checkbox"
-                    checked={c.ogniAnno}
+      <div className="orari-corpo">
+        <div className="orari-form">
+          {/* ── 1. GIORNI DI APERTURA ── */}
+          <section className="blocco">
+            <h3 className="blocco-titolo">Giorni di apertura</h3>
+            <p className="blocco-sub">Nei giorni spenti la data non si può scegliere.</p>
+            <div className="giorni-settimana" role="group" aria-label="Giorni della settimana">
+              {GIORNI_IN_ORDINE.map((g) => {
+                const acceso = dati.giorniApertura.includes(g)
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-pressed={acceso}
                     disabled={soloLettura}
-                    onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, ogniAnno: e.target.checked } : x)) }))}
-                  />
-                  ogni anno
-                </label>
-                {!soloLettura ? (
-                  <button type="button" className="bottone secondario mini" aria-label={`Togli la chiusura ${i + 1}`} onClick={() => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.filter((_, j) => j !== i) }))}>
-                    ✕
+                    className={`bottone mini ${acceso ? '' : 'secondario'}`}
+                    title={NOMI_GIORNI[g]}
+                    onClick={() =>
+                      cambia((d) => ({
+                        ...d,
+                        giorniApertura: acceso ? d.giorniApertura.filter((x) => x !== g) : [...d.giorniApertura, g].sort(),
+                      }))
+                    }
+                  >
+                    {NOMI_GIORNI_CORTI[g]}
                   </button>
-                ) : null}
-              </div>
-            ))}
-            {!dati.giorniChiusura.length ? (
-              <p className="descrizione" style={{ margin: 0 }}>
-                Nessun giorno di chiusura.
-              </p>
-            ) : null}
-            {!soloLettura ? (
-              <button type="button" className="bottone secondario mini" style={{ alignSelf: 'flex-start' }} onClick={() => cambia((d) => ({ ...d, giorniChiusura: [...d.giorniChiusura, { data: '', motivo: '', ogniAnno: false }] }))}>
-                + Aggiungi giorno
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        {/* ── 2. REGOLE DELLE FASCE ── */}
-        <section>
-          <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Regole delle fasce orarie</h3>
-          <p className="descrizione" style={{ margin: '0 0 10px' }}>
-            Le fasce si calcolano da queste regole, per oggi, domani e i giorni dopo. Sull&apos;ordine si
-            scrivono come le scrivono i siti (es. «14-16»).
-          </p>
-          {!soloLettura ? (
-            <div className="filtri" style={{ marginBottom: 10 }}>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_DELUXY) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 1 ora dall'orario minimo del carrello, e dopo le 20 la prima fascia di domani dura 2 ore (08-10 poi 10-11, 11-12…); oltre a 1 ora; finestra 08-22">
-                deluxy.it / business
-              </button>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_FLOWERS) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_FLOWERS))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 16:00, di notte tutte, dalle 22 domani dalle 12">
-                Flowers
-              </button>
-              <button type="button" className={`bottone mini ${stesseRegole(r, REGOLE_CAKE) ? '' : 'secondario'}`} onClick={() => cambiaRegole(() => copia(REGOLE_CAKE))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 14:00, di notte dalle 12, dalle 20 domani dalle 12">
-                Cake
-              </button>
+                )
+              })}
             </div>
-          ) : null}
-          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
-            {campoOra('Si consegna dalle', r.finestraDa, (s) => cambiaRegole((x) => ({ ...x, finestraDa: s })))}
-            {campoOra('alle', r.finestraA, (s) => cambiaRegole((x) => ({ ...x, finestraA: s })))}
-          </div>
-          <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Oggi (consegna in giornata)</h4>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 8 }}>
-            <input type="checkbox" checked={r.oggi.attivo} disabled={soloLettura} onChange={(e) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, attivo: e.target.checked } }))} />
-            si consegna anche in giornata
-          </label>
-          {r.oggi.attivo ? (
-            <>
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
-                {campoNum('Fasce di (ore)', r.oggi.durataOre, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, durataOre: n } })), 1, 12)}
-                {campoNum('Fasce da saltare dopo quella in corso', r.oggi.saltaFasce, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, saltaFasce: n } })), 0, 6)}
-                {campoOra('Orario di drop-off (da quest\'ora si ordina solo per il giorno dopo)', r.oggi.limiteOra, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, limiteOra: s } })))}
-                {campoOra('Di notte (prima dell\'apertura) la prima fascia parte dalle', r.oggi.notteDalle, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, notteDalle: s } })))}
+          </section>
+
+          {/* ── 2. GIORNI DI CHIUSURA ── */}
+          <section className="blocco">
+            <h3 className="blocco-titolo">Giorni di chiusura</h3>
+            <p className="blocco-sub">Una data e il motivo. «Ogni anno» per le feste fisse (Natale, Ferragosto).</p>
+            <div className="chiusure">
+              {dati.giorniChiusura.map((c, i) => (
+                <div key={i} className="chiusura-riga">
+                  <input
+                    type="date"
+                    value={c.data}
+                    disabled={soloLettura}
+                    aria-label={`Chiusura ${i + 1}: data`}
+                    onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, data: e.target.value } : x)) }))}
+                  />
+                  <input
+                    value={c.motivo}
+                    disabled={soloLettura}
+                    placeholder="motivo (es. Natale)"
+                    aria-label={`Chiusura ${i + 1}: motivo`}
+                    className="chiusura-motivo"
+                    onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, motivo: e.target.value } : x)) }))}
+                  />
+                  <label className="spunta compatta">
+                    <input
+                      type="checkbox"
+                      checked={c.ogniAnno}
+                      disabled={soloLettura}
+                      onChange={(e) => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.map((x, j) => (j === i ? { ...x, ogniAnno: e.target.checked } : x)) }))}
+                    />
+                    ogni anno
+                  </label>
+                  {!soloLettura ? (
+                    <button type="button" className="bottone secondario mini" aria-label={`Togli la chiusura ${i + 1}`} onClick={() => cambia((d) => ({ ...d, giorniChiusura: d.giorniChiusura.filter((_, j) => j !== i) }))}>
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+              {!dati.giorniChiusura.length ? <p className="testo-guida" style={{ margin: 0 }}>Nessun giorno di chiusura.</p> : null}
+              {!soloLettura ? (
+                <button type="button" className="bottone secondario mini" style={{ alignSelf: 'flex-start' }} onClick={() => cambia((d) => ({ ...d, giorniChiusura: [...d.giorniChiusura, { data: '', motivo: '', ogniAnno: false }] }))}>
+                  + Aggiungi giorno
+                </button>
+              ) : null}
+            </div>
+          </section>
+
+          {/* ── 2b. GIORNI CON FASCE SPECIALI (utente, 11/09/2026) ── */}
+          <section className="blocco">
+            <h3 className="blocco-titolo">Giorni con fasce speciali</h3>
+            <p className="blocco-sub">
+              Quel giorno valgono solo queste fasce, non le regole: la vigilia solo la mattina, una domenica aperta per
+              eccezione. Scrivile come «08-12, 14-18».
+            </p>
+            <div className="chiusure">
+              {(dati.giorniSpeciali ?? []).map((g, i) => {
+                const capite = leggiFasceTesto(g.testo ?? scriviFasceTesto(g.fasce))
+                return (
+                  <div key={i} className="speciale-riga">
+                    <div className="chiusura-riga">
+                      <input
+                        type="date"
+                        value={g.data}
+                        disabled={soloLettura}
+                        aria-label={`Giorno speciale ${i + 1}: data`}
+                        onChange={(e) => cambia((d) => ({ ...d, giorniSpeciali: (d.giorniSpeciali ?? []).map((x, j) => (j === i ? { ...x, data: e.target.value } : x)) }))}
+                      />
+                      <input
+                        value={g.testo ?? scriviFasceTesto(g.fasce)}
+                        disabled={soloLettura}
+                        placeholder="fasce, es. 08-12, 14-18"
+                        aria-label={`Giorno speciale ${i + 1}: fasce`}
+                        className="chiusura-motivo"
+                        onChange={(e) => {
+                          const testo = e.target.value
+                          cambia((d) => ({ ...d, giorniSpeciali: (d.giorniSpeciali ?? []).map((x, j) => (j === i ? { ...x, testo, fasce: leggiFasceTesto(testo) } : x)) }))
+                        }}
+                      />
+                      <label className="spunta compatta">
+                        <input
+                          type="checkbox"
+                          checked={g.ogniAnno}
+                          disabled={soloLettura}
+                          onChange={(e) => cambia((d) => ({ ...d, giorniSpeciali: (d.giorniSpeciali ?? []).map((x, j) => (j === i ? { ...x, ogniAnno: e.target.checked } : x)) }))}
+                        />
+                        ogni anno
+                      </label>
+                      {!soloLettura ? (
+                        <button type="button" className="bottone secondario mini" aria-label={`Togli il giorno speciale ${i + 1}`} onClick={() => cambia((d) => ({ ...d, giorniSpeciali: (d.giorniSpeciali ?? []).filter((_, j) => j !== i) }))}>
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                    {/* Quello che è stato capito, subito sotto: chi scrive «9-11, 15:30-17» vede le pillole e sa se torna. */}
+                    <div className="pillole-fasce speciale-capite">
+                      {capite.length ? (
+                        capite.map((f) => (
+                          <span key={f.da} className="pillola-fascia">
+                            {etichettaFascia(f)}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="motivo-chiuso">nessuna fascia leggibile: scrivi ad esempio «08-12, 14-18»</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              {!(dati.giorniSpeciali ?? []).length ? <p className="testo-guida" style={{ margin: 0 }}>Nessun giorno con fasce speciali.</p> : null}
+              {!soloLettura ? (
+                <button type="button" className="bottone secondario mini" style={{ alignSelf: 'flex-start' }} onClick={() => cambia((d) => ({ ...d, giorniSpeciali: [...(d.giorniSpeciali ?? []), { data: '', ogniAnno: false, fasce: [], testo: '' }] }))}>
+                  + Aggiungi giorno speciale
+                </button>
+              ) : null}
+            </div>
+          </section>
+
+          {/* ── 3. REGOLE DELLE FASCE ── */}
+          <section className="blocco">
+            <h3 className="blocco-titolo">Regole delle fasce orarie</h3>
+            <p className="blocco-sub">
+              Le fasce si calcolano da queste regole, per oggi, domani e i giorni dopo. Sull&apos;ordine si scrivono come le
+              scrivono i siti (es. «14-16»).
+            </p>
+            {!soloLettura ? (
+              <div className="segmenti" role="group" aria-label="Regole di partenza">
+                <button type="button" className="segmento" aria-pressed={preset === 'deluxy'} onClick={() => cambiaRegole(() => copia(REGOLE_DELUXY))} title="Oggi a 2 ore dalla seconda fascia dopo quella in corso, drop-off 20:00 (18–20 solo 20-22), di notte dalle 10; domani a 1 ora dall'orario minimo del carrello, e dopo le 20 la prima fascia di domani dura 2 ore (08-10 poi 10-11, 11-12…); oltre a 1 ora; finestra 08-22">
+                  deluxy.it / business
+                </button>
+                <button type="button" className="segmento" aria-pressed={preset === 'flowers'} onClick={() => cambiaRegole(() => copia(REGOLE_FLOWERS))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 16:00, di notte tutte, dalle 22 domani dalle 12">
+                  Flowers
+                </button>
+                <button type="button" className="segmento" aria-pressed={preset === 'cake'} onClick={() => cambiaRegole(() => copia(REGOLE_CAKE))} title="Tre fasce 08-12 · 12-16 · 16-20, drop-off 14:00, di notte dalle 12, dalle 20 domani dalle 12">
+                  Cake
+                </button>
+                {/* Si accende da solo quando i numeri qui sotto non coincidono con nessun
+                    preset: prima quel caso non aveva nome. Non è un comando. */}
+                <button type="button" className="segmento" aria-pressed={preset === 'personalizzato'} disabled={preset !== 'personalizzato'} title="Regole scritte a mano, diverse da ogni preset">
+                  Personalizzato
+                </button>
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 8 }}>
-                <input type="checkbox" checked={r.oggi.ultimaFasciaFinoAlLimite} disabled={soloLettura} onChange={(e) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, ultimaFasciaFinoAlLimite: e.target.checked } }))} />
-                l&apos;ultima fascia della giornata resta ordinabile fino all&apos;ora limite
+            ) : null}
+            <div className="riga-campi">
+              {campoOra('Consegna dalle', r.finestraDa, (s) => cambiaRegole((x) => ({ ...x, finestraDa: s })))}
+              {campoOra('alle', r.finestraA, (s) => cambiaRegole((x) => ({ ...x, finestraA: s })))}
+            </div>
+
+            <div className="sotto-blocco">
+              <h4>Oggi (consegna in giornata)</h4>
+              <label className="spunta">
+                <input type="checkbox" checked={r.oggi.attivo} disabled={soloLettura} onChange={(e) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, attivo: e.target.checked } }))} />
+                si consegna anche in giornata
               </label>
-              <p className="descrizione" style={{ margin: '6px 0 0' }}>
-                Con «2 fasce da saltare»: alle 10:30 la fascia in corso è 10-12, si salta 12-14, la prima è 14-16. Dall&apos;orario
-                di drop-off in poi gli ordini arrivano solo dal giorno dopo.
+              {r.oggi.attivo ? (
+                <>
+                  <div className="riga-campi">
+                    {campoNum('Durata fascia (ore)', r.oggi.durataOre, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, durataOre: n } })), 1, 12)}
+                    {campoNum('Fasce da saltare', r.oggi.saltaFasce, (n) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, saltaFasce: n } })), 0, 6)}
+                    {campoOra('Ultimo ordine alle', r.oggi.limiteOra, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, limiteOra: s } })))}
+                    {campoOra('Di notte, prima dalle', r.oggi.notteDalle, (s) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, notteDalle: s } })))}
+                  </div>
+                  <label className="spunta" style={{ marginTop: 12 }}>
+                    <input type="checkbox" checked={r.oggi.ultimaFasciaFinoAlLimite} disabled={soloLettura} onChange={(e) => cambiaRegole((x) => ({ ...x, oggi: { ...x.oggi, ultimaFasciaFinoAlLimite: e.target.checked } }))} />
+                    l&apos;ultima fascia della giornata resta ordinabile fino all&apos;ultimo ordine
+                  </label>
+                  <p className="testo-guida">
+                    Alle 10:30 la fascia in corso è 10-12: con 2 da saltare la prima è 14-16. Dall&apos;ora dell&apos;ultimo
+                    ordine (drop-off) si ordina solo per domani; di notte l&apos;anticipo si conta dall&apos;apertura.
+                  </p>
+                </>
+              ) : null}
+            </div>
+
+            <div className="sotto-blocco">
+              <h4>Domani</h4>
+              <div className="riga-campi">
+                {campoNum('Durata fascia (ore)', r.domani.durataOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, durataOre: n } })), 1, 12)}
+                {campoNum('Fasce da saltare', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
+                {campoOra('…se ordina dopo le', r.domani.saltaDopoOra, (s) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, saltaDopoOra: s } })))}
+                {campoNum('Prima fascia (ore)', r.domani.primaFasciaOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, primaFasciaOre: n } })), 0, 12)}
+              </div>
+              <p className="testo-guida">
+                Le fasce partono dall&apos;orario minimo dei prodotti in carrello (dalle 9 → 09-10, 10-11…). Dopo la soglia la
+                prima fascia può durare di più (deluxy.it: 2 ore, poi orarie; 0 = come le altre) o saltare (Flowers e Cake: «dalle 12»).
               </p>
-            </>
-          ) : null}
-          <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Domani</h4>
-          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
-            {campoNum('Fasce di (ore)', r.domani.durataOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, durataOre: n } })), 1, 12)}
-            {campoNum('Prime fasce di domani da saltare', r.domani.dopoLimiteSaltaFasce, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, dopoLimiteSaltaFasce: n } })), 0, 6)}
-            {campoOra('…se si ordina dopo le', r.domani.saltaDopoOra, (s) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, saltaDopoOra: s } })))}
-            {campoNum('Dopo quell’ora la prima fascia dura (ore, 0 = come le altre)', r.domani.primaFasciaOre, (n) => cambiaRegole((x) => ({ ...x, domani: { ...x.domani, primaFasciaOre: n } })), 0, 12)}
-          </div>
-          <p className="descrizione" style={{ margin: '6px 0 0' }}>
-            Le fasce di domani partono dall&apos;orario minimo dei prodotti in carrello (dalle 9 → 09-10, 10-11…). deluxy.it: fasce
-            di un&apos;ora; ordinando dopo le 20 la prima fascia di domani dura 2 ore (08-10) e le altre restano orarie (10-11, 11-12…).
-            Flowers e Cake: dopo la soglia si salta la prima fascia («dalle 12»).
-          </p>
-          <h4 style={{ margin: '14px 0 6px', fontSize: 13.5 }}>Dopodomani e oltre</h4>
-          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
-            {campoNum('Fasce di (ore)', r.oltre.durataOre, (n) => cambiaRegole((x) => ({ ...x, oltre: { durataOre: n } })), 1, 12)}
-            {campoNum('Giorni mostrati sul sito', r.giorniMostrati, (n) => cambiaRegole((x) => ({ ...x, giorniMostrati: n })), 7, 365)}
-          </div>
-          <p className="descrizione" style={{ margin: '8px 0 0' }}>
-            L&apos;orario di disponibilità minima dei prodotti nel carrello (metafield <code>minimo_orario</code>) e il loro
-            preavviso lo passa il sito: tolgono le fasce che cominciano prima e i giorni troppo vicini.
-          </p>
-        </section>
-      </div>
+            </div>
 
-      <label className="campo" style={{ marginTop: 16 }}>
-        <span>Nota (facoltativa, la legge chi apre questa pagina)</span>
-        <input value={dati.nota} disabled={soloLettura} maxLength={500} placeholder="es. d'estate si consegna solo la mattina" onChange={(e) => cambia((d) => ({ ...d, nota: e.target.value }))} />
-      </label>
+            <div className="sotto-blocco">
+              <h4>Dopodomani e oltre</h4>
+              <div className="riga-campi">
+                {campoNum('Durata fascia (ore)', r.oltre.durataOre, (n) => cambiaRegole((x) => ({ ...x, oltre: { durataOre: n } })), 1, 12)}
+                {campoNum('Giorni sul sito', r.giorniMostrati, (n) => cambiaRegole((x) => ({ ...x, giorniMostrati: n })), 7, 365)}
+              </div>
+              <p className="testo-guida">
+                L&apos;orario minimo dei prodotti (metafield <code>minimo_orario</code>) e il loro preavviso li passa il sito:
+                tolgono le fasce che cominciano prima e i giorni troppo vicini.
+              </p>
+            </div>
+          </section>
 
-      {/* ── ANTEPRIMA: i prossimi 14 giorni come li vede chi ordina ADESSO ── */}
-      <div style={{ marginTop: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
-            Prossimi 14 giorni: <strong style={{ color: 'var(--text)' }}>{aperti}</strong> in cui si può consegnare, calcolati alle{' '}
-            <strong style={{ color: 'var(--text)' }}>{String(Math.floor(adessoProva.minuti / 60)).padStart(2, '0')}:{String(adessoProva.minuti % 60).padStart(2, '0')}</strong> (ora italiana)
+          <section className="blocco">
+            <label className="campo" style={{ margin: 0 }}>
+              <span>Nota (facoltativa, la legge chi apre questa pagina)</span>
+              <input value={dati.nota} disabled={soloLettura} maxLength={500} placeholder="es. d'estate si consegna solo la mattina" onChange={(e) => cambia((d) => ({ ...d, nota: e.target.value }))} />
+            </label>
+          </section>
+        </div>
+
+        {/* ── ANTEPRIMA: il feedback del form, sempre in vista ── */}
+        <aside className="orari-anteprima" aria-label="Anteprima dei prossimi 14 giorni">
+          <h3 className="blocco-titolo">Anteprima</h3>
+          <p className="blocco-sub">
+            <strong>{aperti}</strong> giorni su 14 in cui si consegna, calcolati alle <strong>{oraDiProva}</strong> (ora italiana).
           </p>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+          <label className="spunta compatta" style={{ marginBottom: 12 }}>
             prova come se fossero le
-            <input type="time" value={oraProva} onChange={(e) => setOraProva(e.target.value)} aria-label="Ora di prova" />
+            <input type="time" value={oraProva} onChange={(e) => setOraProva(e.target.value)} aria-label="Ora di prova" className="ora-prova" />
             {oraProva ? (
               <button type="button" className="bottone secondario mini" onClick={() => setOraProva('')}>
                 adesso
               </button>
             ) : null}
           </label>
-        </div>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {anteprima.map((g) => (
-            <div key={g.data} style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-              <span className={`badge ${g.ok ? 'verde' : 'rosso'}`} style={{ minWidth: 150 }}>
-                {g.quando === 'oggi' ? 'Oggi, ' : g.quando === 'domani' ? 'Domani, ' : ''}
-                {scriviDataBreve(g.data).slice(0, 9)}
-              </span>
-              <span style={{ fontSize: 13, color: g.ok ? 'var(--text)' : 'var(--text-secondary)' }}>
-                {g.ok ? g.etichette.join(' · ') : g.motivo}
-              </span>
-            </div>
-          ))}
-        </div>
+          <table className="tabella tabella-anteprima">
+            <thead>
+              <tr>
+                <th>Giorno</th>
+                <th>Stato</th>
+                <th>Fasce</th>
+              </tr>
+            </thead>
+            <tbody>
+              {anteprima.map((g) => (
+                <tr key={g.data}>
+                  <td className="giorno">
+                    {g.quando === 'oggi' ? 'Oggi ' : g.quando === 'domani' ? 'Domani ' : ''}
+                    {scriviDataBreve(g.data).slice(0, 9)}
+                  </td>
+                  <td>
+                    <span className={`badge ${g.ok ? 'verde' : 'rosso'}`}>{g.ok ? (g.speciale ? 'speciale' : 'aperto') : 'chiuso'}</span>
+                  </td>
+                  <td>
+                    {g.ok ? (
+                      <div className="pillole-fasce">
+                        {g.etichette.map((f) => (
+                          <span key={f} className="pillola-fascia">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="motivo-chiuso">{g.motivo}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </aside>
       </div>
 
       {errori.length ? (
@@ -412,29 +534,31 @@ function SchedaNegozio({ riga, amministratore, onSalvata }: { riga: Riga; ammini
       {esito ? <div className="avviso-ok" style={{ marginTop: 14 }}>{esito}</div> : null}
 
       {amministratore ? (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
-          <button type="button" className="bottone" disabled={salvando || !sporco} onClick={() => salva()}>
-            {salvando ? 'Salvo…' : 'Salva'}
-          </button>
-          {sporco ? (
-            <button
-              type="button"
-              className="bottone secondario"
-              disabled={salvando}
-              onClick={() => {
-                setDati(riga.orario)
-                setSporco(false)
-                setErrori([])
-              }}
-            >
-              Annulla le modifiche
-            </button>
-          ) : null}
+        <div className="orari-azioni">
           {riga.configurato ? (
-            <button type="button" className="bottone secondario" disabled={salvando} onClick={() => setChiediAzzera(true)} style={{ marginLeft: 'auto' }}>
+            <button type="button" className="bottone pericoloso" disabled={salvando} onClick={() => setChiediAzzera(true)}>
               Cancella gli orari
             </button>
           ) : null}
+          <div className="destra">
+            {sporco ? (
+              <button
+                type="button"
+                className="bottone secondario"
+                disabled={salvando}
+                onClick={() => {
+                  setDati(riga.orario)
+                  setSporco(false)
+                  setErrori([])
+                }}
+              >
+                Annulla le modifiche
+              </button>
+            ) : null}
+            <button type="button" className="bottone" disabled={salvando || !sporco} onClick={() => salva()}>
+              {salvando ? 'Salvataggio…' : 'Salva'}
+            </button>
+          </div>
         </div>
       ) : null}
 

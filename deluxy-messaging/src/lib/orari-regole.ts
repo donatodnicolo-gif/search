@@ -28,6 +28,16 @@
 
 export type Fascia = { da: string; a: string }
 export type GiornoChiusura = { data: string; motivo: string; ogniAnno: boolean }
+/**
+ * ⭐ UN GIORNO CON FASCE SUE (utente, 11/09/2026: «consenti di specificare per
+ * specifici giorni fasce orarie specifiche»): quel giorno le fasce NON si
+ * calcolano dalle regole, sono queste — la vigilia di Natale solo la mattina,
+ * San Valentino a fasce strette, una domenica aperta per eccezione. Il giorno
+ * conta come APERTO anche se il giorno della settimana è chiuso. `ogniAnno`
+ * come per le chiusure (feste fisse). `testo` è solo il campo del modulo
+ * («08-12, 14-18»): non si salva.
+ */
+export type GiornoSpeciale = { data: string; ogniAnno: boolean; fasce: Fascia[]; testo?: string }
 
 /**
  * LE REGOLE DELLE FASCE di un negozio.
@@ -102,6 +112,8 @@ export type OrarioNegozioDati = {
   giorniApertura: number[]
   regole: RegoleConsegna
   giorniChiusura: GiornoChiusura[]
+  /** Giorni con fasce proprie: vincono sulle regole e sul giorno della settimana. Facoltativo per chi ci passa dati vecchi. */
+  giorniSpeciali?: GiornoSpeciale[]
   nota: string
 }
 
@@ -185,6 +197,7 @@ export const ORARIO_PREDEFINITO: OrarioNegozioDati = {
   giorniApertura: [0, 1, 2, 3, 4, 5, 6],
   regole: REGOLE_FASCE_AMPIE,
   giorniChiusura: [],
+  giorniSpeciali: [],
   nota: '',
 }
 
@@ -259,7 +272,7 @@ export function leggiRegole(json: string | null | undefined, base: RegoleConsegn
  * Un JSON rotto non fa cadere la pagina: quella parte torna vuota, e si dice.
  */
 export function leggiOrario(
-  riga: { giorniApertura: string; regole?: string | null; giorniChiusura: string; nota: string } | null | undefined
+  riga: { giorniApertura: string; regole?: string | null; giorniChiusura: string; fasce?: string | null; nota: string } | null | undefined
 ): OrarioNegozioDati {
   if (!riga) return orarioPredefinito()
   const giorni = riga.giorniApertura
@@ -277,7 +290,56 @@ export function leggiOrario(
   } catch {
     chiusure = []
   }
-  return { giorniApertura: [...new Set(giorni)].sort(), regole: leggiRegole(riga.regole), giorniChiusura: chiusure, nota: riga.nota ?? '' }
+  // ⭐ I giorni speciali stanno nella colonna `fasce` (rimasta libera dal 10/09
+  // sera): [{ data, ogniAnno, fasce: [{da,a}] }]. Un JSON rotto = nessun giorno speciale.
+  let speciali: GiornoSpeciale[] = []
+  try {
+    const grezzo: unknown = JSON.parse(riga.fasce || '[]')
+    if (Array.isArray(grezzo)) {
+      speciali = grezzo
+        .filter((g) => g && dataValida(String(g.data)) && Array.isArray(g.fasce))
+        .map((g) => ({
+          data: String(g.data),
+          ogniAnno: Boolean(g.ogniAnno),
+          fasce: (g.fasce as unknown[])
+            .map((f) => ({ da: String((f as Fascia)?.da ?? ''), a: String((f as Fascia)?.a ?? '') }))
+            .filter((f) => oraValida(f.da) && oraValida(f.a) && minuti(f.da) < minuti(f.a)),
+        }))
+        .filter((g) => g.fasce.length)
+    }
+  } catch {
+    speciali = []
+  }
+  return { giorniApertura: [...new Set(giorni)].sort(), regole: leggiRegole(riga.regole), giorniChiusura: chiusure, giorniSpeciali: speciali, nota: riga.nota ?? '' }
+}
+
+/**
+ * Le fasce scritte a mano nel modulo («08-12, 14-18», «9-11 · 15:30-17»): una
+ * fascia per pezzo, separate da virgola, punto o a capo; le ore piene si possono
+ * scrivere senza minuti. Quello che non si capisce si scarta (chi scrive vede
+ * subito le pillole di quello che è stato capito).
+ */
+export function leggiFasceTesto(testo: string): Fascia[] {
+  const fasce: Fascia[] = []
+  for (const pezzo of String(testo ?? '').split(/[,;·\n]+/)) {
+    const m = pezzo.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?$/)
+    if (!m) continue
+    const da = `${m[1].padStart(2, '0')}:${m[2] ?? '00'}`
+    const a = `${m[3].padStart(2, '0')}:${m[4] ?? '00'}`
+    if (oraValida(da) && oraValida(a) && minuti(da) < minuti(a)) fasce.push({ da, a })
+  }
+  fasce.sort((x, y) => minuti(x.da) - minuti(y.da))
+  return fasce
+}
+
+/** Le fasce nel verso opposto, per riempire il campo: «08-12, 14-18». */
+export function scriviFasceTesto(fasce: Fascia[]): string {
+  return fasce.map(etichettaFascia).join(', ')
+}
+
+/** Il giorno speciale che vale per QUESTA data, se c'è. */
+export function giornoSpeciale(dati: OrarioNegozioDati, iso: string): GiornoSpeciale | null {
+  return (dati.giorniSpeciali ?? []).find((g) => (g.ogniAnno ? g.data.slice(5) === iso.slice(5) : g.data === iso)) ?? null
 }
 
 /** Controlla le regole delle fasce e torna gli errori a parole. */
@@ -372,9 +434,47 @@ export function validaOrario(
     viste.add(chiave)
   }
 
+  // ⭐ I giorni speciali: data buona, almeno una fascia leggibile, niente doppioni,
+  // e MAI lo stesso giorno anche fra le chiusure (chiuso o aperto con fasce sue:
+  // una delle due, altrimenti nessuno sa quale vale).
+  const speciali: GiornoSpeciale[] = []
+  if (o.giorniSpeciali !== undefined && !Array.isArray(o.giorniSpeciali)) errori.push('I giorni con fasce speciali non sono leggibili.')
+  for (const [i, g] of (Array.isArray(o.giorniSpeciali) ? o.giorniSpeciali : []).entries()) {
+    const gs = g as Partial<GiornoSpeciale>
+    const data = String(gs?.data ?? '').trim()
+    if (!dataValida(data)) {
+      errori.push(`Giorno speciale ${i + 1}: manca la data.`)
+      continue
+    }
+    // Le fasce arrivano come lista {da,a} oppure, dal modulo, come testo.
+    const daLista = Array.isArray(gs.fasce)
+      ? gs.fasce
+          .map((f) => ({ da: String((f as Fascia)?.da ?? '').trim(), a: String((f as Fascia)?.a ?? '').trim() }))
+          .filter((f) => oraValida(f.da) && oraValida(f.a) && minuti(f.da) < minuti(f.a))
+      : []
+    const fasce = daLista.length ? daLista.sort((x, y) => minuti(x.da) - minuti(y.da)) : leggiFasceTesto(String(gs.testo ?? ''))
+    if (!fasce.length) {
+      errori.push(`Giorno speciale ${scriviDataBreve(data)}: scrivi almeno una fascia, come «08-12, 14-18».`)
+      continue
+    }
+    for (let k = 1; k < fasce.length; k++) {
+      if (minuti(fasce[k].da) < minuti(fasce[k - 1].a)) errori.push(`Giorno speciale ${scriviDataBreve(data)}: le fasce ${etichettaFascia(fasce[k - 1])} e ${etichettaFascia(fasce[k])} si sovrappongono.`)
+    }
+    speciali.push({ data, ogniAnno: Boolean(gs.ogniAnno), fasce })
+  }
+  speciali.sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0))
+  const visteSpeciali = new Set<string>()
+  for (const s of speciali) {
+    const chiave = s.ogniAnno ? s.data.slice(5) : s.data
+    if (visteSpeciali.has(chiave)) errori.push(`Il giorno speciale ${scriviDataBreve(s.data)} è scritto due volte.`)
+    visteSpeciali.add(chiave)
+    const chiuso = chiusure.find((c) => (c.ogniAnno || s.ogniAnno ? c.data.slice(5) === s.data.slice(5) : c.data === s.data))
+    if (chiuso) errori.push(`${scriviDataBreve(s.data)} è sia chiuso sia con fasce speciali: togli uno dei due.`)
+  }
+
   const nota = String(o.nota ?? '').trim().slice(0, 500)
   if (errori.length || !r.ok) return { ok: false, errori }
-  return { ok: true, dati: { giorniApertura: giorni, regole: r.regole, giorniChiusura: chiusure, nota } }
+  return { ok: true, dati: { giorniApertura: giorni, regole: r.regole, giorniChiusura: chiusure, giorniSpeciali: speciali, nota } }
 }
 
 /**
@@ -447,6 +547,9 @@ export function giornoSelezionabile(
   if (chiusura) {
     return { ok: false, motivo: `Il negozio è chiuso ${scriviDataBreve(iso)}${chiusura.motivo ? ` (${chiusura.motivo})` : ''}.` }
   }
+  // ⭐ Un giorno con fasce sue è aperto per definizione, anche se cade in un
+  // giorno della settimana chiuso (la domenica aperta per eccezione).
+  if (giornoSpeciale(dati, iso)) return { ok: true, motivo: '' }
   const gs = giornoSettimana(iso)
   if (!dati.giorniApertura.includes(gs)) return { ok: false, motivo: `Il negozio è chiuso di ${NOMI_GIORNI[gs].toLowerCase()}.` }
   return { ok: true, motivo: '' }
@@ -477,7 +580,7 @@ export type VincoliCarrello = {
   prodotti?: CalendarioProdotto[]
 }
 
-export type EsitoGiorno = { data: string; ok: boolean; motivo: string; fasce: Fascia[]; etichette: string[]; quando: 'oggi' | 'domani' | 'oltre' }
+export type EsitoGiorno = { data: string; ok: boolean; motivo: string; fasce: Fascia[]; etichette: string[]; quando: 'oggi' | 'domani' | 'oltre'; speciale?: boolean }
 
 /**
  * Le fasce di una giornata, tutte, a passi di `durataOre` finché stanno dentro
@@ -548,7 +651,15 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
   const dopoSoglia = adesso.minuti >= minuti(r.domani.saltaDopoOra || r.oggi.limiteOra)
 
   let fasce: Fascia[]
-  if (quando === 'oggi') {
+  const speciale = giornoSpeciale(dati, iso)
+  if (speciale) {
+    // ⭐ GIORNO CON FASCE SUE: valgono queste, non le regole. Per oggi restano
+    // il drop-off (dopo quell'ora si ordina solo per domani) e il buon senso di
+    // non proporre una fascia già cominciata; l'orario minimo del carrello e il
+    // partner si applicano come a ogni altro giorno, qui sotto.
+    if (quando === 'oggi' && dopoLimite) return vuoto(`Per oggi non si ordina più dopo le ${r.oggi.limiteOra.replace(/^0/, '')} (orario di drop-off): si consegna da domani.`)
+    fasce = quando === 'oggi' ? speciale.fasce.filter((f) => minuti(f.da) > adesso.minuti) : [...speciale.fasce]
+  } else if (quando === 'oggi') {
     if (!r.oggi.attivo) return vuoto('Questo negozio non consegna in giornata.')
     if (dopoLimite) return vuoto(`Per oggi non si ordina più dopo le ${r.oggi.limiteOra.replace(/^0/, '')} (orario di drop-off): si consegna da domani.`)
     const tutte = fasceIntere(r, r.oggi.durataOre)
@@ -591,7 +702,7 @@ export function fasceDelGiorno(dati: OrarioNegozioDati, iso: string, adesso: Ade
           : 'Nessuna fascia in questa giornata.'
     )
   }
-  return { data: iso, ok: true, motivo: '', fasce, etichette: fasce.map(etichettaFascia), quando }
+  return { data: iso, ok: true, motivo: '', fasce, etichette: fasce.map(etichettaFascia), quando, ...(speciale ? { speciale: true } : {}) }
 }
 
 /**
