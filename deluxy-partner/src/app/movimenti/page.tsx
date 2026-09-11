@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { descriviFonte } from "@/lib/fonte-movimento";
 import { euro, dataIt } from "@/lib/format";
 import type { Prisma } from "@prisma/client";
 
@@ -200,7 +201,7 @@ export default async function MovimentiPage({
           <select name="fonte" defaultValue={sp.fonte ?? ""} aria-label="Fonte del movimento">
             <option value="">Tutte le fonti</option>
             <option value="qonto">Solo Qonto (automatici)</option>
-            <option value="file">Solo caricati da file</option>
+            <option value="file">Solo caricati da file (estratti conto)</option>
           </select>
           <select name="dir" defaultValue={sp.dir ?? ""} aria-label="Entrate o uscite">
             <option value="">Entrate e uscite</option>
@@ -248,11 +249,18 @@ export default async function MovimentiPage({
                     {tx.categoriaNome && <div className="muted" style={{ fontSize: 11.5 }}>· {tx.categoriaNome}</div>}
                   </td>
                   <td>
-                    {daQonto(tx.fonte) ? (
-                      <span className="badge blue" title={tx.fonte ?? ""}><span className="dot" />Qonto</span>
-                    ) : (
-                      <span className="badge neutral" title={tx.fonte ?? "file"}><span className="dot" />File</span>
-                    )}
+                    {/* 11/09/2026: il badge dice CHE conto è (Vivid, Qonto…),
+                        non solo «File»; il nome del file e il periodo stanno nel
+                        titolo, dove non rubano spazio alla tabella. */}
+                    {(() => {
+                      const f = descriviFonte(tx.fonte);
+                      return (
+                        <span className={`badge ${f.tipo === "qonto" ? "blue" : "neutral"}`} title={f.dettaglio}>
+                          <span className="dot" />
+                          {f.etichetta}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>{badgeStato(tx.stato)}</td>
                   <td className="num">{importo(tx.importo)}</td>

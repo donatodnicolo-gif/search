@@ -4,6 +4,44 @@
 >
 > Come le tre app trattano il capogruppo all'11/09: **piattaforma** = entità Capogruppo (nome, P.IVA, CF, SDI, PEC, email) + «chi paga»/«paga da sé» sul partner, dati di fatturazione del partner copiati dal capogruppo e bloccati, pagina Capogruppi, ogni cambio comunicato al registro; **Anagrafiche** = fonte di verità (Capogruppo con anche IBAN, banca, condizioni, amministrazione; `leggiFatturazione` sostituisce i dati fiscali nella risposta API quando `pagaDaSe=false`); **Finance** = legge dal registro e ora intesta al capogruppo; il «fatturato per gruppo» somma le aziende agganciate.
 
+> 💶 **11/09/2026 — OGNI MESE SI PAGA A SÉ, ANCHE IN COMPENSAZIONE (regola
+> dell'utente, sostituisce quella del 04/09).**
+> «È sbagliato che in compensazione si paga solo il netto dell'anno, ogni mese
+> viene pagato a sé.» Segnalato su **CASATI 14 (CONLESTELLE), febbraio 2026**:
+> riga «Da bonificare 128,52 €» e bottone «Paga il netto 4.090,14 €».
+> - `chiediPagamento` non ha più il ramo compensazione: importo = quello del
+>   mese, `mesiCoinvolti = [mese]`, causale e nota del mese. Tolti da lì
+>   `partiteAperte`/`partiteDaChiedere`/`nettoDaChiedere`/`descriviPartite`
+>   (il file `saldo-netto.ts` resta: il **webhook** lo usa per chiudere le
+>   richieste multi-mese già partite, che restano valide).
+> - `PagamentoMese` non riceve più `nettoCompensato`; il bottone dice
+>   **«Paga <importo del mese>»** (prima diceva solo «Paga» quando le due cifre
+>   coincidevano). Stessa cosa in dashboard, dove è sparito anche il filtro che
+>   nascondeva il bottone quando il netto dell'anno era ≤ 0.
+> ⚠️ **Conseguenza dichiarata all'utente**: un mese a debito del partner non si
+> compensa più da solo con un mese a credito. Resta visibile (residuo del mese,
+> badge «Da recuperare» sul totale dell'anno) e si recupera con un extra in
+> detrazione o chiedendo l'incasso. Il caso che il 04/09 aveva fatto nascere la
+> regola opposta era ANTOFLOWERS (agosto 185,22 € contro 48,30 € netti): d'ora
+> in poi partirebbero i 185,22 del mese, ed è quello che l'utente vuole.
+> ✅ `tsc` pulito, `next build` completa.
+
+> 🏦 **11/09/2026 — LA COLONNA «FONTE» DICE QUALE CONTO.**
+> Domanda dell'utente su `/movimenti`: «fonte file qui intendi il file di Vivid
+> che ti carico? in caso specifica». Sì. Nel database `TransazioneBancaria.fonte`
+> contiene il **nome del file per intero**; la pagina lo riduceva a «File».
+> 📏 Valori reali: `Qonto (89687708)` **17.589** movimenti · tre estratti
+> `Statement DE54202208000056191201 …csv` per **5.042** movimenti
+> (2025-08-21 → 2026-08-24). L'IBAN `DE54…1201` è il conto **Vivid**.
+> - Nuovo `src/lib/fonte-movimento.ts`: `descriviFonte()` → etichetta corta per
+>   il badge (**Vivid**, Qonto, File) e riga di dettaglio «estratto conto Vivid ·
+>   conto DE5420…1201 · 01/07/2026 – 24/08/2026 · <nome del file>». La banca si
+>   riconosce dall'**IBAN nel nome del file** (tabella `CONTI_NOTI`: aggiungerne
+>   una è una riga); quello che non si riconosce resta «File» col nome nel
+>   titolo — meglio generico che inventato.
+> - Usata in `/movimenti` (badge + titolo) e nella scheda del movimento (badge +
+>   riga sempre visibile sotto). Provata sui quattro casi veri.
+
 > ⏱️ **PUNTO DI RIPRESA — 11/09/2026, mattina presto (fine della sessione del 10/09).**
 > **In produzione**: `d7vhkmvge` (commit `c12bb1ba`), `PROMOTED`, dominio e cron
 > sul deploy corrente. Sei commit di Finance il 10/09, in ordine: causa del

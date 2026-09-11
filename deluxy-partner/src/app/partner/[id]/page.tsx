@@ -11,7 +11,6 @@ import { tokenPartner, matchPartner } from "@/lib/riconciliazione";
 import { segnaFatturaPagata, segnaFatturaCompensata, deleteFattura, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
-import { nettoDaChiedere } from "@/lib/saldo-netto";
 import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { FatturaLink } from "@/components/FatturaModale";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
@@ -1449,16 +1448,6 @@ export default async function PartnerDetail({
               pagatoInPiu={r.pagatoInPiu}
               incassatoInPiu={r.incassatoInPiu}
               movimentoId={movimentoDelMese(saldo?.bonificoData, saldo?.bonificoImporto)}
-              // Stessa formula del server (saldo-netto.ts): il netto dei mesi
-              // senza richiesta in corso, visto da questo mese.
-              nettoCompensato={
-                compensazioneEffettiva
-                  ? nettoDaChiedere(
-                      mesi.map((m) => ({ mese: m.mese, delta: m.riepilogo.daBonificare - m.riepilogo.daIncassare, saldo: m.saldo })),
-                      mese
-                    )
-                  : null
-              }
             />
           </div>
         </div>

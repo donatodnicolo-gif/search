@@ -10,7 +10,7 @@ import { nomeMese } from "./calc";
 import { richiediPagamentoPartner, riferimentoSaldo, transactionsConfigurato } from "./transactions";
 import { datiBancariPartner, perchePagamentoSenzaIban } from "./dati-bancari";
 import { condizioniVendorPartner } from "./condizioni-vendor";
-import { partiteAperte, partiteDaChiedere, nettoDaChiedere, descriviPartite } from "./saldo-netto";
+
 
 // «Richiedi pagamento»: manda a **deluxy-transactions** la richiesta di pagare
 // il dovuto di un partner.
@@ -80,39 +80,25 @@ export async function chiediPagamento(
   });
   if (!partner) return no("Partner non trovato.");
 
-  // Cosa si chiede davvero: il mese, oppure il netto dell'anno.
-  let causale = `Saldo ${periodo} - ${partner.nome}`;
-  let note = `Dovuto al partner per ${periodo}, richiesto da Deluxy Finance.`;
-  let mesiCoinvolti = [mese];
-  let dettaglioRegistro = periodo;
-  // ⭐ 09/09/2026 — ANCHE QUI COMANDA LA PIATTAFORMA.
-  // Il regime decide QUANTO si chiede: in compensazione il netto dell'anno,
-  // altrimenti il residuo del mese. Se l'interfaccia leggesse la piattaforma e
-  // il server la colonna locale, il bottone direbbe un importo e ne partirebbe
-  // un altro — è la trappola del «mese lordo invece del netto» del 04/09, che
-  // costò la richiesta TRX-2026-000049 da annullare a mano.
-  const cond = await condizioniVendorPartner(partnerId);
-  const inCompensazione = cond.condizioni?.compensazioneIncassi ?? partner.compensazione;
-  if (inCompensazione) {
-    // I mesi che hanno GIÀ una richiesta in corso non entrano nel netto: la
-    // loro cifra è già in coda su Transactions, contarla di nuovo la
-    // chiederebbe due volte (verificato il 04/09 su 7 partner con luglio già
-    // in attesa e agosto nuovo). Restano i mesi mai richiesti, a credito e a
-    // debito, e quelli la cui richiesta è stata annullata o rifiutata.
-    const tutte = await partiteAperte(partnerId, anno);
-    const partite = partiteDaChiedere(tutte.partite, mese);
-    const netto = nettoDaChiedere(tutte.partite, mese);
-    if (netto < 0.01) {
-      return no(`${periodo} — in compensazione il partner deve ancora ${euro(-netto)} a Deluxy (${descriviPartite(partite)}): non c'è niente da bonificare.`
-      );
-    }
-    importo = netto;
-    mesiCoinvolti = partite.map((p) => p.mese);
-    const spiegazione = descriviPartite(partite);
-    causale = `Saldo netto ${anno} - ${partner.nome}`;
-    note = `Netto in compensazione ${anno}: ${spiegazione} = ${euro(netto)}. Richiesto da Deluxy Finance (dal mese di ${periodo}).`;
-    dettaglioRegistro = `netto ${anno} (${spiegazione})`;
-  }
+  // ⭐ 11/09/2026 — OGNI MESE SI PAGA A SÉ, ANCHE IN COMPENSAZIONE.
+  // Regola dell'utente, che sostituisce quella del 04/09: «è sbagliato che in
+  // compensazione si paga solo il netto dell'anno, ogni mese viene pagato a
+  // sé». Dal 04/09 al 10/09 il bottone di un partner in compensazione mandava
+  // a Transactions il NETTO dell'anno (crediti meno debiti di tutti i mesi) e
+  // segnava «in corso» tutti i mesi coinvolti: su CASATI 14, febbraio da
+  // bonificare 128,52 € faceva partire una richiesta da 4.090,14 €.
+  // Adesso si chiede l'importo di QUEL mese, e il mese marcato è uno solo.
+  // ⚠️ Conseguenza dichiarata: un mese in cui il partner deve a Deluxy non si
+  // compensa più da solo con un mese a credito. Il debito resta visibile sulla
+  // scheda (il residuo del mese e il badge «Da recuperare» del totale
+  // dell'anno) e si recupera dove si è sempre fatto: con un extra in
+  // detrazione sul mese, o chiedendo l'incasso.
+  // Le richieste multi-mese partite prima di oggi restano valide: il webhook
+  // continua a chiudere tutti i mesi che portano quel riferimento.
+  const causale = `Saldo ${periodo} - ${partner.nome}`;
+  const note = `Dovuto al partner per ${periodo}, richiesto da Deluxy Finance.`;
+  const mesiCoinvolti = [mese];
+  const dettaglioRegistro = periodo;
   if (!(importo >= 0.01)) return no(`${periodo} — importo non valido: non c'è niente da pagare.`);
 
   // L'IBAN lo possiede il REGISTRO Anagrafiche; qui c'è al più una copia, e

@@ -6,7 +6,6 @@ import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/ca
 import { registraBonifico, segnaFatturaPagata } from "@/lib/actions";
 import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
 import { transactionsConfigurato, etichettaRichiesta, richiestaRifacibile } from "@/lib/transactions";
-import { nettoDaChiedere } from "@/lib/saldo-netto";
 import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
@@ -44,20 +43,14 @@ export default async function Dashboard({
   // meno debiti del partner, esclusi i mesi con una richiesta già in corso),
   // non il mese: `netto` è quella cifra, null per gli altri. Stessa formula
   // del server (saldo-netto.ts), così il bottone dice la cifra che partirà.
-  const mesiPartner = tutti.flatMap((t) => {
-    const partite = t.mesi.map((m) => ({
-      mese: m.mese,
-      delta: m.riepilogo.daBonificare - m.riepilogo.daIncassare,
-      saldo: m.saldo,
-    }));
-    return t.mesi.map((m) => ({
+  const mesiPartner = tutti.flatMap((t) =>
+    t.mesi.map((m) => ({
       partner: t.partner,
       mese: m.mese,
       r: m.riepilogo,
       saldo: m.saldo,
-      netto: t.partner.compensazione ? nettoDaChiedere(partite, m.mese) : null,
-    }));
-  });
+    }))
+  );
   const daPagareAiPartner = mesiPartner
     .filter((x) => x.r.daBonificare >= 0.01)
     .sort((a, b) => b.r.daBonificare - a.r.daBonificare);
@@ -207,7 +200,7 @@ export default async function Dashboard({
                             niente e non si segna niente come pagato. Se la
                             richiesta è già partita, al posto del bottone si
                             mostra a che punto è. */}
-                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl)) && !(x.netto != null && x.netto < 0.01) && (
+                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl)) && (
                           <form
                             action={richiediPagamento.bind(
                               null,
@@ -224,13 +217,9 @@ export default async function Dashboard({
                             <BottoneInvio
                               className="btn small primary"
                               inCorso="Invio…"
-                              title={
-                                x.netto != null
-                                  ? `Chiede a Transactions il NETTO dell'anno in compensazione (${euro(x.netto)}) per ${x.partner.nome}, non i ${euro(x.r.daBonificare)} del mese. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`
-                                  : `Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`
-                              }
+                              title={`Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
                             >
-                              {x.netto != null && Math.abs(x.netto - x.r.daBonificare) >= 0.01 ? `Paga il netto ${euro(x.netto)}` : "Paga"}
+                              Paga {euro(x.r.daBonificare)}
                             </BottoneInvio>
                           </form>
                         )}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { descriviFonte } from "@/lib/fonte-movimento";
 import { euro, dataIt } from "@/lib/format";
 import { TIPI_PL } from "@/lib/categorie-spesa";
 import { TornaIndietro } from "@/components/TornaIndietro";
@@ -82,10 +83,12 @@ export default async function MovimentoDettaglio({ params }: { params: Promise<{
             {daQonto(t.fonte) ? (
               <span className="badge blue"><span className="dot" />Qonto</span>
             ) : (
-              <span className="badge neutral"><span className="dot" />File</span>
+              // 11/09/2026: il badge nomina il conto (Vivid…) invece del
+              // generico «File»; sotto resta scritto da quale estratto viene.
+              <span className="badge neutral"><span className="dot" />{descriviFonte(t.fonte).etichetta}</span>
             )}
           </div>
-          <div className="kpi-sub" style={{ wordBreak: "break-word" }}>{t.fonte ?? "non indicata"}</div>
+          <div className="kpi-sub" style={{ wordBreak: "break-word" }}>{descriviFonte(t.fonte).dettaglio}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Stato in riconciliazione</div>
