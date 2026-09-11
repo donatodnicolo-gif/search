@@ -173,6 +173,41 @@ export async function salvaChiaveAiAzione(fd: FormData) {
   redirect(esito.ok ? "/impostazioni?esito=chiave" : `/impostazioni?errore=${encodeURIComponent(esito.errore ?? "")}`);
 }
 
+/**
+ * ⭐ 11/09/2026 — **il collegamento con la piattaforma consegne (app delivery)**:
+ * l'indirizzo e la chiave con cui le diciamo che un suo prodotto è approvato.
+ *
+ * Sta nella cassaforte come la chiave AI (cifrata, e l'ambiente vince). Senza,
+ * l'approvazione vale qui e la scheda dice che di là non è stata comunicata:
+ * un giro che non si chiude deve vedersi, non sparire.
+ */
+export async function salvaPiattaformaAzione(fd: FormData) {
+  const url = testo(fd, "url");
+  const chiave = testo(fd, "chiave");
+  if (url) {
+    // Un indirizzo senza schema non è un indirizzo: meglio dirlo adesso che al
+    // primo prodotto approvato.
+    if (!/^https?:\/\//i.test(url)) {
+      redirect("/impostazioni?errore=" + encodeURIComponent("L'indirizzo della piattaforma deve cominciare con https://"));
+    }
+    const esito = await salvaSegreto("PIATTAFORMA_URL", url);
+    if (!esito.ok) redirect("/impostazioni?errore=" + encodeURIComponent(esito.errore ?? ""));
+  }
+  if (chiave) {
+    const esito = await salvaSegreto("PIATTAFORMA_API_KEY", chiave);
+    if (!esito.ok) redirect("/impostazioni?errore=" + encodeURIComponent(esito.errore ?? ""));
+  }
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?esito=piattaforma");
+}
+
+export async function eliminaPiattaformaAzione() {
+  await eliminaSegreto("PIATTAFORMA_API_KEY");
+  await eliminaSegreto("PIATTAFORMA_URL");
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?esito=piattaforma-tolta");
+}
+
 export async function eliminaChiaveAiAzione() {
   await eliminaSegreto("OPENAI_API_KEY");
   revalidatePath("/impostazioni");

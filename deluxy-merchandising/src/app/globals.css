@@ -1833,3 +1833,9 @@ a.anteprima-matita {
 .mp-lista button:hover:not(:disabled) { background: var(--fill); }
 .mp-lista button:disabled { opacity: .45; cursor: default; }
 .mp-lista .mp-nome { font-weight: 600; }
+
+/* ---------- Attesa approvazione (11/09/2026): il prodotto di un partner che
+   aspetta il nostro sì. Ambra come le altre code di lavoro dell'ecosistema:
+   non è un errore, è qualcosa da decidere. ---------- */
+.scheda-approvazione { border-left: 3px solid var(--orange); }
+.scheda-approvazione .scheda-titolo { color: var(--orange); }

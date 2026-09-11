@@ -8,7 +8,11 @@
 import { cifra, cifraturaConfigurata, decifra, impronta } from "./crypto";
 import { prisma } from "./db";
 
-export type NomeSegreto = "OPENAI_API_KEY";
+// ⭐ 11/09/2026: la chiave per **rispondere** alla piattaforma consegne (app
+// delivery) quando un suo prodotto viene approvato qui. Finché non c'è, l'esito
+// resta scritto sulla scheda e si dice che di là non è stato comunicato: una
+// approvazione che non arriva è peggio se nessuno sa che non è arrivata.
+export type NomeSegreto = "OPENAI_API_KEY" | "PIATTAFORMA_API_KEY" | "PIATTAFORMA_URL";
 
 export async function leggiSegreto(nome: NomeSegreto): Promise<string | null> {
   const daAmbiente = process.env[nome]?.trim();

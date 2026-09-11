@@ -15,6 +15,8 @@ import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, ripristinaImmagine, segnaShopify } from "@/lib/azioni";
+import { approvaProdotto } from "@/lib/azioni-approvazione";
+import { mancanzePerApprovare } from "@/lib/prodotti-dal-partner";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
 import { conti, riga } from "@/lib/composti";
@@ -124,6 +126,9 @@ export default async function ProdottoPage({
   // Per un prodotto composto il costo non è il suo campo, è la somma dei
   // componenti: si rifà a ogni apertura, così non invecchia mai.
   const contiComposto = conti(prodotto.componenti.map((x) => riga(x.componente, x.quantita)));
+  // ⭐ 11/09/2026: che cosa manca per approvare un prodotto arrivato da un
+  // partner. Si calcola sempre (costa niente) e si legge solo dove serve.
+  const mancanze = mancanzePerApprovare(prodotto);
   const m = calcolaMargine(prodotto.costoProduzione, prodotto.prezzoVendita);
   const target = prodotto.collezione?.margineTarget ?? null;
   const salva = aggiornaProdotto.bind(null, id);
@@ -385,6 +390,36 @@ export default async function ProdottoPage({
             <a key={t} className={`tab${tab === t ? " attivo" : ""}`} href={`?tab=${t}`}>{label}</a>
           ))}
         </div>
+
+        {/* ⭐ 11/09/2026 (regola utente) — **il prodotto di un partner aspetta il
+            nostro sì.** Sta in cima, prima di tutto il resto: è l'unica cosa da
+            fare su questa scheda, e quello che manca si legge senza cercarlo. */}
+        {prodotto.fase === "attesa_approvazione" && (
+          <div className="scheda scheda-approvazione">
+            <div className="scheda-titolo">Attesa approvazione</div>
+            <p className="page-sub" style={{ marginBottom: 12 }}>
+              {prodotto.partnerInsegna
+                ? <>L&apos;ha caricato <b>{prodotto.partnerInsegna}</b> dalla piattaforma consegne.</>
+                : <>Arrivato dalla piattaforma consegne (<code>{prodotto.origine}</code>).</>}{" "}
+              Entra nell&apos;assortimento — e nelle classifiche — solo quando lo approvi; l&apos;approvazione torna alla piattaforma.
+            </p>
+            {mancanze.length > 0 ? (
+              <>
+                <div className="avviso-errore" style={{ marginBottom: 12 }}>
+                  Prima di approvare manca: {mancanze.join(" · manca ")}
+                </div>
+                <a className="btn btn-secondario" href={`/prodotti/${id}/modifica`}>✎ Completa col modulo</a>
+              </>
+            ) : (
+              <form action={approvaProdotto.bind(null, id)}>
+                <button type="submit" className="btn">Approva questo prodotto</button>
+                <span className="cella-sub" style={{ marginLeft: 12 }}>
+                  Passa in «Approvato», entra nelle analisi, e la piattaforma consegne lo sa.
+                </span>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* ---------- Fase (visibile in Panoramica e Sviluppo) ---------- */}
         {(tab === "panoramica" || tab === "sviluppo") && (

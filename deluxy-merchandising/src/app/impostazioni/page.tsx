@@ -3,6 +3,8 @@ import { Sidebar } from "@/components/Sidebar";
 import {
   attivaNegozio,
   eliminaChiaveAiAzione,
+  eliminaPiattaformaAzione,
+  salvaPiattaformaAzione,
   eliminaNegozio,
   salvaChiaveAiAzione,
   salvaNegozioAzione,
@@ -32,9 +34,11 @@ export default async function ImpostazioniPage({
   searchParams: Promise<{ esito?: string; errore?: string; messaggio?: string; nuova?: string }>;
 }) {
   const sp = await searchParams;
-  const [negozi, chiaveAi, righePrompt, chiavi, canali] = await Promise.all([
+  const [negozi, chiaveAi, urlPiattaforma, chiavePiattaforma, righePrompt, chiavi, canali] = await Promise.all([
     elencoNegozi(),
     statoSegreto("OPENAI_API_KEY"),
+    statoSegreto("PIATTAFORMA_URL"),
+    statoSegreto("PIATTAFORMA_API_KEY"),
     prisma.promptCategoria.findMany(),
     prisma.apiKey.findMany({ orderBy: { creataIl: "desc" } }),
     // I nomi che i negozi hanno **nel venduto**: servono a collegare la scheda
@@ -389,6 +393,59 @@ export default async function ImpostazioniPage({
               <div className="azioni-modulo">
                 <button className="btn" type="submit" disabled={!cifraturaOk}>Salva la chiave</button>
               </div>
+            </form>
+          )}
+        </div>
+
+        {/* ⭐ 11/09/2026 — **il collegamento con la piattaforma consegne (app
+            delivery)**: da lì arrivano i prodotti che i partner caricano dal
+            proprio account, e lì torna la nostra approvazione. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Piattaforma consegne (app delivery)</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            I prodotti che un <b>partner</b> carica nella piattaforma arrivano qui in{" "}
+            <b>«Attesa approvazione»</b> con quello che ha scritto: categoria, plus, note, prezzo pubblico,
+            varianti e chi è il partner. Quando qualcuno li approva, la decisione torna alla piattaforma —
+            e per tornare servono questo indirizzo e questa chiave.{" "}
+            {chiavePiattaforma.presente
+              ? null
+              : "Finché mancano, l'approvazione vale qui e la scheda del prodotto dice che di là non è stata comunicata."}
+          </p>
+          <p className="page-sub">
+            Indirizzo:{" "}
+            {urlPiattaforma.presente ? (
+              <b>impostato{urlPiattaforma.origine === "ambiente" ? " nell'ambiente" : ""}</b>
+            ) : (
+              <span style={{ color: "var(--orange)" }}>manca</span>
+            )}{" "}
+            · Chiave:{" "}
+            {chiavePiattaforma.presente ? (
+              <b>
+                impostata{chiavePiattaforma.origine === "ambiente" ? " nell'ambiente" : ""}
+                {chiavePiattaforma.impronta ? ` · impronta ${chiavePiattaforma.impronta}` : ""}
+              </b>
+            ) : (
+              <span style={{ color: "var(--orange)" }}>manca</span>
+            )}
+          </p>
+          <form action={salvaPiattaformaAzione} className="modulo" style={{ marginTop: 12 }}>
+            <div className="campo-modulo largo">
+              <label htmlFor="urlPiattaforma">Indirizzo della piattaforma</label>
+              <input id="urlPiattaforma" name="url" type="url" placeholder="https://app.deluxy.it" autoComplete="off" />
+              <span className="cella-sub">Senza la parte finale: le rotte le aggiunge l&apos;app.</span>
+            </div>
+            <div className="campo-modulo largo">
+              <label htmlFor="chiavePiattaforma">Chiave app della piattaforma</label>
+              <input id="chiavePiattaforma" name="chiave" type="password" placeholder="la chiave x-api-key della piattaforma" autoComplete="off" />
+              <span className="cella-sub">La emette la piattaforma (Configurazione → chiavi app). Serve il permesso di scrittura sui prodotti.</span>
+            </div>
+            <div className="azioni-modulo">
+              <button className="btn" type="submit" disabled={!cifraturaOk}>Salva il collegamento</button>
+            </div>
+          </form>
+          {(urlPiattaforma.origine === "app" || chiavePiattaforma.origine === "app") && (
+            <form action={eliminaPiattaformaAzione} style={{ marginTop: 8 }}>
+              <button className="btn btn-secondario small" type="submit">Togli il collegamento</button>
             </form>
           )}
         </div>

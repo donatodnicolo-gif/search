@@ -261,6 +261,18 @@ model Prodotto {
   // finché nessuno li ha confrontati, sovrapporli sarebbe una deduzione.
   partnerIdShopify      String?  // custom.partner_id
   partnerIndirizzoShopify String? // custom.partner_address
+  /// ⭐ 11/09/2026 — **il partner della piattaforma consegne che ha caricato il
+  /// prodotto dal suo account**, quando il prodotto nasce di là.
+  ///
+  /// ⚠️ Separato da `partnerIdShopify`: quello è il numero che il NEGOZIO
+  /// scrive nel metafield `custom.partner_id` (44, 128, 223 — gli id del vecchio
+  /// gestionale), questo è l'id della piattaforma (un cuid). Metterli nella
+  /// stessa colonna vorrebbe dire mandare un cuid a un metafield dichiarato
+  /// `number_integer`, e Shopify rifiuterebbe il prodotto intero.
+  partnerPiattaformaId  String?
+  /// L'insegna del partner, come la scrive la piattaforma: serve a leggere la
+  /// scheda senza chiamare un'altra app per un nome.
+  partnerInsegna        String?
   tagShopify     String? // separati da virgola, come li dà Shopify
   handleShopify  String?
   // Giorni minimi per evadere il prodotto: il metafield Shopify `prodotto.consegna`

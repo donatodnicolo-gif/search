@@ -42,11 +42,16 @@ export const COLORE_STATO_COLLEZIONE: Record<string, string> = {
 };
 
 // ---------- Fasi del ciclo di vita prodotto (PLM) ----------
-export const FASI_PLM = ["concept", "prototipo", "approvato", "in_vendita", "archiviato"] as const;
+// ⭐ 11/09/2026 (regola utente): **«attesa approvazione»**, per i prodotti che un
+// partner carica dal suo account nella piattaforma consegne. Non sono nostri
+// concept: esistono già, il partner li vende, e quello che manca è il nostro sì.
+// Sta fra «prototipo» e «approvato» perché è esattamente lì che si trova — il
+// prodotto è pronto, la decisione no.
+export const FASI_PLM = ["concept", "prototipo", "attesa_approvazione", "approvato", "in_vendita", "archiviato"] as const;
 export type FasePlm = (typeof FASI_PLM)[number];
 
 // Fasi "vive" mostrate nel board di sviluppo (l'archiviato è fuori pipeline).
-export const FASI_PIPELINE: FasePlm[] = ["concept", "prototipo", "approvato", "in_vendita"];
+export const FASI_PIPELINE: FasePlm[] = ["concept", "prototipo", "attesa_approvazione", "approvato", "in_vendita"];
 
 // «Pubblico» e non «In vendita» (deciso dall'utente il 04/09/2026): la chiave
 // resta `in_vendita` per non toccare i dati, ma il significato è dichiarato —
@@ -55,6 +60,7 @@ export const FASI_PIPELINE: FasePlm[] = ["concept", "prototipo", "approvato", "i
 export const ETICHETTA_FASE: Record<string, string> = {
   concept: "Concept",
   prototipo: "Prototipo",
+  attesa_approvazione: "Attesa approvazione",
   approvato: "Approvato",
   in_vendita: "Pubblico",
   archiviato: "Archiviato",
@@ -62,6 +68,8 @@ export const ETICHETTA_FASE: Record<string, string> = {
 export const COLORE_FASE: Record<string, string> = {
   concept: "var(--purple)",
   prototipo: "var(--blue)",
+  // Arancione: è una coda di lavoro, non uno stato di riposo — qualcuno deve decidere.
+  attesa_approvazione: "var(--orange)",
   approvato: "var(--gold-strong)",
   in_vendita: "var(--green)",
   archiviato: "var(--text-tertiary)",

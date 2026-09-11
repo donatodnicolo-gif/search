@@ -10,6 +10,88 @@ Regola dell'utente: «quando un partner crea il proprio prodotto il nome che met
 - Pubblicati anche (10/09): `nomePartner` nell'API prodotti; `POST /api/v1/prodotti/disponibilita` (giorni minimi e ora minima dal calendario dei partner dei prodotti unici, chiamata dal cron della piattaforma ogni mezz'ora); 5.080 nomi partner riempiti.
 - ⚠️ Il deploy in cloud prende SOLO ciò che è pushato su `scout-ui`: il lavoro locale «NON pubblicato» qui sotto non è entrato.
 
+## 11/09/2026 (3) — I PRODOTTI DEI PARTNER: «ATTESA APPROVAZIONE», IMPORT COMPLETO, APPROVAZIONE CHE TORNA INDIETRO (in locale, NON pubblicato)
+
+Sette richieste dell'utente in una: stato nuovo per i prodotti che i partner
+caricano dall'app delivery, import di **tutti** i campi (categoria, varianti,
+plus, partner), approvazione con campi obbligatori (prezzo pubblico), SEO
+automatica, classificazione interna «unico» di default, `partner.id` importato.
+
+### Prima: che cosa ha davvero l'app delivery (letto, non dedotto)
+Letto il codice della piattaforma (`C:\Users\nicol\app\deluxy-platform-next`):
+`api/prisma/schema.prisma` (model `Product`, `ProductVariant`, `Partner`) e
+`api/src/merchandising-sync/merchandising-sync.module.ts`. Il contratto completo
+— quello che manda oggi, quello che accettiamo, quello che manca di là — è in
+**[docs/CONTRATTO-APP-DELIVERY.md](CONTRATTO-APP-DELIVERY.md)**.
+
+⚠️ **Oggi la piattaforma manda solo 8 campi** (codice, nome, descrizione,
+categoria, costo, prezzo, immagine, origine/idEsterno): `shortDesc` (che è **il
+plus del prodotto**), `variants`, `partnerId`, `partner.insegna`, `prepDays`,
+`note`, `notPhysical`, `alternateName`, `images`, `tipologiaVendita` **ce li ha
+in casa e non li manda**. Il lato ricevente è pronto per tutti: appena di là
+allargano il `body` di `inviaOra` (il diff è nel documento), entrano senza
+toccare altro.
+
+### Fatto qui (`tsc` 0)
+- **Fase nuova `attesa_approvazione`** («Attesa approvazione», arancione), fra
+  prototipo e approvato: in `FASI_PLM`, `FASI_PIPELINE`, etichette e colori —
+  quindi nei filtri, nel board Sviluppo, nell'anagrafica e nel CSV.
+- **`src/lib/prodotti-dal-partner.ts`**: la mappatura, che accetta **sia i nomi
+  della piattaforma sia i nostri**; la categoria si riconosce per nome o chiave
+  e quello che non combacia resta `DA_CLASSIFICARE` (mai indovinare); le
+  varianti diventano `deltaPrezzo`/`prezzoPartner`/note/giacenza; il
+  `partner.legacyId` va in `partnerIdShopify` **solo se numerico** (il metafield
+  `custom.partner_id` è `number_integer`: un cuid là dentro farebbe rifiutare il
+  prodotto intero da Shopify); `mancanzePerApprovare()` e `seoAutomatica()`.
+- **Due colonne additive** (`prisma db push` fatto): `partnerPiattaformaId` (il
+  cuid di là) e `partnerInsegna`.
+- **`POST /api/v1/prodotti`**: crea in attesa di approvazione con varianti, plus,
+  note, partner, prezzo pubblico, giorni di preavviso, nome per il partner, foto;
+  **SEO compilata dalle regole**; `tipologiaVendita` **«unico» di default**;
+  fuori dalle analisi finché non si approva; tappa con la cronaca e avvisi
+  («categoria non riconosciuta», «manca il prezzo pubblico»). Un secondo invio
+  **aggiorna e non duplica**, e **non tocca la fase**: un'app esterna non riapre
+  una decisione presa qui. Le varianti si aggiungono, mai si tolgono.
+- **`GET /api/v1/prodotti`** espone `approvato` e `attesaApprovazione` (più
+  `plusProdotto`, `prezzoPartner`, `partnerPiattaformaId`, `partnerInsegna`):
+  così la piattaforma può allineare il suo `approved` anche solo **leggendo**.
+- **Approvazione** (`src/lib/azioni-approvazione.ts` + riquadro ambra in cima
+  alla scheda): dice chi l'ha caricato, elenca **cosa manca** e porta al modulo;
+  quando si può, il bottone «Approva questo prodotto» mette la fase, **rientra
+  nelle analisi** e **comunica alla piattaforma**. I controlli valgono anche dal
+  tasto rapido delle fasi: due strade per lo stesso gesto non possono avere due
+  regole diverse.
+- **`src/lib/piattaforma.ts`**: la chiamata di ritorno, best-effort e mai
+  bloccante, con l'esito scritto nella cronaca del prodotto. ⚠️ **La rotta di là
+  non esiste ancora** (`POST /api/v1/app/prodotti/:id/approvato`): finché non
+  c'è, si legge «approvato qui, non comunicato» — un giro che non si chiude deve
+  vedersi.
+- **Impostazioni → Piattaforma consegne (app delivery)**: indirizzo e chiave,
+  cifrati in cassaforte (`PIATTAFORMA_URL` / `PIATTAFORMA_API_KEY`).
+
+### Provato (locale, dati veri)
+Mandato alla rotta vera il corpo che manda la piattaforma, coi suoi nomi:
+**HTTP 201**, fase `attesa_approvazione`, categoria `BOUQUET` da «Bouquet»,
+`tipologiaVendita: unico`, plus da `shortDesc`, note, prezzo pubblico 95, costo
+e prezzo partner 40, `ggDispMin` 2, nome per il partner, `partnerPiattaformaId`
+cuid + `partnerInsegna` + `partnerIdShopify` «242», **SEO scritta da sola**, 2
+varianti con delta, note e giacenza, tappa con la cronaca. `GET` → `approvato:
+false`, `attesaApprovazione: true`. Secondo invio: `creato: false`, fase
+invariata, prezzo aggiornato.
+Nel browser: badge «Attesa approvazione», riquadro col nome del partner;
+azzerando prezzo e categoria il bottone sparisce e compare «Prima di approvare
+manca: il prezzo pubblico… · manca la categoria…», e **anche il tasto rapido
+«Approvato» viene rifiutato** con lo stesso motivo; rimessi i valori,
+«Approva» → fase Approvato, `esclusoDaAnalisi: false`, e la cronaca scrive
+«⚠️ Piattaforma consegne non configurata: approvato qui, non comunicato».
+Prodotto e chiave di prova cancellati (0 rimasti).
+
+### 🔴 Restano fuori (lato piattaforma, altra cartella e altra sessione)
+1. allargare `inviaOra` ai campi che ha già (diff pronto nel documento);
+2. aprire `POST /api/v1/app/prodotti/:id/approvato`.
+Senza (1) l'import completo non ha niente da importare; senza (2) l'approvazione
+si legge solo dalla nostra GET.
+
 ### 11/09 (2) — «Apri la scheda online non funziona» e «il titolo di sezione aggiunto non resta» (in locale, NON pubblicato)
 
 - **Il link**: i domini `myshopify.com` reindirizzano bene (301 → deluxy.it,

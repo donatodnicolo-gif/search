@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { isoGiornoValido, mezzanotteRomaDi } from "./fuso";
+import { mancanzePerApprovare } from "./prodotti-dal-partner";
 
 // Helper: legge una stringa non vuota dal form
 function str(fd: FormData, k: string): string | null {
@@ -122,6 +123,19 @@ function dataDa(iso: string | null): Date | null {
 export async function cambiaFase(id: string, nuovaFase: string) {
   const p = await prisma.prodotto.findUnique({ where: { id } });
   if (!p || p.fase === nuovaFase) return;
+  // ⭐ 11/09/2026 (regola utente): un prodotto **in attesa di approvazione** non
+  // passa oltre finché non ha i campi obbligatori — il prezzo pubblico per
+  // primo. Vale anche da qui, non solo dal bottone «Approva»: due strade per
+  // lo stesso gesto non possono avere due regole diverse.
+  if (p.fase === "attesa_approvazione" && (nuovaFase === "approvato" || nuovaFase === "in_vendita")) {
+    const mancanze = mancanzePerApprovare(p);
+    if (mancanze.length) {
+      redirect(
+        `/prodotti/${id}?errore=` +
+          encodeURIComponent(`Non si può approvare finché manca ${mancanze.join("; manca ")}. Si completa da «✎ Modifica col modulo».`),
+      );
+    }
+  }
   // ⭐ 11/09/2026 (regola utente: «se viene approvato finisce su Shopify»). Approvato e Pubblico
   // creano la scheda sul negozio (09/09: approvato = bozza), ma la creazione ha bisogno del
   // modulo completo (negozio, prezzi, foto, campi): il tasto rapido porta al modulo con la
