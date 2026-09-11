@@ -6826,3 +6826,10 @@ tr.riga-click:focus-visible {
 .bottone.pericoloso:hover { background: var(--fill-hover); }
 .speciale-riga { display: grid; gap: 6px; }
 .speciale-capite { padding-left: 2px; min-height: 18px; }
+
+/* ⭐ 11/09/2026 — Riga di tabella che si apre col click (Libro UX v1.6).
+   Il cursore lo dice prima del click, e il fuoco da tastiera si vede: la riga
+   è raggiungibile con Tab e si apre con Invio. */
+tr.riga-apribile { cursor: pointer; }
+tr.riga-apribile:hover > td { background: var(--fill); }
+tr.riga-apribile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }

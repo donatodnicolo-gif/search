@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { ChipsPeriodo } from './ChipsPeriodo'
+import { DettaglioOrdine } from './DettaglioOrdine'
 import type { Periodo } from '@/lib/periodo'
 import {
   STATI_RIMBORSO,
@@ -97,6 +98,18 @@ export function RimborsiLista({
   const [inCorso, setInCorso] = useState('')
   const [esitoDi, setEsitoDi] = useState('')
   const [testoEsito, setTestoEsito] = useState('')
+  /**
+   * ⭐ 11/09/2026 — LA RIGA SI APRE COL CLICK (Libro UX v1.6, segnalazione
+   * dell'utente: «al click non apre i dettagli»). Qui serviva più che altrove:
+   * il MOTIVO è la cosa su cui si decide se approvare, e in tabella è tagliato
+   * a 110 caratteri — «Unico fiorista che farebbe consegna ha minimo di ordine
+   * superiore a quello pagato dal cliente che non accetta …» finiva proprio
+   * dove comincia la ragione. Il pannello lo mostra per intero, con l'esito e
+   * chi ha chiesto e deciso; da lì si apre anche l'ordine.
+   */
+  const [aperto, setAperto] = useState<Rimborso | null>(null)
+  /** L'ordine aperto nel suo pannello ('' = nessuno). */
+  const [ordineAperto, setOrdineAperto] = useState('')
 
   const carica = useCallback(async () => {
     try {
@@ -125,6 +138,24 @@ export function RimborsiLista({
     const t = setTimeout(() => setQCercata(q.trim()), 300)
     return () => clearTimeout(t)
   }, [q])
+
+  // Esc chiude il pannello: aperto qualcosa, è il gesto che si prova per primo.
+  useEffect(() => {
+    if (!aperto) return
+    const tasto = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAperto(null)
+    }
+    document.addEventListener('keydown', tasto)
+    return () => document.removeEventListener('keydown', tasto)
+  }, [aperto])
+
+  // ⚠️ L'elenco si ricarica sotto (Approva, Rifiuta, rimborso eseguito): il
+  // pannello deve mostrare la riga NUOVA, non quella con cui era stato aperto.
+  useEffect(() => {
+    if (!aperto) return
+    const fresco = rimborsi.find((x) => x.id === aperto.id)
+    if (fresco && fresco !== aperto) setAperto(fresco)
+  }, [rimborsi, aperto])
 
   useEffect(() => {
     carica()
@@ -461,7 +492,24 @@ export function RimborsiLista({
             </thead>
             <tbody>
               {rimborsi.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  tabIndex={0}
+                  className="riga-apribile"
+                  title="Apri il rimborso: motivo per intero, esito, ordine"
+                  onClick={(e) => {
+                    // ⚠️ Le azioni dentro la riga restano loro (Libro v1.6):
+                    // Approva, Rifiuta, la casella dell'email di Shopify e i
+                    // campi dell'esito non devono aprire niente.
+                    const el = e.target as HTMLElement
+                    if (el.closest('a,button,input,select,label,textarea')) return
+                    setAperto(r)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' || e.target !== e.currentTarget) return
+                    setAperto(r)
+                  }}
+                >
                   <td>
                     <div className="cella-nome">{r.ordineNumero || '—'}</div>
                     <div className="cella-sub">
@@ -475,7 +523,7 @@ export function RimborsiLista({
                       {r.tipo === 'totale' ? 'totale' : `su ${soldi(r.importoOrdine, r.valuta)}`}
                     </div>
                   </td>
-                  <td className="cella-muta" style={{ maxWidth: 280 }}>
+                  <td className="cella-muta" style={{ maxWidth: 280 }} title={r.motivo}>
                     {r.motivo.length > 110 ? r.motivo.slice(0, 110) + '…' : r.motivo}
                     {r.esito ? <div className="cella-sub">Esito: {r.esito}</div> : null}
                   </td>
@@ -621,6 +669,131 @@ export function RimborsiLista({
           </table>
         </div>
       )}
+
+      {/* ── IL RIMBORSO APERTO ──
+          ⚠️ Riusa `.velo` e `.pannello` del dettaglio ordine: stesso gesto,
+          stesso aspetto, Esc e click fuori chiudono. Qui dentro c'è quello che
+          in tabella non ci sta — il motivo per intero — e le due decisioni, per
+          non costringere a chiudere per approvare quello che si è appena letto. */}
+      {aperto ? (
+        <div className="velo" onClick={() => setAperto(null)} role="presentation">
+          <div className="pannello" onClick={(e) => e.stopPropagation()}>
+            <div className="pannello-testa">
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17 }}>
+                  Rimborso · {aperto.ordineNumero || 'senza ordine'}
+                </h2>
+                <p className="cella-sub" style={{ margin: '2px 0 0' }}>
+                  {aperto.clienteNome || 'cliente non indicato'}
+                  {aperto.negozioNome ? ` · ${aperto.negozioNome}` : ''}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+                {aperto.ordineId ? (
+                  <button
+                    className="btn btn-secondario small"
+                    onClick={() => {
+                      setOrdineAperto(aperto.ordineId)
+                      setAperto(null)
+                    }}
+                  >
+                    Apri l&apos;ordine
+                  </button>
+                ) : null}
+                <button
+                  className="pannello-chiudi"
+                  aria-label="Chiudi"
+                  title="Chiudi (Esc)"
+                  onClick={() => setAperto(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div style={{ display: 'grid', gap: '14px 16px', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+                <div>
+                  <div className="cella-sub">Stato</div>
+                  <span
+                    className="badge"
+                    style={{ color: coloreStatoRimborso(aperto.stato), fontWeight: 600 }}
+                  >
+                    {nomeStatoRimborso(aperto.stato)}
+                  </span>
+                </div>
+                <div>
+                  <div className="cella-sub">Da rendere</div>
+                  <div style={{ fontWeight: 600 }}>{soldi(aperto.importo, aperto.valuta)}</div>
+                  <div className="cella-sub">
+                    {aperto.tipo === 'totale'
+                      ? 'rimborso totale'
+                      : `parziale su ${soldi(aperto.importoOrdine, aperto.valuta)}`}
+                  </div>
+                </div>
+                <div>
+                  <div className="cella-sub">Chiesto</div>
+                  <div>{dataBreve(aperto.creatoIl)}</div>
+                  {aperto.richiestoDa ? <div className="cella-sub">da {aperto.richiestoDa}</div> : null}
+                </div>
+                {aperto.decisoDa ? (
+                  <div>
+                    <div className="cella-sub">Deciso</div>
+                    <div>da {aperto.decisoDa}</div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* ⚠️ Il motivo per INTERO e a capo dove è a capo: è il testo su
+                  cui si decide, e in tabella se ne leggeva metà. */}
+              <h3 style={{ margin: '16px 0 4px', fontSize: 13.5 }}>Motivo</h3>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{aperto.motivo || '—'}</p>
+
+              {aperto.esito ? (
+                <>
+                  <h3 style={{ margin: '16px 0 4px', fontSize: 13.5 }}>Esito</h3>
+                  <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{aperto.esito}</p>
+                </>
+              ) : null}
+            </div>
+
+            {aperto.stato === 'richiesto' ? (
+              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    void cambiaStato(aperto.id, 'approvato')
+                    setAperto(null)
+                  }}
+                >
+                  Approva
+                </button>
+                <button
+                  className="btn btn-secondario"
+                  onClick={() => {
+                    void cambiaStato(aperto.id, 'rifiutato')
+                    setAperto(null)
+                  }}
+                >
+                  Rifiuta
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* L'ordine, aperto dal pannello del rimborso. Alla chiusura si rilegge
+          l'elenco: dalla scheda si può aver rimborsato o cambiato l'ordine. */}
+      {ordineAperto ? (
+        <DettaglioOrdine
+          ordineId={ordineAperto}
+          onChiudi={() => {
+            setOrdineAperto('')
+            void carica()
+          }}
+        />
+      ) : null}
     </main>
   )
 }
