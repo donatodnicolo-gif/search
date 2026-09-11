@@ -386,6 +386,10 @@ export class PartnersService {
       ['Amministrazione — nome', p.adminName, fin?.amministrazioneNome],
       ['Amministrazione — email', p.adminEmail, fin?.amministrazioneEmail],
       ['Amministrazione — telefono', p.adminPhone, fin?.amministrazioneTelefono],
+      // ⭐ 11/09/2026 — LA FEE SULLE VENDITE, che dal registro arriva a Finance.
+      // Sta in `condizioniVendor` e non fra i dati fiscali: è un patto del
+      // singolo partner, non un dato che si eredita dalla capogruppo.
+      ['Fee su vendite (%)', p.commissionPercent, (trovato as any).condizioniVendor?.feeVenditePercent],
     ];
     const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim());
     const differenze = coppie

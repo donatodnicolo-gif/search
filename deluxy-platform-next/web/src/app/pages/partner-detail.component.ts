@@ -951,6 +951,9 @@ export class PartnerDetailComponent {
     'Amministrazione — nome': 'amministrazioneNome',
     'Amministrazione — email': 'amministrazioneEmail',
     'Amministrazione — telefono': 'amministrazioneTelefono',
+    // 11/09/2026: la fee sulle vendite va al registro come condizione vendor,
+    // ed è da lì che Finance la legge per commissione e dovuto al partner.
+    'Fee su vendite (%)': 'feeVenditePercent',
   };
 
   /** Le chiavi da mandare, o undefined = tutto (comportamento di prima). */

@@ -67,6 +67,9 @@ type PartnerPiattaforma = {
   contactName?: string | null;
   notes?: string | null;
   active: boolean;
+  /** Fee sulle vendite (%): alimenta «Fee value = Fee% × prezzo partner» e,
+   *  dall'11/09/2026, viaggia al registro come `feeVenditePercent`. */
+  commissionPercent?: number | null;
   categories?: { category?: { name?: string | null } | null }[];
 };
 
@@ -474,6 +477,23 @@ export class AnagraficheSyncService {
     for (const c of ['compensazioneIncassi', 'pagamentoVendorGiorni', 'incassoServiziGiorni', 'incassoServiziFineMese'] as const) {
       const v = (partner as any)[c];
       if (v !== undefined) condizioni[c] = v;
+    }
+    // ⭐ 11/09/2026 — ANCHE LA FEE SULLE VENDITE (%), quinta condizione.
+    // Qui si chiama `commissionPercent` («Fee value = Fee% × prezzo partner»),
+    // nel registro `feeVenditePercent`: è lo stesso patto, e Finance ne ha
+    // bisogno per calcolare commissione e dovuto al partner. Finora non
+    // viaggiava, e la fee andava riscritta a mano in Finance — su Edenia Fiori
+    // era rimasta vuota, ed è la domanda dell'utente che l'ha fatto scoprire.
+    //
+    // ⚠️ SI MANDA SOLO SE MAGGIORE DI ZERO, al contrario delle altre quattro.
+    // Là `null` e `false` sono risposte e devono viaggiare; qui il campo è
+    // `Float @default(0)` e non sa distinguere «fee zero concordata» da «non
+    // l'ha mai impostata nessuno». Mandare lo zero cancellerebbe nel registro
+    // il «da valorizzare» di ogni partner mai toccato, e Finance calcolerebbe
+    // commissioni a zero su chi una fee ce l'ha davvero.
+    const fee = (partner as any).commissionPercent;
+    if (typeof fee === 'number' && fee > 0 && fee <= 100) {
+      condizioni.feeVenditePercent = Math.round(fee * 10000) / 10000;
     }
     return {
       ...anagrafici,
