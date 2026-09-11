@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { classificaEventiDaParole } from "./eventi-parole";
 
 // EVENTI DEI CLIENTI — le occasioni per cui ordinano, lette dagli ordini.
 //
@@ -249,6 +250,11 @@ export async function rilevaEventi(): Promise<EsitoRilevamento> {
   for (let i = 0; i < daCreare.length; i += 500) {
     await prisma.eventoCliente.createMany({ data: daCreare.slice(i, i + 500), skipDuplicates: true });
   }
+
+  // Le parole del biglietto dicono l'occasione (11/09/2026): «buon compleanno»
+  // è un compleanno. Si passa sui «da precisare» appena nati; l'AI resta per
+  // quelli che le parole non risolvono. Best-effort: non ferma il rilevamento.
+  await classificaEventiDaParole({ applica: true }).catch(() => undefined);
 
   return esito;
 }
