@@ -3,6 +3,7 @@
 // lato server (nel bundle web sarebbe leggibile da chiunque).
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
+import { sommaPerSigla, type FatturatoProvince } from '@/lib/fatturato-province';
 
 /**
  * La copertura SALVATA: le due risposte lente (registro e venduto) messe da
@@ -132,5 +133,47 @@ export async function fetchVenditePerProvincia(
     };
   } catch {
     return vuota;
+  }
+}
+
+/**
+ * IL FATTURATO DI OGNI PROVINCIA (11/09/2026), per la colonna «Fatt.
+ * provincia» dei Selezionati.
+ *
+ * ⚠️ È lo STESSO dato della scheda Copertura di Affiliazioni, dalla stessa
+ * fonte: prima la **vista salvata** (`copertura_cache`, una query sola invece
+ * della chiamata lenta a Orders), poi il ripiego sul calcolo dal vivo. Il
+ * venduto è di Deluxy Orders: qui si somma per sigla e basta.
+ *
+ * Periodo: **tutto lo storico**. È la domanda vera davanti a un negozio
+ * segnalato («questa zona vende?»), ed è l'unica risposta che non cambia
+ * mentre si scorre l'elenco.
+ *
+ * ⚠️ Non lancia mai: senza Orders collegato torna `collegato: false` e la
+ * colonna resta vuota, invece di spegnere l'elenco dei negozi.
+ */
+export async function fetchFatturatoProvince(): Promise<FatturatoProvince> {
+  const vuoto: FatturatoProvince = { perSigla: new Map(), aggiornatoIl: null, collegato: false, senzaProvincia: 0 };
+  try {
+    const salvata = await fetchCoperturaSalvata().catch(() => null);
+    const dallaVista = salvata?.vendite?.tutto;
+    if (dallaVista) {
+      return {
+        perSigla: sommaPerSigla(dallaVista.province),
+        aggiornatoIl: salvata?.aggiornatoIl ?? null,
+        collegato: true,
+        senzaProvincia: dallaVista.senzaProvincia?.lordo ?? 0,
+      };
+    }
+    const vive = await fetchVenditePerProvincia({});
+    if (vive.nonCollegato) return vuoto;
+    return {
+      perSigla: sommaPerSigla(vive.province),
+      aggiornatoIl: null,
+      collegato: true,
+      senzaProvincia: vive.senzaProvincia?.lordo ?? 0,
+    };
+  } catch {
+    return vuoto;
   }
 }

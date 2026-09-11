@@ -26,6 +26,8 @@ import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, ty
 import type { RecapitoPlace } from '@/lib/db';
 import { fetchVenditeFornitori, type EsitoVenditeFornitori } from '@/lib/customer-service';
 import { piuRecente, venditeDi, type VenditeFornitore } from '@/lib/vendite-fornitori';
+import { euroBreve, type FatturatoProvince } from '@/lib/fatturato-province';
+import { fetchFatturatoProvince } from '@/lib/ordini';
 import { cittaEProvincia } from '@/lib/citta-provincia';
 import { nomeLeggibile } from '@/lib/nomi';
 import { CellaVendite, RigaVendite, StatoVendite } from '@/components/VenditeFornitore';
@@ -224,6 +226,24 @@ export default function Lista() {
       vivo = false;
     };
   }, [inSelezionati]);
+  // ⭐ IL FATTURATO DELLA PROVINCIA (11/09/2026, richiesta dell'utente): lo
+  // stesso numero della scheda Copertura di Affiliazioni, dalla stessa vista
+  // salvata. Serve davanti a una Segnalazione CS: dice se quella zona vende.
+  const [fatturato, setFatturato] = useState<FatturatoProvince | null>(null);
+  useEffect(() => {
+    if (!inSelezionati) return;
+    let vivo = true;
+    fetchFatturatoProvince().then((f) => vivo && setFatturato(f));
+    return () => {
+      vivo = false;
+    };
+  }, [inSelezionati]);
+  const fatturatoDi = (r: RigaSel): number | null => {
+    const sigla = doveDi(r).provincia;
+    if (!sigla || !fatturato?.collegato) return null;
+    return fatturato.perSigla.get(sigla) ?? 0;
+  };
+
   const indiceVenditeCS = vendite?.ok ? vendite.indice : null;
   const giorniLunga = indiceVenditeCS?.giorniLunga ?? 180;
   const venditeDiPlace = (p: Place): VenditeFornitore | null =>
@@ -506,7 +526,7 @@ export default function Lista() {
     {
       chiave: 'provincia',
       label: 'Prov.',
-      width: 50,
+      width: 46,
       valore: (r) => doveDi(r).provincia,
     },
     {
@@ -546,7 +566,7 @@ export default function Lista() {
     {
       chiave: 'prevista',
       label: 'Visita',
-      width: 66,
+      width: 62,
       destra: true,
       numerica: true,
       valore: (r) => r.place?.visita_pianificata ?? null,
@@ -626,6 +646,48 @@ export default function Lista() {
           },
         ] satisfies ColonnaTabella<RigaSel>[])
       : []),
+    // ⭐ FATTURATO DELLA PROVINCIA, sulle Segnalazioni CS (11/09/2026,
+    // richiesta dell'utente). Compare solo quando in elenco ci sono le
+    // segnalazioni: nella vista «I miei selezionati» sarebbe una colonna di
+    // trattini, e la tabella ha già nove colonne più le azioni.
+    // ⚠️ Il valore è sulle righe del REGISTRO, che è la domanda vera: «questo
+    // negozio segnalato sta in una zona che vende?». Sui propri selezionati la
+    // decisione è già presa, e il numero non cambierebbe niente.
+    ...(inSelezionati && filtroSel !== 'miei'
+      ? ([
+          {
+            chiave: 'fatturatoProv',
+            label: 'Fatt. prov.',
+            width: 84,
+            destra: true,
+            numerica: true,
+            valore: (r) => (r.registro ? fatturatoDi(r) : null),
+            cella: (r) => {
+              if (!r.registro) return <Text style={styles.tabMuto}>—</Text>;
+              const f = fatturatoDi(r);
+              const dove = doveDi(r);
+              if (f == null) {
+                return (
+                  <Text
+                    style={styles.tabMuto}
+                    {...({ title: dove.provincia ? 'Venduto non collegato: manca la chiave di Orders' : 'Provincia non nota nel registro' } as any)}
+                  >
+                    —
+                  </Text>
+                );
+              }
+              return (
+                <Text
+                  style={[styles.tabData, f > 0 && styles.tabDataMossa]}
+                  {...({ title: `Venduto Deluxy in provincia di ${dove.provincia} su tutto lo storico (stessa fonte della Copertura in Affiliazioni)` } as any)}
+                >
+                  {euroBreve(f)}
+                </Text>
+              );
+            },
+          },
+        ] satisfies ColonnaTabella<RigaSel>[])
+      : []),
   ];
 
   // I chip dei Selezionati: tutti / i miei / le Segnalazioni CS. Un filtro,
@@ -685,6 +747,18 @@ export default function Lista() {
                   <Text style={styles.avvisoRegistro}>
                     <Ionicons name="information-circle-outline" size={12} color={colors.testoSoft} /> Segnalazioni CS possibilmente
                     incomplete: il registro risponde senza il filtro per fonte o per stato fornitore (rideployare la funzione `anagrafiche`).
+                  </Text>
+                ) : null}
+                {/* Da dove viene «Fatt. provincia», e quanto è fresco: è la
+                    stessa vista salvata della Copertura in Affiliazioni. */}
+                {filtroSel !== 'miei' && fatturato ? (
+                  <Text style={styles.avvisoRegistro}>
+                    <Ionicons name="stats-chart-outline" size={12} color={colors.testoSoft} />{' '}
+                    {fatturato.collegato
+                      ? `«Fatt. provincia» è il venduto Deluxy su tutto lo storico, come in Affiliazioni · Copertura${
+                          fatturato.aggiornatoIl ? ` (vista salvata del ${dataBreve(fatturato.aggiornatoIl)})` : ' (calcolato adesso)'
+                        }.`
+                      : '«Fatt. provincia» resta vuota: il venduto non è collegato (chiave di Orders in Profilo → Impostazioni → App collegate).'}
                   </Text>
                 ) : null}
               </View>
@@ -798,6 +872,19 @@ export default function Lista() {
                         {p.creatoIl ? ` · dal ${dataBreve(p.creatoIl)}` : ''}
                       </Text>
                       <RigaVendite v={venditeDiRiga(item as RigaSel)} giorniLunga={giorniLunga} />
+                      {/* Il fatturato della provincia anche sulla scheda del
+                          telefono: è lì che si decide se andarci. */}
+                      {(() => {
+                        const f = fatturatoDi(item as RigaSel);
+                        const dove = doveDi(item as RigaSel);
+                        if (f == null || !dove.provincia) return null;
+                        return (
+                          <Text style={styles.inserito} numberOfLines={1}>
+                            <Ionicons name="stats-chart-outline" size={11} color={colors.grigio} /> Provincia di{' '}
+                            {dove.provincia}: {euroBreve(f)} venduti
+                          </Text>
+                        );
+                      })()}
                     </>
                   }
                   azioni={azioniDiRegistro(p)}
@@ -1090,6 +1177,7 @@ const styles = StyleSheet.create({
   tabBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabDataMossa: { color: colors.testo, fontWeight: '600' },
+  tabMuto: { color: colors.grigio, fontSize: 12.5, textAlign: 'right' },
   fab: {
     position: 'absolute',
     right: spacing.xxl,

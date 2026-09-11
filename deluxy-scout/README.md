@@ -184,6 +184,27 @@
 >      Ultimo agg. 78, 30/180 gg 80 (conto: fisse 554 + azioni 422 + 16 + gap
 >      60 + 24 = 1076; a 1280 restano 172 px alle due elastiche, sopra il minimo
 >      di 90 ciascuna solo di poco: sotto i 1300 px il nome è stretto).
+>   6. **«Fatt. prov.» sulle Segnalazioni CS** (11/09/2026, richiesta
+>      dell'utente: «il fatturato che genera quella provincia che puoi prendere
+>      da /affiliazioni»). ⭐ **Stesso dato, stessa fonte**: la **vista salvata**
+>      `copertura_cache` che alimenta la scheda Copertura di Affiliazioni (una
+>      query sola), col ripiego sul calcolo dal vivo verso Orders —
+>      `fetchFatturatoProvince()` in `lib/ordini.ts`, parte pura e test in
+>      `lib/fatturato-province.ts` (`sommaPerSigla` normalizza con
+>      `siglaProvincia` e scarta i valori esteri; `euroBreve` scrive «856k €»
+>      come di là). Periodo: **tutto lo storico** — è la domanda vera davanti a
+>      un negozio segnalato, ed è l'unica risposta che non cambia mentre si
+>      scorre. Il valore sta sulle righe del REGISTRO (sui propri selezionati la
+>      decisione è già presa) e la colonna compare solo coi filtri «Tutti» e
+>      «Segnalazioni CS»: in «I miei selezionati» sarebbe una colonna di
+>      trattini. Anche sulla scheda del telefono, e una riga sotto il conteggio
+>      dice da dove viene il numero e di quando è la vista salvata (o che Orders
+>      non è collegato). ⚠️ Larghezze ritoccate per far stare la decima colonna:
+>      Prov. 46, Visita 62, Fatt. prov. 84. Misurato con una pagina di prova
+>      (poi cancellata): a **1280** l'ultima icona sta dentro la card per 1 px
+>      (le due colonne elastiche sono al minimo di 90), a **1440** avanzano
+>      34 px col nome a 170, a **1556** — la larghezza dell'utente — il nome ha
+>      237 px. `tsc` 0, **147 test verdi**.
 >      **In produzione**: CS `38ca29fa` deployato da un worktree pulito (nella
 >      cartella c'erano 10 file non committati di un'altra sessione), rotta
 >      provata (101 fornitori, 94 con `ultimoPagamentoIl`); web `08c6cbf4`,
