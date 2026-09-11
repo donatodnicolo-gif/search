@@ -245,7 +245,8 @@ const DELIVERY_INCLUDE = {
       // imageUrl: al click sul nome la scheda mostra la FOTO (28/08, parita'
       // con l'app attuale chiesta dall'utente).
       // ⭐ 07/09/2026: la NOTA DI SPECIFICA arriva fino al fioraio, che deve sapere quanti fiori mettere.
-      product: { select: { id: true, name: true, price: true, publicPrice: true, note: true, imageUrl: true } },
+      // ⭐ 11/09: nome per il partner (al partner si mostra quello, non il commerciale — vedi soloIMieiSoldi).
+      product: { select: { id: true, name: true, price: true, publicPrice: true, note: true, imageUrl: true, alternateName: true, useAlternateName: true } },
       productVariant: { select: { id: true, name: true, price: true, publicPrice: true, note: true } },
     },
   },
@@ -3703,6 +3704,19 @@ export class DeliveriesService {
     // costo: chi li vede accanto al prezzo che paga legge il nostro margine.
     if (user.role === Role.PARTNER) {
       const pulita: Record<string, any> = { ...delivery };
+      // ⭐ 11/09/2026 (segnalazione utente: «come mai Clivati non vede il nome aggiornato»): anche
+      // nella CONSEGNA il partner vede il SUO nome del prodotto (alternateName, se acceso), non il
+      // commerciale — la stessa regola del catalogo e della proposta (10/09). Il commerciale non
+      // gli arriva proprio.
+      if (Array.isArray(pulita['products'])) {
+        pulita['products'] = pulita['products'].map((r: any) => {
+          const p = r?.product;
+          if (!p) return r;
+          const suo = (p.alternateName ?? '').trim();
+          const { alternateName: _a, useAlternateName: _u, ...resto } = p;
+          return { ...r, product: { ...resto, name: p.useAlternateName && suo ? suo : p.name } };
+        });
+      }
       // ⚠️ 02/09 (regola utente): al partner arriva solo ciò che riguarda il
       // SUO prezzo e la SUA fatturazione — la regola PAGA VALET no, e
       // nemmeno il flag «da pagare» (è il conto fra noi e il valet).
