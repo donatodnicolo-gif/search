@@ -121,6 +121,13 @@ export async function GET(req: NextRequest) {
       origine: e.origine,
       stato: e.stato,
       note: e.note,
+      // Come è stato deciso il TIPO (11/09/2026, per il dettaglio nel CRM):
+      // tipoDa "" = nessuno l'ha detto · "parole" = letto dalle parole del
+      // biglietto · "ai" = letto da ChatGPT · "manuale" = scritto da una persona;
+      // `prova` è il pezzo di testo, `motivoTipo` la spiegazione.
+      tipoDa: e.tipoDa,
+      motivoTipo: e.motivoTipo,
+      prova: e.prova,
       aggiornatoIl: e.aggiornatoIl,
     })),
   });
