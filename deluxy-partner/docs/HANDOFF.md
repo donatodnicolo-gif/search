@@ -4,6 +4,27 @@
 >
 > Come le tre app trattano il capogruppo all'11/09: **piattaforma** = entità Capogruppo (nome, P.IVA, CF, SDI, PEC, email) + «chi paga»/«paga da sé» sul partner, dati di fatturazione del partner copiati dal capogruppo e bloccati, pagina Capogruppi, ogni cambio comunicato al registro; **Anagrafiche** = fonte di verità (Capogruppo con anche IBAN, banca, condizioni, amministrazione; `leggiFatturazione` sostituisce i dati fiscali nella risposta API quando `pagaDaSe=false`); **Finance** = legge dal registro e ora intesta al capogruppo; il «fatturato per gruppo» somma le aziende agganciate.
 
+> 🩺 **11/09/2026 — «IL DATABASE SEMBRA ANDATO GIÙ, HAI TOCCATO QUALCOSA?»
+> — NO, ED È PASSATO. Misure, non impressioni.**
+> Alle 10:18 circa una query da Finance ha impiegato **26 secondi** e una
+> connessione è caduta. Controllato subito: **health 200 con `database:true`**
+> su partner, orders, budgets, scout, tasks, crm, marketing, messaging,
+> merchandising, personale e sulla piattaforma; 10 minuti dopo la latenza era
+> **68–472 ms**, `/api/health` di Finance **115 ms**, **0 query in attesa di
+> lock**, 29 sessioni su un massimo di 60. Restavano 4 sessioni
+> `idle in transaction` (la più vecchia 79 s): da tenere d'occhio, non
+> bloccavano nulla.
+> ❌ **La mia `ALTER TABLE` non c'entra**: colonna nullable senza default
+> (`ADD COLUMN IF NOT EXISTS`), nessuna riscrittura di tabella, istantanea, su
+> uno schema diverso (`anagrafiche`) da quello che ha rallentato.
+> ✅ **La causa vera l'aveva già trovata un'altra sessione**: il commit
+> `3e768f2` della piattaforma, pubblicato alle 10:20, si intitola «le letture
+> del margine vanno in fila, non in parallelo (**pool di 3 connessioni saturo**:
+> Internal server error sulla lista)». Stesso cluster condiviso, stessa
+> mezz'ora. Lezione già scritta l'08/09 (il precaricamento di Finance che
+> esauriva i 200 posti): **su un database condiviso, il lavoro parallelo di
+> un'app diventa la lentezza di tutte le altre.**
+
 > 💰 **11/09/2026 — LA FEE SULLE VENDITE ARRIVA DA APP DELIVERY: CATENA
 > COMPLETA SU TRE APP (piattaforma → registro → Finance).**
 > Richiesta dell'utente («questi campi dovrebbero essere già passati da app
