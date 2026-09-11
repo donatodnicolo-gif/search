@@ -504,11 +504,30 @@ export class SettingsService {
    * Ritorna il link consultabile; parlante, non lancia — chi chiama decide il
    * ripiego (le ricevute restano sul percorso di oggi se Drive non c'è).
    */
+  /**
+   * Apre un file di Drive in sola lettura a chiunque abbia il link. Serve alle immagini dei prodotti:
+   * un'immagine che solo noi possiamo aprire non è un'immagine, è un errore che compare più tardi.
+   *
+   * ⚠️ Non fallisce mai il caricamento: se il permesso non passa, il file c'è comunque e lo si vede dal
+   * Drive. Meglio un'immagine da sistemare che un caricamento perso.
+   */
+  private async rendiLeggibileDaChiunque(id: string, token: string): Promise<void> {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+      });
+    } catch {
+      // Silenzio voluto: vedi sopra.
+    }
+  }
+
   async caricaSuDrive(
     nome: string,
     contenuto: Buffer,
     mime: string,
-  ): Promise<{ ok: boolean; motivo: string; id?: string; link?: string }> {
+  ): Promise<{ ok: boolean; motivo: string; id?: string; link?: string; pagina?: string }> {
     const { token, motivo } = await this.driveAccessToken();
     if (!token) return { ok: false, motivo };
     const cartella = await this.cartellaFileApp(token);
@@ -533,7 +552,25 @@ export class SettingsService {
       );
       const b = (await res.json().catch(() => ({}))) as { id?: string; webViewLink?: string; error?: { message?: string } };
       if (!res.ok || !b.id) return { ok: false, motivo: `Drive rifiuta il caricamento: ${b.error?.message ?? 'HTTP ' + res.status}` };
-      return { ok: true, motivo: 'caricato', id: b.id, link: b.webViewLink };
+      /**
+       * ⭐⭐ 11/09/2026 (segnalazione utente: «perché un partner non può caricare l'immagine di un
+       * prodotto?») — IL FILE SI CARICAVA, MA L'IMMAGINE NON SI VEDEVA. Tre anelli mancavano, e nessuno
+       * dei tre dava errore: per chi guarda, «non funziona».
+       *
+       * 1. `webViewLink` è la PAGINA di Drive, non l'immagine: dentro un tag <img> non mostra niente.
+       * 2. Il file nasce PRIVATO: anche col link giusto, chi non ha accesso al Drive vede un errore.
+       * 3. Un prodotto va poi su Shopify, e un'immagine che solo noi possiamo aprire là non arriva.
+       *
+       * Quindi: si apre il file a chiunque abbia il link (sola lettura) e si torna l'indirizzo del
+       * CONTENUTO. Restano privati, come prima, i file caricati per altri usi: qui si apre solo ciò che
+       * per sua natura deve essere pubblico, cioè la foto di un prodotto in vendita.
+       */
+      if (b.id) await this.rendiLeggibileDaChiunque(b.id, token);
+      return {
+        ok: true, motivo: 'caricato', id: b.id,
+        link: b.id ? `https://lh3.googleusercontent.com/d/${b.id}` : b.webViewLink,
+        pagina: b.webViewLink,
+      };
     } catch (e) {
       return { ok: false, motivo: `Drive non raggiungibile: ${(e as Error).message}` };
     }

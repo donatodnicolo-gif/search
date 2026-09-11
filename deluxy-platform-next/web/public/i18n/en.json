@@ -3723,7 +3723,7 @@
   },
   "merce": {
     "titolo": "Goods on site",
-    "caption": "What each partner and each valet is holding right now. “To collect” counts only today’s and future deliveries: it is a commitment, not goods already on the counter.",
+    "caption": "The goods partners and valets hold for deliveries still to be done. “To collect” is a commitment, not goods already on the counter. The past lives in History.",
     "cerca": "Search a product…",
     "merceDi": "Goods of",
     "tuttiIDetentori": "← All",
@@ -3750,10 +3750,13 @@
       "valet": "valet"
     },
     "periodo": {
-      "oggi": "today",
-      "settimana": "7 days",
-      "mese": "month",
-      "sempre": "all time"
+      "oggi": "Today",
+      "domani": "Tomorrow",
+      "setteGiorni": "Next 7 days",
+      "personalizzato": "Chosen period",
+      "ieri": "Yesterday",
+      "ultimaSettimana": "Last week",
+      "ultimoMese": "Last month"
     },
     "destinazione": {
       "returnToBoutique": "returned to the boutique",
@@ -3768,6 +3771,10 @@
     "vista": {
       "partner": "Partners",
       "valet": "Valets"
+    },
+    "sezione": {
+      "daFare": "To do",
+      "storico": "History"
     }
   }
 }

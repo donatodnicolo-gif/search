@@ -3725,7 +3725,7 @@
   },
   "merce": {
     "titolo": "Merce in sede",
-    "caption": "Che cosa ha in mano ogni partner e ogni valet, adesso. «Da ritirare» conta solo le consegne di oggi e dei giorni a venire: è un impegno preso, non merce già sul bancone.",
+    "caption": "La merce che partner e valet hanno in mano per le consegne ancora da fare. «Da ritirare» è un impegno preso, non merce già sul bancone. Il passato sta nello Storico.",
     "cerca": "Cerca un prodotto…",
     "merceDi": "Merce di",
     "tuttiIDetentori": "← Tutti",
@@ -3752,10 +3752,13 @@
       "valet": "valet"
     },
     "periodo": {
-      "oggi": "oggi",
-      "settimana": "7 giorni",
-      "mese": "mese",
-      "sempre": "sempre"
+      "oggi": "Oggi",
+      "domani": "Domani",
+      "setteGiorni": "Prossimi 7 giorni",
+      "personalizzato": "Periodo scelto",
+      "ieri": "Ieri",
+      "ultimaSettimana": "Ultima settimana",
+      "ultimoMese": "Ultimo mese"
     },
     "destinazione": {
       "returnToBoutique": "riportata in boutique",
@@ -3770,6 +3773,10 @@
     "vista": {
       "partner": "Partner",
       "valet": "Valet"
+    },
+    "sezione": {
+      "daFare": "Da fare",
+      "storico": "Storico"
     }
   }
 }

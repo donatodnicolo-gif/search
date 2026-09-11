@@ -31,23 +31,49 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
   template: `
     <div class="page-header">
       <div>
+        <!-- ⭐ 11/09/2026 (segnalazione utente): il ritorno sta IN ALTO, non in mezzo ai filtri. È il
+             primo posto dove si cerca un'uscita quando si è scesi di un livello. -->
+        @if (detentore()) {
+          <a class="indietro" [routerLink]="['/merce-in-sede']" (click)="tornaAiDetentori()">← {{ 'common.back' | translate }}</a>
+        }
         <h1>{{ 'merce.titolo' | translate }}</h1>
         <p class="page-caption">{{ 'merce.caption' | translate }}</p>
       </div>
     </div>
 
+    <!--
+      ⭐⭐ 11/09/2026 (regola utente): «qui vanno messi solo stock di consegne ancora da fare; la
+      selezione delle date va fatta in ottica prospettica; riguardo al passato fai una sezione storico».
+      Sono due domande diverse e si guardano in due momenti diversi: che merce mi aspetta, e che cosa è
+      già successo. Mescolarle metteva nella stessa tabella la consegna di domani e quella fallita l'anno
+      scorso.
+    -->
+    <div class="quick-tabs sezioni">
+      @for (s of SEZIONI; track s) {
+        <button type="button" class="quick-tab" [class.active]="sezione() === s" (click)="scegliSezione(s)">
+          {{ 'merce.sezione.' + s | translate }}
+        </button>
+      }
+    </div>
+
     <section class="card filtri">
       <input class="field cerca" [(ngModel)]="q" (ngModelChange)="cercaConFreno()" [placeholder]="'merce.cerca' | translate" />
       <div class="quick-tabs">
-        @for (p of PERIODI; track p) {
+        @for (p of periodi(); track p) {
           <button type="button" class="quick-tab" [class.active]="periodo() === p" (click)="scegliPeriodo(p)">
             {{ 'merce.periodo.' + p | translate }}
           </button>
         }
       </div>
-      @if (eUfficio() && detentore()) {
-        <button type="button" class="btn btn-secondary" (click)="tornaAiDetentori()">{{ 'merce.tuttiIDetentori' | translate }}</button>
+      <!-- Le due date compaiono solo su «periodo scelto»: due campi vuoti accanto a quattro scorciatoie
+           sono due campi che nessuno usa e che occupano la riga. -->
+      @if (periodo() === 'personalizzato') {
+        <label class="fld"><span>{{ 'statPartner.dal' | translate }}</span>
+          <input class="field" type="date" [(ngModel)]="da" (change)="carica()" /></label>
+        <label class="fld"><span>{{ 'statPartner.al' | translate }}</span>
+          <input class="field" type="date" [(ngModel)]="a" (change)="carica()" /></label>
       }
+
     </section>
 
     @if (errore()) {
@@ -112,11 +138,14 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
         <table>
           <thead>
             <tr>
-              <th>{{ 'merce.col.' + (vista() === 'valet' ? 'valet' : 'partner') | translate }}</th>
-              <th class="num">{{ 'merce.col.daRitirare' | translate }}</th>
-              <th class="num">{{ 'merce.col.inConsegna' | translate }}</th>
-              <th class="num">{{ 'merce.col.inSospeso' | translate }}</th>
-              <th class="num">{{ 'merce.col.consegnati' | translate }} · {{ etichettaPeriodo() }}</th>
+              <th><button type="button" class="th-ordina" (click)="ordinaPer('nome')">{{ 'merce.col.' + (vista() === 'valet' ? 'valet' : 'partner') | translate }}{{ freccia('nome') }}</button></th>
+              @if (sezione() === 'daFare') {
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('daRitirare')">{{ 'merce.col.daRitirare' | translate }}{{ freccia('daRitirare') }}</button></th>
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inConsegna')">{{ 'merce.col.inConsegna' | translate }}{{ freccia('inConsegna') }}</button></th>
+              } @else {
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('consegnati')">{{ 'merce.col.consegnati' | translate }}{{ freccia('consegnati') }}</button></th>
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inSospeso')">{{ 'merce.col.inSospeso' | translate }}{{ freccia('inSospeso') }}</button></th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -124,13 +153,16 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
               <tr class="cliccabile" tabindex="0" (click)="apriDetentore(r)"
                   (keydown.enter)="apriDetentore(r)" (keydown.space)="$event.preventDefault(); apriDetentore(r)">
                 <td class="strong">{{ r.nome }}</td>
-                <td class="num">{{ r.daRitirare || '—' }}</td>
-                <td class="num">{{ r.inConsegna || '—' }}</td>
-                <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
-                <td class="num muted">{{ r.consegnati || '—' }}</td>
+                @if (sezione() === 'daFare') {
+                  <td class="num">{{ r.daRitirare || '—' }}</td>
+                  <td class="num">{{ r.inConsegna || '—' }}</td>
+                } @else {
+                  <td class="num muted">{{ r.consegnati || '—' }}</td>
+                  <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
+                }
               </tr>
             } @empty {
-              <tr><td colspan="5" class="vuoto">
+              <tr><td colspan="3" class="vuoto">
                 @if (caricando()) { {{ 'common.loading' | translate }} }
                 @else if (q.trim()) { {{ 'merce.nessunoConRicerca' | translate: { q: q } }} }
                 @else { {{ 'merce.nessuno' | translate }} }
@@ -148,23 +180,29 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
         <table>
           <thead>
             <tr>
-              <th>{{ 'merce.col.prodotto' | translate }}</th>
-              <th class="num">{{ 'merce.col.daRitirare' | translate }}</th>
-              <th class="num">{{ 'merce.col.inConsegna' | translate }}</th>
-              <th class="num">{{ 'merce.col.inSospeso' | translate }}</th>
-              <th class="num">{{ 'merce.col.consegnati' | translate }} · {{ etichettaPeriodo() }}</th>
+              <th><button type="button" class="th-ordina" (click)="ordinaPer('nome')">{{ 'merce.col.prodotto' | translate }}{{ freccia('nome') }}</button></th>
+              @if (sezione() === 'daFare') {
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('daRitirare')">{{ 'merce.col.daRitirare' | translate }}{{ freccia('daRitirare') }}</button></th>
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inConsegna')">{{ 'merce.col.inConsegna' | translate }}{{ freccia('inConsegna') }}</button></th>
+              } @else {
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('consegnati')">{{ 'merce.col.consegnati' | translate }}{{ freccia('consegnati') }}</button></th>
+                <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inSospeso')">{{ 'merce.col.inSospeso' | translate }}{{ freccia('inSospeso') }}</button></th>
+              }
               @if (mostraGiacenza()) { <th class="num">{{ 'merce.col.giacenza' | translate }}</th> }
             </tr>
           </thead>
           <tbody>
-            @for (r of prodotti(); track r.nome + (r.variante ?? '')) {
+            @for (r of prodottiVisti(); track r.nome + (r.variante ?? '')) {
               <tr class="cliccabile" tabindex="0" [attr.aria-expanded]="rigaAperta() === r.nome + (r.variante ?? '')"
                   (click)="apriRiga(r)" (keydown.enter)="apriRiga(r)" (keydown.space)="$event.preventDefault(); apriRiga(r)">
                 <td>{{ r.nome }}@if (r.variante) { <small class="variante">{{ r.variante }}</small> }</td>
-                <td class="num">{{ r.daRitirare || '—' }}</td>
-                <td class="num">{{ r.inConsegna || '—' }}</td>
-                <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
-                <td class="num muted">{{ r.consegnati || '—' }}</td>
+                @if (sezione() === 'daFare') {
+                  <td class="num">{{ r.daRitirare || '—' }}</td>
+                  <td class="num">{{ r.inConsegna || '—' }}</td>
+                } @else {
+                  <td class="num muted">{{ r.consegnati || '—' }}</td>
+                  <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
+                }
                 <!-- La giacenza c'è solo dove è davvero governata: un flag senza numero non è una giacenza. -->
                 @if (mostraGiacenza()) { <td class="num muted">{{ r.giacenza != null ? (r.giacenza | number) : '—' }}</td> }
               </tr>
@@ -240,6 +278,10 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       .pillola.attenzione { border-color: var(--gold); background: var(--surface-warm, #fffaf0); }
       .pillola small { margin-left: 6px; }
       .di-chi { margin: 0 0 10px; color: var(--text-secondary); }
+      .indietro { display: inline-block; margin-bottom: 6px; color: var(--text-secondary); text-decoration: none; font-size: 13.5px; }
+      .indietro:hover { color: var(--text); }
+      .th-ordina { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+      .th-ordina:hover { color: var(--text); }
       /* Il vestito della tabella lo dà il foglio globale a tutte le liste: qui solo ciò che è di questa. */
       td.num { font-variant-numeric: tabular-nums; }
       td.attenzione { color: var(--orange); font-weight: 600; }
@@ -267,8 +309,48 @@ export class MerceInSedeComponent {
   private readonly translate = inject(TranslateService);
   readonly auth = inject(AuthService);
 
-  readonly PERIODI = ['oggi', 'settimana', 'mese', 'sempre'] as const;
+  readonly SEZIONI = ['daFare', 'storico'] as const;
+  readonly sezione = signal<'daFare' | 'storico'>('daFare');
+  /**
+   * ⚠️ I periodi guardano dalla parte giusta: su «da fare» in avanti (oggi, domani, questa settimana),
+   * su «storico» indietro. Offrire «ultimo mese» a chi cerca la merce da preparare è un invito a
+   * leggere il passato credendo di leggere il futuro.
+   */
+  readonly PERIODI_DA_FARE = ['oggi', 'domani', 'setteGiorni', 'personalizzato'] as const;
+  readonly PERIODI_STORICO = ['ieri', 'ultimaSettimana', 'ultimoMese', 'personalizzato'] as const;
+  readonly periodi = computed(() => (this.sezione() === 'storico' ? this.PERIODI_STORICO : this.PERIODI_DA_FARE));
   readonly VISTE = ['partner', 'valet'] as const;
+
+  /**
+   * ⭐ 11/09/2026 (segnalazione utente) — L'ORDINAMENTO DALLE INTESTAZIONI.
+   *
+   * Il Libro UX&UI lo chiede da sempre (§8: «ordinamento dal click sull'intestazione con freccia di
+   * direzione, preservando i filtri»), e questa tabella è nata senza. Si ordina in memoria: le righe
+   * sono già tutte qui, e una chiamata in più per riordinare trecento righe sarebbe uno spreco.
+   *
+   * ⚠️ I numeri si ordinano come NUMERI e i nomi come testo: ordinare «12» prima di «9» perché comincia
+   * per uno è il classico difetto delle tabelle ordinate a stringhe.
+   */
+  readonly ordine = signal<{ campo: string; discendente: boolean }>({ campo: 'inSospeso', discendente: true });
+
+  ordinaPer(campo: string): void {
+    this.ordine.update((o) => (o.campo === campo ? { campo, discendente: !o.discendente } : { campo, discendente: true }));
+  }
+
+  freccia(campo: string): string {
+    const o = this.ordine();
+    return o.campo === campo ? (o.discendente ? ' ↓' : ' ↑') : '';
+  }
+
+  private ordinate<T>(righe: T[]): T[] {
+    const { campo, discendente } = this.ordine();
+    const verso = discendente ? -1 : 1;
+    return [...righe].sort((a, b) => {
+      const x = (a as Record<string, unknown>)[campo], y = (b as Record<string, unknown>)[campo];
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * verso;
+      return String(x ?? '').localeCompare(String(y ?? ''), 'it') * verso;
+    });
+  }
   readonly vista = signal<'partner' | 'valet'>('partner');
   readonly FASI = ['daRitirare', 'inConsegna', 'inSospeso', 'consegnati'] as const;
 
@@ -286,14 +368,15 @@ export class MerceInSedeComponent {
   readonly consegne = signal<ConsegnaMerce[]>([]);
   readonly erroreConsegne = signal<string | null>(null);
   /** Le due popolazioni arrivano insieme dal server: la scheda le separa senza una chiamata in più. */
-  readonly detentoriVisti = computed(() => this.detentori().filter((r) => r.tipo === this.vista()));
+  readonly detentoriVisti = computed(() => this.ordinate(this.detentori().filter((r) => r.tipo === this.vista())));
+  readonly prodottiVisti = computed(() => this.ordinate(this.prodotti()));
   quanti(v: string): number { return this.detentori().filter((r) => r.tipo === v).length; }
   readonly etichettaPeriodo = computed(() => this.translate.instant('merce.periodo.' + this.periodo()));
   /** La giacenza è governata su 7 prodotti in tutto: una colonna vuota al 99% è spazio tolto ai dati. */
   readonly mostraGiacenza = computed(() => this.prodotti().some((r) => r.giacenza != null));
 
-  private da = '';
-  private a = '';
+  da = '';
+  a = '';
   /** ⚠️ Senza freno, digitare «rose» sono quattro chiamate e a schermo resta quella che arriva per
    *  ultima, non quella che hai scritto per ultima. Il contatore scarta le risposte vecchie. */
   private attesa: ReturnType<typeof setTimeout> | null = null;
@@ -308,23 +391,39 @@ export class MerceInSedeComponent {
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
   }
 
+  scegliSezione(s: 'daFare' | 'storico'): void {
+    this.sezione.set(s);
+    this.ordine.set({ campo: s === 'storico' ? 'inSospeso' : 'daRitirare', discendente: true });
+    this.scegliPeriodo(s === 'storico' ? 'ultimaSettimana' : 'oggi');
+  }
+
+  /**
+   * ⚠️ La data si costruisce sull'ora LOCALE, non con toISOString: in UTC, di notte, «oggi» sarebbe ieri.
+   */
+  private giorno(scarto: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + scarto);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
   scegliPeriodo(p: string): void {
     this.periodo.set(p);
-    const oggi = new Date();
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    if (p === 'sempre') { this.da = '2019-01-01'; this.a = iso(oggi); }
-    else {
-      const inizio = new Date(oggi);
-      if (p === 'settimana') inizio.setDate(inizio.getDate() - 7);
-      if (p === 'mese') inizio.setMonth(inizio.getMonth() - 1);
-      this.da = iso(inizio);
-      this.a = iso(oggi);
+    const oggi = this.giorno(0);
+    switch (p) {
+      case 'oggi': this.da = oggi; this.a = oggi; break;
+      case 'domani': this.da = this.giorno(1); this.a = this.giorno(1); break;
+      case 'setteGiorni': this.da = oggi; this.a = this.giorno(7); break;
+      case 'ieri': this.da = this.giorno(-1); this.a = this.giorno(-1); break;
+      case 'ultimaSettimana': this.da = this.giorno(-7); this.a = oggi; break;
+      case 'ultimoMese': this.da = this.giorno(-30); this.a = oggi; break;
+      default: return; // personalizzato: decide chi guarda, coi due campi data
     }
     this.carica();
   }
 
   private parametri(): HttpParams {
-    let p = new HttpParams().set('da', this.da).set('a', this.a);
+    let p = new HttpParams().set('da', this.da).set('a', this.a).set('vista', this.sezione());
     if (this.q.trim()) p = p.set('q', this.q.trim());
     const d = this.detentore();
     if (d) p = p.set(d.tipo === 'partner' ? 'partnerId' : 'valetId', d.id);

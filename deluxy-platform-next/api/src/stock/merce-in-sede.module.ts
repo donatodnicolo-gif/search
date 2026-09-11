@@ -47,7 +47,19 @@ const TUTTE = [...FASI.daRitirare, ...FASI.inConsegna, ...FASI.inSospeso, ...FAS
 /** Le destinazioni della merce non consegnata: sono i valori che il legacy scriveva in `productManagement`. */
 export const DESTINAZIONI = ['returnToBoutique', 'keptInCar', 'deluxyWareHouse'] as const;
 
-type Filtri = { da?: string; a?: string; q?: string; partnerId?: string; valetId?: string };
+/**
+ * ⭐⭐ 11/09/2026 (regola utente) — DUE PAGINE, NON UNA.
+ *
+ * «Qui vanno messi solo stock di consegne ancora da fare. La selezione delle date va fatta in ottica
+ * prospettica: da oggi, domani o periodo personalizzato. Riguardo al passato fai una sezione storico.»
+ *
+ * La prima versione mescolava le due cose: nella stessa tabella la merce da consegnare domani e quella
+ * di una consegna fallita l'anno scorso. Sono due domande diverse e si guardano in due momenti diversi:
+ *  · **da fare** — che merce mi aspetta, oggi e nei prossimi giorni. Guarda AVANTI.
+ *  · **storico** — che cosa è stato consegnato, e che cosa è rimasto per strada. Guarda INDIETRO.
+ */
+type Vista = 'daFare' | 'storico';
+type Filtri = { da?: string; a?: string; q?: string; partnerId?: string; valetId?: string; vista?: Vista };
 
 /**
  * ⭐⭐ 11/09/2026 (regola utente: «tutto ciò che è stato consegnato non deve essere da ritirare»).
@@ -72,21 +84,26 @@ const SOLO_DA_OGGI = Prisma.sql`d."date" >= CURRENT_DATE`;
  * passava da quel partner. Risultato: la boutique diceva «in sospeso 3», ci entravi e i prodotti ne
  * sommavano quaranta. Un elenco che non fa il numero da cui sei partito toglie fiducia a tutta la pagina.
  */
-function attribuzione(tipo: 'partner' | 'valet' | null): Prisma.Sql {
+function attribuzione(tipo: 'partner' | 'valet' | null, vista: Vista): Prisma.Sql {
+  const daFare = vista !== 'storico';
   if (tipo === 'partner') {
-    return Prisma.sql`(
-      (d."status" IN (${Prisma.join(FASI.daRitirare.map((x) => Prisma.sql`${x}`), ', ')}) AND ${SOLO_DA_OGGI})
-      OR (d."status" = 'in_delivery' AND COALESCE(d."deliveredByPartner", false) AND ${SOLO_DA_OGGI})
-      OR (d."status" = 'not_delivered' AND d."productManagement" = 'returnToBoutique')
-      OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
-    )`;
+    return daFare
+      ? Prisma.sql`(
+          d."status" IN (${Prisma.join(FASI.daRitirare.map((x) => Prisma.sql`${x}`), ', ')})
+          OR (d."status" = 'in_delivery' AND COALESCE(d."deliveredByPartner", false))
+        )`
+      : Prisma.sql`(
+          (d."status" = 'not_delivered' AND d."productManagement" = 'returnToBoutique')
+          OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
+        )`;
   }
   if (tipo === 'valet') {
-    return Prisma.sql`(
-      (d."status" = 'in_delivery' AND NOT COALESCE(d."deliveredByPartner", false) AND ${SOLO_DA_OGGI})
-      OR (d."status" = 'not_delivered' AND d."productManagement" = 'keptInCar')
-      OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
-    )`;
+    return daFare
+      ? Prisma.sql`(d."status" = 'in_delivery' AND NOT COALESCE(d."deliveredByPartner", false))`
+      : Prisma.sql`(
+          (d."status" = 'not_delivered' AND d."productManagement" = 'keptInCar')
+          OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
+        )`;
   }
   return Prisma.sql`TRUE`;
 }
@@ -95,13 +112,25 @@ function attribuzione(tipo: 'partner' | 'valet' | null): Prisma.Sql {
 export class MerceInSedeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Il periodo della sola colonna «consegnati». Senza indicazione: oggi. */
+  /**
+   * Il periodo. Su «da fare» è prospettico e senza indicazione vale OGGI; su «storico» guarda indietro e
+   * senza indicazione vale l'ultimo mese.
+   */
   private periodo(f: Filtri): { da: Date; a: Date; etichetta: string } {
     const oggi = new Date();
     const g = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    const da = f.da ? new Date(`${f.da}T00:00:00.000Z`) : g(oggi);
-    const a = f.a ? new Date(`${f.a}T23:59:59.999Z`) : new Date(g(oggi).getTime() + 86_399_999);
-    return { da, a, etichetta: f.da || f.a ? `${f.da ?? '…'} → ${f.a ?? '…'}` : 'oggi' };
+    if (f.da || f.a) {
+      return {
+        da: f.da ? new Date(`${f.da}T00:00:00.000Z`) : g(oggi),
+        a: f.a ? new Date(`${f.a}T23:59:59.999Z`) : new Date(g(oggi).getTime() + 86_399_999),
+        etichetta: `${f.da ?? '…'} → ${f.a ?? '…'}`,
+      };
+    }
+    if (f.vista === 'storico') {
+      const trenta = new Date(g(oggi).getTime() - 30 * 86_400_000);
+      return { da: trenta, a: new Date(g(oggi).getTime() + 86_399_999), etichetta: 'ultimo mese' };
+    }
+    return { da: g(oggi), a: new Date(g(oggi).getTime() + 86_399_999), etichetta: 'oggi' };
   }
 
   /**
@@ -140,12 +169,16 @@ export class MerceInSedeService {
     const somma = (stati: readonly string[], soloDaOggi = false) =>
       Prisma.sql`SUM(CASE WHEN d."status" IN (${Prisma.join(stati.map((s) => Prisma.sql`${s}`), ', ')})${soloDaOggi ? Prisma.sql` AND ${SOLO_DA_OGGI}` : Prisma.empty} THEN dp."quantity" ELSE 0 END)::int`;
     return {
-      // ⚠️ Le due colonne di «adesso» guardano solo da oggi in avanti: vedi SOLO_DA_OGGI.
       daRitirare: somma(FASI.daRitirare, true),
       inConsegna: somma(FASI.inConsegna, true),
       inSospeso: somma(FASI.inSospeso),
       consegnati: somma(FASI.consegnati),
     };
+  }
+
+  /** Il periodo si applica a TUTTE le fasi: su «da fare» è la finestra prospettica, su «storico» quella passata. */
+  private dentroIlPeriodo(p: { da: Date; a: Date }): Prisma.Sql {
+    return Prisma.sql`d."date" >= ${p.da} AND d."date" <= ${p.a}`;
   }
 
   /**
@@ -210,22 +243,31 @@ export class MerceInSedeService {
      *    riportata in boutique = partner, tenuta in auto = valet, magazzino Deluxy = nessuno dei due.
      * Senza questa distinzione una boutique si vedrebbe addosso merce che sta nel bagagliaio di qualcuno.
      */
+    /**
+     * ⚠️ IL PERIODO VALE PER TUTTE LE COLONNE, e la sezione decide QUALI colonne esistono.
+     *
+     * Prima il livello 1 ignorava entrambi: cambiando «oggi» in «domani» i numeri restavano identici, e
+     * su «da fare» comparivano i consegnati, cioè il passato dentro la pagina del futuro. Una tabella che
+     * non reagisce ai suoi stessi filtri insegna a non fidarsi dei filtri.
+     */
+    const dentro = this.dentroIlPeriodo(p);
+    const daFare = (f.vista ?? 'daFare') !== 'storico';
+
     const partner = await this.prisma.$queryRaw<{ id: string; nome: string; daritirare: number; inconsegna: number; insospeso: number; consegnati: number }[]>(Prisma.sql`
       SELECT d."partnerId" AS id, MAX(pa."insegna") AS nome,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.daRitirare)}) AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END)::int AS daritirare,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND d."deliveredByPartner" AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END)::int AS inconsegna,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'returnToBoutique' THEN dp."quantity" ELSE 0 END)::int AS insospeso,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.consegnati)}) AND ${periodoConsegnati} THEN dp."quantity" ELSE 0 END)::int AS consegnati
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.daRitirare)}) AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS daritirare,
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND d."deliveredByPartner" AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS inconsegna,
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'returnToBoutique' AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS insospeso,
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.consegnati)}) AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS consegnati
       FROM platform."DeliveryProduct" dp
       JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
       LEFT JOIN platform."Partner" pa ON pa."id" = d."partnerId"
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL AND d."partnerId" IS NOT NULL
         AND ${this.perimetro(user, f)}
+        AND ${attribuzione('partner', f.vista ?? 'daFare')}
+        AND ${dentro}
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
       GROUP BY 1
-      HAVING SUM(CASE WHEN d."status" IN (${inLista(FASI.daRitirare)}) AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END) > 0
-          OR SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND d."deliveredByPartner" AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END) > 0
-          OR SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'returnToBoutique' THEN dp."quantity" ELSE 0 END) > 0
       ORDER BY 3 DESC
       LIMIT 200
     `);
@@ -233,23 +275,22 @@ export class MerceInSedeService {
     const valet = await this.prisma.$queryRaw<{ id: string; nome: string; inconsegna: number; insospeso: number; consegnati: number }[]>(Prisma.sql`
       SELECT d."valetId" AS id,
              MAX(TRIM(COALESCE(v."firstName", '') || ' ' || COALESCE(v."lastName", ''))) AS nome,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND NOT COALESCE(d."deliveredByPartner", false) AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END)::int AS inconsegna,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'keptInCar' THEN dp."quantity" ELSE 0 END)::int AS insospeso,
-             SUM(CASE WHEN d."status" IN (${inLista(FASI.consegnati)}) AND ${periodoConsegnati} THEN dp."quantity" ELSE 0 END)::int AS consegnati
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND NOT COALESCE(d."deliveredByPartner", false) AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS inconsegna,
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'keptInCar' AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS insospeso,
+             SUM(CASE WHEN d."status" IN (${inLista(FASI.consegnati)}) AND ${dentro} THEN dp."quantity" ELSE 0 END)::int AS consegnati
       FROM platform."DeliveryProduct" dp
       JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
       LEFT JOIN platform."Valet" v ON v."id" = d."valetId"
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL AND d."valetId" IS NOT NULL
         AND ${this.perimetro(user, f)}
+        AND ${attribuzione('valet', f.vista ?? 'daFare')}
+        AND ${dentro}
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
       GROUP BY 1
-      HAVING SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND NOT COALESCE(d."deliveredByPartner", false) AND ${SOLO_DA_OGGI} THEN dp."quantity" ELSE 0 END) > 0
-          OR SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'keptInCar' THEN dp."quantity" ELSE 0 END) > 0
       ORDER BY 3 DESC
       LIMIT 200
     `);
 
-    // Il magazzino Deluxy non è né un partner né un valet: è la terza casa possibile della merce.
     const magazzino = await this.prisma.$queryRaw<{ pezzi: number }[]>(Prisma.sql`
       SELECT COALESCE(SUM(dp."quantity"), 0)::int AS pezzi
       FROM platform."DeliveryProduct" dp
@@ -270,7 +311,11 @@ export class MerceInSedeService {
           daRitirare: num(r.daritirare), inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
         ...valet.map((r) => ({ tipo: 'valet' as const, id: r.id, nome: r.nome || '—',
           daRitirare: 0, inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
-      ].sort((a, b) => (b.inSospeso + b.inConsegna + b.daRitirare) - (a.inSospeso + a.inConsegna + a.daRitirare)),
+      ]
+        .filter((r) => (daFare ? r.daRitirare + r.inConsegna > 0 : r.consegnati + r.inSospeso > 0))
+        .sort((a, b) => (daFare
+          ? (b.daRitirare + b.inConsegna) - (a.daRitirare + a.inConsegna)
+          : (b.inSospeso + b.consegnati) - (a.inSospeso + a.consegnati))),
       magazzino: num(magazzino[0]?.pezzi),
       ...contatori,
     };
@@ -305,7 +350,7 @@ export class MerceInSedeService {
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
         AND d."status" IN (${Prisma.join(TUTTE.map((x) => Prisma.sql`${x}`), ', ')})
         AND ${this.perimetro(user, f)}
-        AND ${attribuzione(this.tipoDetentore(user, f))}
+        AND ${attribuzione(this.tipoDetentore(user, f), f.vista ?? 'daFare')}
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
         AND (d."status" NOT IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
              OR (d."date" >= ${p.da} AND d."date" <= ${p.a}))
@@ -361,7 +406,7 @@ export class MerceInSedeService {
         AND d."status" IN (${Prisma.join(stati.map((x) => Prisma.sql`${x}`), ', ')})
         ${fase === 'daRitirare' || fase === 'inConsegna' ? Prisma.sql`AND ${SOLO_DA_OGGI}` : Prisma.empty}
         AND ${this.perimetro(user, f)}
-        AND ${attribuzione(this.tipoDetentore(user, f))}
+        AND ${attribuzione(this.tipoDetentore(user, f), f.vista ?? 'daFare')}
         ${stati === FASI.consegnati ? Prisma.sql`AND d."date" >= ${p.da} AND d."date" <= ${p.a}` : Prisma.empty}
       ORDER BY d."date" DESC
       LIMIT 100
