@@ -39,6 +39,17 @@ vale il predefinito). Con `?dominio=fb72b1-2.myshopify.com` un negozio solo, con
 `&data=2026-12-25` anche la risposta secca «si può scegliere?» col motivo. La casa di questo
 dato è il Customer Service: nessuna app se ne tiene una copia.
 
+**I reclami, per le altre app (11/09/2026).** Il reclamo vive qui: si apre, si lavora e si
+chiude in questa app. Le altre lo **leggono** — il CRM lo mostra nella scheda del cliente,
+perché chi sta per telefonargli deve sapere che tre settimane fa gli è arrivato un bouquet
+appassito. `GET /api/v1/reclami` (chiave API, sola lettura) con i filtri `cliente` (email o
+telefono: il telefono si confronta sulle ultime 9 cifre), `ordine`, `stato` (`aperti` = da
+lavorare), `colpa`, `gravita`, `q`, `periodo`, `page`; ogni riga porta `domandeAperte` e il
+`link` alla sua scheda qui. `GET /api/v1/reclami/<id>` aggiunge il filo dei messaggi. Le
+etichette (stati, colpe, gravità) viaggiano nella risposta: chi legge non se le riscrive, e
+una casistica nuova si vede senza toccare le altre app. **Da fuori non si scrive**: due posti
+che cambiano lo stesso stato darebbero due verità.
+
 **Le opzioni di Nuovo ordine, per le altre app (11/09/2026).** Un'app che crea ordini da
 fuori (il CRM) non riscrive le regole del modulo: le chiede. `GET /api/v1/nuovo-ordine/opzioni?negozio=<id>`
 risponde con le fasce dagli orari del negozio (`primoGiornoAperto`, griglia `oltre`,
