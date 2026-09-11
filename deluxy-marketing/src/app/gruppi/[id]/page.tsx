@@ -85,6 +85,10 @@ export default async function SchedaGruppo({
     bloccata?: string;
     // L esito di «metti in coda»: si atterra qui, nel pannello laterale
     esito?: string;
+    // Il confronto scelto nei filtri: `precedente | anno | libero | nessuno`.
+    conf?: string;
+    confDa?: string;
+    confA?: string;
     avvisi?: string;
     saltate?: string;
     preset?: string;
@@ -876,6 +880,10 @@ export default async function SchedaGruppo({
           periodo={periodo}
           da={sp.da}
           a={sp.a}
+          confronto={periodo.confronto}
+          tipoConfronto={periodo.tipoConfronto}
+          confDa={periodo.confDaStr}
+          confA={periodo.confAStr}
           azione={`/gruppi/${gruppo.id}`}
           altriFiltri={new URLSearchParams(
             Object.entries(sp).filter(

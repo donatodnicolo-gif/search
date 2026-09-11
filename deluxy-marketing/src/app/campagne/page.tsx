@@ -1,3 +1,4 @@
+import { Delta } from "@/components/Delta";
 import { redirect } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { Icona } from "@/components/Icona";
@@ -67,13 +68,27 @@ const pesoStato = (s: string) => PESO_STATO[s] ?? 9;
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string; ord?: string; preset?: string; da?: string; a?: string }>;
+  searchParams: Promise<{
+    stato?: string;
+    canale?: string;
+    brand?: string;
+    q?: string;
+    vista?: string;
+    ord?: string;
+    preset?: string;
+    da?: string;
+    a?: string;
+    conf?: string;
+    confDa?: string;
+    confA?: string;
+  }>;
 }) {
   const p = await searchParams;
   // Pagina aperta nuda e c'è una vista predefinita: si va lì.
   const dove = await destinazionePredefinita("campagne", "/campagne", p);
   if (dove) redirect(dove);
   const { stato, canale, brand, q } = p;
+
   const ordina = Object.keys(ORDINAMENTI).includes(p.ord ?? "") ? p.ord! : "predefinito";
   // I filtri di adesso, da portarsi dietro fino alla scheda campagna: il link
   // «← Campagne» li rimette. Senza, riportava sempre all'elenco intero e la
@@ -86,6 +101,27 @@ export default async function PaginaCampagne({
   // condivisa, quindi arrivando da una scheda si continua a guardare lo
   // stesso arco di tempo.
   const periodo = await periodoApp(p);
+
+  // ⚠️ IL CONFRONTO, IN UNA QUERY SOLA PER TUTTE LE CAMPAGNE. Non si aggiunge
+  // un `include` con un secondo `where` (Prisma non lo permette due volte sulla
+  // stessa relazione) e non si fa una lettura per card — sarebbero ottanta
+  // query per una colonnina. Si somma la spesa della finestra di confronto
+  // raggruppata per campagna, e si legge dalla mappa.
+  //
+  // ⚠️ E non si fa affatto quando il confronto è «nessuno»: chi scorre
+  // l'elenco per trovare una campagna non paga il conto di un confronto che
+  // non guarderà.
+  const spesaPrima = periodo.confronto
+    ? new Map(
+        (
+          await prisma.metricaCampagna.groupBy({
+            by: ["campagnaId"],
+            where: { data: { gte: periodo.confronto.da, lt: periodo.confronto.a } },
+            _sum: { spesa: true, ricavi: true },
+          })
+        ).map((r) => [r.campagnaId, { spesa: r._sum.spesa ?? 0, ricavi: r._sum.ricavi ?? 0 }])
+      )
+    : null;
   const giorni30 = periodo.corrente.da;
   const finePeriodo = periodo.corrente.a;
   const campagne = await prisma.campagna.findMany({
@@ -220,6 +256,10 @@ export default async function PaginaCampagne({
           periodo={periodo}
           da={p.da}
           a={p.a}
+          confronto={periodo.confronto}
+          tipoConfronto={periodo.tipoConfronto}
+          confDa={periodo.confDaStr}
+          confA={periodo.confAStr}
           azione="/campagne"
           altriFiltri={new URLSearchParams(
             Object.entries(p).filter(
@@ -584,7 +624,23 @@ export default async function PaginaCampagne({
                               <b>{spesa > 0 ? formattaEuro(spesa) : "—"}</b>
                               {/* L'etichetta segue il periodo scelto: diceva
                                   «30g» anche guardando l'anno. */}
-                              <i>spesa {periodo.corrente.etichetta.toLowerCase()}</i>
+                              <i>
+                                spesa {periodo.corrente.etichetta.toLowerCase()}
+                                {spesaPrima && periodo.confronto && (
+                                  <>
+                                    {" · "}
+                                    {/* Sulla SPESA scendere è un miglioramento:
+                                        senza `invertito` un risparmio del 20%
+                                        si colorava di rosso. */}
+                                    <Delta
+                                      ora={spesa}
+                                      prima={spesaPrima.get(c.id)?.spesa ?? 0}
+                                      etichetta={periodo.confronto.etichetta}
+                                      invertito
+                                    />
+                                  </>
+                                )}
+                              </i>
                             </span>
                             {/* I RICAVI accanto alla spesa. C'erano già nel
                                 conto — il ROAS qui a destra è il loro rapporto
@@ -596,7 +652,19 @@ export default async function PaginaCampagne({
                                 stessa cifra e due situazioni diverse. */}
                             <span>
                               <b>{ricavi > 0 ? formattaEuro(ricavi) : "—"}</b>
-                              <i>ricavi {periodo.corrente.etichetta.toLowerCase()}</i>
+                              <i>
+                                ricavi {periodo.corrente.etichetta.toLowerCase()}
+                                {spesaPrima && periodo.confronto && (
+                                  <>
+                                    {" · "}
+                                    <Delta
+                                      ora={ricavi}
+                                      prima={spesaPrima.get(c.id)?.ricavi ?? 0}
+                                      etichetta={periodo.confronto.etichetta}
+                                    />
+                                  </>
+                                )}
+                              </i>
                             </span>
                             <span>
                               <b style={r != null ? { color: salute.colore } : undefined}>

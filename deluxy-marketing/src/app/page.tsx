@@ -59,7 +59,14 @@ async function rosScope(scope: string): Promise<{ ros: number | null; delta: num
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; da?: string; a?: string }>;
+  searchParams: Promise<{
+    preset?: string;
+    da?: string;
+    a?: string;
+    conf?: string;
+    confDa?: string;
+    confA?: string;
+  }>;
 }) {
   const p = await searchParams;
   // Il mese è il difetto giusto qui: il piano è mensile e la tabella sotto
@@ -216,6 +223,10 @@ export default async function Dashboard({
           periodo={periodo}
           da={p.da}
           a={p.a}
+          confronto={periodo.confronto}
+          tipoConfronto={periodo.tipoConfronto}
+          confDa={periodo.confDaStr}
+          confA={periodo.confAStr}
           azione={"/"}
           altriFiltri={new URLSearchParams(
             Object.entries(p).filter(
