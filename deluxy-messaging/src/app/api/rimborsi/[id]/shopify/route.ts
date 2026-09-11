@@ -139,8 +139,13 @@ export async function POST(req: NextRequest, { params }: Params) {
         esito.valutaCliente && esito.valutaCliente !== 'EUR'
           ? ` · il cliente riceve ${esito.importoCliente.toFixed(2)} ${esito.valutaCliente}`
           : ''
+      }${
+        // ⚠️⚠️ Se il gateway non ha ancora chiuso la transazione lo dice PRIMA
+        // dell'id: sull'ordine risulterà ancora «Pagato» finché non si chiude,
+        // e senza questa riga fra sei mesi sembrerebbe un rimborso perso.
+        esito.sospeso ? ' · ⚠️ incasso ANCORA IN SOSPESO presso il gateway' : ''
       } · ${esito.refundId}${prima}`,
     },
   })
-  return NextResponse.json({ rimborso, refundId: esito.refundId })
+  return NextResponse.json({ rimborso, refundId: esito.refundId, sospeso: esito.sospeso })
 }

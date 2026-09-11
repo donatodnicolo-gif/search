@@ -632,6 +632,26 @@
           </div>
           <div class="log-item">
             <span class="when">11/09/2026</span>
+            <span class="what"><b>«Rimborsato» ora distingue fra <i>registrato</i> e <i>uscito</i>.</b> Domanda
+              dell'utente su <b>#2846</b>, reso nel pomeriggio e ancora fra gli ordini da lavorare: «è tornato tra
+              gli ordini aperti perché?». <b>Non era tornato, e i soldi non erano ancora usciti.</b> Su Shopify il
+              rimborso c'era — con la sua nota e i suoi 160,00 $ — ma la <b>transazione</b> verso la carta del
+              cliente era rimasta <b>in sospeso</b> per oltre due ore, senza errori: per Shopify il reso valeva
+              ancora <b>0,00</b> e l'ordine era ancora <b>pagato</b> — e un ordine pagato resta nella lista del
+              lavoro. L'ordine, dal 3 settembre, non si era mosso da «Ricerca fornitore».
+              ⚠️ Il difetto era nostro: l'app si fermava all'<i>esistenza</i> del rimborso e scriveva «Rimborsato».
+              Sono due cose diverse dette con la stessa parola, e la differenza sono i soldi del cliente. Adesso,
+              quando il gateway non ha ancora chiuso, l'app lo dice <b>subito</b>: i soldi partono quando la
+              transazione passa a «riuscita», fino a quel momento l'ordine risulta pagato e resta fra quelli da
+              lavorare, e <b>non serve rifare il rimborso</b> — rifarlo vorrebbe dire renderne il doppio. La stessa
+              riga finisce nello storico della pratica, accanto al numero del rimborso: fra sei mesi, davanti a una
+              contestazione, è la differenza fra «rimborso perso» e «rimborso in coda».
+              Quando il gateway chiude, l'ordine si chiude da solo come prima, al primo giro di sincronizzazione.
+              ⚠️ Se un rimborso restasse in sospeso per un giorno non è più un'attesa: si guardano i pagamenti di
+              Shopify, non si ripete il rimborso. In locale, da pubblicare.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
             <span class="what"><b>Un rimborso già reso su Shopify si chiude da solo.</b> Segnalato dall'utente
               sull'ordine <b>#12868</b>: «risulta già rimborsato su Shopify, in questi casi chiudi in automatico».
               Misurato su quel caso: il rimborso di 135,00 € era stato fatto su Shopify alle 15:15:07 e la richiesta

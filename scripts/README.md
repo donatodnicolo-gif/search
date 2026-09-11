@@ -117,6 +117,16 @@ cd deluxy-messaging && npx tsx scripts/ispeziona-valuta-ordine.mts 2846
 - **Serve**: `DATABASE_URL` nel `.env` (le credenziali Shopify si leggono dal DB)
 - **Nota**: non scrive niente, né qui né su Shopify.
 
+### ispeziona-rimborso-ordine.mts — deluxy-messaging
+**Sola lettura.** Di un ordine dice se il rimborso è **davvero uscito** oppure è solo registrato: stato dell'ordine su Shopify, quanto è stato reso, e per ogni rimborso lo stato della transazione REFUND (`SUCCESS` = soldi usciti, `PENDING` = il gateway non ha ancora chiuso, nessuna transazione = rimborso solo contabile). Nasce da #2846 (11/09/2026): `refundCreate` era andato a buon fine e l'app diceva «Rimborsato», ma la transazione era rimasta **PENDING** per ore — `totalRefunded` a 0,00, ordine ancora «Pagato» e quindi ancora fra quelli da lavorare. Sembrava tornato indietro da solo.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/ispeziona-rimborso-ordine.mts 2846
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` (le credenziali Shopify si leggono dal DB)
+- **Nota**: non scrive niente, né qui né su Shopify. È la prima cosa da lanciare quando qualcuno chiede «perché quest'ordine rimborsato è ancora aperto?».
+
 ### prova-rimborso-valuta.mts — deluxy-messaging
 Prova il rimborso su un ordine in **valuta straniera** senza rimborsare: controlla che a Shopify si mandi il numero del **cliente** (160,00 USD) e non il nostro (138,20 EUR), che metà ordine faccia metà nella sua valuta, che oltre il residuo si fermi, e che gli ordini in euro non cambino di una virgola.
 

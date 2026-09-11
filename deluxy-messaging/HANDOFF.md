@@ -1,5 +1,24 @@
 # Handoff — Deluxy Customer Service
 
+> ⚠️⚠️ **11/09/2026 sera (3) — «RIMBORSATO» NON VOLEVA DIRE «I SOLDI SONO USCITI».** In locale, **non deployato**.
+>
+> Domanda dell'utente: «il 2846 è tornato tra gli ordini aperti perché? lo abbiam rimborsato». **Non è tornato, e il rimborso non è ancora uscito.** Misurato su Shopify alle 18:36:
+> · il rimborso **esiste** (`gid://shopify/Refund/1203850412357`, creato alle 16:29, con la nota del motivo) e porta la transazione REFUND da **160,00 USD / 137,77 EUR**;
+> · quella transazione è **PENDING da oltre due ore**, senza `errorCode`. Quindi `totalRefunded` = **0,00**, `netPayment` = 160,00 USD ancora incassati, e `displayFinancialStatus` = **PAID**.
+> · #2846 sta in **«Ricerca fornitore» dal 3 settembre**, messo a mano dall'utente: non l'ha riaperto niente e nessuno l'ha spostato. È rimasto lì tutto il tempo.
+>
+> ⚠️⚠️ **La regola che chiude gli ordini rimborsati non era rotta: non è ancora il suo momento.** `sincronizza.ts` chiude l'ordine quando Shopify dice **REFUNDED** — qui dice ancora PAID. Quando il gateway chiuderà la transazione la regola scatterà da sola al primo giro (Orders reimporta, poi il nostro cron `/api/cron/ordini` ogni 5 minuti), perché lo stato di prima è PAID e quindi il **passaggio** c'è. Non serve toccare niente a mano.
+>
+> **Il difetto vero era nostro: l'app dichiarava fatto un incasso che non era ancora avvenuto.** `rimborsaSuShopify()` si fermava a `refund.id`: se l'id c'era, scriveva «Rimborsato su Shopify» e basta. Adesso la mutazione chiede anche `refund.transactions { status }` e l'esito porta **`sospeso`** (nessuna transazione REFUND in `SUCCESS`). Con `sospeso`:
+> · l'esito in banca dati aggiunge «⚠️ incasso ANCORA IN SOSPESO presso il gateway» **prima** dell'id del rimborso — fra sei mesi, davanti a una contestazione, quella riga è la differenza fra «rimborso perso» e «rimborso in coda»;
+> · a schermo l'avviso dice che i soldi partono quando la transazione passa a «riuscita», che **finché è in sospeso l'ordine risulta pagato e resta fra quelli da lavorare**, e che **non serve rifarlo**.
+> · ⚠️ Se Shopify non torna nessuna transazione non si inventa un sospetto: `sospeso` resta falso e il messaggio è quello di prima.
+>
+> 🔎 **Nuovo script, sola lettura**: `scripts/ispeziona-rimborso-ordine.mts <numero>` — di un ordine dice se il rimborso è uscito davvero, rimborso per rimborso e transazione per transazione (`SUCCESS` = usciti, `PENDING` = il gateway non ha chiuso, **nessuna transazione = rimborso solo contabile**), e in fondo scrive cosa vuol dire. È la prima cosa da lanciare alla domanda «perché quest'ordine rimborsato è ancora aperto?». Provato su #2846: dice esattamente quello scritto qui sopra.
+>
+> ✅ `tsc` pulito e `next build` completato. ⚠️ **Non visto nel browser** (il dev locale chiede il login) e **non deployato**: manca il «fai deploy» dell'utente.
+> ⚠️ **Da ricontrollare**: se quella transazione restasse PENDING anche domani non è più un'attesa, è un problema del gateway (Shopify Payments) e va guardata dai payout — il rimborso **non va rifatto**, si finirebbe per rendere 320 dollari.
+
 > ✅ **11/09/2026 18:06 — IN PRODUZIONE `deluxy-messaging-ddazwl4uu`** (col «fai deploy» dell'utente; ramo `scout-ui` allineato, ultimo commit `0b3f4847`). Va live TUTTA la sera: il pagamento alla consegna, la chiusura automatica dei rimborsi già resi, i reclami che si aprono col click, la ✕ nell'angolo. Verificato dopo il deploy: build Ready, alias `deluxy-messaging.vercel.app` sul deploy nuovo, `/nuovo-ordine`, `/reclami` e `/rimborsi` rispondono 307 al login (come da middleware), l'API pubblica risponde, e `/api/cron/rimborsi` esiste e rifiuta senza chiave (401) — il controllo dei rimborsi già resi da adesso gira ai minuti 18 e 48.
 > **NUOVO ORDINE: «PAGA ALLA CONSEGNA»** (utente: «metti come possibilità di scelta del pagamento … esempio pagamento alla consegna»). Terza scelta accanto a «link» e «ha già pagato»: l'ordine nasce **subito e da incassare**.
 > · **Come**: Shopify non lascia scegliere il gateway chiudendo una bozza — i gateway manuali non si possono nemmeno elencare (`manualPaymentGatewayConfigs` non esiste su `QueryRoot`, **riprovato sull'API 2025-01**: la nota del 27/08 vale ancora). Quello che si può dire è **quando** il pagamento è dovuto: `DraftOrderInput.paymentTerms` col modello **`FULFILLMENT` («Due on fulfillment»)**, e `draftOrderComplete` fa nascere l'ordine **PENDING** con `totalOutstanding` pieno. L'id del modello si CHIEDE al negozio (`paymentTermsTemplates`, cache in memoria per negozio), non si scrive nel codice.

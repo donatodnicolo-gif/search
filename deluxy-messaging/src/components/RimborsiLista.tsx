@@ -301,12 +301,24 @@ export function RimborsiLista({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avvisaCliente }),
       })
-      const d = (await res.json().catch(() => ({}))) as { errore?: string; refundId?: string }
+      const d = (await res.json().catch(() => ({}))) as {
+        errore?: string
+        refundId?: string
+        sospeso?: boolean
+      }
       if (!res.ok) {
         setErrore(d.errore || 'Rimborso non partito.')
         return
       }
-      setAvviso('Rimborsato su Shopify. I soldi tornano sul metodo con cui il cliente ha pagato.')
+      // ⚠️⚠️ «Rimborsato» e «i soldi sono usciti» non sono la stessa cosa
+      // (#2846, 11/09/2026): il rimborso può restare in sospeso sul gateway per
+      // ore, e in quel tempo l'ordine su Shopify resta PAGATO — quindi resta
+      // anche nella nostra lista da lavorare. Detto qui, non si cerca altrove.
+      setAvviso(
+        d.sospeso
+          ? 'Rimborso registrato su Shopify, ma il gateway non l’ha ancora chiuso: i soldi partono quando la transazione passa a «riuscita». Finché è in sospeso l’ordine risulta ancora pagato e resta fra quelli da lavorare — non serve rifarlo.'
+          : 'Rimborsato su Shopify. I soldi tornano sul metodo con cui il cliente ha pagato.'
+      )
       setRimborsoDi('')
       setAvvisaCliente(false)
     } catch {

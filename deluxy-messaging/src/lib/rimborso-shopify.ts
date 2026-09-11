@@ -30,6 +30,21 @@ export type EsitoRimborsoShopify =
       importoCliente: number
       valutaCliente: string
       totaleRimborsato: number
+      /**
+       * ⚠️⚠️ IL RIMBORSO ESISTE, I SOLDI NON SONO ANCORA USCITI (11/09/2026).
+       *
+       * Caso vero, #2846: `refundCreate` è andato a buon fine, il rimborso ha
+       * il suo id e la sua nota — ma la transazione REFUND su Shopify Payments
+       * è rimasta **PENDING** per ore, con `totalRefunded` a 0,00 e l'ordine
+       * ancora «Pagato». L'app diceva «Rimborsato» e l'ordine restava fra
+       * quelli da lavorare: sembrava che fosse tornato indietro da solo.
+       *
+       * Registrare un rimborso e incassarlo sono due momenti: il primo è
+       * nostro, il secondo è del gateway, e può volerci del tempo (o non
+       * riuscire). Chi preme il bottone deve saperlo subito, non scoprirlo
+       * dall'ordine che non si chiude.
+       */
+      sospeso: boolean
     }
   /** L'ordine non vive qui (archivio di Orders): da qui non si può rimborsare. */
   | { stato: 'senza-ordine'; messaggio: string }
@@ -96,6 +111,9 @@ const MUTAZIONE = `mutation Rimborsa($input: RefundInput!) {
       id
       createdAt
       totalRefundedSet { shopMoney { amount currencyCode } }
+      # ⚠️ Lo stato delle transazioni, non solo l'id del rimborso: PENDING vuol
+      # dire che il gateway non ha ancora restituito niente (vedi «sospeso»).
+      transactions(first: 10) { nodes { id kind status } }
     }
     userErrors { field message }
   }
@@ -371,7 +389,11 @@ export async function rimborsaSuShopify(opzioni: {
     errors?: { message: string }[]
     data?: {
       refundCreate?: {
-        refund?: { id: string; totalRefundedSet?: { shopMoney?: { amount?: string } | null } | null } | null
+        refund?: {
+          id: string
+          totalRefundedSet?: { shopMoney?: { amount?: string } | null } | null
+          transactions?: { nodes?: { id: string; kind: string; status: string }[] } | null
+        } | null
         userErrors?: { field: string[]; message: string }[]
       }
     }
@@ -406,6 +428,13 @@ export async function rimborsaSuShopify(opzioni: {
       messaggio: 'Shopify non ha restituito il rimborso: controlla sull’ordine prima di riprovare.',
     }
   }
+  // ── I SOLDI SONO USCITI, O SOLO PRENOTATI? ──
+  // ⚠️ Si guarda la transazione REFUND: se nessuna è SUCCESS il rimborso è
+  // registrato ma il gateway non l'ha ancora chiuso. Non è un errore — è una
+  // cosa da dire. Se Shopify non torna nessuna transazione non si inventa un
+  // sospetto: si tace, com'era prima.
+  const refundTx = (refund.transactions?.nodes ?? []).filter((t) => t.kind === 'REFUND')
+  const sospeso = refundTx.length > 0 && !refundTx.some((t) => t.status === 'SUCCESS')
   return {
     stato: 'ok',
     refundId: refund.id,
@@ -413,5 +442,6 @@ export async function rimborsaSuShopify(opzioni: {
     importoCliente: pronto.importoCliente,
     valutaCliente: pronto.valutaCliente,
     totaleRimborsato: Number(refund.totalRefundedSet?.shopMoney?.amount ?? '0') || 0,
+    sospeso,
   }
 }
