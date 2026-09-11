@@ -61,10 +61,27 @@
 > confronto con l'anno prima si chiamava «stesso periodo **2025**» **scritto a
 > mano** — giusto nel 2026, una bugia dal 1° gennaio dopo. Ora l'anno si calcola.
 >
-> 🔴 **MANCA**: la riga «Confronta con» compare **solo sulla dashboard di
-> brand**. Home, elenco campagne, scheda campagna e scheda gruppo usano lo
-> stesso componente ma non passano ancora `tipoConfronto`, quindi lì il
-> confronto non si sceglie. È il prossimo pezzo naturale.
+> ✅ **E ADESSO C'È SU TUTTE E CINQUE LE PAGINE** (era rimasto solo sulla
+> dashboard di brand): home, elenco campagne, scheda campagna, scheda gruppo.
+> Nell'**elenco campagne** ogni card porta la variazione di **spesa** e
+> **ricavi** rispetto al confronto — verificato sui dati veri: «60,37 € spesa
+> settembre 2026 · −48%» su una, «126 € · —» su un'altra (l'anno prima non
+> esisteva: «—» col motivo nel suggerimento, non «+100%»).
+>
+> ⚠️ **`conf`/`confDa`/`confA` NON si escludono da `altriFiltri`**: restando lì
+> viaggiano con le pillole del periodo, così cambiare periodo non azzera il
+> confronto e cambiare confronto non azzera il periodo. Sono due scelte
+> indipendenti, ed è la stessa ragione per cui `altriFiltri` esiste.
+>
+> ⚠️ **Una query sola per tutte le campagne**, non una per card: un `include`
+> con un secondo `where` sulla stessa relazione Prisma non lo permette, e
+> ottanta query per una colonnina si pagano a ogni apertura dell'elenco. Si
+> somma la finestra di confronto raggruppata per campagna e si legge dalla
+> mappa; con «nessuno» non si fa affatto.
+>
+> Restano come sono le tabelle **«finestre a confronto»** di scheda campagna e
+> scheda gruppo: confrontano già più finestre fra loro, e sovrapporci il delta
+> del confronto scelto vorrebbe dire due confronti diversi nella stessa tabella.
 
 > ✅ **11/09/2026 SERA — TUTTO PUBBLICATO (`mt9tochni`) E VERIFICATO DAL VIVO.**
 > Dieci commit in produzione, alias sano, `/api/health?meta=1` dice
