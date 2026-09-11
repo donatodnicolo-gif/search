@@ -3,6 +3,7 @@
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
 > lavoro sul portale. Aggiornato: **6 settembre 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
+> Ultima novità: **11 settembre 2026** — API utenti per il CRM (§5-nonies).
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
 > `scout-ui`)**. Nel repo `C:\Users\nicol\app` esiste una copia `deluxy-hub/`
@@ -801,6 +802,20 @@ canale sottile di timing: quando l'email esiste, l'azione attende l'invio SMTP.
 Entrambi registrati in `deluxy-design-system/SEGNALAZIONI-SICUREZZA.md`.
 
 ---
+
+## 5-nonies. API utenti per le altre app (11 settembre 2026)
+
+Richiesta dell'utente dal CRM («creare utenti da Impostazioni»). Gli utenti
+restano qui: il CRM legge, crea e abilita passando da
+[`src/app/api/utenti/route.ts`](src/app/api/utenti/route.ts) (GET/POST/PATCH,
+`?app=crm`, token di servizio con scope `crm` — emesso con
+`node scripts/emetti-token.mjs deluxy-crm crm`, in `HUB_KEYS_TOKEN` del CRM).
+Confini: mai un admin da fuori, mai ruolo/password/attivo di un utente
+esistente, il PATCH aggiunge/toglie SOLO l'app dello scope. Provato in locale:
+10 utenti, 2 abilitati al CRM; scope sbagliato → 403; token sbagliato → 401.
+Segnalato al custode della sicurezza (registro, riga 11/09) perché è una
+scrittura via token: se l'ostile vuole un token a parte per le scritture, si
+aggiunge un flag `scrittura` a `TokenApi`.
 
 ## 6. Deploy e ambiente (Vercel)
 

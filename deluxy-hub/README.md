@@ -275,6 +275,24 @@ L'app che consuma mette il token nel proprio ambiente (es. `HUB_CHIAVI_TOKEN`) e
 chiama l'endpoint. La rotta `/api/*` è esclusa dal middleware di sessione perché
 si autentica da sé; `route.ts` risponde con `Cache-Control: no-store`.
 
+#### API utenti per le altre app (11/09/2026)
+
+Gli utenti hanno una casa sola, il Hub. Un'app che vuole «creare utenti dalle
+sue impostazioni» (oggi il CRM) passa da qui, con lo stesso token di servizio
+di `/api/chiavi`, **limitato allo scope dell'app** (`crm`):
+
+```
+GET   /api/utenti?app=crm                       → { app, utenti: [{ id, nome, email, ruolo, attivo, abilitato, creatoIl, ultimoAccesso }] }
+POST  /api/utenti?app=crm  { nome, email, password, ruolo? }   → 201 { utente }   (409 se l'email esiste)
+PATCH /api/utenti?app=crm  { id, abilitato: true|false }       → { utente }
+```
+
+`abilitato` = può aprire quell'app (admin, o app in `appAbilitate`). Limiti
+voluti, deny-by-default: da qui **non** si crea un admin (403), non si cambia
+il ruolo o la password di un utente esistente, non si disattiva un account, e
+il PATCH tocca **solo** l'app dello scope. Per tutto il resto c'è `/utenti`
+con un admin loggato. Codice: [`src/app/api/utenti/route.ts`](src/app/api/utenti/route.ts).
+
 ## 5. Deploy
 
 Progetto Vercel: **`deluxy/deluxy-hub`** (`npx vercel --prod` dalla cartella,
