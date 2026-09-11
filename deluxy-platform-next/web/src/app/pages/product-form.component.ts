@@ -40,7 +40,10 @@ interface ImageRow { url: string; }
           <span class="block-sub">{{ 'productForm.section.details.requiredNote' | translate }}</span></header>
         <div class="grid-2">
           <label class="fld"><span class="req">{{ 'productForm.field.name' | translate }}</span>
-            <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'productForm.placeholder.name' | translate" /></label>
+            <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'productForm.placeholder.name' | translate" />
+            <!-- ⭐ 11/09/2026 (regola utente): il nome del partner è il SUO nome; il prodotto nasce in Merchandising da approvare. -->
+            @if (isPartner()) { <em class="hint-nome">{{ 'productForm.field.namePartnerHint' | translate }}</em> }
+          </label>
           <label class="fld"><span class="req">{{ 'productForm.field.category' | translate }}</span>
             <select class="field" name="categoryId" [(ngModel)]="model.categoryId" required>
               <option value="">{{ 'productForm.placeholder.selectCategory' | translate }}</option>
@@ -272,6 +275,7 @@ interface ImageRow { url: string; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .fld.sm > span { font-size: 12px; }
       .fld em { color: var(--text-tertiary); font-style: normal; font-weight: 400; }
+      .fld .hint-nome { display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; }
       .span-2 { grid-column: 1 / -1; }
       .num { text-align: right; }
       textarea.field { resize: vertical; font-family: inherit; width: 100%; }

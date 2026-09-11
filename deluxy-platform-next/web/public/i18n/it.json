@@ -2229,6 +2229,7 @@
       "stock": "Giacenza",
       "lineHint": "(valori separati da ;)",
       "alternateNameHint": "(nome che il partner vede in Consegne)",
+      "namePartnerHint": "Questo è il tuo nome del prodotto. Il prodotto passa a Merchandising con questo nome, da approvare: una volta approvato va sul negozio Shopify.",
       "tipologiaVendita": "Tipologia di vendita",
       "tipologiaVenditaHint": "Serve allo smistamento: dice come si sceglie il fornitore e come si fa il prezzo."
     },

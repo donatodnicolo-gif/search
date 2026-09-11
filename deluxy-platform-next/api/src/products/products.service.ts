@@ -187,9 +187,16 @@ export class ProductsService {
           stock: v.stock,
         }))
       : undefined;
+    // ⭐ 11/09/2026 (regola utente): il nome che il PARTNER scrive è il «nome partner» — resta suo
+    // (alternateName, acceso) anche quando l'ufficio o Merchandising daranno al prodotto il nome
+    // commerciale per il pubblico. Vale solo per ciò che crea il partner.
+    const nomeDelPartner = user.role === Role.PARTNER
+      ? { alternateName: String(scalar.name ?? '').trim() || undefined, useAlternateName: true }
+      : {};
     const creato = await this.prisma.product.create({
       data: {
         ...scalar,
+        ...nomeDelPartner,
         sku: baseSku,
         partnerId,
         platforms: platforms?.length ? JSON.stringify(platforms) : undefined,
@@ -214,7 +221,9 @@ export class ProductsService {
     // dell'assortimento Deluxy, e chi cura le collezioni deve vederlo. Non
     // blocca mai la creazione: se Merchandising e' giu', il partner non deve
     // vedere un errore per una cosa che non lo riguarda.
-    this.merchandising.spingi(creato as any);
+    // ⭐ 11/09/2026: nato dal partner → in Merchandising col SUO nome, DA APPROVARE (fase
+    // «prototipo»); approvato là, va su Shopify. Nato dall'ufficio → come prima.
+    this.merchandising.spingi(creato as any, user.role === Role.PARTNER ? { partner: (creato as any).partner?.insegna ?? null } : undefined);
     return creato;
   }
 

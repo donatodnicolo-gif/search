@@ -2227,6 +2227,7 @@
       "stock": "Stock",
       "lineHint": "(values separated by ;)",
       "alternateNameHint": "(name the partner sees in Deliveries)",
+      "namePartnerHint": "This is your product name. The product goes to Merchandising under this name, pending approval: once approved it goes to the Shopify store.",
       "tipologiaVendita": "Selling type",
       "tipologiaVenditaHint": "Used by dispatching: it says how the supplier is chosen and how the price is made."
     },

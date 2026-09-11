@@ -330,19 +330,24 @@ export class MerchandisingSyncService {
     id: string; sku?: string | null; name: string; description?: string | null;
     price?: number | null; publicPrice?: number | null; imageUrl?: string | null;
     createdFrom?: string | null; category?: { name?: string | null } | null;
-  }): void {
+  }, extra?: { partner?: string | null }): void {
     if (product.createdFrom === DA_MERCHANDISING) return;
-    void this.inviaOra(product).catch((err) =>
+    void this.inviaOra(product, extra).catch((err) =>
       this.logger.warn(`Prodotto ${product.id} non inviato a Merchandising: ${(err as Error).message}`),
     );
   }
 
   /** Come `spingi`, ma attende l'esito: serve a chi vuole saperlo. */
+  /**
+   * ⭐ 11/09/2026 (regola utente): con `extra.partner` il prodotto è NATO DAL PARTNER — in
+   * Merchandising arriva col suo nome anche come «nome partner», in fase «prototipo» (da
+   * approvare: là chi approva lo manda su Shopify in bozza, chi lo mette «Pubblico» lo pubblica).
+   */
   async inviaOra(product: {
     id: string; sku?: string | null; name: string; description?: string | null;
     price?: number | null; publicPrice?: number | null; imageUrl?: string | null;
     category?: { name?: string | null } | null;
-  }) {
+  }, extra?: { partner?: string | null }) {
     const { url, chiave } = await this.config();
     if (!url || !chiave) return { ok: false, messaggio: 'Merchandising non configurato.' };
     if (!product.sku) return { ok: false, messaggio: 'Il prodotto non ha SKU: Merchandising lo riconosce da quello.' };
@@ -358,8 +363,14 @@ export class MerchandisingSyncService {
         costoProduzione: product.price ?? 0,
         prezzoVendita: product.publicPrice ?? 0,
         immagine: product.imageUrl ?? null,
-        origine: 'platform',
+        origine: extra?.partner ? 'partner' : 'platform',
         idEsterno: product.id,
+        ...(extra?.partner ? {
+          nomePartner: product.name,
+          nomePartnerAttivo: true,
+          fase: 'prototipo',
+          noteSviluppo: `Creato dal partner ${extra.partner} dalla piattaforma il ${new Date().toLocaleDateString('it-IT')}: DA APPROVARE. Approvato → su Shopify in bozza; Pubblico → in vendita.`,
+        } : {}),
       }),
     });
     const testo = await res.text();
