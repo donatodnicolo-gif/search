@@ -124,12 +124,65 @@ scorta dal campo `immagine` (il rimedio del 09/09).
 dal browser e salvare. Il ragionamento è misurato sul codice, la prova sul campo
 no.
 
+### I campi del negozio di un prodotto del partner, e il sito predefinito
+
+Seconda tornata di regole dell'utente, dettate guardando i «Campi del
+negozio» del modulo: «prodotto unico dovrebbe uscire in automatico sì e non
+modificabile visto è di un partner da app delivery, minimo orario te lo
+dovrebbe dare sempre app delivery in base a orari partner, idem il partner id,
+prodotto è sempre non fisico, anche tutto il resto dei campi in foto dovrebbe
+darli l'app di delivery» · «di default il sito in cui pubblicare il prodotto è
+deluxy.it».
+
+Sono sei campi e **non hanno tutti la stessa casa**. Due discendono da cosa il
+prodotto è, e li decidiamo qui. Quattro discendono dal partner, e li sa solo
+la piattaforma. L'elenco completo, con chi ha cosa, è in
+[docs/CONTRATTO-APP-DELIVERY.md](CONTRATTO-APP-DELIVERY.md) §2-ter.
+
+**Fatto qui:**
+- `custom.is_unique` e `custom.not_physical` partono a «true» sui prodotti che
+  vengono dalla piattaforma e **non si modificano** (`CAMPI_FISSI_DEL_PARTNER`
+  in `prodotti-dal-partner.ts`, applicati in `prodotto-per-il-modulo.ts`). Il
+  campo si mostra come **valore col motivo accanto**, non come una tendina
+  spenta: un controllo disabilitato invita comunque a provarci e non dice
+  perché. Il valore viaggia lo stesso, perché la scheda si compila da
+  `metafieldJson` (lo stato del modulo), non dal controllo.
+- **deluxy.it è il sito predefinito**, sia su «Nuovo prodotto» sia su un
+  prodotto che arriva senza negozio dichiarato — cioè tutti quelli dei
+  partner. Prima era `negozi[0]`, il primo in ordine alfabetico: **Business
+  Deluxy**, che è il sito B2B. Si riconosce dal `canaleVendite`, non dal nome
+  interno («Gifts»), che può cambiare; `canaleVendite` ora arriva fino al
+  modulo, altrimenti il riconoscimento sarebbe stato muto.
+
+Provato in locale su Torta Damianino: i due campi escono «Sì» e bloccati, e
+`metafieldJson` porta `{"custom.is_unique":"true","custom.not_physical":"true"}`.
+Su `/prodotti/nuovo` il sito preselezionato è **Gifts**.
+
+**Resta alla piattaforma** (§2-ter): `custom.partner_id` (serve
+`partner.legacyId` numerico: la spinta non lo manda e `GET /app/prodotti` torna
+il cuid), `custom.partner_address`, `custom.nations_availability`. Il **minimo
+orario** e i **giorni minimi** già arrivano, ma per un'altra strada —
+`POST /api/v1/prodotti/disponibilita`, il cron dei prodotti unici ogni mezz'ora
+— che però scrive **su Shopify**: un prodotto ancora in attesa non è sul
+negozio, quindi restano vuoti finché non si pubblica.
+
+⚠️ **Perché non li indovino.** Indirizzo e province si potrebbero copiare dal
+partner più simile fra i prodotti attivi (misurato: 1.183 schede con
+`custom.partner_id`, e ogni id ha sempre lo stesso indirizzo). Ma indovinare da
+dove parte una consegna e in quali province si vende è l'errore che nessuno
+rilegge: se sbaglio, il prodotto si vende dove non si può consegnare. Meglio
+vuoto e visibile.
+
+**Una riga sola serve di là**: nel corpo di `inviaOra`, aggiungere
+`partner: { insegna, legacyId, city, provinces }`.
 ### Cosa resta aperto, in ordine
 
 1. **Configurare la piattaforma** in Impostazioni (vedi sopra): sblocca il tasto
    «Recupera» e la comunicazione dell'approvazione.
 2. **Push e deploy** di questa sezione, quando l'utente lo chiede.
-3. **Provare l'immagine su due negozi** con una foto vera.
+3. **Provare l'immagine su due negozi** con una foto vera, e provare a
+   **salvare dal browser** un prodotto del partner (i campi bloccati sono stati
+   visti a schermo, il salvataggio no).
 4. Lato piattaforma, invariato: allargare `inviaOra` e aprire la rotta
    dell'approvazione (§3.1 e §3.2 del contratto).
 5. Il **prezzo pubblico** di Torta Damiano e degli altri due in coda: lo decide
