@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { allineaVarianti } from "@/lib/varianti-piattaforma";
 import {
   campiDaPiattaforma,
   daPiattaforma,
@@ -218,9 +219,20 @@ export async function POST(req: NextRequest) {
 
   // ⭐ La fase di partenza. Un prodotto della piattaforma va in **attesa di
   // approvazione**: esiste e si vende già di là, ma entra nel nostro
-  // assortimento solo quando qualcuno qui lo guarda. Chi manda da un'altra app
-  // (o dichiara una fase) resta come prima.
-  const fase = String(body.fase ?? "").trim() || (daPiattaforma(campi.origine) ? "attesa_approvazione" : "in_vendita");
+  // assortimento solo quando qualcuno qui lo guarda.
+  //
+  // ⚠️⚠️ 11/09/2026 — **la fase dichiarata dalla piattaforma non scavalca la coda.**
+  // Per i prodotti del partner la piattaforma manda `fase: prototipo`, che nel
+  // suo vocabolario vuol dire «da approvare»: presa alla lettera, il prodotto
+  // finiva in Prototipo, cioè in mezzo ai nostri concept, e la coda
+  // dell'approvazione restava vuota mentre i prodotti arrivavano. Da chi viene
+  // dalla piattaforma si accetta una fase diversa **solo se è già una decisione
+  // presa qui** (approvato, in vendita, archiviato): quelle non si disfano.
+  const faseChiesta = String(body.fase ?? "").trim();
+  const DECISIONI_NOSTRE = ["approvato", "in_vendita", "archiviato"];
+  const fase = daPiattaforma(campi.origine)
+    ? (DECISIONI_NOSTRE.includes(faseChiesta) ? faseChiesta : "attesa_approvazione")
+    : faseChiesta || "in_vendita";
   // ⭐ La SEO si riempie da sola con le regole del modulo (richiesta utente).
   const seo = seoAutomatica(campi);
 
@@ -291,40 +303,3 @@ export async function POST(req: NextRequest) {
  * suo storico di vendite. Si aggiunge quello che manca, riconosciuto per SKU e
  * in mancanza per nome — la stessa regola dell'import da Shopify.
  */
-async function allineaVarianti(
-  prodottoId: string,
-  gia: { id: string; nome: string; sku: string | null }[],
-  arrivate: { nome: string; sku: string | null; prezzo: number | null; prezzoPartner: number | null; note: string | null; giacenza: number }[],
-  prezzoBase: number,
-  costoBase: number,
-): Promise<number> {
-  if (!arrivate.length) return 0;
-  const perSku = new Set(gia.map((v) => (v.sku ?? "").trim().toUpperCase()).filter(Boolean));
-  const perNome = new Set(gia.map((v) => v.nome.trim().toLowerCase()));
-  let nuove = 0;
-  for (const [i, v] of arrivate.entries()) {
-    const sku = (v.sku ?? "").trim().toUpperCase();
-    if ((sku && perSku.has(sku)) || perNome.has(v.nome.trim().toLowerCase())) continue;
-    // Uno SKU già di un'altra scheda non si prende: è un doppione da
-    // riconciliare, e rubarlo romperebbe il legame con gli ordini.
-    if (sku) {
-      const altrove = await prisma.variante.findUnique({ where: { sku: v.sku as string }, select: { id: true } });
-      if (altrove) continue;
-    }
-    await prisma.variante.create({
-      data: {
-        prodottoId,
-        nome: v.nome,
-        sku: v.sku,
-        deltaPrezzo: v.prezzo != null ? v.prezzo - prezzoBase : 0,
-        deltaCosto: v.prezzoPartner != null ? v.prezzoPartner - costoBase : 0,
-        prezzoPartner: v.prezzoPartner,
-        note: v.note,
-        giacenza: v.giacenza,
-        ordine: gia.length + i,
-      },
-    });
-    nuove++;
-  }
-  return nuove;
-}

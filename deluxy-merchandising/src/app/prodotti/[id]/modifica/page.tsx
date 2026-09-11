@@ -18,7 +18,7 @@ export default async function ModificaProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ errore?: string; fase?: string }>;
+  searchParams: Promise<{ errore?: string; fase?: string; esito?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -53,6 +53,12 @@ export default async function ModificaProdottoPage({
           </div>
         </div>
         {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+        {/* ⭐ 11/09/2026: si arriva qui subito dopo aver approvato un prodotto del
+            partner che non è ancora su nessun negozio. L'approvazione è già
+            registrata e già comunicata alla piattaforma: qui resta da fare la
+            scheda. Il messaggio lo dice, altrimenti sembra di essere finiti nel
+            modulo senza motivo. */}
+        {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
         {/* ⭐ 11/09/2026: arrivati qui dal tasto «Approvato»/«Pubblico» di un prodotto non ancora sul negozio. */}
         {sp.fase && !p.shopifyId && (
           <div className="avviso-info">

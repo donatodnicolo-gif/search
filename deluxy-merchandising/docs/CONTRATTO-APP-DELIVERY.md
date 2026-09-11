@@ -57,6 +57,42 @@ deve tradurre due volte. Tutti facoltativi tranne `sku`/`codice` e `name`/`nome`
   una descrizione SEO inventata è quella che finisce su Google.
 - `fase = attesa_approvazione`, `esclusoDaAnalisi = true` (finché non si approva).
 
+## 2-bis. Che cosa si va a PRENDERE (11/09/2026)
+
+Misurato sul prodotto vero **Torta Damianino** (`DXY-23284`, arrivato alle
+13:16 dell'11/09): degli oltre venti campi della scheda ne sono arrivati
+**11**. Niente varianti, niente foto, niente partner, niente descrizione,
+prezzo pubblico 0. Non perché li rifiutiamo — li accettiamo tutti dal §2 — ma
+perché `inviaOra` non li mette nel corpo.
+
+Aspettare la modifica di là però non era l'unica strada: **il canale app della
+piattaforma ha già una lettura che li contiene.**
+
+```
+GET /api/v1/app/prodotti?q=<sku>
+header: x-api-key
+torna: { prodotti: [{ id, nome, sku, prezzo, prezzoPubblico, tipo, tipologia,
+                      varianti: [{ id, nome, sku, prezzo, prezzoPubblico }],
+                      partnerId, partner }], generico }
+```
+
+Da qui il tasto **«⟲ Recupera dalla piattaforma»** (riquadro «Attesa
+approvazione») completa il prodotto: varianti, `partnerId`, insegna, prezzo
+pubblico, costo. **Riempie solo i vuoti**: quello che una persona ha già
+corretto qui non si sovrascrive.
+
+⚠️ Quella rotta è una **ricerca** (30 righe, filtro `active: true`): si tiene
+solo la riga il cui `id` è l'`idEsterno` che ci è arrivato. Prendere la prima
+riga vorrebbe dire copiare le varianti del prodotto di un altro partner.
+
+⚠️ Restano fuori **anche così**: descrizione, `shortDesc` (il plus), note di
+specifica, `prepDays`, foto. Quella lettura non li seleziona: per quelli serve
+davvero il §3.1.
+
+🔴 Serve la configurazione in **Impostazioni → Piattaforma consegne**
+(`PIATTAFORMA_URL`, `PIATTAFORMA_API_KEY`): all'11/09 non c'è, e sia il
+recupero sia la comunicazione dell'approvazione rispondono «non configurata».
+
 ## 3. Che cosa manca DALLA PARTE DELLA PIATTAFORMA
 
 Due cose, e nessuna delle due si può fare da questa cartella (regola 4 del

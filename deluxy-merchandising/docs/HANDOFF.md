@@ -2,6 +2,143 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 🔴 11/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
+
+**Non pubblicato.** Tutto quello di questa sezione è committato su `scout-ui` in
+locale e **non** è stato pushato né deployato: l'utente non l'ha chiesto. Build
+di produzione pulita, `tsc --noEmit` pulito, provato in locale sul dev server
+(porta **3120**, non 3000) e sui prodotti veri.
+
+### ⚠️⚠️ La contraddizione fra le due sessioni, e come è stata sciolta
+
+Due sessioni hanno lavorato lo stesso giro nello stesso giorno, e si sono
+contraddette **sulla fase**:
+
+| | Sessione piattaforma (sezione qui sotto) | Questa sessione |
+|---|---|---|
+| Fase con cui nasce il prodotto del partner | `prototipo`, che di là vuol dire «da approvare» | `attesa_approvazione`, fase nuova creata apposta |
+
+Non è una questione di gusto: `prototipo` **esisteva già** e vuol dire un'altra
+cosa — è dove stanno i nostri concept in lavorazione. I prodotti dei partner
+finivano lì in mezzo e **la coda dell'approvazione restava vuota mentre i
+prodotti arrivavano**. Misurato alle 13:17 dell'11/09 sul database di produzione:
+
+| Prodotto | Ora | Fase con cui è arrivato |
+|---|---|---|
+| Torta Damiano | 07:26 | `attesa_approvazione` (prima del deploy di là) |
+| torta | 11:47 | `prototipo` |
+| Torta Damianino | 13:16 | `prototipo` |
+
+L'utente l'ha segnalato mentre stavo misurando: «è stato importato come
+prototipo invece che attesa approvazione».
+
+**Sciolta così** (`src/app/api/v1/prodotti/route.ts`): da chi viene dalla
+piattaforma, la fase dichiarata **non scavalca la coda**. Si accetta una fase
+diversa da `attesa_approvazione` solo se è già **una decisione presa qui**
+(`approvato`, `in_vendita`, `archiviato`), perché quelle le prende una persona e
+non si disfano. Provato con due POST vere sul dev server: fase «prototipo» →
+arriva `attesa_approvazione`; fase «approvato» → resta `approvato`. I due
+prodotti già finiti in Prototipo sono stati rimessi in coda, con la tappa che
+dice perché (nessun dato cancellato).
+
+⚠️ **Da dire all'altra sessione**: di là non serve cambiare niente, la fase
+«prototipo» può continuare a partire e qui viene tradotta. Ma se un giorno di là
+si vorrà mandare davvero un prototipo, quel significato è occupato.
+
+### La seconda regola rimessa in riga: «se viene approvato finisce su Shopify»
+
+È scritta nella sezione della sessione piattaforma ed è già applicata dal cambio
+fase rapido (`cambiaFase`: senza `shopifyId`, «Approvato» porta al modulo). Il
+tasto **«Approva questo prodotto»** invece finiva sulla scheda e basta: due
+strade per lo stesso gesto, due destinazioni diverse. Ora anche il tasto porta al
+modulo (`?fase=approvato&esito=…`) quando il prodotto non è ancora su un negozio,
+**con l'approvazione già registrata e già comunicata**; la pagina di modifica
+mostra il messaggio (`avviso-ok`: prima ignorava `esito`).
+
+### «Mancano le varianti e altre informazioni da app delivery»: il perché
+
+Segnalazione dell'utente sul prodotto vero **Torta Damianino** (`DXY-23284`).
+Misurato campo per campo: sono arrivati **11 campi**, ne sono rimasti vuoti 14
+(niente varianti, niente foto, niente partner, niente descrizione, prezzo
+pubblico 0).
+
+**Non è un difetto nostro: la piattaforma non li manda.** Letto
+`merchandising-sync.module.ts` → `inviaOra` (commit `79028fb5` di là, branch
+`platform-0409`): il corpo ha nove campi più quattro per il partner
+(`nomePartner`, `nomePartnerAttivo`, `fase`, `noteSviluppo`). Varianti,
+`partnerId`, insegna, plus, note, giorni di preavviso e foto **non sono nel
+corpo**. Noi li accettiamo tutti da giorni: semplicemente non arrivano.
+
+**Però si possono andare a prendere.** Il canale app della piattaforma ha già
+`GET /api/v1/app/prodotti`, che torna le varianti, `partnerId`, l'insegna del
+partner, il prezzo pubblico e la tipologia. Quindi invece di aspettare che la
+spinta venga allargata di là:
+
+- `leggiProdottoDallaPiattaforma()` in `src/lib/piattaforma.ts` — cerca per SKU e
+  tiene **solo** la riga con l'id uguale al nostro `idEsterno` (quella rotta è
+  una ricerca su 30 righe: prendere la prima sarebbe copiare le varianti del
+  prodotto di un altro partner);
+- `recuperaDallaPiattaforma()` in `src/lib/azioni-piattaforma.ts` — **riempie
+  solo i vuoti**, non sovrascrive quello che una persona ha già corretto qui;
+- tasto **«⟲ Recupera dalla piattaforma»** nel riquadro «Attesa approvazione»;
+- `allineaVarianti` è uscita dalla rotta in `src/lib/varianti-piattaforma.ts`,
+  perché ora la usano in due. Aggiunge e basta: non cancella varianti già qui.
+
+🔴 **Il tasto oggi non può funzionare: la connessione verso la piattaforma non è
+configurata.** Nella cassaforte ci sono solo `OPENAI_API_KEY` e le tre
+`sync-apertura:*`. Servono `PIATTAFORMA_URL` e `PIATTAFORMA_API_KEY` in
+**Impostazioni → Piattaforma consegne (app delivery)**; la chiave si genera di
+là (`scripts/crea-chiave-app.mjs`), e **non si può fare da questa cartella**.
+Senza, sia il recupero sia la comunicazione dell'approvazione rispondono «non
+configurata» — e lo scrivono sulla scheda, non lo nascondono.
+
+Restano fuori portata anche col tasto: descrizione, plus (`shortDesc`), note di
+specifica, giorni di preavviso e foto — quella lettura non li seleziona. Per
+quelli serve davvero la modifica di là, scritta riga per riga in
+[docs/CONTRATTO-APP-DELIVERY.md](CONTRATTO-APP-DELIVERY.md) §3.1.
+
+### «L'immagine appare solo sullo Shopify del primo sito scelto»
+
+Segnalazione dell'utente. **La causa non era l'elenco delle foto, era il
+momento.** Le foto viaggiano in due modi diversi, e non per capriccio:
+
+- sul **negozio principale** il file è già nei suoi Files, quindi si aggancia
+  **per id** (`agganciaFileAlProdotto`) e funziona anche mentre Shopify lo sta
+  ancora elaborando;
+- sugli **altri negozi** quel file non esiste: si passa **per indirizzo**, e
+  l'indirizzo definitivo Shopify lo dà solo quando il file è pronto (`statoFile`
+  in `shopify-media.ts`: finché è in elaborazione, l'indirizzo è vuoto).
+
+Chi carica una foto e salva subito — cioè quasi sempre — aveva le righe media
+senza indirizzo: il filtro le scartava tutte, il primo negozio prendeva la sua
+foto per id e gli altri nascevano nudi.
+
+Rimedio: `indirizziFoto()` in `src/lib/azioni-prodotto-nuovo.ts`, usata sia dal
+percorso di creazione sia da quello di modifica. Aspetta che il file sia pronto
+(`attendiFile`, fino a 20 s), altrimenti usa l'anteprima (che esiste già durante
+l'elaborazione), altrimenti **lo dice** negli avvisi invece di lasciare una
+scheda senza foto in silenzio. Il percorso di modifica conserva la foto di
+scorta dal campo `immagine` (il rimedio del 09/09).
+
+⚠️ **Non provato con una foto vera su due negozi**: serve caricare un'immagine
+dal browser e salvare. Il ragionamento è misurato sul codice, la prova sul campo
+no.
+
+### Cosa resta aperto, in ordine
+
+1. **Configurare la piattaforma** in Impostazioni (vedi sopra): sblocca il tasto
+   «Recupera» e la comunicazione dell'approvazione.
+2. **Push e deploy** di questa sezione, quando l'utente lo chiede.
+3. **Provare l'immagine su due negozi** con una foto vera.
+4. Lato piattaforma, invariato: allargare `inviaOra` e aprire la rotta
+   dell'approvazione (§3.1 e §3.2 del contratto).
+5. Il **prezzo pubblico** di Torta Damiano e degli altri due in coda: lo decide
+   una persona.
+6. Il badge della categoria legge ancora la mappa vecchia di `dominio.ts`
+   (`etichettaCategoria()`) in **anagrafica, elenco prodotti e CSV**: là si vede
+   `TORTE_DOLCI` invece di «Torte e dolci». Sulla scheda è già corretto.
+
+
 ## 🏷️ 11/09/2026 — I prodotti nati dal partner arrivano «da approvare» (sessione piattaforma, PUBBLICATO `deluxy-merchandising-icufl4arz`)
 
 Regola dell'utente: «quando un partner crea il proprio prodotto il nome che mette è il nome partner; il prodotto finisce in Merchandising con nome uguale a quello del partner e sarà da approvare; se viene approvato finisce su Shopify».

@@ -34,7 +34,7 @@ import { seoDaRegole } from "./seo-regole";
 import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
-import { agganciaFileAlProdotto, aggiungiProdottoACollezione, rimuoviProdottoDaCollezione } from "./shopify-media";
+import { agganciaFileAlProdotto, aggiungiProdottoACollezione, attendiFile, rimuoviProdottoDaCollezione } from "./shopify-media";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
 
 /**
@@ -404,6 +404,62 @@ async function traduzioniDi(m: Modulo, cache: CacheTraduzioni) {
   return cache.valore;
 }
 
+// **Gli INDIRIZZI delle foto, per gli altri negozi.**
+//
+// ⚠️⚠️ 11/09/2026 — segnalazione dell'utente: «una volta creato un prodotto e
+// aggiunto su più siti, l'immagine appare solo su Shopify del primo sito
+// scelto». La causa non era l'elenco delle foto, era **il momento**.
+//
+// Le foto viaggiano in due modi diversi, e non è un capriccio: sul negozio
+// principale il file è già nei suoi Files, quindi si aggancia **per id**
+// (`agganciaFileAlProdotto`) e funziona anche mentre Shopify lo sta ancora
+// elaborando. Sugli altri negozi quel file non esiste: si passa **per
+// indirizzo**, e l'indirizzo definitivo `image.url` Shopify lo dà solo quando
+// il file è `READY` (`statoFile`: finché è in elaborazione, `url` è `null`).
+//
+// Chi carica una foto e salva subito — cioè quasi sempre — aveva quindi le
+// righe media con `url` vuoto: il filtro `x.url` le scartava tutte, il primo
+// negozio prendeva la sua foto per id e gli altri nascevano nudi. Esattamente
+// il sintomo descritto.
+//
+// Qui si aspetta che il file sia pronto (`attendiFile`, fino a 20 s) e si
+// prende l'indirizzo; se proprio non arriva si usa l'anteprima, che c'è già
+// durante l'elaborazione. E se non c'è nemmeno quella **si dice**: una scheda
+// senza foto su un negozio si vede subito, ma solo se qualcuno la guarda.
+async function indirizziFoto(
+  media: MediaDalForm[],
+  negozioId: string,
+  immagineDiScorta: string | null,
+  cronaca: string[],
+  avvisi: string[],
+): Promise<string[]> {
+  const foto = media.filter((x) => x.tipo === "immagine");
+  const indirizzi: string[] = [];
+  // `undefined` = non ancora chiesto; `null` = chiesto e non c'è.
+  let token: { dominio: string; token: string } | null | undefined;
+  for (const x of foto) {
+    if (x.url) {
+      indirizzi.push(x.url);
+      continue;
+    }
+    if (!x.shopifyFileId) continue;
+    if (token === undefined) token = await tokenDi(negozioId).catch(() => null);
+    if (!token) {
+      avvisi.push("Non ho potuto leggere gli indirizzi delle foto sul negozio principale: sugli altri negozi la scheda nasce senza immagine.");
+      break;
+    }
+    const f = await attendiFile(token, x.shopifyFileId);
+    const indirizzo = f.url ?? f.anteprima;
+    if (indirizzo) {
+      indirizzi.push(indirizzo);
+      cronaca.push(`Foto «${x.nome}»: Shopify l'ha finita di elaborare, indirizzo preso per gli altri negozi.`);
+    } else {
+      avvisi.push(`La foto «${x.nome}» non era ancora pronta su Shopify: sugli altri negozi va aggiunta dall'admin di quel negozio.`);
+    }
+  }
+  return indirizzi.length ? indirizzi : [immagineDiScorta].filter((v): v is string => !!v);
+}
+
 /** I passi comuni dopo la creazione sul negozio: foto, collezioni, traduzioni. Torna le collezioni in cui è entrato. */
 async function completaSulNegozio(
   m: Modulo,
@@ -679,7 +735,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
     const stato = statoPerShopify(m.fase, m.finestraAperta);
     // Prodotto appena nato: le uniche foto sono quelle appena caricate nel
     // modulo, non c'e' ancora una scheda da cui ripescarne una.
-    const immaginiUrl = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
+    const immaginiUrl = await indirizziFoto(m.media, m.negozio.id, null, cronaca, avvisi);
     for (const n of m.altriNegozi) altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
   }
 
@@ -923,17 +979,14 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   // ---- Gli altri negozi (07/09/2026): chi c'è già si aggiorna, chi manca si pubblica, chi è stato tolto torna bozza ----
   const altri: EsitoAltroNegozio[] = [];
   const immagineDelProdotto = prima.immagine;
-  const immaginiUrl = (() => {
-    const daiMedia = m.media.filter((x) => x.tipo === "immagine" && x.url).map((x) => x.url as string);
-    // ⭐ 09/09/2026 (utente): «se aggiungo un prodotto esistente a un altro shop
-    // appare senza immagine». Misurato: **3.576 prodotti su 5.069 hanno la foto
-    // SOLO nel campo `immagine`** e appena 9 hanno righe in `media` — perché
-    // `media` si riempie quando la foto passa dai Files del negozio, e i
-    // prodotti arrivati dall'import non ci sono mai passati. Partendo dai soli
-    // `media`, l'elenco delle foto era vuoto per quasi tutti, e la scheda
-    // nasceva nuda sull'altro negozio.
-    return daiMedia.length ? daiMedia : [immagineDelProdotto].filter((x): x is string => !!x);
-  })();
+  // ⭐ 09/09/2026 (utente): «se aggiungo un prodotto esistente a un altro shop
+  // appare senza immagine». Misurato: **3.576 prodotti su 5.069 hanno la foto
+  // SOLO nel campo `immagine`** e appena 9 hanno righe in `media` — perché
+  // `media` si riempie quando la foto passa dai Files del negozio, e i
+  // prodotti arrivati dall'import non ci sono mai passati. Partendo dai soli
+  // `media`, l'elenco delle foto era vuoto per quasi tutti, e la scheda
+  // nasceva nuda sull'altro negozio: da lì la foto di scorta.
+  const immaginiUrl = await indirizziFoto(m.media, m.negozio.id, immagineDelProdotto, cronaca, avvisi);
   for (const n of m.altriNegozi) {
     const riga = prima.pubblicazioni.find((r) => r.negozio === n.nome);
     if (riga?.shopifyId) {

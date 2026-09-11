@@ -16,6 +16,7 @@ import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, ripristinaImmagine, segnaShopify } from "@/lib/azioni";
 import { approvaProdotto } from "@/lib/azioni-approvazione";
+import { recuperaDallaPiattaforma } from "@/lib/azioni-piattaforma";
 import { mancanzePerApprovare } from "@/lib/prodotti-dal-partner";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
@@ -428,6 +429,17 @@ export default async function ProdottoPage({
                 </span>
               </form>
             )}
+            {/* ⭐⭐ 11/09/2026 (segnalazione utente: «mancano ancora le varianti e
+                altre informazioni da recuperare da app delivery»). La spinta della
+                piattaforma manda nove campi e non le varianti — ma la sua lettura
+                `GET /api/v1/app/prodotti` le contiene. Questo tasto va a prenderle,
+                invece di aspettare che la spinta venga allargata di là. */}
+            <form action={recuperaDallaPiattaforma.bind(null, id)} style={{ marginTop: 14 }}>
+              <button type="submit" className="btn btn-secondario">⟲ Recupera dalla piattaforma</button>
+              <span className="cella-sub" style={{ marginLeft: 12 }}>
+                Varianti, partner e prezzo pubblico, presi dalla piattaforma consegne. Riempie solo i campi vuoti.
+              </span>
+            </form>
           </div>
         )}
 

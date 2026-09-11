@@ -78,3 +78,96 @@ export async function comunicaApprovazione(
     return { ok: false, messaggio: `La piattaforma ${motivo}: approvato qui, non comunicato.` };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **Andare a prendere quello che la piattaforma non manda.**
+//
+// ⚠️⚠️ 11/09/2026, misurato sul prodotto vero «Torta Damianino»
+// (`DXY-23284`, arrivato alle 13:16): la spinta della piattaforma
+// (`merchandising-sync.module.ts` → `inviaOra`) mette nel corpo **nove campi**
+// più quattro per il partner (`nomePartner`, `nomePartnerAttivo`, `fase`,
+// `noteSviluppo`). Non manda le **varianti**, non manda `partnerId` né
+// l'insegna, non manda il plus, le note, i giorni di preavviso, le foto. Noi li
+// accettiamo tutti da mesi: semplicemente non arrivano, e nessun ritocco di qua
+// può inventarli.
+//
+// Però **di là c'è già una lettura che li contiene**: `GET /api/v1/app/prodotti`
+// torna `varianti[]`, `partnerId`, `partner` (l'insegna), `prezzoPubblico` e
+// `tipologia`. Quindi invece di aspettare che la spinta venga allargata, il
+// prodotto lo completiamo tirando noi — la casa del dato resta la piattaforma
+// (Standard Deluxy §7), noi ne prendiamo copia.
+//
+// Resta fuori quello che quella rotta non seleziona: descrizione, plus
+// (`shortDesc`), note di specifica, giorni di preavviso, foto. Per quelli serve
+// davvero la modifica di là, ed è scritta in `docs/CONTRATTO-APP-DELIVERY.md`.
+
+export type VarianteDallaPiattaforma = {
+  id: string;
+  nome: string;
+  sku: string;
+  prezzo: number | null;
+  prezzoPubblico: number | null;
+};
+
+export type ProdottoLettoDallaPiattaforma = {
+  id: string;
+  nome: string;
+  sku: string;
+  prezzo: number | null;
+  prezzoPubblico: number | null;
+  tipo: string | null;
+  tipologia: string | null;
+  varianti: VarianteDallaPiattaforma[];
+  partnerId: string;
+  partner: string;
+};
+
+/**
+ * Cerca un prodotto sulla piattaforma e torna quello **giusto**.
+ *
+ * ⚠️ La rotta di là è una **ricerca** (`q` su nome e SKU, 30 righe): non si può
+ * prendere la prima riga e sperare. Si cerca per SKU e si tiene solo la riga il
+ * cui `id` è l'`idEsterno` che ci ha mandato; se l'id non c'è, si accetta
+ * l'unica riga con lo SKU identico. Meglio non trovare niente che copiare le
+ * varianti del prodotto di un altro partner.
+ *
+ * ⚠️ Quella rotta filtra `active: true, archived: false`: un prodotto spento di
+ * là non si trova, e il messaggio lo dice invece di far pensare a un guasto.
+ */
+export async function leggiProdottoDallaPiattaforma(
+  sku: string | null,
+  idEsterno: string | null,
+): Promise<{ ok: true; prodotto: ProdottoLettoDallaPiattaforma } | { ok: false; messaggio: string }> {
+  const chiave = (sku ?? "").trim() || (idEsterno ?? "").trim();
+  if (!chiave) return { ok: false, messaggio: "Il prodotto non ha né SKU né id della piattaforma: non so cosa cercare di là." };
+  const conf = await configurazione();
+  if (!conf) return { ok: false, messaggio: "Piattaforma consegne non configurata (Impostazioni → Piattaforma consegne)." };
+
+  try {
+    const res = await fetch(`${conf.url}/api/v1/app/prodotti?q=${encodeURIComponent(chiave)}`, {
+      headers: { "x-api-key": conf.chiave },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      const testo = (await res.text().catch(() => "")).slice(0, 200);
+      return { ok: false, messaggio: `La piattaforma risponde HTTP ${res.status}${testo ? `: ${testo}` : ""}.` };
+    }
+    const corpo = (await res.json()) as { prodotti?: ProdottoLettoDallaPiattaforma[] };
+    const righe = Array.isArray(corpo.prodotti) ? corpo.prodotti : [];
+    const perId = idEsterno ? righe.find((r) => r.id === idEsterno) : undefined;
+    if (perId) return { ok: true, prodotto: perId };
+    const perSku = sku ? righe.filter((r) => (r.sku ?? "").trim().toLowerCase() === sku.trim().toLowerCase()) : [];
+    if (perSku.length === 1) return { ok: true, prodotto: perSku[0] };
+    if (perSku.length > 1) return { ok: false, messaggio: `Di là ci sono ${perSku.length} prodotti con lo SKU ${sku}: non si può scegliere per noi.` };
+    return {
+      ok: false,
+      messaggio: righe.length
+        ? "Il prodotto non è fra quelli che la piattaforma restituisce (la sua ricerca mostra solo gli attivi non archiviati)."
+        : "La piattaforma non trova nessun prodotto con questo codice.",
+    };
+  } catch (e) {
+    const nome = e instanceof Error ? e.name : "";
+    const motivo = nome === "TimeoutError" || nome === "AbortError" ? "non ha risposto entro 15 s" : `non è raggiungibile (${e instanceof Error ? e.message : String(e)})`;
+    return { ok: false, messaggio: `La piattaforma ${motivo}.` };
+  }
+}

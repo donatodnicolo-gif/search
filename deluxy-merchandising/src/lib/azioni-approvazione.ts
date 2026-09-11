@@ -34,6 +34,9 @@ const CAMPI_CONTROLLO = {
   plusProdotto: true,
   idEsterno: true,
   origine: true,
+  // Serve dopo l'approvazione, per sapere dove mandare chi ha approvato:
+  // sulla scheda se il prodotto è già sul negozio, al modulo se deve nascerci.
+  shopifyId: true,
 } as const;
 
 /** Che cosa manca a questo prodotto per essere approvato (vuoto = si può). */
@@ -92,8 +95,23 @@ export async function approvaProdotto(id: string) {
   }
 
   for (const percorso of ["/prodotti", "/sviluppo", "/anagrafica", `/prodotti/${id}`]) revalidatePath(percorso);
-  redirect(
-    `/prodotti/${id}?esito=` +
-      encodeURIComponent(`«${p.nome}» approvato. ${esito.messaggio}`),
-  );
+
+  // ⭐⭐ **Approvato vuol dire che finisce sul negozio.** È la regola che il
+  // cambio fase rapido applica già: senza `shopifyId`, «Approvato» porta al
+  // modulo, che è il punto da cui la scheda nasce su Shopify (come bozza).
+  //
+  // Due strade per lo stesso gesto non possono portare in due posti diversi:
+  // quindi anche da qui, se il prodotto non è ancora su un negozio, si arriva
+  // al modulo — con l'approvazione **già registrata e già comunicata** di là, e
+  // il messaggio che dice a che punto siamo. Chi è già sul negozio resta dov'è.
+  const messaggio = `«${p.nome}» approvato. ${esito.messaggio}`;
+  if (!p.shopifyId) {
+    redirect(
+      `/prodotti/${id}/modifica?fase=approvato&esito=` +
+        encodeURIComponent(
+          `${messaggio} Completa la scheda e salva per portarlo sul negozio: con la fase «Approvato» nasce come bozza.`,
+        ),
+    );
+  }
+  redirect(`/prodotti/${id}?esito=` + encodeURIComponent(messaggio));
 }
