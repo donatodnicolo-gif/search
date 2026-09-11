@@ -939,6 +939,15 @@ export default async function SchedaCampagna({
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega
             la media di campagna. ——— */}
+        {/* ⚠️⚠️ SU META QUESTO RIQUADRO NON CI VA PIÙ, e il motivo l'ho creato
+            io stesso stamattina: finché gli ad set non erano censiti questa
+            tabella diceva «Gruppi di annunci (0)» ed era solo inutile. Da
+            quando la sync li porta, mostrerebbe gli STESSI ad set del riquadro
+            «Ad set di questa campagna» qui sotto — due volte, con il nome
+            sbagliato (su Meta si chiamano ad set) e senza budget, stato vivo e
+            comandi. Due tabelle con gli stessi nomi e numeri diversi sono il
+            modo più rapido di non fidarsi di nessuna delle due. */}
+        {campagna.canale !== "meta_ads" && (
         <section className="scheda">
           <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <span>Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni</span>
@@ -1035,6 +1044,7 @@ export default async function SchedaCampagna({
             </p>
           )}
         </section>
+        )}
 
         {/* ⚠️ SU META I «GRUPPI» SONO GLI AD SET, e fino all'11/09/2026 la
             tabella qui sopra diceva «Gruppi di annunci (0)» perché non erano

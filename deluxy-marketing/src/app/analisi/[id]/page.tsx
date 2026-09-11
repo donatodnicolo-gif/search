@@ -357,6 +357,25 @@ export default async function SchedaAnalisi({
     coloreVerdetto ?? (analisi.esito ? COLORE_ESITO[analisi.esito] ?? "var(--text-tertiary)" : "var(--fill-active)");
   const elaborabile = Boolean(analisi.fileDrive && /\.(md|txt)$/i.test(analisi.fileDrive));
 
+  // ⚠️ IL GEMELLO DI TESTO. Nella cartella ADV ogni analisi arriva in due
+  // formati, `.md` e `.xlsx`, e fino all'11/09/2026 l'import ne faceva due
+  // righe. Quella sul foglio di calcolo non si puo' elaborare — e dire solo
+  // «il documento non e' testo» lascia chi guarda in un vicolo chiuso, con
+  // l'analisi vera a un clic di distanza e nessun modo di saperlo.
+  // Da qui in poi l'import non crea piu' il doppione, ma le 23 coppie nate
+  // prima restano: questa riga le rende utili invece di farle sparire.
+  const gemello =
+    !elaborabile && analisi.fileDrive
+      ? await prisma.analisi.findFirst({
+          where: {
+            id: { not: analisi.id },
+            fileDrive: { startsWith: analisi.fileDrive.replace(/\.[^./]+$/, "") },
+            OR: [{ fileDrive: { endsWith: ".md" } }, { fileDrive: { endsWith: ".txt" } }],
+          },
+          select: { id: true, titolo: true, fileDrive: true, scheda: true },
+        })
+      : null;
+
   return (
     <div className="layout">
       <Sidebar attiva="analisi" brandAttivo={analisi.brand} canaleAttivo={analisi.canale ?? undefined} />
@@ -819,6 +838,20 @@ export default async function SchedaAnalisi({
                       {analisi.fileDrive
                         ? "Il documento non è testo (.md/.txt): la scheda si elabora solo dai documenti leggibili."
                         : "Questa analisi non ha un documento su Drive: non c'è niente da rielaborare."}
+                      {gemello && (
+                        <>
+                          {" "}
+                          <b>
+                            Lo stesso documento c&apos;è anche in testo, ed è quello da leggere:{" "}
+                            <a href={`/analisi/${gemello.id}`} style={{ color: "var(--blue)" }}>
+                              {gemello.titolo}
+                            </a>
+                            {gemello.scheda ? " (ha già la scheda)" : " (da elaborare)"}.
+                          </b>{" "}
+                          Questa riga è il foglio di calcolo della stessa analisi: dall&apos;11/09/2026
+                          l&apos;import non ne crea più una seconda, ma le coppie nate prima restano.
+                        </>
+                      )}
                     </div>
                   )}
                 </section>

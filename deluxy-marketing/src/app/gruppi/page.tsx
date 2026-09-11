@@ -63,11 +63,20 @@ export default async function PaginaGruppi({
 
   return (
     <div className="layout">
-      <Sidebar attiva="gruppi" brandAttivo={p.brand} />
+      {/* ⚠️ Il canale va passato, o nessuna delle due voci del menu si
+          accende: «Gruppi di annunci» sotto Google e «Ad set» sotto Meta
+          portano qui con un filtro diverso, e il menu deve dire da quale
+          delle due si è entrati. */}
+      <Sidebar attiva="gruppi" brandAttivo={p.brand} canaleAttivo={p.canale} />
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Gruppi di annunci</h1>
+            {/* Lo stesso livello ha due nomi, e sono quelli delle due
+                piattaforme: «gruppo di annunci» su Google, «ad set» su Meta.
+                La pagina è una sola e prende il nome del filtro. */}
+            <h1 className="page-title">
+              {p.canale === "meta_ads" ? "Ad set" : p.canale === "google_ads" ? "Gruppi di annunci" : "Gruppi di annunci e ad set"}
+            </h1>
             <p className="page-sub">
               Il livello sotto la campagna: due gruppi nella stessa campagna possono avere rese
               opposte e la media li nasconde entrambi. Ultimi {giorni} giorni, ordinati per spesa.

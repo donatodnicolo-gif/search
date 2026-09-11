@@ -12,6 +12,41 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — LE ANALISI DOPPIE, E GLI AD SET CHIAMATI COL LORO NOME (in locale).**
+>
+> **1. Il doppione dell'import di Drive, chiuso alla radice.** Nella cartella
+> ADV ogni analisi viene depositata in due formati — `.md` e `.xlsx`, stesso
+> nome, stessa cartella — e l'import ne faceva **due righe**. Quella sul foglio
+> di calcolo non si può elaborare (l'elaboratore accetta solo testo), quindi
+> restava «da elaborare» **per sempre**: un contatore che non può tornare a
+> zero, e che perciò si smette di guardare. Misurato l'11/09: **132 analisi, 94
+> senza scheda, di cui 46 su file illeggibili** (44 `.xlsx`, 1 `.docx`, 1
+> `.pdf`) e **23 titoli presenti due volte**.
+> Adesso: il gemello non-testo di un testo già indicizzato **non crea** una
+> seconda riga; e nel caso opposto (il foglio indicizzato prima del testo) la
+> riga esistente si **sposta** sul testo — proposte e risposte restano attaccate
+> alla stessa analisi — invece di sdoppiarsi. ⚠️ Si sposta solo una riga nata
+> dall'import e **senza scheda**: una depositata a mano, o già elaborata, non si
+> tocca.
+> ⚠️ **Le 23 coppie già esistenti restano**: cancellare dati reali non si fa.
+> Sono state rese utili invece che nascoste — la scheda del foglio di calcolo
+> ora **porta il link** all'analisi in testo («è quello da leggere»), provato
+> su «2026-07-22 - Audit Tracciamento Cake».
+>
+> **2. Su Meta si chiamano ad set.** La voce di menu «Ad set» era stata tolta
+> il 09/08/2026 perché portava a una pagina vuota; da quando la sync li censisce
+> (171) la pagina ha di che parlare e la voce **torna**, l'elenco prende il nome
+> del filtro e le due voci si accendono ciascuna per il suo canale (prima
+> nessuna delle due: `canaleAttivo` non arrivava alla Sidebar).
+> ⚠️ **E ho tolto un doppione che avevo creato io stamattina**: sulla scheda di
+> una campagna Meta comparivano DUE tabelle degli stessi ad set — quella
+> generica dei «gruppi», che prima diceva «(0)» ed era solo inutile, e il
+> riquadro nuovo. Due tabelle con gli stessi nomi e numeri diversi sono il modo
+> più rapido di non fidarsi di nessuna delle due. Resta il riquadro nuovo, e il
+> nome dell'ad set è diventato un **link** alla sua scheda: era la strada che la
+> tabella generica offriva, e togliere una strada mentre si aggiunge un riquadro
+> fa sparire una funzionalità senza che nessuno l'abbia deciso.
+>
 > ✅ **11/09/2026 — IL PUBBLICO DI UN AD SET META SI LEGGE E SI CAMBIA (in locale).**
 > Quarto e ultimo pezzo concordato. Sotto il riquadro degli ad set c'è «A chi
 > parla ogni ad set»: età, genere, luoghi e pubblici **letti vivi** da Meta, e

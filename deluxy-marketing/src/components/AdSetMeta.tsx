@@ -188,7 +188,15 @@ export async function AdSetMeta({
               return (
                 <tr key={g.id}>
                   <td style={{ maxWidth: 260 }}>
-                    <b>{g.nome}</b>
+                    {/* ⚠️ Il nome è un LINK alla scheda dell'ad set. Da quando
+                        su Meta questo riquadro sostituisce la tabella generica
+                        dei gruppi, era l'unica strada che restava per arrivarci
+                        — e togliere una strada mentre si aggiunge un riquadro
+                        è il modo di far sparire una funzionalità senza che
+                        nessuno l'abbia deciso. */}
+                    <a href={`/gruppi/${g.id}`} style={{ color: "inherit" }}>
+                      <b>{g.nome}</b>
+                    </a>
                     {g.tipo && (
                       <div className="cella-sub">
                         ottimizza: {ETICHETTA_OBIETTIVO[g.tipo] ?? g.tipo.toLowerCase()}

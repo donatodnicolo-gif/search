@@ -26,6 +26,18 @@ const ESTENSIONI_TESTO = new Set([".md", ".txt"]);
 // documenti sorpassati scrivendolo nel nome ("SUPERATO (act …) - …").
 // Importarli riempirebbe la memoria operativa di roba già superata,
 // presentandola come analisi di oggi.
+/**
+ * Il percorso senza l'estensione: la chiave con cui si riconosce che due file
+ * sono lo **stesso** documento in due formati.
+ *
+ * ⚠️ Non basta il nome: due analisi diverse possono chiamarsi uguale in due
+ * cartelle diverse (Analisi/ e Audit/), e confonderle vorrebbe dire buttare
+ * via un documento vero.
+ */
+function senzaEstensione(percorso: string): string {
+  return percorso.replace(/\.[^./]+$/, "").toLowerCase();
+}
+
 function daNonImportare(percorso: string, nome: string): boolean {
   const p = percorso.toLowerCase();
   if (p.includes("/archivio/") || p.startsWith("archivio/")) return true;
@@ -80,7 +92,15 @@ export function sintesiDa(testo: string): string | null {
   return righe.slice(0, 4).join(" ").slice(0, 600);
 }
 
-export type EsitoImportAnalisi = { create: number; saltate: number; errore?: string };
+export type EsitoImportAnalisi = {
+  create: number;
+  saltate: number;
+  /** Fogli di calcolo (o pdf) che sono il GEMELLO di un documento di testo già importato. */
+  gemelli: number;
+  /** Righe che erano nate su un gemello e ora puntano al testo. */
+  promosse: number;
+  errore?: string;
+};
 
 // Importa come Analisi i documenti di categoria analisi/audit che non lo sono
 // ancora. `radiceLocale` serve a leggere le prime righe dei .md e .txt: se la
@@ -91,7 +111,7 @@ export async function importaAnalisiDaDrive(
   radiceLocale: string | null,
   limite = 200
 ): Promise<EsitoImportAnalisi> {
-  const esito: EsitoImportAnalisi = { create: 0, saltate: 0 };
+  const esito: EsitoImportAnalisi = { create: 0, saltate: 0, gemelli: 0, promosse: 0 };
 
   // Una lettura sola per parte, e il confronto in memoria: con un documento
   // per query questa funzione morirebbe come moriva la sync.
@@ -101,14 +121,59 @@ export async function importaAnalisiDaDrive(
       orderBy: { modificatoIl: "desc" },
       select: { percorso: true, nome: true, brand: true, categoria: true, estensione: true, modificatoIl: true },
     }),
-    prisma.analisi.findMany({ where: { fileDrive: { not: null } }, select: { fileDrive: true } }),
+    prisma.analisi.findMany({
+      where: { fileDrive: { not: null } },
+      select: { id: true, fileDrive: true, titolo: true, scheda: true, origine: true },
+    }),
   ]);
 
   const note = new Set(giaImportate.map((a) => a.fileDrive!));
-  const daImportare = documenti.filter(
-    (d) => !note.has(d.percorso) && !daNonImportare(d.percorso, d.nome)
+
+  // ⚠️⚠️ LO STESSO DOCUMENTO DEPOSITATO IN DUE FORMATI NON È DUE ANALISI.
+  //
+  // Nella cartella ADV ogni analisi arriva come `.md` (il testo) **e** come
+  // `.xlsx` (le tabelle): stesso nome, stessa cartella. Fino a oggi ne
+  // nascevano due righe, e quella sul foglio di calcolo non poteva essere
+  // elaborata — l'elaboratore accetta solo testo — quindi restava «da
+  // elaborare» per sempre. Misurato l'11/09/2026: **132 analisi, 94 senza
+  // scheda, di cui 46 su file che non si possono leggere** (44 .xlsx, 1 .docx,
+  // 1 .pdf), e **23 titoli presenti due volte**. Un contatore che non può
+  // tornare a zero viene ignorato, e con lui le analisi vere.
+  const baseDiTesto = new Set(
+    documenti.filter((d) => ESTENSIONI_TESTO.has(d.estensione)).map((d) => senzaEstensione(d.percorso))
   );
-  esito.saltate = documenti.length - daImportare.length;
+  const gemelli: string[] = [];
+
+  const daImportare = documenti.filter((d) => {
+    if (note.has(d.percorso) || daNonImportare(d.percorso, d.nome)) return false;
+    if (!ESTENSIONI_TESTO.has(d.estensione) && baseDiTesto.has(senzaEstensione(d.percorso))) {
+      gemelli.push(d.percorso);
+      return false;
+    }
+    return true;
+  });
+  esito.gemelli = gemelli.length;
+  esito.saltate = documenti.length - daImportare.length - gemelli.length;
+
+  // ——— E il caso opposto: il foglio è arrivato PRIMA del testo ———
+  //
+  // Il filtro qui sopra tiene fuori il gemello solo se il testo c'è già. Se
+  // l'ordine è rovesciato (l'`.xlsx` indicizzato lunedì, l'`.md` martedì) la
+  // riga sul foglio esiste già, e creare la seconda sul testo rifarebbe il
+  // doppione da capo. Allora non si crea: si **sposta** quella riga sul testo,
+  // che è lo stesso documento in una forma leggibile — le proposte e le
+  // risposte già attaccate restano dove sono, attaccate alla stessa analisi.
+  //
+  // ⚠️ Si sposta solo una riga nata dall'import (`origine: "drive-import"`) e
+  // **senza scheda**: una riga depositata a mano, o già elaborata, non si
+  // tocca — quella l'ha decisa una persona.
+  const perBase = new Map<string, { id: string; titolo: string }>();
+  for (const a of giaImportate) {
+    if (!a.fileDrive || a.scheda || a.origine !== "drive-import") continue;
+    const est = a.fileDrive.match(/\.[^./]+$/)?.[0]?.toLowerCase() ?? "";
+    if (ESTENSIONI_TESTO.has(est)) continue;
+    perBase.set(senzaEstensione(a.fileDrive), { id: a.id, titolo: a.titolo });
+  }
 
   for (const d of daImportare.slice(0, limite)) {
     let sintesi: string | null = null;
@@ -119,6 +184,41 @@ export async function importaAnalisiDaDrive(
       } catch {
         sintesi = null; // file non leggibile: si dice, non si inventa
       }
+    }
+
+    // La riga del gemello, se c'è: si sposta invece di creare la seconda.
+    const daPromuovere = ESTENSIONI_TESTO.has(d.estensione)
+      ? perBase.get(senzaEstensione(d.percorso))
+      : undefined;
+    if (daPromuovere) {
+      await prisma.analisi.update({
+        where: { id: daPromuovere.id },
+        data: {
+          fileDrive: d.percorso,
+          dataAnalisi: d.modificatoIl,
+          ...(sintesi ? { sintesi } : {}),
+          note: `Creata dalla sincronizzazione del Drive. ⚠️ Nata sul foglio di calcolo dello stesso documento e spostata sul testo (${d.percorso}) l'11/09/2026 o dopo: era lo stesso documento in due formati, e due righe avrebbero voluto dire due analisi.`,
+        },
+      });
+      // ⚠️ Il percorso appena usato entra nei «noti»: senza, un secondo file di
+      // testo con lo stesso nome base (un `.txt` accanto a un `.md`)
+      // ripromuoverebbe la stessa riga a ogni giro.
+      perBase.delete(senzaEstensione(d.percorso));
+      note.add(d.percorso);
+      esito.promosse++;
+      await prisma.registroEvento
+        .create({
+          data: {
+            autore: "drive-import",
+            tipo: "sync",
+            entita: "analisi",
+            entitaId: daPromuovere.id,
+            titolo: `Analisi spostata dal foglio di calcolo al testo: ${daPromuovere.titolo}`,
+            dettaglio: `Adesso punta a ${d.percorso}. Erano lo stesso documento in due formati.`,
+          },
+        })
+        .catch(() => {});
+      continue;
     }
 
     const analisi = await prisma.analisi.create({

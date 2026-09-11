@@ -107,7 +107,12 @@ export async function Sidebar({
 
         <SbSezione titolo="Google Ads">
           {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Campagne Google", conta(campagneCanale, "google_ads"))}
-          {voce("gruppi", "/gruppi?canale=google_ads", "metriche", "Gruppi di annunci")}
+          {/* ⚠️ `voceCanale` e non `voce`: questa voce porta a /gruppi FILTRATO su
+              Google, e la gemella Meta porta alla stessa pagina filtrata su Meta.
+              Con `voce` nessuna delle due si accendeva (il filtro nell'URL
+              rende `canaleAttivo` diverso da nullo), e il menu non diceva più
+              dove si era. */}
+          {voceCanale("gruppi", "google_ads", "/gruppi?canale=google_ads", "metriche", "Gruppi di annunci", 0)}
           {voce("keywords", "/keywords", "analisi", "Keywords")}
           {voce("termini", "/termini", "analisi", "Parole cercate", nTermini)}
           {voce("esclusioni", "/esclusioni", "analisi", "Regole di esclusione")}
@@ -125,11 +130,15 @@ export async function Sidebar({
 
         <SbSezione titolo="Meta">
           {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Campagne Meta", conta(campagneCanale, "meta_ads"))}
-          {/* ⚠️ Niente voce «Ad set»: gli ad set di Meta NON vengono importati
-              (misurato 09/08/2026: 117 gruppi in archivio, tutti Google). Una
-              voce che porta a una pagina vuota è peggio di una voce assente —
-              fa cercare un dato che non c'è e sembra un guasto. Torna il
-              giorno che la sync Meta li porterà. */}
+          {/* ⭐ ECCO IL GIORNO. Questa voce era stata TOLTA il 09/08/2026 perché
+              gli ad set di Meta non venivano importati e portava a una pagina
+              vuota — «una voce che porta a una pagina vuota è peggio di una
+              voce assente». Dall'11/09/2026 la sync li censisce (171 ad set al
+              primo giro), quindi la pagina ha di che parlare e la voce torna.
+              Su Meta si chiamano **ad set**, non «gruppi di annunci»: è il nome
+              che si legge in Business Manager, e chiamarli diversamente fa
+              cercare due cose dove ce n'è una. */}
+          {voceCanale("gruppi", "meta_ads", "/gruppi?canale=meta_ads", "metriche", "Ad set", 0)}
           {voce("pubblici", "/pubblici", "pubblici", "Pubblici", nPubblici)}
           {voce("meta", "/meta", "meta", "Test & AIDA", nTestAperti)}
         </SbSezione>
